@@ -20,7 +20,10 @@ describe('Commit Actions', () => {
 
 		cy.visit('/');
 
-		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace/${MOCK_STACK_A_ID}`);
+		cy.url({ timeout: 3000 }).should(
+			'include',
+			`/${PROJECT_ID}/workspace?stackId=${MOCK_STACK_A_ID}`
+		);
 	});
 
 	afterEach(() => {

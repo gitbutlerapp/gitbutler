@@ -223,7 +223,7 @@
 	}
 
 	.status-badge {
-		padding: 4px 6px 3px;
+		padding: 3px 6px;
 		height: 100%;
 		border-radius: 100px;
 		color: var(--clr-core-ntrl-100);

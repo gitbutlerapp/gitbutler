@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { SettingsService } from '$lib/config/appSettingsV2';
-	import { ircEnabled, ircServer, multiStackLayout } from '$lib/config/uiFeatureFlags';
+	import { ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
 	import { User } from '$lib/user/user';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
@@ -37,21 +37,7 @@
 			/>
 		{/snippet}
 	</SectionCard>
-	<SectionCard roundedTop={false} roundedBottom={$user?.role !== 'admin'} orientation="row">
-		{#snippet title()}
-			Multilane layout
-		{/snippet}
-		{#snippet caption()}
-			View stacks side-by-side.
-		{/snippet}
-		{#snippet actions()}
-			<Toggle
-				id="irc"
-				checked={$multiStackLayout}
-				onclick={() => ($multiStackLayout = !$multiStackLayout)}
-			/>
-		{/snippet}
-	</SectionCard>
+
 	{#if $user?.role === 'admin'}
 		<SectionCard roundedTop={false} roundedBottom={!$ircEnabled} orientation="row">
 			{#snippet title()}

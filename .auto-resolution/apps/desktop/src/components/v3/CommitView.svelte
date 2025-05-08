@@ -33,9 +33,10 @@
 		projectId: string;
 		stackId: string;
 		commitKey: CommitKey;
+		onerror: (err: unknown) => void;
 	};
 
-	const { projectId, stackId, commitKey }: Props = $props();
+	const { projectId, stackId, commitKey, onerror }: Props = $props();
 
 	const [stackService, uiState] = inject(StackService, UiState);
 
@@ -126,7 +127,7 @@
 	}
 </script>
 
-<ReduxResult {stackId} {projectId} result={commitResult.current}>
+<ReduxResult {stackId} {projectId} result={commitResult.current} {onerror}>
 	{#snippet children(commit, env)}
 		{@const isConflicted = isCommit(commit) && commit.hasConflicts}
 		{#if mode === 'edit'}

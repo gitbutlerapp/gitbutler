@@ -89,7 +89,7 @@
 	let selectedHandlingOfUncommitted = $state('Stash');
 	let doStash = $derived(selectedHandlingOfUncommitted === 'Stash');
 
-	const handlingOptions = [
+	let handlingOptions: { label: string; value: string; selectable: boolean }[] = $derived([
 		{
 			label: 'Stash',
 			value: 'Stash',
@@ -100,7 +100,7 @@
 			value: 'Bring to Workspace',
 			selectable: !conflicts // TODO: Reactivity??
 		}
-	] as const;
+	]);
 
 	async function initSwithToWorkspace() {
 		if (changes.current.data?.length === 0) {

@@ -46,7 +46,8 @@
 	});
 
 	const [uiState] = inject(UiState);
-	const drawer = $derived(uiState.project(projectId).drawerPage);
+	const projectState = $derived(uiState.project(projectId));
+	const drawer = $derived(projectState.drawerPage);
 	const isCommitting = $derived(drawer.current === 'new-commit');
 
 	const SHOW_PAGINATION_THRESHOLD = 1;
@@ -95,6 +96,7 @@
 
 		{#if stacks.length > 0}
 			{#each stacks as stack, i}
+				{@const active = stack.id === projectState.stackId.current}
 				<div
 					class="lane"
 					class:multi={$mode === 'multi' || stacks.length < SHOW_PAGINATION_THRESHOLD}
@@ -119,7 +121,12 @@
 						}
 					}}
 				>
-					<BranchList isVerticalMode={$mode === 'vertical'} {projectId} stackId={stack.id} />
+					<BranchList
+						isVerticalMode={$mode === 'vertical'}
+						{projectId}
+						stackId={stack.id}
+						{active}
+					/>
 				</div>
 			{/each}
 		{:else if isCommitting}

@@ -79,18 +79,20 @@
 		style="padding-top: {top}px; padding-bottom: {bottom}px;"
 		style:height
 	>
-		{@render children()}
+		<div class="children-wrap hide-native-scrollbar">
+			{@render children()}
+		</div>
+		<Scrollbar
+			{whenToShow}
+			{viewport}
+			{initiallyVisible}
+			{padding}
+			{shift}
+			{thickness}
+			{horz}
+			{onthumbdrag}
+		/>
 	</div>
-	<Scrollbar
-		{whenToShow}
-		{viewport}
-		{initiallyVisible}
-		{padding}
-		{shift}
-		{thickness}
-		{horz}
-		{onthumbdrag}
-	/>
 </div>
 
 <style lang="postcss">
@@ -105,5 +107,9 @@
 		overflow-y: auto;
 		height: 100%;
 		width: 100%;
+	}
+
+	.children-wrap {
+		display: contents;
 	}
 </style>

@@ -85,7 +85,7 @@ export class UiState {
 	readonly global = this.buildGlobalProps<GlobalUiState>({
 		drawerHeight: 20,
 		leftWidth: 17.5,
-		stacksViewWidth: 21.25,
+		stacksViewWidth: 23.75,
 		drawerSplitViewWidth: 20,
 		historySidebarWidth: 30,
 		useRichText: false,

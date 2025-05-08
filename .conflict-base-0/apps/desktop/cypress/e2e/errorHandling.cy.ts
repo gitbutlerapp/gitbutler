@@ -26,7 +26,7 @@ describe('Error handling - commit actions', () => {
 
 		cy.visit('/');
 
-		cy.url({ timeout: 3000 }).should('include', `/workspace/${mockBackend.stackId}`);
+		cy.url({ timeout: 3000 }).should('include', `/workspace?stackId=${mockBackend.stackId}`);
 	});
 
 	afterEach(() => {

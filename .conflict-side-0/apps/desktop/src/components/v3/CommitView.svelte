@@ -264,6 +264,7 @@
 						{#snippet children(changes)}
 							<ChangedFiles
 								title="Changed files"
+								testId={TestId.BranchChangedFileList}
 								projectId={env.projectId}
 								stackId={env.stackId}
 								selectionId={{ type: 'commit', commitId: commit.id }}

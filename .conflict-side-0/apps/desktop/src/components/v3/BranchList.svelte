@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import CardOverlay from '$components/CardOverlay.svelte';
+	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
 	import LineOverlay from '$components/LineOverlay.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
@@ -20,6 +22,7 @@
 	import NewBranchModal from '$components/v3/NewBranchModal.svelte';
 	import PublishButton from '$components/v3/PublishButton.svelte';
 	import PushButton from '$components/v3/PushButton.svelte';
+
 	import {
 		getColorFromCommitState,
 		getIconFromCommitState,
@@ -42,6 +45,7 @@
 	} from '$lib/dragging/stackingReorderDropzoneManager';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { ModeService } from '$lib/mode/modeService';
+	import { stackPath } from '$lib/routes/routes.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -52,11 +56,12 @@
 	import type { CommitStatusType } from '$lib/commits/commit';
 
 	type Props = {
+		isVerticalMode: boolean;
 		projectId: string;
 		stackId: string;
 	};
 
-	const { projectId, stackId }: Props = $props();
+	const { isVerticalMode, projectId, stackId }: Props = $props();
 	const [stackService, uiState, baseBranchService, forge, modeService] = inject(
 		StackService,
 		UiState,
@@ -251,192 +256,291 @@
 											tooltip="Upstream"
 											{branchName}
 											{projectId}
-											{first}
-											lastCommit={lastCommit && localAndRemoteCommits.length === 0}
+											{stackId}
+											{lineColor}
+											{iconName}
+											{isCommitting}
 											{selected}
+											{isNewBranch}
+											{pushStatus}
+											{isConflicted}
+											{lastUpdatedAt}
+											{reviewId}
+											{prNumber}
+											isTopBranch={first}
+											trackingBranch={branch.remoteTrackingBranch || undefined}
+											readonly={!!branch.remoteTrackingBranch}
 											onclick={() => {
-												uiState
-													.stack(stackId)
-													.selection.set({ branchName, commitId, upstream: true });
-												uiState.project(projectId).drawerPage.set(undefined);
-											}}
-											disableCommitActions={false}
-										/>
-									{/if}
-								{/snippet}
-								{#snippet beforeLocalAndRemote()}
-									{@render commitReorderDz(stackingReorderDropzoneManager.top(branch.name))}
-								{/snippet}
-								{#snippet localAndRemoteTemplate({
-									commit,
-									first,
-									last,
-									lastCommit,
-									selectedCommitId
-								})}
-									{@const commitId = commit.id}
-									{@const selected =
-										commit.id === selectedCommitId && branchName === selectedBranchName}
-									{#if isCommitting}
-										{@const nothingSelectedButFirst = selectedCommitId === undefined && first}
-										{@const selectedForCommit =
-											(nothingSelectedButFirst || commit.id === selectedCommitId) &&
-											branchName === selectedBranchName}
-										<!-- Only commits to the base can be `last`, see next `CommitGoesHere`. -->
-										<CommitGoesHere
-											selected={selectedForCommit}
-											{first}
-											last={false}
-											onclick={() => uiState.stack(stackId).selection.set({ branchName, commitId })}
-										/>
-									{/if}
-									{@const dzCommit: DzCommitData = {
-										id: commit.id,
-										isRemote: isUpstreamCommit(commit),
-										isIntegrated: isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated',
-										hasConflicts: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
-									}}
-									{@const amendHandler = new AmendCommitWithChangeDzHandler(
-										projectId,
-										stackService,
-										stackId,
-										dzCommit,
-										(newId) => uiState.stack(stackId).selection.set({ branchName, commitId: newId })
-									)}
-									{@const squashHandler = new SquashCommitDzHandler({
-										stackService,
-										projectId,
-										stackId,
-										commit: dzCommit
-									})}
-									{@const hunkHandler = new AmendCommitWithHunkDzHandler({
-										stackService,
-										projectId,
-										stackId,
-										commit: dzCommit,
-										// TODO: Use correct value!
-										okWithForce: true
-									})}
-									{@const tooltip = commit.state.type}
-									<Dropzone handlers={[amendHandler, squashHandler, hunkHandler]}>
-										{#snippet overlay({ hovered, activated, handler })}
-											{@const label =
-												handler instanceof AmendCommitWithChangeDzHandler ||
-												handler instanceof AmendCommitWithHunkDzHandler
-													? 'Amend'
-													: 'Squash'}
-											<CardOverlay {hovered} {activated} {label} />
-										{/snippet}
-										<div
-											use:draggableCommit={{
-												disabled: false,
-												label: commit.message.split('\n')[0],
-												sha: commit.id.slice(0, 7),
-												date: getTimeAgo(commit.createdAt),
-												authorImgUrl: undefined,
-												commitType: 'LocalAndRemote',
-												data: new CommitDropData(
-													stackId,
-													{
-														id: commitId,
-														isRemote: !!branchDetails.remoteTrackingBranch,
-														hasConflicts: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
-														isIntegrated:
-															isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated'
-													},
-													false,
-													branchName
-												),
-												viewportId: 'board-viewport'
+												uiState.project(projectId).stackId.set(stackId);
+												if (isCommitting) {
+													uiState.stack(stackId).selection.set({
+														branchName,
+														commitId: headCommit
+													});
+												} else {
+													uiState.stack(stackId).selection.set({ branchName });
+													uiState.project(projectId).drawerPage.set('branch');
+												}
+												goto(stackPath(projectId, stackId));
 											}}
 										>
-											<CommitRow
-												commitId={commit.id}
-												commitMessage={commit.message}
-												type={commit.state.type}
-												hasConflicts={commit.state.type === 'LocalAndRemote' && commit.hasConflicts}
-												diverged={commit.state.type === 'LocalAndRemote' &&
-													commit.id !== commit.state.subject}
-												createdAt={commit.createdAt}
-												{stackId}
-												{branchName}
-												{projectId}
-												{first}
-												{lastCommit}
-												lastBranch={last}
-												{selected}
-												draggable
-												{tooltip}
-												isOpen={commit.id === commitMenuContext?.data.commitId}
-												onclick={() => {
-													const stackState = uiState.stack(stackId);
-													stackState.selection.set({ branchName, commitId });
-													uiState.project(projectId).drawerPage.set(undefined);
+											{#snippet menu({ rightClickTrigger })}
+												{@const data = {
+													branch,
+													prNumber,
+													first: i === 0
 												}}
-												disableCommitActions={false}
-											>
-												{#snippet menu({ rightClickTrigger })}
-													{@const data = {
-														stackId,
-														commitId,
-														commitMessage: commit.message,
-														commitStatus: commit.state.type,
-														commitUrl: forge.current.commitUrl(commitId),
-														onUncommitClick: () => handleUncommit(commit.id, branch.name),
-														onEditMessageClick: openCommitMessageModal,
-														onPatchEditClick: () =>
-															handleEditPatch({
-																commitId: commit.id,
-																type: commit.state.type,
-																hasConflicts: hasConflicts(commit),
-																isAncestorMostConflicted: false // TODO: Fix this.
-															})
-													}}
-													<KebabButton
-														flat
-														contextElement={rightClickTrigger}
-														onclick={(element) => {
-															commitMenuContext = {
-																position: { element },
-																data
-															};
-														}}
-														oncontext={(coords) =>
-															(commitMenuContext = {
-																position: { coords },
-																data
-															})}
-														open={commit.id === commitMenuContext?.data.commitId}
-													/>
+												<KebabButton
+													flat
+													contextElement={rightClickTrigger}
+													onclick={(element) =>
+														(headerMenuContext = { data, position: { element } })}
+													oncontext={(coords) =>
+														(headerMenuContext = { data, position: { coords } })}
+													open={branchName === headerMenuContext?.data.branch.name}
+												/>
+											{/snippet}
+										</BranchHeader>
+									{/snippet}
+									{#snippet commitList()}
+										{#snippet commitReorderDz(dropzone: ReorderCommitDzHandler)}
+											<Dropzone handlers={[dropzone]}>
+												{#snippet overlay({ hovered, activated })}
+													<LineOverlay {hovered} {activated} />
 												{/snippet}
-											</CommitRow>
-										</div>
-									</Dropzone>
-									{@render commitReorderDz(
-										stackingReorderDropzoneManager.belowCommit(branch.name, commit.id)
-									)}
-									{#if isCommitting && last}
-										<CommitGoesHere
-											{first}
-											{last}
-											selected={selectedCommitId === baseSha && branchName === selectedBranchName}
-											onclick={() =>
-												uiState.stack(stackId).selection.set({ branchName, commitId: baseSha })}
-										/>
-									{/if}
-								{/snippet}
-							</BranchCommitList>
-						{/snippet}
-					</BranchCard>
-				{/snippet}
-			</ReduxResult>
-		{/each}
-		<StackStickyButtons>
-			<PushButton flex="1" {projectId} {stackId} multipleBranches={branches.length > 1} />
-			<PublishButton flex="2" {projectId} {stackId} {branches} />
-		</StackStickyButtons>
-	{/snippet}
-</ReduxResult>
+											</Dropzone>
+										{/snippet}
+										<BranchCommitList {projectId} {stackId} {branchName} {selectedCommitId}>
+											{#snippet empty()}
+												{#if isCommitting}
+													<CommitGoesHere
+														selected={branchName === selectedBranchName}
+														first
+														last
+														onclick={() =>
+															uiState.stack(stackId).selection.set({
+																branchName,
+																commitId: branchDetails.baseCommit
+															})}
+													/>
+												{/if}
+											{/snippet}
+											{#snippet upstreamTemplate({ commit, first, lastCommit, selected })}
+												{@const commitId = commit.id}
+												{#if !isCommitting}
+													<CommitRow
+														type="Remote"
+														{stackId}
+														{commitId}
+														commitMessage={commit.message}
+														createdAt={commit.createdAt}
+														tooltip="Upstream"
+														{branchName}
+														{projectId}
+														{first}
+														lastCommit={lastCommit && localAndRemoteCommits.length === 0}
+														{selected}
+														onclick={() => {
+															uiState
+																.stack(stackId)
+																.selection.set({ branchName, commitId, upstream: true });
+															uiState.project(projectId).drawerPage.set(undefined);
+															projectState.stackId.set(stackId);
+														}}
+														disableCommitActions={false}
+													/>
+												{/if}
+											{/snippet}
+											{#snippet beforeLocalAndRemote()}
+												{@render commitReorderDz(stackingReorderDropzoneManager.top(branch.name))}
+											{/snippet}
+											{#snippet localAndRemoteTemplate({
+												commit,
+												first,
+												last,
+												lastCommit,
+												selectedCommitId
+											})}
+												{@const commitId = commit.id}
+												{@const selected =
+													commit.id === selectedCommitId && branchName === selectedBranchName}
+												{#if isCommitting}
+													{@const nothingSelectedButFirst = selectedCommitId === undefined && first}
+													{@const selectedForCommit =
+														(nothingSelectedButFirst || commit.id === selectedCommitId) &&
+														((first && selectedBranchName === undefined) ||
+															branchName === selectedBranchName)}
+													<!-- Only commits to the base can be `last`, see next `CommitGoesHere`. -->
+													<CommitGoesHere
+														selected={selectedForCommit}
+														{first}
+														last={false}
+														onclick={() => {
+															uiState.stack(stackId).selection.set({ branchName, commitId });
+															projectState.stackId.set(stackId);
+														}}
+													/>
+												{/if}
+												{@const dzCommit: DzCommitData = {
+													id: commit.id,
+													isRemote: isUpstreamCommit(commit),
+													isIntegrated: isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated',
+													hasConflicts: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
+												}}
+												{@const amendHandler = new AmendCommitWithChangeDzHandler(
+													projectId,
+													stackService,
+													stackId,
+													dzCommit,
+													(newId) =>
+														uiState.stack(stackId).selection.set({ branchName, commitId: newId })
+												)}
+												{@const squashHandler = new SquashCommitDzHandler({
+													stackService,
+													projectId,
+													stackId,
+													commit: dzCommit
+												})}
+												{@const hunkHandler = new AmendCommitWithHunkDzHandler({
+													stackService,
+													projectId,
+													stackId,
+													commit: dzCommit,
+													// TODO: Use correct value!
+													okWithForce: true
+												})}
+												{@const tooltip = commit.state.type}
+												<Dropzone handlers={[amendHandler, squashHandler, hunkHandler]}>
+													{#snippet overlay({ hovered, activated, handler })}
+														{@const label =
+															handler instanceof AmendCommitWithChangeDzHandler ||
+															handler instanceof AmendCommitWithHunkDzHandler
+																? 'Amend'
+																: 'Squash'}
+														<CardOverlay {hovered} {activated} {label} />
+													{/snippet}
+													<div
+														use:draggableCommit={{
+															disabled: false,
+															label: commit.message.split('\n')[0],
+															sha: commit.id.slice(0, 7),
+															date: getTimeAgo(commit.createdAt),
+															authorImgUrl: undefined,
+															commitType: 'LocalAndRemote',
+															data: new CommitDropData(
+																stackId,
+																{
+																	id: commitId,
+																	isRemote: !!branchDetails.remoteTrackingBranch,
+																	hasConflicts:
+																		isLocalAndRemoteCommit(commit) && commit.hasConflicts,
+																	isIntegrated:
+																		isLocalAndRemoteCommit(commit) &&
+																		commit.state.type === 'Integrated'
+																},
+																false,
+																branchName
+															),
+															viewportId: 'board-viewport'
+														}}
+													>
+														<CommitRow
+															commitId={commit.id}
+															commitMessage={commit.message}
+															type={commit.state.type}
+															hasConflicts={commit.state.type === 'LocalAndRemote' &&
+																commit.hasConflicts}
+															diverged={commit.state.type === 'LocalAndRemote' &&
+																commit.id !== commit.state.subject}
+															createdAt={commit.createdAt}
+															{stackId}
+															{branchName}
+															{projectId}
+															{first}
+															{lastCommit}
+															lastBranch={last}
+															{selected}
+															draggable
+															{tooltip}
+															isOpen={commit.id === commitMenuContext?.data.commitId}
+															onclick={() => {
+																const stackState = uiState.stack(stackId);
+																stackState.selection.set({ branchName, commitId });
+																uiState.project(projectId).drawerPage.set(undefined);
+																projectState.stackId.set(stackId);
+															}}
+															disableCommitActions={false}
+														>
+															{#snippet menu({ rightClickTrigger })}
+																{@const data = {
+																	stackId,
+																	commitId,
+																	commitMessage: commit.message,
+																	commitStatus: commit.state.type,
+																	commitUrl: forge.current.commitUrl(commitId),
+																	onUncommitClick: () => handleUncommit(commit.id, branch.name),
+																	onEditMessageClick: openCommitMessageModal,
+																	onPatchEditClick: () =>
+																		handleEditPatch({
+																			commitId: commit.id,
+																			type: commit.state.type,
+																			hasConflicts: hasConflicts(commit),
+																			isAncestorMostConflicted: false // TODO: Fix this.
+																		})
+																}}
+																<KebabButton
+																	flat
+																	contextElement={rightClickTrigger}
+																	onclick={(element) => {
+																		commitMenuContext = {
+																			position: { element },
+																			data
+																		};
+																	}}
+																	oncontext={(coords) =>
+																		(commitMenuContext = {
+																			position: { coords },
+																			data
+																		})}
+																	open={commit.id === commitMenuContext?.data.commitId}
+																/>
+															{/snippet}
+														</CommitRow>
+													</div>
+												</Dropzone>
+												{@render commitReorderDz(
+													stackingReorderDropzoneManager.belowCommit(branch.name, commit.id)
+												)}
+												{#if isCommitting && last}
+													<CommitGoesHere
+														{first}
+														{last}
+														selected={selectedCommitId === baseSha &&
+															branchName === selectedBranchName}
+														onclick={() => {
+															uiState
+																.stack(stackId)
+																.selection.set({ branchName, commitId: baseSha });
+															projectState.stackId.set(stackId);
+														}}
+													/>
+												{/if}
+											{/snippet}
+										</BranchCommitList>
+									{/snippet}
+								</BranchCard>
+							{/snippet}
+						</ReduxResult>
+					{/each}
+				</div>
+			</ScrollableContainer>
+			<StackStickyButtons {isVerticalMode}>
+				<PushButton flex="1" {projectId} {stackId} multipleBranches={branches.length > 1} />
+				<PublishButton flex="2" {projectId} {stackId} {branches} />
+			</StackStickyButtons>
+		{/snippet}
+	</ReduxResult>
+</div>
 
 <NewBranchModal {projectId} {stackId} bind:this={newBranchModal} />
 
@@ -476,4 +580,15 @@
 {/if}
 
 <style lang="postcss">
+	.wrapper {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+	}
+	.branches-wrapper {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		padding: 12px;
+	}
 </style>

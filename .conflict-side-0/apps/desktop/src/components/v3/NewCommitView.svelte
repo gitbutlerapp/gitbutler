@@ -33,15 +33,18 @@
 	const [createCommitInStack, commitCreation] = stackService.createCommit;
 
 	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
-	const selected = $derived(stackState?.selection.current);
-	const selectedBranchName = $derived(selected?.branchName);
-	const selectedCommitId = $derived(selected?.commitId);
+	const selection = $derived(stackState?.selection.current);
+	const selectedCommitId = $derived(selection?.commitId);
 
-	const selection = $derived(changeSelection.list());
+	const selectedChanges = $derived(changeSelection.list());
+	const topBranchResult = $derived(stackId ? stackService.branches(projectId, stackId) : undefined);
+	const topBranchName = $derived(topBranchResult?.current.data?.at(0)?.name);
 
 	const draftBranchName = $derived(uiState.global.draftBranchName.current);
+
+	const selectedBranchName = $derived(selection?.branchName || topBranchName);
 	const canCommit = $derived(
-		(selectedBranchName || draftBranchName) && selection.current.length > 0
+		(selectedBranchName || draftBranchName || topBranchName) && selectedChanges.current.length > 0
 	);
 	const projectState = $derived(uiState.project(projectId));
 
@@ -73,7 +76,7 @@
 
 	async function createCommit(message: string) {
 		let finalStackId = stackId;
-		let finalBranchName = selectedBranchName;
+		let finalBranchName = selectedBranchName || topBranchName;
 
 		if (!stackId) {
 			const stack = await createNewStack({
@@ -94,7 +97,7 @@
 
 		const worktreeChanges: CreateCommitRequestWorktreeChanges[] = [];
 
-		for (const item of selection.current) {
+		for (const item of selectedChanges.current) {
 			if (item.type === 'full') {
 				worktreeChanges.push({
 					pathBytes: item.pathBytes,

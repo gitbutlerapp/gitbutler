@@ -3,47 +3,45 @@
 	import { page } from '$app/state';
 	import WorkspaceView from '$components/v3/WorkspaceView.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
-	import { multiStackLayout } from '$lib/config/uiFeatureFlags';
 	import { ModeService } from '$lib/mode/modeService';
+	import { stackPath } from '$lib/routes/routes.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { getContext, inject } from '@gitbutler/shared/context';
 	import type { PageData } from './$types';
 	import type { Snippet } from 'svelte';
 
-	const stackService = getContext(StackService);
 	const settingsService = getContext(SettingsService);
 	const modeService = getContext(ModeService);
 	const settingsStore = settingsService.appSettings;
 	const mode = modeService.mode;
 
-	const { data, children }: { data: PageData; children: Snippet } = $props();
+	const { data }: { data: PageData; children: Snippet } = $props();
 
 	const projectId = $derived(page.params.projectId!);
-	const uiState = getContext(UiState);
+	const [uiState, stackService] = inject(UiState, StackService);
 	const projectState = $derived(uiState.project(projectId));
-	const stackId = $derived($multiStackLayout ? projectState.stackId.current : page.params.stackId);
+	const stackId = $derived(projectState.stackId.current);
+	const stackResult = $derived(projectId ? stackService.stacks(projectId) : undefined);
+	const firstStackId = $derived(stackResult?.current.data?.at(0)?.id);
 
-	const stacks = $derived(stackService.stacks(projectId));
+	// TODO: Is there a better way we can support testing?
+	const stackIdParam = $derived(page.url.searchParams.get('stackId'));
+	$effect(() => {
+		if (!stackIdParam && stackId) {
+			goto(stackPath(projectId, stackId));
+		} else if (!stackIdParam && firstStackId) {
+			goto(stackPath(projectId, firstStackId));
+		}
+		if (stackIdParam && stackIdParam !== stackId) {
+			projectState.stackId.set(stackIdParam);
+		}
+	});
 
 	// Redirect to board if we have switched away from V3 feature.
 	$effect(() => {
 		if ($settingsStore && !$settingsStore.featureFlags.v3) {
 			goto(`/${data.projectId}/board`);
-		}
-	});
-
-	$effect(() => {
-		// If the data is loading, do nothing
-		if (!stacks?.current.data) return;
-		const stackFoundWithCurrentPageId = stacks?.current.data?.some((stack) => stack.id === stackId);
-		// If we are on a valid stack, do nothing
-		if (stackFoundWithCurrentPageId) return;
-
-		if (stacks.current.data.length === 0) {
-			goto(`/${data.projectId}/workspace`);
-		} else {
-			goto(`/${data.projectId}/workspace/${stacks.current.data[0]!.id}`);
 		}
 	});
 
@@ -59,8 +57,4 @@
 	});
 </script>
 
-<WorkspaceView {projectId} {stackId}>
-	{#snippet stack()}
-		{@render children()}
-	{/snippet}
-</WorkspaceView>
+<WorkspaceView {projectId} {stackId} />
