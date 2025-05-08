@@ -1,8 +1,10 @@
 import { PostHogWrapper } from '$lib/analytics/posthog';
 import { isTauriCommandError, type TauriCommandError } from '$lib/backend/ipc';
 import { Tauri } from '$lib/backend/tauri';
+import { SettingsService } from '$lib/config/appSettingsV2';
 import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
 import { type BaseQueryApi, type QueryReturnValue } from '@reduxjs/toolkit/query';
+import { get } from 'svelte/store';
 
 export type TauriBaseQueryFn = typeof tauriBaseQuery;
 
@@ -17,16 +19,20 @@ export async function tauriBaseQuery(
 	}
 
 	const posthog = hasPosthogExtra(api.extra) ? api.extra.posthog : undefined;
+	const settingsService = hasSettingsExtra(api.extra) ? api.extra.settingsService : undefined;
+	const appSettings = settingsService?.appSettings;
+
+	const v3 = appSettings ? get(appSettings)?.featureFlags.v3 : false;
 
 	try {
 		const result = { data: await api.extra.tauri.invoke(args.command, args.params) };
 		if (posthog && args.actionName) {
-			posthog.capture(`${args.actionName} Successful`);
+			posthog.capture(`${args.actionName} Successful`, { v3 });
 		}
 		return result;
 	} catch (error: unknown) {
 		if (posthog && args.actionName) {
-			posthog.capture(`${args.actionName} Failed`, { error });
+			posthog.capture(`${args.actionName} Failed`, { error, v3 });
 		}
 
 		const name = `API error: ${args.actionName} (${args.command})`;
@@ -74,5 +80,17 @@ export function hasPosthogExtra(extra: unknown): extra is {
 		extra !== null &&
 		'posthog' in extra &&
 		extra.posthog instanceof PostHogWrapper
+	);
+}
+
+export function hasSettingsExtra(extra: unknown): extra is {
+	settingsService: SettingsService;
+} {
+	return (
+		!!extra &&
+		typeof extra === 'object' &&
+		extra !== null &&
+		'settings' in extra &&
+		extra.settings instanceof SettingsService
 	);
 }
