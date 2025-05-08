@@ -92,3 +92,18 @@ export function getBranchStatusLabelAndColor(pushStatus: PushStatus): {
 			return { label: 'Unknown', color: colorMap.Error };
 	}
 }
+
+export function getCommitLabel(commit: Partial<Commit>) {
+	const commitType = commit ? getCommitType(commit as Commit) : 'unknown';
+
+	switch (commitType) {
+		case 'local':
+			return 'Unpushed';
+		case 'upstream':
+			return 'Upstream';
+		case 'local-and-remote':
+			return 'Pushed';
+		case 'diverged':
+			return 'Diverged';
+	}
+}
