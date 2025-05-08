@@ -265,6 +265,10 @@
 		align-items: center;
 		flex-wrap: wrap;
 		gap: 6px;
+
+		&:empty {
+			display: none;
+		}
 	}
 
 	.factoid {

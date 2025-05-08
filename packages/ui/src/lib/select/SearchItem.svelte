@@ -70,6 +70,7 @@
 	}
 
 	.icon {
+		display: flex;
 		position: absolute;
 		top: 50%;
 		right: 12px;
