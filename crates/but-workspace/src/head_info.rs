@@ -16,10 +16,10 @@ pub struct Options {
 pub(crate) mod function {
     use crate::HeadInfo;
     use crate::branch::{RefLocation, Stack, StackSegment};
-    use bstr::ByteSlice;
     use but_core::ref_metadata::ValueInfo;
     use gix::prelude::ReferenceExt;
     use gix::revision::walk::Sorting;
+    use tracing::instrument;
 
     /// Gather information about the current `HEAD` and the workspace that might be associated with it, based on data in `repo` and `meta`.
     ///
@@ -28,6 +28,7 @@ pub(crate) mod function {
     /// ### Performance
     ///
     /// Make sure the `repo` is initialized with a decently sized Object cache so querying the same commit multiple times will be cheap(er).
+    #[instrument(level = tracing::Level::DEBUG, skip(repo, meta), err(Debug))]
     pub fn head_info(
         repo: &gix::Repository,
         meta: &impl but_core::RefMetadata,
@@ -223,7 +224,7 @@ pub(crate) mod function {
     }
 
     // Fetch non-default workspace information, but only if reference at `name` seems to be a workspace reference.
-    fn workspace_data_of_workspace_branch(
+    pub fn workspace_data_of_workspace_branch(
         meta: &impl but_core::RefMetadata,
         name: &gix::refs::FullNameRef,
     ) -> anyhow::Result<Option<but_core::ref_metadata::Workspace>> {
@@ -239,7 +240,19 @@ pub(crate) mod function {
         })
     }
 
+    /// Like [`workspace_data_of_workspace_branch()`], but it will try the name of the default GitButler workspace branch.
+    pub fn workspace_data_of_default_workspace_branch(
+        meta: &impl but_core::RefMetadata,
+    ) -> anyhow::Result<Option<but_core::ref_metadata::Workspace>> {
+        workspace_data_of_workspace_branch(
+            meta,
+            "refs/heads/gitbutler/workspace"
+                .try_into()
+                .expect("statically known"),
+        )
+    }
+
     fn is_gitbutler_workspace_ref(name: &gix::refs::FullNameRef) -> bool {
-        name.shorten().starts_with_str("gitbutler/workspace/")
+        name.as_bstr() == "refs/heads/gitbutler/workspace"
     }
 }

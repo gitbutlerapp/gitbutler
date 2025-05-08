@@ -515,6 +515,19 @@ pub struct Stack {
     pub stash_status: Option<StashStatus>,
 }
 
+impl Stack {
+    /// Return the name of the top-most [`StackSegment`].
+    ///
+    /// It is `None` if this branch is the top-most stack segment and the `ref_name` wasn't pointing to
+    /// a commit anymore that was reached by our rev-walk.
+    /// This can happen if the ref is deleted, or if it was advanced by other means.
+    pub fn name(&self) -> Option<&gix::refs::FullNameRef> {
+        self.segments
+            .first()
+            .and_then(|name| name.ref_name.as_ref().map(|name| name.as_ref()))
+    }
+}
+
 /// A list of all commits
 #[derive(Debug, Clone)]
 pub struct BranchCommit {
