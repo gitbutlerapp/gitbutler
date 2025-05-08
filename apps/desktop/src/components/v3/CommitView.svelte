@@ -11,7 +11,7 @@
 	import ConflictResolutionConfirmModal from '$components/v3/ConflictResolutionConfirmModal.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
 	import KebabButton from '$components/v3/KebabButton.svelte';
-	import { getCommitLabel, isLocalAndRemoteCommit } from '$components/v3/lib';
+	import { isLocalAndRemoteCommit } from '$components/v3/lib';
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { isCommit } from '$lib/branches/v3';
 	import { CommitStatus, type CommitKey } from '$lib/commits/commit';
@@ -140,7 +140,6 @@
 		{:else}
 			<Drawer testId={TestId.CommitDrawer} projectId={env.projectId} stackId={env.stackId}>
 				{#snippet header()}
-					{@const label = getCommitLabel(commit)}
 					<div class="commit-view__header text-13">
 						{#if isLocalAndRemoteCommit(commit)}
 							{@const commitState = commit.state}
@@ -148,7 +147,6 @@
 								commitStatus={commitState.type}
 								diverged={commitState.type === 'LocalAndRemote' &&
 									commit.id !== commitState.subject}
-								tooltip={label}
 								width={24}
 							/>
 						{:else}
@@ -161,8 +159,6 @@
 						{/if}
 
 						<div class="commit-view__header-title text-13">
-							<span class="text-semibold">{getCommitLabel(commit)} commit:</span>
-
 							<Tooltip text="Copy commit SHA">
 								<button
 									type="button"

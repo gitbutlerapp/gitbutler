@@ -5,7 +5,6 @@
 	import CommitHeader from '$components/v3/CommitHeader.svelte';
 	import CommitLine from '$components/v3/CommitLine.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
-	import { getCommitLabel } from '$components/v3/lib';
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
@@ -27,7 +26,6 @@
 
 <ReduxResult {projectId} result={commitResult.current}>
 	{#snippet children(commit)}
-		{@const label = getCommitLabel(commit)}
 		{@const commitState = commit.state}
 		<Drawer {projectId}>
 			{#snippet header()}
@@ -35,14 +33,9 @@
 					<CommitLine
 						commitStatus={commitState.type}
 						diverged={commitState.type === 'LocalAndRemote' && commitState.subject !== commit.id}
-						tooltip={label}
 						width={24}
 					/>
 					<div class="commit-view__header-title text-13">
-						<span class="text-semibold">
-							{label}
-						</span>
-
 						<Tooltip text="Copy commit SHA">
 							<button
 								type="button"
