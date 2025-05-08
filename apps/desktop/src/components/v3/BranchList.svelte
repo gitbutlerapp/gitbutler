@@ -59,9 +59,10 @@
 		isVerticalMode: boolean;
 		projectId: string;
 		stackId: string;
+		active: boolean;
 	};
 
-	const { isVerticalMode, projectId, stackId }: Props = $props();
+	const { isVerticalMode, projectId, stackId, active }: Props = $props();
 	const [stackService, uiState, baseBranchService, forge, modeService] = inject(
 		StackService,
 		UiState,
@@ -172,6 +173,7 @@
 								{@const isNewBranch =
 									upstreamOnlyCommits.length === 0 && localAndRemoteCommits.length === 0}
 								{@const selected =
+									active &&
 									selection?.current?.branchName === branchName &&
 									selection?.current.commitId === undefined}
 								<BranchCard
@@ -214,6 +216,7 @@
 														branchName,
 														commitId: headCommit
 													});
+													projectState.stackId.set(stackId);
 												} else {
 													uiState.stack(stackId).selection.set({ branchName });
 													uiState.project(projectId).drawerPage.set('branch');
@@ -251,14 +254,17 @@
 											{#snippet empty()}
 												{#if isCommitting}
 													<CommitGoesHere
-														selected={branchName === selectedBranchName}
+														selected={active && branchName === selectedBranchName}
 														first
 														last
-														onclick={() =>
+														onclick={() => {
 															uiState.stack(stackId).selection.set({
 																branchName,
 																commitId: branchDetails.baseCommit
-															})}
+															});
+															projectState.stackId.set(stackId);
+															goto(stackPath(projectId, stackId));
+														}}
 													/>
 												{/if}
 											{/snippet}
@@ -300,10 +306,13 @@
 											})}
 												{@const commitId = commit.id}
 												{@const selected =
-													commit.id === selectedCommitId && branchName === selectedBranchName}
+													active &&
+													commit.id === selectedCommitId &&
+													branchName === selectedBranchName}
 												{#if isCommitting}
 													{@const nothingSelectedButFirst = selectedCommitId === undefined && first}
 													{@const selectedForCommit =
+														active &&
 														(nothingSelectedButFirst || commit.id === selectedCommitId) &&
 														((first && selectedBranchName === undefined) ||
 															branchName === selectedBranchName)}
@@ -313,8 +322,9 @@
 														{first}
 														last={false}
 														onclick={() => {
-															uiState.stack(stackId).selection.set({ branchName, commitId });
 															projectState.stackId.set(stackId);
+															uiState.stack(stackId).selection.set({ branchName, commitId });
+															goto(stackPath(projectId, stackId));
 														}}
 													/>
 												{/if}
@@ -452,13 +462,15 @@
 													<CommitGoesHere
 														{first}
 														{last}
-														selected={selectedCommitId === baseSha &&
+														selected={active &&
+															selectedCommitId === baseSha &&
 															branchName === selectedBranchName}
 														onclick={() => {
 															uiState
 																.stack(stackId)
 																.selection.set({ branchName, commitId: baseSha });
 															projectState.stackId.set(stackId);
+															goto(stackPath(projectId, stackId));
 														}}
 													/>
 												{/if}
