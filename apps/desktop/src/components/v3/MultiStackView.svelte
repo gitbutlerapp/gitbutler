@@ -76,24 +76,6 @@
 		class:single={$mode === 'single' && stacks.length >= SHOW_PAGINATION_THRESHOLD}
 		class:vertical={$mode === 'vertical'}
 	>
-		{#if isNotEnoughHorzSpace && isNotEnoughVertSpace}
-			<div
-				class="pagination-container"
-				class:horz={$mode !== 'vertical'}
-				class:vert={$mode === 'vertical'}
-			>
-				<MultiStackPagination
-					length={stacks.length}
-					{visibleIndexes}
-					selectedBranchIndex={stacks.findIndex((s) => {
-						return s.id === selectedId;
-					})}
-					onclick={(index) =>
-						scrollToLane(lanesContentEl, index, $mode === 'vertical' ? 'vert' : 'horz')}
-				/>
-			</div>
-		{/if}
-
 		{#if stacks.length > 0}
 			{#each stacks as stack, i}
 				{@const active = stack.id === projectState.stackId.current}
@@ -132,6 +114,24 @@
 			{/each}
 		{:else if isCommitting}
 			<StackDraft {projectId} />
+		{/if}
+
+		{#if isNotEnoughHorzSpace && isNotEnoughVertSpace}
+			<div
+				class="pagination-container"
+				class:horz={$mode !== 'vertical'}
+				class:vert={$mode === 'vertical'}
+			>
+				<MultiStackPagination
+					length={stacks.length}
+					{visibleIndexes}
+					selectedBranchIndex={stacks.findIndex((s) => {
+						return s.id === selectedId;
+					})}
+					onclick={(index) =>
+						scrollToLane(lanesContentEl, index, $mode === 'vertical' ? 'vert' : 'horz')}
+				/>
+			</div>
 		{/if}
 
 		{#if $mode !== 'vertical'}
