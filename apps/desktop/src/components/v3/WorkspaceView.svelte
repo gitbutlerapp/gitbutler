@@ -50,10 +50,16 @@
 					commitId: currentSelection.commitId
 				};
 			}
+			if (stackId) {
+				return {
+					type: 'branch',
+					branchName: currentSelection.branchName,
+					stackId
+				};
+			}
 			return {
 				type: 'branch',
-				branchName: currentSelection.branchName,
-				stackId
+				branchName: currentSelection.branchName
 			};
 		}
 		return { type: 'worktree' };
