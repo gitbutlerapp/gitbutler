@@ -12,7 +12,7 @@ import {
 import { splitMessage } from '$lib/utils/commitMessage';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { TauriCommandError } from '$lib/backend/ipc';
-import type { Commit, UpstreamCommit } from '$lib/branches/v3';
+import type { Commit, CommitDetails, UpstreamCommit } from '$lib/branches/v3';
 import type { CommitKey } from '$lib/commits/commit';
 import type { LocalFile } from '$lib/files/file';
 import type { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
@@ -388,9 +388,9 @@ export class StackService {
 
 	commitChanges(projectId: string, commitId: string) {
 		const result = $derived(
-			this.api.endpoints.commitChanges.useQuery(
+			this.api.endpoints.commitDetails.useQuery(
 				{ projectId, commitId },
-				{ transform: (result) => commitChangesSelectors.selectAll(result) }
+				{ transform: (result) => commitChangesSelectors.selectAll(result.changes) }
 			)
 		);
 		return result;
@@ -398,9 +398,19 @@ export class StackService {
 
 	commitChange(projectId: string, commitId: string, path: string) {
 		const result = $derived(
-			this.api.endpoints.commitChanges.useQuery(
+			this.api.endpoints.commitDetails.useQuery(
 				{ projectId, commitId },
-				{ transform: (result) => commitChangesSelectors.selectById(result, path) }
+				{ transform: (result) => commitChangesSelectors.selectById(result.changes, path) }
+			)
+		);
+		return result;
+	}
+
+	commitDetails(projectId: string, commitId: string) {
+		const result = $derived(
+			this.api.endpoints.commitDetails.useQuery(
+				{ projectId, commitId },
+				{ transform: (result) => result.details }
 			)
 		);
 		return result;
@@ -861,8 +871,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					invalidatesItem(ReduxTag.StackDetails, args.stackId)
 				]
 			}),
-			commitChanges: build.query<
-				EntityState<TreeChange, string>,
+			commitDetails: build.query<
+				{ changes: EntityState<TreeChange, string>; details: Commit },
 				{ projectId: string; commitId: string }
 			>({
 				query: ({ projectId, commitId }) => ({
@@ -872,8 +882,12 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				providesTags: (_result, _error, { commitId }) => [
 					...providesItem(ReduxTag.CommitChanges, commitId)
 				],
-				transformResponse(rsp: TreeChanges) {
-					return commitChangesAdapter.addMany(commitChangesAdapter.getInitialState(), rsp.changes);
+				transformResponse(rsp: CommitDetails) {
+					const changes = commitChangesAdapter.addMany(
+						commitChangesAdapter.getInitialState(),
+						rsp.changes
+					);
+					return { changes: changes, details: rsp.commit };
 				}
 			}),
 			branchChanges: build.query<

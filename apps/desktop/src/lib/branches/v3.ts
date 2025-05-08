@@ -1,3 +1,5 @@
+import type { TreeChange, TreeStats } from '$lib/hunks/change';
+
 /** Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.*/
 export type Commit = {
 	/** The OID of the commit.*/
@@ -23,6 +25,16 @@ export type Commit = {
 	readonly createdAt: number;
 	/** The author of the commit. */
 	readonly author: Author;
+};
+
+/** List of changes, stats and metadata for a commit */
+export type CommitDetails = {
+	/** The commit */
+	readonly commit: Commit;
+	/** The changes that were made to the tree. */
+	readonly changes: TreeChange[];
+	/** The stats of the changes. */
+	readonly stats: TreeStats;
 };
 
 /**
