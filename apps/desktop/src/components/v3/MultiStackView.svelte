@@ -4,11 +4,13 @@
 	import MultiStackCreateNew from '$components/v3/MultiStackCreateNew.svelte';
 	import MultiStackPagination, { scrollToLane } from '$components/v3/MultiStackPagination.svelte';
 	import StackDraft from '$components/v3/StackDraft.svelte';
+	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Badge from '@gitbutler/ui/Badge.svelte';
+	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import Scrollbar from '@gitbutler/ui/scroll/Scrollbar.svelte';
 	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
 	import type { Stack } from '$lib/stacks/stack';
@@ -54,16 +56,20 @@
 </script>
 
 <div class="lanes">
-	<div class="lanes-header">
-		<div class="title">
-			<h3 class="text-14 text-semibold truncate">Applied branches</h3>
-			{#if stacks.length > 0}
+	<div class="lanes-header" class:no-stacks={stacks.length === 0}>
+		{#if stacks.length > 0}
+			<div class="title">
+				<h3 class="text-14 text-semibold truncate">Applied branches</h3>
 				<Badge>{stacks.length}</Badge>
-			{/if}
-		</div>
-		<div class="actions">
-			<BranchLayoutMode bind:mode={$mode} />
-		</div>
+			</div>
+			<div class="actions">
+				<BranchLayoutMode bind:mode={$mode} />
+			</div>
+		{:else}
+			<div class="title">
+				<h3 class="text-14 text-semibold">No branches</h3>
+			</div>
+		{/if}
 		<MultiStackCreateNew {projectId} stackId={selectedId} noStacks={stacks.length === 0} />
 	</div>
 
@@ -76,24 +82,6 @@
 		class:single={$mode === 'single' && stacks.length >= SHOW_PAGINATION_THRESHOLD}
 		class:vertical={$mode === 'vertical'}
 	>
-		{#if isNotEnoughHorzSpace && isNotEnoughVertSpace}
-			<div
-				class="pagination-container"
-				class:horz={$mode !== 'vertical'}
-				class:vert={$mode === 'vertical'}
-			>
-				<MultiStackPagination
-					length={stacks.length}
-					{visibleIndexes}
-					selectedBranchIndex={stacks.findIndex((s) => {
-						return s.id === selectedId;
-					})}
-					onclick={(index) =>
-						scrollToLane(lanesContentEl, index, $mode === 'vertical' ? 'vert' : 'horz')}
-				/>
-			</div>
-		{/if}
-
 		{#if stacks.length > 0}
 			{#each stacks as stack, i}
 				{@const active = stack.id === projectState.stackId.current}
@@ -132,6 +120,35 @@
 			{/each}
 		{:else if isCommitting}
 			<StackDraft {projectId} />
+		{:else}
+			<div class="no-stacks-placeholder">
+				<EmptyStatePlaceholder image={noBranchesSvg} bottomMargin={48}>
+					{#snippet title()}
+						You have no branches
+					{/snippet}
+					{#snippet caption()}
+						Create a new branch for<br />a feature, fix, or idea!
+					{/snippet}
+				</EmptyStatePlaceholder>
+			</div>
+		{/if}
+
+		{#if isNotEnoughHorzSpace && isNotEnoughVertSpace}
+			<div
+				class="pagination-container"
+				class:horz={$mode !== 'vertical'}
+				class:vert={$mode === 'vertical'}
+			>
+				<MultiStackPagination
+					length={stacks.length}
+					{visibleIndexes}
+					selectedBranchIndex={stacks.findIndex((s) => {
+						return s.id === selectedId;
+					})}
+					onclick={(index) =>
+						scrollToLane(lanesContentEl, index, $mode === 'vertical' ? 'vert' : 'horz')}
+				/>
+			</div>
 		{/if}
 
 		{#if $mode !== 'vertical'}
@@ -171,9 +188,18 @@
 		& .actions {
 			display: flex;
 		}
+
+		&.no-stacks {
+			background: transparent;
+
+			& .title {
+				color: var(--clr-text-3);
+			}
+		}
 	}
 
 	.lanes-content {
+		position: relative;
 		display: flex;
 		height: 100%;
 		margin: 0 -1px;
@@ -234,6 +260,29 @@
 			right: 6px;
 			transform: rotate(90deg) translateY(100%);
 			transform-origin: right bottom;
+		}
+	}
+
+	.no-stacks-placeholder {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		display: flex;
+		flex-direction: column;
+
+		&:after {
+			z-index: -1;
+			content: '';
+			width: 600px;
+			height: 600px;
+			position: absolute;
+			top: -150px;
+			left: 50%;
+			transform: translateX(-50%);
+			border-radius: 100%;
+			/* background-color: rgba(0, 255, 255, 0.169); */
+			background: radial-gradient(var(--clr-bg-2) 0%, oklch(from var(--clr-bg-2) l c h / 0) 70%);
 		}
 	}
 </style>

@@ -104,7 +104,7 @@
 	onkeydown={handleArrowNavigation}
 >
 	{#if noStacks}
-		<p class="text-13">Create new branch</p>
+		<p class="text-14 text-semibold">Create new branch</p>
 	{/if}
 
 	<svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -217,7 +217,6 @@
 		align-items: center;
 		justify-content: center;
 		border-left: 1px solid var(--clr-border-2);
-		border-radius: 0 var(--radius-ml) 0 0;
 		height: 100%;
 		padding: 12px 15px;
 		color: var(--clr-text-1);
@@ -239,10 +238,6 @@
 		&:focus {
 			outline: none;
 			background: var(--clr-stack-tab-active);
-		}
-
-		&.no-stacks {
-			border-top-left-radius: var(--radius-ml);
 		}
 	}
 

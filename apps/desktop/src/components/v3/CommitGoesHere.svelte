@@ -59,8 +59,8 @@
 			border-radius: 0 0 var(--radius-l) var(--radius-l);
 		}
 		&.draft {
-			border-top: none;
-			border-bottom: none;
+			border-left: 1px solid var(--clr-border-2);
+			border-right: 1px solid var(--clr-border-2);
 			border-radius: 0 0 var(--radius-l) var(--radius-l);
 		}
 	}
@@ -141,8 +141,4 @@
 			opacity var(--transition-fast),
 			transform var(--transition-medium);
 	}
-
-	/* .commit-here_last {
-		margin-bottom: 0;
-	} */
 </style>
