@@ -209,7 +209,6 @@
 		}
 		&.multi {
 			flex-shrink: unset;
-			flex-basis: 100%;
 			min-width: 340px;
 		}
 		&.vertical {
