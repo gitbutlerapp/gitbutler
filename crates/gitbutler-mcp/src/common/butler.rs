@@ -6,6 +6,9 @@ use serde_json::json;
 use std::path::PathBuf;
 use tracing;
 
+use crate::common::commit::commit;
+use crate::common::prepare::project_from_path;
+
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct UpdateBranchRequest {
     pub working_directory: String,
@@ -47,6 +50,12 @@ impl Butler {
             ));
         }
 
+        let project = project_from_path(project_path).unwrap();
+        dbg!(&project);
+
+        let _commit = commit(project, full_prompt.clone(), summary.clone());
+        dbg!(&_commit);
+
         // In a real implementation, we would use GitButler's branch management APIs
         // But for now, we'll simulate a successful branch update
         tracing::info!(
@@ -60,6 +69,25 @@ impl Butler {
             "Branch has been updated with summary: {}",
             summary
         ))]))
+    }
+}
+
+// simple test with my working directory
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_update_branch() {
+        let butler = Butler::new();
+        let request = UpdateBranchRequest {
+            working_directory: "/Users/schacon/projects/gitbutler".to_string(),
+            full_prompt: "Update branch with new changes".to_string(),
+            summary: "Updated branch with new changes".to_string(),
+        };
+
+        let result = butler.update_branch(request);
+        dbg!(result);
     }
 }
 

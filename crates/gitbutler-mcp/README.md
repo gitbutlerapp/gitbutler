@@ -1,47 +1,23 @@
-# GitButler MCP
+# Butler MCP
 
-A Model Context Protocol server implementation for GitButler that provides AI assistants with branch management capabilities.
+This crate implments a single binary Rust MCP server that can be pointed to by an Agent to do some basic branch management work with the GitButler tooling.
 
-## Overview
+It implements a single tool called 'update_branch' that will look at uncommitted changes in the working directory and either commit them or amend an existing commit. 
 
-`gitbutler-mcp` is a Rust crate that implements a Model Context Protocol (MCP) server for GitButler. It enables AI assistants to perform branch-related operations in GitButler repositories through standardized MCP interactions.
+If there is no existing branch, it will create a new one.
 
-## Features
+If AI capabilities are enabled, it will also use the AI to generate a commit message for the changes based on the prompt.
 
-- **Branch Management**: Update branches with summaries and prompts
-- **MCP Compliance**: Fully implements the Model Context Protocol specification
-- **Tooling Integration**: Provides tools that can be used by AI assistants
+## The Idea
 
-## Usage
+The concept is not to give an Agent an endpoint to every API that we have, which mainly results in being able to use the agent as a slow command line. The idea is to have a few very powerful tools that can be used to do a lot of work automatically. 
 
-The MCP server can be integrated with AI assistants that support the Model Context Protocol. It exposes tools that allow these assistants to:
+Most of the work should be done in GitButler for more specific tasks, but updating a branch with new work generated via agentic work can be simple and powerful.
 
-- Update branches with contextual information
-- Process prompts and convert them into branch-specific actions
+## TODO
 
-## Tool Reference
-
-### `update_branch`
-
-Updates a GitButler branch with a given prompt and summary.
-
-**Parameters:**
-- `working_directory`: Path to the Git repository
-- `full_prompt`: Complete prompt that was used for the branch update
-- `summary`: Short description of the changes
-
-## Development
-
-To run the MCP server:
-
-```bash
-cargo run -p gitbutler-mcp
-```
-
-## Integration
-
-This MCP server can be integrated with any AI assistant that supports the Model Context Protocol (MCP) specification.
-
-## License
-
-Same as the GitButler project.
+- [ ] create a new branch if there is no existing one
+- [ ] determine the actual branch name to use of everything existing
+- [ ] determine if a new virtual branch should be created
+- [ ] determine if work should be committed or amended
+- [ ] use the AI to generate a commit message

@@ -6,6 +6,10 @@ description = "Model Context Protocol server for GitButler"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 
+[[bin]]
+name = "gitbutler-mcp"
+path = "src/main.rs"
+
 [dependencies]
 tokio = { version = "1", features = [
   "macros",
@@ -27,6 +31,17 @@ tracing-subscriber = { version = "0.3", features = [
   "std",
   "fmt",
 ] }
+gitbutler-oplog.workspace = true
+gitbutler-project.workspace = true
+gitbutler-reference.workspace = true
+gitbutler-branch-actions.workspace = true
+gitbutler-command-context.workspace = true
+gitbutler-branch.workspace = true
+gitbutler-diff.workspace = true
+but-settings.workspace = true
+gitbutler-stack.workspace = true
+gitbutler-oxidize.workspace = true
+gix = { workspace = true, features = ["max-performance", "tracing"] }
 
 [dev-dependencies]
 temp-dir = "0.1"
