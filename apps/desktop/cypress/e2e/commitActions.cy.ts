@@ -1,7 +1,6 @@
 import { clearCommandMocks, mockCommand } from './support';
 import MockBackend from './support/mock/backend';
 import { PROJECT_ID } from './support/mock/projects';
-import { MOCK_STACK_A_ID } from './support/mock/stacks';
 
 describe('Commit Actions', () => {
 	let mockBackend: MockBackend;
@@ -20,10 +19,7 @@ describe('Commit Actions', () => {
 
 		cy.visit('/');
 
-		cy.url({ timeout: 3000 }).should(
-			'include',
-			`/${PROJECT_ID}/workspace?stackId=${MOCK_STACK_A_ID}`
-		);
+		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace`);
 	});
 
 	afterEach(() => {

@@ -1,8 +1,6 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import dependentBranchSvg from '$components/v3/stackTabs/assets/dependent-branch.svg?raw';
 	import newStackSvg from '$components/v3/stackTabs/assets/new-stack.svg?raw';
-	import { stackPath } from '$lib/routes/routes.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { sleep } from '$lib/utils/sleep';
@@ -53,7 +51,7 @@
 			// Why is there a timing thing going on here? Withou sleep you end
 			// up on stacks[0] after creating a new one.
 			await sleep(50);
-			goto(stackPath(projectId, stack.id));
+			uiState.project(projectId).stackId.set(stack.id);
 			createRefModal?.close();
 		} else {
 			if (!stackId || !slugifiedRefName) {

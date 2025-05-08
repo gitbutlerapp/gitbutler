@@ -1,6 +1,5 @@
 import { clearCommandMocks } from './support';
 import { PROJECT_ID } from './support/mock/projects';
-import { MOCK_STACK_A_ID } from './support/mock/stacks';
 
 describe('Workspace', () => {
 	beforeEach(() => {});
@@ -14,6 +13,6 @@ describe('Workspace', () => {
 		cy.visit('/');
 
 		// Should be redirected to the workspac
-		cy.url().should('include', `/${PROJECT_ID}/workspace?stackId=${MOCK_STACK_A_ID}`);
+		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace`);
 	});
 });
