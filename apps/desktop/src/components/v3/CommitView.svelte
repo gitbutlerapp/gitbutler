@@ -11,9 +11,9 @@
 	import ConflictResolutionConfirmModal from '$components/v3/ConflictResolutionConfirmModal.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
 	import KebabButton from '$components/v3/KebabButton.svelte';
-	import { getCommitType, isLocalAndRemoteCommit } from '$components/v3/lib';
+	import { getCommitLabel, isLocalAndRemoteCommit } from '$components/v3/lib';
 	import { writeClipboard } from '$lib/backend/clipboard';
-	import { isCommit, type Commit } from '$lib/branches/v3';
+	import { isCommit } from '$lib/branches/v3';
 	import { CommitStatus, type CommitKey } from '$lib/commits/commit';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { ModeService } from '$lib/mode/modeService';
@@ -91,21 +91,6 @@
 		setMode('view');
 	}
 
-	function getCommitLabel(commit: Partial<Commit>) {
-		const commitType = commit ? getCommitType(commit as Commit) : 'unknown';
-
-		switch (commitType) {
-			case 'local':
-				return 'Unpushed';
-			case 'upstream':
-				return 'Upstream';
-			case 'local-and-remote':
-				return 'Pushed';
-			case 'diverged':
-				return 'Diverged';
-		}
-	}
-
 	// context menu
 	let commitOpenId = $state<string>();
 	let commitMenuContext = $state<CommitMenuContext>();
@@ -155,13 +140,15 @@
 		{:else}
 			<Drawer testId={TestId.CommitDrawer} projectId={env.projectId} stackId={env.stackId}>
 				{#snippet header()}
+					{@const label = getCommitLabel(commit)}
 					<div class="commit-view__header text-13">
 						{#if isLocalAndRemoteCommit(commit)}
+							{@const commitState = commit.state}
 							<CommitLine
-								commitStatus={commit.state.type}
-								diverged={commit.state.type === 'LocalAndRemote' &&
-									commit.id !== commit.state.subject}
-								tooltip={commit.state.type}
+								commitStatus={commitState.type}
+								diverged={commitState.type === 'LocalAndRemote' &&
+									commit.id !== commitState.subject}
+								tooltip={label}
 								width={24}
 							/>
 						{:else}
