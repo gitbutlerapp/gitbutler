@@ -1,4 +1,4 @@
-use crate::commit_engine::{HunkHeader, HunkRange};
+use crate::{HunkHeader, commit_engine::HunkRange};
 use anyhow::Context;
 
 #[derive(Debug, Copy, Clone)]

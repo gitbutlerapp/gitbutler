@@ -5,8 +5,8 @@ use crate::utils::{
     write_sequence,
 };
 use but_testsupport::assure_stable_env;
-use but_workspace::commit_engine;
-use commit_engine::{Destination, DiffSpec};
+use but_workspace::{DiffSpec, commit_engine};
+use commit_engine::Destination;
 use gix::prelude::ObjectIdExt;
 
 mod with_refs_update {}
@@ -106,8 +106,8 @@ fn from_unborn_head_with_selection() -> anyhow::Result<()> {
         destination,
         None,
         vec![DiffSpec {
-            previous_path: None,
-            path: "not-yet-tracked".into(),
+            previous_path_bytes: None,
+            path_bytes: "not-yet-tracked".into(),
             hunk_headers: vec![hunk_header("-1,0", "+1,1")],
         }],
         CONTEXT_LINES,
@@ -130,8 +130,8 @@ fn from_unborn_head_with_selection() -> anyhow::Result<()> {
         destination.clone(),
         None,
         vec![DiffSpec {
-            previous_path: None,
-            path: "also-untracked".into(),
+            previous_path_bytes: None,
+            path_bytes: "also-untracked".into(),
             // Take 3 lines in the middle, instead of 10
             hunk_headers: vec![hunk_header("-0,0", "+4,3")],
         }],
@@ -155,8 +155,8 @@ fn from_unborn_head_with_selection() -> anyhow::Result<()> {
         destination,
         None,
         vec![DiffSpec {
-            previous_path: None,
-            path: "also-untracked".into(),
+            previous_path_bytes: None,
+            path_bytes: "also-untracked".into(),
             // Take 3 lines in the middle, instead of 10, but line by line like the UI would select it.
             hunk_headers: vec![
                 hunk_header("-0,0", "+4,1"),
@@ -837,8 +837,8 @@ fn commit_whole_file_to_conflicting_position() -> anyhow::Result<()> {
             (
                 CherryPickMergeConflict,
                 DiffSpec {
-                    previous_path: None,
-                    path: "file",
+                    previous_path_bytes: None,
+                    path_bytes: "file",
                     hunk_headers: [],
                 },
             ),
@@ -892,8 +892,8 @@ fn commit_whole_file_to_conflicting_position_one_unconflicting_file_remains() ->
             (
                 CherryPickMergeConflict,
                 DiffSpec {
-                    previous_path: None,
-                    path: "file",
+                    previous_path_bytes: None,
+                    path_bytes: "file",
                     hunk_headers: [],
                 },
             ),
@@ -1074,7 +1074,7 @@ fn validate_no_change_on_noop() -> anyhow::Result<()> {
 
     let repo = read_only_in_memory_scenario("two-commits-with-line-offset")?;
     let specs = vec![DiffSpec {
-        path: "file".into(),
+        path_bytes: "file".into(),
         ..Default::default()
     }];
     let outcome = commit_engine::create_commit(
@@ -1100,8 +1100,8 @@ fn validate_no_change_on_noop() -> anyhow::Result<()> {
             (
                 NoEffectiveChanges,
                 DiffSpec {
-                    previous_path: None,
-                    path: "file",
+                    previous_path_bytes: None,
+                    path_bytes: "file",
                     hunk_headers: [],
                 },
             ),

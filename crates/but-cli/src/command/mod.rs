@@ -1,6 +1,6 @@
 use anyhow::{Context, anyhow, bail};
 use but_core::UnifiedDiff;
-use but_workspace::commit_engine::{DiffSpec, HunkHeader};
+use but_workspace::{DiffSpec, HunkHeader};
 use gitbutler_project::Project;
 use gix::bstr::{BString, ByteSlice};
 use std::path::Path;
@@ -101,8 +101,8 @@ fn project_controller(
 pub fn parse_diff_spec(arg: &Option<String>) -> Result<Option<Vec<DiffSpec>>, anyhow::Error> {
     arg.as_deref()
         .map(|value| {
-            serde_json::from_str::<Vec<but_workspace::commit_engine::ui::DiffSpec>>(value)
-                .map(|diff_spec| diff_spec.into_iter().map(Into::into).collect())
+            serde_json::from_str::<Vec<but_workspace::DiffSpec>>(value)
+                .map(|diff_spec| diff_spec.into_iter().collect())
                 .map_err(|e| anyhow!("Failed to parse diff_spec: {}", e))
         })
         .transpose()
@@ -313,14 +313,14 @@ pub(crate) fn discard_change(
         &path,
         previous_path.as_ref(),
     )?;
-    let spec = but_workspace::commit_engine::DiffSpec {
-        previous_path,
-        path,
+    let spec = but_workspace::DiffSpec {
+        previous_path_bytes: previous_path,
+        path_bytes: path,
         hunk_headers,
     };
     debug_print(but_workspace::discard_workspace_changes(
         &repo,
-        Some(spec.into()),
+        Some(spec),
         UI_CONTEXT_LINES,
     )?)
 }

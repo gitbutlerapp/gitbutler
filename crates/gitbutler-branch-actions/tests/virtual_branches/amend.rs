@@ -1,4 +1,4 @@
-use but_workspace::commit_engine::{DiffSpec, HunkHeader};
+use but_workspace::{DiffSpec, HunkHeader};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_branch_actions::list_commit_files;
 
@@ -53,8 +53,8 @@ fn forcepush_allowed() -> anyhow::Result<()> {
         fs::write(repo.path().join("file2.txt"), "content2").unwrap();
         // let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
         let to_amend = vec![DiffSpec {
-            previous_path: None,
-            path: "file2.txt".into(),
+            previous_path_bytes: None,
+            path_bytes: "file2.txt".into(),
             hunk_headers: vec![HunkHeader {
                 old_start: 1,
                 old_lines: 0,
@@ -118,8 +118,8 @@ fn forcepush_forbidden() {
         fs::write(repo.path().join("file2.txt"), "content2").unwrap();
         // let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
         let to_amend = vec![DiffSpec {
-            previous_path: None,
-            path: "file2.txt".into(),
+            previous_path_bytes: None,
+            path_bytes: "file2.txt".into(),
             hunk_headers: vec![HunkHeader {
                 old_start: 1,
                 old_lines: 0,
@@ -170,8 +170,8 @@ fn non_locked_hunk() -> anyhow::Result<()> {
         fs::write(repo.path().join("file2.txt"), "content2").unwrap();
         // let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
         let to_amend = vec![DiffSpec {
-            previous_path: None,
-            path: "file2.txt".into(),
+            previous_path_bytes: None,
+            path_bytes: "file2.txt".into(),
             hunk_headers: vec![HunkHeader {
                 old_start: 1,
                 old_lines: 0,
@@ -235,8 +235,8 @@ fn locked_hunk() -> anyhow::Result<()> {
         fs::write(repo.path().join("file.txt"), "more content").unwrap();
         // let to_amend: BranchOwnershipClaims = "file.txt:1-2".parse().unwrap();
         let to_amend = vec![DiffSpec {
-            previous_path: None,
-            path: "file.txt".into(),
+            previous_path_bytes: None,
+            path_bytes: "file.txt".into(),
             hunk_headers: vec![HunkHeader {
                 old_start: 1,
                 old_lines: 1,
@@ -296,8 +296,8 @@ fn non_existing_ownership() {
         // amend non existing hunk
         // let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
         let to_amend = vec![DiffSpec {
-            previous_path: None,
-            path: "file2.txt".into(),
+            previous_path_bytes: None,
+            path_bytes: "file2.txt".into(),
             hunk_headers: vec![HunkHeader {
                 old_start: 1,
                 old_lines: 0,
@@ -309,7 +309,7 @@ fn non_existing_ownership() {
             gitbutler_branch_actions::amend(ctx, stack_entry.id, commit_oid, to_amend)
                 .unwrap_err()
                 .to_string(),
-            r#"Failed to amend with commit engine. Rejected specs: [(NoEffectiveChanges, DiffSpec { previous_path: None, path: "file2.txt", hunk_headers: [HunkHeader("-1,0", "+1,1")] })]"#,
+            r#"Failed to amend with commit engine. Rejected specs: [(NoEffectiveChanges, DiffSpec { previous_path_bytes: None, path_bytes: "file2.txt", hunk_headers: [HunkHeader("-1,0", "+1,1")] })]"#,
         );
     }
 }

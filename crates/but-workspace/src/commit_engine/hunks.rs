@@ -1,4 +1,4 @@
-use crate::commit_engine::{HunkHeader, HunkRange};
+use crate::{HunkHeader, commit_engine::HunkRange};
 use anyhow::Context;
 use bstr::{BStr, BString, ByteSlice};
 use but_core::unified_diff::DiffHunk;

@@ -95,7 +95,7 @@ pub fn create_commit_from_worktree_changes(
     project_id: ProjectId,
     stack_id: StackId,
     parent_id: Option<HexHash>,
-    worktree_changes: Vec<commit_engine::ui::DiffSpec>,
+    worktree_changes: Vec<but_workspace::DiffSpec>,
     message: String,
     stack_branch_name: String,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
@@ -133,7 +133,7 @@ pub fn create_commit_from_worktree_changes(
             }),
         },
         None,
-        worktree_changes.into_iter().map(Into::into).collect(),
+        worktree_changes,
         settings.get()?.context_lines,
         guard.write_permission(),
     );
@@ -168,7 +168,7 @@ pub fn amend_commit_from_worktree_changes(
     project_id: ProjectId,
     stack_id: StackId,
     commit_id: HexHash,
-    worktree_changes: Vec<commit_engine::ui::DiffSpec>,
+    worktree_changes: Vec<but_workspace::DiffSpec>,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
     let project = projects.get(project_id)?;
     let mut guard = project.exclusive_worktree_access();
@@ -183,7 +183,7 @@ pub fn amend_commit_from_worktree_changes(
             new_message: None,
         },
         None,
-        worktree_changes.into_iter().map(Into::into).collect(),
+        worktree_changes,
         settings.get()?.context_lines,
         guard.write_permission(),
     )?;
@@ -204,8 +204,8 @@ pub fn discard_worktree_changes(
     projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
-    worktree_changes: Vec<but_workspace::tree_manipulation::ui::DiscardSpec>,
-) -> Result<Vec<but_workspace::tree_manipulation::ui::DiscardSpec>, Error> {
+    worktree_changes: Vec<but_workspace::DiffSpec>,
+) -> Result<Vec<but_workspace::DiffSpec>, Error> {
     let project = projects.get(project_id)?;
     let repo = but_core::open_repo(project.worktree_path())?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
@@ -217,20 +217,13 @@ pub fn discard_worktree_changes(
     );
     let refused = but_workspace::discard_workspace_changes(
         &repo,
-        worktree_changes.into_iter().map(|change| {
-            but_workspace::tree_manipulation::DiscardSpec::from(
-                but_workspace::commit_engine::DiffSpec::from(change),
-            )
-        }),
+        worktree_changes,
         settings.get()?.context_lines,
     )?;
     if !refused.is_empty() {
         tracing::warn!(?refused, "Failed to discard at least one hunk");
     }
-    Ok(refused
-        .into_iter()
-        .map(|change| commit_engine::DiffSpec::from(change).into())
-        .collect())
+    Ok(refused)
 }
 
 /// This API allows the user to quickly "stash" a bunch of uncommitted changes - getting them out of the worktree.
@@ -244,7 +237,7 @@ pub fn stash_into_branch(
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     branch_name: String,
-    worktree_changes: Vec<commit_engine::ui::DiffSpec>,
+    worktree_changes: Vec<but_workspace::DiffSpec>,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
@@ -282,7 +275,7 @@ pub fn stash_into_branch(
             }),
         },
         None,
-        worktree_changes.into_iter().map(Into::into).collect(),
+        worktree_changes,
         settings.get()?.context_lines,
         perm,
     );

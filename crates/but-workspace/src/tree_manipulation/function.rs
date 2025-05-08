@@ -1,11 +1,9 @@
 use std::collections::HashSet;
 
 use crate::{
-    commit_engine::{DiffSpec, HunkHeader, apply_hunks, index::apply_lhs_to_rhs},
-    tree_manipulation::{
-        DiscardSpec,
-        hunk::{HunkSubstraction, subtract_hunks},
-    },
+    DiffSpec, HunkHeader,
+    commit_engine::{apply_hunks, index::apply_lhs_to_rhs},
+    tree_manipulation::hunk::{HunkSubstraction, subtract_hunks},
 };
 use anyhow::Context;
 use bstr::{BString, ByteSlice};
@@ -19,9 +17,9 @@ use super::{RelaPath as _, file::checkout_repo_worktree};
 /// The index will be written to the repository if any changes are made to it.
 pub fn discard_workspace_changes(
     repository: &gix::Repository,
-    changes: impl IntoIterator<Item = DiscardSpec>,
+    changes: impl IntoIterator<Item = DiffSpec>,
     context_lines: u32,
-) -> anyhow::Result<Vec<DiscardSpec>> {
+) -> anyhow::Result<Vec<DiffSpec>> {
     let (tree, dropped) =
         create_tree_without_diff(repository, ChangesSource::Worktree, changes, context_lines)?;
     let status_changes = get_status(repository)?;
@@ -360,9 +358,9 @@ impl ChangesSource {
 pub fn create_tree_without_diff(
     repository: &gix::Repository,
     changes_source: ChangesSource,
-    changes_to_discard: impl IntoIterator<Item = DiscardSpec>,
+    changes_to_discard: impl IntoIterator<Item = DiffSpec>,
     context_lines: u32,
-) -> anyhow::Result<(gix::ObjectId, Vec<DiscardSpec>)> {
+) -> anyhow::Result<(gix::ObjectId, Vec<DiffSpec>)> {
     let mut dropped = Vec::new();
 
     let before = changes_source.before(repository)?;
@@ -372,12 +370,13 @@ pub fn create_tree_without_diff(
 
     for change in changes_to_discard {
         let before_path = change
-            .previous_path
+            .previous_path_bytes
             .clone()
-            .unwrap_or_else(|| change.path.clone());
+            .unwrap_or_else(|| change.path_bytes.clone());
         let before_entry = before.lookup_entry(before_path.clone().split_str("/"))?;
 
-        let Some(after_entry) = after.lookup_entry(change.path.clone().split_str("/"))? else {
+        let Some(after_entry) = after.lookup_entry(change.path_bytes.clone().split_str("/"))?
+        else {
             let Some(before_entry) = before_entry else {
                 // If there is no before entry and no after entry, then
                 // something has gone wrong.
@@ -389,7 +388,7 @@ pub fn create_tree_without_diff(
                 // If there is no after_change, then it must have been deleted.
                 // Therefore, we can just add it again.
                 builder.upsert(
-                    change.path.as_bstr(),
+                    change.path_bytes.as_bstr(),
                     before_entry.mode().kind(),
                     before_entry.object_id(),
                 )?;
@@ -415,7 +414,7 @@ pub fn create_tree_without_diff(
 
                     let diff = but_core::UnifiedDiff::compute(
                         repository,
-                        change.path.as_bstr(),
+                        change.path_bytes.as_bstr(),
                         Some(before_path.as_bstr()),
                         ChangeState {
                             id: after_entry.id().detach(),
@@ -450,11 +449,11 @@ pub fn create_tree_without_diff(
                     }
 
                     if !bad_hunk_headers.is_empty() {
-                        dropped.push(DiscardSpec::from(DiffSpec {
-                            previous_path: change.previous_path.clone(),
-                            path: change.path.clone(),
+                        dropped.push(DiffSpec {
+                            previous_path_bytes: change.previous_path_bytes.clone(),
+                            path_bytes: change.path_bytes.clone(),
                             hunk_headers: bad_hunk_headers,
-                        }));
+                        });
                     }
 
                     // TODO: Validate that the hunks coorespond with actual changes?
@@ -479,7 +478,7 @@ pub fn create_tree_without_diff(
                     // Keep the mode of the after state. We _should_ at some
                     // point introduce the mode specifically as part of the
                     // DiscardSpec, but for now, we can just use the after state.
-                    builder.upsert(change.path.as_bstr(), mode, new_after_contents)?;
+                    builder.upsert(change.path_bytes.as_bstr(), mode, new_after_contents)?;
                 }
             }
             _ => {
@@ -542,23 +541,23 @@ fn new_hunks_after_removals(
 fn revert_file_to_before_state(
     before_entry: &Option<gix::object::tree::Entry<'_>>,
     builder: &mut gix::object::tree::Editor<'_>,
-    change: &DiscardSpec,
+    change: &DiffSpec,
 ) -> Result<(), anyhow::Error> {
     // If there are no hunk headers, then we want to revert the
     // whole file to the state it was in before tree.
     if let Some(before_entry) = before_entry {
-        builder.remove(change.path.as_bstr())?;
+        builder.remove(change.path_bytes.as_bstr())?;
         builder.upsert(
             change
-                .previous_path
+                .previous_path_bytes
                 .clone()
-                .unwrap_or(change.path.clone())
+                .unwrap_or(change.path_bytes.clone())
                 .as_bstr(),
             before_entry.mode().kind(),
             before_entry.object_id(),
         )?;
     } else {
-        builder.remove(change.path.as_bstr())?;
+        builder.remove(change.path_bytes.as_bstr())?;
     }
     Ok(())
 }

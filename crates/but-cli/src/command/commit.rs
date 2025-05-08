@@ -2,9 +2,8 @@ use crate::command::discard_change::IndicesOrHeaders;
 use crate::command::{debug_print, indices_or_headers_to_hunk_headers, path_to_rela_path};
 use anyhow::bail;
 use but_core::TreeChange;
-use but_workspace::commit_engine::{
-    DiffSpec, ReferenceFrame, StackSegmentId, create_commit_and_update_refs,
-};
+use but_workspace::DiffSpec;
+use but_workspace::commit_engine::{ReferenceFrame, StackSegmentId, create_commit_and_update_refs};
 use gitbutler_project::Project;
 use gitbutler_stack::{VirtualBranchesHandle, VirtualBranchesState};
 use std::path::Path;
@@ -90,18 +89,18 @@ fn resolve_changes(
                 to_whole_file_diffspec(but_core::diff::worktree_changes(repo)?.changes)
             }
             (Some(current_path), previous_path, Some(headers), None) => {
-                let path = path_to_rela_path(current_path)?;
-                let previous_path = previous_path.map(path_to_rela_path).transpose()?;
+                let path_bytes = path_to_rela_path(current_path)?;
+                let previous_path_bytes = previous_path.map(path_to_rela_path).transpose()?;
                 let hunk_headers = indices_or_headers_to_hunk_headers(
                     repo,
                     Some(IndicesOrHeaders::Headers(headers)),
-                    &path,
-                    previous_path.as_ref(),
+                    &path_bytes,
+                    previous_path_bytes.as_ref(),
                 )?;
 
                 vec![DiffSpec {
-                    previous_path,
-                    path,
+                    previous_path_bytes,
+                    path_bytes,
                     hunk_headers,
                 }]
             }
@@ -286,8 +285,8 @@ fn to_whole_file_diffspec(changes: Vec<TreeChange>) -> Vec<DiffSpec> {
     changes
         .into_iter()
         .map(|change| DiffSpec {
-            previous_path: change.previous_path().map(ToOwned::to_owned),
-            path: change.path,
+            previous_path_bytes: change.previous_path().map(ToOwned::to_owned),
+            path_bytes: change.path,
             hunk_headers: Vec::new(),
         })
         .collect()
