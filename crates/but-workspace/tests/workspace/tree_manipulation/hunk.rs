@@ -8,8 +8,7 @@ use crate::utils::{
 use bstr::{BString, ByteSlice};
 use but_core::UnifiedDiff;
 use but_testsupport::{git_status, visualize_disk_tree_skip_dot_git};
-use but_workspace::commit_engine::{DiffSpec, HunkHeader};
-use but_workspace::discard_workspace_changes;
+use but_workspace::{DiffSpec, HunkHeader, discard_workspace_changes};
 
 #[test]
 fn dropped_hunks() -> anyhow::Result<()> {
@@ -21,8 +20,8 @@ fn dropped_hunks() -> anyhow::Result<()> {
     hunks_to_discard.insert(0, hunk_header("-1,1", "+1,0"));
 
     let discard_spec = DiffSpec {
-        previous_path: None,
-        path: change.path,
+        previous_path_bytes: None,
+        path_bytes: change.path,
         hunk_headers: hunks_to_discard,
     };
     let dropped = discard_workspace_changes(&repo, Some(discard_spec.into()), CONTEXT_LINES)?;
@@ -31,8 +30,8 @@ fn dropped_hunks() -> anyhow::Result<()> {
     [
         DiscardSpec(
             DiffSpec {
-                previous_path: None,
-                path: "file",
+                previous_path_bytes: None,
+                path_bytes: "file",
                 hunk_headers: [
                     HunkHeader("-1,1", "+1,0"),
                     HunkHeader("-10,1", "+13,3"),
@@ -66,8 +65,8 @@ fn non_modifications_trigger_error() -> anyhow::Result<()> {
             &repo,
             Some(
                 DiffSpec {
-                    previous_path: None,
-                    path: file_name.into(),
+                    previous_path_bytes: None,
+                    path_bytes: file_name.into(),
                     hunk_headers: vec![hunk],
                 }
                 .into(),
@@ -146,8 +145,8 @@ fn from_end() -> anyhow::Result<()> {
             .expect("there is always one change if the file is only modified");
         let discarded_patch = std::mem::take(&mut last_hunk.diff);
         let discard_spec = DiffSpec {
-            previous_path: None,
-            path: change.path.clone(),
+            previous_path_bytes: None,
+            path_bytes: change.path.clone(),
             hunk_headers: vec![last_hunk.into()],
         };
         let dropped = discard_workspace_changes(&repo, Some(discard_spec.into()), CONTEXT_LINES)?;
@@ -217,8 +216,8 @@ fn from_beginning() -> anyhow::Result<()> {
         let mut first_hun_hunk = hunks.remove(0);
         let discarded_patch = std::mem::take(&mut first_hun_hunk.diff);
         let discard_spec = DiffSpec {
-            previous_path: None,
-            path: change.path.clone(),
+            previous_path_bytes: None,
+            path_bytes: change.path.clone(),
             hunk_headers: vec![first_hun_hunk.into()],
         };
         let dropped = discard_workspace_changes(&repo, Some(discard_spec.into()), CONTEXT_LINES)?;
@@ -279,8 +278,8 @@ fn from_selections() -> anyhow::Result<()> {
     "#);
 
     let discard_spec = DiffSpec {
-        previous_path: None,
-        path: change.path.clone(),
+        previous_path_bytes: None,
+        path_bytes: change.path.clone(),
         hunk_headers: vec![
             // Split first hunk into two yielding
             // '+1\n+3\n+4\n'
@@ -365,8 +364,8 @@ fn from_selections_with_context() -> anyhow::Result<()> {
     let read_file_content = || std::fs::read(&filepath).map(BString::from);
     let original_file_content = read_file_content()?;
     let mut discard_spec = DiffSpec {
-        previous_path: None,
-        path: change.path.clone(),
+        previous_path_bytes: None,
+        path_bytes: change.path.clone(),
         hunk_headers: vec![
             // Discard 2,3, keeping 1,4
             hunk_header("-1,14", "+2,2"),
@@ -462,8 +461,8 @@ fn hunk_removal_of_additions_single_line() -> anyhow::Result<()> {
     ");
 
     let discard_spec = DiffSpec {
-        previous_path: None,
-        path: change.path.clone(),
+        previous_path_bytes: None,
+        path_bytes: change.path.clone(),
         hunk_headers: vec![
             // Anchor at the old hunk, and redefine change to discard in the new hunk,
             // effectively discarding only line 5.
@@ -516,8 +515,8 @@ fn hunk_removal_of_removal_single_line() -> anyhow::Result<()> {
     ");
 
     let discard_spec = DiffSpec {
-        previous_path: None,
-        path: change.path.clone(),
+        previous_path_bytes: None,
+        path_bytes: change.path.clone(),
         hunk_headers: vec![
             // Anchor at the new hunk, and redefine change to discard in the old hunk,
             // effectively keeping only line 5.
@@ -571,8 +570,8 @@ fn hunk_removal_of_modifications() -> anyhow::Result<()> {
     ");
 
     let discard_spec = DiffSpec {
-        previous_path: None,
-        path: change.path.clone(),
+        previous_path_bytes: None,
+        path_bytes: change.path.clone(),
         hunk_headers: vec![
             // Anchor at the new hunk, and redefine change to discard in the old hunk,
             // effectively keeping only line 5.

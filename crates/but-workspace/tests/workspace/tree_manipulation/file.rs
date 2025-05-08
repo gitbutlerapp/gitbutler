@@ -1022,13 +1022,12 @@ D submodule
 
 mod util {
     use crate::utils::to_change_specs_whole_file;
-    use but_workspace::commit_engine::DiffSpec;
-    use but_workspace::tree_manipulation::DiscardSpec;
+    use but_workspace::{DiffSpec, tree_manipulation::DiscardSpec};
 
     pub fn file_to_spec(name: &str) -> DiscardSpec {
         DiffSpec {
-            previous_path: None,
-            path: name.into(),
+            previous_path_bytes: None,
+            path_bytes: name.into(),
             hunk_headers: vec![],
         }
         .into()
@@ -1036,8 +1035,8 @@ mod util {
 
     pub fn renamed_file_to_spec(previous: &str, name: &str) -> DiscardSpec {
         DiffSpec {
-            previous_path: Some(previous.into()),
-            path: name.into(),
+            previous_path_bytes: Some(previous.into()),
+            path_bytes: name.into(),
             hunk_headers: vec![],
         }
         .into()

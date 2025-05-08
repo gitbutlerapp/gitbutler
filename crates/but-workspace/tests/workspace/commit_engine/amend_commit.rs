@@ -4,7 +4,7 @@ use crate::utils::{
     writable_scenario_with_ssh_key, write_local_config, write_sequence,
 };
 use but_testsupport::assure_stable_env;
-use but_workspace::commit_engine::{Destination, DiffSpec, HunkHeader};
+use but_workspace::{DiffSpec, HunkHeader, commit_engine::Destination};
 
 #[test]
 fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
@@ -152,13 +152,13 @@ fn new_file_and_deletion_onto_merge_commit_with_hunks() -> anyhow::Result<()> {
         None,
         vec![
             DiffSpec {
-                previous_path: None,
-                path: "file".into(),
+                previous_path_bytes: None,
+                path_bytes: "file".into(),
                 hunk_headers: vec![],
             },
             DiffSpec {
-                previous_path: None,
-                path: "new-file".into(),
+                previous_path_bytes: None,
+                path_bytes: "new-file".into(),
                 hunk_headers: vec![HunkHeader {
                     old_start: 1,
                     old_lines: 0,

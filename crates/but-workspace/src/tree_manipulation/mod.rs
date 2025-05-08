@@ -1,7 +1,8 @@
 //! Utility types related to discarding changes in the worktree.
 
-use crate::commit_engine::DiffSpec;
 use std::ops::{Deref, DerefMut};
+
+use crate::DiffSpec;
 
 /// A specification of what should be discarded, either changes to the whole file, or a portion of it.
 /// Note that these must match an actual worktree change, but also may only partially match them if individual ranges are chosen
@@ -53,7 +54,7 @@ pub(super) mod function;
 #[allow(missing_docs)]
 pub mod ui {
     /// A specification of which worktree-change to discard.
-    pub type DiscardSpec = crate::commit_engine::ui::DiffSpec;
+    pub type DiscardSpec = crate::DiffSpec;
 }
 
 mod file;

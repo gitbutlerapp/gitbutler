@@ -1,6 +1,6 @@
 //! The machinery used to alter and mutate commits in various ways whilst adjusting descendant commits within a [reference frame](ReferenceFrame).
 
-use crate::commit_engine::reference_frame::InferenceMode;
+use crate::{DiffSpec, commit_engine::reference_frame::InferenceMode};
 use anyhow::{Context, bail};
 use bstr::BString;
 use but_core::RepositoryExt;
@@ -11,7 +11,6 @@ use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{StackId, VirtualBranchesHandle, VirtualBranchesState};
 use gix::prelude::ObjectIdExt as _;
 use gix::refs::transaction::PreviousValue;
-use serde::{Deserialize, Serialize};
 
 pub(crate) mod tree;
 use tree::{CreateTreeOutcome, create_tree};
@@ -81,50 +80,6 @@ pub struct MoveSourceCommit {
     pub commit_id: gix::ObjectId,
     /// The commit at the *very top* of the branch which has the commit that acts as source of changes in its ancestry.
     pub branch_tip: gix::ObjectId,
-}
-
-/// A change that should be used to create a new commit or alter an existing one, along with enough information to know where to find it.
-#[derive(Debug, Default, Clone, PartialEq)]
-pub struct DiffSpec {
-    /// The previous location of the entry, the source of a rename if there was one.
-    pub previous_path: Option<BString>,
-    /// The worktree-relative path to the worktree file with the content to commit.
-    ///
-    /// If `hunks` is empty, this means the current content of the file should be committed.
-    pub path: BString,
-    /// If one or more hunks are specified, match them with actual changes currently in the worktree.
-    /// Failure to match them will lead to the change being dropped.
-    /// If empty, the whole file is taken as is if this seems to be an addition.
-    /// Otherwise, the whole file is being deleted.
-    pub hunk_headers: Vec<HunkHeader>,
-}
-
-/// The header of a hunk that represents a change to a file.
-#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct HunkHeader {
-    /// The 1-based line number at which the previous version of the file started.
-    pub old_start: u32,
-    /// The non-zero amount of lines included in the previous version of the file.
-    pub old_lines: u32,
-    /// The 1-based line number at which the new version of the file started.
-    pub new_start: u32,
-    /// The non-zero amount of lines included in the new version of the file.
-    pub new_lines: u32,
-}
-
-impl HunkHeader {
-    /// Returns the hunk header with the old and new ranges swapped.
-    ///
-    /// This is useful for applying the hunk in reverse.
-    pub fn reverse(&self) -> Self {
-        Self {
-            old_start: self.new_start,
-            old_lines: self.new_lines,
-            new_start: self.old_start,
-            new_lines: self.old_lines,
-        }
-    }
 }
 
 /// The range of a hunk as denoted by a 1-based starting line, and the amount of lines from there.
@@ -490,8 +445,9 @@ pub fn create_commit_and_update_refs(
                     outcome.rejected_specs.extend(conflicts.iter().filter_map(
                         |conflicting_rela_path| {
                             changes.iter().find_map(|spec| {
-                                (spec.path == *conflicting_rela_path
-                                    || spec.previous_path.as_ref() == Some(conflicting_rela_path))
+                                (spec.path_bytes == *conflicting_rela_path
+                                    || spec.previous_path_bytes.as_ref()
+                                        == Some(conflicting_rela_path))
                                 .then_some((
                                     RejectionReason::WorkspaceMergeConflict,
                                     spec.to_owned(),

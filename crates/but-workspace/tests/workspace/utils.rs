@@ -3,7 +3,8 @@ use but_core::unified_diff::DiffHunk;
 use but_core::{TreeChange, TreeStatus, UnifiedDiff};
 use but_testsupport::gix_testtools;
 use but_testsupport::gix_testtools::{Creation, tempfile};
-use but_workspace::commit_engine::{Destination, DiffSpec, HunkHeader};
+use but_workspace::commit_engine::Destination;
+use but_workspace::{DiffSpec, HunkHeader};
 use gix::prelude::ObjectIdExt;
 
 pub const CONTEXT_LINES: u32 = 0;
@@ -80,8 +81,8 @@ pub fn to_change_specs_whole_file(changes: but_core::WorktreeChanges) -> Vec<Dif
         .changes
         .into_iter()
         .map(|change| DiffSpec {
-            previous_path: change.previous_path().map(ToOwned::to_owned),
-            path: change.path,
+            previous_path_bytes: change.previous_path().map(ToOwned::to_owned),
+            path_bytes: change.path,
             hunk_headers: Vec::new(),
         })
         .collect();
@@ -98,8 +99,8 @@ pub fn diff_spec(
     hunks: impl IntoIterator<Item = HunkHeader>,
 ) -> DiffSpec {
     DiffSpec {
-        previous_path: previous_path.map(Into::into),
-        path: path.into(),
+        previous_path_bytes: previous_path.map(Into::into),
+        path_bytes: path.into(),
         hunk_headers: hunks.into_iter().collect(),
     }
 }
@@ -123,21 +124,21 @@ pub fn to_change_specs_all_hunks_with_context_lines(
         let spec = match change.status {
             // Untracked files must always be taken from disk (they don't have a counterpart in a tree yet)
             TreeStatus::Addition { is_untracked, .. } if is_untracked => DiffSpec {
-                path: change.path,
+                path_bytes: change.path,
                 ..Default::default()
             },
             _ => {
                 match change.unified_diff(repo, context_lines) {
                     Ok(but_core::UnifiedDiff::Patch { hunks, .. }) => DiffSpec {
-                        previous_path: change.previous_path().map(ToOwned::to_owned),
-                        path: change.path,
+                        previous_path_bytes: change.previous_path().map(ToOwned::to_owned),
+                        path_bytes: change.path,
                         hunk_headers: hunks.into_iter().map(Into::into).collect(),
                     },
                     Ok(_) => unreachable!("tests won't be binary or too large"),
                     Err(_err) => {
                         // Assume it's a submodule or something without content, don't do hunks then.
                         DiffSpec {
-                            path: change.path,
+                            path_bytes: change.path,
                             ..Default::default()
                         }
                     }

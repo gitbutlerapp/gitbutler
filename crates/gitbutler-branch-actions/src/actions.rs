@@ -19,8 +19,7 @@ use crate::{
     VirtualBranchesExt,
 };
 use anyhow::{bail, Context, Result};
-use but_workspace::commit_engine::DiffSpec;
-use but_workspace::{commit_engine, stack_heads_info, ui};
+use but_workspace::{commit_engine, stack_heads_info, ui, DiffSpec};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::DiffByPathMap;

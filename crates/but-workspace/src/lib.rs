@@ -25,6 +25,7 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
+use bstr::BString;
 use serde::{Deserialize, Serialize};
 
 use but_core::RefMetadata;
@@ -82,6 +83,51 @@ pub use virtual_branches_metadata::VirtualBranchesTomlMetadata;
 
 mod branch_details;
 pub use branch_details::{branch_details, branch_details_v3};
+
+/// A change that should be used to create a new commit or alter an existing one, along with enough information to know where to find it.
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiffSpec {
+    /// The previous location of the entry, the source of a rename if there was one.
+    pub previous_path_bytes: Option<BString>,
+    /// The worktree-relative path to the worktree file with the content to commit.
+    ///
+    /// If `hunks` is empty, this means the current content of the file should be committed.
+    pub path_bytes: BString,
+    /// If one or more hunks are specified, match them with actual changes currently in the worktree.
+    /// Failure to match them will lead to the change being dropped.
+    /// If empty, the whole file is taken as is if this seems to be an addition.
+    /// Otherwise, the whole file is being deleted.
+    pub hunk_headers: Vec<HunkHeader>,
+}
+
+/// The header of a hunk that represents a change to a file.
+#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HunkHeader {
+    /// The 1-based line number at which the previous version of the file started.
+    pub old_start: u32,
+    /// The non-zero amount of lines included in the previous version of the file.
+    pub old_lines: u32,
+    /// The 1-based line number at which the new version of the file started.
+    pub new_start: u32,
+    /// The non-zero amount of lines included in the new version of the file.
+    pub new_lines: u32,
+}
+
+impl HunkHeader {
+    /// Returns the hunk header with the old and new ranges swapped.
+    ///
+    /// This is useful for applying the hunk in reverse.
+    pub fn reverse(&self) -> Self {
+        Self {
+            old_start: self.new_start,
+            old_lines: self.new_lines,
+            new_start: self.old_start,
+            new_lines: self.old_lines,
+        }
+    }
+}
 
 /// Information about where the user is currently looking at.
 #[derive(Debug, Clone)]
@@ -194,7 +240,7 @@ fn state_handle(gb_state_path: &Path) -> VirtualBranchesHandle {
 
 #[cfg(test)]
 pub(crate) mod utils {
-    use crate::commit_engine::{HunkHeader, HunkRange};
+    use crate::{HunkHeader, commit_engine::HunkRange};
 
     pub fn range(start: u32, lines: u32) -> HunkRange {
         HunkRange { start, lines }

@@ -1,7 +1,8 @@
 use std::collections::HashSet;
 
 use crate::{
-    commit_engine::{DiffSpec, HunkHeader, apply_hunks, index::apply_lhs_to_rhs},
+    DiffSpec, HunkHeader,
+    commit_engine::{apply_hunks, index::apply_lhs_to_rhs},
     tree_manipulation::{
         DiscardSpec,
         hunk::{HunkSubstraction, subtract_hunks},
@@ -372,12 +373,13 @@ pub fn create_tree_without_diff(
 
     for change in changes_to_discard {
         let before_path = change
-            .previous_path
+            .previous_path_bytes
             .clone()
-            .unwrap_or_else(|| change.path.clone());
+            .unwrap_or_else(|| change.path_bytes.clone());
         let before_entry = before.lookup_entry(before_path.clone().split_str("/"))?;
 
-        let Some(after_entry) = after.lookup_entry(change.path.clone().split_str("/"))? else {
+        let Some(after_entry) = after.lookup_entry(change.path_bytes.clone().split_str("/"))?
+        else {
             let Some(before_entry) = before_entry else {
                 // If there is no before entry and no after entry, then
                 // something has gone wrong.
@@ -389,7 +391,7 @@ pub fn create_tree_without_diff(
                 // If there is no after_change, then it must have been deleted.
                 // Therefore, we can just add it again.
                 builder.upsert(
-                    change.path.as_bstr(),
+                    change.path_bytes.as_bstr(),
                     before_entry.mode().kind(),
                     before_entry.object_id(),
                 )?;
@@ -415,7 +417,7 @@ pub fn create_tree_without_diff(
 
                     let diff = but_core::UnifiedDiff::compute(
                         repository,
-                        change.path.as_bstr(),
+                        change.path_bytes.as_bstr(),
                         Some(before_path.as_bstr()),
                         ChangeState {
                             id: after_entry.id().detach(),
@@ -451,8 +453,8 @@ pub fn create_tree_without_diff(
 
                     if !bad_hunk_headers.is_empty() {
                         dropped.push(DiscardSpec::from(DiffSpec {
-                            previous_path: change.previous_path.clone(),
-                            path: change.path.clone(),
+                            previous_path_bytes: change.previous_path_bytes.clone(),
+                            path_bytes: change.path_bytes.clone(),
                             hunk_headers: bad_hunk_headers,
                         }));
                     }
@@ -479,7 +481,7 @@ pub fn create_tree_without_diff(
                     // Keep the mode of the after state. We _should_ at some
                     // point introduce the mode specifically as part of the
                     // DiscardSpec, but for now, we can just use the after state.
-                    builder.upsert(change.path.as_bstr(), mode, new_after_contents)?;
+                    builder.upsert(change.path_bytes.as_bstr(), mode, new_after_contents)?;
                 }
             }
             _ => {
@@ -547,18 +549,18 @@ fn revert_file_to_before_state(
     // If there are no hunk headers, then we want to revert the
     // whole file to the state it was in before tree.
     if let Some(before_entry) = before_entry {
-        builder.remove(change.path.as_bstr())?;
+        builder.remove(change.path_bytes.as_bstr())?;
         builder.upsert(
             change
-                .previous_path
+                .previous_path_bytes
                 .clone()
-                .unwrap_or(change.path.clone())
+                .unwrap_or(change.path_bytes.clone())
                 .as_bstr(),
             before_entry.mode().kind(),
             before_entry.object_id(),
         )?;
     } else {
-        builder.remove(change.path.as_bstr())?;
+        builder.remove(change.path_bytes.as_bstr())?;
     }
     Ok(())
 }
