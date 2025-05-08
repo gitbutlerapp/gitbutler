@@ -180,13 +180,8 @@
 				{#if !drawerIsFullScreen.current}
 					<SelectionView {projectId} {selectionId} />
 				{/if}
-				{#if current.branchName && current.commitId}
-					<UnappliedCommitView
-						{projectId}
-						branchName={current.branchName}
-						commitId={current.commitId}
-						remote={current.remote}
-					/>
+				{#if current.commitId}
+					<UnappliedCommitView {projectId} commitId={current.commitId} />
 				{:else if current.branchName}
 					{#if current.inWorkspace && current.stackId}
 						<BranchView

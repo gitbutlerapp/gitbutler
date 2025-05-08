@@ -5,8 +5,8 @@
 	import CommitHeader from '$components/v3/CommitHeader.svelte';
 	import CommitLine from '$components/v3/CommitLine.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
+	import { getCommitLabel } from '$components/v3/lib';
 	import { writeClipboard } from '$lib/backend/clipboard';
-	import { CommitStatus } from '$lib/commits/commit';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
@@ -16,69 +16,73 @@
 	type Props = {
 		projectId: string;
 		commitId: string;
-		branchName: string;
-		remote?: string;
 	};
 
-	const { projectId, commitId, branchName, remote }: Props = $props();
+	const { projectId, commitId }: Props = $props();
 
 	const [stackService] = inject(StackService);
 	const changesResult = $derived(stackService.commitChanges(projectId, commitId));
-	const commitResult = $derived(
-		stackService.unstackedCommitById(projectId, branchName, commitId, remote)
-	);
+	const commitResult = $derived(stackService.commitDetails(projectId, commitId));
 </script>
 
-<Drawer {projectId}>
-	{#snippet header()}
-		<div class="commit-view__header text-13">
-			<CommitLine commitStatus="Remote" diverged={false} tooltip={CommitStatus.Base} width={24} />
-			<div class="commit-view__header-title text-13">
-				<span class="text-semibold">Base commit:</span>
-
-				<Tooltip text="Copy commit SHA">
-					<button
-						type="button"
-						class="commit-view__header-sha"
-						onclick={() => {
-							writeClipboard(commitId, {
-								message: 'Commit SHA copied'
-							});
-						}}
-					>
-						<span>
-							{commitId.substring(0, 7)}
+<ReduxResult {projectId} result={commitResult.current}>
+	{#snippet children(commit)}
+		{@const label = getCommitLabel(commit)}
+		{@const commitState = commit.state}
+		<Drawer {projectId}>
+			{#snippet header()}
+				<div class="commit-view__header text-13">
+					<CommitLine
+						commitStatus={commitState.type}
+						diverged={commitState.type === 'LocalAndRemote' && commitState.subject !== commit.id}
+						tooltip={label}
+						width={24}
+					/>
+					<div class="commit-view__header-title text-13">
+						<span class="text-semibold">
+							{label}
 						</span>
-						<Icon name="copy-small" /></button
-					>
-				</Tooltip>
-			</div>
-		</div>
-	{/snippet}
 
-	<div class="commit-view">
-		<ReduxResult {projectId} result={commitResult.current}>
-			{#snippet children(commit)}
+						<Tooltip text="Copy commit SHA">
+							<button
+								type="button"
+								class="commit-view__header-sha"
+								onclick={() => {
+									writeClipboard(commitId, {
+										message: 'Commit SHA copied'
+									});
+								}}
+							>
+								<span>
+									{commitId.substring(0, 7)}
+								</span>
+								<Icon name="copy-small" /></button
+							>
+						</Tooltip>
+					</div>
+				</div>
+			{/snippet}
+
+			<div class="commit-view">
 				<CommitHeader commitMessage={commit.message} className="text-14 text-semibold text-body" />
 				<CommitDetails {commit} />
+			</div>
+			{#snippet filesSplitView()}
+				<ReduxResult {projectId} result={changesResult.current}>
+					{#snippet children(changes)}
+						<ChangedFiles
+							title="Changed files"
+							{projectId}
+							selectionId={{ type: 'commit', commitId }}
+							testId={TestId.BranchChangedFileList}
+							{changes}
+						/>
+					{/snippet}
+				</ReduxResult>
 			{/snippet}
-		</ReduxResult>
-	</div>
-
-	{#snippet filesSplitView()}
-		<ReduxResult {projectId} result={changesResult.current}>
-			{#snippet children(changes)}
-				<ChangedFiles
-					title="Changed files"
-					{projectId}
-					selectionId={{ type: 'commit', commitId }}
-					testId={TestId.BranchChangedFileList}
-					{changes}
-				/>
-			{/snippet}
-		</ReduxResult>
+		</Drawer>
 	{/snippet}
-</Drawer>
+</ReduxResult>
 
 <style>
 	.commit-view {
