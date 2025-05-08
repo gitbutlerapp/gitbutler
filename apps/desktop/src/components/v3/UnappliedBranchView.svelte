@@ -6,13 +6,13 @@
 	import ChangedFiles from '$components/v3/ChangedFiles.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
 	import KebabButton from '$components/v3/KebabButton.svelte';
-	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import type { BranchHeaderContextItem } from '$components/v3/BranchHeaderContextMenu.svelte';
+	import type { SelectionId } from '$lib/selection/key';
 
 	interface Props {
 		projectId: string;
@@ -25,7 +25,7 @@
 
 	const { projectId, stackId, branchName, remote, prNumber, onerror }: Props = $props();
 
-	const [stackService] = inject(StackService, BaseBranchService);
+	const [stackService] = inject(StackService);
 
 	const branchResult = $derived(
 		stackId
@@ -34,6 +34,21 @@
 	);
 	const changesResult = $derived(stackService.branchChanges({ projectId, branchName, remote }));
 	let headerMenuContext = $state<BranchHeaderContextItem>();
+
+	const selectionId: SelectionId = $derived.by(() => {
+		const bname = remote ? remote + '/' + branchName : branchName;
+		if (stackId) {
+			return {
+				type: 'branch',
+				branchName: bname,
+				stackId
+			};
+		}
+		return {
+			type: 'branch',
+			branchName: bname
+		};
+	});
 </script>
 
 <ReduxResult {projectId} result={branchResult.current} {onerror}>
@@ -99,10 +114,8 @@
 							title="All changed files"
 							projectId={env.projectId}
 							stackId={env.stackId}
-							selectionId={remote
-								? { type: 'branch', branchName: remote + '/' + branchName }
-								: { type: 'branch', branchName }}
 							testId={TestId.BranchChangedFileList}
+							{selectionId}
 							{changes}
 						/>
 					{/snippet}

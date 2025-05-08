@@ -55,13 +55,21 @@
 			return { type: 'commit', commitId: current.commitId };
 		}
 		if (current.branchName) {
+			const branchName = current.remote
+				? current.remote + '/' + current.branchName
+				: current.branchName;
+			if (current.stackId) {
+				return {
+					type: 'branch',
+					branchName,
+					stackId: current.stackId
+				};
+			}
 			return {
 				type: 'branch',
-				branchName: current.remote ? current.remote + '/' + current.branchName : current.branchName,
-				stackId: current.stackId
+				branchName
 			};
 		}
-		return undefined;
 	});
 
 	async function checkoutBranch() {
