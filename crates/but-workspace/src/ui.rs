@@ -149,6 +149,21 @@ pub struct Commit {
     pub author: Author,
 }
 
+impl TryFrom<gix::Commit<'_>> for Commit {
+    type Error = anyhow::Error;
+    fn try_from(commit: gix::Commit<'_>) -> Result<Self, Self::Error> {
+        Ok(Commit {
+            id: commit.id,
+            parent_ids: commit.parent_ids().map(|id| id.detach()).collect(),
+            message: commit.message_raw_sloppy().into(),
+            has_conflicts: false,
+            state: CommitState::LocalAndRemote(commit.id),
+            created_at: u128::try_from(commit.time()?.seconds)? * 1000,
+            author: commit.author()?.into(),
+        })
+    }
+}
+
 /// Commit that is only at the remote.
 /// Unlike the `Commit` struct, there is no knowledge of GitButler concepts like conflicted state etc.
 #[derive(Debug, Clone, Serialize)]

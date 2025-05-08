@@ -183,15 +183,7 @@ pub fn log_target_first_parent(
         }
         let commit = commit_info?.id().object()?.into_commit();
 
-        commits.push(ui::Commit {
-            id: commit.id,
-            parent_ids: commit.parent_ids().map(|id| id.detach()).collect(),
-            message: commit.message_raw_sloppy().into(),
-            has_conflicts: false,
-            state: ui::CommitState::LocalAndRemote(commit.id),
-            created_at: u128::try_from(commit.time()?.seconds)? * 1000,
-            author: commit.author()?.into(),
-        });
+        commits.push(commit.try_into()?);
     }
     Ok(commits)
 }

@@ -104,7 +104,7 @@ Cypress.on('window:before:load', (win) => {
 				return MOCK_UNIFIED_DIFF;
 			case 'git_get_global_config':
 				return await Promise.resolve(undefined);
-			case 'changes_in_commit':
+			case 'commit_details':
 				return MOCK_TREE_CHANGES;
 			case 'stack_details':
 				return MOCK_STACK_DETAILS;
