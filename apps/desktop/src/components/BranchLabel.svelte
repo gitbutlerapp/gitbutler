@@ -75,17 +75,23 @@
 	oncontextmenu={(e) => {
 		e.stopPropagation();
 	}}
-	onclick={() => {
+	onclick={(e) => {
+		if (readonly) return;
+		e.stopPropagation();
 		inputEl?.focus();
 		if ($autoSelectBranchNameFeature) {
 			inputEl?.select();
 		}
 	}}
+	onkeypress={(e) => {
+		if (readonly) return;
+		e.stopPropagation();
+	}}
 	onfocus={() => {
 		editableName = name;
 	}}
 	onkeydown={(e) => {
-		if (e.key === 'Enter' || e.key === 'Escape') {
+		if (e.key === 'Enter' || e.key === 'Escape' || e.key === 'Tab') {
 			inputEl?.blur();
 		}
 	}}
