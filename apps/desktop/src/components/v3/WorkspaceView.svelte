@@ -8,12 +8,14 @@
 	import ReviewView from '$components/v3/ReviewView.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
+	import { isParsedError } from '$lib/error/parser';
 	import { Focusable, FocusManager } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 
+	import { QueryStatus } from '@reduxjs/toolkit/query';
 	import type { SelectionId } from '$lib/selection/key';
 
 	interface Props {
@@ -42,6 +44,17 @@
 	const commitId = $derived(currentSelection?.commitId);
 	const upstream = $derived(!!currentSelection?.upstream);
 
+	const stackResult = $derived(stackId ? stackService.stackById(projectId, stackId) : undefined);
+	$effect(() => {
+		if (
+			stackResult?.current.status === QueryStatus.fulfilled &&
+			stackResult.current.data === undefined
+		) {
+			projectState.stackId.set(undefined);
+			stackSelection?.set(undefined);
+		}
+	});
+
 	const selectionId: SelectionId = $derived.by(() => {
 		if (focusGroup.current === Focusable.ChangedFiles && currentSelection && stackId) {
 			if (currentSelection.commitId) {
@@ -64,6 +77,14 @@
 
 	let leftDiv = $state<HTMLElement>();
 	let stacksViewEl = $state<HTMLElement>();
+
+	function onerror(err: unknown) {
+		// Clear selection if branch not found.
+		if (isParsedError(err) && err.code === 'errors.branch.notfound') {
+			stackSelection?.set(undefined);
+			console.warn('Workspace selection cleared');
+		}
+	}
 </script>
 
 <div class="workspace" use:focusable={{ id: Focusable.Workspace }}>
@@ -93,7 +114,7 @@
 		{#if drawerPage.current === 'new-commit'}
 			<NewCommitView {projectId} {stackId} />
 		{:else if drawerPage.current === 'branch' && stackId && branchName}
-			<BranchView {stackId} {projectId} {branchName} />
+			<BranchView {stackId} {projectId} {branchName} {onerror} />
 		{:else if drawerPage.current === 'review' && stackId && branchName}
 			<ReviewView {stackId} {projectId} {branchName} />
 		{:else if branchName && commitId && stackId}
@@ -106,6 +127,7 @@
 					commitId,
 					upstream
 				}}
+				{onerror}
 			/>
 		{/if}
 	</div>
