@@ -305,6 +305,11 @@ export default class MockBackend {
 		return getBaseBranchData();
 	}
 
+	public getBaseBranchName(): string {
+		const baseBranch = this.getBaseBranchData();
+		return baseBranch.branchName;
+	}
+
 	public getBaseBranchCommits(args: InvokeArgs | undefined): Commit[] {
 		if (!args || !isGetTargetCommitsParams(args)) {
 			throw new Error('Invalid arguments for getBaseBranchCommits');
@@ -336,8 +341,14 @@ export default class MockBackend {
 		const { stackId, branchName } = args;
 
 		if (!stackId) {
-			// TODO: Add mock data for unstacked branches
-			throw new Error('Not implemented yet: Mock data for unstacked branches');
+			return {
+				changes: [],
+				stats: {
+					linesAdded: 0,
+					linesRemoved: 0,
+					filesChanged: 0
+				}
+			};
 		}
 
 		const stackBranchChanges = this.branchChanges.get(stackId);

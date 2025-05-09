@@ -36,5 +36,14 @@ describe('Branches', () => {
 
 		// Be able to see the branches page
 		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/branches`);
+
+		// The target branch should be automatically selected
+		cy.getByTestId('target-commit-list-header')
+			.should('be.visible')
+			.should('contain', mockBackend.getBaseBranchName());
+
+		// The branch action buttons should not be visible
+		cy.getByTestId('branches-view-apply-branch-button').should('not.exist');
+		cy.getByTestId('branches-view-delete-local-branch-button').should('not.exist');
 	});
 });
