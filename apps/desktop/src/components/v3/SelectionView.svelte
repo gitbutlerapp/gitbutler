@@ -20,9 +20,7 @@
 
 	const channel = $derived(uiState.global.channel);
 
-	const selection = $derived(
-		selectionId ? idSelection.values(selectionId) : idSelection.values({ type: 'worktree' })
-	);
+	const selection = $derived(selectionId ? idSelection.values(selectionId) : []);
 </script>
 
 <div class="selection-view">
