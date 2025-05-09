@@ -15,6 +15,7 @@ import {
 	createMockBranchDetails,
 	isCreateCommitParams,
 	isCreateVirtualBranchFromBranchParams,
+	isDeleteLocalBranchParams,
 	isGetTargetCommitsParams,
 	isStackDetailsParams,
 	isUpdateCommitMessageParams,
@@ -408,7 +409,8 @@ export default class MockBackend {
 		const baseBranchName = baseBranch.branchName.replace(`${baseBranch.remoteName}/`, '');
 		if (baseBranchName === branchName) {
 			return createMockBranchDetails({
-				...baseBranch
+				...baseBranch,
+				name: baseBranch.branchName
 			});
 		}
 
@@ -431,6 +433,14 @@ export default class MockBackend {
 	public createVirtualBranchFromBranch(args: InvokeArgs | undefined) {
 		if (!args || !isCreateVirtualBranchFromBranchParams(args)) {
 			throw new Error('Invalid arguments for createVirtualBranchFromBranch');
+		}
+
+		// Do nothing for now
+	}
+
+	public deleteLocalBranch(args: InvokeArgs | undefined) {
+		if (!args || !isDeleteLocalBranchParams(args)) {
+			throw new Error('Invalid arguments for deleteLocalBranch');
 		}
 
 		// Do nothing for now

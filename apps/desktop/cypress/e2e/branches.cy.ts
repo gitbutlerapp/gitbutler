@@ -23,6 +23,7 @@ describe('Branches', () => {
 		mockCommand('create_virtual_branch_from_branch', (args) =>
 			mockBackend.createVirtualBranchFromBranch(args)
 		);
+		mockCommand('delete_local_branch', (params) => mockBackend.deleteLocalBranch(params));
 
 		cy.visit('/');
 
@@ -45,6 +46,11 @@ describe('Branches', () => {
 			.should('be.visible')
 			.should('contain', mockBackend.getBaseBranchName());
 
+		// The branch drawer should be visible
+		cy.getByTestId('unapplied-branch-drawer')
+			.should('be.visible')
+			.should('contain', mockBackend.getBaseBranchName());
+
 		// The branch action buttons should not be visible
 		cy.getByTestId('branches-view-apply-branch-button').should('not.exist');
 		cy.getByTestId('branches-view-delete-local-branch-button').should('not.exist');
@@ -62,6 +68,11 @@ describe('Branches', () => {
 			.should('be.visible')
 			.should('contain', mockBackend.branchListing.name);
 
+		// The branch drawer should be visible
+		cy.getByTestId('unapplied-branch-drawer')
+			.should('be.visible')
+			.should('contain', mockBackend.branchListing.name);
+
 		// The branch action buttons should be visible
 		cy.getByTestId('branches-view-apply-branch-button').should('be.visible').should('be.enabled');
 		cy.getByTestId('branches-view-delete-local-branch-button')
@@ -73,5 +84,67 @@ describe('Branches', () => {
 
 		// The workspace should be displayed
 		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace`);
+	});
+
+	it('should be able to delete a local branch', () => {
+		// Click on the first branch
+		cy.getByTestId('branch-list-card', mockBackend.branchListing.name)
+			.first()
+			.should('be.visible')
+			.click();
+
+		// The branch should be displayed
+		cy.getByTestId('branch-header')
+			.should('be.visible')
+			.should('contain', mockBackend.branchListing.name);
+
+		// The branch drawer should be visible
+		cy.getByTestId('unapplied-branch-drawer')
+			.should('be.visible')
+			.should('contain', mockBackend.branchListing.name);
+
+		// The branch action buttons should be visible
+		cy.getByTestId('branches-view-apply-branch-button').should('be.visible').should('be.enabled');
+		cy.getByTestId('branches-view-delete-local-branch-button')
+			.should('be.visible')
+			.should('be.enabled');
+
+		// Click on the delete branch button
+		cy.getByTestId('branches-view-delete-local-branch-button').click();
+
+		// The delete branch confirmation modal should be displayed
+		cy.getByTestId('delete-local-branch-confirmation-modal')
+			.should('be.visible')
+			.should('contain', mockBackend.branchListing.name);
+
+		// Click on the cancel button
+		cy.getByTestId('delete-local-branch-confirmation-modal-cancel').click();
+
+		// The delete branch confirmation modal should be closed
+		cy.getByTestId('delete-local-branch-confirmation-modal').should('not.exist');
+
+		// The branch drawer should be visible
+		cy.getByTestId('unapplied-branch-drawer')
+			.should('be.visible')
+			.should('contain', mockBackend.branchListing.name);
+
+		// Click on the delete branch button
+		cy.getByTestId('branches-view-delete-local-branch-button').click();
+
+		// The delete branch confirmation modal should be displayed
+		cy.getByTestId('delete-local-branch-confirmation-modal')
+			.should('be.visible')
+			.should('contain', mockBackend.branchListing.name);
+
+		// Click on the delete button
+		cy.getByTestId('delete-local-branch-confirmation-modal-delete').click();
+
+		// The delete branch confirmation modal should be closed
+		cy.getByTestId('delete-local-branch-confirmation-modal').should('not.exist');
+
+		// The branch drawer should be visible but should show the base branch name
+		cy.getByTestId('unapplied-branch-drawer')
+			.should('be.visible')
+			.should('contain', mockBackend.getBaseBranchName());
 	});
 });
