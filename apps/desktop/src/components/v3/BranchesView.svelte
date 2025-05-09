@@ -19,6 +19,7 @@
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
@@ -231,6 +232,7 @@
 					<div class="branches-actions">
 						{#if !current.isTarget}
 							<AsyncButton
+								testId={TestId.BranchesViewApplyBranchButton}
 								icon="workbench"
 								action={async () => {
 									await checkoutBranch();
@@ -241,6 +243,7 @@
 						{/if}
 
 						<AsyncButton
+							testId={TestId.BranchesViewDeleteLocalBranchButton}
 							kind="outline"
 							icon="bin-small"
 							action={async () => {

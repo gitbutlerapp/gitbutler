@@ -6,6 +6,7 @@
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
@@ -75,7 +76,7 @@
 	{#snippet children(baseBranch)}
 		{@const lastUpdate = baseBranch.recentCommits.at(0)?.createdAt.getTime() || 0}
 
-		<div class="target-branch-header">
+		<div data-testid={TestId.TargetCommitListHeader} class="target-branch-header">
 			<BranchHeaderIcon
 				lineColor={getColorFromBranchType('LocalAndRemote')}
 				iconName="home"
