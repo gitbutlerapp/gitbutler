@@ -205,7 +205,7 @@
 							contextElement={header}
 							onclick={(element) => (commitMenuContext = { data, position: { element } })}
 							oncontext={(coords) => (commitMenuContext = { data, position: { coords } })}
-							open={!!commitMenuContext}
+							activated={!!commitMenuContext?.position.element}
 						/>
 					{/if}
 				{/snippet}

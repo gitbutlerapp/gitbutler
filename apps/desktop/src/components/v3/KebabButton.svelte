@@ -5,13 +5,13 @@
 
 	type Props = {
 		flat?: boolean;
-		open: boolean;
+		activated: boolean;
 		contextElement: HTMLElement;
 		oncontext?: (position: { x: number; y: number }) => void;
 		onclick: (element: HTMLElement) => void;
 	};
 
-	const { flat, open, contextElement, onclick, oncontext }: Props = $props();
+	const { flat, activated, contextElement, onclick, oncontext }: Props = $props();
 
 	let visible = $state(false);
 	let buttonElement = $state<HTMLElement>();
@@ -56,7 +56,7 @@
 		type="button"
 		class="branch-menu-btn"
 		class:visible
-		class:open
+		class:activated
 		onclick={onClick}
 		data-testid={TestId.KebabMenuButton}
 	>
@@ -68,7 +68,7 @@
 		size="tag"
 		icon="kebab"
 		kind="ghost"
-		activated={open}
+		{activated}
 		onclick={onClick}
 	/>
 {/if}
@@ -84,7 +84,7 @@
 			opacity: 0.5;
 		}
 
-		&.open,
+		&.activated,
 		&:hover {
 			opacity: 1;
 		}
