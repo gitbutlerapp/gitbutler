@@ -281,3 +281,22 @@ export function isCreateVirtualBranchFromBranchParams(
 		((params as any).prNumber === undefined || typeof (params as any).prNumber === 'number')
 	);
 }
+
+export type DeleteLocalBranchParams = {
+	projectId: string;
+	refname: string;
+	givenName: string;
+};
+
+export function isDeleteLocalBranchParams(params: unknown): params is DeleteLocalBranchParams {
+	return (
+		typeof params === 'object' &&
+		params !== null &&
+		'projectId' in params &&
+		typeof params.projectId === 'string' &&
+		'refname' in params &&
+		typeof params.refname === 'string' &&
+		'givenName' in params &&
+		typeof params.givenName === 'string'
+	);
+}

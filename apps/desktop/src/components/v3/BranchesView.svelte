@@ -24,6 +24,8 @@
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import type { SidebarEntrySubject } from '$lib/branches/branchListing';
 	import type { SelectionId } from '$lib/selection/key';
@@ -91,13 +93,27 @@
 		goto(workspacePath(projectId));
 	}
 
-	async function deleteLocalBranch() {
+	async function deleteLocalBranch(branchName: string) {
+		const hasLocal = branchesState.current.hasLocal;
+		if (!hasLocal) {
+			return;
+		}
+
 		await stackService.deleteLocalBranch({
 			projectId,
-			refname: `refs/heads/${branchesState.current}`,
-			givenName: branchesState.current as string
+			refname: `refs/heads/${branchName}`,
+			givenName: branchName
 		});
+
+		// Unselect branch
+		branchesSelection.set({});
 		await baseBranchService.refreshBaseBranch(projectId);
+	}
+
+	let deleteLocalBranchModal = $state<Modal>();
+
+	function handleDeleteLocalBranch(branchName: string) {
+		deleteLocalBranchModal?.show(branchName);
 	}
 
 	function onerror(err: unknown) {
@@ -108,6 +124,39 @@
 		}
 	}
 </script>
+
+<Modal
+	testId={TestId.DeleteLocalBranchConfirmationModal}
+	bind:this={deleteLocalBranchModal}
+	title="Delete local branch"
+	width="small"
+	defaultItem={branchesState.current.branchName}
+	onSubmit={async (close, branchName: string | undefined) => {
+		if (branchName) {
+			await deleteLocalBranch(branchName);
+		}
+		close();
+	}}
+>
+	{#snippet children(branchName)}
+		<p>Are you sure you want to delete the local changes inside the branch {branchName}?</p>
+	{/snippet}
+
+	{#snippet controls(close)}
+		<Button
+			testId={TestId.DeleteLocalBranchConfirmationModal_Cancel}
+			kind="outline"
+			type="reset"
+			onclick={close}>Cancel</Button
+		>
+		<Button
+			testId={TestId.DeleteLocalBranchConfirmationModal_Delete}
+			style="error"
+			type="submit"
+			icon="bin">Delete</Button
+		>
+	{/snippet}
+</Modal>
 
 <ReduxResult {projectId} result={baseBranchResult.current}>
 	{#snippet children(baseBranch)}
@@ -232,6 +281,13 @@
 
 			<div class="branches-sideview">
 				{#if !inWorkspaceOrTargetBranch && someBranchSelected}
+					{@const doesNotHaveLocalTooltip = current.hasLocal
+						? undefined
+						: 'No local branch to delete'}
+					{@const doesNotHaveABranchNameTooltip = current.branchName
+						? undefined
+						: 'No branch selected to delete'}
+
 					<div class="branches-actions">
 						{#if !current.isTarget}
 							<AsyncButton
@@ -245,18 +301,20 @@
 							</AsyncButton>
 						{/if}
 
-						<AsyncButton
+						<Button
 							testId={TestId.BranchesViewDeleteLocalBranchButton}
 							kind="outline"
 							icon="bin-small"
-							action={async () => {
-								await deleteLocalBranch();
+							onclick={() => {
+								if (current.branchName) {
+									handleDeleteLocalBranch(current.branchName);
+								}
 							}}
-							disabled={!current.hasLocal}
-							tooltip={current.hasLocal ? undefined : 'No local branch to delete'}
+							disabled={!current.hasLocal || !current.branchName}
+							tooltip={doesNotHaveLocalTooltip ?? doesNotHaveABranchNameTooltip}
 						>
 							Delete local
-						</AsyncButton>
+						</Button>
 					</div>
 				{/if}
 

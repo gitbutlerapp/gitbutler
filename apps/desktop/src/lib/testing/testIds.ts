@@ -55,7 +55,11 @@ export enum TestId {
 	TargetCommitListHeader = 'target-commit-list-header',
 	BranchListCard = 'branch-list-card',
 	PRListCard = 'pr-list-card',
-	CurrentOriginListCard = 'current-origin-list-card'
+	CurrentOriginListCard = 'current-origin-list-card',
+	UnappliedBranchDrawer = 'unapplied-branch-drawer',
+	DeleteLocalBranchConfirmationModal = 'delete-local-branch-confirmation-modal',
+	DeleteLocalBranchConfirmationModal_Cancel = 'delete-local-branch-confirmation-modal-cancel',
+	DeleteLocalBranchConfirmationModal_Delete = 'delete-local-branch-confirmation-modal-delete'
 }
 
 export enum ElementId {
