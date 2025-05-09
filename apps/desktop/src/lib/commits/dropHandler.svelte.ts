@@ -9,6 +9,7 @@ import { LocalFile, RemoteFile } from '$lib/files/file';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { DiffSpec } from '$lib/hunks/hunk';
 import type { StackService } from '$lib/stacks/stackService.svelte';
+import type { UiState } from '$lib/state/uiState.svelte';
 
 /** Details about a commit beloning to a drop zone. */
 export type DzCommitData = {
@@ -26,6 +27,30 @@ export class CommitDropData {
 		readonly isHeadCommit: boolean,
 		readonly branchName?: string
 	) {}
+}
+
+export class StartCommitDzHandler implements DropzoneHandler {
+	constructor(
+		private uiState: UiState,
+		private stackId: string,
+		private projectId: string,
+		private stackService: StackService,
+		private branchName: string
+	) {}
+
+	accepts(data: unknown): boolean {
+		return data instanceof ChangeDropData && !data.isCommitted;
+	}
+	ondrop(_data: ChangeDropData): void {
+		// TODO - use the data to create a file/change selection
+
+		const projectState = $derived(this.uiState.project(this.projectId));
+		const stackState = $derived(this.stackId ? this.uiState.stack(this.stackId) : undefined);
+
+		// TODO - for some reason the overlays remains activated, seems to happen because of this rawerPage.set call
+		projectState.drawerPage.set('new-commit');
+		stackState?.selection.set({ branchName: this.branchName });
+	}
 }
 
 /** Handler that can move commits between stacks. */
