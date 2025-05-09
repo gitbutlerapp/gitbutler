@@ -1,6 +1,10 @@
 import MockBackend from '../mock/backend';
 import { getBaseBranchBehindData } from '../mock/baseBranch';
-import { createCommit, MOCK_BRANCH_DETAILS, MOCK_COMMIT_STATE_INTEGRATED } from '../mock/stacks';
+import {
+	createMockCommit,
+	MOCK_BRANCH_DETAILS,
+	MOCK_COMMIT_STATE_INTEGRATED
+} from '../mock/stacks';
 import type { BranchDetails, Stack, StackDetails } from '$lib/stacks/stack';
 import type { BranchStatusesResponse } from '$lib/upstream/types';
 
@@ -39,13 +43,13 @@ const MOCK_BRANCH_DETAILS_A: BranchDetails = {
 	remoteTrackingBranch: `origin/${MOCK_STACK_A_ID}`,
 	pushStatus: 'unpushedCommits',
 	commits: [
-		createCommit({ id: '1234123', message: 'Commit 1' }),
-		createCommit({
+		createMockCommit({ id: '1234123', message: 'Commit 1' }),
+		createMockCommit({
 			id: '456456456',
 			message: 'Commit 2',
 			state: { type: 'LocalAndRemote', subject: '77888777888' }
 		}),
-		createCommit({
+		createMockCommit({
 			id: '789789789',
 			message: 'Commit 3',
 			state: { type: 'LocalAndRemote', subject: '789789789' }
@@ -67,8 +71,12 @@ const MOCK_BRANCH_DETAILS_B: BranchDetails = {
 	remoteTrackingBranch: `origin/${MOCK_STACK_B_ID}`,
 	pushStatus: 'integrated',
 	commits: [
-		createCommit({ id: '1234123', message: 'Commit 1 (B)', state: MOCK_COMMIT_STATE_INTEGRATED }),
-		createCommit({
+		createMockCommit({
+			id: '1234123',
+			message: 'Commit 1 (B)',
+			state: MOCK_COMMIT_STATE_INTEGRATED
+		}),
+		createMockCommit({
 			id: '456456456',
 			message: 'Commit 2 (B)',
 			state: MOCK_COMMIT_STATE_INTEGRATED
@@ -83,7 +91,7 @@ const MOCK_BRANCH_DETAILS_B_D: BranchDetails = {
 	remoteTrackingBranch: 'origin/branch-d',
 	pushStatus: 'integrated',
 	commits: [
-		createCommit({
+		createMockCommit({
 			id: '456456456',
 			message: 'Commit 1 (branch-d)',
 			state: MOCK_COMMIT_STATE_INTEGRATED
@@ -105,8 +113,12 @@ const MOCK_BRANCH_DETAILS_C: BranchDetails = {
 	remoteTrackingBranch: `origin/${MOCK_STACK_C_ID}`,
 	pushStatus: 'integrated',
 	commits: [
-		createCommit({ id: '1234123', message: 'Commit 1 (C)', state: MOCK_COMMIT_STATE_INTEGRATED }),
-		createCommit({
+		createMockCommit({
+			id: '1234123',
+			message: 'Commit 1 (C)',
+			state: MOCK_COMMIT_STATE_INTEGRATED
+		}),
+		createMockCommit({
 			id: '456456456',
 			message: 'Commit 2 (C)',
 			state: MOCK_COMMIT_STATE_INTEGRATED

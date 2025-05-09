@@ -23,4 +23,11 @@ export const MOCK_BRANCH_LISTING_B: BranchListing = {
 	hasLocal: true
 };
 
+export function createMockBranchListing(override: Partial<BranchListing>): BranchListing {
+	return {
+		...MOCK_BRANCH_LISTING_A,
+		...override
+	};
+}
+
 export const MOCK_BRANCH_LISTINGS: BranchListing[] = [MOCK_BRANCH_LISTING_A, MOCK_BRANCH_LISTING_B];
