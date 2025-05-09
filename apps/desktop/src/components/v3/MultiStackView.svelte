@@ -91,6 +91,10 @@
 		</div>
 	{/if}
 
+	{#if $mode !== 'vertical' && lanesContentEl}
+		<Scrollbar whenToShow="hover" viewport={lanesContentEl} horz />
+	{/if}
+
 	<div
 		class="lanes-content hide-native-scrollbar dotted-pattern"
 		bind:this={lanesContentEl}
@@ -149,10 +153,6 @@
 					{/snippet}
 				</EmptyStatePlaceholder>
 			</div>
-		{/if}
-
-		{#if $mode !== 'vertical'}
-			<Scrollbar whenToShow="hover" viewport={lanesContentEl} horz />
 		{/if}
 	</div>
 </div>
