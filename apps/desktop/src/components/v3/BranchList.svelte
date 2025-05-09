@@ -236,7 +236,8 @@
 														(headerMenuContext = { data, position: { element } })}
 													oncontext={(coords) =>
 														(headerMenuContext = { data, position: { coords } })}
-													open={branchName === headerMenuContext?.data.branch.name}
+													activated={branchName === headerMenuContext?.data.branch.name &&
+														!!headerMenuContext.position.element}
 												/>
 											{/snippet}
 										</BranchHeader>
@@ -447,7 +448,8 @@
 																			position: { coords },
 																			data
 																		})}
-																	open={commit.id === commitMenuContext?.data.commitId}
+																	activated={commit.id === commitMenuContext?.data.commitId &&
+																		!!commitMenuContext.position.element}
 																/>
 															{/snippet}
 														</CommitRow>
