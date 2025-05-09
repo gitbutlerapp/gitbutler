@@ -5,7 +5,6 @@
 	import { lineIdsToHunkHeaders, type DiffHunk, type HunkHeader } from '$lib/hunks/hunk';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { ChangeSelectionService, type SelectedHunk } from '$lib/selection/changeSelection.svelte';
-	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import {
 		StackService,
 		type CreateCommitRequestWorktreeChanges
@@ -22,12 +21,7 @@
 	const { projectId, stackId }: Props = $props();
 
 	const stackService = getContext(StackService);
-	const [uiState, idSelection, worktreeService, diffService] = inject(
-		UiState,
-		IdSelection,
-		WorktreeService,
-		DiffService
-	);
+	const [uiState, worktreeService, diffService] = inject(UiState, WorktreeService, DiffService);
 	const changeSelection = getContext(ChangeSelectionService);
 
 	const [createCommitInStack, commitCreation] = stackService.createCommit;
@@ -84,7 +78,9 @@
 				branch: { name: draftBranchName }
 			});
 			finalStackId = stack.id;
+			projectState.stackId.set(finalStackId);
 			finalBranchName = stack.heads[0]?.name; // Updated to access the name property
+			uiState.global.draftBranchName.set(undefined);
 		}
 
 		if (!finalStackId) {
@@ -145,17 +141,27 @@
 
 		const newId = response.newCommit;
 
+		// Clear saved state for commit message editor.
+		projectState.commitTitle.set('');
+		projectState.commitDescription.set('');
+
+		// Close the drawer.
+		projectState.drawerPage.set(undefined);
+
+		// Select the newly created commit.
+		// Using `finalStackId` here because `stackState` might not have updated yet.
+		uiState.stack(finalStackId).selection.set({ branchName: finalBranchName, commitId: newId });
+
+		// Clear change/hunk selection used for creating the commit.
+		changeSelection.clear();
+
 		if (response.pathsToRejectedChanges.length > 0) {
 			showError(
 				'Some changes were not committed',
-				`The following files were not committed becuase they are locked to another branch\n${response.pathsToRejectedChanges.map(([_reason, path]) => path).join('\n')}`
+				'The following files were not committed becuase they are locked to another branch:\n' +
+					response.pathsToRejectedChanges.map(([_reason, path]) => path).join('\n')
 			);
 		}
-
-		uiState.project(projectId).drawerPage.set(undefined);
-		uiState.stack(finalStackId).selection.set({ branchName: finalBranchName, commitId: newId });
-		changeSelection.clear();
-		idSelection.clear({ type: 'worktree' });
 	}
 
 	const [createNewStack, newStackResult] = stackService.newStack;
@@ -171,9 +177,6 @@
 			await createCommit(message);
 		} catch (err: unknown) {
 			showError('Failed to commit', err);
-		} finally {
-			projectState.commitTitle.set('');
-			projectState.commitDescription.set('');
 		}
 	}
 
