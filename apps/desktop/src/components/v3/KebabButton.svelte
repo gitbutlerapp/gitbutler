@@ -4,7 +4,7 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 
 	type Props = {
-		flat: boolean;
+		flat?: boolean;
 		open: boolean;
 		contextElement: HTMLElement;
 		oncontext?: (position: { x: number; y: number }) => void;
@@ -13,15 +13,16 @@
 
 	const { flat, open, contextElement, onclick, oncontext }: Props = $props();
 
-	let activated = $state(false);
+	let visible = $state(false);
 	let buttonElement = $state<HTMLElement>();
 
 	function onMouseEnter() {
-		activated = true;
+		if (!flat) return;
+		visible = true;
 	}
 
 	function onMouseLeave() {
-		activated = false;
+		visible = false;
 	}
 
 	function onContextMenu(e: MouseEvent) {
@@ -54,7 +55,7 @@
 		bind:this={buttonElement}
 		type="button"
 		class="branch-menu-btn"
-		class:activated
+		class:visible
 		class:open
 		onclick={onClick}
 		data-testid={TestId.KebabMenuButton}
@@ -67,7 +68,7 @@
 		size="tag"
 		icon="kebab"
 		kind="ghost"
-		{activated}
+		activated={open}
 		onclick={onClick}
 	/>
 {/if}
@@ -79,7 +80,7 @@
 		color: var(--clr-text-1);
 		opacity: 0;
 
-		&.activated {
+		&.visible {
 			opacity: 0.5;
 		}
 

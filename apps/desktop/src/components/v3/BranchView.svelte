@@ -77,11 +77,10 @@
 					stackLength: branches.length
 				}}
 				<KebabButton
-					flat
 					contextElement={header}
 					onclick={(element) => (headerMenuContext = { data, position: { element } })}
 					oncontext={(coords) => (headerMenuContext = { data, position: { coords } })}
-					open={branchName === headerMenuContext?.data.branch.name}
+					open={!!headerMenuContext}
 				/>
 			{/snippet}
 

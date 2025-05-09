@@ -96,8 +96,6 @@
 		setMode('view');
 	}
 
-	// context menu
-	let commitOpenId = $state<string>();
 	let commitMenuContext = $state<CommitMenuContext>();
 
 	async function handleUncommit() {
@@ -204,11 +202,10 @@
 						: undefined}
 					{#if data}
 						<KebabButton
-							flat
 							contextElement={header}
 							onclick={(element) => (commitMenuContext = { data, position: { element } })}
 							oncontext={(coords) => (commitMenuContext = { data, position: { coords } })}
-							open={commit.id === commitOpenId}
+							open={!!commitMenuContext}
 						/>
 					{/if}
 				{/snippet}
