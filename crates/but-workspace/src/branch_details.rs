@@ -50,7 +50,14 @@ pub fn branch_details(
                 PushStatus::UnpushedCommits
             }
         }
-        None => PushStatus::CompletelyUnpushed,
+        None => {
+            // The branch can be remote even if we dont have the upstream set
+            if is_remote_head {
+                PushStatus::NothingToPush
+            } else {
+                PushStatus::CompletelyUnpushed
+            }
+        }
     };
 
     let merge_bases = repository.merge_bases(branch_oid, default_target.sha)?;
