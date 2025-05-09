@@ -109,6 +109,7 @@
 	{#snippet children(baseBranch)}
 		{@const lastCommit = baseBranch.recentCommits.at(0)}
 		{@const current = branchesState.current}
+		{@const someBranchSelected = current.branchName !== undefined}
 		{@const inWorkspaceOrTargetBranch =
 			current.inWorkspace || current.branchName === baseBranch.shortName}
 		{@const isStackOrNormalBranchPreview =
@@ -226,7 +227,7 @@
 			</div>
 
 			<div class="branches-sideview">
-				{#if !inWorkspaceOrTargetBranch}
+				{#if !inWorkspaceOrTargetBranch && someBranchSelected}
 					<div class="branches-actions">
 						{#if !current.isTarget}
 							<AsyncButton
