@@ -4,7 +4,6 @@
 
 use anyhow::anyhow;
 use anyhow::{Context, Result};
-use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oxidize::{GixRepositoryExt, git2_to_gix_object_id, gix_to_git2_oid};
 use gitbutler_repo::{
@@ -24,22 +23,20 @@ pub(crate) struct IsCommitIntegrated<'repo, 'cache, 'graph> {
 }
 
 impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
+    // TODO: use `gix_repo` for rev-walk once `hide()` is available.
     pub(crate) fn new(
-        ctx: &'repo CommandContext,
+        repo: &'repo git2::Repository,
         target: &Target,
         gix_repo: &'repo gix::Repository,
         graph: &'graph mut MergeBaseCommitGraph<'repo, 'cache>,
     ) -> anyhow::Result<Self> {
-        let remote_branch = ctx
-            .repo()
+        let remote_branch = repo
             .maybe_find_branch_by_refname(&target.branch.clone().into())?
             .ok_or(anyhow!("failed to get branch"))?;
         let remote_head = remote_branch.get().peel_to_commit()?;
-        let upstream_tree_id = ctx.repo().find_commit(remote_head.id())?.tree_id();
+        let upstream_tree_id = repo.find_commit(remote_head.id())?.tree_id();
 
-        let upstream_commits =
-            ctx.repo()
-                .log(remote_head.id(), LogUntil::Commit(target.sha), true)?;
+        let upstream_commits = repo.log(remote_head.id(), LogUntil::Commit(target.sha), true)?;
         let upstream_change_ids = upstream_commits
             .iter()
             .filter_map(|commit| commit.change_id())

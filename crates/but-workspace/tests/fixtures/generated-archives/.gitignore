@@ -25,3 +25,4 @@
 /mixed-hunk-modifications.tar
 /plain-modifications.tar
 /three-commits-with-line-offset-and-workspace-commit.tar
+/with_remotes_no_workspace.tar

@@ -212,7 +212,7 @@ pub fn stack_details(
     ) -> anyhow::Result<bool> {
         let upstream = branch.remote_reference(remote);
 
-        let reference = match ctx.repo().refname_to_id(&upstream) {
+        let upstream_reference = match ctx.repo().refname_to_id(&upstream) {
             Ok(reference) => reference,
             Err(err) if err.code() == git2::ErrorCode::NotFound => return Ok(false),
             Err(other) => return Err(other).context("failed to find upstream reference"),
@@ -220,7 +220,7 @@ pub fn stack_details(
 
         let upstream_commit = ctx
             .repo()
-            .find_commit(reference)
+            .find_commit(upstream_reference)
             .context("failed to find upstream commit")?;
 
         let branch_head = branch.head_oid(&ctx.gix_repo()?)?;
@@ -493,7 +493,7 @@ fn local_and_remote_commits(
         .context("failed to get default target")?;
     let cache = repo.commit_graph_if_enabled()?;
     let mut graph = repo.revision_graph(cache.as_ref());
-    let mut check_commit = IsCommitIntegrated::new(ctx, &default_target, repo, &mut graph)?;
+    let mut check_commit = IsCommitIntegrated::new(ctx.repo(), &default_target, repo, &mut graph)?;
 
     let branch_commits = stack_branch.commits(ctx, stack)?;
     let mut local_and_remote: Vec<ui::Commit> = vec![];
