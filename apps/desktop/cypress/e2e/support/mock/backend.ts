@@ -14,6 +14,7 @@ import { PROJECT_ID } from './projects';
 import {
 	createMockBranchDetails,
 	isCreateCommitParams,
+	isCreateVirtualBranchFromBranchParams,
 	isGetTargetCommitsParams,
 	isStackDetailsParams,
 	isUpdateCommitMessageParams,
@@ -425,5 +426,13 @@ export default class MockBackend {
 		}
 
 		throw new Error(`Branch with name ${branchName} not found`);
+	}
+
+	public createVirtualBranchFromBranch(args: InvokeArgs | undefined) {
+		if (!args || !isCreateVirtualBranchFromBranchParams(args)) {
+			throw new Error('Invalid arguments for createVirtualBranchFromBranch');
+		}
+
+		// Do nothing for now
 	}
 }

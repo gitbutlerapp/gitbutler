@@ -259,3 +259,25 @@ export function isGetTargetCommitsParams(params: unknown): params is GetTargetCo
 		typeof params.pageSize === 'number'
 	);
 }
+
+export type CreateVirtualBranchFromBranchParams = {
+	projectId: string;
+	branch: string;
+	remote?: string;
+	prNumber?: number;
+};
+
+export function isCreateVirtualBranchFromBranchParams(
+	params: unknown
+): params is CreateVirtualBranchFromBranchParams {
+	return (
+		typeof params === 'object' &&
+		params !== null &&
+		'projectId' in params &&
+		typeof params.projectId === 'string' &&
+		'branch' in params &&
+		typeof params.branch === 'string' &&
+		((params as any).remote === undefined || typeof (params as any).remote === 'string') &&
+		((params as any).prNumber === undefined || typeof (params as any).prNumber === 'number')
+	);
+}
