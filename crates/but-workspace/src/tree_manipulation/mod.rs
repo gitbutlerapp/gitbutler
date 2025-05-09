@@ -16,6 +16,7 @@ impl RelaPath for gix::diff::index::ChangeRef<'_, '_> {
 }
 
 pub(super) mod function;
+pub(super) mod move_between_commits;
 
 mod file;
 pub(crate) mod hunk;

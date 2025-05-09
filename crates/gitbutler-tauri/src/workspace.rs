@@ -1,5 +1,7 @@
 use crate::error::Error;
 use crate::from_json::HexHash;
+use crate::virtual_branches::commands::emit_vbranches;
+use crate::WindowState;
 use anyhow::Context;
 use but_hunk_dependency::ui::{
     hunk_dependencies_for_workspace_changes_by_worktree_dir, HunkDependencies,
@@ -7,7 +9,7 @@ use but_hunk_dependency::ui::{
 use but_settings::AppSettingsWithDiskSync;
 use but_workspace::commit_engine::StackSegmentId;
 use but_workspace::{commit_engine, ui::StackEntry};
-use gitbutler_branch_actions::BranchManagerExt;
+use gitbutler_branch_actions::{update_workspace_commit, BranchManagerExt};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, SnapshotExt};
@@ -224,6 +226,54 @@ pub fn discard_worktree_changes(
         tracing::warn!(?refused, "Failed to discard at least one hunk");
     }
     Ok(refused)
+}
+
+/// Discard all worktree changes that match the specs in `worktree_changes`.
+///
+/// If whole files should be discarded, be sure to not pass any [hunks](but_workspace::discard::ui::DiscardSpec::hunk_headers)
+///
+/// Returns the `worktree_changes` that couldn't be applied,
+#[allow(clippy::too_many_arguments)]
+#[tauri::command(async)]
+#[instrument(skip(projects, settings, windows), err(Debug))]
+pub fn move_changes_between_commits(
+    windows: State<'_, WindowState>,
+    projects: State<'_, projects::Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
+    project_id: ProjectId,
+    source_stack_id: StackId,
+    source_commit_id: HexHash,
+    destination_stack_id: StackId,
+    destination_commit_id: HexHash,
+    changes: Vec<but_workspace::DiffSpec>,
+) -> Result<(), Error> {
+    let project = projects.get(project_id)?;
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    let mut guard = project.exclusive_worktree_access();
+
+    let _ = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::DiscardChanges),
+        guard.write_permission(),
+    );
+    but_workspace::move_changes_between_commits(
+        &ctx,
+        source_stack_id,
+        source_commit_id.into(),
+        destination_stack_id,
+        destination_commit_id.into(),
+        changes,
+        settings.get()?.context_lines,
+    )?;
+
+    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    update_workspace_commit(&vb_state, &ctx)?;
+
+    let app_settings = ctx.app_settings();
+    if !app_settings.feature_flags.v3 {
+        emit_vbranches(&windows, project_id, app_settings);
+    }
+
+    Ok(())
 }
 
 /// This API allows the user to quickly "stash" a bunch of uncommitted changes - getting them out of the worktree.
