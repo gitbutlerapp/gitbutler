@@ -13,6 +13,7 @@
 		title?: string;
 		stackId?: string;
 		minHeight?: number;
+		noLeftPadding?: boolean;
 		header?: Snippet;
 		extraActions?: Snippet;
 		kebabMenu?: Snippet<[element: HTMLElement]>;
@@ -27,6 +28,7 @@
 		projectId,
 		stackId,
 		minHeight = 11,
+		noLeftPadding,
 		header,
 		extraActions,
 		kebabMenu,
@@ -73,10 +75,10 @@
 	use:focusable={{ id: Focusable.CommitEditor, parentId: Focusable.WorkspaceMiddle }}
 >
 	<div class="drawer-wrap">
-		<div bind:this={headerDiv} class="drawer-header">
+		<div bind:this={headerDiv} class="drawer-header" class:no-left-padding={noLeftPadding}>
 			<div class="drawer-header__title">
 				{#if title}
-					<h3 class="text-15 text-bold">
+					<h3 class="text-15 text-bold truncate">
 						{title}
 					</h3>
 				{/if}
@@ -294,5 +296,12 @@
 		flex-direction: column;
 		overflow: hidden;
 		min-width: 200px;
+	}
+
+	/* MODIFIERS */
+	.drawer-header {
+		&.no-left-padding {
+			padding-left: 0;
+		}
 	}
 </style>

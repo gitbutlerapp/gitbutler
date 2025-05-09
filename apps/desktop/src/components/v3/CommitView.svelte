@@ -96,8 +96,6 @@
 		setMode('view');
 	}
 
-	// context menu
-	let commitOpenId = $state<string>();
 	let commitMenuContext = $state<CommitMenuContext>();
 
 	async function handleUncommit() {
@@ -143,7 +141,12 @@
 				/>
 			</Drawer>
 		{:else}
-			<Drawer testId={TestId.CommitDrawer} projectId={env.projectId} stackId={env.stackId}>
+			<Drawer
+				testId={TestId.CommitDrawer}
+				projectId={env.projectId}
+				stackId={env.stackId}
+				noLeftPadding
+			>
 				{#snippet header()}
 					<div class="commit-view__header text-13">
 						{#if isLocalAndRemoteCommit(commit)}
@@ -199,11 +202,10 @@
 						: undefined}
 					{#if data}
 						<KebabButton
-							flat
 							contextElement={header}
 							onclick={(element) => (commitMenuContext = { data, position: { element } })}
 							oncontext={(coords) => (commitMenuContext = { data, position: { coords } })}
-							open={commit.id === commitOpenId}
+							open={!!commitMenuContext}
 						/>
 					{/if}
 				{/snippet}
@@ -290,7 +292,7 @@
 		display: flex;
 		gap: 8px;
 		height: 100%;
-		margin-left: -4px;
+		padding-left: 8px;
 	}
 
 	.commit-view__header-title {
