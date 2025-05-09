@@ -82,16 +82,15 @@
 			<ContextMenuSection>
 				<ContextMenuItem
 					label="Uncommit"
-					testId={TestId.UncommitMenuButton}
+					testId={TestId.CommitRowContextMenu_UncommitMenuButton}
 					onclick={(e: MouseEvent) => {
 						onUncommitClick?.(e);
 						close();
 					}}
 				/>
-				<!-- TODO: Re-enable the option once it works -->
 				<ContextMenuItem
 					label="Edit commit message"
-					disabled
+					testId={TestId.CommitRowContextMenu_EditMessageMenuButton}
 					onclick={(e: MouseEvent) => {
 						onEditMessageClick?.(e);
 						close();

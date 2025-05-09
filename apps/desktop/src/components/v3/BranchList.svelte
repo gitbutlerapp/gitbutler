@@ -96,7 +96,11 @@
 		if (branchName) stackState.selection.set({ branchName, commitId: undefined });
 	}
 
-	function startCommitMessageEdition() {}
+	function startCommitMessageEdition(branchName: string, commitId: string) {
+		stackState.selection.set({ branchName, commitId });
+		projectState.drawerPage.set(undefined);
+		projectState.editingCommitMessage.set(true);
+	}
 
 	async function handleEditPatch(args: {
 		commitId: string;
@@ -419,7 +423,8 @@
 																	commitStatus: commit.state.type,
 																	commitUrl: forge.current.commitUrl(commitId),
 																	onUncommitClick: () => handleUncommit(commit.id, branch.name),
-																	onEditMessageClick: startCommitMessageEdition,
+																	onEditMessageClick: () =>
+																		startCommitMessageEdition(branchName, commit.id),
 																	onPatchEditClick: () =>
 																		handleEditPatch({
 																			commitId: commit.id,
