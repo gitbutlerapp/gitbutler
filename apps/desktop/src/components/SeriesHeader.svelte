@@ -17,7 +17,7 @@
 	import { PatchSeries } from '$lib/branches/branch';
 	import { parentBranch } from '$lib/branches/virtualBranchService';
 	import { type CommitStatusType } from '$lib/commits/commit';
-	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
+	import { MoveCommitDzHandler } from '$lib/commits/dropHandler.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { FileService } from '$lib/files/fileService';
 	import { closedStateSync } from '$lib/forge/closedStateSync.svelte';

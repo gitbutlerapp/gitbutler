@@ -5,7 +5,7 @@
 	import BranchBadge from '$components/v3/BranchBadge.svelte';
 	import BranchHeaderContextMenu from '$components/v3/BranchHeaderContextMenu.svelte';
 	import BranchHeaderIcon from '$components/v3/BranchHeaderIcon.svelte';
-	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
+	import { MoveCommitDzHandler } from '$lib/commits/dropHandler.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';

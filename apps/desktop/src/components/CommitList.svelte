@@ -13,7 +13,7 @@
 		AmendCommitWithHunkDzHandler,
 		SquashCommitDzHandler,
 		type DzCommitData
-	} from '$lib/commits/dropHandler';
+	} from '$lib/commits/dropHandler.svelte';
 	import { findLastDivergentCommit } from '$lib/commits/utils';
 	import {
 		ReorderCommitDzFactory,
