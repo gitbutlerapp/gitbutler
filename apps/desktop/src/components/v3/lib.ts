@@ -23,7 +23,7 @@ export function getIconFromCommitState(
 		case 'LocalOnly':
 			return 'branch-local';
 		case 'LocalAndRemote':
-			return commitState.subject !== commitId ? 'branch-local' : 'branch-remote';
+			return commitState.subject !== commitId ? 'branch-shadow-commit' : 'branch-remote';
 		case 'Integrated':
 			return 'tick-small';
 		default:

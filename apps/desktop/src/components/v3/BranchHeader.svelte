@@ -34,6 +34,7 @@
 				trackingBranch?: string;
 				lastUpdatedAt?: number;
 				isTopBranch?: boolean;
+				isNewBranch?: boolean;
 				onclick: () => void;
 		  }
 		| {
@@ -136,11 +137,6 @@
 						disabled={nameUpdate.current.isLoading}
 						readonly={readonly || isPushed}
 						onChange={(name) => updateBranchName(name)}
-						onDblClick={() => {
-							if (isPushed) {
-								// renameBranchModal?.show();
-							}
-						}}
 					/>
 
 					{#if args.menu}
@@ -195,6 +191,7 @@
 		role="button"
 		class="branch-header"
 		class:selected={args.selected}
+		class:new-branch={args.isNewBranch}
 		onclick={args.onclick}
 		onkeypress={args.onclick}
 		tabindex="0"
@@ -208,12 +205,19 @@
 			<div class="name-line text-14 text-bold">
 				<BranchLabel name={branchName} fontSize="15" readonly={true} />
 			</div>
-		</div>
-		<div class="text-12 branch-header__details">
-			{#if args.lastUpdatedAt}
-				<span class="branch-header__item">
-					{getTimeAgo(new Date(args.lastUpdatedAt))}
-				</span>
+
+			{#if args.isNewBranch}
+				<p class="text-12 text-body branch-header__empty-state">
+					<span>There are no commits yet on this branch.</span>
+				</p>
+			{:else}
+				<div class="text-12 branch-header__details">
+					{#if args.lastUpdatedAt}
+						<span class="branch-header__item">
+							{getTimeAgo(new Date(args.lastUpdatedAt))}
+						</span>
+					{/if}
+				</div>
 			{/if}
 		</div>
 	</div>

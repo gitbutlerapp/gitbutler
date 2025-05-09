@@ -73,6 +73,28 @@
 		<MultiStackCreateNew {projectId} stackId={selectedId} noStacks={stacks.length === 0} />
 	</div>
 
+	{#if isNotEnoughHorzSpace && isNotEnoughVertSpace}
+		<div
+			class="pagination-container"
+			class:horz={$mode !== 'vertical'}
+			class:vert={$mode === 'vertical'}
+		>
+			<MultiStackPagination
+				length={stacks.length}
+				{visibleIndexes}
+				selectedBranchIndex={stacks.findIndex((s) => {
+					return s.id === selectedId;
+				})}
+				onclick={(index) =>
+					scrollToLane(lanesContentEl, index, $mode === 'vertical' ? 'vert' : 'horz')}
+			/>
+		</div>
+	{/if}
+
+	{#if $mode !== 'vertical' && lanesContentEl}
+		<Scrollbar whenToShow="hover" viewport={lanesContentEl} horz />
+	{/if}
+
 	<div
 		class="lanes-content hide-native-scrollbar dotted-pattern"
 		bind:this={lanesContentEl}
@@ -131,28 +153,6 @@
 					{/snippet}
 				</EmptyStatePlaceholder>
 			</div>
-		{/if}
-
-		{#if isNotEnoughHorzSpace && isNotEnoughVertSpace}
-			<div
-				class="pagination-container"
-				class:horz={$mode !== 'vertical'}
-				class:vert={$mode === 'vertical'}
-			>
-				<MultiStackPagination
-					length={stacks.length}
-					{visibleIndexes}
-					selectedBranchIndex={stacks.findIndex((s) => {
-						return s.id === selectedId;
-					})}
-					onclick={(index) =>
-						scrollToLane(lanesContentEl, index, $mode === 'vertical' ? 'vert' : 'horz')}
-				/>
-			</div>
-		{/if}
-
-		{#if $mode !== 'vertical'}
-			<Scrollbar whenToShow="hover" viewport={lanesContentEl} horz />
 		{/if}
 	</div>
 </div>
