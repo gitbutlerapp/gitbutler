@@ -22,7 +22,8 @@ const MOCK_PROJECT_UI_STATE: ProjectUiState = {
 	commitTitle: '',
 	commitDescription: '',
 	branchesSelection: { branchName: 'test' },
-	stackId: undefined
+	stackId: undefined,
+	editingCommitMessage: false
 };
 
 const MOCK_GLOBAL_UI_STATE: GlobalUiState = {
