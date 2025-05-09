@@ -55,7 +55,7 @@ export const MOCK_COMMIT: Commit = {
 	author: MOCK_AUTHOR
 };
 
-export function createCommit(override: Partial<Commit>): Commit {
+export function createMockCommit(override: Partial<Commit>): Commit {
 	return {
 		...MOCK_COMMIT,
 		...override
@@ -238,5 +238,24 @@ export function isCreateCommitParams(args: unknown): args is CreateCommitParams 
 		'worktreeChanges' in args &&
 		Array.isArray(args['worktreeChanges']) &&
 		args['worktreeChanges'].every((change) => isCreateCommitRequestWorktreeChanges(change))
+	);
+}
+
+export type GetTargetCommitsParams = {
+	projectId: string;
+	lastCommitId: string;
+	pageSize: number;
+};
+
+export function isGetTargetCommitsParams(params: unknown): params is GetTargetCommitsParams {
+	return (
+		typeof params === 'object' &&
+		params !== null &&
+		'projectId' in params &&
+		typeof params.projectId === 'string' &&
+		'lastCommitId' in params &&
+		typeof params.lastCommitId === 'string' &&
+		'pageSize' in params &&
+		typeof params.pageSize === 'number'
 	);
 }

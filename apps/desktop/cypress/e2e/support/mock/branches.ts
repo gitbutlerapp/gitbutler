@@ -23,4 +23,30 @@ export const MOCK_BRANCH_LISTING_B: BranchListing = {
 	hasLocal: true
 };
 
+export function createMockBranchListing(override: Partial<BranchListing>): BranchListing {
+	return {
+		...MOCK_BRANCH_LISTING_A,
+		...override
+	};
+}
+
 export const MOCK_BRANCH_LISTINGS: BranchListing[] = [MOCK_BRANCH_LISTING_A, MOCK_BRANCH_LISTING_B];
+
+export type GetBranchDetailsParams = {
+	projectId: string;
+	branchName: string;
+	remote?: string;
+};
+
+export function isGetBranchDetailsParams(params: unknown): params is GetBranchDetailsParams {
+	return (
+		typeof params === 'object' &&
+		params !== null &&
+		'projectId' in params &&
+		typeof (params as GetBranchDetailsParams).projectId === 'string' &&
+		'branchName' in params &&
+		typeof (params as GetBranchDetailsParams).branchName === 'string' &&
+		(typeof (params as GetBranchDetailsParams).remote === 'string' ||
+			(params as GetBranchDetailsParams).remote === undefined)
+	);
+}

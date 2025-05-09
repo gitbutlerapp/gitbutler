@@ -1,4 +1,6 @@
 export enum TestId {
+	NavigationWorkspaceButton = 'navigation-workspace-button',
+	NavigationBranchesButton = 'navigation-branches-button',
 	BranchNameLabel = 'branch-name-label',
 	BranchHeader = 'branch-header',
 	BranchHeaderContextMenu = 'branch-header-context-menu',
@@ -47,7 +49,13 @@ export enum TestId {
 	UnifiedDiffViewLockWarning = 'unified-diff-view-lock-warning',
 	ToastInfoMessage = 'toast-info-message',
 	Stack = 'stack',
-	StackHeader = 'stack-header'
+	StackHeader = 'stack-header',
+	BranchesViewApplyBranchButton = 'branches-view-apply-branch-button',
+	BranchesViewDeleteLocalBranchButton = 'branches-view-delete-local-branch-button',
+	TargetCommitListHeader = 'target-commit-list-header',
+	BranchListCard = 'branch-list-card',
+	PRListCard = 'pr-list-card',
+	CurrentOriginListCard = 'current-origin-list-card'
 }
 
 export enum ElementId {

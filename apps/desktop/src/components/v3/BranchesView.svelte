@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import BranchExplorer from '$components/v3/BranchExplorer.svelte';
@@ -17,8 +18,10 @@
 	import { isParsedError } from '$lib/error/parser';
 	import { Focusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
+	import { workspacePath } from '$lib/routes/routes.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
@@ -85,6 +88,7 @@
 			});
 			await baseBranchService.refreshBaseBranch(projectId);
 		}
+		goto(workspacePath(projectId));
 	}
 
 	async function deleteLocalBranch() {
@@ -109,6 +113,7 @@
 	{#snippet children(baseBranch)}
 		{@const lastCommit = baseBranch.recentCommits.at(0)}
 		{@const current = branchesState.current}
+		{@const someBranchSelected = current.branchName !== undefined}
 		{@const inWorkspaceOrTargetBranch =
 			current.inWorkspace || current.branchName === baseBranch.shortName}
 		{@const isStackOrNormalBranchPreview =
@@ -226,10 +231,11 @@
 			</div>
 
 			<div class="branches-sideview">
-				{#if !inWorkspaceOrTargetBranch}
+				{#if !inWorkspaceOrTargetBranch && someBranchSelected}
 					<div class="branches-actions">
 						{#if !current.isTarget}
 							<AsyncButton
+								testId={TestId.BranchesViewApplyBranchButton}
 								icon="workbench"
 								action={async () => {
 									await checkoutBranch();
@@ -240,6 +246,7 @@
 						{/if}
 
 						<AsyncButton
+							testId={TestId.BranchesViewDeleteLocalBranchButton}
 							kind="outline"
 							icon="bin-small"
 							action={async () => {

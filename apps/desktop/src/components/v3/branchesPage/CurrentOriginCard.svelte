@@ -1,5 +1,6 @@
 <script lang="ts">
 	import BranchesCardTemplate from '$components/v3/branchesPage/BranchesCardTemplate.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import SeriesLabelsRow from '@gitbutler/ui/SeriesLabelsRow.svelte';
 	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
 	import type { Author } from '$lib/commits/commit';
@@ -22,7 +23,7 @@
 	);
 </script>
 
-<BranchesCardTemplate {onclick} {selected}>
+<BranchesCardTemplate testId={TestId.CurrentOriginListCard} {onclick} {selected}>
 	{#snippet content()}
 		<SeriesLabelsRow fontSize="13" origin series={[originName]} />
 

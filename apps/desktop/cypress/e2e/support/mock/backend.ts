@@ -1,4 +1,5 @@
 import { getBaseBranchData } from './baseBranch';
+import { isGetBranchDetailsParams, MOCK_BRANCH_LISTINGS } from './branches';
 import {
 	bytesToStr,
 	isGetBranchChangesParams,
@@ -11,7 +12,9 @@ import {
 } from './changes';
 import { PROJECT_ID } from './projects';
 import {
+	createMockBranchDetails,
 	isCreateCommitParams,
+	isGetTargetCommitsParams,
 	isStackDetailsParams,
 	isUpdateCommitMessageParams,
 	MOCK_BRAND_NEW_BRANCH_NAME,
@@ -25,10 +28,12 @@ import {
 } from './stacks';
 import { MOCK_BRANCH_STATUSES_RESPONSE, MOCK_INTEGRATION_OUTCOME } from './upstreamIntegration';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
+import type { BranchListing } from '$lib/branches/branchListing';
+import type { Commit } from '$lib/branches/v3';
 import type { HunkDependencies } from '$lib/dependencies/dependencies';
 import type { TreeChange, TreeChanges, WorktreeChanges } from '$lib/hunks/change';
 import type { UnifiedDiff } from '$lib/hunks/diff';
-import type { Stack, StackDetails } from '$lib/stacks/stack';
+import type { BranchDetails, Stack, StackDetails } from '$lib/stacks/stack';
 import type { BranchStatusesResponse, IntegrationOutcome } from '$lib/upstream/types';
 import type { InvokeArgs } from '@tauri-apps/api/core';
 
@@ -52,11 +57,14 @@ export default class MockBackend {
 	protected worktreeChanges: WorktreeChanges;
 	protected unifiedDiffs: Map<string, UnifiedDiff>;
 	protected hunkDependencies: HunkDependencies;
+	protected branchListings: BranchListing[];
+	protected baseBranchCommits: Commit[];
 
 	stackId: string = MOCK_STACK_A_ID;
 	renamedCommitId: string = '424242424242';
 	commitOid: string = MOCK_COMMIT.id;
 	cannedBranchName = MOCK_BRAND_NEW_BRANCH_NAME;
+	branchListing: BranchListing;
 
 	constructor(private options: MockBackendOptions = {}) {
 		this.stacks = options.initalStacks ?? MOCK_STACKS;
@@ -69,6 +77,10 @@ export default class MockBackend {
 			diffs: [],
 			errors: []
 		};
+
+		this.branchListings = MOCK_BRANCH_LISTINGS;
+		this.branchListing = MOCK_BRANCH_LISTINGS[0]!;
+		this.baseBranchCommits = [];
 
 		this.stackDetails.set(MOCK_STACK_A_ID, structuredClone(MOCK_STACK_DETAILS));
 		this.stackDetails.set(MOCK_STACK_BRAND_NEW_ID, structuredClone(MOCK_STACK_DETAILS_BRAND_NEW));
@@ -291,8 +303,28 @@ export default class MockBackend {
 		throw new Error(`Commit with ID ${commitOid} not found`);
 	}
 
-	public getBaseBranchData(): unknown {
+	public getBaseBranchData() {
 		return getBaseBranchData();
+	}
+
+	public getBaseBranchName(): string {
+		const baseBranch = this.getBaseBranchData();
+		return baseBranch.branchName;
+	}
+
+	public getBaseBranchCommits(args: InvokeArgs | undefined): Commit[] {
+		if (!args || !isGetTargetCommitsParams(args)) {
+			throw new Error('Invalid arguments for getBaseBranchCommits');
+		}
+
+		const { lastCommitId, pageSize } = args;
+		const baseBranchCommits = this.baseBranchCommits;
+
+		const lastCommitIndex = baseBranchCommits.findIndex((commit) => commit.id === lastCommitId);
+		const startIndex = lastCommitIndex === -1 ? 0 : lastCommitIndex + 1;
+		const endIndex = Math.min(startIndex + pageSize, baseBranchCommits.length);
+
+		return baseBranchCommits.slice(startIndex, endIndex);
 	}
 
 	public getUpstreamIntegrationStatuses(): BranchStatusesResponse {
@@ -311,8 +343,14 @@ export default class MockBackend {
 		const { stackId, branchName } = args;
 
 		if (!stackId) {
-			// TODO: Add mock data for unstacked branches
-			throw new Error('Not implemented yet: Mock data for unstacked branches');
+			return {
+				changes: [],
+				stats: {
+					linesAdded: 0,
+					linesRemoved: 0,
+					filesChanged: 0
+				}
+			};
 		}
 
 		const stackBranchChanges = this.branchChanges.get(stackId);
@@ -349,5 +387,43 @@ export default class MockBackend {
 			throw new Error('Invalid arguments for getHunkDependencies');
 		}
 		return this.hunkDependencies;
+	}
+
+	public listBranches(args: InvokeArgs | undefined): BranchListing[] {
+		if (!args) {
+			throw new Error('Invalid arguments for listBranches');
+		}
+		return this.branchListings;
+	}
+
+	public getBranchDetails(args: InvokeArgs | undefined): BranchDetails {
+		if (!args || !isGetBranchDetailsParams(args)) {
+			throw new Error('Invalid arguments for getBranchDetails');
+		}
+
+		const { branchName } = args;
+
+		const baseBranch = this.getBaseBranchData();
+		const baseBranchName = baseBranch.branchName.replace(`${baseBranch.remoteName}/`, '');
+		if (baseBranchName === branchName) {
+			return createMockBranchDetails({
+				...baseBranch
+			});
+		}
+
+		const maybeBranchListing = this.branchListings.find((b) => b.name === branchName);
+
+		if (maybeBranchListing) {
+			return createMockBranchDetails({
+				...maybeBranchListing
+			});
+		}
+
+		for (const stack of this.stackDetails.values()) {
+			const branch = stack.branchDetails.find((b) => b.name === branchName);
+			if (branch) return branch;
+		}
+
+		throw new Error(`Branch with name ${branchName} not found`);
 	}
 }

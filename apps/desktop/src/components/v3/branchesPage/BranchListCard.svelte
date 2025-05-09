@@ -3,6 +3,7 @@
 	import { type BranchListing, BranchListingDetails } from '$lib/branches/branchListing';
 	import { BranchService } from '$lib/branches/branchService.svelte';
 	import { GitConfigService } from '$lib/config/gitConfigService';
+	import { TestId } from '$lib/testing/testIds';
 	import { UserService } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
 	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
@@ -107,7 +108,11 @@
 	);
 </script>
 
-<BranchesCardTemplate {selected} onclick={() => onclick?.({ listing: branchListing, pr })}>
+<BranchesCardTemplate
+	testId={TestId.BranchListCard}
+	{selected}
+	onclick={() => onclick?.({ listing: branchListing, pr })}
+>
 	{#snippet content()}
 		<div class="sidebar-entry__header">
 			<SeriesLabelsRow fontSize="13" series={filteredStackBranches} />
