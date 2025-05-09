@@ -24,6 +24,16 @@ export class GitHubChecksMonitor implements ChecksService {
 			}
 		);
 	}
+
+	async fetch(branchName: string, options?: QueryOptions) {
+		return await this.api.endpoints.listChecks.fetch(
+			{ ref: branchName },
+			{
+				transform: (result) => parseChecks(result),
+				...options
+			}
+		);
+	}
 }
 
 function parseChecks(data: ChecksResult): ChecksStatus | null {

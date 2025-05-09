@@ -53,6 +53,7 @@
 
 	const forge = getContext(DefaultForgeFactory);
 	const prService = $derived(forge.current.prService);
+	const checksService = $derived(forge.current.checks);
 
 	const prResult = $derived(prService?.get(prNumber));
 	const pr = $derived(prResult?.current.data);
@@ -148,6 +149,9 @@
 				onclick={() => {
 					prService?.fetch(pr.number, { forceRefetch: true });
 					contextMenuEl?.close();
+					if (hasChecks) {
+						checksService?.fetch(pr.sourceBranch, { forceRefetch: true });
+					}
 				}}
 			/>
 		</ContextMenuSection>
