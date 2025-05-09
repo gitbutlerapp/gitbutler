@@ -18,6 +18,7 @@
 		workspacePath
 	} from '$lib/routes/routes.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { TestId } from '$lib/testing/testIds';
 	import { User } from '$lib/user/user';
 	import { UserService } from '$lib/user/userService';
 	import { getContextStore } from '@gitbutler/shared/context';
@@ -52,6 +53,7 @@
 				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 			{/if}
 			<Button
+				testId={TestId.NavigationWorkspaceButton}
 				kind="outline"
 				onclick={() => goto(workspacePath(project.id))}
 				width={34}
@@ -78,6 +80,7 @@
 				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 			{/if}
 			<Button
+				testId={TestId.NavigationBranchesButton}
 				kind="outline"
 				onclick={() => goto(branchesPath(project.id))}
 				width={34}

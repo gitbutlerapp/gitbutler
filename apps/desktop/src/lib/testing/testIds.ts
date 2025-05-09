@@ -1,4 +1,6 @@
 export enum TestId {
+	NavigationWorkspaceButton = 'navigation-workspace-button',
+	NavigationBranchesButton = 'navigation-branches-button',
 	BranchNameLabel = 'branch-name-label',
 	BranchHeader = 'branch-header',
 	BranchHeaderContextMenu = 'branch-header-context-menu',
