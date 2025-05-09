@@ -15,6 +15,7 @@
 	import DeleteBranchModal from '$components/DeleteBranchModal.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import ContextMenu from '$components/v3/ContextMenu.svelte';
+	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { projectAiGenEnabled } from '$lib/config/config';
@@ -36,8 +37,14 @@
 
 	let { projectId, stackId, context = $bindable(), openId: openId = $bindable() }: Props = $props();
 
-	const [aiService, stackService, forge] = inject(AIService, StackService, DefaultForgeFactory);
+	const [aiService, stackService, forge, promptService] = inject(
+		AIService,
+		StackService,
+		DefaultForgeFactory,
+		PromptService
+	);
 	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
+	const [updateBranchNameMutation] = stackService.updateBranchName;
 
 	const aiGenEnabled = $derived(projectAiGenEnabled(projectId));
 
@@ -61,6 +68,27 @@
 
 	async function setAIConfigurationValid() {
 		aiConfigurationValid = await aiService.validateConfiguration();
+	}
+
+	async function generateBranchName(stackId: string, branchName: string) {
+		if (!$aiGenEnabled || !aiConfigurationValid) return;
+
+		const commitMessages = commits?.map((commit) => commit.message) ?? [];
+		const prompt = promptService.selectedBranchPrompt(projectId);
+		const newBranchName = await aiService.summarizeBranch({
+			type: 'commitMessages',
+			commitMessages,
+			branchTemplate: prompt
+		});
+
+		if (newBranchName && newBranchName !== branchName) {
+			updateBranchNameMutation({
+				projectId: projectId,
+				stackId,
+				branchName,
+				newName: newBranchName
+			});
+		}
 	}
 
 	$effect(() => {
@@ -145,12 +173,13 @@
 						tooltip={isConflicted ? 'This branch has conflicts' : undefined}
 					/>
 				{/if}
-				{#if $aiGenEnabled && aiConfigurationValid && !branch.remoteTrackingBranch}
+				{#if $aiGenEnabled && aiConfigurationValid && !branch.remoteTrackingBranch && stackId}
 					<ContextMenuItem
 						label="Generate branch name"
 						testId={TestId.BranchHeaderContextMenu_GenerateBranchName}
 						onclick={() => {
-							throw 'Not implemented';
+							generateBranchName(stackId, branchName);
+							close();
 						}}
 					/>
 				{/if}

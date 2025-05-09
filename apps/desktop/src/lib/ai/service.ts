@@ -67,10 +67,19 @@ interface SummarizeCommitOpts extends BaseAIServiceOpts {
 	branchName?: string;
 }
 
-interface SummarizeBranchOpts extends BaseAIServiceOpts {
+interface SummarizeBranchOptsByHunks extends BaseAIServiceOpts {
+	type: 'hunks';
 	hunks: DiffInput[];
 	branchTemplate?: Prompt;
 }
+
+interface SummarizeBranchOptsByCommitMessages extends BaseAIServiceOpts {
+	type: 'commitMessages';
+	commitMessages: string[];
+	branchTemplate?: Prompt;
+}
+
+type SummarizeBranchOpts = SummarizeBranchOptsByHunks | SummarizeBranchOptsByCommitMessages;
 
 interface SummarizePROpts extends BaseAIServiceOpts {
 	commitMessages: string[];
@@ -357,29 +366,31 @@ export class AIService {
 		return message;
 	}
 
-	async summarizeBranch({
-		hunks,
-		branchTemplate,
-		onToken
-	}: SummarizeBranchOpts): Promise<string | undefined> {
+	async summarizeBranch(params: SummarizeBranchOpts): Promise<string | undefined> {
 		const aiClient = await this.buildClient();
 
 		if (!aiClient) return;
 
 		const diffLengthLimit = await this.getDiffLengthLimitConsideringAPI();
-		const defaultedBranchTemplate = branchTemplate || aiClient.defaultBranchTemplate;
+		const defaultedBranchTemplate = params.branchTemplate || aiClient.defaultBranchTemplate;
+		const hunks = params.type === 'hunks' ? params.hunks : [];
+		const commitMessages = params.type === 'commitMessages' ? params.commitMessages : [];
 		const prompt = defaultedBranchTemplate.map((promptMessage) => {
 			if (promptMessage.role !== MessageRole.User) {
 				return promptMessage;
 			}
 
+			const content = promptMessage.content
+				.replaceAll('%{diff}', buildDiff(hunks, diffLengthLimit))
+				.replaceAll('%{commits}', commitMessages.slice().reverse().join('\n<###>\n'));
+
 			return {
 				role: MessageRole.User,
-				content: promptMessage.content.replaceAll('%{diff}', buildDiff(hunks, diffLengthLimit))
+				content
 			};
 		});
 
-		const message = (await aiClient.evaluate(prompt, { onToken })).trim();
+		const message = (await aiClient.evaluate(prompt, { onToken: params.onToken })).trim();
 
 		return message?.replaceAll(' ', '-').replaceAll('\n', '-') ?? '';
 	}

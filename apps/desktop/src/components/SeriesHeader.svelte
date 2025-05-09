@@ -182,6 +182,7 @@
 
 		const prompt = promptService.selectedBranchPrompt(projectId);
 		const newBranchName = await aiService.summarizeBranch({
+			type: 'hunks',
 			hunks,
 			branchTemplate: prompt
 		});
