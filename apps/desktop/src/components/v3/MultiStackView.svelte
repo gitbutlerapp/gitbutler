@@ -268,8 +268,11 @@
 		top: 50%;
 		left: 50%;
 		transform: translate(-50%, -50%);
+		width: 100%;
+		height: 100%;
 		display: flex;
 		flex-direction: column;
+		overflow: hidden;
 
 		&:after {
 			z-index: -1;
@@ -277,9 +280,9 @@
 			width: 600px;
 			height: 600px;
 			position: absolute;
-			top: -150px;
+			top: calc(50% - 50px);
 			left: 50%;
-			transform: translateX(-50%);
+			transform: translate(-50%, -50%);
 			border-radius: 100%;
 			/* background-color: rgba(0, 255, 255, 0.169); */
 			background: radial-gradient(var(--clr-bg-2) 0%, oklch(from var(--clr-bg-2) l c h / 0) 70%);
