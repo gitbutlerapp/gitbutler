@@ -300,7 +300,9 @@ describe('AIService', () => {
 
 			vi.spyOn(aiService, 'buildClient').mockReturnValue(Promise.resolve(undefined));
 
-			expect(await aiService.summarizeBranch({ hunks: exampleHunks })).toStrictEqual(undefined);
+			expect(await aiService.summarizeBranch({ type: 'hunks', hunks: exampleHunks })).toStrictEqual(
+				undefined
+			);
 		});
 
 		test('When the AI client returns a string with spaces, it replaces them with hypens', async () => {
@@ -312,7 +314,7 @@ describe('AIService', () => {
 				Promise.resolve(new DummyAIClient(clientResponse))
 			);
 
-			expect(await aiService.summarizeBranch({ hunks: exampleHunks })).toStrictEqual(
+			expect(await aiService.summarizeBranch({ type: 'hunks', hunks: exampleHunks })).toStrictEqual(
 				'with-spaces-included'
 			);
 		});
@@ -326,7 +328,7 @@ describe('AIService', () => {
 				Promise.resolve(new DummyAIClient(clientResponse))
 			);
 
-			expect(await aiService.summarizeBranch({ hunks: exampleHunks })).toStrictEqual(
+			expect(await aiService.summarizeBranch({ type: 'hunks', hunks: exampleHunks })).toStrictEqual(
 				'with-new-lines-included'
 			);
 		});
@@ -340,7 +342,7 @@ describe('AIService', () => {
 				Promise.resolve(new DummyAIClient(clientResponse))
 			);
 
-			expect(await aiService.summarizeBranch({ hunks: exampleHunks })).toStrictEqual(
+			expect(await aiService.summarizeBranch({ type: 'hunks', hunks: exampleHunks })).toStrictEqual(
 				'with-new-lines-included'
 			);
 		});

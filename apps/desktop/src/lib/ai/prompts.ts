@@ -69,7 +69,7 @@ export const SHORT_DEFAULT_BRANCH_TEMPLATE: Prompt = [
 	{
 		role: MessageRole.User,
 		content: `Please could you write a branch name for my changes.
-A branch name represent a brief description of the changes in the diff (branch).
+A branch name represent a brief description of the changes in the diff if given or a summary of all commit messages if given.
 Branch names should contain no whitespace and instead use dashes to separate words.
 Branch names should contain a maximum of 5 words.
 Only respond with the branch name.
@@ -78,6 +78,11 @@ Here is my git diff:
 \`\`\`
 %{diff}
 \`\`\`
+
+
+And here are the commit messages:
+
+%{commits}
 `
 	}
 ];
