@@ -36,7 +36,6 @@
 		horizontalAlign = 'right',
 		children,
 		onclose,
-		onopen,
 		onclick,
 		onkeypress,
 		menu,
@@ -49,7 +48,6 @@
 	let contextMenuWidth = $state(0);
 	let menuPosition = $state<{ x: number; y: number }>();
 	let savedMouseEvent: MouseEvent | undefined = $state();
-	let anchorElement = $state<HTMLElement>();
 
 	function getVerticalAlign(targetBoundingRect: DOMRect) {
 		if (['top', 'bottom'].includes(side)) {
@@ -95,33 +93,30 @@
 		};
 	}
 
-	function alignWithMouse(position: { x: number; y: number }) {
-		anchorElement = undefined;
-		menuPosition = position;
-		onopen?.();
-	}
-
-	function alignWithElement(element: HTMLElement) {
-		anchorElement = element;
-		menuPosition = getPositionFromAnchor(element);
-		onopen?.();
-	}
-
-	$effect(() => {
-		if (position.coords) {
-			alignWithMouse(position.coords);
-		} else if (position.element) {
-			alignWithElement(position.element);
+	function getPositionFromCoords(position: { x: number; y: number }) {
+		if (menuContainer) {
+			let x =
+				position.x + menuContainer?.offsetWidth > window.innerWidth
+					? position.x - menuContainer.offsetWidth
+					: position.x;
+			let y =
+				position.y + menuContainer?.offsetHeight > window.innerHeight
+					? position.y - menuContainer.offsetHeight
+					: position.y;
+			return { x, y };
 		}
-	});
+		return position;
+	}
 
-	export function close() {
+	function close() {
 		onclose?.();
 	}
 
 	function setAlignment() {
-		if (anchorElement) {
-			menuPosition = getPositionFromAnchor(anchorElement);
+		if (position.element) {
+			menuPosition = getPositionFromAnchor(position.element);
+		} else if (position.coords) {
+			menuPosition = getPositionFromCoords(position.coords);
 		}
 	}
 
@@ -204,7 +199,7 @@
 		use:focusTrap
 		autofocus
 		use:clickOutside={{
-			excludeElement: anchorElement,
+			excludeElement: position.element,
 			handler: () => close()
 		}}
 		bind:clientHeight={contextMenuHeight}
