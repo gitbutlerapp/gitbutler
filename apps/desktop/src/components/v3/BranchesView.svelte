@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import BranchExplorer from '$components/v3/BranchExplorer.svelte';
@@ -17,6 +18,7 @@
 	import { isParsedError } from '$lib/error/parser';
 	import { Focusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
+	import { workspacePath } from '$lib/routes/routes.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
@@ -86,6 +88,7 @@
 			});
 			await baseBranchService.refreshBaseBranch(projectId);
 		}
+		goto(workspacePath(projectId));
 	}
 
 	async function deleteLocalBranch() {
