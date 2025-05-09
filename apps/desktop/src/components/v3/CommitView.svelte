@@ -61,12 +61,17 @@
 	const [updateCommitMessage, messageUpdateResult] = stackService.updateCommitMessage;
 
 	type Mode = 'view' | 'edit';
-
-	let mode = $state<Mode>('view');
 	let commitMessageInput = $state<ReturnType<typeof CommitMessageEditor>>();
 
 	function setMode(newMode: Mode) {
-		mode = newMode;
+		switch (newMode) {
+			case 'edit':
+				projectState.editingCommitMessage.set(true);
+				break;
+			case 'view':
+				projectState.editingCommitMessage.set(false);
+				break;
+		}
 	}
 
 	async function editCommitMessage() {
@@ -115,7 +120,7 @@
 <ReduxResult {stackId} {projectId} result={commitResult.current} {onerror}>
 	{#snippet children(commit, env)}
 		{@const isConflicted = isCommit(commit) && commit.hasConflicts}
-		{#if mode === 'edit'}
+		{#if projectState.editingCommitMessage.current}
 			<Drawer
 				testId={TestId.EditCommitMessageDrawer}
 				projectId={env.projectId}

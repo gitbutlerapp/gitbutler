@@ -72,22 +72,25 @@
 
 {#if context?.data}
 	{@const { commitId, commitUrl, commitMessage } = context.data}
-	<ContextMenu position={context.position} onclose={() => (context = undefined)}>
+	<ContextMenu
+		position={context.position}
+		onclose={() => (context = undefined)}
+		testId={TestId.CommitRowContextMenu}
+	>
 		{#if context.data.commitStatus === 'LocalAndRemote' || context.data.commitStatus === 'LocalOnly'}
 			{@const { onUncommitClick, onEditMessageClick, onPatchEditClick } = context.data}
 			<ContextMenuSection>
 				<ContextMenuItem
 					label="Uncommit"
-					testId={TestId.UncommitMenuButton}
+					testId={TestId.CommitRowContextMenu_UncommitMenuButton}
 					onclick={(e: MouseEvent) => {
 						onUncommitClick?.(e);
 						close();
 					}}
 				/>
-				<!-- TODO: Re-enable the option once it works -->
 				<ContextMenuItem
 					label="Edit commit message"
-					disabled
+					testId={TestId.CommitRowContextMenu_EditMessageMenuButton}
 					onclick={(e: MouseEvent) => {
 						onEditMessageClick?.(e);
 						close();

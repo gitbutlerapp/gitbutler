@@ -42,6 +42,7 @@ export type ProjectUiState = {
 	commitTitle: string;
 	commitDescription: string;
 	branchesSelection: BranchesSelection;
+	editingCommitMessage: boolean;
 };
 
 export type GlobalUiState = {
@@ -78,7 +79,8 @@ export class UiState {
 		commitTitle: '',
 		commitDescription: '',
 		branchesSelection: {},
-		stackId: undefined
+		stackId: undefined,
+		editingCommitMessage: false
 	});
 
 	/** Properties that are globally scoped. */

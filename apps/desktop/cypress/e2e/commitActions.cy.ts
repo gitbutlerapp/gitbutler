@@ -86,6 +86,70 @@ describe('Commit Actions', () => {
 		expect(mockBackend.getDiff).to.have.callCount(0);
 	});
 
+	it('Should be able to rename a commit from the context menu', () => {
+		const originalCommitMessage = 'Initial commit';
+
+		const newCommitMessageTitle = 'New commit message title';
+		const newCommitMessageBody = 'New commit message body';
+
+		cy.spy(mockBackend, 'updateCommitMessage').as('updateCommitMessageSpy');
+		cy.spy(mockBackend, 'getDiff').as('getDiffSpy');
+
+		// Click on the first commit
+		cy.getByTestId('commit-row').first().should('contain', originalCommitMessage).rightclick();
+
+		// Should open the context menu
+		cy.getByTestId('commit-row-context-menu')
+			.should('be.visible')
+			.within(() => {
+				// Click on the edit message button
+				cy.getByTestId('commit-row-context-menu-edit-message-menu-btn')
+					.should('be.enabled')
+					.click();
+			});
+
+		// Should open the commit rename drawer
+		cy.getByTestId('edit-commit-message-drawer').should('be.visible');
+
+		// Should have the original commit message, and be focused
+		cy.getByTestId('commit-drawer-title-input')
+			.should('have.value', originalCommitMessage)
+			.should('be.visible')
+			.should('be.enabled')
+			.should('be.focused')
+			.clear()
+			.type(newCommitMessageTitle); // Type the new commit message title
+
+		// Type in a description
+		cy.getByTestId('commit-drawer-description-input')
+			.should('be.visible')
+			.click()
+			.type(newCommitMessageBody); // Type the new commit message body
+
+		// Click on the save button
+		cy.getByTestId('commit-drawer-action-button')
+			.should('be.visible')
+			.should('be.enabled')
+			.should('contain', 'Save')
+			.click();
+
+		cy.getByTestId('edit-commit-message-drawer').should('not.exist');
+
+		cy.getByTestId('commit-drawer-title').should('contain', newCommitMessageTitle);
+		cy.getByTestId('commit-drawer-description').should('contain', newCommitMessageBody);
+
+		// Should call the update commit message function
+		cy.get('@updateCommitMessageSpy').should('be.calledWith', {
+			projectId: PROJECT_ID,
+			stackId: mockBackend.stackId,
+			commitOid: mockBackend.commitOid,
+			message: `${newCommitMessageTitle}\n\n${newCommitMessageBody}`
+		});
+
+		// Should never get the diff information, because there are no partial changes being committed.
+		expect(mockBackend.getDiff).to.have.callCount(0);
+	});
+
 	it('Should be able to commit', () => {
 		const newCommitMessage = 'New commit message';
 		const newCommitMessageBody = 'New commit message body';
@@ -151,7 +215,7 @@ describe('Commit Actions', () => {
 			});
 
 		// Click on the uncommit option
-		cy.getByTestId('uncommit-menu-btn').click();
+		cy.getByTestId('commit-row-context-menu-uncommit-menu-btn').click();
 
 		// The drawer should be closed
 		cy.getByTestId('commit-drawer').should('not.exist');
