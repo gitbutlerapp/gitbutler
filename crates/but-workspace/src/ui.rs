@@ -1,4 +1,4 @@
-use bstr::{BStr, BString};
+use bstr::{BStr, BString, ByteSlice};
 use serde::Serialize;
 
 /// This code is a fork of [`gitbutler_branch_actions::author`] to avoid depending on the `gitbutler_branch_actions` crate.
@@ -7,7 +7,7 @@ mod author {
     use serde::Serialize;
 
     /// Represents the author of a commit.
-    #[derive(Debug, Serialize, Hash, Clone, PartialEq, Eq)]
+    #[derive(Serialize, Hash, Clone, PartialEq, Eq)]
     #[serde(rename_all = "camelCase")]
     pub struct Author {
         /// The name from the git commit signature
@@ -16,6 +16,12 @@ mod author {
         pub email: String,
         /// A URL to a gravatar image for the email from the commit signature
         pub gravatar_url: url::Url,
+    }
+
+    impl std::fmt::Debug for Author {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{} <{}>", self.name, self.email)
+        }
     }
 
     impl From<git2::Signature<'_>> for Author {
@@ -122,7 +128,7 @@ pub enum CommitState {
 }
 
 /// Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Commit {
     /// The OID of the commit.
@@ -164,9 +170,20 @@ impl TryFrom<gix::Commit<'_>> for Commit {
     }
 }
 
+impl std::fmt::Debug for Commit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Commit({short_hex}, {message:?})",
+            short_hex = self.id.to_hex_with_len(7),
+            message = self.message.trim().as_bstr()
+        )
+    }
+}
+
 /// Commit that is only at the remote.
 /// Unlike the `Commit` struct, there is no knowledge of GitButler concepts like conflicted state etc.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpstreamCommit {
     /// The OID of the commit.
@@ -181,6 +198,17 @@ pub struct UpstreamCommit {
     pub author: Author,
 }
 
+impl std::fmt::Debug for UpstreamCommit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "UpstreamCommit({short_hex}, {message:?})",
+            short_hex = self.id.to_hex_with_len(7),
+            message = self.message.trim().as_bstr()
+        )
+    }
+}
+
 /// Represents the pushable status for the current stack.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -191,7 +219,7 @@ pub enum PushStatus {
     UnpushedCommits,
     /// Can push, but requires a force push to the remote because commits were rewritten.
     UnpushedCommitsRequiringForce,
-    /// Completely unpushed
+    /// Completely unpushed - there is no remote tracking branch so Git never interacted with the remote.
     CompletelyUnpushed,
     /// Fully integrated, no changes to push.
     Integrated,
@@ -223,7 +251,7 @@ pub struct BranchDetails {
     /// If this branch is at the bottom of the stack, this is the merge base of the stack.
     #[serde(with = "gitbutler_serde::object_id")]
     pub base_commit: gix::ObjectId,
-    /// The pushable status for the branch
+    /// The pushable status for the branch.
     pub push_status: PushStatus,
     /// Last time, the branch was updated in Epoch milliseconds.
     pub last_updated_at: Option<u128>,

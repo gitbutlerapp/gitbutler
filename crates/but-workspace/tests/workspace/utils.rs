@@ -27,11 +27,19 @@ fn writable_scenario_inner(
 
 /// Provide a scenario but assure the returned repository will write objects to memory.
 pub fn read_only_in_memory_scenario(name: &str) -> anyhow::Result<gix::Repository> {
-    let root = gix_testtools::scripted_fixture_read_only(format!("scenario/{name}.sh"))
+    read_only_in_memory_scenario_named(name, "")
+}
+
+/// Provide a scenario but assure the returned repository will write objects to memory, in a subdirectory `dirname`.
+pub fn read_only_in_memory_scenario_named(
+    script_name: &str,
+    dirname: &str,
+) -> anyhow::Result<gix::Repository> {
+    let root = gix_testtools::scripted_fixture_read_only(format!("scenario/{script_name}.sh"))
         .map_err(anyhow::Error::from_boxed)?;
     let mut options = gix::open::Options::isolated();
     options.permissions.env = gix::open::permissions::Environment::all();
-    let repo = gix::open_opts(root, options)?.with_object_memory();
+    let repo = gix::open_opts(root.join(dirname), options)?.with_object_memory();
     Ok(repo)
 }
 
