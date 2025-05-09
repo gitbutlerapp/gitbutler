@@ -90,7 +90,7 @@ export function hasSettingsExtra(extra: unknown): extra is {
 		!!extra &&
 		typeof extra === 'object' &&
 		extra !== null &&
-		'settings' in extra &&
-		extra.settings instanceof SettingsService
+		'settingsService' in extra &&
+		extra.settingsService instanceof SettingsService
 	);
 }
