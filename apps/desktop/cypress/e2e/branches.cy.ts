@@ -20,6 +20,9 @@ describe('Branches', () => {
 		mockCommand('branch_details', (params) => mockBackend.getBranchDetails(params));
 		mockCommand('changes_in_branch', (args) => mockBackend.getBranchChanges(args));
 		mockCommand('target_commits', (args) => mockBackend.getBaseBranchCommits(args));
+		mockCommand('create_virtual_branch_from_branch', (args) =>
+			mockBackend.createVirtualBranchFromBranch(args)
+		);
 
 		cy.visit('/');
 
@@ -64,5 +67,11 @@ describe('Branches', () => {
 		cy.getByTestId('branches-view-delete-local-branch-button')
 			.should('be.visible')
 			.should('be.enabled');
+
+		// Click on the apply branch button
+		cy.getByTestId('branches-view-apply-branch-button').click();
+
+		// The workspace should be displayed
+		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace`);
 	});
 });
