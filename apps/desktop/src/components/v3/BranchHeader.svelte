@@ -137,11 +137,6 @@
 						disabled={nameUpdate.current.isLoading}
 						readonly={readonly || isPushed}
 						onChange={(name) => updateBranchName(name)}
-						onDblClick={() => {
-							if (isPushed) {
-								// renameBranchModal?.show();
-							}
-						}}
 					/>
 
 					{#if args.menu}
