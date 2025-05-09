@@ -24,6 +24,12 @@ describe('Branches', () => {
 		cy.visit('/');
 
 		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace`);
+
+		// Click on the branches button
+		cy.getByTestId('navigation-branches-button').should('be.visible').should('be.enabled').click();
+
+		// Be able to see the branches page
+		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/branches`);
 	});
 
 	afterEach(() => {
@@ -31,12 +37,6 @@ describe('Branches', () => {
 	});
 
 	it('should navigate to the branches page when clicking the branches button', () => {
-		// Click on the branches button
-		cy.getByTestId('navigation-branches-button').should('be.visible').should('be.enabled').click();
-
-		// Be able to see the branches page
-		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/branches`);
-
 		// The target branch should be automatically selected
 		cy.getByTestId('target-commit-list-header')
 			.should('be.visible')
@@ -45,5 +45,24 @@ describe('Branches', () => {
 		// The branch action buttons should not be visible
 		cy.getByTestId('branches-view-apply-branch-button').should('not.exist');
 		cy.getByTestId('branches-view-delete-local-branch-button').should('not.exist');
+	});
+
+	it('should navigate to the workspace after applying a branch', () => {
+		// Click on the first branch
+		cy.getByTestId('branch-list-card', mockBackend.branchListing.name)
+			.first()
+			.should('be.visible')
+			.click();
+
+		// The branch should be displayed
+		cy.getByTestId('branch-header')
+			.should('be.visible')
+			.should('contain', mockBackend.branchListing.name);
+
+		// The branch action buttons should be visible
+		cy.getByTestId('branches-view-apply-branch-button').should('be.visible').should('be.enabled');
+		cy.getByTestId('branches-view-delete-local-branch-button')
+			.should('be.visible')
+			.should('be.enabled');
 	});
 });

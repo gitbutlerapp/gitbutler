@@ -64,6 +64,7 @@ export default class MockBackend {
 	renamedCommitId: string = '424242424242';
 	commitOid: string = MOCK_COMMIT.id;
 	cannedBranchName = MOCK_BRAND_NEW_BRANCH_NAME;
+	branchListing: BranchListing;
 
 	constructor(private options: MockBackendOptions = {}) {
 		this.stacks = options.initalStacks ?? MOCK_STACKS;
@@ -78,6 +79,7 @@ export default class MockBackend {
 		};
 
 		this.branchListings = MOCK_BRANCH_LISTINGS;
+		this.branchListing = MOCK_BRANCH_LISTINGS[0]!;
 		this.baseBranchCommits = [];
 
 		this.stackDetails.set(MOCK_STACK_A_ID, structuredClone(MOCK_STACK_DETAILS));

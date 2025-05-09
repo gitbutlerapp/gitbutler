@@ -32,6 +32,7 @@ export default class UnappliedBranchesAndTargetCommits extends MockBackend {
 		this.branchListings = UNAPPLIED_BRANCH_NAMES.map((branchName) =>
 			createMockBranchListing({ name: branchName })
 		);
+		this.branchListing = this.branchListings[0]!;
 
 		this.baseBranchCommits = TARGET_COMMIT_MESSAGES.map((message, index) =>
 			createMockCommit({
