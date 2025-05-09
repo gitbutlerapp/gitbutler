@@ -6,12 +6,13 @@
 		details: Snippet;
 		selected?: boolean;
 		onclick?: () => void;
+		testId?: string;
 	};
 
-	const { content, details, selected, onclick }: Props = $props();
+	const { content, details, selected, onclick, testId }: Props = $props();
 </script>
 
-<div role="presentation" {onclick} class="branches-list-card" class:selected>
+<div data-testid={testId} role="presentation" {onclick} class="branches-list-card" class:selected>
 	<div class="branches-list-card__content">
 		{@render content()}
 	</div>

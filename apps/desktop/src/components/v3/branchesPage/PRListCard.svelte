@@ -2,6 +2,7 @@
 	import BranchesCardTemplate from '$components/v3/branchesPage/BranchesCardTemplate.svelte';
 	import { BranchService } from '$lib/branches/branchService.svelte';
 	import { GitConfigService } from '$lib/config/gitConfigService';
+	import { TestId } from '$lib/testing/testIds';
 	import { UserService } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
 	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
@@ -33,7 +34,7 @@
 	});
 </script>
 
-<BranchesCardTemplate {selected} onclick={() => onclick?.(pullRequest)}>
+<BranchesCardTemplate testId={TestId.PRListCard} {selected} onclick={() => onclick?.(pullRequest)}>
 	{#snippet content()}
 		<div class="sidebar-entry__header">
 			<h4 class="text-13 text-semibold">
