@@ -143,7 +143,12 @@
 				/>
 			</Drawer>
 		{:else}
-			<Drawer testId={TestId.CommitDrawer} projectId={env.projectId} stackId={env.stackId}>
+			<Drawer
+				testId={TestId.CommitDrawer}
+				projectId={env.projectId}
+				stackId={env.stackId}
+				noLeftPadding
+			>
 				{#snippet header()}
 					<div class="commit-view__header text-13">
 						{#if isLocalAndRemoteCommit(commit)}
@@ -290,7 +295,7 @@
 		display: flex;
 		gap: 8px;
 		height: 100%;
-		margin-left: -4px;
+		padding-left: 8px;
 	}
 
 	.commit-view__header-title {
