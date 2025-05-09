@@ -80,7 +80,7 @@
 					contextElement={header}
 					onclick={(element) => (headerMenuContext = { data, position: { element } })}
 					oncontext={(coords) => (headerMenuContext = { data, position: { coords } })}
-					open={!!headerMenuContext}
+					activated={!!headerMenuContext?.position.element}
 				/>
 			{/snippet}
 
