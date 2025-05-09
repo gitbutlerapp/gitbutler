@@ -69,6 +69,13 @@ export const MOCK_UPSTREAM_COMMIT: UpstreamCommit = {
 	author: MOCK_AUTHOR
 };
 
+export function createMockUpstreamCommit(override: Partial<UpstreamCommit>): UpstreamCommit {
+	return {
+		...MOCK_UPSTREAM_COMMIT,
+		...override
+	};
+}
+
 export const MOCK_BRANCH_DETAILS: BranchDetails = {
 	name: 'branch-a',
 	remoteTrackingBranch: null,
