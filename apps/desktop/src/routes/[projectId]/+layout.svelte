@@ -145,7 +145,7 @@
 	setContext(FocusManager, focusManager);
 
 	const worktreeService = getContext(WorktreeService);
-	const idSelection = new IdSelection(worktreeService);
+	const idSelection = new IdSelection(worktreeService, stackService);
 	setContext(IdSelection, idSelection);
 
 	let intervalId: any;

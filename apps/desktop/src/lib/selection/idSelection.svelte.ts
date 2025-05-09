@@ -6,6 +6,7 @@ import {
 	type SelectionId
 } from '$lib/selection/key';
 import { SvelteSet } from 'svelte/reactivity';
+import type { StackService } from '$lib/stacks/stackService.svelte';
 import type { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 
 /**
@@ -22,7 +23,10 @@ export class IdSelection {
 		}
 	>;
 
-	constructor(private worktreeService: WorktreeService) {
+	constructor(
+		private worktreeService: WorktreeService,
+		private stackService: StackService
+	) {
 		this.selections = new Map();
 		this.selections.set('worktree', {
 			entries: new SvelteSet<SelectedFileKey>()
@@ -96,7 +100,19 @@ export class IdSelection {
 			return fileSelection.path;
 		});
 
-		return this.worktreeService.getChangesById(projectId, filePaths);
+		switch (params.type) {
+			case 'worktree':
+				return this.worktreeService.getChangesById(projectId, filePaths);
+			case 'branch':
+				return this.stackService.branchChangesByPaths({
+					projectId,
+					stackId: params.stackId,
+					branchName: params.branchName,
+					paths: filePaths
+				});
+			case 'commit':
+				return this.stackService.commitChangesByPaths(projectId, params.commitId, filePaths);
+		}
 	}
 
 	get length() {
