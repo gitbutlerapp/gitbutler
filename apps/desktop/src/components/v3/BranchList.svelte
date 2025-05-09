@@ -96,9 +96,7 @@
 		if (branchName) stackState.selection.set({ branchName, commitId: undefined });
 	}
 
-	function openCommitMessageModal() {
-		// TODO: Implement openCommitMessageModal
-	}
+	function startCommitMessageEdition() {}
 
 	async function handleEditPatch(args: {
 		commitId: string;
@@ -421,7 +419,7 @@
 																	commitStatus: commit.state.type,
 																	commitUrl: forge.current.commitUrl(commitId),
 																	onUncommitClick: () => handleUncommit(commit.id, branch.name),
-																	onEditMessageClick: openCommitMessageModal,
+																	onEditMessageClick: startCommitMessageEdition,
 																	onPatchEditClick: () =>
 																		handleEditPatch({
 																			commitId: commit.id,
