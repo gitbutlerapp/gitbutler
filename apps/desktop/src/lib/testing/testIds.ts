@@ -28,6 +28,7 @@ export enum TestId {
 	UncommittedChanges_Header = 'uncommitted-changes-header',
 	StartCommitButton = 'start-commit-button',
 	CommitRow = 'commit-row',
+	CommitRowContextMenu = 'commit-row-context-menu',
 	NewCommitDrawer = 'new-commit-drawer',
 	StackDraft = 'stack-draft',
 	YourCommitGoesHere = 'your-commit-goes-here',

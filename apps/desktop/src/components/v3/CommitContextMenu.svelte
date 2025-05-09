@@ -72,7 +72,11 @@
 
 {#if context?.data}
 	{@const { commitId, commitUrl, commitMessage } = context.data}
-	<ContextMenu position={context.position} onclose={() => (context = undefined)}>
+	<ContextMenu
+		position={context.position}
+		onclose={() => (context = undefined)}
+		testId={TestId.CommitRowContextMenu}
+	>
 		{#if context.data.commitStatus === 'LocalAndRemote' || context.data.commitStatus === 'LocalOnly'}
 			{@const { onUncommitClick, onEditMessageClick, onPatchEditClick } = context.data}
 			<ContextMenuSection>
