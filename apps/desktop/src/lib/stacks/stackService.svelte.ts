@@ -1,7 +1,7 @@
 import { StackOrder } from '$lib/branches/branch';
 import { showToast } from '$lib/notifications/toasts';
 import { ClientState, type BackendApi } from '$lib/state/clientState.svelte';
-import { createSelectNth } from '$lib/state/customSelectors';
+import { createSelectByIds, createSelectNth } from '$lib/state/customSelectors';
 import {
 	invalidatesItem,
 	invalidatesList,
@@ -390,7 +390,7 @@ export class StackService {
 		const result = $derived(
 			this.api.endpoints.commitDetails.useQuery(
 				{ projectId, commitId },
-				{ transform: (result) => commitChangesSelectors.selectAll(result.changes) }
+				{ transform: (result) => changesSelectors.selectAll(result.changes) }
 			)
 		);
 		return result;
@@ -400,7 +400,17 @@ export class StackService {
 		const result = $derived(
 			this.api.endpoints.commitDetails.useQuery(
 				{ projectId, commitId },
-				{ transform: (result) => commitChangesSelectors.selectById(result.changes, path) }
+				{ transform: (result) => changesSelectors.selectById(result.changes, path) }
+			)
+		);
+		return result;
+	}
+
+	commitChangesByPaths(projectId: string, commitId: string, paths: string[]) {
+		const result = $derived(
+			this.api.endpoints.commitDetails.useQuery(
+				{ projectId, commitId },
+				{ transform: (result) => selectChangesByPaths(result.changes, paths) }
 			)
 		);
 		return result;
@@ -434,7 +444,7 @@ export class StackService {
 				branchName: args.branchName,
 				remote: args.remote
 			},
-			{ transform: (result) => branchChangesSelectors.selectAll(result) }
+			{ transform: (result) => changesSelectors.selectAll(result) }
 		);
 	}
 
@@ -452,7 +462,25 @@ export class StackService {
 				branchName: args.branchName,
 				remote: args.remote
 			},
-			{ transform: (result) => branchChangesSelectors.selectById(result, args.path) }
+			{ transform: (result) => changesSelectors.selectById(result, args.path) }
+		);
+	}
+
+	branchChangesByPaths(args: {
+		projectId: string;
+		stackId?: string;
+		branchName: string;
+		remote?: string;
+		paths: string[];
+	}) {
+		return this.api.endpoints.branchChanges.useQuery(
+			{
+				projectId: args.projectId,
+				stackId: args.stackId,
+				branchName: args.branchName,
+				remote: args.remote
+			},
+			{ transform: (result) => selectChangesByPaths(result, args.paths) }
 		);
 	}
 
@@ -883,10 +911,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					...providesItem(ReduxTag.CommitChanges, commitId)
 				],
 				transformResponse(rsp: CommitDetails) {
-					const changes = commitChangesAdapter.addMany(
-						commitChangesAdapter.getInitialState(),
-						rsp.changes
-					);
+					const changes = changesAdapter.addMany(changesAdapter.getInitialState(), rsp.changes);
 					return { changes: changes, details: rsp.commit };
 				}
 			}),
@@ -902,7 +927,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					...providesItem(ReduxTag.BranchChanges, stackId + branchName)
 				],
 				transformResponse(rsp: TreeChanges) {
-					return branchChangesAdapter.addMany(branchChangesAdapter.getInitialState(), rsp.changes);
+					return changesAdapter.addMany(changesAdapter.getInitialState(), rsp.changes);
 				}
 			}),
 			updateCommitMessage: build.mutation<
@@ -1315,17 +1340,13 @@ const upstreamCommitSelectors = {
 	selectNth: createSelectNth<UpstreamCommit>()
 };
 
-const commitChangesAdapter = createEntityAdapter<TreeChange, string>({
+const changesAdapter = createEntityAdapter<TreeChange, string>({
 	selectId: (change) => change.path
 });
 
-const commitChangesSelectors = commitChangesAdapter.getSelectors();
+const changesSelectors = changesAdapter.getSelectors();
 
-const branchChangesAdapter = createEntityAdapter<TreeChange, string>({
-	selectId: (change) => change.path
-});
-
-const branchChangesSelectors = branchChangesAdapter.getSelectors();
+const selectChangesByPaths = createSelectByIds<TreeChange>();
 
 const branchDetailsAdapter = createEntityAdapter<BranchDetails, string>({
 	selectId: (branch) => branch.name
