@@ -64,7 +64,7 @@ export type GlobalUiState = {
  * Stateful properties for the UI, with redux backed fine-grained reactivity.
  */
 export class UiState {
-	private state = $state<EntityState<UiStateVariable, string>>(uiStateSlice.getInitialState());
+	private state = $state.raw<EntityState<UiStateVariable, string>>(uiStateSlice.getInitialState());
 
 	/** Properties scoped to a specific stack. */
 	readonly stack = this.buildScopedProps<StackState>({
