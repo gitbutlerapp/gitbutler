@@ -142,6 +142,9 @@
 	style={checksTagInfo.style}
 	kind={checksTagInfo.icon === 'success-small' ? 'solid' : 'soft'}
 	tooltip={checksTagInfo.tooltip}
+	onclick={() => {
+		checksService?.fetch(branchName, { forceRefetch: true });
+	}}
 >
 	{checksTagInfo.text}
 </Badge>

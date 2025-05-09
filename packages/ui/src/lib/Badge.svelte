@@ -13,6 +13,7 @@
 		reversedDirection?: boolean;
 		tooltip?: string;
 		children?: Snippet;
+		onclick?: (e: MouseEvent) => void;
 	}
 
 	const {
@@ -22,12 +23,16 @@
 		icon,
 		reversedDirection,
 		tooltip,
-		children
+		children,
+		onclick
 	}: Props = $props();
 </script>
 
 <Tooltip text={tooltip}>
-	<div class="badge {style} {kind} {size}-size" class:reversedDirection>
+	<!-- A badge is not a clickable UI element, but with exceptions. No button styling desired. -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<div class="badge {style} {kind} {size}-size" class:reversedDirection {onclick}>
 		{#if children}
 			<span
 				class="badge__label text-bold"
