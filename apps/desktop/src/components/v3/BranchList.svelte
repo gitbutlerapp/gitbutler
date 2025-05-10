@@ -36,7 +36,7 @@
 		CommitDropData,
 		SquashCommitDzHandler,
 		type DzCommitData
-	} from '$lib/commits/dropHandler.svelte';
+	} from '$lib/commits/dropHandler';
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import {
 		ReorderCommitDzHandler,

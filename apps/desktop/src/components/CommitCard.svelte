@@ -9,7 +9,7 @@
 	import { Commit, DetailedCommit } from '$lib/commits/commit';
 	import { type CommitStatusType } from '$lib/commits/commit';
 	import { createCommitStore } from '$lib/commits/contexts';
-	import { CommitDropData } from '$lib/commits/dropHandler.svelte';
+	import { CommitDropData } from '$lib/commits/dropHandler';
 	import { persistedCommitMessage } from '$lib/config/config';
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { NON_DRAGGABLE } from '$lib/dragging/draggables';

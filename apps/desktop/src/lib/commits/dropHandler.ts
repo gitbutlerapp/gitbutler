@@ -8,6 +8,7 @@ import {
 import { LocalFile, RemoteFile } from '$lib/files/file';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { DiffSpec } from '$lib/hunks/hunk';
+import type { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 import type { StackService } from '$lib/stacks/stackService.svelte';
 import type { UiState } from '$lib/state/uiState.svelte';
 
@@ -31,25 +32,35 @@ export class CommitDropData {
 
 export class StartCommitDzHandler implements DropzoneHandler {
 	constructor(
-		private uiState: UiState,
-		private stackId: string,
-		private projectId: string,
-		private stackService: StackService,
-		private branchName: string
+		private args: {
+			uiState: UiState;
+			changeSelectionService: ChangeSelectionService;
+			stackId: string;
+			projectId: string;
+			branchName: string;
+		}
 	) {}
 
 	accepts(data: unknown): boolean {
 		return data instanceof ChangeDropData && !data.isCommitted;
 	}
-	ondrop(_data: ChangeDropData): void {
-		// TODO - use the data to create a file/change selection
+	ondrop(data: ChangeDropData): void {
+		const { projectId, stackId, branchName, uiState, changeSelectionService } = this.args;
 
-		const projectState = $derived(this.uiState.project(this.projectId));
-		const stackState = $derived(this.stackId ? this.uiState.stack(this.stackId) : undefined);
+		const projectState = uiState.project(projectId);
+		const stackState = stackId ? uiState.stack(stackId) : undefined;
 
-		// TODO - for some reason the overlays remains activated, seems to happen because of this rawerPage.set call
+		changeSelectionService.add({
+			type: 'full',
+			path: data.change.path,
+			pathBytes: data.change.pathBytes,
+			previousPathBytes:
+				data.change.status.type === 'Rename' ? data.change.status.subject.previousPathBytes : null
+		});
+
 		projectState.drawerPage.set('new-commit');
-		stackState?.selection.set({ branchName: this.branchName });
+		projectState.stackId.set(stackId);
+		stackState?.selection.set({ branchName: branchName });
 	}
 }
 

@@ -5,7 +5,8 @@
 	import BranchBadge from '$components/v3/BranchBadge.svelte';
 	import BranchHeaderContextMenu from '$components/v3/BranchHeaderContextMenu.svelte';
 	import BranchHeaderIcon from '$components/v3/BranchHeaderIcon.svelte';
-	import { MoveCommitDzHandler, StartCommitDzHandler } from '$lib/commits/dropHandler.svelte';
+	import { MoveCommitDzHandler, StartCommitDzHandler } from '$lib/commits/dropHandler';
+	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
@@ -73,7 +74,11 @@
 		...args
 	}: Props = $props();
 
-	const [stackService, uiState] = inject(StackService, UiState);
+	const [stackService, uiState, changeSelectionService] = inject(
+		StackService,
+		UiState,
+		ChangeSelectionService
+	);
 
 	const [updateName, nameUpdate] = stackService.updateBranchName;
 
@@ -101,13 +106,13 @@
 
 {#if args.type === 'stack-branch'}
 	{@const moveHandler = new MoveCommitDzHandler(stackService, args.stackId, projectId)}
-	{@const startCommitHandler = new StartCommitDzHandler(
+	{@const startCommitHandler = new StartCommitDzHandler({
 		uiState,
-		args.stackId,
+		changeSelectionService,
+		stackId: args.stackId,
 		projectId,
-		stackService,
 		branchName
-	)}
+	})}
 	<Dropzone handlers={[moveHandler, startCommitHandler]}>
 		{#snippet overlay({ hovered, activated, handler })}
 			{@const label = handler instanceof MoveCommitDzHandler ? 'Move here' : 'Start commit'}

@@ -1,4 +1,4 @@
-import { CommitDropData } from '$lib/commits/dropHandler.svelte';
+import { CommitDropData } from '$lib/commits/dropHandler';
 import type { StackOrder } from '$lib/branches/branch';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { StackService } from '$lib/stacks/stackService.svelte';

@@ -1,7 +1,7 @@
 import { key, readKey, type SelectionId } from '$lib/selection/key';
 import { get, type Readable } from 'svelte/store';
 import type { AnyCommit } from '$lib/commits/commit';
-import type { CommitDropData } from '$lib/commits/dropHandler.svelte';
+import type { CommitDropData } from '$lib/commits/dropHandler';
 import type { AnyFile } from '$lib/files/file';
 import type { TreeChange } from '$lib/hunks/change';
 import type { Hunk, HunkHeader, HunkLock } from '$lib/hunks/hunk';
