@@ -85,7 +85,7 @@
 			changeSelection.remove(change.path);
 		} else {
 			const { path, pathBytes } = change;
-			changeSelection.add({
+			changeSelection.upsert({
 				type: 'full',
 				path,
 				pathBytes,

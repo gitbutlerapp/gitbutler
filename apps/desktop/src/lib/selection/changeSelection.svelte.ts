@@ -76,8 +76,7 @@ export const changeSelectionSlice = createSlice({
 	selectors: { selectById, selectAll }
 });
 
-const { addOne, addMany, removeOne, removeMany, removeAll, upsertOne } =
-	changeSelectionSlice.actions;
+const { addMany, removeOne, removeMany, removeAll, upsertOne } = changeSelectionSlice.actions;
 
 function sortHunksInFile(file: SelectedFile) {
 	if (file.type === 'full') {
@@ -116,8 +115,8 @@ export class ChangeSelectionService {
 		return reactive(() => selected);
 	}
 
-	add(file: SelectedFile) {
-		this.dispatch(addOne(file));
+	upsert(file: SelectedFile) {
+		this.dispatch(upsertOne(file));
 	}
 
 	addMany(files: SelectedFile[]) {

@@ -42,21 +42,37 @@ export class StartCommitDzHandler implements DropzoneHandler {
 	) {}
 
 	accepts(data: unknown): boolean {
-		return data instanceof ChangeDropData && !data.isCommitted;
+		return (data instanceof ChangeDropData && !data.isCommitted) || data instanceof HunkDropDataV3;
 	}
-	ondrop(data: ChangeDropData): void {
+	ondrop(data: ChangeDropData | HunkDropDataV3): void {
 		const { projectId, stackId, branchName, uiState, changeSelectionService } = this.args;
 
 		const projectState = uiState.project(projectId);
 		const stackState = stackId ? uiState.stack(stackId) : undefined;
 
-		changeSelectionService.add({
-			type: 'full',
-			path: data.change.path,
-			pathBytes: data.change.pathBytes,
-			previousPathBytes:
-				data.change.status.type === 'Rename' ? data.change.status.subject.previousPathBytes : null
-		});
+		if (data instanceof ChangeDropData) {
+			changeSelectionService.upsert({
+				type: 'full',
+				path: data.change.path,
+				pathBytes: data.change.pathBytes,
+				previousPathBytes:
+					data.change.status.type === 'Rename' ? data.change.status.subject.previousPathBytes : null
+			});
+		} else if (data instanceof HunkDropDataV3) {
+			const fileSelection = changeSelectionService.getById(data.change.path).current;
+			const hunks = fileSelection?.type === 'partial' ? fileSelection.hunks.slice() : [];
+			hunks.push({ ...data.hunk, type: 'full' });
+			changeSelectionService.upsert({
+				type: 'partial',
+				path: data.change.path,
+				pathBytes: data.change.pathBytes,
+				previousPathBytes:
+					data.change.status.type === 'Rename'
+						? data.change.status.subject.previousPathBytes
+						: null,
+				hunks
+			});
+		}
 
 		projectState.drawerPage.set('new-commit');
 		projectState.stackId.set(stackId);
