@@ -1,56 +1,30 @@
-<svg
-  width="186"
-  height="74"
-  viewBox="0 0 186 74"
-  fill="none"
-  xmlns="http://www.w3.org/2000/svg"
->
+<svg xmlns="http://www.w3.org/2000/svg" width="193" height="72" viewBox="0 0 193 72" fill="none">
+  <path d="M86 1.00005H182C187.523 1.00005 192 5.4772 192 11V72H86V1.00005Z" fill="var(--clr-bg-1)" />
+  <path d="M109 45V52" stroke="var(--illustration-outline)" stroke-width="1.2" opacity="0.7" />
   <path
-    d="M1 12.6515C1 6.4927 5.9927 1.5 12.1515 1.5H45.6061C51.7649 1.5 56.7576 6.4927 56.7576 12.6515V27.1485H1V12.6515Z"
-    fill="var(--clr-bg-1)"
-    stroke="var(--illustration-outline)"
-    stroke-width="1.2"
-  />
-  <rect
-    x="14.3818"
-    y="11.5364"
-    width="28.9939"
-    height="5.57576"
-    fill="var(--illustration-outline)"
-  />
+    d="M99 16C99 12.6863 101.686 10 105 10H163C166.314 10 169 12.6863 169 16V39C169 42.3138 166.314 45 163 45H105C101.686 45 99 42.3138 99 39V16Z"
+    stroke="var(--illustration-outline)" stroke-width="1.2" opacity="0.7" />
+  <text fill="var(--illustration-outline)" xml:space="preserve" style="white-space: pre"
+    font-family="Inter"
+    font-size="11" font-weight="600" letter-spacing="0em">
+    <tspan x="107" y="26.5">Branch #1</tspan>
+  </text>
+  <path d="M169 72V58C169 54.6863 166.314 52 163 52H105C101.686 52 99 54.6863 99 58V72"
+    stroke="var(--illustration-outline)" stroke-width="1.2" opacity="0.7" />
   <path
-    d="M56.7576 12.6515C56.7576 6.4927 61.7503 1.5 67.9091 1.5H101.364C107.522 1.5 112.515 6.4927 112.515 12.6515V27.1485H56.7576V12.6515Z"
-    fill="var(--illustration-accent-bg)"
+    d="M86 1.00005H177.5M192 72V11C192 5.4772 187.523 1.00005 182 1.00005H177.5M177.5 1.00005V72"
+    stroke="var(--illustration-outline)" stroke-width="1.2" />
+  <path d="M90 72V1.00005H11C5.47715 1.00005 1 5.4772 1 11V72"
     stroke="var(--illustration-accent-outline)"
-    stroke-width="1.2"
-  />
-  <rect
-    x="70.1394"
-    y="11.5364"
-    width="28.9939"
-    height="5.57576"
-    fill="var(--illustration-accent-outline)"
-  />
+    stroke-width="1.2" />
+  <path opacity="0.1"
+    d="M10 16C10 12.6863 12.6863 10 16 10H75C78.3137 10 81 12.6863 81 16V56C81 59.3138 78.3137 62 75 62H16C12.6863 62 10 59.3138 10 56V16Z"
+    fill="var(--illustration-accent-outline)" />
   <path
-    d="M1 27H173.848C180.007 27 185 31.9927 185 38.1515V74H1V27Z"
-    fill="var(--clr-bg-1)"
-  />
-  <path
-    d="M80 40.5H185M80 53.5H185M80 65.5H185"
-    stroke="var(--illustration-outline)"
-    stroke-width="1.2"
-    opacity="0.4"
-  />
-
-  <path d="M80 27L80 74" stroke="var(--illustration-outline)" stroke-width="1.2" />
-  <path
-    opacity="0.3"
-    d="M10 40.4606C10 37.9971 11.9971 36 14.4606 36H66.5394C69.0029 36 71 37.9971 71 40.4606V74H10V40.4606Z"
-    fill="var(--illustration-outline)"
-  />
-  <path
-    d="M185 74V38.1515C185 31.9927 180.007 27 173.848 27H1V74"
-    stroke="var(--illustration-outline)"
-    stroke-width="1.2"
-  />
+    d="M10 16C10 12.6863 12.6863 10 16 10H75C78.3137 10 81 12.6863 81 16V56C81 59.3138 78.3137 62 75 62H16C12.6863 62 10 59.3138 10 56V16Z"
+    stroke="var(--illustration-accent-outline)" stroke-width="1.2" />
+  <text fill="var(--illustration-accent-outline)" xml:space="preserve" style="white-space: pre"
+    font-family="Inter" font-size="11" font-weight="600" letter-spacing="0em">
+    <tspan x="18" y="26.5">Branch #2</tspan>
+  </text>
 </svg>
