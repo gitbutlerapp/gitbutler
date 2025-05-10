@@ -1,0 +1,3 @@
+ancestorEntries = ["apps/desktop/src/lib/commits/dropHandler.ts"]
+ourEntries = ["apps/desktop/src/lib/commits/dropHandler.ts"]
+theirEntries = ["apps/desktop/src/lib/commits/dropHandler.ts"]
