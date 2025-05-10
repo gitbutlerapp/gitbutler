@@ -134,11 +134,13 @@
 		});
 	});
 
+	let isCreatingReview = $state<boolean>(false);
 	const isExecuting = $derived(
 		branchPublishing.current.isLoading ||
 			PRNumberUpdate.current.isLoading ||
 			stackPush.current.isLoading ||
-			aiIsLoading
+			aiIsLoading ||
+			isCreatingReview
 	);
 
 	const canPublishBR = $derived(!!($canPublish && branch?.name && !branch.reviewId));
@@ -191,6 +193,9 @@
 		if (!branch) return;
 		if (!$user) return;
 
+		isCreatingReview = true;
+		await tick();
+
 		const upstreamBranchName = await pushIfNeeded();
 
 		let reviewId: string | undefined;
@@ -229,6 +234,7 @@
 		prBody.reset();
 		prTitle.reset();
 
+		isCreatingReview = false;
 		onClose();
 	}
 
