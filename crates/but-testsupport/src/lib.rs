@@ -108,6 +108,15 @@ pub fn visualize_commit_graph(
     Ok(log.stdout.to_str().expect("no illformed UTF-8").to_string())
 }
 
+/// Produce a graph of all commits reachable from all refs.
+pub fn visualize_commit_graph_all(repo: &gix::Repository) -> std::io::Result<String> {
+    let log = git(repo)
+        .args(["log", "--oneline", "--graph", "--decorate", "--all"])
+        .output()?;
+    assert!(log.status.success());
+    Ok(log.stdout.to_str().expect("no illformed UTF-8").to_string())
+}
+
 /// Run a condensed status on `repo`.
 pub fn git_status(repo: &gix::Repository) -> std::io::Result<String> {
     let out = git(repo).args(["status", "--porcelain"]).output()?;
