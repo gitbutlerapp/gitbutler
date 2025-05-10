@@ -8,7 +8,9 @@ import {
 import { LocalFile, RemoteFile } from '$lib/files/file';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { DiffSpec } from '$lib/hunks/hunk';
+import type { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 import type { StackService } from '$lib/stacks/stackService.svelte';
+import type { UiState } from '$lib/state/uiState.svelte';
 
 /** Details about a commit beloning to a drop zone. */
 export type DzCommitData = {
@@ -26,6 +28,40 @@ export class CommitDropData {
 		readonly isHeadCommit: boolean,
 		readonly branchName?: string
 	) {}
+}
+
+export class StartCommitDzHandler implements DropzoneHandler {
+	constructor(
+		private args: {
+			uiState: UiState;
+			changeSelectionService: ChangeSelectionService;
+			stackId: string;
+			projectId: string;
+			branchName: string;
+		}
+	) {}
+
+	accepts(data: unknown): boolean {
+		return data instanceof ChangeDropData && !data.isCommitted;
+	}
+	ondrop(data: ChangeDropData): void {
+		const { projectId, stackId, branchName, uiState, changeSelectionService } = this.args;
+
+		const projectState = uiState.project(projectId);
+		const stackState = stackId ? uiState.stack(stackId) : undefined;
+
+		changeSelectionService.add({
+			type: 'full',
+			path: data.change.path,
+			pathBytes: data.change.pathBytes,
+			previousPathBytes:
+				data.change.status.type === 'Rename' ? data.change.status.subject.previousPathBytes : null
+		});
+
+		projectState.drawerPage.set('new-commit');
+		projectState.stackId.set(stackId);
+		stackState?.selection.set({ branchName: branchName });
+	}
 }
 
 /** Handler that can move commits between stacks. */

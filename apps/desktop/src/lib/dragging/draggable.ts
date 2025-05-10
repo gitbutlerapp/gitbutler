@@ -187,17 +187,9 @@ function setupDragHandlers(
 	}
 
 	function handleDragEnd(e: DragEvent) {
+		dragHandle = null;
 		e.stopPropagation();
-		if (clone) clone.remove();
-		selectedElements.forEach((el) => el.classList.remove(DRAGGING_CLASS));
-		Array.from(dropzoneRegistry.values()).forEach((dropzone) => {
-			dropzone.deactivate();
-		});
-
-		if (timeoutId) {
-			clearTimeout(timeoutId);
-			timeoutId = undefined;
-		}
+		deactivateDropzones();
 	}
 
 	function setup(newOpts: DraggableConfig) {
@@ -212,11 +204,29 @@ function setupDragHandlers(
 	}
 
 	function clean() {
+		if (dragHandle) {
+			// If drop handler is updated/destroyed before drag end.
+			deactivateDropzones();
+		}
+
 		node.draggable = false;
 		node.removeEventListener('dragstart', handleDragStart);
 		node.removeEventListener('drag', handleDrag);
 		node.removeEventListener('dragend', handleDragEnd);
 		node.removeEventListener('mousedown', handleMouseDown, { capture: false });
+	}
+
+	function deactivateDropzones() {
+		selectedElements.forEach((el) => el.classList.remove(DRAGGING_CLASS));
+		if (clone) clone.remove();
+		Array.from(dropzoneRegistry.values()).forEach((dropzone) => {
+			dropzone.deactivate();
+		});
+
+		if (timeoutId) {
+			clearTimeout(timeoutId);
+			timeoutId = undefined;
+		}
 	}
 
 	setup(opts);
