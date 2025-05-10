@@ -57,7 +57,7 @@ export default class LineSelection {
 		}
 
 		if (selection === undefined) {
-			this.changeSelection.add({
+			this.changeSelection.upsert({
 				type: 'partial',
 				...this.pathData,
 				hunks: [{ type: 'partial', ...hunk, lines: linesSelected }]

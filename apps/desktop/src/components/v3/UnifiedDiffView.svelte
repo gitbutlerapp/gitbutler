@@ -102,7 +102,7 @@
 		}
 
 		if (select) {
-			changeSelection.add({
+			changeSelection.upsert({
 				type: 'partial',
 				...pathData,
 				hunks: [{ type: 'full', ...hunk }]

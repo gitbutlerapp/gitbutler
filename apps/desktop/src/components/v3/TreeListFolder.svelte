@@ -36,7 +36,7 @@
 		const changes = getAllChanges(node);
 		for (const change of changes) {
 			if ((e.currentTarget as HTMLInputElement)?.checked) {
-				selectionService.add({
+				selectionService.upsert({
 					type: 'full',
 					path: change.path,
 					pathBytes: change.pathBytes,
