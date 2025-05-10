@@ -1,0 +1,47 @@
+[package]
+name = "gitbutler-mcp"
+version = "0.1.0"
+edition = "2021"
+description = "Model Context Protocol server for GitButler"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[[bin]]
+name = "gitbutler-mcp"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1", features = [
+  "macros",
+  "rt",
+  "rt-multi-thread",
+  "io-std",
+  "signal",
+] }
+anyhow = "1.0"
+async-trait = "0.1"
+clap = { version = "4.4", features = ["derive"] }
+rmcp = { version = "0.1.5", features = ["server", "transport-io"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = [
+  "env-filter",
+  "std",
+  "fmt",
+] }
+gitbutler-oplog.workspace = true
+gitbutler-project.workspace = true
+gitbutler-reference.workspace = true
+gitbutler-branch-actions.workspace = true
+gitbutler-command-context.workspace = true
+gitbutler-branch.workspace = true
+gitbutler-diff.workspace = true
+but-settings.workspace = true
+gitbutler-stack.workspace = true
+gitbutler-oxidize.workspace = true
+gix = { workspace = true, features = ["max-performance", "tracing"] }
+
+[dev-dependencies]
+temp-dir = "0.1"
