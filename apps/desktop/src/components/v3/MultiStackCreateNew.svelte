@@ -104,10 +104,17 @@
 	onkeydown={handleArrowNavigation}
 >
 	{#if noStacks}
-		<p class="text-14 text-semibold">Create new branch</p>
+		<p class="text-14 text-semibold truncate">Create new branch</p>
 	{/if}
 
-	<svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+	<svg
+		class="new-stack-icon"
+		width="16"
+		height="16"
+		viewBox="0 0 20 20"
+		fill="none"
+		xmlns="http://www.w3.org/2000/svg"
+	>
 		<path
 			d="M0 10H20M10 0L10 20"
 			stroke="currentColor"
@@ -220,6 +227,7 @@
 		height: 100%;
 		padding: 12px 15px;
 		color: var(--clr-text-1);
+		overflow: hidden;
 
 		transition:
 			color var(--transition-fast),
@@ -239,6 +247,10 @@
 			outline: none;
 			background: var(--clr-stack-tab-active);
 		}
+	}
+
+	.new-stack-icon {
+		flex-shrink: 0;
 	}
 
 	/* MODAL WINDOW */

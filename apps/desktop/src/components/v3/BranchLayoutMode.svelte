@@ -23,7 +23,12 @@
 	onselect={(id) => (mode = id as Layout)}
 	size="small"
 >
-	<Segment id={LayoutEnum.Multi} icon="horz-columns" />
-	<Segment id={LayoutEnum.Single} icon="single-view" />
-	<Segment id={LayoutEnum.Vertical} icon="vert-columns" />
+	<Segment id={LayoutEnum.Multi} icon="horz-columns" tooltip="Rail View" tooltipPosition="top" />
+	<Segment id={LayoutEnum.Single} icon="single-view" tooltip="Wide View" tooltipPosition="top" />
+	<Segment
+		id={LayoutEnum.Vertical}
+		icon="vert-columns"
+		tooltip="Stacked view"
+		tooltipPosition="top"
+	/>
 </SegmentControl>

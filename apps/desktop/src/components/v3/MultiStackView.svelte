@@ -67,7 +67,7 @@
 			</div>
 		{:else}
 			<div class="title">
-				<h3 class="text-14 text-semibold">No branches</h3>
+				<h3 class="text-14 text-semibold truncate">No branches</h3>
 			</div>
 		{/if}
 		<MultiStackCreateNew {projectId} stackId={selectedId} noStacks={stacks.length === 0} />
