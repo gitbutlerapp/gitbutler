@@ -45,7 +45,7 @@
 		},
 		{
 			title: 'Move',
-			body: 'Reassign a commit to a different branch by dragging it over to its corresponding tab. This streamlines your workflow by moving commits across independent branches.',
+			body: 'Reassign a commit to a different branch by dragging it over to its corresponding lane. This streamlines your workflow by moving commits across independent branches.',
 			svg: DnDCommitMoveSVG
 		}
 	];
