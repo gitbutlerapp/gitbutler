@@ -1,3 +1,0 @@
-ancestorEntries = ["apps/desktop/cypress/e2e/unifiedDiffView.cy.ts", "apps/desktop/src/components/v3/BranchCommitList.svelte", "apps/desktop/src/components/v3/FileList.svelte"]
-ourEntries = ["apps/desktop/cypress/e2e/unifiedDiffView.cy.ts", "apps/desktop/src/components/v3/BranchCommitList.svelte", "apps/desktop/src/components/v3/FileList.svelte"]
-theirEntries = ["apps/desktop/cypress/e2e/unifiedDiffView.cy.ts", "apps/desktop/src/components/v3/BranchCommitList.svelte", "apps/desktop/src/components/v3/FileList.svelte"]
