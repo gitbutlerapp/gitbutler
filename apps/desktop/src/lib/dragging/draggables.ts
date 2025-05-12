@@ -43,6 +43,7 @@ export class ChangeDropData {
 		 * dragged.
 		 */
 		private selection: IdSelection,
+		private allChanges: TreeChange[],
 		readonly selectionId: SelectionId
 	) {}
 
@@ -61,6 +62,11 @@ export class ChangeDropData {
 		} else {
 			return [this.change.path];
 		}
+	}
+
+	get changes(): TreeChange[] {
+		const paths = this.filePaths;
+		return this.allChanges.filter((change) => paths.includes(change.path));
 	}
 
 	get isCommitted(): boolean {

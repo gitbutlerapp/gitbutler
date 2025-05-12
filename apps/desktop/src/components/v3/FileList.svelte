@@ -55,6 +55,7 @@
 	<FileListItemWrapper
 		{selectionId}
 		{change}
+		allChanges={changes}
 		{projectId}
 		{listActive}
 		{listMode}
