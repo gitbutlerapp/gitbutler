@@ -154,6 +154,7 @@ const MOCK_DIFF_DEPENDENCY: DiffDependency[] = [
  * Three branches with file changes.
  */
 export default class BranchesWithChanges extends MockBackend {
+	dependsOnStack = MOCK_STACK_B_ID;
 	bigFileName = MOCK_FILE_J;
 
 	constructor() {
