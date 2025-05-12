@@ -128,21 +128,18 @@
 				></div>
 			{/if}
 
-			<BranchHeaderIcon
-				{lineColor}
-				{iconName}
-				lineTop={args.isTopBranch ? false : true}
-				isDashed={args.isNewBranch}
-			/>
 			<div class="branch-header__content">
-				<div class="name-line text-14 text-bold">
-					<BranchLabel
-						name={branchName}
-						fontSize="15"
-						disabled={nameUpdate.current.isLoading}
-						readonly={readonly || isPushed}
-						onChange={(name) => updateBranchName(name)}
-					/>
+				<div class="branch-header__title text-14 text-bold">
+					<div class="flex gap-6">
+						<BranchHeaderIcon color={lineColor} {iconName} />
+						<BranchLabel
+							name={branchName}
+							fontSize="15"
+							disabled={nameUpdate.current.isLoading}
+							readonly={readonly || isPushed}
+							onChange={(name) => updateBranchName(name)}
+						/>
+					</div>
 
 					{#if args.menu}
 						{@render args.menu({ rightClickTrigger })}
@@ -209,10 +206,12 @@
 			></div>
 		{/if}
 
-		<BranchHeaderIcon {lineColor} {iconName} lineTop={!args.isTopBranch} />
 		<div class="branch-header__content">
-			<div class="name-line text-14 text-bold">
-				<BranchLabel name={branchName} fontSize="15" readonly={true} />
+			<div class="branch-header__title text-14 text-bold">
+				<div class="flex gap-6">
+					<BranchHeaderIcon color={lineColor} {iconName} />
+					<BranchLabel name={branchName} fontSize="15" readonly={true} />
+				</div>
 			</div>
 
 			{#if args.isNewBranch}
@@ -238,19 +237,22 @@
 		class="branch-header new-branch draft selected"
 		tabindex="0"
 	>
-		<BranchHeaderIcon {lineColor} {iconName} isDashed lineTop />
 		<div class="branch-header__content">
-			<div class="name-line text-14 text-bold">
-				<BranchLabel
-					allowClear
-					name={branchName}
-					fontSize="15"
-					onChange={(name) => updateBranchName(name)}
-				/>
+			<div class="branch-header__title text-14 text-bold">
+				<div class="flex gap-6">
+					<BranchHeaderIcon color={lineColor} {iconName} />
+					<BranchLabel
+						allowClear
+						name={branchName}
+						fontSize="15"
+						onChange={(name) => updateBranchName(name)}
+					/>
+				</div>
 			</div>
 			<p class="text-12 text-body branch-header__empty-state">
-				A new branch will be created for your commit. You can click the branch name to change it now
-				or later.
+				A new branch will be created for your commit.
+				<br />
+				Click the name to rename it now or later.
 			</p>
 		</div>
 	</div>
@@ -265,6 +267,7 @@
 		display: flex;
 		justify-content: flex-start;
 		align-items: center;
+		padding-left: 15px;
 		padding-right: 10px;
 		border-top-right-radius: var(--radius-ml);
 		border-top-left-radius: var(--radius-ml);
@@ -300,7 +303,6 @@
 		flex-wrap: wrap;
 		gap: 6px;
 		color: var(--clr-text-2);
-		margin-left: 4px;
 	}
 
 	.branch-header__select-indicator {
@@ -317,7 +319,7 @@
 		}
 	}
 
-	.name-line {
+	.branch-header__title {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -338,10 +340,8 @@
 	}
 
 	.branch-header__empty-state {
-		padding: 4px;
 		opacity: 0.8;
 		color: var(--clr-text-2);
-		margin-top: -8px;
 
 		& span {
 			text-wrap: nowrap;
