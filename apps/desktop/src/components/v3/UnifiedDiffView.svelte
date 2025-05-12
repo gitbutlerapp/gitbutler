@@ -11,7 +11,6 @@
 	import { previousPathBytesFromTreeChange, type TreeChange } from '$lib/hunks/change';
 	import { canBePartiallySelected, getLineLocks, type DiffHunk } from '$lib/hunks/hunk';
 	import { Project } from '$lib/project/project';
-	import { isWorkspacePath } from '$lib/routes/routes.svelte';
 	import {
 		ChangeSelectionService,
 		type PartiallySelectedFile
@@ -46,11 +45,6 @@
 	const stacks = $derived(stackService.stacks(projectId));
 	const hasMultipleStacks = $derived(stacks.current.data && stacks.current.data.length > 1);
 
-	const workspacesParams = $derived(isWorkspacePath());
-
-	// This is the stack ID that's being viewed. Not **necessarily** the stack ID associated with
-	// the change and diff in question.
-	const viewingStackId = $derived(workspacesParams?.stackId);
 	const isCommiting = $derived(drawerPage === 'new-commit');
 
 	const uncommittedChange = $derived(selectionId.type === 'worktree');
@@ -204,7 +198,6 @@
 		{#each diff.subject.hunks as hunk}
 			{@const [staged, stagedLines] = getStageState(hunk)}
 			{@const [fullyLocked, lineLocks] = getLineLocks(
-				viewingStackId,
 				hunk,
 				fileDependencies?.current.data?.dependencies ?? []
 			)}
