@@ -104,6 +104,8 @@
 		height: 100%;
 	}
 	.viewport {
+		display: flex;
+		flex-direction: column;
 		overflow-y: auto;
 		height: 100%;
 		width: 100%;

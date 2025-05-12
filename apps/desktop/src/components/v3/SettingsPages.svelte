@@ -215,7 +215,7 @@
 		gap: 16px;
 		max-width: 640px;
 		width: 100%;
-		margin: auto;
+		margin: 0 auto;
 	}
 
 	.page-view__title {
