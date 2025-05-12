@@ -133,13 +133,14 @@ export default class MockBackend {
 			const commitIndex = branch.commits.findIndex((commit) => commit.id === commitOid);
 			if (commitIndex === -1) continue;
 			const commit = branch.commits[commitIndex]!;
-			const newId = this.renamedCommitId;
+			const newId = this.renamedCommitId + message;
 			branch.commits[commitIndex] = {
 				...commit,
 				message,
 				id: newId
 			};
 			this.stackDetails.set(stackId, editableDetails);
+			this.commitChanges.set(newId, []);
 			return newId;
 		}
 
@@ -226,7 +227,7 @@ export default class MockBackend {
 		const topCommit = branch.commits[branch.commits.length - 1];
 		const parentIds = topCommit ? [topCommit.id] : [];
 
-		const newCommitId = 'new-commit-id';
+		const newCommitId = 'new-commit-id' + message;
 
 		branch.commits = [
 			{
