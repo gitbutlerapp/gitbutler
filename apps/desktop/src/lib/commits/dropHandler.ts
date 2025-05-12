@@ -51,13 +51,15 @@ export class StartCommitDzHandler implements DropzoneHandler {
 		const stackState = stackId ? uiState.stack(stackId) : undefined;
 
 		if (data instanceof ChangeDropData) {
-			changeSelectionService.upsert({
-				type: 'full',
-				path: data.change.path,
-				pathBytes: data.change.pathBytes,
-				previousPathBytes:
-					data.change.status.type === 'Rename' ? data.change.status.subject.previousPathBytes : null
-			});
+			for (const change of data.changes) {
+				changeSelectionService.upsert({
+					type: 'full',
+					path: change.path,
+					pathBytes: change.pathBytes,
+					previousPathBytes:
+						change.status.type === 'Rename' ? change.status.subject.previousPathBytes : null
+				});
+			}
 		} else if (data instanceof HunkDropDataV3) {
 			const fileSelection = changeSelectionService.getById(data.change.path).current;
 			const hunks = fileSelection?.type === 'partial' ? fileSelection.hunks.slice() : [];
