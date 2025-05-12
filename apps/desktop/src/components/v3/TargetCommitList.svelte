@@ -77,14 +77,11 @@
 		{@const lastUpdate = baseBranch.recentCommits.at(0)?.createdAt.getTime() || 0}
 
 		<div data-testid={TestId.TargetCommitListHeader} class="target-branch-header">
-			<BranchHeaderIcon
-				lineColor={getColorFromBranchType('LocalAndRemote')}
-				iconName="home"
-				lineTop={false}
-				lineBottom
-			/>
 			<div class="target-branch-header__content">
-				<h3 class="text-15 text-bold truncate">{baseBranch.branchName}</h3>
+				<div class="flex gap-6">
+					<BranchHeaderIcon color={getColorFromBranchType('LocalAndRemote')} iconName="home" />
+					<h3 class="text-15 text-bold truncate">{baseBranch.branchName}</h3>
+				</div>
 
 				<div class="target-branch-header__content-details">
 					<p class="text-12 target-branch-header__caption truncate">Current workspace target</p>
@@ -135,8 +132,8 @@
 		display: flex;
 		flex-direction: column;
 		flex: 1;
-		gap: 5px;
-		padding: 12px 12px 12px 4px;
+		gap: 8px;
+		padding: 14px;
 		overflow: hidden;
 	}
 
