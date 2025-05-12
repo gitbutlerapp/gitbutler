@@ -1,14 +1,14 @@
 <script lang="ts">
-	import BranchLayoutMode, { type Layout } from '$components/v3/BranchLayoutMode.svelte';
+	import BranchLayoutMode from '$components/v3/BranchLayoutMode.svelte';
 	import BranchList from '$components/v3/BranchList.svelte';
 	import MultiStackCreateNew from '$components/v3/MultiStackCreateNew.svelte';
 	import MultiStackPagination, { scrollToLane } from '$components/v3/MultiStackPagination.svelte';
 	import StackDraft from '$components/v3/StackDraft.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
+	import { stackLayoutMode } from '$lib/config/uiFeatureFlags';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import { persisted } from '@gitbutler/shared/persisted';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import Scrollbar from '@gitbutler/ui/scroll/Scrollbar.svelte';
@@ -22,7 +22,6 @@
 	};
 
 	const { projectId, selectedId, stacks }: Props = $props();
-	let mode = $derived(persisted<Layout>('multi', 'branch-layout'));
 
 	let lanesContentEl = $state<HTMLElement>();
 	let lanesContentWidth = $state<number>(0);
@@ -44,7 +43,7 @@
 		// Explicit scrollbar track size update since changing scroll width
 		// does not trigger the resize observer, and changing css does not
 		// trigger the mutation observer
-		if ($mode) scrollbar?.updateTrack();
+		if ($stackLayoutMode) scrollbar?.updateTrack();
 	});
 
 	const [uiState] = inject(UiState);
@@ -63,7 +62,7 @@
 				<Badge>{stacks.length}</Badge>
 			</div>
 			<div class="actions">
-				<BranchLayoutMode bind:mode={$mode} />
+				<BranchLayoutMode bind:mode={$stackLayoutMode} />
 			</div>
 		{:else}
 			<div class="title">
@@ -76,8 +75,8 @@
 	{#if isNotEnoughHorzSpace && isNotEnoughVertSpace}
 		<div
 			class="pagination-container"
-			class:horz={$mode !== 'vertical'}
-			class:vert={$mode === 'vertical'}
+			class:horz={$stackLayoutMode !== 'vertical'}
+			class:vert={$stackLayoutMode === 'vertical'}
 		>
 			<MultiStackPagination
 				length={stacks.length}
@@ -86,12 +85,12 @@
 					return s.id === selectedId;
 				})}
 				onclick={(index) =>
-					scrollToLane(lanesContentEl, index, $mode === 'vertical' ? 'vert' : 'horz')}
+					scrollToLane(lanesContentEl, index, $stackLayoutMode === 'vertical' ? 'vert' : 'horz')}
 			/>
 		</div>
 	{/if}
 
-	{#if $mode !== 'vertical' && lanesContentEl}
+	{#if $stackLayoutMode !== 'vertical' && lanesContentEl}
 		<Scrollbar whenToShow="hover" viewport={lanesContentEl} horz />
 	{/if}
 
@@ -100,19 +99,19 @@
 		bind:this={lanesContentEl}
 		bind:clientWidth={lanesContentWidth}
 		bind:clientHeight={lanesContentHeight}
-		class:multi={$mode === 'multi' || stacks.length < SHOW_PAGINATION_THRESHOLD}
-		class:single={$mode === 'single' && stacks.length >= SHOW_PAGINATION_THRESHOLD}
-		class:vertical={$mode === 'vertical'}
+		class:multi={$stackLayoutMode === 'multi' || stacks.length < SHOW_PAGINATION_THRESHOLD}
+		class:single={$stackLayoutMode === 'single' && stacks.length >= SHOW_PAGINATION_THRESHOLD}
+		class:vertical={$stackLayoutMode === 'vertical'}
 	>
 		{#if stacks.length > 0}
 			{#each stacks as stack, i}
 				{@const active = stack.id === projectState.stackId.current}
 				<div
 					class="lane"
-					class:multi={$mode === 'multi' || stacks.length < SHOW_PAGINATION_THRESHOLD}
-					class:single={$mode === 'single' && stacks.length >= SHOW_PAGINATION_THRESHOLD}
-					class:single-fullwidth={$mode === 'single' && stacks.length === 1}
-					class:vertical={$mode === 'vertical'}
+					class:multi={$stackLayoutMode === 'multi' || stacks.length < SHOW_PAGINATION_THRESHOLD}
+					class:single={$stackLayoutMode === 'single' && stacks.length >= SHOW_PAGINATION_THRESHOLD}
+					class:single-fullwidth={$stackLayoutMode === 'single' && stacks.length === 1}
+					class:vertical={$stackLayoutMode === 'vertical'}
 					data-id={stack.id}
 					bind:clientWidth={laneWidths[i]}
 					bind:clientHeight={lineHights[i]}
@@ -133,7 +132,7 @@
 					}}
 				>
 					<BranchList
-						isVerticalMode={$mode === 'vertical'}
+						isVerticalMode={$stackLayoutMode === 'vertical'}
 						{projectId}
 						stackId={stack.id}
 						{active}

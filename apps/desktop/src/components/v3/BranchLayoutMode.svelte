@@ -4,7 +4,7 @@
 		Single = 'single',
 		Vertical = 'vertical'
 	}
-	export type Layout = LayoutEnum[keyof LayoutEnum];
+	export type StackLayout = LayoutEnum[keyof LayoutEnum];
 </script>
 
 <script lang="ts">
@@ -12,7 +12,7 @@
 	import SegmentControl from '@gitbutler/ui/segmentControl/SegmentControl.svelte';
 
 	type Props = {
-		mode: Layout;
+		mode: StackLayout;
 	};
 
 	let { mode = $bindable() }: Props = $props();
@@ -20,7 +20,7 @@
 
 <SegmentControl
 	defaultIndex={mode === LayoutEnum.Multi ? 0 : mode === LayoutEnum.Single ? 1 : 2}
-	onselect={(id) => (mode = id as Layout)}
+	onselect={(id) => (mode = id as StackLayout)}
 	size="small"
 >
 	<Segment id={LayoutEnum.Multi} icon="horz-columns" tooltip="Rail View" tooltipPosition="top" />

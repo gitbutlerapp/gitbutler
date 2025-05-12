@@ -2,6 +2,7 @@ import { PostHogWrapper } from '$lib/analytics/posthog';
 import { isTauriCommandError, type TauriCommandError } from '$lib/backend/ipc';
 import { Tauri } from '$lib/backend/tauri';
 import { SettingsService } from '$lib/config/appSettingsV2';
+import { stackLayoutMode } from '$lib/config/uiFeatureFlags';
 import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
 import { type BaseQueryApi, type QueryReturnValue } from '@reduxjs/toolkit/query';
 import { get } from 'svelte/store';
@@ -23,16 +24,17 @@ export async function tauriBaseQuery(
 	const appSettings = settingsService?.appSettings;
 
 	const v3 = appSettings ? get(appSettings)?.featureFlags.v3 : false;
+	const stackLayout = get(stackLayoutMode);
 
 	try {
 		const result = { data: await api.extra.tauri.invoke(args.command, args.params) };
 		if (posthog && args.actionName) {
-			posthog.capture(`${args.actionName} Successful`, { v3 });
+			posthog.capture(`${args.actionName} Successful`, { v3, stackLayout });
 		}
 		return result;
 	} catch (error: unknown) {
 		if (posthog && args.actionName) {
-			posthog.capture(`${args.actionName} Failed`, { error, v3 });
+			posthog.capture(`${args.actionName} Failed`, { error, v3, stackLayout });
 		}
 
 		const name = `API error: ${args.actionName} (${args.command})`;
