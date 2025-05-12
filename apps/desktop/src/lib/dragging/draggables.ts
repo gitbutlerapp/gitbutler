@@ -28,7 +28,9 @@ export class HunkDropDataV3 {
 	constructor(
 		readonly change: TreeChange,
 		readonly hunk: HunkHeader,
-		readonly uncommitted: boolean
+		readonly uncommitted: boolean,
+		readonly stackId: string | undefined,
+		readonly commitId: string | undefined
 	) {}
 }
 
@@ -44,7 +46,8 @@ export class ChangeDropData {
 		 */
 		private selection: IdSelection,
 		private allChanges: TreeChange[],
-		readonly selectionId: SelectionId
+		readonly selectionId: SelectionId,
+		readonly stackId?: string
 	) {}
 
 	changedPaths(params: SelectionId): string[] {

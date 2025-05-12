@@ -1,4 +1,3 @@
-import { filesToSimpleOwnership } from '$lib/branches/ownership';
 import {
 	ChangeDropData,
 	FileDropData,
@@ -42,7 +41,10 @@ export class StartCommitDzHandler implements DropzoneHandler {
 	) {}
 
 	accepts(data: unknown): boolean {
-		return (data instanceof ChangeDropData && !data.isCommitted) || data instanceof HunkDropDataV3;
+		return (
+			(data instanceof ChangeDropData && !data.isCommitted) ||
+			(data instanceof HunkDropDataV3 && data.uncommitted)
+		);
 	}
 	ondrop(data: ChangeDropData | HunkDropDataV3): void {
 		const { projectId, stackId, branchName, uiState, changeSelectionService } = this.args;
@@ -114,10 +116,11 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 
 	constructor(
 		private projectId: string,
-		stackService: StackService,
+		private readonly stackService: StackService,
 		private stackId: string,
 		private commit: DzCommitData,
-		private onresult: (result: typeof this.result.current.data) => void
+		private onresult: (result: typeof this.result.current.data) => void,
+		private readonly uiState: UiState
 	) {
 		const [trigger, result] = stackService.amendCommit;
 		this.trigger = trigger;
@@ -130,8 +133,25 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 	async ondrop(data: ChangeDropData) {
 		switch (data.selectionId.type) {
 			case 'commit':
+				if (data.stackId) {
+					await this.stackService.moveChangesBetweenCommits({
+						projectId: this.projectId,
+						destinationStackId: this.stackId,
+						destinationCommitId: this.commit.id,
+						sourceStackId: data.stackId,
+						sourceCommitId: data.selectionId.commitId,
+						changes: changesToDiffSpec(data)
+					});
+
+					this.uiState.project(this.projectId).drawerPage.set(undefined);
+					this.uiState.stack(this.stackId).selection.set(undefined);
+					this.uiState.stack(data.stackId).selection.set(undefined);
+				} else {
+					throw new Error('Change drop data must specify the source stackId');
+				}
+				break;
 			case 'branch':
-				console.warn('Moving a change from one commit to another is not supported yet.');
+				console.warn('Moving a branch into a commit is an invalid operation');
 				break;
 			case 'worktree':
 				this.onresult(
@@ -148,8 +168,6 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 
 /**
  * Handler that is able to amend a commit using `Hunk`.
- *
- * TODO: Refactor this to be V2 & V3 compatible.
  */
 export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 	constructor(
@@ -159,6 +177,7 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 			projectId: string;
 			stackId: string;
 			commit: DzCommitData;
+			uiState: UiState;
 		}
 	) {}
 
@@ -186,13 +205,41 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 	}
 
 	ondrop(data: HunkDropData | HunkDropDataV3): void {
-		const { stackService, projectId, stackId, commit, okWithForce } = this.args;
+		const { stackService, projectId, stackId, commit, okWithForce, uiState } = this.args;
 		if (!okWithForce && commit.isRemote) return;
 
 		if (data instanceof HunkDropData) {
+			// TODO: I don't think this `data instanceof HunkDropData` codepath
+			// actually ever gets called in v2.
 			if (data.isCommitted) {
-				// TODO: Move a hunk from one commit to another in v2
-				console.warn('Moving a hunk from one commit to another is not supported yet.');
+				if (!(data.branchId && data.commitId)) {
+					throw new Error("Can't receive a change without it's source or commit");
+				}
+
+				stackService.moveChangesBetweenCommits({
+					projectId,
+					destinationStackId: stackId,
+					destinationCommitId: commit.id,
+					sourceStackId: data.branchId,
+					sourceCommitId: data.commitId,
+					changes: [
+						{
+							// TODO: We don't get prev path bytes in v2, but we're using
+							// the new api.
+							previousPathBytes: null,
+							pathBytes: data.hunk.filePath as any,
+							hunkHeaders: [
+								{
+									oldStart: data.hunk.oldStart,
+									oldLines: data.hunk.oldLines,
+									newStart: data.hunk.newStart,
+									newLines: data.hunk.newLines
+								}
+							]
+						}
+					]
+				});
+
 				return;
 			}
 
@@ -225,8 +272,36 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 				data.change.status.type === 'Rename' ? data.change.status.subject.previousPathBytes : null;
 
 			if (!data.uncommitted) {
-				// TODO: Move a hunk from one commit to another.
-				console.warn('Moving a hunk from one commit to another is not supported yet.');
+				if (!(data.stackId && data.commitId)) {
+					throw new Error("Can't receive a change without it's source or commit");
+				}
+
+				stackService.moveChangesBetweenCommits({
+					projectId,
+					destinationStackId: stackId,
+					destinationCommitId: commit.id,
+					sourceStackId: data.stackId,
+					sourceCommitId: data.commitId,
+					changes: [
+						{
+							previousPathBytes,
+							pathBytes: data.change.pathBytes,
+							hunkHeaders: [
+								{
+									oldStart: data.hunk.oldStart,
+									oldLines: data.hunk.oldLines,
+									newStart: data.hunk.newStart,
+									newLines: data.hunk.newLines
+								}
+							]
+						}
+					]
+				});
+
+				uiState.project(projectId).drawerPage.set(undefined);
+				uiState.stack(stackId).selection.set(undefined);
+				uiState.stack(data.stackId).selection.set(undefined);
+
 				return;
 			}
 
@@ -291,14 +366,14 @@ export class AmendCommitDzHandler implements DropzoneHandler {
 			});
 		} else if (data.file instanceof RemoteFile) {
 			// this is a file from a commit, rather than an uncommitted file
-			const newOwnership = filesToSimpleOwnership(data.files);
 			if (data.commit) {
-				stackService.moveCommitFileMutation({
+				stackService.moveChangesBetweenCommits({
 					projectId,
-					stackId,
-					fromCommitOid: data.commit.id,
-					toCommitOid: commit.id,
-					ownership: newOwnership
+					destinationStackId: stackId,
+					destinationCommitId: commit.id,
+					sourceStackId: data.stackId,
+					sourceCommitId: data.commit.id,
+					changes: filesToDiffSpec(data)
 				});
 			}
 		}

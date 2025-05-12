@@ -53,7 +53,8 @@ pub enum RebaseStep {
 }
 
 impl RebaseStep {
-    fn commit_id(&self) -> Option<&gix::oid> {
+    /// Get the commit id associated with a given step
+    pub fn commit_id(&self) -> Option<&gix::oid> {
         match self {
             RebaseStep::Pick { commit_id, .. }
             | RebaseStep::SquashIntoPreceding { commit_id, .. } => Some(commit_id),
@@ -168,10 +169,7 @@ impl Rebase<'_> {
     /// - The refname must be a valid reference name
     fn validate_step(&self, step: &RebaseStep) -> Result<()> {
         match step {
-            RebaseStep::Pick {
-                commit_id,
-                new_message: _,
-            } => {
+            RebaseStep::Pick { commit_id, .. } => {
                 self.assure_unique_step_and_existing_non_base(commit_id, "Picked")?;
             }
             RebaseStep::SquashIntoPreceding {
@@ -234,6 +232,9 @@ fn rebase(
                 commit_id,
                 new_message,
             } => {
+                // This should be the source commit id
+                last_seen_commit = Some(commit_id);
+
                 let commit = to_commit(repo, commit_id)?;
                 if commit.parents.len() > 1 {
                     let mut merge_commit = commit;
@@ -290,7 +291,6 @@ fn rebase(
                         }
                     }
                 }
-                last_seen_commit = Some(commit_id);
             }
             RebaseStep::SquashIntoPreceding {
                 commit_id,
@@ -355,6 +355,17 @@ fn reword_commit(
 ) -> Result<gix::ObjectId> {
     let mut new_commit = repo.find_commit(oid)?.decode()?.to_owned();
     new_commit.message = new_message;
+    Ok(commit::create(repo, new_commit, CommitterMode::Update)?)
+}
+
+/// Replaces the tree of a commit for use in the rebase engine.
+pub fn replace_commit_tree(
+    repo: &gix::Repository,
+    oid: gix::ObjectId,
+    new_tree: gix::ObjectId,
+) -> Result<gix::ObjectId> {
+    let mut new_commit = repo.find_commit(oid)?.decode()?.to_owned();
+    new_commit.tree = new_tree;
     Ok(commit::create(repo, new_commit, CommitterMode::Update)?)
 }
 

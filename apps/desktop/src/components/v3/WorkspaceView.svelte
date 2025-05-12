@@ -101,7 +101,7 @@
 		use:focusable={{ id: Focusable.WorkspaceMiddle, parentId: Focusable.Workspace }}
 	>
 		{#if !drawerIsFullScreen.current}
-			<SelectionView {projectId} {selectionId} />
+			<SelectionView {projectId} {selectionId} {stackId} />
 		{/if}
 
 		{#if drawerPage.current === 'new-commit'}

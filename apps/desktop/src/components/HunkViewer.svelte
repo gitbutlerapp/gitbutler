@@ -50,7 +50,7 @@
 	let alwaysShow = $state(false);
 	let viewport = $state<HTMLDivElement>();
 	let contextMenu = $state<ReturnType<typeof HunkContextMenu>>();
-	const draggingDisabled = $derived(isUnapplied);
+	const draggingDisabled = $derived(isUnapplied || readonly);
 
 	function onHunkSelected(hunk: Hunk, isSelected: boolean) {
 		if (!selectedOwnership) return;

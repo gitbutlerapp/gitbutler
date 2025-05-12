@@ -22,7 +22,8 @@
 		listActive: boolean;
 	};
 
-	const { projectId, changes, listMode, selectionId, showCheckboxes, listActive }: Props = $props();
+	const { projectId, changes, listMode, selectionId, showCheckboxes, listActive, stackId }: Props =
+		$props();
 
 	let currentDisplayIndex = $state(0);
 
@@ -57,6 +58,7 @@
 		{change}
 		allChanges={changes}
 		{projectId}
+		{stackId}
 		{listActive}
 		{listMode}
 		{depth}

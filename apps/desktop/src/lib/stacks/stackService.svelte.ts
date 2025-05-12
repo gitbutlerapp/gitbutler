@@ -513,6 +513,10 @@ export class StackService {
 		return this.api.endpoints.discardChanges.mutate;
 	}
 
+	get moveChangesBetweenCommits() {
+		return this.api.endpoints.moveChangesBetweenCommits.mutate;
+	}
+
 	get stashIntoBranch() {
 		return this.api.endpoints.stashIntoBranch.mutate;
 	}
@@ -987,6 +991,44 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Discard Changes'
 				}),
 				invalidatesTags: [invalidatesList(ReduxTag.WorktreeChanges)]
+			}),
+			moveChangesBetweenCommits: build.mutation<
+				void,
+				{
+					projectId: string;
+					changes: DiffSpec[];
+					sourceCommitId: string;
+					sourceStackId: string;
+					destinationCommitId: string;
+					destinationStackId: string;
+				}
+			>({
+				query: ({
+					projectId,
+					changes,
+					sourceCommitId,
+					sourceStackId,
+					destinationCommitId,
+					destinationStackId
+				}) => ({
+					command: 'move_changes_between_commits',
+					params: {
+						projectId,
+						changes,
+						sourceCommitId,
+						sourceStackId,
+						destinationCommitId,
+						destinationStackId
+					},
+					actionName: 'Move Changes Between Commits'
+				}),
+				invalidatesTags(_result, _error, arg) {
+					return [
+						invalidatesItem(ReduxTag.StackDetails, arg.sourceStackId),
+						invalidatesItem(ReduxTag.StackDetails, arg.destinationStackId),
+						invalidatesList(ReduxTag.WorktreeChanges)
+					];
+				}
 			}),
 			stashIntoBranch: build.mutation<
 				DiffSpec[],

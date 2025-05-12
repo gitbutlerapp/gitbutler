@@ -293,6 +293,7 @@ fn main() {
                     workspace::stash_into_branch,
                     workspace::canned_branch_name,
                     workspace::target_commits,
+                    workspace::move_changes_between_commits,
                     diff::changes_in_worktree,
                     diff::commit_details,
                     diff::changes_in_branch,

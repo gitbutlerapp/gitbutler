@@ -338,7 +338,8 @@
 													stackId,
 													dzCommit,
 													(newId) =>
-														uiState.stack(stackId).selection.set({ branchName, commitId: newId })
+														uiState.stack(stackId).selection.set({ branchName, commitId: newId }),
+													uiState
 												)}
 												{@const squashHandler = new SquashCommitDzHandler({
 													stackService,
@@ -352,7 +353,8 @@
 													stackId,
 													commit: dzCommit,
 													// TODO: Use correct value!
-													okWithForce: true
+													okWithForce: true,
+													uiState
 												})}
 												{@const tooltip = commit.state.type}
 												<Dropzone handlers={[amendHandler, squashHandler, hunkHandler]}>
