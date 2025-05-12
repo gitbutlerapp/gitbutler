@@ -45,6 +45,10 @@ export class IdSelection {
 		return set;
 	}
 
+	hasItems(id: SelectionId) {
+		return this.getById(id).entries.size > 0;
+	}
+
 	add(path: string, id: SelectionId, index: number) {
 		const selectedKey = key({ ...id, path });
 		const selection = this.getById(id);

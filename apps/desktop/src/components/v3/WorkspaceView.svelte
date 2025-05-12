@@ -11,6 +11,7 @@
 	import { isParsedError } from '$lib/error/parser';
 	import { Focusable, FocusManager } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
+	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
@@ -23,7 +24,13 @@
 
 	const { stackId, projectId }: Props = $props();
 
-	const [stackService, uiState, focusManager] = inject(StackService, UiState, FocusManager);
+	const [stackService, uiState, focusManager, idSelection] = inject(
+		StackService,
+		UiState,
+		FocusManager,
+		IdSelection
+	);
+	const worktreeSelection = idSelection.getById({ type: 'worktree' });
 	const stacksResult = $derived(stackService.stacks(projectId));
 
 	const projectState = $derived(uiState.project(projectId));
@@ -43,25 +50,24 @@
 	const upstream = $derived(!!currentSelection?.upstream);
 
 	const selectionId: SelectionId = $derived.by(() => {
-		if (focusGroup.current !== Focusable.UncommittedChanges && currentSelection && stackId) {
-			if (currentSelection.commitId) {
-				return {
-					type: 'commit',
-					commitId: currentSelection.commitId
-				};
-			}
-			if (stackId) {
-				return {
-					type: 'branch',
-					branchName: currentSelection.branchName,
-					stackId
-				};
-			}
-			return {
-				type: 'branch',
-				branchName: currentSelection.branchName
-			};
+		const branchName = currentSelection?.branchName;
+		if (focusGroup.current === Focusable.UncommittedChanges && worktreeSelection.entries.size > 0) {
+			return { type: 'worktree' };
 		}
+		if (
+			focusGroup.current !== Focusable.UncommittedChanges &&
+			currentSelection &&
+			stackId &&
+			branchName
+		) {
+			if (currentSelection.commitId) {
+				const selectionId = { type: 'commit', commitId: currentSelection.commitId } as const;
+				if (idSelection.hasItems(selectionId)) return selectionId;
+			}
+			const selectionId = { type: 'branch', stackId: stackId, branchName } as const;
+			if (idSelection.hasItems(selectionId)) return selectionId;
+		}
+
 		return { type: 'worktree' };
 	});
 
@@ -87,11 +93,7 @@
 		style:width={leftWidth.current + 'rem'}
 		use:focusable={{ id: Focusable.WorkspaceLeft, parentId: Focusable.Workspace }}
 	>
-		<WorktreeChanges
-			{projectId}
-			{stackId}
-			active={focusGroup.current === Focusable.UncommittedChanges}
-		/>
+		<WorktreeChanges {projectId} {stackId} active={selectionId.type === 'worktree'} />
 		<Resizer
 			viewport={leftDiv}
 			direction="right"
@@ -116,7 +118,7 @@
 				{projectId}
 				{branchName}
 				{onerror}
-				active={focusGroup.current !== Focusable.UncommittedChanges}
+				active={selectionId.type !== 'worktree'}
 			/>
 		{:else if drawerPage.current === 'review' && stackId && branchName}
 			<ReviewView {stackId} {projectId} {branchName} />
@@ -130,7 +132,7 @@
 					commitId,
 					upstream
 				}}
-				active={focusGroup.current !== Focusable.UncommittedChanges}
+				active={selectionId.type !== 'worktree'}
 				{onerror}
 			/>
 		{/if}
