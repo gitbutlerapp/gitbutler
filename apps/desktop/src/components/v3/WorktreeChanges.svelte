@@ -107,34 +107,30 @@
 
 <ReduxResult {stackId} {projectId} result={changesResult.current}>
 	{#snippet children(changes, { stackId, projectId })}
-		<ScrollableContainer wide>
-			<div
-				class="uncommitted-changes-wrap"
-				use:focusable={{ id: Focusable.UncommittedChanges, parentId: Focusable.WorkspaceLeft }}
-			>
-				<div
-					data-testid={TestId.UncommittedChanges_Header}
-					use:stickyHeader
-					class="worktree-header"
-				>
-					<div class="worktree-header__general">
-						{#if isCommitting}
-							<Checkbox
-								checked={filesPartiallySelected || filesFullySelected}
-								indeterminate={filesPartiallySelected}
-								small
-								onchange={toggleGlobalCheckbox}
-							/>
+		<div
+			class="uncommitted-changes-wrap"
+			use:focusable={{ id: Focusable.UncommittedChanges, parentId: Focusable.WorkspaceLeft }}
+		>
+			<div data-testid={TestId.UncommittedChanges_Header} use:stickyHeader class="worktree-header">
+				<div class="worktree-header__general">
+					{#if isCommitting}
+						<Checkbox
+							checked={filesPartiallySelected || filesFullySelected}
+							indeterminate={filesPartiallySelected}
+							small
+							onchange={toggleGlobalCheckbox}
+						/>
+					{/if}
+					<div class="worktree-header__title truncate">
+						<h3 class="text-14 text-semibold truncate">Uncommitted</h3>
+						{#if changes.length > 0}
+							<Badge>{changes.length}</Badge>
 						{/if}
-						<div class="worktree-header__title truncate">
-							<h3 class="text-14 text-semibold truncate">Uncommitted</h3>
-							{#if changes.length > 0}
-								<Badge>{changes.length}</Badge>
-							{/if}
-						</div>
 					</div>
-					<FileListMode bind:mode={listMode} persist="uncommitted" />
 				</div>
+				<FileListMode bind:mode={listMode} persist="uncommitted" />
+			</div>
+			<ScrollableContainer autoScroll={false}>
 				{#if changes.length > 0}
 					<div data-testid={TestId.UncommittedChanges_FileList} class="uncommitted-changes">
 						<FileList
@@ -177,8 +173,8 @@
 						<WorktreeTipsFooter />
 					</div>
 				{/if}
-			</div>
-		</ScrollableContainer>
+			</ScrollableContainer>
+		</div>
 	{/snippet}
 </ReduxResult>
 

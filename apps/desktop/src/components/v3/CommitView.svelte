@@ -121,6 +121,7 @@
 	{#snippet children(commit, env)}
 		{@const isConflicted = isCommit(commit) && commit.hasConflicts}
 		{#if projectState.editingCommitMessage.current}
+			{@const parsedMessage = splitMessage(commit.message)}
 			<Drawer
 				testId={TestId.EditCommitMessageDrawer}
 				projectId={env.projectId}
@@ -136,8 +137,8 @@
 					action={editCommitMessage}
 					actionLabel="Save"
 					onCancel={() => setMode('view')}
-					initialTitle={splitMessage(commit.message).title}
-					initialMessage={splitMessage(commit.message).description}
+					initialTitle={parsedMessage.title}
+					initialMessage={parsedMessage.description}
 					loading={messageUpdateResult.current.isLoading}
 					existingCommitId={commit.id}
 				/>

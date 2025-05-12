@@ -75,6 +75,7 @@
 
 		if (isDefined(initialMessage)) {
 			descriptionText.current = initialMessage;
+			composer?.setText(initialMessage);
 		}
 	});
 
@@ -173,7 +174,6 @@
 			}
 		}}
 	/>
-
 	<MessageEditor
 		testId={TestId.CommitDrawerDescriptionInput}
 		bind:this={composer}

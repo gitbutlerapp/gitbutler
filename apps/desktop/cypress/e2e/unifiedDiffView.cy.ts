@@ -25,13 +25,15 @@ describe('Unified Diff View', () => {
 
 	it('should open the unified diff view when clicking on a file and show the dependency locks', () => {
 		// There should be uncommitted changes
-		cy.getByTestId('uncommitted-changes-file-list').should('be.visible');
-
-		// // All files should be visible
-		// cy.getByTestId('file-list-item').should(
-		// 	'have.length',
-		// 	mockBackend.getWorktreeChangesFileNames().length
-		// );
+		cy.getByTestId('uncommitted-changes-file-list')
+			.should('be.visible')
+			.within(() => {
+				// All files should be visible
+				cy.getByTestId('file-list-item').should(
+					'have.length',
+					mockBackend.getWorktreeChangesFileNames().length
+				);
+			});
 
 		// Stack with branch should be opened by default
 		cy.getByTestId('branch-header').should('contain', mockBackend.stackId);

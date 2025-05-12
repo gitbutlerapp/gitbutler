@@ -1,6 +1,7 @@
 import { clearCommandMocks, mockCommand } from './support';
 import MockBackend from './support/mock/backend';
 import { PROJECT_ID } from './support/mock/projects';
+import LotsOfFileChanges from './support/scenarios/lotsOfFileChanges';
 
 describe('Commit Actions', () => {
 	let mockBackend: MockBackend;
@@ -239,6 +240,136 @@ describe('Commit Actions', () => {
 
 		// The commit should be removed from the list
 		cy.getByTestId('commit-row').should('have.length', 0);
+	});
+});
+
+describe('Commit Actions with lots of uncommitted changes', () => {
+	let mockBackend: LotsOfFileChanges;
+	beforeEach(() => {
+		mockBackend = new LotsOfFileChanges();
+		mockCommand('stacks', () => mockBackend.getStacks());
+		mockCommand('stack_details', (params) => mockBackend.getStackDetails(params));
+		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
+		mockCommand('update_commit_message', (params) => mockBackend.updateCommitMessage(params));
+		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
+		mockCommand('commit_details', (params) => mockBackend.getCommitChanges(params));
+		mockCommand('create_commit_from_worktree_changes', (params) =>
+			mockBackend.createCommit(params)
+		);
+		mockCommand('undo_commit', (params) => mockBackend.undoCommit(params));
+
+		cy.visit('/');
+
+		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace`);
+	});
+
+	afterEach(() => {
+		clearCommandMocks();
+	});
+
+	it.only('should be able to commit a bunch of times in a row and edit their message', () => {
+		for (let i = 0; i < 5; i++) {
+			// Click commit button
+			cy.getByTestId('start-commit-button').should('be.visible').should('be.enabled').click();
+
+			// There should only be one 'Your commit goes here' text
+			cy.getByTestId('your-commit-goes-here')
+				.should('have.length', 1)
+				.should('be.visible')
+				.should('have.class', 'first');
+
+			// Unstage all files
+			cy.getByTestId('uncommitted-changes-header')
+				.should('be.visible')
+				.within(() => {
+					cy.get('input[type="checkbox"]').should('be.visible').click();
+				});
+
+			// Stage the file
+			cy.getByTestId('uncommitted-changes-file-list')
+				.should('be.visible')
+				.within(() => {
+					cy.getByTestId('file-list-item')
+						.first()
+						.scrollIntoView()
+						.should('be.visible')
+						.within(() => {
+							cy.get('input[type="checkbox"]').should('be.visible').click();
+						});
+				});
+
+			const commitTitle = `Commit title ${i + 1}`;
+			const commitDescription = `Commit description ${i + 1}`;
+
+			// Type in a commit message
+			cy.getByTestId('commit-drawer-title-input')
+				.should('be.visible')
+				.should('be.enabled')
+				.should('have.value', '')
+				.type(commitTitle); // Type the new commit message
+
+			// Type in a description
+			cy.getByTestId('commit-drawer-description-input')
+				.should('be.visible')
+				.click()
+				.type(commitDescription); // Type the new commit message body
+
+			// Click on the commit button
+			cy.getByTestId('commit-drawer-action-button')
+				.should('be.visible')
+				.should('be.enabled')
+				.click();
+
+			cy.getByTestId('commit-row', commitTitle).should('be.visible');
+		}
+
+		for (let i = 0; i < 5; i++) {
+			const commitTitle = `Commit title ${i + 1}`;
+			const commitDescription = `Commit description ${i + 1}`;
+
+			const newCommitTitle = `New commit title ${i + 1}`;
+			const newCommitDescription = `New commit description ${i + 1}`;
+
+			// Click on the first commit
+			cy.getByTestId('commit-row', commitTitle).should('contain', commitTitle).click();
+
+			// Should open the commit drawer
+			cy.get('.commit-view').first().should('contain', commitTitle);
+
+			// Click on the edit message button
+			cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
+
+			// Should open the commit rename drawer
+			cy.getByTestId('edit-commit-message-drawer').should('be.visible');
+
+			// Should have the original commit message, and be focused
+			cy.getByTestId('commit-drawer-title-input')
+				.should('have.value', commitTitle)
+				.should('be.visible')
+				.should('be.enabled')
+				.clear()
+				.type(newCommitTitle); // Type the new commit message title
+
+			// Type in a description
+			cy.getByTestId('commit-drawer-description-input')
+				.should('be.visible')
+				.should('contain', commitDescription)
+				.click()
+				.clear()
+				.type(newCommitDescription); // Type the new commit message body
+
+			// Click on the save button
+			cy.getByTestId('commit-drawer-action-button')
+				.should('be.visible')
+				.should('be.enabled')
+				.should('contain', 'Save')
+				.click();
+
+			cy.getByTestId('edit-commit-message-drawer').should('not.exist');
+
+			cy.getByTestId('commit-drawer-title').should('contain', newCommitTitle);
+			cy.getByTestId('commit-drawer-description').should('contain', newCommitDescription);
+		}
 	});
 });
 
