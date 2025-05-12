@@ -13,14 +13,11 @@ export class GitHubRepoService implements ForgeRepoService {
 	}
 
 	getInfo(): ReactiveResult<RepoDetailedInfo> {
-		const result = $derived(
-			this.api.endpoints.getRepos.useQuery(undefined, {
-				transform: (result) => ({
-					deleteBranchAfterMerge: result.delete_branch_on_merge
-				})
+		return this.api.endpoints.getRepos.useQuery(undefined, {
+			transform: (result) => ({
+				deleteBranchAfterMerge: result.delete_branch_on_merge
 			})
-		);
-		return result;
+		});
 	}
 }
 

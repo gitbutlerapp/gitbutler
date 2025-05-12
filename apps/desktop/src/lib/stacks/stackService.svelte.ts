@@ -280,83 +280,65 @@ export class StackService {
 	}
 
 	commits(projectId: string, stackId: string, branchName: string) {
-		const result = $derived(
-			this.api.endpoints.stackDetails.useQuery(
-				{ projectId, stackId },
-				{
-					transform: ({ branchDetails }) =>
-						branchDetailsSelectors.selectById(branchDetails, branchName)?.commits
-				}
-			)
+		return this.api.endpoints.stackDetails.useQuery(
+			{ projectId, stackId },
+			{
+				transform: ({ branchDetails }) =>
+					branchDetailsSelectors.selectById(branchDetails, branchName)?.commits
+			}
 		);
-		return result;
 	}
 
 	commitAt(projectId: string, stackId: string, branchName: string, index: number) {
-		const result = $derived(
-			this.api.endpoints.stackDetails.useQuery(
-				{ projectId, stackId },
-				{
-					transform: ({ branchDetails }) =>
-						branchDetailsSelectors.selectById(branchDetails, branchName)?.commits[index] ?? null
-				}
-			)
+		return this.api.endpoints.stackDetails.useQuery(
+			{ projectId, stackId },
+			{
+				transform: ({ branchDetails }) =>
+					branchDetailsSelectors.selectById(branchDetails, branchName)?.commits[index] ?? null
+			}
 		);
-		return result;
 	}
 
 	commitById(projectId: string, commitKey: CommitKey) {
 		const { stackId, commitId } = commitKey;
-		const result = $derived(
-			this.api.endpoints.stackDetails.useQuery(
-				{ projectId, stackId },
-				{
-					transform: ({ commits }) => commitSelectors.selectById(commits, commitId)
-				}
-			)
+		return this.api.endpoints.stackDetails.useQuery(
+			{ projectId, stackId },
+			{
+				transform: ({ commits }) => commitSelectors.selectById(commits, commitId)
+			}
 		);
-		return result;
 	}
 
 	upstreamCommits(projectId: string, stackId: string, branchName: string) {
-		const result = $derived(
-			this.api.endpoints.stackDetails.useQuery(
-				{ projectId, stackId },
-				{
-					transform: ({ branchDetails }) =>
-						branchDetailsSelectors.selectById(branchDetails, branchName)?.upstreamCommits
-				}
-			)
+		return this.api.endpoints.stackDetails.useQuery(
+			{ projectId, stackId },
+			{
+				transform: ({ branchDetails }) =>
+					branchDetailsSelectors.selectById(branchDetails, branchName)?.upstreamCommits
+			}
 		);
-		return result;
 	}
 
 	upstreamCommitAt(projectId: string, stackId: string, branchName: string, index: number) {
-		const result = $derived(
-			this.api.endpoints.stackDetails.useQuery(
-				{ projectId, stackId },
-				{
-					transform: ({ branchDetails }) =>
-						branchDetailsSelectors.selectById(branchDetails, branchName)?.upstreamCommits[index] ??
-						null
-				}
-			)
+		this.api.endpoints.stackDetails.useQuery(
+			{ projectId, stackId },
+			{
+				transform: ({ branchDetails }) =>
+					branchDetailsSelectors.selectById(branchDetails, branchName)?.upstreamCommits[index] ??
+					null
+			}
 		);
-		return result;
 	}
 
 	upstreamCommitById(projectId: string, commitKey: CommitKey) {
 		const { stackId, commitId } = commitKey;
-		const result = $derived(
-			this.api.endpoints.stackDetails.useQuery(
-				{ projectId, stackId },
-				{
-					transform: ({ upstreamCommits }) =>
-						upstreamCommitSelectors.selectById(upstreamCommits, commitId)
-				}
-			)
+		return this.api.endpoints.stackDetails.useQuery(
+			{ projectId, stackId },
+			{
+				transform: ({ upstreamCommits }) =>
+					upstreamCommitSelectors.selectById(upstreamCommits, commitId)
+			}
 		);
-		return result;
 	}
 
 	get pushStack() {

@@ -10,13 +10,11 @@ export class BranchService {
 	}
 
 	list(projectId: string) {
-		const result = $derived(this.api.endpoints.listBranches.useQuery({ projectId }));
-		return result;
+		return this.api.endpoints.listBranches.useQuery({ projectId });
 	}
 
 	get(projectId: string, branchName: string) {
-		const result = $derived(this.api.endpoints.branchDetails.useQuery({ projectId, branchName }));
-		return result;
+		return this.api.endpoints.branchDetails.useQuery({ projectId, branchName });
 	}
 
 	// TODO: Convert this to invalidation.
