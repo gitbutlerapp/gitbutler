@@ -6,7 +6,7 @@
 	import WorktreeTipsFooter from '$components/v3/WorktreeTipsFooter.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { createCommitStore } from '$lib/commits/contexts';
-	import { Focusable, FocusManager } from '$lib/focus/focusManager.svelte';
+	import { Focusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { previousPathBytesFromTreeChange } from '$lib/hunks/change';
 	import { ChangeSelectionService, type SelectedFile } from '$lib/selection/changeSelection.svelte';
@@ -23,16 +23,16 @@
 	type Props = {
 		projectId: string;
 		stackId?: string;
+		active: boolean;
 	};
 
-	let { projectId, stackId }: Props = $props();
+	let { projectId, stackId, active }: Props = $props();
 
-	const [changeSelection, worktreeService, uiState, stackService, focusManager] = inject(
+	const [changeSelection, worktreeService, uiState, stackService] = inject(
 		ChangeSelectionService,
 		WorktreeService,
 		UiState,
-		StackService,
-		FocusManager
+		StackService
 	);
 
 	const projectState = $derived(uiState.project(projectId));
@@ -49,11 +49,6 @@
 	const noChangesSelected = $derived(selectedChanges.current.length === 0);
 	const changesResult = $derived(worktreeService.getChanges(projectId));
 	const affectedPaths = $derived(changesResult.current.data?.map((c) => c.path));
-
-	let focusGroup = focusManager.radioGroup({
-		triggers: [Focusable.UncommittedChanges, Focusable.ChangedFiles]
-	});
-	const listActive = $derived(focusGroup.current === Focusable.UncommittedChanges);
 
 	const filesFullySelected = $derived(
 		changeSelection.every(affectedPaths ?? [], (f) => f.type === 'full')
@@ -149,7 +144,7 @@
 							{stackId}
 							{changes}
 							{listMode}
-							{listActive}
+							{active}
 						/>
 					</div>
 					<div

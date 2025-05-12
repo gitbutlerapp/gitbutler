@@ -10,6 +10,7 @@
 	import KebabButton from '$components/v3/KebabButton.svelte';
 	import NewBranchModal from '$components/v3/NewBranchModal.svelte';
 	import newBranchSmolSVG from '$lib/assets/empty-state/new-branch-smol.svg?raw';
+	import { Focusable } from '$lib/focus/focusManager.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { TestId } from '$lib/testing/testIds';
@@ -22,10 +23,11 @@
 		stackId: string;
 		projectId: string;
 		branchName: string;
+		active?: boolean;
 		onerror?: (err: unknown) => void;
 	}
 
-	const { stackId, projectId, branchName, onerror }: Props = $props();
+	const { stackId, projectId, branchName, active, onerror }: Props = $props();
 
 	const [stackService] = inject(StackService);
 
@@ -120,6 +122,8 @@
 							{stackId}
 							selectionId={{ type: 'branch', stackId, branchName }}
 							{changes}
+							{active}
+							parentId={Focusable.Drawer}
 						/>
 					{/snippet}
 				</ReduxResult>

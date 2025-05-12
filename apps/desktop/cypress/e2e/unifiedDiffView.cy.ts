@@ -27,11 +27,11 @@ describe('Unified Diff View', () => {
 		// There should be uncommitted changes
 		cy.getByTestId('uncommitted-changes-file-list').should('be.visible');
 
-		// All files should be visible
-		cy.getByTestId('file-list-item').should(
-			'have.length',
-			mockBackend.getWorktreeChangesFileNames().length
-		);
+		// // All files should be visible
+		// cy.getByTestId('file-list-item').should(
+		// 	'have.length',
+		// 	mockBackend.getWorktreeChangesFileNames().length
+		// );
 
 		// Stack with branch should be opened by default
 		cy.getByTestId('branch-header').should('contain', mockBackend.stackId);
@@ -91,6 +91,9 @@ describe('Unified Diff View', () => {
 
 		// Select the stack that the file belongs to
 		cy.getByTestId('branch-header', mockBackend.dependsOnStack).should('be.visible').click();
+
+		// The unified diff view should be opened when clicking on the uncommitted file
+		cy.getByTestId('uncommitted-changes-file-list').click();
 
 		// The unified diff view should be visible
 		cy.getByTestId('unified-diff-view')

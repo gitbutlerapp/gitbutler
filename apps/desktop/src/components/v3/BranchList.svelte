@@ -79,6 +79,7 @@
 	const drawer = $derived(projectState.drawerPage);
 	const isCommitting = $derived(drawer.current === 'new-commit');
 
+	const stackActive = $derived(stackId === projectState.stackId.current);
 	const stackState = $derived(uiState.stack(stackId));
 	const selection = $derived(stackState.selection.get());
 	const selectedCommitId = $derived(selection.current?.commitId);
@@ -173,7 +174,7 @@
 								{@const isNewBranch =
 									upstreamOnlyCommits.length === 0 && localAndRemoteCommits.length === 0}
 								{@const selected =
-									active &&
+									stackActive &&
 									selection?.current?.branchName === branchName &&
 									selection?.current.commitId === undefined}
 								<BranchCard
@@ -205,6 +206,7 @@
 											{lastUpdatedAt}
 											{reviewId}
 											{prNumber}
+											{active}
 											isTopBranch={first}
 											trackingBranch={branch.remoteTrackingBranch || undefined}
 											readonly={!!branch.remoteTrackingBranch}
@@ -253,7 +255,7 @@
 											{#snippet empty()}
 												{#if isCommitting}
 													<CommitGoesHere
-														selected={active && branchName === selectedBranchName}
+														selected={stackActive && branchName === selectedBranchName}
 														first
 														last
 														onclick={() => {
@@ -266,7 +268,11 @@
 													/>
 												{/if}
 											{/snippet}
-											{#snippet upstreamTemplate({ commit, first, lastCommit, selected })}
+											{#snippet upstreamTemplate({ commit, first, lastCommit })}
+												{@const selected =
+													stackActive &&
+													commit.id === selectedCommitId &&
+													branchName === selectedBranchName}
 												{@const commitId = commit.id}
 												{#if !isCommitting}
 													<CommitRow
@@ -281,6 +287,7 @@
 														{first}
 														lastCommit={lastCommit && localAndRemoteCommits.length === 0}
 														{selected}
+														{active}
 														onclick={() => {
 															uiState
 																.stack(stackId)
@@ -295,22 +302,16 @@
 											{#snippet beforeLocalAndRemote()}
 												{@render commitReorderDz(stackingReorderDropzoneManager.top(branch.name))}
 											{/snippet}
-											{#snippet localAndRemoteTemplate({
-												commit,
-												first,
-												last,
-												lastCommit,
-												selectedCommitId
-											})}
+											{#snippet localAndRemoteTemplate({ commit, first, last, lastCommit })}
 												{@const commitId = commit.id}
 												{@const selected =
-													active &&
+													stackActive &&
 													commit.id === selectedCommitId &&
 													branchName === selectedBranchName}
 												{#if isCommitting}
 													{@const nothingSelectedButFirst = selectedCommitId === undefined && first}
 													{@const selectedForCommit =
-														active &&
+														stackActive &&
 														(nothingSelectedButFirst || commit.id === selectedCommitId) &&
 														((first && selectedBranchName === undefined) ||
 															branchName === selectedBranchName)}
@@ -408,6 +409,7 @@
 															{selected}
 															draggable
 															{tooltip}
+															{active}
 															isOpen={commit.id === commitMenuContext?.data.commitId}
 															onclick={() => {
 																const stackState = uiState.stack(stackId);
@@ -463,7 +465,7 @@
 													<CommitGoesHere
 														{first}
 														{last}
-														selected={active &&
+														selected={stackActive &&
 															selectedCommitId === baseSha &&
 															branchName === selectedBranchName}
 														onclick={() => {

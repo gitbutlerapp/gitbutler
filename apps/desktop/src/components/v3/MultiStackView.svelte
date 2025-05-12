@@ -19,9 +19,10 @@
 		projectId: string;
 		selectedId?: string;
 		stacks: Stack[];
+		active: boolean;
 	};
 
-	const { projectId, selectedId, stacks }: Props = $props();
+	const { projectId, selectedId, stacks, active }: Props = $props();
 
 	let lanesContentEl = $state<HTMLElement>();
 	let lanesContentWidth = $state<number>(0);
@@ -105,7 +106,6 @@
 	>
 		{#if stacks.length > 0}
 			{#each stacks as stack, i}
-				{@const active = stack.id === projectState.stackId.current}
 				<div
 					class="lane"
 					class:multi={$stackLayoutMode === 'multi' || stacks.length < SHOW_PAGINATION_THRESHOLD}

@@ -24,6 +24,7 @@
 		draggable?: boolean;
 		disableCommitActions?: boolean;
 		isOpen?: boolean;
+		active?: boolean;
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
 		onclick?: () => void;
 	};
@@ -67,6 +68,7 @@
 		opacity,
 		borderTop,
 		isOpen,
+		active,
 		onclick,
 		menu,
 		...args
@@ -103,7 +105,11 @@
 	}}
 >
 	{#if selected}
-		<div class="commit-row__select-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+		<div
+			class="commit-row__select-indicator"
+			class:active
+			in:slide={{ axis: 'x', duration: 150 }}
+		></div>
 	{/if}
 
 	<CommitLine
@@ -170,8 +176,11 @@
 		height: 45%;
 		transform: translateY(-50%);
 		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
-		background-color: var(--clr-selected-in-focus-element);
+		background-color: var(--clr-selected-not-in-focus-element);
 		transition: transform var(--transition-fast);
+		&.active {
+			background-color: var(--clr-selected-in-focus-element);
+		}
 	}
 
 	.commit-content {

@@ -45,7 +45,6 @@
 					commitKey: CommitKey;
 					first: boolean;
 					lastCommit: boolean;
-					selected: boolean;
 				}
 			]
 		>;
@@ -57,7 +56,6 @@
 					first: boolean;
 					last: boolean;
 					lastCommit: boolean;
-					selectedCommitId: string | undefined;
 				}
 			]
 		>;
@@ -67,7 +65,6 @@
 		projectId,
 		stackId,
 		branchName,
-		selectedCommitId,
 		empty,
 		beforeLocalAndRemote,
 		localAndRemoteTemplate,
@@ -163,8 +160,7 @@
 							{@const first = i === 0}
 							{@const lastCommit = i === upstreamOnlyCommits.length - 1}
 							{@const commitKey = { stackId, branchName, commitId: commit.id, upstream: true }}
-							{@const selected = selectedCommitId === commit.id}
-							{@render upstreamTemplate({ commit, commitKey, first, lastCommit, selected })}
+							{@render upstreamTemplate({ commit, commitKey, first, lastCommit })}
 						{/each}
 					{/if}
 
@@ -188,8 +184,7 @@
 						commitKey,
 						first,
 						last,
-						lastCommit: last,
-						selectedCommitId
+						lastCommit: last
 					})}
 				{/each}
 			{/if}

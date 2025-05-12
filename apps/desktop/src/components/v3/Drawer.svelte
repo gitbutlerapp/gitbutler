@@ -72,7 +72,7 @@
 	bind:this={drawerDiv}
 	style:height
 	style:min-height="{minHeight}rem"
-	use:focusable={{ id: Focusable.CommitEditor, parentId: Focusable.WorkspaceMiddle }}
+	use:focusable={{ id: Focusable.Drawer, parentId: Focusable.WorkspaceMiddle }}
 >
 	<div class="drawer-wrap">
 		<div bind:this={headerDiv} class="drawer-header" class:no-left-padding={noLeftPadding}>

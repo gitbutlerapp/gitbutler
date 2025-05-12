@@ -250,6 +250,7 @@
 							{projectId}
 							branchName={current.branchName}
 							stackId={current.stackId}
+							active
 							{onerror}
 						/>
 					{:else if current.isTarget}

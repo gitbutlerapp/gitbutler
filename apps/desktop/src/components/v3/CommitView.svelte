@@ -15,6 +15,7 @@
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { isCommit } from '$lib/branches/v3';
 	import { CommitStatus, type CommitKey } from '$lib/commits/commit';
+	import { Focusable } from '$lib/focus/focusManager.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { ModeService } from '$lib/mode/modeService';
 	import { showToast } from '$lib/notifications/toasts';
@@ -33,10 +34,11 @@
 		projectId: string;
 		stackId: string;
 		commitKey: CommitKey;
+		active?: boolean;
 		onerror: (err: unknown) => void;
 	};
 
-	const { projectId, stackId, commitKey, onerror }: Props = $props();
+	const { projectId, stackId, commitKey, active, onerror }: Props = $props();
 
 	const [stackService, uiState] = inject(StackService, UiState);
 
@@ -260,6 +262,8 @@
 								stackId={env.stackId}
 								selectionId={{ type: 'commit', commitId: commit.id }}
 								{changes}
+								{active}
+								parentId={Focusable.Drawer}
 							/>
 						{/snippet}
 					</ReduxResult>

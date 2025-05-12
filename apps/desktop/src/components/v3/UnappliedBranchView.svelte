@@ -114,6 +114,7 @@
 							projectId={env.projectId}
 							stackId={env.stackId}
 							testId={TestId.BranchChangedFileList}
+							active
 							{selectionId}
 							{changes}
 						/>

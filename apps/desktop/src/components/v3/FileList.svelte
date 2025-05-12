@@ -19,10 +19,10 @@
 		listMode: 'list' | 'tree';
 		showCheckboxes?: boolean;
 		selectionId: SelectionId;
-		listActive: boolean;
+		active?: boolean;
 	};
 
-	const { projectId, changes, listMode, selectionId, showCheckboxes, listActive, stackId }: Props =
+	const { projectId, changes, listMode, selectionId, showCheckboxes, active, stackId }: Props =
 		$props();
 
 	let currentDisplayIndex = $state(0);
@@ -60,7 +60,7 @@
 		allChanges={changes}
 		{projectId}
 		{stackId}
-		{listActive}
+		{active}
 		{listMode}
 		{depth}
 		executable={!!isExecutable}
