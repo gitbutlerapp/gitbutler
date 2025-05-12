@@ -102,7 +102,8 @@
 		changeSelection.clear();
 	}
 
-	let isFooterSticky = $state(false);
+	let listHeaderHeight = $state(0);
+	let listFooterHeight = $state(0);
 </script>
 
 <ReduxResult {stackId} {projectId} result={changesResult.current}>
@@ -111,26 +112,38 @@
 			class="uncommitted-changes-wrap"
 			use:focusable={{ id: Focusable.UncommittedChanges, parentId: Focusable.WorkspaceLeft }}
 		>
-			<div data-testid={TestId.UncommittedChanges_Header} use:stickyHeader class="worktree-header">
-				<div class="worktree-header__general">
-					{#if isCommitting}
-						<Checkbox
-							checked={filesPartiallySelected || filesFullySelected}
-							indeterminate={filesPartiallySelected}
-							small
-							onchange={toggleGlobalCheckbox}
-						/>
-					{/if}
-					<div class="worktree-header__title truncate">
-						<h3 class="text-14 text-semibold truncate">Uncommitted</h3>
-						{#if changes.length > 0}
-							<Badge>{changes.length}</Badge>
+			<ScrollableContainer
+				autoScroll={false}
+				padding={{
+					top: listHeaderHeight,
+					bottom: listFooterHeight
+				}}
+			>
+				<div
+					data-testid={TestId.UncommittedChanges_Header}
+					use:stickyHeader
+					class="worktree-header"
+					bind:clientHeight={listHeaderHeight}
+				>
+					<div class="worktree-header__general">
+						{#if isCommitting}
+							<Checkbox
+								checked={filesPartiallySelected || filesFullySelected}
+								indeterminate={filesPartiallySelected}
+								small
+								onchange={toggleGlobalCheckbox}
+							/>
 						{/if}
+						<div class="worktree-header__title truncate">
+							<h3 class="text-14 text-semibold truncate">Uncommitted</h3>
+							{#if changes.length > 0}
+								<Badge>{changes.length}</Badge>
+							{/if}
+						</div>
 					</div>
+					<FileListMode bind:mode={listMode} persist="uncommitted" />
 				</div>
-				<FileListMode bind:mode={listMode} persist="uncommitted" />
-			</div>
-			<ScrollableContainer autoScroll={false}>
+
 				{#if changes.length > 0}
 					<div data-testid={TestId.UncommittedChanges_FileList} class="uncommitted-changes">
 						<FileList
@@ -146,7 +159,7 @@
 					<div
 						use:stickyHeader={{ align: 'bottom' }}
 						class="start-commit"
-						class:sticked={isFooterSticky}
+						bind:clientHeight={listFooterHeight}
 					>
 						<Button
 							testId={TestId.StartCommitButton}
@@ -169,7 +182,6 @@
 								No files need committing
 							</p>
 						</div>
-
 						<WorktreeTipsFooter />
 					</div>
 				{/if}
@@ -222,10 +234,6 @@
 		bottom: -1px;
 		padding: 14px;
 		background-color: var(--clr-bg-1);
-
-		&.sticked {
-			border-top: 1px solid var(--clr-border-2);
-		}
 	}
 
 	.uncommitted-changes__empty {
