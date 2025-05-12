@@ -224,9 +224,13 @@
 	}
 
 	function setupFetchInterval() {
+		const autoFetchIntervalMinutes = $settingsStore?.fetch.autoFetchIntervalMinutes || 15;
+		if (autoFetchIntervalMinutes < 0) {
+			return;
+		}
 		fetchRemoteForProject();
 		clearFetchInterval();
-		const intervalMs = 15 * 60 * 1000; // 15 minutes
+		const intervalMs = autoFetchIntervalMinutes * 60 * 1000; // 15 minutes
 		intervalId = setInterval(async () => {
 			await fetchRemoteForProject();
 		}, intervalMs);
