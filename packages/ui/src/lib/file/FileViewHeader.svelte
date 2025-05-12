@@ -2,6 +2,7 @@
 	import Badge from '$lib/Badge.svelte';
 	import Button from '$lib/Button.svelte';
 	import Icon from '$lib/Icon.svelte';
+	import ExecutableLabel from '$lib/file/ExecutableLabel.svelte';
 	import FileName from '$lib/file/FileName.svelte';
 	import FileStatusBadge from '$lib/file/FileStatusBadge.svelte';
 	import LineChangeStats from '$lib/file/LineChangeStats.svelte';
@@ -16,6 +17,7 @@
 		linesAdded?: number;
 		linesRemoved?: number;
 		conflicted?: boolean;
+		executable?: boolean;
 		oncontextmenu?: (e: MouseEvent) => void;
 		oncloseclick?: () => void;
 	}
@@ -28,7 +30,8 @@
 		draggable = true,
 		linesAdded = 0,
 		linesRemoved = 0,
-		conflicted = false,
+		conflicted,
+		executable,
 		oncontextmenu,
 		oncloseclick
 	}: Props = $props();
@@ -60,6 +63,10 @@
 
 	<div class="file-header__statuses">
 		<LineChangeStats added={linesAdded} removed={linesRemoved} />
+
+		{#if executable}
+			<ExecutableLabel />
+		{/if}
 
 		{#if fileStatus}
 			<FileStatusBadge tooltip={fileStatusTooltip} status={fileStatus} style="full" />
