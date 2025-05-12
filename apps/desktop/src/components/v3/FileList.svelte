@@ -9,7 +9,7 @@
 	import { chunk } from '$lib/utils/array';
 	import { sortLikeFileTree } from '$lib/worktree/changeTree';
 	import { getContext } from '@gitbutler/shared/context';
-	import type { TreeChange } from '$lib/hunks/change';
+	import type { TreeChange, Modification } from '$lib/hunks/change';
 	import type { SelectionId } from '$lib/selection/key';
 
 	type Props = {
@@ -53,6 +53,7 @@
 </script>
 
 {#snippet fileTemplate(change: TreeChange, idx: number, depth: number = 0)}
+	{@const isExecutable = (change.status.subject as Modification).flags}
 	<FileListItemWrapper
 		{selectionId}
 		{change}
@@ -62,6 +63,7 @@
 		{listActive}
 		{listMode}
 		{depth}
+		executable={!!isExecutable}
 		showCheckbox={showCheckboxes}
 		isLast={idx === visibleFiles.length - 1}
 		selected={idSelection.has(change.path, selectionId)}

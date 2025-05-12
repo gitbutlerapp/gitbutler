@@ -4,6 +4,7 @@
 	import Checkbox from '$lib/Checkbox.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import Tooltip from '$lib/Tooltip.svelte';
+	import ExecutableLabel from '$lib/file/ExecutableLabel.svelte';
 	import FileIndent from '$lib/file/FileIndent.svelte';
 	import FileName from '$lib/file/FileName.svelte';
 	import FileStatusBadge from '$lib/file/FileStatusBadge.svelte';
@@ -31,6 +32,7 @@
 		lockText?: string;
 		listActive?: boolean;
 		isLast?: boolean;
+		executable?: boolean;
 		oncheck?: (
 			e: Event & {
 				currentTarget: EventTarget & HTMLInputElement;
@@ -65,6 +67,7 @@
 		listActive,
 		listMode,
 		depth,
+		executable,
 		oncheck,
 		onclick,
 		ondblclick,
@@ -159,6 +162,10 @@
 					<Icon name="warning-small" color="error" />
 				</div>
 			</Tooltip>
+		{/if}
+
+		{#if executable}
+			<ExecutableLabel />
 		{/if}
 
 		{#if fileStatus}

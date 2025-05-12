@@ -4,27 +4,30 @@
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 
 	type Props = {
-		row?: boolean;
+		truncate?: boolean;
 		commitMessage: string;
 		className?: string;
 	};
 
-	const { commitMessage, row, className }: Props = $props();
+	const { commitMessage, truncate, className }: Props = $props();
 
 	const title = $derived(splitMessage(commitMessage).title);
+
+	function getTitle() {
+		if (title) {
+			return title;
+		}
+		return 'Empty commit. Drag changes here';
+	}
 </script>
 
-<Tooltip text={title}>
-	<h3 data-testid={TestId.CommitDrawerTitle} class="{className} commit-title" class:row>
-		{title}
+<Tooltip text={getTitle()}>
+	<h3
+		data-testid={TestId.CommitDrawerTitle}
+		class="{className} commit-title"
+		class:truncate
+		class:text-clr3={!title}
+	>
+		{getTitle()}
 	</h3>
 </Tooltip>
-
-<style>
-	.row {
-		text-align: left;
-		text-overflow: ellipsis;
-		overflow: hidden;
-		white-space: nowrap;
-	}
-</style>

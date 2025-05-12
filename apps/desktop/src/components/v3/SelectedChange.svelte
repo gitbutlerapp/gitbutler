@@ -7,6 +7,7 @@
 	import { combineResults } from '$lib/state/helpers';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/shared/context';
+	import type { Modification } from '$lib/hunks/change';
 	import type { SelectedFile } from '$lib/selection/key';
 
 	type Props = {
@@ -51,6 +52,7 @@
 		result={combineResults(changeResult.current, diffResult.current)}
 	>
 		{#snippet children([change, diff], env)}
+			{@const isExecutable = (change.status.subject as Modification).flags}
 			<div class="selected-change-item">
 				<FileListItemWrapper
 					selectionId={selectedFile}
@@ -58,6 +60,7 @@
 					{change}
 					{diff}
 					isHeader
+					executable={!!isExecutable}
 					listMode="list"
 					{onCloseClick}
 				/>

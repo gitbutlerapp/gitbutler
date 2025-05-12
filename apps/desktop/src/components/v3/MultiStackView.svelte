@@ -182,6 +182,7 @@
 			display: flex;
 			align-items: center;
 			gap: 6px;
+			overflow: hidden;
 		}
 
 		& .actions {
