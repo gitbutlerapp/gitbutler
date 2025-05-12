@@ -20,7 +20,6 @@
 	import Formatter from '@gitbutler/ui/richText/plugins/Formatter.svelte';
 	import GhostTextPlugin from '@gitbutler/ui/richText/plugins/GhostText.svelte';
 	import FormattingBar from '@gitbutler/ui/richText/tools/FormattingBar.svelte';
-	import FormattingButton from '@gitbutler/ui/richText/tools/FormattingButton.svelte';
 
 	const ACCEPTED_FILE_TYPES = ['image/*', 'application/*', 'text/*', 'audio/*', 'video/*'];
 
@@ -53,23 +52,11 @@
 		testId
 	}: Props = $props();
 
-	const MIN_RULER_VALUE = 30;
-	const MAX_RULER_VALUE = 200;
-
 	const uiState = getContext(UiState);
 	const uploadsService = getContext(UploadsService);
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
 	const useRichText = uiState.global.useRichText;
-	const useRuler = uiState.global.useRuler;
-	const rulerCountValue = uiState.global.rulerCountValue;
-	const wrapTextByRuler = uiState.global.wrapTextByRuler;
-
-	const wrapCountValue = $derived(
-		useRuler.current && wrapTextByRuler.current && !useRichText.current
-			? rulerCountValue.current
-			: undefined
-	);
 
 	let composer = $state<ReturnType<typeof RichTextEditor>>();
 	let formatter = $state<ReturnType<typeof Formatter>>();
@@ -214,9 +201,7 @@
 
 <div
 	class="editor-wrapper"
-	style:--lexical-input-client-text-wrap={useRuler.current && !useRichText.current
-		? 'nowrap'
-		: 'normal'}
+	style:--lexical-input-client-text-wrap="normal"
 	style:--code-block-font={$userSettings.diffFont}
 	style:--code-block-tab-size={$userSettings.tabSize}
 	style:--code-block-ligatures={$userSettings.diffLigatures ? 'common-ligatures' : 'normal'}
@@ -260,10 +245,6 @@
 				composer?.focus();
 			}}
 		>
-			{#if useRuler.current && !useRichText.current}
-				<MessageEditorRuler />
-			{/if}
-
 			<ConfigurableScrollableContainer height="100%">
 				<div class="message-textarea__wrapper">
 					<RichTextEditor
@@ -279,7 +260,6 @@
 						onFocus={() => (isEditorFocused = true)}
 						onBlur={() => (isEditorFocused = false)}
 						{disabled}
-						{wrapCountValue}
 					>
 						{#snippet plugins()}
 							<Formatter bind:this={formatter} />
@@ -325,58 +305,6 @@
 				onclick={onAiButtonClick}
 				loading={aiIsLoading}
 			/>
-			{#if !useRichText.current}
-				<div class="message-textarea__toolbar__divider"></div>
-				<FormattingButton
-					icon="ruler"
-					activated={useRuler.current}
-					tooltip="Text ruler"
-					onclick={() => {
-						useRuler.current = !useRuler.current;
-					}}
-				/>
-				<FormattingButton
-					icon="text-wrap"
-					disabled={!useRuler.current}
-					activated={wrapTextByRuler.current && useRuler.current}
-					tooltip="Wrap text automatically"
-					onclick={() => {
-						wrapTextByRuler.current = !wrapTextByRuler.current;
-					}}
-				/>
-				<div class="message-textarea__ruler-input-wrapper" class:disabled={!useRuler.current}>
-					<span class="text-13">Ruler:</span>
-					<input
-						disabled={!useRuler.current}
-						value={rulerCountValue.current}
-						min={MIN_RULER_VALUE}
-						max={MAX_RULER_VALUE}
-						class="text-13 text-input message-textarea__ruler-input"
-						type="number"
-						onfocus={() => (isEditorFocused = true)}
-						onblur={() => {
-							if (rulerCountValue.current < MIN_RULER_VALUE) {
-								console.warn('Ruler value must be greater than 10');
-								rulerCountValue.current = MIN_RULER_VALUE;
-							} else if (rulerCountValue.current > MAX_RULER_VALUE) {
-								rulerCountValue.current = MAX_RULER_VALUE;
-							}
-
-							isEditorFocused = false;
-						}}
-						oninput={(e) => {
-							const input = e.currentTarget as HTMLInputElement;
-							rulerCountValue.current = parseInt(input.value);
-						}}
-						onkeydown={(e) => {
-							if (e.key === 'Enter') {
-								e.preventDefault();
-								composer?.focus();
-							}
-						}}
-					/>
-				</div>
-			{/if}
 		</div>
 	</div>
 </div>
@@ -487,34 +415,6 @@
 		height: 18px;
 		background-color: var(--clr-border-3);
 	}
-
-	/* RULER INPUT */
-	.message-textarea__ruler-input-wrapper {
-		display: flex;
-		align-items: center;
-		gap: 5px;
-		padding: 0 4px;
-
-		&.disabled {
-			pointer-events: none;
-			opacity: 0.5;
-		}
-	}
-
-	.message-textarea__ruler-input {
-		padding: 2px 0;
-		width: 30px;
-		text-align: center;
-
-		/* remove numver arrows */
-		&::-webkit-inner-spin-button,
-		&::-webkit-outer-spin-button {
-			-webkit-appearance: none;
-			margin: 0;
-		}
-	}
-
-	/*  */
 
 	.message-textarea__inner {
 		flex: 1;
