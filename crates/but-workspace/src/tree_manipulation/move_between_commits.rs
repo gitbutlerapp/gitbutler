@@ -62,6 +62,10 @@ pub fn move_changes_between_commits(
     changes_to_remove_from_source: impl IntoIterator<Item = DiffSpec>,
     context_lines: u32,
 ) -> Result<()> {
+    if source_commit_id == destination_commit_id {
+        return Ok(());
+    }
+
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     let repository = ctx.gix_repo()?;
     let git2_repository = ctx.gix_repo()?;

@@ -207,6 +207,8 @@
 		const stagedHunk = !!hunkSelected;
 		return [stagedHunk, linesSelected];
 	}
+
+	const draggingDisabled = $derived(readonly || !['commit', 'worktree'].includes(selectionId.type));
 </script>
 
 <div data-testid={TestId.UnifiedDiffView} class="diff-section" bind:this={viewport}>
@@ -224,7 +226,7 @@
 				use:draggableChips={{
 					label: hunk.diff.split('\n')[0],
 					data: new HunkDropDataV3(change, hunk, uncommittedChange, stackId, commitId),
-					disabled: readonly,
+					disabled: draggingDisabled,
 					chipType: 'hunk'
 				}}
 			>
@@ -236,7 +238,7 @@
 					/>
 				{:else}
 					<HunkDiff
-						draggingDisabled={readonly}
+						{draggingDisabled}
 						hideCheckboxes={!isCommiting}
 						filePath={change.path}
 						hunkStr={hunk.diff}
