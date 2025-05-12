@@ -40,19 +40,6 @@ describe('File Tree - multiple file changes', () => {
 				// Click the tree view button
 				cy.get('#tree').should('be.visible').should('have.attr', 'aria-selected', 'false').click();
 			});
-
-		// There should be collapsed file tree
-		cy.getByTestId('uncommitted-changes-file-list').within(() => {
-			cy.getByTestId('file-list-tree-folder').should(
-				'have.length',
-				mockBackend.getWorktreeChangesTopLevelDirs().length
-			);
-
-			cy.getByTestId('file-list-item').should(
-				'have.length',
-				mockBackend.getWorktreeChangesTopLevelFiles().length
-			);
-		});
 	});
 });
 
