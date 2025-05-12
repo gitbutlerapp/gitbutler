@@ -1,3 +1,5 @@
+import CommitMessageFormatter from '$lib/commits/commitMessageFormatter';
+
 /**
  * Splits a commit message into a title and description.
  *
@@ -5,15 +7,23 @@
  * next non-emptyline till the last non-empty line.
  *
  * Only the title will be trimmed (unless otherwise specified), the description will keep its original formatting.
+ *
+ * This will also unformat a message from the Git email RFC format
+ * (remove hard wraps at 72 char, etc)
  */
 export function splitMessage(message: string, skipTrimming: boolean = false) {
-	const lines = message.split('\n');
+	let unformattedMessage = CommitMessageFormatter.parseForUi(message);
+
+	const lines = unformattedMessage.split('\n');
 	if (lines.length === 0) {
 		return { title: '', description: '' };
 	}
 
 	if (lines.length === 1) {
-		return { title: skipTrimming ? message : message.trim(), description: '' };
+		return {
+			title: skipTrimming ? unformattedMessage : unformattedMessage.trim(),
+			description: ''
+		};
 	}
 
 	const title = skipTrimming ? lines[0]! : lines[0]!.trim();
