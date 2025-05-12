@@ -88,9 +88,20 @@ describe('Unified Diff View', () => {
 
 		// The tooltip should be visible
 		cy.getByTestId('unified-diff-view-lock-warning').should('be.visible');
+
+		// Select the stack that the file belongs to
+		cy.getByTestId('branch-header', mockBackend.dependsOnStack).should('be.visible').click();
+
+		// The unified diff view should be visible
+		cy.getByTestId('unified-diff-view')
+			.should('be.visible')
+			.within(() => {
+				// The line locks should not be visible
+				cy.get('[data-testid="hunk-line-locking-info"]').should('not.exist');
+			});
 	});
 
-	it.only('should hide big diffs by default', () => {
+	it('should hide big diffs by default', () => {
 		// There should be uncommitted changes
 		cy.getByTestId('uncommitted-changes-file-list').should('be.visible');
 
