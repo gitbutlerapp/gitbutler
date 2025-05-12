@@ -15,6 +15,7 @@
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { isCommit } from '$lib/branches/v3';
 	import { CommitStatus, type CommitKey } from '$lib/commits/commit';
+	import CommitMessageFormatter from '$lib/commits/commitMessageFormatter';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { ModeService } from '$lib/mode/modeService';
 	import { showToast } from '$lib/notifications/toasts';
@@ -85,11 +86,13 @@
 			return;
 		}
 
+		const formattedMessage = CommitMessageFormatter.formatForCommit(commitMessage);
+
 		const newCommitId = await updateCommitMessage({
 			projectId,
 			stackId,
 			commitId: commitKey.commitId,
-			message: commitMessage
+			message: formattedMessage
 		});
 
 		uiState.stack(stackId).selection.set({ branchName, commitId: newCommitId });
