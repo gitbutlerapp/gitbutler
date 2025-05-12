@@ -186,7 +186,7 @@ export default class PartiallyIntegratedBranches extends MockBackend {
 	}
 
 	public getBaseBranchData() {
-		return getBaseBranchBehindData();
+		return getBaseBranchBehindData() as any;
 	}
 
 	public getUpstreamIntegrationStatuses(): BranchStatusesResponse {
