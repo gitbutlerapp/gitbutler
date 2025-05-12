@@ -64,6 +64,8 @@ export type AppSettings = {
 	telemetry: TelemetrySettings;
 	/** Feature flags that both the UI and the backend can see */
 	featureFlags: FeatureFlags;
+	/** Settings related to fetching */
+	fetch: Fetch;
 };
 
 export type TelemetrySettings = {
@@ -78,4 +80,9 @@ export type TelemetrySettings = {
 export type FeatureFlags = {
 	/** Enables the v3 design, as well as the purgatory mode (no uncommitted diff ownership assignments). */
 	v3: boolean;
+};
+
+export type Fetch = {
+	/** The frequency at which the app will automatically fetch. A negative value (e.g. -1) disables auto fetching. */
+	autoFetchIntervalMinutes: number;
 };

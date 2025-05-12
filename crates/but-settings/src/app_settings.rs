@@ -31,3 +31,10 @@ pub struct ExtraCsp {
     /// Additional hosts that the application can connect to.
     pub hosts: Vec<String>,
 }
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct Fetch {
+    /// The frequency at which the app will automatically fetch. A negative value (e.g. -1) disables auto fetching.
+    pub auto_fetch_interval_minutes: isize,
+}

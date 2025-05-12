@@ -19,6 +19,8 @@ pub struct AppSettings {
     pub feature_flags: app_settings::FeatureFlags,
     /// Allows for additional "connect-src" hosts to be included. Requires app restart.
     pub extra_csp: app_settings::ExtraCsp,
+    /// Settings related to fetching.
+    pub fetch: app_settings::Fetch,
 }
 
 impl Default for AppSettings {
