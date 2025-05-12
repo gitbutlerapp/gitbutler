@@ -84,7 +84,7 @@
 				{#each branch.commits || [] as commit, idx}
 					<CommitRow
 						disableCommitActions
-						type="LocalAndRemote"
+						type={branch.commits.at(0)?.state.type || 'LocalOnly'}
 						commitMessage={commit.message}
 						createdAt={commit.createdAt}
 						commitId={commit.id}
