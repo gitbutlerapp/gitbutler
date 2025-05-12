@@ -55,7 +55,7 @@
 	const prService = $derived(forge.current.prService);
 	const checksService = $derived(forge.current.checks);
 
-	const prResult = $derived(prService?.get(prNumber));
+	const prResult = $derived(prService?.get(prNumber, { forceRefetch: true }));
 	const pr = $derived(prResult?.current.data);
 
 	const { name, abbr, symbol } = $derived(prService!.unit);
