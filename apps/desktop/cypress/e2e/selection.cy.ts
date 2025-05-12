@@ -89,6 +89,9 @@ describe('Selection with upstream changes', () => {
 		// Check if the commit context menu is shown
 		cy.getByTestId('commit-row-context-menu').should('be.visible');
 
+		// Upstream commit accordion should be visible
+		cy.getByTestId('upstream-commits-accordion').should('be.visible').click();
+
 		// Select the second commit which should be remote only
 		cy.getByTestId('commit-row', 'Upstream commit 1').first().rightclick();
 
