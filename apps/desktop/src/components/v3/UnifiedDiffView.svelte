@@ -48,6 +48,7 @@
 	const drawerPage = $derived(projectState.drawerPage.current);
 	const stacks = $derived(stackService.stacks(projectId));
 	const hasMultipleStacks = $derived(stacks.current.data && stacks.current.data.length > 1);
+	const activeStackId = $derived(projectState.stackId.current);
 
 	const isCommiting = $derived(drawerPage === 'new-commit');
 
@@ -203,6 +204,7 @@
 			{@const linesModified = diff.subject.linesAdded + diff.subject.linesRemoved}
 			{@const [staged, stagedLines] = getStageState(hunk)}
 			{@const [fullyLocked, lineLocks] = getLineLocks(
+				activeStackId,
 				hunk,
 				fileDependencies?.current.data?.dependencies ?? []
 			)}
