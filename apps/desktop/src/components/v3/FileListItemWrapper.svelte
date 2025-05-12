@@ -30,6 +30,7 @@
 		linesAdded?: number;
 		linesRemoved?: number;
 		depth?: number;
+		executable?: boolean;
 		showCheckbox?: boolean;
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
@@ -47,6 +48,7 @@
 		isLast,
 		listMode,
 		depth,
+		executable,
 		showCheckbox,
 		onclick,
 		onkeydown,
@@ -145,6 +147,7 @@
 			linesAdded={lineChangesStat?.added}
 			linesRemoved={lineChangesStat?.removed}
 			fileStatusTooltip={previousTooltipText}
+			{executable}
 			oncontextmenu={(e) => {
 				e.stopPropagation();
 				e.preventDefault();
@@ -166,6 +169,7 @@
 			{indeterminate}
 			{isLast}
 			{depth}
+			{executable}
 			draggable={!showCheckbox}
 			{onkeydown}
 			locked={false}

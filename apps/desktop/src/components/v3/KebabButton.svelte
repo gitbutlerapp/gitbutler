@@ -14,6 +14,7 @@
 	const { flat, activated, contextElement, onclick, oncontext }: Props = $props();
 
 	let visible = $state(false);
+	let isContextElementFocused = $state(false);
 	let buttonElement = $state<HTMLElement>();
 
 	function onMouseEnter() {
@@ -22,6 +23,22 @@
 	}
 
 	function onMouseLeave() {
+		if (!flat) return;
+		visible = false;
+	}
+
+	function onFocus() {
+		if (!flat) return;
+		if (isContextElementFocused) return;
+		isContextElementFocused = true;
+		visible = true;
+	}
+	function onBlur() {
+		if (!flat) return;
+		if (isContextElementFocused) {
+			isContextElementFocused = false;
+			return;
+		}
 		visible = false;
 	}
 
@@ -41,10 +58,14 @@
 			contextElement.addEventListener('contextmenu', onContextMenu);
 			contextElement.addEventListener('mouseenter', onMouseEnter);
 			contextElement.addEventListener('mouseleave', onMouseLeave);
+			contextElement.addEventListener('focus', onFocus);
+			contextElement.addEventListener('blur', onBlur);
 			return () => {
 				contextElement.removeEventListener('contextmenu', onContextMenu);
 				contextElement.removeEventListener('mouseenter', onMouseEnter);
 				contextElement.removeEventListener('mouseleave', onMouseLeave);
+				contextElement.removeEventListener('focus', onFocus);
+				contextElement.removeEventListener('blur', onBlur);
 			};
 		}
 	});
@@ -55,7 +76,7 @@
 		bind:this={buttonElement}
 		type="button"
 		class="branch-menu-btn"
-		class:visible
+		class:visible={visible || isContextElementFocused}
 		class:activated
 		onclick={onClick}
 		data-testid={TestId.KebabMenuButton}
@@ -78,15 +99,17 @@
 		display: flex;
 		padding: 0 4px;
 		color: var(--clr-text-1);
-		opacity: 0;
+		display: none;
 
 		&.visible {
+			display: flex;
 			opacity: 0.5;
 		}
 
 		&.activated,
-		&:hover {
-			opacity: 1;
+		&:hover,
+		&:focus-within {
+			display: flex;
 		}
 	}
 </style>

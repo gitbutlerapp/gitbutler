@@ -196,7 +196,6 @@
 											{stackId}
 											{lineColor}
 											{iconName}
-											{isCommitting}
 											{selected}
 											{isNewBranch}
 											{pushStatus}

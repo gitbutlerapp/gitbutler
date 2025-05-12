@@ -122,7 +122,7 @@
 		{/if}
 
 		<div class="commit-name truncate">
-			<CommitHeader {commitMessage} row className="text-13 text-semibold" />
+			<CommitHeader {commitMessage} truncate className="text-13 text-semibold" />
 		</div>
 
 		{#if !args.disableCommitActions}
