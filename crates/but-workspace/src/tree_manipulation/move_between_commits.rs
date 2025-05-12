@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::{Result, bail};
-use but_rebase::{Rebase, RebaseStep, replace_commit_tree};
+use but_rebase::{Rebase, RebaseOutput, RebaseStep, replace_commit_tree};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::GixRepositoryExt;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
@@ -11,6 +11,17 @@ use crate::{
     stack_ext::StackExt,
     tree_manipulation::function::{ChangesSource, create_tree_without_diff},
 };
+
+/// Provides data that helps describe the effect of the move changes operaiton.
+pub struct MoveChangesResult {
+    /// A list of commits that were replaced as part of any rebases that were
+    /// performed. Provided as a list of tuples where the first item in the
+    /// tuple is the "before" and the second item in the tuple is the "after"
+    /// id.
+    ///
+    /// If a commit was unaffected then it will not be included in this list.
+    pub replaced_commits: Vec<(gix::ObjectId, gix::ObjectId)>,
+}
 
 /// Move changes between to commits.
 ///
@@ -61,9 +72,11 @@ pub fn move_changes_between_commits(
     destination_commit_id: gix::ObjectId,
     changes_to_remove_from_source: impl IntoIterator<Item = DiffSpec>,
     context_lines: u32,
-) -> Result<()> {
+) -> Result<MoveChangesResult> {
     if source_commit_id == destination_commit_id {
-        return Ok(());
+        return Ok(MoveChangesResult {
+            replaced_commits: vec![],
+        });
     }
 
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
@@ -88,6 +101,11 @@ pub fn move_changes_between_commits(
     let source_stack = vb_state.get_stack_in_workspace(source_stack_id)?;
     let mut source_stack_steps = source_stack.as_rebase_steps(ctx, &git2_repository)?;
 
+    let rewritten_source_commit = replace_commit_tree(
+        &repository,
+        source_commit_id,
+        source_tree_without_changes_id,
+    )?;
     for step in &mut source_stack_steps {
         if step.commit_id() != Some(&source_commit_id) {
             continue;
@@ -95,7 +113,7 @@ pub fn move_changes_between_commits(
         let RebaseStep::Pick { commit_id, .. } = step else {
             continue;
         };
-        *commit_id = replace_commit_tree(&repository, *commit_id, source_tree_without_changes_id)?;
+        *commit_id = rewritten_source_commit;
     }
 
     let mut rebase = Rebase::new(&git2_repository, source_stack.merge_base(ctx)?, None)?;
@@ -103,11 +121,10 @@ pub fn move_changes_between_commits(
     rebase.rebase_noops(false);
     let source_stack_result = rebase.rebase()?;
 
-    let source_stack_mapping = source_stack_result
-        .commit_mapping
-        .into_iter()
-        .map(|(_, old, new)| (old, new))
-        .collect::<HashMap<_, _>>();
+    let source_stack_mapping = rebase_mapping_with_overrides(
+        &source_stack_result,
+        [(source_commit_id, rewritten_source_commit)],
+    );
 
     let destination_commit_id: gix::ObjectId = if source_stack_id == destination_stack_id {
         *source_stack_mapping
@@ -137,6 +154,11 @@ pub fn move_changes_between_commits(
         // We need to rebase the source stack a second time. This loop both
         // updates the steps to consider the first rebase, and also injects the
         // new destination commit's tree.
+        let rewritten_destination_commit = replace_commit_tree(
+            &repository,
+            destination_commit_id,
+            final_destination_tree.detach(),
+        )?;
         for step in &mut source_stack_steps {
             let RebaseStep::Pick { commit_id, .. } = step else {
                 continue;
@@ -145,8 +167,7 @@ pub fn move_changes_between_commits(
             *commit_id = *source_stack_mapping.get(commit_id).unwrap_or(commit_id);
 
             if *commit_id == destination_commit_id {
-                *commit_id =
-                    replace_commit_tree(&repository, *commit_id, final_destination_tree.detach())?;
+                *commit_id = rewritten_destination_commit;
             }
         }
 
@@ -154,13 +175,39 @@ pub fn move_changes_between_commits(
         rebase.steps(source_stack_steps.clone())?;
         rebase.rebase_noops(false);
         let result = rebase.rebase()?;
+
+        // Create the output mapping
+        let mut output_commit_mapping = source_stack_mapping.clone();
+        let mut after_destionation_commit_mapping = rebase_mapping_with_overrides(
+            &result,
+            [(destination_commit_id, rewritten_destination_commit)],
+        );
+        for (before, after) in source_stack_mapping {
+            if let Some(value) = after_destionation_commit_mapping.get(&after) {
+                output_commit_mapping.insert(before, *value);
+                after_destionation_commit_mapping.remove(&after);
+            }
+        }
+        for (before, after) in after_destionation_commit_mapping {
+            output_commit_mapping.entry(before).or_insert(after);
+        }
+
         let mut source_stack = source_stack;
         source_stack.set_heads_from_rebase_output(ctx, result.references)?;
+
+        Ok(MoveChangesResult {
+            replaced_commits: output_commit_mapping.into_iter().collect::<Vec<_>>(),
+        })
     } else {
         let destination_stack = vb_state.get_stack_in_workspace(destination_stack_id)?;
         let mut destination_stack_steps =
             destination_stack.as_rebase_steps(ctx, &git2_repository)?;
 
+        let rewritten_destination_commit = replace_commit_tree(
+            &repository,
+            destination_commit_id,
+            final_destination_tree.detach(),
+        )?;
         for step in &mut destination_stack_steps {
             if step.commit_id() != Some(&destination_commit_id) {
                 continue;
@@ -168,8 +215,7 @@ pub fn move_changes_between_commits(
             let RebaseStep::Pick { commit_id, .. } = step else {
                 continue;
             };
-            *commit_id =
-                replace_commit_tree(&repository, *commit_id, final_destination_tree.detach())?;
+            *commit_id = rewritten_destination_commit;
         }
 
         let mut rebase = Rebase::new(&git2_repository, destination_stack.merge_base(ctx)?, None)?;
@@ -177,9 +223,55 @@ pub fn move_changes_between_commits(
         rebase.rebase_noops(false);
         let result = rebase.rebase()?;
         let (mut source_stack, mut destination_stack) = (source_stack, destination_stack);
+
+        let output_commit_mapping = source_stack_mapping
+            .into_iter()
+            .chain(rebase_mapping_with_overrides(
+                &result,
+                [(destination_commit_id, rewritten_destination_commit)],
+            ))
+            .collect();
+
         source_stack.set_heads_from_rebase_output(ctx, source_stack_result.references)?;
         destination_stack.set_heads_from_rebase_output(ctx, result.references)?;
+
+        Ok(MoveChangesResult {
+            replaced_commits: output_commit_mapping,
+        })
+    }
+}
+
+/// Takes a rebase output and returns the commit mapping with any extra
+/// mapping overrides provided.
+///
+/// This will only include commits that have actually changed. If a commit was
+/// mapped to itself it will not be included in the resulting HashMap.
+///
+/// Overrides are used to handle the case where the caller of the rebase engine
+/// has manually replaced a particular commit with a rewritten one. This is
+/// needed because a manually re-written commit that ends up matching the
+/// base when the rebase occurs will end up showing up as a no-op in the
+/// resulting commit_mapping.
+///
+/// Overrides should be provided as a vector that contains tuples of object
+/// ids, where the first item is the before object_id, and the second item is
+/// the after object_id.
+fn rebase_mapping_with_overrides(
+    rebase_output: &RebaseOutput,
+    overrides: impl IntoIterator<Item = (gix::ObjectId, gix::ObjectId)>,
+) -> HashMap<gix::ObjectId, gix::ObjectId> {
+    let mut mapping = rebase_output
+        .commit_mapping
+        .iter()
+        .filter(|(_, old, new)| old != new)
+        .map(|(_, old, new)| (*old, *new))
+        .collect::<HashMap<_, _>>();
+
+    for (old, new) in overrides {
+        if old != new {
+            mapping.insert(old, new);
+        }
     }
 
-    Ok(())
+    mapping
 }

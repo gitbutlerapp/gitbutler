@@ -981,7 +981,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				invalidatesTags: [invalidatesList(ReduxTag.WorktreeChanges)]
 			}),
 			moveChangesBetweenCommits: build.mutation<
-				void,
+				{ replacedCommits: [string, string][] },
 				{
 					projectId: string;
 					changes: DiffSpec[];
