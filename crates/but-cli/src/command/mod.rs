@@ -115,7 +115,7 @@ pub use commit::commit;
 pub mod diff;
 
 pub mod stacks {
-    use std::{path::Path, str::FromStr};
+    use std::path::Path;
 
     use crate::command::{debug_print, project_from_path};
     use but_settings::AppSettings;
@@ -124,7 +124,6 @@ pub mod stacks {
         ui,
     };
     use gitbutler_command_context::CommandContext;
-    use gitbutler_id::id::Id;
     use gitbutler_stack::StackId;
 
     /// A collection of all the commits that are part of a branch.
@@ -157,10 +156,10 @@ pub mod stacks {
         debug_print(but_workspace::stack_details(&project.gb_dir(), id, &ctx)?)
     }
 
-    pub fn branches(id: &str, current_dir: &Path, use_json: bool) -> anyhow::Result<()> {
+    pub fn branches(id: StackId, current_dir: &Path, use_json: bool) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
         let ctx = CommandContext::open(&project, AppSettings::default())?;
-        let branches = stack_branches(id.to_string(), &ctx)?;
+        let branches = stack_branches(id, &ctx)?;
         if use_json {
             let json = serde_json::to_string_pretty(&branches)?;
             println!("{json}");
@@ -174,7 +173,7 @@ pub mod stacks {
     fn create_stack_with_branch(
         ctx: &CommandContext,
         name: &str,
-        description: &Option<String>,
+        description: Option<&str>,
     ) -> anyhow::Result<ui::StackEntry> {
         let creation_request = gitbutler_branch::BranchCreateRequest {
             name: Some(name.to_string()),
@@ -187,7 +186,7 @@ pub mod stacks {
                 ctx,
                 stack_entry.id,
                 name.to_string(),
-                description.clone(),
+                description.map(ToOwned::to_owned),
             )?;
         }
 
@@ -197,9 +196,9 @@ pub mod stacks {
     /// Add a branch to an existing stack.
     fn add_branch_to_stack(
         ctx: &CommandContext,
-        id: &str,
+        stack_id: StackId,
         name: &str,
-        description: &Option<String>,
+        description: Option<&str>,
         project: gitbutler_project::Project,
         repo: &gix::Repository,
     ) -> anyhow::Result<ui::StackEntry> {
@@ -210,7 +209,6 @@ pub mod stacks {
             preceding_head: None,
         };
 
-        let stack_id = Id::from_str(id)?;
         gitbutler_branch_actions::stack::create_branch(ctx, stack_id, creation_request)?;
         let stack_entries =
             but_workspace::stacks(ctx, &project.gb_dir(), repo, Default::default())?;
@@ -218,14 +216,14 @@ pub mod stacks {
         let stack_entry = stack_entries
             .into_iter()
             .find(|entry| entry.id == stack_id)
-            .ok_or_else(|| anyhow::anyhow!("Failed to find stack with ID: {id}"))?;
+            .ok_or_else(|| anyhow::anyhow!("Failed to find stack with ID: {stack_id}"))?;
 
         if description.is_some() {
             gitbutler_branch_actions::stack::update_branch_description(
                 ctx,
                 stack_entry.id,
                 name.to_string(),
-                description.clone(),
+                description.map(ToOwned::to_owned),
             )?;
         }
 
@@ -237,9 +235,9 @@ pub mod stacks {
     /// If `id` is provided, it will be used to add the branch to an existing stack.
     /// If `id` is not provided, a new stack will be created with the branch.
     pub fn create_branch(
-        id: &Option<String>,
+        id: Option<StackId>,
         name: &str,
-        description: &Option<String>,
+        description: Option<&str>,
         current_dir: &Path,
         use_json: bool,
     ) -> anyhow::Result<()> {
@@ -268,7 +266,7 @@ pub mod stacks {
     }
 
     pub fn branch_commits(
-        id: &str,
+        id: StackId,
         name: &str,
         current_dir: &Path,
         use_json: bool,
@@ -277,9 +275,8 @@ pub mod stacks {
         let ctx = CommandContext::open(&project, AppSettings::default())?;
         let repo = ctx.gix_repo()?;
         let local_and_remote =
-            stack_branch_local_and_remote_commits(id.to_string(), name.to_string(), &ctx, &repo);
-        let upstream_only =
-            stack_branch_upstream_only_commits(id.to_string(), name.to_string(), &ctx, &repo);
+            stack_branch_local_and_remote_commits(id, name.to_string(), &ctx, &repo);
+        let upstream_only = stack_branch_upstream_only_commits(id, name.to_string(), &ctx, &repo);
 
         if use_json {
             let branch_commits = BranchCommits {

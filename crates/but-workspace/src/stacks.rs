@@ -9,13 +9,11 @@ use bstr::BString;
 use but_core::RefMetadata;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_id::id::Id;
 use gitbutler_oxidize::{ObjectIdExt, OidExt, git2_signature_to_gix_signature};
 use gitbutler_stack::{Stack, StackBranch, StackId};
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
-use std::str::FromStr;
 
 /// Returns the list of branch information for the branches in a stack.
 pub fn stack_heads_info(
@@ -348,8 +346,7 @@ pub fn stack_details(
 
 /// Return the branches that belong to a particular [`gitbutler_stack::Stack`]
 /// The entries are ordered from newest to oldest.
-// TODO: `stack_id` probably wants to be a real StackId, and at some point a V3 stack index.
-pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> anyhow::Result<Vec<ui::Branch>> {
+pub fn stack_branches(stack_id: StackId, ctx: &CommandContext) -> anyhow::Result<Vec<ui::Branch>> {
     let state = state_handle(&ctx.project().gb_dir());
     let remote = state
         .get_default_target()
@@ -357,7 +354,7 @@ pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> anyhow::Result<
         .push_remote_name();
 
     let mut stack_branches = vec![];
-    let mut stack = state.get_stack(Id::from_str(&stack_id)?)?;
+    let mut stack = state.get_stack(stack_id)?;
     let mut current_base = stack.merge_base(ctx)?;
     let repo = ctx.gix_repo()?;
     for internal in stack.branches() {
@@ -396,13 +393,13 @@ pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> anyhow::Result<
 ///
 /// In either case, this is effectively a list of commits that in the working copy which may or may not have been pushed to the remote.
 pub fn stack_branch_local_and_remote_commits(
-    stack_id: String,
+    stack_id: StackId,
     branch_name: String,
     ctx: &CommandContext,
     repo: &gix::Repository,
 ) -> anyhow::Result<Vec<ui::Commit>> {
     let state = state_handle(&ctx.project().gb_dir());
-    let stack = state.get_stack(Id::from_str(&stack_id)?)?;
+    let stack = state.get_stack(stack_id)?;
 
     let branches = stack.branches();
     let branch = branches
@@ -423,13 +420,13 @@ pub fn stack_branch_local_and_remote_commits(
 /// This does **not** include the commits that are in the commits list (local)
 /// This is effectively the list of commits that are on the remote branch but are not in the working copy.
 pub fn stack_branch_upstream_only_commits(
-    stack_id: String,
+    stack_id: StackId,
     branch_name: String,
     ctx: &CommandContext,
     repo: &gix::Repository,
 ) -> anyhow::Result<Vec<ui::UpstreamCommit>> {
     let state = state_handle(&ctx.project().gb_dir());
-    let stack = state.get_stack(Id::from_str(&stack_id)?)?;
+    let stack = state.get_stack(stack_id)?;
 
     let branches = stack.branches();
     let branch = branches
