@@ -1,0 +1,480 @@
+import {
+	ChangeDropData,
+	FileDropData,
+	HunkDropData,
+	HunkDropDataV3
+} from '$lib/dragging/draggables';
+import { LocalFile, RemoteFile } from '$lib/files/file';
+import { untrack } from 'svelte';
+import type { DropzoneHandler } from '$lib/dragging/handler';
+import type { DiffSpec } from '$lib/hunks/hunk';
+import type { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
+import type { StackService } from '$lib/stacks/stackService.svelte';
+import type { UiState } from '$lib/state/uiState.svelte';
+
+/** Details about a commit beloning to a drop zone. */
+export type DzCommitData = {
+	id: string;
+	isRemote: boolean;
+	isIntegrated: boolean;
+	hasConflicts: boolean;
+};
+
+/** Details about a commit that can be dropped into a drop zone. */
+export class CommitDropData {
+	constructor(
+		readonly stackId: string,
+		readonly commit: DzCommitData,
+		readonly isHeadCommit: boolean,
+		readonly branchName?: string
+	) {}
+}
+
+export class StartCommitDzHandler implements DropzoneHandler {
+	constructor(
+		private args: {
+			uiState: UiState;
+			changeSelectionService: ChangeSelectionService;
+			stackId: string;
+			projectId: string;
+			branchName: string;
+		}
+	) {}
+
+	accepts(data: unknown): boolean {
+		return (
+			(data instanceof ChangeDropData && !data.isCommitted) ||
+			(data instanceof HunkDropDataV3 && data.uncommitted)
+		);
+	}
+	ondrop(data: ChangeDropData | HunkDropDataV3): void {
+		const { projectId, stackId, branchName, uiState, changeSelectionService } = this.args;
+
+		const projectState = uiState.project(projectId);
+		const stackState = stackId ? uiState.stack(stackId) : undefined;
+
+		if (data instanceof ChangeDropData) {
+			for (const change of data.changes) {
+				changeSelectionService.upsert({
+					type: 'full',
+					path: change.path,
+					pathBytes: change.pathBytes,
+					previousPathBytes:
+						change.status.type === 'Rename' ? change.status.subject.previousPathBytes : null
+				});
+			}
+		} else if (data instanceof HunkDropDataV3) {
+			const fileSelection = changeSelectionService.getById(data.change.path).current;
+			const hunks = fileSelection?.type === 'partial' ? fileSelection.hunks.slice() : [];
+			hunks.push({ ...data.hunk, type: 'full' });
+			changeSelectionService.upsert({
+				type: 'partial',
+				path: data.change.path,
+				pathBytes: data.change.pathBytes,
+				previousPathBytes:
+					data.change.status.type === 'Rename'
+						? data.change.status.subject.previousPathBytes
+						: null,
+				hunks
+			});
+		}
+
+		projectState.drawerPage.set('new-commit');
+		projectState.stackId.set(stackId);
+		stackState?.selection.set({ branchName: branchName });
+	}
+}
+
+/** Handler that can move commits between stacks. */
+export class MoveCommitDzHandler implements DropzoneHandler {
+	constructor(
+		private stackService: StackService,
+		private stackId: string,
+		private projectId: string
+	) {}
+
+	accepts(data: unknown): boolean {
+		return (
+			data instanceof CommitDropData && data.stackId !== this.stackId && !data.commit.hasConflicts
+		);
+	}
+	ondrop(data: CommitDropData): void {
+		this.stackService.moveCommit({
+			projectId: this.projectId,
+			targetStackId: this.stackId,
+			commitOid: data.commit.id,
+			sourceStackId: data.stackId
+		});
+	}
+}
+
+/**
+ * Handler that will be able to amend a commit using `TreeChange`.
+ */
+export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
+	trigger: StackService['amendCommit'][0];
+	result: StackService['amendCommit'][1];
+
+	constructor(
+		private projectId: string,
+		private readonly stackService: StackService,
+		private stackId: string,
+		private commit: DzCommitData,
+		private onresult: (result: typeof this.result.current.data) => void,
+		private readonly uiState: UiState
+	) {
+		const [trigger, result] = stackService.amendCommit;
+		this.trigger = trigger;
+		this.result = result;
+	}
+	accepts(data: unknown): boolean {
+		if (!(data instanceof ChangeDropData)) return false;
+		if (this.commit.hasConflicts) return false;
+		if (data.selectionId.type === 'commit' && data.selectionId.commitId === this.commit.id)
+			return false;
+		return true;
+	}
+
+	async ondrop(data: ChangeDropData) {
+		switch (data.selectionId.type) {
+			case 'commit': {
+				const sourceStackId = data.stackId;
+				const sourceCommitId = data.selectionId.commitId;
+				if (sourceStackId && sourceCommitId) {
+					const { replacedCommits } = await this.stackService.moveChangesBetweenCommits({
+						projectId: this.projectId,
+						destinationStackId: this.stackId,
+						destinationCommitId: this.commit.id,
+						sourceStackId,
+						sourceCommitId,
+						changes: changesToDiffSpec(data)
+					});
+
+					// Update the project state to point to the new commit if needed.
+					updateUiState(
+						this.uiState,
+						sourceStackId,
+						sourceCommitId,
+						this.stackId,
+						this.commit.id,
+						replacedCommits
+					);
+				} else {
+					throw new Error('Change drop data must specify the source stackId');
+				}
+				break;
+			}
+			case 'branch':
+				console.warn('Moving a branch into a commit is an invalid operation');
+				break;
+			case 'worktree':
+				this.onresult(
+					await this.trigger({
+						projectId: this.projectId,
+						stackId: this.stackId,
+						commitId: this.commit.id,
+						worktreeChanges: changesToDiffSpec(data)
+					})
+				);
+		}
+	}
+}
+
+/**
+ * Handler that is able to amend a commit using `Hunk`.
+ */
+export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
+	constructor(
+		private args: {
+			stackService: StackService;
+			okWithForce: boolean;
+			projectId: string;
+			stackId: string;
+			commit: DzCommitData;
+			uiState: UiState;
+		}
+	) {}
+
+	private acceptsHunkV2(data: unknown): boolean {
+		const { stackId, commit, okWithForce } = this.args;
+		if (!okWithForce && commit.isRemote) return false;
+		if (commit.isIntegrated) return false;
+		return (
+			data instanceof HunkDropData &&
+			data.branchId === stackId &&
+			data.commitId !== commit.id &&
+			!commit.hasConflicts
+		);
+	}
+
+	private acceptsHunkV3(data: unknown): boolean {
+		const { commit, okWithForce } = this.args;
+		if (!okWithForce && commit.isRemote) return false;
+		if (commit.isIntegrated) return false;
+		if (data instanceof HunkDropDataV3 && data.commitId === commit.id) return false;
+		return data instanceof HunkDropDataV3 && !commit.hasConflicts;
+	}
+
+	accepts(data: unknown): boolean {
+		return this.acceptsHunkV2(data) || this.acceptsHunkV3(data);
+	}
+
+	async ondrop(data: HunkDropData | HunkDropDataV3): Promise<void> {
+		const { stackService, projectId, stackId, commit, okWithForce, uiState } = this.args;
+		if (!okWithForce && commit.isRemote) return;
+
+		if (data instanceof HunkDropData) {
+			// TODO: I don't think this `data instanceof HunkDropData` codepath
+			// actually ever gets called in v2.
+			if (data.isCommitted) {
+				if (!(data.branchId && data.commitId)) {
+					throw new Error("Can't receive a change without it's source or commit");
+				}
+
+				stackService.moveChangesBetweenCommits({
+					projectId,
+					destinationStackId: stackId,
+					destinationCommitId: commit.id,
+					sourceStackId: data.branchId,
+					sourceCommitId: data.commitId,
+					changes: [
+						{
+							// TODO: We don't get prev path bytes in v2, but we're using
+							// the new api.
+							previousPathBytes: null,
+							pathBytes: data.hunk.filePath as any,
+							hunkHeaders: [
+								{
+									oldStart: data.hunk.oldStart,
+									oldLines: data.hunk.oldLines,
+									newStart: data.hunk.newStart,
+									newLines: data.hunk.newLines
+								}
+							]
+						}
+					]
+				});
+
+				return;
+			}
+
+			stackService.amendCommitMutation({
+				projectId,
+				stackId,
+				commitId: commit.id,
+				worktreeChanges: [
+					{
+						// TODO: We don't get prev path bytes in v2, but we're using
+						// the new api.
+						previousPathBytes: null,
+						pathBytes: data.hunk.filePath as any,
+						hunkHeaders: [
+							{
+								oldStart: data.hunk.oldStart,
+								oldLines: data.hunk.oldLines,
+								newStart: data.hunk.newStart,
+								newLines: data.hunk.newLines
+							}
+						]
+					}
+				]
+			});
+			return;
+		}
+
+		if (data instanceof HunkDropDataV3) {
+			const previousPathBytes =
+				data.change.status.type === 'Rename' ? data.change.status.subject.previousPathBytes : null;
+
+			if (!data.uncommitted) {
+				if (!(data.stackId && data.commitId)) {
+					throw new Error("Can't receive a change without it's source or commit");
+				}
+
+				const { replacedCommits } = await stackService.moveChangesBetweenCommits({
+					projectId,
+					destinationStackId: stackId,
+					destinationCommitId: commit.id,
+					sourceStackId: data.stackId,
+					sourceCommitId: data.commitId,
+					changes: [
+						{
+							previousPathBytes,
+							pathBytes: data.change.pathBytes,
+							hunkHeaders: [
+								{
+									oldStart: data.hunk.oldStart,
+									oldLines: data.hunk.oldLines,
+									newStart: data.hunk.newStart,
+									newLines: data.hunk.newLines
+								}
+							]
+						}
+					]
+				});
+
+				// Update the project state to point to the new commit if needed.
+				updateUiState(uiState, data.stackId, data.commitId, stackId, commit.id, replacedCommits);
+
+				return;
+			}
+
+			stackService.amendCommitMutation({
+				projectId,
+				stackId,
+				commitId: commit.id,
+				worktreeChanges: [
+					{
+						previousPathBytes,
+						pathBytes: data.change.pathBytes,
+						hunkHeaders: [
+							{
+								oldStart: data.hunk.oldStart,
+								oldLines: data.hunk.oldLines,
+								newStart: data.hunk.newStart,
+								newLines: data.hunk.newLines
+							}
+						]
+					}
+				]
+			});
+			return;
+		}
+	}
+}
+
+/**
+ * Handler that is able to amend a commit using `AnyFile`.
+ */
+export class AmendCommitDzHandler implements DropzoneHandler {
+	constructor(
+		private args: {
+			stackService: StackService;
+			okWithForce: boolean;
+			projectId: string;
+			stackId: string;
+			commit: DzCommitData;
+		}
+	) {}
+
+	accepts(dropData: unknown): boolean {
+		const { stackId, commit, okWithForce } = this.args;
+		if (!okWithForce && commit.isRemote) return false;
+		if (commit.isIntegrated) return false;
+		return (
+			dropData instanceof FileDropData &&
+			dropData.stackId === stackId &&
+			dropData.commit?.id !== commit.id &&
+			!commit.hasConflicts
+		);
+	}
+
+	ondrop(data: FileDropData): void {
+		const { stackService, projectId, stackId, commit } = this.args;
+		if (data.file instanceof LocalFile) {
+			stackService.amendCommitMutation({
+				projectId,
+				stackId,
+				commitId: commit.id,
+				worktreeChanges: filesToDiffSpec(data)
+			});
+		} else if (data.file instanceof RemoteFile) {
+			// this is a file from a commit, rather than an uncommitted file
+			if (data.commit) {
+				stackService.moveChangesBetweenCommits({
+					projectId,
+					destinationStackId: stackId,
+					destinationCommitId: commit.id,
+					sourceStackId: data.stackId,
+					sourceCommitId: data.commit.id,
+					changes: filesToDiffSpec(data)
+				});
+			}
+		}
+	}
+}
+
+/**
+ * Handler that is able to squash two commits using `DzCommitData`.
+ */
+export class SquashCommitDzHandler implements DropzoneHandler {
+	constructor(
+		private args: {
+			stackService: StackService;
+			projectId: string;
+			stackId: string;
+			commit: DzCommitData;
+		}
+	) {}
+
+	accepts(data: unknown): boolean {
+		const { stackId, commit } = this.args;
+		if (!(data instanceof CommitDropData)) return false;
+		if (data.stackId !== stackId) return false;
+
+		if (commit.hasConflicts || data.commit.hasConflicts) return false;
+		if (commit.id === data.commit.id) return false;
+
+		return true;
+	}
+
+	async ondrop(data: unknown) {
+		const { stackService, projectId, stackId, commit } = this.args;
+		if (data instanceof CommitDropData) {
+			await stackService.squashCommits({
+				projectId,
+				stackId,
+				sourceCommitOids: [data.commit.id],
+				targetCommitOid: commit.id
+			});
+		}
+	}
+}
+
+/** Helper function that converts `FileDropData` to `DiffSpec`. */
+function filesToDiffSpec(data: FileDropData): DiffSpec[] {
+	return data.files.map((file) => {
+		return {
+			previousPathBytes: null,
+			pathBytes: file.path as any, // Rust type is BString.
+			hunkHeaders: []
+		};
+	});
+}
+
+/** Helper function that converts `ChangeDropData` to `DiffSpec`. */
+function changesToDiffSpec(data: ChangeDropData): DiffSpec[] {
+	const changes = data.changes;
+	return changes.map((change) => {
+		const previousPathBytes =
+			change.status.type === 'Rename' ? change.status.subject.previousPathBytes : null;
+		return {
+			previousPathBytes,
+			pathBytes: change.pathBytes,
+			hunkHeaders: []
+		};
+	});
+}
+
+function updateUiState(
+	uiState: UiState,
+	sourceStackId: string,
+	sourceCommitId: string,
+	destinationStackId: string,
+	destinationCommitId: string,
+	mapping: [string, string][]
+) {
+	const destinationReplacement = mapping.find(([before]) => before === destinationCommitId);
+	const destinationState = untrack(() => uiState.stack(destinationStackId).selection.current);
+	if (destinationReplacement && destinationState) {
+		uiState
+			.stack(destinationStackId)
+			.selection.set({ ...destinationState, commitId: destinationReplacement[1] });
+	}
+
+	const sourceReplacement = mapping.find(([before]) => before === sourceCommitId);
+	const sourceState = untrack(() => uiState.stack(sourceStackId).selection.current);
+	if (sourceReplacement && sourceState) {
+		uiState.stack(sourceStackId).selection.set({ ...sourceState, commitId: sourceReplacement[1] });
+	}
+}
