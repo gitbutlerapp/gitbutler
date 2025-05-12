@@ -25,7 +25,6 @@
 		readonly: boolean;
 		iconName: keyof typeof iconsJson;
 		lineColor: string;
-		isCommitting?: boolean;
 		activated?: boolean;
 	} & (
 		| { type: 'draft-branch' }
@@ -49,7 +48,6 @@
 				reviewId?: string;
 				pushStatus: PushStatus;
 				lastUpdatedAt?: number;
-				isCommitting: boolean;
 				isConflicted: boolean;
 				contextMenu?: typeof BranchHeaderContextMenu;
 				onclick: () => void;
@@ -63,16 +61,8 @@
 		  }
 	);
 
-	let {
-		projectId,
-		branchName,
-		readonly,
-		iconName,
-		lineColor,
-		isCommitting,
-		activated,
-		...args
-	}: Props = $props();
+	let { projectId, branchName, readonly, iconName, lineColor, activated, ...args }: Props =
+		$props();
 
 	const [stackService, uiState, changeSelectionService] = inject(
 		StackService,
@@ -125,7 +115,6 @@
 			role="button"
 			class="branch-header"
 			class:new-branch={args.isNewBranch}
-			class:is-committing={isCommitting}
 			class:selected={args.selected}
 			onclick={args.onclick}
 			onkeypress={args.onclick}
@@ -296,9 +285,6 @@
 		&.new-branch {
 			border-bottom: none;
 			border-radius: var(--radius-ml);
-		}
-		&.is-committing {
-			border-radius: var(--radius-ml) var(--radius-ml) 0 0;
 		}
 	}
 

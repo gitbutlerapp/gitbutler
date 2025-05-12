@@ -45,7 +45,6 @@
 					iconName={pushStatusToIcon(branch.pushStatus)}
 					lineColor={getColorFromBranchType(pushStatusToColor(branch.pushStatus))}
 					trackingBranch={branch.remoteTrackingBranch || undefined}
-					isCommitting={false}
 					readonly
 					selected={branchesState.current.branchName === branch.name &&
 						branchesState.current.stackId === env.stackId &&
