@@ -13,5 +13,8 @@ export const MOCK_FEATURE_FLAGS: FeatureFlags = {
 export const MOCK_APP_SETTINGS: AppSettings = {
 	onboardingComplete: true,
 	telemetry: MOCK_TELEMETRY_SETINGS,
-	featureFlags: MOCK_FEATURE_FLAGS
+	featureFlags: MOCK_FEATURE_FLAGS,
+	fetch: {
+		autoFetchIntervalMinutes: 15
+	}
 };
