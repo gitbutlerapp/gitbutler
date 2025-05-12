@@ -35,9 +35,21 @@
 		change: TreeChange;
 		diff: UnifiedDiff;
 		selectionId: SelectionId;
+		stackId?: string;
+		commitId?: string;
+		readonly?: boolean;
 	};
 
-	const { projectId, selectable = false, change, diff, selectionId }: Props = $props();
+	const {
+		projectId,
+		selectable = false,
+		change,
+		diff,
+		selectionId,
+		stackId,
+		commitId,
+		readonly = false
+	}: Props = $props();
 	const [project, uiState, stackService] = inject(Project, UiState, StackService);
 	let contextMenu = $state<ReturnType<typeof HunkContextMenu>>();
 	let viewport = $state<HTMLDivElement>();
@@ -54,7 +66,6 @@
 	const isCommiting = $derived(drawerPage === 'new-commit');
 
 	const uncommittedChange = $derived(selectionId.type === 'worktree');
-	const readonly = $derived(!uncommittedChange);
 
 	const [changeSelection, idSelection, lineSelection, dependencyService, worktreeService] = inject(
 		ChangeSelectionService,
@@ -212,7 +223,7 @@
 				class="hunk-content"
 				use:draggableChips={{
 					label: hunk.diff.split('\n')[0],
-					data: new HunkDropDataV3(change, hunk, uncommittedChange),
+					data: new HunkDropDataV3(change, hunk, uncommittedChange, stackId, commitId),
 					disabled: readonly,
 					chipType: 'hunk'
 				}}

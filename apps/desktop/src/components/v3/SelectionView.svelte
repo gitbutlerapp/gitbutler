@@ -11,10 +11,11 @@
 
 	type Props = {
 		projectId: string;
+		stackId?: string;
 		selectionId?: SelectionId;
 	};
 
-	let { projectId, selectionId }: Props = $props();
+	let { projectId, selectionId, stackId }: Props = $props();
 
 	const [idSelection, uiState] = inject(IdSelection, UiState);
 
@@ -39,6 +40,7 @@
 			{#each selection as selectedFile}
 				<SelectedChange
 					{projectId}
+					{stackId}
 					{selectedFile}
 					onCloseClick={() => {
 						if (selectionId) {

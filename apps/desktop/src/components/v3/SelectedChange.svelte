@@ -12,10 +12,11 @@
 	type Props = {
 		selectedFile: SelectedFile;
 		projectId: string;
+		stackId?: string;
 		onCloseClick: () => void;
 	};
 
-	const { selectedFile, projectId, onCloseClick }: Props = $props();
+	const { selectedFile, projectId, onCloseClick, stackId }: Props = $props();
 
 	const [diffService, stackService, worktreeService] = inject(
 		DiffService,
@@ -44,7 +45,11 @@
 </script>
 
 {#if diffResult?.current}
-	<ReduxResult {projectId} result={combineResults(changeResult.current, diffResult.current)}>
+	<ReduxResult
+		{projectId}
+		{stackId}
+		result={combineResults(changeResult.current, diffResult.current)}
+	>
 		{#snippet children([change, diff], env)}
 			<div class="selected-change-item">
 				<FileListItemWrapper
@@ -58,6 +63,8 @@
 				/>
 				<UnifiedDiffView
 					projectId={env.projectId}
+					stackId={env.stackId}
+					commitId={selectedFile.type === 'commit' ? selectedFile.commitId : undefined}
 					{change}
 					{diff}
 					selectable

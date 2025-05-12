@@ -28,7 +28,9 @@ export class HunkDropDataV3 {
 	constructor(
 		readonly change: TreeChange,
 		readonly hunk: HunkHeader,
-		readonly uncommitted: boolean
+		readonly uncommitted: boolean,
+		readonly stackId: string | undefined,
+		readonly commitId: string | undefined
 	) {}
 }
 
