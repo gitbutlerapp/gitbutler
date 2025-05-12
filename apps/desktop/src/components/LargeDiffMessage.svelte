@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { TestId } from '$lib/testing/testIds';
 	import Button from '@gitbutler/ui/Button.svelte';
 
 	interface Props {
@@ -13,9 +14,9 @@
 	}
 </script>
 
-<div class="large-diff-message" class:frame-box={showFrame}>
+<div data-testid={TestId.LargeDiffMessage} class="large-diff-message" class:frame-box={showFrame}>
 	<p class="text-13">Change hidden as large diffs may slow down the UI</p>
-	<Button kind="outline" onclick={show}>Show anyways</Button>
+	<Button testId={TestId.LargeDiffMessageButton} kind="outline" onclick={show}>Show anyways</Button>
 </div>
 
 <style>
