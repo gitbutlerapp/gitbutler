@@ -11,10 +11,20 @@
 		type: 'upstream' | 'integrated';
 		title: Snippet;
 		children: Snippet;
+		testId?: string;
 	}
 
-	const { count, isLast, unfoldable, type, displayHeader, alignTop, title, children }: Props =
-		$props();
+	const {
+		count,
+		isLast,
+		unfoldable,
+		type,
+		displayHeader,
+		alignTop,
+		title,
+		children,
+		testId
+	}: Props = $props();
 
 	let isOpen = $state(count === 1);
 
@@ -24,6 +34,7 @@
 </script>
 
 <div
+	data-testid={testId}
 	class="commits-accordion {type}"
 	class:is-last={isLast}
 	class:is-open={isOpen}
