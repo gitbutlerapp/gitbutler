@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CommitMessageEditor from '$components/v3/CommitMessageEditor.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
+	import CommitMessageFormatter from '$lib/commits/commitMessageFormatter';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { lineIdsToHunkHeaders, type DiffHunk, type HunkHeader } from '$lib/hunks/hunk';
 	import { showError, showToast } from '$lib/notifications/toasts';
@@ -173,8 +174,10 @@
 			return;
 		}
 
+		const formattedMessage = CommitMessageFormatter.formatForCommit(message);
+
 		try {
-			await createCommit(message);
+			await createCommit(formattedMessage);
 		} catch (err: unknown) {
 			showError('Failed to commit', err);
 		}
