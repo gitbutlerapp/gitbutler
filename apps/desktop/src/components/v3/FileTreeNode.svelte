@@ -6,8 +6,6 @@
 	import type { TreeChange } from '$lib/hunks/change';
 	import type { Snippet } from 'svelte';
 
-	const CHILD_THRESHOLD_FOR_AUTO_EXPAND = 8;
-
 	type Props = {
 		node: TreeNode;
 		isRoot?: boolean;
@@ -18,45 +16,21 @@
 		fileTemplate: Snippet<[TreeChange, number, number]>;
 	};
 
-	let {
-		node,
-		isRoot = false,
-		showCheckboxes,
-		changes,
-		depth = 0,
-		fileTemplate,
-		initiallyExpanded
-	}: Props = $props();
-
-	const hasAFewChildren = $derived(
-		(node.kind === 'dir' || isRoot) && node.children.length <= CHILD_THRESHOLD_FOR_AUTO_EXPAND
-	);
-	const defaultIsExpanded = $derived(
-		initiallyExpanded ?? (hasAFewChildren || node.kind === 'file')
-	);
-
-	let actionableIsExpanded = $state<boolean>();
+	let { node, isRoot = false, showCheckboxes, changes, depth = 0, fileTemplate }: Props = $props();
 
 	// Local state to track whether the folder is expanded
-	const isExpanded = $derived(actionableIsExpanded ?? defaultIsExpanded);
+	let isExpanded = $state<boolean>(true);
 
 	// Handler for toggling the folder
 	function handleToggle() {
-		actionableIsExpanded = !isExpanded;
+		isExpanded = !isExpanded;
 	}
 </script>
 
 {#if isRoot}
 	<!-- Node is a root and should only render children! -->
 	{#each node.children as childNode (childNode.name)}
-		<Self
-			{depth}
-			node={childNode}
-			{showCheckboxes}
-			{changes}
-			{fileTemplate}
-			initiallyExpanded={hasAFewChildren}
-		/>
+		<Self {depth} node={childNode} {showCheckboxes} {changes} {fileTemplate} />
 	{/each}
 {:else if node.kind === 'file'}
 	{@render fileTemplate(node.change, node.index, depth)}
