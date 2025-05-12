@@ -112,7 +112,7 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 
 	constructor(
 		private projectId: string,
-		stackService: StackService,
+		private readonly stackService: StackService,
 		private stackId: string,
 		private commit: DzCommitData,
 		private onresult: (result: typeof this.result.current.data) => void
@@ -128,8 +128,21 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 	async ondrop(data: ChangeDropData) {
 		switch (data.selectionId.type) {
 			case 'commit':
+				if (data.stackId) {
+					await this.stackService.moveChangesBetweenCommits({
+						projectId: this.projectId,
+						destinationStackId: this.stackId,
+						destinationCommitId: this.commit.id,
+						sourceStackId: data.stackId,
+						sourceCommitId: data.selectionId.commitId,
+						changes: changesToDiffSpec(data)
+					});
+				} else {
+					throw new Error('Change drop data must specify the source stackId');
+				}
+				break;
 			case 'branch':
-				console.warn('Moving a change from one commit to another is not supported yet.');
+				console.warn('Moving a branch into a commit is an invalid operation');
 				break;
 			case 'worktree':
 				this.onresult(

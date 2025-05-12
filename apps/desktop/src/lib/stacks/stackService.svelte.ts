@@ -532,7 +532,7 @@ export class StackService {
 	}
 
 	get moveChangesBetweenCommits() {
-		return this.api.endpoints.discardChanges.mutate;
+		return this.api.endpoints.moveChangesBetweenCommits.mutate;
 	}
 
 	get stashIntoBranch() {
@@ -1039,7 +1039,14 @@ function injectEndpoints(api: ClientState['backendApi']) {
 						destinationStackId
 					},
 					actionName: 'Move Changes Between Commits'
-				})
+				}),
+				invalidatesTags(_result, _error, arg) {
+					return [
+						invalidatesItem(ReduxTag.StackDetails, arg.sourceStackId),
+						invalidatesItem(ReduxTag.StackDetails, arg.destinationStackId),
+						invalidatesList(ReduxTag.WorktreeChanges)
+					];
+				}
 			}),
 			stashIntoBranch: build.mutation<
 				DiffSpec[],

@@ -21,6 +21,7 @@
 	} from '$lib/dragging/stackingReorderDropzoneManager';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { StackService, type SeriesIntegrationStrategy } from '$lib/stacks/stackService.svelte';
+	import { UiState } from '$lib/state/uiState.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -69,6 +70,7 @@
 	const stackService = getContext(StackService);
 
 	const forge = getContext(DefaultForgeFactory);
+	const uiState = getContext(UiState);
 
 	const localAndRemoteCommits = $derived(
 		currentSeries.patches.filter((patch) => patch.status === 'LocalAndRemote')
@@ -231,7 +233,8 @@
 						stackId,
 						commit: dzCommit,
 						// TODO: Use correct value!
-						okWithForce: true
+						okWithForce: true,
+						uiState
 					})}
 					<Dropzone handlers={[amendHandler, squashHandler, hunkHandler]}>
 						{#snippet overlay({ hovered, activated, handler })}

@@ -19,6 +19,7 @@
 
 	interface Props {
 		projectId: string;
+		stackId?: string;
 		change: TreeChange;
 		allChanges?: TreeChange[];
 		diff?: UnifiedDiff;
@@ -43,6 +44,7 @@
 		diff,
 		selectionId,
 		projectId,
+		stackId,
 		selected,
 		isHeader,
 		listActive,
@@ -125,7 +127,7 @@
 	use:draggableChips={{
 		label: getFilename(change.path),
 		filePath: change.path,
-		data: new ChangeDropData(change, idSelection, allChanges ?? [change], selectionId),
+		data: new ChangeDropData(change, idSelection, allChanges ?? [change], selectionId, stackId),
 		viewportId: 'board-viewport',
 		selector: '.selected-draggable',
 		disabled: showCheckbox,

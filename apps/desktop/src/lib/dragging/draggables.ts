@@ -44,7 +44,8 @@ export class ChangeDropData {
 		 */
 		private selection: IdSelection,
 		private allChanges: TreeChange[],
-		readonly selectionId: SelectionId
+		readonly selectionId: SelectionId,
+		readonly stackId?: string
 	) {}
 
 	changedPaths(params: SelectionId): string[] {
