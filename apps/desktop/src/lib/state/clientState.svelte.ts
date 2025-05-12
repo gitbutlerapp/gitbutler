@@ -196,6 +196,10 @@ export function createBackendApi(butlerMod: ReturnType<typeof butlerModule>) {
 	});
 }
 
+// Default cache expiration for unused items is 60 seconds. This is too little
+// for forge data.
+const KEEP_UNUSED_SECONDS = 24 * 60 * 60;
+
 export function createGitHubApi(butlerMod: ReturnType<typeof butlerModule>) {
 	return buildCreateApi(
 		coreModule(),
@@ -207,6 +211,7 @@ export function createGitHubApi(butlerMod: ReturnType<typeof butlerModule>) {
 		baseQuery: tauriBaseQuery,
 		refetchOnFocus: true,
 		refetchOnReconnect: true,
+		keepUnusedDataFor: KEEP_UNUSED_SECONDS,
 		endpoints: (_) => {
 			return {};
 		}
@@ -224,6 +229,7 @@ export function createGitLabApi(butlerMod: ReturnType<typeof butlerModule>) {
 		baseQuery: tauriBaseQuery,
 		refetchOnFocus: true,
 		refetchOnReconnect: true,
+		keepUnusedDataFor: KEEP_UNUSED_SECONDS,
 		endpoints: (_) => {
 			return {};
 		}
