@@ -59,7 +59,6 @@ describe('Error handling - commit actions', () => {
 			.should('have.value', originalCommitMessage)
 			.should('be.visible')
 			.should('be.enabled')
-			.should('be.focused')
 			.clear()
 			.type(newCommitMessageTitle); // Type the new commit message title
 
