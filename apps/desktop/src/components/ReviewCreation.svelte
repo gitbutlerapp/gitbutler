@@ -17,6 +17,7 @@
 	import { ButRequestDetailsService } from '$lib/forge/butRequestDetailsService';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
+	import { GitHubPrService } from '$lib/forge/github/githubPrService.svelte';
 	import { type PullRequest } from '$lib/forge/interface/types';
 	import { ReactivePRBody, ReactivePRTitle } from '$lib/forge/prContents.svelte';
 	import {
@@ -292,9 +293,12 @@
 
 			const repoInfo = parseRemoteUrl(pushRemoteUrl);
 
-			const upstreamName = repoInfo?.owner
-				? `${repoInfo.owner}:${params.upstreamBranchName}`
-				: params.upstreamBranchName;
+			const upstreamName =
+				prService instanceof GitHubPrService
+					? repoInfo?.owner
+						? `${repoInfo.owner}:${params.upstreamBranchName}`
+						: params.upstreamBranchName
+					: params.upstreamBranchName;
 
 			const pr = await prService.createPr({
 				title: params.title,
