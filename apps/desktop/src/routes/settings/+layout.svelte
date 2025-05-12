@@ -45,6 +45,6 @@
 		max-width: 640px;
 		width: 100%;
 		min-height: 100vh;
-		margin: auto;
+		margin: 0 auto;
 	}
 </style>
