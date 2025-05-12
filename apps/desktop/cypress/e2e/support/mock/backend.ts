@@ -17,6 +17,7 @@ import {
 	isCreateVirtualBranchFromBranchParams,
 	isDeleteLocalBranchParams,
 	isGetTargetCommitsParams,
+	isIntegrateUpstreamCommitsParams,
 	isStackDetailsParams,
 	isUpdateCommitMessageParams,
 	MOCK_BRAND_NEW_BRANCH_NAME,
@@ -441,6 +442,14 @@ export default class MockBackend {
 	public deleteLocalBranch(args: InvokeArgs | undefined) {
 		if (!args || !isDeleteLocalBranchParams(args)) {
 			throw new Error('Invalid arguments for deleteLocalBranch');
+		}
+
+		// Do nothing for now
+	}
+
+	public integrateUpstreamCommits(args: InvokeArgs | undefined) {
+		if (!args || !isIntegrateUpstreamCommitsParams(args)) {
+			throw new Error('Invalid arguments for integrateUpstreamCommits');
 		}
 
 		// Do nothing for now

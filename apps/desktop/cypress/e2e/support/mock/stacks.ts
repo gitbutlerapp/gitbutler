@@ -300,3 +300,30 @@ export function isDeleteLocalBranchParams(params: unknown): params is DeleteLoca
 		typeof params.givenName === 'string'
 	);
 }
+export type SeriesIntegrationStrategy = 'merge' | 'rebase' | 'hardreset';
+
+export type IntegrateUpstreamCommitsParams = {
+	projectId: string;
+	stackId: string;
+	seriesName: string;
+	strategy: SeriesIntegrationStrategy | undefined;
+};
+
+export function isIntegrateUpstreamCommitsParams(
+	params: unknown
+): params is IntegrateUpstreamCommitsParams {
+	return (
+		typeof params === 'object' &&
+		params !== null &&
+		'projectId' in params &&
+		typeof params.projectId === 'string' &&
+		'stackId' in params &&
+		typeof params.stackId === 'string' &&
+		'seriesName' in params &&
+		typeof params.seriesName === 'string' &&
+		((params as any).strategy === undefined ||
+			(params as any).strategy === 'merge' ||
+			(params as any).strategy === 'rebase' ||
+			(params as any).strategy === 'hardreset')
+	);
+}
