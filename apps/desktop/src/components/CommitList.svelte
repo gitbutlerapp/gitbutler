@@ -67,6 +67,7 @@
 	const stack = getContextStore(BranchStack);
 	const lineManagerFactory = getContext(LineManagerFactory);
 	const stackService = getContext(StackService);
+	const [integrateUpstreamCommits] = stackService.integrateUpstreamCommits;
 
 	const forge = getContext(DefaultForgeFactory);
 
@@ -111,7 +112,7 @@
 	async function integrate(strategy?: SeriesIntegrationStrategy): Promise<void> {
 		isIntegratingCommits = true;
 		try {
-			await stackService.integrateUpstreamCommits({
+			await integrateUpstreamCommits({
 				projectId,
 				stackId: $stack.id,
 				seriesName: currentSeries.name,

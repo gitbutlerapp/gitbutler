@@ -61,7 +61,9 @@ export enum TestId {
 	DeleteLocalBranchConfirmationModal_Cancel = 'delete-local-branch-confirmation-modal-cancel',
 	DeleteLocalBranchConfirmationModal_Delete = 'delete-local-branch-confirmation-modal-delete',
 	LargeDiffMessage = 'large-diff-message',
-	LargeDiffMessageButton = 'large-diff-message-button'
+	LargeDiffMessageButton = 'large-diff-message-button',
+	UpstreamCommitsAccordion = 'upstream-commits-accordion',
+	UpstreamCommitsIntegrateButton = 'upstream-commits-integrate-button'
 }
 
 export enum ElementId {

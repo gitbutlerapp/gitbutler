@@ -7,14 +7,17 @@ import {
 } from '../mock/changes';
 import {
 	createMockBranchDetails,
+	createMockCommit,
 	createMockStackDetails,
-	createMockUpstreamCommit
+	createMockUpstreamCommit,
+	isIntegrateUpstreamCommitsParams
 } from '../mock/stacks';
 import type { UpstreamCommit } from '$lib/branches/v3';
 import type { DiffDependency } from '$lib/dependencies/dependencies';
 import type { TreeChange } from '$lib/hunks/change';
 import type { DiffHunk } from '$lib/hunks/hunk';
 import type { Stack } from '$lib/stacks/stack';
+import type { InvokeArgs } from '@tauri-apps/api/core';
 
 const MOCK_STACK_A_ID = 'stack-a-id';
 const MOCK_STACK_B_ID = 'stack-b-id';
@@ -44,6 +47,13 @@ const MOCK_STACK_DETAILS_A = createMockStackDetails({
 	branchDetails: [
 		createMockBranchDetails({
 			name: MOCK_STACK_A_ID,
+			commits: [
+				createMockCommit({
+					id: '1234123',
+					message: 'Initial commit',
+					state: { type: 'LocalAndRemote', subject: '1234123' }
+				})
+			],
 			upstreamCommits: MOCK_BRANCH_A_UPSTREAM_COMMITS
 		})
 	]
@@ -184,5 +194,45 @@ export default class BranchesWithRemoteChanges extends MockBackend {
 			diffs: MOCK_DIFF_DEPENDENCY,
 			errors: []
 		};
+	}
+
+	public integrateUpstreamCommits(args: InvokeArgs | undefined) {
+		if (!args || !isIntegrateUpstreamCommitsParams(args)) {
+			throw new Error('Invalid arguments for integrateUpstreamCommits');
+		}
+
+		const { stackId, seriesName } = args;
+		const stackDetails = this.stackDetails.get(stackId);
+		if (!stackDetails) {
+			throw new Error(`Stack details not found for stack ID: ${stackId}`);
+		}
+		const editableDetails = structuredClone(stackDetails);
+
+		const branchDetails = editableDetails.branchDetails.find(
+			(branch) => branch.name === seriesName
+		);
+
+		if (!branchDetails) {
+			throw new Error(`Branch details not found for branch name: ${seriesName}`);
+		}
+
+		const upstreamCommits = branchDetails.upstreamCommits;
+
+		for (const upstreamCommit of upstreamCommits) {
+			branchDetails.commits.splice(
+				0,
+				0,
+				createMockCommit({
+					...upstreamCommit,
+					state: {
+						type: 'LocalAndRemote',
+						subject: upstreamCommit.id
+					}
+				})
+			);
+		}
+
+		branchDetails.upstreamCommits = [];
+		this.stackDetails.set(stackId, editableDetails);
 	}
 }

@@ -559,7 +559,7 @@ export class StackService {
 	}
 
 	get integrateUpstreamCommits() {
-		return this.api.endpoints.integrateUpstreamCommits.mutate;
+		return this.api.endpoints.integrateUpstreamCommits.useMutation();
 	}
 
 	get legacyUnapplyLines() {
