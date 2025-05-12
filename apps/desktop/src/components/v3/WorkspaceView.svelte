@@ -32,7 +32,7 @@
 
 	let focusGroup = $derived(
 		focusManager.radioGroup({
-			triggers: [Focusable.UncommittedChanges, Focusable.ChangedFiles]
+			triggers: [Focusable.UncommittedChanges, Focusable.Drawer, Focusable.WorkspaceRight]
 		})
 	);
 
@@ -43,7 +43,7 @@
 	const upstream = $derived(!!currentSelection?.upstream);
 
 	const selectionId: SelectionId = $derived.by(() => {
-		if (focusGroup.current === Focusable.ChangedFiles && currentSelection && stackId) {
+		if (focusGroup.current !== Focusable.UncommittedChanges && currentSelection && stackId) {
 			if (currentSelection.commitId) {
 				return {
 					type: 'commit',
@@ -87,7 +87,11 @@
 		style:width={leftWidth.current + 'rem'}
 		use:focusable={{ id: Focusable.WorkspaceLeft, parentId: Focusable.Workspace }}
 	>
-		<WorktreeChanges {projectId} {stackId} />
+		<WorktreeChanges
+			{projectId}
+			{stackId}
+			active={focusGroup.current === Focusable.UncommittedChanges}
+		/>
 		<Resizer
 			viewport={leftDiv}
 			direction="right"
@@ -107,7 +111,13 @@
 		{#if drawerPage.current === 'new-commit'}
 			<NewCommitView {projectId} {stackId} />
 		{:else if drawerPage.current === 'branch' && stackId && branchName}
-			<BranchView {stackId} {projectId} {branchName} {onerror} />
+			<BranchView
+				{stackId}
+				{projectId}
+				{branchName}
+				{onerror}
+				active={focusGroup.current !== Focusable.UncommittedChanges}
+			/>
 		{:else if drawerPage.current === 'review' && stackId && branchName}
 			<ReviewView {stackId} {projectId} {branchName} />
 		{:else if branchName && commitId && stackId}
@@ -120,6 +130,7 @@
 					commitId,
 					upstream
 				}}
+				active={focusGroup.current !== Focusable.UncommittedChanges}
 				{onerror}
 			/>
 		{/if}
@@ -133,7 +144,12 @@
 				style:width={stacksViewWidth.current + 'rem'}
 				use:focusable={{ id: Focusable.WorkspaceRight, parentId: Focusable.Workspace }}
 			>
-				<MultiStackView {projectId} {stacks} selectedId={stackId} />
+				<MultiStackView
+					{projectId}
+					{stacks}
+					selectedId={stackId}
+					active={focusGroup.current !== Focusable.UncommittedChanges}
+				/>
 
 				<Resizer
 					viewport={stacksViewEl}

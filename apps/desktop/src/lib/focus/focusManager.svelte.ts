@@ -10,7 +10,7 @@ export enum Focusable {
 	WorkspaceRight = 'workspace-right',
 	WorkspaceMiddle = 'workspace-middle',
 	UncommittedChanges = 'uncommitted-changes',
-	CommitEditor = 'commit-editor',
+	Drawer = 'drawer',
 	Branches = 'branches',
 	// Only one of these can be in the dom at any given time.
 	ChangedFiles = 'changed-files'
@@ -192,7 +192,7 @@ export class FocusManager implements Reactive<Focusable | undefined> {
 	 * when another one of the triggers gets activated.
 	 *
 	 */
-	radioGroup(args: { triggers: Focusable[] }): Reactive<Focusable> {
+	radioGroup(args: { triggers: Focusable[] }): Reactive<Focusable | undefined> {
 		if (args.triggers.length < 2) {
 			throw new Error('Activity zone requires two or more triggers.');
 		}
@@ -200,9 +200,14 @@ export class FocusManager implements Reactive<Focusable | undefined> {
 		let current = $state(args.triggers[0]!);
 		$effect(() => {
 			// Reacts to changes in `this._current`.
-			const match = args.triggers.find((t) => t === this._current);
-			if (match) {
-				current = match;
+			let area = this.elements.find((a) => a.key === this._current);
+			if (!area) return;
+
+			while (area && !args.triggers.includes(area.key)) {
+				area = this.elements.find((a) => a.key === area?.parentId);
+			}
+			if (area) {
+				current = area?.key;
 			}
 		});
 		return reactive(() => current);

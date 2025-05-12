@@ -38,6 +38,7 @@
 			{#snippet header()}
 				<BranchHeader
 					type="normal-branch"
+					active
 					{branchName}
 					{projectId}
 					{isTopBranch}
@@ -63,6 +64,7 @@
 					<CommitRow
 						disableCommitActions
 						type="Remote"
+						active
 						commitMessage={commit.message}
 						createdAt={commit.createdAt}
 						commitId={commit.id}
@@ -99,6 +101,7 @@
 							});
 						}}
 						lastCommit={idx === branch.commits.length - 1}
+						active
 					/>
 				{/each}
 			{/snippet}

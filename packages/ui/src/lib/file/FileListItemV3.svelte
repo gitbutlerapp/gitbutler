@@ -30,7 +30,7 @@
 		conflictHint?: string;
 		locked?: boolean;
 		lockText?: string;
-		listActive?: boolean;
+		active?: boolean;
 		isLast?: boolean;
 		executable?: boolean;
 		oncheck?: (
@@ -64,7 +64,7 @@
 		conflictHint,
 		locked,
 		lockText,
-		listActive,
+		active,
 		listMode,
 		depth,
 		executable,
@@ -85,7 +85,7 @@
 	data-file-id={id}
 	class="file-list-item"
 	class:selected
-	class:list-active={listActive}
+	class:active
 	class:clickable
 	class:focused
 	class:draggable
@@ -204,7 +204,7 @@
 			background-color: var(--clr-selected-not-in-focus-bg);
 		}
 
-		&.list-active.selected {
+		&.active.selected {
 			background-color: var(--clr-selected-in-focus-bg);
 		}
 

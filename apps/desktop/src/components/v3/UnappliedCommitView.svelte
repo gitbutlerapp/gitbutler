@@ -65,6 +65,7 @@
 					{#snippet children(changes)}
 						<ChangedFiles
 							title="Changed files"
+							active
 							{projectId}
 							selectionId={{ type: 'commit', commitId }}
 							testId={TestId.BranchChangedFileList}

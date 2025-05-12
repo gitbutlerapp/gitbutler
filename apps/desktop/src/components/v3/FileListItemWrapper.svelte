@@ -26,7 +26,7 @@
 		selectionId: SelectionId;
 		selected?: boolean;
 		isHeader?: boolean;
-		listActive?: boolean;
+		active?: boolean;
 		isLast?: boolean;
 		listMode: 'list' | 'tree';
 		linesAdded?: number;
@@ -48,7 +48,7 @@
 		stackId,
 		selected,
 		isHeader,
-		listActive,
+		active,
 		isLast,
 		listMode,
 		depth,
@@ -169,7 +169,7 @@
 			fileStatusTooltip={previousTooltipText}
 			{listMode}
 			checked={!!selection.current}
-			{listActive}
+			{active}
 			{indeterminate}
 			{isLast}
 			{depth}

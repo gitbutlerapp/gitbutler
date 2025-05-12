@@ -25,7 +25,7 @@
 		readonly: boolean;
 		iconName: keyof typeof iconsJson;
 		lineColor: string;
-		activated?: boolean;
+		active?: boolean;
 	} & (
 		| { type: 'draft-branch' }
 		| {
@@ -61,8 +61,7 @@
 		  }
 	);
 
-	let { projectId, branchName, readonly, iconName, lineColor, activated, ...args }: Props =
-		$props();
+	let { projectId, branchName, readonly, iconName, lineColor, active, ...args }: Props = $props();
 
 	const [stackService, uiState, changeSelectionService] = inject(
 		StackService,
@@ -119,10 +118,14 @@
 			onclick={args.onclick}
 			onkeypress={args.onclick}
 			tabindex="0"
-			class:activated
+			class:active
 		>
 			{#if args.selected}
-				<div class="branch-header__select-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+				<div
+					class="branch-header__select-indicator"
+					in:slide={{ axis: 'x', duration: 150 }}
+					class:active
+				></div>
 			{/if}
 
 			<BranchHeaderIcon
@@ -199,7 +202,11 @@
 		tabindex="0"
 	>
 		{#if args.selected}
-			<div class="branch-header__select-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+			<div
+				class="branch-header__select-indicator"
+				in:slide={{ axis: 'x', duration: 150 }}
+				class:active
+			></div>
 		{/if}
 
 		<BranchHeaderIcon {lineColor} {iconName} lineTop={!args.isTopBranch} />
@@ -266,8 +273,7 @@
 		background-color: var(--branch-selected-bg);
 
 		/* Selected but NOT in focus */
-		&:hover,
-		&.activated {
+		&:hover {
 			--branch-selected-bg: var(--clr-bg-1-muted);
 		}
 		&:focus-within,
@@ -306,6 +312,9 @@
 		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
 		background-color: var(--branch-selected-element-bg);
 		transition: transform var(--transition-fast);
+		&.active {
+			background-color: var(--clr-selected-in-focus-element);
+		}
 	}
 
 	.name-line {
