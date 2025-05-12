@@ -39,6 +39,7 @@ const MOCK_STACK_B: Stack = {
 };
 
 const MOCK_FILE_D = 'fileD.txt';
+const MOCK_FILE_J = 'fileJ.txt';
 
 const MOCK_BRANCH_B_CHANGES: TreeChange[] = [
 	createMockAdditionTreeChange({ path: MOCK_FILE_D }),
@@ -69,7 +70,8 @@ const MOCK_STACK_DETAILS_C = createMockStackDetails({
 });
 
 const MOCK_UNCOMMITTED_CHANGES: TreeChange[] = [
-	createMockModificationTreeChange({ path: MOCK_FILE_D }) // Depends on the changes in the stack B
+	createMockModificationTreeChange({ path: MOCK_FILE_D }), // Depends on the changes in the stack B
+	createMockAdditionTreeChange({ path: MOCK_FILE_J })
 ];
 
 const MOCK_FILE_D_MODIFICATION_DIFF_HUNKS: DiffHunk[] = [
@@ -93,6 +95,24 @@ const MOCK_FILE_D_MODIFICATION = createMockUnifiedDiffPatch(
 	MOCK_FILE_D_MODIFICATION_DIFF_HUNKS,
 	2,
 	3
+);
+
+const BIG_DIFF_THRESHOLD = 2501;
+
+const MOCK_FILE_J_MODIFICATION_DIFF_HUNKS: DiffHunk[] = [
+	{
+		oldStart: 0,
+		oldLines: 0,
+		newStart: 1,
+		newLines: BIG_DIFF_THRESHOLD,
+		diff: `@@ -0,0 +1,${BIG_DIFF_THRESHOLD} @@\n${Array.from({ length: BIG_DIFF_THRESHOLD }, (_, i) => `+line ${i + 1}`).join('\n')}`
+	}
+];
+
+const MOCK_FILE_J_MODIFICATION = createMockUnifiedDiffPatch(
+	MOCK_FILE_J_MODIFICATION_DIFF_HUNKS,
+	BIG_DIFF_THRESHOLD,
+	0
 );
 
 const MOCK_DIFF_DEPENDENCY: DiffDependency[] = [
@@ -134,6 +154,8 @@ const MOCK_DIFF_DEPENDENCY: DiffDependency[] = [
  * Three branches with file changes.
  */
 export default class BranchesWithChanges extends MockBackend {
+	bigFileName = MOCK_FILE_J;
+
 	constructor() {
 		super();
 
@@ -163,6 +185,7 @@ export default class BranchesWithChanges extends MockBackend {
 		this.branchChanges.set(MOCK_STACK_C_ID, stackCChanges);
 
 		this.unifiedDiffs.set(MOCK_FILE_D, MOCK_FILE_D_MODIFICATION);
+		this.unifiedDiffs.set(MOCK_FILE_J, MOCK_FILE_J_MODIFICATION);
 		this.hunkDependencies = {
 			diffs: MOCK_DIFF_DEPENDENCY,
 			errors: []
