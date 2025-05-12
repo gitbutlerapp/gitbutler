@@ -117,7 +117,8 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 		private readonly stackService: StackService,
 		private stackId: string,
 		private commit: DzCommitData,
-		private onresult: (result: typeof this.result.current.data) => void
+		private onresult: (result: typeof this.result.current.data) => void,
+		private readonly uiState: UiState
 	) {
 		const [trigger, result] = stackService.amendCommit;
 		this.trigger = trigger;
@@ -139,6 +140,10 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 						sourceCommitId: data.selectionId.commitId,
 						changes: changesToDiffSpec(data)
 					});
+
+					this.uiState.project(this.projectId).drawerPage.set(undefined);
+					this.uiState.stack(this.stackId).selection.set(undefined);
+					this.uiState.stack(data.stackId).selection.set(undefined);
 				} else {
 					throw new Error('Change drop data must specify the source stackId');
 				}
@@ -170,6 +175,7 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 			projectId: string;
 			stackId: string;
 			commit: DzCommitData;
+			uiState: UiState;
 		}
 	) {}
 
@@ -197,7 +203,7 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 	}
 
 	ondrop(data: HunkDropData | HunkDropDataV3): void {
-		const { stackService, projectId, stackId, commit, okWithForce } = this.args;
+		const { stackService, projectId, stackId, commit, okWithForce, uiState } = this.args;
 		if (!okWithForce && commit.isRemote) return;
 
 		if (data instanceof HunkDropData) {
@@ -289,6 +295,10 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 						}
 					]
 				});
+
+				uiState.project(projectId).drawerPage.set(undefined);
+				uiState.stack(stackId).selection.set(undefined);
+				uiState.stack(data.stackId).selection.set(undefined);
 
 				return;
 			}
