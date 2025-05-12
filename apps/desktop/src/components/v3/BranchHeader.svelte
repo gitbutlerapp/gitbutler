@@ -249,8 +249,9 @@
 				/>
 			</div>
 			<p class="text-12 text-body branch-header__empty-state">
-				A new branch will be created for your commit. You can click the branch name to change it now
-				or later.
+				A new branch will be created for your commit.
+				<br />
+				Click the name to rename it now or later.
 			</p>
 		</div>
 	</div>
