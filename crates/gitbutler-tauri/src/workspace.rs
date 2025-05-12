@@ -8,6 +8,7 @@ use but_hunk_dependency::ui::{
 };
 use but_settings::AppSettingsWithDiskSync;
 use but_workspace::commit_engine::StackSegmentId;
+use but_workspace::MoveChangesResult;
 use but_workspace::{commit_engine, ui::StackEntry};
 use gitbutler_branch_actions::{update_workspace_commit, BranchManagerExt};
 use gitbutler_command_context::CommandContext;
@@ -16,6 +17,7 @@ use gitbutler_oplog::{OplogExt, SnapshotExt};
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
+use serde::Serialize;
 use tauri::State;
 use tracing::instrument;
 
@@ -228,6 +230,24 @@ pub fn discard_worktree_changes(
     Ok(refused)
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UIMoveChangesResult {
+    replaced_commits: Vec<(String, String)>,
+}
+
+impl From<MoveChangesResult> for UIMoveChangesResult {
+    fn from(value: MoveChangesResult) -> Self {
+        Self {
+            replaced_commits: value
+                .replaced_commits
+                .into_iter()
+                .map(|(x, y)| (x.to_hex().to_string(), y.to_hex().to_string()))
+                .collect(),
+        }
+    }
+}
+
 /// Discard all worktree changes that match the specs in `worktree_changes`.
 ///
 /// If whole files should be discarded, be sure to not pass any [hunks](but_workspace::discard::ui::DiscardSpec::hunk_headers)
@@ -246,7 +266,7 @@ pub fn move_changes_between_commits(
     destination_stack_id: StackId,
     destination_commit_id: HexHash,
     changes: Vec<but_workspace::DiffSpec>,
-) -> Result<(), Error> {
+) -> Result<UIMoveChangesResult, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     let mut guard = project.exclusive_worktree_access();
@@ -255,7 +275,7 @@ pub fn move_changes_between_commits(
         SnapshotDetails::new(OperationKind::DiscardChanges),
         guard.write_permission(),
     );
-    but_workspace::move_changes_between_commits(
+    let result = but_workspace::move_changes_between_commits(
         &ctx,
         source_stack_id,
         source_commit_id.into(),
@@ -273,7 +293,7 @@ pub fn move_changes_between_commits(
         emit_vbranches(&windows, project_id, app_settings);
     }
 
-    Ok(())
+    Ok(result.into())
 }
 
 /// This API allows the user to quickly "stash" a bunch of uncommitted changes - getting them out of the worktree.

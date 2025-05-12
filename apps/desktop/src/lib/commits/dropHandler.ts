@@ -5,6 +5,7 @@ import {
 	HunkDropDataV3
 } from '$lib/dragging/draggables';
 import { LocalFile, RemoteFile } from '$lib/files/file';
+import { untrack } from 'svelte';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { DiffSpec } from '$lib/hunks/hunk';
 import type { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
@@ -136,24 +137,33 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 
 	async ondrop(data: ChangeDropData) {
 		switch (data.selectionId.type) {
-			case 'commit':
-				if (data.stackId) {
-					await this.stackService.moveChangesBetweenCommits({
+			case 'commit': {
+				const sourceStackId = data.stackId;
+				const sourceCommitId = data.selectionId.commitId;
+				if (sourceStackId && sourceCommitId) {
+					const { replacedCommits } = await this.stackService.moveChangesBetweenCommits({
 						projectId: this.projectId,
 						destinationStackId: this.stackId,
 						destinationCommitId: this.commit.id,
-						sourceStackId: data.stackId,
-						sourceCommitId: data.selectionId.commitId,
+						sourceStackId,
+						sourceCommitId,
 						changes: changesToDiffSpec(data)
 					});
 
-					this.uiState.project(this.projectId).drawerPage.set(undefined);
-					this.uiState.stack(this.stackId).selection.set(undefined);
-					this.uiState.stack(data.stackId).selection.set(undefined);
+					// Update the project state to point to the new commit if needed.
+					updateUiState(
+						this.uiState,
+						sourceStackId,
+						sourceCommitId,
+						this.stackId,
+						this.commit.id,
+						replacedCommits
+					);
 				} else {
 					throw new Error('Change drop data must specify the source stackId');
 				}
 				break;
+			}
 			case 'branch':
 				console.warn('Moving a branch into a commit is an invalid operation');
 				break;
@@ -209,7 +219,7 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 		return this.acceptsHunkV2(data) || this.acceptsHunkV3(data);
 	}
 
-	ondrop(data: HunkDropData | HunkDropDataV3): void {
+	async ondrop(data: HunkDropData | HunkDropDataV3): Promise<void> {
 		const { stackService, projectId, stackId, commit, okWithForce, uiState } = this.args;
 		if (!okWithForce && commit.isRemote) return;
 
@@ -281,7 +291,7 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 					throw new Error("Can't receive a change without it's source or commit");
 				}
 
-				stackService.moveChangesBetweenCommits({
+				const { replacedCommits } = await stackService.moveChangesBetweenCommits({
 					projectId,
 					destinationStackId: stackId,
 					destinationCommitId: commit.id,
@@ -303,9 +313,8 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 					]
 				});
 
-				uiState.project(projectId).drawerPage.set(undefined);
-				uiState.stack(stackId).selection.set(undefined);
-				uiState.stack(data.stackId).selection.set(undefined);
+				// Update the project state to point to the new commit if needed.
+				updateUiState(uiState, data.stackId, data.commitId, stackId, commit.id, replacedCommits);
 
 				return;
 			}
@@ -445,4 +454,27 @@ function changesToDiffSpec(data: ChangeDropData): DiffSpec[] {
 			hunkHeaders: []
 		};
 	});
+}
+
+function updateUiState(
+	uiState: UiState,
+	sourceStackId: string,
+	sourceCommitId: string,
+	destinationStackId: string,
+	destinationCommitId: string,
+	mapping: [string, string][]
+) {
+	const destinationReplacement = mapping.find(([before]) => before === destinationCommitId);
+	const destinationState = untrack(() => uiState.stack(destinationStackId).selection.current);
+	if (destinationReplacement && destinationState) {
+		uiState
+			.stack(destinationStackId)
+			.selection.set({ ...destinationState, commitId: destinationReplacement[1] });
+	}
+
+	const sourceReplacement = mapping.find(([before]) => before === sourceCommitId);
+	const sourceState = untrack(() => uiState.stack(sourceStackId).selection.current);
+	if (sourceReplacement && sourceState) {
+		uiState.stack(sourceStackId).selection.set({ ...sourceState, commitId: sourceReplacement[1] });
+	}
 }
