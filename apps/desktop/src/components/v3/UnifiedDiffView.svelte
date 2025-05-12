@@ -1,4 +1,5 @@
 <script lang="ts">
+	import LargeDiffMessage from '$components/LargeDiffMessage.svelte';
 	import HunkContextMenu from '$components/v3/HunkContextMenu.svelte';
 	import LineLocksWarning from '$components/v3/LineLocksWarning.svelte';
 	import LineSelection from '$components/v3/unifiedDiffLineSelection.svelte';
@@ -28,6 +29,8 @@
 	import type { UnifiedDiff } from '$lib/hunks/diff';
 	import type { LineId } from '@gitbutler/ui/utils/diffParsing';
 
+	const LARGE_DIFF_THRESHOLD = 2500;
+
 	type Props = {
 		projectId: string;
 		selectable: boolean;
@@ -39,6 +42,7 @@
 	const { projectId, selectable = false, change, diff, selectionId }: Props = $props();
 	const [project, uiState, stackService] = inject(Project, UiState, StackService);
 	let contextMenu = $state<ReturnType<typeof HunkContextMenu>>();
+	let showAnyways = $state(false);
 	let viewport = $state<HTMLDivElement>();
 	const projectState = $derived(uiState.project(projectId));
 	const drawerPage = $derived(projectState.drawerPage.current);
@@ -196,6 +200,7 @@
 <div data-testid={TestId.UnifiedDiffView} class="diff-section" bind:this={viewport}>
 	{#if diff.type === 'Patch'}
 		{#each diff.subject.hunks as hunk}
+			{@const linesModified = diff.subject.linesAdded + diff.subject.linesRemoved}
 			{@const [staged, stagedLines] = getStageState(hunk)}
 			{@const [fullyLocked, lineLocks] = getLineLocks(
 				hunk,
@@ -210,46 +215,54 @@
 					chipType: 'hunk'
 				}}
 			>
-				<HunkDiff
-					draggingDisabled={readonly}
-					hideCheckboxes={!isCommiting}
-					filePath={change.path}
-					hunkStr={hunk.diff}
-					{staged}
-					{stagedLines}
-					{lineLocks}
-					diffLigatures={$userSettings.diffLigatures}
-					tabSize={$userSettings.tabSize}
-					wrapText={$userSettings.wrapText}
-					diffFont={$userSettings.diffFont}
-					diffContrast={$userSettings.diffContrast}
-					inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
-					onLineClick={(p) => {
-						if (fullyLocked) return;
-						if (!canBePartiallySelected(diff.subject)) {
-							const select = selection === undefined;
-							updateStage(hunk, select, diff.subject.hunks);
-							return;
-						}
-						lineSelection.toggleStageLines(selection, hunk, p, diff.subject.hunks);
-					}}
-					onChangeStage={(selected) => {
-						if (fullyLocked) return;
-						updateStage(hunk, selected, diff.subject.hunks);
-					}}
-					handleLineContextMenu={(params) => {
-						contextMenu?.open(params.event, {
-							hunk,
-							selectedLines: stagedLines,
-							beforeLineNumber: params.beforeLineNumber,
-							afterLineNumber: params.afterLineNumber
-						});
-					}}
-				>
-					{#snippet lockWarning(locks)}
-						<LineLocksWarning {projectId} {locks} />
-					{/snippet}
-				</HunkDiff>
+				{#if linesModified > LARGE_DIFF_THRESHOLD && !showAnyways}
+					<LargeDiffMessage
+						handleShow={() => {
+							showAnyways = true;
+						}}
+					/>
+				{:else}
+					<HunkDiff
+						draggingDisabled={readonly}
+						hideCheckboxes={!isCommiting}
+						filePath={change.path}
+						hunkStr={hunk.diff}
+						{staged}
+						{stagedLines}
+						{lineLocks}
+						diffLigatures={$userSettings.diffLigatures}
+						tabSize={$userSettings.tabSize}
+						wrapText={$userSettings.wrapText}
+						diffFont={$userSettings.diffFont}
+						diffContrast={$userSettings.diffContrast}
+						inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
+						onLineClick={(p) => {
+							if (fullyLocked) return;
+							if (!canBePartiallySelected(diff.subject)) {
+								const select = selection === undefined;
+								updateStage(hunk, select, diff.subject.hunks);
+								return;
+							}
+							lineSelection.toggleStageLines(selection, hunk, p, diff.subject.hunks);
+						}}
+						onChangeStage={(selected) => {
+							if (fullyLocked) return;
+							updateStage(hunk, selected, diff.subject.hunks);
+						}}
+						handleLineContextMenu={(params) => {
+							contextMenu?.open(params.event, {
+								hunk,
+								selectedLines: stagedLines,
+								beforeLineNumber: params.beforeLineNumber,
+								afterLineNumber: params.afterLineNumber
+							});
+						}}
+					>
+						{#snippet lockWarning(locks)}
+							<LineLocksWarning {projectId} {locks} />
+						{/snippet}
+					</HunkDiff>
+				{/if}
 			</div>
 		{:else}
 			<div class="hunk-placehoder">
