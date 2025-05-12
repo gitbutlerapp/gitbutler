@@ -250,7 +250,7 @@
 				onclick={() => {
 					keyboardShortcutsModal?.show();
 				}}
-				{disabled}
+				disabled={true}
 			/>
 			<Button
 				icon="mail"
