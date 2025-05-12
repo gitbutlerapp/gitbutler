@@ -127,7 +127,11 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 		this.result = result;
 	}
 	accepts(data: unknown): boolean {
-		return data instanceof ChangeDropData && !this.commit.hasConflicts;
+		if (!(data instanceof ChangeDropData)) return false;
+		if (this.commit.hasConflicts) return false;
+		if (data.selectionId.type === 'commit' && data.selectionId.commitId === this.commit.id)
+			return false;
+		return true;
 	}
 
 	async ondrop(data: ChangeDropData) {
@@ -197,6 +201,7 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 		const { commit, okWithForce } = this.args;
 		if (!okWithForce && commit.isRemote) return false;
 		if (commit.isIntegrated) return false;
+		if (data instanceof HunkDropDataV3 && data.commitId === commit.id) return false;
 		return data instanceof HunkDropDataV3 && !commit.hasConflicts;
 	}
 
