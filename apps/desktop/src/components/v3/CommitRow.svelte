@@ -126,9 +126,7 @@
 		</div>
 
 		{#if !args.disableCommitActions}
-			<div class="commit-menu">
-				{@render menu?.({ rightClickTrigger: container })}
-			</div>
+			{@render menu?.({ rightClickTrigger: container })}
 		{/if}
 	</div>
 </div>
@@ -144,10 +142,6 @@
 		&:hover,
 		&.menu-shown {
 			background-color: var(--clr-bg-1-muted);
-
-			& .commit-menu {
-				display: flex;
-			}
 		}
 
 		&:not(.last) {
@@ -200,10 +194,6 @@
 		display: flex;
 		color: var(--clr-theme-err-element);
 		margin-right: 4px;
-	}
-
-	.commit-menu {
-		display: none;
 	}
 
 	/* MODIFIERS */
