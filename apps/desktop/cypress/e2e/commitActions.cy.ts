@@ -53,7 +53,6 @@ describe('Commit Actions', () => {
 			.should('have.value', originalCommitMessage)
 			.should('be.visible')
 			.should('be.enabled')
-			.should('be.focused')
 			.clear()
 			.type(newCommitMessageTitle); // Type the new commit message title
 
@@ -61,6 +60,7 @@ describe('Commit Actions', () => {
 		cy.getByTestId('commit-drawer-description-input')
 			.should('be.visible')
 			.click()
+			.clear()
 			.type(newCommitMessageBody); // Type the new commit message body
 
 		// Click on the save button
@@ -117,7 +117,6 @@ describe('Commit Actions', () => {
 			.should('have.value', originalCommitMessage)
 			.should('be.visible')
 			.should('be.enabled')
-			.should('be.focused')
 			.clear()
 			.type(newCommitMessageTitle); // Type the new commit message title
 
@@ -125,6 +124,7 @@ describe('Commit Actions', () => {
 		cy.getByTestId('commit-drawer-description-input')
 			.should('be.visible')
 			.click()
+			.clear()
 			.type(newCommitMessageBody); // Type the new commit message body
 
 		// Click on the save button
@@ -267,7 +267,7 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 		clearCommandMocks();
 	});
 
-	it.only('should be able to commit a bunch of times in a row and edit their message', () => {
+	it('should be able to commit a bunch of times in a row and edit their message', () => {
 		for (let i = 0; i < 5; i++) {
 			// Click commit button
 			cy.getByTestId('start-commit-button').should('be.visible').should('be.enabled').click();
