@@ -130,17 +130,22 @@ pub fn delete_local_branch(
             .source_refname
             .as_ref()
             .is_some_and(|source_refname| source_refname == refname)
+            || stack.heads(false).contains(&given_name)
     });
 
-    if let Some(stack) = stack {
+    if let Some(mut stack) = stack {
         // Disallow deletion of branches that are applied in workspace
         if stack.in_workspace {
             return Err(anyhow::anyhow!(
                 "Cannot delete a branch that is applied in workspace"
             ));
         }
-        // Deletes the virtual branch entry from the application state
-        handle.delete_branch_entry(&stack.id)?;
+        // Delete the branch head or if it is the only one, delete the entire stack
+        if stack.heads.len() > 1 {
+            stack.remove_branch(ctx, given_name.clone())?;
+        } else {
+            handle.delete_branch_entry(&stack.id)?;
+        }
     }
 
     // If a branch reference for this can be found, delete it
