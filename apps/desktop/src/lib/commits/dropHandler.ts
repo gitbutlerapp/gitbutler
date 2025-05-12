@@ -353,11 +353,13 @@ function filesToDiffSpec(data: FileDropData): DiffSpec[] {
 
 /** Helper function that converts `ChangeDropData` to `DiffSpec`. */
 function changesToDiffSpec(data: ChangeDropData): DiffSpec[] {
-	const filePaths = data.filePaths;
-	return filePaths.map((filePath) => {
+	const changes = data.changes;
+	return changes.map((change) => {
+		const previousPathBytes =
+			change.status.type === 'Rename' ? change.status.subject.previousPathBytes : null;
 		return {
-			previousPathBytes: null,
-			pathBytes: filePath as any, // Rust type is Bstring.
+			previousPathBytes,
+			pathBytes: change.pathBytes,
 			hunkHeaders: []
 		};
 	});
