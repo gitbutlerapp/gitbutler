@@ -115,7 +115,7 @@ function injectEndpoints(api: GitLabApi) {
 				queryFn: async ({ head, base, title, body }, query) => {
 					const { api, upstreamProjectId, forkProjectId } = gitlab(query.extra);
 					const upstreamProject = await api.Projects.show(upstreamProjectId);
-					const mr = await api.MergeRequests.create(forkProjectId, base, head, title, {
+					const mr = await api.MergeRequests.create(forkProjectId, head, base, title, {
 						description: body,
 						targetProjectId: upstreamProject.id,
 						removeSourceBranch: true
