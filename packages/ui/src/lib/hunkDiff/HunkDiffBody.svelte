@@ -152,7 +152,7 @@
 	}
 
 	/* Number of lines grouped together for intersection observer purposes. */
-	const chunkLength = 5;
+	const chunkLength = 25;
 	/* The assumed height of a row, used to set height before rows have rendered. */
 	const defaultChunkHeight = 18;
 
