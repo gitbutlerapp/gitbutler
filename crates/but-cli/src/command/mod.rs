@@ -117,6 +117,7 @@ pub mod diff;
 pub mod stacks {
     use std::{path::Path, str::FromStr};
 
+    use crate::command::{debug_print, project_from_path};
     use but_settings::AppSettings;
     use but_workspace::{
         stack_branch_local_and_remote_commits, stack_branch_upstream_only_commits, stack_branches,
@@ -124,8 +125,7 @@ pub mod stacks {
     };
     use gitbutler_command_context::CommandContext;
     use gitbutler_id::id::Id;
-
-    use crate::command::{debug_print, project_from_path};
+    use gitbutler_stack::StackId;
 
     /// A collection of all the commits that are part of a branch.
     #[derive(Debug, Clone, serde::Serialize)]
@@ -149,6 +149,12 @@ pub mod stacks {
         } else {
             debug_print(stacks)
         }
+    }
+
+    pub fn details(id: StackId, current_dir: &Path) -> anyhow::Result<()> {
+        let project = project_from_path(current_dir)?;
+        let ctx = CommandContext::open(&project, AppSettings::default())?;
+        debug_print(but_workspace::stack_details(&project.gb_dir(), id, &ctx)?)
     }
 
     pub fn branches(id: &str, current_dir: &Path, use_json: bool) -> anyhow::Result<()> {

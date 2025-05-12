@@ -89,6 +89,7 @@ fn main() -> Result<()> {
             *unified_diff,
         ),
         args::Subcommands::Stacks => command::stacks::list(&args.current_dir, args.json),
+        args::Subcommands::StackDetails { id } => command::stacks::details(*id, &args.current_dir),
         args::Subcommands::StackBranches {
             id,
             branch_name,

@@ -1,3 +1,4 @@
+use gitbutler_stack::StackId;
 use std::path::PathBuf;
 
 #[derive(Debug, clap::Parser)]
@@ -107,6 +108,11 @@ pub enum Subcommands {
     },
     /// Returns the list of stacks that are currently part of the GitButler workspace.
     Stacks,
+    /// Returns the list of stacks that are currently part of the GitButler workspace.
+    StackDetails {
+        /// The ID of the stack to list details for.
+        id: StackId,
+    },
     /// Return all stack branches related to the given `id`.
     StackBranches {
         /// The ID of the stack to list branches from.

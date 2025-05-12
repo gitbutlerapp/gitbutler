@@ -348,6 +348,7 @@ pub fn stack_details(
 
 /// Return the branches that belong to a particular [`gitbutler_stack::Stack`]
 /// The entries are ordered from newest to oldest.
+// TODO: `stack_id` probably wants to be a real StackId, and at some point a V3 stack index.
 pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> anyhow::Result<Vec<ui::Branch>> {
     let state = state_handle(&ctx.project().gb_dir());
     let remote = state
