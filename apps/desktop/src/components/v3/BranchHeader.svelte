@@ -316,7 +316,7 @@
 		top: 14px;
 		left: 0;
 		width: 4px;
-		height: 20px;
+		height: calc(100% - 28px);
 		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
 		background-color: var(--branch-selected-element-bg);
 		transition: transform var(--transition-fast);
