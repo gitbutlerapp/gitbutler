@@ -121,27 +121,31 @@ pub fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BStr
                 |program| Cow::Owned(program.into_owned().into()),
             );
 
-        let cmd = prepare_with_shell_on_windows(gpg_program.into_owned())
+        let mut signing_cmd = prepare_with_shell_on_windows(gpg_program.into_owned())
             .args(["-Y", "sign", "-n", "git", "-f"]);
 
         // Write the key to a temp file. This is needs to be created in the
         // same scope where its used; IE: in the command, otherwise the
         // tmpfile will get removed too early.
-        let mut key_storage = tempfile::NamedTempFile::new()?;
-        let signing_cmd = if let Some(signing_key) = as_literal_key(signing_key) {
-            key_storage.write_all(signing_key.as_bytes())?;
+        let _key_storage;
+        signing_cmd = if let Some(signing_key) = as_literal_key(signing_key) {
+            let mut keyfile = tempfile::NamedTempFile::new()?;
+            keyfile.write_all(signing_key.as_bytes())?;
 
             // if on unix
             #[cfg(unix)]
             {
                 use std::os::unix::prelude::PermissionsExt;
                 // make sure the tempfile permissions are acceptable for a private ssh key
-                let mut permissions = key_storage.as_file().metadata()?.permissions();
+                let mut permissions = keyfile.as_file().metadata()?.permissions();
                 permissions.set_mode(0o600);
-                key_storage.as_file().set_permissions(permissions)?;
+                keyfile.as_file().set_permissions(permissions)?;
             }
 
-            cmd.arg(key_storage.path())
+            let keyfile_path = keyfile.path().to_owned();
+            _key_storage = keyfile.into_temp_path();
+            signing_cmd
+                .arg(keyfile_path)
                 .arg("-U")
                 .arg(buffer_file_to_sign_path.to_path_buf())
         } else {
@@ -149,7 +153,8 @@ pub fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BStr
                 .trusted_path("user.signingkey")
                 .transpose()?
                 .with_context(|| format!("Didn't trust 'ssh.signingKey': {signing_key}"))?;
-            cmd.arg(signing_key.into_owned())
+            signing_cmd
+                .arg(signing_key.into_owned())
                 .arg(buffer_file_to_sign_path.to_path_buf())
         };
         let output = into_command(signing_cmd)
