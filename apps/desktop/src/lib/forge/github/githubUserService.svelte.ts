@@ -22,8 +22,7 @@ export class GitHubUserService {
 	}
 
 	async fetchGitHubLogin() {
-		const result = $derived(this.api.endpoints.getAuthenticated.fetch());
-		return await result;
+		return await this.api.endpoints.getAuthenticated.fetch();
 	}
 
 	async initDeviceOauth() {
