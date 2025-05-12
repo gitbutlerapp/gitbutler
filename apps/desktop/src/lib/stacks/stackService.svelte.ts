@@ -320,7 +320,7 @@ export class StackService {
 	}
 
 	upstreamCommitAt(projectId: string, stackId: string, branchName: string, index: number) {
-		this.api.endpoints.stackDetails.useQuery(
+		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
 			{
 				transform: ({ branchDetails }) =>
@@ -369,43 +369,31 @@ export class StackService {
 	}
 
 	commitChanges(projectId: string, commitId: string) {
-		const result = $derived(
-			this.api.endpoints.commitDetails.useQuery(
-				{ projectId, commitId },
-				{ transform: (result) => changesSelectors.selectAll(result.changes) }
-			)
+		return this.api.endpoints.commitDetails.useQuery(
+			{ projectId, commitId },
+			{ transform: (result) => changesSelectors.selectAll(result.changes) }
 		);
-		return result;
 	}
 
 	commitChange(projectId: string, commitId: string, path: string) {
-		const result = $derived(
-			this.api.endpoints.commitDetails.useQuery(
-				{ projectId, commitId },
-				{ transform: (result) => changesSelectors.selectById(result.changes, path) }
-			)
+		return this.api.endpoints.commitDetails.useQuery(
+			{ projectId, commitId },
+			{ transform: (result) => changesSelectors.selectById(result.changes, path) }
 		);
-		return result;
 	}
 
 	commitChangesByPaths(projectId: string, commitId: string, paths: string[]) {
-		const result = $derived(
-			this.api.endpoints.commitDetails.useQuery(
-				{ projectId, commitId },
-				{ transform: (result) => selectChangesByPaths(result.changes, paths) }
-			)
+		return this.api.endpoints.commitDetails.useQuery(
+			{ projectId, commitId },
+			{ transform: (result) => selectChangesByPaths(result.changes, paths) }
 		);
-		return result;
 	}
 
 	commitDetails(projectId: string, commitId: string) {
-		const result = $derived(
-			this.api.endpoints.commitDetails.useQuery(
-				{ projectId, commitId },
-				{ transform: (result) => result.details }
-			)
+		return this.api.endpoints.commitDetails.useQuery(
+			{ projectId, commitId },
+			{ transform: (result) => result.details }
 		);
-		return result;
 	}
 
 	/**
