@@ -89,4 +89,40 @@ describe('Unified Diff View', () => {
 		// The tooltip should be visible
 		cy.getByTestId('unified-diff-view-lock-warning').should('be.visible');
 	});
+
+	it.only('should hide big diffs by default', () => {
+		// There should be uncommitted changes
+		cy.getByTestId('uncommitted-changes-file-list').should('be.visible');
+
+		// All files should be visible
+		cy.getByTestId('file-list-item').should(
+			'have.length',
+			mockBackend.getWorktreeChangesFileNames().length
+		);
+
+		// Open bif file diff
+		cy.getByTestId('uncommitted-changes-file-list').within(() => {
+			const fileName = mockBackend.bigFileName;
+			cy.getByTestId('file-list-item', fileName).click();
+		});
+
+		cy.getByTestId('unified-diff-view').within(() => {
+			// The diff should not be visible
+			cy.get('table').should('not.exist');
+		});
+
+		// The large diff message should be visible
+		cy.getByTestId('large-diff-message')
+			.should('be.visible')
+			.within(() => {
+				// The large diff message should be visible
+				cy.getByTestId('large-diff-message-button').click();
+			});
+
+		// The diff should be visible
+		cy.getByTestId('unified-diff-view').within(() => {
+			// The diff should be visible
+			cy.get('table').should('be.visible');
+		});
+	});
 });
