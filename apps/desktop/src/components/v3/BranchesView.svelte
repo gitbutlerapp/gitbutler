@@ -342,16 +342,17 @@
 					{:else if current.prNumber}
 						Not implemented!
 					{/if}
-					<Resizer
-						viewport={rightDiv}
-						direction="left"
-						minWidth={16}
-						borderRadius="ml"
-						onWidth={(value) => {
-							rightWidth.current = value;
-						}}
-					/>
 				</div>
+
+				<Resizer
+					viewport={rightDiv}
+					direction="left"
+					minWidth={16}
+					borderRadius="ml"
+					onWidth={(value) => {
+						rightWidth.current = value;
+					}}
+				/>
 			</div>
 		</div>
 	{/snippet}
@@ -399,6 +400,7 @@
 	}
 
 	.branches-sideview {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 	}

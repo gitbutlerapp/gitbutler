@@ -199,12 +199,13 @@
 					Are you sure you want to discard the changes<br />to the following files:
 				</p>
 				<ul class="file-list">
-					{#each changes as change}
+					{#each changes as change, i}
 						<FileListItem
 							filePath={change.path}
 							fileStatus={computeChangeStatus(change)}
 							clickable={false}
 							listMode="list"
+							isLast={i === changes.length - 1}
 						/>
 					{/each}
 				</ul>
@@ -272,10 +273,12 @@
 		color: var(--clr-text-2);
 	}
 	.file-list {
-		padding: 4px 0;
+		display: flex;
+		flex-direction: column;
 		border-radius: var(--radius-m);
 		overflow: hidden;
-		background-color: var(--clr-bg-2);
+		background-color: var(--clr-bg-1);
+		border: 1px solid var(--clr-border-2);
 		margin-top: 12px;
 	}
 	.radio-aditional-info {

@@ -164,6 +164,7 @@
 								branchDetails,
 								commit
 							])}
+								{@const lastBranch = i === branches.length - 1}
 								{@const iconName = getIconFromCommitState(commit?.id, commit?.state)}
 								{@const lineColor = commit
 									? getColorFromCommitState(
@@ -405,7 +406,7 @@
 															{projectId}
 															{first}
 															{lastCommit}
-															lastBranch={last}
+															{lastBranch}
 															{selected}
 															draggable
 															{tooltip}

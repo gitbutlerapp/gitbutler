@@ -80,6 +80,11 @@
 		}
 	}
 
+	.dashed {
+		background: linear-gradient(to bottom, var(--commit-color) 50%, transparent 50%);
+		background-size: 4px 4px;
+	}
+
 	.local-shadow-commit-dot {
 		display: flex;
 		box-sizing: border-box;

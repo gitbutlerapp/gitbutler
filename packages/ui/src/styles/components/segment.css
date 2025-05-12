@@ -97,7 +97,7 @@
 .segment-control-item__icon {
 	display: flex;
 	color: var(--clr-text-2);
-	opacity: 0.8;
+	opacity: 0.7;
 	transition:
 		color var(--transition-fast),
 		opacity var(--transition-fast);

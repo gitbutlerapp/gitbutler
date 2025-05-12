@@ -9,7 +9,7 @@
 	} from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({
-		title: 'Inputs / Segment Controld',
+		title: 'Inputs / Segment Control',
 		args: {
 			defaultIndex: 0,
 			fullWidth: false,
