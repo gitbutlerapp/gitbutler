@@ -150,7 +150,7 @@ pub struct Commit {
     /// Note that remote only commits in the context of a branch are expressed with the [`UpstreamCommit`] struct instead of this.
     pub state: CommitState,
     /// Commit creation time in Epoch milliseconds.
-    pub created_at: u128,
+    pub created_at: i128,
     /// The author of the commit.
     pub author: Author,
 }
@@ -164,7 +164,7 @@ impl TryFrom<gix::Commit<'_>> for Commit {
             message: commit.message_raw_sloppy().into(),
             has_conflicts: false,
             state: CommitState::LocalAndRemote(commit.id),
-            created_at: u128::try_from(commit.time()?.seconds)? * 1000,
+            created_at: i128::from(commit.time()?.seconds) * 1000,
             author: commit.author()?.into(),
         })
     }
@@ -193,7 +193,7 @@ pub struct UpstreamCommit {
     #[serde(with = "gitbutler_serde::bstring_lossy")]
     pub message: BString,
     /// Commit creation time in Epoch milliseconds.
-    pub created_at: u128,
+    pub created_at: i128,
     /// The author of the commit.
     pub author: Author,
 }
@@ -254,7 +254,7 @@ pub struct BranchDetails {
     /// The pushable status for the branch.
     pub push_status: PushStatus,
     /// Last time, the branch was updated in Epoch milliseconds.
-    pub last_updated_at: Option<u128>,
+    pub last_updated_at: Option<i128>,
     /// All authors of the commits in the branch.
     pub authors: Vec<Author>,
     /// Whether the branch is conflicted.

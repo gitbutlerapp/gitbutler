@@ -223,7 +223,7 @@ pub fn branch_details_v3(
         pr_number: meta.review.pull_request,
         review_id: meta.review.review_id.clone(),
         base_commit,
-        last_updated_at: meta.ref_info.updated_at.map(|d| d.seconds as u128 * 1_000),
+        last_updated_at: meta.ref_info.updated_at.map(|d| d.seconds as i128 * 1_000),
         authors: authors
             .into_iter()
             .sorted_by(|a, b| a.name.cmp(&b.name).then_with(|| a.email.cmp(&b.email)))
@@ -263,7 +263,7 @@ fn upstream_commits(
             ui::UpstreamCommit {
                 id: commit.id().to_gix(),
                 message: commit.message().unwrap_or_default().into(),
-                created_at: u128::try_from(commit.time().seconds()).unwrap_or(0) * 1000,
+                created_at: i128::from(commit.time().seconds()) * 1000,
                 author,
             }
         })
@@ -297,7 +297,7 @@ fn local_commits(
                 message: commit.message().unwrap_or_default().into(),
                 has_conflicts: false,
                 state: CommitState::LocalAndRemote(commit.id().to_gix()),
-                created_at: u128::try_from(commit.time().seconds()).unwrap_or(0) * 1000,
+                created_at: i128::from(commit.time().seconds()) * 1000,
                 author,
             }
         })

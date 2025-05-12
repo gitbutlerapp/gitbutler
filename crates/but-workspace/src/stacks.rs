@@ -464,7 +464,7 @@ fn upstream_only_commits(
         });
         // Ignore commits that strictly speaking are remote only, but they match a known local commit (rebase etc)
         if !matches_known_commit {
-            let created_at = u128::try_from(commit.time().seconds())? * 1000;
+            let created_at = i128::from(commit.time().seconds()) * 1000;
             let upstream_commit = ui::UpstreamCommit {
                 id: commit.id().to_gix(),
                 message: commit.message_bstr().into(),
@@ -537,7 +537,7 @@ fn local_and_remote_commits(
             }
         };
 
-        let created_at = u128::try_from(commit.time().seconds())? * 1000;
+        let created_at = i128::from(commit.time().seconds()) * 1000;
 
         let api_commit = ui::Commit {
             id: commit.id().to_gix(),
