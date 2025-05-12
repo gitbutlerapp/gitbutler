@@ -23,5 +23,10 @@
 	"extraCsp": {
 		// Additional hosts that the application can connect to.
 		"hosts": []
+	},
+	// Settings related to fetching.
+	"fetch": {
+	  // The frequency at which the app will automatically fetch. A negative value (e.g. -1) disables auto fetching.
+		"autoFetchIntervalMinutes": 15
 	}
 }
