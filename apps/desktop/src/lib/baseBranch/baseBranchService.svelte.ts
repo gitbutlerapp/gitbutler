@@ -66,12 +66,12 @@ export default class BaseBranchService {
 		await this.api.endpoints.baseBranch.fetch({ projectId }, { forceRefetch: true });
 	}
 
-	async fetchFromRemotes(projectId: string, autoFetch = false, action?: string) {
+	async fetchFromRemotes(projectId: string, action?: 'auto' | 'modal') {
 		return await this.api.endpoints.fetchFromRemotes
 			.mutate({ projectId, action })
 			.catch((error: unknown) => {
 				if (!isTauriCommandError(error)) {
-					if (autoFetch) return;
+					if (action === 'auto') return;
 					showError('Failed to fetch', String(error));
 					return;
 				}
@@ -82,7 +82,7 @@ export default class BaseBranchService {
 				}
 
 				if (code === Code.ProjectsGitAuth) {
-					if (autoFetch) return;
+					if (action === 'auto') return;
 					showError('Failed to authenticate', error.message);
 					return;
 				}
@@ -92,7 +92,10 @@ export default class BaseBranchService {
 					return;
 				}
 
-				if (autoFetch) return;
+				if (action !== 'auto') {
+					showError('Failed to fetch', error.message);
+				}
+
 				console.error(error);
 			});
 	}
