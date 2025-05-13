@@ -66,9 +66,9 @@ export default class BaseBranchService {
 		await this.api.endpoints.baseBranch.fetch({ projectId }, { forceRefetch: true });
 	}
 
-	async fetchFromRemotes(projectId: string, autoFetch = false) {
+	async fetchFromRemotes(projectId: string, autoFetch = false, action?: string) {
 		return await this.api.endpoints.fetchFromRemotes
-			.mutate({ projectId })
+			.mutate({ projectId, action })
 			.catch((error: unknown) => {
 				if (!isTauriCommandError(error)) {
 					if (autoFetch) return;
