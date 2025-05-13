@@ -139,7 +139,7 @@
 			case 'DiscardLines':
 				return { text: 'Discard lines', icon: 'item-cross' };
 			case 'DiscardHunk':
-				return { text: 'Discard hunk', icon: 'item-cross' };
+				return { text: 'Discard change', icon: 'item-cross' };
 			case 'DiscardFile':
 				return { text: 'Discard file', icon: 'discard-file-small' };
 			case 'FileChanges':
