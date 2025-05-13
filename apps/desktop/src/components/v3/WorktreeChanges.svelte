@@ -121,7 +121,7 @@
 
 <ReduxResult {stackId} {projectId} result={changesResult.current}>
 	{#snippet children(changes, { stackId, projectId })}
-		<Dropzone handlers={[uncommitDzHandler]}>
+		<Dropzone handlers={[uncommitDzHandler]} maxHeight>
 			{#snippet overlay({ hovered, activated })}
 				<CardOverlay {hovered} {activated} label="Uncommit changes" />
 			{/snippet}
