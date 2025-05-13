@@ -213,30 +213,30 @@
 
 <div data-testid={TestId.UnifiedDiffView} class="diff-section" bind:this={viewport}>
 	{#if diff.type === 'Patch'}
-		{#each diff.subject.hunks as hunk}
-			{@const linesModified = diff.subject.linesAdded + diff.subject.linesRemoved}
-			{@const [staged, stagedLines] = getStageState(hunk)}
-			{@const [fullyLocked, lineLocks] = getLineLocks(
-				activeStackId,
-				hunk,
-				fileDependencies?.current.data?.dependencies ?? []
-			)}
-			<div
-				class="hunk-content"
-				use:draggableChips={{
-					label: hunk.diff.split('\n')[0],
-					data: new HunkDropDataV3(change, hunk, uncommittedChange, stackId, commitId),
-					disabled: draggingDisabled,
-					chipType: 'hunk'
+		{@const linesModified = diff.subject.linesAdded + diff.subject.linesRemoved}
+		{#if linesModified > LARGE_DIFF_THRESHOLD && !showAnyways}
+			<LargeDiffMessage
+				handleShow={() => {
+					showAnyways = true;
 				}}
-			>
-				{#if linesModified > LARGE_DIFF_THRESHOLD && !showAnyways}
-					<LargeDiffMessage
-						handleShow={() => {
-							showAnyways = true;
-						}}
-					/>
-				{:else}
+			/>
+		{:else}
+			{#each diff.subject.hunks as hunk}
+				{@const [staged, stagedLines] = getStageState(hunk)}
+				{@const [fullyLocked, lineLocks] = getLineLocks(
+					activeStackId,
+					hunk,
+					fileDependencies?.current.data?.dependencies ?? []
+				)}
+				<div
+					class="hunk-content"
+					use:draggableChips={{
+						label: hunk.diff.split('\n')[0],
+						data: new HunkDropDataV3(change, hunk, uncommittedChange, stackId, commitId),
+						disabled: draggingDisabled,
+						chipType: 'hunk'
+					}}
+				>
 					<HunkDiff
 						{draggingDisabled}
 						hideCheckboxes={!isCommiting}
@@ -277,17 +277,17 @@
 							<LineLocksWarning {projectId} {locks} />
 						{/snippet}
 					</HunkDiff>
-				{/if}
-			</div>
-		{:else}
-			<div class="hunk-placehoder">
-				<EmptyStatePlaceholder image={emptyFileSvg} gap={12} topBottomPadding={34}>
-					{#snippet caption()}
-						It’s empty ¯\_(ツ゚)_/¯
-					{/snippet}
-				</EmptyStatePlaceholder>
-			</div>
-		{/each}
+				</div>
+			{:else}
+				<div class="hunk-placehoder">
+					<EmptyStatePlaceholder image={emptyFileSvg} gap={12} topBottomPadding={34}>
+						{#snippet caption()}
+							It’s empty ¯\_(ツ゚)_/¯
+						{/snippet}
+					</EmptyStatePlaceholder>
+				</div>
+			{/each}
+		{/if}
 
 		<!-- The context menu should be outside the each block. -->
 		<HunkContextMenu
