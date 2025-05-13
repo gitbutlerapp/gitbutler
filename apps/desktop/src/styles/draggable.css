@@ -176,7 +176,7 @@
 
 /* COMMIT DRAG CARD V3 */
 .draggable-commit-v3 {
-	position: relative;
+	position: absolute;
 	display: flex;
 	align-items: center;
 	gap: 10px;
@@ -184,7 +184,8 @@
 	border-radius: var(--radius-m);
 	border: 1px solid var(--clr-border-2);
 	padding: 0 10px;
-	max-width: 240px;
+	min-width: 50px;
+	max-width: 250px;
 	height: 36px;
 	overflow: hidden;
 

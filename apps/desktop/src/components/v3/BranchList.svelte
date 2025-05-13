@@ -238,6 +238,7 @@
 														(headerMenuContext = { data, position: { element } })}
 													oncontext={(coords) =>
 														(headerMenuContext = { data, position: { coords } })}
+													contextElementSelected={selected}
 													activated={branchName === headerMenuContext?.data.branch.name &&
 														!!headerMenuContext.position.element}
 												/>
@@ -459,6 +460,7 @@
 																			position: { coords },
 																			data
 																		})}
+																	contextElementSelected={selected}
 																	activated={commit.id === commitMenuContext?.data.commitId &&
 																		!!commitMenuContext.position.element}
 																/>
