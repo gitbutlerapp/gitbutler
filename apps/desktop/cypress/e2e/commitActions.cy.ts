@@ -445,6 +445,12 @@ describe('Commit Actions with no stacks', () => {
 		mockCommand('create_commit_from_worktree_changes', (params) =>
 			mockBackend.createCommit(params)
 		);
+		mockCommand('normalize_branch_name', (params) => {
+			if (!params) return '';
+			if ('name' in params && typeof params.name === 'string') {
+				return params.name;
+			}
+		});
 
 		cy.visit('/');
 
@@ -455,7 +461,8 @@ describe('Commit Actions with no stacks', () => {
 		clearCommandMocks();
 	});
 
-	it('Should be able to commit even without a stack present', () => {
+	it.only('Should be able to commit even without a stack present', () => {
+		const newBranchName = 'my-cool-branch';
 		const newCommitMessage = 'New commit message';
 		const newCommitMessageBody = 'New commit message body';
 
@@ -483,6 +490,15 @@ describe('Commit Actions with no stacks', () => {
 		// Should display the draft stack
 		cy.getByTestId('stack-draft').should('be.visible');
 		cy.getByTestId('stack-draft').should('contain', mockBackend.cannedBranchName);
+
+		// Update the stack name
+		cy.getByTestId('stack-draft').within(() => {
+			cy.get('input[type="text"]')
+				.should('be.visible')
+				.should('be.enabled')
+				.clear()
+				.type(newBranchName);
+		});
 
 		// Should have the "Your commit goes here" text
 		cy.getByTestId('your-commit-goes-here').should('be.visible').should('have.class', 'draft');
