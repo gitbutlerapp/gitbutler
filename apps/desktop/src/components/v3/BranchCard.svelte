@@ -39,7 +39,7 @@
 	const selected = $derived(selection?.branchName === branchName);
 </script>
 
-{#if (args.type === 'stack-branch' || (args.type === 'normal-branch' && !args.first)) && args.lineColor}
+{#if ((args.type === 'stack-branch' && !args.first) || (args.type === 'normal-branch' && !args.first)) && args.lineColor}
 	<BranchDividerLine lineColor={args.lineColor} />
 {/if}
 
