@@ -54,12 +54,7 @@
 		if (focusGroup.current === Focusable.UncommittedChanges && worktreeSelection.entries.size > 0) {
 			return { type: 'worktree' };
 		}
-		if (
-			focusGroup.current !== Focusable.UncommittedChanges &&
-			currentSelection &&
-			stackId &&
-			branchName
-		) {
+		if (currentSelection && stackId && branchName) {
 			if (currentSelection.commitId) {
 				const selectionId = { type: 'commit', commitId: currentSelection.commitId } as const;
 				if (idSelection.hasItems(selectionId)) return selectionId;
