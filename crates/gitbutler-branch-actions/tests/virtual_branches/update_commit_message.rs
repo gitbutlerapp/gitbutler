@@ -163,8 +163,7 @@ fn forcepush_allowed() {
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap()
     };
 
-    #[allow(deprecated)]
-    gitbutler_branch_actions::push_virtual_branch(ctx, stack_entry.id, false, None).unwrap();
+    gitbutler_branch_actions::stack::push_stack(ctx, stack_entry.id, false).unwrap();
 
     gitbutler_branch_actions::update_commit_message(
         ctx,
@@ -222,8 +221,7 @@ fn forcepush_forbidden() {
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap()
     };
 
-    #[allow(deprecated)]
-    gitbutler_branch_actions::push_virtual_branch(ctx, stack_entry.id, false, None).unwrap();
+    gitbutler_branch_actions::stack::push_stack(ctx, stack_entry.id, false).unwrap();
 
     assert_eq!(
         gitbutler_branch_actions::update_commit_message(

@@ -441,18 +441,6 @@ pub fn reset_virtual_branch(
     vbranch::reset_branch(ctx, stack_id, target_commit_oid)
 }
 
-#[deprecated(note = "use gitbutler_branch_actions::stack::push_stack instead")]
-pub fn push_virtual_branch(
-    ctx: &CommandContext,
-    stack_id: StackId,
-    with_force: bool,
-    askpass: Option<Option<StackId>>,
-) -> Result<vbranch::PushResult> {
-    ctx.verify()?;
-    assure_open_workspace_mode(ctx).context("Pushing a branch requires open workspace mode")?;
-    vbranch::push(ctx, stack_id, with_force, askpass)
-}
-
 pub fn find_git_branches(ctx: &CommandContext, branch_name: &str) -> Result<Vec<RemoteBranchData>> {
     remote::find_git_branches(ctx, branch_name)
 }

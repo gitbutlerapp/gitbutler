@@ -82,8 +82,7 @@ fn detect_integrated_commits() {
     };
 
     // push
-    #[allow(deprecated)]
-    gitbutler_branch_actions::push_virtual_branch(ctx, stack_entry_1.id, false, None).unwrap();
+    gitbutler_branch_actions::stack::push_stack(ctx, stack_entry_1.id, false).unwrap();
 
     {
         // merge branch upstream
