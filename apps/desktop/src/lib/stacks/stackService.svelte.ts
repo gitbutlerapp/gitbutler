@@ -130,6 +130,15 @@ export class StackService {
 		);
 	}
 
+	async fetchStacks(projectId: string) {
+		return await this.api.endpoints.stacks.fetch(
+			{ projectId },
+			{
+				transform: (stacks) => stackSelectors.selectAll(stacks)
+			}
+		);
+	}
+
 	stackAt(projectId: string, index: number) {
 		return this.api.endpoints.stacks.useQuery(
 			{ projectId },

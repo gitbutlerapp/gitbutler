@@ -15,7 +15,6 @@ import type {
 	StackStatusesWithBranchesV3
 } from '$lib/upstream/types';
 import type { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
-import type { Reactive } from '@gitbutler/shared/storeUtils';
 
 export class UpstreamIntegrationService {
 	private api: ReturnType<typeof injectEndpoints>;
@@ -31,46 +30,40 @@ export class UpstreamIntegrationService {
 		this.api = injectEndpoints(state.backendApi);
 	}
 
-	upstreamStatuses(
+	async upstreamStatuses(
 		projectId: string,
 		targetCommitOid?: string
-	): Reactive<StackStatusesWithBranchesV3 | undefined> {
-		const stacks = this.stackService.stacks(projectId);
-		const branchStatuses = this.api.endpoints.upstreamIntegrationStatuses.useQuery({
+	): Promise<StackStatusesWithBranchesV3 | undefined> {
+		const stacks = await this.stackService.fetchStacks(projectId);
+		const branchStatuses = await this.api.endpoints.upstreamIntegrationStatuses.fetch({
 			projectId,
 			targetCommitOid
 		});
 
-		const result = $derived.by(() => {
-			if (!stacks.current.isSuccess || !branchStatuses.current.isSuccess) return;
-			const stackData = stacks.current.data;
-			const branchStatusesData = branchStatuses.current.data;
-			if (branchStatusesData.type === 'upToDate') return branchStatusesData;
+		if (!stacks.data || !branchStatuses.data) return;
 
-			const stackStatusesWithBranches: StackStatusesWithBranchesV3 = {
-				type: 'updatesRequired',
-				worktreeConflicts: branchStatusesData.subject.worktreeConflicts,
-				subject: branchStatusesData.subject.statuses
-					.map((status) => {
-						const stack = stackData.find((appliedBranch) => appliedBranch.id === status[0]);
+		const stackData = stacks.data;
+		const branchStatusesData = branchStatuses.data;
 
-						if (!stack) return;
-						return {
-							stack,
-							status: status[1]
-						};
-					})
-					.filter(isDefined)
-			};
+		if (branchStatusesData.type === 'upToDate') return branchStatusesData;
 
-			return stackStatusesWithBranches;
-		});
+		const stackStatusesWithBranches: StackStatusesWithBranchesV3 = {
+			type: 'updatesRequired',
+			worktreeConflicts: branchStatusesData.subject.worktreeConflicts,
+			subject: branchStatusesData.subject.statuses
+				.map((status) => {
+					const stack = stackData.find((appliedBranch) => appliedBranch.id === status[0]);
 
-		return {
-			get current() {
-				return result;
-			}
+					if (!stack) return;
+					return {
+						stack,
+						status: status[1]
+					};
+				})
+				.filter(isDefined)
 		};
+
+		return stackStatusesWithBranches;
 	}
 
 	resolveUpstreamIntegration() {

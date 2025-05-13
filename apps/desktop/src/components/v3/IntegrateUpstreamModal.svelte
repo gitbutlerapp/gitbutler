@@ -14,7 +14,8 @@
 		type BranchStatus,
 		sortStatusInfoV3,
 		getResolutionApproachV3,
-		type StackStatusInfoV3
+		type StackStatusInfoV3,
+		type StackStatusesWithBranchesV3
 	} from '$lib/upstream/types';
 	import { UpstreamIntegrationService } from '$lib/upstream/upstreamIntegrationService.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
@@ -56,22 +57,18 @@
 	let statuses = $state<StackStatusInfoV3[]>([]);
 	let baseResolutionApproach = $state<BaseBranchResolutionApproach | undefined>();
 	let targetCommitOid = $state<string | undefined>(undefined);
+	let branchStatuses = $state<StackStatusesWithBranchesV3 | undefined>();
 
 	const isDivergedResolved = $derived(base?.diverged && !baseResolutionApproach);
 	const [integrateUpstream] = $derived(upstreamIntegrationService.integrateUpstream(projectId));
 
-	// Will re-fetch upstream statuses if the target commit oid changes
-	const branchStatuses = $derived(
-		upstreamIntegrationService.upstreamStatuses(projectId, targetCommitOid)
-	);
-
 	$effect(() => {
-		if (branchStatuses.current?.type !== 'updatesRequired') {
+		if (branchStatuses?.type !== 'updatesRequired') {
 			statuses = [];
 			return;
 		}
 
-		const statusesTmp = [...branchStatuses.current.subject];
+		const statusesTmp = [...branchStatuses.subject];
 		statusesTmp.sort(sortStatusInfoV3);
 
 		// Side effect, refresh results
@@ -129,8 +126,9 @@
 
 	export async function show() {
 		integratingUpstream = 'inert';
+		branchStatuses = undefined;
 		modal?.show();
-		targetCommitOid = undefined;
+		branchStatuses = await upstreamIntegrationService.upstreamStatuses(projectId, targetCommitOid);
 	}
 
 	export const imports = {
@@ -260,19 +258,19 @@
 			</div>
 		{/if}
 		<!-- CONFLICTED FILES -->
-		{#if branchStatuses.current?.type === 'updatesRequired' && branchStatuses.current?.worktreeConflicts.length > 0}
+		{#if branchStatuses?.type === 'updatesRequired' && branchStatuses?.worktreeConflicts.length > 0}
 			<div class="section">
 				<h3 class="text-14 text-semibold section-title">
 					<span>Conflicting uncommitted files</span>
 
-					<Badge>{branchStatuses.current?.worktreeConflicts.length}</Badge>
+					<Badge>{branchStatuses?.worktreeConflicts.length}</Badge>
 				</h3>
 				<p class="text-12 text-clr2">
 					Updating the workspace will add conflict markers to the following files.
 				</p>
 				<div class="scroll-wrap">
 					<ScrollableContainer maxHeight={pxToRem(268)}>
-						{@const conflicts = branchStatuses.current?.worktreeConflicts}
+						{@const conflicts = branchStatuses?.worktreeConflicts}
 						{#each conflicts as file}
 							<FileListItemV3
 								listMode="list"
