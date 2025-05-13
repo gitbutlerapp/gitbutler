@@ -68,7 +68,8 @@ export enum TestId {
 	ReviewDrawer = 'review-drawer',
 	ReviewTitleInput = 'review-drawer-title-input',
 	ReviewDescriptionInput = 'review-drawer-description-input',
-	ReviewCreateButton = 'review-drawer-create-button'
+	ReviewCreateButton = 'review-drawer-create-button',
+	StackedPullRequestCard = 'stacked-pull-request-card'
 }
 
 export enum ElementId {

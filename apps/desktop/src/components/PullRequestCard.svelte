@@ -32,6 +32,7 @@
 	};
 
 	interface Props {
+		testId?: string;
 		branchName: string;
 		poll?: boolean;
 		prNumber: number;
@@ -44,8 +45,16 @@
 		>;
 	}
 
-	const { poll, prNumber, isPushed, hasParent, baseIsTargetBranch, parentIsPushed, button }: Props =
-		$props();
+	const {
+		testId,
+		poll,
+		prNumber,
+		isPushed,
+		hasParent,
+		baseIsTargetBranch,
+		parentIsPushed,
+		button
+	}: Props = $props();
 
 	let contextMenuEl = $state<ReturnType<typeof ContextMenu>>();
 	let container = $state<HTMLElement>();
@@ -176,6 +185,7 @@
 	</ContextMenu>
 
 	<div
+		data-testid={testId}
 		bind:this={container}
 		role="article"
 		class="review-card pr-card"
