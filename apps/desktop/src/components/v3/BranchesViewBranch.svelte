@@ -42,7 +42,7 @@
 					{branchName}
 					{projectId}
 					{isTopBranch}
-					isNewBranch={branch.upstreamCommits?.length === 0}
+					isNewBranch={branch.commits?.length === 0}
 					iconName={pushStatusToIcon(branch.pushStatus)}
 					lineColor={getColorFromBranchType(pushStatusToColor(branch.pushStatus))}
 					trackingBranch={branch.remoteTrackingBranch || undefined}
