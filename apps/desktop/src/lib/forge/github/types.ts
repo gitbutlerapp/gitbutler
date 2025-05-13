@@ -16,7 +16,7 @@ export type CreateIssueResult = RestEndpointMethodTypes['issues']['create']['res
 export type UpdateResult = RestEndpointMethodTypes['pulls']['update']['response']['data'];
 
 export type PullRequestListItem =
-	| RestEndpointMethodTypes['pulls']['create']['response']['data']
+	| CreatePrResult
 	| RestEndpointMethodTypes['pulls']['list']['response']['data'][number];
 
 export type ChecksResult = RestEndpointMethodTypes['checks']['listForRef']['response']['data'];
