@@ -6,12 +6,20 @@
 	interface Props {
 		disabled?: boolean;
 		fillHeight?: boolean;
+		maxHeight?: boolean;
 		handlers: DropzoneHandler[];
 		overlay?: Snippet<[{ hovered: boolean; activated: boolean; handler?: DropzoneHandler }]>;
 		children?: Snippet;
 	}
 
-	const { disabled = false, fillHeight = false, handlers, overlay, children }: Props = $props();
+	const {
+		disabled = false,
+		fillHeight = false,
+		maxHeight = false,
+		handlers,
+		overlay,
+		children
+	}: Props = $props();
 
 	let hovered = $state(false);
 	let hoveredHandler: DropzoneHandler | undefined = $state();
@@ -49,6 +57,7 @@
 		target: '.dropzone-target'
 	}}
 	class:fill-height={fillHeight}
+	class:max-height={maxHeight}
 	class="dropzone-container"
 >
 	{#if overlay}
@@ -65,6 +74,10 @@
 		display: flex;
 		flex-direction: column;
 		flex-grow: 1;
+	}
+
+	.max-height {
+		height: 100%;
 	}
 
 	.dropzone-container {
