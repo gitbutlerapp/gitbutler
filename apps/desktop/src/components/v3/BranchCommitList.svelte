@@ -56,6 +56,7 @@
 					first: boolean;
 					last: boolean;
 					lastCommit: boolean;
+					ancestorMostConflicted: Commit | undefined;
 				}
 			]
 		>;
@@ -92,6 +93,17 @@
 
 	function confirmReset() {
 		confirmResetModal?.show();
+	}
+
+	function getAncestorMostConflicted(commits: Commit[]): Commit | undefined {
+		if (!commits.length) return undefined;
+		for (let i = commits.length - 1; i >= 0; i--) {
+			const commit = commits[i]!;
+			if (commit.hasConflicts) {
+				return commit;
+			}
+		}
+		return undefined;
 	}
 </script>
 
@@ -139,6 +151,7 @@
 	{#snippet children([upstreamOnlyCommits, localAndRemoteCommits], { stackId })}
 		{@const hasRemoteCommits = upstreamOnlyCommits.length > 0}
 		{@const hasCommits = localAndRemoteCommits.length > 0}
+		{@const ancestorMostConflicted = getAncestorMostConflicted(localAndRemoteCommits)}
 		{#if !hasCommits}
 			{@render empty?.()}
 		{/if}
@@ -184,7 +197,8 @@
 						commitKey,
 						first,
 						last,
-						lastCommit: last
+						lastCommit: last,
+						ancestorMostConflicted
 					})}
 				{/each}
 			{/if}

@@ -96,10 +96,8 @@
 						close();
 					}}
 				/>
-				<!-- TODO: Re-enable the option once it works -->
 				<ContextMenuItem
 					label="Edit commit"
-					disabled
 					onclick={(e: MouseEvent) => {
 						onPatchEditClick?.(e);
 						close();
