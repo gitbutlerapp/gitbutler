@@ -69,7 +69,7 @@ mod create_virtual_branch {
         assert_eq!(branches[0].id, stack_entry_1.id);
         assert_eq!(branches[0].name, "name");
         assert_eq!(branches[1].id, stack_entry_2.id);
-        assert_eq!(branches[1].name, "name 1");
+        assert_eq!(branches[1].name, "name-1");
 
         let refnames = repo
             .references()
@@ -175,7 +175,7 @@ mod update_virtual_branch {
         assert_eq!(branches[0].id, stack_entry_1.id);
         assert_eq!(branches[0].name, "name");
         assert_eq!(branches[1].id, stack_entry_2.id);
-        assert_eq!(branches[1].name, "name 1");
+        assert_eq!(branches[1].name, "name-1");
 
         let refnames = repo
             .references()
