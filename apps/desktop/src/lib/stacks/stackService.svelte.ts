@@ -674,7 +674,7 @@ export class StackService {
 		);
 	}
 
-	async targetCommits(projectId: string, lastCommitId: string, pageSize: number) {
+	async targetCommits(projectId: string, lastCommitId: string | undefined, pageSize: number) {
 		return await this.api.endpoints.targetCommits.fetch(
 			{ projectId, lastCommitId, pageSize },
 			{
@@ -1327,7 +1327,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				EntityState<Commit, string>,
 				{
 					projectId: string;
-					lastCommitId: string;
+					lastCommitId: string | undefined;
 					pageSize: number;
 				}
 			>({
