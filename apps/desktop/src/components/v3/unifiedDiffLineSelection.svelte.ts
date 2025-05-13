@@ -71,7 +71,7 @@ export default class LineSelection {
 		}
 
 		if (selection.type === 'partial') {
-			this.handleLineStageInPartialSelection(selection, hunk, linesSelected, restLines);
+			this.handleLineStageInPartialSelection(allHunks, selection, hunk, linesSelected, restLines);
 			return;
 		}
 
@@ -79,6 +79,7 @@ export default class LineSelection {
 	}
 
 	private handleLineStageInPartialSelection(
+		allHunks: DiffHunk[],
 		selection: PartiallySelectedFile,
 		hunk: DiffHunk,
 		linesSelected: LineId[],
@@ -96,6 +97,7 @@ export default class LineSelection {
 			// Handle existing partial hunk selection
 			if (stagedHunk.type === 'partial') {
 				this.handleHunkPartiallyStaged(
+					allHunks,
 					stagedHunk,
 					linesSelected,
 					restLines,
@@ -162,6 +164,7 @@ export default class LineSelection {
 	}
 
 	private handleHunkPartiallyStaged(
+		allHunks: DiffHunk[],
 		stagedHunk: PartiallySelectedHunk,
 		linesSelected: LineId[],
 		restLines: LineId[],
@@ -203,7 +206,19 @@ export default class LineSelection {
 			return;
 		}
 
-		const fullySelectedHunks = newHunks.every((h) => h.type === 'full');
+		const fullySelectedHunks = allHunks.every((h) => {
+			const selectedHunk = newHunks.find(
+				(selectedHunk) =>
+					selectedHunk.newStart === h.newStart &&
+					selectedHunk.newLines === h.newLines &&
+					selectedHunk.oldStart === h.oldStart &&
+					selectedHunk.oldLines === h.oldLines
+			);
+
+			if (!selectedHunk) return false;
+
+			return selectedHunk.type === 'full';
+		});
 		const type = fullySelectedHunks ? 'full' : 'partial';
 		const hunks = fullySelectedHunks ? [] : newHunks;
 		this.changeSelection.update({
