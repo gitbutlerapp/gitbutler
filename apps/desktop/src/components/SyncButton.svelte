@@ -38,7 +38,7 @@
 		e.stopPropagation();
 		loading = true;
 		try {
-			await baseBranchService.fetchFromRemotes(projectId, false, 'modal');
+			await baseBranchService.fetchFromRemotes(projectId, 'modal');
 			await Promise.all([
 				listingService?.refresh(projectId),
 				baseBranch.current.refetch(),
