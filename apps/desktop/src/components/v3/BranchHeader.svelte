@@ -303,6 +303,10 @@
 		flex-wrap: wrap;
 		gap: 6px;
 		color: var(--clr-text-2);
+
+		&:empty {
+			display: none;
+		}
 	}
 
 	.branch-header__select-indicator {
