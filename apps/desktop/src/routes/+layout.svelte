@@ -48,6 +48,7 @@
 	import { RemotesService } from '$lib/remotes/remotesService';
 	import { setSecretsService } from '$lib/secrets/secretsService';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
+	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
 	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -155,6 +156,7 @@
 	const cloudUserService = new CloudUserService(data.cloud, appState.appDispatch);
 	const cloudProjectService = new CloudProjectService(data.cloud, appState.appDispatch);
 	const dependecyService = new DependencyService(clientState.backendApi);
+	const idSelection = new IdSelection(worktreeService, stackService);
 
 	const cloudBranchService = new CloudBranchService(data.cloud, appState.appDispatch);
 	const cloudPatchService = new CloudPatchCommitService(data.cloud, appState.appDispatch);
@@ -233,6 +235,7 @@
 	setContext(DiffService, diffService);
 	setContext(UploadsService, data.uploadsService);
 	setContext(DependencyService, dependecyService);
+	setContext(IdSelection, idSelection);
 
 	setNameNormalizationServiceContext(new IpcNameNormalizationService(invoke));
 
@@ -275,6 +278,10 @@
 			console.log('Also written to window.tauriEnv');
 		}
 	});
+
+	/** These are made available on the window object for easier debugging. */
+	(window as any)['uiState'] = uiState;
+	(window as any)['idSelection'] = idSelection;
 </script>
 
 <svelte:window
