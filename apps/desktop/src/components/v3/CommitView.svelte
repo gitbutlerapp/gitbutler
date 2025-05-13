@@ -49,6 +49,8 @@
 	const modeService = maybeGetContext(ModeService);
 	const stackState = $derived(uiState.stack(stackId));
 	const projectState = $derived(uiState.project(projectId));
+	const commitTitle = $derived(projectState.commitTitle);
+	const commitDescription = $derived(projectState.commitDescription);
 	const selected = $derived(stackState.selection.get());
 	const branchName = $derived(selected.current?.branchName);
 
@@ -96,6 +98,8 @@
 
 		uiState.stack(stackId).selection.set({ branchName, commitId: newCommitId });
 		setMode('view');
+		commitTitle.current = '';
+		commitDescription.current = '';
 	}
 
 	let commitMenuContext = $state<CommitMenuContext>();
@@ -134,7 +138,7 @@
 					bind:this={commitMessageInput}
 					projectId={env.projectId}
 					stackId={env.stackId}
-					action={editCommitMessage}
+					action={() => editCommitMessage()}
 					actionLabel="Save"
 					onCancel={() => setMode('view')}
 					initialTitle={parsedMessage.title}

@@ -12,7 +12,6 @@
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { tick } from 'svelte';
 
 	type Props = {
@@ -51,7 +50,8 @@
 	const descriptionText = $derived(projectState.commitDescription);
 	const stackSelection = $derived(stackState?.selection);
 
-	// const useRichText = uiState.global.useRichText;
+	const effectiveTitleValue = $derived(titleText.current || (initialTitle ?? ''));
+	const effectiveDescriptionValue = $derived(descriptionText.current || (initialMessage ?? ''));
 
 	const suggestionsHandler = new CommitSuggestions(aiService, uiState);
 	let commitSuggestionsPlugin = $state<ReturnType<typeof CommitSuggestionsPlugin>>();
@@ -66,17 +66,6 @@
 		aiService.validateConfiguration().then((valid) => {
 			aiConfigurationValid = valid;
 		});
-	});
-
-	$effect(() => {
-		if (isDefined(initialTitle)) {
-			titleText.current = initialTitle;
-		}
-
-		if (isDefined(initialMessage)) {
-			descriptionText.current = initialMessage;
-			composer?.setText(initialMessage);
-		}
 	});
 
 	let generatedText = $state<string>('');
@@ -155,7 +144,7 @@
 	<MessageEditorInput
 		testId={TestId.CommitDrawerTitleInput}
 		bind:ref={titleInput}
-		value={titleText.current}
+		value={effectiveTitleValue}
 		oninput={(e: Event) => {
 			const input = e.currentTarget as HTMLInputElement;
 			projectState.commitTitle.current = input.value;
@@ -177,7 +166,7 @@
 	<MessageEditor
 		testId={TestId.CommitDrawerDescriptionInput}
 		bind:this={composer}
-		initialValue={descriptionText.current}
+		initialValue={effectiveDescriptionValue}
 		placeholder="Your commit message"
 		{projectId}
 		{onAiButtonClick}
