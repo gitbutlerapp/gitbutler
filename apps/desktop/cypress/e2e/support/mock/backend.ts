@@ -20,6 +20,7 @@ import {
 	isIntegrateUpstreamCommitsParams,
 	isPushStackParams,
 	isStackDetailsParams,
+	isUpdateBranchPRNumberParams,
 	isUpdateCommitMessageParams,
 	MOCK_BRAND_NEW_BRANCH_NAME,
 	MOCK_COMMIT,
@@ -37,6 +38,7 @@ import type { Commit } from '$lib/branches/v3';
 import type { HunkDependencies } from '$lib/dependencies/dependencies';
 import type { TreeChange, TreeChanges, WorktreeChanges } from '$lib/hunks/change';
 import type { UnifiedDiff } from '$lib/hunks/diff';
+import type { GitRemote } from '$lib/remotes/remotesService';
 import type { BranchDetails, Stack, StackDetails } from '$lib/stacks/stack';
 import type { BranchPushResult } from '$lib/stacks/stackService.svelte';
 import type { BranchStatusesResponse, IntegrationOutcome } from '$lib/upstream/types';
@@ -467,11 +469,72 @@ export default class MockBackend {
 			throw new Error('Invalid arguments for pushStack');
 		}
 
-		// Do nothing for now
+		// Make the branches local and remote
+		const stackDetails = this.stackDetails.get(args.stackId);
+		if (!stackDetails) {
+			throw new Error(`Stack with ID ${args.stackId} not found`);
+		}
+
+		const editableDetails = structuredClone(stackDetails);
+
+		for (const branch of editableDetails.branchDetails) {
+			branch.commits = branch.commits.map((commit) => ({
+				...commit,
+				state: {
+					type: 'LocalAndRemote',
+					subject: commit.id
+				}
+			}));
+			branch.pushStatus = 'nothingToPush';
+		}
+
+		editableDetails.pushStatus = 'nothingToPush';
+
+		this.stackDetails.set(args.stackId, editableDetails);
 
 		return {
-			refname: `refs/heads/${args.stackId}`,
-			remote: 'idk'
+			refname: `refs/remotes/origin/${args.stackId}`,
+			remote: 'origin'
 		};
+	}
+
+	public listRemotes(args: InvokeArgs | undefined): GitRemote[] {
+		if (!args) {
+			throw new Error('Invalid arguments for listRemotes');
+		}
+
+		return [
+			{
+				name: 'origin',
+				url: ''
+			}
+		];
+	}
+
+	public updateBranchPrNumber(args: InvokeArgs | undefined): void {
+		if (!args || !isUpdateBranchPRNumberParams(args)) {
+			throw new Error('Invalid arguments for updateBranchPrNumber');
+		}
+
+		const { stackId, branchName, prNumber } = args;
+
+		const stackDetails = this.stackDetails.get(stackId);
+		if (!stackDetails) {
+			throw new Error(`Stack with ID ${stackId} not found`);
+		}
+
+		const editableDetails = structuredClone(stackDetails);
+		const branchIndex = editableDetails.branchDetails.findIndex((b) => b.name === branchName);
+		if (branchIndex === -1) {
+			throw new Error(`Branch with name ${branchName} not found`);
+		}
+
+		const branch = editableDetails.branchDetails[branchIndex]!;
+		editableDetails.branchDetails[branchIndex] = {
+			...branch,
+			prNumber: prNumber
+		};
+
+		this.stackDetails.set(stackId, editableDetails);
 	}
 }

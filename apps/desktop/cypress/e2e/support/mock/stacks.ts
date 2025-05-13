@@ -346,3 +346,27 @@ export function isPushStackParams(params: unknown): params is PushStackParams {
 		typeof params.withForce === 'boolean'
 	);
 }
+
+export type UpdateBranchPRNumberParams = {
+	projectId: string;
+	stackId: string;
+	branchName: string;
+	prNumber: number;
+};
+
+export function isUpdateBranchPRNumberParams(
+	params: unknown
+): params is UpdateBranchPRNumberParams {
+	return (
+		typeof params === 'object' &&
+		params !== null &&
+		'projectId' in params &&
+		typeof params.projectId === 'string' &&
+		'stackId' in params &&
+		typeof params.stackId === 'string' &&
+		'branchName' in params &&
+		typeof params.branchName === 'string' &&
+		'prNumber' in params &&
+		typeof params.prNumber === 'number'
+	);
+}
