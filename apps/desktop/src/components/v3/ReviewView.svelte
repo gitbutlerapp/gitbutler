@@ -6,6 +6,7 @@
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { getContext } from '@gitbutler/shared/context';
 
 	type Props = {
@@ -58,7 +59,14 @@
 	const ctaDisabled = $derived(reviewCreation ? !reviewCreation.imports.creationEnabled : false);
 </script>
 
-<Drawer {projectId} {stackId} title={getTitleLabel()} disableScroll minHeight={28}>
+<Drawer
+	testId={TestId.ReviewDrawer}
+	{projectId}
+	{stackId}
+	title={getTitleLabel()}
+	disableScroll
+	minHeight={28}
+>
 	<div class="submit-review__container">
 		<ReviewCreation bind:this={reviewCreation} {projectId} {stackId} {branchName} onClose={close} />
 

@@ -63,7 +63,12 @@ export enum TestId {
 	LargeDiffMessage = 'large-diff-message',
 	LargeDiffMessageButton = 'large-diff-message-button',
 	UpstreamCommitsAccordion = 'upstream-commits-accordion',
-	UpstreamCommitsIntegrateButton = 'upstream-commits-integrate-button'
+	UpstreamCommitsIntegrateButton = 'upstream-commits-integrate-button',
+	BranchDrawerCreateReviewButton = 'branch-drawer-create-review-button',
+	ReviewDrawer = 'review-drawer',
+	ReviewTitleInput = 'review-drawer-title-input',
+	ReviewDescriptionInput = 'review-drawer-description-input',
+	ReviewCreateButton = 'review-drawer-create-button'
 }
 
 export enum ElementId {
