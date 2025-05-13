@@ -43,7 +43,12 @@
 	</div>
 
 	<div class="submit-review-actions__general">
-		<Button kind="outline" disabled={isSubmitting} onclick={onCancel}>Cancel</Button>
+		<Button
+			testId={TestId.ReviewCancelButton}
+			kind="outline"
+			disabled={isSubmitting}
+			onclick={onCancel}>Cancel</Button
+		>
 		<AsyncButton
 			testId={TestId.ReviewCreateButton}
 			width={166}
