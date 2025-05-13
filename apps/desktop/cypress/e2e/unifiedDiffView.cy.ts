@@ -1,5 +1,6 @@
 import { clearCommandMocks, mockCommand } from './support';
 import BranchesWithChanges from './support/scenarios/branchesWithChanges';
+import ComplexHunks from './support/scenarios/complexHunks';
 
 describe('Unified Diff View', () => {
 	let mockBackend: BranchesWithChanges;
@@ -139,6 +140,84 @@ describe('Unified Diff View', () => {
 		cy.getByTestId('unified-diff-view').within(() => {
 			// The diff should be visible
 			cy.get('table').should('be.visible');
+		});
+	});
+});
+
+describe('Unified Diff View with complex hunks', () => {
+	let mockBackend: ComplexHunks;
+
+	beforeEach(() => {
+		mockBackend = new ComplexHunks();
+
+		mockCommand('stacks', () => mockBackend.getStacks());
+		mockCommand('stack_details', (params) => mockBackend.getStackDetails(params));
+		mockCommand('changes_in_branch', (args) => mockBackend.getBranchChanges(args));
+		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
+		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
+		mockCommand('hunk_dependencies_for_workspace_changes', (params) =>
+			mockBackend.getHunkDependencies(params)
+		);
+		mockCommand('create_commit_from_worktree_changes', (params) =>
+			mockBackend.createCommit(params)
+		);
+
+		cy.visit('/');
+	});
+
+	afterEach(() => {
+		clearCommandMocks();
+	});
+
+	it('should select the hunks correctly', () => {
+		// spy
+		cy.spy(mockBackend, 'createCommit').as('createCommit');
+
+		// There should be uncommitted changes
+		cy.getByTestId('uncommitted-changes-file-list').should('be.visible');
+
+		// Click on start a commit
+		cy.getByTestId('start-commit-button').click();
+
+		// Unstage everything
+		cy.getByTestId('uncommitted-changes-header').within(() => {
+			cy.get('input[type="checkbox"]').should('be.checked').click();
+		});
+
+		// All files should be visible
+		cy.getByTestId('file-list-item').should(
+			'have.length',
+			mockBackend.getWorktreeChangesFileNames().length
+		);
+
+		// Open bif file diff
+		cy.getByTestId('uncommitted-changes-file-list').within(() => {
+			const fileName = mockBackend.complexHunkFileName;
+			cy.getByTestId('file-list-item', fileName).click();
+		});
+
+		cy.getByTestId('unified-diff-view').within(() => {
+			// The diff should be visible
+			cy.get('table').should('be.visible');
+
+			for (const lineSelector of mockBackend.hunkLineSelectors) {
+				cy.get(lineSelector).within(() => {
+					cy.get('[data-testid="hunk-count-column"]').first().click({ force: true });
+				});
+			}
+		});
+
+		// Commit the things
+		cy.getByTestId('commit-drawer-title-input').should('be.visible').type('Test commit');
+		cy.getByTestId('commit-drawer-action-button').should('be.visible').click();
+
+		cy.get('@createCommit').should('be.calledWith', {
+			projectId: '1',
+			parentId: undefined,
+			stackId: 'stack-a-id',
+			message: 'Test commit',
+			stackBranchName: 'stack-a-id',
+			worktreeChanges: mockBackend.expectedWorktreeChanges
 		});
 	});
 });
