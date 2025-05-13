@@ -39,13 +39,14 @@ mod integrated;
 pub mod ui;
 
 pub mod commit_engine;
+/// Tools for manipulating trees
 pub mod tree_manipulation;
-pub use tree_manipulation::function::discard_workspace_changes;
-pub use tree_manipulation::move_between_commits::{
-    MoveChangesResult, move_changes_between_commits,
-};
+pub use tree_manipulation::MoveChangesResult;
+pub use tree_manipulation::discard_worktree_changes::discard_workspace_changes;
+pub use tree_manipulation::move_between_commits::move_changes_between_commits;
 pub mod head;
 pub use head::{head, merge_worktree_with_workspace};
+mod relapath;
 
 /// 🚧utilities for applying and unapplying branches 🚧.
 pub mod branch;

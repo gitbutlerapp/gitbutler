@@ -1,22 +1,17 @@
-//! Utility types related to discarding changes in the worktree.
-
-pub(crate) trait RelaPath {
-    fn rela_path(&self) -> &bstr::BStr;
+/// Provides data that helps describe the effect of the move changes operaiton.
+pub struct MoveChangesResult {
+    /// A list of commits that were replaced as part of any rebases that were
+    /// performed. Provided as a list of tuples where the first item in the
+    /// tuple is the "before" and the second item in the tuple is the "after"
+    /// id.
+    ///
+    /// If a commit was unaffected then it will not be included in this list.
+    pub replaced_commits: Vec<(gix::ObjectId, gix::ObjectId)>,
 }
 
-impl RelaPath for gix::diff::index::ChangeRef<'_, '_> {
-    fn rela_path(&self) -> &bstr::BStr {
-        match self {
-            gix::diff::index::ChangeRef::Addition { location, .. }
-            | gix::diff::index::ChangeRef::Modification { location, .. }
-            | gix::diff::index::ChangeRef::Rewrite { location, .. }
-            | gix::diff::index::ChangeRef::Deletion { location, .. } => location,
-        }
-    }
-}
-
-pub(super) mod function;
+pub(super) mod discard_worktree_changes;
 pub(super) mod move_between_commits;
 
 mod file;
 pub(crate) mod hunk;
+mod utils;

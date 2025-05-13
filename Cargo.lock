@@ -777,6 +777,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-status"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "gix",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "but-testsupport"
 version = "0.0.0"
 dependencies = [
@@ -794,6 +805,7 @@ dependencies = [
  "bstr",
  "but-core",
  "but-rebase",
+ "but-status",
  "but-testsupport",
  "git2",
  "gitbutler-cherry-pick",
@@ -2820,6 +2832,7 @@ dependencies = [
  "but-core",
  "but-rebase",
  "but-settings",
+ "but-status",
  "git2",
  "git2-hooks",
  "gitbutler-cherry-pick",

@@ -1,48 +1,106 @@
-use std::collections::HashSet;
+//! Utility types related to discarding changes in the worktree.
 
-use crate::{
-    DiffSpec, HunkHeader,
-    commit_engine::{apply_hunks, index::apply_lhs_to_rhs},
-    tree_manipulation::hunk::{HunkSubstraction, subtract_hunks},
-};
 use anyhow::Context;
-use bstr::{BString, ByteSlice};
+use bstr::{BString, ByteSlice as _, ByteVec};
 use but_core::{ChangeState, TreeStatus};
-use gix::status::index_worktree;
+use but_rebase::RebaseOutput;
+use but_status::create_wd_tree;
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+};
 
-use super::{RelaPath as _, file::checkout_repo_worktree};
+use crate::{DiffSpec, HunkHeader, commit_engine::apply_hunks, relapath::RelaPath as _};
 
-/// Same as create_index_without_changes, but specifically for the worktree.
-///
-/// The index will be written to the repository if any changes are made to it.
-pub fn discard_workspace_changes(
-    repository: &gix::Repository,
-    changes: impl IntoIterator<Item = DiffSpec>,
-    context_lines: u32,
-) -> anyhow::Result<Vec<DiffSpec>> {
-    let (tree, dropped) =
-        create_tree_without_diff(repository, ChangesSource::Worktree, changes, context_lines)?;
-    let status_changes = get_status(repository)?;
+use super::hunk::{HunkSubstraction, subtract_hunks};
 
-    update_wd_to_tree(repository, tree)?;
+pub(crate) fn checkout_repo_worktree(
+    parent_worktree_dir: &Path,
+    mut repo: gix::Repository,
+) -> anyhow::Result<()> {
+    // No need to cache anything, it's just single-use for the most part.
+    repo.object_cache_size(0);
+    let mut index = repo.index_from_tree(&repo.head_tree_id_or_empty()?)?;
+    if index.entries().is_empty() {
+        // The worktree directory is created later, so we don't have to deal with it here.
+        return Ok(());
+    }
+    for entry in index.entries_mut().iter_mut().filter(|e| {
+        e.mode
+            .contains(gix::index::entry::Mode::DIR | gix::index::entry::Mode::COMMIT)
+    }) {
+        entry.flags.insert(gix::index::entry::Flags::SKIP_WORKTREE);
+    }
 
-    let tree_as_index = repository.index_from_tree(&tree)?;
-    let mut index = repository.index_or_empty()?.into_owned_or_cloned();
+    let mut opts =
+        repo.checkout_options(gix::worktree::stack::state::attributes::Source::IdMapping)?;
+    opts.destination_is_initially_empty = true;
+    opts.keep_going = true;
 
-    let paths_to_update = index_entries_to_update(status_changes)?;
-
-    apply_lhs_to_rhs(
-        repository.workdir().context("non-bare repository")?,
-        &tree_as_index,
+    let checkout_destination = repo.workdir().context("non-bare repository")?.to_owned();
+    if !checkout_destination.exists() {
+        std::fs::create_dir(&checkout_destination)?;
+    }
+    let sm_repo_dir = gix::path::relativize_with_prefix(
+        repo.path().strip_prefix(parent_worktree_dir)?,
+        checkout_destination.strip_prefix(parent_worktree_dir)?,
+    )
+    .into_owned();
+    let out = gix::worktree::state::checkout(
         &mut index,
-        Some(paths_to_update),
+        checkout_destination.clone(),
+        repo,
+        &gix::progress::Discard,
+        &gix::progress::Discard,
+        &gix::interrupt::IS_INTERRUPTED,
+        opts,
     )?;
-    index.write(Default::default())?;
 
-    Ok(dropped)
+    let mut buf = BString::from("gitdir: ");
+    buf.extend_from_slice(&gix::path::os_string_into_bstring(sm_repo_dir.into())?);
+    buf.push_byte(b'\n');
+    std::fs::write(checkout_destination.join(".git"), &buf)?;
+
+    tracing::debug!(directory = ?checkout_destination, outcome = ?out, "submodule checkout result");
+    Ok(())
 }
 
-fn index_entries_to_update(
+/// Takes a rebase output and returns the commit mapping with any extra
+/// mapping overrides provided.
+///
+/// This will only include commits that have actually changed. If a commit was
+/// mapped to itself it will not be included in the resulting HashMap.
+///
+/// Overrides are used to handle the case where the caller of the rebase engine
+/// has manually replaced a particular commit with a rewritten one. This is
+/// needed because a manually re-written commit that ends up matching the
+/// base when the rebase occurs will end up showing up as a no-op in the
+/// resulting commit_mapping.
+///
+/// Overrides should be provided as a vector that contains tuples of object
+/// ids, where the first item is the before object_id, and the second item is
+/// the after object_id.
+pub(crate) fn rebase_mapping_with_overrides(
+    rebase_output: &RebaseOutput,
+    overrides: impl IntoIterator<Item = (gix::ObjectId, gix::ObjectId)>,
+) -> HashMap<gix::ObjectId, gix::ObjectId> {
+    let mut mapping = rebase_output
+        .commit_mapping
+        .iter()
+        .filter(|(_, old, new)| old != new)
+        .map(|(_, old, new)| (*old, *new))
+        .collect::<HashMap<_, _>>();
+
+    for (old, new) in overrides {
+        if old != new {
+            mapping.insert(old, new);
+        }
+    }
+
+    mapping
+}
+
+pub(crate) fn index_entries_to_update(
     status_changes: Vec<gix::status::Item>,
 ) -> anyhow::Result<HashSet<BString>> {
     let mut head_to_index = vec![];
@@ -70,7 +128,7 @@ fn index_entries_to_update(
     Ok(paths_to_update)
 }
 
-fn update_wd_to_tree(
+pub(crate) fn update_wd_to_tree(
     repository: &gix::Repository,
     source_tree: gix::ObjectId,
 ) -> anyhow::Result<()> {
@@ -560,180 +618,4 @@ fn revert_file_to_before_state(
         builder.remove(change.path_bytes.as_bstr())?;
     }
     Ok(())
-}
-
-/// Creates a tree containing the uncommited changes in the project.
-/// This includes files in the index that are considered conflicted.
-///
-/// TODO: This is a copy of `create_wd_tree` from the old world. Ideally we
-/// should share between the old and new worlds to prevent duplication beween
-/// these.
-fn create_wd_tree(
-    repo: &gix::Repository,
-    untracked_limit_in_bytes: u64,
-) -> anyhow::Result<gix::ObjectId> {
-    use bstr::ByteSlice;
-    use gix::bstr::BStr;
-    use gix::status;
-    use gix::status::plumbing::index_as_worktree::{Change, EntryStatus};
-    use std::collections::HashSet;
-
-    let (mut pipeline, index) = repo.filter_pipeline(None)?;
-    let mut added_worktree_file = |rela_path: &BStr,
-                                   head_tree_editor: &mut gix::object::tree::Editor<'_>|
-     -> anyhow::Result<bool> {
-        let Some((id, kind, md)) = pipeline.worktree_file_to_object(rela_path, &index)? else {
-            head_tree_editor.remove(rela_path)?;
-            return Ok(false);
-        };
-        if untracked_limit_in_bytes != 0 && md.len() > untracked_limit_in_bytes {
-            return Ok(false);
-        }
-        head_tree_editor.upsert(rela_path, kind, id)?;
-        Ok(true)
-    };
-    let head_tree = repo.head_tree_id_or_empty()?;
-    let mut head_tree_editor = repo.edit_tree(head_tree)?;
-    let status_changes = get_status(repo)?;
-
-    let mut worktreepaths_changed = HashSet::new();
-    // We have to apply untracked items last, but don't have ordering here so impose it ourselves.
-    let mut untracked_items = Vec::new();
-    for change in status_changes {
-        match change {
-            status::Item::TreeIndex(gix::diff::index::Change::Deletion { location, .. }) => {
-                // These changes play second fiddle - they are overwritten by worktree-changes,
-                // or we assure we don't overwrite, as we may arrive out of order.
-                if !worktreepaths_changed.contains(location.as_bstr()) {
-                    head_tree_editor.remove(location.as_ref())?;
-                }
-            }
-            status::Item::TreeIndex(
-                gix::diff::index::Change::Addition {
-                    location,
-                    entry_mode,
-                    id,
-                    ..
-                }
-                | gix::diff::index::Change::Modification {
-                    location,
-                    entry_mode,
-                    id,
-                    ..
-                },
-            ) => {
-                if let Some(entry_mode) = entry_mode
-                    .to_tree_entry_mode()
-                    // These changes play second fiddle - they are overwritten by worktree-changes,
-                    // or we assure we don't overwrite, as we may arrive out of order.
-                    .filter(|_| !worktreepaths_changed.contains(location.as_bstr()))
-                {
-                    head_tree_editor.upsert(location.as_ref(), entry_mode.kind(), id.as_ref())?;
-                }
-            }
-            status::Item::IndexWorktree(index_worktree::Item::Modification {
-                rela_path,
-                status: EntryStatus::Change(Change::Removed),
-                ..
-            }) => {
-                head_tree_editor.remove(rela_path.as_bstr())?;
-                worktreepaths_changed.insert(rela_path);
-            }
-            // modified, conflicted, or untracked files are unconditionally added as blob.
-            // Note that this implementation will re-read the whole blob even on type-change
-            status::Item::IndexWorktree(index_worktree::Item::Modification {
-                rela_path,
-                status:
-                    EntryStatus::Change(Change::Type { .. } | Change::Modification { .. })
-                    | EntryStatus::Conflict(_)
-                    | EntryStatus::IntentToAdd,
-                ..
-            }) => {
-                if added_worktree_file(rela_path.as_ref(), &mut head_tree_editor)? {
-                    worktreepaths_changed.insert(rela_path);
-                }
-            }
-            status::Item::IndexWorktree(index_worktree::Item::DirectoryContents {
-                entry:
-                    gix::dir::Entry {
-                        rela_path,
-                        status: gix::dir::entry::Status::Untracked,
-                        ..
-                    },
-                ..
-            }) => {
-                untracked_items.push(rela_path);
-            }
-            status::Item::IndexWorktree(index_worktree::Item::Modification {
-                rela_path,
-                status: EntryStatus::Change(Change::SubmoduleModification(change)),
-                ..
-            }) => {
-                if let Some(possibly_changed_head_commit) = change.checked_out_head_id {
-                    head_tree_editor.upsert(
-                        rela_path.as_bstr(),
-                        gix::object::tree::EntryKind::Commit,
-                        possibly_changed_head_commit,
-                    )?;
-                    worktreepaths_changed.insert(rela_path);
-                }
-            }
-            status::Item::IndexWorktree(index_worktree::Item::Rewrite { .. })
-            | status::Item::TreeIndex(gix::diff::index::Change::Rewrite { .. }) => {
-                unreachable!("disabled")
-            }
-            status::Item::IndexWorktree(
-                index_worktree::Item::Modification {
-                    status: EntryStatus::NeedsUpdate(_),
-                    ..
-                }
-                | index_worktree::Item::DirectoryContents {
-                    entry:
-                        gix::dir::Entry {
-                            status:
-                                gix::dir::entry::Status::Tracked
-                                | gix::dir::entry::Status::Pruned
-                                | gix::dir::entry::Status::Ignored(_),
-                            ..
-                        },
-                    ..
-                },
-            ) => {}
-        }
-    }
-
-    for rela_path in untracked_items {
-        added_worktree_file(rela_path.as_ref(), &mut head_tree_editor)?;
-    }
-
-    let tree_oid = head_tree_editor.write()?;
-    Ok(tree_oid.detach())
-}
-
-fn get_status(repo: &gix::Repository) -> anyhow::Result<Vec<gix::status::Item>> {
-    use gix::dir::walk::EmissionMode;
-    use gix::status::tree_index::TrackRenames;
-
-    let status_changes = repo
-        .status(gix::progress::Discard)?
-        .tree_index_track_renames(TrackRenames::Disabled)
-        .index_worktree_rewrites(None)
-        .index_worktree_submodules(gix::status::Submodule::Given {
-            ignore: gix::submodule::config::Ignore::Dirty,
-            check_dirty: true,
-        })
-        .index_worktree_options_mut(|opts| {
-            if let Some(opts) = opts.dirwalk_options.as_mut() {
-                opts.set_emit_ignored(None)
-                    .set_emit_pruned(false)
-                    .set_emit_tracked(false)
-                    .set_emit_untracked(EmissionMode::Matching)
-                    .set_emit_collapsed(None);
-            }
-        })
-        .into_iter(None)?
-        .filter_map(|change| change.ok())
-        .collect::<Vec<_>>();
-
-    Ok(status_changes)
 }

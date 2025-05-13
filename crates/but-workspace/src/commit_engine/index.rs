@@ -1,7 +1,7 @@
 use bstr::{BStr, BString, ByteSlice};
 use std::{collections::HashSet, path::Path};
 
-use crate::tree_manipulation::RelaPath as _;
+use crate::relapath::RelaPath as _;
 
 /// Turn `rhs` into `lhs` by modifying `rhs`. This will leave `rhs` intact as much as possible, but will remove
 /// Note that conflicting entries will be replaced by an addition or edit automatically.
