@@ -62,7 +62,7 @@
 		<ContextMenuSection>
 			{#if item.hunk !== undefined && !readonly}
 				<ContextMenuItem
-					label="Discard hunk"
+					label="Discard change"
 					onclick={async () => {
 						stackService.legacyUnapplyHunk({ projectId, hunk: item.hunk });
 						contextMenu?.close();

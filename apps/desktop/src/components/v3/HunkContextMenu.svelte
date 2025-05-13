@@ -108,7 +108,7 @@
 			<ContextMenuSection>
 				{#if !readonly}
 					<ContextMenuItem
-						label="Discard hunk"
+						label="Discard change"
 						onclick={() => {
 							discardHunk(item);
 							contextMenu?.close();
