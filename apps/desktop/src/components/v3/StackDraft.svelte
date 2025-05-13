@@ -52,5 +52,6 @@
 <style lang="postcss">
 	.stack-draft {
 		padding: 12px;
+		border-right: 1px solid var(--clr-border-2);
 	}
 </style>
