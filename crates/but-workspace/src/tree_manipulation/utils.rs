@@ -3,7 +3,7 @@
 use anyhow::Context;
 use bstr::{BString, ByteSlice as _, ByteVec};
 use but_core::{ChangeState, TreeStatus};
-use but_rebase::RebaseOutput;
+use but_rebase::{RebaseOutput, RebaseStep};
 use but_status::create_wd_tree;
 use std::{
     collections::{HashMap, HashSet},
@@ -618,4 +618,32 @@ fn revert_file_to_before_state(
         builder.remove(change.path_bytes.as_bstr())?;
     }
     Ok(())
+}
+
+pub fn replace_pick_with_commit(
+    steps: &mut Vec<RebaseStep>,
+    target_commit_id: gix::ObjectId,
+    replacement_commit_id: gix::ObjectId,
+) -> anyhow::Result<()> {
+    let mut found = false;
+    for step in steps {
+        if step.commit_id() != Some(&target_commit_id) {
+            continue;
+        }
+        let RebaseStep::Pick { commit_id, .. } = step else {
+            continue;
+        };
+        found = true;
+        *commit_id = replacement_commit_id;
+    }
+
+    if found {
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!(
+            "Failed to replace pick step {} with {}",
+            target_commit_id,
+            replacement_commit_id
+        ))
+    }
 }
