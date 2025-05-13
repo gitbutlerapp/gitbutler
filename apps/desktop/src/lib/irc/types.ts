@@ -17,7 +17,7 @@ export interface IrcChannel {
 	// True if user is currently viewing this channel. It lets us skip
 	// incrementing the unread counter.
 	open?: boolean;
-	popup?: boolean;
+	floating?: boolean;
 }
 
 export interface IrcChat {
@@ -27,7 +27,7 @@ export interface IrcChat {
 	// True if user is currently viewing this channel. It lets us skip
 	// incrementing the unread counter.
 	open?: boolean;
-	popup?: boolean;
+	floating?: boolean;
 }
 
 export type IrcLog = {
