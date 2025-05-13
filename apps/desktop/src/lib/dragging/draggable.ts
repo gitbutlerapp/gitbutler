@@ -122,6 +122,7 @@ function setupDragHandlers(
 
 		clone = createClone(opts, selectedElements);
 		if (clone) {
+			// TODO: remove params (clientWidth, maxHeight) V3 design has shipped.
 			if (params.handlerWidth) {
 				clone.style.width = node.clientWidth + 'px';
 			}
@@ -312,13 +313,13 @@ function createCommitElementV3(
 	cardEl.style.setProperty('--commit-color', commitColor);
 
 	const commitIndicationEl = createElement('div', ['draggable-commit-v3-indicator']);
+	cardEl.appendChild(commitIndicationEl);
+
 	const labelEl = createElement(
 		'div',
-		['truncate', 'text-13', 'text-semibold'],
+		['truncate', 'text-13', 'text-semibold', 'draggable-commit-v3-label'],
 		label || 'Empty commit'
 	);
-
-	cardEl.appendChild(commitIndicationEl);
 	cardEl.appendChild(labelEl);
 
 	return cardEl;
@@ -333,7 +334,7 @@ export function draggableCommitV3(
 		return createCommitElementV3(opts.commitType, opts.label);
 	}
 	return setupDragHandlers(node, initialOpts, createClone, {
-		handlerWidth: true
+		handlerWidth: false
 	});
 }
 
