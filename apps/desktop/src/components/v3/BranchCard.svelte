@@ -11,6 +11,8 @@
 		isCommitting?: boolean;
 		expand?: boolean;
 		header?: Snippet;
+		first?: boolean;
+		lineColor?: string;
 	} & (
 		| {
 				type: 'draft-branch';
@@ -22,8 +24,6 @@
 		| {
 				type: 'stack-branch';
 				stackId: string;
-				lineColor: string;
-				first: boolean;
 				commitList?: Snippet;
 		  }
 	);
@@ -39,9 +39,10 @@
 	const selected = $derived(selection?.branchName === branchName);
 </script>
 
-{#if args.type === 'stack-branch' && !args.first}
+{#if (args.type === 'stack-branch' || (args.type === 'normal-branch' && !args.first)) && args.lineColor}
 	<BranchDividerLine lineColor={args.lineColor} />
 {/if}
+
 <div
 	class="branch-card"
 	class:selected
