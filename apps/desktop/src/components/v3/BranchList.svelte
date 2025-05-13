@@ -37,7 +37,7 @@
 		SquashCommitDzHandler,
 		type DzCommitData
 	} from '$lib/commits/dropHandler';
-	import { draggableCommit } from '$lib/dragging/draggable';
+	import { draggableCommitV3 } from '$lib/dragging/draggable';
 	import {
 		ReorderCommitDzHandler,
 		StackingReorderDropzoneManagerFactory
@@ -368,13 +368,13 @@
 														<CardOverlay {hovered} {activated} {label} />
 													{/snippet}
 													<div
-														use:draggableCommit={{
+														use:draggableCommitV3={{
 															disabled: false,
 															label: commit.message.split('\n')[0],
 															sha: commit.id.slice(0, 7),
 															date: getTimeAgo(commit.createdAt),
 															authorImgUrl: undefined,
-															commitType: 'LocalAndRemote',
+															commitType: commit.state.type,
 															data: new CommitDropData(
 																stackId,
 																{
