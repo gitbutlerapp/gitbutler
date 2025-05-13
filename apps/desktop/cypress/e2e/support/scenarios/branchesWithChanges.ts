@@ -27,11 +27,11 @@ const MOCK_BRANCH_A_CHANGES: TreeChange[] = [
 	createMockDeletionTreeChange({ path: 'fileC.txt' })
 ];
 
-const MOCK_COMMIT_TITLE = 'Initial commit';
-const MOCK_COMMIT_MESSAGE = 'This is a test commit';
+const MOCK_COMMIT_TITLE_A = 'Initial commit';
+const MOCK_COMMIT_MESSAGE_A = 'This is a test commit';
 
 const MOCK_COMMIT_IN_BRANCH_A = createMockCommit({
-	message: `${MOCK_COMMIT_TITLE}\n\n${MOCK_COMMIT_MESSAGE}`
+	message: `${MOCK_COMMIT_TITLE_A}\n\n${MOCK_COMMIT_MESSAGE_A}`
 });
 
 const MOCK_STACK_DETAILS_A = createMockStackDetails({
@@ -56,9 +56,17 @@ const MOCK_BRANCH_B_CHANGES: TreeChange[] = [
 	createMockDeletionTreeChange({ path: 'fileF.txt' })
 ];
 
+const MOCK_COMMIT_TITLE_B = 'Second commit';
+const MOCK_COMMIT_MESSAGE_B = 'This is another test commit';
+const MOCK_COMMIT_IN_BRANCH_B = createMockCommit({
+	message: `${MOCK_COMMIT_TITLE_B}\n\n${MOCK_COMMIT_MESSAGE_B}`
+});
+
 const MOCK_STACK_DETAILS_B = createMockStackDetails({
 	derivedName: MOCK_STACK_B_ID,
-	branchDetails: [createMockBranchDetails({ name: MOCK_STACK_B_ID })]
+	branchDetails: [
+		createMockBranchDetails({ name: MOCK_STACK_B_ID, commits: [MOCK_COMMIT_IN_BRANCH_B] })
+	]
 });
 
 const MOCK_STACK_C: Stack = {
@@ -73,9 +81,17 @@ const MOCK_BRANCH_C_CHANGES: TreeChange[] = [
 	createMockDeletionTreeChange({ path: 'fileI.txt' })
 ];
 
+const MOCK_COMMIT_TITLE_C = 'Third commit';
+const MOCK_COMMIT_MESSAGE_C = 'This is yet another test commit';
+const MOCK_COMMIT_IN_BRANCH_C = createMockCommit({
+	message: `${MOCK_COMMIT_TITLE_C}\n\n${MOCK_COMMIT_MESSAGE_C}`
+});
+
 const MOCK_STACK_DETAILS_C = createMockStackDetails({
 	derivedName: MOCK_STACK_C_ID,
-	branchDetails: [createMockBranchDetails({ name: MOCK_STACK_C_ID })]
+	branchDetails: [
+		createMockBranchDetails({ name: MOCK_STACK_C_ID, commits: [MOCK_COMMIT_IN_BRANCH_C] })
+	]
 });
 
 const MOCK_UNCOMMITTED_CHANGES: TreeChange[] = [
@@ -163,8 +179,6 @@ const MOCK_DIFF_DEPENDENCY: DiffDependency[] = [
  * Three branches with file changes.
  */
 export default class BranchesWithChanges extends MockBackend {
-	commitTitle = MOCK_COMMIT_TITLE;
-	commitMessage = MOCK_COMMIT_MESSAGE;
 	dependsOnStack = MOCK_STACK_B_ID;
 	bigFileName = MOCK_FILE_J;
 
@@ -202,5 +216,33 @@ export default class BranchesWithChanges extends MockBackend {
 			diffs: MOCK_DIFF_DEPENDENCY,
 			errors: []
 		};
+	}
+
+	getCommitTitle(stackId: string): string {
+		if (stackId === MOCK_STACK_A_ID) {
+			return MOCK_COMMIT_TITLE_A;
+		}
+		if (stackId === MOCK_STACK_B_ID) {
+			return MOCK_COMMIT_TITLE_B;
+		}
+		if (stackId === MOCK_STACK_C_ID) {
+			return MOCK_COMMIT_TITLE_C;
+		}
+
+		return '';
+	}
+
+	getCommitMessage(stackId: string): string {
+		if (stackId === MOCK_STACK_A_ID) {
+			return MOCK_COMMIT_MESSAGE_A;
+		}
+		if (stackId === MOCK_STACK_B_ID) {
+			return MOCK_COMMIT_MESSAGE_B;
+		}
+		if (stackId === MOCK_STACK_C_ID) {
+			return MOCK_COMMIT_MESSAGE_C;
+		}
+
+		return '';
 	}
 }
