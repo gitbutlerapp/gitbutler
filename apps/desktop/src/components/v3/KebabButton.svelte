@@ -110,6 +110,7 @@
 		&:hover,
 		&:focus-within {
 			display: flex;
+			opacity: 1;
 		}
 	}
 </style>
