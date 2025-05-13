@@ -248,11 +248,6 @@ impl From<MoveChangesResult> for UIMoveChangesResult {
     }
 }
 
-/// Discard all worktree changes that match the specs in `worktree_changes`.
-///
-/// If whole files should be discarded, be sure to not pass any [hunks](but_workspace::discard::ui::DiscardSpec::hunk_headers)
-///
-/// Returns the `worktree_changes` that couldn't be applied,
 #[allow(clippy::too_many_arguments)]
 #[tauri::command(async)]
 #[instrument(skip(projects, settings, windows), err(Debug))]
@@ -281,6 +276,45 @@ pub fn move_changes_between_commits(
         source_commit_id.into(),
         destination_stack_id,
         destination_commit_id.into(),
+        changes,
+        settings.get()?.context_lines,
+    )?;
+
+    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    update_workspace_commit(&vb_state, &ctx)?;
+
+    let app_settings = ctx.app_settings();
+    if !app_settings.feature_flags.v3 {
+        emit_vbranches(&windows, project_id, app_settings);
+    }
+
+    Ok(result.into())
+}
+
+#[allow(clippy::too_many_arguments)]
+#[tauri::command(async)]
+#[instrument(skip(projects, settings, windows), err(Debug))]
+pub fn uncommit_changes(
+    windows: State<'_, WindowState>,
+    projects: State<'_, projects::Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
+    project_id: ProjectId,
+    stack_id: StackId,
+    commit_id: HexHash,
+    changes: Vec<but_workspace::DiffSpec>,
+) -> Result<UIMoveChangesResult, Error> {
+    let project = projects.get(project_id)?;
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    let mut guard = project.exclusive_worktree_access();
+
+    let _ = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::DiscardChanges),
+        guard.write_permission(),
+    );
+    let result = but_workspace::remove_changes_from_commit_in_stack(
+        &ctx,
+        stack_id,
+        commit_id.into(),
         changes,
         settings.get()?.context_lines,
     )?;

@@ -8,7 +8,10 @@ use crate::{DiffSpec, stack_ext::StackExt};
 
 use super::{
     MoveChangesResult,
-    utils::{ChangesSource, create_tree_without_diff, rebase_mapping_with_overrides},
+    utils::{
+        ChangesSource, create_tree_without_diff, rebase_mapping_with_overrides,
+        replace_pick_with_commit,
+    },
 };
 
 /// Move changes between to commits.
@@ -94,15 +97,11 @@ pub fn move_changes_between_commits(
         source_commit_id,
         source_tree_without_changes_id,
     )?;
-    for step in &mut source_stack_steps {
-        if step.commit_id() != Some(&source_commit_id) {
-            continue;
-        }
-        let RebaseStep::Pick { commit_id, .. } = step else {
-            continue;
-        };
-        *commit_id = rewritten_source_commit;
-    }
+    replace_pick_with_commit(
+        &mut source_stack_steps,
+        source_commit_id,
+        rewritten_source_commit,
+    )?;
 
     let mut rebase = Rebase::new(&git2_repository, source_stack.merge_base(ctx)?, None)?;
     rebase.steps(source_stack_steps.clone())?;
@@ -196,15 +195,11 @@ pub fn move_changes_between_commits(
             destination_commit_id,
             final_destination_tree.detach(),
         )?;
-        for step in &mut destination_stack_steps {
-            if step.commit_id() != Some(&destination_commit_id) {
-                continue;
-            }
-            let RebaseStep::Pick { commit_id, .. } = step else {
-                continue;
-            };
-            *commit_id = rewritten_destination_commit;
-        }
+        replace_pick_with_commit(
+            &mut destination_stack_steps,
+            destination_commit_id,
+            rewritten_destination_commit,
+        )?;
 
         let mut rebase = Rebase::new(&git2_repository, destination_stack.merge_base(ctx)?, None)?;
         rebase.steps(destination_stack_steps.clone())?;

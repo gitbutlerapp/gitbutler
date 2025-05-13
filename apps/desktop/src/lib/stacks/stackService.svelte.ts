@@ -514,6 +514,10 @@ export class StackService {
 		return this.api.endpoints.moveChangesBetweenCommits.mutate;
 	}
 
+	get uncommitChanges() {
+		return this.api.endpoints.uncommitChanges.mutate;
+	}
+
 	get stashIntoBranch() {
 		return this.api.endpoints.stashIntoBranch.mutate;
 	}
@@ -1023,6 +1027,32 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					return [
 						invalidatesItem(ReduxTag.StackDetails, arg.sourceStackId),
 						invalidatesItem(ReduxTag.StackDetails, arg.destinationStackId),
+						invalidatesList(ReduxTag.WorktreeChanges)
+					];
+				}
+			}),
+			uncommitChanges: build.mutation<
+				{ replacedCommits: [string, string][] },
+				{
+					projectId: string;
+					changes: DiffSpec[];
+					commitId: string;
+					stackId: string;
+				}
+			>({
+				query: ({ projectId, changes, commitId, stackId }) => ({
+					command: 'uncommit_changes',
+					params: {
+						projectId,
+						changes,
+						commitId,
+						stackId
+					},
+					actionName: 'Uncommit Changes'
+				}),
+				invalidatesTags(_result, _error, arg) {
+					return [
+						invalidatesItem(ReduxTag.StackDetails, arg.stackId),
 						invalidatesList(ReduxTag.WorktreeChanges)
 					];
 				}

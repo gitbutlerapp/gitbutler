@@ -11,6 +11,7 @@ pub struct MoveChangesResult {
 
 pub(super) mod discard_worktree_changes;
 pub(super) mod move_between_commits;
+pub(super) mod remove_changes_from_commit_in_stack;
 
 mod file;
 pub(crate) mod hunk;

@@ -1,11 +1,14 @@
 <script lang="ts">
+	import CardOverlay from '$components/CardOverlay.svelte';
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
+	import Dropzone from '$components/Dropzone.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import FileList from '$components/v3/FileList.svelte';
 	import FileListMode from '$components/v3/FileListMode.svelte';
 	import WorktreeTipsFooter from '$components/v3/WorktreeTipsFooter.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { createCommitStore } from '$lib/commits/contexts';
+	import { UncommitDzHandler } from '$lib/commits/dropHandler';
 	import { Focusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { previousPathBytesFromTreeChange } from '$lib/hunks/change';
@@ -34,6 +37,8 @@
 		UiState,
 		StackService
 	);
+
+	const uncommitDzHandler = $derived(new UncommitDzHandler(projectId, stackService, uiState));
 
 	const projectState = $derived(uiState.project(projectId));
 	const drawerPage = $derived(projectState.drawerPage.get());
@@ -108,85 +113,90 @@
 
 <ReduxResult {stackId} {projectId} result={changesResult.current}>
 	{#snippet children(changes, { stackId, projectId })}
-		<div
-			class="uncommitted-changes-wrap"
-			use:focusable={{ id: Focusable.UncommittedChanges, parentId: Focusable.WorkspaceLeft }}
-		>
-			<ScrollableContainer
-				autoScroll={false}
-				padding={{
-					top: listHeaderHeight,
-					bottom: listFooterHeight
-				}}
+		<Dropzone handlers={[uncommitDzHandler]}>
+			{#snippet overlay({ hovered, activated })}
+				<CardOverlay {hovered} {activated} label="Uncommit changes" />
+			{/snippet}
+			<div
+				class="uncommitted-changes-wrap"
+				use:focusable={{ id: Focusable.UncommittedChanges, parentId: Focusable.WorkspaceLeft }}
 			>
-				<div
-					data-testid={TestId.UncommittedChanges_Header}
-					use:stickyHeader
-					class="worktree-header"
-					bind:clientHeight={listHeaderHeight}
+				<ScrollableContainer
+					autoScroll={false}
+					padding={{
+						top: listHeaderHeight,
+						bottom: listFooterHeight
+					}}
 				>
-					<div class="worktree-header__general">
-						{#if isCommitting}
-							<Checkbox
-								checked={filesPartiallySelected || filesFullySelected}
-								indeterminate={filesPartiallySelected}
-								small
-								onchange={toggleGlobalCheckbox}
-							/>
-						{/if}
-						<div class="worktree-header__title truncate">
-							<h3 class="text-14 text-semibold truncate">Uncommitted</h3>
-							{#if changes.length > 0}
-								<Badge>{changes.length}</Badge>
-							{/if}
-						</div>
-					</div>
-					<FileListMode bind:mode={listMode} persist="uncommitted" />
-				</div>
-
-				{#if changes.length > 0}
-					<div data-testid={TestId.UncommittedChanges_FileList} class="uncommitted-changes">
-						<FileList
-							selectionId={{ type: 'worktree' }}
-							showCheckboxes={isCommitting}
-							{projectId}
-							{stackId}
-							{changes}
-							{listMode}
-							{active}
-						/>
-					</div>
 					<div
-						use:stickyHeader={{ align: 'bottom' }}
-						class="start-commit"
-						bind:clientHeight={listFooterHeight}
+						data-testid={TestId.UncommittedChanges_Header}
+						use:stickyHeader
+						class="worktree-header"
+						bind:clientHeight={listHeaderHeight}
 					>
-						<Button
-							testId={TestId.StartCommitButton}
-							kind={isCommitting ? 'outline' : 'solid'}
-							type="button"
-							size="cta"
-							wide
-							disabled={isCommitting || defaultBranchResult?.current.isLoading}
-							onclick={startCommit}
-						>
-							Start a commit…
-						</Button>
-					</div>
-				{:else}
-					<div class="uncommitted-changes__empty">
-						<div class="uncommitted-changes__empty__placeholder">
-							{@html noChanges}
-							<p class="text-13 text-body uncommitted-changes__empty__placeholder-text">
-								You're all caught up!<br />
-								No files need committing
-							</p>
+						<div class="worktree-header__general">
+							{#if isCommitting}
+								<Checkbox
+									checked={filesPartiallySelected || filesFullySelected}
+									indeterminate={filesPartiallySelected}
+									small
+									onchange={toggleGlobalCheckbox}
+								/>
+							{/if}
+							<div class="worktree-header__title truncate">
+								<h3 class="text-14 text-semibold truncate">Uncommitted</h3>
+								{#if changes.length > 0}
+									<Badge>{changes.length}</Badge>
+								{/if}
+							</div>
 						</div>
-						<WorktreeTipsFooter />
+						<FileListMode bind:mode={listMode} persist="uncommitted" />
 					</div>
-				{/if}
-			</ScrollableContainer>
-		</div>
+
+					{#if changes.length > 0}
+						<div data-testid={TestId.UncommittedChanges_FileList} class="uncommitted-changes">
+							<FileList
+								selectionId={{ type: 'worktree' }}
+								showCheckboxes={isCommitting}
+								{projectId}
+								{stackId}
+								{changes}
+								{listMode}
+								{active}
+							/>
+						</div>
+						<div
+							use:stickyHeader={{ align: 'bottom' }}
+							class="start-commit"
+							bind:clientHeight={listFooterHeight}
+						>
+							<Button
+								testId={TestId.StartCommitButton}
+								kind={isCommitting ? 'outline' : 'solid'}
+								type="button"
+								size="cta"
+								wide
+								disabled={isCommitting || defaultBranchResult?.current.isLoading}
+								onclick={startCommit}
+							>
+								Start a commit…
+							</Button>
+						</div>
+					{:else}
+						<div class="uncommitted-changes__empty">
+							<div class="uncommitted-changes__empty__placeholder">
+								{@html noChanges}
+								<p class="text-13 text-body uncommitted-changes__empty__placeholder-text">
+									You're all caught up!<br />
+									No files need committing
+								</p>
+							</div>
+							<WorktreeTipsFooter />
+						</div>
+					{/if}
+				</ScrollableContainer>
+			</div>
+		</Dropzone>
 	{/snippet}
 </ReduxResult>
 
