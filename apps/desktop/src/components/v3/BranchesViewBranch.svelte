@@ -34,7 +34,14 @@
 
 <ReduxResult result={branchResult.current} {projectId} {stackId} {onerror}>
 	{#snippet children(branch, env)}
-		<BranchCard type="normal-branch" projectId={env.projectId} branchName={branch.name}>
+		{@const commitColor = getColorFromBranchType(pushStatusToColor(branch.pushStatus))}
+		<BranchCard
+			type="normal-branch"
+			first={isTopBranch}
+			lineColor={commitColor}
+			projectId={env.projectId}
+			branchName={branch.name}
+		>
 			{#snippet header()}
 				<BranchHeader
 					type="normal-branch"
@@ -42,9 +49,9 @@
 					{branchName}
 					{projectId}
 					{isTopBranch}
-					isNewBranch={branch.upstreamCommits?.length === 0}
+					isNewBranch={branch.commits?.length === 0}
 					iconName={pushStatusToIcon(branch.pushStatus)}
-					lineColor={getColorFromBranchType(pushStatusToColor(branch.pushStatus))}
+					lineColor={commitColor}
 					trackingBranch={branch.remoteTrackingBranch || undefined}
 					readonly
 					selected={branchesState.current.branchName === branch.name &&

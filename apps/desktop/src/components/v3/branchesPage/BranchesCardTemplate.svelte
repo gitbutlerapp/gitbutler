@@ -43,10 +43,10 @@
 			content: '';
 			position: absolute;
 			border-radius: 0 var(--radius-m) var(--radius-m) 0;
-			top: 8px;
+			top: 12px;
 			left: 0;
 			width: 5px;
-			height: calc(100% - 16px);
+			height: calc(100% - 24px);
 			background-color: var(--clr-selected-in-focus-element);
 			transform: translateX(-100%);
 			transition: transform var(--transition-medium);
