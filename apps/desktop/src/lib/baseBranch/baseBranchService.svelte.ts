@@ -130,11 +130,7 @@ function injectEndpoints(api: BackendApi) {
 					invalidatesList(ReduxTag.Stacks),
 					invalidatesList(ReduxTag.StackDetails),
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus)
-				],
-				transformErrorResponse: (error) => {
-					// This is good enough while we check the best way to handle this
-					return error.toString();
-				}
+				]
 			}),
 			setTarget: build.mutation<
 				BaseBranch,
