@@ -45,7 +45,7 @@
 		try {
 			if (!baseSha) return;
 			if (loadedIds.length === 0) {
-				commits = commits.concat(await getPage(baseSha));
+				commits = commits.concat(await getPage(undefined));
 				loadedIds.push(baseSha);
 				return;
 			}
@@ -62,7 +62,7 @@
 		}
 	}
 
-	async function getPage(commitId: string) {
+	async function getPage(commitId: string | undefined) {
 		const result = await stackService.targetCommits(projectId, commitId, 20);
 		return result.data || [];
 	}
