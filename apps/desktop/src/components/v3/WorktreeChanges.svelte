@@ -13,6 +13,7 @@
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { previousPathBytesFromTreeChange } from '$lib/hunks/change';
 	import { ChangeSelectionService, type SelectedFile } from '$lib/selection/changeSelection.svelte';
+	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
@@ -22,6 +23,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
+	import { untrack } from 'svelte';
 
 	type Props = {
 		projectId: string;
@@ -31,11 +33,12 @@
 
 	let { projectId, stackId, active }: Props = $props();
 
-	const [changeSelection, worktreeService, uiState, stackService] = inject(
+	const [changeSelection, worktreeService, uiState, stackService, idSelection] = inject(
 		ChangeSelectionService,
 		WorktreeService,
 		UiState,
-		StackService
+		StackService,
+		IdSelection
 	);
 
 	const uncommitDzHandler = $derived(new UncommitDzHandler(projectId, stackService, uiState));
@@ -66,7 +69,12 @@
 
 	/** Clear any selected changes that no longer exist. */
 	$effect(() => {
-		changeSelection.retain(affectedPaths);
+		if (affectedPaths) {
+			untrack(() => {
+				changeSelection.retain(affectedPaths);
+				idSelection.retain(affectedPaths);
+			});
+		}
 	});
 
 	let listMode: 'list' | 'tree' = $state('list');
