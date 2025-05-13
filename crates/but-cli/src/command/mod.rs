@@ -244,7 +244,11 @@ pub mod stacks {
         let project = project_from_path(current_dir)?;
         // Enable v3 feature flags for the command context
         let app_settings = AppSettings {
-            feature_flags: but_settings::app_settings::FeatureFlags { v3: true },
+            feature_flags: but_settings::app_settings::FeatureFlags {
+                v3: true,
+                // Keep this off until it caught up at least.
+                ws3: false,
+            },
             ..AppSettings::default()
         };
 
