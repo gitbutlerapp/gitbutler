@@ -10,6 +10,7 @@
 	} from '$lib/branches/branchListing';
 	import { BranchService } from '$lib/branches/branchService.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+	import { debounce } from '$lib/utils/debounce';
 	import { inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Badge from '@gitbutler/ui/Badge.svelte';
@@ -71,7 +72,7 @@
 		)
 	);
 	const groupedBranches = $derived(groupBranches(combined));
-	const searchedBranches = $derived(searchTerm ? searchEngine.search(searchTerm) : []);
+	const searchedBranches = $derived(searchTerm.length >= 2 ? searchEngine.search(searchTerm) : []);
 
 	$effect(() => {
 		searchEngine.setCollection(combined);
@@ -130,6 +131,10 @@
 			$selectedOption = id as selectedOption;
 		}
 	}
+
+	const debounceSearchInput = debounce(() => {
+		searchTerm = searchEl!.value;
+	}, 250);
 </script>
 
 {#snippet branchGroup(props: { title: string; children: SidebarEntrySubject[] })}
@@ -161,7 +166,7 @@
 
 				<input
 					bind:this={searchEl}
-					bind:value={searchTerm}
+					oninput={debounceSearchInput}
 					class="search-input text-13"
 					type="text"
 					placeholder="Search branches"
