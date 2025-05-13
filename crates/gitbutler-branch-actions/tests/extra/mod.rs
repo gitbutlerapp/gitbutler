@@ -274,8 +274,8 @@ fn create_branch_in_the_middle() -> Result<()> {
     stacks.sort_by_key(|b| b.order);
     assert_eq!(stacks.len(), 3);
     assert_eq!(stacks[0].name, "Lane");
-    assert_eq!(stacks[1].name, "Lane 2");
-    assert_eq!(stacks[2].name, "Lane 1");
+    assert_eq!(stacks[1].name, "Lane-2");
+    assert_eq!(stacks[2].name, "Lane-1");
 
     Ok(())
 }

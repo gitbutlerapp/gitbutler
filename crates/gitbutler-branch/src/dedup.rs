@@ -1,5 +1,5 @@
 pub fn dedup(existing: &[&str], new: &str) -> String {
-    dedup_fmt(existing, new, " ")
+    dedup_fmt(existing, new, "-")
 }
 
 /// Makes sure that _new_ is not in _existing_ by adding a number to it.
@@ -33,16 +33,16 @@ mod tests {
     fn test_dedup() {
         for (existing, new, expected) in [
             (vec!["bar", "baz"], "foo", "foo"),
-            (vec!["foo", "bar", "baz"], "foo", "foo 1"),
-            (vec!["foo", "foo 2"], "foo", "foo 3"),
-            (vec!["foo", "foo 1", "foo 2"], "foo", "foo 3"),
-            (vec!["foo", "foo 1", "foo 2"], "foo 1", "foo 1 1"),
-            (vec!["foo", "foo 1", "foo 2"], "foo 2", "foo 2 1"),
-            (vec!["foo", "foo 1", "foo 2"], "foo 3", "foo 3"),
-            (vec!["foo 2"], "foo", "foo 3"),
-            (vec!["foo", "foo 1", "foo 2", "foo 4"], "foo", "foo 5"),
-            (vec!["foo", "foo 0"], "foo", "foo 1"),
-            (vec!["foo 0"], "foo", "foo 1"),
+            (vec!["foo", "bar", "baz"], "foo", "foo-1"),
+            (vec!["foo", "foo-2"], "foo", "foo-3"),
+            (vec!["foo", "foo-1", "foo-2"], "foo", "foo-3"),
+            (vec!["foo", "foo-1", "foo-2"], "foo-1", "foo-1-1"),
+            (vec!["foo", "foo-1", "foo-2"], "foo-2", "foo-2-1"),
+            (vec!["foo", "foo-1", "foo-2"], "foo-3", "foo-3"),
+            (vec!["foo-2"], "foo", "foo-3"),
+            (vec!["foo", "foo-1", "foo-2", "foo-4"], "foo", "foo-5"),
+            (vec!["foo", "foo-0"], "foo", "foo-1"),
+            (vec!["foo-0"], "foo", "foo-1"),
         ] {
             assert_eq!(dedup(&existing, new), expected);
         }
