@@ -22,7 +22,8 @@ impl Controller {
             Ok(works) => Ok(works),
             Err(probably_file_load_err) => {
                 let projects_path = self.local_data_dir.join("projects.json");
-                for round in 1.. {
+                let max_attempts = 255;
+                for round in 1..max_attempts {
                     let backup_path = self
                         .local_data_dir
                         .join(format!("projects.json.maybe-broken-{round:02}"));
@@ -44,9 +45,7 @@ impl Controller {
                         backup_path.display()
                     );
                 }
-                unreachable!(
-                    "We either find a backup location, or we don't, but should never exhaust 2^64"
-                )
+                bail!("There were already {max_attempts} backup project files - giving up")
             }
         }
     }
