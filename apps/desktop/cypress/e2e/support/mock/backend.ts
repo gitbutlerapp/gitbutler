@@ -18,6 +18,7 @@ import {
 	isDeleteLocalBranchParams,
 	isGetTargetCommitsParams,
 	isIntegrateUpstreamCommitsParams,
+	isPushStackParams,
 	isStackDetailsParams,
 	isUpdateCommitMessageParams,
 	MOCK_BRAND_NEW_BRANCH_NAME,
@@ -37,6 +38,7 @@ import type { HunkDependencies } from '$lib/dependencies/dependencies';
 import type { TreeChange, TreeChanges, WorktreeChanges } from '$lib/hunks/change';
 import type { UnifiedDiff } from '$lib/hunks/diff';
 import type { BranchDetails, Stack, StackDetails } from '$lib/stacks/stack';
+import type { BranchPushResult } from '$lib/stacks/stackService.svelte';
 import type { BranchStatusesResponse, IntegrationOutcome } from '$lib/upstream/types';
 import type { InvokeArgs } from '@tauri-apps/api/core';
 
@@ -454,5 +456,22 @@ export default class MockBackend {
 		}
 
 		// Do nothing for now
+	}
+
+	public getAvailableReviewTemplates(): string[] {
+		return [];
+	}
+
+	public pushStack(args: InvokeArgs | undefined): BranchPushResult {
+		if (!args || !isPushStackParams(args)) {
+			throw new Error('Invalid arguments for pushStack');
+		}
+
+		// Do nothing for now
+
+		return {
+			refname: `refs/heads/${args.stackId}`,
+			remote: 'idk'
+		};
 	}
 }

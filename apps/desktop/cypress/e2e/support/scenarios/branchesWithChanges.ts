@@ -5,7 +5,7 @@ import {
 	createMockModificationTreeChange,
 	createMockUnifiedDiffPatch
 } from '../mock/changes';
-import { createMockBranchDetails, createMockStackDetails } from '../mock/stacks';
+import { createMockBranchDetails, createMockCommit, createMockStackDetails } from '../mock/stacks';
 import type { DiffDependency } from '$lib/dependencies/dependencies';
 import type { TreeChange } from '$lib/hunks/change';
 import type { DiffHunk } from '$lib/hunks/hunk';
@@ -27,9 +27,18 @@ const MOCK_BRANCH_A_CHANGES: TreeChange[] = [
 	createMockDeletionTreeChange({ path: 'fileC.txt' })
 ];
 
+const MOCK_COMMIT_TITLE = 'Initial commit';
+const MOCK_COMMIT_MESSAGE = 'This is a test commit';
+
+const MOCK_COMMIT_IN_BRANCH_A = createMockCommit({
+	message: `${MOCK_COMMIT_TITLE}\n\n${MOCK_COMMIT_MESSAGE}`
+});
+
 const MOCK_STACK_DETAILS_A = createMockStackDetails({
 	derivedName: MOCK_STACK_A_ID,
-	branchDetails: [createMockBranchDetails({ name: MOCK_STACK_A_ID })]
+	branchDetails: [
+		createMockBranchDetails({ name: MOCK_STACK_A_ID, commits: [MOCK_COMMIT_IN_BRANCH_A] })
+	]
 });
 
 const MOCK_STACK_B: Stack = {
@@ -154,6 +163,8 @@ const MOCK_DIFF_DEPENDENCY: DiffDependency[] = [
  * Three branches with file changes.
  */
 export default class BranchesWithChanges extends MockBackend {
+	commitTitle = MOCK_COMMIT_TITLE;
+	commitMessage = MOCK_COMMIT_MESSAGE;
 	dependsOnStack = MOCK_STACK_B_ID;
 	bigFileName = MOCK_FILE_J;
 

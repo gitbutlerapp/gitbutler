@@ -28,9 +28,9 @@ const MOCK_RECENT_COMMITS = [MOCK_COMMIT];
 const MOCK_BASE_BRANCH_DATA = {
 	branchName: 'origin/main',
 	remoteName: 'origin',
-	remoteUrl: 'https://example.com/repo.git',
+	remoteUrl: 'https://github.com/example/repo.git',
 	pushRemoteName: 'origin',
-	pushRemoteUrl: 'https://example.com/repo.git',
+	pushRemoteUrl: null,
 	baseSha: 'abc123',
 	currentSha: 'abc123',
 	behind: 0,
