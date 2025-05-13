@@ -1,3 +1,4 @@
+import { getColorFromCommitState } from '$components/v3/lib';
 import { type CommitStatusType } from '$lib/commits/commit';
 import { FileDropData, ChangeDropData, type DropData } from '$lib/dragging/draggables';
 import { dropzoneRegistry } from '$lib/dragging/dropzone';
@@ -246,7 +247,7 @@ function setupDragHandlers(
 //// COMMIT DRAGGABLE ////
 //////////////////////////
 
-export function createCommitElement(
+function createCommitElement(
 	commitType: CommitStatusType | undefined,
 	label: string | undefined,
 	sha: string | undefined,
@@ -285,6 +286,51 @@ export function draggableCommit(
 	function createClone(opts: DraggableConfig) {
 		if (opts.disabled) return;
 		return createCommitElement(opts.commitType, opts.label, opts.sha, opts.date, opts.authorImgUrl);
+	}
+	return setupDragHandlers(node, initialOpts, createClone, {
+		handlerWidth: true
+	});
+}
+
+/////////////////////////////
+//// COMMIT DRAGGABLE V3 ////
+/////////////////////////////
+
+function createCommitElementV3(
+	commitType: CommitStatusType | undefined,
+	label: string | undefined
+): HTMLDivElement {
+	const commitColor = getColorFromCommitState(commitType || 'LocalOnly', false);
+
+	const cardEl = createElement('div', [
+		'draggable-commit-v3',
+		commitType === 'LocalOnly' || commitType === 'Integrated' || commitType === 'Base'
+			? 'draggable-commit-v3-local'
+			: 'draggable-commit-v3-remote'
+	]);
+
+	cardEl.style.setProperty('--commit-color', commitColor);
+
+	const commitIndicationEl = createElement('div', ['draggable-commit-v3-indicator']);
+	const labelEl = createElement(
+		'div',
+		['truncate', 'text-13', 'text-semibold'],
+		label || 'Empty commit'
+	);
+
+	cardEl.appendChild(commitIndicationEl);
+	cardEl.appendChild(labelEl);
+
+	return cardEl;
+}
+
+export function draggableCommitV3(
+	node: HTMLElement,
+	initialOpts: DraggableConfig | NonDraggableConfig
+) {
+	function createClone(opts: DraggableConfig) {
+		if (opts.disabled) return;
+		return createCommitElementV3(opts.commitType, opts.label);
 	}
 	return setupDragHandlers(node, initialOpts, createClone, {
 		handlerWidth: true
