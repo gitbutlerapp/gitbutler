@@ -92,7 +92,19 @@ fn detect_integrated_commits() {
             .into_iter()
             .find(|b| b.id == stack_entry_1.id)
             .unwrap();
-        repo.merge(&branch.upstream.as_ref().unwrap().name).unwrap();
+
+        let name = branch
+            .series
+            .first()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .upstream_reference
+            .as_ref()
+            .unwrap();
+        let refname = Refname::from_str(name).unwrap();
+
+        repo.merge(&refname).unwrap();
         repo.fetch();
     }
 

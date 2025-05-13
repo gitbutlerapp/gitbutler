@@ -32,11 +32,19 @@ fn integration() {
             .find(|branch| branch.id == stack_entry.id)
             .unwrap();
 
-        let name = branch.upstream.unwrap().name;
+        let name = branch
+            .series
+            .first()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .upstream_reference
+            .as_ref()
+            .unwrap();
 
         gitbutler_branch_actions::unapply_stack(ctx, stack_entry.id).unwrap();
 
-        name
+        Refname::from_str(name).unwrap()
     };
 
     // checkout a existing remote branch

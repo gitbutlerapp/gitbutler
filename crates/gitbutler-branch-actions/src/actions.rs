@@ -18,7 +18,7 @@ use crate::{
     remote::{RemoteBranchData, RemoteCommit},
     VirtualBranchesExt,
 };
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use but_workspace::{commit_engine, stack_heads_info, ui, DiffSpec};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_command_context::CommandContext;
@@ -328,14 +328,6 @@ fn amend_with_commit_engine(
     worktree_changes: Vec<DiffSpec>,
 ) -> Result<git2::Oid> {
     let mut guard = ctx.project().exclusive_worktree_access();
-
-    let vb_state = ctx.project().virtual_branches();
-    let stack = vb_state.get_stack(stack_id)?;
-
-    if stack.upstream.is_some() && !stack.allow_rebasing {
-        // amending to a pushed head commit will cause a force push that is not allowed
-        bail!("force-push is not allowed");
-    }
 
     let outcome = commit_engine::create_commit_and_update_refs_with_project(
         &ctx.gix_repo()?,

@@ -1,4 +1,4 @@
-use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
+use gitbutler_branch::BranchCreateRequest;
 use gitbutler_commit::commit_ext::CommitExt;
 
 use super::*;
@@ -189,51 +189,6 @@ fn forcepush_allowed() {
         .collect::<Vec<_>>();
     assert_eq!(descriptions, vec!["commit one updated"]);
     assert!(branch.requires_force);
-}
-
-#[test]
-fn forcepush_forbidden() {
-    let Test { repo, ctx, .. } = &Test::default();
-
-    gitbutler_branch_actions::set_base_branch(
-        ctx,
-        &"refs/remotes/origin/master".parse().unwrap(),
-        false,
-    )
-    .unwrap();
-
-    let stack_entry =
-        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
-            .unwrap();
-
-    gitbutler_branch_actions::update_virtual_branch(
-        ctx,
-        BranchUpdateRequest {
-            id: stack_entry.id,
-            allow_rebasing: Some(false),
-            ..Default::default()
-        },
-    )
-    .unwrap();
-
-    let commit_one_oid = {
-        fs::write(repo.path().join("file one.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap()
-    };
-
-    gitbutler_branch_actions::stack::push_stack(ctx, stack_entry.id, false).unwrap();
-
-    assert_eq!(
-        gitbutler_branch_actions::update_commit_message(
-            ctx,
-            stack_entry.id,
-            commit_one_oid,
-            "commit one updated",
-        )
-        .unwrap_err()
-        .to_string(),
-        "force push not allowed"
-    );
 }
 
 #[test]
