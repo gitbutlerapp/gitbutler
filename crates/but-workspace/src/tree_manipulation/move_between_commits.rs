@@ -1,27 +1,15 @@
-use std::collections::HashMap;
-
 use anyhow::{Result, bail};
-use but_rebase::{Rebase, RebaseOutput, RebaseStep, replace_commit_tree};
+use but_rebase::{Rebase, RebaseStep, replace_commit_tree};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::GixRepositoryExt;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 
-use crate::{
-    DiffSpec,
-    stack_ext::StackExt,
-    tree_manipulation::function::{ChangesSource, create_tree_without_diff},
-};
+use crate::{DiffSpec, stack_ext::StackExt};
 
-/// Provides data that helps describe the effect of the move changes operaiton.
-pub struct MoveChangesResult {
-    /// A list of commits that were replaced as part of any rebases that were
-    /// performed. Provided as a list of tuples where the first item in the
-    /// tuple is the "before" and the second item in the tuple is the "after"
-    /// id.
-    ///
-    /// If a commit was unaffected then it will not be included in this list.
-    pub replaced_commits: Vec<(gix::ObjectId, gix::ObjectId)>,
-}
+use super::{
+    MoveChangesResult,
+    utils::{ChangesSource, create_tree_without_diff, rebase_mapping_with_overrides},
+};
 
 /// Move changes between to commits.
 ///
@@ -239,39 +227,4 @@ pub fn move_changes_between_commits(
             replaced_commits: output_commit_mapping,
         })
     }
-}
-
-/// Takes a rebase output and returns the commit mapping with any extra
-/// mapping overrides provided.
-///
-/// This will only include commits that have actually changed. If a commit was
-/// mapped to itself it will not be included in the resulting HashMap.
-///
-/// Overrides are used to handle the case where the caller of the rebase engine
-/// has manually replaced a particular commit with a rewritten one. This is
-/// needed because a manually re-written commit that ends up matching the
-/// base when the rebase occurs will end up showing up as a no-op in the
-/// resulting commit_mapping.
-///
-/// Overrides should be provided as a vector that contains tuples of object
-/// ids, where the first item is the before object_id, and the second item is
-/// the after object_id.
-fn rebase_mapping_with_overrides(
-    rebase_output: &RebaseOutput,
-    overrides: impl IntoIterator<Item = (gix::ObjectId, gix::ObjectId)>,
-) -> HashMap<gix::ObjectId, gix::ObjectId> {
-    let mut mapping = rebase_output
-        .commit_mapping
-        .iter()
-        .filter(|(_, old, new)| old != new)
-        .map(|(_, old, new)| (*old, *new))
-        .collect::<HashMap<_, _>>();
-
-    for (old, new) in overrides {
-        if old != new {
-            mapping.insert(old, new);
-        }
-    }
-
-    mapping
 }

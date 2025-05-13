@@ -29,6 +29,7 @@ gitbutler-serde.workspace = true
 itertools = "0.14"
 url = { version = "2.5.4", features = ["serde"] }
 md5 = "0.7.0"
+but-status.workspace = true
 
 # For virtual branches metadata
 gitbutler-fs.workspace = true

@@ -28,6 +28,7 @@ gitbutler-oxidize.workspace = true
 gitbutler-diff.workspace = true
 but-rebase.workspace = true
 but-core.workspace = true
+but-status.workspace = true
 uuid.workspace = true
 itertools = "0.14"
 toml.workspace = true
