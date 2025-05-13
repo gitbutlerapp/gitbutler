@@ -96,6 +96,11 @@
 	}
 
 	function handleKeyDown(event: KeyboardEvent | null) {
+		if (event && !event.metaKey && !event.ctrlKey) {
+			// Prevent regular keystrokes from propagating so that we don't
+			// trigger keyboard shortcuts while the user is typing a message.
+			event.stopPropagation();
+		}
 		if (event && onKeyDown?.(event)) {
 			return true;
 		}
