@@ -150,15 +150,15 @@
 			projectState.commitTitle.current = input.value;
 		}}
 		onkeydown={(e: KeyboardEvent) => {
-			if (e.key === 'Enter' || e.key === 'Tab') {
-				e.preventDefault();
-				composer?.focus();
-				return;
-			}
-
 			if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
 				e.preventDefault();
 				action();
+				return;
+			}
+
+			if (e.key === 'Enter' || e.key === 'Tab') {
+				e.preventDefault();
+				composer?.focus();
 				return;
 			}
 		}}
