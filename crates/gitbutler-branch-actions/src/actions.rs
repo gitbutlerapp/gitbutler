@@ -18,7 +18,7 @@ use crate::{
     remote::{RemoteBranchData, RemoteCommit},
     VirtualBranchesExt,
 };
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use but_workspace::{commit_engine, stack_heads_info, ui, DiffSpec};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_command_context::CommandContext;
@@ -329,14 +329,6 @@ fn amend_with_commit_engine(
 ) -> Result<git2::Oid> {
     let mut guard = ctx.project().exclusive_worktree_access();
 
-    let vb_state = ctx.project().virtual_branches();
-    let stack = vb_state.get_stack(stack_id)?;
-
-    if stack.upstream.is_some() && !stack.allow_rebasing {
-        // amending to a pushed head commit will cause a force push that is not allowed
-        bail!("force-push is not allowed");
-    }
-
     let outcome = commit_engine::create_commit_and_update_refs_with_project(
         &ctx.gix_repo()?,
         ctx.project(),
@@ -439,18 +431,6 @@ pub fn reset_virtual_branch(
         guard.write_permission(),
     );
     vbranch::reset_branch(ctx, stack_id, target_commit_oid)
-}
-
-#[deprecated(note = "use gitbutler_branch_actions::stack::push_stack instead")]
-pub fn push_virtual_branch(
-    ctx: &CommandContext,
-    stack_id: StackId,
-    with_force: bool,
-    askpass: Option<Option<StackId>>,
-) -> Result<vbranch::PushResult> {
-    ctx.verify()?;
-    assure_open_workspace_mode(ctx).context("Pushing a branch requires open workspace mode")?;
-    vbranch::push(ctx, stack_id, with_force, askpass)
 }
 
 pub fn find_git_branches(ctx: &CommandContext, branch_name: &str) -> Result<Vec<RemoteBranchData>> {

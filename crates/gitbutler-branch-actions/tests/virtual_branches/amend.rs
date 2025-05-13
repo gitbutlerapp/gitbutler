@@ -1,5 +1,5 @@
 use but_workspace::{DiffSpec, HunkHeader};
-use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
+use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch_actions::list_commit_files;
 
 use super::*;
@@ -45,8 +45,7 @@ fn forcepush_allowed() -> anyhow::Result<()> {
     let commit_id =
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap();
 
-    #[allow(deprecated)]
-    gitbutler_branch_actions::push_virtual_branch(ctx, stack_entry.id, false, None).unwrap();
+    gitbutler_branch_actions::stack::push_stack(ctx, stack_entry.id, false).unwrap();
 
     {
         // amend another hunk
@@ -79,61 +78,6 @@ fn forcepush_allowed() -> anyhow::Result<()> {
         );
     }
     Ok(())
-}
-
-#[test]
-fn forcepush_forbidden() {
-    let Test { repo, ctx, .. } = &Test::default();
-
-    gitbutler_branch_actions::set_base_branch(
-        ctx,
-        &"refs/remotes/origin/master".parse().unwrap(),
-        false,
-    )
-    .unwrap();
-
-    let stack_entry =
-        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
-            .unwrap();
-
-    gitbutler_branch_actions::update_virtual_branch(
-        ctx,
-        BranchUpdateRequest {
-            id: stack_entry.id,
-            allow_rebasing: Some(false),
-            ..Default::default()
-        },
-    )
-    .unwrap();
-
-    // create commit
-    fs::write(repo.path().join("file.txt"), "content").unwrap();
-    let commit_oid =
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap();
-
-    #[allow(deprecated)]
-    gitbutler_branch_actions::push_virtual_branch(ctx, stack_entry.id, false, None).unwrap();
-
-    {
-        fs::write(repo.path().join("file2.txt"), "content2").unwrap();
-        // let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
-        let to_amend = vec![DiffSpec {
-            previous_path_bytes: None,
-            path_bytes: "file2.txt".into(),
-            hunk_headers: vec![HunkHeader {
-                old_start: 1,
-                old_lines: 0,
-                new_start: 1,
-                new_lines: 1,
-            }],
-        }];
-        assert_eq!(
-            gitbutler_branch_actions::amend(ctx, stack_entry.id, commit_oid, to_amend)
-                .unwrap_err()
-                .to_string(),
-            "force-push is not allowed"
-        );
-    }
 }
 
 #[test]

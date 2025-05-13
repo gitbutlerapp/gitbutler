@@ -215,25 +215,30 @@ mod push_virtual_branch {
         fs::write(repo.path().join("file.txt"), "content").unwrap();
 
         gitbutler_branch_actions::create_commit(ctx, stack_entry_1.id, "test", None).unwrap();
-        #[allow(deprecated)]
-        gitbutler_branch_actions::push_virtual_branch(ctx, stack_entry_1.id, false, None).unwrap();
+        gitbutler_branch_actions::stack::push_stack(ctx, stack_entry_1.id, false).unwrap();
 
         let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, stack_entry_1.id);
         assert_eq!(branches[0].name, "name");
-        assert_eq!(
-            branches[0].upstream.as_ref().unwrap().name.to_string(),
-            "refs/remotes/origin/name"
-        );
+        let name = branches[0]
+            .series
+            .first()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .upstream_reference
+            .as_ref()
+            .unwrap();
+        assert_eq!(name, "refs/remotes/origin/a-branch-1");
 
         let refnames = repo
             .references()
             .into_iter()
             .filter_map(|reference| reference.name().map(|name| name.to_string()))
             .collect::<Vec<_>>();
-        assert!(refnames.contains(&branches[0].upstream.clone().unwrap().name.to_string()));
+        assert!(refnames.contains(&"refs/remotes/origin/a-branch-1".to_string()));
     }
 
     #[test]
@@ -259,9 +264,7 @@ mod push_virtual_branch {
             .unwrap();
             fs::write(repo.path().join("file.txt"), "content").unwrap();
             gitbutler_branch_actions::create_commit(ctx, stack_entry_1.id, "test", None).unwrap();
-            #[allow(deprecated)]
-            gitbutler_branch_actions::push_virtual_branch(ctx, stack_entry_1.id, false, None)
-                .unwrap();
+            gitbutler_branch_actions::stack::push_stack(ctx, stack_entry_1.id, false).unwrap();
             stack_entry_1
         };
 
@@ -288,9 +291,7 @@ mod push_virtual_branch {
             .unwrap();
             fs::write(repo.path().join("file.txt"), "updated content").unwrap();
             gitbutler_branch_actions::create_commit(ctx, stack_entry_2.id, "test", None).unwrap();
-            #[allow(deprecated)]
-            gitbutler_branch_actions::push_virtual_branch(ctx, stack_entry_2.id, false, None)
-                .unwrap();
+            gitbutler_branch_actions::stack::push_stack(ctx, stack_entry_2.id, false).unwrap();
             stack_entry_2
         };
 
@@ -300,24 +301,36 @@ mod push_virtual_branch {
         // first branch is pushing to old ref remotely
         assert_eq!(branches[0].id, stack_entry.id);
         assert_eq!(branches[0].name, "updated name");
-        assert_eq!(
-            branches[0].upstream.as_ref().unwrap().name,
-            "refs/remotes/origin/name".parse().unwrap()
-        );
+        let name_0 = branches[0]
+            .series
+            .first()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .upstream_reference
+            .as_ref()
+            .unwrap();
+        assert_eq!(name_0, "refs/remotes/origin/a-branch-1");
         // new branch is pushing to new ref remotely
         assert_eq!(branches[1].id, stack_entry_2.id);
         assert_eq!(branches[1].name, "name");
-        assert_eq!(
-            branches[1].upstream.as_ref().unwrap().name,
-            "refs/remotes/origin/name-1".parse().unwrap()
-        );
+        let name_1 = branches[1]
+            .series
+            .first()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .upstream_reference
+            .as_ref()
+            .unwrap();
+        assert_eq!(name_1, "refs/remotes/origin/a-branch-2");
 
         let refnames = repo
             .references()
             .into_iter()
             .filter_map(|reference| reference.name().map(|name| name.to_string()))
             .collect::<Vec<_>>();
-        assert!(refnames.contains(&branches[0].upstream.clone().unwrap().name.to_string()));
-        assert!(refnames.contains(&branches[1].upstream.clone().unwrap().name.to_string()));
+        assert!(refnames.contains(&"refs/remotes/origin/a-branch-1".to_string()));
+        assert!(refnames.contains(&"refs/remotes/origin/a-branch-2".to_string()));
     }
 }

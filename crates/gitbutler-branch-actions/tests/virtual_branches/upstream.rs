@@ -82,8 +82,7 @@ fn detect_integrated_commits() {
     };
 
     // push
-    #[allow(deprecated)]
-    gitbutler_branch_actions::push_virtual_branch(ctx, stack_entry_1.id, false, None).unwrap();
+    gitbutler_branch_actions::stack::push_stack(ctx, stack_entry_1.id, false).unwrap();
 
     {
         // merge branch upstream
@@ -93,7 +92,19 @@ fn detect_integrated_commits() {
             .into_iter()
             .find(|b| b.id == stack_entry_1.id)
             .unwrap();
-        repo.merge(&branch.upstream.as_ref().unwrap().name).unwrap();
+
+        let name = branch
+            .series
+            .first()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .upstream_reference
+            .as_ref()
+            .unwrap();
+        let refname = Refname::from_str(name).unwrap();
+
+        repo.merge(&refname).unwrap();
         repo.fetch();
     }
 

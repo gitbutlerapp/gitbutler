@@ -2496,6 +2496,7 @@ dependencies = [
  "gitbutler-diff",
  "gitbutler-error",
  "gitbutler-fs",
+ "gitbutler-git",
  "gitbutler-hunk-dependency",
  "gitbutler-id",
  "gitbutler-operating-modes",

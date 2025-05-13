@@ -7,11 +7,11 @@ pub use actions::{
     create_virtual_branch_from_branch, delete_local_branch, fetch_from_remotes, find_commit,
     find_git_branches, get_uncommited_files, get_uncommited_files_reusable, insert_blank_commit,
     integrate_upstream, integrate_upstream_commits, list_commit_files, list_virtual_branches,
-    list_virtual_branches_cached, move_commit, move_commit_file, push_base_branch,
-    push_virtual_branch, reorder_stack, reset_files, reset_virtual_branch,
-    resolve_upstream_integration, set_base_branch, set_target_push_remote, squash_commits,
-    unapply_lines, unapply_ownership, unapply_stack, undo_commit, update_branch_order,
-    update_commit_message, update_virtual_branch, upstream_integration_statuses,
+    list_virtual_branches_cached, move_commit, move_commit_file, push_base_branch, reorder_stack,
+    reset_files, reset_virtual_branch, resolve_upstream_integration, set_base_branch,
+    set_target_push_remote, squash_commits, unapply_lines, unapply_ownership, unapply_stack,
+    undo_commit, update_branch_order, update_commit_message, update_virtual_branch,
+    upstream_integration_statuses,
 };
 mod squash;
 
