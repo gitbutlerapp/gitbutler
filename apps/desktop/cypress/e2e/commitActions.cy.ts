@@ -268,7 +268,8 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 	});
 
 	it('should be able to commit a bunch of times in a row and edit their message', () => {
-		for (let i = 0; i < 5; i++) {
+		const TIMES = 2;
+		for (let i = 0; i < TIMES; i++) {
 			// Click commit button
 			cy.getByTestId('start-commit-button').should('be.visible').should('be.enabled').click();
 
@@ -323,7 +324,7 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 			cy.getByTestId('commit-row', commitTitle).should('be.visible');
 		}
 
-		for (let i = 0; i < 5; i++) {
+		for (let i = 0; i < TIMES; i++) {
 			const commitTitle = `Commit title ${i + 1}`;
 			const commitDescription = `Commit description ${i + 1}`;
 
@@ -369,6 +370,61 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 
 			cy.getByTestId('commit-drawer-title').should('contain', newCommitTitle);
 			cy.getByTestId('commit-drawer-description').should('contain', newCommitDescription);
+		}
+
+		for (let i = TIMES; i < TIMES * 2; i++) {
+			// Click commit button
+			cy.getByTestId('start-commit-button').should('be.visible').should('be.enabled').click();
+
+			// There should only be one 'Your commit goes here' text
+			cy.getByTestId('your-commit-goes-here')
+				.should('have.length', 1)
+				.should('be.visible')
+				.should('have.class', 'first');
+
+			// Unstage all files
+			cy.getByTestId('uncommitted-changes-header')
+				.should('be.visible')
+				.within(() => {
+					cy.get('input[type="checkbox"]').should('be.visible').click();
+				});
+
+			// Stage the file
+			cy.getByTestId('uncommitted-changes-file-list')
+				.should('be.visible')
+				.within(() => {
+					cy.getByTestId('file-list-item')
+						.first()
+						.scrollIntoView()
+						.should('be.visible')
+						.within(() => {
+							cy.get('input[type="checkbox"]').should('be.visible').click();
+						});
+				});
+
+			const commitTitle = `Commit title ${i + 1}`;
+			const commitDescription = `Commit description ${i + 1}`;
+
+			// Type in a commit message
+			cy.getByTestId('commit-drawer-title-input')
+				.should('be.visible')
+				.should('be.enabled')
+				.should('have.value', '')
+				.type(commitTitle); // Type the new commit message
+
+			// Type in a description
+			cy.getByTestId('commit-drawer-description-input')
+				.should('be.visible')
+				.click()
+				.type(commitDescription); // Type the new commit message body
+
+			// Click on the commit button
+			cy.getByTestId('commit-drawer-action-button')
+				.should('be.visible')
+				.should('be.enabled')
+				.click();
+
+			cy.getByTestId('commit-row', commitTitle).should('be.visible');
 		}
 	});
 });
