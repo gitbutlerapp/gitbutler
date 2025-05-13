@@ -508,6 +508,7 @@ pub struct Stack {
     /// If there is an integration branch, we know a base commit shared with the integration branch from
     /// which we branched off.
     /// Otherwise, it's the merge-base of all stacks in the current workspace.
+    /// It is `None` if this is a stack derived from a branch without relation to any other branch.
     pub base: Option<gix::ObjectId>,
     /// The branch-name denoted segments of the stack from its tip to the point of reference, typically a merge-base.
     /// This array is never empty.
@@ -518,6 +519,7 @@ pub struct Stack {
     /// using Git commands.
     ///
     /// The backend auto-applies floating stashes, but if that didn't happen, the frontend may guide the user.
+    // TODO: refactor/remove this in favor of special stash commits.
     pub stash_status: Option<StashStatus>,
 }
 
@@ -549,6 +551,21 @@ pub struct Commit {
     pub author: gix::actor::Signature,
 }
 
+impl Commit {
+    /// Read the object of the `commit_id` and extract relevant values.
+    pub fn new_from_id(commit_id: gix::Id<'_>) -> anyhow::Result<Self> {
+        let commit = commit_id.object()?.into_commit();
+        // Decode efficiently, no need to own this.
+        let commit = commit.decode()?;
+        Ok(Commit {
+            id: commit_id.detach(),
+            parent_ids: commit.parents().collect(),
+            message: commit.message.to_owned(),
+            author: commit.author.to_owned()?,
+        })
+    }
+}
+
 impl std::fmt::Debug for Commit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -557,6 +574,17 @@ impl std::fmt::Debug for Commit {
             hash = self.id.to_hex_with_len(7),
             msg = self.message
         )
+    }
+}
+
+impl From<but_core::Commit<'_>> for Commit {
+    fn from(value: but_core::Commit<'_>) -> Self {
+        Commit {
+            id: value.id.into(),
+            parent_ids: value.parents.iter().cloned().collect(),
+            message: value.inner.message,
+            author: value.inner.author,
+        }
     }
 }
 
@@ -590,19 +618,10 @@ impl std::fmt::Debug for LocalCommit {
 }
 
 impl LocalCommit {
-    /// Create a new branch-commit, and compute more information on the fly.
+    /// Create a new branch-commit, along with default values for the non-commit fields.
     pub fn new_from_id(value: gix::Id<'_>) -> anyhow::Result<Self> {
-        let commit = value.object()?.into_commit();
-        // Decode efficiently, no need to own this.
-        let commit = commit.decode()?;
         Ok(LocalCommit {
-            inner: Commit {
-                id: value.detach(),
-                parent_ids: commit.parents().collect(),
-                message: commit.message.to_owned(),
-                author: commit.author.to_owned()?,
-            },
-            // TODO: compute these
+            inner: Commit::new_from_id(value)?,
             relation: LocalCommitRelation::LocalOnly,
             has_conflicts: false,
         })
@@ -660,12 +679,12 @@ impl DerefMut for LocalCommit {
 }
 
 /// A commit that is reachable only through the *remote tracking branch*, with additional, computed information.
+///
+/// TODO: Remote commits can also be integrated, without the local branch being all caught up. Currently we can't represent that.
 #[derive(Clone)]
 pub struct RemoteCommit {
     /// The simple commit.
     pub inner: Commit,
-    /// Provide additional information on how this commit relates to the target branch to integrate with.
-    pub relation: RemoteCommitRelation,
     /// Whether the commit is in a conflicted state, a GitButler concept.
     /// GitButler will perform rebasing/reordering etc. without interruptions and flag commits as conflicted if needed.
     /// Conflicts are resolved via the Edit Mode mechanism.
@@ -679,31 +698,11 @@ impl std::fmt::Debug for RemoteCommit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "RemoteCommit({conflict}{hash}, {msg:?}, {relation})",
+            "RemoteCommit({conflict}{hash}, {msg:?}",
             conflict = if self.has_conflicts { "💥" } else { "" },
             hash = self.id.to_hex_with_len(7),
             msg = self.message,
-            relation = self.relation
         )
-    }
-}
-
-/// The state of a [remote commit](RemoteCommit) in relation to its remote tracking branch or its integration branch.
-#[derive(Debug, Clone, Copy)]
-pub enum RemoteCommitRelation {
-    /// The commit is only local
-    LocalOnly,
-    /// The commit is considered integrated.
-    /// This should happen when the commit or the contents of this commit is already part of the base.
-    Integrated,
-}
-
-impl std::fmt::Display for RemoteCommitRelation {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            RemoteCommitRelation::LocalOnly => "local",
-            RemoteCommitRelation::Integrated => "integrated",
-        })
     }
 }
 
@@ -737,7 +736,7 @@ pub enum RefLocation {
 }
 
 /// A list of all commits in a stack segment of a [`Stack`].
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Clone)]
 pub struct StackSegment {
     /// The name of the branch at the tip of it, and the starting point of the walk.
     ///
@@ -745,6 +744,9 @@ pub struct StackSegment {
     /// a commit anymore that was reached by our rev-walk.
     /// This can happen if the ref is deleted, or if it was advanced by other means.
     pub ref_name: Option<gix::refs::FullName>,
+    /// The name of the remote tracking branch of this segment, if present, i.e. `refs/remotes/origin/main`.
+    /// Its presence means that a remote is configured and that the stack content
+    pub remote_tracking_ref_name: Option<gix::refs::FullName>,
     /// Specify where the `ref_name` is specifically, or `None` if there is no ref-name.
     pub ref_location: Option<RefLocation>,
     /// The portion of commits that can be reached from the tip of the *branch* downwards, so that they are unique
@@ -760,13 +762,61 @@ pub struct StackSegment {
     /// no derived value to make this visible explicitly.
     // TODO: review this - should branch divergence be a thing? Rare, but not impossible.
     pub commits_unique_in_remote_tracking_branch: Vec<RemoteCommit>,
-    /// The name of the remote tracking branch of this segment, if present, i.e. `refs/remotes/origin/main`.
-    /// Its presence means that a remote is configured and that the stack content
-    pub remote_tracking_ref_name: Option<gix::refs::FullName>,
     /// Metadata with additional information, or `None` if nothing was present.
     ///
     /// Primary use for this is the consumer, as edits are forced to be made on 'connected' data, so refetching is necessary.
     pub metadata: Option<but_core::ref_metadata::Branch>,
+}
+
+impl StackSegment {
+    /// Return the top-most commit id of the segment.
+    pub fn tip(&self) -> Option<gix::ObjectId> {
+        self.commits_unique_from_tip.first().map(|commit| commit.id)
+    }
+}
+
+impl std::fmt::Debug for StackSegment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let StackSegment {
+            ref_name,
+            ref_location,
+            commits_unique_from_tip,
+            commits_unique_in_remote_tracking_branch,
+            remote_tracking_ref_name,
+            metadata,
+        } = self;
+        f.debug_struct("StackSegment")
+            .field(
+                "ref_name",
+                &match ref_name.as_ref() {
+                    None => "None".to_string(),
+                    Some(name) => name.to_string(),
+                },
+            )
+            .field(
+                "remote_tracking_ref_name",
+                &match remote_tracking_ref_name.as_ref() {
+                    None => "None".to_string(),
+                    Some(name) => name.to_string(),
+                },
+            )
+            .field(
+                "ref_location",
+                &match ref_location {
+                    None => "None".to_string(),
+                    Some(location) => {
+                        format!("{:?}", location)
+                    }
+                },
+            )
+            .field("commits_unique_from_tip", &commits_unique_from_tip)
+            .field(
+                "commits_unique_in_remote_tracking_branch",
+                &commits_unique_in_remote_tracking_branch,
+            )
+            .field("metadata", &metadata)
+            .finish()
+    }
 }
 
 /// Return all stack segments within the given `stack`.

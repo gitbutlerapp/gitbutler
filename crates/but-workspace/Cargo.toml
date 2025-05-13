@@ -46,3 +46,4 @@ but-core = { workspace = true, features = ["testing"] }
 # TODO: remove once `gitbutler-repo` isn't needed anymore.
 gitbutler-commit = { workspace = true, features = ["testing"] }
 regex = "1.11.1"
+gitbutler-reference.workspace = true

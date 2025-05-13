@@ -50,6 +50,7 @@ pub use head::{head, merge_worktree_with_workspace};
 mod relapath;
 
 /// 🚧utilities for applying and unapplying branches 🚧.
+/// Ignore the name of this module; it's just a place to put code by now.
 pub mod branch;
 
 /// 🚧Deal with worktree changes 🚧.

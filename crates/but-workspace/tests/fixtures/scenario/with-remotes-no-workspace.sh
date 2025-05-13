@@ -27,14 +27,14 @@ git init remote
   git checkout main
 )
 
-# The remote has a new commit, but is fast-forwardable
+# The remote has a new commit, but is fast-forwardable.
 git clone remote remote-tracking-advanced-ff
 (cd remote-tracking-advanced-ff
   git checkout -b A origin/A
   git reset --hard @~1
 )
 
-# The remote has a new commit, but is fast-forwardable
+# The remote has a new commit, and local has a new commit in an unreconcilable way.
 cp -R remote-tracking-advanced-ff remote-diverged
 (cd remote-diverged
   set_author local-user

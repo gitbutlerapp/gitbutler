@@ -31,7 +31,7 @@ pub fn stacks(
 ) -> Result<Vec<StackEntry>, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    let repo = ctx.gix_repo()?;
+    let repo = ctx.gix_repo_for_merging_non_persisting()?;
     if ctx.app_settings().feature_flags.ws3 {
         let meta = ref_metadata_toml(ctx.project())?;
         but_workspace::stacks_v3(&repo, &meta, filter.unwrap_or_default())
@@ -52,7 +52,7 @@ pub fn stack_details(
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     if ctx.app_settings().feature_flags.ws3 {
-        let repo = ctx.gix_repo()?;
+        let repo = ctx.gix_repo_for_merging_non_persisting()?;
         let meta = ref_metadata_toml(ctx.project())?;
         but_workspace::stack_details_v3(stack_id, &repo, &meta)
     } else {
@@ -73,7 +73,7 @@ pub fn branch_details(
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     if ctx.app_settings().feature_flags.ws3 {
-        let repo = ctx.gix_repo()?;
+        let repo = ctx.gix_repo_for_merging_non_persisting()?;
         let meta = ref_metadata_toml(ctx.project())?;
         let ref_name: gix::refs::FullName = match remote {
             None => {

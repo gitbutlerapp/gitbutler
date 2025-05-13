@@ -2,10 +2,11 @@
 //!
 //! This code is a fork of the [`gitbutler_branch_actions::virtual::IsCommitIntegrated`]
 
+use crate::head_info::function::try_refname_to_id;
 use anyhow::anyhow;
 use anyhow::{Context, Result};
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_oxidize::{GixRepositoryExt, git2_to_gix_object_id, gix_to_git2_oid};
+use gitbutler_oxidize::{GixRepositoryExt, ObjectIdExt, git2_to_gix_object_id, gix_to_git2_oid};
 use gitbutler_repo::{
     RepositoryExt as _,
     logging::{LogUntil, RepositoryExt},
@@ -14,7 +15,7 @@ use gitbutler_stack::Target;
 use itertools::Itertools;
 
 pub(crate) struct IsCommitIntegrated<'repo, 'cache, 'graph> {
-    gix_repo: &'repo gix::Repository,
+    repo: &'repo gix::Repository,
     graph: &'graph mut MergeBaseCommitGraph<'repo, 'cache>,
     target_commit_id: gix::ObjectId,
     upstream_tree_id: gix::ObjectId,
@@ -24,19 +25,21 @@ pub(crate) struct IsCommitIntegrated<'repo, 'cache, 'graph> {
 
 impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
     // TODO: use `gix_repo` for rev-walk once `hide()` is available.
+    /// **IMPORTANT**: `repo` must use in-memory objects!
     pub(crate) fn new(
-        repo: &'repo git2::Repository,
+        repo: &'repo gix::Repository,
+        git2_repo: &git2::Repository,
         target: &Target,
-        gix_repo: &'repo gix::Repository,
         graph: &'graph mut MergeBaseCommitGraph<'repo, 'cache>,
     ) -> anyhow::Result<Self> {
-        let remote_branch = repo
+        let remote_branch = git2_repo
             .maybe_find_branch_by_refname(&target.branch.clone().into())?
             .ok_or(anyhow!("failed to get branch"))?;
         let remote_head = remote_branch.get().peel_to_commit()?;
-        let upstream_tree_id = repo.find_commit(remote_head.id())?.tree_id();
+        let upstream_tree_id = git2_repo.find_commit(remote_head.id())?.tree_id();
 
-        let upstream_commits = repo.log(remote_head.id(), LogUntil::Commit(target.sha), true)?;
+        let upstream_commits =
+            git2_repo.log(remote_head.id(), LogUntil::Commit(target.sha), true)?;
         let upstream_change_ids = upstream_commits
             .iter()
             .filter_map(|commit| commit.change_id())
@@ -48,7 +51,7 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
             .sorted()
             .collect();
         Ok(Self {
-            gix_repo,
+            repo,
             graph,
             target_commit_id: git2_to_gix_object_id(target.sha),
             upstream_tree_id: git2_to_gix_object_id(upstream_tree_id),
@@ -56,12 +59,79 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
             upstream_change_ids,
         })
     }
+
+    /// Like [new](Self::new), but avoids 'old' types in favor of more basic types from which everything else can be computed.
+    ///
+    /// `target_ref_name` is the *local tracking branch* of the target branch. Without it, we can't check if anything is integrated.
+    /// TODO: Needs 'hide' for commit traversal, and probably a complete review on what we do and how we do it.
+    /// **IMPORTANT**: `repo` must use in-memory objects!
+    pub(crate) fn new2(
+        repo: &'repo gix::Repository,
+        git2_repo: &git2::Repository,
+        target_ref_name: &gix::refs::FullNameRef,
+        graph: &'graph mut MergeBaseCommitGraph<'repo, 'cache>,
+    ) -> anyhow::Result<Self> {
+        let target_commit_id = repo
+            .find_reference(target_ref_name)
+            .ok()
+            .and_then(|mut r| r.peel_to_id_in_place().ok());
+        let upstream_commits = if let Some((target_remote_id, target_commit_id)) = repo
+            .branch_remote_tracking_ref_name(target_ref_name, gix::remote::Direction::Fetch)
+            .transpose()?
+            .and_then(|trr| try_refname_to_id(repo, trr.as_ref()).transpose())
+            .transpose()?
+            .zip(target_commit_id)
+        {
+            git2_repo.log(
+                target_remote_id.to_git2(),
+                LogUntil::Commit(target_commit_id.to_git2()),
+                true,
+            )?
+        } else {
+            Vec::new()
+        };
+        let upstream_change_ids = upstream_commits
+            .iter()
+            .filter_map(|commit| commit.change_id())
+            .sorted()
+            .collect();
+        let upstream_commits = upstream_commits
+            .iter()
+            .map(|commit| commit.id())
+            .sorted()
+            .collect();
+        let upstream_tree_id = target_commit_id.and_then(|id| {
+            id.object()
+                .ok()?
+                .peel_to_commit()
+                .ok()?
+                .tree_id()
+                .ok()
+                .map(|id| id.detach())
+        });
+        Ok(Self {
+            repo,
+            graph,
+            target_commit_id: target_commit_id
+                .map(|id| id.detach())
+                .unwrap_or_else(|| repo.object_hash().null()),
+            upstream_tree_id: upstream_tree_id.unwrap_or_else(|| repo.object_hash().null()),
+            upstream_commits,
+            upstream_change_ids,
+        })
+    }
+
     pub(crate) fn is_integrated(&mut self, commit: &git2::Commit<'_>) -> Result<bool> {
         if self.target_commit_id == git2_to_gix_object_id(commit.id()) {
             // could not be integrated if heads are the same.
             return Ok(false);
         }
 
+        // TODO: this relies on knowing that we update the workspace, notice that something is
+        //       integrated, and setting the archive flag (probably). Now it's easy to imagine
+        //       somebody fetching and FF-merging the target branch, and we should still be able
+        //       to detect that something was integrated.
+        //       So this would have to be removed.
         if self.upstream_commits.is_empty() {
             // could not be integrated - there is nothing new upstream.
             return Ok(false);
@@ -77,7 +147,7 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
             return Ok(true);
         }
 
-        let merge_base_id = self.gix_repo.merge_base_with_graph(
+        let merge_base_id = self.repo.merge_base_with_graph(
             self.target_commit_id,
             git2_to_gix_object_id(commit.id()),
             self.graph,
@@ -88,16 +158,16 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
             return Ok(true);
         }
 
-        let merge_base_tree_id = self.gix_repo.find_commit(merge_base_id)?.tree_id()?;
+        let merge_base_tree_id = self.repo.find_commit(merge_base_id)?.tree_id()?;
         if merge_base_tree_id == self.upstream_tree_id {
             // if merge base is the same as upstream tree, then it's integrated
             return Ok(true);
         }
 
         // try to merge our tree into the upstream tree
-        let (merge_options, conflict_kind) = self.gix_repo.merge_options_no_rewrites_fail_fast()?;
+        let (merge_options, conflict_kind) = self.repo.merge_options_no_rewrites_fail_fast()?;
         let mut merge_output = self
-            .gix_repo
+            .repo
             .merge_trees(
                 merge_base_tree_id,
                 git2_to_gix_object_id(commit.tree_id()),
@@ -127,7 +197,7 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
     }
 }
 
-type MergeBaseCommitGraph<'repo, 'cache> = gix::revwalk::Graph<
+pub(crate) type MergeBaseCommitGraph<'repo, 'cache> = gix::revwalk::Graph<
     'repo,
     'cache,
     gix::revision::plumbing::graph::Commit<gix::revision::plumbing::merge_base::Flags>,

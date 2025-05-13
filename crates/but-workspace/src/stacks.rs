@@ -96,7 +96,7 @@ fn try_from_stack_v3(
                 .and_then(|r| r.try_id())
                 .map(|id| id.detach())
                 .unwrap_or(repo.object_hash().null()),
-            name: ref_name.into(),
+            name: ref_name.shorten().into(),
         }
     });
     Ok(ui::StackEntry {
@@ -152,7 +152,7 @@ pub fn stacks_v3(
                 // TODO: this is just a simulation and such a thing doesn't really exist in the V3 world, let's see how it goes.
                 //       Thus, we just pass ourselves as first segment, similar to having no other segments.
                 heads: vec![ui::StackHeadInfo {
-                    name: ref_name.into(),
+                    name: ref_name.shorten().into(),
                     tip,
                 }],
                 tip,
@@ -167,6 +167,7 @@ pub fn stacks_v3(
         head_info::Options {
             // TODO: set this to a good value for the UI to not slow down, and also a value that forces us to re-investigate this.
             stack_commit_limit: 100,
+            expensive_commit_info: false,
         },
     )?;
 
@@ -358,6 +359,7 @@ pub fn stack_details_v3(
         meta,
         head_info::Options {
             stack_commit_limit: 0,
+            expensive_commit_info: true,
         },
     )?;
     let stacks_with_id: Vec<_> = info
@@ -533,7 +535,6 @@ impl From<&branch::RemoteCommit> for ui::UpstreamCommit {
                     author,
                 },
             // TODO: Represent this in the UI (maybe) and/or deal with divergence of the local and remote tracking branch.
-            relation: _,
             has_conflicts: _,
         }: &branch::RemoteCommit,
     ) -> Self {
@@ -734,7 +735,7 @@ fn local_and_remote_commits(
         .context("failed to get default target")?;
     let cache = repo.commit_graph_if_enabled()?;
     let mut graph = repo.revision_graph(cache.as_ref());
-    let mut check_commit = IsCommitIntegrated::new(ctx.repo(), &default_target, repo, &mut graph)?;
+    let mut check_commit = IsCommitIntegrated::new(repo, ctx.repo(), &default_target, &mut graph)?;
 
     let branch_commits = stack_branch.commits(ctx, stack)?;
     let mut local_and_remote: Vec<ui::Commit> = vec![];
