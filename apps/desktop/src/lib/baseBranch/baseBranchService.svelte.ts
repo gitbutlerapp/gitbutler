@@ -66,11 +66,12 @@ export default class BaseBranchService {
 		await this.api.endpoints.baseBranch.fetch({ projectId }, { forceRefetch: true });
 	}
 
-	async fetchFromRemotes(projectId: string, action?: string) {
+	async fetchFromRemotes(projectId: string, autoFetch = false) {
 		return await this.api.endpoints.fetchFromRemotes
-			.mutate({ projectId, action })
+			.mutate({ projectId })
 			.catch((error: unknown) => {
 				if (!isTauriCommandError(error)) {
+					if (autoFetch) return;
 					showError('Failed to fetch', String(error));
 					return;
 				}
@@ -81,18 +82,17 @@ export default class BaseBranchService {
 				}
 
 				if (code === Code.ProjectsGitAuth) {
+					if (autoFetch) return;
 					showError('Failed to authenticate', error.message);
 					return;
 				}
 
 				if (code === Code.Unknown && error.message?.includes('cargo build -p gitbutler-git')) {
 					showError('Run `cargo build -p gitbutler-git`', error.message);
+					return;
 				}
 
-				if (action !== undefined) {
-					showError('Failed to fetch', error.message);
-				}
-
+				if (autoFetch) return;
 				console.error(error);
 			});
 	}
