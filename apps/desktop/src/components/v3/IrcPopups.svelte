@@ -1,5 +1,6 @@
 <script lang="ts">
 	import IrcChannel from '$components/v3/IrcChannel.svelte';
+	import IrcFloat from '$components/v3/IrcFloat.svelte';
 	import { IrcService } from '$lib/irc/ircService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -7,46 +8,39 @@
 	const [ircService] = inject(IrcService);
 
 	const chats = $derived(ircService.getChatsWithPopup());
+	let collapsed = $state(false);
 </script>
 
-<div class="irc-popups">
-	{#if chats.length > 0}
-		<div class="irc-popup">
-			{#each chats as chat}
-				<div class="popup-content">
-					<IrcChannel nick={chat.username} type="private">
-						{#snippet headerActions()}
-							<Button
-								size="icon"
-								style="ghost"
-								icon="arrow-bottom"
-								onclick={() => {
-									ircService.setPopup(chat.username, false);
-								}}
-							/>
-						{/snippet}
-					</IrcChannel>
-				</div>
-			{/each}
-		</div>
-	{/if}
-</div>
+{#if chats.current.length > 0}
+	{#each chats.current as chat}
+		<IrcFloat
+			persistId={chat.username}
+			initialPosition={{ x: 100, y: 100 }}
+			initialSize={{ width: 260, height: 320 }}
+		>
+			<IrcChannel nick={chat.username} type="private">
+				{#snippet headerActions()}
+					<Button
+						size="icon"
+						icon="cross"
+						kind="ghost"
+						onclick={() => {
+							ircService.setPopup(chat.username, false);
+						}}
+					/>
+					<Button
+						size="icon"
+						icon={collapsed ? 'chevron-down-small' : 'chevron-up-small'}
+						kind="ghost"
+						onclick={() => {
+							collapsed = !collapsed;
+						}}
+					/>
+				{/snippet}
+			</IrcChannel>
+		</IrcFloat>
+	{/each}
+{/if}
 
 <style lang="postcss">
-	.irc-popups {
-		position: absolute;
-		right: 6px;
-		bottom: 0;
-	}
-	.irc-popup {
-		display: flex;
-		flex-direction: column;
-		width: 360px;
-		border-color: var(--clr-border-2);
-		border-width: 1px 1px 0 1px;
-		border-style: solid;
-	}
-	.popup-content {
-		height: 300px;
-	}
 </style>

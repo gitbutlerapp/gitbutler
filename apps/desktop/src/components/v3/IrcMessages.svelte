@@ -84,7 +84,7 @@
 		padding: 6px 0;
 	}
 	.diff {
-		padding: 6px 12px 12px 12px;
+		padding: 6px 0px 12px 0px;
 		white-space: initial;
 	}
 </style>

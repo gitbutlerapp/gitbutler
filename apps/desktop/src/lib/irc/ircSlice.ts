@@ -39,11 +39,11 @@ export const ircSlice = createSlice({
 				}
 			}
 		},
-		setPopup(state, action: PayloadAction<{ name: string; popup: boolean }>) {
+		setPopup(state, action: PayloadAction<{ name: string; floating: boolean }>) {
 			const name = action.payload.name;
 			const target = name.startsWith('#') ? state.channels[name] : state.chats[name];
 			if (target) {
-				target.popup = action.payload.popup;
+				target.floating = action.payload.floating;
 			}
 		},
 		clearNames(state) {
@@ -371,14 +371,22 @@ export const selectPrivateMessages = createSelector(
 	}
 );
 
-export const getChats = createSelector([selectSelf], (rootState) => rootState.chats);
+export const getChats = createSelector([selectSelf], (rootState) => Object.values(rootState.chats));
 export const getChatsWithPopup = createSelector([selectSelf], (rootState) => {
 	return Object.keys(rootState.chats)
 		.map((key) => rootState.chats[key])
-		.filter((chat) => chat?.popup)
+		.filter((chat) => chat?.floating)
 		.filter(isDefined);
 });
-export const getChannels = createSelector([selectSelf], (rootState) => rootState.channels);
+export const getChatsWithoutPopup = createSelector([selectSelf], (rootState) => {
+	return Object.keys(rootState.chats)
+		.map((key) => rootState.chats[key])
+		.filter((chat) => !chat?.floating)
+		.filter(isDefined);
+});
+export const getChannels = createSelector([selectSelf], (rootState) =>
+	Object.values(rootState.channels)
+);
 export const getConnectionState = createSelector([selectSelf], (rootState) => rootState.connection);
 
 export const getUnreadCount = createSelector([getChannels], (channels) =>
@@ -386,18 +394,18 @@ export const getUnreadCount = createSelector([getChannels], (channels) =>
 );
 
 export function getChannel(name: string) {
-	return createSelector([getChannels], (channels) => channels[name]);
+	return createSelector([selectSelf], (state) => state.channels[name]);
 }
 
 export function getChat(name: string) {
-	return createSelector([getChats], (chats) => {
-		return chats[name];
+	return createSelector([selectSelf], (state) => {
+		return state.chats[name];
 	});
 }
 
 export const getChannelUsers = createSelector(
-	[getChannels, (_, name: string) => name],
-	(channels, name) => channels[name]?.users
+	[selectSelf, (_, name: string) => name],
+	(state, name) => state.channels[name]?.users
 );
 
 export const { setConnectionState, markOpen, setPopup, clearNames, processIncoming } =

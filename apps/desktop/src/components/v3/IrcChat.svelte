@@ -4,7 +4,7 @@
 	import { IrcService } from '$lib/irc/ircService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import Toggle from '@gitbutler/ui/Toggle.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 
 	const [ircService, uiState] = inject(IrcService, UiState);
 	const currentName = $derived(uiState.global.channel.current);
@@ -21,11 +21,12 @@
 				{#if chat.current}
 					<IrcChannel type="private" nick={chat.current.username}>
 						{#snippet headerActions()}
-							<Toggle
-								small
-								checked={chat.current?.popup}
-								onchange={(checked) => {
-									ircService.setPopup(currentName, checked);
+							<Button
+								icon="open-link"
+								size="icon"
+								kind="ghost"
+								onclick={() => {
+									ircService.setPopup(currentName, true);
 								}}
 							/>
 						{/snippet}

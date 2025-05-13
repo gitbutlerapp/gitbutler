@@ -16,7 +16,7 @@
 		| { type: 'private'; nick: string }
 	);
 
-	const props: Props = $props();
+	const { ...props }: Props = $props();
 	const [ircService, ircClient] = inject(IrcService, IrcClient);
 
 	$effect(() => {
@@ -52,14 +52,19 @@
 
 <div class="irc-channel">
 	<div class="header text-14 text-semibold">
-		{#if props.type === 'group'}
-			{props.channel}
-		{:else if props.type === 'private'}
-			{props.nick}
-		{:else if props.type === 'server'}
-			{ircClient.server.current}
-		{/if}
-		{@render props.headerActions?.()}
+		<div class="header-left"></div>
+		<div class="header-center">
+			{#if props.type === 'group'}
+				{props.channel}
+			{:else if props.type === 'private'}
+				{props.nick}
+			{:else if props.type === 'server'}
+				{ircClient.server.current}
+			{/if}
+		</div>
+		<div class="header-right">
+			{@render props.headerActions?.()}
+		</div>
 	</div>
 	<div class="middle">
 		<IrcMessages {logs} />
@@ -83,10 +88,12 @@
 		flex-direction: column;
 		height: 100%;
 		width: 100%;
+		justify-content: space-between;
 		background-color: var(--clr-bg-1);
 	}
 	.header {
 		display: flex;
+		gap: 6px;
 		padding: 6px;
 		width: 100%;
 		justify-content: center;
@@ -94,6 +101,27 @@
 		border-bottom: 1px solid var(--clr-border-2);
 		align-items: center;
 	}
+	.header-center {
+		flex-shrink: 1;
+	}
+
+	.header-left {
+		display: flex;
+		gap: 14px;
+	}
+
+	.header-right {
+		display: flex;
+		gap: 4px;
+		justify-content: right;
+	}
+
+	.header-right,
+	.header-left {
+		flex-basis: 0;
+		flex-grow: 1;
+	}
+
 	.middle {
 		display: flex;
 		overflow: hidden;

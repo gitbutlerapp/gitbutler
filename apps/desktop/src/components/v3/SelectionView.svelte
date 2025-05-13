@@ -1,11 +1,8 @@
 <script lang="ts">
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import FileViewPlaceholder from '$components/v3/FileViewPlaceholder.svelte';
-	import IrcChannel from '$components/v3/IrcChannel.svelte';
 	import SelectedChange from '$components/v3/SelectedChange.svelte';
-	import { ircEnabled } from '$lib/config/uiFeatureFlags';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import type { SelectionId } from '$lib/selection/key';
 
@@ -17,24 +14,14 @@
 
 	let { projectId, selectionId, stackId }: Props = $props();
 
-	const [idSelection, uiState] = inject(IdSelection, UiState);
-
-	const channel = $derived(uiState.global.channel);
+	const [idSelection] = inject(IdSelection);
 
 	const selection = $derived(selectionId ? idSelection.values(selectionId) : []);
 </script>
 
 <div class="selection-view">
 	{#if selection.length === 0}
-		{#if $ircEnabled && channel.current}
-			{#if channel.current.startsWith('#')}
-				<IrcChannel type="group" channel={channel.current} autojoin />
-			{:else}
-				<IrcChannel type="private" nick={channel.current} />
-			{/if}
-		{:else}
-			<FileViewPlaceholder />
-		{/if}
+		<FileViewPlaceholder />
 	{:else}
 		<ScrollableContainer wide>
 			{#each selection as selectedFile}
