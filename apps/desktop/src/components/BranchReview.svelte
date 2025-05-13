@@ -10,6 +10,7 @@
 	import { syncPrToBr } from '$lib/forge/prToBrSync.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { getContext } from '@gitbutler/shared/context';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -148,6 +149,7 @@
 
 	{#if showCreateButton}
 		<Button
+			testId={TestId.BranchDrawerCreateReviewButton}
 			onclick={() => {
 				if ($settingsStore?.featureFlags.v3) {
 					uiState.project(projectId).drawerPage.current = 'review';

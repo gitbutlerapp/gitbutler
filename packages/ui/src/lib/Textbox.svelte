@@ -8,6 +8,7 @@
 	interface Props {
 		element?: HTMLElement;
 		id?: string;
+		testId?: string;
 		type?: inputType;
 		icon?: keyof typeof iconsJson;
 		size?: 'default' | 'large';
@@ -40,6 +41,7 @@
 	let {
 		element = $bindable(),
 		id,
+		testId,
 		type = 'text',
 		icon,
 		value = $bindable(),
@@ -130,6 +132,7 @@
 
 		<input
 			{id}
+			data-testid={testId}
 			{readonly}
 			{required}
 			{placeholder}

@@ -30,6 +30,7 @@
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { RemotesService } from '$lib/remotes/remotesService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import { UserService } from '$lib/user/userService';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
@@ -382,6 +383,7 @@
 <!-- MAIN FIELDS -->
 <div class="pr-content">
 	<Textbox
+		testId={TestId.ReviewTitleInput}
 		autofocus
 		size="large"
 		placeholder="PR title"
@@ -410,6 +412,7 @@
 
 	<!-- DESCRIPTION FIELD -->
 	<MessageEditor
+		testId={TestId.ReviewDescriptionInput}
 		bind:this={prBody.descriptionInput}
 		{projectId}
 		disabled={isExecuting}

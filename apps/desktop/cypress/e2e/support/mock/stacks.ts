@@ -79,7 +79,7 @@ export function createMockUpstreamCommit(override: Partial<UpstreamCommit>): Ups
 export const MOCK_BRANCH_DETAILS: BranchDetails = {
 	name: 'branch-a',
 	remoteTrackingBranch: null,
-	description: 'A mock branch for testing',
+	description: null,
 	prNumber: null,
 	reviewId: null,
 	tip: '1234123',
@@ -96,7 +96,7 @@ export const MOCK_BRANCH_DETAILS: BranchDetails = {
 export const MOCK_BRANCH_DETAILS_BRAND_NEW: BranchDetails = {
 	name: MOCK_BRAND_NEW_BRANCH_NAME,
 	remoteTrackingBranch: null,
-	description: 'A mock branch for testing',
+	description: null,
 	prNumber: null,
 	reviewId: null,
 	tip: '1234123',
@@ -325,5 +325,48 @@ export function isIntegrateUpstreamCommitsParams(
 			(params as any).strategy === 'merge' ||
 			(params as any).strategy === 'rebase' ||
 			(params as any).strategy === 'hardreset')
+	);
+}
+
+export type PushStackParams = {
+	projectId: string;
+	stackId: string;
+	withForce: boolean;
+};
+
+export function isPushStackParams(params: unknown): params is PushStackParams {
+	return (
+		typeof params === 'object' &&
+		params !== null &&
+		'projectId' in params &&
+		typeof params.projectId === 'string' &&
+		'stackId' in params &&
+		typeof params.stackId === 'string' &&
+		'withForce' in params &&
+		typeof params.withForce === 'boolean'
+	);
+}
+
+export type UpdateBranchPRNumberParams = {
+	projectId: string;
+	stackId: string;
+	branchName: string;
+	prNumber: number;
+};
+
+export function isUpdateBranchPRNumberParams(
+	params: unknown
+): params is UpdateBranchPRNumberParams {
+	return (
+		typeof params === 'object' &&
+		params !== null &&
+		'projectId' in params &&
+		typeof params.projectId === 'string' &&
+		'stackId' in params &&
+		typeof params.stackId === 'string' &&
+		'branchName' in params &&
+		typeof params.branchName === 'string' &&
+		'prNumber' in params &&
+		typeof params.prNumber === 'number'
 	);
 }

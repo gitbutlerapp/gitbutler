@@ -5,6 +5,7 @@
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { getContext } from '@gitbutler/shared/context';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import type { MergeMethod } from '$lib/forge/interface/types';
@@ -94,6 +95,7 @@
 
 {#if pr}
 	<PullRequestCard
+		testId={TestId.StackedPullRequestCard}
 		{branchName}
 		{prNumber}
 		{isPushed}
