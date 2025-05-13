@@ -7,11 +7,13 @@
 		flat?: boolean;
 		activated: boolean;
 		contextElement: HTMLElement;
+		contextElementSelected?: boolean;
 		oncontext?: (position: { x: number; y: number }) => void;
 		onclick: (element: HTMLElement) => void;
 	};
 
-	const { flat, activated, contextElement, onclick, oncontext }: Props = $props();
+	let { flat, activated, contextElement, contextElementSelected, onclick, oncontext }: Props =
+		$props();
 
 	let visible = $state(false);
 	let isContextElementFocused = $state(false);
@@ -29,16 +31,12 @@
 
 	function onFocus() {
 		if (!flat) return;
-		if (isContextElementFocused) return;
 		isContextElementFocused = true;
 		visible = true;
 	}
 	function onBlur() {
 		if (!flat) return;
-		if (isContextElementFocused) {
-			isContextElementFocused = false;
-			return;
-		}
+		isContextElementFocused = false;
 		visible = false;
 	}
 
@@ -76,7 +74,7 @@
 		bind:this={buttonElement}
 		type="button"
 		class="branch-menu-btn"
-		class:visible={visible || isContextElementFocused}
+		class:visible={visible || isContextElementFocused || contextElementSelected}
 		class:activated
 		onclick={onClick}
 		data-testid={TestId.KebabMenuButton}
@@ -110,6 +108,7 @@
 		&:hover,
 		&:focus-within {
 			display: flex;
+			opacity: 1;
 		}
 	}
 </style>
