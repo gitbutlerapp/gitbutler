@@ -303,7 +303,13 @@
 											{#snippet beforeLocalAndRemote()}
 												{@render commitReorderDz(stackingReorderDropzoneManager.top(branch.name))}
 											{/snippet}
-											{#snippet localAndRemoteTemplate({ commit, first, last, lastCommit })}
+											{#snippet localAndRemoteTemplate({
+												commit,
+												first,
+												last,
+												lastCommit,
+												ancestorMostConflicted
+											})}
 												{@const commitId = commit.id}
 												{@const selected =
 													stackActive &&
@@ -435,7 +441,8 @@
 																			commitId: commit.id,
 																			type: commit.state.type,
 																			hasConflicts: hasConflicts(commit),
-																			isAncestorMostConflicted: false // TODO: Fix this.
+																			isAncestorMostConflicted:
+																				ancestorMostConflicted?.id === commit.id
 																		})
 																}}
 																<KebabButton
