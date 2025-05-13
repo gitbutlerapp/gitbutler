@@ -14,31 +14,34 @@
 	<button type="button" class="channel server" onclick={() => selectedChannel.set(undefined)}>
 		server
 	</button>
-	{#each Object.keys(channels).sort() as name}
-		{@const channel = channels[name]}
-		{@const unread = channel?.unread && channel.unread > 0}
-		<button
-			type="button"
-			class="channel"
-			class:unread
-			class:selected={name === selectedChannel.current}
-			onclick={() => selectedChannel.set(name)}
-		>
-			{name}
-		</button>
+	{#each channels.current as channel}
+		{#if !channel?.floating}
+			{@const unread = channel?.unread && channel.unread > 0}
+			<button
+				type="button"
+				class="channel"
+				class:unread
+				class:selected={name === selectedChannel.current}
+				onclick={() => selectedChannel.set(channel.name)}
+			>
+				{channel.name}
+			</button>
+		{/if}
 	{/each}
-	{#each Object.keys(chats).sort() as nick}
-		{@const chat = chats[nick]}
-		{@const unread = chat?.unread && chat.unread > 0}
-		<button
-			type="button"
-			class="nick"
-			class:unread
-			class:selected={nick === selectedChannel.current}
-			onclick={() => selectedChannel.set(nick)}
-		>
-			{nick}
-		</button>
+	{#each chats.current as chat}
+		{#if !chat?.floating}
+			{@const nick = chat.username}
+			{@const unread = chat?.unread && chat.unread > 0}
+			<button
+				type="button"
+				class="nick"
+				class:unread
+				class:selected={nick === selectedChannel.current}
+				onclick={() => selectedChannel.set(nick)}
+			>
+				{nick}
+			</button>
+		{/if}
 	{/each}
 </div>
 

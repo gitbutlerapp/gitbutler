@@ -70,8 +70,7 @@ export class IrcService {
 				const channels = this.getChannels();
 				this.dispatch(clearNames());
 				setTimeout(() => {
-					for (const key in channels) {
-						const channel = channels[key];
+					for (const channel of channels.current) {
 						this.send(`JOIN ${channel?.name}`);
 					}
 				}, 5000);
@@ -152,17 +151,17 @@ export class IrcService {
 
 	getChats() {
 		const result = $derived(getChats(this.state));
-		return result;
+		return reactive(() => result);
 	}
 
 	getChatsWithPopup() {
 		const result = $derived(getChatsWithPopup(this.state));
-		return result;
+		return reactive(() => result);
 	}
 
 	getChannels() {
 		const result = $derived(getChannels(this.state));
-		return result;
+		return reactive(() => result);
 	}
 
 	getChannel(name: string): Reactive<IrcChannel | undefined> {
@@ -190,7 +189,7 @@ export class IrcService {
 	}
 
 	setPopup(name: string, popup: boolean) {
-		this.dispatch(setPopup({ name, popup }));
+		this.dispatch(setPopup({ name, floating: popup }));
 	}
 
 	unreadCount() {
