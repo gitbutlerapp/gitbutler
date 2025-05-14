@@ -461,7 +461,7 @@ describe('Commit Actions with no stacks', () => {
 		clearCommandMocks();
 	});
 
-	it.only('Should be able to commit even without a stack present', () => {
+	it('Should be able to commit even without a stack present', () => {
 		const newBranchName = 'my-cool-branch';
 		const newCommitMessage = 'New commit message';
 		const newCommitMessageBody = 'New commit message body';
