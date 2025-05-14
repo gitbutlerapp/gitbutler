@@ -3,9 +3,13 @@ import { isTauriCommandError, type TauriCommandError } from '$lib/backend/ipc';
 import { Tauri } from '$lib/backend/tauri';
 import { SettingsService } from '$lib/config/appSettingsV2';
 import { stackLayoutMode } from '$lib/config/uiFeatureFlags';
+import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
 import { type BaseQueryApi, type QueryReturnValue } from '@reduxjs/toolkit/query';
 import { get } from 'svelte/store';
+
+const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
 export type TauriBaseQueryFn = typeof tauriBaseQuery;
 
@@ -25,16 +29,33 @@ export async function tauriBaseQuery(
 
 	const v3 = appSettings ? get(appSettings)?.featureFlags.v3 : false;
 	const stackLayout = get(stackLayoutMode);
+	const settingsSnapshot = get(userSettings);
+	const aiSummariesEnabled = settingsSnapshot.aiSummariesEnabled;
+	const theme = settingsSnapshot.theme;
+	const defaultCodeEditor = settingsSnapshot.defaultCodeEditor.displayName;
 
 	try {
 		const result = { data: await api.extra.tauri.invoke(args.command, args.params) };
 		if (posthog && args.actionName) {
-			posthog.capture(`${args.actionName} Successful`, { v3, stackLayout });
+			posthog.capture(`${args.actionName} Successful`, {
+				v3,
+				stackLayout,
+				aiSummariesEnabled,
+				theme,
+				defaultCodeEditor
+			});
 		}
 		return result;
 	} catch (error: unknown) {
 		if (posthog && args.actionName) {
-			posthog.capture(`${args.actionName} Failed`, { error, v3, stackLayout });
+			posthog.capture(`${args.actionName} Failed`, {
+				error,
+				v3,
+				stackLayout,
+				aiSummariesEnabled,
+				theme,
+				defaultCodeEditor
+			});
 		}
 
 		const name = `API error: ${args.actionName} (${args.command})`;
