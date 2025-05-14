@@ -84,7 +84,6 @@
 		position: relative;
 		display: flex;
 		flex-direction: column;
-		position: relative;
 		flex-grow: 1;
 		width: 100%;
 	}
