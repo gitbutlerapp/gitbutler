@@ -27,36 +27,24 @@
 	let listMode: 'list' | 'tree' = $state('tree');
 </script>
 
-<div
-	data-testid={testId}
-	class="changed-files"
-	use:focusable={{ id: Focusable.ChangedFiles, parentId }}
->
-	<div class="changed-files__header" use:stickyHeader>
-		<div class="changed-files__header-left">
-			<h4 class="text-14 text-semibold truncate">{title}</h4>
-			<Badge>{changes.length}</Badge>
-		</div>
-		<FileListMode bind:mode={listMode} persist="committed" />
+<div class="changed-files__header" use:stickyHeader>
+	<div class="changed-files__header-left">
+		<h4 class="text-14 text-semibold truncate">{title}</h4>
+		<Badge>{changes.length}</Badge>
 	</div>
-	{#if changes.length > 0}
-		<FileList {selectionId} {projectId} {stackId} {changes} {listMode} {active} />
-	{:else}
-		<EmptyStatePlaceholder image={emptyFolderSvg} width={180} gap={4}>
-			{#snippet caption()}
-				No files changed
-			{/snippet}
-		</EmptyStatePlaceholder>
-	{/if}
+	<FileListMode bind:mode={listMode} persist="committed" />
 </div>
+{#if changes.length > 0}
+	<FileList {selectionId} {projectId} {stackId} {changes} {listMode} {active} />
+{:else}
+	<EmptyStatePlaceholder image={emptyFolderSvg} width={180} gap={4}>
+		{#snippet caption()}
+			No files changed
+		{/snippet}
+	</EmptyStatePlaceholder>
+{/if}
 
 <style>
-	.changed-files {
-		position: relative;
-		display: flex;
-		flex-direction: column;
-	}
-
 	.changed-files__header {
 		padding: 10px 10px 10px 14px;
 		display: flex;
