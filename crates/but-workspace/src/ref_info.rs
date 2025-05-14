@@ -1,6 +1,6 @@
 #![allow(clippy::indexing_slicing)]
 
-/// Options for the [`head_info()`](crate::head_info) call.
+/// Options for the [`head_info()`](crate::ref_info) call.
 #[derive(Default, Debug, Copy, Clone)]
 pub struct Options {
     /// The maximum amount of commits to list *per stack*. Note that a [`StackSegment`](crate::branch::StackSegment) will always have a single commit, if available,
@@ -24,7 +24,8 @@ pub struct Options {
 pub(crate) mod function {
     use crate::branch::{LocalCommit, LocalCommitRelation, RefLocation, Stack, StackSegment};
     use crate::integrated::{IsCommitIntegrated, MergeBaseCommitGraph};
-    use crate::{HeadInfo, branch};
+    use crate::{RefInfo, branch};
+    use anyhow::bail;
     use bstr::BString;
     use but_core::ref_metadata::ValueInfo;
     use gitbutler_oxidize::ObjectIdExt as _;
@@ -35,26 +36,19 @@ pub(crate) mod function {
     use tracing::instrument;
 
     /// Gather information about the current `HEAD` and the workspace that might be associated with it, based on data in `repo` and `meta`.
-    ///
     /// Use `options` to further configure the call.
     ///
-    /// ### Performance
-    ///
-    /// Make sure the `repo` is initialized with a decently sized Object cache so querying the same commit multiple times will be cheap(er).
-    /// Also, **IMPORTANT**, it must use in-memory objects to avoid leaking objects generated during test-merges to disk!
-    #[instrument(level = tracing::Level::DEBUG, skip(repo, meta), err(Debug))]
-    pub fn head_info(
+    /// For details, see [`ref_info_at()`].
+    pub fn ref_info(
         repo: &gix::Repository,
         meta: &impl but_core::RefMetadata,
-        super::Options {
-            stack_commit_limit,
-            expensive_commit_info,
-        }: super::Options,
-    ) -> anyhow::Result<HeadInfo> {
+        opts: super::Options,
+    ) -> anyhow::Result<RefInfo> {
         let head = repo.head()?;
-        let mut existing_ref = match head.kind {
+        let existing_ref = match head.kind {
             gix::head::Kind::Unborn(ref_name) => {
-                return Ok(HeadInfo {
+                return Ok(RefInfo {
+                    workspace_ref_name: None,
                     target_ref: workspace_data_of_workspace_branch(meta, ref_name.as_ref())?
                         .and_then(|ws| ws.target_ref),
                     stacks: vec![Stack {
@@ -66,7 +60,7 @@ pub(crate) mod function {
                             commits_unique_in_remote_tracking_branch: vec![],
                             remote_tracking_ref_name: None,
                             metadata: branch_metadata_opt(meta, ref_name.as_ref())?,
-                            ref_location: Some(RefLocation::AtHead),
+                            ref_location: Some(RefLocation::OutsideOfWorkspace),
                             ref_name: Some(ref_name),
                         }],
                         stash_status: None,
@@ -74,28 +68,69 @@ pub(crate) mod function {
                 });
             }
             gix::head::Kind::Detached { .. } => {
-                return Ok(HeadInfo {
+                return Ok(RefInfo {
+                    workspace_ref_name: None,
                     stacks: vec![],
                     target_ref: None,
                 });
             }
             gix::head::Kind::Symbolic(name) => name.attach(repo),
         };
+        ref_info_at(existing_ref, meta, opts)
+    }
 
+    /// Gather information about the commit at `existing_ref` and the workspace that might be associated with it,
+    /// based on data in `repo` and `meta`.
+    ///
+    /// Use `options` to further configure the call.
+    ///
+    /// ### Performance
+    ///
+    /// Make sure the `repo` is initialized with a decently sized Object cache so querying the same commit multiple times will be cheap(er).
+    /// Also, **IMPORTANT**, it must use in-memory objects to avoid leaking objects generated during test-merges to disk!
+    #[instrument(level = tracing::Level::DEBUG, skip(meta), err(Debug))]
+    pub fn ref_info_at(
+        mut existing_ref: gix::Reference<'_>,
+        meta: &impl but_core::RefMetadata,
+        super::Options {
+            stack_commit_limit,
+            expensive_commit_info,
+        }: super::Options,
+    ) -> anyhow::Result<RefInfo> {
         let ws_data = workspace_data_of_workspace_branch(meta, existing_ref.name())?;
-        let target_ref = if let Some(data) = ws_data {
+        let (workspace_ref_name, target_ref) = if let Some(data) = ws_data {
             // TODO: figure out what to do with workspace information, consolidate it with what's there as well
             //       to know which branch is where.
-            data.target_ref
+            (Some(existing_ref.name().to_owned()), data.target_ref)
         } else {
-            None
+            // We'd want to assure we don't overcount commits even if we are handed a non-workspace ref, so we always have to
+            // search for known workspaces.
+            // Do get the first known target ref for now.
+            let mut target_refs =
+                meta.iter()
+                    .filter_map(Result::ok)
+                    .filter_map(|(ref_name, item)| {
+                        item.downcast::<but_core::ref_metadata::Workspace>()
+                            .ok()
+                            .and_then(|ws| ws.target_ref.map(|target| (ref_name, target)))
+                    });
+            let first_target = target_refs.next();
+            if target_refs.next().is_some() {
+                bail!(
+                    "BUG: found more than one workspaces in branch-metadata, and we'd want to make this code multi-workspace compatible"
+                )
+            }
+            first_target
+                .map(|(a, b)| (Some(a), Some(b)))
+                .unwrap_or_default()
         };
 
-        let head_commit = existing_ref.peel_to_commit()?;
-        let head_commit = crate::WorkspaceCommit {
-            id: head_commit.id(),
-            inner: head_commit.decode()?.to_owned(),
+        let ref_commit = existing_ref.peel_to_commit()?;
+        let ref_commit = crate::WorkspaceCommit {
+            id: ref_commit.id(),
+            inner: ref_commit.decode()?.to_owned(),
         };
+        let repo = existing_ref.repo;
         let refs_by_id = collect_refs_by_commit_id(repo)?;
         let target_ref_id = target_ref
             .as_ref()
@@ -103,20 +138,17 @@ pub(crate) mod function {
             .transpose()?;
         let cache = repo.commit_graph_if_enabled()?;
         let mut graph = repo.revision_graph(cache.as_ref());
-        let base =
-            if target_ref_id.is_none() {
-                Some(repo.merge_base_octopus_with_graph(
-                    head_commit.parents.iter().cloned(),
-                    &mut graph,
-                )?)
-            } else {
-                None
-            };
+        let base: Option<_> = if target_ref_id.is_none() {
+            repo.merge_base_octopus_with_graph(ref_commit.parents.iter().cloned(), &mut graph)?
+                .into()
+        } else {
+            None
+        };
         let mut boundary = gix::hashtable::HashSet::default();
-        let mut stacks = if head_commit.is_managed() {
+        let mut stacks = if ref_commit.is_managed() {
             // The commits we have already associated with a stack segment.
             let mut stacks = Vec::new();
-            for (index, commit_id) in head_commit.parents.iter().enumerate() {
+            for (index, commit_id) in ref_commit.parents.iter().enumerate() {
                 let tip = *commit_id;
                 let base = base
                     .map(Ok)
@@ -162,7 +194,7 @@ pub(crate) mod function {
             stacks
         } else {
             // Discover all references that actually point to the reachable graph.
-            let tip = head_commit.id;
+            let tip = ref_commit.id;
             let base = target_ref_id
                 .map(|target_id| repo.merge_base_with_graph(target_id, tip, &mut graph))
                 .transpose()?
@@ -175,7 +207,17 @@ pub(crate) mod function {
             let segments = collect_stack_segments(
                 tip,
                 Some(existing_ref.name()),
-                Some(RefLocation::AtHead),
+                Some(match workspace_ref_name.as_ref().zip(target_ref_id) {
+                    None => RefLocation::OutsideOfWorkspace,
+                    Some((ws_ref, target_id)) => {
+                        let ws_commits = walk_commits(repo, ws_ref.as_ref(), target_id)?;
+                        if ws_commits.contains(&*tip) {
+                            RefLocation::ReachableFromWorkspaceCommit
+                        } else {
+                            RefLocation::OutsideOfWorkspace
+                        }
+                    }
+                }),
                 &boundary,                         /* boundary commits */
                 &[existing_ref.name().to_owned()], /* preferred refs */
                 stack_commit_limit,
@@ -197,7 +239,35 @@ pub(crate) mod function {
             populate_commit_info(target_ref.as_ref(), &mut stacks, repo, &mut graph)?;
         }
 
-        Ok(HeadInfo { stacks, target_ref })
+        Ok(RefInfo {
+            workspace_ref_name,
+            stacks,
+            target_ref,
+        })
+    }
+
+    /// Akin to `log()`, but less powerful.
+    // TODO: replace with something better, and also use `.hide()`.
+    fn walk_commits(
+        repo: &gix::Repository,
+        from: &gix::refs::FullNameRef,
+        hide: gix::ObjectId,
+    ) -> anyhow::Result<gix::hashtable::HashSet<gix::ObjectId>> {
+        let Some(from_id) = repo
+            .try_find_reference(from)?
+            .and_then(|mut r| r.peel_to_id_in_place().ok())
+        else {
+            return Ok(Default::default());
+        };
+        Ok(from_id
+            .ancestors()
+            .sorting(Sorting::BreadthFirst)
+            // TODO: use 'hide()'
+            .with_boundary(Some(hide))
+            .all()?
+            .filter_map(Result::ok)
+            .map(|info| info.id)
+            .collect())
     }
 
     /// For each stack in `stacks`, and for each stack segment within it, check if a remote tracking branch is available

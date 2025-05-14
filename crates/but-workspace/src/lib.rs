@@ -56,7 +56,7 @@ pub mod branch;
 /// 🚧Deal with worktree changes 🚧.
 mod stash {
     /// Information about a stash which is associated with the tip of a stack.
-    #[derive(Debug, Copy, Clone)]
+    #[derive(Debug, Eq, PartialEq, Copy, Clone)]
     pub enum StashStatus {
         /// The parent reference is still present, but it doesn't point to the first parent of the *stash commit* anymore.
         Desynced,
@@ -71,8 +71,8 @@ mod commit;
 /// Types used only when obtaining head-information.
 ///
 /// Note that many of these types should eventually end up in the crate root.
-pub mod head_info;
-pub use head_info::function::head_info;
+pub mod ref_info;
+pub use ref_info::function::{ref_info, ref_info_at};
 
 /// High level Stack funtions that use primitives from this crate (`but-workspace`)
 pub mod stack_ext;
@@ -136,9 +136,16 @@ impl HunkHeader {
     }
 }
 
-/// Information about where the user is currently looking at.
-#[derive(Debug, Clone)]
-pub struct HeadInfo {
+/// Information about refs, as seen from within or outsie of a workspace.
+///
+/// We always try to deduce a set of stacks that are currently applied to a workspace,
+/// even though it's possible to look at refs that are outside a workspace as well.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct RefInfo {
+    /// The name of the ref that points to a workspace commit.
+    ///
+    /// Such a commit always combines one or more branches and stacks.
+    pub workspace_ref_name: Option<gix::refs::FullName>,
     /// The stacks visible in the current workspace.
     ///
     /// This is an empty array if the `HEAD` is detached.

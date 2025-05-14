@@ -1,6 +1,9 @@
+use but_workspace::{ref_info, ref_info_at};
+use pretty_assertions::assert_eq;
+
 #[test]
 fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
-    let (repo, meta) = read_only_in_memory_scenario("remote-advanced-ff")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("remote-advanced-ff")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * fb27086 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     | * 89cc2d3 (origin/A) change in A
@@ -9,17 +12,24 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
     * c166d42 (origin/main, origin/HEAD, main) init-integration
     ");
 
-    // TODO: set metadata
-    let info = head_info(
+    // Needs a branch for workspace to 'fake-exists'.
+    add_workspace(&mut meta);
+    // We can look at a workspace ref directly (via HEAD)
+    let info = ref_info(
         &repo,
         &*meta,
-        head_info::Options {
+        ref_info::Options {
             stack_commit_limit: 0,
             expensive_commit_info: true,
         },
     )?;
     insta::assert_debug_snapshot!(info, @r#"
-    HeadInfo {
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
         stacks: [
             Stack {
                 index: 0,
@@ -53,11 +63,27 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
         ),
     }
     "#);
+
+    let expected_info = info;
+
+    let at = repo.find_reference("refs/heads/A")?;
+    let info = ref_info_at(
+        at,
+        &*meta,
+        ref_info::Options {
+            stack_commit_limit: 0,
+            expensive_commit_info: true,
+        },
+    )?;
+    assert_eq!(
+        info, expected_info,
+        "Information doesn't change just because the starting point is different"
+    );
     Ok(())
 }
 
 mod utils {
-    use crate::head_info::utils::named_read_only_in_memory_scenario;
+    use crate::ref_info::utils::named_read_only_in_memory_scenario;
     use but_workspace::VirtualBranchesTomlMetadata;
 
     pub fn read_only_in_memory_scenario(
@@ -79,8 +105,27 @@ mod utils {
         });
         Ok((repo, meta))
     }
+
+    // Add parameters as needed.
+    pub fn add_workspace(meta: &mut VirtualBranchesTomlMetadata) {
+        meta.data_mut().branches.insert(
+            but_workspace::StackId::generate(),
+            gitbutler_stack::Stack::new_with_just_heads(
+                vec![gitbutler_stack::StackBranch::new_with_zero_head(
+                    "name is not important, needs branch for workspace to exist".into(),
+                    None,
+                    None,
+                    None,
+                    true,
+                )],
+                0,
+                0,
+                false,
+            ),
+        );
+    }
 }
 
+use crate::ref_info::with_workspace_commit::utils::add_workspace;
 use but_testsupport::visualize_commit_graph_all;
-use but_workspace::head_info;
 use utils::read_only_in_memory_scenario;

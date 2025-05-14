@@ -91,8 +91,10 @@ async fn main() -> Result<()> {
             *unified_diff,
         ),
         args::Subcommands::Watch => command::watch(&args).await,
-        args::Subcommands::Stacks => command::stacks::list(&args.current_dir, args.json),
-        args::Subcommands::StackDetails { id } => command::stacks::details(*id, &args.current_dir),
+        args::Subcommands::Stacks => command::stacks::list(&args.current_dir, args.json, args.v3),
+        args::Subcommands::StackDetails { id } => {
+            command::stacks::details(*id, &args.current_dir, args.v3)
+        }
         args::Subcommands::StackBranches {
             id,
             branch_name,

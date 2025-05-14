@@ -1,5 +1,5 @@
-use crate::head_info::utils::read_only_in_memory_scenario;
-use but_workspace::head_info;
+use crate::ref_info::utils::read_only_in_memory_scenario;
+use but_workspace::ref_info;
 
 /// All tests that use a workspace commit for a fully managed, explicit workspace.
 mod with_workspace_commit;
@@ -7,16 +7,17 @@ mod with_workspace_commit;
 #[test]
 fn untracked() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("unborn-untracked")?;
-    let info = but_workspace::head_info(
+    let info = but_workspace::ref_info(
         &repo,
         &*meta,
-        head_info::Options {
+        ref_info::Options {
             stack_commit_limit: 5,
             expensive_commit_info: true,
         },
     )?;
     insta::assert_debug_snapshot!(&info, @r#"
-    HeadInfo {
+    RefInfo {
+        workspace_ref_name: None,
         stacks: [
             Stack {
                 index: 0,
@@ -26,7 +27,7 @@ fn untracked() -> anyhow::Result<()> {
                     StackSegment {
                         ref_name: "refs/heads/main",
                         remote_tracking_ref_name: "None",
-                        ref_location: "AtHead",
+                        ref_location: "OutsideOfWorkspace",
                         commits_unique_from_tip: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: None,
@@ -44,9 +45,10 @@ fn untracked() -> anyhow::Result<()> {
 #[test]
 fn detached() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("one-commit-detached")?;
-    let info = but_workspace::head_info(&repo, &*meta, head_info::Options::default())?;
+    let info = but_workspace::ref_info(&repo, &*meta, ref_info::Options::default())?;
     insta::assert_debug_snapshot!(&info, @r"
-    HeadInfo {
+    RefInfo {
+        workspace_ref_name: None,
         stacks: [],
         target_ref: None,
     }
@@ -59,10 +61,10 @@ fn single_branch() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("single-branch-10-commits")?;
     let stack_commit_limit = 5;
 
-    let info = but_workspace::head_info(
+    let info = but_workspace::ref_info(
         &repo,
         &*meta,
-        head_info::Options {
+        ref_info::Options {
             stack_commit_limit,
             expensive_commit_info: true,
         },
@@ -79,7 +81,8 @@ fn single_branch() -> anyhow::Result<()> {
         "commit limit is respected"
     );
     insta::assert_debug_snapshot!(&info, @r#"
-    HeadInfo {
+    RefInfo {
+        workspace_ref_name: None,
         stacks: [
             Stack {
                 index: 0,
@@ -91,7 +94,7 @@ fn single_branch() -> anyhow::Result<()> {
                     StackSegment {
                         ref_name: "refs/heads/main",
                         remote_tracking_ref_name: "None",
-                        ref_location: "AtHead",
+                        ref_location: "OutsideOfWorkspace",
                         commits_unique_from_tip: [
                             LocalCommit(b5743a3, "10\n", local),
                             LocalCommit(344e320, "9\n", local),
@@ -115,17 +118,18 @@ fn single_branch() -> anyhow::Result<()> {
 #[test]
 fn single_branch_multiple_segments() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("single-branch-10-commits-multi-segment")?;
-    let info = but_workspace::head_info(
+    let info = but_workspace::ref_info(
         &repo,
         &*meta,
-        head_info::Options {
+        ref_info::Options {
             stack_commit_limit: 0,
             expensive_commit_info: true,
         },
     )?;
 
     insta::assert_debug_snapshot!(&info, @r#"
-    HeadInfo {
+    RefInfo {
+        workspace_ref_name: None,
         stacks: [
             Stack {
                 index: 0,
@@ -137,7 +141,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                     StackSegment {
                         ref_name: "refs/heads/main",
                         remote_tracking_ref_name: "None",
-                        ref_location: "AtHead",
+                        ref_location: "OutsideOfWorkspace",
                         commits_unique_from_tip: [
                             LocalCommit(b5743a3, "10\n", local),
                         ],
@@ -147,7 +151,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                     StackSegment {
                         ref_name: "refs/heads/nine",
                         remote_tracking_ref_name: "None",
-                        ref_location: "AtHead",
+                        ref_location: "OutsideOfWorkspace",
                         commits_unique_from_tip: [
                             LocalCommit(344e320, "9\n", local),
                             LocalCommit(599c271, "8\n", local),
@@ -159,7 +163,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                     StackSegment {
                         ref_name: "refs/heads/six",
                         remote_tracking_ref_name: "None",
-                        ref_location: "AtHead",
+                        ref_location: "OutsideOfWorkspace",
                         commits_unique_from_tip: [
                             LocalCommit(c4f2a35, "6\n", local),
                             LocalCommit(44c12ce, "5\n", local),
@@ -171,7 +175,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                     StackSegment {
                         ref_name: "refs/heads/three",
                         remote_tracking_ref_name: "None",
-                        ref_location: "AtHead",
+                        ref_location: "OutsideOfWorkspace",
                         commits_unique_from_tip: [
                             LocalCommit(281da94, "3\n", local),
                             LocalCommit(12995d7, "2\n", local),
@@ -182,7 +186,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                     StackSegment {
                         ref_name: "refs/heads/one",
                         remote_tracking_ref_name: "None",
-                        ref_location: "AtHead",
+                        ref_location: "OutsideOfWorkspace",
                         commits_unique_from_tip: [
                             LocalCommit(3d57fc1, "1\n", local),
                         ],

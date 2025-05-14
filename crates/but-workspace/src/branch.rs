@@ -493,7 +493,7 @@ pub fn remove_branch_from_workspace(
 ///
 /// Mote that a stack is also used to represent detached heads, which is far-fetched but necessary
 // TODO: move this to the crate root once the 'old' implementation isn't used anymore.
-#[derive(Debug, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Stack {
     /// The index into the parents-array of its [`WorkspaceCommit`](crate::WorkspaceCommit), but for our
     /// purposes just a way to refer to the stack.
@@ -539,7 +539,7 @@ impl Stack {
 /// A commit with must useful information extracted from the Git commit itself.
 ///
 /// Note that additional information can be computed and placed in the [`LocalCommit`] and [`RemoteCommit`]
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Commit {
     /// The hash of the commit.
     pub id: gix::ObjectId,
@@ -589,7 +589,7 @@ impl From<but_core::Commit<'_>> for Commit {
 }
 
 /// A commit that is reachable through the *local tracking branch*, with additional, computed information.
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct LocalCommit {
     /// The simple commit.
     pub inner: Commit,
@@ -629,7 +629,7 @@ impl LocalCommit {
 }
 
 /// The state of the [local commit](LocalCommit) in relation to its remote tracking branch or its integration branch.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum LocalCommitRelation {
     /// The commit is only local
     LocalOnly,
@@ -681,7 +681,7 @@ impl DerefMut for LocalCommit {
 /// A commit that is reachable only through the *remote tracking branch*, with additional, computed information.
 ///
 /// TODO: Remote commits can also be integrated, without the local branch being all caught up. Currently we can't represent that.
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct RemoteCommit {
     /// The simple commit.
     pub inner: Commit,
@@ -721,7 +721,7 @@ impl DerefMut for RemoteCommit {
 }
 
 /// A more detailed specification of a reference associated with a workspace, and it's location in comparison to a named reference point.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum RefLocation {
     /// The workspace commit can reach the given reference using a graph-walk.
     ///
@@ -731,12 +731,10 @@ pub enum RefLocation {
     ///
     /// This happens if someone checked out the reference directly and committed into it.
     OutsideOfWorkspace,
-    /// `HEAD` points directly to the reference, i.e., it is checked out.
-    AtHead,
 }
 
 /// A list of all commits in a stack segment of a [`Stack`].
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Eq, PartialEq)]
 pub struct StackSegment {
     /// The name of the branch at the tip of it, and the starting point of the walk.
     ///
@@ -747,7 +745,7 @@ pub struct StackSegment {
     /// The name of the remote tracking branch of this segment, if present, i.e. `refs/remotes/origin/main`.
     /// Its presence means that a remote is configured and that the stack content
     pub remote_tracking_ref_name: Option<gix::refs::FullName>,
-    /// Specify where the `ref_name` is specifically, or `None` if there is no ref-name.
+    /// Specify where the `ref_name` is specifically in relation to a workspace, or `None` if there is no ref-name.
     pub ref_location: Option<RefLocation>,
     /// The portion of commits that can be reached from the tip of the *branch* downwards, so that they are unique
     /// for that stack segment and not included in any other stack or stack segment.
