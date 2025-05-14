@@ -7,7 +7,6 @@
 	import StackStickyButtons from '$components/StackStickyButtons.svelte';
 	import BranchCard from '$components/v3/BranchCard.svelte';
 	import BranchCommitList from '$components/v3/BranchCommitList.svelte';
-	import BranchHeader from '$components/v3/BranchHeader.svelte';
 	import BranchHeaderContextMenu, {
 		type BranchHeaderContextItem
 	} from '$components/v3/BranchHeaderContextMenu.svelte';
@@ -178,6 +177,11 @@
 									stackActive &&
 									selection?.current?.branchName === branchName &&
 									selection?.current.commitId === undefined}
+								{@const pushStatus = branchDetails.pushStatus}
+								{@const isConflicted = branchDetails.isConflicted}
+								{@const lastUpdatedAt = branchDetails.lastUpdatedAt}
+								{@const reviewId = branch.reviewId || undefined}
+								{@const prNumber = branch.prNumber || undefined}
 								<BranchCard
 									type="stack-branch"
 									{projectId}
@@ -186,64 +190,46 @@
 									{lineColor}
 									{first}
 									{isCommitting}
+									{iconName}
+									{selected}
+									{isNewBranch}
+									{pushStatus}
+									{isConflicted}
+									{lastUpdatedAt}
+									{reviewId}
+									{prNumber}
+									{active}
+									trackingBranch={branch.remoteTrackingBranch ?? undefined}
+									readonly={!!branch.remoteTrackingBranch}
+									onclick={() => {
+										uiState.project(projectId).stackId.set(stackId);
+										if (isCommitting) {
+											uiState.stack(stackId).selection.set({
+												branchName,
+												commitId: headCommit
+											});
+											projectState.stackId.set(stackId);
+										} else {
+											uiState.stack(stackId).selection.set({ branchName });
+											uiState.project(projectId).drawerPage.set('branch');
+										}
+									}}
 								>
-									{#snippet header()}
-										{@const pushStatus = branchDetails.pushStatus}
-										{@const isConflicted = branchDetails.isConflicted}
-										{@const lastUpdatedAt = branchDetails.lastUpdatedAt}
-										{@const reviewId = branch.reviewId || undefined}
-										{@const prNumber = branch.prNumber || undefined}
-										<BranchHeader
-											type="stack-branch"
-											{branchName}
-											{projectId}
-											{stackId}
-											{lineColor}
-											{iconName}
-											{selected}
-											{isNewBranch}
-											{pushStatus}
-											{isConflicted}
-											{lastUpdatedAt}
-											{reviewId}
-											{prNumber}
-											{active}
-											isTopBranch={first}
-											trackingBranch={branch.remoteTrackingBranch || undefined}
-											readonly={!!branch.remoteTrackingBranch}
-											onclick={() => {
-												uiState.project(projectId).stackId.set(stackId);
-												if (isCommitting) {
-													uiState.stack(stackId).selection.set({
-														branchName,
-														commitId: headCommit
-													});
-													projectState.stackId.set(stackId);
-												} else {
-													uiState.stack(stackId).selection.set({ branchName });
-													uiState.project(projectId).drawerPage.set('branch');
-												}
-											}}
-										>
-											{#snippet menu({ rightClickTrigger })}
-												{@const data = {
-													branch,
-													prNumber,
-													first: i === 0
-												}}
-												<KebabButton
-													flat
-													contextElement={rightClickTrigger}
-													onclick={(element) =>
-														(headerMenuContext = { data, position: { element } })}
-													oncontext={(coords) =>
-														(headerMenuContext = { data, position: { coords } })}
-													contextElementSelected={selected}
-													activated={branchName === headerMenuContext?.data.branch.name &&
-														!!headerMenuContext.position.element}
-												/>
-											{/snippet}
-										</BranchHeader>
+									{#snippet menu({ rightClickTrigger })}
+										{@const data = {
+											branch,
+											prNumber,
+											first
+										}}
+										<KebabButton
+											flat
+											contextElement={rightClickTrigger}
+											onclick={(element) => (headerMenuContext = { data, position: { element } })}
+											oncontext={(coords) => (headerMenuContext = { data, position: { coords } })}
+											contextElementSelected={selected}
+											activated={branchName === headerMenuContext?.data.branch.name &&
+												!!headerMenuContext.position.element}
+										/>
 									{/snippet}
 									{#snippet commitList()}
 										{#snippet commitReorderDz(dropzone: ReorderCommitDzHandler)}

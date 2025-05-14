@@ -1,7 +1,6 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import BranchCard from '$components/v3/BranchCard.svelte';
-	import BranchHeader from '$components/v3/BranchHeader.svelte';
 	import CommitRow from '$components/v3/CommitRow.svelte';
 	import { pushStatusToColor, pushStatusToIcon } from '$lib/stacks/stack';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -41,31 +40,23 @@
 			lineColor={commitColor}
 			projectId={env.projectId}
 			branchName={branch.name}
+			active
+			{isTopBranch}
+			isNewBranch={branch.commits?.length === 0}
+			iconName={pushStatusToIcon(branch.pushStatus)}
+			trackingBranch={branch.remoteTrackingBranch || undefined}
+			readonly
+			selected={branchesState.current.branchName === branch.name &&
+				branchesState.current.stackId === env.stackId &&
+				!branchesState.current.commitId}
+			onclick={() => {
+				branchesState.current = {
+					branchName,
+					stackId: env.stackId,
+					remote
+				};
+			}}
 		>
-			{#snippet header()}
-				<BranchHeader
-					type="normal-branch"
-					active
-					{branchName}
-					{projectId}
-					{isTopBranch}
-					isNewBranch={branch.commits?.length === 0}
-					iconName={pushStatusToIcon(branch.pushStatus)}
-					lineColor={commitColor}
-					trackingBranch={branch.remoteTrackingBranch || undefined}
-					readonly
-					selected={branchesState.current.branchName === branch.name &&
-						branchesState.current.stackId === env.stackId &&
-						!branchesState.current.commitId}
-					onclick={() => {
-						branchesState.current = {
-							branchName,
-							stackId: env.stackId,
-							remote
-						};
-					}}
-				/>
-			{/snippet}
 			{#snippet commitList()}
 				{#each branch.upstreamCommits || [] as commit, idx}
 					<CommitRow
