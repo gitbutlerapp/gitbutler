@@ -8,8 +8,8 @@
 		projectId: string;
 		stackId?: string;
 		branchName: string | undefined;
-		prNumber?: number;
-		reviewId?: string;
+		prNumber: number | undefined;
+		reviewId: string | undefined;
 	};
 
 	const { projectId, stackId, branchName, prNumber, reviewId }: Props = $props();
@@ -33,7 +33,7 @@
 
 	const canPublish = stackPublishingService.canPublish;
 	const canPublishBR = $derived(!!($canPublish && name && !reviewId));
-	const canPublishPR = $derived(!!(forge.current.authenticated && !pr));
+	const canPublishPR = $derived(forge.current.authenticated && !pr);
 
 	const ctaLabel = $derived.by(() => {
 		if (canPublishBR && canPublishPR) {

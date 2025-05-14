@@ -58,6 +58,8 @@
 	);
 
 	const branchName = $derived(branchToReview?.name);
+	const prNumber = $derived(branchToReview?.prNumber ?? undefined);
+	const reviewId = $derived(branchToReview?.reviewId ?? undefined);
 
 	const canPublishBR = $derived(!!canPublishReviewPlugin?.imports.canPublishBR);
 	const canPublishPR = $derived(!!canPublishReviewPlugin?.imports.canPublishPR);
@@ -75,7 +77,7 @@
 		uiState.project(projectId).drawerPage.set('review');
 	}
 
-	function getPushTooltip() {
+	const tooltip = $derived.by(() => {
 		if (!branchName) {
 			return 'No available branches';
 		}
@@ -85,10 +87,17 @@
 		} else {
 			return branches.length > 1 ? `Create for ${branchName}` : undefined;
 		}
-	}
+	});
 </script>
 
-<CanPublishReviewPlugin {projectId} {stackId} {branchName} bind:this={canPublishReviewPlugin} />
+<CanPublishReviewPlugin
+	{projectId}
+	{stackId}
+	{branchName}
+	{prNumber}
+	{reviewId}
+	bind:this={canPublishReviewPlugin}
+/>
 
 {#if canPublish && !branchEmpty}
 	<div class="publish-button" style:flex>
@@ -96,7 +105,7 @@
 			style="neutral"
 			wide
 			disabled={!branchName || hasConflicts}
-			tooltip={getPushTooltip()}
+			{tooltip}
 			tooltipPosition="top"
 			onclick={publish}
 		>
