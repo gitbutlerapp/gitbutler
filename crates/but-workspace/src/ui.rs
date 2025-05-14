@@ -1,4 +1,4 @@
-use bstr::{BStr, BString};
+use bstr::{BStr, BString, ByteSlice};
 use serde::Serialize;
 
 /// This code is a fork of [`gitbutler_branch_actions::author`] to avoid depending on the `gitbutler_branch_actions` crate.
@@ -7,7 +7,7 @@ mod author {
     use serde::Serialize;
 
     /// Represents the author of a commit.
-    #[derive(Debug, Serialize, Hash, Clone, PartialEq, Eq)]
+    #[derive(Serialize, Hash, Clone, PartialEq, Eq)]
     #[serde(rename_all = "camelCase")]
     pub struct Author {
         /// The name from the git commit signature
@@ -16,6 +16,12 @@ mod author {
         pub email: String,
         /// A URL to a gravatar image for the email from the commit signature
         pub gravatar_url: url::Url,
+    }
+
+    impl std::fmt::Debug for Author {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{} <{}>", self.name, self.email)
+        }
     }
 
     impl From<git2::Signature<'_>> for Author {
@@ -122,7 +128,7 @@ pub enum CommitState {
 }
 
 /// Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Commit {
     /// The OID of the commit.
@@ -144,7 +150,7 @@ pub struct Commit {
     /// Note that remote only commits in the context of a branch are expressed with the [`UpstreamCommit`] struct instead of this.
     pub state: CommitState,
     /// Commit creation time in Epoch milliseconds.
-    pub created_at: u128,
+    pub created_at: i128,
     /// The author of the commit.
     pub author: Author,
 }
@@ -158,15 +164,26 @@ impl TryFrom<gix::Commit<'_>> for Commit {
             message: commit.message_raw_sloppy().into(),
             has_conflicts: false,
             state: CommitState::LocalAndRemote(commit.id),
-            created_at: u128::try_from(commit.time()?.seconds)? * 1000,
+            created_at: i128::from(commit.time()?.seconds) * 1000,
             author: commit.author()?.into(),
         })
     }
 }
 
+impl std::fmt::Debug for Commit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Commit({short_hex}, {message:?})",
+            short_hex = self.id.to_hex_with_len(7),
+            message = self.message.trim().as_bstr()
+        )
+    }
+}
+
 /// Commit that is only at the remote.
 /// Unlike the `Commit` struct, there is no knowledge of GitButler concepts like conflicted state etc.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpstreamCommit {
     /// The OID of the commit.
@@ -176,13 +193,24 @@ pub struct UpstreamCommit {
     #[serde(with = "gitbutler_serde::bstring_lossy")]
     pub message: BString,
     /// Commit creation time in Epoch milliseconds.
-    pub created_at: u128,
+    pub created_at: i128,
     /// The author of the commit.
     pub author: Author,
 }
 
+impl std::fmt::Debug for UpstreamCommit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "UpstreamCommit({short_hex}, {message:?})",
+            short_hex = self.id.to_hex_with_len(7),
+            message = self.message.trim().as_bstr()
+        )
+    }
+}
+
 /// Represents the pushable status for the current stack.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum PushStatus {
     /// Can push, but there are no changes to be pushed
@@ -191,7 +219,7 @@ pub enum PushStatus {
     UnpushedCommits,
     /// Can push, but requires a force push to the remote because commits were rewritten.
     UnpushedCommitsRequiringForce,
-    /// Completely unpushed
+    /// Completely unpushed - there is no remote tracking branch so Git never interacted with the remote.
     CompletelyUnpushed,
     /// Fully integrated, no changes to push.
     Integrated,
@@ -223,10 +251,10 @@ pub struct BranchDetails {
     /// If this branch is at the bottom of the stack, this is the merge base of the stack.
     #[serde(with = "gitbutler_serde::object_id")]
     pub base_commit: gix::ObjectId,
-    /// The pushable status for the branch
+    /// The pushable status for the branch.
     pub push_status: PushStatus,
     /// Last time, the branch was updated in Epoch milliseconds.
-    pub last_updated_at: Option<u128>,
+    pub last_updated_at: Option<i128>,
     /// All authors of the commits in the branch.
     pub authors: Vec<Author>,
     /// Whether the branch is conflicted.

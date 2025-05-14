@@ -23,6 +23,8 @@ pub struct GitHubOAuthAppSettings {
 pub struct FeatureFlags {
     /// Enables the v3 design, as well as the purgatory mode (no uncommitted diff ownership assignments).
     pub v3: bool,
+    /// Enable the usage of V3 workspace APIs.
+    pub ws3: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

@@ -268,6 +268,10 @@
 		'v 3': () => {
 			settingsService.updateFeatureFlags({ v3: !$settingsStore?.featureFlags.v3 });
 		},
+		// Toggle v3 workspace APIs on/off
+		'w s 3': () => {
+			settingsService.updateFeatureFlags({ ws3: !$settingsStore?.featureFlags.ws3 });
+		},
 		// This is a debug tool to learn about environment variables actually present - only available if the backend is in debug mode.
 		'e n v': async () => {
 			let env = await invoke('env_vars');

@@ -1,3 +1,4 @@
+use gitbutler_stack::StackId;
 use std::path::PathBuf;
 
 #[derive(Debug, clap::Parser)]
@@ -107,6 +108,11 @@ pub enum Subcommands {
     },
     /// Returns the list of stacks that are currently part of the GitButler workspace.
     Stacks,
+    /// Returns the list of stacks that are currently part of the GitButler workspace.
+    StackDetails {
+        /// The ID of the stack to list details for.
+        id: StackId,
+    },
     /// Return all stack branches related to the given `id`.
     StackBranches {
         /// The ID of the stack to list branches from.
@@ -114,7 +120,7 @@ pub enum Subcommands {
         /// If creating a branch, this is optionally the stack to which the branch will be added.
         /// If no ID is present while creating a branch, a new stack will be created that will
         /// contain the brand new branch.
-        id: Option<String>,
+        id: Option<StackId>,
         /// Optional. The name of the branch to create.
         ///
         /// If this is set, a branch will be created with the given name.
@@ -127,7 +133,7 @@ pub enum Subcommands {
         description: Option<String>,
     },
     /// Returns all commits for the branch with the given `name` in the stack with the given `id`.
-    StackBranchCommits { id: String, name: String },
+    StackBranchCommits { id: StackId, name: String },
 }
 
 #[cfg(test)]

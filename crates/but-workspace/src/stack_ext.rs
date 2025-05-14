@@ -18,7 +18,7 @@ impl StackExt for gitbutler_stack::Stack {
         repo: &gix::Repository,
     ) -> anyhow::Result<Vec<RebaseStep>> {
         let mut steps: Vec<RebaseStep> = Vec::new();
-        for branch in crate::stack_branches(self.id.to_string(), ctx)? {
+        for branch in crate::stack_branches(self.id, ctx)? {
             if branch.archived {
                 continue;
             }
@@ -29,7 +29,7 @@ impl StackExt for gitbutler_stack::Stack {
             };
             steps.push(reference_step);
             let commits = crate::stack_branch_local_and_remote_commits(
-                self.id.to_string(),
+                self.id,
                 branch.name.to_string(),
                 ctx,
                 repo,

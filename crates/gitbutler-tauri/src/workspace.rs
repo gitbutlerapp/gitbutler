@@ -9,13 +9,13 @@ use but_hunk_dependency::ui::{
 use but_settings::AppSettingsWithDiskSync;
 use but_workspace::commit_engine::StackSegmentId;
 use but_workspace::MoveChangesResult;
-use but_workspace::{commit_engine, ui::StackEntry};
+use but_workspace::{commit_engine, ui::StackEntry, VirtualBranchesTomlMetadata};
 use gitbutler_branch_actions::{update_workspace_commit, BranchManagerExt};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, SnapshotExt};
 use gitbutler_project as projects;
-use gitbutler_project::ProjectId;
+use gitbutler_project::{Project, ProjectId};
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use serde::Serialize;
 use tauri::State;
@@ -31,9 +31,14 @@ pub fn stacks(
 ) -> Result<Vec<StackEntry>, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    let repo = ctx.gix_repo()?;
-    but_workspace::stacks(&ctx, &project.gb_dir(), &repo, filter.unwrap_or_default())
-        .map_err(Into::into)
+    let repo = ctx.gix_repo_for_merging_non_persisting()?;
+    if ctx.app_settings().feature_flags.ws3 {
+        let meta = ref_metadata_toml(ctx.project())?;
+        but_workspace::stacks_v3(&repo, &meta, filter.unwrap_or_default())
+    } else {
+        but_workspace::stacks(&ctx, &project.gb_dir(), &repo, filter.unwrap_or_default())
+    }
+    .map_err(Into::into)
 }
 
 #[tauri::command(async)]
@@ -46,7 +51,14 @@ pub fn stack_details(
 ) -> Result<but_workspace::ui::StackDetails, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    but_workspace::stack_details(&project.gb_dir(), stack_id, &ctx).map_err(Into::into)
+    if ctx.app_settings().feature_flags.ws3 {
+        let repo = ctx.gix_repo_for_merging_non_persisting()?;
+        let meta = ref_metadata_toml(ctx.project())?;
+        but_workspace::stack_details_v3(stack_id, &repo, &meta)
+    } else {
+        but_workspace::stack_details(&project.gb_dir(), stack_id, &ctx)
+    }
+    .map_err(Into::into)
 }
 
 #[tauri::command(async)]
@@ -60,7 +72,28 @@ pub fn branch_details(
 ) -> Result<but_workspace::ui::BranchDetails, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    but_workspace::branch_details(&project.gb_dir(), branch_name, remote, &ctx).map_err(Into::into)
+    if ctx.app_settings().feature_flags.ws3 {
+        let repo = ctx.gix_repo_for_merging_non_persisting()?;
+        let meta = ref_metadata_toml(ctx.project())?;
+        let ref_name: gix::refs::FullName = match remote {
+            None => {
+                format!("refs/heads/{branch_name}")
+            }
+            Some(remote) => {
+                format!("refs/remotes/{remote}/{branch_name}")
+            }
+        }
+        .try_into()
+        .map_err(anyhow::Error::from)?;
+        but_workspace::branch_details_v3(&repo, ref_name.as_ref(), &meta)
+    } else {
+        but_workspace::branch_details(&project.gb_dir(), branch_name, remote, &ctx)
+    }
+    .map_err(Into::into)
+}
+
+fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMetadata> {
+    VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))
 }
 
 /// Retrieve all changes in the workspace and associate them with commits in the Workspace of `project_id`.

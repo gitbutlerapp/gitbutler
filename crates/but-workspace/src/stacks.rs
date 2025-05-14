@@ -1,5 +1,6 @@
+use crate::branch::{LocalCommit, LocalCommitRelation};
 use crate::integrated::IsCommitIntegrated;
-use crate::ui::{CommitState, PushStatus};
+use crate::ui::{CommitState, PushStatus, StackDetails};
 use crate::{
     StacksFilter, VirtualBranchesTomlMetadata, branch, head_info, id_from_name_v2_to_v3,
     state_handle, ui,
@@ -9,13 +10,12 @@ use bstr::BString;
 use but_core::RefMetadata;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_id::id::Id;
 use gitbutler_oxidize::{ObjectIdExt, OidExt, git2_signature_to_gix_signature};
 use gitbutler_stack::{Stack, StackBranch, StackId};
+use gix::date::parse::TimeBuf;
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
-use std::str::FromStr;
 
 /// Returns the list of branch information for the branches in a stack.
 pub fn stack_heads_info(
@@ -96,7 +96,7 @@ fn try_from_stack_v3(
                 .and_then(|r| r.try_id())
                 .map(|id| id.detach())
                 .unwrap_or(repo.object_hash().null()),
-            name: ref_name.into(),
+            name: ref_name.shorten().into(),
         }
     });
     Ok(ui::StackEntry {
@@ -152,7 +152,7 @@ pub fn stacks_v3(
                 // TODO: this is just a simulation and such a thing doesn't really exist in the V3 world, let's see how it goes.
                 //       Thus, we just pass ourselves as first segment, similar to having no other segments.
                 heads: vec![ui::StackHeadInfo {
-                    name: ref_name.into(),
+                    name: ref_name.shorten().into(),
                     tip,
                 }],
                 tip,
@@ -161,12 +161,13 @@ pub fn stacks_v3(
         Ok(out)
     }
 
-    let info = crate::head_info(
+    let info = head_info(
         repo,
         meta,
         head_info::Options {
             // TODO: set this to a good value for the UI to not slow down, and also a value that forces us to re-investigate this.
             stack_commit_limit: 100,
+            expensive_commit_info: false,
         },
     )?;
 
@@ -212,7 +213,7 @@ pub fn stack_details(
     ) -> anyhow::Result<bool> {
         let upstream = branch.remote_reference(remote);
 
-        let reference = match ctx.repo().refname_to_id(&upstream) {
+        let upstream_reference = match ctx.repo().refname_to_id(&upstream) {
             Ok(reference) => reference,
             Err(err) if err.code() == git2::ErrorCode::NotFound => return Ok(false),
             Err(other) => return Err(other).context("failed to find upstream reference"),
@@ -220,7 +221,7 @@ pub fn stack_details(
 
         let upstream_commit = ctx
             .repo()
-            .find_commit(reference)
+            .find_commit(upstream_reference)
             .context("failed to find upstream commit")?;
 
         let branch_head = branch.head_oid(&ctx.gix_repo()?)?;
@@ -346,9 +347,250 @@ pub fn stack_details(
     })
 }
 
-/// Return the branches that belong to a particular [`gitbutler_stack::Stack`]
+/// Get additional information for the stack identified by `stack_id`.
+// TODO: StackId shouldn't be used, instead the `heads_info` ID should be used.
+pub fn stack_details_v3(
+    stack_id: StackId,
+    repo: &gix::Repository,
+    meta: &VirtualBranchesTomlMetadata,
+) -> anyhow::Result<ui::StackDetails> {
+    let info = head_info(
+        repo,
+        meta,
+        head_info::Options {
+            stack_commit_limit: 0,
+            expensive_commit_info: true,
+        },
+    )?;
+    let stacks_with_id: Vec<_> = info
+        .stacks
+        .into_iter()
+        .filter_map(|stack| {
+            let name = stack.name()?.to_owned();
+            Some(id_from_name_v2_to_v3(name.as_ref(), meta).map(|stack_id| (stack_id, stack)))
+        })
+        .collect::<Result<_, _>>()?;
+    let stack = stacks_with_id
+        .into_iter()
+        .find_map(|(id, stack)| (id == stack_id).then_some(stack))
+        .with_context(|| format!("Stack with id {stack_id} really should have been found"))?;
+
+    let branch_details: Vec<ui::BranchDetails> = stack
+        .segments
+        .iter()
+        .enumerate()
+        .map(|(idx, segment)| {
+            ui::BranchDetails::from_segment(
+                segment,
+                stack.segments.get(idx + 1).and_then(|below| {
+                    below
+                        .commits_unique_from_tip
+                        .first()
+                        .map(|commit| commit.id)
+                        .or(stack.base)
+                }),
+            )
+        })
+        .collect::<Result<_, _>>()?;
+    let topmost_branch = branch_details
+        .first()
+        .context("Stacks should never be empty")?;
+    Ok(StackDetails {
+        derived_name: topmost_branch.name.to_string(),
+        push_status: topmost_branch.push_status,
+        is_conflicted: topmost_branch.is_conflicted,
+        branch_details,
+    })
+}
+
+impl ui::BranchDetails {
+    fn from_segment(
+        branch::StackSegment {
+            ref_name,
+            ref_location: _,
+            commits_unique_from_tip,
+            commits_unique_in_remote_tracking_branch,
+            remote_tracking_ref_name,
+            metadata,
+        }: &branch::StackSegment,
+        previous_tip_or_stack_base: Option<gix::ObjectId>,
+    ) -> anyhow::Result<Self> {
+        let ref_name = ref_name
+            .clone()
+            .context("Can't handle a stack yet whose tip isn't pointed to by a ref")?;
+        let (description, updated_at, review_id, pr_number) = metadata
+            .clone()
+            .map(|meta| {
+                (
+                    meta.description,
+                    meta.ref_info.updated_at,
+                    meta.review.review_id,
+                    meta.review.pull_request,
+                )
+            })
+            .unwrap_or_default();
+        let base_commit = previous_tip_or_stack_base
+            // This case is for unborn branches only where there is a segment with nothing
+            .unwrap_or_else(|| gix::ObjectId::null(gix::hash::Kind::Sha1));
+        Ok(ui::BranchDetails {
+            is_remote_head: ref_name
+                .category()
+                .is_some_and(|c| matches!(c, gix::refs::Category::RemoteBranch)),
+            name: ref_name.into_inner(),
+            remote_tracking_branch: None,
+            description,
+            pr_number,
+            review_id,
+            tip: commits_unique_from_tip
+                .first()
+                .map(|commit| commit.id)
+                .unwrap_or(base_commit),
+            base_commit,
+            push_status: PushStatus::derive_from_commits(
+                remote_tracking_ref_name.is_some(),
+                commits_unique_from_tip,
+                commits_unique_in_remote_tracking_branch,
+            ),
+            last_updated_at: updated_at.map(|time| time.seconds as i128 * 1_000),
+            authors: {
+                let mut authors = HashSet::<ui::Author>::new();
+                let all_commits = commits_unique_from_tip.iter().map(|c| &c.inner).chain(
+                    commits_unique_in_remote_tracking_branch
+                        .iter()
+                        .map(|c| &c.inner),
+                );
+                for commit in all_commits {
+                    authors.insert((commit.author.to_ref(&mut TimeBuf::default())).into());
+                }
+                let mut authors: Vec<_> = authors.into_iter().collect();
+                authors.sort_by(|a, b| a.name.cmp(&b.name));
+                authors
+            },
+            commits: commits_unique_from_tip.iter().map(Into::into).collect(),
+            is_conflicted: commits_unique_from_tip.iter().any(|c| c.has_conflicts),
+            upstream_commits: commits_unique_in_remote_tracking_branch
+                .iter()
+                .map(Into::into)
+                .collect(),
+        })
+    }
+}
+
+impl PushStatus {
+    /// Derive the push-status by looking at commits in the local and remote tracking branches.
+    /// TODO: tests
+    ///       * generally this doesn't currently handle advanced (and possibly fast-forwardable)
+    ///         remotes very well. It doesn't feel like it can be expressed.
+    ///       * It doesn't deal with diverged local/remote branches.
+    ///       * Special cases of remote is merged, and remote tracking branch is deleted after fetch
+    ///         if it was deleted on the remote?
+    fn derive_from_commits(
+        has_remote_tracking_ref: bool,
+        commits_unique_from_tip: &[branch::LocalCommit],
+        commits_unique_in_remote_tracking_branch: &[branch::RemoteCommit],
+    ) -> Self {
+        if has_remote_tracking_ref {
+            // generally, don't do anything if no remote relationship is setup (anymore).
+            // There may be better ways to deal with this.
+            return PushStatus::CompletelyUnpushed;
+        }
+
+        let everything_local = commits_unique_from_tip
+            .last()
+            .is_some_and(|c| matches!(c.relation, LocalCommitRelation::LocalOnly));
+        let everything_integrated_locally = commits_unique_from_tip
+            .last()
+            .is_some_and(|c| matches!(c.relation, LocalCommitRelation::Integrated));
+        if everything_integrated_locally {
+            PushStatus::Integrated
+        } else if everything_local {
+            if commits_unique_in_remote_tracking_branch.is_empty() {
+                PushStatus::UnpushedCommits
+            } else {
+                PushStatus::UnpushedCommitsRequiringForce
+            }
+        } else {
+            // Local commits intersect with remote, either by similarity or identity.
+            if commits_unique_from_tip
+                .last()
+                .is_some_and(|c| matches!(c.relation, LocalCommitRelation::LocalAndRemote(remote_id) if remote_id != c.id)) {
+                PushStatus::UnpushedCommitsRequiringForce
+            } else {
+                // TODO: There could be remote commits that can be forwarded to, but that can't be expressed.
+                //       Probably an update would fix it automatically.
+                PushStatus::NothingToPush
+            }
+        }
+    }
+}
+
+impl From<&branch::RemoteCommit> for ui::UpstreamCommit {
+    fn from(
+        branch::RemoteCommit {
+            inner:
+                branch::Commit {
+                    id,
+                    parent_ids: _,
+                    message,
+                    author,
+                },
+            // TODO: Represent this in the UI (maybe) and/or deal with divergence of the local and remote tracking branch.
+            has_conflicts: _,
+        }: &branch::RemoteCommit,
+    ) -> Self {
+        ui::UpstreamCommit {
+            id: *id,
+            message: message.clone(),
+            created_at: author.time.seconds as i128 * 1000,
+            author: author
+                .to_ref(&mut gix::date::parse::TimeBuf::default())
+                .into(),
+        }
+    }
+}
+
+impl From<&LocalCommit> for ui::Commit {
+    fn from(
+        LocalCommit {
+            inner:
+                branch::Commit {
+                    id,
+                    parent_ids,
+                    message,
+                    author,
+                },
+            relation,
+            has_conflicts,
+        }: &LocalCommit,
+    ) -> Self {
+        ui::Commit {
+            id: *id,
+            parent_ids: parent_ids.clone(),
+            message: message.clone(),
+            has_conflicts: *has_conflicts,
+            state: (*relation).into(),
+            created_at: author.time.seconds as i128 * 1000,
+            author: author
+                .to_ref(&mut gix::date::parse::TimeBuf::default())
+                .into(),
+        }
+    }
+}
+
+impl From<branch::LocalCommitRelation> for ui::CommitState {
+    fn from(value: LocalCommitRelation) -> Self {
+        use ui::CommitState as E;
+        match value {
+            LocalCommitRelation::LocalOnly => E::LocalOnly,
+            LocalCommitRelation::LocalAndRemote(id) => E::LocalAndRemote(id),
+            LocalCommitRelation::Integrated => E::Integrated,
+        }
+    }
+}
+
+/// Return the branches that belong to a particular [`Stack`]
 /// The entries are ordered from newest to oldest.
-pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> anyhow::Result<Vec<ui::Branch>> {
+pub fn stack_branches(stack_id: StackId, ctx: &CommandContext) -> anyhow::Result<Vec<ui::Branch>> {
     let state = state_handle(&ctx.project().gb_dir());
     let remote = state
         .get_default_target()
@@ -356,7 +598,7 @@ pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> anyhow::Result<
         .push_remote_name();
 
     let mut stack_branches = vec![];
-    let mut stack = state.get_stack(Id::from_str(&stack_id)?)?;
+    let mut stack = state.get_stack(stack_id)?;
     let mut current_base = stack.merge_base(ctx)?;
     let repo = ctx.gix_repo()?;
     for internal in stack.branches() {
@@ -395,13 +637,13 @@ pub fn stack_branches(stack_id: String, ctx: &CommandContext) -> anyhow::Result<
 ///
 /// In either case, this is effectively a list of commits that in the working copy which may or may not have been pushed to the remote.
 pub fn stack_branch_local_and_remote_commits(
-    stack_id: String,
+    stack_id: StackId,
     branch_name: String,
     ctx: &CommandContext,
     repo: &gix::Repository,
 ) -> anyhow::Result<Vec<ui::Commit>> {
     let state = state_handle(&ctx.project().gb_dir());
-    let stack = state.get_stack(Id::from_str(&stack_id)?)?;
+    let stack = state.get_stack(stack_id)?;
 
     let branches = stack.branches();
     let branch = branches
@@ -422,13 +664,13 @@ pub fn stack_branch_local_and_remote_commits(
 /// This does **not** include the commits that are in the commits list (local)
 /// This is effectively the list of commits that are on the remote branch but are not in the working copy.
 pub fn stack_branch_upstream_only_commits(
-    stack_id: String,
+    stack_id: StackId,
     branch_name: String,
     ctx: &CommandContext,
     repo: &gix::Repository,
 ) -> anyhow::Result<Vec<ui::UpstreamCommit>> {
     let state = state_handle(&ctx.project().gb_dir());
-    let stack = state.get_stack(Id::from_str(&stack_id)?)?;
+    let stack = state.get_stack(stack_id)?;
 
     let branches = stack.branches();
     let branch = branches
@@ -466,7 +708,7 @@ fn upstream_only_commits(
         });
         // Ignore commits that strictly speaking are remote only, but they match a known local commit (rebase etc)
         if !matches_known_commit {
-            let created_at = u128::try_from(commit.time().seconds())? * 1000;
+            let created_at = i128::from(commit.time().seconds()) * 1000;
             let upstream_commit = ui::UpstreamCommit {
                 id: commit.id().to_gix(),
                 message: commit.message_bstr().into(),
@@ -493,7 +735,7 @@ fn local_and_remote_commits(
         .context("failed to get default target")?;
     let cache = repo.commit_graph_if_enabled()?;
     let mut graph = repo.revision_graph(cache.as_ref());
-    let mut check_commit = IsCommitIntegrated::new(ctx, &default_target, repo, &mut graph)?;
+    let mut check_commit = IsCommitIntegrated::new(repo, ctx.repo(), &default_target, &mut graph)?;
 
     let branch_commits = stack_branch.commits(ctx, stack)?;
     let mut local_and_remote: Vec<ui::Commit> = vec![];
@@ -539,7 +781,7 @@ fn local_and_remote_commits(
             }
         };
 
-        let created_at = u128::try_from(commit.time().seconds())? * 1000;
+        let created_at = i128::from(commit.time().seconds()) * 1000;
 
         let api_commit = ui::Commit {
             id: commit.id().to_gix(),

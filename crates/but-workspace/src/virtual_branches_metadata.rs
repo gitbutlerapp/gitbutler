@@ -86,6 +86,14 @@ impl VirtualBranchesTomlMetadata {
     }
 }
 
+/// Mostly used in testing, and it's fine as it's intermediate, and we are very practical here.
+impl VirtualBranchesTomlMetadata {
+    /// Return a mutable snapshot of the underlying data. Useful for testing mainly.
+    pub fn data_mut(&mut self) -> &mut VirtualBranchesState {
+        &mut self.snapshot.content
+    }
+}
+
 // Emergency-behaviour in case the application winds down, we don't want data-loss (at least a chance).
 impl Drop for VirtualBranchesTomlMetadata {
     fn drop(&mut self) {

@@ -1,12 +1,14 @@
 use crate::head_info::function::workspace_data_of_default_workspace_branch;
-use crate::ui::{CommitState, PushStatus};
+use crate::ui::{CommitState, PushStatus, UpstreamCommit};
 use crate::{state_handle, ui};
 use anyhow::{Context, bail};
 use but_core::RefMetadata;
 use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Code;
-use gitbutler_oxidize::OidExt;
+use gitbutler_oxidize::{ObjectIdExt, OidExt};
+use gix::reference::Category;
 use gix::remote::Direction;
+use itertools::Itertools;
 use std::collections::HashSet;
 use std::path::Path;
 
@@ -65,64 +67,20 @@ pub fn branch_details(
         bail!("Failed to find merge base");
     };
 
-    let mut revwalk = repository.revwalk()?;
-    revwalk.push(branch_oid)?;
-    revwalk.hide(default_target.sha)?;
-    revwalk.simplify_first_parent()?;
-
-    let commits = revwalk
-        .filter_map(|oid| repository.find_commit(oid.ok()?).ok())
-        .collect::<Vec<_>>();
-
-    let upstream_commits = if let Some(upstream_oid) = upstream_oid {
-        let mut revwalk = repository.revwalk()?;
-        revwalk.push(upstream_oid)?;
-        revwalk.hide(branch_oid)?;
-        revwalk.hide(default_target.sha)?;
-        revwalk.simplify_first_parent()?;
-        revwalk
-            .filter_map(|oid| repository.find_commit(oid.ok()?).ok())
-            .collect::<Vec<_>>()
-    } else {
-        vec![]
-    };
-
     let mut authors = HashSet::new();
-
-    let commits = commits
-        .into_iter()
-        .map(|commit| {
-            let author: ui::Author = commit.author().into();
-            let commiter: ui::Author = commit.committer().into();
-            authors.insert(author.clone());
-            authors.insert(commiter);
-            ui::Commit {
-                id: commit.id().to_gix(),
-                parent_ids: commit.parent_ids().map(|id| id.to_gix()).collect(),
-                message: commit.message().unwrap_or_default().into(),
-                has_conflicts: false,
-                state: CommitState::LocalAndRemote(commit.id().to_gix()),
-                created_at: u128::try_from(commit.time().seconds()).unwrap_or(0) * 1000,
-                author,
-            }
+    let commits = local_commits(repository, default_target.sha, branch_oid, &mut authors)?;
+    let upstream_commits = upstream_oid
+        .map(|upstream_oid| {
+            upstream_commits(
+                repository,
+                upstream_oid,
+                default_target.sha,
+                branch_oid,
+                &mut authors,
+            )
         })
-        .collect::<Vec<_>>();
-
-    let upstream_commits = upstream_commits
-        .into_iter()
-        .map(|commit| {
-            let author: ui::Author = commit.author().into();
-            let commiter: ui::Author = commit.committer().into();
-            authors.insert(author.clone());
-            authors.insert(commiter);
-            ui::UpstreamCommit {
-                id: commit.id().to_gix(),
-                message: commit.message().unwrap_or_default().into(),
-                created_at: u128::try_from(commit.time().seconds()).unwrap_or(0) * 1000,
-                author,
-            }
-        })
-        .collect::<Vec<_>>();
+        .transpose()?
+        .unwrap_or_default();
 
     Ok(ui::BranchDetails {
         name: branch_name.into(),
@@ -152,76 +110,196 @@ pub fn branch_details(
 /// This branch is assumed to not be in the workspace, but it will still be assumed to want to integrate with the workspace target reference if set.
 ///
 /// ### Implementation
-#[allow(unused_variables)]
+///
+/// Note that the following fields aren't computed or are only partially computed.
+///
+/// - `push_status` - `Integrated` variant is not computed for now (but it's considered valuable to have so could be done later).
+/// - `is_conflicted` - bogus value (true)
 pub fn branch_details_v3(
     repo: &gix::Repository,
     name: &gix::refs::FullNameRef,
     meta: &impl RefMetadata,
 ) -> anyhow::Result<ui::BranchDetails> {
-    let integration_ref_name = workspace_data_of_default_workspace_branch(meta)?
+    let integration_branch_name = workspace_data_of_default_workspace_branch(meta)?
         .context(
             "TODO: cannot run in non-workspace mode yet.\
         It would need a way to deal with limiting the commit traversal",
         )?
         .target_ref
         .context("TODO: a target to integrate with is currently needed for a workspace commit")?;
-    let mut integration_ref = repo
-        .find_reference(&integration_ref_name)
+    let mut integration_branch = repo
+        .find_reference(&integration_branch_name)
         .context("The branch to integrate with must be present")?;
-    let integration_ref_target_id = integration_ref.peel_to_id_in_place()?;
+    let integration_branch_id = integration_branch.peel_to_id_in_place()?;
 
     let mut branch = repo.find_reference(name)?;
-    let branch_target_id = branch.peel_to_id_in_place()?;
+    let branch_id = branch.peel_to_id_in_place()?;
 
     let mut remote_tracking_branch = repo
         .branch_remote_tracking_ref_name(name, Direction::Fetch)
         .transpose()?
         .and_then(|remote_tracking_ref| repo.find_reference(remote_tracking_ref.as_ref()).ok());
-    let remote_tracking_target_id = remote_tracking_branch
+    let remote_tracking_branch_id = remote_tracking_branch
         .as_mut()
-        .map(|remote_ref| remote_ref.peel_to_id_in_place())
+        .map(|r| r.peel_to_id_in_place())
         .transpose()?;
-    let push_status = remote_tracking_target_id
-        .map(|remote_target_id| {
-            if remote_target_id == branch_target_id {
-                PushStatus::NothingToPush
-            } else {
-                PushStatus::UnpushedCommits
-            }
-        })
-        .unwrap_or(PushStatus::CompletelyUnpushed);
 
     let meta = meta.branch(name)?;
     let meta: &but_core::ref_metadata::Branch = &meta;
 
+    let cache = repo.commit_graph_if_enabled()?;
+    let mut graph = repo.revision_graph(cache.as_ref());
     let base_commit = {
-        let cache = repo.commit_graph_if_enabled()?;
-        let mut graph = repo.revision_graph(cache.as_ref());
         let merge_bases = repo.merge_bases_many_with_graph(
-            branch_target_id,
-            &[integration_ref_target_id.detach()],
+            branch_id,
+            &[integration_branch_id.detach()],
             &mut graph,
         )?;
         // TODO: have a test that shows why this must/should be last. Then maybe make it easy to do
         //       the right thing whenever the mergebase with the integration branch is needed.
-        merge_bases.last().map(|id| id.detach())
+        merge_bases
+            .last()
+            .map(|id| id.detach())
+            .with_context(|| format!("No merge-base found between {name} and the integration branch {integration_branch_name}", name = name.as_bstr()))?
     };
 
-    todo!()
-    // Ok(ui::BranchDetails {
-    //     name: name.as_bstr().into(),
-    //     remote_tracking_branch: remote_tracking_branch.map(|b| b.name().as_bstr().to_owned()),
-    //     description: meta.description.clone(),
-    //     pr_number: meta.review.pull_request,
-    //     review_id: meta.review.review_id.clone(),
-    //     base_commit: todo!(),
-    //     push_status,
-    //     last_updated_at: todo!(),
-    //     authors: todo!(),
-    //     is_conflicted: todo!(),
-    //     commits: todo!(),
-    //     upstream_commits: todo!(),
-    //     tip: branch_target_id.detach(),
-    //     is_remote_head: name.category() == Some(Category::RemoteBranch),
-    // })
+    let mut authors = HashSet::new();
+    let (commits, upstream_commits) = {
+        let repo = git2::Repository::open(repo.path())?;
+
+        let commits = local_commits(
+            &repo,
+            integration_branch_id.to_git2(),
+            branch_id.to_git2(),
+            &mut authors,
+        )?;
+
+        let upstream_commits = if let Some(remote_tracking_branch) = remote_tracking_branch.as_mut()
+        {
+            let remote_id = remote_tracking_branch.peel_to_id_in_place()?;
+            upstream_commits(
+                &repo,
+                remote_id.to_git2(),
+                integration_branch_id.to_git2(),
+                branch_id.to_git2(),
+                &mut authors,
+            )?
+        } else {
+            Vec::new()
+        };
+        (commits, upstream_commits)
+    };
+
+    let is_remote_head = name.category() == Some(Category::RemoteBranch);
+    let push_status = match remote_tracking_branch_id {
+        Some(remote_tracking_branch_id) => {
+            let merge_base =
+                repo.merge_base_with_graph(branch_id, remote_tracking_branch_id, &mut graph)?;
+            if merge_base == remote_tracking_branch_id {
+                if merge_base == branch_id {
+                    PushStatus::NothingToPush
+                } else {
+                    PushStatus::UnpushedCommits
+                }
+            } else {
+                PushStatus::UnpushedCommitsRequiringForce
+            }
+        }
+        None => {
+            if is_remote_head {
+                // Make remotes appears neutral, like there is nothing to do.
+                PushStatus::NothingToPush
+            } else {
+                // likely that no remote tracking branch existed in the first place.
+                PushStatus::CompletelyUnpushed
+            }
+        }
+    };
+
+    Ok(ui::BranchDetails {
+        name: name.as_bstr().into(),
+        remote_tracking_branch: remote_tracking_branch.map(|b| b.name().as_bstr().to_owned()),
+        description: meta.description.clone(),
+        pr_number: meta.review.pull_request,
+        review_id: meta.review.review_id.clone(),
+        base_commit,
+        last_updated_at: meta.ref_info.updated_at.map(|d| d.seconds as i128 * 1_000),
+        authors: authors
+            .into_iter()
+            .sorted_by(|a, b| a.name.cmp(&b.name).then_with(|| a.email.cmp(&b.email)))
+            .collect(),
+        commits,
+        upstream_commits,
+        tip: branch_id.detach(),
+        is_remote_head,
+        push_status,
+        // Should be initialized, but this type is re-used in StackDetails where these are set so we can't indicate it.
+        is_conflicted: true,
+    })
+}
+
+/// Traverse all commits that are reachable from the first parent of `upstream_id`, but not in `integration_branch_id` nor in `branch_id`.
+/// While at it, collect the commiter and author of each commit into `authors`.
+fn upstream_commits(
+    repository: &git2::Repository,
+    upstream_id: git2::Oid,
+    integration_branch_id: git2::Oid,
+    branch_id: git2::Oid,
+    authors: &mut HashSet<ui::Author>,
+) -> anyhow::Result<Vec<UpstreamCommit>> {
+    let mut revwalk = repository.revwalk()?;
+    revwalk.push(upstream_id)?;
+    revwalk.hide(branch_id)?;
+    revwalk.hide(integration_branch_id)?;
+    revwalk.simplify_first_parent()?;
+    Ok(revwalk
+        .filter_map(Result::ok)
+        .filter_map(|oid| repository.find_commit(oid).ok())
+        .map(|commit| {
+            let author: ui::Author = commit.author().into();
+            let commiter: ui::Author = commit.committer().into();
+            authors.insert(author.clone());
+            authors.insert(commiter);
+            ui::UpstreamCommit {
+                id: commit.id().to_gix(),
+                message: commit.message().unwrap_or_default().into(),
+                created_at: i128::from(commit.time().seconds()) * 1000,
+                author,
+            }
+        })
+        .collect())
+}
+
+/// Traverse all commits that are reachable from the first parent of `branch_id`, but not in `integration_branch`, and store all
+/// commit authors and committers in `authors` while at it.
+fn local_commits(
+    repository: &git2::Repository,
+    integration_branch_id: git2::Oid,
+    branch_id: git2::Oid,
+    authors: &mut HashSet<ui::Author>,
+) -> anyhow::Result<Vec<ui::Commit>> {
+    let mut revwalk = repository.revwalk()?;
+    revwalk.push(branch_id)?;
+    revwalk.hide(integration_branch_id)?;
+    revwalk.simplify_first_parent()?;
+
+    Ok(revwalk
+        .filter_map(Result::ok)
+        .filter_map(|oid| repository.find_commit(oid).ok())
+        .map(|commit| {
+            let author: ui::Author = commit.author().into();
+            let commiter: ui::Author = commit.committer().into();
+            authors.insert(author.clone());
+            authors.insert(commiter);
+            ui::Commit {
+                id: commit.id().to_gix(),
+                parent_ids: commit.parent_ids().map(|id| id.to_gix()).collect(),
+                message: commit.message().unwrap_or_default().into(),
+                has_conflicts: false,
+                state: CommitState::LocalAndRemote(commit.id().to_gix()),
+                created_at: i128::from(commit.time().seconds()) * 1000,
+                author,
+            }
+        })
+        .collect())
 }

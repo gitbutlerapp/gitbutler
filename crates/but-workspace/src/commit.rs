@@ -93,8 +93,9 @@ impl WorkspaceCommit<'_> {
     /// once another branch is added to the workspace.
     pub fn is_managed(&self) -> bool {
         let message = gix::objs::commit::MessageRef::from_bytes(&self.message);
-        message.title == Self::GITBUTLER_INTEGRATION_COMMIT_TITLE
-            || message.title == Self::GITBUTLER_WORKSPACE_COMMIT_TITLE
+        let title = message.title.trim().as_bstr();
+        title == Self::GITBUTLER_INTEGRATION_COMMIT_TITLE
+            || title == Self::GITBUTLER_WORKSPACE_COMMIT_TITLE
     }
 }
 

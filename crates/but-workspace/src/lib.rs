@@ -50,6 +50,7 @@ pub use head::{head, merge_worktree_with_workspace};
 mod relapath;
 
 /// 🚧utilities for applying and unapplying branches 🚧.
+/// Ignore the name of this module; it's just a place to put code by now.
 pub mod branch;
 
 /// 🚧Deal with worktree changes 🚧.
@@ -78,9 +79,10 @@ pub mod stack_ext;
 
 /// Functions related to retrieving stack information.
 mod stacks;
+// TODO: _v3 versions are specifically for the UI, so import them into `ui` instead.
 pub use stacks::{
     stack_branch_local_and_remote_commits, stack_branch_upstream_only_commits, stack_branches,
-    stack_details, stack_heads_info, stacks, stacks_v3,
+    stack_details, stack_details_v3, stack_heads_info, stacks, stacks_v3,
 };
 
 mod virtual_branches_metadata;

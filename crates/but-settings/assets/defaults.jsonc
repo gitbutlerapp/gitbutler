@@ -17,7 +17,9 @@
 	},
 	"featureFlags": {
 		// Enables the v3 design, as well as the purgatory mode (no uncommitted diff ownership assignments).
-		"v3": false
+		"v3": false,
+		/// Enable the usage of V3 workspace APIs.
+		"ws3": false
 	},
 	// Allows for additional "connect-src" hosts to be included. Requires app restart.
 	"extraCsp": {
