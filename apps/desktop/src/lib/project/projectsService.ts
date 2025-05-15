@@ -61,7 +61,7 @@ export class ProjectsService {
 		return store;
 	}
 
-	async updateProject(project: Project & { unset_bool?: boolean }) {
+	async updateProject(project: Project & { unset_bool?: boolean; unset_forge_override?: boolean }) {
 		await invoke('update_project', { project: project });
 		await this.reload();
 	}

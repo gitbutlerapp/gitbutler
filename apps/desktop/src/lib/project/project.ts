@@ -1,3 +1,5 @@
+import type { ForgeName } from '$lib/forge/interface/forge';
+
 export type KeyType = 'gitCredentialsHelper' | 'local' | 'systemExecutable';
 export type LocalKey = {
 	local: { private_key_path: string };
@@ -22,6 +24,7 @@ export class Project {
 	snapshot_lines_threshold!: number | undefined;
 	// Produced just for the frontend to determine if the project is open in any window.
 	is_open!: boolean;
+	forge_override!: ForgeName | undefined;
 
 	get vscodePath() {
 		return this.path.includes('\\') ? '/' + this.path.replace('\\', '/') : this.path;

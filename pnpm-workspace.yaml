@@ -8,6 +8,7 @@ catalog:
   'vitest': '3.0.5'
   '@vitest/ui': '3.0.5'
   'marked': '15.0.7'
+  'rxjs': '7.8.2'
 catalogs:
   svelte:
     'svelte': '5.28.2'
