@@ -46,7 +46,8 @@ describe.concurrent('DefaultforgeFactory', () => {
 					name: 'test-repo',
 					owner: 'test-owner'
 				},
-				baseBranch: 'some-base'
+				baseBranch: 'some-base',
+				forgeOverride: undefined
 			})
 		).instanceOf(GitHub);
 	});
@@ -68,7 +69,8 @@ describe.concurrent('DefaultforgeFactory', () => {
 					name: 'test-repo',
 					owner: 'test-owner'
 				},
-				baseBranch: 'some-base'
+				baseBranch: 'some-base',
+				forgeOverride: undefined
 			})
 		).instanceOf(GitLab);
 	});
@@ -90,7 +92,8 @@ describe.concurrent('DefaultforgeFactory', () => {
 					name: 'test-repo',
 					owner: 'test-owner'
 				},
-				baseBranch: 'some-base'
+				baseBranch: 'some-base',
+				forgeOverride: undefined
 			})
 		).instanceOf(GitLab);
 	});

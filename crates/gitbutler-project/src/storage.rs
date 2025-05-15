@@ -29,6 +29,9 @@ pub struct UpdateRequest {
     pub omit_certificate_check: Option<bool>,
     pub use_diff_context: Option<bool>,
     pub snapshot_lines_threshold: Option<usize>,
+    pub forge_override: Option<String>,
+    #[serde(default = "default_false")]
+    pub unset_forge_override: bool,
 }
 
 fn default_false() -> bool {
@@ -101,6 +104,14 @@ impl Storage {
 
         if update_request.unset_api {
             project.api = None;
+        }
+
+        if let Some(forge_override) = &update_request.forge_override {
+            project.forge_override = Some(forge_override.clone());
+        }
+
+        if update_request.unset_forge_override {
+            project.forge_override = None;
         }
 
         if let Some(preferred_key) = &update_request.preferred_key {

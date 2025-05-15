@@ -177,7 +177,8 @@
 			pushRepo: forkInfo,
 			baseBranch: baseBranchName,
 			githubAuthenticated: !!$user?.github_access_token,
-			gitlabAuthenticated: !!$gitlabConfigured
+			gitlabAuthenticated: !!$gitlabConfigured,
+			forgeOverride: $projects?.find((project) => project.id === projectId)?.forge_override
 		});
 	});
 
