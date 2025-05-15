@@ -1,3 +1,4 @@
+import { changesToDiffSpec } from '$lib/commits/utils';
 import {
 	ChangeDropData,
 	FileDropData,
@@ -518,20 +519,6 @@ function filesToDiffSpec(data: FileDropData): DiffSpec[] {
 		return {
 			previousPathBytes: null,
 			pathBytes: file.path as any, // Rust type is BString.
-			hunkHeaders: []
-		};
-	});
-}
-
-/** Helper function that converts `ChangeDropData` to `DiffSpec`. */
-function changesToDiffSpec(data: ChangeDropData): DiffSpec[] {
-	const changes = data.changes;
-	return changes.map((change) => {
-		const previousPathBytes =
-			change.status.type === 'Rename' ? change.status.subject.previousPathBytes : null;
-		return {
-			previousPathBytes,
-			pathBytes: change.pathBytes,
 			hunkHeaders: []
 		};
 	});

@@ -9,6 +9,7 @@ import {
 	providesList,
 	ReduxTag
 } from '$lib/state/tags';
+import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { TauriCommandError } from '$lib/backend/ipc';
 import type { Commit, CommitDetails, UpstreamCommit } from '$lib/branches/v3';
@@ -370,6 +371,10 @@ export class StackService {
 
 	get createCommit() {
 		return this.api.endpoints.createCommit.useMutation();
+	}
+
+	get createCommitMutation() {
+		return this.api.endpoints.createCommit.mutate;
 	}
 
 	get createCommitLegacy() {
@@ -1008,11 +1013,16 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					},
 					actionName: 'Move Changes Between Commits'
 				}),
-				invalidatesTags(_result, _error, arg) {
+				invalidatesTags(result, _error, arg) {
+					const commitChangesTags = [arg.sourceCommitId, arg.destinationCommitId]
+						.map((id) => result?.replacedCommits.find(([oldId]) => oldId === id)?.[1])
+						.filter(isDefined)
+						.map((id) => invalidatesItem(ReduxTag.CommitChanges, id));
 					return [
 						invalidatesItem(ReduxTag.StackDetails, arg.sourceStackId),
 						invalidatesItem(ReduxTag.StackDetails, arg.destinationStackId),
-						invalidatesList(ReduxTag.WorktreeChanges)
+						invalidatesList(ReduxTag.WorktreeChanges),
+						...commitChangesTags
 					];
 				}
 			}),
