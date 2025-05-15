@@ -78,8 +78,11 @@
 
 		<div data-testid={TestId.TargetCommitListHeader} class="target-branch-header">
 			<div class="target-branch-header__content">
-				<div class="flex gap-6">
-					<BranchHeaderIcon color={getColorFromBranchType('LocalAndRemote')} iconName="home" />
+				<div class="flex gap-8">
+					<BranchHeaderIcon
+						color={getColorFromBranchType('LocalAndRemote')}
+						iconName="home-small"
+					/>
 					<h3 class="text-15 text-bold truncate">{baseBranch.branchName}</h3>
 				</div>
 

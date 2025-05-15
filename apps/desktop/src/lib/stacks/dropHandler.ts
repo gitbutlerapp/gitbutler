@@ -1,5 +1,5 @@
 import { filesToOwnership } from '$lib/branches/ownership';
-import { FileDropData, HunkDropData } from '$lib/dragging/draggables';
+import { ChangeDropData, FileDropData, HunkDropData } from '$lib/dragging/draggables';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { StackService } from '$lib/stacks/stackService.svelte';
 
@@ -28,5 +28,22 @@ export class NewStackDzHandler implements DropzoneHandler {
 			const ownership = filesToOwnership(data.files);
 			this.stackService.newStackMutation({ projectId: this.projectId, branch: { ownership } });
 		}
+	}
+}
+
+/** Handler when drop changes on a special outside lanes dropzone. */
+export class OutsideLaneDzHandler implements DropzoneHandler {
+	constructor(
+		private stackService: StackService,
+		private projectId: string
+	) {}
+
+	accepts(data: unknown) {
+		return data instanceof ChangeDropData && !data.isCommitted;
+	}
+
+	ondrop(data: HunkDropData | FileDropData) {
+		// TODO: Implement logic
+		console.warn('Outside lane drop', data);
 	}
 }

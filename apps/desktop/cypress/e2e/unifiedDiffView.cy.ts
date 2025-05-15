@@ -56,7 +56,7 @@ describe('Unified Diff View', () => {
 			.should('contain', stackName)
 			.click()
 			.then(() => {
-				cy.getByTestId('branch-changed-file-list')
+				cy.getByTestId('branch-drawer')
 					.should('be.visible')
 					.within(() => {
 						// Check if the file list is updated

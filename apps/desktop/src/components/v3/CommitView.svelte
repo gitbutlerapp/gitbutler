@@ -15,7 +15,6 @@
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { isCommit } from '$lib/branches/v3';
 	import { CommitStatus, type CommitKey } from '$lib/commits/commit';
-	import { Focusable } from '$lib/focus/focusManager.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { ModeService } from '$lib/mode/modeService';
 	import { showToast } from '$lib/notifications/toasts';
@@ -262,13 +261,11 @@
 						{#snippet children(changes)}
 							<ChangedFiles
 								title="Changed files"
-								testId={TestId.BranchChangedFileList}
 								projectId={env.projectId}
 								stackId={env.stackId}
 								selectionId={{ type: 'commit', commitId: commit.id }}
 								{changes}
 								{active}
-								parentId={Focusable.Drawer}
 							/>
 						{/snippet}
 					</ReduxResult>

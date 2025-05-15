@@ -48,14 +48,14 @@
 
 		<!-- add svg rectange -->
 		<svg width="100%" height="100%" class="animated-rectangle">
-			<rect width="100%" height="100%" rx="5" ry="5" vector-effect="non-scaling-stroke" />
+			<rect width="100%" height="100%" rx="6" ry="6" vector-effect="non-scaling-stroke" />
 		</svg>
 	</div>
 </div>
 
 <style lang="postcss">
 	.dropzone-wrapper {
-		z-index: var(--z-ground);
+		z-index: var(--z-floating);
 		position: absolute;
 		width: 100%;
 		height: 100%;
@@ -74,12 +74,6 @@
 			transform 0.1s,
 			padding 0.1s;
 
-		/* It is very important that all children are pointer-events: none */
-		/* https://stackoverflow.com/questions/7110353/html5-dragleave-fired-when-hovering-a-child-element */
-		& * {
-			pointer-events: none;
-		}
-
 		&.activated {
 			display: flex;
 			animation: dropzone-scale 0.1s forwards;
@@ -90,6 +84,7 @@
 
 			.animated-rectangle rect {
 				fill: oklch(from var(--clr-scale-pop-50) l c h / 0.16);
+				animation: dash 4s linear infinite;
 			}
 
 			.dropzone-label {
@@ -100,6 +95,7 @@
 	}
 
 	.container {
+		pointer-events: none;
 		position: relative;
 		display: flex;
 		align-items: center;
@@ -122,6 +118,7 @@
 		transition:
 			opacity 0.1s,
 			transform 0.15s;
+		will-change: transform, opacity;
 	}
 
 	.dropzone-label-icon {
@@ -161,8 +158,6 @@
 			transition:
 				fill var(--transition-fast),
 				transform var(--transition-fast);
-
-			animation: dash 4s linear infinite;
 		}
 	}
 
