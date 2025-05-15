@@ -3,6 +3,7 @@ import { RemoteFile } from '$lib/files/file';
 import { plainToInstance } from 'class-transformer';
 import { derived, writable } from 'svelte/store';
 import type { ConflictEntryPresence } from '$lib/conflictEntryPresence';
+import type { StackService } from '$lib/stacks/stackService.svelte';
 
 export interface EditModeMetadata {
 	commitOid: string;
@@ -45,7 +46,10 @@ export class ModeService {
 	readonly head = derived(this.headAndMode, ({ head }) => head);
 	readonly mode = derived(this.headAndMode, ({ operatingMode }) => operatingMode);
 
-	constructor(private projectId: string) {}
+	constructor(
+		private projectId: string,
+		private readonly stackService: StackService
+	) {}
 
 	private async refresh() {
 		const head = await invoke<string>('git_head', { projectId: this.projectId });
@@ -55,7 +59,7 @@ export class ModeService {
 	}
 
 	async enterEditMode(commitOid: string, stackId: string) {
-		await invoke('enter_edit_mode', {
+		this.stackService.enterEditMode({
 			projectId: this.projectId,
 			commitOid,
 			stackId
@@ -64,14 +68,14 @@ export class ModeService {
 	}
 
 	async abortEditAndReturnToWorkspace() {
-		await invoke('abort_edit_and_return_to_workspace', {
+		await this.stackService.abortEditAndReturnToWorkspace({
 			projectId: this.projectId
 		});
 		await this.awaitMode('OpenWorkspace');
 	}
 
 	async saveEditAndReturnToWorkspace() {
-		await invoke('save_edit_and_return_to_workspace', {
+		await this.stackService.saveEditAndReturnToWorkspace({
 			projectId: this.projectId
 		});
 		await this.awaitMode('OpenWorkspace');

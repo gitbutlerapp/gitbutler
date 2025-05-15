@@ -50,16 +50,8 @@
 
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
 
-	const {
-		project,
-		projectId,
-		projectsService,
-		modeService,
-		userService,
-		fetchSignal,
-		posthog,
-		projectMetrics
-	} = $derived(data);
+	const { project, projectId, projectsService, userService, fetchSignal, posthog, projectMetrics } =
+		$derived(data);
 
 	const baseBranchService = getContext(BaseBranchService);
 	const repoInfoResponse = $derived(baseBranchService.repo(projectId));
@@ -71,6 +63,12 @@
 	const baseError = $derived(baseBranchResponse.current.error);
 	const baseBranchName = $derived(baseBranch?.shortName);
 	const branchService = getContext(BranchService);
+
+	const stackService = getContext(StackService);
+	const modeService = $derived(new ModeService(projectId, stackService));
+	$effect.pre(() => {
+		setContext(ModeService, modeService);
+	});
 
 	const vbranchService = $derived(
 		new VirtualBranchService(projectId, projectMetrics, modeService, branchService)
@@ -112,8 +110,6 @@
 		setContext(UpstreamIntegrationService, upstreamIntegrationService);
 	});
 
-	const stackService = getContext(StackService);
-
 	$effect.pre(() => {
 		const stackingReorderDropzoneManagerFactory = new StackingReorderDropzoneManagerFactory(
 			projectId,
@@ -129,7 +125,6 @@
 		setContext(BaseBranch, baseBranch);
 		setContext(Project, project);
 		setContext(GitBranchService, data.gitBranchService);
-		setContext(ModeService, data.modeService);
 		setContext(UncommitedFilesWatcher, data.uncommitedFileWatcher);
 		setContext(ProjectService, data.projectService);
 		setContext(VirtualBranchService, vbranchService);

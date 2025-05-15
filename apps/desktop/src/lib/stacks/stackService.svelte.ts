@@ -683,6 +683,18 @@ export class StackService {
 			}
 		);
 	}
+
+	get enterEditMode() {
+		return this.api.endpoints.enterEditMode.mutate;
+	}
+
+	get abortEditAndReturnToWorkspace() {
+		return this.api.endpoints.abortEditAndReturnToWorkspace.mutate;
+	}
+
+	get saveEditAndReturnToWorkspace() {
+		return this.api.endpoints.saveEditAndReturnToWorkspace.mutate;
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -1367,7 +1379,6 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Normalize branch name'
 				})
 			}),
-
 			targetCommits: build.query<
 				EntityState<Commit, string>,
 				{
@@ -1383,6 +1394,31 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				transformResponse: (commits: Commit[]) =>
 					commitAdapter.addMany(commitAdapter.getInitialState(), commits)
+			}),
+			enterEditMode: build.mutation<
+				void,
+				{ projectId: string; commitOid: string; stackId: string }
+			>({
+				query: (params) => ({
+					command: 'enter_edit_mode',
+					params
+				})
+			}),
+			abortEditAndReturnToWorkspace: build.mutation<void, { projectId: string }>({
+				query: (params) => ({
+					command: 'abort_edit_and_return_to_workspace',
+					params
+				})
+			}),
+			saveEditAndReturnToWorkspace: build.mutation<void, { projectId: string }>({
+				query: (params) => ({
+					command: 'save_edit_and_return_to_workspace',
+					params
+				}),
+				invalidatesTags: [
+					invalidatesList(ReduxTag.WorktreeChanges),
+					invalidatesList(ReduxTag.StackDetails)
+				]
 			})
 		})
 	});
