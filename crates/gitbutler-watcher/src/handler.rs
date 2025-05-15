@@ -1,11 +1,13 @@
 use std::{path::PathBuf, sync::Arc};
 
+use crate::Change;
 use anyhow::{Context, Result};
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_branch_actions::{internal::StackListResult, VirtualBranches};
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::DiffByPathMap;
 use gitbutler_error::error::Marker;
+use gitbutler_filemonitor::InternalEvent;
 use gitbutler_operating_modes::{in_open_workspace_mode, operating_mode};
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
@@ -15,8 +17,6 @@ use gitbutler_project::{self as projects, ProjectId};
 use gitbutler_sync::cloud::{push_oplog, push_repo};
 use gitbutler_user as users;
 use tracing::instrument;
-
-use super::{events, Change};
 
 /// A type that contains enough state to make decisions based on changes in the filesystem, which themselves
 /// may trigger [Changes](Change)
@@ -55,21 +55,21 @@ impl Handler {
     #[instrument(skip(self, app_settings), fields(event = %event), err(Debug))]
     pub(super) fn handle(
         &self,
-        event: events::InternalEvent,
+        event: InternalEvent,
         app_settings: AppSettingsWithDiskSync,
     ) -> Result<()> {
         match event {
-            events::InternalEvent::ProjectFilesChange(project_id, paths) => {
+            InternalEvent::ProjectFilesChange(project_id, paths) => {
                 let ctx = self.open_command_context(project_id, app_settings.get()?.clone())?;
                 self.project_files_change(paths, &ctx)
             }
 
-            events::InternalEvent::GitFilesChange(project_id, paths) => {
+            InternalEvent::GitFilesChange(project_id, paths) => {
                 let ctx = self.open_command_context(project_id, app_settings.get()?.clone())?;
                 self.git_files_change(paths, &ctx)
                     .context("failed to handle git file change event")
             }
-            events::InternalEvent::GitButlerOplogChange(project_id) => {
+            InternalEvent::GitButlerOplogChange(project_id) => {
                 let ctx = self.open_command_context(project_id, app_settings.get()?.clone())?;
                 self
                 .gitbutler_oplog_change(&ctx)
@@ -78,7 +78,7 @@ impl Handler {
             ,
 
             // This is only produced at the end of mutating Tauri commands to trigger a fresh state being served to the UI.
-            events::InternalEvent::CalculateVirtualBranches(project_id) => {
+            InternalEvent::CalculateVirtualBranches(project_id) => {
                 let ctx = self.open_command_context(project_id, app_settings.get()?.clone())?;
                 self.calculate_virtual_branches(&ctx, None)
                     .context("failed to handle virtual branch event")

@@ -9,7 +9,9 @@ use args::Args;
 
 mod command;
 
-fn main() -> Result<()> {
+// NOTE: Just for the `watch` function which unfortunately sends events through async channels.
+#[tokio::main]
+async fn main() -> Result<()> {
     let args: Args = clap::Parser::parse();
 
     if args.trace {
@@ -88,6 +90,7 @@ fn main() -> Result<()> {
             previous_commit.as_deref(),
             *unified_diff,
         ),
+        args::Subcommands::Watch => command::watch(&args).await,
         args::Subcommands::Stacks => command::stacks::list(&args.current_dir, args.json),
         args::Subcommands::StackDetails { id } => command::stacks::details(*id, &args.current_dir),
         args::Subcommands::StackBranches {

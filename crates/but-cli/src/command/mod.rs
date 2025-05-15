@@ -1,9 +1,10 @@
 use anyhow::{Context, anyhow, bail};
 use but_core::UnifiedDiff;
 use but_workspace::{DiffSpec, HunkHeader};
-use gitbutler_project::Project;
+use gitbutler_project::{Project, ProjectId};
 use gix::bstr::{BString, ByteSlice};
 use std::path::Path;
+use tokio::sync::mpsc::unbounded_channel;
 
 pub(crate) const UI_CONTEXT_LINES: u32 = 3;
 
@@ -330,6 +331,31 @@ pub(crate) fn discard_change(
         Some(spec),
         UI_CONTEXT_LINES,
     )?)
+}
+
+pub async fn watch(args: &super::Args) -> anyhow::Result<()> {
+    let (repo, project) = repo_and_maybe_project(args, RepositoryOpenMode::General)?;
+    let (tx, mut rx) = unbounded_channel();
+    let start = std::time::Instant::now();
+    let workdir = repo
+        .workdir()
+        .context("really only want to watch workdirs")?;
+    let _watcher = gitbutler_filemonitor::spawn(
+        project.map(|p| p.id).unwrap_or(ProjectId::generate()),
+        workdir,
+        tx,
+    )?;
+    let elapsed = start.elapsed();
+    eprintln!(
+        "Started watching {workdir} in {elapsed:?}s - waiting for events",
+        elapsed = elapsed.as_secs_f32(),
+        workdir = workdir.display(),
+    );
+
+    while let Some(event) = rx.recv().await {
+        debug_print(event).ok();
+    }
+    Ok(())
 }
 
 fn indices_or_headers_to_hunk_headers(

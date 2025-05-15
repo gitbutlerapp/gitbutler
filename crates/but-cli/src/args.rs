@@ -106,6 +106,7 @@ pub enum Subcommands {
         #[clap(long, default_value_t = false)]
         simple: bool,
     },
+    Watch,
     /// Returns the list of stacks that are currently part of the GitButler workspace.
     Stacks,
     /// Returns the list of stacks that are currently part of the GitButler workspace.
@@ -133,7 +134,10 @@ pub enum Subcommands {
         description: Option<String>,
     },
     /// Returns all commits for the branch with the given `name` in the stack with the given `id`.
-    StackBranchCommits { id: StackId, name: String },
+    StackBranchCommits {
+        id: StackId,
+        name: String,
+    },
 }
 
 #[cfg(test)]

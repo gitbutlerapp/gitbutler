@@ -2,7 +2,6 @@ use std::{collections::HashSet, path::Path, time::Duration};
 
 use anyhow::{anyhow, Context, Result};
 use gitbutler_notify_debouncer::{new_debouncer, Debouncer, NoCache};
-use gitbutler_oplog::OPLOG_FILE_NAME;
 use gitbutler_project::ProjectId;
 use notify::{RecommendedWatcher, Watcher};
 use tokio::task;
@@ -284,7 +283,7 @@ fn classify_file(git_dir: &Path, file_path: &Path) -> FileKind {
             || check_file_path == Path::new("index")
         {
             FileKind::Git
-        } else if check_file_path == Path::new("gitbutler").join(OPLOG_FILE_NAME) {
+        } else if check_file_path == Path::new("gitbutler").join("operations-log.toml") {
             FileKind::GitButlerOplog
         } else {
             FileKind::GitUninteresting

@@ -2,13 +2,10 @@
 #![deny(unsafe_code, rust_2018_idioms)]
 #![allow(clippy::doc_markdown, clippy::missing_errors_doc)]
 
-mod events;
 use std::path::Path;
 
 use anyhow::{Context, Result};
 use but_settings::AppSettingsWithDiskSync;
-use events::InternalEvent;
-pub use events::{Action, Change};
 use gitbutler_project::ProjectId;
 pub use handler::Handler;
 use tokio::{
@@ -17,7 +14,10 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
-mod file_monitor;
+mod events;
+pub use events::{Action, Change};
+use gitbutler_filemonitor::InternalEvent;
+
 mod handler;
 
 /// An abstraction over a link to the spawned watcher, which runs in the background.
@@ -81,7 +81,8 @@ pub fn watch_in_background(
     let (events_out, mut events_in) = unbounded_channel();
     let (flush_tx, mut flush_rx) = unbounded_channel();
 
-    let debounce = file_monitor::spawn(project_id, worktree_path.as_ref(), events_out.clone())?;
+    let debounce =
+        gitbutler_filemonitor::spawn(project_id, worktree_path.as_ref(), events_out.clone())?;
 
     let cancellation_token = CancellationToken::new();
     let handle = WatcherHandle {
