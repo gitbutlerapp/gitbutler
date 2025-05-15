@@ -129,13 +129,15 @@
 					{/if}
 
 					{#if splitView}
-						<Resizer
-							viewport={viewportEl}
-							direction="right"
-							minWidth={16}
-							imitateBorder
-							onWidth={(value) => uiState.global.drawerSplitViewWidth.set(value)}
-						/>
+						<div class="drawer__content-resizer">
+							<Resizer
+								viewport={viewportEl}
+								direction="right"
+								minWidth={16}
+								imitateBorder
+								onWidth={(value) => uiState.global.drawerSplitViewWidth.set(value)}
+							/>
+						</div>
 					{/if}
 				</div>
 
@@ -219,6 +221,11 @@
 		gap: 4px;
 	}
 
+	.drawer__content-resizer {
+		/* need this to hide the resizer on smaller screens */
+		display: contents;
+	}
+
 	.drawer__content-wrap {
 		flex: 1;
 		position: relative;
@@ -254,6 +261,10 @@
 			& .drawer__content-scroll {
 				width: 100%;
 				height: auto;
+			}
+
+			& .drawer__content-resizer {
+				display: none;
 			}
 
 			& .drawer__files-split-view {
