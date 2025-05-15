@@ -84,6 +84,15 @@
 		statuses = statusesTmp;
 	});
 
+	// Re-fetch upstream statuses if the target commit oid changes
+	$effect(() => {
+		if (targetCommitOid) {
+			upstreamIntegrationService.upstreamStatuses(targetCommitOid).then((statuses) => {
+				branchStatuses = statuses;
+			});
+		}
+	});
+
 	// Resolve the target commit oid if the base branch diverged and the the resolution
 	// approach is changed
 	$effect(() => {
