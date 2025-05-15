@@ -1,6 +1,6 @@
+import type { Command } from '@/types';
 import { splitIntoMessages } from '@/utils/message-splitter';
 import { formatTicket } from '@/utils/tickets';
-import type { Command } from '@/types';
 
 export const listTickets: Command = {
 	name: 'listtickets',
