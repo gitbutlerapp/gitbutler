@@ -26,7 +26,7 @@
 	const {
 		viewport,
 		initiallyVisible = false,
-		thickness = '0.5rem',
+		thickness = '.5rem',
 		padding = {},
 		shift = '0',
 		horz = false,
@@ -330,12 +330,13 @@
 		position: absolute;
 		background-color: var(--clr-scale-ntrl-0);
 		opacity: 0;
+		will-change: transform, opacity;
 	}
 
 	/* modify vertical scrollbar */
 	.scrollbar-track.vert {
 		& .scrollbar-thumb {
-			transform: scaleX(0.75);
+			transform: scaleX(0.7) translateZ(0);
 			transform-origin: right;
 		}
 	}
@@ -343,7 +344,7 @@
 	/* modify horizontal scrollbar */
 	.scrollbar-track.horz {
 		& .scrollbar-thumb {
-			transform: scaleY(0.75);
+			transform: scaleY(0.7) translateZ(0);
 			transform-origin: bottom;
 		}
 	}
@@ -370,14 +371,14 @@
 	.show-scrollbar.vert:hover,
 	.thumb-dragging.vert {
 		& .scrollbar-thumb {
-			transform: scaleY(1);
+			transform: scaleY(1) translateZ(0);
 		}
 	}
 	/* horizontal */
 	.show-scrollbar.horz:hover,
 	.thumb-dragging.horz {
 		& .scrollbar-thumb {
-			transform: scaleX(1);
+			transform: scaleX(1) translateZ(0);
 		}
 	}
 </style>
