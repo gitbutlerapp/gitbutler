@@ -5,6 +5,7 @@
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
+	import type { ConflictEntriesObj } from '$lib/files/conflicts';
 	import type { TreeChange } from '$lib/hunks/change';
 	import type { SelectionId } from '$lib/selection/key';
 
@@ -15,9 +16,11 @@
 		changes: TreeChange[];
 		title: string;
 		active?: boolean;
+		conflictEntries?: ConflictEntriesObj;
 	};
 
-	const { projectId, stackId, selectionId, changes, title, active }: Props = $props();
+	const { projectId, stackId, selectionId, changes, title, active, conflictEntries }: Props =
+		$props();
 
 	let listMode: 'list' | 'tree' = $state('tree');
 </script>
@@ -30,7 +33,7 @@
 	<FileListMode bind:mode={listMode} persist="committed" />
 </div>
 {#if changes.length > 0}
-	<FileList {selectionId} {projectId} {stackId} {changes} {listMode} {active} />
+	<FileList {selectionId} {projectId} {stackId} {changes} {listMode} {active} {conflictEntries} />
 {:else}
 	<EmptyStatePlaceholder image={emptyFolderSvg} width={180} gap={4}>
 		{#snippet caption()}

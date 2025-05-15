@@ -3,14 +3,17 @@
 	import LazyloadContainer from '$components/LazyloadContainer.svelte';
 	import FileListItemWrapper from '$components/v3/FileListItemWrapper.svelte';
 	import FileTreeNode from '$components/v3/FileTreeNode.svelte';
+	import { conflictEntryHint } from '$lib/conflictEntryPresence';
 	import { abbreviateFolders, changesToFileTree } from '$lib/files/filetreeV3';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { selectFilesInList, updateSelection } from '$lib/selection/idSelectionUtils';
+	import { type SelectionId } from '$lib/selection/key';
 	import { chunk } from '$lib/utils/array';
 	import { sortLikeFileTree } from '$lib/worktree/changeTree';
 	import { getContext } from '@gitbutler/shared/context';
+	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
+	import type { ConflictEntriesObj } from '$lib/files/conflicts';
 	import type { TreeChange, Modification } from '$lib/hunks/change';
-	import type { SelectionId } from '$lib/selection/key';
 
 	type Props = {
 		projectId: string;
@@ -20,10 +23,19 @@
 		showCheckboxes?: boolean;
 		selectionId: SelectionId;
 		active?: boolean;
+		conflictEntries?: ConflictEntriesObj;
 	};
 
-	const { projectId, changes, listMode, selectionId, showCheckboxes, active, stackId }: Props =
-		$props();
+	const {
+		projectId,
+		changes,
+		listMode,
+		selectionId,
+		showCheckboxes,
+		active,
+		stackId,
+		conflictEntries
+	}: Props = $props();
 
 	let currentDisplayIndex = $state(0);
 
@@ -50,6 +62,16 @@
 		if (currentDisplayIndex + 1 >= fileChunks.length) return;
 		currentDisplayIndex += 1;
 	}
+
+	const unrepresentedConflictedEntries = $derived.by(() => {
+		if (!conflictEntries?.entries) return {};
+
+		return Object.fromEntries(
+			Object.entries(conflictEntries.entries).filter(([key, _value]) =>
+				changes.every((change) => change.path !== key)
+			)
+		);
+	});
 </script>
 
 {#snippet fileTemplate(change: TreeChange, idx: number, depth: number = 0)}
@@ -70,9 +92,18 @@
 		onclick={(e) => {
 			selectFilesInList(e, change, visibleFiles, idSelection, true, idx, selectionId);
 		}}
+		{conflictEntries}
 	/>
 {/snippet}
 
+{#each Object.entries(unrepresentedConflictedEntries) as [path, kind]}
+	<FileListItemV3
+		filePath={path}
+		conflicted
+		conflictHint={conflictEntryHint(kind)}
+		listMode="list"
+	/>
+{/each}
 {#if visibleFiles.length > 0}
 	<LazyloadContainer
 		minTriggerCount={80}

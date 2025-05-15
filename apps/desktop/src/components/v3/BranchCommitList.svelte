@@ -359,7 +359,7 @@
 							commitId={commit.id}
 							commitMessage={commit.message}
 							type={commit.state.type}
-							hasConflicts={commit.state.type === 'LocalAndRemote' && commit.hasConflicts}
+							hasConflicts={commit.hasConflicts}
 							diverged={commit.state.type === 'LocalAndRemote' &&
 								commit.id !== commit.state.subject}
 							createdAt={commit.createdAt}

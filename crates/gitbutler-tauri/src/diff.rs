@@ -1,7 +1,11 @@
 use crate::error::Error;
 use crate::from_json::HexHash;
 use anyhow::Context;
-use but_core::ui::{TreeChange, TreeChanges, WorktreeChanges};
+use but_core::{
+    commit::ConflictEntries,
+    ui::{TreeChange, TreeChanges, WorktreeChanges},
+    Commit,
+};
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::{ObjectIdExt, OidExt};
@@ -41,9 +45,11 @@ pub fn commit_details(
         .find_commit(commit_id)
         .context("Failed for find commit")?;
     let changes = but_core::diff::ui::commit_changes_by_worktree_dir(repo, commit_id.into())?;
+    let conflict_entries = Commit::from_id(commit.id())?.conflict_entries()?;
     Ok(CommitDetails {
         commit: commit.try_into()?,
         changes,
+        conflict_entries,
     })
 }
 
@@ -53,6 +59,7 @@ pub struct CommitDetails {
     pub commit: but_workspace::ui::Commit,
     #[serde(flatten)]
     pub changes: but_core::ui::TreeChanges,
+    pub conflict_entries: Option<ConflictEntries>,
 }
 
 /// Gets the changes for a given branch.

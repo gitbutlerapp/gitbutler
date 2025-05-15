@@ -1,4 +1,5 @@
 import { StackOrder } from '$lib/branches/branch';
+import { ConflictEntries, type ConflictEntriesObj } from '$lib/files/conflicts';
 import { showToast } from '$lib/notifications/toasts';
 import { ClientState, type BackendApi } from '$lib/state/clientState.svelte';
 import { createSelectByIds, createSelectNth } from '$lib/state/customSelectors';
@@ -384,7 +385,12 @@ export class StackService {
 	commitChanges(projectId: string, commitId: string) {
 		return this.api.endpoints.commitDetails.useQuery(
 			{ projectId, commitId },
-			{ transform: (result) => changesSelectors.selectAll(result.changes) }
+			{
+				transform: (result) => ({
+					changes: changesSelectors.selectAll(result.changes),
+					conflictEntries: result.conflictEntries
+				})
+			}
 		);
 	}
 
@@ -877,7 +883,11 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				]
 			}),
 			commitDetails: build.query<
-				{ changes: EntityState<TreeChange, string>; details: Commit },
+				{
+					changes: EntityState<TreeChange, string>;
+					details: Commit;
+					conflictEntries?: ConflictEntriesObj;
+				},
 				{ projectId: string; commitId: string }
 			>({
 				query: ({ projectId, commitId }) => ({
@@ -889,7 +899,17 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				],
 				transformResponse(rsp: CommitDetails) {
 					const changes = changesAdapter.addMany(changesAdapter.getInitialState(), rsp.changes);
-					return { changes: changes, details: rsp.commit };
+					return {
+						changes: changes,
+						details: rsp.commit,
+						conflictEntries: rsp.conflictEntries
+							? new ConflictEntries(
+									rsp.conflictEntries.ancestorEntries,
+									rsp.conflictEntries.ourEntries,
+									rsp.conflictEntries.theirEntries
+								).toObj()
+							: undefined
+					};
 				}
 			}),
 			branchChanges: build.query<

@@ -1,12 +1,12 @@
-use std::{collections::HashSet, path::PathBuf};
+use std::path::PathBuf;
 
 use crate::RepositoryExt as _;
 use anyhow::{Context, Result};
+use but_core::commit::ConflictEntries;
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt};
 use gitbutler_command_context::gix_repo_for_merging;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_oxidize::{GixRepositoryExt as _, ObjectIdExt as _, OidExt as _};
-use serde::{Deserialize, Serialize};
 
 fn extract_conflicted_files(
     merged_tree_id: gix::Id<'_>,
@@ -186,37 +186,16 @@ pub fn gitbutler_merge_commits<'repo>(
     Ok(repo.find_commit(result_oid.to_git2())?)
 }
 
-#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct ConflictEntries {
-    pub ancestor_entries: Vec<PathBuf>,
-    our_entries: Vec<PathBuf>,
-    their_entries: Vec<PathBuf>,
-}
-
-impl ConflictEntries {
-    pub fn has_entries(&self) -> bool {
-        !self.ancestor_entries.is_empty()
-            || !self.our_entries.is_empty()
-            || !self.their_entries.is_empty()
-    }
-
-    pub fn total_entries(&self) -> usize {
-        let set = self
-            .ancestor_entries
-            .iter()
-            .chain(self.our_entries.iter())
-            .chain(self.their_entries.iter())
-            .collect::<HashSet<_>>();
-
-        set.len()
-    }
-
+trait ToHeaders {
     /// Assure that the returned headers will always indicate a conflict.
     /// This is a fail-safe in case this instance has no paths stored as auto-resolution
     /// removed the path that would otherwise be conflicting.
     /// In other words: conflicting index entries aren't reliable when conflicts were resolved
     /// with the 'ours' strategy.
+    fn to_headers(&self) -> CommitHeadersV2;
+}
+
+impl ToHeaders for ConflictEntries {
     fn to_headers(&self) -> CommitHeadersV2 {
         CommitHeadersV2 {
             conflicted: Some({

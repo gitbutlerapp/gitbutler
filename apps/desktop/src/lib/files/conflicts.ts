@@ -20,4 +20,14 @@ export class ConflictEntries {
 			this.entries.set(entry, entryPresence);
 		});
 	}
+
+	toObj(): ConflictEntriesObj {
+		return {
+			entries: Object.fromEntries(this.entries.entries())
+		};
+	}
 }
+
+export type ConflictEntriesObj = {
+	entries: Record<string, ConflictEntryPresence>;
+};
