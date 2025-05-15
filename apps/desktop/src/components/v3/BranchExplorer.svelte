@@ -33,7 +33,7 @@
 			'subject.name',
 			'subject.lastCommiter.email',
 			'subject.lastCommiter.name',
-			'subject.virtualBranch.stackBranches',
+			'subject.stack.branches',
 			// Subject is pull request
 			'subject.title',
 			'subject.author.email',
