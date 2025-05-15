@@ -1,5 +1,5 @@
-import { ChannelType } from '@/types/channel-types';
 import type { Command } from '@/types';
+import { ChannelType } from '@/types/channel-types';
 
 export const addChannel: Command = {
 	name: 'addchannel',

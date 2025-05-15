@@ -1,5 +1,5 @@
-import { createEmbedding, parseEmbedding, stringifyEmbedding } from '@/utils/embedding';
 import type { Task } from '@/types';
+import { createEmbedding, parseEmbedding, stringifyEmbedding } from '@/utils/embedding';
 
 export const syncGithubIssues: Task = {
 	name: 'sync-github-issues',

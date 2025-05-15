@@ -75,7 +75,6 @@ export default ts.config(
 					pathGroupsExcludedImportTypes: ['builtin', 'external', 'object', 'type']
 				}
 			],
-			'import-x/no-relative-packages': 'error', // Don't allow packages to have relative imports between each other
 			'func-style': [2, 'declaration'],
 			'no-return-await': 'off',
 			'svelte/no-at-html-tags': 'off',
@@ -100,7 +99,7 @@ export default ts.config(
 			'import-x/parsers': {
 				'@typescript-eslint/parser': ['.ts']
 			},
-			'import-x/resolver': {
+			'import-x/resolver-next': {
 				typescript: {
 					project: [
 						'./apps/**/tsconfig.json',
