@@ -1,4 +1,6 @@
 import type { DetailedCommit } from '$lib/commits/commit';
+import type { ChangeDropData } from '$lib/dragging/draggables';
+import type { DiffSpec } from '$lib/hunks/hunk';
 
 type DivergenceResult =
 	| { type: 'localDiverged'; commit: DetailedCommit }
@@ -31,4 +33,18 @@ export function findLastDivergentCommit(
 	}
 
 	return { type: 'notDiverged' };
+}
+
+/** Helper function that converts `ChangeDropData` to `DiffSpec`. */
+export function changesToDiffSpec(data: ChangeDropData): DiffSpec[] {
+	const changes = data.changes;
+	return changes.map((change) => {
+		const previousPathBytes =
+			change.status.type === 'Rename' ? change.status.subject.previousPathBytes : null;
+		return {
+			previousPathBytes,
+			pathBytes: change.pathBytes,
+			hunkHeaders: []
+		};
+	});
 }

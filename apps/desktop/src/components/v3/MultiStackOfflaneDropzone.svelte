@@ -2,7 +2,8 @@
 	import Dropzone from '$components/Dropzone.svelte';
 	import { OutsideLaneDzHandler } from '$lib/stacks/dropHandler';
 	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { UiState } from '$lib/state/uiState.svelte';
+	import { inject } from '@gitbutler/shared/context';
 
 	interface Props {
 		projectId: string;
@@ -10,8 +11,8 @@
 
 	const { projectId }: Props = $props();
 
-	const stackService = getContext(StackService);
-	const dzHandler = $derived(new OutsideLaneDzHandler(stackService, projectId));
+	const [stackService, uiState] = inject(StackService, UiState);
+	const dzHandler = $derived(new OutsideLaneDzHandler(stackService, projectId, uiState));
 </script>
 
 <div class="hidden-dropzone">
@@ -105,7 +106,7 @@
 		align-items: center;
 		justify-content: center;
 		gap: 10px;
-		padding: 20px 30px;
+		min-height: 240px;
 		min-width: 240px;
 
 		/* SVG ANIMATION */
