@@ -310,14 +310,14 @@
 
 <style>
 	.scrollbar-track {
+		position: absolute;
 		/* scrollbar variables */
 		--scrollbar-shift-vertical: 0;
 		--scrollbar-shift-horizontal: 0;
 		/* variable props */
 		bottom: var(--scrollbar-shift-vertical);
 		right: var(--scrollbar-shift-horizontal);
-		/* other props */
-		position: absolute;
+		/* background-color: rgba(0, 0, 255, 0.1); */
 	}
 
 	.scrollbar-thumb {
@@ -331,6 +331,9 @@
 		background-color: var(--clr-scale-ntrl-0);
 		opacity: 0;
 		will-change: transform, opacity;
+		transition:
+			opacity 0.2s,
+			transform 0.15s;
 	}
 
 	/* modify vertical scrollbar */
@@ -362,9 +365,6 @@
 	.thumb-dragging {
 		& .scrollbar-thumb {
 			opacity: 0.25;
-			transition:
-				opacity 0.2s,
-				transform 0.15s;
 		}
 	}
 	/* vertical */
