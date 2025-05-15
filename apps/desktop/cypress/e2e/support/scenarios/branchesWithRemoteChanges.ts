@@ -73,9 +73,14 @@ const MOCK_BRANCH_B_CHANGES: TreeChange[] = [
 	createMockDeletionTreeChange({ path: 'fileF.txt' })
 ];
 
+const MOCK_STACK_B_OTHER_BRANCH_NAME = 'other-branch-name';
+
 const MOCK_STACK_DETAILS_B = createMockStackDetails({
 	derivedName: MOCK_STACK_B_ID,
-	branchDetails: [createMockBranchDetails({ name: MOCK_STACK_B_ID })]
+	branchDetails: [
+		createMockBranchDetails({ name: MOCK_STACK_B_ID }),
+		createMockBranchDetails({ name: MOCK_STACK_B_OTHER_BRANCH_NAME })
+	]
 });
 
 const MOCK_STACK_C: Stack = {
@@ -161,6 +166,7 @@ const MOCK_DIFF_DEPENDENCY: DiffDependency[] = [
  * Three branches with file changes.
  */
 export default class BranchesWithRemoteChanges extends MockBackend {
+	localOnlyBranchStackId = MOCK_STACK_B_ID;
 	constructor() {
 		super();
 

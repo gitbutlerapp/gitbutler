@@ -12,6 +12,8 @@ describe('Branch Actions', () => {
 		mockCommand('stack_details', (params) => mockBackend.getStackDetails(params));
 		mockCommand('changes_in_branch', (args) => mockBackend.getBranchChanges(args));
 		mockCommand('integrate_upstream_commits', (args) => mockBackend.integrateUpstreamCommits(args));
+		mockCommand('update_branch_name', (params) => mockBackend.renameBranch(params));
+		mockCommand('remove_branch', (params) => mockBackend.removeBranch(params));
 
 		cy.visit('/');
 
@@ -49,5 +51,54 @@ describe('Branch Actions', () => {
 			seriesName: mockBackend.stackId,
 			strategy: undefined
 		});
+	});
+
+	it('should be able to rename a branch from the context menu', () => {
+		const newBranchName = 'new-branch-name';
+		// Click on the branch.
+		// And then open the context menu.
+		cy.getByTestId('branch-header', mockBackend.localOnlyBranchStackId)
+			.should('be.visible')
+			.click()
+			.rightclick();
+
+		// The context menu should be visible
+		cy.getByTestId('branch-header-context-menu').should('be.visible');
+		cy.getByTestId('branch-header-context-menu-rename').should('be.visible').click();
+
+		// The rename dialog should be visible
+		cy.getByTestId('branch-header-rename-modal').should('be.visible');
+
+		// Rename the branch
+		cy.get('#new-branch-name-input').should('be.visible').clear().type(newBranchName);
+		cy.getByTestId('branch-header-rename-modal-action-button').should('be.visible').click();
+
+		// The branch should be updated in the list header
+		cy.getByTestId('branch-header', newBranchName).should('be.visible');
+
+		// The branch name should be visible in the branch view
+		cy.getByTestId('branch-drawer', newBranchName).should('be.visible');
+	});
+
+	it('should be able to delete a branch from the context menu', () => {
+		// Click on the branch.
+		// And then open the context menu.
+		cy.getByTestId('branch-header', mockBackend.localOnlyBranchStackId)
+			.should('be.visible')
+			.click()
+			.rightclick();
+
+		// The context menu should be visible
+		cy.getByTestId('branch-header-context-menu').should('be.visible');
+		cy.getByTestId('branch-header-context-menu-delete').should('be.visible').click();
+
+		// The delete dialog should be visible
+		cy.getByTestId('branch-header-delete-modal').should('be.visible');
+
+		// Delete the branch
+		cy.getByTestId('branch-header-delete-modal-action-button').should('be.visible').click();
+
+		// The branch should be removed from the list header
+		cy.getByTestId('branch-header', mockBackend.localOnlyBranchStackId).should('not.exist');
 	});
 });
