@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_oplog::SnapshotExt;
 use gitbutler_oxidize::{git2_to_gix_object_id, GixRepositoryExt, OidExt, RepoExt};
@@ -30,7 +30,12 @@ impl BranchManager<'_> {
 
         // We don't want to try unapplying branches which are marked as not in workspace by the new metric
         if !stack.in_workspace {
-            bail!("Can not unapply branches that are already not in the workspace")
+            return Ok(stack
+                .heads
+                .first()
+                .expect("Stacks always have one branch")
+                .full_name()?
+                .to_string());
         }
 
         _ = self.ctx.snapshot_branch_deletion(stack.name.clone(), perm);
