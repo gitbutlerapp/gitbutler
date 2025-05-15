@@ -168,10 +168,7 @@ impl StackBranch {
     }
 
     pub fn delete_reference(&self, repo: &gix::Repository) -> Result<()> {
-        let oid = match self.head.clone() {
-            CommitOrChangeId::CommitId(id) => gix::ObjectId::from_str(&id)?,
-            CommitOrChangeId::ChangeId(_) => return Ok(()), // noop
-        };
+        let oid = self.head_oid(repo)?;
         let current_name: BString = qualified_reference_name(self.name()).into();
         if let Some(reference) = repo.try_find_reference(&current_name)? {
             let delete = RefEdit {
@@ -193,10 +190,7 @@ impl StackBranch {
         }
         let current_name: BString = qualified_reference_name(self.name()).into();
 
-        let oid = match self.head.clone() {
-            CommitOrChangeId::CommitId(id) => gix::ObjectId::from_str(&id)?,
-            CommitOrChangeId::ChangeId(_) => return Ok(()), // noop
-        };
+        let oid = self.head_oid(repo)?;
 
         if let Some(reference) = repo.try_find_reference(&current_name)? {
             let delete = RefEdit {
