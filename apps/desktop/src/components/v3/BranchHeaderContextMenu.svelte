@@ -11,6 +11,9 @@
 </script>
 
 <script lang="ts">
+	import AddDependentBranchModal, {
+		type AddDependentBranchModalProps
+	} from '$components/AddDependentBranchModal.svelte';
 	import BranchRenameModal, {
 		type BranchRenameModalProps
 	} from '$components/BranchRenameModal.svelte';
@@ -72,6 +75,8 @@
 	let renameBranchModalContext = $state<BranchRenameModalProps>();
 	let deleteBranchModal = $state<DeleteBranchModal>();
 	let deleteBranchModalContext = $state<DeleteBranchModalProps>();
+	let addDependentBranchModal = $state<AddDependentBranchModal>();
+	let addDependentBranchModalContext = $state<AddDependentBranchModalProps>();
 
 	async function setAIConfigurationValid() {
 		aiConfigurationValid = await aiService.validateConfiguration();
@@ -116,13 +121,20 @@
 		testId={TestId.BranchHeaderContextMenu}
 		position={context.position}
 	>
-		{#if first}
+		{#if first && stackId}
 			<ContextMenuSection>
 				<ContextMenuItem
 					label="Add dependent branch"
 					testId={TestId.BranchHeaderContextMenu_AddDependentBranch}
-					onclick={() => {
-						// onAddDependentSeries?.();
+					onclick={async () => {
+						addDependentBranchModalContext = {
+							projectId,
+							stackId
+						};
+
+						await tick();
+
+						addDependentBranchModal?.show();
 						close();
 					}}
 				/>
@@ -271,4 +283,11 @@
 
 {#if deleteBranchModalContext}
 	<DeleteBranchModal bind:this={deleteBranchModal} {...deleteBranchModalContext} />
+{/if}
+
+{#if addDependentBranchModalContext}
+	<AddDependentBranchModal
+		bind:this={addDependentBranchModal}
+		{...addDependentBranchModalContext}
+	/>
 {/if}
