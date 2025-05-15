@@ -2,7 +2,7 @@
 	import BranchLayoutMode from '$components/v3/BranchLayoutMode.svelte';
 	import BranchList from '$components/v3/BranchList.svelte';
 	import MultiStackCreateNew from '$components/v3/MultiStackCreateNew.svelte';
-	import MultiStackOutsideDropzone from '$components/v3/MultiStackOutsideDropzone.svelte';
+	import MultiStackOfflaneDropzone from '$components/v3/MultiStackOfflaneDropzone.svelte';
 	import MultiStackPagination, { scrollToLane } from '$components/v3/MultiStackPagination.svelte';
 	import StackDraft from '$components/v3/StackDraft.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
@@ -141,7 +141,7 @@
 				</div>
 			{/each}
 
-			<MultiStackOutsideDropzone {projectId} />
+			<MultiStackOfflaneDropzone {projectId} />
 		{:else if isCommitting}
 			<StackDraft {projectId} />
 		{:else}
