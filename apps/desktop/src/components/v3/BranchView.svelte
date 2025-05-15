@@ -10,7 +10,6 @@
 	import KebabButton from '$components/v3/KebabButton.svelte';
 	import NewBranchModal from '$components/v3/NewBranchModal.svelte';
 	import newBranchSmolSVG from '$lib/assets/empty-state/new-branch-smol.svg?raw';
-	import { Focusable } from '$lib/focus/focusManager.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { TestId } from '$lib/testing/testIds';
@@ -52,7 +51,7 @@
 	{#snippet children([branches, branch, topCommit], { stackId, projectId })}
 		{@const hasCommits = !!topCommit}
 		{@const remoteTrackingBranch = branch.remoteTrackingBranch}
-		<Drawer {projectId} {stackId}>
+		<Drawer testId={TestId.BranchDrawer} {projectId} {stackId}>
 			{#snippet header()}
 				<div class="branch__header">
 					{#if hasCommits}
@@ -116,14 +115,12 @@
 				<ReduxResult {projectId} {stackId} result={changesResult.current} {onerror}>
 					{#snippet children(changes, { projectId, stackId })}
 						<ChangedFiles
-							testId={TestId.BranchChangedFileList}
 							title="All changed files"
 							{projectId}
 							{stackId}
 							selectionId={{ type: 'branch', stackId, branchName }}
 							{changes}
 							{active}
-							parentId={Focusable.Drawer}
 						/>
 					{/snippet}
 				</ReduxResult>

@@ -44,7 +44,7 @@ describe('Selection', () => {
 					cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace`);
 				});
 			// Check if the file list is updated
-			cy.getByTestId('branch-changed-file-list')
+			cy.getByTestId('branch-drawer')
 				.should('be.visible')
 				.within(() => {
 					const changedFileNames = mockBackend.getBranchChangesFileNames(stack.id, stackName);

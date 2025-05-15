@@ -7,7 +7,6 @@
 	import Drawer from '$components/v3/Drawer.svelte';
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
@@ -68,7 +67,6 @@
 							active
 							{projectId}
 							selectionId={{ type: 'commit', commitId }}
-							testId={TestId.BranchChangedFileList}
 							{changes}
 						/>
 					{/snippet}

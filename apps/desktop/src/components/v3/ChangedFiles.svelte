@@ -2,8 +2,6 @@
 	import FileList from '$components/v3/FileList.svelte';
 	import FileListMode from '$components/v3/FileListMode.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
-	import { Focusable } from '$lib/focus/focusManager.svelte';
-	import { focusable } from '$lib/focus/focusable.svelte';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
@@ -16,13 +14,10 @@
 		selectionId: SelectionId;
 		changes: TreeChange[];
 		title: string;
-		testId?: string;
 		active?: boolean;
-		parentId?: Focusable;
 	};
 
-	const { projectId, stackId, selectionId, changes, title, testId, active, parentId }: Props =
-		$props();
+	const { projectId, stackId, selectionId, changes, title, active }: Props = $props();
 
 	let listMode: 'list' | 'tree' = $state('tree');
 </script>
