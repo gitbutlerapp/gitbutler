@@ -169,67 +169,74 @@
 			current.stackId || (current.branchName && current.branchName !== baseBranch.shortName)}
 
 		<div class="branches-view" use:focusable={{ id: Focusable.Branches }}>
-			<div class="branch-list" bind:this={leftDiv} style:width={leftWidth.current + 'rem'}>
-				<BranchesListGroup title="Current workspace target">
-					<!-- TODO: We need an API for `commitsCount`! -->
-					<CurrentOriginCard
-						originName={baseBranch.branchName}
-						lastCommit={lastCommit
-							? {
-									author: lastCommit.author,
-									ago: getTimeAgo(lastCommit.createdAt, true),
-									branch: baseBranch.shortName,
-									sha: lastCommit.id.slice(0, 7)
-								}
-							: undefined}
-						onclick={() => {
-							branchesSelection.set({ branchName: baseBranch.shortName, isTarget: true });
-						}}
-						selected={branchesSelection.current.branchName === undefined ||
-							branchesSelection.current.branchName === baseBranch.shortName}
-					/>
-				</BranchesListGroup>
-				<BranchExplorer {projectId}>
-					{#snippet sidebarEntry(sidebarEntrySubject: SidebarEntrySubject)}
-						{#if sidebarEntrySubject.type === 'branchListing'}
-							<BranchListCard
-								{projectId}
-								branchListing={sidebarEntrySubject.subject}
-								prs={sidebarEntrySubject.prs}
-								selected={sidebarEntrySubject.subject.stack
-									? branchesSelection.current.branchName ===
-										sidebarEntrySubject.subject.stack.branches.at(0)
-									: branchesSelection.current.branchName === sidebarEntrySubject.subject.name}
-								onclick={({ listing, pr }) => {
-									if (listing.stack) {
-										branchesSelection.set({
-											stackId: listing.stack.id,
-											branchName: listing.stack.branches.at(0),
-											prNumber: pr?.number,
-											inWorkspace: listing.stack.inWorkspace,
-											hasLocal: listing.hasLocal
-										});
-									} else {
-										branchesSelection.set({
-											branchName: listing.name,
-											prNumber: pr?.number,
-											remote: listing.remotes.at(0),
-											hasLocal: listing.hasLocal
-										});
+			<div
+				class="branch-list-resizer-wrap"
+				bind:this={leftDiv}
+				style:width={leftWidth.current + 'rem'}
+			>
+				<div class="branch-list">
+					<BranchesListGroup title="Current workspace target">
+						<!-- TODO: We need an API for `commitsCount`! -->
+						<CurrentOriginCard
+							originName={baseBranch.branchName}
+							lastCommit={lastCommit
+								? {
+										author: lastCommit.author,
+										ago: getTimeAgo(lastCommit.createdAt, true),
+										branch: baseBranch.shortName,
+										sha: lastCommit.id.slice(0, 7)
 									}
-								}}
-							/>
-						{:else}
-							<PRListCard
-								{projectId}
-								pullRequest={sidebarEntrySubject.subject}
-								selected={branchesSelection.current.prNumber === sidebarEntrySubject.subject.number}
-								onclick={(pr) => branchesSelection.set({ prNumber: pr.number })}
-								noSourceBranch
-							/>
-						{/if}
-					{/snippet}
-				</BranchExplorer>
+								: undefined}
+							onclick={() => {
+								branchesSelection.set({ branchName: baseBranch.shortName, isTarget: true });
+							}}
+							selected={branchesSelection.current.branchName === undefined ||
+								branchesSelection.current.branchName === baseBranch.shortName}
+						/>
+					</BranchesListGroup>
+					<BranchExplorer {projectId}>
+						{#snippet sidebarEntry(sidebarEntrySubject: SidebarEntrySubject)}
+							{#if sidebarEntrySubject.type === 'branchListing'}
+								<BranchListCard
+									{projectId}
+									branchListing={sidebarEntrySubject.subject}
+									prs={sidebarEntrySubject.prs}
+									selected={sidebarEntrySubject.subject.stack
+										? branchesSelection.current.branchName ===
+											sidebarEntrySubject.subject.stack.branches.at(0)
+										: branchesSelection.current.branchName === sidebarEntrySubject.subject.name}
+									onclick={({ listing, pr }) => {
+										if (listing.stack) {
+											branchesSelection.set({
+												stackId: listing.stack.id,
+												branchName: listing.stack.branches.at(0),
+												prNumber: pr?.number,
+												inWorkspace: listing.stack.inWorkspace,
+												hasLocal: listing.hasLocal
+											});
+										} else {
+											branchesSelection.set({
+												branchName: listing.name,
+												prNumber: pr?.number,
+												remote: listing.remotes.at(0),
+												hasLocal: listing.hasLocal
+											});
+										}
+									}}
+								/>
+							{:else}
+								<PRListCard
+									{projectId}
+									pullRequest={sidebarEntrySubject.subject}
+									selected={branchesSelection.current.prNumber ===
+										sidebarEntrySubject.subject.number}
+									onclick={(pr) => branchesSelection.set({ prNumber: pr.number })}
+									noSourceBranch
+								/>
+							{/if}
+						{/snippet}
+					</BranchExplorer>
+				</div>
 				<Resizer
 					viewport={leftDiv}
 					direction="right"
@@ -238,6 +245,7 @@
 					onWidth={(value) => (leftWidth.current = value)}
 				/>
 			</div>
+
 			<div class="main-view">
 				{#if !drawerIsFullScreen.current}
 					<SelectionView {projectId} {selectionId} />
@@ -367,6 +375,13 @@
 		height: 100%;
 		width: 100%;
 		position: relative;
+	}
+	.branch-list-resizer-wrap {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		flex-shrink: 0;
+		overflow: hidden;
 	}
 	.branch-list {
 		height: 100%;

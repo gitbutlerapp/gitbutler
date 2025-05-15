@@ -223,11 +223,6 @@
 	}
 }
 
-/* OTHER */
-.dragging {
-	opacity: 0.5;
-}
-
 @keyframes dropzone-scale {
 	from {
 		opacity: 0;

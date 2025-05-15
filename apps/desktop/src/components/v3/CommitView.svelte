@@ -246,13 +246,19 @@
 							</AsyncButton>
 						{/if}
 
-						<AsyncButton size="tag" kind="outline" action={editPatch}>
-							{#if isConflicted}
+						{#if isConflicted}
+							<AsyncButton
+								size="tag"
+								kind="solid"
+								style="error"
+								action={editPatch}
+								icon="warning-small"
+							>
 								Resolve conflicts
-							{:else}
-								Edit commit
-							{/if}
-						</AsyncButton>
+							</AsyncButton>
+						{:else}
+							<AsyncButton size="tag" kind="outline" action={editPatch}>Edit commit</AsyncButton>
+						{/if}
 					</CommitDetails>
 				</div>
 

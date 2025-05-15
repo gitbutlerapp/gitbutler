@@ -129,15 +129,13 @@
 					{/if}
 
 					{#if splitView}
-						<div class="drawer__content-resizer">
-							<Resizer
-								viewport={viewportEl}
-								direction="right"
-								minWidth={16}
-								imitateBorder
-								onWidth={(value) => uiState.global.drawerSplitViewWidth.set(value)}
-							/>
-						</div>
+						<Resizer
+							viewport={viewportEl}
+							direction="right"
+							minWidth={16}
+							imitateBorder
+							onWidth={(value) => uiState.global.drawerSplitViewWidth.set(value)}
+						/>
 					{/if}
 				</div>
 
@@ -150,32 +148,30 @@
 				{/if}
 			</div>
 		{/if}
-
-		{#if !drawerIsFullScreen.current}
-			<Resizer
-				direction="up"
-				viewport={drawerDiv}
-				{minHeight}
-				borderRadius="ml"
-				onHeight={(value) => uiState.global.drawerHeight.set(value)}
-			/>
-		{/if}
 	</div>
+
+	{#if !drawerIsFullScreen.current}
+		<!-- Resizer should be outside if the overflow: hidden container otherwise it wouldn't overlay on top of the border -->
+		<Resizer
+			direction="up"
+			viewport={drawerDiv}
+			{minHeight}
+			borderRadius="ml"
+			onHeight={(value) => uiState.global.drawerHeight.set(value)}
+		/>
+	{/if}
 </div>
 
 <style>
 	.drawer {
 		position: relative;
-		overflow: hidden;
 		display: flex;
 		flex-direction: column;
 		flex-shrink: 0;
 		flex-grow: 1;
 		width: 100%;
 		box-sizing: border-box;
-		border-radius: var(--radius-ml);
-		border: 1px solid var(--clr-border-2);
-		background: var(--clr-bg-1);
+
 		container-type: inline-size;
 		container-name: drawer;
 	}
@@ -184,6 +180,9 @@
 		flex: 1;
 		display: flex;
 		flex-direction: column;
+		border-radius: var(--radius-ml);
+		border: 1px solid var(--clr-border-2);
+		background: var(--clr-bg-1);
 		overflow: hidden;
 	}
 
@@ -218,10 +217,6 @@
 		display: flex;
 		align-items: center;
 		gap: 4px;
-	}
-
-	.drawer__content-resizer {
-		display: contents;
 	}
 
 	.drawer__content-wrap {
@@ -259,10 +254,6 @@
 			& .drawer__content-scroll {
 				width: 100%;
 				height: auto;
-			}
-
-			& .drawer__content-resizer {
-				display: none;
 			}
 
 			& .drawer__files-split-view {

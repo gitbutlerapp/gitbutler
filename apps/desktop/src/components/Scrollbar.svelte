@@ -13,6 +13,7 @@
 		zIndex?: string;
 		onthumbdrag?: (dragging: boolean) => void;
 		onscroll?: (e: Event) => void;
+		updateTrack?: () => void;
 	}
 
 	const {
@@ -28,6 +29,12 @@
 	}: Props = $props();
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
+
+	let scrollbar = $state<Scrollbar>();
+
+	export function updateTrack() {
+		scrollbar?.updateTrack();
+	}
 </script>
 
 <Scrollbar

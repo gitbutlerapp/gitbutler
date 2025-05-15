@@ -213,6 +213,10 @@
 		display: flex;
 		flex-direction: column;
 		height: 100%;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+		background-color: var(--clr-bg-1);
+		overflow: hidden;
 	}
 
 	.worktree-header {

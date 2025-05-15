@@ -26,7 +26,7 @@
 	const {
 		viewport,
 		initiallyVisible = false,
-		thickness = '0.5rem',
+		thickness = '.5rem',
 		padding = {},
 		shift = '0',
 		horz = false,
@@ -310,14 +310,14 @@
 
 <style>
 	.scrollbar-track {
+		position: absolute;
 		/* scrollbar variables */
 		--scrollbar-shift-vertical: 0;
 		--scrollbar-shift-horizontal: 0;
 		/* variable props */
 		bottom: var(--scrollbar-shift-vertical);
 		right: var(--scrollbar-shift-horizontal);
-		/* other props */
-		position: absolute;
+		/* background-color: rgba(0, 0, 255, 0.1); */
 	}
 
 	.scrollbar-thumb {
@@ -330,12 +330,16 @@
 		position: absolute;
 		background-color: var(--clr-scale-ntrl-0);
 		opacity: 0;
+		will-change: transform, opacity;
+		transition:
+			opacity 0.2s,
+			transform 0.15s;
 	}
 
 	/* modify vertical scrollbar */
 	.scrollbar-track.vert {
 		& .scrollbar-thumb {
-			transform: scaleX(0.75);
+			transform: scaleX(0.7) translateZ(0);
 			transform-origin: right;
 		}
 	}
@@ -343,7 +347,7 @@
 	/* modify horizontal scrollbar */
 	.scrollbar-track.horz {
 		& .scrollbar-thumb {
-			transform: scaleY(0.75);
+			transform: scaleY(0.7) translateZ(0);
 			transform-origin: bottom;
 		}
 	}
@@ -361,23 +365,20 @@
 	.thumb-dragging {
 		& .scrollbar-thumb {
 			opacity: 0.25;
-			transition:
-				opacity 0.2s,
-				transform 0.15s;
 		}
 	}
 	/* vertical */
 	.show-scrollbar.vert:hover,
 	.thumb-dragging.vert {
 		& .scrollbar-thumb {
-			transform: scaleY(1);
+			transform: scaleY(1) translateZ(0);
 		}
 	}
 	/* horizontal */
 	.show-scrollbar.horz:hover,
 	.thumb-dragging.horz {
 		& .scrollbar-thumb {
-			transform: scaleX(1);
+			transform: scaleX(1) translateZ(0);
 		}
 	}
 </style>
