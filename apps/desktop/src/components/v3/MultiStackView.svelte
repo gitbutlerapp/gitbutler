@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Scrollbar from '$components/Scrollbar.svelte';
 	import BranchLayoutMode from '$components/v3/BranchLayoutMode.svelte';
 	import BranchList from '$components/v3/BranchList.svelte';
 	import MultiStackCreateNew from '$components/v3/MultiStackCreateNew.svelte';
@@ -12,7 +13,6 @@
 	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
-	import Scrollbar from '@gitbutler/ui/scroll/Scrollbar.svelte';
 	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
 	import type { Stack } from '$lib/stacks/stack';
 
@@ -25,19 +25,19 @@
 
 	const { projectId, selectedId, stacks, active }: Props = $props();
 
-	let lanesContentEl = $state<HTMLElement>();
-	let lanesContentWidth = $state<number>(0);
-	let lanesContentHeight = $state<number>(0);
+	let lanesSrollableEl = $state<HTMLDivElement>();
+	let lanesScrollableWidth = $state<number>(0);
+	let lanesScrollableHeight = $state<number>(0);
 	let scrollbar = $state<Scrollbar>();
 
 	let laneWidths = $state<number[]>([]);
 	let lineHights = $state<number[]>([]);
 	let isNotEnoughHorzSpace = $derived(
-		(lanesContentWidth ?? 0) < (laneWidths.length - 1) * (laneWidths[0] ?? 0)
+		(lanesScrollableWidth ?? 0) < (laneWidths.length - 1) * (laneWidths[0] ?? 0)
 	);
 	let isNotEnoughVertSpace = $derived.by(() => {
 		const shortenArray = lineHights.slice(0, lineHights.length - 1);
-		return lanesContentHeight < shortenArray.reduce((acc, height) => acc + height, 0);
+		return lanesScrollableHeight < shortenArray.reduce((acc, height) => acc + height, 0);
 	});
 	let visibleIndexes = $state<number[]>([0]);
 
@@ -87,75 +87,78 @@
 					return s.id === selectedId;
 				})}
 				onclick={(index) =>
-					scrollToLane(lanesContentEl, index, $stackLayoutMode === 'vertical' ? 'vert' : 'horz')}
+					scrollToLane(lanesSrollableEl, index, $stackLayoutMode === 'vertical' ? 'vert' : 'horz')}
 			/>
 		</div>
 	{/if}
 
-	{#if $stackLayoutMode !== 'vertical' && lanesContentEl}
-		<Scrollbar whenToShow="hover" viewport={lanesContentEl} horz />
-	{/if}
+	<div class="lanes-viewport">
+		<div
+			class="lanes-scrollable hide-native-scrollbar dotted-pattern"
+			bind:this={lanesSrollableEl}
+			bind:clientWidth={lanesScrollableWidth}
+			bind:clientHeight={lanesScrollableHeight}
+			class:multi={$stackLayoutMode === 'multi' || stacks.length < SHOW_PAGINATION_THRESHOLD}
+			class:single={$stackLayoutMode === 'single' && stacks.length >= SHOW_PAGINATION_THRESHOLD}
+			class:vertical={$stackLayoutMode === 'vertical'}
+		>
+			{#if lanesSrollableEl}
+				<Scrollbar viewport={lanesSrollableEl} horz={$stackLayoutMode !== 'vertical'} />
+			{/if}
 
-	<div
-		class="lanes-content hide-native-scrollbar dotted-pattern"
-		bind:this={lanesContentEl}
-		bind:clientWidth={lanesContentWidth}
-		bind:clientHeight={lanesContentHeight}
-		class:multi={$stackLayoutMode === 'multi' || stacks.length < SHOW_PAGINATION_THRESHOLD}
-		class:single={$stackLayoutMode === 'single' && stacks.length >= SHOW_PAGINATION_THRESHOLD}
-		class:vertical={$stackLayoutMode === 'vertical'}
-	>
-		{#if stacks.length > 0}
-			{#each stacks as stack, i}
-				<div
-					class="lane"
-					class:multi={$stackLayoutMode === 'multi' || stacks.length < SHOW_PAGINATION_THRESHOLD}
-					class:single={$stackLayoutMode === 'single' && stacks.length >= SHOW_PAGINATION_THRESHOLD}
-					class:single-fullwidth={$stackLayoutMode === 'single' && stacks.length === 1}
-					class:vertical={$stackLayoutMode === 'vertical'}
-					data-id={stack.id}
-					bind:clientWidth={laneWidths[i]}
-					bind:clientHeight={lineHights[i]}
-					data-testid={TestId.Stack}
-					data-testid-stack={stack.heads.at(0)?.name}
-					use:intersectionObserver={{
-						callback: (entry) => {
-							if (entry?.isIntersecting) {
-								visibleIndexes = [...visibleIndexes, i];
-							} else {
-								visibleIndexes = visibleIndexes.filter((index) => index !== i);
+			{#if stacks.length > 0}
+				{#each stacks as stack, i}
+					<div
+						class="lane"
+						class:multi={$stackLayoutMode === 'multi' || stacks.length < SHOW_PAGINATION_THRESHOLD}
+						class:single={$stackLayoutMode === 'single' &&
+							stacks.length >= SHOW_PAGINATION_THRESHOLD}
+						class:single-fullwidth={$stackLayoutMode === 'single' && stacks.length === 1}
+						class:vertical={$stackLayoutMode === 'vertical'}
+						data-id={stack.id}
+						bind:clientWidth={laneWidths[i]}
+						bind:clientHeight={lineHights[i]}
+						data-testid={TestId.Stack}
+						data-testid-stack={stack.heads.at(0)?.name}
+						use:intersectionObserver={{
+							callback: (entry) => {
+								if (entry?.isIntersecting) {
+									visibleIndexes = [...visibleIndexes, i];
+								} else {
+									visibleIndexes = visibleIndexes.filter((index) => index !== i);
+								}
+							},
+							options: {
+								threshold: 0.5,
+								root: lanesSrollableEl
 							}
-						},
-						options: {
-							threshold: 0.5,
-							root: lanesContentEl
-						}
-					}}
-				>
-					<BranchList
-						isVerticalMode={$stackLayoutMode === 'vertical'}
-						{projectId}
-						stackId={stack.id}
-						{active}
-					/>
-				</div>
-			{/each}
+						}}
+					>
+						<BranchList
+							isVerticalMode={$stackLayoutMode === 'vertical'}
+							{projectId}
+							stackId={stack.id}
+							{active}
+						/>
+					</div>
+				{/each}
 
-			<MultiStackOfflaneDropzone {projectId} />
-		{:else if isCommitting}
-			<StackDraft {projectId} />
-		{:else}
-			<div class="no-stacks-placeholder">
-				<EmptyStatePlaceholder image={noBranchesSvg} bottomMargin={48}>
-					{#snippet title()}
-						You have no branches
-					{/snippet}
-					{#snippet caption()}
-						Create a new branch for<br />a feature, fix, or idea!
-					{/snippet}
-				</EmptyStatePlaceholder>
-			</div>
-		{/if}
+				<MultiStackOfflaneDropzone {projectId} />
+			{:else if isCommitting}
+				<StackDraft {projectId} />
+			{:else}
+				<div class="no-stacks-placeholder">
+					<EmptyStatePlaceholder image={noBranchesSvg} bottomMargin={48}>
+						{#snippet title()}
+							You have no branches
+						{/snippet}
+						{#snippet caption()}
+							Create a new branch for<br />a feature, fix, or idea!
+						{/snippet}
+					</EmptyStatePlaceholder>
+				</div>
+			{/if}
+		</div>
 	</div>
 </div>
 
@@ -201,8 +204,7 @@
 		}
 	}
 
-	.lanes-content {
-		position: relative;
+	.lanes-scrollable {
 		display: flex;
 		height: 100%;
 		margin: 0 -1px;
@@ -218,6 +220,14 @@
 			flex-direction: column;
 			overflow-y: auto;
 		}
+	}
+
+	.lanes-viewport {
+		position: relative;
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
 	}
 
 	.lane {
