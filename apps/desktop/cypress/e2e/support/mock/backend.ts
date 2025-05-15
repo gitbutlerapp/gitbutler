@@ -13,6 +13,7 @@ import {
 import { PROJECT_ID } from './projects';
 import {
 	createMockBranchDetails,
+	isCreateBranchParams,
 	isCreateCommitParams,
 	isCreateVirtualBranchFromBranchParams,
 	isDeleteLocalBranchParams,
@@ -495,6 +496,25 @@ export default class MockBackend {
 		this.stackDetails.set(stackId, editableDetails);
 		this.branchListings = this.branchListings.filter((branch) => branch.name !== branchName);
 		this.branchListing = this.branchListings.find((branch) => branch.name === branchName)!;
+	}
+
+	public addBranch(args: InvokeArgs | undefined): void {
+		if (!args || !isCreateBranchParams(args)) {
+			throw new Error('Invalid arguments for addBranch');
+		}
+
+		const { stackId, request } = args;
+
+		const stackDetails = this.stackDetails.get(stackId);
+		if (!stackDetails) {
+			throw new Error(`Stack with ID ${stackId} not found`);
+		}
+
+		const editableDetails = structuredClone(stackDetails);
+
+		editableDetails.branchDetails.splice(0, 0, createMockBranchDetails({ name: request.name }));
+
+		this.stackDetails.set(stackId, editableDetails);
 	}
 
 	public createVirtualBranchFromBranch(args: InvokeArgs | undefined) {

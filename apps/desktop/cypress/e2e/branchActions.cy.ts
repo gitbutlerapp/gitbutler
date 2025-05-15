@@ -14,6 +14,7 @@ describe('Branch Actions', () => {
 		mockCommand('integrate_upstream_commits', (args) => mockBackend.integrateUpstreamCommits(args));
 		mockCommand('update_branch_name', (params) => mockBackend.renameBranch(params));
 		mockCommand('remove_branch', (params) => mockBackend.removeBranch(params));
+		mockCommand('create_branch', (params) => mockBackend.addBranch(params));
 
 		cy.visit('/');
 
@@ -100,5 +101,36 @@ describe('Branch Actions', () => {
 
 		// The branch should be removed from the list header
 		cy.getByTestId('branch-header', mockBackend.localOnlyBranchStackId).should('not.exist');
+	});
+
+	it('should be able to add a dependent branch from the context menu', () => {
+		const dependentBranchName = 'dependent-branch-name';
+		// Click on the branch.
+		// And then open the context menu.
+		cy.getByTestId('branch-header', mockBackend.localOnlyBranchStackId)
+			.should('be.visible')
+			.click()
+			.rightclick();
+
+		// The context menu should be visible
+		cy.getByTestId('branch-header-context-menu').should('be.visible');
+		cy.getByTestId('branch-header-context-menu-add-dependent-branch').should('be.visible').click();
+
+		// The add dependent branch dialog should be visible
+		cy.getByTestId('branch-header-add-dependent-branch-modal')
+			.should('be.visible')
+			.within(() => {
+				// Add the dependent branch
+				cy.get('input[type="text"]').should('be.visible').type(dependentBranchName);
+			});
+
+		cy.getByTestId('branch-header-add-dependent-branch-modal-action-button')
+			.should('be.visible')
+			.click();
+
+		// The dependent branch should be visible in the list header
+		cy.getByTestId('branch-header', dependentBranchName)
+			.should('be.visible')
+			.should('have.class', 'selected');
 	});
 });

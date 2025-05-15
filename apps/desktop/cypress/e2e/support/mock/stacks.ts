@@ -411,3 +411,26 @@ export function isRemoveBranchParams(params: unknown): params is RemoveBranchPar
 		typeof params.branchName === 'string'
 	);
 }
+
+export type CreateBranchParams = {
+	projectId: string;
+	stackId: string;
+	request: { targetPatch?: string; name: string };
+};
+
+export function isCreateBranchParams(params: unknown): params is CreateBranchParams {
+	return (
+		typeof params === 'object' &&
+		params !== null &&
+		'projectId' in params &&
+		typeof params.projectId === 'string' &&
+		'stackId' in params &&
+		typeof params.stackId === 'string' &&
+		'request' in params &&
+		typeof (params as any).request === 'object' &&
+		params.request !== null &&
+		((params.request as any).targetPatch === undefined ||
+			typeof (params.request as any).targetPatch === 'string') &&
+		typeof (params.request as any).name === 'string'
+	);
+}
