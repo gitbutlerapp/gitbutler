@@ -79,7 +79,8 @@
 			{#snippet kebabMenu(header)}
 				{@const data = {
 					branch,
-					prNumber: branch.prNumber || undefined
+					prNumber: branch.prNumber || undefined,
+					stackLength: 1
 				}}
 				<KebabButton
 					contextElement={header}

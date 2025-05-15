@@ -370,3 +370,67 @@ export function isUpdateBranchPRNumberParams(
 		typeof params.prNumber === 'number'
 	);
 }
+
+export type UpdateBranchNameParams = {
+	projectId: string;
+	stackId: string;
+	branchName: string;
+	newName: string;
+};
+
+export function isUpdateBranchNameParams(params: unknown): params is UpdateBranchNameParams {
+	return (
+		typeof params === 'object' &&
+		params !== null &&
+		'projectId' in params &&
+		typeof params.projectId === 'string' &&
+		'stackId' in params &&
+		typeof params.stackId === 'string' &&
+		'branchName' in params &&
+		typeof params.branchName === 'string' &&
+		'newName' in params &&
+		typeof params.newName === 'string'
+	);
+}
+
+export type RemoveBranchParams = {
+	projectId: string;
+	stackId: string;
+	branchName: string;
+};
+
+export function isRemoveBranchParams(params: unknown): params is RemoveBranchParams {
+	return (
+		typeof params === 'object' &&
+		params !== null &&
+		'projectId' in params &&
+		typeof params.projectId === 'string' &&
+		'stackId' in params &&
+		typeof params.stackId === 'string' &&
+		'branchName' in params &&
+		typeof params.branchName === 'string'
+	);
+}
+
+export type CreateBranchParams = {
+	projectId: string;
+	stackId: string;
+	request: { targetPatch?: string; name: string };
+};
+
+export function isCreateBranchParams(params: unknown): params is CreateBranchParams {
+	return (
+		typeof params === 'object' &&
+		params !== null &&
+		'projectId' in params &&
+		typeof params.projectId === 'string' &&
+		'stackId' in params &&
+		typeof params.stackId === 'string' &&
+		'request' in params &&
+		typeof (params as any).request === 'object' &&
+		params.request !== null &&
+		((params.request as any).targetPatch === undefined ||
+			typeof (params.request as any).targetPatch === 'string') &&
+		typeof (params.request as any).name === 'string'
+	);
+}

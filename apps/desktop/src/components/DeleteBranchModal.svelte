@@ -1,16 +1,19 @@
-<script lang="ts">
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
-
-	type Props = {
+<script lang="ts" module>
+	export type DeleteBranchModalProps = {
 		projectId: string;
 		stackId: string;
 		branchName: string;
 	};
+</script>
 
-	const { projectId, stackId, branchName }: Props = $props();
+<script lang="ts">
+	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { TestId } from '$lib/testing/testIds';
+	import { inject } from '@gitbutler/shared/context';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
+
+	const { projectId, stackId, branchName }: DeleteBranchModalProps = $props();
 	const [stackService] = inject(StackService);
 	const [removeBranch, branchRemovalOp] = stackService.removeBranch;
 
@@ -22,6 +25,7 @@
 </script>
 
 <Modal
+	testId={TestId.BranchHeaderDeleteModal}
 	bind:this={modal}
 	width="small"
 	title="Delete branch"
@@ -39,6 +43,11 @@
 	</p>
 	{#snippet controls(close)}
 		<Button kind="outline" onclick={close}>Cancel</Button>
-		<Button style="error" type="submit" loading={branchRemovalOp.current.isLoading}>Delete</Button>
+		<Button
+			testId={TestId.BranchHeaderDeleteModal_ActionButton}
+			style="error"
+			type="submit"
+			loading={branchRemovalOp.current.isLoading}>Delete</Button
+		>
 	{/snippet}
 </Modal>

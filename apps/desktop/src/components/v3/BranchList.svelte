@@ -182,7 +182,8 @@
 										{@const data = {
 											branch,
 											prNumber,
-											first
+											first,
+											stackLength: branches.length
 										}}
 										<KebabButton
 											flat
@@ -252,9 +253,7 @@
 	{/snippet}
 </Modal>
 
-{#if headerMenuContext}
-	<BranchHeaderContextMenu {projectId} {stackId} bind:context={headerMenuContext} />
-{/if}
+<BranchHeaderContextMenu {projectId} {stackId} bind:context={headerMenuContext} />
 
 <style lang="postcss">
 	.wrapper {

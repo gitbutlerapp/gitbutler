@@ -1,3 +1,12 @@
+<script lang="ts" module>
+	export type BranchRenameModalProps = {
+		projectId: string;
+		stackId: string;
+		branchName: string;
+		isPushed: boolean;
+	};
+</script>
+
 <script lang="ts">
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { ElementId, TestId } from '$lib/testing/testIds';
@@ -6,14 +15,7 @@
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 
-	type Props = {
-		projectId: string;
-		stackId: string;
-		branchName: string;
-		isPushed: boolean;
-	};
-
-	const { projectId, stackId, branchName, isPushed }: Props = $props();
+	const { projectId, stackId, branchName, isPushed }: BranchRenameModalProps = $props();
 	const [stackService] = inject(StackService);
 
 	const [renameBranch, renameResult] = stackService.updateBranchName;
@@ -56,8 +58,12 @@
 
 	{#snippet controls(close)}
 		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
-		<Button style="pop" type="submit" disabled={!newName} loading={renameResult.current.isLoading}
-			>Rename</Button
+		<Button
+			testId={TestId.BranchHeaderRenameModal_ActionButton}
+			style="pop"
+			type="submit"
+			disabled={!newName}
+			loading={renameResult.current.isLoading}>Rename</Button
 		>
 	{/snippet}
 </Modal>

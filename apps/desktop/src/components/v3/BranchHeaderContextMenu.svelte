@@ -4,15 +4,22 @@
 			branch: BranchDetails;
 			prNumber?: number;
 			first?: boolean;
-			stackLength?: number;
+			stackLength: number;
 		};
 		position: { coords?: { x: number; y: number }; element?: HTMLElement };
 	};
 </script>
 
 <script lang="ts">
-	import BranchRenameModal from '$components/BranchRenameModal.svelte';
-	import DeleteBranchModal from '$components/DeleteBranchModal.svelte';
+	import AddDependentBranchModal, {
+		type AddDependentBranchModalProps
+	} from '$components/AddDependentBranchModal.svelte';
+	import BranchRenameModal, {
+		type BranchRenameModalProps
+	} from '$components/BranchRenameModal.svelte';
+	import DeleteBranchModal, {
+		type DeleteBranchModalProps
+	} from '$components/DeleteBranchModal.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import ContextMenu from '$components/v3/ContextMenu.svelte';
 	import { PromptService } from '$lib/ai/promptService';
@@ -26,6 +33,7 @@
 	import { inject } from '@gitbutler/shared/context';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
+	import { tick } from 'svelte';
 	import type { BranchDetails } from '$lib/stacks/stack';
 
 	type Props = {
@@ -64,7 +72,11 @@
 	let contextMenu = $state<ContextMenu>();
 
 	let renameBranchModal = $state<BranchRenameModal>();
+	let renameBranchModalContext = $state<BranchRenameModalProps>();
 	let deleteBranchModal = $state<DeleteBranchModal>();
+	let deleteBranchModalContext = $state<DeleteBranchModalProps>();
+	let addDependentBranchModal = $state<AddDependentBranchModal>();
+	let addDependentBranchModalContext = $state<AddDependentBranchModalProps>();
 
 	async function setAIConfigurationValid() {
 		aiConfigurationValid = await aiService.validateConfiguration();
@@ -109,13 +121,20 @@
 		testId={TestId.BranchHeaderContextMenu}
 		position={context.position}
 	>
-		{#if first}
+		{#if first && stackId}
 			<ContextMenuSection>
 				<ContextMenuItem
 					label="Add dependent branch"
 					testId={TestId.BranchHeaderContextMenu_AddDependentBranch}
-					onclick={() => {
-						// onAddDependentSeries?.();
+					onclick={async () => {
+						addDependentBranchModalContext = {
+							projectId,
+							stackId
+						};
+
+						await tick();
+
+						addDependentBranchModal?.show();
 						close();
 					}}
 				/>
@@ -188,6 +207,13 @@
 						label="Rename"
 						testId={TestId.BranchHeaderContextMenu_Rename}
 						onclick={async () => {
+							renameBranchModalContext = {
+								projectId,
+								stackId,
+								branchName,
+								isPushed: !!branch.remoteTrackingBranch
+							};
+							await tick();
 							renameBranchModal?.show();
 							close();
 						}}
@@ -197,7 +223,13 @@
 					<ContextMenuItem
 						label="Delete"
 						testId={TestId.BranchHeaderContextMenu_Delete}
-						onclick={() => {
+						onclick={async () => {
+							deleteBranchModalContext = {
+								projectId,
+								stackId,
+								branchName
+							};
+							await tick();
 							deleteBranchModal?.show();
 							close();
 						}}
@@ -243,14 +275,19 @@
 			</ContextMenuSection>
 		{/if}
 	</ContextMenu>
-	{#if stackId}
-		<BranchRenameModal
-			{projectId}
-			{stackId}
-			bind:this={renameBranchModal}
-			{branchName}
-			isPushed={!!branch.remoteTrackingBranch}
-		/>
-		<DeleteBranchModal {projectId} {stackId} bind:this={deleteBranchModal} {branchName} />
-	{/if}
+{/if}
+
+{#if renameBranchModalContext}
+	<BranchRenameModal bind:this={renameBranchModal} {...renameBranchModalContext} />
+{/if}
+
+{#if deleteBranchModalContext}
+	<DeleteBranchModal bind:this={deleteBranchModal} {...deleteBranchModalContext} />
+{/if}
+
+{#if addDependentBranchModalContext}
+	<AddDependentBranchModal
+		bind:this={addDependentBranchModal}
+		{...addDependentBranchModalContext}
+	/>
 {/if}

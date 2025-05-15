@@ -13,13 +13,16 @@ import {
 import { PROJECT_ID } from './projects';
 import {
 	createMockBranchDetails,
+	isCreateBranchParams,
 	isCreateCommitParams,
 	isCreateVirtualBranchFromBranchParams,
 	isDeleteLocalBranchParams,
 	isGetTargetCommitsParams,
 	isIntegrateUpstreamCommitsParams,
 	isPushStackParams,
+	isRemoveBranchParams,
 	isStackDetailsParams,
+	isUpdateBranchNameParams,
 	isUpdateBranchPRNumberParams,
 	isUpdateCommitMessageParams,
 	MOCK_BRAND_NEW_BRANCH_NAME,
@@ -434,6 +437,84 @@ export default class MockBackend {
 		}
 
 		throw new Error(`Branch with name ${branchName} not found`);
+	}
+
+	public renameBranch(args: InvokeArgs | undefined): void {
+		if (!args || !isUpdateBranchNameParams(args)) {
+			throw new Error('Invalid arguments for renameBranch');
+		}
+
+		const { stackId, branchName, newName } = args;
+		const stackDetails = this.stackDetails.get(stackId);
+		if (!stackDetails) {
+			throw new Error(`Stack with ID ${stackId} not found`);
+		}
+
+		const editableDetails = structuredClone(stackDetails);
+
+		const branchIndex = editableDetails.branchDetails.findIndex((b) => b.name === branchName);
+		if (branchIndex === -1) {
+			throw new Error(`Branch with name ${branchName} not found`);
+		}
+
+		const branch = editableDetails.branchDetails[branchIndex]!;
+		editableDetails.branchDetails[branchIndex] = {
+			...branch,
+			name: newName
+		};
+
+		this.stackDetails.set(stackId, editableDetails);
+		this.branchListings = this.branchListings.map((branch) => {
+			if (branch.name === branchName) {
+				return {
+					...branch,
+					name: newName
+				};
+			}
+			return branch;
+		});
+		this.branchListing = this.branchListings.find((branch) => branch.name === newName)!;
+	}
+
+	public removeBranch(args: InvokeArgs | undefined): void {
+		if (!args || !isRemoveBranchParams(args)) {
+			throw new Error('Invalid arguments for removeBranch');
+		}
+
+		const { stackId, branchName } = args;
+		const stackDetails = this.stackDetails.get(stackId);
+		if (!stackDetails) {
+			throw new Error(`Stack with ID ${stackId} not found`);
+		}
+		const editableDetails = structuredClone(stackDetails);
+		const branchIndex = editableDetails.branchDetails.findIndex((b) => b.name === branchName);
+		if (branchIndex === -1) {
+			throw new Error(`Branch with name ${branchName} not found`);
+		}
+
+		editableDetails.branchDetails.splice(branchIndex, 1);
+		this.stackDetails.set(stackId, editableDetails);
+		this.branchListings = this.branchListings.filter((branch) => branch.name !== branchName);
+		this.branchListing = this.branchListings.find((branch) => branch.name === branchName)!;
+	}
+
+	public addBranch(args: InvokeArgs | undefined): void {
+		if (!args || !isCreateBranchParams(args)) {
+			throw new Error('Invalid arguments for addBranch');
+		}
+
+		const { stackId, request } = args;
+
+		const stackDetails = this.stackDetails.get(stackId);
+		if (!stackDetails) {
+			throw new Error(`Stack with ID ${stackId} not found`);
+		}
+
+		const editableDetails = structuredClone(stackDetails);
+
+		editableDetails.branchDetails.splice(0, 0, createMockBranchDetails({ name: request.name }));
+
+		this.stackDetails.set(stackId, editableDetails);
 	}
 
 	public createVirtualBranchFromBranch(args: InvokeArgs | undefined) {
