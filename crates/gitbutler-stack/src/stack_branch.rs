@@ -311,12 +311,7 @@ impl StackBranch {
         let merge_base = stack.merge_base(ctx)?.to_git2();
 
         let gix_repo = repo.to_gix()?;
-        let head_commit = commit_by_oid_or_change_id(
-            &self.head,
-            repo,
-            stack.head_oid(&gix_repo)?.to_git2(),
-            merge_base,
-        );
+        let head_commit = gix_repo.find_commit(self.head_oid(&gix_repo)?);
         if head_commit.is_err() {
             return Ok(BranchCommits {
                 local_commits: vec![],
@@ -328,18 +323,22 @@ impl StackBranch {
 
         // Find the previous head in the stack - if it is not archived, use it as base
         // Otherwise use the merge base
-        let stack_head = stack.head_oid(&gix_repo)?.to_git2();
         let previous_head = stack
             .branch_predacessor(self)
             .filter(|predacessor| !predacessor.archived)
             .map_or(merge_base, |predacessor| {
-                commit_by_oid_or_change_id(&predacessor.head, repo, stack_head, merge_base)
-                    .map(|commit| commit.id())
+                predacessor
+                    .head_oid(&gix_repo)
+                    .map(|x| x.to_git2())
                     .unwrap_or(merge_base)
             });
 
         let local_patches = repo
-            .log(head_commit, LogUntil::Commit(previous_head), false)?
+            .log(
+                head_commit.to_git2(),
+                LogUntil::Commit(previous_head),
+                false,
+            )?
             .into_iter()
             .rev()
             .collect_vec();
