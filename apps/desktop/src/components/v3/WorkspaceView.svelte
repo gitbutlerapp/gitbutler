@@ -178,11 +178,7 @@
 		flex-direction: column;
 		justify-content: flex-start;
 		position: relative;
-		background-color: var(--clr-bg-1);
-		border-radius: var(--radius-ml);
-		border: 1px solid var(--clr-border-2);
 		flex-shrink: 0;
-		overflow: hidden;
 	}
 
 	.stacks-view-wrap {
