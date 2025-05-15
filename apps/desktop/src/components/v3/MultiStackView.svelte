@@ -102,10 +102,6 @@
 			class:single={$stackLayoutMode === 'single' && stacks.length >= SHOW_PAGINATION_THRESHOLD}
 			class:vertical={$stackLayoutMode === 'vertical'}
 		>
-			{#if lanesSrollableEl}
-				<Scrollbar viewport={lanesSrollableEl} horz={$stackLayoutMode !== 'vertical'} />
-			{/if}
-
 			{#if stacks.length > 0}
 				{#each stacks as stack, i}
 					<div
@@ -145,6 +141,10 @@
 				{/each}
 
 				<MultiStackOfflaneDropzone {projectId} />
+
+				{#if lanesSrollableEl}
+					<Scrollbar viewport={lanesSrollableEl} horz={$stackLayoutMode !== 'vertical'} />
+				{/if}
 			{:else if isCommitting}
 				<StackDraft {projectId} />
 			{:else}
