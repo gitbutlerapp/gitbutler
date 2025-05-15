@@ -1,46 +1,106 @@
 <script lang="ts">
+	import CardOverlay from '$components/CardOverlay.svelte';
+	import Dropzone from '$components/Dropzone.svelte';
+	import BranchBadge from '$components/v3/BranchBadge.svelte';
 	import BranchDividerLine from '$components/v3/BranchDividerLine.svelte';
+	import BranchHeader from '$components/v3/BranchHeader.svelte';
+	import BranchHeaderContextMenu from '$components/v3/BranchHeaderContextMenu.svelte';
+	import { MoveCommitDzHandler, StartCommitDzHandler } from '$lib/commits/dropHandler';
+	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
+	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
+	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
+	import type { PushStatus } from '$lib/stacks/stack';
+	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';
 
-	type Props = {
+	interface BranchCardProps {
 		type: 'draft-branch' | 'normal-branch' | 'stack-branch';
 		projectId: string;
 		branchName: string;
 		isCommitting?: boolean;
 		expand?: boolean;
-		header?: Snippet;
+		lineColor: string;
+		iconName: keyof typeof iconsJson;
+		readonly: boolean;
 		first?: boolean;
-		lineColor?: string;
-	} & (
-		| {
-				type: 'draft-branch';
-		  }
-		| {
-				type: 'normal-branch';
-				commitList?: Snippet;
-		  }
-		| {
-				type: 'stack-branch';
-				stackId: string;
-				commitList?: Snippet;
-		  }
+		active?: boolean;
+	}
+
+	interface DraftBranchProps extends BranchCardProps {
+		type: 'draft-branch';
+	}
+
+	interface NormalBranchProps extends BranchCardProps {
+		type: 'normal-branch';
+		selected: boolean;
+		trackingBranch?: string;
+		lastUpdatedAt?: number;
+		isTopBranch?: boolean;
+		isNewBranch?: boolean;
+		onclick: () => void;
+		commitList?: Snippet;
+	}
+
+	interface StackBranchProps extends BranchCardProps {
+		type: 'stack-branch';
+		stackId: string;
+		selected: boolean;
+		trackingBranch?: string;
+		isNewBranch?: boolean;
+		prNumber?: number;
+		reviewId?: string;
+		pushStatus: PushStatus;
+		lastUpdatedAt?: number;
+		isConflicted: boolean;
+		contextMenu?: typeof BranchHeaderContextMenu;
+		onclick: () => void;
+		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
+		commitList?: Snippet;
+	}
+
+	type Props = DraftBranchProps | NormalBranchProps | StackBranchProps;
+
+	let { projectId, branchName, expand, active, lineColor, iconName, readonly, ...args }: Props =
+		$props();
+
+	const [uiState, stackService, changeSelectionService] = inject(
+		UiState,
+		StackService,
+		ChangeSelectionService
 	);
 
-	let { header, branchName, expand, ...args }: Props = $props();
-
-	const [uiState] = inject(UiState);
+	const [updateName, nameUpdate] = stackService.updateBranchName;
 
 	const stackState = $derived(
 		args.type === 'stack-branch' ? uiState.stack(args.stackId) : undefined
 	);
 	const selection = $derived(stackState ? stackState.selection.current : undefined);
 	const selected = $derived(selection?.branchName === branchName);
+	const isPushed = $derived(!!(args.type === 'draft-branch' ? undefined : args.trackingBranch));
+
+	async function updateBranchName(title: string) {
+		if (args.type === 'draft-branch') {
+			uiState.global.draftBranchName.set(title);
+			const normalized = await stackService.normalizeBranchName(title);
+			if (normalized.data) {
+				uiState.global.draftBranchName.set(normalized.data);
+			}
+		} else if (args.type === 'stack-branch') {
+			updateName({
+				projectId,
+				stackId: args.stackId,
+				branchName,
+				newName: title
+			});
+		}
+	}
 </script>
 
-{#if ((args.type === 'stack-branch' && !args.first) || (args.type === 'normal-branch' && !args.first)) && args.lineColor}
-	<BranchDividerLine lineColor={args.lineColor} />
+{#if ((args.type === 'stack-branch' && !args.first) || (args.type === 'normal-branch' && !args.first)) && lineColor}
+	<BranchDividerLine {lineColor} />
 {/if}
 
 <div
@@ -50,13 +110,131 @@
 	class:expand
 	data-series-name={branchName}
 >
-	{@render header?.()}
+	{#if args.type === 'stack-branch'}
+		{@const moveHandler = new MoveCommitDzHandler(stackService, args.stackId, projectId)}
+		{@const startCommitHandler = new StartCommitDzHandler({
+			uiState,
+			changeSelectionService,
+			stackId: args.stackId,
+			projectId,
+			branchName
+		})}
+		<Dropzone handlers={[moveHandler, startCommitHandler]}>
+			{#snippet overlay({ hovered, activated, handler })}
+				{@const label = handler instanceof MoveCommitDzHandler ? 'Move here' : 'Start commit'}
+				<CardOverlay {hovered} {activated} {label} />
+			{/snippet}
+
+			<BranchHeader
+				{branchName}
+				isEmpty={args.isNewBranch}
+				selected={args.selected}
+				selectIndicator
+				draft={false}
+				{lineColor}
+				{iconName}
+				{updateBranchName}
+				isUpdatingName={nameUpdate.current.isLoading}
+				{active}
+				{readonly}
+				{isPushed}
+				onclick={args.onclick}
+				menu={args.menu}
+			>
+				{#snippet emptyState()}
+					<span class="branch-header__empty-state-span">This is an empty branch.</span>
+					<span class="branch-header__empty-state-span">Click for details.</span>
+					<br />
+					Create or drag & drop commits here.
+				{/snippet}
+				{#snippet content()}
+					<span class="branch-header__item">
+						<BranchBadge pushStatus={args.pushStatus} unstyled />
+					</span>
+					<span class="branch-header__divider">•</span>
+
+					{#if args.isConflicted}
+						<span class="branch-header__item branch-header__item--conflict"> Conflicts </span>
+						<span class="branch-header__divider">•</span>
+					{/if}
+
+					{#if args.lastUpdatedAt}
+						<span class="branch-header__item">
+							{getTimeAgo(new Date(args.lastUpdatedAt))}
+						</span>
+					{/if}
+
+					{#if args.reviewId || args.prNumber}
+						<span class="branch-header__divider">•</span>
+						<div class="branch-header__review-badges">
+							{#if args.reviewId}
+								<ReviewBadge brId={args.reviewId} brStatus="unknown" />
+							{/if}
+							{#if args.prNumber}
+								<ReviewBadge prNumber={args.prNumber} prStatus="unknown" />
+							{/if}
+						</div>
+					{/if}
+				{/snippet}
+			</BranchHeader>
+		</Dropzone>
+	{:else if args.type === 'normal-branch'}
+		<BranchHeader
+			{branchName}
+			isEmpty={args.isNewBranch}
+			selected={args.selected}
+			selectIndicator
+			draft={false}
+			{lineColor}
+			{iconName}
+			{updateBranchName}
+			isUpdatingName={nameUpdate.current.isLoading}
+			{active}
+			readonly
+			{isPushed}
+			onclick={args.onclick}
+		>
+			{#snippet emptyState()}
+				<span class="branch-header__empty-state-span">There are no commits yet on this branch.</span
+				>
+			{/snippet}
+			{#snippet content()}
+				{#if args.lastUpdatedAt}
+					<span class="branch-header__item">
+						{getTimeAgo(new Date(args.lastUpdatedAt))}
+					</span>
+				{/if}
+			{/snippet}
+		</BranchHeader>
+	{:else}
+		<BranchHeader
+			{branchName}
+			isEmpty
+			selected
+			selectIndicator={false}
+			draft
+			{lineColor}
+			{iconName}
+			{updateBranchName}
+			isUpdatingName={nameUpdate.current.isLoading}
+			{active}
+			readonly={false}
+			isPushed={false}
+		>
+			{#snippet emptyState()}
+				A new branch will be created for your commit.
+				<br />
+				Click the name to rename it now or later.
+			{/snippet}
+		</BranchHeader>
+	{/if}
+
 	{#if args.type !== 'draft-branch'}
 		{@render args.commitList?.()}
 	{/if}
 </div>
 
-<style>
+<style lang="postcss">
 	.branch-card {
 		display: flex;
 		flex-direction: column;
@@ -71,5 +249,22 @@
 	}
 	.expand {
 		height: 100%;
+	}
+
+	.branch-header__item {
+		white-space: nowrap;
+		color: var(--clr-text-2);
+	}
+
+	.branch-header__item--conflict {
+		color: var(--clr-theme-err-element);
+	}
+
+	.branch-header__divider {
+		color: var(--clr-text-3);
+	}
+
+	.branch-header__empty-state-span {
+		text-wrap: nowrap;
 	}
 </style>
