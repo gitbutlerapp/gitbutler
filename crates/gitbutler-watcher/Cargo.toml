@@ -9,28 +9,23 @@ test = false
 doctest = false
 
 [dependencies]
-gitbutler-branch-actions.workspace = true
 gitbutler-sync.workspace = true
 gitbutler-oplog.workspace = true
-thiserror.workspace = true
 anyhow = "1.0.98"
-tokio = { workspace = true, features = ["macros"] }
+tokio = { workspace = true, features = ["macros", "sync"] }
 tokio-util = "0.7.15"
 tracing.workspace = true
 gix = { workspace = true, features = ["excludes"] }
 gitbutler-command-context.workspace = true
-gitbutler-project.workspace = true
 gitbutler-diff.workspace = true
 gitbutler-user.workspace = true
-gitbutler-reference.workspace = true
 gitbutler-error.workspace = true
+gitbutler-filemonitor.workspace = true
 gitbutler-operating-modes.workspace = true
+gitbutler-branch-actions.workspace = true
+gitbutler-project.workspace = true
 but-core.workspace = true
 but-settings.workspace = true
-
-backoff = "0.4.0"
-notify = { version = "6.0.1" }
-gitbutler-notify-debouncer.path = "vendor/debouncer"
 
 [lints.clippy]
 all = "deny"

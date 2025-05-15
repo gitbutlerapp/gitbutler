@@ -1,4 +1,4 @@
-use crate::head_info::function::workspace_data_of_default_workspace_branch;
+use crate::ref_info::function::workspace_data_of_default_workspace_branch;
 use crate::ui::{CommitState, PushStatus, UpstreamCommit};
 use crate::{state_handle, ui};
 use anyhow::{Context, bail};

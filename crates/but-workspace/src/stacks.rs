@@ -2,8 +2,8 @@ use crate::branch::{LocalCommit, LocalCommitRelation};
 use crate::integrated::IsCommitIntegrated;
 use crate::ui::{CommitState, PushStatus, StackDetails};
 use crate::{
-    StacksFilter, VirtualBranchesTomlMetadata, branch, head_info, id_from_name_v2_to_v3,
-    state_handle, ui,
+    RefInfo, StacksFilter, VirtualBranchesTomlMetadata, branch, id_from_name_v2_to_v3, ref_info,
+    ref_info_at, state_handle, ui,
 };
 use anyhow::Context;
 use bstr::BString;
@@ -83,25 +83,28 @@ fn try_from_stack_v3(
 ) -> anyhow::Result<ui::StackEntry> {
     let name = stack
         .name()
-        .expect("Every V2/V3 stack has a name as long as it's in a gitbutler workspace")
+        .context("Every V2/V3 stack has a name as long as it's in a gitbutler workspace")?
         .to_owned();
-    let heads = stack.segments.into_iter().map(|segment| {
-        let ref_name = segment
-            .ref_name
-            .expect("This type can't represent this state and it shouldn't have to");
-        ui::StackHeadInfo {
-            tip: repo
-                .find_reference(ref_name.as_ref())
-                .ok()
-                .and_then(|r| r.try_id())
-                .map(|id| id.detach())
-                .unwrap_or(repo.object_hash().null()),
-            name: ref_name.shorten().into(),
-        }
-    });
+    let heads = stack
+        .segments
+        .into_iter()
+        .map(|segment| -> anyhow::Result<_> {
+            let ref_name = segment
+                .ref_name
+                .context("This type can't represent this state and it shouldn't have to")?;
+            Ok(ui::StackHeadInfo {
+                tip: repo
+                    .find_reference(ref_name.as_ref())
+                    .ok()
+                    .and_then(|r| r.try_id())
+                    .map(|id| id.detach())
+                    .unwrap_or(repo.object_hash().null()),
+                name: ref_name.shorten().into(),
+            })
+        });
     Ok(ui::StackEntry {
         id: id_from_name_v2_to_v3(name.as_ref(), meta)?,
-        heads: heads.collect(),
+        heads: heads.collect::<Result<_, _>>()?,
         tip: stack.tip.unwrap_or(repo.object_hash().null()),
     })
 }
@@ -161,10 +164,10 @@ pub fn stacks_v3(
         Ok(out)
     }
 
-    let info = head_info(
+    let info = ref_info(
         repo,
         meta,
-        head_info::Options {
+        ref_info::Options {
             // TODO: set this to a good value for the UI to not slow down, and also a value that forces us to re-investigate this.
             stack_commit_limit: 100,
             expensive_commit_info: false,
@@ -348,34 +351,48 @@ pub fn stack_details(
 }
 
 /// Get additional information for the stack identified by `stack_id`.
-// TODO: StackId shouldn't be used, instead the `heads_info` ID should be used.
+// TODO: StackId shouldn't be used, instead use the ref-name or stack index as universal tip identifier.
+//       It's notable that there isn't always a ref-name available right now in case the ref advanced, but maybe this is something
+//       we can pull out of the metadata information.
 pub fn stack_details_v3(
     stack_id: StackId,
     repo: &gix::Repository,
     meta: &VirtualBranchesTomlMetadata,
 ) -> anyhow::Result<ui::StackDetails> {
-    let info = head_info(
-        repo,
-        meta,
-        head_info::Options {
-            stack_commit_limit: 0,
-            expensive_commit_info: true,
-        },
-    )?;
-    let stacks_with_id: Vec<_> = info
-        .stacks
-        .into_iter()
-        .filter_map(|stack| {
-            let name = stack.name()?.to_owned();
-            Some(id_from_name_v2_to_v3(name.as_ref(), meta).map(|stack_id| (stack_id, stack)))
-        })
-        .collect::<Result<_, _>>()?;
-    let stack = stacks_with_id
-        .into_iter()
-        .find_map(|(id, stack)| (id == stack_id).then_some(stack))
-        .with_context(|| format!("Stack with id {stack_id} really should have been found"))?;
+    fn stack_by_id(
+        head_info: RefInfo,
+        stack_id: StackId,
+        meta: &VirtualBranchesTomlMetadata,
+    ) -> anyhow::Result<Option<branch::Stack>> {
+        let stacks_with_id: Vec<_> = head_info
+            .stacks
+            .into_iter()
+            .filter_map(|stack| {
+                let name = stack.name()?.to_owned();
+                Some(id_from_name_v2_to_v3(name.as_ref(), meta).map(|stack_id| (stack_id, stack)))
+            })
+            .collect::<Result<_, _>>()?;
 
-    let branch_details: Vec<ui::BranchDetails> = stack
+        Ok(stacks_with_id
+            .into_iter()
+            .find_map(|(id, stack)| (id == stack_id).then_some(stack)))
+    }
+    let head_info_options = ref_info::Options {
+        stack_commit_limit: 0,
+        expensive_commit_info: true,
+    };
+    let stack = meta.data().branches.get(&stack_id).with_context(|| {
+        format!("Couldn't find {stack_id} even when looking at virtual_branches.toml directly")
+    })?;
+    let full_name = gix::refs::FullName::try_from(format!(
+        "refs/heads/{shortname}",
+        shortname = stack.derived_name()?
+    ))?;
+    let existing_ref = repo.find_reference(&full_name)?;
+    let stack = stack_by_id(ref_info_at(existing_ref, meta, head_info_options)?, stack_id, meta)?
+        .with_context(|| format!("Really couldn't find {stack_id} in current HEAD or when searching virtual_branches.toml plainly"))?;
+
+    let branch_details = stack
         .segments
         .iter()
         .enumerate()
@@ -391,7 +408,8 @@ pub fn stack_details_v3(
                 }),
             )
         })
-        .collect::<Result<_, _>>()?;
+        .collect::<Result<Vec<_>, _>>()?;
+
     let topmost_branch = branch_details
         .first()
         .context("Stacks should never be empty")?;
@@ -436,7 +454,7 @@ impl ui::BranchDetails {
             is_remote_head: ref_name
                 .category()
                 .is_some_and(|c| matches!(c, gix::refs::Category::RemoteBranch)),
-            name: ref_name.into_inner(),
+            name: ref_name.shorten().into(),
             remote_tracking_branch: None,
             description,
             pr_number,

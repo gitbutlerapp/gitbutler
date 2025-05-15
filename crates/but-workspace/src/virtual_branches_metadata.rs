@@ -92,6 +92,10 @@ impl VirtualBranchesTomlMetadata {
     pub fn data_mut(&mut self) -> &mut VirtualBranchesState {
         &mut self.snapshot.content
     }
+    /// Return a snapshot of the underlying data. Useful for working around (intended) limitations of the RefMetadata trait.
+    pub fn data(&self) -> &VirtualBranchesState {
+        &self.snapshot.content
+    }
 }
 
 // Emergency-behaviour in case the application winds down, we don't want data-loss (at least a chance).

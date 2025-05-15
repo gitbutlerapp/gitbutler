@@ -1,0 +1,26 @@
+[package]
+name = "gitbutler-filemonitor"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+test = false
+doctest = false
+
+[dependencies]
+thiserror.workspace = true
+anyhow = "1.0.98"
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync"] }
+tracing.workspace = true
+gix = { workspace = true, features = ["excludes"] }
+
+backoff = "0.4.0"
+notify = { version = "8.0.0" }
+gitbutler-notify-debouncer.path = "vendor/debouncer"
+gitbutler-project.workspace = true
+
+[lints.clippy]
+all = "deny"
+perf = "deny"
+correctness = "deny"

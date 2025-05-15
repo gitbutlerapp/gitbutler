@@ -20,7 +20,12 @@ pub struct Args {
     /// The production version is used if unset.
     #[clap(short = 's', long)]
     pub app_suffix: Option<String>,
-    /// Whether to use json output format.
+    /// Turn on V3 mode for those subcommands that support it.
+    ///
+    /// This helps test the output of certain functions in V3 mode, and/or compare.
+    #[clap(short = '3', long, env = "BUT3")]
+    pub v3: bool,
+    /// Whether to use JSON output format.
     #[clap(long, short = 'j')]
     pub json: bool,
 
@@ -106,6 +111,7 @@ pub enum Subcommands {
         #[clap(long, default_value_t = false)]
         simple: bool,
     },
+    Watch,
     /// Returns the list of stacks that are currently part of the GitButler workspace.
     Stacks,
     /// Returns the list of stacks that are currently part of the GitButler workspace.
@@ -133,7 +139,10 @@ pub enum Subcommands {
         description: Option<String>,
     },
     /// Returns all commits for the branch with the given `name` in the stack with the given `id`.
-    StackBranchCommits { id: StackId, name: String },
+    StackBranchCommits {
+        id: StackId,
+        name: String,
+    },
 }
 
 #[cfg(test)]

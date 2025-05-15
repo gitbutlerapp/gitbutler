@@ -35,6 +35,7 @@ rand = "0.9.1"
 gitbutler-id = { path = "crates/gitbutler-id" }
 gitbutler-git = { path = "crates/gitbutler-git" }
 gitbutler-watcher = { path = "crates/gitbutler-watcher" }
+gitbutler-filemonitor = { path = "crates/gitbutler-filemonitor" }
 gitbutler-testsupport = { path = "crates/gitbutler-testsupport" }
 gitbutler-cli = { path = "crates/gitbutler-cli" }
 gitbutler-branch-actions = { path = "crates/gitbutler-branch-actions" }

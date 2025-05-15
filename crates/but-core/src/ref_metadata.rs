@@ -59,7 +59,7 @@ impl Workspace {
 }
 
 /// Metadata about branches, associated with any Git branch.
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct Branch {
     /// Standard data we want to know about any ref.
     pub ref_info: RefInfo,
@@ -73,7 +73,7 @@ pub struct Branch {
 ///
 /// It allows to keep track of when it changed, but also if we created it initially, a useful
 /// bit of information.
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, Eq, PartialEq)]
 pub struct RefInfo {
     /// The time of creation, *if we created the reference*.
     pub created_at: Option<gix::date::Time>,
@@ -127,7 +127,7 @@ impl WorkspaceStack {
 }
 
 /// Metadata about branches, associated with any Git branch.
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct Review {
     /// The number for the PR that was associated with this branch.
     pub pull_request: Option<usize>,

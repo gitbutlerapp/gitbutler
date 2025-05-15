@@ -1,9 +1,10 @@
 use anyhow::{Context, anyhow, bail};
 use but_core::UnifiedDiff;
-use but_workspace::{DiffSpec, HunkHeader};
-use gitbutler_project::Project;
+use but_workspace::{DiffSpec, HunkHeader, VirtualBranchesTomlMetadata};
+use gitbutler_project::{Project, ProjectId};
 use gix::bstr::{BString, ByteSlice};
 use std::path::Path;
+use tokio::sync::mpsc::unbounded_channel;
 
 pub(crate) const UI_CONTEXT_LINES: u32 = 3;
 
@@ -38,6 +39,10 @@ fn configured_repo(
         }
     }
     Ok(repo)
+}
+
+fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMetadata> {
+    VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))
 }
 
 /// Operate like GitButler would in the future, on a Git repository and optionally with additional metadata as obtained
@@ -117,11 +122,11 @@ pub mod diff;
 pub mod stacks {
     use std::path::Path;
 
-    use crate::command::{debug_print, project_from_path};
+    use crate::command::{debug_print, project_from_path, ref_metadata_toml};
     use but_settings::AppSettings;
     use but_workspace::{
-        stack_branch_local_and_remote_commits, stack_branch_upstream_only_commits, stack_branches,
-        ui,
+        StacksFilter, stack_branch_local_and_remote_commits, stack_branch_upstream_only_commits,
+        stack_branches, ui,
     };
     use gitbutler_command_context::CommandContext;
     use gitbutler_stack::StackId;
@@ -136,11 +141,17 @@ pub mod stacks {
         pub upstream_commits: Vec<ui::UpstreamCommit>,
     }
 
-    pub fn list(current_dir: &Path, use_json: bool) -> anyhow::Result<()> {
+    pub fn list(current_dir: &Path, use_json: bool, v3: bool) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
         let ctx = CommandContext::open(&project, AppSettings::default())?;
-        let repo = ctx.gix_repo()?;
-        let stacks = but_workspace::stacks(&ctx, &project.gb_dir(), &repo, Default::default())?;
+        let repo = ctx.gix_repo_for_merging_non_persisting()?;
+        let filter = StacksFilter::All;
+        let stacks = if v3 {
+            let meta = ref_metadata_toml(ctx.project())?;
+            but_workspace::stacks_v3(&repo, &meta, filter)
+        } else {
+            but_workspace::stacks(&ctx, &project.gb_dir(), &repo, filter)
+        }?;
         if use_json {
             let json = serde_json::to_string_pretty(&stacks)?;
             println!("{json}");
@@ -150,10 +161,17 @@ pub mod stacks {
         }
     }
 
-    pub fn details(id: StackId, current_dir: &Path) -> anyhow::Result<()> {
+    pub fn details(id: StackId, current_dir: &Path, v3: bool) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
         let ctx = CommandContext::open(&project, AppSettings::default())?;
-        debug_print(but_workspace::stack_details(&project.gb_dir(), id, &ctx)?)
+        let details = if v3 {
+            let meta = ref_metadata_toml(ctx.project())?;
+            let repo = ctx.gix_repo_for_merging_non_persisting()?;
+            but_workspace::stack_details_v3(id, &repo, &meta)
+        } else {
+            but_workspace::stack_details(&project.gb_dir(), id, &ctx)
+        }?;
+        debug_print(details)
     }
 
     pub fn branches(id: StackId, current_dir: &Path, use_json: bool) -> anyhow::Result<()> {
@@ -330,6 +348,31 @@ pub(crate) fn discard_change(
         Some(spec),
         UI_CONTEXT_LINES,
     )?)
+}
+
+pub async fn watch(args: &super::Args) -> anyhow::Result<()> {
+    let (repo, project) = repo_and_maybe_project(args, RepositoryOpenMode::General)?;
+    let (tx, mut rx) = unbounded_channel();
+    let start = std::time::Instant::now();
+    let workdir = repo
+        .workdir()
+        .context("really only want to watch workdirs")?;
+    let _watcher = gitbutler_filemonitor::spawn(
+        project.map(|p| p.id).unwrap_or(ProjectId::generate()),
+        workdir,
+        tx,
+    )?;
+    let elapsed = start.elapsed();
+    eprintln!(
+        "Started watching {workdir} in {elapsed:?}s - waiting for events",
+        elapsed = elapsed.as_secs_f32(),
+        workdir = workdir.display(),
+    );
+
+    while let Some(event) = rx.recv().await {
+        debug_print(event).ok();
+    }
+    Ok(())
 }
 
 fn indices_or_headers_to_hunk_headers(

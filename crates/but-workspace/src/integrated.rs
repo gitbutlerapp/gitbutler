@@ -2,7 +2,7 @@
 //!
 //! This code is a fork of the [`gitbutler_branch_actions::virtual::IsCommitIntegrated`]
 
-use crate::head_info::function::try_refname_to_id;
+use crate::ref_info::function::try_refname_to_id;
 use anyhow::anyhow;
 use anyhow::{Context, Result};
 use gitbutler_commit::commit_ext::CommitExt;
