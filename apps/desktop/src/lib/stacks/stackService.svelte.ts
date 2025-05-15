@@ -9,7 +9,6 @@ import {
 	providesList,
 	ReduxTag
 } from '$lib/state/tags';
-import { splitMessage } from '$lib/utils/commitMessage';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { TauriCommandError } from '$lib/backend/ipc';
 import type { Commit, CommitDetails, UpstreamCommit } from '$lib/branches/v3';
@@ -477,20 +476,6 @@ export class StackService {
 		branchName: string;
 		commitId: string;
 	}) {
-		const commit = await this.api.endpoints.stackDetails.fetch(args, {
-			transform: ({ commits }) => {
-				return commitSelectors.selectById(commits, args.commitId);
-			}
-		});
-
-		const message = commit.data?.message;
-		if (message) {
-			const state = this.uiState.project(args.projectId);
-
-			const { title, description } = splitMessage(message);
-			state.commitTitle.set(title);
-			state.commitDescription.set(description);
-		}
 		return await this.api.endpoints.uncommit.mutate(args);
 	}
 
