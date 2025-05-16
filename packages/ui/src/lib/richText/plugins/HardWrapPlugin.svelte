@@ -113,6 +113,7 @@
 			n = n.getNextSibling();
 		}
 
+		console.log(nodes.slice(1).length);
 		return nodes.slice(1);
 	}
 
@@ -164,17 +165,10 @@
 			return;
 		}
 
+		// Carry over possible remainder and re-wrap the rest of paragraph.
 		for (const value of relatedNodes) {
-			const lineLength = value.getTextContentSize();
 			const line = value.getTextContent();
-
 			const { newLine, newRemainder } = wrapLine({ line, remainder, maxLength, indent });
-
-			// Not all related rows have to be processed if the wrapped words
-			// fit on the next line.
-			if (remainder === '' && lineLength <= maxLength) {
-				break;
-			}
 
 			const newNode = new TextNode(newLine);
 			value.replace(newNode);
@@ -183,8 +177,7 @@
 			remainder = newRemainder;
 		}
 
-		// Last modified node, after which we'll insert accumulated remainder.
-
+		// Insert any final remainder at the end of the paragraph.
 		if (remainder) {
 			while (remainder.length > 0) {
 				const { newLine, newRemainder } = wrapLine({ line: remainder, maxLength });
@@ -211,10 +204,10 @@
 	}
 
 	function maybeTransform(nodes: Map<NodeKey, NodeMutation>) {
-		editor.read(() => {
+		editor.update(() => {
 			for (const [nodeKey, mutation] of nodes.entries()) {
 				// Process additions and updates.
-				if (mutation === 'destroyed') {
+				if (mutation !== 'updated') {
 					continue;
 				}
 				if (isInCodeBlock(nodeKey)) {
@@ -230,9 +223,7 @@
 					// TODO: Iplement wrapping for bullet points.
 					continue;
 				} else {
-					editor.update(() => {
-						maybeTransformParagraph(node);
-					});
+					maybeTransformParagraph(node);
 				}
 			}
 		});
