@@ -183,8 +183,7 @@
 		<!-- Project Selection Step -->
 		<div class="selection-header">
 			<h4>Select a project in {selectedOrgSlug}</h4>
-			<Button style="secondary" onclick={() => (selectedOrgSlug = null)}
-				>Back to Organizations</Button
+			<Button style="neutral" onclick={() => (selectedOrgSlug = null)}>Back to Organizations</Button
 			>
 		</div>
 

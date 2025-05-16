@@ -39,7 +39,7 @@
 		},
 		reset: {
 			label: 'Reset to remote…',
-			style: 'ghost',
+			style: 'neutral',
 			kind: 'outline',
 			icon: 'warning-small',
 			action: confirmReset

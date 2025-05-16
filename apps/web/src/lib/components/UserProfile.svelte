@@ -112,12 +112,12 @@
 					{#if isCurrentUser}
 						<div class="readme-actions">
 							{#if editingReadme}
-								<AsyncButton style="primary" action={saveReadme} disabled={isSavingReadme}>
+								<AsyncButton style="pop" action={saveReadme} disabled={isSavingReadme}>
 									Save
 								</AsyncButton>
 								<Button
 									type="button"
-									style="secondary"
+									style="neutral"
 									onclick={cancelEditingReadme}
 									disabled={isSavingReadme}
 								>
@@ -126,7 +126,7 @@
 							{:else}
 								<Button
 									type="button"
-									style="secondary"
+									style="neutral"
 									onclick={() => startEditingReadme(user.readme)}
 								>
 									Edit README
