@@ -55,6 +55,19 @@
 		return { prefix, indent: indent + '  ' };
 	}
 
+	/**
+	 * A regex for excluding the following:
+	 *
+	 *  - Code fences – start or end of a block: ``` or ~~~
+	 *  - Indented code blocks – lines starting with 4+ spaces or a tab
+	 *  - List items with code – lines that are part of a list but contain code blocks
+	 *  - Tables – lines containing | with table formatting
+	 *  - Headings – lines starting with #
+	 *  - HTML blocks – lines starting with <, especially <table>, <div>, etc.
+	 *  - Blockquotes with code – e.g. `> ```
+	 */
+	const exemptRegex = /^( {4,}|\t)|^```|^~~~|^#|^\s*>\s*```|^\s*|!?\[[^\]]*\]\([^)]+\)</;
+
 	let lastCheckedLine: undefined | string = undefined;
 	let lastCheckedResult = false;
 
@@ -113,14 +126,13 @@
 			n = n.getNextSibling();
 		}
 
-		console.log(nodes.slice(1).length);
 		return nodes.slice(1);
 	}
 
 	function maybeTransformParagraph(node: TextNode, indent: string = '') {
 		const selection = getSelection();
-		const text = node.getTextContent();
-		if (text.length <= maxLength || text.indexOf(' ') === -1) {
+		const line = node.getTextContent();
+		if (line.length <= maxLength || line.indexOf(' ') === -1 || exemptRegex.test(line)) {
 			return;
 		}
 
@@ -138,7 +150,6 @@
 		// the same pagraph.
 		const relatedNodes = getLinesToFormat(node);
 
-		const line = node.getTextContent();
 		const { newLine, newRemainder } = wrapLine({ line, remainder, maxLength, indent });
 
 		const newNode = new TextNode(newLine);
