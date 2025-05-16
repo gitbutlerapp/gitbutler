@@ -80,7 +80,9 @@ export enum TestId {
 	HunkContextMenu = 'hunk-context-menu',
 	HunkContextMenu_DiscardChange = 'hunk-context-menu-discard-change',
 	HunkContextMenu_DiscardLines = 'hunk-context-menu-discard-lines',
-	HunkContextMenu_OpenInEditor = 'hunk-context-menu-open-in-editor'
+	HunkContextMenu_OpenInEditor = 'hunk-context-menu-open-in-editor',
+	StackPushButton = 'stack-push-button',
+	StackPublishButton = 'stack-publish-button'
 }
 
 export enum ElementId {

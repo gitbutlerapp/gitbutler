@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CanPublishReviewPlugin from '$components/v3/CanPublishReviewPlugin.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import type { BranchDetails } from '$lib/stacks/stack';
@@ -74,6 +75,7 @@
 		if (!branchName) return;
 
 		uiState.stack(stackId).selection.set({ branchName });
+		uiState.project(projectId).stackId.set(stackId);
 		uiState.project(projectId).drawerPage.set('review');
 	}
 
@@ -102,6 +104,7 @@
 {#if canPublish && !branchEmpty}
 	<div class="publish-button" style:flex>
 		<Button
+			testId={TestId.StackPublishButton}
 			style="neutral"
 			wide
 			disabled={!branchName || hasConflicts}
