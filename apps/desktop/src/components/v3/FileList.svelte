@@ -156,13 +156,15 @@
 	 * - Anonymous
 	 */
 	async function branchChanges() {
+		const selectedFiles = idSelection.values(selectionId);
+		if (selectedFiles.length === 0) return;
+
 		showToast({
 			style: 'neutral',
 			title: 'Creating a branch and commit...',
 			message: 'This may take a few seconds.'
 		});
 
-		const selectedFiles = idSelection.values(selectionId);
 		const selectedChanges: CreateCommitRequestWorktreeChanges[] = [];
 		const treeChanges = changes.filter((change) =>
 			selectedFiles.some((file) => file.path === change.path)
