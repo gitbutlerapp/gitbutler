@@ -119,6 +119,7 @@
 						bind:clientWidth={laneWidths[i]}
 						bind:clientHeight={lineHights[i]}
 						data-testid={TestId.Stack}
+						data-testid-stackid={stack.id}
 						data-testid-stack={stack.heads.at(0)?.name}
 						use:intersectionObserver={{
 							callback: (entry) => {

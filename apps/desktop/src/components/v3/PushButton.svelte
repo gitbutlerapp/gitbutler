@@ -5,6 +5,7 @@
 		stackRequiresForcePush
 	} from '$lib/stacks/stack';
 	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -66,6 +67,7 @@
 
 <div class="push-button" class:use-flex={!flex} style:flex>
 	<Button
+		testId={TestId.StackPushButton}
 		style="neutral"
 		wide
 		{loading}
