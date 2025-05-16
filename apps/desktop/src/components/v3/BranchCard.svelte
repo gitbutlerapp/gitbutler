@@ -267,4 +267,9 @@
 	.branch-header__empty-state-span {
 		text-wrap: nowrap;
 	}
+
+	.branch-header__review-badges {
+		display: flex;
+		gap: 4px;
+	}
 </style>
