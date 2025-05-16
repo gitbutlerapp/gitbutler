@@ -92,7 +92,6 @@ pre {
 }
 
 /* STICKY HEADER */
-
 .h-sticky-header {
 	position: sticky;
 	z-index: var(--z-lifted);
@@ -112,4 +111,9 @@ pre {
 
 .h-sticky-header_sticked-bottom {
 	border-top: 1px solid var(--clr-border-2);
+}
+
+/* NO TRANSITION ON MOUNT */
+.h-no-transition {
+	transition: none !important;
 }
