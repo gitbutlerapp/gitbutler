@@ -156,6 +156,12 @@
 	 * - Anonymous
 	 */
 	async function branchChanges() {
+		showToast({
+			style: 'neutral',
+			title: 'Creating a branch and commit...',
+			message: 'This may take a few seconds.'
+		});
+
 		const selectedFiles = idSelection.values(selectionId);
 		const selectedChanges: CreateCommitRequestWorktreeChanges[] = [];
 		const treeChanges = changes.filter((change) =>
@@ -194,6 +200,12 @@
 			worktreeChanges: selectedChanges,
 			commitMessage,
 			branchName
+		});
+
+		showToast({
+			style: 'success',
+			title: 'Branch and commit created successfully.',
+			message: `Branch name: ${branchName}`
 		});
 	}
 
