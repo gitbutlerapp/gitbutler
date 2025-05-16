@@ -2,6 +2,7 @@
 	import { standardConfig } from '$lib/richText/config/config';
 	import { standardTheme } from '$lib/richText/config/theme';
 	import EmojiPlugin from '$lib/richText/plugins/Emoji.svelte';
+	import HardWrapPlugin from '$lib/richText/plugins/HardWrapPlugin.svelte';
 	import MarkdownTransitionPlugin from '$lib/richText/plugins/markdownTransition.svelte';
 	import OnChangePlugin, { type OnChangeCallback } from '$lib/richText/plugins/onChange.svelte';
 	import { insertTextAtCaret, setEditorText } from '$lib/richText/selection';
@@ -209,7 +210,7 @@
 		</div>
 
 		<EmojiPlugin bind:this={emojiPlugin} />
-		<OnChangePlugin {markdown} {onChange} {wrapCountValue} />
+		<OnChangePlugin {markdown} {onChange} />
 
 		{#if markdown}
 			<AutoFocusPlugin />
@@ -223,10 +224,11 @@
 			<LinkPlugin />
 			<MarkdownShortcutPlugin transformers={ALL_TRANSFORMERS} />
 			<RichTextPlugin />
-			<SharedHistoryPlugin />
 		{:else}
 			<PlainTextPlugin />
+			<HardWrapPlugin maxLength={wrapCountValue} />
 		{/if}
+		<SharedHistoryPlugin />
 
 		{#if plugins}
 			{@render plugins()}
