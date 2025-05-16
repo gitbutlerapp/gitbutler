@@ -32,6 +32,21 @@ export class DiffService {
 			transform: (data, args): ChangeDiff => ({ path: args.change.path, diff: data })
 		});
 	}
+
+	async fetchChanges(projectId: string, changes: TreeChange[]): Promise<ChangeDiff[]> {
+		const args = changes.map((change) => ({ projectId, change }));
+		const responses = await Promise.all(
+			args.map((arg) =>
+				this.api.endpoints.getDiff.fetch(arg, {
+					transform: (diff, args) => ({
+						path: args.change.path,
+						diff
+					})
+				})
+			)
+		);
+		return responses.map((response) => response.data).filter((diff) => diff !== undefined);
+	}
 }
 function injectEndpoints(api: ClientState['backendApi']) {
 	return api.injectEndpoints({
