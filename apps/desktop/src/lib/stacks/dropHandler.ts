@@ -1,7 +1,7 @@
 import { filesToOwnership } from '$lib/branches/ownership';
 import { changesToDiffSpec } from '$lib/commits/utils';
 import { ChangeDropData, FileDropData, HunkDropData } from '$lib/dragging/draggables';
-import { showError } from '$lib/notifications/toasts';
+import StackMacros from '$lib/stacks/macros';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type {
 	CreateCommitRequestWorktreeChanges,
@@ -37,14 +37,17 @@ export class NewStackDzHandler implements DropzoneHandler {
 	}
 }
 
-const STUB_COMMIT_MESSAGE = 'New commit';
 /** Handler when drop changes on a special outside lanes dropzone. */
 export class OutsideLaneDzHandler implements DropzoneHandler {
+	private macros: StackMacros;
+
 	constructor(
 		private stackService: StackService,
 		private projectId: string,
 		private readonly uiState: UiState
-	) {}
+	) {
+		this.macros = new StackMacros(this.projectId, this.stackService, this.uiState);
+	}
 
 	accepts(data: unknown) {
 		if (!(data instanceof ChangeDropData)) return false;
@@ -61,18 +64,18 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 				break;
 			}
 			case 'commit': {
-				const { stack, outcome, branchName } = await this.createNewStackAndCommit();
+				const { stack, outcome, branchName } = await this.macros.createNewStackAndCommit();
 
 				const sourceStackId = data.stackId;
 				const sourceCommitId = data.selectionId.commitId;
 				if (sourceStackId) {
-					await this.moveChangesToNewCommit(
+					await this.macros.moveChangesToNewCommit(
 						stack.id,
 						outcome.newCommit,
 						sourceStackId,
 						sourceCommitId,
 						branchName,
-						data
+						changesToDiffSpec(data)
 					);
 				} else {
 					// Should not happen, but just in case
@@ -82,83 +85,10 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 			}
 			case 'worktree': {
 				const worktreeChanges = changesToWorktreeChanges(data);
-				const { stack, outcome, branchName } = await this.createNewStackAndCommit(worktreeChanges);
-
-				this.uiState.stack(stack.id).selection.set({
-					branchName,
-					commitId: outcome.newCommit
-				});
-
+				this.macros.branchChanges({ worktreeChanges });
 				break;
 			}
 		}
-	}
-
-	/**
-	 * Moves the changes from the source commit to the new commit in the new stack.
-	 */
-	private async moveChangesToNewCommit(
-		destinationStackId: string,
-		destinationCommitId: string,
-		sourceStackId: string,
-		sourceCommitId: string,
-		branchName: string,
-		data: ChangeDropData
-	) {
-		const { replacedCommits } = await this.stackService.moveChangesBetweenCommits({
-			projectId: this.projectId,
-			destinationStackId: destinationStackId,
-			destinationCommitId: destinationCommitId,
-			sourceStackId,
-			sourceCommitId,
-			changes: changesToDiffSpec(data)
-		});
-
-		const newCommitId = replacedCommits.find(([before]) => before === destinationCommitId)?.[1];
-		if (!newCommitId) {
-			// This happend only if something went wrong
-			throw new Error('No new commit id found for the moved changes');
-		}
-
-		this.uiState.stack(destinationStackId).selection.set({
-			branchName,
-			commitId: newCommitId
-		});
-		this.uiState.project(this.projectId).stackId.set(destinationStackId);
-	}
-
-	/**
-	 * Creates a new stack and stub commit into it.
-	 */
-	private async createNewStackAndCommit(
-		worktreeChanges: CreateCommitRequestWorktreeChanges[] = []
-	) {
-		const stack = await this.stackService.newStackMutation({
-			projectId: this.projectId,
-			branch: {}
-		});
-		const branchName = stack.heads[0]?.name;
-		if (!branchName) {
-			// This should never happen, but just in case
-			throw new Error('No branch name found for the new stack');
-		}
-		const outcome = await this.stackService.createCommitMutation({
-			projectId: this.projectId,
-			stackId: stack.id,
-			stackBranchName: branchName,
-			parentId: undefined,
-			message: STUB_COMMIT_MESSAGE,
-			worktreeChanges
-		});
-
-		if (outcome.pathsToRejectedChanges.length > 0) {
-			showError(
-				'Some changes were not committed',
-				'The following files were not committed becuase they are locked to another branch:\n' +
-					outcome.pathsToRejectedChanges.map(([_reason, path]) => path).join('\n')
-			);
-		}
-		return { stack, outcome, branchName };
 	}
 }
 

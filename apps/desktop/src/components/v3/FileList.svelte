@@ -5,15 +5,25 @@
 	import FileTreeNode from '$components/v3/FileTreeNode.svelte';
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
 	import { abbreviateFolders, changesToFileTree } from '$lib/files/filetreeV3';
+	import {
+		type TreeChange,
+		type Modification,
+		previousPathBytesFromTreeChange
+	} from '$lib/hunks/change';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { selectFilesInList, updateSelection } from '$lib/selection/idSelectionUtils';
 	import { type SelectionId } from '$lib/selection/key';
+	import StackMacros from '$lib/stacks/macros';
+	import {
+		StackService,
+		type CreateCommitRequestWorktreeChanges
+	} from '$lib/stacks/stackService.svelte';
+	import { UiState } from '$lib/state/uiState.svelte';
 	import { chunk } from '$lib/utils/array';
 	import { sortLikeFileTree } from '$lib/worktree/changeTree';
-	import { getContext } from '@gitbutler/shared/context';
+	import { getContext, inject } from '@gitbutler/shared/context';
 	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
-	import type { TreeChange, Modification } from '$lib/hunks/change';
 
 	type Props = {
 		projectId: string;
@@ -37,13 +47,49 @@
 		conflictEntries
 	}: Props = $props();
 
+	const [stackService, uiState] = inject(StackService, UiState);
+
 	let currentDisplayIndex = $state(0);
 
 	const fileChunks: TreeChange[][] = $derived(chunk(sortLikeFileTree(changes), 100));
 	const visibleFiles: TreeChange[] = $derived(fileChunks.slice(0, currentDisplayIndex + 1).flat());
 	const idSelection = getContext(IdSelection);
+	const stackMacros = $derived(new StackMacros(projectId, stackService, uiState));
+
+	/**
+	 * Create a branch and commit from the selected changes.
+	 *
+	 * _Branch [/bræntʃ/]_ is a verb that means to create a new branch and commit from the current changes.
+	 *
+	 * _According to who? Me._
+	 *
+	 * - Anonymous
+	 */
+	async function branchChanges() {
+		const selectedFiles = idSelection.values(selectionId);
+		const selectedChanges: CreateCommitRequestWorktreeChanges[] = [];
+		for (const file of selectedFiles) {
+			const change = changes.find((c) => c.path === file.path);
+			if (!change) continue;
+			const previousPathBytes = previousPathBytesFromTreeChange(change);
+			selectedChanges.push({
+				pathBytes: change.pathBytes,
+				previousPathBytes,
+				hunkHeaders: []
+			});
+		}
+
+		stackMacros.branchChanges({ worktreeChanges: selectedChanges });
+	}
 
 	function handleKeyDown(e: KeyboardEvent) {
+		if (e.key === 'b' && (e.ctrlKey || e.metaKey)) {
+			e.preventDefault();
+			e.stopPropagation();
+			branchChanges();
+			return;
+		}
+
 		updateSelection({
 			allowMultiple: true,
 			metaKey: e.metaKey,
