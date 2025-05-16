@@ -51,7 +51,7 @@ export class BaseBranch {
 
 		// Handle the edge case where the branchName is exactly the remoteName
 		if (this.remoteName && name === this.remoteName) {
-			return "";
+			return '';
 		}
 
 		const prefixesToTry: string[] = [];
