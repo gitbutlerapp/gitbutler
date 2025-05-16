@@ -21,12 +21,12 @@
 </p>
 
 <div class="experimental-settings__toggles">
-	<SectionCard roundedBottom={$user?.role !== 'admin'} orientation="row">
+	<SectionCard labelFor="v3Design" roundedBottom={$user?.role !== 'admin'} orientation="row">
 		{#snippet title()}
-			v3 Design
+			V3 Design
 		{/snippet}
 		{#snippet caption()}
-			Enable the new v3 User Interface.
+			Enable the new V3 User Interface.
 		{/snippet}
 
 		{#snippet actions()}
@@ -39,7 +39,7 @@
 	</SectionCard>
 
 	{#if $user?.role === 'admin'}
-		<SectionCard roundedTop={false} roundedBottom={!$ircEnabled} orientation="row">
+		<SectionCard labelFor="irc" roundedTop={false} roundedBottom={!$ircEnabled} orientation="row">
 			{#snippet title()}
 				IRC
 			{/snippet}
