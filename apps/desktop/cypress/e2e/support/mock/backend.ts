@@ -35,7 +35,6 @@ import {
 	MOCK_STACKS
 } from './stacks';
 import { MOCK_BRANCH_STATUSES_RESPONSE, MOCK_INTEGRATION_OUTCOME } from './upstreamIntegration';
-import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import type { BranchListing } from '$lib/branches/branchListing';
 import type { Commit } from '$lib/branches/v3';
 import type { HunkDependencies } from '$lib/dependencies/dependencies';
@@ -175,7 +174,7 @@ export default class MockBackend {
 				if (listed.length < 2) return undefined;
 				return listed[0];
 			})
-			.filter(isDefined)
+			.filter((dir): dir is string => !!dir)
 			.filter((dir, index, self) => self.indexOf(dir) === index);
 	}
 
@@ -186,7 +185,7 @@ export default class MockBackend {
 				if (listed.length > 1) return undefined;
 				return listed[0];
 			})
-			.filter(isDefined)
+			.filter((dir): dir is string => !!dir)
 			.filter((file, index, self) => self.indexOf(file) === index);
 	}
 
