@@ -25,6 +25,7 @@
 		disableCommitActions?: boolean;
 		isOpen?: boolean;
 		active?: boolean;
+		hasConflicts?: boolean;
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
 		onclick?: () => void;
 	};
@@ -37,7 +38,6 @@
 		type: 'LocalAndRemote';
 		disableCommitActions: false;
 		diverged: boolean;
-		hasConflicts: boolean;
 	};
 
 	type LocalAndRemoteDisabled = {
@@ -71,14 +71,11 @@
 		active,
 		onclick,
 		menu,
+		hasConflicts,
 		...args
 	}: Props = $props();
 
 	let container = $state<HTMLDivElement>();
-
-	let isConflicted = $derived(
-		args.type === 'LocalAndRemote' && !args.disableCommitActions && args.hasConflicts
-	);
 </script>
 
 <div
@@ -120,8 +117,8 @@
 		{lastBranch}
 	/>
 
-	<div data-testid={TestId.CommitRow} class="commit-content" class:shift-to-left={isConflicted}>
-		{#if isConflicted}
+	<div data-testid={TestId.CommitRow} class="commit-content" class:shift-to-left={hasConflicts}>
+		{#if hasConflicts}
 			<div class="commit-conflict-indicator">
 				<Icon name="warning" size={12} />
 			</div>

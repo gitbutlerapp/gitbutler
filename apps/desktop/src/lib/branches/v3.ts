@@ -35,6 +35,12 @@ export type CommitDetails = {
 	readonly changes: TreeChange[];
 	/** The stats of the changes. */
 	readonly stats: TreeStats;
+	/** If there are any conflicted files this will show them */
+	readonly conflictEntries?: {
+		ancestorEntries: string[];
+		ourEntries: string[];
+		theirEntries: string[];
+	};
 };
 
 /**

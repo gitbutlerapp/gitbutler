@@ -234,17 +234,15 @@
 							Edit message
 						</Button>
 
-						{#if !isConflicted}
-							<AsyncButton
-								testId={TestId.CommitDrawerActionUncommit}
-								size="tag"
-								kind="outline"
-								icon="undo-small"
-								action={async () => await handleUncommit()}
-							>
-								Uncommit
-							</AsyncButton>
-						{/if}
+						<AsyncButton
+							testId={TestId.CommitDrawerActionUncommit}
+							size="tag"
+							kind="outline"
+							icon="undo-small"
+							action={async () => await handleUncommit()}
+						>
+							Uncommit
+						</AsyncButton>
 
 						{#if isConflicted}
 							<AsyncButton
@@ -270,7 +268,10 @@
 								projectId={env.projectId}
 								stackId={env.stackId}
 								selectionId={{ type: 'commit', commitId: commit.id }}
-								{changes}
+								changes={changes.changes.filter(
+									(change) => !(change.path in (changes.conflictEntries?.entries ?? {}))
+								)}
+								conflictEntries={changes.conflictEntries}
 								{active}
 							/>
 						{/snippet}

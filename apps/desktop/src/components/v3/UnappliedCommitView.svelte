@@ -67,7 +67,7 @@
 							active
 							{projectId}
 							selectionId={{ type: 'commit', commitId }}
-							{changes}
+							changes={changes.changes}
 						/>
 					{/snippet}
 				</ReduxResult>

@@ -1,9 +1,9 @@
 use crate::{author::Author, dependencies::CommitDependencies};
 use anyhow::{anyhow, Result};
 use bstr::ByteSlice as _;
+use but_core::commit::ConflictEntries;
 use gitbutler_cherry_pick::ConflictedTreeKey;
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_repo::rebase::ConflictEntries;
 use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::{Stack, StackId};
 use serde::Serialize;

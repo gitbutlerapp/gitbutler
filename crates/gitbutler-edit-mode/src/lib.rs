@@ -172,7 +172,7 @@ fn checkout_edit_branch(ctx: &CommandContext, commit: git2::Commit) -> Result<()
     Ok(())
 }
 
-fn find_virtual_branch_by_reference(
+fn find_stack_by_reference(
     ctx: &CommandContext,
     reference: &ReferenceName,
 ) -> Result<Option<Stack>> {
@@ -181,8 +181,8 @@ fn find_virtual_branch_by_reference(
         .list_stacks_in_workspace()
         .context("Failed to read virtual branches")?;
 
-    Ok(all_stacks.into_iter().find(|virtual_branch| {
-        let Ok(refname) = virtual_branch.refname() else {
+    Ok(all_stacks.into_iter().find(|branch| {
+        let Ok(refname) = branch.refname() else {
             return false;
         };
 
@@ -209,7 +209,7 @@ pub(crate) fn enter_edit_mode(
         branch_reference: branch_reference.to_string().into(),
     };
 
-    if find_virtual_branch_by_reference(ctx, &edit_mode_metadata.branch_reference)?.is_none() {
+    if find_stack_by_reference(ctx, &edit_mode_metadata.branch_reference)?.is_none() {
         bail!("Can not enter edit mode for a reference which does not have a cooresponding virtual branch")
     }
 
@@ -257,8 +257,7 @@ pub(crate) fn save_and_return_to_workspace(
         .find_commit(edit_mode_metadata.commit_oid)
         .context("Failed to find commit")?;
 
-    let Some(mut stack) =
-        find_virtual_branch_by_reference(ctx, &edit_mode_metadata.branch_reference)?
+    let Some(mut stack) = find_stack_by_reference(ctx, &edit_mode_metadata.branch_reference)?
     else {
         bail!("Failed to find virtual branch for this reference. Entering and leaving edit mode for non-virtual branches is unsupported")
     };

@@ -1,4 +1,5 @@
 import { StackOrder } from '$lib/branches/branch';
+import { ConflictEntries, type ConflictEntriesObj } from '$lib/files/conflicts';
 import { showToast } from '$lib/notifications/toasts';
 import { ClientState, type BackendApi } from '$lib/state/clientState.svelte';
 import { createSelectByIds, createSelectNth } from '$lib/state/customSelectors';
@@ -384,7 +385,12 @@ export class StackService {
 	commitChanges(projectId: string, commitId: string) {
 		return this.api.endpoints.commitDetails.useQuery(
 			{ projectId, commitId },
-			{ transform: (result) => changesSelectors.selectAll(result.changes) }
+			{
+				transform: (result) => ({
+					changes: changesSelectors.selectAll(result.changes),
+					conflictEntries: result.conflictEntries
+				})
+			}
 		);
 	}
 
@@ -677,6 +683,18 @@ export class StackService {
 			}
 		);
 	}
+
+	get enterEditMode() {
+		return this.api.endpoints.enterEditMode.mutate;
+	}
+
+	get abortEditAndReturnToWorkspace() {
+		return this.api.endpoints.abortEditAndReturnToWorkspace.mutate;
+	}
+
+	get saveEditAndReturnToWorkspace() {
+		return this.api.endpoints.saveEditAndReturnToWorkspace.mutate;
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -877,7 +895,11 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				]
 			}),
 			commitDetails: build.query<
-				{ changes: EntityState<TreeChange, string>; details: Commit },
+				{
+					changes: EntityState<TreeChange, string>;
+					details: Commit;
+					conflictEntries?: ConflictEntriesObj;
+				},
 				{ projectId: string; commitId: string }
 			>({
 				query: ({ projectId, commitId }) => ({
@@ -889,7 +911,17 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				],
 				transformResponse(rsp: CommitDetails) {
 					const changes = changesAdapter.addMany(changesAdapter.getInitialState(), rsp.changes);
-					return { changes: changes, details: rsp.commit };
+					return {
+						changes: changes,
+						details: rsp.commit,
+						conflictEntries: rsp.conflictEntries
+							? new ConflictEntries(
+									rsp.conflictEntries.ancestorEntries,
+									rsp.conflictEntries.ourEntries,
+									rsp.conflictEntries.theirEntries
+								).toObj()
+							: undefined
+					};
 				}
 			}),
 			branchChanges: build.query<
@@ -1347,7 +1379,6 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					actionName: 'Normalize branch name'
 				})
 			}),
-
 			targetCommits: build.query<
 				EntityState<Commit, string>,
 				{
@@ -1363,6 +1394,31 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				transformResponse: (commits: Commit[]) =>
 					commitAdapter.addMany(commitAdapter.getInitialState(), commits)
+			}),
+			enterEditMode: build.mutation<
+				void,
+				{ projectId: string; commitOid: string; stackId: string }
+			>({
+				query: (params) => ({
+					command: 'enter_edit_mode',
+					params
+				})
+			}),
+			abortEditAndReturnToWorkspace: build.mutation<void, { projectId: string }>({
+				query: (params) => ({
+					command: 'abort_edit_and_return_to_workspace',
+					params
+				})
+			}),
+			saveEditAndReturnToWorkspace: build.mutation<void, { projectId: string }>({
+				query: (params) => ({
+					command: 'save_edit_and_return_to_workspace',
+					params
+				}),
+				invalidatesTags: [
+					invalidatesList(ReduxTag.WorktreeChanges),
+					invalidatesList(ReduxTag.StackDetails)
+				]
 			})
 		})
 	});

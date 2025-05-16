@@ -1,6 +1,7 @@
 <!-- This is a V3 replacement for `FileListItemWrapper.svelte` -->
 <script lang="ts">
 	import FileContextMenu from '$components/v3/FileContextMenu.svelte';
+	import { conflictEntryHint } from '$lib/conflictEntryPresence';
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { ChangeDropData } from '$lib/dragging/draggables';
 	import { getFilename } from '$lib/files/utils';
@@ -14,6 +15,7 @@
 	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
 	import FileViewHeader from '@gitbutler/ui/file/FileViewHeader.svelte';
 	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
+	import type { ConflictEntriesObj } from '$lib/files/conflicts';
 	import type { Rename } from '$lib/hunks/change';
 	import type { UnifiedDiff } from '$lib/hunks/diff';
 
@@ -37,6 +39,7 @@
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 		onCloseClick?: () => void;
+		conflictEntries?: ConflictEntriesObj;
 	}
 
 	const {
@@ -54,6 +57,7 @@
 		depth,
 		executable,
 		showCheckbox,
+		conflictEntries,
 		onclick,
 		onkeydown,
 		onCloseClick
@@ -116,6 +120,8 @@
 			changeSelection.remove(change.path);
 		}
 	}
+
+	const conflict = $derived(conflictEntries ? conflictEntries.entries[change.path] : undefined);
 </script>
 
 <div
@@ -177,7 +183,8 @@
 			draggable={!showCheckbox}
 			{onkeydown}
 			locked={false}
-			conflicted={false}
+			conflicted={!!conflict}
+			conflictHint={conflict ? conflictEntryHint(conflict) : undefined}
 			{onclick}
 			oncheck={onCheck}
 			oncontextmenu={onContextMenu}

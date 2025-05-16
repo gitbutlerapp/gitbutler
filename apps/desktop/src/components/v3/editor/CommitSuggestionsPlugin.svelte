@@ -33,7 +33,12 @@
 	});
 	const treeChanges = $derived(changes?.current.data);
 	const changeDiffsResponse = $derived(
-		treeChanges ? diffService.getChanges(projectId, treeChanges) : undefined
+		treeChanges
+			? diffService.getChanges(
+					projectId,
+					'changes' in treeChanges ? treeChanges.changes : treeChanges
+				)
+			: undefined
 	);
 	const changeDiffs = $derived(
 		changeDiffsResponse?.current.map((item) => item.data).filter(isDefined) ?? []

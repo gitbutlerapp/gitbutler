@@ -6,7 +6,6 @@ import { TemplateService } from '$lib/forge/templateService';
 import { HistoryService } from '$lib/history/history';
 import { StackPublishingService } from '$lib/history/stackPublishingService';
 import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
-import { ModeService } from '$lib/mode/modeService';
 import { type Project } from '$lib/project/project';
 import { ProjectService } from '$lib/project/projectService';
 import { error } from '@sveltejs/kit';
@@ -39,7 +38,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 
 	const projectService = new ProjectService(projectsService, projectId);
 
-	const modeService = new ModeService(projectId);
 	const fetchSignal = new FetchSignal(projectId);
 
 	const historyService = new HistoryService(projectId);
@@ -67,7 +65,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		projectService,
 		gitBranchService,
 		projectMetrics,
-		modeService,
 		fetchSignal,
 		uncommitedFileWatcher,
 		// Cloud-related services
