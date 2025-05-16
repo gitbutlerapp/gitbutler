@@ -48,6 +48,12 @@ export class BaseBranch {
 	 */
 	get shortName(): string {
 		const name = this.branchName;
+
+		// Handle the edge case where the branchName is exactly the remoteName
+		if (this.remoteName && name === this.remoteName) {
+			return "";
+		}
+
 		const prefixesToTry: string[] = [];
 
 		if (this.remoteName) {
