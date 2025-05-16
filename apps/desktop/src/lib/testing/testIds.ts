@@ -76,7 +76,11 @@ export enum TestId {
 	ReviewCreateButton = 'review-drawer-create-button',
 	ReviewCancelButton = 'review-drawer-cancel-button',
 	StackedPullRequestCard = 'stacked-pull-request-card',
-	BranchDrawer = 'branch-drawer'
+	BranchDrawer = 'branch-drawer',
+	HunkContextMenu = 'hunk-context-menu',
+	HunkContextMenu_DiscardChange = 'hunk-context-menu-discard-change',
+	HunkContextMenu_DiscardLines = 'hunk-context-menu-discard-lines',
+	HunkContextMenu_OpenInEditor = 'hunk-context-menu-open-in-editor'
 }
 
 export enum ElementId {

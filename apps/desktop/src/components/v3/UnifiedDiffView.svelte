@@ -296,7 +296,7 @@
 			projectPath={project.vscodePath}
 			{projectId}
 			{change}
-			{readonly}
+			discardable={uncommittedChange}
 			unSelectHunk={(hunk) => unselectHunk(hunk, diff.subject.hunks)}
 		/>
 	{:else if diff.type === 'TooLarge'}

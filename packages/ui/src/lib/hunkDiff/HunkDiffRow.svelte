@@ -117,6 +117,7 @@
 	{@const deltaLine = isDeltaLine(row.type)}
 	<td
 		data-testid="hunk-count-column"
+		data-is-delta-line={deltaLine}
 		class="table__numberColumn"
 		data-no-drag
 		class:diff-line-deletion={row.type === SectionType.RemovedLines}
