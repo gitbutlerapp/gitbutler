@@ -55,6 +55,19 @@
 		return { prefix, indent: indent + '  ' };
 	}
 
+	/**
+	 * A regex for excluding the following:
+	 *
+	 *  - Code fences – start or end of a block: ``` or ~~~
+	 *  - Indented code blocks – lines starting with 4+ spaces or a tab
+	 *  - List items with code – lines that are part of a list but contain code blocks
+	 *  - Tables – lines containing | with table formatting
+	 *  - Headings – lines starting with #
+	 *  - HTML blocks – lines starting with <, especially <table>, <div>, etc.
+	 *  - Blockquotes with code – e.g. `> ```
+	 */
+	const exemptRegex = /^( {4,}|\t)|^```|^~~~|^#|^\s*>\s*```|^\s*|!?\[[^\]]*\]\([^)]+\)</;
+
 	let lastCheckedLine: undefined | string = undefined;
 	let lastCheckedResult = false;
 
@@ -118,8 +131,8 @@
 
 	function maybeTransformParagraph(node: TextNode, indent: string = '') {
 		const selection = getSelection();
-		const text = node.getTextContent();
-		if (text.length <= maxLength || text.indexOf(' ') === -1) {
+		const line = node.getTextContent();
+		if (line.length <= maxLength || line.indexOf(' ') === -1 || exemptRegex.test(line)) {
 			return;
 		}
 
@@ -137,7 +150,6 @@
 		// the same pagraph.
 		const relatedNodes = getLinesToFormat(node);
 
-		const line = node.getTextContent();
 		const { newLine, newRemainder } = wrapLine({ line, remainder, maxLength, indent });
 
 		const newNode = new TextNode(newLine);
@@ -164,17 +176,10 @@
 			return;
 		}
 
+		// Carry over possible remainder and re-wrap the rest of paragraph.
 		for (const value of relatedNodes) {
-			const lineLength = value.getTextContentSize();
 			const line = value.getTextContent();
-
 			const { newLine, newRemainder } = wrapLine({ line, remainder, maxLength, indent });
-
-			// Not all related rows have to be processed if the wrapped words
-			// fit on the next line.
-			if (remainder === '' && lineLength <= maxLength) {
-				break;
-			}
 
 			const newNode = new TextNode(newLine);
 			value.replace(newNode);
@@ -183,8 +188,7 @@
 			remainder = newRemainder;
 		}
 
-		// Last modified node, after which we'll insert accumulated remainder.
-
+		// Insert any final remainder at the end of the paragraph.
 		if (remainder) {
 			while (remainder.length > 0) {
 				const { newLine, newRemainder } = wrapLine({ line: remainder, maxLength });
@@ -211,10 +215,10 @@
 	}
 
 	function maybeTransform(nodes: Map<NodeKey, NodeMutation>) {
-		editor.read(() => {
+		editor.update(() => {
 			for (const [nodeKey, mutation] of nodes.entries()) {
 				// Process additions and updates.
-				if (mutation === 'destroyed') {
+				if (mutation !== 'updated') {
 					continue;
 				}
 				if (isInCodeBlock(nodeKey)) {
@@ -230,9 +234,7 @@
 					// TODO: Iplement wrapping for bullet points.
 					continue;
 				} else {
-					editor.update(() => {
-						maybeTransformParagraph(node);
-					});
+					maybeTransformParagraph(node);
 				}
 			}
 		});
