@@ -236,7 +236,7 @@
 								<div class="readme-actions">
 									{#if editingReadme}
 										<AsyncButton
-											style="primary"
+											style="pop"
 											action={() => saveReadme(projectData.repositoryId)}
 											disabled={isSavingReadme}
 										>
@@ -244,7 +244,7 @@
 										</AsyncButton>
 										<Button
 											type="button"
-											style="secondary"
+											style="neutral"
 											onclick={cancelEditingReadme}
 											disabled={isSavingReadme}
 										>
@@ -253,7 +253,7 @@
 									{:else}
 										<Button
 											type="button"
-											style="secondary"
+											style="neutral"
 											onclick={() => startEditingReadme((projectData as any).readme)}
 										>
 											Edit README
@@ -465,14 +465,14 @@
 				<div class="form-actions">
 					<Button
 						type="button"
-						style="secondary"
+						style="neutral"
 						onclick={() => editProjectModal?.close()}
 						disabled={isUpdatingProject}
 					>
 						Cancel
 					</Button>
 					<AsyncButton
-						style="primary"
+						style="pop"
 						action={() => saveProjectEdits(projectData.repositoryId)}
 						disabled={isUpdatingProject}
 					>
@@ -667,11 +667,6 @@
 		margin-bottom: 1rem;
 		display: flex;
 		align-items: flex-start;
-
-		.label {
-			font-weight: bold;
-			min-width: 7rem;
-		}
 	}
 
 	.sidebar-section-title {

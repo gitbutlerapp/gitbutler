@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { getBranchStatusLabelAndColor } from '$components/v3/lib';
 	import type { PushStatus } from '$lib/stacks/stack';
-	import type { ComponentColorType } from '@gitbutler/ui/utils/colorTypes';
 
 	type Props = {
 		pushStatus: PushStatus;
@@ -10,7 +9,7 @@
 
 	const { pushStatus, unstyled }: Props = $props();
 
-	const [label, bgColor] = $derived.by((): [string, ComponentColorType] => {
+	const [label, bgColor] = $derived.by((): [string, string] => {
 		const { label, color } = getBranchStatusLabelAndColor(pushStatus);
 		return [label, color];
 	});
