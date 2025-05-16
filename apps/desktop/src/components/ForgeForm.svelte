@@ -133,13 +133,4 @@
 			>
 		</p>
 	</SectionCard>
-{:else}
-	<div class="empty-space"></div>
 {/if}
-
-<style lang="postcss">
-	.empty-space {
-		height: 150px;
-		width: 100%;
-	}
-</style>

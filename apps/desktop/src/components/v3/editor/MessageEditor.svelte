@@ -520,7 +520,6 @@
 	}
 
 	/*  */
-
 	.message-textarea__inner {
 		flex: 1;
 		display: flex;
