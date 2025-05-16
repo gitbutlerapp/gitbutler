@@ -142,6 +142,104 @@ describe('Unified Diff View', () => {
 			cy.get('table').should('be.visible');
 		});
 	});
+
+	it('should display the correct option in the hunk context menu for the branch changes', () => {
+		// Select a branch
+		cy.getByTestId('branch-header', mockBackend.stackId).should('be.visible').click();
+
+		// The branch drawer should be opened.
+		// Open a file from the list changes.
+		cy.getByTestId('branch-drawer')
+			.should('be.visible')
+			.within(() => {
+				cy.getByTestId('file-list-item').should('have.length', 3).first().click();
+			});
+
+		// The unified diff view should be opened.
+		cy.getByTestId('unified-diff-view')
+			.should('be.visible')
+			.within(() => {
+				// Right click on the first hunk
+				cy.get('[data-testid="hunk-count-column"]').first().rightclick();
+			});
+
+		// The hunk context menu should be opened
+		cy.getByTestId('hunk-context-menu')
+			.should('be.visible')
+			.within(() => {
+				// The discard change option should be visible
+				cy.getByTestId('hunk-context-menu-discard-change').should('not.exist');
+				// The discard lines option should be visible
+				cy.getByTestId('hunk-context-menu-discard-lines').should('not.exist');
+				// The open in editor option should be visible
+				cy.getByTestId('hunk-context-menu-open-in-editor').should('be.visible');
+			});
+	});
+
+	it('should display the correct option in the hunk context menu for the uncommitted changes', () => {
+		// There should be uncommitted changes
+		cy.getByTestId('uncommitted-changes-file-list').should('be.visible');
+
+		// All files should be visible
+		cy.getByTestId('file-list-item').should(
+			'have.length',
+			mockBackend.getWorktreeChangesFileNames().length
+		);
+
+		// Open bif file diff
+		cy.getByTestId('uncommitted-changes-file-list').within(() => {
+			cy.getByTestId('file-list-item').first().click();
+		});
+
+		cy.getByTestId('unified-diff-view').within(() => {
+			// Right click on the first hunk
+			cy.get('[data-testid="hunk-count-column"]').first().rightclick();
+		});
+
+		// The hunk context menu should be opened
+		cy.getByTestId('hunk-context-menu')
+			.should('be.visible')
+			.within(() => {
+				// The discard change option should be visible
+				cy.getByTestId('hunk-context-menu-discard-change').should('be.visible');
+				// The open in editor option should be visible
+				cy.getByTestId('hunk-context-menu-open-in-editor').should('be.visible');
+			});
+	});
+
+	it('should display the correct option in the hunk context menu for the uncommitted changes with selected lines', () => {
+		// There should be uncommitted changes
+		cy.getByTestId('uncommitted-changes-file-list').should('be.visible');
+
+		// All files should be visible
+		cy.getByTestId('file-list-item').should(
+			'have.length',
+			mockBackend.getWorktreeChangesFileNames().length
+		);
+
+		// Open bif file diff
+		cy.getByTestId('uncommitted-changes-file-list').within(() => {
+			cy.getByTestId('file-list-item').first().click();
+		});
+
+		cy.getByTestId('unified-diff-view').within(() => {
+			// Select the first line in the hunk
+			// and then right click on it.
+			cy.get('[data-is-delta-line=true]').first().click().rightclick();
+		});
+
+		// The hunk context menu should be opened
+		cy.getByTestId('hunk-context-menu')
+			.should('be.visible')
+			.within(() => {
+				// The discard change option should be visible
+				cy.getByTestId('hunk-context-menu-discard-change').should('be.visible');
+				// The discard lines option should be visible
+				cy.getByTestId('hunk-context-menu-discard-lines').should('be.visible');
+				// The open in editor option should be visible
+				cy.getByTestId('hunk-context-menu-open-in-editor').should('be.visible');
+			});
+	});
 });
 
 describe('Unified Diff View with complex hunks', () => {
