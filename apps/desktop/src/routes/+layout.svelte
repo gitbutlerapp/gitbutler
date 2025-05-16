@@ -14,6 +14,7 @@
 	import ShareIssueModal from '$components/ShareIssueModal.svelte';
 	import SwitchThemeMenuAction from '$components/SwitchThemeMenuAction.svelte';
 	import ToastController from '$components/ToastController.svelte';
+	import TryV3Modal from '$components/TryV3Modal.svelte';
 	import ZoomInOutMenuAction from '$components/ZoomInOutMenuAction.svelte';
 	import LineSelection from '$components/v3/unifiedDiffLineSelection.svelte';
 	import { PromptService as AIPromptService } from '$lib/ai/promptService';
@@ -300,6 +301,7 @@
 	{/if}
 	{@render children()}
 </div>
+<TryV3Modal />
 <Toaster />
 <ShareIssueModal bind:this={shareIssueModal} />
 <ToastController />
