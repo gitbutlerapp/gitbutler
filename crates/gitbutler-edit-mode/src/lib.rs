@@ -338,8 +338,18 @@ pub(crate) fn save_and_return_to_workspace(
         #[allow(deprecated)]
         checkout_branch_trees(ctx, perm)?;
     }
+
     update_workspace_commit(&vb_state, ctx)?;
-    list_virtual_branches(ctx, perm)?;
+
+    // Currently if the index goes wonky then files don't appear quite right.
+    // This just makes sure the index is all good.
+    let mut index = repository.index()?;
+    index.read_tree(&repository.head()?.peel_to_tree()?)?;
+    index.write()?;
+
+    if !ctx.app_settings().feature_flags.v3 {
+        list_virtual_branches(ctx, perm)?;
+    }
 
     Ok(())
 }
