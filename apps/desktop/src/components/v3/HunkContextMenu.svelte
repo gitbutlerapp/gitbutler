@@ -17,6 +17,7 @@
 	import { IrcService } from '$lib/irc/ircService.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
 	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
@@ -31,11 +32,11 @@
 		projectId: string;
 		change: TreeChange;
 		projectPath: string | undefined;
-		readonly: boolean;
+		discardable: boolean;
 		unSelectHunk: (hunk: DiffHunk) => void;
 	}
 
-	const { trigger, projectId, change, projectPath, readonly, unSelectHunk }: Props = $props();
+	const { trigger, projectId, change, projectPath, discardable, unSelectHunk }: Props = $props();
 
 	const [stackService, ircService] = inject(StackService, IrcService);
 
@@ -102,12 +103,13 @@
 	}
 </script>
 
-<ContextMenu bind:this={contextMenu} rightClickTrigger={trigger}>
+<ContextMenu testId={TestId.HunkContextMenu} bind:this={contextMenu} rightClickTrigger={trigger}>
 	{#snippet children(item)}
 		{#if isHunkContextItem(item)}
 			<ContextMenuSection>
-				{#if !readonly}
+				{#if discardable}
 					<ContextMenuItem
+						testId={TestId.HunkContextMenu_DiscardChange}
 						label="Discard change"
 						onclick={() => {
 							discardHunk(item);
@@ -115,8 +117,9 @@
 						}}
 					/>
 				{/if}
-				{#if item.selectedLines !== undefined && item.selectedLines.length > 0 && !readonly}
+				{#if item.selectedLines !== undefined && item.selectedLines.length > 0 && discardable}
 					<ContextMenuItem
+						testId={TestId.HunkContextMenu_DiscardLines}
 						label={getDiscardLineLabel(item)}
 						onclick={() => {
 							discardHunkLines(item);
@@ -150,6 +153,7 @@
 				{/if}
 				{#if item.beforeLineNumber !== undefined || item.afterLineNumber !== undefined}
 					<ContextMenuItem
+						testId={TestId.HunkContextMenu_OpenInEditor}
 						label="Open in {$userSettings.defaultCodeEditor.displayName}"
 						onclick={() => {
 							if (projectPath) {
