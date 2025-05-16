@@ -203,4 +203,70 @@ describe('Review', () => {
 			cy.getByTestId('stacked-pull-request-card').should('be.visible');
 		}
 	});
+
+	it('should be able to create multiple pull requests from the publish buttons', () => {
+		const stacks = mockBackend.getStacks();
+		expect(stacks).to.have.length(3);
+
+		for (const stack of stacks) {
+			const prTitle = 'Test PR Title' + stack.id;
+			const prDescription = 'Test PR Description' + stack.id;
+
+			// Scroll the publish buttons into view
+			cy.get('[data-testid-stackid="' + stack.id + '"]')
+				.should('exist')
+				.scrollIntoView()
+				.within(() => {
+					cy.getByTestId('stack-publish-button').should('be.visible').click();
+				});
+
+			// The Review Drawer should be visible.
+			cy.getByTestId('review-drawer').should('be.visible');
+
+			// Since this branch has a single commit, the commit message should be pre-filled.
+			// Update both.
+			cy.getByTestId('review-drawer-title-input')
+				.should('be.visible')
+				.should('be.enabled')
+				.should('have.value', mockBackend.getCommitTitle(stack.id))
+				.clear()
+				.type(prTitle);
+
+			cy.getByTestId('review-drawer-description-input')
+				.should('be.visible')
+				.should('contain', mockBackend.getCommitMessage(stack.id))
+				.click()
+				.clear()
+				.type(prDescription);
+
+			// Cancel the creation of the review.
+			cy.getByTestId('review-drawer-cancel-button').should('be.visible').click();
+
+			// The Review Drawer should not be visible.
+			cy.getByTestId('review-drawer').should('not.exist');
+
+			// Reopen the Review Drawer.
+			cy.getByTestId('branch-drawer-create-review-button').should('be.visible').click();
+
+			// The inputs should be persisted
+			cy.getByTestId('review-drawer-title-input')
+				.should('be.visible')
+				.should('be.enabled')
+				.should('have.value', prTitle);
+
+			cy.getByTestId('review-drawer-description-input')
+				.should('be.visible')
+				.should('contain', prDescription);
+
+			// The Create Review button should be visible.
+			// Click it.
+			cy.getByTestId('review-drawer-create-button')
+				.should('be.visible')
+				.should('be.enabled')
+				.click();
+
+			// The PR card should be visible.
+			cy.getByTestId('stacked-pull-request-card').should('be.visible');
+		}
+	});
 });
