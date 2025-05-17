@@ -1,0 +1,3 @@
+ancestorEntries = ["pnpm-lock.yaml"]
+ourEntries = ["pnpm-lock.yaml"]
+theirEntries = ["pnpm-lock.yaml"]
