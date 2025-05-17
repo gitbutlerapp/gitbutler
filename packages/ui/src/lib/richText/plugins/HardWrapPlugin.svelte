@@ -1,23 +1,12 @@
-<script lang="ts" module>
-	export type FormatStyle =
-		| 'text-bold'
-		| 'text-italic'
-		| 'text-underline'
-		| 'text-strikethrough'
-		| 'text-code'
-		| 'text-quote'
-		| 'text-link'
-		| 'text'
-		| 'text-h1'
-		| 'text-h2'
-		| 'text-h3'
-		| 'bullet-list'
-		| 'number-list'
-		| 'checklist';
-</script>
-
 <script lang="ts">
-	import { wrapLine } from '$lib/richText/plugins/linewrap';
+	import {
+		parseIndent,
+		isWrappingExempt,
+		wrapLine,
+		type Bullet,
+		parseBullet
+	} from '$lib/richText/plugins/linewrap';
+	import { mergeUnlisten } from '$lib/utils/mergeUnlisten';
 
 	import {
 		$isTextNode as isTextNode,
@@ -45,28 +34,6 @@
 	const { maxLength = 74 }: Props = $props();
 
 	const editor = getEditor();
-	type Bullet = { prefix: string; indent: string };
-
-	function parseBullet(text: string): Bullet | null {
-		const match = text.match(/^(\s*)([-*+]|[0-9]+\.)\s+/);
-		if (!match) return null;
-		const indent = match[1] ?? '';
-		const prefix = match[0];
-		return { prefix, indent: indent + '  ' };
-	}
-
-	/**
-	 * A regex for excluding the following:
-	 *
-	 *  - Code fences – start or end of a block: ``` or ~~~
-	 *  - Indented code blocks – lines starting with 4+ spaces or a tab
-	 *  - List items with code – lines that are part of a list but contain code blocks
-	 *  - Tables – lines containing | with table formatting
-	 *  - Headings – lines starting with #
-	 *  - HTML blocks – lines starting with <, especially <table>, <div>, etc.
-	 *  - Blockquotes with code – e.g. `> ```
-	 */
-	const exemptRegex = /^( {4,}|\t)|^```|^~~~|^#|^\s*>\s*```|^\s*|!?\[[^\]]*\]\([^)]+\)</;
 
 	let lastCheckedLine: undefined | string = undefined;
 	let lastCheckedResult = false;
@@ -106,17 +73,32 @@
 	 * considered part of the same paragraph. This enables us to re-wrap
 	 * a paragraph when edited in the middle.
 	 */
-	function getLinesToFormat(node: TextNode): TextNode[] {
-		const nodes: TextNode[] = [];
-
+	function getRelatedLines(node: TextNode, indent: string): TextNode[] {
 		// Iterator for finding the rest of the paragraph.
 		let n: LexicalNode | null = node;
 
+		// Get the first sibling node.
+		n = n.getNextSibling()?.getNextSibling() || null;
+		if (!n || !isTextNode(n)) {
+			return [];
+		}
+
+		const collectedNodes: TextNode[] = [];
+
 		while (n) {
-			if (!isTextNode(n) || n.getTextContent().trimStart() === '') {
+			const line = n.getTextContent();
+			if (!isTextNode(n) || line.trimStart() === '') {
 				break;
 			}
-			nodes.push(n);
+			// Check for decrease in indent.
+			if (!line.startsWith(indent)) {
+				break;
+			}
+			// Check for increase in indent.
+			if (line.length > indent.length && line[indent.length].match(/\s/)) {
+				break;
+			}
+			collectedNodes.push(n);
 			n = n.getNextSibling();
 			if (!n) {
 				break;
@@ -126,14 +108,18 @@
 			n = n.getNextSibling();
 		}
 
-		return nodes.slice(1);
+		return collectedNodes;
 	}
 
-	function maybeTransformParagraph(node: TextNode, indent: string = '') {
+	function maybeTransformText(node: TextNode, indent: string, bullet?: Bullet) {
 		const selection = getSelection();
 		const line = node.getTextContent();
-		if (line.length <= maxLength || line.indexOf(' ') === -1 || exemptRegex.test(line)) {
-			return;
+
+		if (line.length <= maxLength || line.indexOf(' ') === -1) {
+			return; // Line does not exceed max length.
+		}
+		if (isWrappingExempt(line)) {
+			return; // Line contains text that should not be wrapped.
 		}
 
 		/** Number of characters into the next line that the cursor should be moved. */
@@ -148,9 +134,15 @@
 
 		// We want to consider the modified line, and the remaining lines from
 		// the same pagraph.
-		const relatedNodes = getLinesToFormat(node);
+		const relatedNodes = getRelatedLines(node, indent);
 
-		const { newLine, newRemainder } = wrapLine({ line, remainder, maxLength, indent });
+		const { newLine, newRemainder } = wrapLine({
+			line,
+			remainder,
+			maxLength,
+			indent,
+			bullet
+		});
 
 		const newNode = new TextNode(newLine);
 		node.replace(newNode);
@@ -165,14 +157,11 @@
 
 		// If white space carries over then we insert a new line.
 		if (remainder === '' && selectionCarry !== undefined) {
-			const selection = createRangeSelection();
 			const newKey = newNode
 				.insertAfter(new LineBreakNode())!
 				.insertAfter(new TextNode(''))!
 				.getKey();
-			selection.anchor.set(newKey, 0, 'text');
-			selection.focus.set(newKey, 0, 'text');
-			setSelection(selection);
+			moveCursorTo(newKey, indent.length);
 			return;
 		}
 
@@ -192,7 +181,7 @@
 		if (remainder) {
 			while (remainder.length > 0) {
 				const { newLine, newRemainder } = wrapLine({ line: remainder, maxLength });
-				const newNode = new TextNode(newLine);
+				const newNode = new TextNode(indent + newLine);
 				insertedNodes.at(-1)!.insertAfter(new LineBreakNode(), true)!.insertAfter(newNode, true);
 				insertedNodes.push(newNode);
 				remainder = newRemainder;
@@ -206,10 +195,7 @@
 			const secondNode = insertedNodes.at(1);
 
 			if (secondNode) {
-				const selection = createRangeSelection();
-				selection.anchor.set(secondNode.getKey(), selectionCarry, 'text');
-				selection.focus.set(secondNode.getKey(), selectionCarry, 'text');
-				setSelection(selection);
+				moveCursorTo(secondNode.getKey(), indent.length + selectionCarry);
 			}
 		}
 	}
@@ -217,31 +203,42 @@
 	function maybeTransform(nodes: Map<NodeKey, NodeMutation>) {
 		editor.update(() => {
 			for (const [nodeKey, mutation] of nodes.entries()) {
-				// Process additions and updates.
-				if (mutation !== 'updated') {
-					continue;
-				}
-				if (isInCodeBlock(nodeKey)) {
+				const node = getNodeByKey(nodeKey)!;
+
+				if (!node) {
 					continue;
 				}
 
-				const node = getNodeByKey(nodeKey);
-				if (!node || !isTextNode(node)) {
-					continue;
-				}
+				if (mutation === 'updated') {
+					// Process updates.
+					if (isInCodeBlock(nodeKey)) {
+						continue;
+					}
 
-				if (parseBullet(node.getTextContent())) {
-					// TODO: Iplement wrapping for bullet points.
-					continue;
-				} else {
-					maybeTransformParagraph(node);
+					if (!isTextNode(node)) {
+						continue;
+					}
+
+					const line = node.getTextContent();
+
+					if (line.length > maxLength) {
+						const bullet = parseBullet(line);
+						const indent = bullet ? bullet.indent : parseIndent(line);
+						maybeTransformText(node, indent, bullet);
+					}
 				}
 			}
 		});
 	}
 
+	function moveCursorTo(nodeKey: string, position: number) {
+		const selection = createRangeSelection();
+		selection.anchor.set(nodeKey, position, 'text');
+		selection.focus.set(nodeKey, position, 'text');
+		setSelection(selection);
+	}
+
 	onMount(() => {
-		const unregister = editor.registerMutationListener(TextNode, maybeTransform);
-		return unregister;
+		return mergeUnlisten(editor.registerMutationListener(TextNode, maybeTransform));
 	});
 </script>
