@@ -121,17 +121,17 @@
 		"@giphy/js-fetch-api": "^5.6.0",
 		"@giphy/js-types": "^5.1.0",
 		"@giphy/svelte-components": "^1.1.0",
-		"@lexical/link": "^0.17.0",
-		"@lexical/list": "^0.17.0",
-		"@lexical/markdown": "0.17.0",
-		"@lexical/rich-text": "^0.17.0",
-		"@lexical/selection": "^0.17.0",
-		"@lexical/text": "^0.17.0",
-		"@lexical/utils": "0.17.0",
+		"@lexical/link": "^0.27.1",
+		"@lexical/list": "^0.27.1",
+		"@lexical/markdown": "0.27.1",
+		"@lexical/rich-text": "^0.27.1",
+		"@lexical/selection": "^0.27.1",
+		"@lexical/text": "^0.27.1",
+		"@lexical/utils": "0.27.1",
 		"emojibase": "^16.0.0",
 		"emojibase-data": "^16.0.2",
 		"install": "^0.13.0",
-		"lexical": "0.17.0",
-		"svelte-lexical": "^0.5.0"
+		"lexical": "0.27.1",
+		"svelte-lexical": "^0.5.3"
 	}
 }
