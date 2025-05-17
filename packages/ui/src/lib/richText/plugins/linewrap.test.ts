@@ -86,4 +86,16 @@ describe('wrapline', () => {
 		expect(newLine).toEqual('we   test');
 		expect(remainder).toEqual('');
 	});
+
+	test('bullet point', () => {
+		const { newLine, newRemainder: remainder } = wrapLine({
+			line: '- hello world',
+			remainder: '',
+			indent: '  ',
+			bullet: { indent: '  ', prefix: '- ' },
+			maxLength: 10
+		});
+		expect(newLine).toEqual('- hello ');
+		expect(remainder).toEqual('world');
+	});
 });
