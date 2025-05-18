@@ -26,6 +26,7 @@
 		result: Result<A> | undefined;
 		projectId: string;
 		children: Snippet<[A, Env<B>]>;
+		loading?: Snippet<[]>;
 		error?: Snippet<[unknown]>;
 		onerror?: (err: unknown) => void;
 	} & (B extends undefined ? { stackId?: B } : { stackId: B });
@@ -77,19 +78,26 @@
 	{#if props.error}
 		{@render props.error(display.result.error)}
 	{/if}
+{:else if display.result?.status === 'pending' || display.result?.status === 'uninitialized'}
+	{#if props.loading}
+		{@render props.loading()}
+	{:else}
+		<div class="text-12 loading-spinner">
+			<Icon name="spinner" />
+			<span>{display.result?.status}</span>
+		</div>
+	{/if}
 {:else if display.result?.data !== undefined}
 	{@render props.children(display.result.data, display.env)}
-{:else if display.result?.status === 'pending'}
-	<div class="loading-spinner">
-		<Icon name="spinner" />
-	</div>
-{:else if display.result?.status === 'uninitialized'}
-	Uninitialized...
 {/if}
 
 <style>
 	.loading-spinner {
+		display: flex;
+		align-items: center;
+		gap: 8px;
 		z-index: var(--z-lifted);
 		position: relative;
+		color: var(--clr-text-2);
 	}
 </style>

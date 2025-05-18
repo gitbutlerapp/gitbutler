@@ -133,31 +133,34 @@
 		{/if}
 	</div>
 
-	<ReduxResult {projectId} result={stacksResult?.current}>
-		{#snippet children(stacks)}
-			<div
-				class="stacks-view-wrap"
-				bind:this={stacksViewEl}
-				style:width={stacksViewWidth.current + 'rem'}
-				use:focusable={{ id: Focusable.WorkspaceRight, parentId: Focusable.Workspace }}
-			>
+	<div
+		class="stacks-view-wrap"
+		bind:this={stacksViewEl}
+		style:width={stacksViewWidth.current + 'rem'}
+		use:focusable={{ id: Focusable.WorkspaceRight, parentId: Focusable.Workspace }}
+	>
+		<ReduxResult {projectId} result={stacksResult?.current}>
+			{#snippet loading()}
+				<div class="stacks-view-skeleton"></div>
+			{/snippet}
+
+			{#snippet children(stacks)}
 				<MultiStackView
 					{projectId}
 					{stacks}
 					selectedId={stackId}
 					active={focusGroup.current !== Focusable.UncommittedChanges}
 				/>
-
-				<Resizer
-					viewport={stacksViewEl}
-					direction="left"
-					minWidth={16}
-					borderRadius="ml"
-					onWidth={(value) => uiState.global.stacksViewWidth.set(value)}
-				/>
-			</div>
-		{/snippet}
-	</ReduxResult>
+			{/snippet}
+		</ReduxResult>
+		<Resizer
+			viewport={stacksViewEl}
+			direction="left"
+			minWidth={16}
+			borderRadius="ml"
+			onWidth={(value) => uiState.global.stacksViewWidth.set(value)}
+		/>
+	</div>
 </div>
 
 <style>
@@ -201,5 +204,13 @@
 		overflow-x: hidden;
 		gap: 8px;
 		min-width: 320px;
+	}
+
+	/* SKELETON LOADING */
+	.stacks-view-skeleton {
+		width: 100%;
+		height: 100%;
+		border-radius: var(--radius-ml);
+		border: 1px solid var(--clr-border-2);
 	}
 </style>
