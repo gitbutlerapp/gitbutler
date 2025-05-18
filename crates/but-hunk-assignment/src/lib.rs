@@ -68,9 +68,14 @@ impl HunkAssignment {
 
 /// Returns the current hunk assignments for the workspace.
 pub fn assignments(ctx: &CommandContext) -> Result<Vec<HunkAssignment>> {
-    let state = state::AssignmentsHandle::new(&ctx.project().gb_dir());
-    let assignments = state.assignments()?;
-    Ok(assignments)
+    // TODO: Use a dirty bit set in the file watcher to indicate when reconcilation is needed.
+    if true {
+        reconcile(ctx)
+    } else {
+        let state = state::AssignmentsHandle::new(&ctx.project().gb_dir());
+        let assignments = state.assignments()?;
+        Ok(assignments)
+    }
 }
 
 /// Sets the assignment for a hunk. It must be already present in the current assignments, errors out if it isn't.
@@ -109,8 +114,7 @@ pub fn assign(ctx: &CommandContext, new_assignment: HunkAssignment) -> Result<Ve
 /// If a stack is no longer present in the workspace (either unapplied or deleted), any assignments to it are removed.
 ///
 /// This needs to be ran only after the worktree has changed.
-/// TODO: When listing, we can reffer to a dirty bit to know if we need to run this.
-pub fn reconcile(ctx: &CommandContext) -> Result<Vec<HunkAssignment>> {
+fn reconcile(ctx: &CommandContext) -> Result<Vec<HunkAssignment>> {
     let state = state::AssignmentsHandle::new(&ctx.project().gb_dir());
     let previous_assignments = state.assignments()?;
     let repo = &ctx.gix_repo()?;
