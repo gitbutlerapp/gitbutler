@@ -9,6 +9,7 @@
 //!
 //! set_assignments
 
+mod state;
 use std::cmp::Ordering;
 
 use anyhow::Result;
@@ -18,8 +19,9 @@ use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree
 use but_workspace::{HunkHeader, StackId};
 use gitbutler_command_context::CommandContext;
 use gitbutler_stack::VirtualBranchesHandle;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HunkAssignment {
     /// The hunk that is being assigned. Together with path_bytes, this identifies the hunk.
     /// If the file is binary, or too large to load, this will be None and in this case the path name is the only identity.
@@ -64,14 +66,19 @@ impl HunkAssignment {
     }
 }
 
+/// Returns the current hunk assignments for the workspace.
+pub fn assignments(ctx: &CommandContext) -> Result<Vec<HunkAssignment>> {
+    let state = state::AssignmentsHandle::new(&ctx.project().gb_dir());
+    let assignments = state.assignments()?;
+    Ok(assignments)
+}
+
 /// Sets the assignment for a hunk. It must be already present in the current assignments, errors out if it isn't.
 /// If the stack is not in the list of applied stacks, it errors out.
 /// Returns the updated assignments list.
-pub fn assign(
-    ctx: &CommandContext,
-    previous_assignments: Vec<HunkAssignment>,
-    new_assignment: HunkAssignment,
-) -> Result<Vec<HunkAssignment>> {
+pub fn assign(ctx: &CommandContext, new_assignment: HunkAssignment) -> Result<Vec<HunkAssignment>> {
+    let state = state::AssignmentsHandle::new(&ctx.project().gb_dir());
+    let previous_assignments = state.assignments()?;
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     let applied_stacks = vb_state
         .list_stacks_in_workspace()?
@@ -86,6 +93,7 @@ pub fn assign(
         &applied_stacks,
         MultiDepsResolution::SetNone, // If there is double locking, move the hunk to the Uncommitted section
     )?;
+    state.set_assignments(assignments_considering_deps.clone())?;
     Ok(assignments_considering_deps)
 }
 
@@ -102,11 +110,9 @@ pub fn assign(
 ///
 /// This needs to be ran only after the worktree has changed.
 /// TODO: When listing, we can reffer to a dirty bit to know if we need to run this.
-/// TODO: Conside hunk locking as well
-pub fn reconcile(
-    ctx: &CommandContext,
-    previous_assignments: Vec<HunkAssignment>,
-) -> Result<Vec<HunkAssignment>> {
+pub fn reconcile(ctx: &CommandContext) -> Result<Vec<HunkAssignment>> {
+    let state = state::AssignmentsHandle::new(&ctx.project().gb_dir());
+    let previous_assignments = state.assignments()?;
     let repo = &ctx.gix_repo()?;
     let context_lines = ctx.app_settings().context_lines;
     let worktree_changes = but_core::diff::worktree_changes(repo)?.changes;
@@ -137,6 +143,7 @@ pub fn reconcile(
         )?;
         new_assignments.extend(assignments_considering_deps);
     }
+    state.set_assignments(new_assignments.clone())?;
     Ok(new_assignments)
 }
 

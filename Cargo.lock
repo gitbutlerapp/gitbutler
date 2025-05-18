@@ -734,10 +734,12 @@ dependencies = [
  "but-hunk-dependency",
  "but-workspace",
  "gitbutler-command-context",
+ "gitbutler-fs",
  "gitbutler-stack",
  "gix",
  "itertools",
  "serde",
+ "toml",
  "uuid",
 ]
 
