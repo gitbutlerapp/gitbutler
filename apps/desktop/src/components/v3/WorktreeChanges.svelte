@@ -119,23 +119,24 @@
 	let listFooterHeight = $state(0);
 </script>
 
-<ReduxResult {stackId} {projectId} result={changesResult.current}>
-	{#snippet children(changes, { stackId, projectId })}
-		<Dropzone handlers={[uncommitDzHandler]} maxHeight>
-			{#snippet overlay({ hovered, activated })}
-				<CardOverlay {hovered} {activated} label="Uncommit changes" />
-			{/snippet}
-			<div
-				class="uncommitted-changes-wrap"
-				use:focusable={{ id: Focusable.UncommittedChanges, parentId: Focusable.WorkspaceLeft }}
-			>
-				<ScrollableContainer
-					autoScroll={false}
-					padding={{
-						top: listHeaderHeight,
-						bottom: listFooterHeight
-					}}
-				>
+<Dropzone handlers={[uncommitDzHandler]} maxHeight>
+	{#snippet overlay({ hovered, activated })}
+		<CardOverlay {hovered} {activated} label="Uncommit changes" />
+	{/snippet}
+
+	<div
+		class="uncommitted-changes-wrap"
+		use:focusable={{ id: Focusable.UncommittedChanges, parentId: Focusable.WorkspaceLeft }}
+	>
+		<ScrollableContainer
+			autoScroll={false}
+			padding={{
+				top: listHeaderHeight,
+				bottom: listFooterHeight
+			}}
+		>
+			<ReduxResult {stackId} {projectId} result={changesResult.current}>
+				{#snippet children(changes, { stackId, projectId })}
 					<div
 						data-testid={TestId.UncommittedChanges_Header}
 						use:stickyHeader
@@ -202,11 +203,11 @@
 							<WorktreeTipsFooter />
 						</div>
 					{/if}
-				</ScrollableContainer>
-			</div>
-		</Dropzone>
-	{/snippet}
-</ReduxResult>
+				{/snippet}
+			</ReduxResult>
+		</ScrollableContainer>
+	</div>
+</Dropzone>
 
 <style>
 	.uncommitted-changes-wrap {

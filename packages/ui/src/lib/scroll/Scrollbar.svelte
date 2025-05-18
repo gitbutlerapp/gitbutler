@@ -276,6 +276,7 @@
 	}
 </script>
 
+<!-- {#if mounted} -->
 <div
 	bind:this={track}
 	data-remove-from-draggable
@@ -308,6 +309,8 @@
 	></div>
 </div>
 
+<!-- {/if} -->
+
 <style>
 	.scrollbar-track {
 		position: absolute;
@@ -331,9 +334,6 @@
 		background-color: var(--clr-scale-ntrl-0);
 		opacity: 0;
 		will-change: transform, opacity;
-		transition:
-			opacity 0.2s,
-			transform 0.15s;
 	}
 
 	/* modify vertical scrollbar */
@@ -353,9 +353,13 @@
 	}
 
 	/* MODIFIERS */
+
 	.show-scrollbar {
 		& .scrollbar-thumb {
 			opacity: 0.15;
+			transition:
+				opacity 0.2s,
+				transform 0.15s;
 		}
 	}
 
