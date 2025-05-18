@@ -13,9 +13,11 @@ use std::cmp::Ordering;
 
 use anyhow::Result;
 use bstr::BString;
-use but_core::{TreeChange, UnifiedDiff};
+use but_core::UnifiedDiff;
+use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 use but_workspace::{HunkHeader, StackId};
 use gitbutler_command_context::CommandContext;
+use gitbutler_stack::VirtualBranchesHandle;
 
 #[derive(Debug, Clone)]
 pub struct HunkAssignment {
@@ -62,6 +64,31 @@ impl HunkAssignment {
     }
 }
 
+/// Sets the assignment for a hunk. It must be already present in the current assignments, errors out if it isn't.
+/// If the stack is not in the list of applied stacks, it errors out.
+/// Returns the updated assignments list.
+pub fn assign(
+    ctx: &CommandContext,
+    previous_assignments: Vec<HunkAssignment>,
+    new_assignment: HunkAssignment,
+) -> Result<Vec<HunkAssignment>> {
+    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let applied_stacks = vb_state
+        .list_stacks_in_workspace()?
+        .iter()
+        .map(|s| s.id)
+        .collect::<Vec<_>>();
+    let new_assignments = set_assignment(&applied_stacks, previous_assignments, new_assignment)?;
+    let deps_assignments = hunk_dependency_assignments(ctx)?;
+    let assignments_considering_deps = reconcile_assignments(
+        new_assignments,
+        &deps_assignments,
+        &applied_stacks,
+        MultiDepsResolution::SetNone, // If there is double locking, move the hunk to the Uncommitted section
+    )?;
+    Ok(assignments_considering_deps)
+}
+
 /// Reconciles the current hunk assignments with the current worktree changes.
 /// It takes  the current hunk assignments as well as the current worktree changes, producing a new set of hunk assignments.
 ///
@@ -78,32 +105,54 @@ impl HunkAssignment {
 /// TODO: Conside hunk locking as well
 pub fn reconcile(
     ctx: &CommandContext,
-    worktree_changes: Vec<TreeChange>,
-    applied_stacks: Vec<StackId>,
     previous_assignments: Vec<HunkAssignment>,
 ) -> Result<Vec<HunkAssignment>> {
     let repo = &ctx.gix_repo()?;
     let context_lines = ctx.app_settings().context_lines;
+    let worktree_changes = but_core::diff::worktree_changes(repo)?.changes;
+    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let applied_stacks = vb_state
+        .list_stacks_in_workspace()?
+        .iter()
+        .map(|s| s.id)
+        .collect::<Vec<_>>();
+
+    let deps_assignments = hunk_dependency_assignments(ctx)?;
+
     let mut new_assignments = vec![];
     for change in worktree_changes {
         let diff = change.unified_diff(repo, context_lines)?;
-        new_assignments.extend(reconcile_assignments(
-            diff_to_assignments(diff, change.path),
+        let assignments_from_worktree = diff_to_assignments(diff, change.path);
+        let assignments_considering_previous = reconcile_assignments(
+            assignments_from_worktree,
             &previous_assignments,
             &applied_stacks,
-        )?);
+            MultiDepsResolution::SetMostLines,
+        )?;
+        let assignments_considering_deps = reconcile_assignments(
+            assignments_considering_previous,
+            &deps_assignments,
+            &applied_stacks,
+            MultiDepsResolution::SetNone, // If there is double locking, move the hunk to the Uncommitted section
+        )?;
+        new_assignments.extend(assignments_considering_deps);
     }
-    // TODO: Respect hunk-stack dependencies
     Ok(new_assignments)
 }
 
+enum MultiDepsResolution {
+    SetNone,
+    SetMostLines,
+}
+
 fn reconcile_assignments(
-    worktree_assignments: Vec<HunkAssignment>,
+    current_assignments: Vec<HunkAssignment>,
     previous_assignments: &[HunkAssignment],
     applied_stacks: &[StackId],
+    multi_deps_resolution: MultiDepsResolution,
 ) -> Result<Vec<HunkAssignment>> {
     let mut new_assignments = vec![];
-    for mut worktree_entry in worktree_assignments {
+    for mut worktree_entry in current_assignments {
         let intersecting = previous_assignments
             .iter()
             .filter(|current_entry| current_entry.intersects(worktree_entry.clone()))
@@ -125,16 +174,51 @@ fn reconcile_assignments(
                 }
             }
             Ordering::Greater => {
-                // More than one intersection - pick the one with the most lines
-                worktree_entry.stack_id = intersecting
-                    .iter()
-                    .max_by_key(|x| x.hunk_header.as_ref().map(|h| h.new_lines))
-                    .and_then(|x| x.stack_id);
+                match multi_deps_resolution {
+                    MultiDepsResolution::SetNone => {
+                        worktree_entry.stack_id = None;
+                    }
+                    MultiDepsResolution::SetMostLines => {
+                        // More than one intersection - pick the one with the most lines
+                        worktree_entry.stack_id = intersecting
+                            .iter()
+                            .max_by_key(|x| x.hunk_header.as_ref().map(|h| h.new_lines))
+                            .and_then(|x| x.stack_id);
+                    }
+                }
             }
         }
         new_assignments.push(worktree_entry);
     }
     Ok(new_assignments)
+}
+
+fn hunk_dependency_assignments(ctx: &CommandContext) -> Result<Vec<HunkAssignment>> {
+    // NB(Performance): This will do some extra work - in particular, worktree_changes will be fetched again, but that is a fast operation.
+    // Furthermore, this call will compute unified_diff for each change. While this is a slower operation, it is invoked with zero context lines,
+    // and that seems appropriate for limiting locking to only real overlaps.
+    let deps = hunk_dependencies_for_workspace_changes_by_worktree_dir(
+        ctx,
+        &ctx.project().path,
+        &ctx.project().gb_dir(),
+    )?
+    .diffs;
+    let mut ass = vec![];
+    for (path, hunk, locks) in deps {
+        // If there are more than one locks, this means that the hunk depends on more than one stack and should have assignment None
+        let stack_id = if locks.len() == 1 {
+            Some(locks[0].stack_id)
+        } else {
+            None
+        };
+        let x = HunkAssignment {
+            hunk_header: Some(hunk.into()),
+            path_bytes: path.into(),
+            stack_id,
+        };
+        ass.push(x);
+    }
+    Ok(ass)
 }
 
 fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> {
@@ -174,12 +258,8 @@ fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> 
     }
 }
 
-/// Sets the assignment for a hunk. It must be already present in the current assignments, errors out if it isn't.
-/// If the stack is not in the list of applied stacks, it errors out.
-/// Returns the updated assignments list.
-/// TODO: Conside hunk locking as well
-pub fn set_assignment(
-    applied_stacks: Vec<StackId>,
+fn set_assignment(
+    applied_stacks: &[StackId],
     mut previous_assignments: Vec<HunkAssignment>,
     new_assignment: HunkAssignment,
 ) -> Result<Vec<HunkAssignment>> {
@@ -230,9 +310,13 @@ mod tests {
         let previous_assignments = vec![ass("foo.rs", 10, 15, Some(1))];
         let worktree_assignments = vec![ass("foo.rs", 10, 15, None), ass("foo.rs", 16, 20, None)];
         let applied_stacks = vec![id(1), id(2)];
-        let result =
-            reconcile_assignments(worktree_assignments, &previous_assignments, &applied_stacks)
-                .unwrap();
+        let result = reconcile_assignments(
+            worktree_assignments,
+            &previous_assignments,
+            &applied_stacks,
+            MultiDepsResolution::SetMostLines,
+        )
+        .unwrap();
         assert_eq!(
             result,
             vec![ass("foo.rs", 10, 15, Some(1)), ass("foo.rs", 16, 20, None)]
@@ -244,9 +328,13 @@ mod tests {
         let previous_assignments = vec![ass("foo.rs", 10, 15, Some(1))];
         let worktree_assignments = vec![ass("foo.rs", 10, 15, None)];
         let applied_stacks = vec![id(2)];
-        let result =
-            reconcile_assignments(worktree_assignments, &previous_assignments, &applied_stacks)
-                .unwrap();
+        let result = reconcile_assignments(
+            worktree_assignments,
+            &previous_assignments,
+            &applied_stacks,
+            MultiDepsResolution::SetMostLines,
+        )
+        .unwrap();
         assert_eq!(result, vec![ass("foo.rs", 10, 15, None)]);
     }
 
@@ -255,9 +343,13 @@ mod tests {
         let previous_assignments = vec![ass("foo.rs", 10, 15, Some(1))];
         let worktree_assignments = vec![ass("foo.rs", 12, 17, None)];
         let applied_stacks = vec![id(1)];
-        let result =
-            reconcile_assignments(worktree_assignments, &previous_assignments, &applied_stacks)
-                .unwrap();
+        let result = reconcile_assignments(
+            worktree_assignments,
+            &previous_assignments,
+            &applied_stacks,
+            MultiDepsResolution::SetMostLines,
+        )
+        .unwrap();
         assert_eq!(result, vec![ass("foo.rs", 12, 17, Some(1))]);
     }
 
@@ -269,10 +361,32 @@ mod tests {
         ];
         let applied_stacks = vec![id(1), id(2)];
         let worktree_assignments = vec![ass("foo.rs", 5, 18, None)];
-        let result =
-            reconcile_assignments(worktree_assignments, &previous_assignments, &applied_stacks)
-                .unwrap();
+        let result = reconcile_assignments(
+            worktree_assignments,
+            &previous_assignments,
+            &applied_stacks,
+            MultiDepsResolution::SetMostLines,
+        )
+        .unwrap();
         assert_eq!(result, vec![ass("foo.rs", 5, 18, Some(1))]);
+    }
+
+    #[test]
+    fn test_double_overlap_unassigns() {
+        let previous_assignments = vec![
+            ass("foo.rs", 5, 15, Some(1)),
+            ass("foo.rs", 17, 25, Some(2)),
+        ];
+        let applied_stacks = vec![id(1), id(2)];
+        let worktree_assignments = vec![ass("foo.rs", 5, 18, None)];
+        let result = reconcile_assignments(
+            worktree_assignments,
+            &previous_assignments,
+            &applied_stacks,
+            MultiDepsResolution::SetNone,
+        )
+        .unwrap();
+        assert_eq!(result, vec![ass("foo.rs", 5, 18, None)]);
     }
 
     #[test]
@@ -284,7 +398,7 @@ mod tests {
         // Assign foo.rs:10 to stack 2
         let new_assignment = ass("foo.rs", 10, 15, Some(2));
         let updated = set_assignment(
-            applied_stacks.clone(),
+            &applied_stacks,
             previous_assignments.clone(),
             new_assignment.clone(),
         )
@@ -311,7 +425,7 @@ mod tests {
         // Assign foo.rs:10 to stack 3 (not applied)
         let new_assignment = ass("foo.rs", 10, 15, Some(3));
         let result = set_assignment(
-            applied_stacks.clone(),
+            &applied_stacks,
             previous_assignments.clone(),
             new_assignment.clone(),
         );
@@ -328,7 +442,7 @@ mod tests {
         // Assign baz.rs:30 to stack 2 (not found)
         let new_assignment = ass("baz.rs", 30, 35, Some(2));
         let result = set_assignment(
-            applied_stacks.clone(),
+            &applied_stacks,
             previous_assignments.clone(),
             new_assignment.clone(),
         );
