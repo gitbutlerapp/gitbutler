@@ -33,29 +33,29 @@
 						/>
 						<FormattingButton
 							icon="text-strikethrough"
-							activated={formatter?.imports.isStrikethrough}
+							activated={formatter.imports.isStrikethrough}
 							tooltip="Strikethrough"
-							onclick={() => formatter?.format('text-strikethrough')}
+							onclick={() => formatter.format('text-strikethrough')}
 						/>
 					</div>
 					<div class="formatting-bar__group">
 						<FormattingButton
 							icon="text-code"
-							activated={formatter?.imports.isCode}
+							activated={formatter.imports.isCode}
 							tooltip="Code"
-							onclick={() => formatter?.format('text-code')}
+							onclick={() => formatter.format('text-code')}
 						/>
 						<FormattingButton
 							icon="text-quote"
-							activated={formatter?.imports.isQuote}
+							activated={formatter.imports.isQuote}
 							tooltip="Quote"
-							onclick={() => formatter?.format('text-quote')}
+							onclick={() => formatter.format('text-quote')}
 						/>
 						<FormattingButton
 							icon="text-link"
-							activated={formatter?.imports.isLink}
+							activated={formatter.imports.isLink}
 							tooltip="Link"
-							onclick={() => formatter?.format('text-link')}
+							onclick={() => formatter.format('text-link')}
 						/>
 					</div>
 				</div>
