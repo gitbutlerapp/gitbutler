@@ -6,6 +6,7 @@ use but_core::{
     ui::{TreeChange, TreeChanges, WorktreeChanges},
     Commit,
 };
+use but_hunk_assignment::HunkAssignment;
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::{ObjectIdExt, OidExt};
@@ -164,4 +165,31 @@ pub fn changes_in_worktree(
     Ok(but_core::diff::ui::worktree_changes_by_worktree_dir(
         project.path,
     )?)
+}
+
+#[tauri::command(async)]
+#[instrument(skip(projects, settings), err(Debug))]
+pub fn assignments(
+    projects: tauri::State<'_, gitbutler_project::Controller>,
+    settings: tauri::State<'_, but_settings::AppSettingsWithDiskSync>,
+    project_id: ProjectId,
+) -> anyhow::Result<Vec<HunkAssignment>, Error> {
+    let project = projects.get(project_id)?;
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    let assignments = but_hunk_assignment::assignments(&ctx)?;
+    Ok(assignments)
+}
+
+#[tauri::command(async)]
+#[instrument(skip(projects, settings), err(Debug))]
+pub fn assign(
+    projects: tauri::State<'_, gitbutler_project::Controller>,
+    settings: tauri::State<'_, but_settings::AppSettingsWithDiskSync>,
+    project_id: ProjectId,
+    assignment: HunkAssignment,
+) -> anyhow::Result<Vec<HunkAssignment>, Error> {
+    let project = projects.get(project_id)?;
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    let assignments = but_hunk_assignment::assign(&ctx, assignment)?;
+    Ok(assignments)
 }

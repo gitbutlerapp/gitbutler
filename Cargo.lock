@@ -3025,6 +3025,7 @@ dependencies = [
  "anyhow",
  "backtrace",
  "but-core",
+ "but-hunk-assignment",
  "but-hunk-dependency",
  "but-settings",
  "but-workspace",
