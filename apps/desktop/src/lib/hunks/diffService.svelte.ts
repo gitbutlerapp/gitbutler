@@ -1,6 +1,7 @@
 import { providesList, ReduxTag } from '$lib/state/tags';
 import type { TreeChange } from '$lib/hunks/change';
 import type { UnifiedDiff } from '$lib/hunks/diff';
+import type { HunkAssignment } from '$lib/hunks/hunk';
 import type { ClientState } from '$lib/state/clientState.svelte';
 
 export type ChangeDiff = {
@@ -18,6 +19,15 @@ export class DiffService {
 	getDiff(projectId: string, change: TreeChange) {
 		const { getDiff } = this.api.endpoints;
 		return getDiff.useQuery({ projectId, change });
+	}
+
+	hunkAssignments(projectId: string) {
+		const { hunkAssignments } = this.api.endpoints;
+		return hunkAssignments.useQuery({ projectId });
+	}
+
+	assignHunk() {
+		return this.api.endpoints.assignHunk.mutate;
 	}
 
 	async fetchDiff(projectId: string, change: TreeChange) {
@@ -57,6 +67,20 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					params: { projectId, change }
 				}),
 				providesTags: [providesList(ReduxTag.Diff)]
+			}),
+			hunkAssignments: build.query<HunkAssignment[], { projectId: string }>({
+				query: ({ projectId }) => ({
+					command: 'hunk_assignments',
+					params: { projectId }
+				}),
+				providesTags: [providesList(ReduxTag.HunkAssignments)]
+			}),
+			assignHunk: build.mutation<void, { projectId: string; assignment: HunkAssignment }>({
+				query: ({ projectId, assignment }) => ({
+					command: 'assign_hunk',
+					params: { projectId, assignment }
+				}),
+				invalidatesTags: [providesList(ReduxTag.HunkAssignments)]
 			})
 		})
 	});

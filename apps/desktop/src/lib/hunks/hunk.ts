@@ -84,6 +84,29 @@ export type HunkHeader = {
 	readonly newLines: number;
 };
 
+/**
+ * Represents a loose association between a hunk and a stack.
+ * A hunk being assigned to a stack means that upon unapplying the stack,
+ * the associated hunks will be dumped into a WIP commit and unapplid together with the stack.
+ *
+ * The hunk assignments are set by the user but also the backednd reconciles those assignments
+ * with the workspace hunks when they are updated on disk.
+ *
+ * Additionally, the hunk dependencies (locking) affects what assignment is possible.
+ */
+export type HunkAssignment = {
+	/** The hunk that is being assigned. Together with path_bytes, this identifies the hunk.
+	 * If the file is binary, or too large to load, this will be None and in this case the path name is the only identity.
+	 */
+	readonly hunkHeader: HunkHeader;
+	/** The file path of the hunk. Used for display. */
+	readonly path: string;
+	/** The file path of the hunk in bytes. Used to correctly communicate to the backed when creating new assignments */
+	readonly pathBytes: number[];
+	/** The stack to which the hunk is assigned. If None, the hunk is not assigned to any stack (i.e. it belongs in the unassigned area */
+	readonly stackId: string | null;
+};
+
 type DeltaLineGroup = {
 	type: DeltaLineType;
 	lines: LineId[];

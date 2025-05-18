@@ -122,6 +122,17 @@ pub struct HunkHeader {
     pub new_lines: u32,
 }
 
+impl From<&but_core::unified_diff::DiffHunk> for HunkHeader {
+    fn from(hunk: &but_core::unified_diff::DiffHunk) -> Self {
+        Self {
+            old_start: hunk.old_start,
+            old_lines: hunk.old_lines,
+            new_start: hunk.new_start,
+            new_lines: hunk.new_lines,
+        }
+    }
+}
+
 impl HunkHeader {
     /// Returns the hunk header with the old and new ranges swapped.
     ///
