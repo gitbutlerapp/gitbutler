@@ -19,10 +19,11 @@
 
 	type Props = {
 		markdown: boolean;
+		maxLength?: number;
 		onChange?: OnChangeCallback;
 	};
 
-	const { markdown, onChange }: Props = $props();
+	const { markdown, maxLength, onChange }: Props = $props();
 
 	const editor = getEditor();
 
@@ -30,7 +31,7 @@
 
 	function getCurrentText() {
 		// If WYSIWYG is enabled, we need to transform the content to markdown strings
-		if (untrack(() => markdown)) return getMarkdownString();
+		if (untrack(() => markdown)) return getMarkdownString(maxLength);
 		return getRoot().getTextContent();
 	}
 

@@ -1,4 +1,4 @@
-import { wrapLine } from '$lib/richText/plugins/linewrap';
+import { wrapLine } from '$lib/richText/linewrap';
 import { expect, test, describe } from 'vitest';
 
 describe('wrapline', () => {

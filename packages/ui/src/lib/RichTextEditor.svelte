@@ -4,7 +4,7 @@
 	import EmojiPlugin from '$lib/richText/plugins/Emoji.svelte';
 	import HardWrapPlugin from '$lib/richText/plugins/HardWrapPlugin.svelte';
 	import PlainTextIndentPlugin from '$lib/richText/plugins/PlainTextIndentPlugin.svelte';
-	import MarkdownTransitionPlugin from '$lib/richText/plugins/markdownTransition.svelte';
+	import MarkdownTransitionPlugin from '$lib/richText/plugins/markdownTransition';
 	import OnChangePlugin, { type OnChangeCallback } from '$lib/richText/plugins/onChange.svelte';
 	import { insertTextAtCaret, setEditorText } from '$lib/richText/selection';
 	import {
@@ -84,7 +84,7 @@
 	let emojiPlugin = $state<ReturnType<typeof EmojiPlugin>>();
 
 	// TODO: Change this plugin in favor of a toggle button.
-	const markdownTransitionPlugin = new MarkdownTransitionPlugin(markdown);
+	const markdownTransitionPlugin = new MarkdownTransitionPlugin(wrapCountValue);
 
 	const isDisabled = $derived(disabled ?? false);
 
@@ -98,6 +98,7 @@
 			}
 		}
 	});
+
 	$effect(() => {
 		if (composer) {
 			const editor = composer.getEditor();
@@ -107,6 +108,12 @@
 
 	$effect(() => {
 		markdownTransitionPlugin.setMarkdown(markdown);
+	});
+
+	$effect(() => {
+		if (wrapCountValue) {
+			markdownTransitionPlugin.setMaxLength(wrapCountValue);
+		}
 	});
 
 	$effect(() => {
@@ -211,7 +218,7 @@
 		</div>
 
 		<EmojiPlugin bind:this={emojiPlugin} />
-		<OnChangePlugin {markdown} {onChange} />
+		<OnChangePlugin {markdown} {onChange} maxLength={wrapCountValue} />
 
 		{#if markdown}
 			<AutoFocusPlugin />

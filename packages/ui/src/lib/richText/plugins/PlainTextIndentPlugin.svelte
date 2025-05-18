@@ -4,7 +4,7 @@ This component overrides enter key command, in order to customize the behavior
 of the Enter key.
 -->
 <script lang="ts">
-	import { parseIndent, parseBullet } from '$lib/richText/plugins/linewrap';
+	import { parseIndent, parseBullet } from '$lib/richText/linewrap';
 	import { mergeUnlisten } from '$lib/utils/mergeUnlisten';
 
 	import {
@@ -35,11 +35,16 @@ of the Enter key.
 
 		if (bullet?.number) {
 			// Parse and increment numeric bullet point.
-			const leadingSpaces = bullet.prefix.length - bullet.prefix.trimStart().length;
-			newIndent = bullet.prefix.substring(0, leadingSpaces) + (bullet.number + 1) + '. ';
+			const padding = bullet.prefix.length - bullet.prefix.trimStart().length;
+			newIndent = bullet.prefix.substring(0, padding) + (bullet.number + 1) + '. ';
 		}
 
-		insertNodes([new LineBreakNode(), new TextNode(newIndent)]);
+		if (bullet && text.length === bullet.prefix.length) {
+			node.remove();
+		} else {
+			insertNodes([new LineBreakNode(), new TextNode(newIndent)]);
+		}
+
 		return true; // Prevent default Enter handling.
 	}
 
