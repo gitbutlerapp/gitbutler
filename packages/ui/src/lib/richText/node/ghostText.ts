@@ -89,8 +89,7 @@ export class GhostText extends TextNode {
 		if (inner === null) {
 			return true;
 		}
-		super.updateDOM(prevNode, inner as HTMLElement, config);
-		return false;
+		return this.updateDOM(prevNode, dom, config);
 	}
 
 	canInsertTextBefore(): boolean {
