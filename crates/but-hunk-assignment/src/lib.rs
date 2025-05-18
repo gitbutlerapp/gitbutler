@@ -13,7 +13,7 @@ mod state;
 use std::cmp::Ordering;
 
 use anyhow::Result;
-use bstr::BString;
+use bstr::{BString, ByteSlice};
 use but_core::UnifiedDiff;
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 use but_workspace::{HunkHeader, StackId};
@@ -27,6 +27,8 @@ pub struct HunkAssignment {
     /// If the file is binary, or too large to load, this will be None and in this case the path name is the only identity.
     pub hunk_header: Option<HunkHeader>,
     /// The file path of the hunk.
+    pub path: String,
+    /// The file path of the hunk in bytes.
     pub path_bytes: BString,
     /// The stack to which the hunk is assigned. If None, the hunk is not assigned to any stack.
     pub stack_id: Option<StackId>,
@@ -214,7 +216,7 @@ fn hunk_dependency_assignments(ctx: &CommandContext) -> Result<Vec<HunkAssignmen
         &ctx.project().gb_dir(),
     )?
     .diffs;
-    let mut ass = vec![];
+    let mut assignments = vec![];
     for (path, hunk, locks) in deps {
         // If there are more than one locks, this means that the hunk depends on more than one stack and should have assignment None
         let stack_id = if locks.len() == 1 {
@@ -222,25 +224,29 @@ fn hunk_dependency_assignments(ctx: &CommandContext) -> Result<Vec<HunkAssignmen
         } else {
             None
         };
-        let x = HunkAssignment {
+        let assignment = HunkAssignment {
             hunk_header: Some(hunk.into()),
+            path: path.clone(),
             path_bytes: path.into(),
             stack_id,
         };
-        ass.push(x);
+        assignments.push(assignment);
     }
-    Ok(ass)
+    Ok(assignments)
 }
 
 fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> {
+    let path_str = path.to_str_lossy();
     match diff {
         but_core::UnifiedDiff::Binary => vec![HunkAssignment {
             hunk_header: None,
+            path: path_str.into(),
             path_bytes: path,
             stack_id: None,
         }],
         but_core::UnifiedDiff::TooLarge { .. } => vec![HunkAssignment {
             hunk_header: None,
+            path: path_str.into(),
             path_bytes: path,
             stack_id: None,
         }],
@@ -252,6 +258,7 @@ fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> 
             if is_result_of_binary_to_text_conversion {
                 vec![HunkAssignment {
                     hunk_header: None,
+                    path: path_str.into(),
                     path_bytes: path,
                     stack_id: None,
                 }]
@@ -260,6 +267,7 @@ fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> 
                     .iter()
                     .map(|hunk| HunkAssignment {
                         hunk_header: Some(hunk.into()),
+                        path: path_str.clone().into(),
                         path_bytes: path.clone(),
                         stack_id: None,
                     })
@@ -305,6 +313,7 @@ mod tests {
                 new_start: start,
                 new_lines: end,
             }),
+            path: path.to_string(),
             path_bytes: BString::from(path),
             stack_id: stack_id.map(id),
         }
