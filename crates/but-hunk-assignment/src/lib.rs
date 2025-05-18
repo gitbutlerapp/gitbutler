@@ -22,6 +22,7 @@ use gitbutler_stack::VirtualBranchesHandle;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct HunkAssignment {
     /// The hunk that is being assigned. Together with path_bytes, this identifies the hunk.
     /// If the file is binary, or too large to load, this will be None and in this case the path name is the only identity.

@@ -298,8 +298,8 @@ fn main() {
                     diff::commit_details,
                     diff::changes_in_branch,
                     diff::tree_change_diffs,
-                    diff::assignments,
-                    diff::assign,
+                    diff::hunk_assignments,
+                    diff::assign_hunk,
                     // `env_vars` is only supposed to be avaialble in debug mode, not in production.
                     #[cfg(debug_assertions)]
                     env::env_vars,

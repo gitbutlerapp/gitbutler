@@ -169,7 +169,7 @@ pub fn changes_in_worktree(
 
 #[tauri::command(async)]
 #[instrument(skip(projects, settings), err(Debug))]
-pub fn assignments(
+pub fn hunk_assignments(
     projects: tauri::State<'_, gitbutler_project::Controller>,
     settings: tauri::State<'_, but_settings::AppSettingsWithDiskSync>,
     project_id: ProjectId,
@@ -182,14 +182,14 @@ pub fn assignments(
 
 #[tauri::command(async)]
 #[instrument(skip(projects, settings), err(Debug))]
-pub fn assign(
+pub fn assign_hunk(
     projects: tauri::State<'_, gitbutler_project::Controller>,
     settings: tauri::State<'_, but_settings::AppSettingsWithDiskSync>,
     project_id: ProjectId,
     assignment: HunkAssignment,
-) -> anyhow::Result<Vec<HunkAssignment>, Error> {
+) -> anyhow::Result<(), Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    let assignments = but_hunk_assignment::assign(&ctx, assignment)?;
-    Ok(assignments)
+    but_hunk_assignment::assign(&ctx, assignment)?;
+    Ok(())
 }

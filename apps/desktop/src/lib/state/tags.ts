@@ -1,5 +1,6 @@
 export enum ReduxTag {
 	Diff = 'Diff',
+	HunkAssignments = 'HunkAssignments',
 	Stacks = 'Stacks',
 	StackDetails = 'StackDetails',
 	WorktreeChanges = 'WorktreeChanges',
