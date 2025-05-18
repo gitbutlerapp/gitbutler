@@ -22,7 +22,7 @@ struct Test {
 impl Drop for Test {
     fn drop(&mut self) {
         if std::env::var_os(VAR_NO_CLEANUP).is_some() {
-            let _ = self.data_dir.take().unwrap().into_path();
+            let _ = self.data_dir.take().unwrap().keep();
         }
     }
 }
