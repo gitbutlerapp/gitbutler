@@ -72,6 +72,7 @@ but-testsupport = { path = "crates/but-testsupport" }
 but-rebase = { path = "crates/but-rebase" }
 but-core = { path = "crates/but-core" }
 but-workspace = { path = "crates/but-workspace" }
+but-hunk-assignment = { path = "crates/but-hunk-assignment" }
 but-hunk-dependency = { path = "crates/but-hunk-dependency" }
 but-status = { path = "crates/but-status" }
 
