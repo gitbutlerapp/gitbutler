@@ -84,12 +84,16 @@ export class GhostText extends TextNode {
 		};
 	}
 
-	updateDOM(prevNode: TextNode, dom: HTMLElement, config: EditorConfig): boolean {
-		const inner = dom.firstChild;
-		if (inner === null) {
+	/**
+	 * Casting to any since the base class method signature uses `this` as the
+	 * type for `prevNode`, which TypeScript interprets literally as an instance
+	 * of the current class, not a subclass.
+	 */
+	updateDOM(prevNode: GhostText, dom: HTMLElement, config: EditorConfig): boolean {
+		if (dom.firstChild === null) {
 			return true;
 		}
-		return this.updateDOM(prevNode, dom, config);
+		return super.updateDOM(prevNode as any, dom, config);
 	}
 
 	canInsertTextBefore(): boolean {
