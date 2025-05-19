@@ -1,7 +1,11 @@
 //! A debug-CLI for making `but`-crates functionality available in real-world repositories.
 #![deny(rust_2018_idioms)]
+use std::str::FromStr;
+
 use anyhow::{Result, bail};
+use but_workspace::HunkHeader;
 use command::parse_diff_spec;
+use gix::bstr::BString;
 
 mod args;
 use crate::command::{RepositoryOpenMode, repo_and_maybe_project};
@@ -94,6 +98,30 @@ async fn main() -> Result<()> {
         args::Subcommands::Stacks => command::stacks::list(&args.current_dir, args.json, args.v3),
         args::Subcommands::StackDetails { id } => {
             command::stacks::details(*id, &args.current_dir, args.v3)
+        }
+        args::Subcommands::HunkAssignments => {
+            command::assignment::hunk_assignments(&args.current_dir, args.json)
+        }
+        args::Subcommands::AssignHunk {
+            path,
+            stack_id,
+            old_start,
+            old_lines,
+            new_start,
+            new_lines,
+        } => {
+            let assignment = but_hunk_assignment::HunkAssignment {
+                path: path.clone(),
+                path_bytes: BString::from_str(path)?,
+                stack_id: Some(*stack_id),
+                hunk_header: Some(HunkHeader {
+                    old_start: *old_start,
+                    old_lines: *old_lines,
+                    new_start: *new_start,
+                    new_lines: *new_lines,
+                }),
+            };
+            command::assignment::assign_hunk(&args.current_dir, assignment)
         }
         args::Subcommands::StackBranches {
             id,

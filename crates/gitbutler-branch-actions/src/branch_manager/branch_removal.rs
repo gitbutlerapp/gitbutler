@@ -73,6 +73,7 @@ impl BranchManager<'_> {
             // keep any locked changes in the cwdt.
 
             let gix_repo = self.ctx.gix_repo()?;
+            // dump current assignments into a WIP commit
             let merge_options = gix_repo
                 .tree_merge_options()?
                 .with_file_favor(Some(gix::merge::tree::FileFavor::Ours))

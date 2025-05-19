@@ -119,6 +119,34 @@ pub use commit::commit;
 
 pub mod diff;
 
+pub mod assignment {
+    use crate::command::{debug_print, project_from_path};
+    use but_hunk_assignment::HunkAssignment;
+    use but_settings::AppSettings;
+    use gitbutler_command_context::CommandContext;
+    use std::path::Path;
+
+    pub fn hunk_assignments(current_dir: &Path, use_json: bool) -> anyhow::Result<()> {
+        let project = project_from_path(current_dir)?;
+        let ctx = CommandContext::open(&project, AppSettings::default())?;
+        let assignments = but_hunk_assignment::assignments(&ctx)?;
+        if use_json {
+            let json = serde_json::to_string_pretty(&assignments)?;
+            println!("{json}");
+            Ok(())
+        } else {
+            debug_print(assignments)
+        }
+    }
+
+    pub fn assign_hunk(current_dir: &Path, assignment: HunkAssignment) -> anyhow::Result<()> {
+        let project = project_from_path(current_dir)?;
+        let ctx = CommandContext::open(&project, AppSettings::default())?;
+        but_hunk_assignment::assign(&ctx, assignment)?;
+        Ok(())
+    }
+}
+
 pub mod stacks {
     use std::path::Path;
 
