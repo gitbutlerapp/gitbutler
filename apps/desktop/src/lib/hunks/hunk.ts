@@ -131,6 +131,14 @@ export type HunkAssignmentRequest = {
 	stackId: string | null;
 };
 
+/** Indicates that the assignment request was rejected due to locking - the hunk depends on a commit in the stack it is currently in. */
+export type AssignmentRejection = {
+	/** The request that was rejected. */
+	request: HunkAssignmentRequest;
+	/** The locks that caused the rejection. */
+	locks: HunkLock[];
+};
+
 type DeltaLineGroup = {
 	type: DeltaLineType;
 	lines: LineId[];

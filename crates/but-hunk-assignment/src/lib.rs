@@ -41,8 +41,11 @@ pub struct HunkAssignment {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+/// Indicates that the assignment request was rejected due to locking - the hunk depends on a commit in the stack it is currently in.
 pub struct AssignmentRejection {
+    /// The request that was rejected.
     request: HunkAssignmentRequest,
+    /// The locks that caused the rejection.
     locks: Vec<HunkLock>,
 }
 
