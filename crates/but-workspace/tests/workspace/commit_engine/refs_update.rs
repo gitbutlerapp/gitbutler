@@ -369,8 +369,8 @@ fn first_partial_commit_to_tip_from_unborn_head() -> anyhow::Result<()> {
         },
         None,
         vec![DiffSpec {
-            previous_path_bytes: None,
-            path_bytes: "not-yet-tracked".into(),
+            previous_path: None,
+            path: "not-yet-tracked".into(),
             // Add the first two lines
             hunk_headers: vec![hunk_header("-0,0", "+1,2")],
         }],
@@ -425,8 +425,8 @@ fn first_partial_commit_to_tip_from_unborn_head() -> anyhow::Result<()> {
         },
         None,
         vec![DiffSpec {
-            previous_path_bytes: None,
-            path_bytes: "not-yet-tracked".into(),
+            previous_path: None,
+            path: "not-yet-tracked".into(),
             // Add the last line
             hunk_headers: vec![hunk_header("-0,0", "+4,1")],
         }],
@@ -493,20 +493,20 @@ fn first_partial_commit_to_tip_from_unborn_head() -> anyhow::Result<()> {
         None,
         vec![
             DiffSpec {
-                previous_path_bytes: None,
-                path_bytes: "not-yet-tracked".into(),
+                previous_path: None,
+                path: "not-yet-tracked".into(),
                 // Add the remainder
                 hunk_headers: vec![hunk_header("-3,0", "+3,1")],
             },
             DiffSpec {
-                previous_path_bytes: None,
-                path_bytes: "other-untracked-non-racy".into(),
+                previous_path: None,
+                path: "other-untracked-non-racy".into(),
                 // Add the first line
                 hunk_headers: vec![hunk_header("-0,0", "+1,1")],
             },
             DiffSpec {
-                previous_path_bytes: None,
-                path_bytes: "other-untracked-added-as-whole".into(),
+                previous_path: None,
+                path: "other-untracked-added-as-whole".into(),
                 // Add the only line
                 hunk_headers: vec![hunk_header("-0,0", "+1,1")],
             },
@@ -939,8 +939,8 @@ fn insert_commits_into_workspace_with_conflict() -> anyhow::Result<()> {
         (
             WorkspaceMergeConflict,
             DiffSpec {
-                previous_path_bytes: None,
-                path_bytes: "file",
+                previous_path: None,
+                path: "file",
                 hunk_headers: [],
             },
         ),
@@ -1062,8 +1062,8 @@ fn workspace_commit_with_merge_conflict() -> anyhow::Result<()> {
                 (
                     WorkspaceMergeConflict,
                     DiffSpec {
-                        previous_path_bytes: None,
-                        path_bytes: "file",
+                        previous_path: None,
+                        path: "file",
                         hunk_headers: [
                             HunkHeader("-1,10", "+1,0"),
                             HunkHeader("-12,0", "+2,10"),
@@ -1432,8 +1432,8 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
         },
         None,
         vec![DiffSpec {
-            previous_path_bytes: None,
-            path_bytes: "file".into(),
+            previous_path: None,
+            path: "file".into(),
             // Remove 5 lines from the end.
             hunk_headers: vec![hunk_header("-22,5", "+0,0")],
         }],

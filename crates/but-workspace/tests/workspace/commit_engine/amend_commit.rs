@@ -152,13 +152,13 @@ fn new_file_and_deletion_onto_merge_commit_with_hunks() -> anyhow::Result<()> {
         None,
         vec![
             DiffSpec {
-                previous_path_bytes: None,
-                path_bytes: "file".into(),
+                previous_path: None,
+                path: "file".into(),
                 hunk_headers: vec![],
             },
             DiffSpec {
-                previous_path_bytes: None,
-                path_bytes: "new-file".into(),
+                previous_path: None,
+                path: "new-file".into(),
                 hunk_headers: vec![HunkHeader {
                     old_start: 1,
                     old_lines: 0,

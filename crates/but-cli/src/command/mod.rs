@@ -339,8 +339,8 @@ pub(crate) fn discard_change(
         previous_path.as_ref(),
     )?;
     let spec = but_workspace::DiffSpec {
-        previous_path_bytes: previous_path,
-        path_bytes: path,
+        previous_path,
+        path,
         hunk_headers,
     };
     debug_print(but_workspace::discard_workspace_changes(

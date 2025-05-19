@@ -96,11 +96,13 @@ pub use branch_details::{branch_details, branch_details_v3};
 #[serde(rename_all = "camelCase")]
 pub struct DiffSpec {
     /// The previous location of the entry, the source of a rename if there was one.
-    pub previous_path_bytes: Option<BString>,
+    #[serde(rename = "previousPathBytes")]
+    pub previous_path: Option<BString>,
     /// The worktree-relative path to the worktree file with the content to commit.
     ///
     /// If `hunks` is empty, this means the current content of the file should be committed.
-    pub path_bytes: BString,
+    #[serde(rename = "pathBytes")]
+    pub path: BString,
     /// If one or more hunks are specified, match them with actual changes currently in the worktree.
     /// Failure to match them will lead to the change being dropped.
     /// If empty, the whole file is taken as is if this seems to be an addition.

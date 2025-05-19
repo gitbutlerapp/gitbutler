@@ -445,9 +445,8 @@ pub fn create_commit_and_update_refs(
                     outcome.rejected_specs.extend(conflicts.iter().filter_map(
                         |conflicting_rela_path| {
                             changes.iter().find_map(|spec| {
-                                (spec.path_bytes == *conflicting_rela_path
-                                    || spec.previous_path_bytes.as_ref()
-                                        == Some(conflicting_rela_path))
+                                (spec.path == *conflicting_rela_path
+                                    || spec.previous_path.as_ref() == Some(conflicting_rela_path))
                                 .then_some((
                                     RejectionReason::WorkspaceMergeConflict,
                                     spec.to_owned(),
