@@ -116,4 +116,7 @@ pre {
 /* NO TRANSITION ON MOUNT */
 .h-no-transition {
 	transition: none !important;
+	& * {
+		transition: none !important;
+	}
 }

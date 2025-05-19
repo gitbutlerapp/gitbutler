@@ -3,6 +3,7 @@
 	import { inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
+	import { preventTransitionOnMount } from '@gitbutler/ui/utils/preventTransitionOnMount';
 	import { slide } from 'svelte/transition';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
@@ -63,6 +64,7 @@
 {/snippet}
 
 <div
+	use:preventTransitionOnMount
 	class="tip-footer"
 	role="presentation"
 	tabindex="-1"
@@ -100,7 +102,6 @@
 	.tip-footer__tips,
 	.tip-footer__links {
 		display: flex;
-
 		border-top: 1px solid var(--clr-border-3);
 	}
 
