@@ -22,7 +22,7 @@
 		focused?: boolean;
 		clickable?: boolean;
 		showCheckbox?: boolean;
-		listMode: 'list' | 'tree';
+		listMode?: 'list' | 'tree';
 		depth?: number;
 		checked?: boolean;
 		indeterminate?: boolean;
@@ -65,7 +65,7 @@
 		locked,
 		lockText,
 		active,
-		listMode,
+		listMode = 'list',
 		depth,
 		executable,
 		oncheck,
