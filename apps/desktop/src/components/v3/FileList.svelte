@@ -155,6 +155,7 @@
 	 *
 	 * - Anonymous
 	 */
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	async function branchChanges() {
 		const selectedFiles = idSelection.values(selectionId);
 		if (selectedFiles.length === 0) return;
@@ -212,13 +213,6 @@
 	}
 
 	function handleKeyDown(e: KeyboardEvent) {
-		if (e.key === 'b' && (e.ctrlKey || e.metaKey)) {
-			e.preventDefault();
-			e.stopPropagation();
-			branchChanges();
-			return;
-		}
-
 		updateSelection({
 			allowMultiple: true,
 			metaKey: e.metaKey,
