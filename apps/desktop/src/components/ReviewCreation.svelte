@@ -1,5 +1,7 @@
 <script lang="ts" module>
 	export interface CreatePrParams {
+		stackId: string;
+		branchName: string;
 		title: string;
 		body: string;
 		draft: boolean;
@@ -193,6 +195,14 @@
 		if (!branch) return;
 		if (!$user) return;
 
+		// Declare early to have them inside the function closure, in case
+		// the component unmounts or updates.
+		const closureStackId = stackId;
+		const closureBranchName = branchName;
+		const title = prTitle.value;
+		const body = shouldAddPrBody() ? prBody.value : '';
+		const draft = $createDraft;
+
 		isCreatingReview = true;
 		await tick();
 
@@ -217,11 +227,14 @@
 			posthog.capture('Butler Review Created');
 			butRequestDetailsService.setDetails(reviewId, prTitle.value, prBody.value);
 		}
+
 		if ((canPublishPR && $createPullRequest) || !canPublishBR) {
 			const pr = await createPr({
-				title: prTitle.value,
-				body: shouldAddPrBody() ? prBody.value : '',
-				draft: $createDraft,
+				stackId: closureStackId,
+				branchName: closureBranchName,
+				title,
+				body,
+				draft,
 				upstreamBranchName
 			});
 			prNumber = pr?.number;
@@ -310,8 +323,8 @@
 			// Store the new pull request number with the branch data.
 			await stackService.updateBranchPrNumber({
 				projectId,
-				stackId,
-				branchName,
+				stackId: params.stackId,
+				branchName: params.branchName,
 				prNumber: pr.number
 			});
 
