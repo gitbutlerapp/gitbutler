@@ -5,6 +5,7 @@
 	import BranchDividerLine from '$components/v3/BranchDividerLine.svelte';
 	import BranchHeader from '$components/v3/BranchHeader.svelte';
 	import BranchHeaderContextMenu from '$components/v3/BranchHeaderContextMenu.svelte';
+	import PrNumberUpdater from '$components/v3/PrNumberUpdater.svelte';
 	import { MoveCommitDzHandler, StartCommitDzHandler } from '$lib/commits/dropHandler';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -119,6 +120,9 @@
 			projectId,
 			branchName
 		})}
+		{#if !args.prNumber}
+			<PrNumberUpdater {projectId} stackId={args.stackId} {branchName} />
+		{/if}
 		<Dropzone handlers={[moveHandler, startCommitHandler]}>
 			{#snippet overlay({ hovered, activated, handler })}
 				{@const label = handler instanceof MoveCommitDzHandler ? 'Move here' : 'Start commit'}

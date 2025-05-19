@@ -304,6 +304,7 @@
 					projectId,
 					stackService,
 					stackId,
+					branchName,
 					dzCommit,
 					(newId) => uiState.stack(stackId).selection.set({ branchName, commitId: newId }),
 					uiState
@@ -318,6 +319,7 @@
 					stackService,
 					projectId,
 					stackId,
+					branchName,
 					commit: dzCommit,
 					// TODO: Use correct value!
 					okWithForce: true,
