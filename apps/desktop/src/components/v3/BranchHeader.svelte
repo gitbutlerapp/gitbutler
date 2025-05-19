@@ -77,7 +77,7 @@
 
 	<div class="branch-header__content">
 		<div class="branch-header__title text-14 text-bold">
-			<div class="flex gap-6">
+			<div class="branch-header__title-content flex gap-6">
 				<BranchHeaderIcon color={lineColor} {iconName} />
 				<BranchLabel
 					name={branchName}
@@ -89,7 +89,9 @@
 			</div>
 
 			{#if menu}
-				{@render menu({ rightClickTrigger })}
+				<div class="branch-header__menu">
+					{@render menu({ rightClickTrigger })}
+				</div>
 			{/if}
 		</div>
 
@@ -176,6 +178,19 @@
 		justify-content: space-between;
 		min-width: 0;
 		flex-grow: 1;
+		overflow: auto;
+	}
+
+	.branch-header__title-content {
+		align-items: center;
+		flex-grow: 1;
+		min-width: 0;
+	}
+
+	.branch-header__menu {
+		display: flex;
+		align-items: center;
+		justify-content: center;
 	}
 
 	.branch-header__content {
