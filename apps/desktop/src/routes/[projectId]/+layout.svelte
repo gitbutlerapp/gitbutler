@@ -9,6 +9,7 @@
 	import NotOnGitButlerBranch from '$components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$components/ProjectSettingsMenuAction.svelte';
+	import TryV3Modal from '$components/TryV3Modal.svelte';
 	import IrcPopups from '$components/v3/IrcPopups.svelte';
 	import { Code, isTauriCommandError } from '$lib/backend/ipc';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
@@ -303,6 +304,8 @@
 		setActiveProjectOrRedirect();
 	});
 </script>
+
+<TryV3Modal />
 
 <!-- forces components to be recreated when projectId changes -->
 {#key projectId}
