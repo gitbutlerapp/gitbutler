@@ -1,7 +1,5 @@
-export function preventTransitionOnMount(node: HTMLElement) {
-	// cunstruct class styles
-
-	// run timer to prevent transition on mount
+export function preventTransitionOnMount(node: HTMLElement | SVGElement) {
+	// This function prevents transitions from running when the element is mounted.
 	function runTimer() {
 		node.classList.add('h-no-transition');
 		setTimeout(() => {
