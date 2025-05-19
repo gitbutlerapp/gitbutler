@@ -79,7 +79,7 @@
 		setAIConfigurationValid();
 	});
 
-	const canUseAi = $derived(aiGenEnabled && aiConfigurationValid);
+	const canUseAi = $derived($aiGenEnabled && aiConfigurationValid);
 
 	/**
 	 * Generate a commit message based on the selected changes.
