@@ -73,7 +73,6 @@
 	const project = projectsService.getProjectStore(projectId);
 
 	const [publishBranch, branchPublishing] = stackService.publishBranch;
-	const [updateBranchPrNumber, PRNumberUpdate] = stackService.updateBranchPrNumber;
 	const [pushStack, stackPush] = stackService.pushStack;
 
 	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName));
@@ -139,7 +138,6 @@
 	let isCreatingReview = $state<boolean>(false);
 	const isExecuting = $derived(
 		branchPublishing.current.isLoading ||
-			PRNumberUpdate.current.isLoading ||
 			stackPush.current.isLoading ||
 			aiIsLoading ||
 			isCreatingReview
@@ -310,7 +308,12 @@
 			});
 
 			// Store the new pull request number with the branch data.
-			await updateBranchPrNumber({ projectId, stackId, branchName, prNumber: pr.number });
+			await stackService.updateBranchPrNumber({
+				projectId,
+				stackId,
+				branchName,
+				prNumber: pr.number
+			});
 
 			// If we now have two or more pull requests we add a stack table to the description.
 			prNumbers[currentIndex] = pr.number;
