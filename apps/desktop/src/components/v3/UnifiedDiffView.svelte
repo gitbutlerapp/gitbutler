@@ -82,11 +82,11 @@
 		previousPathBytes: previousPathBytesFromTreeChange(change)
 	});
 
-	const changesTimestamp = $derived(worktreeService.getChangesTimeStamp(projectId));
+	const changesKey = $derived(worktreeService.getChangesKey(projectId));
 	const fileDependencies = $derived(
 		// For now, only show the file dependencies when commiting, and there are multiple stacks applied
-		changesTimestamp.current !== undefined && isCommiting && hasMultipleStacks
-			? dependencyService.fileDependencies(projectId, changesTimestamp.current, change.path)
+		changesKey.current !== undefined && isCommiting && hasMultipleStacks
+			? dependencyService.fileDependencies(projectId, changesKey.current, change.path)
 			: undefined
 	);
 

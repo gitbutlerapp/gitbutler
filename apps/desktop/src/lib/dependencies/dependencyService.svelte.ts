@@ -6,6 +6,7 @@ import {
 import { createSelectByIds } from '$lib/state/customSelectors';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { BackendApi, ClientState } from '$lib/state/clientState.svelte';
+import type { WorktreeChangesKey } from '$lib/worktree/worktreeService.svelte';
 
 export default class DependencyService {
 	private api: ReturnType<typeof injectEndpoints>;
@@ -14,7 +15,7 @@ export default class DependencyService {
 		this.api = injectEndpoints(backendApi);
 	}
 
-	fileDependencies(projectId: string, worktreeChangesKey: number, filePath: string) {
+	fileDependencies(projectId: string, worktreeChangesKey: WorktreeChangesKey, filePath: string) {
 		return this.api.endpoints.dependencies.useQuery(
 			{ projectId, worktreeChangesKey },
 			{
@@ -24,7 +25,11 @@ export default class DependencyService {
 		);
 	}
 
-	filesDependencies(projectId: string, worktreeChangesKey: number, filePaths: string[]) {
+	filesDependencies(
+		projectId: string,
+		worktreeChangesKey: WorktreeChangesKey,
+		filePaths: string[]
+	) {
 		return this.api.endpoints.dependencies.useQuery(
 			{ projectId, worktreeChangesKey },
 			{
@@ -40,7 +45,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 		endpoints: (build) => ({
 			dependencies: build.query<
 				{ fileDependencies: EntityState<FileDependencies, string>; filePaths: string[] },
-				{ projectId: string; worktreeChangesKey: number }
+				{ projectId: string; worktreeChangesKey: WorktreeChangesKey }
 			>({
 				query: ({ projectId }) => ({
 					params: { projectId },
