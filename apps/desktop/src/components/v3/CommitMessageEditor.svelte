@@ -125,10 +125,10 @@
 	let titleInput = $state<HTMLInputElement>();
 
 	export function getMessage() {
-		if (descriptionText.current) {
-			return titleText.current + '\n\n' + descriptionText.current;
+		if (effectiveDescriptionValue) {
+			return effectiveTitleValue + '\n\n' + effectiveDescriptionValue;
 		}
-		return titleText.current;
+		return effectiveTitleValue;
 	}
 </script>
 

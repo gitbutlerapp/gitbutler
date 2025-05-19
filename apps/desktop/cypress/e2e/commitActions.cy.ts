@@ -87,6 +87,115 @@ describe('Commit Actions', () => {
 		expect(mockBackend.getDiff).to.have.callCount(0);
 	});
 
+	it('Should be able to edit only the description', () => {
+		const originalCommitMessage = 'Initial commit';
+		const newCommitDescription = 'New commit message body';
+
+		cy.spy(mockBackend, 'updateCommitMessage').as('updateCommitMessageSpy');
+		cy.spy(mockBackend, 'getDiff').as('getDiffSpy');
+
+		// Click on the first commit
+		cy.getByTestId('commit-row').first().should('contain', originalCommitMessage).click();
+
+		// Should open the commit drawer
+		cy.get('.commit-view').first().should('contain', originalCommitMessage);
+
+		// Click on the edit message button
+		cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
+
+		// Should open the commit rename drawer
+		cy.getByTestId('edit-commit-message-drawer').should('be.visible');
+
+		// Should have the original commit message, and be focused
+		cy.getByTestId('commit-drawer-title-input')
+			.should('have.value', originalCommitMessage)
+			.should('be.visible')
+			.should('be.enabled');
+
+		// Type in a description
+		cy.getByTestId('commit-drawer-description-input')
+			.should('be.visible')
+			.click()
+			.clear()
+			.type(newCommitDescription); // Type the new commit message body
+
+		// Click on the save button
+		cy.getByTestId('commit-drawer-action-button')
+			.should('be.visible')
+			.should('be.enabled')
+			.should('contain', 'Save')
+			.click();
+
+		cy.getByTestId('edit-commit-message-drawer').should('not.exist');
+
+		cy.getByTestId('commit-drawer-title').should('contain', originalCommitMessage);
+		cy.getByTestId('commit-drawer-description').should('contain', newCommitDescription);
+
+		// Should call the update commit message function
+		cy.get('@updateCommitMessageSpy').should('be.calledWith', {
+			projectId: PROJECT_ID,
+			stackId: mockBackend.stackId,
+			commitOid: mockBackend.commitOid,
+			message: `${originalCommitMessage}\n\n${newCommitDescription}`
+		});
+
+		// Should never get the diff information, because there are no partial changes being committed.
+		expect(mockBackend.getDiff).to.have.callCount(0);
+	});
+
+	it('Should be able to edit only the title', () => {
+		const originalCommitMessage = 'Initial commit';
+		const newCommitTitle = 'New commit message title';
+
+		cy.spy(mockBackend, 'updateCommitMessage').as('updateCommitMessageSpy');
+		cy.spy(mockBackend, 'getDiff').as('getDiffSpy');
+
+		// Click on the first commit
+		cy.getByTestId('commit-row').first().should('contain', originalCommitMessage).click();
+
+		// Should open the commit drawer
+		cy.get('.commit-view').first().should('contain', originalCommitMessage);
+
+		// Click on the edit message button
+		cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
+
+		// Should open the commit rename drawer
+		cy.getByTestId('edit-commit-message-drawer').should('be.visible');
+
+		// Should have the original commit message, and be focused
+		cy.getByTestId('commit-drawer-title-input')
+			.should('have.value', originalCommitMessage)
+			.should('be.visible')
+			.should('be.enabled')
+			.clear()
+			.type(newCommitTitle); // Type the new commit message title
+
+		// Type in a description
+		cy.getByTestId('commit-drawer-description-input').should('be.visible').click().clear(); // Clear the description
+
+		// Click on the save button
+		cy.getByTestId('commit-drawer-action-button')
+			.should('be.visible')
+			.should('be.enabled')
+			.should('contain', 'Save')
+			.click();
+
+		cy.getByTestId('edit-commit-message-drawer').should('not.exist');
+
+		cy.getByTestId('commit-drawer-title').should('contain', newCommitTitle);
+		cy.getByTestId('commit-drawer-description').should('not.exist');
+
+		// Should call the update commit message function
+		cy.get('@updateCommitMessageSpy').should('be.calledWith', {
+			projectId: PROJECT_ID,
+			stackId: mockBackend.stackId,
+			commitOid: mockBackend.commitOid,
+			message: newCommitTitle
+		});
+
+		expect(mockBackend.getDiff).to.have.callCount(0);
+	});
+
 	it('Should be able to rename a commit from the context menu', () => {
 		const originalCommitMessage = 'Initial commit';
 
