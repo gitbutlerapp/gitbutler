@@ -3,6 +3,7 @@ import type { TreeChange } from '$lib/hunks/change';
 import type { UnifiedDiff } from '$lib/hunks/diff';
 import type { AssignmentRejection, HunkAssignment, HunkAssignmentRequest } from '$lib/hunks/hunk';
 import type { ClientState } from '$lib/state/clientState.svelte';
+import type { WorktreeChangesKey } from '$lib/worktree/worktreeService.svelte';
 
 export type ChangeDiff = {
 	path: string;
@@ -21,9 +22,9 @@ export class DiffService {
 		return getDiff.useQuery({ projectId, change });
 	}
 
-	hunkAssignments(projectId: string) {
+	hunkAssignments(projectId: string, worktreeChangesKey: WorktreeChangesKey) {
 		const { hunkAssignments } = this.api.endpoints;
-		return hunkAssignments.useQuery({ projectId });
+		return hunkAssignments.useQuery({ projectId, worktreeChangesKey });
 	}
 
 	assignHunk() {
@@ -68,8 +69,11 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				providesTags: [providesList(ReduxTag.Diff)]
 			}),
-			hunkAssignments: build.query<HunkAssignment[], { projectId: string }>({
-				query: ({ projectId }) => ({
+			hunkAssignments: build.query<
+				HunkAssignment[],
+				{ projectId: string; worktreeChangesKey: WorktreeChangesKey }
+			>({
+				query: ({ projectId, worktreeChangesKey: _worktreeChangesKey }) => ({
 					command: 'hunk_assignments',
 					params: { projectId }
 				}),
