@@ -669,6 +669,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "but-core",
+ "but-hunk-assignment",
  "but-hunk-dependency",
  "but-settings",
  "but-workspace",

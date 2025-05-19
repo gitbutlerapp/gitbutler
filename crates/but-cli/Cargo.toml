@@ -23,6 +23,7 @@ but-settings.workspace = true
 but-core.workspace = true
 but-workspace.workspace = true
 but-hunk-dependency.workspace = true
+but-hunk-assignment.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-id.workspace = true

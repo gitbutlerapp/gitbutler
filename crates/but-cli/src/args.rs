@@ -112,6 +112,16 @@ pub enum Subcommands {
         simple: bool,
     },
     Watch,
+    /// Returns the current hunk assignments
+    HunkAssignments,
+    AssignHunk {
+        path: String,
+        stack_id: StackId,
+        old_start: u32,
+        old_lines: u32,
+        new_start: u32,
+        new_lines: u32,
+    },
     /// Returns the list of stacks that are currently part of the GitButler workspace.
     Stacks,
     /// Returns the list of stacks that are currently part of the GitButler workspace.
