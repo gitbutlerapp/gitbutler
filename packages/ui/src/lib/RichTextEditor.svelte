@@ -2,7 +2,6 @@
 	import { standardConfig } from '$lib/richText/config/config';
 	import { standardTheme } from '$lib/richText/config/theme';
 	import EmojiPlugin from '$lib/richText/plugins/Emoji.svelte';
-	import HardWrapPlugin from '$lib/richText/plugins/HardWrapPlugin.svelte';
 	import PlainTextIndentPlugin from '$lib/richText/plugins/PlainTextIndentPlugin.svelte';
 	import MarkdownTransitionPlugin from '$lib/richText/plugins/markdownTransition';
 	import OnChangePlugin, { type OnChangeCallback } from '$lib/richText/plugins/onChange.svelte';
@@ -235,7 +234,6 @@
 		{:else}
 			<PlainTextPlugin />
 			<PlainTextIndentPlugin />
-			<HardWrapPlugin maxLength={wrapCountValue} />
 		{/if}
 		<SharedHistoryPlugin />
 
