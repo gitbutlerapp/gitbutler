@@ -11,19 +11,19 @@
 	"author": "",
 	"license": "FSL",
 	"devDependencies": {
-		"@types/node": "^22.3.0",
+		"@types/node": "^22.15.19",
 		"@types/node-cron": "^3.0.11",
 		"node-cron": "^3.0.3",
-		"prisma": "^6.5.0",
-		"tsx": "^4.19.3",
+		"prisma": "^6.8.2",
+		"tsx": "^4.19.4",
 		"typescript": "catalog:"
 	},
 	"dependencies": {
-		"@anthropic-ai/sdk": "^0.27.3",
-		"@octokit/rest": "^20.1.1",
-		"@prisma/client": "^6.5.0",
-		"discord.js": "^14.18.0",
-		"dotenv": "^16.4.7",
-		"openai": "^4.87.3"
+		"@anthropic-ai/sdk": "^0.51.0",
+		"@octokit/rest": "^20.1.2",
+		"@prisma/client": "^6.8.2",
+		"discord.js": "^14.19.3",
+		"dotenv": "^16.5.0",
+		"openai": "^4.100.0"
 	}
 }
