@@ -1,5 +1,6 @@
 import { invoke, listen } from '$lib/backend/ipc';
 import { RemoteFile } from '$lib/files/file';
+import { ExternallyResolvedPromise } from '$lib/utils/resolveExternally';
 import { plainToInstance } from 'class-transformer';
 import { derived, writable } from 'svelte/store';
 import type { ConflictEntryPresence } from '$lib/conflictEntryPresence';
@@ -46,12 +47,15 @@ export class ModeService {
 	readonly head = derived(this.headAndMode, ({ head }) => head);
 	readonly mode = derived(this.headAndMode, ({ operatingMode }) => operatingMode);
 
+	readonly loading = new ExternallyResolvedPromise<undefined>();
+
 	constructor(
 		private projectId: string,
 		private readonly stackService: StackService
 	) {}
 
 	private async refresh() {
+		this.loading.resolve();
 		const head = await invoke<string>('git_head', { projectId: this.projectId });
 		const operatingMode = await invoke<Mode>('operating_mode', { projectId: this.projectId });
 
