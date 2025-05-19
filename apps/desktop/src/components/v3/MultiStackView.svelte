@@ -142,7 +142,7 @@
 
 				<MultiStackOfflaneDropzone {projectId} />
 
-				{#if lanesSrollableEl}
+				{#if lanesSrollableEl && $stackLayoutMode !== 'single'}
 					<Scrollbar viewport={lanesSrollableEl} horz={$stackLayoutMode !== 'vertical'} />
 				{/if}
 			{:else if isCommitting}
