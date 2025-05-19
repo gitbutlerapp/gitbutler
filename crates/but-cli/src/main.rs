@@ -110,8 +110,7 @@ async fn main() -> Result<()> {
             new_start,
             new_lines,
         } => {
-            let assignment = but_hunk_assignment::HunkAssignment {
-                path: path.clone(),
+            let assignment = but_hunk_assignment::HunkAssignmentRequest {
                 path_bytes: BString::from_str(path)?,
                 stack_id: Some(*stack_id),
                 hunk_header: Some(HunkHeader {
@@ -120,7 +119,6 @@ async fn main() -> Result<()> {
                     new_start: *new_start,
                     new_lines: *new_lines,
                 }),
-                hunk_locks: vec![],
             };
             command::assignment::assign_hunk(&args.current_dir, assignment)
         }

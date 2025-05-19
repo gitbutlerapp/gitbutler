@@ -107,9 +107,28 @@ export type HunkAssignment = {
 	readonly stackId: string | null;
 	/**
 	 * The dependencies(locks) that the hunk assignment (and the underlying hunk) has.
-	 * This determines where the hunk can be assigned. This field is ignored when HunkAssignment is passed by the UI to create a new assignment.
+	 * This determines where the hunk can be assigned.
 	 */
 	readonly hunkLocks: HunkLock[];
+};
+
+/**
+ * A request to update a hunk assignment. If a file has multiple hunks, the UI client needs to send a list of assignment requests with the appropriate hunk headers.
+ */
+export type HunkAssignmentRequest = {
+	/**
+	 * The hunk that is being assigned. Together with path_bytes, this identifies the hunk.
+	 * If the file is binary, or too large to load, this will be None and in this case the path name is the only identity.
+	 * If the file has hunk headers, then header info MUST be provided.
+	 */
+	hunkHeader: HunkHeader;
+	/** The file path of the hunk in bytes. */
+	pathBytes: number[];
+	/**
+	 * The stack to which the hunk is assigned. If set to None, the hunk is set as "unassigned".
+	 * If a stack id is set, it must be one of the applied stacks.
+	 */
+	stackId: string | null;
 };
 
 type DeltaLineGroup = {

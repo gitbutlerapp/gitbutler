@@ -121,7 +121,7 @@ pub mod diff;
 
 pub mod assignment {
     use crate::command::{debug_print, project_from_path};
-    use but_hunk_assignment::HunkAssignment;
+    use but_hunk_assignment::HunkAssignmentRequest;
     use but_settings::AppSettings;
     use gitbutler_command_context::CommandContext;
     use std::path::Path;
@@ -139,10 +139,13 @@ pub mod assignment {
         }
     }
 
-    pub fn assign_hunk(current_dir: &Path, assignment: HunkAssignment) -> anyhow::Result<()> {
+    pub fn assign_hunk(
+        current_dir: &Path,
+        assignment: HunkAssignmentRequest,
+    ) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
         let ctx = CommandContext::open(&project, AppSettings::default())?;
-        but_hunk_assignment::assign(&ctx, assignment)?;
+        but_hunk_assignment::assign(&ctx, vec![assignment])?;
         Ok(())
     }
 }

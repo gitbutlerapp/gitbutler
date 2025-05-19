@@ -39,6 +39,28 @@ pub struct HunkAssignment {
     pub hunk_locks: Vec<HunkLock>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+/// A request to update a hunk assignment.
+/// If a a file has multiple hunks, the UI client should send a list of assignment requests with the appropriate hunk headers.
+pub struct HunkAssignmentRequest {
+    /// The hunk that is being assigned. Together with path_bytes, this identifies the hunk.
+    /// If the file is binary, or too large to load, this will be None and in this case the path name is the only identity.
+    /// If the file has hunk headers, then header info MUST be provided.
+    pub hunk_header: Option<HunkHeader>,
+    /// The file path of the hunk in bytes.
+    pub path_bytes: BString,
+    /// The stack to which the hunk is assigned. If set to None, the hunk is set as "unassigned".
+    /// If a stack id is set, it must be one of the applied stacks.
+    pub stack_id: Option<StackId>,
+}
+
+impl HunkAssignmentRequest {
+    pub fn matches_assignment(&self, assignment: &HunkAssignment) -> bool {
+        self.path_bytes == assignment.path_bytes && self.hunk_header == assignment.hunk_header
+    }
+}
+
 impl PartialEq for HunkAssignment {
     fn eq(&self, other: &Self) -> bool {
         self.hunk_header == other.hunk_header && self.path_bytes == other.path_bytes
@@ -88,7 +110,10 @@ pub fn assignments(ctx: &CommandContext) -> Result<Vec<HunkAssignment>> {
 /// Sets the assignment for a hunk. It must be already present in the current assignments, errors out if it isn't.
 /// If the stack is not in the list of applied stacks, it errors out.
 /// Returns the updated assignments list.
-pub fn assign(ctx: &CommandContext, new_assignment: HunkAssignment) -> Result<Vec<HunkAssignment>> {
+pub fn assign(
+    ctx: &CommandContext,
+    requests: Vec<HunkAssignmentRequest>,
+) -> Result<Vec<HunkAssignment>> {
     let state = state::AssignmentsHandle::new(&ctx.project().gb_dir());
     let previous_assignments = state.assignments()?;
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
@@ -97,7 +122,14 @@ pub fn assign(ctx: &CommandContext, new_assignment: HunkAssignment) -> Result<Ve
         .iter()
         .map(|s| s.id)
         .collect::<Vec<_>>();
-    let new_assignments = set_assignment(&applied_stacks, previous_assignments, new_assignment)?;
+    let mut new_assignments = vec![];
+    for new_assignment in requests {
+        new_assignments = set_assignment(
+            &applied_stacks,
+            previous_assignments.clone(),
+            new_assignment,
+        )?;
+    }
     let deps_assignments = hunk_dependency_assignments(ctx)?;
     let assignments_considering_deps = reconcile_assignments(
         new_assignments,
@@ -304,21 +336,20 @@ fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> 
 fn set_assignment(
     applied_stacks: &[StackId],
     mut previous_assignments: Vec<HunkAssignment>,
-    new_assignment: HunkAssignment,
+    new_assignment: HunkAssignmentRequest,
 ) -> Result<Vec<HunkAssignment>> {
     if let Some(stack_id) = new_assignment.stack_id {
         if !applied_stacks.contains(&stack_id) {
             return Err(anyhow::anyhow!("No such stack in the workspace"));
         }
     }
-    if !previous_assignments.contains(&new_assignment) {
-        return Err(anyhow::anyhow!("Hunk not found in current assignments"));
-    }
     if let Some(found) = previous_assignments
         .iter_mut()
-        .find(|x| **x == new_assignment)
+        .find(|previous| new_assignment.matches_assignment(previous))
     {
         found.stack_id = new_assignment.stack_id;
+    } else {
+        return Err(anyhow::anyhow!("Hunk not found in current assignments"));
     }
     Ok(previous_assignments)
 }
@@ -341,6 +372,18 @@ mod tests {
             path_bytes: BString::from(path),
             stack_id: stack_id.map(id),
             hunk_locks: vec![],
+        }
+    }
+    fn ass_req(path: &str, start: u32, end: u32, stack_id: Option<usize>) -> HunkAssignmentRequest {
+        HunkAssignmentRequest {
+            hunk_header: Some(HunkHeader {
+                old_start: 0,
+                old_lines: 0,
+                new_start: start,
+                new_lines: end,
+            }),
+            path_bytes: BString::from(path),
+            stack_id: stack_id.map(id),
         }
     }
     fn id(num: usize) -> StackId {
@@ -441,11 +484,12 @@ mod tests {
             vec![ass("foo.rs", 10, 15, None), ass("bar.rs", 20, 25, Some(1))];
 
         // Assign foo.rs:10 to stack 2
+        let new_assignment_req = ass_req("foo.rs", 10, 15, Some(2));
         let new_assignment = ass("foo.rs", 10, 15, Some(2));
         let updated = set_assignment(
             &applied_stacks,
             previous_assignments.clone(),
-            new_assignment.clone(),
+            new_assignment_req,
         )
         .unwrap();
 
@@ -468,7 +512,7 @@ mod tests {
             vec![ass("foo.rs", 10, 15, None), ass("bar.rs", 20, 25, Some(1))];
 
         // Assign foo.rs:10 to stack 3 (not applied)
-        let new_assignment = ass("foo.rs", 10, 15, Some(3));
+        let new_assignment = ass_req("foo.rs", 10, 15, Some(3));
         let result = set_assignment(
             &applied_stacks,
             previous_assignments.clone(),
@@ -485,7 +529,7 @@ mod tests {
             vec![ass("foo.rs", 10, 15, None), ass("bar.rs", 20, 25, Some(1))];
 
         // Assign baz.rs:30 to stack 2 (not found)
-        let new_assignment = ass("baz.rs", 30, 35, Some(2));
+        let new_assignment = ass_req("baz.rs", 30, 35, Some(2));
         let result = set_assignment(
             &applied_stacks,
             previous_assignments.clone(),
