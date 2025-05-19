@@ -186,10 +186,10 @@ pub fn assign_hunk(
     projects: tauri::State<'_, gitbutler_project::Controller>,
     settings: tauri::State<'_, but_settings::AppSettingsWithDiskSync>,
     project_id: ProjectId,
-    assignment: HunkAssignmentRequest,
+    assignments: Vec<HunkAssignmentRequest>,
 ) -> anyhow::Result<(), Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    but_hunk_assignment::assign(&ctx, assignment)?;
+    but_hunk_assignment::assign(&ctx, assignments)?;
     Ok(())
 }

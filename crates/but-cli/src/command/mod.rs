@@ -145,7 +145,7 @@ pub mod assignment {
     ) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
         let ctx = CommandContext::open(&project, AppSettings::default())?;
-        but_hunk_assignment::assign(&ctx, assignment)?;
+        but_hunk_assignment::assign(&ctx, vec![assignment])?;
         Ok(())
     }
 }

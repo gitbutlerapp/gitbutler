@@ -75,13 +75,15 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				providesTags: [providesList(ReduxTag.HunkAssignments)]
 			}),
-			assignHunk: build.mutation<void, { projectId: string; assignment: HunkAssignmentRequest }>({
-				query: ({ projectId, assignment }) => ({
-					command: 'assign_hunk',
-					params: { projectId, assignment }
-				}),
-				invalidatesTags: [providesList(ReduxTag.HunkAssignments)]
-			})
+			assignHunk: build.mutation<void, { projectId: string; assignments: HunkAssignmentRequest[] }>(
+				{
+					query: ({ projectId, assignments }) => ({
+						command: 'assign_hunk',
+						params: { projectId, assignments }
+					}),
+					invalidatesTags: [providesList(ReduxTag.HunkAssignments)]
+				}
+			)
 		})
 	});
 }

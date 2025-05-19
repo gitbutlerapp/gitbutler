@@ -112,7 +112,7 @@ pub fn assignments(ctx: &CommandContext) -> Result<Vec<HunkAssignment>> {
 /// Returns the updated assignments list.
 pub fn assign(
     ctx: &CommandContext,
-    new_assignment: HunkAssignmentRequest,
+    requests: Vec<HunkAssignmentRequest>,
 ) -> Result<Vec<HunkAssignment>> {
     let state = state::AssignmentsHandle::new(&ctx.project().gb_dir());
     let previous_assignments = state.assignments()?;
@@ -122,7 +122,14 @@ pub fn assign(
         .iter()
         .map(|s| s.id)
         .collect::<Vec<_>>();
-    let new_assignments = set_assignment(&applied_stacks, previous_assignments, new_assignment)?;
+    let mut new_assignments = vec![];
+    for new_assignment in requests {
+        new_assignments = set_assignment(
+            &applied_stacks,
+            previous_assignments.clone(),
+            new_assignment,
+        )?;
+    }
     let deps_assignments = hunk_dependency_assignments(ctx)?;
     let assignments_considering_deps = reconcile_assignments(
         new_assignments,
