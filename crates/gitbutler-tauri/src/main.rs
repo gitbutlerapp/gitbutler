@@ -211,6 +211,7 @@ fn main() {
                     repo::commands::get_commit_file,
                     repo::commands::get_workspace_file,
                     repo::commands::pre_commit_hook,
+                    repo::commands::pre_commit_hook_diffspecs,
                     repo::commands::post_commit_hook,
                     repo::commands::message_hook,
                     virtual_branches::commands::list_virtual_branches,

@@ -21,3 +21,10 @@ pub fn pre_commit(
     )?;
     hooks::pre_commit(ctx, &selected_files)
 }
+
+pub fn pre_commit_with_tree(
+    ctx: &CommandContext,
+    tree_id: git2::Oid,
+) -> Result<HookResult, anyhow::Error> {
+    hooks::pre_commit_with_tree(ctx, tree_id)
+}
