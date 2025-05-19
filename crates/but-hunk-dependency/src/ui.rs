@@ -3,7 +3,7 @@ use but_core::unified_diff::DiffHunk;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::OidExt;
 use gitbutler_stack::StackId;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 /// Compute hunk-dependencies for the UI knowing the `worktree_dir` for changes
@@ -77,7 +77,7 @@ impl HunkDependencies {
 /// A commit that owns this lock, along with the stack that owns it.
 /// A hunk is locked when it depends on changes in commits that are in your workspace. A hunk can
 /// be locked to more than one branch if it overlaps with more than one committed hunk.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HunkLock {
     /// The ID of the stack that contains [`commit_id`](Self::commit_id).
