@@ -226,8 +226,6 @@ fn replace_dir_with_file_discard_just_the_file_in_worktree() -> anyhow::Result<(
     │   ├── file-to-remain:100644
     │   ├── link:120755
     │   └── submodule:40755
-    │       ├── .git:100644
-    │       └── file:100644
     └── embedded-repository:40755
         ├── .git:40755
         └── file:100644
@@ -237,7 +235,9 @@ fn replace_dir_with_file_discard_just_the_file_in_worktree() -> anyhow::Result<(
 
 #[test]
 #[cfg(unix)]
-fn conflicted_files_are_undoable_like_normal_changes() -> anyhow::Result<()> {
+// TODO: probably there should be a way to undo them, but it's not super clear what that means.
+//       Is it picking theirs, or ours? Better gracefully reject it until there is UX for it.
+fn conflicts_are_invisible() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-conflict");
     insta::assert_snapshot!(git_status(&repo)?, @"UU file");
     insta::assert_snapshot!(visualize_index(&**repo.index()?), @r"
@@ -247,8 +247,13 @@ fn conflicted_files_are_undoable_like_normal_changes() -> anyhow::Result<()> {
 ");
 
     let dropped = discard_workspace_changes(&repo, Some(file_to_spec("file")), CONTEXT_LINES)?;
-    assert_eq!(dropped, vec![], "The conflicted file should not be dropped");
+    assert_eq!(
+        dropped,
+        vec![file_to_spec("file")],
+        "The file spec didn't match a worktree change, was dropped"
+    );
 
+    // Nothing was changed
     insta::assert_snapshot!(git_status(&repo)?, @"UU file");
     insta::assert_snapshot!(visualize_index(&**repo.index()?), @r"
 100644:e69de29 file
@@ -299,8 +304,6 @@ D  dir/submodule
     │   ├── file-to-remain:100644
     │   ├── link:120755
     │   └── submodule:40755
-    │       ├── .git:100644
-    │       └── file:100644
     └── embedded-repository:40755
         ├── .git:40755
         └── file:100644
