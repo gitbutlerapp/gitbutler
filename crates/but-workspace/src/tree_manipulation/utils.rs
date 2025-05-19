@@ -1,69 +1,14 @@
 //! Utility types related to discarding changes in the worktree.
 
 use anyhow::Context;
-use bstr::{BString, ByteSlice as _, ByteVec};
-use but_core::{ChangeState, TreeStatus};
+use bstr::ByteSlice as _;
+use but_core::ChangeState;
 use but_rebase::{RebaseOutput, RebaseStep};
-use but_status::create_wd_tree;
-use std::{
-    collections::{HashMap, HashSet},
-    path::Path,
-};
+use std::collections::HashMap;
 
-use crate::{DiffSpec, HunkHeader, commit_engine::apply_hunks, relapath::RelaPath as _};
+use crate::{DiffSpec, HunkHeader, commit_engine::apply_hunks};
 
 use super::hunk::{HunkSubstraction, subtract_hunks};
-
-pub(crate) fn checkout_repo_worktree(
-    parent_worktree_dir: &Path,
-    mut repo: gix::Repository,
-) -> anyhow::Result<()> {
-    // No need to cache anything, it's just single-use for the most part.
-    repo.object_cache_size(0);
-    let mut index = repo.index_from_tree(&repo.head_tree_id_or_empty()?)?;
-    if index.entries().is_empty() {
-        // The worktree directory is created later, so we don't have to deal with it here.
-        return Ok(());
-    }
-    for entry in index.entries_mut().iter_mut().filter(|e| {
-        e.mode
-            .contains(gix::index::entry::Mode::DIR | gix::index::entry::Mode::COMMIT)
-    }) {
-        entry.flags.insert(gix::index::entry::Flags::SKIP_WORKTREE);
-    }
-
-    let mut opts =
-        repo.checkout_options(gix::worktree::stack::state::attributes::Source::IdMapping)?;
-    opts.destination_is_initially_empty = true;
-    opts.keep_going = true;
-
-    let checkout_destination = repo.workdir().context("non-bare repository")?.to_owned();
-    if !checkout_destination.exists() {
-        std::fs::create_dir(&checkout_destination)?;
-    }
-    let sm_repo_dir = gix::path::relativize_with_prefix(
-        repo.path().strip_prefix(parent_worktree_dir)?,
-        checkout_destination.strip_prefix(parent_worktree_dir)?,
-    )
-    .into_owned();
-    let out = gix::worktree::state::checkout(
-        &mut index,
-        checkout_destination.clone(),
-        repo,
-        &gix::progress::Discard,
-        &gix::progress::Discard,
-        &gix::interrupt::IS_INTERRUPTED,
-        opts,
-    )?;
-
-    let mut buf = BString::from("gitdir: ");
-    buf.extend_from_slice(&gix::path::os_string_into_bstring(sm_repo_dir.into())?);
-    buf.push_byte(b'\n');
-    std::fs::write(checkout_destination.join(".git"), &buf)?;
-
-    tracing::debug!(directory = ?checkout_destination, outcome = ?out, "submodule checkout result");
-    Ok(())
-}
 
 /// Takes a rebase output and returns the commit mapping with any extra
 /// mapping overrides provided.
@@ -100,250 +45,9 @@ pub(crate) fn rebase_mapping_with_overrides(
     mapping
 }
 
-pub(crate) fn index_entries_to_update(
-    status_changes: Vec<gix::status::Item>,
-) -> anyhow::Result<HashSet<BString>> {
-    let mut head_to_index = vec![];
-    let mut index_to_worktree = HashSet::new();
-
-    for change in status_changes {
-        match change {
-            gix::status::Item::IndexWorktree(change) => {
-                index_to_worktree.insert(change.rela_path().to_owned());
-            }
-            gix::status::Item::TreeIndex(change) => {
-                head_to_index.push(change.rela_path().to_owned());
-            }
-        }
-    }
-
-    let mut paths_to_update = HashSet::new();
-
-    for path in head_to_index {
-        if !index_to_worktree.contains(&path) {
-            paths_to_update.insert(path);
-        }
-    }
-
-    Ok(paths_to_update)
-}
-
-pub(crate) fn update_wd_to_tree(
-    repository: &gix::Repository,
-    source_tree: gix::ObjectId,
-) -> anyhow::Result<()> {
-    let source_tree = repository.find_tree(source_tree)?;
-    let wd_tree = create_wd_tree(repository, 0)?;
-    let wt_changes = but_core::diff::tree_changes(repository, Some(wd_tree), source_tree.id)?;
-
-    let mut path_check = gix::status::plumbing::SymlinkCheck::new(
-        repository.workdir().context("non-bare repository")?.into(),
-    );
-
-    for change in wt_changes.0 {
-        match &change.status {
-            TreeStatus::Deletion { .. } => {
-                // Work tree has the file but the source tree doesn't.
-                std::fs::remove_file(path_check.verified_path(&change.path)?)?;
-            }
-            TreeStatus::Addition { .. } => {
-                let entry = source_tree
-                    .lookup_entry(change.path.clone().split_str("/"))?
-                    .context("path must exist")?;
-                // Work tree doesn't have the file but the source tree does.
-                write_entry(
-                    change.path.as_bstr(),
-                    &entry,
-                    &mut path_check,
-                    WriteKind::Addition,
-                )?;
-            }
-            TreeStatus::Modification { .. } => {
-                let entry = source_tree
-                    .lookup_entry(change.path.clone().split_str("/"))?
-                    .context("path must exist")?;
-                // Work tree doesn't have the file but the source tree does.
-                write_entry(
-                    change.path.as_bstr(),
-                    &entry,
-                    &mut path_check,
-                    WriteKind::Modification,
-                )?;
-            }
-            TreeStatus::Rename { previous_path, .. } => {
-                let entry = source_tree
-                    .lookup_entry(change.path.clone().split_str("/"))?
-                    .context("path must exist")?;
-                // Work tree has the file under `previous_path`, but the source tree wants it under `path`.
-                let previous_path = path_check.verified_path(previous_path)?;
-                if std::path::Path::new(&previous_path).is_dir() {
-                    // We don't want to remove the directory as it might
-                    // contain other files.
-                } else {
-                    std::fs::remove_file(previous_path)?;
-                }
-                write_entry(
-                    change.path.as_bstr(),
-                    &entry,
-                    &mut path_check,
-                    WriteKind::Addition,
-                )?;
-            }
-        }
-    }
-
-    Ok(())
-}
-
-#[derive(Debug, Clone, Copy)]
-enum WriteKind {
-    Addition,
-    Modification,
-}
-
-fn write_entry(
-    relative_path: &bstr::BStr,
-    entry: &gix::object::tree::Entry<'_>,
-    path_check: &mut gix::status::plumbing::SymlinkCheck,
-    write_kind: WriteKind,
-) -> anyhow::Result<()> {
-    match entry.mode().kind() {
-        gix::objs::tree::EntryKind::Tree => {
-            unreachable!(
-                "The tree changes produced from the diff will always be a file-like entry"
-            );
-        }
-        gix::objs::tree::EntryKind::Blob | gix::objs::tree::EntryKind::BlobExecutable => {
-            let mut blob = entry.object()?.into_blob();
-            let path = path_check.verified_path_allow_nonexisting(relative_path)?;
-            prepare_path(&path)?;
-            std::fs::write(&path, blob.take_data())?;
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt as _;
-                if entry.mode().kind() == gix::objs::tree::EntryKind::BlobExecutable {
-                    let mut permissions = std::fs::metadata(&path)?.permissions();
-                    // Set the executable bit
-                    permissions.set_mode(permissions.mode() | 0o111);
-                    std::fs::set_permissions(&path, permissions)?;
-                } else {
-                    let mut permissions = std::fs::metadata(&path)?.permissions();
-                    // Unset the executable bit
-                    permissions.set_mode(permissions.mode() & !0o111);
-                    std::fs::set_permissions(&path, permissions)?;
-                }
-            }
-        }
-        gix::objs::tree::EntryKind::Link => {
-            let blob = entry.object()?.into_blob();
-            let link_target = gix::path::from_bstr(blob.data.as_bstr());
-            let path = path_check.verified_path_allow_nonexisting(relative_path)?;
-            prepare_path(&path)?;
-            gix::fs::symlink::create(&link_target, &path)?;
-        }
-        gix::objs::tree::EntryKind::Commit => match write_kind {
-            WriteKind::Modification => {
-                let path = path_check.verified_path_allow_nonexisting(relative_path)?;
-                let out = std::process::Command::from(
-                    gix::command::prepare(format!(
-                        "git reset --hard {id} && git clean -fxd",
-                        id = entry.id()
-                    ))
-                    .with_shell(),
-                )
-                .current_dir(&path)
-                .output()?;
-                if !out.status.success() {
-                    anyhow::bail!(
-                        "Could not reset submodule at '{sm_dir}' to commit {id}: {err}",
-                        sm_dir = path.display(),
-                        id = entry.id(),
-                        err = out.stderr.as_bstr()
-                    );
-                }
-            }
-            WriteKind::Addition => {
-                let sm_repo = entry
-                    .repo
-                    .submodules()?
-                    .into_iter()
-                    .flatten()
-                    .find_map(|sm| {
-                        let is_active = sm.is_active().ok()?;
-                        is_active.then(|| -> anyhow::Result<_> {
-                            Ok(
-                                if sm
-                                    .path()
-                                    .ok()
-                                    .is_some_and(|sm_path| sm_path == relative_path)
-                                {
-                                    sm.open()?
-                                } else {
-                                    None
-                                },
-                            )
-                        })
-                    })
-                    .transpose()?
-                    .flatten();
-                match sm_repo {
-                    None => {
-                        // A directory is what git creates with `git restore` even if the thing to restore is a submodule.
-                        // We are trying to be better than that if we find a submodule, hoping that this is what users expect.
-                        // We do that as baseline as there is no need to fail here.
-                    }
-                    Some(repo) => {
-                        // We will only restore the submodule if there is a local clone already available, to avoid any network
-                        // activity that would likely happen during an actual clone.
-                        // Thus, all we have to do is to check out the submodule.
-                        // TODO(gix): find a way to deal with nested submodules - they should also be checked out which
-                        //            isn't done by `gitoxide`, but probably should be an option there.
-
-                        let wt_root = path_check.inner.root().to_owned();
-                        checkout_repo_worktree(&wt_root, repo)?;
-                    }
-                }
-                let path = path_check.verified_path_allow_nonexisting(relative_path)?;
-                std::fs::create_dir(path).or_else(|err| {
-                    if err.kind() == std::io::ErrorKind::AlreadyExists {
-                        Ok(())
-                    } else {
-                        Err(err)
-                    }
-                })?;
-            }
-        },
-    };
-
-    Ok(())
-}
-
-fn prepare_path(path: &std::path::Path) -> anyhow::Result<()> {
-    let parent = path.parent().context("paths will always have a parent")?;
-    if std::fs::exists(parent)? {
-        if !std::path::Path::new(&parent).is_dir() {
-            std::fs::remove_file(parent)?;
-            std::fs::create_dir_all(parent)?;
-        }
-    } else {
-        std::fs::create_dir_all(parent)?;
-    }
-    if std::fs::exists(path)? {
-        if std::path::Path::new(&path).is_dir() {
-            std::fs::remove_dir_all(path)?;
-        } else {
-            std::fs::remove_file(path)?;
-        }
-    }
-    Ok(())
-}
-
 pub enum ChangesSource {
-    Worktree,
     #[allow(dead_code)]
-    Commit {
-        id: gix::ObjectId,
-    },
+    Commit { id: gix::ObjectId },
     #[allow(dead_code)]
     Tree {
         after_id: gix::ObjectId,
@@ -354,9 +58,6 @@ pub enum ChangesSource {
 impl ChangesSource {
     fn before<'a>(&self, repository: &'a gix::Repository) -> anyhow::Result<gix::Tree<'a>> {
         match self {
-            ChangesSource::Worktree => {
-                Ok(repository.find_tree(repository.head_tree_id_or_empty()?)?)
-            }
             ChangesSource::Commit { id } => {
                 let commit = repository.find_commit(*id)?;
                 let parent_id = commit.parent_ids().next().context("no parent")?;
@@ -369,10 +70,6 @@ impl ChangesSource {
 
     fn after<'a>(&self, repository: &'a gix::Repository) -> anyhow::Result<gix::Tree<'a>> {
         match self {
-            ChangesSource::Worktree => {
-                let wd_tree = create_wd_tree(repository, 0)?;
-                Ok(repository.find_tree(wd_tree)?)
-            }
             ChangesSource::Commit { id } => Ok(repository.find_commit(*id)?.tree()?),
             ChangesSource::Tree { after_id, .. } => Ok(repository.find_tree(*after_id)?),
         }
