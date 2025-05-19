@@ -28,6 +28,7 @@ export enum TestId {
 	CommitDrawerTitleInput = 'commit-drawer-title-input',
 	CommitDrawerDescriptionInput = 'commit-drawer-description-input',
 	CommitDrawerActionButton = 'commit-drawer-action-button',
+	CommitDrawerCancelButton = 'commit-drawer-cancel-button',
 	CommitDrawerTitle = 'commit-drawer-title',
 	CommitDrawerDescription = 'commit-drawer-description',
 	UncommittedChanges_FileList = 'uncommitted-changes-file-list',
