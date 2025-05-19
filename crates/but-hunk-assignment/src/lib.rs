@@ -219,8 +219,13 @@ fn hunk_dependency_assignments(ctx: &CommandContext) -> Result<Vec<HunkAssignmen
     .diffs;
     let mut assignments = vec![];
     for (path, hunk, locks) in deps {
-        // If there are more than one locks, this means that the hunk depends on more than one stack and should have assignment None
-        let stack_id = if locks.len() == 1 {
+        // If there are locks towards more than one stack, this means double locking and the assignment None - the user can resolve this by partial committing.
+        let locked_to_stack_ids_count = locks
+            .iter()
+            .map(|lock| lock.stack_id)
+            .collect::<std::collections::HashSet<_>>()
+            .len();
+        let stack_id = if locked_to_stack_ids_count == 1 {
             Some(locks[0].stack_id)
         } else {
             None
