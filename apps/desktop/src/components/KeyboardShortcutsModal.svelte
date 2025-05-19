@@ -46,7 +46,6 @@
 	<div class="shortcuts">
 		{@render keysGroup({ title: 'Global', keys: 'global' })}
 		{@render keysGroup({ title: 'Project', keys: 'project' })}
-		{@render keysGroup({ title: 'Uncommitted changes', keys: 'uncommitted_changes' })}
 		{@render keysGroup({ title: 'View', keys: 'view' })}
 	</div></Modal
 >

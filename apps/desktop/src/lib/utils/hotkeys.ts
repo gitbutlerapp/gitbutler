@@ -55,13 +55,6 @@ export const shortcuts = {
 			description: 'Opens the project history view. Revert changes, view commits, and more.',
 			keys: '$mod+Shift+H'
 		}
-	},
-	uncommitted_changes: {
-		branch: {
-			title: 'Branch changes',
-			description: 'Create a new branch and commit out of the selected files.',
-			keys: '$mod+B'
-		}
 	}
 };
 
