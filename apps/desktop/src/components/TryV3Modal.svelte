@@ -40,12 +40,11 @@
 		<div class="modal-content">
 			<div class="modal-description">
 				<h2 class="text-16 text-bold">GitButler has a new, updated UI!</h2>
-				<p class="text-13 text-body">If you’re not in the middle of something, give it a try!</p>
 				<p class="text-13 text-body">
-					In an upcoming release, v3 will become the default, and we’d love to know what you think.
-					Leave your thoughts in the app, on <Link href="https://discord.gg/MmFkmaJ42D"
-						>Discord</Link
-					>, or create a <Link
+					In an upcoming release, this will be the default, so we'd love to know what you think!
+				</p>
+				<p class="text-13 text-body">
+					Ping us on <Link href="https://discord.gg/MmFkmaJ42D">Discord</Link>, or create a <Link
 						href="https://github.com/gitbutlerapp/gitbutler/issues/new?template=BLANK_ISSUE"
 						>GitHub issue</Link
 					>.
@@ -53,8 +52,16 @@
 			</div>
 
 			<div class="modal-content__notes text-12 text-body">
-				<p>Toggle this setting under 'Experimental' in ⚙️ global settings.</p>
-				<p class="text-clr2">A restart may be needed for the change to take effect.</p>
+				<p>This can also be toggled this under 'Experimental' in ⚙️ global settings.</p>
+
+				<p class="text-clr2">Known issues:</p>
+				<ul class="text-clr2">
+					<li>- A restart may be needed for the change to fully take effect</li>
+					<li>
+						- It is currently not possible to assign uncommitted changes to a lane
+						<Link href="https://github.com/gitbutlerapp/gitbutler/issues/8637">GitHub Issue</Link>
+					</li>
+				</ul>
 			</div>
 		</div>
 	</div>
