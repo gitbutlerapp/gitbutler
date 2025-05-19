@@ -3,25 +3,31 @@
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import FileList from '$components/v3/FileList.svelte';
 	import FileListMode from '$components/v3/FileListMode.svelte';
+	import WorktreeChangesFileList from '$components/v3/WorktreeChangesFileList.svelte';
+	import WorktreeChangesSelectAll from '$components/v3/WorktreeChangesSelectAll.svelte';
 	import WorktreeTipsFooter from '$components/v3/WorktreeTipsFooter.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { createCommitStore } from '$lib/commits/contexts';
 	import { UncommitDzHandler } from '$lib/commits/dropHandler';
-	import { Focusable } from '$lib/focus/focusManager.svelte';
+	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
-	import { previousPathBytesFromTreeChange } from '$lib/hunks/change';
-	import { ChangeSelectionService, type SelectedFile } from '$lib/selection/changeSelection.svelte';
+	import { DiffService } from '$lib/hunks/diffService.svelte';
+	import { AssignmentDropHandler } from '$lib/hunks/dropHandler';
+	import {
+		ChangeSelectionService,
+		selectForStartingCommit
+	} from '$lib/selection/changeSelection.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { combineResults } from '$lib/state/helpers';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
+	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { untrack } from 'svelte';
 
 	type Props = {
@@ -32,13 +38,15 @@
 
 	let { projectId, stackId, active }: Props = $props();
 
-	const [changeSelection, worktreeService, uiState, stackService, idSelection] = inject(
-		ChangeSelectionService,
-		WorktreeService,
-		UiState,
-		StackService,
-		IdSelection
-	);
+	const [changeSelection, worktreeService, uiState, stackService, idSelection, diffService] =
+		inject(
+			ChangeSelectionService,
+			WorktreeService,
+			UiState,
+			StackService,
+			IdSelection,
+			DiffService
+		);
 
 	const uncommitDzHandler = $derived(new UncommitDzHandler(projectId, stackService, uiState));
 
@@ -52,16 +60,10 @@
 	);
 	const defaultBranchName = $derived(defaultBranchResult?.current.data);
 
-	const selectedChanges = changeSelection.list();
-	const noChangesSelected = $derived(selectedChanges.current.length === 0);
-	const changesResult = $derived(worktreeService.getChanges(projectId));
+	const changesResult = $derived(worktreeService.changes(projectId));
 	const affectedPaths = $derived(changesResult.current.data?.map((c) => c.path));
 
-	const filesFullySelected = $derived(
-		changeSelection.every(affectedPaths ?? [], (f) => f.type === 'full')
-	);
-
-	const filesPartiallySelected = $derived(!noChangesSelected && !filesFullySelected);
+	const assignmentResult = $derived(worktreeService.assignments(projectId));
 
 	// TODO: Make this go away.
 	createCommitStore(undefined);
@@ -71,6 +73,8 @@
 		if (affectedPaths) {
 			untrack(() => {
 				changeSelection.retain(affectedPaths);
+				// TODO: Consider whether this is the best place for this to
+				// live.
 				idSelection.retain(affectedPaths);
 			});
 		}
@@ -78,57 +82,59 @@
 
 	let listMode: 'list' | 'tree' = $state('list');
 
-	function selectEverything() {
-		const affectedPaths =
-			changesResult.current.data?.map(
-				(c) => [c.path, c.pathBytes, previousPathBytesFromTreeChange(c)] as const
-			) ?? [];
-		const files: SelectedFile[] = affectedPaths.map(([path, pathBytes, previousPathBytes]) => ({
-			path,
-			pathBytes,
-			previousPathBytes,
-			type: 'full'
-		}));
-		changeSelection.addMany(files);
-	}
-
-	function updateCommitSelection() {
-		if (!noChangesSelected) return;
-		// If no changes are selected, select everything.
-		selectEverything();
-	}
-
 	function startCommit() {
-		updateCommitSelection();
+		if (changesResult.current?.data && assignmentResult?.current?.data) {
+			selectForStartingCommit(
+				stackId,
+				changesResult.current.data,
+				assignmentResult.current.data,
+				changeSelection.list().current,
+				changeSelection
+			);
+		}
+
 		projectState.drawerPage.set('new-commit');
 		if (defaultBranchName) {
 			stackState?.selection.set({ branchName: defaultBranchName });
 		}
 	}
 
-	function toggleGlobalCheckbox() {
-		if (noChangesSelected) {
-			selectEverything();
-			return;
-		}
-		changeSelection.clear();
-	}
-
 	let scrollTopIsVisible = $state(true);
 	let scrollBottomIsVisible = $state(true);
+	const assignmentDZHandler = $derived(
+		assignmentResult?.current?.data
+			? new AssignmentDropHandler(
+					projectId,
+					diffService,
+					assignmentResult.current.data,
+					'unassigned'
+				)
+			: undefined
+	);
 </script>
 
-<Dropzone handlers={[uncommitDzHandler]} maxHeight>
-	{#snippet overlay({ hovered, activated })}
-		<CardOverlay {hovered} {activated} label="Uncommit changes" />
+<Dropzone handlers={[uncommitDzHandler, assignmentDZHandler].filter(isDefined)} maxHeight>
+	{#snippet overlay({ hovered, activated, handler })}
+		<CardOverlay
+			{hovered}
+			{activated}
+			label={handler instanceof UncommitDzHandler ? 'Uncommit changes' : 'Unassign changes'}
+		/>
 	{/snippet}
 
 	<div
 		class="uncommitted-changes-wrap"
-		use:focusable={{ id: Focusable.UncommittedChanges, parentId: Focusable.ViewportLeft }}
+		use:focusable={{
+			id: DefinedFocusable.UncommittedChanges,
+			parentId: DefinedFocusable.ViewportLeft
+		}}
 	>
-		<ReduxResult {stackId} {projectId} result={changesResult.current}>
-			{#snippet children(changes, { stackId, projectId })}
+		<ReduxResult
+			{stackId}
+			{projectId}
+			result={combineResults(changesResult.current, assignmentResult.current)}
+		>
+			{#snippet children([changes, assignments], { projectId })}
 				{#if changes.length > 0}
 					<div
 						data-testid={TestId.UncommittedChanges_Header}
@@ -137,12 +143,7 @@
 					>
 						<div class="worktree-header__general">
 							{#if isCommitting}
-								<Checkbox
-									checked={filesPartiallySelected || filesFullySelected}
-									indeterminate={filesPartiallySelected}
-									small
-									onchange={toggleGlobalCheckbox}
-								/>
+								<WorktreeChangesSelectAll {changes} {assignments} stackId="unassigned" />
 							{/if}
 							<div class="worktree-header__title truncate">
 								<h3 class="text-14 text-semibold truncate">Uncommitted</h3>
@@ -164,16 +165,7 @@
 						}}
 					>
 						<div data-testid={TestId.UncommittedChanges_FileList} class="uncommitted-changes">
-							<FileList
-								selectionId={{ type: 'worktree' }}
-								showCheckboxes={isCommitting}
-								draggableFiles
-								{projectId}
-								{stackId}
-								{changes}
-								{listMode}
-								{active}
-							/>
+							<WorktreeChangesFileList {projectId} {listMode} {active} stackId="unassigned" />
 						</div>
 					</ScrollableContainer>
 					<div class="start-commit" class:sticked-bottom={!scrollBottomIsVisible}>

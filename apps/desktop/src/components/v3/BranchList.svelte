@@ -2,6 +2,7 @@
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import StackStickyButtons from '$components/StackStickyButtons.svelte';
+	import AssignedChanges from '$components/v3/AssignedChanges.svelte';
 	import BranchCard from '$components/v3/BranchCard.svelte';
 	import BranchCommitList from '$components/v3/BranchCommitList.svelte';
 	import BranchHeaderContextMenu, {
@@ -24,13 +25,13 @@
 	import type { CommitStatusType } from '$lib/commits/commit';
 
 	type Props = {
-		isVerticalMode: boolean;
 		projectId: string;
+		isVerticalMode: boolean;
 		stackId: string;
 		active: boolean;
 	};
 
-	const { isVerticalMode, projectId, stackId, active }: Props = $props();
+	const { projectId, isVerticalMode, stackId, active }: Props = $props();
 	const [stackService, uiState, modeService] = inject(StackService, UiState, ModeService);
 
 	const branchesResult = $derived(stackService.branches(projectId, stackId));
@@ -92,7 +93,8 @@
 </script>
 
 <div class="wrapper">
-	<ReduxResult {stackId} {projectId} result={branchesResult.current}>
+	<AssignedChanges {projectId} {stackId} />
+	<ReduxResult {projectId} {stackId} result={branchesResult.current}>
 		{#snippet children(branches, { stackId, projectId })}
 			{@const stackingReorderDropzoneManager = stackingReorderDropzoneManagerFactory.build(
 				stackId,
@@ -260,6 +262,7 @@
 		flex-direction: column;
 		height: 100%;
 	}
+
 	.branches-wrapper {
 		display: flex;
 		flex: 1;

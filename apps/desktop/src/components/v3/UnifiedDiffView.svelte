@@ -10,7 +10,12 @@
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { HunkDropDataV3 } from '$lib/dragging/draggables';
 	import { previousPathBytesFromTreeChange, type TreeChange } from '$lib/hunks/change';
-	import { canBePartiallySelected, getLineLocks, type DiffHunk } from '$lib/hunks/hunk';
+	import {
+		canBePartiallySelected,
+		getLineLocks,
+		hunkHeaderEquals,
+		type DiffHunk
+	} from '$lib/hunks/hunk';
 	import { Project } from '$lib/project/project';
 	import {
 		ChangeSelectionService,
@@ -52,19 +57,21 @@
 		commitId,
 		draggable
 	}: Props = $props();
+
 	const [project, uiState, stackService] = inject(Project, UiState, StackService);
+
 	let contextMenu = $state<ReturnType<typeof HunkContextMenu>>();
 	let showAnyways = $state(false);
 	let viewport = $state<HTMLDivElement>();
+
 	const projectState = $derived(uiState.project(projectId));
 	const drawerPage = $derived(projectState.drawerPage.current);
 	const stacks = $derived(stackService.stacks(projectId));
-	const hasMultipleStacks = $derived(stacks.current.data && stacks.current.data.length > 1);
 	const activeStackId = $derived(projectState.stackId.current);
 
 	const isCommiting = $derived(drawerPage === 'new-commit');
-
-	const uncommittedChange = $derived(selectionId.type === 'worktree');
+	const isUncommittedChange = $derived(selectionId.type === 'worktree');
+	const hasMultipleStacks = $derived(stacks.current.data && stacks.current.data.length > 1);
 
 	const [changeSelection, idSelection, lineSelection, dependencyService, worktreeService] = inject(
 		ChangeSelectionService,
@@ -82,11 +89,10 @@
 		previousPathBytes: previousPathBytesFromTreeChange(change)
 	});
 
-	const changesTimestamp = $derived(worktreeService.getChangesTimeStamp(projectId));
 	const fileDependencies = $derived(
 		// For now, only show the file dependencies when commiting, and there are multiple stacks applied
-		changesTimestamp.current !== undefined && isCommiting && hasMultipleStacks
-			? dependencyService.fileDependencies(projectId, changesTimestamp.current, change.path)
+		isCommiting && hasMultipleStacks
+			? dependencyService.fileDependencies(projectId, change.path)
 			: undefined
 	);
 
@@ -211,6 +217,28 @@
 	const draggingDisabled = $derived(
 		!draggable || !['commit', 'worktree'].includes(selectionId.type)
 	);
+
+	const assignments = $derived.by(() => {
+		if (selectionId.type !== 'worktree') return;
+		return worktreeService.assignments(projectId);
+	});
+
+	function filter(hunks: DiffHunk[]): DiffHunk[] {
+		if (!assignments?.current?.data || selectionId.type !== 'worktree') return hunks;
+		const stackGroup = assignments.current.data[selectionId.stackId || 'unassigned'];
+		if (!stackGroup) return hunks;
+		const pathGroup = stackGroup[pathData.path];
+		if (!pathGroup) return hunks;
+
+		// TODO: It does concern me that this is an N+1;
+		// We could have an encoding for hunk-headers that we can then put into
+		// a hash set.
+		return hunks.filter((hunk) =>
+			pathGroup.some((assignedHunk) =>
+				assignedHunk?.hunkHeader ? hunkHeaderEquals(hunk, assignedHunk.hunkHeader) : true
+			)
+		);
+	}
 </script>
 
 <div data-testid={TestId.UnifiedDiffView} class="diff-section" bind:this={viewport}>
@@ -223,7 +251,7 @@
 				}}
 			/>
 		{:else}
-			{#each diff.subject.hunks as hunk}
+			{#each filter(diff.subject.hunks) as hunk}
 				{@const [staged, stagedLines] = getStageState(hunk)}
 				{@const [fullyLocked, lineLocks] = getLineLocks(
 					activeStackId,
@@ -234,7 +262,14 @@
 					class="hunk-content"
 					use:draggableChips={{
 						label: hunk.diff.split('\n')[0],
-						data: new HunkDropDataV3(change, hunk, uncommittedChange, stackId, commitId),
+						data: new HunkDropDataV3(
+							change,
+							hunk,
+							isUncommittedChange,
+							stackId,
+							commitId,
+							selectionId
+						),
 						disabled: draggingDisabled,
 						chipType: 'hunk'
 					}}
@@ -298,7 +333,7 @@
 			projectPath={project.vscodePath}
 			{projectId}
 			{change}
-			discardable={uncommittedChange}
+			discardable={isUncommittedChange}
 			unSelectHunk={(hunk) => unselectHunk(hunk, diff.subject.hunks)}
 		/>
 	{:else if diff.type === 'TooLarge'}

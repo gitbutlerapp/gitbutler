@@ -5,12 +5,19 @@
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { ChangeDropData } from '$lib/dragging/draggables';
 	import { getFilename } from '$lib/files/utils';
-	import { previousPathBytesFromTreeChange, type TreeChange } from '$lib/hunks/change';
-	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
+	import { type TreeChange } from '$lib/hunks/change';
+	import {
+		someAssignedToCurrentGroupSelected,
+		ChangeSelectionService,
+		deselectAllForChangeInGroup,
+		selectAllForChangeInGroup,
+		allAssignedToCurrentGroupSelected
+	} from '$lib/selection/changeSelection.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { key, type SelectionId } from '$lib/selection/key';
 	import { TestId } from '$lib/testing/testIds';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
+	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
 	import FileViewHeader from '@gitbutler/ui/file/FileViewHeader.svelte';
@@ -67,13 +74,17 @@
 
 	const idSelection = getContext(IdSelection);
 	const changeSelection = getContext(ChangeSelectionService);
+	const worktreeService = getContext(WorktreeService);
 
 	let contextMenu = $state<ReturnType<typeof FileContextMenu>>();
 	let draggableEl: HTMLDivElement | undefined = $state();
 
-	const selection = $derived(changeSelection.getById(change.path));
-	const indeterminate = $derived(selection.current && selection.current.type === 'partial');
+	const assignments = $derived.by(() => {
+		if (selectionId.type !== 'worktree') return;
+		return worktreeService.assignments(projectId);
+	});
 	const selectedChanges = $derived(idSelection.treeChanges(projectId, selectionId));
+	const selectedFile = $derived(changeSelection.getById(change.path));
 
 	const previousTooltipText = $derived(
 		(change.status.subject as Rename).previousPath
@@ -92,18 +103,67 @@
 	});
 
 	function onCheck() {
-		if (selection.current) {
-			changeSelection.remove(change.path);
+		// TODO: Double check that we change partial hunk selections into whole
+		// hunk selections.
+		// Currently selection is only implemented for the worktree changes.
+		if (selectionId.type !== 'worktree') return;
+		if (!assignments?.current?.data) return;
+
+		if (
+			someAssignedToCurrentGroupSelected(
+				change,
+				selectionId.stackId,
+				assignments.current.data,
+				selectedFile.current
+			)
+		) {
+			deselectAllForChangeInGroup(
+				change,
+				selectionId.stackId,
+				assignments.current.data,
+				selectedFile.current,
+				changeSelection
+			);
 		} else {
-			const { path, pathBytes } = change;
-			changeSelection.upsert({
-				type: 'full',
-				path,
-				pathBytes,
-				previousPathBytes: previousPathBytesFromTreeChange(change)
-			});
+			selectAllForChangeInGroup(
+				change,
+				selectionId.stackId,
+				assignments.current.data,
+				selectedFile.current,
+				changeSelection
+			);
 		}
 	}
+
+	const checkStatus = $derived.by((): 'checked' | 'indeterminate' | 'unchecked' => {
+		// Currently selection is only implemented for the worktree changes.
+		if (selectionId.type !== 'worktree') return 'unchecked';
+		if (!assignments?.current?.data) return 'unchecked';
+
+		if (
+			allAssignedToCurrentGroupSelected(
+				change,
+				selectionId.stackId,
+				assignments.current.data,
+				selectedFile.current
+			)
+		) {
+			return 'checked';
+		}
+
+		if (
+			someAssignedToCurrentGroupSelected(
+				change,
+				selectionId.stackId,
+				assignments.current.data,
+				selectedFile.current
+			)
+		) {
+			return 'indeterminate';
+		}
+
+		return 'unchecked';
+	});
 
 	function onContextMenu(e: MouseEvent) {
 		if (selectedChanges.current.isSuccess && idSelection.has(change.path, selectionId)) {
@@ -178,9 +238,9 @@
 			{showCheckbox}
 			fileStatusTooltip={previousTooltipText}
 			{listMode}
-			checked={!!selection.current}
+			checked={checkStatus === 'checked' || checkStatus === 'indeterminate'}
 			{active}
-			{indeterminate}
+			indeterminate={checkStatus === 'indeterminate'}
 			{isLast}
 			{depth}
 			{executable}

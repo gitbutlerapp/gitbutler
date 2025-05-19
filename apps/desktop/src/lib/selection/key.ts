@@ -13,6 +13,7 @@ export type SelectionId = {
 } & (
 	| {
 			type: 'worktree';
+			stackId?: string;
 	  }
 	| {
 			type: 'commit';
@@ -39,7 +40,7 @@ export function key(params: SelectedFile): SelectedFileKey {
 		case 'branch':
 			return `${params.type}:${params.path}:${params.stackId}:${params.branchName}` as SelectedFileKey;
 		case 'worktree':
-			return `${params.type}:${params.path}` as SelectedFileKey;
+			return `${params.type}:${params.path}:${params.stackId}` as SelectedFileKey;
 	}
 }
 
@@ -66,15 +67,16 @@ export function readKey(key: SelectedFileKey): SelectedFile {
 				branchName: parts[2]!
 			};
 		case 'worktree':
-			if (parts.length !== 1) throw new Error('Invalid worktree key');
+			if (parts.length !== 2) throw new Error('Invalid worktree key');
 			return {
 				type,
-				path: parts[0]!
+				path: parts[0]!,
+				stackId: parts[1]
 			};
 	}
 }
 
-export function selectionKey(id: SelectionId): SelectedFileKey {
+export function selectionKey(id: SelectionId | { type: 'worktree' }): SelectedFileKey {
 	switch (id.type) {
 		case 'commit':
 			return `${id.type}:${id.commitId}` as SelectedFileKey;
