@@ -1,8 +1,8 @@
 use super::{ChangeState, UnifiedDiff};
 use bstr::{BStr, BString, ByteSlice};
+use gix::diff::blob::ResourceKind;
 use gix::diff::blob::platform::prepare_diff::Operation;
 use gix::diff::blob::unified_diff::ContextSize;
-use gix::diff::blob::{GitDiff, ResourceKind, Sink};
 use serde::Serialize;
 
 /// A hunk as used in a [UnifiedDiff], which also contains all added and removed lines.
@@ -173,18 +173,13 @@ impl UnifiedDiff {
                     }
                 }
                 let input = prep.interned_input();
-                let hunks = gix::diff::blob::diff(algorithm, &input, GitDiff::new(&input));
-                let mut uni_diff = gix::diff::blob::UnifiedDiff::new(
+                let uni_diff = gix::diff::blob::UnifiedDiff::new(
                     &input,
                     ProduceDiffHunk::default(),
                     gix::diff::blob::unified_diff::NewlineSeparator::AfterHeaderAndWhenNeeded("\n"),
                     ContextSize::symmetrical(context_lines),
                 );
-                for hunk in hunks {
-                    let (before, after) = hunk.as_u32_ranges();
-                    uni_diff.process_change(before, after);
-                }
-                let hunks = uni_diff.finish()?;
+                let hunks = gix::diff::blob::diff(algorithm, &input, uni_diff)?;
                 let (lines_added, lines_removed) = compute_line_changes(&hunks);
                 UnifiedDiff::Patch {
                     is_result_of_binary_to_text_conversion: prep.old_or_new_is_derived,
