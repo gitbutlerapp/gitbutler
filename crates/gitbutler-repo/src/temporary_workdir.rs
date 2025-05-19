@@ -20,7 +20,7 @@ impl TemporaryWorkdir {
     pub fn open(repository: &git2::Repository) -> Result<Self> {
         let directory = tempdir().context("Failed to create temporary directory")?;
         // By using into path, we need to deconstruct the TempDir ourselves
-        let path = directory.into_path();
+        let path = directory.keep();
         let branch_name = Uuid::new_v4();
         let worktree = repository
             .worktree(&branch_name.to_string(), &path.join("repository"), None)

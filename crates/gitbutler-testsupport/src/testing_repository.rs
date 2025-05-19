@@ -179,7 +179,7 @@ impl TestingRepository {
     }
 
     pub fn persist(self) {
-        let path = self.tempdir.into_path();
+        let path = self.tempdir.keep();
 
         println!("Persisting test repository at {:?}", path);
     }
