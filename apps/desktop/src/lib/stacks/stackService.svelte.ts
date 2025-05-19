@@ -18,7 +18,7 @@ import type { CommitKey } from '$lib/commits/commit';
 import type { LocalFile } from '$lib/files/file';
 import type { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 import type { TreeChange, TreeChanges } from '$lib/hunks/change';
-import type { DiffSpec, Hunk, HunkHeader } from '$lib/hunks/hunk';
+import type { DiffSpec, Hunk } from '$lib/hunks/hunk';
 import type { BranchDetails, Stack, StackDetails } from '$lib/stacks/stack';
 import type { UiState } from '$lib/state/uiState.svelte';
 import type { User } from '$lib/user/user';
@@ -38,14 +38,10 @@ export type CreateCommitRequest = {
 	/** Undefined means that the backend will infer the parent to be the current head of stackBranchName */
 	parentId: string | undefined;
 	stackBranchName: string;
-	worktreeChanges: {
-		previousPathBytes: number[] | null;
-		pathBytes: number[];
-		hunkHeaders: HunkHeader[];
-	}[];
+	worktreeChanges: DiffSpec[];
 };
 
-export type CreateCommitRequestWorktreeChanges = CreateCommitRequest['worktreeChanges'][number];
+export type CreateCommitRequestWorktreeChanges = DiffSpec;
 
 type StackAction = 'push';
 
