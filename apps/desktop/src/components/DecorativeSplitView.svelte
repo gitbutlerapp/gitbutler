@@ -9,14 +9,12 @@
 	import { type Snippet } from 'svelte';
 
 	interface Props {
-		showLinks?: boolean;
+		hideDetails?: boolean;
 		img?: string;
 		children?: Snippet;
-		title?: Snippet;
-		description?: Snippet;
 	}
 
-	const { showLinks = true, img, children, title, description }: Props = $props();
+	const { hideDetails, img, children }: Props = $props();
 
 	const user = getContextStore(User);
 
@@ -35,7 +33,7 @@
 
 	<div class="right-side">
 		<div class="right-side-wrapper">
-			{#if user}
+			{#if user && !hideDetails}
 				<div class="right-side__header">
 					<div class="account-button">
 						<AccountLink pop />
@@ -49,28 +47,8 @@
 				</div>
 			{/if}
 
-			<div class="right-side__bottom">
-				{#if title || description}
-					<div class="right-side__content">
-						{#if title}
-							<h3 class="text-18 text-bold right-side__content-title">
-								{@render title()}
-							</h3>
-						{/if}
-
-						{#if description}
-							<p class="text-12 text-body right-side__content-description">
-								{@render description()}
-							</p>
-						{/if}
-					</div>
-				{/if}
-
-				{#if showLinks}
-					{#if title || description}
-						<hr class="bottom-divider" />
-					{/if}
-
+			{#if !hideDetails}
+				<div class="right-side__bottom">
 					<div class="right-side__meta">
 						<div class="right-side__links">
 							<button
@@ -95,8 +73,8 @@
 							{@html gbLogoSvg}
 						</div>
 					</div>
-				{/if}
-			</div>
+				</div>
+			{/if}
 		</div>
 	</div>
 </div>
@@ -141,12 +119,12 @@
 	}
 
 	/* RIGHT SIDE */
-
 	.right-side {
 		flex: 1;
 		min-width: 448px;
 		background-color: var(--clr-bg-1);
-		padding: 20px 20px 20px 0;
+		padding: 16px;
+		padding-left: 0;
 	}
 
 	.right-side-wrapper {

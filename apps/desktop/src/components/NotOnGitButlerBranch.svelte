@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import Chrome from '$components/Chrome.svelte';
 	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
 	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
 	import ProjectSwitcher from '$components/ProjectSwitcher.svelte';
@@ -8,7 +7,6 @@
 	import derectionDoubtSvg from '$lib/assets/illustrations/direction-doubt.svg?raw';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
-	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { ModeService } from '$lib/mode/modeService';
 	import { showError } from '$lib/notifications/toasts';
 	import { Project } from '$lib/project/project';
@@ -47,9 +45,6 @@
 	const changes = worktreeService.getChanges(project.id);
 
 	let modal = $state<Modal>();
-
-	const settingsService = getContext(SettingsService);
-	const appSettings = settingsService.appSettings;
 
 	async function switchTarget(branch: string, remote?: string, stashUncommitted?: boolean) {
 		await setBaseBranchTarget({
@@ -111,115 +106,105 @@
 	}
 </script>
 
-{#snippet page()}
-	<DecorativeSplitView img={derectionDoubtSvg}>
-		<div class="switchrepo">
-			<div class="project-name">
-				<ProjectNameLabel projectName={project?.title} />
-			</div>
-			<p class="switchrepo__title text-18 text-body text-bold">
-				Looks like you've switched away from <span class="code-string"> gitbutler/workspace </span>
-			</p>
+<DecorativeSplitView img={derectionDoubtSvg}>
+	<div class="switchrepo">
+		<div class="project-name">
+			<ProjectNameLabel projectName={project?.title} />
+		</div>
+		<p class="switchrepo__title text-18 text-body text-bold">
+			Looks like you've switched away from <span class="code-string"> gitbutler/workspace </span>
+		</p>
 
-			<p class="switchrepo__message text-13 text-body">
-				Due to GitButler managing multiple virtual branches, you cannot switch back and forth
-				between git branches and virtual branches easily.
-				<Link href="https://docs.gitbutler.com/features/virtual-branches/integration-branch">
-					Learn more
-				</Link>
-			</p>
+		<p class="switchrepo__message text-13 text-body">
+			Due to GitButler managing multiple virtual branches, you cannot switch back and forth between
+			git branches and virtual branches easily.
+			<Link href="https://docs.gitbutler.com/features/virtual-branches/integration-branch">
+				Learn more
+			</Link>
+		</p>
 
-			<div class="switchrepo__actions">
-				<AsyncButton
-					style="pop"
-					icon="undo-small"
-					reversedDirection
-					loading={targetBranchSwitch.current.isLoading}
-					action={initSwithToWorkspace}
-				>
-					Switch to to gitbutler/workspace
-				</AsyncButton>
+		<div class="switchrepo__actions">
+			<AsyncButton
+				style="pop"
+				icon="undo-small"
+				reversedDirection
+				loading={targetBranchSwitch.current.isLoading}
+				action={initSwithToWorkspace}
+			>
+				Switch to to gitbutler/workspace
+			</AsyncButton>
 
-				{#if project}
-					<RemoveProjectButton
-						bind:this={deleteConfirmationModal}
-						projectTitle={project.title}
-						{isDeleting}
-						{onDeleteClicked}
-					/>
-				{/if}
-			</div>
-
-			<Spacer dotted margin={0} />
-
-			<div class="switchrepo__project">
-				<ProjectSwitcher />
-			</div>
+			{#if project}
+				<RemoveProjectButton
+					bind:this={deleteConfirmationModal}
+					projectTitle={project.title}
+					{isDeleting}
+					{onDeleteClicked}
+				/>
+			{/if}
 		</div>
 
-		<Modal
-			bind:this={modal}
-			width={520}
-			noPadding
-			onClose={() => {}}
-			onSubmit={() => switchTarget(baseBranch.branchName, undefined, doStash)}
-		>
-			<div class="content-wrap text-13">
-				<h1 class="text-15 text-bold">It looks like there are uncommitted changes</h1>
-				<p>The following are uncommitted files in your worktree:</p>
-				<div class="file-list">
-					{#each changes.current.data || [] as change}
-						<FileListItem filePath={change.path} />
-					{/each}
-				</div>
-				{#if conflicts}
-					<div>
-						The following are uncommitted files that can't be applied to the workspace due to
-						conflicts:
-					</div>
-					<div class="file-list">
-						{#if $mode?.type === 'OutsideWorkspace'}
-							{#each $mode.subject?.worktreeConflicts || [] as path}
-								<FileListItem filePath={path} />
-							{/each}
-						{/if}
-					</div>
-				{/if}
+		<Spacer dotted margin={0} />
 
-				<p>What would you like to do with the files?</p>
-				<Select
-					value={selectedHandlingOfUncommitted}
-					options={handlingOptions}
-					onselect={(value) => {
-						selectedHandlingOfUncommitted = value;
-					}}
-				>
-					{#snippet itemSnippet({ item, highlighted })}
-						<SelectItem
-							disabled={!item.selectable}
-							selected={item.value === selectedHandlingOfUncommitted}
-							{highlighted}
-						>
-							{item.label}
-						</SelectItem>
-					{/snippet}
-				</Select>
+		<div class="switchrepo__project">
+			<ProjectSwitcher />
+		</div>
+	</div>
+
+	<Modal
+		bind:this={modal}
+		width={520}
+		noPadding
+		onClose={() => {}}
+		onSubmit={() => switchTarget(baseBranch.branchName, undefined, doStash)}
+	>
+		<div class="content-wrap text-13">
+			<h1 class="text-15 text-bold">It looks like there are uncommitted changes</h1>
+			<p>The following are uncommitted files in your worktree:</p>
+			<div class="file-list">
+				{#each changes.current.data || [] as change}
+					<FileListItem filePath={change.path} />
+				{/each}
 			</div>
-			{#snippet controls(close)}
-				<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
-				<Button style="pop" type="submit">Confirm</Button>
-			{/snippet}
-		</Modal>
-	</DecorativeSplitView>
-{/snippet}
+			{#if conflicts}
+				<div>
+					The following are uncommitted files that can't be applied to the workspace due to
+					conflicts:
+				</div>
+				<div class="file-list">
+					{#if $mode?.type === 'OutsideWorkspace'}
+						{#each $mode.subject?.worktreeConflicts || [] as path}
+							<FileListItem filePath={path} />
+						{/each}
+					{/if}
+				</div>
+			{/if}
 
-{#if $appSettings?.featureFlags.v3}
-	<Chrome projectId={project.id} sidebarDisabled>
-		{@render page()}
-	</Chrome>
-{:else}
-	{@render page()}
-{/if}
+			<p>What would you like to do with the files?</p>
+			<Select
+				value={selectedHandlingOfUncommitted}
+				options={handlingOptions}
+				onselect={(value) => {
+					selectedHandlingOfUncommitted = value;
+				}}
+			>
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem
+						disabled={!item.selectable}
+						selected={item.value === selectedHandlingOfUncommitted}
+						{highlighted}
+					>
+						{item.label}
+					</SelectItem>
+				{/snippet}
+			</Select>
+		</div>
+		{#snippet controls(close)}
+			<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
+			<Button style="pop" type="submit">Confirm</Button>
+		{/snippet}
+	</Modal>
+</DecorativeSplitView>
 
 <style lang="postcss">
 	.project-name {

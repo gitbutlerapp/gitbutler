@@ -11,6 +11,7 @@
 	import ProjectSettingsMenuAction from '$components/ProjectSettingsMenuAction.svelte';
 	import TryV3Modal from '$components/TryV3Modal.svelte';
 	import IrcPopups from '$components/v3/IrcPopups.svelte';
+	import NotOnGitButlerBranchV3 from '$components/v3/NotOnGitButlerBranch.svelte';
 	import { Code, isTauriCommandError } from '$lib/backend/ipc';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
@@ -339,8 +340,10 @@
 					<History onHide={() => ($showHistoryView = false)} />
 				{/if}
 			</div>
-		{:else if $mode?.type === 'OutsideWorkspace'}
+		{:else if $mode?.type === 'OutsideWorkspace' && !$settingsStore?.featureFlags.v3}
 			<NotOnGitButlerBranch {baseBranch} />
+		{:else if $mode?.type === 'OutsideWorkspace' && $settingsStore?.featureFlags.v3}
+			<NotOnGitButlerBranchV3 {baseBranch} />
 		{/if}
 	{/if}
 {/key}

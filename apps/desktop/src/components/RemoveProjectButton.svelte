@@ -6,13 +6,15 @@
 		projectTitle?: string;
 		isDeleting?: boolean;
 		noModal?: boolean;
+		outlineStyle?: boolean;
 		onDeleteClicked: () => Promise<void>;
 	}
 
 	const {
 		projectTitle = '#',
-		isDeleting = false,
-		noModal = false,
+		isDeleting,
+		noModal,
+		outlineStyle,
 		onDeleteClicked
 	}: Props = $props();
 
@@ -34,7 +36,13 @@
 	let modal = $state<Modal>();
 </script>
 
-<Button style="error" icon="bin-small" reversedDirection onclick={handleClick}>
+<Button
+	style="error"
+	kind={outlineStyle ? 'outline' : 'solid'}
+	icon="bin-small"
+	reversedDirection
+	onclick={handleClick}
+>
 	Remove project…
 </Button>
 
