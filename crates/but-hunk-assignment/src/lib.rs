@@ -41,6 +41,16 @@ pub struct HunkAssignment {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+/// Indicates that the assignment request was rejected due to locking - the hunk depends on a commit in the stack it is currently in.
+pub struct AssignmentRejection {
+    /// The request that was rejected.
+    request: HunkAssignmentRequest,
+    /// The locks that caused the rejection.
+    locks: Vec<HunkLock>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 /// A request to update a hunk assignment.
 /// If a a file has multiple hunks, the UI client should send a list of assignment requests with the appropriate hunk headers.
 pub struct HunkAssignmentRequest {
@@ -113,7 +123,7 @@ pub fn assignments(ctx: &CommandContext) -> Result<Vec<HunkAssignment>> {
 pub fn assign(
     ctx: &CommandContext,
     requests: Vec<HunkAssignmentRequest>,
-) -> Result<Vec<HunkAssignment>> {
+) -> Result<Vec<AssignmentRejection>> {
     let state = state::AssignmentsHandle::new(&ctx.project().gb_dir());
     let previous_assignments = state.assignments()?;
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
@@ -123,7 +133,7 @@ pub fn assign(
         .map(|s| s.id)
         .collect::<Vec<_>>();
     let mut new_assignments = vec![];
-    for new_assignment in requests {
+    for new_assignment in requests.clone() {
         new_assignments = set_assignment(
             &applied_stacks,
             previous_assignments.clone(),
@@ -138,7 +148,26 @@ pub fn assign(
         MultiDepsResolution::SetNone, // If there is double locking, move the hunk to the Uncommitted section
     )?;
     state.set_assignments(assignments_considering_deps.clone())?;
-    Ok(assignments_considering_deps)
+
+    // Request where the stack_id is different from the outcome are considered rejections - this is due to locking
+    // Collect all the rejected requests together with the locks that caused the rejection
+    let mut rejections = vec![];
+    for req in requests {
+        let locks = assignments_considering_deps
+            .iter()
+            .filter(|assignment| {
+                req.matches_assignment(assignment) && req.stack_id != assignment.stack_id
+            })
+            .flat_map(|assignment| assignment.hunk_locks.clone())
+            .collect_vec();
+        if !locks.is_empty() {
+            rejections.push(AssignmentRejection {
+                request: req.clone(),
+                locks,
+            });
+        }
+    }
+    Ok(rejections)
 }
 
 /// Reconciles the current hunk assignments with the current worktree changes.
