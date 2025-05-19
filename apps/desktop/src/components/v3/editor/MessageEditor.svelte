@@ -19,6 +19,7 @@
 	} from '@gitbutler/ui/richText/plugins/FileUpload.svelte';
 	import Formatter from '@gitbutler/ui/richText/plugins/Formatter.svelte';
 	import GhostTextPlugin from '@gitbutler/ui/richText/plugins/GhostText.svelte';
+	import HardWrapPlugin from '@gitbutler/ui/richText/plugins/HardWrapPlugin.svelte';
 	import FormattingBar from '@gitbutler/ui/richText/tools/FormattingBar.svelte';
 	import FormattingButton from '@gitbutler/ui/richText/tools/FormattingButton.svelte';
 
@@ -294,6 +295,9 @@
 									bind:this={suggestionsHandler.ghostTextComponent}
 									onSelection={(text) => suggestionsHandler.onAcceptSuggestion(text)}
 								/>
+							{/if}
+							{#if wrapCountValue !== undefined}
+								<HardWrapPlugin maxLength={wrapCountValue} />
 							{/if}
 						{/snippet}
 					</RichTextEditor>
