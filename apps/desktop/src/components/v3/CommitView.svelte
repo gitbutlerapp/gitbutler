@@ -48,8 +48,6 @@
 	const modeService = maybeGetContext(ModeService);
 	const stackState = $derived(uiState.stack(stackId));
 	const projectState = $derived(uiState.project(projectId));
-	const commitTitle = $derived(projectState.commitTitle);
-	const commitDescription = $derived(projectState.commitDescription);
 	const selected = $derived(stackState.selection.get());
 	const branchName = $derived(selected.current?.branchName);
 
@@ -64,7 +62,6 @@
 	const [updateCommitMessage, messageUpdateResult] = stackService.updateCommitMessage;
 
 	type Mode = 'view' | 'edit';
-	let commitMessageInput = $state<ReturnType<typeof CommitMessageEditor>>();
 
 	function setMode(newMode: Mode) {
 		switch (newMode) {
@@ -77,12 +74,37 @@
 		}
 	}
 
+	let title = $state<string>();
+	let description = $state<string>();
+
+	$effect(() => {
+		if (commitResult.current.isSuccess) {
+			const commit = commitResult.current.data;
+			if (isCommit(commit)) {
+				const parsedMessage = splitMessage(commit.message);
+				title = parsedMessage.title;
+				description = parsedMessage.description;
+			}
+		}
+	});
+
+	function getMessage() {
+		if (!title) {
+			return undefined;
+		}
+
+		if (description) {
+			return `${title}\n\n${description}`;
+		}
+
+		return title;
+	}
+
 	async function editCommitMessage() {
 		if (!branchName) {
 			throw new Error('No branch selected!');
 		}
-		if (!commitMessageInput) return;
-		const commitMessage = commitMessageInput.getMessage();
+		const commitMessage = getMessage();
 		if (!commitMessage) {
 			showToast({ message: 'Commit message is required', style: 'error' });
 			return;
@@ -97,8 +119,6 @@
 
 		uiState.stack(stackId).selection.set({ branchName, commitId: newCommitId });
 		setMode('view');
-		commitTitle.current = '';
-		commitDescription.current = '';
 	}
 
 	let commitMenuContext = $state<CommitMenuContext>();
@@ -121,16 +141,13 @@
 
 	function cancelEdit() {
 		setMode('view');
-		commitTitle.current = '';
-		commitDescription.current = '';
 	}
 </script>
 
 <ReduxResult {stackId} {projectId} result={commitResult.current} {onerror}>
 	{#snippet children(commit, env)}
 		{@const isConflicted = isCommit(commit) && commit.hasConflicts}
-		{#if projectState.editingCommitMessage.current}
-			{@const parsedMessage = splitMessage(commit.message)}
+		{#if projectState.editingCommitMessage.current && title !== undefined && description !== undefined}
 			<Drawer
 				testId={TestId.EditCommitMessageDrawer}
 				projectId={env.projectId}
@@ -140,16 +157,21 @@
 				minHeight={20}
 			>
 				<CommitMessageEditor
-					bind:this={commitMessageInput}
 					projectId={env.projectId}
 					stackId={env.stackId}
 					action={() => editCommitMessage()}
 					actionLabel="Save"
 					onCancel={cancelEdit}
-					initialTitle={parsedMessage.title}
-					initialMessage={parsedMessage.description}
 					loading={messageUpdateResult.current.isLoading}
 					existingCommitId={commit.id}
+					{title}
+					{description}
+					setTitle={(newTitle: string) => {
+						title = newTitle;
+					}}
+					setDescription={(newDescription: string) => {
+						description = newDescription;
+					}}
 				/>
 			</Drawer>
 		{:else}

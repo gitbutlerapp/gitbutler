@@ -22,12 +22,16 @@
 		onCancel: () => void;
 		disabledAction?: boolean;
 		loading?: boolean;
-		initialTitle?: string;
-		initialMessage?: string;
 		existingCommitId?: string;
+
+		title: string;
+		description: string;
+
+		setTitle: (title: string) => void;
+		setDescription: (description: string) => void;
 	};
 
-	const {
+	let {
 		projectId,
 		stackId,
 		actionLabel,
@@ -35,8 +39,11 @@
 		onCancel,
 		disabledAction,
 		loading,
-		initialTitle,
-		initialMessage,
+		title,
+		description,
+
+		setTitle,
+		setDescription,
 		existingCommitId
 	}: Props = $props();
 
@@ -45,13 +52,7 @@
 	const promptService = getContext(PromptService);
 
 	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
-	const projectState = $derived(uiState.project(projectId));
-	const titleText = $derived(projectState.commitTitle);
-	const descriptionText = $derived(projectState.commitDescription);
 	const stackSelection = $derived(stackState?.selection);
-
-	const effectiveTitleValue = $derived(titleText.current || (initialTitle ?? ''));
-	const effectiveDescriptionValue = $derived(descriptionText.current || (initialMessage ?? ''));
 
 	const suggestionsHandler = new CommitSuggestions(aiService, uiState);
 	let commitSuggestionsPlugin = $state<ReturnType<typeof CommitSuggestionsPlugin>>();
@@ -73,15 +74,15 @@
 	$effect(() => {
 		if (generatedText) {
 			const { title, description } = splitMessage(generatedText);
-			titleText.set(title);
-			descriptionText.set(description);
+			setTitle(title);
+			setDescription(description);
 			composer?.setText(description);
 		}
 	});
 
 	function beginGeneration() {
-		titleText.set('');
-		descriptionText.set('');
+		setTitle('');
+		setDescription('');
 		generatedText = '';
 	}
 
@@ -123,13 +124,6 @@
 
 	let composer = $state<ReturnType<typeof MessageEditor>>();
 	let titleInput = $state<HTMLInputElement>();
-
-	export function getMessage() {
-		if (effectiveDescriptionValue) {
-			return effectiveTitleValue + '\n\n' + effectiveDescriptionValue;
-		}
-		return effectiveTitleValue;
-	}
 </script>
 
 <CommitSuggestionsPlugin
@@ -144,10 +138,10 @@
 	<MessageEditorInput
 		testId={TestId.CommitDrawerTitleInput}
 		bind:ref={titleInput}
-		value={effectiveTitleValue}
+		value={title}
 		oninput={(e: Event) => {
 			const input = e.currentTarget as HTMLInputElement;
-			titleText.current = input.value;
+			setTitle(input.value);
 		}}
 		onkeydown={(e: KeyboardEvent) => {
 			if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -166,7 +160,7 @@
 	<MessageEditor
 		testId={TestId.CommitDrawerDescriptionInput}
 		bind:this={composer}
-		initialValue={effectiveDescriptionValue}
+		initialValue={description}
 		placeholder="Your commit message"
 		{projectId}
 		{onAiButtonClick}
@@ -174,7 +168,7 @@
 		{aiIsLoading}
 		{suggestionsHandler}
 		onChange={(text: string) => {
-			descriptionText.current = text;
+			setDescription(text);
 		}}
 		enableFileUpload
 		onKeyDown={(e: KeyboardEvent) => {

@@ -224,8 +224,15 @@
 
 	const [createNewStack, newStackResult] = stackService.newStack;
 
+	function getMessage(): string {
+		if (projectState.commitDescription.current) {
+			return projectState.commitTitle.current + '\n\n' + projectState.commitDescription.current;
+		}
+		return projectState.commitTitle.current;
+	}
+
 	async function handleCommitCreation() {
-		const message = input?.getMessage();
+		const message = getMessage();
 		if (!message) {
 			showToast({ message: 'Commit message is required', style: 'error' });
 			return;
@@ -240,8 +247,6 @@
 
 	function cancel() {
 		drawer?.onClose();
-		projectState.commitTitle.set('');
-		projectState.commitDescription.set('');
 	}
 </script>
 
@@ -263,5 +268,13 @@
 		onCancel={cancel}
 		disabledAction={!canCommit}
 		loading={commitCreation.current.isLoading || newStackResult.current.isLoading}
+		title={projectState.commitTitle.current}
+		description={projectState.commitDescription.current}
+		setTitle={(title: string) => {
+			projectState.commitTitle.set(title);
+		}}
+		setDescription={(description: string) => {
+			projectState.commitDescription.set(description);
+		}}
 	/>
 </Drawer>
