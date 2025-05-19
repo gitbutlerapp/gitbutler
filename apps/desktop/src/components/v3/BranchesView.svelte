@@ -190,8 +190,9 @@
 							onclick={() => {
 								branchesSelection.set({ branchName: baseBranch.shortName, isTarget: true });
 							}}
-							selected={branchesSelection.current.branchName === undefined ||
-								branchesSelection.current.branchName === baseBranch.shortName}
+							selected={(branchesSelection.current.branchName === undefined ||
+								branchesSelection.current.branchName === baseBranch.shortName) &&
+								branchesSelection.current.prNumber === undefined}
 						/>
 					</BranchesListGroup>
 					<BranchExplorer {projectId}>
@@ -278,7 +279,8 @@
 							{onerror}
 						/>
 					{/if}
-				{:else}
+				{:else if !current.branchName && !current.prNumber}
+					<!-- TODO: Make this fallback better somehow? -->
 					<UnappliedBranchView
 						{projectId}
 						branchName={baseBranch.shortName}
