@@ -82,7 +82,8 @@
 		"tinykeys": "^2.1.0",
 		"ts-node": "^10.9.2",
 		"vite": "catalog:",
-		"vitest": "catalog:"
+		"vitest": "catalog:",
+		"typescript": "catalog:"
 	},
 	"dependencies": {
 		"@gitbeaker/rest": "^42.2.0",
