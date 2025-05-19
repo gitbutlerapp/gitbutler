@@ -9,6 +9,8 @@ describe('Project', () => {
 	});
 
 	it('should add a local project', async () => {
+		await browser.setTimeout({ pageLoad: 10000 });
+
 		await findAndClick('button[data-testid="analytics-continue"]');
 
 		const dirInput = await $('input[data-testid="test-directory-path"]');
