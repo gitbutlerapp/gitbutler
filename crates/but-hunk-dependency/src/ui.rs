@@ -83,6 +83,6 @@ pub struct HunkLock {
     /// The ID of the stack that contains [`commit_id`](Self::commit_id).
     pub stack_id: StackId,
     /// The commit the hunk applies to.
-    #[serde(serialize_with = "gitbutler_serde::object_id::serialize")]
+    #[serde(with = "gitbutler_serde::object_id")]
     pub commit_id: gix::ObjectId,
 }
