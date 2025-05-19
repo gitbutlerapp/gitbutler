@@ -219,6 +219,7 @@
 						stackService,
 						projectId,
 						stackId,
+						branchName: currentSeries.branchName,
 						commit: dzCommit,
 						okWithForce: true
 					})}
@@ -232,6 +233,7 @@
 						stackService,
 						projectId,
 						stackId,
+						branchName: currentSeries.branchName,
 						commit: dzCommit,
 						// TODO: Use correct value!
 						okWithForce: true,

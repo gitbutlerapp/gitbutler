@@ -100,7 +100,6 @@
 	);
 
 	const stackService = getContext(StackService);
-	const [updateBranchPrNumber, prNumberUpdate] = stackService.updateBranchPrNumber;
 	const [updateBranchNameMutation] = stackService.updateBranchName;
 	const [updateBranchDescription] = stackService.updateBranchDescription;
 
@@ -110,17 +109,17 @@
 	 *
 	 * TODO: Remove this after transition is complete.
 	 */
-	let count = 0;
+	let hasUpdatedPrNumber = false;
 	$effect(() => {
 		if (
 			forge.current.name === 'github' &&
 			!branch.prNumber &&
 			listedPr?.number &&
 			listedPr.number !== branch.prNumber &&
-			prNumberUpdate.current.isUninitialized
+			hasUpdatedPrNumber
 		) {
-			if (count++) return;
-			updateBranchPrNumber({
+			hasUpdatedPrNumber = true;
+			stackService.updateBranchPrNumber({
 				projectId: projectId,
 				stackId: stack.id,
 				branchName: branch.name,
