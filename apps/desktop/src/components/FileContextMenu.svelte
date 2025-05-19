@@ -73,8 +73,7 @@
 						onclick={() => {
 							confirmationModal?.show(item);
 							contextMenu.close();
-						}}
-					/>
+						}} />
 				{/if}
 				{#if files.length === 1}
 					<ContextMenuItem
@@ -86,8 +85,7 @@
 								errorMessage: 'Failed to copy path'
 							});
 							contextMenu.close();
-						}}
-					/>
+						}} />
 					<ContextMenuItem
 						label="Copy Relative Path"
 						onclick={async () => {
@@ -96,8 +94,7 @@
 								errorMessage: 'Failed to copy relative path'
 							});
 							contextMenu.close();
-						}}
-					/>
+						}} />
 				{/if}
 				<ContextMenuItem
 					label="Open in {$userSettings.defaultCodeEditor.displayName}"
@@ -117,8 +114,7 @@
 							console.error('Failed to open in editor');
 							toasts.error('Failed to open in editor');
 						}
-					}}
-				/>
+					}} />
 			{/if}
 		</ContextMenuSection>
 	{/snippet}
@@ -129,8 +125,7 @@
 	type="warning"
 	title="Discard changes"
 	bind:this={confirmationModal}
-	onSubmit={confirmDiscard}
->
+	onSubmit={confirmDiscard}>
 	{#snippet children(item)}
 		{#if item.files.length < 10}
 			<p class="discard-caption">
@@ -142,9 +137,9 @@
 				{/each}
 			</ul>
 		{:else}
-			Discard the changes to all <span class="text-bold">
-				{item.files.length} files
-			</span>?
+			<p>
+				Discard the changes to all <span class="text-bold"> {item.files.length} files</span>?
+			</p>
 		{/if}
 	{/snippet}
 	{#snippet controls(close, item)}
@@ -160,10 +155,10 @@
 		color: var(--clr-text-2);
 	}
 	.file-list {
-		padding: 4px 0;
-		border-radius: var(--radius-m);
-		overflow: hidden;
-		background-color: var(--clr-bg-2);
 		margin-top: 12px;
+		padding: 4px 0;
+		overflow: hidden;
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-2);
 	}
 </style>
