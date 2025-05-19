@@ -69,7 +69,7 @@
 		<div class="modal-footer">
 			<label for="dont-show-again" class="modal-footer__checkbox">
 				<Checkbox name="dont-show-again" small bind:checked={$doNotShowAgain} />
-				<span class="text-12"> Don’t ask it again</span>
+				<span class="text-12"> Don't ask again</span>
 			</label>
 			<Button kind="outline" onclick={close}>Not now</Button>
 			<Button style="pop" type="submit">Switch to V3 UI</Button>
