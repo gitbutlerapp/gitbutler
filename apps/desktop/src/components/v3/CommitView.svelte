@@ -63,6 +63,9 @@
 
 	type Mode = 'view' | 'edit';
 
+	let title = $state<string>();
+	let description = $state<string>();
+
 	function setMode(newMode: Mode) {
 		switch (newMode) {
 			case 'edit':
@@ -70,15 +73,14 @@
 				break;
 			case 'view':
 				projectState.editingCommitMessage.set(false);
+				title = undefined;
+				description = undefined;
 				break;
 		}
 	}
 
-	let title = $state<string>();
-	let description = $state<string>();
-
 	$effect(() => {
-		if (commitResult.current.isSuccess) {
+		if (projectState.editingCommitMessage.current && commitResult.current.isSuccess) {
 			const commit = commitResult.current.data;
 			if (isCommit(commit)) {
 				const parsedMessage = splitMessage(commit.message);
@@ -141,6 +143,8 @@
 
 	function cancelEdit() {
 		setMode('view');
+		title = undefined;
+		description = undefined;
 	}
 </script>
 

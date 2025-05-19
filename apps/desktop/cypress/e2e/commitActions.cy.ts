@@ -307,6 +307,60 @@ describe('Commit Actions', () => {
 		expect(mockBackend.getDiff).to.have.callCount(0);
 	});
 
+	it('Should be able to cancel the commit message edit', () => {
+		const originalCommitMessage = 'Initial commit';
+		const newCommitMessageTitle = 'New commit message title';
+
+		cy.spy(mockBackend, 'updateCommitMessage').as('updateCommitMessageSpy');
+		cy.spy(mockBackend, 'getDiff').as('getDiffSpy');
+
+		// Click on the first commit
+		cy.getByTestId('commit-row').first().should('contain', originalCommitMessage).click();
+
+		// Should open the commit drawer
+		cy.get('.commit-view').first().should('contain', originalCommitMessage);
+
+		// Click on the edit message button
+		cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
+
+		// Should open the commit rename drawer
+		cy.getByTestId('edit-commit-message-drawer').should('be.visible');
+
+		// Should have the original commit message, and be focused
+		cy.getByTestId('commit-drawer-title-input')
+			.should('have.value', originalCommitMessage)
+			.should('be.visible')
+			.should('be.enabled')
+			.clear()
+			.type(newCommitMessageTitle); // Type the new commit message title
+
+		// Click on the cancel button
+		cy.getByTestId('commit-drawer-cancel-button').should('be.visible').should('be.enabled').click();
+
+		cy.getByTestId('edit-commit-message-drawer').should('not.exist');
+
+		cy.getByTestId('commit-drawer-title').should('contain', originalCommitMessage);
+		cy.getByTestId('commit-drawer-description').should('not.exist');
+
+		// Start the message edit again.
+		// The commit drawer should be open still.
+		cy.get('.commit-view').first().should('contain', originalCommitMessage);
+
+		// Click on the edit message button
+		cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
+
+		// Should open the commit rename drawer
+		cy.getByTestId('edit-commit-message-drawer').should('be.visible');
+
+		// Should have the original commit message, and be focused
+		cy.getByTestId('commit-drawer-title-input')
+			.should('have.value', originalCommitMessage)
+			.should('be.visible')
+			.should('be.enabled')
+			.clear()
+			.type(newCommitMessageTitle); // Type the new commit message title
+	});
+
 	it('Should be able to commit', () => {
 		const newCommitMessage = 'New commit message';
 		const newCommitMessageBody = 'New commit message body';
