@@ -42,25 +42,31 @@ TODO: Validate the editor is in plain text mode when this plugin is active.
 	});
 
 	function onTextNodeMutation(nodes: Map<NodeKey, NodeMutation>) {
-		editor.update(() => {
-			for (const [key, type] of nodes.entries()) {
-				const node = getNodeByKey(key)!;
+		editor.update(
+			() => {
+				for (const [key, type] of nodes.entries()) {
+					const node = getNodeByKey(key)!;
 
-				if (!node) {
-					continue;
-				}
-
-				if (type === 'updated') {
-					if (isInCodeBlock(key)) {
+					if (!node) {
 						continue;
 					}
-					if (!isTextNode(node)) {
-						continue;
+
+					if (type === 'updated') {
+						if (isInCodeBlock(key)) {
+							continue;
+						}
+						if (!isTextNode(node)) {
+							continue;
+						}
+						wrapIfNecssary({ node, maxLength });
 					}
-					wrapIfNecssary({ node, maxLength });
 				}
+			},
+			{
+				// Allows undoing the wrap.
+				tag: 'history'
 			}
-		});
+		);
 	}
 
 	/**
