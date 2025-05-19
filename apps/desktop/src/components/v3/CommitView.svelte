@@ -118,6 +118,12 @@
 		if (!canEdit()) return;
 		await modeService!.enterEditMode(commitKey.commitId, stackId);
 	}
+
+	function cancelEdit() {
+		setMode('view');
+		commitTitle.current = '';
+		commitDescription.current = '';
+	}
 </script>
 
 <ReduxResult {stackId} {projectId} result={commitResult.current} {onerror}>
@@ -139,7 +145,7 @@
 					stackId={env.stackId}
 					action={() => editCommitMessage()}
 					actionLabel="Save"
-					onCancel={() => setMode('view')}
+					onCancel={cancelEdit}
 					initialTitle={parsedMessage.title}
 					initialMessage={parsedMessage.description}
 					loading={messageUpdateResult.current.isLoading}

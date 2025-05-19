@@ -147,7 +147,7 @@
 		value={effectiveTitleValue}
 		oninput={(e: Event) => {
 			const input = e.currentTarget as HTMLInputElement;
-			projectState.commitTitle.current = input.value;
+			titleText.current = input.value;
 		}}
 		onkeydown={(e: KeyboardEvent) => {
 			if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {

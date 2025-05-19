@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { TestId } from '$lib/testing/testIds';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { type Snippet } from 'svelte';
 
@@ -12,7 +13,9 @@
 </script>
 
 <div class="editor-footer">
-	<Button kind="outline" style="neutral" onclick={onCancel}>{CancelButtonLabel}</Button>
+	<Button testId={TestId.CommitDrawerCancelButton} kind="outline" style="neutral" onclick={onCancel}
+		>{CancelButtonLabel}</Button
+	>
 	{@render children()}
 </div>
 
