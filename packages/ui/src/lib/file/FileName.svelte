@@ -85,11 +85,10 @@
 
 	.file-name__path--first,
 	.file-name__path--last {
-		direction: rtl;
 		min-width: 2ch;
 	}
-
 	.file-name__path--first {
 		flex: 1;
+		direction: rtl;
 	}
 </style>
