@@ -105,6 +105,11 @@ export type HunkAssignment = {
 	readonly pathBytes: number[];
 	/** The stack to which the hunk is assigned. If None, the hunk is not assigned to any stack (i.e. it belongs in the unassigned area */
 	readonly stackId: string | null;
+	/**
+	 * The dependencies(locks) that the hunk assignment (and the underlying hunk) has.
+	 * This determines where the hunk can be assigned. This field is ignored when HunkAssignment is passed by the UI to create a new assignment.
+	 */
+	readonly hunkLocks: HunkLock[];
 };
 
 type DeltaLineGroup = {
