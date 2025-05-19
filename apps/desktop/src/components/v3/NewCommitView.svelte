@@ -240,6 +240,8 @@
 
 	function cancel() {
 		drawer?.onClose();
+		projectState.commitTitle.set('');
+		projectState.commitDescription.set('');
 	}
 </script>
 
