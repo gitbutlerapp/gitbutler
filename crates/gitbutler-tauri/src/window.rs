@@ -93,6 +93,7 @@ pub(crate) mod state {
         }
     }
     use event::ChangeForFrontend;
+    use gitbutler_error::error::Code;
 
     struct State {
         /// The id of the project displayed by the window.
@@ -160,7 +161,9 @@ pub(crate) mod state {
                     return Ok(());
                 }
             }
-            let exclusive_access = project.try_exclusive_access()?;
+            let exclusive_access = project
+                .try_exclusive_access()
+                .context(Code::NonexclusiveAccess)?;
             let handler = handler_from_app(&self.app_handle)?;
             let worktree_dir = project.path.clone();
             let project_id = project.id;

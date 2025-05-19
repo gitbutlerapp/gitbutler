@@ -10,6 +10,7 @@
 	import ProblemLoadingRepo from '$components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$components/ProjectSettingsMenuAction.svelte';
 	import IrcPopups from '$components/v3/IrcPopups.svelte';
+	import { Code, isTauriCommandError } from '$lib/backend/ipc';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { BranchService } from '$lib/branches/branchService.svelte';
@@ -30,7 +31,7 @@
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
 	import { ModeService } from '$lib/mode/modeService';
-	import { showError } from '$lib/notifications/toasts';
+	import { showError, showInfo } from '$lib/notifications/toasts';
 	import { Project } from '$lib/project/project';
 	import { projectCloudSync } from '$lib/project/projectCloudSync.svelte';
 	import { ProjectService } from '$lib/project/projectService';
@@ -260,7 +261,11 @@
 		try {
 			await projectsService.setActiveProject(projectId);
 		} catch (error: unknown) {
-			showError('This project is already open in another window', error);
+			const title =
+				isTauriCommandError(error) && error.code === Code.NonexclusiveAccess
+					? 'This project is already open in another window'
+					: 'Failed to set active project';
+			showError(title, error);
 			await redirectToAvailableProject();
 		}
 	}
@@ -278,9 +283,17 @@
 		}
 
 		// Otherwise go to the first project that is not open
-		const availableProject = $projects?.find((project) => !project.is_open);
+		const availableProject = $projects?.find(
+			(project) => !project.is_open && project.id !== projectId
+		);
+
 		if (availableProject) {
 			goto(`/${availableProject.id}/board`);
+			showInfo(
+				`You've been redirected to the project '${availableProject.title}'`,
+				`Close the other window to open your other project in this window`
+			);
+			return;
 		}
 		// If no available projects, show a special page
 		noViewableProjects = true;
