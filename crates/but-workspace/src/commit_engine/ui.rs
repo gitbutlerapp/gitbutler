@@ -29,7 +29,7 @@ impl From<super::CreateCommitOutcome> for CreateCommitOutcome {
         CreateCommitOutcome {
             paths_to_rejected_changes: rejected_specs
                 .into_iter()
-                .map(|(reason, spec)| (reason, spec.path_bytes.into()))
+                .map(|(reason, spec)| (reason, spec.path.into()))
                 .collect(),
             new_commit,
         }

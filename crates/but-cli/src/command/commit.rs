@@ -99,8 +99,8 @@ fn resolve_changes(
                 )?;
 
                 vec![DiffSpec {
-                    previous_path_bytes,
-                    path_bytes,
+                    previous_path: previous_path_bytes,
+                    path: path_bytes,
                     hunk_headers,
                 }]
             }
@@ -285,8 +285,8 @@ fn to_whole_file_diffspec(changes: Vec<TreeChange>) -> Vec<DiffSpec> {
     changes
         .into_iter()
         .map(|change| DiffSpec {
-            previous_path_bytes: change.previous_path().map(ToOwned::to_owned),
-            path_bytes: change.path,
+            previous_path: change.previous_path().map(ToOwned::to_owned),
+            path: change.path,
             hunk_headers: Vec::new(),
         })
         .collect()

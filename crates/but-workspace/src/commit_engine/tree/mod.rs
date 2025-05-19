@@ -113,7 +113,7 @@ pub fn create_tree(
                 if !unresolved_conflicts.is_empty() {
                     for change in changes.iter_mut().filter(|c| {
                         c.as_ref().ok().is_some_and(|change| {
-                            unresolved_conflicts.contains(&change.path_bytes.as_bstr())
+                            unresolved_conflicts.contains(&change.path.as_bstr())
                         })
                     }) {
                         into_err_spec(change, RejectionReason::CherryPickMergeConflict);
@@ -177,25 +177,21 @@ fn apply_worktree_changes<'repo>(
             Ok(change) => change,
             Err(_) => continue,
         };
-        let path = work_dir.join(gix::path::from_bstr(change_request.path_bytes.as_bstr()));
+        let path = work_dir.join(gix::path::from_bstr(change_request.path.as_bstr()));
         let md = match gix::index::fs::Metadata::from_path_no_follow(&path) {
             Ok(md) => md,
             Err(err) if gix::fs::io_err::is_not_found(err.kind(), err.raw_os_error()) => {
-                base_tree_editor.remove(change_request.path_bytes.as_bstr())?;
+                base_tree_editor.remove(change_request.path.as_bstr())?;
                 continue;
             }
             Err(err) => return Err(err.into()),
         };
         // NOTE: See copy below!
-        if let Some(previous_path) = change_request
-            .previous_path_bytes
-            .as_ref()
-            .map(|p| p.as_bstr())
-        {
+        if let Some(previous_path) = change_request.previous_path.as_ref().map(|p| p.as_bstr()) {
             base_tree_editor.remove(previous_path)?;
         }
         if change_request.hunk_headers.is_empty() {
-            let rela_path = change_request.path_bytes.as_bstr();
+            let rela_path = change_request.path.as_bstr();
             match pipeline.worktree_file_to_object(rela_path, &index)? {
                 Some((id, kind, _fs_metadata)) => {
                     base_tree_editor.upsert(rela_path, kind, id)?;
@@ -207,12 +203,9 @@ fn apply_worktree_changes<'repo>(
             }
         } else if let Some(worktree_changes) = &worktree_changes {
             let Some(worktree_change) = worktree_changes.iter().find(|c| {
-                c.path == change_request.path_bytes
+                c.path == change_request.path
                     && c.previous_path()
-                        == change_request
-                            .previous_path_bytes
-                            .as_ref()
-                            .map(|p| p.as_bstr())
+                        == change_request.previous_path.as_ref().map(|p| p.as_bstr())
             }) else {
                 into_err_spec(possible_change, RejectionReason::NoEffectiveChanges);
                 continue;
@@ -268,7 +261,7 @@ fn apply_worktree_changes<'repo>(
                 .previous_state_and_path()
                 .map(|(state, maybe_path)| (Some(state), maybe_path))
                 .unwrap_or_default();
-            let base_rela_path = previous_path.unwrap_or(change_request.path_bytes.as_bstr());
+            let base_rela_path = previous_path.unwrap_or(change_request.path.as_bstr());
             let current_entry_kind = if md.is_symlink() {
                 EntryKind::Link
             } else if md.is_file() {
@@ -313,7 +306,7 @@ fn apply_worktree_changes<'repo>(
             )?;
             let blob_with_selected_patches = repo.write_blob(base_with_patches.as_slice())?;
             base_tree_editor.upsert(
-                change_request.path_bytes.as_bstr(),
+                change_request.path.as_bstr(),
                 current_entry_kind,
                 blob_with_selected_patches,
             )?;

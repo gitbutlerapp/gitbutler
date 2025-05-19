@@ -1026,16 +1026,16 @@ mod util {
 
     pub fn file_to_spec(name: &str) -> DiffSpec {
         DiffSpec {
-            previous_path_bytes: None,
-            path_bytes: name.into(),
+            previous_path: None,
+            path: name.into(),
             hunk_headers: vec![],
         }
     }
 
     pub fn renamed_file_to_spec(previous: &str, name: &str) -> DiffSpec {
         DiffSpec {
-            previous_path_bytes: Some(previous.into()),
-            path_bytes: name.into(),
+            previous_path: Some(previous.into()),
+            path: name.into(),
             hunk_headers: vec![],
         }
     }
