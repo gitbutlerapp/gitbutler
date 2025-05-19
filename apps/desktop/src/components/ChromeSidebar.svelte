@@ -59,6 +59,7 @@
 				width={34}
 				class={['btn-square', isWorkspacePath() && 'btn-active']}
 				tooltip="Workspace"
+				{disabled}
 			>
 				<svg viewBox="0 0 16 13" fill="none" xmlns="http://www.w3.org/2000/svg">
 					<path
@@ -138,6 +139,7 @@
 				width={34}
 				class={['btn-square', isHistoryPath() && 'btn-active']}
 				tooltip="Operations history"
+				{disabled}
 			>
 				<svg
 					width="18"
@@ -216,7 +218,6 @@
 					contextMenuEl?.toggle();
 				}}
 				bind:el={contextTriggerButton}
-				{disabled}
 			>
 				<div class="user-button">
 					<div class="user-icon">
