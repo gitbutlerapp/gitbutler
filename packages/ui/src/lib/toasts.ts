@@ -18,7 +18,7 @@ export function loading(msg: string, options: ToastOptions = {}) {
 }
 
 export async function promise(
-	promise: Promise<void>,
+	promise: Promise<unknown>,
 	opts: { loading: string; success: string; error: string | ((error: Error) => string) } = {
 		loading: 'Loading...',
 		success: 'Success!',

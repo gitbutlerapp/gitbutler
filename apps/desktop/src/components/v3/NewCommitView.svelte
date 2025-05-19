@@ -1,18 +1,23 @@
 <script lang="ts">
 	import CommitMessageEditor from '$components/v3/CommitMessageEditor.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
+	import { projectRunCommitHooks } from '$lib/config/config';
+	import { HooksService } from '$lib/hooks/hooksService';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
-	import { lineIdsToHunkHeaders, type DiffHunk, type HunkHeader } from '$lib/hunks/hunk';
+	import {
+		lineIdsToHunkHeaders,
+		type DiffHunk,
+		type DiffSpec,
+		type HunkHeader
+	} from '$lib/hunks/hunk';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { ChangeSelectionService, type SelectedHunk } from '$lib/selection/changeSelection.svelte';
-	import {
-		StackService,
-		type CreateCommitRequestWorktreeChanges
-	} from '$lib/stacks/stackService.svelte';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { getContext, inject } from '@gitbutler/shared/context';
+	import toasts from '@gitbutler/ui/toasts';
 
 	type Props = {
 		projectId: string;
@@ -23,8 +28,55 @@
 	const stackService = getContext(StackService);
 	const [uiState, worktreeService, diffService] = inject(UiState, WorktreeService, DiffService);
 	const changeSelection = getContext(ChangeSelectionService);
+	const hooksService = getContext(HooksService);
 
 	const [createCommitInStack, commitCreation] = stackService.createCommit;
+
+	const runCommitHooks = $derived(projectRunCommitHooks(projectId));
+
+	async function runPreHook(changes: DiffSpec[]): Promise<boolean> {
+		if (!$runCommitHooks) return false;
+
+		let failed = false;
+		await toasts.promise(
+			(async () => {
+				const result = await hooksService.preCommitDiffspecs(projectId, changes);
+				if (result?.status === 'failure') {
+					failed = true;
+					throw new Error(result.error);
+				}
+			})(),
+			{
+				loading: 'Started pre-commit hooks',
+				success: 'Pre-commit hooks succeded',
+				error: (error: Error) => `Post-commit hooks failed: ${error.message}`
+			}
+		);
+
+		return failed;
+	}
+
+	async function runPostHook(): Promise<boolean> {
+		if (!$runCommitHooks) return false;
+
+		let failed = false;
+		await toasts.promise(
+			(async () => {
+				const result = await hooksService.postCommit(projectId);
+				if (result?.status === 'failure') {
+					failed = true;
+					throw new Error(result.error);
+				}
+			})(),
+			{
+				loading: 'Started pre-commit hooks',
+				success: 'Pre-commit hooks succeded',
+				error: (error: Error) => `Post-commit hooks failed: ${error.message}`
+			}
+		);
+
+		return failed;
+	}
 
 	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
 	const selection = $derived(stackState?.selection.current);
@@ -91,7 +143,7 @@
 			throw new Error('No branch selected!');
 		}
 
-		const worktreeChanges: CreateCommitRequestWorktreeChanges[] = [];
+		const worktreeChanges: DiffSpec[] = [];
 
 		for (const item of selectedChanges.current) {
 			if (item.type === 'full') {
@@ -130,6 +182,9 @@
 			}
 		}
 
+		const preHookFailed = await runPreHook(worktreeChanges);
+		if (preHookFailed) return;
+
 		const response = await createCommitInStack({
 			projectId,
 			stackId: finalStackId,
@@ -138,6 +193,9 @@
 			stackBranchName: finalBranchName,
 			worktreeChanges
 		});
+
+		const postHookFailed = await runPostHook();
+		if (postHookFailed) return;
 
 		const newId = response.newCommit;
 

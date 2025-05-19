@@ -1,4 +1,5 @@
 import type { Tauri } from '$lib/backend/tauri';
+import type { DiffSpec } from '$lib/hunks/hunk';
 
 export type HookStatus =
 	| {
@@ -35,6 +36,13 @@ export class HooksService {
 		return await this.tauri.invoke<HookStatus>('pre_commit_hook', {
 			projectId,
 			ownership
+		});
+	}
+
+	async preCommitDiffspecs(projectId: string, changes: DiffSpec[]) {
+		return await this.tauri.invoke<HookStatus>('pre_commit_hook_diffspecs', {
+			projectId,
+			changes
 		});
 	}
 
