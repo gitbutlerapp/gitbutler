@@ -120,6 +120,7 @@ async fn main() -> Result<()> {
                     new_start: *new_start,
                     new_lines: *new_lines,
                 }),
+                hunk_locks: vec![],
             };
             command::assignment::assign_hunk(&args.current_dir, assignment)
         }

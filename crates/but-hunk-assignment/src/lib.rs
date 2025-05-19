@@ -15,10 +15,11 @@ use std::cmp::Ordering;
 use anyhow::Result;
 use bstr::{BString, ByteSlice};
 use but_core::UnifiedDiff;
-use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
+use but_hunk_dependency::ui::{HunkLock, hunk_dependencies_for_workspace_changes_by_worktree_dir};
 use but_workspace::{HunkHeader, StackId};
 use gitbutler_command_context::CommandContext;
 use gitbutler_stack::VirtualBranchesHandle;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -33,6 +34,9 @@ pub struct HunkAssignment {
     pub path_bytes: BString,
     /// The stack to which the hunk is assigned. If None, the hunk is not assigned to any stack.
     pub stack_id: Option<StackId>,
+    /// The dependencies(locks) that this hunk has. This determines where the hunk can be assigned.
+    /// This field is ignored when HunkAssignment is passed by the UI to create a new assignment.
+    pub hunk_locks: Vec<HunkLock>,
 }
 
 impl PartialEq for HunkAssignment {
@@ -166,10 +170,10 @@ fn reconcile_assignments(
     multi_deps_resolution: MultiDepsResolution,
 ) -> Result<Vec<HunkAssignment>> {
     let mut new_assignments = vec![];
-    for mut worktree_entry in current_assignments {
+    for mut current_assignment in current_assignments {
         let intersecting = previous_assignments
             .iter()
-            .filter(|current_entry| current_entry.intersects(worktree_entry.clone()))
+            .filter(|current_entry| current_entry.intersects(current_assignment.clone()))
             .collect::<Vec<_>>();
 
         // If the worktree hunk intersects with exactly one previous assignment, then it inherits the stack_id assignment from it, but only if the stack is still applied.
@@ -183,26 +187,35 @@ fn reconcile_assignments(
                 // One intersection - assign the stack id if the stack is still in the applied list
                 if let Some(stack_id) = intersecting[0].stack_id {
                     if applied_stacks.contains(&stack_id) {
-                        worktree_entry.stack_id = intersecting[0].stack_id;
+                        current_assignment.stack_id = intersecting[0].stack_id;
+                        current_assignment.hunk_locks = intersecting[0].hunk_locks.clone();
                     }
                 }
             }
             Ordering::Greater => {
                 match multi_deps_resolution {
                     MultiDepsResolution::SetNone => {
-                        worktree_entry.stack_id = None;
+                        current_assignment.stack_id = None;
                     }
                     MultiDepsResolution::SetMostLines => {
                         // More than one intersection - pick the one with the most lines
-                        worktree_entry.stack_id = intersecting
+                        current_assignment.stack_id = intersecting
                             .iter()
                             .max_by_key(|x| x.hunk_header.as_ref().map(|h| h.new_lines))
                             .and_then(|x| x.stack_id);
                     }
                 }
+
+                // Inherit all locks from the intersecting assignments
+                let all_locks = intersecting
+                    .iter()
+                    .flat_map(|i| i.hunk_locks.clone())
+                    .unique()
+                    .collect::<Vec<_>>();
+                current_assignment.hunk_locks = all_locks;
             }
         }
-        new_assignments.push(worktree_entry);
+        new_assignments.push(current_assignment);
     }
     Ok(new_assignments)
 }
@@ -219,8 +232,13 @@ fn hunk_dependency_assignments(ctx: &CommandContext) -> Result<Vec<HunkAssignmen
     .diffs;
     let mut assignments = vec![];
     for (path, hunk, locks) in deps {
-        // If there are more than one locks, this means that the hunk depends on more than one stack and should have assignment None
-        let stack_id = if locks.len() == 1 {
+        // If there are locks towards more than one stack, this means double locking and the assignment None - the user can resolve this by partial committing.
+        let locked_to_stack_ids_count = locks
+            .iter()
+            .map(|lock| lock.stack_id)
+            .collect::<std::collections::HashSet<_>>()
+            .len();
+        let stack_id = if locked_to_stack_ids_count == 1 {
             Some(locks[0].stack_id)
         } else {
             None
@@ -230,6 +248,7 @@ fn hunk_dependency_assignments(ctx: &CommandContext) -> Result<Vec<HunkAssignmen
             path: path.clone(),
             path_bytes: path.into(),
             stack_id,
+            hunk_locks: locks,
         };
         assignments.push(assignment);
     }
@@ -244,12 +263,14 @@ fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> 
             path: path_str.into(),
             path_bytes: path,
             stack_id: None,
+            hunk_locks: vec![],
         }],
         but_core::UnifiedDiff::TooLarge { .. } => vec![HunkAssignment {
             hunk_header: None,
             path: path_str.into(),
             path_bytes: path,
             stack_id: None,
+            hunk_locks: vec![],
         }],
         but_core::UnifiedDiff::Patch {
             hunks,
@@ -262,6 +283,7 @@ fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> 
                     path: path_str.into(),
                     path_bytes: path,
                     stack_id: None,
+                    hunk_locks: vec![],
                 }]
             } else {
                 hunks
@@ -271,6 +293,7 @@ fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> 
                         path: path_str.clone().into(),
                         path_bytes: path.clone(),
                         stack_id: None,
+                        hunk_locks: vec![],
                     })
                     .collect()
             }
@@ -317,6 +340,7 @@ mod tests {
             path: path.to_string(),
             path_bytes: BString::from(path),
             stack_id: stack_id.map(id),
+            hunk_locks: vec![],
         }
     }
     fn id(num: usize) -> StackId {
