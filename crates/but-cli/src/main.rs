@@ -120,7 +120,7 @@ async fn main() -> Result<()> {
                     new_lines: *new_lines,
                 }),
             };
-            command::assignment::assign_hunk(&args.current_dir, assignment)
+            command::assignment::assign_hunk(&args.current_dir, args.json, assignment)
         }
         args::Subcommands::StackBranches {
             id,

@@ -6,7 +6,7 @@ use but_core::{
     ui::{TreeChange, TreeChanges, WorktreeChanges},
     Commit,
 };
-use but_hunk_assignment::{HunkAssignment, HunkAssignmentRequest};
+use but_hunk_assignment::{AssignmentRejection, HunkAssignment, HunkAssignmentRequest};
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::{ObjectIdExt, OidExt};
@@ -187,9 +187,9 @@ pub fn assign_hunk(
     settings: tauri::State<'_, but_settings::AppSettingsWithDiskSync>,
     project_id: ProjectId,
     assignments: Vec<HunkAssignmentRequest>,
-) -> anyhow::Result<(), Error> {
+) -> anyhow::Result<Vec<AssignmentRejection>, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    but_hunk_assignment::assign(&ctx, assignments)?;
-    Ok(())
+    let rejections = but_hunk_assignment::assign(&ctx, assignments)?;
+    Ok(rejections)
 }
