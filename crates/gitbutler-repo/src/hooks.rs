@@ -84,6 +84,34 @@ pub fn pre_commit(
     )
 }
 
+pub fn pre_commit_with_tree(ctx: &CommandContext, tree_id: git2::Oid) -> Result<HookResult> {
+    let repo = ctx.repo();
+    let original_tree = repo.index()?.write_tree()?;
+
+    // Scope guard that resets the index at the end, even under panic.
+    let _guard = scopeguard::guard((), |_| {
+        match staging::reset_index(repo, original_tree) {
+            Ok(()) => (),
+            Err(err) => tracing::error!("Failed to reset index: {}", err),
+        };
+    });
+
+    let mut index = repo.index()?;
+    index.read_tree(&repo.find_tree(tree_id)?)?;
+    index.write()?;
+
+    Ok(
+        match git2_hooks::hooks_pre_commit(ctx.repo(), Some(&["../.husky"]))? {
+            H::Ok { hook: _ } => HookResult::Success,
+            H::NoHookFound => HookResult::NotConfigured,
+            H::RunNotSuccessful { stdout, stderr, .. } => {
+                let error = join_output(stdout, stderr);
+                HookResult::Failure(ErrorData { error })
+            }
+        },
+    )
+}
+
 pub fn post_commit(ctx: &CommandContext) -> Result<HookResult> {
     match git2_hooks::hooks_post_commit(ctx.repo(), Some(&["../.husky"]))? {
         H::Ok { hook: _ } => Ok(HookResult::Success),

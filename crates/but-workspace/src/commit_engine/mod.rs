@@ -23,6 +23,7 @@ mod refs;
 mod hunks;
 use crate::WorkspaceCommit;
 pub use hunks::apply_hunks;
+pub use tree::apply_worktree_changes;
 
 /// Types for use in the frontend with serialization support.
 pub mod ui;

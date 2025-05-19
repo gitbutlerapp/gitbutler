@@ -153,7 +153,7 @@ type PossibleChange = Result<DiffSpec, (RejectionReason, DiffSpec)>;
 /// Since we read the latest stats, we will also update these accordingly.
 /// It is treated as if it lived on disk and may contain initial values, as a way to
 /// avoid destroying indexed information like stats which would slow down the next status.
-fn apply_worktree_changes<'repo>(
+pub fn apply_worktree_changes<'repo>(
     actual_base_tree: gix::ObjectId,
     repo: &'repo gix::Repository,
     changes: &mut [PossibleChange],

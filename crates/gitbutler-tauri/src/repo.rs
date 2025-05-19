@@ -1,9 +1,11 @@
 pub mod commands {
     use crate::error::{Error, UnmarkedError};
-    use anyhow::Result;
+    use anyhow::{Context as _, Result};
     use but_settings::AppSettingsWithDiskSync;
+    use but_workspace::DiffSpec;
     use gitbutler_branch_actions::{hooks, RemoteBranchFile};
     use gitbutler_command_context::CommandContext;
+    use gitbutler_oxidize::ObjectIdExt;
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
     use gitbutler_repo::hooks::{HookResult, MessageHookResult};
@@ -110,6 +112,40 @@ pub mod commands {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         Ok(hooks::pre_commit(&ctx, &ownership)?)
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(projects, settings))]
+    pub fn pre_commit_hook_diffspecs(
+        projects: State<'_, projects::Controller>,
+        settings: State<'_, AppSettingsWithDiskSync>,
+        project_id: ProjectId,
+        changes: Vec<DiffSpec>,
+    ) -> Result<HookResult, Error> {
+        let project = projects.get(project_id)?;
+        let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+
+        let repository = ctx.gix_repo()?;
+        let head = repository
+            .head_tree_id_or_empty()
+            .context("Failed to get head tree")?;
+
+        let context_lines = settings.get()?.context_lines;
+
+        let mut changes = changes.into_iter().map(Ok).collect::<Vec<_>>();
+
+        let (new_tree, ..) = but_workspace::commit_engine::apply_worktree_changes(
+            head.detach(),
+            &repository,
+            &mut changes,
+            context_lines,
+        )?;
+
+        let Some(new_tree) = new_tree else {
+            return Err(anyhow::anyhow!("Failed to create commit tree").into());
+        };
+
+        Ok(hooks::pre_commit_with_tree(&ctx, new_tree.to_git2())?)
     }
 
     #[tauri::command(async)]
