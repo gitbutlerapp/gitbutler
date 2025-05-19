@@ -6,6 +6,7 @@
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
+	import Link from '@gitbutler/ui/link/Link.svelte';
 
 	const settingsService = getContext(SettingsService);
 	const settingsStore = settingsService.appSettings;
@@ -26,7 +27,22 @@
 			V3 Design
 		{/snippet}
 		{#snippet caption()}
-			Enable the new V3 User Interface.
+			<p>Enable the new V3 User Interface.</p>
+			<p>
+				Share your feedback on <Link href="https://discord.gg/MmFkmaJ42D">Discord</Link>, or create
+				a <Link href="https://github.com/gitbutlerapp/gitbutler/issues/new?template=BLANK_ISSUE"
+					>GitHub issue</Link
+				>.
+			</p>
+
+			<p class="text-clr2">Known issues:</p>
+			<ul class="text-clr2">
+				<li>- A restart may be needed for the change to fully take effect</li>
+				<li>
+					- It is currently not possible to assign uncommitted changes to a lane
+					<Link href="https://github.com/gitbutlerapp/gitbutler/issues/8637">GitHub Issue</Link>
+				</li>
+			</ul>
 		{/snippet}
 
 		{#snippet actions()}
