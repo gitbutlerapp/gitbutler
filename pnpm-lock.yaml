@@ -405,7 +405,7 @@ importers:
     devDependencies:
       '@csstools/postcss-global-data':
         specifier: ^3.0.0
-        version: 3.0.0(postcss@8.4.49)
+        version: 3.0.0(postcss@8.5.3)
       '@gitbutler/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -444,7 +444,7 @@ importers:
         version: 6.1.0
       autoprefixer:
         specifier: ^10.4.19
-        version: 10.4.20(postcss@8.4.49)
+        version: 10.4.20(postcss@8.5.3)
       diff-match-patch:
         specifier: ^1.0.5
         version: 1.0.5
@@ -452,20 +452,20 @@ importers:
         specifier: ^0.12.7
         version: 0.12.7
       postcss:
-        specifier: ^8.4.38
-        version: 8.4.49
+        specifier: ^8.5.3
+        version: 8.5.3
       postcss-custom-media:
         specifier: ^11.0.5
-        version: 11.0.5(postcss@8.4.49)
+        version: 11.0.5(postcss@8.5.3)
       postcss-load-config:
         specifier: ^5.1.0
-        version: 5.1.0(postcss@8.4.49)(tsx@4.19.3)
+        version: 5.1.0(postcss@8.5.3)(tsx@4.19.3)
       postcss-nesting:
         specifier: ^12.1.5
-        version: 12.1.5(postcss@8.4.49)
+        version: 12.1.5(postcss@8.5.3)
       postcss-pxtorem:
         specifier: ^6.1.0
-        version: 6.1.0(postcss@8.4.49)
+        version: 6.1.0(postcss@8.5.3)
       svelte:
         specifier: catalog:svelte
         version: 5.28.2
@@ -9172,9 +9172,9 @@ snapshots:
       '@csstools/postcss-rebase-url': 2.0.4(postcss@8.4.49)
       postcss: 8.4.49
 
-  '@csstools/postcss-global-data@3.0.0(postcss@8.4.49)':
+  '@csstools/postcss-global-data@3.0.0(postcss@8.5.3)':
     dependencies:
-      postcss: 8.4.49
+      postcss: 8.5.3
 
   '@csstools/postcss-rebase-url@1.0.11(postcss@8.4.39)':
     dependencies:
@@ -11329,7 +11329,7 @@ snapshots:
       svelte: 5.28.2
     optionalDependencies:
       vite: 6.2.2(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
-      vitest: 3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.8.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
+      vitest: 3.0.5(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/ui@3.0.5)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.8.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
 
   '@testing-library/user-event@14.5.2(@testing-library/dom@10.4.0)':
     dependencies:
@@ -12362,6 +12362,16 @@ snapshots:
       normalize-range: 0.1.2
       picocolors: 1.1.1
       postcss: 8.4.49
+      postcss-value-parser: 4.2.0
+
+  autoprefixer@10.4.20(postcss@8.5.3):
+    dependencies:
+      browserslist: 4.24.2
+      caniuse-lite: 1.0.30001684
+      fraction.js: 4.3.7
+      normalize-range: 0.1.2
+      picocolors: 1.1.1
+      postcss: 8.5.3
       postcss-value-parser: 4.2.0
 
   available-typed-arrays@1.0.7:
@@ -15907,13 +15917,13 @@ snapshots:
       - jiti
       - tsx
 
-  postcss-custom-media@11.0.5(postcss@8.4.49):
+  postcss-custom-media@11.0.5(postcss@8.5.3):
     dependencies:
       '@csstools/cascade-layer-name-parser': 2.0.4(@csstools/css-parser-algorithms@3.0.4(@csstools/css-tokenizer@3.0.3))(@csstools/css-tokenizer@3.0.3)
       '@csstools/css-parser-algorithms': 3.0.4(@csstools/css-tokenizer@3.0.3)
       '@csstools/css-tokenizer': 3.0.3
       '@csstools/media-query-list-parser': 4.0.2(@csstools/css-parser-algorithms@3.0.4(@csstools/css-tokenizer@3.0.3))(@csstools/css-tokenizer@3.0.3)
-      postcss: 8.4.49
+      postcss: 8.5.3
 
   postcss-less@6.0.0(postcss@8.5.3):
     dependencies:
@@ -15943,6 +15953,14 @@ snapshots:
       postcss: 8.4.49
       tsx: 4.19.3
 
+  postcss-load-config@5.1.0(postcss@8.5.3)(tsx@4.19.3):
+    dependencies:
+      lilconfig: 3.1.1
+      yaml: 2.4.2
+    optionalDependencies:
+      postcss: 8.5.3
+      tsx: 4.19.3
+
   postcss-minify@1.1.0(postcss@8.4.39):
     dependencies:
       postcss: 8.4.39
@@ -15962,11 +15980,11 @@ snapshots:
       postcss: 8.4.39
       postcss-selector-parser: 6.1.0
 
-  postcss-nesting@12.1.5(postcss@8.4.49):
+  postcss-nesting@12.1.5(postcss@8.5.3):
     dependencies:
       '@csstools/selector-resolve-nested': 1.1.0(postcss-selector-parser@6.1.0)
       '@csstools/selector-specificity': 3.1.1(postcss-selector-parser@6.1.0)
-      postcss: 8.4.49
+      postcss: 8.5.3
       postcss-selector-parser: 6.1.0
 
   postcss-nesting@13.0.1(postcss@8.4.49):
@@ -15983,6 +16001,10 @@ snapshots:
   postcss-pxtorem@6.1.0(postcss@8.4.49):
     dependencies:
       postcss: 8.4.49
+
+  postcss-pxtorem@6.1.0(postcss@8.5.3):
+    dependencies:
+      postcss: 8.5.3
 
   postcss-reporter@7.1.0(postcss@8.4.39):
     dependencies:

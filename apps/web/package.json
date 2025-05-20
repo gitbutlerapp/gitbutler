@@ -30,7 +30,7 @@
 		"autoprefixer": "^10.4.19",
 		"diff-match-patch": "^1.0.5",
 		"path": "^0.12.7",
-		"postcss": "^8.4.38",
+		"postcss": "^8.5.3",
 		"postcss-custom-media": "^11.0.5",
 		"postcss-load-config": "^5.1.0",
 		"postcss-nesting": "^12.1.5",
