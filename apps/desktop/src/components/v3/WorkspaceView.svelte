@@ -156,7 +156,7 @@
 		<Resizer
 			viewport={stacksViewEl}
 			direction="left"
-			minWidth={16}
+			minWidth={19}
 			borderRadius="ml"
 			onWidth={(value) => uiState.global.stacksViewWidth.set(value)}
 		/>
@@ -188,7 +188,6 @@
 		display: flex;
 		position: relative;
 		flex-grow: 0;
-		flex-shrink: 0;
 		flex-direction: column;
 		justify-content: flex-start;
 		height: 100%;
