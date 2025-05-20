@@ -3,8 +3,8 @@
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import FileList from '$components/v3/FileList.svelte';
 	import FileListMode from '$components/v3/FileListMode.svelte';
+	import WorktreeChangesFileList from '$components/v3/WorktreeChangesFileList.svelte';
 	import WorktreeTipsFooter from '$components/v3/WorktreeTipsFooter.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { createCommitStore } from '$lib/commits/contexts';
@@ -136,7 +136,7 @@
 			}}
 		>
 			<ReduxResult {stackId} {projectId} result={changesResult.current}>
-				{#snippet children(changes, { stackId, projectId })}
+				{#snippet children(changes, { projectId })}
 					<div
 						data-testid={TestId.UncommittedChanges_Header}
 						use:stickyHeader
@@ -164,13 +164,10 @@
 
 					{#if changes.length > 0}
 						<div data-testid={TestId.UncommittedChanges_FileList} class="uncommitted-changes">
-							<FileList
-								selectionId={{ type: 'worktree' }}
-								showCheckboxes={isCommitting}
+							<WorktreeChangesFileList
 								draggableFiles
 								{projectId}
-								{stackId}
-								{changes}
+								showCheckboxes={isCommitting}
 								{listMode}
 								{active}
 							/>
