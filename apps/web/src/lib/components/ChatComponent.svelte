@@ -162,16 +162,16 @@
 
 <style lang="postcss">
 	.chat-wrapper {
-		pointer-events: all;
-		height: 100%;
-		width: 100%;
 		display: flex;
 		flex-direction: column;
+		width: 100%;
+		height: 100%;
 		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
 
 		border-radius: var(--radius-ml, 10px);
-		border: 1px solid var(--clr-border-2);
 		background: var(--clr-bg-1);
+		pointer-events: all;
 
 		&.tablet-mode {
 			border-radius: 0;
@@ -179,22 +179,22 @@
 	}
 
 	.chat-card {
-		width: 100%;
-		height: 100%;
-		overflow: hidden;
 		display: flex;
 		flex-direction: column;
 		justify-content: space-between;
+		width: 100%;
+		height: 100%;
+		overflow: hidden;
 	}
 
 	.chat-header {
 		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: 10px 10px 10px 16px;
-		border-bottom: 1px solid var(--clr-border-2);
 		position: sticky;
 		top: 0;
+		align-items: center;
+		justify-content: space-between;
+		padding: 10px 10px 10px 16px;
+		border-bottom: 1px solid var(--clr-border-2);
 	}
 
 	.chat-header-actions {
@@ -203,8 +203,8 @@
 	}
 
 	.chat-messages {
-		flex: 1;
 		display: flex;
+		flex: 1;
 		flex-direction: column-reverse;
 		overflow-y: scroll;
 		scrollbar-width: none;
@@ -215,19 +215,19 @@
 	}
 
 	.blank-state {
-		height: 100%;
-		width: 100%;
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		width: 100%;
+		height: 100%;
 		padding: 50px 24px;
 	}
 
 	.blank-state-content {
 		display: flex;
 		flex-direction: column;
-		gap: 28px;
 		max-width: 420px;
+		gap: 28px;
 	}
 
 	.blank-message {
@@ -239,7 +239,7 @@
 	}
 
 	.blank-message-text {
-		color: var(--clr-text-2);
 		margin-top: 10px;
+		color: var(--clr-text-2);
 	}
 </style>

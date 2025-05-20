@@ -25,8 +25,8 @@
 		display: flex;
 		align-items: center;
 		width: fit-content;
-		gap: 10px;
 		padding: 4px 6px;
+		gap: 10px;
 		border-radius: var(--radius-m);
 
 		color: var(--clr-scale-ntrl-40);
@@ -35,8 +35,8 @@
 		transition: background-color var(--transition-fast);
 
 		&:hover {
-			color: var(--clr-text-1);
 			background-color: oklch(from var(--clr-scale-ntrl-0) l c h / 0.05);
+			color: var(--clr-text-1);
 		}
 	}
 </style>

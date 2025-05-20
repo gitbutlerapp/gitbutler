@@ -165,8 +165,8 @@
 	.merge-commit-error {
 		display: flex;
 		flex-direction: column;
-		gap: 14px;
 		padding: 14px;
+		gap: 14px;
 
 		& .info {
 			color: var(--clr-text-2);
@@ -174,9 +174,9 @@
 
 		& .command {
 			display: flex;
-			gap: 8px;
 			align-items: center;
 			width: 100%;
+			gap: 8px;
 		}
 	}
 </style>

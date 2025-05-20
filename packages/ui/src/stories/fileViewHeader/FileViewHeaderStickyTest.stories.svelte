@@ -33,16 +33,16 @@
 
 <style>
 	.scroll-wrap {
-		position: relative;
 		display: flex;
+		position: relative;
 		flex-direction: column;
 		width: 100%;
 		max-width: 400px;
 		height: 300px;
-		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-border-2);
 		overflow-x: hidden;
 		overflow-y: auto;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
 	}
 
 	.card-example {
@@ -54,8 +54,8 @@
 	.content-example {
 		display: flex;
 		flex-direction: column;
-		justify-content: center;
 		align-items: center;
+		justify-content: center;
 		min-height: 200px;
 		background-color: rgba(0, 0, 0, 0.05);
 	}

@@ -262,8 +262,8 @@
 		height: 100%;
 	}
 	.branches-wrapper {
-		flex: 1;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 		padding: 12px;
 	}

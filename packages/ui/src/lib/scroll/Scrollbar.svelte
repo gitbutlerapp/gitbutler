@@ -317,20 +317,20 @@
 		/* scrollbar variables */
 		--scrollbar-shift-vertical: 0;
 		--scrollbar-shift-horizontal: 0;
+		right: var(--scrollbar-shift-horizontal);
 		/* variable props */
 		bottom: var(--scrollbar-shift-vertical);
-		right: var(--scrollbar-shift-horizontal);
 		/* background-color: rgba(0, 0, 255, 0.1); */
 	}
 
 	.scrollbar-thumb {
+		/* other props */
+		position: absolute;
+		top: var(--thumb-top);
+		left: var(--thumb-left);
 		/* variable props */
 		width: var(--thumb-width);
 		height: var(--thumb-height);
-		top: var(--thumb-top);
-		left: var(--thumb-left);
-		/* other props */
-		position: absolute;
 		background-color: var(--clr-scale-ntrl-0);
 		opacity: 0;
 		will-change: transform, opacity;

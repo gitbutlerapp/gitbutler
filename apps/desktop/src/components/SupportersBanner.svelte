@@ -34,8 +34,8 @@
 
 <style>
 	.banner {
-		position: relative;
 		display: flex;
+		position: relative;
 		flex-direction: column;
 		padding: 16px;
 		border-radius: var(--radius-m);
@@ -64,14 +64,14 @@
 
 	.banner-img-wrap {
 		position: relative;
-		height: 40px;
 		width: 100%;
+		height: 40px;
 		/* background-color: #00000043; */
 
 		& :global(svg) {
-			bottom: 0;
-			right: 0;
 			position: absolute;
+			right: 0;
+			bottom: 0;
 			width: 106px;
 			height: auto;
 		}
@@ -80,29 +80,29 @@
 	/* ARROW */
 
 	.banner-arrow-wrap {
-		position: relative;
 		display: inline-flex;
-		transform: translateY(2px);
+		position: relative;
 		width: 8px;
 		height: 12px;
+		transform: translateY(2px);
 		transition: width 0.2s;
 	}
 
 	.banner-arrow-tail {
 		position: absolute;
 		top: 50%;
-		transform: translateY(-50%);
 		left: 0;
 		width: 0%;
 		height: 1px;
+		transform: translateY(-50%);
 		background-color: currentColor;
 		transition: width 0.2s;
 	}
 
 	.banner-arrow-head {
 		position: absolute;
-		right: 0;
 		top: 0;
+		right: 0;
 		height: 100%;
 
 		& path {

@@ -79,36 +79,36 @@
 	.breadcrumbs__path {
 		display: flex;
 		align-items: center;
-		gap: 4px;
 		overflow: hidden;
+		gap: 4px;
 	}
 
 	.breadcrumbs__path-label > span {
-		opacity: 0.2;
 		margin: 0 2px;
+		opacity: 0.2;
 	}
 
 	.breadcrumbs__back-btn {
-		position: relative;
 		display: flex;
+		position: relative;
 		align-items: center;
-		gap: 4px;
-		padding: 0 8px;
 		height: var(--size-button);
+		padding: 0 8px;
+		gap: 4px;
 
 		&:before {
-			content: '';
 			width: 1px;
 			height: 18px;
-			background-color: var(--clr-border-2);
-			transition: opacity 0.2s;
 			margin: 0 8px 0 0;
+			background-color: var(--clr-border-2);
+			content: '';
+			transition: opacity 0.2s;
 		}
 
 		&:hover {
 			.breadcrumbs__back-btn__icon {
-				opacity: 1;
 				transform: translateX(-2px);
+				opacity: 1;
 			}
 		}
 	}

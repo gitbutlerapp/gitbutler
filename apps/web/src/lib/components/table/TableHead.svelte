@@ -54,9 +54,9 @@
 	}
 
 	.dynthead-title {
-		text-align: left;
-		color: var(--clr-text-2);
 		padding: var(--cell-padding);
+		color: var(--clr-text-2);
+		text-align: left;
 	}
 
 	/* MODIFIERS */

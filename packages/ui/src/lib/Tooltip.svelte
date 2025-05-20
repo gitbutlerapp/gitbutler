@@ -113,27 +113,27 @@
 
 <style lang="postcss">
 	.tooltip-wrap {
-		position: relative;
 		display: contents;
+		position: relative;
 	}
 
 	.tooltip-container {
-		white-space: pre-line;
 		display: flex;
-		justify-content: center;
-		flex-direction: column;
-		position: fixed;
-		pointer-events: none;
-		background-color: var(--clr-tooltip-bg);
-		border: 1px solid var(--clr-tooltip-border);
-		border-radius: var(--radius-m);
-		color: var(--clr-core-ntrl-80);
 		display: inline-block;
+		z-index: var(--z-blocker);
+		position: fixed;
+		flex-direction: column;
+		justify-content: center;
 		width: fit-content;
 		padding: 4px 8px;
-		z-index: var(--z-blocker);
-		word-break: break-word;
-		text-align: left;
+		border: 1px solid var(--clr-tooltip-border);
+		border-radius: var(--radius-m);
+		background-color: var(--clr-tooltip-bg);
 		box-shadow: var(--fx-shadow-s);
+		color: var(--clr-core-ntrl-80);
+		text-align: left;
+		white-space: pre-line;
+		word-break: break-word;
+		pointer-events: none;
 	}
 </style>

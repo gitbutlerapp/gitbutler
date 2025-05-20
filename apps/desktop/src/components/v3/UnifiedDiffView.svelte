@@ -321,12 +321,12 @@
 <style lang="postcss">
 	.diff-section {
 		display: flex;
-		padding: 0 14px 14px 14px;
 		flex-direction: column;
-		gap: 14px;
 		align-self: stretch;
-		overflow-x: hidden;
 		max-width: 100%;
+		padding: 0 14px 14px 14px;
+		overflow-x: hidden;
+		gap: 14px;
 	}
 	.hunk-placehoder {
 		border: 1px solid var(--clr-border-3);

@@ -43,21 +43,21 @@
 
 <style lang="postcss">
 	.series-labels-row {
-		flex: 1;
 		display: flex;
+		flex: 1;
 		align-items: center;
-		gap: 4px;
 		width: fit-content;
 		max-width: 100%;
 		overflow: hidden;
+		gap: 4px;
 	}
 
 	.series-name {
 		display: flex;
 		align-items: center;
-		color: var(--clr-text-2);
 		margin-left: 3px;
 		overflow: hidden;
+		color: var(--clr-text-2);
 
 		&.contrast {
 			color: var(--clr-text-1);

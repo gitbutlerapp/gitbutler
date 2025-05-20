@@ -180,24 +180,24 @@
 
 <style lang="postcss">
 	.update-banner {
-		cursor: default;
-		user-select: none;
 		display: flex;
+		z-index: var(--z-blocker);
+
+		position: fixed;
+		bottom: 12px;
+		left: 12px;
 		flex-direction: column;
 		align-items: center;
-		gap: 16px;
 
 		width: 100%;
 		max-width: 220px;
-
-		position: fixed;
-		z-index: var(--z-blocker);
-		bottom: 12px;
-		left: 12px;
 		padding: 24px;
-		background-color: var(--clr-bg-1);
+		gap: 16px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-1);
+		cursor: default;
+		user-select: none;
 	}
 
 	.label {
@@ -205,25 +205,24 @@
 	}
 
 	.buttons {
-		width: 100%;
 		display: flex;
 		flex-direction: column;
+		width: 100%;
 		gap: 8px;
 	}
 
 	/* STATUS SECTION */
 
 	.status-section {
-		position: relative;
-		overflow: hidden;
-
 		display: flex;
+		position: relative;
 		flex-direction: column;
 		align-items: center;
 
 		width: 100%;
-		background-color: var(--clr-theme-pop-element);
+		overflow: hidden;
 		border-radius: var(--radius-m);
+		background-color: var(--clr-theme-pop-element);
 
 		transition:
 			transform 0.15s ease-in-out,
@@ -232,14 +231,11 @@
 
 	.sliding-gradient {
 		z-index: 2;
-		pointer-events: none;
 		position: absolute;
 		top: 0;
 		left: 0;
 		width: 200%;
 		height: 100%;
-
-		mix-blend-mode: overlay;
 
 		background: linear-gradient(
 			80deg,
@@ -248,6 +244,9 @@
 			rgba(255, 255, 255, 0) 75%
 		);
 		animation: slide 3s ease-in-out infinite;
+
+		mix-blend-mode: overlay;
+		pointer-events: none;
 
 		transition: width 0.2s ease-in-out;
 	}
@@ -263,8 +262,8 @@
 
 	.cta-btn {
 		display: flex;
-		width: 100%;
 		position: relative;
+		width: 100%;
 	}
 
 	.busy {
@@ -298,25 +297,25 @@
 
 	.circle-img {
 		position: absolute;
-		overflow: hidden;
 		bottom: -8px;
 		left: 17px;
 		width: 26px;
 		height: 26px;
+		overflow: hidden;
 		border-radius: 50%;
 		background-color: var(--clr-scale-pop-40);
 		transition: transform 0.2s ease-in-out;
 
 		&:after {
-			content: '';
 			position: absolute;
 			top: 0;
 			left: 0;
 			width: 100%;
 			height: 100%;
+			border-radius: 50%;
 			background-color: transparent;
 			box-shadow: inset 0 0 4px 4px var(--clr-scale-pop-40);
-			border-radius: 50%;
+			content: '';
 		}
 	}
 
@@ -334,8 +333,8 @@
 
 	.floating-button {
 		position: absolute;
-		right: 10px;
 		top: 10px;
+		right: 10px;
 	}
 
 	@keyframes moving-arrow {

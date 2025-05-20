@@ -149,8 +149,8 @@
 
 <style>
 	h1 {
-		font-size: 2rem;
 		margin-bottom: 1rem;
+		font-size: 2rem;
 	}
 
 	h2 {
@@ -166,9 +166,9 @@
 	.current-release {
 		display: flex;
 		flex-direction: row;
-		gap: 32px;
 		margin-bottom: 60px;
 		padding-bottom: 60px;
+		gap: 32px;
 		border-bottom: 1px solid #ccc;
 		border-style: dashed;
 	}
@@ -187,9 +187,9 @@
 
 	.version {
 		display: flex;
-		margin-top: 18px;
 		flex-direction: row;
 		align-items: baseline;
+		margin-top: 18px;
 		gap: 12px;
 	}
 
@@ -198,8 +198,8 @@
 	}
 
 	.current__version-date {
-		font-size: 0.8rem;
 		color: #777;
+		font-size: 0.8rem;
 	}
 
 	.current-release__group {
@@ -215,8 +215,8 @@
 	.os {
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
 		margin-bottom: 1.5rem;
+		gap: 8px;
 	}
 
 	.os__name {
@@ -230,8 +230,8 @@
 	.os__downloads {
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
 		padding: 8px;
+		gap: 8px;
 	}
 
 	.os__downloads a {
@@ -249,9 +249,9 @@
 
 	.release__notes {
 		margin-block: 0.5rem;
-		background-color: #ddd;
 		padding: 1rem;
 		border-radius: 0.5rem;
+		background-color: #ddd;
 		color: #444;
 		font-size: 0.9rem;
 	}
@@ -283,11 +283,11 @@
 	}
 
 	.nightly-warning {
-		font-size: 0.8rem;
-		color: #777;
-		background-color: #fdd;
-		border-radius: 8px;
-		padding: 1rem;
 		margin-bottom: 20px;
+		padding: 1rem;
+		border-radius: 8px;
+		background-color: #fdd;
+		color: #777;
+		font-size: 0.8rem;
 	}
 </style>

@@ -68,44 +68,44 @@
 <style lang="postcss">
 	.checkbox {
 		appearance: none;
-		cursor: pointer;
+		position: relative;
+		flex-shrink: 0;
 		width: 16px;
 		height: 16px;
-		flex-shrink: 0;
 		border-radius: var(--radius-s);
 		background-color: var(--clr-bg-1);
 		box-shadow: inset 0 0 0 1px var(--clr-border-2);
+		cursor: pointer;
 		transition:
 			background-color var(--transition-fast),
 			border-color var(--transition-fast),
 			opacity var(--transition-fast),
 			transform var(--transition-fast);
-		position: relative;
 
 		/* disabled */
 		&:not(:disabled)&:not(:checked):hover {
 			&::after {
-				opacity: 0.8;
 				transform: scale(0.8);
+				opacity: 0.8;
 			}
 		}
 
 		&:disabled {
-			opacity: 0.4;
-			cursor: not-allowed;
 			background-color: var(--clr-scale-ntrl-70);
+			cursor: not-allowed;
+			opacity: 0.4;
 		}
 
 		/* indeterminate */
 
 		&:indeterminate::before {
-			content: '';
 			position: absolute;
-			width: 50%;
-			height: 2px;
 			top: 50%;
 			left: 50%;
+			width: 50%;
+			height: 2px;
 			transform: translate(-50%, -50%);
+			content: '';
 		}
 		&.ghost:indeterminate,
 		&.default:indeterminate {
@@ -136,9 +136,9 @@
 		/* checked */
 		&:checked {
 			&::after {
-				opacity: 1;
-				filter: brightness(2);
 				transform: scale(1);
+				filter: brightness(2);
+				opacity: 1;
 			}
 		}
 
@@ -166,15 +166,15 @@
 		}
 
 		&::after {
-			content: '';
 			position: absolute;
 			width: 100%;
 			height: 100%;
 			border-radius: var(--radius-s);
+			content: '';
+			opacity: 0;
 			transition:
 				opacity var(--transition-fast),
 				transform var(--transition-fast);
-			opacity: 0;
 		}
 
 		/* tick element */

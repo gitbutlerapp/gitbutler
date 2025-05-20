@@ -158,9 +158,9 @@
 		.series-header {
 			display: flex;
 			align-items: center;
-			gap: 12px;
-			padding: 12px 12px 12px 14px;
 			min-height: 56px;
+			padding: 12px 12px 12px 14px;
+			gap: 12px;
 
 			&.conflicted {
 				.status-badge {
@@ -173,8 +173,8 @@
 				background-color: var(--clr-bg-1-muted);
 
 				.status-badge {
-					color: var(--clr-theme-purp-on-element);
 					background-color: var(--clr-theme-purp-element);
+					color: var(--clr-theme-purp-on-element);
 				}
 			}
 		}
@@ -185,23 +185,23 @@
 
 		.series-header-row {
 			display: flex;
+			flex: 1;
 			align-items: center;
 			justify-content: space-between;
-			flex: 1;
 		}
 
 		/* NAME LABEL */
 		.name-label-wrap {
-			flex: 1;
 			display: flex;
+			flex: 1;
 			align-items: center;
-			gap: 10px;
 			overflow: hidden;
+			gap: 10px;
 		}
 
 		.branch-status-info {
-			flex: 1;
 			display: flex;
+			flex: 1;
 			align-items: center;
 			justify-content: space-between;
 		}
@@ -223,8 +223,8 @@
 	}
 
 	.status-badge {
-		padding: 3px 6px;
 		height: 100%;
+		padding: 3px 6px;
 		border-radius: 100px;
 		color: var(--clr-core-ntrl-100);
 	}
@@ -233,9 +233,9 @@
 	.integrated-label-wrap {
 		display: flex;
 		align-items: center;
-		gap: 8px;
-		padding-left: 6px;
 		margin-right: 2px;
+		padding-left: 6px;
+		gap: 8px;
 		color: var(--clr-text-2);
 	}
 
@@ -246,15 +246,15 @@
 	.series-branch {
 		display: flex;
 		align-items: center;
-		gap: 10px;
 		padding: 14px;
+		gap: 10px;
 
 		.branch-info {
 			display: flex;
-			align-items: center;
-			gap: 8px;
-			overflow: hidden;
 			flex: 1;
+			align-items: center;
+			overflow: hidden;
+			gap: 8px;
 		}
 		&.conflicted {
 			.status-badge {
@@ -267,8 +267,8 @@
 			background-color: var(--clr-bg-1-muted);
 
 			.status-badge {
-				color: var(--clr-theme-purp-on-element);
 				background-color: var(--clr-theme-purp-element);
+				color: var(--clr-theme-purp-on-element);
 			}
 		}
 
@@ -282,24 +282,24 @@
 			--line-horiz-offset: 0;
 
 			&::before {
-				content: '';
 				position: absolute;
 				top: -16px;
 				right: var(--line-horiz-offset);
 				width: var(--line-bounding-box);
 				height: calc(100% + 8px);
-				border-left: 1px solid var(--line-color);
 				border-bottom: 1px solid var(--line-color);
+				border-left: 1px solid var(--line-color);
+				content: '';
 			}
 
 			&::after {
-				content: '';
 				position: absolute;
 				top: 12px;
 				right: var(--line-horiz-offset);
 				width: var(--line-bounding-box);
 				height: 20px;
 				border-left: 1px solid var(--line-color);
+				content: '';
 			}
 
 			&.last {

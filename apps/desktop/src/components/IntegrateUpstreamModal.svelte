@@ -326,9 +326,9 @@
 		border-bottom: 1px solid var(--clr-border-2);
 
 		& .scroll-wrap {
-			border-radius: var(--radius-m);
-			border: 1px solid var(--clr-border-2);
 			overflow: hidden;
+			border: 1px solid var(--clr-border-2);
+			border-radius: var(--radius-m);
 		}
 
 		&:nth-last-child(2) {
@@ -359,8 +359,8 @@
 
 	.target-divergence-about {
 		display: flex;
-		width: 100%;
 		flex-direction: column;
+		width: 100%;
 		gap: 8px;
 	}
 

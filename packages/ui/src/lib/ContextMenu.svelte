@@ -284,31 +284,31 @@
 		margin-left: 2px;
 	}
 	.context-menu {
-		pointer-events: none;
+		display: flex;
 		z-index: var(--z-blocker);
 		position: fixed;
-		display: flex;
 		flex-direction: column;
 		min-width: 128px;
-		background: var(--clr-bg-2);
+		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
-		box-shadow: var(--fx-shadow-s);
 		outline: none;
-		overflow: hidden;
+		background: var(--clr-bg-2);
+		box-shadow: var(--fx-shadow-s);
 		animation: fadeIn 0.08s ease-out forwards;
+		pointer-events: none;
 	}
 	@keyframes fadeIn {
 		0% {
-			opacity: 0;
 			transform: translateY(var(--animation-transform-y-shift)) scale(0.9);
+			opacity: 0;
 		}
 		50% {
 			opacity: 1;
 		}
 		100% {
-			opacity: 1;
 			transform: scale(1);
+			opacity: 1;
 			pointer-events: all;
 		}
 	}

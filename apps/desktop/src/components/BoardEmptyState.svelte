@@ -116,43 +116,42 @@
 <style lang="postcss">
 	.empty-board__wrapper {
 		display: flex;
-		justify-content: center;
 		align-items: center;
-		height: 100%;
+		justify-content: center;
 		width: 100%;
+		height: 100%;
 		padding: 0 40px;
 	}
 
 	.empty-board {
 		display: flex;
-		background-color: var(--clr-bg-1);
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-l);
 		width: 100%;
-		gap: 48px;
 		max-width: 736px;
 		min-height: 320px;
 		padding: 32px;
+		gap: 48px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-l);
+		background-color: var(--clr-bg-1);
 	}
 
 	.empty-board__content {
-		flex: 1;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
-		overflow: hidden;
 		padding-left: 4px;
+		overflow: hidden;
 	}
 
 	.empty-board__image-frame {
-		flex-shrink: 0;
 		position: relative;
+		flex-shrink: 0;
 		width: 180px;
 		height: auto;
 		border-radius: var(--radius-l);
 		background-color: var(--clr-illustration-bg);
 
 		&::before {
-			content: '';
 			display: block;
 			position: absolute;
 			bottom: 12%;
@@ -162,9 +161,10 @@
 			transform: translateX(-50%) scale(1.15);
 			border-radius: 100%;
 			background-color: var(--clr-illustration-outline);
-			opacity: 0.09;
+			content: '';
 			animation: shadow-scale 5.5s infinite ease-in-out;
 			animation-delay: 3s;
+			opacity: 0.09;
 		}
 	}
 
@@ -172,8 +172,8 @@
 		position: absolute;
 		top: 50%;
 		left: 50%;
-		transform: translate(-50%, -70%) translateZ(0);
 		width: 212px;
+		transform: translate(-50%, -70%) translateZ(0);
 		animation: hovering 5.5s infinite ease-in-out;
 		animation-delay: 3s;
 	}
@@ -190,16 +190,16 @@
 	}
 	@keyframes shadow-scale {
 		0% {
-			opacity: 0.09;
 			transform: translateX(-50%) scale(1.15);
+			opacity: 0.09;
 		}
 		50% {
-			opacity: 0.12;
 			transform: translateX(-50%) scale(1);
+			opacity: 0.12;
 		}
 		100% {
-			opacity: 0.09;
 			transform: translateX(-50%) scale(1.15);
+			opacity: 0.09;
 		}
 	}
 
@@ -227,8 +227,8 @@
 	.empty-board__suggestions__block {
 		display: flex;
 		flex-direction: column;
-		gap: 16px;
 		min-width: 160px;
+		gap: 16px;
 	}
 
 	.empty-board__suggestions__block h3 {
@@ -238,31 +238,31 @@
 	.empty-board__suggestions__links {
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
 		margin-left: -4px;
+		gap: 2px;
 	}
 
 	.empty-board__suggestions__link {
-		cursor: pointer;
 		display: flex;
 		align-items: center;
 		width: fit-content;
 		max-width: 100%;
 		padding: 6px;
-		border-radius: var(--radius-s);
-		gap: 10px;
-		transition: background-color var(--transition-fast);
 		overflow: hidden;
+		gap: 10px;
+		border-radius: var(--radius-s);
+		cursor: pointer;
+		transition: background-color var(--transition-fast);
 
 		&:hover {
 			background-color: var(--clr-bg-1-muted);
 		}
 
 		& span {
-			color: var(--clr-scale-ntrl-40);
-			white-space: nowrap;
-			text-overflow: ellipsis;
 			overflow: hidden;
+			color: var(--clr-scale-ntrl-40);
+			text-overflow: ellipsis;
+			white-space: nowrap;
 		}
 	}
 

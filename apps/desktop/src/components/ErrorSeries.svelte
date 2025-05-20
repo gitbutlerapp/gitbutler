@@ -44,7 +44,9 @@
 
 <style>
 	.error-series {
+		display: flex;
 		position: relative;
+		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
 		background: var(--clr-bg-1);
@@ -53,15 +55,12 @@
 		&:last-child {
 			margin-bottom: 12px;
 		}
-		display: flex;
-		overflow: hidden;
 	}
 
 	.error-series__body {
-		color: var(--clr-text-2);
-
 		width: 100%;
 		padding: 20px 28px 26px 46px;
+		color: var(--clr-text-2);
 		opacity: 0.6;
 
 		&:hover .error-series__message--copy {
@@ -70,18 +69,18 @@
 		}
 
 		.error-series__message {
+			margin: 8px 0;
 			font-family: var(--fontfamily-mono);
 			white-space: pre-wrap;
-			margin: 8px 0;
 		}
 
 		.error-series__message--copy {
-			opacity: 0;
-			height: 16px;
 			display: inline-flex;
 			align-items: center;
 			justify-content: center;
+			height: 16px;
 			vertical-align: sub;
+			opacity: 0;
 			transition: opacity 150ms ease-in-out;
 		}
 	}

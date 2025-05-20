@@ -187,23 +187,23 @@
 	/* sidebar, vertical nav */
 	.navigation {
 		display: flex;
-		width: 64px;
 		flex-direction: column;
 		align-items: center;
-		gap: 16px;
-		padding: 24px;
+		align-items: center;
 
 		justify-content: space-between;
-		align-items: center;
-		background-color: var(--color-background);
+		width: 64px;
 
 		height: 100vh;
+		padding: 24px;
+		gap: 16px;
+		background-color: var(--color-background);
 	}
 
 	.main-nav {
 		display: flex;
-		justify-content: center;
 		align-items: center;
+		justify-content: center;
 		margin-bottom: 36px;
 	}
 
@@ -215,28 +215,28 @@
 
 	.profile-link {
 		display: flex;
-		padding: 4px 4px 7px 4px;
 		flex-direction: column;
-		justify-content: center;
 		align-items: center;
-		gap: 4px;
 		align-self: stretch;
-		border-radius: 10px;
+		justify-content: center;
+		padding: 4px 4px 7px 4px;
+		gap: 4px;
 		border: 1px solid var(--border-2, #d4d0ce);
+		border-radius: 10px;
 	}
 	.nav-button {
-		border-radius: 10px;
-		border: 1px solid var(--border-2, #d4d0ce);
-		opacity: 0.8;
 		margin-bottom: 8px;
+		border: 1px solid var(--border-2, #d4d0ce);
+		border-radius: 10px;
+		opacity: 0.8;
 	}
 	.nav-link {
 		display: flex;
+		align-items: center;
+		align-self: stretch;
+		justify-content: center;
 		height: var(--button, 28px);
 		padding: var(--4, 4px) var(--6, 6px);
-		justify-content: center;
-		align-items: center;
 		gap: var(--4, 4px);
-		align-self: stretch;
 	}
 </style>

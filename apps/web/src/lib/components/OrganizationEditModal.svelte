@@ -142,8 +142,8 @@
 	}
 
 	.slug-note {
-		font-size: 13px;
-		color: var(--text-muted, #666);
 		margin-top: -12px;
+		color: var(--text-muted, #666);
+		font-size: 13px;
 	}
 </style>

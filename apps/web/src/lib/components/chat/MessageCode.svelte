@@ -27,33 +27,33 @@
 		display: flex;
 		min-width: 0;
 		max-width: 640px;
+		padding: 8px;
 		overflow-x: auto;
+		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
-		border: 1px solid var(--clr-border-2);
-		padding: 8px;
 
 		@media (--tablet-viewport) {
 			max-width: 80vw;
 		}
 	}
 	.code {
+		box-sizing: border-box;
 		width: 100%;
 		max-width: 100%;
-		font-family: var(--fontfamily-mono);
-		box-sizing: border-box;
-		border: none;
 		padding: 0;
+		border: none;
+		font-family: var(--fontfamily-mono);
 	}
 
 	.line {
 		width: 100%;
-		white-space: pre;
-		text-wrap: nowrap;
-		tab-size: 4;
-		cursor: text;
-		line-height: normal;
-		padding: 0;
 		margin: 0;
+		padding: 0;
+		line-height: normal;
+		text-wrap: nowrap;
+		white-space: pre;
+		cursor: text;
+		tab-size: 4;
 	}
 </style>

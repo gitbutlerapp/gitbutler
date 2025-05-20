@@ -174,24 +174,24 @@
 	}
 	.base__left {
 		display: flex;
+		position: relative;
 		flex-grow: 0;
 		flex-shrink: 0;
 		overflow-x: hidden;
-		position: relative;
 	}
 	.base__right {
 		display: flex;
-		overflow-x: auto;
 		align-items: flex-start;
-		padding: 12px 12px 12px 6px;
 		width: 800px;
+		padding: 12px 12px 12px 6px;
+		overflow-x: auto;
 	}
 
 	.branch-preview {
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
 		margin: 12px 6px 12px 12px;
+		gap: 8px;
 	}
 
 	.card__content {

@@ -24,17 +24,17 @@
 		--dropzone-overlap: calc(var(--dropzone-height) / 2);
 		--dropzone-height: 24px;
 
+		display: flex;
+
+		z-index: var(--z-floating);
+
 		position: absolute;
 		top: var(--y-offset);
+		align-items: center;
+		width: 100%;
 
 		height: var(--dropzone-height);
 		margin-top: calc(var(--dropzone-overlap) * -1);
-		width: 100%;
-
-		display: flex;
-		align-items: center;
-
-		z-index: var(--z-floating);
 
 		/* It is very important that all children are pointer-events: none */
 		/* https://stackoverflow.com/questions/7110353/html5-dragleave-fired-when-hovering-a-child-element */
@@ -57,7 +57,7 @@
 		width: 100%;
 		height: 3px;
 		margin-top: 1px;
-		transition: opacity 0.1s;
 		background-color: transparent;
+		transition: opacity 0.1s;
 	}
 </style>

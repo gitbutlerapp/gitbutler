@@ -371,64 +371,64 @@
 <style lang="postcss">
 	.branches-view {
 		display: flex;
-		flex: 1;
-		gap: 8px;
-		align-items: stretch;
-		height: 100%;
-		width: 100%;
 		position: relative;
+		flex: 1;
+		align-items: stretch;
+		width: 100%;
+		height: 100%;
+		gap: 8px;
 	}
 	.branch-list-resizer-wrap {
-		position: relative;
 		display: flex;
-		flex-direction: column;
+		position: relative;
 		flex-shrink: 0;
+		flex-direction: column;
 		overflow: hidden;
 	}
 	.branch-list {
-		height: 100%;
 		display: flex;
+		position: relative;
+		flex-shrink: 0;
 		flex-direction: column;
 		justify-content: flex-start;
-		position: relative;
-		background-color: var(--clr-bg-1);
-		border-radius: var(--radius-ml);
-		border: 1px solid var(--clr-border-2);
-		flex-shrink: 0;
+		height: 100%;
 		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+		background-color: var(--clr-bg-1);
 	}
 	.main-view {
 		display: flex;
-		flex-direction: column;
-		flex-grow: 1;
-		border-radius: var(--radius-ml);
-		overflow-x: hidden;
 		position: relative;
-		gap: 8px;
+		flex-grow: 1;
+		flex-direction: column;
 		min-width: 320px;
+		overflow-x: hidden;
+		gap: 8px;
+		border-radius: var(--radius-ml);
 	}
 	.branch-details {
 		display: flex;
-		flex-direction: column;
 		position: relative;
 		flex: 1;
-		border: 1px solid var(--clr-border-2);
+		flex-direction: column;
 		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
 	}
 
 	.branches-sideview {
-		position: relative;
 		display: flex;
+		position: relative;
 		flex-direction: column;
 	}
 	.branches-actions {
 		display: flex;
-		gap: 6px;
 		padding: 12px;
-		background-color: var(--clr-bg-1);
-		border-radius: var(--radius-ml) var(--radius-ml) 0 0;
+		gap: 6px;
 		border: 1px solid var(--clr-border-2);
 		border-bottom: none;
+		border-radius: var(--radius-ml) var(--radius-ml) 0 0;
+		background-color: var(--clr-bg-1);
 	}
 
 	/* MODIFIERS */

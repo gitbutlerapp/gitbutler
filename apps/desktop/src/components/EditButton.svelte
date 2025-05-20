@@ -26,9 +26,9 @@
 
 <style lang="postcss">
 	.icon {
-		border-radius: var(--radius-s);
-		height: 20px;
-		width: 20px;
 		flex-shrink: 0;
+		width: 20px;
+		height: 20px;
+		border-radius: var(--radius-s);
 	}
 </style>

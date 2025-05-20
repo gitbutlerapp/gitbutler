@@ -346,11 +346,11 @@
 
 <style lang="postcss">
 	.commits {
-		position: relative;
 		display: flex;
+		position: relative;
 		flex-direction: column;
-		background-color: var(--clr-bg-2);
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
+		background-color: var(--clr-bg-2);
 	}
 
 	.commits-group {

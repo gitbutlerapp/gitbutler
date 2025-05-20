@@ -92,9 +92,9 @@
 	.file-header {
 		display: flex;
 		align-items: center;
-		gap: 12px;
-		padding: 12px 10px 12px 14px;
 		width: 100%;
+		padding: 12px 10px 12px 14px;
+		gap: 12px;
 		background-color: var(--clr-bg-1);
 
 		&.draggable {
@@ -116,8 +116,8 @@
 
 	.file-header__name {
 		display: flex;
-		align-items: center;
 		flex: 1;
+		align-items: center;
 		overflow: hidden;
 	}
 
@@ -126,10 +126,10 @@
 		align-items: center;
 		justify-content: center;
 		width: 10px;
-		margin-left: -8px;
 		margin-right: -10px;
-		opacity: 0;
+		margin-left: -8px;
 		color: var(--clr-text-3);
+		opacity: 0;
 		transition:
 			width var(--transition-fast),
 			opacity var(--transition-fast);

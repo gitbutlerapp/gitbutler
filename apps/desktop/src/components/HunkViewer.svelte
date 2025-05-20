@@ -127,14 +127,14 @@
 <style lang="postcss">
 	.scrollable {
 		display: flex;
-		flex-direction: column;
 		position: relative;
+		flex-direction: column;
 	}
 
 	.hunk {
 		width: 100%;
-		user-select: text;
 		overflow-x: auto;
 		will-change: transform;
+		user-select: text;
 	}
 </style>

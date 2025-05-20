@@ -91,13 +91,13 @@
 <style lang="scss">
 	.footer {
 		display: flex;
-		gap: 20px;
 		margin-bottom: 60px;
+		gap: 20px;
 
 		@media (max-width: 1300px) {
 			flex-direction: column;
-			gap: 20px;
 			margin-bottom: 0;
+			gap: 20px;
 		}
 
 		@media (max-width: 800px) {
@@ -109,8 +109,8 @@
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
-		font-size: 14px;
 		color: var(--clr-black);
+		font-size: 14px;
 	}
 
 	.meta-links__copyright {
@@ -138,11 +138,11 @@
 	}
 
 	.banner-content {
-		flex: 2.3;
 		display: flex;
-		padding: 30px;
+		flex: 2.3;
 		flex-direction: column;
 		justify-content: space-between;
+		padding: 30px;
 		gap: 40px;
 
 		@media (max-width: 900px) {
@@ -151,11 +151,11 @@
 	}
 
 	.banner-title {
-		font-family: 'PP Editorial New', serif;
+		color: var(--clr-black);
 		font-weight: 400;
 		font-size: 68px;
-		color: var(--clr-black);
 		line-height: 100%;
+		font-family: 'PP Editorial New', serif;
 		text-wrap: balance;
 
 		@media (max-width: 600px) {
@@ -165,8 +165,8 @@
 
 	.banner-image-wrapper {
 		position: relative;
-		overflow: hidden;
 		flex: 2;
+		overflow: hidden;
 
 		@media (max-width: 900px) {
 			min-height: 410px;
@@ -188,14 +188,14 @@
 	}
 
 	.links-wrapper {
-		flex: 2;
 		display: flex;
+		flex: 2;
 		flex-direction: column;
 		justify-content: space-between;
-		gap: 40px;
 		padding: 30px;
-		background-color: var(--clr-white);
+		gap: 40px;
 		border-radius: 16px;
+		background-color: var(--clr-white);
 
 		@media (max-width: 800px) {
 			margin: 0 -20px;
@@ -205,8 +205,8 @@
 
 	.links {
 		display: flex;
-		gap: 60px;
 		justify-content: space-between;
+		gap: 60px;
 
 		@media (max-width: 900px) {
 			flex-direction: column;
@@ -218,52 +218,51 @@
 	.link-arrow {
 		position: absolute;
 		right: -20px;
-		opacity: 0;
 		transform: translate(-3px, 3px) scale(0.8);
+		opacity: 0;
 		transition:
 			opacity 0.1s ease-in-out,
 			transform 0.1s ease-in-out;
 	}
 
 	.link {
+		color: var(--clr-black);
 		font-size: 20px;
 		line-height: 120%;
-		color: var(--clr-black);
 
 		a {
+			display: inline-block;
 			position: relative;
 
-			display: inline-block;
-			cursor: pointer;
-
 			text-decoration: none;
+			cursor: pointer;
 
 			//span
 			span {
-				position: relative;
 				z-index: 1;
+				position: relative;
 				color: var(--clr-black);
-				text-wrap: nowrap;
 				text-shadow:
 					-1px -1px 0 var(--clr-white),
 					1px -1px 0 var(--clr-white),
 					-1px 1px 0 var(--clr-white),
 					1px 1px 0 var(--clr-white);
+				text-wrap: nowrap;
 			}
 
 			//underline
 			&:after {
-				content: '';
 				display: block;
-				position: absolute;
 				z-index: 0;
+				position: absolute;
+				right: 0;
+				bottom: 0;
 				width: 100%;
 				height: 1px;
-				bottom: 0;
-				right: 0;
 				transform: scaleY(0.5);
-				background-color: var(--clr-black);
 				transform-origin: right;
+				background-color: var(--clr-black);
+				content: '';
 				transition: transform 0.2s ease-in-out;
 			}
 		}
@@ -276,26 +275,26 @@
 			}
 
 			.link-arrow {
-				opacity: 1;
 				transform: translate(0, 0);
+				opacity: 1;
 			}
 		}
 	}
 
 	.links-list {
-		flex: 1;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 26px;
 
 		@media (max-width: 900px) {
 			&:first-child::after {
-				content: '';
 				display: block;
 				width: 100%;
 				height: 1px;
 				background-color: var(--clr-gray);
+				content: '';
 			}
 		}
 	}

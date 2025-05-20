@@ -200,9 +200,9 @@
 	}
 
 	.logo {
+		display: flex;
 		z-index: 11;
 		position: relative;
-		display: flex;
 		align-items: center;
 		gap: 20px;
 
@@ -301,24 +301,24 @@
 	// BURGER
 
 	.burger {
+		display: flex;
 		z-index: 11;
 		position: relative;
-		display: flex;
 		align-items: center;
 		justify-content: center;
 		width: 40px;
 		height: 40px;
-		background: transparent;
 		border: none;
+		background: transparent;
 		cursor: pointer;
 
 		&::before,
 		&::after {
-			content: '';
 			position: absolute;
 			width: 80%;
 			height: 2px;
 			background-color: var(--clr-black);
+			content: '';
 			transition: transform 0.1s ease-in-out;
 		}
 
@@ -343,15 +343,15 @@
 	}
 
 	.mobile-menu {
+		display: flex;
 		z-index: 10;
 		position: absolute;
 		top: 0;
 		left: 0;
-		display: flex;
 		flex-direction: column;
-		gap: 2px;
 		width: 100%;
 		padding: 120px 40px 40px;
+		gap: 2px;
 		background-color: var(--clr-white);
 
 		@media (max-width: 800px) {

@@ -66,9 +66,9 @@
 
 	.group {
 		width: 100%;
-		border-bottom: 1px solid var(--clr-border-2);
 
 		padding-bottom: 12px;
+		border-bottom: 1px solid var(--clr-border-2);
 
 		&:last-child {
 			border-bottom: none;

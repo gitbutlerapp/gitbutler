@@ -27,28 +27,28 @@
 <style class="postcss">
 	/* TARGET CARD */
 	.branches-list-card {
-		position: relative;
-		cursor: pointer;
 		display: flex;
+		position: relative;
 		flex-direction: column;
+		padding: 14px;
 		gap: 10px;
 		background-color: var(--clr-bg-1);
-		padding: 14px;
+		cursor: pointer;
 
 		&:not(:last-child) {
 			border-bottom: 1px solid var(--clr-border-2);
 		}
 
 		&::after {
-			content: '';
 			position: absolute;
-			border-radius: 0 var(--radius-m) var(--radius-m) 0;
 			top: 12px;
 			left: 0;
 			width: 5px;
 			height: calc(100% - 24px);
-			background-color: var(--clr-selected-in-focus-element);
 			transform: translateX(-100%);
+			border-radius: 0 var(--radius-m) var(--radius-m) 0;
+			background-color: var(--clr-selected-in-focus-element);
+			content: '';
 			transition: transform var(--transition-medium);
 		}
 
@@ -59,9 +59,9 @@
 
 	.branches-list-card__hr {
 		height: 1px;
+		border: none;
 		background-color: var(--clr-text-3);
 		opacity: 0.3;
-		border: none;
 	}
 
 	.branches-list-card__content {
@@ -72,8 +72,8 @@
 
 	.branches-list-card__details {
 		display: flex;
-		gap: 6px;
 		align-items: center;
+		gap: 6px;
 		color: var(--clr-text-2);
 	}
 

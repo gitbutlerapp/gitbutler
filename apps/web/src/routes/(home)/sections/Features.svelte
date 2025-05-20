@@ -32,8 +32,8 @@
 	.features {
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
-		gap: 20px;
 		padding-bottom: 60px;
+		gap: 20px;
 
 		@media (max-width: 1100px) {
 			grid-template-columns: repeat(2, 1fr);

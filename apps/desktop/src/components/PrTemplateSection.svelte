@@ -97,10 +97,10 @@
 	.pr-template__toggle {
 		display: flex;
 		align-items: center;
-		gap: 6px;
-		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-border-2);
 		padding: 8px 10px;
+		gap: 6px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
 		transition: background-color var(--transition-fast);
 
 		&:hover {

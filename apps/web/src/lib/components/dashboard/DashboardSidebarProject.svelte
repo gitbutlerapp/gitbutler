@@ -65,11 +65,11 @@
 <style lang="postcss">
 	.project-btn {
 		display: flex;
-		width: 100%;
 		align-items: center;
-		cursor: pointer;
+		width: 100%;
 
 		gap: 9px;
+		cursor: pointer;
 
 		&.current {
 			.pip {
@@ -89,27 +89,26 @@
 	.pip {
 		width: 10px;
 		height: 18px;
-		border-radius: 5px;
 		margin-left: -5px;
+		border-radius: 5px;
 	}
 
 	.link-container {
-		flex-grow: 1;
-
 		display: flex;
+		flex-grow: 1;
 		align-items: center;
 		justify-content: space-between;
+		margin-right: 14px;
+
+		padding: 10px 14px;
 		gap: 10px;
 
 		border-radius: var(--radius-m);
-
-		padding: 10px 14px;
-		margin-right: 14px;
 	}
 
 	.icon {
 		display: none;
-		margin-right: -6px;
 		height: 16px;
+		margin-right: -6px;
 	}
 </style>

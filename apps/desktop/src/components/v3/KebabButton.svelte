@@ -95,9 +95,9 @@
 <style lang="postcss">
 	.branch-menu-btn {
 		display: flex;
+		display: none;
 		padding: 0 4px;
 		color: var(--clr-text-1);
-		display: none;
 
 		&.visible {
 			display: flex;

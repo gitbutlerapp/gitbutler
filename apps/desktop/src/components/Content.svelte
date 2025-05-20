@@ -179,11 +179,11 @@
 
 <style lang="postcss">
 	.header {
-		cursor: pointer;
 		display: flex;
 		align-items: center;
-		gap: 16px;
 		padding: 16px;
+		gap: 16px;
+		cursor: pointer;
 
 		&.editing {
 			cursor: default;
@@ -206,22 +206,22 @@
 	.content {
 		display: flex;
 		flex-direction: column;
-		gap: 16px;
 
 		padding: 16px 0;
+		gap: 16px;
 		border-top: 1px solid var(--clr-border-3);
 	}
 
 	.sections-divider {
-		user-select: none;
 		border-top: 1px solid var(--clr-border-3);
+		user-select: none;
 	}
 
 	.actions {
 		display: flex;
 		justify-content: flex-end;
-		gap: 8px;
 		padding: 0 16px 16px;
+		gap: 8px;
 	}
 
 	.default-mode {

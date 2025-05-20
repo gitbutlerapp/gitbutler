@@ -31,14 +31,14 @@
 		display: flex;
 		flex-direction: column;
 		justify-content: center;
-		gap: 16px;
 		padding-bottom: 16px;
+		gap: 16px;
 	}
 
 	.pr-header__row {
-		width: 100%;
 		display: flex;
 		align-items: center;
+		width: 100%;
 	}
 
 	.pr-title {

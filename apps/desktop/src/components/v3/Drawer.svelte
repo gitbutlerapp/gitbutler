@@ -166,51 +166,51 @@
 
 <style>
 	.drawer {
-		position: relative;
-		display: flex;
-		flex-direction: column;
-		flex-shrink: 0;
-		flex-grow: 1;
-		width: 100%;
 		box-sizing: border-box;
+		container-name: drawer;
 
 		container-type: inline-size;
-		container-name: drawer;
+		display: flex;
+		position: relative;
+		flex-grow: 1;
+		flex-shrink: 0;
+		flex-direction: column;
+		width: 100%;
 	}
 
 	.drawer-wrap {
-		flex: 1;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
-		border-radius: var(--radius-ml);
-		border: 1px solid var(--clr-border-2);
-		background: var(--clr-bg-1);
 		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+		background: var(--clr-bg-1);
 	}
 
 	.drawer-header {
 		display: flex;
 		align-items: center;
-		gap: 6px;
 		justify-content: space-between;
 		height: 42px;
 		padding: 0 8px 0 14px;
-		background-color: var(--clr-bg-2);
+		gap: 6px;
 		border-bottom: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-2);
 	}
 
 	.drawer-header__title {
-		height: 100%;
-		flex-grow: 1;
 		display: flex;
-		gap: 8px;
+		flex-grow: 1;
 		align-items: center;
+		height: 100%;
 		overflow: hidden;
+		gap: 8px;
 	}
 
 	.drawer-header__actions {
-		flex-shrink: 0;
 		display: flex;
+		flex-shrink: 0;
 		align-items: center;
 		gap: 12px;
 	}
@@ -227,9 +227,9 @@
 	}
 
 	.drawer__content-wrap {
-		flex: 1;
-		position: relative;
 		display: flex;
+		position: relative;
+		flex: 1;
 		flex-direction: column;
 		overflow: hidden;
 
@@ -274,30 +274,30 @@
 	}
 
 	.drawer__content {
-		position: relative;
-		display: flex;
-		flex-direction: column;
-		padding: 14px;
-		min-height: 100%;
-		container-type: inline-size;
 		container-name: drawer-content;
+		container-type: inline-size;
+		display: flex;
+		position: relative;
+		flex-direction: column;
+		min-height: 100%;
+		padding: 14px;
 	}
 
 	.drawer__content-scroll {
 		display: flex;
-		flex-direction: column;
 		position: relative;
-		height: 100%;
+		flex-direction: column;
 		width: var(--custom-width);
+		height: 100%;
 		min-height: 0;
 	}
 
 	.drawer__files-split-view {
-		flex: 1;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
-		overflow: hidden;
 		min-width: 200px;
+		overflow: hidden;
 	}
 
 	/* MODIFIERS */

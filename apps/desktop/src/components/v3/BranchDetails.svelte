@@ -56,16 +56,16 @@
 	.branch-view {
 		display: flex;
 		flex-direction: column;
-		gap: 16px;
-		height: 100%;
 		width: 100%;
+		height: 100%;
+		gap: 16px;
 	}
 
 	.branch-view__header-container {
 		display: flex;
-		align-items: center;
-		flex-wrap: wrap;
 		row-gap: 8px;
+		flex-wrap: wrap;
+		align-items: center;
 		width: 100%;
 		color: var(--clr-text-2);
 	}
@@ -87,7 +87,7 @@
 	}
 
 	.branch-view__details-divider {
-		color: var(--clr-text-3);
 		margin: 0 6px;
+		color: var(--clr-text-3);
 	}
 </style>

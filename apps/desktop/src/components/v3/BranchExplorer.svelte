@@ -221,11 +221,11 @@
 
 <style lang="postcss">
 	.branches {
-		flex: 1;
-		position: relative;
-		overflow: hidden;
 		display: flex;
+		position: relative;
+		flex: 1;
 		flex-direction: column;
+		overflow: hidden;
 		background-color: var(--clr-bg-2);
 	}
 
@@ -236,8 +236,8 @@
 	}
 
 	.branches__header-info {
-		position: relative;
 		display: flex;
+		position: relative;
 		align-items: center;
 		justify-content: flex-end;
 		width: 100%;
@@ -247,14 +247,13 @@
 	}
 
 	.branches-title {
+		display: flex;
 		position: absolute;
 		top: 50%;
-		transform: translateY(-50%);
 		left: 0;
-
-		display: flex;
 		align-items: center;
 		gap: 4px;
+		transform: translateY(-50%);
 
 		transition:
 			opacity 0.1s ease,
@@ -264,8 +263,8 @@
 	/* SEARCH */
 	.search-container {
 		position: relative;
-		height: var(--size-cta);
 		width: 60%;
+		height: var(--size-cta);
 		overflow: hidden;
 		/* border: 1px solid var(--clr-border-2); */
 
@@ -273,23 +272,23 @@
 	}
 
 	.search-button {
+		display: flex;
 		z-index: var(--z-ground);
 		position: absolute;
 		top: 50%;
 		right: 0;
-		transform: translateY(-50%);
-		display: flex;
 		align-items: center;
 		justify-content: center;
+		transform: translateY(-50%);
 	}
 
 	.search-input {
+		display: none;
 		width: 100%;
 		height: 100%;
-		display: none;
 		padding-left: 8px;
-		border-radius: var(--radius-s) var(--radius-m) var(--radius-m) var(--radius-s);
 		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-s) var(--radius-m) var(--radius-m) var(--radius-s);
 		background-color: var(--clr-bg-1);
 		transition: opacity 0.1s;
 
@@ -320,15 +319,15 @@
 	}
 
 	.hide-branch-title {
-		opacity: 0;
 		transform: translateX(-5px) translateY(-50%);
+		opacity: 0;
 	}
 
 	/* BRANCHES LIST */
 	.branch-entries-list {
+		width: 100%;
 		margin-top: -1px;
 		overflow: hidden;
-		width: 100%;
 		border-top: 1px solid var(--clr-border-2);
 	}
 
@@ -337,18 +336,18 @@
 		flex-direction: column;
 
 		&:last-child {
-			border-bottom: none;
 			margin-bottom: 0;
+			border-bottom: none;
 		}
 	}
 
 	/* EMPTY STATE */
 	.branches__empty-state {
-		flex: 1;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
-		justify-content: center;
 		align-items: center;
+		justify-content: center;
 		gap: 10px;
 	}
 </style>

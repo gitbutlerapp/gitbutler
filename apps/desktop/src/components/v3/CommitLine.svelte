@@ -51,12 +51,12 @@
 
 <style lang="postcss">
 	.commit-lines {
-		flex: 0 0 auto;
 		display: flex;
+		flex: 0 0 auto;
 		flex-direction: column;
 		align-items: center;
-		gap: 3px;
 		width: var(--container-width);
+		gap: 3px;
 	}
 
 	.top,
@@ -67,16 +67,16 @@
 	}
 
 	.middle {
-		border-radius: 100%;
 		width: 10px;
 		height: 10px;
+		border-radius: 100%;
 		background-color: var(--commit-color);
 
 		&.rhombus {
 			width: 10px;
 			height: 10px;
-			border-radius: 2px;
 			transform: rotate(45deg) scale(0.86);
+			border-radius: 2px;
 		}
 	}
 
@@ -86,8 +86,8 @@
 	}
 
 	.local-shadow-commit-dot {
-		display: flex;
 		box-sizing: border-box;
+		display: flex;
 		margin-left: -8px;
 
 		.shadow-dot {

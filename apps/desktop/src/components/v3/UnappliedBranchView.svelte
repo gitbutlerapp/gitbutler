@@ -133,17 +133,17 @@
 	.branch__header {
 		display: flex;
 		align-items: center;
-		gap: 8px;
 		width: 100%;
 		overflow: hidden;
+		gap: 8px;
 	}
 
 	.metadata {
 		display: flex;
 		align-items: center;
-		gap: 8px;
 		width: 100%;
 		overflow: hidden;
+		gap: 8px;
 	}
 
 	/*  */

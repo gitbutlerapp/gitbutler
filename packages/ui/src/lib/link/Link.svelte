@@ -68,14 +68,14 @@
 
 <style lang="postcss">
 	.link {
-		cursor: pointer;
 		display: inline-flex;
 		align-items: center;
 		gap: 2px;
 		border-radius: var(--radius-m);
+		text-decoration: none;
+		cursor: pointer;
 		transition: background-color var(--transition-fast);
 		user-select: text;
-		text-decoration: none;
 
 		&:hover {
 			text-decoration: none;

@@ -362,8 +362,8 @@
 
 <style lang="postcss">
 	.chat-input {
-		flex-shrink: 0;
 		display: flex;
+		flex-shrink: 0;
 		flex-direction: column;
 		padding: 16px;
 		border-top: 1px solid var(--clr-border-2);
@@ -374,8 +374,8 @@
 	}
 
 	.chat-input__content-container {
-		flex-grow: 1;
 		display: flex;
+		flex-grow: 1;
 		flex-direction: column;
 		padding: 0;
 		overflow: hidden;
@@ -383,21 +383,21 @@
 	}
 
 	.chat-input__actions {
+		display: flex;
 		position: relative;
 		flex-grow: 1;
-		display: flex;
-		gap: 12px;
-		padding: 12px;
 		justify-content: space-between;
+		padding: 12px;
+		gap: 12px;
 
 		&:after {
-			content: '';
 			position: absolute;
 			top: 0;
 			left: 12px;
 			width: calc(100% - 24px);
 			height: 1px;
 			background-color: var(--clr-border-3);
+			content: '';
 		}
 	}
 
@@ -405,8 +405,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: flex-start;
-		gap: 6px;
 		overflow: hidden;
+		gap: 6px;
 	}
 
 	.chat-input__inner-toolbar__divider {
@@ -427,10 +427,10 @@
 
 	.chat-input-notlooged {
 		display: flex;
-		justify-content: center;
 		align-items: center;
-		gap: 16px;
+		justify-content: center;
 		padding: 16px;
+		gap: 16px;
 		border-top: 1px solid var(--clr-border-2);
 
 		p {

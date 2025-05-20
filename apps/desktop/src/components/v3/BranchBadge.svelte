@@ -24,12 +24,12 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		text-align: center;
-		border-radius: 20px;
-		color: #fff;
-		background-color: var(--b-bg-color);
-		padding: 0 5px;
 		height: var(--size-icon);
+		padding: 0 5px;
+		border-radius: 20px;
+		background-color: var(--b-bg-color);
+		color: #fff;
 		line-height: 1;
+		text-align: center;
 	}
 </style>

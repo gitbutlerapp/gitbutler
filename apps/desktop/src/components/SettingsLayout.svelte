@@ -25,26 +25,26 @@
 
 <style lang="postcss">
 	.content-wrapper {
-		user-select: none;
+		flex: 1;
 		width: 100%;
 		height: 100%;
-		flex: 1;
 		background-color: var(--clr-bg-2);
+		user-select: none;
 	}
 
 	.content {
-		padding: 48px 32px;
 		display: flex;
 		flex-direction: column;
-		gap: 16px;
-		max-width: 640px;
 		width: 100%;
+		max-width: 640px;
 		min-height: 100vh;
 		margin: auto;
+		padding: 48px 32px;
+		gap: 16px;
 	}
 
 	.title {
-		color: var(--clr-scale-ntrl-0);
 		align-self: flex-start;
+		color: var(--clr-scale-ntrl-0);
 	}
 </style>

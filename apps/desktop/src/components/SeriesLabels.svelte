@@ -86,50 +86,50 @@
 	.stack-series-row {
 		display: flex;
 		align-items: center;
-		gap: 4px;
 		width: 100%;
 		overflow: hidden;
+		gap: 4px;
 	}
 
 	.stack-icon {
 		display: flex;
+		flex-shrink: 0;
 		align-items: center;
 		justify-content: center;
-		flex-shrink: 0;
 		width: 20px;
 		height: 22px;
-		color: var(--clr-text-2);
-		background-color: var(--clr-theme-ntrl-soft);
 		border-radius: var(--radius-m);
+		background-color: var(--clr-theme-ntrl-soft);
+		color: var(--clr-text-2);
 	}
 
 	.series-name {
 		display: flex;
 		align-items: center;
-		color: var(--clr-text-2);
+		width: 100%;
+		max-width: fit-content;
 		height: 22px;
 		padding: 2px 6px;
-		background-color: var(--clr-theme-ntrl-soft);
-		border-radius: var(--radius-m);
-		width: 100%;
 		overflow: hidden;
-		max-width: fit-content;
+		border-radius: var(--radius-m);
+		background-color: var(--clr-theme-ntrl-soft);
+		color: var(--clr-text-2);
 	}
 
 	/* SERIES SELECTOR */
 	.selector-series {
-		position: relative;
 		display: flex;
+		position: relative;
 	}
 
 	.selector-series-select {
 		display: flex;
 		align-items: center;
-		gap: 2px;
-		padding: 2px 4px 2px 6px;
 		margin-left: -2px;
-		color: var(--clr-text-1);
+		padding: 2px 4px 2px 6px;
+		gap: 2px;
 		border-radius: var(--radius-m);
+		color: var(--clr-text-1);
 		text-wrap: nowrap;
 		transition: border-color var(--transition-fast);
 
@@ -152,18 +152,18 @@
 	}
 
 	.selector-series-item {
-		position: relative;
 		display: flex;
+		position: relative;
 		align-items: center;
-		gap: 10px;
 		width: 100%;
 		padding: 6px 2px 6px 6px;
+		gap: 10px;
 		border-radius: var(--radius-s);
 
 		&:hover {
 			.selector-series-scroll-to {
-				opacity: 1;
 				flex: none;
+				opacity: 1;
 			}
 		}
 	}
@@ -176,18 +176,18 @@
 	}
 
 	.selector-series-icon {
-		position: relative;
+		display: flex;
 
 		z-index: 1;
-		display: flex;
+		position: relative;
+		flex-shrink: 0;
 		align-items: center;
 		justify-content: center;
-		flex-shrink: 0;
 		width: 8px;
 		height: 8px;
+		margin-right: 12px;
 		border-radius: 100%;
 		color: var(--clr-core-ntrl-100);
-		margin-right: 12px;
 
 		&.local {
 			background-color: var(--clr-commit-local);
@@ -207,31 +207,31 @@
 	}
 
 	.selector-series-chain-icon {
-		pointer-events: none;
 		position: absolute;
 		top: -5px;
 		left: 9px;
 		width: 2px;
 		height: 8px;
 		background-color: var(--clr-border-3);
+		pointer-events: none;
 	}
 
 	.selector-series-name {
-		color: var(--clr-text-1);
 		width: 100%;
+		color: var(--clr-text-1);
 		text-align: left;
 	}
 
 	.selector-series-scroll-to {
-		overflow: hidden;
 		flex: 0;
-		width: fit-content;
-		opacity: 0;
 		flex-shrink: 1;
-		text-wrap: nowrap;
+		width: fit-content;
 		padding: 2px 4px;
+		overflow: hidden;
 		border-radius: var(--radius-s);
-		color: var(--clr-text-2);
 		background-color: var(--clr-theme-ntrl-soft);
+		color: var(--clr-text-2);
+		text-wrap: nowrap;
+		opacity: 0;
 	}
 </style>

@@ -36,14 +36,14 @@
 	.diff-selection {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
-		padding: 6px;
-		margin: 6px 6px 0;
-		gap: 8px;
 		align-self: stretch;
+		justify-content: space-between;
+		margin: 6px 6px 0;
+		padding: 6px;
+		gap: 8px;
+		border: 1px solid var(--clr-border-2);
 
 		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-border-2);
 		background: var(--clr-bg-1);
 	}
 

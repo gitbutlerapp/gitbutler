@@ -78,19 +78,19 @@
 
 <style>
 	.commit-view {
-		position: relative;
-		height: 100%;
-		flex: 1;
 		display: flex;
+		position: relative;
+		flex: 1;
 		flex-direction: column;
+		height: 100%;
 		gap: 14px;
 	}
 
 	.commit-view__header {
 		display: flex;
-		gap: 8px;
 		height: 100%;
 		margin-left: -4px;
+		gap: 8px;
 	}
 
 	.commit-view__header-title {
@@ -101,10 +101,10 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 2px;
-		text-decoration: dotted underline;
-		transition: color var(--transition-fast);
-		cursor: pointer;
 		color: var(--clr-text-2);
+		text-decoration: dotted underline;
+		cursor: pointer;
+		transition: color var(--transition-fast);
 
 		&:hover {
 			color: var(--clr-text-1);

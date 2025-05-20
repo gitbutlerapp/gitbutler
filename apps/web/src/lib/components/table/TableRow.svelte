@@ -247,13 +247,13 @@
 		}
 
 		&:first-child .dyncell-td {
-			border-top-left-radius: var(--radius-ml);
 			border-top-right-radius: var(--radius-ml);
+			border-top-left-radius: var(--radius-ml);
 		}
 
 		&:last-child .dyncell-td {
-			border-bottom-left-radius: var(--radius-ml);
 			border-bottom-right-radius: var(--radius-ml);
+			border-bottom-left-radius: var(--radius-ml);
 		}
 
 		&:hover {
@@ -287,12 +287,12 @@
 	.dynclmn {
 		display: flex;
 		align-items: center;
+		height: 58px;
 
 		padding: 0 var(--cell-padding);
-		height: 58px;
-		color: var(--clr-text-2);
-		background-color: var(--clr-bg-1);
 		border-bottom: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-1);
+		color: var(--clr-text-2);
 		transition: background-color var(--transition-fast);
 	}
 
@@ -306,17 +306,17 @@
 		text-align: right;
 	}
 	.dynclmn-changes_deletions {
+		padding-left: 6px;
 		color: var(--clr-theme-err-element);
 		text-align: right;
-		padding-left: 6px;
 	}
 
 	/* COMMENTS CLMN */
 	.dynclmn-comments {
 		display: flex;
-		gap: 5px;
-		justify-content: flex-end;
 		align-items: center;
+		justify-content: flex-end;
+		gap: 5px;
 	}
 
 	.dynclmn-comments-icon {
@@ -338,10 +338,10 @@
 	}
 
 	.dynclmn-number {
-		font-family: var(--fontfamily-mono);
-		font-size: 12px;
-		text-align: right;
 		justify-content: flex-end;
+		font-size: 12px;
+		font-family: var(--fontfamily-mono);
+		text-align: right;
 	}
 
 	.dynclmn-commitGraph-td {

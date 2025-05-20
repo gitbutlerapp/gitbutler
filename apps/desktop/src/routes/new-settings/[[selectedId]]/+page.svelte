@@ -129,8 +129,8 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 16px;
-		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
 		color: var(--clr-scale-ntrl-30);
 		transition: background-color var(--transition-fast);

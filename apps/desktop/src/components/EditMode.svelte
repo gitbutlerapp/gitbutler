@@ -360,39 +360,39 @@
 		display: flex;
 		flex-direction: column;
 		justify-content: center;
+		width: 100%;
+		max-width: calc(520px + 2 * var(--side-padding));
 		margin: 0 auto;
 		padding: 40px var(--side-padding) 24px;
 		overflow: hidden;
-		width: 100%;
-		max-width: calc(520px + 2 * var(--side-padding));
 	}
 
 	.editmode__title {
-		color: var(--clr-text-1);
 		margin-bottom: 12px;
+		color: var(--clr-text-1);
 	}
 
 	.editmode__actions {
 		display: flex;
-		gap: 8px;
-		padding-bottom: 24px;
 		flex-wrap: wrap;
 		justify-content: flex-end;
+		padding-bottom: 24px;
+		gap: 8px;
 	}
 
 	.files {
 		flex: 1;
 		margin-bottom: 12px;
-		overflow: hidden;
 		padding-bottom: 8px;
+		overflow: hidden;
 
 		& .header {
 			display: flex;
 			align-items: center;
-			gap: 4px;
-			padding-left: 16px;
 			padding-top: 16px;
 			padding-bottom: 8px;
+			padding-left: 16px;
+			gap: 4px;
 
 			&.show-border {
 				border-bottom: 1px solid var(--clr-border-3);
@@ -413,19 +413,19 @@
 
 	/* COMMIT */
 	.commit-group {
-		position: relative;
 		display: flex;
+		position: relative;
 		flex-direction: column;
-		gap: 4px;
 		overflow: hidden;
+		gap: 4px;
 	}
 
 	/* COMMIT CARD */
 	.commit-card {
 		position: relative;
 		padding: 14px 14px 14px 16px;
-		gap: 8px;
 		overflow: hidden;
+		gap: 8px;
 	}
 
 	.commit-card__title {
@@ -448,7 +448,7 @@
 	}
 
 	.editmode__helptext {
-		color: var(--clr-text-3);
 		margin-bottom: 16px;
+		color: var(--clr-text-3);
 	}
 </style>

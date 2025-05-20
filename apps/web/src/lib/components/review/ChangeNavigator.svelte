@@ -52,15 +52,15 @@
 	}
 
 	:global(.change-navigator .navigate-prev) {
+		border-right: none;
 		border-top-right-radius: 0;
 		border-bottom-right-radius: 0;
-		border-right: none;
 	}
 
 	:global(.change-navigator .navigate-next) {
+		border-left: none;
 		border-top-left-radius: 0;
 		border-bottom-left-radius: 0;
-		border-left: none;
 	}
 
 	.indicator {
@@ -72,7 +72,6 @@
 		align-items: center;
 		justify-content: center;
 		padding: 0 10px;
-		color: var(--label-clr);
 
 		border: 1px solid
 			color-mix(
@@ -80,5 +79,6 @@
 				var(--btn-border-clr, transparent),
 				transparent calc((1 - var(--btn-border-opacity, 1)) * 100%)
 			);
+		color: var(--label-clr);
 	}
 </style>

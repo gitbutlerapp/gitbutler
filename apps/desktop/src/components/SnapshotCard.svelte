@@ -265,17 +265,18 @@
 <style lang="postcss">
 	/* SNAPSHOT CARD */
 	.snapshot-card {
-		position: relative;
 		display: flex;
-		gap: 12px;
+		position: relative;
 		padding: 10px 14px 8px 14px;
 		overflow: hidden;
+		gap: 12px;
 		background-color: var(--clr-bg-1);
 		transition: padding 0.2s;
 	}
 
 	.show-restore-on-hover {
 		&:hover {
+			background-color: var(--clr-bg-1-muted);
 			& .restore-btn {
 				display: flex;
 			}
@@ -283,8 +284,6 @@
 			& .snapshot-time {
 				display: none;
 			}
-
-			background-color: var(--clr-bg-1-muted);
 		}
 	}
 
@@ -299,49 +298,49 @@
 	}
 
 	.snapshot-time {
-		color: var(--clr-text-2);
-		text-align: right;
-		line-height: 1.8;
 		margin-top: 2px;
+		color: var(--clr-text-2);
+		line-height: 1.8;
+		text-align: right;
 	}
 
 	.snapshot-line {
-		position: relative;
 		display: flex;
-		align-items: center;
+		position: relative;
 		flex-direction: column;
+		align-items: center;
 		margin-top: 3px;
 
 		&::after {
 			position: absolute;
 			top: 24px;
-			content: '';
+			width: 1px;
 			height: calc(100% - 14px);
 			min-height: 8px;
-			width: 1px;
 			background-color: var(--clr-border-2);
+			content: '';
 		}
 	}
 
 	/* CARD CONTENT */
 	.snapshot-content {
-		flex: 1;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 		align-items: flex-start;
-		gap: 6px;
 		min-height: var(--size-tag);
 		overflow: hidden;
+		gap: 6px;
 	}
 
 	.snapshot-details {
 		display: flex;
-		width: 100%;
 		flex-direction: column;
 		align-items: flex-start;
-		gap: 6px;
+		width: 100%;
 		margin-top: 2px;
 		margin-bottom: 4px;
+		gap: 6px;
 	}
 
 	.snapshot-title {
@@ -349,8 +348,8 @@
 	}
 
 	.snapshot-commit-message {
-		color: var(--clr-text-2);
 		margin-bottom: 2px;
+		color: var(--clr-text-2);
 
 		& span {
 			color: var(--clr-text-3);
@@ -358,8 +357,8 @@
 	}
 
 	.snapshot-sha {
-		white-space: nowrap;
 		color: var(--clr-text-3);
+		white-space: nowrap;
 	}
 
 	/* ATTACHMENT FILES */
@@ -393,10 +392,10 @@
 	/* --- */
 	.error-text {
 		display: flex;
-		padding: 6px 10px;
-		background-color: var(--clr-theme-err-bg-muted);
-		border-radius: var(--radius-m);
 		width: 100%;
+		padding: 6px 10px;
+		border-radius: var(--radius-m);
+		background-color: var(--clr-theme-err-bg-muted);
 		color: var(--clr-scale-err-40);
 	}
 </style>

@@ -92,8 +92,8 @@
 	}
 
 	.analytics-settings__text {
-		color: var(--clr-text-2);
 		margin-bottom: 10px;
+		color: var(--clr-text-2);
 	}
 
 	.analytics-settings__actions {

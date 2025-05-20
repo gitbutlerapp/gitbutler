@@ -469,9 +469,9 @@
 
 <style lang="postcss">
 	.table__wrapper {
+		overflow-x: auto;
 		border-radius: var(--radius-s);
 		background-color: var(--clr-diff-line-bg);
-		overflow-x: auto;
 
 		&:hover .table__drag-handle {
 			transform: scale(1);
@@ -486,9 +486,9 @@
 	table,
 	.table__section {
 		width: 100%;
-		font-family: var(--diff-font);
 		border-collapse: separate;
 		border-spacing: 0;
+		font-family: var(--diff-font);
 	}
 
 	thead {
@@ -503,38 +503,38 @@
 	th,
 	td,
 	tr {
-		padding: 0;
 		margin: 0;
+		padding: 0;
 	}
 
 	table thead th {
+		position: sticky;
 		top: 0;
 		left: 0;
-		position: sticky;
 		height: 28px;
 	}
 
 	.table__checkbox-container {
+		box-sizing: border-box;
 		z-index: var(--z-lifted);
 
 		border-width: var(--border-width);
 		border-style: solid;
+		border-top-left-radius: var(--radius-s);
 		border-color: var(--clr-border-2);
 		background-color: var(--clr-diff-count-bg);
-		border-top-left-radius: var(--radius-s);
-		box-sizing: border-box;
 
 		&.selected {
-			background-color: var(--clr-diff-selected-count-bg);
 			border-color: var(--clr-diff-selected-count-border);
+			background-color: var(--clr-diff-selected-count-bg);
 		}
 	}
 
 	.table__checkbox {
-		padding: 4px 6px;
 		display: flex;
-		justify-content: space-between;
 		align-items: center;
+		justify-content: space-between;
+		padding: 4px 6px;
 	}
 
 	.table__title {
@@ -546,106 +546,105 @@
 	}
 
 	.table__drag-handle {
-		position: fixed;
-		right: 6px;
-		top: 6px;
 		box-sizing: border-box;
-		background-color: var(--clr-bg-1);
 		display: flex;
-		justify-content: center;
+		position: fixed;
+		top: 6px;
+		right: 6px;
 		align-items: center;
-		border-radius: var(--radius-s);
-		opacity: 0;
+		justify-content: center;
 		transform: scale(0.9);
 		transform-origin: top right;
-		pointer-events: none;
+		border-radius: var(--radius-s);
+		background-color: var(--clr-bg-1);
 		color: var(--clr-text-2);
+		opacity: 0;
+		pointer-events: none;
 		transition:
 			opacity 0.2s,
 			transform 0.2s;
 	}
 
 	.table__lock {
-		position: fixed;
-		right: 6px;
-		top: 6px;
 		box-sizing: border-box;
-		background-color: var(--clr-theme-warn-soft);
 		display: flex;
-		justify-content: center;
+		position: fixed;
+		top: 6px;
+		right: 6px;
 		align-items: center;
+		justify-content: center;
 		border-radius: var(--radius-s);
-		pointer-events: none;
+		background-color: var(--clr-theme-warn-soft);
 		color: var(--clr-text-2);
+		pointer-events: none;
 		transition: transform var(--transition-medium);
 	}
 
 	.table__right-box {
-		pointer-events: none;
 		position: absolute;
 		top: 0;
 		left: var(--number-col-width);
 		width: calc(var(--table-width) - var(--number-col-width));
 		height: var(--table-height);
-		border-bottom: 1px solid var(--clr-border-2);
 		border-right: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--clr-border-2);
 		border-bottom-right-radius: var(--radius-s);
+		pointer-events: none;
 	}
 
 	.table__title-content {
+		box-sizing: border-box;
+		display: flex;
 		position: absolute;
 		top: var(--top);
 		left: var(--number-col-width);
+		align-items: center;
 		width: calc(var(--table-width) - var(--number-col-width));
 		height: calc(100% + var(--border-width) * 2);
-		box-sizing: border-box;
+		padding: 4px 6px;
+		border-top: 1px solid var(--clr-border-2);
+		border-right: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--clr-border-2);
+		border-top-right-radius: var(--radius-m);
+		color: var(--clr-text-2);
 		font-weight: 400;
 		font-size: 12px;
-		padding: 4px 6px;
 		text-wrap: nowrap;
-		color: var(--clr-text-2);
-		display: flex;
-		align-items: center;
-		border-bottom: 1px solid var(--clr-border-2);
-		border-right: 1px solid var(--clr-border-2);
-		border-top: 1px solid var(--clr-border-2);
-		border-top-right-radius: var(--radius-m);
 	}
 
 	.table__numberColumn {
-		color: var(--clr-diff-count-text);
-		border-color: var(--clr-diff-count-border);
-		background-color: var(--clr-diff-count-bg);
-		font-size: 11px;
-		text-align: center;
-		padding: 0 4px;
-		text-align: right;
-		vertical-align: top;
-		user-select: none;
-
 		position: sticky;
 		left: calc(var(--number-col-width));
 		width: var(--number-col-width);
 		min-width: var(--number-col-width);
+		padding: 0 4px;
+		border-color: var(--clr-diff-count-border);
 
 		border-right: 1px solid var(--clr-border-2);
+		background-color: var(--clr-diff-count-bg);
+		color: var(--clr-diff-count-text);
+		font-size: 11px;
+		text-align: center;
+		text-align: right;
+		vertical-align: top;
+		user-select: none;
 
 		&.diff-line-addition {
+			border-color: var(--clr-diff-addition-count-border);
 			background-color: var(--clr-diff-addition-count-bg);
 			color: var(--clr-diff-addition-count-text);
-			border-color: var(--clr-diff-addition-count-border);
 		}
 
 		&.diff-line-deletion {
+			border-color: var(--clr-diff-deletion-count-border);
 			background-color: var(--clr-diff-deletion-count-bg);
 			color: var(--clr-diff-deletion-count-text);
-			border-color: var(--clr-diff-deletion-count-border);
 		}
 
 		&.selected {
+			border-color: var(--clr-diff-selected-count-border);
 			background-color: var(--clr-diff-selected-count-bg);
 			color: var(--clr-diff-selected-count-text);
-			border-color: var(--clr-diff-selected-count-border);
 		}
 
 		&.is-last {
@@ -662,22 +661,22 @@
 	}
 
 	.table__numberColumn:first-of-type {
+		left: 0px;
 		width: var(--number-col-width);
 		min-width: var(--number-col-width);
-		left: 0px;
 	}
 
 	.table__textContent {
 		z-index: var(--z-lifted);
 		width: 100%;
-		font-size: 12px;
 		padding-left: 4px;
+		font-size: 12px;
 		line-height: 1.25;
-		tab-size: var(--tab-size);
-		white-space: pre;
-		user-select: text;
-		cursor: text;
 		text-wrap: var(--wrap);
+		white-space: pre;
+		cursor: text;
+		tab-size: var(--tab-size);
+		user-select: text;
 	}
 
 	/* DIFF LINE */

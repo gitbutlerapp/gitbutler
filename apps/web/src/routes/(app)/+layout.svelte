@@ -125,14 +125,14 @@
 <style lang="postcss">
 	.app {
 		--layout-side-paddings: 80px;
+		container-type: inline-size;
 
 		display: flex;
 		flex-direction: column;
-		min-height: 100vh;
 		max-width: calc(1440px + var(--layout-side-paddings) * 2);
-		padding: 24px var(--layout-side-paddings);
+		min-height: 100vh;
 		margin: 0 auto;
-		container-type: inline-size;
+		padding: 24px var(--layout-side-paddings);
 
 		@media (--desktop-small-viewport) {
 			--layout-side-paddings: 40px;
@@ -145,10 +145,10 @@
 	}
 
 	main {
-		flex: 1;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
-		margin: 0 auto;
 		width: 100%;
+		margin: 0 auto;
 	}
 </style>

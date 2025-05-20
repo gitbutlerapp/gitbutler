@@ -2,12 +2,12 @@
 @import './draggable.css';
 
 body {
-	height: 100vh;
 	width: 100vw;
+	height: 100vh;
 	overflow-y: hidden;
+	background-color: var(--clr-bg-2);
 
 	color: var(--clr-text-1);
-	background-color: var(--clr-bg-2);
 	user-select: none;
 }
 
@@ -32,11 +32,11 @@ body {
 .code-string {
 	display: inline;
 	word-wrap: break-word;
-	color: var(--clr-text-1);
-	font-family: var(--fontfamily-mono);
+	padding: 1px 4px;
 	border-radius: var(--radius-s);
 	background: var(--clr-scale-ntrl-80);
-	padding: 1px 4px;
+	color: var(--clr-text-1);
+	font-family: var(--fontfamily-mono);
 }
 
 /* TRANSITION ANIMATION */
@@ -59,11 +59,10 @@ body {
 /* STATES */
 
 .series-highlight-animation {
-	/* border: 1px solid red; */
-	animation: series-highlight-animation 0.9s forwards;
-
 	/* animation-delay: 0.1s; */
 	backface-visibility: hidden;
+	/* border: 1px solid red; */
+	animation: series-highlight-animation 0.9s forwards;
 }
 
 @keyframes series-highlight-animation {
@@ -71,9 +70,9 @@ body {
 	}
 	40%,
 	65% {
-		box-shadow: 0 2px 7px 0 oklch(from var(--highlight-color) l c h / 0.4);
-		border: 1px solid var(--highlight-color);
 		transform: scale(1.015);
+		border: 1px solid var(--highlight-color);
+		box-shadow: 0 2px 7px 0 oklch(from var(--highlight-color) l c h / 0.4);
 	}
 	100% {
 	}

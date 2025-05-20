@@ -161,20 +161,21 @@
 <style lang="postcss">
 	@layer components {
 		.btn {
-			user-select: none;
-			position: relative;
 			display: inline-flex;
+			position: relative;
 			align-items: center;
 			justify-content: center;
-			cursor: pointer;
+			-webkit-transform-style: preserve-3d;
 			border-radius: var(--radius-m);
-
-			color: var(--label-clr);
+			-webkit-backface-visibility: hidden;
 			background: color-mix(
 				in srgb,
 				var(--btn-bg, transparent),
 				transparent calc((1 - var(--opacity-btn-bg, 1)) * 100%)
 			);
+
+			color: var(--label-clr);
+			cursor: pointer;
 
 			transition:
 				background var(--transition-fast),
@@ -186,8 +187,7 @@
 				opacity var(--transition-fast),
 				color var(--transition-fast),
 				max-width var(--transition-medium);
-			-webkit-transform-style: preserve-3d;
-			-webkit-backface-visibility: hidden;
+			user-select: none;
 
 			&.outline,
 			&.ghost {
@@ -226,8 +226,8 @@
 			}
 
 			&.shrinkable {
-				overflow: hidden;
 				width: fit-content;
+				overflow: hidden;
 
 				& .label {
 					display: inline-block;
@@ -238,20 +238,20 @@
 		}
 
 		.label {
-			pointer-events: none;
 			display: inline-flex;
-			white-space: nowrap;
 			padding: 0 2px;
+			white-space: nowrap;
+			pointer-events: none;
 		}
 
 		.btn-icon {
-			pointer-events: none;
-			flex-shrink: 0;
 			display: flex;
-			opacity: var(--icon-opacity);
-			transition: opacity var(--transition-fast);
+			flex-shrink: 0;
 			/* in order to fix the transition flickering bug in Safari */
 			-webkit-transform: translateZ(0);
+			opacity: var(--icon-opacity);
+			pointer-events: none;
+			transition: opacity var(--transition-fast);
 		}
 
 		/* STYLES */
@@ -430,27 +430,27 @@
 
 		/* SIZE MODIFIERS */
 		.btn.icon-size {
-			gap: 0;
 			height: var(--size-icon);
 			padding: 2px;
+			gap: 0;
 		}
 
 		.btn.tag-size {
-			gap: 2px;
 			height: var(--size-tag);
 			padding: 2px 4px;
+			gap: 2px;
 		}
 
 		.btn.button-size {
-			gap: 4px;
 			height: var(--size-button);
 			padding: 4px 6px;
+			gap: 4px;
 		}
 
 		.btn.cta-size {
-			gap: 4px;
 			height: var(--size-cta);
 			padding: 6px 8px;
+			gap: 4px;
 		}
 
 		/* FIXED WIDTH */
@@ -476,9 +476,9 @@
 		.is-dropdown {
 			&:first-of-type {
 				flex: 1;
+				border-right: none;
 				border-top-right-radius: 0;
 				border-bottom-right-radius: 0;
-				border-right: none;
 
 				&.solid {
 					&.neutral,
@@ -488,14 +488,14 @@
 					&.warning,
 					&.purple {
 						&:after {
-							content: '';
-							background-color: currentColor;
 							z-index: var(--z-lifted);
 							position: absolute;
 							top: 0;
 							right: 0;
 							width: 1px;
 							height: 100%;
+							background-color: currentColor;
+							content: '';
 							opacity: 0.4;
 						}
 					}

@@ -45,9 +45,9 @@
 		padding: 14px 16px;
 		padding-left: 12px;
 		gap: 12px;
+		border-bottom: 1px solid var(--clr-border-3);
 
 		border-left: 4px solid var(--clr-theme-succ-element);
-		border-bottom: 1px solid var(--clr-border-3);
 		background: var(--clr-theme-succ-bg);
 
 		&:first-child {
@@ -62,11 +62,11 @@
 
 	.patch-status__icon {
 		display: flex;
+		align-items: center;
+		justify-content: center;
 		width: 24px;
 		height: 24px;
 		padding: 4px;
-		justify-content: center;
-		align-items: center;
 
 		border-radius: 8px;
 		background: var(--clr-theme-succ-element);

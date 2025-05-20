@@ -59,18 +59,18 @@
 
 <style lang="postcss">
 	.menu-item {
-		cursor: pointer;
 		display: flex;
-		text-align: left;
 		align-items: center;
-		color: var(--clr-text-1);
 		padding: 6px 8px;
-		border-radius: var(--radius-s);
 		gap: 12px;
+		border-radius: var(--radius-s);
+		color: var(--clr-text-1);
+		text-align: left;
+		cursor: pointer;
 		transition: background-color var(--transition-fast);
 		&:not(.disabled):hover {
-			transition: none;
 			background-color: var(--clr-bg-2-muted);
+			transition: none;
 		}
 		&:first-child {
 			margin-top: 2px;

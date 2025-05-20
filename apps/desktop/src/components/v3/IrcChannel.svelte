@@ -86,20 +86,20 @@
 		display: flex;
 		flex-grow: 1;
 		flex-direction: column;
-		height: 100%;
-		width: 100%;
 		justify-content: space-between;
+		width: 100%;
+		height: 100%;
 		background-color: var(--clr-bg-1);
 	}
 	.header {
 		display: flex;
-		gap: 6px;
-		padding: 6px;
-		width: 100%;
-		justify-content: center;
-		background-color: var(--clr-bg-1);
-		border-bottom: 1px solid var(--clr-border-2);
 		align-items: center;
+		justify-content: center;
+		width: 100%;
+		padding: 6px;
+		gap: 6px;
+		border-bottom: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-1);
 	}
 	.header-center {
 		flex-shrink: 1;
@@ -112,19 +112,19 @@
 
 	.header-right {
 		display: flex;
-		gap: 4px;
 		justify-content: right;
+		gap: 4px;
 	}
 
 	.header-right,
 	.header-left {
-		flex-basis: 0;
 		flex-grow: 1;
+		flex-basis: 0;
 	}
 
 	.middle {
 		display: flex;
-		overflow: hidden;
 		flex-grow: 1;
+		overflow: hidden;
 	}
 </style>

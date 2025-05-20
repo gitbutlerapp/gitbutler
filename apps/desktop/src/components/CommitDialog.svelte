@@ -205,17 +205,16 @@
 
 <style lang="postcss">
 	.commit-box {
+		display: flex;
 		position: sticky;
 		bottom: 0;
-
-		display: flex;
 		flex-direction: column;
-		gap: 12px;
 
 		padding: 14px;
-		background: var(--clr-bg-1);
+		gap: 12px;
 		border-top: 1px solid var(--clr-border-2);
 		border-radius: 0 0 var(--radius-m) var(--radius-m) !important;
+		background: var(--clr-bg-1);
 		transition: background-color var(--transition-medium);
 	}
 
@@ -226,8 +225,8 @@
 	}
 
 	.cancel-btn-wrapper {
-		overflow: hidden;
 		margin-right: 6px;
+		overflow: hidden;
 	}
 
 	/* MODIFIERS */

@@ -44,9 +44,9 @@
 <style lang="postcss">
 	.project-selector {
 		position: relative;
+		height: fit-content;
 		margin-top: 4px;
 		margin-bottom: 14px;
-		height: fit-content;
 
 		&:hover {
 			& .button__icon {
@@ -57,23 +57,23 @@
 
 	.button {
 		display: flex;
-		gap: 10px;
-		width: 100%;
-		padding: 8px;
 
 		align-items: center;
 		justify-content: space-between;
+		width: 100%;
+		padding: 8px;
+		gap: 10px;
 
 		transition: background-color var(--transition-fast);
 	}
 
 	.button__label {
 		flex-grow: 1;
+		overflow: hidden;
 		color: var(--clr-scale-ntrl-0);
 		text-align: left;
-		white-space: nowrap;
-		overflow: hidden;
 		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.button__icon {

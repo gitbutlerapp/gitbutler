@@ -499,31 +499,31 @@
 <style lang="postcss">
 	.loading-container {
 		display: flex;
-		justify-content: center;
 		align-items: center;
+		justify-content: center;
 		height: 200px;
-		font-size: 1.2rem;
 		color: var(--text-muted, #666);
+		font-size: 1.2rem;
 	}
 
 	.error-text {
+		padding: 1rem 0;
 		color: var(--error, #dc3545);
 		text-align: center;
-		padding: 1rem 0;
 	}
 
 	.error-message {
 		max-width: 600px;
 		margin: 2rem auto;
-		text-align: center;
 		padding: 2rem;
-		background-color: var(--background, #fff);
-		border-radius: 8px;
 		border: 1px solid var(--border-color, #eaeaea);
+		border-radius: 8px;
+		background-color: var(--background, #fff);
+		text-align: center;
 
 		h2 {
-			color: var(--error, #dc3545);
 			margin: 0 0 1rem;
+			color: var(--error, #dc3545);
 		}
 
 		p {
@@ -539,12 +539,12 @@
 	}
 
 	.parent-project-info {
-		margin-top: 10px;
 		display: flex;
 		align-items: center;
+		margin-top: 10px;
 		gap: 0.5rem;
-		font-size: 13px;
 		color: var(--text-muted, #666);
+		font-size: 13px;
 	}
 
 	.breadcrumb {
@@ -586,28 +586,28 @@
 	}
 
 	.card {
-		background-color: white;
-		border-radius: 8px;
 		overflow: hidden;
 		border: 1px solid color(srgb 0.831373 0.815686 0.807843);
+		border-radius: 8px;
+		background-color: white;
 	}
 
 	.card-header {
 		display: flex;
-		justify-content: space-between;
 		align-items: center;
+		justify-content: space-between;
+		padding-right: 15px;
 		border-bottom: 1px solid color(srgb 0.831373 0.815686 0.807843);
 		background-color: #f3f3f2;
-		padding-right: 15px;
 	}
 
 	.card-title {
-		font-size: 0.8em;
 		margin: 0;
 		padding: 12px 15px;
 		border-bottom: 1px solid color(srgb 0.831373 0.815686 0.807843);
 		background-color: #f3f3f2;
 		color: color(srgb 0.52549 0.494118 0.47451);
+		font-size: 0.8em;
 	}
 
 	.card-header .card-title {
@@ -616,8 +616,8 @@
 
 	.readme-header {
 		display: flex;
-		justify-content: space-between;
 		align-items: center;
+		justify-content: space-between;
 		border-bottom: 1px solid color(srgb 0.831373 0.815686 0.807843);
 		background-color: #f3f3f2;
 	}
@@ -628,15 +628,15 @@
 
 	.readme-actions {
 		display: flex;
-		gap: 0.5rem;
 		padding-right: 15px;
+		gap: 0.5rem;
 	}
 
 	.readme-editor {
 		width: 100%;
 		min-height: 200px;
-		padding: 0.75rem;
 		margin-bottom: 1rem;
+		padding: 0.75rem;
 		border: 1px solid var(--border-color, #eaeaea);
 		border-radius: 4px;
 		font-family: var(--fontfamily-mono);
@@ -644,15 +644,15 @@
 	}
 
 	.readme-preview {
-		border-top: 1px solid var(--border-color, #eaeaea);
-		padding-top: 1rem;
 		margin-top: 1rem;
+		padding-top: 1rem;
+		border-top: 1px solid var(--border-color, #eaeaea);
 	}
 
 	.preview-title {
-		font-size: 1rem;
 		margin: 0 0 0.75rem 0;
 		color: var(--text-muted, #666);
+		font-size: 1rem;
 	}
 
 	.card-content {
@@ -664,15 +664,15 @@
 	}
 
 	.meta-item {
-		margin-bottom: 1rem;
 		display: flex;
 		align-items: flex-start;
+		margin-bottom: 1rem;
 	}
 
 	.sidebar-section-title {
-		font-size: 1rem;
 		margin: 0 0 0.5rem 0;
 		color: var(--text-muted, #666);
+		font-size: 1rem;
 	}
 
 	.description {
@@ -687,17 +687,17 @@
 	.clone-url {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
 		width: 100%;
+		gap: 0.5rem;
 
 		code {
-			background: var(--background-alt, #f5f5f5);
-			padding: 0.25rem 0.5rem;
-			border-radius: 4px;
-			font-family: var(--fontfamily-mono);
-			overflow: hidden;
-			text-overflow: ellipsis;
 			flex: 1;
+			padding: 0.25rem 0.5rem;
+			overflow: hidden;
+			border-radius: 4px;
+			background: var(--background-alt, #f5f5f5);
+			font-family: var(--fontfamily-mono);
+			text-overflow: ellipsis;
 		}
 	}
 
@@ -743,8 +743,8 @@
 	}
 
 	.no-readme {
-		color: #718096;
 		padding: 0.5rem 0;
+		color: #718096;
 		text-align: center;
 	}
 
@@ -784,15 +784,15 @@
 	}
 
 	.form-group small {
-		font-size: 12px;
 		color: var(--text-muted, #666);
+		font-size: 12px;
 	}
 
 	.form-actions {
 		display: flex;
 		justify-content: flex-end;
-		gap: 0.5rem;
 		margin-top: 1rem;
+		gap: 0.5rem;
 	}
 
 	@media (max-width: 768px) {

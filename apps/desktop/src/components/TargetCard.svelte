@@ -110,37 +110,37 @@
 
 <style lang="postcss">
 	.icon {
-		border-radius: var(--radius-s);
-		height: 20px;
-		width: 20px;
 		flex-shrink: 0;
+		width: 20px;
+		height: 20px;
+		border-radius: var(--radius-s);
 	}
 	.content {
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
 		overflow: hidden;
+		gap: 8px;
 	}
 	.trunk-label {
 		color: var(--clr-text-1);
 	}
 	.button-head {
 		display: flex;
-		gap: 6px;
 		align-items: center;
+		gap: 6px;
 		color: var(--clr-scale-ntrl-10);
 	}
 	.base-branch-label {
 		display: flex;
 		align-items: center;
+		overflow: hidden;
 		gap: 4px;
 		color: var(--clr-scale-ntrl-40);
-		overflow: hidden;
 
 		& span {
 			overflow: hidden;
-			white-space: nowrap;
 			text-overflow: ellipsis;
+			white-space: nowrap;
 		}
 	}
 	.base-branch-icon {
@@ -149,17 +149,16 @@
 		fill: currentColor;
 	}
 	.small-count-badge {
+		display: flex;
 		position: absolute;
 		top: 10%;
 		right: 10%;
-
-		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: 2px;
 		min-width: 14px;
+		padding: 2px;
+		border-radius: var(--radius-m);
 		background-color: var(--clr-theme-err-element);
 		color: var(--clr-scale-ntrl-100);
-		border-radius: var(--radius-m);
 	}
 </style>

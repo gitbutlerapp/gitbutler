@@ -371,9 +371,9 @@
 		}
 
 		.scroll-wrap {
-			border-radius: var(--radius-m);
-			border: 1px solid var(--clr-border-2);
 			overflow: hidden;
+			border: 1px solid var(--clr-border-2);
+			border-radius: var(--radius-m);
 		}
 	}
 
@@ -400,8 +400,8 @@
 
 	.target-divergence-about {
 		display: flex;
-		width: 100%;
 		flex-direction: column;
+		width: 100%;
 		gap: 8px;
 	}
 

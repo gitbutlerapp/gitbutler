@@ -27,8 +27,8 @@
 
 <style lang="postcss">
 	.divider {
-		height: 1px;
 		width: 100%;
+		height: 1px;
 		opacity: 0.13;
 	}
 
@@ -37,8 +37,8 @@
 	}
 
 	.divider.dotted {
-		opacity: 0.2;
 		background-image: linear-gradient(to right, var(--clr-scale-ntrl-0) 50%, transparent 50%);
 		background-size: 4px 1px;
+		opacity: 0.2;
 	}
 </style>

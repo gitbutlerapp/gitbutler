@@ -95,11 +95,11 @@
 <style>
 	.wrap {
 		display: flex;
-		justify-content: center;
 		align-items: center;
-		height: 600px;
+		justify-content: center;
 		width: 100%;
-		background: var(--clr-bg-2);
+		height: 600px;
 		border-radius: var(--radius-ml);
+		background: var(--clr-bg-2);
 	}
 </style>

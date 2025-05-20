@@ -287,16 +287,16 @@
 
 <style lang="postcss">
 	.select-wrapper {
-		position: relative;
 		display: flex;
+		position: relative;
 		flex-direction: column;
-		gap: 6px;
 		height: fit-content;
+		gap: 6px;
 	}
 
 	.select__label {
-		text-align: left;
 		color: var(--clr-scale-ntrl-50);
+		text-align: left;
 	}
 
 	.select__custom-button {
@@ -314,32 +314,32 @@
 	}
 
 	.options {
-		user-select: none;
-		position: absolute;
 		z-index: var(--z-floating);
+		position: absolute;
+		min-width: 80px;
 		margin-top: 4px;
-		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-border-2);
-		background: var(--clr-bg-1);
-		box-shadow: var(--fx-shadow-s);
 		overflow: hidden;
 		transform-origin: top;
-		min-width: 80px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+		background: var(--clr-bg-1);
+		box-shadow: var(--fx-shadow-s);
 
 		animation: fadeIn 0.16s ease-out forwards;
+		user-select: none;
 	}
 
 	@keyframes fadeIn {
 		0% {
-			opacity: 0;
 			transform: translateY(-6px);
+			opacity: 0;
 		}
 		40% {
 			opacity: 1;
 		}
 		100% {
-			opacity: 1;
 			transform: translateY(0);
+			opacity: 1;
 		}
 	}
 

@@ -173,15 +173,15 @@
 
 <style lang="postcss">
 	.profile-sidebar {
-		user-select: none;
 		display: flex;
 		flex-direction: column;
 		justify-content: space-between;
+		width: 256px;
+		height: 100%;
 		padding: 14px;
 		border-right: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
-		height: 100%;
-		width: 256px;
+		user-select: none;
 	}
 
 	.profile-sidebar__header-wrapper {
@@ -229,18 +229,18 @@
 	.profile-sidebar__menu-item {
 		display: flex;
 		align-items: center;
-		gap: 10px;
-		padding: 10px 8px;
-		border-radius: var(--radius-m);
 		width: 100%;
+		padding: 10px 8px;
+		gap: 10px;
+		border-radius: var(--radius-m);
 		color: var(--clr-scale-ntrl-30);
 		transition:
 			background-color var(--transition-fast),
 			color var(--transition-fast);
 
 		&:not(.item_selected):hover {
-			transition: none;
 			background-color: var(--clr-bg-1-muted);
+			transition: none;
 		}
 
 		& span {
@@ -272,8 +272,8 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 16px;
-		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
 		color: var(--clr-scale-ntrl-30);
 		transition: background-color var(--transition-fast);

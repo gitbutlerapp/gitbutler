@@ -170,12 +170,12 @@
 	}
 
 	.popup {
+		z-index: var(--z-floating);
 		position: absolute;
 		top: 100%;
-		z-index: var(--z-floating);
 		margin-top: 4px;
-		border-radius: var(--m, 6px);
 		border: 1px solid var(--clr-border-2);
+		border-radius: var(--m, 6px);
 		background: var(--clr-bg-1);
 		/* shadow/s */
 		box-shadow: 0px 7px 14px 0px rgba(0, 0, 0, 0.1);
@@ -184,15 +184,15 @@
 
 	@keyframes fadeIn {
 		0% {
-			opacity: 0;
 			transform: translateY(-6px);
+			opacity: 0;
 		}
 		40% {
 			opacity: 1;
 		}
 		100% {
-			opacity: 1;
 			transform: translateY(0);
+			opacity: 1;
 		}
 	}
 
@@ -203,20 +203,20 @@
 	.popup__projects {
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
 		padding: 8px;
+		gap: 2px;
 	}
 
 	/* LIST ITEM */
 	.list-item {
 		display: flex;
-		text-align: left;
+		justify-content: space-between;
+		width: 100%;
+		padding: 10px 10px;
+		border-radius: var(--radius-m);
 		color: var(--clr-scale-ntrl-10);
 		font-weight: 700;
-		padding: 10px 10px;
-		justify-content: space-between;
-		border-radius: var(--radius-m);
-		width: 100%;
+		text-align: left;
 		transition: background-color var(--transition-fast);
 
 		&:hover:enabled,

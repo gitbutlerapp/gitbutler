@@ -46,8 +46,8 @@
 <style lang="postcss">
 	.simple-commit-item {
 		display: flex;
-		gap: 10px;
 		padding: 12px 14px 14px 12px;
+		gap: 10px;
 		border-bottom: 1px solid var(--clr-border-2);
 
 		&:last-child {
@@ -57,8 +57,8 @@
 		.content {
 			display: flex;
 			flex-direction: column;
-			gap: 6px;
 			overflow: hidden;
+			gap: 6px;
 
 			/* Fix because of using native dialog element */
 			& span {
@@ -75,9 +75,9 @@
 		.details {
 			display: flex;
 			align-items: center;
+			overflow: hidden;
 			gap: 4px;
 			color: var(--clr-text-2);
-			overflow: hidden;
 		}
 
 		.details-btn {

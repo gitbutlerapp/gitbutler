@@ -71,15 +71,14 @@
 
 <style>
 	.branch-card__files {
-		border-radius: 0 0 var(--radius-m) var(--radius-m) !important;
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		height: 100%;
 		border: 1px solid var(--clr-border-2);
 		border-top-width: 0;
+		border-radius: 0 0 var(--radius-m) var(--radius-m) !important;
 		background: var(--clr-bg-1);
-
-		display: flex;
-		flex-direction: column;
-		flex: 1;
-		height: 100%;
 	}
 
 	.card-notifications {

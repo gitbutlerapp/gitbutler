@@ -85,9 +85,9 @@
 	}
 
 	.commit-details_actions {
-		width: 100%;
 		display: flex;
 		flex-wrap: wrap;
+		width: 100%;
 		gap: 5px;
 	}
 </style>

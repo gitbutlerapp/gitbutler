@@ -30,7 +30,6 @@
 		/* background-color: rgba(0, 0, 0, 0.1); */
 
 		&:before {
-			content: '';
 			position: absolute;
 			top: -50%;
 			left: 50%;
@@ -38,6 +37,7 @@
 			/* height: 200%; */
 			transform: translateX(-50%);
 			background-color: var(--clr-border-1);
+			content: '';
 			opacity: 0.4;
 			/* background-color: rgba(0, 0, 0, 0.4); */
 		}

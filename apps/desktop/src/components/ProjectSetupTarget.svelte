@@ -282,8 +282,8 @@
 	.project-setup__fields {
 		display: flex;
 		flex-direction: column;
-		gap: 16px;
 		padding-bottom: 10px;
+		gap: 16px;
 	}
 
 	.project-setup__description-text {

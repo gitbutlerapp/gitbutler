@@ -150,9 +150,9 @@
 <style>
 	.chrome-header {
 		display: flex;
-		padding: 14px;
 		align-items: center;
 		justify-content: space-between;
+		padding: 14px;
 		overflow: hidden;
 	}
 
@@ -167,15 +167,15 @@
 
 	.chrome-right {
 		display: flex;
-		gap: 4px;
 		justify-content: right;
+		gap: 4px;
 	}
 
 	/** Flex basis 0 means they grow by the same amount. */
 	.chrome-right,
 	.chrome-left {
-		flex-basis: 0;
 		flex-grow: 1;
+		flex-basis: 0;
 	}
 
 	.chrome-left-buttons {
@@ -191,8 +191,8 @@
 	.selector-series-select {
 		display: flex;
 		align-items: center;
-		gap: 4px;
 		padding: 2px 4px 2px 6px;
+		gap: 4px;
 		color: var(--clr-text-1);
 		text-wrap: nowrap;
 

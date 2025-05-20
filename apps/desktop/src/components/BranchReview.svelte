@@ -168,9 +168,9 @@
 
 <style lang="postcss">
 	.branch-action {
-		width: 100%;
 		display: flex;
 		flex-direction: column;
+		width: 100%;
 		gap: 14px;
 	}
 
@@ -180,13 +180,13 @@
 		gap: 8px;
 
 		& :global(.review-card) {
-			position: relative;
 			display: flex;
+			position: relative;
 			flex-direction: column;
+			padding: 14px;
 			gap: 12px;
 			border: 1px solid var(--clr-border-2);
 			border-radius: var(--radius-m);
-			padding: 14px;
 		}
 	}
 </style>

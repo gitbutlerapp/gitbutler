@@ -56,23 +56,23 @@
 
 <style lang="postcss">
 	.action__wrapper {
+		display: flex;
+		position: relative;
+		position: relative;
+		flex-direction: column;
 		width: 100%;
 		height: auto;
-		position: relative;
-		display: flex;
-		flex-direction: column;
-		gap: 20px;
-		overflow: hidden;
-		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-border-2);
-		position: relative;
 		padding: 16px;
+		overflow: hidden;
+		gap: 20px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-1);
 
 		text-align: left;
 		transition:
 			background-color var(--transition-fast),
 			border-color var(--transition-fast);
-		background-color: var(--clr-bg-1);
 
 		&:hover,
 		&:focus {
@@ -90,24 +90,24 @@
 	}
 
 	.loading {
-		pointer-events: none;
 		background-color: var(--clr-bg-2);
 		opacity: 0.6;
+		pointer-events: none;
 	}
 
 	.action__content {
-		width: 100%;
 		display: flex;
 		flex-direction: column;
+		width: 100%;
 		gap: 8px;
 		transition: opacity var(--transition-slow);
 	}
 
 	.action__spinner {
+		display: flex;
 		position: absolute;
 		top: 10px;
 		right: 10px;
-		display: flex;
 	}
 
 	.action__title {
@@ -115,8 +115,8 @@
 	}
 
 	.action__message {
-		color: var(--clr-text-2);
 		max-width: 90%;
+		color: var(--clr-text-2);
 	}
 
 	.dim-message {
@@ -125,7 +125,7 @@
 
 	.icon {
 		display: flex;
-		align-items: center;
 		flex-shrink: 0;
+		align-items: center;
 	}
 </style>

@@ -63,23 +63,23 @@
 		height: 100%;
 
 		&:after {
-			pointer-events: none;
-			content: '';
 			position: absolute;
 			top: 0;
 			right: 50%;
-			transform: translateX(50%);
 			width: 1px;
 			height: 100%;
+			transform: translateX(50%);
+			content: '';
+			pointer-events: none;
 		}
 	}
 
 	.file-card {
-		background: var(--clr-bg-1);
-		overflow: hidden;
 		display: flex;
+		flex-grow: 1;
 		flex-direction: column;
 		max-height: 100%;
-		flex-grow: 1;
+		overflow: hidden;
+		background: var(--clr-bg-1);
 	}
 </style>

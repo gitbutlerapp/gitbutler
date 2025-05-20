@@ -124,17 +124,15 @@
 	}
 
 	.formatting-slides {
-		position: relative;
 		display: flex;
-		overflow: hidden;
+		position: relative;
 		margin-right: 6px;
-		padding-left: 8px;
 		margin-left: -8px;
+		padding-left: 8px;
+		overflow: hidden;
 		/* background-color: antiquewhite; */
 
 		&::after {
-			user-select: none;
-			content: '';
 			position: absolute;
 			top: 0;
 			left: 0;
@@ -145,6 +143,8 @@
 				var(--clr-bg-1) 0%,
 				oklch(from var(--clr-bg-1) l c h / 0) 100%
 			);
+			content: '';
+			user-select: none;
 		}
 	}
 
@@ -164,12 +164,12 @@
 
 		&:not(:last-child) {
 			&::after {
-				content: '';
 				display: block;
 				width: 1px;
 				height: 16px;
-				background-color: var(--clr-border-3);
 				margin: 0 6px;
+				background-color: var(--clr-border-3);
+				content: '';
 			}
 		}
 	}

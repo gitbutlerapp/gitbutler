@@ -14,9 +14,9 @@
 
 <style>
 	.disclaimer {
-		color: var(--clr-scale-ntrl-50);
-		background: var(--clr-bg-2);
-		border-radius: var(--radius-m);
 		padding: 10px 12px;
+		border-radius: var(--radius-m);
+		background: var(--clr-bg-2);
+		color: var(--clr-scale-ntrl-50);
 	}
 </style>

@@ -93,12 +93,12 @@
 
 <style lang="postcss">
 	.folder-list-item {
-		cursor: pointer;
 		display: flex;
 		align-items: center;
-		gap: 8px;
 		height: 32px;
 		padding: 8px 8px 8px 14px;
+		gap: 8px;
+		cursor: pointer;
 
 		&:hover {
 			background-color: var(--clr-bg-1-muted);
@@ -118,9 +118,9 @@
 		justify-content: center;
 		width: 14px;
 		height: 14px;
-		border-radius: var(--radius-s);
 		margin: 0 -2px;
 		transform: rotate(-90deg);
+		border-radius: var(--radius-s);
 
 		&:hover {
 			color: var(--clr-text-1);

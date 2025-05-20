@@ -139,33 +139,33 @@
 
 <style>
 	.section-card {
-		background-color: white;
-		border-radius: 8px;
 		overflow: hidden;
 		border: 1px solid color(srgb 0.831373 0.815686 0.807843);
+		border-radius: 8px;
+		background-color: white;
 	}
 
 	.section-header {
 		display: flex;
-		justify-content: space-between;
 		align-items: center;
+		justify-content: space-between;
+		padding-right: 5px;
 		border-bottom: 1px solid color(srgb 0.831373 0.815686 0.807843);
 		background-color: #f3f3f2;
-		padding-right: 5px;
 	}
 
 	.section-title {
-		font-size: 0.8em;
 		margin: 0;
 		padding: 12px 15px;
 		color: color(srgb 0.52549 0.494118 0.47451);
+		font-size: 0.8em;
 	}
 
 	/* Reviews Table */
 	.empty-state {
 		padding: 3rem 1rem;
-		text-align: center;
 		color: #718096;
+		text-align: center;
 	}
 
 	.empty-state p {
@@ -179,13 +179,13 @@
 	}
 
 	.loading-state {
-		padding: 3rem 1rem;
-		text-align: center;
-		color: #718096;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
+		padding: 3rem 1rem;
+		color: #718096;
+		text-align: center;
 	}
 
 	.loading-state p {
@@ -211,21 +211,21 @@
 	.reviews-table {
 		width: 100%;
 		border-collapse: collapse;
-		font-size: 13px;
 		color: var(--clr-text-2);
+		font-size: 13px;
 	}
 
 	.reviews-table thead {
-		background-color: #eee;
 		border-bottom: 1px solid color(srgb 0.831373 0.815686 0.807843);
+		background-color: #eee;
 	}
 
 	.reviews-table th {
-		text-align: left;
 		padding: 10px 15px;
-		font-weight: 500;
 		color: color(srgb 0.52549 0.494118 0.47451);
+		font-weight: 500;
 		font-size: 0.8em;
+		text-align: left;
 	}
 
 	.reviews-table td {
@@ -260,14 +260,14 @@
 	}
 
 	.review-title-link {
-		color: #000;
-		text-decoration: none;
-		font-weight: 800;
 		display: block;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
 		max-width: 300px;
+		overflow: hidden;
+		color: #000;
+		font-weight: 800;
+		text-decoration: none;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.review-title-link:hover {

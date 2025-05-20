@@ -27,9 +27,9 @@
 
 	.card__footer {
 		display: flex;
-		gap: 6px;
-		padding: 16px;
 		justify-content: space-between;
+		padding: 16px;
+		gap: 6px;
 		border-top: 1px solid var(--clr-border-2);
 	}
 }

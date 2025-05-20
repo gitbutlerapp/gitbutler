@@ -89,14 +89,14 @@
 
 <style lang="postcss">
 	.commit-sha {
-		cursor: pointer;
 		display: flex;
 		align-items: center;
 		justify-content: flex-start;
 		gap: 2px;
 		text-decoration-line: underline;
-		text-underline-offset: 2px;
 		text-decoration-style: dashed;
+		text-underline-offset: 2px;
+		cursor: pointer;
 
 		&:hover {
 			.factoid-icon {

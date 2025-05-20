@@ -46,8 +46,8 @@
 	.wrapper {
 		display: flex;
 		flex-direction: column;
-		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-border-2);
 		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
 	}
 </style>

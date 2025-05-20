@@ -22,9 +22,9 @@
 <style>
 	.large-diff-message {
 		display: flex;
+		flex-direction: column;
 		padding: 12px;
 		gap: 12px;
-		flex-direction: column;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
 	}

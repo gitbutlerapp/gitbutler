@@ -71,8 +71,8 @@
 
 	.footer.collapsed {
 		flex-direction: column;
-		padding: 0 14px;
 		align-items: flex-start;
+		padding: 0 14px;
 		gap: 4px;
 		border: none;
 

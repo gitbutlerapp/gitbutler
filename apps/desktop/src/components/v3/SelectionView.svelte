@@ -44,12 +44,12 @@
 	.selection-view {
 		display: flex;
 		flex-grow: 1;
+		width: 100%;
 		height: 100%;
 		overflow: hidden;
-		background-size: 6px 6px;
-		width: 100%;
+		border: 1px solid var(--clr-border-2);
 
 		border-radius: var(--radius-ml);
-		border: 1px solid var(--clr-border-2);
+		background-size: 6px 6px;
 	}
 </style>

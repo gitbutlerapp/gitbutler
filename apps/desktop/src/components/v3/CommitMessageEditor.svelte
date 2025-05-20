@@ -218,8 +218,8 @@
 
 <style lang="postcss">
 	.commit-message-wrap {
-		flex: 1;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 		min-height: 0;
 		gap: 10px;

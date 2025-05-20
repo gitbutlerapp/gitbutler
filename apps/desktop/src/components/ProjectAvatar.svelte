@@ -36,10 +36,10 @@
 	}
 
 	.avatar-letter text {
-		font-family: var(--fontfamily-default);
 		font-weight: 800;
 		font-size: 16px;
 		line-height: 1;
+		font-family: var(--fontfamily-default);
 		fill: var(--clr-core-ntrl-100);
 	}
 </style>

@@ -85,10 +85,10 @@
 <style lang="postcss">
 	.status-dot-wrap {
 		display: flex;
+		flex-shrink: 0;
 		align-items: center;
 		justify-content: center;
 		width: fit-content;
-		flex-shrink: 0;
 	}
 
 	.status-dot {

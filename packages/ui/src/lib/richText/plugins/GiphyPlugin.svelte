@@ -145,8 +145,8 @@
 	}
 	.inner {
 		position: relative;
-		padding: 6px;
 		max-height: 300px;
+		padding: 6px;
 		overflow-y: auto;
 		border: 1px solid var(--clr-border-1);
 		border-radius: var(--radius-s);

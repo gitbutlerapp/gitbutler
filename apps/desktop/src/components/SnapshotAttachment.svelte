@@ -75,11 +75,11 @@
 	.snapshot-attachment {
 		display: flex;
 		flex-direction: column;
-		background-color: var(--clr-bg-1);
-		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-border-2);
 		width: 100%;
 		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-1);
 	}
 
 	.snapshot-attachment__content {
@@ -90,22 +90,22 @@
 	}
 
 	.toggle-btn {
-		position: relative;
 		display: flex;
-		justify-content: space-between;
+		position: relative;
 		align-items: center;
+		justify-content: space-between;
 		padding: 8px;
-		color: var(--clr-text-2);
-		background-color: var(--clr-bg-1);
 		border-top: 1px solid var(--clr-border-2);
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
+		background-color: var(--clr-bg-1);
+		color: var(--clr-text-2);
 		transition:
 			color var(--transition-fast),
 			background-color var(--transition-fast);
 
 		&:hover {
-			color: var(--clr-text-1);
 			background-color: var(--clr-bg-2);
+			color: var(--clr-text-1);
 		}
 	}
 

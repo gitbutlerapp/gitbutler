@@ -217,14 +217,14 @@
 
 <style lang="postcss">
 	.textbox {
-		position: relative;
 		display: flex;
+		position: relative;
 		flex-direction: column;
 		gap: 6px;
 
 		&.wide {
-			width: 100%;
 			flex: 1;
+			width: 100%;
 		}
 	}
 
@@ -237,9 +237,9 @@
 			}
 
 			& .textbox__input {
-				color: var(--clr-text-2);
-				background-color: var(--clr-bg-1-muted);
 				border: 1px solid var(--clr-border-3);
+				background-color: var(--clr-bg-1-muted);
+				color: var(--clr-text-2);
 			}
 		}
 	}
@@ -250,8 +250,8 @@
 		width: 100%;
 
 		&.readonly {
-			background-color: var(--clr-bg-1-muted);
 			border-color: var(--clr-border-2);
+			background-color: var(--clr-bg-1-muted);
 		}
 
 		&.size-default {
@@ -269,45 +269,45 @@
 	}
 
 	.textbox__helper-text {
-		color: var(--clr-scale-ntrl-50);
 		margin-top: 6px;
+		color: var(--clr-scale-ntrl-50);
 	}
 
 	.textbox__icon {
 		display: flex;
 		z-index: var(--z-ground);
-		pointer-events: none;
 		position: absolute;
 		top: 50%;
-		color: var(--clr-scale-ntrl-50);
 		transform: translateY(-50%);
+		color: var(--clr-scale-ntrl-50);
+		pointer-events: none;
 	}
 
 	.textbox__show-hide-icon {
+		display: flex;
 		z-index: var(--z-ground);
 		position: absolute;
 		top: 50%;
 		right: 6px;
-		color: var(--clr-scale-ntrl-50);
-		transform: translateY(-50%);
-		display: flex;
 		padding: 2px 4px;
+		transform: translateY(-50%);
 		border-radius: var(--radius-s);
+		color: var(--clr-scale-ntrl-50);
 		transition: background-color var(--transition-fast);
 
 		&:hover,
 		&:focus {
-			color: var(--clr-scale-ntrl-40);
 			outline: none;
 			background-color: var(--clr-bg-2);
+			color: var(--clr-scale-ntrl-40);
 		}
 	}
 
 	/* select */
 	.textbox__input[type='select']:not([disabled]),
 	.textbox__input[type='select']:not([readonly]) {
-		user-select: none;
 		cursor: pointer;
+		user-select: none;
 	}
 
 	/* number */
@@ -327,23 +327,23 @@
 	}
 
 	.textbox__count-actions {
+		display: flex;
 		z-index: var(--z-ground);
 		position: absolute;
 		top: 50%;
 		right: 6px;
 		transform: translateY(-50%);
-		display: flex;
 	}
 
 	.textbox__count-actions::before {
-		content: '';
 		position: absolute;
 		top: 50%;
 		left: -6px;
-		transform: translateY(-50%);
 		width: 1px;
 		height: 100%;
+		transform: translateY(-50%);
 		background-color: var(--clr-border-2);
+		content: '';
 	}
 
 	.textbox__count-btn {

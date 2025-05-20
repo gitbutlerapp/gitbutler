@@ -223,16 +223,16 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		border-left: 1px solid var(--clr-border-2);
 		height: 100%;
 		padding: 12px 15px;
-		color: var(--clr-text-1);
 		overflow: hidden;
+		gap: 10px;
+		border-left: 1px solid var(--clr-border-2);
+		color: var(--clr-text-1);
 
 		transition:
 			color var(--transition-fast),
 			background var(--transition-fast);
-		gap: 10px;
 
 		&:hover,
 		&:focus {
@@ -276,16 +276,19 @@
 		--illustration-text: var(--clr-text-3);
 		--illustration-accent-outline: var(--clr-text-3);
 		--illustration-accent-bg: var(--clr-bg-2);
+		display: flex;
 
 		position: relative;
-		display: flex;
 		flex: 1;
 		flex-direction: column;
 		padding: 14px 14px 0;
 		gap: 4px;
-		transition:
-			border-color var(--transition-fast),
-			background-color var(--transition-fast);
+		border: 1px solid
+			color-mix(
+				in srgb,
+				var(--btn-border-clr, transparent),
+				transparent calc((1 - var(--btn-border-opacity, 1)) * 100%)
+			);
 
 		border-radius: var(--radius-m);
 		background: color-mix(
@@ -293,12 +296,9 @@
 			var(--btn-bg, transparent),
 			transparent calc((1 - var(--btn-bg-opacity, 1)) * 100%)
 		);
-		border: 1px solid
-			color-mix(
-				in srgb,
-				var(--btn-border-clr, transparent),
-				transparent calc((1 - var(--btn-border-opacity, 1)) * 100%)
-			);
+		transition:
+			border-color var(--transition-fast),
+			background-color var(--transition-fast);
 
 		&:not(.radio-selected)&:not(.disabled):hover {
 			--btn-bg-opacity: 0.14;
@@ -327,10 +327,10 @@
 	}
 
 	.radio-btn {
-		position: absolute;
-		right: 12px;
-		top: 12px;
 		display: flex;
+		position: absolute;
+		top: 12px;
+		right: 12px;
 	}
 
 	.radio-caption {
@@ -340,8 +340,8 @@
 	.radio-illustration {
 		display: flex;
 		align-items: flex-end;
-		margin-top: 20px;
 		height: 100%;
+		margin-top: 20px;
 	}
 
 	.radio-aditional-info {
@@ -363,8 +363,8 @@
 	/* FOOTER */
 	.footer {
 		display: flex;
-		justify-content: space-between;
 		align-items: center;
+		justify-content: space-between;
 		width: 100%;
 		gap: 16px;
 		color: var(--clr-text-2);

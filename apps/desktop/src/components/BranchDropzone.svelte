@@ -64,10 +64,10 @@
 
 <style lang="postcss">
 	.canvas-dropzone {
-		height: 100%;
-		user-select: none;
 		display: flex;
+		height: 100%;
 		padding: 12px;
+		user-select: none;
 	}
 
 	.new-virtual-branch {
@@ -77,16 +77,16 @@
 		justify-content: center;
 		width: 352px;
 		height: 100%;
-		border-radius: var(--radius-m);
-		border: 1px dashed var(--clr-border-2);
-		background-color: transparent;
 		padding: 20px;
 		gap: 8px;
+		border: 1px dashed var(--clr-border-2);
+		border-radius: var(--radius-m);
 
 		outline-color: transparent;
 		outline-style: dashed;
 		outline-width: 1px;
 		outline-offset: -1px;
+		background-color: transparent;
 
 		transition:
 			outline-offset var(--transition-medium),
@@ -100,9 +100,9 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
+		padding: 20px 24px 16px 24px;
 		gap: 12px;
 		transition: transform var(--transition-medium);
-		padding: 20px 24px 16px 24px;
 	}
 
 	/* ILLUSTRATION */
@@ -157,29 +157,29 @@
 		left: 35px;
 		width: 77px;
 		height: 83px;
-		background-color: oklch(from var(--clr-scale-ntrl-60) l c h / 0.2);
 		border-radius: 12px;
+		background-color: oklch(from var(--clr-scale-ntrl-60) l c h / 0.2);
 	}
 
 	.stimg__branch-plus {
 		position: absolute;
 		top: 16px;
 		left: 50%;
-		transform: translateX(-50%);
 		width: 34px;
 		height: 34px;
+		transform: translateX(-50%);
 		opacity: 0.3;
 
 		&::before,
 		&::after {
-			content: '';
 			position: absolute;
 			top: 50%;
 			left: 50%;
-			transform: translate(-50%, -50%);
 			width: 100%;
 			height: 2px;
+			transform: translate(-50%, -50%);
 			background-color: var(--clr-scale-ntrl-20);
+			content: '';
 		}
 
 		&::after {
@@ -203,8 +203,8 @@
 	/* DRAGZONE MODIEFIERS */
 	.activated {
 		&.new-virtual-branch {
-			background-color: oklch(from var(--clr-scale-pop-70) l c h / 0.1);
 			border: 1px dashed oklch(from var(--clr-scale-pop-40) l c h / 0.8);
+			background-color: oklch(from var(--clr-scale-pop-70) l c h / 0.1);
 			color: var(--clr-scale-pop-50);
 		}
 

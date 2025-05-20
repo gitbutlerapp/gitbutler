@@ -136,8 +136,8 @@
 
 <style lang="postcss">
 	.commit-row {
-		position: relative;
 		display: flex;
+		position: relative;
 		width: 100%;
 		overflow: hidden;
 		transition: background-color var(--transition-fast);
@@ -182,24 +182,24 @@
 
 	.commit-content {
 		display: flex;
-		align-items: center;
 		position: relative;
-		gap: 4px;
+		align-items: center;
 		width: 100%;
-		overflow: hidden;
 		padding-right: 10px;
+		overflow: hidden;
+		gap: 4px;
 	}
 
 	.commit-name {
+		display: flex;
 		flex: 1;
 		padding: 14px 0 14px 0;
-		display: flex;
 	}
 
 	.commit-conflict-indicator {
 		display: flex;
-		color: var(--clr-theme-err-element);
 		margin-right: 4px;
+		color: var(--clr-theme-err-element);
 	}
 
 	/* MODIFIERS */

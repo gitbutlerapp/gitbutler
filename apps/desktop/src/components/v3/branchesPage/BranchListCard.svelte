@@ -218,24 +218,24 @@
 
 	.sidebar-entry__applied-tag {
 		display: flex;
-		background-color: var(--clr-scale-ntrl-50);
 		padding: 2px 4px;
 		border-radius: 10px;
+		background-color: var(--clr-scale-ntrl-50);
 		color: var(--clr-theme-ntrl-on-element);
 	}
 
 	.sidebar-entry__details {
 		display: flex;
-		gap: 6px;
 		align-items: center;
 		justify-content: space-between;
 		width: 100%;
+		gap: 6px;
 	}
 
 	.sidebar-entry__details-item {
 		display: flex;
-		gap: 5px;
 		align-items: center;
+		gap: 5px;
 		color: var(--clr-text-2);
 	}
 </style>

@@ -147,18 +147,18 @@
 				}
 
 				.read-more-btn {
-					opacity: 1;
 					transform: translate(0, 0);
+					opacity: 1;
 				}
 
 				.progress-scale {
-					opacity: 1;
 					transform: scaleY(1) translateY(0);
+					opacity: 1;
 				}
 
 				.shadow {
-					opacity: 0.3;
 					transform: translate(6px, 6px);
+					opacity: 0.3;
 				}
 
 				.video-poster {
@@ -169,32 +169,32 @@
 	}
 
 	.card {
+		display: flex;
 		z-index: 1;
 		position: relative;
-		display: flex;
 		flex-direction: column;
-		border-radius: 16px;
 		height: 100%;
-		background-color: var(--clr-white);
-		border: 1px solid var(--clr-gray);
 		overflow: hidden;
+		border: 1px solid var(--clr-gray);
+		border-radius: 16px;
 		backface-visibility: hidden;
+		background-color: var(--clr-white);
 		transition: transform 0.3s ease;
 	}
 
 	.video-poster {
+		display: flex;
 		z-index: 2;
 		position: absolute;
 		top: -2px;
 		left: -2px;
-		width: calc(100% + 4px);
-		height: calc(100% + 4px);
-		display: flex;
 		align-items: flex-start;
 		justify-content: flex-end;
+		width: calc(100% + 4px);
+		height: calc(100% + 4px);
 		padding: 20px;
-		background-size: cover;
 		background-position: center;
+		background-size: cover;
 		background-repeat: no-repeat;
 		transition: opacity 0.1s ease-in-out;
 	}
@@ -204,16 +204,16 @@
 	}
 
 	.progress-scale {
-		position: absolute;
 		z-index: 2;
+		position: absolute;
 		bottom: 0;
 		left: 0;
 		width: 0;
 		height: 3px;
+		transform: scaleY(0.3) translateY(5px);
 		background-color: var(--clr-accent);
 		filter: brightness(0.8) saturate(1.6);
 		opacity: 0;
-		transform: scaleY(0.3) translateY(5px);
 
 		transition:
 			opacity 0.1s ease-in-out,
@@ -221,19 +221,19 @@
 	}
 
 	.showProgress {
-		opacity: 1;
 		transform: scaleY(1) translateY(0);
+		opacity: 1;
 	}
 
 	.shadow {
+		z-index: -1;
 		position: absolute;
 		top: 0;
 		left: 0;
 		width: 100%;
 		height: 100%;
-		background-image: url('/images/patterns/random-noise-1.gif');
 		border-radius: 16px;
-		z-index: -1;
+		background-image: url('/images/patterns/random-noise-1.gif');
 		opacity: 0;
 		transition:
 			transform 0.1s ease,
@@ -241,9 +241,9 @@
 	}
 
 	.video-wrappper {
-		width: 100%;
-		aspect-ratio: 240/180;
 		position: relative;
+		aspect-ratio: 240/180;
+		width: 100%;
 		overflow: hidden;
 		border-bottom: 1px solid var(--clr-gray);
 	}
@@ -259,17 +259,17 @@
 	}
 
 	.content {
-		flex: 1;
 		position: relative;
-		background-color: var(--clr-white);
+		flex: 1;
 		padding: 30px 30px 40px 30px;
+		background-color: var(--clr-white);
 	}
 
 	.title {
-		font-size: 28px;
-		font-weight: 500;
-		text-transform: uppercase;
 		margin-bottom: 16px;
+		font-weight: 500;
+		font-size: 28px;
+		text-transform: uppercase;
 	}
 
 	.description {
@@ -279,30 +279,30 @@
 	}
 
 	.read-more-btn {
-		position: absolute;
-		bottom: 0;
-		right: 0;
-		cursor: pointer;
 		display: inline-flex;
+		position: absolute;
+		right: 0;
+		bottom: 0;
 		align-items: center;
 		justify-content: center;
+		padding: 20px;
 		gap: 8px;
-		background: none;
+		transform: translate(0, 10px);
 		border: none;
 		outline: none;
-		padding: 20px;
+		background: none;
 		text-decoration: none;
+		cursor: pointer;
 
 		opacity: 0;
-		transform: translate(0, 10px);
 		transition:
 			opacity 0.1s ease-in-out,
 			transform 0.1s ease-in-out;
 
 		span {
-			font-size: 14px;
-			font-weight: 500;
 			color: color-mix(in srgb, var(--clr-accent), var(--clr-black) 20%);
+			font-weight: 500;
+			font-size: 14px;
 		}
 
 		svg {

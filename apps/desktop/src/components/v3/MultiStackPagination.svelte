@@ -67,13 +67,13 @@
 
 <style lang="postcss">
 	.pagination {
-		border-radius: var(--radius-ml);
 		display: flex;
-		justify-content: center;
 		align-items: center;
-		gap: 2px;
+		justify-content: center;
 		padding: 6px;
+		gap: 2px;
 		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
 		background-color: var(--clr-bg-1);
 	}
 
@@ -82,8 +82,8 @@
 		height: 8px;
 		border-radius: var(--radius-s);
 		background: var(--clr-text-2);
-		opacity: 0.4;
 		cursor: pointer;
+		opacity: 0.4;
 		transition: background-color var(--transition-fast);
 
 		&:hover {

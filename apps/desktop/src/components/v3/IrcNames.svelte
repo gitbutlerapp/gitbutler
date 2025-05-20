@@ -37,15 +37,15 @@
 		flex-direction: column;
 		width: fit-content;
 		padding: 12px 14px;
-		border-left: 1px solid var(--clr-border-3);
 		overflow: hidden;
+		border-left: 1px solid var(--clr-border-3);
 	}
 	.user {
 		display: flex;
 		padding: 4px 0;
+		overflow: hidden;
 		text-align: left;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		overflow: hidden;
 	}
 </style>

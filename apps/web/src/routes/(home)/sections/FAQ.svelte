@@ -57,12 +57,12 @@
 	}
 
 	.title {
-		font-family: 'PP Editorial New', serif;
+		margin-bottom: 30px;
+		color: var(--clr-black);
 		font-weight: 400;
 		font-size: 70px;
-		color: var(--clr-black);
 		line-height: 90%;
-		margin-bottom: 30px;
+		font-family: 'PP Editorial New', serif;
 	}
 
 	.faq-wrapper {

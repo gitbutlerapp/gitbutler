@@ -19,15 +19,15 @@
 <style lang="postcss">
 	.sticky-buttons {
 		display: flex;
-		gap: 6px;
-		padding-left: 12px;
 		padding-right: 12px;
 		padding-bottom: 14px;
+		padding-left: 12px;
+		gap: 6px;
 
 		&.show-bg {
 			padding-top: 12px;
-			background-color: var(--clr-bg-1);
 			border-top: 1px solid var(--clr-border-2);
+			background-color: var(--clr-bg-1);
 		}
 	}
 </style>

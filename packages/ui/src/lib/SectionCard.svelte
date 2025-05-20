@@ -96,19 +96,19 @@
 
 <style lang="postcss">
 	.section-card {
-		position: relative;
 		display: flex;
-		gap: 16px;
+		position: relative;
 		padding: 16px;
-		border-left-width: 1px;
+		gap: 16px;
 		border-right-width: 1px;
+		border-left-width: 1px;
 		border-color: var(--clr-border-2);
 		background-color: var(--clr-bg-1);
+		text-align: left;
 		cursor: default;
 		transition:
 			background-color var(--transition-fast),
 			border-color var(--transition-fast);
-		text-align: left;
 	}
 
 	.loading {
@@ -127,8 +127,8 @@
 	}
 
 	.section-card__content {
-		flex: 1;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 		gap: 6px;
 		user-select: text;
@@ -161,25 +161,25 @@
 
 	.rounded-top {
 		border-top-width: 1px;
-		border-top-left-radius: var(--radius-m);
 		border-top-right-radius: var(--radius-m);
+		border-top-left-radius: var(--radius-m);
 	}
 
 	.rounded-bottom {
-		border-bottom-left-radius: var(--radius-m);
 		border-bottom-right-radius: var(--radius-m);
+		border-bottom-left-radius: var(--radius-m);
 	}
 
 	.top-divider {
 		&::before {
-			content: '';
+			display: block;
 			position: absolute;
 			top: 0;
 			left: 0;
-			display: block;
 			width: 100%;
 			height: 1px;
 			background-color: var(--clr-border-3);
+			content: '';
 		}
 	}
 
@@ -196,8 +196,8 @@
 	}
 
 	.disabled {
-		pointer-events: none;
 		opacity: 0.5;
+		pointer-events: none;
 	}
 
 	.center-align {

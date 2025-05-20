@@ -220,17 +220,17 @@
 
 <style lang="postcss">
 	.resizer-wrapper {
-		position: relative;
 		display: flex;
+		position: relative;
 		height: 100%;
 	}
 
 	.branch-card {
-		height: 100%;
 		position: relative;
-		user-select: none;
+		height: 100%;
 		overflow-x: hidden;
 		overflow-y: scroll;
+		user-select: none;
 	}
 
 	.lane-branches {
@@ -241,9 +241,9 @@
 	.lane-branches__action {
 		z-index: var(--z-lifted);
 		position: sticky;
-		padding: 0 12px 12px;
-		margin: 0 -12px 1px -12px;
 		bottom: 0;
+		margin: 0 -12px 1px -12px;
+		padding: 0 12px 12px;
 		transition: background-color var(--transition-fast);
 
 		&:global(.merge-all > button:not(:last-child)) {
@@ -251,18 +251,18 @@
 		}
 
 		&:after {
-			content: '';
 			display: block;
+			z-index: -1;
 			position: absolute;
 			bottom: 0;
 			left: 0;
-			height: calc(100% + 12px);
 			width: 100%;
-			z-index: -1;
-			background-color: var(--clr-bg-1);
-			border-top: 1px solid var(--clr-border-2);
+			height: calc(100% + 12px);
 
 			transform: translateY(0);
+			border-top: 1px solid var(--clr-border-2);
+			background-color: var(--clr-bg-1);
+			content: '';
 			opacity: 0;
 			transition: opacity var(--transition-fast);
 		}
@@ -273,49 +273,49 @@
 	}
 
 	.branch-card__contents {
-		position: relative;
 		display: flex;
-		flex-direction: column;
+		position: relative;
 		flex: 1;
+		flex-direction: column;
 		min-height: 100%;
 		padding: 12px 12px 0;
 	}
 
 	.card-stacking {
-		flex: 1;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 	}
 
 	.no-changes,
 	.new-branch {
-		border-radius: 0 0 var(--radius-m) var(--radius-m) !important;
 		border: 1px solid var(--clr-border-2);
 		border-top-width: 0;
+		border-radius: 0 0 var(--radius-m) var(--radius-m) !important;
 		background: var(--clr-bg-1);
 	}
 
 	.new-branch,
 	.no-changes {
-		flex-grow: 1;
-		user-select: none;
 		display: flex;
-		height: 100%;
+		flex-grow: 1;
 		flex-direction: column;
 		align-items: center;
-		color: var(--clr-scale-ntrl-60);
 		justify-content: center;
-		cursor: default; /* was defaulting to text cursor */
+		height: 100%;
 		border-top-width: 0px;
+		color: var(--clr-scale-ntrl-60);
+		cursor: default; /* was defaulting to text cursor */
+		user-select: none;
 	}
 
 	/* COLLAPSED LANE */
 	.collapsed-lane-container {
-		position: relative;
 		display: flex;
+		position: relative;
 		flex-direction: column;
-		padding: 12px;
 		height: 100%;
+		padding: 12px;
 	}
 
 	.collapsed-lane-divider {

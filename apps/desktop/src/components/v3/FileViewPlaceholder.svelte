@@ -146,10 +146,10 @@
 <style lang="postcss">
 	/* SELECT COMMIT SECTION */
 	:global(.tips-view__close-btn) {
+		z-index: 1;
 		position: absolute;
 		top: 10px;
 		right: 10px;
-		z-index: 1;
 	}
 
 	/* TIP SECTION */
@@ -198,9 +198,9 @@
 
 	.tip-section__subsection-menu {
 		display: flex;
-		gap: 16px;
 		margin-top: 8px;
 		margin-bottom: 16px;
+		gap: 16px;
 	}
 
 	.tip-section__subsection-btn {

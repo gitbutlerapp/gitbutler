@@ -276,8 +276,8 @@
 <style lang="postcss">
 	.pr-row {
 		display: flex;
-		align-items: center;
 		flex-wrap: wrap;
+		align-items: center;
 		gap: 6px;
 
 		&:empty {
@@ -306,10 +306,10 @@
 	}
 
 	.pr-actions {
+		display: flex;
 		position: absolute;
 		top: 8px;
 		right: 8px;
-		display: flex;
 		gap: 4px;
 	}
 </style>

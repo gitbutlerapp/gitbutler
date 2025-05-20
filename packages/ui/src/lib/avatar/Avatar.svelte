@@ -32,27 +32,27 @@
 	.image-wrapper {
 		display: grid;
 		place-content: center;
-		overflow: hidden;
-		border-radius: 6px;
 		width: 12px;
 		height: 12px;
+		overflow: hidden;
+		border-radius: 6px;
 
 		&.small {
-			border-radius: 6px;
 			width: 12px;
 			height: 12px;
+			border-radius: 6px;
 		}
 
 		&.medium {
-			border-radius: 8px;
 			width: 16px;
 			height: 16px;
+			border-radius: 8px;
 		}
 
 		&.large {
-			border-radius: 16px;
 			width: 32px;
 			height: 32px;
+			border-radius: 16px;
 		}
 	}
 

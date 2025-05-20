@@ -32,9 +32,9 @@
 
 <style lang="postcss">
 	.analytics-confirmation {
-		width: 100%;
 		display: flex;
 		flex-direction: column;
+		width: 100%;
 		gap: 12px;
 	}
 

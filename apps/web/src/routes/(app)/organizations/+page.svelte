@@ -149,8 +149,8 @@
 
 <style lang="postcss">
 	.page-container {
-		max-width: 1200px;
 		min-width: 900px;
+		max-width: 1200px;
 		margin: 0 auto;
 		padding: 24px;
 	}
@@ -168,14 +168,14 @@
 	.page-title {
 		display: flex;
 		align-items: center;
-		gap: 12px;
 		margin-bottom: 8px;
+		gap: 12px;
 	}
 
 	.page-title h1 {
-		font-size: 24px;
-		font-weight: 600;
 		color: var(--clr-text-1);
+		font-weight: 600;
+		font-size: 24px;
 	}
 
 	.page-description {
@@ -195,15 +195,15 @@
 
 	.organizations-header {
 		display: flex;
-		justify-content: space-between;
 		align-items: center;
+		justify-content: space-between;
 		margin-bottom: 16px;
 	}
 
 	.organizations-header h2 {
-		font-size: 18px;
-		font-weight: 500;
 		color: var(--clr-text-1);
+		font-weight: 500;
+		font-size: 18px;
 	}
 
 	.organizations-list {
@@ -214,28 +214,28 @@
 
 	.organization-card {
 		display: flex;
+		flex-grow: 1;
 		align-items: center;
 		gap: 16px;
-		flex-grow: 1;
 	}
 
 	.organization-avatar {
-		width: 40px;
-		height: 40px;
-		border-radius: 8px;
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		width: 40px;
+		height: 40px;
+		border-radius: 8px;
+		color: var(--clr-text-inverse);
 		font-weight: 600;
 		font-size: 18px;
-		color: var(--clr-text-inverse);
 	}
 
 	.organization-info {
 		display: flex;
+		flex-grow: 1;
 		flex-direction: column;
 		gap: 4px;
-		flex-grow: 1;
 	}
 
 	.organization-name-row {
@@ -245,14 +245,14 @@
 	}
 
 	.organization-name {
-		font-size: 16px;
-		font-weight: 600;
 		color: var(--clr-text-1);
+		font-weight: 600;
+		font-size: 16px;
 	}
 
 	.organization-slug {
-		font-size: 14px;
 		color: var(--clr-text-2);
+		font-size: 14px;
 	}
 
 	.organization-stats {
@@ -264,8 +264,8 @@
 		display: flex;
 		align-items: center;
 		gap: 6px;
-		font-size: 13px;
 		color: var(--clr-text-3);
+		font-size: 13px;
 	}
 
 	.organization-actions {
@@ -290,23 +290,23 @@
 	}
 
 	.join-card {
-		background: var(--clr-bg-1);
+		padding: 20px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
-		padding: 20px;
+		background: var(--clr-bg-1);
 		text-align: center;
 	}
 
 	.join-title {
-		font-size: 16px;
-		font-weight: 600;
-		color: var(--clr-text-1);
 		margin-bottom: 8px;
+		color: var(--clr-text-1);
+		font-weight: 600;
+		font-size: 16px;
 	}
 
 	.join-description {
-		font-size: 14px;
-		color: var(--clr-text-2);
 		margin-bottom: 16px;
+		color: var(--clr-text-2);
+		font-size: 14px;
 	}
 </style>

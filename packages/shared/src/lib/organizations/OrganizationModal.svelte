@@ -102,8 +102,8 @@
 <style lang="postcss">
 	.header-with-action {
 		display: flex;
-		justify-content: space-between;
 		align-items: center;
+		justify-content: space-between;
 
 		margin-bottom: 8px;
 	}

@@ -6,103 +6,103 @@
 
 /* text Base Classes */
 .text-9 {
-	font-family: var(--fontfamily-default);
-	font-size: 0.563rem;
 	font-weight: var(--text-weight-regular);
+	font-size: 0.563rem;
 	line-height: var(--text-lineheight-default);
+	font-family: var(--fontfamily-default);
 }
 
 .text-10 {
-	font-family: var(--fontfamily-default);
-	font-size: 0.625rem;
 	font-weight: var(--text-weight-regular);
+	font-size: 0.625rem;
 	line-height: var(--text-lineheight-default);
+	font-family: var(--fontfamily-default);
 }
 
 .text-11 {
-	font-family: var(--fontfamily-default);
-	font-size: 0.6875rem;
 	font-weight: var(--text-weight-regular);
+	font-size: 0.6875rem;
 	line-height: var(--text-lineheight-default);
+	font-family: var(--fontfamily-default);
 }
 
 .text-12 {
-	font-family: var(--fontfamily-default);
-	font-size: 0.75rem;
 	font-weight: var(--text-weight-regular);
+	font-size: 0.75rem;
 	line-height: var(--text-lineheight-default);
+	font-family: var(--fontfamily-default);
 }
 
 .text-13 {
-	font-family: var(--fontfamily-default);
-	font-size: 0.8125rem;
 	font-weight: var(--text-weight-regular);
+	font-size: 0.8125rem;
 	line-height: var(--text-lineheight-default);
+	font-family: var(--fontfamily-default);
 }
 
 .text-14 {
-	font-family: var(--fontfamily-default);
-	font-size: 0.875rem;
 	font-weight: var(--text-weight-regular);
+	font-size: 0.875rem;
 	line-height: var(--text-lineheight-default);
+	font-family: var(--fontfamily-default);
 }
 
 .text-15 {
-	font-family: var(--fontfamily-default);
-	font-size: 0.938rem;
 	font-weight: var(--text-weight-regular);
+	font-size: 0.938rem;
 	line-height: var(--text-lineheight-default);
+	font-family: var(--fontfamily-default);
 }
 
 .text-16 {
-	font-family: var(--fontfamily-default);
-	font-size: 1rem;
 	font-weight: var(--text-weight-regular);
+	font-size: 1rem;
 	line-height: var(--text-lineheight-default);
+	font-family: var(--fontfamily-default);
 }
 
 .text-18 {
-	font-family: var(--fontfamily-default);
-	font-size: 1.125rem;
 	font-weight: var(--text-weight-regular);
+	font-size: 1.125rem;
 	line-height: var(--text-lineheight-default);
+	font-family: var(--fontfamily-default);
 }
 
 /* text Head Classes */
 .text-head-20 {
-	font-family: var(--fontfamily-default);
-	font-size: 1.25rem;
 	font-weight: var(--text-weight-bold);
+	font-size: 1.25rem;
 	line-height: var(--text-lineheight-default);
+	font-family: var(--fontfamily-default);
 }
 
 .text-head-22 {
-	font-family: var(--fontfamily-default);
-	font-size: 1.375rem;
 	font-weight: var(--text-weight-bold);
+	font-size: 1.375rem;
 	line-height: var(--text-lineheight-default);
+	font-family: var(--fontfamily-default);
 }
 
 .text-head-24 {
-	font-family: var(--fontfamily-default);
-	font-size: 1.5rem;
 	font-weight: var(--text-weight-bold);
+	font-size: 1.5rem;
 	line-height: var(--text-lineheight-default);
+	font-family: var(--fontfamily-default);
 }
 
 /* Serif Classes */
 .text-serif-40 {
-	font-family: var(--fontfamily-accent);
+	font-weight: 400;
 	font-size: 2.5rem;
 	line-height: var(--text-lineheight-default);
-	font-weight: 400;
+	font-family: var(--fontfamily-accent);
 }
 
 .text-serif-32 {
-	font-family: var(--fontfamily-accent);
+	font-weight: 400;
 	font-size: 2rem;
 	line-height: var(--text-lineheight-default);
-	font-weight: 400;
+	font-family: var(--fontfamily-accent);
 }
 
 /* MODIFIERS */

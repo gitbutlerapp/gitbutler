@@ -98,17 +98,17 @@
 <style lang="postcss">
 	.scrollable {
 		display: flex;
-		flex-direction: column;
 		position: relative;
-		overflow: hidden;
+		flex-direction: column;
 		height: 100%;
+		overflow: hidden;
 	}
 	.viewport {
 		display: flex;
 		flex-direction: column;
-		overflow-y: auto;
-		height: 100%;
 		width: 100%;
+		height: 100%;
+		overflow-y: auto;
 	}
 
 	.children-wrap {

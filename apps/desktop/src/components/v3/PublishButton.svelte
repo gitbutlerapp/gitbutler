@@ -119,9 +119,9 @@
 
 <style>
 	.publish-button {
+		flex: 1;
 		/* This is just here so that the disabled button is still opaque */
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
-		flex: 1;
 	}
 </style>

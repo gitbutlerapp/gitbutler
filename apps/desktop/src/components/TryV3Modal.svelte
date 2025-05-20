@@ -100,26 +100,26 @@
 	.modal-content {
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
 		padding: 20px 16px 16px;
+		gap: 10px;
 	}
 
 	.modal-description {
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
 		max-width: 380px;
+		gap: 10px;
 	}
 
 	.modal-content__notes {
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
+		margin-top: 8px;
 		padding: 12px;
+		gap: 2px;
 		/* background-color: var(--clr-bg-1-muted); */
 		border: 1px solid var(--clr-border-3);
 		border-radius: var(--radius-m);
-		margin-top: 8px;
 	}
 
 	.modal-footer {
@@ -129,8 +129,8 @@
 	}
 
 	.modal-footer__checkbox {
-		flex: 1;
 		display: flex;
+		flex: 1;
 		align-items: center;
 		gap: 8px;
 	}

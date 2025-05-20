@@ -154,15 +154,15 @@
 	.file-list-item {
 		display: flex;
 		align-items: center;
-		padding: 6px 14px;
-		gap: 10px;
 		height: 32px;
+		padding: 6px 14px;
 		overflow: hidden;
-		text-align: left;
-		user-select: none;
+		gap: 10px;
+		border-bottom: none;
 		outline: none;
 		background: transparent;
-		border-bottom: none;
+		text-align: left;
+		user-select: none;
 
 		&:last-child {
 			border-bottom: none;
@@ -194,9 +194,9 @@
 		align-items: center;
 		justify-content: center;
 		width: 4px;
+		margin-right: -8px;
 		color: var(--clr-text-3);
 		opacity: 0;
-		margin-right: -8px;
 		transition:
 			width var(--transition-fast),
 			opacity var(--transition-fast);
@@ -205,11 +205,11 @@
 	.mark-resolved-btn {
 		display: flex;
 		align-items: center;
-		gap: 4px;
+		margin: 0 2px;
 		padding: 3px 6px 3px 6px;
+		gap: 4px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
-		margin: 0 2px;
 		white-space: nowrap;
 		transition:
 			background-color var(--transition-fast),
@@ -222,41 +222,41 @@
 
 	.info {
 		display: flex;
-		align-items: center;
 		flex-grow: 1;
 		flex-shrink: 1;
+		align-items: center;
 		min-width: 32px;
-		gap: 6px;
 		overflow: hidden;
+		gap: 6px;
 	}
 
 	.name {
-		flex-shrink: 1;
 		flex-grow: 0;
+		flex-shrink: 1;
 		min-width: 40px;
-		pointer-events: none;
 		color: var(--clt-text-1);
+		pointer-events: none;
 	}
 
 	.path-container {
 		display: flex;
-		justify-content: flex-start;
-		flex-shrink: 0;
 		flex-grow: 1;
+		flex-shrink: 0;
 		flex-basis: 0px;
+		justify-content: flex-start;
 		min-width: 50px;
-		text-align: left;
 		overflow: hidden;
+		text-align: left;
 	}
 
 	.path {
 		display: inline-block;
+		max-width: 100%;
 		color: var(--clt-text-1);
 		line-height: 120%;
+		text-align: left;
 		opacity: 0.3;
 		transition: opacity var(--transition-fast);
-		max-width: 100%;
-		text-align: left;
 	}
 
 	.details {

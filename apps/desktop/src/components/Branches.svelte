@@ -241,17 +241,17 @@
 
 <style lang="postcss">
 	.branches {
-		flex: 1;
-		position: relative;
-		overflow: hidden;
 		display: flex;
+		position: relative;
+		flex: 1;
 		flex-direction: column;
+		overflow: hidden;
 		border-top: 1px solid var(--clr-border-2);
 	}
 
 	.header {
-		position: relative;
 		display: flex;
+		position: relative;
 		flex-direction: column;
 		padding: 14px;
 		border-bottom: 1px solid var(--clr-border-3);
@@ -267,11 +267,10 @@
 	}
 
 	.branches-title {
+		display: flex;
 		position: absolute;
 		top: 22px;
 		left: 14px;
-
-		display: flex;
 		align-items: center;
 		gap: 4px;
 
@@ -283,37 +282,36 @@
 	/* SEARCH */
 	.search-container {
 		position: relative;
-		height: var(--size-cta);
 		width: 60%;
+		height: var(--size-cta);
 		overflow: hidden;
 
 		transition: width 0.16s ease;
 	}
 
 	.search-button {
+		display: flex;
 		z-index: var(--z-ground);
 		position: absolute;
 		top: 0;
 		right: 0;
-		height: 100%;
-		width: var(--size-cta);
-
-		display: flex;
 		align-items: center;
 		justify-content: center;
+		width: var(--size-cta);
+		height: 100%;
 
 		color: var(--clr-scale-ntrl-50);
 
 		&:after {
-			content: '';
-			position: absolute;
 			z-index: -1;
+			position: absolute;
 			top: 0;
 			left: 0;
-			height: 100%;
 			width: 100%;
-			border-radius: var(--radius-s);
+			height: 100%;
 			transform-origin: center;
+			border-radius: var(--radius-s);
+			content: '';
 			transition:
 				transform 0.1s ease,
 				background-color 0.2s;
@@ -327,12 +325,12 @@
 	}
 
 	.search-input {
+		display: none;
 		width: 100%;
 		height: 100%;
-		display: none;
 		padding-left: 8px;
-		border-radius: var(--radius-s);
 		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-s);
 		background-color: var(--clr-bg-1);
 		transition: opacity 0.1s;
 
@@ -363,15 +361,15 @@
 	}
 
 	.hide-branch-title {
-		opacity: 0;
 		transform: translateX(-5px);
+		opacity: 0;
 	}
 
 	/* BRANCHES LIST */
 	.branch-entries-list {
+		width: 100%;
 		margin-top: -1px;
 		overflow: hidden;
-		width: 100%;
 	}
 
 	.group {
@@ -381,18 +379,18 @@
 		/* margin-bottom: 12px; */
 
 		&:last-child {
-			border-bottom: none;
 			margin-bottom: 0;
+			border-bottom: none;
 		}
 	}
 
 	/* EMPTY STATE */
 	.branches__empty-state {
-		flex: 1;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
-		justify-content: center;
 		align-items: center;
+		justify-content: center;
 		gap: 10px;
 	}
 
@@ -401,8 +399,8 @@
 	}
 
 	.branches__empty-state__caption {
+		max-width: 160px;
 		color: var(--clr-scale-ntrl-60);
 		text-align: center;
-		max-width: 160px;
 	}
 </style>

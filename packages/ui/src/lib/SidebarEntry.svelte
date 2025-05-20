@@ -174,64 +174,64 @@
 
 <style lang="postcss">
 	.sidebar-entry {
-		position: relative;
 		display: flex;
+		position: relative;
 		flex-direction: column;
-		padding: 10px 14px 12px 14px;
-		gap: 8px;
 		width: 100%;
-		text-align: left;
-		border-bottom: 1px solid var(--clr-border-3);
+		/* Using a fixed height to prevent content-shift when loading in */
+		min-height: 86px;
+		padding: 10px 14px 12px 14px;
 		overflow: hidden;
+		gap: 8px;
+		border-bottom: 1px solid var(--clr-border-3);
+		text-align: left;
 		transition:
 			background-color var(--transition-fast),
 			transform var(--transition-medium);
-		/* Using a fixed height to prevent content-shift when loading in */
-		min-height: 86px;
 
 		&:last-child {
 			border-bottom: none;
 		}
 
 		&::after {
-			content: '';
 			position: absolute;
 			top: 0;
 			left: 0;
 			width: 4px;
 			height: 100%;
 			transform: translateX(-100%);
+			content: '';
 			transition: transform var(--transition-medium);
 		}
 
 		&:not(.selected):hover {
 			&::after {
-				background-color: var(--clr-scale-ntrl-60);
 				transform: translateX(0);
+				background-color: var(--clr-scale-ntrl-60);
 			}
 		}
 
 		& .row {
 			display: flex;
 			align-items: center;
+			justify-content: space-between;
 			width: 100%;
 			gap: 6px;
-			justify-content: space-between;
 		}
 
 		& .title {
 			display: flex;
 			align-items: center;
-			gap: 6px;
 			overflow: hidden;
+			gap: 6px;
 		}
 	}
 
 	.authors-and-tags {
 		display: flex;
 		align-items: center;
-		gap: 10px;
 		overflow: hidden;
+		gap: 10px;
 	}
 
 	/* TAG */
@@ -240,11 +240,11 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 2px;
-		padding: 2px 4px;
 		height: 16px;
-		white-space: nowrap;
+		padding: 2px 4px;
+		gap: 2px;
 		border-radius: var(--radius-s);
+		white-space: nowrap;
 	}
 
 	.tag-pr {
@@ -253,9 +253,9 @@
 	}
 
 	.tag-draft-pr {
+		border: 1px solid var(--clr-border-2);
 		background-color: var(--clr-theme-ntrl-soft);
 		color: var(--clr-text-1);
-		border: 1px solid var(--clr-border-2);
 	}
 
 	.tag-applied {
@@ -276,27 +276,27 @@
 
 	.stats-group {
 		display: flex;
-		gap: 3px;
 		align-items: center;
-		overflow: hidden;
-		color: var(--clr-text-2);
 		margin-left: 2px;
+		overflow: hidden;
+		gap: 3px;
+		color: var(--clr-text-2);
 	}
 
 	.branch-remotes {
 		display: flex;
 		align-items: center;
-		gap: 4px;
 		overflow: hidden;
+		gap: 4px;
 		color: var(--clr-text-2);
 	}
 
 	.branch-name {
-		color: var(--clr-text-1);
 		width: 100%;
-		white-space: nowrap;
 		overflow-x: hidden;
+		color: var(--clr-text-1);
 		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.branch-time {
@@ -309,8 +309,8 @@
 		background-color: var(--clr-bg-1-muted);
 
 		&::after {
-			background-color: var(--clr-theme-pop-element);
 			transform: translateX(0);
+			background-color: var(--clr-theme-pop-element);
 		}
 	}
 </style>

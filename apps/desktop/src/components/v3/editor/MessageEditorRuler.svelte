@@ -25,13 +25,13 @@
 
 <style lang="postcss">
 	.message-ruler-container {
+		z-index: 1;
 		position: absolute;
 		top: 0;
 		left: 0;
 		width: 100%;
 		height: 100%;
 		pointer-events: none;
-		z-index: 1;
 		/* background-color: rgba(0, 0, 0, 0.1); */
 	}
 
@@ -49,9 +49,9 @@
 		position: absolute;
 		top: 0;
 		left: 0;
-		opacity: 0;
-		font-family: var(--fontfamily-mono);
-		font-size: var(--lexical-input-font-size);
 		padding: var(--lexical-input-client-padding);
+		font-size: var(--lexical-input-font-size);
+		font-family: var(--fontfamily-mono);
+		opacity: 0;
 	}
 </style>

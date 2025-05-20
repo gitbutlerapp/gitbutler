@@ -174,17 +174,16 @@
 
 <style lang="postcss">
 	.modal-container {
+		display: flex;
 		z-index: var(--z-modal);
 		position: fixed;
 		top: 0;
 		left: 0;
+		align-items: center;
+		justify-content: center;
 		width: 100%;
 		height: 100%;
 		padding: 24px;
-
-		display: flex;
-		justify-content: center;
-		align-items: center;
 
 		background-color: var(--clr-overlay-bg);
 	}
@@ -210,17 +209,17 @@
 		flex-direction: column;
 
 		max-height: calc(100vh - 80px);
-		border-radius: var(--radius-l);
-		background-color: var(--clr-bg-1);
-		border: 1px solid var(--clr-border-2);
-		box-shadow: var(--fx-shadow-l);
 
 		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-l);
+		background-color: var(--clr-bg-1);
+		box-shadow: var(--fx-shadow-l);
 	}
 
 	.modal__header {
-		position: relative;
 		display: flex;
+		position: relative;
 		align-items: center;
 		padding: 16px;
 		padding-bottom: 0;
@@ -237,8 +236,8 @@
 		display: flex;
 		flex-direction: column;
 		padding: 16px;
-		line-height: 160%;
 		overflow: hidden;
+		line-height: 160%;
 
 		&.no-padding {
 			padding: 0;
@@ -251,16 +250,16 @@
 	}
 
 	.modal__footer {
+		display: flex;
 		position: sticky;
 		bottom: 0;
-		display: flex;
-		width: 100%;
 		justify-content: flex-end;
-		gap: 8px;
+		width: 100%;
 		padding: 16px;
+		gap: 8px;
 		border-top: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-1);
 		border-radius: 0 0 var(--radius-l) var(--radius-l);
+		background-color: var(--clr-bg-1);
 	}
 
 	/* ANIMATION */

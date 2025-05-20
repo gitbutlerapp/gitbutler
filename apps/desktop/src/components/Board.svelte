@@ -164,8 +164,8 @@
 	}
 
 	.branch {
-		height: 100%;
 		width: fit-content;
+		height: 100%;
 		/* disable lane outline on modal close */
 		outline: none;
 	}

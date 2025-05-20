@@ -127,10 +127,10 @@
 	}
 
 	.info-text {
+		margin-top: 0.5rem;
 		color: #718096;
 		font-style: italic;
 		font-size: 0.8rem;
-		margin-top: 0.5rem;
 	}
 
 	.reset-container {
@@ -140,9 +140,9 @@
 	}
 
 	.error-text {
-		color: #e53e3e;
-		font-size: 0.8rem;
 		margin-top: 0.5rem;
+		color: #e53e3e;
 		font-weight: bold;
+		font-size: 0.8rem;
 	}
 </style>

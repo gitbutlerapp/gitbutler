@@ -166,51 +166,51 @@
 <style>
 	.workspace {
 		display: flex;
-		flex: 1;
-		gap: 8px;
-		align-items: stretch;
-		height: 100%;
-		width: 100%;
 		position: relative;
+		flex: 1;
+		align-items: stretch;
+		width: 100%;
+		height: 100%;
 		overflow: hidden;
+		gap: 8px;
 	}
 
 	.changed-files-view {
-		height: 100%;
 		display: flex;
-		flex-direction: column;
-		justify-content: flex-start;
 		position: relative;
 		flex-shrink: 0;
+		flex-direction: column;
+		justify-content: flex-start;
+		height: 100%;
 	}
 
 	.stacks-view-wrap {
-		position: relative;
-		height: 100%;
 		display: flex;
+		position: relative;
 		flex-grow: 0;
 		flex-shrink: 0;
 		flex-direction: column;
 		justify-content: flex-start;
+		height: 100%;
 		overflow: hidden;
 	}
 
 	.main-view {
-		position: relative;
 		display: flex;
-		flex-direction: column;
+		position: relative;
 		flex-grow: 1;
-		border-radius: var(--radius-ml);
+		flex-direction: column;
+		min-width: 320px;
 		overflow-x: hidden;
 		gap: 8px;
-		min-width: 320px;
+		border-radius: var(--radius-ml);
 	}
 
 	/* SKELETON LOADING */
 	.stacks-view-skeleton {
 		width: 100%;
 		height: 100%;
-		border-radius: var(--radius-ml);
 		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
 	}
 </style>

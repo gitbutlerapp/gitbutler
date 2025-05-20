@@ -212,19 +212,19 @@
 	}
 
 	.switchrepo__title {
-		color: var(--clr-scale-ntrl-30);
 		margin-bottom: 12px;
+		color: var(--clr-scale-ntrl-30);
 	}
 
 	.switchrepo__message {
-		color: var(--clr-scale-ntrl-50);
 		margin-bottom: 20px;
+		color: var(--clr-scale-ntrl-50);
 	}
 	.switchrepo__actions {
 		display: flex;
-		gap: 8px;
-		padding-bottom: 24px;
 		flex-wrap: wrap;
+		padding-bottom: 24px;
+		gap: 8px;
 	}
 
 	.switchrepo__project {
@@ -239,8 +239,8 @@
 	}
 
 	.file-list {
-		border-radius: var(--radius-ml);
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
 	}
 </style>

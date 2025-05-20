@@ -65,20 +65,20 @@
 
 <style lang="scss">
 	.twitter-card {
-		scroll-snap-align: center;
+		display: flex;
 		z-index: 1;
 		flex: 1;
-		user-select: none;
-		display: flex;
 		flex-direction: column;
-		background-color: var(--clr-white);
 		padding: 24px;
 		border-radius: 20px;
+		background-color: var(--clr-white);
 		text-decoration: none;
+		scroll-snap-align: center;
 		transition:
 			transform 0.1s ease-in-out,
 			box-shadow 0.1s ease-in-out,
 			opacity 0.1s ease-in-out;
+		user-select: none;
 
 		@media (min-width: 1100px) {
 			flex: none;
@@ -94,13 +94,13 @@
 	.bio-wrap {
 		display: flex;
 		flex-direction: row;
-		gap: 16px;
 		margin-bottom: 16px;
+		gap: 16px;
 	}
 
 	.bio {
-		flex: 1;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 	}
 
@@ -111,21 +111,21 @@
 	}
 
 	.author-name {
-		font-family: Arial, Helvetica, sans-serif;
-		font-weight: 700;
-		font-size: 18px;
-		color: var(--clr-black);
 		margin: 0;
 		margin-bottom: 3px;
+		color: var(--clr-black);
+		font-weight: 700;
+		font-size: 18px;
+		font-family: Arial, Helvetica, sans-serif;
 	}
 
 	.author-handle {
-		font-family: Arial, Helvetica, sans-serif;
+		margin: 0;
+		color: var(--clr-black);
 		font-weight: 400;
 		font-size: 14px;
-		color: var(--clr-black);
+		font-family: Arial, Helvetica, sans-serif;
 		opacity: 0.5;
-		margin: 0;
 	}
 
 	.content {
@@ -134,41 +134,41 @@
 	}
 
 	.text {
-		font-family: Arial, Helvetica, sans-serif;
+		margin: 0;
+		margin-bottom: 8px;
+		color: var(--clr-black);
 		font-weight: 400;
 		font-size: 16px;
 		line-height: 1.3;
-		color: var(--clr-black);
-		margin: 0;
-		margin-bottom: 8px;
+		font-family: Arial, Helvetica, sans-serif;
 	}
 
 	.date {
-		font-family: Arial, Helvetica, sans-serif;
+		margin: 0;
+		color: var(--clr-black);
 		font-weight: 400;
 		font-size: 13px;
-		color: var(--clr-black);
+		font-family: Arial, Helvetica, sans-serif;
 		opacity: 0.5;
-		margin: 0;
 	}
 
 	.divider {
 		height: 1px;
-		background-color: var(--clr-gray);
 		margin: 16px 0;
+		background-color: var(--clr-gray);
 		opacity: 0.8;
 	}
 
 	.cta {
-		font-family: Arial, Helvetica, sans-serif;
-		font-weight: 700;
-		font-size: 14px;
-		color: var(--clr-black);
-		text-align: center;
-		text-decoration: none;
 		margin: 0;
-		border-radius: 40px;
 		padding: 8px 16px;
 		border: 1px solid var(--clr-gray);
+		border-radius: 40px;
+		color: var(--clr-black);
+		font-weight: 700;
+		font-size: 14px;
+		font-family: Arial, Helvetica, sans-serif;
+		text-align: center;
+		text-decoration: none;
 	}
 </style>
