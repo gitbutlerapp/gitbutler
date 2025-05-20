@@ -115,7 +115,8 @@
 							onclick={() => {
 								confirmationModal?.show(item);
 								contextMenu.close();
-							}} />
+							}}
+						/>
 					{/if}
 					{#if isUncommitted}
 						<ContextMenuItem
@@ -126,7 +127,8 @@
 								});
 								stashConfirmationModal?.show(item);
 								contextMenu.close();
-							}} />
+							}}
+						/>
 					{/if}
 					{#if changes.length === 1}
 						<ContextMenuItem
@@ -139,7 +141,8 @@
 								});
 								contextMenu.close();
 								// dismiss();
-							}} />
+							}}
+						/>
 						<ContextMenuItem
 							label="Copy Relative Path"
 							onclick={async () => {
@@ -148,7 +151,8 @@
 									errorMessage: 'Failed to copy relative path'
 								});
 								contextMenu.close();
-							}} />
+							}}
+						/>
 					{/if}
 					<ContextMenuItem
 						label="Open in {$userSettings.defaultCodeEditor.displayName}"
@@ -168,7 +172,8 @@
 								console.error('Failed to open in editor');
 								toasts.error('Failed to open in editor');
 							}
-						}} />
+						}}
+					/>
 				{/if}
 			</ContextMenuSection>
 		{:else}
@@ -184,7 +189,8 @@
 	type="warning"
 	title="Discard changes"
 	bind:this={confirmationModal}
-	onSubmit={(_, item) => isFileItem(item) && confirmDiscard(item)}>
+	onSubmit={(_, item) => isFileItem(item) && confirmDiscard(item)}
+>
 	{#snippet children(item)}
 		{#if isFileItem(item)}
 			{@const changes = item.changes}
@@ -199,7 +205,8 @@
 							fileStatus={computeChangeStatus(change)}
 							clickable={false}
 							listMode="list"
-							isLast={i === changes.length - 1} />
+							isLast={i === changes.length - 1}
+						/>
 					{/each}
 				</ul>
 			{:else}
@@ -225,17 +232,20 @@
 	width={500}
 	type="info"
 	bind:this={stashConfirmationModal}
-	onSubmit={(_, item) => isFileItem(item) && confirmStashIntoBranch(item, stashBranchName)}>
+	onSubmit={(_, item) => isFileItem(item) && confirmStashIntoBranch(item, stashBranchName)}
+>
 	<div class="content-wrap">
 		<Textbox
 			label="New branch to stash into"
 			id="stashBranchName"
 			bind:value={stashBranchName}
-			autofocus />
+			autofocus
+		/>
 
 		<span>
 			The selected changes will be stashed into branch <span class="text-bold"
-				>{stashBranchName}</span> and removed from the workspace.
+				>{stashBranchName}</span
+			> and removed from the workspace.
 		</span>
 		<span>
 			You can re-apply them by re-applying the branch and "uncommitting" the stash commit.
@@ -243,7 +253,8 @@
 
 		<span class="text-12 text-body radio-aditional-info"
 			>└ This operation is a "macro" for creating a branch, committing changes and then unapplying
-			it. In the future, discovery and unstashing will be streamlined.</span>
+			it. In the future, discovery and unstashing will be streamlined.</span
+		>
 	</div>
 
 	{#snippet controls(close, item)}
@@ -252,7 +263,8 @@
 			style="pop"
 			disabled={!stashBranchName}
 			type="submit"
-			action={async () => await confirmStashIntoBranch(item, stashBranchName)}>
+			action={async () => await confirmStashIntoBranch(item, stashBranchName)}
+		>
 			Confirm
 		</AsyncButton>
 	{/snippet}

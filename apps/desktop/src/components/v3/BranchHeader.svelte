@@ -65,13 +65,14 @@
 	{onclick}
 	onkeypress={onclick}
 	tabindex="0"
-	class:active>
+	class:active
+>
 	{#if selected && selectIndicator}
 		<div
 			class="branch-header__select-indicator"
 			in:slide={{ axis: 'x', duration: 150 }}
-			class:active>
-		</div>
+			class:active
+		></div>
 	{/if}
 
 	<div class="branch-header__content">
@@ -83,7 +84,8 @@
 					fontSize="15"
 					disabled={isUpdatingName}
 					readonly={readonly || isPushed}
-					onChange={(name) => updateBranchName(name)} />
+					onChange={(name) => updateBranchName(name)}
+				/>
 			</div>
 
 			{#if menu}

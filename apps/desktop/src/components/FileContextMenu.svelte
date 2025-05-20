@@ -73,7 +73,8 @@
 						onclick={() => {
 							confirmationModal?.show(item);
 							contextMenu.close();
-						}} />
+						}}
+					/>
 				{/if}
 				{#if files.length === 1}
 					<ContextMenuItem
@@ -85,7 +86,8 @@
 								errorMessage: 'Failed to copy path'
 							});
 							contextMenu.close();
-						}} />
+						}}
+					/>
 					<ContextMenuItem
 						label="Copy Relative Path"
 						onclick={async () => {
@@ -94,7 +96,8 @@
 								errorMessage: 'Failed to copy relative path'
 							});
 							contextMenu.close();
-						}} />
+						}}
+					/>
 				{/if}
 				<ContextMenuItem
 					label="Open in {$userSettings.defaultCodeEditor.displayName}"
@@ -114,7 +117,8 @@
 							console.error('Failed to open in editor');
 							toasts.error('Failed to open in editor');
 						}
-					}} />
+					}}
+				/>
 			{/if}
 		</ContextMenuSection>
 	{/snippet}
@@ -125,7 +129,8 @@
 	type="warning"
 	title="Discard changes"
 	bind:this={confirmationModal}
-	onSubmit={confirmDiscard}>
+	onSubmit={confirmDiscard}
+>
 	{#snippet children(item)}
 		{#if item.files.length < 10}
 			<p class="discard-caption">
