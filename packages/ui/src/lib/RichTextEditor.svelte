@@ -153,6 +153,21 @@
 		}
 	});
 
+	// Initial text is available asynchronously so we need to be able to
+	// insert initial text after first render.
+	$effect(() => {
+		updateInitialtext(initialText);
+	});
+
+	async function updateInitialtext(initialText: string | undefined) {
+		if (initialText) {
+			const currentText = await getPlaintext();
+			if (currentText?.trim() === '') {
+				setText(initialText);
+			}
+		}
+	}
+
 	export function getPlaintext(): Promise<string | undefined> {
 		return new Promise((resolve) => {
 			if (composer) {

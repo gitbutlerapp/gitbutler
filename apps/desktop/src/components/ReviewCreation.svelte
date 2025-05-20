@@ -21,7 +21,7 @@
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
 	import { GitHubPrService } from '$lib/forge/github/githubPrService.svelte';
 	import { type PullRequest } from '$lib/forge/interface/types';
-	import { ReactivePRBody, ReactivePRTitle } from '$lib/forge/prContents.svelte';
+	import { PrPersistedStore } from '$lib/forge/prContents';
 	import {
 		BrToPrService,
 		updatePrDescriptionTables as updatePrStackInfo
@@ -36,6 +36,7 @@
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import { UserService } from '$lib/user/userService';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
+	import { splitMessage } from '$lib/utils/commitMessage';
 	import { sleep } from '$lib/utils/sleep';
 	import { getContext } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
@@ -52,10 +53,12 @@
 		projectId: string;
 		stackId: string;
 		branchName: string;
+		prNumber?: number;
+		reviewId?: string;
 		onClose: () => void;
 	};
 
-	const { projectId, stackId, branchName, onClose }: Props = $props();
+	const { projectId, stackId, branchName, prNumber, reviewId, onClose }: Props = $props();
 
 	const baseBranch = getContext(BaseBranch);
 	const forge = getContext(DefaultForgeFactory);
@@ -77,8 +80,6 @@
 	const [publishBranch, branchPublishing] = stackService.publishBranch;
 	const [pushStack, stackPush] = stackService.pushStack;
 
-	const branchResult = $derived(stackService.branchByName(projectId, stackId, branchName));
-	const branch = $derived(branchResult.current.data);
 	const branchesResult = $derived(stackService.branches(projectId, stackId));
 	const branches = $derived(branchesResult.current.data || []);
 	const branchParentResult = $derived(
@@ -97,12 +98,11 @@
 	const commits = $derived(commitsResult.current.data || []);
 
 	const canPublish = stackPublishingService.canPublish;
-	const prNumber = $derived(branch?.prNumber ?? undefined);
 
 	const prResult = $derived(prNumber ? prService?.get(prNumber) : undefined);
 	const pr = $derived(prResult?.current.data);
 
-	const forgeBranch = $derived(branch?.name ? forge.current.branch(branch?.name) : undefined);
+	const forgeBranch = $derived(branchName ? forge.current.branch(branchName) : undefined);
 	const baseBranchName = $derived(baseBranch.shortName);
 
 	const createDraft = persisted<boolean>(false, 'createDraftPr');
@@ -114,6 +114,7 @@
 	);
 
 	let titleInput = $state<ReturnType<typeof Textbox>>();
+	let messageEditor = $state<MessageEditor>();
 
 	// Available pull request templates.
 	let templates = $state<string[]>([]);
@@ -145,19 +146,32 @@
 			isCreatingReview
 	);
 
-	const canPublishBR = $derived(!!($canPublish && branch?.name && !branch.reviewId));
+	const canPublishBR = $derived(!!($canPublish && branchName && !reviewId));
 	const canPublishPR = $derived(!!(forge.current.authenticated && !pr));
 
-	const prTitle = $derived(new ReactivePRTitle(projectId, commits, branch?.name ?? ''));
+	const prTitle = $derived(
+		new PrPersistedStore({
+			cacheKey: 'prtitle_' + projectId + '_' + branchName,
+			commits,
+			defaultFn: (commits) => splitMessage(commits[0]!.message).title
+		})
+	);
 
-	const prBody = new ReactivePRBody();
+	const prBody = $derived(
+		new PrPersistedStore({
+			cacheKey: 'prbody' + projectId + '_' + branchName,
+			commits,
+			defaultFn: (commits) => splitMessage(commits[0]!.message).description
+		})
+	);
 
 	$effect(() => {
-		prBody.init(projectId, branch?.description ?? '', commits, branch?.name ?? '');
+		prBody.setDefault(commits);
+		prTitle.setDefault(commits);
 	});
 
 	async function pushIfNeeded(): Promise<string | undefined> {
-		let upstreamBranchName: string | undefined = branch?.name;
+		let upstreamBranchName: string | undefined = branchName;
 		if (pushBeforeCreate) {
 			const firstPush = branchDetails?.pushStatus === 'completelyUnpushed';
 			const pushResult = await pushStack({
@@ -182,7 +196,7 @@
 	function shouldAddPrBody() {
 		// If there is a branch review already, then the BR to PR sync will
 		// update the PR description for us.
-		if (branch?.reviewId) return false;
+		if (reviewId) return false;
 		// If we can't publish a BR, then we must add the PR description
 		if (!canPublishBR) return true;
 		// If the user wants to create a butler request then we don't want
@@ -192,15 +206,14 @@
 
 	export async function createReview() {
 		if (isExecuting) return;
-		if (!branch) return;
 		if (!$user) return;
 
 		// Declare early to have them inside the function closure, in case
 		// the component unmounts or updates.
 		const closureStackId = stackId;
 		const closureBranchName = branchName;
-		const title = prTitle.value;
-		const body = shouldAddPrBody() ? prBody.value : '';
+		const title = $prTitle;
+		const body = shouldAddPrBody() ? $prBody : '';
 		const draft = $createDraft;
 
 		isCreatingReview = true;
@@ -208,8 +221,8 @@
 
 		const upstreamBranchName = await pushIfNeeded();
 
-		let reviewId: string | undefined;
-		let prNumber: number | undefined;
+		let newReviewId: string | undefined;
+		let newPrNumber: number | undefined;
 
 		// Even if createButlerRequest is false, if we _cant_ create a PR, then
 		// We want to always create the BR, and vice versa.
@@ -217,7 +230,7 @@
 			const reviewId = await publishBranch({
 				projectId,
 				stackId,
-				topBranch: branch.name,
+				topBranch: branchName,
 				user: $user
 			});
 			if (!reviewId) {
@@ -225,7 +238,7 @@
 				return;
 			}
 			posthog.capture('Butler Review Created');
-			butRequestDetailsService.setDetails(reviewId, prTitle.value, prBody.value);
+			butRequestDetailsService.setDetails(reviewId, $prTitle, $prBody);
 		}
 
 		if ((canPublishPR && $createPullRequest) || !canPublishBR) {
@@ -237,11 +250,15 @@
 				draft,
 				upstreamBranchName
 			});
-			prNumber = pr?.number;
+			newPrNumber = pr?.number;
 		}
 
-		if (reviewId && prNumber && $project?.api?.repository_id) {
-			brToPrService.refreshButRequestPrDescription(prNumber, reviewId, $project.api.repository_id);
+		if (newReviewId && newPrNumber && $project?.api?.repository_id) {
+			brToPrService.refreshButRequestPrDescription(
+				newPrNumber,
+				newReviewId,
+				$project.api.repository_id
+			);
 		}
 
 		prBody.reset();
@@ -254,9 +271,6 @@
 	async function createPr(params: CreatePrParams): Promise<PullRequest | undefined> {
 		if (!forge) {
 			error('Pull request service not available');
-			return;
-		}
-		if (!branch) {
 			return;
 		}
 
@@ -280,7 +294,7 @@
 			}
 
 			// Find the index of the current branch so we know where we want to point the pr.
-			const currentIndex = branches.findIndex((b) => b.name === branch.name);
+			const currentIndex = branches.findIndex((b) => b.name === branchName);
 			if (currentIndex === -1) {
 				throw new Error('Branch index not found.');
 			}
@@ -362,21 +376,21 @@
 
 		try {
 			const description = await aiService?.describePR({
-				title: prTitle.value,
-				body: prBody.value,
+				title: $prTitle,
+				body: $prBody,
 				commitMessages: commits.map((c) => c.message),
-				prBodyTemplate: prBody.templateBody,
+				prBodyTemplate: prBody.default,
 				onToken: (token) => {
 					if (firstToken) {
 						prBody.reset();
 						firstToken = false;
 					}
-					prBody.append(token, true);
+					prBody.append(token);
 				}
 			});
 
 			if (description) {
-				prBody.set(description, true);
+				prBody.set(description);
 			}
 		} finally {
 			aiIsLoading = false;
@@ -404,15 +418,13 @@
 		size="large"
 		placeholder="PR title"
 		bind:this={titleInput}
-		value={prTitle.value}
+		value={$prTitle}
 		disabled={isExecuting}
-		oninput={(value: string) => {
-			prTitle.set(value);
-		}}
+		oninput={(value: string) => prTitle.set(value)}
 		onkeydown={(e: KeyboardEvent) => {
 			if (e.key === 'Enter' || e.key === 'Tab') {
 				e.preventDefault();
-				prBody.descriptionInput?.focus();
+				messageEditor?.focus();
 			}
 		}}
 	/>
@@ -420,19 +432,23 @@
 	<!-- PR TEMPLATE SELECT -->
 	{#if templates.length > 0}
 		<PrTemplateSection
-			bind:selectedTemplate={prBody.templateBody}
+			{projectId}
 			{templates}
 			disabled={isExecuting}
+			onselect={(value) => {
+				prBody.set(value);
+				messageEditor?.setText(value);
+			}}
 		/>
 	{/if}
 
 	<!-- DESCRIPTION FIELD -->
 	<MessageEditor
+		bind:this={messageEditor}
 		testId={TestId.ReviewDescriptionInput}
-		bind:this={prBody.descriptionInput}
 		{projectId}
 		disabled={isExecuting}
-		initialValue={prBody.value}
+		initialValue={$prBody}
 		enableFileUpload
 		placeholder="PR Description"
 		{onAiButtonClick}
