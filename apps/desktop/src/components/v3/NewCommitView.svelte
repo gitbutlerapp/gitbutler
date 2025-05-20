@@ -224,15 +224,11 @@
 
 	const [createNewStack, newStackResult] = stackService.newStack;
 
-	function getMessage(): string {
-		if (projectState.commitDescription.current) {
-			return projectState.commitTitle.current + '\n\n' + projectState.commitDescription.current;
-		}
-		return projectState.commitTitle.current;
-	}
+	async function handleCommitCreation(title: string, description: string) {
+		projectState.commitTitle.set(title);
+		projectState.commitDescription.set(description);
 
-	async function handleCommitCreation() {
-		const message = getMessage();
+		const message = description ? title + '\n\n' + description : title;
 		if (!message) {
 			showToast({ message: 'Commit message is required', style: 'error' });
 			return;
@@ -242,6 +238,15 @@
 			await createCommit(message);
 		} catch (err: unknown) {
 			showError('Failed to commit', err);
+		}
+	}
+
+	function handleMessageUpdate(title?: string, description?: string) {
+		if (typeof title === 'string') {
+			projectState.commitTitle.set(title);
+		}
+		if (typeof description === 'string') {
+			projectState.commitDescription.set(description);
 		}
 	}
 
@@ -264,17 +269,12 @@
 		{projectId}
 		{stackId}
 		actionLabel="Create commit"
-		action={handleCommitCreation}
+		action={({ title, description }) => handleCommitCreation(title, description)}
+		onChange={({ title, description }) => handleMessageUpdate(title, description)}
 		onCancel={cancel}
 		disabledAction={!canCommit}
 		loading={commitCreation.current.isLoading || newStackResult.current.isLoading}
 		title={projectState.commitTitle.current}
 		description={projectState.commitDescription.current}
-		setTitle={(title: string) => {
-			projectState.commitTitle.set(title);
-		}}
-		setDescription={(description: string) => {
-			projectState.commitDescription.set(description);
-		}}
 	/>
 </Drawer>
