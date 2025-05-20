@@ -23,17 +23,14 @@
 		projectId: string;
 		stackId?: string;
 		actionLabel: string;
-		action: () => void;
+		action: (args: { title: string; description: string }) => void;
+		onChange?: (args: { title?: string; description?: string }) => void;
 		onCancel: () => void;
 		disabledAction?: boolean;
 		loading?: boolean;
 		existingCommitId?: string;
-
 		title: string;
 		description: string;
-
-		setTitle: (title: string) => void;
-		setDescription: (description: string) => void;
 	};
 
 	let {
@@ -41,14 +38,12 @@
 		stackId,
 		actionLabel,
 		action,
+		onChange,
 		onCancel,
 		disabledAction,
 		loading,
 		title,
 		description,
-
-		setTitle,
-		setDescription,
 		existingCommitId
 	}: Props = $props();
 
@@ -93,15 +88,14 @@
 	$effect(() => {
 		if (generatedText) {
 			const { title, description } = splitMessage(generatedText);
-			setTitle(title);
-			setDescription(description);
+			if (titleInput) titleInput.value = title;
 			composer?.setText(description);
 		}
 	});
 
 	function beginGeneration() {
-		setTitle('');
-		setDescription('');
+		if (titleInput) titleInput.value = '';
+		composer?.setText('');
 		generatedText = '';
 	}
 
@@ -149,6 +143,20 @@
 
 	let composer = $state<ReturnType<typeof MessageEditor>>();
 	let titleInput = $state<HTMLInputElement>();
+
+	function getTitle() {
+		return titleInput?.value || '';
+	}
+
+	async function getDescription() {
+		return (await composer?.getPlaintext()) || '';
+	}
+
+	async function emitAction() {
+		const newTitle = getTitle();
+		const newDescription = await getDescription();
+		action({ title: newTitle, description: newDescription });
+	}
 </script>
 
 <div class="commit-message-wrap">
@@ -156,21 +164,16 @@
 		testId={TestId.CommitDrawerTitleInput}
 		bind:ref={titleInput}
 		value={title}
-		oninput={(e: Event) => {
-			const input = e.currentTarget as HTMLInputElement;
-			setTitle(input.value);
-		}}
-		onkeydown={(e: KeyboardEvent) => {
+		onchange={(value) => onChange?.({ title: value })}
+		onkeydown={async (e: KeyboardEvent) => {
 			if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
 				e.preventDefault();
-				action();
-				return;
+				emitAction();
 			}
 
 			if (e.key === 'Enter' || e.key === 'Tab') {
 				e.preventDefault();
 				composer?.focus();
-				return;
 			}
 		}}
 	/>
@@ -185,7 +188,7 @@
 		{aiIsLoading}
 		{suggestionsHandler}
 		onChange={(text: string) => {
-			setDescription(text);
+			onChange?.({ description: text });
 		}}
 		enableFileUpload
 		onKeyDown={(e: KeyboardEvent) => {
@@ -197,7 +200,7 @@
 
 			if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
 				e.preventDefault();
-				action();
+				action({ title, description });
 				return true;
 			}
 
@@ -209,7 +212,7 @@
 	<Button
 		testId={TestId.CommitDrawerActionButton}
 		style="pop"
-		onclick={action}
+		onclick={emitAction}
 		disabled={disabledAction}
 		{loading}
 		width={126}>{actionLabel}</Button

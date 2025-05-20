@@ -3,7 +3,8 @@
 		ref: HTMLInputElement | undefined;
 		value: string;
 		showCount?: boolean;
-		oninput: (e: Event) => void;
+		oninput?: (e: Event) => void;
+		onchange?: (value: string) => void;
 		onkeydown: (e: KeyboardEvent) => void;
 		testId?: string;
 	}
@@ -13,6 +14,7 @@
 		value = $bindable(),
 		showCount = true,
 		oninput,
+		onchange,
 		onkeydown,
 		testId
 	}: Props = $props();
@@ -33,8 +35,9 @@
 		oninput={(e: Event) => {
 			const input = e.currentTarget as HTMLInputElement;
 			charsCount = input.value.length;
-			oninput(e);
+			oninput?.(e);
 		}}
+		onchange={(e) => onchange?.(e.currentTarget.value)}
 		{onkeydown}
 	/>
 	{#if charsCount > 0 && showCount}

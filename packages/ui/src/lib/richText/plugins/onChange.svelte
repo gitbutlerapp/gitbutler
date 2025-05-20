@@ -11,6 +11,8 @@
 	import { getMarkdownString } from '$lib/richText/markdown';
 	import { getEditorTextAfterAnchor, getEditorTextUpToAnchor } from '$lib/richText/selection';
 	import {
+		BLUR_COMMAND,
+		COMMAND_PRIORITY_NORMAL,
 		$getRoot as getRoot,
 		$getSelection as getSelection,
 		$isRangeSelection as isRangeSelection
@@ -36,17 +38,10 @@
 	}
 
 	$effect(() => {
-		return editor.registerUpdateListener(
-			({ editorState, dirtyElements, dirtyLeaves, prevEditorState, tags }) => {
-				if (
-					tags.has('history-merge') ||
-					(dirtyElements.size === 0 && dirtyLeaves.size === 0) ||
-					prevEditorState.isEmpty()
-				) {
-					return;
-				}
-
-				editorState.read(() => {
+		return editor.registerCommand(
+			BLUR_COMMAND,
+			() => {
+				editor.read(() => {
 					const currentText = getCurrentText();
 					if (currentText === text) {
 						return;
@@ -62,7 +57,9 @@
 					const textAfterAnchor = getEditorTextAfterAnchor(selection);
 					onChange?.(text, textUpToAnchor, textAfterAnchor);
 				});
-			}
+				return false;
+			},
+			COMMAND_PRIORITY_NORMAL
 		);
 	});
 
