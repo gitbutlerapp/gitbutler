@@ -3,6 +3,7 @@
 	import LazyloadContainer from '$components/LazyloadContainer.svelte';
 	import FileListItemWrapper from '$components/v3/FileListItemWrapper.svelte';
 	import FileTreeNode from '$components/v3/FileTreeNode.svelte';
+	import DiffInputContext from '$lib/ai/diffInputContext.svelte';
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService, type DiffInput } from '$lib/ai/service';
 	import { projectAiGenEnabled } from '$lib/config/config';
@@ -14,7 +15,7 @@
 		previousPathBytesFromTreeChange
 	} from '$lib/hunks/change';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
-	import { showToast } from '$lib/notifications/toasts';
+	import { showError, showToast } from '$lib/notifications/toasts';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { selectFilesInList, updateSelection } from '$lib/selection/idSelectionUtils';
 	import { type SelectionId } from '$lib/selection/key';
@@ -26,9 +27,10 @@
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { chunk } from '$lib/utils/array';
 	import { sortLikeFileTree } from '$lib/worktree/changeTree';
+	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import { isLockfile } from '@gitbutler/shared/lockfiles';
 	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
+	import type { DiffInputContextArgs } from '$lib/ai/diffInputContext.svelte';
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
 
 	type Props = {
@@ -53,13 +55,22 @@
 		conflictEntries
 	}: Props = $props();
 
-	const [stackService, uiState, idSelection, aiService, promptService, diffService] = inject(
+	const [
+		stackService,
+		uiState,
+		idSelection,
+		aiService,
+		promptService,
+		diffService,
+		worktreeService
+	] = inject(
 		StackService,
 		UiState,
 		IdSelection,
 		AIService,
 		PromptService,
-		DiffService
+		DiffService,
+		WorktreeService
 	);
 
 	let currentDisplayIndex = $state(0);
@@ -67,6 +78,19 @@
 	const fileChunks: TreeChange[][] = $derived(chunk(sortLikeFileTree(changes), 100));
 	const visibleFiles: TreeChange[] = $derived(fileChunks.slice(0, currentDisplayIndex + 1).flat());
 	const stackMacros = $derived(new StackMacros(projectId, stackService, uiState));
+
+	const selectedFiles = $derived(idSelection.values(selectionId));
+
+	const diffInputArgs = $derived<DiffInputContextArgs>({
+		type: 'selection',
+		projectId,
+		selectedFiles,
+		changes
+	});
+
+	const diffInputContext = $derived(
+		new DiffInputContext(worktreeService, diffService, stackService, diffInputArgs)
+	);
 
 	const aiGenEnabled = $derived(projectAiGenEnabled(projectId));
 	let aiConfigurationValid = $state(false);
@@ -118,32 +142,38 @@
 		return newBranchName;
 	}
 
-	/**
-	 * Get the diff input for the selected changes.
-	 */
-	async function getDiffInput(treeChanges: TreeChange[]): Promise<DiffInput[]> {
-		const diffInput: DiffInput[] = [];
-		const cleanFiles = treeChanges.filter((change) => !isLockfile(change.path));
-		const diffs = await diffService.fetchChanges(projectId, cleanFiles);
-		for (const diffChange of diffs) {
-			const filePath = diffChange.path;
-			const diff = diffChange.diff;
-			if (diff.type !== 'Patch') continue;
+	async function getBranchNameAndCommitMessage(): Promise<{
+		branchName: string | undefined;
+		commitMessage: string | undefined;
+	}> {
+		if (!canUseAi) return { branchName: undefined, commitMessage: undefined };
 
-			const diffStringBuffer: string[] = [];
+		const diffInput = await diffInputContext.diffInput();
+		if (!diffInput) {
+			showError('Failed to generate branch name', 'No changes found');
+			return { branchName: undefined, commitMessage: undefined };
+		}
+		const branchName = await generateBranchName(diffInput);
 
-			for (const hunk of diff.subject.hunks) {
-				diffStringBuffer.push(hunk.diff);
-			}
-
-			const diffString = diffStringBuffer.join('\n');
-			diffInput.push({
-				filePath,
-				diff: diffString
+		if (!branchName) {
+			showToast({
+				style: 'error',
+				message: 'Failed to generate branch name.'
 			});
+			return { branchName, commitMessage: undefined };
 		}
 
-		return diffInput;
+		const commitMessage = await generateCommitMessage(branchName, diffInput);
+
+		if (!commitMessage) {
+			showToast({
+				style: 'error',
+				message: 'Failed to generate commit message.'
+			});
+			return { branchName, commitMessage };
+		}
+
+		return { branchName, commitMessage };
 	}
 
 	/**
@@ -181,23 +211,7 @@
 			});
 		}
 
-		let commitMessage: string | undefined = undefined;
-		let branchName: string | undefined = undefined;
-
-		if (canUseAi) {
-			const diffInput = await getDiffInput(treeChanges);
-			branchName = await generateBranchName(diffInput);
-
-			if (!branchName) {
-				showToast({
-					style: 'error',
-					message: 'Failed to generate branch name.'
-				});
-				return;
-			}
-
-			commitMessage = await generateCommitMessage(branchName, diffInput);
-		}
+		const { branchName, commitMessage } = await getBranchNameAndCommitMessage();
 
 		await stackMacros.branchChanges({
 			worktreeChanges: selectedChanges,
@@ -213,6 +227,8 @@
 	}
 
 	function handleKeyDown(e: KeyboardEvent) {
+		// TODO:  Re-enable auto-commit on shortcut
+
 		updateSelection({
 			allowMultiple: true,
 			metaKey: e.metaKey,
