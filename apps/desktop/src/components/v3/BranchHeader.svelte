@@ -111,17 +111,17 @@
 	.branch-header {
 		--branch-selected-bg: var(--clr-bg-1);
 		--branch-selected-element-bg: var(--clr-selected-not-in-focus-element);
+		display: flex;
 
 		position: relative;
-		display: flex;
-		justify-content: flex-start;
 		align-items: center;
-		padding-left: 15px;
+		justify-content: flex-start;
 		padding-right: 10px;
+		padding-left: 15px;
+		overflow: hidden;
+		border-bottom: 1px solid var(--clr-border-2);
 		border-top-right-radius: var(--radius-ml);
 		border-top-left-radius: var(--radius-ml);
-		border-bottom: 1px solid var(--clr-border-2);
-		overflow: hidden;
 		background-color: var(--branch-selected-bg);
 
 		/* Selected but NOT in focus */
@@ -148,8 +148,8 @@
 
 	.branch-header__details {
 		display: flex;
-		align-items: center;
 		flex-wrap: wrap;
+		align-items: center;
 		gap: 6px;
 		color: var(--clr-text-2);
 
@@ -174,16 +174,17 @@
 
 	.branch-header__title {
 		display: flex;
+		flex-grow: 1;
 		align-items: center;
 		justify-content: space-between;
 		min-width: 0;
-		flex-grow: 1;
-		overflow: auto;
+		overflow: hidden;
+		gap: 4px;
 	}
 
 	.branch-header__title-content {
-		align-items: center;
 		flex-grow: 1;
+		align-items: center;
 		min-width: 0;
 	}
 
@@ -194,19 +195,19 @@
 	}
 
 	.branch-header__content {
-		overflow: hidden;
-		flex: 1;
-		width: 100%;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
-		gap: 8px;
-		padding: 14px 0;
+		width: 100%;
 		margin-left: -2px;
+		padding: 14px 0;
+		overflow: hidden;
+		gap: 8px;
 		text-overflow: ellipsis;
 	}
 
 	.branch-header__empty-state {
-		opacity: 0.8;
 		color: var(--clr-text-2);
+		opacity: 0.8;
 	}
 </style>

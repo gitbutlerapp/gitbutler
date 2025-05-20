@@ -210,9 +210,11 @@
 					{/each}
 				</ul>
 			{:else}
-				Discard the changes to all <span class="text-bold">
-					{changes.length} files
-				</span>?
+				<p>
+					Discard the changes to all <span class="text-bold">
+						{changes.length} files
+					</span>?
+				</p>
 			{/if}
 		{:else}
 			<p class="text-13">Woops! Malformed data :(</p>
@@ -275,11 +277,11 @@
 	.file-list {
 		display: flex;
 		flex-direction: column;
-		border-radius: var(--radius-m);
-		overflow: hidden;
-		background-color: var(--clr-bg-1);
-		border: 1px solid var(--clr-border-2);
 		margin-top: 12px;
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-1);
 	}
 	.radio-aditional-info {
 		color: var(--clr-text-2);

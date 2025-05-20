@@ -142,9 +142,9 @@
 				{/each}
 			</ul>
 		{:else}
-			Discard the changes to all <span class="text-bold">
-				{item.files.length} files
-			</span>?
+			<p>
+				Discard the changes to all <span class="text-bold"> {item.files.length} files</span>?
+			</p>
 		{/if}
 	{/snippet}
 	{#snippet controls(close, item)}
@@ -160,10 +160,10 @@
 		color: var(--clr-text-2);
 	}
 	.file-list {
-		padding: 4px 0;
-		border-radius: var(--radius-m);
-		overflow: hidden;
-		background-color: var(--clr-bg-2);
 		margin-top: 12px;
+		padding: 4px 0;
+		overflow: hidden;
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-2);
 	}
 </style>
