@@ -1,5 +1,6 @@
 <script lang="ts">
 	import AIPromptEdit from '$components/AIPromptEdit.svelte';
+	import AiCredentialCheck from '$components/AiCredentialCheck.svelte';
 	import AuthorizationBanner from '$components/AuthorizationBanner.svelte';
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import Section from '$components/Section.svelte';
@@ -330,6 +331,10 @@
 			</InfoMessage>
 		</SectionCard>
 	{/if}
+	<!-- AI credential check -->
+	<SectionCard roundedTop={false} topDivider>
+		<AiCredentialCheck />
+	</SectionCard>
 </form>
 
 <Spacer />
