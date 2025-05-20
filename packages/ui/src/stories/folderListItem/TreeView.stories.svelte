@@ -69,7 +69,7 @@
 		display: flex;
 		flex-direction: column;
 		max-width: 300px;
-		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
 	}
 </style>

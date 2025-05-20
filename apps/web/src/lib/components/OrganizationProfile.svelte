@@ -320,9 +320,9 @@
 	.org-header {
 		display: flex;
 		align-items: center;
-		gap: 1.5rem;
-		margin-bottom: 1.5rem;
 		width: 100%;
+		margin-bottom: 1.5rem;
+		gap: 1.5rem;
 	}
 
 	.org-actions {
@@ -332,8 +332,8 @@
 	.avatar {
 		width: 120px;
 		height: 120px;
-		border-radius: 12px;
 		object-fit: cover;
+		border-radius: 12px;
 		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 	}
 
@@ -345,15 +345,15 @@
 	}
 
 	.org-title .description {
-		font-size: 14px;
 		color: #666;
+		font-size: 14px;
 	}
 
 	h1 {
-		font-size: 30px;
 		margin: 0;
-		line-height: 10px;
 		color: #1a202c;
+		font-size: 30px;
+		line-height: 10px;
 	}
 
 	.content-columns {
@@ -363,28 +363,28 @@
 	}
 
 	.section-card {
-		background-color: white;
-		border-radius: 8px;
 		margin-bottom: 2rem;
 		overflow: hidden;
 		border: 1px solid color(srgb 0.831373 0.815686 0.807843);
+		border-radius: 8px;
+		background-color: white;
 	}
 
 	.section-title {
-		font-size: 0.8em;
 		margin: 0;
 		padding: 12px 15px;
 		border-bottom: 1px solid color(srgb 0.831373 0.815686 0.807843);
 		background-color: #f3f3f2;
 		color: color(srgb 0.52549 0.494118 0.47451);
+		font-size: 0.8em;
 	}
 
 	.member-card {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
 		padding: 0.75rem;
 		border-bottom: 1px solid #e2e8f0;
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
 	}
 
 	.member-card:last-child {
@@ -402,8 +402,8 @@
 	.member-avatar {
 		width: 40px;
 		height: 40px;
-		border-radius: 50%;
 		object-fit: cover;
+		border-radius: 50%;
 	}
 
 	.member-info {
@@ -412,13 +412,13 @@
 	}
 
 	.member-login {
-		font-weight: 500;
 		color: #2d3748;
+		font-weight: 500;
 	}
 
 	.member-role {
-		font-size: 0.8rem;
 		color: #718096;
+		font-size: 0.8rem;
 	}
 
 	@media (max-width: 768px) {

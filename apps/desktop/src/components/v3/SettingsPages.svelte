@@ -106,15 +106,15 @@
 
 <style lang="postcss">
 	.settings-wrap {
-		position: relative;
 		display: flex;
+		position: relative;
 		width: 100%;
 
 		&.chrome-page {
-			overflow: hidden;
 			height: 100%;
-			border-radius: var(--radius-ml);
+			overflow: hidden;
 			border: 1px solid var(--clr-border-2);
+			border-radius: var(--radius-ml);
 		}
 
 		&.full-page {
@@ -130,8 +130,8 @@
 		width: 100%;
 		max-width: 250px;
 		padding: 20px 12px 12px 12px;
-		background-color: var(--clr-bg-1);
 		border-right: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-1);
 	}
 
 	.settings-sidebar__title {
@@ -145,24 +145,23 @@
 
 	/* LINKS */
 	.settings-sidebar__links {
-		flex: 1;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
-		gap: 2px;
 		margin-top: 20px;
+		gap: 2px;
 	}
 
 	.settings-sidebar__links-item {
-		position: relative;
 		display: flex;
+		position: relative;
 		align-items: center;
-		gap: 10px;
 		padding: 10px 8px;
+		gap: 10px;
 		border-radius: var(--radius-m);
 		transition: background-color var(--transition-fast);
 
 		&::after {
-			content: '';
 			position: absolute;
 			top: 50%;
 			left: -12px;
@@ -171,6 +170,7 @@
 			transform: translateY(-50%) translateX(-100%);
 			border-radius: 0 var(--radius-m) var(--radius-m) 0;
 			background-color: var(--clr-selected-in-focus-element);
+			content: '';
 			transition:
 				background-color var(--transition-fast),
 				transform var(--transition-medium);
@@ -201,26 +201,26 @@
 
 	/* PAGE VIEW */
 	.page-view {
-		user-select: none;
+		flex: 1;
 		width: 100%;
 		height: 100%;
-		flex: 1;
 		background-color: var(--clr-bg-2);
+		user-select: none;
 	}
 
 	.page-view__content {
-		padding: 24px 32px 32px;
 		display: flex;
 		flex-direction: column;
-		gap: 16px;
-		max-width: 640px;
 		width: 100%;
+		max-width: 640px;
 		margin: 0 auto;
+		padding: 24px 32px 32px;
+		gap: 16px;
 	}
 
 	.page-view__title {
-		color: var(--clr-scale-ntrl-0);
 		align-self: flex-start;
+		color: var(--clr-scale-ntrl-0);
 	}
 
 	/* OTHER */

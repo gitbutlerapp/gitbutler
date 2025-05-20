@@ -54,15 +54,15 @@
 	}
 
 	.action {
-		cursor: pointer;
 		color: #999;
+		cursor: pointer;
 	}
 
 	.editing {
 		width: 100%;
 		height: 100px;
-		font-family: var(--fontfamily-mono);
 		font-size: large;
+		font-family: var(--fontfamily-mono);
 	}
 
 	.editor {

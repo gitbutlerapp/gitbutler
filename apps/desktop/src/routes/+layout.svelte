@@ -318,8 +318,8 @@
 	.app-root {
 		display: flex;
 		height: 100%;
-		user-select: none;
 		cursor: default;
+		user-select: none;
 	}
 
 	.drag-region {

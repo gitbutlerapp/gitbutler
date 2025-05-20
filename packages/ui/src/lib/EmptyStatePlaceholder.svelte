@@ -68,16 +68,16 @@
 	}
 
 	.empty-state {
-		user-select: none;
 		display: flex;
 		flex-grow: 1;
 		flex-direction: column;
 		align-items: center;
-		color: var(--clr-scale-ntrl-60);
 		justify-content: center;
 		width: 100%;
 		border-radius: var(--radius-m);
+		color: var(--clr-scale-ntrl-60);
 		cursor: default; /* was defaulting to text cursor */
+		user-select: none;
 	}
 
 	.empty-state__content {

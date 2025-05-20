@@ -245,34 +245,34 @@
 
 <style lang="postcss">
 	.lexical-container {
+		display: block;
+		position: relative;
 		flex-grow: 1;
 		background-color: var(--clr-bg-1);
-		position: relative;
-		display: block;
 	}
 
 	.editor-scroller {
-		border: 0;
 		display: flex;
-		flex-direction: column;
-		position: relative;
-		outline: 0;
 		z-index: 0;
-		overflow: auto;
+		position: relative;
+		flex-direction: column;
 		height: 100%;
+		overflow: auto;
+		border: 0;
+		outline: 0;
 		/* It's unclear why the resizer is on by default on this element. */
 		resize: none;
 	}
 
 	.editor {
-		flex: auto;
-		position: relative;
-		resize: vertical;
 		z-index: -1;
+		position: relative;
+		flex: auto;
+		resize: vertical;
 	}
 
 	.disabled {
-		pointer-events: none;
 		opacity: 0.5;
+		pointer-events: none;
 	}
 </style>

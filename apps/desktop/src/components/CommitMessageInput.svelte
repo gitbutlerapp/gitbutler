@@ -356,25 +356,25 @@
 	.commit-box__textarea-wrapper {
 		display: flex;
 		position: relative;
-		padding: 0 0 48px;
 		flex-direction: column;
-		gap: 4px;
-		animation: expand-box 0.17s ease-out forwards;
 		/* props to animate on mount */
 		max-height: 40px;
+		padding: 0 0 48px;
+		gap: 4px;
+		animation: expand-box 0.17s ease-out forwards;
 		opacity: 0;
 	}
 
 	@keyframes expand-box {
 		from {
-			opacity: 0;
 			max-height: 40px;
 			padding: 0 0 0;
+			opacity: 0;
 		}
 		to {
-			opacity: 1;
 			max-height: 600px;
 			padding: 0 0 48px;
+			opacity: 1;
 		}
 	}
 
@@ -382,21 +382,21 @@
 		position: absolute;
 		top: 2px;
 		right: 4px;
-		color: var(--clr-text-3);
 		padding: 4px;
+		color: var(--clr-text-3);
 	}
 
 	.commit-box__texarea-actions {
 		display: flex;
-		align-items: center;
-		gap: 10px;
+		/* props to animate on mount */
+		display: none;
 		position: absolute;
 		right: 12px;
 		bottom: 12px;
-		/* props to animate on mount */
-		display: none;
-		opacity: 0;
+		align-items: center;
+		gap: 10px;
 		transform: translateY(10px);
+		opacity: 0;
 	}
 
 	/* MODIFIERS */
@@ -409,12 +409,12 @@
 
 	@keyframes expand-actions {
 		from {
-			opacity: 0;
 			transform: translateY(10px);
+			opacity: 0;
 		}
 		to {
-			opacity: 1;
 			transform: translateY(0);
+			opacity: 1;
 		}
 	}
 </style>

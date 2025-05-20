@@ -509,35 +509,35 @@
 
 <style lang="postcss">
 	.pr-content {
-		flex: 1;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
-		gap: 14px;
 		overflow: hidden;
+		gap: 14px;
 	}
 
 	.options {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
-		gap: 8px;
 		align-items: stretch;
 		width: 100%;
+		gap: 8px;
 	}
 
 	.option-card {
 		display: flex;
 		flex-direction: column;
-		border-radius: var(--radius-m);
 		overflow: hidden;
+		border-radius: var(--radius-m);
 	}
 
 	/* OPTION BOX */
 	.option-card-header {
 		display: flex;
 		flex-grow: 1;
+		padding: 12px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
-		padding: 12px;
 		transition: background-color var(--transition-fast);
 
 		&:hover {
@@ -549,40 +549,39 @@
 		}
 
 		&.selected {
-			background-color: var(--clr-theme-pop-bg);
 			border-color: var(--clr-theme-pop-element);
+			background-color: var(--clr-theme-pop-bg);
 		}
 	}
 
 	.option-card-header-content {
 		display: flex;
+		flex-grow: 1;
 		flex-direction: column;
 		justify-content: flex-end;
 		gap: 10px;
-		flex-grow: 1;
 	}
 
 	.option-card-header-title {
 		display: flex;
-		gap: 8px;
 		align-items: center;
+		gap: 8px;
 	}
 
 	.option-card-header-action {
-		flex-grow: 0;
-
 		display: block;
+		flex-grow: 0;
 	}
 
 	.option-subcard-drafty {
-		padding: 12px;
 		display: flex;
-		justify-content: space-between;
 		align-items: center;
-
-		border-radius: 0 0 var(--radius-m) var(--radius-m);
+		justify-content: space-between;
+		padding: 12px;
 		border: 1px solid var(--clr-border-2);
 		border-top: none;
+
+		border-radius: 0 0 var(--radius-m) var(--radius-m);
 		transition: background-color var(--transition-fast);
 
 		&:hover {
@@ -590,10 +589,10 @@
 		}
 
 		&.disabled {
-			pointer-events: none;
+			background-color: var(--clr-bg-2);
 			cursor: not-allowed;
 			opacity: 0.5;
-			background-color: var(--clr-bg-2);
+			pointer-events: none;
 		}
 	}
 

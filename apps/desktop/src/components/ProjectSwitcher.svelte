@@ -91,7 +91,7 @@
 	.project-switcher {
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
 		align-items: flex-end;
+		gap: 10px;
 	}
 </style>

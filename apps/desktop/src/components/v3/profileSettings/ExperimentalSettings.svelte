@@ -85,8 +85,8 @@
 
 <style>
 	.experimental-settings__text {
-		color: var(--clr-text-2);
 		margin-bottom: 10px;
+		color: var(--clr-text-2);
 	}
 
 	.experimental-settings__toggles {

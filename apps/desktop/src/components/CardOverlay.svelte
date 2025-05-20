@@ -55,20 +55,19 @@
 
 <style lang="postcss">
 	.dropzone-wrapper {
+		display: none;
 		z-index: var(--z-floating);
 		position: absolute;
-		width: 100%;
-		height: 100%;
 		top: 0;
 		left: 0;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		height: 100%;
 		padding-top: var(--padding-top);
 		padding-right: var(--padding-right);
 		padding-bottom: var(--padding-bottom);
 		padding-left: var(--padding-left);
-
-		display: none;
-		align-items: center;
-		justify-content: center;
 
 		transition:
 			transform 0.1s,
@@ -88,32 +87,32 @@
 			}
 
 			.dropzone-label {
-				opacity: 1;
 				transform: translateY(0) scale(1);
+				opacity: 1;
 			}
 		}
 	}
 
 	.container {
-		pointer-events: none;
-		position: relative;
 		display: flex;
+		position: relative;
 		align-items: center;
 		justify-content: center;
 		width: 100%;
 		height: 100%;
+		pointer-events: none;
 	}
 
 	.dropzone-label {
-		opacity: 0;
 		display: flex;
 		align-items: center;
-		gap: 6px;
 		padding: 6px 10px;
-		border-radius: 100px;
-		color: var(--clr-theme-pop-on-element);
-		background-color: var(--clr-theme-pop-element);
+		gap: 6px;
 		transform: translateY(3px) scale(0.95);
+		border-radius: 100px;
+		background-color: var(--clr-theme-pop-element);
+		color: var(--clr-theme-pop-on-element);
+		opacity: 0;
 
 		transition:
 			opacity 0.1s,

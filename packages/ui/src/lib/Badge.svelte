@@ -49,89 +49,89 @@
 <style lang="postcss">
 	.badge {
 		display: inline-flex;
+		flex-shrink: 0;
 		align-items: center;
 		justify-content: center;
-		text-align: center;
 		border-radius: 20px;
 		line-height: 90%;
-		flex-shrink: 0;
+		text-align: center;
 
 		/* SOLID */
 
 		&.neutral.solid {
-			color: var(--clr-scale-ntrl-100);
 			background-color: var(--clr-scale-ntrl-40);
+			color: var(--clr-scale-ntrl-100);
 		}
 
 		&.pop.solid {
-			color: var(--clr-theme-pop-on-element);
 			background-color: var(--clr-theme-pop-element);
+			color: var(--clr-theme-pop-on-element);
 		}
 
 		&.success.solid {
-			color: var(--clr-theme-succ-on-element);
 			background-color: var(--clr-theme-succ-element);
+			color: var(--clr-theme-succ-on-element);
 		}
 
 		&.warning.solid {
-			color: var(--clr-theme-warn-on-element);
 			background-color: var(--clr-theme-warn-element);
+			color: var(--clr-theme-warn-on-element);
 		}
 
 		&.error.solid {
-			color: var(--clr-theme-err-on-element);
 			background-color: var(--clr-theme-err-element);
+			color: var(--clr-theme-err-on-element);
 		}
 
 		&.purple.solid {
-			color: var(--clr-theme-purp-on-element);
 			background-color: var(--clr-theme-purp-element);
+			color: var(--clr-theme-purp-on-element);
 		}
 
 		/* SOFT */
 		&.neutral.soft {
-			color: var(--clr-text-1);
 			background-color: var(--clr-scale-ntrl-80);
+			color: var(--clr-text-1);
 		}
 
 		&.pop.soft {
-			color: var(--clr-theme-pop-on-soft);
 			background-color: var(--clr-theme-pop-soft);
+			color: var(--clr-theme-pop-on-soft);
 		}
 
 		&.success.soft {
-			color: var(--clr-theme-succ-on-soft);
 			background-color: var(--clr-theme-succ-soft);
+			color: var(--clr-theme-succ-on-soft);
 		}
 
 		&.warning.soft {
-			color: var(--clr-theme-warn-on-soft);
 			background-color: var(--clr-theme-warn-soft);
+			color: var(--clr-theme-warn-on-soft);
 		}
 
 		&.error.soft {
-			color: var(--clr-theme-err-on-soft);
 			background-color: var(--clr-theme-err-soft);
+			color: var(--clr-theme-err-on-soft);
 		}
 
 		&.purple.soft {
-			color: var(--clr-theme-purp-on-soft);
 			background-color: var(--clr-theme-purp-soft);
+			color: var(--clr-theme-purp-on-soft);
 		}
 
 		/* SIZE */
 		&.icon-size {
+			min-width: var(--size-icon);
 			height: var(--size-icon);
 			padding: 0 3px;
 			gap: 1px;
-			min-width: var(--size-icon);
 		}
 
 		&.tag-size {
+			min-width: var(--size-tag);
 			height: var(--size-tag);
 			padding: 0 5px;
 			gap: 2px;
-			min-width: var(--size-tag);
 		}
 
 		/* REVERSED DIRECTION */

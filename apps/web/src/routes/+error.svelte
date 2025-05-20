@@ -22,25 +22,25 @@
 	}
 
 	.title {
-		font-family: 'PP Editorial New', serif;
-		font-size: min(10vw, 16cqw);
 		margin-top: 30px;
+		font-size: min(10vw, 16cqw);
+		font-family: 'PP Editorial New', serif;
 
 		@media (max-width: 700px) {
-			font-size: 16cqw;
 			margin-bottom: 30px;
+			font-size: 16cqw;
 			// margin-top: 20px;
 		}
 	}
 	.subtitle {
-		font-size: 22px;
+		max-width: 400px;
+		margin-bottom: 30px;
 		color: var(--clr-black);
 		font-weight: 400;
+		font-size: 22px;
 		line-height: 130%;
-		opacity: 0.7;
-		max-width: 400px;
 		text-wrap: balance;
-		margin-bottom: 30px;
+		opacity: 0.7;
 
 		@media (max-width: 800px) {
 			font-size: 18px;

@@ -56,8 +56,8 @@
 
 <style lang="postcss">
 	.container {
-		position: relative;
 		z-index: var(--z-ground);
+		position: relative;
 	}
 
 	.local-commit-dot {

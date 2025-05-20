@@ -140,15 +140,15 @@
 	.wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: 16px;
 		max-width: 896px;
+		gap: 16px;
 	}
 	.card__content {
 		gap: 12px;
 	}
 	.card__title-pr {
-		opacity: 0.4;
 		margin-left: 4px;
+		opacity: 0.4;
 	}
 
 	.fork-notice {

@@ -36,9 +36,9 @@
 
 <style>
 	.stack__status {
-		align-self: stretch;
 		display: flex;
 		flex-direction: column;
+		align-self: stretch;
 		justify-content: center;
 		gap: 3px;
 		--clr-transparent: transparent;
@@ -49,10 +49,10 @@
 			justify-content: center;
 			width: 20px;
 			height: 24px;
+			margin-left: 11px;
 			border-radius: var(--radius-m);
 			background-color: var(--bg-color);
 			color: var(--icon-color, var(--clr-text-1));
-			margin-left: 11px;
 		}
 
 		& .stack__status--bar {

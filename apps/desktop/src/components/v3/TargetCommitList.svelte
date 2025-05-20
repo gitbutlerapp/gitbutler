@@ -127,17 +127,17 @@
 	.target-branch-header {
 		display: flex;
 		border-bottom: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-2);
 		border-radius: var(--radius-ml) var(--radius-ml) 0 0;
+		background-color: var(--clr-bg-2);
 	}
 
 	.target-branch-header__content {
 		display: flex;
-		flex-direction: column;
 		flex: 1;
-		gap: 8px;
+		flex-direction: column;
 		padding: 14px;
 		overflow: hidden;
+		gap: 8px;
 	}
 
 	.target-branch-header__content-details {

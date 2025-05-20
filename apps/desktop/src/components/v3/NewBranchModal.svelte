@@ -90,7 +90,7 @@
 
 <style>
 	.helper-text {
-		color: var(--clr-scale-ntrl-50);
 		margin-top: 10px;
+		color: var(--clr-scale-ntrl-50);
 	}
 </style>

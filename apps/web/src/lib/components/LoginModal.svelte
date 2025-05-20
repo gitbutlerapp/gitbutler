@@ -61,8 +61,8 @@
 	}
 
 	.login-modal__content {
-		flex: 1;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 		justify-content: center;
 		padding: 30px;

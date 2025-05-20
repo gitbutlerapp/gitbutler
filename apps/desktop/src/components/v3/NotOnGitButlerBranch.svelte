@@ -209,13 +209,13 @@
 
 <style lang="postcss">
 	.switchrepo__title {
-		color: var(--clr-text-1);
 		margin-bottom: 12px;
+		color: var(--clr-text-1);
 	}
 
 	.switchrepo__message {
-		color: var(--clr-text-2);
 		margin-bottom: 20px;
+		color: var(--clr-text-2);
 	}
 
 	.switchrepo__content {
@@ -224,10 +224,10 @@
 	}
 
 	.switchrepo__uncommited-changes {
-		padding: 16px;
-		border-radius: var(--radius-ml);
-		border: 1px solid var(--clr-border-2);
 		margin-bottom: 20px;
+		padding: 16px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
 	}
 
 	.switchrepo__label {
@@ -235,10 +235,10 @@
 	}
 
 	.switchrepo__file-list {
-		border-radius: var(--radius-m);
+		margin-bottom: 20px;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
-		margin-bottom: 20px;
+		border-radius: var(--radius-m);
 	}
 
 	.switchrepo__handling-options {
@@ -255,10 +255,10 @@
 
 	.switchrepo__actions {
 		display: flex;
+		flex-wrap: wrap;
 		justify-content: flex-end;
 		width: 100%;
-		gap: 8px;
 		padding-bottom: 24px;
-		flex-wrap: wrap;
+		gap: 8px;
 	}
 </style>

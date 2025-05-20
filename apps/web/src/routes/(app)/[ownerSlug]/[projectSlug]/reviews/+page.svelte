@@ -164,17 +164,17 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		text-align: center;
 		padding: 64px 0;
-		background-color: #fff;
-		border-radius: 12px;
 		border: 1px solid #ddd;
+		border-radius: 12px;
+		background-color: #fff;
+		text-align: center;
 	}
 
 	.empty-state h3 {
 		margin: 16px 0 8px;
-		font-size: 18px;
 		font-weight: 600;
+		font-size: 18px;
 	}
 
 	.empty-state p {

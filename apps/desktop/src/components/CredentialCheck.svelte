@@ -132,8 +132,8 @@
 	.checks-list {
 		display: flex;
 		flex-direction: column;
-		gap: 4px;
 		margin-top: 4px;
+		gap: 4px;
 	}
 
 	.check-icon {

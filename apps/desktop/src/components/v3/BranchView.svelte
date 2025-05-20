@@ -153,9 +153,9 @@
 	.branch__header {
 		display: flex;
 		align-items: center;
-		gap: 8px;
 		width: 100%;
 		overflow: hidden;
+		gap: 8px;
 	}
 
 	/*  */
@@ -177,13 +177,13 @@
 
 	/* EMPTY STATE */
 	.branch-view__empty-state {
-		flex: 1;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 		justify-content: center;
-		padding: 30px;
 		max-width: 540px;
 		margin: 0 auto;
+		padding: 30px;
 
 		@container drawer-content (max-width: 400px) {
 			padding: 10px;

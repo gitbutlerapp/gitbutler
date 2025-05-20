@@ -13,10 +13,10 @@
 		display: flex;
 		align-items: center;
 		width: 100%;
-		background-color: #24223c;
 		background-image: url('/images/the-merge-banner/banner-bg.svg');
-		background-size: 100%;
 		background-position: center;
+		background-size: 100%;
+		background-color: #24223c;
 
 		transition: background-size 0.5s ease-in-out;
 	}
@@ -31,14 +31,14 @@
 	}
 
 	.wrap {
-		margin: 0 auto;
 		display: flex;
-		gap: 30px;
 		align-items: center;
 		justify-content: space-between;
 		width: 100%;
 		max-width: 64rem;
+		margin: 0 auto;
 		padding: 1rem 0.75rem;
+		gap: 30px;
 	}
 
 	.logo {

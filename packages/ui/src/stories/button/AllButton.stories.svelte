@@ -134,9 +134,9 @@
 		display: block;
 		width: 100%;
 		height: 1px;
-		background-color: #858585;
-		opacity: 0.3;
 		margin: 8px 0;
 		border: none;
+		background-color: #858585;
+		opacity: 0.3;
 	}
 </style>

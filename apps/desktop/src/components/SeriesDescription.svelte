@@ -46,16 +46,16 @@
 
 <style>
 	.branch-description-input {
-		position: relative;
 		display: flex;
+		position: relative;
 		flex-direction: column;
-		color: var(--clr-text-2);
+
+		width: 100%;
+		margin-bottom: -5px;
 		padding: 0 2px;
 		border: 1px solid transparent;
 		border-radius: var(--radius-s);
-		margin-bottom: -5px;
-
-		width: 100%;
+		color: var(--clr-text-2);
 		transition:
 			border-color var(--transition-fast),
 			background-color var(--transition-fast);
@@ -65,9 +65,8 @@
 		}
 
 		&:focus-within {
-			background-color: var(--clr-bg-1-muted);
-
 			border: 1px solid var(--clr-border-2);
+			background-color: var(--clr-bg-1-muted);
 			/* background-color: var(--clr-bg-2); */
 		}
 	}

@@ -63,11 +63,11 @@
 <style>
 	.draggable {
 		display: flex;
-		height: fit-content;
 		align-items: center;
-		cursor: grab;
+		height: fit-content;
 		padding: 2px 2px 0 0;
 		color: var(--clr-scale-ntrl-50);
+		cursor: grab;
 		transition: color var(--transition-slow);
 
 		&:hover {
@@ -76,14 +76,14 @@
 	}
 
 	.collapsed-lane {
-		cursor: default;
-		user-select: none;
 		align-items: center;
-		height: 100%;
 		width: 48px;
+		height: 100%;
+		padding: 8px 8px 20px;
 		overflow: hidden;
 		gap: 8px;
-		padding: 8px 8px 20px;
+		cursor: default;
+		user-select: none;
 
 		&:focus-within {
 			outline: none;
@@ -126,9 +126,9 @@
 	}
 
 	.collapsed-lane__label-wrap {
-		overflow: hidden;
 		display: flex;
 		align-items: center;
+		overflow: hidden;
 		gap: 12px;
 	}
 </style>

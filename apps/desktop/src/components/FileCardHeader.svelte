@@ -63,15 +63,15 @@
 	.header__inner {
 		display: flex;
 		flex-grow: 1;
-		gap: 8px;
 		padding: 4px;
 		overflow: hidden;
+		gap: 8px;
 	}
 	.header__info {
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
 		width: 100%;
+		gap: 8px;
 	}
 	.header__tags {
 		display: flex;

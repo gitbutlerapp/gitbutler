@@ -165,31 +165,31 @@
 
 <style lang="postcss">
 	.lanes {
-		position: relative;
 		display: flex;
-		flex-direction: column;
+		position: relative;
 		flex: 1;
+		flex-direction: column;
+		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
-		overflow: hidden;
 	}
 
 	.lanes-header {
 		display: flex;
-		justify-content: space-between;
-		gap: 10px;
 		align-items: center;
-		border-bottom: 1px solid var(--clr-border-2);
-		background: var(--clr-bg-1);
+		justify-content: space-between;
 		height: 44px;
 		padding-left: 12px;
+		gap: 10px;
+		border-bottom: 1px solid var(--clr-border-2);
+		background: var(--clr-bg-1);
 
 		& .title {
-			flex: 1;
 			display: flex;
+			flex: 1;
 			align-items: center;
-			gap: 6px;
 			overflow: hidden;
+			gap: 6px;
 		}
 
 		& .actions {
@@ -224,22 +224,22 @@
 	}
 
 	.lanes-viewport {
+		display: flex;
 		position: relative;
 		flex: 1;
-		display: flex;
 		flex-direction: column;
 		overflow: hidden;
 	}
 
 	.lane {
-		position: relative;
 		display: flex;
-		flex-direction: column;
+		position: relative;
 		flex-shrink: 0;
-		scroll-snap-align: start;
-		border-right: 1px solid var(--clr-border-2);
+		flex-direction: column;
 		overflow-x: hidden;
 		overflow-y: auto;
+		border-right: 1px solid var(--clr-border-2);
+		scroll-snap-align: start;
 
 		&:first-child {
 			border-left: 1px solid var(--clr-border-2);
@@ -260,45 +260,45 @@
 	}
 
 	.pagination-container {
+		display: flex;
 		z-index: var(--z-floating);
 		position: absolute;
-		display: flex;
 
 		&.horz {
-			bottom: 60px;
 			right: 6px;
+			bottom: 60px;
 		}
 
 		&.vert {
-			bottom: 6px;
 			right: 6px;
+			bottom: 6px;
 			transform: rotate(90deg) translateY(100%);
 			transform-origin: right bottom;
 		}
 	}
 
 	.no-stacks-placeholder {
+		display: flex;
 		position: absolute;
 		top: 50%;
 		left: 50%;
-		transform: translate(-50%, -50%);
+		flex-direction: column;
 		width: 100%;
 		height: 100%;
-		display: flex;
-		flex-direction: column;
 		overflow: hidden;
+		transform: translate(-50%, -50%);
 
 		&:after {
 			z-index: -1;
-			content: '';
-			width: 600px;
-			height: 600px;
 			position: absolute;
 			top: calc(50% - 50px);
 			left: 50%;
+			width: 600px;
+			height: 600px;
 			transform: translate(-50%, -50%);
 			border-radius: 100%;
 			background: radial-gradient(var(--clr-bg-2) 0%, oklch(from var(--clr-bg-2) l c h / 0) 70%);
+			content: '';
 		}
 	}
 </style>

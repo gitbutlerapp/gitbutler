@@ -190,8 +190,8 @@
 	.inputs-group {
 		display: flex;
 		flex-direction: column;
-		gap: 16px;
 		width: 100%;
+		gap: 16px;
 	}
 
 	.git-radio {
@@ -199,8 +199,8 @@
 		flex-direction: column;
 
 		&.disabled {
-			pointer-events: none;
 			opacity: 0.5;
+			pointer-events: none;
 		}
 	}
 </style>

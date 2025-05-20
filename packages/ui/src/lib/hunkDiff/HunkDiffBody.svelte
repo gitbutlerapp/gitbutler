@@ -252,28 +252,28 @@
 	}
 	.diff-comment {
 		width: 100%;
-		font-size: 12px;
 		padding-left: 4px;
-		line-height: 1.25;
-		tab-size: var(--tab-size);
-		white-space: pre;
-		user-select: text;
-		cursor: text;
-		text-wrap: wrap;
 		border-bottom: 1px solid var(--clr-border-2);
 		background-color: var(--clr-diff-count-bg);
+		font-size: 12px;
+		line-height: 1.25;
+		text-wrap: wrap;
+		white-space: pre;
+		cursor: text;
+		tab-size: var(--tab-size);
+		user-select: text;
 	}
 
 	.diff-comment__number-column {
-		color: var(--clr-diff-count-text);
+		padding: 4px 4px;
 		border-right: 1px solid var(--clr-border-2);
 		border-bottom: 1px solid var(--clr-diff-count-border);
 		background-color: var(--clr-diff-count-bg);
+		color: var(--clr-diff-count-text);
 		font-size: 11px;
-		padding: 4px 4px;
 		text-align: right;
 		vertical-align: middle;
-		user-select: none;
 		touch-action: none;
+		user-select: none;
 	}
 </style>

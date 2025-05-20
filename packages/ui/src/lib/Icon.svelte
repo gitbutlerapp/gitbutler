@@ -63,9 +63,9 @@
 <style lang="postcss">
 	.icon-wrapper {
 		--spinner-stroke-width: 1.5;
+		display: inline-block;
 		flex-shrink: 0;
 		pointer-events: none;
-		display: inline-block;
 	}
 
 	.success {

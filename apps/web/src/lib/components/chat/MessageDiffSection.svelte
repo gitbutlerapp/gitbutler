@@ -36,12 +36,12 @@
 	.chat-message__diff-section {
 		display: flex;
 		flex-direction: column;
+		align-self: stretch;
 		padding: 6px;
 		gap: 8px;
-		align-self: stretch;
+		border: 1px solid var(--clr-border-2);
 
 		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-border-2);
 		background: var(--clr-bg-1);
 	}
 
@@ -71,8 +71,8 @@
 
 	.chat-message__diff-content {
 		overflow: hidden;
-		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-diff-count-border);
+		border-radius: var(--radius-m);
 	}
 
 	table,

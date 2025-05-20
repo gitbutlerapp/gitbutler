@@ -18,15 +18,15 @@
 <style lang="postcss">
 	.overflow-actions {
 		--show: initial;
+		display: flex;
 
 		z-index: var(--z-lifted);
 		position: absolute;
 		top: -9px;
 		right: 10px;
-		display: flex;
-		pointer-events: var(--show, none);
-		opacity: var(--show, 0);
 		transform: var(--show, translateY(2px));
+		opacity: var(--show, 0);
+		pointer-events: var(--show, none);
 
 		transition:
 			opacity var(--transition-fast),
@@ -38,9 +38,9 @@
 		}
 
 		:global(:last-child .overflow-actions-btn) {
+			border-right: 1px solid var(--clr-border-2);
 			border-top-right-radius: var(--radius-m);
 			border-bottom-right-radius: var(--radius-m);
-			border-right: 1px solid var(--clr-border-2);
 		}
 	}
 

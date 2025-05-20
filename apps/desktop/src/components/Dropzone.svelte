@@ -72,8 +72,8 @@
 <style lang="postcss">
 	.fill-height {
 		display: flex;
-		flex-direction: column;
 		flex-grow: 1;
+		flex-direction: column;
 	}
 
 	.max-height {
@@ -81,10 +81,10 @@
 	}
 
 	.dropzone-container {
-		position: relative;
 		display: flex;
-		flex-direction: column;
+		position: relative;
 		flex-grow: 1;
+		flex-direction: column;
 		width: 100%;
 	}
 </style>

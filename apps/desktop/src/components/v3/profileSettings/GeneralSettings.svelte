@@ -215,11 +215,11 @@
 	}
 
 	.hidden-input {
-		cursor: pointer;
 		z-index: var(--z-ground);
 		position: absolute;
 		width: 100%;
 		height: 100%;
+		cursor: pointer;
 		opacity: 0;
 	}
 
@@ -227,8 +227,8 @@
 		position: relative;
 		width: 100px;
 		height: 100px;
-		border-radius: var(--radius-m);
 		overflow: hidden;
+		border-radius: var(--radius-m);
 		background-color: var(--clr-scale-pop-70);
 		transition: opacity var(--transition-medium);
 
@@ -256,26 +256,26 @@
 		position: absolute;
 		bottom: 8px;
 		left: 8px;
-		color: var(--clr-core-ntrl-100);
-		background-color: var(--clr-scale-ntrl-20);
 		padding: 4px 6px;
 		border-radius: var(--radius-m);
+		background-color: var(--clr-scale-ntrl-20);
+		color: var(--clr-core-ntrl-100);
 		opacity: 0;
 		transition: opacity var(--transition-medium);
 	}
 
 	.contact-info {
-		flex: 1;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
-		gap: 20px;
 		align-items: flex-end;
+		gap: 20px;
 	}
 
 	.contact-info__fields {
-		width: 100%;
 		display: flex;
 		flex-direction: column;
+		width: 100%;
 		gap: 12px;
 	}
 </style>

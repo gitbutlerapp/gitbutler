@@ -127,12 +127,12 @@
 
 <style lang="postcss">
 	.info-message {
-		color: var(--clr-scale-ntrl-0);
 		display: flex;
 		padding: 14px;
-		border-radius: var(--radius-ml);
 		gap: 12px;
+		border-radius: var(--radius-ml);
 		background-color: var(--clr-bg-1);
+		color: var(--clr-scale-ntrl-0);
 		transition:
 			background-color var(--transition-slow),
 			border-color var(--transition-slow);
@@ -141,8 +141,8 @@
 		display: flex;
 		flex-grow: 1;
 		flex-direction: column;
-		gap: 12px;
 		overflow-x: hidden;
+		gap: 12px;
 	}
 	.info-message__content {
 		display: flex;
@@ -152,8 +152,8 @@
 	}
 	.info-message__actions {
 		display: flex;
-		gap: 6px;
 		justify-content: flex-end;
+		gap: 6px;
 	}
 	.info-message__text {
 		&:empty {
@@ -215,14 +215,14 @@
 
 	/* ERROR BLOCK */
 	.info-message__error-block {
-		user-select: auto;
 		padding: 4px 8px;
 		overflow-x: auto;
+		border-radius: var(--radius-s);
 		background-color: var(--clr-scale-err-90);
 		color: var(--clr-scale-err-10);
-		border-radius: var(--radius-s);
 		font-size: 12px;
 		white-space: pre;
+		user-select: auto;
 
 		/* scrollbar */
 		&::-webkit-scrollbar {
@@ -242,15 +242,15 @@
 
 	/* rendered markdown requires global */
 	:global(.info-message__text a) {
-		cursor: pointer;
 		text-decoration: underline;
 		word-break: break-all; /* allow long links to wrap */
+		cursor: pointer;
 	}
 	:global(.info-message__text p:not(:last-child)) {
 		margin-bottom: 10px;
 	}
 	:global(.info-message__text ul) {
-		list-style-type: circle;
 		padding: 0 0 0 16px;
+		list-style-type: circle;
 	}
 </style>

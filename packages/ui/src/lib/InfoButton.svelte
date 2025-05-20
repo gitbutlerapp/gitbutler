@@ -94,8 +94,8 @@
 
 <style lang="postcss">
 	.wrapper {
-		position: relative;
 		display: inline-flex;
+		position: relative;
 		transform: translateY(10%);
 
 		--default-size: 14px;
@@ -120,19 +120,19 @@
 	.info-button {
 		position: relative;
 		flex-shrink: 0;
-		color: var(--clr-text-2);
 		border-radius: var(--default-size);
 		box-shadow: inset 0 0 0 1.5px var(--clr-text-2);
+		color: var(--clr-text-2);
 		transition: box-shadow var(--transition-fast);
 
 		&::before,
 		&::after {
-			content: '';
 			position: absolute;
 			left: 50%;
 			transform: translateX(-50%);
-			background-color: var(--clr-text-2);
 			border-radius: 2px;
+			background-color: var(--clr-text-2);
+			content: '';
 			transition: background-color var(--transition-fast);
 		}
 	}
@@ -185,9 +185,9 @@
 	}
 
 	.tooltip-container {
+		display: flex;
 		z-index: var(--z-blocker);
 		position: absolute;
-		display: flex;
 		flex-direction: column;
 		width: fit-content;
 	}
@@ -195,13 +195,13 @@
 	.tooltip-card {
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
-		background-color: var(--clr-bg-1);
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
-		padding: 12px;
 		width: max-content;
 		max-width: 260px;
+		padding: 12px;
+		gap: 6px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-1);
 		box-shadow: var(--fx-shadow-m);
 	}
 
@@ -216,27 +216,27 @@
 	}
 
 	.tooltip-arrow {
+		display: flex;
+		z-index: var(--z-lifted);
 		position: relative;
 		top: 1px;
-		margin: 0 auto;
-		width: 100%;
-		height: 10px;
-		display: flex;
 		justify-content: center;
-		overflow: hidden;
-		z-index: var(--z-lifted);
+		width: 100%;
 		width: fit-content;
+		height: 10px;
+		margin: 0 auto;
+		overflow: hidden;
 
 		&::before {
-			content: '';
 			position: relative;
 			top: 4px;
 			width: 20px;
 			height: 20px;
 			transform: rotate(45deg);
+			border: 1px solid var(--clr-border-2);
 			border-radius: 2px;
 			background-color: var(--clr-bg-1);
-			border: 1px solid var(--clr-border-2);
+			content: '';
 		}
 	}
 </style>

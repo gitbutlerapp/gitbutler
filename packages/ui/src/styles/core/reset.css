@@ -14,9 +14,9 @@
 	}
 
 	body {
-		line-height: inherit;
-		padding: 0;
 		margin: 0;
+		padding: 0;
+		line-height: inherit;
 		line-height: inherit;
 		font-family:
 			Inter,
@@ -37,8 +37,8 @@
 	/* elements */
 	hr {
 		height: 0;
-		color: inherit;
 		border-top-width: 1px;
+		color: inherit;
 	}
 
 	abbr:where([title]) {
@@ -52,8 +52,8 @@
 	h4,
 	h5,
 	h6 {
-		font-size: inherit;
 		font-weight: inherit;
+		font-size: inherit;
 	}
 
 	a {
@@ -70,12 +70,12 @@
 	kbd,
 	pre,
 	samp {
+		font-size: 1em;
 		font-family:
 			Söhne Mono,
 			monospace;
-		font-feature-settings: normal;
 		font-variation-settings: normal;
-		font-size: 1em;
+		font-feature-settings: normal;
 	}
 
 	small {
@@ -84,9 +84,9 @@
 
 	sub,
 	sup {
+		position: relative;
 		font-size: 75%;
 		line-height: 0;
-		position: relative;
 		vertical-align: baseline;
 	}
 
@@ -99,9 +99,9 @@
 	}
 
 	table {
-		text-indent: 0;
 		border-color: inherit;
 		border-collapse: collapse;
+		text-indent: 0;
 	}
 
 	button,
@@ -109,16 +109,16 @@
 	optgroup,
 	select,
 	textarea {
-		font-family: inherit;
-		font-feature-settings: inherit;
-		font-variation-settings: inherit;
-		font-size: 100%;
-		font-weight: inherit;
-		line-height: inherit;
-		letter-spacing: inherit;
-		color: inherit;
 		margin: 0;
 		padding: 0;
+		color: inherit;
+		font-weight: inherit;
+		font-size: 100%;
+		line-height: inherit;
+		font-family: inherit;
+		font-variation-settings: inherit;
+		font-feature-settings: inherit;
+		letter-spacing: inherit;
 	}
 
 	button,
@@ -131,8 +131,8 @@
 	input:where([type='reset']),
 	input:where([type='submit']) {
 		-webkit-appearance: button;
-		background-color: transparent;
 		background-image: none;
+		background-color: transparent;
 	}
 
 	:-moz-focusring {
@@ -198,9 +198,9 @@
 	menu,
 	ol,
 	ul {
-		list-style: none;
 		margin: 0;
 		padding: 0;
+		list-style: none;
 	}
 
 	dialog {
@@ -213,14 +213,14 @@
 
 	input::-moz-placeholder,
 	textarea::-moz-placeholder {
-		opacity: 1;
 		color: #9ca3af;
+		opacity: 1;
 	}
 
 	input::placeholder,
 	textarea::placeholder {
-		opacity: 1;
 		color: #9ca3af;
+		opacity: 1;
 	}
 
 	[role='button'],

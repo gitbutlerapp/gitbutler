@@ -359,14 +359,14 @@
 
 <style>
 	.ai-settings__text {
-		color: var(--clr-text-2);
 		margin-bottom: 12px;
+		color: var(--clr-text-2);
 	}
 
 	.prompt-groups {
 		display: flex;
 		flex-direction: column;
-		gap: 12px;
 		margin-top: 16px;
+		gap: 12px;
 	}
 </style>

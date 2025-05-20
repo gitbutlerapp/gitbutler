@@ -31,8 +31,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		height: 100%;
 		width: 100%;
+		height: 100%;
 
 		& .wrapper {
 			display: flex;
@@ -52,10 +52,10 @@
 		}
 
 		& .error-message {
-			color: var(--clr-text-2);
-			white-space: pre-wrap;
 			/* text-wrap: balance; */
 			margin-bottom: 12px;
+			color: var(--clr-text-2);
+			white-space: pre-wrap;
 		}
 
 		.actions {

@@ -462,10 +462,10 @@
 
 <style lang="postcss">
 	.commit-row {
-		position: relative;
 		display: flex;
-		gap: 12px;
+		position: relative;
 		width: 100%;
+		gap: 12px;
 		background-color: var(--clr-bg-1);
 		transition: background-color var(--transition-fast);
 
@@ -492,8 +492,8 @@
 		&.not-draggable {
 			&:hover {
 				& .commit__drag-icon {
-					pointer-events: none;
 					opacity: 0;
+					pointer-events: none;
 				}
 			}
 		}
@@ -514,8 +514,8 @@
 	.commit-card {
 		display: flex;
 		position: relative;
-		flex-direction: column;
 		flex: 1;
+		flex-direction: column;
 		overflow: hidden;
 	}
 
@@ -528,38 +528,38 @@
 
 	/* HEADER */
 	.commit__header {
-		position: relative;
 		display: flex;
+		position: relative;
 		flex-direction: column;
-		gap: 6px;
 		padding: 14px 14px 14px 0;
+		gap: 6px;
 	}
 
 	.commit__drag-icon {
-		cursor: grab;
-		position: absolute;
 		display: flex;
-		bottom: 10px;
+		position: absolute;
 		right: 6px;
+		bottom: 10px;
 		color: var(--clr-text-3);
+		cursor: grab;
 
 		opacity: 0;
 		transition: opacity var(--transition-fast);
 	}
 
 	.commit__title {
-		flex: 1;
-		text-align: left;
 		display: block;
-		color: var(--clr-text-1);
+		flex: 1;
 		width: 100%;
+		color: var(--clr-text-1);
+		text-align: left;
 	}
 
 	.commit__description {
 		color: var(--clr-text-2);
 		white-space: pre-wrap;
-		user-select: text;
 		cursor: text;
+		user-select: text;
 	}
 
 	.commit__empty-title {
@@ -568,16 +568,16 @@
 
 	.commit__subtitle {
 		display: flex;
-		align-items: center;
 		flex-wrap: nowrap;
+		align-items: center;
+		overflow: hidden;
 		gap: 4px;
 		color: var(--clr-text-2);
-		overflow: hidden;
 
 		& > span {
-			white-space: nowrap;
 			overflow: hidden;
 			text-overflow: ellipsis;
+			white-space: nowrap;
 		}
 	}
 
@@ -587,8 +587,8 @@
 
 	/* SUBTITLE LINK BUTTON */
 	.commit__subtitle-btn {
-		flex-shrink: 0;
 		display: flex;
+		flex-shrink: 0;
 		align-items: center;
 
 		text-decoration-line: underline;
@@ -600,9 +600,9 @@
 
 			& .commit__subtitle-btn__icon {
 				width: var(--size-icon);
-				opacity: 1;
 				margin-left: 2px;
 				transform: scale3d(1, 1, 1);
+				opacity: 1;
 			}
 		}
 	}
@@ -614,9 +614,9 @@
 	.commit__subtitle-btn__icon {
 		display: flex;
 		width: 0;
-		opacity: 0;
 		margin-left: 0;
 		transform: scale3d(0.6, 0.6, 0.6); /* CSS glitch fix */
+		opacity: 0;
 		transition:
 			width var(--transition-medium),
 			opacity var(--transition-fast),
@@ -640,34 +640,34 @@
 	.commit__details {
 		display: flex;
 		flex-direction: column;
-		gap: 12px;
-		padding-bottom: 12px;
 		padding-right: 14px;
+		padding-bottom: 12px;
+		gap: 12px;
 	}
 
 	.commit__actions {
-		overflow: visible;
 		display: flex;
-		gap: 4px;
+		overflow: visible;
 		overflow-x: auto;
+		gap: 4px;
 	}
 
 	/* FILES */
 	.files-container {
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
 		margin-right: 14px;
 		margin-bottom: 14px;
 		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
 	}
 
 	/* MODIFIERS */
 	.is-commit-open {
 		& .commit__subtitle-btn__icon {
 			width: var(--size-icon);
-			opacity: 1;
 			margin-left: 2px;
 			transform: scale3d(1, 1, 1);
+			opacity: 1;
 		}
 	}
 </style>

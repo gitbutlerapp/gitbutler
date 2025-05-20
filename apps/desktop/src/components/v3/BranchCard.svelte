@@ -241,9 +241,9 @@
 <style lang="postcss">
 	.branch-card {
 		display: flex;
+		position: relative;
 		flex-direction: column;
 		width: 100%;
-		position: relative;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 		background: var(--clr-bg-1);
@@ -256,8 +256,8 @@
 	}
 
 	.branch-header__item {
-		white-space: nowrap;
 		color: var(--clr-text-2);
+		white-space: nowrap;
 	}
 
 	.branch-header__item--conflict {

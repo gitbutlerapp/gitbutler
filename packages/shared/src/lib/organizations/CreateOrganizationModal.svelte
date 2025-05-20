@@ -71,9 +71,9 @@
 
 <style>
 	h2 {
-		font-size: 20px;
-		font-weight: 600;
 		margin-bottom: 10px;
+		font-weight: 600;
+		font-size: 20px;
 	}
 
 	.form-container {

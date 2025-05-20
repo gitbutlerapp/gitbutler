@@ -36,25 +36,25 @@
 
 <style lang="postcss">
 	.domain-button {
-		position: relative;
 		display: flex;
+		position: relative;
+		padding: 10px;
 		gap: 10px;
 		border-radius: var(--radius-m);
-		padding: 10px;
 		color: var(--clr-text-1);
 		transition: background-color var(--transition-fast);
 	}
 
 	.domain-button::after {
-		content: '';
 		position: absolute;
 		top: 0;
 		left: -20px;
 		width: 10px;
 		height: 100%;
+		transform: translateX(-100%);
 		border-radius: var(--radius-s);
 		background-color: var(--clr-theme-pop-element);
-		transform: translateX(-100%);
+		content: '';
 
 		transition: transform var(--transition-medium);
 	}

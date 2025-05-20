@@ -143,8 +143,8 @@
 
 <style lang="postcss">
 	.textarea-container {
-		position: relative;
 		display: flex;
+		position: relative;
 		flex-direction: column;
 		gap: 6px;
 
@@ -156,38 +156,38 @@
 
 	@layer components {
 		.textarea-unstyled {
-			outline: none;
 			border: none;
+			outline: none;
 			background: transparent;
 		}
 	}
 
 	.textarea-measure-el,
 	.textarea {
+		width: 100%;
 		padding: var(--padding-top) var(--padding-right) var(--padding-bottom) var(--padding-left);
 		line-height: var(--lineheight-ratio);
-		width: 100%;
 		word-wrap: break-word;
 		white-space: pre-wrap;
 	}
 
 	.textarea-measure-el {
+		visibility: hidden;
 		z-index: -1;
 		position: absolute;
-		background-color: rgba(0, 0, 0, 0.1);
 		height: fit-content;
 		margin: 0;
-		pointer-events: none;
 		overflow: hidden;
-		visibility: hidden;
+		background-color: rgba(0, 0, 0, 0.1);
+		pointer-events: none;
 	}
 
 	.textarea {
+		overflow-x: hidden;
+		overflow-y: auto; /* Enable scrolling when max height is reached */
 		font-family: var(--fontfamily-default);
 		cursor: text;
 		resize: none;
-		overflow-y: auto; /* Enable scrolling when max height is reached */
-		overflow-x: hidden;
 
 		transition:
 			border-color var(--transition-fast),

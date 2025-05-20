@@ -240,66 +240,66 @@
 
 <style lang="postcss">
 	.sideview-wrap {
+		display: flex;
 		z-index: var(--z-modal);
 		position: fixed;
 		top: 0;
 		right: 0;
-		display: flex;
 		justify-content: flex-end;
-		height: 100%;
 		width: 100%;
+		height: 100%;
 		background-color: var(--clr-overlay-bg);
 	}
 
 	.sideview-container {
-		transform: translateX(100%);
 		display: flex;
+		transform: translateX(100%);
 	}
 
 	.sideview {
-		position: relative;
-		z-index: var(--z-lifted);
 		display: flex;
+		z-index: var(--z-lifted);
+		position: relative;
 		flex-direction: column;
+		width: 480px;
 		height: 100%;
 		overflow: hidden;
-		background-color: var(--clr-bg-1);
 		border-left: 1px solid var(--clr-border-2);
-		width: 480px;
+		background-color: var(--clr-bg-1);
 	}
 
 	/* SIDEVIEW HEADER */
 	.sideview__header {
 		display: flex;
 		align-items: center;
-		gap: 12px;
 		padding: 10px 10px 10px 14px;
+		gap: 12px;
 		border-bottom: 1px solid var(--clr-border-2);
 	}
 
 	.sideview__header-title {
-		pointer-events: none;
 		flex: 1;
+		pointer-events: none;
 	}
 
 	/* HEADER ICON */
 	.clock-icon {
-		pointer-events: none;
 		position: relative;
 		width: 20px;
 		height: 20px;
-		background-color: #ffcf88;
 		border-radius: var(--radius-s);
+		background-color: #ffcf88;
+		pointer-events: none;
 	}
 
 	.clock-pointers {
 		position: absolute;
 		top: 50%;
 		left: 50%;
-		transform: translate(-50%, -50%);
-		border-radius: 100%;
 		width: 2px;
 		height: 2px;
+		transform: translate(-50%, -50%);
+		border-radius: 100%;
 		background-color: #000;
 	}
 
@@ -307,9 +307,9 @@
 		position: absolute;
 		bottom: -2px;
 		left: 50%;
-		transform-origin: bottom;
 		width: 2px;
 		height: 6px;
+		transform-origin: bottom;
 		background-color: #000;
 	}
 
@@ -362,16 +362,16 @@
 		}
 
 		&:first-child {
-			border-top: none;
 			margin-top: 0;
+			border-top: none;
 		}
 	}
 
 	/* FILE PREVIEW */
 	.file-preview {
-		position: relative;
-		z-index: var(--z-ground);
 		display: flex;
+		z-index: var(--z-ground);
+		position: relative;
 		flex-direction: column;
 		width: 512px;
 		border-left: 1px solid var(--clr-border-2);
@@ -380,8 +380,8 @@
 	/* WELCOME POINT */
 	.welcome-point {
 		display: flex;
-		gap: 12px;
 		padding: 12px 16px 32px 86px;
+		gap: 12px;
 	}
 
 	.welcome-point__content {

@@ -14,7 +14,7 @@
 
 <style>
 	blockquote {
-		border-left: 2px solid #ccc;
 		padding: 0 0 0 1rem;
+		border-left: 2px solid #ccc;
 	}
 </style>

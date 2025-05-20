@@ -358,8 +358,8 @@
 	.header-wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: 16px;
 		margin: 1rem;
+		gap: 16px;
 
 		& ~ .wrapper {
 			border-top: 1px solid var(--clr-border-2);
@@ -404,8 +404,8 @@
 	.modal-content {
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
 		margin-bottom: 20px;
+		gap: 10px;
 
 		&:last-child {
 			margin-bottom: 0;

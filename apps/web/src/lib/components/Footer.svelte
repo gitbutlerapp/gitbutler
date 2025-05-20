@@ -12,9 +12,9 @@
 		display: flex;
 		align-items: center;
 		justify-content: flex-end;
+		margin-top: 20px;
 		gap: 24px;
 		color: var(--clr-text-2);
-		margin-top: 20px;
 	}
 
 	.footer-link {

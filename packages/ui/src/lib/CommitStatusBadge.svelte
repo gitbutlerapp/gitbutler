@@ -112,11 +112,11 @@
 
 	.line-visible {
 		&::after {
-			content: '';
 			display: block;
 			width: 8px;
 			height: calc(100% - 4px);
 			border-right: 1px solid var(--clr-border-2);
+			content: '';
 		}
 	}
 	.line-visible.line-bottom {
@@ -140,11 +140,11 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		border-radius: 100px;
 		width: fit-content;
 		height: var(--size-icon);
-		text-wrap: nowrap;
 		padding: 0 5px;
+		border-radius: 100px;
+		text-wrap: nowrap;
 	}
 	.status-badge_closed {
 		background-color: var(--clr-br-commit-closed-bg);

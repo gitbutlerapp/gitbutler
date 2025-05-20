@@ -39,12 +39,12 @@
 <style lang="postcss">
 	.emoji-picker__group {
 		display: grid;
-		align-items: center;
-		justify-items: center;
 		grid-template-columns: repeat(7, 1fr);
 		grid-auto-rows: 1fr;
-		padding: 8px 6px;
 		row-gap: 4px;
+		align-items: center;
+		justify-items: center;
+		padding: 8px 6px;
 
 		&:not(:last-child) {
 			border-bottom: 1px solid var(--clr-border-3);

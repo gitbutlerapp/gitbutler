@@ -34,11 +34,11 @@
 
 <style lang="postcss">
 	.link-button {
-		cursor: pointer;
 		display: inline-flex;
 		align-items: center;
 		gap: 2px;
 		text-decoration: underline;
+		cursor: pointer;
 		user-select: text;
 
 		&:hover {

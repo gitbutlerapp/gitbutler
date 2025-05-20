@@ -90,22 +90,22 @@
 <style lang="postcss">
 	.wrapper {
 		display: flex;
-		height: 100%;
-		align-items: self-start;
-		flex-shrink: 0;
-		user-select: none; /* here because of user-select draggable interference in board */
 		position: relative;
+		flex-shrink: 0;
+		align-items: self-start;
+		height: 100%;
 		background-color: var(--clr-bg-2);
+		user-select: none; /* here because of user-select draggable interference in board */
 	}
 
 	.file-preview {
 		display: flex;
 		position: relative;
+		align-items: self-start;
 		height: 100%;
 
-		overflow: hidden;
-		align-items: self-start;
-
 		padding: 12px 12px 12px 0;
+
+		overflow: hidden;
 	}
 </style>

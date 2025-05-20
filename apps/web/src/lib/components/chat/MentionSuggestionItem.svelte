@@ -41,15 +41,15 @@
 
 <style>
 	.mention-suggestion {
-		width: 100%;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
+		width: 100%;
 	}
 
 	.mention-suggestion__header {
-		flex-grow: 1;
 		display: flex;
+		flex-grow: 1;
 		align-items: center;
 		gap: 8px;
 	}

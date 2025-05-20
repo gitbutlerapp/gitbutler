@@ -41,8 +41,8 @@
 <style lang="postcss">
 	.irc-input {
 		display: flex;
-		gap: 8px;
 		padding: 12px 14px;
+		gap: 8px;
 		border-top: 1px solid var(--clr-border-2);
 	}
 </style>

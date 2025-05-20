@@ -16,9 +16,9 @@
 
 <style>
 	.project-name {
-		align-self: flex-start;
 		display: flex;
 		align-items: center;
+		align-self: flex-start;
 		gap: 6px;
 		border-radius: var(--radius-s);
 		color: var(--clr-scale-ntrl-50);

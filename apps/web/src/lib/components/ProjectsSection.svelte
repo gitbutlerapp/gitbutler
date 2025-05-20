@@ -51,34 +51,34 @@
 
 <style>
 	.section-card {
-		background-color: white;
-		border-radius: 8px;
 		margin-bottom: 2rem;
 		overflow: hidden;
 		border: 1px solid color(srgb 0.831373 0.815686 0.807843);
+		border-radius: 8px;
+		background-color: white;
 	}
 
 	.section-title {
-		font-size: 0.8em;
 		margin: 0;
 		padding: 12px 15px;
 		border-bottom: 1px solid color(srgb 0.831373 0.815686 0.807843);
 		background-color: #f3f3f2;
 		color: color(srgb 0.52549 0.494118 0.47451);
+		font-size: 0.8em;
 	}
 
 	/* Projects Section */
 	.projects-grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-		gap: 1rem;
 		padding: 15px;
+		gap: 1rem;
 	}
 
 	.project-card {
+		padding: 1.25rem;
 		border: 1px solid #e2e8f0;
 		border-radius: 6px;
-		padding: 1.25rem;
 		transition:
 			transform 0.2s,
 			box-shadow 0.2s;
@@ -91,15 +91,15 @@
 
 	.project-header {
 		display: flex;
-		justify-content: space-between;
 		align-items: flex-start;
+		justify-content: space-between;
 		margin-bottom: 0.5rem;
 	}
 
 	.project-name {
 		margin: 0;
-		font-size: 1.1rem;
 		font-weight: 600;
+		font-size: 1.1rem;
 	}
 
 	.project-name a {
@@ -112,15 +112,15 @@
 	}
 
 	.updated-at {
-		font-size: 0.8rem;
 		color: #718096;
+		font-size: 0.8rem;
 		white-space: nowrap;
 	}
 
 	.project-description {
-		font-size: 0.9rem;
-		color: #4a5568;
 		margin: 0.5rem 0 1rem;
+		color: #4a5568;
+		font-size: 0.9rem;
 		line-height: 1.5;
 	}
 
@@ -133,8 +133,8 @@
 	.loading-state,
 	.empty-state {
 		padding: 2rem;
-		text-align: center;
 		color: #718096;
 		font-style: italic;
+		text-align: center;
 	}
 </style>

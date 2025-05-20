@@ -443,8 +443,8 @@
 
 <style lang="postcss">
 	.commit-list {
-		position: relative;
 		display: flex;
+		position: relative;
 		flex-direction: column;
 		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
 	}

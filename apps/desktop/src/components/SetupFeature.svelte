@@ -64,8 +64,8 @@
 <style lang="postcss">
 	.setup-feature {
 		display: flex;
-		gap: 16px;
 		padding: 20px;
+		gap: 16px;
 	}
 	.disabled.setup-feature {
 		background: var(--clr-bg-2);
@@ -77,8 +77,8 @@
 
 	.setup-feature__content {
 		display: flex;
-		flex-direction: column;
 		flex-grow: 1;
+		flex-direction: column;
 		gap: 10px;
 	}
 
@@ -106,8 +106,8 @@
 
 	.setup-feature__row {
 		display: flex;
-		gap: 10px;
 		align-items: center;
+		gap: 10px;
 	}
 
 	.setup-feature__toggle {

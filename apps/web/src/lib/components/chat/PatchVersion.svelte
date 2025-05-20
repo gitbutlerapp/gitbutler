@@ -67,20 +67,20 @@
 		padding: 14px 16px;
 		padding-left: 12px;
 		gap: 12px;
+		border-bottom: 1px solid var(--clr-border-3);
 
 		border-left: 4px solid var(--clr-theme-pop-element);
-		border-bottom: 1px solid var(--clr-border-3);
 		background: var(--clr-bg-1-muted);
 	}
 
 	.patch-version__icon {
 		display: flex;
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
 		width: 24px;
 		height: 24px;
 		padding: 4px;
-		justify-content: center;
-		align-items: center;
-		flex-shrink: 0;
 		border-radius: 8px;
 		background: var(--clr-theme-pop-element);
 		color: var(--clr-theme-pop-on-element);
@@ -112,14 +112,14 @@
 			-webkit-box-orient: vertical;
 			-webkit-line-clamp: 1;
 			color: var(--clr-text-1);
-			text-overflow: ellipsis;
 
 			text-decoration-line: underline;
 			text-decoration-style: solid;
-			text-decoration-skip-ink: none;
 			text-decoration-thickness: auto;
-			text-underline-offset: auto;
+			text-decoration-skip-ink: none;
 			text-underline-position: from-font;
+			text-underline-offset: auto;
+			text-overflow: ellipsis;
 		}
 	}
 

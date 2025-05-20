@@ -134,19 +134,19 @@
 <style>
 	.invite-container {
 		display: flex;
-		justify-content: center;
 		align-items: center;
+		justify-content: center;
 		min-height: 70vh;
 		padding: 2rem;
 	}
 
 	.invite-card {
-		background-color: var(--color-bg-card);
-		border-radius: 0.5rem;
-		padding: 2rem;
-		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-		max-width: 500px;
 		width: 100%;
+		max-width: 500px;
+		padding: 2rem;
+		border-radius: 0.5rem;
+		background-color: var(--color-bg-card);
+		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 		text-align: center;
 	}
 

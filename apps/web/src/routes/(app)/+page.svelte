@@ -90,18 +90,18 @@
 <style lang="postcss">
 	.empty-state-container {
 		display: flex;
-		justify-content: center;
 		align-items: center;
+		justify-content: center;
 		margin: auto;
 	}
 
 	.empty-state {
 		max-width: 600px;
-		text-align: center;
 		padding: 40px;
-		background-color: white;
 		border-radius: 12px;
+		background-color: white;
 		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+		text-align: center;
 	}
 
 	.empty-state-icon {
@@ -112,29 +112,29 @@
 	}
 
 	h1 {
-		font-size: 24px;
-		font-weight: 600;
 		margin: 0 0 12px 0;
 		color: #1a202c;
+		font-weight: 600;
+		font-size: 24px;
 	}
 
 	.description {
-		font-size: 16px;
-		color: #718096;
 		margin: 0 0 32px 0;
+		color: #718096;
+		font-size: 16px;
 	}
 
 	.actions {
 		display: flex;
-		gap: 16px;
-		justify-content: center;
 		flex-wrap: wrap;
+		justify-content: center;
+		gap: 16px;
 	}
 
 	@media (max-width: 640px) {
 		.empty-state {
-			padding: 32px 20px;
 			margin: 0 20px;
+			padding: 32px 20px;
 		}
 
 		.actions {

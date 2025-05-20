@@ -50,18 +50,18 @@
 	}
 
 	.search-input {
-		padding: 12px 34px 12px 12px;
 		width: 100%;
-		background-color: var(--clr-bg-1);
-		color: var(--clr-text-1);
+		padding: 12px 34px 12px 12px;
 
 		border-bottom: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-1);
+		color: var(--clr-text-1);
 		transition: border-color var(--transition-fast);
 
 		&:hover,
 		&:focus-within {
-			background-color: var(--clr-bg-1-muted);
 			outline: none;
+			background-color: var(--clr-bg-1-muted);
 		}
 
 		&::placeholder {

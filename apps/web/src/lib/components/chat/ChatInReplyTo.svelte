@@ -43,9 +43,9 @@
 <style lang="postcss">
 	.reply {
 		display: flex;
+		align-items: center;
 		align-self: stretch;
 		justify-content: space-between;
-		align-items: center;
 		overflow: hidden;
 
 		border-radius: var(--radius-m);
@@ -59,10 +59,10 @@
 	.reply__content {
 		display: flex;
 		align-items: center;
-		gap: 8px;
 		padding: 8px;
-		border-left: 4px solid var(--clr-scale-ntrl-60);
 		overflow: hidden;
+		gap: 8px;
+		border-left: 4px solid var(--clr-scale-ntrl-60);
 	}
 
 	.reply__text {
@@ -74,10 +74,10 @@
 			display: -webkit-inline-box;
 			-webkit-line-clamp: 1;
 			-webkit-box-orient: vertical;
-			word-break: break-all;
-			white-space: break-spaces;
 			overflow: hidden;
 			text-overflow: ellipsis;
+			white-space: break-spaces;
+			word-break: break-all;
 		}
 	}
 

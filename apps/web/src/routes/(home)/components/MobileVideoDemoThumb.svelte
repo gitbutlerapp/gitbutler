@@ -48,30 +48,30 @@
 
 <style lang="scss">
 	.yt-preview {
-		position: relative;
 		display: flex;
+		position: relative;
 		align-items: center;
 		justify-content: center;
 		aspect-ratio: 16/9;
 		width: 100%;
 		height: 100%;
-		background-color: var(--clr-black);
-		border-radius: 10px;
 		overflow: hidden;
+		border-radius: 10px;
+		background-color: var(--clr-black);
 		transition: transform 0.2s ease-in-out;
 
 		&__btn {
-			position: absolute;
 			z-index: 2;
+			position: absolute;
 			top: 50%;
 			left: 50%;
-			transform: translate(-50%, -50%);
 			height: 40px;
+			transform: translate(-50%, -50%);
 		}
 
 		&__overlay-patttern {
-			position: absolute;
 			z-index: 1;
+			position: absolute;
 			top: 0;
 			left: 0;
 			width: 100%;

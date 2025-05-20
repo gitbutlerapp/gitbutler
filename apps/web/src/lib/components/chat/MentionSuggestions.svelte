@@ -119,8 +119,8 @@
 
 <style lang="postcss">
 	.suggestions-wrapper {
-		transform: translateY(-10%);
 		margin-bottom: 4px;
+		transform: translateY(-10%);
 	}
 
 	.popup-positioner {
@@ -135,22 +135,21 @@
 	}
 
 	.suggestions-list {
-		list-style: none;
-		margin: 0;
-
 		display: flex;
-		padding: 8px 7px;
 		flex-direction: column;
+
+		max-height: 100px;
+		margin: 0;
+		padding: 8px 7px;
+		overflow: scroll;
 		gap: 2px;
+		border: 1px solid var(--clr-border-2);
 
 		border-radius: var(--radius-ml);
-		border: 1px solid var(--clr-border-2);
 		background: var(--clr-bg-1);
 
 		box-shadow: 0px 4px 14px 0px rgba(0, 0, 0, 0.06);
-
-		max-height: 100px;
-		overflow: scroll;
+		list-style: none;
 
 		&::-webkit-scrollbar {
 			display: none;
@@ -160,15 +159,15 @@
 	.suggestion-item {
 		display: flex;
 		align-items: center;
+		height: 32px;
 		padding: 6px 8px 6px 6px;
+		overflow: hidden;
 
 		gap: 10px;
-		height: 32px;
-		overflow: hidden;
-		text-align: left;
-		user-select: none;
 		outline: none;
+		text-align: left;
 		cursor: pointer;
+		user-select: none;
 
 		button {
 			width: 100%;

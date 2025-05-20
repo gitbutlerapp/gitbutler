@@ -369,8 +369,8 @@
 	.user-button {
 		display: flex;
 		flex-direction: column;
-		justify-content: center;
 		align-items: center;
+		justify-content: center;
 		width: 34px;
 		padding: 4px;
 		gap: 4px;
@@ -382,10 +382,10 @@
 		justify-content: center;
 		width: 26px;
 		height: 26px;
+		overflow: hidden;
+		border-radius: var(--radius-m);
 		background-color: var(--clr-core-pop-50);
 		color: var(--clr-core-ntrl-100);
-		border-radius: var(--radius-m);
-		overflow: hidden;
 	}
 
 	.user-icon__image {
@@ -403,14 +403,14 @@
 	}
 
 	.active-page-indicator {
-		content: '';
 		position: absolute;
 		left: 0;
 		width: 12px;
 		height: 18px;
+		transform: translateX(-50%) translateY(50%);
 		border-radius: var(--radius-m);
 		background-color: var(--clr-theme-pop-element);
-		transform: translateX(-50%) translateY(50%);
+		content: '';
 	}
 
 	/* OVERRIDE BUTTON STYLES */
@@ -432,8 +432,8 @@
 	}
 	:global(.sidebar .btn-height-auto) {
 		height: auto;
-		border-radius: var(--radius-ml);
 		padding: 0;
+		border-radius: var(--radius-ml);
 	}
 	:global(.sidebar .btn-square) {
 		aspect-ratio: 1 / 1;

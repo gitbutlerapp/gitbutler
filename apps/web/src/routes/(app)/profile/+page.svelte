@@ -624,28 +624,28 @@
 	}
 
 	.content {
-		padding: 48px 32px;
 		display: flex;
 		flex-direction: column;
-		gap: 16px;
-		max-width: 640px;
 		width: 100%;
+		max-width: 640px;
 		min-height: 100vh;
 		margin: auto;
+		padding: 48px 32px;
+		gap: 16px;
 	}
 
 	.title {
-		color: var(--clr-scale-ntrl-0);
-		font-size: 24px;
-		font-weight: 600;
 		align-self: flex-start;
+		color: var(--clr-scale-ntrl-0);
+		font-weight: 600;
+		font-size: 24px;
 	}
 
 	.section-title {
-		color: var(--clr-scale-ntrl-0);
-		font-size: 18px;
-		font-weight: 600;
 		margin-top: 24px;
+		color: var(--clr-scale-ntrl-0);
+		font-weight: 600;
+		font-size: 18px;
 	}
 
 	.profile-form {
@@ -656,17 +656,17 @@
 	.supporter-card__content {
 		display: flex;
 		flex-direction: column;
-		gap: 12px;
 		padding: 16px;
+		gap: 12px;
+		border: 1px solid var(--clr-scale-pop-80);
 		border-radius: var(--radius-m);
 		background-color: var(--clr-scale-pop-95);
-		border: 1px solid var(--clr-scale-pop-80);
 	}
 
 	.supporter-card__title {
 		color: var(--clr-scale-pop-40);
-		font-size: 18px;
 		font-weight: 600;
+		font-size: 18px;
 	}
 
 	.supporter-card__description {
@@ -679,11 +679,11 @@
 		position: relative;
 		width: 100px;
 		height: 100px;
-		border-radius: var(--radius-m);
 		overflow: hidden;
+		border-radius: var(--radius-m);
 		background-color: var(--clr-scale-pop-70);
-		transition: opacity var(--transition-medium);
 		cursor: pointer;
+		transition: opacity var(--transition-medium);
 
 		&:hover {
 			& .profile-pic__edit-label {
@@ -707,27 +707,27 @@
 		position: absolute;
 		bottom: 8px;
 		left: 8px;
-		color: var(--clr-core-ntrl-100);
-		background-color: var(--clr-scale-ntrl-20);
 		padding: 4px 6px;
 		border-radius: var(--radius-m);
+		background-color: var(--clr-scale-ntrl-20);
+		color: var(--clr-core-ntrl-100);
+		font-weight: 600;
+		font-size: 11px;
 		opacity: 0;
 		transition: opacity var(--transition-medium);
-		font-size: 11px;
-		font-weight: 600;
 	}
 
 	.contact-info {
-		flex: 1;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 		gap: 20px;
 	}
 
 	.contact-info__fields {
-		width: 100%;
 		display: flex;
 		flex-direction: column;
+		width: 100%;
 		gap: 12px;
 	}
 
@@ -743,15 +743,15 @@
 
 		input {
 			padding: 8px 12px;
-			border-radius: var(--radius-m);
 			border: 1px solid var(--clr-border-2);
+			border-radius: var(--radius-m);
 			background-color: var(--clr-bg-1);
 			color: var(--clr-scale-ntrl-0);
 			font-size: 14px;
 
 			&:read-only {
-				opacity: 0.7;
 				cursor: not-allowed;
+				opacity: 0.7;
 			}
 
 			&:not(:read-only) {
@@ -764,11 +764,11 @@
 	}
 
 	.hidden-input {
-		cursor: pointer;
 		z-index: var(--z-ground);
 		position: absolute;
 		width: 100%;
 		height: 100%;
+		cursor: pointer;
 		opacity: 0;
 	}
 
@@ -790,34 +790,34 @@
 		user-select: none;
 
 		input[type='checkbox'] {
-			margin-top: 4px;
 			width: 16px;
 			height: 16px;
-			border-radius: var(--radius-s);
+			margin-top: 4px;
 			border: 1px solid var(--clr-border-2);
+			border-radius: var(--radius-s);
 			background-color: var(--clr-bg-1);
 			cursor: pointer;
 
 			&:checked {
-				background-color: var(--clr-scale-pop-70);
 				border-color: var(--clr-scale-pop-70);
+				background-color: var(--clr-scale-pop-70);
 
 				&::after {
-					content: '';
 					position: absolute;
-					left: 5px;
 					top: 2px;
+					left: 5px;
 					width: 4px;
 					height: 8px;
+					transform: rotate(45deg);
 					border: solid white;
 					border-width: 0 2px 2px 0;
-					transform: rotate(45deg);
+					content: '';
 				}
 			}
 
 			&:disabled {
-				opacity: 0.5;
 				cursor: not-allowed;
+				opacity: 0.5;
 			}
 		}
 	}
@@ -830,8 +830,8 @@
 
 	.checkbox-title {
 		color: var(--clr-scale-ntrl-0);
-		font-size: 14px;
 		font-weight: 500;
+		font-size: 14px;
 	}
 
 	.checkbox-caption {
@@ -851,9 +851,9 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 12px;
+		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
-		border: 1px solid var(--clr-border-2);
 	}
 
 	.ssh-key-info {
@@ -864,8 +864,8 @@
 
 	.ssh-key-name {
 		color: var(--clr-scale-ntrl-0);
-		font-size: 14px;
 		font-weight: 500;
+		font-size: 14px;
 	}
 
 	.ssh-key-fingerprint {
@@ -875,23 +875,23 @@
 	}
 
 	.delete-button {
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		width: 24px;
 		height: 24px;
-		border-radius: var(--radius-s);
 		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-s);
 		background-color: transparent;
 		color: var(--clr-scale-ntrl-30);
 		font-size: 18px;
 		line-height: 1;
 		cursor: pointer;
-		display: flex;
-		align-items: center;
-		justify-content: center;
 		transition: all var(--transition-medium);
 
 		&:hover {
-			background-color: var(--clr-scale-ntrl-10);
 			border-color: var(--clr-scale-ntrl-30);
+			background-color: var(--clr-scale-ntrl-10);
 			color: var(--clr-scale-ntrl-50);
 		}
 	}
@@ -899,16 +899,16 @@
 	.add-key-button {
 		display: flex;
 		align-items: center;
-		gap: 8px;
+		margin-bottom: 8px;
 		padding: 12px;
-		border-radius: var(--radius-m);
+		gap: 8px;
 		border: 1px dashed var(--clr-border-2);
+		border-radius: var(--radius-m);
 		background-color: transparent;
 		color: var(--clr-scale-ntrl-50);
 		font-size: 14px;
 		cursor: pointer;
 		transition: all var(--transition-medium);
-		margin-bottom: 8px;
 
 		&:hover:not(:disabled) {
 			border-color: var(--clr-scale-pop-70);
@@ -916,8 +916,8 @@
 		}
 
 		&:disabled {
-			opacity: 0.5;
 			cursor: not-allowed;
+			opacity: 0.5;
 		}
 	}
 
@@ -928,10 +928,10 @@
 
 	.loading,
 	.no-keys {
+		padding: 24px;
 		color: var(--clr-scale-ntrl-30);
 		font-size: 14px;
 		text-align: center;
-		padding: 24px;
 	}
 
 	.additional-info {
@@ -941,9 +941,9 @@
 	}
 
 	.additional-info__fields {
-		width: 100%;
 		display: flex;
 		flex-direction: column;
+		width: 100%;
 		gap: 12px;
 	}
 
@@ -951,12 +951,12 @@
 		align-self: flex-end;
 		margin-top: 16px;
 		padding: 8px 16px;
+		border: none;
 		border-radius: var(--radius-m);
 		background-color: var(--clr-scale-pop-70);
 		color: var(--clr-core-ntrl-100);
-		font-size: 14px;
 		font-weight: 500;
-		border: none;
+		font-size: 14px;
 		cursor: pointer;
 		transition: background-color var(--transition-medium);
 
@@ -965,39 +965,39 @@
 		}
 
 		&:disabled {
-			opacity: 0.7;
 			cursor: not-allowed;
+			opacity: 0.7;
 		}
 	}
 
 	.ssh-token-modal-backdrop {
+		display: flex;
+		z-index: 1000;
 		position: fixed;
 		top: 0;
-		left: 0;
 		right: 0;
 		bottom: 0;
-		background-color: rgba(0, 0, 0, 0.5);
-		display: flex;
+		left: 0;
 		align-items: center;
 		justify-content: center;
-		z-index: 1000;
+		background-color: rgba(0, 0, 0, 0.5);
 	}
 
 	.ssh-token-modal {
-		background-color: var(--clr-bg-1);
-		border-radius: var(--radius-m);
-		padding: 24px;
-		width: 600px;
-		max-width: 90vw;
 		display: flex;
 		flex-direction: column;
+		width: 600px;
+		max-width: 90vw;
+		padding: 24px;
 		gap: 16px;
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-1);
 	}
 
 	.ssh-token-modal__title {
 		color: var(--clr-scale-ntrl-0);
-		font-size: 18px;
 		font-weight: 600;
+		font-size: 18px;
 	}
 
 	.ssh-token-modal__description {
@@ -1007,15 +1007,15 @@
 	}
 
 	.ssh-token-modal__code {
-		background-color: var(--clr-bg-2);
-		border-radius: var(--radius-m);
-		padding: 16px;
 		position: relative;
-		font-family: var(--fontfamily-mono);
-		font-size: 13px;
+		padding: 16px;
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-2);
 		color: var(--clr-scale-ntrl-0);
-		word-break: break-all;
+		font-size: 13px;
 		line-height: 1.4;
+		font-family: var(--fontfamily-mono);
+		word-break: break-all;
 	}
 
 	.ssh-token-modal__copy-button {
@@ -1023,11 +1023,11 @@
 		top: 8px;
 		right: 8px;
 		padding: 4px 8px;
+		border: none;
 		border-radius: var(--radius-s);
 		background-color: var(--clr-scale-ntrl-70);
 		color: var(--clr-core-ntrl-100);
 		font-size: 12px;
-		border: none;
 		cursor: pointer;
 		transition: background-color var(--transition-medium);
 
@@ -1050,11 +1050,11 @@
 
 	.ssh-token-modal__close-button {
 		padding: 8px 16px;
+		border: none;
 		border-radius: var(--radius-m);
 		background-color: var(--clr-scale-pop-70);
 		color: var(--clr-core-ntrl-100);
 		font-size: 14px;
-		border: none;
 		cursor: pointer;
 		transition: background-color var(--transition-medium);
 

@@ -33,18 +33,18 @@
 
 <style lang="postcss">
 	.line {
-		height: 100%;
 		display: flex;
 		flex-direction: column;
-		gap: 0.2rem;
 		align-items: flex-end;
 		width: 25px;
+		height: 100%;
 		margin-right: 8px;
+		gap: 0.2rem;
 	}
 
 	.line-top {
-		height: 14px;
 		width: 100%;
+		height: 14px;
 	}
 
 	.line-bottom {

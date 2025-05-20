@@ -44,18 +44,18 @@
 
 <style>
 	.changed-files__header {
-		padding: 10px 10px 10px 14px;
 		display: flex;
 		align-items: center;
-		gap: 8px;
 		justify-content: space-between;
+		padding: 10px 10px 10px 14px;
+		gap: 8px;
 		background-color: var(--clr-bg-1);
 	}
 
 	.changed-files__header-left {
 		display: flex;
 		align-items: center;
-		gap: 6px;
 		overflow: hidden;
+		gap: 6px;
 	}
 </style>

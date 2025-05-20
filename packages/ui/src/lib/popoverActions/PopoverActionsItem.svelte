@@ -68,20 +68,20 @@
 		--icon-opacity: var(--opacity-btn-icon-outline);
 		--btn-bg: var(--clr-bg-1);
 		--opacity-btn-bg: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 
-		color: var(--label-clr);
+		padding: 3px 5px;
+		border: 1px solid var(--clr-border-2);
+		border-right: none;
 		background: color-mix(
 			in srgb,
 			var(--btn-bg, transparent),
 			var(--clr-btn-ntrl-outline-bg) calc(var(--opacity-btn-bg, 0) * 100%)
 		);
-		border: 1px solid var(--clr-border-2);
-		border-right: none;
 
-		padding: 3px 5px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
+		color: var(--label-clr);
 		transition:
 			background-color var(--transition-fast),
 			opacity var(--transition-fast);
@@ -105,8 +105,8 @@
 	}
 
 	.overflow-actions-btn__icon {
-		pointer-events: none;
 		display: flex;
 		opacity: var(--icon-opacity);
+		pointer-events: none;
 	}
 </style>

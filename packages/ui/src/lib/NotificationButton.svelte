@@ -23,8 +23,8 @@
 
 <style lang="postcss">
 	.bell-btn {
-		position: relative;
 		display: flex;
+		position: relative;
 		width: fit-content;
 	}
 

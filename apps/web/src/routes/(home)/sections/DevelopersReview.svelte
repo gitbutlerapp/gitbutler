@@ -88,12 +88,12 @@
 	.reviews-wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: 46px;
-		padding: 56px 60px;
-		background-color: var(--clr-accent);
-		border-radius: 20px;
 		margin-bottom: 80px;
+		padding: 56px 60px;
 		overflow: hidden;
+		gap: 46px;
+		border-radius: 20px;
+		background-color: var(--clr-accent);
 
 		@media (max-width: 1100px) {
 			padding: 50px 30px;
@@ -107,11 +107,11 @@
 	}
 
 	.title {
-		font-family: 'PP Editorial New', serif;
+		color: var(--clr-black);
 		font-weight: 400;
 		font-size: 70px;
-		color: var(--clr-black);
 		line-height: 90%;
+		font-family: 'PP Editorial New', serif;
 
 		@media (max-width: 600px) {
 			// csslint ignore
@@ -120,20 +120,20 @@
 	}
 
 	.reviews {
-		position: relative;
 		display: grid;
-		grid-template-columns: repeat(3, 1fr);
+		position: relative;
 		grid-template-rows: masonry;
-		gap: 20px;
+		grid-template-columns: repeat(3, 1fr);
 		margin-bottom: -145px;
+		gap: 20px;
 
 		@media (max-width: 1100px) {
-			scroll-snap-type: x mandatory;
-			align-items: flex-start;
 			display: flex;
-			overflow-x: scroll;
+			align-items: flex-start;
 			margin: 0 -30px;
 			padding: 0 30px;
+			overflow-x: scroll;
+			scroll-snap-type: x mandatory;
 		}
 
 		// hide scrollbar

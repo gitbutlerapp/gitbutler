@@ -61,15 +61,15 @@
 
 <style lang="postcss">
 	.show-chat {
-		pointer-events: all;
-		margin: 20px;
 		display: flex;
 		flex-direction: column;
-		background-color: var(--clr-bg-1);
+		margin: 20px;
+		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
-		overflow: hidden;
+		background-color: var(--clr-bg-1);
 		box-shadow: var(--fx-shadow-s);
+		pointer-events: all;
 		transition:
 			background-color var(--transition-fast),
 			transform var(--transition-medium);
@@ -107,8 +107,8 @@
 	}
 
 	.chat-image-wrap {
-		position: relative;
 		display: flex;
+		position: relative;
 		width: 100%;
 		height: 48px;
 		overflow: hidden;

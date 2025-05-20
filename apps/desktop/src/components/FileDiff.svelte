@@ -159,10 +159,10 @@
 <style lang="postcss">
 	.hunks {
 		display: flex;
-		flex-direction: column;
 		position: relative;
-		max-height: 100%;
 		flex-shrink: 0;
+		flex-direction: column;
+		max-height: 100%;
 		padding: 14px;
 		gap: 16px;
 	}
@@ -174,8 +174,8 @@
 
 	.hunk-label__size {
 		align-self: flex-start;
-		font-size: 12px;
 		color: var(--clr-text-3);
+		font-size: 12px;
 	}
 
 	.hunk-wrapper {

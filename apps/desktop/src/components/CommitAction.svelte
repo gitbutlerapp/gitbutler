@@ -24,11 +24,11 @@
 
 <style lang="postcss">
 	.action-row {
-		position: relative;
 		display: flex;
-		background-color: var(--clr-bg-1);
-		border-top: 1px solid var(--clr-border-3);
+		position: relative;
 		overflow: hidden;
+		border-top: 1px solid var(--clr-border-3);
+		background-color: var(--clr-bg-1);
 
 		&:not(:last-child),
 		&.is-last {
@@ -47,7 +47,7 @@
 
 	.commit-line-wrapper {
 		position: relative;
-		margin-left: 20px;
 		margin-right: 20px;
+		margin-left: 20px;
 	}
 </style>

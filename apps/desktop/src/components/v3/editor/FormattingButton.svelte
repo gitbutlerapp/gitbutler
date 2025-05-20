@@ -21,29 +21,29 @@
 
 <style lang="postcss">
 	.formatting-button {
-		position: relative;
 		display: flex;
+		position: relative;
 		align-items: center;
 		justify-content: center;
 		width: 24px;
 		height: var(--size-tag);
-		border-radius: var(--radius-s);
-		color: var(--clr-theme-ntrl-on-element);
-		background-color: var(--clr-theme-ntrl-element);
 		overflow: hidden;
+		border-radius: var(--radius-s);
+		background-color: var(--clr-theme-ntrl-element);
+		color: var(--clr-theme-ntrl-on-element);
 		transition: background-color var(--transition-fast);
 
 		&::after {
 			display: none;
 			position: absolute;
-			content: '';
-			width: 6px;
-			height: 6px;
 			top: 2px;
 			right: 2px;
+			width: 6px;
+			height: 6px;
 			border-radius: var(--radius-s);
-			background-color: var(--clr-theme-pop-element);
 			outline: 2px solid var(--clr-theme-ntrl-element-hover);
+			background-color: var(--clr-theme-pop-element);
+			content: '';
 		}
 
 		&:hover {

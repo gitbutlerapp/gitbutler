@@ -52,18 +52,18 @@
 
 <style lang="postcss">
 	.shortcuts {
-		column-count: 2;
 		column-gap: 20px;
-		column-fill: balance;
 		margin-top: 4px;
+		column-fill: balance;
+		column-count: 2;
 	}
 
 	.shortcuts__group {
 		display: flex;
 		flex-direction: column;
+		margin-bottom: 16px;
 		gap: 8px;
 		page-break-inside: avoid;
-		margin-bottom: 16px;
 
 		&:last-child {
 			margin-bottom: 0;
@@ -77,8 +77,8 @@
 	.shortcut__item {
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
 		padding: 8px 0 10px;
+		gap: 8px;
 		border-bottom: 1px solid var(--clr-border-3);
 
 		&:last-child {
@@ -98,15 +98,15 @@
 	}
 
 	.shortcut__key {
-		font-size: 12px;
-		min-width: 18px;
-		height: 18px;
-		padding: 0 4px;
-		background-color: var(--clr-bg-2);
-		border-radius: var(--radius-m);
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		min-width: 18px;
+		height: 18px;
+		padding: 0 4px;
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-2);
+		font-size: 12px;
 	}
 
 	.shortcut-description {

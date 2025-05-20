@@ -39,12 +39,12 @@
 	.button {
 		display: flex;
 		align-items: center;
+		justify-content: space-between;
+		width: 100%;
+		padding: 10px 10px;
+		border-radius: var(--radius-m);
 		color: var(--clr-scale-ntrl-10);
 		font-weight: 700;
-		padding: 10px 10px;
-		justify-content: space-between;
-		border-radius: var(--radius-m);
-		width: 100%;
 		transition: background-color var(--transition-fast);
 
 		&:hover:enabled,
@@ -64,8 +64,8 @@
 		}
 		& .label {
 			height: 16px;
-			text-overflow: ellipsis;
 			overflow: hidden;
+			text-overflow: ellipsis;
 		}
 	}
 </style>

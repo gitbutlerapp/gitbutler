@@ -86,14 +86,14 @@
 
 	.workspace-target-card__details {
 		display: flex;
-		gap: 6px;
 		align-items: center;
+		gap: 6px;
 	}
 
 	.workspace-target-card__details-item {
 		display: flex;
-		gap: 4px;
 		align-items: center;
+		gap: 4px;
 		color: var(--clr-text-2);
 	}
 

@@ -133,20 +133,20 @@
 		&:hover:not(.hide-fold-button) {
 			& .folding-button {
 				z-index: var(--z-floating);
-				pointer-events: auto;
-				opacity: 1;
 				right: -6px;
+				opacity: 1;
+				pointer-events: auto;
 			}
 		}
 	}
 
 	.navigation {
-		width: 280px;
 		display: flex;
-		flex-direction: column;
 		position: relative;
-		background: var(--clr-bg-1);
+		flex-direction: column;
+		width: 280px;
 		max-height: 100%;
+		background: var(--clr-bg-1);
 		user-select: none;
 	}
 
@@ -165,27 +165,27 @@
 		position: absolute;
 		top: 0;
 		right: 0;
-		height: 100%;
 		width: 4px;
+		height: 100%;
 	}
 
 	/* FOLDING BUTTON */
 
 	.folding-button {
-		z-index: var(--z-ground);
 		display: flex;
+		z-index: var(--z-ground);
+		position: absolute;
+		top: 50%;
+		right: -4px;
 		align-items: center;
 		justify-content: center;
-		position: absolute;
-		right: -4px;
-		top: 50%;
 		width: 14px;
 		height: 28px;
-		background: var(--clr-bg-1);
-		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-border-2);
-		pointer-events: none;
+		border-radius: var(--radius-m);
+		background: var(--clr-bg-1);
 		opacity: 0;
+		pointer-events: none;
 		transition:
 			background-color var(--transition-fast),
 			border-color var(--transition-fast),
@@ -194,8 +194,8 @@
 
 		& svg {
 			stroke: var(--clr-scale-ntrl-60);
-			transition: stroke var(--transition-fast);
 			width: 45%;
+			transition: stroke var(--transition-fast);
 		}
 
 		&:hover {
@@ -218,14 +218,14 @@
 	}
 
 	.navigation.collapsed {
-		width: auto;
 		justify-content: space-between;
+		width: auto;
 		padding-bottom: 16px;
 	}
 
 	.resizer-hovered {
-		background-color: var(--resizer-color);
 		border: 1px solid var(--resizer-color);
+		background-color: var(--resizer-color);
 		transition-delay: 0.1s;
 
 		& svg {

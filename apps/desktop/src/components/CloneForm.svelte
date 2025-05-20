@@ -164,9 +164,9 @@
 
 <style>
 	.clone-title {
+		margin-bottom: 20px;
 		color: var(--clr-scale-ntrl-0);
 		line-height: 1;
-		margin-bottom: 20px;
 	}
 
 	.clone__field {
@@ -181,8 +181,8 @@
 
 	.clone__actions {
 		display: flex;
-		gap: 8px;
 		justify-content: end;
+		gap: 8px;
 	}
 
 	.clone__info-message {

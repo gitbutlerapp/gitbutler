@@ -86,8 +86,8 @@
 	.marketing-page {
 		display: flex;
 		flex-direction: column;
-		max-width: 1440px;
 		width: 100%;
+		max-width: 1440px;
 		margin: 0 auto;
 		padding: 0 60px;
 
@@ -95,8 +95,8 @@
 
 		/* optimise font rendering */
 		-webkit-font-smoothing: antialiased;
-		text-rendering: optimizeLegibility;
 		color: var(--clr-black);
+		text-rendering: optimizeLegibility;
 
 		-webkit-font-smoothing: antialiased;
 		-moz-osx-font-smoothing: grayscale;

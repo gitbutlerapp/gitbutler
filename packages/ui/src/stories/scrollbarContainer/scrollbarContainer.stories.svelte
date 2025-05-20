@@ -45,15 +45,15 @@
 	.list-wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
-		border: 1px solid var(--clr-border-2);
 		max-height: 300px;
 		overflow: hidden;
+		gap: 0.5rem;
+		border: 1px solid var(--clr-border-2);
 	}
 
 	.item {
-		background-color: var(--clr-bg-1);
 		padding: 4px;
 		border: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-1);
 	}
 </style>

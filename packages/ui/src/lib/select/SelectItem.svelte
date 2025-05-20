@@ -50,17 +50,17 @@
 
 <style lang="postcss">
 	.button {
-		user-select: none;
 		display: flex;
 		align-items: center;
+		justify-content: space-between;
+		width: 100%;
+		padding: 8px 8px;
+		gap: 16px;
+		border-radius: var(--radius-m);
 		color: var(--clr-scale-ntrl-10);
 		font-weight: 700;
-		padding: 8px 8px;
-		justify-content: space-between;
-		border-radius: var(--radius-m);
-		width: 100%;
-		gap: 16px;
 		white-space: nowrap;
+		user-select: none;
 		&:not(.selected):hover:enabled,
 		&:not(.selected):focus:enabled {
 			background-color: var(--clr-bg-1-muted);
@@ -77,8 +77,8 @@
 		}
 		& .label {
 			height: 16px;
-			text-overflow: ellipsis;
 			overflow-x: hidden;
+			text-overflow: ellipsis;
 			white-space: nowrap;
 		}
 	}

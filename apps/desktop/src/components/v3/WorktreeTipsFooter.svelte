@@ -120,8 +120,8 @@
 
 	.tip-button {
 		position: relative;
-		text-align: left;
 		color: var(--clr-text-3);
+		text-align: left;
 		transition: color var(--transition-fast);
 
 		&:hover {
@@ -135,20 +135,20 @@
 
 	.active-page-indicator {
 		position: absolute;
-		left: -16px;
 		top: 2px;
+		left: -16px;
 		width: 6px;
 		height: 18px;
-		background-color: var(--clr-text-2);
 		border-top-right-radius: var(--radius-s);
 		border-bottom-right-radius: var(--radius-s);
+		background-color: var(--clr-text-2);
 	}
 
 	.tip-footer__links {
-		gap: 2px;
 		align-items: center;
 		justify-content: flex-end;
 		padding: 12px 14px;
+		gap: 2px;
 	}
 
 	.tip-footer__link {

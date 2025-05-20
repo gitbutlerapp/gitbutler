@@ -52,8 +52,8 @@
 		flex-direction: column;
 		width: 160px;
 		padding: 12px 14px;
-		border-right: 1px solid var(--clr-border-3);
 		overflow: hidden;
+		border-right: 1px solid var(--clr-border-3);
 	}
 	.server {
 		margin-bottom: 6px;
@@ -62,11 +62,11 @@
 	.nick {
 		display: flex;
 		padding: 4px 0;
+		overflow: hidden;
+		color: var(--clr-text-2);
 		text-align: left;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		overflow: hidden;
-		color: var(--clr-text-2);
 	}
 
 	.selected {

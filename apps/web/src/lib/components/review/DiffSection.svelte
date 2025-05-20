@@ -141,21 +141,21 @@
 
 <style lang="postcss">
 	.diff-section__header {
-		top: 0;
-		position: sticky;
-		z-index: var(--z-floating);
-		top: var(--commit-header-height, 0);
-		width: 100%;
 		display: flex;
-		justify-content: space-between;
+		z-index: var(--z-floating);
+		position: sticky;
+		top: 0;
+		top: var(--commit-header-height, 0);
 		align-items: center;
-		gap: 8px;
-		padding: 14px 12px 14px 14px;
-		background-color: var(--clr-bg-1);
-		border-left: 1px solid var(--clr-border-2);
-		border-right: 1px solid var(--clr-border-2);
-		border-top: 1px solid var(--clr-border-2);
+		justify-content: space-between;
+		width: 100%;
 		margin-top: -1px;
+		padding: 14px 12px 14px 14px;
+		gap: 8px;
+		border-top: 1px solid var(--clr-border-2);
+		border-right: 1px solid var(--clr-border-2);
+		border-left: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-1);
 
 		&:hover {
 			.diff-section__header__fold-button {
@@ -181,16 +181,16 @@
 	}
 
 	.diff-section__content {
-		width: 100%;
 		display: flex;
 		flex-direction: column;
 		align-items: flex-start;
-		gap: 8px;
+		width: 100%;
 		padding: 0 14px 14px 14px;
-		background-color: var(--clr-bg-1);
-		border-left: 1px solid var(--clr-border-2);
+		gap: 8px;
 		border-right: 1px solid var(--clr-border-2);
 		border-bottom: 1px solid var(--clr-border-2);
+		border-left: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-1);
 
 		&:last-child {
 			border-bottom-right-radius: var(--radius-ml);
@@ -199,12 +199,12 @@
 	}
 
 	.file-path {
-		color: var(--clr-text-1);
-		white-space: nowrap;
 		overflow: hidden;
-		text-overflow: ellipsis;
+		color: var(--clr-text-1);
 		direction: rtl;
 		text-align: left;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 
 		& span {
 			margin: 0;
@@ -217,13 +217,13 @@
 	}
 
 	.lock-files-hidden-by-default {
-		width: 100%;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		gap: 14px;
+		width: 100%;
 		padding: 40px 24px;
+		gap: 14px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 		background: var(--clr-bg-1-muted);

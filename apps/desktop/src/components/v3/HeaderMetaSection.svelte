@@ -45,22 +45,22 @@
 
 <style lang="postcss">
 	.stack-meta {
-		width: 100%;
-		align-items: start;
 		display: flex;
 		flex-direction: column;
+		align-items: start;
 		align-items: center;
+		width: 100%;
 		gap: 4px;
-		background-color: var(--clr-bg-1);
 		border: 1px solid var(--clr-border-2);
 		border-top: none;
+		background-color: var(--clr-bg-1);
 	}
 
 	.stack-meta-top {
-		width: 100%;
 		display: flex;
 		align-items: center;
-		gap: 8px;
+		width: 100%;
 		padding: 12px;
+		gap: 8px;
 	}
 </style>

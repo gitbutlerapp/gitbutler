@@ -220,18 +220,18 @@
 
 <style lang="postcss">
 	.br-actions {
+		display: flex;
 		position: absolute;
 		top: 8px;
 		right: 8px;
-		display: flex;
 		gap: 4px;
 	}
 
 	.br-row {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 6px;
 		align-items: center;
+		gap: 6px;
 	}
 
 	.factoid {

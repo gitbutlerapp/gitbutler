@@ -176,17 +176,17 @@
 
 <style lang="postcss">
 	.file-list-item {
-		position: relative;
 		display: flex;
+		position: relative;
 		align-items: center;
-		padding: 0 10px 0 14px;
-		gap: 8px;
 		height: 32px;
+		padding: 0 10px 0 14px;
 		overflow: hidden;
-		text-align: left;
-		user-select: none;
+		gap: 8px;
 		outline: none;
 		background: transparent;
+		text-align: left;
+		user-select: none;
 
 		& :global(.mark-resolved-btn) {
 			margin: 0 4px;
@@ -229,20 +229,20 @@
 	}
 
 	.draggable-handle {
+		display: flex;
 		position: absolute;
 		left: 0;
-		display: flex;
 		align-items: center;
 		justify-content: center;
+		height: 24px;
 		color: var(--clr-text-3);
 		opacity: 0;
-		height: 24px;
 		transition: opacity var(--transition-fast);
 	}
 
 	.file-list-item__details {
-		flex-grow: 1;
 		display: flex;
+		flex-grow: 1;
 		align-items: center;
 		gap: 6px;
 

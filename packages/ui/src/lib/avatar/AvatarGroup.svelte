@@ -67,8 +67,8 @@
 
 <style lang="postcss">
 	.avatar-grouping {
-		position: relative;
 		display: flex;
+		position: relative;
 		width: fit-content;
 
 		& :global(> span) {
@@ -82,20 +82,19 @@
 	}
 
 	.avatar-icon {
+		display: flex;
+
+		z-index: var(--z-ground);
 		position: absolute;
 		top: -4px;
 		right: -10px;
-
-		z-index: var(--z-ground);
+		align-items: center;
+		justify-content: center;
 		width: 14px;
 		height: 14px;
 
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		border-radius: 50%;
-
 		transform: scale(0.95);
+		border-radius: 50%;
 		color: white;
 
 		&.success {
@@ -120,16 +119,16 @@
 	}
 
 	.avatars-counter {
-		user-select: none;
+		display: flex;
 		z-index: var(--z-ground);
 		position: relative;
-		display: flex;
-		justify-content: center;
 		align-items: center;
-		border-radius: 10px;
-		padding: 0 4px;
-		background-color: var(--clr-theme-ntrl-soft-hover);
+		justify-content: center;
 		margin-left: 2px;
+		padding: 0 4px;
+		border-radius: 10px;
+		background-color: var(--clr-theme-ntrl-soft-hover);
+		user-select: none;
 
 		& span {
 			color: var(--clr-text-1);

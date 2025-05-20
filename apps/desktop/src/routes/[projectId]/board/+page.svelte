@@ -77,22 +77,22 @@
 	/* BOARD */
 	.board-wrapper {
 		position: relative;
-		overflow: hidden;
-		height: 100%;
 		width: 100%;
+		height: 100%;
+		overflow: hidden;
 	}
 
 	/* SCROLLBAR */
 	.scroll-viewport {
-		overflow-x: scroll;
-		height: 100%;
 		width: 100%;
+		height: 100%;
+		overflow-x: scroll;
 		scroll-behavior: smooth !important;
 	}
 	.scroll-contents {
 		display: flex;
-		height: 100%;
-		min-width: 100%;
 		width: fit-content;
+		min-width: 100%;
+		height: 100%;
 	}
 </style>

@@ -64,8 +64,8 @@
 	.submit-review-actions {
 		display: flex;
 		justify-content: space-between;
-		gap: 6px;
 		width: 100%;
+		gap: 6px;
 	}
 
 	.submit-review-actions__extra,

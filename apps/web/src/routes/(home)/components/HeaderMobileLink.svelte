@@ -80,42 +80,42 @@
 
 <style lang="scss">
 	.link {
-		user-select: none;
-		position: relative;
-		cursor: pointer;
 		display: flex;
+		position: relative;
 		align-items: center;
 		padding: 10px 0;
 		gap: 8px;
-		font-size: 20px;
-		font-weight: 500;
+		background-color: transparent;
 		color: var(--clr-black);
+		font-weight: 500;
+		font-size: 20px;
 		text-decoration: none;
 		text-transform: uppercase;
-		background-color: transparent;
+		cursor: pointer;
+		user-select: none;
 	}
 
 	.dropdown-container {
 		// display: none;
 		display: flex;
-		flex-direction: column;
 		position: relative;
-		background-color: var(--clr-light-gray);
-		padding: 12px;
-		border-radius: 12px;
+		flex-direction: column;
 		width: 100%;
 		margin-bottom: 10px;
+		padding: 12px;
+		border-radius: 12px;
+		background-color: var(--clr-light-gray);
 		// border: 1px solid var(--clr-gray);
 
 		:global(a) {
 			display: block;
 			padding: 8px;
+			border-radius: 6px;
 			color: var(--clr-black);
+			font-weight: 500;
+			font-size: 18px;
 			text-decoration: none;
 			text-transform: uppercase;
-			font-size: 18px;
-			font-weight: 500;
-			border-radius: 6px;
 			transition: background-color 0.05s ease-in-out;
 		}
 	}

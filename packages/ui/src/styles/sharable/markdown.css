@@ -13,23 +13,23 @@
 	}
 
 	.markdown h1 {
-		font-size: 2em;
 		margin-bottom: 0.8em;
+		font-size: 2em;
 	}
 
 	.markdown h2 {
-		font-size: 1.5em;
 		margin-bottom: 0.8em;
+		font-size: 1.5em;
 	}
 
 	.markdown h3 {
-		font-size: 1.17em;
 		margin-bottom: 0.8em;
+		font-size: 1.17em;
 	}
 
 	.markdown h4 {
-		font-size: 1em;
 		margin-bottom: 0.8em;
+		font-size: 1em;
 	}
 
 	.markdown p {
@@ -38,16 +38,16 @@
 
 	.markdown ul {
 		display: block;
-		list-style-type: disc;
 		margin: 1em 0;
 		padding: 0 0 0 2em;
+		list-style-type: disc;
 	}
 
 	.markdown ol {
 		display: block;
-		list-style-type: decimal;
 		margin: 1em 0;
 		padding: 0 0 0 2em;
+		list-style-type: decimal;
 	}
 
 	.markdown li {
@@ -62,18 +62,18 @@
 	.markdown pre {
 		margin: 1em 0;
 		padding: 1em;
-		background-color: var(--clr-bg-1);
-		border: 1px solid var(--clr-scale-ntrl-70);
 		overflow: auto;
+		border: 1px solid var(--clr-scale-ntrl-70);
 		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-1);
 	}
 
 	.markdown code {
-		font-family: var(--fontfamily-mono);
-		background-color: var(--clr-bg-1);
-		border: 1px solid var(--clr-scale-ntrl-70);
 		padding: 1px 3px;
+		border: 1px solid var(--clr-scale-ntrl-70);
 		border-radius: var(--radius-s);
+		background-color: var(--clr-bg-1);
+		font-family: var(--fontfamily-mono);
 	}
 
 	.markdown a {
@@ -83,8 +83,8 @@
 	.markdown hr {
 		box-sizing: content-box;
 		height: 0;
-		overflow: visible;
 		margin: 2em 0;
+		overflow: visible;
 		opacity: 0.2;
 	}
 

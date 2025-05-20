@@ -233,9 +233,9 @@
 
 <style>
 	.review-sections-card {
+		contain: paint;
 		display: flex;
 		flex-direction: column;
-		contain: paint;
 	}
 
 	.review-sections-statistics-wrap {
@@ -244,15 +244,15 @@
 	}
 
 	.review-sections-statistics {
-		width: 100%;
 		display: flex;
-		justify-content: space-between;
 		align-items: center;
+		justify-content: space-between;
+		width: 100%;
 		padding: 10px 10px 10px 14px;
-		background-color: var(--clr-bg-1);
 		border: 1px solid var(--clr-border-2);
-		border-top-left-radius: var(--radius-ml);
 		border-top-right-radius: var(--radius-ml);
+		border-top-left-radius: var(--radius-ml);
+		background-color: var(--clr-bg-1);
 	}
 
 	.review-sections-statistics__metadata {
@@ -278,8 +278,8 @@
 	}
 
 	.review-sections-diffs {
-		position: relative;
 		display: flex;
+		position: relative;
 		flex-direction: column;
 		width: 100%;
 	}
@@ -288,16 +288,16 @@
 
 	.interdiff-bar {
 		display: flex;
-		gap: 12px;
 		align-items: center;
-
-		background-color: var(--clr-bg-1-muted);
 		width: 100%;
+
+		padding: 14px;
+		gap: 12px;
 
 		border: 1px solid var(--clr-border-2);
 		border-top: none;
 
-		padding: 14px;
+		background-color: var(--clr-bg-1-muted);
 
 		@container (max-width: 500px) {
 			flex-direction: column;
@@ -321,8 +321,8 @@
 	}
 
 	.review-sections-statistics__actions__interdiff {
-		position: relative;
 		display: flex;
+		position: relative;
 	}
 
 	.review-sections-statistics__actions__interdiff-changed {
@@ -331,7 +331,7 @@
 		right: 2px;
 		width: 7px;
 		height: 7px;
-		background-color: var(--clr-theme-pop-element);
 		border-radius: 50%;
+		background-color: var(--clr-theme-pop-element);
 	}
 </style>

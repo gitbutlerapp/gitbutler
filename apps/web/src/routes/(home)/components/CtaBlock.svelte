@@ -253,21 +253,21 @@
 
 <style lang="scss">
 	.wrapper {
-		user-select: none;
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
+		user-select: none;
 	}
 
 	.download-wrapper {
-		position: relative;
 		display: flex;
+		position: relative;
 		flex-direction: column;
 	}
 
 	.download-wrapper-head {
-		position: relative;
 		display: flex;
+		position: relative;
 
 		&:hover {
 			.divider {
@@ -281,22 +281,22 @@
 	}
 
 	.download-btn {
-		cursor: pointer;
 		display: flex;
 		flex: 1;
 		align-items: center;
 		justify-content: center;
-		padding: 16px 24px;
 
 		height: 100%;
+		padding: 16px 24px;
 		border-radius: 12px 0 0 0;
 
 		color: var(--clr-black);
 		text-decoration: none;
+		cursor: pointer;
 
 		span {
-			font-size: 28px;
 			font-weight: 500;
+			font-size: 28px;
 			text-transform: uppercase;
 		}
 
@@ -315,19 +315,19 @@
 	}
 
 	.select-btn {
-		position: relative;
-		cursor: pointer;
 		display: flex;
+		position: relative;
 		align-items: center;
 		justify-content: center;
-		gap: 8px;
 		height: auto;
 		padding: 16px 24px;
+		gap: 8px;
 		border-radius: 0 12px 0 0;
+		cursor: pointer;
 
 		span {
-			font-size: 16px;
 			font-weight: 500;
+			font-size: 16px;
 			text-transform: uppercase;
 		}
 
@@ -342,20 +342,20 @@
 		}
 
 		@media (max-width: 500px) {
-			border-radius: 12px 12px 0 0;
 			padding: 16px 20px;
+			border-radius: 12px 12px 0 0;
 		}
 	}
 
 	.divider {
 		position: absolute;
-		width: 1px;
-		left: 0;
 		top: 20%;
+		left: 0;
+		width: 1px;
 		width: 1px;
 		height: 60%;
-		background-color: rgba(0, 0, 0, 0.16);
 		border-radius: 0 12px 0 0;
+		background-color: rgba(0, 0, 0, 0.16);
 		transition: opacity 0.1s ease-in-out;
 
 		@media (max-width: 500px) {
@@ -367,23 +367,23 @@
 	}
 
 	.download-wrapper-footer {
-		user-select: none;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 16px;
 		padding: 18px 24px;
-		border-left: 1px solid rgba(0, 0, 0, 0.16);
+		gap: 16px;
 		border-right: 1px solid rgba(0, 0, 0, 0.16);
 		border-bottom: 1px solid rgba(0, 0, 0, 0.16);
+		border-left: 1px solid rgba(0, 0, 0, 0.16);
 		border-radius: 0 0 12px 12px;
+		user-select: none;
 
 		span {
-			font-size: 16px;
 			font-weight: 500;
-			opacity: 0.5;
-			text-transform: uppercase;
+			font-size: 16px;
 			line-height: 1;
+			text-transform: uppercase;
+			opacity: 0.5;
 		}
 	}
 
@@ -402,14 +402,14 @@
 		height: 22px;
 		padding: 0;
 		border: none;
-		opacity: 0.5;
 		background: none;
+		opacity: 0.5;
 
 		&:hover,
 		&:focus {
 			border: none;
-			background: none;
 			outline: none;
+			background: none;
 		}
 	}
 
@@ -422,12 +422,12 @@
 		z-index: 10;
 
 		position: absolute;
-		bottom: calc(100% + 4px);
 		right: 0;
+		bottom: calc(100% + 4px);
 		flex-direction: column;
-		border-radius: 12px;
 		padding: 16px;
 		border: 1px solid var(--clr-gray);
+		border-radius: 12px;
 		background-color: var(--clr-white);
 		box-shadow: 0px 10px 8px rgba(0, 0, 0, 0.1);
 	}
@@ -440,32 +440,32 @@
 	.os-select__subsection {
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
 		width: 100%;
+		gap: 2px;
 	}
 
 	.os-select__section-os-icon {
 		width: 20px;
 		height: 20px;
-		opacity: 0.8;
 		margin-top: 4px;
+		opacity: 0.8;
 	}
 
 	.os-select__item {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: 12px;
 		width: 100%;
 		padding: 6px;
-		text-decoration: none;
-		color: var(--clr-black);
-		border-radius: 6px;
-		font-size: 16px;
-		font-weight: 500;
-		text-transform: uppercase;
+		gap: 12px;
 		border: none;
+		border-radius: 6px;
 		background: none;
+		color: var(--clr-black);
+		font-weight: 500;
+		font-size: 16px;
+		text-decoration: none;
+		text-transform: uppercase;
 		transition: background-color 0.05s ease-in-out;
 
 		&:hover,
@@ -477,9 +477,9 @@
 	.os-select__divider {
 		width: calc(100% - 6px);
 		height: 1px;
-		border-bottom: 1px dashed rgba(0, 0, 0, 0.16);
 		margin: 12px 0;
 		margin-left: 6px;
+		border-bottom: 1px dashed rgba(0, 0, 0, 0.16);
 	}
 
 	////////////////
@@ -498,13 +498,13 @@
 	////////////////////
 
 	.yt-button-preview {
-		position: relative;
-		width: 130px;
 		display: flex;
+		position: relative;
 		align-items: center;
 		justify-content: center;
-		border-radius: 16px;
+		width: 130px;
 		overflow: hidden;
+		border-radius: 16px;
 		background-color: rgba(0, 0, 0, 0.1);
 
 		@media (max-width: 500px) {
@@ -525,19 +525,19 @@
 		position: absolute;
 		top: 50%;
 		left: 50%;
-		transform: translate(-50%, -50%);
 		width: 100%;
+		transform: translate(-50%, -50%);
 	}
 
 	////////////////////
 
 	.second-button {
-		flex: 1;
 		display: flex;
+		flex: 1;
 		align-items: center;
 		justify-content: center;
-		gap: 8px;
 		padding: 20px 24px;
+		gap: 8px;
 		border-radius: 12px;
 		color: var(--clr-black);
 		text-decoration: none;
@@ -546,9 +546,9 @@
 
 		span {
 			flex: 1;
-			text-align: center;
-			font-size: 28px;
 			font-weight: 500;
+			font-size: 28px;
+			text-align: center;
 			text-transform: uppercase;
 		}
 

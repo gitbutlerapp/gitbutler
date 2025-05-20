@@ -24,24 +24,24 @@
 	.chrome {
 		display: flex;
 		flex: 1;
-		background-color: var(--clr-bg-2);
 		flex-direction: column;
 		max-width: 100%;
+		background-color: var(--clr-bg-2);
 	}
 
 	.chrome-body {
 		display: flex;
-		overflow: hidden;
 		flex-grow: 1;
 		height: 100%;
+		overflow: hidden;
 	}
 
 	.chrome-content {
 		display: flex;
 		flex-grow: 1;
-		padding: 0 14px 14px 0;
 		align-items: self-start;
-		user-select: none;
+		padding: 0 14px 14px 0;
 		overflow: auto;
+		user-select: none;
 	}
 </style>

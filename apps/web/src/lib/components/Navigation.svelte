@@ -143,11 +143,11 @@
 	}
 
 	.main-links {
-		flex: 1;
 		display: flex;
+		flex: 1;
 		align-items: center;
-		gap: 16px;
 		overflow: hidden;
+		gap: 16px;
 	}
 
 	.logo {
@@ -181,9 +181,9 @@
 
 	.user-select-icon {
 		display: flex;
+		margin-right: 2px;
 		color: var(--label-clr);
 		opacity: var(--icon-opacity);
-		margin-right: 2px;
 		transition:
 			opacity var(--transition-fast),
 			stroke var(--transition-fast);
@@ -192,8 +192,8 @@
 	.user-icon {
 		width: 20px;
 		height: 20px;
-		border-radius: var(--radius-s);
 		overflow: hidden;
+		border-radius: var(--radius-s);
 	}
 
 	/* login */

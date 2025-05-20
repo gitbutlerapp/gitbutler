@@ -331,8 +331,8 @@
 
 <style>
 	.view-wrap {
-		position: relative;
 		display: flex;
+		position: relative;
 		width: 100%;
 	}
 </style>

@@ -32,11 +32,11 @@
 <style>
 	.stack-icon {
 		display: flex;
+		flex-shrink: 0;
 		align-items: center;
 		justify-content: center;
-		flex-shrink: 0;
-		color: var(--clr-text-2);
-		box-shadow: inset 0 0 0 1px var(--clr-border-2);
 		border-radius: var(--radius-s);
+		box-shadow: inset 0 0 0 1px var(--clr-border-2);
+		color: var(--clr-text-2);
 	}
 </style>

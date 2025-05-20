@@ -85,10 +85,10 @@
 
 <style lang="postcss">
 	.submit-review__container {
-		flex-grow: 1;
 		display: flex;
+		flex-grow: 1;
 		flex-direction: column;
-		gap: 14px;
 		overflow: hidden;
+		gap: 14px;
 	}
 </style>

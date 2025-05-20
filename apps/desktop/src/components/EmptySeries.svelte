@@ -21,10 +21,9 @@
 		display: flex;
 	}
 	.empty-series__label {
-		color: var(--clr-text-2);
-
 		width: 100%;
 		padding: 20px 28px 26px 46px;
+		color: var(--clr-text-2);
 		opacity: 0.6;
 	}
 	.commit-line {

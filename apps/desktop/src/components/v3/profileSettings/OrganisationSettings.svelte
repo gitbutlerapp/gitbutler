@@ -61,10 +61,10 @@
 <style lang="postcss">
 	.inline {
 		display: flex;
+
+		flex-grow: 1;
 		align-items: center;
 
 		gap: 8px;
-
-		flex-grow: 1;
 	}
 </style>

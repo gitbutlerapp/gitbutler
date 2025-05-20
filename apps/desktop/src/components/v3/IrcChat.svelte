@@ -45,13 +45,13 @@
 		width: 100%;
 		height: 100%;
 		overflow: hidden;
-		background-color: var(--clr-bg-1);
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-l);
+		background-color: var(--clr-bg-1);
 	}
 	.right {
-		flex-grow: 1;
 		display: flex;
+		flex-grow: 1;
 		flex-direction: column;
 		height: 100%;
 		overflow: hidden;

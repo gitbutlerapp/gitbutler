@@ -214,29 +214,29 @@
 		display: flex;
 		flex-direction: column;
 		height: 100%;
+		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 		background-color: var(--clr-bg-1);
-		overflow: hidden;
 	}
 
 	.worktree-header {
 		display: flex;
-		padding: 10px 10px 10px 14px;
-		width: 100%;
 		align-items: center;
-		text-wrap: nowrap;
 		justify-content: space-between;
-		white-space: nowrap;
+		width: 100%;
+		padding: 10px 10px 10px 14px;
 		gap: 8px;
 		background-color: var(--clr-bg-1);
+		text-wrap: nowrap;
+		white-space: nowrap;
 	}
 
 	.worktree-header__general {
 		display: flex;
 		align-items: center;
-		gap: 10px;
 		overflow: hidden;
+		gap: 10px;
 	}
 
 	.worktree-header__title {
@@ -247,8 +247,8 @@
 
 	.uncommitted-changes {
 		display: flex;
-		flex-direction: column;
 		flex: 1;
+		flex-direction: column;
 		width: 100%;
 	}
 
@@ -266,17 +266,17 @@
 	}
 
 	.uncommitted-changes__empty__placeholder {
-		flex: 1;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		gap: 20px;
 		padding: 0 20px 40px;
+		gap: 20px;
 	}
 
 	.uncommitted-changes__empty__placeholder-text {
-		text-align: center;
 		color: var(--clr-text-3);
+		text-align: center;
 	}
 </style>

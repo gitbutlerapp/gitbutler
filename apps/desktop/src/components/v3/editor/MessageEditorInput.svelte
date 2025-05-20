@@ -46,8 +46,8 @@
 
 <style lang="postcss">
 	.text-input {
-		padding: 8px 12px;
 		width: 100%;
+		padding: 8px 12px;
 	}
 
 	.message-editor-input {
@@ -58,28 +58,28 @@
 		position: absolute;
 		right: 6px;
 		bottom: 50%;
-		transform: translateY(50%);
-		color: var(--clr-text-2);
 		padding: 6px;
+		transform: translateY(50%);
 		background-color: var(--clr-bg-1);
+		color: var(--clr-text-2);
 
 		& span {
 			opacity: 0.6;
 		}
 
 		&:after {
-			content: '';
 			position: absolute;
 			top: 0;
 			left: 0;
-			transform: translateX(-90%);
 			width: 100%;
 			height: 100%;
+			transform: translateX(-90%);
 			background: linear-gradient(
 				to right,
 				oklch(from var(--clr-bg-1) l c h / 0) 00%,
 				var(--clr-bg-1) 90%
 			);
+			content: '';
 		}
 	}
 </style>

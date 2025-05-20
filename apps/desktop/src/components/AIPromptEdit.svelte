@@ -69,8 +69,8 @@
 <style lang="postcss">
 	.prompt-item__title {
 		display: flex;
-		justify-content: space-between;
 		align-items: center;
+		justify-content: space-between;
 		gap: 24px;
 	}
 

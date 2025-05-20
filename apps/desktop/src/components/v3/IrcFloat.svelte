@@ -70,12 +70,12 @@
 
 <style lang="postcss">
 	.irc-float {
-		background-color: var(--clr-bg-1);
-		position: absolute;
 		z-index: var(--z-lifted);
+		position: absolute;
+		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
-		overflow: hidden;
+		background-color: var(--clr-bg-1);
 		box-shadow: var(--fx-shadow-m);
 	}
 </style>

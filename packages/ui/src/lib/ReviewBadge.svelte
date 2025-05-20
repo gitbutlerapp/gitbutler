@@ -122,23 +122,23 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 4px;
-		border-radius: var(--radius-ml);
 		width: fit-content;
 		height: var(--size-icon);
+		gap: 4px;
 		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
 		background-color: var(--clr-bg-1-muted);
-		line-height: 1;
 		color: var(--clr-text-1);
+		line-height: 1;
 
 		&.pr-type {
-			padding-left: 2px;
 			padding-right: 3px;
+			padding-left: 2px;
 		}
 
 		&.br-type {
-			padding-left: 4px;
 			padding-right: 4px;
+			padding-left: 4px;
 		}
 	}
 

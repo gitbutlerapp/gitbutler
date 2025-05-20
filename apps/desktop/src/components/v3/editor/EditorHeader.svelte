@@ -29,8 +29,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		background-color: var(--clr-bg-1);
 		padding: 12px 12px 12px 16px;
 		border-bottom: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-1);
 	}
 </style>

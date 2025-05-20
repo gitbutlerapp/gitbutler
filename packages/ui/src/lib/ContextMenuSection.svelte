@@ -13,8 +13,8 @@
 
 <style lang="postcss">
 	.context-menu-section {
-		position: relative;
 		display: flex;
+		position: relative;
 		flex-direction: column;
 		padding: 4px;
 		gap: 2px;

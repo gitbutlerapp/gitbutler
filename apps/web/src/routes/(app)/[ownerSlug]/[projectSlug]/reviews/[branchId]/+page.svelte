@@ -337,17 +337,17 @@
 		gap: var(--layout-col-gap);
 
 		@media (--desktop-small-viewport) {
-			grid-template-columns: unset;
 			display: flex;
+			grid-template-columns: unset;
 			flex-direction: column;
 		}
 	}
 
 	.information {
 		display: flex;
-		gap: 24px;
 		flex-direction: column;
 		padding-right: 20px;
+		gap: 24px;
 
 		@media (--tablet-viewport) {
 			padding-right: 0;
@@ -356,8 +356,8 @@
 
 	.heading {
 		display: flex;
-		gap: 16px;
 		flex-direction: column;
+		gap: 16px;
 	}
 
 	.summary {
@@ -367,11 +367,11 @@
 	}
 
 	.summary-text {
-		line-height: 160%;
+		padding: 12px;
 		border: 1px solid #ddd;
 		border-radius: 9px;
-		padding: 12px;
 		background-color: #fff;
+		line-height: 160%;
 	}
 
 	.summary-placeholder {
@@ -383,9 +383,9 @@
 
 	.summary-wrapper {
 		flex-shrink: 0;
-		background-color: var(--clr-bg-1);
 		padding: 6px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-1);
 	}
 </style>

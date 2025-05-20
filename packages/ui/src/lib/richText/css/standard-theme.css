@@ -19,10 +19,10 @@
 .StandardTheme__h1,
 .StandardTheme__h2,
 .StandardTheme__h3 {
-	font-family: var(--fontfamily-default);
+	margin-bottom: 12px;
 	font-weight: var(--text-weight-bold);
 	line-height: var(--text-lineheight-heading);
-	margin-bottom: 12px;
+	font-family: var(--fontfamily-default);
 }
 
 .StandardTheme__h1 {
@@ -36,32 +36,31 @@
 }
 
 .StandardTheme__paragraph {
-	font-family: var(--fontfamily-default);
-	font-size: var(--lexical-default-font-size);
-	font-weight: var(--text-weight-regular);
-	line-height: var(--text-lineheight-body);
 	margin-bottom: var(--markdown-generic-bottom-margin);
+	font-weight: var(--text-weight-regular);
+	font-size: var(--lexical-default-font-size);
+	line-height: var(--text-lineheight-body);
+	font-family: var(--fontfamily-default);
 	text-wrap: var(--lexical-input-client-text-wrap, normal);
 }
 
 .StandardTheme__quote {
 	position: relative;
-	font-family: var(--fontfamily-default);
-	font-size: var(--lexical-default-font-size);
-	font-weight: var(--text-weight-regular);
-	line-height: var(--text-lineheight-body);
+	margin-bottom: var(--markdown-generic-bottom-margin);
 	padding: 8px 8px 8px 16px;
+	overflow: hidden;
 	border-radius: var(--radius-m);
 	background-color: var(--clr-bg-2);
-	overflow: hidden;
-	margin-bottom: var(--markdown-generic-bottom-margin);
+	font-weight: var(--text-weight-regular);
+	font-size: var(--lexical-default-font-size);
+	line-height: var(--text-lineheight-body);
+	font-family: var(--fontfamily-default);
 
 	& > span {
 		opacity: 0.6;
 	}
 
 	&:before {
-		content: '';
 		display: block;
 		position: absolute;
 		top: 0;
@@ -69,6 +68,7 @@
 		width: 4px;
 		height: 100%;
 		background-color: var(--clr-border-1);
+		content: '';
 	}
 }
 
@@ -107,23 +107,23 @@
 }
 
 .StandardTheme__textCode {
-	background-color: var(--clr-theme-ntrl-soft);
 	padding: 2px 3px;
-	font-family: var(--code-block-font, var(--fontfamily-mono));
-	font-size: 96%;
 	border-radius: var(--radius-s);
+	background-color: var(--clr-theme-ntrl-soft);
+	font-size: 96%;
+	font-family: var(--code-block-font, var(--fontfamily-mono));
 	font-variant-ligatures: var(--code-block-ligatures, normal);
 }
 
 .StandardTheme__hashtag {
-	background-color: rgba(88, 144, 255, 0.15);
 	border-bottom: 1px solid rgba(88, 144, 255, 0.3);
+	background-color: rgba(88, 144, 255, 0.15);
 }
 
 .StandardTheme__link {
-	cursor: pointer;
 	color: rgb(33, 111, 219);
 	text-decoration: underline;
+	cursor: pointer;
 }
 
 .StandardTheme__link:hover {
@@ -132,16 +132,16 @@
 
 .StandardTheme__blockCursor {
 	display: block;
-	pointer-events: none;
 	position: absolute;
+	pointer-events: none;
 }
 .StandardTheme__blockCursor:after {
-	content: '';
 	display: block;
 	position: absolute;
 	top: -2px;
 	width: 20px;
 	border-top: 1px solid black;
+	content: '';
 	animation: CursorBlink 1.1s steps(2, start) infinite;
 }
 
@@ -153,47 +153,47 @@
 
 /* CODE */
 .StandardTheme__code {
-	background-color: var(--clr-bg-1);
-	font-family: var(--code-block-font, var(--fontfamily-mono));
 	display: block;
-	padding: 8px 8px 8px 46px;
-	line-height: 1.53;
-	font-size: var(--lexical-default-font-size);
+	position: relative;
 	margin-top: 8px;
 	margin-bottom: var(--markdown-generic-bottom-margin);
+	padding: 8px 8px 8px 46px;
 	overflow-x: auto;
-	position: relative;
-	tab-size: var(--code-block-tab-size, 2);
-	border-radius: var(--radius-m);
 	border: 1px solid var(--clr-border-2);
+	border-radius: var(--radius-m);
+	background-color: var(--clr-bg-1);
+	font-size: var(--lexical-default-font-size);
+	line-height: 1.53;
+	font-family: var(--code-block-font, var(--fontfamily-mono));
 	font-variant-ligatures: var(--code-block-ligatures, normal);
+	tab-size: var(--code-block-tab-size, 2);
 }
 
 .StandardTheme__code:before {
-	content: attr(data-gutter);
 	position: absolute;
-	background-color: var(--clr-bg-1);
-	left: 0;
 	top: 0;
-	border-right: 1px solid var(--clr-border-2);
+	left: 0;
+	min-width: 25px;
 	padding: 8px;
+	border-right: 1px solid var(--clr-border-2);
+	background-color: var(--clr-bg-1);
+	content: attr(data-gutter);
 	color: var(--clr-text-2);
 	letter-spacing: -1px;
-	white-space: pre-wrap;
 	text-align: right;
-	min-width: 25px;
+	white-space: pre-wrap;
 	opacity: 0.6;
 }
 
 /* TABLES */
 .StandardTheme__table {
-	border-collapse: collapse;
-	border-spacing: 0;
-	overflow-y: scroll;
-	overflow-x: scroll;
-	table-layout: fixed;
 	width: max-content;
 	margin: 0px 25px 30px 0px;
+	overflow-x: scroll;
+	overflow-y: scroll;
+	border-collapse: collapse;
+	border-spacing: 0;
+	table-layout: fixed;
 }
 
 .StandardTheme__tableSelection *::selection {
@@ -205,35 +205,35 @@
 }
 
 .StandardTheme__tableCell {
-	border: 1px solid #bbb;
+	position: relative;
 	width: 75px;
 	min-width: 75px;
-	vertical-align: top;
-	text-align: start;
 	padding: 6px 8px;
-	position: relative;
+	border: 1px solid #bbb;
 	outline: none;
+	text-align: start;
+	vertical-align: top;
 }
 
 .StandardTheme__tableCellSortedIndicator {
 	display: block;
-	opacity: 0.5;
 	position: absolute;
 	bottom: 0;
 	left: 0;
 	width: 100%;
 	height: 4px;
 	background-color: #999;
+	opacity: 0.5;
 }
 
 .StandardTheme__tableCellResizer {
-	position: absolute;
-	right: -4px;
-	height: 100%;
-	width: 8px;
-	cursor: ew-resize;
 	z-index: 10;
+	position: absolute;
 	top: 0;
+	right: -4px;
+	width: 8px;
+	height: 100%;
+	cursor: ew-resize;
 }
 
 /* LISTS */
@@ -244,11 +244,11 @@
 .StandardTheme__ol4,
 .StandardTheme__ol5 {
 	display: block;
-	font-family: var(--fontfamily-default);
-	font-size: var(--lexical-default-font-size);
-	line-height: var(--text-lineheight-body);
 	margin-top: 4px;
 	margin-bottom: 16px;
+	font-size: var(--lexical-default-font-size);
+	line-height: var(--text-lineheight-body);
+	font-family: var(--fontfamily-default);
 }
 
 .StandardTheme__ul {
@@ -258,8 +258,8 @@
 
 .StandardTheme__listItem {
 	margin: 0 20px;
-	padding-left: 4px;
 	margin-bottom: 2px;
+	padding-left: 4px;
 }
 
 /* Numbered nested lists */
@@ -287,10 +287,10 @@
 .StandardTheme__listItemUnchecked {
 	position: relative;
 	margin-left: 3px;
-	padding-left: 24px;
 	padding-right: 24px;
-	list-style-type: none;
+	padding-left: 24px;
 	outline: none;
+	list-style-type: none;
 }
 
 .StandardTheme__listItemChecked {
@@ -299,21 +299,21 @@
 
 .StandardTheme__listItemUnchecked:before,
 .StandardTheme__listItemChecked:before {
-	content: '';
+	display: block;
+	position: absolute;
+	top: 3px;
+	left: 0;
 	width: 14px;
 	height: 14px;
 	border-radius: var(--radius-s);
-	top: 3px;
-	left: 0;
+	content: '';
 	cursor: pointer;
-	display: block;
-	position: absolute;
 }
 
 .StandardTheme__listItemUnchecked[dir='rtl']:before,
 .StandardTheme__listItemChecked[dir='rtl']:before {
-	left: auto;
 	right: 0;
+	left: auto;
 }
 
 .StandardTheme__listItemUnchecked:focus-within:before,
@@ -327,25 +327,25 @@
 }
 
 .StandardTheme__listItemChecked:before {
-	background-color: var(--clr-theme-pop-element);
 	border: 1px solid var(--clr-theme-pop-element);
 	background-repeat: no-repeat;
+	background-color: var(--clr-theme-pop-element);
 }
 
 .StandardTheme__listItemChecked:after {
-	content: '';
-	cursor: pointer;
-	border-color: #fff;
-	position: absolute;
 	display: block;
+	position: absolute;
 	top: 5px;
-	left: 5px;
 	right: 7px;
+	left: 5px;
 	width: 5px;
 	height: 8px;
 	transform: rotate(45deg);
 	border-width: 0 2px 2px 0;
 	border-bottom-right-radius: 2px;
+	border-color: #fff;
+	content: '';
+	cursor: pointer;
 }
 
 .StandardTheme__nestedListItem {
@@ -391,24 +391,24 @@
 }
 
 .StandardTheme__mark {
-	background: rgba(255, 212, 0, 0.14);
-	border-bottom: 2px solid rgba(255, 212, 0, 0.3);
 	padding-bottom: 2px;
+	border-bottom: 2px solid rgba(255, 212, 0, 0.3);
+	background: rgba(255, 212, 0, 0.14);
 }
 
 .StandardTheme__markOverlap {
-	background: rgba(255, 212, 0, 0.3);
 	border-bottom: 2px solid rgba(255, 212, 0, 0.7);
+	background: rgba(255, 212, 0, 0.3);
 }
 
 .StandardTheme__mark.selected {
-	background: rgba(255, 212, 0, 0.5);
 	border-bottom: 2px solid rgba(255, 212, 0, 1);
+	background: rgba(255, 212, 0, 0.5);
 }
 
 .StandardTheme__markOverlap.selected {
-	background: rgba(255, 212, 0, 0.7);
 	border-bottom: 2px solid rgba(255, 212, 0, 0.7);
+	background: rgba(255, 212, 0, 0.7);
 }
 
 .StandardTheme__autocomplete {
@@ -417,16 +417,16 @@
 
 /* DIVIDER */
 .StandardTheme__hr {
+	margin: 20px 0;
 	padding: 4px 0;
 	border: none;
-	margin: 20px 0;
 }
 
 .StandardTheme__hr:after {
-	content: '';
 	display: block;
 	height: 1px;
 	background-color: var(--clr-border-2);
+	content: '';
 }
 
 .StandardTheme__hr.selected {

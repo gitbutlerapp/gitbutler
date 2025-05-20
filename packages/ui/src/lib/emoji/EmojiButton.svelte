@@ -16,10 +16,10 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		font-size: 23px;
 		width: 32px;
 		height: 32px;
 		border-radius: var(--radius-m);
+		font-size: 23px;
 		transition: background-color var(--transition-fast);
 
 		span {

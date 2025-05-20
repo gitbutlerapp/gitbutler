@@ -168,18 +168,18 @@
 	.resizer-line {
 		position: absolute;
 		top: 0;
-		left: 0;
 		right: 0;
 		bottom: 0;
+		left: 0;
 		pointer-events: none;
 		transition: border 0.1s ease;
 	}
 
 	.horizontal {
+		top: 0;
 		width: 4px;
 		height: 100%;
 		cursor: col-resize;
-		top: 0;
 
 		& .resizer-line {
 			width: var(--resizer-line-frame);
@@ -191,10 +191,10 @@
 	}
 
 	.vertical {
-		height: 4px;
-		width: 100%;
-		cursor: row-resize;
 		left: 0;
+		width: 100%;
+		height: 4px;
+		cursor: row-resize;
 
 		& .resizer-line {
 			height: var(--resizer-line-frame);
@@ -239,8 +239,8 @@
 		& .resizer-line {
 			bottom: auto;
 			border-top: var(--resizer-line-thickness) solid var(--resizer-line-color);
-			border-top-left-radius: var(--resizer-border-radius);
 			border-top-right-radius: var(--resizer-border-radius);
+			border-top-left-radius: var(--resizer-border-radius);
 		}
 	}
 	.down {
@@ -249,20 +249,20 @@
 		& .resizer-line {
 			top: auto;
 			border-bottom: var(--resizer-line-thickness) solid var(--resizer-line-color);
-			border-bottom-left-radius: var(--resizer-border-radius);
 			border-bottom-right-radius: var(--resizer-border-radius);
+			border-bottom-left-radius: var(--resizer-border-radius);
 		}
 	}
 
 	.border-imitation {
+		z-index: -1;
 		position: absolute;
-		width: 100%;
-		height: 100%;
 		top: 0;
-		left: 0;
 		right: 0;
 		bottom: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
 		background-color: var(--border-imitation-color);
-		z-index: -1;
 	}
 </style>

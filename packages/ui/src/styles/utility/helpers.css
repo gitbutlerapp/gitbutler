@@ -12,8 +12,8 @@
 .scrollbar,
 pre {
 	&::-webkit-scrollbar {
-		background-color: transaparent;
 		width: 14px;
+		background-color: transaparent;
 	}
 
 	&::-webkit-scrollbar-track {
@@ -21,10 +21,10 @@ pre {
 	}
 
 	&::-webkit-scrollbar-thumb {
-		background-color: var(--clr-border-1);
-		background-clip: padding-box;
-		border-radius: 12px;
 		border: 4px solid rgba(0, 0, 0, 0);
+		border-radius: 12px;
+		background-clip: padding-box;
+		background-color: var(--clr-border-1);
 		opacity: 0.3;
 	}
 
@@ -54,8 +54,8 @@ pre {
 }
 
 .no-select {
-	user-select: none;
 	cursor: default;
+	user-select: none;
 }
 
 /* ANIMATION */
@@ -93,8 +93,8 @@ pre {
 
 /* STICKY HEADER */
 .h-sticky-header {
-	position: sticky;
 	z-index: var(--z-lifted);
+	position: sticky;
 }
 
 .h-sticky-header_top {

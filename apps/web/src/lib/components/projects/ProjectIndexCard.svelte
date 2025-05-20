@@ -50,18 +50,18 @@
 		min-height: 50px;
 
 		> td {
-			padding: 0;
 			height: 100%;
+			padding: 0;
 
 			> div {
-				min-height: 50px;
 				height: 100%;
-
-				background-color: var(--clr-bg-1);
+				min-height: 50px;
 				padding: 16px;
 
 				border-top: none;
 				border-bottom: 1px solid var(--clr-border-2);
+
+				background-color: var(--clr-bg-1);
 			}
 
 			&:first-child > div {

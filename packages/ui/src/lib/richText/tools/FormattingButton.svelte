@@ -32,19 +32,19 @@
 
 <style lang="postcss">
 	.formatting-button {
-		position: relative;
 		display: flex;
+		position: relative;
 
 		&.formatting-button--activated {
 			&::after {
-				content: '';
 				position: absolute;
 				top: 0;
 				right: 0;
 				width: 6px;
 				height: 6px;
-				background-color: var(--clr-theme-pop-element);
 				border-radius: 50%;
+				background-color: var(--clr-theme-pop-element);
+				content: '';
 			}
 		}
 	}

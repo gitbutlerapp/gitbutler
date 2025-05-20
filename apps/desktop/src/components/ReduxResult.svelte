@@ -94,10 +94,10 @@
 <style>
 	.loading-spinner {
 		display: flex;
-		align-items: center;
-		gap: 8px;
 		z-index: var(--z-lifted);
 		position: relative;
+		align-items: center;
+		gap: 8px;
 		color: var(--clr-text-2);
 	}
 </style>

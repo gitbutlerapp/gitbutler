@@ -42,8 +42,8 @@
 
 <style lang="scss">
 	.hero {
-		position: relative;
 		display: flex;
+		position: relative;
 		padding-top: 60px;
 		padding-bottom: 90px;
 		gap: 80px;
@@ -81,39 +81,39 @@
 	}
 
 	.content {
-		display: flex;
-		flex-direction: column;
-		flex: 1;
 		container-type: inline-size;
+		display: flex;
+		flex: 1;
+		flex-direction: column;
 	}
 
 	.title {
-		font-size: min(10vw, 16cqw);
 		margin-top: 30px;
 		margin-bottom: 40px;
+		font-size: min(10vw, 16cqw);
+		line-height: 92%;
 
 		font-family:
 			PP Editorial New,
 			serif;
-		line-height: 92%;
 
 		@media (max-width: 700px) {
-			font-size: 16cqw;
 			margin-bottom: 30px;
+			font-size: 16cqw;
 		}
 	}
 
 	.caption {
+		max-width: 520px;
+		margin-bottom: 40px;
 		color: var(--clr-dark-gray);
 		font-size: 22px;
-		max-width: 520px;
 		line-height: 150%;
-		margin-bottom: 40px;
 		text-wrap: balance;
 
 		@media (max-width: 1100px) {
-			font-size: 20px;
 			margin-bottom: 0;
+			font-size: 20px;
 		}
 
 		@media (max-width: 500px) {
@@ -141,18 +141,18 @@
 		background-color: var(--clr-bg);
 
 		@media (max-width: 1100px) {
+			position: relative;
 			width: 100%;
 			height: auto;
-			position: relative;
 		}
 	}
 
 	.video-shadow {
+		z-index: -1;
 		top: 40px;
 		left: 40px;
-		background-image: url('/images/patterns/random-noise-1.gif');
 		border-radius: 12px;
-		z-index: -1;
+		background-image: url('/images/patterns/random-noise-1.gif');
 		opacity: 0.3;
 
 		@media (max-width: 1100px) {
