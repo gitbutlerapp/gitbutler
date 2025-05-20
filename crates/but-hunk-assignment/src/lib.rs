@@ -132,14 +132,11 @@ pub fn assign(
         .iter()
         .map(|s| s.id)
         .collect::<Vec<_>>();
-    let mut new_assignments = vec![];
-    for new_assignment in requests.clone() {
-        new_assignments = set_assignment(
-            &applied_stacks,
-            previous_assignments.clone(),
-            new_assignment,
-        )?;
-    }
+    let new_assignments = set_assignment(
+        &applied_stacks,
+        previous_assignments.clone(),
+        requests.clone(),
+    )?;
     let deps_assignments = hunk_dependency_assignments(ctx)?;
     let assignments_considering_deps = reconcile_assignments(
         new_assignments,
@@ -366,20 +363,22 @@ fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> 
 fn set_assignment(
     applied_stacks: &[StackId],
     mut previous_assignments: Vec<HunkAssignment>,
-    new_assignment: HunkAssignmentRequest,
+    new_assignments: Vec<HunkAssignmentRequest>,
 ) -> Result<Vec<HunkAssignment>> {
-    if let Some(stack_id) = new_assignment.stack_id {
-        if !applied_stacks.contains(&stack_id) {
-            return Err(anyhow::anyhow!("No such stack in the workspace"));
+    for new_assignment in new_assignments {
+        if let Some(stack_id) = new_assignment.stack_id {
+            if !applied_stacks.contains(&stack_id) {
+                return Err(anyhow::anyhow!("No such stack in the workspace"));
+            }
         }
-    }
-    if let Some(found) = previous_assignments
-        .iter_mut()
-        .find(|previous| new_assignment.matches_assignment(previous))
-    {
-        found.stack_id = new_assignment.stack_id;
-    } else {
-        return Err(anyhow::anyhow!("Hunk not found in current assignments"));
+        if let Some(found) = previous_assignments
+            .iter_mut()
+            .find(|previous| new_assignment.matches_assignment(previous))
+        {
+            found.stack_id = new_assignment.stack_id;
+        } else {
+            return Err(anyhow::anyhow!("Hunk not found in current assignments"));
+        }
     }
     Ok(previous_assignments)
 }
@@ -519,7 +518,7 @@ mod tests {
         let updated = set_assignment(
             &applied_stacks,
             previous_assignments.clone(),
-            new_assignment_req,
+            vec![new_assignment_req],
         )
         .unwrap();
 
@@ -546,7 +545,7 @@ mod tests {
         let result = set_assignment(
             &applied_stacks,
             previous_assignments.clone(),
-            new_assignment.clone(),
+            vec![new_assignment.clone()],
         );
 
         assert!(result.is_err());
@@ -563,7 +562,7 @@ mod tests {
         let result = set_assignment(
             &applied_stacks,
             previous_assignments.clone(),
-            new_assignment.clone(),
+            vec![new_assignment.clone()],
         );
 
         assert!(result.is_err());
