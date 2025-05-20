@@ -302,10 +302,10 @@
 
 	<SectionCard
 		roundedTop={false}
-		roundedBottom={modelKind !== ModelKind.Ollama}
+		roundedBottom={false}
 		orientation="row"
 		labelFor="ollama"
-		bottomBorder={modelKind !== ModelKind.Ollama}
+		bottomBorder={true}
 	>
 		{#snippet title()}
 			Ollama 🦙
@@ -315,7 +315,7 @@
 		{/snippet}
 	</SectionCard>
 	{#if modelKind === ModelKind.Ollama}
-		<SectionCard roundedTop={false} topDivider>
+		<SectionCard roundedTop={false} roundedBottom={false} topDivider>
 			<Textbox label="Endpoint" bind:value={ollamaEndpoint} placeholder="http://127.0.0.1:11434" />
 
 			<Textbox label="Model" bind:value={ollamaModel} placeholder="llama3" />
@@ -340,10 +340,10 @@
 
 	<SectionCard
 		roundedTop={false}
-		roundedBottom={modelKind !== ModelKind.LMStudio}
+		roundedBottom={false}
 		orientation="row"
 		labelFor="lmstudio"
-		bottomBorder={modelKind !== ModelKind.LMStudio}
+		bottomBorder={false}
 	>
 		{#snippet title()}
 			LM Studio
@@ -353,7 +353,7 @@
 		{/snippet}
 	</SectionCard>
 	{#if modelKind === ModelKind.LMStudio}
-		<SectionCard roundedTop={false} topDivider>
+		<SectionCard roundedTop={false} roundedBottom={false} topDivider>
 			<Textbox
 				label="Server URL"
 				bind:value={lmStudioEndpoint}
