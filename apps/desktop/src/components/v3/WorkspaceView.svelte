@@ -15,6 +15,8 @@
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
+	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
+
 	import type { SelectionId } from '$lib/selection/key';
 
 	interface Props {
@@ -49,6 +51,10 @@
 	const commitId = $derived(currentSelection?.commitId);
 	const upstream = $derived(!!currentSelection?.upstream);
 
+	function pxToRem(px: number) {
+		return px / 16;
+	}
+
 	const selectionId: SelectionId = $derived.by(() => {
 		const branchName = currentSelection?.branchName;
 		if (focusGroup.current === Focusable.UncommittedChanges && worktreeSelection.entries.size > 0) {
@@ -79,12 +85,38 @@
 			console.warn('Workspace selection cleared');
 		}
 	}
+
+	const SECTIONS_GAP = 8;
+	let workspaceEl = $state<HTMLElement>();
+	let workspaceContainerWidth = $state<number>(0);
+	let changedFilesSectionWidth = $state<number>(0);
+	let mainViewWidth = $state<number>(0);
+	let stacksViewClientWidth = $state<number>(0);
+	let stacksInViewport = $state<boolean>(false);
+
+	const maxStacksWidth = $derived(
+		workspaceContainerWidth - (changedFilesSectionWidth + mainViewWidth + SECTIONS_GAP * 2 - 0.1)
+	);
+
+	$effect(() => {
+		// console.log('stacksViewWidth.current', stacksViewWidth.current);
+		if (stacksInViewport) {
+			stacksViewWidth.current = pxToRem(maxStacksWidth);
+		}
+	});
 </script>
 
-<div class="workspace" use:focusable={{ id: Focusable.Workspace }}>
+<div
+	bind:this={workspaceEl}
+	class="workspace"
+	style:gap="{SECTIONS_GAP}px"
+	use:focusable={{ id: Focusable.Workspace }}
+	bind:clientWidth={workspaceContainerWidth}
+>
 	<div
 		class="changed-files-view"
 		bind:this={leftDiv}
+		bind:clientWidth={changedFilesSectionWidth}
 		style:width={leftWidth.current + 'rem'}
 		use:focusable={{ id: Focusable.WorkspaceLeft, parentId: Focusable.Workspace }}
 	>
@@ -93,12 +125,14 @@
 			viewport={leftDiv}
 			direction="right"
 			minWidth={14}
+			maxWidth={32}
 			borderRadius="ml"
 			onWidth={(value) => (leftWidth.current = value)}
 		/>
 	</div>
 	<div
 		class="main-view"
+		bind:clientWidth={mainViewWidth}
 		use:focusable={{ id: Focusable.WorkspaceMiddle, parentId: Focusable.Workspace }}
 	>
 		{#if !drawerIsFullScreen.current}
@@ -134,9 +168,25 @@
 	</div>
 
 	<div
+		use:intersectionObserver={{
+			callback: (entry) => {
+				if (entry?.isIntersecting) {
+					stacksInViewport = true;
+				} else {
+					stacksInViewport = false;
+				}
+			},
+			options: {
+				root: workspaceEl,
+				rootMargin: '0',
+				threshold: 1
+			}
+		}}
 		class="stacks-view-wrap"
 		bind:this={stacksViewEl}
+		bind:clientWidth={stacksViewClientWidth}
 		style:width={stacksViewWidth.current + 'rem'}
+		style:max-width={stacksInViewport ? 'none' : `${pxToRem(maxStacksWidth)}rem`}
 		use:focusable={{ id: Focusable.WorkspaceRight, parentId: Focusable.Workspace }}
 	>
 		<ReduxResult {projectId} result={stacksResult?.current}>
@@ -156,7 +206,7 @@
 		<Resizer
 			viewport={stacksViewEl}
 			direction="left"
-			minWidth={19}
+			minWidth={20}
 			borderRadius="ml"
 			onWidth={(value) => uiState.global.stacksViewWidth.set(value)}
 		/>
@@ -172,7 +222,6 @@
 		width: 100%;
 		height: 100%;
 		overflow: hidden;
-		gap: 8px;
 	}
 
 	.changed-files-view {
@@ -188,9 +237,11 @@
 		display: flex;
 		position: relative;
 		flex-grow: 0;
+		flex-shrink: 0;
 		flex-direction: column;
 		justify-content: flex-start;
 		height: 100%;
+		padding-right: 1px;
 		overflow: hidden;
 	}
 
