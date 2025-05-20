@@ -263,42 +263,16 @@
 		try {
 			await projectsService.setActiveProject(projectId);
 		} catch (error: unknown) {
-			const title =
-				isTauriCommandError(error) && error.code === Code.NonexclusiveAccess
-					? 'This project is already open in another window'
-					: 'Failed to set active project';
-			showError(title, error);
-			await redirectToAvailableProject();
-		}
-	}
+			if (isTauriCommandError(error) && error.code === Code.NonexclusiveAccess) {
+				showInfo(
+					'Just FYI, this project is already open in another window',
+					'There might be some unexpected behavior if you open it in multiple windows'
+				);
 
-	async function redirectToAvailableProject() {
-		// Try to go back to the previously active project
-		try {
-			const activeProject = await projectsService.getActiveProject();
-			if (activeProject) {
-				goto(`/${activeProject.id}/board`);
 				return;
 			}
-		} catch (error: unknown) {
-			console.error(error);
+			showError('Failed to set the project active', error);
 		}
-
-		// Otherwise go to the first project that is not open
-		const availableProject = $projects?.find(
-			(project) => !project.is_open && project.id !== projectId
-		);
-
-		if (availableProject) {
-			goto(`/${availableProject.id}/board`);
-			showInfo(
-				`You've been redirected to the project '${availableProject.title}'`,
-				`Close the other window to open your other project in this window`
-			);
-			return;
-		}
-		// If no available projects, show a special page
-		noViewableProjects = true;
 	}
 
 	$effect(() => {
