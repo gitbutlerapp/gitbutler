@@ -150,7 +150,11 @@
 	{#if props.children.length > 0}
 		<div class="group">
 			<GroupHeader title={props.title} />
-			<ChunkyList items={props.children} item={sidebarEntry}></ChunkyList>
+			<ChunkyList items={props.children}>
+				{#snippet item(entry)}
+					{@render sidebarEntry(entry)}
+				{/snippet}
+			</ChunkyList>
 		</div>
 	{/if}
 {/snippet}
@@ -200,15 +204,7 @@
 						<div class="group">
 							{#each searchedBranches as searchResult}
 								{@const sidebarEntrySubject = searchResult.item}
-								{#if sidebarEntrySubject.type === 'branchListing'}
-									<BranchListingSidebarEntry
-										{projectId}
-										branchListing={sidebarEntrySubject.subject}
-										prs={sidebarEntrySubject.prs}
-									/>
-								{:else}
-									<PullRequestSidebarEntry pullRequest={sidebarEntrySubject.subject} />
-								{/if}
+								{@render sidebarEntry(sidebarEntrySubject)}
 							{/each}
 						</div>
 					{:else}
