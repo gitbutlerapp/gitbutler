@@ -63,7 +63,6 @@
 		if (project) {
 			isDeleting = true;
 			try {
-				deleteConfirmationModal?.close();
 				await projectsService.deleteProject(project.id);
 				toasts.success('Project deleted');
 				goto('/', { invalidateAll: true });
