@@ -25,7 +25,7 @@ the window, then enlarge it and retain the original widths of the layout.
 -->
 <script lang="ts">
 	import Resizer from '$components/Resizer.svelte';
-	import { Focusable } from '$lib/focus/focusManager.svelte';
+	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
@@ -106,7 +106,7 @@ the window, then enlarge it and retain the original widths of the layout.
 
 <div
 	class="main-viewport"
-	use:focusable={{ id: Focusable.MainViewport }}
+	use:focusable={{ id: DefinedFocusable.MainViewport }}
 	bind:clientWidth={containerBindWidth}
 >
 	<div
@@ -115,7 +115,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		bind:clientWidth={leftBindWidth}
 		style:width={derivedLeftWidth + 'rem'}
 		style:min-width={leftMinWidth + 'rem'}
-		use:focusable={{ id: Focusable.ViewportLeft, parentId: Focusable.MainViewport }}
+		use:focusable={{ id: DefinedFocusable.ViewportLeft, parentId: DefinedFocusable.MainViewport }}
 	>
 		{@render left()}
 		<Resizer
@@ -144,7 +144,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		bind:this={middleDiv}
 		bind:clientWidth={middleBindWidth}
 		style:min-width={middleMinWidth + 'rem'}
-		use:focusable={{ id: Focusable.ViewportMiddle, parentId: Focusable.MainViewport }}
+		use:focusable={{ id: DefinedFocusable.ViewportMiddle, parentId: DefinedFocusable.MainViewport }}
 	>
 		{@render middle()}
 	</div>
@@ -154,7 +154,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		bind:clientWidth={rightBindWidth}
 		style:width={derivedRightWidth + 'rem'}
 		style:min-width={rightMinWidth + 'rem'}
-		use:focusable={{ id: Focusable.ViewportRight, parentId: Focusable.MainViewport }}
+		use:focusable={{ id: DefinedFocusable.ViewportRight, parentId: DefinedFocusable.MainViewport }}
 	>
 		{@render right()}
 		<Resizer

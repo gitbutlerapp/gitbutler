@@ -3,7 +3,7 @@
 	import FileList from '$components/v3/FileList.svelte';
 	import {
 		DiffService,
-		ungroupedGroup,
+		hunkGroupToKey,
 		type HunkAssignments,
 		type HunkGroup
 	} from '$lib/hunks/diffService.svelte';
@@ -33,7 +33,7 @@
 	);
 
 	function filter(changes: TreeChange[], assignments: HunkAssignments) {
-		const stackGroup = assignments.get(group.type === 'ungrouped' ? ungroupedGroup : group.stackId);
+		const stackGroup = assignments.get(hunkGroupToKey(group));
 
 		if (!stackGroup) return [];
 
@@ -55,7 +55,7 @@
 			<ReduxResult {projectId} result={assignments.current}>
 				{#snippet children(assignments, { projectId })}
 					<FileList
-						selectionId={{ type: 'worktree' }}
+						selectionId={{ type: 'worktree', group }}
 						{showCheckboxes}
 						{projectId}
 						changes={filter(changes, assignments)}

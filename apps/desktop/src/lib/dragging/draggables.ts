@@ -31,7 +31,8 @@ export class HunkDropDataV3 {
 		readonly hunk: HunkHeader,
 		readonly uncommitted: boolean,
 		readonly stackId: string | undefined,
-		readonly commitId: string | undefined
+		readonly commitId: string | undefined,
+		readonly selectionId: SelectionId
 	) {}
 }
 

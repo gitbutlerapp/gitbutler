@@ -10,7 +10,13 @@
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { HunkDropDataV3 } from '$lib/dragging/draggables';
 	import { previousPathBytesFromTreeChange, type TreeChange } from '$lib/hunks/change';
-	import { canBePartiallySelected, getLineLocks, type DiffHunk } from '$lib/hunks/hunk';
+	import { DiffService, hunkGroupToKey } from '$lib/hunks/diffService.svelte';
+	import {
+		canBePartiallySelected,
+		getLineLocks,
+		hunkHeaderEquals,
+		type DiffHunk
+	} from '$lib/hunks/hunk';
 	import { Project } from '$lib/project/project';
 	import {
 		ChangeSelectionService,
@@ -66,12 +72,20 @@
 
 	const uncommittedChange = $derived(selectionId.type === 'worktree');
 
-	const [changeSelection, idSelection, lineSelection, dependencyService, worktreeService] = inject(
+	const [
+		changeSelection,
+		idSelection,
+		lineSelection,
+		dependencyService,
+		worktreeService,
+		diffService
+	] = inject(
 		ChangeSelectionService,
 		IdSelection,
 		LineSelection,
 		DependencyService,
-		WorktreeService
+		WorktreeService,
+		DiffService
 	);
 
 	const changeSelectionResult = $derived(changeSelection.getById(change.path));
@@ -211,6 +225,29 @@
 	const draggingDisabled = $derived(
 		!draggable || !['commit', 'worktree'].includes(selectionId.type)
 	);
+
+	const changesKeyResult = $derived(worktreeService.getChangesKey(projectId));
+
+	const assignments = $derived.by(() => {
+		if (!changesKeyResult.current) return;
+		if (selectionId.type !== 'worktree') return;
+		return diffService.hunkAssignments(projectId, changesKeyResult.current);
+	});
+
+	function filter(hunks: DiffHunk[]): DiffHunk[] {
+		if (!assignments?.current?.data || selectionId.type !== 'worktree') return hunks;
+		const stackGroup = assignments.current.data.get(hunkGroupToKey(selectionId.group));
+		if (!stackGroup) return hunks;
+		const pathGroup = stackGroup.get(pathData.path);
+		if (!pathGroup) return hunks;
+
+		// TODO: It does concern me that this is an N+1;
+		// We could have an encoding for hunk-headers that we can then put into
+		// a hash set.
+		return hunks.filter((hunk) =>
+			pathGroup.some((assignedHunk) => hunkHeaderEquals(hunk, assignedHunk.hunkHeader))
+		);
+	}
 </script>
 
 <div data-testid={TestId.UnifiedDiffView} class="diff-section" bind:this={viewport}>
@@ -223,7 +260,7 @@
 				}}
 			/>
 		{:else}
-			{#each diff.subject.hunks as hunk}
+			{#each filter(diff.subject.hunks) as hunk}
 				{@const [staged, stagedLines] = getStageState(hunk)}
 				{@const [fullyLocked, lineLocks] = getLineLocks(
 					activeStackId,
@@ -234,7 +271,14 @@
 					class="hunk-content"
 					use:draggableChips={{
 						label: hunk.diff.split('\n')[0],
-						data: new HunkDropDataV3(change, hunk, uncommittedChange, stackId, commitId),
+						data: new HunkDropDataV3(
+							change,
+							hunk,
+							uncommittedChange,
+							stackId,
+							commitId,
+							selectionId
+						),
 						disabled: draggingDisabled,
 						chipType: 'hunk'
 					}}

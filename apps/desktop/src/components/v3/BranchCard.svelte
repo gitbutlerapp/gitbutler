@@ -8,6 +8,8 @@
 	import PrNumberUpdater from '$components/v3/PrNumberUpdater.svelte';
 	import WorktreeChangesFileList from '$components/v3/WorktreeChangesFileList.svelte';
 	import { MoveCommitDzHandler, StartCommitDzHandler } from '$lib/commits/dropHandler';
+	import { assignedChangesFocusableId } from '$lib/focus/focusManager.svelte';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { AssignmentDropHandler } from '$lib/hunks/dropHandler';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
@@ -258,7 +260,10 @@
 			{#snippet overlay({ hovered, activated })}
 				<CardOverlay {hovered} {activated} />
 			{/snippet}
-			<div class="assigned-changes">
+			<div
+				class="assigned-changes"
+				use:focusable={{ id: assignedChangesFocusableId(args.stackId) }}
+			>
 				<p class="text-14 text-bold assigned-changes__title">Assigned changes:</p>
 				<WorktreeChangesFileList
 					{projectId}

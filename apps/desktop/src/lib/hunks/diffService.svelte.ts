@@ -13,6 +13,20 @@ export type ChangeDiff = {
 export const ungroupedGroup = 'ungrouped';
 export type HunkAssignments = Map<string, Map<string, HunkAssignment[]>>;
 export type HunkGroup = { type: 'ungrouped' } | { type: 'grouped'; stackId: string };
+export function hunkGroupToKey(a: HunkGroup): string {
+	if (a.type === 'ungrouped') return ungroupedGroup;
+	return a.stackId;
+}
+/**
+ * Converts a hunk group key to a HunkGroup. This expects to be given a valid key.
+ */
+export function hunkGroupFromKey(a: string): HunkGroup {
+	if (a === ungroupedGroup) return { type: 'ungrouped' };
+	return {
+		type: 'grouped',
+		stackId: a
+	};
+}
 export function hunkGroupEquals(a: HunkGroup, b: HunkGroup): boolean {
 	if (a.type === 'ungrouped' && b.type === 'ungrouped') return true;
 	if (a.type === 'grouped' && b.type === 'grouped' && a.stackId === b.stackId) return true;

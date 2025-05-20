@@ -375,7 +375,7 @@ export function hunkContainsHunk(a: DiffHunk, b: DiffHunk): boolean {
  * same file. As such, this should only be used to compare headers within the
  * same file.
  */
-export function hunkHeaderEqualsHunkHeader(a: HunkHeader, b: HunkHeader): boolean {
+export function hunkHeaderEquals(a: HunkHeader, b: HunkHeader): boolean {
 	if (a.newLines !== b.newLines) return false;
 	if (a.oldLines !== b.oldLines) return false;
 	if (a.newStart !== b.newStart) return false;

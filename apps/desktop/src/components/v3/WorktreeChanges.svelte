@@ -9,7 +9,7 @@
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { createCommitStore } from '$lib/commits/contexts';
 	import { UncommitDzHandler } from '$lib/commits/dropHandler';
-	import { Focusable } from '$lib/focus/focusManager.svelte';
+	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { previousPathBytesFromTreeChange } from '$lib/hunks/change';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
@@ -75,7 +75,7 @@
 		if (affectedPaths) {
 			untrack(() => {
 				changeSelection.retain(affectedPaths);
-				idSelection.retain(affectedPaths);
+				idSelection.retain(affectedPaths, { type: 'ungrouped' });
 			});
 		}
 	});
@@ -140,12 +140,19 @@
 
 <Dropzone handlers={[uncommitDzHandler, assignmentDZHandler].filter(isDefined)} maxHeight>
 	{#snippet overlay({ hovered, activated, handler })}
-		<CardOverlay {hovered} {activated} label={handler instanceof UncommitDzHandler ? "Uncommit changes" : "Unassign changes"} />
+		<CardOverlay
+			{hovered}
+			{activated}
+			label={handler instanceof UncommitDzHandler ? 'Uncommit changes' : 'Unassign changes'}
+		/>
 	{/snippet}
 
 	<div
 		class="uncommitted-changes-wrap"
-		use:focusable={{ id: Focusable.UncommittedChanges, parentId: Focusable.ViewportLeft }}
+		use:focusable={{
+			id: DefinedFocusable.UncommittedChanges,
+			parentId: DefinedFocusable.ViewportLeft
+		}}
 	>
 		<ScrollableContainer
 			autoScroll={false}

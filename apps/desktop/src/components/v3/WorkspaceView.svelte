@@ -9,7 +9,12 @@
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
 	import { isParsedError } from '$lib/error/parser';
-	import { Focusable, FocusManager } from '$lib/focus/focusManager.svelte';
+	import {
+		assignedChangesFocusableId,
+		DefinedFocusable,
+		FocusManager,
+		parseAssignedChangesFocusableId
+	} from '$lib/focus/focusManager.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -29,16 +34,27 @@
 		FocusManager,
 		IdSelection
 	);
-	const worktreeSelection = idSelection.getById({ type: 'worktree' });
+	const worktreeSelection = idSelection.getById({ type: 'worktree', group: { type: 'ungrouped' } });
 	const stacksResult = $derived(stackService.stacks(projectId));
 
 	const projectState = $derived(uiState.project(projectId));
 	const drawerPage = $derived(projectState.drawerPage);
 	const drawerIsFullScreen = $derived(projectState.drawerFullScreen);
 
+	const stackFocusables = $derived(
+		stacksResult.current?.data
+			? stacksResult.current.data.map((stack) => assignedChangesFocusableId(stack.id))
+			: []
+	);
+
 	let focusGroup = $derived(
 		focusManager.radioGroup({
-			triggers: [Focusable.UncommittedChanges, Focusable.Drawer, Focusable.ViewportRight]
+			triggers: [
+				DefinedFocusable.UncommittedChanges,
+				DefinedFocusable.Drawer,
+				DefinedFocusable.ViewportRight,
+				...stackFocusables
+			]
 		})
 	);
 
@@ -50,8 +66,17 @@
 
 	const selectionId: SelectionId = $derived.by(() => {
 		const branchName = currentSelection?.branchName;
-		if (focusGroup.current === Focusable.UncommittedChanges && worktreeSelection.entries.size > 0) {
-			return { type: 'worktree' };
+		const assignedChangesStackId = focusGroup.current
+			? parseAssignedChangesFocusableId(focusGroup.current)
+			: undefined;
+		if (assignedChangesStackId) {
+			return { type: 'worktree', group: { type: 'grouped', stackId: assignedChangesStackId } };
+		}
+		if (
+			focusGroup.current === DefinedFocusable.UncommittedChanges &&
+			worktreeSelection.entries.size > 0
+		) {
+			return { type: 'worktree', group: { type: 'ungrouped' } };
 		}
 		if (currentSelection && stackId && branchName) {
 			if (currentSelection.commitId) {
@@ -62,7 +87,7 @@
 			if (idSelection.hasItems(selectionId)) return selectionId;
 		}
 
-		return { type: 'worktree' };
+		return { type: 'worktree', group: { type: 'ungrouped' } };
 	});
 
 	function onerror(err: unknown) {
@@ -127,7 +152,7 @@
 					{projectId}
 					{stacks}
 					selectedId={stackId}
-					active={focusGroup.current !== Focusable.UncommittedChanges}
+					active={focusGroup.current !== DefinedFocusable.UncommittedChanges}
 				/>
 			{/snippet}
 		</ReduxResult>
