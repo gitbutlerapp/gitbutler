@@ -156,7 +156,7 @@
 		<Resizer
 			viewport={stacksViewEl}
 			direction="left"
-			minWidth={16}
+			minWidth={19}
 			borderRadius="ml"
 			onWidth={(value) => uiState.global.stacksViewWidth.set(value)}
 		/>
