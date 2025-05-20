@@ -40,9 +40,10 @@ export class ProjectsService {
 		this.projects.set(await this.loadAll());
 	}
 
-	async setActiveProject(projectId: string): Promise<void> {
-		await invoke('set_project_active', { id: projectId });
+	async setActiveProject(projectId: string): Promise<boolean> {
+		const is_exclusive = await invoke<boolean>('set_project_active', { id: projectId });
 		await this.reload();
+		return is_exclusive;
 	}
 
 	async getProject(projectId: string, noValidation?: boolean) {

@@ -1,6 +1,6 @@
 #![allow(clippy::indexing_slicing)]
 
-/// Options for the [`head_info()`](crate::ref_info) call.
+/// Options for the [`ref_info()`](crate::ref_info) call.
 #[derive(Default, Debug, Copy, Clone)]
 pub struct Options {
     /// The maximum amount of commits to list *per stack*. Note that a [`StackSegment`](crate::branch::StackSegment) will always have a single commit, if available,

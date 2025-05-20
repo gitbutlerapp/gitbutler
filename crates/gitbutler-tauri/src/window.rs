@@ -93,7 +93,6 @@ pub(crate) mod state {
         }
     }
     use event::ChangeForFrontend;
-    use gitbutler_error::error::Code;
 
     struct State {
         /// The id of the project displayed by the window.
@@ -101,13 +100,14 @@ pub(crate) mod state {
         /// The watcher of the currently active project.
         watcher: gitbutler_watcher::WatcherHandle,
         /// An active lock to signal that the entire project is locked for the Window this state belongs to.
-        exclusive_access: gitbutler_project::access::LockFile,
+        /// Let's make it optional while it's only in our own way, while aiming for making that reasonably well working.
+        exclusive_access: Option<gitbutler_project::access::LockFile>,
     }
 
     impl Drop for State {
         fn drop(&mut self) {
             // We only do this to display an error if it fails - `LockFile` also implements `Drop`.
-            if let Err(err) = self.exclusive_access.unlock() {
+            if let Some(Err(err)) = self.exclusive_access.take().map(|mut lock| lock.unlock()) {
                 tracing::error!(err = ?err, "Failed to release the project-wide lock");
             }
         }
@@ -136,6 +136,14 @@ pub(crate) mod state {
         }))
     }
 
+    #[derive(Debug)]
+    pub enum ProjectAccessMode {
+        // This is the first window to look at a project.
+        First,
+        // This is not the first Window to look at the project.
+        Shared,
+    }
+
     impl WindowState {
         pub fn new(app_handle: AppHandle) -> Self {
             Self {
@@ -147,23 +155,25 @@ pub(crate) mod state {
         /// Watch the `project`, assure no other instance can access it, and associate it with the window
         /// uniquely identified by `window`.
         ///
-        /// Previous state will be removed and its resources cleaned up.
+        /// The previous state will be removed and its resources cleaned up.
         #[instrument(skip(self, project, app_settings), err(Debug))]
         pub fn set_project_to_window(
             &self,
             window: &WindowLabelRef,
             project: &projects::Project,
             app_settings: AppSettingsWithDiskSync,
-        ) -> Result<()> {
+        ) -> Result<ProjectAccessMode> {
             let mut state_by_label = self.state.lock();
             if let Some(state) = state_by_label.get(window) {
                 if state.project_id == project.id {
-                    return Ok(());
+                    return Ok(state
+                        .exclusive_access
+                        .as_ref()
+                        .map(|_| ProjectAccessMode::First)
+                        .unwrap_or(ProjectAccessMode::Shared));
                 }
             }
-            let exclusive_access = project
-                .try_exclusive_access()
-                .context(Code::NonexclusiveAccess)?;
+            let exclusive_access = project.try_exclusive_access().ok();
             let handler = handler_from_app(&self.app_handle)?;
             let worktree_dir = project.path.clone();
             let project_id = project.id;
@@ -173,6 +183,7 @@ pub(crate) mod state {
                 project_id,
                 app_settings,
             )?;
+            let has_exclusive_access = exclusive_access.is_some();
             state_by_label.insert(
                 window.to_owned(),
                 State {
@@ -182,7 +193,11 @@ pub(crate) mod state {
                 },
             );
             tracing::debug!("Maintaining {} Windows", state_by_label.len());
-            Ok(())
+            Ok(if has_exclusive_access {
+                ProjectAccessMode::First
+            } else {
+                ProjectAccessMode::Shared
+            })
         }
 
         pub fn get_active_project_by_window(&self, window: &WindowLabelRef) -> Option<ProjectId> {
