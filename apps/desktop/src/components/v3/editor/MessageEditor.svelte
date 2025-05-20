@@ -353,38 +353,40 @@
 						wrapTextByRuler.current = !wrapTextByRuler.current;
 					}}
 				/>
-				<div class="message-textarea__ruler-input-wrapper" class:disabled={!useRuler.current}>
-					<span class="text-13">Ruler:</span>
-					<input
-						disabled={!useRuler.current}
-						value={rulerCountValue.current}
-						min={MIN_RULER_VALUE}
-						max={MAX_RULER_VALUE}
-						class="text-13 text-input message-textarea__ruler-input"
-						type="number"
-						onfocus={() => (isEditorFocused = true)}
-						onblur={() => {
-							if (rulerCountValue.current < MIN_RULER_VALUE) {
-								console.warn('Ruler value must be greater than 10');
-								rulerCountValue.current = MIN_RULER_VALUE;
-							} else if (rulerCountValue.current > MAX_RULER_VALUE) {
-								rulerCountValue.current = MAX_RULER_VALUE;
-							}
+				{#if useRuler.current}
+					<div class="message-textarea__ruler-input-wrapper" class:disabled={!useRuler.current}>
+						<span class="text-13">Ruler:</span>
+						<input
+							disabled={!useRuler.current}
+							value={rulerCountValue.current}
+							min={MIN_RULER_VALUE}
+							max={MAX_RULER_VALUE}
+							class="text-13 text-input message-textarea__ruler-input"
+							type="number"
+							onfocus={() => (isEditorFocused = true)}
+							onblur={() => {
+								if (rulerCountValue.current < MIN_RULER_VALUE) {
+									console.warn('Ruler value must be greater than 10');
+									rulerCountValue.current = MIN_RULER_VALUE;
+								} else if (rulerCountValue.current > MAX_RULER_VALUE) {
+									rulerCountValue.current = MAX_RULER_VALUE;
+								}
 
-							isEditorFocused = false;
-						}}
-						oninput={(e) => {
-							const input = e.currentTarget as HTMLInputElement;
-							rulerCountValue.current = parseInt(input.value);
-						}}
-						onkeydown={(e) => {
-							if (e.key === 'Enter') {
-								e.preventDefault();
-								composer?.focus();
-							}
-						}}
-					/>
-				</div>
+								isEditorFocused = false;
+							}}
+							oninput={(e) => {
+								const input = e.currentTarget as HTMLInputElement;
+								rulerCountValue.current = parseInt(input.value);
+							}}
+							onkeydown={(e) => {
+								if (e.key === 'Enter') {
+									e.preventDefault();
+									composer?.focus();
+								}
+							}}
+						/>
+					</div>
+				{/if}
 			{/if}
 		</div>
 	</div>
