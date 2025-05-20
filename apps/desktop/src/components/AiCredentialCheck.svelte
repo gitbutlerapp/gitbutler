@@ -81,14 +81,14 @@
 			const summarizePromise = aiService.summarizeCommit({
 				diffInput: testDiff,
 				useEmojiStyle: false,
-				useBriefStyle: true
+				useBriefStyle: false
 			});
 
 			console.log('Waiting for AI response...');
 			const aiResult = await Promise.race([
 				summarizePromise,
 				new Promise<string>((_, reject) =>
-					setTimeout(() => reject(new Error('AI response timed out after 15 seconds')), 15000)
+					setTimeout(() => reject(new Error('AI response timed out after 8 seconds')), 8000)
 				)
 			]);
 

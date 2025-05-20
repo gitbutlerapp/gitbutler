@@ -37,6 +37,7 @@
 	let diffLengthLimit: number | undefined = $state();
 	let ollamaEndpoint: string | undefined = $state();
 	let ollamaModel: string | undefined = $state();
+	let lmStudioEndpoint: string | undefined = $state();
 
 	async function setConfiguration(key: GitAIConfigKey, value: string | undefined) {
 		if (!initialized) return;
@@ -63,6 +64,8 @@
 
 		ollamaEndpoint = await aiService.getOllamaEndpoint();
 		ollamaModel = await aiService.getOllamaModelName();
+
+		lmStudioEndpoint = await aiService.getLMStudioEndpoint();
 
 		// Ensure reactive declarations have finished running before we set initialized to true
 		await tick();
@@ -148,6 +151,9 @@
 		setConfiguration(GitAIConfigKey.OllamaModelName, ollamaModel);
 	});
 	run(() => {
+		setConfiguration(GitAIConfigKey.LMStudioEndpoint, lmStudioEndpoint);
+	});
+	run(() => {
 		if (form) form.modelKind.value = modelKind;
 	});
 </script>
@@ -155,7 +161,7 @@
 <p class="text-13 text-body ai-settings__text">
 	GitButler supports multiple providers for its AI powered features. We currently support models
 	from OpenAI and Anthropic either proxied through the GitButler API, or in a bring your own key
-	configuration.
+	configuration. We also support local models through Ollama and LM Studio.
 </p>
 
 <form class="git-radio" bind:this={form} onchange={(e) => onFormChange(e.currentTarget)}>
@@ -331,6 +337,31 @@
 			</InfoMessage>
 		</SectionCard>
 	{/if}
+
+	<SectionCard
+		roundedTop={false}
+		roundedBottom={modelKind !== ModelKind.LMStudio}
+		orientation="row"
+		labelFor="lmstudio"
+		bottomBorder={modelKind !== ModelKind.LMStudio}
+	>
+		{#snippet title()}
+			LM Studio
+		{/snippet}
+		{#snippet actions()}
+			<RadioButton name="modelKind" id="lmstudio" value={ModelKind.LMStudio} />
+		{/snippet}
+	</SectionCard>
+	{#if modelKind === ModelKind.LMStudio}
+		<SectionCard roundedTop={false} topDivider>
+			<Textbox
+				label="Server URL"
+				bind:value={lmStudioEndpoint}
+				placeholder="http://127.0.0.1:1234"
+			/>
+		</SectionCard>
+	{/if}
+
 	<!-- AI credential check -->
 	<SectionCard roundedTop={false} topDivider>
 		<AiCredentialCheck />
