@@ -187,6 +187,7 @@
 
 	.chrome-left-buttons {
 		display: flex;
+		align-items: center;
 		gap: 8px;
 	}
 
