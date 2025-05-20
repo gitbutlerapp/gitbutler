@@ -338,7 +338,8 @@ fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> 
             is_result_of_binary_to_text_conversion,
             ..
         } => {
-            if is_result_of_binary_to_text_conversion {
+            // If there are no hunks, then the assignment is for the whole file
+            if is_result_of_binary_to_text_conversion || hunks.is_empty() {
                 vec![HunkAssignment {
                     hunk_header: None,
                     path: path_str.into(),
