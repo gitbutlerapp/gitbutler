@@ -14,12 +14,16 @@
 	const user = userService.user;
 
 	let testing = $state(false);
+	let isStreaming = $state(false);
 	let result = $state<string | null>(null);
+	let streamingResult = $state<string>('');
 	let error = $state<string | null>(null);
 	let modelKind = $state<ModelKind | undefined>();
 	let isUsingButlerAPI = $state(false);
 	let debugInfo = $state<string | null>(null);
 	let showDebug = $state(false);
+	let testTimeout: NodeJS.Timeout | null = null;
+	let abortController: AbortController | null = null;
 
 	// Simple test diff for commit message generation
 	const testDiff: DiffInput[] = [
@@ -37,24 +41,37 @@
 
 	async function testAiCredentials() {
 		testing = true;
+		isStreaming = false;
 		result = null;
+		streamingResult = '';
 		error = null;
 		debugInfo = null;
+
+		// Clear any existing timeout
+		if (testTimeout) {
+			clearTimeout(testTimeout);
+			testTimeout = null;
+		}
+
+		// Abort any pending request
+		if (abortController) {
+			abortController.abort();
+		}
+
+		// Create a new abort controller for this request
+		abortController = new AbortController();
 
 		try {
 			// Get current model kind
 			modelKind = await aiService.getModelKind();
-			console.log(`Testing AI credentials for model kind: ${modelKind}`);
 			debugInfo = `Model kind: ${modelKind}`;
 
 			// Check if using GitButler API
 			isUsingButlerAPI = await aiService.usingGitButlerAPI();
-			console.log(`Using GitButler API: ${isUsingButlerAPI}`);
 			debugInfo += `, Using GB API: ${isUsingButlerAPI}`;
 
 			// Check if configuration is valid
 			const isConfigValid = await aiService.validateConfiguration();
-			console.log(`Configuration valid: ${isConfigValid}`);
 			debugInfo += `, Config valid: ${isConfigValid}`;
 
 			if (!isConfigValid) {
@@ -71,31 +88,63 @@
 					throw new Error(
 						`Please check Ollama configuration: endpoint=${endpoint}, model=${model}`
 					);
+				} else if (modelKind === ModelKind.LMStudio) {
+					// Get LM Studio configuration for more detailed error
+					const endpoint = await aiService.getLMStudioEndpoint();
+					throw new Error(`Please check LM Studio configuration: endpoint=${endpoint}`);
 				}
 			}
 
-			console.log('Testing AI with commit message generation');
 			debugInfo += `, Testing commit message generation`;
 
-			// Use the summarizeCommit method with a timeout
-			const summarizePromise = aiService.summarizeCommit({
+			// Set a timeout to fail if the streaming doesn't start or complete
+			testTimeout = setTimeout(() => {
+				if (testing) {
+					console.error('AI response timed out after 20 seconds');
+					error =
+						'AI response timed out after 20 seconds. Please check if your AI service is running properly.';
+					testing = false;
+					isStreaming = false; // Make sure streaming state is reset on timeout
+					debugInfo += `, Timeout after 20s`;
+
+					// Abort the request if possible
+					if (abortController) {
+						try {
+							abortController.abort();
+						} catch (err) {
+							console.error('Error aborting request:', err);
+						}
+					}
+
+					// Force a UI update (this ensures the reactive system recognizes the state changes)
+					testing = false;
+					isStreaming = false;
+				}
+			}, 20000);
+
+			// Start streaming mode
+			isStreaming = true;
+
+			// Use the summarizeCommit method with the onToken callback for streaming
+			const aiResult = await aiService.summarizeCommit({
 				diffInput: testDiff,
 				useEmojiStyle: false,
-				useBriefStyle: false
+				useBriefStyle: false,
+				onToken: (token) => {
+					// Append each token as it comes in
+					streamingResult += token;
+				}
 			});
 
-			console.log('Waiting for AI response...');
-			const aiResult = await Promise.race([
-				summarizePromise,
-				new Promise<string>((_, reject) =>
-					setTimeout(() => reject(new Error('AI response timed out after 8 seconds')), 8000)
-				)
-			]);
+			// Clear the timeout since we got a result
+			if (testTimeout) {
+				clearTimeout(testTimeout);
+				testTimeout = null;
+			}
 
-			// Set the result (handling undefined case)
-			result = aiResult || null;
+			// Set the final result (handling undefined case)
+			result = aiResult || streamingResult || null;
 
-			console.log('Received commit message:', result);
 			debugInfo += `, Received commit message: ${result?.substring(0, 30)}${result && result.length > 30 ? '...' : ''}`;
 
 			// If result is empty or undefined, show an error
@@ -104,10 +153,29 @@
 			}
 		} catch (e) {
 			console.error('AI credential check error:', e);
-			error = e instanceof Error ? e.message : 'Unknown error occurred';
+
+			// Don't show abort errors as they're expected when we cancel the request
+			if (e instanceof Error && e.name === 'AbortError') {
+				error = 'AI request was cancelled';
+			} else {
+				error = e instanceof Error ? e.message : 'Unknown error occurred';
+			}
+
 			debugInfo += `, Error: ${error}`;
+
+			// Clear the timeout if there was an error
+			if (testTimeout) {
+				clearTimeout(testTimeout);
+				testTimeout = null;
+			}
+
+			// Ensure streaming and testing states are reset on error
+			isStreaming = false;
+			testing = false;
 		} finally {
 			testing = false;
+			isStreaming = false;
+			abortController = null;
 		}
 	}
 
@@ -117,14 +185,16 @@
 </script>
 
 <div class="ai-credential-check">
-	{#if result || error}
+	{#if isStreaming || result || error}
 		<div transition:slide={{ duration: 250 }}>
 			<InfoMessage style={error ? 'warning' : 'success'} filled outlined={false}>
 				{#snippet title()}
 					{#if error}
 						AI credential check failed
-					{:else}
+					{:else if result}
 						AI credential check passed
+					{:else if isStreaming}
+						AI is responding...
 					{/if}
 				{/snippet}
 
@@ -132,10 +202,12 @@
 					<div class="result-content" transition:slide={{ duration: 250 }}>
 						{#if error}
 							<div class="text-12 text-body error-text">
-								<i class="result-icon">
-									<Icon name="error-small" color="error" />
-								</i>
-								{error}
+								<div class="error-header">
+									<i class="result-icon">
+										<Icon name="error-small" color="error" />
+									</i>
+									<span>{error}</span>
+								</div>
 							</div>
 
 							{#if (modelKind === ModelKind.OpenAI || modelKind === ModelKind.Anthropic) && isUsingButlerAPI && !$user}
@@ -156,15 +228,31 @@
 										<Link href="https://ollama.ai">Learn more about Ollama</Link>
 									</span>
 								</div>
+							{:else if modelKind === ModelKind.LMStudio}
+								<div class="text-12 text-body help-text">
+									<span>
+										Please check your LM Studio configuration.
+										<br />
+										Make sure LM Studio is running locally and accessible.
+										<br />
+										<Link href="https://lmstudio.ai">Learn more about LM Studio</Link>
+									</span>
+								</div>
 							{/if}
 						{:else}
 							<div class="text-12 text-body success-text">
-								<i class="result-icon">
-									<Icon name="success-small" color="success" />
-								</i>
-								<div class="ai-response">
+								<div class="success-header">
+									<i class="result-icon">
+										<Icon name={isStreaming ? 'ai' : 'success-small'} color="success" />
+									</i>
 									<strong>Sample commit message:</strong>
-									<pre>{result}</pre>
+								</div>
+								<div class="ai-response">
+									<pre class:streaming={isStreaming}>{isStreaming ? streamingResult : result}
+										{#if isStreaming}
+											<span class="cursor blink">▋</span>
+										{/if}
+									</pre>
 								</div>
 							</div>
 						{/if}
@@ -180,10 +268,18 @@
 			</InfoMessage>
 		</div>
 	{/if}
-	<Button style="pop" wide icon="ai" disabled={testing} onclick={testAiCredentials}>
-		{#if testing}
-			Testing AI connection...
-		{:else if result || error}
+	<Button
+		style="pop"
+		wide
+		icon={error ? 'error-small' : 'ai'}
+		disabled={testing || isStreaming}
+		onclick={testAiCredentials}
+	>
+		{#if testing || isStreaming}
+			{isStreaming ? 'AI is responding...' : 'Testing AI connection...'}
+		{:else if error}
+			Try again
+		{:else if result}
 			Test again
 		{:else}
 			Test AI connection
@@ -191,7 +287,7 @@
 	</Button>
 
 	<div class="debug-toggle">
-		<button class="text-12 debug-button" on:click={toggleDebug}>
+		<button class="text-12 debug-button" onclick={toggleDebug}>
 			{showDebug ? 'Hide' : 'Show'} Debug Info
 		</button>
 	</div>
@@ -207,20 +303,28 @@
 	.result-content {
 		display: flex;
 		flex-direction: column;
-		gap: 4px;
 		margin-top: 4px;
+		gap: 4px;
 	}
 
 	.result-icon {
 		display: flex;
-		align-items: flex-start;
+		align-items: center;
 		margin-right: 6px;
 	}
 
 	.error-text,
 	.success-text {
 		display: flex;
-		align-items: flex-start;
+		flex-direction: column;
+		width: 100%;
+	}
+
+	.error-header,
+	.success-header {
+		display: flex;
+		align-items: center;
+		margin-bottom: 4px;
 	}
 
 	.help-text {
@@ -229,19 +333,47 @@
 	}
 
 	.ai-response {
-		max-height: 100px;
+		width: 100%;
+		max-height: 150px;
 		overflow-y: auto;
 		word-break: break-word;
 	}
 
 	.ai-response pre {
+		box-sizing: border-box;
+		width: 100%;
+		min-height: 80px;
 		margin: 8px 0 0 0;
-		padding: 8px;
-		background-color: var(--clr-bg-1);
+		padding: 14px 12px;
 		border-radius: 4px;
+		background-color: var(--clr-bg-1);
+		font-size: 12px;
 		font-family: var(--font-mono);
 		white-space: pre-wrap;
-		font-size: 12px;
+	}
+
+	.ai-response pre.streaming {
+		min-height: 80px;
+	}
+
+	.cursor {
+		display: inline-block;
+		color: var(--clr-text-1);
+		vertical-align: middle;
+	}
+
+	.blink {
+		animation: blink 1s step-end infinite;
+	}
+
+	@keyframes blink {
+		from,
+		to {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0;
+		}
 	}
 
 	.debug-toggle {
@@ -250,21 +382,21 @@
 	}
 
 	.debug-button {
-		background: none;
-		border: none;
-		color: var(--clr-text-3);
-		cursor: pointer;
 		padding: 4px 8px;
-		text-decoration: underline;
+		border: none;
+		background: none;
+		color: var(--clr-text-3);
 		font-size: 11px;
+		text-decoration: underline;
+		cursor: pointer;
 	}
 
 	.debug-info {
 		margin-top: 8px;
 		color: var(--clr-text-3);
+		font-size: 11px;
+		font-family: monospace;
 		white-space: pre-wrap;
 		word-break: break-word;
-		font-family: monospace;
-		font-size: 11px;
 	}
 </style>
