@@ -13,6 +13,7 @@
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
+	import Link from '@gitbutler/ui/link/Link.svelte';
 	import Select from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import { onMount, tick } from 'svelte';
@@ -311,6 +312,22 @@
 			<Textbox label="Endpoint" bind:value={ollamaEndpoint} placeholder="http://127.0.0.1:11434" />
 
 			<Textbox label="Model" bind:value={ollamaModel} placeholder="llama3" />
+		</SectionCard>
+		<SectionCard roundedTop={false} topDivider>
+			<InfoMessage filled outlined={false}>
+				{#snippet content()}
+					<p class="text-13">
+						Connecting to your Ollama endpoint will <b
+							>require you to allow-list it in the CSP settings for the application.</b
+						>
+						<br />
+						<br />
+						You can find more details on how to do that in the <Link
+							href="https://docs.gitbutler.com/troubleshooting/custom-csp">docs</Link
+						>
+					</p>
+				{/snippet}
+			</InfoMessage>
 		</SectionCard>
 	{/if}
 </form>
