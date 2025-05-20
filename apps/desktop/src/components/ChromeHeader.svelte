@@ -37,6 +37,7 @@
 
 	const projects = $derived(projectsService.projects);
 	const upstreamCommits = $derived(base?.behind ?? 0);
+	const isHasUpstreamCommits = $derived(upstreamCommits > 0);
 
 	let modal = $state<ReturnType<typeof IntegrateUpstreamModal>>();
 
@@ -66,14 +67,20 @@
 	<div class="chrome-left" data-tauri-drag-region>
 		<div class="chrome-left-buttons" class:macos={platformName === 'macos'}>
 			<SyncButton {projectId} size="button" disabled={actionsDisabled} />
-			{#if upstreamCommits > 0}
+			{#if isHasUpstreamCommits}
 				<Button
 					testId={TestId.IntegrateUpstreamCommitsButton}
 					style="pop"
 					onclick={openModal}
 					disabled={!selectedProjectId || actionsDisabled}
-					>{upstreamCommits} upstream commits</Button
 				>
+					{upstreamCommits} upstream commits
+				</Button>
+			{:else}
+				<div class="chrome-you-are-up-to-date">
+					<Icon name="tick-small" />
+					<span class="text-12">You’re up to date</span>
+				</div>
 			{/if}
 		</div>
 	</div>
@@ -207,5 +214,13 @@
 		display: flex;
 		color: var(--clr-text-3);
 		transition: opacity var(--transition-fast);
+	}
+
+	.chrome-you-are-up-to-date {
+		display: flex;
+		align-items: center;
+		padding: 0 4px;
+		gap: 4px;
+		color: var(--clr-text-2);
 	}
 </style>

@@ -218,7 +218,9 @@
 			</ScrollableContainer>
 			<StackStickyButtons {isVerticalMode}>
 				<PushButton flex="1" {projectId} {stackId} multipleBranches={branches.length > 1} />
-				<PublishButton flex="2" {projectId} {stackId} {branches} />
+				{@const reviewCreationInOpen =
+					drawer.current === 'review' && stackId === projectState.stackId.current}
+				<PublishButton flex="2" {projectId} {stackId} {branches} {reviewCreationInOpen} />
 			</StackStickyButtons>
 		{/snippet}
 	</ReduxResult>

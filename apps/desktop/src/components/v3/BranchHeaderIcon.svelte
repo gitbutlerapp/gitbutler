@@ -20,6 +20,7 @@
 <style>
 	.stack__status--icon {
 		display: flex;
+		flex-shrink: 0;
 		align-items: center;
 		justify-content: center;
 		width: 20px;

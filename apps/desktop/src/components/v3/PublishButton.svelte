@@ -11,9 +11,10 @@
 		stackId: string;
 		flex?: string;
 		branches: BranchDetails[];
+		reviewCreationInOpen?: boolean;
 	};
 
-	const { projectId, stackId, flex, branches }: Props = $props();
+	const { projectId, stackId, flex, branches, reviewCreationInOpen }: Props = $props();
 	const uiState = getContext(UiState);
 
 	let canPublishReviewPlugin = $state<ReturnType<typeof CanPublishReviewPlugin>>();
@@ -107,7 +108,8 @@
 			testId={TestId.StackPublishButton}
 			style="neutral"
 			wide
-			disabled={!branchName || hasConflicts}
+			kind={reviewCreationInOpen ? 'outline' : 'solid'}
+			disabled={!branchName || hasConflicts || reviewCreationInOpen}
 			{tooltip}
 			tooltipPosition="top"
 			onclick={publish}
