@@ -368,6 +368,21 @@ export function hunkContainsHunk(a: DiffHunk, b: DiffHunk): boolean {
 	);
 }
 
+/**
+ * Determines whether two hunk headers cover the same positions and ranges.
+ *
+ * This does not mean that they represent the same diffs or are even for the
+ * same file. As such, this should only be used to compare headers within the
+ * same file.
+ */
+export function hunkHeaderEqualsHunkHeader(a: HunkHeader, b: HunkHeader): boolean {
+	if (a.newLines !== b.newLines) return false;
+	if (a.oldLines !== b.oldLines) return false;
+	if (a.newStart !== b.newStart) return false;
+	if (a.oldStart !== b.oldStart) return false;
+	return true;
+}
+
 export function hunkContainsLine(hunk: DiffHunk, line: LineId): boolean {
 	if (line.oldLine === undefined && line.newLine === undefined) {
 		throw new Error('Line has no line numbers');

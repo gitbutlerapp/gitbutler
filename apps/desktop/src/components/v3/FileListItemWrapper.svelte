@@ -18,6 +18,7 @@
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
 	import type { Rename } from '$lib/hunks/change';
 	import type { UnifiedDiff } from '$lib/hunks/diff';
+	import type { HunkGroup } from '$lib/hunks/diffService.svelte';
 
 	interface Props {
 		projectId: string;
@@ -41,6 +42,7 @@
 		onkeydown?: (e: KeyboardEvent) => void;
 		onCloseClick?: () => void;
 		conflictEntries?: ConflictEntriesObj;
+		group?: HunkGroup;
 	}
 
 	const {
@@ -60,6 +62,7 @@
 		showCheckbox,
 		conflictEntries,
 		draggable,
+		group,
 		onclick,
 		onkeydown,
 		onCloseClick
@@ -138,7 +141,14 @@
 	use:draggableChips={{
 		label: getFilename(change.path),
 		filePath: change.path,
-		data: new ChangeDropData(change, idSelection, allChanges ?? [change], selectionId, stackId),
+		data: new ChangeDropData(
+			change,
+			idSelection,
+			allChanges ?? [change],
+			selectionId,
+			stackId,
+			group
+		),
 		viewportId: 'board-viewport',
 		selector: '.selected-draggable',
 		disabled: draggableDisabled,

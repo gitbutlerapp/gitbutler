@@ -10,6 +10,15 @@ export type ChangeDiff = {
 	diff: UnifiedDiff;
 };
 
+export const ungroupedGroup = 'ungrouped';
+export type HunkAssignments = Map<string, Map<string, HunkAssignment[]>>;
+export type HunkGroup = { type: 'ungrouped' } | { type: 'grouped'; stackId: string };
+export function hunkGroupEquals(a: HunkGroup, b: HunkGroup): boolean {
+	if (a.type === 'ungrouped' && b.type === 'ungrouped') return true;
+	if (a.type === 'grouped' && b.type === 'grouped' && a.stackId === b.stackId) return true;
+	return false;
+}
+
 export class DiffService {
 	private api: ReturnType<typeof injectEndpoints>;
 
@@ -24,10 +33,31 @@ export class DiffService {
 
 	hunkAssignments(projectId: string, worktreeChangesKey: WorktreeChangesKey) {
 		const { hunkAssignments } = this.api.endpoints;
-		return hunkAssignments.useQuery({ projectId, worktreeChangesKey });
+		return hunkAssignments.useQuery(
+			{ projectId, worktreeChangesKey },
+			{
+				transform: (data): HunkAssignments => {
+					const groupedAssignments = new Map<string, Map<string, HunkAssignment[]>>();
+					for (const assignment of data) {
+						let stackGroup = groupedAssignments.get(assignment.stackId ?? ungroupedGroup);
+						if (!stackGroup) {
+							stackGroup = new Map();
+							groupedAssignments.set(assignment.stackId ?? ungroupedGroup, stackGroup);
+						}
+						let pathGroup = stackGroup.get(assignment.path);
+						if (!pathGroup) {
+							pathGroup = [];
+							stackGroup.set(assignment.path, pathGroup);
+						}
+						pathGroup.push(assignment);
+					}
+					return groupedAssignments;
+				}
+			}
+		);
 	}
 
-	assignHunk() {
+	get assignHunk() {
 		return this.api.endpoints.assignHunk.mutate;
 	}
 

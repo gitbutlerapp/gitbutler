@@ -12,17 +12,20 @@
 	import { Focusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { previousPathBytesFromTreeChange } from '$lib/hunks/change';
+	import { DiffService } from '$lib/hunks/diffService.svelte';
+	import { AssignmentDropHandler } from '$lib/hunks/dropHandler';
 	import { ChangeSelectionService, type SelectedFile } from '$lib/selection/changeSelection.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { getContext, inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
+	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { untrack } from 'svelte';
 
 	type Props = {
@@ -117,11 +120,27 @@
 
 	let listHeaderHeight = $state(0);
 	let listFooterHeight = $state(0);
+
+	const diffService = getContext(DiffService);
+
+	const changesKeyResult = $derived(worktreeService.getChangesKey(projectId));
+	const hunkAssignments = $derived(
+		changesKeyResult.current
+			? diffService.hunkAssignments(projectId, changesKeyResult.current)
+			: undefined
+	);
+	const assignmentDZHandler = $derived(
+		hunkAssignments?.current?.data
+			? new AssignmentDropHandler(projectId, diffService, hunkAssignments.current.data, {
+					type: 'ungrouped'
+				})
+			: undefined
+	);
 </script>
 
-<Dropzone handlers={[uncommitDzHandler]} maxHeight>
-	{#snippet overlay({ hovered, activated })}
-		<CardOverlay {hovered} {activated} label="Uncommit changes" />
+<Dropzone handlers={[uncommitDzHandler, assignmentDZHandler].filter(isDefined)} maxHeight>
+	{#snippet overlay({ hovered, activated, handler })}
+		<CardOverlay {hovered} {activated} label={handler instanceof UncommitDzHandler ? "Uncommit changes" : "Unassign changes"} />
 	{/snippet}
 
 	<div
@@ -170,6 +189,7 @@
 								showCheckboxes={isCommitting}
 								{listMode}
 								{active}
+								group={{ type: 'ungrouped' }}
 							/>
 						</div>
 						<div

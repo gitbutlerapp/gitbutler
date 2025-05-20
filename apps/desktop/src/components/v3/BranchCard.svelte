@@ -6,13 +6,18 @@
 	import BranchHeader from '$components/v3/BranchHeader.svelte';
 	import BranchHeaderContextMenu from '$components/v3/BranchHeaderContextMenu.svelte';
 	import PrNumberUpdater from '$components/v3/PrNumberUpdater.svelte';
+	import WorktreeChangesFileList from '$components/v3/WorktreeChangesFileList.svelte';
 	import { MoveCommitDzHandler, StartCommitDzHandler } from '$lib/commits/dropHandler';
+	import { DiffService } from '$lib/hunks/diffService.svelte';
+	import { AssignmentDropHandler } from '$lib/hunks/dropHandler';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
+	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import type { PushStatus } from '$lib/stacks/stack';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';
@@ -67,10 +72,12 @@
 	let { projectId, branchName, expand, active, lineColor, iconName, readonly, ...args }: Props =
 		$props();
 
-	const [uiState, stackService, changeSelectionService] = inject(
+	const [uiState, stackService, changeSelectionService, diffService, worktreeService] = inject(
 		UiState,
 		StackService,
-		ChangeSelectionService
+		ChangeSelectionService,
+		DiffService,
+		WorktreeService
 	);
 
 	const [updateName, nameUpdate] = stackService.updateBranchName;
@@ -81,6 +88,13 @@
 	const selection = $derived(stackState ? stackState.selection.current : undefined);
 	const selected = $derived(selection?.branchName === branchName);
 	const isPushed = $derived(!!(args.type === 'draft-branch' ? undefined : args.trackingBranch));
+
+	const changesKeyResult = $derived(worktreeService.getChangesKey(projectId));
+	const hunkAssignments = $derived(
+		changesKeyResult.current
+			? diffService.hunkAssignments(projectId, changesKeyResult.current)
+			: undefined
+	);
 
 	async function updateBranchName(title: string) {
 		if (args.type === 'draft-branch') {
@@ -233,12 +247,47 @@
 		</BranchHeader>
 	{/if}
 
+	{#if args.type === 'stack-branch'}
+		{@const assignmentDZHandler = hunkAssignments?.current?.data
+			? new AssignmentDropHandler(projectId, diffService, hunkAssignments.current.data, {
+					type: 'grouped',
+					stackId: args.stackId
+				})
+			: undefined}
+		<Dropzone handlers={[assignmentDZHandler].filter(isDefined)}>
+			{#snippet overlay({ hovered, activated })}
+				<CardOverlay {hovered} {activated} />
+			{/snippet}
+			<div class="assigned-changes">
+				<p class="text-14 text-bold assigned-changes__title">Assigned changes:</p>
+				<WorktreeChangesFileList
+					{projectId}
+					showCheckboxes={false}
+					listMode="list"
+					active
+					group={{ type: 'grouped', stackId: args.stackId }}
+				/>
+			</div>
+		</Dropzone>
+	{/if}
+
 	{#if args.type !== 'draft-branch'}
 		{@render args.commitList?.()}
 	{/if}
 </div>
 
 <style lang="postcss">
+	.assigned-changes {
+		padding-top: 4px;
+		padding-bottom: 4px;
+
+		border-bottom: 1px solid var(--clr-border-2);
+	}
+
+	.assigned-changes__title {
+		margin: 8px;
+	}
+
 	.branch-card {
 		display: flex;
 		position: relative;
