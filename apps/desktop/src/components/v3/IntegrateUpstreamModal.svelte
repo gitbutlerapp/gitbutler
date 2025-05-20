@@ -49,7 +49,6 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
 	const base = $derived(baseBranchResponse.current.data);
-	const [resolveUpstreamIntegration] = upstreamIntegrationService.resolveUpstreamIntegration();
 
 	let modal = $state<Modal>();
 	let integratingUpstream = $state<OperationState>('inert');
@@ -87,7 +86,7 @@
 	// Re-fetch upstream statuses if the target commit oid changes
 	$effect(() => {
 		if (targetCommitOid) {
-			upstreamIntegrationService.upstreamStatuses(targetCommitOid).then((statuses) => {
+			upstreamIntegrationService.upstreamStatuses(projectId, targetCommitOid).then((statuses) => {
 				branchStatuses = statuses;
 			});
 		}
@@ -97,14 +96,14 @@
 	// approach is changed
 	$effect(() => {
 		if (base?.diverged && baseResolutionApproach) {
-			resolveUpstreamIntegration({
-				projectId,
-				resolutionApproach: { type: baseResolutionApproach }
-			}).then((result) => {
-				if (result) {
+			upstreamIntegrationService
+				.resolveUpstreamIntegrationMutation({
+					projectId,
+					resolutionApproach: { type: baseResolutionApproach }
+				})
+				.then((result) => {
 					targetCommitOid = result;
-				}
-			});
+				});
 		}
 	});
 

@@ -1,3 +1,4 @@
+import { showError } from '$lib/notifications/toasts';
 import { ProjectsService } from '$lib/project/projectsService';
 import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
 import { BranchService as CloudBranchService } from '@gitbutler/shared/branches/branchService';
@@ -32,7 +33,7 @@ export class UpstreamIntegrationService {
 
 	async upstreamStatuses(
 		projectId: string,
-		targetCommitOid?: string
+		targetCommitOid: string | undefined
 	): Promise<StackStatusesWithBranchesV3 | undefined> {
 		const stacks = await this.stackService.fetchStacks(projectId);
 		const branchStatuses = await this.api.endpoints.upstreamIntegrationStatuses.fetch({
@@ -40,7 +41,15 @@ export class UpstreamIntegrationService {
 			targetCommitOid
 		});
 
-		if (!stacks.data || !branchStatuses.data) return;
+		if (!stacks.data || !branchStatuses.data) {
+			if (stacks.isError) {
+				showError('Failed to fetch stacks', stacks.error);
+			}
+			if (branchStatuses.isError) {
+				showError('Failed to fetch upstream integration statuses', branchStatuses.error);
+			}
+			return undefined;
+		}
 
 		const stackData = stacks.data;
 		const branchStatusesData = branchStatuses.data;
@@ -68,6 +77,10 @@ export class UpstreamIntegrationService {
 
 	resolveUpstreamIntegration() {
 		return this.api.endpoints.resolveUpstreamIntegration.useMutation();
+	}
+
+	get resolveUpstreamIntegrationMutation() {
+		return this.api.endpoints.resolveUpstreamIntegration.mutate;
 	}
 
 	integrateUpstream(projectId: string) {
