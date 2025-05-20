@@ -1,15 +1,20 @@
 <script lang="ts">
-	import CommitSuggestionsPlugin from '$components/v3/editor/CommitSuggestionsPlugin.svelte';
 	import EditorFooter from '$components/v3/editor/EditorFooter.svelte';
 	import MessageEditor from '$components/v3/editor/MessageEditor.svelte';
 	import MessageEditorInput from '$components/v3/editor/MessageEditorInput.svelte';
 	import CommitSuggestions from '$components/v3/editor/commitSuggestions.svelte';
+	import DiffInputContext, { type DiffInputContextArgs } from '$lib/ai/diffInputContext.svelte';
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { DiffService } from '$lib/hunks/diffService.svelte';
+	import { showError } from '$lib/notifications/toasts';
+	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { splitMessage } from '$lib/utils/commitMessage';
+	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { tick } from 'svelte';
@@ -51,11 +56,25 @@
 	const aiService = getContext(AIService);
 	const promptService = getContext(PromptService);
 
+	const worktreeService = getContext(WorktreeService);
+	const diffService = getContext(DiffService);
+	const changeSelection = getContext(ChangeSelectionService);
+	const stackService = getContext(StackService);
+
+	const selectedFiles = $derived(changeSelection.list().current);
+
 	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
 	const stackSelection = $derived(stackState?.selection);
 
 	const suggestionsHandler = new CommitSuggestions(aiService, uiState);
-	let commitSuggestionsPlugin = $state<ReturnType<typeof CommitSuggestionsPlugin>>();
+	const diffInputArgs = $derived<DiffInputContextArgs>(
+		existingCommitId
+			? { type: 'commit', projectId, commitId: existingCommitId }
+			: { type: 'change-selection', projectId, selectedFiles }
+	);
+	const diffInputContext = $derived(
+		new DiffInputContext(worktreeService, diffService, stackService, diffInputArgs)
+	);
 
 	// AI things
 	const aiGenEnabled = projectAiGenEnabled(projectId);
@@ -87,14 +106,20 @@
 	}
 
 	async function onAiButtonClick() {
-		if (aiIsLoading || !commitSuggestionsPlugin) return;
+		if (aiIsLoading) return;
 
 		suggestionsHandler.clear();
 		aiIsLoading = true;
 		await tick();
 		try {
 			const prompt = promptService.selectedCommitPrompt(projectId);
-			const diffInput = commitSuggestionsPlugin.getDiffInput();
+			const diffInput = await diffInputContext.diffInput();
+
+			if (!diffInput) {
+				showError('Failed to generate commit message', 'No changes found');
+				aiIsLoading = false;
+				return;
+			}
 
 			let firstToken = true;
 
@@ -125,14 +150,6 @@
 	let composer = $state<ReturnType<typeof MessageEditor>>();
 	let titleInput = $state<HTMLInputElement>();
 </script>
-
-<CommitSuggestionsPlugin
-	bind:this={commitSuggestionsPlugin}
-	{projectId}
-	{canUseAI}
-	{suggestionsHandler}
-	{existingCommitId}
-/>
 
 <div class="commit-message-wrap">
 	<MessageEditorInput

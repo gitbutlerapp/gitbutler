@@ -41,6 +41,12 @@ export class WorktreeService {
 		return getChanges.useQueryState({ projectId }, { transform: (res) => selectByIds(res, paths) });
 	}
 
+	/** Actively fetches the number of changes in the worktree */
+	fetchChangesById(projectId: string, paths: string[]) {
+		const { getChanges } = this.api.endpoints;
+		return getChanges.fetch({ projectId }, { transform: (res) => selectByIds(res, paths) });
+	}
+
 	/** Gets the timestamp of the last time the changes were fetched */
 	getChangesTimeStamp(projectId: string) {
 		const { getChanges } = this.api.endpoints;
