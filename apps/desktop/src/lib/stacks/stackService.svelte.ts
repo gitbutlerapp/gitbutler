@@ -390,6 +390,18 @@ export class StackService {
 		);
 	}
 
+	fetchCommitChanges(projectId: string, commitId: string) {
+		return this.api.endpoints.commitDetails.fetch(
+			{ projectId, commitId },
+			{
+				transform: (result) => ({
+					changes: changesSelectors.selectAll(result.changes),
+					conflictEntries: result.conflictEntries
+				})
+			}
+		);
+	}
+
 	commitChange(projectId: string, commitId: string, path: string) {
 		return this.api.endpoints.commitDetails.useQuery(
 			{ projectId, commitId },
