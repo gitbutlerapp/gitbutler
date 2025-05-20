@@ -1,0 +1,85 @@
+<script lang="ts">
+	interface Props {
+		ref: HTMLInputElement | undefined;
+		value: string;
+		showCount?: boolean;
+		oninput: (e: Event) => void;
+		onkeydown: (e: KeyboardEvent) => void;
+		testId?: string;
+	}
+
+	let {
+		ref = $bindable(),
+		value = $bindable(),
+		showCount = true,
+		oninput,
+		onkeydown,
+		testId
+	}: Props = $props();
+
+	let charsCount = $state(value.length);
+</script>
+
+<!-- svelte-ignore a11y_autofocus -->
+<div class="message-editor-input">
+	<input
+		data-testid={testId}
+		bind:this={ref}
+		placeholder="Commit title"
+		class="text-14 text-semibold text-input"
+		type="text"
+		autofocus
+		{value}
+		oninput={(e: Event) => {
+			const input = e.currentTarget as HTMLInputElement;
+			charsCount = input.value.length;
+			oninput(e);
+		}}
+		{onkeydown}
+	/>
+	{#if charsCount > 0 && showCount}
+		<div class="text-12 text-semibold message-editor-input__chars-count">
+			<span>{charsCount}</span>
+		</div>
+	{/if}
+</div>
+
+<style lang="postcss">
+	.text-input {
+		width: 100%;
+		padding: 8px 12px;
+	}
+
+	.message-editor-input {
+		position: relative;
+	}
+
+	.message-editor-input__chars-count {
+		position: absolute;
+		right: 6px;
+		bottom: 50%;
+		padding: 6px;
+		transform: translateY(50%);
+		background-color: var(--clr-bg-1);
+		color: var(--clr-text-2);
+
+		& span {
+			opacity: 0.6;
+		}
+
+		&:after {
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			transform: translateX(-90%);
+			background: linear-gradient(
+				to right,
+				oklch(from var(--clr-bg-1) l c h / 0) 00%,
+				var(--clr-bg-1) 90%
+			);
+			content: '';
+		}
+	}
+</style>
