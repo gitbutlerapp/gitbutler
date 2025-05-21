@@ -1,6 +1,7 @@
 import { AnthropicAIClient } from '$lib/ai/anthropicClient';
 import { ButlerAIClient } from '$lib/ai/butlerClient';
 import { formatStagedChanges } from '$lib/ai/diffFormatting';
+import { LMStudioClient } from '$lib/ai/lmStudioClient';
 import {
 	DEFAULT_OLLAMA_ENDPOINT,
 	DEFAULT_OLLAMA_MODEL_NAME,
@@ -51,7 +52,8 @@ export enum GitAIConfigKey {
 	AnthropicModelName = 'gitbutler.aiAnthropicModelName',
 	DiffLengthLimit = 'gitbutler.diffLengthLimit',
 	OllamaEndpoint = 'gitbutler.aiOllamaEndpoint',
-	OllamaModelName = 'gitbutler.aiOllamaModelName'
+	OllamaModelName = 'gitbutler.aiOllamaModelName',
+	LMStudioEndpoint = 'gitbutler.aiLMStudioEndpoint'
 }
 
 interface BaseAIServiceOpts {
@@ -198,6 +200,13 @@ export class AIService {
 		);
 	}
 
+	async getLMStudioEndpoint() {
+		return await this.gitConfig.getWithDefault<string>(
+			GitAIConfigKey.LMStudioEndpoint,
+			'http://127.0.0.1:1234'
+		);
+	}
+
 	async usingGitButlerAPI() {
 		const modelKind = await this.getModelKind();
 		const openAIKeyOption = await this.getOpenAIKeyOption();
@@ -217,6 +226,7 @@ export class AIService {
 		const anthropicKey = await this.getAnthropicKey();
 		const ollamaEndpoint = await this.getOllamaEndpoint();
 		const ollamaModelName = await this.getOllamaModelName();
+		const lmStudioEndpoint = await this.getLMStudioEndpoint();
 
 		if (await this.usingGitButlerAPI()) return !!get(this.tokenMemoryService.token);
 
@@ -224,9 +234,14 @@ export class AIService {
 		const anthropicActiveAndKeyProvided = modelKind === ModelKind.Anthropic && !!anthropicKey;
 		const ollamaActiveAndEndpointProvided =
 			modelKind === ModelKind.Ollama && !!ollamaEndpoint && !!ollamaModelName;
+		const lmStudioActiveAndEndpointProvided =
+			modelKind === ModelKind.LMStudio && !!lmStudioEndpoint;
 
 		return (
-			openAIActiveAndKeyProvided || anthropicActiveAndKeyProvided || ollamaActiveAndEndpointProvided
+			openAIActiveAndKeyProvided ||
+			anthropicActiveAndKeyProvided ||
+			ollamaActiveAndEndpointProvided ||
+			lmStudioActiveAndEndpointProvided
 		);
 	}
 
@@ -250,6 +265,16 @@ export class AIService {
 			const ollamaEndpoint = await this.getOllamaEndpoint();
 			const ollamaModelName = await this.getOllamaModelName();
 			return new OllamaClient(ollamaEndpoint, ollamaModelName);
+		}
+
+		if (modelKind === ModelKind.LMStudio) {
+			const lmStudioEndpoint = await this.getLMStudioEndpoint();
+
+			if (!lmStudioEndpoint) {
+				throw new Error('When using LM Studio, you must provide a valid endpoint');
+			}
+
+			return new LMStudioClient(lmStudioEndpoint);
 		}
 
 		if (modelKind === ModelKind.OpenAI) {

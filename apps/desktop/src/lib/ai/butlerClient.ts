@@ -12,15 +12,12 @@ function splitPromptMessagesIfNecessary(
 	modelKind: ModelKind,
 	prompt: Prompt
 ): [Prompt, string | undefined] {
-	switch (modelKind) {
-		case ModelKind.Anthropic: {
-			const [messages, system] = splitPromptMessages(prompt);
-			return [messageParamToPrompt(messages), system];
-		}
-		case ModelKind.OpenAI:
-		case ModelKind.Ollama:
-			return [prompt, undefined];
+	if (modelKind === ModelKind.Anthropic) {
+		const [messages, system] = splitPromptMessages(prompt);
+		return [messageParamToPrompt(messages), system];
 	}
+
+	return [prompt, undefined];
 }
 
 export class ButlerAIClient implements AIClient {
