@@ -1,3 +1,4 @@
+import { ParagraphMarkdownTransformer } from '$lib/richText/customTransforers';
 import { isWrappingExempt, parseBullet, parseIndent, wrapLine } from '$lib/richText/linewrap';
 import {
 	$convertFromMarkdownString as convertFromMarkdownString,
@@ -7,11 +8,12 @@ import {
 	$getRoot as getRoot,
 	type LexicalEditor,
 	$createParagraphNode as createParagraphNode,
-	$createTextNode as createTextNode
+	$createTextNode as createTextNode,
+	$createLineBreakNode as createLineBreakNode
 } from 'lexical';
 import { ALL_TRANSFORMERS } from 'svelte-lexical';
 
-export function updateEditorToMarkdown(editor: LexicalEditor | undefined) {
+export function updateEditorToRichText(editor: LexicalEditor | undefined) {
 	editor?.update(() => {
 		const text = getRoot().getTextContent();
 		convertFromMarkdownString(text, ALL_TRANSFORMERS, undefined, false, true);
@@ -22,7 +24,11 @@ export function updateEditorToMarkdown(editor: LexicalEditor | undefined) {
  * TODO: We should not call this on _every_ change to the document, see `OnChange.svelte`.
  */
 export function getMarkdownString(maxLength?: number): string {
-	const markdown = convertToMarkdownString(ALL_TRANSFORMERS);
+	const markdown = convertToMarkdownString(
+		[ParagraphMarkdownTransformer, ...ALL_TRANSFORMERS],
+		undefined,
+		true
+	);
 	return maxLength ? wrapIfNecessary(markdown, maxLength) : markdown;
 }
 
@@ -30,15 +36,10 @@ export function getMarkdownString(maxLength?: number): string {
  * Gets the number of lines, starting from the current one, that belong to the
  * same paragraph.
  */
-function getParagraphLength(lines: string[], indent: string): number {
+function getParagraphLength(lines: string[]): number {
 	for (let i = 0; i < lines.length; i++) {
 		const line = lines[i];
-		if (
-			line.trimStart() === '' &&
-			!line.startsWith(indent) &&
-			line.length > indent.length &&
-			line[indent.length].match(/\s/)
-		) {
+		if (line.trimStart() === '') {
 			return i;
 		}
 	}
@@ -49,7 +50,7 @@ function getParagraphLength(lines: string[], indent: string): number {
  * Takes output from the lexical rich text -> markdown conversion, and hard
  * wraps the output according to the given maxLength.
  */
-function wrapIfNecessary(markdown: string, maxLength: number): string {
+export function wrapIfNecessary(markdown: string, maxLength: number): string {
 	const lines = markdown.split('\n');
 	let i = 0;
 	const newLines: string[] = [];
@@ -70,7 +71,7 @@ function wrapIfNecessary(markdown: string, maxLength: number): string {
 
 		// We want to consider the modified line, and the remaining lines from
 		// the same pagraph.
-		const paragraphLength = getParagraphLength(lines.slice(i), indent);
+		const paragraphLength = getParagraphLength(lines.slice(i));
 
 		const { newLine, newRemainder } = wrapLine({
 			line,
@@ -85,7 +86,7 @@ function wrapIfNecessary(markdown: string, maxLength: number): string {
 		remainder = newRemainder;
 
 		// Carry over possible remainder and re-wrap the rest of paragraph.
-		for (let j = 0; j < paragraphLength; j++) {
+		for (let j = 1; j < paragraphLength; j++) {
 			const line = lines[i + j];
 			const { newLine, newRemainder } = wrapLine({ line, remainder, maxLength, indent, bullet });
 			newLines.push(newLine);
@@ -93,7 +94,7 @@ function wrapIfNecessary(markdown: string, maxLength: number): string {
 		}
 
 		// Move pointer along
-		i += paragraphLength;
+		i += paragraphLength - 1;
 
 		// Insert any final remainder at the end of the paragraph.
 		if (remainder) {
@@ -111,10 +112,18 @@ function wrapIfNecessary(markdown: string, maxLength: number): string {
 export function updateEditorToPlaintext(editor: LexicalEditor | undefined, maxLength?: number) {
 	editor?.update(() => {
 		const text = getMarkdownString(maxLength);
+		if (text.length === 0) {
+			return;
+		}
+
 		const root = getRoot();
 		root.clear();
+
 		const paragraph = createParagraphNode();
-		paragraph.append(createTextNode(text));
+		for (const line of text.split('\n')) {
+			paragraph.append(createTextNode(line));
+			paragraph.append(createLineBreakNode());
+		}
 		root.append(paragraph);
 	});
 }
