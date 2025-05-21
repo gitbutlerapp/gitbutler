@@ -57,16 +57,18 @@ export class AssignmentDropHandler implements DropzoneHandler {
 				assignments
 			});
 		} else {
-			if (data.selectionId.type !== 'worktree') {
+			const selectionId = data.selectionId;
+			if (selectionId.type !== 'worktree') {
 				throw new Error('Mission impossible');
 			}
 
-			const stackGroup = this.assignments.get(hunkGroupToKey(data.selectionId.group));
+			const stackGroup = this.assignments.get(hunkGroupToKey(selectionId.group));
 			if (!stackGroup) return;
 			const fileAssignments = stackGroup.get(data.change.path);
 			const fileAssignment: HunkAssignmentRequest | undefined = structuredClone(
-				fileAssignments?.find((assignment) =>
-					hunkHeaderEquals(assignment.hunkHeader, assignment.hunkHeader)
+				fileAssignments?.find(
+					(assignment) =>
+						assignment.hunkHeader !== null && hunkHeaderEquals(assignment.hunkHeader, data.hunk)
 				)
 			);
 			if (!fileAssignment) return;

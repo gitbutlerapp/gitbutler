@@ -138,7 +138,7 @@ export class ChangeSelectionService {
 			this.dispatch(removeAll());
 			return;
 		}
-		const selection = $derived(selectAll(this.state));
+		const selection = selectAll(this.state);
 		const expired = [];
 		for (const change of selection) {
 			if (!paths.includes(change.path)) {
@@ -151,7 +151,7 @@ export class ChangeSelectionService {
 	}
 
 	every(paths: string[], predicate: (selection: SelectedFile) => boolean): boolean {
-		const selection = $derived(selectAll(this.state));
+		const selection = selectAll(this.state);
 		for (const path of paths) {
 			const change = selection.find((change) => change.path === path);
 			if (change === undefined || !predicate(change)) {

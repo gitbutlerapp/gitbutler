@@ -121,7 +121,7 @@ export type HunkAssignmentRequest = {
 	 * If the file is binary, or too large to load, this will be None and in this case the path name is the only identity.
 	 * If the file has hunk headers, then header info MUST be provided.
 	 */
-	hunkHeader: HunkHeader;
+	hunkHeader: HunkHeader | null;
 	/** The file path of the hunk in bytes. */
 	pathBytes: number[];
 	/**
