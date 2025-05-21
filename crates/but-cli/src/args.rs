@@ -123,7 +123,11 @@ pub enum Subcommands {
         new_lines: u32,
     },
     /// Returns the list of stacks that are currently part of the GitButler workspace.
-    Stacks,
+    Stacks {
+        /// Whether to list only the stacks in the workspace.
+        #[clap(long, short = 'w')]
+        workspace_only: bool,
+    },
     /// Returns the list of stacks that are currently part of the GitButler workspace.
     StackDetails {
         /// The ID of the stack to list details for.

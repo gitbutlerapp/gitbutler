@@ -179,11 +179,20 @@ pub mod stacks {
         pub upstream_commits: Vec<ui::UpstreamCommit>,
     }
 
-    pub fn list(current_dir: &Path, use_json: bool, v3: bool) -> anyhow::Result<()> {
+    pub fn list(
+        current_dir: &Path,
+        use_json: bool,
+        v3: bool,
+        in_workspace: bool,
+    ) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
         let ctx = CommandContext::open(&project, AppSettings::default())?;
         let repo = ctx.gix_repo_for_merging_non_persisting()?;
-        let filter = StacksFilter::All;
+        let filter = if in_workspace {
+            StacksFilter::InWorkspace
+        } else {
+            StacksFilter::All
+        };
         let stacks = if v3 {
             let meta = ref_metadata_toml(ctx.project())?;
             but_workspace::stacks_v3(&repo, &meta, filter)
