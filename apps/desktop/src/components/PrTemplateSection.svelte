@@ -9,15 +9,17 @@
 
 	interface Props {
 		projectId: string;
-		templates: string[];
 		disabled: boolean;
 		onselect: (template: string) => void;
 	}
 
-	let { projectId, templates, disabled, onselect }: Props = $props();
+	let { projectId, disabled, onselect }: Props = $props();
 
 	const forge = getContext(DefaultForgeFactory);
 	const templateService = getContext(TemplateService);
+
+	// Available pull request templates.
+	const templatesResult = $derived(templateService.getAvailable(forge.current.name));
 
 	// The last template that was used. It is used as default if it is in the
 	// list of available template.
@@ -30,10 +32,11 @@
 		onselect(template);
 	}
 
-	function setEnabled(enabled: boolean) {
+	async function setEnabled(enabled: boolean) {
+		const ts = await templatesResult;
 		templateEnabled.set(enabled);
 		if (enabled) {
-			const path = $templatePath ? $templatePath : templates.at(0);
+			const path = $templatePath ? $templatePath : ts.at(0);
 			if (path) {
 				selectTemplate(path);
 			}
@@ -41,32 +44,36 @@
 	}
 </script>
 
-<div class="pr-template__wrap">
-	<label class="pr-template__toggle" for="pr-template-toggle">
-		<span class="text-13 text-semibold">Use template</span>
-		<Toggle
-			id="pr-template-toggle"
-			onchange={(checked) => setEnabled(checked)}
-			checked={$templateEnabled}
-			disabled={templates.length === 0 || disabled}
-		/>
-	</label>
-	<Select
-		value={$templatePath}
-		options={templates.map((value) => ({ label: value, value }))}
-		placeholder={templates.length > 0 ? 'Choose template' : 'No PR templates found ¯\\_(ツ)_/¯'}
-		flex="1"
-		searchable
-		disabled={!$templateEnabled || templates.length === 0 || disabled}
-		onselect={(path) => selectTemplate(path)}
-	>
-		{#snippet itemSnippet({ item, highlighted })}
-			<SelectItem selected={item.value === $templatePath} {highlighted}>
-				{item.label}
-			</SelectItem>
-		{/snippet}
-	</Select>
-</div>
+{#await templatesResult then templates}
+	{#if templates.length > 0}
+		<div class="pr-template__wrap">
+			<label class="pr-template__toggle" for="pr-template-toggle">
+				<span class="text-13 text-semibold">Use template</span>
+				<Toggle
+					id="pr-template-toggle"
+					onchange={(checked) => setEnabled(checked)}
+					checked={$templateEnabled}
+					disabled={templates.length === 0 || disabled}
+				/>
+			</label>
+			<Select
+				value={$templatePath}
+				options={templates.map((value) => ({ label: value, value }))}
+				placeholder={templates.length > 0 ? 'Choose template' : 'No PR templates found ¯\\_(ツ)_/¯'}
+				flex="1"
+				searchable
+				disabled={!$templateEnabled || templates.length === 0 || disabled}
+				onselect={(path) => selectTemplate(path)}
+			>
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem selected={item.value === $templatePath} {highlighted}>
+						{item.label}
+					</SelectItem>
+				{/snippet}
+			</Select>
+		</div>
+	{/if}
+{/await}
 
 <style lang="postcss">
 	.pr-template__wrap {
