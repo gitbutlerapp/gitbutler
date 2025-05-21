@@ -26,11 +26,11 @@
 	class="dropzone-target dropzone-wrapper"
 	class:activated
 	class:hovered
-	style="--padding-top: {pxToRem(defaultPadding + extraPaddingTop)}; --padding-right: {pxToRem(
+	style="--padding-top: {pxToRem(defaultPadding + extraPaddingTop)}rem; --padding-right: {pxToRem(
 		defaultPadding + extraPaddingRight
-	)}; --padding-bottom: {pxToRem(defaultPadding + extraPaddingBottom)}; --padding-left: {pxToRem(
-		defaultPadding + extraPaddingLeft
-	)}"
+	)}rem; --padding-bottom: {pxToRem(
+		defaultPadding + extraPaddingBottom
+	)}rem; --padding-left: {pxToRem(defaultPadding + extraPaddingLeft)}rem"
 >
 	<div class="container">
 		<div class="dropzone-label">

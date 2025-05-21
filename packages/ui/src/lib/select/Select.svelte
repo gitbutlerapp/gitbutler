@@ -214,7 +214,7 @@
 	class:wide
 	bind:this={selectWrapperEl}
 	style:flex
-	style:max-width={maxWidth ? pxToRem(maxWidth) : undefined}
+	style:max-width={maxWidth ? `${pxToRem(maxWidth)}rem` : 'none'}
 >
 	{#if label}
 		<label for={id} class="select__label text-13 text-body text-semibold">{label}</label>
@@ -257,7 +257,7 @@
 				class="options card"
 				bind:this={optionsGroupEl}
 				style:width={getPopupWidthStyle()}
-				style:max-width={customWidth && pxToRem(customWidth)}
+				style:max-width={customWidth && `${pxToRem(customWidth)}rem`}
 				style:top={getTopStyle()}
 				style:left={getLeftStyle()}
 				style:max-height={maxHeightState && `${maxHeightState}px`}

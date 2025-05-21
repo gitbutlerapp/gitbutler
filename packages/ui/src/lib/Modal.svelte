@@ -125,7 +125,7 @@
 			class:large={width === 'large'}
 			class:small={width === 'small'}
 			class:xsmall={width === 'xsmall'}
-			style:width={typeof width === 'number' ? pxToRem(width) : undefined}
+			style:width={typeof width === 'number' ? `${pxToRem(width)}rem` : undefined}
 			onsubmit={(e) => {
 				e.preventDefault();
 				onSubmit?.(close, item);

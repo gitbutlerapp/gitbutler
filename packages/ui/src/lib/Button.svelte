@@ -120,10 +120,10 @@
 		style:align-self={align}
 		style:width={width !== undefined
 			? typeof width === 'number'
-				? pxToRem(width)
+				? `${pxToRem(width)}rem`
 				: width
 			: undefined}
-		style:max-width={maxWidth !== undefined ? pxToRem(maxWidth) : undefined}
+		style:max-width={maxWidth !== undefined ? `${pxToRem(maxWidth)}rem` : undefined}
 		style={customStyle}
 		disabled={disabled || loading}
 		onclick={handleAction}

@@ -68,10 +68,10 @@
 
 	const vert = $derived(!horz);
 
-	const paddingTop = $derived(pxToRem(padding.top ?? 0));
-	const paddingBottom = $derived(pxToRem(padding.bottom ?? 0));
-	const paddingRight = $derived(pxToRem(padding.right ?? 0));
-	const paddingLeft = $derived(pxToRem(padding.left ?? 0));
+	const paddingTop = $derived(`${pxToRem(padding.top)}rem`);
+	const paddingBottom = $derived(`${pxToRem(padding.bottom)}rem`);
+	const paddingRight = $derived(`${pxToRem(padding.right)}rem`);
+	const paddingLeft = $derived(`${pxToRem(padding.left)}rem`);
 
 	let wholeHeight = $state(viewport?.scrollHeight ?? 0);
 	let wholeWidth = $state(viewport?.scrollWidth ?? 0);

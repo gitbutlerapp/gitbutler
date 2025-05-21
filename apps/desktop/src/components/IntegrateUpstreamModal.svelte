@@ -234,7 +234,7 @@
 					<span>Incoming changes</span><Badge>{base.upstreamCommits.length}</Badge>
 				</h3>
 				<div class="scroll-wrap">
-					<ScrollableContainer maxHeight={pxToRem(268)}>
+					<ScrollableContainer maxHeight="{pxToRem(268)}rem">
 						{#each base.upstreamCommits as commit}
 							{@const commitUrl = forge.current.commitUrl(commit.id)}
 							<SimpleCommitRow
@@ -290,7 +290,7 @@
 			<div class="section" class:section-disabled={isDivergedResolved}>
 				<h3 class="text-14 text-semibold">To be updated:</h3>
 				<div class="scroll-wrap">
-					<ScrollableContainer maxHeight={pxToRem(240)}>
+					<ScrollableContainer maxHeight="{pxToRem(240)}rem">
 						<div>
 							{#each statuses as { stack, status }}
 								{@render stackStatus(stack, status)}

@@ -24,7 +24,7 @@
 	let contentHeight = $state<string>();
 
 	function setHeight() {
-		contentHeight = `calc(${pxToRem(el?.scrollHeight ?? 0)} + ${pxToRem(8)})`;
+		contentHeight = `calc(${pxToRem(el?.scrollHeight ?? 0)}rem + ${pxToRem(8)}rem)`;
 	}
 
 	onMount(() => {

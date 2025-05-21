@@ -14,7 +14,7 @@
 	class="dropzone-target container"
 	class:activated
 	class:hovered
-	style:--y-offset={pxToRem(yOffsetPx)}
+	style:--y-offset="{pxToRem(yOffsetPx)}rem"
 >
 	<div class="indicator"></div>
 </div>
