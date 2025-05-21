@@ -26,7 +26,6 @@
 		BrToPrService,
 		updatePrDescriptionTables as updatePrStackInfo
 	} from '$lib/forge/shared/prFooter';
-	import { TemplateService } from '$lib/forge/templateService';
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { ProjectsService } from '$lib/project/projectsService';
@@ -70,7 +69,6 @@
 	const stackService = getContext(StackService);
 	const projectsService = getContext(ProjectsService);
 	const userService = getContext(UserService);
-	const templateService = getContext(TemplateService);
 	const aiService = getContext(AIService);
 	const remotesService = getContext(RemotesService);
 
@@ -115,16 +113,6 @@
 
 	let titleInput = $state<ReturnType<typeof Textbox>>();
 	let messageEditor = $state<MessageEditor>();
-
-	// Available pull request templates.
-	let templates = $state<string[]>([]);
-
-	// Load the available templates when the component is mounted.
-	$effect(() => {
-		templateService.getAvailable(forge.current.name).then((templatesResponse) => {
-			templates = templatesResponse;
-		});
-	});
 
 	// AI things
 	const aiGenEnabled = projectAiGenEnabled(projectId);
@@ -408,9 +396,6 @@
 	};
 </script>
 
-<!-- HEADER -->
-
-<!-- MAIN FIELDS -->
 <div class="pr-content">
 	<Textbox
 		testId={TestId.ReviewTitleInput}
@@ -429,20 +414,15 @@
 		}}
 	/>
 
-	<!-- PR TEMPLATE SELECT -->
-	{#if templates.length > 0}
-		<PrTemplateSection
-			{projectId}
-			{templates}
-			disabled={isExecuting}
-			onselect={(value) => {
-				prBody.set(value);
-				messageEditor?.setText(value);
-			}}
-		/>
-	{/if}
+	<PrTemplateSection
+		{projectId}
+		disabled={isExecuting}
+		onselect={(value) => {
+			prBody.set(value);
+			messageEditor?.setText(value);
+		}}
+	/>
 
-	<!-- DESCRIPTION FIELD -->
 	<MessageEditor
 		bind:this={messageEditor}
 		testId={TestId.ReviewDescriptionInput}
