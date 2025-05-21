@@ -14,7 +14,7 @@
 			return '';
 		}
 
-		return `margin-top: ${pxToRem(margin)}; margin-bottom: ${pxToRem(margin)};`;
+		return `margin-top: ${pxToRem(margin)}rem; margin-bottom: ${pxToRem(margin)}rem;`;
 	}
 </script>
 

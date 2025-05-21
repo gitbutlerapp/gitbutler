@@ -100,7 +100,7 @@
 				use:setPosition={{ targetEl, position, align, overrideYScroll }}
 				use:portal={'body'}
 				class="tooltip-container text-11 text-body"
-				style:max-width={pxToRem(maxWidth)}
+				style:max-width="{pxToRem(maxWidth)}rem"
 				transition:flyScale={{
 					position: position
 				}}

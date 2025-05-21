@@ -44,7 +44,7 @@ export function flyScale(
 			const translateY = y * (1 - t);
 			const scale = startScale + t * (1 - startScale);
 
-			return `transform: translate3d(${transformX}px, ${pxToRem(position === 'top' ? -translateY : translateY)}, 0) scale(${scale});
+			return `transform: translate3d(${transformX}px, ${pxToRem(position === 'top' ? -translateY : translateY)}rem, 0) scale(${scale});
 			        opacity: ${t};`;
 		},
 		easing: cubicOut

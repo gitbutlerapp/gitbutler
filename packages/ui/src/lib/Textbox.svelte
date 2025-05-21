@@ -109,7 +109,7 @@
 	class="textbox"
 	bind:this={element}
 	class:wide
-	style:width={width ? pxToRem(width) : undefined}
+	style:width={width ? `${pxToRem(width)}rem` : undefined}
 	class:wiggle-animation={!isInputValid}
 	use:clickOutside={{ excludeElement: element, handler: onClickOutside }}
 >
