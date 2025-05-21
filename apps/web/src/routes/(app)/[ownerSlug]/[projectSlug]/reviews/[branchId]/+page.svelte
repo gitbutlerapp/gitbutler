@@ -285,7 +285,7 @@
 									onError={console.error}
 									styleContext="chat-input"
 									initialText={branch.description}
-									onChange={(text) => (summary = text)}
+									onInput={(text) => (summary = text)}
 								>
 									{#snippet plugins()}
 										<FileUploadPlugin onDrop={handleDropFiles} />
