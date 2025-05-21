@@ -58,6 +58,13 @@ pub mod commands {
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
     ) -> Result<VirtualBranches, Error> {
+        if settings.get()?.feature_flags.v3 {
+            return Ok(VirtualBranches {
+                branches: vec![],
+                skipped_files: vec![],
+                dependency_errors: vec![],
+            });
+        }
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         gitbutler_branch_actions::list_virtual_branches(&ctx)
