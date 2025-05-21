@@ -1,3 +1,0 @@
-ancestorEntries = ["apps/desktop/src/components/v3/CommitMessageEditor.svelte", "apps/desktop/src/components/v3/CommitView.svelte", "apps/desktop/src/components/v3/NewCommitView.svelte"]
-ourEntries = ["apps/desktop/src/components/v3/CommitMessageEditor.svelte", "apps/desktop/src/components/v3/CommitView.svelte", "apps/desktop/src/components/v3/NewCommitView.svelte"]
-theirEntries = ["apps/desktop/src/components/v3/CommitMessageEditor.svelte", "apps/desktop/src/components/v3/CommitView.svelte", "apps/desktop/src/components/v3/NewCommitView.svelte"]
