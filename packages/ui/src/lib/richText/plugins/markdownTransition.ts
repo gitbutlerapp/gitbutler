@@ -1,4 +1,4 @@
-import { updateEditorToMarkdown, updateEditorToPlaintext } from '$lib/richText/markdown';
+import { updateEditorToRichText, updateEditorToPlaintext } from '$lib/richText/markdown';
 import { type LexicalEditor } from 'lexical';
 
 // It looks like
@@ -21,7 +21,7 @@ export default class MarkdownTransitionPlugin {
 	setMarkdown(markdown: boolean) {
 		if (this.editor) {
 			if (markdown) {
-				updateEditorToMarkdown(this.editor);
+				updateEditorToRichText(this.editor);
 			} else {
 				updateEditorToPlaintext(this.editor, this.maxLength);
 			}
