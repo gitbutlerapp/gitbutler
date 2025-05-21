@@ -200,7 +200,7 @@
 
 			if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
 				e.preventDefault();
-				action({ title, description });
+				emitAction();
 				return true;
 			}
 
