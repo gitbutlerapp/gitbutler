@@ -19,7 +19,6 @@
 		Composer,
 		ContentEditable,
 		RichTextPlugin,
-		SharedHistoryPlugin,
 		ListPlugin,
 		CheckListPlugin,
 		AutoFocusPlugin,
@@ -32,7 +31,8 @@
 		CodeActionMenuPlugin,
 		MarkdownShortcutPlugin,
 		ALL_TRANSFORMERS,
-		LinkPlugin
+		LinkPlugin,
+		HistoryPlugin
 	} from 'svelte-lexical';
 
 	type Props = {
@@ -260,7 +260,7 @@
 			<PlainTextPlugin />
 			<PlainTextIndentPlugin />
 		{/if}
-		<SharedHistoryPlugin />
+		<HistoryPlugin />
 
 		{#if plugins}
 			{@render plugins()}
