@@ -8,7 +8,7 @@
 		value?: string;
 		indeterminate?: boolean;
 		style?: CheckboxStyle;
-		onclick?: (e: MouseEvent | Event) => void;
+		onclick?: (e: MouseEvent) => void;
 		onchange?: (
 			e: Event & {
 				currentTarget: EventTarget & HTMLInputElement;
@@ -18,7 +18,7 @@
 </script>
 
 <script lang="ts">
-	let input: HTMLInputElement;
+	let input = $state<HTMLInputElement>();
 
 	let {
 		name,
@@ -52,7 +52,9 @@
 		if (e.key === 'Enter') {
 			e.preventDefault();
 			e.stopPropagation();
-			input.checked = !input.checked;
+			if (input) {
+				input.checked = !input.checked;
+			}
 			onchange?.(e);
 		}
 	}}

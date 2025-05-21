@@ -193,7 +193,6 @@
 							<WorktreeChangesFileList
 								draggableFiles
 								{projectId}
-								showCheckboxes={isCommitting}
 								{listMode}
 								{active}
 								group={{ type: 'ungrouped' }}

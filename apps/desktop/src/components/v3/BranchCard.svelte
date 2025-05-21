@@ -267,7 +267,6 @@
 				<p class="text-14 text-bold assigned-changes__title">Assigned changes:</p>
 				<WorktreeChangesFileList
 					{projectId}
-					showCheckboxes={false}
 					listMode="list"
 					active
 					group={{ type: 'grouped', stackId: args.stackId }}
