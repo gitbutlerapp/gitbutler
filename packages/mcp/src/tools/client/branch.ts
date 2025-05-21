@@ -49,12 +49,12 @@ const TOOL_LISTINGS = [
 	{
 		name: 'create-branch',
 		description: 'Create a new branch in the current GitButler project.',
-		parameters: zodToJsonSchema(CreateBranchParamsSchema)
+		inputSchema: zodToJsonSchema(CreateBranchParamsSchema)
 	},
 	{
 		name: 'add-branch-to-stack',
 		description: 'Add a branch to an existing stack in the current GitButler project.',
-		parameters: zodToJsonSchema(AddBranchToStackParamsSchema)
+		inputSchema: zodToJsonSchema(AddBranchToStackParamsSchema)
 	}
 ] as const;
 

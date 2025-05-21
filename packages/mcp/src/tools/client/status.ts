@@ -63,7 +63,7 @@ type ExtendedStackListing = {
  * Get the list of stacks of the current GitButler project.
  */
 export function listStacks(params: ListStacksParams): ExtendedStackListing[] {
-	const args = ['stacks'];
+	const args = ['stacks', '-w'];
 
 	const stacks = executeGitButlerCommand(params.project_directory, args, StackListSchema);
 	const result: ExtendedStackListing[] = [];
