@@ -93,8 +93,10 @@ export function wrapIfNecessary(markdown: string, maxLength: number): string {
 			remainder = newRemainder;
 		}
 
-		// Move pointer along
-		i += paragraphLength - 1;
+		// Move pointer along if lines were rewritten.
+		if (paragraphLength > 1) {
+			i += paragraphLength - 1;
+		}
 
 		// Insert any final remainder at the end of the paragraph.
 		if (remainder) {
