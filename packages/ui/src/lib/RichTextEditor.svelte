@@ -5,6 +5,7 @@
 	import PlainTextIndentPlugin from '$lib/richText/plugins/PlainTextIndentPlugin.svelte';
 	import MarkdownTransitionPlugin from '$lib/richText/plugins/markdownTransition';
 	import OnChangePlugin, { type OnChangeCallback } from '$lib/richText/plugins/onChange.svelte';
+	import OnInput, { type OnInputCallback } from '$lib/richText/plugins/onInput.svelte';
 	import { insertTextAtCaret, setEditorText } from '$lib/richText/selection';
 	import {
 		COMMAND_PRIORITY_CRITICAL,
@@ -44,6 +45,7 @@
 		onFocus?: () => void;
 		onBlur?: () => void;
 		onChange?: OnChangeCallback;
+		onInput?: OnInputCallback;
 		onKeyDown?: (event: KeyboardEvent | null) => boolean;
 		initialText?: string;
 		disabled?: boolean;
@@ -61,6 +63,7 @@
 		onFocus,
 		onBlur,
 		onChange,
+		onInput,
 		onKeyDown,
 		initialText,
 		wrapCountValue
@@ -232,7 +235,14 @@
 		</div>
 
 		<EmojiPlugin bind:this={emojiPlugin} />
-		<OnChangePlugin {markdown} {onChange} maxLength={wrapCountValue} />
+
+		{#if onChange}
+			<OnChangePlugin {markdown} {onChange} maxLength={wrapCountValue} />
+		{/if}
+
+		{#if onInput}
+			<OnInput {markdown} {onInput} maxLength={wrapCountValue} />
+		{/if}
 
 		{#if markdown}
 			<AutoFocusPlugin />

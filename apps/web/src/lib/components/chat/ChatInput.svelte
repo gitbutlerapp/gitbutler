@@ -275,7 +275,7 @@
 				markdown={false}
 				namespace="ChatInput"
 				onError={console.error}
-				onChange={(text) => messageHandler.update(text)}
+				onInput={(text) => messageHandler.update(text)}
 				onKeyDown={handleKeyDown}
 			>
 				{#snippet plugins()}
