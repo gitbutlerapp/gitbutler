@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import Chrome from '$components/Chrome.svelte';
 	import FileMenuAction from '$components/FileMenuAction.svelte';
+	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import History from '$components/History.svelte';
 	import MetricsReporter from '$components/MetricsReporter.svelte';
 	import Navigation from '$components/Navigation.svelte';
@@ -255,11 +256,8 @@
 		clearFetchInterval();
 	});
 
-	let noViewableProjects = $state(false);
-
 	async function setActiveProjectOrRedirect() {
 		// Optimistically assume the project is viewable
-		noViewableProjects = false;
 		try {
 			await projectsService.setActiveProject(projectId);
 		} catch (error: unknown) {
@@ -289,6 +287,8 @@
 
 	{#if !project}
 		<p>Project not found!</p>
+	{:else if baseBranchResponse.current.isLoading}
+		<FullviewLoading />
 	{:else if !baseBranch}
 		<NoBaseBranch />
 	{:else if baseError}
@@ -297,8 +297,6 @@
 		<ProblemLoadingRepo error={$branchesError} />
 	{:else if $projectError}
 		<ProblemLoadingRepo error={$projectError} />
-	{:else if noViewableProjects}
-		<ProblemLoadingRepo error="All projects are already open in another window" />
 	{:else if baseBranch}
 		{#if $mode?.type === 'OpenWorkspace' || $mode?.type === 'Edit'}
 			<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
