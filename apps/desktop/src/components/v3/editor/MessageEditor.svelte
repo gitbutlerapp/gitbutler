@@ -249,7 +249,7 @@
 			>
 		</div>
 
-		<FormattingBar bind:formatter />
+		<FormattingBar {formatter} />
 	</div>
 
 	<div
