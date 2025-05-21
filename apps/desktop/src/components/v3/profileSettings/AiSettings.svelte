@@ -322,6 +322,9 @@
 		</SectionCard>
 		<SectionCard roundedTop={false} topDivider>
 			<InfoMessage filled outlined={false}>
+				{#snippet title()}
+					<b>Configuring Ollama</b>
+				{/snippet}
 				{#snippet content()}
 					<p class="text-13">
 						Connecting to your Ollama endpoint will <b
@@ -359,6 +362,45 @@
 				bind:value={lmStudioEndpoint}
 				placeholder="http://127.0.0.1:1234"
 			/>
+		</SectionCard>
+	{/if}
+	{#if modelKind === ModelKind.LMStudio}
+		<SectionCard roundedTop={false} topDivider>
+			<InfoMessage filled outlined={false}>
+				{#snippet title()}
+					<b>Configuring LM Studio</b>
+				{/snippet}
+				{#snippet content()}
+					<p class="text-13">
+						Connecting to your LM Studio endpoint requires that you do two things:
+					</p>
+					<ol>
+						<li>
+							<p class="text-13">
+								<b>1. Allow-list it in the CSP settings for the application.</b>
+								<br />
+								<br />
+								You can find more details on how to do that in the <Link
+									href="https://docs.gitbutler.com/troubleshooting/custom-csp">GitButler docs</Link
+								>
+							</p>
+						</li>
+						<br />
+						<br />
+						<li>
+							<p class="text-13">
+								<b>2. Enable CORS support in LM Studio</b>
+								<br />
+								<br />
+								You can find more details on how to do that in the <Link
+									href="https://lmstudio.ai/docs/cli/server-start#enable-cors-support"
+									>LM Studio docs</Link
+								>
+							</p>
+						</li>
+					</ol>
+				{/snippet}
+			</InfoMessage>
 		</SectionCard>
 	{/if}
 
