@@ -37,6 +37,7 @@
 				onError={args.onError || console.error}
 				styleContext={args.styleContext || 'client-editor'}
 				placeholder={args.placeholder || 'Type your message here…'}
+				wrapCountValue={args.wrapCountValue}
 			>
 				{#snippet plugins()}
 					<Formatter bind:this={formatter} />
