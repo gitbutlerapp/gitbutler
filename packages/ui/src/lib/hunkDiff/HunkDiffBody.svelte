@@ -156,7 +156,13 @@
 	/* The assumed height of a row, used to set height before rows have rendered. */
 	const defaultChunkHeight = 18;
 
-	const chunkedRows = $derived(chunk(renderRows, chunkLength));
+	const { firstRow, restRows } = $derived.by(() => {
+		if (renderRows.length === 0) return { firstRow: undefined, restRows: [] };
+		const [firstRow, ...restRows] = renderRows;
+		return { firstRow, restRows };
+	});
+
+	const chunkedRows = $derived(chunk(restRows, chunkLength));
 
 	/* Bound array of booleans used to control rendering of rows. */
 	let chunkVisibility = $state<boolean[]>([]);
@@ -169,53 +175,94 @@
 			chunkHeight.length = chunkedRows.length;
 		}
 	});
+
+	/**
+	 * Get the index of a row in the full list of rows.
+	 *
+	 * Take into account the the chunk index, the row index within the chunk, and the first row that's rendered separately.
+	 */
+	function getRowIndex(chunkIndex: number, rowIndex: number) {
+		return chunkIndex * chunkLength + rowIndex + 1;
+	}
 </script>
 
-<tbody
-	onmouseenter={() => (hoveringOverTable = true)}
-	onmouseleave={() => (hoveringOverTable = false)}
-	ontouchstart={(ev) => lineSelection.onTouchStart(ev)}
-	ontouchmove={(ev) => lineSelection.onTouchMove(ev)}
-	ontouchend={() => lineSelection.onEnd()}
-	use:clickOutside={{
-		handler: handleClearSelection,
-		excludeElement: clickOutsideExcludeElement
-	}}
->
-	{#if commentRow}
-		<tr>
-			<td class="diff-comment__number-column" colspan={commentNumericColSpan}>comment</td>
-			<td style="--tab-size: {tabSize};" class="diff-comment">
-				{@html commentRow.tokens.join('')}
-			</td>
-		</tr>
-	{/if}
-</tbody>
-
-{#each chunkedRows as renderRows, i}
+{#if commentRow}
 	<tbody
 		onmouseenter={() => (hoveringOverTable = true)}
 		onmouseleave={() => (hoveringOverTable = false)}
 		ontouchstart={(ev) => lineSelection.onTouchStart(ev)}
 		ontouchmove={(ev) => lineSelection.onTouchMove(ev)}
 		ontouchend={() => lineSelection.onEnd()}
-		bind:clientHeight={chunkHeight[i]}
+		use:clickOutside={{
+			handler: handleClearSelection,
+			excludeElement: clickOutsideExcludeElement
+		}}
+	>
+		<tr>
+			<td class="diff-comment__number-column" colspan={commentNumericColSpan}>comment</td>
+			<td style="--tab-size: {tabSize};" class="diff-comment">
+				{@html commentRow.tokens.join('')}
+			</td>
+		</tr>
+	</tbody>
+{/if}
+
+<!-- Render always the first row if there's any. -->
+<!-- This is needed in order for the header dimensions to be calculated correctly -->
+{#if firstRow}
+	<tbody
+		onmouseenter={() => (hoveringOverTable = true)}
+		onmouseleave={() => (hoveringOverTable = false)}
+		ontouchstart={(ev) => lineSelection.onTouchStart(ev)}
+		ontouchmove={(ev) => lineSelection.onTouchMove(ev)}
+		ontouchend={() => lineSelection.onEnd()}
+		use:clickOutside={{
+			handler: handleClearSelection,
+			excludeElement: clickOutsideExcludeElement
+		}}
+	>
+		<HunkDiffRow
+			{minWidth}
+			idx={0}
+			row={firstRow}
+			{clickable}
+			{lineSelection}
+			{tabSize}
+			{wrapText}
+			{diffFont}
+			{numberHeaderWidth}
+			{onQuoteSelection}
+			{onCopySelection}
+			clearLineSelection={handleClearSelection}
+			{hoveringOverTable}
+			staged={getStageState(firstRow)}
+			{hideCheckboxes}
+			{handleLineContextMenu}
+			{lockWarning}
+		/>
+	</tbody>
+{/if}
+
+{#each chunkedRows as chunk, chunkIdx}
+	<tbody
+		bind:clientHeight={chunkHeight[chunkIdx]}
 		use:clickOutside={{
 			handler: handleClearSelection,
 			excludeElement: clickOutsideExcludeElement
 		}}
 		use:intersectionObserver={{
 			callback: (entries) => {
-				chunkVisibility[i] = !!entries?.isIntersecting;
+				chunkVisibility[chunkIdx] = !!entries?.isIntersecting;
 			},
 			options: { threshold: 0 }
 		}}
 	>
-		{#if chunkVisibility[i]}
-			{#each renderRows as row, idx (lineIdKey( { oldLine: row.beforeLineNumber, newLine: row.afterLineNumber } ))}
+		{#if chunkVisibility[chunkIdx]}
+			{#each chunk as row, idx (lineIdKey( { oldLine: row.beforeLineNumber, newLine: row.afterLineNumber } ))}
+				{@const rowIdx = getRowIndex(chunkIdx, idx)}
 				<HunkDiffRow
 					{minWidth}
-					{idx}
+					idx={rowIdx}
 					{row}
 					{clickable}
 					{lineSelection}
@@ -236,8 +283,8 @@
 		{:else}
 			<tr>
 				<td
-					style:height={chunkHeight[i]
-						? chunkHeight[i] + 'px'
+					style:height={chunkHeight[chunkIdx]
+						? chunkHeight[chunkIdx] + 'px'
 						: chunkLength * defaultChunkHeight + 'px'}
 				>
 				</td>
