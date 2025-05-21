@@ -63,8 +63,11 @@ const MOCK_STACK_DETAILS_B = createMockStackDetails({
 	]
 });
 
+const MOCK_FILE_J = 'commitSuggestions.svelte.ts';
+
 const MOCK_UNCOMMITTED_CHANGES: TreeChange[] = [
-	createMockModificationTreeChange({ path: MOCK_FILE_D }) // Depends on the changes in the stack B
+	createMockModificationTreeChange({ path: MOCK_FILE_D }), // Depends on the changes in the stack B
+	createMockModificationTreeChange({ path: MOCK_FILE_J })
 ];
 
 const MOCK_FILE_D_MODIFICATION_DIFF_HUNKS: DiffHunk[] = [
@@ -412,37 +415,95 @@ const MOCK_FILE_D_MODIFICATION = createMockUnifiedDiffPatch(
 	3
 );
 
+const MOCK_FILE_J_MODIFICATION_DIFF_HUNKS: DiffHunk[] = [
+	{
+		oldStart: 39,
+		oldLines: 44,
+		newStart: 51,
+		newLines: 65,
+		diff: "@@ -39,44 +51,65 @@\n \t\t\t.filter(isDefined);\n \t}\n \n+\t/**\n+\t * Triggers an AI suggestion for the commit message based on the current input and staged changes.\n+\t * Will not trigger if AI is disabled, there are no staged changes, or the suggestion is redundant.\n+\t * @param force - If true, forces a suggestion even if the input is empty.\n+\t */\n \tprivate async suggest(force?: boolean) {\n \t\tconst text = this.textUpToAnchor ?? '';\n \t\tif (!this.canUseAI) return;\n \t\tif (!this.stagedChanges || this.stagedChanges.length === 0) return;\n \t\tif (this.lasSelectedGhostText && text.endsWith(this.lasSelectedGhostText)) return;\n \t\tif (this.lastSentMessage === text) return;\n+\t\t// Here we check if the text is empty and if we should force a suggestion\n \t\tif (!text && !force) {\n \t\t\tthis._ghostTextComponent?.reset();\n \t\t\treturn;\n \t\t}\n \n \t\tthis.lastSentMessage = text;\n+\t\t// NOTE: this is a bit of a hack, but we need to make sure that the ghost text is not shown if the user is typing\n \t\tconst autoCompletion = await this.aiService.autoCompleteCommitMessage({\n \t\t\tcurrentValue: text,\n \t\t\tsuffix: this.textAfterAnchor ?? '',\n \t\t\tstagedChanges: this.stagedChanges\n \t\t});\n \n-\t\tif (autoCompletion) {\n-\t\t\tthis._ghostTextComponent?.setText(autoCompletion);\n-\t\t}\n+\t\tif (autoCompletion) this._ghostTextComponent?.setText(autoCompletion);\n \t}\n \n+\t/**\n+\t * Determines if AI suggestions should be triggered on user typing.\n+\t * Only triggers if enabled and the input does not end with a newline or period.\n+\t * @param text - The current input text up to the anchor.\n+\t * @returns True if suggestions should be triggered on type, false otherwise.\n+\t */\n \tprivate canSuggestOnType(text: string): boolean {\n \t\t// Only suggest on type enabled and not on new line.\n \t\treturn this._suggestOnType.current && ['\\n', '\\r', '.'].every((char) => !text.endsWith(char));\n \t}\n \n+\t/**\n+\t * Handles changes to the commit message input.\n+\t * Updates the anchor text and triggers AI suggestions if appropriate.\n+\t * @param textUpToAnchor - The text before the cursor/anchor.\n+\t * @param textAfterAnchor - The text after the cursor/anchor.\n+\t */\n \tasync onChange(textUpToAnchor: string | undefined, textAfterAnchor: string | undefined) {\n \t\tif (!textUpToAnchor) return;\n \t\tthis.textUpToAnchor = textUpToAnchor;\n \t\tthis.textAfterAnchor = textAfterAnchor;\n \n-\t\tif (this.canSuggestOnType(this.textUpToAnchor)) {\n-\t\t\tthis.suggest();\n-\t\t}\n+\t\tif (this.canSuggestOnType(this.textUpToAnchor)) this.suggest();\n \t}\n \n+\t/**\n+\t * Handles keydown events in the commit message input.\n+\t * If AI suggestions on type are disabled, allows manual triggering with Ctrl/Cmd+G.\n+\t * @param event - The keyboard event.\n+\t * @returns True if a suggestion was triggered, false otherwise.\n+\t */\n \tonKeyDown(event: KeyboardEvent | null): boolean {\n \t\tif (this._suggestOnType.current) return false;\n \t\tif (!event) return false;\n"
+	},
+	{
+		oldStart: 84,
+		oldLines: 29,
+		newStart: 117,
+		newLines: 51,
+		diff: '@@ -84,29 +117,51 @@\n \t\t\tthis.suggest(true);\n \t\t\treturn true;\n \t\t}\n+\n+\t\t// return things\n \t\treturn false;\n \t}\n \n+\t/**\n+\t * Accepts the current AI suggestion and marks it as selected to avoid redundant suggestions.\n+\t * @param text - The accepted suggestion text.\n+\t */\n \tonAcceptSuggestion(text: string) {\n \t\tthis.lasSelectedGhostText = text;\n \t}\n \n+\t/**\n+\t * Gets whether AI suggestions on type are currently enabled.\n+\t */\n \tget suggestOnType() {\n \t\treturn this._suggestOnType.current;\n \t}\n \n+\t/**\n+\t * Toggles the AI suggestions on type feature on or off.\n+\t */\n \ttoggleSuggestOnType() {\n \t\tthis._suggestOnType.current = !this._suggestOnType.current;\n \t}\n \n+\t/**\n+\t * Gets the current ghost text component instance.\n+\t */\n \tget ghostTextComponent(): ReturnType<typeof GhostTextPlugin> | undefined {\n \t\treturn this._ghostTextComponent;\n \t}\n \n+\t/**\n+\t * Sets the ghost text component instance for displaying suggestions.\n+\t * @param value - The ghost text component instance.\n+\t */\n \tset ghostTextComponent(value: ReturnType<typeof GhostTextPlugin>) {\n \t\tthis._ghostTextComponent = value;\n \t}\n \n+\t/**\n+\t * Clears all internal state, including input text, last message, and resets the ghost text component.\n+\t */\n \tclear() {\n \t\tthis.textUpToAnchor = undefined;\n \t\tthis.textAfterAnchor = undefined;\n'
+	}
+];
+
+const MOCK_FILE_J_MODIFICATION = createMockUnifiedDiffPatch(
+	MOCK_FILE_J_MODIFICATION_DIFF_HUNKS,
+	61,
+	6
+);
+
 /**
  * Three branches with file changes.
  */
 export default class ComplexHunks extends MockBackend {
 	complexHunkFileName = MOCK_FILE_D;
+	longFileName = MOCK_FILE_J;
 	dependsOnStack = MOCK_STACK_B_ID;
 
-	escapedFileName = 'stackService\\.svelte\\.ts';
+	escapedFileNameComplex = 'stackService\\.svelte\\.ts';
+	escapedFileNameLong = 'commitSuggestions\\.svelte\\.ts';
 
-	hunkLineSelectors: string[] = [
+	hunkLineSelectorsComplex: string[] = [
 		// Select all lines in the first hunk
-		`#hunk-line-${this.escapedFileName}\\:R1`,
-		`#hunk-line-${this.escapedFileName}\\:R3`,
-		`#hunk-line-${this.escapedFileName}\\:R5`,
-		`#hunk-line-${this.escapedFileName}\\:R7`,
-		`#hunk-line-${this.escapedFileName}\\:R9`,
+		`#hunk-line-${this.escapedFileNameComplex}\\:R1`,
+		`#hunk-line-${this.escapedFileNameComplex}\\:R3`,
+		`#hunk-line-${this.escapedFileNameComplex}\\:R5`,
+		`#hunk-line-${this.escapedFileNameComplex}\\:R7`,
+		`#hunk-line-${this.escapedFileNameComplex}\\:R9`,
 
 		// Select all lines in the second hunk
-		`#hunk-line-${this.escapedFileName}\\:R17`,
-		`#hunk-line-${this.escapedFileName}\\:R19`,
-		`#hunk-line-${this.escapedFileName}\\:R21`,
+		`#hunk-line-${this.escapedFileNameComplex}\\:R17`,
+		`#hunk-line-${this.escapedFileNameComplex}\\:R19`,
+		`#hunk-line-${this.escapedFileNameComplex}\\:R21`,
 
 		// Unselect the last two lines in the first hunk
-		`#hunk-line-${this.escapedFileName}\\:R7`,
-		`#hunk-line-${this.escapedFileName}\\:R9`,
+		`#hunk-line-${this.escapedFileNameComplex}\\:R7`,
+		`#hunk-line-${this.escapedFileNameComplex}\\:R9`,
 
 		// Unselect the first line of the second hunk
-		`#hunk-line-${this.escapedFileName}\\:R17`
+		`#hunk-line-${this.escapedFileNameComplex}\\:R17`
 	];
 
-	expectedWorktreeChanges = [
+	hunkLineSelectorsLong: string[] = [
+		// Select some lines, sporadically downwards
+		`#hunk-line-${this.escapedFileNameLong}\\:R65`,
+
+		`#hunk-line-${this.escapedFileNameLong}\\:R72`,
+
+		`#hunk-line-${this.escapedFileNameLong}\\:L60`,
+		`#hunk-line-${this.escapedFileNameLong}\\:L61`,
+		`#hunk-line-${this.escapedFileNameLong}\\:L62`,
+		`#hunk-line-${this.escapedFileNameLong}\\:R79`,
+
+		`#hunk-line-${this.escapedFileNameLong}\\:R93`,
+		`#hunk-line-${this.escapedFileNameLong}\\:R94`,
+		`#hunk-line-${this.escapedFileNameLong}\\:R95`,
+
+		`#hunk-line-${this.escapedFileNameLong}\\:L75`,
+		`#hunk-line-${this.escapedFileNameLong}\\:L76`,
+
+		`#hunk-line-${this.escapedFileNameLong}\\:R107`,
+		`#hunk-line-${this.escapedFileNameLong}\\:R108`,
+		`#hunk-line-${this.escapedFileNameLong}\\:R109`,
+		`#hunk-line-${this.escapedFileNameLong}\\:R110`,
+		`#hunk-line-${this.escapedFileNameLong}\\:R111`,
+		`#hunk-line-${this.escapedFileNameLong}\\:R112`,
+
+		// Select upwards
+		`#hunk-line-${this.escapedFileNameLong}\\:R104`,
+		`#hunk-line-${this.escapedFileNameLong}\\:L77`,
+		// Unselect these lines
+		`#hunk-line-${this.escapedFileNameLong}\\:L76`,
+		`#hunk-line-${this.escapedFileNameLong}\\:L75`
+	];
+
+	expectedWorktreeChangesComplex = [
 		{
 			pathBytes: [
 				115, 116, 97, 99, 107, 83, 101, 114, 118, 105, 99, 101, 46, 115, 118, 101, 108, 116, 101,
@@ -484,6 +545,66 @@ export default class ComplexHunks extends MockBackend {
 		}
 	];
 
+	expectedWorktreeChangesLong = [
+		{
+			pathBytes: [
+				99, 111, 109, 109, 105, 116, 83, 117, 103, 103, 101, 115, 116, 105, 111, 110, 115, 46, 115,
+				118, 101, 108, 116, 101, 46, 116, 115
+			],
+			previousPathBytes: null,
+			hunkHeaders: [
+				{
+					oldStart: 0,
+					oldLines: 0,
+					newStart: 65,
+					newLines: 1
+				},
+				{
+					oldStart: 0,
+					oldLines: 0,
+					newStart: 72,
+					newLines: 1
+				},
+				{
+					oldStart: 60,
+					oldLines: 3,
+					newStart: 0,
+					newLines: 0
+				},
+				{
+					oldStart: 0,
+					oldLines: 0,
+					newStart: 79,
+					newLines: 1
+				},
+				{
+					oldStart: 0,
+					oldLines: 0,
+					newStart: 93,
+					newLines: 3
+				},
+				{
+					oldStart: 77,
+					oldLines: 1,
+					newStart: 0,
+					newLines: 0
+				},
+				{
+					oldStart: 0,
+					oldLines: 0,
+					newStart: 104,
+					newLines: 1
+				},
+				{
+					oldStart: 0,
+					oldLines: 0,
+					newStart: 107,
+					newLines: 6
+				}
+			]
+		}
+	];
+
 	constructor() {
 		super();
 
@@ -508,6 +629,7 @@ export default class ComplexHunks extends MockBackend {
 		this.branchChanges.set(MOCK_STACK_B_ID, stackBChanges);
 
 		this.unifiedDiffs.set(MOCK_FILE_D, MOCK_FILE_D_MODIFICATION);
+		this.unifiedDiffs.set(MOCK_FILE_J, MOCK_FILE_J_MODIFICATION);
 
 		this.hunkDependencies = {
 			diffs: [],
