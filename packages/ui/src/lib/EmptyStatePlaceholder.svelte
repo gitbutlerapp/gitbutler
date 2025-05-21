@@ -30,10 +30,10 @@
 <div class="empty-state-container">
 	<div
 		class="empty-state"
-		style:gap={pxToRem(gap)}
-		style:max-width={pxToRem(width)}
-		style:margin-bottom={pxToRem(bottomMargin)}
-		style:padding={`${pxToRem(topBottomPadding)} ${pxToRem(leftRightPadding)}`}
+		style:gap="{pxToRem(gap)}rem"
+		style:max-width="{pxToRem(width)}rem"
+		style:margin-bottom="{pxToRem(bottomMargin)}rem"
+		style:padding={`${pxToRem(topBottomPadding)}rem ${pxToRem(leftRightPadding)}rem`}
 		style:background
 	>
 		{#if image}

@@ -38,8 +38,8 @@
 	fill-rule="evenodd"
 	class:default={!color}
 	style:fill-opacity={opacity}
-	style:width={pxToRem(size)}
-	style:height={pxToRem(size)}
+	style:width="{pxToRem(size)}rem"
+	style:height="{pxToRem(size)}rem"
 	style:vertical-align={verticalAlign}
 	style="--spinner-radius: {spinnerRadius}"
 >

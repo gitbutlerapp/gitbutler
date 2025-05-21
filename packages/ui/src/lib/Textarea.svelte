@@ -90,10 +90,10 @@
 	style:--placeholder-text={`"${placeholder && placeholder !== '' ? placeholder : 'Type here...'}"`}
 	style:--min-rows={minRows}
 	style:--max-rows={maxRows}
-	style:--padding-top={pxToRem(padding.top)}
-	style:--padding-right={pxToRem(padding.right)}
-	style:--padding-bottom={pxToRem(padding.bottom)}
-	style:--padding-left={pxToRem(padding.left)}
+	style:--padding-top="{pxToRem(padding.top)}rem"
+	style:--padding-right="{pxToRem(padding.right)}rem"
+	style:--padding-bottom="{pxToRem(padding.bottom)}rem"
+	style:--padding-left="{pxToRem(padding.left)}rem"
 	style:--lineheight-ratio={1.6}
 	style:flex
 >
@@ -108,8 +108,8 @@
 		bind:this={measureEl}
 		bind:offsetHeight={measureElHeight}
 		style:line-height={lineHeight}
-		style:min-height={pxToRem(minHeight)}
-		style:max-height={pxToRem(maxHeight)}>{value + '\n'}</pre>
+		style:min-height="{pxToRem(minHeight)}rem"
+		style:max-height="{pxToRem(maxHeight)}rem">{value + '\n'}</pre>
 	<textarea
 		bind:this={textBoxEl}
 		name={id}
@@ -119,8 +119,8 @@
 		class:text-input={!unstyled}
 		class:textarea-unstyled={unstyled}
 		class:hide-scrollbar={measureElHeight < maxHeight}
-		style:height={pxToRem(measureElHeight)}
-		style:font-size={pxToRem(fontSize)}
+		style:height="{pxToRem(measureElHeight)}rem"
+		style:font-size="{pxToRem(fontSize)}rem"
 		style:border-top-width={borderTop && !borderless ? '1px' : '0'}
 		style:border-right-width={borderRight && !borderless ? '1px' : '0'}
 		style:border-bottom-width={borderBottom && !borderless ? '1px' : '0'}

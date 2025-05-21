@@ -15,7 +15,7 @@
 	const { spacer = false, gap = 16, top, title, description, children }: Props = $props();
 </script>
 
-<div class="settings-section" style="gap: {pxToRem(gap)}">
+<div class="settings-section" style="gap: {pxToRem(gap)}rem">
 	{#if top}
 		{@render top?.()}
 	{/if}

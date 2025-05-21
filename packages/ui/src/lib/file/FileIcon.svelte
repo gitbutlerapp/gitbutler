@@ -15,7 +15,7 @@
 	src={getFileIcon(fileName)}
 	alt=""
 	class="file-icon"
-	style:--file-icon-size={pxToRem(size)}
+	style:--file-icon-size="{pxToRem(size)}rem"
 />
 
 <style lang="postcss">

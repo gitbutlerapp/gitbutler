@@ -352,7 +352,7 @@
 		data-no-drag
 		class:diff-line-deletion={row.type === SectionType.RemovedLines}
 		class:diff-line-addition={row.type === SectionType.AddedLines}
-		style="--number-col-width: {pxToRem(NUMBER_COLUMN_WIDTH_PX + 2)};"
+		style="--number-col-width: {pxToRem(NUMBER_COLUMN_WIDTH_PX + 2)}rem;"
 		align="center"
 		class:is-last={row.isLast}
 		class:is-before={side === CountColumnSide.Before}

@@ -20,7 +20,11 @@
 	const rhombus = $derived(commitStatus === 'LocalAndRemote');
 </script>
 
-<div class="commit-lines" style:--commit-color={color} style:--container-width={pxToRem(width)}>
+<div
+	class="commit-lines"
+	style:--commit-color={color}
+	style:--container-width="{pxToRem(width)}rem"
+>
 	<div class="top"></div>
 	{#if diverged}
 		<div class="local-shadow-commit-dot">

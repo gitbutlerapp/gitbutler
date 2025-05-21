@@ -1,3 +1,7 @@
-export function pxToRem(px: number, base: number = 16) {
-	return `${px / base}rem`;
+export function pxToRem(px: number | undefined, base: number = 16) {
+	if (px === undefined) {
+		return 0;
+	}
+
+	return px / base;
 }

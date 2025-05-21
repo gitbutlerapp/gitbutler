@@ -127,7 +127,7 @@ function setupDragHandlers(
 				clone.style.width = node.clientWidth + 'px';
 			}
 			if (params.maxHeight) {
-				clone.style.maxHeight = pxToRem(params.maxHeight) as string;
+				clone.style.maxHeight = `${pxToRem(params.maxHeight)}rem`;
 			}
 			document.body.appendChild(clone);
 
