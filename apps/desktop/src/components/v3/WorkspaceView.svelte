@@ -188,6 +188,7 @@
 		display: flex;
 		position: relative;
 		flex-grow: 0;
+		flex-shrink: 0;
 		flex-direction: column;
 		justify-content: flex-start;
 		height: 100%;
