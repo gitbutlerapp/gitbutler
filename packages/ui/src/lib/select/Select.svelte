@@ -113,8 +113,11 @@
 	function toggleList() {
 		getInputBoundingRect();
 
-		if (listOpen) closeList();
-		else openList();
+		if (listOpen) {
+			closeList();
+		} else if (!disabled) {
+			openList();
+		}
 	}
 
 	function handleSelect(item: SelectItem<string>) {
