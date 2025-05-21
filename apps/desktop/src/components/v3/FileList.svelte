@@ -185,7 +185,6 @@
 	 *
 	 * - Anonymous
 	 */
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	async function branchChanges() {
 		const selectedFiles = idSelection.values(selectionId);
 		if (selectedFiles.length === 0) return;
@@ -227,7 +226,11 @@
 	}
 
 	function handleKeyDown(e: KeyboardEvent) {
-		// TODO:  Re-enable auto-commit on shortcut
+		if (e.key === 'b' && (e.ctrlKey || e.metaKey) && e.altKey) {
+			branchChanges();
+			e.preventDefault();
+			return;
+		}
 
 		updateSelection({
 			allowMultiple: true,
