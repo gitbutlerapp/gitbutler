@@ -122,6 +122,7 @@
 	}
 
 	const conflict = $derived(conflictEntries ? conflictEntries.entries[change.path] : undefined);
+	const draggableDisabled = $derived(showCheckbox || selectionId.type === 'branch');
 </script>
 
 <div
@@ -138,7 +139,7 @@
 		data: new ChangeDropData(change, idSelection, allChanges ?? [change], selectionId, stackId),
 		viewportId: 'board-viewport',
 		selector: '.selected-draggable',
-		disabled: showCheckbox,
+		disabled: draggableDisabled,
 		chipType: 'file'
 	}}
 >

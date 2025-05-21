@@ -132,6 +132,7 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 	accepts(data: unknown): boolean {
 		if (!(data instanceof ChangeDropData)) return false;
 		if (this.commit.hasConflicts) return false;
+		if (data.selectionId.type === 'branch') return false;
 		if (data.selectionId.type === 'commit' && data.selectionId.commitId === this.commit.id)
 			return false;
 		return true;
