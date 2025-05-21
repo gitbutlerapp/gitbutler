@@ -3,171 +3,131 @@ import {
 	LONG_DEFAULT_COMMIT_TEMPLATE,
 	SHORT_DEFAULT_PR_TEMPLATE
 } from '$lib/ai/prompts';
-import { MessageRole, type PromptMessage, type AIClient, type Prompt } from '$lib/ai/types';
-import { isNonEmptyObject } from '@gitbutler/ui/utils/typeguards';
+import type { Prompt, AIClient, AIEvalOptions } from '$lib/ai/types';
 import { fetch } from '@tauri-apps/plugin-http';
 
 export const DEFAULT_OLLAMA_ENDPOINT = 'http://127.0.0.1:11434';
 export const DEFAULT_OLLAMA_MODEL_NAME = 'llama3';
 
-enum OllamaAPEndpoint {
-	Generate = 'api/generate',
-	Chat = 'api/chat',
-	Embed = 'api/embeddings'
-}
+const DEFAULT_MAX_TOKENS = -1; // -1 means no limit
+const DEFAULT_TEMPERATURE = 0.8;
 
-interface OllamaRequestOptions {
-	/**
-	 * The temperature of the model.
-	 * Increasing the temperature will make the model answer more creatively. (Default: 0.8)
-	 */
-	temperature: number;
-}
-
-interface OllamaChatRequest {
-	model: string;
-	messages: Prompt;
-	stream: boolean;
-	format?: 'json';
-	options?: OllamaRequestOptions;
-}
-
-interface BaseOllamaMResponse {
-	created_at: string;
-	done: boolean;
-	model: string;
-}
-
-interface OllamaChatResponse extends BaseOllamaMResponse {
-	message: PromptMessage;
-	done: true;
-}
-
-interface OllamaChatMessageFormat {
-	result: string;
-}
-
-const OLLAMA_CHAT_MESSAGE_FORMAT_SCHEMA = {
-	type: 'object',
-	properties: {
-		result: { type: 'string' }
-	},
-	required: ['result'],
-	additionalProperties: false
-};
-
-function isOllamaChatMessageFormat(message: unknown): message is OllamaChatMessageFormat {
-	if (!isNonEmptyObject(message)) {
-		return false;
-	}
-
-	return typeof message.result === 'string';
-}
-
-function isOllamaChatResponse(response: unknown): response is OllamaChatResponse {
-	if (!isNonEmptyObject(response)) {
-		return false;
-	}
-
-	return (
-		isNonEmptyObject(response.message) &&
-		typeof response.message.role === 'string' &&
-		typeof response.message.content === 'string'
-	);
-}
-
+/**
+ * OllamaClient implements the AIClient interface for Ollama servers.
+ * This implementation uses the /api/chat endpoint with streaming support.
+ */
 export class OllamaClient implements AIClient {
 	defaultCommitTemplate = LONG_DEFAULT_COMMIT_TEMPLATE;
 	defaultBranchTemplate = LONG_DEFAULT_BRANCH_TEMPLATE;
 	defaultPRTemplate = SHORT_DEFAULT_PR_TEMPLATE;
 
-	constructor(
-		private endpoint: string,
-		private modelName: string
-	) {}
+	private baseUrl: string;
+	private modelName: string;
 
-	async evaluate(prompt: Prompt): Promise<string> {
-		const messages = this.formatPrompt(prompt);
-
-		const response = await this.chat(messages);
-
-		const rawResponse = JSON.parse(response.message.content);
-
-		if (!isOllamaChatMessageFormat(rawResponse)) {
-			throw new Error('Invalid response: ' + response.message.content);
-		}
-
-		return rawResponse.result;
+	constructor(endpoint: string, modelName: string) {
+		// Format the base URL to ensure it doesn't have a trailing slash
+		this.baseUrl = endpoint.endsWith('/') ? endpoint.slice(0, -1) : endpoint;
+		this.modelName = modelName;
 	}
 
-	/**
-	 * Appends a system message which instructs the model to respond using a particular JSON schema
-	 * Modifies the prompt's Assistant messages to make use of the correct schema
-	 */
-	private formatPrompt(prompt: Prompt) {
-		const withFormattedResponses = prompt.map((promptMessage) => {
-			if (promptMessage.role === MessageRole.Assistant) {
-				return {
-					role: MessageRole.Assistant,
-					content: JSON.stringify({ result: promptMessage.content })
-				};
-			} else {
-				return promptMessage;
+	async evaluate(prompt: Prompt, options?: AIEvalOptions): Promise<string> {
+		try {
+			// Validate input
+			if (!prompt || !Array.isArray(prompt) || prompt.length === 0) {
+				throw new Error('Invalid prompt: must be a non-empty array');
 			}
-		});
 
-		return [
-			{
-				role: MessageRole.System,
-				content: `You are an expert in software development. Answer the given user prompts following the specified instructions.
-Return your response in JSON and only use the following JSON schema:
-${JSON.stringify(OLLAMA_CHAT_MESSAGE_FORMAT_SCHEMA, null, 2)}`
-			},
-			...withFormattedResponses
-		];
-	}
+			// Format messages for the API
+			const messages = prompt.map((msg) => ({
+				role: msg.role.toLowerCase(),
+				content: msg.content
+			}));
 
-	/**
-	 * Fetches the chat using the specified request.
-	 * @param request - The OllamaChatRequest object containing the request details.
-	 * @returns A Promise that resolves to the Response object.
-	 */
-	private async fetchChat(request: OllamaChatRequest): Promise<unknown> {
-		const url = new URL(OllamaAPEndpoint.Chat, this.endpoint);
-		const body = JSON.stringify(request);
+			console.log('Sending request to Ollama:', {
+				url: `${this.baseUrl}/api/chat`,
+				messages: messages.length,
+				model: this.modelName,
+				max_tokens: options?.maxTokens ?? DEFAULT_MAX_TOKENS
+			});
 
-		return await fetch(url.toString(), {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body
-		}).then(async (response) => await response.json());
-	}
+			// Determine if we should stream the response
+			const shouldStream = options?.onToken !== undefined;
 
-	/**
-	 * Sends a chat message to the LLM model and returns the response.
-	 *
-	 * @param messages - An array of LLMChatMessage objects representing the chat messages.
-	 * @param options - Optional LLMRequestOptions object for specifying additional options.
-	 * @returns A Promise that resolves to an LLMResponse object representing the response from the LLM model.
-	 */
-	private async chat(
-		messages: Prompt,
-		options?: OllamaRequestOptions
-	): Promise<OllamaChatResponse> {
-		const result = await this.fetchChat({
-			model: this.modelName,
-			stream: false,
-			messages,
-			options,
-			format: 'json'
-		});
+			// Make request to the Ollama API
+			const response = await fetch(`${this.baseUrl}/api/chat`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					model: this.modelName,
+					messages: messages,
+					temperature: DEFAULT_TEMPERATURE,
+					options: {
+						num_predict: options?.maxTokens ?? DEFAULT_MAX_TOKENS
+					},
+					stream: shouldStream
+				})
+			});
 
-		if (!isOllamaChatResponse(result)) {
-			throw new Error('Invalid response\n' + JSON.stringify(result));
+			console.log('Ollama response:', response);
+
+			if (!response.ok) {
+				const errorText = await response.text();
+				throw new Error(`Ollama API error (${response.status}): ${errorText}`);
+			}
+
+			// Handle streaming response
+			if (shouldStream) {
+				const reader = response.body?.getReader();
+				if (!reader) {
+					throw new Error('Failed to get reader from response');
+				}
+
+				let result = '';
+				const decoder = new TextDecoder();
+
+				while (true) {
+					const { done, value } = await reader.read();
+					if (done) break;
+					console.log('Received chunk from Ollama:', value);
+
+					const chunk = decoder.decode(value, { stream: true });
+					const lines = chunk.split('\n').filter((line) => line.trim() !== '');
+
+					for (const line of lines) {
+						try {
+							const json = JSON.parse(line);
+
+							// Extract the content from the message for streaming
+							if (json.message && typeof json.message.content === 'string') {
+								const token = json.message.content;
+								options?.onToken?.(token);
+								result += token;
+							}
+
+							// If done is true, we've reached the end of the stream
+							if (json.done === true) {
+								break;
+							}
+						} catch (e) {
+							console.warn('Error parsing streaming JSON from Ollama', e);
+						}
+					}
+				}
+
+				return result;
+			}
+			// Handle non-streaming response
+			else {
+				const json = await response.json();
+				return json.message?.content || '';
+			}
+		} catch (error) {
+			console.error('Error calling Ollama API:', error);
+			throw new Error(
+				`Failed to communicate with Ollama server: ${error instanceof Error ? error.message : String(error)}`
+			);
 		}
-
-		return result;
 	}
 }
