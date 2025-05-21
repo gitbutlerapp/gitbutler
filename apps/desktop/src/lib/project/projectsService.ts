@@ -160,6 +160,10 @@ export class ProjectsService {
 		this.persistedId.set(projectId);
 	}
 
+	unsetLastOpenedProject() {
+		this.persistedId.set(undefined);
+	}
+
 	async createCloudProject(params: {
 		name: string;
 		description?: string;
