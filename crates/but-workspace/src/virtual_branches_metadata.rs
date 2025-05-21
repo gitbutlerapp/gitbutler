@@ -13,6 +13,7 @@ use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+#[derive(Debug)]
 struct Snapshot {
     /// The time at which the `content` was changed, before it was written to disk.
     changed_at: Option<Instant>,
@@ -62,6 +63,7 @@ impl Snapshot {
 /// that is possibly written multiple times. It will write itself on drop only, and log write failures.
 ///
 /// The idea is that it's forgiving and easy to use, while helping to eventually migrate to a database.
+#[derive(Debug)]
 pub struct VirtualBranchesTomlMetadata {
     // What is currently in memory for query or editing.
     snapshot: Snapshot,

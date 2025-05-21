@@ -422,6 +422,26 @@ pub async fn watch(args: &super::Args) -> anyhow::Result<()> {
     Ok(())
 }
 
+pub fn ref_info(args: &super::Args, ref_name: Option<&str>) -> anyhow::Result<()> {
+    let (repo, project) = repo_and_maybe_project(args, RepositoryOpenMode::General)?;
+    let opts = but_workspace::ref_info::Options {
+        stack_commit_limit: 0,
+        expensive_commit_info: true,
+    };
+
+    let project = project.with_context(|| {
+        format!(
+            "Currently there must be an official project so we have metadata: {project_dir}",
+            project_dir = args.current_dir.display()
+        )
+    })?;
+    let meta = ref_metadata_toml(&project)?;
+    debug_print(match ref_name {
+        None => but_workspace::head_info(&repo, &meta, opts),
+        Some(ref_name) => but_workspace::ref_info(repo.find_reference(ref_name)?, &meta, opts),
+    }?)
+}
+
 fn indices_or_headers_to_hunk_headers(
     repo: &gix::Repository,
     indices_or_headers: Option<IndicesOrHeaders<'_>>,

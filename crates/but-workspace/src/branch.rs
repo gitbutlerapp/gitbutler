@@ -495,16 +495,6 @@ pub fn remove_branch_from_workspace(
 // TODO: move this to the crate root once the 'old' implementation isn't used anymore.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Stack {
-    /// The index into the parents-array of its [`WorkspaceCommit`](crate::WorkspaceCommit), but for our
-    /// purposes just a way to refer to the stack.
-    ///
-    /// The actual index is dependent on the order in which they are merged into the workspace commit,
-    /// if the stack is merged at all.
-    // TODO: find a way to map this to (or provide) legacy StackIDs
-    pub index: usize,
-    /// The commit that the tip of the stack is pointing to.
-    /// It is `None` if there is no commit as this repository is newly initialized, or no `base` is available.
-    pub tip: Option<gix::ObjectId>,
     /// If there is an integration branch, we know a base commit shared with the integration branch from
     /// which we branched off.
     /// Otherwise, it's the merge-base of all stacks in the current workspace.
@@ -524,6 +514,10 @@ pub struct Stack {
 }
 
 impl Stack {
+    /// Return the tip of the stack, which is either the first commit of the first segment or `None` if this is an unborn branch.
+    pub fn tip(&self) -> Option<gix::ObjectId> {
+        self.segments.first().and_then(|name| name.tip())
+    }
     /// Return the name of the top-most [`StackSegment`].
     ///
     /// It is `None` if this branch is the top-most stack segment and the `ref_name` wasn't pointing to
