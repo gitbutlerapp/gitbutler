@@ -1,7 +1,7 @@
 <script lang="ts">
 	import InfoMessage from '$components/InfoMessage.svelte';
-	import { AIService, GitAIConfigKey, KeyOption, type DiffInput } from '$lib/ai/service';
-	import { ModelKind, MessageRole, type Prompt } from '$lib/ai/types';
+	import { AIService, type DiffInput } from '$lib/ai/service';
+	import { ModelKind } from '$lib/ai/types';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -287,7 +287,7 @@
 	</Button>
 
 	<div class="debug-toggle">
-		<button class="text-12 debug-button" onclick={toggleDebug}>
+		<button type="button" class="text-12 debug-button" onclick={toggleDebug}>
 			{showDebug ? 'Hide' : 'Show'} Debug Info
 		</button>
 	</div>

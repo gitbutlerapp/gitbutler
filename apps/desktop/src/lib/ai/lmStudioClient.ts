@@ -41,12 +41,6 @@ export class LMStudioClient implements AIClient {
 				content: msg.content
 			}));
 
-			console.log('Sending request to LM Studio:', {
-				url: `${this.baseUrl}/chat/completions`,
-				messages: messages.length,
-				max_tokens: options?.maxTokens ?? DEFAULT_MAX_TOKENS
-			});
-
 			// Determine if we should stream the response
 			const shouldStream = options?.onToken !== undefined;
 
