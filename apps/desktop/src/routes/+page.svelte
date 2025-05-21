@@ -26,7 +26,7 @@
 		projects,
 		(projects): Redirect => {
 			if (debug) return { type: 'no-projects' };
-			if (!projects) return { type: 'loading' };
+			if (projects === undefined) return { type: 'loading' };
 			const projectId = projects.find((p) => p.id === persistedId)?.id;
 			if (projectId) {
 				return { type: 'redirect', subject: `/${projectId}` };

@@ -4,6 +4,7 @@
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { showError } from '$lib/notifications/toasts';
+	import { ProjectsService } from '$lib/project/projectsService';
 	import { UpdaterService } from '$lib/updater/updater';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
@@ -18,6 +19,7 @@
 
 	const userService = getContext(UserService);
 	const settingsService = getContext(SettingsService);
+	const projectsService = getContext(ProjectsService);
 	const user = userService.user;
 
 	const updaterService = getContext(UpdaterService);
@@ -97,6 +99,8 @@
 		isDeleting = true;
 		try {
 			await settingsService.deleteAllData();
+			await projectsService.reload();
+			projectsService.unsetLastOpenedProject();
 			await userService.logout();
 			// TODO: Delete user from observable!!!
 			toasts.success('All data deleted');
