@@ -5,10 +5,10 @@ import { on } from 'svelte/events';
 export type FocusArea = string | null;
 
 export enum Focusable {
-	Workspace = 'workspace',
-	WorkspaceLeft = 'workspace-left',
-	WorkspaceRight = 'workspace-right',
-	WorkspaceMiddle = 'workspace-middle',
+	MainViewport = 'workspace',
+	ViewportLeft = 'workspace-left',
+	ViewportRight = 'workspace-right',
+	ViewportMiddle = 'workspace-middle',
 	UncommittedChanges = 'uncommitted-changes',
 	Drawer = 'drawer',
 	Branches = 'branches',

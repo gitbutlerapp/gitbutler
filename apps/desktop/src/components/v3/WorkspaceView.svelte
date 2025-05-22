@@ -38,7 +38,7 @@
 
 	let focusGroup = $derived(
 		focusManager.radioGroup({
-			triggers: [Focusable.UncommittedChanges, Focusable.Drawer, Focusable.WorkspaceRight]
+			triggers: [Focusable.UncommittedChanges, Focusable.Drawer, Focusable.ViewportRight]
 		})
 	);
 
