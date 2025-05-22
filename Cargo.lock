@@ -679,6 +679,7 @@ name = "but-agent"
 version = "0.0.0"
 dependencies = [
  "gitbutler-secret",
+ "reqwest",
  "serde",
  "serde_json",
  "toml",
@@ -7200,6 +7201,7 @@ dependencies = [
  "cookie",
  "cookie_store",
  "encoding_rs",
+ "futures-channel",
  "futures-core",
  "futures-util",
  "h2",
