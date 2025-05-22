@@ -1,19 +1,12 @@
 <script lang="ts" module>
 	type T = any | unknown | undefined;
-</script>
 
-<script lang="ts" generics="T extends undefined | any = any">
-	import Button from '$lib/Button.svelte';
-	import Icon from '$lib/Icon.svelte';
-	import { focusTrap } from '$lib/utils/focusTrap';
-	import { portal } from '$lib/utils/portal';
-	import { pxToRem } from '$lib/utils/pxToRem';
-	import { onDestroy } from 'svelte';
-	import type { Snippet } from 'svelte';
+	export type ModalSize = 'medium' | 'large' | 'small' | 'xsmall' | number;
+	export type ModalType = 'info' | 'warning' | 'error' | 'success';
 
-	type Props = {
-		width?: 'medium' | 'large' | 'small' | 'xsmall' | number;
-		type?: 'info' | 'warning' | 'error' | 'success';
+	export type ModalProps = {
+		width?: ModalSize;
+		type?: ModalType;
 		title?: string;
 		closeButton?: boolean;
 		noPadding?: boolean;
@@ -35,6 +28,16 @@
 		controls?: Snippet<[close: () => void, item: T]>;
 		testId?: string;
 	};
+</script>
+
+<script lang="ts" generics="T extends undefined | any = any">
+	import Button from '$lib/Button.svelte';
+	import Icon from '$lib/Icon.svelte';
+	import { focusTrap } from '$lib/utils/focusTrap';
+	import { portal } from '$lib/utils/portal';
+	import { pxToRem } from '$lib/utils/pxToRem';
+	import { onDestroy } from 'svelte';
+	import type { Snippet } from 'svelte';
 
 	const {
 		width = 'medium',
@@ -50,7 +53,7 @@
 		noPadding = false,
 		testId,
 		defaultItem
-	}: Props = $props();
+	}: ModalProps = $props();
 
 	let open = $state(false);
 	let item = $state<T>(defaultItem as any);
