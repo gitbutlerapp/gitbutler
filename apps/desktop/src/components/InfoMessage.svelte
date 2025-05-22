@@ -83,11 +83,13 @@
 	class:has-background={filled}
 	class:shadow
 >
-	<Icon name={resolvedIconName} color={iconColorMap[style]} />
+	<div class="info-message__icon">
+		<Icon name={resolvedIconName} color={iconColorMap[style]} />
+	</div>
 	<div class="info-message__inner">
 		<div class="info-message__content">
 			{#if title}
-				<div class="info-message__title text-13 text-body text-semibold">
+				<div class="info-message__title text-13 text-body text-bold">
 					{@render title()}
 				</div>
 			{/if}
@@ -155,6 +157,14 @@
 		flex-direction: column;
 		gap: 6px;
 		user-select: text;
+	}
+	.info-message__icon {
+		display: flex;
+		flex-shrink: 0;
+		align-items: center;
+		align-self: flex-start;
+		justify-content: center;
+		padding: 2px 0;
 	}
 	.info-message__actions {
 		display: flex;
