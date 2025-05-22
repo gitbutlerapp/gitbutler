@@ -284,7 +284,7 @@
 
 	{#if !project}
 		<p>Project not found!</p>
-	{:else if baseBranchResponse.current.isLoading}
+	{:else if baseBranchResponse.current.isLoading && !baseBranch}
 		<FullviewLoading />
 	{:else if !baseBranch}
 		<NoBaseBranch />
