@@ -47,8 +47,6 @@ export type ProjectUiState = {
 
 export type GlobalUiState = {
 	drawerHeight: number;
-	leftWidth: number;
-	stacksViewWidth: number;
 	drawerSplitViewWidth: number;
 	historySidebarWidth: number;
 	useRichText: boolean;
@@ -86,8 +84,6 @@ export class UiState {
 	/** Properties that are globally scoped. */
 	readonly global = this.buildGlobalProps<GlobalUiState>({
 		drawerHeight: 20,
-		leftWidth: 17.5,
-		stacksViewWidth: 23.75,
 		drawerSplitViewWidth: 20,
 		historySidebarWidth: 30,
 		useRichText: false,

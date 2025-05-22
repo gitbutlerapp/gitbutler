@@ -1,8 +1,8 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import Resizer from '$components/Resizer.svelte';
 	import BranchView from '$components/v3/BranchView.svelte';
 	import CommitView from '$components/v3/CommitView.svelte';
+	import MainViewport from '$components/v3/MainViewport.svelte';
 	import MultiStackView from '$components/v3/MultiStackView.svelte';
 	import NewCommitView from '$components/v3/NewCommitView.svelte';
 	import ReviewView from '$components/v3/ReviewView.svelte';
@@ -10,7 +10,6 @@
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
 	import { isParsedError } from '$lib/error/parser';
 	import { Focusable, FocusManager } from '$lib/focus/focusManager.svelte';
-	import { focusable } from '$lib/focus/focusable.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -66,12 +65,6 @@
 		return { type: 'worktree' };
 	});
 
-	const leftWidth = $derived(uiState.global.leftWidth);
-	const stacksViewWidth = $derived(uiState.global.stacksViewWidth);
-
-	let leftDiv = $state<HTMLElement>();
-	let stacksViewEl = $state<HTMLElement>();
-
 	function onerror(err: unknown) {
 		// Clear selection if branch not found.
 		if (isParsedError(err) && err.code === 'errors.branch.notfound') {
@@ -81,30 +74,19 @@
 	}
 </script>
 
-<div class="workspace" use:focusable={{ id: Focusable.Workspace }}>
-	<div
-		class="changed-files-view"
-		bind:this={leftDiv}
-		style:width={leftWidth.current + 'rem'}
-		use:focusable={{ id: Focusable.WorkspaceLeft, parentId: Focusable.Workspace }}
-	>
+<MainViewport
+	name="workspace"
+	leftWidth={{ default: 280, min: 240 }}
+	rightWidth={{ default: 380, min: 240 }}
+>
+	{#snippet left()}
 		<WorktreeChanges {projectId} {stackId} active={selectionId.type === 'worktree'} />
-		<Resizer
-			viewport={leftDiv}
-			direction="right"
-			minWidth={14}
-			borderRadius="ml"
-			onWidth={(value) => (leftWidth.current = value)}
-		/>
-	</div>
-	<div
-		class="main-view"
-		use:focusable={{ id: Focusable.WorkspaceMiddle, parentId: Focusable.Workspace }}
-	>
+	{/snippet}
+
+	{#snippet middle()}
 		{#if !drawerIsFullScreen.current}
 			<SelectionView {projectId} {selectionId} {stackId} />
 		{/if}
-
 		{#if drawerPage.current === 'new-commit'}
 			<NewCommitView {projectId} {stackId} />
 		{:else if drawerPage.current === 'branch' && stackId && branchName}
@@ -131,14 +113,9 @@
 				{onerror}
 			/>
 		{/if}
-	</div>
+	{/snippet}
 
-	<div
-		class="stacks-view-wrap"
-		bind:this={stacksViewEl}
-		style:width={stacksViewWidth.current + 'rem'}
-		use:focusable={{ id: Focusable.WorkspaceRight, parentId: Focusable.Workspace }}
-	>
+	{#snippet right()}
 		<ReduxResult {projectId} result={stacksResult?.current}>
 			{#snippet loading()}
 				<div class="stacks-view-skeleton"></div>
@@ -153,59 +130,10 @@
 				/>
 			{/snippet}
 		</ReduxResult>
-		<Resizer
-			viewport={stacksViewEl}
-			direction="left"
-			minWidth={19}
-			borderRadius="ml"
-			onWidth={(value) => uiState.global.stacksViewWidth.set(value)}
-		/>
-	</div>
-</div>
+	{/snippet}
+</MainViewport>
 
 <style>
-	.workspace {
-		display: flex;
-		position: relative;
-		flex: 1;
-		align-items: stretch;
-		width: 100%;
-		height: 100%;
-		overflow: hidden;
-		gap: 8px;
-	}
-
-	.changed-files-view {
-		display: flex;
-		position: relative;
-		flex-shrink: 0;
-		flex-direction: column;
-		justify-content: flex-start;
-		height: 100%;
-	}
-
-	.stacks-view-wrap {
-		display: flex;
-		position: relative;
-		flex-grow: 0;
-		flex-shrink: 0;
-		flex-direction: column;
-		justify-content: flex-start;
-		height: 100%;
-		overflow: hidden;
-	}
-
-	.main-view {
-		display: flex;
-		position: relative;
-		flex-grow: 1;
-		flex-direction: column;
-		min-width: 320px;
-		overflow-x: hidden;
-		gap: 8px;
-		border-radius: var(--radius-ml);
-	}
-
 	/* SKELETON LOADING */
 	.stacks-view-skeleton {
 		width: 100%;
