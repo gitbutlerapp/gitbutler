@@ -15,12 +15,12 @@ use std::{collections::HashMap, ops::Deref};
 use serde::{Deserialize, Serialize};
 
 fn get_token() -> Option<gitbutler_secret::Sensitive<String>> {
-    return Some(gitbutler_secret::Sensitive("this is secret".into()));
-    // gitbutler_secret::secret::retrieve(
-    //     "gitbutler-agent-token",
-    //     gitbutler_secret::secret::Namespace::Global,
-    // )
-    // .unwrap()
+    // return Some(gitbutler_secret::Sensitive("this is secret".into()));
+    gitbutler_secret::secret::retrieve(
+        "gitbutler-agent-token",
+        gitbutler_secret::secret::Namespace::Global,
+    )
+    .unwrap()
 }
 
 fn set_token(token: Option<&str>) {
@@ -40,29 +40,43 @@ fn set_token(token: Option<&str>) {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "lowercase")]
-enum MessageRole {
+pub enum MessageRole {
     System,
     User,
     Assistant,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-struct Message {
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Message {
     role: MessageRole,
     content: String,
 }
 
 pub enum Action {
     Exit,
-    DoAIStuff,
     /// Starts a new thread that the user can send messages to.
     StartNewThread,
+    SendMessage {
+        id: ConversationId,
+        message: String,
+    },
 }
 
 pub enum Response {
-    ThreadCreated { id: ConversationId },
+    ThreadCreated {
+        id: ConversationId,
+    },
+    /// Acknoledges that a user messages has been sent; Will be sent after the
+    /// user message has been persisted to the conversation store
+    MessageRecieved {
+        id: ConversationId,
+    },
+    /// Sent whenver a reponse from an LLM has been recieved
+    ReplyReceived {
+        id: ConversationId,
+    },
 }
 
 pub struct Agent {
@@ -70,17 +84,92 @@ pub struct Agent {
     actions_tx: std::sync::mpsc::Sender<Action>,
 }
 
+pub enum LLMParams {
+    Message { messages: Vec<Message> },
+}
+
+pub enum LLMResponse {
+    Message { message: String },
+}
+
 pub trait LLM {
-    fn perform(&self);
+    fn perform(&self, params: LLMParams) -> LLMResponse;
+}
+
+#[derive(Serialize)]
+struct OpenRouterProvider {
+    only: Option<Vec<String>>,
+}
+
+#[derive(Serialize)]
+struct OpenRouterAPIBody {
+    model: String,
+    messages: Vec<Message>,
+    provider: Option<OpenRouterProvider>,
+}
+
+#[derive(Deserialize)]
+struct OpenRouterChoice {
+    message: Message,
+}
+
+#[derive(Deserialize)]
+struct OpenRouterAPIResponse {
+    choices: Vec<OpenRouterChoice>,
 }
 
 pub struct OpenRouter {
+    model: String,
+    provider: String,
     token: gitbutler_secret::Sensitive<String>,
 }
 
 impl LLM for OpenRouter {
-    fn perform(&self) {
-        println!("Did AI stuff :D");
+    fn perform(&self, params: LLMParams) -> LLMResponse {
+        match params {
+            LLMParams::Message { messages } => {
+                let client = reqwest::blocking::Client::new();
+                let result = client
+                    .post("https://openrouter.ai/api/v1/chat/completions")
+                    .bearer_auth(&self.token.0)
+                    .header("Content-Type", "application/json")
+                    .body(
+                        serde_json::to_string(&OpenRouterAPIBody {
+                            model: self.model.clone(),
+                            messages,
+                            provider: Some(OpenRouterProvider {
+                                only: Some(vec![self.provider.clone()]),
+                            }),
+                        })
+                        .unwrap(),
+                    )
+                    .send()
+                    .unwrap();
+
+                let reponse: OpenRouterAPIResponse = result.json().unwrap();
+
+                LLMResponse::Message {
+                    message: reponse.choices.first().unwrap().message.content.clone(),
+                }
+            }
+        }
+    }
+}
+
+struct MockLLM<CB: Fn(String) -> String> {
+    callback: CB,
+}
+
+impl<CB: Fn(String) -> String> LLM for MockLLM<CB> {
+    fn perform(&self, params: LLMParams) -> LLMResponse {
+        match params {
+            LLMParams::Message { messages } => {
+                let last = messages.last().unwrap();
+                LLMResponse::Message {
+                    message: (self.callback)(last.content.clone()),
+                }
+            }
+        }
     }
 }
 
@@ -103,14 +192,14 @@ impl Deref for ConversationId {
 }
 
 #[derive(Debug)]
-enum ConversationStoreReadError {
+pub enum ConversationStoreReadError {
     NotFound,
     FailedToRead,
 }
 
 pub trait ConversationStore {
     fn read(&self, id: ConversationId) -> Result<Vec<Message>, ConversationStoreReadError>;
-    fn write(&mut self, id: ConversationId, messages: Vec<Message>);
+    fn write(&mut self, id: ConversationId, messages: &[Message]);
 }
 
 struct InMemoryConversationStore {
@@ -119,7 +208,7 @@ struct InMemoryConversationStore {
 
 // Construction
 impl InMemoryConversationStore {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             map: HashMap::new(),
         }
@@ -134,20 +223,27 @@ impl ConversationStore for InMemoryConversationStore {
             .ok_or(ConversationStoreReadError::NotFound)
     }
 
-    fn write(&mut self, id: ConversationId, messages: Vec<Message>) {
-        self.map.insert(id, messages);
+    fn write(&mut self, id: ConversationId, messages: &[Message]) {
+        self.map.insert(id, messages.to_owned());
     }
 }
 
+pub struct AgentConfig<CB: Fn(Response) + Send + 'static> {
+    pub llm: Box<dyn LLM + Sync + Send>,
+    pub conversation_store: std::sync::Arc<std::sync::Mutex<dyn ConversationStore + Sync + Send>>,
+    pub callback: CB,
+    pub system_prompt: String,
+}
+
 impl Agent {
-    pub fn start<F>(
-        llm: Box<dyn LLM + Sync + Send>,
-        conversation_store: std::sync::Arc<std::sync::Mutex<dyn ConversationStore + Sync + Send>>,
-        callback: F,
-    ) -> Agent
-    where
-        F: Fn(Response) + Send + 'static,
-    {
+    pub fn start<CB: Fn(Response) + Send + 'static>(
+        AgentConfig {
+            llm,
+            conversation_store,
+            callback,
+            system_prompt,
+        }: AgentConfig<CB>,
+    ) -> Agent {
         let (actions_tx, actions_rx) = std::sync::mpsc::channel::<Action>();
 
         let thread = std::thread::spawn(move || {
@@ -157,20 +253,47 @@ impl Agent {
                 match action {
                     Action::StartNewThread => {
                         let id = ConversationId::generate();
-                        {
-                            let mut conversation_store = conversation_store.lock().unwrap();
-                            conversation_store.write(
-                                id,
-                                vec![Message {
-                                    role: MessageRole::System,
-                                    content: "You are a helpful agent".into(),
-                                }],
-                            );
-                        }
+                        let mut conversation_store = conversation_store.lock().unwrap();
+                        conversation_store.write(
+                            id,
+                            &[Message {
+                                role: MessageRole::System,
+                                content: system_prompt.clone(),
+                            }],
+                        );
+                        core::mem::drop(conversation_store);
                         callback(Response::ThreadCreated { id });
                     }
-                    Action::DoAIStuff => {
-                        llm.perform();
+                    Action::SendMessage { id, message } => {
+                        // Persist and acknowledge the message
+                        let messages = {
+                            let mut conversation_store = conversation_store.lock().unwrap();
+                            let mut messages = conversation_store.read(id).unwrap();
+                            messages.push(Message {
+                                role: MessageRole::User,
+                                content: message,
+                            });
+                            conversation_store.write(id, &messages);
+                            core::mem::drop(conversation_store);
+                            callback(Response::MessageRecieved { id });
+                            messages
+                        };
+
+                        let response = llm.perform(LLMParams::Message { messages });
+
+                        match response {
+                            LLMResponse::Message { message } => {
+                                let mut conversation_store = conversation_store.lock().unwrap();
+                                let mut messages = conversation_store.read(id).unwrap();
+                                messages.push(Message {
+                                    role: MessageRole::Assistant,
+                                    content: message,
+                                });
+                                conversation_store.write(id, &messages);
+                                core::mem::drop(conversation_store);
+                                callback(Response::ReplyReceived { id });
+                            }
+                        }
                     }
                     Action::Exit => break 'thread_loop,
                 }
@@ -195,23 +318,90 @@ impl Agent {
 mod test {
     use super::*;
 
-    /// Basic debug thingy to exiserice basic behaviours :D
+    fn system_prompt() -> String {
+        "You are a great agent :flower:".into()
+    }
+
     #[test]
-    fn test_start() {
-        let callback = |response| {
-            match response {
-                Response::ThreadCreated { id } => println!("Created conversation: {:?}", id),
-            };
+    fn playgroud() {
+        let (tx, rx) = std::sync::mpsc::channel::<Response>();
+
+        let callback = move |response| {
+            tx.send(response).unwrap();
         };
 
         let llm = OpenRouter {
             token: get_token().unwrap(),
+            model: "qwen/qwen3-32b".into(),
+            provider: "Cerebras".into(),
         };
 
-        let converation_store =
+        let conversation_store =
             std::sync::Arc::new(std::sync::Mutex::new(InMemoryConversationStore::new()));
 
-        let agent = Agent::start(Box::new(llm), converation_store, callback);
+        let start = std::time::SystemTime::now();
+
+        let agent = Agent::start(AgentConfig {
+            llm: Box::new(llm),
+            conversation_store: conversation_store.clone(),
+            callback,
+            system_prompt: system_prompt(),
+        });
+
+        let handle = std::thread::spawn(move || {
+            agent.perform_action(Action::StartNewThread);
+            loop {
+                let message = rx.recv().unwrap();
+
+                match message {
+                    Response::ThreadCreated { id } => {
+                        agent.perform_action(Action::SendMessage {
+                            id,
+                            message: "Generate a 1000 word poem about rust programming.".into(),
+                        });
+                    }
+                    Response::ReplyReceived { id } => {
+                        let conversation_store = conversation_store.lock().unwrap();
+                        let conversation = conversation_store.read(id).unwrap();
+
+                        println!("{}", conversation.last().unwrap().content);
+
+                        agent.stop();
+                        break;
+                    }
+                    _ => {}
+                };
+            }
+        });
+
+        handle.join().unwrap();
+
+        let end = std::time::SystemTime::now();
+        println!("Took: {}", end.duration_since(start).unwrap().as_millis());
+    }
+
+    /// Basic debug thingy to exiserice basic behaviours :D
+    #[test]
+    fn test_start() {
+        let callback = |response| {
+            if let Response::ThreadCreated { id } = response {
+                println!("Created conversation: {:?}", id)
+            };
+        };
+
+        let llm = MockLLM {
+            callback: |string| string,
+        };
+
+        let conversation_store =
+            std::sync::Arc::new(std::sync::Mutex::new(InMemoryConversationStore::new()));
+
+        let agent = Agent::start(AgentConfig {
+            llm: Box::new(llm),
+            conversation_store,
+            callback,
+            system_prompt: system_prompt(),
+        });
         agent.perform_action(Action::StartNewThread);
         agent.stop()
     }
@@ -224,14 +414,67 @@ mod test {
             tx.send(response).unwrap();
         };
 
-        let llm = OpenRouter {
-            token: get_token().unwrap(),
+        let llm = MockLLM {
+            callback: |string| string,
         };
 
         let conversation_store =
             std::sync::Arc::new(std::sync::Mutex::new(InMemoryConversationStore::new()));
 
-        let agent = Agent::start(Box::new(llm), conversation_store.clone(), callback);
+        let agent = Agent::start(AgentConfig {
+            llm: Box::new(llm),
+            conversation_store: conversation_store.clone(),
+            callback,
+            system_prompt: system_prompt(),
+        });
+
+        let handle = std::thread::spawn(move || {
+            agent.perform_action(Action::StartNewThread);
+            loop {
+                let message = rx.recv().unwrap();
+
+                #[allow(irrefutable_let_patterns)]
+                if let Response::ThreadCreated { id } = message {
+                    {
+                        let conversation_store = conversation_store.lock().unwrap();
+                        let conversation = conversation_store.read(id).unwrap();
+                        assert_eq!(
+                            conversation,
+                            vec![Message {
+                                role: MessageRole::System,
+                                content: system_prompt()
+                            }]
+                        )
+                    }
+                    agent.stop();
+                    break;
+                };
+            }
+        });
+        handle.join().unwrap();
+    }
+
+    #[test]
+    fn test_llm_message_response() {
+        let (tx, rx) = std::sync::mpsc::channel::<Response>();
+
+        let callback = move |response| {
+            tx.send(response).unwrap();
+        };
+
+        let llm = MockLLM {
+            callback: |string| format!("response: {}", string),
+        };
+
+        let conversation_store =
+            std::sync::Arc::new(std::sync::Mutex::new(InMemoryConversationStore::new()));
+
+        let agent = Agent::start(AgentConfig {
+            llm: Box::new(llm),
+            conversation_store: conversation_store.clone(),
+            callback,
+            system_prompt: system_prompt(),
+        });
 
         let handle = std::thread::spawn(move || {
             agent.perform_action(Action::StartNewThread);
@@ -240,10 +483,32 @@ mod test {
 
                 match message {
                     Response::ThreadCreated { id } => {
-                        {
-                            let conversation_store = conversation_store.lock().unwrap();
-                            println!("{:?}", conversation_store.read(id).unwrap());
-                        }
+                        agent.perform_action(Action::SendMessage {
+                            id,
+                            message: "Hello world!".into(),
+                        });
+                    }
+                    Response::ReplyReceived { id } => {
+                        let conversation_store = conversation_store.lock().unwrap();
+                        let conversation = conversation_store.read(id).unwrap();
+                        assert_eq!(
+                            conversation,
+                            vec![
+                                Message {
+                                    role: MessageRole::System,
+                                    content: system_prompt()
+                                },
+                                Message {
+                                    role: MessageRole::User,
+                                    content: "Hello world!".into()
+                                },
+                                Message {
+                                    role: MessageRole::Assistant,
+                                    content: "response: Hello world!".into()
+                                }
+                            ]
+                        );
+
                         agent.stop();
                         break;
                     }
