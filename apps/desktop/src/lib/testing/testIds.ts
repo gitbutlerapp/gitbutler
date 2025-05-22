@@ -83,7 +83,9 @@ export enum TestId {
 	HunkContextMenu_DiscardLines = 'hunk-context-menu-discard-lines',
 	HunkContextMenu_OpenInEditor = 'hunk-context-menu-open-in-editor',
 	StackPushButton = 'stack-push-button',
-	StackPublishButton = 'stack-publish-button'
+	StackPublishButton = 'stack-publish-button',
+	GlobalModal_CommitFailed = 'global-modal-commit-failed',
+	GlobalModalActionButton = 'global-modal-action-button'
 }
 
 export enum ElementId {

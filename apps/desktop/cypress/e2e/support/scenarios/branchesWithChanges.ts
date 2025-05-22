@@ -10,6 +10,7 @@ import type { DiffDependency } from '$lib/dependencies/dependencies';
 import type { TreeChange } from '$lib/hunks/change';
 import type { DiffHunk } from '$lib/hunks/hunk';
 import type { Stack } from '$lib/stacks/stack';
+import type { CreateCommitOutcome } from '$lib/stacks/stackService.svelte';
 
 const MOCK_STACK_A_ID = 'stack-a-id';
 const MOCK_STACK_B_ID = 'stack-b-id';
@@ -140,6 +141,13 @@ const MOCK_FILE_J_MODIFICATION = createMockUnifiedDiffPatch(
 	0
 );
 
+const MOCK_FILE_1 = 'file1.txt';
+const MOCK_FILE_2 = 'file2.txt';
+const MOCK_FILE_3 = 'file3.txt';
+const MOCK_FILE_4 = 'file4.txt';
+const MOCK_FILE_5 = 'file5.txt';
+const MOCK_FILE_6 = 'file6.txt';
+
 const MOCK_DIFF_DEPENDENCY: DiffDependency[] = [
 	[
 		MOCK_FILE_D,
@@ -159,6 +167,62 @@ const MOCK_DIFF_DEPENDENCY: DiffDependency[] = [
 	],
 	[
 		MOCK_FILE_D,
+		{
+			oldStart: 13,
+			oldLines: 1,
+			newStart: 13,
+			newLines: 1,
+			diff: `@@ -13,1 +13,1 @@\n-old value\n+updated value`
+		},
+		[
+			{
+				stackId: MOCK_STACK_B_ID,
+				commitId: '1234123'
+			}
+		]
+	],
+	[
+		MOCK_FILE_4,
+		{
+			oldStart: 13,
+			oldLines: 1,
+			newStart: 13,
+			newLines: 1,
+			diff: `@@ -13,1 +13,1 @@\n-old value\n+updated value`
+		},
+		[
+			{
+				stackId: MOCK_STACK_B_ID,
+				commitId: 'asdfasdfadfasdfadfasdfs'
+			},
+			{
+				stackId: MOCK_STACK_B_ID,
+				commitId: '5545454545fafafafafa234'
+			},
+			{
+				stackId: MOCK_STACK_C_ID,
+				commitId: '8s9d8s9df87s9df87s9dfss'
+			}
+		]
+	],
+	[
+		MOCK_FILE_5,
+		{
+			oldStart: 13,
+			oldLines: 1,
+			newStart: 13,
+			newLines: 1,
+			diff: `@@ -13,1 +13,1 @@\n-old value\n+updated value`
+		},
+		[
+			{
+				stackId: MOCK_STACK_B_ID,
+				commitId: '1234123'
+			}
+		]
+	],
+	[
+		MOCK_FILE_6,
 		{
 			oldStart: 13,
 			oldLines: 1,
@@ -244,5 +308,19 @@ export default class BranchesWithChanges extends MockBackend {
 		}
 
 		return '';
+	}
+
+	commitFailureWithReasons(commitId: string | null): CreateCommitOutcome {
+		return {
+			newCommit: commitId,
+			pathsToRejectedChanges: [
+				['cherryPickMergeConflict', MOCK_FILE_1],
+				['cherryPickMergeConflict', MOCK_FILE_2],
+				['cherryPickMergeConflict', MOCK_FILE_3],
+				['workspaceMergeConflict', MOCK_FILE_4],
+				['workspaceMergeConflict', MOCK_FILE_5],
+				['workspaceMergeConflict', MOCK_FILE_6]
+			]
+		};
 	}
 }
