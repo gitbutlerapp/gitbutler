@@ -32,18 +32,18 @@
 	}
 
 	const {
-		icon: iconName = undefined,
+		icon: iconName,
 		style = 'neutral',
 		outlined = true,
 		filled = false,
 		primaryLabel = '',
-		primaryIcon = undefined,
+		primaryIcon,
 		primaryAction,
 		secondaryLabel = '',
-		secondaryIcon = undefined,
+		secondaryIcon,
 		secondaryAction,
 		shadow = false,
-		error = undefined,
+		error,
 		title,
 		content,
 		testId
@@ -73,7 +73,7 @@
 		success: 'pop'
 	};
 
-	const resolvedIconName = iconName ?? (iconMap[style] as IconName);
+	const resolvedIconName = $derived(iconName ?? (iconMap[style] as IconName));
 </script>
 
 <div
@@ -161,9 +161,6 @@
 	.info-message__icon {
 		display: flex;
 		flex-shrink: 0;
-		align-items: center;
-		align-self: flex-start;
-		justify-content: center;
 		padding: 2px 0;
 	}
 	.info-message__actions {
