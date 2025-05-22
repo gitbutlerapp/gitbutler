@@ -38,15 +38,19 @@
 
 	$effect(() => {
 		if (viewport) {
-			setupViewport(viewport);
+			return setupViewport(viewport);
 		}
+	});
 
+	$effect(() => {
 		if (thumb) {
-			setupThumb(thumb);
+			return setupThumb(thumb);
 		}
+	});
 
+	$effect(() => {
 		if (track) {
-			setupTrack(track);
+			return setupTrack(track);
 		}
 	});
 
