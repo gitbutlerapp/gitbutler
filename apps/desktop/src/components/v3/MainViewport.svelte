@@ -64,9 +64,13 @@ the window, then enlarge it and retain the original widths of the layout.
 
 	// These need to stay in px since they are bound to elements.
 	let containerBindWidth = $state<number>(1000); // TODO: What initial value should we give this?
-	let middleClientWidth = $state<number>(540);
+	let middleBindWidth = $state<number>(540);
 	let leftBindWidth = $state<number>(300);
 	let rightBindWidth = $state<number>(300);
+
+	// When true the right hand side will resize to accommodate changes to
+	// the width of the left hand side.
+	let reverse = $state(false);
 
 	// Total width we cannot go below.
 	const padding = $derived(containerBindWidth - window.innerWidth);
@@ -74,12 +78,23 @@ the window, then enlarge it and retain the original widths of the layout.
 
 	const middleMinWidth = $derived(pxToRem(containerMinWidth) - leftMinWidth - rightMinWidth);
 
-	// Left side max width depends on teh size of the right side.
+	// Left side max width depends on teh size of the right side, unless
+	// `reverse` is true.
 	const leftMaxWidth = $derived(
-		pxToRem(containerBindWidth) - middleMinWidth - pxToRem(rightBindWidth) - 2
+		pxToRem(containerBindWidth) -
+			middleMinWidth -
+			(reverse ? rightMinWidth : pxToRem(rightBindWidth)) -
+			1 // From the flex box gaps
 	);
-	// Right side has priority over the left, so its max size is the theoretical max.
-	const rightMaxWidth = $derived(pxToRem(containerBindWidth) - middleMinWidth - leftMinWidth - 2);
+
+	// Right side has priority over the left (unless `reverse` is true), so
+	// its max size is the theoretical max.
+	const rightMaxWidth = $derived(
+		pxToRem(containerBindWidth) -
+			middleMinWidth -
+			(reverse ? pxToRem(leftBindWidth) : leftMinWidth) -
+			1 // From the flex box gaps
+	);
 
 	const derivedLeftWidth = $derived(
 		Math.min(leftMaxWidth, Math.max(leftMinWidth, $leftPreferredWidth))
@@ -91,7 +106,7 @@ the window, then enlarge it and retain the original widths of the layout.
 
 <div
 	class="main-viewport"
-	use:focusable={{ id: Focusable.Workspace }}
+	use:focusable={{ id: Focusable.MainViewport }}
 	bind:clientWidth={containerBindWidth}
 >
 	<div
@@ -100,7 +115,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		bind:clientWidth={leftBindWidth}
 		style:width={derivedLeftWidth + 'rem'}
 		style:min-width={leftMinWidth + 'rem'}
-		use:focusable={{ id: Focusable.WorkspaceLeft, parentId: Focusable.Workspace }}
+		use:focusable={{ id: Focusable.ViewportLeft, parentId: Focusable.MainViewport }}
 	>
 		{@render left()}
 		<Resizer
@@ -109,15 +124,27 @@ the window, then enlarge it and retain the original widths of the layout.
 			minWidth={leftMinWidth}
 			maxWidth={leftMaxWidth}
 			borderRadius="ml"
-			onWidth={(value) => leftPreferredWidth.set(value)}
+			onWidth={(value) => {
+				leftPreferredWidth.set(value);
+				rightPreferredWidth.set(pxToRem(rightBindWidth));
+			}}
+			onResizing={(isResizing) => {
+				if (isResizing) {
+					// Before flipping the reverse bool we need to set the
+					// preferred width to the actual width, to prevent content
+					// from shifting.
+					leftPreferredWidth.set(pxToRem(leftBindWidth));
+				}
+				reverse = isResizing;
+			}}
 		/>
 	</div>
 	<div
 		class="middle"
 		bind:this={middleDiv}
-		bind:clientWidth={middleClientWidth}
+		bind:clientWidth={middleBindWidth}
 		style:min-width={middleMinWidth + 'rem'}
-		use:focusable={{ id: Focusable.WorkspaceMiddle, parentId: Focusable.Workspace }}
+		use:focusable={{ id: Focusable.ViewportMiddle, parentId: Focusable.MainViewport }}
 	>
 		{@render middle()}
 	</div>
@@ -127,7 +154,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		bind:clientWidth={rightBindWidth}
 		style:width={derivedRightWidth + 'rem'}
 		style:min-width={rightMinWidth + 'rem'}
-		use:focusable={{ id: Focusable.WorkspaceRight, parentId: Focusable.Workspace }}
+		use:focusable={{ id: Focusable.ViewportRight, parentId: Focusable.MainViewport }}
 	>
 		{@render right()}
 		<Resizer
@@ -136,7 +163,10 @@ the window, then enlarge it and retain the original widths of the layout.
 			minWidth={rightMinWidth}
 			maxWidth={rightMaxWidth}
 			borderRadius="ml"
-			onWidth={(value) => rightPreferredWidth.set(value)}
+			onWidth={(value) => {
+				rightPreferredWidth.set(value);
+				leftPreferredWidth.set(pxToRem(leftBindWidth));
+			}}
 		/>
 	</div>
 </div>
