@@ -10,6 +10,7 @@
 	import { getSecretsService } from '$lib/secrets/secretsService';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import RadioButton from '@gitbutler/ui/RadioButton.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
@@ -163,6 +164,13 @@
 	});
 </script>
 
+{#snippet shortNote(text: string)}
+	<div class="ai-settings__short-note">
+		<Icon name="info-small" />
+		<p class="text-13 text-body">{text}</p>
+	</div>
+{/snippet}
+
 <p class="text-13 text-body ai-settings__text">
 	GitButler supports multiple providers for its AI powered features. We currently support models
 	from OpenAI and Anthropic either proxied through the GitButler API, or in a bring your own key
@@ -205,11 +213,7 @@
 				{#if !$user}
 					<AuthorizationBanner message="Please sign in to use the GitButler API." />
 				{:else}
-					<InfoMessage filled outlined={false} style="pop" icon="ai">
-						{#snippet title()}
-							GitButler uses OpenAI API for commit messages and branch names
-						{/snippet}
-					</InfoMessage>
+					{@render shortNote('GitButler uses Anthropic API for commit messages and branch names')}
 				{/if}
 			{/if}
 
@@ -271,11 +275,7 @@
 				{#if !$user}
 					<AuthorizationBanner message="Please sign in to use the GitButler API." />
 				{:else}
-					<InfoMessage filled outlined={false} style="pop" icon="ai">
-						{#snippet title()}
-							GitButler uses Anthropic API for commit messages and branch names
-						{/snippet}
-					</InfoMessage>
+					{@render shortNote('GitButler uses Anthropic API for commit messages and branch names')}
 				{/if}
 			{/if}
 
@@ -470,5 +470,15 @@
 		flex-direction: column;
 		margin-top: 16px;
 		gap: 12px;
+	}
+
+	.ai-settings__short-note {
+		display: flex;
+		align-items: center;
+		padding: 6px 10px;
+		gap: 8px;
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-2);
+		color: var(--clr-text-2);
 	}
 </style>
