@@ -4,6 +4,7 @@
 </script>
 
 <script lang="ts">
+	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
@@ -99,13 +100,18 @@
 		</div>
 
 		{#if error}
-			<code class="info-message__error-block">
+			<code class="info-message__error-block scrollbar">
 				{error}
 			</code>
 		{/if}
 
 		{#if primaryLabel || secondaryLabel}
 			<div class="info-message__actions">
+				{#if error}
+					<Button kind="ghost" onclick={() => copyToClipboard(error)} icon="copy-small">
+						Copy error message
+					</Button>
+				{/if}
 				{#if secondaryLabel}
 					<Button kind="outline" onclick={() => secondaryAction?.()} icon={secondaryIcon}>
 						{secondaryLabel}
@@ -186,7 +192,6 @@
 	}
 
 	/* OUTLINED */
-
 	.has-border {
 		border-width: 1px;
 	}
@@ -216,18 +221,13 @@
 	/* ERROR BLOCK */
 	.info-message__error-block {
 		padding: 4px 8px;
-		overflow-x: auto;
+		overflow: auto;
 		border-radius: var(--radius-s);
 		background-color: var(--clr-scale-err-90);
 		color: var(--clr-scale-err-10);
 		font-size: 12px;
 		white-space: pre;
 		user-select: auto;
-
-		/* scrollbar */
-		&::-webkit-scrollbar {
-			display: none;
-		}
 
 		/* selection */
 		&::selection {
