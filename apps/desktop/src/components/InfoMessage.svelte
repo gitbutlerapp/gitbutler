@@ -136,7 +136,7 @@
 		display: flex;
 		padding: 14px;
 		gap: 12px;
-		border-radius: var(--radius-ml);
+		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
 		color: var(--clr-scale-ntrl-0);
 		transition:
