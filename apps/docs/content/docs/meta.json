@@ -1,0 +1,20 @@
+{
+  "title": "Folder",
+  "root": true,
+  "defaultOpen": false,
+  "pages": [
+    "index",
+    "guide",
+    "why-gitbutler",
+    "---GitButler Client---",
+    "features",
+    "troubleshooting",
+    "---GitButler Server---",
+    "review",
+    "---Development---",
+    "...development",
+    "---Other---",
+    "community",
+    "releases"
+  ]
+}
