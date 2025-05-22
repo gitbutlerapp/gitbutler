@@ -5,6 +5,9 @@ import {
 } from '$lib/ai/prompts';
 import type { Prompt, AIClient, AIEvalOptions } from '$lib/ai/types';
 
+export const LM_STUDIO_DEFAULT_ENDPOINT = 'http://127.0.0.1:1234';
+export const LM_STUDIO_DEFAULT_MODEL_NAME = 'default';
+
 const DEFAULT_MAX_TOKENS = -1; // -1 means no limit
 const DEFAULT_TEMPERATURE = 0.7;
 
@@ -18,8 +21,10 @@ export class LMStudioClient implements AIClient {
 	defaultPRTemplate = SHORT_DEFAULT_PR_TEMPLATE;
 
 	private baseUrl: string;
+	private modelName: string;
 
-	constructor(endpoint: string) {
+	constructor(endpoint: string, modelName: string) {
+		this.modelName = modelName;
 		// Format the base URL to ensure it ends with /v1
 		this.baseUrl = endpoint.endsWith('/v1')
 			? endpoint
@@ -51,7 +56,7 @@ export class LMStudioClient implements AIClient {
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
-					model: 'default', // LM Studio will use whatever model is currently loaded
+					model: this.modelName,
 					messages: messages,
 					temperature: DEFAULT_TEMPERATURE,
 					max_tokens: options?.maxTokens ?? DEFAULT_MAX_TOKENS,

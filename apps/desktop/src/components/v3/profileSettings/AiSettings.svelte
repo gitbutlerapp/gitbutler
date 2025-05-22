@@ -38,6 +38,7 @@
 	let ollamaEndpoint: string | undefined = $state();
 	let ollamaModel: string | undefined = $state();
 	let lmStudioEndpoint: string | undefined = $state();
+	let lmStudioModel: string | undefined = $state();
 
 	async function setConfiguration(key: GitAIConfigKey, value: string | undefined) {
 		if (!initialized) return;
@@ -66,6 +67,7 @@
 		ollamaModel = await aiService.getOllamaModelName();
 
 		lmStudioEndpoint = await aiService.getLMStudioEndpoint();
+		lmStudioModel = await aiService.getLMStudioModelName();
 
 		// Ensure reactive declarations have finished running before we set initialized to true
 		await tick();
@@ -152,6 +154,9 @@
 	});
 	run(() => {
 		setConfiguration(GitAIConfigKey.LMStudioEndpoint, lmStudioEndpoint);
+	});
+	run(() => {
+		setConfiguration(GitAIConfigKey.LMStudioModelName, lmStudioModel);
 	});
 	run(() => {
 		if (form) form.modelKind.value = modelKind;
@@ -362,6 +367,8 @@
 				bind:value={lmStudioEndpoint}
 				placeholder="http://127.0.0.1:1234"
 			/>
+
+			<Textbox label="Model" bind:value={lmStudioModel} placeholder="default" />
 		</SectionCard>
 	{/if}
 	{#if modelKind === ModelKind.LMStudio}
