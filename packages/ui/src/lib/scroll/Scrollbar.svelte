@@ -30,7 +30,7 @@
 		padding = {},
 		shift = '0',
 		horz = false,
-		zIndex = 'var(--z-lifted)',
+		zIndex = 'var(--z-ground)',
 		whenToShow = 'hover',
 		onthumbdrag,
 		onscroll

@@ -5,7 +5,6 @@
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
 	import { slide } from 'svelte/transition';
 
@@ -22,6 +21,7 @@
 	let isUsingButlerAPI = $state(false);
 	let debugInfo = $state<string | null>(null);
 	let showDebug = $state(false);
+	let showSampleDiff = $state(false);
 	let testTimeout: NodeJS.Timeout | null = null;
 	let abortController: AbortController | null = null;
 
@@ -31,10 +31,10 @@
 			filePath: 'example.js',
 			diff: `@@ -1,3 +1,5 @@
  function hello() {
--  return "Hello World";
-+  // Add a greeting with the current time
-+  const now = new Date();
-+  return \`Hello World! The time is \${now.toLocaleTimeString()}\`;
+  -  return "Hello World";
+  +  // Add a greeting with the current time
+  +  const now = new Date();
+  +  return \`Hello World! The time is \${now.toLocaleTimeString()}\`;
  }`
 		}
 	];
@@ -182,12 +182,21 @@
 	function toggleDebug() {
 		showDebug = !showDebug;
 	}
+
+	function toggleSampleMessage() {
+		showSampleDiff = !showSampleDiff;
+	}
 </script>
 
 <div class="ai-credential-check">
 	{#if isStreaming || result || error}
 		<div transition:slide={{ duration: 250 }}>
-			<InfoMessage style={error ? 'warning' : 'success'} filled outlined={false}>
+			<InfoMessage
+				style={error ? 'error' : 'success'}
+				icon={error ? 'error' : isStreaming ? 'robot' : 'success'}
+				filled
+				outlined={false}
+			>
 				{#snippet title()}
 					{#if error}
 						AI credential check failed
@@ -201,66 +210,36 @@
 				{#snippet content()}
 					<div class="result-content" transition:slide={{ duration: 250 }}>
 						{#if error}
-							<div class="text-12 text-body error-text">
-								<div class="error-header">
-									<i class="result-icon">
-										<Icon name="error-small" color="error" />
-									</i>
-									<span>{error}</span>
-								</div>
-							</div>
-
 							{#if (modelKind === ModelKind.OpenAI || modelKind === ModelKind.Anthropic) && isUsingButlerAPI && !$user}
-								<div class="text-12 text-body help-text">
-									<span> Please sign in to use GitButler's AI API. </span>
-								</div>
+								<span> Please sign in to use GitButler's AI API. </span>
 							{:else if modelKind === ModelKind.OpenAI || modelKind === ModelKind.Anthropic}
-								<div class="text-12 text-body help-text">
-									<span> Please check your API key or try GitButler's API. </span>
-								</div>
+								<span> Please check your API key or try GitButler's API. </span>
 							{:else if modelKind === ModelKind.Ollama}
-								<div class="text-12 text-body help-text">
-									<span>
-										Please check your Ollama endpoint and model configuration.
-										<br />
-										Make sure Ollama is running locally and accessible.
-										<br />
-										<Link href="https://ollama.ai">Learn more about Ollama</Link>
-									</span>
-								</div>
+								<span>
+									Please check your Ollama endpoint and model configuration.
+									<br />
+									Make sure Ollama is running locally and accessible.
+
+									<Link href="https://ollama.ai">Learn more</Link>
+								</span>
 							{:else if modelKind === ModelKind.LMStudio}
-								<div class="text-12 text-body help-text">
-									<span>
-										Please check your LM Studio configuration.
-										<br />
-										Make sure LM Studio is running locally and accessible.
-										<br />
-										<Link href="https://lmstudio.ai">Learn more about LM Studio</Link>
-									</span>
-								</div>
+								<span>
+									Please check your LM Studio configuration.
+									<br />
+									Make sure LM Studio is running locally and accessible.
+
+									<Link href="https://lmstudio.ai">Learn more</Link>
+								</span>
 							{/if}
 						{:else}
 							<div class="text-12 text-body success-text">
-								<div class="success-header">
-									<i class="result-icon">
-										<Icon name={isStreaming ? 'ai' : 'success-small'} color="success" />
-									</i>
-									<strong>Sample commit message:</strong>
-								</div>
-								<div class="ai-response">
-									<pre class:streaming={isStreaming}>{isStreaming ? streamingResult : result}
-										{#if isStreaming}
-											<span class="cursor blink">▋</span>
-										{/if}
-									</pre>
-								</div>
-							</div>
-						{/if}
-
-						{#if showDebug && debugInfo}
-							<div class="debug-info text-12">
-								<hr />
-								<div>Debug info: {debugInfo}</div>
+								<h4 class="text-bold">Response:</h4>
+								<pre class:streaming={isStreaming}>{isStreaming
+										? streamingResult
+											? streamingResult.trim()
+											: 'Loading...'
+										: result?.trim()}
+								</pre>
 							</div>
 						{/if}
 					</div>
@@ -271,7 +250,7 @@
 	<Button
 		style="pop"
 		wide
-		icon={error ? 'error-small' : 'ai'}
+		icon="ai-small"
 		disabled={testing || isStreaming}
 		onclick={testAiCredentials}
 	>
@@ -286,9 +265,31 @@
 		{/if}
 	</Button>
 
-	<div class="debug-toggle">
-		<button type="button" class="text-12 debug-button" onclick={toggleDebug}>
-			{showDebug ? 'Hide' : 'Show'} Debug Info
+	{#if showDebug && debugInfo}
+		<div class="debug-info text-12 text-body">
+			<p><span class="text-bold">Debug info</span>:</p>
+			<p>{debugInfo}</p>
+		</div>
+	{/if}
+
+	{#if showSampleDiff}
+		<div class="debug-info text-12 text-body">
+			<p class="text-bold">Sample diff:</p>
+			<pre class="debug-info__code">{testDiff[0]?.diff}</pre>
+		</div>
+	{/if}
+
+	<div class="debug-info-buttons">
+		<button type="button" class="text-12 debug-button" onclick={toggleSampleMessage}>
+			{showSampleDiff ? 'Hide' : 'Show'} diff sample
+		</button>
+		<button
+			type="button"
+			class="text-12 debug-button"
+			class:debug-button_disabled={!debugInfo}
+			onclick={toggleDebug}
+		>
+			{showDebug ? 'Hide' : 'Show'} debug info
 		</button>
 	</div>
 </div>
@@ -307,96 +308,50 @@
 		gap: 4px;
 	}
 
-	.result-icon {
-		display: flex;
-		align-items: center;
-		margin-right: 6px;
-	}
-
-	.error-text,
 	.success-text {
 		display: flex;
 		flex-direction: column;
-		width: 100%;
-	}
-
-	.error-header,
-	.success-header {
-		display: flex;
-		align-items: center;
-		margin-bottom: 4px;
-	}
-
-	.help-text {
-		margin-top: 6px;
-		margin-left: 18px;
-	}
-
-	.ai-response {
-		width: 100%;
-		max-height: 150px;
-		overflow-y: auto;
-		word-break: break-word;
-	}
-
-	.ai-response pre {
-		box-sizing: border-box;
-		width: 100%;
-		min-height: 80px;
-		margin: 8px 0 0 0;
-		padding: 14px 12px;
-		border-radius: 4px;
+		padding: 14px;
+		gap: 10px;
+		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
-		font-size: 12px;
-		font-family: var(--font-mono);
-		white-space: pre-wrap;
 	}
 
-	.ai-response pre.streaming {
-		min-height: 80px;
-	}
-
-	.cursor {
-		display: inline-block;
-		color: var(--clr-text-1);
-		vertical-align: middle;
-	}
-
-	.blink {
-		animation: blink 1s step-end infinite;
-	}
-
-	@keyframes blink {
-		from,
-		to {
-			opacity: 1;
-		}
-		50% {
-			opacity: 0;
-		}
-	}
-
-	.debug-toggle {
-		display: flex;
-		justify-content: flex-end;
-	}
-
+	/* DEBUG SECTION */
 	.debug-button {
-		padding: 4px 8px;
 		border: none;
 		background: none;
-		color: var(--clr-text-3);
+		color: var(--clr-text-2);
 		font-size: 11px;
-		text-decoration: underline;
+		text-decoration: underline dotted;
 		cursor: pointer;
 	}
 
-	.debug-info {
-		margin-top: 8px;
+	.debug-button_disabled {
 		color: var(--clr-text-3);
-		font-size: 11px;
-		font-family: monospace;
+		cursor: not-allowed;
+	}
+
+	.debug-info-buttons {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		width: auto;
+		margin-top: 4px;
+		gap: 14px;
+	}
+
+	.debug-info {
+		display: flex;
+		flex-direction: column;
+		margin-bottom: -8px;
+		padding: 14px;
+		gap: 4px;
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-2);
+	}
+
+	.debug-info__code {
 		white-space: pre-wrap;
-		word-break: break-word;
 	}
 </style>

@@ -4,6 +4,7 @@
 </script>
 
 <script lang="ts">
+	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
@@ -31,18 +32,18 @@
 	}
 
 	const {
-		icon: iconName = undefined,
+		icon: iconName,
 		style = 'neutral',
 		outlined = true,
 		filled = false,
 		primaryLabel = '',
-		primaryIcon = undefined,
+		primaryIcon,
 		primaryAction,
 		secondaryLabel = '',
-		secondaryIcon = undefined,
+		secondaryIcon,
 		secondaryAction,
 		shadow = false,
-		error = undefined,
+		error,
 		title,
 		content,
 		testId
@@ -72,7 +73,7 @@
 		success: 'pop'
 	};
 
-	const resolvedIconName = iconName ?? (iconMap[style] as IconName);
+	const resolvedIconName = $derived(iconName ?? (iconMap[style] as IconName));
 </script>
 
 <div
@@ -82,11 +83,13 @@
 	class:has-background={filled}
 	class:shadow
 >
-	<Icon name={resolvedIconName} color={iconColorMap[style]} />
+	<div class="info-message__icon">
+		<Icon name={resolvedIconName} color={iconColorMap[style]} />
+	</div>
 	<div class="info-message__inner">
 		<div class="info-message__content">
 			{#if title}
-				<div class="info-message__title text-13 text-body text-semibold">
+				<div class="info-message__title text-13 text-body text-bold">
 					{@render title()}
 				</div>
 			{/if}
@@ -99,13 +102,18 @@
 		</div>
 
 		{#if error}
-			<code class="info-message__error-block">
+			<code class="info-message__error-block scrollbar">
 				{error}
 			</code>
 		{/if}
 
 		{#if primaryLabel || secondaryLabel}
 			<div class="info-message__actions">
+				{#if error}
+					<Button kind="ghost" onclick={() => copyToClipboard(error)} icon="copy-small">
+						Copy error message
+					</Button>
+				{/if}
 				{#if secondaryLabel}
 					<Button kind="outline" onclick={() => secondaryAction?.()} icon={secondaryIcon}>
 						{secondaryLabel}
@@ -130,7 +138,7 @@
 		display: flex;
 		padding: 14px;
 		gap: 12px;
-		border-radius: var(--radius-ml);
+		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
 		color: var(--clr-scale-ntrl-0);
 		transition:
@@ -149,6 +157,11 @@
 		flex-direction: column;
 		gap: 6px;
 		user-select: text;
+	}
+	.info-message__icon {
+		display: flex;
+		flex-shrink: 0;
+		padding: 2px 0;
 	}
 	.info-message__actions {
 		display: flex;
@@ -186,7 +199,6 @@
 	}
 
 	/* OUTLINED */
-
 	.has-border {
 		border-width: 1px;
 	}
@@ -216,18 +228,13 @@
 	/* ERROR BLOCK */
 	.info-message__error-block {
 		padding: 4px 8px;
-		overflow-x: auto;
+		overflow: auto;
 		border-radius: var(--radius-s);
 		background-color: var(--clr-scale-err-90);
 		color: var(--clr-scale-err-10);
 		font-size: 12px;
 		white-space: pre;
 		user-select: auto;
-
-		/* scrollbar */
-		&::-webkit-scrollbar {
-			display: none;
-		}
 
 		/* selection */
 		&::selection {

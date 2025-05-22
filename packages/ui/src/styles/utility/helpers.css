@@ -35,6 +35,10 @@ pre {
 	&::-webkit-scrollbar-button {
 		display: none;
 	}
+
+	&::-webkit-scrollbar-corner {
+		background-color: transparent;
+	}
 }
 
 .stack-v {

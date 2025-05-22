@@ -12,6 +12,7 @@
 		shift?: string;
 		thickness?: string;
 		horz?: boolean;
+		zIndex?: string;
 		whenToShow: 'hover' | 'always' | 'scroll';
 		autoScroll?: boolean;
 		onthumbdrag?: (dragging: boolean) => void;
@@ -43,6 +44,7 @@
 		onscroll,
 		onscrollTop,
 		onscrollEnd,
+		zIndex,
 		viewport = $bindable(),
 		top,
 		bottom,
@@ -89,6 +91,7 @@
 			{padding}
 			{shift}
 			{thickness}
+			{zIndex}
 			{horz}
 			{onthumbdrag}
 		/>
