@@ -687,6 +687,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-agent"
+version = "0.0.0"
+dependencies = [
+ "gitbutler-secret",
+ "serde",
+ "serde_json",
+ "toml",
+ "uuid",
+]
+
+[[package]]
 name = "but-auto"
 version = "0.0.0"
 dependencies = [
