@@ -141,10 +141,6 @@ pub mod commands {
             context_lines,
         )?;
 
-        let Some(new_tree) = new_tree else {
-            return Err(anyhow::anyhow!("Failed to create commit tree").into());
-        };
-
         Ok(hooks::pre_commit_with_tree(&ctx, new_tree.to_git2())?)
     }
 

@@ -830,6 +830,11 @@ fn commit_whole_file_to_conflicting_position() -> anyhow::Result<()> {
                 stack_segment: None,
             },
         )?;
+
+        assert_ne!(
+            outcome.new_commit, None,
+            "Everything fails, so we create a commit anyway (despite no change happened) to help the user deal with it"
+        );
         // The hunks are never present, as they always match, further clarifying that the hunks aren't the problem.
         insta::allow_duplicates! {
         insta::assert_debug_snapshot!(outcome.rejected_specs, @r#"
@@ -885,6 +890,10 @@ fn commit_whole_file_to_conflicting_position_one_unconflicting_file_remains() ->
                 stack_segment: None,
             },
         )?;
+        assert_ne!(
+            outcome.new_commit, None,
+            "Not everything fails, so there is a commit"
+        );
         // The hunks are never present, as they always match, further clarifying that the hunks aren't the problem.
         insta::allow_duplicates! {
         insta::assert_debug_snapshot!(outcome.rejected_specs, @r#"
