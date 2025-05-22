@@ -1,5 +1,6 @@
 use anyhow::{Context, anyhow, bail};
 use but_core::UnifiedDiff;
+use but_settings::AppSettings;
 use but_workspace::{DiffSpec, HunkHeader, VirtualBranchesTomlMetadata};
 use gitbutler_project::{Project, ProjectId};
 use gix::bstr::{BString, ByteSlice};
@@ -116,6 +117,7 @@ pub fn parse_diff_spec(arg: &Option<String>) -> Result<Option<Vec<DiffSpec>>, an
 mod commit;
 use crate::command::discard_change::IndicesOrHeaders;
 pub use commit::commit;
+use gitbutler_command_context::CommandContext;
 
 pub mod diff;
 
@@ -420,6 +422,14 @@ pub async fn watch(args: &super::Args) -> anyhow::Result<()> {
         debug_print(event).ok();
     }
     Ok(())
+}
+
+pub fn operating_mode(args: &super::Args) -> anyhow::Result<()> {
+    let (_repo, project) = repo_and_maybe_project(args, RepositoryOpenMode::General)?;
+    let project = project.context("Couldn't find GitButler project in directory")?;
+    let ctx = CommandContext::open(&project, AppSettings::default())?;
+
+    debug_print(gitbutler_operating_modes::operating_mode(&ctx))
 }
 
 pub fn ref_info(args: &super::Args, ref_name: Option<&str>) -> anyhow::Result<()> {

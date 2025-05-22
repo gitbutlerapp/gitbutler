@@ -112,6 +112,8 @@ pub enum Subcommands {
         simple: bool,
     },
     Watch,
+    #[clap(visible_alias = "operating-mode", alias = "opmode")]
+    OpMode,
     /// Returns the current hunk assignments
     HunkAssignments,
     AssignHunk {

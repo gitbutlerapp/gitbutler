@@ -24,6 +24,7 @@ async fn main() -> Result<()> {
     let _op_span = tracing::info_span!("cli-op").entered();
 
     match &args.cmd {
+        args::Subcommands::OpMode => command::operating_mode(&args),
         args::Subcommands::DiscardChange {
             hunk_indices,
             hunk_headers,
