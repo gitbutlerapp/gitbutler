@@ -7,6 +7,7 @@
 	import { beforeNavigate, afterNavigate } from '$app/navigation';
 	import { goto } from '$app/navigation';
 	import AppUpdater from '$components/AppUpdater.svelte';
+	import GlobalModal from '$components/GlobalModal.svelte';
 	import GlobalSettingsMenuAction from '$components/GlobalSettingsMenuAction.svelte';
 	import PromptModal from '$components/PromptModal.svelte';
 	import ReloadMenuAction from '$components/ReloadMenuAction.svelte';
@@ -309,6 +310,7 @@
 <GlobalSettingsMenuAction />
 <ReloadMenuAction />
 <SwitchThemeMenuAction />
+<GlobalModal />
 
 {#if import.meta.env.MODE === 'development'}
 	<ReloadWarning />
