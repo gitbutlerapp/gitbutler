@@ -226,7 +226,7 @@
 	}
 
 	function handleKeyDown(e: KeyboardEvent) {
-		if (e.key === 'b' && (e.ctrlKey || e.metaKey) && e.altKey) {
+		if (e.code === 'KeyB' && (e.ctrlKey || e.metaKey) && e.altKey) {
 			branchChanges();
 			e.preventDefault();
 			return;
