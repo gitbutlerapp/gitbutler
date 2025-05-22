@@ -245,7 +245,9 @@
 		// We could have an encoding for hunk-headers that we can then put into
 		// a hash set.
 		return hunks.filter((hunk) =>
-			pathGroup.some((assignedHunk) => hunkHeaderEquals(hunk, assignedHunk.hunkHeader))
+			pathGroup.some((assignedHunk) =>
+				assignedHunk?.hunkHeader ? hunkHeaderEquals(hunk, assignedHunk.hunkHeader) : true
+			)
 		);
 	}
 </script>

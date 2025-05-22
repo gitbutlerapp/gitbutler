@@ -75,6 +75,7 @@
 		if (affectedPaths) {
 			untrack(() => {
 				changeSelection.retain(affectedPaths);
+				// TODO: We need to make this consider all groups
 				idSelection.retain(affectedPaths, { type: 'ungrouped' });
 			});
 		}

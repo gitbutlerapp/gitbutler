@@ -98,7 +98,7 @@ export type HunkAssignment = {
 	/** The hunk that is being assigned. Together with path_bytes, this identifies the hunk.
 	 * If the file is binary, or too large to load, this will be None and in this case the path name is the only identity.
 	 */
-	readonly hunkHeader: HunkHeader;
+	readonly hunkHeader: HunkHeader | null;
 	/** The file path of the hunk. Used for display. */
 	readonly path: string;
 	/** The file path of the hunk in bytes. Used to correctly communicate to the backed when creating new assignments */
