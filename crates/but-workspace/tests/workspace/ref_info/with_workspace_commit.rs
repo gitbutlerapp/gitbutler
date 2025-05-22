@@ -43,7 +43,7 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         ref_location: "ReachableFromWorkspaceCommit",
                         commits_unique_from_tip: [
-                            LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
+                            LocalCommit(d79bba9, "new file in A\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [
                             RemoteCommit(89cc2d3, "change in A\n",
@@ -88,6 +88,81 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
         info, expected_info,
         "Information doesn't change, the remote is inferred"
     );
+    Ok(())
+}
+
+#[test]
+fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("target-ahead-remote-rewritten")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 03d2336 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * d5d3a92 (A) unique local tip
+    * 6ffd040 shared by name
+    * 4cd56ab unique local
+    | * f4ed16f (origin/main) target ahead
+    | | * 50d31c8 (origin/A) unique remote
+    | | * a9954f1 shared by name
+    | |/  
+    |/|   
+    * | 872c22f shared local/remote
+    |/  
+    * c166d42 (origin/main, origin/HEAD, main) init-integration
+    ");
+
+    add_stack(
+        &mut meta,
+        StackId::from_number_for_testing(1),
+        "A",
+        StackState::InWorkspace,
+    );
+    let opts = standard_options();
+    // TODO: fix commit identity issues, fix duplication of remote commits.
+    let info = ref_info(repo.find_reference("A")?, &*meta, opts)?;
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [
+            Stack {
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
+                segments: [
+                    StackSegment {
+                        ref_name: "refs/heads/A",
+                        remote_tracking_ref_name: "refs/remotes/origin/A",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [
+                            LocalCommit(d5d3a92, "unique local tip\n", local),
+                            LocalCommit(6ffd040, "shared by name\n", local/remote(similarity)),
+                            LocalCommit(4cd56ab, "unique local\n", local),
+                            LocalCommit(872c22f, "shared local/remote\n", local),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [
+                            RemoteCommit(50d31c8, "unique remote\n",
+                        ],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                ],
+                stash_status: None,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+    }
+    "#);
     Ok(())
 }
 
@@ -152,7 +227,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         ref_location: "ReachableFromWorkspaceCommit",
                         commits_unique_from_tip: [
-                            LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
+                            LocalCommit(d79bba9, "new file in A\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [
                             RemoteCommit(89cc2d3, "change in A\n",
@@ -226,7 +301,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         ref_location: "ReachableFromWorkspaceCommit",
                         commits_unique_from_tip: [
-                            LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
+                            LocalCommit(d79bba9, "new file in A\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [
                             RemoteCommit(89cc2d3, "change in A\n",
@@ -310,7 +385,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         ref_location: "ReachableFromWorkspaceCommit",
                         commits_unique_from_tip: [
-                            LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
+                            LocalCommit(d79bba9, "new file in A\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [
                             RemoteCommit(89cc2d3, "change in A\n",
@@ -659,7 +734,7 @@ mod legacy {
                         ],
                         is_conflicted: false,
                         commits: [
-                            Commit(4e5484a, "add new file in B-on-A"),
+                            Commit(4e5484a, "add new file in B-on-A", local),
                         ],
                         upstream_commits: [],
                         is_remote_head: false,
@@ -698,7 +773,7 @@ mod legacy {
                         ],
                         is_conflicted: false,
                         commits: [
-                            Commit(5f37dbf, "add new file in C-on-A"),
+                            Commit(5f37dbf, "add new file in C-on-A", local),
                         ],
                         upstream_commits: [],
                         is_remote_head: false,
@@ -720,7 +795,7 @@ mod legacy {
                         ],
                         is_conflicted: false,
                         commits: [
-                            Commit(d79bba9, "new file in A"),
+                            Commit(d79bba9, "new file in A", local),
                         ],
                         upstream_commits: [
                             UpstreamCommit(89cc2d3, "change in A"),

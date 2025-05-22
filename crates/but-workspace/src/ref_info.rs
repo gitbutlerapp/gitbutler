@@ -513,7 +513,7 @@ pub(crate) mod function {
                             }
                         };
 
-                    for info in remote_ref_tip
+                    'remote_branch_traversal: for info in remote_ref_tip
                         .attach(repo)
                         .ancestors()
                         .first_parent_only()
@@ -524,10 +524,8 @@ pub(crate) mod function {
                         let info = info?;
                         // Don't break, maybe the local commits are reachable through multiple avenues.
                         if local_commit_ids.contains(&info.id) {
-                            for local_commit in &mut segment.commits_unique_from_tip {
-                                local_commit.relation =
-                                    LocalCommitRelation::LocalAndRemote(local_commit.id);
-                            }
+                            // TODO: could we break out here? Only if there is only one forkpoint. There can probably be geometries that make this wrong.
+                            break 'remote_branch_traversal;
                         } else {
                             let commit = but_core::Commit::from_id(info.id())?;
                             let has_conflicts = commit.is_conflicted();
@@ -557,22 +555,35 @@ pub(crate) mod function {
                 // Find duplicates harder by change-ids by commit-data.
                 for local_commit in &mut segment.commits_unique_from_tip {
                     let commit = but_core::Commit::from_id(local_commit.id.attach(repo))?;
-                    if let Some(hdr) = commit.headers() {
-                        if let Some(remote_commit_id) = similarity_lut
-                            .get(&ChangeIdOrCommitData::ChangeId(hdr.change_id))
-                            .or_else(|| {
-                                similarity_lut.get(&ChangeIdOrCommitData::CommitData {
-                                    author: commit.author.clone(),
-                                    message: commit.message.clone(),
-                                })
+                    if let Some(remote_commit_id) = commit
+                        .headers()
+                        .and_then(|hdr| {
+                            similarity_lut.get(&ChangeIdOrCommitData::ChangeId(hdr.change_id))
+                        })
+                        .or_else(|| {
+                            similarity_lut.get(&ChangeIdOrCommitData::CommitData {
+                                author: commit.author.clone(),
+                                message: commit.message.clone(),
                             })
-                        {
-                            local_commit.relation =
-                                LocalCommitRelation::LocalAndRemote(*remote_commit_id);
-                        }
+                        })
+                    {
+                        local_commit.relation =
+                            LocalCommitRelation::LocalAndRemote(*remote_commit_id);
                     }
                     local_commit.has_conflicts = commit.is_conflicted();
                 }
+
+                // Prune upstream commits so they don't show if they are considered locally available as well.
+                // This is kind of 'wrong', and we can hope that code doesn't rely on upstream commits.
+                segment
+                    .commits_unique_in_remote_tracking_branch
+                    .retain(|remote_commit| {
+                        let remote_commit_is_shared_in_local = segment
+                            .commits_unique_from_tip
+                            .iter()
+                            .any(|c| matches!(c.relation,  LocalCommitRelation::LocalAndRemote(rid) if rid == remote_commit.id));
+                        !remote_commit_is_shared_in_local
+                    });
             }
 
             // Finally, check for integration into the target if available.

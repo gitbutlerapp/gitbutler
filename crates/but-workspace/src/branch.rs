@@ -748,11 +748,13 @@ pub struct StackSegment {
     pub commits_unique_from_tip: Vec<LocalCommit>,
     /// Commits that are reachable from the remote-tracking branch associated with this branch,
     /// but are not reachable from this branch or duplicated by a commit in it.
+    /// Note that commits that are also similar to commits in `commits_unique_from_tip` are pruned, and not present here.
     ///
     /// Note that remote commits along with their remote tracking branch should always retain a shared history
     /// with the local tracking branch. If these diverge, we can represent this in data, but currently there is
     /// no derived value to make this visible explicitly.
     // TODO: review this - should branch divergence be a thing? Rare, but not impossible.
+    //       We linearize these, pretending a simpler history than there actually is.
     pub commits_unique_in_remote_tracking_branch: Vec<RemoteCommit>,
     /// Metadata with additional information, or `None` if nothing was present.
     ///

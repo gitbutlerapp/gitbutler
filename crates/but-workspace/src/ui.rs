@@ -127,6 +127,22 @@ pub enum CommitState {
     Integrated,
 }
 
+impl CommitState {
+    fn display(&self, id: gix::ObjectId) -> &'static str {
+        match self {
+            CommitState::LocalOnly => "local",
+            CommitState::LocalAndRemote(remote_id) => {
+                if *remote_id == id {
+                    "local/remote(identity)"
+                } else {
+                    "local/remote(similarity)"
+                }
+            }
+            CommitState::Integrated => "integrated",
+        }
+    }
+}
+
 /// Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -174,9 +190,10 @@ impl std::fmt::Debug for Commit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Commit({short_hex}, {message:?})",
+            "Commit({short_hex}, {message:?}, {state})",
             short_hex = self.id.to_hex_with_len(7),
-            message = self.message.trim().as_bstr()
+            message = self.message.trim().as_bstr(),
+            state = self.state.display(self.id)
         )
     }
 }

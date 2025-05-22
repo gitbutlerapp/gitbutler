@@ -57,7 +57,7 @@ mod with_workspace {
             ],
             is_conflicted: false,
             commits: [
-                Commit(7f389ed, "add 10 to the beginning"),
+                Commit(7f389ed, "add 10 to the beginning", local/remote(identity)),
             ],
             upstream_commits: [],
             is_remote_head: false,
@@ -107,8 +107,8 @@ mod with_workspace {
             ],
             is_conflicted: false,
             commits: [
-                Commit(89cc2d3, "change in A"),
-                Commit(d79bba9, "new file in A"),
+                Commit(89cc2d3, "change in A", local/remote(identity)),
+                Commit(d79bba9, "new file in A", local/remote(identity)),
             ],
             upstream_commits: [],
             is_remote_head: false,
@@ -159,7 +159,7 @@ mod with_workspace {
             ],
             is_conflicted: false,
             commits: [
-                Commit(d79bba9, "new file in A"),
+                Commit(d79bba9, "new file in A", local/remote(identity)),
             ],
             upstream_commits: [
                 UpstreamCommit(89cc2d3, "change in A"),
@@ -186,8 +186,8 @@ mod with_workspace {
             ],
             is_conflicted: false,
             commits: [
-                Commit(89cc2d3, "change in A"),
-                Commit(d79bba9, "new file in A"),
+                Commit(89cc2d3, "change in A", local/remote(identity)),
+                Commit(d79bba9, "new file in A", local/remote(identity)),
             ],
             upstream_commits: [],
             is_remote_head: true,
@@ -239,8 +239,8 @@ mod with_workspace {
             ],
             is_conflicted: false,
             commits: [
-                Commit(1a265a4, "local change in A"),
-                Commit(d79bba9, "new file in A"),
+                Commit(1a265a4, "local change in A", local/remote(identity)),
+                Commit(d79bba9, "new file in A", local/remote(identity)),
             ],
             upstream_commits: [
                 UpstreamCommit(89cc2d3, "change in A"),
