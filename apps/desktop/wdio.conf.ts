@@ -39,12 +39,13 @@ export const config: Options.WebdriverIO = {
 	connectionRetryTimeout: 120000,
 	connectionRetryCount: 0,
 
-	beforeTest: function (test: Frameworks.Test) {
+	beforeTest: async function (test: Frameworks.Test) {
 		const videoPath = path.join(import.meta.dirname, '/e2e/videos');
 		videoRecorder.start(test, videoPath);
 	},
 
-	afterTest: function () {
+	afterTest: async function () {
+		await sleep(2000); // Let browser settle before stopping.
 		videoRecorder.stop();
 	},
 
@@ -58,3 +59,7 @@ export const config: Options.WebdriverIO = {
 		tauriDriver.kill();
 	}
 };
+
+async function sleep(ms: number) {
+	return await new Promise((resolve) => setTimeout(resolve, ms));
+}

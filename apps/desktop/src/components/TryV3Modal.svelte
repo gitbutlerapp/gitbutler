@@ -71,7 +71,7 @@
 				<Checkbox name="dont-show-again" small bind:checked={$doNotShowAgain} />
 				<span class="text-12"> Don't ask again</span>
 			</label>
-			<Button kind="outline" onclick={close}>Not now</Button>
+			<Button kind="outline" testId="v3-not-now" onclick={close}>Not now</Button>
 			<Button style="pop" type="submit">Switch to V3 UI</Button>
 		</div>
 	{/snippet}

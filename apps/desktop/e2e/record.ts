@@ -31,7 +31,7 @@ export class TestRecorder {
 				'-f',
 				'x11grab',
 				'-video_size',
-				'1280x1024',
+				'1160x720',
 				'-i',
 				process.env.DISPLAY,
 				'-loglevel',
