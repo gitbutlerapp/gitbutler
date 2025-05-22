@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import Resizer from '$components/Resizer.svelte';
 	import BranchExplorer from '$components/v3/BranchExplorer.svelte';
 	import BranchView from '$components/v3/BranchView.svelte';
 	import BranchesViewBranch from '$components/v3/BranchesViewBranch.svelte';
 	import BranchesViewStack from '$components/v3/BranchesViewStack.svelte';
+	import MainViewport from '$components/v3/MainViewport.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import TargetCommitList from '$components/v3/TargetCommitList.svelte';
 	import UnappliedBranchView from '$components/v3/UnappliedBranchView.svelte';
@@ -16,8 +16,6 @@
 	import PRListCard from '$components/v3/branchesPage/PRListCard.svelte';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { isParsedError } from '$lib/error/parser';
-	import { Focusable } from '$lib/focus/focusManager.svelte';
-	import { focusable } from '$lib/focus/focusable.svelte';
 	import { workspacePath } from '$lib/routes/routes.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -47,12 +45,6 @@
 	const drawerIsFullScreen = $derived(projectState.drawerFullScreen);
 	const baseBranchResult = $derived(baseBranchService.baseBranch(projectId));
 	const branchesSelection = $derived(projectState.branchesSelection);
-
-	let leftDiv = $state<HTMLElement>();
-	let rightDiv = $state<HTMLElement>();
-
-	const leftWidth = $derived(uiState.global.leftWidth);
-	const rightWidth = $derived(uiState.global.stacksViewWidth);
 
 	const selectionId: SelectionId | undefined = $derived.by(() => {
 		const current = branchesState?.current;
@@ -168,12 +160,12 @@
 		{@const isStackOrNormalBranchPreview =
 			current.stackId || (current.branchName && current.branchName !== baseBranch.shortName)}
 
-		<div class="branches-view" use:focusable={{ id: Focusable.Branches }}>
-			<div
-				class="branch-list-resizer-wrap"
-				bind:this={leftDiv}
-				style:width={leftWidth.current + 'rem'}
-			>
+		<MainViewport
+			name="branches"
+			leftWidth={{ default: 360, min: 280 }}
+			rightWidth={{ default: 360, min: 280 }}
+		>
+			{#snippet left()}
 				<div class="branch-list">
 					<BranchesListGroup title="Current workspace target">
 						<!-- TODO: We need an API for `commitsCount`! -->
@@ -238,16 +230,9 @@
 						{/snippet}
 					</BranchExplorer>
 				</div>
-				<Resizer
-					viewport={leftDiv}
-					direction="right"
-					minWidth={14}
-					borderRadius="ml"
-					onWidth={(value) => (leftWidth.current = value)}
-				/>
-			</div>
+			{/snippet}
 
-			<div class="main-view">
+			{#snippet middle()}
 				{#if !drawerIsFullScreen.current}
 					<SelectionView {projectId} {selectionId} />
 				{/if}
@@ -288,9 +273,9 @@
 						{onerror}
 					/>
 				{/if}
-			</div>
+			{/snippet}
 
-			<div class="branches-sideview">
+			{#snippet right()}
 				{#if !inWorkspaceOrTargetBranch && someBranchSelected}
 					{@const doesNotHaveLocalTooltip = current.hasLocal
 						? undefined
@@ -335,8 +320,6 @@
 						isStackOrNormalBranchPreview ? 'dotted-container dotted-pattern' : '',
 						inWorkspaceOrTargetBranch ? 'rounded-container' : ''
 					]}
-					bind:this={rightDiv}
-					style:width={rightWidth.current + 'rem'}
 				>
 					{#if (current.branchName === undefined && current.prNumber === undefined) || current.branchName === baseBranch.shortName}
 						<TargetCommitList {projectId} />
@@ -353,38 +336,21 @@
 						Not implemented!
 					{/if}
 				</div>
-
-				<Resizer
-					viewport={rightDiv}
-					direction="left"
-					minWidth={16}
-					borderRadius="ml"
-					onWidth={(value) => {
-						rightWidth.current = value;
-					}}
-				/>
-			</div>
-		</div>
+			{/snippet}
+		</MainViewport>
 	{/snippet}
 </ReduxResult>
 
 <style lang="postcss">
-	.branches-view {
+	.branch-details {
 		display: flex;
 		position: relative;
 		flex: 1;
-		align-items: stretch;
-		width: 100%;
-		height: 100%;
-		gap: 8px;
-	}
-	.branch-list-resizer-wrap {
-		display: flex;
-		position: relative;
-		flex-shrink: 0;
 		flex-direction: column;
 		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
 	}
+
 	.branch-list {
 		display: flex;
 		position: relative;
@@ -397,30 +363,7 @@
 		border-radius: var(--radius-ml);
 		background-color: var(--clr-bg-1);
 	}
-	.main-view {
-		display: flex;
-		position: relative;
-		flex-grow: 1;
-		flex-direction: column;
-		min-width: 320px;
-		overflow-x: hidden;
-		gap: 8px;
-		border-radius: var(--radius-ml);
-	}
-	.branch-details {
-		display: flex;
-		position: relative;
-		flex: 1;
-		flex-direction: column;
-		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
-	}
 
-	.branches-sideview {
-		display: flex;
-		position: relative;
-		flex-direction: column;
-	}
 	.branches-actions {
 		display: flex;
 		padding: 12px;
@@ -436,6 +379,7 @@
 		padding: 12px;
 		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
 	}
+
 	.rounded-container {
 		border-radius: var(--radius-ml);
 	}

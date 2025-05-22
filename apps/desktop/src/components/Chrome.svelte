@@ -41,7 +41,7 @@
 		flex-grow: 1;
 		align-items: self-start;
 		padding: 0 14px 14px 0;
-		overflow: auto;
+		overflow: hidden;
 		user-select: none;
 	}
 </style>
