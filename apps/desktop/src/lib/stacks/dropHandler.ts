@@ -66,6 +66,10 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 			case 'commit': {
 				const { stack, outcome, branchName } = await this.macros.createNewStackAndCommit();
 
+				if (!outcome.newCommit) {
+					throw new Error('Failed to create a new commit');
+				}
+
 				const sourceStackId = data.stackId;
 				const sourceCommitId = data.selectionId.commitId;
 				if (sourceStackId) {

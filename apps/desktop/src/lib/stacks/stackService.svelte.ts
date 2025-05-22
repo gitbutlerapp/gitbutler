@@ -103,7 +103,7 @@ type RejectionReason =
 	| 'MissingDiffSpecAssociation';
 
 export type CreateCommitOutcome = {
-	newCommit: string;
+	newCommit: string | null;
 	pathsToRejectedChanges: [RejectionReason, string][];
 };
 

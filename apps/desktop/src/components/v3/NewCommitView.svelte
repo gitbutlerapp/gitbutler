@@ -199,19 +199,21 @@
 
 		const newId = response.newCommit;
 
-		// Clear saved state for commit message editor.
-		projectState.commitTitle.set('');
-		projectState.commitDescription.set('');
+		if (newId) {
+			// Clear saved state for commit message editor.
+			projectState.commitTitle.set('');
+			projectState.commitDescription.set('');
 
-		// Close the drawer.
-		projectState.drawerPage.set(undefined);
+			// Close the drawer.
+			projectState.drawerPage.set(undefined);
 
-		// Select the newly created commit.
-		// Using `finalStackId` here because `stackState` might not have updated yet.
-		uiState.stack(finalStackId).selection.set({ branchName: finalBranchName, commitId: newId });
+			// Select the newly created commit.
+			// Using `finalStackId` here because `stackState` might not have updated yet.
+			uiState.stack(finalStackId).selection.set({ branchName: finalBranchName, commitId: newId });
 
-		// Clear change/hunk selection used for creating the commit.
-		changeSelection.clear();
+			// Clear change/hunk selection used for creating the commit.
+			changeSelection.clear();
+		}
 
 		if (response.pathsToRejectedChanges.length > 0) {
 			showError(

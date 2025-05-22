@@ -36,12 +36,14 @@ export default class StackMacros {
 			params.commitMessage
 		);
 
-		this.uiState.stack(stack.id).selection.set({
-			branchName,
-			commitId: outcome.newCommit
-		});
+		if (outcome.newCommit) {
+			this.uiState.stack(stack.id).selection.set({
+				branchName,
+				commitId: outcome.newCommit
+			});
 
-		this.uiState.project(this.projectId).stackId.set(stack.id);
+			this.uiState.project(this.projectId).stackId.set(stack.id);
+		}
 	}
 
 	/**
