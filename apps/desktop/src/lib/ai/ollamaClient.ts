@@ -53,7 +53,10 @@ export class OllamaClient implements AIClient {
 		private modelName: string
 	) {
 		this.ollama = new Ollama({
-			host: this.endpoint
+			host: this.endpoint,
+			headers: {
+				origin: ''
+			}
 		});
 	}
 
