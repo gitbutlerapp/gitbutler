@@ -130,10 +130,17 @@ pub enum Subcommands {
         #[clap(long, short = 'w')]
         workspace_only: bool,
     },
-    /// Returns the list of stacks that are currently part of the GitButler workspace.
+    /// Returns details about a stack, as identified by StackID.
+    ///
+    /// As StackIDs are going away, BranchDetails would be the part that remains.
     StackDetails {
         /// The ID of the stack to list details for.
         id: StackId,
+    },
+    /// Returns detailed
+    BranchDetails {
+        /// A resolvable reference name.
+        ref_name: String,
     },
     /// Returns everything we know about the given ref, or `HEAD`.
     RefInfo {

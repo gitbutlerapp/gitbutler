@@ -55,7 +55,7 @@ mod with_workspace {
                 author <author@example.com>,
                 committer <committer@example.com>,
             ],
-            is_conflicted: true,
+            is_conflicted: false,
             commits: [
                 Commit(7f389ed, "add 10 to the beginning"),
             ],
@@ -105,7 +105,7 @@ mod with_workspace {
                 author <author@example.com>,
                 committer <committer@example.com>,
             ],
-            is_conflicted: true,
+            is_conflicted: false,
             commits: [
                 Commit(89cc2d3, "change in A"),
                 Commit(d79bba9, "new file in A"),
@@ -157,7 +157,7 @@ mod with_workspace {
                 author <author@example.com>,
                 committer <committer@example.com>,
             ],
-            is_conflicted: true,
+            is_conflicted: false,
             commits: [
                 Commit(d79bba9, "new file in A"),
             ],
@@ -184,7 +184,7 @@ mod with_workspace {
                 author <author@example.com>,
                 committer <committer@example.com>,
             ],
-            is_conflicted: true,
+            is_conflicted: false,
             commits: [
                 Commit(89cc2d3, "change in A"),
                 Commit(d79bba9, "new file in A"),
@@ -237,7 +237,7 @@ mod with_workspace {
                 committer <committer@example.com>,
                 local-user <local-user@example.com>,
             ],
-            is_conflicted: true,
+            is_conflicted: false,
             commits: [
                 Commit(1a265a4, "local change in A"),
                 Commit(d79bba9, "new file in A"),
