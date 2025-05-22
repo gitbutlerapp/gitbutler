@@ -1,9 +1,9 @@
-use std::{collections::HashSet, path::Path, time::Duration};
-
 use anyhow::{anyhow, Context, Result};
 use gitbutler_notify_debouncer::{new_debouncer, Debouncer, NoCache};
 use gitbutler_project::ProjectId;
 use notify::{RecommendedWatcher, Watcher};
+use std::ffi::OsStr;
+use std::{collections::HashSet, path::Path, time::Duration};
 use tokio::task;
 use tracing::Level;
 
@@ -41,11 +41,11 @@ struct RunError {
 /// ### Why is this not an iterator?
 ///
 /// The internal `notify_rx` could be an iterator, which performs all transformations and returns them as item.
-/// However, due to closures being continuously created each time events come in, nested closures need to own
-/// their resources which means they are `Clone` or `Copy`. This isn't the case for `git::Repository`.
+/// Due to closures being continuously created each time events come in, nested closures need to own
+/// their resources, which means they are `Clone` or `Copy`. This isn't the case for `git::Repository`.
 /// Even though `gix::Repository` is `Clone`, an efficient implementation of `is_path_ignored()` requires more state
 /// that ideally is kept between invocations. For that reason, the current channel-based 'worker' architecture
-/// is chosen to allow all this state to live on the stack.
+/// is chosen to allow all these states to live on the stack.
 ///
 /// Additionally, a channel plays better with how events are handled downstream.
 pub fn spawn(
@@ -66,7 +66,8 @@ pub fn spawn(
         .with_max_elapsed_time(Some(std::time::Duration::from_secs(30)))
         .build();
 
-    let git_dir = gix::open_opts(worktree_path, gix::open::Options::isolated())
+    let worktree_path = gix::path::realpath(worktree_path)?;
+    let git_dir = gix::open_opts(&worktree_path, gix::open::Options::isolated())
         .context(format!(
             "failed to open project repository to obtain git-dir: {}",
             worktree_path.display()
@@ -87,7 +88,7 @@ pub fn spawn(
     backoff::retry(policy, || {
         debouncer
             .watcher()
-            .watch(worktree_path, notify::RecursiveMode::Recursive)
+            .watch(&worktree_path, notify::RecursiveMode::Recursive)
             .and_then(|()| {
                 if let Some(git_dir) = extra_git_dir_to_watch {
                     debouncer
@@ -260,7 +261,7 @@ fn is_interesting_kind(kind: notify::EventKind) -> bool {
 }
 
 /// A classification for a changed file.
-#[derive(Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 enum FileKind {
     /// A file in the `.git` repository of the current project itself.
     Git,
@@ -283,7 +284,7 @@ fn classify_file(git_dir: &Path, file_path: &Path) -> FileKind {
             || check_file_path == Path::new("index")
         {
             FileKind::Git
-        } else if check_file_path == Path::new("gitbutler").join("operations-log.toml") {
+        } else if check_file_path.file_name() == Some(OsStr::new("operations-log.toml")) {
             FileKind::GitButlerOplog
         } else {
             FileKind::GitUninteresting

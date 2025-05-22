@@ -122,7 +122,7 @@ Cypress.on('window:before:load', (win) => {
 				return MOCK_OPEN_WORKSPACE_MODE;
 			case 'set_project_active':
 				// Do nothing
-				return await Promise.resolve();
+				return await Promise.resolve(true);
 			case 'fetch_from_remotes':
 				// Do nothing
 				return await Promise.resolve();

@@ -13,7 +13,6 @@
 	import TryV3Modal from '$components/TryV3Modal.svelte';
 	import IrcPopups from '$components/v3/IrcPopups.svelte';
 	import NotOnGitButlerBranchV3 from '$components/v3/NotOnGitButlerBranch.svelte';
-	import { Code, isTauriCommandError } from '$lib/backend/ipc';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { BranchService } from '$lib/branches/branchService.svelte';
@@ -259,16 +258,14 @@
 	async function setActiveProjectOrRedirect() {
 		// Optimistically assume the project is viewable
 		try {
-			await projectsService.setActiveProject(projectId);
-		} catch (error: unknown) {
-			if (isTauriCommandError(error) && error.code === Code.NonexclusiveAccess) {
+			const is_first_window_on_project = await projectsService.setActiveProject(projectId);
+			if (!is_first_window_on_project) {
 				showInfo(
 					'Just FYI, this project is already open in another window',
 					'There might be some unexpected behavior if you open it in multiple windows'
 				);
-
-				return;
 			}
+		} catch (error: unknown) {
 			showError('Failed to set the project active', error);
 		}
 	}

@@ -2,8 +2,8 @@ use crate::branch::{LocalCommit, LocalCommitRelation};
 use crate::integrated::IsCommitIntegrated;
 use crate::ui::{CommitState, PushStatus, StackDetails};
 use crate::{
-    RefInfo, StacksFilter, VirtualBranchesTomlMetadata, branch, id_from_name_v2_to_v3, ref_info,
-    ref_info_at, state_handle, ui,
+    RefInfo, StacksFilter, VirtualBranchesTomlMetadata, branch, head_info, id_from_name_v2_to_v3,
+    ref_info, state_handle, ui,
 };
 use anyhow::Context;
 use bstr::BString;
@@ -85,6 +85,7 @@ fn try_from_stack_v3(
         .name()
         .context("Every V2/V3 stack has a name as long as it's in a gitbutler workspace")?
         .to_owned();
+    let stack_tip = stack.tip().unwrap_or(repo.object_hash().null());
     let heads = stack
         .segments
         .into_iter()
@@ -105,7 +106,7 @@ fn try_from_stack_v3(
     Ok(ui::StackEntry {
         id: id_from_name_v2_to_v3(name.as_ref(), meta)?,
         heads: heads.collect::<Result<_, _>>()?,
-        tip: stack.tip.unwrap_or(repo.object_hash().null()),
+        tip: stack_tip,
     })
 }
 
@@ -164,7 +165,7 @@ pub fn stacks_v3(
         Ok(out)
     }
 
-    let info = ref_info(
+    let info = head_info(
         repo,
         meta,
         ref_info::Options {
@@ -377,7 +378,7 @@ pub fn stack_details_v3(
             .into_iter()
             .find_map(|(id, stack)| (id == stack_id).then_some(stack)))
     }
-    let head_info_options = ref_info::Options {
+    let ref_info_options = ref_info::Options {
         stack_commit_limit: 0,
         expensive_commit_info: true,
     };
@@ -389,7 +390,7 @@ pub fn stack_details_v3(
         shortname = stack.derived_name()?
     ))?;
     let existing_ref = repo.find_reference(&full_name)?;
-    let stack = stack_by_id(ref_info_at(existing_ref, meta, head_info_options)?, stack_id, meta)?
+    let stack = stack_by_id(ref_info(existing_ref, meta, ref_info_options)?, stack_id, meta)?
         .with_context(|| format!("Really couldn't find {stack_id} in current HEAD or when searching virtual_branches.toml plainly"))?;
 
     let branch_details = stack
@@ -399,13 +400,16 @@ pub fn stack_details_v3(
         .map(|(idx, segment)| {
             ui::BranchDetails::from_segment(
                 segment,
-                stack.segments.get(idx + 1).and_then(|below| {
-                    below
-                        .commits_unique_from_tip
-                        .first()
-                        .map(|commit| commit.id)
-                        .or(stack.base)
-                }),
+                stack
+                    .segments
+                    .get(idx + 1)
+                    .and_then(|below| {
+                        below
+                            .commits_unique_from_tip
+                            .first()
+                            .map(|commit| commit.id)
+                    })
+                    .or(stack.base),
             )
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -455,7 +459,9 @@ impl ui::BranchDetails {
                 .category()
                 .is_some_and(|c| matches!(c, gix::refs::Category::RemoteBranch)),
             name: ref_name.shorten().into(),
-            remote_tracking_branch: None,
+            remote_tracking_branch: remote_tracking_ref_name
+                .as_ref()
+                .map(|full_name| full_name.as_bstr().into()),
             description,
             pr_number,
             review_id,

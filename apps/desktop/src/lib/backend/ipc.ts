@@ -8,8 +8,7 @@ export enum Code {
 	ProjectsGitAuth = 'errors.projects.git.auth',
 	DefaultTargetNotFound = 'errors.projects.default_target.not_found',
 	CommitSigningFailed = 'errors.commit.signing_failed',
-	ProjectMissing = 'errors.projects.missing',
-	NonexclusiveAccess = 'errors.projects.nonexclusive.access'
+	ProjectMissing = 'errors.projects.missing'
 }
 
 export type TauriCommandError = { name: string; message: string; code?: string };

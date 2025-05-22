@@ -9,6 +9,7 @@ pub mod commands {
     use tauri::{State, Window};
     use tracing::instrument;
 
+    use crate::window::state::ProjectAccessMode;
     use crate::{error::Error, projects::ProjectForFrontend, window, WindowState};
 
     #[tauri::command(async)]
@@ -69,6 +70,7 @@ pub mod commands {
     }
 
     /// This trigger is the GUI telling us that the project with `id` is now displayed.
+    /// Return `true` if the project is opened exclusively, i.e. there is no other Window looking at it.
     ///
     /// We use it to start watching for filesystem events.
     #[tauri::command(async)]
@@ -79,13 +81,17 @@ pub mod commands {
         app_settings: State<'_, AppSettingsWithDiskSync>,
         window: Window,
         id: ProjectId,
-    ) -> Result<(), Error> {
+    ) -> Result<bool, Error> {
         let project = projects.get_validated(id).context("project not found")?;
-        Ok(window_state.set_project_to_window(
+        let mode = window_state.set_project_to_window(
             window.label(),
             &project,
             app_settings.inner().clone(),
-        )?)
+        )?;
+        Ok(match mode {
+            ProjectAccessMode::First => true,
+            ProjectAccessMode::Shared => false,
+        })
     }
 
     #[tauri::command(async)]

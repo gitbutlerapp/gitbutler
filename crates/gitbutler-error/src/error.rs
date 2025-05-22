@@ -135,7 +135,6 @@ pub enum Code {
     ProjectMissing,
     AuthorMissing,
     BranchNotFound,
-    NonexclusiveAccess,
 }
 
 impl std::fmt::Display for Code {
@@ -150,7 +149,6 @@ impl std::fmt::Display for Code {
             Code::AuthorMissing => "errors.git.author_missing",
             Code::ProjectMissing => "errors.projects.missing",
             Code::BranchNotFound => "errors.branch.notfound",
-            Code::NonexclusiveAccess => "errors.projects.nonexclusive.access",
         };
         f.write_str(code)
     }

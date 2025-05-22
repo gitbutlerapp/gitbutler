@@ -164,236 +164,80 @@ mod virtual_branches_toml {
                     .clone()
             })
             .collect::<Vec<_>>();
-        insta::assert_debug_snapshot!(branches, @r"
+        insta::assert_debug_snapshot!(branches, @r#"
         [
             Branch {
-                ref_info: RefInfo {
-                    created_at: None,
-                    updated_at: Some(
-                        Time {
-                            seconds: 1740394757,
-                            offset: 0,
-                        },
-                    ),
-                },
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:59:17 +0000" },
                 description: None,
-                review: Review {
-                    pull_request: Some(
-                        12,
-                    ),
-                    review_id: None,
-                },
+                review: Review { pull_request: 12, review_id: None },
             },
             Branch {
-                ref_info: RefInfo {
-                    created_at: None,
-                    updated_at: Some(
-                        Time {
-                            seconds: 1740394727,
-                            offset: 0,
-                        },
-                    ),
-                },
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:58:47 +0000" },
                 description: None,
-                review: Review {
-                    pull_request: None,
-                    review_id: None,
-                },
+                review: Review { pull_request: None, review_id: None },
             },
             Branch {
-                ref_info: RefInfo {
-                    created_at: None,
-                    updated_at: Some(
-                        Time {
-                            seconds: 1740394727,
-                            offset: 0,
-                        },
-                    ),
-                },
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:58:47 +0000" },
                 description: None,
-                review: Review {
-                    pull_request: None,
-                    review_id: None,
-                },
+                review: Review { pull_request: None, review_id: None },
             },
             Branch {
-                ref_info: RefInfo {
-                    created_at: None,
-                    updated_at: Some(
-                        Time {
-                            seconds: 1740394727,
-                            offset: 0,
-                        },
-                    ),
-                },
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:58:47 +0000" },
                 description: None,
-                review: Review {
-                    pull_request: None,
-                    review_id: None,
-                },
+                review: Review { pull_request: None, review_id: None },
             },
             Branch {
-                ref_info: RefInfo {
-                    created_at: None,
-                    updated_at: Some(
-                        Time {
-                            seconds: 1740394727,
-                            offset: 0,
-                        },
-                    ),
-                },
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:58:47 +0000" },
                 description: None,
-                review: Review {
-                    pull_request: None,
-                    review_id: None,
-                },
+                review: Review { pull_request: None, review_id: None },
             },
             Branch {
-                ref_info: RefInfo {
-                    created_at: None,
-                    updated_at: Some(
-                        Time {
-                            seconds: 1740394670,
-                            offset: 0,
-                        },
-                    ),
-                },
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
                 description: None,
-                review: Review {
-                    pull_request: None,
-                    review_id: None,
-                },
+                review: Review { pull_request: None, review_id: None },
             },
             Branch {
-                ref_info: RefInfo {
-                    created_at: None,
-                    updated_at: Some(
-                        Time {
-                            seconds: 1740394670,
-                            offset: 0,
-                        },
-                    ),
-                },
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
                 description: None,
-                review: Review {
-                    pull_request: None,
-                    review_id: None,
-                },
+                review: Review { pull_request: None, review_id: None },
             },
             Branch {
-                ref_info: RefInfo {
-                    created_at: None,
-                    updated_at: Some(
-                        Time {
-                            seconds: 1740394670,
-                            offset: 0,
-                        },
-                    ),
-                },
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
                 description: None,
-                review: Review {
-                    pull_request: None,
-                    review_id: None,
-                },
+                review: Review { pull_request: None, review_id: None },
             },
             Branch {
-                ref_info: RefInfo {
-                    created_at: None,
-                    updated_at: Some(
-                        Time {
-                            seconds: 1740394670,
-                            offset: 0,
-                        },
-                    ),
-                },
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
                 description: None,
-                review: Review {
-                    pull_request: None,
-                    review_id: None,
-                },
+                review: Review { pull_request: None, review_id: None },
             },
             Branch {
-                ref_info: RefInfo {
-                    created_at: None,
-                    updated_at: Some(
-                        Time {
-                            seconds: 1740394670,
-                            offset: 0,
-                        },
-                    ),
-                },
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
                 description: None,
-                review: Review {
-                    pull_request: None,
-                    review_id: None,
-                },
+                review: Review { pull_request: None, review_id: None },
             },
             Branch {
-                ref_info: RefInfo {
-                    created_at: None,
-                    updated_at: Some(
-                        Time {
-                            seconds: 1740394670,
-                            offset: 0,
-                        },
-                    ),
-                },
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
                 description: None,
-                review: Review {
-                    pull_request: None,
-                    review_id: None,
-                },
+                review: Review { pull_request: None, review_id: None },
             },
             Branch {
-                ref_info: RefInfo {
-                    created_at: None,
-                    updated_at: Some(
-                        Time {
-                            seconds: 1740394788,
-                            offset: 0,
-                        },
-                    ),
-                },
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:59:48 +0000" },
                 description: None,
-                review: Review {
-                    pull_request: None,
-                    review_id: None,
-                },
+                review: Review { pull_request: None, review_id: None },
             },
             Branch {
-                ref_info: RefInfo {
-                    created_at: None,
-                    updated_at: Some(
-                        Time {
-                            seconds: 1740394788,
-                            offset: 0,
-                        },
-                    ),
-                },
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:59:48 +0000" },
                 description: None,
-                review: Review {
-                    pull_request: None,
-                    review_id: None,
-                },
+                review: Review { pull_request: None, review_id: None },
             },
             Branch {
-                ref_info: RefInfo {
-                    created_at: None,
-                    updated_at: Some(
-                        Time {
-                            seconds: 1740394801,
-                            offset: 0,
-                        },
-                    ),
-                },
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 11:00:01 +0000" },
                 description: None,
-                review: Review {
-                    pull_request: None,
-                    review_id: None,
-                },
+                review: Review { pull_request: None, review_id: None },
             },
         ]
-        ");
+        "#);
 
         let toml_path = store.path().to_owned();
         assert!(toml_path.exists(), "the file is still present");
@@ -745,21 +589,13 @@ mod virtual_branches_toml {
             ws.is_default(),
             "it's empty, so no difference to a default one"
         );
-        insta::assert_debug_snapshot!(ws.deref(), @r"
+        insta::assert_debug_snapshot!(ws.deref(), @r#"
         Workspace {
-            ref_info: RefInfo {
-                created_at: Some(
-                    Time {
-                        seconds: 1675176957,
-                        offset: 0,
-                    },
-                ),
-                updated_at: None,
-            },
+            ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
             stacks: [],
             target_ref: None,
         }
-        ");
+        "#);
 
         drop(store);
         assert!(

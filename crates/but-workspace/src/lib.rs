@@ -72,7 +72,7 @@ mod commit;
 ///
 /// Note that many of these types should eventually end up in the crate root.
 pub mod ref_info;
-pub use ref_info::function::{ref_info, ref_info_at};
+pub use ref_info::function::{head_info, ref_info};
 
 /// High level Stack funtions that use primitives from this crate (`but-workspace`)
 pub mod stack_ext;

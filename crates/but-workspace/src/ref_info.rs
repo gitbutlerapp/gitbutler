@@ -1,6 +1,6 @@
 #![allow(clippy::indexing_slicing)]
 
-/// Options for the [`head_info()`](crate::ref_info) call.
+/// Options for the [`ref_info()`](crate::ref_info) call.
 #[derive(Default, Debug, Copy, Clone)]
 pub struct Options {
     /// The maximum amount of commits to list *per stack*. Note that a [`StackSegment`](crate::branch::StackSegment) will always have a single commit, if available,
@@ -30,7 +30,9 @@ pub(crate) mod function {
     use but_core::ref_metadata::ValueInfo;
     use gitbutler_oxidize::ObjectIdExt as _;
     use gix::prelude::{ObjectIdExt, ReferenceExt};
+    use gix::refs::Category;
     use gix::revision::walk::Sorting;
+    use gix::trace;
     use std::collections::hash_map::Entry;
     use std::collections::{HashMap, HashSet};
     use tracing::instrument;
@@ -38,8 +40,8 @@ pub(crate) mod function {
     /// Gather information about the current `HEAD` and the workspace that might be associated with it, based on data in `repo` and `meta`.
     /// Use `options` to further configure the call.
     ///
-    /// For details, see [`ref_info_at()`].
-    pub fn ref_info(
+    /// For details, see [`ref_info()`].
+    pub fn head_info(
         repo: &gix::Repository,
         meta: &impl but_core::RefMetadata,
         opts: super::Options,
@@ -52,8 +54,6 @@ pub(crate) mod function {
                     target_ref: workspace_data_of_workspace_branch(meta, ref_name.as_ref())?
                         .and_then(|ws| ws.target_ref),
                     stacks: vec![Stack {
-                        index: 0,
-                        tip: None,
                         base: None,
                         segments: vec![StackSegment {
                             commits_unique_from_tip: vec![],
@@ -76,7 +76,7 @@ pub(crate) mod function {
             }
             gix::head::Kind::Symbolic(name) => name.attach(repo),
         };
-        ref_info_at(existing_ref, meta, opts)
+        ref_info(existing_ref, meta, opts)
     }
 
     /// Gather information about the commit at `existing_ref` and the workspace that might be associated with it,
@@ -89,31 +89,36 @@ pub(crate) mod function {
     /// Make sure the `repo` is initialized with a decently sized Object cache so querying the same commit multiple times will be cheap(er).
     /// Also, **IMPORTANT**, it must use in-memory objects to avoid leaking objects generated during test-merges to disk!
     #[instrument(level = tracing::Level::DEBUG, skip(meta), err(Debug))]
-    pub fn ref_info_at(
+    pub fn ref_info(
         mut existing_ref: gix::Reference<'_>,
         meta: &impl but_core::RefMetadata,
-        super::Options {
-            stack_commit_limit,
-            expensive_commit_info,
-        }: super::Options,
+        opts: super::Options,
     ) -> anyhow::Result<RefInfo> {
         let ws_data = workspace_data_of_workspace_branch(meta, existing_ref.name())?;
-        let (workspace_ref_name, target_ref) = if let Some(data) = ws_data {
+        let (workspace_ref_name, target_ref, stored_workspace_stacks) = if let Some(ws_data) =
+            ws_data
+        {
             // TODO: figure out what to do with workspace information, consolidate it with what's there as well
             //       to know which branch is where.
-            (Some(existing_ref.name().to_owned()), data.target_ref)
+            (
+                Some(existing_ref.name().to_owned()),
+                ws_data.target_ref,
+                Some(ws_data.stacks),
+            )
         } else {
             // We'd want to assure we don't overcount commits even if we are handed a non-workspace ref, so we always have to
             // search for known workspaces.
             // Do get the first known target ref for now.
+            let ws_data_iter = meta
+                .iter()
+                .filter_map(Result::ok)
+                .filter_map(|(ref_name, item)| {
+                    item.downcast::<but_core::ref_metadata::Workspace>()
+                        .ok()
+                        .map(|ws| (ref_name, ws))
+                });
             let mut target_refs =
-                meta.iter()
-                    .filter_map(Result::ok)
-                    .filter_map(|(ref_name, item)| {
-                        item.downcast::<but_core::ref_metadata::Workspace>()
-                            .ok()
-                            .and_then(|ws| ws.target_ref.map(|target| (ref_name, target)))
-                    });
+                ws_data_iter.map(|(ref_name, ws)| (ref_name, ws.target_ref, ws.stacks));
             let first_target = target_refs.next();
             if target_refs.next().is_some() {
                 bail!(
@@ -121,9 +126,23 @@ pub(crate) mod function {
                 )
             }
             first_target
-                .map(|(a, b)| (Some(a), Some(b)))
+                .map(|(a, b, c)| (Some(a), b, Some(c)))
                 .unwrap_or_default()
         };
+        let repo = existing_ref.repo;
+        // If there are multiple choices for a ref that points to a commit we encounter, use one of these.
+        let mut preferred_ref_names = stored_workspace_stacks
+            .as_ref()
+            .map(|stacks| {
+                stacks
+                    .iter()
+                    .flat_map(|stack| stack.branches.iter().map(|b| b.ref_name.as_ref()))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        let target_remote_symbolic_name = target_ref
+            .as_ref()
+            .and_then(|rn| extract_remote_name(rn.as_ref(), &repo.remote_names()));
 
         let ref_commit = existing_ref.peel_to_commit()?;
         let ref_commit = crate::WorkspaceCommit {
@@ -138,17 +157,17 @@ pub(crate) mod function {
             .transpose()?;
         let cache = repo.commit_graph_if_enabled()?;
         let mut graph = repo.revision_graph(cache.as_ref());
-        let base: Option<_> = if target_ref_id.is_none() {
-            repo.merge_base_octopus_with_graph(ref_commit.parents.iter().cloned(), &mut graph)?
-                .into()
-        } else {
-            None
-        };
         let mut boundary = gix::hashtable::HashSet::default();
         let mut stacks = if ref_commit.is_managed() {
+            let base: Option<_> = if target_ref_id.is_none() {
+                repo.merge_base_octopus_with_graph(ref_commit.parents.iter().cloned(), &mut graph)?
+                    .into()
+            } else {
+                None
+            };
             // The commits we have already associated with a stack segment.
             let mut stacks = Vec::new();
-            for (index, commit_id) in ref_commit.parents.iter().enumerate() {
+            for commit_id in ref_commit.parents.iter() {
                 let tip = *commit_id;
                 let base = base
                     .map(Ok)
@@ -161,16 +180,19 @@ pub(crate) mod function {
                 boundary.extend(base);
                 let segments = collect_stack_segments(
                     tip.attach(repo),
-                    refs_by_id
-                        .get(&tip)
-                        .and_then(|refs| refs.first().map(|r| r.as_ref())),
+                    refs_by_id.get(&tip).and_then(|refs| {
+                        refs.iter()
+                            .find(|rn| preferred_ref_names.iter().any(|orn| *orn == rn.as_ref()))
+                            .or_else(|| refs.first())
+                            .map(|rn| rn.as_ref())
+                    }),
                     Some(RefLocation::ReachableFromWorkspaceCommit),
                     &boundary,
-                    // TODO: get from workspace information maybe?
-                    &[], /* preferred refs */
-                    stack_commit_limit,
+                    &preferred_ref_names,
+                    opts.stack_commit_limit,
                     &refs_by_id,
                     meta,
+                    target_remote_symbolic_name.as_deref(),
                 )?;
 
                 boundary.extend(segments.iter().flat_map(|segment| {
@@ -183,8 +205,6 @@ pub(crate) mod function {
                 }));
 
                 stacks.push(Stack {
-                    index,
-                    tip: Some(tip),
                     segments,
                     base,
                     // TODO: but as part of the commits.
@@ -199,11 +219,64 @@ pub(crate) mod function {
                 .map(|target_id| repo.merge_base_with_graph(target_id, tip, &mut graph))
                 .transpose()?
                 .map(|base| base.detach());
+            if let Some((workspace_ref, base)) = workspace_ref_name
+                .as_ref()
+                .filter(|workspace_ref| workspace_ref.as_ref() != existing_ref.name())
+                .zip(base)
+            {
+                let workspace_contains_ref_tip =
+                    walk_commits(repo, workspace_ref.as_ref(), base)?.contains(&*tip);
+                if workspace_contains_ref_tip {
+                    // To assure the stack is counted consistently even when queried alone, redo the query.
+                    // This should be avoided (i.e., the caller should consume the 'highest value'
+                    // refs if possible, but that's not always the case.
+                    let mut info = ref_info(repo.find_reference(workspace_ref)?, meta, opts)?;
+                    if let Some((stack_index, segment_index)) = info
+                        .stacks
+                        .iter()
+                        .enumerate()
+                        .find_map(|(stack_index, stack)| {
+                            stack.segments.iter().enumerate().find_map(
+                                |(segment_index, segment)| {
+                                    segment
+                                        .ref_name
+                                        .as_ref()
+                                        .is_some_and(|rn| rn.as_ref() == existing_ref.name())
+                                        .then_some((stack_index, segment_index))
+                                },
+                            )
+                        })
+                    {
+                        let mut curr_stack_idx = 0;
+                        info.stacks.retain(|_| {
+                            let retain = curr_stack_idx == stack_index;
+                            curr_stack_idx += 1;
+                            retain
+                        });
+                        let mut curr_segment_idx = 0;
+                        info.stacks[0].segments.retain(|_| {
+                            let retain = curr_segment_idx >= segment_index;
+                            curr_segment_idx += 1;
+                            retain
+                        });
+                    } else {
+                        // TODO: a test for that, is it even desirable?
+                        info.stacks.clear();
+                        trace::warn!(
+                            "Didn't find {ref_name} in ref-info, even though commit {tip} is reachable from {workspace_ref}",
+                            ref_name = existing_ref.name().as_bstr(),
+                        );
+                    }
+                    return Ok(info);
+                }
+            }
             let boundary = {
                 let mut hs = gix::hashtable::HashSet::default();
                 hs.extend(base);
                 hs
             };
+
+            preferred_ref_names.push(existing_ref.name());
             let segments = collect_stack_segments(
                 tip,
                 Some(existing_ref.name()),
@@ -218,16 +291,15 @@ pub(crate) mod function {
                         }
                     }
                 }),
-                &boundary,                         /* boundary commits */
-                &[existing_ref.name().to_owned()], /* preferred refs */
-                stack_commit_limit,
+                &boundary, /* boundary commits */
+                &preferred_ref_names,
+                opts.stack_commit_limit,
                 &refs_by_id,
                 meta,
+                target_remote_symbolic_name.as_deref(),
             )?;
 
             vec![Stack {
-                index: 0,
-                tip: Some(tip.detach()),
                 // TODO: compute base if target-ref is available, but only if this isn't the target ref!
                 base,
                 segments,
@@ -235,7 +307,51 @@ pub(crate) mod function {
             }]
         };
 
-        if expensive_commit_info {
+        if let Some(ws_stacks) = stored_workspace_stacks.as_ref() {
+            // Stacks that are genuinely reachable we have ot show.
+            // Empty ones are special as they don't have their own commits and aren't distinguishable
+            // by traversing a workspace commit. For this, we have workspace metadata to tell us what is what.
+            for stack in stacks
+                .iter_mut()
+                .filter(|stack| stack.name() != Some(existing_ref.name()))
+            {
+                // Find all empty segments that aren't listed in our workspace stacks metadata, and remove them.
+                let desired_stack_segments = ws_stacks.iter().find(|ws_stack| {
+                    ws_stack
+                        .branches
+                        .first()
+                        .is_some_and(|branch| Some(branch.ref_name.as_ref()) == stack.name())
+                });
+                let num_segments_to_keep = stack
+                    .segments
+                    .iter()
+                    .enumerate()
+                    .rev()
+                    .by_ref()
+                    .take_while(|(_idx, segment)| segment.commits_unique_from_tip.is_empty())
+                    .take_while(|(_idx, segment)| {
+                        segment
+                            .ref_name
+                            .as_ref()
+                            .zip(desired_stack_segments)
+                            .is_none_or(|(srn, desired_stack)| {
+                                // We don't let the desired order matter, just that an empty segment is (not) mentioned.
+                                desired_stack
+                                    .branches
+                                    .iter()
+                                    .all(|branch| &branch.ref_name != srn)
+                            })
+                    })
+                    .map(|t| t.0)
+                    .last();
+                if let Some(keep) = num_segments_to_keep {
+                    // Empty stacks are OK for now….
+                    stack.segments.drain(keep..);
+                }
+            }
+        }
+
+        if opts.expensive_commit_info {
             populate_commit_info(target_ref.as_ref(), &mut stacks, repo, &mut graph)?;
         }
 
@@ -270,6 +386,35 @@ pub(crate) mod function {
             .collect())
     }
 
+    fn lookup_remote_tracking_branch(
+        repo: &gix::Repository,
+        ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<Option<gix::refs::FullName>> {
+        Ok(repo
+            .branch_remote_tracking_ref_name(ref_name, gix::remote::Direction::Fetch)
+            .transpose()?
+            .map(|rn| rn.into_owned()))
+    }
+
+    fn extract_remote_name(
+        ref_name: &gix::refs::FullNameRef,
+        remotes: &gix::remote::Names<'_>,
+    ) -> Option<String> {
+        let (category, shorthand_name) = ref_name.category_and_short_name()?;
+        if !matches!(category, Category::RemoteBranch) {
+            return None;
+        }
+
+        let longest_remote = remotes
+            .iter()
+            .rfind(|reference_name| shorthand_name.starts_with(reference_name))
+            .ok_or(anyhow::anyhow!(
+                "Failed to find remote branch's corresponding remote"
+            ))
+            .ok()?;
+        Some(longest_remote.to_string())
+    }
+
     /// For each stack in `stacks`, and for each stack segment within it, check if a remote tracking branch is available
     /// and existing. Then find its commits and fill in commit-information of the commits that are reachable by the stack tips as well.
     ///
@@ -284,20 +429,6 @@ pub(crate) mod function {
         repo: &'repo gix::Repository,
         merge_graph: &mut MergeBaseCommitGraph<'repo, '_>,
     ) -> anyhow::Result<()> {
-        fn find_remote_ref_tip(
-            repo: &gix::Repository,
-            ref_name: &gix::refs::FullNameRef,
-        ) -> anyhow::Result<Option<gix::ObjectId>> {
-            let Some(remote_ref_name) = repo
-                .branch_remote_tracking_ref_name(ref_name, gix::remote::Direction::Fetch)
-                .transpose()?
-            else {
-                return Ok(None);
-            };
-
-            try_refname_to_id(repo, remote_ref_name.as_ref())
-        }
-
         #[derive(Hash, Clone, Eq, PartialEq)]
         enum ChangeIdOrCommitData {
             ChangeId(String),
@@ -308,107 +439,118 @@ pub(crate) mod function {
         }
         let mut boundary = gix::hashtable::HashSet::default();
         let mut ambiguous_commits = HashSet::<ChangeIdOrCommitData>::new();
+        // NOTE: The check for similarity is currently run across all remote branches in the stack.
+        //       Further, this doesn't handle reorderings/topology differences at all, it's just there or not.
         let mut similarity_lut = HashMap::<ChangeIdOrCommitData, gix::ObjectId>::new();
         let git2_repo = git2::Repository::open(repo.path())?;
         for stack in stacks {
             boundary.clear();
             boundary.extend(stack.base);
 
-            let segments_with_remote_ref_tips: Vec<_> = stack
+            let segments_with_remote_ref_tips_and_base: Vec<_> = stack
                 .segments
                 .iter()
                 .enumerate()
                 .map(|(index, segment)| {
-                    (
-                        index,
-                        segment.ref_name.as_ref().and_then(|ref_name| {
-                            find_remote_ref_tip(repo, ref_name.as_ref()).ok().flatten()
-                        }),
-                    )
+                    let remote_ref_tip =
+                        segment
+                            .remote_tracking_ref_name
+                            .as_ref()
+                            .and_then(|remote_ref_name| {
+                                try_refname_to_id(repo, remote_ref_name.as_ref())
+                                    .ok()
+                                    .flatten()
+                            });
+                    (index, remote_ref_tip)
                 })
                 .collect();
             // Start the remote commit collection on the segment with the first remote,
-            // and stop commit-status handling at the first segment which has a remote (as it would be a new starting point.
-            let segments_with_remote_ref_tips_and_base: Vec<_> = segments_with_remote_ref_tips
-                .iter()
-                // TODO: a test for this: remote_ref_tip selects the start, and the base is always the next start's tip or the stack base.
-                .filter_map(|(index, remote_ref_tip)| {
-                    remote_ref_tip.and_then(|tip| {
-                        segments_with_remote_ref_tips
-                            .get((index + 1)..)
-                            .and_then(|slice| {
-                                slice.iter().find_map(|(index, remote_ref_tip)| {
-                                    remote_ref_tip.and_then(|_| stack.segments[*index].tip())
-                                })
-                            })
-                            .or(stack.base)
-                            .map(|base| (index, tip, base))
-                    })
-                })
-                .collect();
-
-            for (segment_index, remote_ref_tip, base) in segments_with_remote_ref_tips_and_base {
-                boundary.insert(base);
-
-                let segment = &mut stack.segments[*segment_index];
-                let local_commit_ids: gix::hashtable::HashSet = segment
-                    .commits_unique_from_tip
+            // and stop commit-status handling at the first segment which has a remote (as it would be a new starting point).
+            let segments_with_remote_ref_tips_and_base: Vec<_> =
+                segments_with_remote_ref_tips_and_base
                     .iter()
-                    .map(|c| c.id)
+                    // TODO: a test for this: remote_ref_tip selects the start, and the base is always the next start's tip or the stack base.
+                    .map(|(index, remote_ref_tip)| {
+                        let remote_ref_tip_and_base = remote_ref_tip.and_then(|remote_ref_tip| {
+                            segments_with_remote_ref_tips_and_base
+                                .get((index + 1)..)
+                                .and_then(|slice| {
+                                    slice.iter().find_map(|(index, remote_ref_tip)| {
+                                        remote_ref_tip.and_then(|_| stack.segments[*index].tip())
+                                    })
+                                })
+                                .or(stack.base)
+                                .map(|base| (remote_ref_tip, base))
+                        });
+                        (index, remote_ref_tip_and_base)
+                    })
                     .collect();
 
-                let mut insert_or_expell_ambiguous = |k: ChangeIdOrCommitData, v: gix::ObjectId| {
-                    if ambiguous_commits.contains(&k) {
-                        return;
-                    }
-                    match similarity_lut.entry(k) {
-                        Entry::Occupied(ambiguous) => {
-                            ambiguous_commits.insert(ambiguous.key().clone());
-                            ambiguous.remove();
-                        }
-                        Entry::Vacant(entry) => {
-                            entry.insert(v);
-                        }
-                    }
-                };
+            for (segment_index, remote_ref_tip_and_base) in segments_with_remote_ref_tips_and_base {
+                let segment = &mut stack.segments[*segment_index];
+                if let Some((remote_ref_tip, base_for_remote)) = remote_ref_tip_and_base {
+                    boundary.insert(base_for_remote);
 
-                for info in remote_ref_tip
-                    .attach(repo)
-                    .ancestors()
-                    .first_parent_only()
-                    .sorting(Sorting::BreadthFirst)
-                    // TODO: boundary should be 'hide'.
-                    .selected(|commit_id_to_yield| !boundary.contains(commit_id_to_yield))?
-                {
-                    let info = info?;
-                    // Don't break, maybe the local commits are reachable through multiple avenues.
-                    if local_commit_ids.contains(&info.id) {
-                        for local_commit in &mut segment.commits_unique_from_tip {
-                            local_commit.relation =
-                                LocalCommitRelation::LocalAndRemote(local_commit.id);
-                        }
-                    } else {
-                        let commit = but_core::Commit::from_id(info.id())?;
-                        let has_conflicts = commit.is_conflicted();
-                        if let Some(hdr) = commit.headers() {
+                    let local_commit_ids: gix::hashtable::HashSet = segment
+                        .commits_unique_from_tip
+                        .iter()
+                        .map(|c| c.id)
+                        .collect();
+
+                    let mut insert_or_expell_ambiguous =
+                        |k: ChangeIdOrCommitData, v: gix::ObjectId| {
+                            if ambiguous_commits.contains(&k) {
+                                return;
+                            }
+                            match similarity_lut.entry(k) {
+                                Entry::Occupied(ambiguous) => {
+                                    ambiguous_commits.insert(ambiguous.key().clone());
+                                    ambiguous.remove();
+                                }
+                                Entry::Vacant(entry) => {
+                                    entry.insert(v);
+                                }
+                            }
+                        };
+
+                    for info in remote_ref_tip
+                        .attach(repo)
+                        .ancestors()
+                        .first_parent_only()
+                        .sorting(Sorting::BreadthFirst)
+                        // TODO: boundary should be 'hide'.
+                        .selected(|commit_id_to_yield| !boundary.contains(commit_id_to_yield))?
+                    {
+                        let info = info?;
+                        // Don't break, maybe the local commits are reachable through multiple avenues.
+                        if local_commit_ids.contains(&info.id) {
+                            for local_commit in &mut segment.commits_unique_from_tip {
+                                local_commit.relation =
+                                    LocalCommitRelation::LocalAndRemote(local_commit.id);
+                            }
+                        } else {
+                            let commit = but_core::Commit::from_id(info.id())?;
+                            let has_conflicts = commit.is_conflicted();
+                            if let Some(hdr) = commit.headers() {
+                                insert_or_expell_ambiguous(
+                                    ChangeIdOrCommitData::ChangeId(hdr.change_id),
+                                    commit.id.detach(),
+                                );
+                            }
                             insert_or_expell_ambiguous(
-                                ChangeIdOrCommitData::ChangeId(hdr.change_id),
+                                ChangeIdOrCommitData::CommitData {
+                                    author: commit.author.clone(),
+                                    message: commit.message.clone(),
+                                },
                                 commit.id.detach(),
                             );
+                            segment.commits_unique_in_remote_tracking_branch.push(
+                                branch::RemoteCommit {
+                                    inner: commit.into(),
+                                    has_conflicts,
+                                },
+                            );
                         }
-                        insert_or_expell_ambiguous(
-                            ChangeIdOrCommitData::CommitData {
-                                author: commit.author.clone(),
-                                message: commit.message.clone(),
-                            },
-                            commit.id.detach(),
-                        );
-                        segment.commits_unique_in_remote_tracking_branch.push(
-                            branch::RemoteCommit {
-                                inner: commit.into(),
-                                has_conflicts,
-                            },
-                        );
                     }
                 }
 
@@ -429,6 +571,7 @@ pub(crate) mod function {
                                 LocalCommitRelation::LocalAndRemote(*remote_commit_id);
                         }
                     }
+                    local_commit.has_conflicts = commit.is_conflicted();
                 }
             }
 
@@ -480,6 +623,7 @@ pub(crate) mod function {
     /// `ref_location` it the location of `tip_ref`
     /// `preferred_refs` is an arbitrarily sorted array of names that should be used in the returned segments if they are encountered during the traversal
     /// *and* there are more than one ref pointing to it.
+    /// `symbolic_remote_name` is used to infer the name of the remote tracking ref in case `tip_ref` doesn't have a remote configured.
     ///
     /// Note that `boundary_commits` are sorted so binary-search can be used to quickly check membership.
     ///
@@ -495,10 +639,11 @@ pub(crate) mod function {
         tip_ref: Option<&gix::refs::FullNameRef>,
         ref_location: Option<RefLocation>,
         boundary_commits: &gix::hashtable::HashSet,
-        preferred_refs: &[gix::refs::FullName],
+        preferred_refs: &[&gix::refs::FullNameRef],
         mut limit: usize,
         refs_by_id: &RefsById,
         meta: &impl but_core::RefMetadata,
+        symbolic_remote_name: Option<&str>,
     ) -> anyhow::Result<Vec<StackSegment>> {
         let mut out = Vec::new();
         let mut segment = Some(StackSegment {
@@ -529,7 +674,7 @@ pub(crate) mod function {
             if let Some(refs) = refs_by_id.get(&info.id) {
                 let ref_at_commit = refs
                     .iter()
-                    .find(|rn| preferred_refs.iter().any(|orn| orn == *rn))
+                    .find(|rn| preferred_refs.iter().any(|orn| *orn == rn.as_ref()))
                     .or_else(|| refs.first())
                     .map(|rn| rn.to_owned());
                 if ref_at_commit.as_ref().map(|rn| rn.as_ref()) == tip_ref {
@@ -556,10 +701,26 @@ pub(crate) mod function {
         }
         out.extend(segment);
 
+        let repo = tip.repo;
         for segment in out.iter_mut() {
             let Some(ref_name) = segment.ref_name.as_ref() else {
                 continue;
             };
+            segment.remote_tracking_ref_name =
+                lookup_remote_tracking_branch(repo, ref_name.as_ref())?.or_else(|| {
+                    let symbolic_remote_name = symbolic_remote_name?;
+                    // Deduce the ref-name as fallback.
+                    // TODO: remove this - this is only required to support legacy repos that
+                    //       didn't setup normal Git remotes.
+                    // let remote_name = target_
+                    let remote_tracking_ref_name = format!(
+                        "refs/remotes/{symbolic_remote_name}/{short_name}",
+                        short_name = ref_name.shorten()
+                    );
+                    repo.find_reference(&remote_tracking_ref_name)
+                        .ok()
+                        .map(|remote_ref| remote_ref.name().to_owned())
+                });
             let branch_info = meta.branch(ref_name.as_ref())?;
             if !branch_info.is_default() {
                 segment.metadata = Some((*branch_info).clone())

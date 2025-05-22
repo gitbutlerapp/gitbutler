@@ -57,3 +57,27 @@ git clone remote remote-advanced-ff
 
   create_workspace_commit_once A
 )
+
+# There are multiple stacked branches that could lead towards a shared stack.
+git clone remote multiple-stacks-with-shared-segment
+(cd multiple-stacks-with-shared-segment
+  git checkout -b A origin/A
+  git reset --hard @~1
+
+set -x
+  git checkout -b B-on-A
+  echo >new-in-B && git add . && git commit -am "add new file in B-on-A"
+
+  git checkout -b C-on-A A
+  echo >new-in-C && git add . && git commit -am "add new file in C-on-A"
+
+  create_workspace_commit_once B-on-A C-on-A
+)
+
+# A single lane directly at the base of the target branch (origin/main)
+git clone remote empty-workspace-with-branch-below
+(cd empty-workspace-with-branch-below
+   git checkout -b unrelated
+
+  create_workspace_commit_once unrelated
+)

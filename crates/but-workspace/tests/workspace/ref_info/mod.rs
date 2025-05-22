@@ -1,4 +1,4 @@
-use crate::ref_info::utils::read_only_in_memory_scenario;
+use crate::ref_info::utils::{read_only_in_memory_scenario, standard_options};
 use but_workspace::ref_info;
 
 /// All tests that use a workspace commit for a fully managed, explicit workspace.
@@ -7,12 +7,12 @@ mod with_workspace_commit;
 #[test]
 fn untracked() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("unborn-untracked")?;
-    let info = but_workspace::ref_info(
+    let info = but_workspace::head_info(
         &repo,
         &*meta,
         ref_info::Options {
             stack_commit_limit: 5,
-            expensive_commit_info: true,
+            ..standard_options()
         },
     )?;
     insta::assert_debug_snapshot!(&info, @r#"
@@ -20,8 +20,6 @@ fn untracked() -> anyhow::Result<()> {
         workspace_ref_name: None,
         stacks: [
             Stack {
-                index: 0,
-                tip: None,
                 base: None,
                 segments: [
                     StackSegment {
@@ -45,7 +43,7 @@ fn untracked() -> anyhow::Result<()> {
 #[test]
 fn detached() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("one-commit-detached")?;
-    let info = but_workspace::ref_info(&repo, &*meta, ref_info::Options::default())?;
+    let info = but_workspace::head_info(&repo, &*meta, ref_info::Options::default())?;
     insta::assert_debug_snapshot!(&info, @r"
     RefInfo {
         workspace_ref_name: None,
@@ -57,16 +55,55 @@ fn detached() -> anyhow::Result<()> {
 }
 
 #[test]
+fn conflicted_in_local_branch() -> anyhow::Result<()> {
+    let (repo, meta) = read_only_in_memory_scenario("with-conflict")?;
+    let info = but_workspace::head_info(
+        &repo,
+        &*meta,
+        ref_info::Options {
+            expensive_commit_info: true,
+            ..Default::default()
+        },
+    )?;
+    insta::assert_debug_snapshot!(&info, @r#"
+    RefInfo {
+        workspace_ref_name: None,
+        stacks: [
+            Stack {
+                base: None,
+                segments: [
+                    StackSegment {
+                        ref_name: "refs/heads/main",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "OutsideOfWorkspace",
+                        commits_unique_from_tip: [
+                            LocalCommit(💥8450331, "GitButler WIP Commit\n\n\n", local),
+                            LocalCommit(a047f81, "init\n", local),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: None,
+                    },
+                ],
+                stash_status: None,
+            },
+        ],
+        target_ref: None,
+    }
+    "#);
+    Ok(())
+}
+
+#[test]
 fn single_branch() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("single-branch-10-commits")?;
     let stack_commit_limit = 5;
 
-    let info = but_workspace::ref_info(
+    let info = but_workspace::head_info(
         &repo,
         &*meta,
         ref_info::Options {
             stack_commit_limit,
-            expensive_commit_info: true,
+            ..standard_options()
         },
     )?;
 
@@ -85,10 +122,6 @@ fn single_branch() -> anyhow::Result<()> {
         workspace_ref_name: None,
         stacks: [
             Stack {
-                index: 0,
-                tip: Some(
-                    Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
-                ),
                 base: None,
                 segments: [
                     StackSegment {
@@ -118,12 +151,12 @@ fn single_branch() -> anyhow::Result<()> {
 #[test]
 fn single_branch_multiple_segments() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("single-branch-10-commits-multi-segment")?;
-    let info = but_workspace::ref_info(
+    let info = but_workspace::head_info(
         &repo,
         &*meta,
         ref_info::Options {
             stack_commit_limit: 0,
-            expensive_commit_info: true,
+            ..standard_options()
         },
     )?;
 
@@ -132,10 +165,6 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
         workspace_ref_name: None,
         stacks: [
             Stack {
-                index: 0,
-                tip: Some(
-                    Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
-                ),
                 base: None,
                 segments: [
                     StackSegment {
@@ -206,7 +235,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
 }
 
 mod utils {
-    use but_workspace::VirtualBranchesTomlMetadata;
+    use but_workspace::{VirtualBranchesTomlMetadata, ref_info};
 
     pub fn read_only_in_memory_scenario(
         name: &str,
@@ -231,5 +260,12 @@ mod utils {
                 .join("should-never-be-written.toml"),
         )?;
         Ok((repo, std::mem::ManuallyDrop::new(meta)))
+    }
+
+    pub fn standard_options() -> but_workspace::ref_info::Options {
+        ref_info::Options {
+            stack_commit_limit: 0,
+            expensive_commit_info: true,
+        }
     }
 }

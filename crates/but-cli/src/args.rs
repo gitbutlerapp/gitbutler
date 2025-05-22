@@ -133,6 +133,11 @@ pub enum Subcommands {
         /// The ID of the stack to list details for.
         id: StackId,
     },
+    /// Returns everything we know about the given ref, or `HEAD`.
+    RefInfo {
+        /// The name of the ref to get workspace information for.
+        ref_name: Option<String>,
+    },
     /// Return all stack branches related to the given `id`.
     StackBranches {
         /// The ID of the stack to list branches from.

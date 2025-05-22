@@ -35,6 +35,10 @@ impl<T> Id<T> {
     pub fn generate() -> Self {
         Id(Uuid::new_v4(), PhantomData)
     }
+    /// Create a new ID that is stable. Only useful for testing so IDs are stable.
+    pub fn from_number_for_testing(stable_id: u128) -> Self {
+        Id(Uuid::from_u128(stable_id), PhantomData)
+    }
 }
 
 impl<T> Default for Id<T> {
