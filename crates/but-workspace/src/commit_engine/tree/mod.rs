@@ -56,7 +56,7 @@ pub fn create_tree(
         (Some(target_tree), None)
     } else {
         'retry: loop {
-            let (maybe_new_tree, actual_base_tree) = if let Some(_source) = move_source {
+            let (new_tree, actual_base_tree) = if let Some(_source) = move_source {
                 todo!(
                     "get base tree and apply changes by cherry-picking, probably can all be done by one function, but optimizations are different"
                 )
@@ -78,13 +78,21 @@ pub fn create_tree(
                 apply_worktree_changes(changes_base_tree, repo, &mut changes, context_lines)?
             };
 
-            let Some(tree_with_changes) =
-                maybe_new_tree.filter(|tree_with_changes| *tree_with_changes != target_tree)
-            else {
+            let tree_with_changes = if new_tree == actual_base_tree
+                && changes.iter().all(|c| {
+                    c.is_ok()
+                        // Some rejections are OK and we want to create a commit anyway.
+                        || !matches!(
+                            c,
+                            Err((RejectionReason::CherryPickMergeConflict,_))
+                        )
+                }) {
                 changes
                     .iter_mut()
                     .for_each(|c| into_err_spec(c, RejectionReason::NoEffectiveChanges));
                 break 'retry (None, None);
+            } else {
+                new_tree
             };
             let tree_with_changes_without_cherry_pick = tree_with_changes.detach();
             let mut tree_with_changes = tree_with_changes.detach();
@@ -145,20 +153,17 @@ fn into_err_spec(input: &mut PossibleChange, reason: RejectionReason) {
 
 type PossibleChange = Result<DiffSpec, (RejectionReason, DiffSpec)>;
 
-/// Apply `changes` to `changes_base_tree` and return the newly written tree as `(maybe_new_tree, actual_base_tree, maybe_new_index)`.
+/// Apply `changes` to `changes_base_tree` and return the newly written tree as `(new_tree, actual_base_tree)`.
 /// All `changes` are expected to originate from `changes_base_tree`, and will be applied `changes_base_tree`.
 ///
-/// `head_index`, is expected to match `changes_base_tree` initially
-/// and will be adjusted to contain all the `changes`, thus matching the output tree.
-/// Since we read the latest stats, we will also update these accordingly.
-/// It is treated as if it lived on disk and may contain initial values, as a way to
-/// avoid destroying indexed information like stats which would slow down the next status.
+/// Note that the returned `new_tree` may be the same as `actual_base_tree`, if no change was successfully applied
+/// as recorded in `changes`.
 pub fn apply_worktree_changes<'repo>(
     actual_base_tree: gix::ObjectId,
     repo: &'repo gix::Repository,
     changes: &mut [PossibleChange],
     context_lines: u32,
-) -> anyhow::Result<(Option<gix::Id<'repo>>, gix::ObjectId)> {
+) -> anyhow::Result<(gix::Id<'repo>, gix::ObjectId)> {
     let base_tree = actual_base_tree.attach(repo).object()?.peel_to_tree()?;
     let mut base_tree_editor = base_tree.edit()?;
     let (mut pipeline, index) = repo.filter_pipeline(None)?;
@@ -316,8 +321,7 @@ pub fn apply_worktree_changes<'repo>(
     }
 
     let altered_base_tree_id = base_tree_editor.write()?;
-    let maybe_new_tree = (actual_base_tree != altered_base_tree_id).then_some(altered_base_tree_id);
-    Ok((maybe_new_tree, actual_base_tree))
+    Ok((altered_base_tree_id, actual_base_tree))
 }
 
 pub(crate) fn worktree_file_to_git_in_buf(

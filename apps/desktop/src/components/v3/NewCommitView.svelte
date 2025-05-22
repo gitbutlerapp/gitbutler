@@ -216,8 +216,8 @@
 		if (response.pathsToRejectedChanges.length > 0) {
 			showError(
 				'Some changes were not committed',
-				'The following files were not committed becuase they are locked to another branch:\n' +
-					response.pathsToRejectedChanges.map(([_reason, path]) => path).join('\n')
+				'The following files could not be committed:\n' +
+					response.pathsToRejectedChanges.map(([reason, path]) => `${path} (${reason})`).join('\n')
 			);
 		}
 	}
