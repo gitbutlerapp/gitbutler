@@ -275,8 +275,6 @@
 	});
 </script>
 
-<TryV3Modal />
-
 <!-- forces components to be recreated when projectId changes -->
 {#key projectId}
 	<ProjectSettingsMenuAction />
@@ -302,6 +300,7 @@
 						{@render children()}
 					</Chrome>
 				{:else}
+					<TryV3Modal />
 					<Navigation {projectId} />
 					{@render children()}
 				{/if}

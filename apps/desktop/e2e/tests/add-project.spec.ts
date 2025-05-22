@@ -16,9 +16,9 @@ describe('Project', () => {
 
 		await findAndClick('button[data-testid="add-local-project"]');
 		// TODO: Remove next click when v3 is default!
-		await findAndClick('button[data-testid="v3-not-now"]');
 		await findAndClick('button[data-testid="set-base-branch"]');
 		await findAndClick('button[data-testid="accept-git-auth"]');
+		await findAndClick('button[data-testid="v3-not-now"]');
 
 		const workspaceButton = await $('button=Workspace');
 		await expect(workspaceButton).toExist();
