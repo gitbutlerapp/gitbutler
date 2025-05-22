@@ -1,0 +1,25 @@
+[package]
+name = "but-agent"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[lib]
+doctest = false
+
+[features]
+# Set when building in test-mode to enable features that help with generating repeatable tests.
+testing = []
+
+[dependencies]
+# Ideally this should have no other gitbutler dependencies, and should be mainly
+# focused on integrating with other LLM providers.
+serde = { workspace = true, features = ["std"] }
+serde_json.workspace = true
+toml.workspace = true
+uuid.workspace = true
+reqwest = { version = "0.12", features = ["blocking", "json"] }
+anyhow.workspace = true
+
+[dev-dependencies]

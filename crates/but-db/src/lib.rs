@@ -10,6 +10,7 @@ mod hunk_assignments;
 pub use hunk_assignments::HunkAssignment;
 mod butler_actions;
 pub use butler_actions::ButlerAction;
+pub mod conversation_store;
 mod schema;
 
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};

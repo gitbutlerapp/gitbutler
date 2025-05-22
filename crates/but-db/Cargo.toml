@@ -21,6 +21,8 @@ serde = { workspace = true, features = ["std"] }
 anyhow = "1.0.98"
 diesel_migrations = { version = "2.0.0", features = ["sqlite"] }
 chrono = { version = "0.4.41", features = ["serde"] }
+but-agent.workspace = true
+uuid.workspace = true
 
 [dev-dependencies]
 tempfile = "3.20.0"
