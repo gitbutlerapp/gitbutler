@@ -7,6 +7,7 @@
 	import BranchHeaderContextMenu from '$components/v3/BranchHeaderContextMenu.svelte';
 	import PrNumberUpdater from '$components/v3/PrNumberUpdater.svelte';
 	import WorktreeChangesFileList from '$components/v3/WorktreeChangesFileList.svelte';
+	import WorktreeChangesSelectAll from '$components/v3/WorktreeChangesSelectAll.svelte';
 	import { MoveCommitDzHandler, StartCommitDzHandler } from '$lib/commits/dropHandler';
 	import { assignedChangesFocusableId } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
@@ -90,6 +91,10 @@
 	const selection = $derived(stackState ? stackState.selection.current : undefined);
 	const selected = $derived(selection?.branchName === branchName);
 	const isPushed = $derived(!!(args.type === 'draft-branch' ? undefined : args.trackingBranch));
+
+	const projectState = $derived(uiState.project(projectId));
+	const drawerPage = $derived(projectState.drawerPage.get());
+	const isCommitting = $derived(drawerPage.current === 'new-commit');
 
 	const changesKeyResult = $derived(worktreeService.getChangesKey(projectId));
 	const hunkAssignments = $derived(
@@ -264,7 +269,15 @@
 				class="assigned-changes"
 				use:focusable={{ id: assignedChangesFocusableId(args.stackId) }}
 			>
-				<p class="text-14 text-bold assigned-changes__title">Assigned changes:</p>
+				<div class="assigned-changes__title">
+					{#if isCommitting}
+						<WorktreeChangesSelectAll
+							{projectId}
+							group={{ type: 'grouped', stackId: args.stackId }}
+						/>
+					{/if}
+					<p class="text-14 text-bold">Assigned changes:</p>
+				</div>
 				<WorktreeChangesFileList
 					{projectId}
 					listMode="list"
@@ -289,7 +302,10 @@
 	}
 
 	.assigned-changes__title {
+		display: flex;
 		margin: 8px;
+		margin-left: 14px;
+		gap: 8px;
 	}
 
 	.branch-card {

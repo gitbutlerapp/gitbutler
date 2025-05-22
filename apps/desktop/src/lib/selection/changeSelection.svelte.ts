@@ -407,3 +407,23 @@ function getAllAssignments(
 
 	return headers;
 }
+
+export function filterChangesByGroup(
+	changes: TreeChange[],
+	group: HunkGroup,
+	assignments: HunkAssignments
+) {
+	const stackGroup = assignments.get(hunkGroupToKey(group));
+
+	if (!stackGroup) return [];
+
+	const filteredChanges = [];
+	for (const change of changes) {
+		const pathGroup = stackGroup.get(change.path);
+		if (pathGroup) {
+			filteredChanges.push(change);
+		}
+	}
+
+	return filteredChanges;
+}

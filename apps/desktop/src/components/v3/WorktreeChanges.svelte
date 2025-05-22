@@ -5,6 +5,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import FileListMode from '$components/v3/FileListMode.svelte';
 	import WorktreeChangesFileList from '$components/v3/WorktreeChangesFileList.svelte';
+	import WorktreeChangesSelectAll from '$components/v3/WorktreeChangesSelectAll.svelte';
 	import WorktreeTipsFooter from '$components/v3/WorktreeTipsFooter.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { createCommitStore } from '$lib/commits/contexts';
@@ -23,7 +24,6 @@
 	import { getContext, inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { untrack } from 'svelte';
@@ -60,12 +60,6 @@
 	const noChangesSelected = $derived(selectedChanges.current.length === 0);
 	const changesResult = $derived(worktreeService.getChanges(projectId));
 	const affectedPaths = $derived(changesResult.current.data?.map((c) => c.path));
-
-	const filesFullySelected = $derived(
-		changeSelection.every(affectedPaths ?? [], (f) => f.type === 'full')
-	);
-
-	const filesPartiallySelected = $derived(!noChangesSelected && !filesFullySelected);
 
 	// TODO: Make this go away.
 	createCommitStore(undefined);
@@ -109,14 +103,6 @@
 		if (defaultBranchName) {
 			stackState?.selection.set({ branchName: defaultBranchName });
 		}
-	}
-
-	function toggleGlobalCheckbox() {
-		if (noChangesSelected) {
-			selectEverything();
-			return;
-		}
-		changeSelection.clear();
 	}
 
 	let listHeaderHeight = $state(0);
@@ -172,12 +158,7 @@
 					>
 						<div class="worktree-header__general">
 							{#if isCommitting}
-								<Checkbox
-									checked={filesPartiallySelected || filesFullySelected}
-									indeterminate={filesPartiallySelected}
-									small
-									onchange={toggleGlobalCheckbox}
-								/>
+								<WorktreeChangesSelectAll {projectId} group={{ type: 'ungrouped' }} />
 							{/if}
 							<div class="worktree-header__title truncate">
 								<h3 class="text-14 text-semibold truncate">Uncommitted</h3>

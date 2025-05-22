@@ -1,16 +1,11 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import FileList from '$components/v3/FileList.svelte';
-	import {
-		DiffService,
-		hunkGroupToKey,
-		type HunkAssignments,
-		type HunkGroup
-	} from '$lib/hunks/diffService.svelte';
+	import { DiffService, type HunkGroup } from '$lib/hunks/diffService.svelte';
+	import { filterChangesByGroup } from '$lib/selection/changeSelection.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
-	import type { TreeChange } from '$lib/hunks/change';
 
 	// TODO: Look into whether it's important to pass the stackId through
 	type Props = {
@@ -27,6 +22,7 @@
 	const uiState = getContext(UiState);
 	const projectState = $derived(uiState.project(projectId));
 	const drawerPage = $derived(projectState.drawerPage.get());
+	const isCommitting = $derived(drawerPage.current === 'new-commit');
 	const changesResult = $derived(worktreeService.getChanges(projectId));
 	const changesKeyResult = $derived(worktreeService.getChangesKey(projectId));
 	const assignments = $derived(
@@ -34,24 +30,6 @@
 			? diffService.hunkAssignments(projectId, changesKeyResult.current)
 			: undefined
 	);
-
-	const isCommitting = $derived(drawerPage.current === 'new-commit');
-
-	function filter(changes: TreeChange[], assignments: HunkAssignments) {
-		const stackGroup = assignments.get(hunkGroupToKey(group));
-
-		if (!stackGroup) return [];
-
-		const filteredChanges = [];
-		for (const change of changes) {
-			const pathGroup = stackGroup.get(change.path);
-			if (pathGroup) {
-				filteredChanges.push(change);
-			}
-		}
-
-		return filteredChanges;
-	}
 </script>
 
 <ReduxResult {projectId} result={changesResult.current}>
@@ -63,7 +41,7 @@
 						selectionId={{ type: 'worktree', group }}
 						showCheckboxes={isCommitting}
 						{projectId}
-						changes={filter(changes, assignments)}
+						changes={filterChangesByGroup(changes, group, assignments)}
 						{listMode}
 						{active}
 						{group}
