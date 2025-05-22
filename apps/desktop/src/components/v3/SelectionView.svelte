@@ -23,7 +23,7 @@
 	{#if selection.length === 0}
 		<FileViewPlaceholder />
 	{:else}
-		<ScrollableContainer wide>
+		<ScrollableContainer wide zIndex="var(--z-floating)">
 			{#each selection as selectedFile}
 				<SelectedChange
 					{projectId}

@@ -15,6 +15,7 @@
 		thickness?: string;
 		horz?: boolean;
 		autoScroll?: boolean;
+		zIndex?: string;
 		onthumbdrag?: (dragging: boolean) => void;
 		children: Snippet;
 		onscrollTop?: (visible: boolean) => void;
@@ -32,6 +33,7 @@
 		thickness,
 		horz,
 		autoScroll,
+		zIndex,
 		children,
 		onthumbdrag,
 		onscroll,
@@ -55,6 +57,7 @@
 	{thickness}
 	{horz}
 	{autoScroll}
+	{zIndex}
 	{onthumbdrag}
 	{onscrollTop}
 	{onscrollEnd}
