@@ -1,0 +1,3 @@
+ancestorEntries = ["apps/desktop/src/components/v3/profileSettings/AiSettings.svelte"]
+ourEntries = ["apps/desktop/src/components/v3/profileSettings/AiSettings.svelte"]
+theirEntries = ["apps/desktop/src/components/v3/profileSettings/AiSettings.svelte"]
