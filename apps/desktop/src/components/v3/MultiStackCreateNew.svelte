@@ -91,11 +91,9 @@
 		}
 	}
 
-	function showAndPrefillName() {
+	async function showAndPrefillName() {
 		createRefModal?.show();
-		stackService.newBranchName(projectId).then((name) => {
-			createRefName = name.data || '';
-		});
+		createRefName = (await stackService.newBranchName(projectId))?.data ?? '';
 	}
 
 	// TODO: it would be nice to remember the last selected option for the next time the modal is opened
