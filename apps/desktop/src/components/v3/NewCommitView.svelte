@@ -12,7 +12,7 @@
 	} from '$lib/hunks/hunk';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { ChangeSelectionService, type SelectedHunk } from '$lib/selection/changeSelection.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { StackService, type RejectionReason } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
@@ -216,11 +216,21 @@
 		}
 
 		if (response.pathsToRejectedChanges.length > 0) {
-			showError(
-				'Some changes were not committed',
-				'The following files could not be committed:\n' +
-					response.pathsToRejectedChanges.map(([reason, path]) => `${path} (${reason})`).join('\n')
+			const pathsToRejectedChanges = response.pathsToRejectedChanges.reduce(
+				(acc: Record<string, RejectionReason>, [reason, path]) => {
+					acc[path] = reason;
+					return acc;
+				},
+				{}
 			);
+
+			uiState.global.modal.set({
+				type: 'commit-failed',
+				projectId,
+				targetBranchName: finalBranchName,
+				newCommitId: newId ?? undefined,
+				pathsToRejectedChanges
+			});
 		}
 	}
 

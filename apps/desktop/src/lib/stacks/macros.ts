@@ -1,8 +1,8 @@
-import { showError } from '$lib/notifications/toasts';
 import { getStackName } from '$lib/stacks/stack';
 import type { DiffSpec } from '$lib/hunks/hunk';
 import type {
 	CreateCommitRequestWorktreeChanges,
+	RejectionReason,
 	StackService
 } from '$lib/stacks/stackService.svelte';
 import type { UiState } from '$lib/state/uiState.svelte';
@@ -69,11 +69,21 @@ export default class StackMacros {
 		});
 
 		if (outcome.pathsToRejectedChanges.length > 0) {
-			showError(
-				'Some changes were not committed',
-				'The following files could not be committed:\n' +
-					outcome.pathsToRejectedChanges.map(([reason, path]) => `${path} (${reason})`).join('\n')
+			const pathsToRejectedChanges = outcome.pathsToRejectedChanges.reduce(
+				(acc: Record<string, RejectionReason>, [reason, path]) => {
+					acc[path] = reason;
+					return acc;
+				},
+				{}
 			);
+
+			this.uiState.global.modal.set({
+				type: 'commit-failed',
+				projectId: this.projectId,
+				targetBranchName: branchName,
+				newCommitId: outcome.newCommit ?? undefined,
+				pathsToRejectedChanges
+			});
 		}
 		return { stack, outcome, branchName };
 	}
