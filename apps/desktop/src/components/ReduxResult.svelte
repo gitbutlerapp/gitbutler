@@ -26,7 +26,7 @@
 		result: Result<A> | undefined;
 		projectId: string;
 		children: Snippet<[A, Env<B>]>;
-		loading?: Snippet<[]>;
+		loading?: Snippet<[A | undefined]>;
 		error?: Snippet<[unknown]>;
 		onerror?: (err: unknown) => void;
 	} & (B extends undefined ? { stackId?: B } : { stackId: B });
@@ -44,16 +44,18 @@
 		const env = { projectId: props.projectId, stackId: props.stackId as B };
 		if (props.result?.error) {
 			return { result: props.result, env };
-		} else if (isDefined(props.result?.data)) {
+		}
+
+		if (isDefined(props.result?.data)) {
 			cache = { result: props.result, env };
 			return cache;
-		} else {
-			if (cache) {
-				return cache;
-			} else {
-				return { result: props.result, env };
-			}
 		}
+
+		if (cache) {
+			return cache;
+		}
+
+		return { result: props.result, env };
 	});
 
 	$effect(() => {
@@ -63,9 +65,10 @@
 	});
 </script>
 
-{#if display.result?.error}
-	{@const error = display.result.error}
-	{#if isParsedError(error)}
+{#snippet errorComponent(error: unknown)}
+	{#if props.error}
+		{@render props.error(error)}
+	{:else if isParsedError(error)}
 		<InfoMessage error={error.message} style="error">
 			{#snippet title()}
 				{error.name}
@@ -75,20 +78,26 @@
 			{/snippet}
 		</InfoMessage>
 	{/if}
-	{#if props.error}
-		{@render props.error(display.result.error)}
-	{/if}
-{:else if display.result?.status === 'pending' || display.result?.status === 'uninitialized'}
+{/snippet}
+
+{#snippet loadingComponent(data: A | undefined, status: QueryStatus)}
 	{#if props.loading}
-		{@render props.loading()}
+		{@render props.loading(data)}
 	{:else}
 		<div class="text-12 loading-spinner">
 			<Icon name="spinner" />
-			<span>{display.result?.status}</span>
+			<span>{status}</span>
 		</div>
 	{/if}
+{/snippet}
+
+{#if display.result?.error}
+	{@const error = display.result.error}
+	{@render errorComponent(error)}
 {:else if display.result?.data !== undefined}
 	{@render props.children(display.result.data, display.env)}
+{:else if display.result?.status === 'pending' || display.result?.status === 'uninitialized'}
+	{@render loadingComponent(display.result.data, display.result.status)}
 {/if}
 
 <style>
