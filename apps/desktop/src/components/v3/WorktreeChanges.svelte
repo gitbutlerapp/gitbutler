@@ -126,7 +126,7 @@
 
 	<div
 		class="uncommitted-changes-wrap"
-		use:focusable={{ id: Focusable.UncommittedChanges, parentId: Focusable.WorkspaceLeft }}
+		use:focusable={{ id: Focusable.UncommittedChanges, parentId: Focusable.ViewportLeft }}
 	>
 		<ScrollableContainer
 			autoScroll={false}
