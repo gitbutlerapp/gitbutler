@@ -716,6 +716,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-agent"
+version = "0.0.0"
+dependencies = [
+ "gitbutler-secret",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "toml",
+ "uuid",
+]
+
+[[package]]
 name = "but-core"
 version = "0.0.0"
 dependencies = [
@@ -7341,6 +7353,7 @@ dependencies = [
  "cookie",
  "cookie_store",
  "encoding_rs",
+ "futures-channel",
  "futures-core",
  "futures-util",
  "h2",
