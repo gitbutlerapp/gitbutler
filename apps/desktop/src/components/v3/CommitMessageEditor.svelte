@@ -25,7 +25,7 @@
 		actionLabel: string;
 		action: (args: { title: string; description: string }) => void;
 		onChange?: (args: { title?: string; description?: string }) => void;
-		onCancel: () => void;
+		onCancel: (args: { title: string; description: string }) => void;
 		disabledAction?: boolean;
 		loading?: boolean;
 		existingCommitId?: string;
@@ -157,6 +157,12 @@
 		const newDescription = await getDescription();
 		action({ title: newTitle, description: newDescription });
 	}
+
+	async function handleCancel() {
+		const newTitle = getTitle();
+		const newDescription = await getDescription();
+		onCancel({ title: newTitle, description: newDescription });
+	}
 </script>
 
 <div class="commit-message-wrap">
@@ -208,7 +214,7 @@
 		}}
 	/>
 </div>
-<EditorFooter {onCancel}>
+<EditorFooter onCancel={handleCancel}>
 	<Button
 		testId={TestId.CommitDrawerActionButton}
 		style="pop"
