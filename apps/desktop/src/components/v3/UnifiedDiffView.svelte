@@ -39,7 +39,7 @@
 		selectionId: SelectionId;
 		stackId?: string;
 		commitId?: string;
-		readonly?: boolean;
+		draggable: boolean;
 	};
 
 	const {
@@ -50,7 +50,7 @@
 		selectionId,
 		stackId,
 		commitId,
-		readonly = false
+		draggable
 	}: Props = $props();
 	const [project, uiState, stackService] = inject(Project, UiState, StackService);
 	let contextMenu = $state<ReturnType<typeof HunkContextMenu>>();
@@ -208,7 +208,9 @@
 		return [stagedHunk, linesSelected];
 	}
 
-	const draggingDisabled = $derived(readonly || !['commit', 'worktree'].includes(selectionId.type));
+	const draggingDisabled = $derived(
+		!draggable || !['commit', 'worktree'].includes(selectionId.type)
+	);
 </script>
 
 <div data-testid={TestId.UnifiedDiffView} class="diff-section" bind:this={viewport}>

@@ -70,6 +70,7 @@
 					projectId={env.projectId}
 					stackId={env.stackId}
 					commitId={selectedFile.type === 'commit' ? selectedFile.commitId : undefined}
+					{draggable}
 					{change}
 					{diff}
 					selectable
