@@ -234,7 +234,7 @@
 
 			{#snippet middle()}
 				{#if !drawerIsFullScreen.current}
-					<SelectionView {projectId} {selectionId} />
+					<SelectionView {projectId} {selectionId} draggableFiles />
 				{/if}
 				{#if current.commitId}
 					<UnappliedCommitView {projectId} commitId={current.commitId} />
@@ -244,6 +244,7 @@
 							{projectId}
 							branchName={current.branchName}
 							stackId={current.stackId}
+							draggableFiles={false}
 							active
 							{onerror}
 						/>

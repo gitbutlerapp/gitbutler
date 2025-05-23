@@ -167,6 +167,7 @@
 							<FileList
 								selectionId={{ type: 'worktree' }}
 								showCheckboxes={isCommitting}
+								draggableFiles
 								{projectId}
 								{stackId}
 								{changes}

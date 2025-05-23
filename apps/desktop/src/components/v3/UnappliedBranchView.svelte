@@ -111,6 +111,7 @@
 				<ReduxResult {projectId} result={changesResult.current}>
 					{#snippet children(changes, env)}
 						<ChangedFiles
+							draggableFiles={false}
 							title="All changed files"
 							projectId={env.projectId}
 							stackId={env.stackId}

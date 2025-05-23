@@ -278,6 +278,7 @@
 								title="Changed files"
 								{projectId}
 								{stackId}
+								draggableFiles={true}
 								selectionId={{ type: 'commit', commitId: commit.id }}
 								changes={changes.changes.filter(
 									(change) => !(change.path in (changes.conflictEntries?.entries ?? {}))
