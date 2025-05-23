@@ -4,10 +4,11 @@ mod args;
 use args::Args;
 mod mcp;
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let args: Args = clap::Parser::parse();
 
     match &args.cmd {
-        args::Subcommands::Mcp => mcp::start(),
+        args::Subcommands::Mcp => mcp::start().await,
     }
 }
