@@ -26,6 +26,7 @@
 		ReorderCommitDzHandler
 	} from '$lib/dragging/stackingReorderDropzoneManager';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { StackService, type SeriesIntegrationStrategy } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -91,11 +92,12 @@
 		handleEditPatch
 	}: Props = $props();
 
-	const [stackService, uiState, forge, baseBranchService] = inject(
+	const [stackService, uiState, forge, baseBranchService, idSelection] = inject(
 		StackService,
 		UiState,
 		DefaultForgeFactory,
-		BaseBranchService
+		BaseBranchService,
+		IdSelection
 	);
 	const [integrateUpstreamCommits, upstreamIntegration] = stackService.integrateUpstreamCommits;
 
@@ -143,9 +145,14 @@
 		return undefined;
 	}
 
-	function handleCommitClick(commitId: string) {
+	async function handleCommitClick(commitId: string, upstream: boolean) {
+		const commitChanges = await stackService.fetchCommitChanges(projectId, commitId);
+		const firstPathInCommit = commitChanges.data?.changes[0]?.path;
+		if (firstPathInCommit) {
+			idSelection.set(firstPathInCommit, { type: 'commit', commitId }, 0);
+		}
 		const stackState = uiState.stack(stackId);
-		stackState.selection.set({ branchName, commitId });
+		stackState.selection.set({ branchName, commitId, upstream });
 		uiState.project(projectId).drawerPage.set(undefined);
 		projectState.stackId.set(stackId);
 	}
@@ -251,11 +258,7 @@
 								lastCommit={lastCommit && localAndRemoteCommits.length === 0}
 								{selected}
 								{active}
-								onclick={() => {
-									uiState.stack(stackId).selection.set({ branchName, commitId, upstream: true });
-									uiState.project(projectId).drawerPage.set(undefined);
-									projectState.stackId.set(stackId);
-								}}
+								onclick={() => handleCommitClick(commit.id, true)}
 								disableCommitActions={false}
 							/>
 						{/if}
@@ -376,7 +379,7 @@
 							{tooltip}
 							{active}
 							isOpen={commit.id === commitMenuContext?.data.commitId}
-							onclick={() => handleCommitClick(commit.id)}
+							onclick={() => handleCommitClick(commit.id, false)}
 							disableCommitActions={false}
 						>
 							{#snippet menu({ rightClickTrigger })}
