@@ -100,6 +100,7 @@ pub(crate) mod function {
         {
             // TODO: figure out what to do with workspace information, consolidate it with what's there as well
             //       to know which branch is where.
+            dbg!(&ws_data);
             (
                 Some(existing_ref.name().to_owned()),
                 ws_data.target_ref,
@@ -342,7 +343,7 @@ pub(crate) mod function {
         };
 
         if let Some(ws_stacks) = stored_workspace_stacks.as_ref() {
-            // Stacks that are genuinely reachable we have ot show.
+            // Stacks that are genuinely reachable we have to show.
             // Empty ones are special as they don't have their own commits and aren't distinguishable
             // by traversing a workspace commit. For this, we have workspace metadata to tell us what is what.
             for stack in stacks
@@ -383,6 +384,11 @@ pub(crate) mod function {
                     stack.segments.drain(keep..);
                 }
             }
+
+            // Consolidate 'unreachable' stacks which can't be seen as there are right at the merge-base.
+            // Add them to the respective stack.
+            // TODO:
+            let _boundaries: Vec<_> = stacks.iter().filter_map(|s| s.base).collect();
         }
 
         if opts.expensive_commit_info {

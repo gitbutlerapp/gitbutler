@@ -108,14 +108,17 @@ pub fn branch_details(
 }
 
 /// Returns information about the current state of a branch identified by its `name`.
-/// This branch is assumed to not be in the workspace, but it will still be assumed to want to integrate with the workspace target reference if set.
+/// This branch is assumed to not be in the workspace, but it will still be assumed to want to integrate with the workspace target
+/// reference if set.
+/// Note that for stacks, we shouldn't call `stack_details_v3`, but instead [`head_info()`](crate::head_info()) to get all stacks
+/// reachable from the current HEAD.
 ///
 /// ### Implementation
 ///
 /// Note that the following fields aren't computed or are only partially computed.
 ///
-/// - `push_status` - `Integrated` variant is not computed for now (but it's considered valuable to have so could be done later).
-/// - `is_conflicted` - bogus value (true)
+/// - `push_status` - `Integrated` variant is not computed for now (but it's conceivably doable later).
+/// - `is_conflicted` - only local commits contribute.
 pub fn branch_details_v3(
     repo: &gix::Repository,
     name: &gix::refs::FullNameRef,
@@ -161,7 +164,12 @@ pub fn branch_details_v3(
         merge_bases
             .last()
             .map(|id| id.detach())
-            .with_context(|| format!("No merge-base found between {name} and the integration branch {integration_branch_name}", name = name.as_bstr()))?
+            .unwrap_or_else(|| {
+            tracing::warn!("No merge-base found between {name} and the integration branch {integration_branch_name}", name = name.as_bstr());
+                // default to the tip just like the code previously did, resulting in no information
+                // TODO: we should probably indicate that there is no merge-base instead of just glossing over it.
+                branch_id.detach()
+        })
     };
 
     let mut authors = HashSet::new();
@@ -194,10 +202,16 @@ pub fn branch_details_v3(
     let is_remote_head = name.category() == Some(Category::RemoteBranch);
     let push_status = match remote_tracking_branch_id {
         Some(remote_tracking_branch_id) => {
-            let merge_base =
-                repo.merge_base_with_graph(branch_id, remote_tracking_branch_id, &mut graph)?;
-            if merge_base == remote_tracking_branch_id {
-                if merge_base == branch_id {
+            let merge_base = repo
+                .merge_bases_many_with_graph(
+                    branch_id,
+                    &[remote_tracking_branch_id.detach()],
+                    &mut graph,
+                )?
+                .first()
+                .copied();
+            if merge_base == Some(remote_tracking_branch_id) {
+                if merge_base == Some(branch_id) {
                     PushStatus::NothingToPush
                 } else {
                     PushStatus::UnpushedCommits
@@ -275,7 +289,7 @@ fn upstream_commits(
             let commiter: ui::Author = commit.committer().into();
             authors.insert(author.clone());
             authors.insert(commiter);
-            ui::UpstreamCommit {
+            UpstreamCommit {
                 id: commit.id().to_gix(),
                 message: commit.message().unwrap_or_default().into(),
                 created_at: i128::from(commit.time().seconds()) * 1000,
