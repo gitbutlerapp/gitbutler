@@ -250,7 +250,9 @@
 		}
 	}
 
-	function cancel() {
+	function cancel(args: { title: string; description: string }) {
+		projectState.commitTitle.set(args.title);
+		projectState.commitDescription.set(args.description);
 		drawer?.onClose();
 	}
 </script>
