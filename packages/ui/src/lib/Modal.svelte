@@ -11,6 +11,7 @@
 		closeButton?: boolean;
 		noPadding?: boolean;
 		defaultItem?: T;
+		preventCloseOnClickOutside?: boolean;
 		/**
 		 * Callback to be called when the modal is closed.
 		 *
@@ -46,6 +47,7 @@
 		closeButton,
 		onClose,
 		onClickOutside,
+		preventCloseOnClickOutside,
 		children,
 		controls,
 		onSubmit,
@@ -111,8 +113,10 @@
 		use:portal={'body'}
 		class="modal-container {isClosing ? 'closing' : 'open'}"
 		class:open
-		onmousedown={(e) => {
+		onclick={(e) => {
 			e.stopPropagation();
+
+			if (preventCloseOnClickOutside) return;
 
 			if (e.target === e.currentTarget) {
 				onClickOutside?.();
@@ -148,7 +152,7 @@
 						<Icon name="success" color="success" />
 					{/if}
 
-					<h2 class="text-14 text-bold">
+					<h2 class="text-14 text-semibold">
 						{title}
 					</h2>
 
