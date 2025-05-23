@@ -14,7 +14,7 @@ CRATE_ROOT="$ROOT/crates/gitbutler-tauri"
 # BINARIES
 ASKPASS="gitbutler-git-askpass"
 SETSID="gitbutler-git-setsid"
-CLI="but-cli"
+CLI="but-testing"
 
 
 if [ -f "$TARGET_ROOT/$ASKPASS" ] && [ -f "$TARGET_ROOT/$SETSID" ] && [ -f "$TARGET_ROOT/$CLI" ]; then

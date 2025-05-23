@@ -6,7 +6,7 @@
 This MCP server brings functionality from the GitButler review API and GitButler client.
 
 In order to access the former, you'll need a **GitButler API key**.
-For the former, you'll need the path to the **but-cli** binary.
+For the former, you'll need the path to the **but-testing** binary.
 
 These are currently only available to internal users, which is why this is considered 'in-development'.
 
@@ -14,12 +14,12 @@ These are currently only available to internal users, which is why this is consi
 
 1. Checkout this repository locally
 
-2. At the root, run the following command to build the but-cli:
+2. At the root, run the following command to build the but-testing:
 
 ```bash
 # Build the CLI.
 # This should create a binary in the **target/debug** directory.
-cargo build -p but-cli
+cargo build -p but-testing
 ```
 
 3. Go to the **packages/mcp** directory and run the following command:
@@ -44,7 +44,7 @@ pnpm build
                 "args": ["/Absolute/path/to/gitbutler/packages/mcp/build/index.js"],
                 "env": {
                     "GITBUTLER_API_KEY": "MY_API_KEY",
-                    "GITBUTLER_EXECUTABLE_PATH": "/Absolute/path/to/gitbutler/target/debug/but-cli"
+                    "GITBUTLER_EXECUTABLE_PATH": "/Absolute/path/to/gitbutler/target/debug/but-testing"
                 }
             }
         }
