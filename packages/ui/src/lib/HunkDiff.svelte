@@ -186,7 +186,6 @@
 		border-collapse: separate;
 		border-spacing: 0;
 		font-family: var(--diff-font);
-		user-select: none;
 	}
 
 	thead {
