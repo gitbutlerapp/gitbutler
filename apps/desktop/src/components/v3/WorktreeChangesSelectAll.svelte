@@ -43,6 +43,7 @@
 	const checkStatus = $derived.by((): 'checked' | 'indeterminate' | 'unchecked' => {
 		if (!assignmentsResult?.current.data) return 'unchecked';
 		if (!changesResult.current.data) return 'unchecked';
+		if (filteredChanges.length === 0) return 'unchecked';
 
 		const assignments = assignmentsResult.current.data;
 
