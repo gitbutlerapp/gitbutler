@@ -24,6 +24,7 @@ describe('Branches', () => {
 			mockBackend.createVirtualBranchFromBranch(args)
 		);
 		mockCommand('delete_local_branch', (params) => mockBackend.deleteLocalBranch(params));
+		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
 
 		cy.visit('/');
 
