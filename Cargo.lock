@@ -675,37 +675,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "but-cli"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "but-core",
- "but-hunk-assignment",
- "but-hunk-dependency",
- "but-settings",
- "but-workspace",
- "clap",
- "dirs-next",
- "gitbutler-branch",
- "gitbutler-branch-actions",
- "gitbutler-command-context",
- "gitbutler-commit",
- "gitbutler-filemonitor",
- "gitbutler-id",
- "gitbutler-operating-modes",
- "gitbutler-project",
- "gitbutler-stack",
- "gix",
- "itertools",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "tracing-forest",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "but-core"
 version = "0.0.0"
 dependencies = [
@@ -810,6 +779,37 @@ dependencies = [
  "gix",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "but-testing"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-core",
+ "but-hunk-assignment",
+ "but-hunk-dependency",
+ "but-settings",
+ "but-workspace",
+ "clap",
+ "dirs-next",
+ "gitbutler-branch",
+ "gitbutler-branch-actions",
+ "gitbutler-command-context",
+ "gitbutler-commit",
+ "gitbutler-filemonitor",
+ "gitbutler-id",
+ "gitbutler-operating-modes",
+ "gitbutler-project",
+ "gitbutler-stack",
+ "gix",
+ "itertools",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-forest",
+ "tracing-subscriber",
 ]
 
 [[package]]
