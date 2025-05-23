@@ -1,0 +1,17 @@
+[package]
+name = "but"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[[bin]]
+name = "but"
+path = "src/main.rs"
+doctest = false
+
+[features]
+
+[dependencies]
+clap = { version = "4.5.37", features = ["derive", "env"] }
+anyhow.workspace = true
