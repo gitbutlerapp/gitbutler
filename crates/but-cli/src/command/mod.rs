@@ -1,5 +1,6 @@
 use anyhow::{Context, anyhow, bail};
 use but_core::UnifiedDiff;
+use but_settings::AppSettings;
 use but_workspace::{DiffSpec, HunkHeader, VirtualBranchesTomlMetadata};
 use gitbutler_project::{Project, ProjectId};
 use gix::bstr::{BString, ByteSlice};
@@ -116,6 +117,7 @@ pub fn parse_diff_spec(arg: &Option<String>) -> Result<Option<Vec<DiffSpec>>, an
 mod commit;
 use crate::command::discard_change::IndicesOrHeaders;
 pub use commit::commit;
+use gitbutler_command_context::CommandContext;
 
 pub mod diff;
 
@@ -158,9 +160,8 @@ pub mod assignment {
 }
 
 pub mod stacks {
-    use std::path::Path;
-
     use crate::command::{debug_print, project_from_path, ref_metadata_toml};
+    use anyhow::Context;
     use but_settings::AppSettings;
     use but_workspace::{
         StacksFilter, stack_branch_local_and_remote_commits, stack_branch_upstream_only_commits,
@@ -168,6 +169,9 @@ pub mod stacks {
     };
     use gitbutler_command_context::CommandContext;
     use gitbutler_stack::StackId;
+    use gix::bstr::ByteSlice;
+    use gix::refs::Category;
+    use std::path::Path;
 
     /// A collection of all the commits that are part of a branch.
     #[derive(Debug, Clone, serde::Serialize)]
@@ -217,6 +221,36 @@ pub mod stacks {
             but_workspace::stack_details_v3(id, &repo, &meta)
         } else {
             but_workspace::stack_details(&project.gb_dir(), id, &ctx)
+        }?;
+        debug_print(details)
+    }
+
+    pub fn branch_details(ref_name: &str, current_dir: &Path, v3: bool) -> anyhow::Result<()> {
+        let project = project_from_path(current_dir)?;
+        let ctx = CommandContext::open(&project, AppSettings::default())?;
+        let meta = ref_metadata_toml(ctx.project())?;
+        let repo = ctx.gix_repo_for_merging_non_persisting()?;
+        let ref_name = repo.find_reference(ref_name)?.name().to_owned();
+
+        let details = if v3 {
+            but_workspace::branch_details_v3(&repo, ref_name.as_ref(), &meta)
+        } else {
+            let (category, shortname) = ref_name
+                .category_and_short_name()
+                .context("need valid branch name")?;
+
+            let (short_name, remote) = if matches!(category, Category::RemoteBranch) {
+                let mut splits = shortname.splitn(2, |b| *b == b'/');
+                let remote_name = splits.next().expect("remote name");
+                let short_name = splits.next().expect("slash-separation of short name");
+                (
+                    short_name.to_str().unwrap(),
+                    Some(remote_name.to_str().unwrap()),
+                )
+            } else {
+                (shortname.to_str().unwrap(), None)
+            };
+            but_workspace::branch_details(&project.gb_dir(), short_name, remote, &ctx)
         }?;
         debug_print(details)
     }
@@ -420,6 +454,14 @@ pub async fn watch(args: &super::Args) -> anyhow::Result<()> {
         debug_print(event).ok();
     }
     Ok(())
+}
+
+pub fn operating_mode(args: &super::Args) -> anyhow::Result<()> {
+    let (_repo, project) = repo_and_maybe_project(args, RepositoryOpenMode::General)?;
+    let project = project.context("Couldn't find GitButler project in directory")?;
+    let ctx = CommandContext::open(&project, AppSettings::default())?;
+
+    debug_print(gitbutler_operating_modes::operating_mode(&ctx))
 }
 
 pub fn ref_info(args: &super::Args, ref_name: Option<&str>) -> anyhow::Result<()> {

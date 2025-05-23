@@ -81,3 +81,28 @@ git clone remote empty-workspace-with-branch-below
 
   create_workspace_commit_once unrelated
 )
+
+# There are multiple stacked branches that could lead towards a shared stack.
+git clone remote target-ahead-remote-rewritten
+(cd target-ahead-remote-rewritten
+  git checkout -b origin/main
+  git commit -m "target ahead" --allow-empty
+
+  git checkout -b A main
+  git commit --allow-empty -m "shared local/remote"
+
+  (git checkout -b new-origin
+    # a remote commit that looks like a local commit by message
+    git commit --allow-empty -m "shared by name"
+    git commit --allow-empty -m "unique remote"
+    mv .git/refs/heads/new-origin .git/refs/remotes/origin/A
+  )
+  git checkout A
+
+  git commit --allow-empty -m "unique local"
+  # a local commit that looks like a remote commit by message
+  git commit --allow-empty -m "shared by name"
+  git commit --allow-empty -m "unique local tip"
+
+  create_workspace_commit_once A
+)

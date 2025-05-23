@@ -681,6 +681,7 @@ dependencies = [
  "gitbutler-commit",
  "gitbutler-filemonitor",
  "gitbutler-id",
+ "gitbutler-operating-modes",
  "gitbutler-project",
  "gitbutler-stack",
  "gix",

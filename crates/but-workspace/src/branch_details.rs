@@ -5,7 +5,8 @@ use anyhow::{Context, bail};
 use but_core::RefMetadata;
 use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Code;
-use gitbutler_oxidize::{ObjectIdExt, OidExt};
+use gitbutler_oxidize::{ObjectIdExt as _, OidExt};
+use gix::prelude::ObjectIdExt;
 use gix::reference::Category;
 use gix::remote::Direction;
 use itertools::Itertools;
@@ -164,7 +165,7 @@ pub fn branch_details_v3(
     };
 
     let mut authors = HashSet::new();
-    let (commits, upstream_commits) = {
+    let (mut commits, upstream_commits) = {
         let repo = git2::Repository::open(repo.path())?;
 
         let commits = local_commits(
@@ -228,14 +229,28 @@ pub fn branch_details_v3(
             .into_iter()
             .sorted_by(|a, b| a.name.cmp(&b.name).then_with(|| a.email.cmp(&b.email)))
             .collect(),
+        is_conflicted: compute_is_conflicted(
+            repo,
+            commits.iter_mut().map(|c| (c.id, &mut c.has_conflicts)),
+        )?,
         commits,
         upstream_commits,
         tip: branch_id.detach(),
         is_remote_head,
         push_status,
-        // Should be initialized, but this type is re-used in StackDetails where these are set so we can't indicate it.
-        is_conflicted: true,
     })
+}
+
+fn compute_is_conflicted<'a>(
+    repo: &gix::Repository,
+    commits_and_flags: impl Iterator<Item = (gix::ObjectId, &'a mut bool)>,
+) -> anyhow::Result<bool> {
+    let mut is_conflicted = false;
+    for (id, flag) in commits_and_flags {
+        *flag = but_core::Commit::from_id(id.attach(repo))?.is_conflicted();
+        is_conflicted |= *flag;
+    }
+    Ok(is_conflicted)
 }
 
 /// Traverse all commits that are reachable from the first parent of `upstream_id`, but not in `integration_branch_id` nor in `branch_id`.
@@ -272,6 +287,8 @@ fn upstream_commits(
 
 /// Traverse all commits that are reachable from the first parent of `branch_id`, but not in `integration_branch`, and store all
 /// commit authors and committers in `authors` while at it.
+///
+// TODO: rewrite with `gix` and obtain is_conflicted information.
 fn local_commits(
     repository: &git2::Repository,
     integration_branch_id: git2::Oid,

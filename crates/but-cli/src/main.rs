@@ -24,6 +24,7 @@ async fn main() -> Result<()> {
     let _op_span = tracing::info_span!("cli-op").entered();
 
     match &args.cmd {
+        args::Subcommands::OpMode => command::operating_mode(&args),
         args::Subcommands::DiscardChange {
             hunk_indices,
             hunk_headers,
@@ -97,6 +98,9 @@ async fn main() -> Result<()> {
         args::Subcommands::Watch => command::watch(&args).await,
         args::Subcommands::Stacks { workspace_only } => {
             command::stacks::list(&args.current_dir, args.json, args.v3, *workspace_only)
+        }
+        args::Subcommands::BranchDetails { ref_name } => {
+            command::stacks::branch_details(ref_name, &args.current_dir, args.v3)
         }
         args::Subcommands::StackDetails { id } => {
             command::stacks::details(*id, &args.current_dir, args.v3)

@@ -146,7 +146,9 @@ pub fn stacks_v3(
                 continue;
             }
 
-            let reference = repo.find_reference(ref_name.as_ref())?;
+            let Some(reference) = repo.try_find_reference(ref_name.as_ref())? else {
+                continue;
+            };
             let tip = reference
                 .try_id()
                 .with_context(|| format!("Encountered symbolic reference: {ref_name}"))?

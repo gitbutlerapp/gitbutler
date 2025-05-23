@@ -43,7 +43,7 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         ref_location: "ReachableFromWorkspaceCommit",
                         commits_unique_from_tip: [
-                            LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
+                            LocalCommit(d79bba9, "new file in A\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [
                             RemoteCommit(89cc2d3, "change in A\n",
@@ -88,6 +88,81 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
         info, expected_info,
         "Information doesn't change, the remote is inferred"
     );
+    Ok(())
+}
+
+#[test]
+fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("target-ahead-remote-rewritten")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 03d2336 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * d5d3a92 (A) unique local tip
+    * 6ffd040 shared by name
+    * 4cd56ab unique local
+    | * f4ed16f (origin/main) target ahead
+    | | * 50d31c8 (origin/A) unique remote
+    | | * a9954f1 shared by name
+    | |/  
+    |/|   
+    * | 872c22f shared local/remote
+    |/  
+    * c166d42 (origin/main, origin/HEAD, main) init-integration
+    ");
+
+    add_stack(
+        &mut meta,
+        StackId::from_number_for_testing(1),
+        "A",
+        StackState::InWorkspace,
+    );
+    let opts = standard_options();
+    // TODO: fix commit identity issues, fix duplication of remote commits.
+    let info = ref_info(repo.find_reference("A")?, &*meta, opts)?;
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [
+            Stack {
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
+                segments: [
+                    StackSegment {
+                        ref_name: "refs/heads/A",
+                        remote_tracking_ref_name: "refs/remotes/origin/A",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [
+                            LocalCommit(d5d3a92, "unique local tip\n", local),
+                            LocalCommit(6ffd040, "shared by name\n", local/remote(similarity)),
+                            LocalCommit(4cd56ab, "unique local\n", local),
+                            LocalCommit(872c22f, "shared local/remote\n", local),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [
+                            RemoteCommit(50d31c8, "unique remote\n",
+                        ],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                ],
+                stash_status: None,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+    }
+    "#);
     Ok(())
 }
 
@@ -152,7 +227,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         ref_location: "ReachableFromWorkspaceCommit",
                         commits_unique_from_tip: [
-                            LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
+                            LocalCommit(d79bba9, "new file in A\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [
                             RemoteCommit(89cc2d3, "change in A\n",
@@ -226,7 +301,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         ref_location: "ReachableFromWorkspaceCommit",
                         commits_unique_from_tip: [
-                            LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
+                            LocalCommit(d79bba9, "new file in A\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [
                             RemoteCommit(89cc2d3, "change in A\n",
@@ -310,7 +385,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         ref_location: "ReachableFromWorkspaceCommit",
                         commits_unique_from_tip: [
-                            LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
+                            LocalCommit(d79bba9, "new file in A\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [
                             RemoteCommit(89cc2d3, "change in A\n",
@@ -467,6 +542,146 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
 }
 
 mod legacy {
+    mod stacks {
+        use crate::ref_info::with_workspace_commit::read_only_in_memory_scenario;
+        use crate::ref_info::with_workspace_commit::utils::{StackState, add_stack};
+        use but_testsupport::visualize_commit_graph_all;
+        use but_workspace::{StacksFilter, stacks_v3};
+        use gitbutler_stack::StackId;
+
+        #[test]
+        fn multiple_branches_with_shared_segment_automatically_know_containing_workspace()
+        -> anyhow::Result<()> {
+            let (repo, mut meta) =
+                read_only_in_memory_scenario("multiple-stacks-with-shared-segment")?;
+
+            add_stack(
+                &mut meta,
+                StackId::from_number_for_testing(1),
+                "B-on-A",
+                StackState::InWorkspace,
+            );
+            add_stack(
+                &mut meta,
+                StackId::from_number_for_testing(2),
+                "C-on-A",
+                StackState::Inactive,
+            );
+            add_stack(
+                &mut meta,
+                StackId::from_number_for_testing(3),
+                "does-not-exist-inactive",
+                StackState::Inactive,
+            );
+            add_stack(
+                &mut meta,
+                StackId::from_number_for_testing(4),
+                "does-not-exist-active",
+                StackState::InWorkspace,
+            );
+            insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+            *   820f2b3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+            |\  
+            | * 4e5484a (B-on-A) add new file in B-on-A
+            * | 5f37dbf (C-on-A) add new file in C-on-A
+            |/  
+            | * 89cc2d3 (origin/A) change in A
+            |/  
+            * d79bba9 (A) new file in A
+            * c166d42 (origin/main, origin/HEAD, main) init-integration
+            ");
+            let actual = stacks_v3(&repo, &meta, StacksFilter::All)?;
+            insta::assert_debug_snapshot!(actual, @r#"
+            [
+                StackEntry {
+                    id: 00000000-0000-0000-0000-000000000002,
+                    heads: [
+                        StackHeadInfo {
+                            name: "C-on-A",
+                            tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
+                        },
+                        StackHeadInfo {
+                            name: "A",
+                            tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
+                        },
+                    ],
+                    tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
+                },
+                StackEntry {
+                    id: 00000000-0000-0000-0000-000000000001,
+                    heads: [
+                        StackHeadInfo {
+                            name: "B-on-A",
+                            tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
+                        },
+                    ],
+                    tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
+                },
+            ]
+            "#);
+
+            let actual = stacks_v3(&repo, &meta, StacksFilter::InWorkspace)?;
+            // It lists both still as both are reachable from a workspace commit, so clearly in the workspace.
+            insta::assert_debug_snapshot!(actual, @r#"
+            [
+                StackEntry {
+                    id: 00000000-0000-0000-0000-000000000002,
+                    heads: [
+                        StackHeadInfo {
+                            name: "C-on-A",
+                            tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
+                        },
+                        StackHeadInfo {
+                            name: "A",
+                            tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
+                        },
+                    ],
+                    tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
+                },
+                StackEntry {
+                    id: 00000000-0000-0000-0000-000000000001,
+                    heads: [
+                        StackHeadInfo {
+                            name: "B-on-A",
+                            tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
+                        },
+                    ],
+                    tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
+                },
+            ]
+            "#);
+
+            let actual = stacks_v3(&repo, &meta, StacksFilter::Unapplied)?;
+            // nothing reachable
+            insta::assert_debug_snapshot!(actual, @"[]");
+
+            add_stack(
+                &mut meta,
+                StackId::from_number_for_testing(5),
+                "main",
+                StackState::Inactive,
+            );
+
+            let actual = stacks_v3(&repo, &meta, StacksFilter::Unapplied)?;
+            // Still nothing reachable
+            insta::assert_debug_snapshot!(actual, @r#"
+            [
+                StackEntry {
+                    id: 00000000-0000-0000-0000-000000000005,
+                    heads: [
+                        StackHeadInfo {
+                            name: "main",
+                            tip: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                        },
+                    ],
+                    tip: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                },
+            ]
+            "#);
+            Ok(())
+        }
+    }
+
     mod stack_details {
         use crate::ref_info::with_workspace_commit::read_only_in_memory_scenario;
         use crate::ref_info::with_workspace_commit::utils::{StackState, add_stack};
@@ -519,7 +734,7 @@ mod legacy {
                         ],
                         is_conflicted: false,
                         commits: [
-                            Commit(4e5484a, "add new file in B-on-A"),
+                            Commit(4e5484a, "add new file in B-on-A", local),
                         ],
                         upstream_commits: [],
                         is_remote_head: false,
@@ -558,7 +773,7 @@ mod legacy {
                         ],
                         is_conflicted: false,
                         commits: [
-                            Commit(5f37dbf, "add new file in C-on-A"),
+                            Commit(5f37dbf, "add new file in C-on-A", local),
                         ],
                         upstream_commits: [],
                         is_remote_head: false,
@@ -580,7 +795,7 @@ mod legacy {
                         ],
                         is_conflicted: false,
                         commits: [
-                            Commit(d79bba9, "new file in A"),
+                            Commit(d79bba9, "new file in A", local),
                         ],
                         upstream_commits: [
                             UpstreamCommit(89cc2d3, "change in A"),
