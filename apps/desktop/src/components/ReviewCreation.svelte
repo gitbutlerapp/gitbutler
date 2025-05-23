@@ -206,12 +206,13 @@
 		if (isExecuting) return;
 		if (!$user) return;
 
+		const effectivePRBody = (await messageEditor?.getPlaintext()) ?? '';
 		// Declare early to have them inside the function closure, in case
 		// the component unmounts or updates.
 		const closureStackId = stackId;
 		const closureBranchName = branchName;
 		const title = $prTitle;
-		const body = shouldAddPrBody() ? $prBody : '';
+		const body = shouldAddPrBody() ? effectivePRBody : '';
 		const draft = $createDraft;
 
 		isCreatingReview = true;
@@ -236,7 +237,7 @@
 				return;
 			}
 			posthog.capture('Butler Review Created');
-			butRequestDetailsService.setDetails(reviewId, $prTitle, $prBody);
+			butRequestDetailsService.setDetails(reviewId, $prTitle, effectivePRBody);
 		}
 
 		if ((canPublishPR && $createPullRequest) || !canPublishBR) {
