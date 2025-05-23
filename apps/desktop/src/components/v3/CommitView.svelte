@@ -116,8 +116,6 @@
 	async function handleUncommit() {
 		if (!branchName) return;
 		await stackService.uncommit({ projectId, stackId, branchName, commitId: commitKey.commitId });
-		projectState.drawerPage.set(undefined);
-		if (branchName) stackState.selection.set({ branchName, commitId: undefined });
 	}
 
 	function canEdit() {

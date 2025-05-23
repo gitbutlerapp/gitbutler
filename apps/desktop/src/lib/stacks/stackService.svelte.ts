@@ -423,6 +423,13 @@ export class StackService {
 		);
 	}
 
+	fetchCommitDetails(projectId: string, commitId: string) {
+		return this.api.endpoints.commitDetails.fetch(
+			{ projectId, commitId },
+			{ transform: (result) => result.details }
+		);
+	}
+
 	/**
 	 * Gets the changes for a given branch.
 	 * If the branch is part of a stack and if the stackId is provided, this will include only the changes up to the next branch in the stack.
@@ -495,7 +502,12 @@ export class StackService {
 		branchName: string;
 		commitId: string;
 	}) {
-		return await this.api.endpoints.uncommit.mutate(args);
+		const result = await this.api.endpoints.uncommit.mutate(args);
+		const selection = this.uiState.stack(args.stackId).selection;
+		if (args.commitId === selection.current?.commitId) {
+			selection.set(undefined);
+		}
+		return result;
 	}
 
 	get insertBlankCommit() {

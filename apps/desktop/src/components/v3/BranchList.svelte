@@ -51,9 +51,6 @@
 
 	async function handleUncommit(commitId: string, branchName: string) {
 		await stackService.uncommit({ projectId, stackId, branchName, commitId: commitId });
-
-		projectState.drawerPage.set(undefined);
-		if (branchName) stackState.selection.set({ branchName, commitId: undefined });
 	}
 
 	function startEditingCommitMessage(branchName: string, commitId: string) {
