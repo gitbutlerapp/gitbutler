@@ -36,6 +36,7 @@
 		depth?: number;
 		executable?: boolean;
 		showCheckbox?: boolean;
+		draggable: boolean;
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 		onCloseClick?: () => void;
@@ -58,6 +59,7 @@
 		executable,
 		showCheckbox,
 		conflictEntries,
+		draggable,
 		onclick,
 		onkeydown,
 		onCloseClick
@@ -154,7 +156,7 @@
 		<FileViewHeader
 			filePath={change.path}
 			fileStatus={computeChangeStatus(change)}
-			draggable={!showCheckbox}
+			draggable={!showCheckbox && draggable}
 			linesAdded={lineChangesStat?.added}
 			linesRemoved={lineChangesStat?.removed}
 			fileStatusTooltip={previousTooltipText}
@@ -181,7 +183,7 @@
 			{isLast}
 			{depth}
 			{executable}
-			draggable={!showCheckbox}
+			draggable={!showCheckbox && draggable}
 			{onkeydown}
 			locked={false}
 			conflicted={!!conflict}

@@ -14,10 +14,11 @@
 		selectedFile: SelectedFile;
 		projectId: string;
 		stackId?: string;
+		draggable: boolean;
 		onCloseClick: () => void;
 	};
 
-	const { selectedFile, projectId, onCloseClick, stackId }: Props = $props();
+	const { selectedFile, projectId, onCloseClick, stackId, draggable }: Props = $props();
 
 	const [diffService, stackService, worktreeService] = inject(
 		DiffService,
@@ -59,6 +60,7 @@
 					projectId={env.projectId}
 					{change}
 					{diff}
+					{draggable}
 					isHeader
 					executable={!!isExecutable}
 					listMode="list"

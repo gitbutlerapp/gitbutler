@@ -17,10 +17,19 @@
 		title: string;
 		active?: boolean;
 		conflictEntries?: ConflictEntriesObj;
+		draggableFiles: boolean;
 	};
 
-	const { projectId, stackId, selectionId, changes, title, active, conflictEntries }: Props =
-		$props();
+	const {
+		projectId,
+		stackId,
+		selectionId,
+		changes,
+		title,
+		active,
+		conflictEntries,
+		draggableFiles
+	}: Props = $props();
 
 	let listMode: 'list' | 'tree' = $state('tree');
 </script>
@@ -33,7 +42,16 @@
 	<FileListMode bind:mode={listMode} persist="committed" />
 </div>
 {#if changes.length > 0}
-	<FileList {selectionId} {projectId} {stackId} {changes} {listMode} {active} {conflictEntries} />
+	<FileList
+		{selectionId}
+		{projectId}
+		{stackId}
+		{changes}
+		{listMode}
+		{active}
+		{conflictEntries}
+		{draggableFiles}
+	/>
 {:else}
 	<EmptyStatePlaceholder image={emptyFolderSvg} width={180} gap={4}>
 		{#snippet caption()}

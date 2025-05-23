@@ -23,10 +23,11 @@
 		projectId: string;
 		branchName: string;
 		active?: boolean;
+		draggableFiles: boolean;
 		onerror?: (err: unknown) => void;
 	}
 
-	const { stackId, projectId, branchName, active, onerror }: Props = $props();
+	const { stackId, projectId, branchName, active, draggableFiles, onerror }: Props = $props();
 
 	const [stackService] = inject(StackService);
 
@@ -116,6 +117,7 @@
 					{#snippet children(changes, { projectId, stackId })}
 						<ChangedFiles
 							title="All changed files"
+							{draggableFiles}
 							{projectId}
 							{stackId}
 							selectionId={{ type: 'branch', stackId, branchName }}

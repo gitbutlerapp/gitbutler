@@ -85,7 +85,7 @@
 
 	{#snippet middle()}
 		{#if !drawerIsFullScreen.current}
-			<SelectionView {projectId} {selectionId} {stackId} />
+			<SelectionView {projectId} {selectionId} {stackId} draggableFiles />
 		{/if}
 		{#if drawerPage.current === 'new-commit'}
 			<NewCommitView {projectId} {stackId} />
@@ -96,6 +96,7 @@
 				{branchName}
 				{onerror}
 				active={selectionId.type !== 'worktree'}
+				draggableFiles
 			/>
 		{:else if drawerPage.current === 'review' && stackId && branchName}
 			<ReviewView {stackId} {projectId} {branchName} />

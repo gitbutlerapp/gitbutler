@@ -10,9 +10,10 @@
 		projectId: string;
 		stackId?: string;
 		selectionId?: SelectionId;
+		draggableFiles: boolean;
 	};
 
-	let { projectId, selectionId, stackId }: Props = $props();
+	let { projectId, selectionId, stackId, draggableFiles }: Props = $props();
 
 	const [idSelection] = inject(IdSelection);
 
@@ -29,6 +30,7 @@
 					{projectId}
 					{stackId}
 					{selectedFile}
+					draggable={draggableFiles}
 					onCloseClick={() => {
 						if (selectionId) {
 							idSelection.remove(selectedFile.path, selectionId);
