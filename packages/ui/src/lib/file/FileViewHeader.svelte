@@ -27,7 +27,7 @@
 		filePath,
 		fileStatus,
 		fileStatusTooltip,
-		draggable = true,
+		draggable,
 		linesAdded = 0,
 		linesRemoved = 0,
 		conflicted,
@@ -42,7 +42,6 @@
 	{id}
 	class="file-header"
 	class:draggable
-	{draggable}
 	oncontextmenu={(e) => {
 		if (oncontextmenu) {
 			e.preventDefault();

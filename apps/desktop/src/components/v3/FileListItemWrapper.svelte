@@ -124,7 +124,7 @@
 	}
 
 	const conflict = $derived(conflictEntries ? conflictEntries.entries[change.path] : undefined);
-	const draggableDisabled = $derived(showCheckbox || selectionId.type === 'branch');
+	const draggableDisabled = $derived(!draggable || showCheckbox || selectionId.type === 'branch');
 </script>
 
 <div
@@ -183,7 +183,7 @@
 			{isLast}
 			{depth}
 			{executable}
-			draggable={!showCheckbox && draggable}
+			draggable={!draggableDisabled}
 			{onkeydown}
 			locked={false}
 			conflicted={!!conflict}
