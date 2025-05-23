@@ -91,19 +91,28 @@ export interface BranchPushResult {
 	remote: string;
 }
 
-type RejectionReason =
-	| 'NoEffectiveChanges'
-	| 'CherryPickMergeConflict'
-	| 'WorkspaceMergeConflict'
-	| 'WorktreeFileMissingForObjectConversion'
-	| 'FileToLargeOrBinary'
-	| 'PathNotFoundInBaseTree'
-	| 'UnsupportedDirectoryEntry'
-	| 'UnsupportedTreeEntry'
-	| 'MissingDiffSpecAssociation';
+/**
+ * All possible reasons for a commit to be rejected.
+ *
+ * This is used to display a message to the user when a commit fails.
+ * @note - This reasons are in order of priority, from most to least important!
+ */
+export const REJECTTION_REASONS = [
+	'workspaceMergeConflict',
+	'cherryPickMergeConflict',
+	'noEffectiveChanges',
+	'worktreeFileMissingForObjectConversion',
+	'fileToLargeOrBinary',
+	'pathNotFoundInBaseTree',
+	'unsupportedDirectoryEntry',
+	'unsupportedTreeEntry',
+	'missingDiffSpecAssociation'
+] as const;
+
+export type RejectionReason = (typeof REJECTTION_REASONS)[number];
 
 export type CreateCommitOutcome = {
-	newCommit: string;
+	newCommit: string | null;
 	pathsToRejectedChanges: [RejectionReason, string][];
 };
 

@@ -12,7 +12,7 @@
 	} from '$lib/hunks/hunk';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { ChangeSelectionService, type SelectedHunk } from '$lib/selection/changeSelection.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { StackService, type RejectionReason } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
@@ -199,26 +199,38 @@
 
 		const newId = response.newCommit;
 
-		// Clear saved state for commit message editor.
-		projectState.commitTitle.set('');
-		projectState.commitDescription.set('');
+		if (newId) {
+			// Clear saved state for commit message editor.
+			projectState.commitTitle.set('');
+			projectState.commitDescription.set('');
 
-		// Close the drawer.
-		projectState.drawerPage.set(undefined);
+			// Close the drawer.
+			projectState.drawerPage.set(undefined);
 
-		// Select the newly created commit.
-		// Using `finalStackId` here because `stackState` might not have updated yet.
-		uiState.stack(finalStackId).selection.set({ branchName: finalBranchName, commitId: newId });
+			// Select the newly created commit.
+			// Using `finalStackId` here because `stackState` might not have updated yet.
+			uiState.stack(finalStackId).selection.set({ branchName: finalBranchName, commitId: newId });
 
-		// Clear change/hunk selection used for creating the commit.
-		changeSelection.clear();
+			// Clear change/hunk selection used for creating the commit.
+			changeSelection.clear();
+		}
 
 		if (response.pathsToRejectedChanges.length > 0) {
-			showError(
-				'Some changes were not committed',
-				'The following files could not be committed:\n' +
-					response.pathsToRejectedChanges.map(([reason, path]) => `${path} (${reason})`).join('\n')
+			const pathsToRejectedChanges = response.pathsToRejectedChanges.reduce(
+				(acc: Record<string, RejectionReason>, [reason, path]) => {
+					acc[path] = reason;
+					return acc;
+				},
+				{}
 			);
+
+			uiState.global.modal.set({
+				type: 'commit-failed',
+				projectId,
+				targetBranchName: finalBranchName,
+				newCommitId: newId ?? undefined,
+				pathsToRejectedChanges
+			});
 		}
 	}
 

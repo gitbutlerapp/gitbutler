@@ -37,7 +37,8 @@ const MOCK_GLOBAL_UI_STATE: GlobalUiState = {
 	draftBranchName: undefined,
 	useRuler: false,
 	rulerCountValue: 0,
-	wrapTextByRuler: false
+	wrapTextByRuler: false,
+	modal: undefined
 };
 
 export function getUiStateMock() {
