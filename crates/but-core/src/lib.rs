@@ -69,6 +69,7 @@ pub mod settings;
 pub use settings::git::types::GitConfigSettings;
 
 mod repo_ext;
+use crate::ref_metadata::ValueInfo;
 pub use repo_ext::RepositoryExt;
 
 /// Various types
@@ -100,6 +101,22 @@ pub trait RefMetadata {
         &self,
         ref_name: &gix::refs::FullNameRef,
     ) -> anyhow::Result<Self::Handle<ref_metadata::Branch>>;
+
+    /// Like [`branch()`](Self::branch()), but instead of possibly returning default values, return an
+    /// optional branch instead.
+    ///
+    /// This means the returned branch data is never the default value.
+    fn branch_opt(
+        &self,
+        ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<Option<Self::Handle<ref_metadata::Branch>>> {
+        let branch = self.branch(ref_name)?;
+        Ok(if branch.is_default() {
+            None
+        } else {
+            Some(branch)
+        })
+    }
 
     /// Set workspace metadata to match `value`.
     fn set_workspace(

@@ -6,6 +6,7 @@ use but_core::ref_metadata::{
 use gitbutler_stack::{StackId, VirtualBranchesState};
 use gix::date::SecondsSinceUnixEpoch;
 use gix::refs::{FullName, FullNameRef};
+use itertools::Itertools;
 use std::any::Any;
 use std::cell::RefCell;
 use std::collections::HashSet;
@@ -146,7 +147,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
     }
 
     fn workspace(&self, ref_name: &FullNameRef) -> anyhow::Result<Self::Handle<Workspace>> {
-        if is_workspace_ref(ref_name) {
+        if is_workspace_ref_name(ref_name) {
             let value = Self::workspace_from_data(&self.snapshot.content);
             Ok(VBTomlMetadataHandle {
                 is_default: value == default_workspace(),
@@ -201,7 +202,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
 
     fn set_workspace(&mut self, value: &Self::Handle<Workspace>) -> anyhow::Result<()> {
         let ref_name = value.ref_name.as_ref();
-        if !is_workspace_ref(ref_name) {
+        if !is_workspace_ref_name(ref_name) {
             bail!("This backend doesn't support arbitrary workspaces");
         }
 
@@ -357,7 +358,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
     }
 
     fn remove(&mut self, ref_name: &FullNameRef) -> anyhow::Result<bool> {
-        if is_workspace_ref(ref_name) {
+        if is_workspace_ref_name(ref_name) {
             // There is only one workspace, and it's the same as deleting everything.
             // The real implementation of this would just delete data associated with a ref, no special case needed there.
             if let Err(err) = std::fs::remove_file(&self.snapshot.path) {
@@ -427,6 +428,7 @@ impl VirtualBranchesTomlMetadata {
             stacks: stacks
                 .iter()
                 .filter(|s| s.in_workspace)
+                .sorted_by_key(|s| s.order)
                 .map(|s| WorkspaceStack {
                     branches: s
                         .heads
@@ -494,7 +496,11 @@ fn standard_time() -> gix::date::Time {
     gix::date::Time::new(1675176957, 0)
 }
 
-fn is_workspace_ref(ref_name: &FullNameRef) -> bool {
+/// Return `true` if `ref_name` looks like the standard GitButler workspace.
+///
+/// Note that in the future, ideally we won't rely on the name at all, but instead
+/// check for the presence of workspace ref-metadata.
+pub fn is_workspace_ref_name(ref_name: &FullNameRef) -> bool {
     ref_name.as_bstr() == INTEGRATION_BRANCH || ref_name.as_bstr() == INTEGRATION_BRANCH_LEGACY
 }
 
