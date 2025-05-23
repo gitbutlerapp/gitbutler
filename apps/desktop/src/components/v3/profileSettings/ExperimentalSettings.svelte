@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { SettingsService } from '$lib/config/appSettingsV2';
-	import { ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
+	import { confettiEnabled, ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
 	import { User } from '$lib/user/user';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
-	import { persisted } from '@gitbutler/shared/persisted';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
@@ -13,8 +12,6 @@
 	const settingsStore = settingsService.appSettings;
 
 	const user = getContextStore(User);
-
-	const confetti = persisted(false, 'experimental-confetti');
 </script>
 
 <p class="text-12 text-body experimental-settings__text">
@@ -71,7 +68,11 @@
 		{/snippet}
 
 		{#snippet actions()}
-			<Toggle id="confetti" checked={$confetti} onclick={() => confetti.set(!$confetti)} />
+			<Toggle
+				id="confetti"
+				checked={$confettiEnabled}
+				onclick={() => confettiEnabled.set(!$confettiEnabled)}
+			/>
 		{/snippet}
 	</SectionCard>
 

@@ -14,6 +14,8 @@ import type { SettingsService } from '$lib/config/appSettingsV2';
 import type { GitHubClient } from '$lib/forge/github/githubClient';
 import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 import type { IrcClient } from '$lib/irc/ircClient.svelte';
+import type { Settings } from '$lib/settings/userSettings';
+import type { Readable } from 'svelte/store';
 
 /**
  * GitHub API object that enables the declaration and usage of endpoints
@@ -67,7 +69,8 @@ export class ClientState {
 		gitLabClient: GitLabClient,
 		ircClient: IrcClient,
 		posthog: PostHogWrapper,
-		settingsService: SettingsService
+		settingsService: SettingsService,
+		userSettings: Readable<Settings>
 	) {
 		const butlerMod = butlerModule({
 			// Reactive loop without nested function.
@@ -88,7 +91,8 @@ export class ClientState {
 			githubApi: this.githubApi,
 			gitlabApi: this.gitlabApi,
 			posthog,
-			settingsService
+			settingsService,
+			userSettings
 		});
 
 		this.store = store;
@@ -130,6 +134,7 @@ function createStore(params: {
 	gitlabApi: GitLabApi;
 	posthog: PostHogWrapper;
 	settingsService: SettingsService;
+	userSettings: Readable<Settings>;
 }) {
 	const {
 		tauri,
@@ -140,7 +145,8 @@ function createStore(params: {
 		githubApi,
 		gitlabApi,
 		posthog,
-		settingsService
+		settingsService,
+		userSettings
 	} = params;
 	const reducer = combineSlices(
 		// RTK Query API for the back end.
@@ -159,7 +165,15 @@ function createStore(params: {
 		middleware: (getDefaultMiddleware) => {
 			return getDefaultMiddleware({
 				thunk: {
-					extraArgument: { tauri, gitHubClient, gitLabClient, ircClient, posthog, settingsService }
+					extraArgument: {
+						tauri,
+						gitHubClient,
+						gitLabClient,
+						ircClient,
+						posthog,
+						settingsService,
+						userSettings
+					}
 				},
 				serializableCheck: {
 					ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER]

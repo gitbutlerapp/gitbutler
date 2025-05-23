@@ -108,7 +108,8 @@
 		gitLabClient,
 		ircClient,
 		data.posthog,
-		data.settingsService
+		data.settingsService,
+		userSettings
 	);
 
 	const ircService = new IrcService(clientState, clientState.dispatch, ircClient);
