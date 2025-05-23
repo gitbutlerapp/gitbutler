@@ -1,3 +1,4 @@
+import { WRAP_ALL_COMMAND } from '$lib/richText/commands';
 import { updateEditorToRichText, updateEditorToPlaintext } from '$lib/richText/markdown';
 import { type LexicalEditor } from 'lexical';
 
@@ -22,6 +23,7 @@ export default class MarkdownTransitionPlugin {
 		if (this.editor) {
 			if (markdown) {
 				updateEditorToRichText(this.editor);
+				this.editor.dispatchCommand(WRAP_ALL_COMMAND, undefined);
 			} else {
 				updateEditorToPlaintext(this.editor, this.maxLength);
 			}
