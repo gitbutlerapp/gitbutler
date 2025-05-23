@@ -22,6 +22,7 @@
 	import HardWrapPlugin from '@gitbutler/ui/richText/plugins/HardWrapPlugin.svelte';
 	import FormattingBar from '@gitbutler/ui/richText/tools/FormattingBar.svelte';
 	import FormattingButton from '@gitbutler/ui/richText/tools/FormattingButton.svelte';
+	import { tick } from 'svelte';
 
 	const ACCEPTED_FILE_TYPES = ['image/*', 'application/*', 'text/*', 'audio/*', 'video/*'];
 
@@ -67,9 +68,7 @@
 	const wrapTextByRuler = uiState.global.wrapTextByRuler;
 
 	const wrapCountValue = $derived(
-		useRuler.current && wrapTextByRuler.current && !useRichText.current
-			? rulerCountValue.current
-			: undefined
+		useRuler.current && !useRichText.current ? rulerCountValue.current : undefined
 	);
 
 	let composer = $state<ReturnType<typeof RichTextEditor>>();
@@ -285,7 +284,7 @@
 						onFocus={() => (isEditorFocused = true)}
 						onBlur={() => (isEditorFocused = false)}
 						{disabled}
-						{wrapCountValue}
+						wrapCountValue={useRichText.current ? undefined : wrapCountValue}
 					>
 						{#snippet plugins()}
 							<Formatter bind:this={formatter} />
@@ -296,8 +295,11 @@
 									onSelection={(text) => suggestionsHandler.onAcceptSuggestion(text)}
 								/>
 							{/if}
-							{#if wrapCountValue !== undefined}
-								<HardWrapPlugin maxLength={wrapCountValue} />
+							{#if !useRichText.current}
+								<HardWrapPlugin
+									enabled={!useRichText.current && wrapTextByRuler.current}
+									maxLength={wrapCountValue}
+								/>
 							{/if}
 						{/snippet}
 					</RichTextEditor>
@@ -349,8 +351,12 @@
 					disabled={!useRuler.current}
 					activated={wrapTextByRuler.current && useRuler.current}
 					tooltip="Wrap text automatically"
-					onclick={() => {
+					onclick={async () => {
 						wrapTextByRuler.current = !wrapTextByRuler.current;
+						await tick(); // Wait for reactive update.
+						if (wrapTextByRuler.current) {
+							composer?.wrapAll();
+						}
 					}}
 				/>
 				{#if useRuler.current}

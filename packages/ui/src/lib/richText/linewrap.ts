@@ -7,7 +7,10 @@ import {
 	$setSelection as setSelection,
 	$getSelection as getSelection,
 	$isRangeSelection as isRangeSelection,
-	type LexicalNode
+	type LexicalNode,
+	type LexicalEditor,
+	$getRoot,
+	$isParagraphNode
 } from 'lexical';
 
 export type Bullet = {
@@ -227,4 +230,19 @@ function moveCursorTo(nodeKey: string, position: number) {
 	selection.anchor.set(nodeKey, position, 'text');
 	selection.focus.set(nodeKey, position, 'text');
 	setSelection(selection);
+}
+
+export function wrapAll(editor: LexicalEditor, maxLength: number) {
+	editor.update(() => {
+		const paragraph = $getRoot().getFirstChild();
+		if ($isParagraphNode(paragraph)) {
+			let node = paragraph.getFirstChild();
+			while (node) {
+				if (isTextNode(node)) {
+					wrapIfNecssary({ node, maxLength });
+				}
+				node = node.getNextSibling();
+			}
+		}
+	});
 }

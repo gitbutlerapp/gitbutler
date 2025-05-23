@@ -8,12 +8,10 @@ to be shared with e.g. wrapping rich text converted into markdown.
 A known shortcoming is when you have a pasted paragraph in the editor, which
 gets wrapped when edited, so if your cursor is on a  line that gets wrapped
 a few rows down we do not update the cursor position to correctly.
-
-TODO: Validate the editor is in plain text mode when this plugin is active.
 -->
 <script lang="ts">
-	import { WRAP_EXEMPTIONS, wrapIfNecssary } from '$lib/richText/linewrap';
-	import { mergeUnlisten } from '$lib/utils/mergeUnlisten';
+	import { WRAP_ALL_COMMAND } from '$lib/richText/commands';
+	import { WRAP_EXEMPTIONS, wrapAll, wrapIfNecssary } from '$lib/richText/linewrap';
 	import {
 		$isTextNode as isTextNode,
 		TextNode,
@@ -21,24 +19,40 @@ TODO: Validate the editor is in plain text mode when this plugin is active.
 		$isParagraphNode as isParagraphNode,
 		type NodeKey,
 		type NodeMutation,
-		$getNodeByKey as getNodeByKey
+		$getNodeByKey as getNodeByKey,
+		COMMAND_PRIORITY_NORMAL
 	} from 'lexical';
-	import { onMount } from 'svelte';
 	import { getEditor } from 'svelte-lexical';
 
 	type Props = {
-		maxLength?: number;
+		maxLength: number | undefined;
+		enabled?: boolean;
 	};
 
-	const { maxLength = 74 }: Props = $props();
+	const { maxLength, enabled }: Props = $props();
 
 	const editor = getEditor();
 
 	let lastCheckedLine: undefined | string = undefined;
 	let lastCheckedResult = false;
 
-	onMount(() => {
-		return mergeUnlisten(editor.registerMutationListener(TextNode, onTextNodeMutation));
+	$effect(() => {
+		if (enabled) {
+			return editor.registerMutationListener(TextNode, onTextNodeMutation);
+		}
+	});
+
+	$effect(() => {
+		editor.registerCommand(
+			WRAP_ALL_COMMAND,
+			() => {
+				if (enabled && maxLength) {
+					wrapAll(editor, maxLength);
+				}
+				return true;
+			},
+			COMMAND_PRIORITY_NORMAL
+		);
 	});
 
 	function onTextNodeMutation(nodes: Map<NodeKey, NodeMutation>) {
@@ -51,7 +65,7 @@ TODO: Validate the editor is in plain text mode when this plugin is active.
 						continue;
 					}
 
-					if (type === 'updated') {
+					if (type === 'updated' && maxLength) {
 						if (isInCodeBlock(key)) {
 							continue;
 						}

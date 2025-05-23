@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { WRAP_ALL_COMMAND } from '$lib/richText/commands';
 	import { standardConfig } from '$lib/richText/config/config';
 	import { standardTheme } from '$lib/richText/config/theme';
 	import EmojiPlugin from '$lib/richText/plugins/Emoji.svelte';
@@ -200,6 +201,13 @@
 		}
 		const editor = composer.getEditor();
 		editor?.focus();
+	}
+
+	export function wrapAll() {
+		const editor = composer?.getEditor();
+		if (editor) {
+			editor.dispatchCommand(WRAP_ALL_COMMAND, undefined);
+		}
 	}
 
 	export function insertText(text: string) {
