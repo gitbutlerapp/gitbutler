@@ -167,6 +167,460 @@ fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
 }
 
 #[test]
+fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("two-branches-one-advanced-one-parent-ws-commit")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * f8f33a7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * cbc6713 (advanced-lane) change
+    * fafd9d0 (origin/main, main, lane) init
+    ");
+
+    for (idx, name) in ["advanced-lane", "lane"].into_iter().enumerate() {
+        add_stack(
+            &mut meta,
+            StackId::from_number_for_testing(idx as u128),
+            name,
+            StackState::InWorkspace,
+        );
+    }
+
+    let opts = standard_options();
+    let info = head_info(&repo, &*meta, opts)?;
+    // TODO: listing is missing `lane`, which should be present and empty.
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [
+            Stack {
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                segments: [
+                    StackSegment {
+                        ref_name: "refs/heads/advanced-lane",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [
+                            LocalCommit(cbc6713, "change\n", local),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                ],
+                stash_status: None,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+    }
+    "#);
+    Ok(())
+}
+
+#[test]
+fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> anyhow::Result<()> {
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("multiple-dependent-branches-per-stack-without-commit")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * cbc6713 (HEAD -> gitbutler/workspace, lane) change
+    * fafd9d0 (origin/main, main, lane-segment-02, lane-segment-01, lane-2-segment-02, lane-2-segment-01, lane-2) init
+    ");
+
+    add_stack_with_segments(
+        &mut meta,
+        StackId::from_number_for_testing(0),
+        "lane",
+        StackState::InWorkspace,
+        &["lane-segment-01", "lane-segment-02"],
+    );
+
+    add_stack_with_segments(
+        &mut meta,
+        StackId::from_number_for_testing(1),
+        "lane-2",
+        StackState::InWorkspace,
+        &["lane-2-segment-01", "lane-2-segment-02"],
+    );
+
+    let opts = standard_options();
+    let info = head_info(&repo, &*meta, opts)?;
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [
+            Stack {
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                segments: [
+                    StackSegment {
+                        ref_name: "refs/heads/gitbutler/workspace",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [
+                            LocalCommit(cbc6713, "change\n", local),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: None,
+                    },
+                ],
+                stash_status: None,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+    }
+    "#);
+    Ok(())
+}
+
+#[test]
+fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("two-branches-one-advanced-two-parent-ws-commit")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   335d6f2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * cbc6713 (advanced-lane) change
+    |/  
+    * fafd9d0 (origin/main, main, lane) init
+    ");
+
+    for (idx, name) in ["advanced-lane", "lane"].into_iter().enumerate() {
+        add_stack(
+            &mut meta,
+            StackId::from_number_for_testing(idx as u128),
+            name,
+            StackState::InWorkspace,
+        );
+    }
+
+    let opts = standard_options();
+    let info = head_info(&repo, &*meta, opts)?;
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [
+            Stack {
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                segments: [
+                    StackSegment {
+                        ref_name: "refs/heads/lane",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                ],
+                stash_status: None,
+            },
+            Stack {
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                segments: [
+                    StackSegment {
+                        ref_name: "refs/heads/advanced-lane",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [
+                            LocalCommit(cbc6713, "change\n", local),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                ],
+                stash_status: None,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+    }
+    "#);
+    Ok(())
+}
+
+#[test]
+fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<()> {
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("two-branches-one-advanced-ws-commit-on-top-of-stack")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * cbc6713 (HEAD -> gitbutler/workspace, advanced-lane) change
+    * fafd9d0 (origin/main, main, lane) init
+    ");
+
+    for (idx, name) in ["advanced-lane", "lane"].into_iter().enumerate() {
+        add_stack(
+            &mut meta,
+            StackId::from_number_for_testing(idx as u128),
+            name,
+            StackState::InWorkspace,
+        );
+    }
+
+    let opts = standard_options();
+    let info = head_info(&repo, &*meta, opts)?;
+    // TODO: don't show the workspace branch as segment. Lane is missing.
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [
+            Stack {
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                segments: [
+                    StackSegment {
+                        ref_name: "refs/heads/gitbutler/workspace",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: None,
+                    },
+                    StackSegment {
+                        ref_name: "refs/heads/advanced-lane",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [
+                            LocalCommit(cbc6713, "change\n", local),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                ],
+                stash_status: None,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+    }
+    "#);
+
+    Ok(())
+}
+
+#[test]
+fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branch()
+-> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario(
+        "two-branches-one-advanced-two-parent-ws-commit-diverged-ttb",
+    )?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   873d056 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    * | cbc6713 (advanced-lane) change
+    |/  
+    * fafd9d0 (main, lane) init
+    * da83717 (origin/main) disjoint remote target
+    ");
+
+    for (idx, name) in ["advanced-lane", "lane"].into_iter().enumerate() {
+        add_stack(
+            &mut meta,
+            StackId::from_number_for_testing(idx as u128),
+            name,
+            StackState::InWorkspace,
+        );
+    }
+
+    let opts = standard_options();
+    let info = head_info(&repo, &*meta, opts)?;
+    // TODO: should not have a duplicate segment!
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [
+            Stack {
+                base: None,
+                segments: [
+                    StackSegment {
+                        ref_name: "refs/heads/advanced-lane",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [
+                            LocalCommit(cbc6713, "change\n", local),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                    StackSegment {
+                        ref_name: "refs/heads/lane",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [
+                            LocalCommit(fafd9d0, "init\n", local),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                ],
+                stash_status: None,
+            },
+            Stack {
+                base: None,
+                segments: [
+                    StackSegment {
+                        ref_name: "refs/heads/lane",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                ],
+                stash_status: None,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+    }
+    "#);
+    Ok(())
+}
+
+#[test]
+fn disjoint() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("disjoint")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 32791d2 (HEAD -> disjoint) disjoint init
+    * fafd9d0 (origin/main, main) init
+    ");
+
+    add_stack(
+        &mut meta,
+        StackId::from_number_for_testing(1),
+        "disjoint",
+        StackState::InWorkspace,
+    );
+
+    let opts = standard_options();
+    let info = head_info(&repo, &*meta, opts)?;
+
+    // We see the commit in the branch as there is no base to hide it.
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [
+            Stack {
+                base: None,
+                segments: [
+                    StackSegment {
+                        ref_name: "refs/heads/disjoint",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "OutsideOfWorkspace",
+                        commits_unique_from_tip: [
+                            LocalCommit(32791d2, "disjoint init\n", local),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                ],
+                stash_status: None,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+    }
+    "#);
+    Ok(())
+}
+
+#[test]
 fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("multiple-stacks-with-shared-segment")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -541,276 +995,69 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
     Ok(())
 }
 
-mod legacy {
-    mod stacks {
-        use crate::ref_info::with_workspace_commit::read_only_in_memory_scenario;
-        use crate::ref_info::with_workspace_commit::utils::{StackState, add_stack};
-        use but_testsupport::visualize_commit_graph_all;
-        use but_workspace::{StacksFilter, stacks_v3};
-        use gitbutler_stack::StackId;
+mod legacy;
 
-        #[test]
-        fn multiple_branches_with_shared_segment_automatically_know_containing_workspace()
-        -> anyhow::Result<()> {
-            let (repo, mut meta) =
-                read_only_in_memory_scenario("multiple-stacks-with-shared-segment")?;
+mod branch_details {
+    use crate::ref_info::with_workspace_commit::read_only_in_memory_scenario;
+    use but_testsupport::visualize_commit_graph_all;
+    use but_workspace::branch_details_v3;
 
-            add_stack(
-                &mut meta,
-                StackId::from_number_for_testing(1),
-                "B-on-A",
-                StackState::InWorkspace,
-            );
-            add_stack(
-                &mut meta,
-                StackId::from_number_for_testing(2),
-                "C-on-A",
-                StackState::Inactive,
-            );
-            add_stack(
-                &mut meta,
-                StackId::from_number_for_testing(3),
-                "does-not-exist-inactive",
-                StackState::Inactive,
-            );
-            add_stack(
-                &mut meta,
-                StackId::from_number_for_testing(4),
-                "does-not-exist-active",
-                StackState::InWorkspace,
-            );
-            insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-            *   820f2b3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-            |\  
-            | * 4e5484a (B-on-A) add new file in B-on-A
-            * | 5f37dbf (C-on-A) add new file in C-on-A
-            |/  
-            | * 89cc2d3 (origin/A) change in A
-            |/  
-            * d79bba9 (A) new file in A
-            * c166d42 (origin/main, origin/HEAD, main) init-integration
-            ");
-            let actual = stacks_v3(&repo, &meta, StacksFilter::All)?;
-            insta::assert_debug_snapshot!(actual, @r#"
-            [
-                StackEntry {
-                    id: 00000000-0000-0000-0000-000000000002,
-                    heads: [
-                        StackHeadInfo {
-                            name: "C-on-A",
-                            tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
-                        },
-                        StackHeadInfo {
-                            name: "A",
-                            tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
-                        },
-                    ],
-                    tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
-                },
-                StackEntry {
-                    id: 00000000-0000-0000-0000-000000000001,
-                    heads: [
-                        StackHeadInfo {
-                            name: "B-on-A",
-                            tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
-                        },
-                    ],
-                    tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
-                },
-            ]
-            "#);
+    #[test]
+    fn disjoint() -> anyhow::Result<()> {
+        let (repo, meta) = read_only_in_memory_scenario("disjoint")?;
+        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 32791d2 (HEAD -> disjoint) disjoint init
+    * fafd9d0 (origin/main, main) init
+    ");
 
-            let actual = stacks_v3(&repo, &meta, StacksFilter::InWorkspace)?;
-            // It lists both still as both are reachable from a workspace commit, so clearly in the workspace.
-            insta::assert_debug_snapshot!(actual, @r#"
-            [
-                StackEntry {
-                    id: 00000000-0000-0000-0000-000000000002,
-                    heads: [
-                        StackHeadInfo {
-                            name: "C-on-A",
-                            tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
-                        },
-                        StackHeadInfo {
-                            name: "A",
-                            tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
-                        },
-                    ],
-                    tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
-                },
-                StackEntry {
-                    id: 00000000-0000-0000-0000-000000000001,
-                    heads: [
-                        StackHeadInfo {
-                            name: "B-on-A",
-                            tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
-                        },
-                    ],
-                    tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
-                },
-            ]
-            "#);
-
-            let actual = stacks_v3(&repo, &meta, StacksFilter::Unapplied)?;
-            // nothing reachable
-            insta::assert_debug_snapshot!(actual, @"[]");
-
-            add_stack(
-                &mut meta,
-                StackId::from_number_for_testing(5),
-                "main",
-                StackState::Inactive,
-            );
-
-            let actual = stacks_v3(&repo, &meta, StacksFilter::Unapplied)?;
-            // Still nothing reachable
-            insta::assert_debug_snapshot!(actual, @r#"
-            [
-                StackEntry {
-                    id: 00000000-0000-0000-0000-000000000005,
-                    heads: [
-                        StackHeadInfo {
-                            name: "main",
-                            tip: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-                        },
-                    ],
-                    tip: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-                },
-            ]
-            "#);
-            Ok(())
+        let actual = branch_details_v3(&repo, "refs/heads/disjoint".try_into()?, &*meta)?;
+        insta::assert_debug_snapshot!(actual, @r#"
+        BranchDetails {
+            name: "refs/heads/disjoint",
+            remote_tracking_branch: None,
+            description: None,
+            pr_number: None,
+            review_id: None,
+            tip: Sha1(32791d22e276ec0ed87d14f906321137356bc6d6),
+            base_commit: Sha1(32791d22e276ec0ed87d14f906321137356bc6d6),
+            push_status: CompletelyUnpushed,
+            last_updated_at: None,
+            authors: [
+                author <author@example.com>,
+                committer <committer@example.com>,
+            ],
+            is_conflicted: false,
+            commits: [
+                Commit(32791d2, "disjoint init", local/remote(identity)),
+            ],
+            upstream_commits: [],
+            is_remote_head: false,
         }
-    }
+        "#);
 
-    mod stack_details {
-        use crate::ref_info::with_workspace_commit::read_only_in_memory_scenario;
-        use crate::ref_info::with_workspace_commit::utils::{StackState, add_stack};
-        use but_testsupport::visualize_commit_graph_all;
-        use gitbutler_stack::StackId;
-
-        #[test]
-        fn multiple_branches_with_shared_segment_automatically_know_containing_workspace()
-        -> anyhow::Result<()> {
-            let (repo, mut meta) =
-                read_only_in_memory_scenario("multiple-stacks-with-shared-segment")?;
-            insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-            *   820f2b3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-            |\  
-            | * 4e5484a (B-on-A) add new file in B-on-A
-            * | 5f37dbf (C-on-A) add new file in C-on-A
-            |/  
-            | * 89cc2d3 (origin/A) change in A
-            |/  
-            * d79bba9 (A) new file in A
-            * c166d42 (origin/main, origin/HEAD, main) init-integration
-            ");
-
-            let b_stack_id = add_stack(
-                &mut meta,
-                StackId::from_number_for_testing(1),
-                "B-on-A",
-                StackState::InWorkspace,
-            );
-            let actual = but_workspace::stack_details_v3(b_stack_id, &repo, &meta)?;
-            insta::assert_debug_snapshot!(actual, @r#"
-            StackDetails {
-                derived_name: "B-on-A",
-                push_status: UnpushedCommits,
-                branch_details: [
-                    BranchDetails {
-                        name: "B-on-A",
-                        remote_tracking_branch: None,
-                        description: None,
-                        pr_number: None,
-                        review_id: None,
-                        tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
-                        base_commit: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-                        push_status: UnpushedCommits,
-                        last_updated_at: Some(
-                            0,
-                        ),
-                        authors: [
-                            author <author@example.com>,
-                        ],
-                        is_conflicted: false,
-                        commits: [
-                            Commit(4e5484a, "add new file in B-on-A", local),
-                        ],
-                        upstream_commits: [],
-                        is_remote_head: false,
-                    },
-                ],
-                is_conflicted: false,
-            }
-            "#);
-
-            let c_stack_id = add_stack(
-                &mut meta,
-                StackId::from_number_for_testing(2),
-                "C-on-A",
-                StackState::InWorkspace,
-            );
-            let actual = but_workspace::stack_details_v3(c_stack_id, &repo, &meta)?;
-            insta::assert_debug_snapshot!(actual, @r#"
-            StackDetails {
-                derived_name: "C-on-A",
-                push_status: UnpushedCommits,
-                branch_details: [
-                    BranchDetails {
-                        name: "C-on-A",
-                        remote_tracking_branch: None,
-                        description: None,
-                        pr_number: None,
-                        review_id: None,
-                        tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
-                        base_commit: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
-                        push_status: UnpushedCommits,
-                        last_updated_at: Some(
-                            0,
-                        ),
-                        authors: [
-                            author <author@example.com>,
-                        ],
-                        is_conflicted: false,
-                        commits: [
-                            Commit(5f37dbf, "add new file in C-on-A", local),
-                        ],
-                        upstream_commits: [],
-                        is_remote_head: false,
-                    },
-                    BranchDetails {
-                        name: "A",
-                        remote_tracking_branch: Some(
-                            "refs/remotes/origin/A",
-                        ),
-                        description: None,
-                        pr_number: None,
-                        review_id: None,
-                        tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
-                        base_commit: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-                        push_status: CompletelyUnpushed,
-                        last_updated_at: None,
-                        authors: [
-                            author <author@example.com>,
-                        ],
-                        is_conflicted: false,
-                        commits: [
-                            Commit(d79bba9, "new file in A", local),
-                        ],
-                        upstream_commits: [
-                            UpstreamCommit(89cc2d3, "change in A"),
-                        ],
-                        is_remote_head: false,
-                    },
-                ],
-                is_conflicted: false,
-            }
-            "#);
-            Ok(())
+        let actual = branch_details_v3(&repo, "refs/heads/main".try_into()?, &*meta)?;
+        insta::assert_debug_snapshot!(actual, @r#"
+        BranchDetails {
+            name: "refs/heads/main",
+            remote_tracking_branch: None,
+            description: None,
+            pr_number: None,
+            review_id: None,
+            tip: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+            base_commit: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+            push_status: CompletelyUnpushed,
+            last_updated_at: None,
+            authors: [],
+            is_conflicted: false,
+            commits: [],
+            upstream_commits: [],
+            is_remote_head: false,
         }
+        "#);
+
+        Ok(())
     }
 }
-
 mod utils {
     use crate::ref_info::utils::named_read_only_in_memory_scenario;
     use but_workspace::VirtualBranchesTomlMetadata;
@@ -848,14 +1095,40 @@ mod utils {
         stack_name: &str,
         state: StackState,
     ) -> StackId {
+        add_stack_with_segments(meta, stack_id, stack_name, state, &[])
+    }
+
+    // Add parameters as needed.
+    pub fn add_stack_with_segments(
+        meta: &mut VirtualBranchesTomlMetadata,
+        stack_id: StackId,
+        stack_name: &str,
+        state: StackState,
+        segments: &[&str],
+    ) -> StackId {
         let mut stack = gitbutler_stack::Stack::new_with_just_heads(
-            vec![gitbutler_stack::StackBranch::new_with_zero_head(
-                stack_name.into(),
-                None,
-                None,
-                None,
-                true,
-            )],
+            segments
+                .iter()
+                .rev()
+                .map(|stack_name| {
+                    gitbutler_stack::StackBranch::new_with_zero_head(
+                        (*stack_name).into(),
+                        None,
+                        None,
+                        None,
+                        false,
+                    )
+                })
+                .chain(std::iter::once(
+                    gitbutler_stack::StackBranch::new_with_zero_head(
+                        stack_name.into(),
+                        None,
+                        None,
+                        None,
+                        false,
+                    ),
+                ))
+                .collect(),
             0,
             0,
             match state {
@@ -870,6 +1143,6 @@ mod utils {
     }
 }
 use crate::ref_info::utils::standard_options;
-use crate::ref_info::with_workspace_commit::utils::StackState;
+use crate::ref_info::with_workspace_commit::utils::{StackState, add_stack_with_segments};
 use utils::add_stack;
 pub use utils::read_only_in_memory_scenario;
