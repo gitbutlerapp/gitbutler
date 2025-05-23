@@ -27,6 +27,8 @@ the window, then enlarge it and retain the original widths of the layout.
 	import Resizer from '$components/Resizer.svelte';
 	import { Focusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import type { Snippet } from 'svelte';
@@ -48,19 +50,22 @@ the window, then enlarge it and retain the original widths of the layout.
 
 	const { name, left, middle, right, leftWidth, rightWidth }: Props = $props();
 
+	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
+	const zoom = $derived($userSettings.zoom);
+
 	let leftPreferredWidth = $derived(
-		persisted(pxToRem(leftWidth.default), `$main_view_left_${name}`)
+		persisted(pxToRem(leftWidth.default, zoom), `$main_view_left_${name}`)
 	);
 	let rightPreferredWidth = $derived(
-		persisted(pxToRem(rightWidth.default), `$main_view_right_${name}`)
+		persisted(pxToRem(rightWidth.default, zoom), `$main_view_right_${name}`)
 	);
 
 	let leftDiv = $state<HTMLDivElement>();
 	let middleDiv = $state<HTMLDivElement>();
 	let rightDiv = $state<HTMLDivElement>();
 
-	const leftMinWidth = $derived(pxToRem(leftWidth.min));
-	const rightMinWidth = $derived(pxToRem(rightWidth.min));
+	const leftMinWidth = $derived(pxToRem(leftWidth.min, zoom));
+	const rightMinWidth = $derived(pxToRem(rightWidth.min, zoom));
 
 	// These need to stay in px since they are bound to elements.
 	let containerBindWidth = $state<number>(1000); // TODO: What initial value should we give this?
@@ -74,25 +79,25 @@ the window, then enlarge it and retain the original widths of the layout.
 
 	// Total width we cannot go below.
 	const padding = $derived(containerBindWidth - window.innerWidth);
-	const containerMinWidth = $derived(800 - padding);
+	const containerMinWidth = $derived(804 - padding);
 
-	const middleMinWidth = $derived(pxToRem(containerMinWidth) - leftMinWidth - rightMinWidth);
+	const middleMinWidth = $derived(pxToRem(containerMinWidth, zoom) - leftMinWidth - rightMinWidth);
 
 	// Left side max width depends on teh size of the right side, unless
 	// `reverse` is true.
 	const leftMaxWidth = $derived(
-		pxToRem(containerBindWidth) -
+		pxToRem(containerBindWidth, zoom) -
 			middleMinWidth -
-			(reverse ? rightMinWidth : pxToRem(rightBindWidth)) -
+			(reverse ? rightMinWidth : pxToRem(rightBindWidth, zoom)) -
 			1 // From the flex box gaps
 	);
 
 	// Right side has priority over the left (unless `reverse` is true), so
 	// its max size is the theoretical max.
 	const rightMaxWidth = $derived(
-		pxToRem(containerBindWidth) -
+		pxToRem(containerBindWidth, zoom) -
 			middleMinWidth -
-			(reverse ? pxToRem(leftBindWidth) : leftMinWidth) -
+			(reverse ? pxToRem(leftBindWidth, zoom) : leftMinWidth) -
 			1 // From the flex box gaps
 	);
 
@@ -126,14 +131,14 @@ the window, then enlarge it and retain the original widths of the layout.
 			borderRadius="ml"
 			onWidth={(value) => {
 				leftPreferredWidth.set(value);
-				rightPreferredWidth.set(pxToRem(rightBindWidth));
+				rightPreferredWidth.set(pxToRem(rightBindWidth, zoom));
 			}}
 			onResizing={(isResizing) => {
 				if (isResizing) {
 					// Before flipping the reverse bool we need to set the
 					// preferred width to the actual width, to prevent content
 					// from shifting.
-					leftPreferredWidth.set(pxToRem(leftBindWidth));
+					leftPreferredWidth.set(pxToRem(leftBindWidth, zoom));
 				}
 				reverse = isResizing;
 			}}
@@ -165,7 +170,7 @@ the window, then enlarge it and retain the original widths of the layout.
 			borderRadius="ml"
 			onWidth={(value) => {
 				rightPreferredWidth.set(value);
-				leftPreferredWidth.set(pxToRem(leftBindWidth));
+				leftPreferredWidth.set(pxToRem(leftBindWidth, zoom));
 			}}
 		/>
 	</div>
