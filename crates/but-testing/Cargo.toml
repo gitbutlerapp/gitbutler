@@ -1,12 +1,12 @@
 [package]
-name = "but-cli"
+name = "but-testing"
 version = "0.0.0"
 edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 
 [[bin]]
-name = "but-cli"
+name = "but-testing"
 path = "src/main.rs"
 doctest = false
 
