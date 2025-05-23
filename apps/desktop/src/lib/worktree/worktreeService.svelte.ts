@@ -20,8 +20,10 @@ export class WorktreeService {
 
 	/** Fetches and subscribes to a list of uncommitted changes. */
 	getChanges(projectId: string) {
-		const { getChanges } = this.api.endpoints;
-		return getChanges.useQuery({ projectId }, { transform: selectAll });
+		return this.api.endpoints.getChanges.useQuery(
+			{ projectId },
+			{ transform: selectAll, forceRefetch: true }
+		);
 	}
 
 	/** Gets a specific change from any existing set of results. */
