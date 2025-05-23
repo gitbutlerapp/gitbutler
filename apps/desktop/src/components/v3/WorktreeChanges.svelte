@@ -12,10 +12,9 @@
 	import { UncommitDzHandler } from '$lib/commits/dropHandler';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
-	import { previousPathBytesFromTreeChange } from '$lib/hunks/change';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { AssignmentDropHandler } from '$lib/hunks/dropHandler';
-	import { ChangeSelectionService, type SelectedFile } from '$lib/selection/changeSelection.svelte';
+	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -56,8 +55,6 @@
 	);
 	const defaultBranchName = $derived(defaultBranchResult?.current.data);
 
-	const selectedChanges = changeSelection.list();
-	const noChangesSelected = $derived(selectedChanges.current.length === 0);
 	const changesResult = $derived(worktreeService.getChanges(projectId));
 	const affectedPaths = $derived(changesResult.current.data?.map((c) => c.path));
 
@@ -77,28 +74,8 @@
 
 	let listMode: 'list' | 'tree' = $state('list');
 
-	function selectEverything() {
-		const affectedPaths =
-			changesResult.current.data?.map(
-				(c) => [c.path, c.pathBytes, previousPathBytesFromTreeChange(c)] as const
-			) ?? [];
-		const files: SelectedFile[] = affectedPaths.map(([path, pathBytes, previousPathBytes]) => ({
-			path,
-			pathBytes,
-			previousPathBytes,
-			type: 'full'
-		}));
-		changeSelection.addMany(files);
-	}
-
-	function updateCommitSelection() {
-		if (!noChangesSelected) return;
-		// If no changes are selected, select everything.
-		selectEverything();
-	}
-
 	function startCommit() {
-		updateCommitSelection();
+		// TODO: Implement "Select the right stuff"
 		projectState.drawerPage.set('new-commit');
 		if (defaultBranchName) {
 			stackState?.selection.set({ branchName: defaultBranchName });
