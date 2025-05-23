@@ -55,8 +55,7 @@
 		active,
 		stackId,
 		conflictEntries,
-		draggableFiles
-		conflictEntries,
+		draggableFiles,
 		group
 	}: Props = $props();
 

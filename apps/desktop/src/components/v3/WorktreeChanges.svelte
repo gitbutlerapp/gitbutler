@@ -14,13 +14,16 @@
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { AssignmentDropHandler } from '$lib/hunks/dropHandler';
-	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
+	import {
+		ChangeSelectionService,
+		selectForStartingCommit
+	} from '$lib/selection/changeSelection.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
-	import { getContext, inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
@@ -35,13 +38,15 @@
 
 	let { projectId, stackId, active }: Props = $props();
 
-	const [changeSelection, worktreeService, uiState, stackService, idSelection] = inject(
-		ChangeSelectionService,
-		WorktreeService,
-		UiState,
-		StackService,
-		IdSelection
-	);
+	const [changeSelection, worktreeService, uiState, stackService, idSelection, diffService] =
+		inject(
+			ChangeSelectionService,
+			WorktreeService,
+			UiState,
+			StackService,
+			IdSelection,
+			DiffService
+		);
 
 	const uncommitDzHandler = $derived(new UncommitDzHandler(projectId, stackService, uiState));
 
@@ -57,6 +62,13 @@
 
 	const changesResult = $derived(worktreeService.getChanges(projectId));
 	const affectedPaths = $derived(changesResult.current.data?.map((c) => c.path));
+
+	const changesKeyResult = $derived(worktreeService.getChangesKey(projectId));
+	const hunkAssignments = $derived(
+		changesKeyResult.current
+			? diffService.hunkAssignments(projectId, changesKeyResult.current)
+			: undefined
+	);
 
 	// TODO: Make this go away.
 	createCommitStore(undefined);
@@ -76,7 +88,16 @@
 	let listMode: 'list' | 'tree' = $state('list');
 
 	function startCommit() {
-		// TODO: Implement "Select the right stuff"
+		if (changesResult.current?.data && hunkAssignments?.current?.data) {
+			selectForStartingCommit(
+				stackId,
+				changesResult.current.data,
+				hunkAssignments.current.data,
+				changeSelection.list().current,
+				changeSelection
+			);
+		}
+
 		projectState.drawerPage.set('new-commit');
 		if (defaultBranchName) {
 			stackState?.selection.set({ branchName: defaultBranchName });
@@ -85,15 +106,6 @@
 
 	let listHeaderHeight = $state(0);
 	let listFooterHeight = $state(0);
-
-	const diffService = getContext(DiffService);
-
-	const changesKeyResult = $derived(worktreeService.getChangesKey(projectId));
-	const hunkAssignments = $derived(
-		changesKeyResult.current
-			? diffService.hunkAssignments(projectId, changesKeyResult.current)
-			: undefined
-	);
 	const assignmentDZHandler = $derived(
 		hunkAssignments?.current?.data
 			? new AssignmentDropHandler(projectId, diffService, hunkAssignments.current.data, {
@@ -151,7 +163,6 @@
 					{#if changes.length > 0}
 						<div data-testid={TestId.UncommittedChanges_FileList} class="uncommitted-changes">
 							<WorktreeChangesFileList
-								draggableFiles
 								{projectId}
 								{listMode}
 								{active}

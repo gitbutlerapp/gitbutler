@@ -187,6 +187,41 @@ function assignmentsHaveHunkInformation(
 	return assignments.some((assignment) => isDefined(assignment.hunkHeader));
 }
 
+/**
+ * Intended behaviour:
+ * - If the user has selected a given stack when they start commiting
+ *   - If the stack has assigned changes
+ *     - Select those
+ * - Otherwise
+ *   - Select the uncommited changes
+ */
+export function selectForStartingCommit(
+	stackId: string | undefined,
+	changes: TreeChange[],
+	assignments: HunkAssignments,
+	currentlySelectedFiles: SelectedFile[],
+	changeSelection: ChangeSelectionService
+) {
+	if (currentlySelectedFiles.length > 0) return;
+
+	let group: HunkGroup;
+	if (
+		stackId &&
+		changes.some(
+			(change) =>
+				getRelevantAssignments(change, { type: 'grouped', stackId }, assignments).length > 0
+		)
+	) {
+		group = { type: 'grouped', stackId };
+	} else {
+		group = { type: 'ungrouped' };
+	}
+
+	for (const change of changes) {
+		selectAllForChangeInGroup(change, group, assignments, undefined, changeSelection);
+	}
+}
+
 export function selectAllForChangeInGroup(
 	change: TreeChange,
 	group: HunkGroup,

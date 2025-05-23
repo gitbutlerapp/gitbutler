@@ -38,6 +38,7 @@
 			<ReduxResult {projectId} result={assignments.current}>
 				{#snippet children(assignments, { projectId })}
 					<FileList
+						draggableFiles
 						selectionId={{ type: 'worktree', group }}
 						showCheckboxes={isCommitting}
 						{projectId}
