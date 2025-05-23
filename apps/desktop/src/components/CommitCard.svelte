@@ -10,7 +10,6 @@
 	import { type CommitStatusType } from '$lib/commits/commit';
 	import { createCommitStore } from '$lib/commits/contexts';
 	import { CommitDropData } from '$lib/commits/dropHandler';
-	import { persistedCommitMessage } from '$lib/config/config';
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { NON_DRAGGABLE } from '$lib/dragging/draggables';
 	import { RemoteFile } from '$lib/files/file';
@@ -82,8 +81,6 @@
 		commitStore.set(commit);
 	});
 
-	const persistedMessage = persistedCommitMessage(project.id, stack?.id || '');
-
 	let branchCardElement = $state<HTMLElement>();
 	let kebabMenuTrigger = $state<HTMLButtonElement>();
 	let draggableCommitElement = $state<HTMLElement>();
@@ -122,8 +119,6 @@
 			console.error('Unable to undo commit');
 			return;
 		}
-		$persistedMessage = commit.description;
-		description = commit.description;
 		await stackService.uncommit({
 			projectId: project.id,
 			stackId: stack.id,
