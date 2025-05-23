@@ -2,6 +2,7 @@
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
+	import { confettiEnabled } from '$lib/config/uiFeatureFlags';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { type Stack } from '$lib/stacks/stack';
 	import { TestId } from '$lib/testing/testIds';
@@ -350,7 +351,7 @@
 				style="pop"
 				disabled={isDivergedResolved || !branchStatuses}
 				loading={integratingUpstream === 'loading' || !branchStatuses}
-				confetti
+				confetti={$confettiEnabled}
 				onclick={async () => {
 					// Confetti doesn't work with type="submit"
 					await integrate();
