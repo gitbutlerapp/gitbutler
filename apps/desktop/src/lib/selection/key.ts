@@ -77,7 +77,7 @@ export function readKey(key: SelectedFileKey): SelectedFile {
 	}
 }
 
-export function selectionKey(id: SelectionId): SelectedFileKey {
+export function selectionKey(id: SelectionId | { type: 'worktree' }): SelectedFileKey {
 	switch (id.type) {
 		case 'commit':
 			return `${id.type}:${id.commitId}` as SelectedFileKey;

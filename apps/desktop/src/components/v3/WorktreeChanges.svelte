@@ -66,8 +66,9 @@
 		if (affectedPaths) {
 			untrack(() => {
 				changeSelection.retain(affectedPaths);
-				// TODO: We need to make this consider all groups
-				idSelection.retain(affectedPaths, { type: 'ungrouped' });
+				// TODO: Consider whether this is the best place for this to
+				// live.
+				idSelection.retain(affectedPaths);
 			});
 		}
 	});

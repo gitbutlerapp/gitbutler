@@ -7,7 +7,6 @@ import {
 	type SelectedFile
 } from '$lib/selection/key';
 import { SvelteSet } from 'svelte/reactivity';
-import type { HunkGroup } from '$lib/hunks/diffService.svelte';
 import type { StackService } from '$lib/stacks/stackService.svelte';
 import type { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 
@@ -136,13 +135,13 @@ export class IdSelection {
 	 * current worktree changes. Note that this function is a special case
 	 * for a particular key. It feels a bit out of place.
 	 */
-	retain(paths: string[] | undefined, group: HunkGroup) {
+	retain(paths: string[] | undefined) {
 		if (paths === undefined) {
 			this.selections.clear();
 			return;
 		}
 		const removedFiles: SelectedFile[] = [];
-		const worktreeSelection = this.selections.get(selectionKey({ type: 'worktree', group }));
+		const worktreeSelection = this.selections.get(selectionKey({ type: 'worktree' }));
 		if (!worktreeSelection) return;
 
 		for (const selectedFile of worktreeSelection.entries) {
