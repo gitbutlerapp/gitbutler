@@ -208,7 +208,12 @@ export class StackService {
 	}
 
 	get newStack() {
-		return this.api.endpoints.createStack.useMutation();
+		return this.api.endpoints.createStack.useMutation({
+			sideEffect: (result, args) => {
+				this.uiState.project(args.projectId).stackId.set(result.id);
+				this.uiState.stack(result.id).selection.set({ branchName: result.heads[0]!.name });
+			}
+		});
 	}
 
 	get newStackMutation() {
@@ -486,7 +491,12 @@ export class StackService {
 	}
 
 	get newBranch() {
-		return this.api.endpoints.newBranch.useMutation();
+		return this.api.endpoints.newBranch.useMutation({
+			sideEffect: (_, args) => {
+				this.uiState.project(args.projectId).stackId.set(args.stackId);
+				this.uiState.stack(args.stackId).selection.set({ branchName: args.request.name });
+			}
+		});
 	}
 
 	async uncommit(args: {
