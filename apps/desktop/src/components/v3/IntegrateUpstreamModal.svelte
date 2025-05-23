@@ -347,11 +347,17 @@
 			<Button
 				testId={TestId.IntegrateUpstreamActionButton}
 				wide
-				type="submit"
 				style="pop"
 				disabled={isDivergedResolved || !branchStatuses}
-				loading={integratingUpstream === 'loading' || !branchStatuses}>Update workspace</Button
+				loading={integratingUpstream === 'loading' || !branchStatuses}
+				confetti
+				onclick={async () => {
+					// Confetti doesn't work with type="submit"
+					await integrate();
+				}}
 			>
+				Update workspace
+			</Button>
 		</div>
 	{/snippet}
 </Modal>
