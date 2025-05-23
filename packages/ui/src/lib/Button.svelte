@@ -36,18 +36,21 @@
 		tooltipDelay?: number;
 		testId?: string;
 		// Events
-		onclick?: (e: MouseEvent) => void;
+		onclick?: ((e: MouseEvent) => Promise<void>) | ((e: MouseEvent) => void);
 		onmousedown?: (e: MouseEvent) => void;
 		oncontextmenu?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 		// Snippets
 		children?: Snippet;
+		// Spray confetti from the cursor location on click.
+		confetti?: boolean;
 	}
 </script>
 
 <script lang="ts">
 	import Icon from '$lib/Icon.svelte';
 	import Tooltip, { type TooltipAlign, type TooltipPosition } from '$lib/Tooltip.svelte';
+	import { sprayConfetti } from '$lib/confetti';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import type iconsJson from '$lib/data/icons.json';
 	import type { ComponentColorType, ComponentKindType } from '$lib/utils/colorTypes';
@@ -82,6 +85,7 @@
 		tooltipPosition,
 		tooltipAlign,
 		tooltipDelay,
+		confetti,
 		onclick,
 		onmousedown,
 		oncontextmenu,
@@ -89,12 +93,15 @@
 		children
 	}: Props = $props();
 
-	function handleAction(e: MouseEvent) {
+	async function handleAction(e: MouseEvent) {
 		if (loading || disabled) {
 			e.preventDefault();
 			e.stopPropagation();
 		} else {
-			onclick?.(e);
+			await onclick?.(e);
+			if (confetti) {
+				sprayConfetti(e);
+			}
 		}
 	}
 </script>

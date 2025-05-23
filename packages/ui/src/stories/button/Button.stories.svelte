@@ -26,6 +26,7 @@
 			grow: false,
 			align: 'center',
 			dropdownChild: false,
+			confetti: false,
 			onclick: fn(() => {
 				// eslint-disable-next-line no-console
 				console.log('Button clicked');
