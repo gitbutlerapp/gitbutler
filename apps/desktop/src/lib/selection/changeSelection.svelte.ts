@@ -197,6 +197,7 @@ export function selectAllForChangeInGroup(
 	if (existingSelection?.type === 'full') return;
 
 	const relevantAssignments = getRelevantAssignments(change, group, assignments);
+	if (relevantAssignments.length === 0) return;
 
 	// If there are any relevant assignments without a hunk header, it means
 	// that the assignment itself represents a whole file, like a rename,
