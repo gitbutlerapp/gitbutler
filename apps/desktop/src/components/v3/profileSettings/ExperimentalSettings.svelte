@@ -3,6 +3,7 @@
 	import { ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
 	import { User } from '$lib/user/user';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
+	import { persisted } from '@gitbutler/shared/persisted';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
@@ -12,6 +13,8 @@
 	const settingsStore = settingsService.appSettings;
 
 	const user = getContextStore(User);
+
+	const confetti = persisted(false, 'experimental-confetti');
 </script>
 
 <p class="text-12 text-body experimental-settings__text">
@@ -22,7 +25,7 @@
 </p>
 
 <div class="experimental-settings__toggles">
-	<SectionCard labelFor="v3Design" roundedBottom={$user?.role !== 'admin'} orientation="row">
+	<SectionCard labelFor="v3Design" orientation="row" roundedBottom={false}>
 		{#snippet title()}
 			V3 Design
 		{/snippet}
@@ -51,6 +54,24 @@
 				checked={$settingsStore?.featureFlags.v3}
 				onclick={() => settingsService.updateFeatureFlags({ v3: !$settingsStore?.featureFlags.v3 })}
 			/>
+		{/snippet}
+	</SectionCard>
+
+	<SectionCard
+		labelFor="confetti"
+		roundedTop={false}
+		roundedBottom={$user?.role !== 'admin'}
+		orientation="row"
+	>
+		{#snippet title()}
+			Confetti
+		{/snippet}
+		{#snippet caption()}
+			<p>Mom's spaghetti, who want's some confetti? 🎉</p>
+		{/snippet}
+
+		{#snippet actions()}
+			<Toggle id="confetti" checked={$confetti} onclick={() => confetti.set(!$confetti)} />
 		{/snippet}
 	</SectionCard>
 
