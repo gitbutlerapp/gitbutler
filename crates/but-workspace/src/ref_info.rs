@@ -160,8 +160,18 @@ pub(crate) mod function {
         let mut boundary = gix::hashtable::HashSet::default();
         let mut stacks = if ref_commit.is_managed() {
             let base: Option<_> = if target_ref_id.is_none() {
-                repo.merge_base_octopus_with_graph(ref_commit.parents.iter().cloned(), &mut graph)?
-                    .into()
+                match repo
+                    .merge_base_octopus_with_graph(ref_commit.parents.iter().cloned(), &mut graph)
+                {
+                    Ok(id) => Some(id),
+                    Err(err) => {
+                        tracing::warn!(
+                            "Parents of {existing_ref} are disjoint: {err}",
+                            existing_ref = existing_ref.name().as_bstr(),
+                        );
+                        None
+                    }
+                }
             } else {
                 None
             };
@@ -170,12 +180,23 @@ pub(crate) mod function {
             for commit_id in ref_commit.parents.iter() {
                 let tip = *commit_id;
                 let base = base
-                    .map(Ok)
                     .or_else(|| {
-                        target_ref_id
-                            .map(|target_id| repo.merge_base_with_graph(target_id, tip, &mut graph))
+                        target_ref_id.and_then(|target_id| {
+                            match repo.merge_base_with_graph(target_id, tip, &mut graph) {
+                                Ok(id) => Some(id),
+                                Err(err) => {
+                                    tracing::warn!(
+                                        "{existing_ref} and {target_ref} are disjoint: {err}",
+                                        existing_ref = existing_ref.name().as_bstr(),
+                                        target_ref = target_ref.as_ref().expect(
+                                            "target_id is present, must have ref name then"
+                                        ),
+                                    );
+                                    None
+                                }
+                            }
+                        })
                     })
-                    .transpose()?
                     .map(|base| base.detach());
                 boundary.extend(base);
                 let segments = collect_stack_segments(
@@ -216,8 +237,21 @@ pub(crate) mod function {
             // Discover all references that actually point to the reachable graph.
             let tip = ref_commit.id;
             let base = target_ref_id
-                .map(|target_id| repo.merge_base_with_graph(target_id, tip, &mut graph))
-                .transpose()?
+                .and_then(|target_id| {
+                    match repo.merge_base_with_graph(target_id, tip, &mut graph) {
+                        Ok(id) => Some(id),
+                        Err(err) => {
+                            tracing::warn!(
+                                "{existing_ref} and {target_ref} are disjoint: {err}",
+                                existing_ref = existing_ref.name().as_bstr(),
+                                target_ref = target_ref
+                                    .as_ref()
+                                    .expect("target_id is present, must have ref name then"),
+                            );
+                            None
+                        }
+                    }
+                })
                 .map(|base| base.detach());
             if let Some((workspace_ref, base)) = workspace_ref_name
                 .as_ref()
