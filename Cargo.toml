@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/gitbutler-*", "crates/but-*"]
+members = ["crates/gitbutler-*", "crates/but-*", "crates/but"]
 resolver = "2"
 
 [workspace.dependencies]
@@ -68,6 +68,7 @@ gitbutler-forge = { path = "crates/gitbutler-forge" }
 gitbutler-hunk-dependency = { path = "crates/gitbutler-hunk-dependency" }
 but-settings = { path = "crates/but-settings" }
 gitbutler-workspace = { path = "crates/gitbutler-workspace" }
+but = { path = "crates/but" }
 but-testsupport = { path = "crates/but-testsupport" }
 but-rebase = { path = "crates/but-rebase" }
 but-core = { path = "crates/but-core" }
