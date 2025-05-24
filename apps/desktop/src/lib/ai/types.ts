@@ -15,11 +15,13 @@ export enum OpenAIModelName {
 	GPT4oMini = 'gpt-4o-mini'
 }
 
-// https://docs.anthropic.com/en/docs/about-claude/models
+// https://docs.anthropic.com/en/docs/about-claude/models/overview
 export enum AnthropicModelName {
-	Haiku = 'claude-3-5-haiku-latest',
-	Sonnet35 = 'claude-3-5-sonnet-latest',
-	Sonnet37 = 'claude-3-7-sonnet-latest'
+	Haiku = 'claude-3-5-haiku-20241022',
+	Sonnet35 = 'claude-3-5-sonnet-20241022',
+	Sonnet37 = 'claude-3-7-sonnet-20250219',
+	Sonnet4 = 'claude-sonnet-4-0',
+	Opus4 = 'claude-opus-4-0'
 }
 
 export enum MessageRole {
