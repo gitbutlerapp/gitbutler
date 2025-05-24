@@ -4,6 +4,7 @@
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { confettiEnabled } from '$lib/config/uiFeatureFlags';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+	import { sprayConfetti } from '$lib/joy/confetti';
 	import { type Stack } from '$lib/stacks/stack';
 	import { TestId } from '$lib/testing/testIds';
 	import {
@@ -112,7 +113,7 @@
 		baseResolutionApproach = value as BaseBranchResolutionApproach;
 	}
 
-	async function integrate() {
+	async function integrate(e?: MouseEvent) {
 		integratingUpstream = 'loading';
 		await tick();
 		const baseResolution = getBaseBranchResolution(
@@ -121,11 +122,14 @@
 		);
 
 		try {
-			await integrateUpstream({
+			const result = await integrateUpstream({
 				projectId,
 				resolutions: Array.from(results.values()),
 				baseBranchResolution: baseResolution
 			});
+			if ($confettiEnabled && result.archivedBranches.length > 0 && e) {
+				sprayConfetti(e);
+			}
 		} finally {
 			await baseBranchService.refreshBaseBranch(projectId);
 			integratingUpstream = 'completed';
@@ -240,7 +244,7 @@
 	{onClose}
 	width={520}
 	noPadding
-	onSubmit={integrate}
+	onSubmit={() => integrate()}
 >
 	<ScrollableContainer maxHeight="70vh">
 		{#if base}
@@ -351,10 +355,8 @@
 				style="pop"
 				disabled={isDivergedResolved || !branchStatuses}
 				loading={integratingUpstream === 'loading' || !branchStatuses}
-				confetti={$confettiEnabled}
-				onclick={async () => {
-					// Confetti doesn't work with type="submit"
-					await integrate();
+				onclick={async (e) => {
+					await integrate(e);
 				}}
 			>
 				Update workspace

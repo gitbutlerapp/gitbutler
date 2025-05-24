@@ -42,15 +42,12 @@
 		onkeydown?: (e: KeyboardEvent) => void;
 		// Snippets
 		children?: Snippet;
-		// Spray confetti from the cursor location on click.
-		confetti?: boolean;
 	}
 </script>
 
 <script lang="ts">
 	import Icon from '$lib/Icon.svelte';
 	import Tooltip, { type TooltipAlign, type TooltipPosition } from '$lib/Tooltip.svelte';
-	import { sprayConfetti } from '$lib/confetti';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import type iconsJson from '$lib/data/icons.json';
 	import type { ComponentColorType, ComponentKindType } from '$lib/utils/colorTypes';
@@ -85,7 +82,6 @@
 		tooltipPosition,
 		tooltipAlign,
 		tooltipDelay,
-		confetti,
 		onclick,
 		onmousedown,
 		oncontextmenu,
@@ -99,9 +95,6 @@
 			e.stopPropagation();
 		} else {
 			await onclick?.(e);
-			if (confetti) {
-				sprayConfetti(e);
-			}
 		}
 	}
 </script>
