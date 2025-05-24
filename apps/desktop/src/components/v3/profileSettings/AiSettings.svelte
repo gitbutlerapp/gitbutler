@@ -122,6 +122,14 @@
 		{
 			label: 'Opus 4',
 			value: AnthropicModelName.Opus4
+		},
+		{
+			label: 'Sonnet 4 Latest',
+			value: AnthropicModelName.SonnetLatest
+		},
+		{
+			label: 'Opus 4 Latest',
+			value: AnthropicModelName.OpusLatest
 		}
 	];
 
