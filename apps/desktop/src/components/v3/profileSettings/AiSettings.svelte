@@ -114,6 +114,14 @@
 		{
 			label: 'Sonnet 3.7 (recommended)',
 			value: AnthropicModelName.Sonnet37
+		},
+		{
+			label: 'Sonnet 4',
+			value: AnthropicModelName.Sonnet4
+		},
+		{
+			label: 'Opus 4',
+			value: AnthropicModelName.Opus4
 		}
 	];
 
