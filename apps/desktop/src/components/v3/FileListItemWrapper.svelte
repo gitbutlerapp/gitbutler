@@ -5,12 +5,20 @@
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { ChangeDropData } from '$lib/dragging/draggables';
 	import { getFilename } from '$lib/files/utils';
-	import { previousPathBytesFromTreeChange, type TreeChange } from '$lib/hunks/change';
-	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
+	import { type TreeChange } from '$lib/hunks/change';
+	import { DiffService, type HunkGroup } from '$lib/hunks/diffService.svelte';
+	import {
+		someAssignedToCurrentGroupSelected,
+		ChangeSelectionService,
+		deselectAllForChangeInGroup,
+		selectAllForChangeInGroup,
+		allAssignedToCurrentGroupSelected
+	} from '$lib/selection/changeSelection.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { key, type SelectionId } from '$lib/selection/key';
 	import { TestId } from '$lib/testing/testIds';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
+	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
 	import FileViewHeader from '@gitbutler/ui/file/FileViewHeader.svelte';
@@ -41,6 +49,7 @@
 		onkeydown?: (e: KeyboardEvent) => void;
 		onCloseClick?: () => void;
 		conflictEntries?: ConflictEntriesObj;
+		group?: HunkGroup;
 	}
 
 	const {
@@ -60,6 +69,7 @@
 		showCheckbox,
 		conflictEntries,
 		draggable,
+		group,
 		onclick,
 		onkeydown,
 		onCloseClick
@@ -67,14 +77,23 @@
 
 	const idSelection = getContext(IdSelection);
 	const changeSelection = getContext(ChangeSelectionService);
+	const worktreeService = getContext(WorktreeService);
+	const diffService = getContext(DiffService);
 
 	let contextMenu = $state<ReturnType<typeof FileContextMenu>>();
 	let draggableEl: HTMLDivElement | undefined = $state();
 
-	const selection = $derived(changeSelection.getById(change.path));
-	const indeterminate = $derived(selection.current && selection.current.type === 'partial');
+	const changesKeyResult = $derived(worktreeService.getChangesKey(projectId));
+	const assignments = $derived.by(() => {
+		if (selectionId.type !== 'worktree') return;
+
+		return changesKeyResult.current
+			? diffService.hunkAssignments(projectId, changesKeyResult.current)
+			: undefined;
+	});
 	const selectedChanges = $derived(idSelection.treeChanges(projectId, selectionId));
 	const isUncommitted = $derived(selectionId?.type === 'worktree');
+	const selectedFile = $derived(changeSelection.getById(change.path));
 
 	const previousTooltipText = $derived(
 		(change.status.subject as Rename).previousPath
@@ -93,18 +112,67 @@
 	});
 
 	function onCheck() {
-		if (selection.current) {
-			changeSelection.remove(change.path);
+		// TODO: Double check that we change partial hunk selections into whole
+		// hunk selections.
+		// Currently selection is only implemented for the worktree changes.
+		if (selectionId.type !== 'worktree') return;
+		if (!assignments?.current?.data) return;
+
+		if (
+			someAssignedToCurrentGroupSelected(
+				change,
+				selectionId.group,
+				assignments.current.data,
+				selectedFile.current
+			)
+		) {
+			deselectAllForChangeInGroup(
+				change,
+				selectionId.group,
+				assignments.current.data,
+				selectedFile.current,
+				changeSelection
+			);
 		} else {
-			const { path, pathBytes } = change;
-			changeSelection.upsert({
-				type: 'full',
-				path,
-				pathBytes,
-				previousPathBytes: previousPathBytesFromTreeChange(change)
-			});
+			selectAllForChangeInGroup(
+				change,
+				selectionId.group,
+				assignments.current.data,
+				selectedFile.current,
+				changeSelection
+			);
 		}
 	}
+
+	const checkStatus = $derived.by((): 'checked' | 'indeterminate' | 'unchecked' => {
+		// Currently selection is only implemented for the worktree changes.
+		if (selectionId.type !== 'worktree') return 'unchecked';
+		if (!assignments?.current?.data) return 'unchecked';
+
+		if (
+			allAssignedToCurrentGroupSelected(
+				change,
+				selectionId.group,
+				assignments.current.data,
+				selectedFile.current
+			)
+		) {
+			return 'checked';
+		}
+
+		if (
+			someAssignedToCurrentGroupSelected(
+				change,
+				selectionId.group,
+				assignments.current.data,
+				selectedFile.current
+			)
+		) {
+			return 'indeterminate';
+		}
+
+		return 'unchecked';
+	});
 
 	function onContextMenu(e: MouseEvent) {
 		if (selectedChanges.current.isSuccess && idSelection.has(change.path, selectionId)) {
@@ -138,7 +206,14 @@
 	use:draggableChips={{
 		label: getFilename(change.path),
 		filePath: change.path,
-		data: new ChangeDropData(change, idSelection, allChanges ?? [change], selectionId, stackId),
+		data: new ChangeDropData(
+			change,
+			idSelection,
+			allChanges ?? [change],
+			selectionId,
+			stackId,
+			group
+		),
 		viewportId: 'board-viewport',
 		selector: '.selected-draggable',
 		disabled: draggableDisabled,
@@ -177,9 +252,9 @@
 			{showCheckbox}
 			fileStatusTooltip={previousTooltipText}
 			{listMode}
-			checked={!!selection.current}
+			checked={checkStatus === 'checked' || checkStatus === 'indeterminate'}
 			{active}
-			{indeterminate}
+			indeterminate={checkStatus === 'indeterminate'}
 			{isLast}
 			{depth}
 			{executable}

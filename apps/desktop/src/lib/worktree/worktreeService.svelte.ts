@@ -4,6 +4,13 @@ import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { TreeChange, WorktreeChanges } from '$lib/hunks/change';
 import type { ClientState } from '$lib/state/clientState.svelte';
+import type { Reactive } from '@gitbutler/shared/storeUtils';
+
+/**
+ * Used to represent the key given by `getChangesKey` to mask it away from the
+ * underlying datatype
+ */
+export type WorktreeChangesKey = { __worktreeChangesKey: unknown };
 
 /**
  * A service for tracking uncommitted changes.
@@ -50,9 +57,9 @@ export class WorktreeService {
 	}
 
 	/** Gets the timestamp of the last time the changes were fetched */
-	getChangesTimeStamp(projectId: string) {
+	getChangesKey(projectId: string): Reactive<WorktreeChangesKey | undefined> {
 		const { getChanges } = this.api.endpoints;
-		return getChanges.useQueryTimeStamp({ projectId });
+		return getChanges.useQueryTimeStamp({ projectId }) as Reactive<WorktreeChangesKey | undefined>;
 	}
 }
 

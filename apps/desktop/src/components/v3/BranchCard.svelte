@@ -6,13 +6,21 @@
 	import BranchHeader from '$components/v3/BranchHeader.svelte';
 	import BranchHeaderContextMenu from '$components/v3/BranchHeaderContextMenu.svelte';
 	import PrNumberUpdater from '$components/v3/PrNumberUpdater.svelte';
+	import WorktreeChangesFileList from '$components/v3/WorktreeChangesFileList.svelte';
+	import WorktreeChangesSelectAll from '$components/v3/WorktreeChangesSelectAll.svelte';
 	import { MoveCommitDzHandler, StartCommitDzHandler } from '$lib/commits/dropHandler';
+	import { assignedChangesFocusableId } from '$lib/focus/focusManager.svelte';
+	import { focusable } from '$lib/focus/focusable.svelte';
+	import { DiffService } from '$lib/hunks/diffService.svelte';
+	import { AssignmentDropHandler } from '$lib/hunks/dropHandler';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
+	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import type { PushStatus } from '$lib/stacks/stack';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';
@@ -67,10 +75,12 @@
 	let { projectId, branchName, expand, active, lineColor, iconName, readonly, ...args }: Props =
 		$props();
 
-	const [uiState, stackService, changeSelectionService] = inject(
+	const [uiState, stackService, changeSelectionService, diffService, worktreeService] = inject(
 		UiState,
 		StackService,
-		ChangeSelectionService
+		ChangeSelectionService,
+		DiffService,
+		WorktreeService
 	);
 
 	const [updateName, nameUpdate] = stackService.updateBranchName;
@@ -81,6 +91,17 @@
 	const selection = $derived(stackState ? stackState.selection.current : undefined);
 	const selected = $derived(selection?.branchName === branchName);
 	const isPushed = $derived(!!(args.type === 'draft-branch' ? undefined : args.trackingBranch));
+
+	const projectState = $derived(uiState.project(projectId));
+	const drawerPage = $derived(projectState.drawerPage.get());
+	const isCommitting = $derived(drawerPage.current === 'new-commit');
+
+	const changesKeyResult = $derived(worktreeService.getChangesKey(projectId));
+	const hunkAssignments = $derived(
+		changesKeyResult.current
+			? diffService.hunkAssignments(projectId, changesKeyResult.current)
+			: undefined
+	);
 
 	async function updateBranchName(title: string) {
 		if (args.type === 'draft-branch') {
@@ -233,12 +254,60 @@
 		</BranchHeader>
 	{/if}
 
+	{#if args.type === 'stack-branch'}
+		{@const assignmentDZHandler = hunkAssignments?.current?.data
+			? new AssignmentDropHandler(projectId, diffService, hunkAssignments.current.data, {
+					type: 'grouped',
+					stackId: args.stackId
+				})
+			: undefined}
+		<Dropzone handlers={[assignmentDZHandler].filter(isDefined)}>
+			{#snippet overlay({ hovered, activated })}
+				<CardOverlay {hovered} {activated} />
+			{/snippet}
+			<div
+				class="assigned-changes"
+				use:focusable={{ id: assignedChangesFocusableId(args.stackId) }}
+			>
+				<div class="assigned-changes__title">
+					{#if isCommitting}
+						<WorktreeChangesSelectAll
+							{projectId}
+							group={{ type: 'grouped', stackId: args.stackId }}
+						/>
+					{/if}
+					<p class="text-14 text-bold">Assigned changes:</p>
+				</div>
+				<WorktreeChangesFileList
+					{projectId}
+					listMode="list"
+					active
+					group={{ type: 'grouped', stackId: args.stackId }}
+				/>
+			</div>
+		</Dropzone>
+	{/if}
+
 	{#if args.type !== 'draft-branch'}
 		{@render args.commitList?.()}
 	{/if}
 </div>
 
 <style lang="postcss">
+	.assigned-changes {
+		padding-top: 4px;
+		padding-bottom: 4px;
+
+		border-bottom: 1px solid var(--clr-border-2);
+	}
+
+	.assigned-changes__title {
+		display: flex;
+		margin: 8px;
+		margin-left: 14px;
+		gap: 8px;
+	}
+
 	.branch-card {
 		display: flex;
 		position: relative;

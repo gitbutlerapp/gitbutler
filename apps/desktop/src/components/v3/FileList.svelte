@@ -14,7 +14,7 @@
 		type Modification,
 		previousPathBytesFromTreeChange
 	} from '$lib/hunks/change';
-	import { DiffService } from '$lib/hunks/diffService.svelte';
+	import { DiffService, type HunkGroup } from '$lib/hunks/diffService.svelte';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { selectFilesInList, updateSelection } from '$lib/selection/idSelectionUtils';
@@ -43,6 +43,7 @@
 		active?: boolean;
 		conflictEntries?: ConflictEntriesObj;
 		draggableFiles: boolean;
+		group?: HunkGroup;
 	};
 
 	const {
@@ -54,7 +55,8 @@
 		active,
 		stackId,
 		conflictEntries,
-		draggableFiles
+		draggableFiles,
+		group
 	}: Props = $props();
 
 	const [
@@ -284,6 +286,7 @@
 			selectFilesInList(e, change, visibleFiles, idSelection, true, idx, selectionId);
 		}}
 		{conflictEntries}
+		{group}
 	/>
 {/snippet}
 

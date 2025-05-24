@@ -14,6 +14,7 @@ describe('Upstream Integration', () => {
 			mockBackend.getUpstreamIntegrationStatuses()
 		);
 		mockCommand('integrate_upstream', (params) => mockBackend.integrateUpstream(params));
+		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
 
 		cy.visit('/');
 

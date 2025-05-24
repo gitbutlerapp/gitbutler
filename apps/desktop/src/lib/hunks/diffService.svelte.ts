@@ -3,11 +3,35 @@ import type { TreeChange } from '$lib/hunks/change';
 import type { UnifiedDiff } from '$lib/hunks/diff';
 import type { AssignmentRejection, HunkAssignment, HunkAssignmentRequest } from '$lib/hunks/hunk';
 import type { ClientState } from '$lib/state/clientState.svelte';
+import type { WorktreeChangesKey } from '$lib/worktree/worktreeService.svelte';
 
 export type ChangeDiff = {
 	path: string;
 	diff: UnifiedDiff;
 };
+
+export const ungroupedGroup = 'ungrouped';
+export type HunkAssignments = Map<string, Map<string, HunkAssignment[]>>;
+export type HunkGroup = { type: 'ungrouped' } | { type: 'grouped'; stackId: string };
+export function hunkGroupToKey(a: HunkGroup): string {
+	if (a.type === 'ungrouped') return ungroupedGroup;
+	return a.stackId;
+}
+/**
+ * Converts a hunk group key to a HunkGroup. This expects to be given a valid key.
+ */
+export function hunkGroupFromKey(a: string): HunkGroup {
+	if (a === ungroupedGroup) return { type: 'ungrouped' };
+	return {
+		type: 'grouped',
+		stackId: a
+	};
+}
+export function hunkGroupEquals(a: HunkGroup, b: HunkGroup): boolean {
+	if (a.type === 'ungrouped' && b.type === 'ungrouped') return true;
+	if (a.type === 'grouped' && b.type === 'grouped' && a.stackId === b.stackId) return true;
+	return false;
+}
 
 export class DiffService {
 	private api: ReturnType<typeof injectEndpoints>;
@@ -21,12 +45,33 @@ export class DiffService {
 		return getDiff.useQuery({ projectId, change });
 	}
 
-	hunkAssignments(projectId: string) {
+	hunkAssignments(projectId: string, worktreeChangesKey: WorktreeChangesKey) {
 		const { hunkAssignments } = this.api.endpoints;
-		return hunkAssignments.useQuery({ projectId });
+		return hunkAssignments.useQuery(
+			{ projectId, worktreeChangesKey },
+			{
+				transform: (data): HunkAssignments => {
+					const groupedAssignments = new Map<string, Map<string, HunkAssignment[]>>();
+					for (const assignment of data) {
+						let stackGroup = groupedAssignments.get(assignment.stackId ?? ungroupedGroup);
+						if (!stackGroup) {
+							stackGroup = new Map();
+							groupedAssignments.set(assignment.stackId ?? ungroupedGroup, stackGroup);
+						}
+						let pathGroup = stackGroup.get(assignment.path);
+						if (!pathGroup) {
+							pathGroup = [];
+							stackGroup.set(assignment.path, pathGroup);
+						}
+						pathGroup.push(assignment);
+					}
+					return groupedAssignments;
+				}
+			}
+		);
 	}
 
-	assignHunk() {
+	get assignHunk() {
 		return this.api.endpoints.assignHunk.mutate;
 	}
 
@@ -68,8 +113,11 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				providesTags: [providesList(ReduxTag.Diff)]
 			}),
-			hunkAssignments: build.query<HunkAssignment[], { projectId: string }>({
-				query: ({ projectId }) => ({
+			hunkAssignments: build.query<
+				HunkAssignment[],
+				{ projectId: string; worktreeChangesKey: WorktreeChangesKey }
+			>({
+				query: ({ projectId, worktreeChangesKey: _worktreeChangesKey }) => ({
 					command: 'hunk_assignments',
 					params: { projectId }
 				}),

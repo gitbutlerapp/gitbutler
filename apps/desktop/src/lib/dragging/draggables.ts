@@ -4,6 +4,7 @@ import type { AnyCommit } from '$lib/commits/commit';
 import type { CommitDropData } from '$lib/commits/dropHandler';
 import type { AnyFile } from '$lib/files/file';
 import type { TreeChange } from '$lib/hunks/change';
+import type { HunkGroup } from '$lib/hunks/diffService.svelte';
 import type { Hunk, HunkHeader, HunkLock } from '$lib/hunks/hunk';
 import type { IdSelection } from '$lib/selection/idSelection.svelte';
 
@@ -30,7 +31,8 @@ export class HunkDropDataV3 {
 		readonly hunk: HunkHeader,
 		readonly uncommitted: boolean,
 		readonly stackId: string | undefined,
-		readonly commitId: string | undefined
+		readonly commitId: string | undefined,
+		readonly selectionId: SelectionId
 	) {}
 }
 
@@ -47,7 +49,8 @@ export class ChangeDropData {
 		private selection: IdSelection,
 		private allChanges: TreeChange[],
 		readonly selectionId: SelectionId,
-		readonly stackId?: string
+		readonly stackId?: string,
+		readonly group?: HunkGroup
 	) {}
 
 	changedPaths(params: SelectionId): string[] {

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Resizer from '$components/Resizer.svelte';
-	import { Focusable } from '$lib/focus/focusManager.svelte';
+	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
@@ -72,7 +72,7 @@
 	bind:this={drawerDiv}
 	style:height
 	style:min-height="{minHeight}rem"
-	use:focusable={{ id: Focusable.Drawer, parentId: Focusable.ViewportMiddle }}
+	use:focusable={{ id: DefinedFocusable.Drawer, parentId: DefinedFocusable.ViewportMiddle }}
 >
 	<div class="drawer-wrap">
 		<div bind:this={headerDiv} class="drawer-header" class:no-left-padding={noLeftPadding}>
