@@ -131,7 +131,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			>({
 				query: ({ projectId, resolutions, baseBranchResolution }) => ({
 					command: 'integrate_upstream',
-					params: { projectId, resolutions, baseBranchResolution }
+					params: { projectId, resolutions, baseBranchResolution },
+					actionName: 'Integrate Upstream'
 				}),
 				invalidatesTags: [
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
@@ -145,7 +146,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			>({
 				query: ({ projectId, resolutionApproach }) => ({
 					command: `resolve_upstream_integration`,
-					params: { projectId, resolutionApproach }
+					params: { projectId, resolutionApproach },
+					actionName: 'Resolve Integrate Upstream'
 				}),
 				invalidatesTags: [invalidatesList(ReduxTag.UpstreamIntegrationStatus)]
 			})

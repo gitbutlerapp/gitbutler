@@ -255,6 +255,9 @@ importers:
       '@testing-library/user-event':
         specifier: ^14.6.1
         version: 14.6.1(@testing-library/dom@10.4.0)
+      '@types/canvas-confetti':
+        specifier: ^1.9.0
+        version: 1.9.0
       '@types/diff-match-patch':
         specifier: ^1.0.36
         version: 1.0.36
@@ -294,6 +297,9 @@ importers:
       autoprefixer:
         specifier: ^10.4.19
         version: 10.4.19(postcss@8.4.39)
+      canvas-confetti:
+        specifier: ^1.9.3
+        version: 1.9.3
       class-transformer:
         specifier: ^0.5.1
         version: 0.5.1
@@ -821,9 +827,6 @@ importers:
       '@terrazzo/plugin-css':
         specifier: 0.6.0
         version: 0.6.0(@terrazzo/cli@0.6.0)
-      '@types/canvas-confetti':
-        specifier: ^1.9.0
-        version: 1.9.0
       '@types/diff-match-patch':
         specifier: ^1.0.36
         version: 1.0.36
@@ -836,9 +839,6 @@ importers:
       autoprefixer:
         specifier: ^10.4.20
         version: 10.4.20(postcss@8.4.49)
-      canvas-confetti:
-        specifier: ^1.9.3
-        version: 1.9.3
       cpy-cli:
         specifier: ^5.0.0
         version: 5.0.0
