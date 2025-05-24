@@ -239,6 +239,9 @@ impl<T: FileIdCache> DebounceDataInner<T> {
             return;
         }
 
+        if event.paths.is_empty() {
+            return;
+        }
         let path = &event.paths[0];
 
         match &event.kind {
