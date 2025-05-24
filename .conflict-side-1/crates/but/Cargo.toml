@@ -1,0 +1,24 @@
+[package]
+name = "but"
+version = "0.0.0"
+edition = "2024"
+repository = "https://github.com/gitbutlerapp/gitbutler"
+license-file = "../../LICENSE.md"
+description = "A GitButler CLI tool"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+readme = "../../README.md"
+
+[[bin]]
+name = "but"
+path = "src/main.rs"
+doctest = false
+
+[features]
+
+[dependencies]
+serde.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "io-std"] }
+clap = { version = "4.5.37", features = ["derive", "env"] }
+anyhow.workspace = true
+# rmcp = { git = "https://github.com/modelcontextprotocol/rust-sdk", branch = "main" }
+rmcp = "0.1.5"
