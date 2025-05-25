@@ -143,6 +143,7 @@ pub fn assign(
         &deps_assignments,
         &applied_stacks,
         MultiDepsResolution::SetNone, // If there is double locking, move the hunk to the Uncommitted section
+        true,
     )?;
     state.set_assignments(assignments_considering_deps.clone())?;
 
@@ -178,6 +179,9 @@ pub fn assign(
 ///
 /// If a stack is no longer present in the workspace (either unapplied or deleted), any assignments to it are removed.
 ///
+/// If a hunk has a dependency on a particular stack and it has been previously assigned to another stack, the assignment is updated to reflect that dependency.
+/// If a hunk has a dependency but it has not been previously assigned to any stack, it is left unassigned (stack_id is None). This is so that the hunk assignment workflow can remain optional.
+///
 /// This needs to be ran only after the worktree has changed.
 fn reconcile(ctx: &CommandContext) -> Result<Vec<HunkAssignment>> {
     let state = state::AssignmentsHandle::new(&ctx.project().gb_dir());
@@ -203,12 +207,14 @@ fn reconcile(ctx: &CommandContext) -> Result<Vec<HunkAssignment>> {
             &previous_assignments,
             &applied_stacks,
             MultiDepsResolution::SetMostLines,
+            true,
         )?;
         let assignments_considering_deps = reconcile_assignments(
             assignments_considering_previous,
             &deps_assignments,
             &applied_stacks,
             MultiDepsResolution::SetNone, // If there is double locking, move the hunk to the Uncommitted section
+            false,
         )?;
         new_assignments.extend(assignments_considering_deps);
     }
@@ -226,6 +232,7 @@ fn reconcile_assignments(
     previous_assignments: &[HunkAssignment],
     applied_stacks: &[StackId],
     multi_deps_resolution: MultiDepsResolution,
+    update_unassigned: bool,
 ) -> Result<Vec<HunkAssignment>> {
     let mut new_assignments = vec![];
     for mut current_assignment in current_assignments {
@@ -245,7 +252,10 @@ fn reconcile_assignments(
                 // One intersection - assign the stack id if the stack is still in the applied list
                 if let Some(stack_id) = intersecting[0].stack_id {
                     if applied_stacks.contains(&stack_id) {
-                        current_assignment.stack_id = intersecting[0].stack_id;
+                        if update_unassigned && current_assignment.stack_id.is_none() {
+                            // In the case where there was no assignment but a hunk lock was detected, we dont want to automatically assign the hunk to the lane where it depends
+                            current_assignment.stack_id = intersecting[0].stack_id;
+                        }
                         current_assignment.hunk_locks = intersecting[0].hunk_locks.clone();
                     }
                 }
@@ -432,6 +442,7 @@ mod tests {
             &previous_assignments,
             &applied_stacks,
             MultiDepsResolution::SetMostLines,
+            true,
         )
         .unwrap();
         assert_eq!(
@@ -450,6 +461,7 @@ mod tests {
             &previous_assignments,
             &applied_stacks,
             MultiDepsResolution::SetMostLines,
+            true,
         )
         .unwrap();
         assert_eq!(result, vec![ass("foo.rs", 10, 15, None)]);
@@ -465,6 +477,7 @@ mod tests {
             &previous_assignments,
             &applied_stacks,
             MultiDepsResolution::SetMostLines,
+            true,
         )
         .unwrap();
         assert_eq!(result, vec![ass("foo.rs", 12, 17, Some(1))]);
@@ -483,6 +496,7 @@ mod tests {
             &previous_assignments,
             &applied_stacks,
             MultiDepsResolution::SetMostLines,
+            true,
         )
         .unwrap();
         assert_eq!(result, vec![ass("foo.rs", 5, 18, Some(1))]);
@@ -501,9 +515,26 @@ mod tests {
             &previous_assignments,
             &applied_stacks,
             MultiDepsResolution::SetNone,
+            true,
         )
         .unwrap();
         assert_eq!(result, vec![ass("foo.rs", 5, 18, None)]);
+    }
+
+    #[test]
+    fn test_reconcile_not_updating_unassigned() {
+        let previous_assignments = vec![ass("foo.rs", 10, 15, Some(1))];
+        let worktree_assignments = vec![ass("foo.rs", 12, 17, None)];
+        let applied_stacks = vec![id(1)];
+        let result = reconcile_assignments(
+            worktree_assignments,
+            &previous_assignments,
+            &applied_stacks,
+            MultiDepsResolution::SetMostLines,
+            true,
+        )
+        .unwrap();
+        assert_eq!(result, vec![ass("foo.rs", 12, 17, None)]);
     }
 
     #[test]
