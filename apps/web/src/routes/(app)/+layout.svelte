@@ -22,6 +22,7 @@
 	import { PatchCommitService } from '@gitbutler/shared/patches/patchCommitService';
 	import { PatchIdableService } from '@gitbutler/shared/patches/patchIdableService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
+	import { RulesService } from '@gitbutler/shared/rules/rulesService';
 	import { NotificationSettingsService } from '@gitbutler/shared/settings/notificationSettingsService';
 	import { UploadsService } from '@gitbutler/shared/uploads/uploadsService';
 	import { UserService as NewUserService } from '@gitbutler/shared/users/userService';
@@ -109,6 +110,9 @@
 
 	const ownerService = new OwnerService(httpClient);
 	setContext(OwnerService, ownerService);
+
+	const rulesService = new RulesService(httpClient, webState.appDispatch);
+	setContext(RulesService, rulesService);
 
 	const isCommitPage = $derived(page.url.pathname.includes('/commit/'));
 </script>
