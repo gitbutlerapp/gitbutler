@@ -95,32 +95,14 @@ pre {
 	}
 }
 
-/* STICKY HEADER */
-.h-sticky-header {
-	z-index: var(--z-lifted);
-	position: sticky;
-}
-
-.h-sticky-header_top {
-	top: -1px;
-}
-
-.h-sticky-header_bottom {
-	bottom: -1px;
-}
-
-.h-sticky-header_sticked-top {
-	border-bottom: 1px solid var(--clr-border-2);
-}
-
-.h-sticky-header_sticked-bottom {
-	border-top: 1px solid var(--clr-border-2);
-}
-
 /* NO TRANSITION ON MOUNT */
 .h-no-transition {
 	transition: none !important;
 	& * {
 		transition: none !important;
 	}
+}
+
+.h-dotted-underline {
+	text-decoration: underline dotted;
 }
