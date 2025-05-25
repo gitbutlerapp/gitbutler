@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '$lib/styles/global.css';
 	import { page } from '$app/state';
+	import { ButlerAIClient } from '$lib/ai/service';
 	import { AuthService } from '$lib/auth/authService.svelte';
 	import Footer from '$lib/components/Footer.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
@@ -21,6 +22,7 @@
 	import { PatchCommitService } from '@gitbutler/shared/patches/patchCommitService';
 	import { PatchIdableService } from '@gitbutler/shared/patches/patchIdableService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
+	import { RulesService } from '@gitbutler/shared/rules/rulesService';
 	import { NotificationSettingsService } from '@gitbutler/shared/settings/notificationSettingsService';
 	import { UploadsService } from '@gitbutler/shared/uploads/uploadsService';
 	import { UserService as NewUserService } from '@gitbutler/shared/users/userService';
@@ -41,6 +43,9 @@
 
 	const httpClient = new HttpClient(window.fetch, env.PUBLIC_APP_HOST, authService.tokenReadable);
 	setContext(HttpClient, httpClient);
+
+	const aiService = new ButlerAIClient(httpClient);
+	setContext(ButlerAIClient, aiService);
 
 	const userService = new UserService(httpClient);
 	setContext(UserService, userService);
@@ -105,6 +110,9 @@
 
 	const ownerService = new OwnerService(httpClient);
 	setContext(OwnerService, ownerService);
+
+	const rulesService = new RulesService(httpClient, webState.appDispatch);
+	setContext(RulesService, rulesService);
 
 	const isCommitPage = $derived(page.url.pathname.includes('/commit/'));
 </script>

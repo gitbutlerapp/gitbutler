@@ -27,7 +27,7 @@
 
 	<div class="chat-message__diff-content">
 		<table class="table__section">
-			<HunkDiffBody filePath={diffPath} {content} />
+			<HunkDiffBody wrapText filePath={diffPath} {content} />
 		</table>
 	</div>
 </div>
@@ -37,6 +37,7 @@
 		display: flex;
 		flex-direction: column;
 		align-self: stretch;
+		min-width: 0;
 		padding: 6px;
 		gap: 8px;
 		border: 1px solid var(--clr-border-2);
@@ -78,6 +79,7 @@
 	table,
 	.table__section {
 		width: 100%;
+		min-width: 0;
 		border-collapse: separate;
 		border-spacing: 0;
 	}
