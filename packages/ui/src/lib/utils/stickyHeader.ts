@@ -13,25 +13,57 @@ export function stickyHeader(
 
 	if (disabled) return;
 
-	node.classList.add('h-sticky-header');
-	node.classList.add(`h-sticky-header_${align}`);
+	// Base sticky positioning
+	node.style.position = 'sticky';
+	node.style.zIndex = 'var(--z-lifted)';
 
-	const stickyClass = `h-sticky-header_sticked-${align}`;
+	if (align === 'top') {
+		node.style.top = '-1px';
+	} else {
+		node.style.bottom = '-1px';
+	}
 
-	intersectionObserver(node, {
+	function applyStickyStyles() {
+		if (unstyled) return;
+
+		if (align === 'top') {
+			node.style.borderBottom = '1px solid var(--clr-border-2)';
+		} else {
+			node.style.borderTop = '1px solid var(--clr-border-2)';
+		}
+	}
+
+	function removeStickyStyles() {
+		if (unstyled) return;
+
+		if (align === 'top') {
+			node.style.removeProperty('border-bottom');
+		} else {
+			node.style.removeProperty('border-top');
+		}
+	}
+
+	const cleanup = intersectionObserver(node, {
 		callback: (entry) => {
-			if (entry?.isIntersecting) {
-				if (!unstyled) node.classList.toggle(stickyClass, false);
-				onStick?.(false);
+			const isStuck = !entry?.isIntersecting;
+			if (isStuck) {
+				applyStickyStyles();
 			} else {
-				if (!unstyled) node.classList.toggle(stickyClass, true);
-				onStick?.(true);
+				removeStickyStyles();
 			}
+			onStick?.(isStuck);
 		},
 		options: {
 			root: null,
-			rootMargin: `-1px`,
+			rootMargin: '-1px',
 			threshold: 1
 		}
 	});
+
+	return {
+		destroy() {
+			cleanup?.destroy();
+			removeStickyStyles();
+		}
+	};
 }

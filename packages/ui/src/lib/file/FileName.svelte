@@ -17,7 +17,7 @@
 	});
 </script>
 
-<div role="presentation" class="file-name">
+<div class="file-name">
 	<FileIcon fileName={fileNameAndPath.filename} size={16} />
 	<span class="text-{textSize} text-semibold file-name__name truncate">
 		{fileNameAndPath.filename}

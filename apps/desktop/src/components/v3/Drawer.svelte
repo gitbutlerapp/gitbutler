@@ -143,9 +143,9 @@
 
 				{#if splitView && filesSplitView}
 					<div class="drawer__files-split-view">
-						<ConfigurableScrollableContainer>
-							{@render filesSplitView()}
-						</ConfigurableScrollableContainer>
+						<!-- <ConfigurableScrollableContainer zIndex="var(--z-floating)"> -->
+						{@render filesSplitView()}
+						<!-- </ConfigurableScrollableContainer> -->
 					</div>
 				{/if}
 			</div>

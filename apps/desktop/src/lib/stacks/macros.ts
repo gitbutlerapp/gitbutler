@@ -82,6 +82,7 @@ export default class StackMacros {
 				projectId: this.projectId,
 				targetBranchName: branchName,
 				newCommitId: outcome.newCommit ?? undefined,
+				commitTitle: message ?? STUB_COMMIT_MESSAGE,
 				pathsToRejectedChanges
 			});
 		}

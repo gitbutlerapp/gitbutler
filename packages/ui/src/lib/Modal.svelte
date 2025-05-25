@@ -11,6 +11,7 @@
 		closeButton?: boolean;
 		noPadding?: boolean;
 		defaultItem?: T;
+		preventCloseOnClickOutside?: boolean;
 		/**
 		 * Callback to be called when the modal is closed.
 		 *
@@ -31,8 +32,7 @@
 </script>
 
 <script lang="ts" generics="T extends undefined | any = any">
-	import Button from '$lib/Button.svelte';
-	import Icon from '$lib/Icon.svelte';
+	import ModalHeader from '$lib/ModalHeader.svelte';
 	import { focusTrap } from '$lib/utils/focusTrap';
 	import { portal } from '$lib/utils/portal';
 	import { pxToRem } from '$lib/utils/pxToRem';
@@ -46,6 +46,7 @@
 		closeButton,
 		onClose,
 		onClickOutside,
+		preventCloseOnClickOutside,
 		children,
 		controls,
 		onSubmit,
@@ -111,8 +112,10 @@
 		use:portal={'body'}
 		class="modal-container {isClosing ? 'closing' : 'open'}"
 		class:open
-		onmousedown={(e) => {
+		onclick={(e) => {
 			e.stopPropagation();
+
+			if (preventCloseOnClickOutside) return;
 
 			if (e.target === e.currentTarget) {
 				onClickOutside?.();
@@ -135,29 +138,9 @@
 			}}
 		>
 			{#if title}
-				<div class="modal__header">
-					{#if type === 'warning'}
-						<Icon name="warning" color="warning" />
-					{/if}
-
-					{#if type === 'error'}
-						<Icon name="error" color="error" />
-					{/if}
-
-					{#if type === 'success'}
-						<Icon name="success" color="success" />
-					{/if}
-
-					<h2 class="text-14 text-bold">
-						{title}
-					</h2>
-
-					{#if closeButton}
-						<div class="close-btn">
-							<Button type="button" kind="ghost" icon="cross" onclick={close}></Button>
-						</div>
-					{/if}
-				</div>
+				<ModalHeader {type} {closeButton} oncloseclick={close}>
+					{title}
+				</ModalHeader>
 			{/if}
 
 			<div class="modal__body text-13 text-body" class:no-padding={noPadding}>
@@ -210,35 +193,19 @@
 	.modal-form {
 		display: flex;
 		flex-direction: column;
-
 		max-height: calc(100vh - 80px);
-
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-l);
 		background-color: var(--clr-bg-1);
 		box-shadow: var(--fx-shadow-l);
-	}
-
-	.modal__header {
-		display: flex;
-		position: relative;
-		align-items: center;
-		padding: 16px;
-		padding-bottom: 0;
-		gap: 8px;
-	}
-
-	.close-btn {
-		position: absolute;
-		top: 10px;
-		right: 10px;
+		user-select: text;
 	}
 
 	.modal__body {
 		display: flex;
 		flex-direction: column;
-		padding: 16px;
+		padding: 0 16px 16px 16px;
 		overflow: hidden;
 		line-height: 160%;
 

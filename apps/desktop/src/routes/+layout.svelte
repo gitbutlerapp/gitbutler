@@ -322,7 +322,6 @@
 		display: flex;
 		height: 100%;
 		cursor: default;
-		user-select: none;
 	}
 
 	.drag-region {

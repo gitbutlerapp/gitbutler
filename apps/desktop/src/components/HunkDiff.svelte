@@ -538,7 +538,7 @@
 	}
 
 	.table__title {
-		user-select: none;
+		user-select: text;
 	}
 
 	.draggable {
