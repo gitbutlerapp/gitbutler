@@ -56,6 +56,7 @@ export type CommitFailedModalState = BaseGlobalModalState & {
 	projectId: string;
 	targetBranchName: string;
 	newCommitId: string | undefined;
+	commitTitle: string | undefined;
 	pathsToRejectedChanges: Record<string, RejectionReason>;
 };
 

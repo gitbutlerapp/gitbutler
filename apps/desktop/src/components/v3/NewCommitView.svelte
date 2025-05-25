@@ -229,6 +229,7 @@
 				projectId,
 				targetBranchName: finalBranchName,
 				newCommitId: newId ?? undefined,
+				commitTitle: projectState.commitTitle.current,
 				pathsToRejectedChanges
 			});
 		}
