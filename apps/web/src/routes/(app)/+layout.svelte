@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '$lib/styles/global.css';
 	import { page } from '$app/state';
+	import { ButlerAIClient } from '$lib/ai/service';
 	import { AuthService } from '$lib/auth/authService.svelte';
 	import Footer from '$lib/components/Footer.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
@@ -41,6 +42,9 @@
 
 	const httpClient = new HttpClient(window.fetch, env.PUBLIC_APP_HOST, authService.tokenReadable);
 	setContext(HttpClient, httpClient);
+
+	const aiService = new ButlerAIClient(httpClient);
+	setContext(ButlerAIClient, aiService);
 
 	const userService = new UserService(httpClient);
 	setContext(UserService, userService);
