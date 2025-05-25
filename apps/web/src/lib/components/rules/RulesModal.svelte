@@ -6,6 +6,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
+	import ScrollableContainer from '@gitbutler/ui/scroll/ScrollableContainer.svelte';
 	import { tick } from 'svelte';
 	import type { ChatMessage } from '@gitbutler/shared/chat/types';
 	import type { CreateRuleParams } from '@gitbutler/shared/rules/types';
@@ -294,15 +295,19 @@
 {/snippet}
 
 <Modal bind:this={modal} title="Create a rule" onSubmit={createRule}>
-	<div class="rules-modal">
-		<p class="text-16">Enter the information about the rule that should be created</p>
-		{@render titleInput()}
-		{@render descriptionInput()}
-		{#if shouldShowExample}
-			<p class="text-14">Examples</p>
-			{@render negativeExampleInput()}
-			{@render positiveExampleInput()}
-		{/if}
+	<div class="rules-modal-wrapper">
+		<ScrollableContainer whenToShow="hover">
+			<div class="rules-modal">
+				<p class="text-16">Enter the information about the rule that should be created</p>
+				{@render titleInput()}
+				{@render descriptionInput()}
+				{#if shouldShowExample}
+					<p class="text-14">Examples</p>
+					{@render negativeExampleInput()}
+					{@render positiveExampleInput()}
+				{/if}
+			</div>
+		</ScrollableContainer>
 	</div>
 	{#snippet controls(close)}
 		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
@@ -311,6 +316,11 @@
 </Modal>
 
 <style lang="postcss">
+	.rules-modal-wrapper {
+		display: flex;
+		flex-direction: column;
+		max-height: 520px;
+	}
 	.rules-modal {
 		display: flex;
 		flex-direction: column;
