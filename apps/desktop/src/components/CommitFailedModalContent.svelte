@@ -1,21 +1,23 @@
 <script lang="ts">
+	import CommitFailedFileEntry from '$components/CommitFailedFileEntry.svelte';
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import DependencyService from '$lib/dependencies/dependencyService.svelte';
 	import { REJECTTION_REASONS, type RejectionReason } from '$lib/stacks/stackService.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import HunkDiffBody from '@gitbutler/ui/hunkDiff/HunkDiffBody.svelte';
-	import { parseHunk } from '@gitbutler/ui/utils/diffParsing';
+	import Icon from '@gitbutler/ui/Icon.svelte';
+	import ModalHeader from '@gitbutler/ui/ModalHeader.svelte';
+	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import type { CommitFailedModalState } from '$lib/state/uiState.svelte';
 
 	type Props = {
 		data: CommitFailedModalState;
+		oncloseclick?: () => void;
 	};
 
-	const { data }: Props = $props();
+	const { data, oncloseclick }: Props = $props();
 
-	const [worktreeService, dependencyService] = inject(WorktreeService, DependencyService);
+	const [worktreeService] = inject(WorktreeService);
 
 	type ReasonGroup = {
 		reason: RejectionReason;
@@ -66,80 +68,57 @@
 		return result;
 	}
 
-	function reasonRelatedToDependencyInfo(reason: RejectionReason): boolean {
-		return reason === 'cherryPickMergeConflict' || reason === 'workspaceMergeConflict';
-	}
-
 	const changesTimestamp = $derived(worktreeService.getChangesTimeStamp(data.projectId));
 
 	const groupedData = groupByReason(data);
+
+	let isScrollTopVisible = $state(true);
 </script>
 
-{#snippet fileEntry(path: string, reason: RejectionReason)}
-	{#if reasonRelatedToDependencyInfo(reason) && changesTimestamp.current !== undefined}
-		<!-- In some cases, the dependency information is relevant to the cause of commit rejection.
-		 Show the relevant diff locks in that case. -->
-		{@const fileDependencies = dependencyService.fileDependencies(
-			data.projectId,
-			changesTimestamp.current,
-			path
-		)}
-		<div class="commit-failed__file-entry">
-			<p class="text-13 text-semibold">{path}</p>
-			<div class="commit-failed__file-entry-dependencies">
-				<ReduxResult projectId={data.projectId} result={fileDependencies.current}>
-					{#snippet children(fileDependencies)}
-						{#each fileDependencies.dependencies as dependency}
-							{@const hunk = parseHunk(dependency.hunk.diff)}
-							<div class="commit-failed__file-entry-dependencies-diff">
-								<table class="table__section">
-									<HunkDiffBody content={hunk.contentSections} filePath={path} />
-								</table>
-							</div>
-							Depends on:
-							<br />
-							{#each dependency.locks as lock}
-								<div class="commit-failed__file-entry-dependency-lock">
-									<p>Stack Id {lock.stackId}</p>
-									<p>Commit Id {lock.commitId}</p>
-								</div>
-							{/each}
-						{/each}
-					{/snippet}
-				</ReduxResult>
-			</div>
-		</div>
-	{:else}
-		<!-- If the dependency information is not relevant, just display the path -->
-		<p class="text-13 text-semibold">{path}</p>
-	{/if}
-{/snippet}
-
 <div class="commit-failed__wrapper">
-	<div class="commit-failed__description">
-		{#if data.newCommitId}
-			<p>
-				A commit could be created with SHA <b>{data.newCommitId.substring(0, 7)}</b>
-				in branch <b>{data.targetBranchName}</b> but some changes could not be fully committed:
-			</p>
-		{:else}
-			<p>Commit could not be created because of the following reasons:</p>
-		{/if}
-	</div>
-	<ConfigurableScrollableContainer>
-		<div class="commit-failed">
+	<ModalHeader
+		sticky={!isScrollTopVisible}
+		type={data.newCommitId ? 'warning' : 'error'}
+		closeButton
+		{oncloseclick}
+		closeButtonTestId={TestId.GlobalModalActionButton}
+		>{data.newCommitId ? 'Some changes were not committed' : 'Failed to create commit'}</ModalHeader
+	>
+	<ConfigurableScrollableContainer
+		onscrollTop={(visible) => {
+			isScrollTopVisible = visible;
+		}}
+	>
+		<div class="commit-failed__content">
+			<div class="text-13 commit-failed__description">
+				{#if data.newCommitId}
+					Commit <i class="commit-failed__text-icon"><Icon name="commit" /></i>
+					<Tooltip text={data.commitTitle ? data.commitTitle : 'No commit title provided'}
+						><span class="h-dotted-underline text-semibold">{data.newCommitId.substring(0, 7)}</span
+						></Tooltip
+					> was created, but some changes weren't fully committed:
+				{:else}
+					Commit could not be created because of the following reasons:
+				{/if}
+			</div>
+
 			<div class="commit-failed__reasons">
 				{#each groupedData as { reason, paths, reasonReadable } (reason)}
-					<div class="commit-failed__reason">
-						<p class="text-bold text-14">
-							{reasonReadable}
-						</p>
+					<hr class="commit-failed__reasons-divider" />
 
-						<div class="commit-failed__reason-file-list">
-							{#each paths as path (path)}
-								{@render fileEntry(path, reason)}
-							{/each}
-						</div>
+					<p class="text-13">
+						Cause: <span class="text-bold">{reasonReadable}</span>
+					</p>
+
+					<div class="commit-failed__reason-file-list">
+						{#each paths as path (path)}
+							<CommitFailedFileEntry
+								{path}
+								{reason}
+								projectId={data.projectId}
+								changesTimestamp={changesTimestamp.current}
+							/>
+						{/each}
 					</div>
 				{/each}
 			</div>
@@ -151,59 +130,41 @@
 	.commit-failed__wrapper {
 		display: flex;
 		flex-direction: column;
-		height: 320px;
-
-		gap: 32px;
+		/* max-height: 620px; */
+		overflow: hidden;
 	}
 
-	.commit-failed {
+	.commit-failed__content {
 		display: flex;
 		flex-direction: column;
-
-		gap: 32px;
+		padding: 0 16px 16px 16px;
+		gap: 16px;
 	}
 
+	.commit-failed__text-icon {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		transform: translateY(4px);
+		color: var(--clr-text-2);
+	}
+
+	/* Groups */
 	.commit-failed__reasons {
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
+		gap: 16px;
 	}
 
-	.commit-failed__reason {
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
+	.commit-failed__reasons-divider {
+		margin: 0 -16px;
+		border: 0;
+		border-top: 1px solid var(--clr-border-2);
 	}
 
 	.commit-failed__reason-file-list {
 		display: flex;
 		flex-direction: column;
-
-		padding-left: 8px;
 		gap: 8px;
-	}
-
-	.commit-failed__file-entry {
-		display: flex;
-		flex-direction: column;
-
-		gap: 4px;
-	}
-
-	.commit-failed__file-entry-dependencies-diff {
-		overflow: hidden;
-		border: 1px solid var(--clr-diff-count-border);
-		border-radius: var(--radius-m);
-	}
-
-	.table__section {
-		width: 100%;
-		border-collapse: separate;
-		border-spacing: 0;
-	}
-
-	.commit-failed__file-entry-dependency-lock {
-		display: flex;
-		gap: 4px;
 	}
 </style>

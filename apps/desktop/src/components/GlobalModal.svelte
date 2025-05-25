@@ -3,7 +3,6 @@
 	import { UiState, type GlobalModalState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal, { type ModalProps } from '@gitbutler/ui/Modal.svelte';
 
 	const [uiState] = inject(UiState);
@@ -11,8 +10,6 @@
 	type ModalData = {
 		state: GlobalModalState;
 		props: Omit<ModalProps, 'children'>;
-
-		actionButtonLabel: string;
 	};
 
 	function mapModalStateToProps(modalState: GlobalModalState | undefined): ModalData | null {
@@ -24,14 +21,10 @@
 					state: modalState,
 					props: {
 						testId: TestId.GlobalModal_CommitFailed,
-						title: modalState.newCommitId
-							? 'Some changes were not committed'
-							: 'Failed to create commit',
-						type: modalState.newCommitId ? 'warning' : 'error',
 						closeButton: true,
-						width: 'large'
-					},
-					actionButtonLabel: modalState.newCommitId ? 'Oh ok' : 'Well, that sucks'
+						width: 540,
+						noPadding: true
+					}
 				};
 			}
 		}
@@ -56,13 +49,7 @@
 		onSubmit={(close) => close()}
 	>
 		{#if modalProps.state.type === 'commit-failed'}
-			<CommitFailedModalContent data={modalProps.state} />
+			<CommitFailedModalContent data={modalProps.state} oncloseclick={() => modal?.close()} />
 		{/if}
-
-		{#snippet controls()}
-			<Button testId={TestId.GlobalModalActionButton} style="neutral" type="submit"
-				>{modalProps.actionButtonLabel}</Button
-			>
-		{/snippet}
 	</Modal>
 {/if}

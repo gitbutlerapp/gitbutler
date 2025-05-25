@@ -22,7 +22,6 @@
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
-	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
 	import { untrack } from 'svelte';
 
 	type Props = {
@@ -115,8 +114,8 @@
 		changeSelection.clear();
 	}
 
-	let listHeaderHeight = $state(0);
-	let listFooterHeight = $state(0);
+	let scrollTopIsVisible = $state(true);
+	let scrollBottomIsVisible = $state(true);
 </script>
 
 <Dropzone handlers={[uncommitDzHandler]} maxHeight>
@@ -128,20 +127,13 @@
 		class="uncommitted-changes-wrap"
 		use:focusable={{ id: Focusable.UncommittedChanges, parentId: Focusable.ViewportLeft }}
 	>
-		<ScrollableContainer
-			autoScroll={false}
-			padding={{
-				top: listHeaderHeight,
-				bottom: listFooterHeight
-			}}
-		>
-			<ReduxResult {stackId} {projectId} result={changesResult.current}>
-				{#snippet children(changes, { stackId, projectId })}
+		<ReduxResult {stackId} {projectId} result={changesResult.current}>
+			{#snippet children(changes, { stackId, projectId })}
+				{#if changes.length > 0}
 					<div
 						data-testid={TestId.UncommittedChanges_Header}
-						use:stickyHeader
 						class="worktree-header"
-						bind:clientHeight={listHeaderHeight}
+						class:sticked-top={!scrollTopIsVisible}
 					>
 						<div class="worktree-header__general">
 							{#if isCommitting}
@@ -162,7 +154,15 @@
 						<FileListMode bind:mode={listMode} persist="uncommitted" />
 					</div>
 
-					{#if changes.length > 0}
+					<ScrollableContainer
+						autoScroll={false}
+						onscrollTop={(visible) => {
+							scrollTopIsVisible = visible;
+						}}
+						onscrollEnd={(visible) => {
+							scrollBottomIsVisible = visible;
+						}}
+					>
 						<div data-testid={TestId.UncommittedChanges_FileList} class="uncommitted-changes">
 							<FileList
 								selectionId={{ type: 'worktree' }}
@@ -175,38 +175,34 @@
 								{active}
 							/>
 						</div>
-						<div
-							use:stickyHeader={{ align: 'bottom' }}
-							class="start-commit"
-							bind:clientHeight={listFooterHeight}
+					</ScrollableContainer>
+					<div class="start-commit" class:sticked-bottom={!scrollBottomIsVisible}>
+						<Button
+							testId={TestId.StartCommitButton}
+							kind={isCommitting ? 'outline' : 'solid'}
+							type="button"
+							size="cta"
+							wide
+							disabled={isCommitting || defaultBranchResult?.current.isLoading}
+							onclick={startCommit}
 						>
-							<Button
-								testId={TestId.StartCommitButton}
-								kind={isCommitting ? 'outline' : 'solid'}
-								type="button"
-								size="cta"
-								wide
-								disabled={isCommitting || defaultBranchResult?.current.isLoading}
-								onclick={startCommit}
-							>
-								Start a commit…
-							</Button>
+							Start a commit…
+						</Button>
+					</div>
+				{:else}
+					<div class="uncommitted-changes__empty">
+						<div class="uncommitted-changes__empty__placeholder">
+							{@html noChanges}
+							<p class="text-13 text-body uncommitted-changes__empty__placeholder-text">
+								You're all caught up!<br />
+								No files need committing
+							</p>
 						</div>
-					{:else}
-						<div class="uncommitted-changes__empty">
-							<div class="uncommitted-changes__empty__placeholder">
-								{@html noChanges}
-								<p class="text-13 text-body uncommitted-changes__empty__placeholder-text">
-									You're all caught up!<br />
-									No files need committing
-								</p>
-							</div>
-							<WorktreeTipsFooter />
-						</div>
-					{/if}
-				{/snippet}
-			</ReduxResult>
-		</ScrollableContainer>
+						<WorktreeTipsFooter />
+					</div>
+				{/if}
+			{/snippet}
+		</ReduxResult>
 	</div>
 </Dropzone>
 
@@ -279,5 +275,14 @@
 	.uncommitted-changes__empty__placeholder-text {
 		color: var(--clr-text-3);
 		text-align: center;
+	}
+
+	/* MODIFIERS */
+	.sticked-top {
+		border-bottom: 1px solid var(--clr-border-2);
+	}
+
+	.sticked-bottom {
+		border-top: 1px solid var(--clr-border-2);
 	}
 </style>

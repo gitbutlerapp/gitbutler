@@ -54,6 +54,35 @@
 	let scrollTopVisible = $state<boolean>(true);
 	let scrollEndVisible = $state<boolean>(true);
 
+	// Function to check scroll position and update visibility states
+	function checkScrollPosition() {
+		if (!viewport) return;
+
+		const { scrollTop, scrollHeight, clientHeight } = viewport;
+		const threshold = 1; // Small threshold to account for sub-pixel scrolling
+
+		// Check if we're at the top
+		const atTop = scrollTop <= threshold;
+		scrollTopVisible = atTop;
+
+		// Check if we're at the bottom
+		const atBottom = scrollTop + clientHeight >= scrollHeight - threshold;
+		scrollEndVisible = atBottom;
+	}
+
+	// Handle scroll events
+	function handleScroll(e: Event) {
+		checkScrollPosition();
+		onscroll?.(e);
+	}
+
+	// Check initial position when viewport is available
+	$effect(() => {
+		if (viewport) {
+			checkScrollPosition();
+		}
+	});
+
 	$effect(() => {
 		if (scrollTopVisible) {
 			onscrollTop?.(true);
@@ -76,7 +105,7 @@
 		bind:this={viewport}
 		use:useAutoScroll={{ enabled: autoScroll }}
 		bind:offsetHeight={viewportHeight}
-		{onscroll}
+		onscroll={handleScroll}
 		class="viewport hide-native-scrollbar"
 		style="padding-top: {top}px; padding-bottom: {bottom}px;"
 		style:height
