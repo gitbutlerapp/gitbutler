@@ -2,6 +2,7 @@
 	import CommitFailedFileEntry from '$components/CommitFailedFileEntry.svelte';
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { REJECTTION_REASONS, type RejectionReason } from '$lib/stacks/stackService.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -70,15 +71,24 @@
 	const changesTimestamp = $derived(worktreeService.getChangesTimeStamp(data.projectId));
 
 	const groupedData = groupByReason(data);
+
+	let isScrollTopVisible = $state(true);
 </script>
 
 <div class="commit-failed__wrapper">
-	<ConfigurableScrollableContainer>
-		<ModalHeader type={data.newCommitId ? 'warning' : 'error'} closeButton {oncloseclick} sticky
-			>{data.newCommitId
-				? 'Some changes were not committed'
-				: 'Failed to create commit'}</ModalHeader
-		>
+	<ModalHeader
+		sticky={!isScrollTopVisible}
+		type={data.newCommitId ? 'warning' : 'error'}
+		closeButton
+		{oncloseclick}
+		closeButtonTestId={TestId.GlobalModalActionButton}
+		>{data.newCommitId ? 'Some changes were not committed' : 'Failed to create commit'}</ModalHeader
+	>
+	<ConfigurableScrollableContainer
+		onscrollTop={(visible) => {
+			isScrollTopVisible = visible;
+		}}
+	>
 		<div class="commit-failed__content">
 			<div class="text-13 commit-failed__description">
 				{#if data.newCommitId}

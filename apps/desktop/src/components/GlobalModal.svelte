@@ -22,7 +22,7 @@
 					props: {
 						testId: TestId.GlobalModal_CommitFailed,
 						closeButton: true,
-						width: 'large',
+						width: 540,
 						noPadding: true
 					}
 				};
@@ -47,7 +47,6 @@
 		{...modalProps.props}
 		onClose={() => uiState.global.modal.set(undefined)}
 		onSubmit={(close) => close()}
-		width={540}
 	>
 		{#if modalProps.state.type === 'commit-failed'}
 			<CommitFailedModalContent data={modalProps.state} oncloseclick={() => modal?.close()} />

@@ -2,26 +2,28 @@
 	import Button from '$lib/Button.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import { type ModalType } from '$lib/Modal.svelte';
-	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
 	import { type Snippet } from 'svelte';
 
 	interface Props {
 		type?: ModalType;
 		closeButton?: boolean;
 		sticky?: boolean;
+		closeButtonTestId?: string;
 		children: Snippet;
 		oncloseclick?: () => void;
 	}
 
-	const { type = 'info', closeButton, sticky, children, oncloseclick }: Props = $props();
+	const {
+		type = 'info',
+		closeButton,
+		sticky,
+		closeButtonTestId,
+		children,
+		oncloseclick
+	}: Props = $props();
 </script>
 
-<div
-	class="modal__header"
-	use:stickyHeader={{
-		disabled: !sticky
-	}}
->
+<div class="modal__header" class:sticky>
 	{#if type === 'warning'}
 		<Icon name="warning" color="warning" />
 	{/if}
@@ -40,7 +42,13 @@
 
 	{#if closeButton}
 		<div class="close-btn">
-			<Button type="button" kind="ghost" icon="cross" onclick={oncloseclick}></Button>
+			<Button
+				type="button"
+				testId={closeButtonTestId}
+				kind="ghost"
+				icon="cross"
+				onclick={oncloseclick}
+			></Button>
 		</div>
 	{/if}
 </div>
@@ -53,6 +61,10 @@
 		padding: 16px;
 		gap: 8px;
 		background-color: var(--clr-bg-1);
+
+		&.sticky {
+			border-bottom: 1px solid var(--clr-border-2);
+		}
 	}
 
 	.close-btn {
