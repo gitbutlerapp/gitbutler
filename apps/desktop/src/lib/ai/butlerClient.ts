@@ -5,7 +5,7 @@ import {
 	SHORT_DEFAULT_PR_TEMPLATE
 } from '$lib/ai/prompts';
 import { ModelKind, type AIClient, type AIEvalOptions, type Prompt } from '$lib/ai/types';
-import { stringStreamGenerator } from '$lib/utils/promise';
+import { stringStreamGenerator } from '@gitbutler/shared/utils/promise';
 import type { HttpClient } from '@gitbutler/shared/network/httpClient';
 
 function splitPromptMessagesIfNecessary(
