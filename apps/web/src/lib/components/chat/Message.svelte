@@ -296,7 +296,7 @@
 <MessageContextMenu
 	bind:menu={contextMenu}
 	leftClickTrigger={kebabMenuTrigger}
-	messageId={message.uuid}
+	{message}
 	onToggle={(isOpen) => (isOpenedByKebabButton = isOpen)}
 />
 

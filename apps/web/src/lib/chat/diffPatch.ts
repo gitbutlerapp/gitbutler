@@ -61,3 +61,26 @@ export function parseDiffPatchToContentSection(
 
 	return content;
 }
+
+export function parseDiffPatchToDiffString(
+	diffPatchArray: DiffPatch[] | undefined,
+	side: 'before' | 'after'
+): string | undefined {
+	if (!diffPatchArray || diffPatchArray.length === 0) {
+		return undefined;
+	}
+
+	return diffPatchArray
+		.map((line) => {
+			switch (line.type) {
+				case 'added':
+					return side === 'after' ? cleanDiffLine(line.line, SectionType.AddedLines) : undefined;
+				case 'removed':
+					return side === 'before' ? cleanDiffLine(line.line, SectionType.RemovedLines) : undefined;
+				case 'context':
+					return line.line;
+			}
+		})
+		.filter((line) => line !== undefined)
+		.join('\n');
+}
