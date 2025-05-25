@@ -2,21 +2,26 @@
 	import { ButlerAIClient, MessageRole } from '$lib/ai/service';
 	import { parseDiffPatchToDiffString } from '$lib/chat/diffPatch';
 	import { getContext } from '@gitbutler/shared/context';
+	import { RulesService } from '@gitbutler/shared/rules/rulesService';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import { tick } from 'svelte';
 	import type { ChatMessage } from '@gitbutler/shared/chat/types';
+	import type { CreateRuleParams } from '@gitbutler/shared/rules/types';
 
 	type Props = {
+		projectSlug: string;
 		message: ChatMessage;
 	};
 
-	const { message }: Props = $props();
+	const { message, projectSlug }: Props = $props();
 
 	const diffStringBefore = $derived(parseDiffPatchToDiffString(message.diffPatchArray, 'before'));
 	const diffStringAfter = $derived(parseDiffPatchToDiffString(message.diffPatchArray, 'after'));
 	const fileExtension = $derived(message.diffPath?.split('.').pop() ?? '');
 	const aiService = getContext(ButlerAIClient);
+	const rulesService = getContext(RulesService);
 
 	let isGenerating = $state<boolean>(false);
 
@@ -162,6 +167,41 @@
 		isGenerating = false;
 	}
 
+	function validateInputs(): CreateRuleParams | undefined {
+		if (
+			!ruleTitle ||
+			ruleTitle.trim() === '' ||
+			!ruleDescription ||
+			ruleDescription.trim() === ''
+		) {
+			return undefined;
+		}
+
+		if (shouldShowExample) {
+			if (!ruleNegativeExample || !rulePositiveExample) {
+				return undefined;
+			}
+		}
+
+		return {
+			projectSlug,
+			title: ruleTitle.trim(),
+			description: ruleDescription.trim(),
+			negativeExample: effectiveNegativeExample,
+			positiveExample: effectivePositiveExample
+		};
+	}
+
+	async function createRule(close: () => void) {
+		const validatedInputs = validateInputs();
+		if (!validatedInputs) {
+			return;
+		}
+
+		await rulesService.createRule(validatedInputs);
+		close();
+	}
+
 	export function show() {
 		kickOffGeneration();
 		modal?.show();
@@ -253,7 +293,7 @@
 	</div>
 {/snippet}
 
-<Modal bind:this={modal} title="Create a rule">
+<Modal bind:this={modal} title="Create a rule" onSubmit={createRule}>
 	<div class="rules-modal">
 		<p class="text-16">Enter the information about the rule that should be created</p>
 		{@render titleInput()}
@@ -264,6 +304,10 @@
 			{@render positiveExampleInput()}
 		{/if}
 	</div>
+	{#snippet controls(close)}
+		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
+		<Button style="pop" type="submit" loading={isGenerating}>Create rule</Button>
+	{/snippet}
 </Modal>
 
 <style lang="postcss">
