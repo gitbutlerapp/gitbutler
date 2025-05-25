@@ -245,6 +245,11 @@
 
 {#each chunkedRows as chunk, chunkIdx}
 	<tbody
+		onmouseenter={() => (hoveringOverTable = true)}
+		onmouseleave={() => (hoveringOverTable = false)}
+		ontouchstart={(ev) => lineSelection.onTouchStart(ev)}
+		ontouchmove={(ev) => lineSelection.onTouchMove(ev)}
+		ontouchend={() => lineSelection.onEnd()}
 		bind:clientHeight={chunkHeight[chunkIdx]}
 		use:clickOutside={{
 			handler: handleClearSelection,
