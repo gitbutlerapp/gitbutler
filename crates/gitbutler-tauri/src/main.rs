@@ -129,6 +129,7 @@ fn main() {
                             gitbutler_tauri::ChangeForFrontend::from(app_settings).send(&app_handle)
                         }
                     })?;
+                    app_handle.manage(but_hunk_assignment::DirtyBit::default());
                     let app = App {
                         app_data_dir: app_data_dir.clone(),
                     };

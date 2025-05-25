@@ -2,6 +2,7 @@ use gitbutler_project::Project;
 
 pub mod commands {
     use std::path;
+    use std::sync::atomic::Ordering;
 
     use anyhow::Context;
     use but_settings::AppSettingsWithDiskSync;
@@ -79,6 +80,7 @@ pub mod commands {
         projects: State<'_, Controller>,
         window_state: State<'_, WindowState>,
         app_settings: State<'_, AppSettingsWithDiskSync>,
+        dirty_bit: tauri::State<'_, but_hunk_assignment::DirtyBit>,
         window: Window,
         id: ProjectId,
     ) -> Result<bool, Error> {
@@ -87,7 +89,9 @@ pub mod commands {
             window.label(),
             &project,
             app_settings.inner().clone(),
+            dirty_bit.inner().clone(),
         )?;
+        dirty_bit.value.store(true, Ordering::SeqCst);
         Ok(match mode {
             ProjectAccessMode::First => true,
             ProjectAccessMode::Shared => false,

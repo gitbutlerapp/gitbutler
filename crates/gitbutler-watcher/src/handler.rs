@@ -16,6 +16,7 @@ use gitbutler_oplog::{
 use gitbutler_project::{self as projects, ProjectId};
 use gitbutler_sync::cloud::{push_oplog, push_repo};
 use gitbutler_user as users;
+use std::sync::atomic::Ordering;
 use tracing::instrument;
 
 /// A type that contains enough state to make decisions based on changes in the filesystem, which themselves
@@ -57,7 +58,9 @@ impl Handler {
         &self,
         event: InternalEvent,
         app_settings: AppSettingsWithDiskSync,
+        assignments_dirty_bit: but_hunk_assignment::DirtyBit,
     ) -> Result<()> {
+        assignments_dirty_bit.value.store(true, Ordering::SeqCst);
         match event {
             InternalEvent::ProjectFilesChange(project_id, paths) => {
                 let ctx = self.open_command_context(project_id, app_settings.get()?.clone())?;

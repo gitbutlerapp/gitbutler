@@ -10,7 +10,10 @@
 //! set_assignments
 
 mod state;
-use std::cmp::Ordering;
+use std::{
+    cmp::Ordering,
+    sync::{Arc, atomic::AtomicBool},
+};
 
 use anyhow::Result;
 use bstr::{BString, ByteSlice};
@@ -65,6 +68,19 @@ pub struct HunkAssignmentRequest {
     pub stack_id: Option<StackId>,
 }
 
+#[derive(Debug, Clone)]
+pub struct DirtyBit {
+    pub value: Arc<AtomicBool>,
+}
+
+impl Default for DirtyBit {
+    fn default() -> Self {
+        Self {
+            value: Arc::new(AtomicBool::new(true)),
+        }
+    }
+}
+
 impl HunkAssignmentRequest {
     pub fn matches_assignment(&self, assignment: &HunkAssignment) -> bool {
         self.path_bytes == assignment.path_bytes && self.hunk_header == assignment.hunk_header
@@ -106,9 +122,8 @@ impl HunkAssignment {
 }
 
 /// Returns the current hunk assignments for the workspace.
-pub fn assignments(ctx: &CommandContext) -> Result<Vec<HunkAssignment>> {
-    // TODO: Use a dirty bit set in the file watcher to indicate when reconcilation is needed.
-    if true {
+pub fn assignments(ctx: &CommandContext, dirty: bool) -> Result<Vec<HunkAssignment>> {
+    if dirty {
         reconcile(ctx)
     } else {
         let state = state::AssignmentsHandle::new(&ctx.project().gb_dir());

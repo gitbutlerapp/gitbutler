@@ -1,3 +1,5 @@
+use std::sync::atomic::Ordering;
+
 use crate::error::Error;
 use crate::from_json::HexHash;
 use anyhow::Context;
@@ -172,11 +174,14 @@ pub fn changes_in_worktree(
 pub fn hunk_assignments(
     projects: tauri::State<'_, gitbutler_project::Controller>,
     settings: tauri::State<'_, but_settings::AppSettingsWithDiskSync>,
+    dirty_bit: tauri::State<'_, but_hunk_assignment::DirtyBit>,
     project_id: ProjectId,
 ) -> anyhow::Result<Vec<HunkAssignment>, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    let assignments = but_hunk_assignment::assignments(&ctx)?;
+    let assignments =
+        but_hunk_assignment::assignments(&ctx, dirty_bit.value.load(Ordering::Relaxed))?;
+    dirty_bit.value.store(false, Ordering::SeqCst);
     Ok(assignments)
 }
 

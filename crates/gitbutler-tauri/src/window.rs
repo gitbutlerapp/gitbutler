@@ -162,6 +162,7 @@ pub(crate) mod state {
             window: &WindowLabelRef,
             project: &projects::Project,
             app_settings: AppSettingsWithDiskSync,
+            assignments_dirty_bit: but_hunk_assignment::DirtyBit,
         ) -> Result<ProjectAccessMode> {
             let mut state_by_label = self.state.lock();
             if let Some(state) = state_by_label.get(window) {
@@ -182,6 +183,7 @@ pub(crate) mod state {
                 worktree_dir,
                 project_id,
                 app_settings,
+                assignments_dirty_bit,
             )?;
             let has_exclusive_access = exclusive_access.is_some();
             state_by_label.insert(
