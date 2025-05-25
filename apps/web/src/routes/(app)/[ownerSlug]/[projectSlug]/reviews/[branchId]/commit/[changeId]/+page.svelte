@@ -313,6 +313,7 @@
 							isTabletMode={isChatTabletMode}
 							messageUuid={data.messageUuid}
 							projectId={repositoryId}
+							projectSlug={data.projectSlug}
 							branchId={data.branchId}
 							changeId={data.changeId}
 							minimized={chatMinimizer.value}

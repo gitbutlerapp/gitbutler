@@ -19,6 +19,7 @@
 		isPatchAuthor: boolean | undefined;
 		branchUuid: string;
 		projectId: string;
+		projectSlug: string;
 		branchId: string;
 		changeId: string;
 		patchCommit: PatchCommit;
@@ -33,6 +34,7 @@
 	let {
 		messageUuid,
 		projectId,
+		projectSlug,
 		changeId,
 		branchId,
 		patchCommit,
@@ -116,6 +118,7 @@
 						{#if patchEvents.events.length > 0}
 							{#each patchEvents.events as event (event.uuid)}
 								<Event
+									{projectSlug}
 									{projectId}
 									{changeId}
 									{event}

@@ -2,6 +2,7 @@
 	export interface MessageProps {
 		highlight?: boolean;
 		projectId: string;
+		projectSlug: string;
 		changeId?: string;
 		event: ChatEvent;
 		disableActions?: boolean;
@@ -45,6 +46,7 @@
 	const {
 		event,
 		projectId,
+		projectSlug,
 		changeId,
 		highlight,
 		disableActions,
@@ -297,6 +299,7 @@
 	bind:menu={contextMenu}
 	leftClickTrigger={kebabMenuTrigger}
 	{message}
+	{projectSlug}
 	onToggle={(isOpen) => (isOpenedByKebabButton = isOpen)}
 />
 

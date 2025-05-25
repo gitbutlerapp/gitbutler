@@ -9,11 +9,12 @@
 	type Props = {
 		menu: ReturnType<typeof ContextMenu> | undefined;
 		leftClickTrigger: HTMLElement | undefined;
+		projectSlug: string;
 		message: ChatMessage;
 		onToggle?: (isOpen: boolean, isLeftClick: boolean) => void;
 	};
 
-	let { menu = $bindable(), leftClickTrigger, message, onToggle }: Props = $props();
+	let { menu = $bindable(), leftClickTrigger, message, projectSlug, onToggle }: Props = $props();
 
 	let rulesModal = $state<RulesModal>();
 
@@ -39,4 +40,4 @@
 	</ContextMenuSection>
 </ContextMenu>
 
-<RulesModal {message} bind:this={rulesModal} />
+<RulesModal {message} {projectSlug} bind:this={rulesModal} />

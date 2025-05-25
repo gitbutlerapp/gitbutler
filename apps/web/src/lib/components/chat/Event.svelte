@@ -8,18 +8,27 @@
 	interface Props {
 		highlightedMessageUuid: string | undefined;
 		projectId: string;
+		projectSlug: string;
 		changeId: string;
 		event: PatchEvent;
 		replyTo: (chatEvent: ChatEvent) => void;
 		scrollToMessage: (uuid: string) => void;
 	}
 
-	const { event, projectId, changeId, highlightedMessageUuid, replyTo, scrollToMessage }: Props =
-		$props();
+	const {
+		event,
+		projectId,
+		projectSlug,
+		changeId,
+		highlightedMessageUuid,
+		replyTo,
+		scrollToMessage
+	}: Props = $props();
 </script>
 
 {#if event.eventType === 'chat'}
 	<Message
+		{projectSlug}
 		{projectId}
 		{changeId}
 		{event}
