@@ -46,21 +46,33 @@ export async function tauriBaseQuery(
 		stackLayout
 	};
 
+	const startTime = Date.now();
 	try {
-		const startTime = Date.now();
 		const result = { data: await api.extra.tauri.invoke(args.command, args.params) };
-		const endTime = Date.now();
-		const responseTimeMs = endTime - startTime;
+		const durationMs = Date.now() - startTime;
 		if (posthog && args.actionName) {
 			posthog.capture(`${args.actionName} Successful`, {
 				...settingsSnapshot,
-				responseTimeMs
+				durationMs
+			});
+			posthog.capture('tauri_command', {
+				...settingsSnapshot,
+				command: args.command,
+				durationMs,
+				failure: false
 			});
 		}
 		return result;
 	} catch (error: unknown) {
 		if (posthog && args.actionName) {
+			const durationMs = Date.now() - startTime;
 			posthog.capture(`${args.actionName} Failed`, { error, ...settingsSnapshot });
+			posthog.capture('tauri_command', {
+				...settingsSnapshot,
+				command: args.command,
+				durationMs,
+				failure: true
+			});
 		}
 
 		const name = `API error: ${args.actionName} (${args.command})`;
