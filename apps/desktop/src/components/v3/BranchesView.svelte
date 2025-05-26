@@ -4,6 +4,7 @@
 	import BranchExplorer from '$components/v3/BranchExplorer.svelte';
 	import BranchView from '$components/v3/BranchView.svelte';
 	import BranchesViewBranch from '$components/v3/BranchesViewBranch.svelte';
+	import BranchesViewPr from '$components/v3/BranchesViewPR.svelte';
 	import BranchesViewStack from '$components/v3/BranchesViewStack.svelte';
 	import MainViewport from '$components/v3/MainViewport.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
@@ -159,6 +160,7 @@
 			current.inWorkspace || current.branchName === baseBranch.shortName}
 		{@const isStackOrNormalBranchPreview =
 			current.stackId || (current.branchName && current.branchName !== baseBranch.shortName)}
+		{@const isNonLocalPr = !isStackOrNormalBranchPreview && current.prNumber !== undefined}
 
 		<MainViewport
 			name="branches"
@@ -318,7 +320,7 @@
 				<div
 					class={[
 						'branch-details',
-						isStackOrNormalBranchPreview ? 'dotted-container dotted-pattern' : '',
+						isStackOrNormalBranchPreview || isNonLocalPr ? 'dotted-container dotted-pattern' : '',
 						inWorkspaceOrTargetBranch ? 'rounded-container' : ''
 					]}
 				>
@@ -334,7 +336,7 @@
 							{onerror}
 						/>
 					{:else if current.prNumber}
-						Not implemented!
+						<BranchesViewPr {projectId} prNumber={current.prNumber} {onerror} />
 					{/if}
 				</div>
 			{/snippet}
