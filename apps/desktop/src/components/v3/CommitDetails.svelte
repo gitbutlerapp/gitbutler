@@ -6,6 +6,7 @@
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { inject } from '@gitbutler/shared/context';
 	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
+	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import { marked } from '@gitbutler/ui/utils/marked';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import type { Snippet } from 'svelte';
@@ -56,7 +57,8 @@
 
 	{#if description}
 		<p data-testid={TestId.CommitDrawerDescription} class="text-13 text-body commit-description">
-			{@html marked(description)}
+			<!-- {@html marked(description)} -->
+			<Markdown content={marked(description)} />
 		</p>
 	{/if}
 </div>

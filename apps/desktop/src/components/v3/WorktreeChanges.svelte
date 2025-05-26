@@ -190,6 +190,21 @@
 						</Button>
 					</div>
 				{:else}
+					<div
+						data-testid={TestId.UncommittedChanges_Header}
+						class="worktree-header"
+						class:sticked-top={!scrollTopIsVisible}
+					>
+						<div class="worktree-header__general">
+							<div class="worktree-header__title truncate">
+								<h3 class="text-14 text-semibold truncate">Uncommitted</h3>
+
+								<Badge>0</Badge>
+							</div>
+						</div>
+						<FileListMode bind:mode={listMode} persist="uncommitted" />
+					</div>
+
 					<div class="uncommitted-changes__empty">
 						<div class="uncommitted-changes__empty__placeholder">
 							{@html noChanges}
