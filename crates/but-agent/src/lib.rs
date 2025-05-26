@@ -2,6 +2,7 @@
 
 pub mod agent;
 pub mod llm;
+pub mod open_router;
 pub mod store;
 pub mod types;
 
@@ -47,9 +48,74 @@ mod test {
     }
 
     #[test]
+    fn llm_recieved_tools() {
+        let available_tools = vec![Tool {
+            tool_type: ToolType::Function,
+            function: ToolFunction {
+                name: "foo".into(),
+                description: "it does foo".into(),
+                parameters: ToolFunctionParameters {
+                    parameters_type: ToolFunctionParametersType::Object,
+                    properties: std::collections::BTreeMap::new(),
+                    additional_properties: false,
+                    required: vec![],
+                },
+                strict: true,
+            },
+        }];
+
+        let available_tools_with_handler = available_tools
+            .iter()
+            .map(|t| ToolWithHandler {
+                tool: t.clone(),
+                handler: Box::new(|_| "".into()),
+            })
+            .collect();
+
+        let moved_available_tools = available_tools.clone();
+        let llm = MockLLM {
+            callback: |_| "".into(),
+            tools_callback: move |tools| {
+                assert_eq!(tools, moved_available_tools);
+            },
+        };
+
+        let conversation_store =
+            std::cell::RefCell::new(Box::new(InMemoryConversationStore::new()));
+
+        let responses = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let moved_responses = responses.clone();
+        let callback = move |response| {
+            moved_responses.lock().unwrap().push(response);
+        };
+
+        let config = AgentConfig {
+            llm: Box::new(llm),
+            conversation_store,
+            callback,
+            system_prompt: system_prompt(),
+            tools: available_tools_with_handler,
+        };
+
+        agent_perform(&config, Action::StartNewThread);
+
+        let id = responses.lock().unwrap().last().unwrap().id();
+
+        agent_perform(
+            &config,
+            Action::SendMessage {
+                id,
+                message: "Hello!".into(),
+            },
+        );
+        assert_eq!(responses.lock().unwrap().len(), 3);
+    }
+
+    #[test]
     fn send_message() {
         let llm = MockLLM {
             callback: |message| format!("Mocked response: {}", message),
+            tools_callback: |_| {},
         };
         let conversation_store =
             std::cell::RefCell::new(Box::new(InMemoryConversationStore::new()));
@@ -65,6 +131,7 @@ mod test {
             conversation_store,
             callback,
             system_prompt: system_prompt(),
+            tools: vec![],
         };
 
         agent_perform(&config, Action::StartNewThread);
@@ -108,6 +175,7 @@ mod test {
     fn create_thread() {
         let llm = MockLLM {
             callback: |message| format!("Mocked response: {}", message),
+            tools_callback: |_| {},
         };
         let conversation_store =
             std::cell::RefCell::new(Box::new(InMemoryConversationStore::new()));
@@ -123,6 +191,7 @@ mod test {
             conversation_store,
             callback,
             system_prompt: system_prompt(),
+            tools: vec![],
         };
 
         agent_perform(&config, Action::StartNewThread);
@@ -141,34 +210,6 @@ mod test {
                 role: MessageRole::System,
                 content: system_prompt(),
             }],
-        );
-    }
-
-    #[test]
-    fn serialize_message_author() {
-        assert_eq!(
-            serde_json::to_string(&MessageRole::System).unwrap(),
-            "\"system\""
-        );
-        assert_eq!(
-            serde_json::to_string(&MessageRole::Assistant).unwrap(),
-            "\"assistant\""
-        );
-        assert_eq!(
-            serde_json::to_string(&MessageRole::User).unwrap(),
-            "\"user\""
-        );
-    }
-
-    #[test]
-    fn serialize_message() {
-        assert_eq!(
-            serde_json::to_string(&Message {
-                role: MessageRole::Assistant,
-                content: "Hello!".into()
-            })
-            .unwrap(),
-            r#"{"role":"assistant","content":"Hello!"}"#
         );
     }
 }

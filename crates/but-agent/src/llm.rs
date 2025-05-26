@@ -1,91 +1,41 @@
-use crate::types::Message;
-use serde::{Deserialize, Serialize};
+use crate::types::{Message, Tool, ToolCall};
 
 pub enum LLMParams {
-    Message { messages: Vec<Message> },
+    Message {
+        messages: Vec<Message>,
+        tools: Vec<Tool>,
+    },
 }
 
 pub enum LLMResponse {
-    Message { message: String },
+    Message {
+        message: String,
+    },
+    ToolCalls {
+        message: String,
+        tool_calls: Vec<ToolCall>,
+    },
 }
 
 pub trait LLM {
     fn perform(&self, params: LLMParams) -> LLMResponse;
 }
 
-#[derive(Serialize)]
-struct OpenRouterProvider {
-    only: Option<Vec<String>>,
-}
-
-#[derive(Serialize)]
-struct OpenRouterAPIBody {
-    model: String,
-    messages: Vec<Message>,
-    provider: Option<OpenRouterProvider>,
-}
-
-#[derive(Deserialize)]
-struct OpenRouterChoice {
-    message: Message,
-}
-
-#[derive(Deserialize)]
-struct OpenRouterAPIResponse {
-    choices: Vec<OpenRouterChoice>,
-}
-
-pub struct OpenRouter {
-    model: String,
-    provider: String,
-    token: gitbutler_secret::Sensitive<String>,
-}
-
-impl LLM for OpenRouter {
-    fn perform(&self, params: LLMParams) -> LLMResponse {
-        match params {
-            LLMParams::Message { messages } => {
-                let client = reqwest::blocking::Client::new();
-                let result = client
-                    .post("https://openrouter.ai/api/v1/chat/completions")
-                    .bearer_auth(&self.token.0)
-                    .header("Content-Type", "application/json")
-                    .body(
-                        serde_json::to_string(&OpenRouterAPIBody {
-                            model: self.model.clone(),
-                            messages,
-                            provider: Some(OpenRouterProvider {
-                                only: Some(vec![self.provider.clone()]),
-                            }),
-                        })
-                        .unwrap(),
-                    )
-                    .send()
-                    .unwrap();
-
-                let reponse: OpenRouterAPIResponse = result.json().unwrap();
-
-                LLMResponse::Message {
-                    message: reponse.choices.first().unwrap().message.content.clone(),
-                }
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
 
-    pub struct MockLLM<CB: Fn(String) -> String> {
+    pub struct MockLLM<CB: Fn(String) -> String, TC: Fn(Vec<Tool>)> {
         pub callback: CB,
+        pub tools_callback: TC,
     }
 
-    impl<CB: Fn(String) -> String> LLM for MockLLM<CB> {
+    impl<CB: Fn(String) -> String, TC: Fn(Vec<Tool>)> LLM for MockLLM<CB, TC> {
         fn perform(&self, params: LLMParams) -> LLMResponse {
             match params {
-                LLMParams::Message { messages } => {
+                LLMParams::Message { messages, tools } => {
                     let last = messages.last().unwrap();
+                    (self.tools_callback)(tools);
                     LLMResponse::Message {
                         message: (self.callback)(last.content.clone()),
                     }
