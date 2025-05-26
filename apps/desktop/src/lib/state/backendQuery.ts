@@ -54,7 +54,7 @@ export async function tauriBaseQuery(
 		if (posthog && args.actionName) {
 			posthog.capture(`${args.actionName} Successful`, {
 				...settingsSnapshot,
-				latencyMs: responseTimeMs
+				responseTimeMs
 			});
 		}
 		return result;
