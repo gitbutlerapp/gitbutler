@@ -10,16 +10,19 @@ pub struct CommandContext {
     project: Project,
     /// A snapshot of the app settings obtained at the beginnig of each command.
     app_settings: AppSettings,
+    db_handle: but_db::DbHandle,
 }
 
 impl CommandContext {
     /// Open the repository identified by `project` and perform some checks.
     pub fn open(project: &Project, app_settings: AppSettings) -> Result<Self> {
         let repo = git2::Repository::open(&project.path)?;
+        let db_handle = but_db::DbHandle::new(&project.gb_dir())?;
         Ok(Self {
             git_repo: repo,
             project: project.clone(),
             app_settings,
+            db_handle,
         })
     }
 
@@ -30,6 +33,10 @@ impl CommandContext {
     /// Return the [`project`](Self::project) repository.
     pub fn repo(&self) -> &git2::Repository {
         &self.git_repo
+    }
+
+    pub fn db(&mut self) -> &mut but_db::DbHandle {
+        &mut self.db_handle
     }
 
     /// Return a newly opened `gitoxide` repository, with all configuration available

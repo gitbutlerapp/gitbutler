@@ -2667,6 +2667,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
+ "but-db",
  "but-settings",
  "git2",
  "gitbutler-project",
