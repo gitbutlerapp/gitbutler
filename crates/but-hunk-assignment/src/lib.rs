@@ -40,6 +40,50 @@ pub struct HunkAssignment {
     pub hunk_locks: Vec<HunkLock>,
 }
 
+impl TryFrom<but_db::models::HunkAssignment> for HunkAssignment {
+    type Error = anyhow::Error;
+    fn try_from(value: but_db::models::HunkAssignment) -> Result<Self, Self::Error> {
+        let header = value
+            .hunk_header
+            .as_ref()
+            .and_then(|h| serde_json::from_str(h).ok());
+        let hunk_locks: Vec<HunkLock> = serde_json::from_str(&value.hunk_locks)
+            .map_err(|e| anyhow::anyhow!("Failed to deserialize hunk_locks: {}", e))?;
+        let stack_id = value
+            .stack_id
+            .as_ref()
+            .and_then(|id| uuid::Uuid::parse_str(id).ok())
+            .map(StackId::from);
+        Ok(HunkAssignment {
+            hunk_header: header,
+            path: value.path,
+            path_bytes: value.path_bytes.into(),
+            stack_id,
+            hunk_locks,
+        })
+    }
+}
+
+impl TryFrom<HunkAssignment> for but_db::models::HunkAssignment {
+    type Error = anyhow::Error;
+    fn try_from(value: HunkAssignment) -> Result<Self, Self::Error> {
+        let header = value
+            .hunk_header
+            .map(|h| {
+                serde_json::to_string(&h)
+                    .map_err(|e| anyhow::anyhow!("Failed to serialize hunk_header: {}", e))
+            })
+            .transpose()?;
+        Ok(but_db::models::HunkAssignment {
+            hunk_header: header,
+            path: value.path,
+            path_bytes: value.path_bytes.into(),
+            stack_id: value.stack_id.map(|id| id.to_string()),
+            hunk_locks: serde_json::to_string(&value.hunk_locks)?,
+        })
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 /// Indicates that the assignment request was rejected due to locking - the hunk depends on a commit in the stack it is currently in.

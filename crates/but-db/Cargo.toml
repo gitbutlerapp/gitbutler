@@ -1,0 +1,25 @@
+[package]
+name = "but-db"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[lib]
+doctest = false
+
+[dependencies]
+diesel = { version = "2.2.10", features = [
+    "sqlite",
+    "returning_clauses_for_sqlite_3_35",
+] }
+libsqlite3-sys = { version = "0.29", features = ["bundled"] }
+serde = { workspace = true, features = ["std"] }
+gitbutler-serde.workspace = true
+serde_json = "1.0.138"
+anyhow = "1.0.98"
+gix = { workspace = true, features = [] }
+uuid.workspace = true
+diesel_migrations = { version = "2.0.0", features = ["sqlite"] }
+
+[dev-dependencies]
