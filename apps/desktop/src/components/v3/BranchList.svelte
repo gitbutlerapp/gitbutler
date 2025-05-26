@@ -192,7 +192,7 @@
 												!!headerMenuContext.position.element}
 										/>
 									{/snippet}
-									{#snippet commitList()}
+									{#snippet branchContent()}
 										<BranchCommitList
 											{lastBranch}
 											{active}
