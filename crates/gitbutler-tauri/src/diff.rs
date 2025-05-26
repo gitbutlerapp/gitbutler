@@ -158,13 +158,21 @@ fn commit_and_base_from_stack(
 ///
 /// All ignored status changes are also provided so they can be displayed separately.
 #[tauri::command(async)]
-#[instrument(skip(projects), err(Debug))]
+#[instrument(skip(projects, settings), err(Debug))]
 pub fn changes_in_worktree(
     projects: tauri::State<'_, gitbutler_project::Controller>,
+    settings: tauri::State<'_, but_settings::AppSettingsWithDiskSync>,
     project_id: ProjectId,
 ) -> anyhow::Result<WorktreeChanges, Error> {
     let project = projects.get(project_id)?;
-    Ok(but_core::diff::ui::worktree_changes_by_worktree_dir(project.path)?.into())
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(project.path)?;
+    let assignments =
+        but_hunk_assignment::assignments(&ctx).map_err(|err| serde_error::Error::new(&*err));
+    Ok(WorktreeChanges {
+        worktree_changes: changes,
+        assignments,
+    })
 }
 
 #[tauri::command(async)]

@@ -21,6 +21,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_stack::VirtualBranchesHandle;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -130,6 +131,7 @@ impl HunkAssignment {
     }
 }
 
+#[instrument(skip(ctx), err(Debug))]
 /// Returns the current hunk assignments for the workspace.
 pub fn assignments(ctx: &CommandContext) -> Result<Vec<HunkAssignment>> {
     // TODO: Use a dirty bit set in the file watcher to indicate when reconcilation is needed.
