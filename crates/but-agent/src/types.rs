@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "camelCase")]
 pub enum MessageRole {
     System,
     User,
@@ -9,6 +9,30 @@ pub enum MessageRole {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum ToolCallType {
+    Function,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolCallFunction {
+    name: String,
+    // A stringified JSON object
+    arguments: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolCall {
+    id: String,
+    #[serde(rename = "type")]
+    tool_call_type: ToolCallType,
+    function: ToolCallFunction,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct Message {
     pub role: MessageRole,
     pub content: String,
@@ -98,7 +122,9 @@ pub struct ToolFunctionParameter {
 pub struct ToolFunctionParameters {
     #[serde(rename = "type")]
     pub parameters_type: ToolFunctionParametersType,
-    pub properties: std::collections::HashMap<String, ToolFunctionParameter>,
+    // A BTreeMap is used to ensure some form of a stable order of properties,
+    // which may or may not be helpful.
+    pub properties: std::collections::BTreeMap<String, ToolFunctionParameter>,
     pub additional_properties: bool,
     pub required: Vec<String>,
 }
@@ -120,6 +146,11 @@ pub struct Tool {
     pub function: ToolFunction,
 }
 
+pub struct ToolWithHandler {
+    pub tool: Tool,
+    pub handler: Box<dyn Fn(String) -> String>,
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -127,7 +158,7 @@ mod test {
     // Example structure taken from the OpenAI API reference
     #[test]
     fn serialize_tool() {
-        let mut properties = std::collections::HashMap::new();
+        let mut properties = std::collections::BTreeMap::new();
 
         properties.insert(
             "location".to_string(),
@@ -192,6 +223,34 @@ mod test {
     "strict": true
   }
 }"#
+        );
+    }
+
+    #[test]
+    fn serialize_message_author() {
+        assert_eq!(
+            serde_json::to_string(&MessageRole::System).unwrap(),
+            "\"system\""
+        );
+        assert_eq!(
+            serde_json::to_string(&MessageRole::Assistant).unwrap(),
+            "\"assistant\""
+        );
+        assert_eq!(
+            serde_json::to_string(&MessageRole::User).unwrap(),
+            "\"user\""
+        );
+    }
+
+    #[test]
+    fn serialize_message() {
+        assert_eq!(
+            serde_json::to_string(&Message {
+                role: MessageRole::Assistant,
+                content: "Hello!".into(),
+            })
+            .unwrap(),
+            r#"{"role":"assistant","content":"Hello!"}"#
         );
     }
 }

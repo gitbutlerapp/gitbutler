@@ -1,12 +1,13 @@
 use crate::llm::{LLM, LLMParams, LLMResponse};
 use crate::store::ConversationStore;
-use crate::types::{Action, ConversationId, Message, MessageRole, Response};
+use crate::types::{Action, ConversationId, Message, MessageRole, Response, ToolWithHandler};
 
 pub struct AgentConfig<CB: Fn(Response) + Send + 'static> {
     pub llm: Box<dyn LLM>,
     pub conversation_store: std::cell::RefCell<Box<dyn ConversationStore>>,
     pub callback: CB,
     pub system_prompt: String,
+    pub tools: Vec<ToolWithHandler>,
 }
 
 pub fn agent_perform<CB: Fn(Response) + Send + 'static>(
@@ -15,6 +16,7 @@ pub fn agent_perform<CB: Fn(Response) + Send + 'static>(
         conversation_store,
         callback,
         system_prompt,
+        tools,
     }: &AgentConfig<CB>,
     action: Action,
 ) {
@@ -46,7 +48,10 @@ pub fn agent_perform<CB: Fn(Response) + Send + 'static>(
                     messages
                 };
 
-                let response = llm.perform(LLMParams::Message { messages });
+                let response = llm.perform(LLMParams::Message {
+                    messages,
+                    tools: tools.iter().map(|t| t.tool.clone()).collect(),
+                });
 
                 match response {
                     LLMResponse::Message { message } => {
@@ -59,6 +64,7 @@ pub fn agent_perform<CB: Fn(Response) + Send + 'static>(
                         callback(Response::ReplyReceived { id: *id });
                         break;
                     }
+                    _ => {}
                 }
             }
         }
