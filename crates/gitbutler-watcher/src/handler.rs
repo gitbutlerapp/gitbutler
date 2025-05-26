@@ -60,13 +60,13 @@ impl Handler {
     ) -> Result<()> {
         match event {
             InternalEvent::ProjectFilesChange(project_id, paths) => {
-                let ctx = self.open_command_context(project_id, app_settings.get()?.clone())?;
-                self.project_files_change(paths, &ctx)
+                let ctx = &mut self.open_command_context(project_id, app_settings.get()?.clone())?;
+                self.project_files_change(paths, ctx)
             }
 
             InternalEvent::GitFilesChange(project_id, paths) => {
-                let ctx = self.open_command_context(project_id, app_settings.get()?.clone())?;
-                self.git_files_change(paths, &ctx)
+                let ctx = &mut self.open_command_context(project_id, app_settings.get()?.clone())?;
+                self.git_files_change(paths, ctx)
                     .context("failed to handle git file change event")
             }
             InternalEvent::GitButlerOplogChange(project_id) => {
@@ -144,7 +144,7 @@ impl Handler {
     }
 
     #[instrument(skip(self, paths, ctx), fields(paths = paths.len()))]
-    fn project_files_change(&self, paths: Vec<PathBuf>, ctx: &CommandContext) -> Result<()> {
+    fn project_files_change(&self, paths: Vec<PathBuf>, ctx: &mut CommandContext) -> Result<()> {
         let worktree_changes = self.emit_uncommited_files(ctx).ok();
 
         if ctx.app_settings().feature_flags.v3 {
@@ -158,7 +158,7 @@ impl Handler {
         Ok(())
     }
 
-    fn emit_worktree_changes(&self, ctx: &CommandContext) -> Result<()> {
+    fn emit_worktree_changes(&self, ctx: &mut CommandContext) -> Result<()> {
         let detailed_changes = but_core::diff::worktree_changes(&ctx.gix_repo()?)?;
         let assignments =
             but_hunk_assignment::assignments(ctx).map_err(|err| serde_error::Error::new(&*err));
@@ -202,7 +202,7 @@ impl Handler {
         Ok(())
     }
 
-    pub fn git_files_change(&self, paths: Vec<PathBuf>, ctx: &CommandContext) -> Result<()> {
+    pub fn git_files_change(&self, paths: Vec<PathBuf>, ctx: &mut CommandContext) -> Result<()> {
         for path in paths {
             let Some(file_name) = path.to_str() else {
                 continue;

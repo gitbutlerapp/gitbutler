@@ -177,13 +177,12 @@ impl HunkAssignment {
 
 #[instrument(skip(ctx), err(Debug))]
 /// Returns the current hunk assignments for the workspace.
-pub fn assignments(ctx: &CommandContext) -> Result<Vec<HunkAssignment>> {
+pub fn assignments(ctx: &mut CommandContext) -> Result<Vec<HunkAssignment>> {
     // TODO: Use a dirty bit set in the file watcher to indicate when reconcilation is needed.
     if true {
         reconcile(ctx)
     } else {
-        let state = state::AssignmentsHandle::new(&ctx.project().gb_dir());
-        let assignments = state.assignments()?;
+        let assignments = state::assignments(ctx)?;
         Ok(assignments)
     }
 }
@@ -192,11 +191,10 @@ pub fn assignments(ctx: &CommandContext) -> Result<Vec<HunkAssignment>> {
 /// If the stack is not in the list of applied stacks, it errors out.
 /// Returns the updated assignments list.
 pub fn assign(
-    ctx: &CommandContext,
+    ctx: &mut CommandContext,
     requests: Vec<HunkAssignmentRequest>,
 ) -> Result<Vec<AssignmentRejection>> {
-    let state = state::AssignmentsHandle::new(&ctx.project().gb_dir());
-    let previous_assignments = state.assignments()?;
+    let previous_assignments = state::assignments(ctx)?;
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     let applied_stacks = vb_state
         .list_stacks_in_workspace()?
@@ -216,7 +214,7 @@ pub fn assign(
         MultiDepsResolution::SetNone, // If there is double locking, move the hunk to the Uncommitted section
         true,
     )?;
-    state.set_assignments(assignments_considering_deps.clone())?;
+    state::set_assignments(ctx, assignments_considering_deps.clone())?;
 
     // Request where the stack_id is different from the outcome are considered rejections - this is due to locking
     // Collect all the rejected requests together with the locks that caused the rejection
@@ -254,9 +252,8 @@ pub fn assign(
 /// If a hunk has a dependency but it has not been previously assigned to any stack, it is left unassigned (stack_id is None). This is so that the hunk assignment workflow can remain optional.
 ///
 /// This needs to be ran only after the worktree has changed.
-fn reconcile(ctx: &CommandContext) -> Result<Vec<HunkAssignment>> {
-    let state = state::AssignmentsHandle::new(&ctx.project().gb_dir());
-    let previous_assignments = state.assignments()?;
+fn reconcile(ctx: &mut CommandContext) -> Result<Vec<HunkAssignment>> {
+    let previous_assignments = state::assignments(ctx)?;
     let repo = &ctx.gix_repo()?;
     let context_lines = ctx.app_settings().context_lines;
     let worktree_changes = but_core::diff::worktree_changes(repo)?.changes;
@@ -289,7 +286,7 @@ fn reconcile(ctx: &CommandContext) -> Result<Vec<HunkAssignment>> {
         )?;
         new_assignments.extend(assignments_considering_deps);
     }
-    state.set_assignments(new_assignments.clone())?;
+    state::set_assignments(ctx, new_assignments.clone())?;
     Ok(new_assignments)
 }
 
