@@ -4,11 +4,11 @@
 	import MessageEditorInput from '$components/v3/editor/MessageEditorInput.svelte';
 	import CommitSuggestions from '$components/v3/editor/commitSuggestions.svelte';
 	import DiffInputContext, { type DiffInputContextArgs } from '$lib/ai/diffInputContext.svelte';
+	import AIMacros from '$lib/ai/macros';
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
-	import { showError } from '$lib/notifications/toasts';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -70,17 +70,15 @@
 	const diffInputContext = $derived(
 		new DiffInputContext(worktreeService, diffService, stackService, diffInputArgs)
 	);
+	const aiMacros = $derived(new AIMacros(projectId, aiService, promptService, diffInputContext));
 
 	// AI things
-	const aiGenEnabled = projectAiGenEnabled(projectId);
-	let aiConfigurationValid = $state(false);
-	const canUseAI = $derived($aiGenEnabled && aiConfigurationValid);
+	const aiGenEnabled = $derived(projectAiGenEnabled(projectId));
 	let aiIsLoading = $state(false);
+	const canUseAI = $derived(aiMacros.canUseAI);
 
 	$effect(() => {
-		aiService.validateConfiguration().then((valid) => {
-			aiConfigurationValid = valid;
-		});
+		aiMacros.setGenAIEnabled($aiGenEnabled);
 	});
 
 	let generatedText = $state<string>('');
@@ -106,22 +104,9 @@
 		aiIsLoading = true;
 		await tick();
 		try {
-			const prompt = promptService.selectedCommitPrompt(projectId);
-			const diffInput = await diffInputContext.diffInput();
-
-			if (!diffInput) {
-				showError('Failed to generate commit message', 'No changes found');
-				aiIsLoading = false;
-				return;
-			}
-
 			let firstToken = true;
 
-			const output = await aiService.summarizeCommit({
-				diffInput,
-				useEmojiStyle: false,
-				useBriefStyle: false,
-				commitTemplate: prompt,
+			const output = await aiMacros.generateCommitMessage({
 				branchName: stackSelection?.current?.branchName,
 				onToken: (t) => {
 					if (firstToken) {

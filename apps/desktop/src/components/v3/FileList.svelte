@@ -4,8 +4,9 @@
 	import FileListItemWrapper from '$components/v3/FileListItemWrapper.svelte';
 	import FileTreeNode from '$components/v3/FileTreeNode.svelte';
 	import DiffInputContext from '$lib/ai/diffInputContext.svelte';
+	import AIMacros from '$lib/ai/macros';
 	import { PromptService } from '$lib/ai/promptService';
-	import { AIService, type DiffInput } from '$lib/ai/service';
+	import { AIService } from '$lib/ai/service';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
 	import { abbreviateFolders, changesToFileTree } from '$lib/files/filetreeV3';
@@ -15,7 +16,7 @@
 		previousPathBytesFromTreeChange
 	} from '$lib/hunks/change';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
-	import { showError, showToast } from '$lib/notifications/toasts';
+	import { showToast } from '$lib/notifications/toasts';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { selectFilesInList, updateSelection } from '$lib/selection/idSelectionUtils';
 	import { type SelectionId } from '$lib/selection/key';
@@ -79,7 +80,6 @@
 
 	const fileChunks: TreeChange[][] = $derived(chunk(sortLikeFileTree(changes), 100));
 	const visibleFiles: TreeChange[] = $derived(fileChunks.slice(0, currentDisplayIndex + 1).flat());
-	const stackMacros = $derived(new StackMacros(projectId, stackService, uiState));
 
 	const selectedFiles = $derived(idSelection.values(selectionId));
 
@@ -90,93 +90,16 @@
 		changes
 	});
 
+	const stackMacros = $derived(new StackMacros(projectId, stackService, uiState));
 	const diffInputContext = $derived(
 		new DiffInputContext(worktreeService, diffService, stackService, diffInputArgs)
 	);
-
+	const aiMacros = $derived(new AIMacros(projectId, aiService, promptService, diffInputContext));
 	const aiGenEnabled = $derived(projectAiGenEnabled(projectId));
-	let aiConfigurationValid = $state(false);
-
-	async function setAIConfigurationValid() {
-		aiConfigurationValid = await aiService.validateConfiguration();
-	}
 
 	$effect(() => {
-		setAIConfigurationValid();
+		aiMacros.setGenAIEnabled($aiGenEnabled);
 	});
-
-	const canUseAi = $derived($aiGenEnabled && aiConfigurationValid);
-
-	/**
-	 * Generate a commit message based on the selected changes.
-	 */
-	async function generateCommitMessage(
-		branchName: string,
-		diffInput: DiffInput[]
-	): Promise<string | undefined> {
-		if (!canUseAi) return;
-
-		const prompt = promptService.selectedCommitPrompt(projectId);
-		const output = await aiService.summarizeCommit({
-			diffInput,
-			useEmojiStyle: false,
-			useBriefStyle: false,
-			commitTemplate: prompt,
-			branchName
-		});
-
-		return output;
-	}
-
-	/**
-	 * Generate a branch name based on the selected changes.
-	 */
-	async function generateBranchName(diffInput: DiffInput[]): Promise<string | undefined> {
-		if (!canUseAi) return;
-
-		const prompt = promptService.selectedBranchPrompt(projectId);
-		const newBranchName = await aiService.summarizeBranch({
-			type: 'hunks',
-			hunks: diffInput,
-			branchTemplate: prompt
-		});
-
-		return newBranchName;
-	}
-
-	async function getBranchNameAndCommitMessage(): Promise<{
-		branchName: string | undefined;
-		commitMessage: string | undefined;
-	}> {
-		if (!canUseAi) return { branchName: undefined, commitMessage: undefined };
-
-		const diffInput = await diffInputContext.diffInput();
-		if (!diffInput) {
-			showError('Failed to generate branch name', 'No changes found');
-			return { branchName: undefined, commitMessage: undefined };
-		}
-		const branchName = await generateBranchName(diffInput);
-
-		if (!branchName) {
-			showToast({
-				style: 'error',
-				message: 'Failed to generate branch name.'
-			});
-			return { branchName, commitMessage: undefined };
-		}
-
-		const commitMessage = await generateCommitMessage(branchName, diffInput);
-
-		if (!commitMessage) {
-			showToast({
-				style: 'error',
-				message: 'Failed to generate commit message.'
-			});
-			return { branchName, commitMessage };
-		}
-
-		return { branchName, commitMessage };
-	}
 
 	/**
 	 * Create a branch and commit from the selected changes.
@@ -189,7 +112,7 @@
 	 */
 	async function branchChanges() {
 		const selectedFiles = idSelection.values(selectionId);
-		if (selectedFiles.length === 0) return;
+		if (selectionId.type !== 'worktree' || selectedFiles.length === 0) return;
 
 		showToast({
 			style: 'neutral',
@@ -212,7 +135,7 @@
 			});
 		}
 
-		const { branchName, commitMessage } = await getBranchNameAndCommitMessage();
+		const { branchName, commitMessage } = await aiMacros.getBranchNameAndCommitMessage();
 
 		await stackMacros.branchChanges({
 			worktreeChanges: selectedChanges,
