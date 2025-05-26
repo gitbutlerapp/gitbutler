@@ -27,6 +27,10 @@
 
 	let selectedSegmentIndex = writable(defaultIndex);
 
+	$effect(() => {
+		$selectedSegmentIndex = defaultIndex;
+	});
+
 	const context: SegmentContext = {
 		selectedSegmentIndex,
 		setIndex: () => {

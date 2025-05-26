@@ -15,7 +15,7 @@
 	let saved = persisted<Mode | undefined>(undefined, persist);
 
 	$effect(() => {
-		if ($saved) {
+		if ($saved !== undefined && $saved !== mode) {
 			mode = $saved;
 		}
 	});

@@ -26,16 +26,12 @@
 
 	let elRef = $state<HTMLButtonElement>();
 	let isFocused = $state(false);
-	let isSelected = $state(false);
+	const isSelected = $derived(index === $selectedSegmentIndex);
 
 	$effect(() => {
 		if (elRef && isFocused) {
 			elRef.focus();
 		}
-	});
-
-	$effect(() => {
-		isSelected = $selectedSegmentIndex === index;
 	});
 
 	onMount(() => {
