@@ -1,15 +1,16 @@
 use anyhow::Result;
 use rmcp::{
     ServerHandler, ServiceExt,
-    model::{ServerCapabilities, ServerInfo},
+    model::{Implementation, ProtocolVersion, ServerCapabilities, ServerInfo},
     schemars, tool,
 };
-use tokio::io::{stdin, stdout};
 
 pub(crate) async fn start() -> Result<()> {
-    let transport = (stdin(), stdout());
-    let service = PublicMcp::new();
-    service.serve(transport).await?;
+    let transport = (tokio::io::stdin(), tokio::io::stdout());
+
+    let service = PublicMcp::new().serve(transport).await?;
+
+    service.waiting().await?;
     Ok(())
 }
 
@@ -40,7 +41,11 @@ impl ServerHandler for PublicMcp {
         ServerInfo {
             instructions: Some("GitButler MCP server".into()),
             capabilities: ServerCapabilities::builder().enable_tools().build(),
-            ..Default::default()
+            server_info: Implementation {
+                name: "GitButler MCP Server".into(),
+                version: "1.0.0".into(),
+            },
+            protocol_version: ProtocolVersion::LATEST,
         }
     }
 }
