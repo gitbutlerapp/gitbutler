@@ -6,6 +6,7 @@ pub enum MessageRole {
     System,
     User,
     Assistant,
+    Tool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -17,18 +18,18 @@ pub enum ToolCallType {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolCallFunction {
-    name: String,
+    pub name: String,
     // A stringified JSON object
-    arguments: String,
+    pub arguments: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolCall {
-    id: String,
+    pub id: String,
     #[serde(rename = "type")]
-    tool_call_type: ToolCallType,
-    function: ToolCallFunction,
+    pub tool_call_type: ToolCallType,
+    pub function: ToolCallFunction,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -36,6 +37,8 @@ pub struct ToolCall {
 pub struct Message {
     pub role: MessageRole,
     pub content: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_call_id: Option<String>,
 }
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
@@ -65,6 +68,7 @@ pub enum Action {
     },
 }
 
+#[derive(Debug, PartialEq)]
 pub enum Response {
     ThreadCreated {
         id: ConversationId,
@@ -78,6 +82,14 @@ pub enum Response {
     ReplyReceived {
         id: ConversationId,
     },
+    /// Sent whenver a tool call reponse from an LLM has been recieved
+    ToolCallReplyRecieved {
+        id: ConversationId,
+    },
+    /// Sent whenver a tool call response has been created
+    ToolCallResponseCreated {
+        id: ConversationId,
+    },
 }
 
 impl Response {
@@ -86,6 +98,8 @@ impl Response {
             Response::ThreadCreated { id } => *id,
             Response::MessageRecieved { id } => *id,
             Response::ReplyReceived { id } => *id,
+            Response::ToolCallReplyRecieved { id } => *id,
+            Response::ToolCallResponseCreated { id } => *id,
         }
     }
 }
@@ -146,9 +160,24 @@ pub struct Tool {
     pub function: ToolFunction,
 }
 
+pub enum ToolHandler {
+    /// Placeholder for MCP stuff
+    RawHandler(Box<dyn Fn(String) -> String>),
+    ParsedHandler(Box<dyn Fn(std::collections::HashMap<String, serde_json::Value>) -> String>),
+}
+
+impl ToolHandler {
+    pub(crate) fn call(&self, args: String) -> String {
+        match self {
+            ToolHandler::RawHandler(handler) => handler(args),
+            ToolHandler::ParsedHandler(handler) => handler(serde_json::from_str(&args).unwrap()),
+        }
+    }
+}
+
 pub struct ToolWithHandler {
     pub tool: Tool,
-    pub handler: Box<dyn Fn(String) -> String>,
+    pub handler: ToolHandler,
 }
 
 #[cfg(test)]
@@ -248,6 +277,7 @@ mod test {
             serde_json::to_string(&Message {
                 role: MessageRole::Assistant,
                 content: "Hello!".into(),
+                tool_call_id: None,
             })
             .unwrap(),
             r#"{"role":"assistant","content":"Hello!"}"#

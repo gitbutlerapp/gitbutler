@@ -20,7 +20,7 @@ pub fn agent_perform<CB: Fn(Response) + Send + 'static>(
     }: &AgentConfig<CB>,
     action: Action,
 ) {
-    #[allow(clippy::never_loop)]
+    let mut responding_to_tools = false;
     loop {
         match &action {
             Action::StartNewThread => {
@@ -30,6 +30,7 @@ pub fn agent_perform<CB: Fn(Response) + Send + 'static>(
                     &[Message {
                         role: MessageRole::System,
                         content: system_prompt.clone(),
+                        tool_call_id: None,
                     }],
                 );
                 callback(Response::ThreadCreated { id });
@@ -38,17 +39,20 @@ pub fn agent_perform<CB: Fn(Response) + Send + 'static>(
             Action::SendMessage { id, message } => {
                 // Persist and acknowledge the message
                 let messages = {
-                    let mut messages = conversation_store.borrow().read(*id).unwrap();
-                    messages.push(Message {
-                        role: MessageRole::User,
-                        content: message.to_string(),
-                    });
-                    conversation_store.borrow_mut().write(*id, &messages);
-                    callback(Response::MessageRecieved { id: *id });
+                    let mut messages: Vec<Message> = conversation_store.borrow().read(*id).unwrap();
+                    if !responding_to_tools {
+                        messages.push(Message {
+                            role: MessageRole::User,
+                            content: message.to_string(),
+                            tool_call_id: None,
+                        });
+                        conversation_store.borrow_mut().write(*id, &messages);
+                        callback(Response::MessageRecieved { id: *id });
+                    }
                     messages
                 };
 
-                let response = llm.perform(LLMParams::Message {
+                let response = llm.perform(LLMParams {
                     messages,
                     tools: tools.iter().map(|t| t.tool.clone()).collect(),
                 });
@@ -59,12 +63,48 @@ pub fn agent_perform<CB: Fn(Response) + Send + 'static>(
                         messages.push(Message {
                             role: MessageRole::Assistant,
                             content: message,
+                            tool_call_id: None,
                         });
                         conversation_store.borrow_mut().write(*id, &messages);
                         callback(Response::ReplyReceived { id: *id });
                         break;
                     }
-                    _ => {}
+                    LLMResponse::ToolCalls {
+                        message,
+                        tool_calls,
+                    } => {
+                        responding_to_tools = true;
+                        let mut messages = conversation_store.borrow().read(*id).unwrap();
+                        messages.push(Message {
+                            role: MessageRole::Assistant,
+                            content: message,
+                            tool_call_id: None,
+                        });
+                        conversation_store.borrow_mut().write(*id, &messages);
+                        callback(Response::ToolCallReplyRecieved { id: *id });
+
+                        for tool_call in tool_calls {
+                            let tool = tools
+                                .iter()
+                                .find(|t| t.tool.function.name == tool_call.function.name);
+                            if let Some(tool) = tool {
+                                let result = tool.handler.call(tool_call.function.arguments);
+                                messages.push(Message {
+                                    role: MessageRole::Tool,
+                                    content: result,
+                                    tool_call_id: Some(tool_call.id),
+                                });
+                            } else {
+                                messages.push(Message {
+                                    role: MessageRole::Assistant,
+                                    content: "Tool not found".to_string(),
+                                    tool_call_id: Some(tool_call.id),
+                                });
+                            }
+                            conversation_store.borrow_mut().write(*id, &messages);
+                            callback(Response::ToolCallResponseCreated { id: *id });
+                        }
+                    }
                 }
             }
         }

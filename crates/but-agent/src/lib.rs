@@ -39,12 +39,131 @@ fn set_token(token: Option<&str>) {
 #[cfg(test)]
 mod test {
     use crate::agent::*;
-    use crate::llm::test::*;
+    use crate::llm::{LLMResponse, test::*};
     use crate::store::test::*;
     use crate::types::*;
 
     fn system_prompt() -> String {
         "You are a great agent :flower:".into()
+    }
+
+    #[test]
+    fn tool_call_and_response() {
+        let available_tools = [Tool {
+            tool_type: ToolType::Function,
+            function: ToolFunction {
+                name: "foo".into(),
+                description: "it does foo".into(),
+                parameters: ToolFunctionParameters {
+                    parameters_type: ToolFunctionParametersType::Object,
+                    properties: std::collections::BTreeMap::new(),
+                    additional_properties: true,
+                    required: vec![],
+                },
+                strict: false,
+            },
+        }];
+
+        let available_tools_with_handler = available_tools
+            .iter()
+            .map(|t| ToolWithHandler {
+                tool: t.clone(),
+                handler: ToolHandler::RawHandler(Box::new(|input| format!("handled: {}", input))),
+            })
+            .collect();
+
+        let llm = MockLLM {
+            callback: move |params| {
+                if params.messages.last().unwrap().content == "call tool" {
+                    LLMResponse::ToolCalls {
+                        message: "tools have been called".into(),
+                        tool_calls: vec![ToolCall {
+                            id: "69".into(),
+                            tool_call_type: ToolCallType::Function,
+                            function: ToolCallFunction {
+                                name: "foo".into(),
+                                arguments: "args".into(),
+                            },
+                        }],
+                    }
+                } else {
+                    LLMResponse::Message {
+                        message: "finished".into(),
+                    }
+                }
+            },
+        };
+
+        let conversation_store =
+            std::cell::RefCell::new(Box::new(InMemoryConversationStore::new()));
+
+        let responses = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let moved_responses = responses.clone();
+        let callback = move |response| {
+            moved_responses.lock().unwrap().push(response);
+        };
+
+        let config = AgentConfig {
+            llm: Box::new(llm),
+            conversation_store,
+            callback,
+            system_prompt: system_prompt(),
+            tools: available_tools_with_handler,
+        };
+
+        agent_perform(&config, Action::StartNewThread);
+
+        let id = responses.lock().unwrap().last().unwrap().id();
+
+        agent_perform(
+            &config,
+            Action::SendMessage {
+                id,
+                message: "call tool".into(),
+            },
+        );
+
+        assert_eq!(
+            config.conversation_store.borrow().read(id).unwrap(),
+            vec![
+                Message {
+                    role: MessageRole::System,
+                    content: system_prompt(),
+                    tool_call_id: None,
+                },
+                Message {
+                    role: MessageRole::User,
+                    content: "call tool".into(),
+                    tool_call_id: None,
+                },
+                Message {
+                    role: MessageRole::Assistant,
+                    content: "tools have been called".into(),
+                    tool_call_id: None,
+                },
+                Message {
+                    role: MessageRole::Tool,
+                    content: "handled: args".into(),
+                    tool_call_id: Some("69".into()),
+                },
+                Message {
+                    role: MessageRole::Assistant,
+                    content: "finished".into(),
+                    tool_call_id: None,
+                },
+            ],
+        );
+
+        assert_eq!(
+            *responses.lock().unwrap(),
+            vec![
+                Response::ThreadCreated { id },
+                Response::MessageRecieved { id },
+                Response::ToolCallReplyRecieved { id },
+                Response::ToolCallResponseCreated { id },
+                Response::ReplyReceived { id },
+            ]
+        );
     }
 
     #[test]
@@ -68,15 +187,15 @@ mod test {
             .iter()
             .map(|t| ToolWithHandler {
                 tool: t.clone(),
-                handler: Box::new(|_| "".into()),
+                handler: ToolHandler::RawHandler(Box::new(|_| "".into())),
             })
             .collect();
 
         let moved_available_tools = available_tools.clone();
         let llm = MockLLM {
-            callback: |_| "".into(),
-            tools_callback: move |tools| {
-                assert_eq!(tools, moved_available_tools);
+            callback: move |params| {
+                assert_eq!(params.tools, moved_available_tools);
+                LLMResponse::Message { message: "".into() }
             },
         };
 
@@ -114,8 +233,12 @@ mod test {
     #[test]
     fn send_message() {
         let llm = MockLLM {
-            callback: |message| format!("Mocked response: {}", message),
-            tools_callback: |_| {},
+            callback: |params| LLMResponse::Message {
+                message: format!(
+                    "Mocked response: {}",
+                    params.messages.last().unwrap().content
+                ),
+            },
         };
         let conversation_store =
             std::cell::RefCell::new(Box::new(InMemoryConversationStore::new()));
@@ -158,14 +281,17 @@ mod test {
                 Message {
                     role: MessageRole::System,
                     content: system_prompt(),
+                    tool_call_id: None,
                 },
                 Message {
                     role: MessageRole::User,
                     content: "Hello!".into(),
+                    tool_call_id: None,
                 },
                 Message {
                     role: MessageRole::Assistant,
                     content: "Mocked response: Hello!".into(),
+                    tool_call_id: None,
                 },
             ],
         );
@@ -174,8 +300,12 @@ mod test {
     #[test]
     fn create_thread() {
         let llm = MockLLM {
-            callback: |message| format!("Mocked response: {}", message),
-            tools_callback: |_| {},
+            callback: |params| LLMResponse::Message {
+                message: format!(
+                    "Mocked response: {}",
+                    params.messages.last().unwrap().content
+                ),
+            },
         };
         let conversation_store =
             std::cell::RefCell::new(Box::new(InMemoryConversationStore::new()));
@@ -209,6 +339,7 @@ mod test {
             vec![Message {
                 role: MessageRole::System,
                 content: system_prompt(),
+                tool_call_id: None,
             }],
         );
     }
