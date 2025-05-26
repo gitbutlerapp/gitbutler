@@ -12,23 +12,28 @@
 		margin-bottom: 0;
 	}
 
+	.markdown h1,
+	.markdown h2,
+	.markdown h3,
+	.markdown h4 {
+		margin-bottom: 0.6em;
+		font-weight: 600;
+		line-height: 1.2;
+	}
+
 	.markdown h1 {
-		margin-bottom: 0.8em;
 		font-size: 2em;
 	}
 
 	.markdown h2 {
-		margin-bottom: 0.8em;
 		font-size: 1.5em;
 	}
 
 	.markdown h3 {
-		margin-bottom: 0.8em;
 		font-size: 1.17em;
 	}
 
 	.markdown h4 {
-		margin-bottom: 0.8em;
 		font-size: 1em;
 	}
 
@@ -59,21 +64,26 @@
 		padding: 0 0 0 2em;
 	}
 
+	.markdown code {
+		padding: 1px 3px;
+		border-radius: var(--radius-s);
+		background-color: var(--clr-scale-ntrl-80);
+		font-family: var(--fontfamily-mono);
+	}
+
 	.markdown pre {
 		margin: 1em 0;
 		padding: 1em;
 		overflow: auto;
-		border: 1px solid var(--clr-scale-ntrl-70);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
-	}
+		background-color: var(--clr-bg-2);
 
-	.markdown code {
-		padding: 1px 3px;
-		border: 1px solid var(--clr-scale-ntrl-70);
-		border-radius: var(--radius-s);
-		background-color: var(--clr-bg-1);
-		font-family: var(--fontfamily-mono);
+		& code {
+			padding: 0;
+			border: none;
+			background-color: transparent;
+			font-size: inherit;
+		}
 	}
 
 	.markdown a {
