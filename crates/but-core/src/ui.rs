@@ -269,6 +269,62 @@ impl From<&(crate::TreeChange, crate::UnifiedDiff)> for ChangeUnifiedDiff {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "subject")]
+pub enum ReducedTreeStatus {
+    Addition,
+    Deletion,
+    Modification,
+    Rename {
+        #[serde(rename = "previousPath")]
+        previous_path: BStringForFrontend,
+    },
+}
+impl From<crate::TreeStatus> for ReducedTreeStatus {
+    fn from(value: crate::TreeStatus) -> Self {
+        match value {
+            crate::TreeStatus::Addition { .. } => ReducedTreeStatus::Addition,
+            crate::TreeStatus::Deletion { .. } => ReducedTreeStatus::Deletion,
+            crate::TreeStatus::Modification { .. } => ReducedTreeStatus::Modification,
+            crate::TreeStatus::Rename { previous_path, .. } => ReducedTreeStatus::Rename {
+                previous_path: previous_path.clone().into(),
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FlatChangeUnifiedDiff {
+    pub path: BStringForFrontend,
+    pub status: ReducedTreeStatus,
+    diff: crate::UnifiedDiff,
+}
+
+impl From<&(crate::TreeChange, crate::UnifiedDiff)> for FlatChangeUnifiedDiff {
+    fn from(unified_diff: &(crate::TreeChange, crate::UnifiedDiff)) -> Self {
+        FlatChangeUnifiedDiff {
+            path: unified_diff.0.path.clone().into(),
+            status: unified_diff.0.status.clone().into(),
+            diff: unified_diff.1.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FlatUnifiedWorktreeChanges {
+    /// Unified diff changes that could be committed.
+    pub changes: Vec<FlatChangeUnifiedDiff>,
+}
+
+impl From<&Vec<(crate::TreeChange, crate::UnifiedDiff)>> for FlatUnifiedWorktreeChanges {
+    fn from(changes: &Vec<(crate::TreeChange, crate::UnifiedDiff)>) -> Self {
+        FlatUnifiedWorktreeChanges {
+            changes: changes.iter().map(FlatChangeUnifiedDiff::from).collect(),
+        }
+    }
+}
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UnifiedWorktreeChanges {

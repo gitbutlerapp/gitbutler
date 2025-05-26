@@ -1,15 +1,21 @@
 use anyhow::Result;
 use rmcp::{
     ServerHandler, ServiceExt,
-    model::{ServerCapabilities, ServerInfo},
+    model::{Implementation, ProtocolVersion, ServerCapabilities, ServerInfo},
     schemars, tool,
 };
-use tokio::io::{stdin, stdout};
+
+pub mod project;
+pub mod status;
+
+pub(crate) const UI_CONTEXT_LINES: u32 = 3;
 
 pub(crate) async fn start() -> Result<()> {
-    let transport = (stdin(), stdout());
-    let service = PublicMcp::new();
-    service.serve(transport).await?;
+    let transport = (tokio::io::stdin(), tokio::io::stdout());
+
+    let service = PublicMcp::new().serve(transport).await?;
+
+    service.waiting().await?;
     Ok(())
 }
 
@@ -22,16 +28,21 @@ impl PublicMcp {
         Self
     }
 
-    #[tool(description = "Greetings from the MCP server")]
-    pub fn hello(&self, #[tool(aggr)] GreetRequest { name }: GreetRequest) -> String {
-        format!("Hello, {}!", name)
+    #[tool(
+        description = "Get the status of a project. This contains information about the branches applied and uncommitted file changes."
+    )]
+    pub fn project_status(&self, #[tool(aggr)] request: ProjectStatusRequest) -> String {
+        crate::mcp::status::project_status(&request.project_dir).unwrap_or(format!(
+            "Failed to get project status for directory: {}",
+            request.project_dir
+        ))
     }
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
-pub struct GreetRequest {
-    #[schemars(description = "Request for a greeting")]
-    pub name: String,
+pub struct ProjectStatusRequest {
+    #[schemars(description = "Absolute path to the project root")]
+    pub project_dir: String,
 }
 
 #[tool(tool_box)]
@@ -40,7 +51,11 @@ impl ServerHandler for PublicMcp {
         ServerInfo {
             instructions: Some("GitButler MCP server".into()),
             capabilities: ServerCapabilities::builder().enable_tools().build(),
-            ..Default::default()
+            server_info: Implementation {
+                name: "GitButler MCP Server".into(),
+                version: "1.0.0".into(),
+            },
+            protocol_version: ProtocolVersion::LATEST,
         }
     }
 }
