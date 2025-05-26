@@ -102,9 +102,11 @@
 		</div>
 
 		{#if error}
+			<!-- <div class="info-message__error-block-wrap scrollbar"> -->
 			<code class="info-message__error-block scrollbar">
 				{error}
 			</code>
+			<!-- </div> -->
 		{/if}
 
 		{#if primaryLabel || secondaryLabel}
@@ -149,7 +151,7 @@
 		display: flex;
 		flex-grow: 1;
 		flex-direction: column;
-		overflow-x: hidden;
+		overflow: hidden;
 		gap: 12px;
 	}
 	.info-message__content {
@@ -172,10 +174,6 @@
 		&:empty {
 			display: none;
 		}
-	}
-
-	.info-message__text :global(pre) {
-		white-space: pre-wrap;
 	}
 
 	/* MODIFIERS */
@@ -227,14 +225,15 @@
 
 	/* ERROR BLOCK */
 	.info-message__error-block {
-		padding: 4px 8px;
-		overflow: auto;
+		padding: 10px 10px 0;
+		overflow-x: auto;
+		overflow-x: scroll;
 		border-radius: var(--radius-s);
 		background-color: var(--clr-scale-err-90);
 		color: var(--clr-scale-err-10);
 		font-size: 12px;
 		white-space: pre;
-		user-select: auto;
+		user-select: text;
 
 		/* selection */
 		&::selection {
