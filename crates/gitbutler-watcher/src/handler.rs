@@ -162,7 +162,7 @@ impl Handler {
         let detailed_changes = but_core::diff::worktree_changes(&repo)?;
         let _ = self.emit_app_event(Change::WorktreeChanges {
             project_id,
-            changes: detailed_changes,
+            changes: detailed_changes.into(),
         });
         Ok(())
     }

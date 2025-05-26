@@ -50,6 +50,6 @@ pub enum Change {
     },
     WorktreeChanges {
         project_id: ProjectId,
-        changes: but_core::WorktreeChanges,
+        changes: but_hunk_assignment::WorktreeChanges,
     },
 }

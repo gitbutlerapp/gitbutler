@@ -3,10 +3,12 @@ use crate::from_json::HexHash;
 use anyhow::Context;
 use but_core::{
     commit::ConflictEntries,
-    ui::{TreeChange, TreeChanges, WorktreeChanges},
+    ui::{TreeChange, TreeChanges},
     Commit,
 };
-use but_hunk_assignment::{AssignmentRejection, HunkAssignment, HunkAssignmentRequest};
+use but_hunk_assignment::{
+    AssignmentRejection, HunkAssignment, HunkAssignmentRequest, WorktreeChanges,
+};
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::{ObjectIdExt, OidExt};
@@ -162,9 +164,7 @@ pub fn changes_in_worktree(
     project_id: ProjectId,
 ) -> anyhow::Result<WorktreeChanges, Error> {
     let project = projects.get(project_id)?;
-    Ok(but_core::diff::ui::worktree_changes_by_worktree_dir(
-        project.path,
-    )?)
+    Ok(but_core::diff::ui::worktree_changes_by_worktree_dir(project.path)?.into())
 }
 
 #[tauri::command(async)]

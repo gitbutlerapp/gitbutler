@@ -711,6 +711,7 @@ dependencies = [
  "gix",
  "itertools",
  "serde",
+ "serde-error",
  "toml",
  "uuid",
 ]
@@ -3138,6 +3139,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "but-core",
+ "but-hunk-assignment",
  "but-settings",
  "gitbutler-branch-actions",
  "gitbutler-command-context",
