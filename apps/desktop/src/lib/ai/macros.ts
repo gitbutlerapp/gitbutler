@@ -3,6 +3,12 @@ import type DiffInputContext from '$lib/ai/diffInputContext.svelte';
 import type { PromptService } from '$lib/ai/promptService';
 import type { AIService, DiffInput } from '$lib/ai/service';
 
+type GenerateCommitMessageParams = {
+	branchName?: string;
+	diffInput?: DiffInput[];
+	onToken?: (token: string) => void;
+};
+
 export default class AIMacros {
 	private _canUseAI: boolean;
 
@@ -30,19 +36,23 @@ export default class AIMacros {
 	 *
 	 * If AI is not enabled, this will return undefined.
 	 */
-	async generateCommitMessage(
-		branchName: string,
-		diffInput: DiffInput[]
-	): Promise<string | undefined> {
+	async generateCommitMessage(params: GenerateCommitMessageParams): Promise<string | undefined> {
 		if (!this.canUseAI) return;
 
 		const prompt = this.promptService.selectedCommitPrompt(this.projectId);
+		const diffInput = params.diffInput ?? (await this.diffInputContext.diffInput());
+		if (!diffInput) {
+			showError('Failed to generate commit message', 'No changes found');
+			return;
+		}
+
 		const output = await this.aiService.summarizeCommit({
 			diffInput,
 			useEmojiStyle: false,
 			useBriefStyle: false,
 			commitTemplate: prompt,
-			branchName
+			branchName: params.branchName,
+			onToken: params.onToken
 		});
 
 		return output;
@@ -92,7 +102,7 @@ export default class AIMacros {
 			return { branchName, commitMessage: undefined };
 		}
 
-		const commitMessage = await this.generateCommitMessage(branchName, diffInput);
+		const commitMessage = await this.generateCommitMessage({ branchName, diffInput });
 
 		if (!commitMessage) {
 			showToast({
