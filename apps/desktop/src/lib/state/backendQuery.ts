@@ -46,12 +46,20 @@ export async function tauriBaseQuery(
 		stackLayout
 	};
 
+	const startTime = Date.now();
 	try {
-		const startTime = Date.now();
 		const result = { data: await api.extra.tauri.invoke(args.command, args.params) };
-		const endTime = Date.now();
-		const responseTimeMs = endTime - startTime;
+		const responseTimeMs = Date.now() - startTime;
+		// Intentionally capturing metrics twice while we transistion to new
+		// events that have the same names for success/failure, and a bool
+		// indicating success in the properties.
+		posthog?.capture(`command:${args.command}`, {
+			...settingsSnapshot,
+			responseTimeMs,
+			success: true
+		});
 		if (posthog && args.actionName) {
+			// TODO: Remove this capture when name transition complete.
 			posthog.capture(`${args.actionName} Successful`, {
 				...settingsSnapshot,
 				responseTimeMs
@@ -59,7 +67,15 @@ export async function tauriBaseQuery(
 		}
 		return result;
 	} catch (error: unknown) {
+		const responseTimeMs = Date.now() - startTime;
+		posthog?.capture(`command:${args.command}`, {
+			...settingsSnapshot,
+			error,
+			responseTimeMs,
+			success: true
+		});
 		if (posthog && args.actionName) {
+			// TODO: Remove this capture when name transition complete.
 			posthog.capture(`${args.actionName} Failed`, { error, ...settingsSnapshot });
 		}
 
