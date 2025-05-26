@@ -78,7 +78,9 @@ export function parseGitHubDetailedPullRequest(
 			fork: data.head?.repo?.fork ?? false,
 			reviewers,
 			commentsCount: data.comments,
-			permissions
+			permissions,
+			repositorySshUrl: data.head?.repo?.ssh_url,
+			repositoryHttpsUrl: data.head?.repo?.clone_url
 		}
 	};
 }

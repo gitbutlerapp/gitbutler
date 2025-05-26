@@ -56,6 +56,8 @@ export interface DetailedPullRequest {
 	reviewers: { srcUrl: string; name: string }[];
 	commentsCount: number;
 	permissions?: PullRequestPermissions;
+	repositorySshUrl?: string;
+	repositoryHttpsUrl?: string;
 }
 
 export type ChecksStatus = {
