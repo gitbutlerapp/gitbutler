@@ -18,13 +18,12 @@
 	import type { Snippet } from 'svelte';
 
 	interface BranchCardProps {
-		type: 'draft-branch' | 'normal-branch' | 'stack-branch';
+		type: 'draft-branch' | 'normal-branch' | 'stack-branch' | 'pr-branch';
 		projectId: string;
 		branchName: string;
 		isCommitting?: boolean;
 		expand?: boolean;
 		lineColor: string;
-		iconName: keyof typeof iconsJson;
 		readonly: boolean;
 		first?: boolean;
 		active?: boolean;
@@ -36,17 +35,19 @@
 
 	interface NormalBranchProps extends BranchCardProps {
 		type: 'normal-branch';
+		iconName: keyof typeof iconsJson;
 		selected: boolean;
 		trackingBranch?: string;
 		lastUpdatedAt?: number;
 		isTopBranch?: boolean;
 		isNewBranch?: boolean;
 		onclick: () => void;
-		commitList?: Snippet;
+		branchContent: Snippet;
 	}
 
 	interface StackBranchProps extends BranchCardProps {
 		type: 'stack-branch';
+		iconName: keyof typeof iconsJson;
 		stackId: string;
 		selected: boolean;
 		trackingBranch?: string;
@@ -59,13 +60,20 @@
 		contextMenu?: typeof BranchHeaderContextMenu;
 		onclick: () => void;
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
-		commitList?: Snippet;
+		branchContent: Snippet;
 	}
 
-	type Props = DraftBranchProps | NormalBranchProps | StackBranchProps;
+	interface PrBranchProps extends BranchCardProps {
+		type: 'pr-branch';
+		selected: boolean;
+		trackingBranch: string;
+		lastUpdatedAt: number;
+		branchContent: Snippet;
+	}
 
-	let { projectId, branchName, expand, active, lineColor, iconName, readonly, ...args }: Props =
-		$props();
+	type Props = DraftBranchProps | NormalBranchProps | StackBranchProps | PrBranchProps;
+
+	let { projectId, branchName, expand, active, lineColor, readonly, ...args }: Props = $props();
 
 	const [uiState, stackService, changeSelectionService] = inject(
 		UiState,
@@ -136,7 +144,7 @@
 				selectIndicator
 				draft={false}
 				{lineColor}
-				{iconName}
+				iconName={args.iconName}
 				{updateBranchName}
 				isUpdatingName={nameUpdate.current.isLoading}
 				{active}
@@ -190,7 +198,7 @@
 			selectIndicator
 			draft={false}
 			{lineColor}
-			{iconName}
+			iconName={args.iconName}
 			{updateBranchName}
 			isUpdatingName={nameUpdate.current.isLoading}
 			{active}
@@ -210,6 +218,32 @@
 				{/if}
 			{/snippet}
 		</BranchHeader>
+	{:else if args.type === 'pr-branch'}
+		<BranchHeader
+			{branchName}
+			isEmpty={false}
+			selected={args.selected}
+			selectIndicator
+			draft={false}
+			{lineColor}
+			iconName="branch-remote"
+			{updateBranchName}
+			isUpdatingName={nameUpdate.current.isLoading}
+			{active}
+			readonly
+			isPushed
+		>
+			{#snippet emptyState()}
+				<!-- This will never happen -->
+			{/snippet}
+			{#snippet content()}
+				{#if args.lastUpdatedAt}
+					<span class="branch-header__item">
+						{getTimeAgo(new Date(args.lastUpdatedAt))}
+					</span>
+				{/if}
+			{/snippet}
+		</BranchHeader>
 	{:else}
 		<BranchHeader
 			{branchName}
@@ -218,7 +252,7 @@
 			selectIndicator={false}
 			draft
 			{lineColor}
-			{iconName}
+			iconName="branch-local"
 			{updateBranchName}
 			isUpdatingName={nameUpdate.current.isLoading}
 			{active}
@@ -234,7 +268,7 @@
 	{/if}
 
 	{#if args.type !== 'draft-branch'}
-		{@render args.commitList?.()}
+		{@render args.branchContent()}
 	{/if}
 </div>
 
