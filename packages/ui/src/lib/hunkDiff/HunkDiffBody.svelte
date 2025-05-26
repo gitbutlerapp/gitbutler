@@ -197,6 +197,38 @@
 	</tbody>
 {/if}
 
+<!-- Render always the first row if there's any. -->
+<!-- This is needed in order for the header dimensions to be calculated correctly -->
+{#if firstRow}
+	<tbody
+		onmouseenter={() => (hoveringOverTable = true)}
+		onmouseleave={() => (hoveringOverTable = false)}
+		ontouchstart={(ev) => lineSelection.onTouchStart(ev)}
+		ontouchmove={(ev) => lineSelection.onTouchMove(ev)}
+		ontouchend={() => lineSelection.onEnd()}
+	>
+		<HunkDiffRow
+			{minWidth}
+			idx={0}
+			row={firstRow}
+			{clickable}
+			{lineSelection}
+			{tabSize}
+			{wrapText}
+			{diffFont}
+			{numberHeaderWidth}
+			{onQuoteSelection}
+			{onCopySelection}
+			clearLineSelection={handleClearSelection}
+			{hoveringOverTable}
+			staged={getStageState(firstRow)}
+			{hideCheckboxes}
+			{handleLineContextMenu}
+			{lockWarning}
+		/>
+	</tbody>
+{/if}
+
 {#each chunkedRows as chunk, chunkIdx}
 	<tbody
 		onmouseenter={() => (hoveringOverTable = true)}
@@ -216,30 +248,6 @@
 			options: { threshold: 0 }
 		}}
 	>
-		<!-- Render always the first row if there's any. -->
-		<!-- This is needed in order for the header dimensions to be calculated correctly -->
-		{#if firstRow}
-			<HunkDiffRow
-				{minWidth}
-				idx={0}
-				row={firstRow}
-				{clickable}
-				{lineSelection}
-				{tabSize}
-				{wrapText}
-				{diffFont}
-				{numberHeaderWidth}
-				{onQuoteSelection}
-				{onCopySelection}
-				clearLineSelection={handleClearSelection}
-				{hoveringOverTable}
-				staged={getStageState(firstRow)}
-				{hideCheckboxes}
-				{handleLineContextMenu}
-				{lockWarning}
-			/>
-		{/if}
-
 		{#if chunkVisibility[chunkIdx]}
 			{#each chunk as row, idx (lineIdKey( { oldLine: row.beforeLineNumber, newLine: row.afterLineNumber } ))}
 				{@const rowIdx = getRowIndex(chunkIdx, idx)}
