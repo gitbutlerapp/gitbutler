@@ -11,6 +11,7 @@ import {
 	MOCK_UNIFIED_DIFF
 } from './changes';
 import { PROJECT_ID } from './projects';
+import { isAddRemoteParams } from './remote';
 import {
 	createMockBranchDetails,
 	isCreateBranchParams,
@@ -616,5 +617,15 @@ export default class MockBackend {
 		};
 
 		this.stackDetails.set(stackId, editableDetails);
+	}
+
+	public addRemote(args: InvokeArgs | undefined): string {
+		if (!args || !isAddRemoteParams(args)) {
+			throw new Error('Invalid arguments for addRemote');
+		}
+
+		const { name } = args;
+
+		return `refs/remotes/${name}`;
 	}
 }

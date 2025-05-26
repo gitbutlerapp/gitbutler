@@ -20,10 +20,13 @@ describe('Branches', () => {
 		mockCommand('branch_details', (params) => mockBackend.getBranchDetails(params));
 		mockCommand('changes_in_branch', (args) => mockBackend.getBranchChanges(args));
 		mockCommand('target_commits', (args) => mockBackend.getBaseBranchCommits(args));
+		mockCommand('list_remotes', (params) => mockBackend.listRemotes(params));
 		mockCommand('create_virtual_branch_from_branch', (args) =>
 			mockBackend.createVirtualBranchFromBranch(args)
 		);
 		mockCommand('delete_local_branch', (params) => mockBackend.deleteLocalBranch(params));
+		mockCommand('get_branch_listing_details', () => []);
+		mockCommand('add_remote', (params) => mockBackend.addRemote(params));
 
 		cy.intercept(
 			{
@@ -170,10 +173,39 @@ describe('Branches', () => {
 			.should('contain', mockBackend.getBaseBranchName());
 	});
 
-	it.only('should be able to apply a branch from a fork', () => {
+	it('should be able to apply a branch from a fork', () => {
+		const forkRemoteName = 'fork-remote';
+		// Click on the PR branch card
 		cy.getByTestId('pr-list-card')
 			.should('be.visible')
 			.should('have.length', mockBackend.getMockPRListings().length)
 			.click();
+
+		// The branch should be displayed
+		cy.getByTestId('branch-header')
+			.should('be.visible')
+			.should('contain', mockBackend.getMockPr().head.ref);
+
+		// The button to apply the branch from a fork should be visible
+		cy.getByTestId('branches-view-apply-from-fork-button')
+			.should('be.visible')
+			.should('be.enabled')
+			.click();
+
+		// The create remote branch modal should be visible
+		cy.getByTestId('branches-view-create-remote-modal')
+			.should('be.visible')
+			.within(() => {
+				cy.get('input[type="text"]').type(forkRemoteName);
+			});
+
+		// Click on the action button to create the remote branch
+		cy.getByTestId('branches-view-create-remote-modal-action-button')
+			.should('be.visible')
+			.should('be.enabled')
+			.click();
+
+		// Should have navigation to the workspace
+		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace`);
 	});
 });
