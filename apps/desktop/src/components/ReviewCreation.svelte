@@ -293,7 +293,7 @@
 			}
 
 			// Find the index of the current branch so we know where we want to point the pr.
-			const currentIndex = branches.findIndex((b) => b.name === branchName);
+			const currentIndex = branches.findIndex((b) => b.name === params.branchName);
 			if (currentIndex === -1) {
 				throw new Error('Branch index not found.');
 			}
