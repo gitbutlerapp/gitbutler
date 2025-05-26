@@ -15,7 +15,6 @@
 	import { inject } from '@gitbutler/shared/context';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import RadioButton from '@gitbutler/ui/RadioButton.svelte';
-	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import FileListItem from '@gitbutler/ui/file/FileListItemV3.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
 	import * as toasts from '@gitbutler/ui/toasts';
@@ -107,7 +106,7 @@
 
 		<div class="switchrepo__content">
 			<p class="switchrepo__title text-18 text-body text-bold">
-				Looks like you've switched away from <span class="code-string"> gitbutler/workspace </span>
+				You've switched away from <span class="code-string"> gitbutler/workspace </span>
 			</p>
 
 			<p class="switchrepo__message text-13 text-body">
@@ -122,7 +121,7 @@
 				<div class="switchrepo__uncommited-changes">
 					<div class="switchrepo__uncommited-changes__section">
 						<p class="switchrepo__label text-13 text-body text-bold">
-							There are uncommitted changes in your worktree:
+							You have uncommitted changes:
 						</p>
 						<div class="switchrepo__file-list">
 							{#each uncommittedChanges as change}
@@ -156,10 +155,10 @@
 						{/if}
 					</div>
 
-					<Spacer margin={20} dotted />
+					<hr class="switchrepo__divider" />
 
 					<p class="switchrepo__label text-13 text-body text-bold">
-						What would you like to do with the files?
+						What should we do with your uncommitted changes?
 					</p>
 
 					<div class="switchrepo__handling-options">
@@ -229,12 +228,18 @@
 		border-radius: var(--radius-ml);
 	}
 
+	.switchrepo__divider {
+		margin: 20px -16px;
+		border: 0;
+		border-top: 1px solid var(--clr-border-2);
+	}
+
 	.switchrepo__label {
 		margin-bottom: 12px;
 	}
 
 	.switchrepo__file-list {
-		margin-bottom: 20px;
+		margin-bottom: 16px;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
