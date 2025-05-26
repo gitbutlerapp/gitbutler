@@ -25,6 +25,28 @@ describe('Branches', () => {
 		);
 		mockCommand('delete_local_branch', (params) => mockBackend.deleteLocalBranch(params));
 
+		cy.intercept(
+			{
+				method: 'GET',
+				url: 'https://api.github.com/repos/example/repo/pulls'
+			},
+			{
+				statusCode: 200,
+				body: mockBackend.getMockPRListings()
+			}
+		).as('listPullRequests');
+
+		cy.intercept(
+			{
+				method: 'GET',
+				url: 'https://api.github.com/repos/example/repo/pulls/42'
+			},
+			{
+				statusCode: 200,
+				body: mockBackend.getMockPr()
+			}
+		).as('getPullRequest');
+
 		cy.visit('/');
 
 		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace`);
@@ -146,5 +168,12 @@ describe('Branches', () => {
 		cy.getByTestId('unapplied-branch-drawer')
 			.should('be.visible')
 			.should('contain', mockBackend.getBaseBranchName());
+	});
+
+	it.only('should be able to apply a branch from a fork', () => {
+		cy.getByTestId('pr-list-card')
+			.should('be.visible')
+			.should('have.length', mockBackend.getMockPRListings().length)
+			.click();
 	});
 });
