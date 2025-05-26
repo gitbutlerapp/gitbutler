@@ -103,6 +103,12 @@
 		await baseBranchService.refreshBaseBranch(projectId);
 	}
 
+	let prBranch = $state<BranchesViewPr>();
+
+	function applyFromFork() {
+		prBranch?.applyPr();
+	}
+
 	let deleteLocalBranchModal = $state<Modal>();
 
 	function handleDeleteLocalBranch(branchName: string) {
@@ -279,6 +285,7 @@
 			{/snippet}
 
 			{#snippet right()}
+				<!-- Apply branch -->
 				{#if !inWorkspaceOrTargetBranch && someBranchSelected}
 					{@const doesNotHaveLocalTooltip = current.hasLocal
 						? undefined
@@ -317,6 +324,21 @@
 					</div>
 				{/if}
 
+				<!-- Apply PR (from fork) -->
+				{#if isNonLocalPr && !inWorkspaceOrTargetBranch}
+					<div class="branches-actions">
+						{#if !current.isTarget}
+							<Button
+								testId={TestId.BranchesViewApplyFromForkButton}
+								icon="workbench"
+								onclick={applyFromFork}
+							>
+								Apply to workspace
+							</Button>
+						{/if}
+					</div>
+				{/if}
+
 				<div
 					class={[
 						'branch-details',
@@ -336,7 +358,12 @@
 							{onerror}
 						/>
 					{:else if current.prNumber}
-						<BranchesViewPr {projectId} prNumber={current.prNumber} {onerror} />
+						<BranchesViewPr
+							bind:this={prBranch}
+							{projectId}
+							prNumber={current.prNumber}
+							{onerror}
+						/>
 					{/if}
 				</div>
 			{/snippet}
