@@ -26,6 +26,8 @@ gitbutler-branch-actions.workspace = true
 gitbutler-project.workspace = true
 but-core.workspace = true
 but-settings.workspace = true
+but-hunk-assignment.workspace = true
+serde-error = "0.1.3"
 
 [lints.clippy]
 all = "deny"

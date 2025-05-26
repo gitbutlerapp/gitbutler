@@ -13,6 +13,7 @@ doctest = false
 anyhow = "1.0.98"
 itertools = "0.14.0"
 serde.workspace = true
+serde-error = "0.1.3"
 gix = { workspace = true, features = [] }
 but-workspace.workspace = true
 but-core.workspace = true
@@ -22,6 +23,7 @@ gitbutler-stack.workspace = true
 gitbutler-fs.workspace = true
 bstr.workspace = true
 toml.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
 uuid.workspace = true

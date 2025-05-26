@@ -149,7 +149,7 @@ impl Handler {
 
         if ctx.app_settings().feature_flags.v3 {
             // This is part of the v3 APIs set and in the future this fully replaces the list virtual branches flow
-            let _ = self.emit_worktree_changes(ctx.gix_repo()?, ctx.project().id);
+            let _ = self.emit_worktree_changes(ctx);
         } else if in_open_workspace_mode(ctx) {
             self.maybe_create_snapshot(ctx).ok();
             self.calculate_virtual_branches(ctx, worktree_changes)?;
@@ -158,11 +158,17 @@ impl Handler {
         Ok(())
     }
 
-    fn emit_worktree_changes(&self, repo: gix::Repository, project_id: ProjectId) -> Result<()> {
-        let detailed_changes = but_core::diff::worktree_changes(&repo)?;
+    fn emit_worktree_changes(&self, ctx: &CommandContext) -> Result<()> {
+        let detailed_changes = but_core::diff::worktree_changes(&ctx.gix_repo()?)?;
+        let assignments =
+            but_hunk_assignment::assignments(ctx).map_err(|err| serde_error::Error::new(&*err));
+        let changes = but_hunk_assignment::WorktreeChanges {
+            worktree_changes: detailed_changes.into(),
+            assignments,
+        };
         let _ = self.emit_app_event(Change::WorktreeChanges {
-            project_id,
-            changes: detailed_changes,
+            project_id: ctx.project().id,
+            changes,
         });
         Ok(())
     }
@@ -210,8 +216,7 @@ impl Handler {
                 }
                 "index" => {
                     if ctx.app_settings().feature_flags.v3 {
-                        let repo = gix::open(ctx.project().path.clone())?;
-                        let _ = self.emit_worktree_changes(repo, ctx.project().id);
+                        let _ = self.emit_worktree_changes(ctx);
                     }
                 }
                 "HEAD" => {

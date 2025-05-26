@@ -711,7 +711,9 @@ dependencies = [
  "gix",
  "itertools",
  "serde",
+ "serde-error",
  "toml",
+ "tracing",
  "uuid",
 ]
 
@@ -3051,6 +3053,7 @@ dependencies = [
  "parking_lot",
  "reqwest",
  "serde",
+ "serde-error",
  "serde_json",
  "tauri",
  "tauri-build",
@@ -3138,6 +3141,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "but-core",
+ "but-hunk-assignment",
  "but-settings",
  "gitbutler-branch-actions",
  "gitbutler-command-context",
@@ -3150,6 +3154,7 @@ dependencies = [
  "gitbutler-sync",
  "gitbutler-user",
  "gix",
+ "serde-error",
  "tokio",
  "tokio-util",
  "tracing",

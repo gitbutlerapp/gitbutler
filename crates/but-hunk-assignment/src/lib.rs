@@ -21,6 +21,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_stack::VirtualBranchesHandle;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -65,6 +66,31 @@ pub struct HunkAssignmentRequest {
     pub stack_id: Option<StackId>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Same as `but_core::ui::WorktreeChanges`, but with the addition of hunk assignments.
+pub struct WorktreeChanges {
+    #[serde(flatten)]
+    pub worktree_changes: but_core::ui::WorktreeChanges,
+    pub assignments: Result<Vec<HunkAssignment>, serde_error::Error>,
+}
+
+impl From<but_core::ui::WorktreeChanges> for WorktreeChanges {
+    fn from(worktree_changes: but_core::ui::WorktreeChanges) -> Self {
+        WorktreeChanges {
+            worktree_changes,
+            assignments: Ok(vec![]),
+        }
+    }
+}
+
+impl From<but_core::WorktreeChanges> for WorktreeChanges {
+    fn from(worktree_changes: but_core::WorktreeChanges) -> Self {
+        let ui_changes: but_core::ui::WorktreeChanges = worktree_changes.into();
+        ui_changes.into()
+    }
+}
+
 impl HunkAssignmentRequest {
     pub fn matches_assignment(&self, assignment: &HunkAssignment) -> bool {
         self.path_bytes == assignment.path_bytes && self.hunk_header == assignment.hunk_header
@@ -105,6 +131,7 @@ impl HunkAssignment {
     }
 }
 
+#[instrument(skip(ctx), err(Debug))]
 /// Returns the current hunk assignments for the workspace.
 pub fn assignments(ctx: &CommandContext) -> Result<Vec<HunkAssignment>> {
     // TODO: Use a dirty bit set in the file watcher to indicate when reconcilation is needed.
