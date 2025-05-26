@@ -1,12 +1,12 @@
 use crate::types::{Message, Tool, ToolCall};
 
-pub enum LLMParams {
-    Message {
-        messages: Vec<Message>,
-        tools: Vec<Tool>,
-    },
+#[derive(Debug, Clone, PartialEq)]
+pub struct LLMParams {
+    pub messages: Vec<Message>,
+    pub tools: Vec<Tool>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum LLMResponse {
     Message {
         message: String,
@@ -17,6 +17,7 @@ pub enum LLMResponse {
     },
 }
 
+#[allow(clippy::upper_case_acronyms)]
 pub trait LLM {
     fn perform(&self, params: LLMParams) -> LLMResponse;
 }
@@ -25,22 +26,13 @@ pub trait LLM {
 pub(crate) mod test {
     use super::*;
 
-    pub struct MockLLM<CB: Fn(String) -> String, TC: Fn(Vec<Tool>)> {
+    pub struct MockLLM<CB: Fn(LLMParams) -> LLMResponse> {
         pub callback: CB,
-        pub tools_callback: TC,
     }
 
-    impl<CB: Fn(String) -> String, TC: Fn(Vec<Tool>)> LLM for MockLLM<CB, TC> {
+    impl<CB: Fn(LLMParams) -> LLMResponse> LLM for MockLLM<CB> {
         fn perform(&self, params: LLMParams) -> LLMResponse {
-            match params {
-                LLMParams::Message { messages, tools } => {
-                    let last = messages.last().unwrap();
-                    (self.tools_callback)(tools);
-                    LLMResponse::Message {
-                        message: (self.callback)(last.content.clone()),
-                    }
-                }
-            }
+            (self.callback)(params)
         }
     }
 }
