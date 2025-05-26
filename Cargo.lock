@@ -668,9 +668,16 @@ name = "but"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-core",
+ "but-settings",
+ "but-workspace",
  "clap",
+ "gitbutler-command-context",
+ "gitbutler-project",
+ "gix",
  "rmcp",
  "serde",
+ "serde_json",
  "tokio",
 ]
 
