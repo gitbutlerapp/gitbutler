@@ -47,9 +47,15 @@ export async function tauriBaseQuery(
 	};
 
 	try {
+		const startTime = Date.now();
 		const result = { data: await api.extra.tauri.invoke(args.command, args.params) };
+		const endTime = Date.now();
+		const responseTimeMs = endTime - startTime;
 		if (posthog && args.actionName) {
-			posthog.capture(`${args.actionName} Successful`, settingsSnapshot);
+			posthog.capture(`${args.actionName} Successful`, {
+				...settingsSnapshot,
+				latencyMs: responseTimeMs
+			});
 		}
 		return result;
 	} catch (error: unknown) {
