@@ -9,6 +9,9 @@ pub enum ConversationStoreReadError {
 pub trait ConversationStore {
     fn read(&self, id: ConversationId) -> Result<Vec<Message>, ConversationStoreReadError>;
     fn write(&mut self, id: ConversationId, messages: &[Message]);
+    fn read_all(
+        &self,
+    ) -> Result<std::collections::HashMap<ConversationId, Vec<Message>>, ConversationStoreReadError>;
 }
 
 #[cfg(test)]
@@ -44,6 +47,15 @@ pub(crate) mod test {
 
         fn write(&mut self, id: ConversationId, messages: &[Message]) {
             self.map.insert(id, messages.to_owned());
+        }
+
+        fn read_all(
+            &self,
+        ) -> Result<
+            std::collections::HashMap<ConversationId, Vec<Message>>,
+            ConversationStoreReadError,
+        > {
+            Ok(self.map.clone())
         }
     }
 }

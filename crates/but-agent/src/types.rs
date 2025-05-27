@@ -41,7 +41,7 @@ pub struct Message {
     pub tool_call_id: Option<String>,
 }
 
-#[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub struct ConversationId(uuid::Uuid);
 
 // Creating Conversation Ids;
