@@ -6,6 +6,24 @@ use gitbutler_stack::StackId;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
+/// Compute the hunk dependencies of a set of tree changes.
+pub fn hunk_dependencies_for_changes(
+    ctx: &CommandContext,
+    worktree_dir: &Path,
+    gitbutler_dir: &Path,
+    changes: Vec<but_core::TreeChange>,
+) -> anyhow::Result<HunkDependencies> {
+    let repo = gix::open(worktree_dir).map_err(anyhow::Error::from)?;
+    let stacks = but_workspace::stacks(ctx, gitbutler_dir, &repo, Default::default())?;
+    let common_merge_base = gitbutler_stack::VirtualBranchesHandle::new(gitbutler_dir)
+        .get_default_target()?
+        .sha;
+    let input_stacks =
+        crate::workspace_stacks_to_input_stacks(&repo, &stacks, common_merge_base.to_gix())?;
+    let ranges = crate::WorkspaceRanges::try_from_stacks(input_stacks)?;
+    HunkDependencies::try_from_workspace_ranges(&repo, ranges, changes)
+}
+
 /// Compute hunk-dependencies for the UI knowing the `worktree_dir` for changes
 /// and `gitbutler_dir` for obtaining stack information.
 pub fn hunk_dependencies_for_workspace_changes_by_worktree_dir(
@@ -15,14 +33,7 @@ pub fn hunk_dependencies_for_workspace_changes_by_worktree_dir(
 ) -> anyhow::Result<HunkDependencies> {
     let repo = gix::open(worktree_dir).map_err(anyhow::Error::from)?;
     let worktree_changes = but_core::diff::worktree_changes(&repo)?;
-    let stacks = but_workspace::stacks(ctx, gitbutler_dir, &repo, Default::default())?;
-    let common_merge_base = gitbutler_stack::VirtualBranchesHandle::new(gitbutler_dir)
-        .get_default_target()?
-        .sha;
-    let input_stacks =
-        crate::workspace_stacks_to_input_stacks(&repo, &stacks, common_merge_base.to_gix())?;
-    let ranges = crate::WorkspaceRanges::try_from_stacks(input_stacks)?;
-    HunkDependencies::try_from_workspace_ranges(&repo, ranges, worktree_changes.changes)
+    hunk_dependencies_for_changes(ctx, worktree_dir, gitbutler_dir, worktree_changes.changes)
 }
 
 /// A way to represent all hunk dependencies that would make it possible to know what can be applied, and were.
