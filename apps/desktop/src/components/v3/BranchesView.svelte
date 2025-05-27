@@ -7,6 +7,7 @@
 	import BranchesViewPr from '$components/v3/BranchesViewPR.svelte';
 	import BranchesViewStack from '$components/v3/BranchesViewStack.svelte';
 	import MainViewport from '$components/v3/MainViewport.svelte';
+	import PrBranchView from '$components/v3/PRBranchView.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import TargetCommitList from '$components/v3/TargetCommitList.svelte';
 	import UnappliedBranchView from '$components/v3/UnappliedBranchView.svelte';
@@ -273,6 +274,8 @@
 							{onerror}
 						/>
 					{/if}
+				{:else if current.prNumber}
+					<PrBranchView {projectId} prNumber={current.prNumber} {onerror} />
 				{:else if !current.branchName && !current.prNumber}
 					<!-- TODO: Make this fallback better somehow? -->
 					<UnappliedBranchView

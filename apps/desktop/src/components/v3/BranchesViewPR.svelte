@@ -15,7 +15,6 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
-	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	import type { DetailedPullRequest } from '$lib/forge/interface/types';
 
@@ -108,16 +107,7 @@
 			trackingBranch={pr.sourceBranch}
 			lastUpdatedAt={new Date(pr.updatedAt).getTime()}
 			lineColor={getColorFromBranchType(pushStatusToColor('nothingToPush'))}
-		>
-			{#snippet branchContent()}
-				<div class="text-13 pr-branch-content">
-					<h2 class="text-14 text-semibold">
-						{pr.title}
-					</h2>
-					<Markdown content={pr.body} />
-				</div>
-			{/snippet}
-		</BranchCard>
+		/>
 
 		<Modal
 			testId={TestId.BranchesView_CreateRemoteModal}
@@ -145,12 +135,6 @@
 </ReduxResult>
 
 <style lang="postcss">
-	.pr-branch-content {
-		padding: 8px;
-		color: var(--clr-text-1);
-		line-height: 1.5;
-	}
-
 	.fork-notice {
 		margin-bottom: 8px;
 	}

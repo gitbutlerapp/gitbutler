@@ -68,7 +68,6 @@
 		selected: boolean;
 		trackingBranch: string;
 		lastUpdatedAt: number;
-		branchContent: Snippet;
 	}
 
 	type Props = DraftBranchProps | NormalBranchProps | StackBranchProps | PrBranchProps;
@@ -221,7 +220,7 @@
 	{:else if args.type === 'pr-branch'}
 		<BranchHeader
 			{branchName}
-			isEmpty={false}
+			isEmpty
 			selected={args.selected}
 			selectIndicator
 			draft={false}
@@ -267,7 +266,7 @@
 		</BranchHeader>
 	{/if}
 
-	{#if args.type !== 'draft-branch'}
+	{#if args.type === 'stack-branch' || args.type === 'normal-branch'}
 		{@render args.branchContent()}
 	{/if}
 </div>
