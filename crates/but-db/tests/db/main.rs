@@ -3,12 +3,12 @@ use but_db::DbHandle;
 #[test]
 fn init_and_basic_usage() -> anyhow::Result<()> {
     let tmp = tempfile::tempdir()?;
-    let mut handle = DbHandle::new_in_directory(tmp.path())?;
-    assert!(handle.list_all()?.is_empty());
+    let mut db = DbHandle::new_in_directory(tmp.path())?;
+    assert!(db.hunk_assignments().list_all()?.is_empty());
 
     // Two handles at the same time.
-    let mut other_handle = DbHandle::new_in_directory(tmp.path())?;
-    assert!(other_handle.list_all()?.is_empty());
+    let mut other_db = DbHandle::new_in_directory(tmp.path())?;
+    assert!(other_db.hunk_assignments().list_all()?.is_empty());
 
     assert!(
         tmp.path().join("gb.sqlite").exists(),
@@ -20,9 +20,9 @@ fn init_and_basic_usage() -> anyhow::Result<()> {
 #[test]
 fn init_in_nonexisting_dir() -> anyhow::Result<()> {
     let tmp = tempfile::tempdir()?;
-    let mut handle = DbHandle::new_in_directory(tmp.path().join("does-not-exist"))?;
+    let mut db = DbHandle::new_in_directory(tmp.path().join("does-not-exist"))?;
     assert!(
-        handle.list_all()?.is_empty(),
+        db.hunk_assignments().list_all()?.is_empty(),
         "directories are created on demand, otherwise initialization fails, fair enough"
     );
     Ok(())
@@ -39,7 +39,7 @@ fn init_in_parallel() -> anyhow::Result<()> {
                 barrier.wait();
                 for _round in 0..10 {
                     let mut handle = DbHandle::new_in_directory(tmp.path())?;
-                    assert!(handle.list_all()?.is_empty());
+                    assert!(handle.hunk_assignments().list_all()?.is_empty());
                 }
                 Ok(())
             });
