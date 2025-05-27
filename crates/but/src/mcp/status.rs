@@ -37,7 +37,9 @@ pub fn project_status(project_dir: &str) -> anyhow::Result<String> {
     Ok(json)
 }
 
-fn list_applied_stacks(current_dir: &Path) -> anyhow::Result<Vec<but_workspace::ui::StackEntry>> {
+pub fn list_applied_stacks(
+    current_dir: &Path,
+) -> anyhow::Result<Vec<but_workspace::ui::StackEntry>> {
     let project = crate::mcp::project::project_from_path(current_dir)?;
     let ctx = CommandContext::open(&project, AppSettings::default())?;
 

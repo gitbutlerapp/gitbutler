@@ -669,9 +669,13 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "but-core",
+ "but-hunk-dependency",
  "but-settings",
  "but-workspace",
  "clap",
+ "dirs-next",
+ "gitbutler-branch",
+ "gitbutler-branch-actions",
  "gitbutler-command-context",
  "gitbutler-project",
  "gix",

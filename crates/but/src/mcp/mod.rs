@@ -6,6 +6,7 @@ use rmcp::{
 };
 
 pub mod project;
+pub mod stack;
 pub mod status;
 
 pub(crate) const UI_CONTEXT_LINES: u32 = 3;
@@ -37,6 +38,24 @@ impl PublicMcp {
             request.project_dir
         ))
     }
+
+    #[tool(
+        description = "Add a checkpoint to the project. This store all the file changes made along with information about the prompt used to generate the code as context."
+    )]
+    pub fn add_checkpoint(&self, #[tool(aggr)] request: AddCheckpointRequest) -> String {
+        crate::mcp::stack::add_checkpoint(&request.project_dir, &request.prompt).unwrap_or(format!(
+            "Failed to add checkpoint for directory: {} with prompt: {}",
+            request.project_dir, request.prompt
+        ))
+    }
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+pub struct AddCheckpointRequest {
+    #[schemars(description = "Absolute path to the project root")]
+    pub project_dir: String,
+    #[schemars(description = "The prompt used to generate the code to be stored as a checkpoint")]
+    pub prompt: String,
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
