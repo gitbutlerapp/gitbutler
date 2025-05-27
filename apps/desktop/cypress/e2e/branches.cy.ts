@@ -186,6 +186,13 @@ describe('Branches', () => {
 			.should('be.visible')
 			.should('contain', mockBackend.getMockPr().head.ref);
 
+		// The PR branch drawe should be visible
+		cy.getByTestId('pr-branch-drawer')
+			.should('be.visible')
+			.should('contain', mockBackend.getMockPr().head.ref)
+			.should('contain', mockBackend.getMockPr().title)
+			.should('contain', mockBackend.getMockPr().body);
+
 		// The button to apply the branch from a fork should be visible
 		cy.getByTestId('branches-view-apply-from-fork-button')
 			.should('be.visible')

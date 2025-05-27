@@ -88,7 +88,8 @@ export enum TestId {
 	StackPushButton = 'stack-push-button',
 	StackPublishButton = 'stack-publish-button',
 	GlobalModal_CommitFailed = 'global-modal-commit-failed',
-	GlobalModalActionButton = 'global-modal-action-button'
+	GlobalModalActionButton = 'global-modal-action-button',
+	PRBranchDrawer = 'pr-branch-drawer'
 }
 
 export enum ElementId {

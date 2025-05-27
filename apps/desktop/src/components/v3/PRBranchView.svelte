@@ -2,6 +2,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { getContext } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
@@ -22,7 +23,7 @@
 
 <ReduxResult result={prResult?.current} {projectId} {onerror}>
 	{#snippet children(pr, { projectId })}
-		<Drawer {projectId}>
+		<Drawer testId={TestId.PRBranchDrawer} {projectId}>
 			<div class="pr">
 				<div class="pr-header">
 					<h2 class="text-14 text-semibold pr-title">
