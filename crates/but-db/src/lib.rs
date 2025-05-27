@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use anyhow::Result;
+use diesel::connection::SimpleConnection;
 use diesel::{Connection, SqliteConnection};
 
 const FILE_NAME: &str = "gb.sqlite";
@@ -48,9 +49,29 @@ impl DbHandle {
     pub fn new_at_url(url: impl Into<String>) -> Result<Self> {
         let url = url.into();
         let mut conn = SqliteConnection::establish(&url)?;
+        improve_concurrency(&mut conn)?;
         run_migrations(&mut conn)?;
         Ok(DbHandle { conn, url })
     }
+}
+
+/// Improve parallelism and make it non-fatal.
+/// Blanket setting from https://github.com/the-lean-crate/criner/discussions/5, maybe needs tuning.
+/// Also, it's a known issue, maybe order matters?
+/// https://github.com/diesel-rs/diesel/issues/2365#issuecomment-2899347817
+/// TODO: the busy_timeout doesn't seem to be effective.
+fn improve_concurrency(conn: &mut SqliteConnection) -> anyhow::Result<()> {
+    conn.batch_execute(
+        r#"
+                PRAGMA busy_timeout = 30000;        -- wait X milliseconds, but not all at once, before for timing out with error.
+                PRAGMA journal_mode = WAL;          -- better write-concurrency
+                PRAGMA synchronous = NORMAL;        -- fsync only in critical moments
+                PRAGMA wal_autocheckpoint = 1000;   -- write WAL changes back every 1000 pages, for an in average 1MB WAL file.
+                                                    -- May affect readers if number is increased
+                PRAGMA wal_checkpoint(TRUNCATE);    -- free some space by truncating possibly massive WAL files from the last run.
+            "#,
+    )?;
+    Ok(())
 }
 
 fn run_migrations(
