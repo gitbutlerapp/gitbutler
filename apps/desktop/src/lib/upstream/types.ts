@@ -64,6 +64,7 @@ export type Resolution = {
 	branchId: string;
 	approach: ResolutionApproach;
 	deleteIntegratedBranches: boolean;
+	forceIntegratedBranches: string[];
 };
 
 export type BaseBranchResolutionApproach = 'rebase' | 'merge' | 'hardReset';
