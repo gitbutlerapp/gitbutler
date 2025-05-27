@@ -198,12 +198,12 @@
 					<div class="factoid">
 						{#await contributors then contributors}
 							{#if contributors.length > 0}
-								<span class="label">Reviewers:</span>
+								<span class="label">Reviews:</span>
 								<div class="avatar-group-container">
 									<AvatarGroup avatars={contributors}></AvatarGroup>
 								</div>
 							{:else}
-								<span class="label italic">No reviewers</span>
+								<span class="label italic">No reviews</span>
 							{/if}
 						{/await}
 					</div>

@@ -1,77 +1,90 @@
 <script lang="ts">
 	import BranchesCardTemplate from '$components/v3/branchesPage/BranchesCardTemplate.svelte';
-	import { BranchService } from '$lib/branches/branchService.svelte';
-	import { GitConfigService } from '$lib/config/gitConfigService';
 	import { TestId } from '$lib/testing/testIds';
-	import { UserService } from '$lib/user/userService';
-	import { inject } from '@gitbutler/shared/context';
 	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
 	import SeriesIcon from '@gitbutler/ui/SeriesIcon.svelte';
 	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
-	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
-	import type { PullRequest } from '$lib/forge/interface/types';
+	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
 
-	interface Props {
-		projectId: string;
-		pullRequest: PullRequest;
-		selected: boolean;
-		noSourceBranch?: boolean;
-		onclick: (listing: PullRequest) => void;
+	type basePrData = {
+		number: number;
+		isDraft: boolean;
+		title: string;
+		sourceBranch?: string;
+		author?: {
+			name?: string;
+			email?: string;
+			gravatarUrl?: string;
+		};
+		modifiedAt?: string;
+	};
+
+	interface Props extends basePrData {
+		onclick?: (prData: basePrData) => void;
+		selected?: boolean;
+		noRemote?: boolean;
 	}
 
-	const { pullRequest, selected, noSourceBranch, onclick }: Props = $props();
+	const {
+		selected,
+		noRemote,
+		isDraft,
+		number,
+		title,
+		sourceBranch,
+		author,
+		modifiedAt,
+		onclick
+	}: Props = $props();
 
-	const unknownName = 'unknown';
+	const unknownName = 'Unknown Author';
 
-	const [userService] = inject(UserService, GitConfigService, BranchService);
-
-	const user = userService.user;
-
-	const authorImgUrl = $derived.by(() => {
-		return pullRequest.author?.email?.toLowerCase() === $user?.email?.toLowerCase()
-			? $user?.picture
-			: pullRequest.author?.gravatarUrl;
-	});
+	// console.log('PRListCard', {
+	// 	pullRequest
+	// });
 </script>
 
-<BranchesCardTemplate testId={TestId.PRListCard} {selected} onclick={() => onclick?.(pullRequest)}>
+<BranchesCardTemplate
+	testId={TestId.PRListCard}
+	{selected}
+	onclick={() =>
+		onclick?.({
+			number,
+			isDraft,
+			title,
+			sourceBranch,
+			author,
+			modifiedAt
+		})}
+>
 	{#snippet content()}
 		<div class="sidebar-entry__header">
 			<h4 class="text-13 text-semibold">
-				<span class="text-clr2">#{pullRequest.number}:</span>
-				{pullRequest.title}
+				<span class="text-clr2">#{number}:</span>
+				{title}
 			</h4>
 		</div>
 
 		<div class="text-12 sidebar-entry__about">
-			<ReviewBadge
-				prStatus={pullRequest.draft ? 'draft' : 'unknown'}
-				prTitle={pullRequest.title}
-				prNumber={pullRequest.number}
-			/>
+			<ReviewBadge prStatus={isDraft ? 'draft' : 'unknown'} prTitle={title} prNumber={number} />
 			<span class="sidebar-entry__divider">•</span>
 
-			{#if noSourceBranch}
-				<span>No source branch</span>
+			{#if noRemote}
+				<span>No remote</span>
 			{:else}
 				<div class="sidebar-entry__branch">
 					<SeriesIcon single />
-					<span class="text-semibold">{pullRequest.sourceBranch}</span>
+					<span class="text-semibold">{sourceBranch}</span>
 				</div>
 			{/if}
 		</div>
 	{/snippet}
 	{#snippet details()}
-		<AvatarGroup
-			avatars={[
-				{
-					name: pullRequest.author?.name || 'unknown',
-					srcUrl: authorImgUrl || ''
-				}
-			]}
-		/>
-		<TimeAgo date={new Date(pullRequest.modifiedAt)} addSuffix /> by
-		{pullRequest.author?.name || unknownName}
+		{#if author && modifiedAt}
+			<Avatar srcUrl={author.gravatarUrl || ''} tooltip={author.name || unknownName} />
+			<TimeAgo date={new Date(modifiedAt)} addSuffix /> by
+			{author.name || unknownName}
+		{/if}
 	{/snippet}
 </BranchesCardTemplate>
 

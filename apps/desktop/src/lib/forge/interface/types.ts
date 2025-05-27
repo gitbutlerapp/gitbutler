@@ -35,6 +35,7 @@ export interface PullRequestPermissions {
 export interface DetailedPullRequest {
 	id: number;
 	title: string;
+	author: Author | null;
 	body: string | undefined;
 	number: number;
 	sourceBranch: string;
@@ -56,6 +57,8 @@ export interface DetailedPullRequest {
 	reviewers: { srcUrl: string; name: string }[];
 	commentsCount: number;
 	permissions?: PullRequestPermissions;
+	repositorySshUrl?: string;
+	repositoryHttpsUrl?: string;
 }
 
 export type ChecksStatus = {

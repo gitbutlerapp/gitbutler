@@ -58,6 +58,14 @@ export function parseGitHubDetailedPullRequest(
 		data: {
 			id: data.id,
 			number: data.number,
+			author: data.user
+				? {
+						name: data.user.login || undefined,
+						email: data.user.email || undefined,
+						isBot: data.user.type.toLowerCase() === 'bot',
+						gravatarUrl: data.user.avatar_url
+					}
+				: null,
 			title: data.title,
 			body: data.body ?? undefined,
 			baseRepo: parseRemoteUrl(data.base?.repo.git_url),
@@ -78,7 +86,9 @@ export function parseGitHubDetailedPullRequest(
 			fork: data.head?.repo?.fork ?? false,
 			reviewers,
 			commentsCount: data.comments,
-			permissions
+			permissions,
+			repositorySshUrl: data.head?.repo?.ssh_url,
+			repositoryHttpsUrl: data.head?.repo?.clone_url
 		}
 	};
 }

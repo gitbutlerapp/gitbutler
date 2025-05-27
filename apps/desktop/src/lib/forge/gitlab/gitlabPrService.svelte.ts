@@ -103,7 +103,15 @@ function injectEndpoints(api: GitLabApi) {
 				queryFn: async (args, query) => {
 					const { api, upstreamProjectId } = gitlab(query.extra);
 					const mr = await api.MergeRequests.show(upstreamProjectId, args.number);
-					return { data: detailedMrToInstance(mr) };
+					const sourceProject = await api.Projects.show(mr.source_project_id);
+					const repositorySshUrl = sourceProject.ssh_url_to_repo;
+					const repositoryHttpsUrl = sourceProject.http_url_to_repo;
+					const data = {
+						...detailedMrToInstance(mr),
+						repositoryHttpsUrl,
+						repositorySshUrl
+					};
+					return { data };
 				},
 				providesTags: (_result, _error, args) =>
 					providesItem(ReduxTag.GitLabPullRequests, args.number)

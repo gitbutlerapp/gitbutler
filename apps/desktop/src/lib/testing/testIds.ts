@@ -58,6 +58,9 @@ export enum TestId {
 	StackHeader = 'stack-header',
 	BranchesViewApplyBranchButton = 'branches-view-apply-branch-button',
 	BranchesViewDeleteLocalBranchButton = 'branches-view-delete-local-branch-button',
+	BranchesViewApplyFromForkButton = 'branches-view-apply-from-fork-button',
+	BranchesView_CreateRemoteModal = 'branches-view-create-remote-modal',
+	BranchesView_CreateRemoteModalActionButton = 'branches-view-create-remote-modal-action-button',
 	TargetCommitListHeader = 'target-commit-list-header',
 	BranchListCard = 'branch-list-card',
 	PRListCard = 'pr-list-card',
@@ -85,7 +88,8 @@ export enum TestId {
 	StackPushButton = 'stack-push-button',
 	StackPublishButton = 'stack-publish-button',
 	GlobalModal_CommitFailed = 'global-modal-commit-failed',
-	GlobalModalActionButton = 'global-modal-action-button'
+	GlobalModalActionButton = 'global-modal-action-button',
+	PRBranchDrawer = 'pr-branch-drawer'
 }
 
 export enum ElementId {
