@@ -1,5 +1,5 @@
 import { filesToOwnership } from '$lib/branches/ownership';
-import { changesToDiffSpec } from '$lib/commits/utils';
+import { dropDataToDiffSpec } from '$lib/commits/utils';
 import { ChangeDropData, FileDropData, HunkDropData } from '$lib/dragging/draggables';
 import StackMacros from '$lib/stacks/macros';
 import type { DropzoneHandler } from '$lib/dragging/handler';
@@ -79,7 +79,7 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 						sourceStackId,
 						sourceCommitId,
 						branchName,
-						changesToDiffSpec(data)
+						dropDataToDiffSpec(data)
 					);
 				} else {
 					// Should not happen, but just in case

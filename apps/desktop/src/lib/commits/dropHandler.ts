@@ -1,4 +1,4 @@
-import { changesToDiffSpec } from '$lib/commits/utils';
+import { dropDataToDiffSpec } from '$lib/commits/utils';
 import {
 	ChangeDropData,
 	FileDropData,
@@ -150,7 +150,7 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 						destinationCommitId: this.commit.id,
 						sourceStackId,
 						sourceCommitId,
-						changes: changesToDiffSpec(data)
+						changes: dropDataToDiffSpec(data)
 					});
 
 					// Update the project state to point to the new commit if needed.
@@ -171,7 +171,7 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 						stackId: this.stackId,
 						branchName: this.branchName,
 						commitId: this.commit.id,
-						worktreeChanges: changesToDiffSpec(data)
+						worktreeChanges: dropDataToDiffSpec(data)
 					})
 				);
 		}
@@ -212,7 +212,7 @@ export class UncommitDzHandler implements DropzoneHandler {
 							projectId: this.projectId,
 							stackId,
 							commitId,
-							changes: changesToDiffSpec(data)
+							changes: dropDataToDiffSpec(data)
 						});
 
 						// Update the project state to point to the new commit if needed.
