@@ -10,19 +10,18 @@ pub struct CommandContext {
     project: Project,
     /// A snapshot of the app settings obtained at the beginnig of each command.
     app_settings: AppSettings,
-    db_handle: but_db::DbHandle,
+    db_handle: Option<but_db::DbHandle>,
 }
 
 impl CommandContext {
     /// Open the repository identified by `project` and perform some checks.
     pub fn open(project: &Project, app_settings: AppSettings) -> Result<Self> {
         let repo = git2::Repository::open(&project.path)?;
-        let db_handle = but_db::DbHandle::new_in_directory(project.gb_dir())?;
         Ok(Self {
             git_repo: repo,
             project: project.clone(),
             app_settings,
-            db_handle,
+            db_handle: None,
         })
     }
 
@@ -35,8 +34,13 @@ impl CommandContext {
         &self.git_repo
     }
 
-    pub fn db(&mut self) -> &mut but_db::DbHandle {
-        &mut self.db_handle
+    pub fn db(&mut self) -> anyhow::Result<&mut but_db::DbHandle> {
+        // Looking forward to the day when this can be idiomatic.
+        if self.db_handle.is_none() {
+            let db_handle = but_db::DbHandle::new_in_directory(self.project.gb_dir())?;
+            self.db_handle = Some(db_handle);
+        }
+        Ok(self.db_handle.as_mut().unwrap())
     }
 
     /// Return a newly opened `gitoxide` repository, with all configuration available
