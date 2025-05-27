@@ -11,6 +11,14 @@ export function detailedMrToInstance(data: ExpandedMergeRequestSchema): Detailed
 	return {
 		id: data.id,
 		number: data.iid,
+		author: data.author
+			? {
+					name: data.author.name || undefined,
+					email: data.author.username || undefined,
+					isBot: false,
+					gravatarUrl: data.author.avatar_url
+				}
+			: null,
 		title: data.title,
 		body: data.description ?? undefined,
 		baseBranch: data.target_branch,

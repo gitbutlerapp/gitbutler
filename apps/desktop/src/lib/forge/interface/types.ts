@@ -35,6 +35,7 @@ export interface PullRequestPermissions {
 export interface DetailedPullRequest {
 	id: number;
 	title: string;
+	author: Author | null;
 	body: string | undefined;
 	number: number;
 	sourceBranch: string;
