@@ -76,7 +76,8 @@
 			results.set(status.stack.id, {
 				branchId: status.stack.id,
 				approach: defaultApproach,
-				deleteIntegratedBranches: true
+				deleteIntegratedBranches: true,
+				forceIntegratedBranches: []
 			});
 		}
 

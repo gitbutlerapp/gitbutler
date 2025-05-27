@@ -154,6 +154,10 @@ pub struct Resolution {
     pub branch_id: StackId,
     pub approach: ResolutionApproach,
     pub delete_integrated_branches: bool,
+    /// A list of references that the application should consider as integrated even if they are not deteced as such.
+    /// This is useful in the case of squash-merging, where GitButler can not detect the integration of branches.
+    /// This signal can be provided either by the user or, even better, based on a status from GitHub.
+    pub force_integrated_branches: Vec<String>,
 }
 
 enum IntegrationResult {
@@ -785,7 +789,12 @@ fn compute_resolutions(
                             } => {
                                 let commit = repo.find_commit(commit_id.to_git2()).ok()?;
                                 let is_integrated = check_commit.is_integrated(&commit).ok()?;
-                                if is_integrated {
+                                let forced = forced_integrated(
+                                    &resolution.force_integrated_branches,
+                                    &branches_before,
+                                    &commit.id().to_gix(),
+                                );
+                                if is_integrated || forced {
                                     None
                                 } else {
                                     Some(s)
@@ -851,6 +860,43 @@ fn compute_resolutions(
         .collect::<Result<Vec<_>>>()?;
 
     Ok(results)
+}
+
+// If the commit is in a bucket (branches_before) where the reference matches any of the
+// resolution.force_integrated_branches then we consider it integrated.
+fn forced_integrated(
+    force_integrated_branches: &[String],
+    branches: &[(Reference, Vec<RebaseStep>)],
+    target_commit_id: &gix::ObjectId,
+) -> bool {
+    force_integrated_branches.iter().any(|ref_name| {
+        // The reference this commit is under (from branches_before)
+        let commit_ref = branches.iter().find_map(|(ref_name, steps)| {
+            steps.iter().find_map(|step| {
+                if let RebaseStep::Pick {
+                    commit_id,
+                    new_message: _,
+                } = step
+                {
+                    if commit_id == target_commit_id {
+                        Some(ref_name.clone())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+        });
+
+        if let Some(commit_ref) = &commit_ref {
+            dbg!(commit_ref);
+            dbg!(&ref_name);
+            &commit_ref.to_string() == ref_name
+        } else {
+            false
+        }
+    })
 }
 
 pub(crate) fn as_buckets(steps: Vec<RebaseStep>) -> Vec<(but_core::Reference, Vec<RebaseStep>)> {
