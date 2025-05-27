@@ -35,6 +35,7 @@
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { tick } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
+	import type { PullRequest } from '$lib/forge/interface/types';
 
 	type OperationState = 'inert' | 'loading' | 'completed';
 	type OperationType = 'rebase' | 'merge' | 'unapply' | 'delete';
@@ -48,6 +49,7 @@
 
 	const upstreamIntegrationService = getContext(UpstreamIntegrationService);
 	const forge = getContext(DefaultForgeFactory);
+	const forgeListingService = $derived(forge.current.listService);
 	const baseBranchService = getContext(BaseBranchService);
 	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
 	const base = $derived(baseBranchResponse.current.data);
@@ -59,12 +61,22 @@
 	let baseResolutionApproach = $state<BaseBranchResolutionApproach | undefined>();
 	let targetCommitOid = $state<string | undefined>(undefined);
 	let branchStatuses = $state<StackStatusesWithBranchesV3 | undefined>();
+	const appliedBranches = $derived(
+		branchStatuses?.type === 'updatesRequired'
+			? branchStatuses.subject.map((s) => s.stack.heads.map((h) => h.name)).flat()
+			: []
+	);
+	const filteredReviewsResponse = $derived(
+		forgeListingService?.filterByBranch(projectId, appliedBranches)
+	);
+	const filteredReviews = $derived(filteredReviewsResponse?.current.data);
+	const reviewMap = $derived(new Map(filteredReviews?.map((r) => [r.sourceBranch, r])));
 
 	const isDivergedResolved = $derived(base?.diverged && !baseResolutionApproach);
 	const [integrateUpstream] = $derived(upstreamIntegrationService.integrateUpstream(projectId));
 
 	$effect(() => {
-		if (branchStatuses?.type !== 'updatesRequired') {
+		if (branchStatuses?.type !== 'updatesRequired' || filteredReviews === undefined) {
 			statuses = [];
 			return;
 		}
@@ -75,11 +87,16 @@
 		// Side effect, refresh results
 		results.clear();
 		for (const status of statusesTmp) {
+			const mergedAssociatedReviews = filteredReviews.filter(
+				(r) => status.stack.heads.some((h) => h.name === r.sourceBranch) && r.mergedAt !== undefined
+			);
+			const forceIntegratedBranches = mergedAssociatedReviews.map((r) => r.sourceBranch);
+
 			results.set(status.stack.id, {
 				branchId: status.stack.id,
 				approach: getResolutionApproachV3(status),
 				deleteIntegratedBranches: true,
-				forceIntegratedBranches: []
+				forceIntegratedBranches
 			});
 		}
 
@@ -122,26 +139,26 @@
 			baseResolutionApproach || 'hardReset'
 		);
 
-		try {
-			const result = await integrateUpstream({
-				projectId,
-				resolutions: Array.from(results.values()),
-				baseBranchResolution: baseResolution
-			});
-			if ($confettiEnabled && result.archivedBranches.length > 0 && e) {
-				sprayConfetti(e);
-			}
-		} finally {
-			await baseBranchService.refreshBaseBranch(projectId);
-			integratingUpstream = 'completed';
-			modal?.close();
+		const result = await integrateUpstream({
+			projectId,
+			resolutions: Array.from(results.values()),
+			baseBranchResolution: baseResolution
+		});
+		if ($confettiEnabled && result.archivedBranches.length > 0 && e) {
+			sprayConfetti(e);
 		}
+		await baseBranchService.refreshBaseBranch(projectId);
+		integratingUpstream = 'completed';
+		modal?.close();
 	}
 
 	export async function show() {
 		integratingUpstream = 'inert';
 		branchStatuses = undefined;
 		modal?.show();
+		// Fetch the base branch and the forge info to ensure we have the latest data
+		await baseBranchService.fetchFromRemotes(projectId);
+		await forgeListingService?.refresh(projectId);
 		branchStatuses = await upstreamIntegrationService.upstreamStatuses(projectId, targetCommitOid);
 	}
 
@@ -152,24 +169,34 @@
 	};
 
 	function branchStatusToRowEntry(
+		associatedeReview: PullRequest | undefined,
 		branchStatus: BranchStatus
 	): 'integrated' | 'conflicted' | 'clear' {
+		if (associatedeReview?.mergedAt !== undefined) {
+			return 'integrated';
+		}
+
 		if (branchStatus.type === 'integrated') {
 			return 'integrated';
 		}
+
 		if (branchStatus.type === 'conflicted') {
 			return 'conflicted';
 		}
+
 		return 'clear';
 	}
 
 	function integrationRowSeries(
 		stackStatus: StackStatus
 	): { name: string; status: 'integrated' | 'conflicted' | 'clear' }[] {
-		const statuses = stackStatus.branchStatuses.map((series) => ({
-			name: series.name,
-			status: branchStatusToRowEntry(series.status)
-		}));
+		const statuses = stackStatus.branchStatuses.map((series) => {
+			const associatedeReview = reviewMap.get(series.name);
+			return {
+				name: series.name,
+				status: branchStatusToRowEntry(associatedeReview, series.status)
+			};
+		});
 
 		statuses.reverse();
 
@@ -355,7 +382,9 @@
 				wide
 				style="pop"
 				disabled={isDivergedResolved || !branchStatuses}
-				loading={integratingUpstream === 'loading' || !branchStatuses}
+				loading={integratingUpstream === 'loading' ||
+					!branchStatuses ||
+					filteredReviews === undefined}
 				onclick={async (e) => {
 					await integrate(e);
 				}}
