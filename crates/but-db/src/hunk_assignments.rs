@@ -10,12 +10,14 @@ impl DbHandle {
         Ok(results)
     }
 
-    /// Sets the hunk assignments in the database to the provided values. Any existing entries that are not in the provided values are deleted.
+    /// Sets the hunk assignments in the database to the provided values. Any existing entries
+    /// that are not in the provided values are deleted.
     pub fn set_all(
         &mut self,
         assignments: Vec<crate::models::HunkAssignment>,
     ) -> anyhow::Result<()> {
-        // Set the hunk_assiginments table to the values in `assignments`. Any existing entries that are not in `assignments` are deleted.
+        // Set the hunk_assignments table to the values in `assignments`.
+        // Any existing entries that are not in `assignments` are deleted.
         use crate::schema::hunk_assignments::dsl::hunk_assignments as all_assignments;
         use diesel::prelude::*;
         self.conn.transaction(|conn| {
