@@ -41,7 +41,9 @@
 			>
 		{/if}
 		{#if icon}
-			<Icon name={icon} />
+			<i class="badge__icon">
+				<Icon name={icon} />
+			</i>
 		{/if}
 	</div>
 </Tooltip>
@@ -144,5 +146,9 @@
 		display: flex;
 		padding: 0 2px;
 		white-space: nowrap;
+	}
+
+	.badge__icon {
+		opacity: 0.7;
 	}
 </style>
