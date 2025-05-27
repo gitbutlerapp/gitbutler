@@ -42,13 +42,9 @@ export class GitHubListingService implements ForgeListingService {
 	}
 
 	filterByBranch(projectId: string, branchName: string[]) {
-		const result = $derived(
-			this.api.endpoints.listPrs.useQueryState(projectId, {
-				transform: (result) => prSelectors.selectByIds(result, branchName)
-			})
-		);
-		const data = $derived(result.current.data);
-		return reactive(() => data || []);
+		return this.api.endpoints.listPrs.useQueryState(projectId, {
+			transform: (result) => prSelectors.selectByIds(result, branchName)
+		});
 	}
 
 	async refresh(projectId: string): Promise<void> {

@@ -32,6 +32,7 @@
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { tick } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
+	import type { PullRequest } from '$lib/forge/interface/types';
 
 	type OperationState = 'inert' | 'loading' | 'completed';
 	type OperationType = 'rebase' | 'merge' | 'unapply' | 'delete';
@@ -43,6 +44,7 @@
 	const { onClose }: Props = $props();
 
 	const forge = getContext(DefaultForgeFactory);
+	const forgeListingService = $derived(forge.current.listService);
 	const project = getContext(Project);
 	const projectId = $derived(project.id);
 	const upstreamIntegrationService = getContext(UpstreamIntegrationService);
@@ -50,6 +52,18 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const baseResponse = $derived(baseBranchService.baseBranch(projectId));
 	const base = $derived(baseResponse.current.data);
+	const appliedBranches = $derived(
+		branchStatuses?.type === 'updatesRequired'
+			? branchStatuses.subject
+					.map((s) => s.status.branchStatuses.map((series) => series.name))
+					.flat()
+			: []
+	);
+	const filteredReviewsResponse = $derived(
+		forgeListingService?.filterByBranch(projectId, appliedBranches)
+	);
+	const filteredReviews = $derived(filteredReviewsResponse?.current.data);
+	const reviewMap = $derived(new Map(filteredReviews?.map((r) => [r.sourceBranch, r])));
 
 	let modal = $state<Modal>();
 	let integratingUpstream = $state<OperationState>('inert');
@@ -61,7 +75,7 @@
 	const isDivergedResolved = $derived(base?.diverged && !baseResolutionApproach);
 
 	$effect(() => {
-		if (branchStatuses?.type !== 'updatesRequired') {
+		if (branchStatuses?.type !== 'updatesRequired' || filteredReviews === undefined) {
 			statuses = [];
 			return;
 		}
@@ -72,12 +86,19 @@
 		// Side effect, refresh results
 		results.clear();
 		for (const status of statusesTmp) {
+			const mergedAssociatedReviews = filteredReviews.filter(
+				(r) =>
+					status.status.branchStatuses.some((series) => series.name === r.sourceBranch) &&
+					r.mergedAt !== undefined
+			);
+			const forceIntegratedBranches = mergedAssociatedReviews.map((r) => r.sourceBranch);
+
 			const defaultApproach = getResolutionApproach(status);
 			results.set(status.stack.id, {
 				branchId: status.stack.id,
 				approach: defaultApproach,
 				deleteIntegratedBranches: true,
-				forceIntegratedBranches: []
+				forceIntegratedBranches
 			});
 		}
 
@@ -129,6 +150,9 @@
 		integratingUpstream = 'inert';
 		branchStatuses = undefined;
 		modal?.show();
+		// Fetch the base branch and the forge info to ensure we have the latest data
+		await baseBranchService.fetchFromRemotes(projectId);
+		await forgeListingService?.refresh(projectId);
 		branchStatuses = await upstreamIntegrationService.upstreamStatuses();
 	}
 
@@ -139,8 +163,13 @@
 	};
 
 	function branchStatusToRowEntry(
+		associatedeReview: PullRequest | undefined,
 		branchStatus: BranchStatus
 	): 'integrated' | 'conflicted' | 'clear' {
+		if (associatedeReview?.mergedAt !== undefined) {
+			return 'integrated';
+		}
+
 		if (branchStatus.type === 'integrated') {
 			return 'integrated';
 		}
@@ -153,10 +182,13 @@
 	function integrationRowSeries(
 		stackStatus: StackStatus
 	): { name: string; status: 'integrated' | 'conflicted' | 'clear' }[] {
-		const statuses = stackStatus.branchStatuses.map((series) => ({
-			name: series.name,
-			status: branchStatusToRowEntry(series.status)
-		}));
+		const statuses = stackStatus.branchStatuses.map((series) => {
+			const associatedeReview = reviewMap.get(series.name);
+			return {
+				name: series.name,
+				status: branchStatusToRowEntry(associatedeReview, series.status)
+			};
+		});
 
 		statuses.reverse();
 
@@ -311,7 +343,9 @@
 				type="submit"
 				style="pop"
 				disabled={isDivergedResolved || !branchStatuses}
-				loading={integratingUpstream === 'loading' || !branchStatuses}>Update workspace</Button
+				loading={integratingUpstream === 'loading' ||
+					!branchStatuses ||
+					filteredReviews === undefined}>Update workspace</Button
 			>
 		</div>
 	{/snippet}

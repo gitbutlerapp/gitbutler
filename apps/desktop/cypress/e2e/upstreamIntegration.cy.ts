@@ -14,6 +14,16 @@ describe('Upstream Integration', () => {
 			mockBackend.getUpstreamIntegrationStatuses()
 		);
 		mockCommand('integrate_upstream', (params) => mockBackend.integrateUpstream(params));
+		cy.intercept(
+			{
+				method: 'GEt',
+				url: 'https://api.github.com/repos/example/repo/pulls'
+			},
+			{
+				statusCode: 200,
+				body: []
+			}
+		).as('listPullRequests');
 
 		cy.visit('/');
 
