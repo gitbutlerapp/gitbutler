@@ -1,5 +1,6 @@
 import type { DetailedCommit } from '$lib/commits/commit';
 import type { ChangeDropData } from '$lib/dragging/draggables';
+import type { TreeChange } from '$lib/hunks/change';
 import type { DiffSpec } from '$lib/hunks/hunk';
 
 type DivergenceResult =
@@ -34,10 +35,8 @@ export function findLastDivergentCommit(
 
 	return { type: 'notDiverged' };
 }
-
-/** Helper function that converts `ChangeDropData` to `DiffSpec`. */
-export function changesToDiffSpec(data: ChangeDropData): DiffSpec[] {
-	const changes = data.changes;
+/** Helper function that turns tree changes into a diff spec */
+export function changesToDiffSpec(changes: TreeChange[]): DiffSpec[] {
 	return changes.map((change) => {
 		const previousPathBytes =
 			change.status.type === 'Rename' ? change.status.subject.previousPathBytes : null;
@@ -47,4 +46,9 @@ export function changesToDiffSpec(data: ChangeDropData): DiffSpec[] {
 			hunkHeaders: []
 		};
 	});
+}
+/** Helper function that converts `ChangeDropData` to `DiffSpec`. */
+export function dropDataToDiffSpec(data: ChangeDropData): DiffSpec[] {
+	const changes = data.changes;
+	return changesToDiffSpec(changes);
 }

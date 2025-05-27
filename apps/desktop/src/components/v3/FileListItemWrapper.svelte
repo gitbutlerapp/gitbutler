@@ -74,7 +74,6 @@
 	const selection = $derived(changeSelection.getById(change.path));
 	const indeterminate = $derived(selection.current && selection.current.type === 'partial');
 	const selectedChanges = $derived(idSelection.treeChanges(projectId, selectionId));
-	const isUncommitted = $derived(selectionId?.type === 'worktree');
 
 	const previousTooltipText = $derived(
 		(change.status.subject as Rename).previousPath
@@ -147,8 +146,10 @@
 >
 	<FileContextMenu
 		bind:this={contextMenu}
+		{projectId}
+		{stackId}
 		trigger={draggableEl}
-		{isUncommitted}
+		{selectionId}
 		{unSelectChanges}
 	/>
 
