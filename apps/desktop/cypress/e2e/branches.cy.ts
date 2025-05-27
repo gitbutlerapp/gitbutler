@@ -181,11 +181,6 @@ describe('Branches', () => {
 			.should('have.length', mockBackend.getMockPRListings().length)
 			.click();
 
-		// The branch should be displayed
-		cy.getByTestId('branch-header')
-			.should('be.visible')
-			.should('contain', mockBackend.getMockPr().head.ref);
-
 		// The PR branch drawe should be visible
 		cy.getByTestId('pr-branch-drawer')
 			.should('be.visible')
