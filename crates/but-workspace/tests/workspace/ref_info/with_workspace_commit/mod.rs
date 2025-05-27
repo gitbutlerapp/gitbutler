@@ -209,6 +209,28 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                 ),
                 segments: [
                     StackSegment {
+                        ref_name: "refs/heads/lane",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                ],
+                stash_status: None,
+            },
+            Stack {
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                segments: [
+                    StackSegment {
                         ref_name: "refs/heads/advanced-lane-2",
                         remote_tracking_ref_name: "None",
                         ref_location: "ReachableFromWorkspaceCommit",
@@ -239,28 +261,6 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                         commits_unique_from_tip: [
                             LocalCommit(cbc6713, "change\n", local),
                         ],
-                        commits_unique_in_remote_tracking_branch: [],
-                        metadata: Some(
-                            Branch {
-                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                                description: None,
-                                review: Review { pull_request: None, review_id: None },
-                            },
-                        ),
-                    },
-                ],
-                stash_status: None,
-            },
-            Stack {
-                base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
-                segments: [
-                    StackSegment {
-                        ref_name: "refs/heads/lane",
-                        remote_tracking_ref_name: "None",
-                        ref_location: "ReachableFromWorkspaceCommit",
-                        commits_unique_from_tip: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Some(
                             Branch {
@@ -341,6 +341,34 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                             },
                         ),
                     },
+                    StackSegment {
+                        ref_name: "refs/heads/lane-segment-01",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                    StackSegment {
+                        ref_name: "refs/heads/lane-segment-02",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
                 ],
                 stash_status: None,
             },
@@ -349,6 +377,34 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
                 segments: [
+                    StackSegment {
+                        ref_name: "refs/heads/lane-2",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                    StackSegment {
+                        ref_name: "refs/heads/lane-2-segment-01",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
                     StackSegment {
                         ref_name: "refs/heads/lane-2-segment-02",
                         remote_tracking_ref_name: "None",
@@ -376,6 +432,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
     "#);
 
     // Natural order here is `lane` first, but we say we want `lane-2` first
+    meta.data_mut().branches.clear();
     add_stack_with_segments(
         &mut meta,
         StackId::from_number_for_testing(1),
@@ -407,12 +464,38 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ),
                 segments: [
                     StackSegment {
-                        ref_name: "refs/heads/lane",
+                        ref_name: "refs/heads/lane-2",
                         remote_tracking_ref_name: "None",
                         ref_location: "ReachableFromWorkspaceCommit",
-                        commits_unique_from_tip: [
-                            LocalCommit(cbc6713, "change\n", local),
-                        ],
+                        commits_unique_from_tip: [],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                    StackSegment {
+                        ref_name: "refs/heads/lane-2-segment-01",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                    StackSegment {
+                        ref_name: "refs/heads/lane-2-segment-02",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Some(
                             Branch {
@@ -431,7 +514,37 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ),
                 segments: [
                     StackSegment {
-                        ref_name: "refs/heads/lane-2-segment-02",
+                        ref_name: "refs/heads/lane",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [
+                            LocalCommit(cbc6713, "change\n", local),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                    StackSegment {
+                        ref_name: "refs/heads/lane-segment-01",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                    StackSegment {
+                        ref_name: "refs/heads/lane-segment-02",
                         remote_tracking_ref_name: "None",
                         ref_location: "ReachableFromWorkspaceCommit",
                         commits_unique_from_tip: [],
@@ -464,9 +577,9 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
         read_only_in_memory_scenario("two-branches-one-advanced-two-parent-ws-commit")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   335d6f2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\
+    |\  
     | * cbc6713 (advanced-lane) change
-    |/
+    |/  
     * fafd9d0 (origin/main, main, lane) init
     ");
 
@@ -495,10 +608,12 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
                 ),
                 segments: [
                     StackSegment {
-                        ref_name: "refs/heads/lane",
+                        ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
                         ref_location: "ReachableFromWorkspaceCommit",
-                        commits_unique_from_tip: [],
+                        commits_unique_from_tip: [
+                            LocalCommit(cbc6713, "change\n", local),
+                        ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Some(
                             Branch {
@@ -517,12 +632,10 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
                 ),
                 segments: [
                     StackSegment {
-                        ref_name: "refs/heads/advanced-lane",
+                        ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
                         ref_location: "ReachableFromWorkspaceCommit",
-                        commits_unique_from_tip: [
-                            LocalCommit(cbc6713, "change\n", local),
-                        ],
+                        commits_unique_from_tip: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Some(
                             Branch {
@@ -1304,7 +1417,6 @@ mod utils {
         );
         stack.id = stack_id;
         meta.data_mut().branches.insert(stack_id, stack);
-        meta.data();
         stack_id
     }
 }

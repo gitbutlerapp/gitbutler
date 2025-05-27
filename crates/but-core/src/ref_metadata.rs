@@ -157,6 +157,11 @@ impl WorkspaceStack {
     pub fn ref_name(&self) -> Option<&gix::refs::FullName> {
         self.branches.first().map(|b| &b.ref_name)
     }
+
+    /// The same as [`ref_name()`](Self::ref_name()), but returns an actual `Ref`.
+    pub fn name(&self) -> Option<&gix::refs::FullNameRef> {
+        self.ref_name().map(|rn| rn.as_ref())
+    }
 }
 
 /// Metadata about branches, associated with any Git branch.

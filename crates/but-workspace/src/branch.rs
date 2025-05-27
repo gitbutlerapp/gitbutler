@@ -524,9 +524,14 @@ impl Stack {
     /// a commit anymore that was reached by our rev-walk.
     /// This can happen if the ref is deleted, or if it was advanced by other means.
     pub fn name(&self) -> Option<&gix::refs::FullNameRef> {
+        self.ref_name().map(|rn| rn.as_ref())
+    }
+
+    /// The same as [`name()`](Self::ref_name()), but returns the owned name.
+    pub fn ref_name(&self) -> Option<&gix::refs::FullName> {
         self.segments
             .first()
-            .and_then(|name| name.ref_name.as_ref().map(|name| name.as_ref()))
+            .and_then(|name| name.ref_name.as_ref())
     }
 }
 
