@@ -1,21 +1,20 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import BranchCard from '$components/v3/BranchCard.svelte';
+	import PRListCard from '$components/v3/branchesPage/PRListCard.svelte';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { RemotesService } from '$lib/remotes/remotesService';
 	import { workspacePath } from '$lib/routes/routes.svelte';
-	import { pushStatusToColor } from '$lib/stacks/stack';
 	import { StackService } from '$lib/stacks/stackService.svelte';
+
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
-	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	import type { DetailedPullRequest } from '$lib/forge/interface/types';
 
 	type Props = {
@@ -96,18 +95,17 @@
 </script>
 
 <ReduxResult result={prResult?.current} {projectId} {onerror}>
-	{#snippet children(pr, { projectId })}
-		<BranchCard
-			type="pr-branch"
-			{selected}
-			branchName={pr.sourceBranch}
-			{projectId}
-			readonly
-			active
-			trackingBranch={pr.sourceBranch}
-			lastUpdatedAt={new Date(pr.updatedAt).getTime()}
-			lineColor={getColorFromBranchType(pushStatusToColor('nothingToPush'))}
-		/>
+	{#snippet children(pr)}
+		<div class="pr-card">
+			<PRListCard
+				number={pr.number}
+				title={pr.title}
+				sourceBranch={pr.sourceBranch}
+				isDraft={pr.draft ?? false}
+				noRemote
+				{selected}
+			/>
+		</div>
 
 		<Modal
 			testId={TestId.BranchesView_CreateRemoteModal}
@@ -135,6 +133,14 @@
 </ReduxResult>
 
 <style lang="postcss">
+	.pr-card {
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+		pointer-events: none;
+	}
 	.fork-notice {
 		margin-bottom: 8px;
 	}

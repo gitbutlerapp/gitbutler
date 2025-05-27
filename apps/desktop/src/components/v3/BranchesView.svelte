@@ -228,12 +228,20 @@
 								/>
 							{:else}
 								<PRListCard
-									{projectId}
-									pullRequest={sidebarEntrySubject.subject}
+									number={sidebarEntrySubject.subject.number}
+									isDraft={sidebarEntrySubject.subject.draft}
+									title={sidebarEntrySubject.subject.title}
+									sourceBranch={sidebarEntrySubject.subject.sourceBranch}
+									author={{
+										name: sidebarEntrySubject.subject.author?.name,
+										email: sidebarEntrySubject.subject.author?.email,
+										gravatarUrl: sidebarEntrySubject.subject.author?.gravatarUrl
+									}}
+									modifiedAt={sidebarEntrySubject.subject.modifiedAt}
 									selected={branchesSelection.current.prNumber ===
 										sidebarEntrySubject.subject.number}
 									onclick={(pr) => branchesSelection.set({ prNumber: pr.number })}
-									noSourceBranch
+									noRemote
 								/>
 							{/if}
 						{/snippet}

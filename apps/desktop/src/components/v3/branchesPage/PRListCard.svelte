@@ -9,17 +9,37 @@
 	import SeriesIcon from '@gitbutler/ui/SeriesIcon.svelte';
 	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
-	import type { PullRequest } from '$lib/forge/interface/types';
 
-	interface Props {
-		projectId: string;
-		pullRequest: PullRequest;
-		selected: boolean;
-		noSourceBranch?: boolean;
-		onclick: (listing: PullRequest) => void;
+	type basePrData = {
+		number: number;
+		isDraft: boolean;
+		title: string;
+		sourceBranch?: string;
+		author?: {
+			name?: string;
+			email?: string;
+			gravatarUrl?: string;
+		};
+		modifiedAt?: string;
+	};
+
+	interface Props extends basePrData {
+		onclick?: (prData: basePrData) => void;
+		selected?: boolean;
+		noRemote?: boolean;
 	}
 
-	const { pullRequest, selected, noSourceBranch, onclick }: Props = $props();
+	const {
+		selected,
+		noRemote,
+		isDraft,
+		number,
+		title,
+		sourceBranch,
+		author,
+		modifiedAt,
+		onclick
+	}: Props = $props();
 
 	const unknownName = 'unknown';
 
@@ -28,50 +48,65 @@
 	const user = userService.user;
 
 	const authorImgUrl = $derived.by(() => {
-		return pullRequest.author?.email?.toLowerCase() === $user?.email?.toLowerCase()
+		return author?.email?.toLowerCase() === $user?.email?.toLowerCase()
 			? $user?.picture
-			: pullRequest.author?.gravatarUrl;
+			: author?.gravatarUrl;
 	});
+
+	// console.log('PRListCard', {
+	// 	pullRequest
+	// });
 </script>
 
-<BranchesCardTemplate testId={TestId.PRListCard} {selected} onclick={() => onclick?.(pullRequest)}>
+<BranchesCardTemplate
+	testId={TestId.PRListCard}
+	{selected}
+	onclick={() =>
+		onclick?.({
+			number,
+			isDraft,
+			title,
+			sourceBranch,
+			author,
+			modifiedAt
+		})}
+>
 	{#snippet content()}
 		<div class="sidebar-entry__header">
 			<h4 class="text-13 text-semibold">
-				<span class="text-clr2">#{pullRequest.number}:</span>
-				{pullRequest.title}
+				<span class="text-clr2">#{number}:</span>
+				{title}
 			</h4>
 		</div>
 
 		<div class="text-12 sidebar-entry__about">
-			<ReviewBadge
-				prStatus={pullRequest.draft ? 'draft' : 'unknown'}
-				prTitle={pullRequest.title}
-				prNumber={pullRequest.number}
-			/>
+			<ReviewBadge prStatus={isDraft ? 'draft' : 'unknown'} prTitle={title} prNumber={number} />
 			<span class="sidebar-entry__divider">•</span>
 
-			{#if noSourceBranch}
-				<span>No source branch</span>
+			{#if noRemote}
+				<span>No remote</span>
 			{:else}
 				<div class="sidebar-entry__branch">
 					<SeriesIcon single />
-					<span class="text-semibold">{pullRequest.sourceBranch}</span>
+					<span class="text-semibold">{sourceBranch}</span>
 				</div>
 			{/if}
 		</div>
 	{/snippet}
 	{#snippet details()}
-		<AvatarGroup
-			avatars={[
-				{
-					name: pullRequest.author?.name || 'unknown',
-					srcUrl: authorImgUrl || ''
-				}
-			]}
-		/>
-		<TimeAgo date={new Date(pullRequest.modifiedAt)} addSuffix /> by
-		{pullRequest.author?.name || unknownName}
+		{#if author && modifiedAt}
+			<AvatarGroup
+				avatars={[
+					{
+						name: author.name || 'unknown',
+						srcUrl: authorImgUrl || ''
+					}
+				]}
+			/>
+
+			<TimeAgo date={new Date(modifiedAt)} addSuffix /> by
+			{author.name || unknownName}
+		{/if}
 	{/snippet}
 </BranchesCardTemplate>
 
