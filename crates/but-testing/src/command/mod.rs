@@ -130,8 +130,8 @@ pub mod assignment {
 
     pub fn hunk_assignments(current_dir: &Path, use_json: bool) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
-        let ctx = CommandContext::open(&project, AppSettings::default())?;
-        let assignments = but_hunk_assignment::assignments(&ctx)?;
+        let ctx = &mut CommandContext::open(&project, AppSettings::default())?;
+        let assignments = but_hunk_assignment::assignments(ctx)?;
         if use_json {
             let json = serde_json::to_string_pretty(&assignments)?;
             println!("{json}");
@@ -147,8 +147,8 @@ pub mod assignment {
         assignment: HunkAssignmentRequest,
     ) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
-        let ctx = CommandContext::open(&project, AppSettings::default())?;
-        let rejections = but_hunk_assignment::assign(&ctx, vec![assignment])?;
+        let ctx = &mut CommandContext::open(&project, AppSettings::default())?;
+        let rejections = but_hunk_assignment::assign(ctx, vec![assignment])?;
         if use_json {
             let json = serde_json::to_string_pretty(&rejections)?;
             println!("{json}");

@@ -163,10 +163,10 @@ pub fn changes_in_worktree(
     project_id: ProjectId,
 ) -> anyhow::Result<WorktreeChanges, Error> {
     let project = projects.get(project_id)?;
-    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    let ctx = &mut CommandContext::open(&project, settings.get()?.clone())?;
     let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(project.path)?;
     let assignments =
-        but_hunk_assignment::assignments(&ctx).map_err(|err| serde_error::Error::new(&*err));
+        but_hunk_assignment::assignments(ctx).map_err(|err| serde_error::Error::new(&*err));
     Ok(WorktreeChanges {
         worktree_changes: changes,
         assignments,
@@ -182,7 +182,7 @@ pub fn assign_hunk(
     assignments: Vec<HunkAssignmentRequest>,
 ) -> anyhow::Result<Vec<AssignmentRejection>, Error> {
     let project = projects.get(project_id)?;
-    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    let rejections = but_hunk_assignment::assign(&ctx, assignments)?;
+    let ctx = &mut CommandContext::open(&project, settings.get()?.clone())?;
+    let rejections = but_hunk_assignment::assign(ctx, assignments)?;
     Ok(rejections)
 }
