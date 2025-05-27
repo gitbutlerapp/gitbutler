@@ -150,7 +150,6 @@
 		margin-left: 4px;
 		opacity: 0.4;
 	}
-
 	.fork-notice {
 		margin-bottom: 8px;
 	}

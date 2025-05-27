@@ -46,11 +46,11 @@
 								{pr.author?.name}
 							</span>
 							wants to merge into
-							<span class="code-string">
+							<span class="code-string text-semibold">
 								{pr.baseBranch}
 							</span>
 							from
-							<span class="code-string">
+							<span class="code-string text-semibold">
 								{pr.sourceBranch}
 							</span>
 						</p>
