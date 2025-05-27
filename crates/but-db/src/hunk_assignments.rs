@@ -2,7 +2,20 @@ use diesel::RunQueryDsl;
 
 use crate::{DbHandle, schema::hunk_assignments::dsl::*};
 
-/// Implements methods for managing hunk assignments in the database.
+use diesel::prelude::{Insertable, Queryable, Selectable};
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Selectable, Insertable)]
+#[diesel(table_name = crate::schema::hunk_assignments)]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct HunkAssignment {
+    pub hunk_header: Option<String>,
+    pub path: String,
+    pub path_bytes: Vec<u8>,
+    pub stack_id: Option<String>,
+    pub hunk_locks: String,
+}
+
 impl DbHandle {
     pub fn hunk_assignments(&mut self) -> HunkAssignmentsHandle {
         HunkAssignmentsHandle { db: self }
@@ -15,17 +28,14 @@ pub struct HunkAssignmentsHandle<'a> {
 
 impl HunkAssignmentsHandle<'_> {
     /// Lists all hunk assignments in the database.
-    pub fn list_all(&mut self) -> anyhow::Result<Vec<crate::models::HunkAssignment>> {
-        let results = hunk_assignments.load::<crate::models::HunkAssignment>(&mut self.db.conn)?;
+    pub fn list_all(&mut self) -> anyhow::Result<Vec<HunkAssignment>> {
+        let results = hunk_assignments.load::<HunkAssignment>(&mut self.db.conn)?;
         Ok(results)
     }
 
     /// Sets the hunk assignments in the database to the provided values. Any existing entries
     /// that are not in the provided values are deleted.
-    pub fn set_all(
-        &mut self,
-        assignments: Vec<crate::models::HunkAssignment>,
-    ) -> anyhow::Result<()> {
+    pub fn set_all(&mut self, assignments: Vec<HunkAssignment>) -> anyhow::Result<()> {
         // Set the hunk_assignments table to the values in `assignments`.
         // Any existing entries that are not in `assignments` are deleted.
         use crate::schema::hunk_assignments::dsl::hunk_assignments as all_assignments;

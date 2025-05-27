@@ -6,8 +6,8 @@ use diesel::{Connection, SqliteConnection};
 
 const FILE_NAME: &str = "gb.sqlite";
 
-pub mod hunk_assignments;
-pub mod models;
+mod hunk_assignments;
+pub use hunk_assignments::HunkAssignment;
 mod schema;
 
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};

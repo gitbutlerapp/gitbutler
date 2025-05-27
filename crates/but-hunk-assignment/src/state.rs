@@ -22,9 +22,10 @@ pub fn assignments(ctx: &mut CommandContext) -> Result<Vec<HunkAssignment>> {
 }
 
 pub fn set_assignments(ctx: &mut CommandContext, assignments: Vec<HunkAssignment>) -> Result<()> {
-    let assignments: Vec<but_db::models::HunkAssignment> = assignments
+    let assignments: Vec<but_db::HunkAssignment> = assignments
         .into_iter()
         .map(|a| a.try_into())
-        .collect::<Result<Vec<but_db::models::HunkAssignment>>>()?;
+        .collect::<Result<Vec<but_db::HunkAssignment>>>(
+    )?;
     ctx.db()?.hunk_assignments().set_all(assignments)
 }

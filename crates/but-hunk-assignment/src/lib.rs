@@ -40,9 +40,9 @@ pub struct HunkAssignment {
     pub hunk_locks: Vec<HunkLock>,
 }
 
-impl TryFrom<but_db::models::HunkAssignment> for HunkAssignment {
+impl TryFrom<but_db::HunkAssignment> for HunkAssignment {
     type Error = anyhow::Error;
-    fn try_from(value: but_db::models::HunkAssignment) -> Result<Self, Self::Error> {
+    fn try_from(value: but_db::HunkAssignment) -> Result<Self, Self::Error> {
         let header = value
             .hunk_header
             .as_ref()
@@ -64,7 +64,7 @@ impl TryFrom<but_db::models::HunkAssignment> for HunkAssignment {
     }
 }
 
-impl TryFrom<HunkAssignment> for but_db::models::HunkAssignment {
+impl TryFrom<HunkAssignment> for but_db::HunkAssignment {
     type Error = anyhow::Error;
     fn try_from(value: HunkAssignment) -> Result<Self, Self::Error> {
         let header = value
@@ -74,7 +74,7 @@ impl TryFrom<HunkAssignment> for but_db::models::HunkAssignment {
                     .map_err(|e| anyhow::anyhow!("Failed to serialize hunk_header: {}", e))
             })
             .transpose()?;
-        Ok(but_db::models::HunkAssignment {
+        Ok(but_db::HunkAssignment {
             hunk_header: header,
             path: value.path,
             path_bytes: value.path_bytes.into(),
