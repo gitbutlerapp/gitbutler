@@ -1,14 +1,10 @@
 <script lang="ts">
 	import BranchesCardTemplate from '$components/v3/branchesPage/BranchesCardTemplate.svelte';
-	import { BranchService } from '$lib/branches/branchService.svelte';
-	import { GitConfigService } from '$lib/config/gitConfigService';
 	import { TestId } from '$lib/testing/testIds';
-	import { UserService } from '$lib/user/userService';
-	import { inject } from '@gitbutler/shared/context';
 	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
 	import SeriesIcon from '@gitbutler/ui/SeriesIcon.svelte';
 	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
-	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
+	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
 
 	type basePrData = {
 		number: number;
@@ -41,17 +37,7 @@
 		onclick
 	}: Props = $props();
 
-	const unknownName = 'unknown';
-
-	const [userService] = inject(UserService, GitConfigService, BranchService);
-
-	const user = userService.user;
-
-	const authorImgUrl = $derived.by(() => {
-		return author?.email?.toLowerCase() === $user?.email?.toLowerCase()
-			? $user?.picture
-			: author?.gravatarUrl;
-	});
+	const unknownName = 'Unknown Author';
 
 	// console.log('PRListCard', {
 	// 	pullRequest
@@ -95,15 +81,7 @@
 	{/snippet}
 	{#snippet details()}
 		{#if author && modifiedAt}
-			<AvatarGroup
-				avatars={[
-					{
-						name: author.name || 'unknown',
-						srcUrl: authorImgUrl || ''
-					}
-				]}
-			/>
-
+			<Avatar srcUrl={author.gravatarUrl || ''} tooltip={author.name || unknownName} />
 			<TimeAgo date={new Date(modifiedAt)} addSuffix /> by
 			{author.name || unknownName}
 		{/if}

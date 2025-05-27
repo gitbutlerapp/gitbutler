@@ -114,10 +114,12 @@
 			bind:this={createRemoteModal}
 			onSubmit={async () => await handleConfirmRemote(pr)}
 		>
-			<p class="text-15 fork-notice">
-				In order to apply a branch from a fork, GitButler must first add a remote.
+			<p class="fork-notice">
+				To apply a branch from a fork, GitButler must first add the fork as a remote. Choose a
+				remote name:
 			</p>
-			<Textbox label="Choose a remote name" bind:value={inputRemoteName} required />
+			<Textbox bind:value={inputRemoteName} placeholder="remote-name-example" required />
+
 			{#snippet controls(close)}
 				<Button kind="outline" onclick={close}>Cancel</Button>
 				<Button
@@ -125,7 +127,7 @@
 					style="pop"
 					type="submit"
 					{loading}
-					disabled={!inputRemoteName}>Confirm</Button
+					disabled={!inputRemoteName}>Confirm and apply</Button
 				>
 			{/snippet}
 		</Modal>
@@ -142,6 +144,6 @@
 		pointer-events: none;
 	}
 	.fork-notice {
-		margin-bottom: 8px;
+		margin-bottom: 14px;
 	}
 </style>

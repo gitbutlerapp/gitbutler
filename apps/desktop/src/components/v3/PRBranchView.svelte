@@ -1,11 +1,13 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
+	import PrStatusBadge from '$components/v3/PrStatusBadge.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { getContext } from '@gitbutler/shared/context';
-	import Badge from '@gitbutler/ui/Badge.svelte';
+	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
+
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 
 	type Props = {
@@ -24,38 +26,52 @@
 <ReduxResult result={prResult?.current} {projectId} {onerror}>
 	{#snippet children(pr, { projectId })}
 		<Drawer testId={TestId.PRBranchDrawer} {projectId}>
-			<div class="pr">
-				<div class="pr-header">
-					<h2 class="text-14 text-semibold pr-title">
-						{pr.title}
-						<span class="pr-link-container">
+			{#snippet header()}
+				<h3 class="text-14 text-semibold">
+					<span class="text-clr2">PR {unitSymbol}{pr.number}:</span>
+					<span> {pr.title}</span>
+				</h3>
+			{/snippet}
+
+			<div class="pr-content">
+				<div class="pr-request-data">
+					<Avatar
+						size="medium"
+						srcUrl={pr.author?.gravatarUrl || ''}
+						tooltip={pr.author?.name || 'Unknown Author'}
+					/>
+					<div class="pr-request-data__wrapper">
+						<p class="pr-request-data__sentence text-13">
+							<span class="text-bold text-clr1">
+								{pr.author?.name}
+							</span>
+							wants to merge into
+							<span class="code-string">
+								{pr.baseBranch}
+							</span>
+							from
+							<span class="code-string">
+								{pr.sourceBranch}
+							</span>
+						</p>
+
+						<div class="pr-request-data__details text-12">
+							<PrStatusBadge {pr} />
+							<span class="pr-request-data__divider">•</span>
+							<span>No remote</span>
+
+							<span class="pr-request-data__divider">•</span>
 							<Link target="_blank" rel="noopener noreferrer" href={pr.htmlUrl}>
-								{unitSymbol}{pr.number}
+								Open in browser
 							</Link>
-						</span>
-					</h2>
-					{#if pr.draft}
-						<Badge size="tag" style="neutral" icon="draft-pr-small">Draft</Badge>
-					{:else}
-						<Badge size="tag" style="success" icon="pr-small">Open</Badge>
-					{/if}
+						</div>
+					</div>
 				</div>
 
-				<div class="text-13">
-					<span class="text-bold">
-						{pr.author?.name}
-					</span>
-					wants to merge into
-					<span class="code-string">
-						{pr.baseBranch}
-					</span>
-					from
-					<span class="code-string">
-						{pr.sourceBranch}
-					</span>
-				</div>
 				{#if pr.body}
-					<Markdown content={pr.body} />
+					<div class="pr-body text-13">
+						<Markdown content={pr.body} />
+					</div>
 				{/if}
 			</div>
 		</Drawer>
@@ -63,16 +79,49 @@
 </ReduxResult>
 
 <style lang="postcss">
-	.pr {
+	.pr-content {
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
 	}
 
-	.pr-header {
+	.pr-request-data {
+		display: flex;
+		flex-direction: row;
+		width: 100%;
+		gap: 10px;
+	}
+
+	.pr-request-data__wrapper {
 		display: flex;
 		flex-direction: column;
-		align-items: start;
+		width: 100%;
+		gap: 10px;
+	}
+
+	.pr-request-data__sentence {
+		color: var(--clr-text-2);
+		line-height: 140%;
+	}
+
+	.pr-request-data__details {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
 		gap: 8px;
+		color: var(--clr-text-2);
+	}
+
+	.pr-request-data__divider {
+		color: var(--clr-text-3);
+	}
+
+	.code-string {
+		color: var(--clr-text-1);
+	}
+
+	.pr-body {
+		padding-top: 16px;
+		border-top: 1px solid var(--clr-border-2);
 	}
 </style>
