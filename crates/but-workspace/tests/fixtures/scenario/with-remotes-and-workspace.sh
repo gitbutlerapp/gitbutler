@@ -16,6 +16,11 @@ function set_author() {
   git config user.email $author@example.com
 }
 
+function setup_target_to_match_main() {
+  mkdir -p .git/refs/remotes/origin
+  cp .git/refs/heads/main .git/refs/remotes/origin/
+}
+
 
 # can only be called once per test setup
 function create_workspace_commit_once() {
@@ -33,7 +38,29 @@ function create_workspace_commit_once() {
   if [ $# == 1 ] || [ $# == 0 ]; then
     git commit --allow-empty -m "$workspace_commit_subject"
   else
-    git merge -m "$workspace_commit_subject" "${@}"
+    git merge --no-ff -m "$workspace_commit_subject" "${@}"
+  fi
+}
+
+# can only be called once per test setup, and definitely doesn't do anything smart like the above version.
+# TODO: Both yield different results due to the way the merge is done, so that's maybe something to double-check as well.
+function create_workspace_commit_aggressively() {
+  local workspace_commit_subject="GitButler Workspace Commit"
+
+  if [ $# == 1 ]; then
+    local current_branch=$(git rev-parse --abbrev-ref HEAD)
+    if [[ "$current_branch" != "$1" ]]; then
+      echo "BUG: Must assure the current branch is the branch passed as argument: $current_branch != $1"
+      return 42
+    fi
+  fi
+
+set -x
+  git checkout -b gitbutler/workspace main
+  if [ $# == 1 ] || [ $# == 0 ]; then
+    git commit --allow-empty -m "$workspace_commit_subject"
+  else
+    git merge --no-ff --strategy octopus -m "$workspace_commit_subject" "${@}"
   fi
 }
 
@@ -64,7 +91,6 @@ git clone remote multiple-stacks-with-shared-segment
   git checkout -b A origin/A
   git reset --hard @~1
 
-set -x
   git checkout -b B-on-A
   echo >new-in-B && git add . && git commit -am "add new file in B-on-A"
 
@@ -105,4 +131,93 @@ git clone remote target-ahead-remote-rewritten
   git commit --allow-empty -m "unique local tip"
 
   create_workspace_commit_once A
+)
+
+git init disjoint
+(cd disjoint
+  git commit -m "init" --allow-empty
+  setup_target_to_match_main
+
+  git checkout --orphan disjoint
+  git commit -m "disjoint init" --allow-empty
+)
+
+git init two-branches-one-advanced-one-parent-ws-commit
+(cd two-branches-one-advanced-one-parent-ws-commit
+  git commit -m "init" --allow-empty
+  setup_target_to_match_main
+  git checkout -b lane main
+
+  git branch advanced-lane-2
+  git checkout -b advanced-lane
+  git commit -m "change" --allow-empty
+
+  git checkout advanced-lane-2
+  git commit -m "change 2" --allow-empty
+
+  create_workspace_commit_once advanced-lane-2 advanced-lane
+)
+
+# TTB = target-tracking-branch
+git init two-branches-one-advanced-two-parent-ws-commit-diverged-ttb
+(cd two-branches-one-advanced-two-parent-ws-commit-diverged-ttb
+  git commit -m "init" --allow-empty
+  git checkout -b lane main
+
+  git checkout -b advanced-lane
+  git commit -m "change" --allow-empty
+
+  create_workspace_commit_aggressively advanced-lane lane
+  # swap trees - Git puts 'lane' first for some reason, but we really need the other way to reproduce a bug!
+  commit_swapped_parents=$(git commit-tree -p "HEAD^2" -p "HEAD^1" -m "GitButler Workspace Commit" "HEAD^{tree}")
+  echo "${commit_swapped_parents}" >.git/refs/heads/gitbutler/workspace
+
+  git checkout --orphan disjoint-target-tracking
+  git commit -m "disjoint remote target" --allow-empty
+
+  mkdir -p .git/refs/remotes/origin
+  mv .git/refs/heads/disjoint-target-tracking .git/refs/remotes/origin/main
+
+  git checkout gitbutler/workspace
+)
+
+git init two-branches-one-advanced-two-parent-ws-commit
+(cd two-branches-one-advanced-two-parent-ws-commit
+  git commit -m "init" --allow-empty
+  setup_target_to_match_main
+  git checkout -b lane main
+
+  git checkout -b advanced-lane
+  git commit -m "change" --allow-empty
+
+  create_workspace_commit_aggressively lane advanced-lane
+)
+
+git init two-branches-one-advanced-ws-commit-on-top-of-stack
+(cd two-branches-one-advanced-ws-commit-on-top-of-stack
+  git commit -m "init" --allow-empty
+  setup_target_to_match_main
+  git checkout -b lane main
+
+  git checkout -b advanced-lane
+  git commit -m "change" --allow-empty
+
+  create_workspace_commit_once lane advanced-lane
+)
+git init multiple-dependent-branches-per-stack-without-commit
+(cd multiple-dependent-branches-per-stack-without-commit
+  git commit -m "init" --allow-empty
+  setup_target_to_match_main
+
+  git branch lane-segment-01
+  git branch lane-segment-02
+
+  git branch lane-2
+  git branch lane-2-segment-01
+  git branch lane-2-segment-02
+
+  git checkout -b lane
+  git commit -m "change" --allow-empty
+
+  create_workspace_commit_once lane lane-2
 )

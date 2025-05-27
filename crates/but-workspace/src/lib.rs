@@ -86,7 +86,7 @@ pub use stacks::{
 };
 
 mod virtual_branches_metadata;
-pub use virtual_branches_metadata::VirtualBranchesTomlMetadata;
+pub use virtual_branches_metadata::{VirtualBranchesTomlMetadata, is_workspace_ref_name};
 
 mod branch_details;
 pub use branch_details::{branch_details, branch_details_v3};
@@ -116,11 +116,11 @@ pub struct DiffSpec {
 pub struct HunkHeader {
     /// The 1-based line number at which the previous version of the file started.
     pub old_start: u32,
-    /// The non-zero amount of lines included in the previous version of the file.
+    /// The non-zero number of lines included in the previous version of the file.
     pub old_lines: u32,
     /// The 1-based line number at which the new version of the file started.
     pub new_start: u32,
-    /// The non-zero amount of lines included in the new version of the file.
+    /// The non-zero number of lines included in the new version of the file.
     pub new_lines: u32,
 }
 
@@ -168,7 +168,7 @@ pub struct RefInfo {
     pub target_ref: Option<gix::refs::FullName>,
 }
 
-/// A representation of the commit that is the tip of the workspace, i.e., usually what `HEAD` points to,
+/// A representation of the commit that is the tip of the workspace i.e., usually what `HEAD` points to,
 /// possibly in its managed form in which it merges two or more stacks together, and we can rewrite it at will.
 pub struct WorkspaceCommit<'repo> {
     /// The id of the commit itself.
@@ -220,8 +220,8 @@ pub fn common_merge_base_with_target_branch(gb_dir: &Path) -> Result<gix::Object
 /// Return a list of commits on the target branch
 /// Starts either from the target branch or from the provided commit id, up to the limit provided.
 ///
-/// Returns the commits in reverse order, i.e. from the most recent to the oldest.
-/// The `Commit` type is the same as that of the other workspace endpoints - for that reason
+/// Returns the commits in reverse order, i.e., from the most recent to the oldest.
+/// The `Commit` type is the same as that of the other workspace endpoints - for that reason,
 /// the fields `has_conflicts` and `state` are somewhat meaningless.
 pub fn log_target_first_parent(
     ctx: &CommandContext,

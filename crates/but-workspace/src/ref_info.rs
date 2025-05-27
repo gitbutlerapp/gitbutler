@@ -24,13 +24,13 @@ pub struct Options {
 pub(crate) mod function {
     use crate::branch::{LocalCommit, LocalCommitRelation, RefLocation, Stack, StackSegment};
     use crate::integrated::{IsCommitIntegrated, MergeBaseCommitGraph};
-    use crate::{RefInfo, branch};
+    use crate::{RefInfo, WorkspaceCommit, branch, is_workspace_ref_name};
     use anyhow::bail;
     use bstr::BString;
-    use but_core::ref_metadata::ValueInfo;
+    use but_core::ref_metadata::{ValueInfo, Workspace, WorkspaceStack};
     use gitbutler_oxidize::ObjectIdExt as _;
     use gix::prelude::{ObjectIdExt, ReferenceExt};
-    use gix::refs::Category;
+    use gix::refs::{Category, FullName};
     use gix::revision::walk::Sorting;
     use gix::trace;
     use std::collections::hash_map::Entry;
@@ -95,40 +95,8 @@ pub(crate) mod function {
         opts: super::Options,
     ) -> anyhow::Result<RefInfo> {
         let ws_data = workspace_data_of_workspace_branch(meta, existing_ref.name())?;
-        let (workspace_ref_name, target_ref, stored_workspace_stacks) = if let Some(ws_data) =
-            ws_data
-        {
-            // TODO: figure out what to do with workspace information, consolidate it with what's there as well
-            //       to know which branch is where.
-            (
-                Some(existing_ref.name().to_owned()),
-                ws_data.target_ref,
-                Some(ws_data.stacks),
-            )
-        } else {
-            // We'd want to assure we don't overcount commits even if we are handed a non-workspace ref, so we always have to
-            // search for known workspaces.
-            // Do get the first known target ref for now.
-            let ws_data_iter = meta
-                .iter()
-                .filter_map(Result::ok)
-                .filter_map(|(ref_name, item)| {
-                    item.downcast::<but_core::ref_metadata::Workspace>()
-                        .ok()
-                        .map(|ws| (ref_name, ws))
-                });
-            let mut target_refs =
-                ws_data_iter.map(|(ref_name, ws)| (ref_name, ws.target_ref, ws.stacks));
-            let first_target = target_refs.next();
-            if target_refs.next().is_some() {
-                bail!(
-                    "BUG: found more than one workspaces in branch-metadata, and we'd want to make this code multi-workspace compatible"
-                )
-            }
-            first_target
-                .map(|(a, b, c)| (Some(a), b, Some(c)))
-                .unwrap_or_default()
-        };
+        let (workspace_ref_name, target_ref, stored_workspace_stacks) =
+            obtain_workspace_info(&existing_ref, meta, ws_data)?;
         let repo = existing_ref.repo;
         // If there are multiple choices for a ref that points to a commit we encounter, use one of these.
         let mut preferred_ref_names = stored_workspace_stacks
@@ -145,7 +113,7 @@ pub(crate) mod function {
             .and_then(|rn| extract_remote_name(rn.as_ref(), &repo.remote_names()));
 
         let ref_commit = existing_ref.peel_to_commit()?;
-        let ref_commit = crate::WorkspaceCommit {
+        let ref_commit = WorkspaceCommit {
             id: ref_commit.id(),
             inner: ref_commit.decode()?.to_owned(),
         };
@@ -158,6 +126,7 @@ pub(crate) mod function {
         let cache = repo.commit_graph_if_enabled()?;
         let mut graph = repo.revision_graph(cache.as_ref());
         let mut boundary = gix::hashtable::HashSet::default();
+
         let mut stacks = if ref_commit.is_managed() {
             let base: Option<_> = if target_ref_id.is_none() {
                 match repo
@@ -234,6 +203,13 @@ pub(crate) mod function {
             }
             stacks
         } else {
+            if is_workspace_ref_name(existing_ref.name()) {
+                // TODO: assure we can recover from that.
+                bail!(
+                    "Workspace reference {name} didn't point to a managed commit anymore",
+                    name = existing_ref.name().shorten()
+                )
+            }
             // Discover all references that actually point to the reachable graph.
             let tip = ref_commit.id;
             let base = target_ref_id
@@ -253,6 +229,8 @@ pub(crate) mod function {
                     }
                 })
                 .map(|base| base.detach());
+            // If we have a workspace, then we have to use that as the basis for our traversal to assure
+            // the commits and stacks are assigned consistently.
             if let Some((workspace_ref, base)) = workspace_ref_name
                 .as_ref()
                 .filter(|workspace_ref| workspace_ref.as_ref() != existing_ref.name())
@@ -260,7 +238,11 @@ pub(crate) mod function {
             {
                 let workspace_contains_ref_tip =
                     walk_commits(repo, workspace_ref.as_ref(), base)?.contains(&*tip);
-                if workspace_contains_ref_tip {
+                let workspace_tip_is_managed = try_refname_to_id(repo, workspace_ref.as_ref())?
+                    .map(|commit_id| WorkspaceCommit::from_id(commit_id.attach(repo)))
+                    .transpose()?
+                    .is_some_and(|c| c.is_managed());
+                if workspace_contains_ref_tip && workspace_tip_is_managed {
                     // To assure the stack is counted consistently even when queried alone, redo the query.
                     // This should be avoided (i.e., the caller should consume the 'highest value'
                     // refs if possible, but that's not always the case.
@@ -341,48 +323,10 @@ pub(crate) mod function {
             }]
         };
 
-        if let Some(ws_stacks) = stored_workspace_stacks.as_ref() {
-            // Stacks that are genuinely reachable we have ot show.
-            // Empty ones are special as they don't have their own commits and aren't distinguishable
-            // by traversing a workspace commit. For this, we have workspace metadata to tell us what is what.
-            for stack in stacks
-                .iter_mut()
-                .filter(|stack| stack.name() != Some(existing_ref.name()))
-            {
-                // Find all empty segments that aren't listed in our workspace stacks metadata, and remove them.
-                let desired_stack_segments = ws_stacks.iter().find(|ws_stack| {
-                    ws_stack
-                        .branches
-                        .first()
-                        .is_some_and(|branch| Some(branch.ref_name.as_ref()) == stack.name())
-                });
-                let num_segments_to_keep = stack
-                    .segments
-                    .iter()
-                    .enumerate()
-                    .rev()
-                    .by_ref()
-                    .take_while(|(_idx, segment)| segment.commits_unique_from_tip.is_empty())
-                    .take_while(|(_idx, segment)| {
-                        segment
-                            .ref_name
-                            .as_ref()
-                            .zip(desired_stack_segments)
-                            .is_none_or(|(srn, desired_stack)| {
-                                // We don't let the desired order matter, just that an empty segment is (not) mentioned.
-                                desired_stack
-                                    .branches
-                                    .iter()
-                                    .all(|branch| &branch.ref_name != srn)
-                            })
-                    })
-                    .map(|t| t.0)
-                    .last();
-                if let Some(keep) = num_segments_to_keep {
-                    // Empty stacks are OK for now….
-                    stack.segments.drain(keep..);
-                }
-            }
+        // Various cleanup functions to enforce constraints before spending time on classifying commits.
+        enforce_constraints(&mut stacks);
+        if let Some(ws_stacks) = stored_workspace_stacks.as_deref() {
+            reconcile_with_workspace_stacks(&existing_ref, ws_stacks, &mut stacks, meta)?;
         }
 
         if opts.expensive_commit_info {
@@ -394,6 +338,313 @@ pub(crate) mod function {
             stacks,
             target_ref,
         })
+    }
+
+    #[allow(clippy::type_complexity)]
+    fn obtain_workspace_info(
+        existing_ref: &gix::Reference<'_>,
+        meta: &impl but_core::RefMetadata,
+        ws_data: Option<Workspace>,
+    ) -> anyhow::Result<(
+        Option<FullName>,
+        Option<FullName>,
+        Option<Vec<WorkspaceStack>>,
+    )> {
+        Ok(if let Some(ws_data) = ws_data {
+            (
+                Some(existing_ref.name().to_owned()),
+                ws_data.target_ref,
+                Some(ws_data.stacks),
+            )
+        } else {
+            // We'd want to assure we don't overcount commits even if we are handed a non-workspace ref, so we always have to
+            // search for known workspaces.
+            // Do get the first known target ref for now.
+            let ws_data_iter = meta
+                .iter()
+                .filter_map(Result::ok)
+                .filter_map(|(ref_name, item)| {
+                    item.downcast::<but_core::ref_metadata::Workspace>()
+                        .ok()
+                        .map(|ws| (ref_name, ws))
+                });
+            let mut target_refs =
+                ws_data_iter.map(|(ref_name, ws)| (ref_name, ws.target_ref, ws.stacks));
+            let first_target = target_refs.next();
+            if target_refs.next().is_some() {
+                bail!(
+                    "BUG: found more than one workspaces in branch-metadata, and we'd want to make this code multi-workspace compatible"
+                )
+            }
+            first_target
+                .map(|(a, b, c)| (Some(a), b, Some(c)))
+                .unwrap_or_default()
+        })
+    }
+
+    /// Does the following:
+    ///
+    /// * a segment can be reachable from multiple stacks. If a segment is also a stack, remove it along with all segments
+    ///   that follow as one can assume they are contained in the stack.
+    fn enforce_constraints(stacks: &mut [Stack]) {
+        let mut for_deletion = Vec::new();
+        for (stack_idx, stack_name) in stacks
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, stack)| stack.name().map(|n| (idx, n)))
+        {
+            for (other_stack_idx, other_stack) in stacks
+                .iter()
+                .enumerate()
+                .filter(|(idx, _stack)| *idx != stack_idx)
+            {
+                if let Some(matching_segment_idx) = other_stack
+                    .segments
+                    .iter()
+                    .enumerate()
+                    .find_map(|(idx, segment)| {
+                        (segment.ref_name.as_ref().map(|rn| rn.as_ref()) == Some(stack_name))
+                            .then_some(idx)
+                    })
+                {
+                    for_deletion.push((other_stack_idx, matching_segment_idx));
+                }
+            }
+        }
+
+        for (stack_idx, first_segment_idx_to_delete) in for_deletion {
+            stacks[stack_idx]
+                .segments
+                .drain(first_segment_idx_to_delete..);
+        }
+    }
+
+    /// Given the desired stack configuration in `ws_stacks`, bring this information into `stacks` which is assumed
+    /// to be what Git really sees.
+    /// This is needed as empty stacks and segments, and particularly their order, can't be fully represented just
+    /// with Git refs alone.
+    fn reconcile_with_workspace_stacks(
+        existing_ref: &gix::Reference<'_>,
+        ws_stacks: &[WorkspaceStack],
+        stacks: &mut Vec<Stack>,
+        meta: &impl but_core::RefMetadata,
+    ) -> anyhow::Result<()> {
+        // Stacks that are genuinely reachable we have to show.
+        // Empty ones are special as they don't have their own commits and aren't distinguishable by traversing a
+        // workspace commit. For this, we have workspace metadata to tell us what is what.
+        // The goal is to remove segments that we found by traversal and re-add them as individual stack if they are some.
+        for stack in stacks
+            .iter_mut()
+            .filter(|stack| stack.name() != Some(existing_ref.name()))
+        {
+            // Find all empty segments that aren't listed in our workspace stacks metadata, and remove them.
+            let desired_stack_segments = ws_stacks.iter().find(|ws_stack| {
+                ws_stack
+                    .branches
+                    .first()
+                    .is_some_and(|branch| Some(branch.ref_name.as_ref()) == stack.name())
+            });
+            let num_segments_to_keep = stack
+                .segments
+                .iter()
+                .enumerate()
+                .rev()
+                .by_ref()
+                .take_while(|(_idx, segment)| segment.commits_unique_from_tip.is_empty())
+                .take_while(|(_idx, segment)| {
+                    segment
+                        .ref_name
+                        .as_ref()
+                        .zip(desired_stack_segments)
+                        .is_none_or(|(srn, desired_stack)| {
+                            // We don't let the desired order matter, just that an empty segment is (not) mentioned.
+                            desired_stack
+                                .branches
+                                .iter()
+                                .all(|branch| &branch.ref_name != srn)
+                        })
+                })
+                .map(|t| t.0)
+                .last();
+            if let Some(keep) = num_segments_to_keep {
+                // Empty stacks are OK for now….
+                stack.segments.drain(keep..);
+            }
+        }
+
+        // Put the stacks into the right order, and create empty stacks for those that are completely virtual.
+        sort_stacks_by_order_in_ws_stacks(existing_ref.repo, stacks, ws_stacks, meta)?;
+        Ok(())
+    }
+
+    /// Brute-force insert missing stacks and segments as determined in `ordered`.
+    /// Add missing stacks and segments as well so real stacks `unordered` match virtual stacks `ordered`.
+    fn sort_stacks_by_order_in_ws_stacks(
+        repo: &gix::Repository,
+        unordered: &mut Vec<Stack>,
+        ordered: &[WorkspaceStack],
+        meta: &impl but_core::RefMetadata,
+    ) -> anyhow::Result<()> {
+        // With this, the tip can also be missing, and we still have a somewhat expected order.
+        // Besides, it's easier to work with.
+        let serialized_virtual_segments = {
+            let all_stack_commits: gix::hashtable::HashSet<_> = unordered
+                .iter()
+                .flat_map(|s| {
+                    s.segments
+                        .iter()
+                        .flat_map(|s| s.commits_unique_from_tip.iter().map(|c| c.id))
+                        .chain(s.base)
+                })
+                .collect();
+            let mut v = Vec::new();
+            for (is_stack_tip, existing_ws_ref) in ordered.iter().flat_map(|ws_stack| {
+                ws_stack
+                    .branches
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(branch_idx, branch)| {
+                        repo.try_find_reference(branch.ref_name.as_ref())
+                            .transpose()
+                            .map(|rn| (branch_idx == 0, rn))
+                    })
+            }) {
+                let mut existing_ws_ref = existing_ws_ref?;
+                let id = existing_ws_ref.peel_to_id_in_place()?.detach();
+                if all_stack_commits.contains(&id) {
+                    v.push((is_stack_tip, id, existing_ws_ref.inner.name));
+                }
+            }
+            v
+        };
+
+        // Identify missing stacks in ordered and add them to the end of unordered.
+        // Here we must match only the existing stack-heads.
+        for ws_stack in ordered {
+            let Some((segment_idx, stack_base, segment_ref_name)) = serialized_virtual_segments
+                .iter()
+                .enumerate()
+                .find_map(|(segment_idx, (is_stack_tip, id, segment_ref_name))| {
+                    if !is_stack_tip {
+                        return None;
+                    }
+                    (Some(segment_ref_name) == ws_stack.ref_name()).then_some((
+                        segment_idx,
+                        *id,
+                        segment_ref_name,
+                    ))
+                })
+            else {
+                continue;
+            };
+            let virtual_stack_is_known_as_real_stack = unordered
+                .iter_mut()
+                .find(|stack| stack.ref_name() == Some(segment_ref_name));
+            if let Some((real_stack, virtual_segments)) = virtual_stack_is_known_as_real_stack.zip(
+                serialized_virtual_segments
+                    .get(segment_idx + 1..)
+                    .map(|slice| slice.iter().take_while(|(is_stack, _, _)| !is_stack)),
+            ) {
+                // real_stack.segments
+                // Only if there is none of these virtual segments, we are allowed to place them as segments.
+                // Otherwise, things might be out of order and just weird, safety first.
+                let stacks_have_intersecting_segments =
+                    virtual_segments.clone().any(|(_, _, segment_ref_name)| {
+                        real_stack.segments.iter().any(|real_segment| {
+                            real_segment.ref_name.as_ref() == Some(segment_ref_name)
+                        })
+                    });
+                if !stacks_have_intersecting_segments {
+                    real_stack.segments.extend(
+                        virtual_segments
+                            .map(
+                                |(_is_stack, _base, segment_ref_name)| -> anyhow::Result<_, _> {
+                                    Ok(StackSegment {
+                                        ref_name: Some(segment_ref_name.to_owned()),
+                                        remote_tracking_ref_name: lookup_remote_tracking_branch(
+                                            repo,
+                                            segment_ref_name.as_ref(),
+                                        )?,
+                                        // TODO: this isn't important yet, but it's probably also not always correct.
+                                        ref_location: Some(
+                                            RefLocation::ReachableFromWorkspaceCommit,
+                                        ),
+                                        // Always empty, otherwise we would have found the segment by traversal.
+                                        commits_unique_from_tip: vec![],
+                                        // Will be set when expensive data is computed.
+                                        commits_unique_in_remote_tracking_branch: vec![],
+                                        metadata: meta
+                                            .branch_opt(segment_ref_name.as_ref())?
+                                            .map(|b| b.clone()),
+                                    })
+                                },
+                            )
+                            .collect::<anyhow::Result<Vec<_>>>()?,
+                    )
+                }
+            } else {
+                let mut segments = Vec::new();
+                for (_base, segment_ref_name) in std::iter::once((stack_base, segment_ref_name))
+                    .chain(
+                        serialized_virtual_segments
+                            .get(segment_idx + 1..)
+                            .into_iter()
+                            // Get the segments
+                            .flat_map(|slice| slice.iter().take_while(|(is_stack, _, _)| !is_stack))
+                            .map(|(_idx, id, rn)| (*id, rn)),
+                    )
+                {
+                    segments.push(StackSegment {
+                        ref_name: Some(segment_ref_name.to_owned()),
+                        remote_tracking_ref_name: lookup_remote_tracking_branch(
+                            repo,
+                            segment_ref_name.as_ref(),
+                        )?,
+                        // TODO: this isn't important yet, but it's probably also not always correct.
+                        ref_location: Some(RefLocation::ReachableFromWorkspaceCommit),
+                        // Always empty, otherwise we would have found the segment by traversal.
+                        commits_unique_from_tip: vec![],
+                        // Will be set when expensive data is computed.
+                        commits_unique_in_remote_tracking_branch: vec![],
+                        metadata: meta
+                            .branch_opt(segment_ref_name.as_ref())?
+                            .map(|b| b.clone()),
+                    });
+                }
+                // From this segment
+                unordered.push(Stack {
+                    base: Some(stack_base),
+                    segments,
+                    // TODO: set up
+                    stash_status: None,
+                });
+            }
+        }
+
+        // Sort existing, and put those that aren't matched to the top as they are usually traversed,
+        // and 'more real'.
+        unordered.sort_by(|a, b| {
+            let index_a = serialized_virtual_segments
+                .iter()
+                .enumerate()
+                .find_map(|(idx, (_, _, segment_ref_name))| {
+                    (Some(segment_ref_name) == a.ref_name()).then_some(idx)
+                })
+                .unwrap_or_default();
+            let index_b = serialized_virtual_segments
+                .iter()
+                .enumerate()
+                .find_map(|(idx, (_, _, segment_ref_name))| {
+                    (Some(segment_ref_name) == b.ref_name()).then_some(idx)
+                })
+                .unwrap_or_default();
+            index_a.cmp(&index_b)
+        });
+        // TODO: integrate segments into existing stacks.
+
+        // TODO: log all stack segments that couldn't be matched, even though we should probably do something
+        //       with them eventually.
+        Ok(())
     }
 
     /// Akin to `log()`, but less powerful.
@@ -779,19 +1030,26 @@ pub(crate) mod function {
 
     // Create a mapping of all heads to the object ids they point to.
     // No tags are used (yet), but maybe that's useful in the future.
+    // We never pick up branches we consider to be part of the workspace.
     fn collect_refs_by_commit_id(repo: &gix::Repository) -> anyhow::Result<RefsById> {
         let mut all_refs_by_id = gix::hashtable::HashMap::<_, Vec<_>>::default();
         for (commit_id, git_reference) in repo
             .references()?
             .prefixed("refs/heads/")?
             .filter_map(Result::ok)
-            .filter_map(|r| r.try_id().map(|id| (id.detach(), r.inner.name)))
+            .filter_map(|r| {
+                if is_workspace_ref_name(r.name()) {
+                    return None;
+                }
+                r.try_id().map(|id| (id.detach(), r.inner.name))
+            })
         {
             all_refs_by_id
                 .entry(commit_id)
                 .or_default()
                 .push(git_reference);
         }
+        all_refs_by_id.values_mut().for_each(|v| v.sort());
         Ok(all_refs_by_id)
     }
 
@@ -813,7 +1071,7 @@ pub(crate) mod function {
         meta: &impl but_core::RefMetadata,
         name: &gix::refs::FullNameRef,
     ) -> anyhow::Result<Option<but_core::ref_metadata::Workspace>> {
-        if !is_gitbutler_workspace_ref(name) {
+        if !is_workspace_ref_name(name) {
             return Ok(None);
         }
 
@@ -835,9 +1093,5 @@ pub(crate) mod function {
                 .try_into()
                 .expect("statically known"),
         )
-    }
-
-    fn is_gitbutler_workspace_ref(name: &gix::refs::FullNameRef) -> bool {
-        name.as_bstr() == "refs/heads/gitbutler/workspace"
     }
 }
