@@ -13,6 +13,7 @@ pub struct HunkAssignments {
 pub fn assignments(ctx: &mut CommandContext) -> Result<Vec<HunkAssignment>> {
     let assignments = ctx
         .db()?
+        .hunk_assignments()
         .list_all()?
         .into_iter()
         .map(|a| a.try_into())
@@ -25,5 +26,5 @@ pub fn set_assignments(ctx: &mut CommandContext, assignments: Vec<HunkAssignment
         .into_iter()
         .map(|a| a.try_into())
         .collect::<Result<Vec<but_db::models::HunkAssignment>>>()?;
-    ctx.db()?.set_all(assignments)
+    ctx.db()?.hunk_assignments().set_all(assignments)
 }

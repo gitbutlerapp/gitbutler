@@ -12,14 +12,14 @@ fn open_with_relative_path() -> anyhow::Result<()> {
 
     let mut handle = DbHandle::new_in_directory("..")?;
     assert!(
-        handle.list_all()?.is_empty(),
+        handle.hunk_assignments().list_all()?.is_empty(),
         "Relative paths don't work natively with Sqlite or Diesel, but we want it to work."
     );
 
     std::env::set_current_dir(tmp.path())?;
     let mut handle = DbHandle::new_in_directory(".")?;
     assert!(
-        handle.list_all()?.is_empty(),
+        handle.hunk_assignments().list_all()?.is_empty(),
         "single-dot works as well (and there was a bug due to that previously)"
     );
     Ok(())

@@ -4,9 +4,19 @@ use crate::{DbHandle, schema::hunk_assignments::dsl::*};
 
 /// Implements methods for managing hunk assignments in the database.
 impl DbHandle {
+    pub fn hunk_assignments(&mut self) -> HunkAssignmentsHandle {
+        HunkAssignmentsHandle { db: self }
+    }
+}
+
+pub struct HunkAssignmentsHandle<'a> {
+    db: &'a mut DbHandle,
+}
+
+impl HunkAssignmentsHandle<'_> {
     /// Lists all hunk assignments in the database.
     pub fn list_all(&mut self) -> anyhow::Result<Vec<crate::models::HunkAssignment>> {
-        let results = hunk_assignments.load::<crate::models::HunkAssignment>(&mut self.conn)?;
+        let results = hunk_assignments.load::<crate::models::HunkAssignment>(&mut self.db.conn)?;
         Ok(results)
     }
 
@@ -20,7 +30,7 @@ impl DbHandle {
         // Any existing entries that are not in `assignments` are deleted.
         use crate::schema::hunk_assignments::dsl::hunk_assignments as all_assignments;
         use diesel::prelude::*;
-        self.conn.transaction(|conn| {
+        self.db.conn.transaction(|conn| {
             // Delete all existing assignments
             diesel::delete(all_assignments).execute(conn)?;
             // Insert the new assignments
