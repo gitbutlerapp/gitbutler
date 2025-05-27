@@ -4,8 +4,10 @@
 	import BranchExplorer from '$components/v3/BranchExplorer.svelte';
 	import BranchView from '$components/v3/BranchView.svelte';
 	import BranchesViewBranch from '$components/v3/BranchesViewBranch.svelte';
+	import BranchesViewPr from '$components/v3/BranchesViewPR.svelte';
 	import BranchesViewStack from '$components/v3/BranchesViewStack.svelte';
 	import MainViewport from '$components/v3/MainViewport.svelte';
+	import PrBranchView from '$components/v3/PRBranchView.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import TargetCommitList from '$components/v3/TargetCommitList.svelte';
 	import UnappliedBranchView from '$components/v3/UnappliedBranchView.svelte';
@@ -102,6 +104,12 @@
 		await baseBranchService.refreshBaseBranch(projectId);
 	}
 
+	let prBranch = $state<BranchesViewPr>();
+
+	function applyFromFork() {
+		prBranch?.applyPr();
+	}
+
 	let deleteLocalBranchModal = $state<Modal>();
 
 	function handleDeleteLocalBranch(branchName: string) {
@@ -159,6 +167,7 @@
 			current.inWorkspace || current.branchName === baseBranch.shortName}
 		{@const isStackOrNormalBranchPreview =
 			current.stackId || (current.branchName && current.branchName !== baseBranch.shortName)}
+		{@const isNonLocalPr = !isStackOrNormalBranchPreview && current.prNumber !== undefined}
 
 		<MainViewport
 			name="branches"
@@ -219,12 +228,20 @@
 								/>
 							{:else}
 								<PRListCard
-									{projectId}
-									pullRequest={sidebarEntrySubject.subject}
+									number={sidebarEntrySubject.subject.number}
+									isDraft={sidebarEntrySubject.subject.draft}
+									title={sidebarEntrySubject.subject.title}
+									sourceBranch={sidebarEntrySubject.subject.sourceBranch}
+									author={{
+										name: sidebarEntrySubject.subject.author?.name,
+										email: sidebarEntrySubject.subject.author?.email,
+										gravatarUrl: sidebarEntrySubject.subject.author?.gravatarUrl
+									}}
+									modifiedAt={sidebarEntrySubject.subject.modifiedAt}
 									selected={branchesSelection.current.prNumber ===
 										sidebarEntrySubject.subject.number}
 									onclick={(pr) => branchesSelection.set({ prNumber: pr.number })}
-									noSourceBranch
+									noRemote
 								/>
 							{/if}
 						{/snippet}
@@ -265,6 +282,8 @@
 							{onerror}
 						/>
 					{/if}
+				{:else if current.prNumber}
+					<PrBranchView {projectId} prNumber={current.prNumber} {onerror} />
 				{:else if !current.branchName && !current.prNumber}
 					<!-- TODO: Make this fallback better somehow? -->
 					<UnappliedBranchView
@@ -277,6 +296,7 @@
 			{/snippet}
 
 			{#snippet right()}
+				<!-- Apply branch -->
 				{#if !inWorkspaceOrTargetBranch && someBranchSelected}
 					{@const doesNotHaveLocalTooltip = current.hasLocal
 						? undefined
@@ -315,10 +335,25 @@
 					</div>
 				{/if}
 
+				<!-- Apply PR (from fork) -->
+				{#if isNonLocalPr && !inWorkspaceOrTargetBranch}
+					<div class="branches-actions">
+						{#if !current.isTarget}
+							<Button
+								testId={TestId.BranchesViewApplyFromForkButton}
+								icon="workbench"
+								onclick={applyFromFork}
+							>
+								Apply to workspace
+							</Button>
+						{/if}
+					</div>
+				{/if}
+
 				<div
 					class={[
 						'branch-details',
-						isStackOrNormalBranchPreview ? 'dotted-container dotted-pattern' : '',
+						isStackOrNormalBranchPreview || isNonLocalPr ? 'dotted-container dotted-pattern' : '',
 						inWorkspaceOrTargetBranch ? 'rounded-container' : ''
 					]}
 				>
@@ -334,7 +369,12 @@
 							{onerror}
 						/>
 					{:else if current.prNumber}
-						Not implemented!
+						<BranchesViewPr
+							bind:this={prBranch}
+							{projectId}
+							prNumber={current.prNumber}
+							{onerror}
+						/>
 					{/if}
 				</div>
 			{/snippet}

@@ -57,7 +57,7 @@
 				};
 			}}
 		>
-			{#snippet commitList()}
+			{#snippet branchContent()}
 				{#each branch.upstreamCommits || [] as commit, idx}
 					<CommitRow
 						disableCommitActions

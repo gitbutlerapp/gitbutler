@@ -37,7 +37,6 @@
 		type="draft-branch"
 		{projectId}
 		{branchName}
-		iconName="branch-local"
 		readonly={false}
 		lineColor="var(--clr-commit-local)"
 	/>

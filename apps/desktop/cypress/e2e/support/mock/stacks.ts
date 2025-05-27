@@ -254,7 +254,7 @@ export function isGetTargetCommitsParams(params: unknown): params is GetTargetCo
 		'projectId' in params &&
 		typeof params.projectId === 'string' &&
 		'lastCommitId' in params &&
-		typeof params.lastCommitId === 'string' &&
+		(params.lastCommitId === undefined || typeof params.lastCommitId === 'string') &&
 		'pageSize' in params &&
 		typeof params.pageSize === 'number'
 	);

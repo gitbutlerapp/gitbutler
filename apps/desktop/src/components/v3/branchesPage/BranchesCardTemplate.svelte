@@ -17,8 +17,6 @@
 		{@render content()}
 	</div>
 
-	<hr class="branches-list-card__hr" />
-
 	<div class="text-12 branches-list-card__details">
 		{@render details()}
 	</div>
@@ -57,13 +55,6 @@
 		}
 	}
 
-	.branches-list-card__hr {
-		height: 1px;
-		border: none;
-		background-color: var(--clr-text-3);
-		opacity: 0.3;
-	}
-
 	.branches-list-card__content {
 		display: flex;
 		flex-direction: column;
@@ -72,9 +63,28 @@
 
 	.branches-list-card__details {
 		display: flex;
+		position: relative;
 		align-items: center;
+		margin-top: 2px;
+		padding-top: 10px;
 		gap: 6px;
 		color: var(--clr-text-2);
+
+		&::before {
+			position: absolute;
+			top: 0;
+			left: 0;
+			flex-shrink: 0;
+			width: 100%;
+			height: 1px;
+			background-color: var(--clr-text-3);
+			content: '';
+			opacity: 0.3;
+		}
+
+		&:empty {
+			display: none;
+		}
 	}
 
 	.selected {

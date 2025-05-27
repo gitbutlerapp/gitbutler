@@ -281,6 +281,7 @@
 		flex-direction: column;
 		min-height: 100%;
 		padding: 14px;
+		user-select: text;
 	}
 
 	.drawer__content-scroll {
