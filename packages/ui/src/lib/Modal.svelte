@@ -143,7 +143,11 @@
 				</ModalHeader>
 			{/if}
 
-			<div class="modal__body text-13 text-body" class:no-padding={noPadding}>
+			<div
+				class="modal__body text-13 text-body"
+				class:padding-top={!title}
+				class:no-padding={noPadding}
+			>
 				{#if children}
 					{@render children(item, close)}
 				{/if}
@@ -208,6 +212,10 @@
 		padding: 0 16px 16px 16px;
 		overflow: hidden;
 		line-height: 160%;
+
+		&.padding-top {
+			padding-top: 16px;
+		}
 
 		&.no-padding {
 			padding: 0;

@@ -265,14 +265,7 @@
 							active
 							{onerror}
 						/>
-					{:else if current.isTarget}
-						<UnappliedBranchView
-							{projectId}
-							branchName={current.branchName}
-							remote={current.remote}
-							{onerror}
-						/>
-					{:else}
+					{:else if !current.isTarget}
 						<UnappliedBranchView
 							{projectId}
 							branchName={current.branchName}

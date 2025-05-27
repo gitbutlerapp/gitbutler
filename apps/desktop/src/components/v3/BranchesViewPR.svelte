@@ -115,8 +115,9 @@
 			onSubmit={async () => await handleConfirmRemote(pr)}
 		>
 			<p class="fork-notice">
-				To apply a branch from a fork, GitButler must first add the fork as a remote. Choose a
-				remote name:
+				To apply a branch from a fork, GitButler must first add the fork as a remote. <span
+					class="text-semibold">Choose a remote name:</span
+				>
 			</p>
 			<Textbox bind:value={inputRemoteName} placeholder="remote-name-example" required />
 
