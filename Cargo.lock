@@ -691,9 +691,21 @@ name = "but-agent"
 version = "0.0.0"
 dependencies = [
  "gitbutler-secret",
+ "reqwest",
  "serde",
  "serde_json",
  "toml",
+ "uuid",
+]
+
+[[package]]
+name = "but-agent-shared"
+version = "0.0.0"
+dependencies = [
+ "but-agent",
+ "gitbutler-command-context",
+ "serde",
+ "serde_json",
  "uuid",
 ]
 
@@ -713,29 +725,6 @@ dependencies = [
  "gix",
  "serde",
  "serde-error",
-]
-
-[[package]]
-name = "but-agent"
-version = "0.0.0"
-dependencies = [
- "gitbutler-secret",
- "reqwest",
- "serde",
- "serde_json",
- "toml",
- "uuid",
-]
-
-[[package]]
-name = "but-agent-shared"
-version = "0.0.0"
-dependencies = [
- "but-agent",
- "gitbutler-command-context",
- "serde",
- "serde_json",
- "uuid",
 ]
 
 [[package]]
@@ -3156,6 +3145,8 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "backtrace",
+ "but-agent",
+ "but-agent-shared",
  "but-core",
  "but-hunk-assignment",
  "but-hunk-dependency",
