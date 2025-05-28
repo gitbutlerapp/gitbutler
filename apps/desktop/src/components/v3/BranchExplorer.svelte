@@ -12,7 +12,6 @@
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { debounce } from '$lib/utils/debounce';
 	import { inject } from '@gitbutler/shared/context';
-	import { persisted } from '@gitbutler/shared/persisted';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
@@ -21,11 +20,14 @@
 	import Fuse from 'fuse.js';
 	import type { Snippet } from 'svelte';
 
-	type selectedOption = 'all' | 'pullRequest' | 'local';
-	type Props = { projectId: string; sidebarEntry: Snippet<[SidebarEntrySubject]> };
-	const { projectId, sidebarEntry }: Props = $props();
+	export type SelectedOption = 'all' | 'pullRequest' | 'local';
 
-	const selectedOption = persisted<selectedOption>('all', `branches-selectedOption-${projectId}`);
+	type Props = {
+		projectId: string;
+		selectedOption: SelectedOption;
+		sidebarEntry: Snippet<[SidebarEntrySubject]>;
+	};
+	let { projectId, selectedOption = $bindable(), sidebarEntry }: Props = $props();
 
 	const searchEngine = new Fuse([] as SidebarEntrySubject[], {
 		keys: [
@@ -68,7 +70,7 @@
 		combineBranchesAndPrs(
 			prListResult?.current.data || [],
 			branchesResult.current.data || [],
-			$selectedOption
+			selectedOption
 		)
 	);
 	const groupedBranches = $derived(groupBranches(combined));
@@ -120,15 +122,14 @@
 	});
 
 	const selectedFilterIndex = $derived.by(() => {
-		const index = Object.keys(filterOptions).findIndex((item) => $selectedOption === item);
+		const index = Object.keys(filterOptions).findIndex((item) => selectedOption === item);
 		if (index === -1) return 0;
 		return index;
 	});
 
 	function setFilter(id: string) {
 		if (Object.keys(filterOptions).includes(id)) {
-			// Not a fan of this
-			$selectedOption = id as selectedOption;
+			selectedOption = id as SelectedOption;
 		}
 	}
 
@@ -266,8 +267,6 @@
 		width: 60%;
 		height: var(--size-cta);
 		overflow: hidden;
-		/* border: 1px solid var(--clr-border-2); */
-
 		transition: width 0.16s ease;
 	}
 
