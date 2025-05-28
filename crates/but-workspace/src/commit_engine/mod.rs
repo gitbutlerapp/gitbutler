@@ -7,6 +7,7 @@ use but_core::RepositoryExt;
 use but_rebase::RebaseOutput;
 use but_rebase::commit::CommitterMode;
 use but_rebase::merge::ConflictErrorContext;
+use gitbutler_command_context::CommandContext;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{StackId, VirtualBranchesHandle, VirtualBranchesState};
 use gix::prelude::ObjectIdExt as _;
@@ -675,4 +676,63 @@ fn create_possibly_signed_commit(
         extra_headers: (&commit_headers.unwrap_or_default()).into(),
     };
     but_rebase::commit::create(repo, commit, CommitterMode::Keep)
+}
+
+/// Less pure but a simpler version of [`create_commit_and_update_refs_with_project`]
+pub fn create_commit_simple(
+    ctx: &CommandContext,
+    stack_id: StackId,
+    parent_id: Option<gix::ObjectId>,
+    worktree_changes: Vec<DiffSpec>,
+    message: String,
+    stack_branch_name: String,
+    perm: &mut WorktreeWritePermission,
+) -> anyhow::Result<CreateCommitOutcome> {
+    let repo = but_core::open_repo_for_merging(ctx.project().worktree_path())?;
+    // If parent_id was not set but a stack branch name was provided, pick the current head of that branch as parent.
+    let parent_commit_id: Option<gix::ObjectId> = match parent_id {
+        Some(id) => Some(id),
+        None => {
+            let state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+            let stack = state.get_stack(stack_id)?;
+            if !stack.heads(true).contains(&stack_branch_name) {
+                return Err(anyhow::anyhow!(
+                    "Stack {stack_id} does not have branch {stack_branch_name}"
+                ));
+            }
+            let reference = repo
+                .try_find_reference(&stack_branch_name)
+                .map_err(anyhow::Error::from)?;
+            if let Some(mut r) = reference {
+                Some(r.peel_to_commit().map_err(anyhow::Error::from)?.id)
+            } else {
+                return Err(anyhow::anyhow!("No branch {stack_branch_name} found"));
+            }
+        }
+    };
+    let outcome = create_commit_and_update_refs_with_project(
+        &repo,
+        ctx.project(),
+        Some(stack_id),
+        Destination::NewCommit {
+            parent_commit_id,
+            message: message.clone(),
+            stack_segment: Some(StackSegmentId {
+                stack_id,
+                segment_ref: format!("refs/heads/{stack_branch_name}")
+                    .try_into()
+                    .map_err(anyhow::Error::from)?,
+            }),
+        },
+        None,
+        worktree_changes,
+        ctx.app_settings().context_lines,
+        perm,
+    );
+
+    let outcome = outcome?;
+    if !outcome.rejected_specs.is_empty() {
+        tracing::warn!(?outcome.rejected_specs, "Failed to commit at least one hunk");
+    }
+    Ok(outcome)
 }
