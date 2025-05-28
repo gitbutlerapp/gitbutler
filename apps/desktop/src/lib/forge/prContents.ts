@@ -62,10 +62,8 @@ export class PrPersistedStore {
 	}
 
 	setDefault(commits: Commit[]) {
-		if (commits.length === 1) {
-			this._default = this.args.defaultFn(commits);
-			this.dispatchCurrent();
-		}
+		this._default = this.args.defaultFn(commits);
+		this.dispatchCurrent();
 	}
 
 	get default() {

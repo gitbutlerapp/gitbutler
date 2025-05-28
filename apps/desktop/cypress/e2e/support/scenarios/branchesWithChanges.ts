@@ -63,10 +63,20 @@ const MOCK_COMMIT_IN_BRANCH_B = createMockCommit({
 	message: `${MOCK_COMMIT_TITLE_B}\n\n${MOCK_COMMIT_MESSAGE_B}`
 });
 
+const MOCK_COMMIT_TITLE_B_2 = 'Also second commit';
+const MOCK_COMMIT_MESSAGE_B_2 = 'This is another test commit, but with a different title';
+const MOCK_COMMIT_IN_BRANCH_B_2 = createMockCommit({
+	id: '1234123-2',
+	message: `${MOCK_COMMIT_TITLE_B_2}\n\n${MOCK_COMMIT_MESSAGE_B_2}`
+});
+
 const MOCK_STACK_DETAILS_B = createMockStackDetails({
 	derivedName: MOCK_STACK_B_ID,
 	branchDetails: [
-		createMockBranchDetails({ name: MOCK_STACK_B_ID, commits: [MOCK_COMMIT_IN_BRANCH_B] })
+		createMockBranchDetails({
+			name: MOCK_STACK_B_ID,
+			commits: [MOCK_COMMIT_IN_BRANCH_B, MOCK_COMMIT_IN_BRANCH_B_2]
+		})
 	]
 });
 
@@ -287,7 +297,7 @@ export default class BranchesWithChanges extends MockBackend {
 			return MOCK_COMMIT_TITLE_A;
 		}
 		if (stackId === MOCK_STACK_B_ID) {
-			return MOCK_COMMIT_TITLE_B;
+			return MOCK_STACK_B_ID;
 		}
 		if (stackId === MOCK_STACK_C_ID) {
 			return MOCK_COMMIT_TITLE_C;
@@ -301,7 +311,7 @@ export default class BranchesWithChanges extends MockBackend {
 			return MOCK_COMMIT_MESSAGE_A;
 		}
 		if (stackId === MOCK_STACK_B_ID) {
-			return MOCK_COMMIT_MESSAGE_B;
+			return '';
 		}
 		if (stackId === MOCK_STACK_C_ID) {
 			return MOCK_COMMIT_MESSAGE_C;
