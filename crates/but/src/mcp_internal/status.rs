@@ -13,9 +13,8 @@ pub struct ProjectStatus {
     changes: Vec<but_core::ui::FlatChangeUnifiedDiff>,
 }
 
-pub fn project_status(project_dir: &str) -> anyhow::Result<String> {
-    let project_dir_path = std::path::PathBuf::from(project_dir);
-    let repo = crate::mcp_internal::project::project_repo(&project_dir_path)?;
+pub fn project_status(project_dir: &Path) -> anyhow::Result<ProjectStatus> {
+    let repo = crate::mcp_internal::project::project_repo(project_dir)?;
 
     let worktree = but_core::diff::worktree_changes(&repo)?;
     let diff = unified_diff_for_changes(
@@ -24,17 +23,14 @@ pub fn project_status(project_dir: &str) -> anyhow::Result<String> {
         crate::mcp_internal::UI_CONTEXT_LINES,
     )?;
 
-    let stacks = list_applied_stacks(&project_dir_path)?;
+    let stacks = list_applied_stacks(project_dir)?;
     let flat_changes: but_core::ui::FlatUnifiedWorktreeChanges = (&diff).into();
 
     let serializable = ProjectStatus {
         stacks,
         changes: flat_changes.changes,
     };
-
-    let json = serde_json::to_string_pretty(&serializable)?;
-
-    Ok(json)
+    Ok(serializable)
 }
 
 fn list_applied_stacks(current_dir: &Path) -> anyhow::Result<Vec<but_workspace::ui::StackEntry>> {

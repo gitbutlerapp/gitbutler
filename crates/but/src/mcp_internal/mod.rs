@@ -1,8 +1,11 @@
+use std::path::{Path, PathBuf};
+
 use anyhow::Result;
+use gitbutler_project::Project;
 use rmcp::{
     ServerHandler, ServiceExt,
-    model::{Implementation, ProtocolVersion, ServerCapabilities, ServerInfo},
-    schemars, tool,
+    model::{CallToolResult, Implementation, ProtocolVersion, ServerCapabilities, ServerInfo},
+    tool,
 };
 
 pub mod project;
@@ -10,39 +13,38 @@ pub mod status;
 
 pub(crate) const UI_CONTEXT_LINES: u32 = 3;
 
-pub(crate) async fn start() -> Result<()> {
+pub(crate) async fn start(repo_path: &Path) -> Result<()> {
     let transport = (tokio::io::stdin(), tokio::io::stdout());
 
-    let service = Mcp::new().serve(transport).await?;
+    let service = Mcp::new(repo_path.to_path_buf()).serve(transport).await?;
 
     service.waiting().await?;
     Ok(())
 }
 
 #[derive(Debug, Clone)]
-pub struct Mcp;
+pub struct Mcp {
+    project: Project,
+}
 
 #[tool(tool_box)]
 impl Mcp {
-    pub fn new() -> Self {
-        Self
+    pub fn new(repo_path: PathBuf) -> Self {
+        let project = Project::from_path(&repo_path).expect("Failed to create project from path");
+        Self { project }
     }
 
     #[tool(
         description = "Get the status of a project. This contains information about the branches applied and uncommitted file changes."
     )]
-    pub fn project_status(&self, #[tool(aggr)] request: ProjectStatusRequest) -> String {
-        crate::mcp_internal::status::project_status(&request.project_dir).unwrap_or(format!(
-            "Failed to get project status for directory: {}",
-            request.project_dir
-        ))
-    }
-}
+    pub fn project_status(&self) -> Result<CallToolResult, rmcp::Error> {
+        let status = crate::mcp_internal::status::project_status(&self.project.path)
+            .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?;
 
-#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
-pub struct ProjectStatusRequest {
-    #[schemars(description = "Absolute path to the project root")]
-    pub project_dir: String,
+        Ok(CallToolResult::success(vec![rmcp::model::Content::json(
+            status,
+        )?]))
+    }
 }
 
 #[tool(tool_box)]
