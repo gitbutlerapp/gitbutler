@@ -38,6 +38,17 @@ describe('Review', () => {
 		cy.intercept(
 			{
 				method: 'GET',
+				url: 'https://api.github.com/repos/example/repo/pulls'
+			},
+			{
+				statusCode: 200,
+				body: []
+			}
+		).as('listPullRequests');
+
+		cy.intercept(
+			{
+				method: 'GET',
 				url: 'https://api.github.com/repos/example/repo'
 			},
 			{

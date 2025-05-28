@@ -139,12 +139,19 @@
 	const canPublishPR = $derived(!!(forge.current.authenticated && !pr));
 
 	function getDefaultTitle(commits: Commit[]): string {
-		if (commits.length > 0) {
+		if (commits.length === 1) {
 			const commitMessage = commits[0]!.message;
 			const { title } = splitMessage(commitMessage);
 			return title;
 		}
 		return branchName;
+	}
+
+	function getDefaultBody(commits: Commit[]): string {
+		if (commits.length === 1) {
+			return splitMessage(commits[0]!.message).description;
+		}
+		return '';
 	}
 
 	const prTitle = $derived(
@@ -159,7 +166,7 @@
 		new PrPersistedStore({
 			cacheKey: 'prbody' + projectId + '_' + branchName,
 			commits,
-			defaultFn: (commits) => splitMessage(commits[0]!.message).description
+			defaultFn: getDefaultBody
 		})
 	);
 
