@@ -11,6 +11,6 @@ async fn main() -> Result<()> {
 
     match &args.cmd {
         args::Subcommands::McpInternal => mcp_internal::start().await,
-        args::Subcommands::Mcp => mcp::start().await,
+        args::Subcommands::Mcp => mcp::start(&args.current_dir).await,
     }
 }
