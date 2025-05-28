@@ -433,9 +433,11 @@ pub(crate) mod function {
         // Empty ones are special as they don't have their own commits and aren't distinguishable by traversing a
         // workspace commit. For this, we have workspace metadata to tell us what is what.
         // The goal is to remove segments that we found by traversal and re-add them as individual stack if they are some.
-        for stack in stacks
+        let mut stack_idx_to_remove = Vec::new();
+        for (idx, stack) in stacks
             .iter_mut()
-            .filter(|stack| stack.name() != Some(existing_ref.name()))
+            .enumerate()
+            .filter(|(_, stack)| stack.name() != Some(existing_ref.name()))
         {
             // Find all empty segments that aren't listed in our workspace stacks metadata, and remove them.
             let desired_stack_segments = ws_stacks.iter().find(|ws_stack| {
@@ -467,9 +469,20 @@ pub(crate) mod function {
                 .map(|t| t.0)
                 .last();
             if let Some(keep) = num_segments_to_keep {
-                // Empty stacks are OK for now….
                 stack.segments.drain(keep..);
             }
+
+            if stack.segments.is_empty() {
+                stack_idx_to_remove.push(idx);
+            }
+        }
+        if !stack_idx_to_remove.is_empty() {
+            let mut idx = 0;
+            stacks.retain(|_stack| {
+                let res = !stack_idx_to_remove.contains(&idx);
+                idx += 1;
+                res
+            });
         }
 
         // Put the stacks into the right order, and create empty stacks for those that are completely virtual.
@@ -681,6 +694,27 @@ pub(crate) mod function {
             .map(|rn| rn.into_owned()))
     }
 
+    fn lookup_remote_tracking_branch_or_deduce_it(
+        repo: &gix::Repository,
+        ref_name: &gix::refs::FullNameRef,
+        symbolic_remote_name: Option<&str>,
+    ) -> anyhow::Result<Option<gix::refs::FullName>> {
+        Ok(lookup_remote_tracking_branch(repo, ref_name)?.or_else(|| {
+            let symbolic_remote_name = symbolic_remote_name?;
+            // Deduce the ref-name as fallback.
+            // TODO: remove this - this is only required to support legacy repos that
+            //       didn't setup normal Git remotes.
+            // let remote_name = target_
+            let remote_tracking_ref_name = format!(
+                "refs/remotes/{symbolic_remote_name}/{short_name}",
+                short_name = ref_name.shorten()
+            );
+            repo.find_reference(&remote_tracking_ref_name)
+                .ok()
+                .map(|remote_ref| remote_ref.name().to_owned())
+        }))
+    }
+
     fn extract_remote_name(
         ref_name: &gix::refs::FullNameRef,
         remotes: &gix::remote::Names<'_>,
@@ -776,12 +810,6 @@ pub(crate) mod function {
                 if let Some((remote_ref_tip, base_for_remote)) = remote_ref_tip_and_base {
                     boundary.insert(base_for_remote);
 
-                    let local_commit_ids: gix::hashtable::HashSet = segment
-                        .commits_unique_from_tip
-                        .iter()
-                        .map(|c| c.id)
-                        .collect();
-
                     let mut insert_or_expell_ambiguous =
                         |k: ChangeIdOrCommitData, v: gix::ObjectId| {
                             if ambiguous_commits.contains(&k) {
@@ -808,8 +836,16 @@ pub(crate) mod function {
                     {
                         let info = info?;
                         // Don't break, maybe the local commits are reachable through multiple avenues.
-                        if local_commit_ids.contains(&info.id) {
-                            // TODO: could we break out here? Only if there is only one forkpoint. There can probably be geometries that make this wrong.
+                        if let Some(idx) = segment
+                            .commits_unique_from_tip
+                            .iter_mut()
+                            .enumerate()
+                            .find_map(|(idx, c)| (c.id == info.id).then_some(idx))
+                        {
+                            // Mark all commits from here as pushed.
+                            for commit in &mut segment.commits_unique_from_tip[idx..] {
+                                commit.relation = LocalCommitRelation::LocalAndRemote(commit.id);
+                            }
                             break 'remote_branch_traversal;
                         } else {
                             let commit = but_core::Commit::from_id(info.id())?;
@@ -985,6 +1021,7 @@ pub(crate) mod function {
                     ref_location,
                     commits_unique_from_tip: vec![LocalCommit::new_from_id(info.id())?],
                     commits_unique_in_remote_tracking_branch: vec![],
+                    // The fields that follow will be set later.
                     remote_tracking_ref_name: None,
                     metadata: None,
                 });
@@ -1002,21 +1039,11 @@ pub(crate) mod function {
             let Some(ref_name) = segment.ref_name.as_ref() else {
                 continue;
             };
-            segment.remote_tracking_ref_name =
-                lookup_remote_tracking_branch(repo, ref_name.as_ref())?.or_else(|| {
-                    let symbolic_remote_name = symbolic_remote_name?;
-                    // Deduce the ref-name as fallback.
-                    // TODO: remove this - this is only required to support legacy repos that
-                    //       didn't setup normal Git remotes.
-                    // let remote_name = target_
-                    let remote_tracking_ref_name = format!(
-                        "refs/remotes/{symbolic_remote_name}/{short_name}",
-                        short_name = ref_name.shorten()
-                    );
-                    repo.find_reference(&remote_tracking_ref_name)
-                        .ok()
-                        .map(|remote_ref| remote_ref.name().to_owned())
-                });
+            segment.remote_tracking_ref_name = lookup_remote_tracking_branch_or_deduce_it(
+                repo,
+                ref_name.as_ref(),
+                symbolic_remote_name,
+            )?;
             let branch_info = meta.branch(ref_name.as_ref())?;
             if !branch_info.is_default() {
                 segment.metadata = Some((*branch_info).clone())

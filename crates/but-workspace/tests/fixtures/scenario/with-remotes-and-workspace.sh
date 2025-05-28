@@ -19,6 +19,12 @@ function set_author() {
 function setup_target_to_match_main() {
   mkdir -p .git/refs/remotes/origin
   cp .git/refs/heads/main .git/refs/remotes/origin/
+
+  cat <<EOF >>.git/config
+[remote "origin"]
+	url = ./fake/local/path/which-is-fine-as-we-dont-fetch-or-push
+	fetch = +refs/heads/*:refs/remotes/origin/*
+EOF
 }
 
 
@@ -55,7 +61,6 @@ function create_workspace_commit_aggressively() {
     fi
   fi
 
-set -x
   git checkout -b gitbutler/workspace main
   if [ $# == 1 ] || [ $# == 0 ]; then
     git commit --allow-empty -m "$workspace_commit_subject"
@@ -191,6 +196,12 @@ git init two-branches-one-advanced-two-parent-ws-commit
   git commit -m "change" --allow-empty
 
   create_workspace_commit_aggressively lane advanced-lane
+)
+
+cp -R two-branches-one-advanced-two-parent-ws-commit two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed
+(cd two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed
+  # This works without an official remote setup as we go by name as fallback.
+  cp .git/refs/heads/advanced-lane .git/refs/remotes/origin/advanced-lane
 )
 
 git init two-branches-one-advanced-ws-commit-on-top-of-stack

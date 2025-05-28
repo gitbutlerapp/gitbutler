@@ -249,7 +249,7 @@ mod stack_details {
                     ],
                     is_conflicted: false,
                     commits: [
-                        Commit(d79bba9, "new file in A", local),
+                        Commit(d79bba9, "new file in A", local/remote(identity)),
                     ],
                     upstream_commits: [
                         UpstreamCommit(89cc2d3, "change in A"),
