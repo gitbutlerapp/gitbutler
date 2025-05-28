@@ -3,8 +3,10 @@ use crate::from_json::HexHash;
 use crate::virtual_branches::commands::emit_vbranches;
 use crate::WindowState;
 use anyhow::Context;
+use but_core::ui::TreeChange;
 use but_hunk_dependency::ui::{
-    hunk_dependencies_for_workspace_changes_by_worktree_dir, HunkDependencies,
+    hunk_dependencies_for_changes, hunk_dependencies_for_workspace_changes_by_worktree_dir,
+    HunkDependencies,
 };
 use but_settings::AppSettingsWithDiskSync;
 use but_workspace::commit_engine::StackSegmentId;
@@ -112,6 +114,24 @@ pub fn hunk_dependencies_for_workspace_changes(
         &project.path,
         &project.gb_dir(),
     )?;
+    Ok(dependencies)
+}
+
+/// Retrieve the hunk dependencies for a given set of changes.
+#[tauri::command(async)]
+#[instrument(skip(projects, settings), err(Debug))]
+pub fn hunk_dependencies_for_specific_changes(
+    projects: State<'_, projects::Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
+    project_id: ProjectId,
+    changes: Vec<TreeChange>,
+) -> Result<HunkDependencies, Error> {
+    let project = projects.get(project_id)?;
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    let changes: Vec<but_core::TreeChange> =
+        changes.into_iter().map(|change| change.into()).collect();
+    let dependencies =
+        hunk_dependencies_for_changes(&ctx, &project.path, &project.gb_dir(), changes)?;
     Ok(dependencies)
 }
 
