@@ -303,6 +303,47 @@ fn submodule_added_in_unborn() -> Result<()> {
 }
 
 #[test]
+fn submodule_changes_ignored_in_configuration() -> Result<()> {
+    let repo = repo("submodule-changed-head-ignore-all")?;
+    let actual = diff::worktree_changes(&repo)?;
+    insta::assert_debug_snapshot!(actual, @r#"
+    WorktreeChanges {
+        changes: [
+            TreeChange {
+                path: ".gitmodules",
+                status: Modification {
+                    previous_state: ChangeState {
+                        id: Sha1(46f8c8b821d79a888a1ea0b30ec9f5d7e90821b0),
+                        kind: Blob,
+                    },
+                    state: ChangeState {
+                        id: Sha1(0000000000000000000000000000000000000000),
+                        kind: Blob,
+                    },
+                    flags: None,
+                },
+            },
+        ],
+        ignored_changes: [],
+    }
+    "#);
+    Ok(())
+}
+
+#[test]
+fn submodule_changes_set_to_all_in_config_but_has_uncommittable_changes() -> Result<()> {
+    let repo = repo("submodule-changed-worktree-ignore-none")?;
+    let actual = diff::worktree_changes(&repo)?;
+    insta::assert_debug_snapshot!(actual, @r#"
+    WorktreeChanges {
+        changes: [],
+        ignored_changes: [],
+    }
+    "#);
+    Ok(())
+}
+
+#[test]
 fn submodule_changed_head() -> Result<()> {
     let repo = repo("submodule-changed-head")?;
     let actual = diff::worktree_changes(&repo)?;
