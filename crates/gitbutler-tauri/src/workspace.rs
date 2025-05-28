@@ -157,49 +157,17 @@ pub fn create_commit_from_worktree_changes(
     stack_branch_name: String,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
     let project = projects.get(project_id)?;
-    let repo = but_core::open_repo_for_merging(project.worktree_path())?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    // If parent_id was not set but a stack branch name was provided, pick the current head of that branch as parent.
-    let parent_commit_id: Option<gix::ObjectId> = match parent_id {
-        Some(id) => Some(id.into()),
-        None => {
-            let state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-            let stack = state.get_stack(stack_id)?;
-            if !stack.heads(true).contains(&stack_branch_name) {
-                return Err(anyhow::anyhow!(
-                    "Stack {stack_id} does not have branch {stack_branch_name}"
-                )
-                .into());
-            }
-            let reference = repo
-                .try_find_reference(&stack_branch_name)
-                .map_err(anyhow::Error::from)?;
-            if let Some(mut r) = reference {
-                Some(r.peel_to_commit().map_err(anyhow::Error::from)?.id)
-            } else {
-                return Err(anyhow::anyhow!("No branch {stack_branch_name} found").into());
-            }
-        }
-    };
     let mut guard = project.exclusive_worktree_access();
     let snapshot_tree = ctx.prepare_snapshot(guard.read_permission());
-    let outcome = commit_engine::create_commit_and_update_refs_with_project(
-        &repo,
-        &project,
-        Some(stack_id),
-        commit_engine::Destination::NewCommit {
-            parent_commit_id,
-            message: message.clone(),
-            stack_segment: Some(StackSegmentId {
-                stack_id,
-                segment_ref: format!("refs/heads/{stack_branch_name}")
-                    .try_into()
-                    .map_err(anyhow::Error::from)?,
-            }),
-        },
-        None,
+
+    let outcome = commit_engine::create_commit_simple(
+        &ctx,
+        stack_id,
+        parent_id.map(|id| id.into()),
         worktree_changes,
-        settings.get()?.context_lines,
+        message.clone(),
+        stack_branch_name,
         guard.write_permission(),
     );
 
@@ -214,9 +182,6 @@ pub fn create_commit_from_worktree_changes(
     });
 
     let outcome = outcome?;
-    if !outcome.rejected_specs.is_empty() {
-        tracing::warn!(?outcome.rejected_specs, "Failed to commit at least one hunk");
-    }
     Ok(outcome.into())
 }
 
