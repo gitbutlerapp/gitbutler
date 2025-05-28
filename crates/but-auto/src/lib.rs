@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+use anyhow::anyhow;
 use but_workspace::{DiffSpec, StackId, VirtualBranchesTomlMetadata, ui::StackEntry};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_command_context::CommandContext;
@@ -22,6 +23,8 @@ use serde::{Deserialize, Serialize};
 ///
 /// TODO:
 /// - Handle the case of target branch not being configured
+/// - Snapshot creation
+/// - Persistence of the request context and oplog snapshot IDs
 #[allow(unused)]
 pub fn handle_changes_simple(
     ctx: &mut CommandContext,
@@ -45,13 +48,17 @@ pub fn handle_changes_simple(
 
     let repo = ctx.gix_repo()?;
 
-    let stacks = stacks_creating_if_none(ctx, &vb_state, &repo)?;
-
-    // Get the uncommitted changes in the worktree
-    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(ctx.project().path.clone())?;
     // Get any assignments that may have been made, which also includes any hunk locks. Assignments should be updated according to locks where applicable.
     let assignments = but_hunk_assignment::assignments(ctx, true)
         .map_err(|err| serde_error::Error::new(&*err))?;
+    if assignments.is_empty() {
+        return Ok(HandleChangesResponse {
+            updated_branches: vec![],
+        });
+    }
+
+    // Get the current stacks in the workspace, creating one if none exists.
+    let stacks = stacks_creating_if_none(ctx, &vb_state, &repo)?;
 
     // Put the assignments into buckets by stack ID.
     let mut stack_assignments: HashMap<StackId, Vec<DiffSpec>> =
@@ -78,12 +85,41 @@ pub fn handle_changes_simple(
         *specs = flatten_diff_specs(specs.clone());
     }
 
-    // let mut guard = ctx.project().exclusive_worktree_access();
-    // let perm = guard.write_permission();
+    let mut guard = ctx.project().exclusive_worktree_access();
+    let perm = guard.write_permission();
 
-    Ok(HandleChangesResponse {
-        updated_branches: vec![],
-    })
+    let mut updated_branches = vec![];
+
+    for (stack_id, diff_specs) in stack_assignments {
+        if diff_specs.is_empty() {
+            continue;
+        }
+
+        let stack_branch_name = stacks
+            .iter()
+            .find(|s| s.id == stack_id)
+            .and_then(|s| s.heads.first().map(|h| h.name.to_string()))
+            .ok_or(anyhow!("Could not find associated reference name"))?;
+
+        let outcome = but_workspace::commit_engine::create_commit_simple(
+            ctx,
+            stack_id,
+            None,
+            diff_specs,
+            request_ctx.to_owned(),
+            stack_branch_name.clone(),
+            perm,
+        )?;
+
+        if let Some(new_commit) = outcome.new_commit {
+            updated_branches.push(UpdatedBranch {
+                branch_name: stack_branch_name,
+                commits: vec![new_commit.to_string()],
+            });
+        }
+    }
+
+    Ok(HandleChangesResponse { updated_branches })
 }
 
 /// If there are multiple diffs spces where path and previous_path are the same, collapse them into one.
