@@ -821,7 +821,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
     * da83717 (origin/main) disjoint remote target
     ");
 
-    for (idx, name) in ["advanced-lane", "lane"].into_iter().enumerate() {
+    for (idx, name) in ["lane", "advanced-lane"].into_iter().enumerate() {
         add_stack(
             &mut meta,
             StackId::from_number_for_testing(idx as u128),
@@ -831,6 +831,154 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
     }
 
     let opts = standard_options();
+    let info = head_info(&repo, &*meta, opts)?;
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [
+            Stack {
+                base: None,
+                segments: [
+                    StackSegment {
+                        ref_name: "refs/heads/lane",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                ],
+                stash_status: None,
+            },
+            Stack {
+                base: None,
+                segments: [
+                    StackSegment {
+                        ref_name: "refs/heads/advanced-lane",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [
+                            LocalCommit(cbc6713, "change\n", local),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                ],
+                stash_status: None,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+    }
+    "#);
+
+    let info = ref_info(repo.find_reference("advanced-lane")?, &*meta, opts)?;
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [
+            Stack {
+                base: None,
+                segments: [
+                    StackSegment {
+                        ref_name: "refs/heads/advanced-lane",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [
+                            LocalCommit(cbc6713, "change\n", local),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                ],
+                stash_status: None,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+    }
+    "#);
+
+    let info = ref_info(repo.find_reference("lane")?, &*meta, opts)?;
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [
+            Stack {
+                base: None,
+                segments: [
+                    StackSegment {
+                        ref_name: "refs/heads/lane",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                ],
+                stash_status: None,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+    }
+    "#);
+
+    meta.data_mut().branches.clear();
+    for (idx, name) in ["advanced-lane", "lane"].into_iter().enumerate() {
+        add_stack(
+            &mut meta,
+            StackId::from_number_for_testing(idx as u128),
+            name,
+            StackState::InWorkspace,
+        );
+    }
+
     let info = head_info(&repo, &*meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {

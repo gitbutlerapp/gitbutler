@@ -105,7 +105,10 @@ async fn main() -> Result<()> {
         args::Subcommands::StackDetails { id } => {
             command::stacks::details(*id, &args.current_dir, args.v3)
         }
-        args::Subcommands::RefInfo { ref_name } => command::ref_info(&args, ref_name.as_deref()),
+        args::Subcommands::RefInfo {
+            ref_name,
+            expensive,
+        } => command::ref_info(&args, ref_name.as_deref(), *expensive),
         args::Subcommands::HunkAssignments => {
             command::assignment::hunk_assignments(&args.current_dir, args.json)
         }

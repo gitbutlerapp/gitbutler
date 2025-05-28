@@ -231,10 +231,9 @@ pub(crate) mod function {
                 .map(|base| base.detach());
             // If we have a workspace, then we have to use that as the basis for our traversal to assure
             // the commits and stacks are assigned consistently.
-            if let Some((workspace_ref, base)) = workspace_ref_name
+            if let Some(workspace_ref) = workspace_ref_name
                 .as_ref()
                 .filter(|workspace_ref| workspace_ref.as_ref() != existing_ref.name())
-                .zip(base)
             {
                 let workspace_contains_ref_tip =
                     walk_commits(repo, workspace_ref.as_ref(), base)?.contains(&*tip);
@@ -246,6 +245,7 @@ pub(crate) mod function {
                     // To assure the stack is counted consistently even when queried alone, redo the query.
                     // This should be avoided (i.e., the caller should consume the 'highest value'
                     // refs if possible, but that's not always the case.
+                    // TODO(perf): add 'focus' to `opts` so it doesn't do expensive computations for stacks we drop later.
                     let mut info = ref_info(repo.find_reference(workspace_ref)?, meta, opts)?;
                     if let Some((stack_index, segment_index)) = info
                         .stacks
@@ -299,7 +299,7 @@ pub(crate) mod function {
                 Some(match workspace_ref_name.as_ref().zip(target_ref_id) {
                     None => RefLocation::OutsideOfWorkspace,
                     Some((ws_ref, target_id)) => {
-                        let ws_commits = walk_commits(repo, ws_ref.as_ref(), target_id)?;
+                        let ws_commits = walk_commits(repo, ws_ref.as_ref(), Some(target_id))?;
                         if ws_commits.contains(&*tip) {
                             RefLocation::ReachableFromWorkspaceCommit
                         } else {
@@ -501,15 +501,6 @@ pub(crate) mod function {
         // With this, the tip can also be missing, and we still have a somewhat expected order.
         // Besides, it's easier to work with.
         let serialized_virtual_segments = {
-            let all_stack_commits: gix::hashtable::HashSet<_> = unordered
-                .iter()
-                .flat_map(|s| {
-                    s.segments
-                        .iter()
-                        .flat_map(|s| s.commits_unique_from_tip.iter().map(|c| c.id))
-                        .chain(s.base)
-                })
-                .collect();
             let mut v = Vec::new();
             for (is_stack_tip, existing_ws_ref) in ordered.iter().flat_map(|ws_stack| {
                 ws_stack
@@ -524,9 +515,7 @@ pub(crate) mod function {
             }) {
                 let mut existing_ws_ref = existing_ws_ref?;
                 let id = existing_ws_ref.peel_to_id_in_place()?.detach();
-                if all_stack_commits.contains(&id) {
-                    v.push((is_stack_tip, id, existing_ws_ref.inner.name));
-                }
+                v.push((is_stack_tip, id, existing_ws_ref.inner.name));
             }
             v
         };
@@ -665,7 +654,7 @@ pub(crate) mod function {
     fn walk_commits(
         repo: &gix::Repository,
         from: &gix::refs::FullNameRef,
-        hide: gix::ObjectId,
+        hide: Option<gix::ObjectId>,
     ) -> anyhow::Result<gix::hashtable::HashSet<gix::ObjectId>> {
         let Some(from_id) = repo
             .try_find_reference(from)?
@@ -677,7 +666,7 @@ pub(crate) mod function {
             .ancestors()
             .sorting(Sorting::BreadthFirst)
             // TODO: use 'hide()'
-            .with_boundary(Some(hide))
+            .with_boundary(hide)
             .all()?
             .filter_map(Result::ok)
             .map(|info| info.id)
