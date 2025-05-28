@@ -1,0 +1,15 @@
+[package]
+name = "but-auto"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[lib]
+doctest = false
+test = false
+
+[dependencies]
+serde = { workspace = true, features = ["std"] }
+anyhow = "1.0.98"
+gitbutler-command-context.workspace = true

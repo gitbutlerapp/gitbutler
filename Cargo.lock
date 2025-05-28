@@ -668,6 +668,7 @@ name = "but"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-auto",
  "but-core",
  "but-settings",
  "but-workspace",
@@ -679,6 +680,15 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "but-auto"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "gitbutler-command-context",
+ "serde",
 ]
 
 [[package]]
