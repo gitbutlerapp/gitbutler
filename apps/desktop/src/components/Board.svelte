@@ -13,7 +13,6 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';
 	import { flip } from 'svelte/animate';
-	import type { BranchStack } from '$lib/branches/branch';
 
 	const { projectId }: { projectId: string } = $props();
 
@@ -35,11 +34,7 @@
 		}
 	});
 
-	let sortedBranches = $state<BranchStack[]>([]);
-	$effect(() => {
-		sortedBranches = $branches?.sort((a, b) => a.order - b.order) || [];
-	});
-
+	let sortedBranches = $derived($branches?.sort((a, b) => a.order - b.order) || []);
 	const handleDragOver = throttle((e: MouseEvent & { currentTarget: HTMLDivElement }) => {
 		e.preventDefault();
 		if (!dragged) {

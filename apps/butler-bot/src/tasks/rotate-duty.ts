@@ -1,8 +1,8 @@
-import crypto from 'node:crypto';
-import type { Task } from '@/types';
 import { ChannelType } from '@/types/channel-types';
 import { splitIntoMessages } from '@/utils/message-splitter';
 import { formatTicket } from '@/utils/tickets';
+import crypto from 'node:crypto';
+import type { Task } from '@/types';
 
 export const rotateDuty: Task = {
 	name: 'rotate-duty',

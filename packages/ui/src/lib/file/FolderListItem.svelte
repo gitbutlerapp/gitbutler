@@ -35,11 +35,7 @@
 		testId
 	}: Props = $props();
 
-	let isFolderExpanded = $state(isExpanded);
-
-	$effect(() => {
-		isFolderExpanded = isExpanded;
-	});
+	let isFolderExpanded = $derived(isExpanded);
 </script>
 
 <div

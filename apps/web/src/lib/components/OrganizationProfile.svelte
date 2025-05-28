@@ -39,7 +39,7 @@
 	let patchStacksData = $derived(patchStacks.status === 'found' ? patchStacks.value || [] : []);
 
 	// Create a local mutable copy of the organization for updates
-	let localOrganization = $state(organization);
+	let localOrganization = $derived(organization);
 
 	// Get current user information
 	let currentUser = $state(userService.user);
@@ -173,9 +173,6 @@
 	});
 
 	// Update local organization when props change
-	$effect(() => {
-		localOrganization = organization;
-	});
 </script>
 
 <div class="org-landing-page">

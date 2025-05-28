@@ -24,10 +24,7 @@
 	}: Props = $props();
 
 	let inputEl: HTMLInputElement | undefined = $state();
-	let editableName = $state(name);
-	$effect(() => {
-		editableName = name;
-	});
+	let editableName = $derived(name);
 	let nameWidth = $state(0);
 	let editableNameWidth = $state(0);
 	const nameWidthPx = $derived(`${Math.max(nameWidth, editableNameWidth)}px`);

@@ -83,7 +83,7 @@ export class ProjectsService {
 		if (selectedPath) {
 			if (selectedPath === null) return;
 			if (Array.isArray(selectedPath) && selectedPath.length !== 1) return;
-			return Array.isArray(selectedPath) ? selectedPath[0] : (await selectedPath) ?? undefined;
+			return Array.isArray(selectedPath) ? selectedPath[0] : ((await selectedPath) ?? undefined);
 		}
 	}
 

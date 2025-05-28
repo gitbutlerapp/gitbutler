@@ -5,8 +5,7 @@ import globals from 'globals';
 import ts from 'typescript-eslint';
 import pluginImportX from 'eslint-plugin-import-x';
 import noRelativeImportPaths from '@gitbutler/no-relative-imports';
-
-import path from 'node:path';
+import { createNextImportResolver } from 'eslint-import-resolver-next';
 
 export default ts.config(
 	js.configs.recommended,
@@ -99,18 +98,20 @@ export default ts.config(
 			'import-x/parsers': {
 				'@typescript-eslint/parser': ['.ts']
 			},
-			'import-x/resolver-next': {
-				typescript: {
-					project: [
-						'./apps/**/tsconfig.json',
-						'./apps/desktop/.svelte-kit/tsconfig.json',
-						'./apps/web/.svelte-kit/tsconfig.json',
-						'./packages/**/tsconfig.json',
-						'./packages/ui/.svelte-kit/tsconfig.json',
-						'./packages/shared/.svelte-kit/tsconfig.json'
-					]
-				}
-			}
+			'import-x/resolver-next': [
+				createNextImportResolver({
+					typescript: {
+						project: [
+							'./apps/**/tsconfig.json',
+							'./apps/desktop/.svelte-kit/tsconfig.json',
+							'./apps/web/.svelte-kit/tsconfig.json',
+							'./packages/**/tsconfig.json',
+							'./packages/ui/.svelte-kit/tsconfig.json',
+							'./packages/shared/.svelte-kit/tsconfig.json'
+						]
+					}
+				})
+			]
 		},
 		plugins: {
 			'import-x': pluginImportX,

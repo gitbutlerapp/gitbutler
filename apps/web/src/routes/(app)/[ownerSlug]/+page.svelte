@@ -25,17 +25,13 @@
 	const ownerService = getContext(OwnerService) as OwnerService;
 
 	// Create a reactive store for the owner data
-	let ownerStore = $state(ownerService.getOwner(data.ownerSlug));
+	let ownerStore = $derived(ownerService.getOwner(data.ownerSlug));
 	let owner = $derived($ownerStore);
 
 	// Helper derived values for easier template usage
 	let loading = $derived(owner.status === 'loading');
 	let error = $derived(owner.status === 'error' ? owner.error : null);
 	let ownerData = $derived(owner.status === 'found' ? owner.value : null);
-
-	$effect(() => {
-		ownerStore = ownerService.getOwner(data.ownerSlug);
-	});
 </script>
 
 {#if loading}

@@ -55,11 +55,9 @@
 	const repoResult = $derived(repoService?.getInfo());
 	const repoInfo = $derived(repoResult?.current.data);
 
-	let shouldUpdateTargetBaseBranch = $state(false);
-	$effect(() => {
-		shouldUpdateTargetBaseBranch = repoInfo?.deleteBranchAfterMerge === false && !!child?.prNumber;
-	});
-
+	let shouldUpdateTargetBaseBranch = $derived(
+		repoInfo?.deleteBranchAfterMerge === false && !!child?.prNumber
+	);
 	const baseIsTargetBranch = $derived.by(() => {
 		if (forge.current.name === 'gitlab') return true;
 		return pr

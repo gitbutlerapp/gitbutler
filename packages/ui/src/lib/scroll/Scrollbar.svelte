@@ -93,11 +93,9 @@
 	const shouldShowOnHover = $derived(whenToShow === 'hover' && isScrollable);
 	const shouldAlwaysShow = $derived(whenToShow === 'always' && isScrollable);
 
-	let visible = $state(false);
-
-	$effect(() => {
-		visible = shouldShowInitially || (shouldShowOnHover && initiallyVisible) || shouldAlwaysShow;
-	});
+	let visible = $derived(
+		shouldShowInitially || (shouldShowOnHover && initiallyVisible) || shouldAlwaysShow
+	);
 
 	/////////////////////
 	// TIMER FUNCTIONS //

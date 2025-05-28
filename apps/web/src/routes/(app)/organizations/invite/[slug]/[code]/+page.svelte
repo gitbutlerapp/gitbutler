@@ -22,17 +22,13 @@
 	const routes = getContext(WebRoutesService);
 
 	// Track the auth and join status
-	let isLoggedIn = $state(false);
+	const isLoggedIn = $derived(!!$user?.id);
 	let isJoining = $state(false);
 	let joinError = $state<string | null>(null);
 	let joinSuccess = $state(false);
 	let showConfirmation = $state(false);
 
 	// Check auth status and respond accordingly
-	$effect(() => {
-		isLoggedIn = !!$user?.id;
-	});
-
 	// Process the invite when authenticated
 	async function processInvite() {
 		if (!isLoggedIn) return;

@@ -1,10 +1,10 @@
 <script lang="ts">
+	import * as jsonLinks from '$home/data/links.json';
 	import { clickOutside } from '$lib/hooks/clickOutside';
 	import { targetDownload } from '$lib/store';
 	import { latestClientVersion } from '$lib/store';
 	import { quadIn } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
-	import * as jsonLinks from '$home/data/links.json';
 
 	let videoElement = $state<HTMLVideoElement>();
 	interface Props {

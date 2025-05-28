@@ -28,13 +28,8 @@
 	const prService = $derived(forge.current.prService);
 	const user = getContextStore(User);
 
-	let allowRebasing = $state<boolean>();
-
 	const stack = $derived($branchStore);
-
-	$effect(() => {
-		allowRebasing = stack.allowRebasing;
-	});
+	let allowRebasing = $derived(stack.allowRebasing);
 
 	const allPrIds = $derived(stack.validSeries.map((series) => series.prNumber).filter(isDefined));
 
