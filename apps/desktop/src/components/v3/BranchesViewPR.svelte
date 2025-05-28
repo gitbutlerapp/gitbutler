@@ -116,7 +116,7 @@
 		>
 			<p class="fork-notice">
 				To apply a branch from a fork, GitButler must first add the fork as a remote. <span
-					class="text-semibold">Choose a remote name:</span
+					class="text-bold">Choose a remote name:</span
 				>
 			</p>
 			<Textbox bind:value={inputRemoteName} placeholder="remote-name-example" required />
