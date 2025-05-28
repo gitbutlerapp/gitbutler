@@ -1,6 +1,8 @@
 //! This crate implements various automations that GitButler can perform.
 
-use but_workspace::{VirtualBranchesTomlMetadata, ui::StackEntry};
+use std::collections::HashMap;
+
+use but_workspace::{DiffSpec, StackId, VirtualBranchesTomlMetadata, ui::StackEntry};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_command_context::CommandContext;
 use gitbutler_operating_modes::OperatingMode;
@@ -47,9 +49,34 @@ pub fn handle_changes_simple(
 
     // Get the uncommitted changes in the worktree
     let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(ctx.project().path.clone())?;
-    // Get any assignments that may have been made, which also includes any hunk locks
-    let assignments =
-        but_hunk_assignment::assignments(ctx).map_err(|err| serde_error::Error::new(&*err))?;
+    // Get any assignments that may have been made, which also includes any hunk locks. Assignments should be updated according to locks where applicable.
+    let assignments = but_hunk_assignment::assignments(ctx, true)
+        .map_err(|err| serde_error::Error::new(&*err))?;
+
+    // Put the assignments into buckets by stack ID.
+    let mut stack_assignments: HashMap<StackId, Vec<DiffSpec>> =
+        stacks.iter().map(|s| (s.id, vec![])).collect();
+    let default_stack_id = stacks
+        .first()
+        .map(|s| s.id)
+        .ok_or_else(|| anyhow::anyhow!("No stacks found in the workspace"))?;
+    for assignment in assignments {
+        if let Some(stack_id) = assignment.stack_id {
+            stack_assignments
+                .entry(stack_id)
+                .or_default()
+                .push(assignment.into());
+        } else {
+            stack_assignments
+                .entry(default_stack_id)
+                .or_default()
+                .push(assignment.into());
+        }
+    }
+    // Go over the stack_assignments and flatten the diff specs for each stack.
+    for (_, specs) in stack_assignments.iter_mut() {
+        *specs = flatten_diff_specs(specs.clone());
+    }
 
     // let mut guard = ctx.project().exclusive_worktree_access();
     // let perm = guard.write_permission();
@@ -57,6 +84,26 @@ pub fn handle_changes_simple(
     Ok(HandleChangesResponse {
         updated_branches: vec![],
     })
+}
+
+/// If there are multiple diffs spces where path and previous_path are the same, collapse them into one.
+fn flatten_diff_specs(input: Vec<DiffSpec>) -> Vec<DiffSpec> {
+    let mut output: HashMap<String, DiffSpec> = HashMap::new();
+    for spec in input {
+        let key = format!(
+            "{}:{}",
+            spec.path,
+            spec.previous_path
+                .clone()
+                .map(|p| p.to_string())
+                .unwrap_or_default()
+        );
+        output
+            .entry(key)
+            .and_modify(|e| e.hunk_headers.extend(spec.hunk_headers.clone()))
+            .or_insert(spec);
+    }
+    output.into_values().collect()
 }
 
 /// Returns the currently applied stacks, creating one if none exists.
