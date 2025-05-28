@@ -691,8 +691,17 @@ name = "but-auto"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-core",
+ "but-hunk-assignment",
+ "but-workspace",
+ "gitbutler-branch",
+ "gitbutler-branch-actions",
  "gitbutler-command-context",
+ "gitbutler-operating-modes",
+ "gitbutler-stack",
+ "gix",
  "serde",
+ "serde-error",
 ]
 
 [[package]]
