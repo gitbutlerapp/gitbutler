@@ -98,6 +98,10 @@
 		display: flex;
 		align-items: flex-start;
 		gap: 10px;
+
+		& h4 {
+			line-height: 1.4;
+		}
 	}
 
 	.sidebar-entry__divider {
@@ -113,13 +117,5 @@
 		align-items: center;
 		gap: 6px;
 		color: var(--clr-text-2);
-	}
-
-	.sidebar-entry__applied-tag {
-		display: flex;
-		padding: 2px 4px;
-		border-radius: 10px;
-		background-color: var(--clr-scale-ntrl-50);
-		color: var(--clr-theme-ntrl-on-element);
 	}
 </style>

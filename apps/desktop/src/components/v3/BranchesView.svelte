@@ -362,7 +362,7 @@
 								icon="workbench"
 								onclick={applyFromFork}
 							>
-								Apply PR to workspace…
+								Apply PR to workspace
 							</Button>
 						{/if}
 					</div>
