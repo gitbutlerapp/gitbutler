@@ -13,17 +13,17 @@ pub(crate) const UI_CONTEXT_LINES: u32 = 3;
 pub(crate) async fn start() -> Result<()> {
     let transport = (tokio::io::stdin(), tokio::io::stdout());
 
-    let service = PublicMcp::new().serve(transport).await?;
+    let service = Mcp::new().serve(transport).await?;
 
     service.waiting().await?;
     Ok(())
 }
 
 #[derive(Debug, Clone)]
-pub struct PublicMcp;
+pub struct Mcp;
 
 #[tool(tool_box)]
-impl PublicMcp {
+impl Mcp {
     pub fn new() -> Self {
         Self
     }
@@ -32,7 +32,7 @@ impl PublicMcp {
         description = "Get the status of a project. This contains information about the branches applied and uncommitted file changes."
     )]
     pub fn project_status(&self, #[tool(aggr)] request: ProjectStatusRequest) -> String {
-        crate::mcp::status::project_status(&request.project_dir).unwrap_or(format!(
+        crate::mcp_internal::status::project_status(&request.project_dir).unwrap_or(format!(
             "Failed to get project status for directory: {}",
             request.project_dir
         ))
@@ -46,7 +46,7 @@ pub struct ProjectStatusRequest {
 }
 
 #[tool(tool_box)]
-impl ServerHandler for PublicMcp {
+impl ServerHandler for Mcp {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
             instructions: Some("GitButler MCP server".into()),

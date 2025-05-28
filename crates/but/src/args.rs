@@ -16,6 +16,7 @@ pub struct Args {
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
-    /// Starts up an MCP server.
-    Mcp,
+    /// Starts up an MCP-internal server.
+    #[clap(visible_alias = "mcp-internal")]
+    McpInternal,
 }
