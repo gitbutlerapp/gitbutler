@@ -2,11 +2,6 @@
 	import { goto } from '$app/navigation';
 	import { beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
-	import { AuthService } from '$lib/auth/authService.svelte';
-	import { updateFavIcon } from '$lib/utils/faviconUtils';
-	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { setContext, type Snippet } from 'svelte';
-	import { get } from 'svelte/store';
 	import Header from '$home/components/Header.svelte';
 	import * as jsonLinks from '$home/data/links.json';
 	import BlogHighlights from '$home/sections/BlogHighlights.svelte';
@@ -15,6 +10,11 @@
 	import Features from '$home/sections/Features.svelte';
 	import HomeFooter from '$home/sections/Footer.svelte';
 	import Hero from '$home/sections/Hero.svelte';
+	import { AuthService } from '$lib/auth/authService.svelte';
+	import { updateFavIcon } from '$lib/utils/faviconUtils';
+	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
+	import { setContext, type Snippet } from 'svelte';
+	import { get } from 'svelte/store';
 	import '$lib/styles/global.css';
 
 	interface Props {
