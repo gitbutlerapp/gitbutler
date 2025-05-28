@@ -5,9 +5,16 @@ use rmcp::{
     schemars, tool,
 };
 
+pub mod project;
+pub mod status;
+
+pub(crate) const UI_CONTEXT_LINES: u32 = 3;
+
 pub(crate) async fn start() -> Result<()> {
     let transport = (tokio::io::stdin(), tokio::io::stdout());
+
     let service = Mcp::new().serve(transport).await?;
+
     service.waiting().await?;
     Ok(())
 }
@@ -20,18 +27,22 @@ impl Mcp {
     pub fn new() -> Self {
         Self
     }
-    #[tool(description = "Handle the changes that are currently uncommitted for the repository.")]
-    pub fn handle_changes(&self, #[tool(aggr)] request: HandleChangesRequest) -> String {
-        todo!("Handle changes request: {}", request.context);
+
+    #[tool(
+        description = "Get the status of a project. This contains information about the branches applied and uncommitted file changes."
+    )]
+    pub fn project_status(&self, #[tool(aggr)] request: ProjectStatusRequest) -> String {
+        crate::mcp_internal::status::project_status(&request.project_dir).unwrap_or(format!(
+            "Failed to get project status for directory: {}",
+            request.project_dir
+        ))
     }
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
-pub struct HandleChangesRequest {
-    #[schemars(
-        description = "Information about what has changed and why - i.e. the user prompt etc."
-    )]
-    pub context: String,
+pub struct ProjectStatusRequest {
+    #[schemars(description = "Absolute path to the project root")]
+    pub project_dir: String,
 }
 
 #[tool(tool_box)]

@@ -15,13 +15,13 @@ pub struct ProjectStatus {
 
 pub fn project_status(project_dir: &str) -> anyhow::Result<String> {
     let project_dir_path = std::path::PathBuf::from(project_dir);
-    let repo = crate::mcp::project::project_repo(&project_dir_path)?;
+    let repo = crate::mcp_internal::project::project_repo(&project_dir_path)?;
 
     let worktree = but_core::diff::worktree_changes(&repo)?;
     let diff = unified_diff_for_changes(
         &repo,
         worktree.changes.clone(),
-        crate::mcp::UI_CONTEXT_LINES,
+        crate::mcp_internal::UI_CONTEXT_LINES,
     )?;
 
     let stacks = list_applied_stacks(&project_dir_path)?;
@@ -38,11 +38,11 @@ pub fn project_status(project_dir: &str) -> anyhow::Result<String> {
 }
 
 fn list_applied_stacks(current_dir: &Path) -> anyhow::Result<Vec<but_workspace::ui::StackEntry>> {
-    let project = crate::mcp::project::project_from_path(current_dir)?;
+    let project = crate::mcp_internal::project::project_from_path(current_dir)?;
     let ctx = CommandContext::open(&project, AppSettings::default())?;
 
     let repo = ctx.gix_repo_for_merging_non_persisting()?;
-    let meta = crate::mcp::project::ref_metadata_toml(ctx.project())?;
+    let meta = crate::mcp_internal::project::ref_metadata_toml(ctx.project())?;
     but_workspace::stacks_v3(&repo, &meta, but_workspace::StacksFilter::InWorkspace)
 }
 
