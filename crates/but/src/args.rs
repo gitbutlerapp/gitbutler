@@ -19,4 +19,6 @@ pub enum Subcommands {
     /// Starts up an MCP-internal server.
     #[clap(visible_alias = "mcp-internal")]
     McpInternal,
+    #[clap(visible_alias = "mcp")]
+    Mcp,
 }
