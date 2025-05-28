@@ -84,6 +84,26 @@ impl TryFrom<HunkAssignment> for but_db::HunkAssignment {
     }
 }
 
+impl From<HunkAssignment> for but_workspace::DiffSpec {
+    fn from(value: HunkAssignment) -> Self {
+        let hunk_headers = if let Some(header) = value.hunk_header {
+            vec![but_workspace::HunkHeader {
+                old_start: header.old_start,
+                old_lines: header.old_lines,
+                new_start: header.new_start,
+                new_lines: header.new_lines,
+            }]
+        } else {
+            vec![]
+        };
+        but_workspace::DiffSpec {
+            previous_path: None, // TODO
+            path: value.path_bytes.clone(),
+            hunk_headers,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 /// Indicates that the assignment request was rejected due to locking - the hunk depends on a commit in the stack it is currently in.
@@ -177,10 +197,13 @@ impl HunkAssignment {
 
 #[instrument(skip(ctx), err(Debug))]
 /// Returns the current hunk assignments for the workspace.
-pub fn assignments(ctx: &mut CommandContext) -> Result<Vec<HunkAssignment>> {
+pub fn assignments(
+    ctx: &mut CommandContext,
+    set_assignment_from_locks: bool,
+) -> Result<Vec<HunkAssignment>> {
     // TODO: Use a dirty bit set in the file watcher to indicate when reconcilation is needed.
     if true {
-        reconcile(ctx)
+        reconcile(ctx, set_assignment_from_locks)
     } else {
         let assignments = state::assignments(ctx)?;
         Ok(assignments)
@@ -252,7 +275,10 @@ pub fn assign(
 /// If a hunk has a dependency but it has not been previously assigned to any stack, it is left unassigned (stack_id is None). This is so that the hunk assignment workflow can remain optional.
 ///
 /// This needs to be ran only after the worktree has changed.
-fn reconcile(ctx: &mut CommandContext) -> Result<Vec<HunkAssignment>> {
+fn reconcile(
+    ctx: &mut CommandContext,
+    set_assignment_from_locks: bool,
+) -> Result<Vec<HunkAssignment>> {
     let previous_assignments = state::assignments(ctx)?;
     let repo = &ctx.gix_repo()?;
     let context_lines = ctx.app_settings().context_lines;
@@ -282,7 +308,7 @@ fn reconcile(ctx: &mut CommandContext) -> Result<Vec<HunkAssignment>> {
             &deps_assignments,
             &applied_stacks,
             MultiDepsResolution::SetNone, // If there is double locking, move the hunk to the Uncommitted section
-            false,
+            !set_assignment_from_locks, // If we are not setting assignments from locks, we do not want to update unassigned hunks here
         )?;
         new_assignments.extend(assignments_considering_deps);
     }

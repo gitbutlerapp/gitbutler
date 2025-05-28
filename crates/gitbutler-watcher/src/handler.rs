@@ -160,8 +160,8 @@ impl Handler {
 
     fn emit_worktree_changes(&self, ctx: &mut CommandContext) -> Result<()> {
         let detailed_changes = but_core::diff::worktree_changes(&ctx.gix_repo()?)?;
-        let assignments =
-            but_hunk_assignment::assignments(ctx).map_err(|err| serde_error::Error::new(&*err));
+        let assignments = but_hunk_assignment::assignments(ctx, false)
+            .map_err(|err| serde_error::Error::new(&*err));
         let changes = but_hunk_assignment::WorktreeChanges {
             worktree_changes: detailed_changes.into(),
             assignments,
