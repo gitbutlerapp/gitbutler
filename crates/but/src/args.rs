@@ -17,10 +17,8 @@ pub struct Args {
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
     /// Starts up the MCP-internal server.
-    #[clap(visible_alias = "mcp-internal")]
     McpInternal,
     /// Starts up the MCP server.
-    #[clap(visible_alias = "mcp")]
     Mcp,
     /// Automatically handle changes in the current repository, creating a commit with the provided context.
     HandleChanges {
