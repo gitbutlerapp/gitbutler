@@ -224,6 +224,21 @@ git init submodule-changed-head
   )
 )
 
+cp -Rv submodule-changed-head submodule-changed-head-ignore-all
+(cd submodule-changed-head-ignore-all
+  echo $'\tignore = all\n' >>.gitmodules
+)
+
+git init submodule-changed-worktree-ignore-none
+(cd submodule-changed-worktree-ignore-none
+  git submodule add ../modified-in-index submodule
+  git commit -m "init"
+  (cd submodule
+    echo change >>modified
+  )
+  echo $'\tignore = none\n' >>.gitmodules && git commit -am "update .gitmodules"
+)
+
 git init case-folding-worktree-changes
 (cd case-folding-worktree-changes
   git config core.ignorecase false
