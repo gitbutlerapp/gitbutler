@@ -1,11 +1,11 @@
-import Anthropic from '@anthropic-ai/sdk';
-import { PrismaClient } from '@prisma/client';
-import { Message, TextChannel } from 'discord.js';
-import OpenAI from 'openai';
 import { ChannelType } from '@/types/channel-types';
 import { compareEmbeddings, createEmbedding, parseEmbedding } from '@/utils/embedding';
 import { formatTicket } from '@/utils/tickets';
 import { isBusinessHours } from '@/utils/time';
+import Anthropic from '@anthropic-ai/sdk';
+import { PrismaClient } from '@prisma/client';
+import { Message, TextChannel } from 'discord.js';
+import OpenAI from 'openai';
 
 const anthropic = new Anthropic({
 	apiKey: process.env.ANTHROPIC_API_KEY
