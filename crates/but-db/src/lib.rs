@@ -1,7 +1,8 @@
 use std::path::Path;
 
 use anyhow::Result;
-use diesel::{Connection, RunQueryDsl, SqliteConnection};
+use diesel::connection::SimpleConnection;
+use diesel::{Connection, SqliteConnection};
 
 const FILE_NAME: &str = "gb.sqlite";
 
@@ -60,16 +61,16 @@ impl DbHandle {
 /// https://github.com/diesel-rs/diesel/issues/2365#issuecomment-2899347817
 /// TODO: the busy_timeout doesn't seem to be effective.
 fn improve_concurrency(conn: &mut SqliteConnection) -> anyhow::Result<()> {
-    diesel::sql_query(
-        r#"
-                PRAGMA busy_timeout = 30000;        -- wait X milliseconds, but not all at once, before for timing out with error.
-                PRAGMA journal_mode = WAL;          -- better write-concurrency
-                PRAGMA synchronous = NORMAL;        -- fsync only in critical moments
-                PRAGMA wal_autocheckpoint = 1000;   -- write WAL changes back every 1000 pages, for an in average 1MB WAL file.
-                                                    -- May affect readers if number is increased
-                PRAGMA wal_checkpoint(TRUNCATE);    -- free some space by truncating possibly massive WAL files from the last run.
-            "#
-    ).execute(conn)?;
+    // For safety, execute them one by one. Otherwise, they can individually fail, silently (at least the `busy_timeout`.
+    for query in [
+        "PRAGMA busy_timeout = 30000;        -- wait X milliseconds, but not all at once, before for timing out with error.",
+        "PRAGMA journal_mode = WAL;          -- better write-concurrency",
+        "PRAGMA synchronous = NORMAL;        -- fsync only in critical moments",
+        "PRAGMA wal_autocheckpoint = 1000;   -- write WAL changes back every 1000 pages, for an in average 1MB WAL file.",
+        "PRAGMA wal_checkpoint(TRUNCATE);    -- free some space by truncating possibly massive WAL files from the last run.",
+    ] {
+        conn.batch_execute(query)?;
+    }
     Ok(())
 }
 
