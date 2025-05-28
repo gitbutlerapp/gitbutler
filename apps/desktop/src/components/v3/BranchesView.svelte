@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import BranchExplorer from '$components/v3/BranchExplorer.svelte';
+	import BranchExplorer, { type SelectedOption } from '$components/v3/BranchExplorer.svelte';
 	import BranchView from '$components/v3/BranchView.svelte';
 	import BranchesViewBranch from '$components/v3/BranchesViewBranch.svelte';
 	import BranchesViewPr from '$components/v3/BranchesViewPR.svelte';
@@ -23,6 +23,7 @@
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
+	import { persisted } from '@gitbutler/shared/persisted';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -47,6 +48,12 @@
 	const drawerIsFullScreen = $derived(projectState.drawerFullScreen);
 	const baseBranchResult = $derived(baseBranchService.baseBranch(projectId));
 	const branchesSelection = $derived(projectState.branchesSelection);
+
+	const selectedOption = persisted<SelectedOption>('all', `branches-selectedOption-${projectId}`);
+
+	// $effect(() => {
+	// 	console.log('BranchesView selectedOption changed:', $selectedOption);
+	// });
 
 	const selectionId: SelectionId | undefined = $derived.by(() => {
 		const current = branchesState?.current;
@@ -196,36 +203,54 @@
 								branchesSelection.current.prNumber === undefined}
 						/>
 					</BranchesListGroup>
-					<BranchExplorer {projectId}>
+					<BranchExplorer {projectId} bind:selectedOption={$selectedOption}>
 						{#snippet sidebarEntry(sidebarEntrySubject: SidebarEntrySubject)}
 							{#if sidebarEntrySubject.type === 'branchListing'}
-								<BranchListCard
-									{projectId}
-									branchListing={sidebarEntrySubject.subject}
-									prs={sidebarEntrySubject.prs}
-									selected={sidebarEntrySubject.subject.stack
-										? branchesSelection.current.branchName ===
-											sidebarEntrySubject.subject.stack.branches.at(0)
-										: branchesSelection.current.branchName === sidebarEntrySubject.subject.name}
-									onclick={({ listing, pr }) => {
-										if (listing.stack) {
-											branchesSelection.set({
-												stackId: listing.stack.id,
-												branchName: listing.stack.branches.at(0),
-												prNumber: pr?.number,
-												inWorkspace: listing.stack.inWorkspace,
-												hasLocal: listing.hasLocal
-											});
-										} else {
-											branchesSelection.set({
-												branchName: listing.name,
-												prNumber: pr?.number,
-												remote: listing.remotes.at(0),
-												hasLocal: listing.hasLocal
-											});
-										}
-									}}
-								/>
+								{@const pr = sidebarEntrySubject.prs.at(0)}
+								{#if $selectedOption === 'pullRequest' && pr}
+									<PRListCard
+										number={pr.number}
+										isDraft={pr.draft}
+										title={pr.title}
+										sourceBranch={pr.sourceBranch}
+										author={{
+											name: pr.author?.name,
+											email: pr.author?.email,
+											gravatarUrl: pr.author?.gravatarUrl
+										}}
+										modifiedAt={pr.modifiedAt}
+										selected={branchesSelection.current.prNumber === pr.number}
+										onclick={(pr) => branchesSelection.set({ prNumber: pr.number })}
+									/>
+								{:else}
+									<BranchListCard
+										{projectId}
+										branchListing={sidebarEntrySubject.subject}
+										prs={sidebarEntrySubject.prs}
+										selected={sidebarEntrySubject.subject.stack
+											? branchesSelection.current.branchName ===
+												sidebarEntrySubject.subject.stack.branches.at(0)
+											: branchesSelection.current.branchName === sidebarEntrySubject.subject.name}
+										onclick={({ listing, pr }) => {
+											if (listing.stack) {
+												branchesSelection.set({
+													stackId: listing.stack.id,
+													branchName: listing.stack.branches.at(0),
+													prNumber: pr?.number,
+													inWorkspace: listing.stack.inWorkspace,
+													hasLocal: listing.hasLocal
+												});
+											} else {
+												branchesSelection.set({
+													branchName: listing.name,
+													prNumber: pr?.number,
+													remote: listing.remotes.at(0),
+													hasLocal: listing.hasLocal
+												});
+											}
+										}}
+									/>
+								{/if}
 							{:else}
 								<PRListCard
 									number={sidebarEntrySubject.subject.number}
@@ -337,7 +362,7 @@
 								icon="workbench"
 								onclick={applyFromFork}
 							>
-								Apply to workspace
+								Apply PR to workspace…
 							</Button>
 						{/if}
 					</div>

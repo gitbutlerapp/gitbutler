@@ -1,5 +1,6 @@
 <script lang="ts">
 	import BranchesCardTemplate from '$components/v3/branchesPage/BranchesCardTemplate.svelte';
+
 	import { TestId } from '$lib/testing/testIds';
 	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
 	import SeriesIcon from '@gitbutler/ui/SeriesIcon.svelte';
@@ -16,6 +17,7 @@
 			email?: string;
 			gravatarUrl?: string;
 		};
+
 		modifiedAt?: string;
 	};
 
@@ -38,10 +40,6 @@
 	}: Props = $props();
 
 	const unknownName = 'Unknown Author';
-
-	// console.log('PRListCard', {
-	// 	pullRequest
-	// });
 </script>
 
 <BranchesCardTemplate
@@ -69,12 +67,12 @@
 			<ReviewBadge prStatus={isDraft ? 'draft' : 'unknown'} prTitle={title} prNumber={number} />
 			<span class="sidebar-entry__divider">•</span>
 
-			{#if noRemote}
+			{#if noRemote || !sourceBranch}
 				<span>No remote</span>
 			{:else}
-				<div class="sidebar-entry__branch">
+				<div class="sidebar-entry__branch truncate">
 					<SeriesIcon single />
-					<span class="text-semibold">{sourceBranch}</span>
+					<span class="text-semibold truncate">{sourceBranch}</span>
 				</div>
 			{/if}
 		</div>
@@ -98,7 +96,7 @@
 
 	.sidebar-entry__header {
 		display: flex;
-		align-items: center;
+		align-items: flex-start;
 		gap: 10px;
 	}
 
@@ -114,6 +112,14 @@
 		display: flex;
 		align-items: center;
 		gap: 6px;
-		color: var(--clr-text-1);
+		color: var(--clr-text-2);
+	}
+
+	.sidebar-entry__applied-tag {
+		display: flex;
+		padding: 2px 4px;
+		border-radius: 10px;
+		background-color: var(--clr-scale-ntrl-50);
+		color: var(--clr-theme-ntrl-on-element);
 	}
 </style>
