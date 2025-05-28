@@ -36,12 +36,17 @@ impl Mcp {
         &self,
         #[tool(aggr)] request: HandleChangesRequest,
     ) -> Result<CallToolResult, McpError> {
-        #[allow(unused)]
+        if request.context.is_empty() {
+            return Err(McpError::invalid_request(
+                "Context cannot be empty".to_string(),
+                None,
+            ));
+        }
         let ctx = &mut CommandContext::open(&self.project, AppSettings::default())
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-        Ok(CallToolResult::success(vec![Content::text(
-            request.context.to_string(),
-        )]))
+        let response = but_auto::handle_changes_simple(ctx, &request.context)
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+        Ok(CallToolResult::success(vec![Content::json(response)?]))
     }
 }
 
