@@ -34,7 +34,7 @@ use serde::{Deserialize, Serialize};
 pub fn handle_changes_simple(
     ctx: &mut CommandContext,
     change_description: &str,
-) -> anyhow::Result<HandleChangesResponse> {
+) -> anyhow::Result<Outcome> {
     let mut guard = ctx.project().exclusive_worktree_access();
     let perm = guard.write_permission();
 
@@ -55,7 +55,7 @@ pub fn handle_changes_simple(
         .to_gix();
 
     // Add a checkpoint entry
-    state::persist_checkpoint(state::ButCheckpoint::new(
+    state::persist_checkpoint(state::ButlerAction::new(
         state::AutoHandler::HandleChangesSimple,
         change_description.to_owned(),
         snapshot_before,
@@ -71,7 +71,7 @@ fn handle_changes_simple_inner(
     ctx: &mut CommandContext,
     change_description: &str,
     perm: &mut WorktreeWritePermission,
-) -> anyhow::Result<HandleChangesResponse> {
+) -> anyhow::Result<Outcome> {
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     match gitbutler_operating_modes::operating_mode(ctx) {
         OperatingMode::OpenWorkspace => {
@@ -94,7 +94,7 @@ fn handle_changes_simple_inner(
     let assignments = but_hunk_assignment::assignments(ctx, true)
         .map_err(|err| serde_error::Error::new(&*err))?;
     if assignments.is_empty() {
-        return Ok(HandleChangesResponse {
+        return Ok(Outcome {
             updated_branches: vec![],
         });
     }
@@ -153,12 +153,12 @@ fn handle_changes_simple_inner(
         if let Some(new_commit) = outcome.new_commit {
             updated_branches.push(UpdatedBranch {
                 branch_name: stack_branch_name,
-                commits: vec![new_commit.to_string()],
+                new_commits: vec![new_commit.to_string()],
             });
         }
     }
 
-    Ok(HandleChangesResponse { updated_branches })
+    Ok(Outcome { updated_branches })
 }
 
 /// If there are multiple diffs spces where path and previous_path are the same, collapse them into one.
@@ -219,7 +219,7 @@ fn stacks_creating_if_none(
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct HandleChangesResponse {
+pub struct Outcome {
     updated_branches: Vec<UpdatedBranch>,
 }
 
@@ -227,5 +227,5 @@ pub struct HandleChangesResponse {
 #[serde(rename_all = "camelCase")]
 pub struct UpdatedBranch {
     pub branch_name: String,
-    pub commits: Vec<String>,
+    pub new_commits: Vec<String>,
 }
