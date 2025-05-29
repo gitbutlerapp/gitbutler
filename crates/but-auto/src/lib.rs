@@ -7,6 +7,10 @@ use but_workspace::{DiffSpec, StackId, VirtualBranchesTomlMetadata, ui::StackEnt
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_command_context::CommandContext;
 use gitbutler_operating_modes::OperatingMode;
+use gitbutler_oplog::{
+    OplogExt,
+    entry::{OperationKind, SnapshotDetails},
+};
 use gitbutler_stack::VirtualBranchesHandle;
 use serde::{Deserialize, Serialize};
 
@@ -23,7 +27,6 @@ use serde::{Deserialize, Serialize};
 ///
 /// TODO:
 /// - Handle the case of target branch not being configured
-/// - Snapshot creation
 /// - Persistence of the request context and oplog snapshot IDs
 #[allow(unused)]
 pub fn handle_changes_simple(
@@ -88,6 +91,11 @@ pub fn handle_changes_simple(
     let mut guard = ctx.project().exclusive_worktree_access();
     let perm = guard.write_permission();
 
+    ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::BeforeAutoHandleChanges),
+        perm,
+    );
+
     let mut updated_branches = vec![];
 
     for (stack_id, diff_specs) in stack_assignments {
@@ -118,6 +126,11 @@ pub fn handle_changes_simple(
             });
         }
     }
+
+    ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::AfterAutoHandleChanges),
+        perm,
+    );
 
     Ok(HandleChangesResponse { updated_branches })
 }
