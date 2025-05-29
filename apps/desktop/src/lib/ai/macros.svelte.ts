@@ -10,16 +10,14 @@ type GenerateCommitMessageParams = {
 };
 
 export default class AIMacros {
-	private _canUseAI: boolean;
+	private _canUseAI: boolean = $state<boolean>(false);
 
 	constructor(
 		private readonly projectId: string,
 		private readonly aiService: AIService,
 		private readonly promptService: PromptService,
 		private readonly diffInputContext: DiffInputContext
-	) {
-		this._canUseAI = false;
-	}
+	) {}
 
 	async setGenAIEnabled(enabled: boolean) {
 		// TODO: Should this be called here, or evertime that we check the canUseAI?

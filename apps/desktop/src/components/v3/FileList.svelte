@@ -4,7 +4,7 @@
 	import FileListItemWrapper from '$components/v3/FileListItemWrapper.svelte';
 	import FileTreeNode from '$components/v3/FileTreeNode.svelte';
 	import DiffInputContext from '$lib/ai/diffInputContext.svelte';
-	import AIMacros from '$lib/ai/macros';
+	import AIMacros from '$lib/ai/macros.svelte';
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import { projectAiGenEnabled } from '$lib/config/config';
