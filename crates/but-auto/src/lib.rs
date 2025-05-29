@@ -31,7 +31,7 @@ use serde::{Deserialize, Serialize};
 #[allow(unused)]
 pub fn handle_changes_simple(
     ctx: &mut CommandContext,
-    request_ctx: &str,
+    change_description: &str,
 ) -> anyhow::Result<HandleChangesResponse> {
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     match gitbutler_operating_modes::operating_mode(ctx) {
@@ -114,7 +114,7 @@ pub fn handle_changes_simple(
             stack_id,
             None,
             diff_specs,
-            request_ctx.to_owned(),
+            change_description.to_owned(),
             stack_branch_name.clone(),
             perm,
         )?;
