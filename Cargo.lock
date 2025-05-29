@@ -3132,6 +3132,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "backtrace",
+ "but-action",
  "but-core",
  "but-hunk-assignment",
  "but-hunk-dependency",
