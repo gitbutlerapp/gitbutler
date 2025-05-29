@@ -1,6 +1,8 @@
-use diesel::RunQueryDsl;
+use diesel::dsl::count_star;
+use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, associations::HasTable};
 
-use crate::DbHandle;
+use crate::schema::butler_actions::dsl::butler_actions;
+use crate::{DbHandle, schema::butler_actions as schema};
 
 use diesel::prelude::{Insertable, Queryable, Selectable};
 use serde::{Deserialize, Serialize};
@@ -41,10 +43,22 @@ pub struct ButlerActionsHandle<'a> {
 
 impl ButlerActionsHandle<'_> {
     pub fn insert(&mut self, action: ButlerAction) -> anyhow::Result<()> {
-        use crate::schema::butler_actions::dsl::butler_actions;
         diesel::insert_into(butler_actions)
             .values(&action)
             .execute(&mut self.db.conn)?;
         Ok(())
+    }
+
+    pub fn list(&mut self, page: i64, page_size: i64) -> anyhow::Result<(i64, Vec<ButlerAction>)> {
+        let offset = (page - 1) * page_size;
+        let actions = butler_actions::table()
+            .order(schema::created_at.desc())
+            .limit(page_size)
+            .offset(offset)
+            .load::<ButlerAction>(&mut self.db.conn)?;
+        let total = butler_actions::table()
+            .select(count_star())
+            .first::<i64>(&mut self.db.conn)?;
+        Ok((total, actions))
     }
 }

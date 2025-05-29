@@ -17,6 +17,8 @@ use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::VirtualBranchesHandle;
 use serde::{Deserialize, Serialize};
 
+pub use state::list_past_actions;
+
 /// This is a GitButler automation which allows easy handling of uncommitted changes in a repository.
 /// At a high level, it will:
 ///   - Checkout GitButler's workspace branch if not already checked out

@@ -21,6 +21,19 @@ pub(crate) fn handle_changes(
     print(&response, json)
 }
 
+pub(crate) fn list_past_actions(
+    repo_path: &Path,
+    json: bool,
+    page: i64,
+    page_size: i64,
+) -> anyhow::Result<()> {
+    let project = Project::from_path(repo_path).expect("Failed to create project from path");
+    let ctx = &mut CommandContext::open(&project, AppSettings::default())?;
+
+    let response = but_auto::list_past_actions(ctx, page, page_size)?;
+    print(&response, json)
+}
+
 fn print<T>(this: &T, json: bool) -> anyhow::Result<()>
 where
     T: ?Sized + Serialize + std::fmt::Debug,

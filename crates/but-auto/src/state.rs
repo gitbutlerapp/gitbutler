@@ -24,6 +24,7 @@ impl Display for AutoHandler {
 
 /// Represents a snapshot of an automatic action taken by a GitButler automation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ButlerAction {
     /// UUID identifier of the action
     id: Uuid,
@@ -127,4 +128,30 @@ pub(crate) fn persist_action(ctx: &mut CommandContext, action: ButlerAction) -> 
         .insert(action.try_into()?)
         .map_err(|e| anyhow::anyhow!("Failed to persist action: {}", e))?;
     Ok(())
+}
+
+pub fn list_past_actions(
+    ctx: &mut CommandContext,
+    page: i64,
+    page_size: i64,
+) -> anyhow::Result<ActionListing> {
+    let (total, actions) = ctx
+        .db()?
+        .butler_actions()
+        .list(page, page_size)
+        .map_err(|e| anyhow::anyhow!("Failed to list actions: {}", e))?;
+
+    // Filter out any entries that cannot be converted to ButlerAction
+    let actions = actions
+        .into_iter()
+        .filter_map(|a| TryInto::try_into(a).ok())
+        .collect::<Vec<_>>();
+    Ok(ActionListing { total, actions })
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ActionListing {
+    pub total: i64,
+    pub actions: Vec<ButlerAction>,
 }
