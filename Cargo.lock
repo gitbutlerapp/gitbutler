@@ -687,6 +687,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-agent"
+version = "0.0.0"
+dependencies = [
+ "gitbutler-secret",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "toml",
+ "uuid",
+]
+
+[[package]]
+name = "but-agent-shared"
+version = "0.0.0"
+dependencies = [
+ "but-agent",
+ "gitbutler-command-context",
+ "serde",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
 name = "but-auto"
 version = "0.0.0"
 dependencies = [
@@ -3132,6 +3155,8 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "backtrace",
+ "but-agent",
+ "but-agent-shared",
  "but-core",
  "but-hunk-assignment",
  "but-hunk-dependency",
@@ -7340,6 +7365,7 @@ dependencies = [
  "cookie",
  "cookie_store",
  "encoding_rs",
+ "futures-channel",
  "futures-core",
  "futures-util",
  "h2",

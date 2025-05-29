@@ -45,6 +45,7 @@ pub mod diff;
 pub mod env;
 pub mod workspace;
 
+pub mod agent;
 pub mod csp;
 
 /// Utility types that make it easier to transform data from the frontend to the backend.

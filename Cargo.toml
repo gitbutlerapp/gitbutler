@@ -15,6 +15,7 @@ git2 = { version = "0.20.0", features = [
 ] }
 uuid = { version = "1.11.0", features = ["v4", "serde"] }
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 thiserror = "2.0.9"
 tokio = { version = "1.44.2", default-features = false }
 keyring = { version = "3.6.1", features = [
@@ -79,6 +80,8 @@ but-db = { path = "crates/but-db" }
 but-auto = { path = "crates/but-auto" }
 but-status = { path = "crates/but-status" }
 git2-hooks = { version = "0.5.0" }
+but-agent = { path = "crates/but-agent" }
+but-agent-shared = { path = "crates/but-agent-shared" }
 
 [profile.release]
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better
