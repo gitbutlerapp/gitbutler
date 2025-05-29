@@ -1,5 +1,12 @@
+use std::{
+    fmt::{Debug, Display},
+    str::FromStr,
+};
+
+use gitbutler_command_context::CommandContext;
 use serde::{Deserialize, Serialize};
 use strum::EnumString;
+use uuid::Uuid;
 
 use crate::Outcome;
 
@@ -9,11 +16,19 @@ pub enum AutoHandler {
     HandleChangesSimple,
 }
 
+impl Display for AutoHandler {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(self, f)
+    }
+}
+
 /// Represents a snapshot of an automatic action taken by a GitButler automation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ButlerAction {
+    /// UUID identifier of the action
+    id: Uuid,
     /// The time when the action was performed.
-    created_at: std::time::SystemTime,
+    created_at: chrono::NaiveDateTime,
     /// A description of the change that was made and why it was made - i.e. the information that can be obtained from the caller.
     external_prompt: String,
     /// The handler / implementation that performed the action.
@@ -28,6 +43,53 @@ pub struct ButlerAction {
     response: Option<Outcome>,
     /// An error message if the action failed.
     error: Option<String>,
+}
+
+impl TryFrom<but_db::ButlerAction> for ButlerAction {
+    type Error = anyhow::Error;
+
+    fn try_from(value: but_db::ButlerAction) -> Result<Self, Self::Error> {
+        let response = value
+            .response
+            .as_ref()
+            .and_then(|o| serde_json::from_str(o).ok());
+        Ok(Self {
+            id: Uuid::parse_str(&value.id)?,
+            created_at: value.created_at,
+            external_prompt: value.external_prompt,
+            handler: value
+                .handler
+                .parse()
+                .map_err(|_| anyhow::anyhow!("Invalid Handler value"))?,
+            handler_prompt: value.handler_prompt,
+            snapshot_before: gix::ObjectId::from_str(&value.snapshot_before)?,
+            snapshot_after: gix::ObjectId::from_str(&value.snapshot_after)?,
+            response,
+            error: value.error,
+        })
+    }
+}
+
+impl TryFrom<ButlerAction> for but_db::ButlerAction {
+    type Error = anyhow::Error;
+
+    fn try_from(value: ButlerAction) -> Result<Self, Self::Error> {
+        let response = value
+            .response
+            .as_ref()
+            .and_then(|o| serde_json::to_string(o).ok());
+        Ok(Self {
+            id: value.id.to_string(),
+            created_at: value.created_at,
+            external_prompt: value.external_prompt,
+            handler: value.handler.to_string(),
+            handler_prompt: value.handler_prompt,
+            snapshot_before: value.snapshot_before.to_string(),
+            snapshot_after: value.snapshot_after.to_string(),
+            response,
+            error: value.error,
+        })
+    }
 }
 
 impl ButlerAction {
@@ -45,7 +107,8 @@ impl ButlerAction {
         };
 
         Self {
-            created_at: std::time::SystemTime::now(),
+            id: Uuid::new_v4(),
+            created_at: chrono::Local::now().naive_local(),
             handler,
             external_prompt,
             handler_prompt: None,
@@ -58,7 +121,10 @@ impl ButlerAction {
 }
 
 #[allow(unused)]
-pub(crate) fn persist_checkpoint(action: ButlerAction) -> anyhow::Result<()> {
-    // TODO
+pub(crate) fn persist_action(ctx: &mut CommandContext, action: ButlerAction) -> anyhow::Result<()> {
+    ctx.db()?
+        .butler_actions()
+        .insert(action.try_into()?)
+        .map_err(|e| anyhow::anyhow!("Failed to persist action: {}", e))?;
     Ok(())
 }

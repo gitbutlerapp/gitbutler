@@ -30,7 +30,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// TODO:
 /// - Handle the case of target branch not being configured
-/// - Persistence of the request context and oplog snapshot IDs
+/// - Ability to list past actions and their outcomes
 pub fn handle_changes_simple(
     ctx: &mut CommandContext,
     change_description: &str,
@@ -55,13 +55,16 @@ pub fn handle_changes_simple(
         .to_gix();
 
     // Add a checkpoint entry
-    state::persist_checkpoint(state::ButlerAction::new(
-        state::AutoHandler::HandleChangesSimple,
-        change_description.to_owned(),
-        snapshot_before,
-        snapshot_after,
-        &response,
-    ))?;
+    state::persist_action(
+        ctx,
+        state::ButlerAction::new(
+            state::AutoHandler::HandleChangesSimple,
+            change_description.to_owned(),
+            snapshot_before,
+            snapshot_after,
+            &response,
+        ),
+    )?;
 
     response
     // Ok(response)

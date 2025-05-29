@@ -692,8 +692,10 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "but-core",
+ "but-db",
  "but-hunk-assignment",
  "but-workspace",
+ "chrono",
  "gitbutler-branch",
  "gitbutler-branch-actions",
  "gitbutler-command-context",
@@ -705,7 +707,9 @@ dependencies = [
  "gix",
  "serde",
  "serde-error",
+ "serde_json",
  "strum",
+ "uuid",
 ]
 
 [[package]]
