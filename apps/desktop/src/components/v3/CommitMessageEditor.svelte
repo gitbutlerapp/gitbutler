@@ -4,7 +4,7 @@
 	import MessageEditorInput from '$components/v3/editor/MessageEditorInput.svelte';
 	import CommitSuggestions from '$components/v3/editor/commitSuggestions.svelte';
 	import DiffInputContext, { type DiffInputContextArgs } from '$lib/ai/diffInputContext.svelte';
-	import AIMacros from '$lib/ai/macros';
+	import AIMacros from '$lib/ai/macros.svelte';
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import { projectAiGenEnabled } from '$lib/config/config';
