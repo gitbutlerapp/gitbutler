@@ -1,26 +1,10 @@
-use std::{
-    fmt::{Debug, Display},
-    str::FromStr,
-};
+use std::{fmt::Debug, str::FromStr};
 
 use gitbutler_command_context::CommandContext;
 use serde::{Deserialize, Serialize};
-use strum::EnumString;
 use uuid::Uuid;
 
-use crate::Outcome;
-
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, EnumString, Default)]
-pub enum AutoHandler {
-    #[default]
-    HandleChangesSimple,
-}
-
-impl Display for AutoHandler {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Debug::fmt(self, f)
-    }
-}
+use crate::{ActionHandler, Outcome};
 
 /// Represents a snapshot of an automatic action taken by a GitButler automation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33,7 +17,7 @@ pub struct ButlerAction {
     /// A description of the change that was made and why it was made - i.e. the information that can be obtained from the caller.
     external_prompt: String,
     /// The handler / implementation that performed the action.
-    handler: AutoHandler,
+    handler: ActionHandler,
     /// An optional prompt that was used by the handler to perform the action, if applicable.
     handler_prompt: Option<String>,
     /// A GitBulter Oplog snapshot ID before the action was performed.
@@ -95,7 +79,7 @@ impl TryFrom<ButlerAction> for but_db::ButlerAction {
 
 impl ButlerAction {
     pub fn new(
-        handler: AutoHandler,
+        handler: ActionHandler,
         external_prompt: String,
         snapshot_before: gix::ObjectId,
         snapshot_after: gix::ObjectId,
@@ -121,7 +105,6 @@ impl ButlerAction {
     }
 }
 
-#[allow(unused)]
 pub(crate) fn persist_action(ctx: &mut CommandContext, action: ButlerAction) -> anyhow::Result<()> {
     ctx.db()?
         .butler_actions()
@@ -130,7 +113,7 @@ pub(crate) fn persist_action(ctx: &mut CommandContext, action: ButlerAction) -> 
     Ok(())
 }
 
-pub fn list_past_actions(
+pub fn list_actions(
     ctx: &mut CommandContext,
     page: i64,
     page_size: i64,
