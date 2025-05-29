@@ -264,6 +264,7 @@ mod util {
             command_context,
             ctx.repo.workdir().expect("We don't support bare repos"),
             &ctx.gitbutler_dir,
+            None,
         )
     }
 

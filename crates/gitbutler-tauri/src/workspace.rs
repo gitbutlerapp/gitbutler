@@ -113,6 +113,7 @@ pub fn hunk_dependencies_for_workspace_changes(
         &ctx,
         &project.path,
         &project.gb_dir(),
+        None,
     )?;
     Ok(dependencies)
 }

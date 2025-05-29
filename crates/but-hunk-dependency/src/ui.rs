@@ -1,6 +1,6 @@
 use but_core::UnifiedDiff;
 use but_core::unified_diff::DiffHunk;
-use gitbutler_command_context::CommandContext;
+use gitbutler_command_context::{CommandContext, gix_repo_for_merging};
 use gitbutler_oxidize::OidExt;
 use gitbutler_stack::StackId;
 use serde::{Deserialize, Serialize};
@@ -13,7 +13,8 @@ pub fn hunk_dependencies_for_changes(
     gitbutler_dir: &Path,
     changes: Vec<but_core::TreeChange>,
 ) -> anyhow::Result<HunkDependencies> {
-    let repo = gix::open(worktree_dir).map_err(anyhow::Error::from)?;
+    // accelerate tree-tree-diffs
+    let repo = gix_repo_for_merging(worktree_dir)?.with_object_memory();
     let stacks = but_workspace::stacks(ctx, gitbutler_dir, &repo, Default::default())?;
     let common_merge_base = gitbutler_stack::VirtualBranchesHandle::new(gitbutler_dir)
         .get_default_target()?
@@ -30,10 +31,13 @@ pub fn hunk_dependencies_for_workspace_changes_by_worktree_dir(
     ctx: &CommandContext,
     worktree_dir: &Path,
     gitbutler_dir: &Path,
+    worktree_changes: Option<Vec<but_core::TreeChange>>,
 ) -> anyhow::Result<HunkDependencies> {
-    let repo = gix::open(worktree_dir).map_err(anyhow::Error::from)?;
-    let worktree_changes = but_core::diff::worktree_changes(&repo)?;
-    hunk_dependencies_for_changes(ctx, worktree_dir, gitbutler_dir, worktree_changes.changes)
+    let repo = ctx.gix_repo_for_merging_non_persisting()?;
+    let worktree_changes = worktree_changes
+        .map(Ok)
+        .unwrap_or_else(|| but_core::diff::worktree_changes(&repo).map(|wtc| wtc.changes))?;
+    hunk_dependencies_for_changes(ctx, worktree_dir, gitbutler_dir, worktree_changes)
 }
 
 /// A way to represent all hunk dependencies that would make it possible to know what can be applied, and were.
