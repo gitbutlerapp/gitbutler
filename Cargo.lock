@@ -698,6 +698,7 @@ dependencies = [
  "gitbutler-branch-actions",
  "gitbutler-command-context",
  "gitbutler-operating-modes",
+ "gitbutler-oplog",
  "gitbutler-stack",
  "gix",
  "serde",

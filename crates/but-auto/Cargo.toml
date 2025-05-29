@@ -19,6 +19,7 @@ gitbutler-stack.workspace = true
 gitbutler-operating-modes.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-branch.workspace = true
+gitbutler-oplog.workspace = true
 but-core.workspace = true
 but-workspace.workspace = true
 but-hunk-assignment.workspace = true
