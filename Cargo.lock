@@ -731,6 +731,7 @@ name = "but-db"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "diesel",
  "diesel_migrations",
  "libsqlite3-sys",
@@ -1653,6 +1654,7 @@ version = "2.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff3e1edb1f37b4953dd5176916347289ed43d7119cc2e6c7c3f7849ff44ea506"
 dependencies = [
+ "chrono",
  "diesel_derives",
  "libsqlite3-sys",
  "time",
