@@ -195,8 +195,8 @@ impl HunkAssignment {
     }
 }
 
-#[instrument(skip(ctx), err(Debug))]
 /// Returns the current hunk assignments for the workspace.
+#[instrument(skip(ctx), err(Debug))]
 pub fn assignments(
     ctx: &mut CommandContext,
     set_assignment_from_locks: bool,
