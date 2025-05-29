@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+mod state;
 use anyhow::anyhow;
 use but_workspace::{DiffSpec, StackId, VirtualBranchesTomlMetadata, ui::StackEntry};
 use gitbutler_branch::BranchCreateRequest;
@@ -11,6 +12,7 @@ use gitbutler_oplog::{
     OplogExt,
     entry::{OperationKind, SnapshotDetails},
 };
+use gitbutler_oxidize::OidExt;
 use gitbutler_stack::VirtualBranchesHandle;
 use serde::{Deserialize, Serialize};
 
@@ -28,7 +30,6 @@ use serde::{Deserialize, Serialize};
 /// TODO:
 /// - Handle the case of target branch not being configured
 /// - Persistence of the request context and oplog snapshot IDs
-#[allow(unused)]
 pub fn handle_changes_simple(
     ctx: &mut CommandContext,
     change_description: &str,
@@ -45,7 +46,7 @@ pub fn handle_changes_simple(
         }
         OperatingMode::OutsideWorkspace(_) => {
             let default_target = vb_state.get_default_target()?;
-            gitbutler_branch_actions::set_base_branch(ctx, &default_target.branch, true);
+            gitbutler_branch_actions::set_base_branch(ctx, &default_target.branch, true)?;
         }
     }
 
@@ -91,10 +92,12 @@ pub fn handle_changes_simple(
     let mut guard = ctx.project().exclusive_worktree_access();
     let perm = guard.write_permission();
 
-    ctx.create_snapshot(
-        SnapshotDetails::new(OperationKind::BeforeAutoHandleChanges),
-        perm,
-    );
+    let snapshot_before = ctx
+        .create_snapshot(
+            SnapshotDetails::new(OperationKind::AutoHandleChangesBefore),
+            perm,
+        )?
+        .to_gix();
 
     let mut updated_branches = vec![];
 
@@ -127,12 +130,25 @@ pub fn handle_changes_simple(
         }
     }
 
-    ctx.create_snapshot(
-        SnapshotDetails::new(OperationKind::AfterAutoHandleChanges),
-        perm,
-    );
+    let snapshot_after = ctx
+        .create_snapshot(
+            SnapshotDetails::new(OperationKind::AutoHandleChangesAfter),
+            perm,
+        )?
+        .to_gix();
 
-    Ok(HandleChangesResponse { updated_branches })
+    let response = HandleChangesResponse { updated_branches };
+
+    // Add a checkpoint entry
+    state::persist_checkpoint(state::ButCheckpoint::new(
+        state::AutoHandler::HandleChangesSimple,
+        change_description.to_owned(),
+        snapshot_before,
+        snapshot_after,
+        response.clone(),
+    ))?;
+
+    Ok(response)
 }
 
 /// If there are multiple diffs spces where path and previous_path are the same, collapse them into one.
