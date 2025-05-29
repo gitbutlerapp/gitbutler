@@ -6,6 +6,7 @@ import * as commit from './tools/client/commit.js';
 import * as status from './tools/client/status.js';
 import * as patchStacks from './tools/patchStacks.js';
 import * as projects from './tools/projects.js';
+import * as rules from './tools/rules.js';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -36,9 +37,10 @@ const server = new Server(
 server.setRequestHandler(ListToolsRequestSchema, async () => {
 	return {
 		tools: [
-			...projects.getProjectToolListings(),
-			...chatMessages.getChatMessageToolListings(),
-			...patchStacks.getPatchStackToolListing(),
+			// ...projects.getProjectToolListings(),
+			// ...chatMessages.getChatMessageToolListings(),
+			// ...patchStacks.getPatchStackToolListing(),
+			...rules.getRulesToolListings(),
 			...status.getStatusToolListing(),
 			...commit.getCommitToolListing(),
 			...branch.getBranchToolListing()
@@ -54,6 +56,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 		}
 
 		const handlers = [
+			rules.getRulesToolRequestHandler,
 			projects.getProjectToolRequestHandler,
 			chatMessages.getChatMesssageToolRequestHandler,
 			patchStacks.getPatchStackToolRequestHandler,
