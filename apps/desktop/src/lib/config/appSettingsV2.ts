@@ -82,6 +82,8 @@ export type FeatureFlags = {
 	v3: boolean;
 	/** Enable the usage of the V3 workspace API */
 	ws3: boolean;
+	/** Enable the usage of GitButler Acitions. */
+	actions: boolean;
 };
 
 export type Fetch = {

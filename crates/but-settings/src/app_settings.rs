@@ -25,6 +25,8 @@ pub struct FeatureFlags {
     pub v3: bool,
     /// Enable the usage of V3 workspace APIs.
     pub ws3: bool,
+    /// Enable the usage of GitButler Acitions.
+    pub actions: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

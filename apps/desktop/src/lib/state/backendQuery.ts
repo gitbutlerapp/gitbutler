@@ -26,6 +26,7 @@ export async function tauriBaseQuery(
 	const appSettings = settingsService?.appSettings;
 
 	const v3 = appSettings ? get(appSettings)?.featureFlags.v3 : false;
+	const butlerActions = appSettings ? get(appSettings)?.featureFlags.actions : false;
 	const confetti = get(confettiEnabled);
 	const stackLayout = get(stackLayoutMode);
 
@@ -43,6 +44,7 @@ export async function tauriBaseQuery(
 		...someUserSettings,
 		v3,
 		confetti,
+		butlerActions,
 		stackLayout
 	};
 
