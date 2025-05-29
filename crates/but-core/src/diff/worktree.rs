@@ -16,6 +16,7 @@ use gix::status::tree_index::TrackRenames;
 use std::cmp::Ordering;
 use std::io::Read;
 use std::path::PathBuf;
+use tracing::instrument;
 
 /// Identify where a [`TreeChange`] is from.
 #[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
@@ -30,6 +31,7 @@ enum Origin {
 ///
 /// It's equivalent to a `git status` which is "boiled down" into all the changes that one would have to add into `HEAD^{tree}`
 /// to get a commit with a tree equal to the current worktree.
+#[instrument(skip(repo), err(Debug))]
 pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChanges> {
     let rewrites = gix::diff::Rewrites::default(); /* standard Git rewrite handling for everything */
     debug_assert!(

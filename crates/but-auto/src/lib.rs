@@ -94,7 +94,7 @@ fn handle_changes_simple_inner(
     let repo = ctx.gix_repo()?;
 
     // Get any assignments that may have been made, which also includes any hunk locks. Assignments should be updated according to locks where applicable.
-    let assignments = but_hunk_assignment::assignments(ctx, true)
+    let assignments = but_hunk_assignment::assignments(ctx, true, None)
         .map_err(|err| serde_error::Error::new(&*err))?;
     if assignments.is_empty() {
         return Ok(Outcome {

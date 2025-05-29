@@ -30,10 +30,13 @@ pub fn hunk_dependencies_for_workspace_changes_by_worktree_dir(
     ctx: &CommandContext,
     worktree_dir: &Path,
     gitbutler_dir: &Path,
+    worktree_changes: Option<Vec<but_core::TreeChange>>,
 ) -> anyhow::Result<HunkDependencies> {
     let repo = gix::open(worktree_dir).map_err(anyhow::Error::from)?;
-    let worktree_changes = but_core::diff::worktree_changes(&repo)?;
-    hunk_dependencies_for_changes(ctx, worktree_dir, gitbutler_dir, worktree_changes.changes)
+    let worktree_changes = worktree_changes
+        .map(Ok)
+        .unwrap_or_else(|| but_core::diff::worktree_changes(&repo).map(|wtc| wtc.changes))?;
+    hunk_dependencies_for_changes(ctx, worktree_dir, gitbutler_dir, worktree_changes)
 }
 
 /// A way to represent all hunk dependencies that would make it possible to know what can be applied, and were.

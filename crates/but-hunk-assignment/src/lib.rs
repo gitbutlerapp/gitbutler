@@ -200,8 +200,9 @@ impl HunkAssignment {
 pub fn assignments(
     ctx: &mut CommandContext,
     set_assignment_from_locks: bool,
+    worktree_changes: Option<Vec<but_core::TreeChange>>,
 ) -> Result<Vec<HunkAssignment>> {
-    reconcile(ctx, set_assignment_from_locks)
+    reconcile(ctx, set_assignment_from_locks, worktree_changes)
 }
 
 /// Sets the assignment for a hunk. It must be already present in the current assignments, errors out if it isn't.
@@ -223,7 +224,7 @@ pub fn assign(
         previous_assignments.clone(),
         requests.clone(),
     )?;
-    let deps_assignments = hunk_dependency_assignments(ctx)?;
+    let deps_assignments = hunk_dependency_assignments(ctx, None)?;
     let assignments_considering_deps = reconcile_assignments(
         new_assignments,
         &deps_assignments,
@@ -269,14 +270,19 @@ pub fn assign(
 /// If a hunk has a dependency but it has not been previously assigned to any stack, it is left unassigned (stack_id is None). This is so that the hunk assignment workflow can remain optional.
 ///
 /// This needs to be ran only after the worktree has changed.
+///
+/// If `worktree_changes` is `None`, they will be fetched automatically.
 fn reconcile(
     ctx: &mut CommandContext,
     set_assignment_from_locks: bool,
+    worktree_changes: Option<Vec<but_core::TreeChange>>,
 ) -> Result<Vec<HunkAssignment>> {
     let previous_assignments = state::assignments(ctx)?;
     let repo = &ctx.gix_repo()?;
     let context_lines = ctx.app_settings().context_lines;
-    let worktree_changes = but_core::diff::worktree_changes(repo)?.changes;
+    let worktree_changes = worktree_changes
+        .map(Ok)
+        .unwrap_or_else(|| but_core::diff::worktree_changes(repo).map(|wtc| wtc.changes))?;
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     let applied_stacks = vb_state
         .list_stacks_in_workspace()?
@@ -284,7 +290,7 @@ fn reconcile(
         .map(|s| s.id)
         .collect::<Vec<_>>();
 
-    let deps_assignments = hunk_dependency_assignments(ctx)?;
+    let deps_assignments = hunk_dependency_assignments(ctx, Some(worktree_changes.clone()))?;
 
     let mut new_assignments = vec![];
     for change in worktree_changes {
@@ -376,7 +382,10 @@ fn reconcile_assignments(
     Ok(new_assignments)
 }
 
-fn hunk_dependency_assignments(ctx: &CommandContext) -> Result<Vec<HunkAssignment>> {
+fn hunk_dependency_assignments(
+    ctx: &CommandContext,
+    worktree_changes: Option<Vec<but_core::TreeChange>>,
+) -> Result<Vec<HunkAssignment>> {
     // NB(Performance): This will do some extra work - in particular, worktree_changes will be fetched again, but that is a fast operation.
     // Furthermore, this call will compute unified_diff for each change. While this is a slower operation, it is invoked with zero context lines,
     // and that seems appropriate for limiting locking to only real overlaps.
@@ -384,6 +393,7 @@ fn hunk_dependency_assignments(ctx: &CommandContext) -> Result<Vec<HunkAssignmen
         ctx,
         &ctx.project().path,
         &ctx.project().gb_dir(),
+        worktree_changes,
     )?
     .diffs;
     let mut assignments = vec![];
