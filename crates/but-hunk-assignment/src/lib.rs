@@ -201,13 +201,7 @@ pub fn assignments(
     ctx: &mut CommandContext,
     set_assignment_from_locks: bool,
 ) -> Result<Vec<HunkAssignment>> {
-    // TODO: Use a dirty bit set in the file watcher to indicate when reconcilation is needed.
-    if true {
-        reconcile(ctx, set_assignment_from_locks)
-    } else {
-        let assignments = state::assignments(ctx)?;
-        Ok(assignments)
-    }
+    reconcile(ctx, set_assignment_from_locks)
 }
 
 /// Sets the assignment for a hunk. It must be already present in the current assignments, errors out if it isn't.
