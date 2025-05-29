@@ -43,7 +43,7 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         ref_location: "ReachableFromWorkspaceCommit",
                         commits_unique_from_tip: [
-                            LocalCommit(d79bba9, "new file in A\n", local),
+                            LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [
                             RemoteCommit(89cc2d3, "change in A\n",
@@ -138,7 +138,7 @@ fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
                             LocalCommit(d5d3a92, "unique local tip\n", local),
                             LocalCommit(6ffd040, "shared by name\n", local/remote(similarity)),
                             LocalCommit(4cd56ab, "unique local\n", local),
-                            LocalCommit(872c22f, "shared local/remote\n", local),
+                            LocalCommit(872c22f, "shared local/remote\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [
                             RemoteCommit(50d31c8, "unique remote\n",
@@ -660,6 +660,60 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
 }
 
 #[test]
+fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario(
+        "two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed",
+    )?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   335d6f2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * cbc6713 (origin/advanced-lane, advanced-lane) change
+    |/  
+    * fafd9d0 (origin/main, main, lane) init
+    ");
+
+    // For complexity, we also don't set up any branch metadata, only 'something' to get the target ref.
+    add_workspace(&mut meta);
+    let opts = standard_options();
+    let info = head_info(&repo, &*meta, opts)?;
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [
+            Stack {
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                segments: [
+                    StackSegment {
+                        ref_name: "refs/heads/advanced-lane",
+                        remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [
+                            LocalCommit(cbc6713, "change\n", local/remote(identity)),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: None,
+                    },
+                ],
+                stash_status: None,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+    }
+    "#);
+    Ok(())
+}
+
+#[test]
 fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<()> {
     let (repo, mut meta) =
         read_only_in_memory_scenario("two-branches-one-advanced-ws-commit-on-top-of-stack")?;
@@ -767,7 +821,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
     * da83717 (origin/main) disjoint remote target
     ");
 
-    for (idx, name) in ["advanced-lane", "lane"].into_iter().enumerate() {
+    for (idx, name) in ["lane", "advanced-lane"].into_iter().enumerate() {
         add_stack(
             &mut meta,
             StackId::from_number_for_testing(idx as u128),
@@ -777,6 +831,154 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
     }
 
     let opts = standard_options();
+    let info = head_info(&repo, &*meta, opts)?;
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [
+            Stack {
+                base: None,
+                segments: [
+                    StackSegment {
+                        ref_name: "refs/heads/lane",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                ],
+                stash_status: None,
+            },
+            Stack {
+                base: None,
+                segments: [
+                    StackSegment {
+                        ref_name: "refs/heads/advanced-lane",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [
+                            LocalCommit(cbc6713, "change\n", local),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                ],
+                stash_status: None,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+    }
+    "#);
+
+    let info = ref_info(repo.find_reference("advanced-lane")?, &*meta, opts)?;
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [
+            Stack {
+                base: None,
+                segments: [
+                    StackSegment {
+                        ref_name: "refs/heads/advanced-lane",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [
+                            LocalCommit(cbc6713, "change\n", local),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                ],
+                stash_status: None,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+    }
+    "#);
+
+    let info = ref_info(repo.find_reference("lane")?, &*meta, opts)?;
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [
+            Stack {
+                base: None,
+                segments: [
+                    StackSegment {
+                        ref_name: "refs/heads/lane",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                ],
+                stash_status: None,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+    }
+    "#);
+
+    meta.data_mut().branches.clear();
+    for (idx, name) in ["advanced-lane", "lane"].into_iter().enumerate() {
+        add_stack(
+            &mut meta,
+            StackId::from_number_for_testing(idx as u128),
+            name,
+            StackState::InWorkspace,
+        );
+    }
+
     let info = head_info(&repo, &*meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
@@ -960,7 +1162,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         ref_location: "ReachableFromWorkspaceCommit",
                         commits_unique_from_tip: [
-                            LocalCommit(d79bba9, "new file in A\n", local),
+                            LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [
                             RemoteCommit(89cc2d3, "change in A\n",
@@ -1034,7 +1236,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         ref_location: "ReachableFromWorkspaceCommit",
                         commits_unique_from_tip: [
-                            LocalCommit(d79bba9, "new file in A\n", local),
+                            LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [
                             RemoteCommit(89cc2d3, "change in A\n",
@@ -1118,7 +1320,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         ref_location: "ReachableFromWorkspaceCommit",
                         commits_unique_from_tip: [
-                            LocalCommit(d79bba9, "new file in A\n", local),
+                            LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [
                             RemoteCommit(89cc2d3, "change in A\n",
@@ -1214,15 +1416,7 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 "refs/heads/gitbutler/workspace",
             ),
         ),
-        stacks: [
-            Stack {
-                base: Some(
-                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-                ),
-                segments: [],
-                stash_status: None,
-            },
-        ],
+        stacks: [],
         target_ref: Some(
             FullName(
                 "refs/remotes/origin/main",
@@ -1367,7 +1561,15 @@ mod utils {
         Inactive,
     }
 
-    // Add parameters as needed.
+    pub fn add_workspace(meta: &mut VirtualBranchesTomlMetadata) {
+        add_stack(
+            meta,
+            StackId::from_number_for_testing(u128::MAX),
+            "definitely outside of the workspace just to have it",
+            StackState::Inactive,
+        );
+    }
+
     pub fn add_stack(
         meta: &mut VirtualBranchesTomlMetadata,
         stack_id: StackId,
@@ -1421,6 +1623,8 @@ mod utils {
     }
 }
 use crate::ref_info::utils::standard_options;
-use crate::ref_info::with_workspace_commit::utils::{StackState, add_stack_with_segments};
+use crate::ref_info::with_workspace_commit::utils::{
+    StackState, add_stack_with_segments, add_workspace,
+};
 use utils::add_stack;
 pub use utils::read_only_in_memory_scenario;

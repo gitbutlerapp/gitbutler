@@ -144,6 +144,9 @@ pub enum Subcommands {
     },
     /// Returns everything we know about the given ref, or `HEAD`.
     RefInfo {
+        /// Perform all possible computations.
+        #[clap(long, short = 'e')]
+        expensive: bool,
         /// The name of the ref to get workspace information for.
         ref_name: Option<String>,
     },

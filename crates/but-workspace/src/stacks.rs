@@ -85,8 +85,7 @@ fn try_from_stack_v3(
         .name()
         .context("Every V2/V3 stack has a name as long as it's in a gitbutler workspace")?
         .to_owned();
-    let stack_tip = stack.tip().unwrap_or(repo.object_hash().null());
-    let heads = stack
+    let heads: Vec<_> = stack
         .segments
         .into_iter()
         .map(|segment| -> anyhow::Result<_> {
@@ -102,11 +101,15 @@ fn try_from_stack_v3(
                     .unwrap_or(repo.object_hash().null()),
                 name: ref_name.shorten().into(),
             })
-        });
+        })
+        .collect::<anyhow::Result<_>>()?;
     Ok(ui::StackEntry {
         id: id_from_name_v2_to_v3(name.as_ref(), meta)?,
-        heads: heads.collect::<Result<_, _>>()?,
-        tip: stack_tip,
+        tip: heads
+            .first()
+            .map(|h| h.tip)
+            .unwrap_or(repo.object_hash().null()),
+        heads,
     })
 }
 
