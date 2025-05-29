@@ -7,8 +7,8 @@ export const RuleSchema = z.object({
 	project_slug: z.string().min(1, { message: 'Project slug is required' }),
 	negative_example: z.string().optional(),
 	positive_example: z.string().optional(),
-	createdAt: z.string().datetime({ message: 'Created at must be a valid date' }),
-	updatedAt: z.string().datetime({ message: 'Updated at must be a valid date' })
+	created_at: z.string().datetime({ message: 'Created at must be a valid date' }),
+	updated_at: z.string().datetime({ message: 'Updated at must be a valid date' })
 });
 
 export type Rule = z.infer<typeof RuleSchema>;
