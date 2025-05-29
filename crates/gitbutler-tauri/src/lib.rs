@@ -22,6 +22,7 @@ pub mod window;
 pub use window::state::event::ChangeForFrontend;
 pub use window::state::WindowState;
 
+pub mod action;
 pub mod askpass;
 pub mod config;
 pub mod error;

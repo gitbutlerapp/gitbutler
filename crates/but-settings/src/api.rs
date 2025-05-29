@@ -52,6 +52,9 @@ impl AppSettingsWithDiskSync {
         if let Some(ws3) = ws3 {
             settings.feature_flags.ws3 = ws3;
         }
+        if let Some(actions) = ws3 {
+            settings.feature_flags.actions = actions;
+        }
         settings.save()
     }
 }

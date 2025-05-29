@@ -23,7 +23,7 @@ pub(crate) fn handle_changes(
     print(&response, json)
 }
 
-pub(crate) fn list_past_actions(
+pub(crate) fn list_actions(
     repo_path: &Path,
     json: bool,
     page: i64,

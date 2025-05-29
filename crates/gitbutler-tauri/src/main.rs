@@ -15,7 +15,7 @@ use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::csp::csp_with_extras;
 use gitbutler_tauri::settings::SettingsStore;
 use gitbutler_tauri::{
-    askpass, commands, config, diff, env, forge, github, logs, menu, modes, open, projects,
+    action, askpass, commands, config, diff, env, forge, github, logs, menu, modes, open, projects,
     remotes, repo, secret, settings, stack, undo, users, virtual_branches, workspace, zip, App,
     WindowState,
 };
@@ -283,6 +283,8 @@ fn main() {
                     settings::update_onboarding_complete,
                     settings::update_telemetry,
                     settings::update_feature_flags,
+                    action::list_actions,
+                    action::handle_changes,
                     workspace::stacks,
                     workspace::stack_details,
                     workspace::branch_details,
