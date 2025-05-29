@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
+use but_action::ActionHandler;
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
@@ -44,8 +45,12 @@ impl Mcp {
         }
         let ctx = &mut CommandContext::open(&self.project, AppSettings::default())
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-        let response = but_action::handle_changes_simple(ctx, &request.change_description)
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+        let response = but_action::handle_changes(
+            ctx,
+            &request.change_description,
+            ActionHandler::HandleChangesSimple,
+        )
+        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
         Ok(CallToolResult::success(vec![Content::json(response)?]))
     }
 }

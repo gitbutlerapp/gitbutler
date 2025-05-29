@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use anyhow::bail;
+use but_action::ActionHandler;
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
@@ -17,7 +18,8 @@ pub(crate) fn handle_changes(
     }
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::default())?;
-    let response = but_action::handle_changes_simple(ctx, change_description)?;
+    let response =
+        but_action::handle_changes(ctx, change_description, ActionHandler::HandleChangesSimple)?;
     print(&response, json)
 }
 
@@ -30,7 +32,7 @@ pub(crate) fn list_past_actions(
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::default())?;
 
-    let response = but_action::list_past_actions(ctx, page, page_size)?;
+    let response = but_action::list_actions(ctx, page, page_size)?;
     print(&response, json)
 }
 
