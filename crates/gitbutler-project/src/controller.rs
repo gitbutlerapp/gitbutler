@@ -130,19 +130,20 @@ impl Controller {
             tracing::error!(project_id = %project.id, ?error, "failed to create {:?} on project add", project.gb_dir());
         }
 
-        let repo = git2::Repository::open(&project.path)?;
-        let config = repo.config()?;
+        let repo = gix::open(&project.path)?;
+        if repo.author().transpose()?.is_none() {
+            let git2_repo = git2::Repository::open(repo.path())?;
+            let config = git2_repo.config()?;
 
-        let name_key = "user.name";
-        if config.get_entry(name_key).map_or(true, |e| !e.has_value()) {
             let mut local = config.open_level(git2::ConfigLevel::Local)?;
-            local.set_str(name_key, &name.unwrap_or("Firstname Lastname".to_string()))?;
-        }
-
-        let email_key = "user.email";
-        if config.get_entry(email_key).map_or(true, |e| !e.has_value()) {
-            let mut local = config.open_level(git2::ConfigLevel::Local)?;
-            local.set_str(email_key, &email.unwrap_or("name@example.com".to_string()))?;
+            local.set_str(
+                "user.name",
+                &name.unwrap_or("Firstname Lastname".to_string()),
+            )?;
+            local.set_str(
+                "user.email",
+                &email.unwrap_or("name@example.com".to_string()),
+            )?;
         }
 
         Ok(project)
