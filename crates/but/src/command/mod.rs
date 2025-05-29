@@ -17,7 +17,7 @@ pub(crate) fn handle_changes(
     }
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::default())?;
-    let response = but_auto::handle_changes_simple(ctx, change_description)?;
+    let response = but_action::handle_changes_simple(ctx, change_description)?;
     print(&response, json)
 }
 
@@ -30,7 +30,7 @@ pub(crate) fn list_past_actions(
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::default())?;
 
-    let response = but_auto::list_past_actions(ctx, page, page_size)?;
+    let response = but_action::list_past_actions(ctx, page, page_size)?;
     print(&response, json)
 }
 
