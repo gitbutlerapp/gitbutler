@@ -204,6 +204,27 @@ cp -R two-branches-one-advanced-two-parent-ws-commit two-branches-one-advanced-t
   cp .git/refs/heads/advanced-lane .git/refs/remotes/origin/advanced-lane
 )
 
+cp -R two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependant
+(cd two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependant
+  git branch dependant advanced-lane
+)
+
+git init three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependant
+(cd three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependant
+  git commit -m "init" --allow-empty
+  setup_target_to_match_main
+  git checkout -b lane main
+
+  git checkout -b advanced-lane
+  git commit -m "change" --allow-empty
+  # This works without an official remote setup as we go by name as fallback.
+  cp .git/refs/heads/advanced-lane .git/refs/remotes/origin/advanced-lane
+  git branch dependant
+  git branch on-top-of-dependant
+
+  create_workspace_commit_once advanced-lane
+)
+
 git init two-branches-one-advanced-ws-commit-on-top-of-stack
 (cd two-branches-one-advanced-ws-commit-on-top-of-stack
   git commit -m "init" --allow-empty
