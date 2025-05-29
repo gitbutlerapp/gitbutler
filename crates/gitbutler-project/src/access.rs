@@ -1,5 +1,5 @@
 use anyhow::{bail, Context};
-use parking_lot::RawRwLock;
+use parking_lot::{ArcRwLockReadGuard, ArcRwLockWriteGuard, RawRwLock};
 use std::path::PathBuf;
 use std::{collections::BTreeMap, sync::Arc};
 
@@ -40,7 +40,7 @@ impl Project {
     pub fn exclusive_worktree_access(&self) -> WriteWorkspaceGuard {
         let mut map = WORKTREE_LOCKS.lock();
         WriteWorkspaceGuard {
-            _inner: map.entry(self.id).or_default().write_arc(),
+            inner: map.entry(self.id).or_default().write_arc().into(),
             perm: WorktreeWritePermission(()),
         }
     }
@@ -50,13 +50,33 @@ impl Project {
     /// thus block readers to prevent writer starvation.
     pub fn shared_worktree_access(&self) -> WorkspaceReadGuard {
         let mut map = WORKTREE_LOCKS.lock();
-        WorkspaceReadGuard(map.entry(self.id).or_default().read_arc())
+        WorkspaceReadGuard(Some(map.entry(self.id).or_default().read_arc()))
     }
 }
 
 pub struct WriteWorkspaceGuard {
-    _inner: parking_lot::ArcRwLockWriteGuard<RawRwLock, ()>,
+    inner: Option<parking_lot::ArcRwLockWriteGuard<RawRwLock, ()>>,
     perm: WorktreeWritePermission,
+}
+
+impl Drop for WriteWorkspaceGuard {
+    fn drop(&mut self) {
+        let lock = self
+            .inner
+            .take()
+            .expect("it's always set, and only taken once when dropping");
+        ArcRwLockWriteGuard::unlock_fair(lock);
+    }
+}
+
+impl Drop for WorkspaceReadGuard {
+    fn drop(&mut self) {
+        let lock = self
+            .0
+            .take()
+            .expect("it's always set, and only taken once when dropping");
+        ArcRwLockReadGuard::unlock_fair(lock)
+    }
 }
 
 impl WriteWorkspaceGuard {
@@ -73,7 +93,7 @@ impl WriteWorkspaceGuard {
     }
 }
 
-pub struct WorkspaceReadGuard(#[allow(dead_code)] parking_lot::ArcRwLockReadGuard<RawRwLock, ()>);
+pub struct WorkspaceReadGuard(Option<parking_lot::ArcRwLockReadGuard<RawRwLock, ()>>);
 
 impl WorkspaceReadGuard {
     /// Signal that a read-permission is available - useful as API-marker to assure these
