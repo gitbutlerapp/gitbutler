@@ -1,5 +1,5 @@
 [package]
-name = "but-auto"
+name = "but-action"
 version = "0.0.0"
 edition = "2024"
 authors = ["GitButler <gitbutler@gitbutler.com>"]

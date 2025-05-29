@@ -668,7 +668,7 @@ name = "but"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "but-auto",
+ "but-action",
  "but-core",
  "but-hunk-dependency",
  "but-settings",
@@ -687,7 +687,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "but-auto"
+name = "but-action"
 version = "0.0.0"
 dependencies = [
  "anyhow",
