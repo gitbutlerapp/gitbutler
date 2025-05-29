@@ -11,7 +11,7 @@ fn init_and_basic_usage() -> anyhow::Result<()> {
     assert!(other_db.hunk_assignments().list_all()?.is_empty());
 
     assert!(
-        tmp.path().join("gb.sqlite").exists(),
+        tmp.path().join("but.sqlite").exists(),
         "The database file is well-known and is auto-created"
     );
     Ok(())

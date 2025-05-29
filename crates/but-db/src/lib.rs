@@ -4,7 +4,7 @@ use anyhow::Result;
 use diesel::connection::SimpleConnection;
 use diesel::{Connection, SqliteConnection};
 
-const FILE_NAME: &str = "gb.sqlite";
+const FILE_NAME: &str = "but.sqlite";
 
 mod hunk_assignments;
 pub use hunk_assignments::HunkAssignment;
