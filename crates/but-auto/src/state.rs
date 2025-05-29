@@ -16,7 +16,8 @@ pub struct ButCheckpoint {
     change_description: String,
     snapshot_before: gix::ObjectId,
     snapshot_after: gix::ObjectId,
-    response: HandleChangesResponse,
+    response: Option<HandleChangesResponse>,
+    error: Option<String>,
 }
 
 impl ButCheckpoint {
@@ -25,15 +26,22 @@ impl ButCheckpoint {
         change_description: String,
         snapshot_before: gix::ObjectId,
         snapshot_after: gix::ObjectId,
-        response: HandleChangesResponse,
+        response: &anyhow::Result<HandleChangesResponse>,
     ) -> Self {
+        let (rsp, error) = if let Err(e) = response {
+            (None, Some(e.to_string()))
+        } else {
+            (response.as_ref().ok(), None)
+        };
+
         Self {
             created_at: std::time::SystemTime::now(),
             handler,
             change_description,
             snapshot_before,
             snapshot_after,
-            response,
+            response: rsp.cloned(),
+            error,
         }
     }
 }

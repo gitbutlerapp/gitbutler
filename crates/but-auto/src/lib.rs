@@ -13,6 +13,7 @@ use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
 };
 use gitbutler_oxidize::OidExt;
+use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::VirtualBranchesHandle;
 use serde::{Deserialize, Serialize};
 
@@ -33,6 +34,43 @@ use serde::{Deserialize, Serialize};
 pub fn handle_changes_simple(
     ctx: &mut CommandContext,
     change_description: &str,
+) -> anyhow::Result<HandleChangesResponse> {
+    let mut guard = ctx.project().exclusive_worktree_access();
+    let perm = guard.write_permission();
+
+    let snapshot_before = ctx
+        .create_snapshot(
+            SnapshotDetails::new(OperationKind::AutoHandleChangesBefore),
+            perm,
+        )?
+        .to_gix();
+
+    let response = handle_changes_simple_inner(ctx, change_description, perm);
+
+    let snapshot_after = ctx
+        .create_snapshot(
+            SnapshotDetails::new(OperationKind::AutoHandleChangesAfter),
+            perm,
+        )?
+        .to_gix();
+
+    // Add a checkpoint entry
+    state::persist_checkpoint(state::ButCheckpoint::new(
+        state::AutoHandler::HandleChangesSimple,
+        change_description.to_owned(),
+        snapshot_before,
+        snapshot_after,
+        &response,
+    ))?;
+
+    response
+    // Ok(response)
+}
+
+fn handle_changes_simple_inner(
+    ctx: &mut CommandContext,
+    change_description: &str,
+    perm: &mut WorktreeWritePermission,
 ) -> anyhow::Result<HandleChangesResponse> {
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     match gitbutler_operating_modes::operating_mode(ctx) {
@@ -89,16 +127,6 @@ pub fn handle_changes_simple(
         *specs = flatten_diff_specs(specs.clone());
     }
 
-    let mut guard = ctx.project().exclusive_worktree_access();
-    let perm = guard.write_permission();
-
-    let snapshot_before = ctx
-        .create_snapshot(
-            SnapshotDetails::new(OperationKind::AutoHandleChangesBefore),
-            perm,
-        )?
-        .to_gix();
-
     let mut updated_branches = vec![];
 
     for (stack_id, diff_specs) in stack_assignments {
@@ -130,25 +158,7 @@ pub fn handle_changes_simple(
         }
     }
 
-    let snapshot_after = ctx
-        .create_snapshot(
-            SnapshotDetails::new(OperationKind::AutoHandleChangesAfter),
-            perm,
-        )?
-        .to_gix();
-
-    let response = HandleChangesResponse { updated_branches };
-
-    // Add a checkpoint entry
-    state::persist_checkpoint(state::ButCheckpoint::new(
-        state::AutoHandler::HandleChangesSimple,
-        change_description.to_owned(),
-        snapshot_before,
-        snapshot_after,
-        response.clone(),
-    ))?;
-
-    Ok(response)
+    Ok(HandleChangesResponse { updated_branches })
 }
 
 /// If there are multiple diffs spces where path and previous_path are the same, collapse them into one.
