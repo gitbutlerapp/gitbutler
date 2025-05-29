@@ -29,4 +29,12 @@ pub enum Subcommands {
         #[clap(long, short = 's', default_value_t = true)]
         simple: bool,
     },
+    PastActions {
+        /// The page number to list past actions from.
+        #[clap(long, short = 'p', default_value_t = 1)]
+        page: i64,
+        /// The number of actions to list per page.
+        #[clap(long, short = 's', default_value_t = 10)]
+        page_size: i64,
+    },
 }
