@@ -41,8 +41,8 @@ pub struct ButlerActionsHandle<'a> {
 
 impl ButlerActionsHandle<'_> {
     pub fn insert(&mut self, action: ButlerAction) -> anyhow::Result<()> {
-        use crate::schema::butler_actions::dsl::butler_actions as all_actions;
-        diesel::insert_into(all_actions)
+        use crate::schema::butler_actions::dsl::butler_actions;
+        diesel::insert_into(butler_actions)
             .values(&action)
             .execute(&mut self.db.conn)?;
         Ok(())
