@@ -23,8 +23,8 @@ pub enum Subcommands {
     /// Automatically handle changes in the current repository, creating a commit with the provided context.
     HandleChanges {
         /// A context describing the changes that are currently uncommitted
-        #[clap(long, short = 'c')]
-        context: String,
+        #[clap(long, short = 'd', alias = "desc", visible_alias = "description")]
+        change_description: String,
         /// If true, this will perform simple, non-AI based handling.
         #[clap(long, short = 's', default_value_t = true)]
         simple: bool,

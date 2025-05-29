@@ -13,6 +13,7 @@ test = false
 serde = { workspace = true, features = ["std"] }
 serde-error = "0.1.3"
 anyhow = "1.0.98"
+strum = { version = "0.27", features = ["derive"] }
 gix.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-stack.workspace = true
@@ -20,6 +21,8 @@ gitbutler-operating-modes.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-oplog.workspace = true
+gitbutler-oxidize.workspace = true
+gitbutler-project.workspace = true
 but-core.workspace = true
 but-workspace.workspace = true
 but-hunk-assignment.workspace = true

@@ -10,14 +10,14 @@ pub(crate) fn handle_changes(
     repo_path: &Path,
     json: bool,
     simple: bool,
-    request_ctx: &str,
+    change_description: &str,
 ) -> anyhow::Result<()> {
     if !simple {
         bail!("Only simple mode is supported");
     }
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::default())?;
-    let response = but_auto::handle_changes_simple(ctx, request_ctx)?;
+    let response = but_auto::handle_changes_simple(ctx, change_description)?;
     print(&response, json)
 }
 

@@ -165,8 +165,8 @@ pub enum OperationKind {
     UpdateDependentBranchName,
     UpdateDependentBranchDescription,
     UpdateDependentBranchPrNumber,
-    BeforeAutoHandleChanges,
-    AfterAutoHandleChanges,
+    AutoHandleChangesBefore,
+    AutoHandleChangesAfter,
     #[default]
     Unknown,
 }

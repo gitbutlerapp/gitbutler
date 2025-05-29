@@ -13,8 +13,9 @@ async fn main() -> Result<()> {
     match &args.cmd {
         args::Subcommands::McpInternal => mcp_internal::start(&args.current_dir).await,
         args::Subcommands::Mcp => mcp::start(&args.current_dir).await,
-        args::Subcommands::HandleChanges { context, simple } => {
-            command::handle_changes(&args.current_dir, args.json, *simple, context)
-        }
+        args::Subcommands::HandleChanges {
+            change_description,
+            simple,
+        } => command::handle_changes(&args.current_dir, args.json, *simple, change_description),
     }
 }

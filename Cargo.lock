@@ -699,10 +699,13 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-operating-modes",
  "gitbutler-oplog",
+ "gitbutler-oxidize",
+ "gitbutler-project",
  "gitbutler-stack",
  "gix",
  "serde",
  "serde-error",
+ "strum",
 ]
 
 [[package]]
