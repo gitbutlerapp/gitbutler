@@ -14,17 +14,21 @@ describe('Upstream Integration', () => {
 			mockBackend.getUpstreamIntegrationStatuses()
 		);
 		mockCommand('integrate_upstream', (params) => mockBackend.integrateUpstream(params));
-		cy.intercept(
-			{
-				method: 'GEt',
-				url: 'https://api.github.com/repos/example/repo/pulls'
-			},
-			{
-				statusCode: 200,
-				body: []
+		for (const stack of mockBackend.getStacks()) {
+			const heads = stack.heads.map((head) => head.name);
+			for (const head of heads) {
+				cy.intercept(
+					{
+						method: 'GET',
+						url: 'https://api.github.com/repos/example/repo/pulls?head=example%3A' + head
+					},
+					{
+						statusCode: 200,
+						body: []
+					}
+				).as('listPullRequests-' + head);
 			}
-		).as('listPullRequests');
-
+		}
 		cy.visit('/');
 
 		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace`);
