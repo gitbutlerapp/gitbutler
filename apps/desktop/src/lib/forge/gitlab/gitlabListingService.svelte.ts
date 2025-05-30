@@ -1,8 +1,10 @@
 import { gitlab } from '$lib/forge/gitlab/gitlabClient.svelte';
 import { mrToInstance } from '$lib/forge/gitlab/types';
 import { createSelectByIds } from '$lib/state/customSelectors';
+import { combineResults } from '$lib/state/helpers';
 import { providesList, ReduxTag } from '$lib/state/tags';
 import { reactive } from '@gitbutler/shared/storeUtils';
+import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { ForgeListingService } from '$lib/forge/interface/forgeListingService';
 import type { PullRequest } from '$lib/forge/interface/types';
@@ -47,6 +49,17 @@ export class GitLabListingService implements ForgeListingService {
 		});
 	}
 
+	async fetchByBranch(projectId: string, branchNames: string[]) {
+		const results = await Promise.all(
+			branchNames.map((branch) =>
+				this.api.endpoints.listPrsByBranch.fetch({ projectId, branchName: branch })
+			)
+		);
+		const combined = combineResults(...results);
+
+		return combined.data?.filter(isDefined) ?? [];
+	}
+
 	async refresh(projectId: string): Promise<void> {
 		await this.api.endpoints.listPrs.fetch(projectId, { forceRefetch: true });
 	}
@@ -75,6 +88,37 @@ function injectEndpoints(api: GitLabApi) {
 					};
 				},
 				providesTags: [providesList(ReduxTag.PullRequests)]
+			}),
+			listPrsByBranch: build.query<PullRequest | null, { projectId: string; branchName: string }>({
+				queryFn: async ({ branchName }, query) => {
+					const { api, upstreamProjectId, forkProjectId } = gitlab(query.extra);
+					const upstreamMrs = await api.MergeRequests.all({
+						projectId: upstreamProjectId,
+						sourceBranch: branchName,
+						state: 'opened'
+					});
+					const forkMrs = await api.MergeRequests.all({
+						projectId: forkProjectId,
+						sourceBranch: branchName,
+						state: 'opened'
+					});
+
+					const allMrs = [...upstreamMrs, ...forkMrs];
+					if (allMrs.length === 0) {
+						return { data: null };
+					}
+
+					if (allMrs.length > 1) {
+						return { error: new Error(`Multiple merge requests found for branch ${branchName}`) };
+					}
+
+					const mrData = allMrs[0]!;
+					const mr = mrToInstance(mrData);
+
+					return {
+						data: mr
+					};
+				}
 			})
 		})
 	});
