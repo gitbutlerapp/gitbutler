@@ -32,9 +32,9 @@ impl Mcp {
     #[tool(
         description = "Update commits on the current branch based on the prompt used to modify the codebase and a summary of the changes made."
     )]
-    pub fn gitbutler_update(
+    pub fn gitbutler_update_branches(
         &self,
-        #[tool(aggr)] request: GitButlerUpdateRequest,
+        #[tool(aggr)] request: GitButlerUpdateBranchesRequest,
     ) -> Result<CallToolResult, McpError> {
         if request.changes_summary.is_empty() {
             return Err(McpError::invalid_request(
@@ -72,7 +72,7 @@ impl Mcp {
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct GitButlerUpdateRequest {
+pub struct GitButlerUpdateBranchesRequest {
     #[schemars(description = "The exact prompt that the user gave to generate these changes")]
     pub full_prompt: String,
     #[schemars(
