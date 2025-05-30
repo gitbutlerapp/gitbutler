@@ -325,13 +325,6 @@ pub(crate) fn save_and_return_to_workspace(
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let uncommtied_changes = get_uncommited_changes(ctx)?;
 
-    let workspace_oid = update_workspace_commit(&vb_state, ctx)?;
-
-    repository.checkout_tree(
-        repository.find_commit(workspace_oid)?.tree()?.as_object(),
-        Some(CheckoutBuilder::new().force().remove_untracked(true)),
-    )?;
-
     if ctx.app_settings().feature_flags.v3 {
         update_uncommited_changes_with_tree(
             ctx,
@@ -345,6 +338,8 @@ pub(crate) fn save_and_return_to_workspace(
         #[allow(deprecated)]
         checkout_branch_trees(ctx, perm)?;
     }
+
+    update_workspace_commit(&vb_state, ctx)?;
 
     // Currently if the index goes wonky then files don't appear quite right.
     // This just makes sure the index is all good.
