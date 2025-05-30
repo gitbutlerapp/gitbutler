@@ -37,8 +37,8 @@ pub fn create_branch(
     stack_id: StackId,
     req: CreateSeriesRequest,
 ) -> Result<()> {
-    ctx.verify()?;
     let mut guard = ctx.project().exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
     let _ = ctx.snapshot_create_dependent_branch(&req.name, guard.write_permission());
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
@@ -75,8 +75,8 @@ pub struct CreateSeriesRequest {
 /// If there were commits/changes that were *only* referenced by the removed branch,
 /// those commits are moved to the branch underneath it (or more accurately, the preceding it)
 pub fn remove_branch(ctx: &CommandContext, stack_id: StackId, branch_name: String) -> Result<()> {
-    ctx.verify()?;
     let mut guard = ctx.project().exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
     let _ = ctx.snapshot_remove_dependent_branch(&branch_name, guard.write_permission());
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
@@ -91,8 +91,8 @@ pub fn update_branch_name(
     branch_name: String,
     new_name: String,
 ) -> Result<()> {
-    ctx.verify()?;
     let mut guard = ctx.project().exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
     let _ = ctx.snapshot_update_dependent_branch_name(&branch_name, guard.write_permission());
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
@@ -115,8 +115,8 @@ pub fn update_branch_description(
     branch_name: String,
     description: Option<String>,
 ) -> Result<()> {
-    ctx.verify()?;
     let mut guard = ctx.project().exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::UpdateDependentBranchDescription),
         guard.write_permission(),
@@ -148,8 +148,8 @@ pub fn update_branch_pr_number(
     branch_name: String,
     pr_number: Option<usize>,
 ) -> Result<()> {
-    ctx.verify()?;
     let mut guard = ctx.project().exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::UpdateDependentBranchPrNumber),
         guard.write_permission(),
@@ -162,7 +162,7 @@ pub fn update_branch_pr_number(
 /// Pushes all series in the stack to the remote.
 /// This operation will error out if the target has no push remote configured.
 pub fn push_stack(ctx: &CommandContext, stack_id: StackId, with_force: bool) -> Result<()> {
-    ctx.verify()?;
+    ctx.verify(ctx.project().exclusive_worktree_access().write_permission())?;
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let state = ctx.project().virtual_branches();
     let stack = state.get_stack(stack_id)?;

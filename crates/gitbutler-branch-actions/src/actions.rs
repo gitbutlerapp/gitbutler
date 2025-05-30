@@ -45,9 +45,9 @@ pub fn create_commit(
     message: &str,
     ownership: Option<&BranchOwnershipClaims>,
 ) -> Result<git2::Oid> {
-    ctx.verify()?;
-    assure_open_workspace_mode(ctx).context("Creating a commit requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
+    assure_open_workspace_mode(ctx).context("Creating a commit requires open workspace mode")?;
     let snapshot_tree = ctx.prepare_snapshot(guard.read_permission());
     let result = vbranch::commit(ctx, stack_id, message, ownership);
 
@@ -71,7 +71,7 @@ pub fn can_apply_remote_branch(ctx: &CommandContext, branch_name: &RemoteRefname
 }
 
 pub fn list_virtual_branches(ctx: &CommandContext) -> Result<StackListResult> {
-    ctx.verify()?;
+    ctx.verify(ctx.project().exclusive_worktree_access().write_permission())?;
 
     assure_open_workspace_mode(ctx)
         .context("Listing virtual branches requires open workspace mode")?;
@@ -86,7 +86,7 @@ pub fn list_virtual_branches_cached(
     ctx: &CommandContext,
     worktree_changes: DiffByPathMap,
 ) -> Result<StackListResult> {
-    ctx.verify()?;
+    ctx.verify(ctx.project().exclusive_worktree_access().write_permission())?;
 
     assure_open_workspace_mode(ctx)
         .context("Listing virtual branches requires open workspace mode")?;
@@ -103,7 +103,7 @@ pub fn create_virtual_branch(
     create: &BranchCreateRequest,
     perm: &mut WorktreeWritePermission,
 ) -> Result<ui::StackEntry> {
-    ctx.verify()?;
+    ctx.verify(perm)?;
     assure_open_workspace_mode(ctx).context("Creating a branch requires open workspace mode")?;
     let branch_manager = ctx.branch_manager();
     let stack = branch_manager.create_virtual_branch(create, perm)?;
@@ -123,7 +123,7 @@ pub fn delete_local_branch(
     refname: &Refname,
     given_name: String,
 ) -> Result<()> {
-    ctx.verify()?;
+    ctx.verify(ctx.project().exclusive_worktree_access().write_permission())?;
     let repo = ctx.repo();
     let handle = ctx.project().virtual_branches();
     let stack = handle.list_all_stacks()?.into_iter().find(|stack| {
@@ -190,10 +190,10 @@ pub fn integrate_upstream_commits(
     series_name: String,
     integration_strategy: Option<IntegrationStrategy>,
 ) -> Result<()> {
-    ctx.verify()?;
+    let mut guard = ctx.project().exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
     assure_open_workspace_mode(ctx)
         .context("Integrating upstream commits requires open workspace mode")?;
-    let mut guard = ctx.project().exclusive_worktree_access();
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::MergeUpstream),
         guard.write_permission(),
@@ -211,9 +211,9 @@ pub fn update_virtual_branch(
     ctx: &CommandContext,
     branch_update: BranchUpdateRequest,
 ) -> Result<()> {
-    ctx.verify()?;
-    assure_open_workspace_mode(ctx).context("Updating a branch requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
+    assure_open_workspace_mode(ctx).context("Updating a branch requires open workspace mode")?;
     let snapshot_tree = ctx.prepare_snapshot(guard.read_permission());
     let old_branch = ctx
         .project()
@@ -237,7 +237,7 @@ pub fn update_branch_order(
     ctx: &CommandContext,
     branch_updates: Vec<BranchUpdateRequest>,
 ) -> Result<()> {
-    ctx.verify()?;
+    ctx.verify(ctx.project().exclusive_worktree_access().write_permission())?;
     assure_open_workspace_mode(ctx)
         .context("Updating branch order requires open workspace mode")?;
     for branch_update in branch_updates {
@@ -254,11 +254,11 @@ pub fn update_branch_order(
 
 /// Unapplies a virtual branch and deletes the branch entry from the virtual branch state.
 pub fn unapply_stack(ctx: &CommandContext, stack_id: StackId) -> Result<String> {
-    ctx.verify()?;
+    let mut guard = ctx.project().exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
     assure_open_workspace_mode(ctx)
         .context("Deleting a branch order requires open workspace mode")?;
     let branch_manager = ctx.branch_manager();
-    let mut guard = ctx.project().exclusive_worktree_access();
     // NB: unapply_without_saving is also called from save_and_unapply
     let branch_name = branch_manager.unapply(stack_id, guard.write_permission(), false)?;
     Ok(branch_name)
@@ -269,9 +269,9 @@ pub fn unapply_lines(
     ownership: &BranchOwnershipClaims,
     lines: VirtualBranchHunkRangeMap,
 ) -> Result<()> {
-    ctx.verify()?;
-    assure_open_workspace_mode(ctx).context("Unapply a patch requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
+    assure_open_workspace_mode(ctx).context("Unapply a patch requires open workspace mode")?;
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::DiscardLines),
         guard.write_permission(),
@@ -281,9 +281,9 @@ pub fn unapply_lines(
 }
 
 pub fn unapply_ownership(ctx: &CommandContext, ownership: &BranchOwnershipClaims) -> Result<()> {
-    ctx.verify()?;
-    assure_open_workspace_mode(ctx).context("Unapply a patch requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
+    assure_open_workspace_mode(ctx).context("Unapply a patch requires open workspace mode")?;
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::DiscardHunk),
         guard.write_permission(),
@@ -292,9 +292,9 @@ pub fn unapply_ownership(ctx: &CommandContext, ownership: &BranchOwnershipClaims
 }
 
 pub fn reset_files(ctx: &CommandContext, stack_id: StackId, files: &[PathBuf]) -> Result<()> {
-    ctx.verify()?;
-    assure_open_workspace_mode(ctx).context("Resetting a file requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
+    assure_open_workspace_mode(ctx).context("Resetting a file requires open workspace mode")?;
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::DiscardFile),
         guard.write_permission(),
@@ -308,7 +308,7 @@ pub fn amend(
     commit_oid: git2::Oid,
     worktree_changes: Vec<DiffSpec>,
 ) -> Result<git2::Oid> {
-    ctx.verify()?;
+    ctx.verify(ctx.project().exclusive_worktree_access().write_permission())?;
     assure_open_workspace_mode(ctx).context("Amending a commit requires open workspace mode")?;
     {
         // commit_engine::create_commit_and_update_refs_with_project is also doing a write lock, so we want to allow this gurd to be dropped first
@@ -357,9 +357,9 @@ pub fn move_commit_file(
     to_commit_oid: git2::Oid,
     ownership: &BranchOwnershipClaims,
 ) -> Result<git2::Oid> {
-    ctx.verify()?;
-    assure_open_workspace_mode(ctx).context("Amending a commit requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
+    assure_open_workspace_mode(ctx).context("Amending a commit requires open workspace mode")?;
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::MoveCommitFile),
         guard.write_permission(),
@@ -368,9 +368,9 @@ pub fn move_commit_file(
 }
 
 pub fn undo_commit(ctx: &CommandContext, stack_id: StackId, commit_oid: git2::Oid) -> Result<()> {
-    ctx.verify()?;
-    assure_open_workspace_mode(ctx).context("Undoing a commit requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
+    assure_open_workspace_mode(ctx).context("Undoing a commit requires open workspace mode")?;
     let snapshot_tree = ctx.prepare_snapshot(guard.read_permission());
     let result: Result<()> =
         crate::undo_commit::undo_commit(ctx, stack_id, commit_oid, guard.write_permission())
@@ -392,10 +392,10 @@ pub fn insert_blank_commit(
     commit_oid: git2::Oid,
     offset: i32,
 ) -> Result<()> {
-    ctx.verify()?;
+    let mut guard = ctx.project().exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
     assure_open_workspace_mode(ctx)
         .context("Inserting a blank commit requires open workspace mode")?;
-    let mut guard = ctx.project().exclusive_worktree_access();
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::InsertBlankCommit),
         guard.write_permission(),
@@ -408,9 +408,9 @@ pub fn reorder_stack(
     stack_id: StackId,
     stack_order: StackOrder,
 ) -> Result<()> {
-    ctx.verify()?;
-    assure_open_workspace_mode(ctx).context("Reordering a commit requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
+    assure_open_workspace_mode(ctx).context("Reordering a commit requires open workspace mode")?;
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::ReorderCommit),
         guard.write_permission(),
@@ -424,9 +424,9 @@ pub fn reset_virtual_branch(
     stack_id: StackId,
     target_commit_oid: git2::Oid,
 ) -> Result<()> {
-    ctx.verify()?;
-    assure_open_workspace_mode(ctx).context("Resetting a branch requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
+    assure_open_workspace_mode(ctx).context("Resetting a branch requires open workspace mode")?;
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::UndoCommit),
         guard.write_permission(),
@@ -444,9 +444,9 @@ pub fn squash_commits(
     source_ids: Vec<git2::Oid>,
     destination_id: git2::Oid,
 ) -> Result<()> {
-    ctx.verify()?;
-    assure_open_workspace_mode(ctx).context("Squashing a commit requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
+    assure_open_workspace_mode(ctx).context("Squashing a commit requires open workspace mode")?;
     crate::squash::squash_commits(
         ctx,
         stack_id,
@@ -462,10 +462,10 @@ pub fn update_commit_message(
     commit_oid: git2::Oid,
     message: &str,
 ) -> Result<git2::Oid> {
-    ctx.verify()?;
+    let mut guard = ctx.project().exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
     assure_open_workspace_mode(ctx)
         .context("Updating a commit message requires open workspace mode")?;
-    let mut guard = ctx.project().exclusive_worktree_access();
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::UpdateCommitMessage),
         guard.write_permission(),
@@ -510,9 +510,9 @@ pub fn move_commit(
     commit_oid: git2::Oid,
     source_stack_id: StackId,
 ) -> Result<()> {
-    ctx.verify()?;
-    assure_open_workspace_mode(ctx).context("Moving a commit requires open workspace mode")?;
     let mut guard = ctx.project().exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
+    assure_open_workspace_mode(ctx).context("Moving a commit requires open workspace mode")?;
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::MoveCommit),
         guard.write_permission(),
@@ -533,11 +533,11 @@ pub fn create_virtual_branch_from_branch(
     remote: Option<RemoteRefname>,
     pr_number: Option<usize>,
 ) -> Result<StackId> {
-    ctx.verify()?;
+    let mut guard = ctx.project().exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
     assure_open_workspace_mode(ctx)
         .context("Creating a virtual branch from a branch open workspace mode")?;
     let branch_manager = ctx.branch_manager();
-    let mut guard = ctx.project().exclusive_worktree_access();
     branch_manager.create_virtual_branch_from_branch(
         branch,
         remote,
@@ -609,12 +609,11 @@ pub fn resolve_upstream_integration(
 }
 
 pub(crate) trait Verify {
-    fn verify(&self) -> Result<()>;
+    fn verify(&self, perm: &mut WorktreeWritePermission) -> Result<()>;
 }
 
 impl Verify for CommandContext {
-    fn verify(&self) -> Result<()> {
-        let mut guard = self.project().exclusive_worktree_access();
-        crate::integration::verify_branch(self, guard.write_permission())
+    fn verify(&self, perm: &mut WorktreeWritePermission) -> Result<()> {
+        crate::integration::verify_branch(self, perm)
     }
 }
