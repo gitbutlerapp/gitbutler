@@ -8,6 +8,7 @@ fn success() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 }
@@ -26,6 +27,7 @@ mod error {
                 ctx,
                 &RemoteRefname::from_str("refs/remotes/origin/missing").unwrap(),
                 false,
+                ctx.project().exclusive_worktree_access().write_permission(),
             )
             .unwrap_err()
             .to_string(),
@@ -54,6 +56,7 @@ mod go_back_to_workspace {
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
             false,
+            ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 
@@ -78,6 +81,7 @@ mod go_back_to_workspace {
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
             false,
+            ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 
@@ -102,6 +106,7 @@ mod go_back_to_workspace {
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
             false,
+            ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 
@@ -118,6 +123,7 @@ mod go_back_to_workspace {
                 ctx,
                 &"refs/remotes/origin/master".parse().unwrap(),
                 false,
+                ctx.project().exclusive_worktree_access().write_permission(),
             )
             .unwrap_err()
             .downcast_ref(),
@@ -139,6 +145,7 @@ mod go_back_to_workspace {
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
             false,
+            ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 
@@ -154,6 +161,7 @@ mod go_back_to_workspace {
                 ctx,
                 &"refs/remotes/origin/master".parse().unwrap(),
                 false,
+                ctx.project().exclusive_worktree_access().write_permission(),
             )
             .unwrap_err()
             .downcast_ref(),
@@ -175,6 +183,7 @@ mod go_back_to_workspace {
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
             false,
+            ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 
@@ -190,6 +199,7 @@ mod go_back_to_workspace {
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
             false,
+            ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 
@@ -213,6 +223,7 @@ mod go_back_to_workspace {
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
             false,
+            ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 
@@ -226,6 +237,7 @@ mod go_back_to_workspace {
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
             false,
+            ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 

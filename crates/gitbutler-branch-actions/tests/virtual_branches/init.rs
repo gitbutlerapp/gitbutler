@@ -17,6 +17,7 @@ fn twice() {
             &ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
             false,
+            ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
         assert!(gitbutler_branch_actions::list_virtual_branches(&ctx)
@@ -34,6 +35,7 @@ fn twice() {
             &ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
             false,
+            ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 
@@ -59,6 +61,7 @@ fn dirty_non_target() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -83,6 +86,7 @@ fn dirty_target() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -107,6 +111,7 @@ fn commit_on_non_target_local() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -132,6 +137,7 @@ fn commit_on_non_target_remote() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -155,6 +161,7 @@ fn commit_on_target() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -180,6 +187,7 @@ fn submodule() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 

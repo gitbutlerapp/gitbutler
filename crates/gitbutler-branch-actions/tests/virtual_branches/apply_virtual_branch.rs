@@ -22,6 +22,7 @@ fn rebase_commit() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -137,6 +138,7 @@ fn rebase_work() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 

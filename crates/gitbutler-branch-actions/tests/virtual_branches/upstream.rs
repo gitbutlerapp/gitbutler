@@ -10,6 +10,7 @@ fn detect_upstream_commits() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -65,6 +66,7 @@ fn detect_integrated_commits() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 

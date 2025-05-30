@@ -13,6 +13,7 @@ fn no_diffs() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -68,6 +69,7 @@ fn multiple_commits() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -161,6 +163,7 @@ fn multiple_commits_with_diffs() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -292,6 +295,7 @@ fn diffs_on_source_branch() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -361,6 +365,7 @@ fn diffs_on_target_branch() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -433,6 +438,7 @@ fn diffs_on_both_branches() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -558,6 +564,7 @@ fn target_commit_locked_to_ancestors() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -606,6 +613,7 @@ fn target_commit_locked_to_descendants() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -657,6 +665,7 @@ fn locked_hunks_on_source_branch() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -703,6 +712,7 @@ fn no_commit() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -745,6 +755,7 @@ fn no_branch() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 

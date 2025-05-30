@@ -3,13 +3,15 @@
 use std::{
     collections::HashMap,
     fmt::{Debug, Display},
+    str::FromStr,
 };
 
 use but_workspace::{DiffSpec, VirtualBranchesTomlMetadata, ui::StackEntry};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_command_context::CommandContext;
+use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_stack::VirtualBranchesHandle;
+use gitbutler_stack::{Target, VirtualBranchesHandle};
 use serde::{Deserialize, Serialize};
 
 mod action;
@@ -49,6 +51,41 @@ fn flatten_diff_specs(input: Vec<DiffSpec>) -> Vec<DiffSpec> {
             .or_insert(spec);
     }
     output.into_values().collect()
+}
+
+fn default_target_setting_if_none(
+    ctx: &CommandContext,
+    vb_state: &VirtualBranchesHandle,
+) -> anyhow::Result<Target> {
+    if let Ok(default_target) = vb_state.get_default_target() {
+        return Ok(default_target);
+    }
+    // Lets do the equivalent of `git symbolic-ref refs/remotes/origin/HEAD --short` to guess the default target.
+
+    let repo = ctx.gix_repo()?;
+    let remote_name = repo
+        .remote_default_name(gix::remote::Direction::Push)
+        .ok_or_else(|| anyhow::anyhow!("No push remote set"))?
+        .to_string();
+
+    let mut head_ref = repo
+        .find_reference(&format!("refs/remotes/{}/HEAD", remote_name))
+        .map_err(|_| anyhow::anyhow!("No HEAD reference found for remote {}", remote_name))?;
+
+    let head_commit = head_ref.peel_to_commit()?;
+
+    let remote_refname =
+        gitbutler_reference::RemoteRefname::from_str(&head_ref.name().as_bstr().to_string())?;
+
+    let target = Target {
+        branch: remote_refname,
+        remote_url: "".to_string(),
+        sha: head_commit.id.to_git2(),
+        push_remote_name: None,
+    };
+
+    vb_state.set_default_target(target.clone())?;
+    Ok(target)
 }
 
 /// Returns the currently applied stacks, creating one if none exists.

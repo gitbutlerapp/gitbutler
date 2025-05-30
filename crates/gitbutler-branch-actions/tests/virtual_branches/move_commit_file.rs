@@ -13,6 +13,7 @@ fn move_file_down() -> anyhow::Result<()> {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -86,6 +87,7 @@ fn move_file_up() -> anyhow::Result<()> {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 

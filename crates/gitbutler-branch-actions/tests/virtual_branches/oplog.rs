@@ -19,6 +19,7 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -101,7 +102,12 @@ fn basic_oplog() -> anyhow::Result<()> {
         repo, project, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse()?, false)?;
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse()?,
+        false,
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )?;
 
     let stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
@@ -255,7 +261,12 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
         repo, project, ctx, ..
     } = &Test::default();
 
-    gitbutler_branch_actions::set_base_branch(ctx, &"refs/remotes/origin/master".parse()?, false)?;
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse()?,
+        false,
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )?;
 
     assert_eq!(
         VirtualBranchesHandle::new(project.gb_dir())
@@ -375,12 +386,14 @@ fn head_corrupt_is_recreated_automatically() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -403,6 +416,7 @@ fn head_corrupt_is_recreated_automatically() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .expect("the snapshot doesn't fail despite the corrupt head");
 

@@ -33,7 +33,12 @@ pub fn add(
     let project = ctrl.add(path, None, None)?;
     let ctx = CommandContext::open(&project, AppSettings::default())?;
     if let Some(refname) = refname {
-        gitbutler_branch_actions::set_base_branch(&ctx, &refname, false)?;
+        gitbutler_branch_actions::set_base_branch(
+            &ctx,
+            &refname,
+            false,
+            ctx.project().exclusive_worktree_access().write_permission(),
+        )?;
     };
     debug_print(project)
 }
@@ -41,6 +46,9 @@ pub fn add(
 pub fn switch_to_workspace(project: Project, refname: RemoteRefname) -> Result<()> {
     let ctx = CommandContext::open(&project, AppSettings::default())?;
     debug_print(gitbutler_branch_actions::set_base_branch(
-        &ctx, &refname, false,
+        &ctx,
+        &refname,
+        false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )?)
 }

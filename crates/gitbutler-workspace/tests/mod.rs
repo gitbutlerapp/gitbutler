@@ -31,6 +31,7 @@ mod checkout_branch_trees {
             &ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
             false,
+            ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 

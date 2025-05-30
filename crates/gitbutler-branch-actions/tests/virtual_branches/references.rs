@@ -13,6 +13,7 @@ mod create_virtual_branch {
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
             false,
+            ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 
@@ -45,6 +46,7 @@ mod create_virtual_branch {
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
             false,
+            ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 
@@ -99,6 +101,7 @@ mod update_virtual_branch {
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
             false,
+            ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 
@@ -145,6 +148,7 @@ mod update_virtual_branch {
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
             false,
+            ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 
@@ -208,6 +212,7 @@ mod push_virtual_branch {
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
             false,
+            ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 
@@ -258,6 +263,7 @@ mod push_virtual_branch {
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
             false,
+            ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 

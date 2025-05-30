@@ -12,7 +12,7 @@ use gitbutler_oxidize::OidExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::VirtualBranchesHandle;
 
-use crate::Outcome;
+use crate::{Outcome, default_target_setting_if_none};
 /// This is a GitButler automation which allows easy handling of uncommitted changes in a repository.
 /// At a high level, it will:
 ///   - Checkout GitButler's workspace branch if not already checked out
@@ -23,9 +23,6 @@ use crate::Outcome;
 ///   - Create an oplog snaposhot entry _before_ the automation is executed
 ///   - Create an oplog snapshot entry _after_ the automation is executed
 ///   - Create a separate persisted entry recording the request context and IDs for the two oplog snapshots
-///
-/// TODO:
-/// - Handle the case of target branch not being configured
 pub fn handle_changes(
     ctx: &mut CommandContext,
     change_summary: &str,
@@ -34,6 +31,9 @@ pub fn handle_changes(
     let mut guard = ctx.project().exclusive_worktree_access();
     let perm = guard.write_permission();
 
+    let vb_state = &VirtualBranchesHandle::new(ctx.project().gb_dir());
+    default_target_setting_if_none(ctx, vb_state)?; // Create a default target if none exists.
+
     let snapshot_before = ctx
         .create_snapshot(
             SnapshotDetails::new(OperationKind::AutoHandleChangesBefore),
@@ -41,7 +41,7 @@ pub fn handle_changes(
         )?
         .to_gix();
 
-    let response = handle_changes_simple_inner(ctx, change_summary, perm);
+    let response = handle_changes_simple_inner(ctx, change_summary, vb_state, perm);
 
     let snapshot_after = ctx
         .create_snapshot(
@@ -68,9 +68,9 @@ pub fn handle_changes(
 fn handle_changes_simple_inner(
     ctx: &mut CommandContext,
     change_summary: &str,
+    vb_state: &VirtualBranchesHandle,
     perm: &mut WorktreeWritePermission,
 ) -> anyhow::Result<Outcome> {
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     match gitbutler_operating_modes::operating_mode(ctx) {
         OperatingMode::OpenWorkspace => {
             // No action needed, we're already in the workspace
@@ -82,7 +82,7 @@ fn handle_changes_simple_inner(
         }
         OperatingMode::OutsideWorkspace(_) => {
             let default_target = vb_state.get_default_target()?;
-            gitbutler_branch_actions::set_base_branch(ctx, &default_target.branch, true)?;
+            gitbutler_branch_actions::set_base_branch(ctx, &default_target.branch, false, perm)?;
         }
     }
 
@@ -98,7 +98,7 @@ fn handle_changes_simple_inner(
     }
 
     // Get the current stacks in the workspace, creating one if none exists.
-    let stacks = crate::stacks_creating_if_none(ctx, &vb_state, &repo, perm)?;
+    let stacks = crate::stacks_creating_if_none(ctx, vb_state, &repo, perm)?;
 
     // Put the assignments into buckets by stack ID.
     let mut stack_assignments: HashMap<StackId, Vec<DiffSpec>> =

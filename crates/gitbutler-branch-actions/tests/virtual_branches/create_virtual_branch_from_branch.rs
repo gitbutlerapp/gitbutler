@@ -11,6 +11,7 @@ fn integration() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -135,6 +136,7 @@ fn no_conflicts() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -180,6 +182,7 @@ fn conflicts_with_uncommited() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -230,6 +233,7 @@ fn conflicts_with_commited() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -272,6 +276,7 @@ fn from_default_target() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -298,6 +303,7 @@ fn from_non_existent_branch() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -339,6 +345,7 @@ fn from_state_remote_branch() {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -390,6 +397,7 @@ mod conflict_cases {
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
             false,
+            ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 
