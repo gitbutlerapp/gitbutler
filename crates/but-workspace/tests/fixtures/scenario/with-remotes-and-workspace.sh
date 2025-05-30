@@ -16,9 +16,36 @@ function set_author() {
   git config user.email $author@example.com
 }
 
-function setup_target_to_match_main() {
+function remote_tracking_caught_up() {
+  setup_remote_tracking "$1"
+}
+
+function setup_remote_tracking() {
+  local branch_name="${1:?}"
+  local remote_branch_name=${2:-"$branch_name"}
+  local mode=${3:-"cp"}
   mkdir -p .git/refs/remotes/origin
-  cp .git/refs/heads/main .git/refs/remotes/origin/
+
+  if [[ "$mode" == "cp" ]]; then
+    cp ".git/refs/heads/$branch_name" ".git/refs/remotes/origin/$remote_branch_name"
+  else
+    mv ".git/refs/heads/$branch_name" ".git/refs/remotes/origin/$remote_branch_name"
+  fi
+}
+
+function tick () {
+  if test -z "${tick+set}"; then
+    tick=1675176957
+  else
+    tick=$(($tick + 60))
+  fi
+  GIT_COMMITTER_DATE="$tick +0100"
+  GIT_AUTHOR_DATE="$tick +0100"
+  export GIT_COMMITTER_DATE GIT_AUTHOR_DATE
+}
+
+function setup_target_to_match_main() {
+  remote_tracking_caught_up main
 
   cat <<EOF >>.git/config
 [remote "origin"]
@@ -126,7 +153,7 @@ git clone remote target-ahead-remote-rewritten
     # a remote commit that looks like a local commit by message
     git commit --allow-empty -m "shared by name"
     git commit --allow-empty -m "unique remote"
-    mv .git/refs/heads/new-origin .git/refs/remotes/origin/A
+    setup_remote_tracking new-origin A 'move'
   )
   git checkout A
 
@@ -181,7 +208,7 @@ git init two-branches-one-advanced-two-parent-ws-commit-diverged-ttb
   git commit -m "disjoint remote target" --allow-empty
 
   mkdir -p .git/refs/remotes/origin
-  mv .git/refs/heads/disjoint-target-tracking .git/refs/remotes/origin/main
+  setup_remote_tracking disjoint-target-tracking main 'move'
 
   git checkout gitbutler/workspace
 )
@@ -201,7 +228,7 @@ git init two-branches-one-advanced-two-parent-ws-commit
 cp -R two-branches-one-advanced-two-parent-ws-commit two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed
 (cd two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed
   # This works without an official remote setup as we go by name as fallback.
-  cp .git/refs/heads/advanced-lane .git/refs/remotes/origin/advanced-lane
+  remote_tracking_caught_up advanced-lane
 )
 
 cp -R two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependant
@@ -218,11 +245,41 @@ git init three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-depen
   git checkout -b advanced-lane
   git commit -m "change" --allow-empty
   # This works without an official remote setup as we go by name as fallback.
-  cp .git/refs/heads/advanced-lane .git/refs/remotes/origin/advanced-lane
+  remote_tracking_caught_up advanced-lane
   git branch dependant
   git branch on-top-of-dependant
 
   create_workspace_commit_once advanced-lane
+)
+
+git init two-dependent-branches-rebased-with-remotes
+(cd two-dependent-branches-rebased-with-remotes
+  git commit -m "init" --allow-empty
+  setup_target_to_match_main
+  git branch A
+  git checkout A
+  git commit -m "change in A" --allow-empty
+  git branch future-remote-A
+
+  # create remotes with the same structure as the branches before,
+  # just as if the local branches were rebased.
+  # This is the state that was pushed, i.e. just two commits.
+  git checkout -b future-remote-B
+  git commit -m "change in B" --allow-empty
+
+  # this emulates someone adding another commit in the lower level
+  # of a stack after push.
+  # The tick makes it more realistic, indicating that the rebased commits are newer.
+  git checkout A && tick
+  git commit -m "change after push" --allow-empty
+
+  git checkout -b B-on-A
+  git commit -m "change in B" --allow-empty
+
+  create_workspace_commit_once B-on-A
+
+  setup_remote_tracking future-remote-A A 'move'
+  setup_remote_tracking future-remote-B B-on-A 'move'
 )
 
 git init two-branches-one-advanced-ws-commit-on-top-of-stack
@@ -236,6 +293,23 @@ git init two-branches-one-advanced-ws-commit-on-top-of-stack
 
   create_workspace_commit_once lane advanced-lane
 )
+
+git init two-dependent-branches-with-one-commit-with-remotes
+(cd two-dependent-branches-with-one-commit-with-remotes
+  git commit -m "init" --allow-empty
+  setup_target_to_match_main
+
+  git checkout -b lane
+  git commit -m "change" --allow-empty
+  remote_tracking_caught_up lane
+
+  git checkout -b on-top-of-lane
+  git commit -m "change on top" --allow-empty
+  remote_tracking_caught_up on-top-of-lane
+
+  create_workspace_commit_once on-top-of-lane
+)
+
 git init multiple-dependent-branches-per-stack-without-commit
 (cd multiple-dependent-branches-per-stack-without-commit
   git commit -m "init" --allow-empty

@@ -28,7 +28,7 @@ pub(crate) mod function {
     use anyhow::bail;
     use bstr::BString;
     use but_core::ref_metadata::{ValueInfo, Workspace, WorkspaceStack};
-    use gitbutler_oxidize::ObjectIdExt as _;
+    use gitbutler_oxidize::{ObjectIdExt as _, OidExt};
     use gix::prelude::{ObjectIdExt, ReferenceExt};
     use gix::refs::{Category, FullName};
     use gix::revision::walk::Sorting;
@@ -804,7 +804,7 @@ pub(crate) mod function {
         enum ChangeIdOrCommitData {
             ChangeId(String),
             CommitData {
-                author: gix::actor::Signature,
+                author: gix::actor::Identity,
                 message: BString,
             },
         }
@@ -815,9 +815,6 @@ pub(crate) mod function {
         let mut similarity_lut = HashMap::<ChangeIdOrCommitData, gix::ObjectId>::new();
         let git2_repo = git2::Repository::open(repo.path())?;
         for stack in stacks {
-            boundary.clear();
-            boundary.extend(stack.base);
-
             let segments_with_remote_ref_tips_and_base: Vec<_> = stack
                 .segments
                 .iter()
@@ -857,7 +854,10 @@ pub(crate) mod function {
                     })
                     .collect();
 
+            // TODO: get `hide()` for `gix`.
             for (segment_index, remote_ref_tip_and_base) in segments_with_remote_ref_tips_and_base {
+                boundary.clear();
+                boundary.extend(stack.base);
                 let segment = &mut stack.segments[*segment_index];
                 if let Some((remote_ref_tip, base_for_remote)) = remote_ref_tip_and_base {
                     boundary.insert(base_for_remote);
@@ -878,29 +878,28 @@ pub(crate) mod function {
                             }
                         };
 
-                    'remote_branch_traversal: for info in remote_ref_tip
-                        .attach(repo)
-                        .ancestors()
-                        .first_parent_only()
-                        .sorting(Sorting::BreadthFirst)
-                        // TODO: boundary should be 'hide'.
-                        .selected(|commit_id_to_yield| !boundary.contains(commit_id_to_yield))?
-                    {
-                        let info = info?;
-                        // Don't break, maybe the local commits are reachable through multiple avenues.
+                    let mut walk = git2_repo.revwalk()?;
+                    walk.push(remote_ref_tip.to_git2())?;
+                    walk.simplify_first_parent()?;
+                    for id in &boundary {
+                        walk.hide(id.to_git2())?;
+                    }
+                    'remote_branch_traversal: for info in walk {
+                        let id = info?.to_gix();
                         if let Some(idx) = segment
                             .commits_unique_from_tip
                             .iter_mut()
                             .enumerate()
-                            .find_map(|(idx, c)| (c.id == info.id).then_some(idx))
+                            .find_map(|(idx, c)| (c.id == id).then_some(idx))
                         {
                             // Mark all commits from here as pushed.
                             for commit in &mut segment.commits_unique_from_tip[idx..] {
                                 commit.relation = LocalCommitRelation::LocalAndRemote(commit.id);
                             }
-                            break 'remote_branch_traversal;
+                            // Don't break, maybe the local commits are reachable through multiple avenues.
+                            continue 'remote_branch_traversal;
                         } else {
-                            let commit = but_core::Commit::from_id(info.id())?;
+                            let commit = but_core::Commit::from_id(id.attach(repo))?;
                             let has_conflicts = commit.is_conflicted();
                             if let Some(hdr) = commit.headers() {
                                 insert_or_expell_ambiguous(
@@ -910,7 +909,7 @@ pub(crate) mod function {
                             }
                             insert_or_expell_ambiguous(
                                 ChangeIdOrCommitData::CommitData {
-                                    author: commit.author.clone(),
+                                    author: commit.author.clone().into(),
                                     message: commit.message.clone(),
                                 },
                                 commit.id.detach(),
@@ -935,7 +934,7 @@ pub(crate) mod function {
                         })
                         .or_else(|| {
                             similarity_lut.get(&ChangeIdOrCommitData::CommitData {
-                                author: commit.author.clone(),
+                                author: commit.author.clone().into(),
                                 message: commit.message.clone(),
                             })
                         })
