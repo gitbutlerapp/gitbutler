@@ -122,8 +122,8 @@
 	// Fetch the reviews for the applied branches
 	$effect(() => {
 		if (
-			filteredReviews === undefined &&
 			appliedBranches !== undefined &&
+			filteredReviews === undefined &&
 			forgeListingService !== undefined
 		) {
 			if (appliedBranches.length === 0) {
