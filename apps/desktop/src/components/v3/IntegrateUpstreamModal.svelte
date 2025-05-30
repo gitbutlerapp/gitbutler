@@ -6,6 +6,7 @@
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { sprayConfetti } from '$lib/joy/confetti';
 	import { type Stack } from '$lib/stacks/stack';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import {
 		getBaseBranchResolution,
@@ -61,15 +62,10 @@
 	let baseResolutionApproach = $state<BaseBranchResolutionApproach | undefined>();
 	let targetCommitOid = $state<string | undefined>(undefined);
 	let branchStatuses = $state<StackStatusesWithBranchesV3 | undefined>();
-	const appliedBranches = $derived(
-		branchStatuses?.type === 'updatesRequired'
-			? branchStatuses.subject.map((s) => s.stack.heads.map((h) => h.name)).flat()
-			: []
-	);
-	const filteredReviewsResponse = $derived(
-		forgeListingService?.filterByBranch(projectId, appliedBranches)
-	);
-	const filteredReviews = $derived(filteredReviewsResponse?.current.data);
+	const stackService = getContext(StackService);
+	const stacks = $derived(stackService.stacks(projectId));
+	const appliedBranches = $derived(stacks.current.data?.flatMap((s) => s.heads.map((h) => h.name)));
+	let filteredReviews = $state<PullRequest[] | undefined>(undefined);
 	const reviewMap = $derived(new Map(filteredReviews?.map((r) => [r.sourceBranch, r])));
 
 	const isDivergedResolved = $derived(base?.diverged && !baseResolutionApproach);
@@ -127,6 +123,24 @@
 		}
 	});
 
+	// Fetch the reviews for the applied branches
+	$effect(() => {
+		if (
+			filteredReviews === undefined &&
+			appliedBranches !== undefined &&
+			forgeListingService !== undefined
+		) {
+			if (appliedBranches.length === 0) {
+				filteredReviews = [];
+				return;
+			}
+
+			forgeListingService.fetchByBranch(projectId, appliedBranches).then((reviews) => {
+				filteredReviews = reviews.filter((r) => r.sourceBranch !== undefined);
+			});
+		}
+	});
+
 	function handleBaseResolutionSelection(value: string) {
 		baseResolutionApproach = value as BaseBranchResolutionApproach;
 	}
@@ -155,10 +169,10 @@
 	export async function show() {
 		integratingUpstream = 'inert';
 		branchStatuses = undefined;
+		filteredReviews = undefined;
 		modal?.show();
 		// Fetch the base branch and the forge info to ensure we have the latest data
 		await baseBranchService.fetchFromRemotes(projectId);
-		await forgeListingService?.refresh(projectId);
 		branchStatuses = await upstreamIntegrationService.upstreamStatuses(projectId, targetCommitOid);
 	}
 

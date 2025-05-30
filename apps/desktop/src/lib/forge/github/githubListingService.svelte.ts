@@ -1,8 +1,10 @@
 import { ghQuery } from '$lib/forge/github/ghQuery';
 import { ghResponseToInstance } from '$lib/forge/github/types';
 import { createSelectByIds } from '$lib/state/customSelectors';
+import { combineResults } from '$lib/state/helpers';
 import { providesList, ReduxTag } from '$lib/state/tags';
 import { reactive } from '@gitbutler/shared/storeUtils';
+import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { ForgeListingService } from '$lib/forge/interface/forgeListingService';
 import type { PullRequest } from '$lib/forge/interface/types';
@@ -47,6 +49,17 @@ export class GitHubListingService implements ForgeListingService {
 		});
 	}
 
+	async fetchByBranch(projectId: string, branchNames: string[]) {
+		const results = await Promise.all(
+			branchNames.map((branch) =>
+				this.api.endpoints.listPrsByBranch.fetch({ projectId, branchName: branch })
+			)
+		);
+		const combined = combineResults(...results);
+
+		return combined.data?.filter(isDefined) ?? [];
+	}
+
 	async refresh(projectId: string): Promise<void> {
 		await this.api.endpoints.listPrs.fetch(projectId, { forceRefetch: true });
 	}
@@ -77,6 +90,37 @@ function injectEndpoints(api: GitHubApi) {
 					};
 				},
 				providesTags: [providesList(ReduxTag.PullRequests)]
+			}),
+			listPrsByBranch: build.query<PullRequest | null, { projectId: string; branchName: string }>({
+				queryFn: async ({ branchName }, api) => {
+					const result = await ghQuery<'pulls', 'list', 'required'>(
+						async (octokit, repository) => ({
+							data: await octokit.paginate(octokit.rest.pulls.list, {
+								...repository,
+								head: `${repository.owner}:${branchName}`
+							})
+						}),
+						api.extra,
+						'required'
+					);
+
+					if (result.error) {
+						return { error: result.error };
+					}
+
+					if (result.data.length === 0) {
+						return { data: null };
+					}
+
+					if (result.data.length > 1) {
+						return { error: new Error(`Multiple pull requests found for branch ${branchName}`) };
+					}
+
+					const prData = result.data[0]!;
+
+					const pr = ghResponseToInstance(prData);
+					return { data: pr };
+				}
 			})
 		})
 	});
