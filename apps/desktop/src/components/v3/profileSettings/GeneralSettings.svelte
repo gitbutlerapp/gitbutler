@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import Login from '$components/Login.svelte';
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
+	import { invoke } from '$lib/backend/ipc';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { showError } from '$lib/notifications/toasts';
 	import { ProjectsService } from '$lib/project/projectsService';
@@ -113,6 +114,16 @@
 			isDeleting = false;
 		}
 	}
+
+	async function installCli() {
+		await invoke('install_cli');
+	}
+
+	async function cli_command(): Promise<string> {
+		const path: string = await invoke('cli_path');
+		const command = 'ln -sf ' + path + ' /usr/local/bin/but';
+		return command;
+	}
 </script>
 
 {#if $user}
@@ -167,6 +178,33 @@
 		/>
 	{/snippet}
 </SectionCard>
+
+{#if $user && $user.role?.includes('admin')}
+	<SectionCard labelFor="disable-auto-checks" orientation="row">
+		{#snippet title()}
+			Install the GitButler CLI (but)
+		{/snippet}
+
+		{#snippet caption()}
+			Installs the GitButler CLI (but) in your PATH, allowing you to use it from the terminal. This
+			action will request admin privileges.
+			<br />
+			<br />
+			Alternatively, you could create a symlink manually:
+			<br />
+			<br />
+			{#await cli_command() then command}
+				<span>
+					{command}
+				</span>
+			{/await}
+		{/snippet}
+
+		{#snippet actions()}
+			<Button style="neutral" kind="outline" onclick={() => installCli()}>Install CLI</Button>
+		{/snippet}
+	</SectionCard>
+{/if}
 
 <Spacer />
 
