@@ -51,29 +51,38 @@ pub fn install_cli() -> anyhow::Result<(), Error> {
         Err(err) => return Err(anyhow::Error::from(err).into()),
     }
 
-    let bin_dir = link_path.parent().context("Cant find bin dir")?;
-    let status = std::process::Command::new("/usr/bin/osascript")
-        .args([
-            "-e",
-            &format!(
-                "do shell script \" \
-                    mkdir -p \'{}\' && \
+    #[cfg(target_os = "macos")]
+    {
+        let status = std::process::Command::new("/usr/bin/osascript")
+            .args([
+                "-e",
+                &format!(
+                    "do shell script \" \
                     ln -sf \'{}\' \'{}\' \
                 \" with administrator privileges",
-                bin_dir.to_string_lossy(),
-                cli_path.to_string_lossy(),
-                link_path.to_string_lossy(),
-            ),
-        ])
-        .stdout(std::process::Stdio::inherit())
-        .stderr(std::process::Stdio::inherit())
-        .status()
-        .context("Failed to run osascript")?;
+                    cli_path.display(),
+                    link_path.display(),
+                ),
+            ])
+            .stdout(std::process::Stdio::inherit())
+            .stderr(std::process::Stdio::inherit())
+            .status()
+            .context("Failed to run osascript")?;
 
-    if !status.success() {
-        return Err(anyhow::anyhow!("error running osascript")).map_err(Error::from);
+        return if !status.success() {
+            Ok(())
+        } else {
+            return Err(anyhow::anyhow!("error running osascript")).map_err(Error::from);
+        };
     }
-    Ok(())
+
+    #[cfg(not(target_os = "macos"))]
+    Err(anyhow::anyhow!(
+        "Would probably need to run \"ln -sf '{}' '{}'\" with root permissions",
+        cli_path.display(),
+        link_path.display()
+    )
+    .into())
 }
 
 #[tauri::command(async)]
