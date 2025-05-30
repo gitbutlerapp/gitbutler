@@ -518,8 +518,8 @@ impl PushStatus {
         commits_unique_from_tip: &[branch::LocalCommit],
         commits_unique_in_remote_tracking_branch: &[branch::RemoteCommit],
     ) -> Self {
-        if has_remote_tracking_ref {
-            // generally, don't do anything if no remote relationship is setup (anymore).
+        if !has_remote_tracking_ref {
+            // Generally, don't do anything if no remote relationship is set up (anymore).
             // There may be better ways to deal with this.
             return PushStatus::CompletelyUnpushed;
         }
