@@ -36,9 +36,12 @@ fn forcepush_allowed() -> anyhow::Result<()> {
         })
         .unwrap();
 
-    let stack_entry =
-        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
-            .unwrap();
+    let stack_entry = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest::default(),
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )
+    .unwrap();
 
     // create commit
     fs::write(repo.path().join("file.txt"), "content").unwrap();
@@ -91,9 +94,12 @@ fn non_locked_hunk() -> anyhow::Result<()> {
     )
     .unwrap();
 
-    let stack_entry =
-        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
-            .unwrap();
+    let stack_entry = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest::default(),
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )
+    .unwrap();
 
     // create commit
     fs::write(repo.path().join("file.txt"), "content").unwrap();
@@ -152,9 +158,12 @@ fn locked_hunk() -> anyhow::Result<()> {
     )
     .unwrap();
 
-    let stack_entry =
-        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
-            .unwrap();
+    let stack_entry = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest::default(),
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )
+    .unwrap();
 
     // create commit
     fs::write(repo.path().join("file.txt"), "content").unwrap();
@@ -218,9 +227,12 @@ fn non_existing_ownership() {
     )
     .unwrap();
 
-    let stack_entry =
-        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
-            .unwrap();
+    let stack_entry = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest::default(),
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )
+    .unwrap();
 
     // create commit
     fs::write(repo.path().join("file.txt"), "content").unwrap();

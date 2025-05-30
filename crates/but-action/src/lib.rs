@@ -8,6 +8,7 @@ use std::{
 use but_workspace::{DiffSpec, VirtualBranchesTomlMetadata, ui::StackEntry};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_command_context::CommandContext;
+use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::VirtualBranchesHandle;
 use serde::{Deserialize, Serialize};
 
@@ -55,6 +56,7 @@ fn stacks_creating_if_none(
     ctx: &CommandContext,
     vb_state: &VirtualBranchesHandle,
     repo: &gix::Repository,
+    perm: &mut WorktreeWritePermission,
 ) -> anyhow::Result<Vec<StackEntry>> {
     let meta = VirtualBranchesTomlMetadata::from_path(
         ctx.project().gb_dir().join("virtual_branches.toml"),
@@ -74,7 +76,7 @@ fn stacks_creating_if_none(
             order: None,
             selected_for_changes: None,
         };
-        gitbutler_branch_actions::create_virtual_branch(ctx, &create_req)?;
+        gitbutler_branch_actions::create_virtual_branch(ctx, &create_req, perm)?;
         let stacks =
             but_workspace::stacks_v3(repo, &meta, but_workspace::StacksFilter::InWorkspace)?;
         if stacks.is_empty() {

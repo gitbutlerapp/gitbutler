@@ -16,9 +16,12 @@ fn should_lock_updated_hunks() {
     )
     .unwrap();
 
-    let stack_entry =
-        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
-            .unwrap();
+    let stack_entry = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest::default(),
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )
+    .unwrap();
 
     {
         // by default, hunks are not locked
@@ -64,7 +67,12 @@ fn should_reset_into_same_branch() {
     )
     .unwrap();
 
-    gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default()).unwrap();
+    gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest::default(),
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )
+    .unwrap();
 
     let stack_entry_2 = gitbutler_branch_actions::create_virtual_branch(
         ctx,
@@ -72,6 +80,7 @@ fn should_reset_into_same_branch() {
             selected_for_changes: Some(true),
             ..Default::default()
         },
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 

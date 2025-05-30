@@ -41,6 +41,7 @@ async fn hunk_locking_confused_by_line_number_shift() -> anyhow::Result<()> {
             selected_for_changes: Some(true),
             ..Default::default()
         },
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -118,6 +119,7 @@ async fn hunk_locking_with_deleted_lines_only() -> anyhow::Result<()> {
             selected_for_changes: Some(true),
             ..Default::default()
         },
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 

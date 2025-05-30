@@ -27,9 +27,12 @@ fn rebase_commit() {
 
     let mut stack_1_id = {
         // create a branch with some commited work
-        let stack_entry_1 =
-            gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
-                .unwrap();
+        let stack_entry_1 = gitbutler_branch_actions::create_virtual_branch(
+            ctx,
+            &BranchCreateRequest::default(),
+            ctx.project().exclusive_worktree_access().write_permission(),
+        )
+        .unwrap();
         fs::write(repo.path().join("another_file.txt"), "virtual").unwrap();
 
         gitbutler_branch_actions::create_commit(ctx, stack_entry_1.id, "virtual commit", None)
@@ -139,9 +142,12 @@ fn rebase_work() {
 
     let mut stack_1_id = {
         // make a branch with some work
-        let stack_entry_1 =
-            gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
-                .unwrap();
+        let stack_entry_1 = gitbutler_branch_actions::create_virtual_branch(
+            ctx,
+            &BranchCreateRequest::default(),
+            ctx.project().exclusive_worktree_access().write_permission(),
+        )
+        .unwrap();
         fs::write(repo.path().join("another_file.txt"), "").unwrap();
 
         let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();

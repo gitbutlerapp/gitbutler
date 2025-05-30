@@ -93,7 +93,11 @@ pub mod commands {
     ) -> Result<StackEntry, Error> {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        let stack_entry = gitbutler_branch_actions::create_virtual_branch(&ctx, &branch)?;
+        let stack_entry = gitbutler_branch_actions::create_virtual_branch(
+            &ctx,
+            &branch,
+            ctx.project().exclusive_worktree_access().write_permission(),
+        )?;
         emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(stack_entry)
     }

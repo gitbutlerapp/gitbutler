@@ -15,9 +15,12 @@ fn to_head() {
     )
     .unwrap();
 
-    let stack_entry =
-        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
-            .unwrap();
+    let stack_entry = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest::default(),
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )
+    .unwrap();
 
     let oid = {
         fs::write(repo.path().join("file.txt"), "content").unwrap();
@@ -70,9 +73,12 @@ fn to_target() {
     )
     .unwrap();
 
-    let stack_entry_1 =
-        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
-            .unwrap();
+    let stack_entry_1 = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest::default(),
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )
+    .unwrap();
 
     {
         fs::write(repo.path().join("file.txt"), "content").unwrap();
@@ -123,9 +129,12 @@ fn to_commit() {
     )
     .unwrap();
 
-    let stack_entry_1 =
-        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
-            .unwrap();
+    let stack_entry_1 = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest::default(),
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )
+    .unwrap();
 
     let first_commit_oid = {
         // commit some changes
@@ -210,9 +219,12 @@ fn to_non_existing() {
     )
     .unwrap();
 
-    let stack_entry_1 =
-        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
-            .unwrap();
+    let stack_entry_1 = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest::default(),
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )
+    .unwrap();
 
     {
         fs::write(repo.path().join("file.txt"), "content").unwrap();

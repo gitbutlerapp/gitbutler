@@ -13,9 +13,12 @@ fn detect_upstream_commits() {
     )
     .unwrap();
 
-    let stack_entry_1 =
-        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
-            .unwrap();
+    let stack_entry_1 = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest::default(),
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )
+    .unwrap();
 
     let oid1 = {
         // create first commit
@@ -65,9 +68,12 @@ fn detect_integrated_commits() {
     )
     .unwrap();
 
-    let stack_entry_1 =
-        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
-            .unwrap();
+    let stack_entry_1 = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest::default(),
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )
+    .unwrap();
 
     let oid1 = {
         // create first commit
