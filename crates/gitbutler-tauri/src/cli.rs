@@ -1,40 +1,41 @@
 use std::path::Path;
 
 use crate::error::Error;
-use anyhow::Context;
+use anyhow::{anyhow, bail, Context};
 use tracing::instrument;
 
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn install_cli() -> anyhow::Result<(), Error> {
+    do_install_cli().map_err(Error::from)
+}
+
+fn do_install_cli() -> anyhow::Result<()> {
     let cli_path = get_cli_path()?;
     if cfg!(windows) {
-        return Err(anyhow::anyhow!(
+        bail!(
             "CLI installation is not supported on Windows. Please install manually by placing '{}' in PATH.", cli_path.display()
-        ).into());
+        );
     }
 
     let link_path = Path::new("/usr/local/bin/but");
-    match std::fs::symlink_metadata(&link_path) {
+    match std::fs::symlink_metadata(link_path) {
         Ok(md) => {
             if !md.is_symlink() {
-                return Err(anyhow::anyhow!(
+                bail!(
                     "Refusing to install symlink onto existing non-symlink at '{}'",
                     link_path.display()
-                )
-                .into());
+                );
             }
-            let current_link = std::fs::read_link(link_path)
-                .context(format!(
-                    "error reading existing link: {}",
-                    link_path.display()
-                ))
-                .map_err(Error::from)?;
+            let current_link = std::fs::read_link(link_path).context(format!(
+                "error reading existing link: {}",
+                link_path.display()
+            ))?;
             if current_link == cli_path {
                 return Ok(());
             }
             #[cfg(not(windows))]
-            if std::fs::remove_file(&link_path)
+            if std::fs::remove_file(link_path)
                 .and_then(|_| std::os::unix::fs::symlink(&cli_path, link_path))
                 .is_ok()
             {
@@ -48,11 +49,10 @@ pub fn install_cli() -> anyhow::Result<(), Error> {
             }
         }
         // Also: can happen if the `/usr/local/bin` dir doesn't exist, which then is unlikely to be in PATH anyway.
-        Err(err) => return Err(anyhow::Error::from(err).into()),
+        Err(err) => return Err(err.into()),
     }
 
-    #[cfg(target_os = "macos")]
-    {
+    if cfg!(target_os = "macos") {
         let status = std::process::Command::new("/usr/bin/osascript")
             .args([
                 "-e",
@@ -69,20 +69,18 @@ pub fn install_cli() -> anyhow::Result<(), Error> {
             .status()
             .context("Failed to run osascript")?;
 
-        return if !status.success() {
+        if status.success() {
             Ok(())
         } else {
-            return Err(anyhow::anyhow!("error running osascript")).map_err(Error::from);
-        };
+            Err(anyhow!("error running osascript"))
+        }
+    } else {
+        Err(anyhow!(
+            "Would probably need to run \"ln -sf '{}' '{}'\" with root permissions",
+            cli_path.display(),
+            link_path.display()
+        ))
     }
-
-    #[cfg(not(target_os = "macos"))]
-    Err(anyhow::anyhow!(
-        "Would probably need to run \"ln -sf '{}' '{}'\" with root permissions",
-        cli_path.display(),
-        link_path.display()
-    )
-    .into())
 }
 
 #[tauri::command(async)]
