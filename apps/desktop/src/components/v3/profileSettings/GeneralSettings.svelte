@@ -180,7 +180,7 @@
 </SectionCard>
 
 {#if $user && $user.role?.includes('admin')}
-	<SectionCard labelFor="disable-auto-checks" orientation="row">
+	<SectionCard orientation="row">
 		{#snippet title()}
 			Install the GitButler CLI (but)
 		{/snippet}
