@@ -83,21 +83,34 @@
 		// Side effect, refresh results
 		results.clear();
 		for (const status of statusesTmp) {
-			const mergedAssociatedReviews = filteredReviews.filter(
-				(r) => status.stack.heads.some((h) => h.name === r.sourceBranch) && r.mergedAt !== undefined
-			);
-			const forceIntegratedBranches = mergedAssociatedReviews.map((r) => r.sourceBranch);
-
 			results.set(status.stack.id, {
 				branchId: status.stack.id,
 				approach: getResolutionApproachV3(status),
 				deleteIntegratedBranches: true,
-				forceIntegratedBranches
+				forceIntegratedBranches: []
 			});
 		}
 
 		statuses = statusesTmp;
 	});
+
+	function updateForceIntegrated(): void {
+		if (branchStatuses?.type !== 'updatesRequired' || filteredReviews === undefined) {
+			statuses = [];
+			return;
+		}
+		const statusesTmp = [...branchStatuses.subject];
+		statusesTmp.sort(sortStatusInfoV3);
+		for (const status of statusesTmp) {
+			const mergedAssociatedReviews = filteredReviews.filter(
+				(r) => status.stack.heads.some((h) => h.name === r.sourceBranch) && r.mergedAt !== undefined
+			);
+			const forceIntegratedBranches = mergedAssociatedReviews.map((r) => r.sourceBranch);
+			let result = results.get(status.stack.id);
+			if (!result) continue;
+			results.set(status.stack.id, { ...result, forceIntegratedBranches });
+		}
+	}
 
 	// Re-fetch upstream statuses if the target commit oid changes
 	$effect(() => {
@@ -166,13 +179,22 @@
 		modal?.close();
 	}
 
+	let fetching = $state(false);
+
 	export async function show() {
 		integratingUpstream = 'inert';
 		branchStatuses = undefined;
 		filteredReviews = undefined;
 		modal?.show();
 		// Fetch the base branch and the forge info to ensure we have the latest data
-		await baseBranchService.fetchFromRemotes(projectId);
+		fetching = true;
+		baseBranchService
+			.fetchFromRemotes(projectId)
+			.then(() => {
+				updateForceIntegrated();
+			})
+			.finally(() => (fetching = false));
+
 		branchStatuses = await upstreamIntegrationService.upstreamStatuses(projectId, targetCommitOid);
 	}
 
