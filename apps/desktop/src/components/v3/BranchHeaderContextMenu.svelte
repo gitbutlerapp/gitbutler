@@ -268,6 +268,8 @@
 						/>
 					</ContextMenuSection>
 				{/snippet}
+				<!-- For now, just swallow this error -->
+				{#snippet error()}{/snippet}
 			</ReduxResult>
 		{/if}
 

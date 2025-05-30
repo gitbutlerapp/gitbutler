@@ -36,13 +36,12 @@ export class PrPersistedStore {
 	}
 
 	dispatchCurrent() {
-		this.dispatch(this.persisted !== '' ? this.persisted : this._default);
+		this.dispatch(!isEmptyOrUndefined(this.persisted) ? this.persisted : this._default);
 	}
 
 	dispatch(value: string) {
-		const dispatchValue = isEmptyOrUndefined(value) ? this._default : value;
 		for (const subscriber of this.subscribers) {
-			subscriber(dispatchValue);
+			subscriber(value);
 		}
 	}
 
