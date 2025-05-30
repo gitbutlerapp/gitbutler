@@ -12,7 +12,8 @@ diesel::table! {
     butler_actions (id) {
         id -> Text,
         created_at -> Timestamp,
-        external_prompt -> Text,
+        external_prompt -> Nullable<Text>,
+        external_summary -> Text,
         handler -> Text,
         handler_prompt -> Nullable<Text>,
         snapshot_before -> Text,

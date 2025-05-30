@@ -19,11 +19,14 @@ use strum::EnumString;
 
 pub fn handle_changes(
     ctx: &mut CommandContext,
-    change_description: &str,
+    change_summary: &str,
+    external_prompt: Option<String>,
     handler: ActionHandler,
 ) -> anyhow::Result<Outcome> {
     match handler {
-        ActionHandler::HandleChangesSimple => simple::handle_changes(ctx, change_description),
+        ActionHandler::HandleChangesSimple => {
+            simple::handle_changes(ctx, change_summary, external_prompt)
+        }
     }
 }
 

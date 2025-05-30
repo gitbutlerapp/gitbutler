@@ -15,8 +15,10 @@ pub struct ButlerAction {
     pub id: String,
     /// The time when the action was performed.
     pub created_at: chrono::NaiveDateTime,
+    /// The prompt that was used to generate the changes that were made, if applicable
+    pub external_prompt: Option<String>,
     /// A description of the change that was made and why it was made - i.e. the information that can be obtained from the caller.
-    pub external_prompt: String,
+    pub external_summary: String,
     /// The handler / implementation that performed the action.
     pub handler: String,
     /// An optional prompt that was used by the handler to perform the action, if applicable.
