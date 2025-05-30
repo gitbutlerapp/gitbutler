@@ -20,7 +20,13 @@
 			<div class="action-log">
 				{#if actions.total > 0}
 					<h2 class="text-16 text-semibold">Action Log</h2>
-					<pre> {JSON.stringify(actions, null, 2)} </pre>
+					{#each actions.actions as action (action.id)}
+						<div class="action-item">
+							<span class="text-14">{action.externalSummary}</span>
+							<span class="text-13">{new Date(action.createdAt).toLocaleString()}</span>
+							<span class="text-13">{action.response}</span>
+						</div>
+					{/each}
 				{:else}
 					<h2 class="text-16">No actions performed, yet!</h2>
 				{/if}
