@@ -23,9 +23,6 @@ use crate::{Outcome, default_target_setting_if_none};
 ///   - Create an oplog snaposhot entry _before_ the automation is executed
 ///   - Create an oplog snapshot entry _after_ the automation is executed
 ///   - Create a separate persisted entry recording the request context and IDs for the two oplog snapshots
-///
-/// TODO:
-/// - Handle the case of target branch not being configured
 pub fn handle_changes(
     ctx: &mut CommandContext,
     change_summary: &str,
@@ -85,7 +82,7 @@ fn handle_changes_simple_inner(
         }
         OperatingMode::OutsideWorkspace(_) => {
             let default_target = vb_state.get_default_target()?;
-            gitbutler_branch_actions::set_base_branch(ctx, &default_target.branch, true, perm)?;
+            gitbutler_branch_actions::set_base_branch(ctx, &default_target.branch, false, perm)?;
         }
     }
 
