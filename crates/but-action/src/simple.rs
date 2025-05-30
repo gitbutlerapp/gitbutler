@@ -28,7 +28,8 @@ use crate::Outcome;
 /// - Handle the case of target branch not being configured
 pub fn handle_changes(
     ctx: &mut CommandContext,
-    change_description: &str,
+    change_summary: &str,
+    external_prompt: Option<String>,
 ) -> anyhow::Result<Outcome> {
     let mut guard = ctx.project().exclusive_worktree_access();
     let perm = guard.write_permission();
@@ -40,7 +41,7 @@ pub fn handle_changes(
         )?
         .to_gix();
 
-    let response = handle_changes_simple_inner(ctx, change_description, perm);
+    let response = handle_changes_simple_inner(ctx, change_summary, perm);
 
     let snapshot_after = ctx
         .create_snapshot(
@@ -53,7 +54,8 @@ pub fn handle_changes(
         ctx,
         crate::action::ButlerAction::new(
             crate::ActionHandler::HandleChangesSimple,
-            change_description.to_owned(),
+            external_prompt,
+            change_summary.to_owned(),
             snapshot_before,
             snapshot_after,
             &response,
@@ -65,7 +67,7 @@ pub fn handle_changes(
 
 fn handle_changes_simple_inner(
     ctx: &mut CommandContext,
-    change_description: &str,
+    change_summary: &str,
     perm: &mut WorktreeWritePermission,
 ) -> anyhow::Result<Outcome> {
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
@@ -141,7 +143,7 @@ fn handle_changes_simple_inner(
             stack_id,
             None,
             diff_specs,
-            change_description.to_owned(),
+            change_summary.to_owned(),
             stack_branch_name.clone(),
             perm,
         )?;

@@ -63,6 +63,7 @@ impl Mcp {
         let response = but_action::handle_changes(
             ctx,
             &request.changes_summary,
+            Some(request.full_prompt),
             ActionHandler::HandleChangesSimple,
         )
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;

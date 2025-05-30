@@ -18,8 +18,12 @@ pub(crate) fn handle_changes(
     }
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::default())?;
-    let response =
-        but_action::handle_changes(ctx, change_description, ActionHandler::HandleChangesSimple)?;
+    let response = but_action::handle_changes(
+        ctx,
+        change_description,
+        None,
+        ActionHandler::HandleChangesSimple,
+    )?;
     print(&response, json)
 }
 

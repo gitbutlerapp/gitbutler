@@ -14,8 +14,10 @@ pub struct ButlerAction {
     id: Uuid,
     /// The time when the action was performed.
     created_at: chrono::NaiveDateTime,
+    /// The prompt that was used to generate the changes that were made, if applicable
+    external_prompt: Option<String>,
     /// A description of the change that was made and why it was made - i.e. the information that can be obtained from the caller.
-    external_prompt: String,
+    pub external_summary: String,
     /// The handler / implementation that performed the action.
     handler: ActionHandler,
     /// An optional prompt that was used by the handler to perform the action, if applicable.
@@ -42,6 +44,7 @@ impl TryFrom<but_db::ButlerAction> for ButlerAction {
             id: Uuid::parse_str(&value.id)?,
             created_at: value.created_at,
             external_prompt: value.external_prompt,
+            external_summary: value.external_summary,
             handler: value
                 .handler
                 .parse()
@@ -67,6 +70,7 @@ impl TryFrom<ButlerAction> for but_db::ButlerAction {
             id: value.id.to_string(),
             created_at: value.created_at,
             external_prompt: value.external_prompt,
+            external_summary: value.external_summary,
             handler: value.handler.to_string(),
             handler_prompt: value.handler_prompt,
             snapshot_before: value.snapshot_before.to_string(),
@@ -80,7 +84,8 @@ impl TryFrom<ButlerAction> for but_db::ButlerAction {
 impl ButlerAction {
     pub fn new(
         handler: ActionHandler,
-        external_prompt: String,
+        external_prompt: Option<String>,
+        external_summary: String,
         snapshot_before: gix::ObjectId,
         snapshot_after: gix::ObjectId,
         response: &anyhow::Result<Outcome>,
@@ -96,6 +101,7 @@ impl ButlerAction {
             created_at: chrono::Local::now().naive_local(),
             handler,
             external_prompt,
+            external_summary,
             handler_prompt: None,
             snapshot_before,
             snapshot_after,

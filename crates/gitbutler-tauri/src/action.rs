@@ -23,11 +23,11 @@ pub fn handle_changes(
     projects: tauri::State<'_, gitbutler_project::Controller>,
     settings: tauri::State<'_, but_settings::AppSettingsWithDiskSync>,
     project_id: ProjectId,
-    change_description: String,
+    change_summary: String,
     handler: but_action::ActionHandler,
 ) -> anyhow::Result<but_action::Outcome, Error> {
     let project = projects.get(project_id)?;
     let ctx = &mut CommandContext::open(&project, settings.get()?.clone())?;
-    but_action::handle_changes(ctx, &change_description, handler)
+    but_action::handle_changes(ctx, &change_summary, None, handler)
         .map_err(|e| Error::from(anyhow::anyhow!(e)))
 }
