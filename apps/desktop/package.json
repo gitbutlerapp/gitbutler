@@ -23,6 +23,7 @@
 		"cy:ci": "cypress run"
 	},
 	"devDependencies": {
+		"@gitbutler/svelte-comment-injector": "workspace:*",
 		"@anthropic-ai/sdk": "^0.27.3",
 		"@gitbutler/shared": "workspace:*",
 		"@gitbutler/ui": "workspace:*",
