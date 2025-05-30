@@ -17,6 +17,7 @@
 	import ToastController from '$components/ToastController.svelte';
 	import ZoomInOutMenuAction from '$components/ZoomInOutMenuAction.svelte';
 	import LineSelection from '$components/v3/unifiedDiffLineSelection.svelte';
+	import ActionService from '$lib/actions/actionService.svelte';
 	import { PromptService as AIPromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
@@ -151,6 +152,7 @@
 	setContext(UiState, uiState);
 
 	const stackService = new StackService(clientState['backendApi'], forgeFactory, uiState);
+	const actionService = new ActionService(clientState['backendApi']);
 	const baseBranchService = new BaseBranchService(clientState.backendApi);
 	const worktreeService = new WorktreeService(clientState);
 	const feedService = new FeedService(data.cloud, appState.appDispatch);
@@ -230,6 +232,7 @@
 	setContext(StackingLineManagerFactory, data.stackingLineManagerFactory);
 	setContext(AppSettings, data.appSettings);
 	setContext(StackService, stackService);
+	setContext(ActionService, actionService);
 	setContext(BaseBranchService, baseBranchService);
 	setContext(UpstreamIntegrationService, upstreamIntegrationService);
 	setContext(WorktreeService, worktreeService);
