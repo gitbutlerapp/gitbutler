@@ -47,6 +47,7 @@ const TOOL_LISTINGS = [
         <important_note>
             It's important to pass detaild information about the context in which the rules are being requested.
             The more detailed the context, the more accurate the rules will be.
+            If used for reviewing code, provide the code snippets that are relevant to the rules.
         </important_note>
         `,
 		inputSchema: zodToJsonSchema(ListRulesParamsSchema)
