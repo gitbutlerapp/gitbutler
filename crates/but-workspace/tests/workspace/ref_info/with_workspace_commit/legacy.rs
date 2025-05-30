@@ -139,9 +139,84 @@ mod stacks {
 
 mod stack_details {
     use crate::ref_info::with_workspace_commit::read_only_in_memory_scenario;
-    use crate::ref_info::with_workspace_commit::utils::{StackState, add_stack};
+    use crate::ref_info::with_workspace_commit::utils::{
+        StackState, add_stack, add_stack_with_segments,
+    };
     use but_testsupport::visualize_commit_graph_all;
     use gitbutler_stack::StackId;
+
+    #[test]
+    fn simple_fully_pushed() -> anyhow::Result<()> {
+        let (repo, mut meta) = read_only_in_memory_scenario(
+            "three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependant",
+        )?;
+        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * f8f33a7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * cbc6713 (origin/advanced-lane, on-top-of-dependant, dependant, advanced-lane) change
+    * fafd9d0 (origin/main, main, lane) init
+    ");
+
+        let stack_id = add_stack_with_segments(
+            &mut meta,
+            StackId::from_number_for_testing(1),
+            "dependant",
+            StackState::InWorkspace,
+            &["advanced-lane"],
+        );
+        let actual = but_workspace::stack_details_v3(stack_id, &repo, &meta)?;
+        insta::assert_debug_snapshot!(actual, @r#"
+        StackDetails {
+            derived_name: "dependant",
+            push_status: CompletelyUnpushed,
+            branch_details: [
+                BranchDetails {
+                    name: "dependant",
+                    remote_tracking_branch: None,
+                    description: None,
+                    pr_number: None,
+                    review_id: None,
+                    tip: Sha1(cbc6713ccfc78aa9a3c9cf8305a6fadce0bbe1a4),
+                    base_commit: Sha1(cbc6713ccfc78aa9a3c9cf8305a6fadce0bbe1a4),
+                    push_status: CompletelyUnpushed,
+                    last_updated_at: Some(
+                        0,
+                    ),
+                    authors: [],
+                    is_conflicted: false,
+                    commits: [],
+                    upstream_commits: [],
+                    is_remote_head: false,
+                },
+                BranchDetails {
+                    name: "advanced-lane",
+                    remote_tracking_branch: Some(
+                        "refs/remotes/origin/advanced-lane",
+                    ),
+                    description: None,
+                    pr_number: None,
+                    review_id: None,
+                    tip: Sha1(cbc6713ccfc78aa9a3c9cf8305a6fadce0bbe1a4),
+                    base_commit: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    push_status: NothingToPush,
+                    last_updated_at: Some(
+                        0,
+                    ),
+                    authors: [
+                        author <author@example.com>,
+                    ],
+                    is_conflicted: false,
+                    commits: [
+                        Commit(cbc6713, "change", local/remote(identity)),
+                    ],
+                    upstream_commits: [],
+                    is_remote_head: false,
+                },
+            ],
+            is_conflicted: false,
+        }
+        "#);
+        Ok(())
+    }
 
     #[test]
     fn multiple_branches_with_shared_segment_automatically_know_containing_workspace()
@@ -169,7 +244,7 @@ mod stack_details {
         insta::assert_debug_snapshot!(actual, @r#"
         StackDetails {
             derived_name: "B-on-A",
-            push_status: UnpushedCommits,
+            push_status: CompletelyUnpushed,
             branch_details: [
                 BranchDetails {
                     name: "B-on-A",
@@ -179,7 +254,7 @@ mod stack_details {
                     review_id: None,
                     tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
                     base_commit: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-                    push_status: UnpushedCommits,
+                    push_status: CompletelyUnpushed,
                     last_updated_at: Some(
                         0,
                     ),
@@ -208,7 +283,7 @@ mod stack_details {
         insta::assert_debug_snapshot!(actual, @r#"
         StackDetails {
             derived_name: "C-on-A",
-            push_status: UnpushedCommits,
+            push_status: CompletelyUnpushed,
             branch_details: [
                 BranchDetails {
                     name: "C-on-A",
@@ -218,7 +293,7 @@ mod stack_details {
                     review_id: None,
                     tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
                     base_commit: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
-                    push_status: UnpushedCommits,
+                    push_status: CompletelyUnpushed,
                     last_updated_at: Some(
                         0,
                     ),
@@ -242,7 +317,7 @@ mod stack_details {
                     review_id: None,
                     tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
                     base_commit: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-                    push_status: CompletelyUnpushed,
+                    push_status: NothingToPush,
                     last_updated_at: None,
                     authors: [
                         author <author@example.com>,

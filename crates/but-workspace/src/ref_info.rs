@@ -34,7 +34,7 @@ pub(crate) mod function {
     use gix::revision::walk::Sorting;
     use gix::trace;
     use std::collections::hash_map::Entry;
-    use std::collections::{HashMap, HashSet};
+    use std::collections::{BTreeSet, HashMap, HashSet};
     use tracing::instrument;
 
     /// Gather information about the current `HEAD` and the workspace that might be associated with it, based on data in `repo` and `meta`.
@@ -429,10 +429,12 @@ pub(crate) mod function {
         stacks: &mut Vec<Stack>,
         meta: &impl but_core::RefMetadata,
     ) -> anyhow::Result<()> {
+        validate_workspace_stacks(ws_stacks)?;
         // Stacks that are genuinely reachable we have to show.
         // Empty ones are special as they don't have their own commits and aren't distinguishable by traversing a
         // workspace commit. For this, we have workspace metadata to tell us what is what.
         // The goal is to remove segments that we found by traversal and re-add them as individual stack if they are some.
+        // TODO: remove this block once that is folded into the function below.
         let mut stack_idx_to_remove = Vec::new();
         for (idx, stack) in stacks
             .iter_mut()
@@ -490,16 +492,36 @@ pub(crate) mod function {
         Ok(())
     }
 
+    /// Basic validation for virtual workspaces that our processing builds upon.
+    fn validate_workspace_stacks(stacks: &[WorkspaceStack]) -> anyhow::Result<()> {
+        let mut seen = BTreeSet::new();
+        for name in stacks
+            .iter()
+            .flat_map(|stack| stack.branches.iter().map(|branch| branch.ref_name.as_ref()))
+        {
+            let first = seen.insert(name);
+            if !first {
+                bail!(
+                    "invalid workspace stack: duplicate ref name: {}",
+                    name.as_bstr()
+                )
+            }
+        }
+        Ok(())
+    }
+
     /// Brute-force insert missing stacks and segments as determined in `ordered`.
     /// Add missing stacks and segments as well so real stacks `unordered` match virtual stacks `ordered`.
+    /// Note that `ordered` is assumed to be validated.
     fn sort_stacks_by_order_in_ws_stacks(
         repo: &gix::Repository,
         unordered: &mut Vec<Stack>,
         ordered: &[WorkspaceStack],
         meta: &impl but_core::RefMetadata,
     ) -> anyhow::Result<()> {
-        // With this, the tip can also be missing, and we still have a somewhat expected order.
-        // Besides, it's easier to work with.
+        // With this serialized set of desired segments, the tip can also be missing, and we still have
+        // a somewhat expected order. Besides, it's easier to work with.
+        // We also only include those that exist as ref (which is always a requirement now).
         let serialized_virtual_segments = {
             let mut v = Vec::new();
             for (is_stack_tip, existing_ws_ref) in ordered.iter().flat_map(|ws_stack| {
@@ -520,102 +542,120 @@ pub(crate) mod function {
             v
         };
 
-        // Identify missing stacks in ordered and add them to the end of unordered.
-        // Here we must match only the existing stack-heads.
-        for ws_stack in ordered {
-            let Some((segment_idx, stack_base, segment_ref_name)) = serialized_virtual_segments
-                .iter()
-                .enumerate()
-                .find_map(|(segment_idx, (is_stack_tip, id, segment_ref_name))| {
-                    if !is_stack_tip {
-                        return None;
-                    }
-                    (Some(segment_ref_name) == ws_stack.ref_name()).then_some((
-                        segment_idx,
-                        *id,
-                        segment_ref_name,
-                    ))
-                })
-            else {
-                continue;
-            };
-            let virtual_stack_is_known_as_real_stack = unordered
-                .iter_mut()
-                .find(|stack| stack.ref_name() == Some(segment_ref_name));
-            if let Some((real_stack, virtual_segments)) = virtual_stack_is_known_as_real_stack.zip(
-                serialized_virtual_segments
+        let existing_virtual_stacks = serialized_virtual_segments.iter().enumerate().filter_map(
+            |(segment_idx, (is_stack_tip, id, segment_ref_name))| {
+                if !is_stack_tip {
+                    return None;
+                }
+                let stack_tip = (*id, segment_ref_name);
+                let segments = serialized_virtual_segments
                     .get(segment_idx + 1..)
-                    .map(|slice| slice.iter().take_while(|(is_stack, _, _)| !is_stack)),
-            ) {
-                // real_stack.segments
-                // Only if there is none of these virtual segments, we are allowed to place them as segments.
-                // Otherwise, things might be out of order and just weird, safety first.
-                let stacks_have_intersecting_segments =
-                    virtual_segments.clone().any(|(_, _, segment_ref_name)| {
-                        real_stack.segments.iter().any(|real_segment| {
-                            real_segment.ref_name.as_ref() == Some(segment_ref_name)
+                    .map(|slice| {
+                        slice
+                            .iter()
+                            .take_while(|(is_stack, _, _)| !is_stack)
+                            .map(|(_, id, rn)| (*id, rn))
+                    })
+                    .into_iter()
+                    .flatten();
+                Some(Some(stack_tip).into_iter().chain(segments))
+            },
+        );
+
+        // Identify missing (existing) stacks in ordered and add them to the end of unordered.
+        // Here we must match only the existing stack-heads.
+        for virtual_segments in existing_virtual_stacks {
+            // Find a real stack where one segment intersects with the desired stacks to know what that work on.
+            let virtual_stack_is_known_as_real_stack = unordered.iter_mut().find(|stack| {
+                stack.segments.iter().any(|s| {
+                    virtual_segments
+                        .clone()
+                        .any(|(_, vs_name)| s.ref_name.as_ref() == Some(vs_name))
+                })
+            });
+            if let Some(real_stack) = virtual_stack_is_known_as_real_stack {
+                // We know there is one virtual ref name bonding the real stack with the virtual one.
+                // Now all we have to do is to place the non-existing virtual segments into the right position
+                // alongside their segments. It's notable that these virtual segments can be placed in any position.
+                // They may also already exist, and may be stacked, so multiple empty ones are on top of each other.
+                // At its core, we want to consume N consecutive segments and insert them into position X.
+                // BUT ALSO NOTE: We cannot reorder real segments that are 'locked' to the real commit-graph, nor can
+                //                we reorder real segments that are found at a certain commit, but empty.
+                // TODO: also delete empty real segments
+
+                let find_base =
+                    |start_idx: usize, segments: &[StackSegment]| -> Option<gix::ObjectId> {
+                        segments.get(start_idx..).and_then(|slice| {
+                            slice.iter().find_map(|segment| {
+                                segment.commits_unique_from_tip.first().map(|c| c.id)
+                            })
                         })
-                    });
-                if !stacks_have_intersecting_segments {
-                    real_stack.segments.extend(
-                        virtual_segments
-                            .map(
-                                |(_is_stack, _base, segment_ref_name)| -> anyhow::Result<_, _> {
-                                    Ok(StackSegment {
-                                        ref_name: Some(segment_ref_name.to_owned()),
-                                        remote_tracking_ref_name: lookup_remote_tracking_branch(
-                                            repo,
-                                            segment_ref_name.as_ref(),
-                                        )?,
-                                        // TODO: this isn't important yet, but it's probably also not always correct.
-                                        ref_location: Some(
-                                            RefLocation::ReachableFromWorkspaceCommit,
-                                        ),
-                                        // Always empty, otherwise we would have found the segment by traversal.
-                                        commits_unique_from_tip: vec![],
-                                        // Will be set when expensive data is computed.
-                                        commits_unique_in_remote_tracking_branch: vec![],
-                                        metadata: meta
-                                            .branch_opt(segment_ref_name.as_ref())?
-                                            .map(|b| b.clone()),
-                                    })
-                                },
-                            )
-                            .collect::<anyhow::Result<Vec<_>>>()?,
-                    )
+                    };
+                let mut insert_position = 0;
+                for (target_id, virtual_segment_ref_name) in virtual_segments {
+                    let real_stack_idx =
+                        real_stack
+                            .segments
+                            .iter()
+                            .enumerate()
+                            .find_map(|(idx, real_segment)| {
+                                (real_segment.ref_name.as_ref() == Some(virtual_segment_ref_name))
+                                    .then_some(idx)
+                            });
+                    match real_stack_idx {
+                        None => {
+                            if let Some(mismatched_base) =
+                                find_base(insert_position, &real_stack.segments)
+                                    .filter(|base| *base != target_id)
+                            {
+                                tracing::warn!(
+                                    "Somehow virtual ref '{name}' was supposed to be at {}, but its closest insertion base was {}",
+                                    target_id,
+                                    mismatched_base,
+                                    name = virtual_segment_ref_name.as_bstr(),
+                                );
+                                continue;
+                            }
+                            real_stack.segments.insert(
+                                insert_position,
+                                segment_from_ref_name(
+                                    repo,
+                                    meta,
+                                    virtual_segment_ref_name.as_ref(),
+                                )?,
+                            );
+                            insert_position += 1;
+                        }
+                        Some(existing_idx) => {
+                            if real_stack.segments[existing_idx]
+                                .commits_unique_from_tip
+                                .is_empty()
+                            {
+                                // TODO: do assure empty segments (despite real) are correctly sorted, and we can re-sort these
+                            }
+                            // Skip this one, it's already present
+                            insert_position = existing_idx + 1;
+                        }
+                    }
                 }
             } else {
+                // We have a virtual stack that wasn't reachable in reality at all.
+                // Add it as a separate stack then, reproducing each segment verbatim.
+                // TODO: we actually have to assure that the recorded order still is compatible with the
+                //       associated real-world IDs. This should be reconciled before using the virtual segments!!
                 let mut segments = Vec::new();
-                for (_base, segment_ref_name) in std::iter::once((stack_base, segment_ref_name))
-                    .chain(
-                        serialized_virtual_segments
-                            .get(segment_idx + 1..)
-                            .into_iter()
-                            // Get the segments
-                            .flat_map(|slice| slice.iter().take_while(|(is_stack, _, _)| !is_stack))
-                            .map(|(_idx, id, rn)| (*id, rn)),
-                    )
-                {
-                    segments.push(StackSegment {
-                        ref_name: Some(segment_ref_name.to_owned()),
-                        remote_tracking_ref_name: lookup_remote_tracking_branch(
-                            repo,
-                            segment_ref_name.as_ref(),
-                        )?,
-                        // TODO: this isn't important yet, but it's probably also not always correct.
-                        ref_location: Some(RefLocation::ReachableFromWorkspaceCommit),
-                        // Always empty, otherwise we would have found the segment by traversal.
-                        commits_unique_from_tip: vec![],
-                        // Will be set when expensive data is computed.
-                        commits_unique_in_remote_tracking_branch: vec![],
-                        metadata: meta
-                            .branch_opt(segment_ref_name.as_ref())?
-                            .map(|b| b.clone()),
-                    });
+                let mut last_seen_target_id_as_base = None;
+                for (target_id, segment_ref_name) in virtual_segments {
+                    last_seen_target_id_as_base = Some(target_id);
+                    segments.push(segment_from_ref_name(
+                        repo,
+                        meta,
+                        segment_ref_name.as_ref(),
+                    )?);
                 }
                 // From this segment
                 unordered.push(Stack {
-                    base: Some(stack_base),
+                    base: last_seen_target_id_as_base,
                     segments,
                     // TODO: set up
                     stash_status: None,
@@ -647,6 +687,29 @@ pub(crate) mod function {
         // TODO: log all stack segments that couldn't be matched, even though we should probably do something
         //       with them eventually.
         Ok(())
+    }
+
+    fn segment_from_ref_name(
+        repo: &gix::Repository,
+        meta: &impl but_core::RefMetadata,
+        virtual_segment_ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<StackSegment> {
+        Ok(StackSegment {
+            ref_name: Some(virtual_segment_ref_name.to_owned()),
+            remote_tracking_ref_name: lookup_remote_tracking_branch(
+                repo,
+                virtual_segment_ref_name,
+            )?,
+            // TODO: this isn't important yet, but it's probably also not always correct.
+            ref_location: Some(RefLocation::ReachableFromWorkspaceCommit),
+            // Always empty, otherwise we would have found the segment by traversal.
+            commits_unique_from_tip: vec![],
+            // Will be set when expensive data is computed.
+            commits_unique_in_remote_tracking_branch: vec![],
+            metadata: meta
+                .branch_opt(virtual_segment_ref_name)?
+                .map(|b| b.clone()),
+        })
     }
 
     /// Akin to `log()`, but less powerful.
