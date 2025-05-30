@@ -12,7 +12,7 @@ async fn main() -> Result<()> {
 
     match &args.cmd {
         args::Subcommands::McpInternal => mcp_internal::start(&args.current_dir).await,
-        args::Subcommands::Mcp => mcp::start(&args.current_dir).await,
+        args::Subcommands::Mcp => mcp::start().await,
         args::Subcommands::HandleChanges {
             change_description,
             simple,

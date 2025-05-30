@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use anyhow::Result;
 use but_action::ActionHandler;
@@ -13,23 +13,20 @@ use rmcp::{
     schemars, tool,
 };
 
-pub(crate) async fn start(repo_path: &Path) -> Result<()> {
+pub(crate) async fn start() -> Result<()> {
     let transport = (tokio::io::stdin(), tokio::io::stdout());
-    let service = Mcp::new(repo_path.to_path_buf()).serve(transport).await?;
+    let service = Mcp::new().serve(transport).await?;
     service.waiting().await?;
     Ok(())
 }
 
 #[derive(Debug, Clone)]
-pub struct Mcp {
-    project: Project,
-}
+pub struct Mcp {}
 
 #[tool(tool_box)]
 impl Mcp {
-    pub fn new(repo_path: PathBuf) -> Self {
-        let project = Project::from_path(&repo_path).expect("Failed to create project from path");
-        Self { project }
+    pub fn new() -> Self {
+        Self {}
     }
 
     #[tool(
@@ -41,12 +38,28 @@ impl Mcp {
     ) -> Result<CallToolResult, McpError> {
         if request.changes_summary.is_empty() {
             return Err(McpError::invalid_request(
-                "Context cannot be empty".to_string(),
+                "ChangesSummary cannot be empty".to_string(),
                 None,
             ));
         }
-        let ctx = &mut CommandContext::open(&self.project, AppSettings::default())
+        if request.full_prompt.is_empty() {
+            return Err(McpError::invalid_request(
+                "FullPrompt cannot be empty".to_string(),
+                None,
+            ));
+        }
+        if request.current_working_directory.is_empty() {
+            return Err(McpError::invalid_request(
+                "CurrentWorkingDirectory cannot be empty".to_string(),
+                None,
+            ));
+        }
+
+        let repo_path = PathBuf::from(request.current_working_directory.clone());
+        let project = Project::from_path(&repo_path).expect("Failed to create project from path");
+        let ctx = &mut CommandContext::open(&project, AppSettings::default())
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
         let response = but_action::handle_changes(
             ctx,
             &request.changes_summary,
@@ -66,6 +79,10 @@ pub struct GitButlerUpdateRequest {
         description = "A short bullet list of important things that were changed in the codebase and why"
     )]
     pub changes_summary: String,
+    #[schemars(
+        description = "The full root path of the Git project the agent is actively working in"
+    )]
+    pub current_working_directory: String,
 }
 
 #[tool(tool_box)]
