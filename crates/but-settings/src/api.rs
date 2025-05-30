@@ -17,6 +17,7 @@ pub struct TelemetryUpdate {
 pub struct FeatureFlagsUpdate {
     pub v3: Option<bool>,
     pub ws3: Option<bool>,
+    pub actions: Option<bool>,
 }
 
 /// Mutation, immediately followed by writing everything to disk.
@@ -43,7 +44,7 @@ impl AppSettingsWithDiskSync {
 
     pub fn update_feature_flags(
         &self,
-        FeatureFlagsUpdate { v3, ws3 }: FeatureFlagsUpdate,
+        FeatureFlagsUpdate { v3, ws3, actions }: FeatureFlagsUpdate,
     ) -> Result<()> {
         let mut settings = self.get_mut_enforce_save()?;
         if let Some(v3) = v3 {
@@ -52,7 +53,7 @@ impl AppSettingsWithDiskSync {
         if let Some(ws3) = ws3 {
             settings.feature_flags.ws3 = ws3;
         }
-        if let Some(actions) = ws3 {
+        if let Some(actions) = actions {
             settings.feature_flags.actions = actions;
         }
         settings.save()

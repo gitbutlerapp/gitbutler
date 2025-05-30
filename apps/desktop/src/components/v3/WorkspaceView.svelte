@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
+	import ActionLog from '$components/v3/ActionLog.svelte';
 	import BranchView from '$components/v3/BranchView.svelte';
 	import CommitView from '$components/v3/CommitView.svelte';
 	import MainViewport from '$components/v3/MainViewport.svelte';
@@ -8,12 +9,15 @@
 	import ReviewView from '$components/v3/ReviewView.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
+	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { isParsedError } from '$lib/error/parser';
 	import { Focusable, FocusManager } from '$lib/focus/focusManager.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
+	import Segment from '@gitbutler/ui/segmentControl/Segment.svelte';
+	import SegmentControl from '@gitbutler/ui/segmentControl/SegmentControl.svelte';
 	import type { SelectionId } from '$lib/selection/key';
 
 	interface Props {
@@ -23,14 +27,17 @@
 
 	const { stackId, projectId }: Props = $props();
 
-	const [stackService, uiState, focusManager, idSelection] = inject(
+	const [stackService, uiState, focusManager, idSelection, settingsService] = inject(
 		StackService,
 		UiState,
 		FocusManager,
-		IdSelection
+		IdSelection,
+		SettingsService
 	);
 	const worktreeSelection = idSelection.getById({ type: 'worktree' });
 	const stacksResult = $derived(stackService.stacks(projectId));
+	const settingsStore = $derived(settingsService.appSettings);
+	const canUseActions = $derived($settingsStore?.featureFlags.actions ?? false);
 
 	const projectState = $derived(uiState.project(projectId));
 	const drawerPage = $derived(projectState.drawerPage);
@@ -65,6 +72,8 @@
 		return { type: 'worktree' };
 	});
 
+	let view = $state<'worktree' | 'action-log'>('worktree');
+
 	function onerror(err: unknown) {
 		// Clear selection if branch not found.
 		if (isParsedError(err) && err.code === 'errors.branch.notfound') {
@@ -80,7 +89,27 @@
 	rightWidth={{ default: 380, min: 240 }}
 >
 	{#snippet left()}
-		<WorktreeChanges {projectId} {stackId} active={selectionId.type === 'worktree'} />
+		{#if canUseActions}
+			<div class="left-view-toggle">
+				<SegmentControl
+					fullWidth
+					defaultIndex={view === 'worktree' ? 0 : 1}
+					onselect={(id) => {
+						view = id as 'worktree' | 'action-log';
+					}}
+					size="small"
+				>
+					<Segment id="worktree" icon="file-changes" />
+					<Segment id="action-log" icon="ai" />
+				</SegmentControl>
+			</div>
+		{/if}
+
+		{#if !canUseActions || view === 'worktree'}
+			<WorktreeChanges {projectId} {stackId} active={selectionId.type === 'worktree'} />
+		{:else if canUseActions && view === 'action-log'}
+			<ActionLog {projectId} />
+		{/if}
 	{/snippet}
 
 	{#snippet middle()}
@@ -141,5 +170,12 @@
 		height: 100%;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
+	}
+
+	.left-view-toggle {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		height: 40px;
 	}
 </style>
