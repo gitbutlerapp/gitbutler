@@ -26,6 +26,7 @@ gitbutler-branch.workspace = true
 gitbutler-oplog.workspace = true
 gitbutler-oxidize.workspace = true
 gitbutler-project.workspace = true
+gitbutler-reference.workspace = true
 but-core.workspace = true
 but-db.workspace = true
 but-workspace.workspace = true
