@@ -76,13 +76,8 @@ fn stacks_creating_if_none(
             order: None,
             selected_for_changes: None,
         };
-        gitbutler_branch_actions::create_virtual_branch(ctx, &create_req, perm)?;
-        let stacks =
-            but_workspace::stacks_v3(repo, &meta, but_workspace::StacksFilter::InWorkspace)?;
-        if stacks.is_empty() {
-            anyhow::bail!("No stacks found in the workspace after creation")
-        }
-        Ok(stacks)
+        let stack = gitbutler_branch_actions::create_virtual_branch(ctx, &create_req, perm)?;
+        Ok(vec![stack])
     } else {
         Ok(stacks)
     }
