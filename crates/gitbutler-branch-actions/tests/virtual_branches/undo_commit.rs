@@ -11,6 +11,7 @@ fn undo_commit_simple() -> anyhow::Result<()> {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -78,6 +79,7 @@ fn undo_commit_in_non_default_branch() -> anyhow::Result<()> {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 

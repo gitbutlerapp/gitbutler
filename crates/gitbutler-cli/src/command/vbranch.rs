@@ -28,6 +28,7 @@ pub fn set_base(project: Project, short_tracking_branch_name: String) -> Result<
         &ctx,
         &branch_name,
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )?)
 }
 

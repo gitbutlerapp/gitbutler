@@ -198,6 +198,7 @@ pub mod commands {
             &ctx,
             &branch_name,
             stash_uncommitted.unwrap_or_default(),
+            ctx.project().exclusive_worktree_access().write_permission(),
         )?;
 
         // if they also sent a different push remote, set that too

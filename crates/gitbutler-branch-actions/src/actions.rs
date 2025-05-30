@@ -167,12 +167,9 @@ pub fn set_base_branch(
     ctx: &CommandContext,
     target_branch: &RemoteRefname,
     stash_uncommitted: bool,
+    perm: &mut WorktreeWritePermission,
 ) -> Result<BaseBranch> {
-    let mut guard = ctx.project().exclusive_worktree_access();
-    let _ = ctx.create_snapshot(
-        SnapshotDetails::new(OperationKind::SetBaseBranch),
-        guard.write_permission(),
-    );
+    let _ = ctx.create_snapshot(SnapshotDetails::new(OperationKind::SetBaseBranch), perm);
     base::set_base_branch(ctx, target_branch, stash_uncommitted)
 }
 

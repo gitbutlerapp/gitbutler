@@ -11,6 +11,7 @@ fn insert_blank_commit_down() -> anyhow::Result<()> {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
@@ -83,6 +84,7 @@ fn insert_blank_commit_up() -> anyhow::Result<()> {
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
         false,
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 
