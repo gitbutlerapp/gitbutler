@@ -7,36 +7,51 @@ use tracing::instrument;
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn install_cli() -> anyhow::Result<(), Error> {
-    #[cfg(windows)]
-    {
-        // TODO
-        return Err(anyhow::anyhow!(
-            "CLI installation is not supported on Windows. Please install manually."
-        ))
-        .map_err(Error::from);
-    }
-
     let cli_path = get_cli_path()?;
+    if cfg!(windows) {
+        return Err(anyhow::anyhow!(
+            "CLI installation is not supported on Windows. Please install manually by placing '{}' in PATH.", cli_path.display()
+        ).into());
+    }
+
     let link_path = Path::new("/usr/local/bin/but");
-    let bin_dir = link_path.parent().context("Cant find bin dir")?;
-
-    if link_path.exists() {
-        let current_link = std::fs::read_link(link_path)
-            .context(format!(
-                "error reading existing link: {}",
-                link_path.display()
-            ))
-            .map_err(Error::from)?;
-        if current_link == cli_path {
-            return Ok(());
+    match std::fs::symlink_metadata(&link_path) {
+        Ok(md) => {
+            if !md.is_symlink() {
+                return Err(anyhow::anyhow!(
+                    "Refusing to install symlink onto existing non-symlink at '{}'",
+                    link_path.display()
+                )
+                .into());
+            }
+            let current_link = std::fs::read_link(link_path)
+                .context(format!(
+                    "error reading existing link: {}",
+                    link_path.display()
+                ))
+                .map_err(Error::from)?;
+            if current_link == cli_path {
+                return Ok(());
+            }
+            #[cfg(not(windows))]
+            if std::fs::remove_file(&link_path)
+                .and_then(|_| std::os::unix::fs::symlink(&cli_path, link_path))
+                .is_ok()
+            {
+                return Ok(());
+            }
         }
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            #[cfg(not(windows))]
+            if std::os::unix::fs::symlink(&cli_path, link_path).is_ok() {
+                return Ok(());
+            }
+        }
+        // Also: can happen if the `/usr/local/bin` dir doesn't exist, which then is unlikely to be in PATH anyway.
+        Err(err) => return Err(anyhow::Error::from(err).into()),
     }
 
-    #[cfg(not(windows))]
-    if std::os::unix::fs::symlink(&cli_path, link_path).is_ok() {
-        return Ok(());
-    }
-
+    let bin_dir = link_path.parent().context("Cant find bin dir")?;
     let status = std::process::Command::new("/usr/bin/osascript")
         .args([
             "-e",
@@ -77,13 +92,5 @@ pub fn cli_path() -> anyhow::Result<String, Error> {
 
 fn get_cli_path() -> anyhow::Result<std::path::PathBuf> {
     let cli_path = std::env::current_exe()?;
-    #[cfg(unix)]
-    {
-        Ok(cli_path.with_file_name("but"))
-    }
-    #[cfg(windows)]
-    {
-        // TODO
-        return Ok(cli_path);
-    }
+    Ok(cli_path.with_file_name(if cfg!(windows) { "but.exe" } else { "but" }))
 }
