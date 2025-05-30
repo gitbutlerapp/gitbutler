@@ -386,7 +386,8 @@ impl VirtualBranchesHandle {
 }
 
 fn write<P: AsRef<Path>>(file_path: P, virtual_branches: &VirtualBranches) -> Result<()> {
-    gitbutler_fs::write(file_path, toml::to_string(&virtual_branches)?)
+    gitbutler_fs::create_dirs_then_write(file_path, toml::to_string(&virtual_branches)?)
+        .map_err(Into::into)
 }
 
 /// Re-commit a commit with altered parentage
