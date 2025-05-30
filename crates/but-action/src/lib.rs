@@ -87,6 +87,7 @@ fn stacks_creating_if_none(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, EnumString, Default)]
+#[serde(rename_all = "camelCase")]
 pub enum ActionHandler {
     #[default]
     HandleChangesSimple,
