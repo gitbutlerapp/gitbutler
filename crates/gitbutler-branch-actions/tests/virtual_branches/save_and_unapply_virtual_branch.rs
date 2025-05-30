@@ -38,7 +38,12 @@ fn delete_if_empty() {
     )
     .unwrap();
 
-    gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default()).unwrap();
+    gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest::default(),
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )
+    .unwrap();
 
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;

@@ -14,9 +14,12 @@ fn head() {
     )
     .unwrap();
 
-    let stack_entry =
-        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
-            .unwrap();
+    let stack_entry = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest::default(),
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )
+    .unwrap();
 
     {
         fs::write(repo.path().join("file one.txt"), "").unwrap();
@@ -82,9 +85,12 @@ fn middle() {
     )
     .unwrap();
 
-    let stack_entry =
-        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
-            .unwrap();
+    let stack_entry = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest::default(),
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )
+    .unwrap();
 
     {
         fs::write(repo.path().join("file one.txt"), "").unwrap();
@@ -154,9 +160,12 @@ fn forcepush_allowed() {
         })
         .unwrap();
 
-    let stack_entry =
-        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
-            .unwrap();
+    let stack_entry = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest::default(),
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )
+    .unwrap();
 
     let commit_one_oid = {
         fs::write(repo.path().join("file one.txt"), "").unwrap();
@@ -202,9 +211,12 @@ fn root() {
     )
     .unwrap();
 
-    let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
-            .unwrap();
+    let branch_id = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest::default(),
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )
+    .unwrap();
 
     let commit_one_oid = {
         fs::write(repo.path().join("file one.txt"), "").unwrap();
@@ -260,9 +272,12 @@ fn empty() {
     )
     .unwrap();
 
-    let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
-            .unwrap();
+    let branch_id = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest::default(),
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )
+    .unwrap();
 
     let commit_one_oid = {
         fs::write(repo.path().join("file one.txt"), "").unwrap();

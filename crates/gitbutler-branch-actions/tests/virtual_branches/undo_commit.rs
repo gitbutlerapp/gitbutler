@@ -14,9 +14,12 @@ fn undo_commit_simple() -> anyhow::Result<()> {
     )
     .unwrap();
 
-    let stack_entry =
-        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
-            .unwrap();
+    let stack_entry = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest::default(),
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )
+    .unwrap();
 
     // create commit
     fs::write(repo.path().join("file.txt"), "content").unwrap();
@@ -78,9 +81,12 @@ fn undo_commit_in_non_default_branch() -> anyhow::Result<()> {
     )
     .unwrap();
 
-    let stack_entry =
-        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
-            .unwrap();
+    let stack_entry = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest::default(),
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )
+    .unwrap();
 
     // create commit
     fs::write(repo.path().join("file.txt"), "content").unwrap();
@@ -106,6 +112,7 @@ fn undo_commit_in_non_default_branch() -> anyhow::Result<()> {
             selected_for_changes: Some(true),
             ..BranchCreateRequest::default()
         },
+        ctx.project().exclusive_worktree_access().write_permission(),
     )
     .unwrap();
 

@@ -278,7 +278,11 @@ pub mod stacks {
             name: Some(name.to_string()),
             ..Default::default()
         };
-        let stack_entry = gitbutler_branch_actions::create_virtual_branch(ctx, &creation_request)?;
+        let stack_entry = gitbutler_branch_actions::create_virtual_branch(
+            ctx,
+            &creation_request,
+            ctx.project().exclusive_worktree_access().write_permission(),
+        )?;
 
         if description.is_some() {
             gitbutler_branch_actions::stack::update_branch_description(

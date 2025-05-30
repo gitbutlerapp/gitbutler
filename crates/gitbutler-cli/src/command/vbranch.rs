@@ -123,6 +123,7 @@ pub fn create(project: Project, branch_name: String, set_default: bool) -> Resul
             name: Some(branch_name),
             ..Default::default()
         },
+        ctx.project().exclusive_worktree_access().write_permission(),
     )?;
     if set_default {
         let new = VirtualBranchesHandle::new(project.gb_dir()).get_stack(new_stack_entry.id)?;

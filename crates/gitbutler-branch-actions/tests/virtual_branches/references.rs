@@ -16,9 +16,12 @@ mod create_virtual_branch {
         )
         .unwrap();
 
-        let stack_entry =
-            gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
-                .unwrap();
+        let stack_entry = gitbutler_branch_actions::create_virtual_branch(
+            ctx,
+            &BranchCreateRequest::default(),
+            ctx.project().exclusive_worktree_access().write_permission(),
+        )
+        .unwrap();
 
         let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
@@ -51,6 +54,7 @@ mod create_virtual_branch {
                 name: Some("name".to_string()),
                 ..Default::default()
             },
+            ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 
@@ -60,6 +64,7 @@ mod create_virtual_branch {
                 name: Some("name".to_string()),
                 ..Default::default()
             },
+            ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 
@@ -103,6 +108,7 @@ mod update_virtual_branch {
                 name: Some("name".to_string()),
                 ..Default::default()
             },
+            ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 
@@ -148,6 +154,7 @@ mod update_virtual_branch {
                 name: Some("name".to_string()),
                 ..Default::default()
             },
+            ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 
@@ -156,6 +163,7 @@ mod update_virtual_branch {
             &BranchCreateRequest {
                 ..Default::default()
             },
+            ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 
@@ -209,6 +217,7 @@ mod push_virtual_branch {
                 name: Some("name".to_string()),
                 ..Default::default()
             },
+            ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
 
@@ -260,6 +269,7 @@ mod push_virtual_branch {
                     name: Some("name".to_string()),
                     ..Default::default()
                 },
+                ctx.project().exclusive_worktree_access().write_permission(),
             )
             .unwrap();
             fs::write(repo.path().join("file.txt"), "content").unwrap();
@@ -287,6 +297,7 @@ mod push_virtual_branch {
                     name: Some("name".to_string()),
                     ..Default::default()
                 },
+                ctx.project().exclusive_worktree_access().write_permission(),
             )
             .unwrap();
             fs::write(repo.path().join("file.txt"), "updated content").unwrap();

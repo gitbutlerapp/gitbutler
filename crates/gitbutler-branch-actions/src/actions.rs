@@ -29,6 +29,7 @@ use gitbutler_oplog::{
     OplogExt, SnapshotExt,
 };
 use gitbutler_oxidize::{ObjectIdExt, OidExt};
+use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::RepositoryExt;
@@ -100,12 +101,12 @@ pub fn list_virtual_branches_cached(
 pub fn create_virtual_branch(
     ctx: &CommandContext,
     create: &BranchCreateRequest,
+    perm: &mut WorktreeWritePermission,
 ) -> Result<ui::StackEntry> {
     ctx.verify()?;
     assure_open_workspace_mode(ctx).context("Creating a branch requires open workspace mode")?;
-    let mut guard = ctx.project().exclusive_worktree_access();
     let branch_manager = ctx.branch_manager();
-    let stack = branch_manager.create_virtual_branch(create, guard.write_permission())?;
+    let stack = branch_manager.create_virtual_branch(create, perm)?;
     let repo = ctx.gix_repo()?;
     Ok(ui::StackEntry {
         id: stack.id,

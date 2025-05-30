@@ -57,9 +57,12 @@ mod go_back_to_workspace {
         )
         .unwrap();
 
-        let stack_entry =
-            gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default())
-                .unwrap();
+        let stack_entry = gitbutler_branch_actions::create_virtual_branch(
+            ctx,
+            &BranchCreateRequest::default(),
+            ctx.project().exclusive_worktree_access().write_permission(),
+        )
+        .unwrap();
 
         std::fs::write(repo.path().join("another file.txt"), "content").unwrap();
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "one", None).unwrap();
