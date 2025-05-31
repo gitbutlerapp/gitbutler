@@ -33,6 +33,7 @@
 		active?: boolean;
 		isLast?: boolean;
 		executable?: boolean;
+		oncheckclick?: (e: MouseEvent) => void;
 		oncheck?: (
 			e: Event & {
 				currentTarget: EventTarget & HTMLInputElement;
@@ -69,6 +70,7 @@
 		depth,
 		executable,
 		oncheck,
+		oncheckclick,
 		onclick,
 		ondblclick,
 		onresolveclick,
@@ -118,7 +120,7 @@
 			{/if}
 
 			{#if showCheckbox}
-				<Checkbox small {checked} {indeterminate} onchange={oncheck} />
+				<Checkbox small {checked} {indeterminate} onchange={oncheck} onclick={oncheckclick} />
 			{/if}
 		</div>
 	{/if}

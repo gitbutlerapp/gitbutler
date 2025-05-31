@@ -405,7 +405,7 @@ fn from_selections_with_context() -> anyhow::Result<()> {
     assert_eq!(
         dropped.len(),
         0,
-        "hunk-selection order doesn't matter, they can still be associated"
+        "change-selection order doesn't matter, they can still be associated"
     );
     let actual = read_file_content()?;
     // The order of old/new additions or removals do matter also doesn't matter, the result is stable.

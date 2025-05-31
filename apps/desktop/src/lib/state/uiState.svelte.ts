@@ -40,6 +40,7 @@ export type ProjectUiState = {
 	drawerPage: DrawerPage;
 	drawerFullScreen: boolean;
 	stackId: string | undefined;
+	commitSourceId: string | undefined;
 	commitTitle: string;
 	commitDescription: string;
 	branchesSelection: BranchesSelection;
@@ -94,6 +95,7 @@ export class UiState {
 		drawerFullScreen: false,
 		commitTitle: '',
 		commitDescription: '',
+		commitSourceId: undefined,
 		branchesSelection: {},
 		stackId: undefined,
 		editingCommitMessage: false

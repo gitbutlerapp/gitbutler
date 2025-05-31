@@ -7,6 +7,7 @@
 	import type { Snippet } from 'svelte';
 
 	type Props = {
+		stackId?: string;
 		node: TreeNode;
 		isRoot?: boolean;
 		showCheckboxes?: boolean;
@@ -16,7 +17,15 @@
 		fileTemplate: Snippet<[TreeChange, number, number]>;
 	};
 
-	let { node, isRoot = false, showCheckboxes, changes, depth = 0, fileTemplate }: Props = $props();
+	let {
+		stackId,
+		node,
+		isRoot = false,
+		showCheckboxes,
+		changes,
+		depth = 0,
+		fileTemplate
+	}: Props = $props();
 
 	// Local state to track whether the folder is expanded
 	let isExpanded = $state<boolean>(true);
@@ -36,6 +45,7 @@
 	{@render fileTemplate(node.change, node.index, depth)}
 {:else}
 	<TreeListFolder
+		{stackId}
 		testId={TestId.FileListTreeFolder}
 		{depth}
 		{isExpanded}
@@ -46,7 +56,14 @@
 
 	{#if isExpanded}
 		{#each node.children as childNode (childNode.name)}
-			<Self depth={depth + 1} node={childNode} {showCheckboxes} {changes} {fileTemplate} />
+			<Self
+				{stackId}
+				depth={depth + 1}
+				node={childNode}
+				{showCheckboxes}
+				{changes}
+				{fileTemplate}
+			/>
 		{/each}
 	{/if}
 {/if}

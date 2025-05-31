@@ -2,12 +2,11 @@ import { isLockfile } from '@gitbutler/shared/lockfiles';
 import type { DiffInput } from '$lib/ai/service';
 import type { TreeChange } from '$lib/hunks/change';
 import type { ChangeDiff, DiffService } from '$lib/hunks/diffService.svelte';
-import type { SelectedFile as SelectedChangeFile } from '$lib/selection/changeSelection.svelte';
 import type { SelectedFile } from '$lib/selection/key';
 import type { StackService } from '$lib/stacks/stackService.svelte';
 import type { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 
-export type DiffInputContextType = 'commit' | 'change-selection' | 'selection';
+export type DiffInputContextType = 'commit' | 'change-selection' | 'file-selection';
 
 interface BaseDiffInputContextArgs {
 	type: DiffInputContextType;
@@ -24,16 +23,16 @@ interface CommitDiffInputContextArgs extends BaseDiffInputContextArgs {
 	commitId: string;
 }
 
-interface ChangeSelectionDiffInputContextArgs extends BaseDiffInputContextArgs {
+interface HunkSelectionDiffInputContextArgs extends BaseDiffInputContextArgs {
 	type: 'change-selection';
 	/**
 	 * The selected files to fetch the diff for.
 	 */
-	selectedFiles: SelectedChangeFile[];
+	selectedChanges: TreeChange[];
 }
 
 interface SelectionDiffInputContextArgs extends BaseDiffInputContextArgs {
-	type: 'selection';
+	type: 'file-selection';
 	/**
 	 * The selected files to fetch the diff for.
 	 */
@@ -46,7 +45,7 @@ interface SelectionDiffInputContextArgs extends BaseDiffInputContextArgs {
 
 export type DiffInputContextArgs =
 	| CommitDiffInputContextArgs
-	| ChangeSelectionDiffInputContextArgs
+	| HunkSelectionDiffInputContextArgs
 	| SelectionDiffInputContextArgs;
 
 export default class DiffInputContext {
@@ -68,20 +67,10 @@ export default class DiffInputContext {
 			}
 
 			case 'change-selection': {
-				const filePaths = this.filterSelectedFilePaths(this.args.selectedFiles.map((f) => f.path));
-
-				if (filePaths.length === 0) {
-					return null;
-				}
-
-				const selectedChanges = await this.worktreeService.fetchChangesById(
-					this.args.projectId,
-					filePaths
-				);
-				return selectedChanges.data ?? null;
+				return this.args.selectedChanges;
 			}
 
-			case 'selection': {
+			case 'file-selection': {
 				const filePaths = this.filterSelectedFilePaths(this.args.selectedFiles.map((f) => f.path));
 				const selectedChanges = this.args.changes.filter((change) =>
 					filePaths.includes(change.path)

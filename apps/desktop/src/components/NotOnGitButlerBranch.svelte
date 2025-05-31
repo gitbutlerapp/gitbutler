@@ -42,7 +42,7 @@
 	const mode = modeService.mode;
 
 	const [worktreeService] = inject(WorktreeService);
-	const changes = worktreeService.getChanges(project.id);
+	const changes = worktreeService.changes(project.id);
 
 	let modal = $state<Modal>();
 

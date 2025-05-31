@@ -11,7 +11,11 @@
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { isParsedError } from '$lib/error/parser';
-	import { Focusable, FocusManager } from '$lib/focus/focusManager.svelte';
+	import {
+		DefinedFocusable,
+		FocusManager,
+		parseUnassignedChangesFocusable
+	} from '$lib/focus/focusManager.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -43,9 +47,22 @@
 	const drawerPage = $derived(projectState.drawerPage);
 	const drawerIsFullScreen = $derived(projectState.drawerFullScreen);
 
+	const stackFocusables = $derived(
+		stacksResult.current?.data
+			? stacksResult.current.data.map(
+					(stack) => DefinedFocusable.UncommittedChanges + ':' + stack.id
+				)
+			: []
+	);
+
 	let focusGroup = $derived(
 		focusManager.radioGroup({
-			triggers: [Focusable.UncommittedChanges, Focusable.Drawer, Focusable.ViewportRight]
+			triggers: [
+				DefinedFocusable.UncommittedChanges,
+				DefinedFocusable.Drawer,
+				DefinedFocusable.ViewportRight,
+				...stackFocusables
+			]
 		})
 	);
 
@@ -57,8 +74,17 @@
 
 	const selectionId: SelectionId = $derived.by(() => {
 		const branchName = currentSelection?.branchName;
-		if (focusGroup.current === Focusable.UncommittedChanges && worktreeSelection.entries.size > 0) {
-			return { type: 'worktree' };
+		const assignedChangesStackId = focusGroup.current
+			? parseUnassignedChangesFocusable(focusGroup.current)
+			: undefined;
+		if (assignedChangesStackId) {
+			return { type: 'worktree', stackId: assignedChangesStackId };
+		}
+		if (
+			focusGroup.current === DefinedFocusable.UncommittedChanges &&
+			worktreeSelection.entries.size > 0
+		) {
+			return { type: 'worktree', stackId: undefined };
 		}
 		if (currentSelection && stackId && branchName) {
 			if (currentSelection.commitId) {
@@ -106,7 +132,12 @@
 		{/if}
 
 		{#if !canUseActions || view === 'worktree'}
-			<WorktreeChanges {projectId} {stackId} active={selectionId.type === 'worktree'} />
+			<WorktreeChanges
+				title="Unassigned"
+				{projectId}
+				stackId={undefined}
+				active={selectionId.type === 'worktree' && selectionId.stackId === undefined}
+			/>
 		{:else if canUseActions && view === 'action-log'}
 			<ActionLog {projectId} />
 		{/if}
@@ -114,7 +145,7 @@
 
 	{#snippet middle()}
 		{#if !drawerIsFullScreen.current}
-			<SelectionView {projectId} {selectionId} {stackId} draggableFiles />
+			<SelectionView {projectId} {selectionId} draggableFiles />
 		{/if}
 		{#if drawerPage.current === 'new-commit'}
 			<NewCommitView {projectId} {stackId} />
@@ -155,8 +186,9 @@
 				<MultiStackView
 					{projectId}
 					{stacks}
+					{selectionId}
 					selectedId={stackId}
-					active={focusGroup.current !== Focusable.UncommittedChanges}
+					active={focusGroup.current !== DefinedFocusable.UncommittedChanges}
 				/>
 			{/snippet}
 		</ReduxResult>

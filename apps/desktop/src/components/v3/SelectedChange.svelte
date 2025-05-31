@@ -3,6 +3,7 @@
 	import FileListItemWrapper from '$components/v3/FileListItemWrapper.svelte';
 	import UnifiedDiffView from '$components/v3/UnifiedDiffView.svelte';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
+	import { AssignmentService } from '$lib/selection/assignmentService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
@@ -13,17 +14,17 @@
 	type Props = {
 		selectedFile: SelectedFile;
 		projectId: string;
-		stackId?: string;
 		draggable: boolean;
 		onCloseClick: () => void;
 	};
 
-	const { selectedFile, projectId, onCloseClick, stackId, draggable }: Props = $props();
+	const { selectedFile, projectId, onCloseClick, draggable }: Props = $props();
 
-	const [diffService, stackService, worktreeService] = inject(
+	const [diffService, stackService, worktreeService, assignmentService] = inject(
 		DiffService,
 		StackService,
-		WorktreeService
+		WorktreeService,
+		AssignmentService
 	);
 
 	const changeResult = $derived.by(() => {
@@ -38,6 +39,7 @@
 					path: selectedFile.path
 				});
 			case 'worktree':
+				assignmentService.assignmentsByPath(selectedFile.stackId || null, selectedFile.path);
 				return worktreeService.getChange(projectId, selectedFile.path);
 		}
 	});
@@ -47,11 +49,7 @@
 </script>
 
 {#if diffResult?.current}
-	<ReduxResult
-		{projectId}
-		{stackId}
-		result={combineResults(changeResult.current, diffResult.current)}
-	>
+	<ReduxResult {projectId} result={combineResults(changeResult.current, diffResult.current)}>
 		{#snippet children([change, diff], env)}
 			{@const isExecutable = (change.status.subject as Modification).flags}
 			<div class="selected-change-item">
@@ -68,7 +66,7 @@
 				/>
 				<UnifiedDiffView
 					projectId={env.projectId}
-					stackId={env.stackId}
+					stackId={selectedFile.type !== 'commit' ? selectedFile.stackId : undefined}
 					commitId={selectedFile.type === 'commit' ? selectedFile.commitId : undefined}
 					{draggable}
 					{change}

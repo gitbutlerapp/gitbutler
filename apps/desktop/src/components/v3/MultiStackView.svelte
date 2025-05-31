@@ -6,14 +6,17 @@
 	import MultiStackOfflaneDropzone from '$components/v3/MultiStackOfflaneDropzone.svelte';
 	import MultiStackPagination, { scrollToLane } from '$components/v3/MultiStackPagination.svelte';
 	import StackDraft from '$components/v3/StackDraft.svelte';
+	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import { stackLayoutMode } from '$lib/config/uiFeatureFlags';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
+	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
+	import type { SelectionId } from '$lib/selection/key';
 	import type { Stack } from '$lib/stacks/stack';
 
 	type Props = {
@@ -21,9 +24,12 @@
 		selectedId?: string;
 		stacks: Stack[];
 		active: boolean;
+		selectionId: SelectionId;
 	};
 
-	const { projectId, selectedId, stacks, active }: Props = $props();
+	const { projectId, selectedId, stacks, active, selectionId }: Props = $props();
+
+	const [worktreeService] = inject(WorktreeService);
 
 	let lanesSrollableEl = $state<HTMLDivElement>();
 	let lanesScrollableWidth = $state<number>(0);
@@ -52,6 +58,8 @@
 	const projectState = $derived(uiState.project(projectId));
 	const drawer = $derived(projectState.drawerPage);
 	const isCommitting = $derived(drawer.current === 'new-commit');
+
+	const assignmentResult = $derived(worktreeService.assignments(projectId));
 
 	const SHOW_PAGINATION_THRESHOLD = 1;
 </script>
@@ -136,7 +144,21 @@
 							{projectId}
 							stackId={stack.id}
 							{active}
-						/>
+						>
+							{#snippet assignments()}
+								{@const assignments = assignmentResult.current.data?.[stack.id]}
+								{#if assignments}
+									<div class="assignments">
+										<WorktreeChanges
+											title="Assigned"
+											{projectId}
+											stackId={stack.id}
+											active={selectionId.type === 'worktree' && selectionId.stackId === stack.id}
+										/>
+									</div>
+								{/if}
+							{/snippet}
+						</BranchList>
 					</div>
 				{/each}
 
@@ -300,5 +322,9 @@
 			background: radial-gradient(var(--clr-bg-2) 0%, oklch(from var(--clr-bg-2) l c h / 0) 70%);
 			content: '';
 		}
+	}
+
+	.assignments {
+		padding: 12px 12px 0 12px;
 	}
 </style>

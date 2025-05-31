@@ -21,6 +21,7 @@ const MOCK_PROJECT_UI_STATE: ProjectUiState = {
 	drawerFullScreen: false,
 	commitTitle: '',
 	commitDescription: '',
+	commitSourceId: undefined,
 	branchesSelection: { branchName: 'test' },
 	stackId: undefined,
 	editingCommitMessage: false

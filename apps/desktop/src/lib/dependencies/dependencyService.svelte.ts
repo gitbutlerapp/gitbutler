@@ -14,9 +14,9 @@ export default class DependencyService {
 		this.api = injectEndpoints(backendApi);
 	}
 
-	fileDependencies(projectId: string, worktreeChangesKey: number, filePath: string) {
+	fileDependencies(projectId: string, filePath: string) {
 		return this.api.endpoints.dependencies.useQuery(
-			{ projectId, worktreeChangesKey },
+			{ projectId },
 			{
 				transform: ({ fileDependencies }) =>
 					fileDependencySelectors.selectById(fileDependencies, filePath)
@@ -24,9 +24,9 @@ export default class DependencyService {
 		);
 	}
 
-	filesDependencies(projectId: string, worktreeChangesKey: number, filePaths: string[]) {
+	filesDependencies(projectId: string, filePaths: string[]) {
 		return this.api.endpoints.dependencies.useQuery(
-			{ projectId, worktreeChangesKey },
+			{ projectId },
 			{
 				transform: ({ fileDependencies }) =>
 					fileDependencySelectors.selectByIds(fileDependencies, filePaths)
@@ -40,7 +40,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 		endpoints: (build) => ({
 			dependencies: build.query<
 				{ fileDependencies: EntityState<FileDependencies, string>; filePaths: string[] },
-				{ projectId: string; worktreeChangesKey: number }
+				{ projectId: string }
 			>({
 				query: ({ projectId }) => ({
 					params: { projectId },
