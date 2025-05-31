@@ -63,8 +63,7 @@
 	let targetCommitOid = $state<string | undefined>(undefined);
 	let branchStatuses = $state<StackStatusesWithBranchesV3 | undefined>();
 	const stackService = getContext(StackService);
-	const stacks = $derived(stackService.stacks(projectId));
-	const appliedBranches = $derived(stacks.current.data?.flatMap((s) => s.heads.map((h) => h.name)));
+	let appliedBranches = $state<string[]>();
 	let filteredReviews = $state<PullRequest[] | undefined>(undefined);
 	const reviewMap = $derived(new Map(filteredReviews?.map((r) => [r.sourceBranch, r])));
 
@@ -72,6 +71,7 @@
 	const [integrateUpstream] = $derived(upstreamIntegrationService.integrateUpstream(projectId));
 
 	$effect(() => {
+		if (!modal?.imports.open) return;
 		if (branchStatuses?.type !== 'updatesRequired' || filteredReviews === undefined) {
 			statuses = [];
 			return;
@@ -101,6 +101,7 @@
 
 	// Re-fetch upstream statuses if the target commit oid changes
 	$effect(() => {
+		if (!modal?.imports.open) return;
 		if (targetCommitOid) {
 			upstreamIntegrationService.upstreamStatuses(projectId, targetCommitOid).then((statuses) => {
 				branchStatuses = statuses;
@@ -111,6 +112,7 @@
 	// Resolve the target commit oid if the base branch diverged and the the resolution
 	// approach is changed
 	$effect(() => {
+		if (!modal?.imports.open) return;
 		if (base?.diverged && baseResolutionApproach) {
 			upstreamIntegrationService
 				.resolveUpstreamIntegrationMutation({
@@ -125,6 +127,7 @@
 
 	// Fetch the reviews for the applied branches
 	$effect(() => {
+		if (!modal?.imports.open) return;
 		if (
 			filteredReviews === undefined &&
 			appliedBranches !== undefined &&
@@ -166,13 +169,24 @@
 		modal?.close();
 	}
 
+	async function fetchAppliedBranches() {
+		return await stackService
+			.fetchStacks(projectId)
+			.then(
+				(stacksResponse) =>
+					stacksResponse.data?.flatMap((stack) => stack.heads.map((head) => head.name)) ?? []
+			);
+	}
+
 	export async function show() {
 		integratingUpstream = 'inert';
 		branchStatuses = undefined;
 		filteredReviews = undefined;
+		await tick();
 		modal?.show();
 		// Fetch the base branch and the forge info to ensure we have the latest data
 		await baseBranchService.fetchFromRemotes(projectId);
+		appliedBranches = await fetchAppliedBranches();
 		branchStatuses = await upstreamIntegrationService.upstreamStatuses(projectId, targetCommitOid);
 	}
 
@@ -396,7 +410,9 @@
 				wide
 				style="pop"
 				disabled={isDivergedResolved || !branchStatuses}
-				loading={integratingUpstream === 'loading' || !branchStatuses}
+				loading={integratingUpstream === 'loading' ||
+					!branchStatuses ||
+					filteredReviews === undefined}
 				onclick={async (e) => {
 					await integrate(e);
 				}}
