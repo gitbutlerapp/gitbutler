@@ -90,8 +90,8 @@
 		</Select>
 	{:else}
 		<p class="text-13">
-			We have determiend that you are currently using <code>{$determinedForgeType}</code>. We
-			currently do not support overriding an automatically determiend forge type.
+			We have determined that you are currently using <code>{$determinedForgeType}</code>. We
+			currently do not support overriding an automatically determined forge type.
 		</p>
 	{/if}
 </SectionCard>
