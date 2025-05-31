@@ -8,12 +8,11 @@
 
 	type Props = {
 		projectId: string;
-		stackId?: string;
 		selectionId?: SelectionId;
 		draggableFiles: boolean;
 	};
 
-	let { projectId, selectionId, stackId, draggableFiles }: Props = $props();
+	let { projectId, selectionId, draggableFiles }: Props = $props();
 
 	const [idSelection] = inject(IdSelection);
 
@@ -28,7 +27,6 @@
 			{#each selection as selectedFile}
 				<SelectedChange
 					{projectId}
-					{stackId}
 					{selectedFile}
 					draggable={draggableFiles}
 					onCloseClick={() => {

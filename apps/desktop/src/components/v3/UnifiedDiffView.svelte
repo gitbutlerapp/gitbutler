@@ -2,14 +2,12 @@
 	import LargeDiffMessage from '$components/LargeDiffMessage.svelte';
 	import HunkContextMenu from '$components/v3/HunkContextMenu.svelte';
 	import LineLocksWarning from '$components/v3/LineLocksWarning.svelte';
-	import LineSelection from '$components/v3/unifiedDiffLineSelection.svelte';
 	import binarySvg from '$lib/assets/empty-state/binary.svg?raw';
 	import emptyFileSvg from '$lib/assets/empty-state/empty-file.svg?raw';
 	import tooLargeSvg from '$lib/assets/empty-state/too-large.svg?raw';
 	import DependencyService from '$lib/dependencies/dependencyService.svelte';
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { HunkDropDataV3 } from '$lib/dragging/draggables';
-	import { previousPathBytesFromTreeChange, type TreeChange } from '$lib/hunks/change';
 	import {
 		canBePartiallySelected,
 		getLineLocks,
@@ -17,20 +15,16 @@
 		type DiffHunk
 	} from '$lib/hunks/hunk';
 	import { Project } from '$lib/project/project';
-	import {
-		ChangeSelectionService,
-		type PartiallySelectedFile
-	} from '$lib/selection/changeSelection.svelte';
-	import { IdSelection } from '$lib/selection/idSelection.svelte';
+	import { AssignmentService } from '$lib/selection/assignmentService.svelte';
 	import { type SelectionId } from '$lib/selection/key';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
-	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
+	import type { TreeChange } from '$lib/hunks/change';
 	import type { UnifiedDiff } from '$lib/hunks/diff';
 	import type { LineId } from '@gitbutler/ui/utils/diffParsing';
 
@@ -73,21 +67,7 @@
 	const isUncommittedChange = $derived(selectionId.type === 'worktree');
 	const hasMultipleStacks = $derived(stacks.current.data && stacks.current.data.length > 1);
 
-	const [changeSelection, idSelection, lineSelection, dependencyService, worktreeService] = inject(
-		ChangeSelectionService,
-		IdSelection,
-		LineSelection,
-		DependencyService,
-		WorktreeService
-	);
-
-	const changeSelectionResult = $derived(changeSelection.getById(change.path));
-	const selection = $derived(changeSelectionResult.current);
-	const pathData = $derived({
-		path: change.path,
-		pathBytes: change.pathBytes,
-		previousPathBytes: previousPathBytesFromTreeChange(change)
-	});
+	const [assignmentService, dependencyService] = inject(AssignmentService, DependencyService);
 
 	const fileDependencies = $derived(
 		// For now, only show the file dependencies when commiting, and there are multiple stacks applied
@@ -98,146 +78,31 @@
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
-	$effect(() => {
-		lineSelection.setChange(change);
-	});
-
-	$effect(() => {
-		lineSelection.setSelectable(selectable);
-	});
-
-	function updateStage(hunk: DiffHunk, select: boolean, allHunks: DiffHunk[]) {
-		if (selection?.type === 'full') {
-			handleStageInFullSelection(select, allHunks, hunk);
-			return;
-		}
-
-		if (selection?.type === 'partial') {
-			handleStageInPartialSelection(selection, select, hunk, allHunks);
-			return;
-		}
-
-		if (select) {
-			changeSelection.upsert({
-				type: 'partial',
-				...pathData,
-				hunks: [{ type: 'full', ...hunk }]
-			});
-			return;
-		}
-	}
-
-	function unselectHunk(hunk: DiffHunk, allHunks: DiffHunk[]) {
-		updateStage(hunk, false, allHunks);
-		if (allHunks.length === 1) {
-			// This is the only hunk, so we can unselect the file
-			idSelection.remove(change.path, selectionId);
-		}
-	}
-
-	/**
-	 * Handles updating the staging state of a hunk when the file it belongs to is already partially staged.
-	 */
-	function handleStageInPartialSelection(
-		partialSelection: PartiallySelectedFile,
-		select: boolean,
-		hunk: DiffHunk,
-		allHunks: DiffHunk[]
-	) {
-		const newHunks = partialSelection.hunks.slice();
-
-		if (select) {
-			newHunks.push({
-				type: 'full',
-				...hunk
-			});
-
-			if (newHunks.length === allHunks.length) {
-				changeSelection.update({
-					type: 'full',
-					...pathData
-				});
-				return;
-			}
-
-			changeSelection.update({
-				type: 'partial',
-				...pathData,
-				hunks: newHunks
-			});
-
-			return;
-		}
-
-		const hunks = partialSelection.hunks.filter((h) => {
-			return h.newStart !== hunk.newStart && h.newLines !== hunk.newLines;
-		});
-
-		if (hunks.length === 0) {
-			changeSelection.remove(change.path);
-		} else {
-			changeSelection.update({
-				type: 'partial',
-				...pathData,
-				hunks
-			});
-		}
-	}
-
-	/**
-	 * Handles updating the staging state of a hunk when the file it belongs to is already fully staged.
-	 */
-	function handleStageInFullSelection(select: boolean, allHunks: DiffHunk[], hunk: DiffHunk) {
-		if (select) {
-			throw new Error('Cannot add to full selection');
-		}
-		const newHunks = allHunks.filter((h) => h !== hunk);
-		changeSelection.update({
-			...pathData,
-			type: 'partial',
-			hunks: newHunks.map((h) => ({
-				type: 'full',
-				...h
-			}))
-		});
-	}
-
-	function getStageState(hunk: DiffHunk): [boolean | undefined, LineId[] | undefined] {
-		if (!selectable) return [undefined, undefined];
-		if (selection === undefined) return [false, undefined];
-		if (selection.type === 'full') return [true, undefined];
-		const hunkSelected = selection.hunks.find(
-			(h) => h.newStart === hunk.newStart && h.oldStart === hunk.oldStart
-		);
-		const linesSelected = hunkSelected?.type === 'partial' ? hunkSelected?.lines : undefined;
-		const stagedHunk = !!hunkSelected;
-		return [stagedHunk, linesSelected];
-	}
-
 	const draggingDisabled = $derived(
 		!draggable || !['commit', 'worktree'].includes(selectionId.type)
 	);
 
-	const assignments = $derived.by(() => {
-		if (selectionId.type !== 'worktree') return;
-		return worktreeService.assignments(projectId);
-	});
+	const assignments = $derived(assignmentService.getByPath(stackId || null, change.path));
 
 	function filter(hunks: DiffHunk[]): DiffHunk[] {
-		if (!assignments?.current?.data || selectionId.type !== 'worktree') return hunks;
-		const stackGroup = assignments.current.data[selectionId.stackId || 'unassigned'];
-		if (!stackGroup) return hunks;
-		const pathGroup = stackGroup[pathData.path];
-		if (!pathGroup) return hunks;
-
+		if (selectionId.type !== 'worktree') return hunks;
 		// TODO: It does concern me that this is an N+1;
 		// We could have an encoding for hunk-headers that we can then put into
 		// a hash set.
-		return hunks.filter((hunk) =>
-			pathGroup.some((assignedHunk) =>
-				assignedHunk?.hunkHeader ? hunkHeaderEquals(hunk, assignedHunk.hunkHeader) : true
-			)
-		);
+		const filtered = hunks.filter((hunk) => {
+			return assignments.current.some((assignment) =>
+				assignment?.hunkHeader === null ? true : hunkHeaderEquals(hunk, assignment.hunkHeader)
+			);
+		});
+		return filtered;
+	}
+
+	function linesInclude(
+		newStart: number | undefined,
+		oldStart: number | undefined,
+		lines: LineId[]
+	) {
+		return lines.some((l) => l.newLine === newStart && l.oldLine === oldStart);
 	}
 </script>
 
@@ -252,7 +117,11 @@
 			/>
 		{:else}
 			{#each filter(diff.subject.hunks) as hunk}
-				{@const [staged, stagedLines] = getStageState(hunk)}
+				{@const selection = assignmentService.hunkCheckStatus(
+					stackId || null,
+					change.path,
+					hunk.newStart.toString()
+				)}
 				{@const [fullyLocked, lineLocks] = getLineLocks(
 					activeStackId,
 					hunk,
@@ -266,7 +135,7 @@
 							change,
 							hunk,
 							isUncommittedChange,
-							stackId,
+							stackId || null,
 							commitId,
 							selectionId
 						),
@@ -279,8 +148,8 @@
 						hideCheckboxes={!isCommiting}
 						filePath={change.path}
 						hunkStr={hunk.diff}
-						{staged}
-						{stagedLines}
+						staged={selection.current.selected}
+						stagedLines={selection.current.lines}
 						{lineLocks}
 						diffLigatures={$userSettings.diffLigatures}
 						tabSize={$userSettings.tabSize}
@@ -289,22 +158,51 @@
 						diffContrast={$userSettings.diffContrast}
 						inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
 						onLineClick={(p) => {
-							if (fullyLocked) return;
+							if (fullyLocked || selectable) return;
 							if (!canBePartiallySelected(diff.subject)) {
-								const select = selection === undefined;
-								updateStage(hunk, select, diff.subject.hunks);
-								return;
+								assignmentService.checkHunk(stackId || null, change.path, hunk.newStart.toString());
 							}
-							lineSelection.toggleStageLines(selection, hunk, p, diff.subject.hunks);
+							if (
+								selection.current.lines.length > 0 &&
+								!linesInclude(p.newLine, p.oldLine, selection.current.lines)
+							) {
+								assignmentService.checkLine(
+									stackId || null,
+									change.path,
+									hunk.newStart.toString(),
+									{
+										newLine: p.newLine,
+										oldLine: p.oldLine
+									}
+								);
+							} else {
+								assignmentService.uncheckLine(
+									stackId || null,
+									change.path,
+									hunk.newStart.toString(),
+									{
+										newLine: p.newLine,
+										oldLine: p.oldLine
+									}
+								);
+							}
 						}}
 						onChangeStage={(selected) => {
-							if (fullyLocked) return;
-							updateStage(hunk, selected, diff.subject.hunks);
+							if (fullyLocked || !selectable) return;
+							if (selected) {
+								assignmentService.uncheckHunk(
+									stackId || null,
+									change.path,
+									hunk.newStart.toString()
+								);
+							} else {
+								assignmentService.checkHunk(stackId || null, change.path, hunk.newStart.toString());
+							}
 						}}
 						handleLineContextMenu={(params) => {
 							contextMenu?.open(params.event, {
 								hunk,
-								selectedLines: stagedLines,
+								selectedLines: undefined, // TODO: Fixme
 								beforeLineNumber: params.beforeLineNumber,
 								afterLineNumber: params.afterLineNumber
 							});
@@ -334,7 +232,9 @@
 			{projectId}
 			{change}
 			discardable={isUncommittedChange}
-			unSelectHunk={(hunk) => unselectHunk(hunk, diff.subject.hunks)}
+			unSelectHunk={(hunk) => {
+				assignmentService.uncheckHunk(stackId || null, change.path, hunk.newStart.toString());
+			}}
 		/>
 	{:else if diff.type === 'TooLarge'}
 		<div class="hunk-placehoder">

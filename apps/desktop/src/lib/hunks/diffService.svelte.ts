@@ -10,6 +10,7 @@ export type ChangeDiff = {
 };
 
 export type HunkAssignments = Record<string, Record<string, HunkAssignment[]>>;
+export type StackAssignments = Record<string, HunkAssignment[]>;
 
 export class DiffService {
 	private api: ReturnType<typeof injectEndpoints>;

@@ -1,13 +1,13 @@
 import type { EntityState } from '@reduxjs/toolkit';
 
-export interface IRCUser {
+export type IRCUser = {
 	nick: string;
 	user?: string;
 	host?: string;
 	mode?: 'op' | 'voice' | null; // Op (+@) or Voice (+)
-}
+};
 
-export interface IrcChannel {
+export type IrcChannel = {
 	name: string;
 	users: Record<string, IRCUser>; // Keyed by nick
 	logs: EntityState<IrcLog, string>;
@@ -18,9 +18,9 @@ export interface IrcChannel {
 	// incrementing the unread counter.
 	open?: boolean;
 	floating?: boolean;
-}
+};
 
-export interface IrcChat {
+export type IrcChat = {
 	username: string;
 	logs: EntityState<IrcLog, string>;
 	unread: number;
@@ -28,7 +28,7 @@ export interface IrcChat {
 	// incrementing the unread counter.
 	open?: boolean;
 	floating?: boolean;
-}
+};
 
 export type IrcLog = {
 	type: string;
@@ -59,7 +59,7 @@ export type IrcLog = {
 	| { type: 'command'; raw?: string }
 );
 
-export interface IRCState {
+export type IRCState = {
 	connection: {
 		connected: boolean;
 		nick?: string;
@@ -68,7 +68,7 @@ export interface IRCState {
 	chats: Record<string, IrcChat>;
 	systemMessages: IrcLog[];
 	whois: Record<string, any>; // Storing WHOIS info by nick
-}
+};
 
 export type WhoInfo = { nick: string; username?: string; realname?: string };
 export type IrcUserInfo = { username?: string; realname?: string };

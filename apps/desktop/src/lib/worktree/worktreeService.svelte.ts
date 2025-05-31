@@ -40,6 +40,21 @@ export class WorktreeService {
 		return result;
 	}
 
+	hunkAssignments(projectId: string) {
+		const result = $derived(
+			this.api.endpoints.worktreeChanges.useQuery(
+				{ projectId },
+				{ transform: (res) => res.hunkAssignments }
+			)
+		);
+		return result;
+	}
+
+	worktreeData(projectId: string) {
+		const result = $derived(this.api.endpoints.worktreeChanges.useQuery({ projectId }));
+		return result;
+	}
+
 	getChange(projectId: string, path: string) {
 		const { worktreeChanges: getChanges } = this.api.endpoints;
 		return getChanges.useQueryState(
@@ -87,8 +102,10 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			worktreeChanges: build.query<
 				{
 					changes: EntityState<TreeChange, string>;
+					rawChanges: TreeChange[];
 					ignoredChanges: IgnoredChange[];
 					assignments: HunkAssignments;
+					hunkAssignments: HunkAssignment[];
 				},
 				{ projectId: string }
 			>({
@@ -114,8 +131,10 @@ function injectEndpoints(api: ClientState['backendApi']) {
 									worktreeAdapter.getInitialState(),
 									event.payload.changes
 								),
+								rawChanges: event.payload.changes,
 								ignoredChanges: draft.ignoredChanges,
-								assignments: groupAssignments(event.payload.assignments.Ok)
+								assignments: groupAssignments(event.payload.assignments.Ok),
+								hunkAssignments: event.payload.assignments.Ok
 							}));
 						}
 					);
@@ -130,8 +149,10 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				async transformResponse(response: WorktreeChanges) {
 					return {
 						changes: worktreeAdapter.addMany(worktreeAdapter.getInitialState(), response.changes),
+						rawChanges: response.changes,
 						ignoredChanges: response.ignoredChanges,
-						assignments: groupAssignments(response.assignments.Ok)
+						assignments: groupAssignments(response.assignments.Ok),
+						hunkAssignments: response.assignments.Ok
 					};
 				}
 			})

@@ -1,14 +1,14 @@
 import { ChangeDropData, HunkDropDataV3 } from '$lib/dragging/draggables';
-import { type DiffService, type HunkAssignments } from '$lib/hunks/diffService.svelte';
-import { hunkHeaderEquals, type HunkAssignmentRequest } from '$lib/hunks/hunk';
+import { type DiffService } from '$lib/hunks/diffService.svelte';
 import type { DropzoneHandler } from '$lib/dragging/handler';
+import type { AssignmentService } from '$lib/selection/assignmentService.svelte';
 
 export class AssignmentDropHandler implements DropzoneHandler {
 	constructor(
 		private readonly projectId: string,
 		private readonly diffService: DiffService,
-		private readonly assignments: HunkAssignments,
-		private readonly stackId: string
+		private readonly assignmentService: AssignmentService,
+		private readonly stackId: string | null
 	) {}
 
 	accepts(data: unknown) {
@@ -28,44 +28,21 @@ export class AssignmentDropHandler implements DropzoneHandler {
 
 	async ondrop(data: ChangeDropData | HunkDropDataV3) {
 		if (data instanceof ChangeDropData) {
-			const assignments: HunkAssignmentRequest[] = [];
-			for (const file of data.changes) {
-				const stackGroup = this.assignments[data.stackId || 'unassigned'];
-				if (!stackGroup) continue;
-				const fileAssignments = stackGroup[file.path];
-				if (fileAssignments) {
-					assignments.push(...structuredClone(fileAssignments));
-				}
-			}
-			for (const assignment of assignments) {
-				assignment.stackId = this.stackId === 'unassigned' ? null : this.stackId;
-			}
-
 			await this.diffService.assignHunk({
 				projectId: this.projectId,
-				assignments
+				assignments: data.changes
+					.flatMap((c) => this.assignmentService.getByPath(data.stackId, c.path).current)
+					.map((h) => ({ ...h, stackId: this.stackId }))
 			});
 		} else {
-			const selectionId = data.selectionId;
-			if (selectionId.type !== 'worktree') {
-				throw new Error('Mission impossible');
-			}
-
-			const stackGroup = this.assignments[selectionId.stackId || 'unassigned'];
-			if (!stackGroup) return;
-			const fileAssignments = stackGroup[data.change.path];
-			const fileAssignment: HunkAssignmentRequest | undefined = structuredClone(
-				fileAssignments?.find(
-					(assignment) =>
-						assignment.hunkHeader !== null && hunkHeaderEquals(assignment.hunkHeader, data.hunk)
-				)
-			);
-			if (!fileAssignment) return;
-			fileAssignment.stackId = this.stackId === 'unassigned' ? null : this.stackId;
-
+			const assignment = this.assignmentService.getByHeader(
+				data.stackId,
+				data.change.path,
+				`${data.hunk.newStart}`
+			).current!;
 			await this.diffService.assignHunk({
 				projectId: this.projectId,
-				assignments: [fileAssignment]
+				assignments: [{ ...assignment, stackId: this.stackId }]
 			});
 		}
 	}

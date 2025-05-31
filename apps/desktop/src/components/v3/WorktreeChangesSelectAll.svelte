@@ -1,92 +1,30 @@
 <script lang="ts">
-	import { type HunkAssignments } from '$lib/hunks/diffService.svelte';
-	import {
-		allAssignedToCurrentGroupSelected,
-		ChangeSelectionService,
-		deselectAllForChangeInGroup,
-		filterChangesByGroup,
-		selectAllForChangeInGroup,
-		someAssignedToCurrentGroupSelected
-	} from '$lib/selection/changeSelection.svelte';
+	import { AssignmentService } from '$lib/selection/assignmentService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
-	import type { TreeChange } from '$lib/hunks/change';
 
 	type Props = {
-		stackId?: string;
-		changes: TreeChange[];
-		assignments: HunkAssignments;
+		stackId: string | undefined;
 	};
 
-	const { stackId, changes, assignments }: Props = $props();
+	const { stackId }: Props = $props();
 
-	const changeSelection = getContext(ChangeSelectionService);
-	const filteredChanges = $derived(filterChangesByGroup(changes, stackId, assignments));
-	const selectedFiles = $derived(
-		Object.fromEntries(
-			filteredChanges.map((change) => [change.path, changeSelection.getById(change.path)])
-		)
-	);
+	const assignmentService = getContext(AssignmentService);
 
-	const checkStatus = $derived.by((): 'checked' | 'indeterminate' | 'unchecked' => {
-		if (filteredChanges.length === 0) return 'unchecked';
-		if (
-			filteredChanges.every((change) =>
-				allAssignedToCurrentGroupSelected(
-					change,
-					stackId,
-					assignments,
-					selectedFiles[change.path]?.current
-				)
-			)
-		) {
-			return 'checked';
-		}
+	const checkStatus = $derived(assignmentService.stackCheckStatus(stackId));
 
-		if (
-			filteredChanges.some((change) =>
-				someAssignedToCurrentGroupSelected(
-					change,
-					stackId,
-					assignments,
-					selectedFiles[change.path]?.current
-				)
-			)
-		) {
-			return 'indeterminate';
-		}
-
-		return 'unchecked';
-	});
-
-	function onCheck() {
-		if (checkStatus === 'checked' || checkStatus === 'indeterminate') {
-			for (const change of filteredChanges) {
-				deselectAllForChangeInGroup(
-					change,
-					stackId,
-					assignments,
-					selectedFiles[change.path]?.current,
-					changeSelection
-				);
-			}
+	function onCheck(checked: boolean) {
+		if (checked) {
+			assignmentService.checkAll(stackId || null);
 		} else {
-			for (const change of filteredChanges) {
-				selectAllForChangeInGroup(
-					change,
-					stackId,
-					assignments,
-					selectedFiles[change.path]?.current,
-					changeSelection
-				);
-			}
+			assignmentService.uncheckAll(stackId || null);
 		}
 	}
 </script>
 
 <Checkbox
 	small
-	checked={checkStatus === 'checked' || checkStatus === 'indeterminate'}
-	indeterminate={checkStatus === 'indeterminate'}
-	onchange={onCheck}
+	checked={checkStatus.current === 'checked' || checkStatus.current === 'indeterminate'}
+	indeterminate={checkStatus.current === 'indeterminate'}
+	onchange={(e) => onCheck(e.currentTarget.checked)}
 />

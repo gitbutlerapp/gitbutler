@@ -17,15 +17,15 @@ export enum DefinedFocusable {
 }
 
 export function assignedChangesFocusableId(stackId: string) {
-	return `assigned-changes:${stackId}`;
+	return `${DefinedFocusable.UncommittedChanges}:${stackId}`;
 }
 
 /**
  * If the provided ID is a assigned-changes id, it will return the stackId as a
  * string, otherwise, it will return undefined.
  */
-export function parseAssignedChangesFocusableId(id: string): string | undefined {
-	if (!id.startsWith('assigned-changes')) {
+export function parseUnassignedChangesFocusable(id: string): string | undefined {
+	if (!id.startsWith(DefinedFocusable.UncommittedChanges)) {
 		return;
 	}
 	const halves = id.split(':');

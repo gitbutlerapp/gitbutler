@@ -12,10 +12,9 @@
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { isParsedError } from '$lib/error/parser';
 	import {
-		assignedChangesFocusableId,
 		DefinedFocusable,
 		FocusManager,
-		parseAssignedChangesFocusableId
+		parseUnassignedChangesFocusable
 	} from '$lib/focus/focusManager.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -39,7 +38,7 @@
 		IdSelection,
 		SettingsService
 	);
-	const worktreeSelection = idSelection.getById({ type: 'worktree', stackId: 'unassigned' });
+	const worktreeSelection = idSelection.getById({ type: 'worktree' });
 	const stacksResult = $derived(stackService.stacks(projectId));
 	const settingsStore = $derived(settingsService.appSettings);
 	const canUseActions = $derived($settingsStore?.featureFlags.actions ?? false);
@@ -50,7 +49,9 @@
 
 	const stackFocusables = $derived(
 		stacksResult.current?.data
-			? stacksResult.current.data.map((stack) => assignedChangesFocusableId(stack.id))
+			? stacksResult.current.data.map(
+					(stack) => DefinedFocusable.UncommittedChanges + ':' + stack.id
+				)
 			: []
 	);
 
@@ -74,16 +75,16 @@
 	const selectionId: SelectionId = $derived.by(() => {
 		const branchName = currentSelection?.branchName;
 		const assignedChangesStackId = focusGroup.current
-			? parseAssignedChangesFocusableId(focusGroup.current)
+			? parseUnassignedChangesFocusable(focusGroup.current)
 			: undefined;
 		if (assignedChangesStackId) {
-			return { type: 'worktree', group: { type: 'grouped', stackId: assignedChangesStackId } };
+			return { type: 'worktree', stackId: assignedChangesStackId };
 		}
 		if (
 			focusGroup.current === DefinedFocusable.UncommittedChanges &&
 			worktreeSelection.entries.size > 0
 		) {
-			return { type: 'worktree', stackId: 'unassigned' };
+			return { type: 'worktree', stackId: undefined };
 		}
 		if (currentSelection && stackId && branchName) {
 			if (currentSelection.commitId) {
@@ -94,7 +95,7 @@
 			if (idSelection.hasItems(selectionId)) return selectionId;
 		}
 
-		return { type: 'worktree', stackId: 'unassigned' };
+		return { type: 'worktree' };
 	});
 
 	let view = $state<'worktree' | 'action-log'>('worktree');
@@ -131,7 +132,12 @@
 		{/if}
 
 		{#if !canUseActions || view === 'worktree'}
-			<WorktreeChanges {projectId} {stackId} active={selectionId.type === 'worktree'} />
+			<WorktreeChanges
+				title="Unassigned"
+				{projectId}
+				stackId={undefined}
+				active={selectionId.type === 'worktree' && selectionId.stackId === undefined}
+			/>
 		{:else if canUseActions && view === 'action-log'}
 			<ActionLog {projectId} />
 		{/if}
@@ -139,7 +145,7 @@
 
 	{#snippet middle()}
 		{#if !drawerIsFullScreen.current}
-			<SelectionView {projectId} {selectionId} {stackId} draggableFiles />
+			<SelectionView {projectId} {selectionId} draggableFiles />
 		{/if}
 		{#if drawerPage.current === 'new-commit'}
 			<NewCommitView {projectId} {stackId} />
@@ -180,6 +186,7 @@
 				<MultiStackView
 					{projectId}
 					{stacks}
+					{selectionId}
 					selectedId={stackId}
 					active={focusGroup.current !== DefinedFocusable.UncommittedChanges}
 				/>

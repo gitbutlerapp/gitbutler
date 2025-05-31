@@ -1,5 +1,5 @@
 import { previousPathBytesFromTreeChange, type TreeChange } from '$lib/hunks/change';
-import { type HunkAssignments } from '$lib/hunks/diffService.svelte';
+import { type HunkAssignments, type StackAssignments } from '$lib/hunks/diffService.svelte';
 import { hunkHeaderEquals, type HunkAssignment } from '$lib/hunks/hunk';
 import { createSelectByPrefix } from '$lib/state/customSelectors';
 import { type Reactive, reactive } from '@gitbutler/shared/storeUtils';
@@ -39,6 +39,7 @@ export type PartiallySelectedHunk = HunkHeader & {
 export type SelectedHunk = FullySelectedHunk | PartiallySelectedHunk;
 
 type FileHeader = {
+	stackId?: string;
 	path: string;
 	pathBytes: number[];
 	previousPathBytes: number[] | null;
@@ -53,14 +54,17 @@ export type PartiallySelectedFile = FileHeader & {
 	hunks: SelectedHunk[];
 };
 
+function fileKey(change: SelectedFile) {
+	return `${change.stackId || 'unassigned'}:${change.path}`;
+}
 /**
  * Representation of visually selected file.
  */
 export type SelectedFile = FullySelectedFile | PartiallySelectedFile;
 
-export const changeSelectionAdapter = createEntityAdapter<SelectedFile, SelectedFile['path']>({
-	selectId: (change) => change.path,
-	sortComparer: (a, b) => a.path.localeCompare(b.path)
+export const changeSelectionAdapter = createEntityAdapter<SelectedFile, string>({
+	selectId: (change) => fileKey(change),
+	sortComparer: (a, b) => fileKey(a).localeCompare(fileKey(b))
 });
 
 const { selectById, selectAll } = changeSelectionAdapter.getSelectors();
@@ -200,22 +204,21 @@ export function selectForStartingCommit(
 ) {
 	if (currentlySelectedFiles.length > 0) return;
 
-	let sourceStackId: string;
-	if (
-		stackId &&
-		changes.some((change) => getRelevantAssignments(change, stackId, assignments).length > 0)
-	) {
-		sourceStackId = stackId;
-	} else {
-		sourceStackId = 'unassigned';
-	}
+	const stackAssignment = stackId ? assignments[stackId] : undefined;
+	const stackHasAssignments = stackAssignment
+		? changes.some((c) => {
+				const pathAssignment = stackAssignment[c.path];
+				return pathAssignment && pathAssignment.length > 0;
+			})
+		: false;
 
+	const sourceStackId = stackHasAssignments ? stackId : 'unassigned';
 	for (const change of changes) {
-		selectAllForChangeInGroup(change, sourceStackId, assignments, undefined, changeSelection);
+		selectChange(change, sourceStackId, assignments, undefined, changeSelection);
 	}
 }
 
-export function selectAllForChangeInGroup(
+export function selectChange(
 	change: TreeChange,
 	stackId: string | undefined,
 	assignments: HunkAssignments,
@@ -224,8 +227,9 @@ export function selectAllForChangeInGroup(
 ) {
 	if (existingSelection?.type === 'full') return;
 
-	const relevantAssignments = getRelevantAssignments(change, stackId || 'unassigned', assignments);
-	if (relevantAssignments.length === 0) return;
+	const stackAssignments = assignments[stackId || 'unassigned'];
+	const relevantAssignments = stackAssignments?.[change.path];
+	if (!relevantAssignments || relevantAssignments.length === 0) return;
 
 	// If there are any relevant assignments without a hunk header, it means
 	// that the assignment itself represents a whole file, like a rename,
@@ -314,7 +318,7 @@ export function selectAllForChangeInGroup(
 	}
 }
 
-export function deselectAllForChangeInGroup(
+export function deselectChange(
 	change: TreeChange,
 	stackId: string | undefined,
 	assignments: HunkAssignments,
@@ -323,7 +327,7 @@ export function deselectAllForChangeInGroup(
 ) {
 	if (!existingSelection) return;
 
-	const relevantAssignments = getRelevantAssignments(change, stackId, assignments);
+	const relevantAssignments = assignments[stackId || 'unassigned']![change.path]!;
 	const allOtherAssignments = getAllAssignments(change, assignments, stackId);
 
 	// If there are any relevant assignments without a hunk header, it means
@@ -374,10 +378,10 @@ export function deselectAllForChangeInGroup(
 	}
 }
 
-export function someAssignedToCurrentGroupSelected(
+export function someAssignmentsSelected(
 	change: TreeChange,
 	stackId: string | undefined,
-	assignments: HunkAssignments,
+	assignments: StackAssignments,
 	existingSelection: SelectedFile | undefined
 ): boolean {
 	const relevantAssignments = getRelevantAssignments(change, stackId, assignments);
@@ -390,15 +394,15 @@ export function someAssignedToCurrentGroupSelected(
 	);
 }
 
-export function allAssignedToCurrentGroupSelected(
+export function allAssignmentsSelected(
 	change: TreeChange,
 	stackId: string | undefined,
-	assignments: HunkAssignments,
+	assignments: StackAssignments,
 	existingSelection: SelectedFile | undefined
 ): boolean {
-	const relevantAssignments = getRelevantAssignments(change, stackId, assignments);
+	const relevantAssignments = assignments?.[change.path];
 	if (!existingSelection) return false;
-	if (relevantAssignments.length === 0) return false;
+	if (!relevantAssignments || relevantAssignments.length === 0) return false;
 	if (existingSelection.type === 'full') return true;
 	if (!assignmentsHaveHunkInformation(relevantAssignments)) return true;
 	return relevantAssignments.every((assignment) =>
@@ -409,11 +413,9 @@ export function allAssignedToCurrentGroupSelected(
 function getRelevantAssignments(
 	change: TreeChange,
 	stackId: string | undefined,
-	assignments: HunkAssignments
+	assignments: StackAssignments
 ): HunkAssignment[] {
-	const stackGroup = assignments[stackId || 'unassigned'];
-	if (!stackGroup) return [];
-	const hunkAssignments = stackGroup[change.path];
+	const hunkAssignments = assignments[change.path];
 	return hunkAssignments ?? [];
 }
 
@@ -437,18 +439,10 @@ function getAllAssignments(
 	return headers;
 }
 
-export function filterChangesByGroup(
-	changes: TreeChange[],
-	stackId: string | undefined,
-	assignments: HunkAssignments
-) {
-	const stackGroup = assignments[stackId || 'unassigned'];
-
-	if (!stackGroup) return [];
-
+export function filterChangesByAssignment(changes: TreeChange[], assignments: StackAssignments) {
 	const filteredChanges = [];
 	for (const change of changes) {
-		const pathGroup = stackGroup[change.path];
+		const pathGroup = assignments[change.path];
 		if (pathGroup) {
 			filteredChanges.push(change);
 		}

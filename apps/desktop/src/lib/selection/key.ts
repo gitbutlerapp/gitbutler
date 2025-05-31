@@ -71,7 +71,7 @@ export function readKey(key: SelectedFileKey): SelectedFile {
 			return {
 				type,
 				path: parts[0]!,
-				stackId: parts[1]
+				stackId: parts[1] === 'undefined' ? undefined : parts[1]
 			};
 	}
 }

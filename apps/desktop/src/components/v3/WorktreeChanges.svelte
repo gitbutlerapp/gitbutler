@@ -2,9 +2,8 @@
 	import CardOverlay from '$components/CardOverlay.svelte';
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
+	import FileList from '$components/v3/FileList.svelte';
 	import FileListMode from '$components/v3/FileListMode.svelte';
-	import WorktreeChangesFileList from '$components/v3/WorktreeChangesFileList.svelte';
 	import WorktreeChangesSelectAll from '$components/v3/WorktreeChangesSelectAll.svelte';
 	import WorktreeTipsFooter from '$components/v3/WorktreeTipsFooter.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
@@ -14,13 +13,9 @@
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { AssignmentDropHandler } from '$lib/hunks/dropHandler';
-	import {
-		ChangeSelectionService,
-		selectForStartingCommit
-	} from '$lib/selection/changeSelection.svelte';
+	import { AssignmentService } from '$lib/selection/assignmentService.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { combineResults } from '$lib/state/helpers';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
@@ -34,25 +29,20 @@
 		projectId: string;
 		stackId?: string;
 		active: boolean;
+		title: string;
 	};
 
-	let { projectId, stackId, active }: Props = $props();
+	let { projectId, active, stackId, title }: Props = $props();
 
-	const [changeSelection, worktreeService, uiState, stackService, idSelection, diffService] =
-		inject(
-			ChangeSelectionService,
-			WorktreeService,
-			UiState,
-			StackService,
-			IdSelection,
-			DiffService
-		);
+	const [worktreeService, uiState, stackService, idSelection, diffService, assignmentService] =
+		inject(WorktreeService, UiState, StackService, IdSelection, DiffService, AssignmentService);
 
 	const uncommitDzHandler = $derived(new UncommitDzHandler(projectId, stackService, uiState));
 
 	const projectState = $derived(uiState.project(projectId));
 	const drawerPage = $derived(projectState.drawerPage.get());
-	const isCommitting = $derived(drawerPage.current === 'new-commit');
+	const commitSourceId = $derived(projectState.commitSourceId.current);
+	const isCommitting = $derived(drawerPage.current === 'new-commit' && commitSourceId === stackId);
 	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
 
 	const defaultBranchResult = $derived(
@@ -60,19 +50,18 @@
 	);
 	const defaultBranchName = $derived(defaultBranchResult?.current.data);
 
-	const changesResult = $derived(worktreeService.changes(projectId));
-	const affectedPaths = $derived(changesResult.current.data?.map((c) => c.path));
+	const changes = $derived(assignmentService.changesByStackId(stackId || null));
+	const worktreeDataResult = $derived(worktreeService.worktreeData(projectId));
 
-	const assignmentResult = $derived(worktreeService.assignments(projectId));
+	const affectedPaths = $derived(changes.current.map((c) => c.path));
 
 	// TODO: Make this go away.
 	createCommitStore(undefined);
 
 	/** Clear any selected changes that no longer exist. */
 	$effect(() => {
-		if (affectedPaths) {
+		if (affectedPaths && stackId === undefined) {
 			untrack(() => {
-				changeSelection.retain(affectedPaths);
 				// TODO: Consider whether this is the best place for this to
 				// live.
 				idSelection.retain(affectedPaths);
@@ -80,20 +69,25 @@
 		}
 	});
 
+	const worktreeData = $derived(worktreeDataResult.current.data);
+	/** Clear any selected changes that no longer exist. */
+	$effect(() => {
+		if (worktreeData && stackId === undefined) {
+			assignmentService.updateAssignments({
+				changes: worktreeData.rawChanges,
+				assignments: worktreeData.hunkAssignments
+			});
+		}
+	});
+
 	let listMode: 'list' | 'tree' = $state('list');
 
 	function startCommit() {
-		if (changesResult.current?.data && assignmentResult?.current?.data) {
-			selectForStartingCommit(
-				stackId,
-				changesResult.current.data,
-				assignmentResult.current.data,
-				changeSelection.list().current,
-				changeSelection
-			);
+		if (changes.current) {
+			assignmentService.checkAll(stackId || null);
 		}
-
 		projectState.drawerPage.set('new-commit');
+		projectState.commitSourceId.set(stackId); // Unassigned changes.
 		if (defaultBranchName) {
 			stackState?.selection.set({ branchName: defaultBranchName });
 		}
@@ -101,15 +95,12 @@
 
 	let scrollTopIsVisible = $state(true);
 	let scrollBottomIsVisible = $state(true);
-	const assignmentDZHandler = $derived(
-		assignmentResult?.current?.data
-			? new AssignmentDropHandler(
-					projectId,
-					diffService,
-					assignmentResult.current.data,
-					'unassigned'
-				)
-			: undefined
+
+	const assignmentDZHandler = new AssignmentDropHandler(
+		projectId,
+		diffService,
+		assignmentService,
+		stackId || null
 	);
 </script>
 
@@ -125,91 +116,104 @@
 	<div
 		class="uncommitted-changes-wrap"
 		use:focusable={{
-			id: DefinedFocusable.UncommittedChanges,
+			id: stackId
+				? DefinedFocusable.UncommittedChanges + ':' + stackId
+				: DefinedFocusable.UncommittedChanges,
 			parentId: DefinedFocusable.ViewportLeft
 		}}
 	>
-		<ReduxResult
-			{stackId}
-			{projectId}
-			result={combineResults(changesResult.current, assignmentResult.current)}
-		>
-			{#snippet children([changes, assignments], { projectId })}
-				{#if changes.length > 0}
-					<div
-						data-testid={TestId.UncommittedChanges_Header}
-						class="worktree-header"
-						class:sticked-top={!scrollTopIsVisible}
-					>
-						<div class="worktree-header__general">
-							{#if isCommitting}
-								<WorktreeChangesSelectAll {changes} {assignments} stackId="unassigned" />
-							{/if}
-							<div class="worktree-header__title truncate">
-								<h3 class="text-14 text-semibold truncate">Uncommitted</h3>
-								{#if changes.length > 0}
-									<Badge>{changes.length}</Badge>
-								{/if}
-							</div>
-						</div>
-						<FileListMode bind:mode={listMode} persist="uncommitted" />
+		{#if changes.current.length > 0}
+			<div
+				data-testid={TestId.UncommittedChanges_Header}
+				class="worktree-header"
+				class:sticked-top={!scrollTopIsVisible}
+			>
+				<div class="worktree-header__general">
+					{#if isCommitting}
+						<WorktreeChangesSelectAll {stackId} />
+					{/if}
+					<div class="worktree-header__title truncate">
+						<h3 class="text-14 text-semibold truncate">{title}</h3>
+						{#if changes.current.length > 0}
+							<Badge>{changes.current.length}</Badge>
+						{/if}
 					</div>
+				</div>
+				<FileListMode bind:mode={listMode} persist="uncommitted" />
+			</div>
 
-					<ScrollableContainer
-						autoScroll={false}
-						onscrollTop={(visible) => {
-							scrollTopIsVisible = visible;
-						}}
-						onscrollEnd={(visible) => {
-							scrollBottomIsVisible = visible;
-						}}
-					>
-						<div data-testid={TestId.UncommittedChanges_FileList} class="uncommitted-changes">
-							<WorktreeChangesFileList {projectId} {listMode} {active} stackId="unassigned" />
-						</div>
-					</ScrollableContainer>
-					<div class="start-commit" class:sticked-bottom={!scrollBottomIsVisible}>
-						<Button
-							testId={TestId.StartCommitButton}
-							kind={isCommitting ? 'outline' : 'solid'}
-							type="button"
-							size="cta"
-							wide
-							disabled={isCommitting || defaultBranchResult?.current.isLoading}
-							onclick={startCommit}
-						>
-							Start a commit…
-						</Button>
-					</div>
-				{:else}
-					<div
-						data-testid={TestId.UncommittedChanges_Header}
-						class="worktree-header"
-						class:sticked-top={!scrollTopIsVisible}
-					>
-						<div class="worktree-header__general">
-							<div class="worktree-header__title truncate">
-								<h3 class="text-14 text-semibold truncate">Uncommitted</h3>
+			<ScrollableContainer
+				autoScroll={false}
+				onscrollTop={(visible) => {
+					scrollTopIsVisible = visible;
+				}}
+				onscrollEnd={(visible) => {
+					scrollBottomIsVisible = visible;
+				}}
+			>
+				<div data-testid={TestId.UncommittedChanges_FileList} class="uncommitted-changes">
+					<FileList
+						draggableFiles
+						selectionId={{ type: 'worktree', stackId }}
+						showCheckboxes={isCommitting}
+						changes={changes.current}
+						{projectId}
+						{listMode}
+						{active}
+						{stackId}
+					/>
+				</div>
+			</ScrollableContainer>
+			<div class="start-commit" class:sticked-bottom={!scrollBottomIsVisible}>
+				<Button
+					testId={TestId.StartCommitButton}
+					kind={isCommitting ? 'outline' : 'solid'}
+					type="button"
+					size="cta"
+					wide
+					disabled={defaultBranchResult?.current.isLoading}
+					onclick={() => {
+						if (isCommitting) {
+							projectState.drawerPage.set(undefined);
+						} else {
+							startCommit();
+						}
+					}}
+				>
+					{#if isCommitting}
+						Cancel
+					{:else}
+						Start a commit…
+					{/if}
+				</Button>
+			</div>
+		{:else}
+			<div
+				data-testid={TestId.UncommittedChanges_Header}
+				class="worktree-header"
+				class:sticked-top={!scrollTopIsVisible}
+			>
+				<div class="worktree-header__general">
+					<div class="worktree-header__title truncate">
+						<h3 class="text-14 text-semibold truncate">Uncommitted</h3>
 
-								<Badge>0</Badge>
-							</div>
-						</div>
-						<FileListMode bind:mode={listMode} persist="uncommitted" />
+						<Badge>0</Badge>
 					</div>
+				</div>
+				<FileListMode bind:mode={listMode} persist="uncommitted" />
+			</div>
 
-					<div class="uncommitted-changes__empty">
-						<div class="uncommitted-changes__empty__placeholder">
-							{@html noChanges}
-							<p class="text-13 text-body uncommitted-changes__empty__placeholder-text">
-								You're all caught up!<br />
-								No files need committing
-							</p>
-						</div>
-						<WorktreeTipsFooter />
-					</div>
-				{/if}
-			{/snippet}
-		</ReduxResult>
+			<div class="uncommitted-changes__empty">
+				<div class="uncommitted-changes__empty__placeholder">
+					{@html noChanges}
+					<p class="text-13 text-body uncommitted-changes__empty__placeholder-text">
+						You're all caught up!<br />
+						No files need committing
+					</p>
+				</div>
+				<WorktreeTipsFooter />
+			</div>
+		{/if}
 	</div>
 </Dropzone>
 

@@ -16,7 +16,6 @@
 	import SwitchThemeMenuAction from '$components/SwitchThemeMenuAction.svelte';
 	import ToastController from '$components/ToastController.svelte';
 	import ZoomInOutMenuAction from '$components/ZoomInOutMenuAction.svelte';
-	import LineSelection from '$components/v3/unifiedDiffLineSelection.svelte';
 	import ActionService from '$lib/actions/actionService.svelte';
 	import { PromptService as AIPromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
@@ -49,6 +48,7 @@
 	import { PromptService } from '$lib/prompt/promptService';
 	import { RemotesService } from '$lib/remotes/remotesService';
 	import { setSecretsService } from '$lib/secrets/secretsService';
+	import { AssignmentService } from '$lib/selection/assignmentService.svelte';
 	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
@@ -132,7 +132,6 @@
 		reactive(() => changeSelection),
 		clientState.dispatch
 	);
-	const unifiedDiffLineSelection = new LineSelection(changeSelectionService);
 
 	const forgeFactory = new DefaultForgeFactory({
 		gitHubClient,
@@ -183,6 +182,9 @@
 		latestBranchLookupService
 	);
 
+	const assignmentService = new AssignmentService(clientState, worktreeService, diffService);
+	setContext(AssignmentService, assignmentService);
+
 	const branchService = new BranchService(clientState['backendApi']);
 	setContext(BranchService, branchService);
 
@@ -197,7 +199,6 @@
 	setContext(AppState, appState);
 	setContext(AppDispatch, appState.appDispatch);
 	setContext(ChangeSelectionService, changeSelectionService);
-	setContext(LineSelection, unifiedDiffLineSelection);
 	setContext(ClientState, clientState);
 	setContext(FeedService, feedService);
 	setContext(OrganizationService, organizationService);
@@ -291,6 +292,7 @@
 	/** These are made available on the window object for easier debugging. */
 	(window as any)['uiState'] = uiState;
 	(window as any)['idSelection'] = idSelection;
+	(window as any)['clientState'] = clientState;
 </script>
 
 <svelte:window

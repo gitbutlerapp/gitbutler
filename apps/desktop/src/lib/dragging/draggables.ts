@@ -5,6 +5,7 @@ import type { CommitDropData } from '$lib/commits/dropHandler';
 import type { AnyFile } from '$lib/files/file';
 import type { TreeChange } from '$lib/hunks/change';
 import type { Hunk, HunkHeader, HunkLock } from '$lib/hunks/hunk';
+import type { AssignmentService } from '$lib/selection/assignmentService.svelte';
 import type { IdSelection } from '$lib/selection/idSelection.svelte';
 
 export const NON_DRAGGABLE = {
@@ -29,7 +30,7 @@ export class HunkDropDataV3 {
 		readonly change: TreeChange,
 		readonly hunk: HunkHeader,
 		readonly uncommitted: boolean,
-		readonly stackId: string | undefined,
+		readonly stackId: string | null,
 		readonly commitId: string | undefined,
 		readonly selectionId: SelectionId
 	) {}
@@ -38,6 +39,7 @@ export class HunkDropDataV3 {
 export class ChangeDropData {
 	constructor(
 		readonly change: TreeChange,
+		private assignmentService: AssignmentService,
 		/**
 		 * When a a file is dragged we compare it to what is already selected,
 		 * if dragged item is part of the selection we consider that to be to
@@ -46,9 +48,8 @@ export class ChangeDropData {
 		 * dragged.
 		 */
 		private selection: IdSelection,
-		private allChanges: TreeChange[],
 		readonly selectionId: SelectionId,
-		readonly stackId?: string
+		readonly stackId: string | null
 	) {}
 
 	changedPaths(params: SelectionId): string[] {
@@ -70,7 +71,8 @@ export class ChangeDropData {
 
 	get changes(): TreeChange[] {
 		const paths = this.filePaths;
-		return this.allChanges.filter((change) => paths.includes(change.path));
+		const changes = this.assignmentService.changesByStackId(this.stackId);
+		return changes.current.filter((change) => paths.includes(change.path));
 	}
 
 	get isCommitted(): boolean {
