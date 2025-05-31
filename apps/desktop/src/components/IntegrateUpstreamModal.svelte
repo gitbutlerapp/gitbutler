@@ -356,9 +356,7 @@
 				type="submit"
 				style="pop"
 				disabled={isDivergedResolved || !branchStatuses}
-				loading={integratingUpstream === 'loading' ||
-					!branchStatuses ||
-					filteredReviews === undefined}>Update workspace</Button
+				loading={integratingUpstream === 'loading' || !branchStatuses}>Update workspace</Button
 			>
 		</div>
 	{/snippet}

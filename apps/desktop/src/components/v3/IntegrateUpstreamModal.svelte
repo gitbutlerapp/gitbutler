@@ -396,9 +396,7 @@
 				wide
 				style="pop"
 				disabled={isDivergedResolved || !branchStatuses}
-				loading={integratingUpstream === 'loading' ||
-					!branchStatuses ||
-					filteredReviews === undefined}
+				loading={integratingUpstream === 'loading' || !branchStatuses}
 				onclick={async (e) => {
 					await integrate(e);
 				}}
