@@ -815,9 +815,6 @@ pub(crate) mod function {
         let mut similarity_lut = HashMap::<ChangeIdOrCommitData, gix::ObjectId>::new();
         let git2_repo = git2::Repository::open(repo.path())?;
         for stack in stacks {
-            boundary.clear();
-            boundary.extend(stack.base);
-
             let segments_with_remote_ref_tips_and_base: Vec<_> = stack
                 .segments
                 .iter()
@@ -858,6 +855,8 @@ pub(crate) mod function {
                     .collect();
 
             for (segment_index, remote_ref_tip_and_base) in segments_with_remote_ref_tips_and_base {
+                boundary.clear();
+                boundary.extend(stack.base);
                 let segment = &mut stack.segments[*segment_index];
                 if let Some((remote_ref_tip, base_for_remote)) = remote_ref_tip_and_base {
                     boundary.insert(base_for_remote);

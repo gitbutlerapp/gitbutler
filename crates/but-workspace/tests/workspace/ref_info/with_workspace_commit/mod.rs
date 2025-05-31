@@ -1029,6 +1029,86 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
 }
 
 #[test]
+fn two_branches_stracked_with_remotes() -> anyhow::Result<()> {
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("two-dependent-branches-with-one-commit-with-remotes")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 9b3cfd4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 788ad06 (origin/on-top-of-lane, on-top-of-lane) change on top
+    * cbc6713 (origin/lane, lane) change
+    * fafd9d0 (origin/main, main) init
+    ");
+
+    add_stack_with_segments(
+        &mut meta,
+        StackId::from_number_for_testing(0),
+        "on-top-of-lane",
+        StackState::InWorkspace,
+        &["lane"],
+    );
+
+    let opts = standard_options();
+    let info = head_info(&repo, &*meta, opts)?;
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [
+            Stack {
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                segments: [
+                    StackSegment {
+                        ref_name: "refs/heads/on-top-of-lane",
+                        remote_tracking_ref_name: "refs/remotes/origin/on-top-of-lane",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [
+                            LocalCommit(788ad06, "change on top\n", local/remote(identity)),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                    StackSegment {
+                        ref_name: "refs/heads/lane",
+                        remote_tracking_ref_name: "refs/remotes/origin/lane",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [
+                            LocalCommit(cbc6713, "change\n", local/remote(identity)),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                ],
+                stash_status: None,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+    }
+    "#);
+    Ok(())
+}
+
+#[test]
 fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<()> {
     let (repo, mut meta) =
         read_only_in_memory_scenario("two-branches-one-advanced-ws-commit-on-top-of-stack")?;

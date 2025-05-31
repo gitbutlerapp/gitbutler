@@ -16,9 +16,14 @@ function set_author() {
   git config user.email $author@example.com
 }
 
-function setup_target_to_match_main() {
+function remote_tracking_caught_up() {
+  local branch_name="${1:?}"
   mkdir -p .git/refs/remotes/origin
-  cp .git/refs/heads/main .git/refs/remotes/origin/
+  cp ".git/refs/heads/$branch_name" ".git/refs/remotes/origin/"
+}
+
+function setup_target_to_match_main() {
+  remote_tracking_caught_up main
 
   cat <<EOF >>.git/config
 [remote "origin"]
@@ -201,7 +206,7 @@ git init two-branches-one-advanced-two-parent-ws-commit
 cp -R two-branches-one-advanced-two-parent-ws-commit two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed
 (cd two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed
   # This works without an official remote setup as we go by name as fallback.
-  cp .git/refs/heads/advanced-lane .git/refs/remotes/origin/advanced-lane
+  remote_tracking_caught_up advanced-lane
 )
 
 cp -R two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependant
@@ -218,7 +223,7 @@ git init three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-depen
   git checkout -b advanced-lane
   git commit -m "change" --allow-empty
   # This works without an official remote setup as we go by name as fallback.
-  cp .git/refs/heads/advanced-lane .git/refs/remotes/origin/advanced-lane
+  remote_tracking_caught_up advanced-lane
   git branch dependant
   git branch on-top-of-dependant
 
@@ -236,6 +241,23 @@ git init two-branches-one-advanced-ws-commit-on-top-of-stack
 
   create_workspace_commit_once lane advanced-lane
 )
+
+git init two-dependent-branches-with-one-commit-with-remotes
+(cd two-dependent-branches-with-one-commit-with-remotes
+  git commit -m "init" --allow-empty
+  setup_target_to_match_main
+
+  git checkout -b lane
+  git commit -m "change" --allow-empty
+  remote_tracking_caught_up lane
+
+  git checkout -b on-top-of-lane
+  git commit -m "change on top" --allow-empty
+  remote_tracking_caught_up on-top-of-lane
+
+  create_workspace_commit_once on-top-of-lane
+)
+
 git init multiple-dependent-branches-per-stack-without-commit
 (cd multiple-dependent-branches-per-stack-without-commit
   git commit -m "init" --allow-empty
