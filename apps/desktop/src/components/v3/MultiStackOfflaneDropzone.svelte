@@ -4,7 +4,6 @@
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import { preventTransitionOnMount } from '@gitbutler/ui/utils/preventTransitionOnMount';
 
 	interface Props {
 		projectId: string;
@@ -22,7 +21,6 @@
 			<div class="hidden-dropzone__lane" class:activated class:hovered>
 				<div class="hidden-dropzone__content">
 					<svg
-						use:preventTransitionOnMount
 						class="hidden-dropzone__svg"
 						xmlns="http://www.w3.org/2000/svg"
 						width="72"
@@ -75,7 +73,7 @@
 						/>
 					</svg>
 
-					<p use:preventTransitionOnMount class="hidden-dropzone__label text-13 text-body">
+					<p class="hidden-dropzone__label text-13 text-body">
 						Drag and drop files<br />to create a new branch.
 					</p>
 				</div>
