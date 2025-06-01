@@ -18,7 +18,7 @@ doctest = false
 [dependencies]
 serde.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "io-std"] }
-clap = { version = "4.5.37", features = ["derive", "env"] }
+clap = { version = "4.5.39", features = ["derive", "env"] }
 anyhow.workspace = true
 # rmcp = { git = "https://github.com/modelcontextprotocol/rust-sdk", branch = "main" }
 rmcp = "0.1.5"
