@@ -65,7 +65,7 @@
 	{stackId}
 	title={getTitleLabel()}
 	disableScroll
-	minHeight={28}
+	minHeight={20}
 >
 	<div class="submit-review__container">
 		<ReviewCreation bind:this={reviewCreation} {projectId} {stackId} {branchName} onClose={close} />

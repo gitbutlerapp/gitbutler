@@ -308,92 +308,87 @@
 		</div>
 
 		<div class="message-textarea__toolbar">
-			<EmojiPickerButton onEmojiSelect={(emoji) => onEmojiSelect(emoji.unicode)} />
-			{#if enableFileUpload}
-				<Button
-					kind="ghost"
-					icon="attachment-small"
-					tooltip="Drop, paste or click to upload files"
-					onclick={handleAttachFiles}
-				/>
-			{/if}
-			<div class="message-textarea__toolbar__divider"></div>
-			<Button
-				kind="ghost"
-				icon="slash-commands"
-				tooltip="Slash commands"
-				onclick={() => {
-					// TODO: Implement slash commands
-				}}
-			/>
+			<div class="message-textarea__toolbar__left">
+				<EmojiPickerButton onEmojiSelect={(emoji) => onEmojiSelect(emoji.unicode)} />
+				{#if enableFileUpload}
+					<Button
+						kind="ghost"
+						icon="attachment-small"
+						tooltip="Drop, paste or click to upload files"
+						onclick={handleAttachFiles}
+					/>
+				{/if}
+				{#if !useRichText.current}
+					<div class="message-textarea__toolbar__divider"></div>
+					<FormattingButton
+						icon="ruler"
+						activated={useRuler.current}
+						tooltip="Text ruler"
+						onclick={() => {
+							useRuler.current = !useRuler.current;
+						}}
+					/>
+					<FormattingButton
+						icon="text-wrap"
+						disabled={!useRuler.current}
+						activated={wrapTextByRuler.current && useRuler.current}
+						tooltip="Wrap text automatically"
+						onclick={async () => {
+							wrapTextByRuler.current = !wrapTextByRuler.current;
+							await tick(); // Wait for reactive update.
+							if (wrapTextByRuler.current) {
+								composer?.wrapAll();
+							}
+						}}
+					/>
+					{#if useRuler.current}
+						<div class="message-textarea__ruler-input-wrapper" class:disabled={!useRuler.current}>
+							<span class="text-13">Ruler:</span>
+							<input
+								disabled={!useRuler.current}
+								value={rulerCountValue.current}
+								min={MIN_RULER_VALUE}
+								max={MAX_RULER_VALUE}
+								class="text-13 text-input message-textarea__ruler-input"
+								type="number"
+								onfocus={() => (isEditorFocused = true)}
+								onblur={() => {
+									if (rulerCountValue.current < MIN_RULER_VALUE) {
+										console.warn('Ruler value must be greater than 10');
+										rulerCountValue.current = MIN_RULER_VALUE;
+									} else if (rulerCountValue.current > MAX_RULER_VALUE) {
+										rulerCountValue.current = MAX_RULER_VALUE;
+									}
+
+									isEditorFocused = false;
+								}}
+								oninput={(e) => {
+									const input = e.currentTarget as HTMLInputElement;
+									rulerCountValue.current = parseInt(input.value);
+								}}
+								onkeydown={(e) => {
+									if (e.key === 'Enter') {
+										e.preventDefault();
+										composer?.focus();
+									}
+								}}
+							/>
+						</div>
+					{/if}
+				{/if}
+			</div>
 			<Button
 				kind="ghost"
 				icon="ai"
-				tooltip={canUseAI
-					? 'Generate message'
-					: 'You need to enable AI in the project settings to use this feature'}
+				tooltip={!canUseAI
+					? 'You need to enable AI in the project settings to use this feature'
+					: undefined}
 				disabled={!canUseAI}
 				onclick={onAiButtonClick}
-				loading={aiIsLoading}
-			/>
-			{#if !useRichText.current}
-				<div class="message-textarea__toolbar__divider"></div>
-				<FormattingButton
-					icon="ruler"
-					activated={useRuler.current}
-					tooltip="Text ruler"
-					onclick={() => {
-						useRuler.current = !useRuler.current;
-					}}
-				/>
-				<FormattingButton
-					icon="text-wrap"
-					disabled={!useRuler.current}
-					activated={wrapTextByRuler.current && useRuler.current}
-					tooltip="Wrap text automatically"
-					onclick={async () => {
-						wrapTextByRuler.current = !wrapTextByRuler.current;
-						await tick(); // Wait for reactive update.
-						if (wrapTextByRuler.current) {
-							composer?.wrapAll();
-						}
-					}}
-				/>
-				{#if useRuler.current}
-					<div class="message-textarea__ruler-input-wrapper" class:disabled={!useRuler.current}>
-						<span class="text-13">Ruler:</span>
-						<input
-							disabled={!useRuler.current}
-							value={rulerCountValue.current}
-							min={MIN_RULER_VALUE}
-							max={MAX_RULER_VALUE}
-							class="text-13 text-input message-textarea__ruler-input"
-							type="number"
-							onfocus={() => (isEditorFocused = true)}
-							onblur={() => {
-								if (rulerCountValue.current < MIN_RULER_VALUE) {
-									console.warn('Ruler value must be greater than 10');
-									rulerCountValue.current = MIN_RULER_VALUE;
-								} else if (rulerCountValue.current > MAX_RULER_VALUE) {
-									rulerCountValue.current = MAX_RULER_VALUE;
-								}
-
-								isEditorFocused = false;
-							}}
-							oninput={(e) => {
-								const input = e.currentTarget as HTMLInputElement;
-								rulerCountValue.current = parseInt(input.value);
-							}}
-							onkeydown={(e) => {
-								if (e.key === 'Enter') {
-									e.preventDefault();
-									composer?.focus();
-								}
-							}}
-						/>
-					</div>
-				{/if}
-			{/if}
+				reversedDirection
+				shrinkable
+				loading={aiIsLoading}>Generate message</Button
+			>
 		</div>
 	</div>
 </div>
@@ -497,6 +492,13 @@
 			background-color: var(--clr-border-3);
 			content: '';
 		}
+	}
+
+	.message-textarea__toolbar__left {
+		display: flex;
+		flex: 1;
+		align-items: center;
+		gap: 6px;
 	}
 
 	.message-textarea__toolbar__divider {
