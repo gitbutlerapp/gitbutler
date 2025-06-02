@@ -7,5 +7,5 @@
 
 <DetailsForm />
 <BaseBranchSwitch />
-<RemoveProjectForm />
 <ForgeForm />
+<RemoveProjectForm />

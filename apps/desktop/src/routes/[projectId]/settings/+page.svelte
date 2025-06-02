@@ -12,6 +12,7 @@
 	import TabContent from '$components/TabContent.svelte';
 	import TabList from '$components/TabList.svelte';
 	import TabTrigger from '$components/TabTrigger.svelte';
+
 	import Tabs from '$components/Tabs.svelte';
 </script>
 
@@ -35,8 +36,8 @@
 			<Section>
 				<DetailsForm />
 				<BaseBranchSwitch />
-				<RemoveProjectForm />
 				<ForgeForm />
+				<RemoveProjectForm />
 			</Section>
 		</TabContent>
 		<TabContent value="cloud">
