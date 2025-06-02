@@ -197,6 +197,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		justify-content: flex-start;
 		height: 100%;
 	}
+
 	.middle {
 		display: flex;
 		position: relative;
