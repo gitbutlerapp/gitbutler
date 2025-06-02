@@ -44,6 +44,12 @@ export type ProjectUiState = {
 	commitDescription: string;
 	branchesSelection: BranchesSelection;
 	editingCommitMessage: boolean;
+	/**
+	 * Set to a stack id when you start a commit from a lane, `null` when using
+	 * the button below the unassigned changes. Used to control e.g. visiblity
+	 * of checkboxes.
+	 */
+	commitSourceId: string | undefined;
 };
 
 type GlobalModalType = 'commit-failed';
@@ -94,6 +100,7 @@ export class UiState {
 		drawerFullScreen: false,
 		commitTitle: '',
 		commitDescription: '',
+		commitSourceId: undefined,
 		branchesSelection: {},
 		stackId: undefined,
 		editingCommitMessage: false

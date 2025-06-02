@@ -38,7 +38,10 @@ export function sortChildren(node: TreeNode) {
 		} else if (!a.file && b.file) {
 			return -1;
 		} else {
-			return a.name < b.name ? -1 : 1;
+			return a.name.localeCompare(b.name, undefined, {
+				numeric: true,
+				sensitivity: 'base'
+			});
 		}
 	});
 	for (const child of node.children) {

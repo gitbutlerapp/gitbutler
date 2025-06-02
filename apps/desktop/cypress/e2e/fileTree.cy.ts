@@ -10,6 +10,7 @@ describe('File Tree - multiple file changes', () => {
 		mockCommand('stacks', () => mockBackend.getStacks());
 		mockCommand('stack_details', (params) => mockBackend.getStackDetails(params));
 		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
+		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
 
 		cy.visit('/');
 
@@ -50,6 +51,7 @@ describe('File Tree - some file changes', () => {
 		mockCommand('stacks', () => mockBackend.getStacks());
 		mockCommand('stack_details', (params) => mockBackend.getStackDetails(params));
 		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
+		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
 
 		cy.visit('/');
 

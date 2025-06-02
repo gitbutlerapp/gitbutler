@@ -9,7 +9,7 @@
 	import { AIService } from '$lib/ai/service';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
-	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
+	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
@@ -53,19 +53,18 @@
 
 	const worktreeService = getContext(WorktreeService);
 	const diffService = getContext(DiffService);
-	const changeSelection = getContext(ChangeSelectionService);
+	const uncommittedService = getContext(UncommittedService);
 	const stackService = getContext(StackService);
-
-	const selectedFiles = $derived(changeSelection.list().current);
 
 	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
 	const stackSelection = $derived(stackState?.selection);
 
 	const suggestionsHandler = new CommitSuggestions(aiService, uiState);
+	const selectedChanges = $derived(uncommittedService.selectedChanges(stackId));
 	const diffInputArgs = $derived<DiffInputContextArgs>(
 		existingCommitId
 			? { type: 'commit', projectId, commitId: existingCommitId }
-			: { type: 'change-selection', projectId, selectedFiles }
+			: { type: 'change-selection', projectId, selectedChanges: selectedChanges.current }
 	);
 	const diffInputContext = $derived(
 		new DiffInputContext(worktreeService, diffService, stackService, diffInputArgs)

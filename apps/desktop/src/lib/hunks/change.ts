@@ -1,3 +1,6 @@
+import type { TauriCommandError } from '$lib/backend/ipc';
+import type { HunkAssignment } from '$lib/hunks/hunk';
+
 /** Contains the changes that are in the worktree */
 export type WorktreeChanges = {
 	/** Changes that could be committed. */
@@ -7,6 +10,7 @@ export type WorktreeChanges = {
 	 * The user can see them and interact with them to clear them out before a commit can be made.
 	 */
 	readonly ignoredChanges: IgnoredChange[];
+	readonly assignments: { Ok: HunkAssignment[]; Err?: TauriCommandError };
 };
 
 /**

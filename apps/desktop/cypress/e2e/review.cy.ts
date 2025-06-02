@@ -21,6 +21,7 @@ describe('Review', () => {
 		mockCommand('push_stack', (params) => mockBackend.pushStack(params));
 		mockCommand('list_remotes', (params) => mockBackend.listRemotes(params));
 		mockCommand('update_branch_pr_number', (params) => mockBackend.updateBranchPrNumber(params));
+		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
 
 		cy.intercept(
 			{

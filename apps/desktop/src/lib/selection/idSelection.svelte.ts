@@ -107,7 +107,7 @@ export class IdSelection {
 
 		switch (params.type) {
 			case 'worktree':
-				return this.worktreeService.getChangesById(projectId, filePaths);
+				return this.worktreeService.treeChangesByPaths(projectId, filePaths);
 			case 'branch':
 				return this.stackService.branchChangesByPaths({
 					projectId,
