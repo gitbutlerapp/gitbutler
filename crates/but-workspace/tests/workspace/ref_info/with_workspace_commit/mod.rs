@@ -273,6 +273,92 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
 }
 
 #[test]
+fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("two-dependent-branches-first-merge-no-ff")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   a455fe7 (origin/main) Merge branch 'A' into new-origin-main
+    |\  
+    | | * 4a62dfc (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | | * de11c03 (origin/B-on-A, B-on-A) change in B
+    | |/  
+    | * 0ee3a9e (origin/A, A) change in A
+    |/  
+    * fafd9d0 (main) init
+    ");
+
+    add_stack_with_segments(
+        &mut meta,
+        StackId::from_number_for_testing(0),
+        "B-on-A",
+        StackState::InWorkspace,
+        &["A"],
+    );
+
+    let opts = standard_options();
+    // TODO: needs one integrated commit 'change in A'.
+    let info = head_info(&repo, &*meta, opts)?;
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [
+            Stack {
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                segments: [
+                    StackSegment {
+                        ref_name: "refs/heads/B-on-A",
+                        remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [
+                            LocalCommit(de11c03, "change in B\n", local/remote(identity)),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                    StackSegment {
+                        ref_name: "refs/heads/A",
+                        remote_tracking_ref_name: "refs/remotes/origin/A",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [
+                            LocalCommit(0ee3a9e, "change in A\n", integrated),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                ],
+                stash_status: None,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+    }
+    "#);
+
+    Ok(())
+}
+
+#[test]
 fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("target-ahead-remote-rewritten")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -1417,7 +1503,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     StackSegment {
                         ref_name: "refs/heads/lane",
@@ -1437,7 +1525,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 stash_status: None,
             },
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     StackSegment {
                         ref_name: "refs/heads/advanced-lane",
@@ -1477,7 +1567,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     StackSegment {
                         ref_name: "refs/heads/advanced-lane",
@@ -1517,7 +1609,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     StackSegment {
                         ref_name: "refs/heads/lane",
@@ -1565,7 +1659,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     StackSegment {
                         ref_name: "refs/heads/advanced-lane",
@@ -1587,7 +1683,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 stash_status: None,
             },
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     StackSegment {
                         ref_name: "refs/heads/lane",

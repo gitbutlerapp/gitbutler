@@ -252,6 +252,28 @@ git init three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-depen
   create_workspace_commit_once advanced-lane
 )
 
+git init two-dependent-branches-first-merge-no-ff
+(cd two-dependent-branches-first-merge-no-ff
+  git commit -m "init" --allow-empty
+  setup_target_to_match_main
+
+  git checkout -b A
+  echo a >a && git add a && git commit -m "change in A"
+  remote_tracking_caught_up A
+
+  git checkout -b B-on-A
+  echo b >b && git add b && git commit -m "change in B"
+  remote_tracking_caught_up B-on-A
+
+  create_workspace_commit_once B-on-A
+
+  tick
+  git checkout -b new-origin-main main && git merge --no-ff A
+  setup_remote_tracking new-origin-main main 'move'
+
+  git checkout gitbutler/workspace
+)
+
 git init two-dependent-branches-rebased-with-remotes
 (cd two-dependent-branches-rebased-with-remotes
   git commit -m "init" --allow-empty

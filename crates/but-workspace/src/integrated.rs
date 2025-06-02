@@ -2,16 +2,19 @@
 //!
 //! This code is a fork of the [`gitbutler_branch_actions::virtual::IsCommitIntegrated`]
 
-use crate::ref_info::function::try_refname_to_id;
+use crate::ref_info::function::remote_and_local_target_ids;
 use anyhow::anyhow;
 use anyhow::{Context, Result};
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_oxidize::{GixRepositoryExt, ObjectIdExt, git2_to_gix_object_id, gix_to_git2_oid};
+use gitbutler_oxidize::{
+    GixRepositoryExt, ObjectIdExt as _, git2_to_gix_object_id, gix_to_git2_oid,
+};
 use gitbutler_repo::{
     RepositoryExt as _,
     logging::{LogUntil, RepositoryExt},
 };
 use gitbutler_stack::Target;
+use gix::prelude::ObjectIdExt;
 use itertools::Itertools;
 
 pub(crate) struct IsCommitIntegrated<'repo, 'cache, 'graph> {
@@ -62,7 +65,7 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
 
     /// Like [new](Self::new), but avoids 'old' types in favor of more basic types from which everything else can be computed.
     ///
-    /// `target_ref_name` is the *local tracking branch* of the target branch. Without it, we can't check if anything is integrated.
+    /// `target_ref_name` is the *remote tracking branch* of the target branch. Without it, we can't check if anything is integrated.
     /// TODO: Needs 'hide' for commit traversal, and probably a complete review on what we do and how we do it.
     /// **IMPORTANT**: `repo` must use in-memory objects!
     pub(crate) fn new2(
@@ -71,25 +74,21 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
         target_ref_name: &gix::refs::FullNameRef,
         graph: &'graph mut MergeBaseCommitGraph<'repo, 'cache>,
     ) -> anyhow::Result<Self> {
-        let target_commit_id = repo
-            .find_reference(target_ref_name)
-            .ok()
-            .and_then(|mut r| r.peel_to_id_in_place().ok());
-        let upstream_commits = if let Some((target_remote_id, target_commit_id)) = repo
-            .branch_remote_tracking_ref_name(target_ref_name, gix::remote::Direction::Fetch)
+        let (remote_target_id, local_target_id) =
+            remote_and_local_target_ids(repo, target_ref_name)?
+                .map(|(remote_id, local_id)| (Some(remote_id), Some(local_id)))
+                .unwrap_or_default();
+        let upstream_commits = remote_target_id
+            .zip(local_target_id)
+            .map(|(remote_target_id, local_target_id)| {
+                git2_repo.log(
+                    remote_target_id.to_git2(),
+                    LogUntil::Commit(local_target_id.to_git2()),
+                    true,
+                )
+            })
             .transpose()?
-            .and_then(|trr| try_refname_to_id(repo, trr.as_ref()).transpose())
-            .transpose()?
-            .zip(target_commit_id)
-        {
-            git2_repo.log(
-                target_remote_id.to_git2(),
-                LogUntil::Commit(target_commit_id.to_git2()),
-                true,
-            )?
-        } else {
-            Vec::new()
-        };
+            .unwrap_or_default();
         let upstream_change_ids = upstream_commits
             .iter()
             .filter_map(|commit| commit.change_id())
@@ -100,8 +99,9 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
             .map(|commit| commit.id())
             .sorted()
             .collect();
-        let upstream_tree_id = target_commit_id.and_then(|id| {
-            id.object()
+        let upstream_tree_id = remote_target_id.and_then(|id| {
+            id.attach(repo)
+                .object()
                 .ok()?
                 .peel_to_commit()
                 .ok()?
@@ -112,9 +112,7 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
         Ok(Self {
             repo,
             graph,
-            target_commit_id: target_commit_id
-                .map(|id| id.detach())
-                .unwrap_or_else(|| repo.object_hash().null()),
+            target_commit_id: remote_target_id.unwrap_or_else(|| repo.object_hash().null()),
             upstream_tree_id: upstream_tree_id.unwrap_or_else(|| repo.object_hash().null()),
             upstream_commits,
             upstream_change_ids,
@@ -159,10 +157,14 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
         }
 
         let merge_base_tree_id = self.repo.find_commit(merge_base_id)?.tree_id()?;
-        if merge_base_tree_id == self.upstream_tree_id {
-            // if merge base is the same as upstream tree, then it's integrated
-            return Ok(true);
-        }
+        // TODO: why this this fail in one of our tests? Are there wrong assumptions in general,
+        //       or is this us having picked the wrong upstream_tree_id? `upstream_tree_id` seems
+        //       to be correct though, so it's the merge_base tree comparison that's not really
+        //       what it is supposed to be (anymore, or maybe ever?).
+        // if merge_base_tree_id == self.upstream_tree_id {
+        //     // if merge base is the same as upstream tree, then it's integrated
+        //     return Ok(true);
+        // }
 
         // try to merge our tree into the upstream tree
         let (merge_options, conflict_kind) = self.repo.merge_options_no_rewrites_fail_fast()?;
