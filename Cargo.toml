@@ -13,10 +13,10 @@ git2 = { version = "0.20.0", features = [
     "vendored-openssl",
     "vendored-libgit2",
 ] }
-uuid = { version = "1.11.0", features = ["v4", "serde"] }
+uuid = { version = "1.17.0", features = ["v4", "serde"] }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "2.0.9"
-tokio = { version = "1.44.2", default-features = false }
+tokio = { version = "1.45.1", default-features = false }
 keyring = { version = "3.6.1", features = [
     "apple-native",
     "windows-native",
@@ -24,7 +24,7 @@ keyring = { version = "3.6.1", features = [
     "crypto-rust",
 ] }
 anyhow = "1.0.98"
-parking_lot = "0.12.3"
+parking_lot = "0.12.4"
 futures = "0.3.31"
 toml = "0.8.13"
 tracing = "0.1.41"
