@@ -1,9 +1,15 @@
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use but_agent::agent::{agent_perform, AgentConfig};
 use but_agent::openai_like_llm::OpenAILikeLLM;
 use but_agent::store::ConversationStore as _;
-use but_agent::types::{Action, ConversationId, Message};
+use but_agent::types::{
+    Action, ConversationId, Message, Tool, ToolFunction, ToolFunctionParameter,
+    ToolFunctionParameterType, ToolFunctionParameters, ToolFunctionParametersType, ToolType,
+    ToolWithHandler,
+};
 use but_db::conversation_store::ConversationStoreAccess as _;
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_command_context::CommandContext;
@@ -92,6 +98,7 @@ pub async fn agent_send_message(
 ) -> Result<ConversationId, Error> {
     let project = projects.get(project_id)?;
     let mut ctx = CommandContext::open(&project, settings.get().unwrap().clone()).unwrap();
+    let project_path = ctx.project().path.clone();
 
     let handle = tokio::task::spawn_blocking(move || {
         let db = ctx.db().unwrap();
@@ -106,7 +113,7 @@ pub async fn agent_send_message(
             conversation_store: &mut conversation_store,
             callback: |_| {},
             system_prompt: "Help me with my code".into(),
-            tools: Vec::new(),
+            tools: tools(project_path),
         };
 
         agent_perform(
@@ -156,4 +163,97 @@ fn set_token(token: Option<&str>) {
         )
         .unwrap();
     }
+}
+
+fn tools(project_path: PathBuf) -> Vec<ToolWithHandler> {
+    let read_directory_project_path = project_path.clone();
+    let read_directory = move |params: std::collections::HashMap<String, serde_json::Value>| {
+        let path = params.get("path").unwrap().as_str().unwrap();
+        let real_path = read_directory_project_path.join(path);
+        if std::fs::exists(&real_path).unwrap() {
+            let mut output = "Here are the contents of the directory:\n".to_string();
+            for entry in std::fs::read_dir(&real_path).unwrap() {
+                let entry = entry.unwrap();
+                let is_dir = entry.path().is_dir();
+                output.push_str(&format!(
+                    "- {}{}\n",
+                    Path::new(path).join(entry.file_name()).to_string_lossy(),
+                    if is_dir { "/" } else { "" }
+                ));
+            }
+            output
+        } else {
+            format!("Path {} does not exist", path)
+        }
+    };
+
+    let read_file_project_path = project_path.clone();
+    let read_file = move |params: std::collections::HashMap<String, serde_json::Value>| {
+        let path = params.get("path").unwrap().as_str().unwrap();
+        let real_path = read_file_project_path.join(path);
+        if std::fs::exists(&real_path).unwrap() {
+            if real_path.is_dir() {
+                format!("Path {} is a directory", path)
+            } else {
+                let file = std::fs::read_to_string(real_path).unwrap();
+
+                format!("Here is the file you requested: \n\n```\n{}\n```", file)
+            }
+        } else {
+            format!("Path {} does not exist", path)
+        }
+    };
+
+    let tools = vec![
+        ToolWithHandler {
+            tool: Tool {
+                tool_type: ToolType::Function,
+                function: ToolFunction {
+                    name: "read-directory".into(),
+                    description: "Read the contents of a directory relative to the current project"
+                        .into(),
+                    parameters: ToolFunctionParameters {
+                        parameters_type: ToolFunctionParametersType::Object,
+                        properties: BTreeMap::from([(
+                            "path".into(),
+                            ToolFunctionParameter {
+                                description: "The relative path of the folder".into(),
+                                parameter_type: ToolFunctionParameterType::String,
+                            },
+                        )]),
+                        additional_properties: false,
+                        required: vec!["path".into()],
+                    },
+                    strict: true,
+                },
+            },
+            handler: but_agent::types::ToolHandler::ParsedHandler(Box::new(read_directory)),
+        },
+        ToolWithHandler {
+            tool: Tool {
+                tool_type: ToolType::Function,
+                function: ToolFunction {
+                    name: "read-file".into(),
+                    description: "Read the contents of a file relative to the current project"
+                        .into(),
+                    parameters: ToolFunctionParameters {
+                        parameters_type: ToolFunctionParametersType::Object,
+                        properties: BTreeMap::from([(
+                            "path".into(),
+                            ToolFunctionParameter {
+                                description: "The relative path of the file".into(),
+                                parameter_type: ToolFunctionParameterType::String,
+                            },
+                        )]),
+                        additional_properties: false,
+                        required: vec!["path".into()],
+                    },
+                    strict: true,
+                },
+            },
+            handler: but_agent::types::ToolHandler::ParsedHandler(Box::new(read_file)),
+        },
+    ];
+
+    tools
 }

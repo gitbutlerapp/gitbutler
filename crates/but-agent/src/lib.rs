@@ -10,7 +10,7 @@ pub mod types;
 mod test {
     use crate::agent::*;
     use crate::llm::{LLMResponse, *};
-    use crate::store::test::*;
+    use crate::store::{ConversationStore as _, test::*};
     use crate::types::*;
 
     fn system_prompt() -> String {
@@ -64,8 +64,7 @@ mod test {
             },
         };
 
-        let conversation_store =
-            std::cell::RefCell::new(Box::new(InMemoryConversationStore::new()));
+        let mut conversation_store = InMemoryConversationStore::new();
 
         let responses = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
         let moved_responses = responses.clone();
@@ -73,20 +72,20 @@ mod test {
             moved_responses.lock().unwrap().push(response);
         };
 
-        let config = AgentConfig {
+        let mut config = AgentConfig {
             llm: Box::new(llm),
-            conversation_store,
+            conversation_store: &mut conversation_store,
             callback,
             system_prompt: system_prompt(),
             tools: available_tools_with_handler,
         };
 
-        agent_perform(&config, Action::StartNewThread);
+        agent_perform(&mut config, Action::StartNewThread);
 
         let id = responses.lock().unwrap().last().unwrap().id();
 
         agent_perform(
-            &config,
+            &mut config,
             Action::SendMessage {
                 id,
                 message: "call tool".into(),
@@ -94,7 +93,7 @@ mod test {
         );
 
         assert_eq!(
-            config.conversation_store.borrow().read(id).unwrap(),
+            conversation_store.read(id).unwrap(),
             vec![
                 Message {
                     role: MessageRole::System,
@@ -169,8 +168,7 @@ mod test {
             },
         };
 
-        let conversation_store =
-            std::cell::RefCell::new(Box::new(InMemoryConversationStore::new()));
+        let mut conversation_store = InMemoryConversationStore::new();
 
         let responses = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
         let moved_responses = responses.clone();
@@ -178,20 +176,20 @@ mod test {
             moved_responses.lock().unwrap().push(response);
         };
 
-        let config = AgentConfig {
+        let mut config = AgentConfig {
             llm: Box::new(llm),
-            conversation_store,
+            conversation_store: &mut conversation_store,
             callback,
             system_prompt: system_prompt(),
             tools: available_tools_with_handler,
         };
 
-        agent_perform(&config, Action::StartNewThread);
+        agent_perform(&mut config, Action::StartNewThread);
 
         let id = responses.lock().unwrap().last().unwrap().id();
 
         agent_perform(
-            &config,
+            &mut config,
             Action::SendMessage {
                 id,
                 message: "Hello!".into(),
@@ -210,8 +208,7 @@ mod test {
                 ),
             },
         };
-        let conversation_store =
-            std::cell::RefCell::new(Box::new(InMemoryConversationStore::new()));
+        let mut conversation_store = InMemoryConversationStore::new();
 
         let responses = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
         let moved_responses = responses.clone();
@@ -219,20 +216,20 @@ mod test {
             moved_responses.lock().unwrap().push(response);
         };
 
-        let config = AgentConfig {
+        let mut config = AgentConfig {
             llm: Box::new(llm),
-            conversation_store,
+            conversation_store: &mut conversation_store,
             callback,
             system_prompt: system_prompt(),
             tools: vec![],
         };
 
-        agent_perform(&config, Action::StartNewThread);
+        agent_perform(&mut config, Action::StartNewThread);
 
         let id = responses.lock().unwrap().last().unwrap().id();
 
         agent_perform(
-            &config,
+            &mut config,
             Action::SendMessage {
                 id,
                 message: "Hello!".into(),
@@ -246,7 +243,7 @@ mod test {
         ));
 
         assert_eq!(
-            config.conversation_store.borrow().read(id).unwrap(),
+            conversation_store.read(id).unwrap(),
             vec![
                 Message {
                     role: MessageRole::System,
@@ -277,8 +274,7 @@ mod test {
                 ),
             },
         };
-        let conversation_store =
-            std::cell::RefCell::new(Box::new(InMemoryConversationStore::new()));
+        let mut conversation_store = InMemoryConversationStore::new();
 
         let responses = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
         let moved_responses = responses.clone();
@@ -286,15 +282,15 @@ mod test {
             moved_responses.lock().unwrap().push(response);
         };
 
-        let config = AgentConfig {
+        let mut config = AgentConfig {
             llm: Box::new(llm),
-            conversation_store,
+            conversation_store: &mut conversation_store,
             callback,
             system_prompt: system_prompt(),
             tools: vec![],
         };
 
-        agent_perform(&config, Action::StartNewThread);
+        agent_perform(&mut config, Action::StartNewThread);
 
         assert_eq!(responses.lock().unwrap().len(), 1);
         assert!(matches!(
@@ -305,7 +301,7 @@ mod test {
         let id = responses.lock().unwrap().last().unwrap().id();
 
         assert_eq!(
-            config.conversation_store.borrow().read(id).unwrap(),
+            conversation_store.read(id).unwrap(),
             vec![Message {
                 role: MessageRole::System,
                 content: system_prompt(),

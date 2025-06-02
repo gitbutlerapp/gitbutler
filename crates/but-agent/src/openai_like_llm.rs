@@ -6,7 +6,6 @@ use crate::{
 };
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
 struct APIMessage {
     role: String,
     content: String,
@@ -52,7 +51,7 @@ impl LLM for OpenAILikeLLM {
         let mut request = client
             .post(&self.completion_url)
             .header("Content-Type", "application/json")
-            .body(
+            .body(dbg!(
                 serde_json::to_string(&APIBody {
                     model: self.model.clone(),
                     messages,
@@ -61,21 +60,26 @@ impl LLM for OpenAILikeLLM {
                     }),
                     tools,
                 })
-                .unwrap(),
-            );
+                .unwrap()
+            ));
 
-        if let Some(token) = self.token.clone() {
+        if let Some(token) = dbg!(self.token.clone()) {
             request = request.bearer_auth(&token);
         };
 
         let result = request.send().unwrap();
 
         let response = result.text().unwrap();
+
+        dbg!(&serde_json::from_str::<serde_json::Value>(&response).unwrap());
+
         let response: APIResponse = serde_json::from_str(&response).unwrap();
 
         let message = response
             .message
             .unwrap_or_else(|| response.choices.unwrap().first().unwrap().message.clone());
+
+        dbg!(&message);
 
         if let Some(tool_calls) = &message.tool_calls {
             LLMResponse::ToolCalls {

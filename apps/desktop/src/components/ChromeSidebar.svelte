@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import KeyboardShortcutsModal from '$components/KeyboardShortcutsModal.svelte';
 	import ShareIssueModal from '$components/ShareIssueModal.svelte';
-	import { ircEnabled } from '$lib/config/uiFeatureFlags';
+	import { experimentalAgent, ircEnabled } from '$lib/config/uiFeatureFlags';
 	import { Project } from '$lib/project/project';
 	import {
 		branchesPath,
@@ -15,7 +15,9 @@
 		isHistoryPath,
 		newProjectSettingsPath,
 		newSettingsPath,
-		workspacePath
+		workspacePath,
+		aiPath,
+		isAiPath
 	} from '$lib/routes/routes.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { TestId } from '$lib/testing/testIds';
@@ -186,6 +188,22 @@
 					width={34}
 					class={['btn-square', isIrcPath() && 'btn-active']}
 					tooltip="History"
+					{disabled}
+				/>
+			</div>
+		{/if}
+		{#if $experimentalAgent}
+			<div>
+				{#if isAiPath()}
+					<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+				{/if}
+				<Button
+					kind="outline"
+					onclick={() => goto(aiPath(project.id))}
+					icon="ai"
+					width={34}
+					class={['btn-square', isAiPath() && 'btn-active']}
+					tooltip="Agent"
 					{disabled}
 				/>
 			</div>

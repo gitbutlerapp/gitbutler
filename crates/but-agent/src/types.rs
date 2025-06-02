@@ -65,7 +65,6 @@ pub struct ToolCall {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
 pub struct Message {
     pub role: MessageRole,
     pub content: String,
@@ -160,7 +159,6 @@ pub struct ToolFunctionParameter {
     #[serde(rename = "type")]
     pub parameter_type: ToolFunctionParameterType,
     pub description: String,
-    pub required: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -226,7 +224,6 @@ mod test {
             ToolFunctionParameter {
                 parameter_type: ToolFunctionParameterType::String,
                 description: "City and country e.g. Bogotá, Colombia".to_string(),
-                required: true,
             },
         );
 
@@ -235,7 +232,6 @@ mod test {
             ToolFunctionParameter {
                 parameter_type: ToolFunctionParameterType::String,
                 description: "Units the temperature will be returned in.".to_string(),
-                required: true,
             },
         );
 
@@ -266,13 +262,11 @@ mod test {
       "properties": {
         "location": {
           "type": "string",
-          "description": "City and country e.g. Bogotá, Colombia",
-          "required": true
+          "description": "City and country e.g. Bogotá, Colombia"
         },
         "units": {
           "type": "string",
-          "description": "Units the temperature will be returned in.",
-          "required": true
+          "description": "Units the temperature will be returned in."
         }
       },
       "additionalProperties": false,

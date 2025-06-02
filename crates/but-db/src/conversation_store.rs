@@ -14,6 +14,7 @@ use std::{cell::RefCell, str::FromStr as _};
 #[diesel(table_name = ai_conversations)]
 struct Conversation {
     id: String,
+    #[allow(dead_code)]
     name: String,
 }
 
@@ -21,10 +22,12 @@ struct Conversation {
 #[diesel(table_name = ai_messages)]
 struct DbMessage {
     id: String,
+    #[allow(dead_code)]
     conversation_id: String,
     role: String,
     content: String,
     tool_call_id: Option<String>,
+    #[allow(dead_code)]
     order: i32,
 }
 
@@ -32,7 +35,7 @@ pub struct SQLiteConversationStore<'a> {
     conn: RefCell<&'a mut SqliteConnection>,
 }
 
-impl<'a> ConversationStore for SQLiteConversationStore<'a> {
+impl ConversationStore for SQLiteConversationStore<'_> {
     fn read_all(
         &self,
     ) -> Result<std::collections::HashMap<ConversationId, Vec<Message>>, ConversationStoreReadError>

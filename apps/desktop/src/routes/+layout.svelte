@@ -19,6 +19,7 @@
 	import ActionService from '$lib/actions/actionService.svelte';
 	import { PromptService as AIPromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
+	import { Ai2Service } from '$lib/ai2/service';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { CommandService, invoke } from '$lib/backend/ipc';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
@@ -85,7 +86,6 @@
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
 	import { env } from '$env/dynamic/public';
-	import { Ai2Service } from '$lib/ai2/service';
 
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
 

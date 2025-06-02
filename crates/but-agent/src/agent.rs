@@ -52,10 +52,12 @@ pub fn agent_perform<CB: Fn(Response) + Send + 'static>(
                     messages
                 };
 
+                dbg!("starting request");
                 let response = llm.perform(LLMParams {
                     messages,
                     tools: tools.iter().map(|t| t.tool.clone()).collect(),
                 });
+                dbg!("finished request");
 
                 match response {
                     LLMResponse::Message { message } => {
@@ -73,6 +75,7 @@ pub fn agent_perform<CB: Fn(Response) + Send + 'static>(
                         message,
                         tool_calls,
                     } => {
+                        dbg!("tools called");
                         responding_to_tools = true;
                         let mut messages = conversation_store.read(*id).unwrap();
                         messages.push(Message {
