@@ -206,51 +206,33 @@
 					<BranchExplorer {projectId} bind:selectedOption={$selectedOption}>
 						{#snippet sidebarEntry(sidebarEntrySubject: SidebarEntrySubject)}
 							{#if sidebarEntrySubject.type === 'branchListing'}
-								{@const pr = sidebarEntrySubject.prs.at(0)}
-								{#if $selectedOption === 'pullRequest' && pr}
-									<PRListCard
-										number={pr.number}
-										isDraft={pr.draft}
-										title={pr.title}
-										sourceBranch={pr.sourceBranch}
-										author={{
-											name: pr.author?.name,
-											email: pr.author?.email,
-											gravatarUrl: pr.author?.gravatarUrl
-										}}
-										modifiedAt={pr.modifiedAt}
-										selected={branchesSelection.current.prNumber === pr.number}
-										onclick={(pr) => branchesSelection.set({ prNumber: pr.number })}
-									/>
-								{:else}
-									<BranchListCard
-										{projectId}
-										branchListing={sidebarEntrySubject.subject}
-										prs={sidebarEntrySubject.prs}
-										selected={sidebarEntrySubject.subject.stack
-											? branchesSelection.current.branchName ===
-												sidebarEntrySubject.subject.stack.branches.at(0)
-											: branchesSelection.current.branchName === sidebarEntrySubject.subject.name}
-										onclick={({ listing, pr }) => {
-											if (listing.stack) {
-												branchesSelection.set({
-													stackId: listing.stack.id,
-													branchName: listing.stack.branches.at(0),
-													prNumber: pr?.number,
-													inWorkspace: listing.stack.inWorkspace,
-													hasLocal: listing.hasLocal
-												});
-											} else {
-												branchesSelection.set({
-													branchName: listing.name,
-													prNumber: pr?.number,
-													remote: listing.remotes.at(0),
-													hasLocal: listing.hasLocal
-												});
-											}
-										}}
-									/>
-								{/if}
+								<BranchListCard
+									{projectId}
+									branchListing={sidebarEntrySubject.subject}
+									prs={sidebarEntrySubject.prs}
+									selected={sidebarEntrySubject.subject.stack
+										? branchesSelection.current.branchName ===
+											sidebarEntrySubject.subject.stack.branches.at(0)
+										: branchesSelection.current.branchName === sidebarEntrySubject.subject.name}
+									onclick={({ listing, pr }) => {
+										if (listing.stack) {
+											branchesSelection.set({
+												stackId: listing.stack.id,
+												branchName: listing.stack.branches.at(0),
+												prNumber: pr?.number,
+												inWorkspace: listing.stack.inWorkspace,
+												hasLocal: listing.hasLocal
+											});
+										} else {
+											branchesSelection.set({
+												branchName: listing.name,
+												prNumber: pr?.number,
+												remote: listing.remotes.at(0),
+												hasLocal: listing.hasLocal
+											});
+										}
+									}}
+								/>
 							{:else}
 								<PRListCard
 									number={sidebarEntrySubject.subject.number}
