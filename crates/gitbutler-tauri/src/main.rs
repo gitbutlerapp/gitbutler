@@ -11,14 +11,13 @@
     clippy::too_many_lines
 )]
 
-use but_agent::agent;
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::csp::csp_with_extras;
 use gitbutler_tauri::settings::SettingsStore;
 use gitbutler_tauri::{
-    action, askpass, cli, commands, config, diff, env, forge, github, logs, menu, modes, open,
-    projects, remotes, repo, secret, settings, stack, undo, users, virtual_branches, workspace,
-    zip, App, WindowState,
+    action, agent, askpass, cli, commands, config, diff, env, forge, github, logs, menu, modes,
+    open, projects, remotes, repo, secret, settings, stack, undo, users, virtual_branches,
+    workspace, zip, App, WindowState,
 };
 use tauri::Emitter;
 use tauri::{generate_context, Manager};

@@ -2,40 +2,14 @@
 
 pub mod agent;
 pub mod llm;
-pub mod open_router;
+pub mod openai_like_llm;
 pub mod store;
 pub mod types;
-
-pub fn get_token() -> Option<gitbutler_secret::Sensitive<String>> {
-    // return Some(gitbutler_secret::Sensitive("this is secret".into()));
-    gitbutler_secret::secret::retrieve(
-        "gitbutler-agent-open-router-token",
-        gitbutler_secret::secret::Namespace::Global,
-    )
-    .unwrap()
-}
-
-pub fn set_token(token: Option<&str>) {
-    if let Some(token) = token {
-        gitbutler_secret::secret::persist(
-            "gitbutler-agent-open-router-token",
-            &gitbutler_secret::Sensitive(token.into()),
-            gitbutler_secret::secret::Namespace::Global,
-        )
-        .unwrap();
-    } else {
-        gitbutler_secret::secret::delete(
-            "gitbutler-agent-open-router-token",
-            gitbutler_secret::secret::Namespace::Global,
-        )
-        .unwrap();
-    }
-}
 
 #[cfg(test)]
 mod test {
     use crate::agent::*;
-    use crate::llm::{LLMResponse, test::*};
+    use crate::llm::{LLMResponse, *};
     use crate::store::test::*;
     use crate::types::*;
 

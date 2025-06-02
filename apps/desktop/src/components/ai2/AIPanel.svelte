@@ -5,10 +5,8 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
-	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 
 	type Props = {
 		projectId: string;
@@ -72,7 +70,7 @@
 		viewport={panel}
 		direction="left"
 		minWidth={16}
-		maxWidth={32}
+		maxWidth={48}
 		onWidth={(width) => {
 			$panelWidth = width;
 		}}
@@ -93,7 +91,7 @@
 				<ReduxResult {projectId} result={conversations.current}>
 					{#snippet children(conversations, { projectId })}
 						<ul>
-							{#each Object.entries(conversations) as [id, conversation] (id)}
+							{#each Object.entries(conversations) as [id, _conversation] (id)}
 								<!-- svelte-ignore a11y_click_events_have_key_events -->
 								<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 								<li onclick={() => (currentConversation = id)}>
@@ -126,7 +124,7 @@
 									<li>
 										<div class="message">
 											<p>Role: {message.role}</p>
-											<p>{message.content}</p>
+											<pre>{message.content}</pre>
 										</div>
 									</li>
 								{/each}
@@ -159,7 +157,10 @@
 		box-shadow: 1px 0px 10px 0px rgba(0, 0, 0, 0.1);
 	}
 	.panel__content {
+		height: 100%;
 		padding: 1rem;
+
+		overflow: auto;
 	}
 	.token {
 		display: flex;

@@ -2,8 +2,7 @@ use std::cell::RefCell;
 use std::sync::{Arc, Mutex};
 
 use but_agent::agent::{agent_perform, AgentConfig};
-use but_agent::llm::{LLMResponse, MockLLM};
-use but_agent::open_router::OpenRouter;
+use but_agent::openai_like_llm::OpenAILikeLLM;
 use but_agent::store::ConversationStore as _;
 use but_agent::types::{Action, ConversationId, Message};
 use but_agent_shared::ConversationStoreAccess as _;
@@ -38,14 +37,14 @@ pub fn agent_list_all_conversations(
 #[tauri::command(async)]
 #[instrument(skip(token), err(Debug))]
 pub fn agent_set_open_router_token(token: Option<&str>) -> Result<(), Error> {
-    but_agent::set_token(token);
+    set_token(token);
     Ok(())
 }
 
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn agent_is_open_router_token_set() -> Result<bool, Error> {
-    let token = but_agent::get_token();
+    let token = get_token();
     Ok(token.is_some())
 }
 
@@ -61,10 +60,11 @@ pub fn agent_create_conversation(
     let conversation_id: Arc<Mutex<Option<ConversationId>>> = Arc::new(Mutex::new(None));
     let move_conversation_id = conversation_id.clone();
     let config = AgentConfig {
-        llm: Box::new(OpenRouter {
-            model: "meta-llama/llama-3.3-70b-instruct".into(),
+        llm: Box::new(OpenAILikeLLM {
+            completion_url: "https://openrouter.ai/api/v1/chat/completions".into(),
+            model: "deepseek/deepseek-r1-distill-llama-70b".into(),
             provider: Some("cerebras".into()),
-            token: Some(but_agent::get_token().unwrap()),
+            token: Some(get_token().unwrap().0),
         }),
         conversation_store: RefCell::new(Box::new(ctx.conversation_store())),
         callback: move |thing| {
@@ -93,10 +93,11 @@ pub async fn agent_send_message(
 
     let handle = tokio::task::spawn_blocking(move || {
         let config = AgentConfig {
-            llm: Box::new(OpenRouter {
-                model: "llama3:latest".into(),
-                provider: None,
-                token: None,
+            llm: Box::new(OpenAILikeLLM {
+                completion_url: "https://openrouter.ai/api/v1/chat/completions".into(),
+                model: "deepseek/deepseek-r1-distill-llama-70b".into(),
+                provider: Some("cerebras".into()),
+                token: Some(get_token().unwrap().0),
             }),
             conversation_store: RefCell::new(Box::new(ctx.conversation_store())),
             callback: |_| {},
@@ -126,3 +127,29 @@ pub async fn agent_send_message(
 //         ),
 //     },
 // }
+
+fn get_token() -> Option<gitbutler_secret::Sensitive<String>> {
+    // return Some(gitbutler_secret::Sensitive("this is secret".into()));
+    gitbutler_secret::secret::retrieve(
+        "gitbutler-agent-open-router-token",
+        gitbutler_secret::secret::Namespace::Global,
+    )
+    .unwrap()
+}
+
+fn set_token(token: Option<&str>) {
+    if let Some(token) = token {
+        gitbutler_secret::secret::persist(
+            "gitbutler-agent-open-router-token",
+            &gitbutler_secret::Sensitive(token.into()),
+            gitbutler_secret::secret::Namespace::Global,
+        )
+        .unwrap();
+    } else {
+        gitbutler_secret::secret::delete(
+            "gitbutler-agent-open-router-token",
+            gitbutler_secret::secret::Namespace::Global,
+        )
+        .unwrap();
+    }
+}

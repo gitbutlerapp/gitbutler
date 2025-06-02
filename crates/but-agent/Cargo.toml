@@ -13,10 +13,11 @@ doctest = false
 testing = []
 
 [dependencies]
+# Ideally this should have no other gitbutler dependencies, and should be mainly
+# focused on integrating with other LLM providers.
 serde = { workspace = true, features = ["std"] }
 serde_json.workspace = true
 toml.workspace = true
-gitbutler-secret.workspace = true
 uuid.workspace = true
 reqwest = { version = "0.12", features = ["blocking", "json"] }
 

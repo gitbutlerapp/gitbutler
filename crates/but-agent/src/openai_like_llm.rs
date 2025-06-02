@@ -7,54 +7,56 @@ use crate::{
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
-struct OpenRouterMessage {
+struct APIMessage {
     role: String,
     content: String,
     tool_calls: Option<Vec<ToolCall>>,
 }
 
 #[derive(Serialize)]
-struct OpenRouterProvider {
+struct APIProvider {
     only: Option<Vec<String>>,
 }
 
 #[derive(Serialize)]
-struct OpenRouterAPIBody {
+struct APIBody {
     model: String,
     messages: Vec<Message>,
-    provider: Option<OpenRouterProvider>,
+    provider: Option<APIProvider>,
     tools: Vec<Tool>,
 }
 
 #[derive(Deserialize, Clone)]
-struct OpenRouterChoice {
-    message: OpenRouterMessage,
+struct APIChoice {
+    message: APIMessage,
 }
 
 #[derive(Deserialize, Clone)]
-struct OpenRouterAPIResponse {
-    message: Option<OpenRouterMessage>,
-    choices: Option<Vec<OpenRouterChoice>>,
+struct APIResponse {
+    message: Option<APIMessage>,
+    choices: Option<Vec<APIChoice>>,
 }
 
-pub struct OpenRouter {
+/// An LLM implementation for providers that are compatible with OpenAI's
+/// interface.
+pub struct OpenAILikeLLM {
+    pub completion_url: String,
     pub model: String,
     pub provider: Option<String>,
-    pub token: Option<gitbutler_secret::Sensitive<String>>,
+    pub token: Option<String>,
 }
 
-impl LLM for OpenRouter {
+impl LLM for OpenAILikeLLM {
     fn perform(&self, LLMParams { messages, tools }: LLMParams) -> LLMResponse {
         let client = reqwest::blocking::Client::new();
         let mut request = client
-            .post("http://127.0.0.1:11434/api/chat")
-            // .bearer_auth(&self.token.0)
+            .post(&self.completion_url)
             .header("Content-Type", "application/json")
             .body(
-                serde_json::to_string(&OpenRouterAPIBody {
+                serde_json::to_string(&APIBody {
                     model: self.model.clone(),
                     messages,
-                    provider: self.provider.clone().map(|provider| OpenRouterProvider {
+                    provider: self.provider.clone().map(|provider| APIProvider {
                         only: Some(vec![provider]),
                     }),
                     tools,
@@ -63,14 +65,13 @@ impl LLM for OpenRouter {
             );
 
         if let Some(token) = self.token.clone() {
-            request = request.bearer_auth((*token).clone());
+            request = request.bearer_auth(&token);
         };
 
         let result = request.send().unwrap();
 
         let response = result.text().unwrap();
-        dbg!(&response);
-        let response: OpenRouterAPIResponse = serde_json::from_str(&response).unwrap();
+        let response: APIResponse = serde_json::from_str(&response).unwrap();
 
         let message = response
             .message

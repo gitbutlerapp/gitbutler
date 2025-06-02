@@ -718,7 +718,6 @@ dependencies = [
 name = "but-agent"
 version = "0.0.0"
 dependencies = [
- "gitbutler-secret",
  "reqwest",
  "serde",
  "serde_json",
