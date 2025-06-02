@@ -142,6 +142,13 @@
 </div>
 
 <style lang="postcss">
+	/* lower specificity to override global styles */
+	:where(.textarea-unstyled) {
+		border: none;
+		outline: none;
+		background: transparent;
+	}
+
 	.textarea-container {
 		display: flex;
 		position: relative;
@@ -151,14 +158,6 @@
 		/* hide scrollbar */
 		&::-webkit-scrollbar {
 			display: none;
-		}
-	}
-
-	@layer components {
-		.textarea-unstyled {
-			border: none;
-			outline: none;
-			background: transparent;
 		}
 	}
 

@@ -27,7 +27,7 @@ updates:
     ignore:
       - dependency-name: '*'
         update-types: ['version-update:semver-major']
-      - dependency-name: "libsqlite3-sys"
+      - dependency-name: 'libsqlite3-sys'
     groups:
       rust-updates:
         update-types: [minor, patch]
