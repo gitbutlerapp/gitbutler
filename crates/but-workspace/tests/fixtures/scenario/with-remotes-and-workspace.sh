@@ -282,6 +282,12 @@ git init two-dependent-branches-rebased-with-remotes
   setup_remote_tracking future-remote-B B-on-A 'move'
 )
 
+cp -R two-dependent-branches-rebased-with-remotes two-dependent-branches-rebased-explicit-remote-in-extra-segment
+(cd two-dependent-branches-rebased-explicit-remote-in-extra-segment
+  # This officially 'claims' the remote 'origin/A' so it's not deduced anymore.
+  git branch base-of-A origin/A
+)
+
 git init two-branches-one-advanced-ws-commit-on-top-of-stack
 (cd two-branches-one-advanced-ws-commit-on-top-of-stack
   git commit -m "init" --allow-empty

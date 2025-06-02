@@ -176,6 +176,103 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
 }
 
 #[test]
+fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario(
+        "two-dependent-branches-rebased-explicit-remote-in-extra-segment",
+    )?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * e26f4fd (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 31b3f92 (B-on-A) change in B
+    * 51db0ec (A) change after push
+    | * ec39463 (origin/B-on-A) change in B
+    |/  
+    * 807f596 (origin/A, base-of-A) change in A
+    * fafd9d0 (origin/main, main) init
+    ");
+
+    // Note how `base-of-A` is absent, it's just something the user may have added,
+    // and it comes with an official remote configuration.
+    add_stack_with_segments(
+        &mut meta,
+        StackId::from_number_for_testing(0),
+        "B-on-A",
+        StackState::InWorkspace,
+        &["A"],
+    );
+
+    let opts = standard_options();
+    let info = head_info(&repo, &*meta, opts)?;
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [
+            Stack {
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                segments: [
+                    StackSegment {
+                        ref_name: "refs/heads/B-on-A",
+                        remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [
+                            LocalCommit(31b3f92, "change in B\n", local/remote(similarity)),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                    StackSegment {
+                        ref_name: "refs/heads/A",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [
+                            LocalCommit(51db0ec, "change after push\n", local),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                    StackSegment {
+                        ref_name: "refs/heads/base-of-A",
+                        remote_tracking_ref_name: "refs/remotes/origin/A",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [
+                            LocalCommit(807f596, "change in A\n", local/remote(identity)),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: None,
+                    },
+                ],
+                stash_status: None,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+    }
+    "#);
+
+    Ok(())
+}
+
+#[test]
 fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("target-ahead-remote-rewritten")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"

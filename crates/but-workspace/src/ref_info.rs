@@ -108,7 +108,7 @@ pub(crate) mod function {
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();
-        let target_remote_symbolic_name = target_ref
+        let target_symbolic_remote_name = target_ref
             .as_ref()
             .and_then(|rn| extract_remote_name(rn.as_ref(), &repo.remote_names()));
 
@@ -126,6 +126,7 @@ pub(crate) mod function {
         let cache = repo.commit_graph_if_enabled()?;
         let mut graph = repo.revision_graph(cache.as_ref());
         let mut boundary = gix::hashtable::HashSet::default();
+        let configured_remote_tracking_branches = configured_remote_tracking_branches(&repo)?;
 
         let mut stacks = if ref_commit.is_managed() {
             let base: Option<_> = if target_ref_id.is_none() {
@@ -182,7 +183,8 @@ pub(crate) mod function {
                     opts.stack_commit_limit,
                     &refs_by_id,
                     meta,
-                    target_remote_symbolic_name.as_deref(),
+                    target_symbolic_remote_name.as_deref(),
+                    &configured_remote_tracking_branches,
                 )?;
 
                 boundary.extend(segments.iter().flat_map(|segment| {
@@ -312,7 +314,8 @@ pub(crate) mod function {
                 opts.stack_commit_limit,
                 &refs_by_id,
                 meta,
-                target_remote_symbolic_name.as_deref(),
+                target_symbolic_remote_name.as_deref(),
+                &configured_remote_tracking_branches,
             )?;
 
             vec![Stack {
@@ -326,7 +329,14 @@ pub(crate) mod function {
         // Various cleanup functions to enforce constraints before spending time on classifying commits.
         enforce_constraints(&mut stacks);
         if let Some(ws_stacks) = stored_workspace_stacks.as_deref() {
-            reconcile_with_workspace_stacks(&existing_ref, ws_stacks, &mut stacks, meta)?;
+            reconcile_with_workspace_stacks(
+                &existing_ref,
+                ws_stacks,
+                &mut stacks,
+                meta,
+                target_symbolic_remote_name.as_deref(),
+                &configured_remote_tracking_branches,
+            )?;
         }
 
         if opts.expensive_commit_info {
@@ -428,6 +438,8 @@ pub(crate) mod function {
         ws_stacks: &[WorkspaceStack],
         stacks: &mut Vec<Stack>,
         meta: &impl but_core::RefMetadata,
+        symbolic_remote_name: Option<&str>,
+        configured_remote_tracking_branches: &BTreeSet<gix::refs::FullName>,
     ) -> anyhow::Result<()> {
         validate_workspace_stacks(ws_stacks)?;
         // Stacks that are genuinely reachable we have to show.
@@ -488,7 +500,14 @@ pub(crate) mod function {
         }
 
         // Put the stacks into the right order, and create empty stacks for those that are completely virtual.
-        sort_stacks_by_order_in_ws_stacks(existing_ref.repo, stacks, ws_stacks, meta)?;
+        sort_stacks_by_order_in_ws_stacks(
+            existing_ref.repo,
+            stacks,
+            ws_stacks,
+            meta,
+            symbolic_remote_name,
+            configured_remote_tracking_branches,
+        )?;
         Ok(())
     }
 
@@ -518,6 +537,8 @@ pub(crate) mod function {
         unordered: &mut Vec<Stack>,
         ordered: &[WorkspaceStack],
         meta: &impl but_core::RefMetadata,
+        symbolic_remote_name: Option<&str>,
+        configured_remote_tracking_branches: &BTreeSet<gix::refs::FullName>,
     ) -> anyhow::Result<()> {
         // With this serialized set of desired segments, the tip can also be missing, and we still have
         // a somewhat expected order. Besides, it's easier to work with.
@@ -622,6 +643,8 @@ pub(crate) mod function {
                                     repo,
                                     meta,
                                     virtual_segment_ref_name.as_ref(),
+                                    symbolic_remote_name,
+                                    configured_remote_tracking_branches,
                                 )?,
                             );
                             insert_position += 1;
@@ -651,6 +674,8 @@ pub(crate) mod function {
                         repo,
                         meta,
                         segment_ref_name.as_ref(),
+                        symbolic_remote_name,
+                        configured_remote_tracking_branches,
                     )?);
                 }
                 // From this segment
@@ -693,12 +718,16 @@ pub(crate) mod function {
         repo: &gix::Repository,
         meta: &impl but_core::RefMetadata,
         virtual_segment_ref_name: &gix::refs::FullNameRef,
+        symbolic_remote_name: Option<&str>,
+        configured_remote_tracking_branches: &BTreeSet<gix::refs::FullName>,
     ) -> anyhow::Result<StackSegment> {
         Ok(StackSegment {
             ref_name: Some(virtual_segment_ref_name.to_owned()),
-            remote_tracking_ref_name: lookup_remote_tracking_branch(
+            remote_tracking_ref_name: lookup_remote_tracking_branch_or_deduce_it(
                 repo,
                 virtual_segment_ref_name,
+                symbolic_remote_name,
+                configured_remote_tracking_branches,
             )?,
             // TODO: this isn't important yet, but it's probably also not always correct.
             ref_location: Some(RefLocation::ReachableFromWorkspaceCommit),
@@ -746,10 +775,32 @@ pub(crate) mod function {
             .map(|rn| rn.into_owned()))
     }
 
+    /// Returns he unique names of all remote tracking branches that are configured in the repository.
+    /// Useful to avoid claiming them for deduction.
+    fn configured_remote_tracking_branches(
+        repo: &gix::Repository,
+    ) -> anyhow::Result<BTreeSet<gix::refs::FullName>> {
+        let mut out = BTreeSet::default();
+        for short_name in repo
+            .config_snapshot()
+            .sections_by_name("branch")
+            .into_iter()
+            .flatten()
+            .filter_map(|s| s.header().subsection_name())
+        {
+            let Ok(full_name) = Category::LocalBranch.to_full_name(short_name) else {
+                continue;
+            };
+            out.extend(lookup_remote_tracking_branch(repo, full_name.as_ref())?);
+        }
+        Ok(out)
+    }
+
     fn lookup_remote_tracking_branch_or_deduce_it(
         repo: &gix::Repository,
         ref_name: &gix::refs::FullNameRef,
         symbolic_remote_name: Option<&str>,
+        configured_remote_tracking_branches: &BTreeSet<gix::refs::FullName>,
     ) -> anyhow::Result<Option<gix::refs::FullName>> {
         Ok(lookup_remote_tracking_branch(repo, ref_name)?.or_else(|| {
             let symbolic_remote_name = symbolic_remote_name?;
@@ -761,6 +812,14 @@ pub(crate) mod function {
                 "refs/remotes/{symbolic_remote_name}/{short_name}",
                 short_name = ref_name.shorten()
             );
+            let Ok(remote_tracking_ref_name) =
+                gix::refs::FullName::try_from(remote_tracking_ref_name)
+            else {
+                return None;
+            };
+            if configured_remote_tracking_branches.contains(&remote_tracking_ref_name) {
+                return None;
+            }
             repo.find_reference(&remote_tracking_ref_name)
                 .ok()
                 .map(|remote_ref| remote_ref.name().to_owned())
@@ -1027,6 +1086,7 @@ pub(crate) mod function {
         refs_by_id: &RefsById,
         meta: &impl but_core::RefMetadata,
         symbolic_remote_name: Option<&str>,
+        configured_remote_tracking_branches: &BTreeSet<gix::refs::FullName>,
     ) -> anyhow::Result<Vec<StackSegment>> {
         let mut out = Vec::new();
         let mut segment = Some(StackSegment {
@@ -1094,6 +1154,7 @@ pub(crate) mod function {
                 repo,
                 ref_name.as_ref(),
                 symbolic_remote_name,
+                configured_remote_tracking_branches,
             )?;
             let branch_info = meta.branch(ref_name.as_ref())?;
             if !branch_info.is_default() {
