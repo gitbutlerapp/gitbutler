@@ -85,6 +85,7 @@
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
 	import { env } from '$env/dynamic/public';
+	import { Ai2Service } from '$lib/ai2/service';
 
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
 
@@ -179,6 +180,9 @@
 
 	const uncommittedService = new UncommittedService(clientState, worktreeService, diffService);
 	setContext(UncommittedService, uncommittedService);
+
+	const ai2Service = new Ai2Service(clientState);
+	setContext(Ai2Service, ai2Service);
 
 	const branchService = new BranchService(clientState['backendApi']);
 	setContext(BranchService, branchService);

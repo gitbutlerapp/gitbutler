@@ -56,6 +56,7 @@
 	import { onDestroy, setContext, untrack, type Snippet } from 'svelte';
 	import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 	import type { LayoutData } from './$types';
+	import AIPanel from '$components/ai2/AIPanel.svelte';
 
 	const { data, children: pageChildren }: { data: LayoutData; children: Snippet } = $props();
 
@@ -373,6 +374,8 @@
 			{/snippet}
 		</ReduxResult>
 	{/if}
+
+	<AIPanel {projectId} />
 {/key}
 
 {#if $settingsStore?.featureFlags.v3}

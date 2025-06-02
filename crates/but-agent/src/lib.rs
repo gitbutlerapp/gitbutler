@@ -6,30 +6,26 @@ pub mod open_router;
 pub mod store;
 pub mod types;
 
-#[cfg(test)]
-#[allow(dead_code)]
-fn get_token() -> Option<gitbutler_secret::Sensitive<String>> {
+pub fn get_token() -> Option<gitbutler_secret::Sensitive<String>> {
     // return Some(gitbutler_secret::Sensitive("this is secret".into()));
     gitbutler_secret::secret::retrieve(
-        "gitbutler-agent-token",
+        "gitbutler-agent-open-router-token",
         gitbutler_secret::secret::Namespace::Global,
     )
     .unwrap()
 }
 
-#[cfg(test)]
-#[allow(dead_code)]
-fn set_token(token: Option<&str>) {
+pub fn set_token(token: Option<&str>) {
     if let Some(token) = token {
         gitbutler_secret::secret::persist(
-            "gitbutler-agent-token",
+            "gitbutler-agent-open-router-token",
             &gitbutler_secret::Sensitive(token.into()),
             gitbutler_secret::secret::Namespace::Global,
         )
         .unwrap();
     } else {
         gitbutler_secret::secret::delete(
-            "gitbutler-agent-token",
+            "gitbutler-agent-open-router-token",
             gitbutler_secret::secret::Namespace::Global,
         )
         .unwrap();

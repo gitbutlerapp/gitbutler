@@ -11,6 +11,7 @@
     clippy::too_many_lines
 )]
 
+use but_agent::agent;
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::csp::csp_with_extras;
 use gitbutler_tauri::settings::SettingsStore;
@@ -305,6 +306,11 @@ fn main() {
                     diff::changes_in_branch,
                     diff::tree_change_diffs,
                     diff::assign_hunk,
+                    agent::agent_list_all_conversations,
+                    agent::agent_set_open_router_token,
+                    agent::agent_is_open_router_token_set,
+                    agent::agent_create_conversation,
+                    agent::agent_send_message,
                     // `env_vars` is only supposed to be avaialble in debug mode, not in production.
                     #[cfg(debug_assertions)]
                     env::env_vars,

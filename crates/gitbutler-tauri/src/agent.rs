@@ -1,5 +1,11 @@
+use std::cell::RefCell;
+use std::sync::{Arc, Mutex};
+
+use but_agent::agent::{agent_perform, AgentConfig};
+use but_agent::llm::{LLMResponse, MockLLM};
+use but_agent::open_router::OpenRouter;
 use but_agent::store::ConversationStore as _;
-use but_agent::types::{ConversationId, Message};
+use but_agent::types::{Action, ConversationId, Message};
 use but_agent_shared::ConversationStoreAccess as _;
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_command_context::CommandContext;
@@ -25,3 +31,98 @@ pub fn agent_list_all_conversations(
         .map_err(|e| anyhow::anyhow!("Failed to read conversation store: {:?}", e))?;
     Ok(conversations)
 }
+
+// How to deal with agent configurations.
+// Fuck it, let's do this later.
+
+#[tauri::command(async)]
+#[instrument(skip(token), err(Debug))]
+pub fn agent_set_open_router_token(token: Option<&str>) -> Result<(), Error> {
+    but_agent::set_token(token);
+    Ok(())
+}
+
+#[tauri::command(async)]
+#[instrument(err(Debug))]
+pub fn agent_is_open_router_token_set() -> Result<bool, Error> {
+    let token = but_agent::get_token();
+    Ok(token.is_some())
+}
+
+#[tauri::command(async)]
+#[instrument(skip(projects, settings), err(Debug))]
+pub fn agent_create_conversation(
+    projects: State<'_, projects::Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
+    project_id: ProjectId,
+) -> Result<ConversationId, Error> {
+    let project = projects.get(project_id)?;
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    let conversation_id: Arc<Mutex<Option<ConversationId>>> = Arc::new(Mutex::new(None));
+    let move_conversation_id = conversation_id.clone();
+    let config = AgentConfig {
+        llm: Box::new(OpenRouter {
+            model: "meta-llama/llama-3.3-70b-instruct".into(),
+            provider: Some("cerebras".into()),
+            token: Some(but_agent::get_token().unwrap()),
+        }),
+        conversation_store: RefCell::new(Box::new(ctx.conversation_store())),
+        callback: move |thing| {
+            let mut conversation_id = move_conversation_id.lock().unwrap();
+            *conversation_id = Some(thing.id());
+        },
+        system_prompt: "Help me with my code".into(),
+        tools: Vec::new(),
+    };
+    agent_perform(&config, Action::StartNewThread);
+    let conversation_id = conversation_id.lock().unwrap().unwrap();
+    Ok(conversation_id)
+}
+
+#[tauri::command(async)]
+#[instrument(skip(projects, settings), err(Debug))]
+pub async fn agent_send_message(
+    projects: State<'_, projects::Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
+    project_id: ProjectId,
+    conversation_id: ConversationId,
+    message: String,
+) -> Result<ConversationId, Error> {
+    let project = projects.get(project_id)?;
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+
+    let handle = tokio::task::spawn_blocking(move || {
+        let config = AgentConfig {
+            llm: Box::new(OpenRouter {
+                model: "llama3:latest".into(),
+                provider: None,
+                token: None,
+            }),
+            conversation_store: RefCell::new(Box::new(ctx.conversation_store())),
+            callback: |_| {},
+            system_prompt: "Help me with my code".into(),
+            tools: Vec::new(),
+        };
+
+        agent_perform(
+            &config,
+            Action::SendMessage {
+                id: conversation_id,
+                message,
+            },
+        );
+    });
+
+    handle.await.unwrap();
+
+    Ok(conversation_id)
+}
+
+// MockLLM {
+//     callback: |params| LLMResponse::Message {
+//         message: format!(
+//             "Oh, hi there!\n You said: {}",
+//             params.messages.last().unwrap().content
+//         ),
+//     },
+// }
