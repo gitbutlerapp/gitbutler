@@ -41,6 +41,7 @@ import type { Commit } from '$lib/branches/v3';
 import type { HunkDependencies } from '$lib/dependencies/dependencies';
 import type { TreeChange, TreeChanges, WorktreeChanges } from '$lib/hunks/change';
 import type { UnifiedDiff } from '$lib/hunks/diff';
+import type { HunkAssignment } from '$lib/hunks/hunk';
 import type { GitRemote } from '$lib/remotes/remotesService';
 import type { BranchDetails, Stack, StackDetails } from '$lib/stacks/stack';
 import type { BranchPushResult } from '$lib/stacks/stackService.svelte';
@@ -81,7 +82,11 @@ export default class MockBackend {
 		this.stackDetails = new Map<string, StackDetails>();
 		this.commitChanges = new Map<string, TreeChange[]>();
 		this.branchChanges = new Map<string, BranchChanges>();
-		this.worktreeChanges = { changes: [MOCK_TREE_CHANGE_A], ignoredChanges: [] };
+		this.worktreeChanges = {
+			changes: [MOCK_TREE_CHANGE_A],
+			ignoredChanges: [],
+			assignments: { Ok: [] }
+		};
 		this.unifiedDiffs = new Map<string, UnifiedDiff>();
 		this.hunkDependencies = {
 			diffs: [],
@@ -159,7 +164,60 @@ export default class MockBackend {
 			throw new Error('Invalid arguments for getWorktreeChanges');
 		}
 
-		return this.worktreeChanges;
+		return { ...this.worktreeChanges, assignments: { Ok: this.getHunkAssignments(args) } };
+	}
+
+	public getHunkAssignments(args: InvokeArgs | undefined): HunkAssignment[] {
+		if (!args || !isGetWorktreeChangesParams(args)) {
+			throw new Error('Invalid arguments for getHunkAssignments');
+		}
+
+		const out = [];
+
+		for (const change of this.worktreeChanges.changes) {
+			if (change.status.type === 'Addition' || change.status.type === 'Deletion') {
+				out.push({
+					hunkHeader: null,
+					path: change.path,
+					pathBytes: change.pathBytes,
+					stackId: null,
+					hunkLocks: []
+				});
+			} else if (change.status.type === 'Rename' || change.status.type === 'Modification') {
+				const diff = this.getDiff({ projectId: args.projectId, change });
+				if (diff) {
+					if (diff.type === 'Binary' || diff.type === 'TooLarge') {
+						out.push({
+							hunkHeader: null,
+							path: change.path,
+							pathBytes: change.pathBytes,
+							stackId: null,
+							hunkLocks: []
+						});
+					} else {
+						for (const hunk of diff.subject.hunks) {
+							out.push({
+								hunkHeader: hunk,
+								path: change.path,
+								pathBytes: change.pathBytes,
+								stackId: null,
+								hunkLocks: []
+							});
+						}
+					}
+				} else {
+					out.push({
+						hunkHeader: null,
+						path: change.path,
+						pathBytes: change.pathBytes,
+						stackId: null,
+						hunkLocks: []
+					});
+				}
+			}
+		}
+
+		return out;
 	}
 
 	public getWorktreeChangesFileNames(): string[] {

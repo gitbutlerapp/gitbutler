@@ -3,32 +3,31 @@
 	import Drawer from '$components/v3/Drawer.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import { HooksService } from '$lib/hooks/hooksService';
-	import { DiffService } from '$lib/hunks/diffService.svelte';
-	import {
-		lineIdsToHunkHeaders,
-		type DiffHunk,
-		type DiffSpec,
-		type HunkHeader
-	} from '$lib/hunks/hunk';
+	import { type DiffSpec } from '$lib/hunks/hunk';
 	import { showError, showToast } from '$lib/notifications/toasts';
-	import { ChangeSelectionService, type SelectedHunk } from '$lib/selection/changeSelection.svelte';
+	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { StackService, type RejectionReason } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
-	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
-	import { getContext, inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import toasts from '@gitbutler/ui/toasts';
 
 	type Props = {
 		projectId: string;
 		stackId?: string;
 	};
-	const { projectId, stackId }: Props = $props();
+	const { projectId }: Props = $props();
 
-	const stackService = getContext(StackService);
-	const [uiState, worktreeService, diffService] = inject(UiState, WorktreeService, DiffService);
-	const changeSelection = getContext(ChangeSelectionService);
-	const hooksService = getContext(HooksService);
+	const [stackService, uiState, hooksService, uncommittedService] = inject(
+		StackService,
+		UiState,
+		HooksService,
+		UncommittedService
+	);
+
+	const projectState = $derived(uiState.project(projectId));
+	const targetStackId = $derived(projectState.stackId.current);
+	const sourceStackId = $derived(projectState.commitSourceId.current);
 
 	const [createCommitInStack, commitCreation] = stackService.createCommit;
 
@@ -78,53 +77,31 @@
 		return failed;
 	}
 
-	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
+	const stackState = $derived(targetStackId ? uiState.stack(targetStackId) : undefined);
 	const selection = $derived(stackState?.selection.current);
 	const selectedCommitId = $derived(selection?.commitId);
 
-	const selectedChanges = $derived(changeSelection.list());
-	const topBranchResult = $derived(stackId ? stackService.branches(projectId, stackId) : undefined);
+	const selectedLines = $derived(uncommittedService.selectedLines());
+	const topBranchResult = $derived(
+		targetStackId ? stackService.branches(projectId, targetStackId) : undefined
+	);
 	const topBranchName = $derived(topBranchResult?.current.data?.at(0)?.name);
 
 	const draftBranchName = $derived(uiState.global.draftBranchName.current);
 
 	const selectedBranchName = $derived(selection?.branchName || topBranchName);
 	const canCommit = $derived(
-		(selectedBranchName || draftBranchName || topBranchName) && selectedChanges.current.length > 0
+		(selectedBranchName || draftBranchName || topBranchName) && selectedLines.current.length > 0
 	);
-	const projectState = $derived(uiState.project(projectId));
 
 	let input = $state<ReturnType<typeof CommitMessageEditor>>();
 	let drawer = $state<ReturnType<typeof Drawer>>();
 
-	async function findHunkDiff(filePath: string, hunk: SelectedHunk): Promise<DiffHunk | undefined> {
-		const treeChange = await worktreeService.fetchChange(projectId, filePath);
-		if (treeChange.data === undefined) {
-			throw new Error('Failed to fetch change');
-		}
-		const changeDiff = await diffService.fetchDiff(projectId, treeChange.data);
-		if (changeDiff.data === undefined) {
-			throw new Error('Failed to fetch diff');
-		}
-		const file = changeDiff.data;
-
-		if (file.type !== 'Patch') return undefined;
-
-		const hunkDiff = file.subject.hunks.find(
-			(hunkDiff) =>
-				hunkDiff.oldStart === hunk.oldStart &&
-				hunkDiff.oldLines === hunk.oldLines &&
-				hunkDiff.newStart === hunk.newStart &&
-				hunkDiff.newLines === hunk.newLines
-		);
-		return hunkDiff;
-	}
-
 	async function createCommit(message: string) {
-		let finalStackId = stackId;
+		let finalStackId = targetStackId;
 		let finalBranchName = selectedBranchName || topBranchName;
 
-		if (!stackId) {
+		if (!finalStackId) {
 			const stack = await createNewStack({
 				projectId,
 				branch: { name: draftBranchName }
@@ -143,44 +120,7 @@
 			throw new Error('No branch selected!');
 		}
 
-		const worktreeChanges: DiffSpec[] = [];
-
-		for (const item of selectedChanges.current) {
-			if (item.type === 'full') {
-				worktreeChanges.push({
-					pathBytes: item.pathBytes,
-					previousPathBytes: item.previousPathBytes,
-					hunkHeaders: []
-				});
-				continue;
-			}
-
-			if (item.type === 'partial') {
-				const hunkHeaders: HunkHeader[] = [];
-				for (const hunk of item.hunks) {
-					if (hunk.type === 'full') {
-						hunkHeaders.push(hunk);
-						continue;
-					}
-
-					if (hunk.type === 'partial') {
-						const hunkDiff = await findHunkDiff(item.path, hunk);
-						if (!hunkDiff) {
-							throw new Error('Hunk not found while commiting');
-						}
-						const selectedLines = hunk.lines;
-						hunkHeaders.push(...lineIdsToHunkHeaders(selectedLines, hunkDiff.diff, 'commit'));
-						continue;
-					}
-				}
-				worktreeChanges.push({
-					pathBytes: item.pathBytes,
-					previousPathBytes: item.previousPathBytes,
-					hunkHeaders
-				});
-				continue;
-			}
-		}
+		const worktreeChanges = await uncommittedService.worktreeChanges(projectId, sourceStackId);
 
 		const preHookFailed = await runPreHook(worktreeChanges);
 		if (preHookFailed) return;
@@ -212,7 +152,7 @@
 			uiState.stack(finalStackId).selection.set({ branchName: finalBranchName, commitId: newId });
 
 			// Clear change/hunk selection used for creating the commit.
-			changeSelection.clear();
+			uncommittedService.clearHunkSelection();
 		}
 
 		if (response.pathsToRejectedChanges.length > 0) {
@@ -274,7 +214,7 @@
 	testId={TestId.NewCommitDrawer}
 	bind:this={drawer}
 	{projectId}
-	{stackId}
+	stackId={targetStackId}
 	title="Create commit"
 	disableScroll
 	minHeight={20}
@@ -282,7 +222,7 @@
 	<CommitMessageEditor
 		bind:this={input}
 		{projectId}
-		{stackId}
+		stackId={sourceStackId}
 		actionLabel="Create commit"
 		action={({ title, description }) => handleCommitCreation(title, description)}
 		onChange={({ title, description }) => handleMessageUpdate(title, description)}

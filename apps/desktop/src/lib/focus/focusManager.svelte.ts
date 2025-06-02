@@ -4,7 +4,7 @@ import { on } from 'svelte/events';
 
 export type FocusArea = string | null;
 
-export enum Focusable {
+export enum DefinedFocusable {
 	MainViewport = 'workspace',
 	ViewportLeft = 'workspace-left',
 	ViewportRight = 'workspace-right',
@@ -15,6 +15,27 @@ export enum Focusable {
 	// Only one of these can be in the dom at any given time.
 	ChangedFiles = 'changed-files'
 }
+
+export function assignedChangesFocusableId(stackId: string) {
+	return `${DefinedFocusable.UncommittedChanges}:${stackId}`;
+}
+
+/**
+ * If the provided ID is a assigned-changes id, it will return the stackId as a
+ * string, otherwise, it will return undefined.
+ */
+export function parseUnassignedChangesFocusable(id: string): string | undefined {
+	if (!id.startsWith(DefinedFocusable.UncommittedChanges)) {
+		return;
+	}
+	const halves = id.split(':');
+	if (halves.length !== 2) {
+		return;
+	}
+	return halves[1];
+}
+
+export type Focusable = DefinedFocusable | string;
 
 export type FocusableElement = {
 	key: Focusable;

@@ -16,7 +16,6 @@
 	import SwitchThemeMenuAction from '$components/SwitchThemeMenuAction.svelte';
 	import ToastController from '$components/ToastController.svelte';
 	import ZoomInOutMenuAction from '$components/ZoomInOutMenuAction.svelte';
-	import LineSelection from '$components/v3/unifiedDiffLineSelection.svelte';
 	import ActionService from '$lib/actions/actionService.svelte';
 	import { PromptService as AIPromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
@@ -49,8 +48,8 @@
 	import { PromptService } from '$lib/prompt/promptService';
 	import { RemotesService } from '$lib/remotes/remotesService';
 	import { setSecretsService } from '$lib/secrets/secretsService';
-	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
+	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
 	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -127,13 +126,6 @@
 		};
 	});
 
-	const changeSelection = $derived(clientState.changeSelection);
-	const changeSelectionService = new ChangeSelectionService(
-		reactive(() => changeSelection),
-		clientState.dispatch
-	);
-	const unifiedDiffLineSelection = new LineSelection(changeSelectionService);
-
 	const forgeFactory = new DefaultForgeFactory({
 		gitHubClient,
 		gitLabClient,
@@ -183,6 +175,9 @@
 		latestBranchLookupService
 	);
 
+	const uncommittedService = new UncommittedService(clientState, worktreeService, diffService);
+	setContext(UncommittedService, uncommittedService);
+
 	const branchService = new BranchService(clientState['backendApi']);
 	setContext(BranchService, branchService);
 
@@ -196,8 +191,6 @@
 
 	setContext(AppState, appState);
 	setContext(AppDispatch, appState.appDispatch);
-	setContext(ChangeSelectionService, changeSelectionService);
-	setContext(LineSelection, unifiedDiffLineSelection);
 	setContext(ClientState, clientState);
 	setContext(FeedService, feedService);
 	setContext(OrganizationService, organizationService);
@@ -291,6 +284,7 @@
 	/** These are made available on the window object for easier debugging. */
 	(window as any)['uiState'] = uiState;
 	(window as any)['idSelection'] = idSelection;
+	(window as any)['clientState'] = clientState;
 </script>
 
 <svelte:window

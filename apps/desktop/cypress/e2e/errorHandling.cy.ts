@@ -27,6 +27,7 @@ describe('Error handling - commit actions', () => {
 		mockCommand('hunk_dependencies_for_workspace_changes', (params) =>
 			mockBackend.getHunkDependencies(params)
 		);
+		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
 
 		cy.visit('/');
 

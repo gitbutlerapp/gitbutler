@@ -103,7 +103,10 @@
 
 	const projectState = $derived(uiState.project(projectId));
 	const drawer = $derived(projectState.drawerPage);
-	const isCommitting = $derived(drawer.current === 'new-commit');
+	const commitSourceId = $derived(projectState.commitSourceId.current);
+	const isCommitting = $derived(
+		drawer.current === 'new-commit' && (commitSourceId === undefined || commitSourceId === stackId)
+	);
 	const stackActive = $derived(stackId === projectState.stackId.current);
 	const stackState = $derived(uiState.stack(stackId));
 	const selection = $derived(stackState.selection.get());

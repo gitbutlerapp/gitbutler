@@ -11,11 +11,12 @@ describe('Unified Diff View', () => {
 		mockCommand('stacks', () => mockBackend.getStacks());
 		mockCommand('stack_details', (params) => mockBackend.getStackDetails(params));
 		mockCommand('changes_in_branch', (args) => mockBackend.getBranchChanges(args));
-		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
-		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
 		mockCommand('hunk_dependencies_for_workspace_changes', (params) =>
 			mockBackend.getHunkDependencies(params)
 		);
+		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
+		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
+		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
 
 		cy.visit('/');
 	});
@@ -167,9 +168,9 @@ describe('Unified Diff View', () => {
 		cy.getByTestId('hunk-context-menu')
 			.should('be.visible')
 			.within(() => {
-				// The discard change option should be visible
+				// The discard change option should not be visible
 				cy.getByTestId('hunk-context-menu-discard-change').should('not.exist');
-				// The discard lines option should be visible
+				// The discard lines option should not be visible
 				cy.getByTestId('hunk-context-menu-discard-lines').should('not.exist');
 				// The open in editor option should be visible
 				cy.getByTestId('hunk-context-menu-open-in-editor').should('be.visible');
@@ -217,6 +218,9 @@ describe('Unified Diff View', () => {
 			mockBackend.getWorktreeChangesFileNames().length
 		);
 
+		// Stack B needs to be selected so we can select locked lines.
+		cy.getByTestId('branch-header', mockBackend.dependsOnStack).should('be.visible').click();
+
 		// Open bif file diff
 		cy.getByTestId('uncommitted-changes-file-list').within(() => {
 			cy.getByTestId('file-list-item').first().click();
@@ -259,6 +263,7 @@ describe('Unified Diff View with complex hunks', () => {
 		mockCommand('create_commit_from_worktree_changes', (params) =>
 			mockBackend.createCommit(params)
 		);
+		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
 
 		cy.visit('/');
 	});

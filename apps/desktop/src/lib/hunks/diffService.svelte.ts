@@ -1,7 +1,7 @@
-import { providesList, ReduxTag } from '$lib/state/tags';
+import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
 import type { TreeChange } from '$lib/hunks/change';
 import type { UnifiedDiff } from '$lib/hunks/diff';
-import type { AssignmentRejection, HunkAssignment, HunkAssignmentRequest } from '$lib/hunks/hunk';
+import type { AssignmentRejection, HunkAssignmentRequest } from '$lib/hunks/hunk';
 import type { ClientState } from '$lib/state/clientState.svelte';
 
 export type ChangeDiff = {
@@ -17,16 +17,10 @@ export class DiffService {
 	}
 
 	getDiff(projectId: string, change: TreeChange) {
-		const { getDiff } = this.api.endpoints;
-		return getDiff.useQuery({ projectId, change });
+		return this.api.endpoints.getDiff.useQuery({ projectId, change });
 	}
 
-	hunkAssignments(projectId: string) {
-		const { hunkAssignments } = this.api.endpoints;
-		return hunkAssignments.useQuery({ projectId });
-	}
-
-	assignHunk() {
+	get assignHunk() {
 		return this.api.endpoints.assignHunk.mutate;
 	}
 
@@ -68,13 +62,6 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				providesTags: [providesList(ReduxTag.Diff)]
 			}),
-			hunkAssignments: build.query<HunkAssignment[], { projectId: string }>({
-				query: ({ projectId }) => ({
-					command: 'hunk_assignments',
-					params: { projectId }
-				}),
-				providesTags: [providesList(ReduxTag.HunkAssignments)]
-			}),
 			assignHunk: build.mutation<
 				AssignmentRejection[],
 				{ projectId: string; assignments: HunkAssignmentRequest[] }
@@ -83,7 +70,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'assign_hunk',
 					params: { projectId, assignments }
 				}),
-				invalidatesTags: [providesList(ReduxTag.HunkAssignments)]
+				invalidatesTags: [invalidatesList(ReduxTag.WorktreeChanges)]
 			})
 		})
 	});

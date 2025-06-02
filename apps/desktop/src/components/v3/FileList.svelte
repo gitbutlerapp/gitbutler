@@ -84,7 +84,7 @@
 	const selectedFiles = $derived(idSelection.values(selectionId));
 
 	const diffInputArgs = $derived<DiffInputContextArgs>({
-		type: 'selection',
+		type: 'file-selection',
 		projectId,
 		selectedFiles,
 		changes
@@ -192,7 +192,6 @@
 	<FileListItemWrapper
 		{selectionId}
 		{change}
-		allChanges={changes}
 		{projectId}
 		{stackId}
 		{active}
@@ -230,7 +229,7 @@
 	>
 		{#if listMode === 'tree'}
 			{@const node = abbreviateFolders(changesToFileTree(changes))}
-			<FileTreeNode isRoot {node} {showCheckboxes} {changes} {fileTemplate} />
+			<FileTreeNode isRoot {stackId} {node} {showCheckboxes} {changes} {fileTemplate} />
 		{:else}
 			{#each visibleFiles as change, idx}
 				{@render fileTemplate(change, idx)}

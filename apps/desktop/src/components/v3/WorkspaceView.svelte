@@ -9,9 +9,16 @@
 	import ReviewView from '$components/v3/ReviewView.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
+	import WorktreeTipsFooter from '$components/v3/WorktreeTipsFooter.svelte';
+	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { isParsedError } from '$lib/error/parser';
-	import { Focusable, FocusManager } from '$lib/focus/focusManager.svelte';
+	import {
+		assignedChangesFocusableId,
+		DefinedFocusable,
+		FocusManager,
+		parseUnassignedChangesFocusable
+	} from '$lib/focus/focusManager.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -43,9 +50,20 @@
 	const drawerPage = $derived(projectState.drawerPage);
 	const drawerIsFullScreen = $derived(projectState.drawerFullScreen);
 
+	const stackFocusables = $derived(
+		stacksResult.current?.data
+			? stacksResult.current.data.map((stack) => assignedChangesFocusableId(stack.id))
+			: []
+	);
+
 	let focusGroup = $derived(
 		focusManager.radioGroup({
-			triggers: [Focusable.UncommittedChanges, Focusable.Drawer, Focusable.ViewportRight]
+			triggers: [
+				DefinedFocusable.UncommittedChanges,
+				DefinedFocusable.Drawer,
+				DefinedFocusable.ViewportRight,
+				...stackFocusables
+			]
 		})
 	);
 
@@ -57,8 +75,17 @@
 
 	const selectionId: SelectionId = $derived.by(() => {
 		const branchName = currentSelection?.branchName;
-		if (focusGroup.current === Focusable.UncommittedChanges && worktreeSelection.entries.size > 0) {
-			return { type: 'worktree' };
+		const assignedChangesStackId = focusGroup.current
+			? parseUnassignedChangesFocusable(focusGroup.current)
+			: undefined;
+		if (assignedChangesStackId) {
+			return { type: 'worktree', stackId: assignedChangesStackId };
+		}
+		if (
+			focusGroup.current === DefinedFocusable.UncommittedChanges &&
+			worktreeSelection.entries.size > 0
+		) {
+			return { type: 'worktree', stackId: undefined };
 		}
 		if (currentSelection && stackId && branchName) {
 			if (currentSelection.commitId) {
@@ -106,7 +133,25 @@
 		{/if}
 
 		{#if !canUseActions || view === 'worktree'}
-			<WorktreeChanges {projectId} {stackId} active={selectionId.type === 'worktree'} />
+			<WorktreeChanges
+				title="Unassigned"
+				{projectId}
+				stackId={undefined}
+				active={selectionId.type === 'worktree' && selectionId.stackId === undefined}
+			>
+				{#snippet emptyPlaceholder()}
+					<div class="uncommitted-changes__empty">
+						<div class="uncommitted-changes__empty__placeholder">
+							{@html noChanges}
+							<p class="text-13 text-body uncommitted-changes__empty__placeholder-text">
+								You're all caught up!<br />
+								No files need committing
+							</p>
+						</div>
+						<WorktreeTipsFooter />
+					</div>
+				{/snippet}
+			</WorktreeChanges>
 		{:else if canUseActions && view === 'action-log'}
 			<ActionLog {projectId} />
 		{/if}
@@ -114,7 +159,7 @@
 
 	{#snippet middle()}
 		{#if !drawerIsFullScreen.current}
-			<SelectionView {projectId} {selectionId} {stackId} draggableFiles />
+			<SelectionView {projectId} {selectionId} draggableFiles />
 		{/if}
 		{#if drawerPage.current === 'new-commit'}
 			<NewCommitView {projectId} {stackId} />
@@ -155,8 +200,9 @@
 				<MultiStackView
 					{projectId}
 					{stacks}
+					{selectionId}
 					selectedId={stackId}
-					active={focusGroup.current !== Focusable.UncommittedChanges}
+					active={focusGroup.current !== DefinedFocusable.UncommittedChanges}
 				/>
 			{/snippet}
 		</ReduxResult>
@@ -177,5 +223,26 @@
 		align-items: center;
 		justify-content: center;
 		height: 40px;
+	}
+
+	.uncommitted-changes__empty {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+	}
+
+	.uncommitted-changes__empty__placeholder {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: 0 20px 40px;
+		gap: 20px;
+	}
+
+	.uncommitted-changes__empty__placeholder-text {
+		color: var(--clr-text-3);
+		text-align: center;
 	}
 </style>

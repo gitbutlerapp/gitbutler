@@ -21,27 +21,33 @@
 	import { getContext, inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import { QueryStatus } from '@reduxjs/toolkit/query';
 	import type { CommitStatusType } from '$lib/commits/commit';
+	import type { Snippet } from 'svelte';
 
 	type Props = {
-		isVerticalMode: boolean;
 		projectId: string;
+		isVerticalMode: boolean;
 		stackId: string;
 		active: boolean;
+		assignments: Snippet;
 	};
 
-	const { isVerticalMode, projectId, stackId, active }: Props = $props();
+	const { projectId, isVerticalMode, stackId, active, assignments }: Props = $props();
 	const [stackService, uiState, modeService] = inject(StackService, UiState, ModeService);
 
 	const branchesResult = $derived(stackService.branches(projectId, stackId));
 
 	const projectState = $derived(uiState.project(projectId));
 	const drawer = $derived(projectState.drawerPage);
-	const isCommitting = $derived(drawer.current === 'new-commit');
+	const commitSourceId = $derived(projectState.commitSourceId.current);
+	const isCommitting = $derived(
+		drawer.current === 'new-commit' && (commitSourceId === undefined || commitSourceId === stackId)
+	);
 
 	const stackActive = $derived(stackId === projectState.stackId.current);
 	const stackState = $derived(uiState.stack(stackId));
-	const selection = $derived(stackState.selection.get());
+	const selection = $derived(stackState.selection);
 	const selectedCommitId = $derived(selection.current?.commitId);
 
 	let newBranchModal = $state<ReturnType<typeof NewBranchModal>>();
@@ -86,13 +92,27 @@
 		}
 	}
 
+	const selectedCommit = $derived(
+		selectedCommitId ? stackService.commitDetails(projectId, selectedCommitId) : undefined
+	);
+
+	$effect(() => {
+		if (selectedCommit && selectedCommit.current.status === QueryStatus.rejected) {
+			const branchName = selection.current?.branchName;
+			if (branchName) {
+				selection.set({ branchName, commitId: undefined });
+			}
+		}
+	});
+
 	let headerMenuContext = $state<BranchHeaderContextItem>();
 
 	const stackingReorderDropzoneManagerFactory = getContext(StackingReorderDropzoneManagerFactory);
 </script>
 
 <div class="wrapper">
-	<ReduxResult {stackId} {projectId} result={branchesResult.current}>
+	{@render assignments()}
+	<ReduxResult {projectId} {stackId} result={branchesResult.current}>
 		{#snippet children(branches, { stackId, projectId })}
 			{@const stackingReorderDropzoneManager = stackingReorderDropzoneManagerFactory.build(
 				stackId,
@@ -260,6 +280,7 @@
 		flex-direction: column;
 		height: 100%;
 	}
+
 	.branches-wrapper {
 		display: flex;
 		flex: 1;

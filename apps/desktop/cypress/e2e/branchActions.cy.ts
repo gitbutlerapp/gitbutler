@@ -15,6 +15,7 @@ describe('Branch Actions', () => {
 		mockCommand('update_branch_name', (params) => mockBackend.renameBranch(params));
 		mockCommand('remove_branch', (params) => mockBackend.removeBranch(params));
 		mockCommand('create_branch', (params) => mockBackend.addBranch(params));
+		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
 
 		cy.visit('/');
 

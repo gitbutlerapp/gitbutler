@@ -1,4 +1,4 @@
-import { Focusable, FocusManager } from '$lib/focus/focusManager.svelte';
+import { type Focusable, FocusManager } from '$lib/focus/focusManager.svelte';
 import { getContext } from '@gitbutler/shared/context';
 import type { Action } from 'svelte/action';
 

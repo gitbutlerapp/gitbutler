@@ -5,10 +5,10 @@
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { ChangeDropData } from '$lib/dragging/draggables';
 	import { getFilename } from '$lib/files/utils';
-	import { previousPathBytesFromTreeChange, type TreeChange } from '$lib/hunks/change';
-	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
+	import { type TreeChange } from '$lib/hunks/change';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { key, type SelectionId } from '$lib/selection/key';
+	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { getContext } from '@gitbutler/shared/context';
@@ -23,7 +23,6 @@
 		projectId: string;
 		stackId?: string;
 		change: TreeChange;
-		allChanges?: TreeChange[];
 		diff?: UnifiedDiff;
 		selectionId: SelectionId;
 		selected?: boolean;
@@ -45,7 +44,6 @@
 
 	const {
 		change,
-		allChanges,
 		diff,
 		selectionId,
 		projectId,
@@ -66,13 +64,11 @@
 	}: Props = $props();
 
 	const idSelection = getContext(IdSelection);
-	const changeSelection = getContext(ChangeSelectionService);
+	const uncommittedService = getContext(UncommittedService);
 
 	let contextMenu = $state<ReturnType<typeof FileContextMenu>>();
 	let draggableEl: HTMLDivElement | undefined = $state();
 
-	const selection = $derived(changeSelection.getById(change.path));
-	const indeterminate = $derived(selection.current && selection.current.type === 'partial');
 	const selectedChanges = $derived(idSelection.treeChanges(projectId, selectionId));
 
 	const previousTooltipText = $derived(
@@ -92,18 +88,14 @@
 	});
 
 	function onCheck() {
-		if (selection.current) {
-			changeSelection.remove(change.path);
+		if (checkStatus.current === 'checked') {
+			uncommittedService.uncheckFile(stackId || null, change.path);
 		} else {
-			const { path, pathBytes } = change;
-			changeSelection.upsert({
-				type: 'full',
-				path,
-				pathBytes,
-				previousPathBytes: previousPathBytesFromTreeChange(change)
-			});
+			uncommittedService.checkFile(stackId || null, change.path);
 		}
 	}
+
+	const checkStatus = $derived(uncommittedService.fileCheckStatus(stackId, change.path));
 
 	function onContextMenu(e: MouseEvent) {
 		if (selectedChanges.current.isSuccess && idSelection.has(change.path, selectionId)) {
@@ -113,13 +105,6 @@
 		}
 
 		contextMenu?.open(e, { changes: [change] });
-	}
-
-	function unSelectChanges(changes: TreeChange[]) {
-		for (const change of changes) {
-			idSelection.remove(change.path, selectionId);
-			changeSelection.remove(change.path);
-		}
 	}
 
 	const conflict = $derived(conflictEntries ? conflictEntries.entries[change.path] : undefined);
@@ -137,7 +122,7 @@
 	use:draggableChips={{
 		label: getFilename(change.path),
 		filePath: change.path,
-		data: new ChangeDropData(change, idSelection, allChanges ?? [change], selectionId, stackId),
+		data: new ChangeDropData(change, uncommittedService, idSelection, selectionId, stackId || null),
 		viewportId: 'board-viewport',
 		selector: '.selected-draggable',
 		disabled: draggableDisabled,
@@ -150,7 +135,6 @@
 		{stackId}
 		trigger={draggableEl}
 		{selectionId}
-		{unSelectChanges}
 	/>
 
 	{#if isHeader}
@@ -178,9 +162,9 @@
 			{showCheckbox}
 			fileStatusTooltip={previousTooltipText}
 			{listMode}
-			checked={!!selection.current}
+			checked={checkStatus.current === 'checked' || checkStatus.current === 'indeterminate'}
 			{active}
-			{indeterminate}
+			indeterminate={checkStatus.current === 'indeterminate'}
 			{isLast}
 			{depth}
 			{executable}

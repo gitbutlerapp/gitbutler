@@ -17,10 +17,9 @@
 		path: string;
 		reason: RejectionReason;
 		projectId: string;
-		changesTimestamp: number | undefined;
 	};
 
-	const { path, reason, projectId, changesTimestamp }: Props = $props();
+	const { path, reason, projectId }: Props = $props();
 
 	const stackService = getContext(StackService);
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
@@ -33,10 +32,10 @@
 	}
 </script>
 
-{#if reasonRelatedToDependencyInfo(reason) && changesTimestamp !== undefined}
+{#if reasonRelatedToDependencyInfo(reason)}
 	<!-- In some cases, the dependency information is relevant to the cause of commit rejection.
 	 Show the relevant diff locks in that case. -->
-	{@const fileDependencies = dependencyService.fileDependencies(projectId, changesTimestamp, path)}
+	{@const fileDependencies = dependencyService.fileDependencies(projectId, path)}
 	<div class="commit-failed__file-entry">
 		<button
 			type="button"

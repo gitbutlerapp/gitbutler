@@ -3,8 +3,6 @@
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { REJECTTION_REASONS, type RejectionReason } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
-	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
-	import { inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import ModalHeader from '@gitbutler/ui/ModalHeader.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
@@ -16,8 +14,6 @@
 	};
 
 	const { data, oncloseclick }: Props = $props();
-
-	const [worktreeService] = inject(WorktreeService);
 
 	type ReasonGroup = {
 		reason: RejectionReason;
@@ -68,8 +64,6 @@
 		return result;
 	}
 
-	const changesTimestamp = $derived(worktreeService.getChangesTimeStamp(data.projectId));
-
 	const groupedData = groupByReason(data);
 
 	let isScrollTopVisible = $state(true);
@@ -112,12 +106,7 @@
 
 					<div class="commit-failed__reason-file-list">
 						{#each paths as path (path)}
-							<CommitFailedFileEntry
-								{path}
-								{reason}
-								projectId={data.projectId}
-								changesTimestamp={changesTimestamp.current}
-							/>
+							<CommitFailedFileEntry {path} {reason} projectId={data.projectId} />
 						{/each}
 					</div>
 				{/each}
