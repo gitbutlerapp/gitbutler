@@ -31,7 +31,7 @@
 
 <details>
     <summary>What did the grape say when the sommelier stepped on it?</summary>
-    <b>I gave a little wine</b>
+    <b>It gave a little wine</b>
 </details>
 
 ### Community dad jokes
