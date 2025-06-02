@@ -98,7 +98,7 @@ export type HunkAssignment = {
 	/** The hunk that is being assigned. Together with path_bytes, this identifies the hunk.
 	 * If the file is binary, or too large to load, this will be None and in this case the path name is the only identity.
 	 */
-	readonly hunkHeader: HunkHeader;
+	readonly hunkHeader: HunkHeader | null;
 	/** The file path of the hunk. Used for display. */
 	readonly path: string;
 	/** The file path of the hunk in bytes. Used to correctly communicate to the backed when creating new assignments */
@@ -121,7 +121,7 @@ export type HunkAssignmentRequest = {
 	 * If the file is binary, or too large to load, this will be None and in this case the path name is the only identity.
 	 * If the file has hunk headers, then header info MUST be provided.
 	 */
-	hunkHeader: HunkHeader;
+	hunkHeader: HunkHeader | null;
 	/** The file path of the hunk in bytes. */
 	pathBytes: number[];
 	/**
@@ -366,6 +366,21 @@ export function hunkContainsHunk(a: DiffHunk, b: DiffHunk): boolean {
 		a.newStart <= b.newStart &&
 		a.newStart + a.newLines - 1 >= b.newStart + b.newLines
 	);
+}
+
+/**
+ * Determines whether two hunk headers cover the same positions and ranges.
+ *
+ * This does not mean that they represent the same diffs or are even for the
+ * same file. As such, this should only be used to compare headers within the
+ * same file.
+ */
+export function hunkHeaderEquals(a: HunkHeader, b: HunkHeader): boolean {
+	if (a.newLines !== b.newLines) return false;
+	if (a.oldLines !== b.oldLines) return false;
+	if (a.newStart !== b.newStart) return false;
+	if (a.oldStart !== b.oldStart) return false;
+	return true;
 }
 
 export function hunkContainsLine(hunk: DiffHunk, line: LineId): boolean {

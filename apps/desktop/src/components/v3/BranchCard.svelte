@@ -7,7 +7,7 @@
 	import BranchHeaderContextMenu from '$components/v3/BranchHeaderContextMenu.svelte';
 	import PrNumberUpdater from '$components/v3/PrNumberUpdater.svelte';
 	import { MoveCommitDzHandler, StartCommitDzHandler } from '$lib/commits/dropHandler';
-	import { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
+	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
@@ -74,10 +74,10 @@
 
 	let { projectId, branchName, expand, active, lineColor, readonly, ...args }: Props = $props();
 
-	const [uiState, stackService, changeSelectionService] = inject(
+	const [uiState, stackService, uncommittedService] = inject(
 		UiState,
 		StackService,
-		ChangeSelectionService
+		UncommittedService
 	);
 
 	const [updateName, nameUpdate] = stackService.updateBranchName;
@@ -122,7 +122,7 @@
 		{@const moveHandler = new MoveCommitDzHandler(stackService, args.stackId, projectId)}
 		{@const startCommitHandler = new StartCommitDzHandler({
 			uiState,
-			changeSelectionService,
+			uncommittedService,
 			stackId: args.stackId,
 			projectId,
 			branchName

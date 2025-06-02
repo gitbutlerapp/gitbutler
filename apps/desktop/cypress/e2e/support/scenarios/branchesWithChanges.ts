@@ -263,7 +263,8 @@ export default class BranchesWithChanges extends MockBackend {
 
 		this.worktreeChanges = {
 			changes: MOCK_UNCOMMITTED_CHANGES,
-			ignoredChanges: []
+			ignoredChanges: [],
+			assignments: { Ok: [] }
 		};
 
 		this.stacks = [MOCK_STACK_A, MOCK_STACK_B, MOCK_STACK_C];

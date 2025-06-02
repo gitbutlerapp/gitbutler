@@ -9,7 +9,7 @@ import { LocalFile, RemoteFile } from '$lib/files/file';
 import { untrack } from 'svelte';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { DiffSpec } from '$lib/hunks/hunk';
-import type { ChangeSelectionService } from '$lib/selection/changeSelection.svelte';
+import type { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 import type { StackService } from '$lib/stacks/stackService.svelte';
 import type { UiState } from '$lib/state/uiState.svelte';
 
@@ -35,7 +35,7 @@ export class StartCommitDzHandler implements DropzoneHandler {
 	constructor(
 		private args: {
 			uiState: UiState;
-			changeSelectionService: ChangeSelectionService;
+			uncommittedService: UncommittedService;
 			stackId: string;
 			projectId: string;
 			branchName: string;
@@ -49,35 +49,17 @@ export class StartCommitDzHandler implements DropzoneHandler {
 		);
 	}
 	ondrop(data: ChangeDropData | HunkDropDataV3): void {
-		const { projectId, stackId, branchName, uiState, changeSelectionService } = this.args;
+		const { projectId, stackId, branchName, uiState, uncommittedService } = this.args;
 
 		const projectState = uiState.project(projectId);
 		const stackState = stackId ? uiState.stack(stackId) : undefined;
 
 		if (data instanceof ChangeDropData) {
 			for (const change of data.changes) {
-				changeSelectionService.upsert({
-					type: 'full',
-					path: change.path,
-					pathBytes: change.pathBytes,
-					previousPathBytes:
-						change.status.type === 'Rename' ? change.status.subject.previousPathBytes : null
-				});
+				uncommittedService.checkFile(stackId, change.path);
 			}
 		} else if (data instanceof HunkDropDataV3) {
-			const fileSelection = changeSelectionService.getById(data.change.path).current;
-			const hunks = fileSelection?.type === 'partial' ? fileSelection.hunks.slice() : [];
-			hunks.push({ ...data.hunk, type: 'full' });
-			changeSelectionService.upsert({
-				type: 'partial',
-				path: data.change.path,
-				pathBytes: data.change.pathBytes,
-				previousPathBytes:
-					data.change.status.type === 'Rename'
-						? data.change.status.subject.previousPathBytes
-						: null,
-				hunks
-			});
+			uncommittedService.checkHunk(stackId, data.change.path, data.hunk.newStart.toString());
 		}
 
 		projectState.drawerPage.set('new-commit');

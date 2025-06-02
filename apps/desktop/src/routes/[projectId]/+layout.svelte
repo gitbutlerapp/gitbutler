@@ -39,17 +39,20 @@
 	import { projectCloudSync } from '$lib/project/projectCloudSync.svelte';
 	import { ProjectService } from '$lib/project/projectService';
 	import { getSecretsService } from '$lib/secrets/secretsService';
+	import { IdSelection } from '$lib/selection/idSelection.svelte';
+	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { ClientState } from '$lib/state/clientState.svelte';
 	import { UpstreamIntegrationService } from '$lib/upstream/upstreamIntegrationService';
 	import { debounce } from '$lib/utils/debounce';
+	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { BranchService as CloudBranchService } from '@gitbutler/shared/branches/branchService';
 	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { HttpClient } from '@gitbutler/shared/network/httpClient';
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { onDestroy, setContext, type Snippet } from 'svelte';
+	import { onDestroy, setContext, untrack, type Snippet } from 'svelte';
 	import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 	import type { LayoutData } from './$types';
 
@@ -280,6 +283,40 @@
 	$effect(() => {
 		if (projectId) {
 			clientState.backendApi.util.resetApiState();
+		}
+	});
+
+	// TODO: Can we combine WorktreeService and UncommittedService? The former
+	// is powered by RTKQ, while the latter is a custom slice, but perhaps
+	// they could be still be contained within the same .svelte.ts file.
+	const worktreeService = getContext(WorktreeService);
+	const uncommittedService = getContext(UncommittedService);
+	const worktreeDataResult = $derived(worktreeService.worktreeData(projectId));
+	const worktreeData = $derived(worktreeDataResult.current.data);
+
+	// This effect is a sort of bridge between rtkq and the custom slice.
+	$effect(() => {
+		if (worktreeData) {
+			untrack(() => {
+				uncommittedService.updateAssignments({
+					changes: worktreeData.rawChanges,
+					assignments: worktreeData.hunkAssignments
+				});
+			});
+		}
+	});
+
+	// Here we clear any expired file selections. Note that the notion of
+	// file selection is related to selecting things with checkmarks, and
+	// that this `IdSelection` class should be deprecated in favor of
+	// combining it with `UncommittedService`.
+	const idSelection = getContext(IdSelection);
+	const affectedPaths = $derived(worktreeData?.rawChanges.map((c) => c.path));
+	$effect(() => {
+		if (affectedPaths) {
+			untrack(() => {
+				idSelection.retain(affectedPaths);
+			});
 		}
 	});
 </script>

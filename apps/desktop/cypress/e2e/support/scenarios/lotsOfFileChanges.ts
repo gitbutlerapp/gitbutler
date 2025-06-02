@@ -91,7 +91,8 @@ export default class LotsOfFileChanges extends MockBackend {
 
 		this.worktreeChanges = {
 			changes: MOCK_FILE_TREE_CHANGES,
-			ignoredChanges: []
+			ignoredChanges: [],
+			assignments: { Ok: [] }
 		};
 	}
 }

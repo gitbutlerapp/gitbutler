@@ -81,6 +81,15 @@ export type GetWorktreeChangesParams = {
 	projectId: string;
 };
 
+export function hasProjectId(args: unknown): args is { projectId: string } {
+	return (
+		typeof args === 'object' &&
+		args !== null &&
+		'projectId' in args &&
+		typeof args['projectId'] === 'string'
+	);
+}
+
 export function isGetWorktreeChangesParams(args: unknown): args is GetWorktreeChangesParams {
 	return (
 		typeof args === 'object' &&

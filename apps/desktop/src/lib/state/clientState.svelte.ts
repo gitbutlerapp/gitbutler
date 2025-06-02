@@ -1,4 +1,3 @@
-import { changeSelectionSlice } from '$lib/selection/changeSelection.svelte';
 import { tauriBaseQuery } from '$lib/state/backendQuery';
 import { butlerModule } from '$lib/state/butlerModule';
 import { ReduxTag } from '$lib/state/tags';
@@ -47,7 +46,6 @@ export class ClientState {
 	// value in the constructor such that we can inject dependencies. The
 	// incorrect casting `as` seems difficult to avoid.
 	rootState = $state.raw({} as ReturnType<typeof this.store.getState>);
-	readonly changeSelection = $derived(this.rootState.changeSelection);
 	readonly uiState = $derived(this.rootState.uiState);
 
 	/** rtk-query api for communicating with the back end. */
@@ -152,8 +150,7 @@ function createStore(params: {
 		// RTK Query API for the back end.
 		backendApi,
 		githubApi,
-		gitlabApi,
-		changeSelectionSlice
+		gitlabApi
 	);
 	const reducer2 = reducer.inject({
 		reducerPath: uiStateSlice.reducerPath,

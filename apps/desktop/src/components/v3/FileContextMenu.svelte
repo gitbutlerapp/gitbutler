@@ -30,7 +30,6 @@
 		stackId: string | undefined;
 		selectionId: SelectionId;
 		trigger?: HTMLElement;
-		unSelectChanges: (changes: TreeChange[]) => void;
 	};
 
 	type FileItem = {
@@ -47,7 +46,7 @@
 		);
 	}
 
-	const { trigger, unSelectChanges, selectionId, stackId, projectId }: Props = $props();
+	const { trigger, selectionId, stackId, projectId }: Props = $props();
 	const [stackService, project, uiState, idSelection] = inject(
 		StackService,
 		Project,
@@ -80,8 +79,6 @@
 			worktreeChanges
 		});
 
-		unSelectChanges(item.changes);
-
 		confirmationModal?.close();
 	}
 
@@ -102,8 +99,6 @@
 			branchName,
 			worktreeChanges
 		});
-
-		unSelectChanges(item.changes);
 
 		stashConfirmationModal?.close();
 	}

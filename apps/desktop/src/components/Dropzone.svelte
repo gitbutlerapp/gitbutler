@@ -8,6 +8,7 @@
 		fillHeight?: boolean;
 		maxHeight?: boolean;
 		handlers: DropzoneHandler[];
+		hideWhenInactive?: boolean;
 		overlay?: Snippet<[{ hovered: boolean; activated: boolean; handler?: DropzoneHandler }]>;
 		children?: Snippet;
 	}
@@ -18,7 +19,8 @@
 		maxHeight = false,
 		handlers,
 		overlay,
-		children
+		children,
+		hideWhenInactive
 	}: Props = $props();
 
 	let hovered = $state(false);
@@ -58,6 +60,7 @@
 	}}
 	class:fill-height={fillHeight}
 	class:max-height={maxHeight}
+	style:display={hideWhenInactive && !activated ? 'none' : undefined}
 	class="dropzone-container"
 >
 	{#if overlay}
