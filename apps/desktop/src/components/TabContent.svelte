@@ -27,5 +27,6 @@
 		align-items: stretch;
 		justify-content: flex-start;
 		margin-top: 1rem;
+		margin-bottom: 3rem;
 	}
 </style>
