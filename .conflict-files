@@ -1,0 +1,3 @@
+ancestorEntries = [".github/dependabot.yml"]
+ourEntries = [".github/dependabot.yml"]
+theirEntries = [".github/dependabot.yml"]
