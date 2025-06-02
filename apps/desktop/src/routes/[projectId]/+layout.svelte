@@ -10,6 +10,7 @@
 	import NotOnGitButlerBranch from '$components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$components/ProjectSettingsMenuAction.svelte';
+	import ReduxResult from '$components/ReduxResult.svelte';
 	import TryV3Modal from '$components/TryV3Modal.svelte';
 	import IrcPopups from '$components/v3/IrcPopups.svelte';
 	import NotOnGitButlerBranchV3 from '$components/v3/NotOnGitButlerBranch.svelte';
@@ -52,7 +53,7 @@
 	import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 	import type { LayoutData } from './$types';
 
-	const { data, children }: { data: LayoutData; children: Snippet } = $props();
+	const { data, children: pageChildren }: { data: LayoutData; children: Snippet } = $props();
 
 	const { project, projectId, projectsService, userService, fetchSignal, posthog, projectMetrics } =
 		$derived(data);
@@ -64,7 +65,6 @@
 	const baseBranch = $derived(baseBranchResponse.current.data);
 	const pushRepoResponse = $derived(baseBranchService.pushRepo(projectId));
 	const forkInfo = $derived(pushRepoResponse.current.data);
-	const baseError = $derived(baseBranchResponse.current.error);
 	const baseBranchName = $derived(baseBranch?.shortName);
 	const branchService = getContext(BranchService);
 
@@ -291,37 +291,45 @@
 
 	{#if !project}
 		<p>Project not found!</p>
-	{:else if baseBranchResponse.current.isLoading && !baseBranch}
-		<FullviewLoading />
-	{:else if !baseBranch}
-		<NoBaseBranch />
-	{:else if baseError}
-		<ProblemLoadingRepo error={baseError} />
-	{:else if $branchesError}
-		<ProblemLoadingRepo error={$branchesError} />
-	{:else if $projectError}
-		<ProblemLoadingRepo error={$projectError} />
-	{:else if baseBranch}
-		{#if $mode?.type === 'OpenWorkspace' || $mode?.type === 'Edit'}
-			<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
-				{#if $settingsStore?.featureFlags.v3}
-					<Chrome {projectId} sidebarDisabled={$mode?.type === 'Edit'}>
-						{@render children()}
-					</Chrome>
-				{:else}
-					<TryV3Modal />
-					<Navigation {projectId} />
-					{@render children()}
+	{:else}
+		<ReduxResult {projectId} result={baseBranchResponse.current}>
+			{#snippet children(baseBranch, { projectId })}
+				{#if !baseBranch}
+					<NoBaseBranch />
+				{:else if $branchesError}
+					<ProblemLoadingRepo error={$branchesError} />
+				{:else if $projectError}
+					<ProblemLoadingRepo error={$projectError} />
+				{:else if baseBranch}
+					{#if $mode?.type === 'OpenWorkspace' || $mode?.type === 'Edit'}
+						<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
+							{#if $settingsStore?.featureFlags.v3}
+								<Chrome {projectId} sidebarDisabled={$mode?.type === 'Edit'}>
+									{@render pageChildren()}
+								</Chrome>
+							{:else}
+								<TryV3Modal />
+								<Navigation {projectId} />
+								{@render pageChildren()}
+							{/if}
+							{#if $showHistoryView}
+								<History onHide={() => ($showHistoryView = false)} />
+							{/if}
+						</div>
+					{:else if $mode?.type === 'OutsideWorkspace' && !$settingsStore?.featureFlags.v3}
+						<NotOnGitButlerBranch {baseBranch} />
+					{:else if $mode?.type === 'OutsideWorkspace' && $settingsStore?.featureFlags.v3}
+						<NotOnGitButlerBranchV3 {baseBranch} />
+					{/if}
 				{/if}
-				{#if $showHistoryView}
-					<History onHide={() => ($showHistoryView = false)} />
-				{/if}
-			</div>
-		{:else if $mode?.type === 'OutsideWorkspace' && !$settingsStore?.featureFlags.v3}
-			<NotOnGitButlerBranch {baseBranch} />
-		{:else if $mode?.type === 'OutsideWorkspace' && $settingsStore?.featureFlags.v3}
-			<NotOnGitButlerBranchV3 {baseBranch} />
-		{/if}
+			{/snippet}
+			{#snippet loading()}
+				<FullviewLoading />
+			{/snippet}
+			{#snippet error(baseError)}
+				<ProblemLoadingRepo error={baseError} />
+			{/snippet}
+		</ReduxResult>
 	{/if}
 {/key}
 
