@@ -29,6 +29,11 @@
     <b>Because someone called him old-fashioned</b>
 </details>
 
+<details>
+    <summary>What did the grape say when the sommelier stepped on it?</summary>
+    <b>It gave a little wine</b>
+</details>
+
 ### Community dad jokes
 
 <details>
