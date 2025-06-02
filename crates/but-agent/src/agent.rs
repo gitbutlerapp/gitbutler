@@ -2,9 +2,9 @@ use crate::llm::{LLM, LLMParams, LLMResponse};
 use crate::store::ConversationStore;
 use crate::types::{Action, ConversationId, Message, MessageRole, Response, ToolWithHandler};
 
-pub struct AgentConfig<CB: Fn(Response) + Send + 'static> {
+pub struct AgentConfig<'a, CB: Fn(Response) + Send + 'static> {
     pub llm: Box<dyn LLM>,
-    pub conversation_store: std::cell::RefCell<Box<dyn ConversationStore>>,
+    pub conversation_store: &'a mut dyn ConversationStore,
     pub callback: CB,
     pub system_prompt: String,
     pub tools: Vec<ToolWithHandler>,
@@ -17,7 +17,7 @@ pub fn agent_perform<CB: Fn(Response) + Send + 'static>(
         callback,
         system_prompt,
         tools,
-    }: &AgentConfig<CB>,
+    }: &mut AgentConfig<CB>,
     action: Action,
 ) {
     let mut responding_to_tools = false;
@@ -25,7 +25,7 @@ pub fn agent_perform<CB: Fn(Response) + Send + 'static>(
         match &action {
             Action::StartNewThread => {
                 let id = ConversationId::generate();
-                conversation_store.borrow_mut().write(
+                conversation_store.write(
                     id,
                     &[Message {
                         role: MessageRole::System,
@@ -39,14 +39,14 @@ pub fn agent_perform<CB: Fn(Response) + Send + 'static>(
             Action::SendMessage { id, message } => {
                 // Persist and acknowledge the message
                 let messages = {
-                    let mut messages: Vec<Message> = conversation_store.borrow().read(*id).unwrap();
+                    let mut messages: Vec<Message> = conversation_store.read(*id).unwrap();
                     if !responding_to_tools {
                         messages.push(Message {
                             role: MessageRole::User,
                             content: message.to_string(),
                             tool_call_id: None,
                         });
-                        conversation_store.borrow_mut().write(*id, &messages);
+                        conversation_store.write(*id, &messages);
                         callback(Response::MessageRecieved { id: *id });
                     }
                     messages
@@ -59,13 +59,13 @@ pub fn agent_perform<CB: Fn(Response) + Send + 'static>(
 
                 match response {
                     LLMResponse::Message { message } => {
-                        let mut messages = conversation_store.borrow().read(*id).unwrap();
+                        let mut messages = conversation_store.read(*id).unwrap();
                         messages.push(Message {
                             role: MessageRole::Assistant,
                             content: message,
                             tool_call_id: None,
                         });
-                        conversation_store.borrow_mut().write(*id, &messages);
+                        conversation_store.write(*id, &messages);
                         callback(Response::ReplyReceived { id: *id });
                         break;
                     }
@@ -74,13 +74,13 @@ pub fn agent_perform<CB: Fn(Response) + Send + 'static>(
                         tool_calls,
                     } => {
                         responding_to_tools = true;
-                        let mut messages = conversation_store.borrow().read(*id).unwrap();
+                        let mut messages = conversation_store.read(*id).unwrap();
                         messages.push(Message {
                             role: MessageRole::Assistant,
                             content: message,
                             tool_call_id: None,
                         });
-                        conversation_store.borrow_mut().write(*id, &messages);
+                        conversation_store.write(*id, &messages);
                         callback(Response::ToolCallReplyRecieved { id: *id });
 
                         for tool_call in tool_calls {
@@ -101,7 +101,7 @@ pub fn agent_perform<CB: Fn(Response) + Send + 'static>(
                                     tool_call_id: Some(tool_call.id),
                                 });
                             }
-                            conversation_store.borrow_mut().write(*id, &messages);
+                            conversation_store.write(*id, &messages);
                             callback(Response::ToolCallResponseCreated { id: *id });
                         }
                     }

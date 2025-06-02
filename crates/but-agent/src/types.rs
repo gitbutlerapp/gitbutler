@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -7,6 +9,36 @@ pub enum MessageRole {
     User,
     Assistant,
     Tool,
+}
+
+#[derive(Debug)]
+pub enum MessageRoleParseError {
+    InvalidRole(String),
+}
+
+impl FromStr for MessageRole {
+    type Err = MessageRoleParseError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "system" => Ok(MessageRole::System),
+            "user" => Ok(MessageRole::User),
+            "assistant" => Ok(MessageRole::Assistant),
+            "tool" => Ok(MessageRole::Tool),
+            _ => Err(MessageRoleParseError::InvalidRole(s.to_string())),
+        }
+    }
+}
+
+impl std::fmt::Display for MessageRole {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            MessageRole::System => "system",
+            MessageRole::User => "user",
+            MessageRole::Assistant => "assistant",
+            MessageRole::Tool => "tool",
+        };
+        write!(f, "{}", s)
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -42,7 +74,7 @@ pub struct Message {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Debug, Clone, Copy)]
-pub struct ConversationId(uuid::Uuid);
+pub struct ConversationId(pub uuid::Uuid);
 
 // Creating Conversation Ids;
 impl ConversationId {

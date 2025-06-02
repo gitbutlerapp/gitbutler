@@ -726,17 +726,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "but-agent-shared"
-version = "0.0.0"
-dependencies = [
- "but-agent",
- "gitbutler-command-context",
- "serde",
- "serde_json",
- "uuid",
-]
-
-[[package]]
 name = "but-core"
 version = "0.0.0"
 dependencies = [
@@ -759,12 +748,14 @@ name = "but-db"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-agent",
  "chrono",
  "diesel",
  "diesel_migrations",
  "libsqlite3-sys",
  "serde",
  "tempfile",
+ "uuid",
 ]
 
 [[package]]
@@ -3158,8 +3149,8 @@ dependencies = [
  "backtrace",
  "but-action",
  "but-agent",
- "but-agent-shared",
  "but-core",
+ "but-db",
  "but-hunk-assignment",
  "but-hunk-dependency",
  "but-settings",

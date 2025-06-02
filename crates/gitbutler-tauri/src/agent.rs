@@ -1,11 +1,10 @@
-use std::cell::RefCell;
 use std::sync::{Arc, Mutex};
 
 use but_agent::agent::{agent_perform, AgentConfig};
 use but_agent::openai_like_llm::OpenAILikeLLM;
 use but_agent::store::ConversationStore as _;
 use but_agent::types::{Action, ConversationId, Message};
-use but_agent_shared::ConversationStoreAccess as _;
+use but_db::conversation_store::ConversationStoreAccess as _;
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project as projects;
@@ -23,8 +22,9 @@ pub fn agent_list_all_conversations(
     project_id: ProjectId,
 ) -> Result<std::collections::HashMap<ConversationId, Vec<Message>>, Error> {
     let project = projects.get(project_id)?;
-    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    let mut ctx = CommandContext::open(&project, settings.get()?.clone())?;
     let conversations = ctx
+        .db()?
         .conversation_store()
         .read_all()
         .map_err(|e| anyhow::anyhow!("Failed to read conversation store: {:?}", e))?;
@@ -56,17 +56,19 @@ pub fn agent_create_conversation(
     project_id: ProjectId,
 ) -> Result<ConversationId, Error> {
     let project = projects.get(project_id)?;
-    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    let mut ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    let db = ctx.db().unwrap();
+    let mut conversation_store = db.conversation_store();
     let conversation_id: Arc<Mutex<Option<ConversationId>>> = Arc::new(Mutex::new(None));
     let move_conversation_id = conversation_id.clone();
-    let config = AgentConfig {
+    let mut config = AgentConfig {
         llm: Box::new(OpenAILikeLLM {
             completion_url: "https://openrouter.ai/api/v1/chat/completions".into(),
             model: "deepseek/deepseek-r1-distill-llama-70b".into(),
             provider: Some("cerebras".into()),
             token: Some(get_token().unwrap().0),
         }),
-        conversation_store: RefCell::new(Box::new(ctx.conversation_store())),
+        conversation_store: &mut conversation_store,
         callback: move |thing| {
             let mut conversation_id = move_conversation_id.lock().unwrap();
             *conversation_id = Some(thing.id());
@@ -74,7 +76,7 @@ pub fn agent_create_conversation(
         system_prompt: "Help me with my code".into(),
         tools: Vec::new(),
     };
-    agent_perform(&config, Action::StartNewThread);
+    agent_perform(&mut config, Action::StartNewThread);
     let conversation_id = conversation_id.lock().unwrap().unwrap();
     Ok(conversation_id)
 }
@@ -89,24 +91,26 @@ pub async fn agent_send_message(
     message: String,
 ) -> Result<ConversationId, Error> {
     let project = projects.get(project_id)?;
-    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    let mut ctx = CommandContext::open(&project, settings.get().unwrap().clone()).unwrap();
 
     let handle = tokio::task::spawn_blocking(move || {
-        let config = AgentConfig {
+        let db = ctx.db().unwrap();
+        let mut conversation_store = db.conversation_store();
+        let mut config = AgentConfig {
             llm: Box::new(OpenAILikeLLM {
                 completion_url: "https://openrouter.ai/api/v1/chat/completions".into(),
                 model: "deepseek/deepseek-r1-distill-llama-70b".into(),
                 provider: Some("cerebras".into()),
                 token: Some(get_token().unwrap().0),
             }),
-            conversation_store: RefCell::new(Box::new(ctx.conversation_store())),
+            conversation_store: &mut conversation_store,
             callback: |_| {},
             system_prompt: "Help me with my code".into(),
             tools: Vec::new(),
         };
 
         agent_perform(
-            &config,
+            &mut config,
             Action::SendMessage {
                 id: conversation_id,
                 message,
