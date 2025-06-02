@@ -62,6 +62,7 @@ pub fn handle_changes(
         ),
     )?;
 
+    gitbutler_filemonitor::send_reload_signal(&ctx.project().gb_dir());
     response
 }
 

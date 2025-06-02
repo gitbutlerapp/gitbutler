@@ -6,4 +6,5 @@ mod events;
 
 pub use events::InternalEvent;
 mod file_monitor;
+pub use events::send_reload_signal;
 pub use file_monitor::spawn;
