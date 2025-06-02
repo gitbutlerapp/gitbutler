@@ -174,7 +174,6 @@
 		width: 100%;
 		height: 100%;
 		padding: 24px;
-
 		background-color: var(--clr-overlay-bg);
 	}
 
@@ -203,7 +202,6 @@
 		border-radius: var(--radius-l);
 		background-color: var(--clr-bg-1);
 		box-shadow: var(--fx-shadow-l);
-		user-select: text;
 	}
 
 	.modal__body {
