@@ -135,8 +135,6 @@
 		flex-direction: column;
 
 		height: 100%;
-
-		gap: 16px;
 	}
 
 	.scrollable {
