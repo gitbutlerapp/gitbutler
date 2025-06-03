@@ -205,7 +205,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		flex-shrink: 1;
 		flex-direction: column;
 		overflow-x: hidden;
-		gap: 8px;
+		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 	}
 

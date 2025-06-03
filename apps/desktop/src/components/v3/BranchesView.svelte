@@ -260,6 +260,7 @@
 				{#if !drawerIsFullScreen.current}
 					<SelectionView {projectId} {selectionId} draggableFiles />
 				{/if}
+
 				{#if current.commitId}
 					<UnappliedCommitView {projectId} commitId={current.commitId} />
 				{:else if current.branchName}
@@ -352,7 +353,7 @@
 
 				<div
 					class={[
-						'branch-details',
+						'branch-commits',
 						isStackOrNormalBranchPreview || isNonLocalPr ? 'dotted-container dotted-pattern' : '',
 						inWorkspaceOrTargetBranch ? 'rounded-container' : ''
 					]}
@@ -383,7 +384,7 @@
 </ReduxResult>
 
 <style lang="postcss">
-	.branch-details {
+	.branch-commits {
 		display: flex;
 		position: relative;
 		flex: 1;
