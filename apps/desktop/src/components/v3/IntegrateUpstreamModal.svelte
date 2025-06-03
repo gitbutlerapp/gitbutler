@@ -34,7 +34,7 @@
 	import Select from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { PullRequest } from '$lib/forge/interface/types';
 
@@ -64,7 +64,8 @@
 	let branchStatuses = $state<StackStatusesWithBranchesV3 | undefined>();
 	const stackService = getContext(StackService);
 	let appliedBranches = $state<string[]>();
-	let filteredReviews = $state<PullRequest[] | undefined>(undefined);
+	// Any PRs belonging to applied branches that have been merged
+	let filteredReviews = $state<PullRequest[]>([]);
 	const reviewMap = $derived(new Map(filteredReviews?.map((r) => [r.sourceBranch, r])));
 
 	const isDivergedResolved = $derived(base?.diverged && !baseResolutionApproach);
@@ -72,7 +73,7 @@
 
 	$effect(() => {
 		if (!modal?.imports.open) return;
-		if (branchStatuses?.type !== 'updatesRequired' || filteredReviews === undefined) {
+		if (branchStatuses?.type !== 'updatesRequired') {
 			statuses = [];
 			return;
 		}
@@ -122,27 +123,19 @@
 				.then((result) => {
 					targetCommitOid = result;
 				});
+		} else {
+			// If there is no divergence we should set this to undefined.
+			targetCommitOid = undefined;
 		}
 	});
 
-	// Fetch the reviews for the applied branches
-	$effect(() => {
-		if (!modal?.imports.open) return;
-		if (
-			filteredReviews === undefined &&
-			appliedBranches !== undefined &&
-			forgeListingService !== undefined
-		) {
-			if (appliedBranches.length === 0) {
-				filteredReviews = [];
-				return;
-			}
+	async function setFilteredBranches(appliedBranches: string[]) {
+		if (!forgeListingService) return;
 
-			forgeListingService.fetchByBranch(projectId, appliedBranches).then((reviews) => {
-				filteredReviews = reviews.filter((r) => r.sourceBranch !== undefined);
-			});
-		}
-	});
+		const reviews = await forgeListingService.fetchByBranch(projectId, appliedBranches);
+		// Find the reviews that have a "mergedAt" timestamp
+		filteredReviews = reviews.filter((r) => !!r.mergedAt);
+	}
 
 	function handleBaseResolutionSelection(value: string) {
 		baseResolutionApproach = value as BaseBranchResolutionApproach;
@@ -170,23 +163,20 @@
 	}
 
 	async function fetchAppliedBranches() {
-		return await stackService
-			.fetchStacks(projectId)
-			.then(
-				(stacksResponse) =>
-					stacksResponse.data?.flatMap((stack) => stack.heads.map((head) => head.name)) ?? []
-			);
+		const stacksResponse = await stackService.fetchStacks(projectId);
+		return stacksResponse.data?.flatMap((stack) => stack.heads.map((head) => head.name)) ?? [];
 	}
 
 	export async function show() {
 		integratingUpstream = 'inert';
 		branchStatuses = undefined;
-		filteredReviews = undefined;
+		filteredReviews = [];
 		await tick();
 		modal?.show();
 		// Fetch the base branch and the forge info to ensure we have the latest data
 		await baseBranchService.fetchFromRemotes(projectId);
 		appliedBranches = await fetchAppliedBranches();
+		await setFilteredBranches(untrack(() => appliedBranches) ?? []);
 		branchStatuses = await upstreamIntegrationService.upstreamStatuses(projectId, targetCommitOid);
 	}
 
@@ -410,9 +400,7 @@
 				wide
 				style="pop"
 				disabled={isDivergedResolved || !branchStatuses}
-				loading={integratingUpstream === 'loading' ||
-					!branchStatuses ||
-					(forgeListingService && filteredReviews === undefined)}
+				loading={integratingUpstream === 'loading' || !branchStatuses}
 				onclick={async (e) => {
 					await integrate(e);
 				}}
