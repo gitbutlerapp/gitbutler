@@ -19,9 +19,9 @@
 
 	type Props = {
 		projectId: string;
-		action: ButlerAction;
+		action: ButlerAction & { action: { type: 'mcpAction' } };
 		last: boolean;
-		previous: ButlerAction | undefined;
+		previous: (ButlerAction & { action: { type: 'mcpAction' } }) | undefined;
 		loadNextPage: () => void;
 		selectionId: SelectionId;
 	};
@@ -42,14 +42,19 @@
 		previous
 			? oplogService.diffWorktree({
 					projectId,
-					before: previous.snapshotAfter,
-					after: action.snapshotBefore
+					before: previous.action.subject.snapshotAfter,
+					after: action.action.subject.snapshotBefore
 				})
 			: undefined
 	);
 
 	const focusableId = $derived(
-		previous ? snapshotChangesFocusableId(previous.snapshotAfter, action.snapshotBefore) : undefined
+		previous
+			? snapshotChangesFocusableId(
+					previous.action.subject.snapshotAfter,
+					action.action.subject.snapshotBefore
+				)
+			: undefined
 	);
 	const focusableIds = svelteGetContext<Writable<string[]>>('snapshot-focusables');
 
@@ -95,11 +100,11 @@
 		[
 			{
 				label: 'Revert to before',
-				onclick: async () => await restore(action.snapshotBefore)
+				onclick: async () => await restore(action.action.subject.snapshotBefore)
 			},
 			{
 				label: 'Revert to after',
-				onclick: async () => await restore(action.snapshotAfter)
+				onclick: async () => await restore(action.action.subject.snapshotAfter)
 			}
 		]
 	]}
@@ -118,18 +123,20 @@
 				<span class="text-13 text-greyer"
 					><TimeAgo date={new Date(action.createdAt)} addSuffix /></span
 				>
-				<Tooltip text={action.externalPrompt}><div class="pill text-12">Prompt</div></Tooltip>
+				<Tooltip text={action.action.subject.externalPrompt}
+					><div class="pill text-12">Prompt</div></Tooltip
+				>
 			</div>
 			<div bind:this={showActionsTarget}>
 				<Button icon="kebab" size="tag" kind="outline" onclick={() => (showActions = true)} />
 			</div>
 		</div>
 		<span class="text-14 text-darkgrey">
-			<Markdown content={action.externalSummary} />
+			<Markdown content={action.action.subject.externalSummary} />
 		</span>
-		{#if action.response && action.response.updatedBranches.length > 0}
+		{#if action.action.subject.response && action.action.subject.response.updatedBranches.length > 0}
 			<div class="action-item__content__metadata">
-				{@render outcome(action.response)}
+				{@render outcome(action.action.subject.response)}
 			</div>
 		{/if}
 		{#if last}
@@ -148,11 +155,11 @@
 						[
 							{
 								label: 'Revert to before',
-								onclick: async () => await restore(previous.snapshotAfter)
+								onclick: async () => await restore(previous.action.subject.snapshotAfter)
 							},
 							{
 								label: 'Revert to after',
-								onclick: async () => await restore(action.snapshotBefore)
+								onclick: async () => await restore(action.action.subject.snapshotBefore)
 							}
 						]
 					]}
@@ -189,12 +196,12 @@
 								draggableFiles={false}
 								selectionId={{
 									type: 'snapshot',
-									before: previous.snapshotAfter,
-									after: action.snapshotBefore
+									before: previous.action.subject.snapshotAfter,
+									after: action.action.subject.snapshotBefore
 								}}
 								active={selectionId.type === 'snapshot' &&
-									selectionId.before === previous.snapshotAfter &&
-									selectionId.after === action.snapshotBefore}
+									selectionId.before === previous.action.subject.snapshotAfter &&
+									selectionId.after === action.action.subject.snapshotBefore}
 							/>
 						</div>
 					</div>

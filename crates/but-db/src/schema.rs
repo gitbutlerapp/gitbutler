@@ -8,10 +8,35 @@ diesel::table! {
     }
 }
 
+diesel::allow_tables_to_appear_in_same_query!(
+    butler_actions,
+    butler_revert_actions,
+    butler_mcp_actions
+);
+
+diesel::joinable!(butler_actions -> butler_revert_actions (revert_action_id));
+diesel::joinable!(butler_actions -> butler_mcp_actions (mcp_action_id));
+
 diesel::table! {
     butler_actions (id) {
         id -> Text,
         created_at -> Timestamp,
+        mcp_action_id -> Nullable<Text>,
+        revert_action_id -> Nullable<Text>,
+    }
+}
+
+diesel::table! {
+    butler_revert_actions (id) {
+        id -> Text,
+        snapshot -> Text,
+        description -> Text
+    }
+}
+
+diesel::table! {
+    butler_mcp_actions (id) {
+        id -> Text,
         external_prompt -> Nullable<Text>,
         external_summary -> Text,
         handler -> Text,

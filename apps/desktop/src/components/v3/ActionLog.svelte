@@ -1,9 +1,10 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import ActionLogItem from '$components/v3/ActionLogItem.svelte';
+	import ActionLogItem from '$components/v3/ActionLogMcpItem.svelte';
 	import ActionService from '$lib/actions/actionService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { untrack } from 'svelte';
+	import type { ButlerAction } from '$lib/actions/types';
 	import type { SelectionId } from '$lib/selection/key';
 
 	type Props = {
@@ -44,14 +45,17 @@
 						{#each actions.actions as action, i (action.id)}
 							{@const lastInPage = i === actions.actions.length - 1}
 							{@const last = lastInPage && page === pages.at(-1)!}
-							<ActionLogItem
-								{projectId}
-								{action}
-								{last}
-								{loadNextPage}
-								{selectionId}
-								previous={previous(pi, i, lastInPage, last)}
-							/>
+							{@const p = previous(pi, i, lastInPage, last)}
+							{#if action.action.type === 'mcpAction' && (!p || p.action.type === 'mcpAction')}
+								<ActionLogItem
+									{projectId}
+									action={action as ButlerAction & { action: { type: 'mcpAction' } }}
+									{last}
+									{loadNextPage}
+									{selectionId}
+									previous={p as (ButlerAction & { action: { type: 'mcpAction' } }) | undefined}
+								/>
+							{/if}
 						{/each}
 					{/snippet}
 				</ReduxResult>

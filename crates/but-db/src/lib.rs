@@ -9,7 +9,7 @@ const FILE_NAME: &str = "but.sqlite";
 mod hunk_assignments;
 pub use hunk_assignments::HunkAssignment;
 mod butler_actions;
-pub use butler_actions::ButlerAction;
+pub use butler_actions::{ButlerMcpAction, ButlerRevertAction, FilledButlerAction};
 mod schema;
 
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
