@@ -699,6 +699,7 @@ dependencies = [
  "gitbutler-branch",
  "gitbutler-branch-actions",
  "gitbutler-command-context",
+ "gitbutler-filemonitor",
  "gitbutler-operating-modes",
  "gitbutler-oplog",
  "gitbutler-oxidize",

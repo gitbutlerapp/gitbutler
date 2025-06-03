@@ -13,6 +13,7 @@ pub enum InternalEvent {
     ProjectFilesChange(ProjectId, Vec<PathBuf>),
     // Triggered on change in the `.git/gitbutler` directory
     GitButlerOplogChange(ProjectId),
+    ReloadSignal(ProjectId),
 }
 
 impl Display for InternalEvent {
@@ -38,6 +39,7 @@ impl Display for InternalEvent {
                 )
             }
             InternalEvent::CalculateVirtualBranches(pid) => write!(f, "VirtualBranch({})", pid),
+            InternalEvent::ReloadSignal(project_id) => write!(f, "ReloadSignal({})", project_id),
         }
     }
 }
@@ -55,5 +57,15 @@ fn comma_separated_paths(paths: &[PathBuf]) -> String {
         format!("{listing} […{remaining} more]")
     } else {
         listing
+    }
+}
+
+pub const RELOAD_SIGNAL_FILE: &str = "butler_signal";
+
+/// Creates a signal file intended to trigger a reload of the workspace.
+pub fn send_reload_signal(gb_dir: &std::path::Path) {
+    let file_path = gb_dir.join(RELOAD_SIGNAL_FILE);
+    if let Err(e) = std::fs::File::create(&file_path) {
+        tracing::warn!("Failed to create reload signal file: {e}");
     }
 }

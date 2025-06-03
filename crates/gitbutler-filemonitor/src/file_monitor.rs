@@ -7,7 +7,7 @@ use std::{collections::HashSet, path::Path, time::Duration};
 use tokio::task;
 use tracing::Level;
 
-use crate::events::InternalEvent;
+use crate::events::{InternalEvent, RELOAD_SIGNAL_FILE};
 
 /// We will collect notifications for up to this amount of time at a very
 /// maximum before releasing them. This duration will be hit if e.g. a build
@@ -173,6 +173,7 @@ pub fn spawn(
                         }
                     }
                     let mut oplog_changed = false;
+                    let mut new_butler_action = false;
                     let (mut stripped_git_paths, mut worktree_relative_paths) =
                         (HashSet::new(), HashSet::new());
                     for (file_path, kind) in classified_file_paths {
@@ -181,6 +182,9 @@ pub fn spawn(
                             FileKind::GitUninteresting => git_noop += 1,
                             FileKind::GitButlerOplog => {
                                 oplog_changed = true;
+                            }
+                            FileKind::ReloadSignal => {
+                                new_butler_action = true;
                             }
                             FileKind::Project | FileKind::Git => match file_path
                                 .strip_prefix(&worktree_path)
@@ -234,6 +238,13 @@ pub fn spawn(
                             break 'outer;
                         }
                     }
+                    if new_butler_action {
+                        let event = InternalEvent::ReloadSignal(project_id);
+                        if out.send(event).is_err() {
+                            tracing::info!("channel closed - stopping file watcher");
+                            break 'outer;
+                        }
+                    }
                 }
             }
         }
@@ -273,6 +284,8 @@ enum FileKind {
     ProjectIgnored,
     /// GitButler oplog file (`.git/gitbutler/operations-log.toml`)
     GitButlerOplog,
+    /// ButlerAction file, which is a signal file from the CLI
+    ReloadSignal,
 }
 
 fn classify_file(git_dir: &Path, file_path: &Path) -> FileKind {
@@ -286,6 +299,11 @@ fn classify_file(git_dir: &Path, file_path: &Path) -> FileKind {
             FileKind::Git
         } else if check_file_path.file_name() == Some(OsStr::new("operations-log.toml")) {
             FileKind::GitButlerOplog
+        } else if check_file_path.file_name() == Some(OsStr::new(RELOAD_SIGNAL_FILE)) {
+            if let Err(e) = std::fs::remove_file(git_dir.join(file_path)) {
+                tracing::warn!("Failed to remove reload signal file: {e}");
+            }
+            FileKind::ReloadSignal
         } else {
             FileKind::GitUninteresting
         }

@@ -67,6 +67,11 @@ pub(crate) mod state {
                         payload: serde_json::json!(&changes),
                         project_id,
                     },
+                    Change::ReloadSignal(project_id) => ChangeForFrontend {
+                        name: format!("project://{}/reload", project_id),
+                        payload: serde_json::json!({}),
+                        project_id,
+                    },
                 }
             }
         }

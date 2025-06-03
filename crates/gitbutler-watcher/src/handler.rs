@@ -83,6 +83,11 @@ impl Handler {
                 self.calculate_virtual_branches(&ctx, None)
                     .context("failed to handle virtual branch event")
             }
+
+            InternalEvent::ReloadSignal(project_id) => {
+                // This is a signal to reload the app, so we just emit an event.
+                self.emit_app_event(Change::ReloadSignal(project_id))
+            }
         }
     }
 
