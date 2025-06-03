@@ -87,11 +87,11 @@
 		return undefined;
 	});
 
-	function onCheck() {
-		if (checkStatus.current === 'checked') {
-			uncommittedService.uncheckFile(stackId || null, change.path);
-		} else {
+	function onCheck(checked: boolean) {
+		if (checked) {
 			uncommittedService.checkFile(stackId || null, change.path);
+		} else {
+			uncommittedService.uncheckFile(stackId || null, change.path);
 		}
 	}
 
@@ -174,7 +174,7 @@
 			conflicted={!!conflict}
 			conflictHint={conflict ? conflictEntryHint(conflict) : undefined}
 			{onclick}
-			oncheck={onCheck}
+			oncheck={(e) => onCheck(e.currentTarget.checked)}
 			oncontextmenu={onContextMenu}
 		/>
 	{/if}

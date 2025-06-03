@@ -21,13 +21,13 @@
 	const uncommittedService = getContext(UncommittedService);
 	const selectionStatus = $derived(uncommittedService.folderCheckStatus(stackId, nodePath(node)));
 
-	function handleCheck(e: Event) {
+	function handleCheck(checked: boolean) {
 		const changes = getAllChanges(node);
 		for (const change of changes) {
-			if ((e.currentTarget as HTMLInputElement)?.checked) {
+			if (checked) {
 				uncommittedService.checkFile(stackId || null, change.path);
 			} else {
-				uncommittedService.checkFile(stackId || null, change.path);
+				uncommittedService.uncheckFile(stackId || null, change.path);
 			}
 		}
 	}
@@ -41,7 +41,7 @@
 	{showCheckbox}
 	checked={selectionStatus.current === 'checked'}
 	indeterminate={selectionStatus.current === 'indeterminate'}
-	oncheck={handleCheck}
+	oncheck={(e) => handleCheck(e.currentTarget.checked)}
 	{onclick}
 	{ontoggle}
 />
