@@ -161,7 +161,7 @@
 				emitAction();
 			}
 
-			if (e.key === 'Enter' || e.key === 'Tab') {
+			if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
 				e.preventDefault();
 				composer?.focus();
 			}
