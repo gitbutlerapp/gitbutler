@@ -124,7 +124,6 @@
 					onselect={(id) => {
 						view = id as 'worktree' | 'action-log';
 					}}
-					size="small"
 				>
 					<Segment id="worktree" icon="file-changes" />
 					<Segment id="action-log" icon="ai" />
@@ -222,7 +221,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		height: 40px;
+
+		margin-bottom: 8px;
 	}
 
 	.uncommitted-changes__empty {
