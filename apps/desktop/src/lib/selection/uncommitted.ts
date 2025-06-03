@@ -1,3 +1,4 @@
+import { platformName } from '$lib/platform/platform';
 import {
 	hunkAssignmentAdapter,
 	treeChangeAdapter,
@@ -48,6 +49,8 @@ export const uncommittedSlice = createSlice({
 					state.hunkAssignments,
 					removedKeys
 				);
+				// The next line requires that assignments and selections share keys.
+				state.hunkSelection = hunkSelectionAdapter.removeMany(state.hunkSelection, removedKeys);
 			}
 			state.hunkAssignments = hunkAssignmentAdapter.upsertMany(
 				hunkAssignmentAdapter.getInitialState(),
@@ -329,7 +332,10 @@ const fileCheckStatus = createSelector(
 		);
 		if (!selection || selection.length === 0) {
 			return 'unchecked';
-		} else if (selection.length === stackAssignments.length) {
+		} else if (
+			selection.length === stackAssignments.length &&
+			selection.every((s) => s.lines.length === 0)
+		) {
 			return 'checked';
 		} else {
 			return 'indeterminate';
@@ -346,7 +352,8 @@ const folderCheckStatus = createSelector(
 		}
 	],
 	(selections, assignments, { stackId, path }) => {
-		const keyPrefix = `${stackId}::${path}::`;
+		const separator = platformName === 'windows' ? '\\' : '/';
+		const keyPrefix = `${stackId}::${path}` + separator;
 		const matches = uncommittedSelectors.hunkAssignments.selectByPrefix(assignments, keyPrefix);
 		if (matches.length === 0) {
 			return 'unchecked';

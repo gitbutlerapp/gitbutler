@@ -54,9 +54,10 @@ export class StartCommitDzHandler implements DropzoneHandler {
 		const projectState = uiState.project(projectId);
 		const stackState = stackId ? uiState.stack(stackId) : undefined;
 
+		uncommittedService.uncheckAll(null);
 		if (data instanceof ChangeDropData) {
 			for (const change of data.changes) {
-				uncommittedService.checkFile(stackId, change.path);
+				uncommittedService.checkFile(null, change.path);
 			}
 		} else if (data instanceof HunkDropDataV3) {
 			uncommittedService.checkHunk(stackId, data.change.path, data.hunk.newStart.toString());
