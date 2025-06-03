@@ -371,7 +371,7 @@
 				disabled={isDivergedResolved || !branchStatuses}
 				loading={integratingUpstream === 'loading' ||
 					!branchStatuses ||
-					filteredReviews === undefined}>Update workspace</Button
+					(forgeListingService && filteredReviews === undefined)}>Update workspace</Button
 			>
 		</div>
 	{/snippet}
