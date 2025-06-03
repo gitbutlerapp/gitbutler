@@ -121,6 +121,12 @@ fn main() {
                     tracing::info!(version = %app_handle.package_info().version,
                                    name = %app_handle.package_info().name, "starting app");
 
+                    but_ipc::listen_for_reload_signal(move |project_id| {
+                        println!("{}", project_id);
+                        Ok(())
+                    })
+                    .ok();
+
                     app_handle.manage(WindowState::new(app_handle.clone()));
 
                     app_settings.watch_in_background({

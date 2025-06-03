@@ -1,0 +1,15 @@
+[package]
+name = "but-ipc"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[lib]
+doctest = false
+test = false
+
+[dependencies]
+anyhow.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "io-std"] }
+interprocess = { version = "2.2.3", features = ["tokio"] }

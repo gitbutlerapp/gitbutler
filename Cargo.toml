@@ -77,6 +77,7 @@ but-hunk-assignment = { path = "crates/but-hunk-assignment" }
 but-hunk-dependency = { path = "crates/but-hunk-dependency" }
 but-db = { path = "crates/but-db" }
 but-action = { path = "crates/but-action" }
+but-ipc = { path = "crates/but-ipc" }
 but-status = { path = "crates/but-status" }
 git2-hooks = { version = "0.5.0" }
 

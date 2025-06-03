@@ -62,6 +62,7 @@ pub fn handle_changes(
         ),
     )?;
 
+    but_ipc::send_reload_signal(ctx.project().id.to_string())?;
     response
 }
 

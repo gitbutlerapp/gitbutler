@@ -31,3 +31,4 @@ but-core.workspace = true
 but-db.workspace = true
 but-workspace.workspace = true
 but-hunk-assignment.workspace = true
+but-ipc.workspace = true
