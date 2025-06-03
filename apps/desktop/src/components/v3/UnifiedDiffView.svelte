@@ -190,13 +190,13 @@
 								onChangeStage={(selected) => {
 									if (fullyLocked || !selectable) return;
 									if (selected) {
-										uncommittedService.uncheckHunk(
+										uncommittedService.checkHunk(
 											stackId || null,
 											change.path,
 											hunk.newStart.toString()
 										);
 									} else {
-										uncommittedService.checkHunk(
+										uncommittedService.uncheckHunk(
 											stackId || null,
 											change.path,
 											hunk.newStart.toString()
