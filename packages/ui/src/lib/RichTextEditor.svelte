@@ -200,7 +200,9 @@
 			return;
 		}
 		const editor = composer.getEditor();
-		editor?.focus();
+		// We should be able to use `editor.focus()` here, but for some reason
+		// it only works after the input has already been focused.
+		editor.getRootElement()?.focus();
 	}
 
 	export function wrapAll() {
