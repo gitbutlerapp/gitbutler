@@ -13,6 +13,7 @@
 	import PublishButton from '$components/v3/PublishButton.svelte';
 	import PushButton from '$components/v3/PushButton.svelte';
 	import { getColorFromCommitState, getIconFromCommitState } from '$components/v3/lib';
+	import { assignmentEnabled } from '$lib/config/uiFeatureFlags';
 	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { ModeService } from '$lib/mode/modeService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -111,7 +112,9 @@
 </script>
 
 <div class="wrapper">
-	{@render assignments()}
+	{#if $assignmentEnabled}
+		{@render assignments()}
+	{/if}
 	<ReduxResult {projectId} {stackId} result={branchesResult.current}>
 		{#snippet children(branches, { stackId, projectId })}
 			{@const stackingReorderDropzoneManager = stackingReorderDropzoneManagerFactory.build(

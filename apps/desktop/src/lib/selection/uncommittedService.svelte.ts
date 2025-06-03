@@ -51,7 +51,7 @@ export class UncommittedService {
 		});
 	}
 
-	updateAssignments(args: { assignments: HunkAssignment[]; changes: TreeChange[] }) {
+	updateData(args: { assignments: HunkAssignment[]; changes: TreeChange[] }) {
 		this.dispatch(uncommittedActions.update(args));
 	}
 
