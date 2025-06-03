@@ -74,7 +74,7 @@
 	style:min-height="{minHeight}rem"
 	use:focusable={{ id: DefinedFocusable.Drawer, parentId: DefinedFocusable.ViewportMiddle }}
 >
-	<div class="drawer-wrap">
+	<div class="drawer-wrap" class:top-border={!drawerIsFullScreen.current}>
 		<div bind:this={headerDiv} class="drawer-header" class:no-left-padding={noLeftPadding}>
 			<div class="drawer-header__title">
 				{#if title}
@@ -158,7 +158,6 @@
 			direction="up"
 			viewport={drawerDiv}
 			{minHeight}
-			borderRadius="ml"
 			onHeight={(value) => uiState.global.drawerHeight.set(value)}
 		/>
 	{/if}
@@ -183,9 +182,12 @@
 		flex: 1;
 		flex-direction: column;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-ml);
+
 		background: var(--clr-bg-1);
+
+		&.top-border {
+			border-top: 1px solid var(--clr-border-2);
+		}
 	}
 
 	.drawer-header {

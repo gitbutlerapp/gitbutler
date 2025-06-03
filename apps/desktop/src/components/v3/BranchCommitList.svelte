@@ -156,7 +156,6 @@
 		}
 		const stackState = uiState.stack(stackId);
 		stackState.selection.set({ branchName, commitId, upstream });
-		uiState.project(projectId).drawerPage.set(undefined);
 		projectState.stackId.set(stackId);
 	}
 </script>

@@ -8,7 +8,7 @@ import {
 } from '@reduxjs/toolkit';
 import storage from 'redux-persist/lib/storage';
 import type { RejectionReason } from '$lib/stacks/stackService.svelte';
-export type DrawerPage = 'branch' | 'new-commit' | 'review' | undefined;
+export type DrawerPage = 'branch' | 'new-commit' | 'review' | 'commit' | undefined;
 
 export const uiStatePersistConfig = {
 	key: 'uiState',

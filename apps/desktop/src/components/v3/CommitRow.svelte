@@ -2,7 +2,10 @@
 	import CommitHeader from '$components/v3/CommitHeader.svelte';
 	import CommitLine from '$components/v3/CommitLine.svelte';
 	import { type CommitStatusType } from '$lib/commits/commit';
+	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
+
+	import { getContext } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { slide } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
@@ -60,6 +63,7 @@
 
 	const {
 		commitMessage,
+		projectId,
 		tooltip,
 		first,
 		lastCommit,
@@ -76,6 +80,15 @@
 	}: Props = $props();
 
 	let container = $state<HTMLDivElement>();
+
+	const uiState = getContext(UiState);
+
+	function handleClick() {
+		if (onclick) {
+			uiState.project(projectId).drawerPage.current = 'commit';
+			onclick();
+		}
+	}
 </script>
 
 <div
@@ -92,12 +105,12 @@
 	class:last={lastCommit}
 	onclick={(e) => {
 		e.stopPropagation();
-		onclick?.();
+		handleClick();
 	}}
 	onkeydown={(e) => {
 		if (e.key === 'Enter' || e.key === ' ') {
 			e.stopPropagation();
-			onclick?.();
+			handleClick();
 		}
 	}}
 >

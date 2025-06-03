@@ -47,9 +47,5 @@
 		width: 100%;
 		height: 100%;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
-
-		border-radius: var(--radius-ml);
-		background-size: 6px 6px;
 	}
 </style>
