@@ -34,10 +34,10 @@ pub struct ButlerAction {
     error: Option<String>,
 }
 
-impl TryFrom<but_db::ButlerAction> for ButlerAction {
+impl TryFrom<but_db::ButlerMcpAction> for ButlerAction {
     type Error = anyhow::Error;
 
-    fn try_from(value: but_db::ButlerAction) -> Result<Self, Self::Error> {
+    fn try_from(value: but_db::ButlerMcpAction) -> Result<Self, Self::Error> {
         let response = value
             .response
             .as_ref()
@@ -60,7 +60,7 @@ impl TryFrom<but_db::ButlerAction> for ButlerAction {
     }
 }
 
-impl TryFrom<ButlerAction> for but_db::ButlerAction {
+impl TryFrom<ButlerAction> for but_db::ButlerMcpAction {
     type Error = anyhow::Error;
 
     fn try_from(value: ButlerAction) -> Result<Self, Self::Error> {
