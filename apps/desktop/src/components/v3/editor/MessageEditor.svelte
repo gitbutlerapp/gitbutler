@@ -1,5 +1,4 @@
 <script lang="ts">
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import MessageEditorRuler from '$components/v3/editor/MessageEditorRuler.svelte';
 	import CommitSuggestions from '$components/v3/editor/commitSuggestions.svelte';
 	import { showError } from '$lib/notifications/toasts';
@@ -269,42 +268,40 @@
 				<MessageEditorRuler />
 			{/if}
 
-			<ConfigurableScrollableContainer height="100%">
-				<div class="message-textarea__wrapper">
-					<RichTextEditor
-						styleContext="client-editor"
-						namespace="CommitMessageEditor"
-						{placeholder}
-						bind:this={composer}
-						markdown={useRichText.current}
-						onError={(e) => console.warn('Editor error', e)}
-						initialText={initialValue}
-						onChange={handleChange}
-						onKeyDown={handleKeyDown}
-						onFocus={() => (isEditorFocused = true)}
-						onBlur={() => (isEditorFocused = false)}
-						{disabled}
-						wrapCountValue={useRichText.current ? undefined : wrapCountValue}
-					>
-						{#snippet plugins()}
-							<Formatter bind:this={formatter} />
-							<FileUploadPlugin bind:this={fileUploadPlugin} onDrop={handleDropFiles} />
-							{#if suggestionsHandler}
-								<GhostTextPlugin
-									bind:this={suggestionsHandler.ghostTextComponent}
-									onSelection={(text) => suggestionsHandler.onAcceptSuggestion(text)}
-								/>
-							{/if}
-							{#if !useRichText.current}
-								<HardWrapPlugin
-									enabled={!useRichText.current && wrapTextByRuler.current}
-									maxLength={wrapCountValue}
-								/>
-							{/if}
-						{/snippet}
-					</RichTextEditor>
-				</div>
-			</ConfigurableScrollableContainer>
+			<div class="message-textarea__wrapper">
+				<RichTextEditor
+					styleContext="client-editor"
+					namespace="CommitMessageEditor"
+					{placeholder}
+					bind:this={composer}
+					markdown={useRichText.current}
+					onError={(e) => console.warn('Editor error', e)}
+					initialText={initialValue}
+					onChange={handleChange}
+					onKeyDown={handleKeyDown}
+					onFocus={() => (isEditorFocused = true)}
+					onBlur={() => (isEditorFocused = false)}
+					{disabled}
+					wrapCountValue={useRichText.current ? undefined : wrapCountValue}
+				>
+					{#snippet plugins()}
+						<Formatter bind:this={formatter} />
+						<FileUploadPlugin bind:this={fileUploadPlugin} onDrop={handleDropFiles} />
+						{#if suggestionsHandler}
+							<GhostTextPlugin
+								bind:this={suggestionsHandler.ghostTextComponent}
+								onSelection={(text) => suggestionsHandler.onAcceptSuggestion(text)}
+							/>
+						{/if}
+						{#if !useRichText.current}
+							<HardWrapPlugin
+								enabled={!useRichText.current && wrapTextByRuler.current}
+								maxLength={wrapCountValue}
+							/>
+						{/if}
+					{/snippet}
+				</RichTextEditor>
+			</div>
 		</div>
 
 		<div class="message-textarea__toolbar">
