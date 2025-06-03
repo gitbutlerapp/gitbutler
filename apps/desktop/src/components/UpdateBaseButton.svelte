@@ -1,5 +1,5 @@
 <script lang="ts">
-	import IntegrateUpstreamModal from '$components/IntegrateUpstreamModal.svelte';
+	import IntegrateUpstreamModal from '$components/v3/IntegrateUpstreamModal.svelte';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { Project } from '$lib/project/project';
 	import { getContext } from '@gitbutler/shared/context';
@@ -24,7 +24,7 @@
 	}
 </script>
 
-<IntegrateUpstreamModal bind:this={modal} />
+<IntegrateUpstreamModal bind:this={modal} {projectId} />
 
 {#if displayButton}
 	<Button

@@ -2,7 +2,7 @@
 	import CommitAction from '$components/CommitAction.svelte';
 	import CommitCard from '$components/CommitCard.svelte';
 	import InfoMessage from '$components/InfoMessage.svelte';
-	import IntegrateUpstreamModal from '$components/IntegrateUpstreamModal.svelte';
+	import IntegrateUpstreamModal from '$components/v3/IntegrateUpstreamModal.svelte';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { transformAnyCommit } from '$lib/commits/transformers';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
@@ -352,7 +352,7 @@
 	</Modal>
 {/if}
 
-<IntegrateUpstreamModal bind:this={integrateUpstreamModal} />
+<IntegrateUpstreamModal bind:this={integrateUpstreamModal} {projectId} />
 
 <style>
 	.header-wrapper {
