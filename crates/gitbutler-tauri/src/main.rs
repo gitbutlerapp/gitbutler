@@ -15,9 +15,9 @@ use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::csp::csp_with_extras;
 use gitbutler_tauri::settings::SettingsStore;
 use gitbutler_tauri::{
-    action, askpass, cli, commands, config, diff, env, forge, github, logs, menu, modes, open,
-    projects, remotes, repo, secret, settings, stack, undo, users, virtual_branches, workspace,
-    zip, App, WindowState,
+    action, agent, askpass, cli, commands, config, diff, env, forge, github, logs, menu, modes,
+    open, projects, remotes, repo, secret, settings, stack, undo, users, virtual_branches,
+    workspace, zip, App, WindowState,
 };
 use tauri::Emitter;
 use tauri::{generate_context, Manager};
@@ -305,6 +305,11 @@ fn main() {
                     diff::changes_in_branch,
                     diff::tree_change_diffs,
                     diff::assign_hunk,
+                    agent::agent_list_all_conversations,
+                    agent::agent_set_open_router_token,
+                    agent::agent_is_open_router_token_set,
+                    agent::agent_create_conversation,
+                    agent::agent_send_message,
                     // `env_vars` is only supposed to be avaialble in debug mode, not in production.
                     #[cfg(debug_assertions)]
                     env::env_vars,
