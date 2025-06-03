@@ -21,6 +21,7 @@
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { showHistoryView } from '$lib/config/config';
+	import { assignmentEnabled } from '$lib/config/uiFeatureFlags';
 	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { UncommitedFilesWatcher } from '$lib/files/watcher';
 	import { FocusManager } from '$lib/focus/focusManager.svelte';
@@ -298,9 +299,13 @@
 	$effect(() => {
 		if (worktreeData) {
 			untrack(() => {
-				uncommittedService.updateAssignments({
+				uncommittedService.updateData({
 					changes: worktreeData.rawChanges,
-					assignments: worktreeData.hunkAssignments
+					// If assignments are not enabled we override the stack id to prevent
+					// files from becoming hidden when toggling on/off.
+					assignments: $assignmentEnabled
+						? worktreeData.hunkAssignments
+						: worktreeData.hunkAssignments.map((a) => ({ ...a, stackId: null }))
 				});
 			});
 		}
