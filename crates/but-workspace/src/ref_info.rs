@@ -344,7 +344,12 @@ pub(crate) mod function {
         }
 
         if opts.expensive_commit_info {
-            populate_commit_info(target_ref.as_ref(), &mut stacks, repo, &mut graph)?;
+            populate_commit_info(
+                target_ref.as_ref().zip(target_ids),
+                &mut stacks,
+                repo,
+                &mut graph,
+            )?;
         }
 
         Ok(RefInfo {
@@ -882,7 +887,7 @@ pub(crate) mod function {
     /// TODO: have merge-graph based checks that can check if one commit is included in the ancestry of another tip. That way one can
     ///       quick perform is-integrated checks with the target branch.
     fn populate_commit_info<'repo>(
-        target_ref_name: Option<&gix::refs::FullName>,
+        target_ref_name_and_ids: Option<(&gix::refs::FullName, (gix::ObjectId, gix::ObjectId))>,
         stacks: &mut [Stack],
         repo: &'repo gix::Repository,
         merge_graph: &mut MergeBaseCommitGraph<'repo, '_>,
@@ -1049,7 +1054,9 @@ pub(crate) mod function {
             // TODO: This can probably be more efficient if this is staged, by first trying
             //       to check if the tip is merged, to flag everything else as merged.
             let mut is_integrated = false;
-            if let Some(target_ref_name) = target_ref_name {
+            if let Some((target_ref_name, (target_remote_id, target_local_id))) =
+                target_ref_name_and_ids
+            {
                 let mut check_commit = IsCommitIntegrated::new2(
                     repo,
                     &git2_repo,
@@ -1069,6 +1076,39 @@ pub(crate) mod function {
                     }? {
                         is_integrated = true;
                         local_commit.relation = LocalCommitRelation::Integrated;
+                    }
+                }
+
+                // Special case: if there are (previously) added empty segments, deref their tips to see if
+                //               they are integrated.
+                let merge_graph = check_commit.graph;
+                for res in stack.segments.iter_mut().filter_map(|s| {
+                    if s.commits_unique_from_tip.is_empty() {
+                        s.ref_name
+                            .as_ref()
+                            .and_then(|name| try_refname_to_id(repo, name.as_ref()).transpose())
+                            .map(|res| res.map(|id| (id, s)))
+                    } else {
+                        None
+                    }
+                }) {
+                    let (tip, empty_segment) = res?;
+                    if tip == target_local_id {
+                        continue;
+                    }
+                    // TODO: make the is_integrated() check actually work for graph-based queries, maybe it would
+                    //       but just doesn't have the necessary commits in this case.
+                    //       Perform a simple commit-id based lookup instead.
+                    let merge_base =
+                        repo.merge_base_with_graph(target_remote_id, tip, merge_graph)?;
+                    if merge_base == tip {
+                        // TODO: this is a hack that arbitrarily adds this one commit so the state is observable.
+                        //       This means segments needs its own integrated flag that should be set if one of its commits
+                        //       or it itself is integrated.
+                        empty_segment.commits_unique_from_tip.push(LocalCommit {
+                            relation: LocalCommitRelation::Integrated,
+                            ..LocalCommit::new_from_id(tip.attach(repo))?
+                        })
                     }
                 }
             }

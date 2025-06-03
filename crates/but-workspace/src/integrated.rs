@@ -19,7 +19,7 @@ use itertools::Itertools;
 
 pub(crate) struct IsCommitIntegrated<'repo, 'cache, 'graph> {
     repo: &'repo gix::Repository,
-    graph: &'graph mut MergeBaseCommitGraph<'repo, 'cache>,
+    pub graph: &'graph mut MergeBaseCommitGraph<'repo, 'cache>,
     target_commit_id: gix::ObjectId,
     upstream_tree_id: gix::ObjectId,
     upstream_commits: Vec<git2::Oid>,

@@ -296,7 +296,6 @@ fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
     );
 
     let opts = standard_options();
-    // TODO: needs one integrated commit 'change in A'.
     let info = head_info(&repo, &*meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
@@ -355,6 +354,106 @@ fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
     }
     "#);
 
+    Ok(())
+}
+
+#[test]
+fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_branch_integration_caught_up()
+-> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario(
+        "two-dependent-branches-first-merge-no-ff-second-merge-into-first-on-remote",
+    )?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   059cc4f (origin/A) Merge branch 'B-on-A' into new-origin-A
+    |\  
+    | | *   a455fe7 (origin/main, main) Merge branch 'A' into new-origin-main
+    | | |\  
+    | |_|/  
+    |/| |   
+    | | | * 4a62dfc (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | | |/  
+    | |/|   
+    | * | de11c03 (origin/B-on-A, B-on-A) change in B
+    |/ /  
+    * / 0ee3a9e (A) change in A
+    |/  
+    * fafd9d0 init
+    ");
+
+    add_stack_with_segments(
+        &mut meta,
+        StackId::from_number_for_testing(0),
+        "B-on-A",
+        StackState::InWorkspace,
+        &["A"],
+    );
+
+    // TODO: A must be considered integrated, and ideally still has its commits.
+    //       Having commits would mean we still know the previous position of
+    //       the local integration branch, which now has caught up and we have to
+    //       determine (with or without displaying commits, that we are actually integrated.
+    //       In this case, the post-cleanup re-adds a branch we otherwise didn't see, and we
+    //       should probably have it do some sort of integration check based on the commit.
+    let opts = standard_options();
+    let info = head_info(&repo, &*meta, opts)?;
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [
+            Stack {
+                base: Some(
+                    Sha1(0ee3a9e12c17b59a8507bbfe2ae98ab362feb21a),
+                ),
+                segments: [
+                    StackSegment {
+                        ref_name: "refs/heads/B-on-A",
+                        remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [
+                            LocalCommit(de11c03, "change in B\n", local/remote(identity)),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                    StackSegment {
+                        ref_name: "refs/heads/A",
+                        remote_tracking_ref_name: "refs/remotes/origin/A",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [
+                            LocalCommit(0ee3a9e, "change in A\n", integrated),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [
+                            RemoteCommit(059cc4f, "Merge branch \'B-on-A\' into new-origin-A\n",
+                        ],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                ],
+                stash_status: None,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+    }
+    "#);
     Ok(())
 }
 
