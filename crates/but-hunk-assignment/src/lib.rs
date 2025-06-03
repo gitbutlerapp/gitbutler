@@ -22,10 +22,14 @@ use gitbutler_stack::VirtualBranchesHandle;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
+use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct HunkAssignment {
+    /// An optional identifier for a hunk assignment. This is useful when a hunk is modified -
+    /// The path + hunk_header are now different, but it is useful to the UI to have a stable identifier.
+    pub id: Option<Uuid>,
     /// The hunk that is being assigned. Together with path_bytes, this identifies the hunk.
     /// If the file is binary, or too large to load, this will be None and in this case the path name is the only identity.
     pub hunk_header: Option<HunkHeader>,
@@ -55,6 +59,7 @@ impl TryFrom<but_db::HunkAssignment> for HunkAssignment {
             .and_then(|id| uuid::Uuid::parse_str(id).ok())
             .map(StackId::from);
         Ok(HunkAssignment {
+            id: value.id.map(|id| Uuid::parse_str(&id)).transpose()?,
             hunk_header: header,
             path: value.path,
             path_bytes: value.path_bytes.into(),
@@ -75,6 +80,7 @@ impl TryFrom<HunkAssignment> for but_db::HunkAssignment {
             })
             .transpose()?;
         Ok(but_db::HunkAssignment {
+            id: value.id.map(|id| id.to_string()),
             hunk_header: header,
             path: value.path,
             path_bytes: value.path_bytes.into(),
@@ -410,6 +416,7 @@ fn hunk_dependency_assignments(
             None
         };
         let assignment = HunkAssignment {
+            id: None,
             hunk_header: Some(hunk.into()),
             path: path.clone(),
             path_bytes: path.into(),
@@ -425,6 +432,7 @@ fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> 
     let path_str = path.to_str_lossy();
     match diff {
         but_core::UnifiedDiff::Binary => vec![HunkAssignment {
+            id: None,
             hunk_header: None,
             path: path_str.into(),
             path_bytes: path,
@@ -432,6 +440,7 @@ fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> 
             hunk_locks: vec![],
         }],
         but_core::UnifiedDiff::TooLarge { .. } => vec![HunkAssignment {
+            id: None,
             hunk_header: None,
             path: path_str.into(),
             path_bytes: path,
@@ -446,6 +455,7 @@ fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> 
             // If there are no hunks, then the assignment is for the whole file
             if is_result_of_binary_to_text_conversion || hunks.is_empty() {
                 vec![HunkAssignment {
+                    id: None,
                     hunk_header: None,
                     path: path_str.into(),
                     path_bytes: path,
@@ -456,6 +466,7 @@ fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> 
                 hunks
                     .iter()
                     .map(|hunk| HunkAssignment {
+                        id: None,
                         hunk_header: Some(hunk.into()),
                         path: path_str.clone().into(),
                         path_bytes: path.clone(),
@@ -499,6 +510,7 @@ mod tests {
 
     fn ass(path: &str, start: u32, end: u32, stack_id: Option<usize>) -> HunkAssignment {
         HunkAssignment {
+            id: None,
             hunk_header: Some(HunkHeader {
                 old_start: 0,
                 old_lines: 0,
