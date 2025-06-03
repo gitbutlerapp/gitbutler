@@ -187,12 +187,12 @@ impl HunkAssignment {
         }
         if let (Some(header), Some(other_header)) = (self.hunk_header, other.hunk_header) {
             if header.new_start >= other_header.new_start
-                && header.new_start < other_header.new_start + other_header.new_lines
+                && header.new_start <= other_header.new_start + other_header.new_lines
             {
                 return true;
             }
             if other_header.new_start >= header.new_start
-                && other_header.new_start < header.new_start + header.new_lines
+                && other_header.new_start <= header.new_start + header.new_lines
             {
                 return true;
             }
