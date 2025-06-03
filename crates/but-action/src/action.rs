@@ -23,8 +23,10 @@ pub struct ButlerAction {
     /// An optional prompt that was used by the handler to perform the action, if applicable.
     handler_prompt: Option<String>,
     /// A GitBulter Oplog snapshot ID before the action was performed.
+    #[serde(serialize_with = "gitbutler_serde::object_id::serialize")]
     snapshot_before: gix::ObjectId,
     /// A GitBulter Oplog snapshot ID after the action was performed.
+    #[serde(serialize_with = "gitbutler_serde::object_id::serialize")]
     snapshot_after: gix::ObjectId,
     /// The outcome of the action, if it was successful.
     response: Option<Outcome>,

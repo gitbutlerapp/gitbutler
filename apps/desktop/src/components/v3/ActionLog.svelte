@@ -1,7 +1,9 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import ActionService from '$lib/actions/actionService.svelte';
-	import { inject } from '@gitbutler/shared/context';
+	import { HistoryService } from '$lib/history/history';
+	import { getContext, inject } from '@gitbutler/shared/context';
+	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
 	import type { ButlerAction, Outcome } from '$lib/actions/types';
@@ -15,6 +17,15 @@
 	const [actionService] = inject(ActionService);
 
 	const actions = $derived(actionService.listActions(projectId));
+
+	const historyService = getContext(HistoryService);
+
+	async function restore(id: string) {
+		await historyService.restoreSnapshot(projectId, id);
+		// In some cases, restoring the snapshot doesnt update the UI correctly
+		// Until we have that figured out, we need to reload the page.
+		location.reload();
+	}
 </script>
 
 <div class="action-log-wrap">
@@ -51,6 +62,19 @@
 					<span class="text-13 text-greyer"
 						><TimeAgo date={new Date(action.createdAt)} addSuffix /></span
 					>
+
+					<div class="action-item__actions">
+						<AsyncButton
+							action={async () => await restore(action.snapshotBefore)}
+							size="tag"
+							kind="outline">Revert to before</AsyncButton
+						>
+						<AsyncButton
+							action={async () => await restore(action.snapshotAfter)}
+							size="tag"
+							kind="outline">Revert to after</AsyncButton
+						>
+					</div>
 				</div>
 			</div>
 			<span class="text-14 action-item__content__summary">{action.externalSummary}</span>
