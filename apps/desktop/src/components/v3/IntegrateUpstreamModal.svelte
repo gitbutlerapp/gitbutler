@@ -412,7 +412,7 @@
 				disabled={isDivergedResolved || !branchStatuses}
 				loading={integratingUpstream === 'loading' ||
 					!branchStatuses ||
-					filteredReviews === undefined}
+					(forgeListingService && filteredReviews === undefined)}
 				onclick={async (e) => {
 					await integrate(e);
 				}}
