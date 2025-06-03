@@ -1,6 +1,6 @@
 import type { BrandedId } from '@gitbutler/shared/utils/branding';
 
-const SELECTION_TYPES = ['commit', 'branch', 'worktree'] as const;
+const SELECTION_TYPES = ['commit', 'branch', 'worktree', 'snapshot'] as const;
 
 export type SelectionIdType = (typeof SELECTION_TYPES)[number];
 
@@ -24,6 +24,14 @@ export type SelectionId = {
 			stackId?: string;
 			branchName: string;
 	  }
+	| {
+			/** Represents the selection of a change between two snapshot diffs */
+			type: 'snapshot';
+			/** The SHA of the before shapshot */
+			before: string;
+			/** The SHA of the after shapshot */
+			after: string;
+	  }
 );
 
 /**
@@ -41,6 +49,8 @@ export function key(params: SelectedFile): SelectedFileKey {
 			return `${params.type}:${params.path}:${params.stackId}:${params.branchName}` as SelectedFileKey;
 		case 'worktree':
 			return `${params.type}:${params.path}:${params.stackId}` as SelectedFileKey;
+		case 'snapshot':
+			return `${params.type}:${params.before}:${params.after}:${params.path}` as SelectedFileKey;
 	}
 }
 
@@ -73,6 +83,14 @@ export function readKey(key: SelectedFileKey): SelectedFile {
 				path: parts[0]!,
 				stackId: parts[1] === 'undefined' ? undefined : parts[1]
 			};
+		case 'snapshot':
+			if (parts.length !== 3) throw new Error('Invalid snapshot key');
+			return {
+				type,
+				before: parts[0]!,
+				after: parts[1]!,
+				path: parts[2]!
+			};
 	}
 }
 
@@ -84,5 +102,7 @@ export function selectionKey(id: SelectionId): SelectedFileKey {
 			return `${id.type}:${id.stackId}:${id.branchName}` as SelectedFileKey;
 		case 'worktree':
 			return `${id.type}` as SelectedFileKey;
+		case 'snapshot':
+			return `${id.type}:${id.before}:${id.after}` as SelectedFileKey;
 	}
 }

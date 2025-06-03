@@ -41,7 +41,7 @@ pub fn conflicted_changes(
 }
 
 /// See [`super::commit_changes()`].
-pub fn changes_in_commit_range(
+pub fn changes_in_range(
     worktree_dir: PathBuf,
     commit_id: gix::ObjectId,
     base: gix::ObjectId,

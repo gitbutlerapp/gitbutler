@@ -2,6 +2,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import FileListItemWrapper from '$components/v3/FileListItemWrapper.svelte';
 	import UnifiedDiffView from '$components/v3/UnifiedDiffView.svelte';
+	import { OplogService } from '$lib/history/oplogService.svelte';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -20,11 +21,12 @@
 
 	const { selectedFile, projectId, onCloseClick, draggable }: Props = $props();
 
-	const [diffService, stackService, worktreeService, uncommittedService] = inject(
+	const [diffService, stackService, worktreeService, uncommittedService, oplogService] = inject(
 		DiffService,
 		StackService,
 		WorktreeService,
-		UncommittedService
+		UncommittedService,
+		OplogService
 	);
 
 	const changeResult = $derived.by(() => {
@@ -41,6 +43,13 @@
 			case 'worktree':
 				uncommittedService.assignmentsByPath(selectedFile.stackId || null, selectedFile.path);
 				return worktreeService.treeChangeByPath(projectId, selectedFile.path);
+			case 'snapshot':
+				return oplogService.diffWorktreeByPath({
+					projectId,
+					before: selectedFile.before,
+					after: selectedFile.after,
+					path: selectedFile.path
+				});
 		}
 	});
 
@@ -51,30 +60,32 @@
 {#if diffResult?.current}
 	<ReduxResult {projectId} result={combineResults(changeResult.current, diffResult.current)}>
 		{#snippet children([change, diff], env)}
-			{@const isExecutable = (change.status.subject as Modification).flags}
-			<div class="selected-change-item">
-				<FileListItemWrapper
-					selectionId={selectedFile}
-					projectId={env.projectId}
-					{change}
-					{diff}
-					{draggable}
-					isHeader
-					executable={!!isExecutable}
-					listMode="list"
-					{onCloseClick}
-				/>
-				<UnifiedDiffView
-					projectId={env.projectId}
-					stackId={selectedFile.type !== 'commit' ? selectedFile.stackId : undefined}
-					commitId={selectedFile.type === 'commit' ? selectedFile.commitId : undefined}
-					{draggable}
-					{change}
-					{diff}
-					selectable
-					selectionId={selectedFile}
-				/>
-			</div>
+			{#if change}
+				{@const isExecutable = (change.status.subject as Modification).flags}
+				<div class="selected-change-item">
+					<FileListItemWrapper
+						selectionId={selectedFile}
+						projectId={env.projectId}
+						{change}
+						{diff}
+						{draggable}
+						isHeader
+						executable={!!isExecutable}
+						listMode="list"
+						{onCloseClick}
+					/>
+					<UnifiedDiffView
+						projectId={env.projectId}
+						stackId={'stackId' in selectedFile ? selectedFile.stackId : undefined}
+						commitId={selectedFile.type === 'commit' ? selectedFile.commitId : undefined}
+						{draggable}
+						{change}
+						{diff}
+						selectable
+						selectionId={selectedFile}
+					/>
+				</div>
+			{/if}
 		{/snippet}
 	</ReduxResult>
 {/if}

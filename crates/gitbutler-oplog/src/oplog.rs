@@ -54,6 +54,7 @@ use tracing::instrument;
 /// └── worktree/…
 /// ```
 pub trait OplogExt {
+    fn snapshot_workspace_tree(&self, sha: gix::ObjectId) -> Result<gix::ObjectId>;
     /// Prepares a snapshot of the current state of the working directory as well as GitButler data.
     /// Returns a tree hash of the snapshot. The snapshot is not discoverable until it is committed with [`commit_snapshot`](Self::commit_snapshot())
     /// If there are files that are untracked and larger than `SNAPSHOT_FILE_LIMIT_BYTES`, they are excluded from snapshot creation and restoring.
@@ -348,6 +349,15 @@ impl OplogExt for CommandContext {
 
         let hunks = hunks_by_filepath(None, &diff)?;
         Ok(hunks)
+    }
+
+    fn snapshot_workspace_tree(&self, sha: gix::ObjectId) -> Result<gix::ObjectId> {
+        let repo = self.gix_repo()?;
+        let tree = repo.find_commit(sha)?.tree()?;
+        let workspace = tree
+            .find_entry("worktree")
+            .context("Failed to find workspace tree in snapshot")?;
+        Ok(workspace.object_id())
     }
 
     /// Gets the sha of the last snapshot commit if present.

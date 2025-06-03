@@ -262,6 +262,7 @@ fn main() {
                     undo::restore_snapshot,
                     undo::snapshot_diff,
                     undo::take_synced_snapshot,
+                    undo::oplog_diff_worktrees,
                     config::get_gb_config,
                     config::set_gb_config,
                     menu::menu_item_set_enabled,

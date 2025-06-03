@@ -1,0 +1,52 @@
+import type { TreeChanges } from '$lib/hunks/change';
+import type { BackendApi, ClientState } from '$lib/state/clientState.svelte';
+
+/** Supercedes the HistoryService */
+export class OplogService {
+	private api: ReturnType<typeof injectEndpoints>;
+
+	constructor(backendApi: BackendApi) {
+		this.api = injectEndpoints(backendApi);
+	}
+
+	get diffWorktree() {
+		return this.api.endpoints.oplogDiffWorktrees.useQuery;
+	}
+
+	diffWorktreeByPath({
+		projectId,
+		before,
+		after,
+		path
+	}: {
+		projectId: string;
+		before: string;
+		after: string;
+		path: string;
+	}) {
+		return this.api.endpoints.oplogDiffWorktrees.useQuery(
+			{ projectId, before, after },
+			{
+				transform: (result) => {
+					return result.changes.find((change) => change.path === path);
+				}
+			}
+		);
+	}
+}
+
+function injectEndpoints(api: ClientState['backendApi']) {
+	return api.injectEndpoints({
+		endpoints: (build) => ({
+			oplogDiffWorktrees: build.query<
+				TreeChanges,
+				{ projectId: string; before: string; after: string }
+			>({
+				query: ({ projectId, before, after }) => ({
+					command: 'oplog_diff_worktrees',
+					params: { projectId, before, after }
+				})
+			})
+		})
+	});
+}

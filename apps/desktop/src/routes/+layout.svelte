@@ -39,6 +39,7 @@
 	import { GitHubClient } from '$lib/forge/github/githubClient';
 	import { GitHubUserService } from '$lib/forge/github/githubUserService.svelte';
 	import { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
+	import { OplogService } from '$lib/history/oplogService.svelte';
 	import { HooksService } from '$lib/hooks/hooksService';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { IrcClient } from '$lib/irc/ircClient.svelte';
@@ -145,6 +146,7 @@
 
 	const stackService = new StackService(clientState['backendApi'], forgeFactory, uiState);
 	const actionService = new ActionService(clientState['backendApi']);
+	const oplogService = new OplogService(clientState['backendApi']);
 	const baseBranchService = new BaseBranchService(clientState.backendApi);
 	const worktreeService = new WorktreeService(clientState);
 	const feedService = new FeedService(data.cloud, appState.appDispatch);
@@ -225,6 +227,7 @@
 	setContext(StackingLineManagerFactory, data.stackingLineManagerFactory);
 	setContext(AppSettings, data.appSettings);
 	setContext(StackService, stackService);
+	setContext(OplogService, oplogService);
 	setContext(ActionService, actionService);
 	setContext(BaseBranchService, baseBranchService);
 	setContext(UpstreamIntegrationService, upstreamIntegrationService);

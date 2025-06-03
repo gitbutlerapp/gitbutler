@@ -98,7 +98,11 @@
 	const checkStatus = $derived(uncommittedService.fileCheckStatus(stackId, change.path));
 
 	function onContextMenu(e: MouseEvent) {
-		if (selectedChanges.current.isSuccess && idSelection.has(change.path, selectionId)) {
+		if (
+			selectedChanges &&
+			selectedChanges.current.isSuccess &&
+			idSelection.has(change.path, selectionId)
+		) {
 			const changes: TreeChange[] = selectedChanges.current.data;
 			contextMenu?.open(e, { changes });
 			return;

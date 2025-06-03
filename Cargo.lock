@@ -704,6 +704,7 @@ dependencies = [
  "gitbutler-oxidize",
  "gitbutler-project",
  "gitbutler-reference",
+ "gitbutler-serde",
  "gitbutler-stack",
  "gix",
  "serde",
