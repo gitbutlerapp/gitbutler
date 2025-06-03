@@ -54,7 +54,7 @@ pub mod csp;
 /// Note that these types *should not* be used to transfer anything to the frontend.
 mod from_json {
     use serde::{Deserialize, Deserializer};
-    use std::str::FromStr;
+    use std::{ops::Deref, str::FromStr};
 
     /// A type that deserializes a hexadecimal hash into an object id automatically.
     #[derive(Debug, Clone, Copy)]
@@ -63,6 +63,14 @@ mod from_json {
     impl From<HexHash> for gix::ObjectId {
         fn from(value: HexHash) -> Self {
             value.0
+        }
+    }
+
+    impl Deref for HexHash {
+        type Target = gix::ObjectId;
+
+        fn deref(&self) -> &Self::Target {
+            &self.0
         }
     }
 

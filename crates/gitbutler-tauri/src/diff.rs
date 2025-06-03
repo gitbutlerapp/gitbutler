@@ -101,7 +101,7 @@ fn changes_in_branch_inner(
         Ok((start_commit_id, merge_base.to_gix()))
     }?;
 
-    but_core::diff::ui::changes_in_commit_range(
+    but_core::diff::ui::changes_in_range(
         ctx.project().path.clone(),
         start_commit_id,
         base_commit_id,

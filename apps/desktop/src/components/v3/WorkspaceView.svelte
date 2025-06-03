@@ -17,6 +17,7 @@
 		assignedChangesFocusableId,
 		DefinedFocusable,
 		FocusManager,
+		parseSnapshotChangesFocusableId,
 		parseUnassignedChangesFocusable
 	} from '$lib/focus/focusManager.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
@@ -26,6 +27,8 @@
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Segment from '@gitbutler/ui/segmentControl/Segment.svelte';
 	import SegmentControl from '@gitbutler/ui/segmentControl/SegmentControl.svelte';
+	import { setContext } from 'svelte';
+	import { writable } from 'svelte/store';
 	import type { SelectionId } from '$lib/selection/key';
 
 	interface Props {
@@ -51,6 +54,9 @@
 	const drawerPage = $derived(projectState.drawerPage);
 	const drawerIsFullScreen = $derived(projectState.drawerFullScreen);
 
+	const snapshotFocusables = writable<string[]>([]);
+	setContext('snapshot-focusables', snapshotFocusables);
+
 	const stackFocusables = $derived(
 		stacksResult.current?.data
 			? stacksResult.current.data.map((stack) => assignedChangesFocusableId(stack.id))
@@ -63,7 +69,8 @@
 				DefinedFocusable.UncommittedChanges,
 				DefinedFocusable.Drawer,
 				DefinedFocusable.ViewportRight,
-				...stackFocusables
+				...stackFocusables,
+				...$snapshotFocusables
 			]
 		})
 	);
@@ -82,6 +89,13 @@
 		if (assignedChangesStackId) {
 			return { type: 'worktree', stackId: assignedChangesStackId };
 		}
+		const snapshot = focusGroup.current
+			? parseSnapshotChangesFocusableId(focusGroup.current)
+			: undefined;
+		if (snapshot) {
+			return { type: 'snapshot', before: snapshot.before, after: snapshot.after };
+		}
+
 		if (
 			focusGroup.current === DefinedFocusable.UncommittedChanges &&
 			worktreeSelection.entries.size > 0
@@ -153,7 +167,7 @@
 				{/snippet}
 			</WorktreeChanges>
 		{:else if canUseActions && $view === 'action-log'}
-			<ActionLog {projectId} />
+			<ActionLog {projectId} {selectionId} />
 		{/if}
 	{/snippet}
 

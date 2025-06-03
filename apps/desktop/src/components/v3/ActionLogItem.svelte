@@ -1,11 +1,21 @@
 <script lang="ts">
+	import ReduxResult from '$components/ReduxResult.svelte';
 	import DataContextMenu from '$components/v3/DataContextMenu.svelte';
+	import FileList from '$components/v3/FileList.svelte';
+	import { snapshotChangesFocusableId } from '$lib/focus/focusManager.svelte';
+	import { focusable } from '$lib/focus/focusable.svelte';
 	import { HistoryService } from '$lib/history/history';
+	import { OplogService } from '$lib/history/oplogService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
+	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
+	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
+	import { getContext as svelteGetContext, untrack } from 'svelte';
 	import type { ButlerAction, Outcome } from '$lib/actions/types';
+	import type { SelectionId } from '$lib/selection/key';
+	import type { Writable } from 'svelte/store';
 
 	type Props = {
 		projectId: string;
@@ -13,11 +23,45 @@
 		last: boolean;
 		previous: ButlerAction | undefined;
 		loadNextPage: () => void;
+		selectionId: SelectionId;
 	};
 
-	const { action, last, previous, projectId, loadNextPage }: Props = $props();
+	const { action, last, previous, projectId, loadNextPage, selectionId }: Props = $props();
+
+	// An ActionLogItem (for now) is representing both the git changes that
+	// happened but also the file changes that happened between this action and
+	// the previous one.
+	//
+	// Diffing `previous.snapshotAfter` and `action.snapshotBefore` gives us the
+	// changes that happend on disk between these two events.
 
 	const historyService = getContext(HistoryService);
+	const oplogService = getContext(OplogService);
+
+	const changes = $derived(
+		previous
+			? oplogService.diffWorktree({
+					projectId,
+					before: previous.snapshotAfter,
+					after: action.snapshotBefore
+				})
+			: undefined
+	);
+
+	const focusableId = $derived(
+		previous ? snapshotChangesFocusableId(previous.snapshotAfter, action.snapshotBefore) : undefined
+	);
+	const focusableIds = svelteGetContext<Writable<string[]>>('snapshot-focusables');
+
+	// Include the id in the radio group
+	$effect(() => {
+		if (focusableId) {
+			$focusableIds = [...untrack(() => $focusableIds), focusableId];
+			return () => {
+				$focusableIds = untrack(() => $focusableIds).filter((id) => id !== focusableId);
+			};
+		}
+	});
 
 	async function restore(id: string) {
 		await historyService.restoreSnapshot(projectId, id);
@@ -50,11 +94,11 @@
 	items={[
 		[
 			{
-				label: 'Jump to before',
+				label: 'Revert to before',
 				onclick: async () => await restore(action.snapshotBefore)
 			},
 			{
-				label: 'Jump to after',
+				label: 'Revert to after',
 				onclick: async () => await restore(action.snapshotAfter)
 			}
 		]
@@ -74,12 +118,15 @@
 				<span class="text-13 text-greyer"
 					><TimeAgo date={new Date(action.createdAt)} addSuffix /></span
 				>
+				<Tooltip text={action.externalPrompt}><div class="pill text-12">Prompt</div></Tooltip>
 			</div>
 			<div bind:this={showActionsTarget}>
 				<Button icon="kebab" size="tag" kind="outline" onclick={() => (showActions = true)} />
 			</div>
 		</div>
-		<span class="text-14 action-item__content__summary">{action.externalSummary}</span>
+		<span class="text-14 text-darkgrey">
+			<Markdown content={action.externalSummary} />
+		</span>
 		{#if action.response && action.response.updatedBranches.length > 0}
 			<div class="action-item__content__metadata">
 				{@render outcome(action.response)}
@@ -91,47 +138,70 @@
 	</div>
 </div>
 
-{#if previous}
-	<DataContextMenu
-		bind:open={showPreviousActions}
-		items={[
-			[
-				{
-					label: 'Jump to before',
-					onclick: async () => await restore(previous.snapshotAfter)
-				},
-				{
-					label: 'Jump to after',
-					onclick: async () => await restore(action.snapshotBefore)
-				}
-			]
-		]}
-		target={showPreviousActionsTarget}
-	/>
+{#if previous && changes}
+	<ReduxResult {projectId} result={changes.current}>
+		{#snippet children(changes, { projectId: _projectId })}
+			{#if changes.changes.length > 0 && focusableId}
+				<DataContextMenu
+					bind:open={showPreviousActions}
+					items={[
+						[
+							{
+								label: 'Revert to before',
+								onclick: async () => await restore(previous.snapshotAfter)
+							},
+							{
+								label: 'Revert to after',
+								onclick: async () => await restore(action.snapshotBefore)
+							}
+						]
+					]}
+					target={showPreviousActionsTarget}
+				/>
 
-	<div class="action-item">
-		<div class="action-item__robot">
-			<Icon name="robot" />
-		</div>
-		<div class="action-item__content">
-			<div class="action-item__content__header">
-				<div>
-					<p class="text-13 text-bold">Files changed</p>
-					<span class="text-13 text-greyer"
-						><TimeAgo date={new Date(previous.createdAt)} addSuffix /></span
-					>
+				<div class="action-item" use:focusable={{ id: focusableId }}>
+					<div class="action-item__robot">
+						<Icon name="robot" />
+					</div>
+					<div class="action-item__content">
+						<div class="action-item__content__header">
+							<div>
+								<p class="text-13 text-bold">Files changed</p>
+								<span class="text-13 text-greyer"
+									><TimeAgo date={new Date(previous.createdAt)} addSuffix /></span
+								>
+							</div>
+							<div bind:this={showPreviousActionsTarget}>
+								<Button
+									icon="kebab"
+									size="tag"
+									kind="outline"
+									onclick={() => (showPreviousActions = true)}
+								/>
+							</div>
+						</div>
+
+						<div class="action-item__content__metadata">
+							<FileList
+								{projectId}
+								changes={changes.changes}
+								listMode="list"
+								draggableFiles={false}
+								selectionId={{
+									type: 'snapshot',
+									before: previous.snapshotAfter,
+									after: action.snapshotBefore
+								}}
+								active={selectionId.type === 'snapshot' &&
+									selectionId.before === previous.snapshotAfter &&
+									selectionId.after === action.snapshotBefore}
+							/>
+						</div>
+					</div>
 				</div>
-				<div bind:this={showPreviousActionsTarget}>
-					<Button
-						icon="kebab"
-						size="tag"
-						kind="outline"
-						onclick={() => (showPreviousActions = true)}
-					/>
-				</div>
-			</div>
-		</div>
-	</div>
+			{/if}
+		{/snippet}
+	</ReduxResult>
 {/if}
 
 {#snippet outcome(outcome: Outcome)}
@@ -203,10 +273,6 @@
 		border-radius: var(--radius-m);
 	}
 
-	.action-item__content__summary {
-		white-space: pre-wrap;
-	}
-
 	.outcome-item {
 		display: flex;
 
@@ -224,7 +290,19 @@
 		color: var(--clr-text-2);
 	}
 
+	.text-darkgrey {
+		color: var(--clr-core-ntrl-20);
+		text-decoration-color: var(--clr-core-ntrl-20);
+	}
+
 	.text-greyer {
 		color: var(--clr-text-3);
+	}
+
+	.pill {
+		padding: 2px 6px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: 99px;
+		background-color: var(--clr-bg-2);
 	}
 </style>

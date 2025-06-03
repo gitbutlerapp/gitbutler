@@ -4,12 +4,14 @@
 	import ActionService from '$lib/actions/actionService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { untrack } from 'svelte';
+	import type { SelectionId } from '$lib/selection/key';
 
 	type Props = {
 		projectId: string;
+		selectionId: SelectionId;
 	};
 
-	const { projectId }: Props = $props();
+	const { projectId, selectionId }: Props = $props();
 
 	const [actionService] = inject(ActionService);
 
@@ -33,7 +35,7 @@
 <div class="action-log-wrap">
 	<div class="action-log">
 		<div class="action-log__header">
-			<h2 class="text-16 text-semibold">Action Log</h2>
+			<h2 class="text-16 text-semibold">Butler Actions</h2>
 		</div>
 		<div class="scrollable">
 			{#each pages as page, pi}
@@ -47,6 +49,7 @@
 								{action}
 								{last}
 								{loadNextPage}
+								{selectionId}
 								previous={previous(pi, i, lastInPage, last)}
 							/>
 						{/each}

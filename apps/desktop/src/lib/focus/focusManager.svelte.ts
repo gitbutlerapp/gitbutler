@@ -35,6 +35,23 @@ export function parseUnassignedChangesFocusable(id: string): string | undefined 
 	return halves[1];
 }
 
+export function snapshotChangesFocusableId(before: string, after: string) {
+	return `snapshot-changes:${before}:${after}`;
+}
+
+export function parseSnapshotChangesFocusableId(
+	id: string
+): { before: string; after: string } | undefined {
+	if (!id.startsWith('snapshot-changes')) {
+		return;
+	}
+	const halves = id.split(':');
+	if (halves.length !== 3) {
+		return;
+	}
+	return { before: halves[1]!, after: halves[2]! };
+}
+
 export type Focusable = DefinedFocusable | string;
 
 export type FocusableElement = {
