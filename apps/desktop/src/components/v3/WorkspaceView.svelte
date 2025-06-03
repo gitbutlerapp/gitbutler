@@ -23,6 +23,7 @@
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
+	import { persisted } from '@gitbutler/shared/persisted';
 	import Segment from '@gitbutler/ui/segmentControl/Segment.svelte';
 	import SegmentControl from '@gitbutler/ui/segmentControl/SegmentControl.svelte';
 	import type { SelectionId } from '$lib/selection/key';
@@ -99,7 +100,7 @@
 		return { type: 'worktree' };
 	});
 
-	let view = $state<'worktree' | 'action-log'>('worktree');
+	const view = persisted<'worktree' | 'action-log'>('worktree', 'left-sidebar-tab');
 
 	function onerror(err: unknown) {
 		// Clear selection if branch not found.
@@ -120,9 +121,9 @@
 			<div class="left-view-toggle">
 				<SegmentControl
 					fullWidth
-					defaultIndex={view === 'worktree' ? 0 : 1}
+					defaultIndex={$view === 'worktree' ? 0 : 1}
 					onselect={(id) => {
-						view = id as 'worktree' | 'action-log';
+						$view = id as 'worktree' | 'action-log';
 					}}
 				>
 					<Segment id="worktree" icon="file-changes" />
@@ -131,7 +132,7 @@
 			</div>
 		{/if}
 
-		{#if !canUseActions || view === 'worktree'}
+		{#if !canUseActions || $view === 'worktree'}
 			<WorktreeChanges
 				title="Unassigned"
 				{projectId}
@@ -151,7 +152,7 @@
 					</div>
 				{/snippet}
 			</WorktreeChanges>
-		{:else if canUseActions && view === 'action-log'}
+		{:else if canUseActions && $view === 'action-log'}
 			<ActionLog {projectId} />
 		{/if}
 	{/snippet}
