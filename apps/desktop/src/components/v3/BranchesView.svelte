@@ -48,7 +48,6 @@
 	const drawerIsFullScreen = $derived(projectState.drawerFullScreen);
 	const baseBranchResult = $derived(baseBranchService.baseBranch(projectId));
 	const branchesSelection = $derived(projectState.branchesSelection);
-	const drawerPage = $derived(projectState.drawerPage);
 
 	const selectedOption = persisted<SelectedOption>('all', `branches-selectedOption-${projectId}`);
 
@@ -261,40 +260,39 @@
 				{#if !drawerIsFullScreen.current}
 					<SelectionView {projectId} {selectionId} draggableFiles />
 				{/if}
-				{#if drawerPage.current}
-					{#if current.commitId}
-						<UnappliedCommitView {projectId} commitId={current.commitId} />
-					{:else if current.branchName}
-						{#if current.inWorkspace && current.stackId}
-							<BranchView
-								{projectId}
-								branchName={current.branchName}
-								stackId={current.stackId}
-								draggableFiles={false}
-								active
-								{onerror}
-							/>
-						{:else if !current.isTarget}
-							<UnappliedBranchView
-								{projectId}
-								branchName={current.branchName}
-								stackId={current.stackId}
-								remote={current.remote}
-								prNumber={current.prNumber}
-								{onerror}
-							/>
-						{/if}
-					{:else if current.prNumber}
-						<PrBranchView {projectId} prNumber={current.prNumber} {onerror} />
-					{:else if !current.branchName && !current.prNumber}
-						<!-- TODO: Make this fallback better somehow? -->
+
+				{#if current.commitId}
+					<UnappliedCommitView {projectId} commitId={current.commitId} />
+				{:else if current.branchName}
+					{#if current.inWorkspace && current.stackId}
+						<BranchView
+							{projectId}
+							branchName={current.branchName}
+							stackId={current.stackId}
+							draggableFiles={false}
+							active
+							{onerror}
+						/>
+					{:else if !current.isTarget}
 						<UnappliedBranchView
 							{projectId}
-							branchName={baseBranch.shortName}
-							remote={baseBranch.remoteName}
+							branchName={current.branchName}
+							stackId={current.stackId}
+							remote={current.remote}
+							prNumber={current.prNumber}
 							{onerror}
 						/>
 					{/if}
+				{:else if current.prNumber}
+					<PrBranchView {projectId} prNumber={current.prNumber} {onerror} />
+				{:else if !current.branchName && !current.prNumber}
+					<!-- TODO: Make this fallback better somehow? -->
+					<UnappliedBranchView
+						{projectId}
+						branchName={baseBranch.shortName}
+						remote={baseBranch.remoteName}
+						{onerror}
+					/>
 				{/if}
 			{/snippet}
 
