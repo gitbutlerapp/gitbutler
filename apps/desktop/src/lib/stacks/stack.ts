@@ -186,10 +186,14 @@ export function stackHasConflicts(stack: StackDetails): boolean {
 }
 
 export function stackHasUnpushedCommits(stack: StackDetails): boolean {
+	return requiresPush(stack.pushStatus);
+}
+
+export function requiresPush(status: PushStatus): boolean {
 	return (
-		stack.pushStatus === 'unpushedCommits' ||
-		stack.pushStatus === 'unpushedCommitsRequiringForce' ||
-		stack.pushStatus === 'completelyUnpushed'
+		status === 'unpushedCommits' ||
+		status === 'unpushedCommitsRequiringForce' ||
+		status === 'completelyUnpushed'
 	);
 }
 
