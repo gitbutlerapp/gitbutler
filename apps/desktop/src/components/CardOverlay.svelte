@@ -33,18 +33,20 @@
 	)}rem; --padding-left: {pxToRem(defaultPadding + extraPaddingLeft)}rem"
 >
 	<div class="container">
-		<div class="dropzone-label">
-			<svg
-				class="dropzone-label-icon"
-				viewBox="0 0 12 12"
-				fill="none"
-				xmlns="http://www.w3.org/2000/svg"
-			>
-				<path d="M11 7L6 2M6 2L1 7M6 2L6 12" stroke="white" stroke-width="1.5" />
-			</svg>
+		{#if label !== ''}
+			<div class="dropzone-label">
+				<svg
+					class="dropzone-label-icon"
+					viewBox="0 0 12 12"
+					fill="none"
+					xmlns="http://www.w3.org/2000/svg"
+				>
+					<path d="M11 7L6 2M6 2L1 7M6 2L6 12" stroke="white" stroke-width="1.5" />
+				</svg>
 
-			<span class="text-12 text-semibold">{label}</span>
-		</div>
+				<span class="text-12 text-semibold">{label}</span>
+			</div>
+		{/if}
 
 		<!-- add svg rectange -->
 		<svg width="100%" height="100%" class="animated-rectangle">
@@ -83,6 +85,7 @@
 
 			.animated-rectangle rect {
 				fill: oklch(from var(--clr-scale-pop-50) l c h / 0.16);
+				stroke: oklch(from var(--clr-scale-pop-50) l c h / 1);
 				animation: dash 4s linear infinite;
 			}
 
@@ -147,16 +150,13 @@
 
 		& rect {
 			fill: oklch(from var(--clr-scale-pop-50) l c h / 0.1);
-			stroke: var(--clr-scale-pop-50);
+			stroke: oklch(from var(--clr-scale-pop-50) l c h / 0.8);
 
 			stroke-width: 2px;
 			stroke-dasharray: 2;
 			stroke-dashoffset: 30;
 			transform-origin: center;
-
-			transition:
-				fill var(--transition-fast),
-				transform var(--transition-fast);
+			transition: fill var(--transition-fast);
 		}
 	}
 

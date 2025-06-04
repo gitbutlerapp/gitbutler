@@ -1,12 +1,15 @@
 @import './fonts/fonts.css';
 @import './draggable.css';
 
+:root {
+	--lane-multi-max-width: 340px;
+}
+
 body {
 	width: 100vw;
 	height: 100vh;
 	overflow-y: hidden;
 	background-color: var(--clr-bg-2);
-
 	color: var(--clr-text-1);
 	user-select: none;
 }

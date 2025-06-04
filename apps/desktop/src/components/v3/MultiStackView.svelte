@@ -7,8 +7,10 @@
 	import MultiStackPagination, { scrollToLane } from '$components/v3/MultiStackPagination.svelte';
 	import StackDraft from '$components/v3/StackDraft.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
+	import noAssignmentsSvg from '$lib/assets/empty-state/no-assignments.svg?raw';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import { stackLayoutMode } from '$lib/config/uiFeatureFlags';
+	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
@@ -51,12 +53,14 @@
 		if ($stackLayoutMode) scrollbar?.updateTrack();
 	});
 
-	const [uiState] = inject(UiState);
+	const [uiState, uncommittedService] = inject(UiState, UncommittedService);
 	const projectState = $derived(uiState.project(projectId));
 	const drawer = $derived(projectState.drawerPage);
 	const isCommitting = $derived(drawer.current === 'new-commit');
 
 	const SHOW_PAGINATION_THRESHOLD = 1;
+
+	let dropzoneActivated = $state(false);
 </script>
 
 <div class="lanes">
@@ -141,15 +145,41 @@
 							{active}
 						>
 							{#snippet assignments()}
-								<div class="assignments">
+								{@const changes = uncommittedService.changesByStackId(stack.id || null)}
+								<!-- {#if changes.current.length > 0 || dropzoneActivated} -->
+								<!-- class:hidden={changes.current.length === 0 && !dropzoneActivated} -->
+								<div
+									class="assignments"
+									class:assignments__empty={changes.current.length === 0}
+									class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
+								>
 									<WorktreeChanges
 										title="Assigned"
 										{projectId}
 										stackId={stack.id}
+										mode="assigned"
 										active={selectionId.type === 'worktree' && selectionId.stackId === stack.id}
-										hideWhenEmpty
-									/>
+										onDropzoneActivated={(activated) => {
+											dropzoneActivated = activated;
+										}}
+									>
+										{#snippet emptyPlaceholder()}
+											<div class="assigned-changes-empty">
+												<div class="assigned-changes-empty__svg-wrapper">
+													<div class="assigned-changes-empty__svg">
+														{@html noAssignmentsSvg}
+													</div>
+												</div>
+												<p class="text-12 text-body assigned-changes-empty__text">
+													<!-- <h4 class="text-14 text-semibold">Assign changes</h4> -->
+													<!-- <p class="text-12 text-body assigned-changes-empty__description"> -->
+													Drop files to assign to the lane
+												</p>
+											</div>
+										{/snippet}
+									</WorktreeChanges>
 								</div>
+								<!-- {/if} -->
 							{/snippet}
 						</BranchList>
 					</div>
@@ -267,7 +297,7 @@
 		}
 		&.multi {
 			width: 100%;
-			max-width: 340px;
+			max-width: var(--lane-multi-max-width);
 		}
 		&.vertical {
 			border-bottom: 1px solid var(--clr-border-2);
@@ -317,7 +347,67 @@
 		}
 	}
 
+	/* EMPTY ASSIGN AREA */
+	.assigned-changes-empty {
+		display: flex;
+		position: relative;
+		padding: 6px 8px 8px;
+		overflow: hidden;
+		gap: 12px;
+		transition: padding 0.12s ease;
+	}
+
+	.assigned-changes-empty__svg-wrapper {
+		display: flex;
+		position: relative;
+		flex-shrink: 0;
+		width: 70px;
+	}
+
+	.assigned-changes-empty__svg {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		width: 100%;
+		transform: translate(-50%, -50%);
+		transition: top 0.12s ease;
+	}
+
+	.assigned-changes-empty__text {
+		color: var(--clr-text-2);
+		opacity: 0.8;
+	}
+
 	.assignments {
-		padding: 12px 12px 0 12px;
+		display: flex;
+		flex-direction: column;
+
+		margin-bottom: 8px;
+		overflow: hidden;
+
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+		background-color: var(--clr-bg-1);
+
+		&.dropzone-activated {
+			& .assigned-changes-empty {
+				padding: 16px 8px 20px;
+				background-color: var(--clr-bg-1);
+				will-change: padding;
+			}
+
+			& .assigned-changes-empty__svg {
+				top: 20%;
+				will-change: top;
+			}
+		}
+	}
+
+	.assignments__empty {
+		margin-top: -12px;
+		border-top: none;
+		border-top-right-radius: 0;
+		border-top-left-radius: 0;
+		background-color: var(--clr-bg-2);
 	}
 </style>

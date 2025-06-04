@@ -147,25 +147,27 @@
 		{/if}
 
 		{#if !canUseActions || $view === 'worktree'}
-			<WorktreeChanges
-				title="Unassigned"
-				{projectId}
-				stackId={undefined}
-				active={selectionId.type === 'worktree' && selectionId.stackId === undefined}
-			>
-				{#snippet emptyPlaceholder()}
-					<div class="uncommitted-changes__empty">
-						<div class="uncommitted-changes__empty__placeholder">
-							{@html noChanges}
-							<p class="text-13 text-body uncommitted-changes__empty__placeholder-text">
-								You're all caught up!<br />
-								No files need committing
-							</p>
+			<div class="unassigned-changes__container">
+				<WorktreeChanges
+					title="Unassigned"
+					{projectId}
+					stackId={undefined}
+					active={selectionId.type === 'worktree' && selectionId.stackId === undefined}
+				>
+					{#snippet emptyPlaceholder()}
+						<div class="unassigned-changes__empty">
+							<div class="unassigned-changes__empty__placeholder">
+								{@html noChanges}
+								<p class="text-13 text-body unassigned-changes__empty__placeholder-text">
+									You're all caught up!<br />
+									No files need committing
+								</p>
+							</div>
+							<WorktreeTipsFooter />
 						</div>
-						<WorktreeTipsFooter />
-					</div>
-				{/snippet}
-			</WorktreeChanges>
+					{/snippet}
+				</WorktreeChanges>
+			</div>
 		{:else if canUseActions && $view === 'action-log'}
 			<ActionLog {projectId} {selectionId} />
 		{/if}
@@ -236,17 +238,27 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-
 		margin-bottom: 8px;
 	}
 
-	.uncommitted-changes__empty {
+	/* UNASSIGN CHANGES */
+	.unassigned-changes__container {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+		background-color: var(--clr-bg-1);
+	}
+
+	.unassigned-changes__empty {
 		display: flex;
 		flex-direction: column;
 		height: 100%;
 	}
 
-	.uncommitted-changes__empty__placeholder {
+	.unassigned-changes__empty__placeholder {
 		display: flex;
 		flex: 1;
 		flex-direction: column;
@@ -256,7 +268,7 @@
 		gap: 20px;
 	}
 
-	.uncommitted-changes__empty__placeholder-text {
+	.unassigned-changes__empty__placeholder-text {
 		color: var(--clr-text-3);
 		text-align: center;
 	}

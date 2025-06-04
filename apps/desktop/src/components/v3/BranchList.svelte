@@ -112,9 +112,6 @@
 </script>
 
 <div class="wrapper">
-	{#if $assignmentEnabled}
-		{@render assignments()}
-	{/if}
 	<ReduxResult {projectId} {stackId} result={branchesResult.current}>
 		{#snippet children(branches, { stackId, projectId })}
 			{@const stackingReorderDropzoneManager = stackingReorderDropzoneManagerFactory.build(
@@ -123,6 +120,9 @@
 			)}
 			<ScrollableContainer>
 				<div class="branches-wrapper">
+					{#if $assignmentEnabled}
+						{@render assignments()}
+					{/if}
 					{#each branches as branch, i}
 						{@const branchName = branch.name}
 						{@const localAndRemoteCommits = stackService.commits(projectId, stackId, branchName)}

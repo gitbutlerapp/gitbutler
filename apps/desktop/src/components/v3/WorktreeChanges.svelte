@@ -20,17 +20,27 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { type Snippet } from 'svelte';
+	import type { DropzoneHandler } from '$lib/dragging/handler';
 
 	type Props = {
 		projectId: string;
 		stackId?: string;
 		active: boolean;
 		title: string;
-		hideWhenEmpty?: boolean;
+		mode?: 'unassigned' | 'assigned';
+		onDropzoneActivated?: (activated: boolean) => void;
 		emptyPlaceholder?: Snippet;
 	};
 
-	let { projectId, active, stackId, title, hideWhenEmpty, emptyPlaceholder }: Props = $props();
+	let {
+		projectId,
+		active,
+		stackId,
+		title,
+		mode = 'unassigned',
+		onDropzoneActivated,
+		emptyPlaceholder
+	}: Props = $props();
 
 	const [uiState, stackService, diffService, uncommittedService] = inject(
 		UiState,
@@ -79,15 +89,25 @@
 		uncommittedService,
 		stackId || null
 	);
+
+	function getDropzoneLabel(handler: DropzoneHandler | undefined): string {
+		if (handler instanceof UncommitDzHandler) {
+			return 'Uncommit changes';
+		} else if (mode === 'assigned') {
+			return 'Assign changes';
+		} else {
+			return 'Unassign changes';
+		}
+	}
 </script>
 
-<Dropzone handlers={[uncommitDzHandler, assignmentDZHandler].filter(isDefined)} maxHeight>
+<Dropzone
+	handlers={[uncommitDzHandler, assignmentDZHandler].filter(isDefined)}
+	maxHeight
+	onActivated={onDropzoneActivated}
+>
 	{#snippet overlay({ hovered, activated, handler })}
-		<CardOverlay
-			{hovered}
-			{activated}
-			label={handler instanceof UncommitDzHandler ? 'Uncommit changes' : 'Unassign changes'}
-		/>
+		<CardOverlay {hovered} {activated} label={getDropzoneLabel(handler)} />
 	{/snippet}
 
 	<div
@@ -99,7 +119,7 @@
 			parentId: DefinedFocusable.ViewportLeft
 		}}
 	>
-		{#if changes.current.length > 0 || !hideWhenEmpty}
+		{#if mode !== 'assigned' || changes.current.length > 0}
 			<div
 				data-testid={TestId.UncommittedChanges_Header}
 				class="worktree-header"
@@ -111,13 +131,15 @@
 					{/if}
 					<div class="worktree-header__title truncate">
 						<h3 class="text-14 text-semibold truncate">{title}</h3>
-
 						<Badge>{changes.current.length}</Badge>
 					</div>
 				</div>
-				<FileListMode bind:mode={listMode} persist="uncommitted" />
+				{#if changes.current.length > 0}
+					<FileListMode bind:mode={listMode} persist="uncommitted" />
+				{/if}
 			</div>
 		{/if}
+
 		{#if changes.current.length > 0}
 			<ScrollableContainer
 				autoScroll={false}
@@ -146,7 +168,6 @@
 					testId={TestId.StartCommitButton}
 					kind={isCommitting ? 'outline' : 'solid'}
 					type="button"
-					size="cta"
 					wide
 					disabled={defaultBranchResult?.current.isLoading}
 					onclick={() => {
@@ -158,9 +179,11 @@
 					}}
 				>
 					{#if isCommitting}
-						Cancel
-					{:else}
+						Cancel committing
+					{:else if mode === 'assigned'}
 						Start a commit…
+					{:else}
+						Commit to selected branch…
 					{/if}
 				</Button>
 			</div>
@@ -175,10 +198,6 @@
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-1);
 	}
 
 	.worktree-header {
@@ -186,6 +205,7 @@
 		align-items: center;
 		justify-content: space-between;
 		width: 100%;
+		height: 42px;
 		padding: 10px 10px 10px 14px;
 		gap: 8px;
 		background-color: var(--clr-bg-1);

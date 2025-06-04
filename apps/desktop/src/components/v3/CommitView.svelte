@@ -149,7 +149,7 @@
 					projectId={env.projectId}
 					stackId={env.stackId}
 					action={({ title, description }) => saveCommitMessage(title, description)}
-					actionLabel="Save"
+					actionLabel="Save changes"
 					onCancel={cancelEdit}
 					loading={messageUpdateResult.current.isLoading}
 					existingCommitId={commit.id}
