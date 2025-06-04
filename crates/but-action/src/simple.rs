@@ -12,7 +12,7 @@ use gitbutler_oxidize::OidExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::VirtualBranchesHandle;
 
-use crate::{Outcome, default_target_setting_if_none};
+use crate::{Outcome, default_target_setting_if_none, generate::commit_message_blocking};
 /// This is a GitButler automation which allows easy handling of uncommitted changes in a repository.
 /// At a high level, it will:
 ///   - Checkout GitButler's workspace branch if not already checked out
@@ -41,7 +41,8 @@ pub fn handle_changes(
         )?
         .to_gix();
 
-    let response = handle_changes_simple_inner(ctx, change_summary, vb_state, perm);
+    let response =
+        handle_changes_simple_inner(ctx, change_summary, external_prompt.clone(), vb_state, perm);
 
     let snapshot_after = ctx
         .create_snapshot(
@@ -68,6 +69,7 @@ pub fn handle_changes(
 fn handle_changes_simple_inner(
     ctx: &mut CommandContext,
     change_summary: &str,
+    external_prompt: Option<String>,
     vb_state: &VirtualBranchesHandle,
     perm: &mut WorktreeWritePermission,
 ) -> anyhow::Result<Outcome> {
@@ -127,6 +129,13 @@ fn handle_changes_simple_inner(
 
     let mut updated_branches = vec![];
 
+    let commit_message = if std::env::var("OPENAI_API_KEY").is_ok() {
+        // TODO: Provide diff string
+        commit_message_blocking(change_summary, &external_prompt.unwrap_or_default(), "")?
+    } else {
+        change_summary.to_string()
+    };
+
     for (stack_id, diff_specs) in stack_assignments {
         if diff_specs.is_empty() {
             continue;
@@ -143,7 +152,7 @@ fn handle_changes_simple_inner(
             stack_id,
             None,
             diff_specs,
-            change_summary.to_owned(),
+            commit_message.clone(),
             stack_branch_name.clone(),
             perm,
         )?;
