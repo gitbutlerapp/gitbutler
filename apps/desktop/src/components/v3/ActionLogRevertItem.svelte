@@ -50,6 +50,7 @@
 	});
 	let showActions = $state(false);
 	let showActionsTarget = $state<HTMLElement>();
+	let failedToLoadImage = $state(false);
 </script>
 
 <DataContextMenu
@@ -67,8 +68,14 @@
 
 <div class="action-item">
 	<div class="action-item__robot">
-		{#if $user?.picture}
-			<img class="user-icon__image" src={$user.picture} alt="" referrerpolicy="no-referrer" />
+		{#if $user?.picture && !failedToLoadImage}
+			<img
+				class="user-icon__image"
+				src={$user.picture}
+				alt=""
+				referrerpolicy="no-referrer"
+				onerror={() => (failedToLoadImage = true)}
+			/>
 		{:else}
 			<Icon name="profile" />
 		{/if}
@@ -96,6 +103,10 @@
 
 <style lang="postcss">
 	.action-item__robot {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+
 		width: 30px;
 		min-width: 30px;
 		height: 30px;
