@@ -128,7 +128,7 @@
 <MainViewport
 	name="workspace"
 	leftWidth={{ default: 280, min: 240 }}
-	rightWidth={{ default: 380, min: 240 }}
+	middleWidth={{ default: 380, min: 240 }}
 >
 	{#snippet left()}
 		{#if canUseActions}
@@ -174,36 +174,38 @@
 	{/snippet}
 
 	{#snippet middle()}
-		{#if !drawerIsFullScreen.current}
-			<SelectionView {projectId} {selectionId} draggableFiles />
-		{/if}
-		{#if drawerPage.current === 'new-commit'}
-			<NewCommitView {projectId} {stackId} />
-		{:else if drawerPage.current === 'branch' && stackId && branchName}
-			<BranchView
-				{stackId}
-				{projectId}
-				{branchName}
-				{onerror}
-				active={selectionId.type !== 'worktree'}
-				draggableFiles
-			/>
-		{:else if drawerPage.current === 'review' && stackId && branchName}
-			<ReviewView {stackId} {projectId} {branchName} />
-		{:else if branchName && commitId && stackId}
-			<CommitView
-				{projectId}
-				{stackId}
-				commitKey={{
-					stackId,
-					branchName,
-					commitId,
-					upstream
-				}}
-				active={selectionId.type !== 'worktree'}
-				{onerror}
-			/>
-		{/if}
+		<div class="middle-view">
+			{#if !drawerIsFullScreen.current}
+				<SelectionView {projectId} {selectionId} draggableFiles />
+			{/if}
+			{#if drawerPage.current === 'new-commit'}
+				<NewCommitView {projectId} {stackId} />
+			{:else if drawerPage.current === 'branch' && stackId && branchName}
+				<BranchView
+					{stackId}
+					{projectId}
+					{branchName}
+					{onerror}
+					active={selectionId.type !== 'worktree'}
+					draggableFiles
+				/>
+			{:else if drawerPage.current === 'review' && stackId && branchName}
+				<ReviewView {stackId} {projectId} {branchName} />
+			{:else if branchName && commitId && stackId}
+				<CommitView
+					{projectId}
+					{stackId}
+					commitKey={{
+						stackId,
+						branchName,
+						commitId,
+						upstream
+					}}
+					active={selectionId.type !== 'worktree'}
+					{onerror}
+				/>
+			{/if}
+		</div>
 	{/snippet}
 
 	{#snippet right()}
@@ -271,5 +273,15 @@
 	.unassigned-changes__empty__placeholder-text {
 		color: var(--clr-text-3);
 		text-align: center;
+	}
+
+	/* VIEWS */
+	.middle-view {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
 	}
 </style>
