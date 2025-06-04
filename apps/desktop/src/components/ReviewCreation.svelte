@@ -31,6 +31,7 @@
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { RemotesService } from '$lib/remotes/remotesService';
+	import { requiresPush } from '$lib/stacks/stack';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
@@ -89,10 +90,8 @@
 		branchParent ? stackService.branchDetails(projectId, stackId, branchParent.name) : undefined
 	);
 	const branchParentDetails = $derived(branchParentDetailsResult?.current.data);
-	const branchDetailsResult = $derived(
-		branchParent ? stackService.branchDetails(projectId, stackId, branchName) : undefined
-	);
-	const branchDetails = $derived(branchDetailsResult?.current.data);
+	const branchDetailsResult = $derived(stackService.branchDetails(projectId, stackId, branchName));
+	const branchDetails = $derived(branchDetailsResult.current.data);
 	const commitsResult = $derived(stackService.commits(projectId, stackId, branchName));
 	const commits = $derived(commitsResult.current.data || []);
 
@@ -109,7 +108,7 @@
 	const createPullRequest = persisted<boolean>(true, 'createPullRequest');
 
 	const pushBeforeCreate = $derived(
-		!forgeBranch || commits.some((c) => c.state.type === 'LocalOnly')
+		!forgeBranch || (branchDetails ? requiresPush(branchDetails.pushStatus) : true)
 	);
 
 	let titleInput = $state<ReturnType<typeof Textbox>>();
