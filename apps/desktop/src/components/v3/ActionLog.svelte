@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
+	import ActionLogFilesChanged from '$components/v3/ActionLogFilesChanged.svelte';
 	import ActionLogItem from '$components/v3/ActionLogMcpItem.svelte';
 	import ActionService from '$lib/actions/actionService.svelte';
 	import { inject } from '@gitbutler/shared/context';
@@ -46,14 +47,29 @@
 							{@const lastInPage = i === actions.actions.length - 1}
 							{@const last = lastInPage && page === pages.at(-1)!}
 							{@const p = previous(pi, i, lastInPage, last)}
-							{#if action.action.type === 'mcpAction' && (!p || p.action.type === 'mcpAction')}
+							{#if action.action.type === 'mcpAction'}
 								<ActionLogItem
 									{projectId}
 									action={action as ButlerAction & { action: { type: 'mcpAction' } }}
 									{last}
 									{loadNextPage}
+								/>
+							{/if}
+							{#if p}
+								{@const after =
+									action.action.type === 'mcpAction'
+										? action.action.subject.snapshotBefore
+										: action.action.subject.snapshot}
+								{@const before =
+									p.action.type === 'mcpAction'
+										? p.action.subject.snapshotAfter
+										: p.action.subject.snapshot}
+								<ActionLogFilesChanged
+									{projectId}
+									{before}
+									{after}
 									{selectionId}
-									previous={p as (ButlerAction & { action: { type: 'mcpAction' } }) | undefined}
+									timestamp={action.createdAt}
 								/>
 							{/if}
 						{/each}

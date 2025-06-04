@@ -1,32 +1,22 @@
 <script lang="ts">
-	import ReduxResult from '$components/ReduxResult.svelte';
 	import DataContextMenu from '$components/v3/DataContextMenu.svelte';
-	import FileList from '$components/v3/FileList.svelte';
-	import { snapshotChangesFocusableId } from '$lib/focus/focusManager.svelte';
-	import { focusable } from '$lib/focus/focusable.svelte';
 	import { HistoryService } from '$lib/history/history';
-	import { OplogService } from '$lib/history/oplogService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
-	import { getContext as svelteGetContext, untrack } from 'svelte';
 	import type { ButlerAction, Outcome } from '$lib/actions/types';
-	import type { SelectionId } from '$lib/selection/key';
-	import type { Writable } from 'svelte/store';
 
 	type Props = {
 		projectId: string;
 		action: ButlerAction & { action: { type: 'mcpAction' } };
 		last: boolean;
-		previous: (ButlerAction & { action: { type: 'mcpAction' } }) | undefined;
 		loadNextPage: () => void;
-		selectionId: SelectionId;
 	};
 
-	const { action, last, previous, projectId, loadNextPage, selectionId }: Props = $props();
+	const { action, last, projectId, loadNextPage }: Props = $props();
 
 	// An ActionLogItem (for now) is representing both the git changes that
 	// happened but also the file changes that happened between this action and
@@ -36,37 +26,6 @@
 	// changes that happend on disk between these two events.
 
 	const historyService = getContext(HistoryService);
-	const oplogService = getContext(OplogService);
-
-	const changes = $derived(
-		previous
-			? oplogService.diffWorktree({
-					projectId,
-					before: previous.action.subject.snapshotAfter,
-					after: action.action.subject.snapshotBefore
-				})
-			: undefined
-	);
-
-	const focusableId = $derived(
-		previous
-			? snapshotChangesFocusableId(
-					previous.action.subject.snapshotAfter,
-					action.action.subject.snapshotBefore
-				)
-			: undefined
-	);
-	const focusableIds = svelteGetContext<Writable<string[]>>('snapshot-focusables');
-
-	// Include the id in the radio group
-	$effect(() => {
-		if (focusableId) {
-			$focusableIds = [...untrack(() => $focusableIds), focusableId];
-			return () => {
-				$focusableIds = untrack(() => $focusableIds).filter((id) => id !== focusableId);
-			};
-		}
-	});
 
 	async function restore(id: string) {
 		await historyService.restoreSnapshot(projectId, id);
@@ -87,10 +46,7 @@
 		observer.observe(lastIntersector);
 		return () => observer.disconnect();
 	});
-
-	let showPreviousActions = $state(false);
 	let showActions = $state(false);
-	let showPreviousActionsTarget = $state<HTMLElement>();
 	let showActionsTarget = $state<HTMLElement>();
 </script>
 
@@ -144,72 +100,6 @@
 		{/if}
 	</div>
 </div>
-
-{#if previous && changes}
-	<ReduxResult {projectId} result={changes.current}>
-		{#snippet children(changes, { projectId: _projectId })}
-			{#if changes.changes.length > 0 && focusableId}
-				<DataContextMenu
-					bind:open={showPreviousActions}
-					items={[
-						[
-							{
-								label: 'Revert to before',
-								onclick: async () => await restore(previous.action.subject.snapshotAfter)
-							},
-							{
-								label: 'Revert to after',
-								onclick: async () => await restore(action.action.subject.snapshotBefore)
-							}
-						]
-					]}
-					target={showPreviousActionsTarget}
-				/>
-
-				<div class="action-item" use:focusable={{ id: focusableId }}>
-					<div class="action-item__robot">
-						<Icon name="robot" />
-					</div>
-					<div class="action-item__content">
-						<div class="action-item__content__header">
-							<div>
-								<p class="text-13 text-bold">Files changed</p>
-								<span class="text-13 text-greyer"
-									><TimeAgo date={new Date(previous.createdAt)} addSuffix /></span
-								>
-							</div>
-							<div bind:this={showPreviousActionsTarget}>
-								<Button
-									icon="kebab"
-									size="tag"
-									kind="outline"
-									onclick={() => (showPreviousActions = true)}
-								/>
-							</div>
-						</div>
-
-						<div class="action-item__content__metadata">
-							<FileList
-								{projectId}
-								changes={changes.changes}
-								listMode="list"
-								draggableFiles={false}
-								selectionId={{
-									type: 'snapshot',
-									before: previous.action.subject.snapshotAfter,
-									after: action.action.subject.snapshotBefore
-								}}
-								active={selectionId.type === 'snapshot' &&
-									selectionId.before === previous.action.subject.snapshotAfter &&
-									selectionId.after === action.action.subject.snapshotBefore}
-							/>
-						</div>
-					</div>
-				</div>
-			{/if}
-		{/snippet}
-	</ReduxResult>
-{/if}
 
 {#snippet outcome(outcome: Outcome)}
 	{#each outcome.updatedBranches as branch}
