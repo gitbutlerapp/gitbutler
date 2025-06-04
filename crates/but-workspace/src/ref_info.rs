@@ -28,7 +28,6 @@ pub(crate) mod function {
     use anyhow::bail;
     use bstr::BString;
     use but_core::ref_metadata::{ValueInfo, Workspace, WorkspaceStack};
-    use gitbutler_oxidize::{ObjectIdExt as _, OidExt};
     use gix::prelude::{ObjectIdExt, ReferenceExt};
     use gix::refs::{Category, FullName};
     use gix::revision::walk::Sorting;
@@ -775,7 +774,6 @@ pub(crate) mod function {
     }
 
     /// Akin to `log()`, but less powerful.
-    // TODO: replace with something better, and also use `.hide()`.
     fn walk_commits(
         repo: &gix::Repository,
         from: &gix::refs::FullNameRef,
@@ -790,8 +788,7 @@ pub(crate) mod function {
         Ok(from_id
             .ancestors()
             .sorting(Sorting::BreadthFirst)
-            // TODO: use 'hide()'
-            .with_boundary(hide)
+            .with_hidden(hide)
             .all()?
             .filter_map(Result::ok)
             .map(|info| info.id)
@@ -905,7 +902,6 @@ pub(crate) mod function {
         // NOTE: The check for similarity is currently run across all remote branches in the stack.
         //       Further, this doesn't handle reorderings/topology differences at all, it's just there or not.
         let mut similarity_lut = HashMap::<ChangeIdOrCommitData, gix::ObjectId>::new();
-        let git2_repo = git2::Repository::open(repo.path())?;
         for stack in stacks {
             let segments_with_remote_ref_tips_and_base: Vec<_> = stack
                 .segments
@@ -970,14 +966,14 @@ pub(crate) mod function {
                             }
                         };
 
-                    let mut walk = git2_repo.revwalk()?;
-                    walk.push(remote_ref_tip.to_git2())?;
-                    walk.simplify_first_parent()?;
-                    for id in &boundary {
-                        walk.hide(id.to_git2())?;
-                    }
+                    let walk = remote_ref_tip
+                        .attach(repo)
+                        .ancestors()
+                        .first_parent_only()
+                        .with_hidden(boundary.iter().cloned())
+                        .all()?;
                     'remote_branch_traversal: for info in walk {
-                        let id = info?.to_gix();
+                        let id = info?.id;
                         if let Some(idx) = segment
                             .commits_unique_from_tip
                             .iter_mut()
@@ -1057,12 +1053,8 @@ pub(crate) mod function {
             if let Some((target_ref_name, (target_remote_id, target_local_id))) =
                 target_ref_name_and_ids
             {
-                let mut check_commit = IsCommitIntegrated::new2(
-                    repo,
-                    &git2_repo,
-                    target_ref_name.as_ref(),
-                    merge_graph,
-                )?;
+                let mut check_commit =
+                    IsCommitIntegrated::new_with_gix(repo, target_ref_name.as_ref(), merge_graph)?;
                 // TODO: remote commits could also be integrated, this seems overly simplified.
                 //      For now, just emulate the current implementation (hopefully).
                 for local_commit in stack
@@ -1070,10 +1062,7 @@ pub(crate) mod function {
                     .iter_mut()
                     .flat_map(|segment| &mut segment.commits_unique_from_tip)
                 {
-                    if is_integrated || {
-                        let commit = git2_repo.find_commit(local_commit.id.to_git2())?;
-                        check_commit.is_integrated(&commit)
-                    }? {
+                    if is_integrated || { check_commit.is_integrated_gix(local_commit.id) }? {
                         is_integrated = true;
                         local_commit.relation = LocalCommitRelation::Integrated;
                     }
@@ -1167,8 +1156,8 @@ pub(crate) mod function {
             .ancestors()
             .first_parent_only()
             .sorting(Sorting::BreadthFirst)
-            // TODO: boundary should be 'hide'.
-            .selected(|id_to_yield| !boundary_commits.contains(id_to_yield))?
+            .with_hidden(boundary_commits.iter().cloned())
+            .all()?
             .enumerate()
         {
             let segment_ref = segment.as_mut().expect("a segment is always present here");
