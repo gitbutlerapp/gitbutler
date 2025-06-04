@@ -890,8 +890,6 @@ fn forced_integrated(
         });
 
         if let Some(commit_ref) = &commit_ref {
-            dbg!(commit_ref);
-            dbg!(&ref_name);
             &commit_ref.to_string() == ref_name
         } else {
             false

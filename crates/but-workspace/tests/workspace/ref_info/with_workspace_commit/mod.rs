@@ -1475,6 +1475,92 @@ fn two_branches_stracked_with_remotes() -> anyhow::Result<()> {
 }
 
 #[test]
+fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("two-dependent-branches-with-interesting-remote-setup")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * a221221 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * aadad9d (A) shared by name
+    * 96a2408 (origin/main) another unrelated
+    | * 2b1808c (origin/A) shared by name
+    |/  
+    * f15ca75 (integrated) other integrated
+    * 9456d79 integrated in target
+    * fafd9d0 (main) init
+    ");
+
+    // Just a single explicit reference we want to know of.
+    add_stack(
+        &mut meta,
+        StackId::from_number_for_testing(1),
+        "A",
+        StackState::InWorkspace,
+    );
+
+    let opts = standard_options();
+    let info = ref_info(repo.find_reference("A")?, &*meta, opts).unwrap();
+
+    // TODO: A should just have 1 commit, remote should only have one commit.
+    //       'integrated' shouldn't be listed.
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [
+            Stack {
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                segments: [
+                    StackSegment {
+                        ref_name: "refs/heads/A",
+                        remote_tracking_ref_name: "refs/remotes/origin/A",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [
+                            LocalCommit(aadad9d, "shared by name\n", local/remote(similarity)),
+                            LocalCommit(96a2408, "another unrelated\n", local),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [
+                            RemoteCommit(f15ca75, "other integrated\n",
+                            RemoteCommit(9456d79, "integrated in target\n",
+                        ],
+                        metadata: Some(
+                            Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                        ),
+                    },
+                    StackSegment {
+                        ref_name: "refs/heads/integrated",
+                        remote_tracking_ref_name: "None",
+                        ref_location: "ReachableFromWorkspaceCommit",
+                        commits_unique_from_tip: [
+                            LocalCommit(f15ca75, "other integrated\n", integrated),
+                            LocalCommit(9456d79, "integrated in target\n", integrated),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: None,
+                    },
+                ],
+                stash_status: None,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+    }
+    "#);
+    Ok(())
+}
+
+#[test]
 fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<()> {
     let (repo, mut meta) =
         read_only_in_memory_scenario("two-branches-one-advanced-ws-commit-on-top-of-stack")?;
