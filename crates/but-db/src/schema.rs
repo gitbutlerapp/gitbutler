@@ -1,5 +1,6 @@
 diesel::table! {
     hunk_assignments (path, hunk_header) {
+        id -> Nullable<Text>,
         hunk_header -> Nullable<Text>,
         path -> Text,
         path_bytes -> Binary,
