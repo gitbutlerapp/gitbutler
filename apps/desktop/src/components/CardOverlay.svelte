@@ -33,18 +33,25 @@
 	)}rem; --padding-left: {pxToRem(defaultPadding + extraPaddingLeft)}rem"
 >
 	<div class="container">
-		<div class="dropzone-label">
-			<svg
-				class="dropzone-label-icon"
-				viewBox="0 0 12 12"
-				fill="none"
-				xmlns="http://www.w3.org/2000/svg"
-			>
-				<path d="M11 7L6 2M6 2L1 7M6 2L6 12" stroke="white" stroke-width="1.5" />
-			</svg>
+		{#if label !== ''}
+			<div class="dropzone-label">
+				<svg
+					class="dropzone-label-icon"
+					viewBox="0 0 15 14"
+					fill="none"
+					xmlns="http://www.w3.org/2000/svg"
+				>
+					<path
+						d="M12.5303 7.73599L8.23738 3.4431C7.84686 3.05257 7.21369 3.05257 6.82317 3.4431L2.53027 7.73599"
+						stroke="white"
+						stroke-width="1.5"
+					/>
+					<path d="M7.53027 3.73602L7.53027 11.736" stroke="white" stroke-width="1.5" />
+				</svg>
 
-			<span class="text-12 text-semibold">{label}</span>
-		</div>
+				<span class="text-11 text-bold">{label}</span>
+			</div>
+		{/if}
 
 		<!-- add svg rectange -->
 		<svg width="100%" height="100%" class="animated-rectangle">
@@ -83,6 +90,7 @@
 
 			.animated-rectangle rect {
 				fill: oklch(from var(--clr-scale-pop-50) l c h / 0.16);
+				stroke: oklch(from var(--clr-scale-pop-50) l c h / 1);
 				animation: dash 4s linear infinite;
 			}
 
@@ -106,8 +114,8 @@
 	.dropzone-label {
 		display: flex;
 		align-items: center;
-		padding: 6px 10px;
-		gap: 6px;
+		padding: 3px 8px 3px 6px;
+		gap: 5px;
 		transform: translateY(3px) scale(0.95);
 		border-radius: 100px;
 		background-color: var(--clr-theme-pop-element);
@@ -121,8 +129,8 @@
 	}
 
 	.dropzone-label-icon {
-		width: 12px;
-		height: 12px;
+		width: 14px;
+		height: 14px;
 		animation: icon-shifting 1s infinite;
 	}
 
@@ -147,16 +155,13 @@
 
 		& rect {
 			fill: oklch(from var(--clr-scale-pop-50) l c h / 0.1);
-			stroke: var(--clr-scale-pop-50);
+			stroke: oklch(from var(--clr-scale-pop-50) l c h / 0.8);
 
 			stroke-width: 2px;
 			stroke-dasharray: 2;
 			stroke-dashoffset: 30;
 			transform-origin: center;
-
-			transition:
-				fill var(--transition-fast),
-				transform var(--transition-fast);
+			transition: fill var(--transition-fast);
 		}
 	}
 

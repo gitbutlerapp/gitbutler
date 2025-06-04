@@ -89,7 +89,6 @@
 		flex: 1;
 		flex-direction: column;
 		overflow: hidden;
-		/* pointer-events: none; */
 		user-select: none;
 	}
 

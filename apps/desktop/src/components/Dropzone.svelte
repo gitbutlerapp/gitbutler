@@ -9,6 +9,7 @@
 		maxHeight?: boolean;
 		handlers: DropzoneHandler[];
 		hideWhenInactive?: boolean;
+		onActivated?: (activated: boolean) => void;
 		overlay?: Snippet<[{ hovered: boolean; activated: boolean; handler?: DropzoneHandler }]>;
 		children?: Snippet;
 	}
@@ -18,6 +19,7 @@
 		fillHeight = false,
 		maxHeight = false,
 		handlers,
+		onActivated,
 		overlay,
 		children,
 		hideWhenInactive
@@ -41,10 +43,12 @@
 	// Fired when a draggable is first picked up and the dropzone accepts the draggable
 	function onActivationStart() {
 		activated = true;
+		onActivated?.(activated);
 	}
 
 	function onActivationEnd() {
 		activated = false;
+		onActivated?.(activated);
 	}
 </script>
 
