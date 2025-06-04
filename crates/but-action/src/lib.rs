@@ -15,6 +15,7 @@ use gitbutler_stack::{Target, VirtualBranchesHandle};
 use serde::{Deserialize, Serialize};
 
 mod action;
+mod generate;
 mod simple;
 pub use action::ActionListing;
 pub use action::list_actions;
