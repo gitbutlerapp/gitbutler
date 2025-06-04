@@ -2,6 +2,9 @@ use std::{fmt::Debug, str::FromStr};
 
 use chrono::NaiveDateTime;
 use gitbutler_command_context::CommandContext;
+use gitbutler_oplog::OplogExt;
+use gitbutler_oxidize::ObjectIdExt;
+use gitbutler_project::access::WorktreeWritePermission;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -175,6 +178,18 @@ impl ButlerAction {
             }),
         }
     }
+
+    pub fn new_revert(snapshot: gix::ObjectId, description: &str) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            created_at: chrono::Local::now().naive_local(),
+            action: Action::RevertAction(ButlerRevertAction {
+                id: Uuid::new_v4(),
+                snapshot: snapshot.to_string(),
+                description: description.to_owned(),
+            }),
+        }
+    }
 }
 
 pub(crate) fn persist_action(ctx: &mut CommandContext, action: ButlerAction) -> anyhow::Result<()> {
@@ -202,6 +217,22 @@ pub fn list_actions(
         .filter_map(|a| TryInto::try_into(a).ok())
         .collect::<Vec<_>>();
     Ok(ActionListing { total, actions })
+}
+
+pub fn revert(
+    ctx: &mut CommandContext,
+    snapshot: gix::ObjectId,
+    description: &str,
+    perm: &mut WorktreeWritePermission,
+) -> anyhow::Result<()> {
+    ctx.restore_snapshot(snapshot.to_git2(), perm)?;
+
+    crate::action::persist_action(
+        ctx,
+        crate::action::ButlerAction::new_revert(snapshot, description),
+    )?;
+
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

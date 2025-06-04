@@ -2,9 +2,9 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import DataContextMenu from '$components/v3/DataContextMenu.svelte';
 	import FileList from '$components/v3/FileList.svelte';
+	import ActionService from '$lib/actions/actionService.svelte';
 	import { snapshotChangesFocusableId } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
-	import { HistoryService } from '$lib/history/history';
 	import { OplogService } from '$lib/history/oplogService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -25,13 +25,14 @@
 	const { projectId, before, after, timestamp, selectionId }: Props = $props();
 
 	const oplogService = getContext(OplogService);
-	const historyService = getContext(HistoryService);
+	const actionService = getContext(ActionService);
+	const [revertSnapshot] = actionService.revertSnapshot;
 
 	const focusableId = $derived(snapshotChangesFocusableId(before, after));
 	const focusableIds = svelteGetContext<Writable<string[]>>('snapshot-focusables');
 
-	async function restore(id: string) {
-		await historyService.restoreSnapshot(projectId, id);
+	async function restore(id: string, description: string) {
+		await revertSnapshot({ projectId, snapshot: id, description });
 		// In some cases, restoring the snapshot doesnt update the UI correctly
 		// Until we have that figured out, we need to reload the page.
 		location.reload();
@@ -68,11 +69,11 @@
 					[
 						{
 							label: 'Revert to before',
-							onclick: async () => await restore(before)
+							onclick: async () => await restore(before, `Reverted to before files changed`)
 						},
 						{
 							label: 'Revert to after',
-							onclick: async () => await restore(after)
+							onclick: async () => await restore(after, `Reverted to after files changed`)
 						}
 					]
 				]}

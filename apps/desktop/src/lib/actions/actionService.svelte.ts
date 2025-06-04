@@ -11,6 +11,10 @@ export default class ActionService {
 	listActions(projectId: string, page: number = 1, pageSize: number = 10) {
 		return this.api.endpoints.listActions.useQuery({ projectId, page, pageSize });
 	}
+
+	get revertSnapshot() {
+		return this.api.endpoints.actionsRevertSnapshot.useMutation();
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -23,6 +27,15 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				query: ({ projectId, page, pageSize }) => ({
 					command: 'list_actions',
 					params: { projectId, page, pageSize }
+				})
+			}),
+			actionsRevertSnapshot: build.mutation<
+				void,
+				{ projectId: string; snapshot: string; description: string }
+			>({
+				query: ({ projectId, snapshot, description }) => ({
+					command: 'actions_revert_snapshot',
+					params: { projectId, snapshot, description }
 				})
 			})
 		})

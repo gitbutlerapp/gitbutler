@@ -2,6 +2,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import ActionLogFilesChanged from '$components/v3/ActionLogFilesChanged.svelte';
 	import ActionLogItem from '$components/v3/ActionLogMcpItem.svelte';
+	import ActionLogRevertItem from '$components/v3/ActionLogRevertItem.svelte';
 	import ActionService from '$lib/actions/actionService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { untrack } from 'svelte';
@@ -51,6 +52,13 @@
 								<ActionLogItem
 									{projectId}
 									action={action as ButlerAction & { action: { type: 'mcpAction' } }}
+									{last}
+									{loadNextPage}
+								/>
+							{:else}
+								<ActionLogRevertItem
+									{projectId}
+									action={action as ButlerAction & { action: { type: 'revertAction' } }}
 									{last}
 									{loadNextPage}
 								/>

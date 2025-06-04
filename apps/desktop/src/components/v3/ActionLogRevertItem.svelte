@@ -1,17 +1,17 @@
 <script lang="ts">
 	import DataContextMenu from '$components/v3/DataContextMenu.svelte';
 	import ActionService from '$lib/actions/actionService.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { User } from '$lib/user/user';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
-	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
-	import type { ButlerAction, Outcome } from '$lib/actions/types';
+	import type { ButlerAction } from '$lib/actions/types';
 
 	type Props = {
 		projectId: string;
-		action: ButlerAction & { action: { type: 'mcpAction' } };
+		action: ButlerAction & { action: { type: 'revertAction' } };
 		last: boolean;
 		loadNextPage: () => void;
 	};
@@ -25,6 +25,7 @@
 	// Diffing `previous.snapshotAfter` and `action.snapshotBefore` gives us the
 	// changes that happend on disk between these two events.
 
+	const user = getContextStore(User);
 	const actionService = getContext(ActionService);
 	const [revertSnapshot] = actionService.revertSnapshot;
 
@@ -56,20 +57,8 @@
 	items={[
 		[
 			{
-				label: 'Revert to before',
-				onclick: async () =>
-					await restore(
-						action.action.subject.snapshotBefore,
-						`> ${action.action.subject.externalSummary}\n\nReverted to before MCP call`
-					)
-			},
-			{
-				label: 'Revert to after',
-				onclick: async () =>
-					await restore(
-						action.action.subject.snapshotAfter,
-						`> ${action.action.subject.externalSummary}\n\nReverted to after MCP call`
-					)
+				label: 'Undo revert',
+				onclick: async () => await restore(action.action.subject.snapshot, 'Undid previous revert')
 			}
 		]
 	]}
@@ -78,18 +67,18 @@
 
 <div class="action-item">
 	<div class="action-item__robot">
-		<Icon name="robot" />
+		{#if $user?.picture}
+			<img class="user-icon__image" src={$user.picture} alt="" referrerpolicy="no-referrer" />
+		{:else}
+			<Icon name="profile" />
+		{/if}
 	</div>
 	<div class="action-item__content">
 		<div class="action-item__content__header">
 			<div>
-				<p class="text-13 text-bold">Updated workspace</p>
-				<p class="text-13 text-bold text-grey">(MCP call)</p>
+				<p class="text-13 text-bold">Revert action</p>
 				<span class="text-13 text-greyer"
 					><TimeAgo date={new Date(action.createdAt)} addSuffix /></span
-				>
-				<Tooltip text={action.action.subject.externalPrompt}
-					><div class="pill text-12">Prompt</div></Tooltip
 				>
 			</div>
 			<div bind:this={showActionsTarget}>
@@ -97,44 +86,28 @@
 			</div>
 		</div>
 		<span class="text-14 text-darkgrey">
-			<Markdown content={action.action.subject.externalSummary} />
+			<Markdown content={action.action.subject.description} />
 		</span>
-		{#if action.action.subject.response && action.action.subject.response.updatedBranches.length > 0}
-			<div class="action-item__content__metadata">
-				{@render outcome(action.action.subject.response)}
-			</div>
-		{/if}
 		{#if last}
 			<div bind:this={lastIntersector}></div>
 		{/if}
 	</div>
 </div>
 
-{#snippet outcome(outcome: Outcome)}
-	{#each outcome.updatedBranches as branch}
-		<div class="outcome-item">
-			{#if branch.newCommits.length > 0}
-				{#each branch.newCommits as commit}
-					<Icon name="commit" />
-					<p class="text-14">
-						Created commit {commit.slice(0, 7)} on {branch.branchName}
-					</p>
-				{/each}
-			{:else}
-				<Icon name="branch-small" />
-				<p class="text-14">Updated branch {branch.branchName}</p>
-			{/if}
-		</div>
-	{/each}
-{/snippet}
-
 <style lang="postcss">
 	.action-item__robot {
-		padding: 4px 6px;
+		width: 30px;
+		min-width: 30px;
+		height: 30px;
+		padding: 2px;
 		border: 1px solid var(--clr-border-2);
 
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-2);
+
+		> img {
+			border-radius: var(--radius-s);
+		}
 	}
 
 	.action-item {
@@ -170,32 +143,6 @@
 		gap: 8px;
 	}
 
-	.action-item__content__metadata {
-		width: 100%;
-
-		margin-top: 4px;
-
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
-	}
-
-	.outcome-item {
-		display: flex;
-
-		padding: 12px;
-		gap: 8px;
-
-		border-bottom: 1px solid var(--clr-border-2);
-
-		&:last-child {
-			border-bottom: none;
-		}
-	}
-
-	.text-grey {
-		color: var(--clr-text-2);
-	}
-
 	.text-darkgrey {
 		color: var(--clr-core-ntrl-20);
 		text-decoration-color: var(--clr-core-ntrl-20);
@@ -203,12 +150,5 @@
 
 	.text-greyer {
 		color: var(--clr-text-3);
-	}
-
-	.pill {
-		padding: 2px 6px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: 99px;
-		background-color: var(--clr-bg-2);
 	}
 </style>
