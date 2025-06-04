@@ -391,7 +391,7 @@
 
 		&.dropzone-activated {
 			& .assigned-changes-empty {
-				padding: 16px 8px 20px;
+				padding: 18px 8px 22px;
 				background-color: var(--clr-bg-1);
 				will-change: padding;
 			}
