@@ -227,7 +227,7 @@ pub fn assign(
         &deps_assignments,
         &applied_stacks,
         MultipleOverlapping::SetNone, // If there is double locking, move the hunk to the Uncommitted section
-        true,
+        false, // Dependencies should not update the assignment request if it is attemptint to set to None
     )?;
     state::set_assignments(ctx, assignments_considering_deps.clone())?;
 
@@ -308,7 +308,7 @@ pub fn assignments(
             &deps_assignments,
             &applied_stacks,
             MultipleOverlapping::SetNone, // If there is double locking, move the hunk to the Uncommitted section
-            !set_assignment_from_locks, // If we are not setting assignments from locks, we do not want to update unassigned hunks here
+            set_assignment_from_locks,
         )?;
         reconciled.extend(assignments_considering_deps);
     }
