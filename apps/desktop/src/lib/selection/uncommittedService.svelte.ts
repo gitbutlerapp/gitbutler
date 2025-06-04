@@ -90,11 +90,10 @@ export class UncommittedService {
 	 * Gathers data for creating a commit, based on what hunks are selected.
 	 */
 	async worktreeChanges(projectId: string, stackId?: string) {
+		const state = structuredClone(this.state);
+
 		const key = `${stackId || null}::`;
-		const selection = uncommittedSelectors.hunkSelection.selectByPrefix(
-			this.state.hunkSelection,
-			key
-		);
+		const selection = uncommittedSelectors.hunkSelection.selectByPrefix(state.hunkSelection, key);
 
 		const pathGroups = selection.reduce<Record<string, HunkSelection[]>>((acc, item) => {
 			const key = `${item.path}`;
@@ -108,11 +107,11 @@ export class UncommittedService {
 		const worktreeChanges: DiffSpec[] = [];
 		for (const [path, selection] of Object.entries(pathGroups)) {
 			const hunkHeaders: HunkHeader[] = [];
-			const change = uncommittedSelectors.treeChanges.selectById(this.state.treeChanges, path)!;
+			const change = uncommittedSelectors.treeChanges.selectById(state.treeChanges, path)!;
 			for (const { lines, assignmentId } of selection) {
 				// We want to use `null` to commit from unassigned changes if new stack was created.
 				const assignment = uncommittedSelectors.hunkAssignments.selectById(
-					this.state.hunkAssignments,
+					state.hunkAssignments,
 					assignmentId
 				)!;
 
