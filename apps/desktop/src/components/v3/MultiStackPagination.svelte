@@ -27,11 +27,18 @@
 	type Props = {
 		length: number;
 		visibleIndexes: number[];
+		isCreateNewVisible?: boolean;
 		selectedBranchIndex: number;
 		onclick: (index: number) => void;
 	};
 
-	let { length, visibleIndexes = $bindable(), selectedBranchIndex, onclick }: Props = $props();
+	let {
+		length,
+		visibleIndexes = $bindable(),
+		isCreateNewVisible = $bindable(),
+		selectedBranchIndex,
+		onclick
+	}: Props = $props();
 
 	function getPaginationTooltip(index: number) {
 		if (visibleIndexes.includes(index)) {
@@ -63,6 +70,17 @@
 			></div>
 		</Tooltip>
 	{/each}
+	<svg
+		class="create-new"
+		class:create-new-visible={isCreateNewVisible}
+		width="9"
+		height="8"
+		viewBox="0 0 9 8"
+		fill="none"
+		xmlns="http://www.w3.org/2000/svg"
+	>
+		<path d="M5.49474 0.5V7.5M9 3.99474L2 3.99474" stroke="var(--clr-text-2)" stroke-width="2" />
+	</svg>
 </div>
 
 <style lang="postcss">
@@ -96,5 +114,14 @@
 		&.selected-branch {
 			background: var(--clr-selected-in-focus-element);
 		}
+	}
+
+	.create-new {
+		opacity: 0.5;
+		transition: opacity var(--transition-fast);
+	}
+
+	.create-new-visible {
+		opacity: 1;
 	}
 </style>
