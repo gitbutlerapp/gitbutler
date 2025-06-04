@@ -4,18 +4,38 @@
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
+	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
 
 	interface Props {
+		viewport: HTMLElement;
 		projectId: string;
+		isSingleMode?: boolean;
+		onVisible?: (visible: boolean) => void;
 	}
 
-	const { projectId }: Props = $props();
+	const { viewport, projectId, isSingleMode, onVisible }: Props = $props();
 
 	const [stackService, uiState] = inject(StackService, UiState);
 	const dzHandler = $derived(new OutsideLaneDzHandler(stackService, projectId, uiState));
 </script>
 
-<div class="hidden-dropzone">
+<div
+	class="hidden-dropzone"
+	class:hidden-dropzone__single-mode={isSingleMode}
+	use:intersectionObserver={{
+		callback: (entry) => {
+			if (entry?.isIntersecting) {
+				onVisible?.(true);
+			} else {
+				onVisible?.(false);
+			}
+		},
+		options: {
+			threshold: 0.5,
+			root: viewport
+		}
+	}}
+>
 	<Dropzone handlers={[dzHandler]}>
 		{#snippet overlay({ hovered, activated })}
 			<div class="hidden-dropzone__lane" class:activated class:hovered>
@@ -30,7 +50,7 @@
 					>
 						<g class="hidden-dropzone__svg__plus-list">
 							<path
-								opacity="0.2"
+								opacity="0.3"
 								d="M11.001 8C11.001 3.58172 14.5827 0 19.001 0L63.4681 0C67.8863 0 71.4681 3.58172 71.4681 8V61.5474C71.4681 65.9657 67.8863 69.5474 63.4681 69.5474L19.001 69.5474C14.5827 69.5474 11.001 65.9657 11.001 61.5474L11.001 8Z"
 								fill="var(--clr-scale-ntrl-70)"
 								vector-effect="non-scaling-stroke"
@@ -87,27 +107,43 @@
 		display: flex;
 		position: relative;
 		flex: 1;
+		flex-shrink: 0;
 		flex-direction: column;
-		overflow: hidden;
+		width: 100%;
+		min-width: 340px;
+		height: 100%;
+		min-height: 340px;
+
+		/* overflow: hidden; */
+
 		user-select: none;
+	}
+
+	.hidden-dropzone__single-mode {
+		flex-basis: calc(100% - 30px);
+		scroll-snap-align: start;
 	}
 
 	.hidden-dropzone__lane {
 		display: flex;
-		position: absolute;
-		top: 0;
-		left: 0;
+		/* position: absolute; */
+		/* top: 0;
+		left: 0; */
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
 		width: 100%;
-		min-width: 240px;
 		height: 100%;
-		min-height: 240px;
+
+		overflow: hidden;
 		gap: 10px;
+		border-right: 1px solid var(--clr-border-2);
+		/* opacity: 0.7;
+		transition: opacity 0.1s; */
 
 		/* SVG ANIMATION */
 		&.activated {
+			opacity: 1;
 			& .hidden-dropzone__svg,
 			.hidden-dropzone__content:after {
 				opacity: 1;
@@ -119,6 +155,14 @@
 			.hidden-dropzone__svg__front-list,
 			.hidden-dropzone__svg__hand {
 				transform: unset;
+			}
+
+			& .hidden-dropzone__svg__plus-list path:nth-child(1) {
+				fill: var(--clr-scale-pop-60);
+				opacity: 0.2;
+			}
+			& .hidden-dropzone__svg__plus-list path:nth-child(2) {
+				stroke: oklch(from var(--clr-scale-pop-40) l c h / 0.5);
 			}
 
 			& .hidden-dropzone__label {
@@ -136,12 +180,14 @@
 			& .hidden-dropzone__svg__plus-list {
 				transform: translateY(0) scale(1.2);
 			}
+
 			& .hidden-dropzone__svg__plus-list path:nth-child(1) {
-				fill: var(--clr-scale-pop-60);
+				opacity: 0.25;
 			}
 			& .hidden-dropzone__svg__plus-list path:nth-child(2) {
 				stroke: var(--clr-theme-pop-element);
 			}
+
 			& .hidden-dropzone__svg__back-list {
 				transform: translateX(3px) rotate(-5deg);
 			}
@@ -161,20 +207,21 @@
 		flex-direction: column;
 		align-items: center;
 		gap: 10px;
+
 		pointer-events: none;
 
 		&:after {
 			z-index: -1;
 			position: absolute;
-			top: calc(50% - 50px);
+			top: calc(50% - 30px);
 			left: 50%;
 			width: 400px;
 			height: 400px;
 			transform: translate(-50%, -50%);
 			border-radius: 100%;
-			background: radial-gradient(var(--clr-bg-2) 0%, oklch(from var(--clr-bg-2) l c h / 0) 70%);
+			background: radial-gradient(var(--clr-bg-2) 0%, oklch(from var(--clr-bg-2) l c h / 0) 50%);
 			content: '';
-			opacity: 0;
+			/* opacity: 0; */
 			transition: opacity 0.1s;
 		}
 	}
@@ -183,7 +230,7 @@
 		transform: translateY(5px);
 		color: var(--clr-text-3);
 		text-align: center;
-		opacity: 0;
+		opacity: 1;
 		transition:
 			opacity 0.15s,
 			transform 0.15s;
@@ -193,7 +240,8 @@
 	/* SVG */
 	.hidden-dropzone__svg {
 		overflow: visible;
-		opacity: 0;
+		/* opacity: 0; */
+		opacity: 0.7;
 		transition: opacity 0.15s;
 		will-change: opacity;
 	}
@@ -206,23 +254,24 @@
 	.hidden-dropzone__svg__plus-list path {
 		transition:
 			stroke 0.2s,
-			fill 0.2s;
-		will-change: stroke, fill;
+			fill 0.2s,
+			opacity 0.2s;
+		will-change: stroke, fill, opacity;
 	}
 	.hidden-dropzone__svg__back-list {
-		transform: translateY(10px) rotate(10deg);
+		transform: translateY(14px) translateX(6px) rotate(10deg);
 		transform-origin: center;
 		transition: transform 0.15s;
 		will-change: transform;
 	}
 	.hidden-dropzone__svg__front-list {
-		transform: translateY(10px) translateX(10px) rotate(-5deg);
+		transform: translateY(10px) translateX(2px) rotate(-7deg);
 		transform-origin: center;
 		transition: transform 0.15s;
 		will-change: transform;
 	}
 	.hidden-dropzone__svg__hand {
-		transform: translateY(10px) rotate(-5deg) scale(0.9);
+		transform: translateY(12px) translateX(10px) rotate(10deg) scale(0.9);
 		transform-origin: center;
 		transition: transform 0.2s;
 		will-change: transform;

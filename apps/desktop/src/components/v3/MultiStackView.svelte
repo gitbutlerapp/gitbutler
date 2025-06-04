@@ -38,13 +38,14 @@
 	let laneWidths = $state<number[]>([]);
 	let lineHights = $state<number[]>([]);
 	let isNotEnoughHorzSpace = $derived(
-		(lanesScrollableWidth ?? 0) < (laneWidths.length - 1) * (laneWidths[0] ?? 0)
+		(lanesScrollableWidth ?? 0) < laneWidths.length * (laneWidths[0] ?? 0)
 	);
 	let isNotEnoughVertSpace = $derived.by(() => {
-		const shortenArray = lineHights.slice(0, lineHights.length - 1);
+		const shortenArray = lineHights.slice(0, lineHights.length);
 		return lanesScrollableHeight < shortenArray.reduce((acc, height) => acc + height, 0);
 	});
 	let visibleIndexes = $state<number[]>([0]);
+	let isCreateNewVisible = $state<boolean>(false);
 
 	$effect(() => {
 		// Explicit scrollbar track size update since changing scroll width
@@ -90,6 +91,7 @@
 			<MultiStackPagination
 				length={stacks.length}
 				{visibleIndexes}
+				{isCreateNewVisible}
 				selectedBranchIndex={stacks.findIndex((s) => {
 					return s.id === selectedId;
 				})}
@@ -146,8 +148,6 @@
 						>
 							{#snippet assignments()}
 								{@const changes = uncommittedService.changesByStackId(stack.id || null)}
-								<!-- {#if changes.current.length > 0 || dropzoneActivated} -->
-								<!-- class:hidden={changes.current.length === 0 && !dropzoneActivated} -->
 								<div
 									class="assignments"
 									class:assignments__empty={changes.current.length === 0}
@@ -185,7 +185,14 @@
 					</div>
 				{/each}
 
-				<MultiStackOfflaneDropzone {projectId} />
+				<MultiStackOfflaneDropzone
+					viewport={lanesSrollableEl}
+					{projectId}
+					onVisible={(visible) => {
+						isCreateNewVisible = visible;
+					}}
+					isSingleMode={$stackLayoutMode === 'single'}
+				/>
 
 				{#if lanesSrollableEl && $stackLayoutMode !== 'single'}
 					<Scrollbar viewport={lanesSrollableEl} horz={$stackLayoutMode !== 'vertical'} />
@@ -311,12 +318,12 @@
 
 		&.horz {
 			right: 6px;
-			bottom: 60px;
+			bottom: 8px;
 		}
 
 		&.vert {
-			right: 6px;
-			bottom: 6px;
+			right: 8px;
+			bottom: 8px;
 			transform: rotate(90deg) translateY(100%);
 			transform-origin: right bottom;
 		}
@@ -391,7 +398,7 @@
 
 		&.dropzone-activated {
 			& .assigned-changes-empty {
-				padding: 16px 8px 20px;
+				padding: 18px 8px 22px;
 				background-color: var(--clr-bg-1);
 				will-change: padding;
 			}
