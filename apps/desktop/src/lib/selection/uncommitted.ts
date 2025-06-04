@@ -146,18 +146,17 @@ export const uncommittedSlice = createSlice({
 			state,
 			action: PayloadAction<{ stackId: string | null; path: string; hunkHeader: string | null }>
 		) {
-			const { stackId, path, hunkHeader } = action.payload;
 			const key = compositeKey(action.payload);
 			const assignment = uncommittedSelectors.hunkAssignments.selectById(
 				state.hunkAssignments,
-				compositeKey({ stackId, path, hunkHeader })
+				key
 			);
 			if (assignment) {
 				state.hunkSelection = hunkSelectionAdapter.upsertOne(state.hunkSelection, {
-					stackId: stackId,
+					stackId: action.payload.stackId,
 					path: assignment.path,
 					assignmentId: key,
-					changeId: `${stackId}::${assignment.path}`,
+					changeId: `${action.payload.stackId}::${assignment.path}`,
 					lines: []
 				});
 			}
