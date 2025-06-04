@@ -28,7 +28,6 @@ pub(crate) mod function {
     use anyhow::bail;
     use bstr::BString;
     use but_core::ref_metadata::{ValueInfo, Workspace, WorkspaceStack};
-    use gitbutler_oxidize::{ObjectIdExt as _, OidExt};
     use gix::prelude::{ObjectIdExt, ReferenceExt};
     use gix::refs::{Category, FullName};
     use gix::revision::walk::Sorting;
@@ -344,7 +343,12 @@ pub(crate) mod function {
         }
 
         if opts.expensive_commit_info {
-            populate_commit_info(target_ref.as_ref(), &mut stacks, repo, &mut graph)?;
+            populate_commit_info(
+                target_ref.as_ref().zip(target_ids),
+                &mut stacks,
+                repo,
+                &mut graph,
+            )?;
         }
 
         Ok(RefInfo {
@@ -770,7 +774,6 @@ pub(crate) mod function {
     }
 
     /// Akin to `log()`, but less powerful.
-    // TODO: replace with something better, and also use `.hide()`.
     fn walk_commits(
         repo: &gix::Repository,
         from: &gix::refs::FullNameRef,
@@ -785,8 +788,7 @@ pub(crate) mod function {
         Ok(from_id
             .ancestors()
             .sorting(Sorting::BreadthFirst)
-            // TODO: use 'hide()'
-            .with_boundary(hide)
+            .with_hidden(hide)
             .all()?
             .filter_map(Result::ok)
             .map(|info| info.id)
@@ -882,7 +884,7 @@ pub(crate) mod function {
     /// TODO: have merge-graph based checks that can check if one commit is included in the ancestry of another tip. That way one can
     ///       quick perform is-integrated checks with the target branch.
     fn populate_commit_info<'repo>(
-        target_ref_name: Option<&gix::refs::FullName>,
+        target_ref_name_and_ids: Option<(&gix::refs::FullName, (gix::ObjectId, gix::ObjectId))>,
         stacks: &mut [Stack],
         repo: &'repo gix::Repository,
         merge_graph: &mut MergeBaseCommitGraph<'repo, '_>,
@@ -900,7 +902,6 @@ pub(crate) mod function {
         // NOTE: The check for similarity is currently run across all remote branches in the stack.
         //       Further, this doesn't handle reorderings/topology differences at all, it's just there or not.
         let mut similarity_lut = HashMap::<ChangeIdOrCommitData, gix::ObjectId>::new();
-        let git2_repo = git2::Repository::open(repo.path())?;
         for stack in stacks {
             let segments_with_remote_ref_tips_and_base: Vec<_> = stack
                 .segments
@@ -965,14 +966,14 @@ pub(crate) mod function {
                             }
                         };
 
-                    let mut walk = git2_repo.revwalk()?;
-                    walk.push(remote_ref_tip.to_git2())?;
-                    walk.simplify_first_parent()?;
-                    for id in &boundary {
-                        walk.hide(id.to_git2())?;
-                    }
+                    let walk = remote_ref_tip
+                        .attach(repo)
+                        .ancestors()
+                        .first_parent_only()
+                        .with_hidden(boundary.iter().cloned())
+                        .all()?;
                     'remote_branch_traversal: for info in walk {
-                        let id = info?.to_gix();
+                        let id = info?.id;
                         if let Some(idx) = segment
                             .commits_unique_from_tip
                             .iter_mut()
@@ -1049,13 +1050,11 @@ pub(crate) mod function {
             // TODO: This can probably be more efficient if this is staged, by first trying
             //       to check if the tip is merged, to flag everything else as merged.
             let mut is_integrated = false;
-            if let Some(target_ref_name) = target_ref_name {
-                let mut check_commit = IsCommitIntegrated::new2(
-                    repo,
-                    &git2_repo,
-                    target_ref_name.as_ref(),
-                    merge_graph,
-                )?;
+            if let Some((target_ref_name, (target_remote_id, target_local_id))) =
+                target_ref_name_and_ids
+            {
+                let mut check_commit =
+                    IsCommitIntegrated::new_with_gix(repo, target_ref_name.as_ref(), merge_graph)?;
                 // TODO: remote commits could also be integrated, this seems overly simplified.
                 //      For now, just emulate the current implementation (hopefully).
                 for local_commit in stack
@@ -1063,12 +1062,42 @@ pub(crate) mod function {
                     .iter_mut()
                     .flat_map(|segment| &mut segment.commits_unique_from_tip)
                 {
-                    if is_integrated || {
-                        let commit = git2_repo.find_commit(local_commit.id.to_git2())?;
-                        check_commit.is_integrated(&commit)
-                    }? {
+                    if is_integrated || { check_commit.is_integrated_gix(local_commit.id) }? {
                         is_integrated = true;
                         local_commit.relation = LocalCommitRelation::Integrated;
+                    }
+                }
+
+                // Special case: if there are (previously) added empty segments, deref their tips to see if
+                //               they are integrated.
+                let merge_graph = check_commit.graph;
+                for res in stack.segments.iter_mut().filter_map(|s| {
+                    if s.commits_unique_from_tip.is_empty() {
+                        s.ref_name
+                            .as_ref()
+                            .and_then(|name| try_refname_to_id(repo, name.as_ref()).transpose())
+                            .map(|res| res.map(|id| (id, s)))
+                    } else {
+                        None
+                    }
+                }) {
+                    let (tip, empty_segment) = res?;
+                    if tip == target_local_id {
+                        continue;
+                    }
+                    // TODO: make the is_integrated() check actually work for graph-based queries, maybe it would
+                    //       but just doesn't have the necessary commits in this case.
+                    //       Perform a simple commit-id based lookup instead.
+                    let merge_base =
+                        repo.merge_base_with_graph(target_remote_id, tip, merge_graph)?;
+                    if merge_base == tip {
+                        // TODO: this is a hack that arbitrarily adds this one commit so the state is observable.
+                        //       This means segments needs its own integrated flag that should be set if one of its commits
+                        //       or it itself is integrated.
+                        empty_segment.commits_unique_from_tip.push(LocalCommit {
+                            relation: LocalCommitRelation::Integrated,
+                            ..LocalCommit::new_from_id(tip.attach(repo))?
+                        })
                     }
                 }
             }
@@ -1127,8 +1156,8 @@ pub(crate) mod function {
             .ancestors()
             .first_parent_only()
             .sorting(Sorting::BreadthFirst)
-            // TODO: boundary should be 'hide'.
-            .selected(|id_to_yield| !boundary_commits.contains(id_to_yield))?
+            .with_hidden(boundary_commits.iter().cloned())
+            .all()?
             .enumerate()
         {
             let segment_ref = segment.as_mut().expect("a segment is always present here");
