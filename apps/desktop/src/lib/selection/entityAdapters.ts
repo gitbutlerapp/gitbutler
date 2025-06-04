@@ -27,15 +27,19 @@ export const hunkAssignmentAdapter = createEntityAdapter<HunkAssignment, string>
 	selectId: (c) => compositeKey(c)
 });
 
+/**
+ * There may be at most one HunkSelection for each HunkAssignment. As such, we
+ * use an `assignmentId` which cooresponds to a given HunkAssignment both as a
+ * foreign key, but also the primary identifier of a HunkSelection.
+ */
 export type HunkSelection = {
-	hunkSelectionId: string;
+	assignmentId: string;
 	stackId: string | null;
 	path: string;
-	assignmentId: string;
 	changeId: string;
 	lines: LineId[];
 };
 
 export const hunkSelectionAdapter = createEntityAdapter<HunkSelection, string>({
-	selectId: (c) => c.hunkSelectionId
+	selectId: (c) => c.assignmentId
 });
