@@ -95,6 +95,13 @@ export type HunkHeader = {
  * Additionally, the hunk dependencies (locking) affects what assignment is possible.
  */
 export type HunkAssignment = {
+	/**
+	 * A stable identifier for the hunk assignment.
+	 *   - When a new hunk is first observed (from the uncommitted changes), it is assigned a new id.
+	 *   - If a hunk is modified (i.e. it has gained or lost lines), the UUID remains the same.
+	 *   - If two or more hunks become merged (due to edits causing the contexts to overlap), the id of the hunk with the most lines is adopted.
+	 */
+	readonly id: string | null;
 	/** The hunk that is being assigned. Together with path_bytes, this identifies the hunk.
 	 * If the file is binary, or too large to load, this will be None and in this case the path name is the only identity.
 	 */
