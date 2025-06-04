@@ -1,9 +1,12 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import ActionLogItem from '$components/v3/ActionLogItem.svelte';
+	import ActionLogFilesChanged from '$components/v3/ActionLogFilesChanged.svelte';
+	import ActionLogItem from '$components/v3/ActionLogMcpItem.svelte';
+	import ActionLogRevertItem from '$components/v3/ActionLogRevertItem.svelte';
 	import ActionService from '$lib/actions/actionService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { untrack } from 'svelte';
+	import type { ButlerAction } from '$lib/actions/types';
 	import type { SelectionId } from '$lib/selection/key';
 
 	type Props = {
@@ -44,14 +47,39 @@
 						{#each actions.actions as action, i (action.id)}
 							{@const lastInPage = i === actions.actions.length - 1}
 							{@const last = lastInPage && page === pages.at(-1)!}
-							<ActionLogItem
-								{projectId}
-								{action}
-								{last}
-								{loadNextPage}
-								{selectionId}
-								previous={previous(pi, i, lastInPage, last)}
-							/>
+							{@const p = previous(pi, i, lastInPage, last)}
+							{#if action.action.type === 'mcpAction'}
+								<ActionLogItem
+									{projectId}
+									action={action as ButlerAction & { action: { type: 'mcpAction' } }}
+									{last}
+									{loadNextPage}
+								/>
+							{:else}
+								<ActionLogRevertItem
+									{projectId}
+									action={action as ButlerAction & { action: { type: 'revertAction' } }}
+									{last}
+									{loadNextPage}
+								/>
+							{/if}
+							{#if p}
+								{@const after =
+									action.action.type === 'mcpAction'
+										? action.action.subject.snapshotBefore
+										: action.action.subject.snapshot}
+								{@const before =
+									p.action.type === 'mcpAction'
+										? p.action.subject.snapshotAfter
+										: p.action.subject.snapshot}
+								<ActionLogFilesChanged
+									{projectId}
+									{before}
+									{after}
+									{selectionId}
+									timestamp={action.createdAt}
+								/>
+							{/if}
 						{/each}
 					{/snippet}
 				</ReduxResult>

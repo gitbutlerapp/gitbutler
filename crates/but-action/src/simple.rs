@@ -52,7 +52,7 @@ pub fn handle_changes(
 
     crate::action::persist_action(
         ctx,
-        crate::action::ButlerAction::new(
+        crate::action::ButlerAction::new_mcp(
             crate::ActionHandler::HandleChangesSimple,
             external_prompt,
             change_summary.to_owned(),

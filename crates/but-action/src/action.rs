@@ -1,6 +1,10 @@
 use std::{fmt::Debug, str::FromStr};
 
+use chrono::NaiveDateTime;
 use gitbutler_command_context::CommandContext;
+use gitbutler_oplog::OplogExt;
+use gitbutler_oxidize::ObjectIdExt;
+use gitbutler_project::access::WorktreeWritePermission;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -9,11 +13,9 @@ use crate::{ActionHandler, Outcome};
 /// Represents a snapshot of an automatic action taken by a GitButler automation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ButlerAction {
+pub struct ButlerMcpAction {
     /// UUID identifier of the action
     id: Uuid,
-    /// The time when the action was performed.
-    created_at: chrono::NaiveDateTime,
     /// The prompt that was used to generate the changes that were made, if applicable
     external_prompt: Option<String>,
     /// A description of the change that was made and why it was made - i.e. the information that can be obtained from the caller.
@@ -34,57 +36,119 @@ pub struct ButlerAction {
     error: Option<String>,
 }
 
-impl TryFrom<but_db::ButlerAction> for ButlerAction {
+/// Represents a snapshot of an automatic action taken by a GitButler automation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ButlerRevertAction {
+    /// UUID identifier of the action
+    id: Uuid,
+    /// The snapshot representing the revert
+    snapshot: String,
+    /// A message describing the revert
+    description: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
+pub enum Action {
+    McpAction(ButlerMcpAction),
+    RevertAction(ButlerRevertAction),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ButlerAction {
+    id: Uuid,
+    created_at: NaiveDateTime,
+    action: Action,
+}
+
+impl TryFrom<but_db::FilledButlerAction> for ButlerAction {
     type Error = anyhow::Error;
 
-    fn try_from(value: but_db::ButlerAction) -> Result<Self, Self::Error> {
-        let response = value
-            .response
-            .as_ref()
-            .and_then(|o| serde_json::from_str(o).ok());
-        Ok(Self {
-            id: Uuid::parse_str(&value.id)?,
-            created_at: value.created_at,
-            external_prompt: value.external_prompt,
-            external_summary: value.external_summary,
-            handler: value
-                .handler
-                .parse()
-                .map_err(|_| anyhow::anyhow!("Invalid Handler value"))?,
-            handler_prompt: value.handler_prompt,
-            snapshot_before: gix::ObjectId::from_str(&value.snapshot_before)?,
-            snapshot_after: gix::ObjectId::from_str(&value.snapshot_after)?,
-            response,
-            error: value.error,
-        })
+    fn try_from(value: but_db::FilledButlerAction) -> Result<Self, Self::Error> {
+        if let Some(mcp) = value.mcp_action {
+            Ok(Self {
+                id: Uuid::parse_str(&value.id)?,
+                created_at: value.created_at,
+                action: Action::McpAction(ButlerMcpAction {
+                    id: Uuid::parse_str(&mcp.id)?,
+                    external_prompt: mcp.external_prompt,
+                    external_summary: mcp.external_summary,
+                    handler: mcp
+                        .handler
+                        .parse()
+                        .map_err(|_| anyhow::anyhow!("Invalid Handler value"))?,
+                    handler_prompt: mcp.handler_prompt,
+                    snapshot_before: gix::ObjectId::from_str(&mcp.snapshot_before)?,
+                    snapshot_after: gix::ObjectId::from_str(&mcp.snapshot_after)?,
+                    response: mcp
+                        .response
+                        .as_ref()
+                        .and_then(|o| serde_json::from_str(o).ok()),
+                    error: mcp.error,
+                }),
+            })
+        } else if let Some(revert) = value.revert_action {
+            Ok(Self {
+                id: Uuid::parse_str(&value.id)?,
+                created_at: value.created_at,
+                action: Action::RevertAction(ButlerRevertAction {
+                    id: Uuid::parse_str(&revert.id)?,
+                    snapshot: revert.snapshot,
+                    description: revert.description,
+                }),
+            })
+        } else {
+            Err(anyhow::anyhow!("Ahhh"))
+        }
     }
 }
 
-impl TryFrom<ButlerAction> for but_db::ButlerAction {
+impl TryFrom<ButlerAction> for but_db::FilledButlerAction {
     type Error = anyhow::Error;
 
     fn try_from(value: ButlerAction) -> Result<Self, Self::Error> {
-        let response = value
-            .response
-            .as_ref()
-            .and_then(|o| serde_json::to_string(o).ok());
-        Ok(Self {
+        let mut output = Self {
             id: value.id.to_string(),
             created_at: value.created_at,
-            external_prompt: value.external_prompt,
-            external_summary: value.external_summary,
-            handler: value.handler.to_string(),
-            handler_prompt: value.handler_prompt,
-            snapshot_before: value.snapshot_before.to_string(),
-            snapshot_after: value.snapshot_after.to_string(),
-            response,
-            error: value.error,
-        })
+            mcp_action: None,
+            revert_action: None,
+        };
+
+        match value.action {
+            Action::McpAction(mcp) => {
+                let response = mcp
+                    .response
+                    .as_ref()
+                    .and_then(|o| serde_json::to_string(o).ok());
+                output.mcp_action = Some(but_db::ButlerMcpAction {
+                    id: mcp.id.to_string(),
+                    external_prompt: mcp.external_prompt,
+                    external_summary: mcp.external_summary,
+                    handler: mcp.handler.to_string(),
+                    handler_prompt: mcp.handler_prompt,
+                    snapshot_before: mcp.snapshot_before.to_string(),
+                    snapshot_after: mcp.snapshot_after.to_string(),
+                    response,
+                    error: mcp.error,
+                });
+            }
+            Action::RevertAction(revert) => {
+                output.revert_action = Some(but_db::ButlerRevertAction {
+                    id: revert.id.to_string(),
+                    snapshot: revert.snapshot,
+                    description: revert.description,
+                });
+            }
+        };
+
+        Ok(output)
     }
 }
 
 impl ButlerAction {
-    pub fn new(
+    pub fn new_mcp(
         handler: ActionHandler,
         external_prompt: Option<String>,
         external_summary: String,
@@ -101,14 +165,29 @@ impl ButlerAction {
         Self {
             id: Uuid::new_v4(),
             created_at: chrono::Local::now().naive_local(),
-            handler,
-            external_prompt,
-            external_summary,
-            handler_prompt: None,
-            snapshot_before,
-            snapshot_after,
-            response: rsp.cloned(),
-            error,
+            action: Action::McpAction(ButlerMcpAction {
+                id: Uuid::new_v4(),
+                handler,
+                external_prompt,
+                external_summary,
+                handler_prompt: None,
+                snapshot_before,
+                snapshot_after,
+                response: rsp.cloned(),
+                error,
+            }),
+        }
+    }
+
+    pub fn new_revert(snapshot: gix::ObjectId, description: &str) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            created_at: chrono::Local::now().naive_local(),
+            action: Action::RevertAction(ButlerRevertAction {
+                id: Uuid::new_v4(),
+                snapshot: snapshot.to_string(),
+                description: description.to_owned(),
+            }),
         }
     }
 }
@@ -138,6 +217,22 @@ pub fn list_actions(
         .filter_map(|a| TryInto::try_into(a).ok())
         .collect::<Vec<_>>();
     Ok(ActionListing { total, actions })
+}
+
+pub fn revert(
+    ctx: &mut CommandContext,
+    snapshot: gix::ObjectId,
+    description: &str,
+    perm: &mut WorktreeWritePermission,
+) -> anyhow::Result<()> {
+    ctx.restore_snapshot(snapshot.to_git2(), perm)?;
+
+    crate::action::persist_action(
+        ctx,
+        crate::action::ButlerAction::new_revert(snapshot, description),
+    )?;
+
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

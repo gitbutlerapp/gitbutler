@@ -13,11 +13,9 @@ export type Outcome = {
 export type ActionHandler = 'handleChangesSimple';
 
 /** Represents a snapshot of an automatic action taken by a GitButler automation.  */
-export type ButlerAction = {
+export type ButlerMcpAction = {
 	/** UUID identifier of the action */
 	id: string;
-	/** The time when the action was performed. */
-	createdAt: number;
 	/** A description of the change that was made and why it was made - i.e. the information that can be obtained from the caller. */
 	externalSummary: string;
 	/** The prompt used that triggered this thingy stuff figgure it out yourself */
@@ -34,6 +32,28 @@ export type ButlerAction = {
 	response: Outcome | null;
 	/** An error message if the action failed. */
 	error: string | null;
+};
+
+export type ButlerRevertAction = {
+	id: string;
+	snapshot: string;
+	description: string;
+};
+
+type Action =
+	| {
+			type: 'mcpAction';
+			subject: ButlerMcpAction;
+	  }
+	| {
+			type: 'revertAction';
+			subject: ButlerRevertAction;
+	  };
+
+export type ButlerAction = {
+	id: string;
+	createdAt: string;
+	action: Action;
 };
 
 export type ActionListing = {
