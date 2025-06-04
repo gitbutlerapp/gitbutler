@@ -1,0 +1,76 @@
+name: E2E Tests Webdriver
+on:
+  pull_request:
+    branches: [master]
+    paths-ignore:
+      - 'apps/web/**'
+  workflow_dispatch:
+    inputs:
+      sha:
+        type: string
+        required: false
+        description: Target SHA
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+      - uses: actions/checkout@v4
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        with:
+          ref: ${{ github.event.inputs.sha }}
+      - name: Install Tauri OS dependencies
+        run: |
+          sudo apt update && sudo apt install -y \
+            libsoup-3.0-0 \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            libwebkit2gtk-4.1-dev \
+            webkit2gtk-driver \
+            ffmpeg \
+            xvfb
+      - name: Setup rust-toolchain stable
+        id: rust-toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: cargo-${{ steps.rust-toolchain.outputs.cachekey }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: cargo-
+      - name: Setup node environment
+        uses: ./.github/actions/init-env-node
+      - name: Build CLI
+        run: cargo build -p gitbutler-cli
+      - name: Build SvelteKit
+        run: pnpm build:desktop -- --mode development
+      - name: Build Tauri
+        run: pnpm build:test
+      - name: Install tauri-driver
+        run: |
+          if [ ! -e "$HOME/.cargo/bin/tauri-driver" ]; then
+            cargo install tauri-driver
+          fi
+
+      # Run it through `xvfb-run` to have a fake display server which allows our
+      # application to run headless without any changes to the code
+      - name: WebdriverIO
+        run: xvfb-run pnpm test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: WebdriverIO Artifacts
+          overwrite: true
+          path: |
+            ./apps/desktop/e2e/videos
+            ~/.config/com.gitbutler.app*/logs
