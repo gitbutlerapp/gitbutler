@@ -356,11 +356,12 @@ fn hunk_dependency_assignments(
     Ok(assignments)
 }
 
+/// This also generates a UUID for the assignment
 fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> {
     let path_str = path.to_str_lossy();
     match diff {
         but_core::UnifiedDiff::Binary => vec![HunkAssignment {
-            id: None,
+            id: Some(Uuid::new_v4()),
             hunk_header: None,
             path: path_str.into(),
             path_bytes: path,
@@ -368,7 +369,7 @@ fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> 
             hunk_locks: vec![],
         }],
         but_core::UnifiedDiff::TooLarge { .. } => vec![HunkAssignment {
-            id: None,
+            id: Some(Uuid::new_v4()),
             hunk_header: None,
             path: path_str.into(),
             path_bytes: path,
@@ -383,7 +384,7 @@ fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> 
             // If there are no hunks, then the assignment is for the whole file
             if is_result_of_binary_to_text_conversion || hunks.is_empty() {
                 vec![HunkAssignment {
-                    id: None,
+                    id: Some(Uuid::new_v4()),
                     hunk_header: None,
                     path: path_str.into(),
                     path_bytes: path,
@@ -394,7 +395,7 @@ fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> 
                 hunks
                     .iter()
                     .map(|hunk| HunkAssignment {
-                        id: None,
+                        id: Some(Uuid::new_v4()),
                         hunk_header: Some(hunk.into()),
                         path: path_str.clone().into(),
                         path_bytes: path.clone(),
