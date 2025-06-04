@@ -20,7 +20,6 @@ gitbutler-serde.workspace = true
 
 # TODO: remove once not needed anymore
 git2.workspace = true
-gitbutler-repo.workspace = true
 gitbutler-oxidize.workspace = true
 
 # For `ui` module

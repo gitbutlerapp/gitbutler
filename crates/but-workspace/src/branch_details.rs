@@ -5,7 +5,8 @@ use anyhow::{Context, bail};
 use but_core::RefMetadata;
 use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Code;
-use gitbutler_oxidize::{ObjectIdExt as _, OidExt};
+use gitbutler_oxidize::OidExt;
+use gix::date::parse::TimeBuf;
 use gix::prelude::ObjectIdExt;
 use gix::reference::Category;
 use gix::remote::Direction;
@@ -174,23 +175,15 @@ pub fn branch_details_v3(
 
     let mut authors = HashSet::new();
     let (mut commits, upstream_commits) = {
-        let repo = git2::Repository::open(repo.path())?;
-
-        let commits = local_commits(
-            &repo,
-            integration_branch_id.to_git2(),
-            branch_id.to_git2(),
-            &mut authors,
-        )?;
+        let commits = local_commits_gix(branch_id, integration_branch_id.detach(), &mut authors)?;
 
         let upstream_commits = if let Some(remote_tracking_branch) = remote_tracking_branch.as_mut()
         {
             let remote_id = remote_tracking_branch.peel_to_id_in_place()?;
-            upstream_commits(
-                &repo,
-                remote_id.to_git2(),
-                integration_branch_id.to_git2(),
-                branch_id.to_git2(),
+            upstream_commits_gix(
+                remote_id,
+                integration_branch_id.detach(),
+                branch_id.detach(),
                 &mut authors,
             )?
         } else {
@@ -299,10 +292,40 @@ fn upstream_commits(
         .collect())
 }
 
+/// Traverse all commits that are reachable from the first parent of `upstream_id`, but not in `integration_branch_id` nor in `branch_id`.
+/// While at it, collect the commiter and author of each commit into `authors`.
+fn upstream_commits_gix(
+    upstream_id: gix::Id<'_>,
+    integration_branch_id: gix::ObjectId,
+    branch_id: gix::ObjectId,
+    authors: &mut HashSet<ui::Author>,
+) -> anyhow::Result<Vec<UpstreamCommit>> {
+    let revwalk = upstream_id
+        .ancestors()
+        .with_hidden([branch_id, integration_branch_id])
+        .first_parent_only()
+        .all()?;
+    let mut out = Vec::new();
+    for info in revwalk {
+        let info = info?;
+        let commit = info.id().object()?.into_commit();
+        let commit = commit.decode()?;
+        let author: ui::Author = commit.author().into();
+        let commiter: ui::Author = commit.committer().into();
+        authors.insert(author.clone());
+        authors.insert(commiter);
+        out.push(UpstreamCommit {
+            id: info.id,
+            message: commit.message.into(),
+            created_at: i128::from(commit.time().seconds) * 1000,
+            author,
+        });
+    }
+    Ok(out)
+}
+
 /// Traverse all commits that are reachable from the first parent of `branch_id`, but not in `integration_branch`, and store all
 /// commit authors and committers in `authors` while at it.
-///
-// TODO: rewrite with `gix` and obtain is_conflicted information.
 fn local_commits(
     repository: &git2::Repository,
     integration_branch_id: git2::Oid,
@@ -333,4 +356,40 @@ fn local_commits(
             }
         })
         .collect())
+}
+
+/// Traverse all commits that are reachable from the first parent of `branch_id`, but not in `integration_branch`, and store all
+/// commit authors and committers in `authors` while at it.
+fn local_commits_gix(
+    branch_id: gix::Id<'_>,
+    integration_branch_id: gix::ObjectId,
+    authors: &mut HashSet<ui::Author>,
+) -> anyhow::Result<Vec<ui::Commit>> {
+    let revwalk = branch_id
+        .ancestors()
+        .with_hidden([integration_branch_id])
+        .first_parent_only()
+        .all()?;
+
+    let mut out = Vec::new();
+    for info in revwalk {
+        let info = info?;
+        let commit = but_core::Commit::from_id(info.id())?;
+
+        let mut buf = TimeBuf::default();
+        let author: ui::Author = commit.author.to_ref(&mut buf).into();
+        let commiter: ui::Author = commit.committer.to_ref(&mut buf).into();
+        authors.insert(author.clone());
+        authors.insert(commiter);
+        out.push(ui::Commit {
+            id: info.id,
+            parent_ids: commit.parents.iter().cloned().collect(),
+            message: commit.message.clone(),
+            has_conflicts: commit.is_conflicted(),
+            state: CommitState::LocalAndRemote(info.id),
+            created_at: i128::from(commit.committer.time.seconds) * 1000,
+            author,
+        });
+    }
+    Ok(out)
 }

@@ -14,7 +14,6 @@ bstr.workspace = true
 git2.workspace = true
 but-core.workspace = true
 but-rebase.workspace = true
-gitbutler-id.workspace = true
 gix = { workspace = true, features = ["worktree-mutation"] }
 gitbutler-stack.workspace = true
 gitbutler-command-context.workspace = true
@@ -29,7 +28,6 @@ gitbutler-serde.workspace = true
 itertools = "0.14"
 url = { version = "2.5.4", features = ["serde"] }
 md5 = "0.7.0"
-but-status.workspace = true
 
 # For virtual branches metadata
 gitbutler-fs.workspace = true
