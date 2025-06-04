@@ -132,9 +132,28 @@
 	async function setFilteredBranches(appliedBranches: string[]) {
 		if (!forgeListingService) return;
 
-		const reviews = await forgeListingService.fetchByBranch(projectId, appliedBranches);
-		// Find the reviews that have a "mergedAt" timestamp
-		filteredReviews = reviews.filter((r) => !!r.mergedAt);
+		try {
+			// Fetch the base branch and the forge info to ensure we have the
+			// latest data We only need to (and want to) do this if we are also
+			// looking at the reviews.
+			//
+			// This is to handle the case where the reviews might dictacte that
+			// we should remove a branch, but we don't have the have the merge
+			// commit yet. If we were to handle a branch as "integrated" without
+			// the merge commit, files might dissapear for a users working tree
+			// in a supprising way.
+			//
+			// We could query both of these simultaniously using Promise.all,
+			// but that is extra complexity that is not needed for now.
+			await baseBranchService.fetchFromRemotes(projectId);
+			const reviews = await forgeListingService.fetchByBranch(projectId, appliedBranches);
+
+			// Find the reviews that have a "mergedAt" timestamp
+			filteredReviews = reviews.filter((r) => !!r.mergedAt);
+		} catch (_e) {
+			// We don't really mind if this fails as additional bonus
+			// information.
+		}
 	}
 
 	function handleBaseResolutionSelection(value: string) {
@@ -173,8 +192,6 @@
 		filteredReviews = [];
 		await tick();
 		modal?.show();
-		// Fetch the base branch and the forge info to ensure we have the latest data
-		await baseBranchService.fetchFromRemotes(projectId);
 		appliedBranches = await fetchAppliedBranches();
 		await setFilteredBranches(untrack(() => appliedBranches) ?? []);
 		branchStatuses = await upstreamIntegrationService.upstreamStatuses(projectId, targetCommitOid);
