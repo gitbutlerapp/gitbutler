@@ -605,7 +605,7 @@ mod tests {
         .unwrap();
         assert_eq(
             result,
-            vec![HunkAssignment::new("foo.rs", 5, 18, Some(2), Some(1))],
+            vec![HunkAssignment::new("foo.rs", 5, 18, Some(2), Some(2))],
         );
     }
 
@@ -627,7 +627,7 @@ mod tests {
         .unwrap();
         assert_eq(
             result,
-            vec![HunkAssignment::new("foo.rs", 5, 18, None, Some(1))],
+            vec![HunkAssignment::new("foo.rs", 5, 18, None, Some(2))],
         );
     }
 
