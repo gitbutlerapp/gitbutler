@@ -6,7 +6,7 @@
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { sprayConfetti } from '$lib/joy/confetti';
 	import { type Stack } from '$lib/stacks/stack';
-	import { StackService } from '$lib/stacks/stackService.svelte';
+	// import { StackService } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import {
 		getBaseBranchResolution,
@@ -34,7 +34,7 @@
 	import Select from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-	import { tick, untrack } from 'svelte';
+	import { tick } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { PullRequest } from '$lib/forge/interface/types';
 
@@ -50,7 +50,7 @@
 
 	const upstreamIntegrationService = getContext(UpstreamIntegrationService);
 	const forge = getContext(DefaultForgeFactory);
-	const forgeListingService = $derived(forge.current.listService);
+	// const forgeListingService = $derived(forge.current.listService);
 	const baseBranchService = getContext(BaseBranchService);
 	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
 	const base = $derived(baseBranchResponse.current.data);
@@ -62,8 +62,8 @@
 	let baseResolutionApproach = $state<BaseBranchResolutionApproach | undefined>();
 	let targetCommitOid = $state<string | undefined>(undefined);
 	let branchStatuses = $state<StackStatusesWithBranchesV3 | undefined>();
-	const stackService = getContext(StackService);
-	let appliedBranches = $state<string[]>();
+	// const stackService = getContext(StackService);
+	// let appliedBranches = $state<string[]>();
 	// Any PRs belonging to applied branches that have been merged
 	let filteredReviews = $state<PullRequest[]>([]);
 	const reviewMap = $derived(new Map(filteredReviews?.map((r) => [r.sourceBranch, r])));
@@ -129,32 +129,32 @@
 		}
 	});
 
-	async function setFilteredBranches(appliedBranches: string[]) {
-		if (!forgeListingService) return;
+	// async function setFilteredBranches(appliedBranches: string[]) {
+	// 	if (!forgeListingService) return;
 
-		try {
-			// Fetch the base branch and the forge info to ensure we have the
-			// latest data We only need to (and want to) do this if we are also
-			// looking at the reviews.
-			//
-			// This is to handle the case where the reviews might dictacte that
-			// we should remove a branch, but we don't have the have the merge
-			// commit yet. If we were to handle a branch as "integrated" without
-			// the merge commit, files might dissapear for a users working tree
-			// in a supprising way.
-			//
-			// We could query both of these simultaniously using Promise.all,
-			// but that is extra complexity that is not needed for now.
-			await baseBranchService.fetchFromRemotes(projectId);
-			const reviews = await forgeListingService.fetchByBranch(projectId, appliedBranches);
+	// 	try {
+	// 		// Fetch the base branch and the forge info to ensure we have the
+	// 		// latest data We only need to (and want to) do this if we are also
+	// 		// looking at the reviews.
+	// 		//
+	// 		// This is to handle the case where the reviews might dictacte that
+	// 		// we should remove a branch, but we don't have the have the merge
+	// 		// commit yet. If we were to handle a branch as "integrated" without
+	// 		// the merge commit, files might dissapear for a users working tree
+	// 		// in a supprising way.
+	// 		//
+	// 		// We could query both of these simultaniously using Promise.all,
+	// 		// but that is extra complexity that is not needed for now.
+	// 		await baseBranchService.fetchFromRemotes(projectId);
+	// 		const reviews = await forgeListingService.fetchByBranch(projectId, appliedBranches);
 
-			// Find the reviews that have a "mergedAt" timestamp
-			filteredReviews = reviews.filter((r) => !!r.mergedAt);
-		} catch (_e) {
-			// We don't really mind if this fails as additional bonus
-			// information.
-		}
-	}
+	// 		// Find the reviews that have a "mergedAt" timestamp
+	// 		filteredReviews = reviews.filter((r) => !!r.mergedAt);
+	// 	} catch (_e) {
+	// 		// We don't really mind if this fails as additional bonus
+	// 		// information.
+	// 	}
+	// }
 
 	function handleBaseResolutionSelection(value: string) {
 		baseResolutionApproach = value as BaseBranchResolutionApproach;
@@ -181,10 +181,10 @@
 		modal?.close();
 	}
 
-	async function fetchAppliedBranches() {
-		const stacksResponse = await stackService.fetchStacks(projectId);
-		return stacksResponse.data?.flatMap((stack) => stack.heads.map((head) => head.name)) ?? [];
-	}
+	// async function fetchAppliedBranches() {
+	// 	const stacksResponse = await stackService.fetchStacks(projectId);
+	// 	return stacksResponse.data?.flatMap((stack) => stack.heads.map((head) => head.name)) ?? [];
+	// }
 
 	export async function show() {
 		integratingUpstream = 'inert';
@@ -192,8 +192,8 @@
 		filteredReviews = [];
 		await tick();
 		modal?.show();
-		appliedBranches = await fetchAppliedBranches();
-		await setFilteredBranches(untrack(() => appliedBranches) ?? []);
+		// appliedBranches = await fetchAppliedBranches();
+		// await setFilteredBranches(untrack(() => appliedBranches) ?? []); // TODO: Some day this will be made good
 		branchStatuses = await upstreamIntegrationService.upstreamStatuses(projectId, targetCommitOid);
 	}
 
