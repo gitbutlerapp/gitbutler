@@ -59,16 +59,25 @@
 	let showActionsTarget = $state<HTMLElement>();
 
 	async function selectCommit(branchName: string, id: string) {
-		if (!allStacks.current.data) return;
+		if (!allStacks.current.data) {
+			toasts.success('This commit is no longer present');
+			return;
+		}
 
 		const stack = allStacks.current.data.find((stack) =>
 			stack.heads.some((head) => head.name === branchName)
 		);
 
-		if (!stack) return;
+		if (!stack) {
+			toasts.success('This commit is no longer present');
+			return;
+		}
 
 		const commits = await stackService.fetchCommits(projectId, stack.id, branchName);
-		if (!commits.data) return;
+		if (!commits.data) {
+			toasts.success('This commit is no longer present');
+			return;
+		}
 
 		// If the commit is not in the stack anymore, just return.
 		if (!commits.data.some((commit) => commit.id === id)) {
