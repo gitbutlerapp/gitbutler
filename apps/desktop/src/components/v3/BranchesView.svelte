@@ -179,7 +179,7 @@
 		<MainViewport
 			name="branches"
 			leftWidth={{ default: 360, min: 280 }}
-			rightWidth={{ default: 360, min: 280 }}
+			middleWidth={{ default: 360, min: 280 }}
 		>
 			{#snippet left()}
 				<div class="branch-list">
@@ -257,46 +257,6 @@
 			{/snippet}
 
 			{#snippet middle()}
-				{#if !drawerIsFullScreen.current}
-					<SelectionView {projectId} {selectionId} draggableFiles />
-				{/if}
-
-				{#if current.commitId}
-					<UnappliedCommitView {projectId} commitId={current.commitId} />
-				{:else if current.branchName}
-					{#if current.inWorkspace && current.stackId}
-						<BranchView
-							{projectId}
-							branchName={current.branchName}
-							stackId={current.stackId}
-							draggableFiles={false}
-							active
-							{onerror}
-						/>
-					{:else if !current.isTarget}
-						<UnappliedBranchView
-							{projectId}
-							branchName={current.branchName}
-							stackId={current.stackId}
-							remote={current.remote}
-							prNumber={current.prNumber}
-							{onerror}
-						/>
-					{/if}
-				{:else if current.prNumber}
-					<PrBranchView {projectId} prNumber={current.prNumber} {onerror} />
-				{:else if !current.branchName && !current.prNumber}
-					<!-- TODO: Make this fallback better somehow? -->
-					<UnappliedBranchView
-						{projectId}
-						branchName={baseBranch.shortName}
-						remote={baseBranch.remoteName}
-						{onerror}
-					/>
-				{/if}
-			{/snippet}
-
-			{#snippet right()}
 				<!-- Apply branch -->
 				{#if !inWorkspaceOrTargetBranch && someBranchSelected}
 					{@const doesNotHaveLocalTooltip = current.hasLocal
@@ -379,11 +339,62 @@
 					{/if}
 				</div>
 			{/snippet}
+
+			{#snippet right()}
+				<div class="right-view">
+					{#if !drawerIsFullScreen.current}
+						<SelectionView {projectId} {selectionId} draggableFiles />
+					{/if}
+
+					{#if current.commitId}
+						<UnappliedCommitView {projectId} commitId={current.commitId} />
+					{:else if current.branchName}
+						{#if current.inWorkspace && current.stackId}
+							<BranchView
+								{projectId}
+								branchName={current.branchName}
+								stackId={current.stackId}
+								draggableFiles={false}
+								active
+								{onerror}
+							/>
+						{:else if !current.isTarget}
+							<UnappliedBranchView
+								{projectId}
+								branchName={current.branchName}
+								stackId={current.stackId}
+								remote={current.remote}
+								prNumber={current.prNumber}
+								{onerror}
+							/>
+						{/if}
+					{:else if current.prNumber}
+						<PrBranchView {projectId} prNumber={current.prNumber} {onerror} />
+					{:else if !current.branchName && !current.prNumber}
+						<!-- TODO: Make this fallback better somehow? -->
+						<UnappliedBranchView
+							{projectId}
+							branchName={baseBranch.shortName}
+							remote={baseBranch.remoteName}
+							{onerror}
+						/>
+					{/if}
+				</div>
+			{/snippet}
 		</MainViewport>
 	{/snippet}
 </ReduxResult>
 
 <style lang="postcss">
+	.right-view {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+	}
+
 	.branch-commits {
 		display: flex;
 		position: relative;
