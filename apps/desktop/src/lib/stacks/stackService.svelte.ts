@@ -309,6 +309,16 @@ export class StackService {
 		);
 	}
 
+	fetchCommits(projectId: string, stackId: string, branchName: string) {
+		return this.api.endpoints.stackDetails.fetch(
+			{ projectId, stackId },
+			{
+				transform: ({ branchDetails }) =>
+					branchDetailsSelectors.selectById(branchDetails, branchName)?.commits
+			}
+		);
+	}
+
 	commitAt(projectId: string, stackId: string, branchName: string, index: number) {
 		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },

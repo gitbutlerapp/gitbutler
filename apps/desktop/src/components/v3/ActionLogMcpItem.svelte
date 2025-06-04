@@ -1,12 +1,15 @@
 <script lang="ts">
 	import DataContextMenu from '$components/v3/DataContextMenu.svelte';
 	import ActionService from '$lib/actions/actionService.svelte';
+	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { UiState } from '$lib/state/uiState.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
+	import toasts from '@gitbutler/ui/toasts';
 	import type { ButlerAction, Outcome } from '$lib/actions/types';
 
 	type Props = {
@@ -26,6 +29,11 @@
 	// changes that happend on disk between these two events.
 
 	const actionService = getContext(ActionService);
+	const stackService = getContext(StackService);
+	const uiState = getContext(UiState);
+
+	const allStacks = $derived(stackService.allStacks(projectId));
+
 	const [revertSnapshot] = actionService.revertSnapshot;
 
 	async function restore(id: string, description: string) {
@@ -49,6 +57,33 @@
 	});
 	let showActions = $state(false);
 	let showActionsTarget = $state<HTMLElement>();
+
+	async function selectCommit(branchName: string, id: string) {
+		if (!allStacks.current.data) return;
+
+		const stack = allStacks.current.data.find((stack) =>
+			stack.heads.some((head) => head.name === branchName)
+		);
+
+		if (!stack) return;
+
+		const commits = await stackService.fetchCommits(projectId, stack.id, branchName);
+		if (!commits.data) return;
+
+		// If the commit is not in the stack anymore, just return.
+		if (!commits.data.some((commit) => commit.id === id)) {
+			toasts.success('This commit is no longer present');
+			return;
+		}
+
+		const stackState = uiState.stack(stack.id);
+		// If it's already selected, clear the selection
+		if (stackState.selection.current?.commitId === id) {
+			stackState.selection.set(undefined);
+		} else {
+			stackState.selection.set({ branchName, commitId: id, upstream: false });
+		}
+	}
 </script>
 
 <DataContextMenu
@@ -112,19 +147,33 @@
 
 {#snippet outcome(outcome: Outcome)}
 	{#each outcome.updatedBranches as branch}
-		<div class="outcome-item">
-			{#if branch.newCommits.length > 0}
-				{#each branch.newCommits as commit}
+		{#if branch.newCommits.length > 0}
+			{@const stack = allStacks.current.data?.find((stack) =>
+				stack.heads.some((head) => head.name === branch.branchName)
+			)}
+			{@const stackState = stack ? uiState.stack(stack?.id) : undefined}
+
+			{#each branch.newCommits as commit}
+				{@const selected = stackState?.selection.current?.commitId === commit}
+				<!-- svelte-ignore a11y_click_events_have_key_events -->
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<div
+					class="outcome-item"
+					onclick={() => selectCommit(branch.branchName, commit)}
+					class:selected
+				>
 					<Icon name="commit" />
 					<p class="text-14">
 						Created commit {commit.slice(0, 7)} on {branch.branchName}
 					</p>
-				{/each}
-			{:else}
+				</div>
+			{/each}
+		{:else}
+			<div class="outcome-item">
 				<Icon name="branch-small" />
 				<p class="text-14">Updated branch {branch.branchName}</p>
-			{/if}
-		</div>
+			</div>
+		{/if}
 	{/each}
 {/snippet}
 
@@ -174,6 +223,7 @@
 		width: 100%;
 
 		margin-top: 4px;
+		overflow: hidden;
 
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
@@ -183,12 +233,17 @@
 		display: flex;
 
 		padding: 12px;
+
 		gap: 8px;
 
 		border-bottom: 1px solid var(--clr-border-2);
 
 		&:last-child {
 			border-bottom: none;
+		}
+
+		&.selected {
+			background-color: var(--clr-core-ntrl-95);
 		}
 	}
 
