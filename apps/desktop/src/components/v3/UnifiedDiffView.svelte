@@ -119,7 +119,7 @@
 						{@const selection = uncommittedService.hunkCheckStatus(
 							stackId || null,
 							change.path,
-							hunk.newStart.toString()
+							hunk
 						)}
 						{@const [fullyLocked, lineLocks] = getLineLocks(
 							activeStackId,
@@ -159,48 +159,26 @@
 								onLineClick={(p) => {
 									if (fullyLocked) return;
 									if (!canBePartiallySelected(diff.subject)) {
-										uncommittedService.checkHunk(
-											stackId || null,
-											change.path,
-											hunk.newStart.toString()
-										);
+										uncommittedService.checkHunk(stackId || null, change.path, hunk);
 									}
 									if (!linesInclude(p.newLine, p.oldLine, selection.current.lines)) {
-										uncommittedService.checkLine(
-											stackId || null,
-											change.path,
-											hunk.newStart.toString(),
-											{
-												newLine: p.newLine,
-												oldLine: p.oldLine
-											}
-										);
+										uncommittedService.checkLine(stackId || null, change.path, hunk, {
+											newLine: p.newLine,
+											oldLine: p.oldLine
+										});
 									} else {
-										uncommittedService.uncheckLine(
-											stackId || null,
-											change.path,
-											hunk.newStart.toString(),
-											{
-												newLine: p.newLine,
-												oldLine: p.oldLine
-											}
-										);
+										uncommittedService.uncheckLine(stackId || null, change.path, hunk, {
+											newLine: p.newLine,
+											oldLine: p.oldLine
+										});
 									}
 								}}
 								onChangeStage={(selected) => {
 									if (fullyLocked || !selectable) return;
 									if (selected) {
-										uncommittedService.checkHunk(
-											stackId || null,
-											change.path,
-											hunk.newStart.toString()
-										);
+										uncommittedService.checkHunk(stackId || null, change.path, hunk);
 									} else {
-										uncommittedService.uncheckHunk(
-											stackId || null,
-											change.path,
-											hunk.newStart.toString()
-										);
+										uncommittedService.uncheckHunk(stackId || null, change.path, hunk);
 									}
 								}}
 								handleLineContextMenu={(params) => {
@@ -237,7 +215,7 @@
 					{change}
 					discardable={isUncommittedChange}
 					unSelectHunk={(hunk) => {
-						uncommittedService.uncheckHunk(stackId || null, change.path, hunk.newStart.toString());
+						uncommittedService.uncheckHunk(stackId || null, change.path, hunk);
 					}}
 				/>
 			{:else if diff.type === 'TooLarge'}

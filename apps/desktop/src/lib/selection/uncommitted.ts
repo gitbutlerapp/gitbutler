@@ -10,7 +10,7 @@ import { createSelectByPrefix, createSelectNotIn } from '$lib/state/customSelect
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { createSelector, createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { TreeChange } from '$lib/hunks/change';
-import type { HunkAssignment } from '$lib/hunks/hunk';
+import type { HunkAssignment, HunkHeader } from '$lib/hunks/hunk';
 import type { LineId } from '@gitbutler/ui/utils/diffParsing';
 
 /**
@@ -65,7 +65,7 @@ export const uncommittedSlice = createSlice({
 			action: PayloadAction<{
 				stackId: string | null;
 				path: string;
-				hunkHeader: string;
+				hunkHeader: HunkHeader;
 				line: LineId;
 			}>
 		) {
@@ -99,7 +99,7 @@ export const uncommittedSlice = createSlice({
 			action: PayloadAction<{
 				stackId: string | null;
 				path: string;
-				hunkHeader: string;
+				hunkHeader: HunkHeader;
 				line: LineId;
 			}>
 		) {
@@ -144,7 +144,7 @@ export const uncommittedSlice = createSlice({
 		},
 		checkHunk(
 			state,
-			action: PayloadAction<{ stackId: string | null; path: string; hunkHeader: string | null }>
+			action: PayloadAction<{ stackId: string | null; path: string; hunkHeader: HunkHeader | null }>
 		) {
 			const key = compositeKey(action.payload);
 			const assignment = uncommittedSelectors.hunkAssignments.selectById(
@@ -163,7 +163,7 @@ export const uncommittedSlice = createSlice({
 		},
 		uncheckHunk(
 			state,
-			action: PayloadAction<{ stackId: string | null; path: string; hunkHeader: string | null }>
+			action: PayloadAction<{ stackId: string | null; path: string; hunkHeader: HunkHeader | null }>
 		) {
 			const key = compositeKey(action.payload);
 			state.hunkSelection = hunkSelectionAdapter.removeOne(state.hunkSelection, key);
@@ -293,7 +293,7 @@ const selectByPath = createSelector(
 const hunkCheckStatus = createSelector(
 	[
 		selectHunkSelection,
-		(_, hunkId: { stackId: string | null; path: string; hunkHeader: string }) => {
+		(_, hunkId: { stackId: string | null; path: string; hunkHeader: HunkHeader }) => {
 			return hunkId;
 		}
 	],
