@@ -22,12 +22,13 @@ pub struct Options {
 }
 
 pub(crate) mod function {
-    use crate::branch::{LocalCommit, LocalCommitRelation, RefLocation, Stack, StackSegment};
+    use crate::branch::Stack;
     use crate::integrated::{IsCommitIntegrated, MergeBaseCommitGraph};
-    use crate::{RefInfo, WorkspaceCommit, branch, is_workspace_ref_name};
+    use crate::{RefInfo, WorkspaceCommit, is_workspace_ref_name};
     use anyhow::bail;
     use bstr::BString;
     use but_core::ref_metadata::{ValueInfo, Workspace, WorkspaceStack};
+    use but_graph::{LocalCommit, LocalCommitRelation, RefLocation, RemoteCommit, StackSegment};
     use gix::prelude::{ObjectIdExt, ReferenceExt};
     use gix::refs::{Category, FullName};
     use gix::revision::walk::Sorting;
@@ -1001,12 +1002,12 @@ pub(crate) mod function {
                                 },
                                 commit.id.detach(),
                             );
-                            segment.commits_unique_in_remote_tracking_branch.push(
-                                branch::RemoteCommit {
+                            segment
+                                .commits_unique_in_remote_tracking_branch
+                                .push(RemoteCommit {
                                     inner: commit.into(),
                                     has_conflicts,
-                                },
-                            );
+                                });
                         }
                     }
                 }

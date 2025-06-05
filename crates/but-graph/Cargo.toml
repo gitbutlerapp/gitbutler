@@ -1,0 +1,16 @@
+[package]
+name = "but-graph"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+description = "Types to represent Git commit graphs as connected segments, and perform various operations on these."
+publish = false
+
+[dependencies]
+but-core.workspace = true
+
+gix.workspace = true
+bstr.workspace = true
+petgraph = "0.8.1"
+anyhow.workspace = true
+
