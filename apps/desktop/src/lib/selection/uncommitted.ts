@@ -19,6 +19,8 @@ import type { LineId } from '@gitbutler/ui/utils/diffParsing';
  * In this slice we manage a few related concepts, 1) tree changes, 2) hunk
  * assignments, and 3) hunk selections, with the intended outcome that it
  * should be easy to manage checkboxes.
+ *
+ * A hunk selection will always have an associated hunk assignment.
  */
 export const uncommittedSlice = createSlice({
 	name: 'uncommitted',
@@ -84,7 +86,6 @@ export const uncommittedSlice = createSlice({
 					throw new Error(`Expected to find assignment: ${key} `);
 				}
 				state.hunkSelection = hunkSelectionAdapter.addOne(state.hunkSelection, {
-					hunkSelectionId: key,
 					stackId: stackId,
 					path: assignment.path,
 					assignmentId: key,
@@ -134,7 +135,7 @@ export const uncommittedSlice = createSlice({
 						} else {
 							state.hunkSelection = hunkSelectionAdapter.removeOne(
 								state.hunkSelection,
-								selection.hunkSelectionId
+								selection.assignmentId
 							);
 						}
 					}
@@ -145,19 +146,17 @@ export const uncommittedSlice = createSlice({
 			state,
 			action: PayloadAction<{ stackId: string | null; path: string; hunkHeader: string | null }>
 		) {
-			const { stackId, path, hunkHeader } = action.payload;
 			const key = compositeKey(action.payload);
 			const assignment = uncommittedSelectors.hunkAssignments.selectById(
 				state.hunkAssignments,
-				compositeKey({ stackId, path, hunkHeader })
+				key
 			);
 			if (assignment) {
 				state.hunkSelection = hunkSelectionAdapter.upsertOne(state.hunkSelection, {
-					hunkSelectionId: key,
-					stackId: stackId,
+					stackId: action.payload.stackId,
 					path: assignment.path,
 					assignmentId: key,
-					changeId: `${stackId}::${assignment.path}`,
+					changeId: `${action.payload.stackId}::${assignment.path}`,
 					lines: []
 				});
 			}
@@ -180,7 +179,6 @@ export const uncommittedSlice = createSlice({
 			for (const assignment of assignments) {
 				const key = hunkAssignmentAdapter.selectId(assignment);
 				state.hunkSelection = hunkSelectionAdapter.upsertOne(state.hunkSelection, {
-					hunkSelectionId: key,
 					stackId: stackId,
 					path: assignment.path,
 					assignmentId: key,
@@ -212,7 +210,6 @@ export const uncommittedSlice = createSlice({
 			for (const assignment of assignments) {
 				const key = hunkAssignmentAdapter.selectId(assignment);
 				state.hunkSelection = hunkSelectionAdapter.upsertOne(state.hunkSelection, {
-					hunkSelectionId: key,
 					stackId: stackId,
 					path: assignment.path,
 					assignmentId: key,
@@ -230,7 +227,7 @@ export const uncommittedSlice = createSlice({
 			);
 			state.hunkSelection = hunkSelectionAdapter.removeMany(
 				state.hunkSelection,
-				selections.map((s) => s.hunkSelectionId)
+				selections.map((s) => s.assignmentId)
 			);
 		}
 	}
