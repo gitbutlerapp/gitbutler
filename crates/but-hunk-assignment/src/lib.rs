@@ -263,13 +263,16 @@ pub fn assign(
 pub fn assignments_with_fallback(
     ctx: &mut CommandContext,
     set_assignment_from_locks: bool,
-    worktree_changes: Option<Vec<but_core::TreeChange>>,
+    worktree_changes: Option<impl IntoIterator<Item = impl Into<but_core::TreeChange>>>,
 ) -> Result<(Vec<HunkAssignment>, Option<anyhow::Error>)> {
     let repo = &ctx.gix_repo()?;
     let worktree_changes: Vec<but_core::TreeChange> = match worktree_changes {
-        Some(wtc) => wtc.clone(),
+        Some(wtc) => wtc.into_iter().map(Into::into).collect(),
         None => but_core::diff::worktree_changes(repo)?.changes,
     };
+    if worktree_changes.is_empty() {
+        return Ok((vec![], None));
+    }
     let mut worktree_assignments = vec![];
     for change in &worktree_changes {
         let diff = change.unified_diff(repo, ctx.app_settings().context_lines)?;
