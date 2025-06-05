@@ -256,7 +256,7 @@ pub fn assign(
     Ok(rejections)
 }
 
-/// Same as the `assignments` function, but if the operation produces an error, it will create a fallback set of assignments from the worktree changes alone.
+/// Same as the `reconcile_with_worktree_and_locks` function, but if the operation produces an error, it will create a fallback set of assignments from the worktree changes alone.
 /// An optional error is returned alongside the assignments, which will be `None` if the operation was successful and it will be set if the operation failed and a fallback was used.
 ///
 /// The fallback can of course also fail, in which case the tauri operation will error out.
@@ -265,24 +265,25 @@ pub fn assignments_with_fallback(
     set_assignment_from_locks: bool,
     worktree_changes: Option<Vec<but_core::TreeChange>>,
 ) -> Result<(Vec<HunkAssignment>, Option<anyhow::Error>)> {
-    let out = match assignments(ctx, set_assignment_from_locks, worktree_changes.as_ref()) {
-        Ok(a) => (a, None),
-        Err(e) => {
-            let repo = &ctx.gix_repo()?;
-            let worktree_changes: Vec<but_core::TreeChange> = match worktree_changes {
-                Some(wtc) => wtc.clone(),
-                None => but_core::diff::worktree_changes(repo)?.changes,
-            };
-            let mut fallback_assignments = vec![];
-            for change in worktree_changes {
-                let diff = change.unified_diff(repo, ctx.app_settings().context_lines)?;
-                let assignments_from_worktree = diff_to_assignments(diff, change.path);
-                fallback_assignments.extend(assignments_from_worktree);
-            }
-            (fallback_assignments, Some(e))
-        }
+    let repo = &ctx.gix_repo()?;
+    let worktree_changes: Vec<but_core::TreeChange> = match worktree_changes {
+        Some(wtc) => wtc.clone(),
+        None => but_core::diff::worktree_changes(repo)?.changes,
     };
-    Ok(out)
+    let mut worktree_assignments = vec![];
+    for change in &worktree_changes {
+        let diff = change.unified_diff(repo, ctx.app_settings().context_lines)?;
+        worktree_assignments.extend(diff_to_assignments(diff, change.path.clone()));
+    }
+    let reconciled = reconcile_with_worktree_and_locks(
+        ctx,
+        set_assignment_from_locks,
+        &worktree_changes,
+        &worktree_assignments,
+    )
+    .map(|a| (a, None))
+    .unwrap_or_else(|e| (worktree_assignments, Some(e)));
+    Ok(reconciled)
 }
 
 /// Returns the current hunk assignments for the workspace.
@@ -305,18 +306,12 @@ pub fn assignments_with_fallback(
 ///
 /// If `worktree_changes` is `None`, they will be fetched automatically.
 #[instrument(skip(ctx), err(Debug))]
-fn assignments(
+fn reconcile_with_worktree_and_locks(
     ctx: &mut CommandContext,
     set_assignment_from_locks: bool,
-    worktree_changes: Option<&Vec<but_core::TreeChange>>,
+    worktree_changes: &Vec<but_core::TreeChange>,
+    worktree_assignments: &Vec<HunkAssignment>,
 ) -> Result<Vec<HunkAssignment>> {
-    let previous_assignments = state::assignments(ctx)?;
-    let repo = &ctx.gix_repo()?;
-    let context_lines = ctx.app_settings().context_lines;
-    let worktree_changes: Vec<but_core::TreeChange> = match worktree_changes {
-        Some(wtc) => wtc.clone(),
-        None => but_core::diff::worktree_changes(repo)?.changes,
-    };
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     let applied_stacks = vb_state
         .list_stacks_in_workspace()?
@@ -324,30 +319,25 @@ fn assignments(
         .map(|s| s.id)
         .collect::<Vec<_>>();
 
-    let deps_assignments = hunk_dependency_assignments(ctx, Some(worktree_changes.clone()))?;
+    let persisted_assignments = state::assignments(ctx)?;
+    let with_worktree = reconcile::assignments(
+        worktree_assignments.clone(),
+        &persisted_assignments,
+        &applied_stacks,
+        MultipleOverlapping::SetMostLines,
+        true,
+    )?;
 
-    let mut reconciled = vec![];
-    for change in &worktree_changes {
-        let diff = change.unified_diff(repo, context_lines)?;
-        let assignments_from_worktree = diff_to_assignments(diff, change.path.clone());
-        let assignments_considering_previous = reconcile::assignments(
-            assignments_from_worktree,
-            &previous_assignments,
-            &applied_stacks,
-            MultipleOverlapping::SetMostLines,
-            true,
-        )?;
-        let assignments_considering_deps = reconcile::assignments(
-            assignments_considering_previous,
-            &deps_assignments,
-            &applied_stacks,
-            MultipleOverlapping::SetNone, // If there is double locking, move the hunk to the Uncommitted section
-            set_assignment_from_locks,
-        )?;
-        reconciled.extend(assignments_considering_deps);
-    }
-    state::set_assignments(ctx, reconciled.clone())?;
-    Ok(reconciled)
+    let lock_assignments = hunk_dependency_assignments(ctx, Some(worktree_changes.clone()))?;
+    let with_locks = reconcile::assignments(
+        with_worktree,
+        &lock_assignments,
+        &applied_stacks,
+        MultipleOverlapping::SetNone,
+        set_assignment_from_locks,
+    )?;
+
+    Ok(with_locks)
 }
 
 fn hunk_dependency_assignments(
