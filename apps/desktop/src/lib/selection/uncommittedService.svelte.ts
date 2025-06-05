@@ -6,7 +6,7 @@ import {
 	type HunkAssignment,
 	type HunkHeader
 } from '$lib/hunks/hunk';
-import { compositeKey, type HunkSelection } from '$lib/selection/entityAdapters';
+import { compositeKey, partialKey, type HunkSelection } from '$lib/selection/entityAdapters';
 import {
 	uncommittedSelectors,
 	uncommittedSlice,
@@ -92,7 +92,7 @@ export class UncommittedService {
 	async worktreeChanges(projectId: string, stackId?: string) {
 		const state = structuredClone(this.state);
 
-		const key = `${stackId || null}::`;
+		const key = partialKey(stackId ?? null);
 		const selection = uncommittedSelectors.hunkSelection.selectByPrefix(state.hunkSelection, key);
 
 		const pathGroups = selection.reduce<Record<string, HunkSelection[]>>((acc, item) => {
@@ -154,7 +154,7 @@ export class UncommittedService {
 	 * Returns all assignments along with any line selections.
 	 */
 	selectedLines(stackId?: string) {
-		const key = `${stackId || null}::`;
+		const key = partialKey(stackId ?? null);
 		const result = $derived(
 			uncommittedSelectors.hunkSelection.selectByPrefix(this.state.hunkSelection, key)
 		);
@@ -197,7 +197,7 @@ export class UncommittedService {
 		const assignments = $derived(
 			uncommittedSelectors.hunkAssignments.selectByPrefix(
 				this.state.hunkAssignments,
-				`${stackId}::${path}::`
+				partialKey(stackId, path)
 			)
 		);
 		return reactive(() => assignments);
