@@ -221,55 +221,57 @@
 		const body = shouldAddPrBody() ? effectivePRBody : '';
 		const draft = $createDraft;
 
-		isCreatingReview = true;
-		await tick();
+		try {
+			isCreatingReview = true;
+			await tick();
 
-		const upstreamBranchName = await pushIfNeeded();
+			const upstreamBranchName = await pushIfNeeded();
 
-		let newReviewId: string | undefined;
-		let newPrNumber: number | undefined;
+			let newReviewId: string | undefined;
+			let newPrNumber: number | undefined;
 
-		// Even if createButlerRequest is false, if we _cant_ create a PR, then
-		// We want to always create the BR, and vice versa.
-		if ((canPublishBR && $createButlerRequest) || !canPublishPR) {
-			const reviewId = await publishBranch({
-				projectId,
-				stackId,
-				topBranch: branchName,
-				user: $user
-			});
-			if (!reviewId) {
-				posthog.capture('Butler Review Creation Failed');
-				return;
+			// Even if createButlerRequest is false, if we _cant_ create a PR, then
+			// We want to always create the BR, and vice versa.
+			if ((canPublishBR && $createButlerRequest) || !canPublishPR) {
+				const reviewId = await publishBranch({
+					projectId,
+					stackId,
+					topBranch: branchName,
+					user: $user
+				});
+				if (!reviewId) {
+					posthog.capture('Butler Review Creation Failed');
+					return;
+				}
+				posthog.capture('Butler Review Created');
+				butRequestDetailsService.setDetails(reviewId, $prTitle, effectivePRBody);
 			}
-			posthog.capture('Butler Review Created');
-			butRequestDetailsService.setDetails(reviewId, $prTitle, effectivePRBody);
+
+			if ((canPublishPR && $createPullRequest) || !canPublishBR) {
+				const pr = await createPr({
+					stackId: closureStackId,
+					branchName: closureBranchName,
+					title,
+					body,
+					draft,
+					upstreamBranchName
+				});
+				newPrNumber = pr?.number;
+			}
+
+			if (newReviewId && newPrNumber && $project?.api?.repository_id) {
+				brToPrService.refreshButRequestPrDescription(
+					newPrNumber,
+					newReviewId,
+					$project.api.repository_id
+				);
+			}
+
+			prBody.reset();
+			prTitle.reset();
+		} finally {
+			isCreatingReview = false;
 		}
-
-		if ((canPublishPR && $createPullRequest) || !canPublishBR) {
-			const pr = await createPr({
-				stackId: closureStackId,
-				branchName: closureBranchName,
-				title,
-				body,
-				draft,
-				upstreamBranchName
-			});
-			newPrNumber = pr?.number;
-		}
-
-		if (newReviewId && newPrNumber && $project?.api?.repository_id) {
-			brToPrService.refreshButRequestPrDescription(
-				newPrNumber,
-				newReviewId,
-				$project.api.repository_id
-			);
-		}
-
-		prBody.reset();
-		prTitle.reset();
-
-		isCreatingReview = false;
 		onClose();
 	}
 
