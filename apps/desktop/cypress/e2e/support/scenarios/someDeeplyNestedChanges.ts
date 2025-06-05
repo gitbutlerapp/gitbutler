@@ -35,7 +35,9 @@ export default class SomeDeeplyNestedChanges extends MockBackend {
 
 		this.worktreeChanges = {
 			changes: MOCK_FILE_TREE_CHANGES,
-			ignoredChanges: []
+			ignoredChanges: [],
+			assignments: [],
+			assignmentsError: null
 		};
 	}
 }
