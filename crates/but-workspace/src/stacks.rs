@@ -7,7 +7,7 @@ use crate::{
 use anyhow::Context;
 use bstr::BString;
 use but_core::RefMetadata;
-use but_graph::{Commit, LocalCommit, LocalCommitRelation, RemoteCommit, StackSegment};
+use but_graph::{Commit, LocalCommit, LocalCommitRelation, RemoteCommit, Segment};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oxidize::{ObjectIdExt, OidExt, git2_signature_to_gix_signature};
@@ -432,14 +432,14 @@ pub fn stack_details_v3(
 
 impl ui::BranchDetails {
     fn from_segment(
-        StackSegment {
+        Segment {
             ref_name,
             ref_location: _,
             commits_unique_from_tip,
             commits_unique_in_remote_tracking_branch,
             remote_tracking_ref_name,
             metadata,
-        }: &StackSegment,
+        }: &Segment,
         previous_tip_or_stack_base: Option<gix::ObjectId>,
     ) -> anyhow::Result<Self> {
         let ref_name = ref_name

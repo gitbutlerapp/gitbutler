@@ -200,7 +200,7 @@ pub enum RefLocation {
 
 /// A list of all commits in a stack segment of a [`Stack`].
 #[derive(Default, Clone, Eq, PartialEq)]
-pub struct StackSegment {
+pub struct Segment {
     /// The name of the branch at the tip of it, and the starting point of the walk.
     ///
     /// It is `None` if this branch is the top-most stack segment and the `ref_name` wasn't pointing to
@@ -233,16 +233,16 @@ pub struct StackSegment {
     pub metadata: Option<but_core::ref_metadata::Branch>,
 }
 
-impl StackSegment {
+impl Segment {
     /// Return the top-most commit id of the segment.
     pub fn tip(&self) -> Option<gix::ObjectId> {
         self.commits_unique_from_tip.first().map(|commit| commit.id)
     }
 }
 
-impl std::fmt::Debug for StackSegment {
+impl std::fmt::Debug for Segment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let StackSegment {
+        let Segment {
             ref_name,
             ref_location,
             commits_unique_from_tip,

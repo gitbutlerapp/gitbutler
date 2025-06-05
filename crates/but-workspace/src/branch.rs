@@ -415,7 +415,7 @@
 use crate::StashStatus;
 use anyhow::{Context, bail};
 use but_core::RefMetadata;
-use but_graph::StackSegment;
+use but_graph::Segment;
 use gix::prelude::ObjectIdExt;
 
 /// The result of [`add_branch_to_workspace`].
@@ -501,7 +501,7 @@ pub struct Stack {
     pub base: Option<gix::ObjectId>,
     /// The branch-name denoted segments of the stack from its tip to the point of reference, typically a merge-base.
     /// This array is never empty.
-    pub segments: Vec<StackSegment>,
+    pub segments: Vec<Segment>,
     /// Additional information about possibly still available stashes, sitting on top of this stack.
     ///
     /// This means the stash is still there to be applied, something that can happen if the user switches branches
@@ -517,7 +517,7 @@ impl Stack {
     pub fn tip(&self) -> Option<gix::ObjectId> {
         self.segments.first().and_then(|name| name.tip())
     }
-    /// Return the name of the top-most [`StackSegment`].
+    /// Return the name of the top-most [`Segment`].
     ///
     /// It is `None` if this branch is the top-most stack segment and the `ref_name` wasn't pointing to
     /// a commit anymore that was reached by our rev-walk.
@@ -535,6 +535,6 @@ impl Stack {
 }
 
 /// Return all stack segments within the given `stack`.
-pub fn stack_segments(stack: Stack) -> anyhow::Result<Vec<StackSegment>> {
+pub fn stack_segments(stack: Stack) -> anyhow::Result<Vec<Segment>> {
     todo!()
 }
