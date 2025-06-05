@@ -11,7 +11,7 @@ import type { LineId } from '@gitbutler/ui/utils/diffParsing';
 export function compositeKey(args: {
 	stackId: string | null;
 	path: string;
-	hunkHeader: string | HunkHeader | null;
+	hunkHeader: HunkHeader | null;
 }) {
 	if (typeof args.hunkHeader === 'string' || args.hunkHeader === null) {
 		return `${args.stackId}::${args.path}::${args.hunkHeader}`;

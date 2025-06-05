@@ -60,7 +60,7 @@ export class StartCommitDzHandler implements DropzoneHandler {
 				uncommittedService.checkFile(null, change.path);
 			}
 		} else if (data instanceof HunkDropDataV3) {
-			uncommittedService.checkHunk(stackId, data.change.path, data.hunk.newStart.toString());
+			uncommittedService.checkHunk(stackId, data.change.path, data.hunk);
 		}
 
 		projectState.drawerPage.set('new-commit');
