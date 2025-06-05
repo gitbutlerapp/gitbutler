@@ -1,5 +1,5 @@
 use anyhow::{Context, anyhow, bail};
-use bstr::{BString, ByteSlice};
+use bstr::{BStr, BString, ByteSlice};
 use but_core::cmd::prepare_with_shell_on_windows;
 use but_core::{GitConfigSettings, RepositoryExt};
 use gitbutler_error::error::Code;
@@ -96,10 +96,7 @@ pub(crate) fn update_committer(
 pub fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BString> {
     // TODO: support gpg.ssh.defaultKeyCommand to get the signing key if this value doesn't exist
     let config = repo.config_snapshot();
-    let Some(signing_key) = config.string("user.signingkey") else {
-        bail!("No signing key found");
-    };
-    let signing_key = signing_key.to_str().context("non-utf8 signing key")?;
+    let signing_key = signing_key(repo)?;
     let sign_format = config.string("gpg.format");
     let is_ssh = if let Some(sign_format) = sign_format {
         sign_format.as_ref() == "ssh"
@@ -128,7 +125,7 @@ pub fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BStr
         // same scope where its used; IE: in the command, otherwise the
         // tmpfile will get removed too early.
         let _key_storage;
-        signing_cmd = if let Some(signing_key) = as_literal_key(signing_key) {
+        signing_cmd = if let Some(signing_key) = as_literal_key(signing_key.as_bstr()) {
             let mut keyfile = tempfile::NamedTempFile::new()?;
             keyfile.write_all(signing_key.as_bytes())?;
 
@@ -184,12 +181,12 @@ pub fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BStr
                 |program| Cow::Owned(program.into_owned().into()),
             );
 
-        let mut cmd = into_command(prepare_with_shell_on_windows(gpg_program.as_ref()).args([
-            "--status-fd=2",
-            "-bsau",
-            signing_key,
-            "-",
-        ]));
+        let mut cmd = into_command(
+            prepare_with_shell_on_windows(gpg_program.as_ref())
+                .args(["--status-fd=2", "-bsau"])
+                .arg(gix::path::from_bstring(signing_key))
+                .arg("-"),
+        );
         cmd.stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .stdin(Stdio::piped());
@@ -228,12 +225,28 @@ fn into_command(prepare: gix::command::Prepare) -> std::process::Command {
     cmd
 }
 
-fn as_literal_key(maybe_key: &str) -> Option<&str> {
-    if let Some(key) = maybe_key.strip_prefix("key::") {
-        return Some(key);
+fn as_literal_key(maybe_key: &BStr) -> Option<&BStr> {
+    if let Some(key) = maybe_key.strip_prefix(b"key::") {
+        return Some(key.into());
     }
-    if maybe_key.starts_with("ssh-") {
+    if maybe_key.starts_with(b"ssh-") {
         return Some(maybe_key);
     }
     None
+}
+
+/// Fail if there is no usable signing key.
+fn signing_key(repo: &gix::Repository) -> anyhow::Result<BString> {
+    if let Some(key) = repo.config_snapshot().string("user.signingkey") {
+        return Ok(key.into_owned());
+    }
+    tracing::info!("Falling back to commiter identity as user.signingKey isn't configured.");
+    let mut buf = Vec::<u8>::new();
+    repo.committer()
+        .transpose()?
+        .context("user.signingKey isn't configured and no committer is available either")?
+        .actor()
+        .trim()
+        .write_to(&mut buf)?;
+    Ok(buf.into())
 }
