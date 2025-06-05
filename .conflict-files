@@ -1,0 +1,3 @@
+ancestorEntries = ["apps/desktop/src/lib/selection/uncommittedService.svelte.ts", "apps/desktop/src/lib/stacks/dropHandler.ts"]
+ourEntries = ["apps/desktop/src/lib/selection/uncommittedService.svelte.ts", "apps/desktop/src/lib/stacks/dropHandler.ts"]
+theirEntries = ["apps/desktop/src/lib/selection/uncommittedService.svelte.ts", "apps/desktop/src/lib/stacks/dropHandler.ts"]
