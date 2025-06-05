@@ -8,14 +8,12 @@
 	import StackDraft from '$components/v3/StackDraft.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
 	import noAssignmentsSvg from '$lib/assets/empty-state/no-assignments.svg?raw';
-	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import { stackLayoutMode } from '$lib/config/uiFeatureFlags';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
-	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
 	import type { SelectionId } from '$lib/selection/key';
 	import type { Stack } from '$lib/stacks/stack';
@@ -95,8 +93,15 @@
 				selectedBranchIndex={stacks.findIndex((s) => {
 					return s.id === selectedId;
 				})}
-				onclick={(index) =>
+				onPageClick={(index) =>
 					scrollToLane(lanesSrollableEl, index, $stackLayoutMode === 'vertical' ? 'vert' : 'horz')}
+				onCreateNewClick={() => {
+					scrollToLane(
+						lanesSrollableEl,
+						stacks.length + 1,
+						$stackLayoutMode === 'vertical' ? 'vert' : 'horz'
+					);
+				}}
 			/>
 		</div>
 	{/if}
@@ -201,14 +206,15 @@
 				<StackDraft {projectId} />
 			{:else}
 				<div class="no-stacks-placeholder">
-					<EmptyStatePlaceholder image={noBranchesSvg} bottomMargin={48}>
-						{#snippet title()}
-							You have no branches
-						{/snippet}
-						{#snippet caption()}
-							Create a new branch for<br />a feature, fix, or idea!
-						{/snippet}
-					</EmptyStatePlaceholder>
+					<MultiStackOfflaneDropzone
+						viewport={lanesSrollableEl}
+						{projectId}
+						standalone
+						onVisible={(visible) => {
+							isCreateNewVisible = visible;
+						}}
+						isSingleMode={$stackLayoutMode === 'single'}
+					/>
 				</div>
 			{/if}
 		</div>
