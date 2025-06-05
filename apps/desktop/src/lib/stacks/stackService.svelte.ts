@@ -116,8 +116,14 @@ export type CreateCommitOutcome = {
 	pathsToRejectedChanges: [RejectionReason, string][];
 };
 
+export class StackServiceCounters {
+	lanesInWorkspace = 0;
+	commitsInWorkspace = 0;
+}
+
 export class StackService {
 	private api: ReturnType<typeof injectEndpoints>;
+	counters = new StackServiceCounters();
 
 	constructor(
 		backendApi: BackendApi,
@@ -128,12 +134,14 @@ export class StackService {
 	}
 
 	stacks(projectId: string) {
-		return this.api.endpoints.stacks.useQuery(
+		const result = this.api.endpoints.stacks.useQuery(
 			{ projectId },
 			{
 				transform: (stacks) => stackSelectors.selectAll(stacks)
 			}
 		);
+		this.counters.lanesInWorkspace = result.current.data?.length ?? 0;
+		return result;
 	}
 
 	async fetchStacks(projectId: string) {
@@ -200,10 +208,16 @@ export class StackService {
 	}
 
 	stackInfo(projectId: string, stackId: string) {
-		return this.api.endpoints.stackDetails.useQuery(
+		const result = this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
 			{ transform: ({ stackInfo }) => stackInfo }
 		);
+		this.counters.commitsInWorkspace =
+			result.current.data?.branchDetails.reduce(
+				(acc, branch) => acc + (branch.commits?.length ?? 0),
+				0
+			) ?? 0;
+		return result;
 	}
 
 	branchDetails(projectId: string, stackId: string, branchName: string) {

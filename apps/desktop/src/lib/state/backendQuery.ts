@@ -8,6 +8,7 @@ import { type BaseQueryApi, type QueryReturnValue } from '@reduxjs/toolkit/query
 import { get, type Readable } from 'svelte/store';
 import type { Project } from '$lib/project/project';
 import type { Settings } from '$lib/settings/userSettings';
+import { StackService } from '$lib/stacks/stackService.svelte';
 
 export type TauriBaseQueryFn = typeof tauriBaseQuery;
 
@@ -26,6 +27,7 @@ export async function tauriBaseQuery(
 	const userSettings = hasUserSettingsExtra(api.extra) ? get(api.extra.userSettings) : undefined;
 	const appSettings = settingsService?.appSettings;
 	const project = hasProjectExtra(api.extra) ? get(api.extra.project) : undefined;
+	const stackService = hasStackServiceExtra(api.extra) ? api.extra.stackService : undefined;
 
 	const v3 = appSettings ? get(appSettings)?.featureFlags.v3 : false;
 	const butlerActions = appSettings ? get(appSettings)?.featureFlags.actions : false;
@@ -41,7 +43,9 @@ export async function tauriBaseQuery(
 				aiSummariesEnabled: userSettings.aiSummariesEnabled,
 				diffLigatures: userSettings.diffLigatures,
 				forcePushAllowed: project?.ok_with_force_push,
-				gitAuthType: project?.gitAuthType()
+				gitAuthType: project?.gitAuthType(),
+				lanesInWorkspace: stackService?.counters.lanesInWorkspace,
+				commitsInWorkspace: stackService?.counters.commitsInWorkspace
 			}
 		: {};
 	const settingsSnapshot = {
@@ -151,4 +155,16 @@ export function hasProjectExtra(extra: unknown): extra is {
 	project: Readable<Project>;
 } {
 	return !!extra && typeof extra === 'object' && extra !== null && 'project' in extra;
+}
+
+export function hasStackServiceExtra(extra: unknown): extra is {
+	stackService: StackService;
+} {
+	return (
+		!!extra &&
+		typeof extra === 'object' &&
+		extra !== null &&
+		'stackService' in extra &&
+		extra.stackService instanceof StackService
+	);
 }
