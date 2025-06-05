@@ -62,6 +62,9 @@
 	);
 	const defaultBranchName = $derived(defaultBranchResult?.current.data);
 
+	const stacksResult = $derived(stackService.stacks(projectId));
+	const stacks = $derived(stacksResult.current?.data || []);
+
 	const changes = $derived(uncommittedService.changesByStackId(stackId || null));
 
 	// TODO: Remove this after V3 transition complete.
@@ -180,7 +183,7 @@
 				>
 					{#if isCommitting}
 						Cancel committing
-					{:else if mode === 'assigned'}
+					{:else if mode === 'assigned' || stacks.length === 0}
 						Start a commit…
 					{:else}
 						Commit to selected branch…
