@@ -175,7 +175,7 @@ function isOffline(err: any): boolean {
 	return (
 		typeof err === 'string' &&
 		(err.includes('Could not fetch a valid release') ||
-			err.includes('error sending request for') ||
+			err.includes('error sending request') ||
 			err.includes('Network Error'))
 	);
 }
