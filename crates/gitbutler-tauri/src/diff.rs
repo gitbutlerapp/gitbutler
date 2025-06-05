@@ -172,7 +172,7 @@ pub fn changes_in_worktree(
             ctx,
             false,
             Some(
-                changes
+                &changes
                     .changes
                     .clone()
                     .into_iter()
