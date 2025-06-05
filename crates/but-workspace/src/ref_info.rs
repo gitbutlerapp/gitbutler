@@ -942,7 +942,6 @@ pub(crate) mod function {
                     })
                     .collect();
 
-            // TODO: get `hide()` for `gix`.
             for (segment_index, remote_ref_tip_and_base) in segments_with_remote_ref_tips_and_base {
                 boundary.clear();
                 boundary.extend(stack.base);

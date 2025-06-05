@@ -383,3 +383,26 @@ git init multiple-dependent-branches-per-stack-without-commit
 
   create_workspace_commit_once lane lane-2
 )
+
+git init two-dependent-branches-with-interesting-remote-setup
+(cd two-dependent-branches-with-interesting-remote-setup
+  git commit -m "init" --allow-empty
+  setup_target_to_match_main
+
+  git checkout -b integrated
+  git commit -m "integrated in target" --allow-empty
+  git commit -m "other integrated" --allow-empty
+
+  git checkout -b soon-A-remote
+  git commit -m "shared by name" --allow-empty
+  setup_remote_tracking soon-A-remote A "move"
+
+  git checkout -b soon-main-remote integrated
+  git commit -m "another unrelated" --allow-empty
+
+  git checkout -b A
+  git commit -m "shared by name" --allow-empty
+
+  setup_remote_tracking soon-main-remote main "move"
+  create_workspace_commit_once A
+)
