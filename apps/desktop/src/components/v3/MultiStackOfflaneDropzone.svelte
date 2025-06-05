@@ -100,7 +100,7 @@
 								{#if activated}
 									Drop files to branch
 								{:else}
-									No branches applied
+									No applied branches
 								{/if}
 							</h4>
 						{/if}

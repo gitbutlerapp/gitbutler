@@ -93,8 +93,15 @@
 				selectedBranchIndex={stacks.findIndex((s) => {
 					return s.id === selectedId;
 				})}
-				onclick={(index) =>
+				onPageClick={(index) =>
 					scrollToLane(lanesSrollableEl, index, $stackLayoutMode === 'vertical' ? 'vert' : 'horz')}
+				onCreateNewClick={() => {
+					scrollToLane(
+						lanesSrollableEl,
+						stacks.length + 1,
+						$stackLayoutMode === 'vertical' ? 'vert' : 'horz'
+					);
+				}}
 			/>
 		</div>
 	{/if}
