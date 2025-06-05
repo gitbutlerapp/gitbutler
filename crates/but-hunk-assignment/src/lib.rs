@@ -145,14 +145,16 @@ pub struct HunkAssignmentRequest {
 pub struct WorktreeChanges {
     #[serde(flatten)]
     pub worktree_changes: but_core::ui::WorktreeChanges,
-    pub assignments: Result<Vec<HunkAssignment>, serde_error::Error>,
+    pub assignments: Vec<HunkAssignment>,
+    pub assignments_error: Option<serde_error::Error>,
 }
 
 impl From<but_core::ui::WorktreeChanges> for WorktreeChanges {
     fn from(worktree_changes: but_core::ui::WorktreeChanges) -> Self {
         WorktreeChanges {
             worktree_changes,
-            assignments: Ok(vec![]),
+            assignments: vec![],
+            assignments_error: None,
         }
     }
 }
@@ -303,7 +305,7 @@ pub fn assignments_with_fallback(
 ///
 /// If `worktree_changes` is `None`, they will be fetched automatically.
 #[instrument(skip(ctx), err(Debug))]
-pub fn assignments(
+fn assignments(
     ctx: &mut CommandContext,
     set_assignment_from_locks: bool,
     worktree_changes: Option<&Vec<but_core::TreeChange>>,

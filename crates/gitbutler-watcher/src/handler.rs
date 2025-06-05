@@ -160,12 +160,15 @@ impl Handler {
 
     fn emit_worktree_changes(&self, ctx: &mut CommandContext) -> Result<()> {
         let detailed_changes = but_core::diff::worktree_changes(&ctx.gix_repo()?)?;
-        let assignments =
-            but_hunk_assignment::assignments(ctx, false, Some(&detailed_changes.changes))
-                .map_err(|err| serde_error::Error::new(&*err));
+        let (assignments, assignments_error) = but_hunk_assignment::assignments_with_fallback(
+            ctx,
+            false,
+            Some(detailed_changes.changes.clone()),
+        )?;
         let changes = but_hunk_assignment::WorktreeChanges {
             worktree_changes: detailed_changes.into(),
             assignments,
+            assignments_error: assignments_error.map(|err| serde_error::Error::new(&*err)),
         };
         let _ = self.emit_app_event(Change::WorktreeChanges {
             project_id: ctx.project().id,
