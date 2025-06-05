@@ -69,8 +69,6 @@
 	let contextMenu = $state<ReturnType<typeof FileContextMenu>>();
 	let draggableEl: HTMLDivElement | undefined = $state();
 
-	const selectedChanges = $derived(idSelection.treeChanges(projectId, selectionId));
-
 	const previousTooltipText = $derived(
 		(change.status.subject as Rename).previousPath
 			? `${(change.status.subject as Rename).previousPath} →\n${change.path}`
@@ -97,17 +95,12 @@
 
 	const checkStatus = $derived(uncommittedService.fileCheckStatus(stackId, change.path));
 
-	function onContextMenu(e: MouseEvent) {
-		if (
-			selectedChanges &&
-			selectedChanges.current.isSuccess &&
-			idSelection.has(change.path, selectionId)
-		) {
-			const changes: TreeChange[] = selectedChanges.current.data;
+	async function onContextMenu(e: MouseEvent) {
+		const changes = await idSelection.treeChanges(projectId, selectionId);
+		if (idSelection.has(change.path, selectionId)) {
 			contextMenu?.open(e, { changes });
 			return;
 		}
-
 		contextMenu?.open(e, { changes: [change] });
 	}
 
@@ -126,7 +119,7 @@
 	use:draggableChips={{
 		label: getFilename(change.path),
 		filePath: change.path,
-		data: new ChangeDropData(change, uncommittedService, idSelection, selectionId, stackId || null),
+		data: new ChangeDropData(projectId, change, idSelection, selectionId, stackId || null),
 		viewportId: 'board-viewport',
 		selector: '.selected-draggable',
 		disabled: draggableDisabled,

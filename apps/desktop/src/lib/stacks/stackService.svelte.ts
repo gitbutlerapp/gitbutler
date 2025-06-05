@@ -433,11 +433,15 @@ export class StackService {
 		);
 	}
 
-	commitChangesByPaths(projectId: string, commitId: string, paths: string[]) {
-		return this.api.endpoints.commitDetails.useQuery(
+	async commitChangesByPaths(projectId: string, commitId: string, paths: string[]) {
+		const result = await this.api.endpoints.commitDetails.fetch(
 			{ projectId, commitId },
 			{ transform: (result) => selectChangesByPaths(result.changes, paths) }
 		);
+		if (result.error) {
+			throw result.error;
+		}
+		return result.data || [];
 	}
 
 	commitDetails(projectId: string, commitId: string) {
@@ -494,14 +498,14 @@ export class StackService {
 		);
 	}
 
-	branchChangesByPaths(args: {
+	async branchChangesByPaths(args: {
 		projectId: string;
 		stackId?: string;
 		branchName: string;
 		remote?: string;
 		paths: string[];
 	}) {
-		return this.api.endpoints.branchChanges.useQuery(
+		const result = await this.api.endpoints.branchChanges.fetch(
 			{
 				projectId: args.projectId,
 				stackId: args.stackId,
@@ -510,6 +514,10 @@ export class StackService {
 			},
 			{ transform: (result) => selectChangesByPaths(result, args.paths) }
 		);
+		if (result.error) {
+			throw result.error;
+		}
+		return result.data || [];
 	}
 
 	get updateCommitMessage() {
@@ -1027,7 +1035,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				]
 			}),
 			amendCommit: build.mutation<
-				string /** Return value is the update commit value. */,
+				string /** Return value is the updated commit id. */,
 				{
 					projectId: string;
 					stackId: string;

@@ -28,13 +28,13 @@ export class AssignmentDropHandler implements DropzoneHandler {
 
 	async ondrop(data: ChangeDropData | HunkDropDataV3) {
 		if (data instanceof ChangeDropData) {
+			const changes = await data.treeChanges();
+			const assignments = changes
+				.flatMap((c) => this.uncommittedService.getAssignmentsByPath(data.stackId, c.path))
+				.map((h) => ({ ...h, stackId: this.stackId }));
 			await this.diffService.assignHunk({
 				projectId: this.projectId,
-				assignments: data.changes
-					.flatMap(
-						(c) => this.uncommittedService.getAssignmentsByPath(data.stackId, c.path).current
-					)
-					.map((h) => ({ ...h, stackId: this.stackId }))
+				assignments
 			});
 		} else {
 			const assignment = this.uncommittedService.getAssignmentByHeader(

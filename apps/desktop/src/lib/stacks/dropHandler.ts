@@ -1,5 +1,5 @@
 import { filesToOwnership } from '$lib/branches/ownership';
-import { dropDataToDiffSpec } from '$lib/commits/utils';
+import { changesToDiffSpec } from '$lib/commits/utils';
 import { ChangeDropData, FileDropData, HunkDropData } from '$lib/dragging/draggables';
 import StackMacros from '$lib/stacks/macros';
 import type { DropzoneHandler } from '$lib/dragging/handler';
@@ -74,13 +74,14 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 				const sourceStackId = data.stackId;
 				const sourceCommitId = data.selectionId.commitId;
 				if (sourceStackId) {
+					const diffSpec = changesToDiffSpec(await data.treeChanges());
 					await this.macros.moveChangesToNewCommit(
 						stack.id,
 						outcome.newCommit,
 						sourceStackId,
 						sourceCommitId,
 						branchName,
-						dropDataToDiffSpec(data)
+						diffSpec
 					);
 				} else {
 					// Should not happen, but just in case
@@ -94,13 +95,13 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 					branch: { name: undefined }
 				});
 
+				const changes = await data.treeChanges();
+				const assignments = changes
+					.flatMap((c) => this.uncommittedService.getAssignmentsByPath(data.stackId, c.path))
+					.map((h) => ({ ...h, stackId: stack.id }));
 				await this.diffService.assignHunk({
 					projectId: this.projectId,
-					assignments: data.changes
-						.flatMap(
-							(c) => this.uncommittedService.getAssignmentsByPath(data.stackId, c.path).current
-						)
-						.map((h) => ({ ...h, stackId: stack.id }))
+					assignments
 				});
 			}
 		}

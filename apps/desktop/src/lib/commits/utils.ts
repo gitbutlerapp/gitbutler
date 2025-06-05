@@ -1,5 +1,4 @@
 import type { DetailedCommit } from '$lib/commits/commit';
-import type { ChangeDropData } from '$lib/dragging/draggables';
 import type { TreeChange } from '$lib/hunks/change';
 import type { DiffSpec } from '$lib/hunks/hunk';
 
@@ -46,9 +45,4 @@ export function changesToDiffSpec(changes: TreeChange[]): DiffSpec[] {
 			hunkHeaders: []
 		};
 	});
-}
-/** Helper function that converts `ChangeDropData` to `DiffSpec`. */
-export function dropDataToDiffSpec(data: ChangeDropData): DiffSpec[] {
-	const changes = data.changes;
-	return changesToDiffSpec(changes);
 }

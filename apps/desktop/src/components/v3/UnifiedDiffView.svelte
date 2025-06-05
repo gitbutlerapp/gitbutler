@@ -77,9 +77,7 @@
 		!draggable || !['commit', 'worktree'].includes(selectionId.type)
 	);
 
-	const assignments = $derived(
-		uncommittedService.getAssignmentsByPath(stackId || null, change.path)
-	);
+	const assignments = $derived(uncommittedService.assignmentsByPath(stackId || null, change.path));
 
 	function filter(hunks: DiffHunk[]): DiffHunk[] {
 		if (selectionId.type !== 'worktree') return hunks;

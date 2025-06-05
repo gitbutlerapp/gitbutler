@@ -48,14 +48,10 @@ export const uncommittedSlice = createSlice({
 			);
 			const removedKeys = removedAssignments.map((r) => compositeKey(r));
 			if (removedKeys.length > 0) {
-				state.hunkAssignments = hunkAssignmentAdapter.removeMany(
-					state.hunkAssignments,
-					removedKeys
-				);
 				// The next line requires that assignments and selections share keys.
 				state.hunkSelection = hunkSelectionAdapter.removeMany(state.hunkSelection, removedKeys);
 			}
-			state.hunkAssignments = hunkAssignmentAdapter.upsertMany(
+			state.hunkAssignments = hunkAssignmentAdapter.addMany(
 				hunkAssignmentAdapter.getInitialState(),
 				action.payload.assignments
 			);
