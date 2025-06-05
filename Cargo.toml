@@ -9,8 +9,7 @@ gix = { git = "https://github.com/GitoxideLabs/gitoxide", branch = "main", versi
 ] }
 gix-testtools = "0.16.1"
 insta = "1.43.1"
-git2 = { version = "0.20.0", features = [
-    "vendored-openssl",
+git2 = { version = "0.20.0", default-features = false, features = [
     "vendored-libgit2",
 ] }
 uuid = { version = "1.17.0", features = ["v4", "serde"] }
