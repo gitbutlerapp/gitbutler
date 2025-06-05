@@ -101,7 +101,7 @@ export function selectionKey(id: SelectionId): SelectedFileKey {
 		case 'branch':
 			return `${id.type}:${id.stackId}:${id.branchName}` as SelectedFileKey;
 		case 'worktree':
-			return `${id.type}` as SelectedFileKey;
+			return `${id.type}:${id.stackId}` as SelectedFileKey;
 		case 'snapshot':
 			return `${id.type}:${id.before}:${id.after}` as SelectedFileKey;
 	}

@@ -166,16 +166,6 @@ export class UncommittedService {
 		return reactive(() => changes);
 	}
 
-	assignmentsByPath(stackId: string | null, path: string): Reactive<HunkAssignment[]> {
-		const result = $derived(
-			uncommittedSelectors.hunkAssignments.selectByPrefix(
-				this.state.hunkAssignments,
-				stackId + '-' + path + '-'
-			)
-		);
-		return reactive(() => result);
-	}
-
 	assignmentsByStackId(stackId: string | null): Reactive<HunkAssignment[]> {
 		const result = $derived(
 			uncommittedSelectors.hunkAssignments.selectByPrefix(this.state.hunkAssignments, stackId + '-')
@@ -193,13 +183,15 @@ export class UncommittedService {
 		return reactive(() => assignments);
 	}
 
-	getAssignmentsByPath(stackId: string | null, path: string): Reactive<HunkAssignment[]> {
-		const assignments = $derived(
-			uncommittedSelectors.hunkAssignments.selectByPrefix(
-				this.state.hunkAssignments,
-				partialKey(stackId, path)
-			)
+	getAssignmentsByPath(stackId: string | null, path: string): HunkAssignment[] {
+		return uncommittedSelectors.hunkAssignments.selectByPrefix(
+			this.state.hunkAssignments,
+			partialKey(stackId, path)
 		);
+	}
+
+	assignmentsByPath(stackId: string | null, path: string): Reactive<HunkAssignment[]> {
+		const assignments = $derived(this.getAssignmentsByPath(stackId, path));
 		return reactive(() => assignments);
 	}
 

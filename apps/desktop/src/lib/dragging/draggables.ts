@@ -1,4 +1,4 @@
-import { key, readKey, type SelectionId } from '$lib/selection/key';
+import { key, type SelectionId } from '$lib/selection/key';
 import { get, type Readable } from 'svelte/store';
 import type { AnyCommit } from '$lib/commits/commit';
 import type { CommitDropData } from '$lib/commits/dropHandler';
@@ -6,7 +6,6 @@ import type { AnyFile } from '$lib/files/file';
 import type { TreeChange } from '$lib/hunks/change';
 import type { Hunk, HunkHeader, HunkLock } from '$lib/hunks/hunk';
 import type { IdSelection } from '$lib/selection/idSelection.svelte';
-import type { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 
 export const NON_DRAGGABLE = {
 	disabled: true
@@ -38,8 +37,8 @@ export class HunkDropDataV3 {
 
 export class ChangeDropData {
 	constructor(
+		private projectId: string,
 		readonly change: TreeChange,
-		private uncommittedService: UncommittedService,
 		/**
 		 * When a a file is dragged we compare it to what is already selected,
 		 * if dragged item is part of the selection we consider that to be to
@@ -60,19 +59,17 @@ export class ChangeDropData {
 		}
 	}
 
-	get filePaths(): string[] {
+	/**
+	 * If there is more than one selected item, and the item being dragged is
+	 * part of that selection, then a drop handler will take an action on the
+	 * whole selection. If, however, the item being dragged is not part of a
+	 * selection then any action should be taken on that item alone.
+	 */
+	async treeChanges(): Promise<TreeChange[]> {
 		if (this.selection.has(this.change.path, this.selectionId)) {
-			const selectionKeys = this.selection.keys(this.selectionId);
-			return selectionKeys.map((key) => readKey(key).path);
-		} else {
-			return [this.change.path];
+			return await this.selection.treeChanges(this.projectId, this.selectionId);
 		}
-	}
-
-	get changes(): TreeChange[] {
-		const paths = this.filePaths;
-		const changes = this.uncommittedService.changesByStackId(this.stackId);
-		return changes.current.filter((change) => paths.includes(change.path));
+		return [this.change];
 	}
 
 	get isCommitted(): boolean {

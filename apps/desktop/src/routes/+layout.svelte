@@ -154,14 +154,17 @@
 	const cloudUserService = new CloudUserService(data.cloud, appState.appDispatch);
 	const cloudProjectService = new CloudProjectService(data.cloud, appState.appDispatch);
 	const dependecyService = new DependencyService(clientState.backendApi);
-	const idSelection = new IdSelection(worktreeService, stackService);
+	const diffService = new DiffService(clientState);
+
+	const uncommittedService = new UncommittedService(clientState, worktreeService, diffService);
+	setContext(UncommittedService, uncommittedService);
+	const idSelection = new IdSelection(stackService, uncommittedService);
 
 	const cloudBranchService = new CloudBranchService(data.cloud, appState.appDispatch);
 	const cloudPatchService = new CloudPatchCommitService(data.cloud, appState.appDispatch);
 	const repositoryIdLookupService = new RepositoryIdLookupService(data.cloud, appState.appDispatch);
 	const latestBranchLookupService = new LatestBranchLookupService(data.cloud, appState.appDispatch);
 	const webRoutesService = new WebRoutesService(env.PUBLIC_CLOUD_BASE_URL);
-	const diffService = new DiffService(clientState);
 	const shortcutService = new ShortcutService(data.tauri);
 	const commitService = new CommitService();
 	const butRequestDetailsService = new ButRequestDetailsService(
@@ -176,9 +179,6 @@
 		cloudBranchService,
 		latestBranchLookupService
 	);
-
-	const uncommittedService = new UncommittedService(clientState, worktreeService, diffService);
-	setContext(UncommittedService, uncommittedService);
 
 	const branchService = new BranchService(clientState['backendApi']);
 	setContext(BranchService, branchService);

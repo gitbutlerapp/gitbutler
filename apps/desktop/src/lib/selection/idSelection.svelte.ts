@@ -7,8 +7,9 @@ import {
 	type SelectedFile
 } from '$lib/selection/key';
 import { SvelteSet } from 'svelte/reactivity';
+import type { TreeChange } from '$lib/hunks/change';
+import type { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 import type { StackService } from '$lib/stacks/stackService.svelte';
-import type { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 
 /**
  * File selection mechanism based on strings id's.
@@ -25,11 +26,11 @@ export class IdSelection {
 	>;
 
 	constructor(
-		private worktreeService: WorktreeService,
-		private stackService: StackService
+		private stackService: StackService,
+		private uncommittedService: UncommittedService
 	) {
 		this.selections = new Map();
-		this.selections.set('worktree', {
+		this.selections.set(selectionKey({ type: 'worktree' }), {
 			entries: new SvelteSet<SelectedFileKey>()
 		});
 	}
@@ -100,23 +101,27 @@ export class IdSelection {
 	 * instead reuses the entry from listing if available.
 	 * TODO: Should this be able to load even if listing hasn't happened?
 	 */
-	treeChanges(projectId: string, params: SelectionId) {
-		const filePaths = this.values(params).map((fileSelection) => {
+	async treeChanges(projectId: string, params: SelectionId): Promise<TreeChange[]> {
+		const paths = this.values(params).map((fileSelection) => {
 			return fileSelection.path;
 		});
 
 		switch (params.type) {
 			case 'worktree':
-				return this.worktreeService.treeChangesByPaths(projectId, filePaths);
+				return this.uncommittedService
+					.changesByStackId(params.stackId || null)
+					.current.filter((c) => paths.includes(c.path));
 			case 'branch':
-				return this.stackService.branchChangesByPaths({
+				return await this.stackService.branchChangesByPaths({
 					projectId,
 					stackId: params.stackId,
 					branchName: params.branchName,
-					paths: filePaths
+					paths: paths
 				});
 			case 'commit':
-				return this.stackService.commitChangesByPaths(projectId, params.commitId, filePaths);
+				return await this.stackService.commitChangesByPaths(projectId, params.commitId, paths);
+			case 'snapshot':
+				throw new Error('unsupported');
 		}
 	}
 
