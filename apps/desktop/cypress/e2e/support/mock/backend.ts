@@ -85,7 +85,8 @@ export default class MockBackend {
 		this.worktreeChanges = {
 			changes: [MOCK_TREE_CHANGE_A],
 			ignoredChanges: [],
-			assignments: { Ok: [] }
+			assignments: [],
+			assignmentsError: null
 		};
 		this.unifiedDiffs = new Map<string, UnifiedDiff>();
 		this.hunkDependencies = {
@@ -164,7 +165,7 @@ export default class MockBackend {
 			throw new Error('Invalid arguments for getWorktreeChanges');
 		}
 
-		return { ...this.worktreeChanges, assignments: { Ok: this.getHunkAssignments(args) } };
+		return { ...this.worktreeChanges, assignments: this.getHunkAssignments(args) };
 	}
 
 	public getHunkAssignments(args: InvokeArgs | undefined): HunkAssignment[] {
@@ -177,6 +178,7 @@ export default class MockBackend {
 		for (const change of this.worktreeChanges.changes) {
 			if (change.status.type === 'Addition' || change.status.type === 'Deletion') {
 				out.push({
+					id: 'asdf',
 					hunkHeader: null,
 					path: change.path,
 					pathBytes: change.pathBytes,
@@ -188,6 +190,7 @@ export default class MockBackend {
 				if (diff) {
 					if (diff.type === 'Binary' || diff.type === 'TooLarge') {
 						out.push({
+							id: 'asdf',
 							hunkHeader: null,
 							path: change.path,
 							pathBytes: change.pathBytes,
@@ -197,6 +200,7 @@ export default class MockBackend {
 					} else {
 						for (const hunk of diff.subject.hunks) {
 							out.push({
+								id: 'asdf',
 								hunkHeader: hunk,
 								path: change.path,
 								pathBytes: change.pathBytes,
@@ -207,6 +211,7 @@ export default class MockBackend {
 					}
 				} else {
 					out.push({
+						id: 'asdf',
 						hunkHeader: null,
 						path: change.path,
 						pathBytes: change.pathBytes,

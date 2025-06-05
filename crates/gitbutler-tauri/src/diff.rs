@@ -165,26 +165,12 @@ pub fn changes_in_worktree(
     let project = projects.get(project_id)?;
     let ctx = &mut CommandContext::open(&project, settings.get()?.clone())?;
     let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(project.path)?;
-    let assignments = if changes.changes.is_empty() {
-        Ok(Vec::new())
-    } else {
-        but_hunk_assignment::assignments(
-            ctx,
-            false,
-            Some(
-                changes
-                    .changes
-                    .clone()
-                    .into_iter()
-                    .map(Into::into)
-                    .collect(),
-            ),
-        )
-        .map_err(|err| serde_error::Error::new(&*err))
-    };
+    let (assignments, assignments_error) =
+        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.changes.clone()))?;
     Ok(WorktreeChanges {
         worktree_changes: changes,
         assignments,
+        assignments_error: assignments_error.map(|err| serde_error::Error::new(&*err)),
     })
 }
 

@@ -111,7 +111,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 								),
 								rawChanges: event.payload.changes,
 								ignoredChanges: draft.ignoredChanges,
-								hunkAssignments: event.payload.assignments.Ok
+								hunkAssignments: event.payload.assignments
 							}));
 						}
 					);
@@ -128,7 +128,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 						changes: worktreeAdapter.addMany(worktreeAdapter.getInitialState(), response.changes),
 						rawChanges: response.changes,
 						ignoredChanges: response.ignoredChanges,
-						hunkAssignments: response.assignments.Ok
+						hunkAssignments: response.assignments
 					};
 				}
 			})
