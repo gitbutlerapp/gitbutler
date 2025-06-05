@@ -6,6 +6,7 @@ import { confettiEnabled, stackLayoutMode } from '$lib/config/uiFeatureFlags';
 import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
 import { type BaseQueryApi, type QueryReturnValue } from '@reduxjs/toolkit/query';
 import { get, type Readable } from 'svelte/store';
+import type { Project } from '$lib/project/project';
 import type { Settings } from '$lib/settings/userSettings';
 
 export type TauriBaseQueryFn = typeof tauriBaseQuery;
@@ -24,6 +25,7 @@ export async function tauriBaseQuery(
 	const settingsService = hasSettingsExtra(api.extra) ? api.extra.settingsService : undefined;
 	const userSettings = hasUserSettingsExtra(api.extra) ? get(api.extra.userSettings) : undefined;
 	const appSettings = settingsService?.appSettings;
+	const project = hasProjectExtra(api.extra) ? get(api.extra.project) : undefined;
 
 	const v3 = appSettings ? get(appSettings)?.featureFlags.v3 : false;
 	const butlerActions = appSettings ? get(appSettings)?.featureFlags.actions : false;
@@ -37,7 +39,9 @@ export async function tauriBaseQuery(
 				tabSize: userSettings?.tabSize,
 				defaultCodeEditor: userSettings.defaultCodeEditor.schemeIdentifer,
 				aiSummariesEnabled: userSettings.aiSummariesEnabled,
-				diffLigatures: userSettings.diffLigatures
+				diffLigatures: userSettings.diffLigatures,
+				forcePushAllowed: project?.ok_with_force_push,
+				gitAuthType: project?.gitAuthType()
 			}
 		: {};
 	const settingsSnapshot = {
@@ -141,4 +145,10 @@ export function hasUserSettingsExtra(extra: unknown): extra is {
 	userSettings: Readable<Settings>;
 } {
 	return !!extra && typeof extra === 'object' && extra !== null && 'userSettings' in extra;
+}
+
+export function hasProjectExtra(extra: unknown): extra is {
+	project: Readable<Project>;
+} {
+	return !!extra && typeof extra === 'object' && extra !== null && 'project' in extra;
 }
