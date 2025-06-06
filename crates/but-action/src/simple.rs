@@ -128,7 +128,7 @@ fn handle_changes_simple_inner(
     }
     // Go over the stack_assignments and flatten the diff specs for each stack.
     for (_, specs) in stack_assignments.iter_mut() {
-        *specs = crate::flatten_diff_specs(specs.clone());
+        *specs = but_workspace::flatten_diff_specs(specs.clone());
     }
 
     let mut updated_branches = vec![];
