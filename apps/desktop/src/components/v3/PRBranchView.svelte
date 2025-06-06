@@ -28,7 +28,7 @@
 		<Drawer testId={TestId.PRBranchDrawer} {projectId}>
 			{#snippet header()}
 				<h3 class="text-14 text-semibold">
-					<span class="text-clr2">PR {unitSymbol}{pr.number}:</span>
+					<span class="clr-text-2">PR {unitSymbol}{pr.number}:</span>
 					<span> {pr.title}</span>
 				</h3>
 			{/snippet}
@@ -42,7 +42,7 @@
 					/>
 					<div class="pr-request-data__wrapper">
 						<p class="pr-request-data__sentence text-13">
-							<span class="text-bold text-clr1">
+							<span class="text-bold clr-text-1">
 								{pr.author?.name}
 							</span>
 							wants to merge into

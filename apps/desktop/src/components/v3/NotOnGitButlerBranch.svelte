@@ -133,7 +133,7 @@
 							{/each}
 						</div>
 						{#if conflicts}
-							<p class="switchrepo__label text-13 text-body text-clr2">
+							<p class="switchrepo__label text-13 text-body clr-text-2">
 								Some files can’t be applied due to conflicts:
 							</p>
 							<div class="switchrepo__file-list">

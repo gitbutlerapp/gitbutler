@@ -54,8 +54,8 @@
 			<div class="modal-content__notes text-12 text-body">
 				<p>This can also be toggled this under 'Experimental' in ⚙️ global settings.</p>
 
-				<p class="text-clr2">Known issues:</p>
-				<ul class="text-clr2">
+				<p class="clr-text-2">Known issues:</p>
+				<ul class="clr-text-2">
 					<li>- A restart may be needed for the change to fully take effect</li>
 					<li>
 						- It is currently not possible to assign uncommitted changes to a lane
