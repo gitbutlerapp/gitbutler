@@ -15,6 +15,8 @@ impl HunkAssignment {
     fn set_from(&mut self, other: &Self, applied_stack_ids: &[StackId], update_unassigned: bool) {
         // Always override the locks with the from the other assignment
         self.hunk_locks = other.hunk_locks.clone();
+        // Always set the path from the other assignment
+        self.path = other.path.clone();
         // Override the id only if the other assignment has an id
         if other.id.is_some() {
             self.id = other.id;
