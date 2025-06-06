@@ -3,6 +3,7 @@
 	import {
 		assignmentEnabled,
 		confettiEnabled,
+		workspaceSwapMiddleRight,
 		ircEnabled,
 		ircServer
 	} from '$lib/config/uiFeatureFlags';
@@ -59,12 +60,12 @@
 		{/snippet}
 	</SectionCard>
 
-	<SectionCard labelFor="assignments" roundedTop={false} orientation="row">
+	<SectionCard labelFor="assignments" roundedTop={false} roundedBottom={false} orientation="row">
 		{#snippet title()}
 			Assign uncommitted changes
 		{/snippet}
 		{#snippet caption()}
-			<p>When enabled you can assign uncommitted changes to branches (stacks).</p>
+			When enabled you can assign uncommitted changes to branches (stacks).
 		{/snippet}
 
 		{#snippet actions()}
@@ -76,17 +77,12 @@
 		{/snippet}
 	</SectionCard>
 
-	<SectionCard
-		labelFor="confetti"
-		roundedTop={false}
-		roundedBottom={$user?.role !== 'admin'}
-		orientation="row"
-	>
+	<SectionCard labelFor="confetti" roundedTop={false} roundedBottom={false} orientation="row">
 		{#snippet title()}
 			Confetti
 		{/snippet}
 		{#snippet caption()}
-			<p>Mom's spaghetti, who want's some confetti? 🎉</p>
+			Mom's spaghetti, who want's some confetti? 🎉
 		{/snippet}
 
 		{#snippet actions()}
@@ -94,6 +90,29 @@
 				id="confetti"
 				checked={$confettiEnabled}
 				onclick={() => confettiEnabled.set(!$confettiEnabled)}
+			/>
+		{/snippet}
+	</SectionCard>
+
+	<SectionCard
+		labelFor="swapMiddleRight"
+		roundedTop={false}
+		roundedBottom={$user?.role !== 'admin'}
+		orientation="row"
+	>
+		{#snippet title()}
+			Workspace: Swap middle and right panels
+		{/snippet}
+		{#snippet caption()}
+			Enables swapping the middle and right panels. The middle panel becomes resizable with the
+			window, while the right panel remains fixed.
+		{/snippet}
+
+		{#snippet actions()}
+			<Toggle
+				id="swapMiddleRight"
+				checked={$workspaceSwapMiddleRight}
+				onclick={() => workspaceSwapMiddleRight.set(!$workspaceSwapMiddleRight)}
 			/>
 		{/snippet}
 	</SectionCard>
