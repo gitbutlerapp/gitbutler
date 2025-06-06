@@ -563,6 +563,8 @@ impl From<&RemoteCommit> for ui::UpstreamCommit {
                     parent_ids: _,
                     message,
                     author,
+                    // TODO: also pass refs for the frontend.
+                    refs: _,
                 },
             // TODO: Represent this in the UI (maybe) and/or deal with divergence of the local and remote tracking branch.
             has_conflicts: _,
@@ -588,6 +590,8 @@ impl From<&LocalCommit> for ui::Commit {
                     parent_ids,
                     message,
                     author,
+                    // TODO: also pass refs
+                    refs: _,
                 },
             relation,
             has_conflicts,

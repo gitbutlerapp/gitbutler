@@ -27,6 +27,7 @@ toml.workspace = true
 
 
 [dev-dependencies]
+gix-testtools.workspace = true
 insta = "1.43.1"
 termtree = "0.5.1"
 but-testsupport.workspace = true

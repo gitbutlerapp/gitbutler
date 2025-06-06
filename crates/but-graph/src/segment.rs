@@ -14,6 +14,10 @@ pub struct Commit {
     pub message: BString,
     /// The signature at which the commit was authored.
     pub author: gix::actor::Signature,
+    /// The references pointing to this commit, even after dereferencing tag objects.
+    /// These can be names of tags and branches.
+    pub refs: Vec<gix::refs::FullName>,
+    // TODO: bring has_conflict: bool here, then remove `RemoteCommit` type.
 }
 
 impl Commit {
@@ -27,6 +31,7 @@ impl Commit {
             parent_ids: commit.parents().collect(),
             message: commit.message.to_owned(),
             author: commit.author.to_owned()?,
+            refs: Vec::new(),
         })
     }
 }
@@ -49,6 +54,7 @@ impl From<but_core::Commit<'_>> for Commit {
             parent_ids: value.parents.iter().cloned().collect(),
             message: value.inner.message,
             author: value.inner.author,
+            refs: Vec::new(),
         }
     }
 }
@@ -71,13 +77,24 @@ pub struct LocalCommit {
 
 impl std::fmt::Debug for LocalCommit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let refs = self
+            .refs
+            .iter()
+            .map(|rn| format!("►{}", rn.shorten()))
+            .collect::<Vec<_>>()
+            .join(", ");
         write!(
             f,
-            "LocalCommit({conflict}{hash}, {msg:?}, {relation})",
+            "LocalCommit({conflict}{hash}, {msg:?}, {relation}{refs})",
             conflict = if self.has_conflicts { "💥" } else { "" },
             hash = self.id.to_hex_with_len(7),
             msg = self.message,
-            relation = self.relation.display(self.id)
+            relation = self.relation.display(self.id),
+            refs = if refs.is_empty() {
+                "".to_string()
+            } else {
+                format!(", {refs}")
+            }
         )
     }
 }
@@ -239,6 +256,14 @@ impl Segment {
     /// Return the top-most commit id of the segment.
     pub fn tip(&self) -> Option<gix::ObjectId> {
         self.commits_unique_from_tip.first().map(|commit| commit.id)
+    }
+
+    /// Try to find the index of `id` in our list of local commits.
+    pub fn commit_index_of(&self, id: gix::ObjectId) -> Option<usize> {
+        self.commits_unique_from_tip
+            .iter()
+            .enumerate()
+            .find_map(|(cidx, c)| (c.id == id).then_some(cidx))
     }
 }
 

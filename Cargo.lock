@@ -800,6 +800,7 @@ dependencies = [
  "gitbutler-fs",
  "gitbutler-stack",
  "gix",
+ "gix-testtools",
  "insta",
  "itertools",
  "petgraph 0.8.1",
