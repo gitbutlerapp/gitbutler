@@ -24,6 +24,7 @@ impl BranchManager<'_> {
         stack_id: StackId,
         perm: &mut WorktreeWritePermission,
         delete_vb_state: bool,
+        assigned_diffspec: Vec<but_workspace::DiffSpec>,
     ) -> Result<String> {
         let vb_state = self.ctx.project().virtual_branches();
         let mut stack = vb_state.get_stack(stack_id)?;
@@ -53,11 +54,26 @@ impl BranchManager<'_> {
             .context("failed to get status by branch")?
             .branches;
 
-        // doing this earlier in the flow, in case any of the steps that follow fail
-        stack.in_workspace = false;
-        vb_state.set_stack(stack.clone())?;
-
         if self.ctx.app_settings().feature_flags.v3 {
+            // Commit any assigned diffspecs if such exist so that it will be part of the unapplied branch.
+            if !assigned_diffspec.is_empty() {
+                if let Some(head) = stack.heads.last().map(|h| h.name.to_string()) {
+                    but_workspace::commit_engine::create_commit_simple(
+                        self.ctx,
+                        stack_id,
+                        None,
+                        assigned_diffspec,
+                        "WIP Assignments".to_string(),
+                        head.to_owned(),
+                        perm,
+                    )?;
+                }
+            }
+
+            // doing this earlier in the flow, in case any of the steps that follow fail
+            stack.in_workspace = false;
+            vb_state.set_stack(stack.clone())?;
+
             // On v3 we want to take the `current_wd_tree` and try to extract
             // whatever branch we want to unapply. There are a handful of ways
             // to achieve this, including calculating the inverse diff and
@@ -102,6 +118,10 @@ impl BranchManager<'_> {
                 .checkout()
                 .context("failed to checkout tree")?;
         } else {
+            // doing this earlier in the flow, in case any of the steps that follow fail
+            stack.in_workspace = false;
+            vb_state.set_stack(stack.clone())?;
+
             let gix_repo = self.ctx.gix_repo()?;
             let head = stack.head_oid(&gix_repo)?;
             let head = repo.find_commit(head.to_git2())?;

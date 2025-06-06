@@ -46,7 +46,7 @@ fn integration() {
             .as_ref()
             .unwrap();
 
-        gitbutler_branch_actions::unapply_stack(ctx, stack_entry.id).unwrap();
+        gitbutler_branch_actions::unapply_stack(ctx, stack_entry.id, Vec::new()).unwrap();
 
         Refname::from_str(name).unwrap()
     };
@@ -412,7 +412,8 @@ mod conflict_cases {
         let branches = list_result.branches;
         let branch = branches[0].clone();
 
-        let branch_refname = gitbutler_branch_actions::unapply_stack(ctx, branch.id).unwrap();
+        let branch_refname =
+            gitbutler_branch_actions::unapply_stack(ctx, branch.id, Vec::new()).unwrap();
 
         // Make X and set base branch to X
         let mut tree_builder = git_repo

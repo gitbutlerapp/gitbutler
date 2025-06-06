@@ -323,7 +323,7 @@ impl BranchManager<'_> {
                     .iter()
                     .filter(|branch| branch.id != stack_id)
                 {
-                    self.unapply(stack.id, perm, false)?;
+                    self.unapply(stack.id, perm, false, Vec::new())?;
                 }
             }
         }

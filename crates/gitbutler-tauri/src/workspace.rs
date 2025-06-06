@@ -415,7 +415,7 @@ pub fn stash_into_branch(
     gitbutler_branch_actions::update_workspace_commit(&vb_state, &ctx)
         .context("failed to update gitbutler workspace")?;
 
-    branch_manager.unapply(stack.id, perm, false)?;
+    branch_manager.unapply(stack.id, perm, false, Vec::new())?;
 
     let outcome = outcome?;
     Ok(outcome.into())
