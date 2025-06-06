@@ -94,9 +94,10 @@ impl LocalCommit {
 }
 
 /// The state of the [local commit](LocalCommit) in relation to its remote tracking branch or its integration branch.
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[derive(Default, Debug, Eq, PartialEq, Clone, Copy)]
 pub enum LocalCommitRelation {
     /// The commit is only local
+    #[default]
     LocalOnly,
     /// The commit is also present in the remote tracking branch.
     ///
@@ -114,7 +115,8 @@ pub enum LocalCommitRelation {
 }
 
 impl LocalCommitRelation {
-    fn display(&self, id: gix::ObjectId) -> &'static str {
+    /// Convert this relation into something displaying, mainly for debugging.
+    pub fn display(&self, id: gix::ObjectId) -> &'static str {
         match self {
             LocalCommitRelation::LocalOnly => "local",
             LocalCommitRelation::LocalAndRemote(remote_id) => {
@@ -192,7 +194,7 @@ pub enum RefLocation {
     ///
     /// This is the common case.
     ReachableFromWorkspaceCommit,
-    /// The given reference can reach into this workspace segment, but isn't inside it.
+    /// The given reference can reach into this workspace segment, but isn't fully inside it.
     ///
     /// This happens if someone checked out the reference directly and committed into it.
     OutsideOfWorkspace,

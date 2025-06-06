@@ -14,3 +14,6 @@ bstr.workspace = true
 petgraph = "0.8.1"
 anyhow.workspace = true
 
+[dev-dependencies]
+insta = "1.43.1"
+termtree = "0.5.1"

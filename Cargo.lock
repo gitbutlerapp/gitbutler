@@ -800,7 +800,9 @@ dependencies = [
  "bstr",
  "but-core",
  "gix",
+ "insta",
  "petgraph 0.8.1",
+ "termtree",
 ]
 
 [[package]]
