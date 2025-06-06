@@ -45,6 +45,10 @@ pub struct HunkAssignment {
     /// The dependencies(locks) that this hunk has. This determines where the hunk can be assigned.
     /// This field is ignored when HunkAssignment is passed by the UI to create a new assignment.
     pub hunk_locks: Vec<HunkLock>,
+    /// The line numbers that were added in this hunk.
+    pub line_nums_added: Option<Vec<usize>>,
+    /// The line numbers that were removed in this hunk.
+    pub line_nums_removed: Option<Vec<usize>>,
 }
 
 impl TryFrom<but_db::HunkAssignment> for HunkAssignment {
@@ -68,6 +72,8 @@ impl TryFrom<but_db::HunkAssignment> for HunkAssignment {
             path_bytes: value.path_bytes.into(),
             stack_id,
             hunk_locks,
+            line_nums_added: None,   // derived data (not persisted)
+            line_nums_removed: None, // derived data (not persisted)
         })
     }
 }
@@ -402,6 +408,8 @@ fn hunk_dependency_assignments(
             path_bytes: path.into(),
             stack_id,
             hunk_locks: locks,
+            line_nums_added: None,   // derived data (not persisted)
+            line_nums_removed: None, // derived data (not persisted)
         };
         assignments.push(assignment);
     }
@@ -419,6 +427,8 @@ fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> 
             path_bytes: path,
             stack_id: None,
             hunk_locks: vec![],
+            line_nums_added: None,
+            line_nums_removed: None,
         }],
         but_core::UnifiedDiff::TooLarge { .. } => vec![HunkAssignment {
             id: Some(Uuid::new_v4()),
@@ -427,6 +437,8 @@ fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> 
             path_bytes: path,
             stack_id: None,
             hunk_locks: vec![],
+            line_nums_added: None,
+            line_nums_removed: None,
         }],
         but_core::UnifiedDiff::Patch {
             hunks,
@@ -442,22 +454,73 @@ fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> 
                     path_bytes: path,
                     stack_id: None,
                     hunk_locks: vec![],
+                    line_nums_added: None,
+                    line_nums_removed: None,
                 }]
             } else {
                 hunks
                     .iter()
-                    .map(|hunk| HunkAssignment {
-                        id: Some(Uuid::new_v4()),
-                        hunk_header: Some(hunk.into()),
-                        path: path_str.clone().into(),
-                        path_bytes: path.clone(),
-                        stack_id: None,
-                        hunk_locks: vec![],
+                    .map(|hunk| {
+                        let (line_nums_added_new, line_nums_removed_old) =
+                            line_nums_from_hunk(&hunk.diff, hunk.old_start, hunk.new_start);
+                        HunkAssignment {
+                            id: Some(Uuid::new_v4()),
+                            hunk_header: Some(hunk.into()),
+                            path: path_str.clone().into(),
+                            path_bytes: path.clone(),
+                            stack_id: None,
+                            hunk_locks: vec![],
+                            line_nums_added: Some(line_nums_added_new),
+                            line_nums_removed: Some(line_nums_removed_old),
+                        }
                     })
                     .collect()
             }
         }
     }
+}
+
+/// Given a diff, it extracts the line numbers that were added and removed in the hunk (in a old and new format)
+/// The line numbers are relative to the start of the hunk (old_start and new_start respectively). The start is inclusive.
+fn line_nums_from_hunk(diff: &BString, old_start: u32, new_start: u32) -> (Vec<usize>, Vec<usize>) {
+    let mut line_nums_removed_old = vec![];
+    let mut line_nums_added_new = vec![];
+    let mut old_line_num = old_start as usize;
+    let mut new_line_num = new_start as usize;
+    // Split the diff into lines
+    let lines = diff.lines();
+    for line in lines {
+        let Some(first_char) = line.first() else {
+            continue;
+        };
+        match *first_char {
+            b'+' => {
+                // Line added in new version
+                line_nums_added_new.push(new_line_num);
+                new_line_num += 1;
+            }
+            b'-' => {
+                // Line removed from old version
+                line_nums_removed_old.push(old_line_num);
+                old_line_num += 1;
+            }
+            b' ' => {
+                // Context line (unchanged)
+                old_line_num += 1;
+                new_line_num += 1;
+            }
+            b'@' => {
+                // Header line, skip
+                continue;
+            }
+            _ => {
+                // Other lines (context or other), treat as context
+                old_line_num += 1;
+                new_line_num += 1;
+            }
+        }
+    }
+    (line_nums_added_new, line_nums_removed_old)
 }
 
 fn requests_to_assignments(request: Vec<HunkAssignmentRequest>) -> Vec<HunkAssignment> {
@@ -470,6 +533,8 @@ fn requests_to_assignments(request: Vec<HunkAssignmentRequest>) -> Vec<HunkAssig
             path_bytes: req.path_bytes,
             stack_id: req.stack_id,
             hunk_locks: vec![],
+            line_nums_added: None,
+            line_nums_removed: None,
         };
         assignments.push(assignment);
     }
@@ -504,6 +569,8 @@ mod tests {
                 path_bytes: BString::from(path),
                 stack_id: stack_id.map(stack_id_seq),
                 hunk_locks: vec![],
+                line_nums_added: None,
+                line_nums_removed: None,
             }
         }
     }

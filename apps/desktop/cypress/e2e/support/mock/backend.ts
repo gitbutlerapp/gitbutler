@@ -183,7 +183,9 @@ export default class MockBackend {
 					path: change.path,
 					pathBytes: change.pathBytes,
 					stackId: null,
-					hunkLocks: []
+					hunkLocks: [],
+					lineNumsAdded: [],
+					lineNumsRemoved: []
 				});
 			} else if (change.status.type === 'Rename' || change.status.type === 'Modification') {
 				const diff = this.getDiff({ projectId: args.projectId, change });
@@ -195,7 +197,9 @@ export default class MockBackend {
 							path: change.path,
 							pathBytes: change.pathBytes,
 							stackId: null,
-							hunkLocks: []
+							hunkLocks: [],
+							lineNumsAdded: [],
+							lineNumsRemoved: []
 						});
 					} else {
 						for (const hunk of diff.subject.hunks) {
@@ -205,7 +209,9 @@ export default class MockBackend {
 								path: change.path,
 								pathBytes: change.pathBytes,
 								stackId: null,
-								hunkLocks: []
+								hunkLocks: [],
+								lineNumsAdded: [],
+								lineNumsRemoved: []
 							});
 						}
 					}
@@ -216,7 +222,9 @@ export default class MockBackend {
 						path: change.path,
 						pathBytes: change.pathBytes,
 						stackId: null,
-						hunkLocks: []
+						hunkLocks: [],
+						lineNumsAdded: [],
+						lineNumsRemoved: []
 					});
 				}
 			}
