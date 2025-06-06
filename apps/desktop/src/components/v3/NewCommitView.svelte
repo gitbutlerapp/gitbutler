@@ -81,7 +81,7 @@
 	const selection = $derived(stackState?.selection.current);
 	const selectedCommitId = $derived(selection?.commitId);
 
-	const selectedLines = $derived(uncommittedService.selectedLines());
+	const selectedLines = $derived(uncommittedService.selectedLines(sourceStackId));
 	const topBranchResult = $derived(
 		targetStackId ? stackService.branches(projectId, targetStackId) : undefined
 	);
