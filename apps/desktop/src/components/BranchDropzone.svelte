@@ -18,7 +18,7 @@
 	const { projectId }: Props = $props();
 
 	const stackService = getContext(StackService);
-	const handler = new NewStackDzHandler(stackService, projectId);
+	const handler = $derived(new NewStackDzHandler(stackService, projectId));
 </script>
 
 <div class="canvas-dropzone">
