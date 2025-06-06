@@ -18,7 +18,6 @@ mod generate;
 mod simple;
 pub use action::ActionListing;
 pub use action::list_actions;
-pub use action::revert;
 use strum::EnumString;
 
 pub fn handle_changes(

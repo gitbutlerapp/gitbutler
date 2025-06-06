@@ -286,7 +286,6 @@ fn main() {
                     settings::update_feature_flags,
                     action::list_actions,
                     action::handle_changes,
-                    action::actions_revert_snapshot,
                     cli::install_cli,
                     cli::cli_path,
                     workspace::stacks,
