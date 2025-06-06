@@ -3,10 +3,9 @@ import { dropDataToDiffSpec } from '$lib/commits/utils';
 import { ChangeDropData, FileDropData, HunkDropData } from '$lib/dragging/draggables';
 import StackMacros from '$lib/stacks/macros';
 import type { DropzoneHandler } from '$lib/dragging/handler';
-import type {
-	CreateCommitRequestWorktreeChanges,
-	StackService
-} from '$lib/stacks/stackService.svelte';
+import type { DiffService } from '$lib/hunks/diffService.svelte';
+import type { UncommittedService } from '$lib/selection/uncommittedService.svelte';
+import type { StackService } from '$lib/stacks/stackService.svelte';
 import type { UiState } from '$lib/state/uiState.svelte';
 
 /** Handler that creates a new stack from files or hunks. */
@@ -44,7 +43,9 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 	constructor(
 		private stackService: StackService,
 		private projectId: string,
-		private readonly uiState: UiState
+		private readonly uiState: UiState,
+		private readonly uncommittedService: UncommittedService,
+		private readonly diffService: DiffService
 	) {
 		this.macros = new StackMacros(this.projectId, this.stackService, this.uiState);
 	}
@@ -88,28 +89,20 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 				break;
 			}
 			case 'worktree': {
-				const worktreeChanges = changesToWorktreeChanges(data);
-				this.macros.branchChanges({ worktreeChanges });
-				break;
+				const stack = await this.stackService.newStackMutation({
+					projectId: this.projectId,
+					branch: { name: undefined }
+				});
+
+				await this.diffService.assignHunk({
+					projectId: this.projectId,
+					assignments: data.changes
+						.flatMap(
+							(c) => this.uncommittedService.getAssignmentsByPath(data.stackId, c.path).current
+						)
+						.map((h) => ({ ...h, stackId: stack.id }))
+				});
 			}
 		}
 	}
-}
-
-/**
- * Converts a `ChangeDropData` object into an array of `CreateCommitRequestWorktreeChanges`.
- */
-function changesToWorktreeChanges(changes: ChangeDropData): CreateCommitRequestWorktreeChanges[] {
-	const worktreeChanges: CreateCommitRequestWorktreeChanges[] = [];
-	for (const change of changes.changes) {
-		const previousPathBytes =
-			change.status.type === 'Rename' ? change.status.subject.previousPathBytes : null;
-		worktreeChanges.push({
-			pathBytes: change.pathBytes,
-			previousPathBytes,
-			hunkHeaders: []
-		});
-	}
-
-	return worktreeChanges;
 }

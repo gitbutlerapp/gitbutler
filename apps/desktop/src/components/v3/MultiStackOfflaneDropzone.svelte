@@ -1,5 +1,7 @@
 <script lang="ts">
 	import Dropzone from '$components/Dropzone.svelte';
+	import { DiffService } from '$lib/hunks/diffService.svelte';
+	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { OutsideLaneDzHandler } from '$lib/stacks/dropHandler';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -16,8 +18,15 @@
 
 	const { viewport, projectId, isSingleMode, standalone, onVisible }: Props = $props();
 
-	const [stackService, uiState] = inject(StackService, UiState);
-	const dzHandler = $derived(new OutsideLaneDzHandler(stackService, projectId, uiState));
+	const [stackService, uiState, uncommittedService, diffService] = inject(
+		StackService,
+		UiState,
+		UncommittedService,
+		DiffService
+	);
+	const dzHandler = $derived(
+		new OutsideLaneDzHandler(stackService, projectId, uiState, uncommittedService, diffService)
+	);
 </script>
 
 <div
