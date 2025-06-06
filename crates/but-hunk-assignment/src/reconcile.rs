@@ -21,6 +21,15 @@ impl HunkAssignment {
         if other.id.is_some() {
             self.id = other.id;
         }
+        // Override the lines added only if the other assignment has them set
+        if other.line_nums_added.is_some() {
+            self.line_nums_added = other.line_nums_added.clone();
+        }
+        // Override the lines removed only if the other assignment has them set
+        if other.line_nums_removed.is_some() {
+            self.line_nums_removed = other.line_nums_removed.clone();
+        }
+
         // Override the stack_id only if the current assignment has a stack_id or if update_unassigned is true
         match self.stack_id {
             Some(_) => {
