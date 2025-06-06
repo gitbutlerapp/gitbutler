@@ -78,7 +78,7 @@
 							<div class="text-12 commit-failed__file-entry__dependency-locks">
 								<div class="commit-failed__file-entry__dependency-locks__label">
 									<Icon name="locked" />
-									<span class="text-clr2">Depends on:</span>
+									<span class="clr-text-2">Depends on:</span>
 								</div>
 								<div class="commit-failed__file-entry__dependency-locks__content">
 									{#each dependency.locks as lock}
@@ -96,7 +96,7 @@
 										<p class="text-body commit-failed__file-entry-dependency-lock">
 											<i class="commit-failed__text-icon"><Icon name="branch-small" /></i>
 											<span class="text-semibold">{branchName}</span>
-											<i class="text-clr2">in commit</i>
+											<i class="clr-text-2">in commit</i>
 											<i class="commit-failed__text-icon"><Icon name="commit" /></i>
 											<Tooltip text={commitTitle}>
 												<span class="commit-failed__tooltip-text text-semibold h-dotted-underline"

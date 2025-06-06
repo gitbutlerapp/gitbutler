@@ -12,12 +12,12 @@ export default {
 			propList: ['*'],
 			selectorBlackList: [],
 			replace: true,
-			mediaQuery: false,
+			mediaQuery: true,
 			minPixelValue: 0
 		}),
 		autoprefixer(),
 		postcssNesting(),
-		postcssBundler(),
-		postcssMinify()
+		postcssMinify(),
+		postcssBundler()
 	]
 };

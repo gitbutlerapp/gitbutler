@@ -58,7 +58,7 @@
 	{#snippet content()}
 		<div class="sidebar-entry__header">
 			<h4 class="text-13 text-semibold">
-				<span class="text-clr2">#{number}:</span>
+				<span class="clr-text-2">#{number}:</span>
 				{title}
 			</h4>
 		</div>

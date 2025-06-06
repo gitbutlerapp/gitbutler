@@ -15,10 +15,6 @@
 		border-bottom: 1px solid var(--clr-border-2);
 	}
 
-	.card__title {
-		padding: 4px 6px;
-	}
-
 	.card__content {
 		display: flex;
 		flex-direction: column;

@@ -308,9 +308,9 @@
 							{/if}
 						{:else}
 							<div class="summary-placeholder">
-								<p class="text-13 text-clr2">No summary provided.</p>
+								<p class="text-13 clr-text-2">No summary provided.</p>
 								{#if branch.permissions.canWrite}
-									<p class="text-12 text-body text-clr2">
+									<p class="text-12 text-body clr-text-2">
 										<em>
 											Summaries provide context on the branch's purpose and helps team members
 											understand it's changes.

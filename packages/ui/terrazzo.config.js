@@ -32,11 +32,6 @@ export default defineConfig({
 			transform: pxToRem,
 			generateName(variableId) {
 				return clearFxPrefix(variableId);
-			},
-			utility: {
-				bg: ['clr.bg.*'],
-				text: ['clr.text.*'],
-				border: ['clr.border.*']
 			}
 		})
 	]
