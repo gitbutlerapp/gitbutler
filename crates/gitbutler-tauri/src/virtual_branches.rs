@@ -268,8 +268,20 @@ pub mod commands {
         stack_id: StackId,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
-        let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        gitbutler_branch_actions::unapply_stack(&ctx, stack_id)?;
+        let ctx = &mut CommandContext::open(&project, settings.get()?.clone())?;
+        let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
+            ctx,
+            false,
+            Some(but_core::diff::ui::worktree_changes_by_worktree_dir(project.path)?.changes),
+        )?;
+        let assigned_diffspec = but_workspace::flatten_diff_specs(
+            assignments
+                .into_iter()
+                .filter(|a| a.stack_id == Some(stack_id))
+                .map(|a| a.into())
+                .collect::<Vec<DiffSpec>>(),
+        );
+        gitbutler_branch_actions::unapply_stack(ctx, stack_id, assigned_diffspec)?;
         emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
     }

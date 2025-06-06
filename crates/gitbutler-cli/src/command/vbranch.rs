@@ -67,7 +67,11 @@ pub fn status(project: Project) -> Result<()> {
 pub fn unapply(project: Project, branch_name: String) -> Result<()> {
     let ctx = CommandContext::open(&project, AppSettings::default())?;
     let stack = stack_by_name(&project, &branch_name)?;
-    debug_print(gitbutler_branch_actions::unapply_stack(&ctx, stack.id)?)
+    debug_print(gitbutler_branch_actions::unapply_stack(
+        &ctx,
+        stack.id,
+        Vec::new(),
+    )?)
 }
 
 pub fn apply(project: Project, branch_name: String, from_branch: bool) -> Result<()> {

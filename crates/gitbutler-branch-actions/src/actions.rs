@@ -250,14 +250,19 @@ pub fn update_branch_order(
 }
 
 /// Unapplies a virtual branch and deletes the branch entry from the virtual branch state.
-pub fn unapply_stack(ctx: &CommandContext, stack_id: StackId) -> Result<String> {
+pub fn unapply_stack(
+    ctx: &CommandContext,
+    stack_id: StackId,
+    assigned_diffspec: Vec<but_workspace::DiffSpec>,
+) -> Result<String> {
     let mut guard = ctx.project().exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     assure_open_workspace_mode(ctx)
         .context("Deleting a branch order requires open workspace mode")?;
     let branch_manager = ctx.branch_manager();
     // NB: unapply_without_saving is also called from save_and_unapply
-    let branch_name = branch_manager.unapply(stack_id, guard.write_permission(), false)?;
+    let branch_name =
+        branch_manager.unapply(stack_id, guard.write_permission(), false, assigned_diffspec)?;
     Ok(branch_name)
 }
 
