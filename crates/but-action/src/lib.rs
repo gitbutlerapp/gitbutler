@@ -6,7 +6,7 @@ use std::{
     str::FromStr,
 };
 
-use but_workspace::{DiffSpec, VirtualBranchesTomlMetadata, ui::StackEntry};
+use but_workspace::{DiffSpec, ui::StackEntry};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::ObjectIdExt;
@@ -20,6 +20,7 @@ mod simple;
 pub use action::ActionListing;
 pub use action::list_actions;
 pub use action::revert;
+use but_graph::VirtualBranchesTomlMetadata;
 use strum::EnumString;
 
 pub fn handle_changes(

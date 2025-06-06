@@ -24,10 +24,11 @@ pub struct Options {
 pub(crate) mod function {
     use crate::branch::Stack;
     use crate::integrated::{IsCommitIntegrated, MergeBaseCommitGraph};
-    use crate::{RefInfo, WorkspaceCommit, is_workspace_ref_name};
+    use crate::{RefInfo, WorkspaceCommit};
     use anyhow::bail;
     use bstr::BString;
     use but_core::ref_metadata::{ValueInfo, Workspace, WorkspaceStack};
+    use but_graph::is_workspace_ref_name;
     use but_graph::{LocalCommit, LocalCommitRelation, RefLocation, RemoteCommit, Segment};
     use gix::prelude::{ObjectIdExt, ReferenceExt};
     use gix::refs::{Category, FullName};

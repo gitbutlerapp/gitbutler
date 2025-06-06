@@ -11,7 +11,7 @@ doctest = false
 
 [dependencies]
 anyhow = "1.0.98"
-itertools = "0.14.0"
+itertools.workspace = true
 serde.workspace = true
 serde-error = "0.1.3"
 gix = { workspace = true, features = [] }

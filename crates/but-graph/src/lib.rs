@@ -18,3 +18,6 @@ pub struct Graph {
 pub type SegmentIndex = petgraph::graph::NodeIndex;
 
 mod api;
+
+mod ref_metadata_legacy;
+pub use ref_metadata_legacy::{VirtualBranchesTomlMetadata, is_workspace_ref_name};

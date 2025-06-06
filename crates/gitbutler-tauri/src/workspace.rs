@@ -4,6 +4,7 @@ use crate::virtual_branches::commands::emit_vbranches;
 use crate::WindowState;
 use anyhow::Context;
 use but_core::ui::TreeChange;
+use but_graph::VirtualBranchesTomlMetadata;
 use but_hunk_dependency::ui::{
     hunk_dependencies_for_changes, hunk_dependencies_for_workspace_changes_by_worktree_dir,
     HunkDependencies,
@@ -11,7 +12,7 @@ use but_hunk_dependency::ui::{
 use but_settings::AppSettingsWithDiskSync;
 use but_workspace::commit_engine::StackSegmentId;
 use but_workspace::MoveChangesResult;
-use but_workspace::{commit_engine, ui::StackEntry, VirtualBranchesTomlMetadata};
+use but_workspace::{commit_engine, ui::StackEntry};
 use gitbutler_branch_actions::{update_workspace_commit, BranchManagerExt};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};

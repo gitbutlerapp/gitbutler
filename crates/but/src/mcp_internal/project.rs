@@ -1,4 +1,4 @@
-use but_workspace::VirtualBranchesTomlMetadata;
+use but_graph::VirtualBranchesTomlMetadata;
 use gitbutler_project::Project;
 use std::path::Path;
 

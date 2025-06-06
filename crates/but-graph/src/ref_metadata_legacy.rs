@@ -500,6 +500,8 @@ fn standard_time() -> gix::date::Time {
 ///
 /// Note that in the future, ideally we won't rely on the name at all, but instead
 /// check for the presence of workspace ref-metadata.
+///
+/// TODO: no special handling by branch-name should be needed, it's all in the ref-metadata.
 pub fn is_workspace_ref_name(ref_name: &FullNameRef) -> bool {
     ref_name.as_bstr() == INTEGRATION_BRANCH || ref_name.as_bstr() == INTEGRATION_BRANCH_LEGACY
 }

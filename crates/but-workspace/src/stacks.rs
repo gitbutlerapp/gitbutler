@@ -1,13 +1,14 @@
 use crate::integrated::IsCommitIntegrated;
 use crate::ui::{CommitState, PushStatus, StackDetails};
 use crate::{
-    RefInfo, StacksFilter, VirtualBranchesTomlMetadata, branch, head_info, id_from_name_v2_to_v3,
-    ref_info, state_handle, ui,
+    RefInfo, StacksFilter, branch, head_info, id_from_name_v2_to_v3, ref_info, state_handle, ui,
 };
 use anyhow::Context;
 use bstr::BString;
 use but_core::RefMetadata;
-use but_graph::{Commit, LocalCommit, LocalCommitRelation, RemoteCommit, Segment};
+use but_graph::{
+    Commit, LocalCommit, LocalCommitRelation, RemoteCommit, Segment, VirtualBranchesTomlMetadata,
+};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oxidize::{ObjectIdExt, OidExt, git2_signature_to_gix_signature};

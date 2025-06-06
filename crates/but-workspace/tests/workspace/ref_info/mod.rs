@@ -235,7 +235,8 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
 }
 
 mod utils {
-    use but_workspace::{VirtualBranchesTomlMetadata, ref_info};
+    use but_graph::VirtualBranchesTomlMetadata;
+    use but_workspace::ref_info;
 
     pub fn read_only_in_memory_scenario(
         name: &str,

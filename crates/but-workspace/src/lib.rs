@@ -50,6 +50,7 @@ pub use head::{head, merge_worktree_with_workspace};
 mod relapath;
 
 /// 🚧utilities for applying and unapplying branches 🚧.
+///‼️To be superseded by `but-graph` ‼️- the research in there is valuable and should still be migrated.
 /// Ignore the name of this module; it's just a place to put code by now.
 pub mod branch;
 
@@ -85,11 +86,9 @@ pub use stacks::{
     stack_details, stack_details_v3, stack_heads_info, stacks, stacks_v3,
 };
 
-mod virtual_branches_metadata;
-pub use virtual_branches_metadata::{VirtualBranchesTomlMetadata, is_workspace_ref_name};
-
 mod branch_details;
 pub use branch_details::{branch_details, branch_details_v3};
+use but_graph::VirtualBranchesTomlMetadata;
 
 /// A change that should be used to create a new commit or alter an existing one, along with enough information to know where to find it.
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]

@@ -6,6 +6,10 @@ authors = ["GitButler <gitbutler@gitbutler.com>"]
 description = "Types to represent Git commit graphs as connected segments, and perform various operations on these."
 publish = false
 
+[lib]
+doctest = false
+test = false
+
 [dependencies]
 but-core.workspace = true
 
@@ -14,6 +18,16 @@ bstr.workspace = true
 petgraph = "0.8.1"
 anyhow.workspace = true
 
+# For `VirtualBranchesTomlRefMetadata`
+gitbutler-fs.workspace = true
+tracing.workspace = true
+itertools.workspace = true
+gitbutler-stack.workspace = true
+toml.workspace = true
+
+
 [dev-dependencies]
 insta = "1.43.1"
 termtree = "0.5.1"
+but-testsupport.workspace = true
+regex = "1.11.1"

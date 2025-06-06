@@ -77,6 +77,7 @@ gitbutler-forge.workspace = true
 but-settings.workspace = true
 but-workspace.workspace = true
 but-core.workspace = true
+but-graph.workspace = true
 but-hunk-dependency.workspace = true
 but-hunk-assignment.workspace = true
 but-action.workspace = true
