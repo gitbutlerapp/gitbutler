@@ -16,6 +16,7 @@ the window, then enlarge it and retain the original widths of the layout.
 	name="workspace"
 	leftWidth={{ default: 200, min: 100}}
 	middleWidth={{ default: 200, min: 100}}
+	swapMiddleRight={false}
 >
 	{#snippet left()} {/snippet}
 	{#snippet middle()} {/snippet}
@@ -46,9 +47,10 @@ the window, then enlarge it and retain the original widths of the layout.
 			default: number;
 			min: number;
 		};
+		swapMiddleRight?: boolean;
 	};
 
-	const { name, left, middle, right, leftWidth, middleWidth }: Props = $props();
+	const { name, left, middle, right, leftWidth, middleWidth, swapMiddleRight }: Props = $props();
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const zoom = $derived($userSettings.zoom);
@@ -77,18 +79,21 @@ the window, then enlarge it and retain the original widths of the layout.
 	const padding = $derived(containerBindWidth - window.innerWidth);
 	const containerMinWidth = $derived(804 - padding);
 
-	const rightMinWidth = $derived(pxToRem(containerMinWidth, zoom) - leftMinWidth - middleMinWidth);
-	const totalAvailableWidth = $derived(pxToRem(containerBindWidth, zoom) - rightMinWidth - 1); // Reserve space for right panel and gaps
+	// When swapped, the middle becomes flexible and right becomes fixed
+	const flexibleMinWidth = $derived(
+		pxToRem(containerMinWidth, zoom) - leftMinWidth - middleMinWidth
+	);
+	const totalAvailableWidth = $derived(pxToRem(containerBindWidth, zoom) - flexibleMinWidth - 1); // Reserve space for flexible panel and gaps
 
 	// Calculate derived widths with proper constraints
 	const derivedLeftWidth = $derived(
 		Math.min(totalAvailableWidth - middleMinWidth, Math.max(leftMinWidth, $leftPreferredWidth))
 	);
 
-	// Middle width is constrained by remaining space after left panel
-	const remainingForMiddle = $derived(totalAvailableWidth - derivedLeftWidth);
+	// Fixed panel width is constrained by remaining space after left panel
+	const remainingForFixed = $derived(totalAvailableWidth - derivedLeftWidth);
 	const derivedMiddleWidth = $derived(
-		Math.min(remainingForMiddle, Math.max(middleMinWidth, $middlePreferredWidth))
+		Math.min(remainingForFixed, Math.max(middleMinWidth, $middlePreferredWidth))
 	);
 
 	// Calculate max widths for the resizers
@@ -121,35 +126,83 @@ the window, then enlarge it and retain the original widths of the layout.
 			}}
 		/>
 	</div>
-	<div
-		class="middle"
-		bind:this={middleDiv}
-		bind:clientWidth={middleBindWidth}
-		style:width={derivedMiddleWidth + 'rem'}
-		style:min-width={middleMinWidth + 'rem'}
-		use:focusable={{ id: DefinedFocusable.ViewportMiddle, parentId: DefinedFocusable.MainViewport }}
-	>
-		{@render middle()}
-		<Resizer
-			viewport={middleDiv}
-			direction="right"
-			minWidth={middleMinWidth}
-			maxWidth={middleMaxWidth}
-			borderRadius="ml"
-			onWidth={(value) => {
-				middlePreferredWidth.set(value);
+
+	{#if swapMiddleRight}
+		<!-- When swapped: middle becomes flexible, right becomes fixed -->
+		<div
+			class="middle flexible"
+			bind:this={middleDiv}
+			bind:clientWidth={middleBindWidth}
+			style:min-width={flexibleMinWidth + 'rem'}
+			use:focusable={{
+				id: DefinedFocusable.ViewportMiddle,
+				parentId: DefinedFocusable.MainViewport
 			}}
-		/>
-	</div>
-	<div
-		class="right"
-		bind:this={rightDiv}
-		bind:clientWidth={rightBindWidth}
-		style:min-width={rightMinWidth + 'rem'}
-		use:focusable={{ id: DefinedFocusable.ViewportRight, parentId: DefinedFocusable.MainViewport }}
-	>
-		{@render right()}
-	</div>
+		>
+			{@render right()}
+		</div>
+		<div
+			class="right fixed"
+			bind:this={rightDiv}
+			bind:clientWidth={rightBindWidth}
+			style:width={derivedMiddleWidth + 'rem'}
+			style:min-width={middleMinWidth + 'rem'}
+			use:focusable={{
+				id: DefinedFocusable.ViewportRight,
+				parentId: DefinedFocusable.MainViewport
+			}}
+		>
+			{@render middle()}
+
+			<Resizer
+				viewport={rightDiv}
+				direction="left"
+				minWidth={middleMinWidth}
+				maxWidth={middleMaxWidth}
+				borderRadius="ml"
+				onWidth={(value) => {
+					middlePreferredWidth.set(value);
+				}}
+			/>
+		</div>
+	{:else}
+		<!-- Default: middle is fixed, right is flexible -->
+		<div
+			class="middle fixed"
+			bind:this={middleDiv}
+			bind:clientWidth={middleBindWidth}
+			style:width={derivedMiddleWidth + 'rem'}
+			style:min-width={middleMinWidth + 'rem'}
+			use:focusable={{
+				id: DefinedFocusable.ViewportMiddle,
+				parentId: DefinedFocusable.MainViewport
+			}}
+		>
+			{@render middle()}
+			<Resizer
+				viewport={middleDiv}
+				direction="right"
+				minWidth={middleMinWidth}
+				maxWidth={middleMaxWidth}
+				borderRadius="ml"
+				onWidth={(value) => {
+					middlePreferredWidth.set(value);
+				}}
+			/>
+		</div>
+		<div
+			class="right flexible"
+			bind:this={rightDiv}
+			bind:clientWidth={rightBindWidth}
+			style:min-width={flexibleMinWidth + 'rem'}
+			use:focusable={{
+				id: DefinedFocusable.ViewportRight,
+				parentId: DefinedFocusable.MainViewport
+			}}
+		>
+			{@render right()}
+		</div>
+	{/if}
 </div>
 
 <style lang="postcss">
@@ -174,7 +227,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		height: 100%;
 	}
 
-	.middle {
+	.middle.fixed {
 		display: flex;
 		position: relative;
 		flex-grow: 0;
@@ -185,7 +238,27 @@ the window, then enlarge it and retain the original widths of the layout.
 		overflow: hidden;
 	}
 
-	.right {
+	.middle.flexible {
+		display: flex;
+		position: relative;
+		flex-grow: 1;
+		flex-shrink: 1;
+		flex-direction: column;
+		overflow-x: hidden;
+	}
+
+	.right.fixed {
+		display: flex;
+		position: relative;
+		flex-grow: 0;
+		flex-shrink: 0;
+		flex-direction: column;
+		justify-content: flex-start;
+		height: 100%;
+		overflow: hidden;
+	}
+
+	.right.flexible {
 		display: flex;
 		position: relative;
 		flex-grow: 1;
