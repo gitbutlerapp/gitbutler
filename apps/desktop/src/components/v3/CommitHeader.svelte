@@ -26,7 +26,7 @@
 		data-testid={TestId.CommitDrawerTitle}
 		class="{className} commit-title"
 		class:truncate
-		class:text-clr3={!title}
+		class:clr-text-3={!title}
 	>
 		{getTitle()}
 	</h3>
