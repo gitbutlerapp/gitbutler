@@ -105,6 +105,59 @@ impl Graph {
     }
 }
 
+/// Debugging
+impl Graph {
+    /// Output this graph in dot-format to stderr to allow copying it, and using like this for visualization:
+    ///
+    /// ```shell
+    /// pbpaste | dot -Tsvg >graph.svg && open graph.svg
+    /// ```
+    pub fn eprint_dot_graph(&self) {
+        let dot = self.dot_graph();
+        eprintln!("{dot}");
+    }
+
+    /// Produces a dot-version of the graph.
+    pub fn dot_graph(&self) -> String {
+        const HEX: usize = 7;
+        let dot = petgraph::dot::Dot::with_attr_getters(
+            &self.inner,
+            &[],
+            &|g, e| {
+                let src = &g[e.source()];
+                let dst = &g[e.target()];
+                let e = e.weight();
+                let src = src
+                    .commit_by_index(e.src)
+                    .map(|c| c.id.to_hex_with_len(HEX).to_string())
+                    .unwrap_or_else(|| "src".into());
+                let dst = dst
+                    .commit_by_index(e.dst)
+                    .map(|c| c.id.to_hex_with_len(HEX).to_string())
+                    .unwrap_or_else(|| "dst".into());
+                format!(", label = \"{src} → {dst}\"")
+            },
+            &|_, (_, s)| {
+                format!(
+                    ", shape = box, label = \"{name}\n{commits}\"",
+                    name = s
+                        .ref_name
+                        .as_ref()
+                        .map(|rn| rn.shorten())
+                        .unwrap_or_else(|| "<anon>".into()),
+                    commits = s
+                        .commits_unique_from_tip
+                        .iter()
+                        .map(|c| c.id.to_hex_with_len(HEX).to_string())
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                )
+            },
+        );
+        format!("{dot:?}")
+    }
+}
+
 impl Index<SegmentIndex> for Graph {
     type Output = Segment;
 
