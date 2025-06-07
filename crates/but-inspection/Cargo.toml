@@ -1,0 +1,41 @@
+[package]
+name = "but-inspection"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[lib]
+doctest = false
+
+[features]
+# Set when building in test-mode to enable features that help with generating repeatable tests.
+testing = []
+
+[dependencies]
+serde = { workspace = true, features = ["std"] }
+bstr.workspace = true
+tracing.workspace = true
+anyhow = "1.0.98"
+gix = { workspace = true, features = [
+    "dirwalk",
+    "credentials",
+    "parallel",
+    "serde",
+    "status",
+] }
+async-openai.workspace = true
+tiktoken-rs.workspace = true
+gitbutler-serde.workspace = true
+gitbutler-error.workspace = true
+gitbutler-command-context.workspace = true
+uuid.workspace = true
+toml.workspace = true
+serde_json = "1.0.140"
+but-core.workspace = true
+lancedb = "0.20"
+# Should match what lancedb depends on
+arrow-array = "55.1"
+arrow-schema = "55.1"
+
+[dev-dependencies]
