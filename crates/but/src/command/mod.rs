@@ -7,6 +7,8 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use serde::Serialize;
 
+pub(crate) mod inspect;
+
 pub(crate) fn handle_changes(
     repo_path: &Path,
     json: bool,
@@ -40,7 +42,7 @@ pub(crate) fn list_actions(
     print(&response, json)
 }
 
-fn print<T>(this: &T, json: bool) -> anyhow::Result<()>
+pub(crate) fn print<T>(this: &T, json: bool) -> anyhow::Result<()>
 where
     T: ?Sized + Serialize + std::fmt::Debug,
 {

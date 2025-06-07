@@ -2,6 +2,8 @@ use anyhow::Result;
 
 mod args;
 use args::Args;
+
+use crate::args::Inspect;
 mod command;
 mod mcp;
 mod mcp_internal;
@@ -20,5 +22,10 @@ async fn main() -> Result<()> {
         args::Subcommands::ListActions { offset, limit } => {
             command::list_actions(&args.current_dir, args.json, *offset, *limit)
         }
+        args::Subcommands::BetaInspect(Inspect { cmd }) => match cmd {
+            args::InspectSubcommands::Status => {
+                command::inspect::status(&args.current_dir, args.json)
+            }
+        },
     }
 }

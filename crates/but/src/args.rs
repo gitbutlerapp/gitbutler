@@ -37,4 +37,18 @@ pub enum Subcommands {
         #[clap(long, short = 'l', default_value_t = 10)]
         limit: i64,
     },
+    /// The family of but inspection commands
+    BetaInspect(Inspect),
+}
+
+#[derive(Debug, clap::Parser)]
+pub struct Inspect {
+    #[clap(subcommand)]
+    pub cmd: InspectSubcommands,
+}
+
+#[derive(Debug, clap::Subcommand)]
+pub enum InspectSubcommands {
+    /// Get the current index status
+    Status,
 }
