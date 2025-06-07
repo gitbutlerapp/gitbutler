@@ -123,13 +123,13 @@ pub(crate) fn persist_action(ctx: &mut CommandContext, action: ButlerAction) -> 
 
 pub fn list_actions(
     ctx: &mut CommandContext,
-    page: i64,
-    page_size: i64,
+    offset: i64,
+    limit: i64,
 ) -> anyhow::Result<ActionListing> {
     let (total, actions) = ctx
         .db()?
         .butler_actions()
-        .list(page, page_size)
+        .list(offset, limit)
         .map_err(|e| anyhow::anyhow!("Failed to list actions: {}", e))?;
 
     // Filter out any entries that cannot be converted to ButlerAction

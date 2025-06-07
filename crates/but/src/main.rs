@@ -17,8 +17,8 @@ async fn main() -> Result<()> {
             change_description,
             simple,
         } => command::handle_changes(&args.current_dir, args.json, *simple, change_description),
-        args::Subcommands::ListActions { page, page_size } => {
-            command::list_actions(&args.current_dir, args.json, *page, *page_size)
+        args::Subcommands::ListActions { offset, limit } => {
+            command::list_actions(&args.current_dir, args.json, *offset, *limit)
         }
     }
 }

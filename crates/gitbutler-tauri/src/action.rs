@@ -9,12 +9,12 @@ pub fn list_actions(
     projects: tauri::State<'_, gitbutler_project::Controller>,
     settings: tauri::State<'_, but_settings::AppSettingsWithDiskSync>,
     project_id: ProjectId,
-    page: i64,
-    page_size: i64,
+    offset: i64,
+    limit: i64,
 ) -> anyhow::Result<but_action::ActionListing, Error> {
     let project = projects.get(project_id)?;
     let ctx = &mut CommandContext::open(&project, settings.get()?.clone())?;
-    but_action::list_actions(ctx, page, page_size).map_err(|e| Error::from(anyhow::anyhow!(e)))
+    but_action::list_actions(ctx, offset, limit).map_err(|e| Error::from(anyhow::anyhow!(e)))
 }
 
 #[tauri::command(async)]

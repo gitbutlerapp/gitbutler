@@ -30,11 +30,11 @@ pub enum Subcommands {
         simple: bool,
     },
     ListActions {
-        /// The page number to list past actions from.
-        #[clap(long, short = 'p', default_value_t = 1)]
-        page: i64,
-        /// The number of actions to list per page.
-        #[clap(long, short = 's', default_value_t = 10)]
-        page_size: i64,
+        /// The listing offset.
+        #[clap(long, short = 'o', default_value_t = 1)]
+        offset: i64,
+        /// The number of actions to list per request.
+        #[clap(long, short = 'l', default_value_t = 10)]
+        limit: i64,
     },
 }
