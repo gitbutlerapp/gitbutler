@@ -12,7 +12,7 @@
 	import WorktreeTipsFooter from '$components/v3/WorktreeTipsFooter.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { SettingsService } from '$lib/config/appSettingsV2';
-	import { workspaceSwapMiddleRight } from '$lib/config/uiFeatureFlags';
+	import { workspaceSwapPanels } from '$lib/config/uiFeatureFlags';
 	import { isParsedError } from '$lib/error/parser';
 	import {
 		assignedChangesFocusableId,
@@ -124,13 +124,18 @@
 			console.warn('Workspace selection cleared');
 		}
 	}
+
+	function getSwapMode() {
+		if ($workspaceSwapPanels === 'dont-swap-panels') return undefined;
+		return $workspaceSwapPanels === 'swap-middle-to-left' ? 'middleToLeft' : 'middleToRight';
+	}
 </script>
 
 <MainViewport
 	name="workspace"
 	leftWidth={{ default: 280, min: 240 }}
 	middleWidth={{ default: 380, min: 240 }}
-	swapMiddleRight={$workspaceSwapMiddleRight}
+	swapMode={getSwapMode()}
 >
 	{#snippet left()}
 		{#if canUseActions}

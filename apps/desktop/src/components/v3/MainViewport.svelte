@@ -16,7 +16,7 @@ the window, then enlarge it and retain the original widths of the layout.
 	name="workspace"
 	leftWidth={{ default: 200, min: 100}}
 	middleWidth={{ default: 200, min: 100}}
-	swapMiddleRight={false}
+	swapMode="middleToRight"
 >
 	{#snippet left()} {/snippet}
 	{#snippet middle()} {/snippet}
@@ -34,6 +34,8 @@ the window, then enlarge it and retain the original widths of the layout.
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import type { Snippet } from 'svelte';
 
+	type SwapMode = 'middleToRight' | 'middleToLeft';
+
 	type Props = {
 		name: string;
 		left: Snippet;
@@ -47,10 +49,10 @@ the window, then enlarge it and retain the original widths of the layout.
 			default: number;
 			min: number;
 		};
-		swapMiddleRight?: boolean;
+		swapMode?: SwapMode;
 	};
 
-	const { name, left, middle, right, leftWidth, middleWidth, swapMiddleRight }: Props = $props();
+	const { name, left, middle, right, leftWidth, middleWidth, swapMode }: Props = $props();
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const zoom = $derived($userSettings.zoom);
@@ -106,29 +108,88 @@ the window, then enlarge it and retain the original widths of the layout.
 	use:focusable={{ id: DefinedFocusable.MainViewport }}
 	bind:clientWidth={containerBindWidth}
 >
-	<div
-		class="left"
-		bind:this={leftDiv}
-		bind:clientWidth={leftBindWidth}
-		style:width={derivedLeftWidth + 'rem'}
-		style:min-width={leftMinWidth + 'rem'}
-		use:focusable={{ id: DefinedFocusable.ViewportLeft, parentId: DefinedFocusable.MainViewport }}
-	>
-		{@render left()}
-		<Resizer
-			viewport={leftDiv}
-			direction="right"
-			minWidth={leftMinWidth}
-			maxWidth={leftMaxWidth}
-			borderRadius="ml"
-			onWidth={(value) => {
-				leftPreferredWidth.set(value);
-			}}
-		/>
-	</div>
+	{#if swapMode === 'middleToLeft'}
+		<!-- Middle content moves to left position, left content moves to middle -->
+		<div
+			class="left"
+			bind:this={leftDiv}
+			bind:clientWidth={leftBindWidth}
+			style:width={derivedLeftWidth + 'rem'}
+			style:min-width={leftMinWidth + 'rem'}
+			use:focusable={{ id: DefinedFocusable.ViewportLeft, parentId: DefinedFocusable.MainViewport }}
+		>
+			{@render middle()}
+			<Resizer
+				viewport={leftDiv}
+				direction="right"
+				minWidth={leftMinWidth}
+				maxWidth={leftMaxWidth}
+				borderRadius="ml"
+				onWidth={(value) => {
+					leftPreferredWidth.set(value);
+				}}
+			/>
+		</div>
 
-	{#if swapMiddleRight}
-		<!-- When swapped: middle becomes flexible, right becomes fixed -->
+		<div
+			class="middle fixed"
+			bind:this={middleDiv}
+			bind:clientWidth={middleBindWidth}
+			style:width={derivedMiddleWidth + 'rem'}
+			style:min-width={middleMinWidth + 'rem'}
+			use:focusable={{
+				id: DefinedFocusable.ViewportMiddle,
+				parentId: DefinedFocusable.MainViewport
+			}}
+		>
+			{@render left()}
+			<Resizer
+				viewport={middleDiv}
+				direction="right"
+				minWidth={middleMinWidth}
+				maxWidth={middleMaxWidth}
+				borderRadius="ml"
+				onWidth={(value) => {
+					middlePreferredWidth.set(value);
+				}}
+			/>
+		</div>
+
+		<div
+			class="right flexible"
+			bind:this={rightDiv}
+			bind:clientWidth={rightBindWidth}
+			style:min-width={flexibleMinWidth + 'rem'}
+			use:focusable={{
+				id: DefinedFocusable.ViewportRight,
+				parentId: DefinedFocusable.MainViewport
+			}}
+		>
+			{@render right()}
+		</div>
+	{:else if swapMode === 'middleToRight'}
+		<!-- Middle content moves to right position, right content moves to middle -->
+		<div
+			class="left"
+			bind:this={leftDiv}
+			bind:clientWidth={leftBindWidth}
+			style:width={derivedLeftWidth + 'rem'}
+			style:min-width={leftMinWidth + 'rem'}
+			use:focusable={{ id: DefinedFocusable.ViewportLeft, parentId: DefinedFocusable.MainViewport }}
+		>
+			{@render left()}
+			<Resizer
+				viewport={leftDiv}
+				direction="right"
+				minWidth={leftMinWidth}
+				maxWidth={leftMaxWidth}
+				borderRadius="ml"
+				onWidth={(value) => {
+					leftPreferredWidth.set(value);
+				}}
+			/>
+		</div>
+
 		<div
 			class="middle flexible"
 			bind:this={middleDiv}
@@ -141,6 +202,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		>
 			{@render right()}
 		</div>
+
 		<div
 			class="right fixed"
 			bind:this={rightDiv}
@@ -166,7 +228,28 @@ the window, then enlarge it and retain the original widths of the layout.
 			/>
 		</div>
 	{:else}
-		<!-- Default: middle is fixed, right is flexible -->
+		<!-- Default layout: no swapping -->
+		<div
+			class="left"
+			bind:this={leftDiv}
+			bind:clientWidth={leftBindWidth}
+			style:width={derivedLeftWidth + 'rem'}
+			style:min-width={leftMinWidth + 'rem'}
+			use:focusable={{ id: DefinedFocusable.ViewportLeft, parentId: DefinedFocusable.MainViewport }}
+		>
+			{@render left()}
+			<Resizer
+				viewport={leftDiv}
+				direction="right"
+				minWidth={leftMinWidth}
+				maxWidth={leftMaxWidth}
+				borderRadius="ml"
+				onWidth={(value) => {
+					leftPreferredWidth.set(value);
+				}}
+			/>
+		</div>
+
 		<div
 			class="middle fixed"
 			bind:this={middleDiv}
@@ -190,6 +273,7 @@ the window, then enlarge it and retain the original widths of the layout.
 				}}
 			/>
 		</div>
+
 		<div
 			class="right flexible"
 			bind:this={rightDiv}
