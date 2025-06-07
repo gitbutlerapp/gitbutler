@@ -1,3 +1,4 @@
+use crate::CommitIndex;
 use gix::bstr::BString;
 use std::ops::{Deref, DerefMut};
 
@@ -264,6 +265,11 @@ impl Segment {
             .iter()
             .enumerate()
             .find_map(|(cidx, c)| (c.id == id).then_some(cidx))
+    }
+
+    /// Find the commit associated with the given `commit_index`, which for convenience is optional.
+    pub fn commit_by_index(&self, idx: Option<CommitIndex>) -> Option<&LocalCommit> {
+        idx.and_then(|idx| self.commits_unique_from_tip.get(idx))
     }
 }
 
