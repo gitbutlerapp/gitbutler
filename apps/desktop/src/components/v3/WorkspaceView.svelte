@@ -12,6 +12,7 @@
 	import WorktreeTipsFooter from '$components/v3/WorktreeTipsFooter.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { SettingsService } from '$lib/config/appSettingsV2';
+	import { workspaceSwapMiddleRight } from '$lib/config/uiFeatureFlags';
 	import { isParsedError } from '$lib/error/parser';
 	import {
 		assignedChangesFocusableId,
@@ -129,6 +130,7 @@
 	name="workspace"
 	leftWidth={{ default: 280, min: 240 }}
 	middleWidth={{ default: 380, min: 240 }}
+	swapMiddleRight={$workspaceSwapMiddleRight}
 >
 	{#snippet left()}
 		{#if canUseActions}
@@ -172,7 +174,6 @@
 			<ActionLog {projectId} {selectionId} />
 		{/if}
 	{/snippet}
-
 	{#snippet middle()}
 		<div class="middle-view">
 			{#if !drawerIsFullScreen.current}
@@ -207,7 +208,6 @@
 			{/if}
 		</div>
 	{/snippet}
-
 	{#snippet right()}
 		<ReduxResult {projectId} result={stacksResult?.current}>
 			{#snippet loading()}

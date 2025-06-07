@@ -1,5 +1,7 @@
 <script lang="ts">
 	import Dropzone from '$components/Dropzone.svelte';
+	import { DiffService } from '$lib/hunks/diffService.svelte';
+	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { OutsideLaneDzHandler } from '$lib/stacks/dropHandler';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -10,13 +12,21 @@
 		viewport: HTMLElement;
 		projectId: string;
 		isSingleMode?: boolean;
+		standalone?: boolean; // If true, the component is used standalone, not in a stack
 		onVisible?: (visible: boolean) => void;
 	}
 
-	const { viewport, projectId, isSingleMode, onVisible }: Props = $props();
+	const { viewport, projectId, isSingleMode, standalone, onVisible }: Props = $props();
 
-	const [stackService, uiState] = inject(StackService, UiState);
-	const dzHandler = $derived(new OutsideLaneDzHandler(stackService, projectId, uiState));
+	const [stackService, uiState, uncommittedService, diffService] = inject(
+		StackService,
+		UiState,
+		UncommittedService,
+		DiffService
+	);
+	const dzHandler = $derived(
+		new OutsideLaneDzHandler(stackService, projectId, uiState, uncommittedService, diffService)
+	);
 </script>
 
 <div
@@ -38,7 +48,7 @@
 >
 	<Dropzone handlers={[dzHandler]}>
 		{#snippet overlay({ hovered, activated })}
-			<div class="hidden-dropzone__lane" class:activated class:hovered>
+			<div class="hidden-dropzone__lane" class:activated class:hovered class:standalone>
 				<div class="hidden-dropzone__content">
 					<svg
 						class="hidden-dropzone__svg"
@@ -93,9 +103,20 @@
 						/>
 					</svg>
 
-					<p class="hidden-dropzone__label text-13 text-body">
-						Drag and drop files<br />to create a new branch.
-					</p>
+					<div class="hidden-dropzone__text">
+						{#if standalone}
+							<h4 class="text-15 text-body text-bold hidden-dropzone__title">
+								{#if activated}
+									Drop files to branch
+								{:else}
+									No applied branches
+								{/if}
+							</h4>
+						{/if}
+						<p class="hidden-dropzone__label text-13 text-body">
+							Drag and drop files<br />to create a new branch.
+						</p>
+					</div>
 				</div>
 			</div>
 		{/snippet}
@@ -113,10 +134,12 @@
 		min-width: 340px;
 		height: 100%;
 		min-height: 340px;
-
-		/* overflow: hidden; */
-
 		user-select: none;
+	}
+
+	.hidden-dropzone__title {
+		color: var(--clr-text-2);
+		text-align: center;
 	}
 
 	.hidden-dropzone__single-mode {
@@ -126,20 +149,17 @@
 
 	.hidden-dropzone__lane {
 		display: flex;
-		/* position: absolute; */
-		/* top: 0;
-		left: 0; */
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
 		width: 100%;
 		height: 100%;
-
 		overflow: hidden;
 		gap: 10px;
-		border-right: 1px solid var(--clr-border-2);
-		/* opacity: 0.7;
-		transition: opacity 0.1s; */
+
+		&:not(.standalone) {
+			border-right: 1px solid var(--clr-border-2);
+		}
 
 		/* SVG ANIMATION */
 		&.activated {
@@ -165,7 +185,7 @@
 				stroke: oklch(from var(--clr-scale-pop-40) l c h / 0.5);
 			}
 
-			& .hidden-dropzone__label {
+			& .hidden-dropzone__text {
 				transform: translateY(0);
 				opacity: 1;
 			}
@@ -206,8 +226,8 @@
 		position: relative;
 		flex-direction: column;
 		align-items: center;
-		gap: 10px;
-
+		margin-bottom: 20px;
+		gap: 16px;
 		pointer-events: none;
 
 		&:after {
@@ -226,8 +246,20 @@
 		}
 	}
 
-	.hidden-dropzone__label {
+	.hidden-dropzone__text {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 4px;
 		transform: translateY(5px);
+		transition: transform 0.2s;
+	}
+
+	.hidden-dropzone__title {
+		margin-top: 4px;
+	}
+
+	.hidden-dropzone__label {
 		color: var(--clr-text-3);
 		text-align: center;
 		opacity: 1;

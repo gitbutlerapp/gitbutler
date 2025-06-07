@@ -21,7 +21,7 @@ fn should_unapply_diff() {
         gitbutler_branch_actions::create_commit(ctx, branches.first().unwrap().id, "asdf", None);
     assert!(c.is_ok());
 
-    gitbutler_branch_actions::unapply_stack(ctx, branches[0].id).unwrap();
+    gitbutler_branch_actions::unapply_stack(ctx, branches[0].id, Vec::new()).unwrap();
 
     let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
     let branches = list_result.branches;

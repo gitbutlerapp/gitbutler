@@ -1,3 +1,4 @@
+import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { createEntityAdapter } from '@reduxjs/toolkit';
 import type { TreeChange } from '$lib/hunks/change';
 import type { HunkAssignment, HunkHeader } from '$lib/hunks/hunk';
@@ -11,12 +12,24 @@ import type { LineId } from '@gitbutler/ui/utils/diffParsing';
 export function compositeKey(args: {
 	stackId: string | null;
 	path: string;
-	hunkHeader: string | HunkHeader | null;
+	hunkHeader: HunkHeader | null;
 }) {
 	if (typeof args.hunkHeader === 'string' || args.hunkHeader === null) {
-		return `${args.stackId}::${args.path}::${args.hunkHeader}`;
+		return `${args.stackId}⧓⧓${args.path.replaceAll('⧓', '⋈⧓')}⧓⧓${args.hunkHeader}`;
 	}
-	return `${args.stackId}::${args.path}::${args.hunkHeader?.newStart || null}`;
+	return `${args.stackId}⧓⧓${args.path.replaceAll('⧓', '⋈⧓')}⧓⧓${args.hunkHeader?.newStart || null}`;
+}
+
+/**
+ * Creates a partial key for matching the beginning of keys.
+ */
+export function partialKey(stackId: string | null, path?: string, includeEnd: boolean = true) {
+	const end = includeEnd ? '⧓⧓' : '';
+	if (isDefined(path)) {
+		return `${stackId}⧓⧓${path.replaceAll('⧓', '⋈⧓')}${end}`;
+	} else {
+		return `${stackId}${end}`;
+	}
 }
 
 export const treeChangeAdapter = createEntityAdapter<TreeChange, string>({

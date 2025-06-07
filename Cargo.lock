@@ -729,6 +729,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "async-openai",
+ "but-core",
  "but-db",
  "but-graph",
  "but-hunk-assignment",

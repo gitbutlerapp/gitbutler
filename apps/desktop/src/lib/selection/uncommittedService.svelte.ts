@@ -6,7 +6,7 @@ import {
 	type HunkAssignment,
 	type HunkHeader
 } from '$lib/hunks/hunk';
-import { compositeKey, type HunkSelection } from '$lib/selection/entityAdapters';
+import { compositeKey, partialKey, type HunkSelection } from '$lib/selection/entityAdapters';
 import {
 	uncommittedSelectors,
 	uncommittedSlice,
@@ -92,7 +92,7 @@ export class UncommittedService {
 	async worktreeChanges(projectId: string, stackId?: string) {
 		const state = structuredClone(this.state);
 
-		const key = `${stackId || null}::`;
+		const key = partialKey(stackId ?? null);
 		const selection = uncommittedSelectors.hunkSelection.selectByPrefix(state.hunkSelection, key);
 
 		const pathGroups = selection.reduce<Record<string, HunkSelection[]>>((acc, item) => {
@@ -154,7 +154,7 @@ export class UncommittedService {
 	 * Returns all assignments along with any line selections.
 	 */
 	selectedLines(stackId?: string) {
-		const key = `${stackId || null}::`;
+		const key = partialKey(stackId ?? null);
 		const result = $derived(
 			uncommittedSelectors.hunkSelection.selectByPrefix(this.state.hunkSelection, key)
 		);
@@ -197,7 +197,7 @@ export class UncommittedService {
 		const assignments = $derived(
 			uncommittedSelectors.hunkAssignments.selectByPrefix(
 				this.state.hunkAssignments,
-				`${stackId}::${path}::`
+				partialKey(stackId, path)
 			)
 		);
 		return reactive(() => assignments);
@@ -206,7 +206,7 @@ export class UncommittedService {
 	getAssignmentByHeader(
 		stackId: string | null,
 		path: string,
-		hunkHeader: string
+		hunkHeader: HunkHeader
 	): Reactive<HunkAssignment | undefined> {
 		const assignments = $derived(
 			uncommittedSelectors.hunkAssignments.selectById(
@@ -217,7 +217,7 @@ export class UncommittedService {
 		return reactive(() => assignments);
 	}
 
-	hunkCheckStatus(stackId: string | null, path: string, header: string) {
+	hunkCheckStatus(stackId: string | null, path: string, header: HunkHeader) {
 		const result = $derived(
 			uncommittedSelectors.hunkSelection.hunkCheckStatus(this.state, {
 				stackId,
@@ -257,19 +257,19 @@ export class UncommittedService {
 		return reactive(() => result);
 	}
 
-	checkLine(stackId: string | null, path: string, hunkHeader: string, line: LineId) {
+	checkLine(stackId: string | null, path: string, hunkHeader: HunkHeader, line: LineId) {
 		this.dispatch(uncommittedActions.checkLine({ stackId, path, hunkHeader, line }));
 	}
 
-	uncheckLine(stackId: string | null, path: string, header: string, line: LineId) {
+	uncheckLine(stackId: string | null, path: string, header: HunkHeader, line: LineId) {
 		this.dispatch(uncommittedActions.uncheckLine({ stackId, path, hunkHeader: header, line }));
 	}
 
-	checkHunk(stackId: string | null, path: string, header: string) {
+	checkHunk(stackId: string | null, path: string, header: HunkHeader) {
 		this.dispatch(uncommittedActions.checkHunk({ stackId, path, hunkHeader: header }));
 	}
 
-	uncheckHunk(stackId: string | null, path: string, header: string) {
+	uncheckHunk(stackId: string | null, path: string, header: HunkHeader) {
 		this.dispatch(uncommittedActions.uncheckHunk({ stackId, path, hunkHeader: header }));
 	}
 

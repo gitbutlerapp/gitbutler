@@ -9,7 +9,7 @@ const FILE_NAME: &str = "but.sqlite";
 mod hunk_assignments;
 pub use hunk_assignments::HunkAssignment;
 mod butler_actions;
-pub use butler_actions::{ButlerMcpAction, ButlerRevertAction, FilledButlerAction};
+pub use butler_actions::ButlerAction;
 mod schema;
 
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
@@ -44,7 +44,7 @@ impl DbHandle {
         let db_file_path = db_file_path
             .to_str()
             .ok_or_else(|| anyhow::anyhow!("Invalid UTF-8 in database file path"))?;
-        Self::new_at_url(format!("file://{}", db_file_path))
+        Self::new_at_url(db_file_path)
     }
 
     /// A new instance connecting to the database at the given `url`.

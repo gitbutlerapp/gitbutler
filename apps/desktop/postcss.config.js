@@ -11,7 +11,7 @@ export default {
 			propList: ['*'],
 			selectorBlackList: [],
 			replace: true,
-			mediaQuery: false,
+			mediaQuery: true,
 			minPixelValue: 0
 		}),
 		postcssNesting()

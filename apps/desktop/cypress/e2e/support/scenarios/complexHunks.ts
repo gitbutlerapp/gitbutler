@@ -612,7 +612,9 @@ export default class ComplexHunks extends MockBackend {
 
 		this.worktreeChanges = {
 			changes: MOCK_UNCOMMITTED_CHANGES,
-			ignoredChanges: []
+			ignoredChanges: [],
+			assignments: [],
+			assignmentsError: null
 		};
 
 		this.stacks = [MOCK_STACK_A, MOCK_STACK_B];

@@ -341,7 +341,7 @@
 
 					<Badge>{branchStatuses?.worktreeConflicts.length}</Badge>
 				</h3>
-				<p class="text-12 text-clr2">
+				<p class="text-12 clr-text-2">
 					Updating the workspace will add conflict markers to the following files.
 				</p>
 				<div class="scroll-wrap">

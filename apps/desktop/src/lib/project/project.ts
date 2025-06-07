@@ -29,6 +29,17 @@ export class Project {
 	get vscodePath() {
 		return this.path.includes('\\') ? '/' + this.path.replace('\\', '/') : this.path;
 	}
+
+	gitAuthType(): string {
+		if (
+			typeof this.preferred_key === 'object' &&
+			this.preferred_key !== null &&
+			'local' in this.preferred_key
+		) {
+			return 'local';
+		}
+		return this.preferred_key as KeyType;
+	}
 }
 
 export type CloudProject = {
