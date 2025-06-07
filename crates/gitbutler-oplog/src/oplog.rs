@@ -104,6 +104,7 @@ pub trait OplogExt {
         &self,
         limit: usize,
         oplog_commit_id: Option<git2::Oid>,
+        exclude_kind: Vec<OperationKind>,
     ) -> Result<Vec<Snapshot>>;
 
     /// Reverts to a previous state of the working directory, virtual branches and commits.
@@ -177,6 +178,7 @@ impl OplogExt for CommandContext {
         &self,
         limit: usize,
         oplog_commit_id: Option<git2::Oid>,
+        exclude_kind: Vec<OperationKind>,
     ) -> Result<Vec<Snapshot>> {
         let worktree_dir = self.project().path.as_path();
         let repo = gitbutler_command_context::gix_repo_for_merging(worktree_dir)?;
@@ -234,6 +236,11 @@ impl OplogExt for CommandContext {
                 .ok()
                 .and_then(|msg| SnapshotDetails::from_str(msg).ok());
             let commit_time = gix_time_to_git2(commit.time()?);
+            if let Some(details) = &details {
+                if exclude_kind.contains(&details.operation) {
+                    continue;
+                }
+            }
 
             if let Some(parent_id) = first_parent {
                 // Get tree id from cache or calculate it
