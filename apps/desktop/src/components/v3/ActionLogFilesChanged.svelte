@@ -2,7 +2,6 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import DataContextMenu from '$components/v3/DataContextMenu.svelte';
 	import FileList from '$components/v3/FileList.svelte';
-	import ActionService from '$lib/actions/actionService.svelte';
 	import { snapshotChangesFocusableId } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { OplogService } from '$lib/history/oplogService.svelte';
@@ -25,14 +24,12 @@
 	const { projectId, before, after, timestamp, selectionId }: Props = $props();
 
 	const oplogService = getContext(OplogService);
-	const actionService = getContext(ActionService);
-	const [revertSnapshot] = actionService.revertSnapshot;
 
 	const focusableId = $derived(snapshotChangesFocusableId(before, after));
 	const focusableIds = svelteGetContext<Writable<string[]>>('snapshot-focusables');
 
-	async function restore(id: string, description: string) {
-		await revertSnapshot({ projectId, snapshot: id, description });
+	async function restore(_id: string, _description: string) {
+		// await revertSnapshot({ projectId, snapshot: id, description });
 		// In some cases, restoring the snapshot doesnt update the UI correctly
 		// Until we have that figured out, we need to reload the page.
 		location.reload();
@@ -175,7 +172,7 @@
 		border-radius: var(--radius-m);
 	}
 
-	.outcome-item {
+	/* .outcome-item {
 		display: flex;
 
 		padding: 12px;
@@ -195,16 +192,16 @@
 	.text-darkgrey {
 		color: var(--clr-core-ntrl-20);
 		text-decoration-color: var(--clr-core-ntrl-20);
-	}
+	} */
 
 	.text-greyer {
 		color: var(--clr-text-3);
 	}
 
-	.pill {
+	/* .pill {
 		padding: 2px 6px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: 99px;
 		background-color: var(--clr-bg-2);
-	}
+	} */
 </style>

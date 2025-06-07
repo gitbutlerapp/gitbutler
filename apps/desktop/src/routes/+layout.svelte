@@ -16,7 +16,6 @@
 	import SwitchThemeMenuAction from '$components/SwitchThemeMenuAction.svelte';
 	import ToastController from '$components/ToastController.svelte';
 	import ZoomInOutMenuAction from '$components/ZoomInOutMenuAction.svelte';
-	import ActionService from '$lib/actions/actionService.svelte';
 	import { PromptService as AIPromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
@@ -145,7 +144,6 @@
 	setContext(UiState, uiState);
 
 	const stackService = new StackService(clientState['backendApi'], forgeFactory, uiState);
-	const actionService = new ActionService(clientState['backendApi']);
 	const oplogService = new OplogService(clientState['backendApi']);
 	const baseBranchService = new BaseBranchService(clientState.backendApi);
 	const worktreeService = new WorktreeService(clientState);
@@ -228,7 +226,6 @@
 	setContext(AppSettings, data.appSettings);
 	setContext(StackService, stackService);
 	setContext(OplogService, oplogService);
-	setContext(ActionService, actionService);
 	setContext(BaseBranchService, baseBranchService);
 	setContext(UpstreamIntegrationService, upstreamIntegrationService);
 	setContext(WorktreeService, worktreeService);
