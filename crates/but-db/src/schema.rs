@@ -5,7 +5,6 @@ diesel::table! {
         path -> Text,
         path_bytes -> Binary,
         stack_id -> Nullable<Text>,
-        hunk_locks -> Text,
     }
 }
 

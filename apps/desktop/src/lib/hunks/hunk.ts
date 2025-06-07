@@ -116,7 +116,7 @@ export type HunkAssignment = {
 	 * The dependencies(locks) that the hunk assignment (and the underlying hunk) has.
 	 * This determines where the hunk can be assigned.
 	 */
-	readonly hunkLocks: HunkLock[];
+	readonly hunkLocks: HunkLock[] | null;
 	/** The line numbers that were added in this hunk. */
 	readonly lineNumsAdded: number[] | null;
 	/** The line numbers that were removed in this hunk. */
