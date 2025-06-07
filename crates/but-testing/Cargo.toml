@@ -22,11 +22,11 @@ gitbutler-filemonitor.workspace = true
 but-settings.workspace = true
 but-core.workspace = true
 but-workspace.workspace = true
+but-graph.workspace = true
 but-hunk-dependency.workspace = true
 but-hunk-assignment.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-branch.workspace = true
-gitbutler-id.workspace = true
 gitbutler-operating-modes.workspace = true
 
 gitbutler-commit = { workspace = true, optional = true, features = ["testing"] }
@@ -34,7 +34,7 @@ gitbutler-commit = { workspace = true, optional = true, features = ["testing"] }
 clap = { version = "4.5.39", features = ["derive", "env"] }
 gix.workspace = true
 anyhow.workspace = true
-itertools = "0.14.0"
+itertools.workspace = true
 tracing-forest = { version = "0.1.6" }
 tracing-subscriber.workspace = true
 tracing.workspace = true

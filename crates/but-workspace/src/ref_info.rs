@@ -3,7 +3,7 @@
 /// Options for the [`ref_info()`](crate::ref_info) call.
 #[derive(Default, Debug, Copy, Clone)]
 pub struct Options {
-    /// The maximum amount of commits to list *per stack*. Note that a [`StackSegment`](crate::branch::StackSegment) will always have a single commit, if available,
+    /// The maximum amount of commits to list *per stack*. Note that a [`StackSegment`](crate::branch::Segment) will always have a single commit, if available,
     ///  even if this exhausts the commit limit in that stack.
     /// `0` means the limit is disabled.
     ///
@@ -22,12 +22,14 @@ pub struct Options {
 }
 
 pub(crate) mod function {
-    use crate::branch::{LocalCommit, LocalCommitRelation, RefLocation, Stack, StackSegment};
+    use crate::branch::Stack;
     use crate::integrated::{IsCommitIntegrated, MergeBaseCommitGraph};
-    use crate::{RefInfo, WorkspaceCommit, branch, is_workspace_ref_name};
+    use crate::{RefInfo, WorkspaceCommit};
     use anyhow::bail;
     use bstr::BString;
     use but_core::ref_metadata::{ValueInfo, Workspace, WorkspaceStack};
+    use but_graph::is_workspace_ref_name;
+    use but_graph::{LocalCommit, LocalCommitRelation, RefLocation, RemoteCommit, Segment};
     use gix::prelude::{ObjectIdExt, ReferenceExt};
     use gix::refs::{Category, FullName};
     use gix::revision::walk::Sorting;
@@ -54,7 +56,7 @@ pub(crate) mod function {
                         .and_then(|ws| ws.target_ref),
                     stacks: vec![Stack {
                         base: None,
-                        segments: vec![StackSegment {
+                        segments: vec![Segment {
                             commits_unique_from_tip: vec![],
                             commits_unique_in_remote_tracking_branch: vec![],
                             remote_tracking_ref_name: None,
@@ -636,14 +638,13 @@ pub(crate) mod function {
                 //                we reorder real segments that are found at a certain commit, but empty.
                 // TODO: also delete empty real segments
 
-                let find_base =
-                    |start_idx: usize, segments: &[StackSegment]| -> Option<gix::ObjectId> {
-                        segments.get(start_idx..).and_then(|slice| {
-                            slice.iter().find_map(|segment| {
-                                segment.commits_unique_from_tip.first().map(|c| c.id)
-                            })
+                let find_base = |start_idx: usize, segments: &[Segment]| -> Option<gix::ObjectId> {
+                    segments.get(start_idx..).and_then(|slice| {
+                        slice.iter().find_map(|segment| {
+                            segment.commits_unique_from_tip.first().map(|c| c.id)
                         })
-                    };
+                    })
+                };
                 let mut insert_position = 0;
                 for (target_id, virtual_segment_ref_name) in virtual_segments {
                     let real_stack_idx =
@@ -752,8 +753,8 @@ pub(crate) mod function {
         virtual_segment_ref_name: &gix::refs::FullNameRef,
         symbolic_remote_name: Option<&str>,
         configured_remote_tracking_branches: &BTreeSet<gix::refs::FullName>,
-    ) -> anyhow::Result<StackSegment> {
-        Ok(StackSegment {
+    ) -> anyhow::Result<Segment> {
+        Ok(Segment {
             ref_name: Some(virtual_segment_ref_name.to_owned()),
             remote_tracking_ref_name: lookup_remote_tracking_branch_or_deduce_it(
                 repo,
@@ -1001,12 +1002,12 @@ pub(crate) mod function {
                                 },
                                 commit.id.detach(),
                             );
-                            segment.commits_unique_in_remote_tracking_branch.push(
-                                branch::RemoteCommit {
+                            segment
+                                .commits_unique_in_remote_tracking_branch
+                                .push(RemoteCommit {
                                     inner: commit.into(),
                                     has_conflicts,
-                                },
-                            );
+                                });
                         }
                     }
                 }
@@ -1143,9 +1144,9 @@ pub(crate) mod function {
         meta: &impl but_core::RefMetadata,
         symbolic_remote_name: Option<&str>,
         configured_remote_tracking_branches: &BTreeSet<gix::refs::FullName>,
-    ) -> anyhow::Result<Vec<StackSegment>> {
+    ) -> anyhow::Result<Vec<Segment>> {
         let mut out = Vec::new();
-        let mut segment = Some(StackSegment {
+        let mut segment = Some(Segment {
             ref_name: tip_ref.map(ToOwned::to_owned),
             ref_location,
             // the tip is part of the walk.
@@ -1183,7 +1184,7 @@ pub(crate) mod function {
                     continue;
                 }
                 out.extend(segment);
-                segment = Some(StackSegment {
+                segment = Some(Segment {
                     ref_name: ref_at_commit,
                     ref_location,
                     commits_unique_from_tip: vec![LocalCommit::new_from_id(info.id())?],

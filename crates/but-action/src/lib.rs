@@ -5,7 +5,7 @@ use std::{
     str::FromStr,
 };
 
-use but_workspace::{VirtualBranchesTomlMetadata, ui::StackEntry};
+use but_workspace::ui::StackEntry;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::ObjectIdExt;
@@ -18,6 +18,7 @@ mod generate;
 mod simple;
 pub use action::ActionListing;
 pub use action::list_actions;
+use but_graph::VirtualBranchesTomlMetadata;
 use strum::EnumString;
 
 pub fn handle_changes(

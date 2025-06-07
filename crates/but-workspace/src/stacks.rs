@@ -1,13 +1,14 @@
-use crate::branch::{LocalCommit, LocalCommitRelation};
 use crate::integrated::IsCommitIntegrated;
 use crate::ui::{CommitState, PushStatus, StackDetails};
 use crate::{
-    RefInfo, StacksFilter, VirtualBranchesTomlMetadata, branch, head_info, id_from_name_v2_to_v3,
-    ref_info, state_handle, ui,
+    RefInfo, StacksFilter, branch, head_info, id_from_name_v2_to_v3, ref_info, state_handle, ui,
 };
 use anyhow::Context;
 use bstr::BString;
 use but_core::RefMetadata;
+use but_graph::{
+    Commit, LocalCommit, LocalCommitRelation, RemoteCommit, Segment, VirtualBranchesTomlMetadata,
+};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oxidize::{ObjectIdExt, OidExt, git2_signature_to_gix_signature};
@@ -432,14 +433,14 @@ pub fn stack_details_v3(
 
 impl ui::BranchDetails {
     fn from_segment(
-        branch::StackSegment {
+        Segment {
             ref_name,
             ref_location: _,
             commits_unique_from_tip,
             commits_unique_in_remote_tracking_branch,
             remote_tracking_ref_name,
             metadata,
-        }: &branch::StackSegment,
+        }: &Segment,
         previous_tip_or_stack_base: Option<gix::ObjectId>,
     ) -> anyhow::Result<Self> {
         let ref_name = ref_name
@@ -515,8 +516,8 @@ impl PushStatus {
     ///         if it was deleted on the remote?
     fn derive_from_commits(
         has_remote_tracking_ref: bool,
-        commits_unique_from_tip: &[branch::LocalCommit],
-        commits_unique_in_remote_tracking_branch: &[branch::RemoteCommit],
+        commits_unique_from_tip: &[LocalCommit],
+        commits_unique_in_remote_tracking_branch: &[RemoteCommit],
     ) -> Self {
         if !has_remote_tracking_ref {
             // Generally, don't do anything if no remote relationship is set up (anymore).
@@ -553,19 +554,21 @@ impl PushStatus {
     }
 }
 
-impl From<&branch::RemoteCommit> for ui::UpstreamCommit {
+impl From<&RemoteCommit> for ui::UpstreamCommit {
     fn from(
-        branch::RemoteCommit {
+        RemoteCommit {
             inner:
-                branch::Commit {
+                Commit {
                     id,
                     parent_ids: _,
                     message,
                     author,
+                    // TODO: also pass refs for the frontend.
+                    refs: _,
                 },
             // TODO: Represent this in the UI (maybe) and/or deal with divergence of the local and remote tracking branch.
             has_conflicts: _,
-        }: &branch::RemoteCommit,
+        }: &RemoteCommit,
     ) -> Self {
         ui::UpstreamCommit {
             id: *id,
@@ -582,11 +585,13 @@ impl From<&LocalCommit> for ui::Commit {
     fn from(
         LocalCommit {
             inner:
-                branch::Commit {
+                Commit {
                     id,
                     parent_ids,
                     message,
                     author,
+                    // TODO: also pass refs
+                    refs: _,
                 },
             relation,
             has_conflicts,
@@ -606,7 +611,7 @@ impl From<&LocalCommit> for ui::Commit {
     }
 }
 
-impl From<branch::LocalCommitRelation> for ui::CommitState {
+impl From<LocalCommitRelation> for ui::CommitState {
     fn from(value: LocalCommitRelation) -> Self {
         use ui::CommitState as E;
         match value {

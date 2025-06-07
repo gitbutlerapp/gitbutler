@@ -1,7 +1,8 @@
 use anyhow::{Context, anyhow, bail};
 use but_core::UnifiedDiff;
+use but_graph::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
-use but_workspace::{DiffSpec, HunkHeader, VirtualBranchesTomlMetadata};
+use but_workspace::{DiffSpec, HunkHeader};
 use gitbutler_project::{Project, ProjectId};
 use gix::bstr::{BString, ByteSlice};
 use std::path::Path;

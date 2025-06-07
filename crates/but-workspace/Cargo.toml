@@ -13,6 +13,7 @@ anyhow.workspace = true
 bstr.workspace = true
 git2.workspace = true
 but-core.workspace = true
+but-graph.workspace = true
 but-rebase.workspace = true
 gix = { workspace = true, features = ["worktree-mutation"] }
 gitbutler-stack.workspace = true
@@ -28,12 +29,7 @@ gitbutler-serde.workspace = true
 itertools = "0.14"
 url = { version = "2.5.4", features = ["serde"] }
 md5 = "0.7.0"
-
-# For virtual branches metadata
-gitbutler-fs.workspace = true
-toml.workspace = true
 tracing.workspace = true
-but-testsupport.workspace = true
 
 [dev-dependencies]
 but-testsupport.workspace = true
@@ -43,5 +39,4 @@ but-core = { workspace = true, features = ["testing"] }
 # for stable hashes in `gitbuter-` crates while we use them.
 # TODO: remove once `gitbutler-repo` isn't needed anymore.
 gitbutler-commit = { workspace = true, features = ["testing"] }
-regex = "1.11.1"
 gitbutler-reference.workspace = true

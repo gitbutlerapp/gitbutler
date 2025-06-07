@@ -2392,7 +2392,7 @@ mod branch_details {
 }
 mod utils {
     use crate::ref_info::utils::named_read_only_in_memory_scenario;
-    use but_workspace::VirtualBranchesTomlMetadata;
+    use but_graph::VirtualBranchesTomlMetadata;
     use gitbutler_stack::StackId;
 
     pub fn read_only_in_memory_scenario(

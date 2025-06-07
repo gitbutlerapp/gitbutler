@@ -6,16 +6,6 @@
 # and of course with a remote and a branch to integrate with.
 set -eu -o pipefail
 
-function set_author() {
-  local author=${1:?Author}
-
-  unset GIT_AUTHOR_NAME
-  unset GIT_AUTHOR_EMAIL
-
-  git config user.name $author
-  git config user.email $author@example.com
-}
-
 function remote_tracking_caught_up() {
   setup_remote_tracking "$1"
 }
