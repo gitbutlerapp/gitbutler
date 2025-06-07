@@ -1,3 +1,4 @@
+import { Transform, Type } from 'class-transformer';
 export type UpdatedBranch = {
 	/** The name of the branch that was updated. */
 	branchName: string;
@@ -11,52 +12,33 @@ export type Outcome = {
 };
 
 export type ActionHandler = 'handleChangesSimple';
-
 /** Represents a snapshot of an automatic action taken by a GitButler automation.  */
-export type ButlerMcpAction = {
+export class ButlerAction {
 	/** UUID identifier of the action */
-	id: string;
+	id!: string;
+	/** The time when the action was performed. */
+	@Transform((obj) => new Date(obj.value))
+	createdAt!: Date;
 	/** A description of the change that was made and why it was made - i.e. the information that can be obtained from the caller. */
-	externalSummary: string;
+	externalSummary!: string;
 	/** The prompt used that triggered this thingy stuff figgure it out yourself */
-	externalPrompt: string;
+	externalPrompt!: string;
 	/** The handler / implementation that performed the action. */
-	handler: ActionHandler;
+	handler!: ActionHandler;
 	/** An optional prompt that was used by the handler to perform the action, if applicable. */
-	handlerPrompt: string | null;
+	handlerPrompt?: string;
 	/** A GitBulter Oplog snapshot ID before the action was performed. */
-	snapshotBefore: string;
+	snapshotBefore!: string;
 	/** A GitBulter Oplog snapshot ID after the action was performed. */
-	snapshotAfter: string;
+	snapshotAfter!: string;
 	/** The outcome of the action, if it was successful. */
-	response: Outcome | null;
+	response?: Outcome;
 	/** An error message if the action failed. */
-	error: string | null;
-};
+	error?: string;
+}
 
-export type ButlerRevertAction = {
-	id: string;
-	snapshot: string;
-	description: string;
-};
-
-type Action =
-	| {
-			type: 'mcpAction';
-			subject: ButlerMcpAction;
-	  }
-	| {
-			type: 'revertAction';
-			subject: ButlerRevertAction;
-	  };
-
-export type ButlerAction = {
-	id: string;
-	createdAt: string;
-	action: Action;
-};
-
-export type ActionListing = {
-	total: number;
-	actions: ButlerAction[];
-};
+export class ActionListing {
+	total!: number;
+	@Type(() => ButlerAction)
+	actions!: ButlerAction[];
+}
