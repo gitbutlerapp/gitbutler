@@ -57,7 +57,7 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
         ctx.project().exclusive_worktree_access().write_permission(),
     )?;
 
-    let snapshots = ctx.list_snapshots(10, None)?;
+    let snapshots = ctx.list_snapshots(10, None, Vec::new())?;
     assert_eq!(
         snapshots.len(),
         7,
@@ -71,7 +71,7 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
         .expect("restoration succeeds");
 
     assert_eq!(
-        ctx.list_snapshots(10, None)?.len(),
+        ctx.list_snapshots(10, None, Vec::new())?.len(),
         8,
         "all the previous + 1 restore commit"
     );
@@ -174,7 +174,7 @@ fn basic_oplog() -> anyhow::Result<()> {
         3
     );
 
-    let snapshots = ctx.list_snapshots(10, None)?;
+    let snapshots = ctx.list_snapshots(10, None, Vec::new())?;
 
     let ops = snapshots
         .iter()
@@ -314,7 +314,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     assert_ne!(commit1_id, commit2_id);
 
     // restore the first
-    let snapshots = ctx.list_snapshots(10, None)?;
+    let snapshots = ctx.list_snapshots(10, None, Vec::new())?;
     assert_eq!(
         snapshots.len(),
         3,
@@ -339,7 +339,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
         1,
         "vbranches aren't affected by this (only the head commit)"
     );
-    let all_snapshots = ctx.list_snapshots(10, None)?;
+    let all_snapshots = ctx.list_snapshots(10, None, Vec::new())?;
     assert_eq!(
         all_snapshots.len(),
         4,
@@ -347,20 +347,20 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     );
 
     assert_eq!(
-        ctx.list_snapshots(0, None)?.len(),
+        ctx.list_snapshots(0, None, Vec::new())?.len(),
         0,
         "it respects even non-sensical limits"
     );
 
-    let snapshots = ctx.list_snapshots(1, None)?;
+    let snapshots = ctx.list_snapshots(1, None, Vec::new())?;
     assert_eq!(snapshots.len(), 1);
     assert_eq!(
-        ctx.list_snapshots(1, Some(snapshots[0].commit_id))?,
+        ctx.list_snapshots(1, Some(snapshots[0].commit_id), Vec::new())?,
         snapshots,
         "traversal from oplog head is the same as if it wasn't specified, and the given head is returned first"
     );
     assert_eq!(
-        ctx.list_snapshots(10, Some(all_snapshots[2].commit_id))?,
+        ctx.list_snapshots(10, Some(all_snapshots[2].commit_id), Vec::new())?,
         &all_snapshots[2..],
     );
 
@@ -397,7 +397,7 @@ fn head_corrupt_is_recreated_automatically() {
     )
     .unwrap();
 
-    let snapshots = ctx.list_snapshots(10, None).unwrap();
+    let snapshots = ctx.list_snapshots(10, None, Vec::new()).unwrap();
     assert_eq!(
         snapshots.len(),
         1,
@@ -420,7 +420,7 @@ fn head_corrupt_is_recreated_automatically() {
     )
     .expect("the snapshot doesn't fail despite the corrupt head");
 
-    let snapshots = ctx.list_snapshots(10, None).unwrap();
+    let snapshots = ctx.list_snapshots(10, None, Vec::new()).unwrap();
     assert_eq!(
         snapshots.len(),
         1,

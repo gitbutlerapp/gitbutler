@@ -51,11 +51,10 @@ impl ButlerActionsHandle<'_> {
         Ok(())
     }
 
-    pub fn list(&mut self, page: i64, page_size: i64) -> anyhow::Result<(i64, Vec<ButlerAction>)> {
-        let offset = (page - 1) * page_size;
+    pub fn list(&mut self, offset: i64, limit: i64) -> anyhow::Result<(i64, Vec<ButlerAction>)> {
         let actions = butler_actions::table()
             .order(schema::created_at.desc())
-            .limit(page_size)
+            .limit(limit)
             .offset(offset)
             .load::<ButlerAction>(&mut self.db.conn)?;
         let total = butler_actions::table()

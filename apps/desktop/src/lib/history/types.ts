@@ -31,7 +31,15 @@ export type Operation =
 	| 'InsertBlankCommit'
 	| 'MoveCommitFile'
 	| 'FileChanges'
-	| 'EnterEditMode';
+	| 'EnterEditMode'
+	| 'SyncWorkspace'
+	| 'CreateDependentBranch'
+	| 'RemoveDependentBranch'
+	| 'UpdateDependentBranchName'
+	| 'UpdateDependentBranchDescription'
+	| 'UpdateDependentBranchPrNumber'
+	| 'AutoHandleChangesBefore'
+	| 'AutoHandleChangesAfter';
 
 export class Trailer {
 	key!: string;

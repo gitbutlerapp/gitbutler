@@ -1,8 +1,7 @@
 <script lang="ts">
 	import DataContextMenu from '$components/v3/DataContextMenu.svelte';
-	import ActionService from '$lib/actions/actionService.svelte';
 	import { User } from '$lib/user/user';
-	import { getContext, getContextStore } from '@gitbutler/shared/context';
+	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
@@ -16,7 +15,7 @@
 		loadNextPage: () => void;
 	};
 
-	const { action, last, projectId, loadNextPage }: Props = $props();
+	const { action, last, loadNextPage }: Props = $props();
 
 	// An ActionLogItem (for now) is representing both the git changes that
 	// happened but also the file changes that happened between this action and
@@ -26,15 +25,6 @@
 	// changes that happend on disk between these two events.
 
 	const user = getContextStore(User);
-	const actionService = getContext(ActionService);
-	const [revertSnapshot] = actionService.revertSnapshot;
-
-	async function restore(id: string, description: string) {
-		await revertSnapshot({ projectId, snapshot: id, description });
-		// In some cases, restoring the snapshot doesnt update the UI correctly
-		// Until we have that figured out, we need to reload the page.
-		location.reload();
-	}
 
 	let lastIntersector = $state<HTMLElement>();
 
@@ -59,7 +49,7 @@
 		[
 			{
 				label: 'Undo revert',
-				onclick: async () => await restore(action.action.subject.snapshot, 'Undid previous revert')
+				onclick: async () => await {}
 			}
 		]
 	]}
@@ -93,7 +83,7 @@
 			</div>
 		</div>
 		<span class="text-14 text-darkgrey">
-			<Markdown content={action.action.subject.description} />
+			<Markdown content={action.externalSummary} />
 		</span>
 		{#if last}
 			<div bind:this={lastIntersector}></div>

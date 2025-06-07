@@ -1,12 +1,7 @@
 <script lang="ts">
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import ActionLogFilesChanged from '$components/v3/ActionLogFilesChanged.svelte';
-	import ActionLogItem from '$components/v3/ActionLogMcpItem.svelte';
-	import ActionLogRevertItem from '$components/v3/ActionLogRevertItem.svelte';
-	import ActionService from '$lib/actions/actionService.svelte';
-	import { inject } from '@gitbutler/shared/context';
-	import { untrack } from 'svelte';
-	import type { ButlerAction } from '$lib/actions/types';
+	import { ButlerAction } from '$lib/actions/types';
+	import { Feed } from '$lib/feed/feed';
+	import { Snapshot } from '$lib/history/types';
 	import type { SelectionId } from '$lib/selection/key';
 
 	type Props = {
@@ -14,25 +9,14 @@
 		selectionId: SelectionId;
 	};
 
-	const { projectId, selectionId }: Props = $props();
+	const { projectId }: Props = $props();
 
-	const [actionService] = inject(ActionService);
+	const feed = new Feed(projectId);
+	const combinedEntries = feed.combined;
 
-	let requiredPages = $state([1]);
-	const pages = $derived(requiredPages.map((page) => actionService.listActions(projectId, page)));
-
-	function previous(pi: number, i: number, lastInPage: boolean, last: boolean) {
-		if (last) return;
-		if (lastInPage) {
-			return pages[pi + 1]?.current?.data?.actions.at(0);
-		} else {
-			return pages[pi]?.current?.data?.actions.at(i + 1);
-		}
-	}
-
-	function loadNextPage() {
-		requiredPages.push(untrack(() => requiredPages).at(-1)! + 1);
-	}
+	// function loadNextPage() {
+	// 	feed.fetch();
+	// }
 </script>
 
 <div class="action-log-wrap">
@@ -41,48 +25,13 @@
 			<h2 class="text-16 text-semibold">Butler Actions</h2>
 		</div>
 		<div class="scrollable">
-			{#each pages as page, pi}
-				<ReduxResult {projectId} result={page.current}>
-					{#snippet children(actions)}
-						{#each actions.actions as action, i (action.id)}
-							{@const lastInPage = i === actions.actions.length - 1}
-							{@const last = lastInPage && page === pages.at(-1)!}
-							{@const p = previous(pi, i, lastInPage, last)}
-							{#if action.action.type === 'mcpAction'}
-								<ActionLogItem
-									{projectId}
-									action={action as ButlerAction & { action: { type: 'mcpAction' } }}
-									{last}
-									{loadNextPage}
-								/>
-							{:else}
-								<ActionLogRevertItem
-									{projectId}
-									action={action as ButlerAction & { action: { type: 'revertAction' } }}
-									{last}
-									{loadNextPage}
-								/>
-							{/if}
-							{#if p}
-								{@const after =
-									action.action.type === 'mcpAction'
-										? action.action.subject.snapshotBefore
-										: action.action.subject.snapshot}
-								{@const before =
-									p.action.type === 'mcpAction'
-										? p.action.subject.snapshotAfter
-										: p.action.subject.snapshot}
-								<ActionLogFilesChanged
-									{projectId}
-									{before}
-									{after}
-									{selectionId}
-									timestamp={action.createdAt}
-								/>
-							{/if}
-						{/each}
-					{/snippet}
-				</ReduxResult>
+			{#each $combinedEntries as entry}
+				<!-- {entry.id} -->
+				{#if entry instanceof Snapshot}
+					<div>{entry.createdAt} snapshot</div>
+				{:else if entry instanceof ButlerAction}
+					<div>{entry.createdAt} action</div>
+				{/if}
 			{/each}
 		</div>
 	</div>

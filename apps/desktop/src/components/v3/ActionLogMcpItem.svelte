@@ -1,6 +1,5 @@
 <script lang="ts">
 	import DataContextMenu from '$components/v3/DataContextMenu.svelte';
-	import ActionService from '$lib/actions/actionService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { getContext } from '@gitbutler/shared/context';
@@ -28,20 +27,12 @@
 	// Diffing `previous.snapshotAfter` and `action.snapshotBefore` gives us the
 	// changes that happend on disk between these two events.
 
-	const actionService = getContext(ActionService);
 	const stackService = getContext(StackService);
 	const uiState = getContext(UiState);
 
 	const allStacks = $derived(stackService.allStacks(projectId));
 
-	const [revertSnapshot] = actionService.revertSnapshot;
-
-	async function restore(id: string, description: string) {
-		await revertSnapshot({ projectId, snapshot: id, description });
-		// In some cases, restoring the snapshot doesnt update the UI correctly
-		// Until we have that figured out, we need to reload the page.
-		location.reload();
-	}
+	// const [revertSnapshot] = actionService.revertSnapshot;
 
 	let lastIntersector = $state<HTMLElement>();
 
@@ -101,19 +92,19 @@
 		[
 			{
 				label: 'Revert to before',
-				onclick: async () =>
-					await restore(
-						action.action.subject.snapshotBefore,
-						`> ${action.action.subject.externalSummary}\n\nReverted to before MCP call`
-					)
+				onclick: async () => {}
+				// await restore(
+				// 	action.action.subject.snapshotBefore,
+				// 	`> ${action.action.subject.externalSummary}\n\nReverted to before MCP call`
+				// )
 			},
 			{
 				label: 'Revert to after',
-				onclick: async () =>
-					await restore(
-						action.action.subject.snapshotAfter,
-						`> ${action.action.subject.externalSummary}\n\nReverted to after MCP call`
-					)
+				onclick: async () => {}
+				// await restore(
+				// 	action.action.subject.snapshotAfter,
+				// 	`> ${action.action.subject.externalSummary}\n\nReverted to after MCP call`
+				// )
 			}
 		]
 	]}
@@ -132,20 +123,18 @@
 				<span class="text-13 text-greyer"
 					><TimeAgo date={new Date(action.createdAt)} addSuffix /></span
 				>
-				<Tooltip text={action.action.subject.externalPrompt}
-					><div class="pill text-12">Prompt</div></Tooltip
-				>
+				<Tooltip text={action.externalPrompt}><div class="pill text-12">Prompt</div></Tooltip>
 			</div>
 			<div bind:this={showActionsTarget}>
 				<Button icon="kebab" size="tag" kind="outline" onclick={() => (showActions = true)} />
 			</div>
 		</div>
 		<span class="text-14 text-darkgrey">
-			<Markdown content={action.action.subject.externalSummary} />
+			<Markdown content={action.externalSummary} />
 		</span>
-		{#if action.action.subject.response && action.action.subject.response.updatedBranches.length > 0}
+		{#if action.response && action.response.updatedBranches.length > 0}
 			<div class="action-item__content__metadata">
-				{@render outcome(action.action.subject.response)}
+				{@render outcome(action.response)}
 			</div>
 		{/if}
 		{#if last}

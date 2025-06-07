@@ -30,13 +30,13 @@ pub(crate) fn handle_changes(
 pub(crate) fn list_actions(
     repo_path: &Path,
     json: bool,
-    page: i64,
-    page_size: i64,
+    offset: i64,
+    limit: i64,
 ) -> anyhow::Result<()> {
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::default())?;
 
-    let response = but_action::list_actions(ctx, page, page_size)?;
+    let response = but_action::list_actions(ctx, offset, limit)?;
     print(&response, json)
 }
 

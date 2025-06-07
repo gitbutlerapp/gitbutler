@@ -5,6 +5,7 @@ use but_core::ui::TreeChanges;
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::FileDiff;
+use gitbutler_oplog::entry::OperationKind;
 use gitbutler_oplog::{entry::Snapshot, OplogExt};
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
@@ -24,6 +25,7 @@ pub fn list_snapshots(
     project_id: ProjectId,
     limit: usize,
     sha: Option<String>,
+    exclude_kind: Option<Vec<OperationKind>>,
 ) -> Result<Vec<Snapshot>, Error> {
     let project = projects.get(project_id).context("failed to get project")?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
@@ -31,6 +33,7 @@ pub fn list_snapshots(
         limit,
         sha.map(|hex| hex.parse().map_err(anyhow::Error::from))
             .transpose()?,
+        exclude_kind.unwrap_or_default(),
     )?;
     Ok(snapshots)
 }
