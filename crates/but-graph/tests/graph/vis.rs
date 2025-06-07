@@ -78,10 +78,10 @@ fn post_graph_traversal() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     └── ►refs/heads/main <> refs/remotes/origin/main
         ├── ►refs/heads/A <> refs/remotes/origin/A
-        │   ├── 🔵febafeb❱"1 in A"
-        │   │   └── ►refs/remotes/origin/A
-        │   │       └── 🔵bbbbbbb❱"remote: on top of 1A"
-        │   └── 🔵💥aaaaaaa❱"2 in A"
+        │   ├── 🔵💥aaaaaaa❱"2 in A"
+        │   └── 🔵febafeb❱"1 in A"
+        │       └── ►refs/remotes/origin/A
+        │           └── 🔵bbbbbbb❱"remote: on top of 1A"
         ├── ►refs/remotes/origin/main
         │   └── 🔵ccccccc❱"remote: on top of main"
         └── ►refs/heads/new-stack

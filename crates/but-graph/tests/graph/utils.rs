@@ -93,7 +93,7 @@ pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
                 "".into()
             }
         ));
-        for (cidx, commit) in segment.commits_unique_from_tip.iter().enumerate().rev() {
+        for (cidx, commit) in segment.commits_unique_from_tip.iter().enumerate() {
             let mut commit_tree = tree_for_commit(
                 commit,
                 if commit.relation == LocalCommitRelation::LocalOnly {
@@ -118,11 +118,7 @@ pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
             }
         }
 
-        for commit in segment
-            .commits_unique_in_remote_tracking_branch
-            .iter()
-            .rev()
-        {
+        for commit in segment.commits_unique_in_remote_tracking_branch.iter() {
             root.push(tree_for_commit(
                 &commit.inner,
                 None,

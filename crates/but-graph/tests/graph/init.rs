@@ -62,10 +62,10 @@ fn detached() -> anyhow::Result<()> {
         )?;
         insta::allow_duplicates! {
             insta::assert_snapshot!(graph_tree(&graph), @r#"
-    └── ►refs/heads/main
-        ├── 🔵fafd9d0❱"init" ►other
-        └── 🔵541396b❱"first" ►annotated, ►release/v1
-    "#);
+            └── ►refs/heads/main
+                ├── 🔵541396b❱"first" ►annotated, ►release/v1
+                └── 🔵fafd9d0❱"init" ►other
+            "#);
             insta::assert_debug_snapshot!(graph, @r#"
     Graph {
         inner: Graph {
@@ -148,16 +148,16 @@ fn multi_root() -> anyhow::Result<()> {
     )?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     └── ►refs/heads/main
-        ├── 🔵e5d0542❱"A"
+        ├── 🔵c6c8c05❱"Merge branch \'C\'"
+        │   └── <anon>
+        │       ├── 🔵8631946❱"Merge branch \'D\' into C" ►C
+        │       │   └── <anon>
+        │       │       └── 🔵f4955b6❱"D" ►D
+        │       └── 🔵00fab2a❱"C"
         ├── 🔵76fc5c4❱"Merge branch \'B\'"
         │   └── <anon>
         │       └── 🔵366d496❱"B" ►B
-        └── 🔵c6c8c05❱"Merge branch \'C\'"
-            └── <anon>
-                ├── 🔵00fab2a❱"C"
-                └── 🔵8631946❱"Merge branch \'D\' into C" ►C
-                    └── <anon>
-                        └── 🔵f4955b6❱"D" ►D
+        └── 🔵e5d0542❱"A"
     "#);
     Ok(())
 }
@@ -197,8 +197,8 @@ fn four_diamond() -> anyhow::Result<()> {
                     ├── <anon>
                     │   └── 🔵f16dddf❱"B" ►B
                     └── <anon>
-                        ├── 🔵965998b❱"base" ►main
-                        └── 🔵592abec❱"A"
+                        ├── 🔵592abec❱"A"
+                        └── 🔵965998b❱"base" ►main
     "#);
 
     assert_eq!(
@@ -223,17 +223,17 @@ fn four_diamond() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     └── ERROR: disconnected 4 nodes unreachable through base
         ├── ►refs/heads/merged
-        │   ├── 🔵965998b❱"base" ►main
-        │   ├── 🔵592abec❱"A"
+        │   ├── 🔵8a6c109❱"Merge branch \'C\' into merged"
+        │   │   └── <anon>
+        │   │       ├── 🔵7ed512a❱"Merge branch \'D\' into C" ►C
+        │   │       │   └── <anon>
+        │   │       │       └── 🔵ecb1877❱"D" ►D
+        │   │       └── 🔵35ee481❱"C"
         │   ├── 🔵62b409a❱"Merge branch \'B\' into A" ►A
         │   │   └── <anon>
         │   │       └── 🔵f16dddf❱"B" ►B
-        │   └── 🔵8a6c109❱"Merge branch \'C\' into merged"
-        │       └── <anon>
-        │           ├── 🔵35ee481❱"C"
-        │           └── 🔵7ed512a❱"Merge branch \'D\' into C" ►C
-        │               └── <anon>
-        │                   └── 🔵ecb1877❱"D" ►D
+        │   ├── 🔵592abec❱"A"
+        │   └── 🔵965998b❱"base" ►main
         ├── ERROR: Reached segment 1 for a second time: None
         ├── ERROR: Reached segment 2 for a second time: None
         └── ERROR: Reached segment 3 for a second time: None
