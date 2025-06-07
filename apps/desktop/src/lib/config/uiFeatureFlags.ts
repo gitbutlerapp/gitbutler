@@ -10,7 +10,9 @@ import type { StackLayout } from '$components/v3/BranchLayoutMode.svelte';
 export const autoSelectBranchNameFeature = persisted(false, 'autoSelectBranchLaneContentsFeature');
 export const stackLayoutMode = persisted<StackLayout>('multi', 'stack-layout');
 export const confettiEnabled = persisted(false, 'experimental-confetti');
-export const workspaceSwapMiddleRight = persisted(false, 'workspace-swap-middle-right');
+export const workspaceSwapPanels = persisted<
+	'dont-swap-panels' | 'swap-middle-to-right' | 'swap-middle-to-left'
+>('dont-swap-panels', 'workspace-swap-panels');
 export const assignmentEnabled = persisted(false, 'experimental-assignment');
 
 export const ircEnabled = persistWithExpiration(false, 'feature-irc', 1440 * 30);
