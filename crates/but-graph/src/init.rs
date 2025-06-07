@@ -18,6 +18,22 @@ pub struct Options {
     ///
     /// If `false`, tags are not collected.
     pub collect_tags: bool,
+    /// Determine how to segment the graph.
+    pub segmentation: Segmentation,
+}
+
+/// Define how the graph is segmented.
+#[derive(Default, Debug, Copy, Clone)]
+pub enum Segmentation {
+    /// Whenever a merge is encountered, the current segment, including the merge commit, will stop
+    /// and start new segments for each of parents.
+    #[default]
+    AtMergeCommits,
+    /// When encountering a merge commit, keep traversing the current segment along the first parent,
+    /// and start new segments along the remaining parents.
+    /// This creates longer segments along the first parent, giving it greater significance which
+    /// seems more appropriate given a user's merge behaviour.
+    FirstParentPriority,
 }
 
 /// Lifecycle
@@ -70,7 +86,10 @@ impl Graph {
         tip: gix::Id<'_>,
         ref_name: Option<gix::refs::FullName>,
         meta: &impl but_core::RefMetadata,
-        Options { collect_tags }: Options,
+        Options {
+            collect_tags,
+            segmentation,
+        }: Options,
     ) -> anyhow::Result<Self> {
         // TODO: also traverse (outside)-branches that ought to be in the workspace. That way we have the desired ones
         //       automatically and just have to find a way to prune the undesired ones.
@@ -154,6 +173,7 @@ impl Graph {
                 kind,
                 segment_idx_for_id,
                 commit_idx_for_possible_fork,
+                segmentation,
             );
 
             segment.commits_unique_from_tip.push(
@@ -207,20 +227,46 @@ fn queue_parents(
     current_kind: CommitKind,
     current_sidx: SegmentIndex,
     current_cidx: CommitIndex,
+    segmentation: Segmentation,
 ) {
-    let instruction = if parent_ids.len() > 1 {
-        Instruction::ConnectNewSegment {
-            parent_above: current_sidx,
-            at_commit: current_cidx,
+    if parent_ids.len() > 1 {
+        match segmentation {
+            Segmentation::AtMergeCommits => {
+                let instruction = Instruction::ConnectNewSegment {
+                    parent_above: current_sidx,
+                    at_commit: current_cidx,
+                };
+                for pid in parent_ids {
+                    next.push_back((*pid, current_kind, instruction))
+                }
+            }
+            Segmentation::FirstParentPriority => {
+                let mut parent_ids = parent_ids.iter().cloned();
+                // Keep following the first parent in this segment.
+                next.push_back((
+                    parent_ids.next().expect("more than 1"),
+                    current_kind,
+                    Instruction::CollectCommit { into: current_sidx },
+                ));
+                // Collect all other parents into their own segments.
+                let instruction = Instruction::ConnectNewSegment {
+                    parent_above: current_sidx,
+                    at_commit: current_cidx,
+                };
+                for pid in parent_ids {
+                    next.push_back((pid, current_kind, instruction))
+                }
+            }
         }
     } else if !parent_ids.is_empty() {
-        Instruction::CollectCommit { into: current_sidx }
+        next.push_back((
+            parent_ids[0],
+            current_kind,
+            Instruction::CollectCommit { into: current_sidx },
+        ));
     } else {
         return;
     };
-    for pid in parent_ids {
-        next.push_back((*pid, current_kind, instruction))
-    }
 }
 
 fn segment_from_name_and_meta(

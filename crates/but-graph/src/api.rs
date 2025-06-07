@@ -1,6 +1,6 @@
 use crate::{CommitIndex, Edge, Graph, Segment, SegmentIndex};
-use petgraph::Direction;
 use petgraph::prelude::EdgeRef;
+use petgraph::{Direction, dot};
 use std::ops::{Index, IndexMut};
 
 /// Mutation
@@ -102,6 +102,49 @@ impl Graph {
     /// Return an iterator over all indices of segments in the graph.
     pub fn segments(&self) -> impl Iterator<Item = SegmentIndex> {
         self.inner.node_indices()
+    }
+}
+
+/// Debugging
+impl Graph {
+    /// Output this graph in dot-format to stderr to allow copying it, and using like this for visualization:
+    ///
+    /// ```shell
+    /// pbpaste | dot -Tsvg >graph.svg && open graph.svg
+    /// ```
+    pub fn eprint_dot_graph(&self) {
+        let dot = self.dot_graph();
+        eprintln!("{dot}");
+    }
+
+    /// Produces a dot-version of the graph.
+    pub fn dot_graph(&self) -> String {
+        let dot = petgraph::dot::Dot::with_attr_getters(
+            &self.inner,
+            &[dot::Config::GraphContentOnly],
+            &|g, e| {
+                let src = &g[e.source()];
+                let dst = &g[e.target()];
+                let e = e.weight();
+                let src = src
+                    .commit_by_index(e.src)
+                    .map(|c| c.id.to_hex_with_len(7).to_string())
+                    .unwrap_or_else(|| "src".into());
+                let dst = dst
+                    .commit_by_index(e.dst)
+                    .map(|c| c.id.to_hex_with_len(7).to_string())
+                    .unwrap_or_else(|| "dst".into());
+                format!("{src} -> {dst}")
+            },
+            &|_, (_, s)| {
+                s.ref_name
+                    .as_ref()
+                    .map(|rn| rn.shorten())
+                    .unwrap_or_else(|| "<anon>".into())
+                    .to_string()
+            },
+        );
+        format!("{dot:?}")
     }
 }
 
