@@ -44,7 +44,7 @@ pub struct HunkAssignment {
     pub stack_id: Option<StackId>,
     /// The dependencies(locks) that this hunk has. This determines where the hunk can be assigned.
     /// This field is ignored when HunkAssignment is passed by the UI to create a new assignment.
-    pub hunk_locks: Vec<HunkLock>,
+    pub hunk_locks: Option<Vec<HunkLock>>,
     /// The line numbers that were added in this hunk.
     pub line_nums_added: Option<Vec<usize>>,
     /// The line numbers that were removed in this hunk.
@@ -58,8 +58,6 @@ impl TryFrom<but_db::HunkAssignment> for HunkAssignment {
             .hunk_header
             .as_ref()
             .and_then(|h| serde_json::from_str(h).ok());
-        let hunk_locks: Vec<HunkLock> = serde_json::from_str(&value.hunk_locks)
-            .map_err(|e| anyhow::anyhow!("Failed to deserialize hunk_locks: {}", e))?;
         let stack_id = value
             .stack_id
             .as_ref()
@@ -71,7 +69,7 @@ impl TryFrom<but_db::HunkAssignment> for HunkAssignment {
             path: value.path,
             path_bytes: value.path_bytes.into(),
             stack_id,
-            hunk_locks,
+            hunk_locks: None,
             line_nums_added: None,   // derived data (not persisted)
             line_nums_removed: None, // derived data (not persisted)
         })
@@ -94,7 +92,6 @@ impl TryFrom<HunkAssignment> for but_db::HunkAssignment {
             path: value.path,
             path_bytes: value.path_bytes.into(),
             stack_id: value.stack_id.map(|id| id.to_string()),
-            hunk_locks: serde_json::to_string(&value.hunk_locks)?,
         })
     }
 }
@@ -275,7 +272,7 @@ pub fn assign(
             .filter(|assignment| {
                 req.matches_assignment(assignment) && req.stack_id != assignment.stack_id
             })
-            .flat_map(|assignment| assignment.hunk_locks.clone())
+            .flat_map(|assignment| assignment.hunk_locks.clone().unwrap_or_default())
             .collect_vec();
         if !locks.is_empty() {
             rejections.push(AssignmentRejection {
@@ -407,7 +404,7 @@ fn hunk_dependency_assignments(
             path: path.clone(),
             path_bytes: path.into(),
             stack_id,
-            hunk_locks: locks,
+            hunk_locks: Some(locks),
             line_nums_added: None,   // derived data (not persisted)
             line_nums_removed: None, // derived data (not persisted)
         };
@@ -426,7 +423,7 @@ fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> 
             path: path_str.into(),
             path_bytes: path,
             stack_id: None,
-            hunk_locks: vec![],
+            hunk_locks: None,
             line_nums_added: None,
             line_nums_removed: None,
         }],
@@ -436,7 +433,7 @@ fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> 
             path: path_str.into(),
             path_bytes: path,
             stack_id: None,
-            hunk_locks: vec![],
+            hunk_locks: None,
             line_nums_added: None,
             line_nums_removed: None,
         }],
@@ -453,7 +450,7 @@ fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> 
                     path: path_str.into(),
                     path_bytes: path,
                     stack_id: None,
-                    hunk_locks: vec![],
+                    hunk_locks: None,
                     line_nums_added: None,
                     line_nums_removed: None,
                 }]
@@ -469,7 +466,7 @@ fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> 
                             path: path_str.clone().into(),
                             path_bytes: path.clone(),
                             stack_id: None,
-                            hunk_locks: vec![],
+                            hunk_locks: None,
                             line_nums_added: Some(line_nums_added_new),
                             line_nums_removed: Some(line_nums_removed_old),
                         }
@@ -532,7 +529,7 @@ fn requests_to_assignments(request: Vec<HunkAssignmentRequest>) -> Vec<HunkAssig
             path: req.path_bytes.to_str_lossy().into(),
             path_bytes: req.path_bytes,
             stack_id: req.stack_id,
-            hunk_locks: vec![],
+            hunk_locks: None,
             line_nums_added: None,
             line_nums_removed: None,
         };
@@ -568,7 +565,7 @@ mod tests {
                 path: path.to_string(),
                 path_bytes: BString::from(path),
                 stack_id: stack_id.map(stack_id_seq),
-                hunk_locks: vec![],
+                hunk_locks: None,
                 line_nums_added: None,
                 line_nums_removed: None,
             }

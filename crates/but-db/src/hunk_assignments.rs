@@ -14,7 +14,6 @@ pub struct HunkAssignment {
     pub path: String,
     pub path_bytes: Vec<u8>,
     pub stack_id: Option<String>,
-    pub hunk_locks: String,
 }
 
 impl DbHandle {
