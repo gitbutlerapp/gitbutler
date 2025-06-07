@@ -711,6 +711,7 @@ dependencies = [
  "but-action",
  "but-core",
  "but-graph",
+ "but-inspection",
  "but-settings",
  "but-workspace",
  "clap",
@@ -854,6 +855,22 @@ dependencies = [
  "rustc-hash",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "but-inspection"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "gitbutler-command-context",
+ "gitbutler-error",
+ "gitbutler-serde",
+ "gix",
+ "serde",
+ "toml",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]
