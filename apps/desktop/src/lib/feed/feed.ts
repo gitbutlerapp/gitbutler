@@ -6,6 +6,7 @@ import { get, writable } from 'svelte/store';
 
 export class Feed {
 	private oplogBuffer: Snapshot[] = [];
+	private oplogCursor: string | undefined = undefined;
 	private actionsBuffer: ButlerAction[] = [];
 
 	readonly combined = writable<(Snapshot | ButlerAction)[]>([], (set) => {
@@ -18,23 +19,33 @@ export class Feed {
 	constructor(private projectId: string) {}
 
 	// The offset is equal to the number of entries in the actions buffer plus the number of ButlerAction entries in the combined feed.
-	actionsOffset(): number {
+	private actionsOffset(): number {
 		return (
 			this.actionsBuffer.length +
 			get(this.combined).filter((entry) => entry instanceof ButlerAction).length
 		);
 	}
 
-	async fetch(n: number = 10) {
-		// First, get n oplog entries and n actions. Both area already sorted by time.
-		this.oplogBuffer = await this.fetchOplog(n);
-		this.actionsBuffer = await this.fetchActions(n, this.actionsOffset());
+	async fetch(n: number = 20) {
+		// First, get n oplog entries and n actions. They are already sorted by timestamp.
+		// If the oplog buffer hass less than n entries, we need to fetch more oplog entries.
+		if (this.oplogBuffer.length < n) {
+			const moreOplog = await this.fetchOplog(n - this.oplogBuffer.length, this.oplogCursor);
+			this.oplogCursor = moreOplog.at(-1)?.id;
+			this.oplogBuffer.push(...moreOplog);
+		}
 
-		// Then, create a combined feed list with n entries, maintaining the sorting by time.
-		// This means that we will not consume all of the entries from both inpucts.
-		// It may be that we consume all entries from one input, or we consume a mix of both.
-		// As we do this, we also consume the entries from the oplog and actions buffers,
-		// so that later we can fill up the buffers with new entries as needed.
+		// If the actions buffer has less than n entries, we need to fetch more actions.
+		if (this.actionsBuffer.length < n) {
+			const moreActions = await this.fetchActions(
+				n - this.actionsBuffer.length,
+				this.actionsOffset()
+			);
+			this.actionsBuffer.push(...moreActions);
+		}
+
+		// Then, create a combined feed list with n entries, maintaining the sorting by time and consuming items from the buffers.
+		// Since the combined feed has the same n, not all entries will be consumed from both buffers.
 		for (let i = 0; i < n; i++) {
 			if (this.oplogBuffer.length === 0 && this.actionsBuffer.length === 0) {
 				break; // No more entries to consume.
@@ -56,24 +67,6 @@ export class Feed {
 				this.combined.update((entries) => [...entries, firstAction]);
 				this.actionsBuffer.shift(); // Consume the action entry.
 			}
-		}
-
-		// If the oplog buffer hass less than n entries, we need to fetch more oplog entries.
-		if (this.oplogBuffer.length < n) {
-			const moreOplog = await this.fetchOplog(
-				n - this.oplogBuffer.length,
-				this.oplogBuffer.at(-1)?.id
-			);
-			this.oplogBuffer.push(...moreOplog);
-		}
-
-		// If the actions buffer has less than n entries, we need to fetch more actions.
-		if (this.actionsBuffer.length < n) {
-			const moreActions = await this.fetchActions(
-				n - this.actionsBuffer.length,
-				this.actionsOffset()
-			);
-			this.actionsBuffer.push(...moreActions);
 		}
 	}
 
