@@ -1,7 +1,7 @@
 use anyhow::Result;
 
 mod args;
-use args::Args;
+use args::{Args, Subcommands, actions};
 mod command;
 mod mcp;
 mod mcp_internal;
@@ -11,19 +11,22 @@ async fn main() -> Result<()> {
     let args: Args = clap::Parser::parse();
 
     match &args.cmd {
-        args::Subcommands::Mcp { internal } => {
+        Subcommands::Mcp { internal } => {
             if *internal {
                 mcp_internal::start(&args.current_dir).await
             } else {
                 mcp::start().await
             }
         }
-        args::Subcommands::HandleChanges {
-            change_description,
-            simple,
-        } => command::handle_changes(&args.current_dir, args.json, *simple, change_description),
-        args::Subcommands::ListActions { offset, limit } => {
-            command::list_actions(&args.current_dir, args.json, *offset, *limit)
-        }
+        Subcommands::Actions(actions::Platform { cmd }) => match cmd {
+            Some(actions::Subcommands::HandleChanges {
+                description,
+                handler,
+            }) => {
+                let handler = *handler;
+                command::handle_changes(&args.current_dir, args.json, handler, description)
+            }
+            None => command::list_actions(&args.current_dir, args.json, 0, 10),
+        },
     }
 }

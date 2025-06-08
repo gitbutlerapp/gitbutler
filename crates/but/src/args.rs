@@ -21,21 +21,32 @@ pub enum Subcommands {
         /// Starts the internal MCP server which has more granular tools.
         internal: bool,
     },
-    /// Automatically handle changes in the current repository, creating a commit with the provided context.
-    HandleChanges {
-        /// A context describing the changes that are currently uncommitted
-        #[clap(long, short = 'd', alias = "desc", visible_alias = "description")]
-        change_description: String,
-        /// If true, this will perform simple, non-AI based handling.
-        #[clap(long, short = 's', default_value_t = true)]
-        simple: bool,
-    },
-    ListActions {
-        /// The listing offset.
-        #[clap(long, short = 'o', default_value_t = 1)]
-        offset: i64,
-        /// The number of actions to list per request.
-        #[clap(long, short = 'l', default_value_t = 10)]
-        limit: i64,
-    },
+    /// GitButler Actions are automated tasks (like macros) that can be peformed on a repository.
+    Actions(actions::Platform),
+}
+
+pub mod actions {
+    #[derive(Debug, clap::Parser)]
+    pub struct Platform {
+        #[clap(subcommand)]
+        pub cmd: Option<Subcommands>,
+    }
+    #[derive(Debug, clap::Subcommand)]
+    pub enum Subcommands {
+        /// Automatically handles the changes in the repository, creating a commit with the provided context.
+        HandleChanges {
+            /// A context describing the changes that are currently uncommitted
+            #[clap(long, short = 'd', alias = "desc", visible_alias = "description")]
+            description: String,
+            /// Which handler is to be used for the operation. Different handles would have different behavior.
+            #[clap(long, value_enum, default_value = "simple")]
+            handler: Handler,
+        },
+    }
+
+    #[derive(Debug, Clone, Copy, clap::ValueEnum)]
+    pub enum Handler {
+        /// Handles changes in a simple way.
+        Simple,
+    }
 }
