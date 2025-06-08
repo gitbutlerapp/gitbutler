@@ -38,7 +38,7 @@ pub(crate) fn list_actions(
     print(&response, json)
 }
 
-fn print<T>(this: &T, json: bool) -> anyhow::Result<()>
+pub(crate) fn print<T>(this: &T, json: bool) -> anyhow::Result<()>
 where
     T: ?Sized + Serialize + std::fmt::Debug,
 {

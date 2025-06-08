@@ -23,6 +23,8 @@ pub enum Subcommands {
     },
     /// GitButler Actions are automated tasks (like macros) that can be peformed on a repository.
     Actions(actions::Platform),
+    /// Provides an overview of the Workspace commit graph.
+    Log,
 }
 
 pub mod actions {

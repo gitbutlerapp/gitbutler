@@ -3,6 +3,7 @@ use anyhow::Result;
 mod args;
 use args::{Args, Subcommands, actions};
 mod command;
+mod log;
 mod mcp;
 mod mcp_internal;
 
@@ -28,5 +29,6 @@ async fn main() -> Result<()> {
             }
             None => command::list_actions(&args.current_dir, args.json, 0, 10),
         },
+        Subcommands::Log => log::commit_graph(&args.current_dir, args.json),
     }
 }
