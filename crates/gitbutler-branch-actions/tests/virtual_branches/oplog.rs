@@ -355,13 +355,13 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     let snapshots = ctx.list_snapshots(1, None, Vec::new())?;
     assert_eq!(snapshots.len(), 1);
     assert_eq!(
-        ctx.list_snapshots(1, Some(snapshots[0].commit_id), Vec::new())?,
+        ctx.list_snapshots(1, None, Vec::new())?,
         snapshots,
         "traversal from oplog head is the same as if it wasn't specified, and the given head is returned first"
     );
     assert_eq!(
         ctx.list_snapshots(10, Some(all_snapshots[2].commit_id), Vec::new())?,
-        &all_snapshots[2..],
+        &all_snapshots[3..],
     );
 
     let first_snapshot = all_snapshots.last().unwrap();

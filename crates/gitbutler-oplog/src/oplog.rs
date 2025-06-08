@@ -204,6 +204,9 @@ impl OplogExt for CommandContext {
                 break;
             }
             let commit_id = commit_info?.id();
+            if oplog_commit_id.is_some() && commit_id == traversal_root_id {
+                continue;
+            }
             let commit = commit_id.object()?.into_commit();
             let mut parents = commit.parent_ids();
             let (first_parent, second_parent) = (parents.next(), parents.next());
