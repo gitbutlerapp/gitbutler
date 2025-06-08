@@ -16,10 +16,11 @@ pub struct Args {
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
-    /// Starts up the MCP-internal server.
-    McpInternal,
     /// Starts up the MCP server.
-    Mcp,
+    Mcp {
+        /// Starts the internal MCP server which has more granular tools.
+        internal: bool,
+    },
     /// Automatically handle changes in the current repository, creating a commit with the provided context.
     HandleChanges {
         /// A context describing the changes that are currently uncommitted

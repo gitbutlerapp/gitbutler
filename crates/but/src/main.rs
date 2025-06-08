@@ -11,8 +11,13 @@ async fn main() -> Result<()> {
     let args: Args = clap::Parser::parse();
 
     match &args.cmd {
-        args::Subcommands::McpInternal => mcp_internal::start(&args.current_dir).await,
-        args::Subcommands::Mcp => mcp::start().await,
+        args::Subcommands::Mcp { internal } => {
+            if *internal {
+                mcp_internal::start(&args.current_dir).await
+            } else {
+                mcp::start().await
+            }
+        }
         args::Subcommands::HandleChanges {
             change_description,
             simple,
