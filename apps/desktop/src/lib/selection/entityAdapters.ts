@@ -1,8 +1,14 @@
-import { isDefined } from '@gitbutler/ui/utils/typeguards';
+import { platformName } from '$lib/platform/platform';
 import { createEntityAdapter } from '@reduxjs/toolkit';
 import type { TreeChange } from '$lib/hunks/change';
 import type { HunkAssignment, HunkHeader } from '$lib/hunks/hunk';
 import type { LineId } from '@gitbutler/ui/utils/diffParsing';
+
+// ASCII Unit Separator, used to separate data units within a record or field.
+const UNIT_SEP = '\u001F';
+
+// We need this to filter for assignments in a specific directory.
+const PATH_SEP = platformName === 'windows' ? '\\' : '/';
 
 /**
  * Assignments and selections are keyed by this combination of parameters.
@@ -14,22 +20,23 @@ export function compositeKey(args: {
 	path: string;
 	hunkHeader: HunkHeader | null;
 }) {
-	if (typeof args.hunkHeader === 'string' || args.hunkHeader === null) {
-		return `${args.stackId}⧓⧓${args.path.replaceAll('⧓', '⋈⧓')}⧓⧓${args.hunkHeader}`;
-	}
-	return `${args.stackId}⧓⧓${args.path.replaceAll('⧓', '⋈⧓')}⧓⧓${args.hunkHeader?.newStart || null}`;
+	const { stackId, path, hunkHeader } = args;
+	const header = hunkHeader?.newStart || hunkHeader;
+	return stackId + UNIT_SEP + path + UNIT_SEP + header;
 }
 
 /**
  * Creates a partial key for matching the beginning of keys.
  */
-export function partialKey(stackId: string | null, path?: string, includeEnd: boolean = true) {
-	const end = includeEnd ? '⧓⧓' : '';
-	if (isDefined(path)) {
-		return `${stackId}⧓⧓${path.replaceAll('⧓', '⋈⧓')}${end}`;
-	} else {
-		return `${stackId}${end}`;
-	}
+export function partialKey(stackId: string | null, path?: string) {
+	return path ? stackId + UNIT_SEP + path + UNIT_SEP : stackId + UNIT_SEP;
+}
+
+/**
+ * Creates a prefix key for matching directories.
+ */
+export function prefixKey(stackId: string | null, path: string) {
+	return stackId + UNIT_SEP + path + PATH_SEP;
 }
 
 export const treeChangeAdapter = createEntityAdapter<TreeChange, string>({
@@ -49,7 +56,6 @@ export type HunkSelection = {
 	assignmentId: string;
 	stackId: string | null;
 	path: string;
-	changeId: string;
 	lines: LineId[];
 };
 

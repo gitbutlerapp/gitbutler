@@ -161,26 +161,13 @@ export class UncommittedService {
 		return reactive(() => result);
 	}
 
+	getChangesByStackId(stackId: string | null): TreeChange[] {
+		return uncommittedSelectors.treeChanges.selectByStackId(this.state, stackId);
+	}
+
 	changesByStackId(stackId: string | null): Reactive<TreeChange[]> {
-		const changes = $derived(uncommittedSelectors.treeChanges.selectByStackId(this.state, stackId));
+		const changes = $derived(this.getChangesByStackId(stackId));
 		return reactive(() => changes);
-	}
-
-	assignmentsByStackId(stackId: string | null): Reactive<HunkAssignment[]> {
-		const result = $derived(
-			uncommittedSelectors.hunkAssignments.selectByPrefix(this.state.hunkAssignments, stackId + '-')
-		);
-		return reactive(() => result);
-	}
-
-	getAssignmentsByStackId(stackId: string | null): Reactive<HunkAssignment[]> {
-		const assignments = $derived(
-			uncommittedSelectors.hunkAssignments.selectByPrefix(
-				this.state.hunkAssignments,
-				String(stackId)
-			)
-		);
-		return reactive(() => assignments);
 	}
 
 	getAssignmentsByPath(stackId: string | null, path: string): HunkAssignment[] {
@@ -271,6 +258,14 @@ export class UncommittedService {
 
 	uncheckFile(stackId: string | null, path: string) {
 		this.dispatch(uncommittedActions.uncheckFile({ stackId, path }));
+	}
+
+	checkDir(stackId: string | null, path: string) {
+		this.dispatch(uncommittedActions.checkDir({ stackId, path }));
+	}
+
+	uncheckDir(stackId: string | null, path: string) {
+		this.dispatch(uncommittedActions.uncheckDir({ stackId, path }));
 	}
 
 	checkAll(stackId: string | null) {

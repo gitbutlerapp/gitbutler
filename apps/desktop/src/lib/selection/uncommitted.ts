@@ -1,11 +1,11 @@
-import { platformName } from '$lib/platform/platform';
 import {
 	hunkAssignmentAdapter,
 	treeChangeAdapter,
 	hunkSelectionAdapter as hunkSelectionAdapter,
 	type HunkSelection,
 	compositeKey,
-	partialKey
+	partialKey,
+	prefixKey
 } from '$lib/selection/entityAdapters';
 import { createSelectByPrefix, createSelectNotIn } from '$lib/state/customSelectors';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
@@ -86,7 +86,6 @@ export const uncommittedSlice = createSlice({
 					stackId: stackId,
 					path: assignment.path,
 					assignmentId: key,
-					changeId: `${stackId}::${assignment.path}`,
 					lines: [line]
 				});
 			}
@@ -153,7 +152,6 @@ export const uncommittedSlice = createSlice({
 					stackId: action.payload.stackId,
 					path: assignment.path,
 					assignmentId: key,
-					changeId: `${action.payload.stackId}::${assignment.path}`,
 					lines: []
 				});
 			}
@@ -179,7 +177,6 @@ export const uncommittedSlice = createSlice({
 					stackId: stackId,
 					path: assignment.path,
 					assignmentId: key,
-					changeId: `${stackId}::${assignment.path}`,
 					lines: []
 				});
 			}
@@ -187,6 +184,36 @@ export const uncommittedSlice = createSlice({
 		uncheckFile(state, action: PayloadAction<{ stackId: string | null; path: string }>) {
 			const { stackId, path } = action.payload;
 			const prefix = partialKey(stackId, path);
+			const selections = uncommittedSelectors.hunkSelection.selectByPrefix(
+				state.hunkSelection,
+				prefix
+			);
+			state.hunkSelection = hunkSelectionAdapter.removeMany(
+				state.hunkSelection,
+				selections.map((a) => a.assignmentId)
+			);
+		},
+		checkDir(state, action: PayloadAction<{ stackId: string | null; path: string }>) {
+			const { stackId, path } = action.payload;
+			const prefix = prefixKey(stackId, path);
+			const assignments = uncommittedSelectors.hunkAssignments.selectByPrefix(
+				state.hunkAssignments,
+				prefix
+			);
+
+			for (const assignment of assignments) {
+				const key = hunkAssignmentAdapter.selectId(assignment);
+				state.hunkSelection = hunkSelectionAdapter.upsertOne(state.hunkSelection, {
+					stackId: stackId,
+					path: assignment.path,
+					assignmentId: key,
+					lines: []
+				});
+			}
+		},
+		uncheckDir(state, action: PayloadAction<{ stackId: string | null; path: string }>) {
+			const { stackId, path } = action.payload;
+			const prefix = prefixKey(stackId, path);
 			const selections = uncommittedSelectors.hunkSelection.selectByPrefix(
 				state.hunkSelection,
 				prefix
@@ -210,7 +237,6 @@ export const uncommittedSlice = createSlice({
 					stackId: stackId,
 					path: assignment.path,
 					assignmentId: key,
-					changeId: `${stackId}::${assignment.path}`,
 					lines: []
 				});
 			}
@@ -343,9 +369,8 @@ const folderCheckStatus = createSelector(
 		}
 	],
 	(selections, assignments, { stackId, path }) => {
-		const separator = platformName === 'windows' ? '\\' : '/';
-		const keyPrefix = partialKey(stackId, path, false) + separator;
-		const matches = uncommittedSelectors.hunkAssignments.selectByPrefix(assignments, keyPrefix);
+		const prefix = prefixKey(stackId, path);
+		const matches = uncommittedSelectors.hunkAssignments.selectByPrefix(assignments, prefix);
 		if (matches.length === 0) {
 			return 'unchecked';
 		} else if (matches.every((a) => compositeKey(a) in selections.entities)) {
@@ -366,8 +391,8 @@ const stackCheckStatus = createSelector(
 		}
 	],
 	(selections, assignments, { stackId }) => {
-		const keyPrefix = partialKey(stackId);
-		const matches = uncommittedSelectors.hunkAssignments.selectByPrefix(assignments, keyPrefix);
+		const prefix = partialKey(stackId);
+		const matches = uncommittedSelectors.hunkAssignments.selectByPrefix(assignments, prefix);
 		if (matches.length === 0) {
 			return 'unchecked';
 		} else if (matches.every((a) => compositeKey(a) in selections.entities)) {

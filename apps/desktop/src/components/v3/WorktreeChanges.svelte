@@ -79,6 +79,7 @@
 		projectState.drawerPage.set('new-commit');
 		projectState.commitSourceId.set(stackId);
 		if (defaultBranchName) {
+			projectState.stackId.set(stackId);
 			stackState?.selection.set({ branchName: defaultBranchName });
 		}
 	}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getAllChanges, nodePath, type TreeNode } from '$lib/files/filetreeV3';
+	import { nodePath, type TreeNode } from '$lib/files/filetreeV3';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import FolderListItem from '@gitbutler/ui/file/FolderListItem.svelte';
@@ -22,13 +22,10 @@
 	const selectionStatus = $derived(uncommittedService.folderCheckStatus(stackId, nodePath(node)));
 
 	function handleCheck(checked: boolean) {
-		const changes = getAllChanges(node);
-		for (const change of changes) {
-			if (checked) {
-				uncommittedService.checkFile(stackId || null, change.path);
-			} else {
-				uncommittedService.uncheckFile(stackId || null, change.path);
-			}
+		if (checked) {
+			uncommittedService.checkDir(stackId || null, nodePath(node));
+		} else {
+			uncommittedService.uncheckDir(stackId || null, nodePath(node));
 		}
 	}
 </script>
