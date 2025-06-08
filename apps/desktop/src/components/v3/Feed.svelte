@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { ButlerAction } from '$lib/actions/types';
+	import FeedItem from '$components/v3/FeedItem.svelte';
 	import { Feed } from '$lib/feed/feed';
-	import { Snapshot } from '$lib/history/types';
 	import type { SelectionId } from '$lib/selection/key';
 
 	type Props = {
@@ -13,10 +12,6 @@
 
 	const feed = new Feed(projectId);
 	const combinedEntries = feed.combined;
-
-	// function loadNextPage() {
-	// 	feed.fetch();
-	// }
 </script>
 
 <div class="action-log-wrap">
@@ -25,13 +20,13 @@
 			<h2 class="text-16 text-semibold">Butler Actions</h2>
 		</div>
 		<div class="scrollable">
-			{#each $combinedEntries as entry}
-				<!-- {entry.id} -->
-				{#if entry instanceof Snapshot}
-					<div>{entry.createdAt} snapshot</div>
-				{:else if entry instanceof ButlerAction}
-					<div>{entry.createdAt} action</div>
-				{/if}
+			{#each $combinedEntries as entry, idx (entry.id)}
+				<FeedItem
+					{projectId}
+					action={entry}
+					last={$combinedEntries.length - 1 === idx}
+					loadNextPage={() => feed.fetch()}
+				/>
 			{/each}
 		</div>
 	</div>

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import ActionLog from '$components/v3/ActionLog.svelte';
 	import BranchView from '$components/v3/BranchView.svelte';
 	import CommitView from '$components/v3/CommitView.svelte';
+	import Feed from '$components/v3/Feed.svelte';
 	import MainViewport from '$components/v3/MainViewport.svelte';
 	import MultiStackView from '$components/v3/MultiStackView.svelte';
 	import NewCommitView from '$components/v3/NewCommitView.svelte';
@@ -176,7 +176,7 @@
 				</WorktreeChanges>
 			</div>
 		{:else if canUseActions && $view === 'action-log'}
-			<ActionLog {projectId} {selectionId} />
+			<Feed {projectId} {selectionId} />
 		{/if}
 	{/snippet}
 	{#snippet middle()}

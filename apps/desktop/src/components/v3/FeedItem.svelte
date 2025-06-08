@@ -1,38 +1,30 @@
 <script lang="ts">
-	import DataContextMenu from '$components/v3/DataContextMenu.svelte';
+	import { ButlerAction, type Outcome } from '$lib/actions/types';
+	import { Snapshot } from '$lib/history/types';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { User } from '$lib/user/user';
 	import { getContext } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
+	import { getContextStore } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import toasts from '@gitbutler/ui/toasts';
-	import type { ButlerAction, Outcome } from '$lib/actions/types';
 
 	type Props = {
 		projectId: string;
-		action: ButlerAction & { action: { type: 'mcpAction' } };
+		action: ButlerAction | Snapshot;
 		last: boolean;
 		loadNextPage: () => void;
 	};
 
 	const { action, last, projectId, loadNextPage }: Props = $props();
 
-	// An ActionLogItem (for now) is representing both the git changes that
-	// happened but also the file changes that happened between this action and
-	// the previous one.
-	//
-	// Diffing `previous.snapshotAfter` and `action.snapshotBefore` gives us the
-	// changes that happend on disk between these two events.
-
 	const stackService = getContext(StackService);
 	const uiState = getContext(UiState);
 
 	const allStacks = $derived(stackService.allStacks(projectId));
-
-	// const [revertSnapshot] = actionService.revertSnapshot;
 
 	let lastIntersector = $state<HTMLElement>();
 
@@ -46,8 +38,6 @@
 		observer.observe(lastIntersector);
 		return () => observer.disconnect();
 	});
-	let showActions = $state(false);
-	let showActionsTarget = $state<HTMLElement>();
 
 	async function selectCommit(branchName: string, id: string) {
 		if (!allStacks.current.data) {
@@ -84,63 +74,81 @@
 			stackState.selection.set({ branchName, commitId: id, upstream: false });
 		}
 	}
+
+	const user = getContextStore(User);
+	let failedToLoadImage = $state(false);
 </script>
 
-<DataContextMenu
-	bind:open={showActions}
-	items={[
-		[
-			{
-				label: 'Revert to before',
-				onclick: async () => {}
-				// await restore(
-				// 	action.action.subject.snapshotBefore,
-				// 	`> ${action.action.subject.externalSummary}\n\nReverted to before MCP call`
-				// )
-			},
-			{
-				label: 'Revert to after',
-				onclick: async () => {}
-				// await restore(
-				// 	action.action.subject.snapshotAfter,
-				// 	`> ${action.action.subject.externalSummary}\n\nReverted to after MCP call`
-				// )
-			}
-		]
-	]}
-	target={showActionsTarget}
-/>
-
 <div class="action-item">
-	<div class="action-item__robot">
-		<Icon name="robot" />
-	</div>
-	<div class="action-item__content">
-		<div class="action-item__content__header">
-			<div>
-				<p class="text-13 text-bold">Updated workspace</p>
-				<p class="text-13 text-bold text-grey">(MCP call)</p>
-				<span class="text-13 text-greyer"
-					><TimeAgo date={new Date(action.createdAt)} addSuffix /></span
-				>
-				<Tooltip text={action.externalPrompt}><div class="pill text-12">Prompt</div></Tooltip>
-			</div>
-			<div bind:this={showActionsTarget}>
-				<Button icon="kebab" size="tag" kind="outline" onclick={() => (showActions = true)} />
-			</div>
+	{#if action instanceof ButlerAction}
+		<div class="action-item__robot">
+			<Icon name="robot" />
 		</div>
-		<span class="text-14 text-darkgrey">
-			<Markdown content={action.externalSummary} />
-		</span>
-		{#if action.response && action.response.updatedBranches.length > 0}
-			<div class="action-item__content__metadata">
-				{@render outcome(action.response)}
+		<div class="action-item__content">
+			<div class="action-item__content__header">
+				<div>
+					<p class="text-13 text-bold">Updated workspace</p>
+					<p class="text-13 text-bold text-grey">(MCP call)</p>
+					<span class="text-13 text-greyer"
+						><TimeAgo date={new Date(action.createdAt)} addSuffix /></span
+					>
+					<Tooltip text={action.externalPrompt}><div class="pill text-12">Prompt</div></Tooltip>
+				</div>
 			</div>
-		{/if}
-		{#if last}
-			<div bind:this={lastIntersector}></div>
-		{/if}
-	</div>
+			<span class="text-14 text-darkgrey">
+				<Markdown content={action.externalSummary} />
+			</span>
+			{#if action.response && action.response.updatedBranches.length > 0}
+				<div class="action-item__content__metadata">
+					{@render outcome(action.response)}
+				</div>
+			{/if}
+			{#if last}
+				<div bind:this={lastIntersector}></div>
+			{/if}
+		</div>
+	{:else if action instanceof Snapshot}
+		<div class="action-item__picture">
+			{#if $user?.picture && !failedToLoadImage}
+				<img
+					class="user-icon__image"
+					src={$user.picture}
+					alt=""
+					referrerpolicy="no-referrer"
+					onerror={() => (failedToLoadImage = true)}
+				/>
+			{:else}
+				<Icon name="profile" />
+			{/if}
+		</div>
+		<div class="action-item__content">
+			<div class="action-item__content__header">
+				<div>
+					<p class="text-13 text-bold">{action.details?.operation}</p>
+					<span class="text-13 text-greyer"
+						><TimeAgo date={new Date(action.createdAt)} addSuffix /></span
+					>
+				</div>
+			</div>
+			<span class="text-14 text-darkgrey">
+				{#if action.details?.trailers}
+					{#each action.details?.trailers as trailer}
+						{trailer.key}
+						{trailer.value}
+					{/each}
+				{/if}
+				{#if action.details?.body}
+					<Markdown content={action.details?.body} />
+				{/if}
+				{#each action.filesChanged as file}
+					<span class="text-greyer">{file}</span>
+				{/each}
+			</span>
+			{#if last}
+				<div bind:this={lastIntersector}></div>
+			{/if}
+		</div>
+	{/if}
 </div>
 
 {#snippet outcome(outcome: Outcome)}
@@ -176,6 +184,24 @@
 {/snippet}
 
 <style lang="postcss">
+	.action-item__picture {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+
+		width: 30px;
+		min-width: 30px;
+		height: 30px;
+		padding: 2px;
+		border: 1px solid var(--clr-border-2);
+
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-2);
+
+		> img {
+			border-radius: var(--radius-s);
+		}
+	}
 	.action-item__robot {
 		padding: 4px 6px;
 		border: 1px solid var(--clr-border-2);
