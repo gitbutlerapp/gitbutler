@@ -7,12 +7,7 @@ export default {
 		autoprefixer(),
 		pxToRem({
 			rootValue: 16,
-			unitPrecision: 5,
-			propList: ['*'],
-			selectorBlackList: [],
-			replace: true,
-			mediaQuery: true,
-			minPixelValue: 0
+			mediaQuery: true
 		}),
 		postcssNesting()
 	]
