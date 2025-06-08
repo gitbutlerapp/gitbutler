@@ -109,8 +109,8 @@ export class IdSelection {
 		switch (params.type) {
 			case 'worktree':
 				return this.uncommittedService
-					.changesByStackId(params.stackId || null)
-					.current.filter((c) => paths.includes(c.path));
+					.getChangesByStackId(params.stackId || null)
+					.filter((c) => paths.includes(c.path));
 			case 'branch':
 				return await this.stackService.branchChangesByPaths({
 					projectId,

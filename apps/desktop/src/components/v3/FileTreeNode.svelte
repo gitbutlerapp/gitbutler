@@ -39,7 +39,7 @@
 {#if isRoot}
 	<!-- Node is a root and should only render children! -->
 	{#each node.children as childNode (childNode.name)}
-		<Self {depth} node={childNode} {showCheckboxes} {changes} {fileTemplate} />
+		<Self {stackId} {depth} node={childNode} {showCheckboxes} {changes} {fileTemplate} />
 	{/each}
 {:else if node.kind === 'file'}
 	{@render fileTemplate(node.change, node.index, depth)}
