@@ -317,6 +317,20 @@ If there's any ambiguity, will ask the user for clarification.`,
 				required: false
 			}
 		]
+	},
+	{
+		name: 'absorb',
+		description: `Absorb the file changes into the right stack and branch.
+This will attempt to amend the uncommitted changes in the project to the right branch and commit.
+If there's any ambiguity, will ask the user for clarification.`,
+		arguments: [
+			{
+				name: 'disambiguation',
+				description:
+					'Any kind of additional information that can help to disambiguate what and how the commits should be done.',
+				required: false
+			}
+		]
 	}
 ] as const;
 
@@ -350,6 +364,30 @@ Follow these instructions to do so:
 	};
 }
 
+function buildAbsorbPrompt(params: Record<string, unknown>): GetPromptResult {
+	const disambiguation = isCommitPromptParams(params) ? params.disambiguation : undefined;
+	const suffix = disambiguation ? '\nImportantly: ' + disambiguation : '';
+
+	return {
+		messages: [
+			{
+				role: 'user',
+				content: {
+					type: 'text',
+					text: `I want to absorb the changes in my project using GitButler.
+Follow these instructions to do so:
+1. List and take a look at the file changes in the project.
+2. Determine to which branch (or branches) to absorb the changes. For that, you can list the stacks and branches in the project and take a look at their names.
+3. Determine the commit that will be amended with the changes. For that, you can list the commits in the branch and take a look at their messages.
+4. Propose the commit plan to me, including the target branch (or branches), commit messages to be updated and the files that will be included in each commit.
+5. If there's any ambiguity, ask me for clarification.
+6. If I accept, amend the commit as planned.${suffix}`
+				}
+			}
+		]
+	};
+}
+
 type PromptName = (typeof PROMPTS)[number]['name'];
 
 function isPromptName(name: string): name is PromptName {
@@ -375,6 +413,9 @@ export async function getCommitToolPromptRequestHandler(
 	switch (promptName) {
 		case 'commit': {
 			return buildCommitPrompt(params);
+		}
+		case 'absorb': {
+			return buildAbsorbPrompt(params);
 		}
 	}
 }
