@@ -20,6 +20,7 @@ serde.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "io-std"] }
 clap = { version = "4.5.39", features = ["derive", "env"] }
 chrono = { version = "0.4.41" }
+bstr.workspace = true
 anyhow.workspace = true
 # rmcp = { git = "https://github.com/modelcontextprotocol/rust-sdk", branch = "main" }
 rmcp = "0.1.5"
@@ -30,6 +31,7 @@ but-action.workspace = true
 but-graph.workspace = true
 but-workspace.workspace = true
 but-settings.workspace = true
+but-hunk-assignment.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-stack.workspace = true
 colored = "3.0.0"
