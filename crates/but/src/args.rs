@@ -25,6 +25,8 @@ pub enum Subcommands {
     Actions(actions::Platform),
     /// Provides an overview of the Workspace commit graph.
     Log,
+    /// Overview of the oncommitted changes in the repository.
+    Status,
 }
 
 pub mod actions {

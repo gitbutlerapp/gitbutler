@@ -6,6 +6,7 @@ mod command;
 mod log;
 mod mcp;
 mod mcp_internal;
+mod status;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -30,5 +31,6 @@ async fn main() -> Result<()> {
             None => command::list_actions(&args.current_dir, args.json, 0, 10),
         },
         Subcommands::Log => log::commit_graph(&args.current_dir, args.json),
+        Subcommands::Status => status::worktree(&args.current_dir, args.json),
     }
 }

@@ -115,7 +115,7 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
     Ok(())
 }
 
-fn stacks(ctx: &CommandContext) -> anyhow::Result<Vec<StackEntry>> {
+pub(crate) fn stacks(ctx: &CommandContext) -> anyhow::Result<Vec<StackEntry>> {
     let repo = ctx.gix_repo_for_merging_non_persisting()?;
     if ctx.app_settings().feature_flags.ws3 {
         let meta = VirtualBranchesTomlMetadata::from_path(
