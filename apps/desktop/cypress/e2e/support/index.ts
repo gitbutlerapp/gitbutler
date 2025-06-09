@@ -201,6 +201,10 @@ declare global {
 			 * Highlight the text in a given element.
 			 */
 			selectText(element: Cypress.Chainable<JQuery<HTMLElement>>): void;
+			/**
+			 *
+			 */
+			urlMatches(pattern: string): void;
 		}
 	}
 }
@@ -256,4 +260,8 @@ Cypress.on('uncaught:exception', () => {
 
 beforeEach(() => {
 	cy.viewport('macbook-11');
+});
+
+Cypress.Commands.add('urlMatches', (pattern: string) => {
+	cy.url({ timeout: 10000 }).should('include', pattern);
 });

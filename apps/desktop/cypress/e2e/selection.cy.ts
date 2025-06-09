@@ -16,7 +16,7 @@ describe('Selection', () => {
 
 		cy.visit('/');
 
-		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace`);
+		cy.urlMatches(`/${PROJECT_ID}/workspace`);
 	});
 
 	afterEach(() => {
@@ -42,7 +42,7 @@ describe('Selection', () => {
 				.should('contain', stackName)
 				.within(() => {
 					// Shouls have the stack url
-					cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace`);
+					cy.urlMatches(`/${PROJECT_ID}/workspace`);
 				});
 			// Check if the file list is updated
 			cy.getByTestId('branch-drawer')
@@ -70,7 +70,7 @@ describe('Selection with upstream changes', () => {
 
 		cy.visit('/');
 
-		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace`);
+		cy.urlMatches(`/${PROJECT_ID}/workspace`);
 	});
 
 	afterEach(() => {

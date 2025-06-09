@@ -13,6 +13,6 @@ describe('Workspace', () => {
 		cy.visit('/');
 
 		// Should be redirected to the workspac
-		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace`);
+		cy.urlMatches(`/${PROJECT_ID}/workspace`);
 	});
 });
