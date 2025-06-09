@@ -41,30 +41,38 @@ pub(crate) fn worktree(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
     if groups.is_empty() {
         println!("No uncommitted changes. ¯\\_(ツ)_/¯");
     } else {
-        let unassigned_str = "<UNASSIGNED>".to_string();
         // Iterate over the groups, but always start with the unassigned group
         if let Some(unassigned) = groups.remove(&None) {
-            print_group(&unassigned_str, unassigned, &changes)?;
+            print_group(None, unassigned, &changes)?;
         }
         // Iterate over the remaining groups
         for (stack_id, assignments) in groups {
-            let branch_name = if let Some(stack_id) = stack_id {
-                stack_id_to_branch.get(&stack_id).unwrap_or(&unassigned_str)
-            } else {
-                &unassigned_str
-            };
-            print_group(&format!("[{}]", branch_name), assignments, &changes)?;
+            let group = stack_id
+                .as_ref()
+                .and_then(|id| stack_id_to_branch.get(id))
+                .map(|s| s.as_str());
+            print_group(group, assignments, &changes)?;
         }
     }
     Ok(())
 }
 
 pub fn print_group(
-    group: &str,
+    group: Option<&str>,
     assignments: Vec<HunkAssignment>,
     changes: &[TreeChange],
 ) -> anyhow::Result<()> {
-    let id = CliId::branch(group).to_string().underline().blue();
+    let id = if let Some(group) = group {
+        CliId::branch(group)
+    } else {
+        CliId::unassigned()
+    }
+    .to_string()
+    .underline()
+    .blue();
+    let group = &group
+        .map(|s| format!("[{}]", s))
+        .unwrap_or("<UNASSIGNED>".to_string());
     println!("{}    {}", id, group.green().bold());
     let mut unique_with_count = BTreeMap::new();
     for assignment in assignments {
@@ -94,37 +102,26 @@ pub fn print_group(
     Ok(())
 }
 
-pub(crate) fn file_from_hash(ctx: &mut CommandContext, hash: &str) -> anyhow::Result<Vec<CliId>> {
+pub(crate) fn all_files(ctx: &mut CommandContext) -> anyhow::Result<Vec<CliId>> {
     let changes =
         but_core::diff::ui::worktree_changes_by_worktree_dir(ctx.project().path.clone())?.changes;
     let (assignments, _assignments_error) =
         but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()))?;
-
-    let mut matches = Vec::new();
-    for assignment in assignments {
-        let id = CliId::file_from_assignment(&assignment);
-        if id.matches(hash) {
-            matches.push(id);
-        }
-    }
-    let out = matches
+    let out = assignments
         .iter()
-        .cloned()
+        .map(CliId::file_from_assignment)
         .collect::<std::collections::HashSet<_>>()
         .into_iter()
         .collect::<Vec<_>>();
     Ok(out)
 }
 
-pub(crate) fn branch_from_hash(ctx: &CommandContext, hash: &str) -> anyhow::Result<Vec<CliId>> {
+pub(crate) fn all_branches(ctx: &CommandContext) -> anyhow::Result<Vec<CliId>> {
     let stacks = crate::log::stacks(ctx)?;
     let mut branches = Vec::new();
     for stack in stacks {
         for head in stack.heads {
-            let id = CliId::branch(&head.name.to_string());
-            if id.matches(hash) {
-                branches.push(id);
-            }
+            branches.push(CliId::branch(&head.name.to_string()));
         }
     }
     Ok(branches)

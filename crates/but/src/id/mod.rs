@@ -17,13 +17,10 @@ pub enum CliId {
     Commit {
         oid: gix::ObjectId,
     },
+    Unassigned,
 }
 
 impl CliId {
-    const UNCOMMITED_FILE: &str = "j";
-    const BRANCH: &str = "r";
-    const COMMIT: &str = "";
-
     pub fn commit(oid: gix::ObjectId) -> Self {
         CliId::Commit { oid }
     }
@@ -34,18 +31,14 @@ impl CliId {
         }
     }
 
+    pub fn unassigned() -> Self {
+        CliId::Unassigned
+    }
+
     pub fn file_from_assignment(assignment: &HunkAssignment) -> Self {
         CliId::UncommittedFile {
             path: assignment.path.clone(),
             assignment: assignment.stack_id,
-        }
-    }
-
-    fn prefix(&self) -> &str {
-        match self {
-            CliId::UncommittedFile { .. } => CliId::UNCOMMITED_FILE,
-            CliId::Branch { .. } => CliId::BRANCH,
-            CliId::Commit { .. } => CliId::COMMIT,
         }
     }
 
@@ -55,17 +48,32 @@ impl CliId {
 
     #[allow(dead_code)]
     pub fn from_str(ctx: &mut CommandContext, s: &str) -> anyhow::Result<Vec<Self>> {
-        if s.len() < 3 {
+        if s.len() < 2 {
             return Err(anyhow::anyhow!("Id needs to be 3 characters long: {}", s));
         }
-        let s = &s[..3];
-        if s.starts_with(CliId::UNCOMMITED_FILE) {
-            crate::status::file_from_hash(ctx, s)
-        } else if s.starts_with(CliId::BRANCH) {
-            crate::status::branch_from_hash(ctx, s)
-        } else {
-            crate::log::commit_from_hash(ctx, s)
+        let s = &s[..2];
+        let mut everything = Vec::new();
+        crate::status::all_files(ctx)?
+            .into_iter()
+            .filter(|id| id.matches(s))
+            .for_each(|id| everything.push(id));
+        crate::status::all_branches(ctx)?
+            .into_iter()
+            .filter(|id| id.matches(s))
+            .for_each(|id| everything.push(id));
+        crate::log::all_commits(ctx)?
+            .into_iter()
+            .filter(|id| id.matches(s))
+            .for_each(|id| everything.push(id));
+        everything.push(CliId::unassigned());
+
+        let mut matches = Vec::new();
+        for id in everything {
+            if id.matches(s) {
+                matches.push(id);
+            }
         }
+        Ok(matches)
     }
 }
 
@@ -75,17 +83,20 @@ impl Display for CliId {
             CliId::UncommittedFile { path, assignment } => {
                 if let Some(assignment) = assignment {
                     let value = hash(&format!("{}{}", assignment, path));
-                    write!(f, "{}{}", self.prefix(), value)
+                    write!(f, "{}", value)
                 } else {
-                    write!(f, "{}{}", self.prefix(), hash(path))
+                    write!(f, "{}", hash(path))
                 }
             }
             CliId::Branch { name } => {
-                write!(f, "{}{}", self.prefix(), hash(name))
+                write!(f, "{}", hash(name))
+            }
+            CliId::Unassigned => {
+                write!(f, "00")
             }
             CliId::Commit { oid } => {
                 let oid = oid.to_string();
-                write!(f, "{}", &oid[..3])
+                write!(f, "{}", &oid[..2])
             }
         }
     }
@@ -96,12 +107,12 @@ fn hash(input: &str) -> String {
     for byte in input.bytes() {
         hash = hash.wrapping_mul(31).wrapping_add(byte as u64);
     }
-    // Convert to base 62 (0-9, a-z, A-Z)
-    let chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    // Convert to base 36 (0-9, a-z)
+    let chars = "0123456789abcdefghijklmnopqrstuvwxyz";
     let mut result = String::new();
     for _ in 0..2 {
-        result.push(chars.chars().nth((hash % 62) as usize).unwrap());
-        hash /= 62;
+        result.push(chars.chars().nth((hash % 36) as usize).unwrap());
+        hash /= 36;
     }
     result
 }

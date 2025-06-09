@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 mod args;
 use args::{Args, Subcommands, actions};
@@ -7,6 +7,7 @@ mod id;
 mod log;
 mod mcp;
 mod mcp_internal;
+mod rub;
 mod status;
 
 #[tokio::main]
@@ -33,5 +34,9 @@ async fn main() -> Result<()> {
         },
         Subcommands::Log => log::commit_graph(&args.current_dir, args.json),
         Subcommands::Status => status::worktree(&args.current_dir, args.json),
+        Subcommands::Rub { source, target } => {
+            rub::handle(&args.current_dir, args.json, source, target)
+                .context("Rubbed the wrong way.")
+        }
     }
 }

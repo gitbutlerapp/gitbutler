@@ -22,11 +22,30 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
 
     let mut nesting = 0;
     for (i, stack) in stacks.iter().enumerate() {
+        let mut second_consecutive = false;
+        let mut stacked = false;
         for branch in stack.branch_details.iter() {
+            let line = if second_consecutive {
+                if branch.upstream_commits.is_empty() {
+                    '├'
+                } else {
+                    '╭'
+                }
+            } else {
+                '╭'
+            };
+            second_consecutive = branch.upstream_commits.is_empty();
+            let extra_space = if !branch.upstream_commits.is_empty() {
+                if stacked { "│ " } else { "  " }
+            } else {
+                ""
+            };
             println!(
-                "{}  [{}]",
+                "{}{}{} [{}]",
                 "│ ".repeat(nesting),
-                branch.name.to_string().blue().underline()
+                extra_space,
+                line,
+                branch.name.to_string().green().bold()
             );
             for (j, commit) in branch.upstream_commits.iter().enumerate() {
                 let time_string = chrono::DateTime::from_timestamp_millis(commit.created_at as i64)
@@ -34,21 +53,26 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
                     .format("%Y-%m-%d %H:%M:%S")
                     .to_string();
                 let state_str = "{upstream}";
+                let extra_space = if stacked { "│ " } else { "  " };
                 println!(
-                    "{}  ● {} {} {} {}",
+                    "{}{}● {}{} {} {} {}",
                     "│ ".repeat(nesting),
-                    &commit.id.to_string()[..7].green(),
+                    extra_space,
+                    &commit.id.to_string()[..2].blue().underline(),
+                    &commit.id.to_string()[2..7].blue(),
                     state_str.yellow(),
                     commit.author.name,
-                    time_string
+                    time_string.dimmed(),
                 );
                 println!(
-                    "{}  ┊ {}",
+                    "{}{}┊ {}",
                     "│ ".repeat(nesting),
+                    extra_space,
                     commit.message.to_string().lines().next().unwrap_or("")
                 );
+                let bend = if stacked { "├" } else { "╭" };
                 if j == branch.upstream_commits.len() - 1 {
-                    println!("{}  ┴", "│ ".repeat(nesting));
+                    println!("{}{}─╯", "│ ".repeat(nesting), bend);
                 } else {
                     println!("{}  ┊", "│ ".repeat(nesting));
                 }
@@ -56,7 +80,7 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
             for commit in branch.commits.iter() {
                 let state_str = match commit.state {
                     but_workspace::ui::CommitState::LocalOnly => "{local}".normal(),
-                    but_workspace::ui::CommitState::LocalAndRemote(_) => "{pushed}".blue(),
+                    but_workspace::ui::CommitState::LocalAndRemote(_) => "{pushed}".cyan(),
                     but_workspace::ui::CommitState::Integrated => "{integrated}".purple(),
                 };
                 let conflicted_str = if commit.has_conflicts {
@@ -69,9 +93,10 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
                     .format("%Y-%m-%d %H:%M:%S")
                     .to_string();
                 println!(
-                    "{}● {} {} {} {} {}",
+                    "{}● {}{} {} {} {} {}",
                     "│ ".repeat(nesting),
-                    &commit.id.to_string()[..7].green(),
+                    &commit.id.to_string()[..2].blue().underline(),
+                    &commit.id.to_string()[2..7].blue(),
                     state_str,
                     conflicted_str,
                     commit.author.name,
@@ -89,11 +114,10 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
                 } else {
                     println!("{}│", "│ ".repeat(nesting));
                 }
-            }
-            if !branch.commits.is_empty() {
-                nesting += 1;
+                stacked = true;
             }
         }
+        nesting += 1;
     }
     if nesting > 0 {
         for _ in (0..nesting - 1).rev() {
@@ -117,7 +141,7 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
     Ok(())
 }
 
-pub(crate) fn commit_from_hash(ctx: &CommandContext, hash: &str) -> anyhow::Result<Vec<CliId>> {
+pub(crate) fn all_commits(ctx: &CommandContext) -> anyhow::Result<Vec<CliId>> {
     let stacks = stacks(ctx)?
         .iter()
         .map(|s| stack_details(ctx, s.id))
@@ -127,16 +151,10 @@ pub(crate) fn commit_from_hash(ctx: &CommandContext, hash: &str) -> anyhow::Resu
     for stack in stacks {
         for branch in &stack.branch_details {
             for commit in &branch.upstream_commits {
-                let cli_id = CliId::commit(commit.id);
-                if cli_id.matches(hash) {
-                    matches.push(cli_id);
-                }
+                matches.push(CliId::commit(commit.id));
             }
             for commit in &branch.commits {
-                let cli_id = CliId::commit(commit.id);
-                if cli_id.matches(hash) {
-                    matches.push(cli_id);
-                }
+                matches.push(CliId::commit(commit.id));
             }
         }
     }
