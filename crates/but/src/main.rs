@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{Context, Ok, Result};
 
 mod args;
 use args::{Args, Subcommands, actions};
@@ -35,8 +35,12 @@ async fn main() -> Result<()> {
         Subcommands::Log => log::commit_graph(&args.current_dir, args.json),
         Subcommands::Status => status::worktree(&args.current_dir, args.json),
         Subcommands::Rub { source, target } => {
-            rub::handle(&args.current_dir, args.json, source, target)
-                .context("Rubbed the wrong way.")
+            let result = rub::handle(&args.current_dir, args.json, source, target)
+                .context("Rubbed the wrong way.");
+            if let Err(e) = &result {
+                eprintln!("{} {}", e, e.root_cause());
+            }
+            Ok(())
         }
     }
 }

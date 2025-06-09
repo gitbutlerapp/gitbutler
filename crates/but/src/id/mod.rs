@@ -21,6 +21,14 @@ pub enum CliId {
 }
 
 impl CliId {
+    pub fn kind(&self) -> &'static str {
+        match self {
+            CliId::UncommittedFile { .. } => "an uncommitted file",
+            CliId::Branch { .. } => "a branch",
+            CliId::Commit { .. } => "a commit",
+            CliId::Unassigned => "the unassigned area",
+        }
+    }
     pub fn commit(oid: gix::ObjectId) -> Self {
         CliId::Commit { oid }
     }

@@ -16,6 +16,28 @@ pub struct Args {
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
+    /// Provides an overview of the Workspace commit graph.
+    Log,
+    /// Overview of the oncommitted changes in the repository.
+    Status,
+
+    /// Combines two entities together to perform an operation.
+    #[clap(about = "Combines two entities together to perform an operation.
+Non-exhaustive list of operations 
+      │Source     │Target
+──────┼───────────┼──────
+Amend │File,Branch│Commit
+Squash│Commit     │Commit
+Assign│File,Branch│Branch
+Move  │Commit     │Branch
+
+For examples `but rub --help`.")]
+    Rub {
+        /// The source entity to combine
+        source: String,
+        /// The target entity to combine with the source
+        target: String,
+    },
     /// Starts up the MCP server.
     Mcp {
         /// Starts the internal MCP server which has more granular tools.
@@ -23,14 +45,6 @@ pub enum Subcommands {
     },
     /// GitButler Actions are automated tasks (like macros) that can be peformed on a repository.
     Actions(actions::Platform),
-    /// Provides an overview of the Workspace commit graph.
-    Log,
-    /// Overview of the oncommitted changes in the repository.
-    Status,
-    Rub {
-        source: String,
-        target: String,
-    },
 }
 
 pub mod actions {
