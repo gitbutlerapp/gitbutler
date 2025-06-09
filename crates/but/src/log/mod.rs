@@ -9,6 +9,8 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use std::path::Path;
 
+use crate::id::CliId;
+
 pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::default())?;
@@ -113,6 +115,32 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
     println!("● {} (base)", common_merge_base);
 
     Ok(())
+}
+
+pub(crate) fn commit_from_hash(ctx: &CommandContext, hash: &str) -> anyhow::Result<Vec<CliId>> {
+    let stacks = stacks(ctx)?
+        .iter()
+        .map(|s| stack_details(ctx, s.id))
+        .filter_map(Result::ok)
+        .collect::<Vec<_>>();
+    let mut matches = Vec::new();
+    for stack in stacks {
+        for branch in &stack.branch_details {
+            for commit in &branch.upstream_commits {
+                let cli_id = CliId::commit(commit.id);
+                if cli_id.matches(hash) {
+                    matches.push(cli_id);
+                }
+            }
+            for commit in &branch.commits {
+                let cli_id = CliId::commit(commit.id);
+                if cli_id.matches(hash) {
+                    matches.push(cli_id);
+                }
+            }
+        }
+    }
+    Ok(matches)
 }
 
 pub(crate) fn stacks(ctx: &CommandContext) -> anyhow::Result<Vec<StackEntry>> {

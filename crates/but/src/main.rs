@@ -3,6 +3,7 @@ use anyhow::Result;
 mod args;
 use args::{Args, Subcommands, actions};
 mod command;
+mod id;
 mod log;
 mod mcp;
 mod mcp_internal;
