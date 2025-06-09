@@ -190,15 +190,17 @@
 {/snippet}
 
 <div class="history-view">
-	<div
-		bind:this={sidebarEl}
-		class="history-view__snapshots"
-		style:width="{sidebarWidth.current}rem"
-	>
-		<div class="history-view__snapshots-header">
-			<h3 class="history-view__snapshots-header-title text-15 text-bold">Operations history</h3>
+	<div class="relative overflow-hidden radius-ml">
+		<div
+			bind:this={sidebarEl}
+			class="history-view__snapshots"
+			style:width="{sidebarWidth.current}rem"
+		>
+			<div class="history-view__snapshots-header">
+				<h3 class="history-view__snapshots-header-title text-15 text-bold">Operations history</h3>
+			</div>
+			{@render historyEntries()}
 		</div>
-		{@render historyEntries()}
 
 		<Resizer
 			viewport={sidebarEl}
@@ -269,8 +271,10 @@
 		display: flex;
 		position: relative;
 		flex-direction: column;
+		width: 100%;
 		min-width: 360px;
 		max-width: 620px;
+		height: 100%;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);

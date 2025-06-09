@@ -1,23 +1,27 @@
 import postcssBundler from '@csstools/postcss-bundler';
 import autoprefixer from 'autoprefixer';
-import postcssMinify from 'postcss-minify';
+import cssnano from 'cssnano';
 import postcssNesting from 'postcss-nesting';
 import pxToRem from 'postcss-pxtorem';
 
-export default {
+/** @type {import('postcss').Config} */
+const config = {
 	plugins: [
 		pxToRem({
 			rootValue: 16,
-			unitPrecision: 5,
-			propList: ['*'],
-			selectorBlackList: [],
-			replace: true,
-			mediaQuery: true,
-			minPixelValue: 0
+			mediaQuery: true
 		}),
 		autoprefixer(),
 		postcssNesting(),
-		postcssMinify(),
-		postcssBundler()
+		postcssBundler(),
+		...(process.env.NODE_ENV === 'production'
+			? [
+					cssnano({
+						preset: ['default']
+					})
+				]
+			: [])
 	]
 };
+
+export default config;

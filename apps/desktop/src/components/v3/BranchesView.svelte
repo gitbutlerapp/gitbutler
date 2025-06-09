@@ -257,91 +257,93 @@
 			{/snippet}
 
 			{#snippet middle()}
-				<!-- Apply branch -->
-				{#if !inWorkspaceOrTargetBranch && someBranchSelected}
-					{@const doesNotHaveLocalTooltip = current.hasLocal
-						? undefined
-						: 'No local branch to delete'}
-					{@const doesNotHaveABranchNameTooltip = current.branchName
-						? undefined
-						: 'No branch selected to delete'}
+				<div class="view-wrapper">
+					<!-- Apply branch -->
+					{#if !inWorkspaceOrTargetBranch && someBranchSelected}
+						{@const doesNotHaveLocalTooltip = current.hasLocal
+							? undefined
+							: 'No local branch to delete'}
+						{@const doesNotHaveABranchNameTooltip = current.branchName
+							? undefined
+							: 'No branch selected to delete'}
 
-					<div class="branches-actions">
-						{#if !current.isTarget}
-							<AsyncButton
-								testId={TestId.BranchesViewApplyBranchButton}
-								icon="workbench"
-								action={async () => {
-									await checkoutBranch();
-								}}
-							>
-								Apply to workspace
-							</AsyncButton>
-						{/if}
+						<div class="branches-actions">
+							{#if !current.isTarget}
+								<AsyncButton
+									testId={TestId.BranchesViewApplyBranchButton}
+									icon="workbench"
+									action={async () => {
+										await checkoutBranch();
+									}}
+								>
+									Apply to workspace
+								</AsyncButton>
+							{/if}
 
-						<Button
-							testId={TestId.BranchesViewDeleteLocalBranchButton}
-							kind="outline"
-							icon="bin-small"
-							onclick={() => {
-								if (current.branchName) {
-									handleDeleteLocalBranch(current.branchName);
-								}
-							}}
-							disabled={!current.hasLocal || !current.branchName}
-							tooltip={doesNotHaveLocalTooltip ?? doesNotHaveABranchNameTooltip}
-						>
-							Delete local
-						</Button>
-					</div>
-				{/if}
-
-				<!-- Apply PR (from fork) -->
-				{#if isNonLocalPr && !inWorkspaceOrTargetBranch}
-					<div class="branches-actions">
-						{#if !current.isTarget}
 							<Button
-								testId={TestId.BranchesViewApplyFromForkButton}
-								icon="workbench"
-								onclick={applyFromFork}
+								testId={TestId.BranchesViewDeleteLocalBranchButton}
+								kind="outline"
+								icon="bin-small"
+								onclick={() => {
+									if (current.branchName) {
+										handleDeleteLocalBranch(current.branchName);
+									}
+								}}
+								disabled={!current.hasLocal || !current.branchName}
+								tooltip={doesNotHaveLocalTooltip ?? doesNotHaveABranchNameTooltip}
 							>
-								Apply PR to workspace
+								Delete local
 							</Button>
+						</div>
+					{/if}
+
+					<!-- Apply PR (from fork) -->
+					{#if isNonLocalPr && !inWorkspaceOrTargetBranch}
+						<div class="branches-actions">
+							{#if !current.isTarget}
+								<Button
+									testId={TestId.BranchesViewApplyFromForkButton}
+									icon="workbench"
+									onclick={applyFromFork}
+								>
+									Apply PR to workspace
+								</Button>
+							{/if}
+						</div>
+					{/if}
+
+					<div
+						class={[
+							'branch-commits',
+							isStackOrNormalBranchPreview || isNonLocalPr ? 'dotted-container dotted-pattern' : '',
+							inWorkspaceOrTargetBranch ? 'rounded-container' : ''
+						]}
+					>
+						{#if (current.branchName === undefined && current.prNumber === undefined) || current.branchName === baseBranch.shortName}
+							<TargetCommitList {projectId} />
+						{:else if current.stackId}
+							<BranchesViewStack {projectId} stackId={current.stackId} {onerror} />
+						{:else if current.branchName}
+							<BranchesViewBranch
+								{projectId}
+								branchName={current.branchName}
+								remote={current.remote}
+								{onerror}
+							/>
+						{:else if current.prNumber}
+							<BranchesViewPr
+								bind:this={prBranch}
+								{projectId}
+								prNumber={current.prNumber}
+								{onerror}
+							/>
 						{/if}
 					</div>
-				{/if}
-
-				<div
-					class={[
-						'branch-commits',
-						isStackOrNormalBranchPreview || isNonLocalPr ? 'dotted-container dotted-pattern' : '',
-						inWorkspaceOrTargetBranch ? 'rounded-container' : ''
-					]}
-				>
-					{#if (current.branchName === undefined && current.prNumber === undefined) || current.branchName === baseBranch.shortName}
-						<TargetCommitList {projectId} />
-					{:else if current.stackId}
-						<BranchesViewStack {projectId} stackId={current.stackId} {onerror} />
-					{:else if current.branchName}
-						<BranchesViewBranch
-							{projectId}
-							branchName={current.branchName}
-							remote={current.remote}
-							{onerror}
-						/>
-					{:else if current.prNumber}
-						<BranchesViewPr
-							bind:this={prBranch}
-							{projectId}
-							prNumber={current.prNumber}
-							{onerror}
-						/>
-					{/if}
 				</div>
 			{/snippet}
 
 			{#snippet right()}
-				<div class="right-view">
+				<div class="view-wrapper">
 					{#if !drawerIsFullScreen.current}
 						<SelectionView {projectId} {selectionId} draggableFiles />
 					{/if}
@@ -386,7 +388,7 @@
 </ReduxResult>
 
 <style lang="postcss">
-	.right-view {
+	.view-wrapper {
 		display: flex;
 		flex-direction: column;
 		height: 100%;
@@ -401,7 +403,6 @@
 		flex: 1;
 		flex-direction: column;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
 	}
 
 	.branch-list {
@@ -421,9 +422,7 @@
 		display: flex;
 		padding: 12px;
 		gap: 6px;
-		border: 1px solid var(--clr-border-2);
-		border-bottom: none;
-		border-radius: var(--radius-ml) var(--radius-ml) 0 0;
+		border-bottom: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
 	}
 
