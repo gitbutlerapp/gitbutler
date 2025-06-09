@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Scrollbar from '$components/Scrollbar.svelte';
+	import AsyncRender from '$components/v3/AsyncRender.svelte';
 	import BranchLayoutMode from '$components/v3/BranchLayoutMode.svelte';
 	import BranchList from '$components/v3/BranchList.svelte';
 	import MultiStackCreateNew from '$components/v3/MultiStackCreateNew.svelte';
@@ -118,76 +119,79 @@
 		>
 			{#if stacks.length > 0}
 				{#each stacks as stack, i}
-					<div
-						class="lane"
-						class:multi={$stackLayoutMode === 'multi' || stacks.length < SHOW_PAGINATION_THRESHOLD}
-						class:single={$stackLayoutMode === 'single' &&
-							stacks.length >= SHOW_PAGINATION_THRESHOLD}
-						class:single-fullwidth={$stackLayoutMode === 'single' && stacks.length === 1}
-						class:vertical={$stackLayoutMode === 'vertical'}
-						data-id={stack.id}
-						bind:clientWidth={laneWidths[i]}
-						bind:clientHeight={lineHights[i]}
-						data-testid={TestId.Stack}
-						data-testid-stackid={stack.id}
-						data-testid-stack={stack.heads.at(0)?.name}
-						use:intersectionObserver={{
-							callback: (entry) => {
-								if (entry?.isIntersecting) {
-									visibleIndexes = [...visibleIndexes, i];
-								} else {
-									visibleIndexes = visibleIndexes.filter((index) => index !== i);
+					<AsyncRender>
+						<div
+							class="lane"
+							class:multi={$stackLayoutMode === 'multi' ||
+								stacks.length < SHOW_PAGINATION_THRESHOLD}
+							class:single={$stackLayoutMode === 'single' &&
+								stacks.length >= SHOW_PAGINATION_THRESHOLD}
+							class:single-fullwidth={$stackLayoutMode === 'single' && stacks.length === 1}
+							class:vertical={$stackLayoutMode === 'vertical'}
+							data-id={stack.id}
+							bind:clientWidth={laneWidths[i]}
+							bind:clientHeight={lineHights[i]}
+							data-testid={TestId.Stack}
+							data-testid-stackid={stack.id}
+							data-testid-stack={stack.heads.at(0)?.name}
+							use:intersectionObserver={{
+								callback: (entry) => {
+									if (entry?.isIntersecting) {
+										visibleIndexes = [...visibleIndexes, i];
+									} else {
+										visibleIndexes = visibleIndexes.filter((index) => index !== i);
+									}
+								},
+								options: {
+									threshold: 0.5,
+									root: lanesSrollableEl
 								}
-							},
-							options: {
-								threshold: 0.5,
-								root: lanesSrollableEl
-							}
-						}}
-					>
-						<BranchList
-							isVerticalMode={$stackLayoutMode === 'vertical'}
-							{projectId}
-							stackId={stack.id}
-							{active}
+							}}
 						>
-							{#snippet assignments()}
-								{@const changes = uncommittedService.changesByStackId(stack.id || null)}
-								<div
-									class="assignments"
-									class:assignments__empty={changes.current.length === 0}
-									class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
-								>
-									<WorktreeChanges
-										title="Assigned"
-										{projectId}
-										stackId={stack.id}
-										mode="assigned"
-										active={selectionId.type === 'worktree' && selectionId.stackId === stack.id}
-										onDropzoneActivated={(activated) => {
-											dropzoneActivated = activated;
-										}}
+							<BranchList
+								isVerticalMode={$stackLayoutMode === 'vertical'}
+								{projectId}
+								stackId={stack.id}
+								{active}
+							>
+								{#snippet assignments()}
+									{@const changes = uncommittedService.changesByStackId(stack.id || null)}
+									<div
+										class="assignments"
+										class:assignments__empty={changes.current.length === 0}
+										class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
 									>
-										{#snippet emptyPlaceholder()}
-											<div class="assigned-changes-empty">
-												<div class="assigned-changes-empty__svg-wrapper">
-													<div class="assigned-changes-empty__svg">
-														{@html noAssignmentsSvg}
+										<WorktreeChanges
+											title="Assigned"
+											{projectId}
+											stackId={stack.id}
+											mode="assigned"
+											active={selectionId.type === 'worktree' && selectionId.stackId === stack.id}
+											onDropzoneActivated={(activated) => {
+												dropzoneActivated = activated;
+											}}
+										>
+											{#snippet emptyPlaceholder()}
+												<div class="assigned-changes-empty">
+													<div class="assigned-changes-empty__svg-wrapper">
+														<div class="assigned-changes-empty__svg">
+															{@html noAssignmentsSvg}
+														</div>
 													</div>
+													<p class="text-12 text-body assigned-changes-empty__text">
+														<!-- <h4 class="text-14 text-semibold">Assign changes</h4> -->
+														<!-- <p class="text-12 text-body assigned-changes-empty__description"> -->
+														Drop files to assign to the lane
+													</p>
 												</div>
-												<p class="text-12 text-body assigned-changes-empty__text">
-													<!-- <h4 class="text-14 text-semibold">Assign changes</h4> -->
-													<!-- <p class="text-12 text-body assigned-changes-empty__description"> -->
-													Drop files to assign to the lane
-												</p>
-											</div>
-										{/snippet}
-									</WorktreeChanges>
-								</div>
-								<!-- {/if} -->
-							{/snippet}
-						</BranchList>
-					</div>
+											{/snippet}
+										</WorktreeChanges>
+									</div>
+									<!-- {/if} -->
+								{/snippet}
+							</BranchList>
+						</div>
+					</AsyncRender>
 				{/each}
 
 				<MultiStackOfflaneDropzone

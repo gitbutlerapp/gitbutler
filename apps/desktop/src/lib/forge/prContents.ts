@@ -28,7 +28,7 @@ export class PrPersistedStore {
 
 	subscribe(callback: Subscriber<string>): Unsubscriber {
 		this.subscribers.push(callback);
-		this.dispatch(this.persisted);
+		this.dispatch(!isEmptyOrUndefined(this.persisted) ? this.persisted : this._default);
 
 		return () => {
 			this.subscribers = this.subscribers.filter((cb) => cb !== callback);
