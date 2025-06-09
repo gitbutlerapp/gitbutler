@@ -41,30 +41,38 @@ pub(crate) fn worktree(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
     if groups.is_empty() {
         println!("No uncommitted changes. ¯\\_(ツ)_/¯");
     } else {
-        let unassigned_str = "<UNASSIGNED>".to_string();
         // Iterate over the groups, but always start with the unassigned group
         if let Some(unassigned) = groups.remove(&None) {
-            print_group(&unassigned_str, unassigned, &changes)?;
+            print_group(None, unassigned, &changes)?;
         }
         // Iterate over the remaining groups
         for (stack_id, assignments) in groups {
-            let branch_name = if let Some(stack_id) = stack_id {
-                stack_id_to_branch.get(&stack_id).unwrap_or(&unassigned_str)
-            } else {
-                &unassigned_str
-            };
-            print_group(&format!("[{}]", branch_name), assignments, &changes)?;
+            let group = stack_id
+                .as_ref()
+                .and_then(|id| stack_id_to_branch.get(id))
+                .map(|s| s.as_str());
+            print_group(group, assignments, &changes)?;
         }
     }
     Ok(())
 }
 
 pub fn print_group(
-    group: &str,
+    group: Option<&str>,
     assignments: Vec<HunkAssignment>,
     changes: &[TreeChange],
 ) -> anyhow::Result<()> {
-    let id = CliId::branch(group).to_string().underline().blue();
+    let id = if let Some(group) = group {
+        CliId::branch(group)
+    } else {
+        CliId::unassigned()
+    }
+    .to_string()
+    .underline()
+    .blue();
+    let group = &group
+        .map(|s| format!("[{}]", s))
+        .unwrap_or("<UNASSIGNED>".to_string());
     println!("{}    {}", id, group.green().bold());
     let mut unique_with_count = BTreeMap::new();
     for assignment in assignments {

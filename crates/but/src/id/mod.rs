@@ -17,6 +17,7 @@ pub enum CliId {
     Commit {
         oid: gix::ObjectId,
     },
+    Unassigned,
 }
 
 impl CliId {
@@ -34,6 +35,10 @@ impl CliId {
         }
     }
 
+    pub fn unassigned() -> Self {
+        CliId::Unassigned
+    }
+
     pub fn file_from_assignment(assignment: &HunkAssignment) -> Self {
         CliId::UncommittedFile {
             path: assignment.path.clone(),
@@ -45,6 +50,7 @@ impl CliId {
         match self {
             CliId::UncommittedFile { .. } => CliId::UNCOMMITED_FILE,
             CliId::Branch { .. } => CliId::BRANCH,
+            CliId::Unassigned => CliId::BRANCH,
             CliId::Commit { .. } => CliId::COMMIT,
         }
     }
@@ -62,7 +68,11 @@ impl CliId {
         if s.starts_with(CliId::UNCOMMITED_FILE) {
             crate::status::file_from_hash(ctx, s)
         } else if s.starts_with(CliId::BRANCH) {
-            crate::status::branch_from_hash(ctx, s)
+            if s == "r00" {
+                return Ok(vec![CliId::unassigned()]);
+            } else {
+                crate::status::branch_from_hash(ctx, s)
+            }
         } else {
             crate::log::commit_from_hash(ctx, s)
         }
@@ -82,6 +92,9 @@ impl Display for CliId {
             }
             CliId::Branch { name } => {
                 write!(f, "{}{}", self.prefix(), hash(name))
+            }
+            CliId::Unassigned => {
+                write!(f, "{}00", self.prefix())
             }
             CliId::Commit { oid } => {
                 let oid = oid.to_string();
