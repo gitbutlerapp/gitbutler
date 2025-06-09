@@ -26,7 +26,7 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
             println!(
                 "{}  [{}]",
                 "│ ".repeat(nesting),
-                branch.name.to_string().blue().underline()
+                branch.name.to_string().green()
             );
             for (j, commit) in branch.upstream_commits.iter().enumerate() {
                 let time_string = chrono::DateTime::from_timestamp_millis(commit.created_at as i64)
@@ -35,9 +35,10 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
                     .to_string();
                 let state_str = "{upstream}";
                 println!(
-                    "{}  ● {} {} {} {}",
+                    "{}  ● {}{} {} {} {}",
                     "│ ".repeat(nesting),
-                    &commit.id.to_string()[..7].green(),
+                    &commit.id.to_string()[..3].blue().underline(),
+                    &commit.id.to_string()[3..7].blue(),
                     state_str.yellow(),
                     commit.author.name,
                     time_string
@@ -56,7 +57,7 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
             for commit in branch.commits.iter() {
                 let state_str = match commit.state {
                     but_workspace::ui::CommitState::LocalOnly => "{local}".normal(),
-                    but_workspace::ui::CommitState::LocalAndRemote(_) => "{pushed}".blue(),
+                    but_workspace::ui::CommitState::LocalAndRemote(_) => "{pushed}".cyan(),
                     but_workspace::ui::CommitState::Integrated => "{integrated}".purple(),
                 };
                 let conflicted_str = if commit.has_conflicts {
@@ -69,9 +70,10 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
                     .format("%Y-%m-%d %H:%M:%S")
                     .to_string();
                 println!(
-                    "{}● {} {} {} {} {}",
+                    "{}● {}{} {} {} {} {}",
                     "│ ".repeat(nesting),
-                    &commit.id.to_string()[..7].green(),
+                    &commit.id.to_string()[..3].blue().underline(),
+                    &commit.id.to_string()[3..7].blue(),
                     state_str,
                     conflicted_str,
                     commit.author.name,
