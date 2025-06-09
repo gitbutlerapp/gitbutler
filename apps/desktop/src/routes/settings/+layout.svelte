@@ -42,7 +42,6 @@
 		flex-direction: column;
 		width: 100%;
 		max-width: 640px;
-		min-height: 100vh;
 		margin: 0 auto;
 		padding: 32px 32px 40px;
 		gap: 16px;

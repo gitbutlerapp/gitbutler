@@ -1,4 +1,5 @@
 import autoprefixer from 'autoprefixer';
+import cssnano from 'cssnano';
 import postcssNesting from 'postcss-nesting';
 import pxToRem from 'postcss-pxtorem';
 
@@ -7,13 +8,15 @@ export default {
 		autoprefixer(),
 		pxToRem({
 			rootValue: 16,
-			unitPrecision: 5,
-			propList: ['*'],
-			selectorBlackList: [],
-			replace: true,
-			mediaQuery: true,
-			minPixelValue: 0
+			mediaQuery: true
 		}),
-		postcssNesting()
+		postcssNesting(),
+		...(process.env.NODE_ENV === 'production'
+			? [
+					cssnano({
+						preset: ['default']
+					})
+				]
+			: [])
 	]
 };
