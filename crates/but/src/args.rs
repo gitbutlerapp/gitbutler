@@ -27,6 +27,10 @@ pub enum Subcommands {
     Log,
     /// Overview of the oncommitted changes in the repository.
     Status,
+    Rub {
+        source: String,
+        target: String,
+    },
 }
 
 pub mod actions {
