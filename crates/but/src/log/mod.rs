@@ -93,14 +93,16 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
             }
         }
     }
-    for _ in (0..nesting - 1).rev() {
-        if nesting == 1 {
-            println!("└─╯");
-        } else {
-            let prefix = "│ ".repeat(nesting - 2);
-            println!("{}├─╯", prefix);
+    if nesting > 0 {
+        for _ in (0..nesting - 1).rev() {
+            if nesting == 1 {
+                println!("└─╯");
+            } else {
+                let prefix = "│ ".repeat(nesting - 2);
+                println!("{}├─╯", prefix);
+            }
+            nesting -= 1;
         }
-        nesting -= 1;
     }
 
     let common_merge_base = gitbutler_stack::VirtualBranchesHandle::new(ctx.project().gb_dir())
