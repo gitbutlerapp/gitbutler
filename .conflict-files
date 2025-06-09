@@ -1,3 +1,0 @@
-ancestorEntries = ["apps/desktop/src/lib/selection/entityAdapters.ts", "apps/desktop/src/lib/selection/uncommitted.ts"]
-ourEntries = ["apps/desktop/src/lib/selection/entityAdapters.ts", "apps/desktop/src/lib/selection/uncommitted.ts"]
-theirEntries = ["apps/desktop/src/lib/selection/entityAdapters.ts", "apps/desktop/src/lib/selection/uncommitted.ts"]
