@@ -37,8 +37,8 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
                 println!(
                     "{}  ● {}{} {} {} {}",
                     "│ ".repeat(nesting),
-                    &commit.id.to_string()[..3].blue().underline(),
-                    &commit.id.to_string()[3..7].blue(),
+                    &commit.id.to_string()[..2].blue().underline(),
+                    &commit.id.to_string()[2..7].blue(),
                     state_str.yellow(),
                     commit.author.name,
                     time_string
@@ -72,8 +72,8 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
                 println!(
                     "{}● {}{} {} {} {} {}",
                     "│ ".repeat(nesting),
-                    &commit.id.to_string()[..3].blue().underline(),
-                    &commit.id.to_string()[3..7].blue(),
+                    &commit.id.to_string()[..2].blue().underline(),
+                    &commit.id.to_string()[2..7].blue(),
                     state_str,
                     conflicted_str,
                     commit.author.name,
@@ -119,7 +119,7 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
     Ok(())
 }
 
-pub(crate) fn commit_from_hash(ctx: &CommandContext, hash: &str) -> anyhow::Result<Vec<CliId>> {
+pub(crate) fn all_commits(ctx: &CommandContext) -> anyhow::Result<Vec<CliId>> {
     let stacks = stacks(ctx)?
         .iter()
         .map(|s| stack_details(ctx, s.id))
@@ -129,16 +129,10 @@ pub(crate) fn commit_from_hash(ctx: &CommandContext, hash: &str) -> anyhow::Resu
     for stack in stacks {
         for branch in &stack.branch_details {
             for commit in &branch.upstream_commits {
-                let cli_id = CliId::commit(commit.id);
-                if cli_id.matches(hash) {
-                    matches.push(cli_id);
-                }
+                matches.push(CliId::commit(commit.id));
             }
             for commit in &branch.commits {
-                let cli_id = CliId::commit(commit.id);
-                if cli_id.matches(hash) {
-                    matches.push(cli_id);
-                }
+                matches.push(CliId::commit(commit.id));
             }
         }
     }
