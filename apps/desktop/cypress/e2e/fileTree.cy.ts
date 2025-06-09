@@ -14,7 +14,7 @@ describe('File Tree - multiple file changes', () => {
 
 		cy.visit('/');
 
-		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace`);
+		cy.urlMatches(`/${PROJECT_ID}/workspace`);
 	});
 
 	afterEach(() => {
@@ -55,7 +55,7 @@ describe('File Tree - some file changes', () => {
 
 		cy.visit('/');
 
-		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace`);
+		cy.urlMatches(`/${PROJECT_ID}/workspace`);
 	});
 
 	afterEach(() => {

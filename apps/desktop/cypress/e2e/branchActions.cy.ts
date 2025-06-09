@@ -19,7 +19,7 @@ describe('Branch Actions', () => {
 
 		cy.visit('/');
 
-		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace`);
+		cy.urlMatches(`/${PROJECT_ID}/workspace`);
 	});
 
 	afterEach(() => {

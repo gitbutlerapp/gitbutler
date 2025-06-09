@@ -52,13 +52,13 @@ describe('Branches', () => {
 
 		cy.visit('/');
 
-		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace`);
+		cy.urlMatches(`/${PROJECT_ID}/workspace`);
 
 		// Click on the branches button
 		cy.getByTestId('navigation-branches-button').should('be.visible').should('be.enabled').click();
 
 		// Be able to see the branches page
-		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/branches`);
+		cy.urlMatches(`/${PROJECT_ID}/branches`);
 	});
 
 	afterEach(() => {
@@ -108,7 +108,7 @@ describe('Branches', () => {
 		cy.getByTestId('branches-view-apply-branch-button').click();
 
 		// The workspace should be displayed
-		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace`);
+		cy.urlMatches(`/${PROJECT_ID}/workspace`);
 	});
 
 	it('should be able to delete a local branch', () => {
@@ -208,6 +208,6 @@ describe('Branches', () => {
 			.click();
 
 		// Should have navigation to the workspace
-		cy.url({ timeout: 3000 }).should('include', `/${PROJECT_ID}/workspace`);
+		cy.urlMatches(`/${PROJECT_ID}/workspace`);
 	});
 });
