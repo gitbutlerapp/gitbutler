@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AsyncRender from '$components/v3/AsyncRender.svelte';
 	import Self from '$components/v3/FileTreeNode.svelte';
 	import TreeListFolder from '$components/v3/TreeListFolder.svelte';
 	import { TestId } from '$lib/testing/testIds';
@@ -55,15 +56,17 @@
 	/>
 
 	{#if isExpanded}
-		{#each node.children as childNode (childNode.name)}
-			<Self
-				{stackId}
-				depth={depth + 1}
-				node={childNode}
-				{showCheckboxes}
-				{changes}
-				{fileTemplate}
-			/>
-		{/each}
+		<AsyncRender>
+			{#each node.children as childNode (childNode.name)}
+				<Self
+					{stackId}
+					depth={depth + 1}
+					node={childNode}
+					{showCheckboxes}
+					{changes}
+					{fileTemplate}
+				/>
+			{/each}
+		</AsyncRender>
 	{/if}
 {/if}

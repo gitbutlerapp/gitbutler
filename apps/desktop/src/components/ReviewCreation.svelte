@@ -11,6 +11,7 @@
 
 <script lang="ts">
 	import PrTemplateSection from '$components/PrTemplateSection.svelte';
+	import AsyncRender from '$components/v3/AsyncRender.svelte';
 	import MessageEditor from '$components/v3/editor/MessageEditor.svelte';
 	import { AIService } from '$lib/ai/service';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
@@ -444,83 +445,91 @@
 		}}
 	/>
 
-	<MessageEditor
-		bind:this={messageEditor}
-		testId={TestId.ReviewDescriptionInput}
-		{projectId}
-		disabled={isExecuting}
-		initialValue={$prBody}
-		enableFileUpload
-		placeholder="PR Description"
-		{onAiButtonClick}
-		{canUseAI}
-		{aiIsLoading}
-		onChange={(text: string) => {
-			prBody.set(text);
-		}}
-		onKeyDown={(e: KeyboardEvent) => {
-			if (e.key === 'Tab' && e.shiftKey) {
-				e.preventDefault();
-				titleInput?.focus();
-				return true;
-			}
+	<AsyncRender>
+		<MessageEditor
+			bind:this={messageEditor}
+			testId={TestId.ReviewDescriptionInput}
+			{projectId}
+			disabled={isExecuting}
+			initialValue={$prBody}
+			enableFileUpload
+			placeholder="PR Description"
+			{onAiButtonClick}
+			{canUseAI}
+			{aiIsLoading}
+			onChange={(text: string) => {
+				prBody.set(text);
+			}}
+			onKeyDown={(e: KeyboardEvent) => {
+				if (e.key === 'Tab' && e.shiftKey) {
+					e.preventDefault();
+					titleInput?.focus();
+					return true;
+				}
 
-			if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-				e.preventDefault();
-				createReview();
-				return true;
-			}
+				if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+					e.preventDefault();
+					createReview();
+					return true;
+				}
 
-			return false;
-		}}
-	/>
+				return false;
+			}}
+		/>
+	</AsyncRender>
 
 	{#if canPublishBR && canPublishPR}
-		<div class="options text-13">
-			<label for="create-br" class="option-card">
-				<div class="option-card-header" class:selected={$createButlerRequest}>
-					<div class="option-card-header-content">
-						<div class="option-card-header-title text-semibold">
-							<Icon name="bowtie" />
-							Create Butler Request
+		<AsyncRender>
+			<div class="options text-13">
+				<label for="create-br" class="option-card">
+					<div class="option-card-header" class:selected={$createButlerRequest}>
+						<div class="option-card-header-content">
+							<div class="option-card-header-title text-semibold">
+								<Icon name="bowtie" />
+								Create Butler Request
+							</div>
+							<span class="options__learn-more">
+								<Link href="https://docs.gitbutler.com/review/overview">Learn more</Link>
+							</span>
 						</div>
-						<span class="options__learn-more">
-							<Link href="https://docs.gitbutler.com/review/overview">Learn more</Link>
-						</span>
+						<div class="option-card-header-action">
+							<Checkbox
+								disabled={isExecuting}
+								name="create-br"
+								bind:checked={$createButlerRequest}
+							/>
+						</div>
 					</div>
-					<div class="option-card-header-action">
-						<Checkbox disabled={isExecuting} name="create-br" bind:checked={$createButlerRequest} />
-					</div>
+				</label>
+
+				<div class="option-card">
+					<label
+						for="create-pr"
+						class="option-card-header has-settings"
+						class:selected={$createPullRequest}
+					>
+						<div class="option-card-header-content">
+							<div class="option-card-header-title text-semibold">
+								<Icon name="github" />
+								Create Pull Request
+							</div>
+						</div>
+
+						<div class="option-card-header-action">
+							<Checkbox name="create-pr" bind:checked={$createPullRequest} />
+						</div>
+					</label>
+					<label
+						for="create-pr-draft"
+						class="option-subcard-drafty"
+						class:disabled={!$createPullRequest}
+					>
+						<span class="text-semibold">PR Draft</span>
+						<Toggle disabled={isExecuting} id="create-pr-draft" bind:checked={$createDraft} />
+					</label>
 				</div>
-			</label>
-
-			<div class="option-card">
-				<label
-					for="create-pr"
-					class="option-card-header has-settings"
-					class:selected={$createPullRequest}
-				>
-					<div class="option-card-header-content">
-						<div class="option-card-header-title text-semibold">
-							<Icon name="github" />
-							Create Pull Request
-						</div>
-					</div>
-
-					<div class="option-card-header-action">
-						<Checkbox name="create-pr" bind:checked={$createPullRequest} />
-					</div>
-				</label>
-				<label
-					for="create-pr-draft"
-					class="option-subcard-drafty"
-					class:disabled={!$createPullRequest}
-				>
-					<span class="text-semibold">PR Draft</span>
-					<Toggle disabled={isExecuting} id="create-pr-draft" bind:checked={$createDraft} />
-				</label>
 			</div>
-		</div>
+		</AsyncRender>
 	{/if}
 </div>
 

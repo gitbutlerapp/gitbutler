@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ReviewCreation from '$components/ReviewCreation.svelte';
 	import ReviewCreationControls from '$components/ReviewCreationControls.svelte';
+	import AsyncRender from '$components/v3/AsyncRender.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
@@ -68,18 +69,25 @@
 	minHeight={20}
 >
 	<div class="submit-review__container">
-		<ReviewCreation bind:this={reviewCreation} {projectId} {stackId} {branchName} onClose={close} />
-
-		<ReviewCreationControls
-			isSubmitting={!!reviewCreation?.imports.isLoading}
-			{ctaDisabled}
-			{canPublishBR}
-			{canPublishPR}
-			onCancel={close}
-			onSubmit={async () => {
-				await reviewCreation?.createReview();
-			}}
-		/>
+		<AsyncRender>
+			<ReviewCreation
+				bind:this={reviewCreation}
+				{projectId}
+				{stackId}
+				{branchName}
+				onClose={close}
+			/>
+			<ReviewCreationControls
+				isSubmitting={!!reviewCreation?.imports.isLoading}
+				{ctaDisabled}
+				{canPublishBR}
+				{canPublishPR}
+				onCancel={close}
+				onSubmit={async () => {
+					await reviewCreation?.createReview();
+				}}
+			/>
+		</AsyncRender>
 	</div>
 </Drawer>
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AsyncRender from '$components/v3/AsyncRender.svelte';
 	import CommitMessageEditor from '$components/v3/CommitMessageEditor.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
@@ -219,17 +220,19 @@
 	disableScroll
 	minHeight={20}
 >
-	<CommitMessageEditor
-		bind:this={input}
-		{projectId}
-		stackId={sourceStackId}
-		actionLabel="Create commit"
-		action={({ title, description }) => handleCommitCreation(title, description)}
-		onChange={({ title, description }) => handleMessageUpdate(title, description)}
-		onCancel={cancel}
-		disabledAction={!canCommit}
-		loading={commitCreation.current.isLoading || newStackResult.current.isLoading}
-		title={projectState.commitTitle.current}
-		description={projectState.commitDescription.current}
-	/>
+	<AsyncRender>
+		<CommitMessageEditor
+			bind:this={input}
+			{projectId}
+			stackId={sourceStackId}
+			actionLabel="Create commit"
+			action={({ title, description }) => handleCommitCreation(title, description)}
+			onChange={({ title, description }) => handleMessageUpdate(title, description)}
+			onCancel={cancel}
+			disabledAction={!canCommit}
+			loading={commitCreation.current.isLoading || newStackResult.current.isLoading}
+			title={projectState.commitTitle.current}
+			description={projectState.commitDescription.current}
+		/>
+	</AsyncRender>
 </Drawer>
