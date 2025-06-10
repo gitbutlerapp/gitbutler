@@ -60,11 +60,10 @@
 	const stackSelection = $derived(stackState?.selection);
 
 	const suggestionsHandler = new CommitSuggestions(aiService, uiState);
-	const selectedChanges = $derived(uncommittedService.selectedChanges(stackId));
 	const diffInputArgs = $derived<DiffInputContextArgs>(
 		existingCommitId
 			? { type: 'commit', projectId, commitId: existingCommitId }
-			: { type: 'change-selection', projectId, selectedChanges: selectedChanges.current }
+			: { type: 'change-selection', projectId, uncommittedService }
 	);
 	const diffInputContext = $derived(
 		new DiffInputContext(worktreeService, diffService, stackService, diffInputArgs)

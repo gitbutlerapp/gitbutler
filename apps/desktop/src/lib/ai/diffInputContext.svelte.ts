@@ -3,6 +3,7 @@ import type { DiffInput } from '$lib/ai/service';
 import type { TreeChange } from '$lib/hunks/change';
 import type { ChangeDiff, DiffService } from '$lib/hunks/diffService.svelte';
 import type { SelectedFile } from '$lib/selection/key';
+import type { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 import type { StackService } from '$lib/stacks/stackService.svelte';
 import type { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 
@@ -26,9 +27,9 @@ interface CommitDiffInputContextArgs extends BaseDiffInputContextArgs {
 interface HunkSelectionDiffInputContextArgs extends BaseDiffInputContextArgs {
 	type: 'change-selection';
 	/**
-	 * The selected files to fetch the diff for.
+	 * The uncommitted changes service to select the changes from.
 	 */
-	selectedChanges: TreeChange[];
+	uncommittedService: UncommittedService;
 }
 
 interface SelectionDiffInputContextArgs extends BaseDiffInputContextArgs {
@@ -67,7 +68,7 @@ export default class DiffInputContext {
 			}
 
 			case 'change-selection': {
-				return this.args.selectedChanges;
+				return await this.args.uncommittedService.selectedChanges();
 			}
 
 			case 'file-selection': {
