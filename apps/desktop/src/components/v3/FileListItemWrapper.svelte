@@ -179,8 +179,11 @@
 
 <style lang="postcss">
 	.filelistitem-wrapper {
-		display: flex;
-		flex-direction: column;
+		/* We have two nested divs for one file, but a block within a block
+		   seems fine. It seems we cannot have them both be flex boxes, it
+		   makes any :hover css trigger excessive layout passes, thus making
+		   the interface super slow. */
+		display: block;
 	}
 	.filelistitem-header {
 		z-index: var(--z-lifted);
