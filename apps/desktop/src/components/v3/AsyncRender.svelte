@@ -17,7 +17,9 @@ hundred milliseconds for e.g. the workspace to appear.
 	function processNext() {
 		if (queue.length > 0) {
 			busy = true;
-			queue.shift()?.();
+			for (const fn of queue.splice(0)) {
+				fn();
+			}
 			requestAnimationFrame(processNext);
 		} else {
 			busy = false;
@@ -31,7 +33,6 @@ hundred milliseconds for e.g. the workspace to appear.
 
 	const { children }: { children: Snippet } = $props();
 	let mounted = $state(false);
-
 	onMount(() => {
 		enqueue(() => {
 			mounted = true;
