@@ -143,11 +143,23 @@ export class UncommittedService {
 		return worktreeChanges;
 	}
 
-	selectedChanges(stackId?: string) {
-		const result = $derived(
-			uncommittedSelectors.treeChanges.selectedByStackId(this.state, stackId || null)
+	async selectedChanges(stackId?: string): Promise<TreeChange[]> {
+		const state = structuredClone(this.state);
+
+		const key = partialKey(stackId ?? null);
+		const selection = uncommittedSelectors.hunkSelection.selectByPrefix(state.hunkSelection, key);
+
+		const pathSet = new Set<string>();
+		for (const item of selection) {
+			pathSet.add(item.path);
+		}
+
+		const changes = uncommittedSelectors.treeChanges.selectByIds(
+			state.treeChanges,
+			Array.from(pathSet)
 		);
-		return reactive(() => result);
+
+		return changes;
 	}
 
 	/**
