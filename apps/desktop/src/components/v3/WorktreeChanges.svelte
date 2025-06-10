@@ -228,10 +228,7 @@
 	}
 
 	.uncommitted-changes {
-		display: flex;
-		flex: 1;
-		flex-direction: column;
-		width: 100%;
+		display: block;
 	}
 
 	.start-commit {
