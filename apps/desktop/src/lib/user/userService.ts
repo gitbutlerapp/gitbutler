@@ -13,7 +13,9 @@ import type { TokenMemoryService } from '$lib/stores/tokenMemoryService';
 import type { ApiUser } from '@gitbutler/shared/users/types';
 
 export type LoginToken = {
+	/** Used for polling the user; should NEVER be sent to the browser. */
 	token: string;
+	browser_token: string;
 	expires: string;
 	url: string;
 };
