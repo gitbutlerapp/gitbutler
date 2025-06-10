@@ -7,7 +7,11 @@ import {
 	partialKey,
 	prefixKey
 } from '$lib/selection/entityAdapters';
-import { createSelectByPrefix, createSelectNotIn } from '$lib/state/customSelectors';
+import {
+	createSelectByIds,
+	createSelectByPrefix,
+	createSelectNotIn
+} from '$lib/state/customSelectors';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { createSelector, createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { TreeChange } from '$lib/hunks/change';
@@ -304,7 +308,9 @@ const selectByStackId = createSelector(
 const selectedByStackId = createSelector(
 	[selectHunkSelection, selectByStackId, (_: AssignmentState, stackId: string | null) => stackId],
 	(selections, changes, stackId) =>
-		changes.filter((change) => `${stackId}::${change.path}` in selections)
+		changes.filter((change) =>
+			selections.ids.some((id) => id.startsWith(prefixKey(stackId, change.path)))
+		)
 );
 
 /** Selects the tree change for a specific path. */
@@ -412,6 +418,7 @@ const stackCheckStatus = createSelector(
 export const uncommittedSelectors = {
 	treeChanges: {
 		...treeChangeAdapter.getSelectors(),
+		selectByIds: createSelectByIds<TreeChange>(),
 		selectByPath,
 		selectByStackId,
 		selectedByStackId
