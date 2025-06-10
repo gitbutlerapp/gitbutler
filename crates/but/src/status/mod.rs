@@ -96,7 +96,25 @@ pub fn print_group(
             .to_string()
             .underline()
             .blue();
-        println!("{} ({}) {}", id, count, path);
+        let mut locks = if let Some(locks) = a.hunk_locks {
+            locks
+                .iter()
+                .map(|l| {
+                    format!(
+                        "{}{}",
+                        l.commit_id.to_string()[..2].blue().underline(),
+                        l.commit_id.to_string()[2..7].blue()
+                    )
+                })
+                .collect()
+        } else {
+            vec![]
+        }
+        .join(", ");
+        if !locks.is_empty() {
+            locks = format!("🔒 {}", locks);
+        }
+        println!("{} ({}) {} {}", id, count, path, locks);
     }
     println!();
     Ok(())
