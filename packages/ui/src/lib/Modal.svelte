@@ -112,7 +112,7 @@
 		use:portal={'body'}
 		class="modal-container {isClosing ? 'closing' : 'open'}"
 		class:open
-		onclick={(e) => {
+		onmousedown={(e) => {
 			e.stopPropagation();
 
 			if (preventCloseOnClickOutside) return;
