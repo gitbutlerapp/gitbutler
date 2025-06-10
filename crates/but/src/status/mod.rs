@@ -28,14 +28,14 @@ pub(crate) fn worktree(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
     let (assignments, _assignments_error) =
         but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()))?;
 
-    // Group the assignments by branch
-    let mut groups = std::collections::HashMap::new();
+    let mut groups: BTreeMap<Option<but_workspace::StackId>, Vec<HunkAssignment>> =
+        stack_id_to_branch
+            .keys()
+            .map(|&k| (Some(k), Vec::new()))
+            .collect();
     for assignment in assignments {
         let stack_id = assignment.stack_id;
-        groups
-            .entry(stack_id)
-            .or_insert_with(Vec::new)
-            .push(assignment);
+        groups.entry(stack_id).or_default().push(assignment);
     }
 
     if groups.is_empty() {
