@@ -12,6 +12,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
 	CallToolRequestSchema,
 	GetPromptRequestSchema,
+	ListPromptsRequestSchema,
 	ListToolsRequestSchema
 } from '@modelcontextprotocol/sdk/types.js';
 import fetch from 'node-fetch';
@@ -27,9 +28,12 @@ const server = new Server(
 		version: VERSION
 	},
 	{
+		instructions: `This is the GitButler MCP server.
+It provides tools for managing Git repositories, including commit, branch, status, and patch stack management.
+You can use the tools to interact with your Git repositories.`,
 		capabilities: {
-			tools: {},
-			prompts: {}
+			tools: { listChanged: true },
+			prompts: { listChanged: true }
 		}
 	}
 );
@@ -45,6 +49,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 			...commit.getCommitToolListing(),
 			...branch.getBranchToolListing()
 		],
+		prompts: [...commit.getCommitToolPrompts()]
+	};
+});
+
+server.setRequestHandler(ListPromptsRequestSchema, async () => {
+	return {
 		prompts: [...commit.getCommitToolPrompts()]
 	};
 });
