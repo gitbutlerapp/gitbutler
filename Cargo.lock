@@ -718,6 +718,7 @@ dependencies = [
  "chrono",
  "clap",
  "colored",
+ "dirs-next",
  "gitbutler-command-context",
  "gitbutler-project",
  "gitbutler-stack",
@@ -726,6 +727,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

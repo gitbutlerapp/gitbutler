@@ -41,6 +41,7 @@ For examples `but rub --help`.")]
     /// Starts up the MCP server.
     Mcp {
         /// Starts the internal MCP server which has more granular tools.
+        #[clap(long, short = 'i')]
         internal: bool,
     },
     /// GitButler Actions are automated tasks (like macros) that can be peformed on a repository.
