@@ -5,6 +5,7 @@ use rmcp::{
     schemars, tool,
 };
 
+pub mod commit;
 pub mod project;
 pub mod status;
 
@@ -12,7 +13,8 @@ pub(crate) const UI_CONTEXT_LINES: u32 = 3;
 
 pub(crate) async fn start() -> Result<()> {
     let transport = (tokio::io::stdin(), tokio::io::stdout());
-    let service = Mcp::new().serve(transport).await?;
+    let server = Mcp::new();
+    let service = server.serve(transport).await?;
     service.waiting().await?;
     Ok(())
 }
@@ -41,6 +43,28 @@ impl Mcp {
             status,
         )?]))
     }
+
+    #[tool(
+        description = "Commit changes to the repository. Applies the given diff spec and creates a commit with the provided message."
+    )]
+    pub fn commit(
+        &self,
+        #[tool(aggr)] params: CommitParams,
+    ) -> Result<CallToolResult, rmcp::Error> {
+        let project_path = std::path::PathBuf::from(&params.current_working_directory);
+        let outcome = crate::mcp_internal::commit::commit(
+            &project_path,
+            params.message,
+            params.diff_spec,
+            params.parent_id,
+            params.branch_name,
+        )
+        .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?;
+
+        Ok(CallToolResult::success(vec![rmcp::model::Content::json(
+            outcome,
+        )?]))
+    }
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -50,6 +74,29 @@ pub struct ProjectStatusParams {
         description = "The full root path of the Git project the agent is actively working in"
     )]
     pub current_working_directory: String,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitParams {
+    #[schemars(description = "The full root path of the Git project to commit in")]
+    pub current_working_directory: String,
+
+    #[schemars(description = "The commit message")]
+    pub message: String,
+
+    #[schemars(
+        description = "The list of files paths (and optionally their previous paths) to commit. If the previous path is provided, it indicates a rename operation."
+    )]
+    pub diff_spec: Vec<crate::mcp_internal::commit::DiffSpec>,
+
+    #[schemars(
+        description = "Optional parent commit id. If provided, the commit will be created as a child of this commit. Otherwise, it will be created on top of the specified branch."
+    )]
+    pub parent_id: Option<String>,
+
+    #[schemars(description = "The branch name to commit to")]
+    pub branch_name: String,
 }
 
 #[tool(tool_box)]
