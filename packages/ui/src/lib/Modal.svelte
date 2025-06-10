@@ -227,8 +227,6 @@
 
 	.modal__footer {
 		display: flex;
-		position: sticky;
-		bottom: 0;
 		justify-content: flex-end;
 		width: 100%;
 		padding: 16px;
