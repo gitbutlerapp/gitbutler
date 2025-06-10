@@ -33,6 +33,7 @@ pub(crate) fn worktree(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
             .keys()
             .map(|&k| (Some(k), Vec::new()))
             .collect();
+    groups.insert(None, Vec::new());
     for assignment in assignments {
         let stack_id = assignment.stack_id;
         groups.entry(stack_id).or_default().push(assignment);
