@@ -230,18 +230,16 @@
 
 <Composer {initialConfig} bind:this={composer}>
 	<div
-		class="lexical-container lexical-{styleContext}"
+		class="lexical-container lexical-{styleContext} scrollbar"
 		bind:this={editorDiv}
 		class:plain-text={!markdown}
 		class:disabled={isDisabled}
 	>
-		<div class="editor-scroller scrollbar">
-			<div class="editor">
-				<ContentEditable />
-				{#if placeholder}
-					<PlaceHolder>{placeholder}</PlaceHolder>
-				{/if}
-			</div>
+		<div class="editor">
+			<ContentEditable />
+			{#if placeholder}
+				<PlaceHolder>{placeholder}</PlaceHolder>
+			{/if}
 		</div>
 
 		<EmojiPlugin bind:this={emojiPlugin} />
@@ -281,8 +279,10 @@
 <style lang="postcss">
 	.lexical-container {
 		display: block;
+		z-index: 0;
 		position: relative;
 		flex-grow: 1;
+		overflow: auto;
 		background-color: var(--clr-bg-1);
 	}
 
