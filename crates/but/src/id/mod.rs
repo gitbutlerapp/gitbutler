@@ -110,7 +110,7 @@ impl Display for CliId {
     }
 }
 
-fn hash(input: &str) -> String {
+pub(crate) fn hash(input: &str) -> String {
     let mut hash = 0u64;
     for byte in input.bytes() {
         hash = hash.wrapping_mul(31).wrapping_add(byte as u64);
