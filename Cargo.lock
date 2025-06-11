@@ -763,6 +763,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-agent"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "toml",
+ "uuid",
+]
+
+[[package]]
 name = "but-core"
 version = "0.0.0"
 dependencies = [
@@ -785,12 +797,14 @@ name = "but-db"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-agent",
  "chrono",
  "diesel",
  "diesel_migrations",
  "libsqlite3-sys",
  "serde",
  "tempfile",
+ "uuid",
 ]
 
 [[package]]
@@ -3256,7 +3270,9 @@ dependencies = [
  "anyhow",
  "backtrace",
  "but-action",
+ "but-agent",
  "but-core",
+ "but-db",
  "but-graph",
  "but-hunk-assignment",
  "but-hunk-dependency",
@@ -7536,6 +7552,7 @@ dependencies = [
  "cookie",
  "cookie_store",
  "encoding_rs",
+ "futures-channel",
  "futures-core",
  "futures-util",
  "h2",

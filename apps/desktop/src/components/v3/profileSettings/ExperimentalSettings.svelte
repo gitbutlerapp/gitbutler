@@ -1,10 +1,12 @@
 <script lang="ts">
 	import Section from '$components/Section.svelte';
+	import AIOpenRouterToken from '$components/ai2/AIOpenRouterToken.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import {
 		assignmentEnabled,
 		confettiEnabled,
 		workspaceSwapPanels,
+		experimentalAgent,
 		ircEnabled,
 		ircServer
 	} from '$lib/config/uiFeatureFlags';
@@ -205,6 +207,24 @@
 				/>
 			{/snippet}
 		</SectionCard>
+		<SectionCard labelFor="agent" roundedTop={false} roundedBottom={false} orientation="row">
+			{#snippet title()}
+				AI Agent
+			{/snippet}
+			{#snippet caption()}
+				Enable experimental AI agent features.
+			{/snippet}
+			{#snippet actions()}
+				<Toggle
+					id="agent"
+					checked={$experimentalAgent}
+					onclick={() => ($experimentalAgent = !$experimentalAgent)}
+				/>
+			{/snippet}
+		</SectionCard>
+		{#if $experimentalAgent}
+			<AIOpenRouterToken />
+		{/if}
 		<SectionCard labelFor="irc" roundedTop={false} roundedBottom={!$ircEnabled} orientation="row">
 			{#snippet title()}
 				IRC

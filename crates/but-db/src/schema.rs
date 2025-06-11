@@ -22,3 +22,25 @@ diesel::table! {
         error -> Nullable<Text>,
     }
 }
+
+diesel::table! {
+    ai_conversations (id) {
+        id -> Text,
+        name -> Text,
+    }
+}
+
+diesel::table! {
+    ai_messages (id) {
+        id -> Text,
+        conversation_id -> Text,
+        role -> Text,
+        content -> Text,
+        tool_call_id -> Nullable<Text>,
+        order -> Integer,
+    }
+}
+
+diesel::joinable!(ai_messages -> ai_conversations (conversation_id));
+
+diesel::allow_tables_to_appear_in_same_query!(ai_conversations, ai_messages,);
