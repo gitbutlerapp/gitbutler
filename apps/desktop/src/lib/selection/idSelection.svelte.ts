@@ -20,7 +20,12 @@ export class IdSelection {
 		string,
 		{
 			/** This property supports range selection. */
-			lastAdded?: number;
+			lastAdded?: {
+				/** The index of the file in a sorted list of files. */
+				index: number;
+				/** The key of the file in the selection. */
+				key: SelectedFileKey;
+			};
 			entries: SvelteSet<SelectedFileKey>;
 		}
 	>;
@@ -54,14 +59,18 @@ export class IdSelection {
 	add(path: string, id: SelectionId, index: number) {
 		const selectedKey = key({ ...id, path });
 		const selection = this.getById(id);
-		selection.lastAdded = index;
+		selection.lastAdded = { index, key: selectedKey };
 		selection.entries.add(selectedKey);
 	}
 
-	addMany(paths: string[], id: SelectionId, index: number) {
+	addMany(paths: string[], id: SelectionId, last: { path: string; index: number }) {
 		for (const path of paths) {
-			this.add(path, id, index);
+			this.add(path, id, last.index);
 		}
+
+		const selectedKey = key({ ...id, path: last.path });
+		const selection = this.getById(id);
+		selection.lastAdded = { index: last.index, key: selectedKey };
 	}
 
 	has(path: string, id: SelectionId) {
