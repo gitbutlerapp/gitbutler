@@ -245,8 +245,9 @@ impl ServerHandler for Mcp {
             "handle_changes" => {
                 let prompt  = "Handle the file changes following the steps below:
 1. Take a look at the **project status**. Understand the branches applied (if any), the uncommitted file changes and the files assigned to them.
-2. Determine which file changes belong to which branch. Do this by looking at the file changes and the branch names and descriptions. If no branch matches the changes create a new branch with a descriptive name and a detailed description.
-3. Determine which file changes should be committed together. Try to be granular and commit only the changes that are related to each other.
+2. Determine which file changes should be committed together. Try to be granular and commit only the changes that are related to each other.
+3. Determine which file changes belong to which branch. Do this by looking at the file changes and the branch names and descriptions. If no branch matches the changes create a new branch with a descriptive name and a detailed description.
+4. Determine if some changes should be **amended** to an existing commit. Do this by looking a the **branch details** and its commits. If so, use the amend tool to update the commit with the new changes. Otherwise, use the commit tool to create a new commit with the changes.
 4. Be descriptive in your commit messages. Explain what the changes are, not why.
 5. If you are not sure about the changes, ask for clarification. Otherwise, proceed with committing the changes.
                 ";
