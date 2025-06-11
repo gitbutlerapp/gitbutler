@@ -198,7 +198,7 @@ export function selectFilesInList(
 	// e.stopPropagation();
 	const isAlreadySelected = idSelection.has(change.path, selectionId);
 	const isTheOnlyOneSelected = idSelection.collectionSize(selectionId) === 1 && isAlreadySelected;
-	const lastAddedIndex = idSelection.getById(selectionId).lastAdded;
+	const lastAdded = idSelection.getById(selectionId).lastAdded;
 
 	if (e.ctrlKey || e.metaKey) {
 		if (isAlreadySelected) {
@@ -206,12 +206,12 @@ export function selectFilesInList(
 		} else {
 			idSelection.add(change.path, selectionId, index);
 		}
-	} else if (e.shiftKey && allowMultiple && lastAddedIndex !== undefined) {
-		const start = Math.min(lastAddedIndex, index);
-		const end = Math.max(lastAddedIndex, index);
+	} else if (e.shiftKey && allowMultiple && lastAdded !== undefined) {
+		const start = Math.min(lastAdded.index, index);
+		const end = Math.max(lastAdded.index, index);
 
 		const filePaths = sortedFiles.slice(start, end + 1).map((f) => f.path);
-		idSelection.addMany(filePaths, selectionId, index);
+		idSelection.addMany(filePaths, selectionId, { path: change.path, index });
 	} else {
 		// if only one file is selected and it is already selected, unselect it
 		if (isTheOnlyOneSelected) {

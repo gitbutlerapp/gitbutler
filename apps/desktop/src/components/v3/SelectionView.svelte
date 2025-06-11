@@ -3,10 +3,8 @@
 	import FileViewPlaceholder from '$components/v3/FileViewPlaceholder.svelte';
 	import SelectedChange from '$components/v3/SelectedChange.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
-	import { sleep } from '$lib/utils/sleep';
+	import { readKey, type SelectionId } from '$lib/selection/key';
 	import { inject } from '@gitbutler/shared/context';
-	import { untrack } from 'svelte';
-	import type { SelectionId } from '$lib/selection/key';
 
 	type Props = {
 		projectId: string;
@@ -19,37 +17,31 @@
 	const [idSelection] = inject(IdSelection);
 
 	const selection = $derived(selectionId ? idSelection.values(selectionId) : []);
-
-	let delayedSelection = $state(untrack(() => selection));
-
-	$effect(() => {
-		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
-		selection;
-		(async () => {
-			await sleep(10);
-			delayedSelection = selection;
-		})();
+	const toPreview = $derived.by(() => {
+		if (!selectionId) return;
+		if (selection.length === 0) return;
+		const entry = idSelection.getById(selectionId);
+		if (selection.length === 1 || !entry?.lastAdded) return selection[0];
+		return readKey(entry.lastAdded.key);
 	});
 </script>
 
 <div class="selection-view">
-	{#if selection.length === 0}
-		<FileViewPlaceholder />
-	{:else}
+	{#if toPreview}
 		<ScrollableContainer wide zIndex="var(--z-lifted)">
-			{#each delayedSelection as selectedFile}
-				<SelectedChange
-					{projectId}
-					{selectedFile}
-					draggable={draggableFiles}
-					onCloseClick={() => {
-						if (selectionId) {
-							idSelection.remove(selectedFile.path, selectionId);
-						}
-					}}
-				/>
-			{/each}
+			<SelectedChange
+				{projectId}
+				selectedFile={toPreview}
+				draggable={draggableFiles}
+				onCloseClick={() => {
+					if (selectionId) {
+						idSelection.remove(toPreview.path, selectionId);
+					}
+				}}
+			/>
 		</ScrollableContainer>
+	{:else}
+		<FileViewPlaceholder />
 	{/if}
 </div>
 
