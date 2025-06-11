@@ -9,7 +9,7 @@
 	import { AIService } from '$lib/ai/service';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
-	import { abbreviateFolders, changesToFileTree } from '$lib/files/filetreeV3';
+	import { abbreviateFolders, changesToFileTree, sortLikeFileTree } from '$lib/files/filetreeV3';
 	import {
 		type TreeChange,
 		type Modification,
@@ -27,7 +27,6 @@
 	} from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { chunk } from '$lib/utils/array';
-	import { sortLikeFileTree } from '$lib/worktree/changeTree';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
@@ -78,7 +77,8 @@
 
 	let currentDisplayIndex = $state(0);
 
-	const fileChunks: TreeChange[][] = $derived(chunk(sortLikeFileTree(changes), 100));
+	const sortedChanges = $derived(sortLikeFileTree(changes));
+	const fileChunks: TreeChange[][] = $derived(chunk(sortedChanges, 100));
 	const visibleFiles: TreeChange[] = $derived(fileChunks.slice(0, currentDisplayIndex + 1).flat());
 
 	const selectedFiles = $derived(idSelection.values(selectionId));
@@ -163,7 +163,7 @@
 			shiftKey: e.shiftKey,
 			key: e.key,
 			targetElement: e.currentTarget as HTMLElement,
-			files: visibleFiles,
+			files: sortedChanges,
 			selectedFileIds: idSelection.values(selectionId),
 			fileIdSelection: idSelection,
 			selectionId: selectionId,
@@ -203,7 +203,7 @@
 		isLast={idx === visibleFiles.length - 1}
 		selected={idSelection.has(change.path, selectionId)}
 		onclick={(e) => {
-			selectFilesInList(e, change, visibleFiles, idSelection, true, idx, selectionId);
+			selectFilesInList(e, change, sortedChanges, idSelection, true, idx, selectionId);
 		}}
 		{conflictEntries}
 	/>
