@@ -74,6 +74,20 @@ export function changesToFileTree(files: TreeChange[]): TreeNode {
 	return acc;
 }
 
+function fileTreeToList(node: TreeNode): TreeChange[] {
+	const list: TreeChange[] = [];
+	if (node.kind === 'file') list.push(node.change);
+	node.children.forEach((child) => {
+		list.push(...fileTreeToList(child));
+	});
+	return list;
+}
+
+// Sorts a file list the same way it is sorted in a file tree
+export function sortLikeFileTree(files: TreeChange[]): TreeChange[] {
+	return fileTreeToList(changesToFileTree(files));
+}
+
 /**
  * Abbreviate nested folders that contain only a folder.
  *
