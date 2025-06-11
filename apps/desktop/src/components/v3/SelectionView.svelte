@@ -36,7 +36,7 @@
 	{#if selection.length === 0}
 		<FileViewPlaceholder />
 	{:else}
-		<ScrollableContainer wide zIndex="var(--z-floating)">
+		<ScrollableContainer wide zIndex="var(--z-lifted)">
 			{#each delayedSelection as selectedFile}
 				<SelectedChange
 					{projectId}
