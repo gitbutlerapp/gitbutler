@@ -144,6 +144,8 @@
 	}
 
 	.children-wrap {
-		display: contents;
+		/* Having this be `display: content` seems to trigger excessive layout
+		   computations that makes resizing the viewport really slow. */
+		display: block;
 	}
 </style>
