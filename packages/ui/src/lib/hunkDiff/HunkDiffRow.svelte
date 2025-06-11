@@ -152,6 +152,7 @@
 	id={getHunkLineId(row.encodedLineId)}
 	class="table__row"
 	class:selected={row.isSelected}
+	data-test-staged={staged}
 	data-no-drag
 	style="--diff-font: {diffFont};"
 >
