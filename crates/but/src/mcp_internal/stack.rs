@@ -1,11 +1,13 @@
 use std::path::Path;
 
-use anyhow::Ok;
 use bstr::{BString, ByteSlice};
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use serde::Serialize;
 
+/// Get the details of a branch by its name.
+///
+/// This includes information about the branch itself and its commits
 pub fn branch_details(ref_name: &str, current_dir: &Path) -> anyhow::Result<BranchDetails> {
     let project = super::project::project_from_path(current_dir)?;
     let ctx = CommandContext::open(&project, AppSettings::default())?;
@@ -15,6 +17,46 @@ pub fn branch_details(ref_name: &str, current_dir: &Path) -> anyhow::Result<Bran
 
     let details = but_workspace::branch_details_v3(&repo, ref_name.as_ref(), &meta)?;
     Ok(parse_branch_details(&repo, details))
+}
+
+/// Create a new stack containing only a branch with the given name.
+pub fn create_stack_with_branch(
+    name: &str,
+    description: &str,
+    current_dir: &Path,
+) -> anyhow::Result<but_workspace::ui::StackEntry> {
+    let project = super::project::project_from_path(current_dir)?;
+    // Enable v3 feature flags for the command context
+    let app_settings = AppSettings {
+        feature_flags: but_settings::app_settings::FeatureFlags {
+            v3: true,
+            // Keep this off until it caught up at least.
+            ws3: false,
+            actions: false,
+        },
+        ..AppSettings::default()
+    };
+    let ctx = CommandContext::open(&project, app_settings)?;
+
+    let creation_request = gitbutler_branch::BranchCreateRequest {
+        name: Some(name.to_string()),
+        ..Default::default()
+    };
+
+    let stack_entry = gitbutler_branch_actions::create_virtual_branch(
+        &ctx,
+        &creation_request,
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )?;
+
+    gitbutler_branch_actions::stack::update_branch_description(
+        &ctx,
+        stack_entry.id,
+        name.to_string(),
+        Some(description.to_string()),
+    )?;
+
+    Ok(stack_entry)
 }
 
 /// Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.
