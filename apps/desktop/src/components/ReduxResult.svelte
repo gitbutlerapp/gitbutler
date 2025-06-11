@@ -5,7 +5,6 @@
 
 <script lang="ts" generics="A, B extends string | undefined">
 	import InfoMessage from '$components/InfoMessage.svelte';
-	import AsyncRender from '$components/v3/AsyncRender.svelte';
 	import { isParsedError } from '$lib/error/parser';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
@@ -92,16 +91,14 @@
 	{/if}
 {/snippet}
 
-<AsyncRender>
-	{#if display.result?.error}
-		{@const error = display.result.error}
-		{@render errorComponent(error)}
-	{:else if display.result?.data !== undefined}
-		{@render props.children(display.result.data, display.env)}
-	{:else if display.result?.status === 'pending' || display.result?.status === 'uninitialized'}
-		{@render loadingComponent(display.result.data, display.result.status)}
-	{/if}
-</AsyncRender>
+{#if display.result?.error}
+	{@const error = display.result.error}
+	{@render errorComponent(error)}
+{:else if display.result?.data !== undefined}
+	{@render props.children(display.result.data, display.env)}
+{:else if display.result?.status === 'pending' || display.result?.status === 'uninitialized'}
+	{@render loadingComponent(display.result.data, display.result.status)}
+{/if}
 
 <style>
 	.loading-spinner {

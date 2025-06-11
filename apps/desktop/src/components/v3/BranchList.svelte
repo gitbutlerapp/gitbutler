@@ -2,7 +2,6 @@
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import StackStickyButtons from '$components/StackStickyButtons.svelte';
-	import AsyncRender from '$components/v3/AsyncRender.svelte';
 	import BranchCard from '$components/v3/BranchCard.svelte';
 	import BranchCommitList from '$components/v3/BranchCommitList.svelte';
 	import BranchHeaderContextMenu, {
@@ -217,21 +216,19 @@
 										/>
 									{/snippet}
 									{#snippet branchContent()}
-										<AsyncRender>
-											<BranchCommitList
-												{lastBranch}
-												{active}
-												{projectId}
-												{stackId}
-												{branchName}
-												{selectedCommitId}
-												{branchDetails}
-												{stackingReorderDropzoneManager}
-												{handleUncommit}
-												{startEditingCommitMessage}
-												{handleEditPatch}
-											/>
-										</AsyncRender>
+										<BranchCommitList
+											{lastBranch}
+											{active}
+											{projectId}
+											{stackId}
+											{branchName}
+											{selectedCommitId}
+											{branchDetails}
+											{stackingReorderDropzoneManager}
+											{handleUncommit}
+											{startEditingCommitMessage}
+											{handleEditPatch}
+										/>
 									{/snippet}
 								</BranchCard>
 							{/snippet}
