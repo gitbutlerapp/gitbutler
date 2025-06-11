@@ -3,7 +3,9 @@
 	import FileViewPlaceholder from '$components/v3/FileViewPlaceholder.svelte';
 	import SelectedChange from '$components/v3/SelectedChange.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
+	import { sleep } from '$lib/utils/sleep';
 	import { inject } from '@gitbutler/shared/context';
+	import { untrack } from 'svelte';
 	import type { SelectionId } from '$lib/selection/key';
 
 	type Props = {
@@ -17,6 +19,17 @@
 	const [idSelection] = inject(IdSelection);
 
 	const selection = $derived(selectionId ? idSelection.values(selectionId) : []);
+
+	let delayedSelection = $state(untrack(() => selection));
+
+	$effect(() => {
+		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
+		selection;
+		(async () => {
+			await sleep(10);
+			delayedSelection = selection;
+		})();
+	});
 </script>
 
 <div class="selection-view">
@@ -24,7 +37,7 @@
 		<FileViewPlaceholder />
 	{:else}
 		<ScrollableContainer wide zIndex="var(--z-floating)">
-			{#each selection as selectedFile}
+			{#each delayedSelection as selectedFile}
 				<SelectedChange
 					{projectId}
 					{selectedFile}
