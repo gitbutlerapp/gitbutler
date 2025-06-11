@@ -226,13 +226,20 @@ impl ServerHandler for Mcp {
     ) -> Result<ListPromptsResult, rmcp::Error> {
         Ok(ListPromptsResult {
             next_cursor: None,
-            prompts: vec![Prompt::new(
-                "handle_changes",
-                Some(
-                    "Contains the recommended steps to handle file changes in the project in order to commit them",
+            prompts: vec![
+                Prompt::new(
+                    "handle_changes",
+                    Some(
+                        "Contains the recommended steps to handle file changes in the project in order to commit them",
+                    ),
+                    None,
                 ),
-                None,
-            )],
+                Prompt::new(
+                    "handle_changes_interactively",
+                    Some("Interactively handle file changes in the project to commit them"),
+                    None,
+                ),
+            ],
         })
     }
 
@@ -250,6 +257,26 @@ impl ServerHandler for Mcp {
 4. Determine if some changes should be **amended** to an existing commit. Do this by looking a the **branch details** and its commits. If so, use the amend tool to update the commit with the new changes. Otherwise, use the commit tool to create a new commit with the changes.
 4. Be descriptive in your commit messages. Explain what the changes are, not why.
 5. If you are not sure about the changes, ask for clarification. Otherwise, proceed with committing the changes.
+                ";
+
+                Ok(GetPromptResult {
+                    description: None,
+                    messages: vec![PromptMessage {
+                        role: PromptMessageRole::User,
+                        content: PromptMessageContent::text(prompt),
+                    }],
+                })
+            }
+            "handle_changes_interactively" => {
+                let prompt  = "Handle the file changes following the steps below:
+1. Take a look at the **project status**. Understand the branches applied (if any), the uncommitted file changes and the files assigned to them.
+2. If there are no branches applied, ask me about the intent of the changes and create a new branch with a descriptive name and a detailed description.
+3. Ask me questions about the file changes. Focus on understanding the intent of the changes, and match that alongside the changes to the branches applied (if any).
+4. Based on the answers, determine which file changes should be committed together. Try to be granular and commit only the changes that are related to each other.
+5. If the changes are related to an existing branch, take a look at the **branch details** and its commits. Determine which commit the changes should be applied to.
+6. Propose a commit message that describes the changes. The message should explain what the changes are, not why.
+7. If accepted, commit (or amend) the changes using the respective tool.
+8. Continue asking questions until all file changes are handled.
                 ";
 
                 Ok(GetPromptResult {
