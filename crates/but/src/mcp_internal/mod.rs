@@ -7,6 +7,7 @@ use rmcp::{
 
 pub mod commit;
 pub mod project;
+pub mod stack;
 pub mod status;
 
 pub(crate) const UI_CONTEXT_LINES: u32 = 3;
@@ -81,6 +82,40 @@ impl Mcp {
             outcome,
         )?]))
     }
+
+    #[tool(description = "Get details for a specific branch in the repository.")]
+    pub fn branch_details(
+        &self,
+        #[tool(aggr)] params: BranchDetailsParams,
+    ) -> Result<CallToolResult, rmcp::Error> {
+        let project_path = std::path::PathBuf::from(&params.current_working_directory);
+        let details =
+            crate::mcp_internal::stack::branch_details(&params.branch_name, &project_path)
+                .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?;
+
+        Ok(CallToolResult::success(vec![rmcp::model::Content::json(
+            details,
+        )?]))
+    }
+
+    #[tool(description = "Create a new branch in the repository.
+        This will create a new stack containing only a branch with the given name and description.")]
+    pub fn create_branch(
+        &self,
+        #[tool(aggr)] params: CreateBranchParams,
+    ) -> Result<CallToolResult, rmcp::Error> {
+        let project_path = std::path::PathBuf::from(&params.current_working_directory);
+        let stack_entry = crate::mcp_internal::stack::create_stack_with_branch(
+            &params.branch_name,
+            &params.description,
+            &project_path,
+        )
+        .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?;
+
+        Ok(CallToolResult::success(vec![rmcp::model::Content::json(
+            stack_entry,
+        )?]))
+    }
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -137,6 +172,30 @@ pub struct AmendParams {
 
     #[schemars(description = "The branch name to amend the commit on")]
     pub branch_name: String,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct BranchDetailsParams {
+    #[schemars(description = "The full root path of the Git project to query")]
+    pub current_working_directory: String,
+
+    #[schemars(description = "The name of the branch to get details for")]
+    pub branch_name: String,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateBranchParams {
+    #[schemars(description = "The full root path of the Git project to create the branch in")]
+    pub current_working_directory: String,
+
+    #[schemars(description = "The name of the new branch to create")]
+    pub branch_name: String,
+
+    #[schemars(description = "Description of the branch.
+    It's important to be detailed about the branch's purpose and any relevant context so that it's easy to determine where changes should be applied.")]
+    pub description: String,
 }
 
 #[tool(tool_box)]
