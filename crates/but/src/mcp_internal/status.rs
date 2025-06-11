@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use but_hunk_assignment::HunkAssignment;
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use serde::Serialize;
@@ -11,6 +12,8 @@ pub struct ProjectStatus {
     stacks: Vec<but_workspace::ui::StackEntry>,
     /// Unified diff changes that could be committed.
     changes: Vec<but_core::ui::FlatChangeUnifiedDiff>,
+    /// The list of assigned hunks, if any.
+    assignments: Vec<HunkAssignment>,
 }
 
 pub fn project_status(project_dir: &Path) -> anyhow::Result<ProjectStatus> {
@@ -25,10 +28,12 @@ pub fn project_status(project_dir: &Path) -> anyhow::Result<ProjectStatus> {
 
     let stacks = list_applied_stacks(project_dir)?;
     let flat_changes: but_core::ui::FlatUnifiedWorktreeChanges = (&diff).into();
+    let assignments = hunk_assignments(project_dir)?;
 
     let serializable = ProjectStatus {
         stacks,
         changes: flat_changes.changes,
+        assignments,
     };
     Ok(serializable)
 }
@@ -55,4 +60,16 @@ fn unified_diff_for_changes(
                 .map(|diff| (tree_change, diff))
         })
         .collect::<Result<Vec<_>, _>>()
+}
+
+pub fn hunk_assignments(current_dir: &Path) -> anyhow::Result<Vec<HunkAssignment>> {
+    let project = super::project::project_from_path(current_dir)?;
+    let ctx = &mut CommandContext::open(&project, AppSettings::default())?;
+    let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
+        ctx,
+        false,
+        None::<Vec<but_core::TreeChange>>,
+    )?;
+
+    Ok(assignments)
 }

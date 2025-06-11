@@ -28,9 +28,8 @@ impl Mcp {
         Self {}
     }
 
-    #[tool(
-        description = "Get the status of a project. This contains information about the branches applied and uncommitted file changes."
-    )]
+    #[tool(description = "Get the status of a project.
+        This contains information about the branches applied, uncommitted file changes and any uncommitted changes assigned to the branches .")]
     pub fn project_status(
         &self,
         #[tool(aggr)] params: ProjectStatusParams,
@@ -44,9 +43,8 @@ impl Mcp {
         )?]))
     }
 
-    #[tool(
-        description = "Commit changes to the repository. Applies the given diff spec and creates a commit with the provided message."
-    )]
+    #[tool(description = "Commit changes to the repository.
+        Applies the given diff spec and creates a commit with the provided message.")]
     pub fn commit(
         &self,
         #[tool(aggr)] params: CommitParams,
@@ -57,6 +55,24 @@ impl Mcp {
             params.message,
             params.diff_spec,
             params.parent_id,
+            params.branch_name,
+        )
+        .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?;
+
+        Ok(CallToolResult::success(vec![rmcp::model::Content::json(
+            outcome,
+        )?]))
+    }
+
+    #[tool(description = "Amend an existing commit in the repository.
+        Updates the commit message and file changes for the specified commit.")]
+    pub fn amend(&self, #[tool(aggr)] params: AmendParams) -> Result<CallToolResult, rmcp::Error> {
+        let project_path = std::path::PathBuf::from(&params.current_working_directory);
+        let outcome = crate::mcp_internal::commit::amend(
+            &project_path,
+            params.message,
+            params.diff_spec,
+            params.commit_id,
             params.branch_name,
         )
         .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?;
@@ -86,16 +102,40 @@ pub struct CommitParams {
     pub message: String,
 
     #[schemars(
-        description = "The list of files paths (and optionally their previous paths) to commit. If the previous path is provided, it indicates a rename operation."
+        description = "The list of files paths (and optionally their previous paths) to commit.
+        If the previous path is provided, it indicates a rename operation."
     )]
     pub diff_spec: Vec<crate::mcp_internal::commit::DiffSpec>,
 
-    #[schemars(
-        description = "Optional parent commit id. If provided, the commit will be created as a child of this commit. Otherwise, it will be created on top of the specified branch."
-    )]
+    #[schemars(description = "Optional parent commit id.
+        If provided, the commit will be created as a child of this commit.
+        Otherwise, it will be created on top of the specified branch.")]
     pub parent_id: Option<String>,
 
     #[schemars(description = "The branch name to commit to")]
+    pub branch_name: String,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AmendParams {
+    #[schemars(description = "The full root path of the Git project to amend in")]
+    pub current_working_directory: String,
+
+    #[schemars(description = "The new commit message for the amended commit")]
+    pub message: String,
+
+    #[schemars(
+        description = "The list of file paths (and optionally their previous paths) to include in the amended commit.
+        If the previous path is provided, it indicates a rename operation."
+    )]
+    pub diff_spec: Vec<crate::mcp_internal::commit::DiffSpec>,
+
+    #[schemars(description = "The commit id of the commit to amend. 
+        This is the commit that will be modified with the new message and changes.")]
+    pub commit_id: String,
+
+    #[schemars(description = "The branch name to amend the commit on")]
     pub branch_name: String,
 }
 
@@ -103,7 +143,9 @@ pub struct CommitParams {
 impl ServerHandler for Mcp {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
-            instructions: Some("This is the GitButler MCP server. This provides tools and other context resources that allow you to interact with your project's version control. If enabled, these are the tools that should be used for any Git operations".into()),
+            instructions: Some("This is the GitButler MCP server.
+            This provides tools and other context resources that allow you to interact with your project's version control.
+            If enabled, these are the tools that should be used for any Git operations".into()),
             capabilities: ServerCapabilities::builder().enable_tools().build(),
             server_info: Implementation {
                 name: "GitButler MCP Server".into(),
