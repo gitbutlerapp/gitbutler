@@ -32,7 +32,7 @@
 	const {
 		viewport,
 		direction,
-		zIndex = 'var(--z-lifted)',
+		zIndex = 'var(--z-floating)',
 		minWidth = 0,
 		maxWidth = 120,
 		minHeight = 0,
