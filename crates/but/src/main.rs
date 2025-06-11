@@ -2,24 +2,27 @@ use anyhow::{Context, Ok, Result};
 
 mod args;
 use args::{Args, Subcommands, actions};
+use but_settings::AppSettings;
 mod command;
 mod id;
 mod log;
 mod mcp;
 mod mcp_internal;
+mod metrics;
 mod rub;
 mod status;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let args: Args = clap::Parser::parse();
+    let app_settings = AppSettings::load_from_default_path_creating()?;
 
     match &args.cmd {
         Subcommands::Mcp { internal } => {
             if *internal {
                 mcp_internal::start().await
             } else {
-                mcp::start().await
+                mcp::start(app_settings).await
             }
         }
         Subcommands::Actions(actions::Platform { cmd }) => match cmd {
