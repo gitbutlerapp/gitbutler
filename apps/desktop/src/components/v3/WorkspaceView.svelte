@@ -1,6 +1,5 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import AsyncRender from '$components/v3/AsyncRender.svelte';
 	import BranchView from '$components/v3/BranchView.svelte';
 	import CommitView from '$components/v3/CommitView.svelte';
 	import Feed from '$components/v3/Feed.svelte';
@@ -132,84 +131,80 @@
 	middleWidth={{ default: 380, min: 240 }}
 >
 	{#snippet left()}
-		<AsyncRender>
-			{#if canUseActions}
-				<div class="left-view-toggle">
-					<SegmentControl
-						fullWidth
-						defaultIndex={$view === 'worktree' ? 0 : 1}
-						onselect={(id) => {
-							$view = id as 'worktree' | 'action-log';
-						}}
-					>
-						<Segment id="worktree" icon="file-changes" />
-						<Segment id="action-log" icon="ai" />
-					</SegmentControl>
-				</div>
-			{/if}
+		{#if canUseActions}
+			<div class="left-view-toggle">
+				<SegmentControl
+					fullWidth
+					defaultIndex={$view === 'worktree' ? 0 : 1}
+					onselect={(id) => {
+						$view = id as 'worktree' | 'action-log';
+					}}
+				>
+					<Segment id="worktree" icon="file-changes" />
+					<Segment id="action-log" icon="ai" />
+				</SegmentControl>
+			</div>
+		{/if}
 
-			{#if !canUseActions || $view === 'worktree'}
-				<div class="unassigned-changes__container">
-					<WorktreeChanges
-						title="Unassigned"
-						{projectId}
-						stackId={undefined}
-						active={selectionId.type === 'worktree' && selectionId.stackId === undefined}
-					>
-						{#snippet emptyPlaceholder()}
-							<div class="unassigned-changes__empty">
-								<div class="unassigned-changes__empty__placeholder">
-									{@html noChanges}
-									<p class="text-13 text-body unassigned-changes__empty__placeholder-text">
-										You're all caught up!<br />
-										No files need committing
-									</p>
-								</div>
-								<WorktreeTipsFooter />
+		{#if !canUseActions || $view === 'worktree'}
+			<div class="unassigned-changes__container">
+				<WorktreeChanges
+					title="Unassigned"
+					{projectId}
+					stackId={undefined}
+					active={selectionId.type === 'worktree' && selectionId.stackId === undefined}
+				>
+					{#snippet emptyPlaceholder()}
+						<div class="unassigned-changes__empty">
+							<div class="unassigned-changes__empty__placeholder">
+								{@html noChanges}
+								<p class="text-13 text-body unassigned-changes__empty__placeholder-text">
+									You're all caught up!<br />
+									No files need committing
+								</p>
 							</div>
-						{/snippet}
-					</WorktreeChanges>
-				</div>
-			{:else if canUseActions && $view === 'action-log'}
-				<Feed {projectId} {selectionId} />
-			{/if}</AsyncRender
-		>
+							<WorktreeTipsFooter />
+						</div>
+					{/snippet}
+				</WorktreeChanges>
+			</div>
+		{:else if canUseActions && $view === 'action-log'}
+			<Feed {projectId} {selectionId} />
+		{/if}
 	{/snippet}
 	{#snippet middle()}
-		<AsyncRender>
-			<div class="middle-view">
-				{#if !drawerIsFullScreen.current}
-					<SelectionView {projectId} {selectionId} draggableFiles />
-				{/if}
-				{#if drawerPage.current === 'new-commit'}
-					<NewCommitView {projectId} {stackId} />
-				{:else if drawerPage.current === 'branch' && stackId && branchName}
-					<BranchView
-						{stackId}
-						{projectId}
-						{branchName}
-						{onerror}
-						active={selectionId.type !== 'worktree'}
-						draggableFiles
-					/>
-				{:else if drawerPage.current === 'review' && stackId && branchName}
-					<ReviewView {stackId} {projectId} {branchName} />
-				{:else if branchName && commitId && stackId}
-					<CommitView
-						{projectId}
-						{stackId}
-						commitKey={{
-							stackId,
-							branchName,
-							commitId,
-							upstream
-						}}
-						active={selectionId.type !== 'worktree'}
-						{onerror}
-					/>
-				{/if}
-			</div>
-		</AsyncRender>
+		<div class="middle-view">
+			{#if !drawerIsFullScreen.current}
+				<SelectionView {projectId} {selectionId} draggableFiles />
+			{/if}
+			{#if drawerPage.current === 'new-commit'}
+				<NewCommitView {projectId} {stackId} />
+			{:else if drawerPage.current === 'branch' && stackId && branchName}
+				<BranchView
+					{stackId}
+					{projectId}
+					{branchName}
+					{onerror}
+					active={selectionId.type !== 'worktree'}
+					draggableFiles
+				/>
+			{:else if drawerPage.current === 'review' && stackId && branchName}
+				<ReviewView {stackId} {projectId} {branchName} />
+			{:else if branchName && commitId && stackId}
+				<CommitView
+					{projectId}
+					{stackId}
+					commitKey={{
+						stackId,
+						branchName,
+						commitId,
+						upstream
+					}}
+					active={selectionId.type !== 'worktree'}
+					{onerror}
+				/>
+			{/if}
+		</div>
 	{/snippet}
 	{#snippet right()}
 		<ReduxResult {projectId} result={stacksResult?.current}>

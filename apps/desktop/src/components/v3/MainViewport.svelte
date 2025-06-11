@@ -25,6 +25,7 @@ the window, then enlarge it and retain the original widths of the layout.
 -->
 <script lang="ts">
 	import Resizer from '$components/Resizer.svelte';
+	import AsyncRender from '$components/v3/AsyncRender.svelte';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
@@ -113,17 +114,19 @@ the window, then enlarge it and retain the original widths of the layout.
 		style:min-width={leftMinWidth + 'rem'}
 		use:focusable={{ id: DefinedFocusable.ViewportLeft, parentId: DefinedFocusable.MainViewport }}
 	>
-		{@render left()}
-		<Resizer
-			viewport={leftDiv}
-			direction="right"
-			minWidth={leftMinWidth}
-			maxWidth={leftMaxWidth}
-			borderRadius="ml"
-			onWidth={(value) => {
-				leftPreferredWidth.set(value);
-			}}
-		/>
+		<AsyncRender>
+			{@render left()}
+			<Resizer
+				viewport={leftDiv}
+				direction="right"
+				minWidth={leftMinWidth}
+				maxWidth={leftMaxWidth}
+				borderRadius="ml"
+				onWidth={(value) => {
+					leftPreferredWidth.set(value);
+				}}
+			/>
+		</AsyncRender>
 	</div>
 
 	<div
@@ -137,17 +140,19 @@ the window, then enlarge it and retain the original widths of the layout.
 			parentId: DefinedFocusable.MainViewport
 		}}
 	>
-		{@render middle()}
-		<Resizer
-			viewport={middleDiv}
-			direction="right"
-			minWidth={middleMinWidth}
-			maxWidth={middleMaxWidth}
-			borderRadius="ml"
-			onWidth={(value) => {
-				middlePreferredWidth.set(value);
-			}}
-		/>
+		<AsyncRender>
+			{@render middle()}
+			<Resizer
+				viewport={middleDiv}
+				direction="right"
+				minWidth={middleMinWidth}
+				maxWidth={middleMaxWidth}
+				borderRadius="ml"
+				onWidth={(value) => {
+					middlePreferredWidth.set(value);
+				}}
+			/>
+		</AsyncRender>
 	</div>
 
 	<div
@@ -160,7 +165,9 @@ the window, then enlarge it and retain the original widths of the layout.
 			parentId: DefinedFocusable.MainViewport
 		}}
 	>
-		{@render right()}
+		<AsyncRender>
+			{@render right()}
+		</AsyncRender>
 	</div>
 </div>
 
