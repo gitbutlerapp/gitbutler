@@ -219,21 +219,23 @@
 	/>
 {/each}
 {#if visibleFiles.length > 0}
-	<LazyloadContainer
-		minTriggerCount={80}
-		ontrigger={() => {
-			loadMore();
-		}}
-		role="listbox"
-		onkeydown={handleKeyDown}
-	>
-		{#if listMode === 'tree'}
-			{@const node = abbreviateFolders(changesToFileTree(changes))}
-			<FileTreeNode isRoot {stackId} {node} {showCheckboxes} {changes} {fileTemplate} />
-		{:else}
+	{#if listMode === 'tree'}
+		<!-- We don't need to use the `sortedChanges` here because
+		`changeToFileTree` does the sorting for us -->
+		{@const node = abbreviateFolders(changesToFileTree(changes))}
+		<FileTreeNode isRoot {stackId} {node} {showCheckboxes} {changes} {fileTemplate} />
+	{:else}
+		<LazyloadContainer
+			minTriggerCount={80}
+			ontrigger={() => {
+				loadMore();
+			}}
+			role="listbox"
+			onkeydown={handleKeyDown}
+		>
 			{#each visibleFiles as change, idx}
 				{@render fileTemplate(change, idx)}
 			{/each}
-		{/if}
-	</LazyloadContainer>
+		</LazyloadContainer>
+	{/if}
 {/if}
