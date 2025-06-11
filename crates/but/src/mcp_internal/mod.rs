@@ -65,6 +65,25 @@ impl Mcp {
             outcome,
         )?]))
     }
+
+    #[tool(
+        description = "Amend an existing commit in the repository. Updates the commit message and file changes for the specified commit."
+    )]
+    pub fn amend(&self, #[tool(aggr)] params: AmendParams) -> Result<CallToolResult, rmcp::Error> {
+        let project_path = std::path::PathBuf::from(&params.current_working_directory);
+        let outcome = crate::mcp_internal::commit::amend(
+            &project_path,
+            params.message,
+            params.diff_spec,
+            params.commit_id,
+            params.branch_name,
+        )
+        .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?;
+
+        Ok(CallToolResult::success(vec![rmcp::model::Content::json(
+            outcome,
+        )?]))
+    }
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -96,6 +115,29 @@ pub struct CommitParams {
     pub parent_id: Option<String>,
 
     #[schemars(description = "The branch name to commit to")]
+    pub branch_name: String,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AmendParams {
+    #[schemars(description = "The full root path of the Git project to amend in")]
+    pub current_working_directory: String,
+
+    #[schemars(description = "The new commit message for the amended commit")]
+    pub message: String,
+
+    #[schemars(
+        description = "The list of file paths (and optionally their previous paths) to include in the amended commit. If the previous path is provided, it indicates a rename operation."
+    )]
+    pub diff_spec: Vec<crate::mcp_internal::commit::DiffSpec>,
+
+    #[schemars(
+        description = "The commit id of the commit to amend. This is the commit that will be modified with the new message and changes."
+    )]
+    pub commit_id: String,
+
+    #[schemars(description = "The branch name to amend the commit on")]
     pub branch_name: String,
 }
 
