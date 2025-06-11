@@ -1,8 +1,14 @@
 use anyhow::Result;
 use rmcp::{
-    ServerHandler, ServiceExt,
-    model::{CallToolResult, Implementation, ProtocolVersion, ServerCapabilities, ServerInfo},
-    schemars, tool,
+    RoleServer, ServerHandler, ServiceExt,
+    model::{
+        CallToolResult, GetPromptRequestParam, GetPromptResult, Implementation, ListPromptsResult,
+        Prompt, PromptMessage, PromptMessageContent, PromptMessageRole, ProtocolVersion,
+        ServerCapabilities, ServerInfo,
+    },
+    schemars,
+    service::RequestContext,
+    tool,
 };
 
 pub mod commit;
@@ -205,12 +211,55 @@ impl ServerHandler for Mcp {
             instructions: Some("This is the GitButler MCP server.
             This provides tools and other context resources that allow you to interact with your project's version control.
             If enabled, these are the tools that should be used for any Git operations".into()),
-            capabilities: ServerCapabilities::builder().enable_tools().build(),
+            capabilities: ServerCapabilities::builder().enable_tools().enable_prompts().build(),
             server_info: Implementation {
                 name: "GitButler MCP Server".into(),
                 version: "1.0.0".into(),
             },
             protocol_version: ProtocolVersion::LATEST,
+        }
+    }
+    async fn list_prompts(
+        &self,
+        _request: Option<rmcp::model::PaginatedRequestParamInner>,
+        _: RequestContext<RoleServer>,
+    ) -> Result<ListPromptsResult, rmcp::Error> {
+        Ok(ListPromptsResult {
+            next_cursor: None,
+            prompts: vec![Prompt::new(
+                "handle_changes",
+                Some(
+                    "Contains the recommended steps to handle file changes in the project in order to commit them",
+                ),
+                None,
+            )],
+        })
+    }
+
+    async fn get_prompt(
+        &self,
+        GetPromptRequestParam { name, .. }: GetPromptRequestParam,
+        _: RequestContext<RoleServer>,
+    ) -> Result<GetPromptResult, rmcp::Error> {
+        match name.as_str() {
+            "handle_changes" => {
+                let prompt  = "Handle the file changes following the steps below:
+1. Take a look at the **project status**. Understand the branches applied (if any), the uncommitted file changes and the files assigned to them.
+2. Determine which file changes belong to which branch. Do this by looking at the file changes and the branch names and descriptions. If no branch matches the changes create a new branch with a descriptive name and a detailed description.
+3. Determine which file changes should be committed together. Try to be granular and commit only the changes that are related to each other.
+4. Be descriptive in your commit messages. Explain what the changes are, not why.
+5. If you are not sure about the changes, ask for clarification. Otherwise, proceed with committing the changes.
+                ";
+
+                Ok(GetPromptResult {
+                    description: None,
+                    messages: vec![PromptMessage {
+                        role: PromptMessageRole::User,
+                        content: PromptMessageContent::text(prompt),
+                    }],
+                })
+            }
+            _ => Err(rmcp::Error::invalid_params("prompt not found", None)),
         }
     }
 }
