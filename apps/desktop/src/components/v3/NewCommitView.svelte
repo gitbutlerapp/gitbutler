@@ -207,6 +207,7 @@
 	function cancel(args: { title: string; description: string }) {
 		projectState.commitTitle.set(args.title);
 		projectState.commitDescription.set(args.description);
+		uncommittedService.uncheckAll(null);
 		drawer?.onClose();
 	}
 </script>
