@@ -205,11 +205,11 @@ the window, then enlarge it and retain the original widths of the layout.
 	}
 
 	.right.flexible {
-		display: flex;
 		position: relative;
 		flex-grow: 1;
 		flex-shrink: 1;
 		flex-direction: column;
+		height: 100%;
 		overflow-x: hidden;
 	}
 </style>
