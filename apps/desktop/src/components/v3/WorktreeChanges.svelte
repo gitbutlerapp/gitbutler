@@ -206,6 +206,7 @@
 		display: flex;
 		flex-direction: column;
 		height: 100%;
+		background-color: var(--clr-bg-1);
 	}
 
 	.worktree-header {

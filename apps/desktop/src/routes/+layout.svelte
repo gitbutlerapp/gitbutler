@@ -30,7 +30,7 @@
 	import { AppSettings } from '$lib/config/appSettings';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { GitConfigService } from '$lib/config/gitConfigService';
-	import { ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
+	import { ircEnabled, ircServer, threePointFive } from '$lib/config/uiFeatureFlags';
 	import DependencyService from '$lib/dependencies/dependencyService.svelte';
 	import { FileService } from '$lib/files/fileService';
 	import { ButRequestDetailsService } from '$lib/forge/butRequestDetailsService';
@@ -262,6 +262,10 @@
 	});
 
 	const handleKeyDown = createKeybind({
+		// Toggle UI 3.5 on/off
+		'3 5': () => {
+			threePointFive.set(!$threePointFive);
+		},
 		// Toggle v3 design on/off
 		'v 3': () => {
 			settingsService.updateFeatureFlags({ v3: !$settingsStore?.featureFlags.v3 });

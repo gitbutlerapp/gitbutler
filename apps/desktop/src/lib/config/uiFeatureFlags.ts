@@ -17,3 +17,4 @@ export const assignmentEnabled = persisted(false, 'experimental-assignment');
 
 export const ircEnabled = persistWithExpiration(false, 'feature-irc', 1440 * 30);
 export const ircServer = persistWithExpiration('', 'feature-irc-server', 1440 * 30);
+export const threePointFive = persistWithExpiration(false, 'ui-3.5', 1440 * 30);

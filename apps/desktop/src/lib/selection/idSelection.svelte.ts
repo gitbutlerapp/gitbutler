@@ -7,6 +7,7 @@ import {
 	type SelectedFile
 } from '$lib/selection/key';
 import { SvelteSet } from 'svelte/reactivity';
+import { get, writable, type Writable } from 'svelte/store';
 import type { TreeChange } from '$lib/hunks/change';
 import type { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 import type { StackService } from '$lib/stacks/stackService.svelte';
@@ -20,12 +21,15 @@ export class IdSelection {
 		string,
 		{
 			/** This property supports range selection. */
-			lastAdded?: {
-				/** The index of the file in a sorted list of files. */
-				index: number;
-				/** The key of the file in the selection. */
-				key: SelectedFileKey;
-			};
+			lastAdded: Writable<
+				| {
+						/** The index of the file in a sorted list of files. */
+						index: number;
+						/** The key of the file in the selection. */
+						key: SelectedFileKey;
+				  }
+				| undefined
+			>;
 			entries: SvelteSet<SelectedFileKey>;
 		}
 	>;
@@ -36,7 +40,8 @@ export class IdSelection {
 	) {
 		this.selections = new Map();
 		this.selections.set(selectionKey({ type: 'worktree' }), {
-			entries: new SvelteSet<SelectedFileKey>()
+			entries: new SvelteSet<SelectedFileKey>(),
+			lastAdded: writable()
 		});
 	}
 
@@ -45,7 +50,8 @@ export class IdSelection {
 		let set = this.selections.get(key);
 		if (!set) {
 			set = {
-				entries: new SvelteSet<SelectedFileKey>()
+				entries: new SvelteSet<SelectedFileKey>(),
+				lastAdded: writable()
 			};
 			this.selections.set(key, set);
 		}
@@ -59,7 +65,7 @@ export class IdSelection {
 	add(path: string, id: SelectionId, index: number) {
 		const selectedKey = key({ ...id, path });
 		const selection = this.getById(id);
-		selection.lastAdded = { index, key: selectedKey };
+		selection.lastAdded.set({ index, key: selectedKey });
 		selection.entries.add(selectedKey);
 	}
 
@@ -70,7 +76,7 @@ export class IdSelection {
 
 		const selectedKey = key({ ...id, path: last.path });
 		const selection = this.getById(id);
-		selection.lastAdded = { index: last.index, key: selectedKey };
+		selection.lastAdded.set({ index: last.index, key: selectedKey });
 	}
 
 	has(path: string, id: SelectionId) {
@@ -88,11 +94,15 @@ export class IdSelection {
 		const selectionKey = key({ path, ...id });
 		const selection = this.getById(id);
 		selection.entries.delete(selectionKey);
+		if (get(selection.lastAdded)?.key === selectionKey) {
+			selection.lastAdded.set(undefined);
+		}
 	}
 
 	clear(selectionId: SelectionId) {
 		const selection = this.getById(selectionId);
 		selection.entries.clear();
+		selection.lastAdded.set(undefined);
 	}
 
 	keys(selectionId: SelectionId) {
@@ -168,7 +178,7 @@ export class IdSelection {
 			this.removeMany(removedFiles);
 		}
 		// TODO: Is this the right thing to do here?
-		worktreeSelection.lastAdded = undefined;
+		// worktreeSelection.lastAdded.set(undefined);
 	}
 
 	/**
