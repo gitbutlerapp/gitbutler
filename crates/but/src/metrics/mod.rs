@@ -70,11 +70,15 @@ impl Metrics {
 
         if let Some(client_future) = client {
             let mut receiver = receiver;
+            let distinct_id = app_settings.telemetry.app_distinct_id.clone();
             tokio::task::spawn(async move {
                 let client = client_future.await;
                 while let Some(event) = receiver.recv().await {
-                    let mut posthog_event =
-                        posthog_rs::Event::new(event.event_name.to_string(), "user_3".to_string()); // TODO
+                    let mut posthog_event = if let Some(id) = &distinct_id {
+                        posthog_rs::Event::new(event.event_name.to_string(), id.clone())
+                    } else {
+                        posthog_rs::Event::new_anon(event.event_name.to_string())
+                    };
                     for (key, prop) in event.props {
                         let _ = posthog_event.insert_prop(key, prop);
                     }
