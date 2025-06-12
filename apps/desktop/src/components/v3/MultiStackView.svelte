@@ -8,7 +8,7 @@
 	import MultiStackPagination, { scrollToLane } from '$components/v3/MultiStackPagination.svelte';
 	import StackDraft from '$components/v3/StackDraft.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
-	import { stackLayoutMode } from '$lib/config/uiFeatureFlags';
+	import { stackLayoutMode, threePointFive } from '$lib/config/uiFeatureFlags';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
@@ -62,7 +62,7 @@
 	let dropzoneActivated = $state(false);
 </script>
 
-<div class="lanes">
+{#if !$threePointFive}
 	<div class="lanes-header" class:no-stacks={stacks.length === 0}>
 		{#if stacks.length > 0}
 			<div class="title">
@@ -79,156 +79,135 @@
 		{/if}
 		<MultiStackCreateNew {projectId} stackId={selectedId} noStacks={stacks.length === 0} />
 	</div>
+{/if}
 
-	{#if isNotEnoughHorzSpace && isNotEnoughVertSpace}
-		<div
-			class="pagination-container"
-			class:horz={$stackLayoutMode !== 'vertical'}
-			class:vert={$stackLayoutMode === 'vertical'}
-		>
-			<MultiStackPagination
-				length={stacks.length}
-				{visibleIndexes}
-				{isCreateNewVisible}
-				selectedBranchIndex={stacks.findIndex((s) => {
-					return s.id === selectedId;
-				})}
-				onPageClick={(index) =>
-					scrollToLane(lanesSrollableEl, index, $stackLayoutMode === 'vertical' ? 'vert' : 'horz')}
-				onCreateNewClick={() => {
-					scrollToLane(
-						lanesSrollableEl,
-						stacks.length + 1,
-						$stackLayoutMode === 'vertical' ? 'vert' : 'horz'
-					);
-				}}
-			/>
-		</div>
-	{/if}
+{#if isNotEnoughHorzSpace && isNotEnoughVertSpace}
+	<div
+		class="pagination-container"
+		class:horz={$stackLayoutMode !== 'vertical'}
+		class:vert={$stackLayoutMode === 'vertical'}
+	>
+		<MultiStackPagination
+			length={stacks.length}
+			{visibleIndexes}
+			{isCreateNewVisible}
+			selectedBranchIndex={stacks.findIndex((s) => {
+				return s.id === selectedId;
+			})}
+			onPageClick={(index) =>
+				scrollToLane(lanesSrollableEl, index, $stackLayoutMode === 'vertical' ? 'vert' : 'horz')}
+			onCreateNewClick={() => {
+				scrollToLane(
+					lanesSrollableEl,
+					stacks.length + 1,
+					$stackLayoutMode === 'vertical' ? 'vert' : 'horz'
+				);
+			}}
+		/>
+	</div>
+{/if}
 
-	<div class="lanes-viewport">
-		<div
-			class="lanes-scrollable hide-native-scrollbar dotted-pattern"
-			bind:this={lanesSrollableEl}
-			bind:clientWidth={lanesScrollableWidth}
-			bind:clientHeight={lanesScrollableHeight}
-			class:multi={$stackLayoutMode === 'multi' || stacks.length < SHOW_PAGINATION_THRESHOLD}
-			class:single={$stackLayoutMode === 'single' && stacks.length >= SHOW_PAGINATION_THRESHOLD}
-			class:vertical={$stackLayoutMode === 'vertical'}
-		>
-			{#if stacks.length > 0}
-				{#each stacks as stack, i}
-					<AsyncRender>
-						<div
-							class="lane"
-							class:multi={$stackLayoutMode === 'multi' ||
-								stacks.length < SHOW_PAGINATION_THRESHOLD}
-							class:single={$stackLayoutMode === 'single' &&
-								stacks.length >= SHOW_PAGINATION_THRESHOLD}
-							class:single-fullwidth={$stackLayoutMode === 'single' && stacks.length === 1}
-							class:vertical={$stackLayoutMode === 'vertical'}
-							data-id={stack.id}
-							bind:clientWidth={laneWidths[i]}
-							bind:clientHeight={lineHights[i]}
-							data-testid={TestId.Stack}
-							data-testid-stackid={stack.id}
-							data-testid-stack={stack.heads.at(0)?.name}
-							use:intersectionObserver={{
-								callback: (entry) => {
-									if (entry?.isIntersecting) {
-										visibleIndexes = [...visibleIndexes, i];
-									} else {
-										visibleIndexes = visibleIndexes.filter((index) => index !== i);
-									}
-								},
-								options: {
-									threshold: 0.5,
-									root: lanesSrollableEl
+<div class="lanes-viewport">
+	<div
+		class="lanes-scrollable hide-native-scrollbar"
+		bind:this={lanesSrollableEl}
+		bind:clientWidth={lanesScrollableWidth}
+		bind:clientHeight={lanesScrollableHeight}
+		class:multi={$stackLayoutMode === 'multi' || stacks.length < SHOW_PAGINATION_THRESHOLD}
+		class:single={$stackLayoutMode === 'single' && stacks.length >= SHOW_PAGINATION_THRESHOLD}
+		class:vertical={$stackLayoutMode === 'vertical'}
+	>
+		{#if stacks.length > 0}
+			{#each stacks as stack, i}
+				<AsyncRender>
+					<div
+						class="lane"
+						class:multi={$stackLayoutMode === 'multi' || stacks.length < SHOW_PAGINATION_THRESHOLD}
+						class:single={$stackLayoutMode === 'single' &&
+							stacks.length >= SHOW_PAGINATION_THRESHOLD}
+						class:single-fullwidth={$stackLayoutMode === 'single' && stacks.length === 1}
+						class:vertical={$stackLayoutMode === 'vertical'}
+						data-id={stack.id}
+						bind:clientWidth={laneWidths[i]}
+						bind:clientHeight={lineHights[i]}
+						data-testid={TestId.Stack}
+						data-testid-stackid={stack.id}
+						data-testid-stack={stack.heads.at(0)?.name}
+						use:intersectionObserver={{
+							callback: (entry) => {
+								if (entry?.isIntersecting) {
+									visibleIndexes = [...visibleIndexes, i];
+								} else {
+									visibleIndexes = visibleIndexes.filter((index) => index !== i);
 								}
-							}}
+							},
+							options: {
+								threshold: 0.5,
+								root: lanesSrollableEl
+							}
+						}}
+					>
+						<BranchList
+							isVerticalMode={$stackLayoutMode === 'vertical'}
+							{projectId}
+							stackId={stack.id}
+							{active}
 						>
-							<BranchList
-								isVerticalMode={$stackLayoutMode === 'vertical'}
-								{projectId}
-								stackId={stack.id}
-								{active}
-							>
-								{#snippet assignments()}
-									{@const changes = uncommittedService.changesByStackId(stack.id || null)}
-									<div
-										class="assignments"
-										class:assignments__empty={changes.current.length === 0}
-										class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
+							{#snippet assignments()}
+								{@const changes = uncommittedService.changesByStackId(stack.id || null)}
+								<div
+									class="assignments"
+									class:assignments__empty={changes.current.length === 0}
+									class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
+								>
+									<WorktreeChanges
+										title="Assigned"
+										{projectId}
+										stackId={stack.id}
+										mode="assigned"
+										active={selectionId.type === 'worktree' && selectionId.stackId === stack.id}
+										dropzoneVisible={changes.current.length === 0 && !isCommitting}
+										onDropzoneActivated={(activated) => {
+											dropzoneActivated = activated;
+										}}
 									>
-										<WorktreeChanges
-											title="Assigned"
-											{projectId}
-											stackId={stack.id}
-											mode="assigned"
-											active={selectionId.type === 'worktree' && selectionId.stackId === stack.id}
-											dropzoneVisible={changes.current.length === 0 && !isCommitting}
-											onDropzoneActivated={(activated) => {
-												dropzoneActivated = activated;
-											}}
-										>
-											{#snippet emptyPlaceholder()}
-												<div class="assigned-changes-empty">
-													<p class="text-12 text-body assigned-changes-empty__text">
-														Drop files to assign to the lane
-													</p>
-												</div>
-											{/snippet}
-										</WorktreeChanges>
-									</div>
-								{/snippet}
-							</BranchList>
-						</div>
-					</AsyncRender>
-				{/each}
+										{#snippet emptyPlaceholder()}
+											<div class="assigned-changes-empty">
+												<p class="text-12 text-body assigned-changes-empty__text">
+													Drop files to assign to the lane
+												</p>
+											</div>
+										{/snippet}
+									</WorktreeChanges>
+								</div>
+							{/snippet}
+						</BranchList>
+					</div>
+				</AsyncRender>
+			{/each}
 
+			{#if lanesSrollableEl && $stackLayoutMode !== 'single'}
+				<Scrollbar viewport={lanesSrollableEl} horz={$stackLayoutMode !== 'vertical'} />
+			{/if}
+		{:else if isCommitting}
+			<StackDraft {projectId} />
+		{:else}
+			<div class="no-stacks-placeholder">
 				<MultiStackOfflaneDropzone
 					viewport={lanesSrollableEl}
 					{projectId}
+					standalone
 					onVisible={(visible) => {
 						isCreateNewVisible = visible;
 					}}
 					isSingleMode={$stackLayoutMode === 'single'}
 				/>
-
-				{#if lanesSrollableEl && $stackLayoutMode !== 'single'}
-					<Scrollbar viewport={lanesSrollableEl} horz={$stackLayoutMode !== 'vertical'} />
-				{/if}
-			{:else if isCommitting}
-				<StackDraft {projectId} />
-			{:else}
-				<div class="no-stacks-placeholder">
-					<MultiStackOfflaneDropzone
-						viewport={lanesSrollableEl}
-						{projectId}
-						standalone
-						onVisible={(visible) => {
-							isCreateNewVisible = visible;
-						}}
-						isSingleMode={$stackLayoutMode === 'single'}
-					/>
-				</div>
-			{/if}
-		</div>
+			</div>
+		{/if}
 	</div>
 </div>
 
 <style lang="postcss">
-	.lanes {
-		display: flex;
-		position: relative;
-		flex: 1;
-		flex-direction: column;
-		height: 100%;
-		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-ml);
-	}
-
 	.lanes-header {
 		display: flex;
 		align-items: center;

@@ -17,12 +17,13 @@
 	const [idSelection] = inject(IdSelection);
 
 	const selection = $derived(selectionId ? idSelection.values(selectionId) : []);
+	const lastAdded = $derived(selectionId ? idSelection.getById(selectionId).lastAdded : undefined);
+
 	const toPreview = $derived.by(() => {
 		if (!selectionId) return;
 		if (selection.length === 0) return;
-		const entry = idSelection.getById(selectionId);
-		if (selection.length === 1 || !entry?.lastAdded) return selection[0];
-		return readKey(entry.lastAdded.key);
+		if (selection.length === 1 || !$lastAdded) return selection[0];
+		return readKey($lastAdded.key);
 	});
 </script>
 
@@ -51,6 +52,7 @@
 		flex-grow: 1;
 		width: 100%;
 		height: 100%;
+		max-height: 100%;
 		overflow: hidden;
 	}
 </style>

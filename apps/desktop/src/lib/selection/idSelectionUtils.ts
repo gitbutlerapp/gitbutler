@@ -7,6 +7,7 @@
 import { type SelectedFile, type SelectionId } from '$lib/selection/key';
 import { getSelectionDirection } from '$lib/utils/getSelectionDirection';
 import { KeyName } from '@gitbutler/ui/utils/hotkeys';
+import { get } from 'svelte/store';
 import type { TreeChange } from '$lib/hunks/change';
 import type { IdSelection } from '$lib/selection/idSelection.svelte';
 
@@ -198,7 +199,7 @@ export function selectFilesInList(
 	// e.stopPropagation();
 	const isAlreadySelected = idSelection.has(change.path, selectionId);
 	const isTheOnlyOneSelected = idSelection.collectionSize(selectionId) === 1 && isAlreadySelected;
-	const lastAdded = idSelection.getById(selectionId).lastAdded;
+	const lastAdded = get(idSelection.getById(selectionId).lastAdded);
 
 	if (e.ctrlKey || e.metaKey) {
 		if (isAlreadySelected) {

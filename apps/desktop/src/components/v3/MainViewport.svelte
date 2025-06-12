@@ -26,6 +26,7 @@ the window, then enlarge it and retain the original widths of the layout.
 <script lang="ts">
 	import Resizer from '$components/Resizer.svelte';
 	import AsyncRender from '$components/v3/AsyncRender.svelte';
+	import { threePointFive } from '$lib/config/uiFeatureFlags';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
@@ -47,9 +48,10 @@ the window, then enlarge it and retain the original widths of the layout.
 			default: number;
 			min: number;
 		};
+		middleOpen?: boolean;
 	};
 
-	const { name, left, middle, right, leftWidth, middleWidth }: Props = $props();
+	const { name, left, middle, right, leftWidth, middleWidth, middleOpen }: Props = $props();
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const zoom = $derived($userSettings.zoom);
@@ -104,10 +106,12 @@ the window, then enlarge it and retain the original widths of the layout.
 	class="main-viewport"
 	use:focusable={{ id: DefinedFocusable.MainViewport }}
 	bind:clientWidth={containerBindWidth}
+	class:three-five={$threePointFive}
+	class:middle-open={$threePointFive && middleOpen}
 >
 	<!-- Default layout: no swapping -->
 	<div
-		class="left"
+		class="left view-wrapper"
 		bind:this={leftDiv}
 		bind:clientWidth={leftBindWidth}
 		style:width={derivedLeftWidth + 'rem'}
@@ -121,7 +125,7 @@ the window, then enlarge it and retain the original widths of the layout.
 				direction="right"
 				minWidth={leftMinWidth}
 				maxWidth={leftMaxWidth}
-				borderRadius="ml"
+				borderRadius={$threePointFive ? undefined : 'ml'}
 				onWidth={(value) => {
 					leftPreferredWidth.set(value);
 				}}
@@ -129,34 +133,36 @@ the window, then enlarge it and retain the original widths of the layout.
 		</AsyncRender>
 	</div>
 
-	<div
-		class="middle fixed"
-		bind:this={middleDiv}
-		bind:clientWidth={middleBindWidth}
-		style:width={derivedMiddleWidth + 'rem'}
-		style:min-width={middleMinWidth + 'rem'}
-		use:focusable={{
-			id: DefinedFocusable.ViewportMiddle,
-			parentId: DefinedFocusable.MainViewport
-		}}
-	>
-		<AsyncRender>
-			{@render middle()}
-			<Resizer
-				viewport={middleDiv}
-				direction="right"
-				minWidth={middleMinWidth}
-				maxWidth={middleMaxWidth}
-				borderRadius="ml"
-				onWidth={(value) => {
-					middlePreferredWidth.set(value);
-				}}
-			/>
-		</AsyncRender>
-	</div>
+	{#if middleOpen || !$threePointFive}
+		<div
+			class="middle view-wrapper"
+			bind:this={middleDiv}
+			bind:clientWidth={middleBindWidth}
+			style:width={derivedMiddleWidth + 'rem'}
+			style:min-width={middleMinWidth + 'rem'}
+			use:focusable={{
+				id: DefinedFocusable.ViewportMiddle,
+				parentId: DefinedFocusable.MainViewport
+			}}
+		>
+			<AsyncRender>
+				{@render middle()}
+				<Resizer
+					viewport={middleDiv}
+					direction="right"
+					minWidth={middleMinWidth}
+					maxWidth={middleMaxWidth}
+					borderRadius="ml"
+					onWidth={(value) => {
+						middlePreferredWidth.set(value);
+					}}
+				/>
+			</AsyncRender>
+		</div>
+	{/if}
 
 	<div
-		class="right flexible"
+		class="right view-wrapper"
 		bind:this={rightDiv}
 		bind:clientWidth={rightBindWidth}
 		style:min-width={flexibleMinWidth + 'rem'}
@@ -180,7 +186,6 @@ the window, then enlarge it and retain the original widths of the layout.
 		width: 100%;
 		height: 100%;
 		overflow: auto;
-		gap: 8px;
 	}
 
 	.left {
@@ -191,9 +196,28 @@ the window, then enlarge it and retain the original widths of the layout.
 		flex-direction: column;
 		justify-content: flex-start;
 		height: 100%;
+		overflow: hidden;
 	}
 
-	.middle.fixed {
+	.middle-open .left {
+		border-radius: var(--radius-ml) 0 0 var(--radius-ml);
+	}
+
+	.middle-open .middle {
+		border-left-width: 0;
+		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
+	}
+
+	.view-wrapper {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+	}
+
+	.middle {
 		display: flex;
 		position: relative;
 		flex-grow: 0;
@@ -201,15 +225,21 @@ the window, then enlarge it and retain the original widths of the layout.
 		flex-direction: column;
 		justify-content: flex-start;
 		height: 100%;
+		margin-left: 8px;
 		overflow: hidden;
 	}
 
-	.right.flexible {
+	.three-five .middle {
+		margin-left: 0;
+	}
+
+	.right {
 		position: relative;
 		flex-grow: 1;
 		flex-shrink: 1;
 		flex-direction: column;
 		height: 100%;
+		margin-left: 8px;
 		overflow-x: hidden;
 	}
 </style>

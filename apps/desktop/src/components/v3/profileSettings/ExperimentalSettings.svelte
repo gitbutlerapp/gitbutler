@@ -4,7 +4,8 @@
 		assignmentEnabled,
 		confettiEnabled,
 		ircEnabled,
-		ircServer
+		ircServer,
+		threePointFive
 	} from '$lib/config/uiFeatureFlags';
 	import { User } from '$lib/user/user';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
@@ -90,6 +91,23 @@
 				id="confetti"
 				checked={$confettiEnabled}
 				onclick={() => confettiEnabled.set(!$confettiEnabled)}
+			/>
+		{/snippet}
+	</SectionCard>
+
+	<SectionCard labelFor="3.5" roundedTop={false} roundedBottom={true} orientation="row">
+		{#snippet title()}
+			UI 3.5
+		{/snippet}
+		{#snippet caption()}
+			Final stretch of UI iteration.
+		{/snippet}
+
+		{#snippet actions()}
+			<Toggle
+				id="3.5"
+				checked={$threePointFive}
+				onclick={() => threePointFive.set(!$threePointFive)}
 			/>
 		{/snippet}
 	</SectionCard>

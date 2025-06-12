@@ -2,7 +2,6 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import BranchView from '$components/v3/BranchView.svelte';
 	import CommitView from '$components/v3/CommitView.svelte';
-	import Feed from '$components/v3/Feed.svelte';
 	import MainViewport from '$components/v3/MainViewport.svelte';
 	import MultiStackView from '$components/v3/MultiStackView.svelte';
 	import NewCommitView from '$components/v3/NewCommitView.svelte';
@@ -11,7 +10,7 @@
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
 	import WorktreeTipsFooter from '$components/v3/WorktreeTipsFooter.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
-	import { SettingsService } from '$lib/config/appSettingsV2';
+	import { threePointFive } from '$lib/config/uiFeatureFlags';
 	import { isParsedError } from '$lib/error/parser';
 	import {
 		assignedChangesFocusableId,
@@ -24,9 +23,6 @@
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import { persisted } from '@gitbutler/shared/persisted';
-	import Segment from '@gitbutler/ui/segmentControl/Segment.svelte';
-	import SegmentControl from '@gitbutler/ui/segmentControl/SegmentControl.svelte';
 	import { setContext } from 'svelte';
 	import { writable } from 'svelte/store';
 	import type { SelectionId } from '$lib/selection/key';
@@ -38,17 +34,14 @@
 
 	const { stackId, projectId }: Props = $props();
 
-	const [stackService, uiState, focusManager, idSelection, settingsService] = inject(
+	const [stackService, uiState, focusManager, idSelection] = inject(
 		StackService,
 		UiState,
 		FocusManager,
-		IdSelection,
-		SettingsService
+		IdSelection
 	);
 	const worktreeSelection = idSelection.getById({ type: 'worktree' });
 	const stacksResult = $derived(stackService.stacks(projectId));
-	const settingsStore = $derived(settingsService.appSettings);
-	const canUseActions = $derived($settingsStore?.featureFlags.actions ?? false);
 
 	const projectState = $derived(uiState.project(projectId));
 	const drawerPage = $derived(projectState.drawerPage);
@@ -114,8 +107,6 @@
 		return { type: 'worktree' };
 	});
 
-	const view = persisted<'worktree' | 'action-log'>('worktree', 'left-sidebar-tab');
-
 	function onerror(err: unknown) {
 		// Clear selection if branch not found.
 		if (isParsedError(err) && err.code === 'errors.branch.notfound') {
@@ -123,60 +114,43 @@
 			console.warn('Workspace selection cleared');
 		}
 	}
+
+	const lastAdded = $derived(worktreeSelection.lastAdded);
+	const previewOpen = $derived(!!$lastAdded?.key);
 </script>
 
 <MainViewport
 	name="workspace"
+	middleOpen={previewOpen}
 	leftWidth={{ default: 280, min: 240 }}
 	middleWidth={{ default: 380, min: 240 }}
 >
 	{#snippet left()}
-		{#if canUseActions}
-			<div class="left-view-toggle">
-				<SegmentControl
-					fullWidth
-					defaultIndex={$view === 'worktree' ? 0 : 1}
-					onselect={(id) => {
-						$view = id as 'worktree' | 'action-log';
-					}}
-				>
-					<Segment id="worktree" icon="file-changes" />
-					<Segment id="action-log" icon="ai" />
-				</SegmentControl>
-			</div>
-		{/if}
-
-		{#if !canUseActions || $view === 'worktree'}
-			<div class="unassigned-changes__container">
-				<WorktreeChanges
-					title="Unassigned"
-					{projectId}
-					stackId={undefined}
-					active={selectionId.type === 'worktree' && selectionId.stackId === undefined}
-				>
-					{#snippet emptyPlaceholder()}
-						<div class="unassigned-changes__empty">
-							<div class="unassigned-changes__empty__placeholder">
-								{@html noChanges}
-								<p class="text-13 text-body unassigned-changes__empty__placeholder-text">
-									You're all caught up!<br />
-									No files need committing
-								</p>
-							</div>
-							<WorktreeTipsFooter />
-						</div>
-					{/snippet}
-				</WorktreeChanges>
-			</div>
-		{:else if canUseActions && $view === 'action-log'}
-			<Feed {projectId} {selectionId} />
-		{/if}
+		<WorktreeChanges
+			title="Unassigned"
+			{projectId}
+			stackId={undefined}
+			active={selectionId.type === 'worktree' && selectionId.stackId === undefined}
+		>
+			{#snippet emptyPlaceholder()}
+				<div class="unassigned-changes__empty">
+					<div class="unassigned-changes__empty__placeholder">
+						{@html noChanges}
+						<p class="text-13 text-body unassigned-changes__empty__placeholder-text">
+							You're all caught up!<br />
+							No files need committing
+						</p>
+					</div>
+					<WorktreeTipsFooter />
+				</div>
+			{/snippet}
+		</WorktreeChanges>
 	{/snippet}
 	{#snippet middle()}
-		<div class="middle-view">
-			{#if !drawerIsFullScreen.current}
-				<SelectionView {projectId} {selectionId} draggableFiles />
-			{/if}
+		{#if !drawerIsFullScreen.current || $threePointFive}
+			<SelectionView {projectId} {selectionId} draggableFiles />
+		{/if}
+		{#if !$threePointFive}
 			{#if drawerPage.current === 'new-commit'}
 				<NewCommitView {projectId} {stackId} />
 			{:else if drawerPage.current === 'branch' && stackId && branchName}
@@ -204,7 +178,7 @@
 					{onerror}
 				/>
 			{/if}
-		</div>
+		{/if}
 	{/snippet}
 	{#snippet right()}
 		<ReduxResult {projectId} result={stacksResult?.current}>
@@ -226,30 +200,11 @@
 </MainViewport>
 
 <style>
-	/* SKELETON LOADING */
 	.stacks-view-skeleton {
 		width: 100%;
 		height: 100%;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
-	}
-
-	.left-view-toggle {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		margin-bottom: 8px;
-	}
-
-	/* UNASSIGN CHANGES */
-	.unassigned-changes__container {
-		display: flex;
-		flex-direction: column;
-		height: 100%;
-		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-1);
 	}
 
 	.unassigned-changes__empty {
@@ -271,15 +226,5 @@
 	.unassigned-changes__empty__placeholder-text {
 		color: var(--clr-text-3);
 		text-align: center;
-	}
-
-	/* VIEWS */
-	.middle-view {
-		display: flex;
-		flex-direction: column;
-		height: 100%;
-		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-ml);
 	}
 </style>
