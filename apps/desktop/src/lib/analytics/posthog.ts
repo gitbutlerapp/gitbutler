@@ -1,11 +1,12 @@
 import { PostHog, posthog } from 'posthog-js';
+import type { SettingsService } from '$lib/config/appSettingsV2';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import { PUBLIC_POSTHOG_API_KEY } from '$env/static/public';
 
 export class PostHogWrapper {
 	private _instance: PostHog | void = undefined;
 
-	constructor() {}
+	constructor(private settingsService: SettingsService) {}
 
 	capture(...args: Parameters<typeof posthog.capture>) {
 		this._instance?.capture(...args);
@@ -29,17 +30,20 @@ export class PostHogWrapper {
 		});
 	}
 
-	setPostHogUser(params: { id: number; email?: string; name?: string }) {
+	async setPostHogUser(params: { id: number; email?: string; name?: string }) {
 		const { id, email, name } = params;
-		this._instance?.identify(`user_${id}`, {
+		const distinctId = `user_${id}`;
+		this._instance?.identify(distinctId, {
 			email,
 			name
 		});
+		this.settingsService.updateTelemetryDistinctId(distinctId);
 	}
 
-	resetPostHog() {
+	async resetPostHog() {
 		this._instance?.capture('logout');
 		this._instance?.reset();
+		await this.settingsService.updateTelemetryDistinctId(null);
 	}
 
 	/**

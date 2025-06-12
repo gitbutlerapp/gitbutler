@@ -6,6 +6,7 @@ import MetricsReporter, {
 import { PostHogWrapper } from '$lib/analytics/posthog';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { ProjectService } from '$lib/project/projectService';
+import { getSettingsdServiceMock } from '$lib/testing/mockSettingsdService';
 import { render } from '@testing-library/svelte';
 import { writable } from 'svelte/store';
 import { assert, test, describe, vi, beforeEach, afterEach } from 'vitest';
@@ -22,7 +23,10 @@ describe('MetricsReporter', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
 		projectMetrics = new ProjectMetrics();
-		posthog = new PostHogWrapper();
+		const MockSettingsService = getSettingsdServiceMock();
+		const settingsService = new MockSettingsService();
+		posthog = new PostHogWrapper(settingsService);
+
 		projectService = { project: writable(undefined), projectId: PROJECT_ID };
 		context = new Map([
 			[PostHogWrapper as object, posthog as any],
