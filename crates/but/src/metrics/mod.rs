@@ -1,11 +1,9 @@
 use but_settings::AppSettings;
 use serde::{Deserialize, Serialize};
-use tokio_util::sync::CancellationToken;
 
 #[derive(Debug, Clone)]
 pub struct Metrics<K: Into<String> + Send, P: Serialize + Send> {
     sender: Option<tokio::sync::mpsc::UnboundedSender<Event<K, P>>>,
-    cancellation_token: CancellationToken,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, strum::Display)]
@@ -50,30 +48,19 @@ impl<K: Into<String> + Send, P: Serialize + Send> Metrics<K, P> {
         } else {
             None
         };
-
-        let cancellation_token = CancellationToken::new();
-        let metrics = Metrics {
-            sender,
-            cancellation_token: cancellation_token.clone(),
-        };
+        let metrics = Metrics { sender };
 
         if let Some(client_future) = client {
             let mut receiver = receiver;
             tokio::task::spawn(async move {
                 let client = client_future.await;
-                loop {
-                    tokio::select! {
-                        Some(event) = receiver.recv() => {
-                            let mut posthog_event = posthog_rs::Event::new(event.event_name.to_string(), "user_3".to_string()); // TODO
-                            for (key, prop) in event.props {
-                                let _ = posthog_event.insert_prop(key, prop);
-                            }
-                            let _ = client.capture(posthog_event).await;
-                        },
-                        () = cancellation_token.cancelled() => {
-                            break;
-                        }
+                while let Some(event) = receiver.recv().await {
+                    let mut posthog_event =
+                        posthog_rs::Event::new(event.event_name.to_string(), "user_3".to_string()); // TODO
+                    for (key, prop) in event.props {
+                        let _ = posthog_event.insert_prop(key, prop);
                     }
+                    let _ = client.capture(posthog_event).await;
                 }
             });
         }
@@ -85,11 +72,5 @@ impl<K: Into<String> + Send, P: Serialize + Send> Metrics<K, P> {
         if let Some(sender) = &self.sender {
             let _ = sender.send(event);
         }
-    }
-}
-
-impl<K: Into<String> + Send, P: Serialize + Send> Drop for Metrics<K, P> {
-    fn drop(&mut self) {
-        self.cancellation_token.cancel();
     }
 }
