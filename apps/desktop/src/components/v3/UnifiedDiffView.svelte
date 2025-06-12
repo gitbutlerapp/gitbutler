@@ -95,9 +95,13 @@
 	function linesInclude(
 		newStart: number | undefined,
 		oldStart: number | undefined,
+		selected: boolean,
 		lines: LineId[]
 	) {
-		return lines.some((l) => l.newLine === newStart && l.oldLine === oldStart);
+		if (!selected) return false;
+		return (
+			lines.length === 0 || lines.some((l) => l.newLine === newStart && l.oldLine === oldStart)
+		);
 	}
 </script>
 
@@ -159,16 +163,36 @@
 									if (!canBePartiallySelected(diff.subject)) {
 										uncommittedService.checkHunk(stackId || null, change.path, hunk);
 									}
-									if (!linesInclude(p.newLine, p.oldLine, selection.current.lines)) {
+									if (
+										!linesInclude(
+											p.newLine,
+											p.oldLine,
+											selection.current.selected,
+											selection.current.lines
+										)
+									) {
 										uncommittedService.checkLine(stackId || null, change.path, hunk, {
 											newLine: p.newLine,
 											oldLine: p.oldLine
 										});
 									} else {
-										uncommittedService.uncheckLine(stackId || null, change.path, hunk, {
-											newLine: p.newLine,
-											oldLine: p.oldLine
-										});
+										const allLines =
+											p.rows
+												?.filter((l) => l.isDeltaLine)
+												.map((l) => ({
+													newLine: l.afterLineNumber,
+													oldLine: l.beforeLineNumber
+												})) ?? [];
+										uncommittedService.uncheckLine(
+											stackId || null,
+											change.path,
+											hunk,
+											{
+												newLine: p.newLine,
+												oldLine: p.oldLine
+											},
+											allLines
+										);
 									}
 								}}
 								onChangeStage={(selected) => {

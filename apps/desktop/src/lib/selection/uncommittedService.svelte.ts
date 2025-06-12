@@ -252,8 +252,16 @@ export class UncommittedService {
 		this.dispatch(uncommittedActions.checkLine({ stackId, path, hunkHeader, line }));
 	}
 
-	uncheckLine(stackId: string | null, path: string, header: HunkHeader, line: LineId) {
-		this.dispatch(uncommittedActions.uncheckLine({ stackId, path, hunkHeader: header, line }));
+	uncheckLine(
+		stackId: string | null,
+		path: string,
+		header: HunkHeader,
+		line: LineId,
+		allLinesInHunk: LineId[]
+	) {
+		this.dispatch(
+			uncommittedActions.uncheckLine({ stackId, path, hunkHeader: header, line, allLinesInHunk })
+		);
 	}
 
 	checkHunk(stackId: string | null, path: string, header: HunkHeader) {
