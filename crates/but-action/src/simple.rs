@@ -138,8 +138,15 @@ fn handle_changes_simple_inner(
     let commit_message = if std::env::var("OPENAI_API_KEY").is_ok() {
         // TODO: Provide diff string
         commit_message_blocking(change_summary, &external_prompt.unwrap_or_default(), "")?
-    } else if let Ok(gb_api_key) = std::env::var("GB_API_KEY") {
+    } else if let Ok(gb_api_key) = std::env::var("GB_API_KEY_OPENAI") {
         gb_client::commit_message_blocking_open_ai(
+            &gb_api_key,
+            change_summary,
+            &external_prompt.unwrap_or_default(),
+            "",
+        )?
+    } else if let Ok(gb_api_key) = std::env::var("GB_API_KEY_ANTHROPIC") {
+        gb_client::commit_message_blocking_anthropic(
             &gb_api_key,
             change_summary,
             &external_prompt.unwrap_or_default(),
