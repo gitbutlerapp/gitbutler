@@ -1,3 +1,5 @@
+use std::env;
+
 use but_settings::AppSettings;
 use serde::{Deserialize, Serialize};
 
@@ -17,8 +19,28 @@ pub struct Event {
 }
 
 impl Event {
-    pub fn new(event_name: EventKind, props: Vec<(String, Option<String>)>) -> Self {
+    pub fn new(event_name: EventKind, mut props: Vec<(String, Option<String>)>) -> Self {
+        props.push((
+            "appVersion".to_string(),
+            option_env!("CARGO_PKG_VERSION").map(|v| v.to_string()),
+        ));
+        props.push((
+            "appName".to_string(),
+            option_env!("CARGO_BIN_NAME").map(|v| v.to_string()),
+        ));
+        props.push(("OS".to_string(), Some(Event::normalize_os(env::consts::OS))));
+        props.push(("Arch".to_string(), Some(env::consts::ARCH.to_string())));
         Self { event_name, props }
+    }
+
+    fn normalize_os(os: &str) -> String {
+        match os {
+            "macos" => "Mac OS X".to_string(),
+            "windows" => "Windows".to_string(),
+            "linux" => "Linux".to_string(),
+            "android" => "Android".to_string(),
+            _ => os.to_string(),
+        }
     }
 }
 
