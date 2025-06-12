@@ -1,0 +1,3 @@
+ancestorEntries = ["apps/desktop/src/components/v3/SelectionView.svelte", "apps/desktop/src/lib/selection/idSelection.svelte.ts", "apps/desktop/src/lib/selection/idSelectionUtils.ts"]
+ourEntries = ["apps/desktop/src/components/v3/SelectionView.svelte", "apps/desktop/src/lib/selection/idSelection.svelte.ts", "apps/desktop/src/lib/selection/idSelectionUtils.ts"]
+theirEntries = ["apps/desktop/src/components/v3/SelectionView.svelte", "apps/desktop/src/lib/selection/idSelection.svelte.ts", "apps/desktop/src/lib/selection/idSelectionUtils.ts"]
