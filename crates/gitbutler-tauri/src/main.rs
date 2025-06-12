@@ -284,6 +284,7 @@ fn main() {
                     settings::update_onboarding_complete,
                     settings::update_telemetry,
                     settings::update_feature_flags,
+                    settings::update_telemetry_distinct_id,
                     action::list_actions,
                     action::handle_changes,
                     cli::install_cli,
