@@ -101,9 +101,10 @@ export const uncommittedSlice = createSlice({
 				path: string;
 				hunkHeader: HunkHeader;
 				line: LineId;
+				allLinesInHunk: LineId[];
 			}>
 		) {
-			const { stackId, path, hunkHeader, line } = action.payload;
+			const { stackId, path, hunkHeader, line, allLinesInHunk } = action.payload;
 			const key = compositeKey({ stackId, path, hunkHeader });
 			const selection = uncommittedSelectors.hunkSelection.selectById(state.hunkSelection, key);
 			if (selection) {
@@ -117,29 +118,51 @@ export const uncommittedSlice = createSlice({
 				if (assignment.hunkHeader === null) {
 					// TODO: Validate that this never happens?
 					throw new Error('Not implemented');
-				} else {
-					if (selection.lines.length === 0) {
+				}
+
+				if (selection.lines.length === 0) {
+					// No lines selected means the whole hunk is selected.
+					// Unselecting one line means that all lines except that one are selected.
+					const newLines = allLinesInHunk.filter(
+						(l) => l.newLine !== line.newLine || l.oldLine !== line.oldLine
+					);
+
+					if (newLines.length > 0) {
+						// If there are still lines selected, we update the selection.
 						state.hunkSelection = hunkSelectionAdapter.upsertOne(state.hunkSelection, {
 							...selection,
-							lines: [line]
+							lines: newLines
 						});
-					} else {
-						const newLines = selection.lines.filter(
-							(l) => l.newLine !== line.newLine || l.oldLine !== line.oldLine
-						);
-						if (newLines.length > 0) {
-							state.hunkSelection = hunkSelectionAdapter.upsertOne(state.hunkSelection, {
-								...selection,
-								lines: newLines
-							});
-						} else {
-							state.hunkSelection = hunkSelectionAdapter.removeOne(
-								state.hunkSelection,
-								selection.assignmentId
-							);
-						}
+						return;
 					}
+
+					// If there are no lines left selected, we remove the selection.
+					state.hunkSelection = hunkSelectionAdapter.removeOne(
+						state.hunkSelection,
+						selection.assignmentId
+					);
+					return;
 				}
+
+				// Some lines are selected, so we remove the line from the selection.
+				const newLines = selection.lines.filter(
+					(l) => l.newLine !== line.newLine || l.oldLine !== line.oldLine
+				);
+
+				if (newLines.length > 0) {
+					// As long as there are still lines selected, we update the selection.
+					state.hunkSelection = hunkSelectionAdapter.upsertOne(state.hunkSelection, {
+						...selection,
+						lines: newLines
+					});
+					return;
+				}
+
+				// Otherwise, if there are no lines left selected, we remove the hunk completely.
+				state.hunkSelection = hunkSelectionAdapter.removeOne(
+					state.hunkSelection,
+					selection.assignmentId
+				);
 			}
 		},
 		checkHunk(
