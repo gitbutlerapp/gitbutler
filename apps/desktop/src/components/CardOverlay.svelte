@@ -4,6 +4,7 @@
 	interface Props {
 		hovered: boolean;
 		activated: boolean;
+		visible?: boolean;
 		label?: string;
 		extraPaddings?: {
 			top?: number;
@@ -13,7 +14,7 @@
 		};
 	}
 
-	const { hovered, activated, label = 'Drop here', extraPaddings }: Props = $props();
+	const { visible, hovered, activated, label = 'Drop here', extraPaddings }: Props = $props();
 	let defaultPadding = 4;
 
 	const extraPaddingTop = extraPaddings?.top ?? 0;
@@ -24,6 +25,7 @@
 
 <div
 	class="dropzone-target dropzone-wrapper"
+	class:visible
 	class:activated
 	class:hovered
 	style="--padding-top: {pxToRem(defaultPadding + extraPaddingTop)}rem; --padding-right: {pxToRem(
@@ -53,7 +55,7 @@
 			</div>
 		{/if}
 
-		<!-- add svg rectange -->
+		<!-- SVG rectangle to simulate a dashed outline with a precise dash offset. -->
 		<svg width="100%" height="100%" class="animated-rectangle">
 			<rect width="100%" height="100%" rx="6" ry="6" vector-effect="non-scaling-stroke" />
 		</svg>
@@ -62,6 +64,9 @@
 
 <style lang="postcss">
 	.dropzone-wrapper {
+		--dropzone-fill: oklch(from var(--clr-scale-pop-50) l c h / 0.1);
+		--dropzone-stroke: oklch(from var(--clr-scale-pop-50) l c h / 0.8);
+
 		display: none;
 		z-index: var(--z-floating);
 		position: absolute;
@@ -80,9 +85,25 @@
 			transform 0.1s,
 			padding 0.1s;
 
-		&.activated {
+		&.visible {
+			display: flex;
+
+			& .animated-rectangle rect {
+				fill: transparent;
+				stroke: var(--clr-border-2);
+			}
+		}
+
+		&:not(.visible).activated {
 			display: flex;
 			animation: dropzone-scale 0.1s forwards;
+		}
+
+		&.visible.activated {
+			& .animated-rectangle rect {
+				fill: var(--dropzone-fill);
+				stroke: var(--dropzone-stroke);
+			}
 		}
 
 		&.hovered {
@@ -154,14 +175,15 @@
 		height: 100%;
 
 		& rect {
-			fill: oklch(from var(--clr-scale-pop-50) l c h / 0.1);
-			stroke: oklch(from var(--clr-scale-pop-50) l c h / 0.8);
-
+			fill: var(--dropzone-fill);
+			stroke: var(--dropzone-stroke);
 			stroke-width: 2px;
 			stroke-dasharray: 2;
 			stroke-dashoffset: 30;
 			transform-origin: center;
-			transition: fill var(--transition-fast);
+			transition:
+				fill var(--transition-fast),
+				stroke var(--transition-fast);
 		}
 	}
 

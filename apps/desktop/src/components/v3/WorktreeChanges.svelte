@@ -28,6 +28,7 @@
 		active: boolean;
 		title: string;
 		mode?: 'unassigned' | 'assigned';
+		dropzoneVisible?: boolean;
 		onDropzoneActivated?: (activated: boolean) => void;
 		emptyPlaceholder?: Snippet;
 	};
@@ -38,6 +39,7 @@
 		stackId,
 		title,
 		mode = 'unassigned',
+		dropzoneVisible,
 		onDropzoneActivated,
 		emptyPlaceholder
 	}: Props = $props();
@@ -108,7 +110,12 @@
 	onActivated={onDropzoneActivated}
 >
 	{#snippet overlay({ hovered, activated, handler })}
-		<CardOverlay {hovered} {activated} label={getDropzoneLabel(handler)} />
+		<CardOverlay
+			visible={dropzoneVisible}
+			{hovered}
+			{activated}
+			label={getDropzoneLabel(handler)}
+		/>
 	{/snippet}
 
 	<div
