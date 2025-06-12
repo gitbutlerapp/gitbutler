@@ -1,3 +1,4 @@
+// TODO: Refactor this enum into an object conataining invalidation rules.
 export enum ReduxTag {
 	Diff = 'Diff',
 	HunkAssignments = 'HunkAssignments',
@@ -5,6 +6,11 @@ export enum ReduxTag {
 	StackDetails = 'StackDetails',
 	WorktreeChanges = 'WorktreeChanges',
 	CommitChanges = 'CommitChanges',
+	/**
+	 * Use stack id when invalidating this tag since invalidating just one
+	 * branch in a stack is rarely what you want, and unapplied branches
+	 * should not require much invalidation.
+	 */
 	BranchChanges = 'BranchChanges',
 	PullRequests = 'PullRequests',
 	GitLabPullRequests = 'GitLabPullRequests',
