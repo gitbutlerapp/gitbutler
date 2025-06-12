@@ -51,14 +51,15 @@ impl HunkAssignment {
 }
 
 pub(crate) fn assignments(
-    new: Vec<HunkAssignment>,
+    new: &[HunkAssignment],
     old: &[HunkAssignment],
     applied_stack_ids: &[StackId],
     multiple_overlapping_resolution: MultipleOverlapping,
     update_unassigned: bool,
 ) -> Result<Vec<HunkAssignment>> {
     let mut reconciled = vec![];
-    for mut new_assignment in new {
+    for new_assignment in new {
+        let mut new_assignment = new_assignment.clone();
         let intersecting = old
             .iter()
             .filter(|current_entry| current_entry.intersects(new_assignment.clone()))
