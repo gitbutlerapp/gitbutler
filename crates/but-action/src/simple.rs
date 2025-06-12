@@ -139,6 +139,8 @@ fn handle_changes_simple_inner(
         // TODO: Provide diff string
         commit_message_blocking(change_summary, &external_prompt.unwrap_or_default(), "")?
     } else if let Ok(gb_api_key) = std::env::var("GB_API_KEY_OPENAI") {
+        // TODO: Obviously, this should not be the way that we pass in the API key AND decide to use OpenAI,
+        // but it'f goof enough for now.
         gb_client::commit_message_blocking_open_ai(
             &gb_api_key,
             change_summary,
@@ -146,6 +148,7 @@ fn handle_changes_simple_inner(
             "",
         )?
     } else if let Ok(gb_api_key) = std::env::var("GB_API_KEY_ANTHROPIC") {
+        // TODO: Obviously, [read above comment]
         gb_client::commit_message_blocking_anthropic(
             &gb_api_key,
             change_summary,
