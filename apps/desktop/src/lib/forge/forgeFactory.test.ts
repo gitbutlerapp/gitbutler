@@ -4,13 +4,16 @@ import { GitHub } from '$lib/forge/github/github';
 import { GitLab } from '$lib/forge/gitlab/gitlab';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { type GitHubApi } from '$lib/state/clientState.svelte';
+import { getSettingsdServiceMock } from '$lib/testing/mockSettingsdService';
 import { expect, test, describe } from 'vitest';
 import type { GitHubClient } from '$lib/forge/github/githubClient';
 import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 import type { ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
 
 describe.concurrent('DefaultforgeFactory', () => {
-	const posthog = new PostHogWrapper();
+	const MockSettingsService = getSettingsdServiceMock();
+	const settingsService = new MockSettingsService();
+	const posthog = new PostHogWrapper(settingsService);
 	const projectMetrics = new ProjectMetrics();
 	const gitHubApi: GitHubApi = {
 		endpoints: {},

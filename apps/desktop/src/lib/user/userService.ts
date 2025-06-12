@@ -44,7 +44,7 @@ export class UserService {
 			const user = plainToInstance(User, userData);
 			this.tokenMemoryService.setToken(user.access_token);
 			this.user.set(user);
-			this.posthog.setPostHogUser({ id: user.id, email: user.email, name: user.name });
+			await this.posthog.setPostHogUser({ id: user.id, email: user.email, name: user.name });
 			setSentryUser(user);
 			return user;
 		}
@@ -81,7 +81,7 @@ export class UserService {
 		await this.clearUser();
 		this.user.set(undefined);
 		this.tokenMemoryService.setToken(undefined);
-		this.posthog.resetPostHog();
+		await this.posthog.resetPostHog();
 		resetSentry();
 	}
 

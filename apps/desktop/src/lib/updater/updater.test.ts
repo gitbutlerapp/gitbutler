@@ -1,5 +1,6 @@
 import { PostHogWrapper } from '$lib/analytics/posthog';
 import { Tauri } from '$lib/backend/tauri';
+import { getSettingsdServiceMock } from '$lib/testing/mockSettingsdService';
 import { UPDATE_INTERVAL_MS, UpdaterService } from '$lib/updater/updater';
 import { get } from 'svelte/store';
 import { expect, test, describe, vi, beforeEach, afterEach } from 'vitest';
@@ -12,7 +13,9 @@ import type { Update } from '@tauri-apps/plugin-updater';
 describe('Updater', () => {
 	let tauri: Tauri;
 	let updater: UpdaterService;
-	const posthog = new PostHogWrapper();
+	const MockSettingsService = getSettingsdServiceMock();
+	const settingsService = new MockSettingsService();
+	const posthog = new PostHogWrapper(settingsService);
 
 	beforeEach(() => {
 		vi.useFakeTimers();

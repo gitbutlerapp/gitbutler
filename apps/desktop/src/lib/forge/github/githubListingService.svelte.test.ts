@@ -2,6 +2,7 @@ import { PostHogWrapper } from '$lib/analytics/posthog';
 import { GitHub } from '$lib/forge/github/github';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { setupMockGitHubApi } from '$lib/testing/mockGitHubApi.svelte';
+import { getSettingsdServiceMock } from '$lib/testing/mockSettingsdService';
 import { type RestEndpointMethodTypes } from '@octokit/rest';
 import { flushSync } from 'svelte';
 import { test, describe, vi, beforeEach, expect } from 'vitest';
@@ -15,7 +16,9 @@ describe('GitHubListingService', () => {
 
 	let gh: GitHub;
 	let projectMetrics: ProjectMetrics;
-	const posthog = new PostHogWrapper();
+	const MockSettingsService = getSettingsdServiceMock();
+	const settingsService = new MockSettingsService();
+	const posthog = new PostHogWrapper(settingsService);
 
 	vi.useFakeTimers();
 

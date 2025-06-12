@@ -34,12 +34,6 @@ export const csr = true;
 
 // eslint-disable-next-line
 export const load: LayoutLoad = async () => {
-	// Awaited and will block initial render, but it is necessary in order to respect the user
-	// settings on telemetry.
-	const posthog = new PostHogWrapper();
-	const appSettings = await loadAppSettings();
-	initAnalyticsIfEnabled(appSettings, posthog);
-
 	// TODO: Find a workaround to avoid this dynamic import
 	// https://github.com/sveltejs/kit/issues/905
 	const defaultPath = await (await import('@tauri-apps/api/path')).homeDir();
@@ -49,13 +43,19 @@ export const load: LayoutLoad = async () => {
 	const tokenMemoryService = new TokenMemoryService();
 	const httpClient = new HttpClient(window.fetch, PUBLIC_API_BASE_URL, tokenMemoryService.token);
 	const tauri = new Tauri();
-	const updaterService = new UpdaterService(tauri, posthog);
 	const promptService = new PromptService();
 	const uploadsService = new UploadsService(httpClient);
 
-	const userService = new UserService(httpClient, tokenMemoryService, posthog);
-
 	const projectsService = new ProjectsService(defaultPath, httpClient);
+	const settingsService = new SettingsService(tauri, projectsService);
+
+	// Awaited and will block initial render, but it is necessary in order to respect the user
+	// settings on telemetry.
+	const posthog = new PostHogWrapper(settingsService);
+	const appSettings = await loadAppSettings();
+	initAnalyticsIfEnabled(appSettings, posthog);
+
+	const updaterService = new UpdaterService(tauri, posthog);
 
 	const gitConfig = new GitConfigService(tauri);
 	const secretsService = new RustSecretService(gitConfig);
@@ -67,7 +67,7 @@ export const load: LayoutLoad = async () => {
 	const fileService = new FileService(tauri);
 	const hooksService = new HooksService(tauri);
 	const projectMetrics = new ProjectMetrics();
-	const settingsService = new SettingsService(tauri, projectsService);
+	const userService = new UserService(httpClient, tokenMemoryService, posthog);
 
 	// Await settings to prevent immediate reloads on initial render.
 	await settingsService.refresh();

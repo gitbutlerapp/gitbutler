@@ -144,6 +144,9 @@ Cypress.on('window:before:load', (win) => {
 				return getProject(args);
 			case 'list_projects':
 				return listProjects();
+			case 'update_telemetry_distinct_id':
+				return await Promise.resolve();
+
 			case 'plugin:updater|check':
 				return null;
 			case 'get_user':

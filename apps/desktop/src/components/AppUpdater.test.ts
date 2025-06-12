@@ -1,6 +1,7 @@
 import AppUpdater from '$components/AppUpdater.svelte';
 import { PostHogWrapper } from '$lib/analytics/posthog';
 import { Tauri } from '$lib/backend/tauri';
+import { getSettingsdServiceMock } from '$lib/testing/mockSettingsdService';
 import { UpdaterService } from '$lib/updater/updater';
 import { render, screen } from '@testing-library/svelte';
 import { expect, test, describe, vi, beforeEach, afterEach } from 'vitest';
@@ -10,7 +11,9 @@ describe('AppUpdater', () => {
 	let tauri: Tauri;
 	let updater: UpdaterService;
 	let context: Map<any, any>;
-	const posthog = new PostHogWrapper();
+	const MockSettingsService = getSettingsdServiceMock();
+	const settingsService = new MockSettingsService();
+	const posthog = new PostHogWrapper(settingsService);
 
 	beforeEach(() => {
 		vi.useFakeTimers();
