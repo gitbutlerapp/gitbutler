@@ -817,10 +817,13 @@ name = "but-graph"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "bitflags 2.9.1",
  "bstr",
  "but-core",
  "but-testsupport",
+ "git2",
  "gitbutler-fs",
+ "gitbutler-reference",
  "gitbutler-stack",
  "gix",
  "gix-testtools",

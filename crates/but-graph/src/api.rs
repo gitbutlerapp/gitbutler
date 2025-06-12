@@ -1,4 +1,5 @@
-use crate::{CommitIndex, Edge, Graph, Segment, SegmentIndex};
+use crate::{CommitIndex, Edge, EntryPoint, Graph, Segment, SegmentIndex};
+use anyhow::Context;
 use petgraph::Direction;
 use petgraph::prelude::EdgeRef;
 use std::ops::{Index, IndexMut};
@@ -7,7 +8,12 @@ use std::ops::{Index, IndexMut};
 impl Graph {
     /// Insert `segment` to the graph so that it's not connected to any other segment, and return its index.
     pub fn insert_root(&mut self, segment: Segment) -> SegmentIndex {
-        self.inner.add_node(segment)
+        let index = self.inner.add_node(segment);
+        self.inner[index].id = index.index();
+        if self.entrypoint.is_none() {
+            self.entrypoint = Some((index, None))
+        }
+        index
     }
 
     /// Put `dst` on top of `src`, connecting it from the `src_commit` specifically,
@@ -27,6 +33,7 @@ impl Graph {
         dst_commit: impl Into<Option<CommitIndex>>,
     ) -> SegmentIndex {
         let dst = self.inner.add_node(dst);
+        self.inner[dst].id = dst.index();
         self.connect_segments(src, src_commit, dst, dst_commit);
         dst
     }
@@ -47,6 +54,25 @@ impl Graph {
                 dst: dst_commit.into(),
             },
         );
+    }
+
+    /// Return the entry-point of the graph as configured during traversal.
+    /// It's useful for when one wants to know which commit was used to discover the entire graph.
+    ///
+    /// Note that this method only fails if the entrypoint wasn't set correctly due to a bug.
+    pub fn lookup_entrypoint(&self) -> anyhow::Result<EntryPoint<'_>> {
+        let (segment_index, commit_index) = self
+            .entrypoint
+            .context("BUG: must always set the entrypoint")?;
+        let segment = &self.inner.node_weight(segment_index).with_context(|| {
+            format!("BUG: entrypoint segment at {segment_index:?} wasn't present")
+        })?;
+        Ok(EntryPoint {
+            segment_index,
+            commit_index,
+            segment,
+            commit: commit_index.and_then(|idx| segment.commits.get(idx)),
+        })
     }
 }
 
@@ -146,7 +172,7 @@ impl Graph {
                         .map(|rn| rn.shorten())
                         .unwrap_or_else(|| "<anon>".into()),
                     commits = s
-                        .commits_unique_from_tip
+                        .commits
                         .iter()
                         .map(|c| c.id.to_hex_with_len(HEX).to_string())
                         .collect::<Vec<_>>()
