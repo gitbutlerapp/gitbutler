@@ -20,6 +20,7 @@ anyhow = "1.0.98"
 chrono = "0.4.41"
 uuid = { workspace = true }
 strum = { version = "0.27", features = ["derive"] }
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 gix.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-stack.workspace = true

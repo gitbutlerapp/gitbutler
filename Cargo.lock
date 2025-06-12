@@ -760,6 +760,7 @@ dependencies = [
  "gitbutler-serde",
  "gitbutler-stack",
  "gix",
+ "reqwest 0.12.18",
  "schemars 0.9.0",
  "serde",
  "serde-error",
