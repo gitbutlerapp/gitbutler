@@ -989,9 +989,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'changes_in_branch',
 					params: { projectId, stackId, branchName, remote }
 				}),
-				providesTags: (_result, _error, { branchName }) => [
-					...providesItem(ReduxTag.BranchChanges, branchName)
-				],
+				providesTags: (_result, _error, { stackId }) =>
+					stackId ? providesItem(ReduxTag.BranchChanges, stackId) : [],
 				transformResponse(rsp: TreeChanges) {
 					return changesAdapter.addMany(changesAdapter.getInitialState(), rsp.changes);
 				}
@@ -1039,19 +1038,18 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				{
 					projectId: string;
 					stackId: string;
-					branchName: string; // Provided only for invalidating `BranchDetails`.
 					commitId: string;
 					worktreeChanges: DiffSpec[];
 				}
 			>({
-				query: ({ projectId, stackId, branchName: _, commitId, worktreeChanges }) => ({
+				query: ({ projectId, stackId, commitId, worktreeChanges }) => ({
 					command: 'amend_virtual_branch',
 					params: { projectId, stackId, commitId, worktreeChanges },
 					actionName: 'Amend Commit'
 				}),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesList(ReduxTag.WorktreeChanges),
-					invalidatesItem(ReduxTag.BranchChanges, args.branchName),
+					invalidatesItem(ReduxTag.BranchChanges, args.stackId),
 					invalidatesItem(ReduxTag.StackDetails, args.stackId)
 				]
 			}),
@@ -1143,6 +1141,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}),
 				invalidatesTags(_result, _error, arg) {
 					return [
+						invalidatesItem(ReduxTag.BranchChanges, arg.stackId),
 						invalidatesItem(ReduxTag.StackDetails, arg.stackId),
 						invalidatesList(ReduxTag.WorktreeChanges)
 					];

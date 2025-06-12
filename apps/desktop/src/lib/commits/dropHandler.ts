@@ -154,7 +154,6 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 					await this.trigger({
 						projectId: this.projectId,
 						stackId: this.stackId,
-						branchName: this.branchName,
 						commitId: this.commit.id,
 						worktreeChanges: diffSpec
 					})
@@ -261,7 +260,6 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 			okWithForce: boolean;
 			projectId: string;
 			stackId: string;
-			branchName: string;
 			commit: DzCommitData;
 			uiState: UiState;
 		}
@@ -292,8 +290,7 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 	}
 
 	async ondrop(data: HunkDropData | HunkDropDataV3): Promise<void> {
-		const { stackService, projectId, stackId, branchName, commit, okWithForce, uiState } =
-			this.args;
+		const { stackService, projectId, stackId, commit, okWithForce, uiState } = this.args;
 		if (!okWithForce && commit.isRemote) return;
 
 		if (data instanceof HunkDropData) {
@@ -334,7 +331,6 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 			stackService.amendCommitMutation({
 				projectId,
 				stackId,
-				branchName,
 				commitId: commit.id,
 				worktreeChanges: [
 					{
@@ -397,7 +393,6 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 			stackService.amendCommitMutation({
 				projectId,
 				stackId,
-				branchName,
 				commitId: commit.id,
 				worktreeChanges: [
 					{
@@ -429,7 +424,6 @@ export class AmendCommitDzHandler implements DropzoneHandler {
 			okWithForce: boolean;
 			projectId: string;
 			stackId: string;
-			branchName: string;
 			commit: DzCommitData;
 		}
 	) {}
@@ -447,12 +441,11 @@ export class AmendCommitDzHandler implements DropzoneHandler {
 	}
 
 	ondrop(data: FileDropData): void {
-		const { stackService, projectId, stackId, branchName, commit } = this.args;
+		const { stackService, projectId, stackId, commit } = this.args;
 		if (data.file instanceof LocalFile) {
 			stackService.amendCommitMutation({
 				projectId,
 				stackId,
-				branchName,
 				commitId: commit.id,
 				worktreeChanges: filesToDiffSpec(data)
 			});

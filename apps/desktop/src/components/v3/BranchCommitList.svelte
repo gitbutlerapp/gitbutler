@@ -324,7 +324,6 @@
 					stackService,
 					projectId,
 					stackId,
-					branchName,
 					commit: dzCommit,
 					// TODO: Use correct value!
 					okWithForce: true,
