@@ -12,7 +12,9 @@ use gitbutler_oxidize::OidExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::VirtualBranchesHandle;
 
-use crate::{Outcome, default_target_setting_if_none, generate::commit_message_blocking};
+use crate::{
+    Outcome, default_target_setting_if_none, gb_client, generate::commit_message_blocking,
+};
 /// This is a GitButler automation which allows easy handling of uncommitted changes in a repository.
 /// At a high level, it will:
 ///   - Checkout GitButler's workspace branch if not already checked out
@@ -136,6 +138,23 @@ fn handle_changes_simple_inner(
     let commit_message = if std::env::var("OPENAI_API_KEY").is_ok() {
         // TODO: Provide diff string
         commit_message_blocking(change_summary, &external_prompt.unwrap_or_default(), "")?
+    } else if let Ok(gb_api_key) = std::env::var("GB_API_KEY_OPENAI") {
+        // TODO: Obviously, this should not be the way that we pass in the API key AND decide to use OpenAI,
+        // but it'f goof enough for now.
+        gb_client::commit_message_blocking_open_ai(
+            &gb_api_key,
+            change_summary,
+            &external_prompt.unwrap_or_default(),
+            "",
+        )?
+    } else if let Ok(gb_api_key) = std::env::var("GB_API_KEY_ANTHROPIC") {
+        // TODO: Obviously, [read above comment]
+        gb_client::commit_message_blocking_anthropic(
+            &gb_api_key,
+            change_summary,
+            &external_prompt.unwrap_or_default(),
+            "",
+        )?
     } else {
         change_summary.to_string()
     };
