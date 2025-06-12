@@ -42,6 +42,12 @@ impl AppSettingsWithDiskSync {
         settings.save()
     }
 
+    pub fn update_telemetry_distinct_id(&self, app_distinct_id: Option<String>) -> Result<()> {
+        let mut settings = self.get_mut_enforce_save()?;
+        settings.telemetry.app_distinct_id = app_distinct_id;
+        settings.save()
+    }
+
     pub fn update_feature_flags(
         &self,
         FeatureFlagsUpdate { v3, ws3, actions }: FeatureFlagsUpdate,

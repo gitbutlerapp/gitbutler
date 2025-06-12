@@ -13,20 +13,29 @@ use rmcp::{
     schemars, tool,
 };
 
-pub(crate) async fn start() -> Result<()> {
+use crate::metrics::{Event, EventKind, Metrics};
+
+pub(crate) async fn start(app_settings: AppSettings) -> Result<()> {
     let transport = (tokio::io::stdin(), tokio::io::stdout());
-    let service = Mcp::new().serve(transport).await?;
+    let service = Mcp::new(app_settings).serve(transport).await?;
     service.waiting().await?;
     Ok(())
 }
 
 #[derive(Debug, Clone)]
-pub struct Mcp {}
+pub struct Mcp {
+    app_settings: AppSettings,
+    metrics: Metrics,
+}
 
 #[tool(tool_box)]
 impl Mcp {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(app_settings: AppSettings) -> Self {
+        let metrics = Metrics::new_with_background_handling(&app_settings);
+        Self {
+            app_settings,
+            metrics,
+        }
     }
 
     #[tool(
@@ -36,6 +45,10 @@ impl Mcp {
         &self,
         #[tool(aggr)] request: GitButlerUpdateBranchesRequest,
     ) -> Result<CallToolResult, McpError> {
+        self.metrics.capture(Event::new(
+            EventKind::Mcp,
+            vec![("gitbutler_update_branches".to_string(), None)],
+        ));
         if request.changes_summary.is_empty() {
             return Err(McpError::invalid_request(
                 "ChangesSummary cannot be empty".to_string(),
@@ -57,7 +70,7 @@ impl Mcp {
 
         let repo_path = PathBuf::from(request.current_working_directory.clone());
         let project = Project::from_path(&repo_path).expect("Failed to create project from path");
-        let ctx = &mut CommandContext::open(&project, AppSettings::default())
+        let ctx = &mut CommandContext::open(&project, self.app_settings.clone())
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let response = but_action::handle_changes(

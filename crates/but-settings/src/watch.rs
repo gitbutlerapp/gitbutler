@@ -59,7 +59,7 @@ impl Drop for AppSettingsEnforceSaveToDisk<'_> {
     }
 }
 
-const SETTINGS_FILE: &str = "settings.json";
+pub(crate) const SETTINGS_FILE: &str = "settings.json";
 
 impl AppSettingsWithDiskSync {
     /// Create a new instance without actually starting to [watch in the background](Self::watch_in_background()).
