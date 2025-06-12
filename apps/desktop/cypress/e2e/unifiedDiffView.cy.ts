@@ -422,4 +422,50 @@ describe('Unified Diff View with complex hunks', () => {
 			}
 		});
 	});
+
+	it('should deselect only the line that was clicked in the hunk', () => {
+		// spy
+		cy.spy(mockBackend, 'createCommit').as('createCommit');
+
+		// There should be uncommitted changes
+		cy.getByTestId('uncommitted-changes-file-list').should('be.visible');
+
+		// Click on start a commit
+		cy.getByTestId('start-commit-button').click();
+
+		// Unstage everything expet the long hunk file
+		cy.getByTestId('uncommitted-changes-file-list').within(() => {
+			cy.getByTestId('file-list-item').each((item) => {
+				const fileName = item.text().trim();
+				if (fileName !== mockBackend.longFileName) {
+					cy.wrap(item).find('input[type="checkbox"]').should('be.checked').click();
+				}
+			});
+		});
+
+		// Click on the long hunk file
+		cy.getByTestId('uncommitted-changes-file-list').within(() => {
+			const fileName = mockBackend.longFileName;
+			cy.getByTestId('file-list-item', fileName).click();
+		});
+
+		// Click on the fist staged line in the hunk
+		cy.get('[data-test-staged="true"] > [data-is-delta-line="true"]')
+			.first()
+			.should('be.visible')
+			.click();
+
+		// Commit the things
+		cy.getByTestId('commit-drawer-title-input').should('be.visible').type('Test commit');
+		cy.getByTestId('commit-drawer-action-button').should('be.visible').click();
+
+		cy.get('@createCommit').should('be.calledWith', {
+			projectId: '1',
+			parentId: undefined,
+			stackId: 'stack-a-id',
+			message: 'Test commit',
+			stackBranchName: 'stack-a-id',
+			worktreeChanges: mockBackend.expectedHunkDeselectOneLine
+		});
+	});
 });
