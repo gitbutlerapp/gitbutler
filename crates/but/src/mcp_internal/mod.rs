@@ -276,7 +276,7 @@ impl ServerHandler for Mcp {
 5. If the changes are related to an existing branch, take a look at the **branch details** and its commits. Determine which commit the changes should be applied to.
 6. Propose a commit message that describes the changes. The message should explain what the changes are, not why.
 7. If accepted, commit (or amend) the changes using the respective tool.
-8. Continue asking questions until all file changes are handled.
+8. Go back to step 1 and continue until all uncommitted changes have been handled.
                 ";
 
                 Ok(GetPromptResult {
