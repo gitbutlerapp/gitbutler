@@ -7,7 +7,8 @@ use anyhow::Context;
 use bstr::BString;
 use but_core::RefMetadata;
 use but_graph::{
-    Commit, LocalCommit, LocalCommitRelation, RemoteCommit, Segment, VirtualBranchesTomlMetadata,
+    Commit, LocalCommit, LocalCommitRelation, RemoteCommit, Segment, SegmentMetadata,
+    VirtualBranchesTomlMetadata,
 };
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
@@ -409,12 +410,7 @@ pub fn stack_details_v3(
                 stack
                     .segments
                     .get(idx + 1)
-                    .and_then(|below| {
-                        below
-                            .commits_unique_from_tip
-                            .first()
-                            .map(|commit| commit.id)
-                    })
+                    .and_then(|below| below.commits.first().map(|commit| commit.id))
                     .or(stack.base),
             )
         })
@@ -434,9 +430,9 @@ pub fn stack_details_v3(
 impl ui::BranchDetails {
     fn from_segment(
         Segment {
+            id: _,
             ref_name,
-            ref_location: _,
-            commits_unique_from_tip,
+            commits: commits_unique_from_tip,
             commits_unique_in_remote_tracking_branch,
             remote_tracking_ref_name,
             metadata,
@@ -448,13 +444,14 @@ impl ui::BranchDetails {
             .context("Can't handle a stack yet whose tip isn't pointed to by a ref")?;
         let (description, updated_at, review_id, pr_number) = metadata
             .clone()
-            .map(|meta| {
-                (
+            .and_then(|meta| match meta {
+                SegmentMetadata::Branch(meta) => Some((
                     meta.description,
                     meta.ref_info.updated_at,
                     meta.review.review_id,
                     meta.review.pull_request,
-                )
+                )),
+                SegmentMetadata::Workspace(_) => None,
             })
             .unwrap_or_default();
         let base_commit = previous_tip_or_stack_base
@@ -565,6 +562,8 @@ impl From<&RemoteCommit> for ui::UpstreamCommit {
                     author,
                     // TODO: also pass refs for the frontend.
                     refs: _,
+                    // TODO: also pass flags for the frontend.
+                    flags: _,
                 },
             // TODO: Represent this in the UI (maybe) and/or deal with divergence of the local and remote tracking branch.
             has_conflicts: _,
@@ -592,6 +591,8 @@ impl From<&LocalCommit> for ui::Commit {
                     author,
                     // TODO: also pass refs
                     refs: _,
+                    // TODO: also flags refs
+                    flags: _,
                 },
             relation,
             has_conflicts,

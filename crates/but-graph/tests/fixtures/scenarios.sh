@@ -125,3 +125,68 @@ git init four-diamond
 
   git checkout -B merged A && git merge C
 )
+
+mkdir ws
+(cd ws
+  git init single-stack-ambiguous
+  (cd single-stack-ambiguous
+     commit init
+       setup_target_to_match_main
+       git branch new-A
+       git branch new-B
+     git checkout -b A
+       commit segment-A
+       for name in A-empty-01 A-empty-02 A-empty-03; do
+         git branch "$name"
+       done
+     git checkout -b B
+       commit segment-B~1 && git branch B-empty && git branch ambiguous-01
+       commit segment-B && git branch ambiguous-02
+     create_workspace_commit_once B
+  )
+
+  git init single-stack
+  (cd single-stack
+     commit init
+       setup_target_to_match_main
+       git branch new-A
+     git checkout -b A
+       commit segment-A
+     git checkout -b B
+       commit segment-B~1
+         git branch B-sub
+       commit segment-B
+     create_workspace_commit_once B
+  )
+
+  git init dual-merge
+  (cd dual-merge
+     commit init
+       setup_target_to_match_main
+       git branch B
+     git checkout -b A
+       commit A
+     git checkout B
+       commit B
+     git checkout -b merge
+       git merge --no-ff A
+       git branch empty-1-on-merge
+       git branch empty-2-on-merge
+     git checkout -b C
+       git branch D
+       commit C
+     git checkout D
+       commit D
+     git checkout -b merge-2
+       git merge --no-ff C
+     create_workspace_commit_once merge-2
+  )
+
+  git init just-init-with-branches
+  (cd just-init-with-branches
+    commit init && setup_target_to_match_main
+    for name in A B C D E F gitbutler/workspace; do
+      git branch "$name"
+    done
+  )
+)
