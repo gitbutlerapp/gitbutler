@@ -13,7 +13,7 @@ use rmcp::{
     schemars, tool,
 };
 
-use crate::metrics::{self, EventKind, Metrics};
+use crate::metrics::{Event, EventKind, Metrics};
 
 pub(crate) async fn start(app_settings: AppSettings) -> Result<()> {
     let transport = (tokio::io::stdin(), tokio::io::stdout());
@@ -25,7 +25,7 @@ pub(crate) async fn start(app_settings: AppSettings) -> Result<()> {
 #[derive(Debug, Clone)]
 pub struct Mcp {
     app_settings: AppSettings,
-    metrics: Metrics<String, Option<String>>,
+    metrics: Metrics,
 }
 
 #[tool(tool_box)]
@@ -45,11 +45,10 @@ impl Mcp {
         &self,
         #[tool(aggr)] request: GitButlerUpdateBranchesRequest,
     ) -> Result<CallToolResult, McpError> {
-        let event = metrics::Event::new(
+        self.metrics.capture(Event::new(
             EventKind::Mcp,
             vec![("gitbutler_update_branches".to_string(), None)],
-        );
-        self.metrics.capture(event);
+        ));
         if request.changes_summary.is_empty() {
             return Err(McpError::invalid_request(
                 "ChangesSummary cannot be empty".to_string(),

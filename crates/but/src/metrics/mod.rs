@@ -2,8 +2,8 @@ use but_settings::AppSettings;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
-pub struct Metrics<K: Into<String> + Send, P: Serialize + Send> {
-    sender: Option<tokio::sync::mpsc::UnboundedSender<Event<K, P>>>,
+pub struct Metrics {
+    sender: Option<tokio::sync::mpsc::UnboundedSender<Event>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, strum::Display)]
@@ -11,23 +11,19 @@ pub struct Metrics<K: Into<String> + Send, P: Serialize + Send> {
 pub enum EventKind {
     Mcp,
 }
-pub struct Event<K: Into<String> + Send, P: Serialize> {
+pub struct Event {
     event_name: EventKind,
-    props: Vec<(K, P)>,
+    props: Vec<(String, Option<String>)>,
 }
 
-impl<K: Into<String> + Send, P: Serialize> Event<K, P> {
-    pub fn new(event_name: EventKind, props: Vec<(K, P)>) -> Self {
+impl Event {
+    pub fn new(event_name: EventKind, props: Vec<(String, Option<String>)>) -> Self {
         Self { event_name, props }
     }
 }
 
-impl<K: Into<String> + Send, P: Serialize + Send> Metrics<K, P> {
-    pub fn new_with_background_handling(app_settings: &AppSettings) -> Self
-    where
-        K: 'static,
-        P: 'static,
-    {
+impl Metrics {
+    pub fn new_with_background_handling(app_settings: &AppSettings) -> Self {
         let metrics_permitted = app_settings.telemetry.app_metrics_enabled;
         // Only create client and sender if metrics are permitted
         let client = if metrics_permitted {
@@ -68,7 +64,7 @@ impl<K: Into<String> + Send, P: Serialize + Send> Metrics<K, P> {
         metrics
     }
 
-    pub fn capture(&self, event: Event<K, P>) {
+    pub fn capture(&self, event: Event) {
         if let Some(sender) = &self.sender {
             let _ = sender.send(event);
         }
