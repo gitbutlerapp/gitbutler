@@ -9,7 +9,9 @@
 		// Whether anonymous error reporting is enabled.
 		"appErrorReportingEnabled": true,
 		// Whether non-anonymous metrics are enabled.
-		"appNonAnonMetricsEnabled": false
+		"appNonAnonMetricsEnabled": false,
+		/// Distinct ID, if reporting is enabled.
+		"appDistinctId": null
 	},
 	"githubOauthApp": {
 		// Client ID for the GitHub OAuth application. Set this to use custom (non-GitButler) OAuth application.

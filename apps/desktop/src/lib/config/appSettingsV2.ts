@@ -39,6 +39,10 @@ export class SettingsService {
 		await invoke('update_telemetry', { update });
 	}
 
+	async updateTelemetryDistinctId(appDistinctId: string | null) {
+		await invoke('update_telemetry_distinct_id', { appDistinctId });
+	}
+
 	async updateFeatureFlags(update: Partial<FeatureFlags>) {
 		// Doing a call to list_virtual_branches first to ensure the stack.tree properties are updated
 		await invoke<any>('list_virtual_branches', {
@@ -75,6 +79,8 @@ export type TelemetrySettings = {
 	appErrorReportingEnabled: boolean;
 	/** Whether non-anonymous metrics are enabled. */
 	appNonAnonMetricsEnabled: boolean;
+	/** Distinct ID, if reporting is enabled. */
+	appDistinctId: string | null;
 };
 
 export type FeatureFlags = {

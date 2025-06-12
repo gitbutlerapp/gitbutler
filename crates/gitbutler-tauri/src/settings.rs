@@ -73,6 +73,17 @@ pub fn update_telemetry(
 
 #[tauri::command(async)]
 #[instrument(skip(handle), err(Debug))]
+pub fn update_telemetry_distinct_id(
+    handle: State<'_, AppSettingsWithDiskSync>,
+    app_distinct_id: Option<String>,
+) -> Result<(), Error> {
+    handle
+        .update_telemetry_distinct_id(app_distinct_id)
+        .map_err(|e| e.into())
+}
+
+#[tauri::command(async)]
+#[instrument(skip(handle), err(Debug))]
 pub fn update_feature_flags(
     handle: State<'_, AppSettingsWithDiskSync>,
     update: FeatureFlagsUpdate,
