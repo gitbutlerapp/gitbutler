@@ -4,8 +4,7 @@
 	import {
 		SETTINGS,
 		type Settings,
-		type ScrollbarVisilitySettings,
-		type CodeEditorSettings
+		type ScrollbarVisilitySettings
 	} from '$lib/settings/userSettings';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
@@ -16,20 +15,6 @@
 	import Select from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import type { Writable } from 'svelte/store';
-
-	const editorOptions: CodeEditorSettings[] = [
-		{ schemeIdentifer: 'vscodium', displayName: 'VSCodium' },
-		{ schemeIdentifer: 'vscode', displayName: 'VSCode' },
-		{ schemeIdentifer: 'vscode-insiders', displayName: 'VSCode Insiders' },
-		{ schemeIdentifer: 'windsurf', displayName: 'Windsurf' },
-		{ schemeIdentifer: 'zed', displayName: 'Zed' },
-		{ schemeIdentifer: 'cursor', displayName: 'Cursor' }
-	];
-	const editorOptionsForSelect = editorOptions.map((option) => ({
-		label: option.displayName,
-		value: option.schemeIdentifer
-	}));
-
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 	const diff = `@@ -56,10 +56,9 @@
 			// Diff example
@@ -61,32 +46,6 @@
 		Theme
 	{/snippet}
 	<ThemeSelector {userSettings} />
-</SectionCard>
-<SectionCard orientation="row" centerAlign>
-	{#snippet title()}
-		Default code editor
-	{/snippet}
-	{#snippet actions()}
-		<Select
-			value={$userSettings.defaultCodeEditor.schemeIdentifer}
-			options={editorOptionsForSelect}
-			onselect={(value) => {
-				const selected = editorOptions.find((option) => option.schemeIdentifer === value);
-				if (selected) {
-					userSettings.update((s) => ({ ...s, defaultCodeEditor: selected }));
-				}
-			}}
-		>
-			{#snippet itemSnippet({ item, highlighted })}
-				<SelectItem
-					selected={item.value === $userSettings.defaultCodeEditor.schemeIdentifer}
-					{highlighted}
-				>
-					{item.label}
-				</SelectItem>
-			{/snippet}
-		</Select>
-	{/snippet}
 </SectionCard>
 <div class="stack-v">
 	<SectionCard centerAlign roundedBottom={false}>
