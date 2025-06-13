@@ -2,6 +2,7 @@ use std::cmp::Ordering;
 
 use anyhow::Result;
 use but_workspace::StackId;
+use itertools::Itertools;
 
 use crate::HunkAssignment;
 
@@ -81,8 +82,11 @@ pub(crate) fn assignments(
                     new_assignment.set_from(other, applied_stack_ids, update_unassigned);
                 }
 
-                if multiple_overlapping_resolution == MultipleOverlapping::SetNone {
-                    // If requested, reset stack_id to none on multiple overlapping
+                // If requested, reset stack_id to none on multiple overlapping
+                let unique_stack_ids = intersecting.iter().filter_map(|a| a.stack_id).unique();
+                if multiple_overlapping_resolution == MultipleOverlapping::SetNone
+                    && unique_stack_ids.count() > 1
+                {
                     new_assignment.stack_id = None;
                 }
             }
