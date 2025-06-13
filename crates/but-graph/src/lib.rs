@@ -36,10 +36,21 @@ pub struct EntryPoint<'graph> {
     pub commit: Option<&'graph LocalCommit>,
 }
 
+/// This structure is used as data associated with each edge and is mainly for collecting
+/// the intent of an edge, which should always represent the connection of a commit to another.
+/// Sometimes, it represents the connection from a commit (or segment) to an empty segment which
+/// doesn't yet have a commit.
+/// The idea is to write code that keeps edge information consistent, and our visualization tools hightlights
+/// issues with the inherent invariants.
 #[derive(Debug, Copy, Clone)]
 struct Edge {
+    /// `None` if the source segment has no commit.
     src: Option<CommitIndex>,
+    /// The commit id at `src` in the segment commit list.
+    src_id: Option<gix::ObjectId>,
     dst: Option<CommitIndex>,
+    /// The commit id at `dst` in the segment commit list.
+    dst_id: Option<gix::ObjectId>,
 }
 
 /// An index into the [`Graph`].

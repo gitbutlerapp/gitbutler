@@ -12,6 +12,19 @@ pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
         Local,
         Remote,
     }
+    fn shorten_ref(name: &gix::refs::FullName) -> String {
+        let (cat, sn) = name.category_and_short_name().expect("valid refs");
+        // Only shorten those that look good and are unambiguous enough.
+        if matches!(cat, Category::LocalBranch | Category::RemoteBranch) {
+            sn
+        } else {
+            name.as_bstr()
+                .strip_prefix(b"refs/")
+                .map(|n| n.as_bstr())
+                .unwrap_or(name.as_bstr())
+        }
+        .to_string()
+    }
     fn tree_for_commit<'a>(
         commit: &but_graph::Commit,
         extra: impl Into<Option<&'a str>>,
@@ -52,18 +65,7 @@ pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
                     commit
                         .refs
                         .iter()
-                        .map(|rn| format!("►{}", {
-                            let (cat, sn) = rn.category_and_short_name().expect("valid refs");
-                            // Only shorten those that look good and are unambiguous enough.
-                            if matches!(cat, Category::LocalBranch | Category::RemoteBranch) {
-                                sn
-                            } else {
-                                rn.as_bstr()
-                                    .strip_prefix(b"refs/")
-                                    .map(|n| n.as_bstr())
-                                    .unwrap_or(rn.as_bstr())
-                            }
-                        }))
+                        .map(|rn| format!("►{}", { shorten_ref(rn) }))
                         .collect::<Vec<_>>()
                         .join(", ")
                 )
@@ -123,10 +125,13 @@ pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
             ref_name = segment
                 .ref_name
                 .as_ref()
-                .map(|n| n.to_string())
+                .map(shorten_ref)
                 .unwrap_or("anon:".into()),
             remote = if let Some(remote_ref_name) = segment.remote_tracking_ref_name.as_ref() {
-                format!(" <> {remote_name}", remote_name = remote_ref_name.as_bstr())
+                format!(
+                    " <> {remote_name}",
+                    remote_name = shorten_ref(remote_ref_name)
+                )
             } else {
                 "".into()
             },

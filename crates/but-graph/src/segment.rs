@@ -304,8 +304,8 @@ impl Segment {
     }
 
     /// Find the commit associated with the given `commit_index`, which for convenience is optional.
-    pub fn commit_by_index(&self, idx: Option<CommitIndex>) -> Option<&LocalCommit> {
-        self.commits.get(idx?)
+    pub fn commit_id_by_index(&self, idx: Option<CommitIndex>) -> Option<gix::ObjectId> {
+        self.commits.get(idx?).map(|c| c.id)
     }
 
     /// Return the flags of the first commit if non-empty, which is the top-most commit in the stack assuming

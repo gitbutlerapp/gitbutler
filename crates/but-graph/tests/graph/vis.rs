@@ -37,6 +37,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
             ..Default::default()
         },
         0,
+        None,
     );
 
     let remote_to_local_target = Segment {
@@ -50,7 +51,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
         ))],
         ..Default::default()
     };
-    graph.connect_new_segment(local_target, None, remote_to_local_target, 0);
+    graph.connect_new_segment(local_target, None, remote_to_local_target, 0, None);
 
     let branch = Segment {
         id: 3,
@@ -77,7 +78,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
         commits_unique_in_remote_tracking_branch: vec![],
         metadata: None,
     };
-    let branch = graph.connect_new_segment(local_target, None, branch, 0);
+    let branch = graph.connect_new_segment(local_target, None, branch, 0, None);
 
     let remote_to_root_branch = Segment {
         id: 4,
@@ -96,18 +97,18 @@ fn post_graph_traversal() -> anyhow::Result<()> {
         ],
         ..Default::default()
     };
-    graph.connect_new_segment(branch, 1, remote_to_root_branch, 0);
+    graph.connect_new_segment(branch, 1, remote_to_root_branch, 0, None);
 
     insta::assert_snapshot!(graph_tree(&graph), @r#"
-    └── 👉►►►:0:refs/heads/main <> refs/remotes/origin/main
-        ├── ►:3:refs/heads/A <> refs/remotes/origin/A
+    └── 👉►►►:0:main <> origin/main
+        ├── ►:3:A <> origin/A
         │   ├── 🔵💥aaaaaaa (InWorkspace)❱"2 in A"
         │   └── 🔵febafeb (InWorkspace)❱"1 in A"
-        │       └── ►:4:refs/remotes/origin/A
+        │       └── ►:4:origin/A
         │           └── 🔵bbbbbbb❱"remote: on top of 1A"
-        ├── ►:2:refs/remotes/origin/main
+        ├── ►:2:origin/main
         │   └── 🔵ccccccc❱"remote: on top of main"
-        └── ►:1:refs/heads/new-stack
+        └── ►:1:new-stack
     "#);
 
     Ok(())

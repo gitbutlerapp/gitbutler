@@ -78,7 +78,10 @@ impl Graph {
     ///     - *target* branches consist of a local and remote tracking branch, and one can be ahead of the other.
     ///     - workspaces are relative to the local tracking branch of the target.
     /// * remote tracking branches are seen in relation to their branches.
-    /// * the graph of segment assigns each reachable commit
+    /// * the graph of segments assigns each reachable commit to exactly one segment
+    /// * one can use [`petgraph::algo`] and [`petgraph::visit`]
+    ///     - It maintains information about the intended connections, so modifications afterwards will show
+    ///       in debugging output if edges are now in violation of this constraint.
     ///
     /// ### (Arbitrary) Rules
     ///
@@ -92,6 +95,8 @@ impl Graph {
     /// * an entrypoint always causes the start of a segment.
     /// * Segments are always named if their first commit has a single local branch pointing to it.
     /// * Anonymous segments are created if there are more than one local branches pointing to it.
+    /// * Anonymous segments are created if another segment connects to a commit that it contains that is not the first one.
+    ///    - This means, all connections go from the last commit in a segment to the first commit in another segment.
     /// * Segments stored in the *workspace metadata* are used/relevant only if they are backed by an existing branch.
     pub fn from_commit_traversal(
         tip: gix::Id<'_>,
@@ -251,8 +256,13 @@ impl Graph {
                     Entry::Vacant(e) => {
                         let segment_below =
                             branch_segment_from_name_and_meta(None, meta, Some((&refs_by_id, id)))?;
-                        let segment_below =
-                            graph.connect_new_segment(parent_above, at_commit, segment_below, 0);
+                        let segment_below = graph.connect_new_segment(
+                            parent_above,
+                            at_commit,
+                            segment_below,
+                            0,
+                            id,
+                        );
                         e.insert(segment_below);
                         segment_below
                     }
@@ -287,7 +297,7 @@ impl Graph {
             );
         }
 
-        Ok(graph.post_processed(meta, tip.detach()))
+        graph.post_processed(meta, tip.detach())
     }
 }
 
@@ -312,8 +322,8 @@ fn split_commit_into_segment(
         .skip(commits_in_top_segment)
         .collect();
     let top_commit = graph[sidx].last_commit_index();
-    let bottom_segment =
-        graph.connect_new_segment_validated(sidx, top_commit, bottom_segment, 0)?;
+    let bottom_id = bottom_segment.commits[0].id;
+    let bottom_segment = graph.connect_new_segment(sidx, top_commit, bottom_segment, 0, bottom_id);
 
     // All in-flight commits now go into the new segment.
     replace_queued_segments(next, sidx, bottom_segment);
@@ -345,12 +355,14 @@ fn split_connections(
             dst,
             Edge {
                 src: edge.weight.src,
+                src_id: edge.weight.src_id,
                 dst: edge.weight.dst.map(|c| {
                     // Point the edge to what now is the first commit usually,
                     // but generally offset them to match the new commit location
                     // in the split-off segment.
                     c - cidx
                 }),
+                dst_id: edge.weight.dst_id,
             },
         );
     }
@@ -438,6 +450,7 @@ fn try_split_segment_at_branch(
             .context("BUG: we are here because the segment above has commits")?,
         segment_below,
         0,
+        info.id,
     );
     Ok(Some(segment_below))
 }

@@ -12,7 +12,11 @@ impl Graph {
     /// Now that the graph is complete, perform additional structural improvements with the requirement of them to be computationally cheap.
     ///
     /// * insert empty segments as defined by the workspace that affects its downstream.
-    pub(super) fn post_processed(mut self, meta: &impl RefMetadata, tip: gix::ObjectId) -> Self {
+    pub(super) fn post_processed(
+        mut self,
+        meta: &impl RefMetadata,
+        tip: gix::ObjectId,
+    ) -> anyhow::Result<Self> {
         // For the first id to be inserted into our entrypoint segment, set index.
         if let Some((segment, ep_commit)) = self.entrypoint.as_mut() {
             *ep_commit = self
@@ -123,7 +127,7 @@ impl Graph {
                     commit_idx,
                     ws_stack,
                     meta,
-                )
+                )?
                 .unwrap_or(current_above);
                 truncate_commits_from.get_or_insert(commit_idx);
             }
@@ -134,7 +138,7 @@ impl Graph {
                 delete_if_empty_and_reconnect(&mut self, orig_sidx);
             }
         }
-        self
+        Ok(self)
     }
 }
 
@@ -195,7 +199,7 @@ fn create_multi_segment(
     commit_idx: CommitIndex,
     ws_stack: &ref_metadata::WorkspaceStack,
     meta: &impl RefMetadata,
-) -> Option<SegmentIndex> {
+) -> anyhow::Result<Option<SegmentIndex>> {
     let commit = &graph[commit_parent].commits[commit_idx];
     let matching_refs_in_commit_indices: Vec<_> = ws_stack
         .branches
@@ -203,7 +207,7 @@ fn create_multi_segment(
         .filter_map(|s| commit.refs.iter().position(|crn| &s.ref_name == crn))
         .collect();
     if matching_refs_in_commit_indices.is_empty() {
-        return None;
+        return Ok(None);
     }
 
     let (commit, refs) = {
@@ -234,19 +238,25 @@ fn create_multi_segment(
             })
     {
         let ref_name = &refs[ref_idx];
-        let new_segment = branch_segment_from_name_and_meta(Some(ref_name.clone()), meta, None);
-        let above_commit_idx = graph[above_idx]
-            .commit_index_of(commit.id)
-            .and_then(|cidx| {
+        let new_segment = branch_segment_from_name_and_meta(Some(ref_name.clone()), meta, None)?;
+        let above_commit_idx = {
+            let s = &graph[above_idx];
+            let cidx = s.commit_index_of(commit.id);
+            if cidx.is_some() {
                 // We will take the current commit, so must commit to the one above.
                 // This works just once, for the actually passed parent commit.
-                cidx.checked_sub(1)
-            });
+                cidx.and_then(|cidx| cidx.checked_sub(1))
+            } else {
+                // Otherwise, assure the connection is valid by using the last commit.
+                s.last_commit_index()
+            }
+        };
         let new_segment = graph.connect_new_segment(
             above_idx,
             above_commit_idx,
-            new_segment.unwrap(),
+            new_segment,
             is_last.then_some(0),
+            is_last.then_some(commit.id),
         );
         above_idx = new_segment;
         if is_first {
@@ -274,13 +284,16 @@ fn create_multi_segment(
                     target,
                     Edge {
                         src: edge.weight.src,
+                        src_id: edge.weight.src_id,
                         dst: target_cidx,
+                        dst_id: target_cidx.map(|_| commit.id),
                     },
                 );
             }
         }
         if is_last {
             // connect outgoing edges (and disconnect them)
+            let commit_id = commit.id;
             graph[new_segment].commits.push(commit);
 
             let edges = collect_edges_at_commit(
@@ -297,14 +310,16 @@ fn create_multi_segment(
                     edge.target,
                     Edge {
                         src: Some(0),
+                        src_id: Some(commit_id),
                         dst: edge.weight.dst,
+                        dst_id: edge.weight.dst_id,
                     },
                 );
             }
             break;
         }
     }
-    Some(above_idx)
+    Ok(Some(above_idx))
 }
 
 fn collect_edges_at_commit(
