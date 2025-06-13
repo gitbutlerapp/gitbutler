@@ -31,6 +31,7 @@
 		existingCommitId?: string;
 		title: string;
 		description: string;
+		testId?: string;
 	};
 
 	let {
@@ -44,7 +45,8 @@
 		loading,
 		title,
 		description,
-		existingCommitId
+		existingCommitId,
+		testId
 	}: Props = $props();
 
 	const uiState = getContext(UiState);
@@ -148,7 +150,7 @@
 	}
 </script>
 
-<div class="commit-message-wrap">
+<div class="commit-message-wrap" data-testid={testId}>
 	<MessageEditorInput
 		testId={TestId.CommitDrawerTitleInput}
 		bind:ref={titleInput}

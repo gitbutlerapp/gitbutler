@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Dropzone from '$components/Dropzone.svelte';
+	import MultiStackCreateNew from '$components/v3/MultiStackCreateNew.svelte';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { OutsideLaneDzHandler } from '$lib/stacks/dropHandler';
@@ -118,6 +119,7 @@
 						</p>
 					</div>
 				</div>
+				<MultiStackCreateNew {projectId} noStacks />
 			</div>
 		{/snippet}
 	</Dropzone>

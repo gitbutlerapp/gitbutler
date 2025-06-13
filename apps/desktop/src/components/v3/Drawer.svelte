@@ -1,7 +1,6 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Resizer from '$components/Resizer.svelte';
-	import { threePointFive } from '$lib/config/uiFeatureFlags';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -20,6 +19,7 @@
 		filesSplitView?: Snippet;
 		disableScroll?: boolean;
 		testId?: string;
+		fill?: boolean;
 	};
 
 	const {
@@ -34,7 +34,8 @@
 		children,
 		filesSplitView,
 		disableScroll,
-		testId
+		testId,
+		fill
 	}: Props = $props();
 
 	const [uiState] = inject(UiState);
@@ -68,15 +69,12 @@
 <div
 	data-testid={testId}
 	class="drawer"
+	class:fill
 	bind:this={drawerDiv}
-	style:height={$threePointFive ? undefined : height}
-	style:min-height="{minHeight}rem"
+	style:height={fill ? undefined : height}
+	style:min-height={fill ? undefined : minHeight + 'rem'}
 >
-	<div
-		class="drawer-wrap"
-		class:top-border={!drawerIsFullScreen.current && !$threePointFive}
-		class:bottom-border={$threePointFive}
-	>
+	<div class="drawer-wrap" class:top-border={!drawerIsFullScreen.current && !fill}>
 		<div bind:this={headerDiv} class="drawer-header" class:no-left-padding={noLeftPadding}>
 			<div class="drawer-header__title">
 				{#if title}
@@ -118,7 +116,7 @@
 				style:--custom-width={splitView ? `${contentWidth.current}rem` : 'auto'}
 			>
 				<div class="drawer__content-scroll" bind:this={viewportEl}>
-					{#if scrollable}
+					{#if scrollable && !fill}
 						<ConfigurableScrollableContainer>
 							<div class="drawer__content">
 								{@render children()}
@@ -154,7 +152,7 @@
 		{/if}
 	</div>
 
-	{#if !drawerIsFullScreen.current}
+	{#if !drawerIsFullScreen.current && !fill}
 		<!-- Resizer should be outside if the overflow: hidden container otherwise it wouldn't overlay on top of the border -->
 		<Resizer
 			direction="up"
@@ -177,6 +175,9 @@
 		flex-shrink: 0;
 		flex-direction: column;
 		width: 100%;
+		&.fill {
+			max-height: 100%;
+		}
 	}
 
 	.drawer-wrap {
@@ -189,9 +190,6 @@
 
 		&.top-border {
 			border-top: 1px solid var(--clr-border-2);
-		}
-		&.bottom-border {
-			border-bottom: 1px solid var(--clr-border-2);
 		}
 	}
 
@@ -297,7 +295,6 @@
 		flex-direction: column;
 		width: var(--custom-width);
 		height: 100%;
-		min-height: 0;
 	}
 
 	.drawer__files-split-view {

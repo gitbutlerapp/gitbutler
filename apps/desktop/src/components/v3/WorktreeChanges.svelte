@@ -8,7 +8,6 @@
 	import WorktreeChangesSelectAll from '$components/v3/WorktreeChangesSelectAll.svelte';
 	import { createCommitStore } from '$lib/commits/contexts';
 	import { UncommitDzHandler } from '$lib/commits/dropHandler';
-	import { threePointFive } from '$lib/config/uiFeatureFlags';
 	import { DefinedFocusable, uncommittedFocusableId } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
@@ -59,8 +58,7 @@
 	const drawerPage = $derived(projectState.drawerPage);
 	const commitSourceId = $derived(projectState.commitSourceId.current);
 	const isCommitting = $derived(
-		drawerPage.current === 'new-commit' &&
-			(commitSourceId === stackId || ($threePointFive && stackId === undefined))
+		drawerPage.current === 'new-commit' && (commitSourceId === stackId || stackId === undefined)
 	);
 	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
 
@@ -89,6 +87,7 @@
 			projectState.stackId.set(stackId);
 			stackState?.selection.set({ branchName: defaultBranchName });
 		}
+		uncommittedService.checkAll(null);
 	}
 
 	let scrollTopIsVisible = $state(true);
@@ -174,41 +173,41 @@
 					/>
 				</div>
 			</ScrollableContainer>
-			{#if !$threePointFive || (!isCommitting && stackId !== undefined)}
-				<div class="start-commit" class:sticked-bottom={!scrollBottomIsVisible}>
-					<Button
-						testId={TestId.StartCommitButton}
-						kind={isCommitting ? 'outline' : 'solid'}
-						type="button"
-						wide
-						disabled={defaultBranchResult?.current.isLoading}
-						onclick={() => {
-							if (isCommitting) {
-								drawerPage.set(undefined);
-							} else {
-								startCommit();
-							}
-						}}
-					>
-						{#if isCommitting}
-							Cancel committing
-						{:else if mode === 'assigned' || stacks.length === 0}
-							Start a commit…
-						{:else}
-							Commit to selected branch…
-						{/if}
-					</Button>
-				</div>
-			{:else if $threePointFive && isCommitting && stackId !== undefined}
-				<div class="message-editor">
-					<NewCommitView {projectId} noDrawer onclose={() => drawerPage.set(undefined)} />
-				</div>
-			{/if}
 		{:else}
 			{@render emptyPlaceholder?.()}
 		{/if}
 	</div>
 </Dropzone>
+{#if !isCommitting && (stackId !== undefined || stacks.length === 0)}
+	<div class="start-commit" class:sticked-bottom={!scrollBottomIsVisible}>
+		<Button
+			testId={TestId.StartCommitButton}
+			kind={isCommitting ? 'outline' : 'solid'}
+			type="button"
+			wide
+			disabled={defaultBranchResult?.current.isLoading}
+			onclick={() => {
+				if (isCommitting) {
+					drawerPage.set(undefined);
+				} else {
+					startCommit();
+				}
+			}}
+		>
+			{#if isCommitting}
+				Cancel committing
+			{:else if mode === 'assigned' || stacks.length === 0}
+				Start a commit…
+			{:else}
+				Commit to selected branch…
+			{/if}
+		</Button>
+	</div>
+{:else if isCommitting && stackId !== undefined}
+	<div class="message-editor">
+		<NewCommitView {projectId} noDrawer onclose={() => drawerPage.set(undefined)} />
+	</div>
+{/if}
 
 <style>
 	.uncommitted-changes-wrap {

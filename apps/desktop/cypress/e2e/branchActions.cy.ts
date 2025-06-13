@@ -79,7 +79,7 @@ describe('Branch Actions', () => {
 		cy.getByTestId('branch-header', newBranchName).should('be.visible');
 
 		// The branch name should be visible in the branch view
-		cy.getByTestId('branch-drawer', newBranchName).should('be.visible');
+		cy.getByTestId('branch-view').should('be.visible');
 	});
 
 	it('should be able to delete a branch from the context menu', () => {

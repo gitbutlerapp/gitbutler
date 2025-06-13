@@ -64,20 +64,28 @@
 
 {#snippet editor()}
 	<AsyncRender>
-		<ReviewCreation bind:this={reviewCreation} {projectId} {stackId} {branchName} onClose={close} />
-		<ReviewCreationControls
-			isSubmitting={!!reviewCreation?.imports.isLoading}
-			{ctaDisabled}
-			{canPublishBR}
-			{canPublishPR}
-			onCancel={() => {
-				close();
-				oncancel?.();
-			}}
-			onSubmit={async () => {
-				await reviewCreation?.createReview();
-			}}
-		/>
+		<div data-testid={TestId.ReviewView}>
+			<ReviewCreation
+				bind:this={reviewCreation}
+				{projectId}
+				{stackId}
+				{branchName}
+				onClose={close}
+			/>
+			<ReviewCreationControls
+				isSubmitting={!!reviewCreation?.imports.isLoading}
+				{ctaDisabled}
+				{canPublishBR}
+				{canPublishPR}
+				onCancel={() => {
+					close();
+					oncancel?.();
+				}}
+				onSubmit={async () => {
+					await reviewCreation?.createReview();
+				}}
+			/>
+		</div>
 	</AsyncRender>
 {/snippet}
 
@@ -86,14 +94,7 @@
 		{@render editor()}
 	</div>
 {:else}
-	<Drawer
-		testId={TestId.ReviewDrawer}
-		{projectId}
-		{stackId}
-		title={getTitleLabel()}
-		disableScroll
-		minHeight={20}
-	>
+	<Drawer {projectId} {stackId} title={getTitleLabel()} disableScroll minHeight={20}>
 		<div class="submit-review__container">
 			{@render editor()}
 		</div>

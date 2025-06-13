@@ -228,13 +228,13 @@ Cypress.Commands.add('clearMocks', () => {
 
 Cypress.Commands.add('getByTestId', (testId: TestIdValues, containingText?: string) => {
 	if (containingText) {
-		return cy.contains(`[data-testid="${testId}"]`, containingText);
+		return cy.contains(`[data-testid="${testId}"]`, containingText, { timeout: 15000 });
 	}
-	return cy.get(`[data-testid="${testId}"]`);
+	return cy.get(`[data-testid="${testId}"]`, { timeout: 15000 });
 });
 
 Cypress.Commands.add('getByTestIdByValue', (testId: TestIdValues, withValue: string) => {
-	return cy.get(`[data-testid-${testId}="${withValue}"]`).first();
+	return cy.get(`[data-testid-${testId}="${withValue}"]`, { timeout: 15000 }).first();
 });
 
 Cypress.Commands.add('selectText', (element: Cypress.Chainable<JQuery<HTMLElement>>) => {

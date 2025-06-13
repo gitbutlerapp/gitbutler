@@ -3,7 +3,6 @@
 <script lang="ts">
 	import BranchLabel from '$components/BranchLabel.svelte';
 	import BranchHeaderIcon from '$components/v3/BranchHeaderIcon.svelte';
-	import { threePointFive } from '$lib/config/uiFeatureFlags';
 	import { TestId } from '$lib/testing/testIds';
 	import { slide } from 'svelte/transition';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
@@ -108,7 +107,7 @@
 			</div>
 		{/if}
 	</div>
-	{#if buttons && $threePointFive}
+	{#if buttons}
 		<div class="text-12 branch-header__buttons">
 			{@render buttons()}
 		</div>
@@ -224,7 +223,7 @@
 		display: flex;
 		flex: 1;
 		width: 100%;
-		margin-bottom: 8px;
+		margin-bottom: 14px;
 		gap: 8px;
 	}
 </style>

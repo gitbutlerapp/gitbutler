@@ -51,7 +51,7 @@
 	const ctaLabel = $derived(canPublishReviewPlugin?.imports.ctaLabel);
 	const branchEmpty = $derived(canPublishReviewPlugin?.imports.branchIsEmpty);
 
-	const showCreateButton = $derived(canPublishBR || canPublishPR);
+	const showCreateButton = false; // $derived(canPublishBR || canPublishPR);
 
 	const disabled = $derived(branchEmpty || branchConflicted);
 	const tooltip = $derived(
@@ -149,10 +149,13 @@
 
 	{#if showCreateButton}
 		<Button
-			testId={TestId.BranchDrawerCreateReviewButton}
+			testId={TestId.CreateReviewButton}
 			onclick={() => {
 				if ($settingsStore?.featureFlags.v3) {
 					uiState.project(projectId).drawerPage.current = 'review';
+					if (stackId) {
+						uiState.stack(stackId).action.current = 'review';
+					}
 				} else {
 					modal?.show();
 				}
