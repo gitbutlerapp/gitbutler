@@ -3,6 +3,7 @@
 	import Login from '$components/Login.svelte';
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
 	import { invoke } from '$lib/backend/ipc';
+	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { showError } from '$lib/notifications/toasts';
 	import { ProjectsService } from '$lib/project/projectsService';
@@ -167,7 +168,7 @@
 	{/snippet}
 
 	{#snippet caption()}
-		Enable or disable automatic checks for updates. You can also check for updates manually.
+		Automatically check for updates. You can still check manually when needed.
 	{/snippet}
 
 	{#snippet actions()}
@@ -180,29 +181,29 @@
 </SectionCard>
 
 {#if $user && $user.role?.includes('admin')}
-	<SectionCard orientation="row">
+	<SectionCard orientation="column">
 		{#snippet title()}
 			Install the GitButler CLI (but)
 		{/snippet}
 
 		{#snippet caption()}
 			Installs the GitButler CLI (but) in your PATH, allowing you to use it from the terminal. This
-			action will request admin privileges.
-			<br />
-			<br />
-			Alternatively, you could create a symlink manually:
-			<br />
-			<br />
-			{#await cli_command() then command}
-				<span>
-					{command}
-				</span>
-			{/await}
+			action will request admin privileges. Alternatively, you could create a symlink manually.
 		{/snippet}
 
-		{#snippet actions()}
-			<Button style="neutral" kind="outline" onclick={() => installCli()}>Install CLI</Button>
-		{/snippet}
+		<div class="flex flex-col gap-16">
+			<div class="flex gap-8 justify-end">
+				<Button style="pop" icon="play" onclick={() => installCli()}>Install CLI</Button>
+				{#await cli_command() then command}
+					<Button
+						style="neutral"
+						kind="outline"
+						icon="copy"
+						onclick={() => copyToClipboard(command)}>Copy symlink to clipboard</Button
+					>
+				{/await}
+			</div>
+		</div>
 	</SectionCard>
 {/if}
 
