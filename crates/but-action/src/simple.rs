@@ -135,10 +135,7 @@ fn handle_changes_simple_inner(
 
     let mut updated_branches = vec![];
 
-    let commit_message = if std::env::var("OPENAI_API_KEY").is_ok() {
-        // TODO: Provide diff string
-        commit_message_blocking(change_summary, &external_prompt.unwrap_or_default(), "")?
-    } else if let Ok(gb_api_key) = std::env::var("GB_API_KEY_OPENAI") {
+    let commit_message = if let Ok(gb_api_key) = std::env::var("GB_API_KEY_OPENAI") {
         // TODO: Obviously, this should not be the way that we pass in the API key AND decide to use OpenAI,
         // but it'f goof enough for now.
         gb_client::commit_message_blocking_open_ai(
@@ -156,7 +153,7 @@ fn handle_changes_simple_inner(
             "",
         )?
     } else {
-        change_summary.to_string()
+        commit_message_blocking(change_summary, &external_prompt.unwrap_or_default(), "")?
     };
 
     for (stack_id, diff_specs) in stack_assignments {

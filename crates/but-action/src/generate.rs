@@ -1,9 +1,6 @@
-use async_openai::{
-    Client,
-    types::{
-        ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessage,
-        CreateChatCompletionRequestArgs, ResponseFormat, ResponseFormatJsonSchema,
-    },
+use async_openai::types::{
+    ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessage,
+    CreateChatCompletionRequestArgs, ResponseFormat, ResponseFormatJsonSchema,
 };
 use schemars::{JsonSchema, schema_for};
 
@@ -40,7 +37,8 @@ pub async fn commit_message(
         "Extract the git commit data from the prompt, summary and diff output. Return the commit message. Determine from this AI prompt, summary and diff output what the git commit data should be.\n\n{}\n\nHere is the data:\n\nPrompt: {}\n\nSummary: {}\n\nDiff:\n```\n{}\n```\n\n",
         DEFAULT_COMMIT_MESSAGE_INSTRUCTIONS, external_prompt, external_summary, diff
     );
-    let client = Client::new();
+
+    let client = crate::provider::OpenAiProvider::new(reqwest::Client::default())?.gitbutler()?;
 
     let schema = schema_for!(StructuredOutput);
     let schema_json = serde_json::to_value(schema).unwrap();

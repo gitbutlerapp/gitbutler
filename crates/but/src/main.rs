@@ -16,6 +16,7 @@ mod status;
 async fn main() -> Result<()> {
     let args: Args = clap::Parser::parse();
     let app_settings = AppSettings::load_from_default_path_creating()?;
+    gitbutler_secret::secret::set_application_namespace("com.gitbutler.app");
 
     match &args.cmd {
         Subcommands::Mcp { internal } => {
