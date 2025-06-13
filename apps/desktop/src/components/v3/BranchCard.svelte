@@ -8,10 +8,11 @@
 	import PrNumberUpdater from '$components/v3/PrNumberUpdater.svelte';
 	import ReviewView from '$components/v3/ReviewView.svelte';
 	import { MoveCommitDzHandler, StartCommitDzHandler } from '$lib/commits/dropHandler';
-	import { assignmentEnabled, threePointFive } from '$lib/config/uiFeatureFlags';
+	import { assignmentEnabled } from '$lib/config/uiFeatureFlags';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
@@ -120,6 +121,7 @@
 	class:draft={args.type === 'draft-branch'}
 	class:expand
 	data-series-name={branchName}
+	data-testid={TestId.BranchCard}
 >
 	{#if args.type === 'stack-branch'}
 		{@const moveHandler = new MoveCommitDzHandler(stackService, args.stackId, projectId)}
@@ -191,13 +193,14 @@
 					{/if}
 				{/snippet}
 				{#snippet buttons()}
-					{#if stackState?.action.current !== 'committing'}
+					{#if stackState?.action.current !== 'review'}
 						<Button
 							size="tag"
 							kind="outline"
 							onclick={() => {
-								stackState?.action.set('committing');
+								stackState?.action.set('review');
 							}}
+							testId={TestId.CreateReviewButton}
 						>
 							Create Pull Request
 						</Button>
@@ -205,7 +208,7 @@
 				{/snippet}
 			</BranchHeader>
 		</Dropzone>
-		{#if $threePointFive && stackState?.action.current === 'committing'}
+		{#if stackState?.action.current === 'review'}
 			<div class="review-wrapper">
 				<ReviewView
 					{projectId}

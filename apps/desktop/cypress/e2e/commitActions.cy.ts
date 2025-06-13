@@ -384,13 +384,13 @@ describe('Commit Actions', () => {
 		cy.getByTestId('start-commit-button').should('be.visible').should('be.enabled').click();
 
 		// Should open the new commit drawer
-		cy.getByTestId('new-commit-drawer').should('be.visible');
+		cy.getByTestId('new-commit-view').should('be.visible');
 
 		// Should have the "Your commit goes here" text
 		cy.getByTestId('your-commit-goes-here').should('be.visible').should('have.class', 'first');
 
-		// Should have selected the file
-		cy.getByTestId('file-list-item').first().get('input[type="checkbox"]').should('be.checked');
+		// Select the file
+		cy.getByTestId('file-list-item').first().get('input[type="checkbox"]').check();
 
 		// Type in a commit message
 		cy.getByTestId('commit-drawer-title-input')
@@ -862,14 +862,14 @@ describe('Commit Actions with no stacks', () => {
 		cy.getByTestId('start-commit-button').should('be.visible').should('be.enabled').click();
 
 		// Should open the new commit drawer
-		cy.getByTestId('new-commit-drawer').should('be.visible');
+		cy.getByTestId('new-commit-view').should('be.visible');
 
 		// Should display the draft stack
-		cy.getByTestId('stack-draft').should('be.visible');
-		cy.getByTestId('stack-draft').should('contain', mockBackend.cannedBranchName);
+		cy.getByTestId('draft-stack').should('be.visible');
+		cy.getByTestId('draft-stack').should('contain', mockBackend.cannedBranchName);
 
 		// Update the stack name
-		cy.getByTestId('stack-draft').within(() => {
+		cy.getByTestId('branch-card').within(() => {
 			cy.get('input[type="text"]')
 				.should('be.visible')
 				.should('be.enabled')

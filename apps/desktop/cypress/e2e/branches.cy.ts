@@ -72,7 +72,7 @@ describe('Branches', () => {
 			.should('contain', mockBackend.getBaseBranchName());
 
 		// The branch drawer should be visible
-		cy.getByTestId('unapplied-branch-drawer')
+		cy.getByTestId('unapplied-branch-view')
 			.should('be.visible')
 			.should('contain', mockBackend.getBaseBranchName());
 
@@ -94,7 +94,7 @@ describe('Branches', () => {
 			.should('contain', mockBackend.branchListing.name);
 
 		// The branch drawer should be visible
-		cy.getByTestId('unapplied-branch-drawer')
+		cy.getByTestId('unapplied-branch-view')
 			.should('be.visible')
 			.should('contain', mockBackend.branchListing.name);
 
@@ -124,7 +124,7 @@ describe('Branches', () => {
 			.should('contain', mockBackend.branchListing.name);
 
 		// The branch drawer should be visible
-		cy.getByTestId('unapplied-branch-drawer')
+		cy.getByTestId('unapplied-branch-view')
 			.should('be.visible')
 			.should('contain', mockBackend.branchListing.name);
 
@@ -149,7 +149,7 @@ describe('Branches', () => {
 		cy.getByTestId('delete-local-branch-confirmation-modal').should('not.exist');
 
 		// The branch drawer should be visible
-		cy.getByTestId('unapplied-branch-drawer')
+		cy.getByTestId('unapplied-branch-view')
 			.should('be.visible')
 			.should('contain', mockBackend.branchListing.name);
 
@@ -168,7 +168,7 @@ describe('Branches', () => {
 		cy.getByTestId('delete-local-branch-confirmation-modal').should('not.exist');
 
 		// The branch drawer should be visible but should show the base branch name
-		cy.getByTestId('unapplied-branch-drawer')
+		cy.getByTestId('unapplied-branch-view')
 			.should('be.visible')
 			.should('contain', mockBackend.getBaseBranchName());
 	});
@@ -182,7 +182,7 @@ describe('Branches', () => {
 			.click();
 
 		// The PR branch drawe should be visible
-		cy.getByTestId('pr-branch-drawer')
+		cy.getByTestId('pr-branch-view')
 			.should('be.visible')
 			.should('contain', mockBackend.getMockPr().head.ref)
 			.should('contain', mockBackend.getMockPr().title)

@@ -10,10 +10,9 @@
 	import ConflictResolutionConfirmModal from '$components/v3/ConflictResolutionConfirmModal.svelte';
 	import KebabButton from '$components/v3/KebabButton.svelte';
 	import NewBranchModal from '$components/v3/NewBranchModal.svelte';
-	import PublishButton from '$components/v3/PublishButton.svelte';
 	import PushButton from '$components/v3/PushButton.svelte';
 	import { getColorFromCommitState, getIconFromCommitState } from '$components/v3/lib';
-	import { assignmentEnabled, threePointFive } from '$lib/config/uiFeatureFlags';
+	import { assignmentEnabled } from '$lib/config/uiFeatureFlags';
 	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { ModeService } from '$lib/mode/modeService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -238,11 +237,6 @@
 			</ScrollableContainer>
 			<StackStickyButtons {isVerticalMode}>
 				<PushButton flex="1" {projectId} {stackId} multipleBranches={branches.length > 1} />
-				{#if !$threePointFive}
-					{@const reviewCreationInOpen =
-						drawer.current === 'review' && stackId === projectState.stackId.current}
-					<PublishButton flex="2" {projectId} {stackId} {branches} {reviewCreationInOpen} />
-				{/if}
 			</StackStickyButtons>
 		{/snippet}
 	</ReduxResult>

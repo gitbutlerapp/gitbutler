@@ -26,7 +26,6 @@ the window, then enlarge it and retain the original widths of the layout.
 <script lang="ts">
 	import Resizer from '$components/Resizer.svelte';
 	import AsyncRender from '$components/v3/AsyncRender.svelte';
-	import { threePointFive } from '$lib/config/uiFeatureFlags';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
@@ -49,9 +48,11 @@ the window, then enlarge it and retain the original widths of the layout.
 			min: number;
 		};
 		middleOpen?: boolean;
+		growRight?: boolean;
 	};
 
-	const { name, left, middle, right, leftWidth, middleWidth, middleOpen }: Props = $props();
+	const { name, left, middle, right, leftWidth, middleWidth, middleOpen, growRight }: Props =
+		$props();
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const zoom = $derived($userSettings.zoom);
@@ -106,8 +107,7 @@ the window, then enlarge it and retain the original widths of the layout.
 	class="main-viewport"
 	use:focusable={{ id: DefinedFocusable.MainViewport }}
 	bind:clientWidth={containerBindWidth}
-	class:three-five={$threePointFive}
-	class:middle-open={$threePointFive && middleOpen}
+	class:middle-open={middleOpen}
 >
 	<!-- Default layout: no swapping -->
 	<div
@@ -125,7 +125,6 @@ the window, then enlarge it and retain the original widths of the layout.
 				direction="right"
 				minWidth={leftMinWidth}
 				maxWidth={leftMaxWidth}
-				borderRadius={$threePointFive ? undefined : 'ml'}
 				onWidth={(value) => {
 					leftPreferredWidth.set(value);
 				}}
@@ -133,7 +132,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		</AsyncRender>
 	</div>
 
-	{#if middleOpen || !$threePointFive}
+	{#if middleOpen}
 		<div
 			class="middle view-wrapper"
 			bind:this={middleDiv}
@@ -166,6 +165,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		bind:this={rightDiv}
 		bind:clientWidth={rightBindWidth}
 		style:min-width={flexibleMinWidth + 'rem'}
+		style:flex-grow={growRight ? 1 : 0}
 		use:focusable={{
 			id: DefinedFocusable.ViewportRight,
 			parentId: DefinedFocusable.MainViewport
@@ -225,17 +225,11 @@ the window, then enlarge it and retain the original widths of the layout.
 		flex-direction: column;
 		justify-content: flex-start;
 		height: 100%;
-		margin-left: 8px;
 		overflow: hidden;
-	}
-
-	.three-five .middle {
-		margin-left: 0;
 	}
 
 	.right {
 		position: relative;
-		flex-grow: 1;
 		flex-shrink: 1;
 		flex-direction: column;
 		height: 100%;

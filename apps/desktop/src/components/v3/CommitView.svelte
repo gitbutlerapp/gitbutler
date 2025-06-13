@@ -143,6 +143,7 @@
 				title="Edit commit message"
 				disableScroll
 				minHeight={20}
+				fill
 			>
 				<CommitMessageEditor
 					bind:this={editor}
@@ -163,6 +164,7 @@
 				projectId={env.projectId}
 				stackId={env.stackId}
 				noLeftPadding
+				fill
 			>
 				{#snippet header()}
 					<div class="commit-view__header text-13">

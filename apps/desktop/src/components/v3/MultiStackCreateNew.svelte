@@ -3,6 +3,7 @@
 	import newStackSvg from '$components/v3/stackTabs/assets/new-stack.svg?raw';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { sleep } from '$lib/utils/sleep';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -107,6 +108,7 @@
 	onclick={() => showAndPrefillName()}
 	bind:this={el}
 	onkeydown={handleArrowNavigation}
+	data-testid={TestId.CreateStackButton}
 >
 	{#if noStacks}
 		<p class="text-14 text-semibold truncate">Create new branch</p>
@@ -213,6 +215,7 @@
 					onclick={addNew}
 					disabled={!createRefName}
 					loading={isAddingNew}
+					testId={TestId.ConfirmSubmit}
 				>
 					Create branch
 				</Button>
@@ -228,7 +231,6 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		height: 100%;
 		padding: 12px 15px;
 		overflow: hidden;
 		gap: 10px;

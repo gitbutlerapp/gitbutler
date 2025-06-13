@@ -39,13 +39,13 @@ describe('Selection', () => {
 
 			cy.getByTestIdByValue('branch-header', stackName)
 				.click()
-				.should('contain', stackName)
 				.within(() => {
 					// Shouls have the stack url
 					cy.urlMatches(`/${PROJECT_ID}/workspace`);
 				});
 			// Check if the file list is updated
-			cy.getByTestId('branch-drawer')
+			cy.getByTestId('branch-view', stackName)
+				.scrollIntoView()
 				.should('be.visible')
 				.within(() => {
 					const changedFileNames = mockBackend.getBranchChangesFileNames(stack.id, stackName);

@@ -7,12 +7,12 @@
 	import CommitView from '$components/v3/CommitView.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
-	import { stackLayoutMode, threePointFive } from '$lib/config/uiFeatureFlags';
+	import { stackLayoutMode } from '$lib/config/uiFeatureFlags';
 	import { isParsedError } from '$lib/error/parser';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
-	import { readKey, type SelectionId } from '$lib/selection/key';
+	import { readKey } from '$lib/selection/key';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
@@ -23,7 +23,6 @@
 	type Props = {
 		projectId: string;
 		stack: Stack;
-		selectionId: SelectionId;
 		focusedStackId?: string;
 		siblingCount: number;
 		onVisible: (visible: boolean) => void;
@@ -34,7 +33,6 @@
 	let {
 		projectId,
 		stack,
-		selectionId,
 		focusedStackId,
 		siblingCount,
 		clientHeight = $bindable(),
@@ -104,7 +102,7 @@
 		class:single={$stackLayoutMode === 'single' && siblingCount >= SHOW_PAGINATION_THRESHOLD}
 		class:single-fullwidth={$stackLayoutMode === 'single' && siblingCount === 1}
 		class:vertical={$stackLayoutMode === 'vertical'}
-		class:three-five={$threePointFive}
+		class:three-five={true}
 		data-id={stack.id}
 		bind:clientWidth
 		bind:clientHeight
@@ -137,9 +135,7 @@
 				{projectId}
 				stackId={stack.id}
 				mode="assigned"
-				active={$threePointFive
-					? focusedStackId === stack.id
-					: selectionId.type === 'worktree' && selectionId.stackId === stack.id}
+				active={focusedStackId === stack.id}
 				dropzoneVisible={changes.current.length === 0 && !isCommitting}
 				onDropzoneActivated={(activated) => {
 					dropzoneActivated = activated;
@@ -166,19 +162,19 @@
 			viewport={laneEl}
 			direction="right"
 			minWidth={16}
-			maxWidth={36}
+			maxWidth={64}
 			onWidth={(value) => uiState.global.stackWidth.set(value)}
 		/>
 	</div>
-	{#if $threePointFive}
-		<!-- eslint-disable-next-line func-style -->
-		{@const onerror = (err: unknown) => {
-			// Clear selection if branch not found.
-			if (isParsedError(err) && err.code === 'errors.branch.notfound') {
-				selection?.set(undefined);
-				console.warn('Workspace selection cleared');
-			}
-		}}
+	<!-- eslint-disable-next-line func-style -->
+	{@const onerror = (err: unknown) => {
+		// Clear selection if branch not found.
+		if (isParsedError(err) && err.code === 'errors.branch.notfound') {
+			selection?.set(undefined);
+			console.warn('Workspace selection cleared');
+		}
+	}}
+	{#if assignedKey || branchName || commitId}
 		<div
 			bind:this={detailsEl}
 			style:width={uiState.global.detailsWidth.current + 'rem'}
@@ -187,6 +183,7 @@
 				id: DefinedFocusable.UncommittedChanges + ':' + stack.id,
 				parentId: DefinedFocusable.ViewportRight
 			}}
+			data-details={stack.id}
 		>
 			{#if assignedKey && assignedKey.type === 'worktree'}
 				<SelectionView
@@ -226,26 +223,26 @@
 				onWidth={(value) => uiState.global.detailsWidth.set(value)}
 			/>
 		</div>
-		{#if selectedKey}
-			<div
-				bind:this={previewEl}
-				style:width={uiState.global.previewWidth.current + 'rem'}
-				class="preview"
-				use:focusable={{
-					id: DefinedFocusable.Stack + ':' + stack.id,
-					parentId: DefinedFocusable.ViewportRight
-				}}
-			>
-				<SelectionView {projectId} selectionId={selectedKey} />
-				<Resizer
-					viewport={previewEl}
-					direction="right"
-					minWidth={20}
-					maxWidth={96}
-					onWidth={(value) => uiState.global.previewWidth.set(value)}
-				/>
-			</div>
-		{/if}
+	{/if}
+	{#if selectedKey}
+		<div
+			bind:this={previewEl}
+			style:width={uiState.global.previewWidth.current + 'rem'}
+			class="preview"
+			use:focusable={{
+				id: DefinedFocusable.Stack + ':' + stack.id,
+				parentId: DefinedFocusable.ViewportRight
+			}}
+		>
+			<SelectionView {projectId} selectionId={selectedKey} />
+			<Resizer
+				viewport={previewEl}
+				direction="right"
+				minWidth={20}
+				maxWidth={96}
+				onWidth={(value) => uiState.global.previewWidth.set(value)}
+			/>
+		</div>
 	{/if}
 </AsyncRender>
 

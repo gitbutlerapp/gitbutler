@@ -1,16 +1,13 @@
 <script lang="ts">
 	import Scrollbar from '$components/Scrollbar.svelte';
-	import BranchLayoutMode from '$components/v3/BranchLayoutMode.svelte';
-	import MultiStackCreateNew from '$components/v3/MultiStackCreateNew.svelte';
 	import MultiStackOfflaneDropzone from '$components/v3/MultiStackOfflaneDropzone.svelte';
 	import MultiStackPagination, { scrollToLane } from '$components/v3/MultiStackPagination.svelte';
 	import StackDraft from '$components/v3/StackDraft.svelte';
 	import StackView from '$components/v3/StackView.svelte';
-	import { stackLayoutMode, threePointFive } from '$lib/config/uiFeatureFlags';
+	import { stackLayoutMode } from '$lib/config/uiFeatureFlags';
 	import { type SelectionId } from '$lib/selection/key';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import Badge from '@gitbutler/ui/Badge.svelte';
 	import type { Stack } from '$lib/stacks/stack';
 
 	type Props = {
@@ -21,9 +18,9 @@
 		focusedStackId?: string;
 	};
 
-	const { projectId, selectedId, stacks, selectionId, focusedStackId }: Props = $props();
+	const { projectId, selectedId, stacks, focusedStackId }: Props = $props();
 
-	let lanesSrollableEl = $state<HTMLDivElement>();
+	let lanesScrollableEl = $state<HTMLDivElement>();
 	let lanesScrollableWidth = $state<number>(0);
 	let lanesScrollableHeight = $state<number>(0);
 	let scrollbar = $state<Scrollbar>();
@@ -55,25 +52,6 @@
 	const SHOW_PAGINATION_THRESHOLD = 1;
 </script>
 
-{#if !$threePointFive}
-	<div class="lanes-header" class:no-stacks={stacks.length === 0}>
-		{#if stacks.length > 0}
-			<div class="title">
-				<h3 class="text-14 text-semibold truncate">Applied branches</h3>
-				<Badge>{stacks.length}</Badge>
-			</div>
-			<div class="actions">
-				<BranchLayoutMode bind:mode={$stackLayoutMode} />
-			</div>
-		{:else}
-			<div class="title">
-				<h3 class="text-14 text-semibold truncate">No branches</h3>
-			</div>
-		{/if}
-		<MultiStackCreateNew {projectId} stackId={selectedId} noStacks={stacks.length === 0} />
-	</div>
-{/if}
-
 {#if isNotEnoughHorzSpace && isNotEnoughVertSpace}
 	<div
 		class="pagination-container"
@@ -88,10 +66,10 @@
 				return s.id === selectedId;
 			})}
 			onPageClick={(index) =>
-				scrollToLane(lanesSrollableEl, index, $stackLayoutMode === 'vertical' ? 'vert' : 'horz')}
+				scrollToLane(lanesScrollableEl, index, $stackLayoutMode === 'vertical' ? 'vert' : 'horz')}
 			onCreateNewClick={() => {
 				scrollToLane(
-					lanesSrollableEl,
+					lanesScrollableEl,
 					stacks.length + 1,
 					$stackLayoutMode === 'vertical' ? 'vert' : 'horz'
 				);
@@ -103,19 +81,32 @@
 <div class="lanes-viewport">
 	<div
 		class="lanes-scrollable hide-native-scrollbar"
-		bind:this={lanesSrollableEl}
+		bind:this={lanesScrollableEl}
 		bind:clientWidth={lanesScrollableWidth}
 		bind:clientHeight={lanesScrollableHeight}
 		class:multi={$stackLayoutMode === 'multi' || stacks.length < SHOW_PAGINATION_THRESHOLD}
 		class:single={$stackLayoutMode === 'single' && stacks.length >= SHOW_PAGINATION_THRESHOLD}
 		class:vertical={$stackLayoutMode === 'vertical'}
 	>
-		{#if stacks.length > 0}
+		{#if isCommitting && stacks.length === 0}
+			<StackDraft {projectId} />
+		{:else if stacks.length === 0}
+			<div class="no-stacks-placeholder">
+				<MultiStackOfflaneDropzone
+					viewport={lanesScrollableEl}
+					{projectId}
+					standalone
+					onVisible={(visible) => {
+						isCreateNewVisible = visible;
+					}}
+					isSingleMode={$stackLayoutMode === 'single'}
+				/>
+			</div>
+		{:else if stacks.length > 0}
 			{#each stacks as stack, i}
 				<StackView
 					{projectId}
 					{stack}
-					{selectionId}
 					{focusedStackId}
 					bind:clientWidth={laneWidths[i]}
 					bind:clientHeight={lineHights[i]}
@@ -130,59 +121,23 @@
 				/>
 			{/each}
 
-			{#if lanesSrollableEl && $stackLayoutMode !== 'single'}
-				<Scrollbar viewport={lanesSrollableEl} horz={$stackLayoutMode !== 'vertical'} />
+			<MultiStackOfflaneDropzone
+				viewport={lanesScrollableEl}
+				{projectId}
+				standalone
+				onVisible={(visible) => {
+					isCreateNewVisible = visible;
+				}}
+				isSingleMode={$stackLayoutMode === 'single'}
+			/>
+			{#if lanesScrollableEl && $stackLayoutMode !== 'single'}
+				<Scrollbar viewport={lanesScrollableEl} horz={$stackLayoutMode !== 'vertical'} />
 			{/if}
-		{:else if isCommitting}
-			<StackDraft {projectId} />
-		{:else}
-			<div class="no-stacks-placeholder">
-				<MultiStackOfflaneDropzone
-					viewport={lanesSrollableEl}
-					{projectId}
-					standalone
-					onVisible={(visible) => {
-						isCreateNewVisible = visible;
-					}}
-					isSingleMode={$stackLayoutMode === 'single'}
-				/>
-			</div>
 		{/if}
 	</div>
 </div>
 
 <style lang="postcss">
-	.lanes-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		height: 44px;
-		padding-left: 12px;
-		gap: 10px;
-		border-bottom: 1px solid var(--clr-border-2);
-		background: var(--clr-bg-1);
-
-		& .title {
-			display: flex;
-			flex: 1;
-			align-items: center;
-			overflow: hidden;
-			gap: 6px;
-		}
-
-		& .actions {
-			display: flex;
-		}
-
-		&.no-stacks {
-			background: transparent;
-
-			& .title {
-				color: var(--clr-text-3);
-			}
-		}
-	}
-
 	.lanes-scrollable {
 		display: flex;
 		height: 100%;

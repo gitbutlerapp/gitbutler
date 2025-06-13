@@ -23,7 +23,7 @@ export type StackSelection = {
 
 export type StackState = {
 	selection: StackSelection | undefined;
-	action: 'committing' | undefined;
+	action: 'review' | undefined;
 };
 
 type BranchesSelection = {

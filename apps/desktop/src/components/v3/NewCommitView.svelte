@@ -122,7 +122,9 @@
 			throw new Error('No branch selected!');
 		}
 
-		const worktreeChanges = await uncommittedService.worktreeChanges(projectId, sourceStackId);
+		const worktreeChanges = (
+			await uncommittedService.worktreeChanges(projectId, sourceStackId)
+		).concat(await uncommittedService.worktreeChanges(projectId, undefined));
 
 		const preHookFailed = await runPreHook(worktreeChanges);
 		if (preHookFailed) return;
@@ -223,6 +225,7 @@
 			actionLabel="Create commit"
 			action={({ title, description }) => handleCommitCreation(title, description)}
 			onChange={({ title, description }) => handleMessageUpdate(title, description)}
+			testId={TestId.NewCommitView}
 			onCancel={cancel}
 			disabledAction={!canCommit}
 			loading={commitCreation.current.isLoading || newStackResult.current.isLoading}
@@ -235,7 +238,7 @@
 	{@render editor()}
 {:else}
 	<Drawer
-		testId={TestId.NewCommitDrawer}
+		testId={TestId.NewCommitView}
 		bind:this={drawer}
 		{projectId}
 		stackId={targetStackId}
