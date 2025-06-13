@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 mod action;
 mod gb_client;
 mod generate;
+mod provider;
 mod serialize;
 mod simple;
 pub use action::ActionListing;
