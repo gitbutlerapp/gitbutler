@@ -139,6 +139,7 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
                                     ├── 🔵70bde6b (InWorkspace)❱"segment-A" ►A-empty-02
                                     └── 🔵fafd9d0 (InWorkspace)❱"init" ►main, ►new-A, ►new-B
     "#);
+    graph.eprint_dot_graph();
 
     // TODO: do more complex new-stack segmentation
     // // Note that this doesn't match the single-stack (one big segment) configuration we actually have.

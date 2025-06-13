@@ -53,55 +53,61 @@ fn detached() -> anyhow::Result<()> {
                         └── 🔵fafd9d0❱"init"
             "#);
     insta::assert_debug_snapshot!(graph, @r#"
-            Graph {
-                inner: Graph {
-                    Ty: "Directed",
-                    node_count: 2,
-                    edge_count: 1,
-                    edges: (0, 1),
-                    node weights: {
-                        0: StackSegment {
-                            id: 0,
-                            ref_name: "refs/heads/main",
-                            remote_tracking_ref_name: "None",
-                            commits: [
-                                LocalCommit(541396b, "first\n", local, ►annotated, ►release/v1),
-                            ],
-                            commits_unique_in_remote_tracking_branch: [],
-                            metadata: "None",
-                        },
-                        1: StackSegment {
-                            id: 1,
-                            ref_name: "refs/heads/other",
-                            remote_tracking_ref_name: "None",
-                            commits: [
-                                LocalCommit(fafd9d0, "init\n", local),
-                            ],
-                            commits_unique_in_remote_tracking_branch: [],
-                            metadata: "None",
-                        },
-                    },
-                    edge weights: {
-                        0: Edge {
-                            src: Some(
-                                0,
-                            ),
-                            dst: Some(
-                                0,
-                            ),
-                        },
-                    },
+    Graph {
+        inner: Graph {
+            Ty: "Directed",
+            node_count: 2,
+            edge_count: 1,
+            edges: (0, 1),
+            node weights: {
+                0: StackSegment {
+                    id: 0,
+                    ref_name: "refs/heads/main",
+                    remote_tracking_ref_name: "None",
+                    commits: [
+                        LocalCommit(541396b, "first\n", local, ►annotated, ►release/v1),
+                    ],
+                    commits_unique_in_remote_tracking_branch: [],
+                    metadata: "None",
                 },
-                entrypoint: Some(
-                    (
-                        NodeIndex(0),
-                        Some(
-                            0,
-                        ),
+                1: StackSegment {
+                    id: 1,
+                    ref_name: "refs/heads/other",
+                    remote_tracking_ref_name: "None",
+                    commits: [
+                        LocalCommit(fafd9d0, "init\n", local),
+                    ],
+                    commits_unique_in_remote_tracking_branch: [],
+                    metadata: "None",
+                },
+            },
+            edge weights: {
+                0: Edge {
+                    src: Some(
+                        0,
                     ),
+                    src_id: Some(
+                        Sha1(541396b24e13b8ac45b7905c3fe8691c7fc5fbd0),
+                    ),
+                    dst: Some(
+                        0,
+                    ),
+                    dst_id: Some(
+                        Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    ),
+                },
+            },
+        },
+        entrypoint: Some(
+            (
+                NodeIndex(0),
+                Some(
+                    0,
                 ),
-            }
-            "#);
+            ),
+        ),
+    }
+    "#);
     Ok(())
 }
 
