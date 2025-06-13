@@ -314,6 +314,8 @@ pub fn assignments_with_fallback(
     )
     .map(|a| (a, None))
     .unwrap_or_else(|e| (worktree_assignments, Some(e)));
+
+    state::set_assignments(ctx, reconciled.0.clone())?;
     Ok(reconciled)
 }
 
