@@ -110,7 +110,7 @@ describe('Error handling - commit actions', () => {
 		cy.getByTestId('start-commit-button').should('be.visible').should('be.enabled').click();
 
 		// Should open the new commit drawer
-		cy.getByTestId('new-commit-drawer').should('be.visible');
+		cy.getByTestId('new-commit-view').should('be.visible');
 
 		// Should have the "Your commit goes here" text
 		cy.getByTestId('your-commit-goes-here').should('be.visible').should('have.class', 'first');
@@ -168,7 +168,7 @@ describe('Error handling - commit actions', () => {
 		cy.getByTestId('start-commit-button').should('be.visible').should('be.enabled').click();
 
 		// Should open the new commit drawer
-		cy.getByTestId('new-commit-drawer').should('be.visible');
+		cy.getByTestId('new-commit-view').should('be.visible');
 
 		// Should have the "Your commit goes here" text
 		cy.getByTestId('your-commit-goes-here').should('be.visible').should('have.class', 'first');
@@ -199,7 +199,7 @@ describe('Error handling - commit actions', () => {
 		cy.getByTestId('global-modal-commit-failed').should('not.exist');
 
 		// The commit drawer should be open still
-		cy.getByTestId('new-commit-drawer').should('be.visible');
+		cy.getByTestId('new-commit-view').should('be.visible');
 		cy.getByTestId('commit-drawer-title-input').should('have.value', newCommitMessage);
 		cy.getByTestId('commit-drawer-description-input').should('contain', newCommitMessageBody);
 	});
@@ -235,7 +235,7 @@ describe('Error handling - commit actions', () => {
 		cy.getByTestId('start-commit-button').should('be.visible').should('be.enabled').click();
 
 		// Should open the new commit drawer
-		cy.getByTestId('new-commit-drawer').should('be.visible');
+		cy.getByTestId('new-commit-view').should('be.visible');
 
 		// Should have the "Your commit goes here" text
 		cy.getByTestId('your-commit-goes-here').should('be.visible').should('have.class', 'first');
@@ -270,7 +270,7 @@ describe('Error handling - commit actions', () => {
 		// cy.getByTestId('global-modal-action-button').should('be.visible').click();
 		// cy.getByTestId('global-modal-commit-failed').should('not.exist');
 		// // The commit drawer should be closed
-		// cy.getByTestId('new-commit-drawer').should('not.exist');
+		// cy.getByTestId('new-commit-view').should('not.exist');
 	});
 
 	it('Failing to uncommit should fail graceful', () => {

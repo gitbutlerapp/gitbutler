@@ -57,7 +57,7 @@ describe('Unified Diff View', () => {
 			.should('contain', stackName)
 			.click()
 			.then(() => {
-				cy.getByTestId('branch-drawer')
+				cy.getByTestId('branch-view')
 					.should('be.visible')
 					.within(() => {
 						// Check if the file list is updated
@@ -77,10 +77,11 @@ describe('Unified Diff View', () => {
 		});
 
 		// Click on the commit button
-		cy.getByTestId('start-commit-button').click();
+		cy.getByTestId('start-commit-button').first().click();
 
 		// The unified diff view should be visible
 		cy.getByTestId('unified-diff-view')
+			.first()
 			.should('be.visible')
 			.within(() => {
 				// The line locks shold be visible
@@ -94,13 +95,17 @@ describe('Unified Diff View', () => {
 		cy.getByTestId('unified-diff-view-lock-warning').should('be.visible');
 
 		// Select the stack that the file belongs to
-		cy.getByTestId('branch-header', mockBackend.dependsOnStack).should('be.visible').click();
+		cy.getByTestId('branch-header', mockBackend.dependsOnStack)
+			.scrollIntoView()
+			.should('be.visible')
+			.click();
 
 		// The unified diff view should be opened when clicking on the uncommitted file
 		cy.getByTestId('uncommitted-changes-file-list').click();
 
 		// The unified diff view should be visible
 		cy.getByTestId('unified-diff-view')
+			.first()
 			.should('be.visible')
 			.within(() => {
 				// The line locks should not be visible
@@ -150,7 +155,7 @@ describe('Unified Diff View', () => {
 
 		// The branch drawer should be opened.
 		// Open a file from the list changes.
-		cy.getByTestId('branch-drawer')
+		cy.getByTestId('branch-view')
 			.should('be.visible')
 			.within(() => {
 				cy.getByTestId('file-list-item').should('have.length', 3).first().click();
@@ -280,7 +285,7 @@ describe('Unified Diff View with complex hunks', () => {
 		cy.getByTestId('uncommitted-changes-file-list').should('be.visible');
 
 		// Click on start a commit
-		cy.getByTestId('start-commit-button').click();
+		cy.getByTestId('start-commit-button').first().click();
 
 		// Unstage everything
 		cy.getByTestId('uncommitted-changes-header').within(() => {
@@ -288,10 +293,12 @@ describe('Unified Diff View with complex hunks', () => {
 		});
 
 		// All files should be visible
-		cy.getByTestId('file-list-item').should(
-			'have.length',
-			mockBackend.getWorktreeChangesFileNames().length
-		);
+		cy.getByTestId('uncommitted-changes-file-list').within(() => {
+			cy.getByTestId('file-list-item').should(
+				'have.length',
+				mockBackend.getWorktreeChangesFileNames().length
+			);
+		});
 
 		// Open big file diff
 		cy.getByTestId('uncommitted-changes-file-list').within(() => {
@@ -332,23 +339,22 @@ describe('Unified Diff View with complex hunks', () => {
 		cy.getByTestId('uncommitted-changes-file-list').should('be.visible');
 
 		// Click on start a commit
-		cy.getByTestId('start-commit-button').click();
+		cy.getByTestId('start-commit-button').first().click();
 
 		// Unstage everything
 		cy.getByTestId('uncommitted-changes-header').within(() => {
 			cy.get('input[type="checkbox"]').should('be.checked').click();
 		});
 
-		// All files should be visible
-		cy.getByTestId('file-list-item').should(
-			'have.length',
-			mockBackend.getWorktreeChangesFileNames().length
-		);
-
 		// Open the long hunk file
 		cy.getByTestId('uncommitted-changes-file-list').within(() => {
 			const fileName = mockBackend.longFileName;
 			cy.getByTestId('file-list-item', fileName).click();
+			// All files should be visible
+			cy.getByTestId('file-list-item').should(
+				'have.length',
+				mockBackend.getWorktreeChangesFileNames().length
+			);
 		});
 
 		cy.getByTestId('unified-diff-view').within(() => {
@@ -381,23 +387,24 @@ describe('Unified Diff View with complex hunks', () => {
 		cy.getByTestId('uncommitted-changes-file-list').should('be.visible');
 
 		// Click on start a commit
-		cy.getByTestId('start-commit-button').click();
+		cy.getByTestId('start-commit-button').first().click();
 
 		// Unstage everything
-		cy.getByTestId('uncommitted-changes-header').within(() => {
-			cy.get('input[type="checkbox"]').should('be.checked').click();
-		});
-
-		// All files should be visible
-		cy.getByTestId('file-list-item').should(
-			'have.length',
-			mockBackend.getWorktreeChangesFileNames().length
-		);
+		cy.getByTestId('uncommitted-changes-header')
+			.first()
+			.within(() => {
+				cy.get('input[type="checkbox"]').should('be.checked').click();
+			});
 
 		// Open big file diff
 		cy.getByTestId('uncommitted-changes-file-list').within(() => {
 			const fileName = mockBackend.complexHunkFileName;
 			cy.getByTestId('file-list-item', fileName).click();
+			// All files should be visible
+			cy.getByTestId('file-list-item').should(
+				'have.length',
+				mockBackend.getWorktreeChangesFileNames().length
+			);
 		});
 
 		cy.getByTestId('unified-diff-view').within(() => {
@@ -431,7 +438,7 @@ describe('Unified Diff View with complex hunks', () => {
 		cy.getByTestId('uncommitted-changes-file-list').should('be.visible');
 
 		// Click on start a commit
-		cy.getByTestId('start-commit-button').click();
+		cy.getByTestId('start-commit-button').first().click();
 
 		// Unstage everything expet the long hunk file
 		cy.getByTestId('uncommitted-changes-file-list').within(() => {

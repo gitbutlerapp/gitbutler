@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BranchCard from '$components/v3/BranchCard.svelte';
 	import CommitGoesHere from '$components/v3/CommitGoesHere.svelte';
+	import NewCommitView from '$components/v3/NewCommitView.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
@@ -14,6 +15,7 @@
 
 	const [uiState, stackService] = inject(UiState, StackService);
 	const draftBranchName = $derived(uiState.global.draftBranchName);
+	const projectState = $derived(uiState.project(projectId));
 
 	// Automatic branch name suggested by back end.
 	let newName = $state('');
@@ -32,7 +34,10 @@
 	const branchName = $derived(draftBranchName.current || newName);
 </script>
 
-<div data-testid={TestId.StackDraft} class="stack-draft">
+<div data-testid={TestId.StackDraft} class="draft-stack">
+	<div class="new-commit-view">
+		<NewCommitView {projectId} noDrawer onclose={() => projectState.drawerPage.set(undefined)} />
+	</div>
 	<BranchCard
 		type="draft-branch"
 		{projectId}
@@ -44,8 +49,17 @@
 </div>
 
 <style lang="postcss">
-	.stack-draft {
+	.draft-stack {
+		display: flex;
+		flex-direction: column;
+		width: 420px;
 		padding: 12px;
-		border-right: 1px solid var(--clr-border-2);
+	}
+	.new-commit-view {
+		margin-bottom: 12px;
+		padding: 12px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+		background-color: var(--clr-bg-1);
 	}
 </style>

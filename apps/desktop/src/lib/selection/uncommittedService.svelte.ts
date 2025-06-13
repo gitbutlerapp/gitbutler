@@ -163,12 +163,26 @@ export class UncommittedService {
 	}
 
 	/**
-	 * Returns all assignments along with any line selections.
+	 * Returns all assignments along with any line selections. When committing
+	 * we combine the hunk selections from the left as well as from the stack.
+	 *
+	 * TODO: Join the selections in a way that is compatible with the back end.
 	 */
 	selectedLines(stackId?: string) {
-		const key = partialKey(stackId ?? null);
+		const globalLines = uncommittedSelectors.hunkSelection.selectByPrefix(
+			this.state.hunkSelection,
+			partialKey(null)
+		);
 		const result = $derived(
-			uncommittedSelectors.hunkSelection.selectByPrefix(this.state.hunkSelection, key)
+			// TODO: Rewrite in some more intelligent way.
+			globalLines.concat(
+				stackId
+					? uncommittedSelectors.hunkSelection.selectByPrefix(
+							this.state.hunkSelection,
+							partialKey(stackId)
+						)
+					: []
+			)
 		);
 		return reactive(() => result);
 	}
