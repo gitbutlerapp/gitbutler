@@ -9,7 +9,7 @@
 	type Props = {
 		projectId: string;
 		selectionId?: SelectionId;
-		draggableFiles: boolean;
+		draggableFiles?: boolean;
 	};
 
 	let { projectId, selectionId, draggableFiles }: Props = $props();
@@ -36,7 +36,7 @@
 				draggable={draggableFiles}
 				onCloseClick={() => {
 					if (selectionId) {
-						idSelection.remove(toPreview.path, selectionId);
+						idSelection.remove(toPreview.path, toPreview);
 					}
 				}}
 			/>

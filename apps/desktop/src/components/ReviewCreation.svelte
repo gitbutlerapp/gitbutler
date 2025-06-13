@@ -34,6 +34,7 @@
 	import { RemotesService } from '$lib/remotes/remotesService';
 	import { requiresPush } from '$lib/stacks/stack';
 	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import { UserService } from '$lib/user/userService';
@@ -74,6 +75,8 @@
 	const userService = getContext(UserService);
 	const aiService = getContext(AIService);
 	const remotesService = getContext(RemotesService);
+	const uiState = getContext(UiState);
+	const stackState = $derived(uiState.stack(stackId));
 
 	const user = userService.user;
 	const project = projectsService.getProjectStore(projectId);
@@ -270,6 +273,7 @@
 
 			prBody.reset();
 			prTitle.reset();
+			stackState.action.set(undefined);
 		} finally {
 			isCreatingReview = false;
 		}

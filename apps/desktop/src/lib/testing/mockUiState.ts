@@ -13,7 +13,8 @@ const MOCK_UI_SELECTION: StackSelection = {
 };
 
 const MOCK_STACK_UI_STATE: StackState = {
-	selection: MOCK_UI_SELECTION
+	selection: MOCK_UI_SELECTION,
+	action: undefined
 };
 
 const MOCK_PROJECT_UI_STATE: ProjectUiState = {

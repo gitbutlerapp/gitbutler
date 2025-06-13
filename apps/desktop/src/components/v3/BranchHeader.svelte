@@ -3,6 +3,7 @@
 <script lang="ts">
 	import BranchLabel from '$components/BranchLabel.svelte';
 	import BranchHeaderIcon from '$components/v3/BranchHeaderIcon.svelte';
+	import { threePointFive } from '$lib/config/uiFeatureFlags';
 	import { TestId } from '$lib/testing/testIds';
 	import { slide } from 'svelte/transition';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
@@ -29,6 +30,7 @@
 		emptyState: Snippet;
 		content?: Snippet;
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
+		buttons?: Snippet;
 	};
 
 	const {
@@ -47,7 +49,8 @@
 		updateBranchName,
 		emptyState,
 		content,
-		menu
+		menu,
+		buttons
 	}: Props = $props();
 
 	let rightClickTrigger = $state<HTMLDivElement>();
@@ -105,6 +108,11 @@
 			</div>
 		{/if}
 	</div>
+	{#if buttons && $threePointFive}
+		<div class="text-12 branch-header__buttons">
+			{@render buttons()}
+		</div>
+	{/if}
 </div>
 
 <style lang="postcss">
@@ -114,6 +122,7 @@
 		display: flex;
 
 		position: relative;
+		flex-direction: column;
 		align-items: center;
 		justify-content: flex-start;
 		padding-right: 10px;
@@ -209,5 +218,13 @@
 	.branch-header__empty-state {
 		color: var(--clr-text-2);
 		opacity: 0.8;
+	}
+
+	.branch-header__buttons {
+		display: flex;
+		flex: 1;
+		width: 100%;
+		margin-bottom: 8px;
+		gap: 8px;
 	}
 </style>

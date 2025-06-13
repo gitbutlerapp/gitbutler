@@ -35,7 +35,7 @@
 		depth?: number;
 		executable?: boolean;
 		showCheckbox?: boolean;
-		draggable: boolean;
+		draggable?: boolean;
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 		onCloseClick?: () => void;

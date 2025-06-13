@@ -15,9 +15,10 @@
 
 	type Props = {
 		projectId: string;
-		stackId?: string;
+		noDrawer?: boolean;
+		onclose?: () => void;
 	};
-	const { projectId }: Props = $props();
+	const { projectId, noDrawer, onclose }: Props = $props();
 
 	const [stackService, uiState, hooksService, uncommittedService] = inject(
 		StackService,
@@ -209,18 +210,11 @@
 		projectState.commitDescription.set(args.description);
 		uncommittedService.uncheckAll(null);
 		drawer?.onClose();
+		onclose?.();
 	}
 </script>
 
-<Drawer
-	testId={TestId.NewCommitDrawer}
-	bind:this={drawer}
-	{projectId}
-	stackId={targetStackId}
-	title="Create commit"
-	disableScroll
-	minHeight={20}
->
+{#snippet editor()}
 	<AsyncRender>
 		<CommitMessageEditor
 			bind:this={input}
@@ -236,4 +230,19 @@
 			description={projectState.commitDescription.current}
 		/>
 	</AsyncRender>
-</Drawer>
+{/snippet}
+{#if noDrawer}
+	{@render editor()}
+{:else}
+	<Drawer
+		testId={TestId.NewCommitDrawer}
+		bind:this={drawer}
+		{projectId}
+		stackId={targetStackId}
+		title="Create commit"
+		disableScroll
+		minHeight={20}
+	>
+		{@render editor()}
+	</Drawer>
+{/if}

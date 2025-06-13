@@ -23,6 +23,7 @@ export type StackSelection = {
 
 export type StackState = {
 	selection: StackSelection | undefined;
+	action: 'committing' | undefined;
 };
 
 type BranchesSelection = {
@@ -91,7 +92,8 @@ export class UiState {
 
 	/** Properties scoped to a specific stack. */
 	readonly stack = this.buildScopedProps<StackState>({
-		selection: undefined
+		selection: undefined,
+		action: undefined
 	});
 
 	/** Properties scoped to a specific project. */

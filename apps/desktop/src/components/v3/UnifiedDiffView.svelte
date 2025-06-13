@@ -38,7 +38,7 @@
 		selectionId: SelectionId;
 		stackId?: string;
 		commitId?: string;
-		draggable: boolean;
+		draggable?: boolean;
 	};
 
 	const {

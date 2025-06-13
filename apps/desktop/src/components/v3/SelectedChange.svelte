@@ -15,7 +15,7 @@
 	type Props = {
 		selectedFile: SelectedFile;
 		projectId: string;
-		draggable: boolean;
+		draggable?: boolean;
 		onCloseClick: () => void;
 	};
 
