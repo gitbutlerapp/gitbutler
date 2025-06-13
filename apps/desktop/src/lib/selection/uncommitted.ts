@@ -13,10 +13,21 @@ import {
 	createSelectNotIn
 } from '$lib/state/customSelectors';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
-import { createSelector, createSlice, type PayloadAction } from '@reduxjs/toolkit';
+import {
+	createSelector,
+	createSlice,
+	type EntityState,
+	type PayloadAction
+} from '@reduxjs/toolkit';
 import type { TreeChange } from '$lib/hunks/change';
 import type { HunkAssignment, HunkHeader } from '$lib/hunks/hunk';
 import type { LineId } from '@gitbutler/ui/utils/diffParsing';
+
+type UncommittedState = {
+	treeChanges: EntityState<TreeChange, string>;
+	hunkAssignments: EntityState<HunkAssignment, string>;
+	hunkSelection: EntityState<HunkSelection, string>;
+};
 
 /**
  * State representing uncommitted changes.
@@ -33,7 +44,7 @@ export const uncommittedSlice = createSlice({
 		treeChanges: treeChangeAdapter.getInitialState(),
 		hunkAssignments: hunkAssignmentAdapter.getInitialState(),
 		hunkSelection: hunkSelectionAdapter.getInitialState()
-	},
+	} as UncommittedState,
 	reducers: {
 		clearHunkSelection(state, action: PayloadAction<{ stackId: string | null }>) {
 			state.hunkSelection = hunkSelectionAdapter.removeMany(
@@ -41,25 +52,12 @@ export const uncommittedSlice = createSlice({
 				state.hunkSelection.ids.filter((id) => id.startsWith(`${action.payload.stackId}`))
 			);
 		},
+		// We want to go over all the existing hunk assignments and
+		// - Remove any that don't have a cooresponding id in the new assignments.
+		// - Update the selections in those that have a cooresponding id in the new assignments.
+		// - Add any new assignments
 		update(state, action: PayloadAction<{ assignments: HunkAssignment[]; changes: TreeChange[] }>) {
-			state.treeChanges = treeChangeAdapter.addMany(
-				treeChangeAdapter.getInitialState(),
-				action.payload.changes
-			);
-			const removedAssignments = uncommittedSelectors.hunkAssignments.selectNotIn(
-				state.hunkAssignments,
-				action.payload.assignments.map((a) => hunkAssignmentAdapter.selectId(a))
-			);
-			const removedKeys = removedAssignments.map((r) => compositeKey(r));
-			if (removedKeys.length > 0) {
-				// The next line requires that assignments and selections share keys.
-				state.hunkSelection = hunkSelectionAdapter.removeMany(state.hunkSelection, removedKeys);
-			}
-			state.hunkAssignments = hunkAssignmentAdapter.addMany(
-				hunkAssignmentAdapter.getInitialState(),
-				action.payload.assignments
-			);
-			return state;
+			return updateAssignments(state, action);
 		},
 		checkLine(
 			state,
@@ -87,6 +85,7 @@ export const uncommittedSlice = createSlice({
 					throw new Error(`Expected to find assignment: ${key} `);
 				}
 				state.hunkSelection = hunkSelectionAdapter.addOne(state.hunkSelection, {
+					stableId: assignment.id,
 					stackId: stackId,
 					path: assignment.path,
 					assignmentId: key,
@@ -176,6 +175,7 @@ export const uncommittedSlice = createSlice({
 			);
 			if (assignment) {
 				state.hunkSelection = hunkSelectionAdapter.upsertOne(state.hunkSelection, {
+					stableId: assignment.id,
 					stackId: action.payload.stackId,
 					path: assignment.path,
 					assignmentId: key,
@@ -201,6 +201,7 @@ export const uncommittedSlice = createSlice({
 			for (const assignment of assignments) {
 				const key = hunkAssignmentAdapter.selectId(assignment);
 				state.hunkSelection = hunkSelectionAdapter.upsertOne(state.hunkSelection, {
+					stableId: assignment.id,
 					stackId: stackId,
 					path: assignment.path,
 					assignmentId: key,
@@ -231,6 +232,7 @@ export const uncommittedSlice = createSlice({
 			for (const assignment of assignments) {
 				const key = hunkAssignmentAdapter.selectId(assignment);
 				state.hunkSelection = hunkSelectionAdapter.upsertOne(state.hunkSelection, {
+					stableId: assignment.id,
 					stackId: stackId,
 					path: assignment.path,
 					assignmentId: key,
@@ -261,6 +263,7 @@ export const uncommittedSlice = createSlice({
 			for (const assignment of assignments) {
 				const key = hunkAssignmentAdapter.selectId(assignment);
 				state.hunkSelection = hunkSelectionAdapter.upsertOne(state.hunkSelection, {
+					stableId: assignment.id,
 					stackId: stackId,
 					path: assignment.path,
 					assignmentId: key,
@@ -461,3 +464,49 @@ export const uncommittedSelectors = {
 		stackCheckStatus
 	}
 };
+
+/**
+ * Replaces the old tree changes and hunk assignments entirly.
+ * Then for the selections, it will loop over the old selections and:
+ * - If there is a new assignment with the same stable ID, it will add the
+ *   assignment, with updated header information.
+ * - Otherwise, it will just be dropped.
+ */
+function updateAssignments(
+	state: UncommittedState,
+	action: PayloadAction<{ assignments: HunkAssignment[]; changes: TreeChange[] }>
+): UncommittedState {
+	// Read: Replace whole tree changes slice with the new changes.
+	state.treeChanges = treeChangeAdapter.addMany(
+		treeChangeAdapter.getInitialState(),
+		action.payload.changes
+	);
+	state.hunkAssignments = hunkAssignmentAdapter.addMany(
+		hunkAssignmentAdapter.getInitialState(),
+		action.payload.assignments
+	);
+	const oldSelections = uncommittedSelectors.hunkSelection.selectAll(state.hunkSelection);
+	// Set hunk selection to empty. We will re-build this.
+	state.hunkSelection = hunkSelectionAdapter.removeAll(state.hunkSelection);
+
+	// Keyed by stable ID or fallback to composite key.
+	const newAssignments = new Map(
+		action.payload.assignments.map((a) => [a.id || compositeKey(a), a])
+	);
+
+	for (const old of oldSelections) {
+		const newAssignment = newAssignments.get(old.stableId || old.assignmentId);
+		if (newAssignment) {
+			state.hunkSelection = hunkSelectionAdapter.addOne(state.hunkSelection, {
+				stableId: newAssignment.id,
+				assignmentId: compositeKey(newAssignment),
+				stackId: newAssignment.stackId,
+				path: newAssignment.path,
+				// TODO: Carry over lines from the old selection.
+				lines: []
+			});
+		}
+	}
+
+	return state;
+}

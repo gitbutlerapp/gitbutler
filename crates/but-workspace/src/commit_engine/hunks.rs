@@ -115,6 +115,28 @@ impl HunkRange {
         other.start >= self.start && other.end() <= self.end()
     }
 
+    /// Return `true` if this range is equal to or intersects with the other
+    /// range.
+    pub fn intersects(self, other: HunkRange) -> bool {
+        if self.start <= other.start && other.start <= self.last_line() {
+            return true;
+        }
+
+        if self.start <= other.last_line() && other.last_line() <= self.last_line() {
+            return true;
+        }
+
+        if other.start <= self.start && self.start <= other.last_line() {
+            return true;
+        }
+
+        if other.start <= self.last_line() && self.last_line() <= other.last_line() {
+            return true;
+        }
+
+        false
+    }
+
     /// Return `true` if this range is a null-range, a marker value that doesn't happen.
     pub fn is_null(&self) -> bool {
         self.start == 0 && self.lines == 0
@@ -137,6 +159,141 @@ impl From<DiffHunk> for HunkHeader {
             old_lines,
             new_start,
             new_lines,
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    mod contains {
+        use super::*;
+
+        #[test]
+        fn contains_returns_true_if_a_smaller_range_is_inside_a_larger_range() {
+            let larger = HunkRange {
+                start: 1,
+                lines: 10,
+            };
+            let smaller = HunkRange { start: 2, lines: 5 };
+            assert!(larger.contains(smaller));
+            assert!(!smaller.contains(larger));
+        }
+
+        #[test]
+        fn contains_returns_true_if_two_equal_ranges() {
+            let range = HunkRange {
+                start: 1,
+                lines: 10,
+            };
+            assert!(range.contains(range));
+
+            let zero_range = HunkRange { start: 1, lines: 0 };
+            assert!(zero_range.contains(zero_range));
+        }
+
+        #[test]
+        fn a_zero_range_does_not_contain_zero_range_next_to_it() {
+            let zero_range = HunkRange { start: 1, lines: 0 };
+            let next_to_zero_range = HunkRange { start: 2, lines: 0 };
+            assert!(!zero_range.contains(next_to_zero_range));
+            assert!(!next_to_zero_range.contains(zero_range));
+        }
+
+        #[test]
+        fn a_one_range_contains_a_zero_range() {
+            let one_range = HunkRange { start: 1, lines: 1 };
+            let zero_range = HunkRange { start: 1, lines: 0 };
+            assert!(one_range.contains(zero_range));
+            assert!(!zero_range.contains(one_range));
+        }
+    }
+
+    mod intersects {
+        use super::*;
+
+        #[test]
+        fn intersects_returns_true_if_a_smaller_range_is_inside_a_larger_range() {
+            let larger = HunkRange {
+                start: 1,
+                lines: 10,
+            };
+            let smaller = HunkRange { start: 2, lines: 5 };
+            assert!(larger.intersects(smaller));
+            assert!(smaller.intersects(larger));
+        }
+
+        #[test]
+        fn intersects_returns_true_if_two_equal_ranges() {
+            let range = HunkRange {
+                start: 1,
+                lines: 10,
+            };
+            assert!(range.intersects(range));
+
+            let zero_range = HunkRange { start: 1, lines: 0 };
+            assert!(zero_range.intersects(zero_range));
+        }
+
+        #[test]
+        fn a_zero_range_does_not_intersects_zero_range_next_to_it() {
+            let zero_range = HunkRange { start: 1, lines: 0 };
+            let next_to_zero_range = HunkRange { start: 2, lines: 0 };
+            assert!(!zero_range.intersects(next_to_zero_range));
+            assert!(!next_to_zero_range.intersects(zero_range));
+        }
+
+        #[test]
+        fn a_one_range_intersects_a_zero_range() {
+            let one_range = HunkRange { start: 1, lines: 1 }; // Line 1
+            let zero_range = HunkRange { start: 1, lines: 0 }; // No lines
+            assert!(one_range.intersects(zero_range));
+            assert!(zero_range.intersects(one_range));
+        }
+
+        #[test]
+        fn a_one_range_intersects_a_zero_range_next_to_it() {
+            let one_range = HunkRange { start: 1, lines: 1 }; // Line 1
+            let zero_range = HunkRange { start: 2, lines: 0 }; // No lines
+            assert!(!one_range.intersects(zero_range));
+            assert!(!zero_range.intersects(one_range));
+        }
+
+        #[test]
+        fn a_one_range_intersects_a_zero_range_before_it() {
+            let one_range = HunkRange { start: 1, lines: 1 }; // Line 1
+            let zero_range = HunkRange { start: 0, lines: 0 }; // No lines
+            assert!(!one_range.intersects(zero_range));
+            assert!(!zero_range.intersects(one_range));
+        }
+
+        #[test]
+        fn ranges_that_are_not_fully_contained_in_each_other_intersects() {
+            let left = HunkRange {
+                start: 1,
+                lines: 10,
+            };
+            let right = HunkRange {
+                start: 10,
+                lines: 10,
+            };
+            assert!(left.intersects(right));
+            assert!(right.intersects(left));
+        }
+
+        #[test]
+        fn ranges_that_are_next_to_each_other_but_not_intersecting() {
+            let left = HunkRange {
+                start: 1,
+                lines: 10,
+            };
+            let right = HunkRange {
+                start: 11,
+                lines: 10,
+            };
+            assert!(!left.intersects(right));
+            assert!(!right.intersects(left));
         }
     }
 }

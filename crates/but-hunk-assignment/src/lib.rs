@@ -194,16 +194,8 @@ impl HunkAssignment {
             return true;
         }
         if let (Some(header), Some(other_header)) = (self.hunk_header, other.hunk_header) {
-            if header.new_start >= other_header.new_start
-                && header.new_start <= other_header.new_start + other_header.new_lines
-            {
-                return true;
-            }
-            if other_header.new_start >= header.new_start
-                && other_header.new_start <= header.new_start + header.new_lines
-            {
-                return true;
-            }
+            return header.old_range().intersects(other_header.old_range())
+                && header.new_range().intersects(other_header.new_range());
         }
         false
     }
@@ -235,7 +227,7 @@ pub fn assign(
     // Reconcile worktree with the persisted assignments
     let persisted_assignments = state::assignments(ctx)?;
     let with_worktree = reconcile::assignments(
-        worktree_assignments.clone(),
+        &worktree_assignments,
         &persisted_assignments,
         &applied_stacks,
         MultipleOverlapping::SetMostLines,
@@ -244,7 +236,7 @@ pub fn assign(
 
     // Reconcile with the requested changes
     let with_requests = reconcile::assignments(
-        with_worktree,
+        &with_worktree,
         &requests_to_assignments(requests.clone()),
         &applied_stacks,
         MultipleOverlapping::SetMostLines,
@@ -254,7 +246,7 @@ pub fn assign(
     // Reconcile with hunk locks
     let lock_assignments = hunk_dependency_assignments(ctx, Some(worktree_changes.clone()))?;
     let with_locks = reconcile::assignments(
-        with_requests,
+        &with_requests,
         &lock_assignments,
         &applied_stacks,
         MultipleOverlapping::SetNone,
@@ -314,6 +306,8 @@ pub fn assignments_with_fallback(
     )
     .map(|a| (a, None))
     .unwrap_or_else(|e| (worktree_assignments, Some(e)));
+
+    state::set_assignments(ctx, reconciled.0.clone())?;
     Ok(reconciled)
 }
 
@@ -352,7 +346,7 @@ fn reconcile_with_worktree_and_locks(
 
     let persisted_assignments = state::assignments(ctx)?;
     let with_worktree = reconcile::assignments(
-        worktree_assignments.clone(),
+        worktree_assignments,
         &persisted_assignments,
         &applied_stacks,
         MultipleOverlapping::SetMostLines,
@@ -361,7 +355,7 @@ fn reconcile_with_worktree_and_locks(
 
     let lock_assignments = hunk_dependency_assignments(ctx, Some(worktree_changes.clone()))?;
     let with_locks = reconcile::assignments(
-        with_worktree,
+        &with_worktree,
         &lock_assignments,
         &applied_stacks,
         MultipleOverlapping::SetNone,
@@ -557,8 +551,8 @@ mod tests {
             HunkAssignment {
                 id: id.map(id_seq),
                 hunk_header: Some(HunkHeader {
-                    old_start: 0,
-                    old_lines: 0,
+                    old_start: start,
+                    old_lines: end,
                     new_start: start,
                     new_lines: end,
                 }),
@@ -581,8 +575,8 @@ mod tests {
         ) -> HunkAssignmentRequest {
             HunkAssignmentRequest {
                 hunk_header: Some(HunkHeader {
-                    old_start: 0,
-                    old_lines: 0,
+                    old_start: start,
+                    old_lines: end,
                     new_start: start,
                     new_lines: end,
                 }),
@@ -625,12 +619,12 @@ mod tests {
                 .intersects(HunkAssignment::new("foo.rs", 16, 5, None, None))
         );
         assert!(
-            HunkAssignment::new("foo.rs", 10, 6, None, None)
-                .intersects(HunkAssignment::new("foo.rs", 16, 5, None, None))
+            !HunkAssignment::new("foo.rs", 10, 6, None, None) // Lines 10 to 15
+                .intersects(HunkAssignment::new("foo.rs", 16, 5, None, None)) // Lines 16 to 20
         );
         assert!(
-            HunkAssignment::new("foo.rs", 10, 7, None, None)
-                .intersects(HunkAssignment::new("foo.rs", 16, 5, None, None))
+            HunkAssignment::new("foo.rs", 10, 7, None, None) // Lines 10 to 16
+                .intersects(HunkAssignment::new("foo.rs", 16, 5, None, None)) // Lines 16 to 20
         );
     }
 
@@ -643,7 +637,7 @@ mod tests {
         ];
         let applied_stacks = vec![stack_id_seq(1), stack_id_seq(2)];
         let result = reconcile::assignments(
-            worktree_assignments,
+            &worktree_assignments,
             &previous_assignments,
             &applied_stacks,
             MultipleOverlapping::SetMostLines,
@@ -665,7 +659,7 @@ mod tests {
         let worktree_assignments = vec![HunkAssignment::new("foo.rs", 10, 5, None, Some(1))];
         let applied_stacks = vec![stack_id_seq(2)];
         let result = reconcile::assignments(
-            worktree_assignments,
+            &worktree_assignments,
             &previous_assignments,
             &applied_stacks,
             MultipleOverlapping::SetMostLines,
@@ -684,7 +678,7 @@ mod tests {
         let worktree_assignments = vec![HunkAssignment::new("foo.rs", 12, 7, None, Some(1))];
         let applied_stacks = vec![stack_id_seq(1)];
         let result = reconcile::assignments(
-            worktree_assignments,
+            &worktree_assignments,
             &previous_assignments,
             &applied_stacks,
             MultipleOverlapping::SetMostLines,
@@ -706,7 +700,7 @@ mod tests {
         let applied_stacks = vec![stack_id_seq(1), stack_id_seq(2)];
         let worktree_assignments = vec![HunkAssignment::new("foo.rs", 5, 18, None, None)];
         let result = reconcile::assignments(
-            worktree_assignments,
+            &worktree_assignments,
             &previous_assignments,
             &applied_stacks,
             MultipleOverlapping::SetMostLines,
@@ -728,7 +722,7 @@ mod tests {
         let applied_stacks = vec![stack_id_seq(1), stack_id_seq(2)];
         let worktree_assignments = vec![HunkAssignment::new("foo.rs", 5, 18, None, None)];
         let result = reconcile::assignments(
-            worktree_assignments,
+            &worktree_assignments,
             &previous_assignments,
             &applied_stacks,
             MultipleOverlapping::SetNone,
@@ -747,7 +741,7 @@ mod tests {
         let worktree_assignments = vec![HunkAssignment::new("foo.rs", 12, 17, Some(2), None)];
         let applied_stacks = vec![stack_id_seq(1)];
         let result = reconcile::assignments(
-            worktree_assignments,
+            &worktree_assignments,
             &previous_assignments,
             &applied_stacks,
             MultipleOverlapping::SetMostLines,
