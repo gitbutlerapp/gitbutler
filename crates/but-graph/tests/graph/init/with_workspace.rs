@@ -10,97 +10,86 @@ use gix::Repository;
 fn single_stack_ambigous() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/single-stack-ambiguous")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 2c12d75 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    * 320e105 (ambiguous-02, B) segment-B
+    * 20de6ee (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 70e9a36 (B) with-ref
+    * 320e105 (tag: without-ref) segment-B
     * 2a31450 (ambiguous-01, B-empty) segment-B~1
     * 70bde6b (A-empty-03, A-empty-02, A-empty-01, A) segment-A
     * fafd9d0 (origin/main, new-B, new-A, main) init
     ");
 
     // Just a workspace, no additional ref information.
-    // As the segments are ambiguous, we don't split them into segments.
-    // Only `main` is unambiguous.
+    // As the segments are ambiguous, there are many unnamed segments.
     add_workspace(&mut meta);
     let graph = Graph::from_head(&repo, &*meta, standard_options())?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     └── 👉►►►:0:refs/heads/gitbutler/workspace
-        ├── 🔵2c12d75 (InWorkspace)❱"GitButler Workspace Commit"
-        ├── 🔵320e105 (InWorkspace)❱"segment-B" ►B, ►ambiguous-02
-        ├── 🔵2a31450 (InWorkspace)❱"segment-B~1" ►B-empty, ►ambiguous-01
-        ├── 🔵70bde6b (InWorkspace)❱"segment-A" ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
-        └── 🔵fafd9d0 (InWorkspace)❱"init" ►main, ►new-A, ►new-B
+        └── 🔵20de6ee (InWorkspace)❱"GitButler Workspace Commit"
+            └── ►:1:refs/heads/B
+                ├── 🔵70e9a36 (InWorkspace)❱"with-ref"
+                ├── 🔵320e105 (InWorkspace)❱"segment-B" ►tags/without-ref
+                ├── 🔵2a31450 (InWorkspace)❱"segment-B~1" ►B-empty, ►ambiguous-01
+                ├── 🔵70bde6b (InWorkspace)❱"segment-A" ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
+                └── 🔵fafd9d0 (InWorkspace)❱"init" ►main, ►new-A, ►new-B
     "#);
 
     // There is always a segment for the entrypoint, and code working with the graph
     // deals with that naturally.
-    let (b_id, ref_name) = id_at(&repo, "B");
-    let graph = Graph::from_commit_traversal(b_id, ref_name, &*meta, standard_options())?;
+    let (without_ref_id, ref_name) = id_at(&repo, "without-ref");
+    let graph = Graph::from_commit_traversal(without_ref_id, ref_name, &*meta, standard_options())?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     └── ►►►:1:refs/heads/gitbutler/workspace
-        └── 🔵2c12d75 (InWorkspace)❱"GitButler Workspace Commit"
-            └── 👉►:0:refs/heads/B
-                ├── 🔵320e105 (InWorkspace)❱"segment-B" ►ambiguous-02
-                ├── 🔵2a31450 (InWorkspace)❱"segment-B~1" ►B-empty, ►ambiguous-01
-                ├── 🔵70bde6b (InWorkspace)❱"segment-A" ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
-                └── 🔵fafd9d0 (InWorkspace)❱"init" ►main, ►new-A, ►new-B
+        └── 🔵20de6ee (InWorkspace)❱"GitButler Workspace Commit"
+            └── ►:2:refs/heads/B
+                └── 🔵70e9a36 (InWorkspace)❱"with-ref"
+                    └── 👉►:0:refs/tags/without-ref
+                        ├── 🔵320e105 (InWorkspace)❱"segment-B"
+                        ├── 🔵2a31450 (InWorkspace)❱"segment-B~1" ►B-empty, ►ambiguous-01
+                        ├── 🔵70bde6b (InWorkspace)❱"segment-A" ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
+                        └── 🔵fafd9d0 (InWorkspace)❱"init" ►main, ►new-A, ►new-B
     "#);
 
-    let graph = Graph::from_commit_traversal(b_id, None, &*meta, standard_options())?;
+    // We don't have to give it a ref-name
+    let graph = Graph::from_commit_traversal(without_ref_id, None, &*meta, standard_options())?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     └── ►►►:1:refs/heads/gitbutler/workspace
-        └── 🔵2c12d75 (InWorkspace)❱"GitButler Workspace Commit"
-            └── ►:0:anon:
-                ├── 👉🔵320e105 (InWorkspace)❱"segment-B" ►B, ►ambiguous-02
-                ├── 🔵2a31450 (InWorkspace)❱"segment-B~1" ►B-empty, ►ambiguous-01
-                ├── 🔵70bde6b (InWorkspace)❱"segment-A" ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
-                └── 🔵fafd9d0 (InWorkspace)❱"init" ►main, ►new-A, ►new-B
+        └── 🔵20de6ee (InWorkspace)❱"GitButler Workspace Commit"
+            └── ►:2:refs/heads/B
+                └── 🔵70e9a36 (InWorkspace)❱"with-ref"
+                    └── ►:0:anon:
+                        ├── 👉🔵320e105 (InWorkspace)❱"segment-B" ►tags/without-ref
+                        ├── 🔵2a31450 (InWorkspace)❱"segment-B~1" ►B-empty, ►ambiguous-01
+                        ├── 🔵70bde6b (InWorkspace)❱"segment-A" ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
+                        └── 🔵fafd9d0 (InWorkspace)❱"init" ►main, ►new-A, ►new-B
     "#);
 
+    // Putting the entrypoint onto a commit in an anonymous segment makes no difference.
     let (b_id_1, tag_ref_name) = id_at(&repo, "B-empty");
     let graph = Graph::from_commit_traversal(b_id_1, None, &*meta, standard_options())?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     └── ►►►:1:refs/heads/gitbutler/workspace
-        ├── 🔵2c12d75 (InWorkspace)❱"GitButler Workspace Commit"
-        └── 🔵320e105 (InWorkspace)❱"segment-B" ►B, ►ambiguous-02
-            └── ►:0:anon:
-                ├── 👉🔵2a31450 (InWorkspace)❱"segment-B~1" ►B-empty, ►ambiguous-01
-                ├── 🔵70bde6b (InWorkspace)❱"segment-A" ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
-                └── 🔵fafd9d0 (InWorkspace)❱"init" ►main, ►new-A, ►new-B
+        └── 🔵20de6ee (InWorkspace)❱"GitButler Workspace Commit"
+            └── ►:2:refs/heads/B
+                ├── 🔵70e9a36 (InWorkspace)❱"with-ref"
+                └── 🔵320e105 (InWorkspace)❱"segment-B" ►tags/without-ref
+                    └── ►:0:anon:
+                        ├── 👉🔵2a31450 (InWorkspace)❱"segment-B~1" ►B-empty, ►ambiguous-01
+                        ├── 🔵70bde6b (InWorkspace)❱"segment-A" ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
+                        └── 🔵fafd9d0 (InWorkspace)❱"init" ►main, ►new-A, ►new-B
     "#);
 
-    // If we pass an entrypoint ref name, it will be used unconditionally.
+    // If we pass an entrypoint ref name, it will be used as segment name.
     let graph = Graph::from_commit_traversal(b_id_1, tag_ref_name, &*meta, standard_options())?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     └── ►►►:1:refs/heads/gitbutler/workspace
-        ├── 🔵2c12d75 (InWorkspace)❱"GitButler Workspace Commit"
-        └── 🔵320e105 (InWorkspace)❱"segment-B" ►B, ►ambiguous-02
-            └── 👉►:0:refs/heads/B-empty
-                ├── 🔵2a31450 (InWorkspace)❱"segment-B~1" ►ambiguous-01
-                ├── 🔵70bde6b (InWorkspace)❱"segment-A" ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
-                └── 🔵fafd9d0 (InWorkspace)❱"init" ►main, ►new-A, ►new-B
-    "#);
-
-    let (a_id, ref_name) = id_at(&repo, "A");
-    let graph = Graph::from_commit_traversal(a_id, ref_name, &*meta, standard_options())?;
-    insta::assert_snapshot!(graph_tree(&graph), @r#"
-    └── ►►►:1:refs/heads/gitbutler/workspace
-        ├── 🔵2c12d75 (InWorkspace)❱"GitButler Workspace Commit"
-        ├── 🔵320e105 (InWorkspace)❱"segment-B" ►B, ►ambiguous-02
-        └── 🔵2a31450 (InWorkspace)❱"segment-B~1" ►B-empty, ►ambiguous-01
-            └── 👉►:0:refs/heads/A
-                ├── 🔵70bde6b (InWorkspace)❱"segment-A" ►A-empty-01, ►A-empty-02, ►A-empty-03
-                └── 🔵fafd9d0 (InWorkspace)❱"init" ►main, ►new-A, ►new-B
-    "#);
-
-    let graph = Graph::from_commit_traversal(a_id, None, &*meta, standard_options())?;
-    insta::assert_snapshot!(graph_tree(&graph), @r#"
-    └── ►►►:1:refs/heads/gitbutler/workspace
-        ├── 🔵2c12d75 (InWorkspace)❱"GitButler Workspace Commit"
-        ├── 🔵320e105 (InWorkspace)❱"segment-B" ►B, ►ambiguous-02
-        └── 🔵2a31450 (InWorkspace)❱"segment-B~1" ►B-empty, ►ambiguous-01
-            └── ►:0:anon:
-                ├── 👉🔵70bde6b (InWorkspace)❱"segment-A" ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
-                └── 🔵fafd9d0 (InWorkspace)❱"init" ►main, ►new-A, ►new-B
+        └── 🔵20de6ee (InWorkspace)❱"GitButler Workspace Commit"
+            └── ►:2:refs/heads/B
+                ├── 🔵70e9a36 (InWorkspace)❱"with-ref"
+                └── 🔵320e105 (InWorkspace)❱"segment-B" ►tags/without-ref
+                    └── 👉►:0:refs/heads/B-empty
+                        ├── 🔵2a31450 (InWorkspace)❱"segment-B~1" ►ambiguous-01
+                        ├── 🔵70bde6b (InWorkspace)❱"segment-A" ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
+                        └── 🔵fafd9d0 (InWorkspace)❱"init" ►main, ►new-A, ►new-B
     "#);
     Ok(())
 }
@@ -109,8 +98,9 @@ fn single_stack_ambigous() -> anyhow::Result<()> {
 fn single_stack_ws_insertions() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/single-stack-ambiguous")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 2c12d75 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    * 320e105 (ambiguous-02, B) segment-B
+    * 20de6ee (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 70e9a36 (B) with-ref
+    * 320e105 (tag: without-ref) segment-B
     * 2a31450 (ambiguous-01, B-empty) segment-B~1
     * 70bde6b (A-empty-03, A-empty-02, A-empty-01, A) segment-A
     * fafd9d0 (origin/main, new-B, new-A, main) init
@@ -137,18 +127,20 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     └── 👉►►►:0:refs/heads/gitbutler/workspace
-        └── 🔵2c12d75 (InWorkspace)❱"GitButler Workspace Commit"
+        └── 🔵20de6ee (InWorkspace)❱"GitButler Workspace Commit"
             └── ►:1:refs/heads/B
-                ├── 🔵320e105 (InWorkspace)❱"segment-B" ►ambiguous-02
-                └── ►:2:refs/heads/B-empty
-                    ├── 🔵2a31450 (InWorkspace)❱"segment-B~1" ►ambiguous-01
-                    └── ►:3:refs/heads/A-empty-03
-                        └── ►:4:refs/heads/A-empty-01
-                            └── ►:5:refs/heads/A
-                                ├── 🔵70bde6b (InWorkspace)❱"segment-A" ►A-empty-02
-                                └── 🔵fafd9d0 (InWorkspace)❱"init" ►main, ►new-A, ►new-B
+                ├── 🔵70e9a36 (InWorkspace)❱"with-ref"
+                └── 🔵320e105 (InWorkspace)❱"segment-B" ►tags/without-ref
+                    └── ►:2:refs/heads/B-empty
+                        ├── 🔵2a31450 (InWorkspace)❱"segment-B~1" ►ambiguous-01
+                        └── ►:3:refs/heads/A-empty-03
+                            └── ►:4:refs/heads/A-empty-01
+                                └── ►:5:refs/heads/A
+                                    ├── 🔵70bde6b (InWorkspace)❱"segment-A" ►A-empty-02
+                                    └── 🔵fafd9d0 (InWorkspace)❱"init" ►main, ►new-A, ►new-B
     "#);
 
+    // TODO: do more complex new-stack segmentation
     // // Note that this doesn't match the single-stack (one big segment) configuration we actually have.
     // // Only stack B should be used here.
     // meta.data_mut().branches.clear();
@@ -237,7 +229,7 @@ fn single_stack() -> anyhow::Result<()> {
 
     meta.data_mut().branches.clear();
     // Just repeat the existing segment verbatim, but also add a new unborn stack
-    // TODO: make this work
+    // TODO: make this work: unborn stack
     add_stack_with_segments(
         &mut meta,
         StackId::from_number_for_testing(0),
@@ -271,6 +263,86 @@ fn single_stack() -> anyhow::Result<()> {
 }
 
 #[test]
+fn minimal_merge_no_refs() -> anyhow::Result<()> {
+    let (repo, meta) = read_only_in_memory_scenario("ws/dual-merge-no-refs")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 47e1cf1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   f40fb16 Merge branch 'C' into merge-2
+    |\  
+    | * c6d714c C
+    * | 450c58a D
+    |/  
+    *   0cc5a6f Merge branch 'A' into merge
+    |\  
+    | * e255adc A
+    * | 7fdb58d B
+    |/  
+    * fafd9d0 init
+    ");
+
+    // Without hints.
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?;
+    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    └── 👉►:0:refs/heads/gitbutler/workspace
+        └── 🔵47e1cf1❱"GitButler Workspace Commit"
+            └── ►:1:anon:
+                └── 🔵f40fb16❱"Merge branch \'C\' into merge-2"
+                    ├── ►:3:anon:
+                    │   └── 🔵c6d714c❱"C"
+                    │       └── ►:4:anon:
+                    │           └── 🔵0cc5a6f❱"Merge branch \'A\' into merge"
+                    │               ├── ►:6:anon:
+                    │               │   └── 🔵e255adc❱"A"
+                    │               │       └── ►:7:anon:
+                    │               │           └── 🔵fafd9d0❱"init"
+                    │               └── ►:5:anon:
+                    │                   └── 🔵7fdb58d❱"B"
+                    │                       └── ERROR: Reached segment :7: for a second time: None
+                    └── ►:2:anon:
+                        └── 🔵450c58a❱"D"
+                            └── ERROR: Reached segment :4: for a second time: None
+    "#);
+    Ok(())
+}
+
+#[test]
+fn segment_on_each_incoming_connection() -> anyhow::Result<()> {
+    // Validate that the graph is truly having segments whenever there is an incoming connection.
+    // This is required to not need special edge-weights.
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/graph-splitting")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 98c5aba (entrypoint) C
+    * 807b6ce B
+    * 6d05486 A
+    | * b6917c7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | * f7fe830 (main) other-2
+    |/  
+    * b688f2d other-1
+    * fafd9d0 init
+    ");
+
+    // Without hints - needs to split `refs/heads/main` at `b688f2d`
+    let (id, name) = id_at(&repo, "entrypoint");
+    add_workspace(&mut meta);
+    let graph = Graph::from_commit_traversal(id, name, &*meta, standard_options())?;
+    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    ├── 👉►:0:refs/heads/entrypoint
+    │   ├── 🔵98c5aba❱"C"
+    │   ├── 🔵807b6ce❱"B"
+    │   └── 🔵6d05486❱"A"
+    │       └── ►:3:anon:
+    │           ├── 🔵b688f2d (InWorkspace)❱"other-1"
+    │           └── 🔵fafd9d0 (InWorkspace)❱"init"
+    └── ►►►:1:refs/heads/gitbutler/workspace
+        └── 🔵b6917c7 (InWorkspace)❱"GitButler Workspace Commit"
+            └── ►:2:refs/heads/main
+                └── 🔵f7fe830 (InWorkspace)❱"other-2"
+                    └── ERROR: Reached segment :3: for a second time: None
+    "#);
+    Ok(())
+}
+
+#[test]
 fn minimal_merge() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/dual-merge")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -297,21 +369,22 @@ fn minimal_merge() -> anyhow::Result<()> {
                 └── 🔵f40fb16❱"Merge branch \'C\' into merge-2"
                     ├── ►:3:refs/heads/C
                     │   └── 🔵c6d714c❱"C"
+                    │       └── ►:4:anon:
+                    │           └── 🔵0cc5a6f❱"Merge branch \'A\' into merge" ►empty-1-on-merge, ►empty-2-on-merge, ►merge
+                    │               ├── ►:6:refs/heads/A
+                    │               │   └── 🔵e255adc❱"A"
+                    │               │       └── ►:7:refs/heads/main
+                    │               │           └── 🔵fafd9d0❱"init"
+                    │               └── ►:5:refs/heads/B
+                    │                   └── 🔵7fdb58d❱"B"
+                    │                       └── ERROR: Reached segment :7: for a second time: Some("refs/heads/main")
                     └── ►:2:refs/heads/D
-                        ├── 🔵450c58a❱"D"
-                        └── 🔵0cc5a6f❱"Merge branch \'A\' into merge" ►empty-1-on-merge, ►empty-2-on-merge, ►merge
-                            ├── ►:5:refs/heads/A
-                            │   └── 🔵e255adc❱"A"
-                            │       └── ►:6:refs/heads/main
-                            │           └── 🔵fafd9d0❱"init"
-                            └── ►:4:refs/heads/B
-                                └── 🔵7fdb58d❱"B"
-                                    └── ERROR: Reached segment 6 for a second time: Some("refs/heads/main")
+                        └── 🔵450c58a❱"D"
+                            └── ERROR: Reached segment :4: for a second time: None
     "#);
 
     // There is empty stacks on top of `merge`, and they need to be connected to the incoming segments and the outgoing ones.
     // This also would leave the original segment empty unless we managed to just put empty stacks on top.
-    // TODO: make connection.
     add_stack_with_segments(
         &mut meta,
         StackId::from_number_for_testing(0),
@@ -327,20 +400,20 @@ fn minimal_merge() -> anyhow::Result<()> {
                 └── 🔵f40fb16 (InWorkspace)❱"Merge branch \'C\' into merge-2"
                     ├── ►:3:refs/heads/C
                     │   └── 🔵c6d714c (InWorkspace)❱"C"
-                    │       └── ►:7:refs/heads/empty-2-on-merge
-                    │           └── ►:8:refs/heads/empty-1-on-merge
-                    │               └── ►:9:refs/heads/merge
+                    │       └── ►:8:refs/heads/empty-2-on-merge
+                    │           └── ►:9:refs/heads/empty-1-on-merge
+                    │               └── ►:10:refs/heads/merge
                     │                   └── 🔵0cc5a6f (InWorkspace)❱"Merge branch \'A\' into merge"
-                    │                       ├── ►:4:refs/heads/B
+                    │                       ├── ►:5:refs/heads/B
                     │                       │   └── 🔵7fdb58d (InWorkspace)❱"B"
-                    │                       │       └── ►:6:refs/heads/main
+                    │                       │       └── ►:7:refs/heads/main
                     │                       │           └── 🔵fafd9d0 (InWorkspace)❱"init"
-                    │                       └── ►:5:refs/heads/A
+                    │                       └── ►:6:refs/heads/A
                     │                           └── 🔵e255adc (InWorkspace)❱"A"
-                    │                               └── ERROR: Reached segment 6 for a second time: Some("refs/heads/main")
+                    │                               └── ERROR: Reached segment :7: for a second time: Some("refs/heads/main")
                     └── ►:2:refs/heads/D
                         └── 🔵450c58a (InWorkspace)❱"D"
-                            └── ERROR: Reached segment 7 for a second time: Some("refs/heads/empty-2-on-merge")
+                            └── ERROR: Reached segment :8: for a second time: Some("refs/heads/empty-2-on-merge")
     "#);
     Ok(())
 }
@@ -379,7 +452,6 @@ fn just_init_with_branches() -> anyhow::Result<()> {
     );
     let graph = Graph::from_head(&repo, &*meta, standard_options())?;
     // TODO: where is the segmentation of D E F in a separate stack?
-    // TODO: workspace should be on top
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     └── ►►►:1:refs/heads/gitbutler/workspace
         └── 👉►:0:refs/heads/main

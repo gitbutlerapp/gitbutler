@@ -268,6 +268,7 @@ pub struct Segment {
     /// Note that remote commits along with their remote tracking branch should always retain a shared history
     /// with the local tracking branch. If these diverge, we can represent this in data, but currently there is
     /// no derived value to make this visible explicitly.
+    // TODO: remove this in favor of having a UI-only variant of the segment that contains these.
     pub commits_unique_in_remote_tracking_branch: Vec<RemoteCommit>,
     /// Read-only metadata with additional information, or `None` if nothing was present.
     pub metadata: Option<SegmentMetadata>,
@@ -287,6 +288,11 @@ impl Segment {
     /// Return the top-most commit id of the segment.
     pub fn tip(&self) -> Option<gix::ObjectId> {
         self.commits.first().map(|commit| commit.id)
+    }
+
+    /// Return the index of the last (present) commit, or `None` if there is no commit stored in this segment.
+    pub fn last_commit_index(&self) -> Option<usize> {
+        self.commits.len().checked_sub(1)
     }
 
     /// Try to find the index of `id` in our list of local commits.

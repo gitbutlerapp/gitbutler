@@ -1,5 +1,5 @@
 use crate::init::walk::TopoWalk;
-use crate::init::{PetGraph, branch_segment_from_name_and_meta};
+use crate::init::{EdgeOwned, PetGraph, branch_segment_from_name_and_meta};
 use crate::{Commit, CommitIndex, Edge, Graph, SegmentIndex};
 use bstr::{BStr, ByteSlice};
 use but_core::{RefMetadata, ref_metadata};
@@ -131,9 +131,47 @@ impl Graph {
                 let segment = &mut self[orig_sidx];
                 // Keep only the commits that weren't reassigned to other segments.
                 segment.commits.truncate(truncate_from);
+                delete_if_empty_and_reconnect(&mut self, orig_sidx);
             }
         }
         self
+    }
+}
+
+fn delete_if_empty_and_reconnect(graph: &mut Graph, sidx: SegmentIndex) {
+    let segment = &graph[sidx];
+    let may_delete = segment.commits.is_empty() && segment.ref_name.is_none();
+    if !may_delete {
+        return;
+    }
+
+    let mut outgoing = graph.inner.edges_directed(sidx, Direction::Outgoing);
+    let Some(first_outgoing) = outgoing.next() else {
+        return;
+    };
+
+    if outgoing.next().is_some() {
+        return;
+    }
+    // Reconnect
+    let new_target = first_outgoing.target();
+    let incoming: Vec<_> = graph
+        .inner
+        .edges_directed(sidx, Direction::Incoming)
+        .map(EdgeOwned::from)
+        .collect();
+    for edge in &incoming {
+        graph.inner.add_edge(edge.source, new_target, edge.weight);
+    }
+    graph.inner.remove_node(sidx);
+
+    if let Some(ep_sidx) = graph
+        .entrypoint
+        .as_mut()
+        .map(|t| &mut t.0)
+        .filter(|ep_sidx| **ep_sidx == sidx)
+    {
+        *ep_sidx = new_target;
     }
 }
 
@@ -269,14 +307,6 @@ fn create_multi_segment(
     Some(above_idx)
 }
 
-#[derive(Debug)]
-struct EdgeOwned {
-    source: SegmentIndex,
-    target: SegmentIndex,
-    weight: Edge,
-    id: petgraph::graph::EdgeIndex,
-}
-
 fn collect_edges_at_commit(
     graph: &PetGraph,
     (segment, commit): (SegmentIndex, CommitIndex),
@@ -288,11 +318,6 @@ fn collect_edges_at_commit(
             Direction::Incoming => e.weight().dst == Some(commit),
             Direction::Outgoing => e.weight().src == Some(commit),
         })
-        .map(|e| EdgeOwned {
-            source: e.source(),
-            target: e.target(),
-            weight: *e.weight(),
-            id: e.id(),
-        })
+        .map(Into::into)
         .collect()
 }

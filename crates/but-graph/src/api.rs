@@ -1,5 +1,5 @@
 use crate::{CommitIndex, Edge, EntryPoint, Graph, Segment, SegmentIndex};
-use anyhow::Context;
+use anyhow::{Context, bail};
 use petgraph::Direction;
 use petgraph::prelude::EdgeRef;
 use std::ops::{Index, IndexMut};
@@ -38,6 +38,20 @@ impl Graph {
         dst
     }
 
+    /// Just like [`Self::connect_new_segment()`], but assures that commit-constraints are upheld.
+    pub fn connect_new_segment_validated(
+        &mut self,
+        src: SegmentIndex,
+        src_commit: impl Into<Option<CommitIndex>>,
+        dst: Segment,
+        dst_commit: impl Into<Option<CommitIndex>>,
+    ) -> anyhow::Result<SegmentIndex> {
+        let dst = self.inner.add_node(dst);
+        self.inner[dst].id = dst.index();
+        self.connect_segments_validated(src, src_commit, dst, dst_commit)?;
+        Ok(dst)
+    }
+
     /// Connect two existing segments `src` from `src_commit` to point `dst_commit` of `b`.
     pub fn connect_segments(
         &mut self,
@@ -54,6 +68,31 @@ impl Graph {
                 dst: dst_commit.into(),
             },
         );
+    }
+
+    /// Connect two existing segments `src` from `src_commit` to point `dst_commit` of `b`.
+    /// Assure `src_commit` is truly the last commit in `src` and that `dst_commit` is the first.
+    pub fn connect_segments_validated(
+        &mut self,
+        src: SegmentIndex,
+        src_commit: impl Into<Option<CommitIndex>>,
+        dst: SegmentIndex,
+        dst_commit: impl Into<Option<CommitIndex>>,
+    ) -> anyhow::Result<()> {
+        let src_commit = src_commit.into();
+        if self[src].last_commit_index() != src_commit {
+            bail!(
+                "Source segment {src:?} tried to connect {src_commit:?}, which isn't the last one"
+            );
+        }
+        let dst_commit = dst_commit.into();
+        if dst_commit.unwrap_or_default() != 0 {
+            bail!(
+                "Destination segment {dst:?} tried to receive connection to commit {dst_commit:?}, but must be the first one"
+            );
+        }
+        self.connect_segments(src, src_commit, dst, dst_commit);
+        Ok(())
     }
 
     /// Return the entry-point of the graph as configured during traversal.

@@ -1,24 +1,14 @@
 use crate::graph_tree;
 use but_graph::Graph;
-use but_graph::init::{Options, Segmentation};
 use but_testsupport::visualize_commit_graph_all;
 
 #[test]
 fn unborn() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("unborn")?;
 
-    for segmentation in all_segmentations() {
-        let graph = Graph::from_head(
-            &repo,
-            &*meta,
-            Options {
-                segmentation,
-                ..standard_options()
-            },
-        )?;
-        insta::allow_duplicates! {
-            insta::assert_snapshot!(graph_tree(&graph), @"└── 👉►:0:refs/heads/main");
-            insta::assert_debug_snapshot!(graph, @r#"
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?;
+    insta::assert_snapshot!(graph_tree(&graph), @"└── 👉►:0:refs/heads/main");
+    insta::assert_debug_snapshot!(graph, @r#"
             Graph {
                 inner: Graph {
                     Ty: "Directed",
@@ -44,8 +34,6 @@ fn unborn() -> anyhow::Result<()> {
                 ),
             }
             "#);
-        }
-    }
     Ok(())
 }
 
@@ -57,23 +45,14 @@ fn detached() -> anyhow::Result<()> {
     * fafd9d0 (other) init
     ");
 
-    for segmentation in all_segmentations() {
-        let graph = Graph::from_head(
-            &repo,
-            &*meta,
-            Options {
-                segmentation,
-                ..standard_options()
-            },
-        )?;
-        insta::allow_duplicates! {
-            insta::assert_snapshot!(graph_tree(&graph), @r#"
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?;
+    insta::assert_snapshot!(graph_tree(&graph), @r#"
             └── 👉►:0:refs/heads/main
                 └── 🔵541396b❱"first" ►tags/annotated, ►tags/release/v1
                     └── ►:1:refs/heads/other
                         └── 🔵fafd9d0❱"init"
             "#);
-            insta::assert_debug_snapshot!(graph, @r#"
+    insta::assert_debug_snapshot!(graph, @r#"
             Graph {
                 inner: Graph {
                     Ty: "Directed",
@@ -123,8 +102,6 @@ fn detached() -> anyhow::Result<()> {
                 ),
             }
             "#);
-        }
-    }
     Ok(())
 }
 
@@ -171,28 +148,6 @@ fn multi_root() -> anyhow::Result<()> {
         4,
         "there are 4 orphaned bases"
     );
-
-    let graph = Graph::from_head(
-        &repo,
-        &*meta,
-        Options {
-            segmentation: Segmentation::FirstParentPriority,
-            ..standard_options()
-        },
-    )?;
-    insta::assert_snapshot!(graph_tree(&graph), @r#"
-    └── 👉►:0:refs/heads/main
-        ├── 🔵c6c8c05❱"Merge branch \'C\'"
-        │   └── ►:1:refs/heads/C
-        │       ├── 🔵8631946❱"Merge branch \'D\' into C"
-        │       │   └── ►:3:refs/heads/D
-        │       │       └── 🔵f4955b6❱"D"
-        │       └── 🔵00fab2a❱"C"
-        ├── 🔵76fc5c4❱"Merge branch \'B\'"
-        │   └── ►:2:refs/heads/B
-        │       └── 🔵366d496❱"B"
-        └── 🔵e5d0542❱"A"
-    "#);
     Ok(())
 }
 
@@ -228,15 +183,15 @@ fn four_diamond() -> anyhow::Result<()> {
             │       │           └── 🔵965998b❱"base"
             │       └── ►:5:anon:
             │           └── 🔵35ee481❱"C"
-            │               └── ERROR: Reached segment 7 for a second time: Some("refs/heads/main")
+            │               └── ERROR: Reached segment :7: for a second time: Some("refs/heads/main")
             └── ►:1:refs/heads/A
                 └── 🔵62b409a❱"Merge branch \'B\' into A"
                     ├── ►:4:refs/heads/B
                     │   └── 🔵f16dddf❱"B"
-                    │       └── ERROR: Reached segment 7 for a second time: Some("refs/heads/main")
+                    │       └── ERROR: Reached segment :7: for a second time: Some("refs/heads/main")
                     └── ►:3:anon:
                         └── 🔵592abec❱"A"
-                            └── ERROR: Reached segment 7 for a second time: Some("refs/heads/main")
+                            └── ERROR: Reached segment :7: for a second time: Some("refs/heads/main")
     "#);
 
     assert_eq!(
@@ -249,51 +204,13 @@ fn four_diamond() -> anyhow::Result<()> {
         10,
         "however, we see only a portion of the edges as the tree can only show simple stacks"
     );
-
-    let graph = Graph::from_head(
-        &repo,
-        &*meta,
-        Options {
-            segmentation: Segmentation::FirstParentPriority,
-            ..standard_options()
-        },
-    )?;
-    insta::assert_snapshot!(graph_tree(&graph), @r#"
-    └── 👉►:0:refs/heads/merged
-        └── 🔵8a6c109❱"Merge branch \'C\' into merged"
-            ├── ►:2:refs/heads/C
-            │   ├── 🔵7ed512a❱"Merge branch \'D\' into C"
-            │   │   └── ►:4:refs/heads/D
-            │   │       └── 🔵ecb1877❱"D"
-            │   │           └── ►:5:refs/heads/main
-            │   │               └── 🔵965998b❱"base"
-            │   └── 🔵35ee481❱"C"
-            │       └── ERROR: Reached segment 5 for a second time: Some("refs/heads/main")
-            └── ►:1:refs/heads/A
-                ├── 🔵62b409a❱"Merge branch \'B\' into A"
-                │   └── ►:3:refs/heads/B
-                │       └── 🔵f16dddf❱"B"
-                │           └── ERROR: Reached segment 5 for a second time: Some("refs/heads/main")
-                └── 🔵592abec❱"A"
-                    └── ERROR: Reached segment 5 for a second time: Some("refs/heads/main")
-    "#);
     Ok(())
 }
 
 mod with_workspace;
 
 fn standard_options() -> but_graph::init::Options {
-    but_graph::init::Options {
-        collect_tags: true,
-        ..Default::default()
-    }
-}
-
-fn all_segmentations() -> [Segmentation; 2] {
-    [
-        Segmentation::AtMergeCommits,
-        Segmentation::FirstParentPriority,
-    ]
+    but_graph::init::Options { collect_tags: true }
 }
 
 mod utils {

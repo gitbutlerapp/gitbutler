@@ -3,7 +3,7 @@ use crate::{
     is_workspace_ref_name,
 };
 use crate::{CommitFlags, Edge};
-use anyhow::Context;
+use anyhow::{Context, bail};
 use bstr::BString;
 use but_core::{RefMetadata, ref_metadata};
 use gix::ObjectId;
@@ -11,6 +11,9 @@ use gix::hashtable::hash_map::Entry;
 use gix::prelude::{ObjectIdExt, ReferenceExt};
 use gix::refs::Category;
 use gix::traverse::commit::Either;
+use petgraph::Direction;
+use petgraph::graph::EdgeReference;
+use petgraph::prelude::EdgeRef;
 use std::collections::VecDeque;
 use std::ops::Deref;
 
@@ -28,22 +31,6 @@ pub struct Options {
     ///
     /// If `false`, tags are not collected.
     pub collect_tags: bool,
-    /// Determine how to segment the graph.
-    pub segmentation: Segmentation,
-}
-
-/// Define how the graph is segmented.
-#[derive(Default, Debug, Copy, Clone)]
-pub enum Segmentation {
-    /// Whenever a merge is encountered, the current segment, including the merge commit, will stop
-    /// and start new segments for each of parents.
-    #[default]
-    AtMergeCommits,
-    /// When encountering a merge commit, keep traversing the current segment along the first parent,
-    /// and start new segments along the remaining parents.
-    /// This creates longer segments along the first parent, giving it greater significance which
-    /// seems more appropriate given a user's merge behaviour.
-    FirstParentPriority,
 }
 
 /// Lifecycle
@@ -102,17 +89,15 @@ impl Graph {
     /// * as workspaces and entrypoints "grow" together, we don't know anything about workspaces until the every end,
     ///   or when two streams touch. This means we can't make decisions based on [flags](CommitFlags) until the traversal
     ///   is finished.
-    /// * an entrypoint is always the start of a segment.
+    /// * an entrypoint always causes the start of a segment.
     /// * Segments are always named if their first commit has a single local branch pointing to it.
-    /// * Segments stored in the workspace are used/relevant only if they are backed by an existing branch.
+    /// * Anonymous segments are created if there are more than one local branches pointing to it.
+    /// * Segments stored in the *workspace metadata* are used/relevant only if they are backed by an existing branch.
     pub fn from_commit_traversal(
         tip: gix::Id<'_>,
         ref_name: impl Into<Option<gix::refs::FullName>>,
         meta: &impl RefMetadata,
-        Options {
-            collect_tags,
-            segmentation,
-        }: Options,
+        Options { collect_tags }: Options,
     ) -> anyhow::Result<Self> {
         // TODO: also traverse (outside)-branches that ought to be in the workspace. That way we have the desired ones
         //       automatically and just have to find a way to prune the undesired ones.
@@ -199,25 +184,36 @@ impl Graph {
             let segment_idx_for_id = match instruction {
                 Instruction::CollectCommit { into: src_sidx } => match seen.entry(id) {
                     Entry::Occupied(existing_sidx) => {
-                        let maybe_src_commit_idx = graph[src_sidx].commits.len().checked_sub(1);
                         let dst_sidx = existing_sidx.get();
-                        let dst_commit_idx =
-                            graph[*dst_sidx].commit_index_of(id).with_context(|| {
-                                format!(
-                                    "BUG: Didn't find commit {id} in segment {ex_sidx}",
-                                    ex_sidx = dst_sidx.index(),
-                                )
-                            })?;
-                        let (top_sidx, top_cidx, bottom_sidx, bottom_cidx) =
+                        let (top_sidx, mut bottom_sidx) =
                             if graph[*dst_sidx].workspace_metadata().is_some() {
                                 // `dst` is basically swapping with `src`, so must swap commits and connections.
                                 swap_commits_and_connections(&mut graph.inner, *dst_sidx, src_sidx);
                                 swap_queued_segments(&mut next, *dst_sidx, src_sidx);
-                                (*dst_sidx, maybe_src_commit_idx, src_sidx, dst_commit_idx)
+                                (*dst_sidx, src_sidx)
                             } else {
                                 // `src` naturally runs into destination, so nothing needs to be done.
-                                (src_sidx, maybe_src_commit_idx, *dst_sidx, dst_commit_idx)
+                                (src_sidx, *dst_sidx)
                             };
+                        let top_cidx = graph[top_sidx].last_commit_index();
+                        let mut bottom_cidx =
+                            graph[bottom_sidx].commit_index_of(id).with_context(|| {
+                                format!(
+                                    "BUG: Didn't find commit {id} in segment {bottom_sidx}",
+                                    bottom_sidx = dst_sidx.index(),
+                                )
+                            })?;
+
+                        if bottom_cidx != 0 {
+                            let new_bottom_sidx = split_commit_into_segment(
+                                &mut graph,
+                                &mut next,
+                                bottom_sidx,
+                                bottom_cidx,
+                            )?;
+                            bottom_sidx = new_bottom_sidx;
+                            bottom_cidx = 0;
+                        }
                         graph.connect_segments(top_sidx, top_cidx, bottom_sidx, bottom_cidx);
                         let top_flags = top_cidx
                             .map(|cidx| graph[top_sidx].commits[cidx].flags)
@@ -226,17 +222,17 @@ impl Graph {
                         propagate_flags_downward(
                             &mut graph.inner,
                             propagated_flags | top_flags | bottom_flags,
-                            top_sidx,
-                            top_cidx,
+                            bottom_sidx,
+                            Some(bottom_cidx),
                         );
 
                         continue;
                     }
                     Entry::Vacant(e) => {
-                        let src_sidx = try_split_segment_at_singular_branch(
+                        let src_sidx = try_split_segment_at_branch(
                             &mut graph,
                             src_sidx,
-                            id,
+                            &info,
                             &refs_by_id,
                             meta,
                         )?
@@ -271,7 +267,6 @@ impl Graph {
                 propagated_flags,
                 segment_idx_for_id,
                 commit_idx_for_possible_fork,
-                segmentation,
             );
 
             segment.commits.push(
@@ -293,6 +288,85 @@ impl Graph {
         }
 
         Ok(graph.post_processed(meta, tip.detach()))
+    }
+}
+
+/// Split `sidx[commit..]` into its own segment and connect the parts. Move all connections in `commit..`
+/// from `sidx` to the new segment, and return that.
+fn split_commit_into_segment(
+    graph: &mut Graph,
+    next: &mut VecDeque<QueueItem>,
+    sidx: SegmentIndex,
+    commit: CommitIndex,
+) -> anyhow::Result<SegmentIndex> {
+    let mut bottom_segment = Segment {
+        ref_name: None,
+        ..graph[sidx].clone()
+    };
+    // keep only the commits before `commit`.
+    let commits_in_top_segment = commit;
+    graph[sidx].commits.truncate(commits_in_top_segment);
+    bottom_segment.commits = bottom_segment
+        .commits
+        .into_iter()
+        .skip(commits_in_top_segment)
+        .collect();
+    let top_commit = graph[sidx].last_commit_index();
+    let bottom_segment =
+        graph.connect_new_segment_validated(sidx, top_commit, bottom_segment, 0)?;
+
+    // All in-flight commits now go into the new segment.
+    replace_queued_segments(next, sidx, bottom_segment);
+    split_connections(&mut graph.inner, (sidx, commit), bottom_segment)?;
+    Ok(bottom_segment)
+}
+
+/// Assumes that `dst.commits == `src[src_commit..]` and will move connections down, updating their
+/// indices accordingly.
+fn split_connections(
+    graph: &mut PetGraph,
+    from: (SegmentIndex, CommitIndex),
+    dst: SegmentIndex,
+) -> anyhow::Result<()> {
+    let (sidx, cidx) = from;
+    if !collect_edges_from_commit(graph, from, Direction::Incoming).is_empty() {
+        bail!(
+            "Segment {sidx:?} had incoming connections from commit {cidx}, even though these should cause splits"
+        );
+    }
+    let edges = collect_edges_from_commit(graph, from, Direction::Outgoing);
+    for edge in &edges {
+        graph.remove_edge(edge.id);
+    }
+
+    for edge in edges {
+        graph.add_edge(
+            edge.source,
+            dst,
+            Edge {
+                src: edge.weight.src,
+                dst: edge.weight.dst.map(|c| {
+                    // Point the edge to what now is the first commit usually,
+                    // but generally offset them to match the new commit location
+                    // in the split-off segment.
+                    c - cidx
+                }),
+            },
+        );
+    }
+    Ok(())
+}
+
+fn replace_queued_segments(
+    queue: &mut VecDeque<QueueItem>,
+    find: SegmentIndex,
+    replace: SegmentIndex,
+) {
+    for instruction_to_replace in queue.iter_mut().map(|(_, _, instruction)| instruction) {
+        let cmp = instruction_to_replace.segment_idx();
+        if cmp == find {
+            *instruction_to_replace = instruction_to_replace.with_replaced_sidx(replace);
+        }
     }
 }
 
@@ -327,42 +401,45 @@ fn local_branches_by_id(
     })
 }
 
-fn try_split_segment_at_singular_branch(
+fn try_split_segment_at_branch(
     graph: &mut Graph,
     src_sidx: SegmentIndex,
-    id: gix::ObjectId,
+    info: &TraverseInfo,
     refs_by_id: &RefsById,
     meta: &impl RefMetadata,
 ) -> anyhow::Result<Option<SegmentIndex>> {
     let src_segment = &graph[src_sidx];
-    let Some(mut branch_refs) =
-        local_branches_by_id(refs_by_id, id).filter(|_| !src_segment.commits.is_empty())
+    if src_segment.commits.is_empty() {
+        return Ok(None);
+    }
+    let maybe_segment_name_from_unabigous_refs = local_branches_by_id(refs_by_id, info.id)
+        .and_then(|mut branches| {
+            let first_ref = branches.next()?;
+            branches.next().is_none().then(|| first_ref.to_owned())
+        });
+    let Some(maybe_segment_name) = maybe_segment_name_from_unabigous_refs
+        .map(Some)
+        .or_else(|| {
+            let want_segment_without_name = Some(None);
+            if info.parent_ids.len() < 2 {
+                return None;
+            }
+            want_segment_without_name
+        })
     else {
         return Ok(None);
     };
 
-    let Some(first_ref) = branch_refs.next() else {
-        return Ok(None);
-    };
-    Ok(if branch_refs.next().is_none() {
-        // There is exactly one branch ref in a linear history, start a new segment.
-        let segment_below = branch_segment_from_name_and_meta(Some(first_ref.clone()), meta, None)?;
-        let segment_below = graph.connect_new_segment(
-            src_sidx,
-            src_segment
-                .commits
-                .len()
-                .checked_sub(1)
-                .context("BUG: we are here because the segment above has commits")?,
-            segment_below,
-            0,
-        );
-        Some(segment_below)
-    } else {
-        // There are more than one branches so we can't infer the name of the segment.
-        // This will be handled later during post-processing.
-        None
-    })
+    let segment_below = branch_segment_from_name_and_meta(maybe_segment_name, meta, None)?;
+    let segment_below = graph.connect_new_segment(
+        src_sidx,
+        src_segment
+            .last_commit_index()
+            .context("BUG: we are here because the segment above has commits")?,
+        segment_below,
+        0,
+    );
+    Ok(Some(segment_below))
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -418,36 +495,14 @@ fn queue_parents(
     flags: CommitFlags,
     current_sidx: SegmentIndex,
     current_cidx: CommitIndex,
-    segmentation: Segmentation,
 ) {
     if parent_ids.len() > 1 {
-        match segmentation {
-            Segmentation::AtMergeCommits => {
-                let instruction = Instruction::ConnectNewSegment {
-                    parent_above: current_sidx,
-                    at_commit: current_cidx,
-                };
-                for pid in parent_ids {
-                    next.push_back((*pid, flags, instruction))
-                }
-            }
-            Segmentation::FirstParentPriority => {
-                let mut parent_ids = parent_ids.iter().cloned();
-                // Keep following the first parent in this segment.
-                next.push_back((
-                    parent_ids.next().expect("more than 1"),
-                    flags,
-                    Instruction::CollectCommit { into: current_sidx },
-                ));
-                // Collect all other parents into their own segments.
-                let instruction = Instruction::ConnectNewSegment {
-                    parent_above: current_sidx,
-                    at_commit: current_cidx,
-                };
-                for pid in parent_ids {
-                    next.push_back((pid, flags, instruction))
-                }
-            }
+        let instruction = Instruction::ConnectNewSegment {
+            parent_above: current_sidx,
+            at_commit: current_cidx,
+        };
+        for pid in parent_ids {
+            next.push_back((*pid, flags, instruction))
         }
     } else if !parent_ids.is_empty() {
         next.push_back((
@@ -689,4 +744,38 @@ fn propagate_flags_downward(
             commit.flags |= flags_to_add;
         }
     }
+}
+
+#[derive(Debug)]
+pub(crate) struct EdgeOwned {
+    source: SegmentIndex,
+    target: SegmentIndex,
+    weight: Edge,
+    id: petgraph::graph::EdgeIndex,
+}
+
+impl From<EdgeReference<'_, Edge>> for EdgeOwned {
+    fn from(e: EdgeReference<'_, Edge>) -> Self {
+        EdgeOwned {
+            source: e.source(),
+            target: e.target(),
+            weight: *e.weight(),
+            id: e.id(),
+        }
+    }
+}
+
+fn collect_edges_from_commit(
+    graph: &PetGraph,
+    (segment, commit): (SegmentIndex, CommitIndex),
+    direction: Direction,
+) -> Vec<EdgeOwned> {
+    graph
+        .edges_directed(segment, direction)
+        .filter(|&e| match direction {
+            Direction::Incoming => e.weight().dst >= Some(commit),
+            Direction::Outgoing => e.weight().src >= Some(commit),
+        })
+        .map(Into::into)
+        .collect()
 }
