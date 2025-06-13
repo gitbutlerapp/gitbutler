@@ -141,7 +141,8 @@ mkdir ws
        done
      git checkout -b B
        commit segment-B~1 && git branch B-empty && git branch ambiguous-01
-       commit segment-B && git branch ambiguous-02
+       commit segment-B && git tag without-ref
+       commit with-ref
      create_workspace_commit_once B
   )
 
@@ -180,6 +181,25 @@ mkdir ws
      git checkout -b merge-2
        git merge --no-ff C
      create_workspace_commit_once merge-2
+  )
+
+  cp -rv dual-merge dual-merge-no-refs
+  (cd dual-merge-no-refs
+    git branch -d merge-2 C D A B merge empty-2-on-merge empty-1-on-merge main
+    rm .git/refs/remotes/origin/main
+  )
+
+  git init graph-splitting
+  (cd graph-splitting
+     commit init
+     commit other-1
+     git checkout -b entrypoint
+       commit A
+       commit B
+       commit C
+     git checkout main
+     commit other-2
+     create_workspace_commit_once main
   )
 
   git init just-init-with-branches
