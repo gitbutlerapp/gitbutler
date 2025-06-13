@@ -53,6 +53,7 @@ export const hunkAssignmentAdapter = createEntityAdapter<HunkAssignment, string>
  * foreign key, but also the primary identifier of a HunkSelection.
  */
 export type HunkSelection = {
+	stableId: string | null;
 	assignmentId: string;
 	stackId: string | null;
 	path: string;
