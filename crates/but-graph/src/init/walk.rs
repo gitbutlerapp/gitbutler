@@ -4,9 +4,18 @@ use petgraph::prelude::EdgeRef;
 use std::collections::{BTreeSet, VecDeque};
 use std::ops::Range;
 
-/// A custom topological walk that always goes in a given [direction](petgraph::Direction),
+/// A custom topological walk that always goes in a given [direction](Direction),
 /// does not need a graph reference, and which yields ranges of non-overlapping commit in a segment.
-pub struct TopoWalk {
+///
+/// This walk assumes the worst-case graph where edges point to any commit, even from commits that
+/// aren't the first one or target commits that aren't the first one in a segment.
+///
+/// ### Note
+///
+/// In theory, a normal [`petgraph::visit::Topo`] would do here, if we assume that everything works
+/// as it should. So at some point, this code might be removed once it's clear we won't need it anymore.
+/// TODO: one fine day remove this in favor of `petgraph::visit::Topo`.
+pub(crate) struct TopoWalk {
     /// The segment we
     next: VecDeque<(SegmentIndex, Option<CommitIndex>)>,
     /// Commits we have already yielded.

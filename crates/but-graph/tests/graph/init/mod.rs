@@ -7,7 +7,7 @@ fn unborn() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("unborn")?;
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?;
-    insta::assert_snapshot!(graph_tree(&graph), @"└── 👉►:0:refs/heads/main");
+    insta::assert_snapshot!(graph_tree(&graph), @"└── 👉►:0:main");
     insta::assert_debug_snapshot!(graph, @r#"
             Graph {
                 inner: Graph {
@@ -47,61 +47,67 @@ fn detached() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
-            └── 👉►:0:refs/heads/main
-                └── 🔵541396b❱"first" ►tags/annotated, ►tags/release/v1
-                    └── ►:1:refs/heads/other
-                        └── 🔵fafd9d0❱"init"
-            "#);
+    └── 👉►:0:main
+        └── 🔵541396b❱"first" ►tags/annotated, ►tags/release/v1
+            └── ►:1:other
+                └── 🔵fafd9d0❱"init"
+    "#);
     insta::assert_debug_snapshot!(graph, @r#"
-            Graph {
-                inner: Graph {
-                    Ty: "Directed",
-                    node_count: 2,
-                    edge_count: 1,
-                    edges: (0, 1),
-                    node weights: {
-                        0: StackSegment {
-                            id: 0,
-                            ref_name: "refs/heads/main",
-                            remote_tracking_ref_name: "None",
-                            commits: [
-                                LocalCommit(541396b, "first\n", local, ►annotated, ►release/v1),
-                            ],
-                            commits_unique_in_remote_tracking_branch: [],
-                            metadata: "None",
-                        },
-                        1: StackSegment {
-                            id: 1,
-                            ref_name: "refs/heads/other",
-                            remote_tracking_ref_name: "None",
-                            commits: [
-                                LocalCommit(fafd9d0, "init\n", local),
-                            ],
-                            commits_unique_in_remote_tracking_branch: [],
-                            metadata: "None",
-                        },
-                    },
-                    edge weights: {
-                        0: Edge {
-                            src: Some(
-                                0,
-                            ),
-                            dst: Some(
-                                0,
-                            ),
-                        },
-                    },
+    Graph {
+        inner: Graph {
+            Ty: "Directed",
+            node_count: 2,
+            edge_count: 1,
+            edges: (0, 1),
+            node weights: {
+                0: StackSegment {
+                    id: 0,
+                    ref_name: "refs/heads/main",
+                    remote_tracking_ref_name: "None",
+                    commits: [
+                        LocalCommit(541396b, "first\n", local, ►annotated, ►release/v1),
+                    ],
+                    commits_unique_in_remote_tracking_branch: [],
+                    metadata: "None",
                 },
-                entrypoint: Some(
-                    (
-                        NodeIndex(0),
-                        Some(
-                            0,
-                        ),
+                1: StackSegment {
+                    id: 1,
+                    ref_name: "refs/heads/other",
+                    remote_tracking_ref_name: "None",
+                    commits: [
+                        LocalCommit(fafd9d0, "init\n", local),
+                    ],
+                    commits_unique_in_remote_tracking_branch: [],
+                    metadata: "None",
+                },
+            },
+            edge weights: {
+                0: Edge {
+                    src: Some(
+                        0,
                     ),
+                    src_id: Some(
+                        Sha1(541396b24e13b8ac45b7905c3fe8691c7fc5fbd0),
+                    ),
+                    dst: Some(
+                        0,
+                    ),
+                    dst_id: Some(
+                        Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    ),
+                },
+            },
+        },
+        entrypoint: Some(
+            (
+                NodeIndex(0),
+                Some(
+                    0,
                 ),
-            }
-            "#);
+            ),
+        ),
+    }
+    "#);
     Ok(())
 }
 
@@ -123,17 +129,17 @@ fn multi_root() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
-    └── 👉►:0:refs/heads/main
+    └── 👉►:0:main
         └── 🔵c6c8c05❱"Merge branch \'C\'"
-            ├── ►:2:refs/heads/C
+            ├── ►:2:C
             │   └── 🔵8631946❱"Merge branch \'D\' into C"
-            │       ├── ►:6:refs/heads/D
+            │       ├── ►:6:D
             │       │   └── 🔵f4955b6❱"D"
             │       └── ►:5:anon:
             │           └── 🔵00fab2a❱"C"
             └── ►:1:anon:
                 └── 🔵76fc5c4❱"Merge branch \'B\'"
-                    ├── ►:4:refs/heads/B
+                    ├── ►:4:B
                     │   └── 🔵366d496❱"B"
                     └── ►:3:anon:
                         └── 🔵e5d0542❱"A"
@@ -173,20 +179,20 @@ fn four_diamond() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
-    └── 👉►:0:refs/heads/merged
+    └── 👉►:0:merged
         └── 🔵8a6c109❱"Merge branch \'C\' into merged"
-            ├── ►:2:refs/heads/C
+            ├── ►:2:C
             │   └── 🔵7ed512a❱"Merge branch \'D\' into C"
-            │       ├── ►:6:refs/heads/D
+            │       ├── ►:6:D
             │       │   └── 🔵ecb1877❱"D"
-            │       │       └── ►:7:refs/heads/main
+            │       │       └── ►:7:main
             │       │           └── 🔵965998b❱"base"
             │       └── ►:5:anon:
             │           └── 🔵35ee481❱"C"
             │               └── ERROR: Reached segment :7: for a second time: Some("refs/heads/main")
-            └── ►:1:refs/heads/A
+            └── ►:1:A
                 └── 🔵62b409a❱"Merge branch \'B\' into A"
-                    ├── ►:4:refs/heads/B
+                    ├── ►:4:B
                     │   └── 🔵f16dddf❱"B"
                     │       └── ERROR: Reached segment :7: for a second time: Some("refs/heads/main")
                     └── ►:3:anon:

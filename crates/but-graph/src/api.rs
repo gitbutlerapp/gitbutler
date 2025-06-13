@@ -1,6 +1,8 @@
+use crate::init::PetGraph;
 use crate::{CommitIndex, Edge, EntryPoint, Graph, Segment, SegmentIndex};
 use anyhow::{Context, bail};
 use petgraph::Direction;
+use petgraph::graph::EdgeReference;
 use petgraph::prelude::EdgeRef;
 use std::ops::{Index, IndexMut};
 
@@ -24,6 +26,9 @@ impl Graph {
     /// This is as if a tree would be growing upwards, but it's a matter of perspective really, there
     /// is no up and down.
     ///
+    /// `dst_commit_id` can be provided if the connection is to a future commit that isn't yet available
+    /// in the `segment`. If `None`, it will be looked up in the `segment` itself.
+    ///
     /// Return the newly added segment.
     pub fn connect_new_segment(
         &mut self,
@@ -31,70 +36,52 @@ impl Graph {
         src_commit: impl Into<Option<CommitIndex>>,
         dst: Segment,
         dst_commit: impl Into<Option<CommitIndex>>,
+        dst_commit_id: impl Into<Option<gix::ObjectId>>,
     ) -> SegmentIndex {
         let dst = self.inner.add_node(dst);
         self.inner[dst].id = dst.index();
-        self.connect_segments(src, src_commit, dst, dst_commit);
+        self.connect_segments_with_dst_id(src, src_commit, dst, dst_commit, dst_commit_id.into());
         dst
     }
+}
 
-    /// Just like [`Self::connect_new_segment()`], but assures that commit-constraints are upheld.
-    pub fn connect_new_segment_validated(
-        &mut self,
-        src: SegmentIndex,
-        src_commit: impl Into<Option<CommitIndex>>,
-        dst: Segment,
-        dst_commit: impl Into<Option<CommitIndex>>,
-    ) -> anyhow::Result<SegmentIndex> {
-        let dst = self.inner.add_node(dst);
-        self.inner[dst].id = dst.index();
-        self.connect_segments_validated(src, src_commit, dst, dst_commit)?;
-        Ok(dst)
-    }
-
+impl Graph {
     /// Connect two existing segments `src` from `src_commit` to point `dst_commit` of `b`.
-    pub fn connect_segments(
+    pub(crate) fn connect_segments(
         &mut self,
         src: SegmentIndex,
         src_commit: impl Into<Option<CommitIndex>>,
         dst: SegmentIndex,
         dst_commit: impl Into<Option<CommitIndex>>,
     ) {
-        self.inner.add_edge(
-            src,
-            dst,
-            Edge {
-                src: src_commit.into(),
-                dst: dst_commit.into(),
-            },
-        );
+        self.connect_segments_with_dst_id(src, src_commit, dst, dst_commit, None)
     }
 
-    /// Connect two existing segments `src` from `src_commit` to point `dst_commit` of `b`.
-    /// Assure `src_commit` is truly the last commit in `src` and that `dst_commit` is the first.
-    pub fn connect_segments_validated(
+    pub(crate) fn connect_segments_with_dst_id(
         &mut self,
         src: SegmentIndex,
         src_commit: impl Into<Option<CommitIndex>>,
         dst: SegmentIndex,
         dst_commit: impl Into<Option<CommitIndex>>,
-    ) -> anyhow::Result<()> {
+        dst_id: Option<gix::ObjectId>,
+    ) {
         let src_commit = src_commit.into();
-        if self[src].last_commit_index() != src_commit {
-            bail!(
-                "Source segment {src:?} tried to connect {src_commit:?}, which isn't the last one"
-            );
-        }
         let dst_commit = dst_commit.into();
-        if dst_commit.unwrap_or_default() != 0 {
-            bail!(
-                "Destination segment {dst:?} tried to receive connection to commit {dst_commit:?}, but must be the first one"
-            );
-        }
-        self.connect_segments(src, src_commit, dst, dst_commit);
-        Ok(())
+        self.inner.add_edge(
+            src,
+            dst,
+            Edge {
+                src: src_commit,
+                src_id: self[src].commit_id_by_index(src_commit),
+                dst: dst_commit,
+                dst_id: dst_id.or_else(|| self[dst].commit_id_by_index(dst_commit)),
+            },
+        );
     }
+}
 
+/// Query
+impl Graph {
     /// Return the entry-point of the graph as configured during traversal.
     /// It's useful for when one wants to know which commit was used to discover the entire graph.
     ///
@@ -113,10 +100,6 @@ impl Graph {
             commit: commit_index.and_then(|idx| segment.commits.get(idx)),
         })
     }
-}
-
-/// Query
-impl Graph {
     /// Return all segments which have no other segments *above* them, making them tips.
     ///
     /// Typically, there is only one, but there *can* be multiple technically.
@@ -172,11 +155,23 @@ impl Graph {
 
 /// Debugging
 impl Graph {
+    /// Validate the graph for consistency and fail loudly when an issue was found.
+    /// Use this before using the graph for anything serious, but particularly in testing.
+    // TODO: maybe make this mandatory as part of post-processing.
+    pub fn validated(self) -> anyhow::Result<Self> {
+        for edge in self.inner.edge_references() {
+            check_edge(&self.inner, edge)?;
+        }
+        Ok(self)
+    }
     /// Output this graph in dot-format to stderr to allow copying it, and using like this for visualization:
     ///
     /// ```shell
     /// pbpaste | dot -Tsvg >graph.svg && open graph.svg
     /// ```
+    ///
+    /// Note that this may reveal additional debug information when invariants of the graph are violated.
+    /// This often is more useful than seeing a hard error, which can be achieved with `Self::validated()`
     pub fn eprint_dot_graph(&self) {
         let dot = self.dot_graph();
         eprintln!("{dot}");
@@ -191,20 +186,26 @@ impl Graph {
             &|g, e| {
                 let src = &g[e.source()];
                 let dst = &g[e.target()];
+                // Don't mark connections from the last commit to the first one,
+                // but those that are 'splitting' a segment. These shouldn't exist.
+                let Err(err) = check_edge(g, e) else {
+                    return ", label = \"\"".into();
+                };
                 let e = e.weight();
                 let src = src
-                    .commit_by_index(e.src)
-                    .map(|c| c.id.to_hex_with_len(HEX).to_string())
+                    .commit_id_by_index(e.src)
+                    .map(|c| c.to_hex_with_len(HEX).to_string())
                     .unwrap_or_else(|| "src".into());
                 let dst = dst
-                    .commit_by_index(e.dst)
-                    .map(|c| c.id.to_hex_with_len(HEX).to_string())
+                    .commit_id_by_index(e.dst)
+                    .map(|c| c.to_hex_with_len(HEX).to_string())
                     .unwrap_or_else(|| "dst".into());
-                format!(", label = \"{src} → {dst}\"")
+                format!(", label = \"⚠️{src} → {dst} ({err})\"")
             },
-            &|_, (_, s)| {
+            &|_, (sidx, s)| {
                 format!(
-                    ", shape = box, label = \"{name}\n{commits}\"",
+                    ", shape = box, label = \":{id}:{name}\n{commits}\"",
+                    id = sidx.index(),
                     name = s
                         .ref_name
                         .as_ref()
@@ -221,6 +222,35 @@ impl Graph {
         );
         format!("{dot:?}")
     }
+}
+
+/// Fail with an error if the `edge` isn't consistent.
+fn check_edge(graph: &PetGraph, edge: EdgeReference<'_, Edge>) -> anyhow::Result<()> {
+    let e = edge;
+    let src = &graph[e.source()];
+    let dst = &graph[e.target()];
+    let w = e.weight();
+    if w.src != src.last_commit_index() {
+        bail!(
+            "{w:?}: edge must start on last commit {last:?}",
+            last = src.last_commit_index()
+        );
+    }
+    if w.dst.unwrap_or_default() != 0 {
+        bail!("{w:?}: edge must end on first commit 0");
+    }
+
+    let seg_cidx = src.commit_id_by_index(w.src);
+    if w.src_id != seg_cidx {
+        bail!("{w:?}: the desired source index didn't match the one in the segment {seg_cidx:?}");
+    }
+    let seg_cidx = dst.commit_id_by_index(w.dst);
+    if w.dst_id != seg_cidx {
+        bail!(
+            "{w:?}: the desired destination index didn't match the one in the segment {seg_cidx:?}"
+        );
+    }
+    Ok(())
 }
 
 impl Index<SegmentIndex> for Graph {
