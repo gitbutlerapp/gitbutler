@@ -194,16 +194,8 @@ impl HunkAssignment {
             return true;
         }
         if let (Some(header), Some(other_header)) = (self.hunk_header, other.hunk_header) {
-            if header.new_start >= other_header.new_start
-                && header.new_start <= other_header.new_start + other_header.new_lines
-            {
-                return true;
-            }
-            if other_header.new_start >= header.new_start
-                && other_header.new_start <= header.new_start + header.new_lines
-            {
-                return true;
-            }
+            return header.old_range().intersects(other_header.old_range())
+                && header.new_range().intersects(other_header.new_range());
         }
         false
     }
@@ -559,8 +551,8 @@ mod tests {
             HunkAssignment {
                 id: id.map(id_seq),
                 hunk_header: Some(HunkHeader {
-                    old_start: 0,
-                    old_lines: 0,
+                    old_start: start,
+                    old_lines: end,
                     new_start: start,
                     new_lines: end,
                 }),
@@ -583,8 +575,8 @@ mod tests {
         ) -> HunkAssignmentRequest {
             HunkAssignmentRequest {
                 hunk_header: Some(HunkHeader {
-                    old_start: 0,
-                    old_lines: 0,
+                    old_start: start,
+                    old_lines: end,
                     new_start: start,
                     new_lines: end,
                 }),
@@ -627,12 +619,12 @@ mod tests {
                 .intersects(HunkAssignment::new("foo.rs", 16, 5, None, None))
         );
         assert!(
-            HunkAssignment::new("foo.rs", 10, 6, None, None)
-                .intersects(HunkAssignment::new("foo.rs", 16, 5, None, None))
+            !HunkAssignment::new("foo.rs", 10, 6, None, None) // Lines 10 to 15
+                .intersects(HunkAssignment::new("foo.rs", 16, 5, None, None)) // Lines 16 to 20
         );
         assert!(
-            HunkAssignment::new("foo.rs", 10, 7, None, None)
-                .intersects(HunkAssignment::new("foo.rs", 16, 5, None, None))
+            HunkAssignment::new("foo.rs", 10, 7, None, None) // Lines 10 to 16
+                .intersects(HunkAssignment::new("foo.rs", 16, 5, None, None)) // Lines 16 to 20
         );
     }
 
