@@ -1,10 +1,6 @@
 @import './fonts/fonts.css';
 @import './draggable.css';
 
-:root {
-	--lane-multi-max-width: 340px;
-}
-
 body {
 	width: 100vw;
 	height: 100vh;

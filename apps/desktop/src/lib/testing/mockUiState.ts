@@ -40,7 +40,10 @@ const MOCK_GLOBAL_UI_STATE: GlobalUiState = {
 	useRuler: false,
 	rulerCountValue: 0,
 	wrapTextByRuler: false,
-	modal: undefined
+	modal: undefined,
+	stackWidth: 25,
+	detailsWidth: 25,
+	previewWidth: 30
 };
 
 export function getUiStateMock() {

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Resizer from '$components/Resizer.svelte';
 	import Scrollbar from '$components/Scrollbar.svelte';
 	import AsyncRender from '$components/v3/AsyncRender.svelte';
 	import BranchList from '$components/v3/BranchList.svelte';
@@ -90,6 +91,10 @@
 		$selectedLastAdded?.key ? readKey($selectedLastAdded.key) : undefined
 	);
 	const changes = uncommittedService.changesByStackId(stack.id || null);
+
+	let laneEl = $state<HTMLDivElement>();
+	let detailsEl = $state<HTMLDivElement>();
+	let previewEl = $state<HTMLDivElement>();
 </script>
 
 <AsyncRender>
@@ -103,9 +108,11 @@
 		data-id={stack.id}
 		bind:clientWidth
 		bind:clientHeight
+		bind:this={laneEl}
 		data-testid={TestId.Stack}
 		data-testid-stackid={stack.id}
 		data-testid-stack={stack.heads.at(0)?.name}
+		style:width={uiState.global.stackWidth.current + 'rem'}
 		use:intersectionObserver={{
 			callback: (entry) => {
 				onVisible(!!entry?.isIntersecting);
@@ -155,6 +162,13 @@
 		>
 			{#snippet assignments()}{/snippet}
 		</BranchList>
+		<Resizer
+			viewport={laneEl}
+			direction="right"
+			minWidth={16}
+			maxWidth={36}
+			onWidth={(value) => uiState.global.stackWidth.set(value)}
+		/>
 	</div>
 	{#if $threePointFive}
 		<!-- eslint-disable-next-line func-style -->
@@ -165,27 +179,21 @@
 				console.warn('Workspace selection cleared');
 			}
 		}}
-		{#if assignedKey && assignedKey.type === 'worktree'}
-			<div
-				class="details-view"
-				use:focusable={{
-					id: DefinedFocusable.UncommittedChanges + ':' + stack.id,
-					parentId: DefinedFocusable.ViewportRight
-				}}
-			>
+		<div
+			bind:this={detailsEl}
+			style:width={uiState.global.detailsWidth.current + 'rem'}
+			class="details"
+			use:focusable={{
+				id: DefinedFocusable.UncommittedChanges + ':' + stack.id,
+				parentId: DefinedFocusable.ViewportRight
+			}}
+		>
+			{#if assignedKey && assignedKey.type === 'worktree'}
 				<SelectionView
 					{projectId}
 					selectionId={{ ...assignedKey, type: 'worktree', stackId: assignedKey.stackId }}
 				/>
-			</div>
-		{:else if branchName && commitId}
-			<div
-				class="details-view"
-				use:focusable={{
-					id: DefinedFocusable.Stack + ':' + stack.id,
-					parentId: DefinedFocusable.ViewportRight
-				}}
-			>
+			{:else if branchName && commitId}
 				<CommitView
 					{projectId}
 					stackId={stack.id}
@@ -198,59 +206,45 @@
 					active={selectedKey?.type === 'commit' && focusedStackId === stack.id}
 					{onerror}
 				/>
-			</div>
-			{#if selectedKey && selectedKey.type === 'commit'}
-				<div
-					class="details-view"
-					use:focusable={{
-						id: DefinedFocusable.Stack + ':' + stack.id,
-						parentId: DefinedFocusable.ViewportRight
-					}}
-				>
-					<SelectionView
-						{projectId}
-						selectionId={{ ...selectedKey, type: 'commit', commitId: selectedKey.commitId }}
-					/>
-				</div>
-			{:else if selectedKey && selectedKey.type === 'branch'}
-				<div
-					class="details-view"
-					use:focusable={{
-						id: DefinedFocusable.Stack + ':' + stack.id,
-						parentId: DefinedFocusable.ViewportRight
-					}}
-				>
-					<SelectionView
-						{projectId}
-						selectionId={{ ...selectedKey, type: 'branch', branchName: selectedKey.branchName }}
-					/>
-				</div>
-			{/if}
-		{:else if branchName}
-			<div class="details-view">
+			{:else if branchName}
 				<BranchView
 					stackId={stack.id}
 					{projectId}
 					{branchName}
-					active={selectionId.type !== 'worktree'}
+					active={selectedKey?.type === 'branch' &&
+						selectedKey.branchName === branchName &&
+						focusedStackId === stack.id}
 					draggableFiles
 					{onerror}
 				/>
-			</div>
-			{#if selectedKey && selectedKey.type === 'branch'}
-				<div
-					class="details-view"
-					use:focusable={{
-						id: DefinedFocusable.Stack + ':' + stack.id,
-						parentId: DefinedFocusable.ViewportRight
-					}}
-				>
-					<SelectionView
-						{projectId}
-						selectionId={{ ...selectedKey, type: 'branch', branchName: selectedKey.branchName }}
-					/>
-				</div>
 			{/if}
+			<Resizer
+				viewport={detailsEl}
+				direction="right"
+				minWidth={16}
+				maxWidth={56}
+				onWidth={(value) => uiState.global.detailsWidth.set(value)}
+			/>
+		</div>
+		{#if selectedKey}
+			<div
+				bind:this={previewEl}
+				style:width={uiState.global.previewWidth.current + 'rem'}
+				class="preview"
+				use:focusable={{
+					id: DefinedFocusable.Stack + ':' + stack.id,
+					parentId: DefinedFocusable.ViewportRight
+				}}
+			>
+				<SelectionView {projectId} selectionId={selectedKey} />
+				<Resizer
+					viewport={previewEl}
+					direction="right"
+					minWidth={20}
+					maxWidth={96}
+					onWidth={(value) => uiState.global.previewWidth.set(value)}
+				/>
+			</div>
 		{/if}
 	{/if}
 </AsyncRender>
@@ -277,13 +271,11 @@
 		}
 		&.multi {
 			width: 100%;
-			max-width: var(--lane-multi-max-width);
 		}
 		&.vertical {
 			border-bottom: 1px solid var(--clr-border-2);
 		}
 		&.three-five {
-			width: 420px;
 			max-width: unset;
 		}
 	}
@@ -328,9 +320,10 @@
 		border-top-left-radius: 0;
 	}
 
-	.details-view {
+	.details,
+	.preview {
+		position: relative;
 		flex-shrink: 0;
-		width: 520px;
 		border-right: 1px solid var(--clr-border-2);
 		white-space: wrap;
 	}

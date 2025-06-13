@@ -72,6 +72,9 @@ export type GlobalModalState = CommitFailedModalState;
 export type GlobalUiState = {
 	drawerHeight: number;
 	drawerSplitViewWidth: number;
+	stackWidth: number;
+	detailsWidth: number;
+	previewWidth: number;
 	historySidebarWidth: number;
 	useRichText: boolean;
 	useRuler: boolean;
@@ -112,6 +115,9 @@ export class UiState {
 	readonly global = this.buildGlobalProps<GlobalUiState>({
 		drawerHeight: 20,
 		drawerSplitViewWidth: 20,
+		stackWidth: 20,
+		detailsWidth: 32,
+		previewWidth: 48,
 		historySidebarWidth: 30,
 		useRichText: false,
 		useRuler: false,
