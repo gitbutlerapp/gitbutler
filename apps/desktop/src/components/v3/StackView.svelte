@@ -306,7 +306,7 @@
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-1);
+		/* background-color: var(--clr-bg-1); */
 
 		&.dropzone-activated {
 			& .assigned-changes-empty {
@@ -322,11 +322,10 @@
 	}
 
 	.assignments__empty {
-		margin-top: -12px;
+		margin-top: -6px;
 		border-top: none;
 		border-top-right-radius: 0;
 		border-top-left-radius: 0;
-		background-color: var(--clr-bg-2);
 	}
 
 	.details-view {
@@ -343,6 +342,7 @@
 		padding: 6px 8px 8px;
 		overflow: hidden;
 		gap: 12px;
+		background-color: var(--clr-bg-2);
 		transition: background-color var(--transition-fast);
 	}
 </style>
