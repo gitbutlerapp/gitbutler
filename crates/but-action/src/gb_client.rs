@@ -7,6 +7,8 @@ use reqwest::{
 use schemars::{JsonSchema, schema_for};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
+use crate::serialize::StringOrObject;
+
 #[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq)]
 pub struct ChatMessage {
     /// The contents of the developer message.
@@ -99,11 +101,50 @@ pub struct OpenAIStructuredOutputResponse<T> {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct AntrhopicToolResult {
+    /// The type of the content.
+    /// This should be set to "tool_result" for tool results.
+    #[serde(rename = "type")]
+    pub constent_type: String,
+    /// The ID of the tool call that this message is responding to.
+    pub tool_use_id: String,
+    /// The result of the tool call.
+    pub content: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct AnthropicUserChatMessage {
+    /// The contents of the user message.
+    /// This can be a string or a tool result object.
+    pub content: StringOrObject<Vec<AntrhopicToolResult>>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+pub struct AnthropicToolCall {
+    /// The ID of the tool call.
+    pub id: String,
+    /// The type of the tool call.
+    /// This should be set to "tool_use" for tool calls.
+    #[serde(rename = "type")]
+    pub call_type: String,
+    /// The name of the function to call.
+    pub name: String,
+    /// The input parameters for the tool call.
+    pub input: serde_json::Value,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct AnthropicAssistantChatMessage {
+    /// The contents of the developer message.
+    pub content: Option<Vec<AnthropicToolCall>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(tag = "role")]
 #[serde(rename_all = "lowercase")]
 pub enum AnthropicChatCompletionMessage {
-    System(ChatMessage),
-    User(ChatMessage),
+    Assistant(AnthropicAssistantChatMessage),
+    User(AnthropicUserChatMessage),
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
@@ -164,7 +205,10 @@ pub struct AnthropicStructuredOutput {
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct AnthropicStructuredOutputResponse<T> {
+    /// The response in the format specified by the json_schema.
     pub response: Option<T>,
+    /// The tool calls made by the model, if any.
+    pub tool_calls: Option<Vec<AnthropicToolCall>>,
 }
 
 pub struct GBClient {
@@ -457,25 +501,91 @@ pub async fn commit_message_anthropic(
         api_key.to_string(),
     );
 
-    let schema = schema_for!(CommitMessage);
-    let json_schema = serde_json::to_value(schema).unwrap();
+    let commit_message_schema = schema_for!(CommitMessage);
+    let json_schema = serde_json::to_value(commit_message_schema).unwrap();
+
+    let commit_context_params_schema = schema_for!(GetCommitContextParams);
+
+    let tool = Tool {
+        name: "get_commit_context".to_string(),
+        description: "Get the commit context based on the prompt".to_string(),
+        parameters: serde_json::to_value(commit_context_params_schema).unwrap(),
+    };
 
     let request = AnthropicStructuredOutput {
         system: Some(system_message),
-        messages: vec![AnthropicChatCompletionMessage::User(ChatMessage {
-            content: user_message,
-        })],
+        messages: vec![AnthropicChatCompletionMessage::User(
+            AnthropicUserChatMessage {
+                content: StringOrObject::String(user_message),
+            },
+        )],
         max_tokens: None,
         temperature: None,
         json_schema,
-        tools: None,
+        tools: Some(vec![tool]),
     };
 
-    let response: AnthropicStructuredOutputResponse<CommitMessage> =
-        client.anthropic_structured_output(&request).await?;
+    let mut request = request;
 
-    response
-        .response
-        .map(|cm| cm.commit_message)
-        .ok_or_else(|| anyhow::anyhow!("No commit message returned from the AI model"))
+    // This is the function calling loop.
+    // - If we get tool calls, we handle them and continue the loop with the updated request.
+    // - We break if we get a commit message response.
+    // - If we get no response and no tool calls, we break with an error.
+    loop {
+        let response: AnthropicStructuredOutputResponse<CommitMessage> =
+            client.anthropic_structured_output(&request).await?;
+
+        // If there are tool calls, handle them first
+        if let Some(tool_calls) = response.tool_calls {
+            // For now, only handle "get_commit_context"
+            let mut new_messages = request.messages.clone();
+            for tool_call in tool_calls {
+                if tool_call.call_type == "tool_use" {
+                    match tool_call.name.as_str() {
+                        "get_commit_context" => {
+                            // Add the tool call result as an assistant message
+                            new_messages.push(AnthropicChatCompletionMessage::Assistant(
+                                AnthropicAssistantChatMessage {
+                                    content: Some(vec![tool_call.clone()]),
+                                },
+                            ));
+
+                            let params: GetCommitContextParams =
+                                serde_json::from_value(tool_call.input)?;
+                            let result = get_commit_context(&params);
+
+                            // Add the tool call result as a user message (Anthropic format)
+                            new_messages.push(AnthropicChatCompletionMessage::User(
+                                AnthropicUserChatMessage {
+                                    content: StringOrObject::Object(vec![AntrhopicToolResult {
+                                        constent_type: "tool_result".to_string(),
+                                        tool_use_id: tool_call.id,
+                                        content: result,
+                                    }]),
+                                },
+                            ));
+                        }
+                        _ => {
+                            // TODO: Handle unknown tool calls gracefully
+                            return Err(anyhow::anyhow!("Unknown tool call: {}", tool_call.name));
+                        }
+                    }
+                }
+            }
+            // Update the request with the new messages
+            request.messages = new_messages;
+            // Continue the loop to send the updated request
+            continue;
+        }
+
+        // If we have a commit message, return it
+        if let Some(cm) = response.response {
+            return Ok(cm.commit_message);
+        }
+
+        // No response and no tool calls, break with error
+        break Err(anyhow::anyhow!(
+            "No commit message or tool calls returned from the AI model"
+        ));
+    }
 }
