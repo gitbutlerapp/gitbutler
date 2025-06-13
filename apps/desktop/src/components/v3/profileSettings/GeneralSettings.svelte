@@ -3,12 +3,14 @@
 	import Login from '$components/Login.svelte';
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
 	import { invoke } from '$lib/backend/ipc';
-	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { showError } from '$lib/notifications/toasts';
 	import { ProjectsService } from '$lib/project/projectsService';
+	import { SETTINGS, type Settings, type CodeEditorSettings } from '$lib/settings/userSettings';
 	import { UpdaterService } from '$lib/updater/updater';
 	import { UserService } from '$lib/user/userService';
+	import { copyToClipboard } from '@gitbutler/shared/clipboard';
+	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -16,8 +18,11 @@
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
+	import Select from '@gitbutler/ui/select/Select.svelte';
+	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import * as toasts from '@gitbutler/ui/toasts';
 	import type { User } from '$lib/user/user';
+	import type { Writable } from 'svelte/store';
 
 	const userService = getContext(UserService);
 	const settingsService = getContext(SettingsService);
@@ -37,6 +42,20 @@
 	let userPicture = $state($user?.picture);
 
 	let deleteConfirmationModal: ReturnType<typeof Modal> | undefined = $state();
+
+	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
+	const editorOptions: CodeEditorSettings[] = [
+		{ schemeIdentifer: 'vscodium', displayName: 'VSCodium' },
+		{ schemeIdentifer: 'vscode', displayName: 'VSCode' },
+		{ schemeIdentifer: 'vscode-insiders', displayName: 'VSCode Insiders' },
+		{ schemeIdentifer: 'windsurf', displayName: 'Windsurf' },
+		{ schemeIdentifer: 'zed', displayName: 'Zed' },
+		{ schemeIdentifer: 'cursor', displayName: 'Cursor' }
+	];
+	const editorOptionsForSelect = editorOptions.map((option) => ({
+		label: option.displayName,
+		value: option.schemeIdentifer
+	}));
 
 	$effect(() => {
 		if ($user && !loaded) {
@@ -161,6 +180,33 @@
 	<WelcomeSigninAction />
 {/if}
 <Spacer />
+
+<SectionCard orientation="row" centerAlign>
+	{#snippet title()}
+		Default code editor
+	{/snippet}
+	{#snippet actions()}
+		<Select
+			value={$userSettings.defaultCodeEditor.schemeIdentifer}
+			options={editorOptionsForSelect}
+			onselect={(value) => {
+				const selected = editorOptions.find((option) => option.schemeIdentifer === value);
+				if (selected) {
+					userSettings.update((s) => ({ ...s, defaultCodeEditor: selected }));
+				}
+			}}
+		>
+			{#snippet itemSnippet({ item, highlighted })}
+				<SelectItem
+					selected={item.value === $userSettings.defaultCodeEditor.schemeIdentifer}
+					{highlighted}
+				>
+					{item.label}
+				</SelectItem>
+			{/snippet}
+		</Select>
+	{/snippet}
+</SectionCard>
 
 <SectionCard labelFor="disable-auto-checks" orientation="row">
 	{#snippet title()}
