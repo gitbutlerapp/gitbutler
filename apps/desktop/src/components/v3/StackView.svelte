@@ -322,7 +322,7 @@
 	}
 
 	.assignments__empty {
-		margin-top: -6px;
+		margin-top: 0;
 		border-top: none;
 		border-top-right-radius: 0;
 		border-top-left-radius: 0;
