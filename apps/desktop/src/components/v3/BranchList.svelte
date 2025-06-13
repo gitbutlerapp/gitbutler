@@ -13,7 +13,7 @@
 	import PublishButton from '$components/v3/PublishButton.svelte';
 	import PushButton from '$components/v3/PushButton.svelte';
 	import { getColorFromCommitState, getIconFromCommitState } from '$components/v3/lib';
-	import { assignmentEnabled } from '$lib/config/uiFeatureFlags';
+	import { assignmentEnabled, threePointFive } from '$lib/config/uiFeatureFlags';
 	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { ModeService } from '$lib/mode/modeService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -30,11 +30,11 @@
 		projectId: string;
 		isVerticalMode: boolean;
 		stackId: string;
-		active: boolean;
+		focusedStackId?: string;
 		assignments: Snippet;
 	};
 
-	const { projectId, isVerticalMode, stackId, active, assignments }: Props = $props();
+	const { projectId, isVerticalMode, stackId, focusedStackId, assignments }: Props = $props();
 	const [stackService, uiState, modeService] = inject(StackService, UiState, ModeService);
 
 	const branchesResult = $derived(stackService.branches(projectId, stackId));
@@ -46,7 +46,7 @@
 		drawer.current === 'new-commit' && (commitSourceId === undefined || commitSourceId === stackId)
 	);
 
-	const stackActive = $derived(stackId === projectState.stackId.current);
+	const stackSelected = $derived(stackId === projectState.stackId.current);
 	const stackState = $derived(uiState.stack(stackId));
 	const selection = $derived(stackState.selection);
 	const selectedCommitId = $derived(selection.current?.commitId);
@@ -167,7 +167,7 @@
 								{@const isNewBranch =
 									upstreamOnlyCommits.length === 0 && localAndRemoteCommits.length === 0}
 								{@const selected =
-									stackActive &&
+									stackSelected &&
 									selection?.current?.branchName === branchName &&
 									selection?.current.commitId === undefined}
 								{@const pushStatus = branchDetails.pushStatus}
@@ -191,7 +191,7 @@
 									{lastUpdatedAt}
 									{reviewId}
 									{prNumber}
-									{active}
+									active={focusedStackId === stackId}
 									trackingBranch={branch.remoteTrackingBranch ?? undefined}
 									readonly={!!branch.remoteTrackingBranch}
 									onclick={() => {
@@ -218,7 +218,7 @@
 									{#snippet branchContent()}
 										<BranchCommitList
 											{lastBranch}
-											{active}
+											active={focusedStackId === stackId}
 											{projectId}
 											{stackId}
 											{branchName}
@@ -238,9 +238,11 @@
 			</ScrollableContainer>
 			<StackStickyButtons {isVerticalMode}>
 				<PushButton flex="1" {projectId} {stackId} multipleBranches={branches.length > 1} />
-				{@const reviewCreationInOpen =
-					drawer.current === 'review' && stackId === projectState.stackId.current}
-				<PublishButton flex="2" {projectId} {stackId} {branches} {reviewCreationInOpen} />
+				{#if !$threePointFive}
+					{@const reviewCreationInOpen =
+						drawer.current === 'review' && stackId === projectState.stackId.current}
+					<PublishButton flex="2" {projectId} {stackId} {branches} {reviewCreationInOpen} />
+				{/if}
 			</StackStickyButtons>
 		{/snippet}
 	</ReduxResult>
@@ -280,8 +282,8 @@
 <style lang="postcss">
 	.wrapper {
 		display: flex;
+		flex-grow: 1;
 		flex-direction: column;
-		height: 100%;
 	}
 
 	.branches-wrapper {

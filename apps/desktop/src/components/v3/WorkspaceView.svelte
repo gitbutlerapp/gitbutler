@@ -13,11 +13,12 @@
 	import { threePointFive } from '$lib/config/uiFeatureFlags';
 	import { isParsedError } from '$lib/error/parser';
 	import {
-		assignedChangesFocusableId,
 		DefinedFocusable,
 		FocusManager,
 		parseSnapshotChangesFocusableId,
-		parseUnassignedChangesFocusable
+		parseFocusableId,
+		stackFocusableId,
+		uncommittedFocusableId
 	} from '$lib/focus/focusManager.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -52,7 +53,13 @@
 
 	const stackFocusables = $derived(
 		stacksResult.current?.data
-			? stacksResult.current.data.map((stack) => assignedChangesFocusableId(stack.id))
+			? stacksResult.current.data.map((stack) => stackFocusableId(stack.id))
+			: []
+	);
+
+	const uncommittedFocusables = $derived(
+		stacksResult.current?.data
+			? stacksResult.current.data.map((stack) => uncommittedFocusableId(stack.id))
 			: []
 	);
 
@@ -61,9 +68,9 @@
 			triggers: [
 				DefinedFocusable.UncommittedChanges,
 				DefinedFocusable.Drawer,
-				DefinedFocusable.ViewportRight,
 				...stackFocusables,
-				...$snapshotFocusables
+				...$snapshotFocusables,
+				...uncommittedFocusables
 			]
 		})
 	);
@@ -74,14 +81,18 @@
 	const commitId = $derived(currentSelection?.commitId);
 	const upstream = $derived(!!currentSelection?.upstream);
 
+	const focusedStackId = $derived(
+		focusGroup.current ? parseFocusableId(focusGroup.current) : undefined
+	);
+
 	const selectionId: SelectionId = $derived.by(() => {
+		if ($threePointFive) return { type: 'worktree', stackId: undefined };
 		const branchName = currentSelection?.branchName;
-		const assignedChangesStackId = focusGroup.current
-			? parseUnassignedChangesFocusable(focusGroup.current)
-			: undefined;
-		if (assignedChangesStackId) {
-			return { type: 'worktree', stackId: assignedChangesStackId };
+
+		if (focusGroup.current?.startsWith(DefinedFocusable.UncommittedChanges)) {
+			return { type: 'worktree', stackId: focusedStackId };
 		}
+
 		const snapshot = focusGroup.current
 			? parseSnapshotChangesFocusableId(focusGroup.current)
 			: undefined;
@@ -103,8 +114,7 @@
 			const selectionId = { type: 'branch', stackId: stackId, branchName } as const;
 			if (idSelection.hasItems(selectionId)) return selectionId;
 		}
-
-		return { type: 'worktree' };
+		return { type: 'worktree', stackId: focusedStackId };
 	});
 
 	function onerror(err: unknown) {
@@ -130,7 +140,9 @@
 			title="Unassigned"
 			{projectId}
 			stackId={undefined}
-			active={selectionId.type === 'worktree' && selectionId.stackId === undefined}
+			active={selectionId.type === 'worktree' &&
+				selectionId.stackId === undefined &&
+				(!$threePointFive || focusGroup.current === DefinedFocusable.UncommittedChanges)}
 		>
 			{#snippet emptyPlaceholder()}
 				<div class="unassigned-changes__empty">
@@ -152,7 +164,7 @@
 		{/if}
 		{#if !$threePointFive}
 			{#if drawerPage.current === 'new-commit'}
-				<NewCommitView {projectId} {stackId} />
+				<NewCommitView {projectId} />
 			{:else if drawerPage.current === 'branch' && stackId && branchName}
 				<BranchView
 					{stackId}
@@ -187,13 +199,7 @@
 			{/snippet}
 
 			{#snippet children(stacks)}
-				<MultiStackView
-					{projectId}
-					{stacks}
-					{selectionId}
-					selectedId={stackId}
-					active={focusGroup.current !== DefinedFocusable.UncommittedChanges}
-				/>
+				<MultiStackView {projectId} {stacks} {selectionId} selectedId={stackId} {focusedStackId} />
 			{/snippet}
 		</ReduxResult>
 	{/snippet}
