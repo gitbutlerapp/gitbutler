@@ -14,9 +14,11 @@
 		projectId: string;
 		stackId: string;
 		branchName: string;
+		noDrawer?: boolean;
+		oncancel?: () => void;
 	};
 
-	const { projectId, stackId, branchName }: Props = $props();
+	const { projectId, stackId, branchName, noDrawer, oncancel }: Props = $props();
 
 	const uiState = getContext(UiState);
 
@@ -60,36 +62,43 @@
 	const ctaDisabled = $derived(reviewCreation ? !reviewCreation.imports.creationEnabled : false);
 </script>
 
-<Drawer
-	testId={TestId.ReviewDrawer}
-	{projectId}
-	{stackId}
-	title={getTitleLabel()}
-	disableScroll
-	minHeight={20}
->
+{#snippet editor()}
+	<AsyncRender>
+		<ReviewCreation bind:this={reviewCreation} {projectId} {stackId} {branchName} onClose={close} />
+		<ReviewCreationControls
+			isSubmitting={!!reviewCreation?.imports.isLoading}
+			{ctaDisabled}
+			{canPublishBR}
+			{canPublishPR}
+			onCancel={() => {
+				close();
+				oncancel?.();
+			}}
+			onSubmit={async () => {
+				await reviewCreation?.createReview();
+			}}
+		/>
+	</AsyncRender>
+{/snippet}
+
+{#if noDrawer}
 	<div class="submit-review__container">
-		<AsyncRender>
-			<ReviewCreation
-				bind:this={reviewCreation}
-				{projectId}
-				{stackId}
-				{branchName}
-				onClose={close}
-			/>
-			<ReviewCreationControls
-				isSubmitting={!!reviewCreation?.imports.isLoading}
-				{ctaDisabled}
-				{canPublishBR}
-				{canPublishPR}
-				onCancel={close}
-				onSubmit={async () => {
-					await reviewCreation?.createReview();
-				}}
-			/>
-		</AsyncRender>
+		{@render editor()}
 	</div>
-</Drawer>
+{:else}
+	<Drawer
+		testId={TestId.ReviewDrawer}
+		{projectId}
+		{stackId}
+		title={getTitleLabel()}
+		disableScroll
+		minHeight={20}
+	>
+		<div class="submit-review__container">
+			{@render editor()}
+		</div>
+	</Drawer>
+{/if}
 
 <style lang="postcss">
 	.submit-review__container {

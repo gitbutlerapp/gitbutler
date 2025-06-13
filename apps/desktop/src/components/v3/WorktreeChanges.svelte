@@ -4,10 +4,12 @@
 	import Dropzone from '$components/Dropzone.svelte';
 	import FileList from '$components/v3/FileList.svelte';
 	import FileListMode from '$components/v3/FileListMode.svelte';
+	import NewCommitView from '$components/v3/NewCommitView.svelte';
 	import WorktreeChangesSelectAll from '$components/v3/WorktreeChangesSelectAll.svelte';
 	import { createCommitStore } from '$lib/commits/contexts';
 	import { UncommitDzHandler } from '$lib/commits/dropHandler';
-	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
+	import { threePointFive } from '$lib/config/uiFeatureFlags';
+	import { DefinedFocusable, uncommittedFocusableId } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { AssignmentDropHandler } from '$lib/hunks/dropHandler';
@@ -54,9 +56,12 @@
 	const uncommitDzHandler = $derived(new UncommitDzHandler(projectId, stackService, uiState));
 
 	const projectState = $derived(uiState.project(projectId));
-	const drawerPage = $derived(projectState.drawerPage.get());
+	const drawerPage = $derived(projectState.drawerPage);
 	const commitSourceId = $derived(projectState.commitSourceId.current);
-	const isCommitting = $derived(drawerPage.current === 'new-commit' && commitSourceId === stackId);
+	const isCommitting = $derived(
+		drawerPage.current === 'new-commit' &&
+			(commitSourceId === stackId || ($threePointFive && stackId === undefined))
+	);
 	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
 
 	const defaultBranchResult = $derived(
@@ -78,7 +83,7 @@
 		if (changes.current) {
 			uncommittedService.checkAll(stackId || null);
 		}
-		projectState.drawerPage.set('new-commit');
+		drawerPage.set('new-commit');
 		projectState.commitSourceId.set(stackId);
 		if (defaultBranchName) {
 			projectState.stackId.set(stackId);
@@ -121,10 +126,8 @@
 	<div
 		class="uncommitted-changes-wrap"
 		use:focusable={{
-			id: stackId
-				? DefinedFocusable.UncommittedChanges + ':' + stackId
-				: DefinedFocusable.UncommittedChanges,
-			parentId: DefinedFocusable.ViewportLeft
+			id: stackId ? uncommittedFocusableId(stackId) : DefinedFocusable.UncommittedChanges,
+			parentId: stackId ? DefinedFocusable.ViewportRight : DefinedFocusable.ViewportLeft
 		}}
 	>
 		{#if mode !== 'assigned' || changes.current.length > 0}
@@ -171,30 +174,36 @@
 					/>
 				</div>
 			</ScrollableContainer>
-			<div class="start-commit" class:sticked-bottom={!scrollBottomIsVisible}>
-				<Button
-					testId={TestId.StartCommitButton}
-					kind={isCommitting ? 'outline' : 'solid'}
-					type="button"
-					wide
-					disabled={defaultBranchResult?.current.isLoading}
-					onclick={() => {
-						if (isCommitting) {
-							projectState.drawerPage.set(undefined);
-						} else {
-							startCommit();
-						}
-					}}
-				>
-					{#if isCommitting}
-						Cancel committing
-					{:else if mode === 'assigned' || stacks.length === 0}
-						Start a commit…
-					{:else}
-						Commit to selected branch…
-					{/if}
-				</Button>
-			</div>
+			{#if !$threePointFive || (!isCommitting && stackId !== undefined)}
+				<div class="start-commit" class:sticked-bottom={!scrollBottomIsVisible}>
+					<Button
+						testId={TestId.StartCommitButton}
+						kind={isCommitting ? 'outline' : 'solid'}
+						type="button"
+						wide
+						disabled={defaultBranchResult?.current.isLoading}
+						onclick={() => {
+							if (isCommitting) {
+								drawerPage.set(undefined);
+							} else {
+								startCommit();
+							}
+						}}
+					>
+						{#if isCommitting}
+							Cancel committing
+						{:else if mode === 'assigned' || stacks.length === 0}
+							Start a commit…
+						{:else}
+							Commit to selected branch…
+						{/if}
+					</Button>
+				</div>
+			{:else if $threePointFive && isCommitting && stackId !== undefined}
+				<div class="message-editor">
+					<NewCommitView {projectId} noDrawer onclose={() => drawerPage.set(undefined)} />
+				</div>
+			{/if}
 		{:else}
 			{@render emptyPlaceholder?.()}
 		{/if}
@@ -253,5 +262,9 @@
 
 	.sticked-bottom {
 		border-top: 1px solid var(--clr-border-2);
+	}
+
+	.message-editor {
+		padding: 12px;
 	}
 </style>

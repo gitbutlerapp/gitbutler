@@ -1,0 +1,348 @@
+<script lang="ts">
+	import Scrollbar from '$components/Scrollbar.svelte';
+	import AsyncRender from '$components/v3/AsyncRender.svelte';
+	import BranchList from '$components/v3/BranchList.svelte';
+	import BranchView from '$components/v3/BranchView.svelte';
+	import CommitView from '$components/v3/CommitView.svelte';
+	import SelectionView from '$components/v3/SelectionView.svelte';
+	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
+	import { stackLayoutMode, threePointFive } from '$lib/config/uiFeatureFlags';
+	import { isParsedError } from '$lib/error/parser';
+	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
+	import { focusable } from '$lib/focus/focusable.svelte';
+	import { IdSelection } from '$lib/selection/idSelection.svelte';
+	import { readKey, type SelectionId } from '$lib/selection/key';
+	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
+	import { UiState } from '$lib/state/uiState.svelte';
+	import { TestId } from '$lib/testing/testIds';
+	import { inject } from '@gitbutler/shared/context';
+	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
+	import type { Stack } from '$lib/stacks/stack';
+
+	type Props = {
+		projectId: string;
+		stack: Stack;
+		selectionId: SelectionId;
+		focusedStackId?: string;
+		siblingCount: number;
+		onVisible: (visible: boolean) => void;
+		clientWidth?: number;
+		clientHeight?: number;
+	};
+
+	let {
+		projectId,
+		stack,
+		selectionId,
+		focusedStackId,
+		siblingCount,
+		clientHeight = $bindable(),
+		clientWidth = $bindable(),
+		onVisible
+	}: Props = $props();
+
+	let lanesSrollableEl = $state<HTMLDivElement>();
+	let scrollbar = $state<Scrollbar>();
+
+	$effect(() => {
+		// Explicit scrollbar track size update since changing scroll width
+		// does not trigger the resize observer, and changing css does not
+		// trigger the mutation observer
+		if ($stackLayoutMode) scrollbar?.updateTrack();
+	});
+
+	const [uiState, uncommittedService, idSelection] = inject(
+		UiState,
+		UncommittedService,
+		IdSelection
+	);
+	const projectState = $derived(uiState.project(projectId));
+	const drawer = $derived(projectState.drawerPage);
+	const isCommitting = $derived(drawer.current === 'new-commit');
+
+	const SHOW_PAGINATION_THRESHOLD = 1;
+
+	let dropzoneActivated = $state(false);
+
+	const stackState = uiState.stack(stack.id);
+	const selection = $derived(stackState.selection);
+	const assignedSelection = idSelection.getById({
+		type: 'worktree',
+		stackId: stack.id
+	});
+	const lastAddedAssigned = assignedSelection.lastAdded;
+	const assignedKey = $derived(
+		$lastAddedAssigned?.key ? readKey($lastAddedAssigned.key) : undefined
+	);
+
+	const commitId = $derived(selection.current?.commitId);
+	const branchName = $derived(selection.current?.branchName);
+	const upstream = $derived(selection.current?.upstream);
+
+	const selectedLastAdded = $derived.by(() => {
+		if (commitId) {
+			return idSelection.getById({ type: 'commit', commitId }).lastAdded;
+		} else if (branchName) {
+			return idSelection.getById({ type: 'branch', stackId: stack.id, branchName }).lastAdded;
+		}
+	});
+	const selectedKey = $derived(
+		$selectedLastAdded?.key ? readKey($selectedLastAdded.key) : undefined
+	);
+	const changes = uncommittedService.changesByStackId(stack.id || null);
+</script>
+
+<AsyncRender>
+	<div
+		class="lane"
+		class:multi={$stackLayoutMode === 'multi' || siblingCount < SHOW_PAGINATION_THRESHOLD}
+		class:single={$stackLayoutMode === 'single' && siblingCount >= SHOW_PAGINATION_THRESHOLD}
+		class:single-fullwidth={$stackLayoutMode === 'single' && siblingCount === 1}
+		class:vertical={$stackLayoutMode === 'vertical'}
+		class:three-five={$threePointFive}
+		data-id={stack.id}
+		bind:clientWidth
+		bind:clientHeight
+		data-testid={TestId.Stack}
+		data-testid-stackid={stack.id}
+		data-testid-stack={stack.heads.at(0)?.name}
+		use:intersectionObserver={{
+			callback: (entry) => {
+				onVisible(!!entry?.isIntersecting);
+			},
+			options: {
+				threshold: 0.5,
+				root: lanesSrollableEl
+			}
+		}}
+		use:focusable={{
+			id: DefinedFocusable.Stack + ':' + stack.id,
+			parentId: DefinedFocusable.ViewportRight
+		}}
+	>
+		<div
+			class="assignments"
+			class:assignments__empty={changes.current.length === 0}
+			class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
+		>
+			<WorktreeChanges
+				title="Assigned"
+				{projectId}
+				stackId={stack.id}
+				mode="assigned"
+				active={$threePointFive
+					? focusedStackId === stack.id
+					: selectionId.type === 'worktree' && selectionId.stackId === stack.id}
+				dropzoneVisible={changes.current.length === 0 && !isCommitting}
+				onDropzoneActivated={(activated) => {
+					dropzoneActivated = activated;
+				}}
+			>
+				{#snippet emptyPlaceholder()}
+					<div class="assigned-changes-empty">
+						<p class="text-12 text-body assigned-changes-empty__text">
+							Drop files to assign to the lane
+						</p>
+					</div>
+				{/snippet}
+			</WorktreeChanges>
+		</div>
+		<BranchList
+			isVerticalMode={$stackLayoutMode === 'vertical'}
+			{projectId}
+			stackId={stack.id}
+			{focusedStackId}
+		>
+			{#snippet assignments()}{/snippet}
+		</BranchList>
+	</div>
+	{#if $threePointFive}
+		<!-- eslint-disable-next-line func-style -->
+		{@const onerror = (err: unknown) => {
+			// Clear selection if branch not found.
+			if (isParsedError(err) && err.code === 'errors.branch.notfound') {
+				selection?.set(undefined);
+				console.warn('Workspace selection cleared');
+			}
+		}}
+		{#if assignedKey && assignedKey.type === 'worktree'}
+			<div
+				class="details-view"
+				use:focusable={{
+					id: DefinedFocusable.UncommittedChanges + ':' + stack.id,
+					parentId: DefinedFocusable.ViewportRight
+				}}
+			>
+				<SelectionView
+					{projectId}
+					selectionId={{ ...assignedKey, type: 'worktree', stackId: assignedKey.stackId }}
+				/>
+			</div>
+		{:else if branchName && commitId}
+			<div
+				class="details-view"
+				use:focusable={{
+					id: DefinedFocusable.Stack + ':' + stack.id,
+					parentId: DefinedFocusable.ViewportRight
+				}}
+			>
+				<CommitView
+					{projectId}
+					stackId={stack.id}
+					commitKey={{
+						stackId: stack.id,
+						branchName,
+						commitId,
+						upstream: !!upstream
+					}}
+					active={selectedKey?.type === 'commit' && focusedStackId === stack.id}
+					{onerror}
+				/>
+			</div>
+			{#if selectedKey && selectedKey.type === 'commit'}
+				<div
+					class="details-view"
+					use:focusable={{
+						id: DefinedFocusable.Stack + ':' + stack.id,
+						parentId: DefinedFocusable.ViewportRight
+					}}
+				>
+					<SelectionView
+						{projectId}
+						selectionId={{ ...selectedKey, type: 'commit', commitId: selectedKey.commitId }}
+					/>
+				</div>
+			{:else if selectedKey && selectedKey.type === 'branch'}
+				<div
+					class="details-view"
+					use:focusable={{
+						id: DefinedFocusable.Stack + ':' + stack.id,
+						parentId: DefinedFocusable.ViewportRight
+					}}
+				>
+					<SelectionView
+						{projectId}
+						selectionId={{ ...selectedKey, type: 'branch', branchName: selectedKey.branchName }}
+					/>
+				</div>
+			{/if}
+		{:else if branchName}
+			<div class="details-view">
+				<BranchView
+					stackId={stack.id}
+					{projectId}
+					{branchName}
+					active={selectionId.type !== 'worktree'}
+					draggableFiles
+					{onerror}
+				/>
+			</div>
+			{#if selectedKey && selectedKey.type === 'branch'}
+				<div
+					class="details-view"
+					use:focusable={{
+						id: DefinedFocusable.Stack + ':' + stack.id,
+						parentId: DefinedFocusable.ViewportRight
+					}}
+				>
+					<SelectionView
+						{projectId}
+						selectionId={{ ...selectedKey, type: 'branch', branchName: selectedKey.branchName }}
+					/>
+				</div>
+			{/if}
+		{/if}
+	{/if}
+</AsyncRender>
+
+<style lang="postcss">
+	.lane {
+		display: flex;
+		position: relative;
+		flex-shrink: 0;
+		flex-direction: column;
+		overflow-x: hidden;
+		overflow-y: auto;
+		border-right: 1px solid var(--clr-border-2);
+		scroll-snap-align: start;
+
+		&:first-child {
+			border-left: 1px solid var(--clr-border-2);
+		}
+		&.single {
+			flex-basis: calc(100% - 30px);
+		}
+		&.single-fullwidth {
+			flex-basis: 100%;
+		}
+		&.multi {
+			width: 100%;
+			max-width: var(--lane-multi-max-width);
+		}
+		&.vertical {
+			border-bottom: 1px solid var(--clr-border-2);
+		}
+		&.three-five {
+			width: 420px;
+			max-width: unset;
+		}
+	}
+
+	.assigned-changes-empty__text {
+		width: 100%;
+		color: var(--clr-text-2);
+		text-align: center;
+		opacity: 0.7;
+		transition:
+			color var(--transition-fast),
+			opacity var(--transition-fast);
+	}
+
+	.assignments {
+		display: flex;
+		flex-direction: column;
+		margin-bottom: 8px;
+		margin: 12px 12px 0 12px;
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+		background-color: var(--clr-bg-1);
+
+		&.dropzone-activated {
+			& .assigned-changes-empty {
+				padding: 14px 8px 14px;
+				background-color: var(--clr-bg-1);
+				will-change: padding;
+			}
+
+			& .assigned-changes-empty__text {
+				color: var(--clr-theme-pop-on-soft);
+			}
+		}
+	}
+
+	.assignments__empty {
+		margin-top: -12px;
+		border-top: none;
+		border-top-right-radius: 0;
+		border-top-left-radius: 0;
+		background-color: var(--clr-bg-2);
+	}
+
+	.details-view {
+		flex-shrink: 0;
+		width: 520px;
+		border-right: 1px solid var(--clr-border-2);
+		white-space: wrap;
+	}
+
+	/* EMPTY ASSIGN AREA */
+	.assigned-changes-empty {
+		display: flex;
+		position: relative;
+		padding: 6px 8px 8px;
+		overflow: hidden;
+		gap: 12px;
+		transition: background-color var(--transition-fast);
+	}
+</style>

@@ -6,12 +6,14 @@
 	import BranchHeader from '$components/v3/BranchHeader.svelte';
 	import BranchHeaderContextMenu from '$components/v3/BranchHeaderContextMenu.svelte';
 	import PrNumberUpdater from '$components/v3/PrNumberUpdater.svelte';
+	import ReviewView from '$components/v3/ReviewView.svelte';
 	import { MoveCommitDzHandler, StartCommitDzHandler } from '$lib/commits/dropHandler';
-	import { assignmentEnabled } from '$lib/config/uiFeatureFlags';
+	import { assignmentEnabled, threePointFive } from '$lib/config/uiFeatureFlags';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import type { PushStatus } from '$lib/stacks/stack';
@@ -188,8 +190,32 @@
 						</div>
 					{/if}
 				{/snippet}
+				{#snippet buttons()}
+					{#if stackState?.action.current !== 'committing'}
+						<Button
+							size="tag"
+							kind="outline"
+							onclick={() => {
+								stackState?.action.set('committing');
+							}}
+						>
+							Create Pull Request
+						</Button>
+					{/if}
+				{/snippet}
 			</BranchHeader>
 		</Dropzone>
+		{#if $threePointFive && stackState?.action.current === 'committing'}
+			<div class="review-wrapper">
+				<ReviewView
+					{projectId}
+					{branchName}
+					stackId={args.stackId}
+					noDrawer
+					oncancel={() => stackState.action.set(undefined)}
+				/>
+			</div>
+		{/if}
 	{:else if args.type === 'normal-branch'}
 		<BranchHeader
 			{branchName}
@@ -309,5 +335,10 @@
 	.branch-header__review-badges {
 		display: flex;
 		gap: 4px;
+	}
+
+	.review-wrapper {
+		padding: 12px;
+		border-bottom: 1px solid var(--clr-border-2);
 	}
 </style>

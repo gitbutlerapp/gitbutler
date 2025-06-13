@@ -1,8 +1,7 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Resizer from '$components/Resizer.svelte';
-	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
-	import { focusable } from '$lib/focus/focusable.svelte';
+	import { threePointFive } from '$lib/config/uiFeatureFlags';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -70,11 +69,14 @@
 	data-testid={testId}
 	class="drawer"
 	bind:this={drawerDiv}
-	style:height
+	style:height={$threePointFive ? undefined : height}
 	style:min-height="{minHeight}rem"
-	use:focusable={{ id: DefinedFocusable.Drawer, parentId: DefinedFocusable.ViewportMiddle }}
 >
-	<div class="drawer-wrap" class:top-border={!drawerIsFullScreen.current}>
+	<div
+		class="drawer-wrap"
+		class:top-border={!drawerIsFullScreen.current && !$threePointFive}
+		class:bottom-border={$threePointFive}
+	>
 		<div bind:this={headerDiv} class="drawer-header" class:no-left-padding={noLeftPadding}>
 			<div class="drawer-header__title">
 				{#if title}
@@ -187,6 +189,9 @@
 
 		&.top-border {
 			border-top: 1px solid var(--clr-border-2);
+		}
+		&.bottom-border {
+			border-bottom: 1px solid var(--clr-border-2);
 		}
 	}
 

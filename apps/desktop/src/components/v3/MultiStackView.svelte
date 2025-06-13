@@ -1,32 +1,27 @@
 <script lang="ts">
 	import Scrollbar from '$components/Scrollbar.svelte';
-	import AsyncRender from '$components/v3/AsyncRender.svelte';
 	import BranchLayoutMode from '$components/v3/BranchLayoutMode.svelte';
-	import BranchList from '$components/v3/BranchList.svelte';
 	import MultiStackCreateNew from '$components/v3/MultiStackCreateNew.svelte';
 	import MultiStackOfflaneDropzone from '$components/v3/MultiStackOfflaneDropzone.svelte';
 	import MultiStackPagination, { scrollToLane } from '$components/v3/MultiStackPagination.svelte';
 	import StackDraft from '$components/v3/StackDraft.svelte';
-	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
+	import StackView from '$components/v3/StackView.svelte';
 	import { stackLayoutMode, threePointFive } from '$lib/config/uiFeatureFlags';
-	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
+	import { type SelectionId } from '$lib/selection/key';
 	import { UiState } from '$lib/state/uiState.svelte';
-	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
-	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
-	import type { SelectionId } from '$lib/selection/key';
 	import type { Stack } from '$lib/stacks/stack';
 
 	type Props = {
 		projectId: string;
 		selectedId?: string;
 		stacks: Stack[];
-		active: boolean;
 		selectionId: SelectionId;
+		focusedStackId?: string;
 	};
 
-	const { projectId, selectedId, stacks, active, selectionId }: Props = $props();
+	const { projectId, selectedId, stacks, selectionId, focusedStackId }: Props = $props();
 
 	let lanesSrollableEl = $state<HTMLDivElement>();
 	let lanesScrollableWidth = $state<number>(0);
@@ -52,14 +47,12 @@
 		if ($stackLayoutMode) scrollbar?.updateTrack();
 	});
 
-	const [uiState, uncommittedService] = inject(UiState, UncommittedService);
+	const [uiState] = inject(UiState);
 	const projectState = $derived(uiState.project(projectId));
 	const drawer = $derived(projectState.drawerPage);
 	const isCommitting = $derived(drawer.current === 'new-commit');
 
 	const SHOW_PAGINATION_THRESHOLD = 1;
-
-	let dropzoneActivated = $state(false);
 </script>
 
 {#if !$threePointFive}
@@ -119,71 +112,22 @@
 	>
 		{#if stacks.length > 0}
 			{#each stacks as stack, i}
-				<AsyncRender>
-					<div
-						class="lane"
-						class:multi={$stackLayoutMode === 'multi' || stacks.length < SHOW_PAGINATION_THRESHOLD}
-						class:single={$stackLayoutMode === 'single' &&
-							stacks.length >= SHOW_PAGINATION_THRESHOLD}
-						class:single-fullwidth={$stackLayoutMode === 'single' && stacks.length === 1}
-						class:vertical={$stackLayoutMode === 'vertical'}
-						data-id={stack.id}
-						bind:clientWidth={laneWidths[i]}
-						bind:clientHeight={lineHights[i]}
-						data-testid={TestId.Stack}
-						data-testid-stackid={stack.id}
-						data-testid-stack={stack.heads.at(0)?.name}
-						use:intersectionObserver={{
-							callback: (entry) => {
-								if (entry?.isIntersecting) {
-									visibleIndexes = [...visibleIndexes, i];
-								} else {
-									visibleIndexes = visibleIndexes.filter((index) => index !== i);
-								}
-							},
-							options: {
-								threshold: 0.5,
-								root: lanesSrollableEl
-							}
-						}}
-					>
-						<BranchList
-							isVerticalMode={$stackLayoutMode === 'vertical'}
-							{projectId}
-							stackId={stack.id}
-							{active}
-						>
-							{#snippet assignments()}
-								{@const changes = uncommittedService.changesByStackId(stack.id || null)}
-								<div
-									class="assignments"
-									class:assignments__empty={changes.current.length === 0}
-									class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
-								>
-									<WorktreeChanges
-										title="Assigned"
-										{projectId}
-										stackId={stack.id}
-										mode="assigned"
-										active={selectionId.type === 'worktree' && selectionId.stackId === stack.id}
-										dropzoneVisible={changes.current.length === 0 && !isCommitting}
-										onDropzoneActivated={(activated) => {
-											dropzoneActivated = activated;
-										}}
-									>
-										{#snippet emptyPlaceholder()}
-											<div class="assigned-changes-empty">
-												<p class="text-12 text-body assigned-changes-empty__text">
-													Drop files to assign to the lane
-												</p>
-											</div>
-										{/snippet}
-									</WorktreeChanges>
-								</div>
-							{/snippet}
-						</BranchList>
-					</div>
-				</AsyncRender>
+				<StackView
+					{projectId}
+					{stack}
+					{selectionId}
+					{focusedStackId}
+					bind:clientWidth={laneWidths[i]}
+					bind:clientHeight={lineHights[i]}
+					onVisible={(visible) => {
+						if (visible) {
+							visibleIndexes = [...visibleIndexes, i];
+						} else {
+							visibleIndexes = visibleIndexes.filter((index) => index !== i);
+						}
+					}}
+					siblingCount={stacks.length}
+				/>
 			{/each}
 
 			{#if lanesSrollableEl && $stackLayoutMode !== 'single'}
@@ -265,34 +209,6 @@
 		overflow: hidden;
 	}
 
-	.lane {
-		display: flex;
-		position: relative;
-		flex-shrink: 0;
-		flex-direction: column;
-		overflow-x: hidden;
-		overflow-y: auto;
-		border-right: 1px solid var(--clr-border-2);
-		scroll-snap-align: start;
-
-		&:first-child {
-			border-left: 1px solid var(--clr-border-2);
-		}
-		&.single {
-			flex-basis: calc(100% - 30px);
-		}
-		&.single-fullwidth {
-			flex-basis: 100%;
-		}
-		&.multi {
-			width: 100%;
-			max-width: var(--lane-multi-max-width);
-		}
-		&.vertical {
-			border-bottom: 1px solid var(--clr-border-2);
-		}
-	}
-
 	.pagination-container {
 		display: flex;
 		z-index: var(--z-floating);
@@ -334,55 +250,5 @@
 			background: radial-gradient(var(--clr-bg-2) 0%, oklch(from var(--clr-bg-2) l c h / 0) 70%);
 			content: '';
 		}
-	}
-
-	/* EMPTY ASSIGN AREA */
-	.assigned-changes-empty {
-		display: flex;
-		position: relative;
-		padding: 6px 8px 8px;
-		overflow: hidden;
-		gap: 12px;
-		transition: background-color var(--transition-fast);
-	}
-
-	.assigned-changes-empty__text {
-		width: 100%;
-		color: var(--clr-text-2);
-		text-align: center;
-		opacity: 0.7;
-		transition:
-			color var(--transition-fast),
-			opacity var(--transition-fast);
-	}
-
-	.assignments {
-		display: flex;
-		flex-direction: column;
-		margin-bottom: 8px;
-		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-1);
-
-		&.dropzone-activated {
-			& .assigned-changes-empty {
-				padding: 14px 8px 14px;
-				background-color: var(--clr-bg-1);
-				will-change: padding;
-			}
-
-			& .assigned-changes-empty__text {
-				color: var(--clr-theme-pop-on-soft);
-			}
-		}
-	}
-
-	.assignments__empty {
-		margin-top: -12px;
-		border-top: none;
-		border-top-right-radius: 0;
-		border-top-left-radius: 0;
-		background-color: var(--clr-bg-2);
 	}
 </style>
