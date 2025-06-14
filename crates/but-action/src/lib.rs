@@ -11,12 +11,13 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{Target, VirtualBranchesHandle};
+pub use openai::OpenAiProvider;
 use serde::{Deserialize, Serialize};
 
 mod action;
 mod gb_client;
 mod generate;
-mod provider;
+mod openai;
 mod serialize;
 mod simple;
 pub use action::ActionListing;
@@ -26,13 +27,14 @@ use strum::EnumString;
 
 pub fn handle_changes(
     ctx: &mut CommandContext,
+    openai: &Option<OpenAiProvider>,
     change_summary: &str,
     external_prompt: Option<String>,
     handler: ActionHandler,
 ) -> anyhow::Result<Outcome> {
     match handler {
         ActionHandler::HandleChangesSimple => {
-            simple::handle_changes(ctx, change_summary, external_prompt)
+            simple::handle_changes(ctx, openai, change_summary, external_prompt)
         }
     }
 }

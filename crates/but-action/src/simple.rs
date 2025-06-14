@@ -14,6 +14,7 @@ use gitbutler_stack::VirtualBranchesHandle;
 
 use crate::{
     Outcome, default_target_setting_if_none, gb_client, generate::commit_message_blocking,
+    openai::OpenAiProvider,
 };
 /// This is a GitButler automation which allows easy handling of uncommitted changes in a repository.
 /// At a high level, it will:
@@ -27,6 +28,7 @@ use crate::{
 ///   - Create a separate persisted entry recording the request context and IDs for the two oplog snapshots
 pub fn handle_changes(
     ctx: &mut CommandContext,
+    openai: &Option<OpenAiProvider>,
     change_summary: &str,
     external_prompt: Option<String>,
 ) -> anyhow::Result<Outcome> {
@@ -43,8 +45,14 @@ pub fn handle_changes(
         )?
         .to_gix();
 
-    let response =
-        handle_changes_simple_inner(ctx, change_summary, external_prompt.clone(), vb_state, perm);
+    let response = handle_changes_simple_inner(
+        ctx,
+        openai,
+        change_summary,
+        external_prompt.clone(),
+        vb_state,
+        perm,
+    );
 
     let snapshot_after = ctx
         .create_snapshot(
@@ -70,6 +78,7 @@ pub fn handle_changes(
 
 fn handle_changes_simple_inner(
     ctx: &mut CommandContext,
+    openai: &Option<OpenAiProvider>,
     change_summary: &str,
     external_prompt: Option<String>,
     vb_state: &VirtualBranchesHandle,
@@ -152,8 +161,15 @@ fn handle_changes_simple_inner(
             &external_prompt.unwrap_or_default(),
             "",
         )?
+    } else if let Some(openai) = openai {
+        commit_message_blocking(
+            openai,
+            change_summary,
+            &external_prompt.unwrap_or_default(),
+            "",
+        )?
     } else {
-        commit_message_blocking(change_summary, &external_prompt.unwrap_or_default(), "")?
+        change_summary.to_string()
     };
 
     for (stack_id, diff_specs) in stack_assignments {

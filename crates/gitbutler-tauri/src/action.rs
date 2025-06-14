@@ -1,4 +1,5 @@
 use crate::error::Error;
+use but_action::OpenAiProvider;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use tracing::instrument;
@@ -28,6 +29,7 @@ pub fn handle_changes(
 ) -> anyhow::Result<but_action::Outcome, Error> {
     let project = projects.get(project_id)?;
     let ctx = &mut CommandContext::open(&project, settings.get()?.clone())?;
-    but_action::handle_changes(ctx, &change_summary, None, handler)
+    let openai = OpenAiProvider::new(None).ok();
+    but_action::handle_changes(ctx, &openai, &change_summary, None, handler)
         .map_err(|e| Error::from(anyhow::anyhow!(e)))
 }
