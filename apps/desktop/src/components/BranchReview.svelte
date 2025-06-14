@@ -152,7 +152,6 @@
 			testId={TestId.CreateReviewButton}
 			onclick={() => {
 				if ($settingsStore?.featureFlags.v3) {
-					uiState.project(projectId).drawerPage.current = 'review';
 					if (stackId) {
 						uiState.stack(stackId).action.current = 'review';
 					}

@@ -102,10 +102,9 @@
 	const [integrateUpstreamCommits, upstreamIntegration] = stackService.integrateUpstreamCommits;
 
 	const projectState = $derived(uiState.project(projectId));
-	const drawer = $derived(projectState.drawerPage);
-	const commitSourceId = $derived(projectState.commitSourceId.current);
+	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 	const isCommitting = $derived(
-		drawer.current === 'new-commit' && (commitSourceId === undefined || commitSourceId === stackId)
+		exclusiveAction?.type === 'commit' && exclusiveAction.stackId === stackId
 	);
 	const stackActive = $derived(stackId === projectState.stackId.current);
 	const stackState = $derived(uiState.stack(stackId));
@@ -255,7 +254,6 @@
 								createdAt={commit.createdAt}
 								tooltip="Upstream"
 								{branchName}
-								{projectId}
 								{first}
 								lastCommit={lastCommit && localAndRemoteCommits.length === 0}
 								{selected}
@@ -371,7 +369,6 @@
 							createdAt={commit.createdAt}
 							{stackId}
 							{branchName}
-							{projectId}
 							{first}
 							lastCommit={last}
 							{lastBranch}

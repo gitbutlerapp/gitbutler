@@ -25,7 +25,7 @@
 	let reviewCreation = $state<ReturnType<typeof ReviewCreation>>();
 
 	function close() {
-		uiState.project(projectId).drawerPage.current = 'branch';
+		uiState.stack(stackId).action.set(undefined);
 	}
 
 	const stackService = getContext(StackService);
@@ -64,7 +64,7 @@
 
 {#snippet editor()}
 	<AsyncRender>
-		<div data-testid={TestId.ReviewView}>
+		<div class="review-view" data-testid={TestId.ReviewView}>
 			<ReviewCreation
 				bind:this={reviewCreation}
 				{projectId}
@@ -94,7 +94,7 @@
 		{@render editor()}
 	</div>
 {:else}
-	<Drawer {projectId} {stackId} title={getTitleLabel()} disableScroll minHeight={20}>
+	<Drawer {projectId} title={getTitleLabel()} disableScroll minHeight={20}>
 		<div class="submit-review__container">
 			{@render editor()}
 		</div>
@@ -102,6 +102,11 @@
 {/if}
 
 <style lang="postcss">
+	.review-view {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
 	.submit-review__container {
 		display: flex;
 		flex-grow: 1;

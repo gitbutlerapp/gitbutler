@@ -9,7 +9,6 @@
 	type Props = {
 		projectId: string;
 		title?: string;
-		stackId?: string;
 		minHeight?: number;
 		noLeftPadding?: boolean;
 		header?: Snippet;
@@ -20,12 +19,12 @@
 		disableScroll?: boolean;
 		testId?: string;
 		fill?: boolean;
+		onclose?: () => void;
 	};
 
 	const {
 		title,
 		projectId,
-		stackId,
 		minHeight = 11,
 		noLeftPadding,
 		header,
@@ -35,13 +34,13 @@
 		filesSplitView,
 		disableScroll,
 		testId,
-		fill
+		fill,
+		onclose
 	}: Props = $props();
 
 	const [uiState] = inject(UiState);
 
 	const projectUiState = $derived(uiState.project(projectId));
-	const stackUiState = $derived(stackId ? uiState.stack(stackId) : undefined);
 
 	const drawerIsFullScreen = $derived(projectUiState.drawerFullScreen.get());
 	const heightRmResult = $derived(uiState.global.drawerHeight.get());
@@ -58,11 +57,6 @@
 
 	function onToggleExpand() {
 		projectUiState.drawerFullScreen.set(!drawerIsFullScreen.current);
-	}
-
-	export function onClose() {
-		projectUiState.drawerPage.set(undefined);
-		stackUiState?.selection.set(undefined);
 	}
 </script>
 
@@ -104,7 +98,9 @@
 						onclick={onToggleExpand}
 					/>
 
-					<Button kind="ghost" icon="cross" size="tag" onclick={onClose} />
+					{#if onclose}
+						<Button kind="ghost" icon="cross" size="tag" onclick={() => onclose()} />
+					{/if}
 				</div>
 			</div>
 		</div>
@@ -175,8 +171,9 @@
 		flex-shrink: 0;
 		flex-direction: column;
 		width: 100%;
+		border-bottom: 1px solid var(--clr-border-2);
 		&.fill {
-			max-height: 100%;
+			max-height: calc(100% + 1px); /* Hides bottom border. */
 		}
 	}
 

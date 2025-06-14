@@ -63,7 +63,7 @@ export class StartCommitDzHandler implements DropzoneHandler {
 			uncommittedService.checkHunk(stackId, data.change.path, data.hunk);
 		}
 
-		projectState.drawerPage.set('new-commit');
+		projectState.exclusiveAction.set({ type: 'commit', stackId: this.args.stackId });
 		projectState.stackId.set(stackId);
 		stackState?.selection.set({ branchName: branchName });
 	}
