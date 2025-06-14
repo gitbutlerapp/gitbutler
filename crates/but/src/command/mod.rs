@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use but_action::OpenAiProvider;
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
@@ -13,7 +14,9 @@ pub(crate) fn handle_changes(
 ) -> anyhow::Result<()> {
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::default())?;
-    let response = but_action::handle_changes(ctx, change_description, None, handler.into())?;
+    let openai = OpenAiProvider::new(None).ok();
+    let response =
+        but_action::handle_changes(ctx, &openai, change_description, None, handler.into())?;
     print(&response, json)
 }
 

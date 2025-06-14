@@ -1,10 +1,17 @@
-use async_openai::types::{
-    ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessage,
-    CreateChatCompletionRequestArgs, ResponseFormat, ResponseFormatJsonSchema,
+use async_openai::{
+    Client,
+    config::OpenAIConfig,
+    types::{
+        ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessage,
+        CreateChatCompletionRequestArgs, ResponseFormat, ResponseFormatJsonSchema,
+    },
 };
 use schemars::{JsonSchema, schema_for};
 
+use crate::OpenAiProvider;
+
 pub fn commit_message_blocking(
+    openai: &OpenAiProvider,
     external_summary: &str,
     external_prompt: &str,
     diff: &str,
@@ -12,11 +19,13 @@ pub fn commit_message_blocking(
     let change_summary_owned = external_summary.to_string();
     let external_prompt_owned = external_prompt.to_string();
     let diff_owned = diff.to_string();
+    let client = openai.client()?;
 
     std::thread::spawn(move || {
         tokio::runtime::Runtime::new()
             .unwrap()
             .block_on(commit_message(
+                client,
                 &change_summary_owned,
                 &external_prompt_owned,
                 &diff_owned,
@@ -27,6 +36,8 @@ pub fn commit_message_blocking(
 }
 
 pub async fn commit_message(
+    // openai_provider: OpenAiProvider,
+    client: Client<OpenAIConfig>,
     external_summary: &str,
     external_prompt: &str,
     diff: &str,
@@ -37,8 +48,6 @@ pub async fn commit_message(
         "Extract the git commit data from the prompt, summary and diff output. Return the commit message. Determine from this AI prompt, summary and diff output what the git commit data should be.\n\n{}\n\nHere is the data:\n\nPrompt: {}\n\nSummary: {}\n\nDiff:\n```\n{}\n```\n\n",
         DEFAULT_COMMIT_MESSAGE_INSTRUCTIONS, external_prompt, external_summary, diff
     );
-
-    let client = crate::provider::OpenAiProvider::new(reqwest::Client::default())?.gitbutler()?;
 
     let schema = schema_for!(StructuredOutput);
     let schema_json = serde_json::to_value(schema).unwrap();

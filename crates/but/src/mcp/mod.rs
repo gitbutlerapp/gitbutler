@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
-use but_action::ActionHandler;
+use but_action::{ActionHandler, OpenAiProvider};
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
@@ -26,15 +26,18 @@ pub(crate) async fn start(app_settings: AppSettings) -> Result<()> {
 pub struct Mcp {
     app_settings: AppSettings,
     metrics: Metrics,
+    openai: Option<OpenAiProvider>,
 }
 
 #[tool(tool_box)]
 impl Mcp {
     pub fn new(app_settings: AppSettings) -> Self {
         let metrics = Metrics::new_with_background_handling(&app_settings);
+        let openai = OpenAiProvider::new(None).ok();
         Self {
             app_settings,
             metrics,
+            openai,
         }
     }
 
@@ -75,6 +78,7 @@ impl Mcp {
 
         let response = but_action::handle_changes(
             ctx,
+            &self.openai,
             &request.changes_summary,
             Some(request.full_prompt),
             ActionHandler::HandleChangesSimple,
