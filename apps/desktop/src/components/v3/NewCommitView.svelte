@@ -82,6 +82,9 @@
 	const selection = $derived(stackState?.selection.current);
 	const selectedCommitId = $derived(selection?.commitId);
 
+	const exclusiveAction = $derived(projectState.exclusiveAction.current);
+	const commitAction = $derived(exclusiveAction?.type === 'commit' ? exclusiveAction : undefined);
+
 	const selectedLines = $derived(uncommittedService.selectedLines(stackId));
 	const topBranchResult = $derived(stackId ? stackService.branches(projectId, stackId) : undefined);
 	const topBranchName = $derived(topBranchResult?.current.data?.at(0)?.name);
@@ -98,7 +101,7 @@
 
 	async function createCommit(message: string) {
 		let finalStackId = stackId;
-		let finalBranchName = selectedBranchName || topBranchName;
+		let finalBranchName = commitAction?.branchName || topBranchName;
 
 		if (!finalStackId) {
 			const stack = await createNewStack({

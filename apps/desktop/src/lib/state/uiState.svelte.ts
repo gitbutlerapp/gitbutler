@@ -39,6 +39,7 @@ type BranchesSelection = {
 type ExclusiveAction = { type: 'commit' } & {
 	type: 'commit';
 	stackId?: string;
+	branchName?: string;
 	parentCommitId?: string;
 };
 
