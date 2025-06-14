@@ -4,7 +4,6 @@
 	import MultiStackPagination, { scrollToLane } from '$components/v3/MultiStackPagination.svelte';
 	import StackDraft from '$components/v3/StackDraft.svelte';
 	import StackView from '$components/v3/StackView.svelte';
-	import { stackLayoutMode } from '$lib/config/uiFeatureFlags';
 	import { type SelectionId } from '$lib/selection/key';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
@@ -23,7 +22,6 @@
 	let lanesScrollableEl = $state<HTMLDivElement>();
 	let lanesScrollableWidth = $state<number>(0);
 	let lanesScrollableHeight = $state<number>(0);
-	let scrollbar = $state<Scrollbar>();
 
 	let laneWidths = $state<number[]>([]);
 	let lineHights = $state<number[]>([]);
@@ -37,13 +35,6 @@
 	let visibleIndexes = $state<number[]>([0]);
 	let isCreateNewVisible = $state<boolean>(false);
 
-	$effect(() => {
-		// Explicit scrollbar track size update since changing scroll width
-		// does not trigger the resize observer, and changing css does not
-		// trigger the mutation observer
-		if ($stackLayoutMode) scrollbar?.updateTrack();
-	});
-
 	const [uiState] = inject(UiState);
 	const projectState = $derived(uiState.project(projectId));
 	const drawer = $derived(projectState.drawerPage);
@@ -53,11 +44,7 @@
 </script>
 
 {#if isNotEnoughHorzSpace && isNotEnoughVertSpace}
-	<div
-		class="pagination-container"
-		class:horz={$stackLayoutMode !== 'vertical'}
-		class:vert={$stackLayoutMode === 'vertical'}
-	>
+	<div class="pagination-container">
 		<MultiStackPagination
 			length={stacks.length}
 			{visibleIndexes}
@@ -65,14 +52,9 @@
 			selectedBranchIndex={stacks.findIndex((s) => {
 				return s.id === selectedId;
 			})}
-			onPageClick={(index) =>
-				scrollToLane(lanesScrollableEl, index, $stackLayoutMode === 'vertical' ? 'vert' : 'horz')}
+			onPageClick={(index) => scrollToLane(lanesScrollableEl, index)}
 			onCreateNewClick={() => {
-				scrollToLane(
-					lanesScrollableEl,
-					stacks.length + 1,
-					$stackLayoutMode === 'vertical' ? 'vert' : 'horz'
-				);
+				scrollToLane(lanesScrollableEl, stacks.length + 1);
 			}}
 		/>
 	</div>
@@ -84,9 +66,7 @@
 		bind:this={lanesScrollableEl}
 		bind:clientWidth={lanesScrollableWidth}
 		bind:clientHeight={lanesScrollableHeight}
-		class:multi={$stackLayoutMode === 'multi' || stacks.length < SHOW_PAGINATION_THRESHOLD}
-		class:single={$stackLayoutMode === 'single' && stacks.length >= SHOW_PAGINATION_THRESHOLD}
-		class:vertical={$stackLayoutMode === 'vertical'}
+		class:multi={stacks.length < SHOW_PAGINATION_THRESHOLD}
 	>
 		{#if isCommitting && stacks.length === 0}
 			<StackDraft {projectId} />
@@ -99,7 +79,6 @@
 					onVisible={(visible) => {
 						isCreateNewVisible = visible;
 					}}
-					isSingleMode={$stackLayoutMode === 'single'}
 				/>
 			</div>
 		{:else if stacks.length > 0}
@@ -117,7 +96,6 @@
 							visibleIndexes = visibleIndexes.filter((index) => index !== i);
 						}
 					}}
-					siblingCount={stacks.length}
 				/>
 			{/each}
 
@@ -128,10 +106,9 @@
 				onVisible={(visible) => {
 					isCreateNewVisible = visible;
 				}}
-				isSingleMode={$stackLayoutMode === 'single'}
 			/>
-			{#if lanesScrollableEl && $stackLayoutMode !== 'single'}
-				<Scrollbar viewport={lanesScrollableEl} horz={$stackLayoutMode !== 'vertical'} />
+			{#if lanesScrollableEl}
+				<Scrollbar viewport={lanesScrollableEl} horz />
 			{/if}
 		{/if}
 	</div>
@@ -142,18 +119,7 @@
 		display: flex;
 		height: 100%;
 		margin: 0 -1px;
-
-		&.single {
-			scroll-snap-type: x mandatory;
-		}
-		&.single,
-		&.multi {
-			overflow-x: auto;
-		}
-		&.vertical {
-			flex-direction: column;
-			overflow-y: auto;
-		}
+		overflow-x: auto;
 	}
 
 	.lanes-viewport {
@@ -168,18 +134,8 @@
 		display: flex;
 		z-index: var(--z-floating);
 		position: absolute;
-
-		&.horz {
-			right: 6px;
-			bottom: 8px;
-		}
-
-		&.vert {
-			right: 8px;
-			bottom: 8px;
-			transform: rotate(90deg) translateY(100%);
-			transform-origin: right bottom;
-		}
+		right: 6px;
+		bottom: 8px;
 	}
 
 	.no-stacks-placeholder {

@@ -1,24 +1,11 @@
 <script lang="ts" module>
-	export function scrollToLane(
-		el: HTMLElement | undefined,
-		index: number,
-		direction: 'horz' | 'vert'
-	) {
+	export function scrollToLane(el: HTMLElement | undefined, index: number) {
 		if (!el) return;
-
-		if (direction === 'vert') {
-			const laneHeight = el?.offsetHeight ?? 0;
-			el?.scrollTo({
-				top: laneHeight * index,
-				behavior: 'smooth'
-			});
-		} else {
-			const laneWidth = el?.offsetWidth ?? 0;
-			el?.scrollTo({
-				left: laneWidth * index,
-				behavior: 'smooth'
-			});
-		}
+		const laneWidth = el?.offsetWidth ?? 0;
+		el?.scrollTo({
+			left: laneWidth * index,
+			behavior: 'smooth'
+		});
 	}
 </script>
 

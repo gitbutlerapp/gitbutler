@@ -5,10 +5,8 @@
  * @module appSettings
  */
 import { persisted, persistWithExpiration } from '@gitbutler/shared/persisted';
-import type { StackLayout } from '$components/v3/BranchLayoutMode.svelte';
 
 export const autoSelectBranchNameFeature = persisted(false, 'autoSelectBranchLaneContentsFeature');
-export const stackLayoutMode = persisted<StackLayout>('multi', 'stack-layout');
 export const confettiEnabled = persisted(false, 'experimental-confetti');
 export const workspaceSwapPanels = persisted<
 	'dont-swap-panels' | 'swap-middle-to-right' | 'swap-middle-to-left'
