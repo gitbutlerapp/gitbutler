@@ -137,7 +137,7 @@
 	>
 		{#if children}
 			<span
-				class="btn-label text-semibold"
+				class="btn-label text-semibold truncate"
 				class:text-12={size === 'button' || size === 'cta'}
 				class:text-11={size === 'tag'}
 				class:text-10={size === 'icon'}
@@ -213,7 +213,6 @@
 
 		/* Child elements */
 		.btn-label {
-			display: inline-flex;
 			padding: 0 2px;
 			white-space: nowrap;
 			pointer-events: none;
