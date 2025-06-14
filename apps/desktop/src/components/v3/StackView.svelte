@@ -1,13 +1,11 @@
 <script lang="ts">
 	import Resizer from '$components/Resizer.svelte';
-	import Scrollbar from '$components/Scrollbar.svelte';
 	import AsyncRender from '$components/v3/AsyncRender.svelte';
 	import BranchList from '$components/v3/BranchList.svelte';
 	import BranchView from '$components/v3/BranchView.svelte';
 	import CommitView from '$components/v3/CommitView.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
-	import { stackLayoutMode } from '$lib/config/uiFeatureFlags';
 	import { isParsedError } from '$lib/error/parser';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
@@ -24,7 +22,6 @@
 		projectId: string;
 		stack: Stack;
 		focusedStackId?: string;
-		siblingCount: number;
 		onVisible: (visible: boolean) => void;
 		clientWidth?: number;
 		clientHeight?: number;
@@ -34,21 +31,12 @@
 		projectId,
 		stack,
 		focusedStackId,
-		siblingCount,
 		clientHeight = $bindable(),
 		clientWidth = $bindable(),
 		onVisible
 	}: Props = $props();
 
 	let lanesSrollableEl = $state<HTMLDivElement>();
-	let scrollbar = $state<Scrollbar>();
-
-	$effect(() => {
-		// Explicit scrollbar track size update since changing scroll width
-		// does not trigger the resize observer, and changing css does not
-		// trigger the mutation observer
-		if ($stackLayoutMode) scrollbar?.updateTrack();
-	});
 
 	const [uiState, uncommittedService, idSelection] = inject(
 		UiState,
@@ -58,8 +46,6 @@
 	const projectState = $derived(uiState.project(projectId));
 	const drawer = $derived(projectState.drawerPage);
 	const isCommitting = $derived(drawer.current === 'new-commit');
-
-	const SHOW_PAGINATION_THRESHOLD = 1;
 
 	let dropzoneActivated = $state(false);
 
@@ -98,11 +84,6 @@
 <AsyncRender>
 	<div
 		class="lane"
-		class:multi={$stackLayoutMode === 'multi' || siblingCount < SHOW_PAGINATION_THRESHOLD}
-		class:single={$stackLayoutMode === 'single' && siblingCount >= SHOW_PAGINATION_THRESHOLD}
-		class:single-fullwidth={$stackLayoutMode === 'single' && siblingCount === 1}
-		class:vertical={$stackLayoutMode === 'vertical'}
-		class:three-five={true}
 		data-id={stack.id}
 		bind:clientWidth
 		bind:clientHeight
@@ -150,12 +131,7 @@
 				{/snippet}
 			</WorktreeChanges>
 		</div>
-		<BranchList
-			isVerticalMode={$stackLayoutMode === 'vertical'}
-			{projectId}
-			stackId={stack.id}
-			{focusedStackId}
-		>
+		<BranchList {projectId} stackId={stack.id} {focusedStackId}>
 			{#snippet assignments()}{/snippet}
 		</BranchList>
 		<Resizer
@@ -252,6 +228,8 @@
 		position: relative;
 		flex-shrink: 0;
 		flex-direction: column;
+		width: 100%;
+		max-width: unset;
 		overflow-x: hidden;
 		overflow-y: auto;
 		border-right: 1px solid var(--clr-border-2);
@@ -259,21 +237,6 @@
 
 		&:first-child {
 			border-left: 1px solid var(--clr-border-2);
-		}
-		&.single {
-			flex-basis: calc(100% - 30px);
-		}
-		&.single-fullwidth {
-			flex-basis: 100%;
-		}
-		&.multi {
-			width: 100%;
-		}
-		&.vertical {
-			border-bottom: 1px solid var(--clr-border-2);
-		}
-		&.three-five {
-			max-width: unset;
 		}
 	}
 
