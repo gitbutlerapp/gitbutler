@@ -35,9 +35,10 @@
 		commitKey: CommitKey;
 		active?: boolean;
 		onerror: (err: unknown) => void;
+		onclose?: () => void;
 	};
 
-	const { projectId, stackId, commitKey, active, onerror }: Props = $props();
+	const { projectId, stackId, commitKey, active, onerror, onclose }: Props = $props();
 
 	const [stackService, uiState] = inject(StackService, UiState);
 
@@ -139,10 +140,10 @@
 			<Drawer
 				testId={TestId.EditCommitMessageDrawer}
 				projectId={env.projectId}
-				stackId={env.stackId}
 				title="Edit commit message"
 				disableScroll
 				minHeight={20}
+				{onclose}
 				fill
 			>
 				<CommitMessageEditor
@@ -159,13 +160,7 @@
 				/>
 			</Drawer>
 		{:else}
-			<Drawer
-				testId={TestId.CommitDrawer}
-				projectId={env.projectId}
-				stackId={env.stackId}
-				noLeftPadding
-				fill
-			>
+			<Drawer testId={TestId.CommitDrawer} projectId={env.projectId} {onclose} noLeftPadding fill>
 				{#snippet header()}
 					<div class="commit-view__header text-13">
 						{#if isLocalAndRemoteCommit(commit)}

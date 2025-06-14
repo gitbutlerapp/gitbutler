@@ -38,12 +38,10 @@
 	const branchesResult = $derived(stackService.branches(projectId, stackId));
 
 	const projectState = $derived(uiState.project(projectId));
-	const drawer = $derived(projectState.drawerPage);
-	const commitSourceId = $derived(projectState.commitSourceId.current);
+	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 	const isCommitting = $derived(
-		drawer.current === 'new-commit' && (commitSourceId === undefined || commitSourceId === stackId)
+		exclusiveAction?.type === 'commit' && exclusiveAction?.stackId === stackId
 	);
-
 	const stackSelected = $derived(stackId === projectState.stackId.current);
 	const stackState = $derived(uiState.stack(stackId));
 	const selection = $derived(stackState.selection);
@@ -60,7 +58,7 @@
 
 	function startEditingCommitMessage(branchName: string, commitId: string) {
 		stackState.selection.set({ branchName, commitId });
-		projectState.drawerPage.set(undefined);
+		projectState.exclusiveAction.set(undefined);
 		projectState.editingCommitMessage.set(true);
 	}
 
@@ -87,7 +85,6 @@
 			projectState.stackId.set(stackId);
 		} else {
 			uiState.stack(stackId).selection.set({ branchName });
-			uiState.project(projectId).drawerPage.set('branch');
 		}
 	}
 

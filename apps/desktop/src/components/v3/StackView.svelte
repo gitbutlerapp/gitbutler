@@ -4,6 +4,7 @@
 	import BranchList from '$components/v3/BranchList.svelte';
 	import BranchView from '$components/v3/BranchView.svelte';
 	import CommitView from '$components/v3/CommitView.svelte';
+	import NewCommitView from '$components/v3/NewCommitView.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
 	import { isParsedError } from '$lib/error/parser';
@@ -12,9 +13,11 @@
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { readKey } from '$lib/selection/key';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
 	import type { Stack } from '$lib/stacks/stack';
 
@@ -38,14 +41,17 @@
 
 	let lanesSrollableEl = $state<HTMLDivElement>();
 
-	const [uiState, uncommittedService, idSelection] = inject(
+	const [uiState, uncommittedService, idSelection, stackService] = inject(
 		UiState,
 		UncommittedService,
-		IdSelection
+		IdSelection,
+		StackService
 	);
 	const projectState = $derived(uiState.project(projectId));
-	const drawer = $derived(projectState.drawerPage);
-	const isCommitting = $derived(drawer.current === 'new-commit');
+	const exclusiveAction = $derived(projectState.exclusiveAction.current);
+	const isCommitting = $derived(
+		exclusiveAction?.type === 'commit' && exclusiveAction.stackId === stack.id
+	);
 
 	let dropzoneActivated = $state(false);
 
@@ -79,6 +85,25 @@
 	let laneEl = $state<HTMLDivElement>();
 	let detailsEl = $state<HTMLDivElement>();
 	let previewEl = $state<HTMLDivElement>();
+
+	const defaultBranchResult = $derived(stackService.defaultBranch(projectId, stack.id));
+	const defaultBranchName = $derived(defaultBranchResult?.current.data);
+
+	function startCommit() {
+		if (changes.current) {
+			uncommittedService.checkAll(stack.id || null);
+		}
+		projectState.exclusiveAction.set({ type: 'commit', stackId: stack.id });
+		if (defaultBranchName) {
+			projectState.stackId.set(stack.id);
+			stackState?.selection.set({ branchName: defaultBranchName });
+		}
+		uncommittedService.checkAll(null);
+	}
+
+	function onclose() {
+		selection.set(undefined);
+	}
 </script>
 
 <AsyncRender>
@@ -109,6 +134,7 @@
 		<div
 			class="assignments"
 			class:assignments__empty={changes.current.length === 0}
+			class:committing={isCommitting}
 			class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
 		>
 			<WorktreeChanges
@@ -130,6 +156,27 @@
 					</div>
 				{/snippet}
 			</WorktreeChanges>
+		</div>
+		<div class="new-commit">
+			{#if !isCommitting}
+				<div class="start-commit">
+					<Button
+						testId={TestId.StartCommitButton}
+						type="button"
+						wide
+						disabled={defaultBranchResult?.current.isLoading}
+						onclick={() => {
+							startCommit();
+						}}
+					>
+						Start a commit…
+					</Button>
+				</div>
+			{:else if isCommitting}
+				<div class="message-editor">
+					<NewCommitView {projectId} stackId={stack.id} noDrawer />
+				</div>
+			{/if}
 		</div>
 		<BranchList {projectId} stackId={stack.id} {focusedStackId}>
 			{#snippet assignments()}{/snippet}
@@ -178,6 +225,7 @@
 					}}
 					active={selectedKey?.type === 'commit' && focusedStackId === stack.id}
 					{onerror}
+					{onclose}
 				/>
 			{:else if branchName}
 				<BranchView
@@ -189,6 +237,7 @@
 						focusedStackId === stack.id}
 					draggableFiles
 					{onerror}
+					{onclose}
 				/>
 			{/if}
 			<Resizer
@@ -200,7 +249,7 @@
 			/>
 		</div>
 	{/if}
-	{#if selectedKey}
+	{#if selectedKey && !assignedKey}
 		<div
 			bind:this={previewEl}
 			style:width={uiState.global.previewWidth.current + 'rem'}
@@ -257,7 +306,8 @@
 		margin: 12px 12px 0 12px;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-ml);
+		border-bottom: none;
+		border-radius: var(--radius-ml) var(--radius-ml) 0 0;
 		/* background-color: var(--clr-bg-1); */
 
 		&.dropzone-activated {
@@ -276,8 +326,10 @@
 	.assignments__empty {
 		margin-top: 0;
 		border-top: none;
+		border-bottom: none;
 		border-top-right-radius: 0;
 		border-top-left-radius: 0;
+		border-radius: 0;
 	}
 
 	.details,
@@ -297,5 +349,13 @@
 		gap: 12px;
 		background-color: var(--clr-bg-2);
 		transition: background-color var(--transition-fast);
+	}
+
+	.new-commit {
+		margin: 0 12px 0 12px;
+		padding: 12px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
+		background-color: var(--clr-bg-1);
 	}
 </style>

@@ -4,7 +4,6 @@
 	import Dropzone from '$components/Dropzone.svelte';
 	import FileList from '$components/v3/FileList.svelte';
 	import FileListMode from '$components/v3/FileListMode.svelte';
-	import NewCommitView from '$components/v3/NewCommitView.svelte';
 	import WorktreeChangesSelectAll from '$components/v3/WorktreeChangesSelectAll.svelte';
 	import { createCommitStore } from '$lib/commits/contexts';
 	import { UncommitDzHandler } from '$lib/commits/dropHandler';
@@ -18,7 +17,6 @@
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { type Snippet } from 'svelte';
 	import type { DropzoneHandler } from '$lib/dragging/handler';
@@ -55,20 +53,8 @@
 	const uncommitDzHandler = $derived(new UncommitDzHandler(projectId, stackService, uiState));
 
 	const projectState = $derived(uiState.project(projectId));
-	const drawerPage = $derived(projectState.drawerPage);
-	const commitSourceId = $derived(projectState.commitSourceId.current);
-	const isCommitting = $derived(
-		drawerPage.current === 'new-commit' && (commitSourceId === stackId || stackId === undefined)
-	);
-	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
-
-	const defaultBranchResult = $derived(
-		stackId !== undefined ? stackService.defaultBranch(projectId, stackId) : undefined
-	);
-	const defaultBranchName = $derived(defaultBranchResult?.current.data);
-
-	const stacksResult = $derived(stackService.stacks(projectId));
-	const stacks = $derived(stacksResult.current?.data || []);
+	const exclusiveAction = $derived(projectState.exclusiveAction.current);
+	const isCommitting = $derived(exclusiveAction?.type === 'commit');
 
 	const changes = $derived(uncommittedService.changesByStackId(stackId || null));
 
@@ -77,21 +63,7 @@
 
 	let listMode: 'list' | 'tree' = $state('list');
 
-	function startCommit() {
-		if (changes.current) {
-			uncommittedService.checkAll(stackId || null);
-		}
-		drawerPage.set('new-commit');
-		projectState.commitSourceId.set(stackId);
-		if (defaultBranchName) {
-			projectState.stackId.set(stackId);
-			stackState?.selection.set({ branchName: defaultBranchName });
-		}
-		uncommittedService.checkAll(null);
-	}
-
 	let scrollTopIsVisible = $state(true);
-	let scrollBottomIsVisible = $state(true);
 
 	const assignmentDZHandler = $derived(
 		new AssignmentDropHandler(projectId, diffService, uncommittedService, stackId || null)
@@ -156,9 +128,6 @@
 				onscrollTop={(visible) => {
 					scrollTopIsVisible = visible;
 				}}
-				onscrollEnd={(visible) => {
-					scrollBottomIsVisible = visible;
-				}}
 			>
 				<div data-testid={TestId.UncommittedChanges_FileList} class="uncommitted-changes">
 					<FileList
@@ -178,36 +147,6 @@
 		{/if}
 	</div>
 </Dropzone>
-{#if !isCommitting && (stackId !== undefined || stacks.length === 0)}
-	<div class="start-commit" class:sticked-bottom={!scrollBottomIsVisible}>
-		<Button
-			testId={TestId.StartCommitButton}
-			kind={isCommitting ? 'outline' : 'solid'}
-			type="button"
-			wide
-			disabled={defaultBranchResult?.current.isLoading}
-			onclick={() => {
-				if (isCommitting) {
-					drawerPage.set(undefined);
-				} else {
-					startCommit();
-				}
-			}}
-		>
-			{#if isCommitting}
-				Cancel committing
-			{:else if mode === 'assigned' || stacks.length === 0}
-				Start a commit…
-			{:else}
-				Commit to selected branch…
-			{/if}
-		</Button>
-	</div>
-{:else if isCommitting && stackId !== undefined}
-	<div class="message-editor">
-		<NewCommitView {projectId} noDrawer onclose={() => drawerPage.set(undefined)} />
-	</div>
-{/if}
 
 <style>
 	.uncommitted-changes-wrap {
@@ -247,23 +186,8 @@
 		display: block;
 	}
 
-	.start-commit {
-		position: sticky;
-		bottom: -1px;
-		padding: 14px;
-		background-color: var(--clr-bg-1);
-	}
-
 	/* MODIFIERS */
 	.sticked-top {
 		border-bottom: 1px solid var(--clr-border-2);
-	}
-
-	.sticked-bottom {
-		border-top: 1px solid var(--clr-border-2);
-	}
-
-	.message-editor {
-		padding: 12px;
 	}
 </style>

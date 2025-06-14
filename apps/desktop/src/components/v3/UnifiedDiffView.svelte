@@ -59,10 +59,10 @@
 	let viewport = $state<HTMLDivElement>();
 
 	const projectState = $derived(uiState.project(projectId));
-	const drawerPage = $derived(projectState.drawerPage.current);
+	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 	const activeStackId = $derived(projectState.stackId.current);
 
-	const isCommiting = $derived(drawerPage === 'new-commit');
+	const isCommiting = $derived(exclusiveAction?.type === 'commit');
 	const isUncommittedChange = $derived(selectionId.type === 'worktree');
 
 	const [uncommittedService, dependencyService] = inject(UncommittedService, DependencyService);

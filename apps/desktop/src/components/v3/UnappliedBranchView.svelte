@@ -21,9 +21,10 @@
 		remote?: string;
 		prNumber?: number;
 		onerror?: (err: unknown) => void;
+		onclose?: () => void;
 	}
 
-	const { projectId, stackId, branchName, remote, prNumber, onerror }: Props = $props();
+	const { projectId, stackId, branchName, remote, prNumber, onerror, onclose }: Props = $props();
 
 	const [stackService] = inject(StackService);
 
@@ -56,7 +57,7 @@
 		{@const hasCommits = branch.commits.length > 0}
 		{@const remoteTrackingBranch = branch.remoteTrackingBranch}
 		{@const preferredPrNumber = branch.prNumber || prNumber}
-		<Drawer testId={TestId.UnappliedBranchDrawer} {projectId} {stackId}>
+		<Drawer testId={TestId.UnappliedBranchDrawer} {projectId} {onclose}>
 			{#snippet header()}
 				<div class="branch__header">
 					{#if hasCommits}
