@@ -3,6 +3,8 @@ use anyhow::{Context, Ok, Result};
 mod args;
 use args::{Args, Subcommands, actions};
 use but_settings::AppSettings;
+
+use crate::args::Inspect;
 mod command;
 mod id;
 mod log;
@@ -17,6 +19,10 @@ async fn main() -> Result<()> {
     let args: Args = clap::Parser::parse();
     let app_settings = AppSettings::load_from_default_path_creating()?;
     gitbutler_secret::secret::set_application_namespace("com.gitbutler.app");
+
+    if args.trace {
+        trace::init()?;
+    }
 
     match &args.cmd {
         Subcommands::Mcp { internal } => {
@@ -46,5 +52,43 @@ async fn main() -> Result<()> {
             }
             Ok(())
         }
+        args::Subcommands::BetaInspect(Inspect { cmd }) => match cmd {
+            args::InspectSubcommands::Status => {
+                command::inspect::status(&args.current_dir, args.json)
+            }
+            args::InspectSubcommands::Generate => {
+                command::inspect::generate(&args.current_dir, args.json)
+            }
+        },
+    }
+}
+
+mod trace {
+    use tracing::metadata::LevelFilter;
+    use tracing::subscriber::set_global_default;
+    use tracing_subscriber::Layer;
+    use tracing_subscriber::fmt::format::FmtSpan;
+    use tracing_subscriber::layer::SubscriberExt;
+
+    pub fn init() -> anyhow::Result<()> {
+        let format_for_humans = tracing_subscriber::fmt::format()
+            .with_file(true)
+            .with_line_number(true)
+            .with_target(false)
+            .compact();
+
+        let subscriber = tracing_subscriber::registry();
+
+        set_global_default(
+            subscriber.with(
+                // subscriber that writes spans to stdout
+                tracing_subscriber::fmt::layer()
+                    .event_format(format_for_humans)
+                    .with_ansi(true)
+                    .with_span_events(FmtSpan::CLOSE)
+                    .with_filter(LevelFilter::TRACE),
+            ),
+        )?;
+        Ok(())
     }
 }
