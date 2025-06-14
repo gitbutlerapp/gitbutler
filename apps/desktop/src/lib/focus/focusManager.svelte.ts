@@ -117,7 +117,6 @@ export class FocusManager implements Reactive<Focusable | undefined> {
 				const item = this.lookup.get(pointer);
 				if (item) {
 					this.setActive(item.key);
-					item.element.focus();
 					break;
 				}
 				pointer = pointer.parentElement;

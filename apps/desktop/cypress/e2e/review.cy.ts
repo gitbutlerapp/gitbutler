@@ -282,6 +282,9 @@ describe('Review', () => {
 						.should('be.visible')
 						.should('be.enabled')
 						.click();
+
+					// Click branch header to reveal pull request card.
+					cy.getByTestId('branch-header', stack.id).should('be.visible').click();
 				});
 			cy.get(`[data-details="${stack.id}"]`).within(() => {
 				// The PR card should be visible.
