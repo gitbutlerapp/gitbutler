@@ -132,51 +132,57 @@
 		}}
 	>
 		<div
-			class="assignments"
-			class:assignments__empty={changes.current.length === 0}
-			class:committing={isCommitting}
-			class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
+			class="assignments-wrap"
+			class:assignments__empty={changes.current.length === 0 && !isCommitting}
+			class:committing-when-empty={isCommitting && changes.current.length === 0}
 		>
-			<WorktreeChanges
-				title="Assigned"
-				{projectId}
-				stackId={stack.id}
-				mode="assigned"
-				active={focusedStackId === stack.id}
-				dropzoneVisible={changes.current.length === 0 && !isCommitting}
-				onDropzoneActivated={(activated) => {
-					dropzoneActivated = activated;
-				}}
+			<div
+				class="assignments"
+				class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
 			>
-				{#snippet emptyPlaceholder()}
-					<div class="assigned-changes-empty">
-						<p class="text-12 text-body assigned-changes-empty__text">
-							Drop files to assign to the lane
-						</p>
+				<WorktreeChanges
+					title="Assigned"
+					{projectId}
+					stackId={stack.id}
+					mode="assigned"
+					active={focusedStackId === stack.id}
+					dropzoneVisible={changes.current.length === 0 && !isCommitting}
+					onDropzoneActivated={(activated) => {
+						dropzoneActivated = activated;
+					}}
+				>
+					{#snippet emptyPlaceholder()}
+						{#if !isCommitting}
+							<div class="assigned-changes-empty">
+								<p class="text-12 text-body assigned-changes-empty__text">
+									Drop files to assign to the lane
+								</p>
+							</div>
+						{/if}
+					{/snippet}
+				</WorktreeChanges>
+			</div>
+			<div class="new-commit">
+				{#if !isCommitting}
+					<div class="start-commit">
+						<Button
+							testId={TestId.StartCommitButton}
+							type="button"
+							wide
+							disabled={defaultBranchResult?.current.isLoading}
+							onclick={() => {
+								startCommit();
+							}}
+						>
+							Start a commit…
+						</Button>
 					</div>
-				{/snippet}
-			</WorktreeChanges>
-		</div>
-		<div class="new-commit">
-			{#if !isCommitting}
-				<div class="start-commit">
-					<Button
-						testId={TestId.StartCommitButton}
-						type="button"
-						wide
-						disabled={defaultBranchResult?.current.isLoading}
-						onclick={() => {
-							startCommit();
-						}}
-					>
-						Start a commit…
-					</Button>
-				</div>
-			{:else if isCommitting}
-				<div class="message-editor">
-					<NewCommitView {projectId} stackId={stack.id} noDrawer />
-				</div>
-			{/if}
+				{:else if isCommitting}
+					<div class="message-editor">
+						<NewCommitView {projectId} stackId={stack.id} noDrawer />
+					</div>
+				{/if}
+			</div>
 		</div>
 		<BranchList {projectId} stackId={stack.id} {focusedStackId}>
 			{#snippet assignments()}{/snippet}
@@ -299,16 +305,31 @@
 			opacity var(--transition-fast);
 	}
 
+	.assignments-wrap {
+		display: flex;
+		flex-shrink: 0;
+		flex-direction: column;
+		margin: 12px;
+		margin-bottom: 0;
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+
+		&.committing-when-empty {
+			& .new-commit {
+				border-top: none;
+			}
+		}
+	}
+
 	.assignments {
 		display: flex;
 		flex-direction: column;
-		margin-bottom: 8px;
-		margin: 12px 12px 0 12px;
-		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		/* margin-bottom: 8px; */
+		/* margin: 12px 12px 0 12px; */
+		/* border: 1px solid var(--clr-border-2); */
 		border-bottom: none;
 		border-radius: var(--radius-ml) var(--radius-ml) 0 0;
-		/* background-color: var(--clr-bg-1); */
 
 		&.dropzone-activated {
 			& .assigned-changes-empty {
@@ -326,10 +347,10 @@
 	.assignments__empty {
 		margin-top: 0;
 		border-top: none;
-		border-bottom: none;
+		/* border-bottom: none; */
 		border-top-right-radius: 0;
 		border-top-left-radius: 0;
-		border-radius: 0;
+		/* border-radius: 0; */
 	}
 
 	.details,
@@ -352,10 +373,11 @@
 	}
 
 	.new-commit {
-		margin: 0 12px 0 12px;
+		/* margin: 0 12px 0 12px; */
 		padding: 12px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
+		border-top: 1px solid var(--clr-border-2);
+		/* border: 1px solid var(--clr-border-2); */
+		/* border-radius: 0 0 var(--radius-ml) var(--radius-ml); */
 		background-color: var(--clr-bg-1);
 	}
 </style>

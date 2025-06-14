@@ -19,6 +19,7 @@
 		type="button"
 		style="neutral"
 		kind="ghost"
+		size="tag"
 		{icon}
 		{activated}
 		{disabled}
