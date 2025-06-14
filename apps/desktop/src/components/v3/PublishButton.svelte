@@ -76,8 +76,8 @@
 		if (!branchName) return;
 
 		uiState.stack(stackId).selection.set({ branchName });
+		uiState.stack(stackId).action.set('review');
 		uiState.project(projectId).stackId.set(stackId);
-		uiState.project(projectId).drawerPage.set('review');
 	}
 
 	const tooltip = $derived.by(() => {

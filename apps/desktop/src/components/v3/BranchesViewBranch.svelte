@@ -66,7 +66,6 @@
 						commitMessage={commit.message}
 						createdAt={commit.createdAt}
 						commitId={commit.id}
-						projectId={env.projectId}
 						branchName={branch.name}
 						selected={commit.id === branchesState?.current.commitId}
 						onclick={() => {
@@ -87,7 +86,6 @@
 						commitMessage={commit.message}
 						createdAt={commit.createdAt}
 						commitId={commit.id}
-						projectId={env.projectId}
 						branchName={branch.name}
 						selected={commit.id === branchesState?.current.commitId}
 						onclick={() => {

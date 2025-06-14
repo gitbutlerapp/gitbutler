@@ -8,7 +8,6 @@ import {
 } from '@reduxjs/toolkit';
 import storage from 'redux-persist/lib/storage';
 import type { RejectionReason } from '$lib/stacks/stackService.svelte';
-export type DrawerPage = 'branch' | 'new-commit' | 'review' | 'commit' | undefined;
 
 export const uiStatePersistConfig = {
 	key: 'uiState',
@@ -37,20 +36,20 @@ type BranchesSelection = {
 	prNumber?: number;
 };
 
+type ExclusiveAction = { type: 'commit' } & {
+	type: 'commit';
+	stackId?: string;
+	parentCommitId?: string;
+};
+
 export type ProjectUiState = {
-	drawerPage: DrawerPage;
+	exclusiveAction: ExclusiveAction | undefined;
 	drawerFullScreen: boolean;
 	stackId: string | undefined;
 	commitTitle: string;
 	commitDescription: string;
 	branchesSelection: BranchesSelection;
 	editingCommitMessage: boolean;
-	/**
-	 * Set to a stack id when you start a commit from a lane, `null` when using
-	 * the button below the unassigned changes. Used to control e.g. visiblity
-	 * of checkboxes.
-	 */
-	commitSourceId: string | undefined;
 };
 
 type GlobalModalType = 'commit-failed';
@@ -101,11 +100,10 @@ export class UiState {
 
 	/** Properties scoped to a specific project. */
 	readonly project = this.buildScopedProps<ProjectUiState>({
-		drawerPage: undefined,
+		exclusiveAction: undefined,
 		drawerFullScreen: false,
 		commitTitle: '',
 		commitDescription: '',
-		commitSourceId: undefined,
 		branchesSelection: {},
 		stackId: undefined,
 		editingCommitMessage: false

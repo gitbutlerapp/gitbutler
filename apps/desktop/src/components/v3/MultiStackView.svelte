@@ -37,8 +37,8 @@
 
 	const [uiState] = inject(UiState);
 	const projectState = $derived(uiState.project(projectId));
-	const drawer = $derived(projectState.drawerPage);
-	const isCommitting = $derived(drawer.current === 'new-commit');
+	const exclusiveAction = $derived(projectState.exclusiveAction.current);
+	const isCommitting = $derived(exclusiveAction?.type === 'commit');
 
 	const SHOW_PAGINATION_THRESHOLD = 1;
 </script>

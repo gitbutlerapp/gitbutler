@@ -14,9 +14,10 @@
 	type Props = {
 		projectId: string;
 		commitId: string;
+		onclose?: () => void;
 	};
 
-	const { projectId, commitId }: Props = $props();
+	const { projectId, commitId, onclose }: Props = $props();
 
 	const [stackService] = inject(StackService);
 	const changesResult = $derived(stackService.commitChanges(projectId, commitId));
@@ -26,7 +27,7 @@
 <ReduxResult {projectId} result={commitResult.current}>
 	{#snippet children(commit)}
 		{@const commitState = commit.state}
-		<Drawer {projectId}>
+		<Drawer {projectId} {onclose}>
 			{#snippet header()}
 				<div class="commit-view__header text-13">
 					<CommitLine

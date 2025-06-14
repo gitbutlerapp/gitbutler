@@ -103,7 +103,6 @@
 					<CommitRow
 						disableCommitActions
 						type="LocalAndRemote"
-						{projectId}
 						{selected}
 						commitId={commit.id}
 						branchName={baseBranch.branchName}

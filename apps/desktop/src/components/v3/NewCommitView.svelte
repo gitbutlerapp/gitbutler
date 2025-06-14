@@ -16,9 +16,10 @@
 	type Props = {
 		projectId: string;
 		noDrawer?: boolean;
+		stackId?: string;
 		onclose?: () => void;
 	};
-	const { projectId, noDrawer, onclose }: Props = $props();
+	const { projectId, noDrawer, stackId, onclose }: Props = $props();
 
 	const [stackService, uiState, hooksService, uncommittedService] = inject(
 		StackService,
@@ -28,8 +29,6 @@
 	);
 
 	const projectState = $derived(uiState.project(projectId));
-	const targetStackId = $derived(projectState.stackId.current);
-	const sourceStackId = $derived(projectState.commitSourceId.current);
 
 	const [createCommitInStack, commitCreation] = stackService.createCommit;
 
@@ -79,14 +78,12 @@
 		return failed;
 	}
 
-	const stackState = $derived(targetStackId ? uiState.stack(targetStackId) : undefined);
+	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
 	const selection = $derived(stackState?.selection.current);
 	const selectedCommitId = $derived(selection?.commitId);
 
-	const selectedLines = $derived(uncommittedService.selectedLines(sourceStackId));
-	const topBranchResult = $derived(
-		targetStackId ? stackService.branches(projectId, targetStackId) : undefined
-	);
+	const selectedLines = $derived(uncommittedService.selectedLines(stackId));
+	const topBranchResult = $derived(stackId ? stackService.branches(projectId, stackId) : undefined);
 	const topBranchName = $derived(topBranchResult?.current.data?.at(0)?.name);
 
 	const draftBranchName = $derived(uiState.global.draftBranchName.current);
@@ -100,7 +97,7 @@
 	let drawer = $state<ReturnType<typeof Drawer>>();
 
 	async function createCommit(message: string) {
-		let finalStackId = targetStackId;
+		let finalStackId = stackId;
 		let finalBranchName = selectedBranchName || topBranchName;
 
 		if (!finalStackId) {
@@ -122,9 +119,9 @@
 			throw new Error('No branch selected!');
 		}
 
-		const worktreeChanges = (
-			await uncommittedService.worktreeChanges(projectId, sourceStackId)
-		).concat(await uncommittedService.worktreeChanges(projectId, undefined));
+		const worktreeChanges = (await uncommittedService.worktreeChanges(projectId, stackId)).concat(
+			await uncommittedService.worktreeChanges(projectId, undefined)
+		);
 
 		const preHookFailed = await runPreHook(worktreeChanges);
 		if (preHookFailed) return;
@@ -149,7 +146,7 @@
 			projectState.commitDescription.set('');
 
 			// Close the drawer.
-			projectState.drawerPage.set(undefined);
+			projectState.exclusiveAction.set(undefined);
 
 			// Select the newly created commit.
 			// Using `finalStackId` here because `stackState` might not have updated yet.
@@ -210,8 +207,8 @@
 	function cancel(args: { title: string; description: string }) {
 		projectState.commitTitle.set(args.title);
 		projectState.commitDescription.set(args.description);
+		projectState.exclusiveAction.set(undefined);
 		uncommittedService.uncheckAll(null);
-		drawer?.onClose();
 		onclose?.();
 	}
 </script>
@@ -221,7 +218,7 @@
 		<CommitMessageEditor
 			bind:this={input}
 			{projectId}
-			stackId={sourceStackId}
+			{stackId}
 			actionLabel="Create commit"
 			action={({ title, description }) => handleCommitCreation(title, description)}
 			onChange={({ title, description }) => handleMessageUpdate(title, description)}
@@ -241,7 +238,6 @@
 		testId={TestId.NewCommitView}
 		bind:this={drawer}
 		{projectId}
-		stackId={targetStackId}
 		title="Create commit"
 		disableScroll
 		minHeight={20}

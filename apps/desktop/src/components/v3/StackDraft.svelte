@@ -36,7 +36,11 @@
 
 <div data-testid={TestId.StackDraft} class="draft-stack">
 	<div class="new-commit-view">
-		<NewCommitView {projectId} noDrawer onclose={() => projectState.drawerPage.set(undefined)} />
+		<NewCommitView
+			{projectId}
+			noDrawer
+			onclose={() => projectState.exclusiveAction.set(undefined)}
+		/>
 	</div>
 	<BranchCard
 		type="draft-branch"
