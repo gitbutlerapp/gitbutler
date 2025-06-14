@@ -12,12 +12,11 @@
 	interface Props {
 		viewport: HTMLElement;
 		projectId: string;
-		isSingleMode?: boolean;
 		standalone?: boolean; // If true, the component is used standalone, not in a stack
 		onVisible?: (visible: boolean) => void;
 	}
 
-	const { viewport, projectId, isSingleMode, standalone, onVisible }: Props = $props();
+	const { viewport, projectId, standalone, onVisible }: Props = $props();
 
 	const [stackService, uiState, uncommittedService, diffService] = inject(
 		StackService,
@@ -32,7 +31,6 @@
 
 <div
 	class="hidden-dropzone"
-	class:hidden-dropzone__single-mode={isSingleMode}
 	use:intersectionObserver={{
 		callback: (entry) => {
 			if (entry?.isIntersecting) {
@@ -142,11 +140,6 @@
 	.hidden-dropzone__title {
 		color: var(--clr-text-2);
 		text-align: center;
-	}
-
-	.hidden-dropzone__single-mode {
-		flex-basis: calc(100% - 30px);
-		scroll-snap-align: start;
 	}
 
 	.hidden-dropzone__lane {

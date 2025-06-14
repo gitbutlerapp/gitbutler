@@ -27,13 +27,12 @@
 
 	type Props = {
 		projectId: string;
-		isVerticalMode: boolean;
 		stackId: string;
 		focusedStackId?: string;
 		assignments: Snippet;
 	};
 
-	const { projectId, isVerticalMode, stackId, focusedStackId, assignments }: Props = $props();
+	const { projectId, stackId, focusedStackId, assignments }: Props = $props();
 	const [stackService, uiState, modeService] = inject(StackService, UiState, ModeService);
 
 	const branchesResult = $derived(stackService.branches(projectId, stackId));
@@ -235,7 +234,7 @@
 					{/each}
 				</div>
 			</ScrollableContainer>
-			<StackStickyButtons {isVerticalMode}>
+			<StackStickyButtons>
 				<PushButton flex="1" {projectId} {stackId} multipleBranches={branches.length > 1} />
 			</StackStickyButtons>
 		{/snippet}

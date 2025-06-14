@@ -2,7 +2,7 @@ import { PostHogWrapper } from '$lib/analytics/posthog';
 import { isTauriCommandError, type TauriCommandError } from '$lib/backend/ipc';
 import { Tauri } from '$lib/backend/tauri';
 import { SettingsService } from '$lib/config/appSettingsV2';
-import { confettiEnabled, stackLayoutMode } from '$lib/config/uiFeatureFlags';
+import { confettiEnabled } from '$lib/config/uiFeatureFlags';
 import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
 import { type BaseQueryApi, type QueryReturnValue } from '@reduxjs/toolkit/query';
 import { get, type Readable } from 'svelte/store';
@@ -30,7 +30,6 @@ export async function tauriBaseQuery(
 	const v3 = appSettings ? get(appSettings)?.featureFlags.v3 : false;
 	const butlerActions = appSettings ? get(appSettings)?.featureFlags.actions : false;
 	const confetti = get(confettiEnabled);
-	const stackLayout = get(stackLayoutMode);
 
 	const someUserSettings = userSettings
 		? {
@@ -48,8 +47,7 @@ export async function tauriBaseQuery(
 		...someUserSettings,
 		v3,
 		confetti,
-		butlerActions,
-		stackLayout
+		butlerActions
 	};
 
 	const startTime = Date.now();
