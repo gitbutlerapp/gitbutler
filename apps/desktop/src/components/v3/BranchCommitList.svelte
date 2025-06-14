@@ -92,7 +92,7 @@
 		handleEditPatch
 	}: Props = $props();
 
-	const [stackService, uiState, forge, baseBranchService, idSelection] = inject(
+	const [stackService, uiState, forge, baseBranchService] = inject(
 		StackService,
 		UiState,
 		DefaultForgeFactory,
@@ -103,6 +103,7 @@
 
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
+	const commitAction = $derived(exclusiveAction?.type === 'commit' ? exclusiveAction : undefined);
 	const isCommitting = $derived(
 		exclusiveAction?.type === 'commit' && exclusiveAction.stackId === stackId
 	);
@@ -148,11 +149,6 @@
 	}
 
 	async function handleCommitClick(commitId: string, upstream: boolean) {
-		const commitChanges = await stackService.fetchCommitChanges(projectId, commitId);
-		const firstPathInCommit = commitChanges.data?.changes[0]?.path;
-		if (firstPathInCommit) {
-			idSelection.set(firstPathInCommit, { type: 'commit', commitId }, 0);
-		}
 		const stackState = uiState.stack(stackId);
 		stackState.selection.set({ branchName, commitId, upstream });
 		projectState.stackId.set(stackId);
@@ -214,15 +210,19 @@
 		{@const ancestorMostConflicted = getAncestorMostConflicted(localAndRemoteCommits)}
 		{#if !hasCommits && isCommitting}
 			<CommitGoesHere
-				selected={stackActive && branchName === selectedBranchName}
+				selected={stackActive &&
+					(branchName === commitAction?.branchName ||
+						!commitAction?.branchName ||
+						!commitAction.parentCommitId)}
 				first
 				last
 				onclick={() => {
-					uiState.stack(stackId).selection.set({
+					projectState.exclusiveAction.set({
+						type: 'commit',
+						stackId,
 						branchName,
-						commitId: branchDetails.baseCommit
+						parentCommitId: branchDetails.baseCommit
 					});
-					projectState.stackId.set(stackId);
 				}}
 			/>
 		{/if}
@@ -281,19 +281,20 @@
 				{@const selected =
 					stackActive && commit.id === selectedCommitId && branchName === selectedBranchName}
 				{#if isCommitting}
-					{@const nothingSelectedButFirst = selectedCommitId === undefined && first}
-					{@const selectedForCommit =
-						stackActive &&
-						(nothingSelectedButFirst || commit.id === selectedCommitId) &&
-						((first && selectedBranchName === undefined) || branchName === selectedBranchName)}
 					<!-- Only commits to the base can be `last`, see next `CommitGoesHere`. -->
 					<CommitGoesHere
-						selected={selectedForCommit}
+						selected={(commitAction?.parentCommitId === commitId ||
+							(first && commitAction?.parentCommitId === undefined)) &&
+							commitAction?.branchName === branchName}
 						{first}
 						last={false}
 						onclick={() => {
-							projectState.stackId.set(stackId);
-							uiState.stack(stackId).selection.set({ branchName, commitId });
+							projectState.exclusiveAction.set({
+								type: 'commit',
+								stackId,
+								branchName,
+								parentCommitId: commitId
+							});
 						}}
 					/>
 				{/if}
@@ -424,12 +425,14 @@
 					<CommitGoesHere
 						{first}
 						{last}
-						selected={stackActive &&
-							selectedCommitId === baseSha &&
-							branchName === selectedBranchName}
+						selected={exclusiveAction?.parentCommitId === baseSha}
 						onclick={() => {
-							uiState.stack(stackId).selection.set({ branchName, commitId: baseSha });
-							projectState.stackId.set(stackId);
+							projectState.exclusiveAction.set({
+								type: 'commit',
+								stackId,
+								branchName,
+								parentCommitId: baseSha
+							});
 						}}
 					/>
 				{/if}

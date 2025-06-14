@@ -197,8 +197,9 @@
 						<Button
 							size="tag"
 							kind="outline"
-							onclick={() => {
+							onclick={(e) => {
 								stackState?.action.set('review');
+								e.stopPropagation(); // Do not select branch.
 							}}
 							testId={TestId.CreateReviewButton}
 						>
