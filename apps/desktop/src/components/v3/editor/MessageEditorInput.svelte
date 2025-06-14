@@ -49,8 +49,17 @@
 
 <style lang="postcss">
 	.text-input {
+		z-index: 0;
+		position: relative;
 		width: 100%;
+		margin-bottom: -1px;
 		padding: 8px 12px;
+		border-radius: var(--radius-m) var(--radius-m) 0 0;
+
+		&:hover,
+		&:focus {
+			z-index: 1;
+		}
 	}
 
 	.message-editor-input {

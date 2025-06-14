@@ -225,7 +225,6 @@
 			actionLabel="Create commit"
 			action={({ title, description }) => handleCommitCreation(title, description)}
 			onChange={({ title, description }) => handleMessageUpdate(title, description)}
-			testId={TestId.NewCommitView}
 			onCancel={cancel}
 			disabledAction={!canCommit}
 			loading={commitCreation.current.isLoading || newStackResult.current.isLoading}

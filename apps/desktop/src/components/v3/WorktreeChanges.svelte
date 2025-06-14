@@ -129,18 +129,16 @@
 					scrollTopIsVisible = visible;
 				}}
 			>
-				<div data-testid={TestId.UncommittedChanges_FileList} class="uncommitted-changes">
-					<FileList
-						draggableFiles
-						selectionId={{ type: 'worktree', stackId }}
-						showCheckboxes={isCommitting}
-						changes={changes.current}
-						{projectId}
-						{listMode}
-						{active}
-						{stackId}
-					/>
-				</div>
+				<FileList
+					draggableFiles
+					selectionId={{ type: 'worktree', stackId }}
+					showCheckboxes={isCommitting}
+					changes={changes.current}
+					{projectId}
+					{listMode}
+					{active}
+					{stackId}
+				/>
 			</ScrollableContainer>
 		{:else}
 			{@render emptyPlaceholder?.()}
@@ -180,10 +178,6 @@
 		display: flex;
 		align-items: center;
 		gap: 6px;
-	}
-
-	.uncommitted-changes {
-		display: block;
 	}
 
 	/* MODIFIERS */
