@@ -6,6 +6,7 @@
 	import { getCommitStore } from '$lib/commits/contexts';
 	import { draggableChips, type DraggableConfig } from '$lib/dragging/draggable';
 	import { FileDropData } from '$lib/dragging/draggables';
+	import { DropzoneRegistry } from '$lib/dragging/registry';
 	import { LocalFile } from '$lib/files/file';
 	import { type AnyFile } from '$lib/files/file';
 	import { getLockText } from '$lib/files/lock';
@@ -43,6 +44,7 @@
 	const selectedOwnership: Writable<SelectedOwnership> | undefined =
 		maybeGetContextStore(SelectedOwnership);
 	const fileIdSelection = getContext(FileIdSelection);
+	const dropzoneRegistry = getContext(DropzoneRegistry);
 	const commit = getCommitStore();
 
 	// TODO: Refactor this into something more meaningful.
@@ -91,7 +93,8 @@
 				disabled: !draggable,
 				viewportId: 'board-viewport',
 				selector: '.selected-draggable',
-				chipType: 'file'
+				chipType: 'file',
+				dropzoneRegistry
 			};
 			if (chips) {
 				chips.update(config);

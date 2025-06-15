@@ -105,16 +105,20 @@
 </script>
 
 <AsyncRender>
+	<!-- eslint-disable-next-line func-style -->
+	{@const onerror = (err: unknown) => {
+		// Clear selection if branch not found.
+		if (isParsedError(err) && err.code === 'errors.branch.notfound') {
+			selection?.set(undefined);
+			console.warn('Workspace selection cleared');
+		}
+	}}
 	<div
-		class="lane"
+		class="stack-view-wrapper"
 		data-id={stack.id}
-		bind:clientWidth
-		bind:clientHeight
-		bind:this={laneEl}
 		data-testid={TestId.Stack}
 		data-testid-stackid={stack.id}
 		data-testid-stack={stack.heads.at(0)?.name}
-		style:width={uiState.global.stackWidth.current + 'rem'}
 		use:intersectionObserver={{
 			callback: (entry) => {
 				onVisible(!!entry?.isIntersecting);
@@ -130,161 +134,157 @@
 		}}
 	>
 		<div
-			class="assignments"
-			class:assignments__empty={changes.current.length === 0}
-			class:committing={isCommitting}
-			class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
+			class="stack-view"
+			style:width={uiState.global.stackWidth.current + 'rem'}
+			bind:clientWidth
+			bind:clientHeight
+			bind:this={laneEl}
 		>
-			<WorktreeChanges
-				title="Assigned"
-				{projectId}
-				stackId={stack.id}
-				mode="assigned"
-				active={focusedStackId === stack.id}
-				dropzoneVisible={changes.current.length === 0 && !isCommitting}
-				onDropzoneActivated={(activated) => {
-					dropzoneActivated = activated;
-				}}
+			<div
+				class="assignments"
+				class:assignments__empty={changes.current.length === 0}
+				class:committing={isCommitting}
+				class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
 			>
-				{#snippet emptyPlaceholder()}
-					<div class="assigned-changes-empty">
-						<p class="text-12 text-body assigned-changes-empty__text">
-							Drop files to assign to the lane
-						</p>
-					</div>
-				{/snippet}
-			</WorktreeChanges>
-		</div>
-		<div class="new-commit">
-			{#if !isCommitting}
-				<div class="start-commit">
-					<Button
-						testId={TestId.StartCommitButton}
-						type="button"
-						wide
-						disabled={defaultBranchResult?.current.isLoading}
-						onclick={() => {
-							startCommit();
-						}}
-					>
-						Start a commit…
-					</Button>
-				</div>
-			{:else if isCommitting}
-				<div class="message-editor">
-					<NewCommitView {projectId} stackId={stack.id} noDrawer />
-				</div>
-			{/if}
-		</div>
-		<BranchList {projectId} stackId={stack.id} {focusedStackId}>
-			{#snippet assignments()}{/snippet}
-		</BranchList>
-		<Resizer
-			viewport={laneEl}
-			direction="right"
-			minWidth={16}
-			maxWidth={64}
-			onWidth={(value) => uiState.global.stackWidth.set(value)}
-		/>
-	</div>
-	<!-- eslint-disable-next-line func-style -->
-	{@const onerror = (err: unknown) => {
-		// Clear selection if branch not found.
-		if (isParsedError(err) && err.code === 'errors.branch.notfound') {
-			selection?.set(undefined);
-			console.warn('Workspace selection cleared');
-		}
-	}}
-	{#if assignedKey || branchName || commitId}
-		<div
-			bind:this={detailsEl}
-			style:width={uiState.global.detailsWidth.current + 'rem'}
-			class="details"
-			use:focusable={{
-				id: DefinedFocusable.UncommittedChanges + ':' + stack.id,
-				parentId: DefinedFocusable.ViewportRight
-			}}
-			data-details={stack.id}
-		>
-			{#if assignedKey && assignedKey.type === 'worktree'}
-				<SelectionView
-					{projectId}
-					selectionId={{ ...assignedKey, type: 'worktree', stackId: assignedKey.stackId }}
-				/>
-			{:else if branchName && commitId}
-				<CommitView
+				<WorktreeChanges
+					title="Assigned"
 					{projectId}
 					stackId={stack.id}
-					commitKey={{
-						stackId: stack.id,
-						branchName,
-						commitId,
-						upstream: !!upstream
+					mode="assigned"
+					active={focusedStackId === stack.id}
+					dropzoneVisible={changes.current.length === 0 && !isCommitting}
+					onDropzoneActivated={(activated) => {
+						dropzoneActivated = activated;
 					}}
-					active={selectedKey?.type === 'commit' && focusedStackId === stack.id}
-					{onerror}
-					{onclose}
-				/>
-			{:else if branchName}
-				<BranchView
-					stackId={stack.id}
-					{projectId}
-					{branchName}
-					active={selectedKey?.type === 'branch' &&
-						selectedKey.branchName === branchName &&
-						focusedStackId === stack.id}
-					draggableFiles
-					{onerror}
-					{onclose}
-				/>
-			{/if}
+				>
+					{#snippet emptyPlaceholder()}
+						<div class="assigned-changes-empty">
+							<p class="text-12 text-body assigned-changes-empty__text">
+								Drop files to assign to the lane
+							</p>
+						</div>
+					{/snippet}
+				</WorktreeChanges>
+			</div>
+			<div class="new-commit">
+				{#if !isCommitting}
+					<div class="start-commit">
+						<Button
+							testId={TestId.StartCommitButton}
+							type="button"
+							wide
+							disabled={defaultBranchResult?.current.isLoading}
+							onclick={() => {
+								startCommit();
+							}}
+						>
+							Start a commit…
+						</Button>
+					</div>
+				{:else if isCommitting}
+					<div class="message-editor">
+						<NewCommitView {projectId} stackId={stack.id} noDrawer />
+					</div>
+				{/if}
+			</div>
+			<BranchList {projectId} stackId={stack.id} {focusedStackId} />
 			<Resizer
-				viewport={detailsEl}
+				viewport={laneEl}
 				direction="right"
 				minWidth={16}
-				maxWidth={56}
-				onWidth={(value) => uiState.global.detailsWidth.set(value)}
+				maxWidth={64}
+				onWidth={(value) => uiState.global.stackWidth.set(value)}
 			/>
 		</div>
-	{/if}
-	{#if selectedKey && !assignedKey}
-		<div
-			bind:this={previewEl}
-			style:width={uiState.global.previewWidth.current + 'rem'}
-			class="preview"
-			use:focusable={{
-				id: DefinedFocusable.Stack + ':' + stack.id,
-				parentId: DefinedFocusable.ViewportRight
-			}}
-		>
-			<SelectionView {projectId} selectionId={selectedKey} />
-			<Resizer
-				viewport={previewEl}
-				direction="right"
-				minWidth={20}
-				maxWidth={96}
-				onWidth={(value) => uiState.global.previewWidth.set(value)}
-			/>
-		</div>
-	{/if}
+		{#if assignedKey || branchName || commitId}
+			<div
+				bind:this={detailsEl}
+				style:width={uiState.global.detailsWidth.current + 'rem'}
+				class="details"
+				data-details={stack.id}
+			>
+				{#if assignedKey && assignedKey.type === 'worktree'}
+					<SelectionView
+						{projectId}
+						selectionId={{ ...assignedKey, type: 'worktree', stackId: assignedKey.stackId }}
+					/>
+				{:else if branchName && commitId}
+					<CommitView
+						{projectId}
+						stackId={stack.id}
+						commitKey={{
+							stackId: stack.id,
+							branchName,
+							commitId,
+							upstream: !!upstream
+						}}
+						active={selectedKey?.type === 'commit' && focusedStackId === stack.id}
+						{onerror}
+						{onclose}
+					/>
+				{:else if branchName}
+					<BranchView
+						stackId={stack.id}
+						{projectId}
+						{branchName}
+						active={selectedKey?.type === 'branch' &&
+							selectedKey.branchName === branchName &&
+							focusedStackId === stack.id}
+						draggableFiles
+						{onerror}
+						{onclose}
+					/>
+				{/if}
+				<Resizer
+					viewport={detailsEl}
+					direction="right"
+					minWidth={16}
+					maxWidth={56}
+					onWidth={(value) => uiState.global.detailsWidth.set(value)}
+				/>
+			</div>
+		{/if}
+		{#if selectedKey && !assignedKey}
+			<div
+				bind:this={previewEl}
+				style:width={uiState.global.previewWidth.current + 'rem'}
+				class="preview"
+				use:focusable={{
+					id: DefinedFocusable.Preview + ':' + stack.id,
+					parentId: DefinedFocusable.ViewportRight
+				}}
+			>
+				<SelectionView {projectId} selectionId={selectedKey} />
+				<Resizer
+					viewport={previewEl}
+					direction="right"
+					minWidth={20}
+					maxWidth={96}
+					onWidth={(value) => uiState.global.previewWidth.set(value)}
+				/>
+			</div>
+		{/if}
+	</div>
 </AsyncRender>
 
 <style lang="postcss">
-	.lane {
+	.stack-view-wrapper {
 		display: flex;
-		position: relative;
 		flex-shrink: 0;
-		flex-direction: column;
-		width: 100%;
-		max-width: unset;
 		overflow-x: hidden;
-		overflow-y: auto;
-		border-right: 1px solid var(--clr-border-2);
 		scroll-snap-align: start;
 
 		&:first-child {
 			border-left: 1px solid var(--clr-border-2);
 		}
+	}
+
+	.stack-view {
+		display: flex;
+		position: relative;
+		flex-shrink: 0;
+		flex-direction: column;
+		border-right: 1px solid var(--clr-border-2);
 	}
 
 	.assigned-changes-empty__text {

@@ -233,6 +233,7 @@
 		position: relative;
 		flex: 1;
 		flex-direction: column;
+		align-items: stretch;
 		overflow: hidden;
 
 		&.files-split-view {
@@ -291,7 +292,6 @@
 		position: relative;
 		flex-direction: column;
 		width: var(--custom-width);
-		height: 100%;
 	}
 
 	.drawer__files-split-view {

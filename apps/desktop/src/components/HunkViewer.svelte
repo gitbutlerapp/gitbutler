@@ -6,6 +6,7 @@
 	import { SelectedOwnership } from '$lib/branches/ownership';
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { HunkDropData } from '$lib/dragging/draggables';
+	import { DropzoneRegistry } from '$lib/dragging/registry';
 	import { type Hunk } from '$lib/hunks/hunk';
 	import { Project } from '$lib/project/project';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
@@ -46,6 +47,7 @@
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const stack = maybeGetContextStore(BranchStack);
 	const project = getContext(Project);
+	const dropzoneRegistry = getContext(DropzoneRegistry);
 
 	let alwaysShow = $state(false);
 	let viewport = $state<HTMLDivElement>();
@@ -83,7 +85,8 @@
 			label: section.hunk.diff.split('\n')[0],
 			data: new HunkDropData($stack?.id || '', section.hunk, section.hunk.lockedTo, commitId),
 			disabled: draggingDisabled,
-			chipType: 'hunk'
+			chipType: 'hunk',
+			dropzoneRegistry
 		}}
 	>
 		{#if linesModified > 2500 && !alwaysShow}

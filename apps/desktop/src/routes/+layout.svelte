@@ -32,6 +32,7 @@
 	import { GitConfigService } from '$lib/config/gitConfigService';
 	import { ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
 	import DependencyService from '$lib/dependencies/dependencyService.svelte';
+	import { DropzoneRegistry } from '$lib/dragging/registry';
 	import { FileService } from '$lib/files/fileService';
 	import { ButRequestDetailsService } from '$lib/forge/butRequestDetailsService';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
@@ -234,6 +235,7 @@
 	setContext(UploadsService, data.uploadsService);
 	setContext(DependencyService, dependecyService);
 	setContext(IdSelection, idSelection);
+	setContext(DropzoneRegistry, new DropzoneRegistry());
 
 	setNameNormalizationServiceContext(new IpcNameNormalizationService(invoke));
 

@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { dropzone, type HoverArgs } from '$lib/dragging/dropzone';
+	import { DropzoneRegistry } from '$lib/dragging/registry';
+	import { getContext } from '@gitbutler/shared/context';
 	import type { DropzoneHandler } from '$lib/dragging/handler';
 	import type { Snippet } from 'svelte';
+
+	const dropzoneRegistry = getContext(DropzoneRegistry);
 
 	interface Props {
 		disabled?: boolean;
@@ -60,7 +64,8 @@
 		onHoverEnd,
 		onActivationStart,
 		onActivationEnd,
-		target: '.dropzone-target'
+		target: '.dropzone-target',
+		registry: dropzoneRegistry
 	}}
 	class:fill-height={fillHeight}
 	class:max-height={maxHeight}
@@ -81,6 +86,7 @@
 		display: flex;
 		flex-grow: 1;
 		flex-direction: column;
+		background-color: red;
 	}
 
 	.max-height {

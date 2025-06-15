@@ -13,6 +13,7 @@ export enum DefinedFocusable {
 	Drawer = 'drawer',
 	Branches = 'branches',
 	Stack = 'stack',
+	Preview = 'preview',
 	// Only one of these can be in the dom at any given time.
 	ChangedFiles = 'changed-files'
 }
@@ -21,7 +22,7 @@ export function stackFocusableId(stackId: string) {
 	return `${DefinedFocusable.Stack}:${stackId}`;
 }
 
-export function uncommittedFocusableId(stackId: string) {
+export function uncommittedFocusableId(stackId?: string) {
 	return `${DefinedFocusable.UncommittedChanges}:${stackId}`;
 }
 
