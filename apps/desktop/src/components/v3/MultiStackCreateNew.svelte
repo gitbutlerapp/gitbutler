@@ -64,8 +64,6 @@
 				stackId,
 				request: { targetPatch: undefined, name: slugifiedRefName }
 			});
-
-			uiState.stack(stackId).selection.set({ branchName: slugifiedRefName });
 			createRefModal?.close();
 		}
 
