@@ -54,18 +54,21 @@
 		<div class="formatting-slides-scroller" bind:this={scrollerElement}>
 			<div class="formatting-bar__group">
 				<FormattingButton
+					size="tag"
 					icon="text-bold"
 					activated={formatter.imports.isBold}
 					tooltip="Bold"
 					onclick={() => formatter.format('text-bold')}
 				/>
 				<FormattingButton
+					size="tag"
 					icon="text-italic"
 					activated={formatter.imports.isItalic}
 					tooltip="Italic"
 					onclick={() => formatter.format('text-italic')}
 				/>
 				<FormattingButton
+					size="tag"
 					icon="text-strikethrough"
 					activated={formatter.imports.isStrikethrough}
 					tooltip="Strikethrough"
@@ -74,18 +77,21 @@
 			</div>
 			<div class="formatting-bar__group">
 				<FormattingButton
+					size="tag"
 					icon="text-code"
 					activated={formatter.imports.isCode}
 					tooltip="Code"
 					onclick={() => formatter.format('text-code')}
 				/>
 				<FormattingButton
+					size="tag"
 					icon="text-quote"
 					activated={formatter.imports.isQuote}
 					tooltip="Quote"
 					onclick={() => formatter.format('text-quote')}
 				/>
 				<FormattingButton
+					size="tag"
 					icon="text-link"
 					activated={formatter.imports.isLink}
 					tooltip="Link"
@@ -94,18 +100,21 @@
 			</div>
 			<div class="formatting-bar__group">
 				<FormattingButton
+					size="tag"
 					icon="text"
 					activated={formatter?.imports.isNormal}
 					tooltip="Normal text"
 					onclick={() => formatter?.format('text')}
 				/>
 				<FormattingButton
+					size="tag"
 					icon="text-h2"
 					activated={formatter?.imports.isH2}
 					tooltip="Heading 2"
 					onclick={() => formatter?.format('text-h2')}
 				/>
 				<FormattingButton
+					size="tag"
 					icon="text-h3"
 					activated={formatter?.imports.isH3}
 					tooltip="Heading 3"
@@ -114,16 +123,19 @@
 			</div>
 			<div class="formatting-bar__group">
 				<FormattingButton
+					size="tag"
 					icon="bullet-list"
 					tooltip="Unordered list"
 					onclick={() => formatter?.format('bullet-list')}
 				/>
 				<FormattingButton
+					size="tag"
 					icon="number-list"
 					tooltip="Ordered list"
 					onclick={() => formatter?.format('number-list')}
 				/>
 				<FormattingButton
+					size="tag"
 					icon="checklist"
 					tooltip="Check list"
 					onclick={() => formatter?.format('checklist')}

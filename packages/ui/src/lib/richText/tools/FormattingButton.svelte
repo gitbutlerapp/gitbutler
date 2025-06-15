@@ -9,9 +9,10 @@
 		onclick: (e: MouseEvent) => void;
 		disabled?: boolean;
 		loading?: boolean;
+		size?: 'tag' | 'button';
 	}
 
-	const { icon, activated, tooltip, onclick, disabled, loading }: Props = $props();
+	const { icon, activated, tooltip, onclick, disabled, loading, size = 'button' }: Props = $props();
 </script>
 
 <div class="formatting-button" class:formatting-button--activated={activated}>
@@ -19,7 +20,7 @@
 		type="button"
 		style="neutral"
 		kind="ghost"
-		size="tag"
+		{size}
 		{icon}
 		{activated}
 		{disabled}

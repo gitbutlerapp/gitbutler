@@ -153,6 +153,7 @@
 		testId={TestId.CommitDrawerTitleInput}
 		bind:ref={titleInput}
 		value={title}
+		placeholder="Commit title"
 		onchange={(value) => onChange?.({ title: value })}
 		onkeydown={async (e: KeyboardEvent) => {
 			if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -171,6 +172,7 @@
 		bind:this={composer}
 		initialValue={description}
 		placeholder="Your commit message"
+		enableRuler
 		{projectId}
 		{onAiButtonClick}
 		{canUseAI}
@@ -196,6 +198,7 @@
 		}}
 	/>
 </div>
+
 <EditorFooter onCancel={handleCancel}>
 	<Button
 		testId={TestId.CommitDrawerActionButton}
@@ -203,7 +206,7 @@
 		onclick={emitAction}
 		disabled={disabledAction}
 		{loading}
-		width={126}>{actionLabel}</Button
+		wide>{actionLabel}</Button
 	>
 </EditorFooter>
 
