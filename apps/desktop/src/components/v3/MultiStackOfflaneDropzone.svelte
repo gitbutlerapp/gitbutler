@@ -8,15 +8,17 @@
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		viewport: HTMLElement;
 		projectId: string;
-		standalone?: boolean; // If true, the component is used standalone, not in a stack
+		title?: Snippet<[activated: boolean]>;
+		description?: Snippet<[activated: boolean]>;
 		onVisible?: (visible: boolean) => void;
 	}
 
-	const { viewport, projectId, standalone, onVisible }: Props = $props();
+	const { viewport, projectId, title, description, onVisible }: Props = $props();
 
 	const [stackService, uiState, uncommittedService, diffService] = inject(
 		StackService,
@@ -31,6 +33,7 @@
 
 <div
 	class="hidden-dropzone"
+	style:width={uiState.global.stackWidth.current + 'rem'}
 	use:intersectionObserver={{
 		callback: (entry) => {
 			if (entry?.isIntersecting) {
@@ -47,7 +50,7 @@
 >
 	<Dropzone handlers={[dzHandler]}>
 		{#snippet overlay({ hovered, activated })}
-			<div class="hidden-dropzone__lane" class:activated class:hovered class:standalone>
+			<div class="hidden-dropzone__lane" class:activated class:hovered>
 				<div class="hidden-dropzone__content">
 					<svg
 						class="hidden-dropzone__svg"
@@ -103,18 +106,16 @@
 					</svg>
 
 					<div class="hidden-dropzone__text">
-						{#if standalone}
+						{#if title}
 							<h4 class="text-15 text-body text-bold hidden-dropzone__title">
-								{#if activated}
-									Drop files to branch
-								{:else}
-									No applied branches
-								{/if}
+								{@render title(activated)}
 							</h4>
 						{/if}
-						<p class="hidden-dropzone__label text-13 text-body">
-							Drag and drop files<br />to create a new branch.
-						</p>
+						{#if description}
+							<p class="hidden-dropzone__label text-13 text-body">
+								{@render description(activated)}
+							</p>
+						{/if}
 					</div>
 				</div>
 				<MultiStackCreateNew {projectId} noStacks />
@@ -151,10 +152,6 @@
 		height: 100%;
 		overflow: hidden;
 		gap: 10px;
-
-		&:not(.standalone) {
-			border-right: 1px solid var(--clr-border-2);
-		}
 
 		/* SVG ANIMATION */
 		&.activated {
@@ -255,6 +252,7 @@
 	}
 
 	.hidden-dropzone__label {
+		padding: 0 15%;
 		color: var(--clr-text-3);
 		text-align: center;
 		opacity: 1;

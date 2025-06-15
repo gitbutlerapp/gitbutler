@@ -58,7 +58,10 @@
 
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
-	const isCommitting = $derived(exclusiveAction?.type === 'commit');
+	const isCommitting = $derived(
+		exclusiveAction?.type === 'commit' &&
+			(exclusiveAction.stackId === stackId || stackId === undefined)
+	);
 
 	const changes = $derived(uncommittedService.changesByStackId(stackId || null));
 
