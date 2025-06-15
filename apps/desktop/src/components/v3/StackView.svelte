@@ -11,6 +11,7 @@
 	import { isParsedError } from '$lib/error/parser';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
+
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { readKey } from '$lib/selection/key';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
@@ -189,7 +190,7 @@
 								</Button>
 							</div>
 						{:else if isCommitting}
-							<div class="message-editor">
+							<div class="message-editor" data-testid={TestId.NewCommitView}>
 								<NewCommitView {projectId} stackId={stack.id} noDrawer />
 							</div>
 						{/if}

@@ -85,16 +85,18 @@
 </script>
 
 {#snippet fileList()}
-	<FileList
-		draggableFiles
-		selectionId={{ type: 'worktree', stackId }}
-		showCheckboxes={isCommitting}
-		changes={changes.current}
-		{projectId}
-		{listMode}
-		{active}
-		{stackId}
-	/>
+	<div data-testid={TestId.UncommittedChanges_FileList} class="uncommitted-changes">
+		<FileList
+			draggableFiles
+			selectionId={{ type: 'worktree', stackId }}
+			showCheckboxes={isCommitting}
+			changes={changes.current}
+			{projectId}
+			{listMode}
+			{active}
+			{stackId}
+		/>
+	</div>
 {/snippet}
 
 <Dropzone
@@ -191,6 +193,10 @@
 		display: flex;
 		align-items: center;
 		gap: 6px;
+	}
+
+	.uncommitted-changes {
+		display: block;
 	}
 
 	/* MODIFIERS */
