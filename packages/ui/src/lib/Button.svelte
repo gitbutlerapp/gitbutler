@@ -42,6 +42,7 @@
 		onkeydown?: (e: KeyboardEvent) => void;
 		// Snippets
 		children?: Snippet;
+		custom?: Snippet;
 	}
 </script>
 
@@ -86,7 +87,8 @@
 		onmousedown,
 		oncontextmenu,
 		onkeydown,
-		children
+		children,
+		custom
 	}: Props = $props();
 
 	async function handleAction(e: MouseEvent) {
@@ -154,6 +156,10 @@
 					<Icon name={icon} />
 				{/if}
 			</div>
+		{/if}
+
+		{#if custom}
+			{@render custom()}
 		{/if}
 	</button>
 </Tooltip>
