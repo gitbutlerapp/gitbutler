@@ -11,7 +11,7 @@
 	import { createCommitStore } from '$lib/commits/contexts';
 	import { CommitDropData } from '$lib/commits/dropHandler';
 	import { draggableCommit } from '$lib/dragging/draggable';
-	import { NON_DRAGGABLE } from '$lib/dragging/draggables';
+	import { DropzoneRegistry } from '$lib/dragging/registry';
 	import { RemoteFile } from '$lib/files/file';
 	import { FileService } from '$lib/files/fileService';
 	import { ModeService } from '$lib/mode/modeService';
@@ -72,6 +72,7 @@
 	const modeService = maybeGetContext(ModeService);
 	const fileService = getContext(FileService);
 	const stackService = getContext(StackService);
+	const dropzoneRegistry = getContext(DropzoneRegistry);
 
 	const [updateCommitMessage] = stackService.updateCommitMessage;
 
@@ -267,15 +268,15 @@
 	onkeyup={onKeyup}
 	role="button"
 	tabindex="0"
-	use:draggableCommit={isDraggable && stack
-		? {
-				disabled: false,
-				label: commit.descriptionTitle,
-				sha: commitShortSha,
-				date: getTimeAgo(commit.createdAt),
-				authorImgUrl: authorImgUrl,
-				commitType: type,
-				data: new CommitDropData(
+	use:draggableCommit={{
+		disabled: !isDraggable || !stack,
+		label: commit.descriptionTitle,
+		sha: commitShortSha,
+		date: getTimeAgo(commit.createdAt),
+		authorImgUrl: authorImgUrl,
+		commitType: type,
+		data: stack
+			? new CommitDropData(
 					stack.id,
 					{
 						id: commit.id,
@@ -285,10 +286,11 @@
 					},
 					isHeadCommit,
 					currentSeries?.name
-				),
-				viewportId: 'board-viewport'
-			}
-		: NON_DRAGGABLE}
+				)
+			: undefined,
+		viewportId: 'board-viewport',
+		dropzoneRegistry
+	}}
 >
 	{#if lines}
 		<div>

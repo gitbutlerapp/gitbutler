@@ -423,11 +423,11 @@ export function hunkContainsLine(hunk: DiffHunk, line: LineId): boolean {
  * Get the line locks for a hunk.
  */
 export function getLineLocks(
-	stackId: string | undefined,
+	excludeStackId: string | undefined,
 	hunk: DiffHunk,
 	locks: HunkLocks[]
 ): [boolean, LineLock[] | undefined] {
-	if (stackId === undefined) {
+	if (excludeStackId === undefined) {
 		return [false, undefined];
 	}
 
@@ -457,7 +457,7 @@ export function getLineLocks(
 			const locks = hunkLocks
 				.map((lock) => lock.locks)
 				.flat()
-				.filter((lock) => lock.stackId !== stackId);
+				.filter((lock) => lock.stackId !== excludeStackId);
 
 			if (locks.length === 0) {
 				hunkIsFullyLocked = false;

@@ -1,11 +1,6 @@
 <script lang="ts">
 	import { SettingsService } from '$lib/config/appSettingsV2';
-	import {
-		assignmentEnabled,
-		confettiEnabled,
-		ircEnabled,
-		ircServer
-	} from '$lib/config/uiFeatureFlags';
+	import { confettiEnabled, ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
 	import { User } from '$lib/user/user';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
@@ -56,23 +51,6 @@
 				id="v3Design"
 				checked={$settingsStore?.featureFlags.v3}
 				onclick={() => settingsService.updateFeatureFlags({ v3: !$settingsStore?.featureFlags.v3 })}
-			/>
-		{/snippet}
-	</SectionCard>
-
-	<SectionCard labelFor="assignments" roundedTop={false} roundedBottom={false} orientation="row">
-		{#snippet title()}
-			Assign uncommitted changes
-		{/snippet}
-		{#snippet caption()}
-			When enabled you can assign uncommitted changes to branches (stacks).
-		{/snippet}
-
-		{#snippet actions()}
-			<Toggle
-				id="assignments"
-				checked={$assignmentEnabled}
-				onclick={() => assignmentEnabled.set(!$assignmentEnabled)}
 			/>
 		{/snippet}
 	</SectionCard>

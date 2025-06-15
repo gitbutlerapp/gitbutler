@@ -4,6 +4,7 @@
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { ChangeDropData } from '$lib/dragging/draggables';
+	import { DropzoneRegistry } from '$lib/dragging/registry';
 	import { getFilename } from '$lib/files/utils';
 	import { type TreeChange } from '$lib/hunks/change';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
@@ -65,6 +66,7 @@
 
 	const idSelection = getContext(IdSelection);
 	const uncommittedService = getContext(UncommittedService);
+	const dropzoneRegistry = getContext(DropzoneRegistry);
 
 	let contextMenu = $state<ReturnType<typeof FileContextMenu>>();
 	let draggableEl: HTMLDivElement | undefined = $state();
@@ -123,7 +125,8 @@
 		viewportId: 'board-viewport',
 		selector: '.selected-draggable',
 		disabled: draggableDisabled,
-		chipType: 'file'
+		chipType: 'file',
+		dropzoneRegistry
 	}}
 >
 	<FileContextMenu

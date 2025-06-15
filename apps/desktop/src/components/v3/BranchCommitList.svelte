@@ -21,12 +21,12 @@
 		SquashCommitDzHandler
 	} from '$lib/commits/dropHandler';
 	import { draggableCommitV3 } from '$lib/dragging/draggable';
+	import { DropzoneRegistry } from '$lib/dragging/registry';
 	import {
 		ReorderCommitDzFactory,
 		ReorderCommitDzHandler
 	} from '$lib/dragging/stackingReorderDropzoneManager';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
-	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { StackService, type SeriesIntegrationStrategy } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -92,12 +92,12 @@
 		handleEditPatch
 	}: Props = $props();
 
-	const [stackService, uiState, forge, baseBranchService] = inject(
+	const [stackService, uiState, forge, baseBranchService, dropzoneRegistry] = inject(
 		StackService,
 		UiState,
 		DefaultForgeFactory,
 		BaseBranchService,
-		IdSelection
+		DropzoneRegistry
 	);
 	const [integrateUpstreamCommits, upstreamIntegration] = stackService.integrateUpstreamCommits;
 
@@ -357,7 +357,8 @@
 								false,
 								branchName
 							),
-							viewportId: 'board-viewport'
+							viewportId: 'board-viewport',
+							dropzoneRegistry
 						}}
 					>
 						<CommitRow
