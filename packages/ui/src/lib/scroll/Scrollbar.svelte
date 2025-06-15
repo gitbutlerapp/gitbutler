@@ -82,8 +82,12 @@
 
 	const thumbHeight = $derived(wholeHeight > 0 ? (trackHeight / wholeHeight) * trackHeight : 0);
 	const thumbWidth = $derived(wholeWidth > 0 ? (trackWidth / wholeWidth) * trackWidth : 0);
-	const thumbTop = $derived(wholeHeight > 0 ? (scrollTop / wholeHeight) * trackHeight : 0);
-	const thumbLeft = $derived(wholeHeight > 0 ? (scrollLeft / wholeWidth) * trackWidth : 0);
+	const thumbTop = $derived(
+		wholeHeight > 0 ? ((scrollTop + trackHeight) / wholeHeight) * trackHeight - thumbHeight : 0
+	);
+	const thumbLeft = $derived(
+		wholeWidth > 0 ? ((scrollLeft + trackWidth) / wholeWidth) * trackWidth - thumbWidth : 0
+	);
 
 	const scrollableY = $derived(wholeHeight > trackHeight);
 	const scrollableX = $derived(wholeWidth > trackWidth);

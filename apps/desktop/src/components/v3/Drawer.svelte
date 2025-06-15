@@ -80,8 +80,9 @@
 		position: relative;
 		flex-direction: column;
 		width: 100%;
-		height: 100%;
+		max-height: calc(100% + 1px);
 		overflow: hidden;
+		border-bottom: 1px solid var(--clr-border-2);
 		background: var(--clr-bg-1);
 	}
 
