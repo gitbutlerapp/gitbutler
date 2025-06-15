@@ -48,11 +48,9 @@ the window, then enlarge it and retain the original widths of the layout.
 			min: number;
 		};
 		middleOpen?: boolean;
-		growRight?: boolean;
 	};
 
-	const { name, left, middle, right, leftWidth, middleWidth, middleOpen, growRight }: Props =
-		$props();
+	const { name, left, middle, right, leftWidth, middleWidth, middleOpen }: Props = $props();
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const zoom = $derived($userSettings.zoom);
@@ -165,7 +163,6 @@ the window, then enlarge it and retain the original widths of the layout.
 		bind:this={rightDiv}
 		bind:clientWidth={rightBindWidth}
 		style:min-width={flexibleMinWidth + 'rem'}
-		style:flex-grow={growRight ? 1 : 0}
 		use:focusable={{
 			id: DefinedFocusable.ViewportRight,
 			parentId: DefinedFocusable.MainViewport
@@ -230,6 +227,7 @@ the window, then enlarge it and retain the original widths of the layout.
 
 	.right {
 		position: relative;
+		flex-grow: 1;
 		flex-shrink: 1;
 		flex-direction: column;
 		height: 100%;

@@ -181,7 +181,6 @@
 			leftWidth={{ default: 360, min: 280 }}
 			middleWidth={{ default: 360, min: 280 }}
 			middleOpen
-			growRight
 		>
 			{#snippet left()}
 				<BranchesListGroup title="Current workspace target">

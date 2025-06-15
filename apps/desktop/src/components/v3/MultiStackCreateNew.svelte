@@ -44,6 +44,8 @@
 	);
 	const firstBranchName = $derived(firstBranchResult?.current?.data?.name);
 
+	const exclusiveAction = $derived(projectState.exclusiveAction.current);
+
 	function handleOptionSelect(event: Event) {
 		const target = event.target as HTMLInputElement;
 		createRefType = target.id === 'new-stack' ? 'stack' : 'dependent';
@@ -110,6 +112,7 @@
 		projectState.exclusiveAction.set({ type: 'commit' });
 		uncommittedService.checkAll(null);
 	}}
+	disabled={exclusiveAction?.type === 'commit' && exclusiveAction.stackId === undefined}
 	onkeydown={handleArrowNavigation}
 	testId={TestId.CreateStackButton}
 	kind="outline"

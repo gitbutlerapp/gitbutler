@@ -60,87 +60,68 @@
 	</div>
 {/if}
 
-<div class="lanes-viewport">
-	<div
-		class="lanes-scrollable hide-native-scrollbar"
-		bind:this={lanesScrollableEl}
-		bind:clientWidth={lanesScrollableWidth}
-		bind:clientHeight={lanesScrollableHeight}
-		class:multi={stacks.length < SHOW_PAGINATION_THRESHOLD}
-	>
-		{#if stacks.length === 0}
-			<div class="no-stacks-placeholder">
-				<MultiStackOfflaneDropzone
-					{projectId}
-					viewport={lanesScrollableEl}
-					onVisible={(visible) => {
-						isCreateNewVisible = visible;
-					}}
-				>
-					{#snippet title()}
-						No branches in Workspace
-					{/snippet}
-					{#snippet description()}
-						Drop files to start a branch, or apply from the Branches view.
-					{/snippet}
-				</MultiStackOfflaneDropzone>
-			</div>
-		{:else if stacks.length > 0}
-			{#each stacks as stack, i}
-				<StackView
-					{projectId}
-					{stack}
-					{focusedStackId}
-					bind:clientWidth={laneWidths[i]}
-					bind:clientHeight={lineHights[i]}
-					onVisible={(visible) => {
-						if (visible) {
-							visibleIndexes = [...visibleIndexes, i];
-						} else {
-							visibleIndexes = visibleIndexes.filter((index) => index !== i);
-						}
-					}}
-				/>
-			{/each}
+<div
+	class="lanes-scrollable hide-native-scrollbar"
+	bind:this={lanesScrollableEl}
+	bind:clientWidth={lanesScrollableWidth}
+	bind:clientHeight={lanesScrollableHeight}
+	class:multi={stacks.length < SHOW_PAGINATION_THRESHOLD}
+>
+	{#each stacks as stack, i}
+		<StackView
+			{projectId}
+			{stack}
+			{focusedStackId}
+			bind:clientWidth={laneWidths[i]}
+			bind:clientHeight={lineHights[i]}
+			onVisible={(visible) => {
+				if (visible) {
+					visibleIndexes = [...visibleIndexes, i];
+				} else {
+					visibleIndexes = visibleIndexes.filter((index) => index !== i);
+				}
+			}}
+		/>
+	{/each}
 
-			{#if !isCommitting}
-				<MultiStackOfflaneDropzone
-					{projectId}
-					viewport={lanesScrollableEl}
-					onVisible={(visible) => {
-						isCreateNewVisible = visible;
-					}}
-				>
-					{#snippet description()}
-						Drop files to start a branch, or apply from the Branches view Drag chanes here to branch
-						off your changes.
-					{/snippet}
-				</MultiStackOfflaneDropzone>
+	{#if isCommitting && exclusiveAction?.stackId === undefined}
+		<StackDraft {projectId} />
+	{/if}
+	<MultiStackOfflaneDropzone
+		{projectId}
+		viewport={lanesScrollableEl}
+		onVisible={(visible) => {
+			isCreateNewVisible = visible;
+		}}
+	>
+		{#snippet title()}
+			{#if stacks.length === 0}
+				No branches in Workspace
 			{/if}
-			{#if lanesScrollableEl}
-				<Scrollbar viewport={lanesScrollableEl} horz />
+		{/snippet}
+		{#snippet description()}
+			{#if stacks.length === 0}
+				Drop files to start a branch, or apply from the Branches view Drag chanes here to branch off
+				your changes.
+			{:else}
+				Drop files to start a branch, or apply from the Branches view.
 			{/if}
-		{/if}
-		{#if isCommitting && exclusiveAction?.stackId === undefined}
-			<StackDraft {projectId} />
-		{/if}
-	</div>
+		{/snippet}
+	</MultiStackOfflaneDropzone>
+	{#if lanesScrollableEl}
+		<Scrollbar viewport={lanesScrollableEl} horz />
+	{/if}
 </div>
 
 <style lang="postcss">
 	.lanes-scrollable {
 		display: flex;
-		height: 100%;
-		margin: 0 -1px;
-		overflow-x: auto;
-	}
-
-	.lanes-viewport {
-		display: flex;
 		position: relative;
 		flex: 1;
-		flex-direction: column;
+		height: 100%;
+		margin: 0 -1px;
 		overflow: hidden;
+		overflow-x: auto;
 	}
 
 	.pagination-container {
@@ -149,30 +130,5 @@
 		position: absolute;
 		right: 6px;
 		bottom: 8px;
-	}
-
-	.no-stacks-placeholder {
-		display: flex;
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		flex-direction: column;
-		width: 100%;
-		height: 100%;
-		overflow: hidden;
-		transform: translate(-50%, -50%);
-
-		&:after {
-			z-index: -1;
-			position: absolute;
-			top: calc(50% - 50px);
-			left: 50%;
-			width: 600px;
-			height: 600px;
-			transform: translate(-50%, -50%);
-			border-radius: 100%;
-			background: radial-gradient(var(--clr-bg-2) 0%, oklch(from var(--clr-bg-2) l c h / 0) 70%);
-			content: '';
-		}
 	}
 </style>

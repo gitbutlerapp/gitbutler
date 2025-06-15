@@ -121,7 +121,7 @@
 		}
 	}}
 	<div
-		class="stack-view-wrapper"
+		class="stack-view-wrapper dotted-pattern"
 		data-id={stack.id}
 		data-testid={TestId.Stack}
 		data-testid-stackid={stack.id}
