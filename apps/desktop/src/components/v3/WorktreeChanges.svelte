@@ -29,7 +29,9 @@
 		mode?: 'unassigned' | 'assigned';
 		dropzoneVisible?: boolean;
 		onDropzoneActivated?: (activated: boolean) => void;
+
 		emptyPlaceholder?: Snippet;
+		notScrollable?: boolean;
 	};
 
 	let {
@@ -39,8 +41,10 @@
 		title,
 		mode = 'unassigned',
 		dropzoneVisible,
+
 		onDropzoneActivated,
-		emptyPlaceholder
+		emptyPlaceholder,
+		notScrollable = false
 	}: Props = $props();
 
 	const [uiState, stackService, diffService, uncommittedService] = inject(
@@ -79,6 +83,21 @@
 		}
 	}
 </script>
+
+{#snippet fileList()}
+	<div data-testid={TestId.UncommittedChanges_FileList} class="uncommitted-changes">
+		<FileList
+			draggableFiles
+			selectionId={{ type: 'worktree', stackId }}
+			showCheckboxes={isCommitting}
+			changes={changes.current}
+			{projectId}
+			{listMode}
+			{active}
+			{stackId}
+		/>
+	</div>
+{/snippet}
 
 <Dropzone
 	handlers={[uncommitDzHandler, assignmentDZHandler].filter(isDefined)}
@@ -123,25 +142,19 @@
 		{/if}
 
 		{#if changes.current.length > 0}
-			<ScrollableContainer
-				autoScroll={false}
-				onscrollTop={(visible) => {
-					scrollTopIsVisible = visible;
-				}}
-			>
-				<div data-testid={TestId.UncommittedChanges_FileList} class="uncommitted-changes">
-					<FileList
-						draggableFiles
-						selectionId={{ type: 'worktree', stackId }}
-						showCheckboxes={isCommitting}
-						changes={changes.current}
-						{projectId}
-						{listMode}
-						{active}
-						{stackId}
-					/>
-				</div>
-			</ScrollableContainer>
+			{#if notScrollable}
+				<!-- If not scrollable, we don't need to wrap in ScrollableContainer -->
+				{@render fileList()}
+			{:else}
+				<ScrollableContainer
+					autoScroll={false}
+					onscrollTop={(visible) => {
+						scrollTopIsVisible = visible;
+					}}
+				>
+					{@render fileList()}
+				</ScrollableContainer>
+			{/if}
 		{:else}
 			{@render emptyPlaceholder?.()}
 		{/if}

@@ -31,16 +31,17 @@
 		left: 0;
 		width: 100%;
 		height: 100%;
-		pointer-events: none;
 		/* background-color: rgba(0, 0, 0, 0.1); */
+		pointer-events: none;
 	}
 
 	.message-ruler-line {
 		position: absolute;
-		top: 0;
+		top: var(--extratoolbar-height);
+		bottom: var(--lexical-input-client-toolbar-height);
 		left: var(--ruler-position);
 		width: 1px;
-		height: calc(100% - var(--lexical-input-client-toolbar-height));
+		/* height: calc(100% - (var(--lexical-input-client-toolbar-height))); */
 		background-color: var(--clr-theme-pop-element);
 		opacity: 0.5;
 	}

@@ -27,7 +27,7 @@
 <ReduxResult {projectId} result={commitResult.current}>
 	{#snippet children(commit)}
 		{@const commitState = commit.state}
-		<Drawer {projectId} {onclose}>
+		<Drawer {onclose}>
 			{#snippet header()}
 				<div class="commit-view__header text-13">
 					<CommitLine

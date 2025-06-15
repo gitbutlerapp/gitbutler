@@ -31,7 +31,6 @@
 		existingCommitId?: string;
 		title: string;
 		description: string;
-		testId?: string;
 	};
 
 	let {
@@ -45,8 +44,7 @@
 		loading,
 		title,
 		description,
-		existingCommitId,
-		testId
+		existingCommitId
 	}: Props = $props();
 
 	const uiState = getContext(UiState);
@@ -150,7 +148,7 @@
 	}
 </script>
 
-<div class="commit-message-wrap" data-testid={testId}>
+<div class="commit-message-wrap">
 	<MessageEditorInput
 		testId={TestId.CommitDrawerTitleInput}
 		bind:ref={titleInput}
@@ -181,7 +179,6 @@
 		onChange={(text: string) => {
 			onChange?.({ description: text });
 		}}
-		enableFileUpload
 		onKeyDown={(e: KeyboardEvent) => {
 			if (e.key === 'Tab' && e.shiftKey) {
 				e.preventDefault();
@@ -213,9 +210,9 @@
 <style lang="postcss">
 	.commit-message-wrap {
 		display: flex;
+		position: relative;
 		flex: 1;
 		flex-direction: column;
 		min-height: 0;
-		gap: 10px;
 	}
 </style>

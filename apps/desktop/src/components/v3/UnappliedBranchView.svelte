@@ -57,7 +57,7 @@
 		{@const hasCommits = branch.commits.length > 0}
 		{@const remoteTrackingBranch = branch.remoteTrackingBranch}
 		{@const preferredPrNumber = branch.prNumber || prNumber}
-		<Drawer testId={TestId.UnappliedBranchDrawer} {projectId} {onclose}>
+		<Drawer testId={TestId.UnappliedBranchDrawer} {onclose}>
 			{#snippet header()}
 				<div class="branch__header">
 					{#if hasCommits}

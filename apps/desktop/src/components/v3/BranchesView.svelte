@@ -45,7 +45,7 @@
 
 	const projectState = $derived(uiState.project(projectId));
 	const branchesState = $derived(projectState.branchesSelection);
-	const drawerIsFullScreen = $derived(projectState.drawerFullScreen);
+
 	const baseBranchResult = $derived(baseBranchService.baseBranch(projectId));
 	const branchesSelection = $derived(projectState.branchesSelection);
 
@@ -340,9 +340,7 @@
 			{/snippet}
 
 			{#snippet right()}
-				{#if !drawerIsFullScreen.current}
-					<SelectionView {projectId} {selectionId} draggableFiles />
-				{/if}
+				<SelectionView {projectId} {selectionId} draggableFiles />
 
 				{#if current.commitId}
 					<UnappliedCommitView {projectId} commitId={current.commitId} />

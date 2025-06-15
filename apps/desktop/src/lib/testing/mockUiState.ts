@@ -18,7 +18,6 @@ const MOCK_STACK_UI_STATE: StackState = {
 };
 
 const MOCK_PROJECT_UI_STATE: ProjectUiState = {
-	drawerFullScreen: false,
 	commitTitle: '',
 	commitDescription: '',
 	exclusiveAction: undefined,
@@ -29,7 +28,6 @@ const MOCK_PROJECT_UI_STATE: ProjectUiState = {
 
 const MOCK_GLOBAL_UI_STATE: GlobalUiState = {
 	drawerHeight: 20,
-	drawerSplitViewWidth: 20,
 	historySidebarWidth: 30,
 	useRichText: true,
 	aiSuggestionsOnType: true,
@@ -54,11 +52,6 @@ export function getUiStateMock() {
 				return MOCK_GLOBAL_UI_STATE.drawerHeight;
 			}
 		},
-		drawerSplitViewWidth: {
-			get() {
-				return MOCK_GLOBAL_UI_STATE.drawerSplitViewWidth;
-			}
-		},
 		useRichText: {
 			get() {
 				return MOCK_GLOBAL_UI_STATE.useRichText;
@@ -76,11 +69,6 @@ export function getUiStateMock() {
 			drawerPage: {
 				get() {
 					return MOCK_PROJECT_UI_STATE.exclusiveAction;
-				}
-			},
-			drawerFullScreen: {
-				get() {
-					return MOCK_PROJECT_UI_STATE.drawerFullScreen;
 				}
 			},
 			commitTitle: {
