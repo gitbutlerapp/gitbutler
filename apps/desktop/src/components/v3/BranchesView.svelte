@@ -339,41 +339,44 @@
 			{/snippet}
 
 			{#snippet right()}
-				<SelectionView {projectId} {selectionId} draggableFiles />
-
-				{#if current.commitId}
-					<UnappliedCommitView {projectId} commitId={current.commitId} />
-				{:else if current.branchName}
-					{#if current.inWorkspace && current.stackId}
-						<BranchView
-							{projectId}
-							branchName={current.branchName}
-							stackId={current.stackId}
-							draggableFiles={false}
-							active
-							{onerror}
-						/>
-					{:else if !current.isTarget}
-						<UnappliedBranchView
-							{projectId}
-							branchName={current.branchName}
-							stackId={current.stackId}
-							remote={current.remote}
-							prNumber={current.prNumber}
-							{onerror}
-						/>
-					{/if}
-				{:else if current.prNumber}
-					<PrBranchView {projectId} prNumber={current.prNumber} {onerror} />
-				{:else if !current.branchName && !current.prNumber}
-					<!-- TODO: Make this fallback better somehow? -->
-					<UnappliedBranchView
-						{projectId}
-						branchName={baseBranch.shortName}
-						remote={baseBranch.remoteName}
-						{onerror}
-					/>
-				{/if}
+				<div class="right-wrapper">
+					<div class="details dotted-pattern">
+						{#if current.commitId}
+							<UnappliedCommitView {projectId} commitId={current.commitId} />
+						{:else if current.branchName}
+							{#if current.inWorkspace && current.stackId}
+								<BranchView
+									{projectId}
+									branchName={current.branchName}
+									stackId={current.stackId}
+									draggableFiles={false}
+									active
+									{onerror}
+								/>
+							{:else if !current.isTarget}
+								<UnappliedBranchView
+									{projectId}
+									branchName={current.branchName}
+									stackId={current.stackId}
+									remote={current.remote}
+									prNumber={current.prNumber}
+									{onerror}
+								/>
+							{/if}
+						{:else if current.prNumber}
+							<PrBranchView {projectId} prNumber={current.prNumber} {onerror} />
+						{:else if !current.branchName && !current.prNumber}
+							<!-- TODO: Make this fallback better somehow? -->
+							<UnappliedBranchView
+								{projectId}
+								branchName={baseBranch.shortName}
+								remote={baseBranch.remoteName}
+								{onerror}
+							/>
+						{/if}
+					</div>
+					<SelectionView {projectId} {selectionId} draggableFiles />
+				</div>
 			{/snippet}
 		</MainViewport>
 	{/snippet}
@@ -404,5 +407,21 @@
 
 	.rounded-container {
 		border-radius: var(--radius-ml);
+	}
+
+	.right-wrapper {
+		display: flex;
+		position: relative;
+		height: 100%;
+		overflow: hidden;
+	}
+
+	.details {
+		flex-grow: 0;
+		flex-shrink: 0;
+		flex-basis: 33%;
+		align-items: start;
+		max-height: calc(100% + 1px);
+		border-right: 1px solid var(--clr-border-2);
 	}
 </style>

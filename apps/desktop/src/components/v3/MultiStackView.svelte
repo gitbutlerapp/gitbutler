@@ -28,10 +28,6 @@
 	let isNotEnoughHorzSpace = $derived(
 		(lanesScrollableWidth ?? 0) < laneWidths.length * (laneWidths[0] ?? 0)
 	);
-	let isNotEnoughVertSpace = $derived.by(() => {
-		const shortenArray = lineHights.slice(0, lineHights.length);
-		return lanesScrollableHeight < shortenArray.reduce((acc, height) => acc + height, 0);
-	});
 	let visibleIndexes = $state<number[]>([0]);
 	let isCreateNewVisible = $state<boolean>(false);
 
@@ -43,7 +39,7 @@
 	const SHOW_PAGINATION_THRESHOLD = 1;
 </script>
 
-{#if isNotEnoughHorzSpace && isNotEnoughVertSpace}
+{#if isNotEnoughHorzSpace}
 	<div class="pagination-container">
 		<MultiStackPagination
 			length={stacks.length}
@@ -108,10 +104,10 @@
 			{/if}
 		{/snippet}
 	</MultiStackOfflaneDropzone>
-	{#if lanesScrollableEl}
-		<Scrollbar viewport={lanesScrollableEl} horz />
-	{/if}
 </div>
+{#if lanesScrollableEl}
+	<Scrollbar viewport={lanesScrollableEl} horz />
+{/if}
 
 <style lang="postcss">
 	.lanes-scrollable {
@@ -120,8 +116,8 @@
 		flex: 1;
 		height: 100%;
 		margin: 0 -1px;
-		overflow: hidden;
 		overflow-x: auto;
+		overflow-y: hidden;
 	}
 
 	.pagination-container {
