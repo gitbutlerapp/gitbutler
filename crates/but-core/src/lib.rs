@@ -118,6 +118,18 @@ pub trait RefMetadata {
         })
     }
 
+    /// Like [`workspace()`](Self::workspace()), but instead of possibly returning default values, return an
+    /// optional workspace instead.
+    ///
+    /// This means the returned workspace data is never the default value.
+    fn workspace_opt(
+        &self,
+        ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<Option<Self::Handle<ref_metadata::Workspace>>> {
+        let ws = self.workspace(ref_name)?;
+        Ok(if ws.is_default() { None } else { Some(ws) })
+    }
+
     /// Set workspace metadata to match `value`.
     fn set_workspace(
         &mut self,
