@@ -12,7 +12,6 @@
 	import NewBranchModal from '$components/v3/NewBranchModal.svelte';
 	import PushButton from '$components/v3/PushButton.svelte';
 	import { getColorFromCommitState, getIconFromCommitState } from '$components/v3/lib';
-	import { assignmentEnabled } from '$lib/config/uiFeatureFlags';
 	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { ModeService } from '$lib/mode/modeService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -23,16 +22,14 @@
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { QueryStatus } from '@reduxjs/toolkit/query';
 	import type { CommitStatusType } from '$lib/commits/commit';
-	import type { Snippet } from 'svelte';
 
 	type Props = {
 		projectId: string;
 		stackId: string;
 		focusedStackId?: string;
-		assignments: Snippet;
 	};
 
-	const { projectId, stackId, focusedStackId, assignments }: Props = $props();
+	const { projectId, stackId, focusedStackId }: Props = $props();
 	const [stackService, uiState, modeService] = inject(StackService, UiState, ModeService);
 
 	const branchesResult = $derived(stackService.branches(projectId, stackId));
@@ -115,9 +112,6 @@
 			)}
 			<ScrollableContainer>
 				<div class="branches-wrapper">
-					{#if $assignmentEnabled}
-						{@render assignments()}
-					{/if}
 					{#each branches as branch, i}
 						{@const branchName = branch.name}
 						{@const localAndRemoteCommits = stackService.commits(projectId, stackId, branchName)}

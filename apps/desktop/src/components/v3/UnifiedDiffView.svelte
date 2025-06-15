@@ -9,6 +9,7 @@
 	import DependencyService from '$lib/dependencies/dependencyService.svelte';
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { HunkDropDataV3 } from '$lib/dragging/draggables';
+	import { DropzoneRegistry } from '$lib/dragging/registry';
 	import {
 		canBePartiallySelected,
 		getLineLocks,
@@ -52,7 +53,7 @@
 		draggable
 	}: Props = $props();
 
-	const [project, uiState] = inject(Project, UiState);
+	const [project, uiState, dropzoneRegistry] = inject(Project, UiState, DropzoneRegistry);
 
 	let contextMenu = $state<ReturnType<typeof HunkContextMenu>>();
 	let showAnyways = $state(false);
@@ -60,9 +61,14 @@
 
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
-	const activeStackId = $derived(projectState.stackId.current);
+	const targetStackId = $derived(
+		exclusiveAction?.type === 'commit' ? exclusiveAction.stackId : undefined
+	);
 
-	const isCommiting = $derived(exclusiveAction?.type === 'commit');
+	const isCommiting = $derived(
+		exclusiveAction?.type === 'commit' && (!exclusiveAction.stackId || stackId === stackId)
+	);
+
 	const isUncommittedChange = $derived(selectionId.type === 'worktree');
 
 	const [uncommittedService, dependencyService] = inject(UncommittedService, DependencyService);
@@ -124,7 +130,7 @@
 							hunk
 						)}
 						{@const [fullyLocked, lineLocks] = getLineLocks(
-							activeStackId,
+							targetStackId,
 							hunk,
 							fileDependencies.dependencies ?? []
 						)}
@@ -141,7 +147,8 @@
 									selectionId
 								),
 								disabled: draggingDisabled,
-								chipType: 'hunk'
+								chipType: 'hunk',
+								dropzoneRegistry
 							}}
 						>
 							<HunkDiff

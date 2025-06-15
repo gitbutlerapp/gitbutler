@@ -1,9 +1,9 @@
 import { getColorFromCommitState } from '$components/v3/lib';
 import { type CommitStatusType } from '$lib/commits/commit';
 import { FileDropData, ChangeDropData, type DropData } from '$lib/dragging/draggables';
-import { dropzoneRegistry } from '$lib/dragging/dropzone';
 import { getFileIcon } from '@gitbutler/ui/file/getFileIcon';
 import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
+import type { DropzoneRegistry } from '$lib/dragging/registry';
 
 // Added to element being dragged (not the clone that follows the cursor).
 const DRAGGING_CLASS = 'dragging';
@@ -24,6 +24,7 @@ export type DraggableConfig = {
 	readonly data?: DropData;
 	readonly viewportId?: string;
 	readonly chipType?: 'file' | 'hunk';
+	readonly dropzoneRegistry: DropzoneRegistry;
 };
 
 function createElement<K extends keyof HTMLElementTagNameMap>(
@@ -41,7 +42,7 @@ function createElement<K extends keyof HTMLElementTagNameMap>(
 
 function setupDragHandlers(
 	node: HTMLElement,
-	opts: DraggableConfig,
+	opts: DraggableConfig | undefined,
 	createClone: (opts: DraggableConfig, selectedElements: Element[]) => HTMLElement | undefined,
 	params: {
 		handlerWidth: boolean;
@@ -62,7 +63,7 @@ function setupDragHandlers(
 	}
 
 	function handleDragStart(e: DragEvent) {
-		if (opts.disabled) return;
+		if (!opts || opts.disabled) return;
 		e.stopPropagation();
 
 		if (dragHandle && dragHandle.dataset.noDrag !== undefined) {
@@ -116,7 +117,7 @@ function setupDragHandlers(
 			element.classList.add(DRAGGING_CLASS);
 		}
 
-		for (const dropzone of Array.from(dropzoneRegistry.values())) {
+		for (const dropzone of Array.from(opts.dropzoneRegistry.values())) {
 			dropzone.activate(opts.data);
 		}
 
@@ -146,7 +147,7 @@ function setupDragHandlers(
 		}
 	}
 
-	const viewport = opts.viewportId ? document.getElementById(opts.viewportId) : null;
+	const viewport = opts?.viewportId ? document.getElementById(opts.viewportId) : null;
 	const triggerRange = 150;
 	const timerShutter = 700;
 	let timeoutId: undefined | ReturnType<typeof setTimeout> = undefined;
@@ -221,7 +222,8 @@ function setupDragHandlers(
 	function deactivateDropzones() {
 		selectedElements.forEach((el) => el.classList.remove(DRAGGING_CLASS));
 		if (clone) clone.remove();
-		Array.from(dropzoneRegistry.values()).forEach((dropzone) => {
+		if (!opts) return;
+		Array.from(opts.dropzoneRegistry.values()).forEach((dropzone) => {
 			dropzone.deactivate();
 		});
 
@@ -231,7 +233,9 @@ function setupDragHandlers(
 		}
 	}
 
-	setup(opts);
+	if (opts) {
+		setup(opts);
+	}
 
 	return {
 		update(newOpts: DraggableConfig) {
@@ -280,12 +284,9 @@ function createCommitElement(
 	return cardEl;
 }
 
-export function draggableCommit(
-	node: HTMLElement,
-	initialOpts: DraggableConfig | NonDraggableConfig
-) {
+export function draggableCommit(node: HTMLElement, initialOpts: DraggableConfig | undefined) {
 	function createClone(opts: DraggableConfig) {
-		if (opts.disabled) return;
+		if (opts.disabled || !opts.dropzoneRegistry) return;
 		return createCommitElement(opts.commitType, opts.label, opts.sha, opts.date, opts.authorImgUrl);
 	}
 	return setupDragHandlers(node, initialOpts, createClone, {
@@ -325,10 +326,7 @@ function createCommitElementV3(
 	return cardEl;
 }
 
-export function draggableCommitV3(
-	node: HTMLElement,
-	initialOpts: DraggableConfig | NonDraggableConfig
-) {
+export function draggableCommitV3(node: HTMLElement, initialOpts: DraggableConfig) {
 	function createClone(opts: DraggableConfig) {
 		if (opts.disabled) return;
 		return createCommitElementV3(opts.commitType, opts.label);

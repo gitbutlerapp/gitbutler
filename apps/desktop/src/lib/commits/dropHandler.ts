@@ -9,7 +9,6 @@ import { LocalFile, RemoteFile } from '$lib/files/file';
 import { untrack } from 'svelte';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { DiffSpec } from '$lib/hunks/hunk';
-import type { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 import type { StackService } from '$lib/stacks/stackService.svelte';
 import type { UiState } from '$lib/state/uiState.svelte';
 
@@ -29,44 +28,6 @@ export class CommitDropData {
 		readonly isHeadCommit: boolean,
 		readonly branchName?: string
 	) {}
-}
-
-export class StartCommitDzHandler implements DropzoneHandler {
-	constructor(
-		private args: {
-			uiState: UiState;
-			uncommittedService: UncommittedService;
-			stackId: string;
-			projectId: string;
-			branchName: string;
-		}
-	) {}
-
-	accepts(data: unknown): boolean {
-		return (
-			(data instanceof ChangeDropData && !data.isCommitted) ||
-			(data instanceof HunkDropDataV3 && data.uncommitted)
-		);
-	}
-	async ondrop(data: ChangeDropData | HunkDropDataV3): Promise<void> {
-		const { projectId, stackId, branchName, uiState, uncommittedService } = this.args;
-
-		const projectState = uiState.project(projectId);
-		const stackState = stackId ? uiState.stack(stackId) : undefined;
-
-		uncommittedService.uncheckAll(null);
-		if (data instanceof ChangeDropData) {
-			for (const change of await data.treeChanges()) {
-				uncommittedService.checkFile(null, change.path);
-			}
-		} else if (data instanceof HunkDropDataV3) {
-			uncommittedService.checkHunk(stackId, data.change.path, data.hunk);
-		}
-
-		projectState.exclusiveAction.set({ type: 'commit', stackId: this.args.stackId });
-		projectState.stackId.set(stackId);
-		stackState?.selection.set({ branchName: branchName });
-	}
 }
 
 /** Handler that can move commits between stacks. */

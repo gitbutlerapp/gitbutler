@@ -7,9 +7,7 @@
 	import BranchHeaderContextMenu from '$components/v3/BranchHeaderContextMenu.svelte';
 	import PrNumberUpdater from '$components/v3/PrNumberUpdater.svelte';
 	import ReviewView from '$components/v3/ReviewView.svelte';
-	import { MoveCommitDzHandler, StartCommitDzHandler } from '$lib/commits/dropHandler';
-	import { assignmentEnabled } from '$lib/config/uiFeatureFlags';
-	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
+	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
@@ -78,11 +76,7 @@
 
 	let { projectId, branchName, expand, active, lineColor, readonly, ...args }: Props = $props();
 
-	const [uiState, stackService, uncommittedService] = inject(
-		UiState,
-		StackService,
-		UncommittedService
-	);
+	const [uiState, stackService] = inject(UiState, StackService);
 
 	const [updateName, nameUpdate] = stackService.updateBranchName;
 
@@ -125,17 +119,10 @@
 >
 	{#if args.type === 'stack-branch'}
 		{@const moveHandler = new MoveCommitDzHandler(stackService, args.stackId, projectId)}
-		{@const startCommitHandler = new StartCommitDzHandler({
-			uiState,
-			uncommittedService,
-			stackId: args.stackId,
-			projectId,
-			branchName
-		})}
 		{#if !args.prNumber}
 			<PrNumberUpdater {projectId} stackId={args.stackId} {branchName} />
 		{/if}
-		<Dropzone handlers={$assignmentEnabled ? [moveHandler] : [moveHandler, startCommitHandler]}>
+		<Dropzone handlers={[moveHandler]}>
 			{#snippet overlay({ hovered, activated, handler })}
 				{@const label = handler instanceof MoveCommitDzHandler ? 'Move here' : 'Start commit'}
 				<CardOverlay {hovered} {activated} {label} />
