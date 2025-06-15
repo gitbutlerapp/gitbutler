@@ -19,21 +19,27 @@ pub struct OpenAiProvider {
 }
 
 impl OpenAiProvider {
-    pub fn new(preferred_creds: Option<CredentialsKind>) -> Result<Self> {
+    pub fn with(preferred_creds: Option<CredentialsKind>) -> Option<Self> {
         let credentials = if let Some(kind) = preferred_creds {
             match kind {
-                CredentialsKind::EnvVarOpenAiKey => OpenAiProvider::openai_env_var_creds()?,
-                CredentialsKind::OwnOpenAiKey => OpenAiProvider::openai_own_key_creds()?,
-                CredentialsKind::GitButlerProxied => OpenAiProvider::gitbutler_proxied_creds()?,
+                CredentialsKind::EnvVarOpenAiKey => OpenAiProvider::openai_env_var_creds(),
+                CredentialsKind::OwnOpenAiKey => OpenAiProvider::openai_own_key_creds(),
+                CredentialsKind::GitButlerProxied => OpenAiProvider::gitbutler_proxied_creds(),
             }
         } else {
             OpenAiProvider::openai_env_var_creds()
                 .or_else(|_| OpenAiProvider::openai_own_key_creds())
                 .or_else(|_| OpenAiProvider::gitbutler_proxied_creds())
-                .context("No OpenAI credentials found. This can be configured in the app or read from a OPENAI_API_KEY environment variable")?
+                .context("No OpenAI credentials found. This can be configured in the app or read from a OPENAI_API_KEY environment variable")
         };
 
-        Ok(Self { credentials })
+        match credentials {
+            Ok(credentials) => Some(Self { credentials }),
+            Err(e) => {
+                tracing::error!("Failed to retrieve OpenAI credentials: {}", e);
+                None
+            }
+        }
     }
 
     pub fn client(&self) -> Result<Client<OpenAIConfig>> {
