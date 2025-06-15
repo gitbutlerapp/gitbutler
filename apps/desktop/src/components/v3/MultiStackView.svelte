@@ -68,18 +68,22 @@
 		bind:clientHeight={lanesScrollableHeight}
 		class:multi={stacks.length < SHOW_PAGINATION_THRESHOLD}
 	>
-		{#if isCommitting && stacks.length === 0}
-			<StackDraft {projectId} />
-		{:else if stacks.length === 0}
+		{#if stacks.length === 0}
 			<div class="no-stacks-placeholder">
 				<MultiStackOfflaneDropzone
-					viewport={lanesScrollableEl}
 					{projectId}
-					standalone
+					viewport={lanesScrollableEl}
 					onVisible={(visible) => {
 						isCreateNewVisible = visible;
 					}}
-				/>
+				>
+					{#snippet title()}
+						No branches in Workspace
+					{/snippet}
+					{#snippet description()}
+						Drop files to start a branch, or apply from the Branches view.
+					{/snippet}
+				</MultiStackOfflaneDropzone>
 			</div>
 		{:else if stacks.length > 0}
 			{#each stacks as stack, i}
@@ -99,17 +103,26 @@
 				/>
 			{/each}
 
-			<MultiStackOfflaneDropzone
-				viewport={lanesScrollableEl}
-				{projectId}
-				standalone
-				onVisible={(visible) => {
-					isCreateNewVisible = visible;
-				}}
-			/>
+			{#if !isCommitting}
+				<MultiStackOfflaneDropzone
+					{projectId}
+					viewport={lanesScrollableEl}
+					onVisible={(visible) => {
+						isCreateNewVisible = visible;
+					}}
+				>
+					{#snippet description()}
+						Drop files to start a branch, or apply from the Branches view Drag chanes here to branch
+						off your changes.
+					{/snippet}
+				</MultiStackOfflaneDropzone>
+			{/if}
 			{#if lanesScrollableEl}
 				<Scrollbar viewport={lanesScrollableEl} horz />
 			{/if}
+		{/if}
+		{#if isCommitting && exclusiveAction?.stackId === undefined}
+			<StackDraft {projectId} />
 		{/if}
 	</div>
 </div>

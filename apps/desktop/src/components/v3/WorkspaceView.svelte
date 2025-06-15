@@ -3,9 +3,7 @@
 	import MainViewport from '$components/v3/MainViewport.svelte';
 	import MultiStackView from '$components/v3/MultiStackView.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
-	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
-	import WorktreeTipsFooter from '$components/v3/WorktreeTipsFooter.svelte';
-	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
+	import UnassignedView from '$components/v3/UnassignedView.svelte';
 	import {
 		DefinedFocusable,
 		FocusManager,
@@ -14,12 +12,8 @@
 		uncommittedFocusableId
 	} from '$lib/focus/focusManager.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
-	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
-	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
 	import { setContext } from 'svelte';
 	import { writable } from 'svelte/store';
 	import type { SelectionId } from '$lib/selection/key';
@@ -31,14 +25,7 @@
 
 	const { stackId, projectId }: Props = $props();
 
-	const [stackService, focusManager, idSelection, uncommittedService, uiState] = inject(
-		StackService,
-		FocusManager,
-		IdSelection,
-		UncommittedService,
-		UiState
-	);
-	const projectState = $derived(uiState.project(projectId));
+	const [stackService, focusManager, idSelection] = inject(StackService, FocusManager, IdSelection);
 	const worktreeSelection = idSelection.getById({ type: 'worktree' });
 	const stacksResult = $derived(stackService.stacks(projectId));
 
@@ -77,7 +64,6 @@
 
 	const lastAdded = $derived(worktreeSelection.lastAdded);
 	const previewOpen = $derived(!!$lastAdded?.key);
-	const isCommitting = $derived(projectState.exclusiveAction.current?.type === 'commit');
 </script>
 
 <MainViewport
@@ -87,58 +73,7 @@
 	middleWidth={{ default: 380, min: 240 }}
 >
 	{#snippet left()}
-		<div class="unassigned">
-			<WorktreeChanges
-				title="Unassigned"
-				{projectId}
-				stackId={undefined}
-				active={selectionId.type === 'worktree' &&
-					selectionId.stackId === undefined &&
-					focusGroup.current === DefinedFocusable.UncommittedChanges}
-			>
-				{#snippet emptyPlaceholder()}
-					<div class="unassigned-changes__empty">
-						<div class="unassigned-changes__empty__placeholder">
-							{@html noChanges}
-							<p class="text-13 text-body unassigned-changes__empty__placeholder-text">
-								You're all caught up!<br />
-								No files need committing
-							</p>
-						</div>
-						<WorktreeTipsFooter />
-					</div>
-				{/snippet}
-			</WorktreeChanges>
-
-			<ReduxResult {projectId} result={stacksResult?.current}>
-				{#snippet children(stacks)}
-					{#if stacks.length === 0}
-						<div class="start-commit">
-							<Button
-								testId={TestId.StartCommitButton}
-								type="button"
-								wide
-								kind={isCommitting ? 'outline' : 'solid'}
-								onclick={() => {
-									if (isCommitting) {
-										projectState.exclusiveAction.set(undefined);
-									} else {
-										projectState.exclusiveAction.set({ type: 'commit' });
-										uncommittedService.checkAll(null);
-									}
-								}}
-							>
-								{#if isCommitting}
-									Cancel
-								{:else}
-									Start a commit…
-								{/if}
-							</Button>
-						</div>
-					{/if}
-				{/snippet}
-			</ReduxResult>
-		</div>
+		<UnassignedView {projectId} focus={focusGroup.current as DefinedFocusable} />
 	{/snippet}
 	{#snippet middle()}
 		<SelectionView {projectId} {selectionId} draggableFiles />
@@ -162,37 +97,5 @@
 		height: 100%;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
-	}
-
-	.unassigned-changes__empty {
-		display: flex;
-		flex-direction: column;
-		height: 100%;
-	}
-
-	.unassigned-changes__empty__placeholder {
-		display: flex;
-		flex: 1;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: 0 20px 40px;
-		gap: 20px;
-	}
-
-	.unassigned-changes__empty__placeholder-text {
-		color: var(--clr-text-3);
-		text-align: center;
-	}
-
-	.unassigned {
-		display: flex;
-		flex-direction: column;
-		height: 100%;
-		gap: 12px;
-		background-color: var(--clr-bg-1);
-	}
-	.start-commit {
-		padding: 12px;
 	}
 </style>

@@ -34,7 +34,11 @@
 	const branchName = $derived(draftBranchName.current || newName);
 </script>
 
-<div data-testid={TestId.StackDraft} class="draft-stack">
+<div
+	data-testid={TestId.StackDraft}
+	class="draft-stack"
+	style:width={uiState.global.stackWidth.current + 'rem'}
+>
 	<div class="new-commit-view" data-testid={TestId.NewCommitView}>
 		<NewCommitView
 			{projectId}

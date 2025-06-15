@@ -1,11 +1,14 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
+	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
+	import StackStickyButtons from '$components/StackStickyButtons.svelte';
 	import AsyncRender from '$components/v3/AsyncRender.svelte';
 	import BranchList from '$components/v3/BranchList.svelte';
 	import BranchView from '$components/v3/BranchView.svelte';
 	import CommitView from '$components/v3/CommitView.svelte';
 	import NewCommitView from '$components/v3/NewCommitView.svelte';
+	import PushButton from '$components/v3/PushButton.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
 	import { isParsedError } from '$lib/error/parser';
@@ -54,6 +57,8 @@
 	const isCommitting = $derived(
 		exclusiveAction?.type === 'commit' && exclusiveAction.stackId === stack.id
 	);
+
+	const branchesResult = $derived(stackService.branches(projectId, stack.id));
 
 	let dropzoneActivated = $state(false);
 
@@ -142,70 +147,82 @@
 			bind:clientHeight
 			bind:this={laneEl}
 		>
-			<ConfigurableScrollableContainer>
-				<div
-					class="assignments-wrap"
-					class:assignments__empty={changes.current.length === 0 && !isCommitting}
-					class:committing-when-empty={isCommitting && changes.current.length === 0}
-				>
-					<div
-						class="worktree-wrap"
-						class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
-					>
-						<WorktreeChanges
-							title="Assigned"
-							{projectId}
-							stackId={stack.id}
-							mode="assigned"
-							active={focusedStackId === stack.id}
-							dropzoneVisible={changes.current.length === 0 && !isCommitting}
-							onDropzoneActivated={(activated) => {
-								dropzoneActivated = activated;
-							}}
+			<ReduxResult {projectId} result={branchesResult.current}>
+				{#snippet children(branches)}
+					<ConfigurableScrollableContainer>
+						<div
+							class="assignments-wrap"
+							class:assignments__empty={changes.current.length === 0 && !isCommitting}
+							class:committing-when-empty={isCommitting && changes.current.length === 0}
 						>
-							{#snippet emptyPlaceholder()}
-								{#if !isCommitting}
-									<div class="assigned-changes-empty">
-										<p class="text-12 text-body assigned-changes-empty__text">
-											Drop files to assign to the lane
-										</p>
-									</div>
-								{/if}
-							{/snippet}
-						</WorktreeChanges>
-					</div>
-					<div class="new-commit">
-						{#if !isCommitting}
-							<div class="start-commit">
-								<Button
-									testId={TestId.StartCommitButton}
-									type="button"
-									wide
-									disabled={defaultBranchResult?.current.isLoading}
-									onclick={() => {
-										startCommit();
+							<div
+								class="worktree-wrap"
+								class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
+							>
+								<WorktreeChanges
+									title="Assigned"
+									{projectId}
+									stackId={stack.id}
+									mode="assigned"
+									active={focusedStackId === stack.id}
+									dropzoneVisible={changes.current.length === 0 && !isCommitting}
+									onDropzoneActivated={(activated) => {
+										dropzoneActivated = activated;
 									}}
 								>
-									Start a commit…
-								</Button>
+									{#snippet emptyPlaceholder()}
+										{#if !isCommitting}
+											<div class="assigned-changes-empty">
+												<p class="text-12 text-body assigned-changes-empty__text">
+													Drop files to assign to the lane
+												</p>
+											</div>
+										{/if}
+									{/snippet}
+								</WorktreeChanges>
 							</div>
-						{:else if isCommitting}
-							<div class="message-editor" data-testid={TestId.NewCommitView}>
-								<NewCommitView {projectId} stackId={stack.id} noDrawer />
+							<div class="new-commit">
+								{#if !isCommitting}
+									<div class="start-commit">
+										<Button
+											testId={TestId.StartCommitButton}
+											type="button"
+											wide
+											disabled={defaultBranchResult?.current.isLoading}
+											onclick={() => {
+												startCommit();
+											}}
+										>
+											Start a commit…
+										</Button>
+									</div>
+								{:else if isCommitting}
+									<div class="message-editor" data-testid={TestId.NewCommitView}>
+										<NewCommitView {projectId} stackId={stack.id} noDrawer />
+									</div>
+								{/if}
 							</div>
-						{/if}
-					</div>
-				</div>
+						</div>
 
-				<BranchList {projectId} stackId={stack.id} {focusedStackId} />
-				<Resizer
-					viewport={laneEl}
-					direction="right"
-					minWidth={16}
-					maxWidth={64}
-					onWidth={(value) => uiState.global.stackWidth.set(value)}
-				/>
-			</ConfigurableScrollableContainer>
+						<BranchList {projectId} {branches} stackId={stack.id} {focusedStackId} />
+						<Resizer
+							viewport={laneEl!}
+							direction="right"
+							minWidth={16}
+							maxWidth={64}
+							onWidth={(value) => uiState.global.stackWidth.set(value)}
+						/>
+					</ConfigurableScrollableContainer>
+					<StackStickyButtons>
+						<PushButton
+							flex="1"
+							{projectId}
+							stackId={stack.id}
+							multipleBranches={branches.length > 1}
+						/>
+					</StackStickyButtons>
+				{/snippet}
+			</ReduxResult>
 		</div>
 
 		{#if assignedKey || branchName || commitId}
