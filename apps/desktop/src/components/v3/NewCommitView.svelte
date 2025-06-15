@@ -236,14 +236,7 @@
 {#if noDrawer}
 	{@render editor()}
 {:else}
-	<Drawer
-		testId={TestId.NewCommitView}
-		bind:this={drawer}
-		{projectId}
-		title="Create commit"
-		disableScroll
-		minHeight={20}
-	>
+	<Drawer testId={TestId.NewCommitView} bind:this={drawer} {projectId} title="Create commit">
 		{@render editor()}
 	</Drawer>
 {/if}

@@ -141,10 +141,7 @@
 				testId={TestId.EditCommitMessageDrawer}
 				projectId={env.projectId}
 				title="Edit commit message"
-				disableScroll
-				minHeight={20}
 				{onclose}
-				fill
 			>
 				<CommitMessageEditor
 					bind:this={editor}
@@ -160,7 +157,7 @@
 				/>
 			</Drawer>
 		{:else}
-			<Drawer testId={TestId.CommitDrawer} projectId={env.projectId} {onclose} noLeftPadding fill>
+			<Drawer testId={TestId.CommitDrawer} projectId={env.projectId} {onclose}>
 				{#snippet header()}
 					<div class="commit-view__header text-13">
 						{#if isLocalAndRemoteCommit(commit)}
