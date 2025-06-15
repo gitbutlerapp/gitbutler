@@ -107,7 +107,6 @@
 	const isCommitting = $derived(
 		exclusiveAction?.type === 'commit' && exclusiveAction.stackId === stackId
 	);
-	const stackActive = $derived(stackId === projectState.stackId.current);
 	const stackState = $derived(uiState.stack(stackId));
 	const selection = $derived(stackState.selection.get());
 	const selectedBranchName = $derived(selection.current?.branchName);
@@ -149,9 +148,11 @@
 	}
 
 	async function handleCommitClick(commitId: string, upstream: boolean) {
-		const stackState = uiState.stack(stackId);
-		stackState.selection.set({ branchName, commitId, upstream });
-		projectState.stackId.set(stackId);
+		if (selectedCommitId === commitId) {
+			stackState.selection.set(undefined);
+		} else {
+			stackState.selection.set({ branchName, commitId, upstream });
+		}
 	}
 </script>
 
@@ -210,10 +211,9 @@
 		{@const ancestorMostConflicted = getAncestorMostConflicted(localAndRemoteCommits)}
 		{#if !hasCommits && isCommitting}
 			<CommitGoesHere
-				selected={stackActive &&
-					(branchName === commitAction?.branchName ||
-						!commitAction?.branchName ||
-						!commitAction.parentCommitId)}
+				selected={branchName === commitAction?.branchName ||
+					!commitAction?.branchName ||
+					!commitAction.parentCommitId}
 				first
 				last
 				onclick={() => {
@@ -242,8 +242,7 @@
 					{#each upstreamOnlyCommits as commit, i (commit.id)}
 						{@const first = i === 0}
 						{@const lastCommit = i === upstreamOnlyCommits.length - 1}
-						{@const selected =
-							stackActive && commit.id === selectedCommitId && branchName === selectedBranchName}
+						{@const selected = commit.id === selectedCommitId && branchName === selectedBranchName}
 						{@const commitId = commit.id}
 						{#if !isCommitting}
 							<CommitRow
@@ -278,8 +277,7 @@
 				{@const first = i === 0}
 				{@const last = i === localAndRemoteCommits.length - 1}
 				{@const commitId = commit.id}
-				{@const selected =
-					stackActive && commit.id === selectedCommitId && branchName === selectedBranchName}
+				{@const selected = commit.id === selectedCommitId && branchName === selectedBranchName}
 				{#if isCommitting}
 					<!-- Only commits to the base can be `last`, see next `CommitGoesHere`. -->
 					<CommitGoesHere
