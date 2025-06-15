@@ -6,6 +6,8 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use serde::Serialize;
 
+pub(crate) mod inspect;
+
 pub(crate) fn handle_changes(
     repo_path: &Path,
     json: bool,

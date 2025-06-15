@@ -9,6 +9,9 @@ pub struct Args {
     /// Whether to use JSON output format.
     #[clap(long, short = 'j')]
     pub json: bool,
+    /// Whether tracing should occur
+    #[clap(long, short = 't')]
+    pub trace: bool,
     /// Subcommand to run.
     #[clap(subcommand)]
     pub cmd: Subcommands,
@@ -46,6 +49,8 @@ For examples `but rub --help`.")]
     },
     /// GitButler Actions are automated tasks (like macros) that can be peformed on a repository.
     Actions(actions::Platform),
+    /// The family of but inspection commands
+    BetaInspect(Inspect),
 }
 
 pub mod actions {
@@ -72,4 +77,18 @@ pub mod actions {
         /// Handles changes in a simple way.
         Simple,
     }
+}
+
+#[derive(Debug, clap::Parser)]
+pub struct Inspect {
+    #[clap(subcommand)]
+    pub cmd: InspectSubcommands,
+}
+
+#[derive(Debug, clap::Subcommand)]
+pub enum InspectSubcommands {
+    /// Get the current index status
+    Status,
+    /// Generate embeddings
+    Generate,
 }
