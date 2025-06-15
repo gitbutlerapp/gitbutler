@@ -32,8 +32,7 @@
 </script>
 
 <div
-	class="hidden-dropzone"
-	style:width={uiState.global.stackWidth.current + 'rem'}
+	class="hidden-dropzone dotted-pattern"
 	use:intersectionObserver={{
 		callback: (entry) => {
 			if (entry?.isIntersecting) {
@@ -128,19 +127,9 @@
 	.hidden-dropzone {
 		display: flex;
 		position: relative;
-		flex: 1;
-		flex-shrink: 0;
-		flex-direction: column;
+		justify-content: center;
 		width: 100%;
-		min-width: 340px;
 		height: 100%;
-		min-height: 340px;
-		user-select: none;
-	}
-
-	.hidden-dropzone__title {
-		color: var(--clr-text-2);
-		text-align: center;
 	}
 
 	.hidden-dropzone__lane {
@@ -148,12 +137,16 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		width: 100%;
+		min-width: 420px;
 		height: 100%;
-		overflow: hidden;
 		gap: 10px;
+		opacity: 0;
+		transition: opacity 0.1s;
 
 		/* SVG ANIMATION */
+		&:hover {
+			opacity: 1;
+		}
 		&.activated {
 			opacity: 1;
 			& .hidden-dropzone__svg,
@@ -210,6 +203,10 @@
 				transform: rotate(-5deg);
 			}
 		}
+	}
+
+	.hidden-dropzone__title {
+		color: var(--clr-text-2);
 	}
 
 	.hidden-dropzone__content {

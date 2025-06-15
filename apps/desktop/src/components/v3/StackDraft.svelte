@@ -59,9 +59,10 @@
 <style lang="postcss">
 	.draft-stack {
 		display: flex;
+		flex-shrink: 0;
 		flex-direction: column;
-		width: 420px;
 		padding: 12px;
+		border-right: 1px solid var(--clr-border-2);
 	}
 	.new-commit-view {
 		margin-bottom: 12px;
