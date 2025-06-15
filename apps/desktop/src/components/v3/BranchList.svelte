@@ -39,7 +39,6 @@
 	const isCommitting = $derived(
 		exclusiveAction?.type === 'commit' && exclusiveAction?.stackId === stackId
 	);
-	const stackSelected = $derived(stackId === projectState.stackId.current);
 	const stackState = $derived(uiState.stack(stackId));
 	const selection = $derived(stackState.selection);
 	const selectedCommitId = $derived(selection.current?.commitId);
@@ -70,19 +69,6 @@
 			return;
 		}
 		modeService!.enterEditMode(args.commitId, stackId);
-	}
-
-	function handleBranchClick(branchName: string, headCommit: string) {
-		uiState.project(projectId).stackId.set(stackId);
-		if (isCommitting) {
-			uiState.stack(stackId).selection.set({
-				branchName,
-				commitId: headCommit
-			});
-			projectState.stackId.set(stackId);
-		} else {
-			uiState.stack(stackId).selection.set({ branchName });
-		}
 	}
 
 	const selectedCommit = $derived(
@@ -127,7 +113,6 @@
 						)}
 						{@const commitResult = stackService.commitAt(projectId, stackId, branchName, 0)}
 						{@const first = i === 0}
-						{@const headCommit = branch.commits[0]?.id || branch.baseCommit}
 
 						<ReduxResult
 							{projectId}
@@ -156,7 +141,6 @@
 								{@const isNewBranch =
 									upstreamOnlyCommits.length === 0 && localAndRemoteCommits.length === 0}
 								{@const selected =
-									stackSelected &&
 									selection?.current?.branchName === branchName &&
 									selection?.current.commitId === undefined}
 								{@const pushStatus = branchDetails.pushStatus}
@@ -184,7 +168,14 @@
 									trackingBranch={branch.remoteTrackingBranch ?? undefined}
 									readonly={!!branch.remoteTrackingBranch}
 									onclick={() => {
-										handleBranchClick(branchName, headCommit);
+										if (
+											selection.current?.branchName === branchName &&
+											!selection.current.commitId
+										) {
+											uiState.stack(stackId).selection.set(undefined);
+										} else {
+											uiState.stack(stackId).selection.set({ branchName });
+										}
 									}}
 								>
 									{#snippet menu({ rightClickTrigger })}
