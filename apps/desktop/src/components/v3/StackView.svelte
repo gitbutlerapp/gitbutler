@@ -93,10 +93,12 @@
 		if (changes.current) {
 			uncommittedService.checkAll(stack.id || null);
 		}
-		projectState.exclusiveAction.set({ type: 'commit', stackId: stack.id });
+		projectState.exclusiveAction.set({
+			type: 'commit',
+			stackId: stack.id
+		});
 		if (defaultBranchName) {
 			projectState.stackId.set(stack.id);
-			stackState?.selection.set({ branchName: defaultBranchName });
 		}
 		uncommittedService.checkAll(null);
 	}
