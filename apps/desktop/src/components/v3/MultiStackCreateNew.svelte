@@ -1,6 +1,7 @@
 <script lang="ts">
 	import dependentBranchSvg from '$components/v3/stackTabs/assets/dependent-branch.svg?raw';
 	import newStackSvg from '$components/v3/stackTabs/assets/new-stack.svg?raw';
+	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
@@ -22,7 +23,12 @@
 	};
 
 	let { el = $bindable(), scrollerEl, projectId, stackId, noStacks }: Props = $props();
-	const [stackService, uiState] = inject(StackService, UiState);
+	const [stackService, uiState, uncommittedService] = inject(
+		StackService,
+		UiState,
+		UncommittedService
+	);
+	const projectState = $derived(uiState.project(projectId));
 	const [createNewStack, stackCreation] = stackService.newStack;
 	const [createNewBranch, branchCreation] = stackService.newBranch;
 
@@ -98,37 +104,30 @@
 	// TODO: it would be nice to remember the last selected option for the next time the modal is opened
 </script>
 
-<button
-	aria-label="new stack"
+<Button
 	type="button"
-	class="new-stack-btn"
-	class:no-stacks={noStacks}
-	onclick={() => showAndPrefillName()}
-	bind:this={el}
+	onclick={() => {
+		projectState.exclusiveAction.set({ type: 'commit' });
+		uncommittedService.checkAll(null);
+	}}
 	onkeydown={handleArrowNavigation}
-	data-testid={TestId.CreateStackButton}
+	testId={TestId.CreateStackButton}
+	kind="outline"
+	icon="plus-small"
 >
-	{#if noStacks}
-		<p class="text-14 text-semibold truncate">Create new branch</p>
-	{/if}
+	Commit to new branch
+</Button>
 
-	<svg
-		class="new-stack-icon"
-		width="16"
-		height="16"
-		viewBox="0 0 20 20"
-		fill="none"
-		xmlns="http://www.w3.org/2000/svg"
-	>
-		<path
-			d="M0 10H20M10 0L10 20"
-			stroke="currentColor"
-			opacity="var(--plus-icon-opacity)"
-			stroke-width="1.5"
-			vector-effect="non-scaling-stroke"
-		/>
-	</svg>
-</button>
+<Button
+	type="button"
+	onclick={() => showAndPrefillName()}
+	onkeydown={handleArrowNavigation}
+	testId={TestId.CreateStackButton}
+	kind="outline"
+	icon="commit"
+>
+	New branch
+</Button>
 
 <Modal bind:this={createRefModal} width={500}>
 	<div class="content-wrap">
@@ -223,41 +222,6 @@
 </Modal>
 
 <style lang="postcss">
-	/* BUTTON */
-	.new-stack-btn {
-		--plus-icon-opacity: 0.7;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: 12px 15px;
-		overflow: hidden;
-		gap: 10px;
-		border-left: 1px solid var(--clr-border-2);
-		color: var(--clr-text-1);
-
-		transition:
-			color var(--transition-fast),
-			background var(--transition-fast);
-
-		&:hover,
-		&:focus {
-			--plus-icon-opacity: 1;
-		}
-
-		&:hover {
-			background: var(--clr-bg-1-muted);
-		}
-
-		&:focus {
-			outline: none;
-			background: var(--clr-stack-tab-active);
-		}
-	}
-
-	.new-stack-icon {
-		flex-shrink: 0;
-	}
-
 	/* MODAL WINDOW */
 	.content-wrap {
 		display: flex;
