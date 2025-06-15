@@ -94,7 +94,7 @@
 		{@render editor()}
 	</div>
 {:else}
-	<Drawer {projectId} title={getTitleLabel()} disableScroll minHeight={20}>
+	<Drawer title={getTitleLabel()}>
 		<div class="submit-review__container">
 			{@render editor()}
 		</div>

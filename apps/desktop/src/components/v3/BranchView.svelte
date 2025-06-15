@@ -54,7 +54,7 @@
 	{#snippet children([branches, branch, topCommit], { stackId, projectId })}
 		{@const hasCommits = !!topCommit}
 		{@const remoteTrackingBranch = branch.remoteTrackingBranch}
-		<Drawer testId={TestId.BranchView} {projectId} {onclose} fill>
+		<Drawer testId={TestId.BranchView} {onclose}>
 			{#snippet header()}
 				<div class="branch__header">
 					{#if hasCommits}

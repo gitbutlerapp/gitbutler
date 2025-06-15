@@ -35,7 +35,7 @@
 </script>
 
 <div data-testid={TestId.StackDraft} class="draft-stack">
-	<div class="new-commit-view">
+	<div class="new-commit-view" data-testid={TestId.NewCommitView}>
 		<NewCommitView
 			{projectId}
 			noDrawer

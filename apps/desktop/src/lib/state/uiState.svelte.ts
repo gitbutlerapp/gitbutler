@@ -45,7 +45,6 @@ type ExclusiveAction = { type: 'commit' } & {
 
 export type ProjectUiState = {
 	exclusiveAction: ExclusiveAction | undefined;
-	drawerFullScreen: boolean;
 	stackId: string | undefined;
 	commitTitle: string;
 	commitDescription: string;
@@ -71,7 +70,7 @@ export type GlobalModalState = CommitFailedModalState;
 
 export type GlobalUiState = {
 	drawerHeight: number;
-	drawerSplitViewWidth: number;
+
 	stackWidth: number;
 	detailsWidth: number;
 	previewWidth: number;
@@ -102,7 +101,6 @@ export class UiState {
 	/** Properties scoped to a specific project. */
 	readonly project = this.buildScopedProps<ProjectUiState>({
 		exclusiveAction: undefined,
-		drawerFullScreen: false,
 		commitTitle: '',
 		commitDescription: '',
 		branchesSelection: {},
@@ -113,7 +111,6 @@ export class UiState {
 	/** Properties that are globally scoped. */
 	readonly global = this.buildGlobalProps<GlobalUiState>({
 		drawerHeight: 20,
-		drawerSplitViewWidth: 20,
 		stackWidth: 20,
 		detailsWidth: 32,
 		previewWidth: 48,

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import Button from '$lib/Button.svelte';
 	import Formatter from '$lib/richText/plugins/Formatter.svelte';
 	import FormattingButton from '$lib/richText/tools/FormattingButton.svelte';
 
@@ -9,158 +8,162 @@
 
 	let { formatter = $bindable() }: Props = $props();
 
-	let slideWidth = $state(0);
-	let isSecondSlide = $state(false);
+	let scrollerElement = $state<HTMLDivElement | null>(null);
+	let canScrollLeft = $state(false);
+	let canScrollRight = $state(false);
+	let hasScroll = $state(false);
+
+	function updateScrollState() {
+		if (!scrollerElement) return;
+
+		const { scrollLeft, scrollWidth, clientWidth } = scrollerElement;
+		hasScroll = scrollWidth > clientWidth;
+		canScrollLeft = scrollLeft > 0;
+		canScrollRight = scrollLeft < scrollWidth - clientWidth - 1; // -1 for rounding issues
+	}
+
+	$effect(() => {
+		if (scrollerElement) {
+			// Initial check
+			updateScrollState();
+
+			// Listen for scroll events
+			function handleScroll() {
+				updateScrollState();
+			}
+			scrollerElement.addEventListener('scroll', handleScroll);
+
+			// Listen for resize events to update scroll state
+			const resizeObserver = new ResizeObserver(updateScrollState);
+			resizeObserver.observe(scrollerElement);
+
+			return () => {
+				scrollerElement?.removeEventListener('scroll', handleScroll);
+				resizeObserver.disconnect();
+			};
+		}
+	});
 </script>
 
-<div class="formatting-bar">
-	{#if formatter}
-		<div class="formatting-slides" style:width="calc({slideWidth}px + 0.5rem)">
-			<div class="formatting-slides-scroller" class:formatting-slides--second-slide={isSecondSlide}>
-				<div class="formatting-bar__slide" bind:clientWidth={slideWidth}>
-					<div class="formatting-bar__group">
-						<FormattingButton
-							icon="text-bold"
-							activated={formatter.imports.isBold}
-							tooltip="Bold"
-							onclick={() => formatter.format('text-bold')}
-						/>
-						<FormattingButton
-							icon="text-italic"
-							activated={formatter.imports.isItalic}
-							tooltip="Italic"
-							onclick={() => formatter.format('text-italic')}
-						/>
-						<FormattingButton
-							icon="text-strikethrough"
-							activated={formatter.imports.isStrikethrough}
-							tooltip="Strikethrough"
-							onclick={() => formatter.format('text-strikethrough')}
-						/>
-					</div>
-					<div class="formatting-bar__group">
-						<FormattingButton
-							icon="text-code"
-							activated={formatter.imports.isCode}
-							tooltip="Code"
-							onclick={() => formatter.format('text-code')}
-						/>
-						<FormattingButton
-							icon="text-quote"
-							activated={formatter.imports.isQuote}
-							tooltip="Quote"
-							onclick={() => formatter.format('text-quote')}
-						/>
-						<FormattingButton
-							icon="text-link"
-							activated={formatter.imports.isLink}
-							tooltip="Link"
-							onclick={() => formatter.format('text-link')}
-						/>
-					</div>
-				</div>
+{#if formatter}
+	<div class="formatting-bar">
+		{#if hasScroll}
+			<div class="curtain left" class:hidden={!canScrollLeft}></div>
+		{/if}
 
-				<div class="formatting-bar__slide">
-					<div class="formatting-bar__group">
-						<FormattingButton
-							icon="text"
-							activated={formatter?.imports.isNormal}
-							tooltip="Normal text"
-							onclick={() => formatter?.format('text')}
-						/>
-						<FormattingButton
-							icon="text-h2"
-							activated={formatter?.imports.isH2}
-							tooltip="Heading 2"
-							onclick={() => formatter?.format('text-h2')}
-						/>
-						<FormattingButton
-							icon="text-h3"
-							activated={formatter?.imports.isH3}
-							tooltip="Heading 3"
-							onclick={() => formatter?.format('text-h3')}
-						/>
-					</div>
-					<div class="formatting-bar__group">
-						<FormattingButton
-							icon="bullet-list"
-							tooltip="Unordered list"
-							onclick={() => formatter?.format('bullet-list')}
-						/>
-						<FormattingButton
-							icon="number-list"
-							tooltip="Ordered list"
-							onclick={() => formatter?.format('number-list')}
-						/>
-						<FormattingButton
-							icon="checklist"
-							tooltip="Check list"
-							onclick={() => formatter?.format('checklist')}
-						/>
-					</div>
-				</div>
+		<div class="formatting-slides-scroller" bind:this={scrollerElement}>
+			<div class="formatting-bar__group">
+				<FormattingButton
+					icon="text-bold"
+					activated={formatter.imports.isBold}
+					tooltip="Bold"
+					onclick={() => formatter.format('text-bold')}
+				/>
+				<FormattingButton
+					icon="text-italic"
+					activated={formatter.imports.isItalic}
+					tooltip="Italic"
+					onclick={() => formatter.format('text-italic')}
+				/>
+				<FormattingButton
+					icon="text-strikethrough"
+					activated={formatter.imports.isStrikethrough}
+					tooltip="Strikethrough"
+					onclick={() => formatter.format('text-strikethrough')}
+				/>
+			</div>
+			<div class="formatting-bar__group">
+				<FormattingButton
+					icon="text-code"
+					activated={formatter.imports.isCode}
+					tooltip="Code"
+					onclick={() => formatter.format('text-code')}
+				/>
+				<FormattingButton
+					icon="text-quote"
+					activated={formatter.imports.isQuote}
+					tooltip="Quote"
+					onclick={() => formatter.format('text-quote')}
+				/>
+				<FormattingButton
+					icon="text-link"
+					activated={formatter.imports.isLink}
+					tooltip="Link"
+					onclick={() => formatter.format('text-link')}
+				/>
+			</div>
+			<div class="formatting-bar__group">
+				<FormattingButton
+					icon="text"
+					activated={formatter?.imports.isNormal}
+					tooltip="Normal text"
+					onclick={() => formatter?.format('text')}
+				/>
+				<FormattingButton
+					icon="text-h2"
+					activated={formatter?.imports.isH2}
+					tooltip="Heading 2"
+					onclick={() => formatter?.format('text-h2')}
+				/>
+				<FormattingButton
+					icon="text-h3"
+					activated={formatter?.imports.isH3}
+					tooltip="Heading 3"
+					onclick={() => formatter?.format('text-h3')}
+				/>
+			</div>
+			<div class="formatting-bar__group">
+				<FormattingButton
+					icon="bullet-list"
+					tooltip="Unordered list"
+					onclick={() => formatter?.format('bullet-list')}
+				/>
+				<FormattingButton
+					icon="number-list"
+					tooltip="Ordered list"
+					onclick={() => formatter?.format('number-list')}
+				/>
+				<FormattingButton
+					icon="checklist"
+					tooltip="Check list"
+					onclick={() => formatter?.format('checklist')}
+				/>
 			</div>
 		</div>
 
-		<Button
-			style="neutral"
-			kind="ghost"
-			icon={isSecondSlide ? 'chevron-left' : 'chevron-right'}
-			tooltip="More options"
-			tooltipDelay={500}
-			tooltipPosition="bottom"
-			onclick={() => {
-				isSecondSlide = !isSecondSlide;
-			}}
-		/>
-	{/if}
-</div>
+		{#if hasScroll}
+			<div class="curtain right" class:hidden={!canScrollRight}></div>
+		{/if}
+	</div>
+{/if}
 
 <style lang="postcss">
 	.formatting-bar {
 		display: flex;
-		align-items: center;
-		width: fit-content;
-	}
-
-	.formatting-slides {
-		display: flex;
 		position: relative;
-		margin-right: 6px;
-		margin-left: -8px;
-		padding-left: 8px;
+		flex: 1;
+		align-items: center;
 		overflow: hidden;
-		/* background-color: antiquewhite; */
-
-		&::after {
-			position: absolute;
-			top: 0;
-			left: 0;
-			width: 8px;
-			height: 100%;
-			background: linear-gradient(
-				to right,
-				var(--clr-bg-1) 0%,
-				oklch(from var(--clr-bg-1) l c h / 0) 100%
-			);
-			content: '';
-			user-select: none;
-		}
 	}
 
 	.formatting-slides-scroller {
 		display: flex;
-		transition: transform 0.2s ease;
+		overflow-x: auto;
+		overflow-y: hidden;
+		scroll-snap-type: x mandatory;
+		scrollbar-width: none; /* Firefox */
+		-ms-overflow-style: none; /* IE/Edge */
 	}
 
-	.formatting-bar__slide {
-		display: flex;
-		align-items: center;
+	.formatting-slides-scroller::-webkit-scrollbar {
+		display: none; /* Chrome/Safari */
 	}
 
 	.formatting-bar__group {
 		display: flex;
 		align-items: center;
+		gap: 2px;
+		scroll-snap-align: start;
 
 		&:not(:last-child) {
 			&::after {
@@ -168,13 +171,35 @@
 				width: 1px;
 				height: 16px;
 				margin: 0 6px;
-				background-color: var(--clr-border-3);
+				background-color: var(--clr-border-2);
 				content: '';
 			}
 		}
 	}
 
-	.formatting-slides--second-slide {
-		transform: translateX(-50%);
+	.curtain {
+		z-index: var(--z-ground);
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		width: 20px;
+		background: linear-gradient(
+			to right,
+			var(--clr-bg-2) 0%,
+			oklch(from var(--clr-bg-2) l c h / 0) 100%
+		);
+		pointer-events: none;
+		transition: opacity var(--transition-fast);
+
+		&.left {
+			left: 0;
+		}
+		&.right {
+			right: 0;
+			transform: rotateY(180deg);
+		}
+		&.hidden {
+			opacity: 0;
+		}
 	}
 </style>

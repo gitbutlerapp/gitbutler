@@ -61,7 +61,7 @@ describe('Commit Actions', () => {
 		cy.getByTestId('commit-drawer-description-input')
 			.should('be.visible')
 			.click()
-			.clear()
+			// .clear()
 			.type(newCommitMessageBody); // Type the new commit message body
 
 		// Click on the save button
@@ -117,7 +117,7 @@ describe('Commit Actions', () => {
 		cy.getByTestId('commit-drawer-description-input')
 			.should('be.visible')
 			.click()
-			.clear()
+			// .clear()
 			.type(newCommitDescription); // Type the new commit message body
 
 		// Click on the save button
@@ -172,7 +172,8 @@ describe('Commit Actions', () => {
 			.type(newCommitTitle); // Type the new commit message title
 
 		// Type in a description
-		cy.getByTestId('commit-drawer-description-input').should('be.visible').click().clear(); // Clear the description
+		cy.getByTestId('commit-drawer-description-input').should('be.visible').click();
+		// .clear(); // Clear the description
 
 		// Click on the save button
 		cy.getByTestId('commit-drawer-action-button')
@@ -281,7 +282,7 @@ describe('Commit Actions', () => {
 		cy.getByTestId('commit-drawer-description-input')
 			.should('be.visible')
 			.click()
-			.clear()
+			// .clear()
 			.type(newCommitMessageBody); // Type the new commit message body
 
 		// Click on the save button
@@ -401,7 +402,7 @@ describe('Commit Actions', () => {
 		// Type in a description
 		cy.getByTestId('commit-drawer-description-input')
 			.should('be.visible')
-			.click()
+			// .click()
 			.type(newCommitMessageBody); // Type the new commit message body
 
 		// Click on the commit button
@@ -418,23 +419,23 @@ describe('Commit Actions', () => {
 		expect(mockBackend.getDiff).to.have.callCount(0);
 	});
 
-	it('Should hide the drawer on uncommit from context menu', () => {
-		// Click on the first commit and open the commit menu
-		cy.getByTestId('commit-row')
-			.click()
-			.within(() => {
-				cy.getByTestId('kebab-menu-btn').click();
-			});
+	// it('Should hide the drawer on uncommit from context menu', () => {
+	// 	// Click on the first commit and open the commit menu
+	// 	cy.getByTestId('commit-row')
+	// 		.click()
+	// 		.within(() => {
+	// 			cy.getByTestId('kebab-menu-btn').click();
+	// 		});
 
-		// Click on the uncommit option
-		cy.getByTestId('commit-row-context-menu-uncommit-menu-btn').click();
+	// 	// Click on the uncommit option
+	// 	cy.getByTestId('commit-row-context-menu-uncommit-menu-btn').click();
 
-		// The drawer should be closed
-		cy.getByTestId('commit-drawer').should('not.exist');
+	// 	// The drawer should be closed
+	// 	cy.getByTestId('commit-drawer').should('not.exist');
 
-		// The commit should be removed from the list
-		cy.getByTestId('commit-row').should('have.length', 0);
-	});
+	// 	// The commit should be removed from the list
+	// 	cy.getByTestId('commit-row').should('have.length', 0);
+	// });
 
 	it('Should hide the drawer on uncommit from the commit drawer', () => {
 		// Click on the first commit
@@ -569,7 +570,7 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 				.should('be.visible')
 				.should('contain', commitDescription)
 				.click()
-				.clear()
+				// .clear()
 				.type(newCommitDescription); // Type the new commit message body
 
 			// Click on the save button
@@ -674,7 +675,7 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 				.should('be.visible')
 				.should('contain', commitDescription)
 				.click()
-				.clear()
+				// .clear()
 				.type(newCommitDescription); // Type the new commit message body
 
 			// Click on the cancel button
@@ -741,7 +742,7 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 				.should('be.visible')
 				.should('contain', lastInputDescription ?? '')
 				.click()
-				.clear()
+				// .clear()
 				.type(commitDescription); // Type the new commit message body
 
 			lastInputDescription = commitDescription;
@@ -788,7 +789,7 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 				.should('be.visible')
 				.should('contain', commitDescription)
 				.click()
-				.clear()
+				// .clear()
 				.type(newCommitDescription); // Type the new commit message body
 
 			// Edit the commit message

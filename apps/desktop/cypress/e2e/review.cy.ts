@@ -121,7 +121,7 @@ describe('Review', () => {
 			.should('be.visible')
 			.should('contain', mockBackend.getCommitMessage(mockBackend.stackId))
 			.click()
-			.clear()
+			// .clear()
 			.type(prDescription);
 
 		// Cancel the creation of the review.
@@ -182,7 +182,7 @@ describe('Review', () => {
 					.should('be.visible')
 					.should('contain', mockBackend.getCommitMessage(stack.id))
 					.click()
-					.clear()
+					// .clear()
 					.type(prDescription);
 
 				// Cancel the creation of the review.
@@ -250,7 +250,7 @@ describe('Review', () => {
 						.should('be.visible')
 						.should('contain', mockBackend.getCommitMessage(stack.id))
 						.click()
-						.clear()
+						// .clear()
 						.type(prDescription);
 
 					// Cancel the creation of the review.

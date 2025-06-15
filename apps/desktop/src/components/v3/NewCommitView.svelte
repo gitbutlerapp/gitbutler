@@ -225,7 +225,6 @@
 			actionLabel="Create commit"
 			action={({ title, description }) => handleCommitCreation(title, description)}
 			onChange={({ title, description }) => handleMessageUpdate(title, description)}
-			testId={TestId.NewCommitView}
 			onCancel={cancel}
 			disabledAction={!canCommit}
 			loading={commitCreation.current.isLoading || newStackResult.current.isLoading}
@@ -237,14 +236,7 @@
 {#if noDrawer}
 	{@render editor()}
 {:else}
-	<Drawer
-		testId={TestId.NewCommitView}
-		bind:this={drawer}
-		{projectId}
-		title="Create commit"
-		disableScroll
-		minHeight={20}
-	>
+	<Drawer testId={TestId.NewCommitView} bind:this={drawer} title="Create commit">
 		{@render editor()}
 	</Drawer>
 {/if}

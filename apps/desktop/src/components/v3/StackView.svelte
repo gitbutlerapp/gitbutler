@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import AsyncRender from '$components/v3/AsyncRender.svelte';
 	import BranchList from '$components/v3/BranchList.svelte';
@@ -10,6 +11,7 @@
 	import { isParsedError } from '$lib/error/parser';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
+
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { readKey } from '$lib/selection/key';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
@@ -140,62 +142,72 @@
 			bind:clientHeight
 			bind:this={laneEl}
 		>
-			<div
-				class="assignments"
-				class:assignments__empty={changes.current.length === 0}
-				class:committing={isCommitting}
-				class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
-			>
-				<WorktreeChanges
-					title="Assigned"
-					{projectId}
-					stackId={stack.id}
-					mode="assigned"
-					active={focusedStackId === stack.id}
-					dropzoneVisible={changes.current.length === 0 && !isCommitting}
-					onDropzoneActivated={(activated) => {
-						dropzoneActivated = activated;
-					}}
+			<ConfigurableScrollableContainer>
+				<div
+					class="assignments-wrap"
+					class:assignments__empty={changes.current.length === 0 && !isCommitting}
+					class:committing-when-empty={isCommitting && changes.current.length === 0}
 				>
-					{#snippet emptyPlaceholder()}
-						<div class="assigned-changes-empty">
-							<p class="text-12 text-body assigned-changes-empty__text">
-								Drop files to assign to the lane
-							</p>
-						</div>
-					{/snippet}
-				</WorktreeChanges>
-			</div>
-			<div class="new-commit">
-				{#if !isCommitting}
-					<div class="start-commit">
-						<Button
-							testId={TestId.StartCommitButton}
-							type="button"
-							wide
-							disabled={defaultBranchResult?.current.isLoading}
-							onclick={() => {
-								startCommit();
+					<div
+						class="worktree-wrap"
+						class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
+					>
+						<WorktreeChanges
+							title="Assigned"
+							{projectId}
+							stackId={stack.id}
+							mode="assigned"
+							active={focusedStackId === stack.id}
+							dropzoneVisible={changes.current.length === 0 && !isCommitting}
+							onDropzoneActivated={(activated) => {
+								dropzoneActivated = activated;
 							}}
 						>
-							Start a commit…
-						</Button>
+							{#snippet emptyPlaceholder()}
+								{#if !isCommitting}
+									<div class="assigned-changes-empty">
+										<p class="text-12 text-body assigned-changes-empty__text">
+											Drop files to assign to the lane
+										</p>
+									</div>
+								{/if}
+							{/snippet}
+						</WorktreeChanges>
 					</div>
-				{:else if isCommitting}
-					<div class="message-editor">
-						<NewCommitView {projectId} stackId={stack.id} noDrawer />
+					<div class="new-commit">
+						{#if !isCommitting}
+							<div class="start-commit">
+								<Button
+									testId={TestId.StartCommitButton}
+									type="button"
+									wide
+									disabled={defaultBranchResult?.current.isLoading}
+									onclick={() => {
+										startCommit();
+									}}
+								>
+									Start a commit…
+								</Button>
+							</div>
+						{:else if isCommitting}
+							<div class="message-editor" data-testid={TestId.NewCommitView}>
+								<NewCommitView {projectId} stackId={stack.id} noDrawer />
+							</div>
+						{/if}
 					</div>
-				{/if}
-			</div>
-			<BranchList {projectId} stackId={stack.id} {focusedStackId} />
-			<Resizer
-				viewport={laneEl}
-				direction="right"
-				minWidth={16}
-				maxWidth={64}
-				onWidth={(value) => uiState.global.stackWidth.set(value)}
-			/>
+				</div>
+
+				<BranchList {projectId} stackId={stack.id} {focusedStackId} />
+				<Resizer
+					viewport={laneEl}
+					direction="right"
+					minWidth={16}
+					maxWidth={64}
+					onWidth={(value) => uiState.global.stackWidth.set(value)}
+				/>
+			</ConfigurableScrollableContainer>
 		</div>
+
 		{#if assignedKey || branchName || commitId}
 			<div
 				bind:this={detailsEl}
@@ -271,8 +283,7 @@
 	.stack-view-wrapper {
 		display: flex;
 		flex-shrink: 0;
-		overflow-x: hidden;
-		scroll-snap-align: start;
+		overflow: hidden;
 
 		&:first-child {
 			border-left: 1px solid var(--clr-border-2);
@@ -297,16 +308,28 @@
 			opacity var(--transition-fast);
 	}
 
-	.assignments {
+	.assignments-wrap {
 		display: flex;
+		flex-shrink: 0;
 		flex-direction: column;
-		margin-bottom: 8px;
-		margin: 12px 12px 0 12px;
+		margin: 12px;
+		margin-bottom: 0;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+
+		&.committing-when-empty {
+			& .new-commit {
+				border-top: none;
+			}
+		}
+	}
+
+	.worktree-wrap {
+		display: flex;
+		flex-direction: column;
 		border-bottom: none;
 		border-radius: var(--radius-ml) var(--radius-ml) 0 0;
-		/* background-color: var(--clr-bg-1); */
 
 		&.dropzone-activated {
 			& .assigned-changes-empty {
@@ -324,10 +347,10 @@
 	.assignments__empty {
 		margin-top: 0;
 		border-top: none;
-		border-bottom: none;
+		/* border-bottom: none; */
 		border-top-right-radius: 0;
 		border-top-left-radius: 0;
-		border-radius: 0;
+		/* border-radius: 0; */
 	}
 
 	.details,
@@ -336,6 +359,15 @@
 		flex-shrink: 0;
 		border-right: 1px solid var(--clr-border-2);
 		white-space: wrap;
+	}
+
+	.new-commit {
+		/* margin: 0 12px 0 12px; */
+		padding: 12px;
+		border-top: 1px solid var(--clr-border-2);
+		/* border: 1px solid var(--clr-border-2); */
+		/* border-radius: 0 0 var(--radius-ml) var(--radius-ml); */
+		background-color: var(--clr-bg-1);
 	}
 
 	/* EMPTY ASSIGN AREA */
@@ -347,13 +379,5 @@
 		gap: 12px;
 		background-color: var(--clr-bg-2);
 		transition: background-color var(--transition-fast);
-	}
-
-	.new-commit {
-		margin: 0 12px 0 12px;
-		padding: 12px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
-		background-color: var(--clr-bg-1);
 	}
 </style>
