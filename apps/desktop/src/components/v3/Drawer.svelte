@@ -91,12 +91,14 @@
 					{#if kebabMenu}
 						{@render kebabMenu(headerDiv)}
 					{/if}
-					<Button
-						kind="ghost"
-						icon={drawerIsFullScreen.current ? 'chevron-down' : 'chevron-up'}
-						size="tag"
-						onclick={onToggleExpand}
-					/>
+					{#if !fill}
+						<Button
+							kind="ghost"
+							icon={drawerIsFullScreen.current ? 'chevron-down' : 'chevron-up'}
+							size="tag"
+							onclick={onToggleExpand}
+						/>
+					{/if}
 
 					{#if onclose}
 						<Button kind="ghost" icon="cross" size="tag" onclick={() => onclose()} />
