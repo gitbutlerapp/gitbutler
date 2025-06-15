@@ -37,6 +37,7 @@
 		onKeyDown?: (e: KeyboardEvent) => boolean;
 		enableFileUpload?: boolean;
 		enableSmiles?: boolean;
+		enableRuler?: boolean;
 		onAiButtonClick: (e: MouseEvent) => void;
 		canUseAI: boolean;
 		aiIsLoading: boolean;
@@ -53,6 +54,7 @@
 		onChange,
 		onKeyDown,
 		onAiButtonClick,
+		enableRuler,
 		canUseAI,
 		aiIsLoading,
 		suggestionsHandler,
@@ -240,7 +242,7 @@
 				composer?.focus();
 			}}
 		>
-			{#if useRuler.current && !useRichText.current}
+			{#if useRuler.current && !useRichText.current && enableRuler}
 				<AsyncRender>
 					<MessageEditorRuler />
 				</AsyncRender>
@@ -310,6 +312,7 @@
 							extendedTools = !extendedTools;
 						}}
 					/>
+					<div class="message-textarea__toolbar__divider"></div>
 					{#if enableSmiles}
 						<EmojiPickerButton onEmojiSelect={(emoji) => onEmojiSelect(emoji.unicode)} />
 					{/if}
@@ -321,8 +324,7 @@
 							onclick={handleAttachFiles}
 						/>
 					{/if}
-					{#if !useRichText.current}
-						<div class="message-textarea__toolbar__divider"></div>
+					{#if !useRichText.current && enableRuler}
 						<div class="flex gap-2">
 							<FormattingButton
 								icon="ruler"
@@ -424,7 +426,7 @@
 		position: relative;
 		flex: 1;
 		flex-direction: column;
-		min-height: 150px;
+		min-height: 120px;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 

@@ -1,83 +1,78 @@
 <script lang="ts">
 	import { TestId } from '$lib/testing/testIds';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
+
 	import Button from '@gitbutler/ui/Button.svelte';
-	import Toggle from '@gitbutler/ui/Toggle.svelte';
+	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
+	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
+	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
 
 	interface Props {
 		isSubmitting: boolean;
-		canPublishBR: boolean;
 		canPublishPR: boolean;
-		ctaDisabled: boolean;
+		submitDisabled: boolean;
 		onCancel: () => void;
 		onSubmit: () => void;
 	}
 
-	let { canPublishBR, canPublishPR, ctaDisabled, isSubmitting, onCancel, onSubmit }: Props =
-		$props();
+	let { canPublishPR, submitDisabled, isSubmitting, onCancel, onSubmit }: Props = $props();
+
+	let commitButton = $state<DropDownButton>();
 
 	const createDraft = persisted<boolean>(false, 'createDraftPr');
-
-	function getCtaLabel() {
-		if (canPublishBR && canPublishPR) {
-			return 'Create review';
-		} else if (canPublishBR) {
-			return 'Create Butler Request';
-		} else if (canPublishPR) {
-			return 'Create Pull Request';
-		}
-
-		return 'Create review';
-	}
 </script>
 
 <div class="submit-review-actions">
-	<div class="submit-review-actions__extra">
-		{#if canPublishPR && !canPublishBR}
-			<label for="create-pr-draft" class="submit-review-actions__drafty">
-				<Toggle id="create-pr-draft" bind:checked={$createDraft} disabled={isSubmitting} />
-				<span class="text-13">PR draft</span>
-			</label>
-		{/if}
-	</div>
+	<Button
+		testId={TestId.ReviewCancelButton}
+		kind="outline"
+		disabled={isSubmitting}
+		width={120}
+		onclick={onCancel}>Cancel</Button
+	>
 
-	<div class="submit-review-actions__general">
-		<Button
-			testId={TestId.ReviewCancelButton}
-			kind="outline"
-			disabled={isSubmitting}
-			onclick={onCancel}>Cancel</Button
-		>
-		<AsyncButton
-			testId={TestId.ReviewCreateButton}
-			width={166}
-			style="pop"
-			action={async () => onSubmit()}
-			disabled={ctaDisabled}
-			loading={isSubmitting}>{getCtaLabel()}</AsyncButton
-		>
-	</div>
+	<DropDownButton
+		testId={TestId.ReviewCreateButton}
+		bind:this={commitButton}
+		onclick={() => {
+			if (isSubmitting) return;
+			onSubmit();
+		}}
+		wide
+		style="pop"
+		loading={isSubmitting}
+		disabled={submitDisabled}
+	>
+		{$createDraft ? 'Create PR draft' : 'Create Pull Request'}
+
+		{#snippet contextMenuSlot()}
+			<ContextMenuSection>
+				<ContextMenuItem
+					label="Create PR draft"
+					onclick={() => {
+						$createDraft = true;
+						commitButton?.close();
+					}}
+					disabled={!canPublishPR}
+				/>
+
+				<ContextMenuItem
+					label="Create Pull Request"
+					onclick={() => {
+						$createDraft = false;
+						commitButton?.close();
+					}}
+				/>
+			</ContextMenuSection>
+		{/snippet}
+	</DropDownButton>
 </div>
 
 <style lang="postcss">
 	.submit-review-actions {
 		display: flex;
-		justify-content: space-between;
+		justify-content: flex-end;
 		width: 100%;
 		gap: 6px;
-	}
-
-	.submit-review-actions__extra,
-	.submit-review-actions__general {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-	}
-
-	.submit-review-actions__drafty {
-		display: flex;
-		align-items: center;
-		gap: 8px;
 	}
 </style>

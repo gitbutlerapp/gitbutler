@@ -50,6 +50,7 @@
 			<label class="pr-template__toggle" for="pr-template-toggle">
 				<span class="text-13 text-semibold">Use template</span>
 				<Toggle
+					small
 					id="pr-template-toggle"
 					onchange={(checked) => setEnabled(checked)}
 					checked={$templateEnabled}

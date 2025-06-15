@@ -13,6 +13,7 @@
 	import PrTemplateSection from '$components/PrTemplateSection.svelte';
 	import AsyncRender from '$components/v3/AsyncRender.svelte';
 	import MessageEditor from '$components/v3/editor/MessageEditor.svelte';
+	import MessageEditorInput from '$components/v3/editor/MessageEditorInput.svelte';
 	import { AIService } from '$lib/ai/service';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
@@ -43,11 +44,6 @@
 	import { sleep } from '$lib/utils/sleep';
 	import { getContext } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
-	import Toggle from '@gitbutler/ui/Toggle.svelte';
-	import Link from '@gitbutler/ui/link/Link.svelte';
 	import { error } from '@gitbutler/ui/toasts';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { tick } from 'svelte';
@@ -115,7 +111,7 @@
 		!forgeBranch || (branchDetails ? requiresPush(branchDetails.pushStatus) : true)
 	);
 
-	let titleInput = $state<ReturnType<typeof Textbox>>();
+	let titleInput = $state<HTMLInputElement | undefined>(undefined);
 	let messageEditor = $state<MessageEditor>();
 
 	// AI things
@@ -422,24 +418,7 @@
 	};
 </script>
 
-<div class="pr-content">
-	<Textbox
-		testId={TestId.ReviewTitleInput}
-		autofocus
-		size="large"
-		placeholder="PR title"
-		bind:this={titleInput}
-		value={$prTitle}
-		disabled={isExecuting}
-		oninput={(value: string) => prTitle.set(value)}
-		onkeydown={(e: KeyboardEvent) => {
-			if (e.key === 'Enter' || e.key === 'Tab') {
-				e.preventDefault();
-				messageEditor?.focus();
-			}
-		}}
-	/>
-
+<div class="pr-editor">
 	<PrTemplateSection
 		{projectId}
 		disabled={isExecuting}
@@ -450,183 +429,73 @@
 	/>
 
 	<AsyncRender>
-		<MessageEditor
-			bind:this={messageEditor}
-			testId={TestId.ReviewDescriptionInput}
-			{projectId}
-			disabled={isExecuting}
-			initialValue={$prBody}
-			enableFileUpload
-			placeholder="PR Description"
-			{onAiButtonClick}
-			{canUseAI}
-			{aiIsLoading}
-			onChange={(text: string) => {
-				prBody.set(text);
-			}}
-			onKeyDown={(e: KeyboardEvent) => {
-				if (e.key === 'Tab' && e.shiftKey) {
-					e.preventDefault();
-					titleInput?.focus();
-					return true;
-				}
+		<div class="pr-editor__content">
+			<MessageEditorInput
+				testId={TestId.ReviewTitleInput}
+				bind:ref={titleInput}
+				value={$prTitle}
+				onchange={(value) => {
+					prTitle.set(value);
+				}}
+				onkeydown={(e: KeyboardEvent) => {
+					if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
+						e.preventDefault();
+						messageEditor?.focus();
+					}
+				}}
+				placeholder="PR title"
+				showCount={false}
+				oninput={(e: Event) => {
+					const target = e.target as HTMLInputElement;
+					prTitle.set(target.value);
+				}}
+			/>
+			<MessageEditor
+				bind:this={messageEditor}
+				testId={TestId.ReviewDescriptionInput}
+				{projectId}
+				disabled={isExecuting}
+				initialValue={$prBody}
+				enableFileUpload
+				enableSmiles
+				placeholder="PR Description"
+				{onAiButtonClick}
+				{canUseAI}
+				{aiIsLoading}
+				onChange={(text: string) => {
+					prBody.set(text);
+				}}
+				onKeyDown={(e: KeyboardEvent) => {
+					if (e.key === 'Tab' && e.shiftKey) {
+						e.preventDefault();
+						titleInput?.focus();
+						return true;
+					}
 
-				if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-					e.preventDefault();
-					createReview();
-					return true;
-				}
+					if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+						e.preventDefault();
+						createReview();
+						return true;
+					}
 
-				return false;
-			}}
-		/>
+					return false;
+				}}
+			/>
+		</div>
 	</AsyncRender>
-
-	{#if canPublishBR && canPublishPR}
-		<AsyncRender>
-			<div class="options text-13">
-				<label for="create-br" class="option-card">
-					<div class="option-card-header" class:selected={$createButlerRequest}>
-						<div class="option-card-header-content">
-							<div class="option-card-header-title text-semibold">
-								<Icon name="bowtie" />
-								Create Butler Request
-							</div>
-							<span class="options__learn-more">
-								<Link href="https://docs.gitbutler.com/review/overview">Learn more</Link>
-							</span>
-						</div>
-						<div class="option-card-header-action">
-							<Checkbox
-								disabled={isExecuting}
-								name="create-br"
-								bind:checked={$createButlerRequest}
-							/>
-						</div>
-					</div>
-				</label>
-
-				<div class="option-card">
-					<label
-						for="create-pr"
-						class="option-card-header has-settings"
-						class:selected={$createPullRequest}
-					>
-						<div class="option-card-header-content">
-							<div class="option-card-header-title text-semibold">
-								<Icon name="github" />
-								Create Pull Request
-							</div>
-						</div>
-
-						<div class="option-card-header-action">
-							<Checkbox name="create-pr" bind:checked={$createPullRequest} />
-						</div>
-					</label>
-					<label
-						for="create-pr-draft"
-						class="option-subcard-drafty"
-						class:disabled={!$createPullRequest}
-					>
-						<span class="text-semibold">PR Draft</span>
-						<Toggle disabled={isExecuting} id="create-pr-draft" bind:checked={$createDraft} />
-					</label>
-				</div>
-			</div>
-		</AsyncRender>
-	{/if}
 </div>
 
 <style lang="postcss">
-	.pr-content {
+	.pr-editor {
 		display: flex;
 		flex: 1;
 		flex-direction: column;
 		overflow: hidden;
-		gap: 14px;
-	}
-
-	.options {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		align-items: stretch;
-		width: 100%;
-		gap: 8px;
-	}
-
-	.option-card {
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-		border-radius: var(--radius-m);
-	}
-
-	/* OPTION BOX */
-	.option-card-header {
-		display: flex;
-		flex-grow: 1;
-		padding: 12px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
-		transition: background-color var(--transition-fast);
-
-		&:hover {
-			background-color: var(--clr-bg-1-muted);
-		}
-
-		&.has-settings {
-			border-radius: var(--radius-m) var(--radius-m) 0 0;
-		}
-
-		&.selected {
-			border-color: var(--clr-theme-pop-element);
-			background-color: var(--clr-theme-pop-bg);
-		}
-	}
-
-	.option-card-header-content {
-		display: flex;
-		flex-grow: 1;
-		flex-direction: column;
-		justify-content: flex-end;
 		gap: 10px;
 	}
 
-	.option-card-header-title {
+	.pr-editor__content {
 		display: flex;
-		align-items: center;
-		gap: 8px;
-	}
-
-	.option-card-header-action {
-		display: block;
-		flex-grow: 0;
-	}
-
-	.option-subcard-drafty {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 12px;
-		border: 1px solid var(--clr-border-2);
-		border-top: none;
-
-		border-radius: 0 0 var(--radius-m) var(--radius-m);
-		transition: background-color var(--transition-fast);
-
-		&:hover {
-			background-color: var(--clr-bg-1-muted);
-		}
-
-		&.disabled {
-			background-color: var(--clr-bg-2);
-			cursor: not-allowed;
-			opacity: 0.5;
-			pointer-events: none;
-		}
-	}
-
-	.options__learn-more {
-		color: var(--clr-text-2);
+		flex-direction: column;
 	}
 </style>

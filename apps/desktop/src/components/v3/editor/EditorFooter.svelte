@@ -13,8 +13,12 @@
 </script>
 
 <div class="editor-footer">
-	<Button testId={TestId.CommitDrawerCancelButton} kind="outline" style="neutral" onclick={onCancel}
-		>{CancelButtonLabel}</Button
+	<Button
+		testId={TestId.CommitDrawerCancelButton}
+		kind="outline"
+		width={120}
+		style="neutral"
+		onclick={onCancel}>{CancelButtonLabel}</Button
 	>
 	{@render children()}
 </div>

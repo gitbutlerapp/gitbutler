@@ -2,9 +2,8 @@
 	import ReviewCreation from '$components/ReviewCreation.svelte';
 	import ReviewCreationControls from '$components/ReviewCreationControls.svelte';
 	import AsyncRender from '$components/v3/AsyncRender.svelte';
-	import Drawer from '$components/v3/Drawer.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
-	import { StackPublishingService } from '$lib/history/stackPublishingService';
+
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
@@ -14,11 +13,10 @@
 		projectId: string;
 		stackId: string;
 		branchName: string;
-		noDrawer?: boolean;
 		oncancel?: () => void;
 	};
 
-	const { projectId, stackId, branchName, noDrawer, oncancel }: Props = $props();
+	const { projectId, stackId, branchName, oncancel }: Props = $props();
 
 	const uiState = getContext(UiState);
 
@@ -39,27 +37,9 @@
 	const prResult = $derived(prNumber ? prService?.get(prNumber) : undefined);
 	const pr = $derived(prResult?.current.data);
 
-	const stackPublishingService = getContext(StackPublishingService);
-
-	const canPublish = stackPublishingService.canPublish;
-
-	const canPublishBR = $derived(
-		!!($canPublish && branch.current.data?.name && !branch.current.data?.reviewId)
-	);
 	const canPublishPR = $derived(!!(forge.current.authenticated && !pr));
 
-	function getTitleLabel() {
-		if (canPublishBR && canPublishPR) {
-			return 'Submit for code review';
-		} else if (canPublishBR) {
-			return 'Create Butler Request';
-		} else if (canPublishPR) {
-			return 'Create Pull Request';
-		}
-		return 'Submit for code review';
-	}
-
-	const ctaDisabled = $derived(reviewCreation ? !reviewCreation.imports.creationEnabled : false);
+	const submitDisabled = $derived(reviewCreation ? !reviewCreation.imports.creationEnabled : false);
 </script>
 
 {#snippet editor()}
@@ -74,8 +54,7 @@
 			/>
 			<ReviewCreationControls
 				isSubmitting={!!reviewCreation?.imports.isLoading}
-				{ctaDisabled}
-				{canPublishBR}
+				{submitDisabled}
 				{canPublishPR}
 				onCancel={() => {
 					close();
@@ -89,29 +68,12 @@
 	</AsyncRender>
 {/snippet}
 
-{#if noDrawer}
-	<div class="submit-review__container">
-		{@render editor()}
-	</div>
-{:else}
-	<Drawer title={getTitleLabel()}>
-		<div class="submit-review__container">
-			{@render editor()}
-		</div>
-	</Drawer>
-{/if}
+{@render editor()}
 
 <style lang="postcss">
 	.review-view {
 		display: flex;
 		flex-direction: column;
-		gap: 12px;
-	}
-	.submit-review__container {
-		display: flex;
-		flex-grow: 1;
-		flex-direction: column;
-		overflow: hidden;
-		gap: 14px;
+		gap: 10px;
 	}
 </style>

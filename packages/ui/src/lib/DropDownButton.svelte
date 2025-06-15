@@ -7,6 +7,7 @@
 	import type { Snippet } from 'svelte';
 
 	interface Props {
+		testId?: string;
 		icon?: keyof typeof iconsJson;
 		style?: ComponentColorType;
 		kind?: ComponentKindType;
@@ -14,6 +15,7 @@
 		loading?: boolean;
 		wide?: boolean;
 		grow?: boolean;
+		width?: number | string;
 		autoClose?: boolean;
 		tooltip?: string;
 		type?: 'button' | 'submit' | 'reset';
@@ -24,6 +26,7 @@
 	}
 
 	const {
+		testId,
 		icon,
 		style = 'neutral',
 		kind = 'solid',
@@ -31,6 +34,7 @@
 		loading = false,
 		wide = false,
 		grow = false,
+		width,
 		autoClose = false,
 		type,
 		tooltip,
@@ -64,10 +68,12 @@
 	<div class="dropdown-wrapper" class:wide class:grow>
 		<div class="dropdown">
 			<Button
+				{testId}
 				{style}
 				{icon}
 				{kind}
 				{type}
+				{width}
 				reversedDirection
 				disabled={disabled || loading}
 				dropdownChild
