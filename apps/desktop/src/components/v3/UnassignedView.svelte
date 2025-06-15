@@ -109,10 +109,12 @@
 		display: flex;
 		flex-direction: column;
 		height: 100%;
+		overflow: hidden;
 		gap: 12px;
 		background-color: var(--clr-bg-1);
 	}
 	.start-commit {
+		flex-shrink: 0;
 		padding: 12px;
 	}
 </style>
