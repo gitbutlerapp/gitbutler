@@ -24,8 +24,8 @@
 </script>
 
 <ReduxResult result={prResult?.current} {projectId} {onerror}>
-	{#snippet children(pr, { projectId })}
-		<Drawer testId={TestId.PRBranchDrawer} {projectId}>
+	{#snippet children(pr)}
+		<Drawer testId={TestId.PRBranchDrawer}>
 			{#snippet header()}
 				<h3 class="text-14 text-semibold">
 					<span class="clr-text-2">PR {unitSymbol}{pr.number}:</span>

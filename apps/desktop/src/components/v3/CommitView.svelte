@@ -137,12 +137,7 @@
 	{#snippet children(commit, env)}
 		{@const isConflicted = isCommit(commit) && commit.hasConflicts}
 		{#if projectState.editingCommitMessage.current}
-			<Drawer
-				testId={TestId.EditCommitMessageDrawer}
-				projectId={env.projectId}
-				title="Edit commit message"
-				{onclose}
-			>
+			<Drawer testId={TestId.EditCommitMessageDrawer} title="Edit commit message" {onclose}>
 				<CommitMessageEditor
 					bind:this={editor}
 					projectId={env.projectId}
@@ -157,7 +152,7 @@
 				/>
 			</Drawer>
 		{:else}
-			<Drawer testId={TestId.CommitDrawer} projectId={env.projectId} {onclose}>
+			<Drawer testId={TestId.CommitDrawer} {onclose} headerNoPaddingLeft>
 				{#snippet header()}
 					<div class="commit-view__header text-13">
 						{#if isLocalAndRemoteCommit(commit)}

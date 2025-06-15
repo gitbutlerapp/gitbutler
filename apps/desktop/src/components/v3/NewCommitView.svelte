@@ -236,7 +236,7 @@
 {#if noDrawer}
 	{@render editor()}
 {:else}
-	<Drawer testId={TestId.NewCommitView} bind:this={drawer} {projectId} title="Create commit">
+	<Drawer testId={TestId.NewCommitView} bind:this={drawer} title="Create commit">
 		{@render editor()}
 	</Drawer>
 {/if}
