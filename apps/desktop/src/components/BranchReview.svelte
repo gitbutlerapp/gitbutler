@@ -46,7 +46,6 @@
 	);
 
 	const allowedToPublishBR = $derived(!!canPublishReviewPlugin?.imports.allowedToPublishBR);
-	const canPublishBR = $derived(!!canPublishReviewPlugin?.imports.canPublishBR);
 	const canPublishPR = $derived(!!canPublishReviewPlugin?.imports.canPublishPR);
 	const ctaLabel = $derived(canPublishReviewPlugin?.imports.ctaLabel);
 	const branchEmpty = $derived(canPublishReviewPlugin?.imports.branchIsEmpty);
@@ -71,7 +70,7 @@
 		reactive(() => reviewId)
 	);
 
-	const ctaDisabled = $derived(reviewCreation ? !reviewCreation.imports.creationEnabled : false);
+	const submitDisabled = $derived(reviewCreation ? !reviewCreation.imports.creationEnabled : false);
 </script>
 
 <CanPublishReviewPlugin
@@ -117,8 +116,7 @@
 		{#snippet controls(close)}
 			<ReviewCreationControls
 				isSubmitting={!!reviewCreation?.imports.isLoading}
-				{ctaDisabled}
-				{canPublishBR}
+				{submitDisabled}
 				{canPublishPR}
 				onCancel={close}
 				onSubmit={async () => {

@@ -202,7 +202,6 @@
 					{projectId}
 					{branchName}
 					stackId={args.stackId}
-					noDrawer
 					oncancel={() => stackState.action.set(undefined)}
 				/>
 			</div>
