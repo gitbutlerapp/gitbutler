@@ -34,6 +34,7 @@ gitbutler-secret.workspace = true
 gitbutler-project.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-serde.workspace = true
+tracing.workspace = true
 but-db.workspace = true
 but-core.workspace = true
 but-graph.workspace = true

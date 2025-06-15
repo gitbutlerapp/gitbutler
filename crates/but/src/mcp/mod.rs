@@ -33,7 +33,7 @@ pub struct Mcp {
 impl Mcp {
     pub fn new(app_settings: AppSettings) -> Self {
         let metrics = Metrics::new_with_background_handling(&app_settings);
-        let openai = OpenAiProvider::new(None).ok();
+        let openai = OpenAiProvider::with(None);
         Self {
             app_settings,
             metrics,

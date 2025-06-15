@@ -14,7 +14,7 @@ pub(crate) fn handle_changes(
 ) -> anyhow::Result<()> {
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
     let ctx = &mut CommandContext::open(&project, AppSettings::default())?;
-    let openai = OpenAiProvider::new(None).ok();
+    let openai = OpenAiProvider::with(None);
     let response =
         but_action::handle_changes(ctx, &openai, change_description, None, handler.into())?;
     print(&response, json)
