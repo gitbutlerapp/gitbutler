@@ -713,7 +713,9 @@ function computeInlineWordDiff(
 }
 
 export interface LineId {
+	// The "before" or "removed" line number.
 	oldLine: number | undefined;
+	// The "after" or "added" line number.
 	newLine: number | undefined;
 }
 

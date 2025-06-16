@@ -117,9 +117,9 @@ export type HunkAssignment = {
 	 * This determines where the hunk can be assigned.
 	 */
 	readonly hunkLocks: HunkLock[] | null;
-	/** The line numbers that were added in this hunk. */
+	/** The line numbers that were added in this hunk. The "after" or "new" line numbers.*/
 	readonly lineNumsAdded: number[] | null;
-	/** The line numbers that were removed in this hunk. */
+	/** The line numbers that were removed in this hunk. The "before" or "old" line numbers.*/
 	readonly lineNumsRemoved: number[] | null;
 };
 
