@@ -26,9 +26,10 @@
 		stackId: string;
 		branches: BranchDetails[];
 		focusedStackId?: string;
+		onselect?: () => void;
 	};
 
-	const { projectId, branches, stackId, focusedStackId }: Props = $props();
+	const { projectId, branches, stackId, focusedStackId, onselect }: Props = $props();
 	const [stackService, uiState, modeService] = inject(StackService, UiState, ModeService);
 
 	const projectState = $derived(uiState.project(projectId));
@@ -154,6 +155,7 @@
 							} else {
 								uiState.stack(stackId).selection.set({ branchName });
 							}
+							onselect?.();
 						}}
 					>
 						{#snippet menu({ rightClickTrigger })}
@@ -186,6 +188,7 @@
 								{handleUncommit}
 								{startEditingCommitMessage}
 								{handleEditPatch}
+								{onselect}
 							/>
 						{/snippet}
 					</BranchCard>
