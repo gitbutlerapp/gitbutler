@@ -80,7 +80,9 @@
 		{:else}
 			<div class="login-signup-wrap">
 				<Button kind="outline" onclick={login}>Join GitButler</Button>
-				<Button style="pop" icon="signin" onclick={login}>Log in</Button>
+				<a href={routes.loginPath()} title="Log in" aria-label="Log in">
+					<Button style="pop" icon="signin">Log in</Button>
+				</a>
 			</div>
 		{/if}
 	</div>
