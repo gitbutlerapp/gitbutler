@@ -1,6 +1,6 @@
 <script lang="ts">
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import FileViewPlaceholder from '$components/v3/FileViewPlaceholder.svelte';
+	import SelectTopreviewPlaceholder from '$components/v3/SelectTopreviewPlaceholder.svelte';
 	import SelectedChange from '$components/v3/SelectedChange.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { readKey, type SelectionId } from '$lib/selection/key';
@@ -42,7 +42,7 @@
 			/>
 		</ScrollableContainer>
 	{:else}
-		<FileViewPlaceholder />
+		<SelectTopreviewPlaceholder />
 	{/if}
 </div>
 

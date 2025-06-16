@@ -61,10 +61,13 @@
 					>
 						<g class="hidden-dropzone__svg__plus-list">
 							<path
+								d="M11.001 8C11.001 3.58172 14.5827 0 19.001 0L63.4681 0C67.8863 0 71.4681 3.58172 71.4681 8V61.5474C71.4681 65.9657 67.8863 69.5474 63.4681 69.5474L19.001 69.5474C14.5827 69.5474 11.001 65.9657 11.001 61.5474L11.001 8Z"
+								fill="var(--clr-bg-2)"
+							/>
+							<path
 								opacity="0.3"
 								d="M11.001 8C11.001 3.58172 14.5827 0 19.001 0L63.4681 0C67.8863 0 71.4681 3.58172 71.4681 8V61.5474C71.4681 65.9657 67.8863 69.5474 63.4681 69.5474L19.001 69.5474C14.5827 69.5474 11.001 65.9657 11.001 61.5474L11.001 8Z"
 								fill="var(--clr-scale-ntrl-70)"
-								vector-effect="non-scaling-stroke"
 							/>
 							<path
 								d="M41.5 11V39M58 25L25 25"
@@ -160,11 +163,11 @@
 				transform: unset;
 			}
 
-			& .hidden-dropzone__svg__plus-list path:nth-child(1) {
+			& .hidden-dropzone__svg__plus-list path:nth-child(2) {
 				fill: var(--clr-scale-pop-60);
 				opacity: 0.2;
 			}
-			& .hidden-dropzone__svg__plus-list path:nth-child(2) {
+			& .hidden-dropzone__svg__plus-list path:nth-child(3) {
 				stroke: oklch(from var(--clr-scale-pop-40) l c h / 0.5);
 			}
 		}
@@ -221,11 +224,10 @@
 			height: 420px;
 			transform: translate(-50%, -50%);
 			border-radius: 100%;
-			background: radial-gradient(var(--clr-bg-2) 0%, oklch(from var(--clr-bg-2) l c h / 0) 50%);
-			/* background: radial-gradient(red 0%, oklch(from red l c h / 0) 50%); */
+			background: radial-gradient(var(--clr-bg-2) 10%, oklch(from var(--clr-bg-2) l c h / 0) 50%);
 			content: '';
-			/* opacity: 0; */
-			transition: opacity 0.1s;
+			/* background: radial-gradient(red 0%, oklch(from red l c h / 0) 50%); */
+			opacity: 0.9;
 		}
 	}
 

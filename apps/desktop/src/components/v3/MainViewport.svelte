@@ -36,7 +36,7 @@ the window, then enlarge it and retain the original widths of the layout.
 	type Props = {
 		name: string;
 		left: Snippet;
-		middle: Snippet;
+		middle?: Snippet;
 		right: Snippet;
 		leftWidth: {
 			default: number;
@@ -97,7 +97,7 @@ the window, then enlarge it and retain the original widths of the layout.
 	class="main-viewport"
 	use:focusable={{ id: DefinedFocusable.MainViewport }}
 	bind:clientWidth={containerBindWidth}
-	class:middle-open={middleOpen}
+	class:middle-open={middleOpen && middle}
 >
 	<!-- Default layout: no swapping -->
 	<div
@@ -120,7 +120,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		</AsyncRender>
 	</div>
 
-	{#if middleOpen}
+	{#if middleOpen && middle}
 		<div
 			class="middle view-wrapper dotted-pattern"
 			bind:this={middleDiv}

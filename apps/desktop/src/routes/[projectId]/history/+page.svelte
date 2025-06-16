@@ -208,7 +208,7 @@
 		/>
 	</div>
 
-	<div class="history-view__preview">
+	<div class="history-view__preview dotted-pattern">
 		{#if currentFilePreview}
 			<div class="history-view__preview-file">
 				<ConfigurableScrollableContainer>

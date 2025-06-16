@@ -233,6 +233,7 @@
 									{/snippet}
 								</WorktreeChanges>
 							</div>
+
 							<div class="new-commit">
 								{#if !isCommitting}
 									<div class="start-commit">
@@ -424,7 +425,7 @@
 
 		&.dropzone-activated {
 			& .assigned-changes-empty {
-				padding: 14px 8px 14px;
+				padding: 20px 8px 20px;
 				background-color: var(--clr-bg-1);
 				will-change: padding;
 			}
@@ -433,15 +434,6 @@
 				color: var(--clr-theme-pop-on-soft);
 			}
 		}
-	}
-
-	.assignments__empty {
-		margin-top: 0;
-		border-top: none;
-		/* border-bottom: none; */
-		border-top-right-radius: 0;
-		border-top-left-radius: 0;
-		/* border-radius: 0; */
 	}
 
 	.details,
@@ -453,11 +445,8 @@
 	}
 
 	.new-commit {
-		/* margin: 0 12px 0 12px; */
 		padding: 12px;
 		border-top: 1px solid var(--clr-border-2);
-		/* border: 1px solid var(--clr-border-2); */
-		/* border-radius: 0 0 var(--radius-ml) var(--radius-ml); */
 		background-color: var(--clr-bg-1);
 	}
 
@@ -465,7 +454,7 @@
 	.assigned-changes-empty {
 		display: flex;
 		position: relative;
-		padding: 6px 8px 8px;
+		padding: 10px 8px;
 		overflow: hidden;
 		gap: 12px;
 		background-color: var(--clr-bg-2);
