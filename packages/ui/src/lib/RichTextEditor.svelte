@@ -2,6 +2,7 @@
 	import { WRAP_ALL_COMMAND } from '$lib/richText/commands';
 	import { standardConfig } from '$lib/richText/config/config';
 	import { standardTheme } from '$lib/richText/config/theme';
+	import { getCurrentText } from '$lib/richText/getText';
 	import EmojiPlugin from '$lib/richText/plugins/Emoji.svelte';
 	import PlainTextIndentPlugin from '$lib/richText/plugins/PlainTextIndentPlugin.svelte';
 	import MarkdownTransitionPlugin from '$lib/richText/plugins/markdownTransition';
@@ -71,12 +72,13 @@
 	}: Props = $props();
 
 	/** Standard configuration for our commit message editor. */
-	const initialConfig = standardConfig({
-		initialText,
-		namespace,
-		theme: standardTheme,
-		onError
-	});
+	const initialConfig = $derived(
+		standardConfig({
+			namespace,
+			theme: standardTheme,
+			onError
+		})
+	);
 
 	/**
 	 * Instance of the lexical composer, used for manipulating the contents of the editor
@@ -177,7 +179,7 @@
 			if (composer) {
 				const editor = composer.getEditor();
 				editor?.read(() => {
-					const text = getRoot().getTextContent();
+					const text = getCurrentText(markdown, wrapCountValue);
 					resolve(text);
 				});
 			}
