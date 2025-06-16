@@ -12,12 +12,25 @@ use rmcp::{
     },
     schemars, tool,
 };
+use tracing_subscriber::{self, EnvFilter};
 
 use crate::metrics::{Event, EventKind, Metrics};
 
 pub(crate) async fn start(app_settings: AppSettings) -> Result<()> {
+    // Initialize the tracing subscriber with file and stdout logging
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env().add_directive(tracing::Level::DEBUG.into()))
+        .with_writer(std::io::stderr)
+        .with_ansi(false)
+        .init();
+
+    tracing::info!("Starting MCP server");
+
     let transport = (tokio::io::stdin(), tokio::io::stdout());
     let service = Mcp::new(app_settings).serve(transport).await?;
+    let info = service.peer_info();
+    let Implementation { name, version } = &info.client_info;
+    tracing::info!("Connected to client with info: {} v{}", name, version);
     service.waiting().await?;
     Ok(())
 }

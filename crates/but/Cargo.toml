@@ -45,4 +45,9 @@ gitbutler-secret.workspace = true
 colored = "3.0.0"
 serde_json = "1.0.140"
 tracing.workspace = true
+tracing-subscriber = { version = "0.3", features = [
+    "env-filter",
+    "std",
+    "fmt",
+] }
 dirs-next = "2.0.0"

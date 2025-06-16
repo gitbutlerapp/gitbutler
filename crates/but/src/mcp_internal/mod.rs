@@ -10,6 +10,7 @@ use rmcp::{
     service::RequestContext,
     tool,
 };
+use tracing_subscriber::{self, EnvFilter};
 
 pub mod commit;
 pub mod project;
@@ -19,9 +20,21 @@ pub mod status;
 pub(crate) const UI_CONTEXT_LINES: u32 = 3;
 
 pub(crate) async fn start() -> Result<()> {
+    // Initialize the tracing subscriber with file and stdout logging
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env().add_directive(tracing::Level::DEBUG.into()))
+        .with_writer(std::io::stderr)
+        .with_ansi(false)
+        .init();
+
+    tracing::info!("Starting MCP server");
+
     let transport = (tokio::io::stdin(), tokio::io::stdout());
     let server = Mcp::new();
     let service = server.serve(transport).await?;
+    let info = service.peer_info();
+    let Implementation { name, version } = &info.client_info;
+    tracing::info!("Connected to client with info: {} v{}", name, version);
     service.waiting().await?;
     Ok(())
 }
@@ -219,6 +232,7 @@ impl ServerHandler for Mcp {
             protocol_version: ProtocolVersion::LATEST,
         }
     }
+
     async fn list_prompts(
         &self,
         _request: Option<rmcp::model::PaginatedRequestParamInner>,
