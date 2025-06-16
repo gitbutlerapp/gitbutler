@@ -25,7 +25,7 @@ describe('Unified Diff View', () => {
 		clearCommandMocks();
 	});
 
-	it('should open the unified diff view when clicking on a file and show the dependency locks', () => {
+	it.only('should open the unified diff view when clicking on a file and show the dependency locks', () => {
 		// There should be uncommitted changes
 		cy.getByTestId('uncommitted-changes-file-list')
 			.should('be.visible')
@@ -94,8 +94,11 @@ describe('Unified Diff View', () => {
 		// The tooltip should be visible
 		cy.getByTestId('unified-diff-view-lock-warning').should('be.visible');
 
+		// Cancel the commit.
+		cy.getByTestId('commit-drawer-cancel-button').scrollIntoView().should('be.visible').click();
+
 		// Select the stack that the file belongs to
-		cy.getByTestId('branch-header', mockBackend.dependsOnStack)
+		cy.get(`[data-id="${mockBackend.dependsOnStack}"]`)
 			.scrollIntoView()
 			.should('be.visible')
 			.click();
