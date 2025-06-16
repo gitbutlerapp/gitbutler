@@ -566,12 +566,6 @@ export default class ComplexHunks extends MockBackend {
 					newLines: 1
 				},
 				{
-					oldStart: 60,
-					oldLines: 3,
-					newStart: 0,
-					newLines: 0
-				},
-				{
 					oldStart: 0,
 					oldLines: 0,
 					newStart: 79,
@@ -584,12 +578,6 @@ export default class ComplexHunks extends MockBackend {
 					newLines: 3
 				},
 				{
-					oldStart: 77,
-					oldLines: 1,
-					newStart: 0,
-					newLines: 0
-				},
-				{
 					oldStart: 0,
 					oldLines: 0,
 					newStart: 104,
@@ -600,6 +588,18 @@ export default class ComplexHunks extends MockBackend {
 					oldLines: 0,
 					newStart: 107,
 					newLines: 6
+				},
+				{
+					oldStart: 60,
+					oldLines: 3,
+					newStart: 0,
+					newLines: 0
+				},
+				{
+					oldStart: 77,
+					oldLines: 1,
+					newStart: 0,
+					newLines: 0
 				}
 			]
 		}
@@ -616,13 +616,13 @@ export default class ComplexHunks extends MockBackend {
 				{ oldStart: 0, oldLines: 0, newStart: 55, newLines: 4 },
 				{ oldStart: 0, oldLines: 0, newStart: 65, newLines: 1 },
 				{ oldStart: 0, oldLines: 0, newStart: 72, newLines: 1 },
-				{ oldStart: 60, oldLines: 3, newStart: 0, newLines: 0 },
 				{ oldStart: 0, oldLines: 0, newStart: 79, newLines: 1 },
 				{ oldStart: 0, oldLines: 0, newStart: 82, newLines: 6 },
 				{ oldStart: 0, oldLines: 0, newStart: 93, newLines: 6 },
-				{ oldStart: 75, oldLines: 3, newStart: 0, newLines: 0 },
 				{ oldStart: 0, oldLines: 0, newStart: 104, newLines: 1 },
 				{ oldStart: 0, oldLines: 0, newStart: 107, newLines: 6 },
+				{ oldStart: 60, oldLines: 3, newStart: 0, newLines: 0 },
+				{ oldStart: 75, oldLines: 3, newStart: 0, newLines: 0 },
 				{
 					oldStart: 84,
 					oldLines: 29,
