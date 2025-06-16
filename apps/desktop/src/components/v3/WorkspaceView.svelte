@@ -26,7 +26,7 @@
 	const { stackId, projectId }: Props = $props();
 
 	const [stackService, focusManager, idSelection] = inject(StackService, FocusManager, IdSelection);
-	const worktreeSelection = idSelection.getById({ type: 'worktree' });
+	const worktreeSelection = $derived(idSelection.getById({ type: 'worktree' }));
 	const stacksResult = $derived(stackService.stacks(projectId));
 
 	const snapshotFocusables = writable<string[]>([]);
