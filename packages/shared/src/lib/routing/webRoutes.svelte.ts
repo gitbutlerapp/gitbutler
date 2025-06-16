@@ -54,6 +54,13 @@ export class WebRoutesService {
 		return this.toUrl(this.homePath());
 	}
 
+	loginPath() {
+		return `/login`;
+	}
+	loginUrl() {
+		return this.toUrl(this.loginPath());
+	}
+
 	projectsPath() {
 		return `/`;
 	}
