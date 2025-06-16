@@ -240,7 +240,7 @@
 
 	.multi-stack-create-new__button-wrap {
 		display: flex;
-		border-radius: var(--radius-m);
+		border-radius: var(--radius-btn);
 		background-color: var(--clr-bg-2);
 	}
 
