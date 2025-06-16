@@ -1,3 +1,4 @@
+use assignment::FileAssignment;
 use bstr::BString;
 use but_core::ui::{TreeChange, TreeStatus};
 use but_hunk_assignment::HunkAssignment;
@@ -7,6 +8,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use std::collections::BTreeMap;
 use std::path::Path;
+pub(crate) mod assignment;
 
 use crate::id::CliId;
 
@@ -28,39 +30,39 @@ pub(crate) fn worktree(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
     let (assignments, _assignments_error) =
         but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()))?;
 
-    let mut groups: BTreeMap<Option<but_workspace::StackId>, Vec<HunkAssignment>> =
-        stack_id_to_branch
-            .keys()
-            .map(|&k| (Some(k), Vec::new()))
-            .collect();
-    groups.insert(None, Vec::new());
-    for assignment in assignments {
-        let stack_id = assignment.stack_id;
-        groups.entry(stack_id).or_default().push(assignment);
+    let mut by_file: BTreeMap<BString, Vec<HunkAssignment>> = BTreeMap::new();
+    for assignment in &assignments {
+        by_file
+            .entry(assignment.path_bytes.clone())
+            .or_default()
+            .push(assignment.clone());
+    }
+    let mut assignments_by_file: BTreeMap<BString, FileAssignment> = BTreeMap::new();
+    for (path, assignments) in &by_file {
+        assignments_by_file.insert(
+            path.clone(),
+            FileAssignment::from_assignments(path, assignments),
+        );
+    }
+    if stack_id_to_branch.is_empty() {
+        println!("No branches found. ¯\\_(ツ)_/¯");
+        return Ok(());
     }
 
-    if groups.is_empty() {
-        println!("No uncommitted changes. ¯\\_(ツ)_/¯");
-    } else {
-        // Iterate over the groups, but always start with the unassigned group
-        if let Some(unassigned) = groups.remove(&None) {
-            print_group(None, unassigned, &changes)?;
-        }
-        // Iterate over the remaining groups
-        for (stack_id, assignments) in groups {
-            let group = stack_id
-                .as_ref()
-                .and_then(|id| stack_id_to_branch.get(id))
-                .map(|s| s.as_str());
-            print_group(group, assignments, &changes)?;
-        }
+    let unassigned = assignment::filter_by_stack_id(assignments_by_file.values(), &None);
+    print_group(None, unassigned, &changes)?;
+
+    for (stack_id, branch) in &stack_id_to_branch {
+        let filtered =
+            assignment::filter_by_stack_id(assignments_by_file.values(), &Some(*stack_id));
+        print_group(Some(branch.as_str()), filtered, &changes)?;
     }
     Ok(())
 }
 
 pub fn print_group(
     group: Option<&str>,
-    assignments: Vec<HunkAssignment>,
+    assignments: Vec<FileAssignment>,
     changes: &[TreeChange],
 ) -> anyhow::Result<()> {
     let id = if let Some(group) = group {
@@ -75,47 +77,45 @@ pub fn print_group(
         .map(|s| format!("[{}]", s))
         .unwrap_or("<UNASSIGNED>".to_string());
     println!("{}    {}", id, group.green().bold());
-    let mut unique_with_count = BTreeMap::new();
-    for assignment in assignments {
-        let (count, _) = unique_with_count
-            .entry(assignment.path.clone())
-            .or_insert((0, assignment));
-        *count += 1;
-    }
-    for (path, (count, a)) in unique_with_count {
-        let state = status_from_changes(changes, path.clone().into());
+    for fa in assignments {
+        let state = status_from_changes(changes, fa.path.clone());
         let path = match state {
             Some(state) => match state {
-                TreeStatus::Addition { .. } => path.green(),
-                TreeStatus::Deletion { .. } => path.red(),
-                TreeStatus::Modification { .. } => path.yellow(),
-                TreeStatus::Rename { .. } => path.purple(),
+                TreeStatus::Addition { .. } => fa.path.to_string().green(),
+                TreeStatus::Deletion { .. } => fa.path.to_string().red(),
+                TreeStatus::Modification { .. } => fa.path.to_string().yellow(),
+                TreeStatus::Rename { .. } => fa.path.to_string().purple(),
             },
-            None => path.normal(),
+            None => fa.path.to_string().normal(),
         };
-        let id = CliId::file_from_assignment(&a)
+
+        let id = CliId::file_from_assignment(&fa.assignments[0])
             .to_string()
             .underline()
             .blue();
-        let mut locks = if let Some(locks) = a.hunk_locks {
-            locks
-                .iter()
-                .map(|l| {
-                    format!(
-                        "{}{}",
-                        l.commit_id.to_string()[..2].blue().underline(),
-                        l.commit_id.to_string()[2..7].blue()
-                    )
-                })
-                .collect()
-        } else {
-            vec![]
-        }
-        .join(", ");
+
+        let mut locks = fa
+            .assignments
+            .iter()
+            .flat_map(|a| a.hunk_locks.iter())
+            .flatten()
+            .map(|l| l.commit_id.to_string())
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .map(|commit_id| {
+                format!(
+                    "{}{}",
+                    commit_id[..2].blue().underline(),
+                    commit_id[2..7].blue()
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+
         if !locks.is_empty() {
             locks = format!("🔒 {}", locks);
         }
-        println!("{} ({}) {} {}", id, count, path, locks);
+        println!("{} ({}) {} {}", id, fa.assignments.len(), path, locks);
     }
     println!();
     Ok(())
