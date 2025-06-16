@@ -86,7 +86,6 @@
 		display: flex;
 		flex-grow: 1;
 		flex-direction: column;
-		background-color: red;
 	}
 
 	.max-height {
@@ -99,6 +98,5 @@
 		flex-grow: 1;
 		flex-direction: column;
 		width: 100%;
-		overflow: hidden;
 	}
 </style>
