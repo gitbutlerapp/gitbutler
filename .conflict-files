@@ -1,0 +1,3 @@
+ancestorEntries = ["apps/desktop/src/components/v3/MultiStackCreateNew.svelte"]
+ourEntries = ["apps/desktop/src/components/v3/MultiStackCreateNew.svelte"]
+theirEntries = ["apps/desktop/src/components/v3/MultiStackCreateNew.svelte"]
