@@ -7,7 +7,6 @@
 	import { inject } from '@gitbutler/core/context';
 	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { Button, ContextMenu, ContextMenuItem, ContextMenuSection, Icon } from '@gitbutler/ui';
-
 	import { env } from '$env/dynamic/public';
 
 	const authService = inject(AUTH_SERVICE);
@@ -21,13 +20,9 @@
 	let ctxUserTriggerButton = $state<HTMLButtonElement | undefined>();
 	let isCtxMenuOpen = $state(false);
 
-	function login() {
-		window.location.href = `${env.PUBLIC_APP_HOST}cloud/login?callback=${window.location.href}`;
-	}
-
 	function logout() {
 		authService.clearToken();
-		window.location.href = `${env.PUBLIC_APP_HOST}cloud/logout?returnTo=${window.location.href}`;
+		window.location.href = `${env.PUBLIC_APP_HOST}cloud/logout`;
 	}
 </script>
 
@@ -79,8 +74,12 @@
 			>
 		{:else}
 			<div class="login-signup-wrap">
-				<Button kind="outline" onclick={login}>Join GitButler</Button>
-				<Button style="pop" icon="signin" onclick={login}>Log in</Button>
+				<a href={routes.signupPath()}>
+					<Button kind="outline">Join GitButler</Button>
+				</a>
+				<a href={routes.loginPath()} title="Log in" aria-label="Log in">
+					<Button style="pop" icon="signin">Log in</Button>
+				</a>
 			</div>
 		{/if}
 	</div>
