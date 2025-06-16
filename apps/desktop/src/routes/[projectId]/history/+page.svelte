@@ -191,11 +191,7 @@
 
 <div class="history-view">
 	<div class="relative overflow-hidden radius-ml">
-		<div
-			bind:this={sidebarEl}
-			class="history-view__snapshots"
-			style:width="{sidebarWidth.current}rem"
-		>
+		<div bind:this={sidebarEl} class="history-view__snapshots">
 			<div class="history-view__snapshots-header">
 				<h3 class="history-view__snapshots-header-title text-15 text-bold">Operations history</h3>
 			</div>
@@ -207,7 +203,8 @@
 			direction="right"
 			minWidth={14}
 			borderRadius="ml"
-			onWidth={(value) => (sidebarWidth.current = value)}
+			persistId="resizer-historyWidth"
+			defaultValue={sidebarWidth.current}
 		/>
 	</div>
 

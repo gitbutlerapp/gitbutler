@@ -62,6 +62,7 @@
 	import { UserService } from '$lib/user/userService';
 	import * as events from '$lib/utils/events';
 	import { createKeybind } from '$lib/utils/hotkeys';
+	import { ResizeSync } from '$lib/utils/resizeSync';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
@@ -236,6 +237,7 @@
 	setContext(DependencyService, dependecyService);
 	setContext(IdSelection, idSelection);
 	setContext(DropzoneRegistry, new DropzoneRegistry());
+	setContext(ResizeSync, new ResizeSync());
 
 	setNameNormalizationServiceContext(new IpcNameNormalizationService(invoke));
 

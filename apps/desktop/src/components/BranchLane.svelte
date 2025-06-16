@@ -9,7 +9,7 @@
 	import { Project } from '$lib/project/project';
 	import { FileIdSelection } from '$lib/selection/fileIdSelection';
 	import { getContext, createContextStore } from '@gitbutler/shared/context';
-	import { persisted, persistWithExpiration } from '@gitbutler/shared/persisted';
+	import { persisted } from '@gitbutler/shared/persisted';
 	import { setContext } from 'svelte';
 	import { quintOut } from 'svelte/easing';
 	import { writable } from 'svelte/store';
@@ -45,7 +45,6 @@
 	let rsViewport: HTMLElement | undefined = $state();
 
 	const commitBoxOpen = persisted<boolean>(false, 'commitBoxExpanded_' + stack.id);
-	let width = persistWithExpiration(25, 'fileWidth_' + stack.id, 7 * 1440);
 
 	let isLaneCollapsed = $state(projectLaneCollapsed(project.id, stack.id));
 	$effect(() => {
@@ -63,7 +62,6 @@
 			class="file-preview"
 			bind:this={rsViewport}
 			in:slide={{ duration: 180, easing: quintOut, axis: 'x' }}
-			style:width={$width + 'rem'}
 		>
 			<FileCard
 				isUnapplied={false}
@@ -77,10 +75,11 @@
 			/>
 			<Resizer
 				viewport={rsViewport}
-				direction="right"
+				persistId={'fileWidth_' + stack.id}
+				defaultValue={25}
 				minWidth={20}
 				maxWidth={100}
-				onWidth={(value) => ($width = value)}
+				direction="right"
 				imitateBorder
 			/>
 		</div>

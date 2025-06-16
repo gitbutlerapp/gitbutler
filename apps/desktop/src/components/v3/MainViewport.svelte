@@ -30,7 +30,6 @@ the window, then enlarge it and retain the original widths of the layout.
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
-	import { persisted } from '@gitbutler/shared/persisted';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import type { Snippet } from 'svelte';
 
@@ -55,12 +54,8 @@ the window, then enlarge it and retain the original widths of the layout.
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const zoom = $derived($userSettings.zoom);
 
-	let leftPreferredWidth = $derived(
-		persisted(pxToRem(leftWidth.default, zoom), `$main_view_left_${name}`)
-	);
-	let middlePreferredWidth = $derived(
-		persisted(pxToRem(middleWidth.default, zoom), `$main_view_middle_${name}`)
-	);
+	let leftPreferredWidth = $derived(pxToRem(leftWidth.default, zoom));
+	let middlePreferredWidth = $derived(pxToRem(middleWidth.default, zoom));
 
 	let leftDiv = $state<HTMLDivElement>();
 	let middleDiv = $state<HTMLDivElement>();
@@ -71,9 +66,6 @@ the window, then enlarge it and retain the original widths of the layout.
 
 	// These need to stay in px since they are bound to elements.
 	let containerBindWidth = $state<number>(1000); // TODO: What initial value should we give this?
-	let middleBindWidth = $state<number>(300);
-	let leftBindWidth = $state<number>(300);
-	let rightBindWidth = $state<number>(540);
 
 	// Total width we cannot go below.
 	const padding = $derived(containerBindWidth - window.innerWidth);
@@ -87,13 +79,13 @@ the window, then enlarge it and retain the original widths of the layout.
 
 	// Calculate derived widths with proper constraints
 	const derivedLeftWidth = $derived(
-		Math.min(totalAvailableWidth - middleMinWidth, Math.max(leftMinWidth, $leftPreferredWidth))
+		Math.min(totalAvailableWidth - middleMinWidth, Math.max(leftMinWidth, leftPreferredWidth))
 	);
 
 	// Fixed panel width is constrained by remaining space after left panel
 	const remainingForFixed = $derived(totalAvailableWidth - derivedLeftWidth);
 	const derivedMiddleWidth = $derived(
-		Math.min(remainingForFixed, Math.max(middleMinWidth, $middlePreferredWidth))
+		Math.min(remainingForFixed, Math.max(middleMinWidth, middlePreferredWidth))
 	);
 
 	// Calculate max widths for the resizers
@@ -111,7 +103,6 @@ the window, then enlarge it and retain the original widths of the layout.
 	<div
 		class="left view-wrapper"
 		bind:this={leftDiv}
-		bind:clientWidth={leftBindWidth}
 		style:width={derivedLeftWidth + 'rem'}
 		style:min-width={leftMinWidth + 'rem'}
 		use:focusable={{ id: DefinedFocusable.ViewportLeft, parentId: DefinedFocusable.MainViewport }}
@@ -123,9 +114,8 @@ the window, then enlarge it and retain the original widths of the layout.
 				direction="right"
 				minWidth={leftMinWidth}
 				maxWidth={leftMaxWidth}
-				onWidth={(value) => {
-					leftPreferredWidth.set(value);
-				}}
+				persistId="viewport-${name}-left"
+				onWidth={(width) => (leftPreferredWidth = width)}
 			/>
 		</AsyncRender>
 	</div>
@@ -134,7 +124,6 @@ the window, then enlarge it and retain the original widths of the layout.
 		<div
 			class="middle view-wrapper"
 			bind:this={middleDiv}
-			bind:clientWidth={middleBindWidth}
 			style:width={derivedMiddleWidth + 'rem'}
 			style:min-width={middleMinWidth + 'rem'}
 			use:focusable={{
@@ -150,9 +139,9 @@ the window, then enlarge it and retain the original widths of the layout.
 					minWidth={middleMinWidth}
 					maxWidth={middleMaxWidth}
 					borderRadius="ml"
-					onWidth={(value) => {
-						middlePreferredWidth.set(value);
-					}}
+					persistId="viewport-${name}-middle"
+					defaultValue={pxToRem(middleWidth.default, zoom)}
+					onWidth={(width) => (middlePreferredWidth = width)}
 				/>
 			</AsyncRender>
 		</div>
@@ -161,7 +150,6 @@ the window, then enlarge it and retain the original widths of the layout.
 	<div
 		class="right view-wrapper"
 		bind:this={rightDiv}
-		bind:clientWidth={rightBindWidth}
 		style:min-width={flexibleMinWidth + 'rem'}
 		use:focusable={{
 			id: DefinedFocusable.ViewportRight,

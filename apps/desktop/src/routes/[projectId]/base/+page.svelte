@@ -8,11 +8,7 @@
 	import { Project } from '$lib/project/project';
 	import { FileIdSelection } from '$lib/selection/fileIdSelection';
 	import { getContext } from '@gitbutler/shared/context';
-	import { persisted } from '@gitbutler/shared/persisted';
 	import { setContext } from 'svelte';
-
-	const laneWidthKey = 'baseLaneWidth';
-	const width = persisted<number>(20, laneWidthKey);
 
 	const project = getContext(Project);
 	const baseBranchService = getContext(BaseBranchService);
@@ -37,7 +33,7 @@
 	<FullviewLoading />
 {:else}
 	<div class="base">
-		<div class="base__left" bind:this={rsViewport} style:width={$width + 'rem'}>
+		<div class="base__left" bind:this={rsViewport}>
 			<ScrollableContainer>
 				<div class="card">
 					<BaseBranch base={baseBranch} />
@@ -45,9 +41,10 @@
 			</ScrollableContainer>
 			<Resizer
 				viewport={rsViewport}
+				persistId="baseLaneWidth"
 				direction="right"
 				minWidth={20}
-				onWidth={(value) => ($width = value)}
+				defaultValue={20}
 			/>
 		</div>
 		<div class="base__right">

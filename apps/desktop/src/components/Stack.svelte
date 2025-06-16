@@ -16,7 +16,6 @@
 	import { FileIdSelection } from '$lib/selection/fileIdSelection';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContextStore, inject } from '@gitbutler/shared/context';
-	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
@@ -39,7 +38,6 @@
 	const stackStore = getContextStore(BranchStack);
 	const stack = $derived($stackStore);
 
-	const width = persistWithExpiration<number>(24, 'stackWidth_' + projectId, 7 * 1440);
 	const branchHasFiles = $derived(stack.files !== undefined && stack.files.length > 0);
 	const branchHasNoCommits = $derived(stack.validSeries.flatMap((s) => s.patches).length === 0);
 	const dzFileHandler = $derived(
@@ -120,7 +118,7 @@
 					bottom: 12
 				}}
 			>
-				<div bind:this={rsViewport} style:width={`${$width}rem`} class="branch-card__contents">
+				<div bind:this={rsViewport} class="branch-card__contents">
 					<StackHeader
 						{projectId}
 						{stack}
@@ -207,9 +205,10 @@
 			{#if rsViewport}
 				<Resizer
 					viewport={rsViewport}
+					persistId={'stackWidth_' + projectId}
+					defaultValue={24}
 					direction="right"
 					minWidth={25}
-					onWidth={(value) => ($width = value)}
 					imitateBorder
 					imitateBorderColor={$fileIdSelection.length === 1 ? 'trnsparent' : 'var(--clr-border-2)'}
 				/>
