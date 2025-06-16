@@ -16,7 +16,7 @@
 		active: boolean | undefined;
 		readonly: boolean;
 		draft: boolean;
-
+		isCommitting?: boolean;
 		isPushed: boolean;
 
 		lineColor: string;
@@ -26,7 +26,7 @@
 		updateBranchName: (name: string) => void;
 		isUpdatingName: boolean;
 
-		emptyState: Snippet;
+		emptyState?: Snippet;
 		content?: Snippet;
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
 		buttons?: Snippet;
@@ -39,6 +39,7 @@
 		selectIndicator,
 		draft,
 		active,
+		isCommitting,
 		isUpdatingName,
 		readonly,
 		isPushed,
@@ -61,9 +62,9 @@
 	bind:this={rightClickTrigger}
 	role="button"
 	class="branch-header"
-	class:new-branch={isEmpty}
 	class:selected
 	class:draft
+	class:commiting={isCommitting}
 	{onclick}
 	onkeypress={onclick}
 	tabindex="0"
@@ -89,17 +90,11 @@
 					onChange={(name) => updateBranchName(name)}
 				/>
 			</div>
-
-			{#if menu}
-				<div class="branch-header__menu">
-					{@render menu({ rightClickTrigger })}
-				</div>
-			{/if}
 		</div>
 
 		{#if isEmpty}
 			<p class="text-12 text-body branch-header__empty-state">
-				{@render emptyState()}
+				{@render emptyState?.()}
 			</p>
 		{:else if content}
 			<div class="text-12 branch-header__details">
@@ -107,12 +102,22 @@
 			</div>
 		{/if}
 	</div>
-	{#if buttons}
-		<div class="text-12 branch-header__buttons">
-			{@render buttons()}
-		</div>
-	{/if}
 </div>
+
+{#if !draft && !isCommitting}
+	<div class="branch-hedaer__actions-row" class:draft class:new-branch={isEmpty}>
+		{#if buttons}
+			<div class="text-12 branch-header__actions">
+				{@render buttons()}
+			</div>
+		{/if}
+		{#if menu}
+			<div class="branch-header__menu">
+				{@render menu({ rightClickTrigger })}
+			</div>
+		{/if}
+	</div>
+{/if}
 
 <style lang="postcss">
 	.branch-header {
@@ -133,9 +138,7 @@
 		background-color: var(--branch-selected-bg);
 
 		/* Selected but NOT in focus */
-		&:hover {
-			--branch-selected-bg: var(--clr-bg-1-muted);
-		}
+		&:hover,
 		&:focus-within,
 		&.selected {
 			--branch-selected-bg: var(--clr-selected-not-in-focus-bg);
@@ -145,12 +148,6 @@
 		&:focus-within.selected {
 			--branch-selected-bg: var(--clr-selected-in-focus-bg);
 			--branch-selected-element-bg: var(--clr-selected-in-focus-element);
-		}
-
-		/* MODIFIERS */
-		&.new-branch {
-			border-bottom: none;
-			border-radius: var(--radius-ml);
 		}
 	}
 
@@ -196,12 +193,6 @@
 		min-width: 0;
 	}
 
-	.branch-header__menu {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
 	.branch-header__content {
 		display: flex;
 		flex: 1;
@@ -219,11 +210,27 @@
 		opacity: 0.8;
 	}
 
-	.branch-header__buttons {
+	.branch-hedaer__actions-row {
+		display: flex;
+		padding: 10px;
+		border-bottom: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-2);
+
+		/* MODIFIERS */
+		&.new-branch {
+			border-bottom: none;
+			border-radius: 0 0 var(--radius-ml) var(--radius-ml);
+		}
+	}
+
+	.branch-header__menu {
+		display: flex;
+	}
+
+	.branch-header__actions {
 		display: flex;
 		flex: 1;
 		width: 100%;
-		margin-bottom: 14px;
-		gap: 8px;
+		gap: 6px;
 	}
 </style>
