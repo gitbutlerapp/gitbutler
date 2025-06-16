@@ -239,6 +239,7 @@
 							minWidth={16}
 							maxWidth={64}
 							syncName="panel1"
+							dblclickSize
 						/>
 					</ConfigurableScrollableContainer>
 					<StackStickyButtons>
@@ -299,6 +300,7 @@
 					minWidth={16}
 					maxWidth={56}
 					syncName="panel2"
+					dblclickSize
 				/>
 			</div>
 		{/if}
@@ -320,6 +322,7 @@
 					minWidth={20}
 					maxWidth={96}
 					syncName="panel2"
+					dblclickSize
 				/>
 			</div>
 		{/if}
