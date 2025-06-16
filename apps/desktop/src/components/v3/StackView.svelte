@@ -122,6 +122,40 @@
 	function onclose() {
 		selection.set(undefined);
 	}
+
+	// Clear selection if branch cannot be found.
+	// TODO: How can we express this better?
+	$effect(() => {
+		if (selection.current && branchesResult.current.data) {
+			setTimeout(() => {
+				if (selection.current && branchesResult.current.data) {
+					const { branchName } = selection.current;
+					if (!branchesResult.current.data.some((b) => b.name === branchName)) {
+						selection.set(undefined);
+					}
+				}
+			}, 500);
+		}
+	});
+
+	// Clear selection if commit cannot be found.
+	// TODO: How can we express this better?
+	$effect(() => {
+		if (selection.current) {
+			setTimeout(() => {
+				if (selection.current) {
+					const { branchName, commitId } = selection.current;
+					if (branchName && commitId) {
+						stackService.fetchCommitById(projectId, stack.id, commitId).then((result) => {
+							if (!result.data) {
+								selection.set(undefined);
+							}
+						});
+					}
+				}
+			}, 500);
+		}
+	});
 </script>
 
 <AsyncRender>
