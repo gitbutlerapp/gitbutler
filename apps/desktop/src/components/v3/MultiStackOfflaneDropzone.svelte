@@ -106,12 +106,12 @@
 
 					<div class="hidden-dropzone__text">
 						{#if title}
-							<h4 class="text-15 text-body text-bold hidden-dropzone__title">
+							<h4 class="text-15 text-body text-bold hidden-dropzone__title hide-when-empty">
 								{@render title(activated)}
 							</h4>
 						{/if}
 						{#if description}
-							<p class="hidden-dropzone__label text-13 text-body">
+							<p class="hidden-dropzone__label text-13 text-body hide-when-empty">
 								{@render description(activated)}
 							</p>
 						{/if}
@@ -139,14 +139,10 @@
 		justify-content: center;
 		min-width: 420px;
 		height: 100%;
+		margin-bottom: 20px;
 		gap: 10px;
-		opacity: 0;
-		transition: opacity 0.1s;
 
 		/* SVG ANIMATION */
-		&:hover {
-			opacity: 1;
-		}
 		&.activated {
 			opacity: 1;
 			& .hidden-dropzone__svg,
@@ -168,11 +164,6 @@
 			}
 			& .hidden-dropzone__svg__plus-list path:nth-child(2) {
 				stroke: oklch(from var(--clr-scale-pop-40) l c h / 0.5);
-			}
-
-			& .hidden-dropzone__text {
-				transform: translateY(0);
-				opacity: 1;
 			}
 		}
 		&.hovered {
@@ -215,8 +206,8 @@
 		position: relative;
 		flex-direction: column;
 		align-items: center;
-		margin-bottom: 20px;
-		gap: 16px;
+		margin-bottom: 16px;
+		gap: 12px;
 		pointer-events: none;
 
 		&:after {
@@ -238,9 +229,9 @@
 	.hidden-dropzone__text {
 		display: flex;
 		flex-direction: column;
-		align-items: center;
 		gap: 4px;
 		transform: translateY(5px);
+		text-align: center;
 		transition: transform 0.2s;
 	}
 
@@ -249,14 +240,8 @@
 	}
 
 	.hidden-dropzone__label {
-		padding: 0 15%;
 		color: var(--clr-text-3);
 		text-align: center;
-		opacity: 1;
-		transition:
-			opacity 0.15s,
-			transform 0.15s;
-		will-change: opacity, transform;
 	}
 
 	/* SVG */
@@ -281,19 +266,19 @@
 		will-change: stroke, fill, opacity;
 	}
 	.hidden-dropzone__svg__back-list {
-		transform: translateY(14px) translateX(6px) rotate(10deg);
+		transform: translateY(8px) translateX(6px) rotate(10deg);
 		transform-origin: center;
 		transition: transform 0.15s;
 		will-change: transform;
 	}
 	.hidden-dropzone__svg__front-list {
-		transform: translateY(10px) translateX(2px) rotate(-7deg);
+		transform: translateY(6px) translateX(2px) rotate(-7deg);
 		transform-origin: center;
 		transition: transform 0.15s;
 		will-change: transform;
 	}
 	.hidden-dropzone__svg__hand {
-		transform: translateY(12px) translateX(10px) rotate(10deg) scale(0.9);
+		transform: translateY(8px) translateX(10px) rotate(10deg) scale(0.9);
 		transform-origin: center;
 		transition: transform 0.2s;
 		will-change: transform;

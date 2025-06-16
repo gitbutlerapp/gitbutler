@@ -106,31 +106,37 @@
 	// TODO: it would be nice to remember the last selected option for the next time the modal is opened
 </script>
 
-<Button
-	type="button"
-	onclick={() => {
-		projectState.exclusiveAction.set({ type: 'commit' });
-		uncommittedService.checkAll(null);
-	}}
-	disabled={exclusiveAction?.type === 'commit' && exclusiveAction.stackId === undefined}
-	onkeydown={handleArrowNavigation}
-	testId={TestId.CreateStackButton}
-	kind="outline"
-	icon="plus-small"
->
-	Commit to new branch
-</Button>
+<div class="multi-stack-create-new">
+	<div class="multi-stack-create-new__button-wrap">
+		<Button
+			type="button"
+			onclick={() => {
+				projectState.exclusiveAction.set({ type: 'commit' });
+				uncommittedService.checkAll(null);
+			}}
+			icon="commit"
+			disabled={exclusiveAction?.type === 'commit' && exclusiveAction.stackId === undefined}
+			onkeydown={handleArrowNavigation}
+			testId={TestId.CreateStackButton}
+			kind="outline"
+		>
+			Commit to new branch
+		</Button>
+	</div>
 
-<Button
-	type="button"
-	onclick={() => showAndPrefillName()}
-	onkeydown={handleArrowNavigation}
-	testId={TestId.CreateStackButton}
-	kind="outline"
-	icon="commit"
->
-	New branch
-</Button>
+	<div class="multi-stack-create-new__button-wrap">
+		<Button
+			type="button"
+			onclick={() => showAndPrefillName()}
+			onkeydown={handleArrowNavigation}
+			testId={TestId.CreateStackButton}
+			kind="outline"
+			icon="plus-small"
+		>
+			New branch
+		</Button>
+	</div>
+</div>
 
 <Modal bind:this={createRefModal} width={500}>
 	<div class="content-wrap">
@@ -225,6 +231,19 @@
 </Modal>
 
 <style lang="postcss">
+	.multi-stack-create-new {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 6px;
+	}
+
+	.multi-stack-create-new__button-wrap {
+		display: flex;
+		border-radius: var(--radius-btn);
+		background-color: var(--clr-bg-2);
+	}
+
 	/* MODAL WINDOW */
 	.content-wrap {
 		display: flex;
