@@ -216,6 +216,7 @@
 					{/if}
 				{/snippet}
 
+				<!-- <ConfigurableScrollableContainer> -->
 				<div class="commit-view">
 					<CommitHeader
 						commitMessage={commit.message}
@@ -278,6 +279,7 @@
 						{/snippet}
 					</ReduxResult>
 				{/snippet}
+				<!-- </ConfigurableScrollableContainer> -->
 			</Drawer>
 		{/if}
 
