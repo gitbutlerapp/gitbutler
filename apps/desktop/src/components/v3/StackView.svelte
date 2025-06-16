@@ -53,9 +53,13 @@
 		StackService
 	);
 	const projectState = $derived(uiState.project(projectId));
-	const exclusiveAction = $derived(projectState.exclusiveAction.current);
-	const isCommitting = $derived(
-		exclusiveAction?.type === 'commit' && exclusiveAction.stackId === stack.id
+
+	const action = $derived(projectState.exclusiveAction.current);
+	const isCommitting = $derived(action?.type === 'commit' && action.stackId === stack.id);
+
+	// If the user is making a commit to a different lane we dim this one.
+	const dimmed = $derived(
+		action?.type === 'commit' && action.stackId !== undefined && action.stackId !== stack.id
 	);
 
 	const branchesResult = $derived(stackService.branches(projectId, stack.id));
@@ -124,6 +128,7 @@
 	}}
 	<div
 		class="stack-view-wrapper dotted-pattern"
+		class:dimmed
 		data-id={stack.id}
 		data-testid={TestId.Stack}
 		data-testid-stackid={stack.id}
@@ -317,6 +322,9 @@
 		flex-shrink: 0;
 		overflow: hidden;
 
+		&.dimmed {
+			opacity: 0.5;
+		}
 		&:first-child {
 			border-left: 1px solid var(--clr-border-2);
 		}
@@ -328,6 +336,10 @@
 		flex-shrink: 0;
 		flex-direction: column;
 		border-right: 1px solid var(--clr-border-2);
+	}
+
+	.dimmed .stack-view {
+		pointer-events: none;
 	}
 
 	.assigned-changes-empty__text {
