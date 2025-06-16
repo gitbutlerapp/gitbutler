@@ -330,12 +330,12 @@ pub fn assignments_with_fallback(
 /// This needs to be ran only after the worktree has changed.
 ///
 /// If `worktree_changes` is `None`, they will be fetched automatically.
-#[instrument(skip(ctx), err(Debug))]
+#[instrument(skip(ctx, worktree_changes, worktree_assignments), err(Debug))]
 fn reconcile_with_worktree_and_locks(
     ctx: &mut CommandContext,
     set_assignment_from_locks: bool,
-    worktree_changes: &Vec<but_core::TreeChange>,
-    worktree_assignments: &Vec<HunkAssignment>,
+    worktree_changes: &[but_core::TreeChange],
+    worktree_assignments: &[HunkAssignment],
 ) -> Result<Vec<HunkAssignment>> {
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     let applied_stacks = vb_state
@@ -353,7 +353,7 @@ fn reconcile_with_worktree_and_locks(
         true,
     )?;
 
-    let lock_assignments = hunk_dependency_assignments(ctx, Some(worktree_changes.clone()))?;
+    let lock_assignments = hunk_dependency_assignments(ctx, Some(worktree_changes.to_vec()))?;
     let with_locks = reconcile::assignments(
         &with_worktree,
         &lock_assignments,
