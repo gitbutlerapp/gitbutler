@@ -25,7 +25,7 @@ pub fn commit_message_blocking(
         tokio::runtime::Runtime::new()
             .unwrap()
             .block_on(commit_message(
-                client,
+                &client,
                 &change_summary_owned,
                 &external_prompt_owned,
                 &diff_owned,
@@ -37,7 +37,7 @@ pub fn commit_message_blocking(
 
 pub async fn commit_message(
     // openai_provider: OpenAiProvider,
-    client: Client<OpenAIConfig>,
+    client: &Client<OpenAIConfig>,
     external_summary: &str,
     external_prompt: &str,
     diff: &str,

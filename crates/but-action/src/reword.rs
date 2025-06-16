@@ -1,0 +1,54 @@
+use async_openai::{Client, config::OpenAIConfig};
+use but_graph::VirtualBranchesTomlMetadata;
+use but_settings::AppSettings;
+use but_workspace::{StacksFilter, ui::StackEntry};
+use gitbutler_command_context::CommandContext;
+use gitbutler_oxidize::ObjectIdExt;
+use gitbutler_project::Project;
+
+#[derive(Debug, Clone)]
+pub struct CommitEvent {
+    pub project: Project,
+    pub app_settings: AppSettings,
+    pub external_summary: String,
+    pub external_prompt: String,
+    pub branch_name: String,
+    pub commit_id: gix::ObjectId,
+}
+
+#[allow(unused)]
+pub async fn commit(client: &Client<OpenAIConfig>, event: CommitEvent) -> anyhow::Result<()> {
+    let ctx = CommandContext::open(&event.project, event.app_settings)?;
+    let message = crate::generate::commit_message(
+        client,
+        &event.external_summary,
+        &event.external_prompt,
+        "",
+    )
+    .await?;
+    let stacks = stacks(&ctx)?;
+    let stack_id = stacks
+        .iter()
+        .find(|s| s.heads.iter().any(|h| h.name == event.branch_name))
+        .map(|s| s.id)
+        .ok_or_else(|| anyhow::anyhow!("Stack with name '{}' not found", event.branch_name))?;
+    let new_commit_oid = gitbutler_branch_actions::update_commit_message(
+        &ctx,
+        stack_id,
+        event.commit_id.to_git2(),
+        &message,
+    )?;
+    Ok(())
+}
+
+fn stacks(ctx: &CommandContext) -> anyhow::Result<Vec<StackEntry>> {
+    let repo = ctx.gix_repo_for_merging_non_persisting()?;
+    if ctx.app_settings().feature_flags.ws3 {
+        let meta = VirtualBranchesTomlMetadata::from_path(
+            ctx.project().gb_dir().join("virtual_branches.toml"),
+        )?;
+        but_workspace::stacks_v3(&repo, &meta, StacksFilter::default())
+    } else {
+        but_workspace::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
+    }
+}

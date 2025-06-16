@@ -1,10 +1,11 @@
 use std::{
     path::PathBuf,
+    str::FromStr,
     sync::{Arc, Mutex},
 };
 
 use anyhow::Result;
-use but_action::{ActionHandler, OpenAiProvider, Source};
+use but_action::{ActionHandler, OpenAiProvider, Source, reword::CommitEvent};
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
@@ -29,9 +30,21 @@ pub(crate) async fn start(app_settings: AppSettings) -> Result<()> {
 
     tracing::info!("Starting MCP server");
 
-    let transport = (tokio::io::stdin(), tokio::io::stdout());
+    let sender = OpenAiProvider::with(None)
+        .and_then(|openai| openai.client().ok())
+        .map(|client| {
+            let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel();
+            tokio::task::spawn(async move {
+                while let Some(event) = receiver.recv().await {
+                    let _ = but_action::reword::commit(&client, event).await;
+                }
+            });
+            sender
+        });
+
     let client_info = Arc::new(Mutex::new(None));
-    let service = Mcp::new(app_settings, client_info.clone())
+    let transport = (tokio::io::stdin(), tokio::io::stdout());
+    let service = Mcp::new(app_settings, client_info.clone(), sender)
         .serve(transport)
         .await?;
     let info = service.peer_info();
@@ -46,20 +59,23 @@ pub(crate) async fn start(app_settings: AppSettings) -> Result<()> {
 pub struct Mcp {
     app_settings: AppSettings,
     metrics: Metrics,
-    openai: Option<OpenAiProvider>,
     client_info: Arc<Mutex<Option<Implementation>>>,
+    sender: Option<tokio::sync::mpsc::UnboundedSender<CommitEvent>>,
 }
 
 #[tool(tool_box)]
 impl Mcp {
-    pub fn new(app_settings: AppSettings, client_info: Arc<Mutex<Option<Implementation>>>) -> Self {
+    pub fn new(
+        app_settings: AppSettings,
+        client_info: Arc<Mutex<Option<Implementation>>>,
+        sender: Option<tokio::sync::mpsc::UnboundedSender<CommitEvent>>,
+    ) -> Self {
         let metrics = Metrics::new_with_background_handling(&app_settings);
-        let openai = OpenAiProvider::with(None);
         Self {
             app_settings,
             metrics,
-            openai,
             client_info,
+            sender,
         }
     }
 
@@ -106,13 +122,31 @@ impl Mcp {
 
         let response = but_action::handle_changes(
             ctx,
-            &self.openai,
+            &None,
             &request.changes_summary,
-            Some(request.full_prompt),
+            Some(request.full_prompt.clone()),
             ActionHandler::HandleChangesSimple,
             Source::Mcp(client_info.map(Into::into)),
         )
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+        // Trigger commit message generation for newly created commits
+        if let Some(sender) = &self.sender {
+            for branch in &response.updated_branches {
+                for commit in &branch.new_commits {
+                    if let Ok(commit_id) = gix::ObjectId::from_str(commit) {
+                        let commit_event = CommitEvent {
+                            external_summary: request.changes_summary.clone(),
+                            external_prompt: request.full_prompt.clone(),
+                            branch_name: branch.branch_name.clone(),
+                            commit_id,
+                            project: project.clone(),
+                            app_settings: self.app_settings.clone(),
+                        };
+                        _ = sender.send(commit_event);
+                    }
+                }
+            }
+        }
         Ok(CallToolResult::success(vec![Content::json(response)?]))
     }
 }

@@ -27,6 +27,7 @@ rmcp = "0.1.5"
 gitbutler-command-context.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-operating-modes.workspace = true
+but-settings.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-oplog.workspace = true

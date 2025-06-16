@@ -18,6 +18,7 @@ mod action;
 mod gb_client;
 mod generate;
 mod openai;
+pub mod reword;
 mod serialize;
 mod simple;
 pub use action::ActionListing;
@@ -124,7 +125,7 @@ impl Display for ActionHandler {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Outcome {
-    updated_branches: Vec<UpdatedBranch>,
+    pub updated_branches: Vec<UpdatedBranch>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

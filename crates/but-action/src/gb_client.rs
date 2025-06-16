@@ -211,12 +211,14 @@ pub struct AnthropicStructuredOutputResponse<T> {
     pub tool_calls: Option<Vec<AnthropicToolCall>>,
 }
 
+#[allow(unused)]
 pub struct GBClient {
     client: Client,
     token: String,
     base_url: String,
 }
 
+#[allow(unused)]
 impl GBClient {
     pub fn new(base_url: String, token: String) -> Self {
         let client = Client::builder()
@@ -316,11 +318,13 @@ pub struct GetCommitContextParams {
     pub prompt: String,
 }
 
+#[allow(unused)]
 fn get_commit_context(params: &GetCommitContextParams) -> String {
     println!("Getting commit context for prompt: {}", params.prompt);
     "Make the commit message description should be written as a haiku poem.".to_string()
 }
 
+#[allow(unused)]
 pub fn commit_message_blocking_open_ai(
     api_key: &str,
     external_summary: &str,
@@ -346,6 +350,7 @@ pub fn commit_message_blocking_open_ai(
     .unwrap()
 }
 
+#[allow(unused)]
 pub async fn commit_message_open_ai(
     api_key: &str,
     external_summary: &str,
@@ -458,6 +463,7 @@ pub async fn commit_message_open_ai(
     }
 }
 
+#[allow(unused)]
 pub fn commit_message_blocking_anthropic(
     api_key: &str,
     external_summary: &str,
@@ -483,6 +489,7 @@ pub fn commit_message_blocking_anthropic(
     .unwrap()
 }
 
+#[allow(unused)]
 pub async fn commit_message_anthropic(
     api_key: &str,
     external_summary: &str,
