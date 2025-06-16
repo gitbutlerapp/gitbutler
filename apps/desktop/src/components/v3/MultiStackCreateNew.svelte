@@ -32,6 +32,9 @@
 	const [createNewStack, stackCreation] = stackService.newStack;
 	const [createNewBranch, branchCreation] = stackService.newBranch;
 
+	const treeChanges = $derived(uncommittedService.changesByStackId(null));
+	const changesToCommit = $derived(treeChanges.current.length > 0);
+
 	let createRefModal = $state<ReturnType<typeof Modal>>();
 	let createRefName = $state<string>();
 	let createRefType = $state<'stack' | 'dependent'>('stack');
@@ -115,7 +118,8 @@
 				uncommittedService.checkAll(null);
 			}}
 			icon="commit"
-			disabled={exclusiveAction?.type === 'commit' && exclusiveAction.stackId === undefined}
+			disabled={(exclusiveAction?.type === 'commit' && exclusiveAction.stackId === undefined) ||
+				!changesToCommit}
 			onkeydown={handleArrowNavigation}
 			testId={TestId.CommitToNewBranchButton}
 			kind="outline"
