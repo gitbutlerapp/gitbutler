@@ -69,21 +69,28 @@ export const uncommittedSlice = createSlice({
 			}>
 		) {
 			const key = compositeKey(action.payload);
+			const assignment = uncommittedSelectors.hunkAssignments.selectById(
+				state.hunkAssignments,
+				key
+			);
+			if (!assignment) {
+				throw new Error(`Expected to find assignment: ${key} `);
+			}
 			const selection = uncommittedSelectors.hunkSelection.selectById(state.hunkSelection, key);
 			const { stackId, line } = action.payload;
 			if (selection) {
+				let newLines = [...selection.lines, line];
+				// If every line is selected, then we represent that with an
+				// empty array.
+				if (everyLineSelected(newLines, assignment)) {
+					newLines = [];
+				}
+
 				state.hunkSelection = hunkSelectionAdapter.upsertOne(state.hunkSelection, {
 					...selection,
-					lines: [...selection.lines, line]
+					lines: newLines
 				});
 			} else {
-				const assignment = uncommittedSelectors.hunkAssignments.selectById(
-					state.hunkAssignments,
-					key
-				);
-				if (!assignment) {
-					throw new Error(`Expected to find assignment: ${key} `);
-				}
 				state.hunkSelection = hunkSelectionAdapter.addOne(state.hunkSelection, {
 					stableId: assignment.id,
 					stackId: stackId,
