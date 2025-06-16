@@ -749,6 +749,7 @@ dependencies = [
  "but-db",
  "but-graph",
  "but-hunk-assignment",
+ "but-settings",
  "but-workspace",
  "chrono",
  "gitbutler-branch",
