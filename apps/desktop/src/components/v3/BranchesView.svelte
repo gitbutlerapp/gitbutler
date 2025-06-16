@@ -309,7 +309,7 @@
 					</div>
 				{/if}
 
-				<div class={['branch-commits dotted-container dotted-pattern']}>
+				<div class="branch-commits dotted-container">
 					{#if (current.branchName === undefined && current.prNumber === undefined) || current.branchName === baseBranch.shortName}
 						<TargetCommitList {projectId} />
 					{:else if current.stackId}
@@ -333,7 +333,7 @@
 			{/snippet}
 
 			{#snippet right()}
-				<div class="right-wrapper dotted-pattern">
+				<div class="right-wrapper">
 					<div class="details">
 						{#if current.commitId}
 							<UnappliedCommitView {projectId} commitId={current.commitId} />

@@ -74,7 +74,6 @@ export type GlobalUiState = {
 	rulerCountValue: number;
 	wrapTextByRuler: boolean;
 	aiSuggestionsOnType: boolean;
-	selectedTip: number | undefined;
 	channel: string | undefined;
 	draftBranchName: string | undefined;
 	modal: GlobalModalState | undefined;
@@ -114,7 +113,6 @@ export class UiState {
 		rulerCountValue: 72,
 		wrapTextByRuler: false,
 		aiSuggestionsOnType: false,
-		selectedTip: undefined,
 		channel: undefined,
 		draftBranchName: undefined,
 		modal: undefined
