@@ -32,6 +32,7 @@
 
 		emptyPlaceholder?: Snippet;
 		notScrollable?: boolean;
+		onselect?: () => void;
 	};
 
 	let {
@@ -44,7 +45,8 @@
 
 		onDropzoneActivated,
 		emptyPlaceholder,
-		notScrollable = false
+		notScrollable = false,
+		onselect
 	}: Props = $props();
 
 	const [uiState, stackService, diffService, uncommittedService] = inject(
@@ -98,6 +100,7 @@
 			{listMode}
 			{active}
 			{stackId}
+			{onselect}
 		/>
 	</div>
 {/snippet}

@@ -76,6 +76,7 @@
 			hasConflicts: boolean;
 			isAncestorMostConflicted: boolean;
 		}) => void;
+		onselect?: () => void;
 	}
 
 	let {
@@ -89,7 +90,8 @@
 		stackingReorderDropzoneManager,
 		handleUncommit,
 		startEditingCommitMessage,
-		handleEditPatch
+		handleEditPatch,
+		onselect
 	}: Props = $props();
 
 	const [stackService, uiState, forge, baseBranchService, dropzoneRegistry] = inject(
@@ -153,6 +155,7 @@
 		} else {
 			stackState.selection.set({ branchName, commitId, upstream });
 		}
+		onselect?.();
 	}
 </script>
 

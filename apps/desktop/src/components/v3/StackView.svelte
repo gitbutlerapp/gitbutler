@@ -169,6 +169,10 @@
 									onDropzoneActivated={(activated) => {
 										dropzoneActivated = activated;
 									}}
+									onselect={() => {
+										// Clear one selection when you modify the other.
+										stackState?.selection.set(undefined);
+									}}
 								>
 									{#snippet emptyPlaceholder()}
 										{#if !isCommitting}
@@ -204,7 +208,16 @@
 							</div>
 						</div>
 
-						<BranchList {projectId} {branches} stackId={stack.id} {focusedStackId} />
+						<BranchList
+							{projectId}
+							{branches}
+							stackId={stack.id}
+							{focusedStackId}
+							onselect={() => {
+								// Clear one selection when you modify the other.
+								idSelection.clear({ type: 'worktree', stackId: stack.id });
+							}}
+						/>
 						<Resizer
 							viewport={laneEl!}
 							direction="right"

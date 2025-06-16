@@ -43,6 +43,7 @@
 		active?: boolean;
 		conflictEntries?: ConflictEntriesObj;
 		draggableFiles: boolean;
+		onselect?: () => void;
 	};
 
 	const {
@@ -54,7 +55,8 @@
 		active,
 		stackId,
 		conflictEntries,
-		draggableFiles
+		draggableFiles,
+		onselect
 	}: Props = $props();
 
 	const [
@@ -204,6 +206,7 @@
 		selected={idSelection.has(change.path, selectionId)}
 		onclick={(e) => {
 			selectFilesInList(e, change, sortedChanges, idSelection, true, idx, selectionId);
+			onselect?.();
 		}}
 		{conflictEntries}
 	/>
