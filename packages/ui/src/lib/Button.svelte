@@ -175,7 +175,7 @@
 		align-items: center;
 		justify-content: center;
 		transform-style: preserve-3d;
-		border-radius: var(--radius-m);
+		border-radius: var(--radius-btn);
 		backface-visibility: hidden;
 		background: color-mix(
 			in srgb,

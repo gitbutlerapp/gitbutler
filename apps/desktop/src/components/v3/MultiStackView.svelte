@@ -100,7 +100,9 @@
 				Drop files to start a branch, or apply from the Branches view Drag chanes here to branch off
 				your changes.
 			{:else}
-				Drop files to start a branch, or apply from the Branches view.
+				Drag chanes here to
+				<br />
+				branch off your changes
 			{/if}
 		{/snippet}
 	</MultiStackOfflaneDropzone>

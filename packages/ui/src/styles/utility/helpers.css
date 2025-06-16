@@ -62,6 +62,12 @@ pre {
 	user-select: none;
 }
 
+.hide-when-empty {
+	&:empty {
+		display: none;
+	}
+}
+
 /* ANIMATION */
 
 .wiggle-animation {
