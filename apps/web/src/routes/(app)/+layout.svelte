@@ -14,6 +14,7 @@
 	import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { FeedService } from '@gitbutler/shared/feeds/service';
+	import LoginService from '@gitbutler/shared/login/loginService';
 	import { HttpClient } from '@gitbutler/shared/network/httpClient';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
 	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
@@ -43,6 +44,9 @@
 
 	const httpClient = new HttpClient(window.fetch, env.PUBLIC_APP_HOST, authService.tokenReadable);
 	setContext(HttpClient, httpClient);
+
+	const loginService = new LoginService(httpClient);
+	setContext(LoginService, loginService);
 
 	const aiService = new ButlerAIClient(httpClient);
 	setContext(ButlerAIClient, aiService);
@@ -115,12 +119,14 @@
 	setContext(RulesService, rulesService);
 
 	const isCommitPage = $derived(page.url.pathname.includes('/commit/'));
+	const isLoginPage = $derived(page.url.pathname.includes('/login'));
+	const hasNavigation = $derived(!isCommitPage && !isLoginPage);
 </script>
 
 <Toaster />
 
 <div class="app">
-	{#if !isCommitPage}
+	{#if hasNavigation}
 		<Navigation />
 	{/if}
 
