@@ -52,8 +52,11 @@
 		{branchName}
 		readonly={false}
 		lineColor="var(--clr-commit-local)"
-	/>
-	<CommitGoesHere selected draft />
+	>
+		{#snippet branchContent()}
+			<CommitGoesHere selected draft />
+		{/snippet}
+	</BranchCard>
 </div>
 
 <style lang="postcss">
@@ -62,13 +65,9 @@
 		flex-shrink: 0;
 		flex-direction: column;
 		padding: 12px;
-		border-right: 1px solid var(--clr-border-2);
 	}
 	.new-commit-view {
 		margin-bottom: 12px;
 		padding: 12px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-1);
 	}
 </style>

@@ -73,7 +73,7 @@
 	<button
 		bind:this={buttonElement}
 		type="button"
-		class="branch-menu-btn"
+		class="menu-btn"
 		class:visible={visible || isContextElementFocused || contextElementSelected}
 		class:activated
 		onclick={onClick}
@@ -93,7 +93,7 @@
 {/if}
 
 <style lang="postcss">
-	.branch-menu-btn {
+	.menu-btn {
 		display: flex;
 		display: none;
 		padding: 0 4px;

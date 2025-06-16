@@ -31,8 +31,8 @@
 {#snippet commitHere(args: { last?: boolean })}
 	{@const last = args?.last}
 	<button class="commit-here" class:commit-here_last={last} type="button" {onclick}>
-		<div class="commit-here__circle"></div>
 		<div class="commit-here__line"></div>
+		<div class="commit-here__circle"></div>
 
 		<div class="commit-here__label text-11 text-semibold">Commit here</div>
 	</button>
@@ -53,35 +53,45 @@
 		gap: 12px;
 		border-bottom: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
+
+		&.first {
+			border-top: none;
+		}
+
 		&.last {
 			border-top: 1px solid var(--clr-border-2);
 			border-bottom: none;
-			border-radius: 0 0 var(--radius-l) var(--radius-l);
 		}
+
 		&.draft {
-			border-right: 1px solid var(--clr-border-2);
-			border-left: 1px solid var(--clr-border-2);
-			border-radius: 0 0 var(--radius-l) var(--radius-l);
+			border-bottom: none;
 		}
 	}
 	.pin {
-		display: flex;
 		position: relative;
-		align-items: center;
-		width: 40px;
-		height: 10px;
-		margin-left: -15px;
+		width: 8px;
+		height: 8px;
+		margin-left: 16px;
 	}
-	.pin__line {
-		flex-grow: 1;
-		height: 2px;
-		background-color: var(--clr-theme-pop-element);
-	}
+
 	.pin__circle {
-		width: 10px;
-		height: 10px;
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
 		border-radius: 100%;
 		outline: 2px solid var(--clr-theme-pop-element);
+		background-color: var(--clr-bg-1);
+	}
+	.pin__line {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		width: 2px;
+		height: 350%;
+		transform: translate(-50%, -50%);
+		background-color: var(--clr-theme-pop-element);
 	}
 
 	/* COMMIT HERE */

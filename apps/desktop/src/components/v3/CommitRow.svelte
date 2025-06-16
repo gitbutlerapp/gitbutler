@@ -185,7 +185,7 @@
 		position: relative;
 		align-items: center;
 		width: 100%;
-		padding-right: 10px;
+		padding-right: 9px;
 		overflow: hidden;
 		gap: 4px;
 	}
