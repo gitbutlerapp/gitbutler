@@ -481,6 +481,7 @@ function updateAssignments(
 		treeChangeAdapter.getInitialState(),
 		action.payload.changes
 	);
+	const oldAssignments = state.hunkAssignments;
 	state.hunkAssignments = hunkAssignmentAdapter.addMany(
 		hunkAssignmentAdapter.getInitialState(),
 		action.payload.assignments
@@ -496,17 +497,100 @@ function updateAssignments(
 
 	for (const old of oldSelections) {
 		const newAssignment = newAssignments.get(old.stableId || old.assignmentId);
+		const oldAssignment = uncommittedSelectors.hunkAssignments.selectById(
+			oldAssignments,
+			old.assignmentId
+		);
+
 		if (newAssignment) {
-			state.hunkSelection = hunkSelectionAdapter.addOne(state.hunkSelection, {
-				stableId: newAssignment.id,
-				assignmentId: compositeKey(newAssignment),
-				stackId: newAssignment.stackId,
-				path: newAssignment.path,
-				// TODO: Carry over lines from the old selection.
-				lines: []
-			});
+			const updatedLines = oldAssignment
+				? updateLines(newAssignment, oldAssignment, old.lines)
+				: [];
+			if (updatedLines) {
+				state.hunkSelection = hunkSelectionAdapter.addOne(state.hunkSelection, {
+					stableId: newAssignment.id,
+					assignmentId: compositeKey(newAssignment),
+					stackId: newAssignment.stackId,
+					path: newAssignment.path,
+					lines: updatedLines
+				});
+			}
 		}
 	}
 
 	return state;
+}
+
+/**
+ * Updates the lines in the selection based on the new assignment.
+ *
+ * If the old assignment was full, we will keep the lines that are still
+ * selected.
+ * If the old assignment was partial, we will keep the lines that are present.
+ *   If there are no lines left, we will return undefined.
+ *
+ * Undefined signals that the selection should be removed because there are no
+ * selectable lines remaining.
+ */
+function updateLines(
+	newAssignment: HunkAssignment,
+	oldAssignment: HunkAssignment,
+	lines: LineId[]
+): LineId[] | undefined {
+	// If all are selected (indicated by empty array), we want to keep them all
+	// selected.
+	if (everyLineSelected(lines, oldAssignment)) {
+		return [];
+	}
+
+	// If we don't have information about the selectable lines, we will cop out
+	// and select all lines.
+	if (!oldAssignment.lineNumsAdded || !oldAssignment.lineNumsRemoved) {
+		return [];
+	}
+
+	const olds = new Set(newAssignment.lineNumsRemoved);
+	const news = new Set(newAssignment.lineNumsAdded);
+
+	const filteredLines = lines.filter(
+		(l) => (!l.newLine || news.has(l.newLine)) && (!l.oldLine || olds.has(l.oldLine))
+	);
+
+	if (filteredLines.length === 0) {
+		return undefined;
+	}
+
+	return filteredLines;
+}
+
+/**
+ * Returns true if the lines represent a full assignment.
+ *
+ * IE, if the lines array is empty OR if the assignment's selectable lines are
+ * fully covered by the entries in the lines array.
+ */
+function everyLineSelected(lines: LineId[], assignment: HunkAssignment): boolean {
+	if (lines.length === 0) {
+		return true;
+	}
+
+	// If the assignment lacks information about the selectable lines, we will
+	// assume it is full.
+	if (!assignment.lineNumsAdded || !assignment.lineNumsRemoved) {
+		return true;
+	}
+
+	const olds = new Set(lines.map((l) => l.oldLine).filter(isDefined));
+	const oldsAllSelected = assignment.lineNumsRemoved.every((l) => olds.has(l));
+	if (!oldsAllSelected) {
+		return false;
+	}
+
+	const news = new Set(lines.map((l) => l.newLine).filter(isDefined));
+	const newsAllSelected = assignment.lineNumsAdded.every((l) => news.has(l));
+	if (!newsAllSelected) {
+		return false;
+	}
+
+	return true;
 }
