@@ -57,6 +57,7 @@
 		syncName,
 		persistId,
 		passive,
+		dblclickSize,
 		onResizing,
 		onOverflow,
 		onHover,
@@ -173,17 +174,18 @@
 	});
 
 	$effect(() => {
-		if (viewport) {
+		if (viewport && dblclickSize) {
 			return on(viewport, 'dblclick', cycleWidth);
 		}
 	});
 
 	function cycleWidth() {
 		if (direction === 'up' || direction === 'down') return;
-		if ($value && $value > maxWidth / 2) {
-			value.set(Math.floor($value / 2));
-		} else if ($value) {
-			value.set(Math.floor($value * 2));
+		const width = $value || viewport.offsetWidth;
+		if (width && width > maxWidth / 2) {
+			value.set(Math.floor(width / 2));
+		} else if (width) {
+			value.set(Math.floor(width * 2));
 		}
 	}
 </script>
