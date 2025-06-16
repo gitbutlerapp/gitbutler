@@ -144,11 +144,14 @@ fn handle_changes_simple_inner(
     let mut updated_branches = vec![];
 
     let commit_message = if let Some(openai) = openai {
+        let changes =
+            but_core::diff::ui::worktree_changes_by_worktree_dir(repo.path().to_path_buf())?;
+        let diff = changes.try_as_unidiff_string(&repo, ctx.app_settings().context_lines)?;
         generate::commit_message_blocking(
             openai,
             change_summary,
             external_prompt.as_deref().unwrap_or_default(),
-            "",
+            &diff,
         )?
     } else if let Some(prompt) = external_prompt {
         format!("{}/n/n{}", prompt, change_summary)

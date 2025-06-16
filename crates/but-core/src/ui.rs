@@ -14,6 +14,16 @@ pub struct WorktreeChanges {
     pub ignored_changes: Vec<IgnoredWorktreeChange>,
 }
 
+impl WorktreeChanges {
+    pub fn try_as_unidiff_string(
+        &self,
+        repo: &gix::Repository,
+        context_lines: u32,
+    ) -> anyhow::Result<String> {
+        changes_to_unidiff_string(self.changes.clone(), repo, context_lines)
+    }
+}
+
 impl From<crate::WorktreeChanges> for WorktreeChanges {
     fn from(
         crate::WorktreeChanges {
