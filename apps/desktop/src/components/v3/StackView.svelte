@@ -62,13 +62,15 @@
 
 	let dropzoneActivated = $state(false);
 
-	const stackState = uiState.stack(stack.id);
+	const stackState = $derived(uiState.stack(stack.id));
 	const selection = $derived(stackState.selection);
-	const assignedSelection = idSelection.getById({
-		type: 'worktree',
-		stackId: stack.id
-	});
-	const lastAddedAssigned = assignedSelection.lastAdded;
+	const assignedSelection = $derived(
+		idSelection.getById({
+			type: 'worktree',
+			stackId: stack.id
+		})
+	);
+	const lastAddedAssigned = $derived(assignedSelection.lastAdded);
 	const assignedKey = $derived(
 		$lastAddedAssigned?.key ? readKey($lastAddedAssigned.key) : undefined
 	);
@@ -87,7 +89,7 @@
 	const selectedKey = $derived(
 		$selectedLastAdded?.key ? readKey($selectedLastAdded.key) : undefined
 	);
-	const changes = uncommittedService.changesByStackId(stack.id || null);
+	const changes = $derived(uncommittedService.changesByStackId(stack.id || null));
 
 	let laneEl = $state<HTMLDivElement>();
 	let detailsEl = $state<HTMLDivElement>();
