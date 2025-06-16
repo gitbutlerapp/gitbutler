@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-use crate::IgnoredWorktreeChange;
+use crate::{IgnoredWorktreeChange, UnifiedDiff};
 use bstr::BString;
 use gitbutler_serde::BStringForFrontend;
 use gix::object::tree::EntryKind;
@@ -36,6 +36,54 @@ pub struct TreeChanges {
     pub changes: Vec<TreeChange>,
     /// The stats of the changes.
     pub stats: TreeStats,
+}
+
+impl TreeChanges {
+    pub fn try_as_unidiff_string(
+        &self,
+        repo: &gix::Repository,
+        context_lines: u32,
+    ) -> anyhow::Result<String> {
+        let mut builder = String::new();
+        for change in self.changes.clone() {
+            match &change.status {
+                TreeStatus::Addition { .. } => {
+                    builder.push_str("--- /dev/null\n");
+                    builder.push_str(&format!("+++ b/{}\n", &change.path.to_string()));
+                }
+                TreeStatus::Deletion { .. } => {
+                    builder.push_str(&format!("+++ a/{}\n", &change.path.to_string()));
+                    builder.push_str("--- /dev/null\n");
+                }
+                TreeStatus::Modification { .. } => {
+                    builder.push_str(&format!("--- a/{}\n", &change.path.to_string()));
+                    builder.push_str(&format!("+++ b/{}\n", &change.path.to_string()));
+                }
+                TreeStatus::Rename { previous_path, .. } => {
+                    let previous_path = previous_path.to_string();
+                    builder.push_str(&format!("rename from {}\n", previous_path));
+                    builder.push_str(&format!("rename to {}\n", &change.path.to_string()));
+                }
+            }
+            match crate::TreeChange::from(change).unified_diff(repo, context_lines)? {
+                UnifiedDiff::Patch {
+                    hunks,
+                    is_result_of_binary_to_text_conversion,
+                    ..
+                } => {
+                    if is_result_of_binary_to_text_conversion {
+                        continue;
+                    }
+                    for hunk in hunks {
+                        builder.push_str(&hunk.diff.to_string());
+                        builder.push('\n');
+                    }
+                }
+                _ => continue,
+            }
+        }
+        Ok(builder)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
