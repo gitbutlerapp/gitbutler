@@ -85,9 +85,11 @@
 	let headerMenuContext = $state<BranchHeaderContextItem>();
 
 	const stackingReorderDropzoneManagerFactory = getContext(StackingReorderDropzoneManagerFactory);
-	const stackingReorderDropzoneManager = stackingReorderDropzoneManagerFactory.build(
-		stackId,
-		branches.map((s) => ({ name: s.name, commitIds: s.commits.map((p) => p.id) }))
+	const stackingReorderDropzoneManager = $derived(
+		stackingReorderDropzoneManagerFactory.build(
+			stackId,
+			branches.map((s) => ({ name: s.name, commitIds: s.commits.map((p) => p.id) }))
+		)
 	);
 </script>
 
