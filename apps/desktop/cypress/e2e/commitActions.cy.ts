@@ -61,7 +61,7 @@ describe('Commit Actions', () => {
 		cy.getByTestId('commit-drawer-description-input')
 			.should('be.visible')
 			.click()
-			// .clear()
+			.clear()
 			.type(newCommitMessageBody); // Type the new commit message body
 
 		// Click on the save button
@@ -117,7 +117,7 @@ describe('Commit Actions', () => {
 		cy.getByTestId('commit-drawer-description-input')
 			.should('be.visible')
 			.click()
-			// .clear()
+			.clear()
 			.type(newCommitDescription); // Type the new commit message body
 
 		// Click on the save button
@@ -172,8 +172,7 @@ describe('Commit Actions', () => {
 			.type(newCommitTitle); // Type the new commit message title
 
 		// Type in a description
-		cy.getByTestId('commit-drawer-description-input').should('be.visible').click();
-		// .clear(); // Clear the description
+		cy.getByTestId('commit-drawer-description-input').should('be.visible').click().clear(); // Clear the description
 
 		// Click on the save button
 		cy.getByTestId('commit-drawer-action-button')
@@ -282,7 +281,7 @@ describe('Commit Actions', () => {
 		cy.getByTestId('commit-drawer-description-input')
 			.should('be.visible')
 			.click()
-			// .clear()
+			.clear()
 			.type(newCommitMessageBody); // Type the new commit message body
 
 		// Click on the save button
@@ -570,7 +569,7 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 				.should('be.visible')
 				.should('contain', commitDescription)
 				.click()
-				// .clear()
+				.clear()
 				.type(newCommitDescription); // Type the new commit message body
 
 			// Click on the save button
@@ -675,7 +674,7 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 				.should('be.visible')
 				.should('contain', commitDescription)
 				.click()
-				// .clear()
+				.clear()
 				.type(newCommitDescription); // Type the new commit message body
 
 			// Click on the cancel button
@@ -742,7 +741,7 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 				.should('be.visible')
 				.should('contain', lastInputDescription ?? '')
 				.click()
-				// .clear()
+				.clear()
 				.type(commitDescription); // Type the new commit message body
 
 			lastInputDescription = commitDescription;
@@ -789,7 +788,7 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 				.should('be.visible')
 				.should('contain', commitDescription)
 				.click()
-				// .clear()
+				.clear()
 				.type(newCommitDescription); // Type the new commit message body
 
 			// Edit the commit message
