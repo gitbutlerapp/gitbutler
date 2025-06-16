@@ -9,7 +9,6 @@
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { FileIdSelection } from '$lib/selection/fileIdSelection';
 	import { getContext } from '@gitbutler/shared/context';
-	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 	import Line from '@gitbutler/ui/commitLines/Line.svelte';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
@@ -34,7 +33,6 @@
 	const commitId = $derived($selectedFile?.commitId);
 	const selected = $derived($selectedFile?.file);
 
-	const width = persistWithExpiration<number>(30, 'branchPreviewLaneWidth', 7 * 1440);
 	const lineManagerFactory = getContext(LineManagerFactory);
 
 	const remoteCommitShas = $derived(
@@ -72,7 +70,7 @@
 
 {#if remoteBranch || localBranch}
 	<div class="base">
-		<div class="base__left" bind:this={rsViewport} style:width={$width + 'rem'}>
+		<div class="base__left" bind:this={rsViewport}>
 			<ScrollableContainer wide>
 				<div class="branch-preview">
 					<BranchPreviewHeader {projectId} {localBranch} {remoteBranch} {pr} />
@@ -143,9 +141,10 @@
 			</ScrollableContainer>
 			<Resizer
 				viewport={rsViewport}
+				defaultValue={30}
+				persistId="branchPreviewLaneWidth"
 				direction="right"
 				minWidth={20}
-				onWidth={(value) => ($width = value)}
 			/>
 		</div>
 		<div class="base__right">

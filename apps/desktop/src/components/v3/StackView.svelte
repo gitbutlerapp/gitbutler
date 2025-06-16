@@ -22,6 +22,7 @@
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
+	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
 	import type { Stack } from '$lib/stacks/stack';
@@ -60,6 +61,12 @@
 	// If the user is making a commit to a different lane we dim this one.
 	const dimmed = $derived(
 		action?.type === 'commit' && action.stackId !== undefined && action.stackId !== stack.id
+	);
+
+	const persistedStackWidth = persistWithExpiration(
+		uiState.global.stackWidth.current,
+		`ui-stack-width-${stack.id}`,
+		1440
 	);
 
 	const branchesResult = $derived(stackService.branches(projectId, stack.id));
@@ -149,7 +156,7 @@
 	>
 		<div
 			class="stack-view"
-			style:width={uiState.global.stackWidth.current + 'rem'}
+			style:width={$persistedStackWidth + 'rem'}
 			bind:clientWidth
 			bind:clientHeight
 			bind:this={laneEl}
@@ -226,11 +233,12 @@
 							}}
 						/>
 						<Resizer
+							persistId="resizer-panel1-${stack.id}"
 							viewport={laneEl!}
 							direction="right"
 							minWidth={16}
 							maxWidth={64}
-							onWidth={(value) => uiState.global.stackWidth.set(value)}
+							syncName="panel1"
 						/>
 					</ConfigurableScrollableContainer>
 					<StackStickyButtons>
@@ -286,10 +294,11 @@
 				{/if}
 				<Resizer
 					viewport={detailsEl}
+					persistId="resizer-panel2-${stack.id}"
 					direction="right"
 					minWidth={16}
 					maxWidth={56}
-					onWidth={(value) => uiState.global.detailsWidth.set(value)}
+					syncName="panel2"
 				/>
 			</div>
 		{/if}
@@ -306,10 +315,11 @@
 				<SelectionView {projectId} selectionId={selectedKey} />
 				<Resizer
 					viewport={previewEl}
+					persistId="resizer-panel2-${stack.id}"
 					direction="right"
 					minWidth={20}
 					maxWidth={96}
-					onWidth={(value) => uiState.global.previewWidth.set(value)}
+					syncName="panel2"
 				/>
 			</div>
 		{/if}

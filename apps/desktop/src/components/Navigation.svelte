@@ -21,7 +21,6 @@
 
 	const minResizerWidth = 14;
 	const minResizerRatio = 7;
-	const width = persisted<number | undefined>(25, 'defaultTrayWidth_' + projectId);
 
 	let viewport = $state<HTMLDivElement>();
 	let isResizerHovered = $state(false);
@@ -52,11 +51,12 @@
 		{#if viewport}
 			<Resizer
 				{viewport}
+				persistId={'defaultTrayWidth_' + projectId}
+				passive={$isNavCollapsed}
 				direction="right"
 				minWidth={minResizerWidth}
 				zIndex="var(--z-floating)"
 				onDblClick={toggleNavCollapse}
-				onWidth={(value) => ($width = value)}
 				imitateBorder
 				onHover={(isHovering) => {
 					isResizerHovered = isHovering;
@@ -93,13 +93,7 @@
 		</button>
 	</div>
 
-	<div
-		class="navigation"
-		class:collapsed={$isNavCollapsed}
-		style:width={$width && !$isNavCollapsed ? $width + 'rem' : null}
-		bind:this={viewport}
-		role="menu"
-	>
+	<div class="navigation" class:collapsed={$isNavCollapsed} bind:this={viewport} role="menu">
 		<!-- condition prevents split second UI shift -->
 		{#if platformName || env.PUBLIC_TESTING}
 			<div class="navigation-top">
