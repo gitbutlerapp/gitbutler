@@ -1,6 +1,7 @@
 import { type TreeChange } from '$lib/hunks/change';
 import {
 	lineIdsToHunkHeaders,
+	orderHeaders,
 	type DiffHunk,
 	type DiffSpec,
 	type HunkAssignment,
@@ -88,12 +89,22 @@ export class UncommittedService {
 
 	/**
 	 * Gathers data for creating a commit, based on what hunks are selected.
+	 *
+	 * If stackId is undefined, it will return only unassigned changes. If it is
+	 * defined, it will return the changes assigned to the stack as well as the
+	 * unassigned changes.
 	 */
 	async worktreeChanges(projectId: string, stackId?: string) {
 		const state = structuredClone(this.state);
 
 		const key = partialKey(stackId ?? null);
 		const selection = uncommittedSelectors.hunkSelection.selectByPrefix(state.hunkSelection, key);
+		// If we are committing from a stack, we also want to include the unassigned changes.
+		if (stackId) {
+			const nullKey = partialKey(null);
+			const nulls = uncommittedSelectors.hunkSelection.selectByPrefix(state.hunkSelection, nullKey);
+			selection.push(...nulls);
+		}
 
 		const pathGroups = selection.reduce<Record<string, HunkSelection[]>>((acc, item) => {
 			const key = `${item.path}`;
@@ -133,6 +144,9 @@ export class UncommittedService {
 					}
 				}
 			}
+
+			hunkHeaders.sort(orderHeaders);
+
 			const status = change.status;
 			worktreeChanges.push({
 				pathBytes: change.pathBytes,

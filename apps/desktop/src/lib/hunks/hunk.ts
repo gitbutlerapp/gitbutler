@@ -473,3 +473,14 @@ export function getLineLocks(
 
 	return [hunkIsFullyLocked, lineLocks];
 }
+
+/**
+ * Order hunk headers from the top of a file to the bottom.
+ */
+export function orderHeaders(a: HunkHeader, b: HunkHeader): number {
+	const old = a.oldStart - b.oldStart;
+	if (old === 0) {
+		return a.newStart - b.newStart;
+	}
+	return old;
+}

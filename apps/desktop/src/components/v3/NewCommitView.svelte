@@ -122,17 +122,15 @@
 			throw new Error('No branch selected!');
 		}
 
-		const worktreeChanges = (await uncommittedService.worktreeChanges(projectId, stackId)).concat(
-			await uncommittedService.worktreeChanges(projectId, undefined)
-		);
+		const worktreeChanges = await uncommittedService.worktreeChanges(projectId, stackId);
 
 		const preHookFailed = await runPreHook(worktreeChanges);
 		if (preHookFailed) return;
 
 		const response = await createCommitInStack({
 			projectId,
-			stackId: finalStackId,
 			parentId: selectedCommitId,
+			stackId: finalStackId,
 			message: message,
 			stackBranchName: finalBranchName,
 			worktreeChanges
