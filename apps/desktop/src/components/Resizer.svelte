@@ -3,6 +3,7 @@
 	import { ResizeSync } from '$lib/utils/resizeSync';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
+	import { on } from 'svelte/events';
 	import { writable } from 'svelte/store';
 
 	interface Props {
@@ -30,6 +31,8 @@
 		minHeight?: number;
 		/** Enabled, but does not set the width/height on the dom element */
 		passive?: boolean;
+		/** Doubles or halves the width on double click */
+		dblclickSize?: boolean;
 
 		// Actions
 		onHeight?: (height: number) => void;
@@ -168,6 +171,21 @@
 			updateDom($value);
 		}
 	});
+
+	$effect(() => {
+		if (viewport) {
+			return on(viewport, 'dblclick', cycleWidth);
+		}
+	});
+
+	function cycleWidth() {
+		if (direction === 'up' || direction === 'down') return;
+		if ($value && $value > maxWidth / 2) {
+			value.set(Math.floor($value / 2));
+		} else if ($value) {
+			value.set(Math.floor($value * 2));
+		}
+	}
 </script>
 
 <div
