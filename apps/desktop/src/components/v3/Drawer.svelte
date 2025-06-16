@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import type { Snippet } from 'svelte';
 
@@ -61,17 +62,19 @@
 		</div>
 	</div>
 
-	{#if children}
-		<div class="drawer__content">
-			{@render children()}
-		</div>
-
-		{#if filesSplitView}
-			<div class="drawer__files-split-view">
-				{@render filesSplitView()}
+	<ConfigurableScrollableContainer>
+		{#if children}
+			<div class="drawer__content">
+				{@render children()}
 			</div>
+
+			{#if filesSplitView}
+				<div class="drawer__files-split-view">
+					{@render filesSplitView()}
+				</div>
+			{/if}
 		{/if}
-	{/if}
+	</ConfigurableScrollableContainer>
 </div>
 
 <style>

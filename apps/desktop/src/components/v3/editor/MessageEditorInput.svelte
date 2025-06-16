@@ -69,6 +69,7 @@
 	}
 
 	.message-editor-input__chars-count {
+		z-index: 1;
 		position: absolute;
 		right: 6px;
 		bottom: 50%;

@@ -32,7 +32,7 @@
 </script>
 
 <div
-	class="hidden-dropzone dotted-pattern"
+	class="hidden-dropzone"
 	use:intersectionObserver={{
 		callback: (entry) => {
 			if (entry?.isIntersecting) {
@@ -127,9 +127,11 @@
 	.hidden-dropzone {
 		display: flex;
 		position: relative;
-		justify-content: center;
-		width: 100%;
+		width: stretch;
+		min-width: 420px;
 		height: 100%;
+		overflow: hidden;
+		border-right: 1px solid var(--clr-border-2);
 	}
 
 	.hidden-dropzone__lane {
@@ -137,7 +139,7 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		min-width: 420px;
+		width: 100%;
 		height: 100%;
 		margin-bottom: 20px;
 		gap: 10px;
@@ -215,11 +217,12 @@
 			position: absolute;
 			top: calc(50% - 30px);
 			left: 50%;
-			width: 400px;
-			height: 400px;
+			width: 420px;
+			height: 420px;
 			transform: translate(-50%, -50%);
 			border-radius: 100%;
 			background: radial-gradient(var(--clr-bg-2) 0%, oklch(from var(--clr-bg-2) l c h / 0) 50%);
+			/* background: radial-gradient(red 0%, oklch(from red l c h / 0) 50%); */
 			content: '';
 			/* opacity: 0; */
 			transition: opacity 0.1s;

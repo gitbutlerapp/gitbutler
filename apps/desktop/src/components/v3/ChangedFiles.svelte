@@ -1,5 +1,4 @@
 <script lang="ts">
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import FileList from '$components/v3/FileList.svelte';
 	import FileListMode from '$components/v3/FileListMode.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
@@ -42,18 +41,16 @@
 	<FileListMode bind:mode={listMode} persist="committed" />
 </div>
 {#if changes.length > 0}
-	<ConfigurableScrollableContainer zIndex="var(--z-floating)">
-		<FileList
-			{selectionId}
-			{projectId}
-			{stackId}
-			{changes}
-			{listMode}
-			{active}
-			{conflictEntries}
-			{draggableFiles}
-		/>
-	</ConfigurableScrollableContainer>
+	<FileList
+		{selectionId}
+		{projectId}
+		{stackId}
+		{changes}
+		{listMode}
+		{active}
+		{conflictEntries}
+		{draggableFiles}
+	/>
 {:else}
 	<EmptyStatePlaceholder image={emptyFolderSvg} width={180} gap={4}>
 		{#snippet caption()}
