@@ -8,16 +8,14 @@
 
 <script lang="ts">
 	import { getEditor } from '$lib/richText/context';
-	import { getMarkdownString } from '$lib/richText/markdown';
+	import { getCurrentText } from '$lib/richText/getText';
 	import { getEditorTextAfterAnchor, getEditorTextUpToAnchor } from '$lib/richText/selection';
 	import {
 		BLUR_COMMAND,
 		COMMAND_PRIORITY_NORMAL,
-		$getRoot as getRoot,
 		$getSelection as getSelection,
 		$isRangeSelection as isRangeSelection
 	} from 'lexical';
-	import { untrack } from 'svelte';
 
 	type Props = {
 		markdown: boolean;
@@ -31,18 +29,12 @@
 
 	let text = $state<string>();
 
-	function getCurrentText() {
-		// If WYSIWYG is enabled, we need to transform the content to markdown strings
-		if (untrack(() => markdown)) return getMarkdownString(maxLength);
-		return getRoot().getTextContent();
-	}
-
 	$effect(() => {
 		return editor.registerCommand(
 			BLUR_COMMAND,
 			() => {
 				editor.read(() => {
-					const currentText = getCurrentText();
+					const currentText = getCurrentText(markdown, maxLength);
 					if (currentText === text) {
 						return;
 					}
