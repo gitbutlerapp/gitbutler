@@ -1,23 +1,32 @@
 <script lang="ts">
+	import AddDependentBranchModal, {
+		type AddDependentBranchModalProps
+	} from '$components/AddDependentBranchModal.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import BranchCard from '$components/v3/BranchCard.svelte';
 	import BranchCommitList from '$components/v3/BranchCommitList.svelte';
 	import BranchHeaderContextMenu, {
 		type BranchHeaderContextItem
 	} from '$components/v3/BranchHeaderContextMenu.svelte';
+
 	import ConflictResolutionConfirmModal from '$components/v3/ConflictResolutionConfirmModal.svelte';
 	import KebabButton from '$components/v3/KebabButton.svelte';
 	import NewBranchModal from '$components/v3/NewBranchModal.svelte';
 	import { getColorFromCommitState, getIconFromCommitState } from '$components/v3/lib';
 	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
+	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { ModeService } from '$lib/mode/modeService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { TestId } from '$lib/testing/testIds';
+	import { openExternalUrl } from '$lib/utils/url';
+	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { getContext, inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { QueryStatus } from '@reduxjs/toolkit/query';
+	import { tick } from 'svelte';
 	import type { CommitStatusType } from '$lib/commits/commit';
 	import type { BranchDetails } from '$lib/stacks/stack';
 
@@ -30,7 +39,17 @@
 	};
 
 	const { projectId, branches, stackId, focusedStackId, onselect }: Props = $props();
-	const [stackService, uiState, modeService] = inject(StackService, UiState, ModeService);
+	const [stackService, uiState, modeService, forge] = inject(
+		StackService,
+		UiState,
+		ModeService,
+		DefaultForgeFactory
+	);
+
+	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
+
+	let addDependentBranchModalContext = $state<AddDependentBranchModalProps>();
+	let addDependentBranchModal = $state<AddDependentBranchModal>();
 
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
@@ -101,6 +120,10 @@
 			{@const upstreamOnlyCommits = stackService.upstreamCommits(projectId, stackId, branchName)}
 			{@const branchDetailsResult = stackService.branchDetails(projectId, stackId, branchName)}
 			{@const commitResult = stackService.commitAt(projectId, stackId, branchName, 0)}
+			{@const prResult = branch.prNumber
+				? forge.current.prService?.get(branch.prNumber)
+				: undefined}
+
 			{@const first = i === 0}
 
 			<ReduxResult
@@ -160,6 +183,78 @@
 							onselect?.();
 						}}
 					>
+						{#snippet buttons()}
+							<Button
+								icon="new-empty-commit"
+								size="tag"
+								kind="outline"
+								tooltip="Create empty commit"
+								onclick={async () => {
+									await insertBlankCommitInBranch({
+										projectId,
+										stackId,
+										commitOid: undefined,
+										offset: -1
+									});
+								}}
+								disabled={commitInsertion.current.isLoading}
+							/>
+							<Button
+								icon="copy-small"
+								size="tag"
+								kind="outline"
+								tooltip="Copy branch name"
+								onclick={() => {
+									copyToClipboard(branchName);
+								}}
+							/>
+							{#if first}
+								<Button
+									icon="new-dep-branch"
+									size="tag"
+									kind="outline"
+									tooltip="Create new branch"
+									onclick={async () => {
+										addDependentBranchModalContext = {
+											projectId,
+											stackId
+										};
+
+										await tick();
+										addDependentBranchModal?.show();
+									}}
+								/>
+							{/if}
+
+							{#if stackState?.action.current !== 'review' && !isNewBranch}
+								{#if !branch.prNumber}
+									<Button
+										size="tag"
+										kind="outline"
+										onclick={(e) => {
+											stackState?.action.set('review');
+											e.stopPropagation(); // Do not select branch.
+										}}
+										testId={TestId.CreateReviewButton}
+									>
+										Create Pull Request
+									</Button>
+								{:else}
+									{@const prUrl = prResult?.current.data?.htmlUrl}
+									<Button
+										size="tag"
+										kind="outline"
+										disabled={!prUrl}
+										icon="open-link"
+										onclick={() => {
+											if (prUrl) {
+												openExternalUrl(prUrl);
+											}
+										}}>Open PR in browser</Button
+									>
+								{/if}
+							{/if}
+						{/snippet}
 						{#snippet menu({ rightClickTrigger })}
 							{@const data = {
 								branch,
@@ -168,7 +263,6 @@
 								stackLength: branches.length
 							}}
 							<KebabButton
-								flat
 								contextElement={rightClickTrigger}
 								onclick={(element) => (headerMenuContext = { data, position: { element } })}
 								oncontext={(coords) => (headerMenuContext = { data, position: { coords } })}
@@ -177,6 +271,7 @@
 									!!headerMenuContext.position.element}
 							/>
 						{/snippet}
+
 						{#snippet branchContent()}
 							<BranchCommitList
 								{lastBranch}
@@ -230,6 +325,13 @@
 </Modal>
 
 <BranchHeaderContextMenu {projectId} {stackId} bind:context={headerMenuContext} />
+
+{#if addDependentBranchModalContext}
+	<AddDependentBranchModal
+		bind:this={addDependentBranchModal}
+		{...addDependentBranchModalContext}
+	/>
+{/if}
 
 <style lang="postcss">
 	.wrapper {

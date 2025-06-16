@@ -12,7 +12,6 @@
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
 	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import type { PushStatus } from '$lib/stacks/stack';
@@ -33,6 +32,8 @@
 
 	interface DraftBranchProps extends BranchCardProps {
 		type: 'draft-branch';
+		branchContent: Snippet;
+		buttons?: Snippet;
 	}
 
 	interface NormalBranchProps extends BranchCardProps {
@@ -62,6 +63,7 @@
 		contextMenu?: typeof BranchHeaderContextMenu;
 		onclick: () => void;
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
+		buttons?: Snippet;
 		branchContent: Snippet;
 	}
 
@@ -135,6 +137,7 @@
 				selectIndicator
 				draft={false}
 				{lineColor}
+				isCommitting={args.isCommitting}
 				iconName={args.iconName}
 				{updateBranchName}
 				isUpdatingName={nameUpdate.current.isLoading}
@@ -143,6 +146,7 @@
 				{isPushed}
 				onclick={args.onclick}
 				menu={args.menu}
+				buttons={args.buttons}
 			>
 				{#snippet emptyState()}
 					<span class="branch-header__empty-state-span">This is an empty branch.</span>
@@ -177,21 +181,6 @@
 								<ReviewBadge prNumber={args.prNumber} prStatus="unknown" />
 							{/if}
 						</div>
-					{/if}
-				{/snippet}
-				{#snippet buttons()}
-					{#if stackState?.action.current !== 'review'}
-						<Button
-							size="tag"
-							kind="outline"
-							onclick={(e) => {
-								stackState?.action.set('review');
-								e.stopPropagation(); // Do not select branch.
-							}}
-							testId={TestId.CreateReviewButton}
-						>
-							Create Pull Request
-						</Button>
 					{/if}
 				{/snippet}
 			</BranchHeader>
@@ -249,9 +238,6 @@
 			readonly
 			isPushed
 		>
-			{#snippet emptyState()}
-				<!-- This will never happen -->
-			{/snippet}
 			{#snippet content()}
 				{#if args.lastUpdatedAt}
 					<span class="branch-header__item">
@@ -283,7 +269,7 @@
 		</BranchHeader>
 	{/if}
 
-	{#if args.type === 'stack-branch' || args.type === 'normal-branch'}
+	{#if args.type === 'stack-branch' || args.type === 'normal-branch' || args.type === 'draft-branch'}
 		{@render args.branchContent()}
 	{/if}
 </div>
@@ -294,12 +280,10 @@
 		position: relative;
 		flex-direction: column;
 		width: 100%;
+		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 		background: var(--clr-bg-1);
-		&.draft {
-			border-radius: var(--radius-ml) var(--radius-ml) 0 0;
-		}
 	}
 	.expand {
 		height: 100%;
