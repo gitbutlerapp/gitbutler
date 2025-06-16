@@ -20,5 +20,6 @@ diesel::table! {
         snapshot_after -> Text,
         response -> Nullable<Text>,
         error -> Nullable<Text>,
+        source -> Nullable<Text>,
     }
 }

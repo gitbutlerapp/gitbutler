@@ -21,6 +21,7 @@ mod openai;
 mod serialize;
 mod simple;
 pub use action::ActionListing;
+pub use action::Source;
 pub use action::list_actions;
 use but_graph::VirtualBranchesTomlMetadata;
 use strum::EnumString;
@@ -31,10 +32,11 @@ pub fn handle_changes(
     change_summary: &str,
     external_prompt: Option<String>,
     handler: ActionHandler,
+    source: Source,
 ) -> anyhow::Result<Outcome> {
     match handler {
         ActionHandler::HandleChangesSimple => {
-            simple::handle_changes(ctx, openai, change_summary, external_prompt)
+            simple::handle_changes(ctx, openai, change_summary, external_prompt, source)
         }
     }
 }

@@ -13,7 +13,7 @@ use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::VirtualBranchesHandle;
 
 use crate::{
-    Outcome, default_target_setting_if_none, gb_client, generate::commit_message_blocking,
+    Outcome, Source, default_target_setting_if_none, gb_client, generate::commit_message_blocking,
     openai::OpenAiProvider,
 };
 /// This is a GitButler automation which allows easy handling of uncommitted changes in a repository.
@@ -31,6 +31,7 @@ pub fn handle_changes(
     openai: &Option<OpenAiProvider>,
     change_summary: &str,
     external_prompt: Option<String>,
+    source: Source,
 ) -> anyhow::Result<Outcome> {
     let mut guard = ctx.project().exclusive_worktree_access();
     let perm = guard.write_permission();
@@ -70,6 +71,7 @@ pub fn handle_changes(
             snapshot_before,
             snapshot_after,
             &response,
+            source,
         ),
     )?;
 

@@ -6,6 +6,30 @@ use uuid::Uuid;
 
 use crate::{ActionHandler, Outcome};
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpClientInfo {
+    name: String,
+    version: String,
+}
+
+impl From<rmcp::model::Implementation> for McpClientInfo {
+    fn from(impl_info: rmcp::model::Implementation) -> Self {
+        Self {
+            name: impl_info.name,
+            version: impl_info.version,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub enum Source {
+    ButCli,
+    GitButler,
+    Mcp(Option<McpClientInfo>),
+    #[default]
+    Unknown,
+}
+
 /// Represents a snapshot of an automatic action taken by a GitButler automation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -32,6 +56,8 @@ pub struct ButlerAction {
     response: Option<Outcome>,
     /// An error message if the action failed.
     error: Option<String>,
+    /// The source of the action (e.g. "ButCli", "GitButler", "Mcp", "Unknown")
+    source: Source,
 }
 
 impl TryFrom<but_db::ButlerAction> for ButlerAction {
@@ -42,6 +68,11 @@ impl TryFrom<but_db::ButlerAction> for ButlerAction {
             .response
             .as_ref()
             .and_then(|o| serde_json::from_str(o).ok());
+        let source = value
+            .source
+            .as_deref()
+            .and_then(|s| serde_json::from_str(s).ok())
+            .unwrap_or_default();
         Ok(Self {
             id: Uuid::parse_str(&value.id)?,
             created_at: value.created_at,
@@ -56,6 +87,7 @@ impl TryFrom<but_db::ButlerAction> for ButlerAction {
             snapshot_after: gix::ObjectId::from_str(&value.snapshot_after)?,
             response,
             error: value.error,
+            source,
         })
     }
 }
@@ -68,6 +100,7 @@ impl TryFrom<ButlerAction> for but_db::ButlerAction {
             .response
             .as_ref()
             .and_then(|o| serde_json::to_string(o).ok());
+        let source = serde_json::to_string(&value.source).ok();
         Ok(Self {
             id: value.id.to_string(),
             created_at: value.created_at,
@@ -79,6 +112,7 @@ impl TryFrom<ButlerAction> for but_db::ButlerAction {
             snapshot_after: value.snapshot_after.to_string(),
             response,
             error: value.error,
+            source,
         })
     }
 }
@@ -91,6 +125,7 @@ impl ButlerAction {
         snapshot_before: gix::ObjectId,
         snapshot_after: gix::ObjectId,
         response: &anyhow::Result<Outcome>,
+        source: Source,
     ) -> Self {
         let (rsp, error) = if let Err(e) = response {
             (None, Some(e.to_string()))
@@ -109,6 +144,7 @@ impl ButlerAction {
             snapshot_after,
             response: rsp.cloned(),
             error,
+            source,
         }
     }
 }
