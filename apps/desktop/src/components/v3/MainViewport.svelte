@@ -122,7 +122,7 @@ the window, then enlarge it and retain the original widths of the layout.
 
 	{#if middleOpen}
 		<div
-			class="middle view-wrapper"
+			class="middle view-wrapper dotted-pattern"
 			bind:this={middleDiv}
 			style:width={derivedMiddleWidth + 'rem'}
 			style:min-width={middleMinWidth + 'rem'}
@@ -148,7 +148,7 @@ the window, then enlarge it and retain the original widths of the layout.
 	{/if}
 
 	<div
-		class="right view-wrapper"
+		class="right view-wrapper dotted-pattern"
 		bind:this={rightDiv}
 		style:min-width={flexibleMinWidth + 'rem'}
 		use:focusable={{

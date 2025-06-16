@@ -68,6 +68,22 @@ pre {
 	}
 }
 
+.no-pointer-events {
+	pointer-events: none;
+}
+
+.pointer-events {
+	pointer-events: auto;
+}
+
+.underline {
+	text-decoration: underline;
+}
+
+.underline-dotted {
+	text-decoration: underline dotted;
+}
+
 /* ANIMATION */
 
 .wiggle-animation {

@@ -309,13 +309,7 @@
 					</div>
 				{/if}
 
-				<div
-					class={[
-						'branch-commits',
-						isStackOrNormalBranchPreview || isNonLocalPr ? 'dotted-container dotted-pattern' : '',
-						inWorkspaceOrTargetBranch ? 'rounded-container' : ''
-					]}
-				>
+				<div class={['branch-commits dotted-container dotted-pattern']}>
 					{#if (current.branchName === undefined && current.prNumber === undefined) || current.branchName === baseBranch.shortName}
 						<TargetCommitList {projectId} />
 					{:else if current.stackId}
@@ -339,8 +333,8 @@
 			{/snippet}
 
 			{#snippet right()}
-				<div class="right-wrapper">
-					<div class="details dotted-pattern">
+				<div class="right-wrapper dotted-pattern">
+					<div class="details">
 						{#if current.commitId}
 							<UnappliedCommitView {projectId} commitId={current.commitId} />
 						{:else if current.branchName}
@@ -403,10 +397,6 @@
 	.dotted-container {
 		padding: 12px;
 		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
-	}
-
-	.rounded-container {
-		border-radius: var(--radius-ml);
 	}
 
 	.right-wrapper {

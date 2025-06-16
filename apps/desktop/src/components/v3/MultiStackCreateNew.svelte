@@ -110,23 +110,23 @@
 </script>
 
 <div class="multi-stack-create-new">
-	<div class="multi-stack-create-new__button-wrap">
-		<Button
-			type="button"
-			onclick={() => {
-				projectState.exclusiveAction.set({ type: 'commit' });
-				uncommittedService.checkAll(null);
-			}}
-			icon="commit"
-			disabled={(exclusiveAction?.type === 'commit' && exclusiveAction.stackId === undefined) ||
-				!changesToCommit}
-			onkeydown={handleArrowNavigation}
-			testId={TestId.CommitToNewBranchButton}
-			kind="outline"
-		>
-			Commit to new branch
-		</Button>
-	</div>
+	{#if (exclusiveAction?.type !== 'commit' && exclusiveAction?.stackId) || changesToCommit}
+		<div class="multi-stack-create-new__button-wrap">
+			<Button
+				type="button"
+				onclick={() => {
+					projectState.exclusiveAction.set({ type: 'commit' });
+					uncommittedService.checkAll(null);
+				}}
+				icon="commit"
+				onkeydown={handleArrowNavigation}
+				testId={TestId.CommitToNewBranchButton}
+				kind="outline"
+			>
+				Commit to new branch
+			</Button>
+		</div>
+	{/if}
 
 	<div class="multi-stack-create-new__button-wrap">
 		<Button

@@ -4,6 +4,7 @@
 	import MultiStackPagination, { scrollToLane } from '$components/v3/MultiStackPagination.svelte';
 	import StackDraft from '$components/v3/StackDraft.svelte';
 	import StackView from '$components/v3/StackView.svelte';
+	import { branchesPath } from '$lib/routes/routes.svelte';
 	import { type SelectionId } from '$lib/selection/key';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
@@ -97,8 +98,14 @@
 		{/snippet}
 		{#snippet description()}
 			{#if stacks.length === 0}
-				Drop files to start a branch, or apply from the Branches view Drag chanes here to branch off
-				your changes.
+				Drop files to start a branch,
+				<br />
+				or apply from the
+				<a
+					class="pointer-events underline-dotted"
+					aria-label="Branches view"
+					href={branchesPath(projectId)}>Branches view</a
+				>
 			{:else}
 				Drag chanes here to
 				<br />

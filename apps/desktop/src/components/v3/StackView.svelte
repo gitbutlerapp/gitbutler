@@ -168,7 +168,7 @@
 		}
 	}}
 	<div
-		class="stack-view-wrapper dotted-pattern"
+		class="stack-view-wrapper"
 		class:dimmed
 		data-id={stack.id}
 		data-testid={TestId.Stack}
