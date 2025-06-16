@@ -48,9 +48,9 @@ fn detached() -> anyhow::Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     └── 👉►:0:main
-        └── 🔵541396b❱"first" ►tags/annotated, ►tags/release/v1
+        └── 🔵541396b (NiR)❱"first" ►tags/annotated, ►tags/release/v1
             └── ►:1:other
-                └── 🔵fafd9d0❱"init"
+                └── 🔵fafd9d0 (NiR)❱"init"
     "#);
     insta::assert_debug_snapshot!(graph, @r#"
     Graph {
@@ -130,19 +130,19 @@ fn multi_root() -> anyhow::Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     └── 👉►:0:main
-        └── 🔵c6c8c05❱"Merge branch \'C\'"
+        └── 🔵c6c8c05 (NiR)❱"Merge branch \'C\'"
             ├── ►:2:C
-            │   └── 🔵8631946❱"Merge branch \'D\' into C"
+            │   └── 🔵8631946 (NiR)❱"Merge branch \'D\' into C"
             │       ├── ►:6:D
-            │       │   └── 🔵f4955b6❱"D"
+            │       │   └── 🔵f4955b6 (NiR)❱"D"
             │       └── ►:5:anon:
-            │           └── 🔵00fab2a❱"C"
+            │           └── 🔵00fab2a (NiR)❱"C"
             └── ►:1:anon:
-                └── 🔵76fc5c4❱"Merge branch \'B\'"
+                └── 🔵76fc5c4 (NiR)❱"Merge branch \'B\'"
                     ├── ►:4:B
-                    │   └── 🔵366d496❱"B"
+                    │   └── 🔵366d496 (NiR)❱"B"
                     └── ►:3:anon:
-                        └── 🔵e5d0542❱"A"
+                        └── 🔵e5d0542 (NiR)❱"A"
     "#);
     assert_eq!(
         graph.tip_segments().count(),
@@ -180,24 +180,24 @@ fn four_diamond() -> anyhow::Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     └── 👉►:0:merged
-        └── 🔵8a6c109❱"Merge branch \'C\' into merged"
+        └── 🔵8a6c109 (NiR)❱"Merge branch \'C\' into merged"
             ├── ►:2:C
-            │   └── 🔵7ed512a❱"Merge branch \'D\' into C"
+            │   └── 🔵7ed512a (NiR)❱"Merge branch \'D\' into C"
             │       ├── ►:6:D
-            │       │   └── 🔵ecb1877❱"D"
+            │       │   └── 🔵ecb1877 (NiR)❱"D"
             │       │       └── ►:7:main
-            │       │           └── 🔵965998b❱"base"
+            │       │           └── 🔵965998b (NiR)❱"base"
             │       └── ►:5:anon:
-            │           └── 🔵35ee481❱"C"
-            │               └── ERROR: Reached segment :7: for a second time: Some("refs/heads/main")
+            │           └── 🔵35ee481 (NiR)❱"C"
+            │               └── →:7: (main)
             └── ►:1:A
-                └── 🔵62b409a❱"Merge branch \'B\' into A"
+                └── 🔵62b409a (NiR)❱"Merge branch \'B\' into A"
                     ├── ►:4:B
-                    │   └── 🔵f16dddf❱"B"
-                    │       └── ERROR: Reached segment :7: for a second time: Some("refs/heads/main")
+                    │   └── 🔵f16dddf (NiR)❱"B"
+                    │       └── →:7: (main)
                     └── ►:3:anon:
-                        └── 🔵592abec❱"A"
-                            └── ERROR: Reached segment :7: for a second time: Some("refs/heads/main")
+                        └── 🔵592abec (NiR)❱"A"
+                            └── →:7: (main)
     "#);
 
     assert_eq!(
@@ -213,125 +213,54 @@ fn four_diamond() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn stacked_rebased_remotes() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("remote-includes-another-remote")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 682be32 (origin/B) B
+    * e29c23d (origin/A) A
+    | * 312f819 (HEAD -> B) B
+    | * e255adc (A) A
+    |/  
+    * fafd9d0 (main) init
+    ");
+
+    // Everything we encounter is checked for remotes.
+    add_workspace(&mut meta);
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    ├── 👉►:0:B
+    │   └── 🔵312f819 (NiR)❱"B"
+    │       └── ►:2:A
+    │           └── 🔵e255adc (NiR)❱"A"
+    │               └── ►:4:main
+    │                   └── 🔵fafd9d0 (NiR)❱"init"
+    └── ►:1:origin/B
+        └── 🔵682be32❱"B"
+            └── ►:3:origin/A
+                └── 🔵e29c23d❱"A"
+                    └── →:4: (main)
+    "#);
+
+    // With a lower entrypoint, we don't see part of the graph.
+    let (id, name) = id_at(&repo, "A");
+    let graph = Graph::from_commit_traversal(id, name, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    ├── 👉►:0:A
+    │   └── 🔵e255adc (NiR)❱"A"
+    │       └── ►:2:main
+    │           └── 🔵fafd9d0 (NiR)❱"init"
+    └── ►:1:origin/A
+        └── 🔵e29c23d❱"A"
+            └── →:2: (main)
+    "#);
+    Ok(())
+}
+
 mod with_workspace;
 
-fn standard_options() -> but_graph::init::Options {
-    but_graph::init::Options { collect_tags: true }
-}
-
-mod utils {
-    use but_graph::VirtualBranchesTomlMetadata;
-    use gitbutler_stack::{StackId, Target};
-
-    pub fn read_only_in_memory_scenario(
-        name: &str,
-    ) -> anyhow::Result<(
-        gix::Repository,
-        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
-    )> {
-        named_read_only_in_memory_scenario("scenarios", name)
-    }
-
-    fn named_read_only_in_memory_scenario(
-        script: &str,
-        name: &str,
-    ) -> anyhow::Result<(
-        gix::Repository,
-        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
-    )> {
-        let repo = read_only_in_memory_scenario_named(script, name)?;
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            repo.path()
-                .join(".git")
-                .join("should-never-be-written.toml"),
-        )?;
-        Ok((repo, std::mem::ManuallyDrop::new(meta)))
-    }
-
-    /// Provide a scenario but assure the returned repository will write objects to memory, in a subdirectory `dirname`.
-    pub fn read_only_in_memory_scenario_named(
-        script_name: &str,
-        dirname: &str,
-    ) -> anyhow::Result<gix::Repository> {
-        let root = gix_testtools::scripted_fixture_read_only(format!("{script_name}.sh"))
-            .map_err(anyhow::Error::from_boxed)?;
-        let repo = gix::open_opts(root.join(dirname), gix::open::Options::isolated())?
-            .with_object_memory();
-        Ok(repo)
-    }
-
-    pub enum StackState {
-        #[allow(dead_code)]
-        InWorkspace,
-        Inactive,
-    }
-
-    pub fn add_workspace(meta: &mut VirtualBranchesTomlMetadata) {
-        add_stack(
-            meta,
-            StackId::from_number_for_testing(u128::MAX),
-            "definitely outside of the workspace just to have it",
-            StackState::Inactive,
-        );
-    }
-
-    pub fn add_stack(
-        meta: &mut VirtualBranchesTomlMetadata,
-        stack_id: StackId,
-        stack_name: &str,
-        state: StackState,
-    ) -> StackId {
-        add_stack_with_segments(meta, stack_id, stack_name, state, &[])
-    }
-
-    // Add parameters as needed.
-    pub fn add_stack_with_segments(
-        meta: &mut VirtualBranchesTomlMetadata,
-        stack_id: StackId,
-        stack_name: &str,
-        state: StackState,
-        segments: &[&str],
-    ) -> StackId {
-        let mut stack = gitbutler_stack::Stack::new_with_just_heads(
-            segments
-                .iter()
-                .rev()
-                .map(|stack_name| {
-                    gitbutler_stack::StackBranch::new_with_zero_head(
-                        (*stack_name).into(),
-                        None,
-                        None,
-                        None,
-                        false,
-                    )
-                })
-                .chain(std::iter::once(
-                    gitbutler_stack::StackBranch::new_with_zero_head(
-                        stack_name.into(),
-                        None,
-                        None,
-                        None,
-                        false,
-                    ),
-                ))
-                .collect(),
-            0,
-            meta.data().branches.len(),
-            match state {
-                StackState::InWorkspace => true,
-                StackState::Inactive => false,
-            },
-        );
-        stack.id = stack_id;
-        meta.data_mut().branches.insert(stack_id, stack);
-        // Assure we have a target set.
-        meta.data_mut().default_target = Some(Target {
-            branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-            remote_url: "does not matter".to_string(),
-            sha: git2::Oid::zero(),
-            push_remote_name: None,
-        });
-        stack_id
-    }
-}
-pub use utils::{StackState, add_stack_with_segments, add_workspace, read_only_in_memory_scenario};
+mod utils;
+pub use utils::{
+    StackState, add_stack_with_segments, add_workspace, id_at, id_by_rev,
+    read_only_in_memory_scenario, standard_options,
+};

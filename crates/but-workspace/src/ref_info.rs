@@ -803,7 +803,7 @@ pub(crate) mod function {
             .map(|rn| rn.into_owned()))
     }
 
-    /// Returns he unique names of all remote tracking branches that are configured in the repository.
+    /// Returns the unique names of all remote tracking branches that are configured in the repository.
     /// Useful to avoid claiming them for deduction.
     fn configured_remote_tracking_branches(
         repo: &gix::Repository,

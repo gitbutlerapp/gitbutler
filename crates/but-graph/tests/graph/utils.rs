@@ -80,9 +80,13 @@ pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
     ) -> SegmentTree {
         if seen.contains(&sidx) {
             return format!(
-                "ERROR: Reached segment :{sidx}: for a second time: {name:?}",
+                "→:{sidx}:{name}",
                 sidx = sidx.index(),
-                name = graph[sidx].ref_name.as_ref().map(|n| n.as_bstr())
+                name = graph[sidx]
+                    .ref_name
+                    .as_ref()
+                    .map(|n| format!(" ({})", shorten_ref(n)))
+                    .unwrap_or_default()
             )
             .into();
         }

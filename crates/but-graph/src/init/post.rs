@@ -1,21 +1,24 @@
 use crate::init::walk::TopoWalk;
-use crate::init::{EdgeOwned, PetGraph, branch_segment_from_name_and_meta};
-use crate::{Commit, CommitIndex, Edge, Graph, SegmentIndex};
+use crate::init::{EdgeOwned, PetGraph, branch_segment_from_name_and_meta, remotes};
+use crate::{Commit, CommitFlags, CommitIndex, Edge, Graph, SegmentIndex};
 use bstr::{BStr, ByteSlice};
 use but_core::{RefMetadata, ref_metadata};
+use gix::reference::Category;
 use petgraph::Direction;
 use petgraph::prelude::EdgeRef;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Processing
 impl Graph {
-    /// Now that the graph is complete, perform additional structural improvements with the requirement of them to be computationally cheap.
-    ///
-    /// * insert empty segments as defined by the workspace that affects its downstream.
+    /// Now that the graph is complete, perform additional structural improvements with
+    /// the requirement of them to be computationally cheap.
     pub(super) fn post_processed(
         mut self,
         meta: &impl RefMetadata,
         tip: gix::ObjectId,
+        repo: &gix::Repository,
+        symbolic_remote_names: &[String],
+        configured_remote_tracking_branches: &BTreeSet<gix::refs::FullName>,
     ) -> anyhow::Result<Self> {
         // For the first id to be inserted into our entrypoint segment, set index.
         if let Some((segment, ep_commit)) = self.entrypoint.as_mut() {
@@ -24,20 +27,25 @@ impl Graph {
                 .node_weight(*segment)
                 .and_then(|s| s.commit_index_of(tip));
         }
-        fn stack_contains_any_commit_branch(
-            stack: &ref_metadata::WorkspaceStack,
-            c: &Commit,
-        ) -> bool {
-            stack
-                .branches
-                .iter()
-                .any(|sref| c.refs.iter().any(|cref| *cref == sref.ref_name))
-        }
+
+        // TODO: swap these expressions and tests validation will fail.
+        self.non_workspace_adjustments(
+            repo,
+            symbolic_remote_names,
+            configured_remote_tracking_branches,
+        )?;
+        self.workspace_upgrades(meta)?;
+
+        Ok(self)
+    }
+
+    /// Perform operations on segments that can reach a workspace segment when searching upwards.
+    ///
+    /// * insert empty segments as defined by the workspace that affects its downstream.
+    fn workspace_upgrades(&mut self, meta: &impl RefMetadata) -> anyhow::Result<()> {
         // Maps any segment to any workspace that it can reach, even the workspace maps itself as it may need processing too
         let mut ws_by_segment_map =
             BTreeMap::<SegmentIndex, Vec<(SegmentIndex, std::ops::Range<CommitIndex>)>>::new();
-        // All non-workspace segments that are reachable from a workspace segment.
-        let mut reachable_by_ws = BTreeMap::<SegmentIndex, Vec<SegmentIndex>>::new();
 
         for ws_sidx in self
             .tip_segments()
@@ -51,7 +59,6 @@ impl Graph {
                     .entry(sidx)
                     .or_default()
                     .push((ws_sidx, commit_range));
-                reachable_by_ws.entry(ws_sidx).or_default().push(sidx);
             }
         }
 
@@ -108,20 +115,10 @@ impl Graph {
                     }
                     continue;
                 }
-                let commit_has_target_ref = commit
-                    .refs
-                    .iter()
-                    .any(|rn| Some(rn) == ws_data.target_ref.as_ref());
-                if commit_has_target_ref {
-                    // wire it up as a new stack, but also find and create more stacks that may match other commit refs,
-                    // and continue to the next segment when done (treat target ref commits as terminal).
-                    // We link the new segment as downstream of the workspace commit.
-                    todo!("multi-stack target handling");
-                }
 
                 // In ws-stack segment order, map all the indices from top to bottom
-                current_above = create_multi_segment(
-                    &mut self,
+                current_above = create_connected_multi_segment(
+                    self,
                     current_above,
                     orig_sidx,
                     commit_idx,
@@ -135,14 +132,96 @@ impl Graph {
                 let segment = &mut self[orig_sidx];
                 // Keep only the commits that weren't reassigned to other segments.
                 segment.commits.truncate(truncate_from);
-                delete_if_empty_and_reconnect(&mut self, orig_sidx);
+                delete_anon_if_empty_and_reconnect(self, orig_sidx);
             }
         }
-        Ok(self)
+        Ok(())
+    }
+
+    /// Name ambiguous segments if they are reachable by remote tracking branch and
+    /// if the first commit has (unambiguously) the matching local tracking branch.
+    fn non_workspace_adjustments(
+        &mut self,
+        repo: &gix::Repository,
+        symbolic_remote_names: &[String],
+        configured_remote_tracking_branches: &BTreeSet<gix::refs::FullName>,
+    ) -> anyhow::Result<()> {
+        // Map (segment-to-be-named, [candidate-remote]), so we don't set a name if there is more
+        // than one remote.
+        let mut remotes_by_segment_map = BTreeMap::<SegmentIndex, Vec<gix::refs::FullName>>::new();
+
+        for (remote_sidx, remote_ref_name) in self.inner.node_indices().filter_map(|sidx| {
+            self[sidx]
+                .ref_name
+                .as_ref()
+                .filter(|rn| (rn.category() == Some(Category::RemoteBranch)))
+                .map(|rn| (sidx, rn))
+        }) {
+            let start_idx = self[remote_sidx].commits.first().map(|_| 0);
+            let mut walk =
+                TopoWalk::start_from(remote_sidx, start_idx, Direction::Outgoing).skip_tip();
+
+            while let Some((sidx, commit_range)) = walk.next(&self.inner) {
+                let segment = &self[sidx];
+                if segment.ref_name.is_some() {
+                    // Assume simple linear histories - otherwise this could abort too early, and
+                    // we'd need a complex traversal - not now.
+                    break;
+                }
+
+                if segment.commits.is_empty() {
+                    // skip over empty anonymous buckets, even though these shouldn't exist, ever.
+                    tracing::warn!(
+                        "Skipped segment {sidx} which was anonymous and empty",
+                        sidx = sidx.index()
+                    );
+                    continue;
+                } else if segment.commits[commit_range]
+                    .iter()
+                    .all(|c| c.flags.contains(CommitFlags::NotInRemote))
+                {
+                    // a candidate for naming, and we'd either expect all or none of the comits
+                    // to be in or outside a remote.
+                    let first_commit = segment.commits.first().expect("we know there is commits");
+                    if let Some(local_tracking_branch) = first_commit.refs.iter().find_map(|rn| {
+                        remotes::lookup_remote_tracking_branch_or_deduce_it(
+                            repo,
+                            rn.as_ref(),
+                            symbolic_remote_names,
+                            configured_remote_tracking_branches,
+                        )
+                        .ok()
+                        .flatten()
+                        .and_then(|rrn| {
+                            (rrn.as_ref() == remote_ref_name.as_ref()).then_some(rn.clone())
+                        })
+                    }) {
+                        remotes_by_segment_map
+                            .entry(sidx)
+                            .or_default()
+                            .push(local_tracking_branch);
+                    }
+                    break;
+                }
+                // Assume that the segment is fully remote.
+                continue;
+            }
+        }
+
+        for (anon_sidx, mut disambiguated_name) in remotes_by_segment_map
+            .into_iter()
+            .filter(|(_, candidates)| candidates.len() == 1)
+        {
+            let s = &mut self[anon_sidx];
+            s.ref_name = disambiguated_name.pop();
+            let rn = s.ref_name.as_ref().unwrap();
+            s.commits.first_mut().unwrap().refs.retain(|crn| crn != rn);
+        }
+        Ok(())
     }
 }
 
-fn delete_if_empty_and_reconnect(graph: &mut Graph, sidx: SegmentIndex) {
+fn delete_anon_if_empty_and_reconnect(graph: &mut Graph, sidx: SegmentIndex) {
     let segment = &graph[sidx];
     let may_delete = segment.commits.is_empty() && segment.ref_name.is_none();
     if !may_delete {
@@ -192,7 +271,7 @@ fn is_managed_workspace_commit(message: &BStr) -> bool {
 /// the `bottom_segment_index`.
 /// Note that the Segment at `bottom_segment_index` will own `commit`.
 /// Also note that we reconnect commit-by-commit, so the outer processing has to do that.
-fn create_multi_segment(
+fn create_connected_multi_segment(
     graph: &mut Graph,
     mut above_idx: SegmentIndex,
     commit_parent: SegmentIndex,
@@ -335,4 +414,11 @@ fn collect_edges_at_commit(
         })
         .map(Into::into)
         .collect()
+}
+
+fn stack_contains_any_commit_branch(stack: &ref_metadata::WorkspaceStack, c: &Commit) -> bool {
+    stack
+        .branches
+        .iter()
+        .any(|sref| c.refs.iter().any(|cref| *cref == sref.ref_name))
 }

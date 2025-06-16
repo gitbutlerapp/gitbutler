@@ -78,7 +78,9 @@ bitflags! {
         ///
         /// Note that if this flag isn't present, this means the commit isn't reachable
         /// from a workspace.
-        const InWorkspace = 1;
+        const InWorkspace = 1 << 0;
+        /// Identify commits that have never been owned only by a remote.
+        const NotInRemote = 1 << 1;
     }
 }
 
@@ -90,7 +92,11 @@ impl CommitFlags {
         } else {
             let string = format!("{:?}", self);
             let out = &string["CommitFlags(".len()..];
-            out[..out.len() - 1].to_string()
+            out[..out.len() - 1]
+                .to_string()
+                .replace("NotInRemote", "NiR")
+                .replace("InWorkspace", "InW")
+                .replace(" ", "")
         }
     }
 }
@@ -244,11 +250,14 @@ impl DerefMut for RemoteCommit {
 /// A segment of a commit graph, representing a set of commits exclusively.
 #[derive(Default, Clone, Eq, PartialEq)]
 pub struct Segment {
-    /// The name of the branch at the tip of the segment, i.e. at the first commit.
+    /// The unambiguous or disambiguated name of the branch at the tip of the segment, i.e. at the first commit.
     ///
     /// It is `None` if this branch is the top-most stack segment and the `ref_name` wasn't pointing to
     /// a commit anymore that was reached by our rev-walk.
     /// This can happen if the ref is deleted, or if it was advanced by other means.
+    /// Alternatively, the naming would have been ambiguous.
+    /// Finally, this is `None` of the original name can be found searching upwards, finding exactly one
+    /// named segment.
     pub ref_name: Option<gix::refs::FullName>,
     /// An ID which can uniquely identify this segment among all segments within the graph that owned it.
     /// Note that it's not suitable to permanently identify the segment, so should not be persisted.

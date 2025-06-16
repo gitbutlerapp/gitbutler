@@ -1,0 +1,549 @@
+use crate::init::walk::TopoWalk;
+use crate::init::{EdgeOwned, Instruction, PetGraph, QueueItem, remotes};
+use crate::{
+    Commit, CommitFlags, CommitIndex, Edge, Graph, LocalCommit, Segment, SegmentIndex,
+    SegmentMetadata, is_workspace_ref_name,
+};
+use anyhow::{Context, bail};
+use bstr::BString;
+use but_core::{RefMetadata, ref_metadata};
+use gix::prelude::ObjectIdExt;
+use gix::reference::Category;
+use gix::refs::FullName;
+use gix::traverse::commit::Either;
+use petgraph::Direction;
+use std::collections::{BTreeSet, VecDeque};
+use std::ops::Deref;
+
+type RefsById = gix::hashtable::HashMap<gix::ObjectId, Vec<gix::refs::FullName>>;
+
+/// Split `sidx[commit..]` into its own segment and connect the parts. Move all connections in `commit..`
+/// from `sidx` to the new segment, and return that.
+pub fn split_commit_into_segment(
+    graph: &mut Graph,
+    next: &mut VecDeque<QueueItem>,
+    seen: &mut gix::revwalk::graph::IdMap<SegmentIndex>,
+    sidx: SegmentIndex,
+    commit: CommitIndex,
+) -> anyhow::Result<SegmentIndex> {
+    let mut bottom_segment = Segment {
+        commits: graph[sidx].commits.clone(),
+        ..Default::default()
+    };
+    // keep only the commits before `commit`.
+    let commits_in_top_segment = commit;
+    graph[sidx].commits.truncate(commits_in_top_segment);
+    bottom_segment.commits = bottom_segment
+        .commits
+        .into_iter()
+        .skip(commits_in_top_segment)
+        .collect();
+    let top_commit = graph[sidx].last_commit_index();
+    let bottom_id = bottom_segment.commits[0].id;
+    let bottom_segment = graph.connect_new_segment(sidx, top_commit, bottom_segment, 0, bottom_id);
+
+    // Res-assign ownership to assure future queries will find the right segment.
+    for commit_id in graph[bottom_segment].commits.iter().map(|c| c.id) {
+        seen.entry(commit_id).insert(bottom_segment);
+    }
+
+    // All in-flight commits now go into the new segment.
+    replace_queued_segments(next, sidx, bottom_segment);
+    split_connections(&mut graph.inner, (sidx, commit), bottom_segment)?;
+    Ok(bottom_segment)
+}
+
+/// Assumes that `dst.commits == `src[src_commit..]` and will move connections down, updating their
+/// indices accordingly.
+fn split_connections(
+    graph: &mut PetGraph,
+    from: (SegmentIndex, CommitIndex),
+    dst: SegmentIndex,
+) -> anyhow::Result<()> {
+    let (sidx, cidx) = from;
+    if !collect_edges_from_commit(graph, from, Direction::Incoming).is_empty() {
+        bail!(
+            "Segment {sidx:?} had incoming connections from commit {cidx}, even though these should cause splits"
+        );
+    }
+    let edges = collect_edges_from_commit(graph, from, Direction::Outgoing);
+    for edge in &edges {
+        graph.remove_edge(edge.id);
+    }
+
+    for edge in edges {
+        let edge_src_sidx = if edge
+            .weight
+            .src_id
+            .is_none_or(|src_id| graph[sidx].commit_index_of(src_id).is_some())
+        {
+            if edge.source != sidx {
+                bail!(
+                    "BUG: {sidx:?} contained {src_id:?}, but the edge source was {:?}",
+                    edge.source,
+                    src_id = edge.weight.src_id,
+                );
+            }
+            sidx
+        } else {
+            // assume that the commit is now contained in the destination edge, so connect that instead.
+            dst
+        };
+        let edge_dst_sidx = if edge_src_sidx == sidx {
+            dst
+        } else {
+            edge.target
+        };
+        graph.add_edge(
+            edge_src_sidx,
+            edge_dst_sidx,
+            Edge {
+                src: edge
+                    .weight
+                    .src_id
+                    .map(|id| {
+                        graph[edge_src_sidx].commit_index_of(id).with_context(|| {
+                            format!(
+                                "BUG: source edge {edge_src_sidx:?} was supposed to contain {:?}",
+                                edge.weight.src_id
+                            )
+                        })
+                    })
+                    .transpose()?,
+                src_id: edge.weight.src_id,
+                dst: edge
+                    .weight
+                    .dst_id
+                    .map(|id| {
+                        graph[edge_dst_sidx].commit_index_of(id).with_context(|| {
+                            format!(
+                                "BUG: destination edge {edge_dst_sidx:?} was supposed to contain {:?}",
+                                edge.weight.dst_id
+                            )
+                        })
+                    })
+                    .transpose()?,
+                dst_id: edge.weight.dst_id,
+            },
+        );
+    }
+    Ok(())
+}
+
+fn collect_edges_from_commit(
+    graph: &PetGraph,
+    (segment, commit): (SegmentIndex, CommitIndex),
+    direction: Direction,
+) -> Vec<EdgeOwned> {
+    graph
+        .edges_directed(segment, direction)
+        .filter(|&e| match direction {
+            Direction::Incoming => e.weight().dst >= Some(commit),
+            Direction::Outgoing => e.weight().src >= Some(commit),
+        })
+        .map(Into::into)
+        .collect()
+}
+
+pub fn replace_queued_segments(
+    queue: &mut VecDeque<QueueItem>,
+    find: SegmentIndex,
+    replace: SegmentIndex,
+) {
+    for instruction_to_replace in queue.iter_mut().map(|(_, _, instruction)| instruction) {
+        let cmp = instruction_to_replace.segment_idx();
+        if cmp == find {
+            *instruction_to_replace = instruction_to_replace.with_replaced_sidx(replace);
+        }
+    }
+}
+
+pub fn swap_queued_segments(queue: &mut VecDeque<QueueItem>, a: SegmentIndex, b: SegmentIndex) {
+    for instruction_to_replace in queue.iter_mut().map(|(_, _, instruction)| instruction) {
+        let cmp = instruction_to_replace.segment_idx();
+        if cmp == a {
+            *instruction_to_replace = instruction_to_replace.with_replaced_sidx(b);
+        } else if cmp == b {
+            *instruction_to_replace = instruction_to_replace.with_replaced_sidx(a);
+        }
+    }
+}
+
+pub fn swap_commits_and_connections(graph: &mut PetGraph, a: SegmentIndex, b: SegmentIndex) {
+    {
+        let (a, b) = graph.index_twice_mut(a, b);
+        std::mem::swap(&mut a.commits, &mut b.commits);
+    }
+    if graph.edges(a).next().is_some() || graph.edges(b).next().is_some() {
+        todo!("swap connections of nodes as well")
+    }
+}
+
+fn local_branches_by_id(
+    refs_by_id: &RefsById,
+    id: gix::ObjectId,
+) -> Option<impl Iterator<Item = &gix::refs::FullName> + '_> {
+    refs_by_id.get(&id).map(|refs| {
+        refs.iter()
+            .filter(|rn| rn.category() == Some(Category::LocalBranch))
+    })
+}
+
+/// Split `src_sidx` into a new segment (to receive the commit at `info`) and connect it with the new segment
+/// whose id will be returned, if…
+///
+/// * …there is exactly one eligible branch to name it.
+/// * …it is a merge commit.
+pub fn try_split_non_empty_segment_at_branch(
+    graph: &mut Graph,
+    src_sidx: SegmentIndex,
+    info: &TraverseInfo,
+    refs_by_id: &RefsById,
+    meta: &impl RefMetadata,
+) -> anyhow::Result<Option<SegmentIndex>> {
+    let src_segment = &graph[src_sidx];
+    if src_segment.commits.is_empty() {
+        return Ok(None);
+    }
+    let maybe_segment_name_from_unabigous_refs = local_branches_by_id(refs_by_id, info.id)
+        .and_then(|mut branches| {
+            let first_ref = branches.next()?;
+            branches.next().is_none().then(|| first_ref.to_owned())
+        });
+    let Some(maybe_segment_name) = maybe_segment_name_from_unabigous_refs
+        .map(Some)
+        .or_else(|| {
+            let want_segment_without_name = Some(None);
+            if info.parent_ids.len() < 2 {
+                return None;
+            }
+            want_segment_without_name
+        })
+    else {
+        return Ok(None);
+    };
+
+    let segment_below = branch_segment_from_name_and_meta(maybe_segment_name, meta, None)?;
+    let segment_below = graph.connect_new_segment(
+        src_sidx,
+        src_segment
+            .last_commit_index()
+            .context("BUG: we are here because the segment above has commits")?,
+        segment_below,
+        0,
+        info.id,
+    );
+    Ok(Some(segment_below))
+}
+
+/// Queue the `parent_ids` of the current commit, whose additional information like `current_kind` and `current_index`
+/// are used.
+pub fn queue_parents(
+    next: &mut VecDeque<QueueItem>,
+    parent_ids: &[gix::ObjectId],
+    flags: CommitFlags,
+    current_sidx: SegmentIndex,
+    current_cidx: CommitIndex,
+) {
+    if parent_ids.len() > 1 {
+        let instruction = Instruction::ConnectNewSegment {
+            parent_above: current_sidx,
+            at_commit: current_cidx,
+        };
+        for pid in parent_ids {
+            next.push_back((*pid, flags, instruction))
+        }
+    } else if !parent_ids.is_empty() {
+        next.push_back((
+            parent_ids[0],
+            flags,
+            Instruction::CollectCommit { into: current_sidx },
+        ));
+    } else {
+        return;
+    };
+}
+
+pub fn branch_segment_from_name_and_meta(
+    mut ref_name: Option<gix::refs::FullName>,
+    meta: &impl RefMetadata,
+    refs_by_id_lookup: Option<(&RefsById, gix::ObjectId)>,
+) -> anyhow::Result<Segment> {
+    if let Some((refs_by_id, id)) = refs_by_id_lookup.filter(|_| ref_name.is_none()) {
+        if let Some(unambiguous_local_branch) = local_branches_by_id(refs_by_id, id)
+            .and_then(|mut branches| branches.next().filter(|_| branches.next().is_none()))
+        {
+            ref_name = Some(unambiguous_local_branch.clone());
+        }
+    }
+    Ok(Segment {
+        metadata: ref_name
+            .as_ref()
+            .and_then(|rn| {
+                meta.branch_opt(rn.as_ref())
+                    .map(|res| res.map(|md| SegmentMetadata::Branch(md.clone())))
+                    .transpose()
+            })
+            // Also check for workspace data so we always correctly classify segments.
+            // This could happen if we run over another workspace commit which is reachable
+            // through the current tip.
+            .or_else(|| {
+                let rn = ref_name.as_ref()?;
+                meta.workspace_opt(rn.as_ref())
+                    .map(|res| res.map(|md| SegmentMetadata::Workspace(md.clone())))
+                    .transpose()
+            })
+            .transpose()?,
+        ref_name,
+        ..Default::default()
+    })
+}
+
+// Like the plumbing type, but will keep information that was already accessible for us.
+#[derive(Debug)]
+pub struct TraverseInfo {
+    inner: gix::traverse::commit::Info,
+    /// The pre-parsed commit if available.
+    commit: Option<Commit>,
+}
+
+impl TraverseInfo {
+    pub fn into_local_commit(
+        self,
+        repo: &gix::Repository,
+        flags: CommitFlags,
+        refs: Vec<gix::refs::FullName>,
+    ) -> anyhow::Result<LocalCommit> {
+        let commit = but_core::Commit::from_id(self.id.attach(repo))?;
+        let has_conflicts = commit.is_conflicted();
+        let commit = match self.commit {
+            Some(commit) => Commit {
+                refs,
+                flags,
+                ..commit
+            },
+            None => Commit {
+                id: self.inner.id,
+                parent_ids: self.inner.parent_ids.into_iter().collect(),
+                message: commit.message.clone(),
+                author: commit.author.clone(),
+                flags,
+                refs,
+            },
+        };
+
+        Ok(LocalCommit {
+            inner: commit,
+            relation: Default::default(),
+            has_conflicts,
+        })
+    }
+}
+
+impl Deref for TraverseInfo {
+    type Target = gix::traverse::commit::Info;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+pub fn find(
+    cache: Option<&gix::commitgraph::Graph>,
+    objects: &impl gix::objs::Find,
+    id: gix::ObjectId,
+    buf: &mut Vec<u8>,
+) -> anyhow::Result<TraverseInfo> {
+    let mut parent_ids = gix::traverse::commit::ParentIds::new();
+    let commit = match gix::traverse::commit::find(cache, objects, &id, buf)? {
+        Either::CachedCommit(c) => {
+            let cache = cache.expect("cache is available if a cached commit is returned");
+            for parent_id in c.iter_parents() {
+                match parent_id {
+                    Ok(pos) => parent_ids.push({
+                        let parent = cache.commit_at(pos);
+                        parent.id().to_owned()
+                    }),
+                    Err(_err) => {
+                        // retry without cache
+                        return find(None, objects, id, buf);
+                    }
+                }
+            }
+            None
+        }
+        Either::CommitRefIter(iter) => {
+            let mut message = None::<BString>;
+            let mut author = None;
+            for token in iter {
+                use gix::objs::commit::ref_iter::Token;
+                match token {
+                    Ok(Token::Parent { id }) => {
+                        parent_ids.push(id);
+                    }
+                    Ok(Token::Author { signature }) => author = Some(signature.to_owned()?),
+                    Ok(Token::Message(msg)) => message = Some(msg.into()),
+                    Ok(_other_tokens) => {}
+                    Err(err) => return Err(err.into()),
+                };
+            }
+            Some(Commit {
+                id,
+                parent_ids: parent_ids.iter().cloned().collect(),
+                message: message.context("Every valid commit must have a message")?,
+                author: author.context("Every valid commit must have an author signature")?,
+                refs: Vec::new(),
+                flags: CommitFlags::empty(),
+            })
+        }
+    };
+
+    Ok(TraverseInfo {
+        inner: gix::traverse::commit::Info {
+            id,
+            parent_ids,
+            commit_time: None,
+        },
+        commit,
+    })
+}
+
+// Create a mapping of all heads to the object ids they point to.
+pub fn collect_ref_mapping_by_prefix<'a>(
+    repo: &gix::Repository,
+    prefixes: impl Iterator<Item = &'a str>,
+) -> anyhow::Result<RefsById> {
+    let mut all_refs_by_id = gix::hashtable::HashMap::<_, Vec<_>>::default();
+    for prefix in prefixes {
+        for (commit_id, git_reference) in repo
+            .references()?
+            .prefixed(prefix)?
+            .filter_map(Result::ok)
+            .filter_map(|r| {
+                if is_workspace_ref_name(r.name()) {
+                    return None;
+                }
+                let id = r.try_id()?;
+                if matches!(r.name().category(), Some(gix::reference::Category::Tag)) {
+                    // TODO: also make use of the tag name (the tag object has its own name)
+                    (id.object().ok()?.peel_tags_to_end().ok()?.id, r.inner.name)
+                } else {
+                    (id.detach(), r.inner.name)
+                }
+                .into()
+            })
+        {
+            all_refs_by_id
+                .entry(commit_id)
+                .or_default()
+                .push(git_reference);
+        }
+    }
+    all_refs_by_id.values_mut().for_each(|v| v.sort());
+    Ok(all_refs_by_id)
+}
+
+/// Returns `[(workspace_ref_name, workspace_info)]` for all available workspace, or exactly one workspace if `maybe_ref_name`
+/// already points to a workspace. That way we can discover the workspace containing any starting point, but only if needed.
+///
+/// This means we process all workspaces if we aren't currently and clearly looking at a workspace.
+#[allow(clippy::type_complexity)]
+pub fn obtain_workspace_infos(
+    maybe_ref_name: Option<&gix::refs::FullNameRef>,
+    meta: &impl RefMetadata,
+) -> anyhow::Result<Vec<(gix::refs::FullName, ref_metadata::Workspace)>> {
+    let workspaces = if let Some((ref_name, ws_data)) = maybe_ref_name
+        .and_then(|ref_name| {
+            meta.workspace_opt(ref_name)
+                .transpose()
+                .map(|res| res.map(|ws_data| (ref_name, ws_data)))
+        })
+        .transpose()?
+    {
+        vec![(ref_name.to_owned(), ws_data.clone())]
+    } else {
+        meta.iter()
+            .filter_map(Result::ok)
+            .filter_map(|(ref_name, item)| {
+                item.downcast::<ref_metadata::Workspace>()
+                    .ok()
+                    .map(|ws| (ref_name, ws))
+            })
+            .map(|(ref_name, ws)| (ref_name, (*ws).clone()))
+            .collect()
+    };
+    Ok(workspaces)
+}
+
+pub fn try_refname_to_id(
+    repo: &gix::Repository,
+    refname: &gix::refs::FullNameRef,
+) -> anyhow::Result<Option<gix::ObjectId>> {
+    Ok(repo
+        .try_find_reference(refname)?
+        .map(|mut r| r.peel_to_id_in_place())
+        .transpose()?
+        .map(|id| id.detach()))
+}
+
+pub fn propagate_flags_downward(
+    graph: &mut PetGraph,
+    flags_to_add: CommitFlags,
+    dst_sidx: SegmentIndex,
+    dst_commit: Option<CommitIndex>,
+) {
+    let mut topo = TopoWalk::start_from(dst_sidx, dst_commit, petgraph::Direction::Outgoing);
+    while let Some((segment, commit_range)) = topo.next(graph) {
+        for commit in &mut graph[segment].commits[commit_range] {
+            commit.flags |= flags_to_add;
+        }
+    }
+}
+
+/// Check `refs` for refs with remote tracking branches, and queue them for traversal after creating a segment named
+/// after the tracking branch.
+/// This eager queuing makes sure that the post-processing doesn't have to traverse again when it creates segments
+/// that were previously ambiguous.
+pub fn try_queue_remote_tracking_branches(
+    repo: &gix::Repository,
+    refs: &[gix::refs::FullName],
+    next: &mut VecDeque<QueueItem>,
+    graph: &mut Graph,
+    target_symbolic_remote_names: &[String],
+    configured_remote_tracking_branches: &BTreeSet<FullName>,
+    meta: &impl RefMetadata,
+) -> anyhow::Result<()> {
+    for rn in refs {
+        let Some(remote_tracking_branch) = remotes::lookup_remote_tracking_branch_or_deduce_it(
+            repo,
+            rn.as_ref(),
+            target_symbolic_remote_names,
+            configured_remote_tracking_branches,
+        )?
+        else {
+            continue;
+        };
+        // Note that we don't connect the remote segment yet as it still has to reach
+        // any segment really. It could be anywhere and point to anything.
+        let Some(remote_tip) = try_refname_to_id(repo, remote_tracking_branch.as_ref())? else {
+            continue;
+        };
+        let remote_segment = graph.insert_root(branch_segment_from_name_and_meta(
+            Some(remote_tracking_branch),
+            meta,
+            None,
+        )?);
+        next.push_back((
+            remote_tip,
+            // As a commit can be reachable by many remote tracking branches while we need
+            // specificity, there is no need to propagate anything.
+            // We also *do not* propagate "NotInCommit" so remote-exclusive commits can be identified
+            // even across segment boundaries
+            CommitFlags::empty(),
+            Instruction::CollectCommit {
+                into: remote_segment,
+            },
+        ));
+    }
+    Ok(())
+}

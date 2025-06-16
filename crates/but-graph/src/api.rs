@@ -1,6 +1,8 @@
 use crate::init::PetGraph;
 use crate::{CommitIndex, Edge, EntryPoint, Graph, Segment, SegmentIndex};
 use anyhow::{Context, bail};
+use bstr::ByteSlice;
+use gix::refs::Category;
 use petgraph::Direction;
 use petgraph::graph::EdgeReference;
 use petgraph::prelude::EdgeRef;
@@ -164,6 +166,20 @@ impl Graph {
         }
         Ok(self)
     }
+
+    /// Validate the graph for consistency and fail loudly when an issue was found, after printing the dot graph.
+    /// Mostly useful for debugging to stop early when a connection wasn't created correctly.
+    pub(crate) fn validate_or_eprint_dot(&mut self) -> anyhow::Result<()> {
+        for edge in self.inner.edge_references() {
+            let res = check_edge(&self.inner, edge);
+            if res.is_err() {
+                self.eprint_dot_graph();
+            }
+            res?;
+        }
+        Ok(())
+    }
+
     /// Output this graph in dot-format to stderr to allow copying it, and using like this for visualization:
     ///
     /// ```shell
@@ -214,7 +230,16 @@ impl Graph {
                     commits = s
                         .commits
                         .iter()
-                        .map(|c| c.id.to_hex_with_len(HEX).to_string())
+                        .map(|c| format!(
+                            "{id}{refs}",
+                            id = c.id.to_hex_with_len(HEX),
+                            refs = c
+                                .refs
+                                .iter()
+                                .map(|r| format!("►{name}", name = shorten_ref(r)))
+                                .collect::<Vec<_>>()
+                                .join(",")
+                        ))
                         .collect::<Vec<_>>()
                         .join("\n")
                 )
@@ -222,6 +247,20 @@ impl Graph {
         );
         format!("{dot:?}")
     }
+}
+
+fn shorten_ref(name: &gix::refs::FullName) -> String {
+    let (cat, sn) = name.category_and_short_name().expect("valid refs");
+    // Only shorten those that look good and are unambiguous enough.
+    if matches!(cat, Category::LocalBranch | Category::RemoteBranch) {
+        sn
+    } else {
+        name.as_bstr()
+            .strip_prefix(b"refs/")
+            .map(|n| n.as_bstr())
+            .unwrap_or(name.as_bstr())
+    }
+    .to_string()
 }
 
 /// Fail with an error if the `edge` isn't consistent.
@@ -236,8 +275,9 @@ fn check_edge(graph: &PetGraph, edge: EdgeReference<'_, Edge>) -> anyhow::Result
             last = src.last_commit_index()
         );
     }
-    if w.dst.unwrap_or_default() != 0 {
-        bail!("{w:?}: edge must end on first commit 0");
+    let first_index = dst.commits.first().map(|_| 0);
+    if w.dst != first_index {
+        bail!("{w:?}: edge must end on {first_index:?}");
     }
 
     let seg_cidx = src.commit_id_by_index(w.src);

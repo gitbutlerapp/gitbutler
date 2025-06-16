@@ -24,6 +24,8 @@ pub(crate) struct TopoWalk {
     seen_empty_segments: BTreeSet<SegmentIndex>,
     /// In which direction to traverse.
     direction: Direction,
+    /// If `true`, don't return the first segment which is always the starting point.
+    skip_tip: Option<()>,
 }
 
 /// Lifecycle
@@ -43,7 +45,17 @@ impl TopoWalk {
             seen: Default::default(),
             seen_empty_segments: Default::default(),
             direction,
+            skip_tip: None,
         }
+    }
+}
+
+/// Builder
+impl TopoWalk {
+    /// Call to not return the tip as part of the iteration.
+    pub fn skip_tip(mut self) -> Self {
+        self.skip_tip = Some(());
+        self
     }
 }
 
@@ -59,6 +71,9 @@ impl TopoWalk {
         while !self.next.is_empty() {
             let res = self.next_inner(graph);
             if res.is_some() {
+                if self.skip_tip.take().is_some() {
+                    continue;
+                }
                 return res;
             }
         }

@@ -39,9 +39,10 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [
@@ -126,9 +127,10 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(31b3f92, "change in B\n", local/remote(similarity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -139,9 +141,10 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
                         },
                     },
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(51db0ec, "change after push\n", local),
                             LocalCommit(807f596, "change in A\n", local/remote(identity)),
                         ],
@@ -207,9 +210,10 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(31b3f92, "change in B\n", local/remote(similarity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -220,9 +224,10 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                         },
                     },
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(51db0ec, "change after push\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -233,9 +238,10 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                         },
                     },
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/base-of-A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(807f596, "change in A\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -295,9 +301,10 @@ fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(de11c03, "change in B\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -308,9 +315,10 @@ fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
                         },
                     },
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(0ee3a9e, "change in A\n", integrated),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -388,9 +396,10 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(de11c03, "change in B\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -401,9 +410,10 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                         },
                     },
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(0ee3a9e, "change in A\n", integrated),
                         ],
                         commits_unique_in_remote_tracking_branch: [
@@ -469,9 +479,10 @@ fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(d5d3a92, "unique local tip\n", local),
                             LocalCommit(6ffd040, "shared by name\n", local/remote(similarity)),
                             LocalCommit(4cd56ab, "unique local\n", local),
@@ -544,9 +555,10 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -563,9 +575,10 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/advanced-lane-2",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(93d7eac, "change 2\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -584,9 +597,10 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(cbc6713, "change\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -652,9 +666,10 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(cbc6713, "change\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -665,9 +680,10 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         },
                     },
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/lane-segment-01",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -676,9 +692,10 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         },
                     },
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/lane-segment-02",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -695,9 +712,10 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/lane-2",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -706,9 +724,10 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         },
                     },
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/lane-2-segment-01",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -717,9 +736,10 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         },
                     },
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/lane-2-segment-02",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -772,9 +792,10 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/lane-2",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -783,9 +804,10 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         },
                     },
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/lane-2-segment-01",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -794,9 +816,10 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         },
                     },
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/lane-2-segment-02",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -813,9 +836,10 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(cbc6713, "change\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -826,9 +850,10 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         },
                     },
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/lane-segment-01",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -837,9 +862,10 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         },
                     },
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/lane-segment-02",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -898,9 +924,10 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(cbc6713, "change\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -919,9 +946,10 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -974,9 +1002,10 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<(
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(cbc6713, "change\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -1033,9 +1062,10 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/dependant",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -1044,9 +1074,10 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                         },
                     },
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(cbc6713, "change\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -1092,9 +1123,10 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(cbc6713, "change\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -1105,9 +1137,10 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                         },
                     },
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/dependant",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -1163,9 +1196,10 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/on-top-of-dependant",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -1174,9 +1208,10 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                         },
                     },
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/dependant",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -1185,9 +1220,10 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                         },
                     },
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(cbc6713, "change\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -1233,9 +1269,10 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/dependant",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -1244,9 +1281,10 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                         },
                     },
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/on-top-of-dependant",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -1255,9 +1293,10 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                         },
                     },
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(cbc6713, "change\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -1316,9 +1355,10 @@ fn two_branches_stracked_with_remotes() -> anyhow::Result<()> {
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/on-top-of-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/on-top-of-lane",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(788ad06, "change on top\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -1329,9 +1369,10 @@ fn two_branches_stracked_with_remotes() -> anyhow::Result<()> {
                         },
                     },
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "refs/remotes/origin/lane",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(cbc6713, "change\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -1397,9 +1438,10 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(aadad9d, "shared by name\n", local/remote(similarity)),
                             LocalCommit(96a2408, "another unrelated\n", local),
                         ],
@@ -1414,9 +1456,10 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
                         },
                     },
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/integrated",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(f15ca75, "other integrated\n", integrated),
                             LocalCommit(9456d79, "integrated in target\n", integrated),
                         ],
@@ -1478,9 +1521,10 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(cbc6713, "change\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -1499,9 +1543,10 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -1564,9 +1609,10 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -1583,9 +1629,10 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(cbc6713, "change\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -1622,9 +1669,10 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(cbc6713, "change\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -1661,9 +1709,10 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -1708,9 +1757,10 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(cbc6713, "change\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -1729,9 +1779,10 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -1784,9 +1835,10 @@ fn disjoint() -> anyhow::Result<()> {
                 base: None,
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/disjoint",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(32791d2, "disjoint init\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -1851,9 +1903,10 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/C-on-A",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(5f37dbf, "add new file in C-on-A\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -1864,9 +1917,10 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         },
                     },
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [
@@ -1883,9 +1937,10 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(4e5484a, "add new file in B-on-A\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -1920,9 +1975,10 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/C-on-A",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(5f37dbf, "add new file in C-on-A\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -1933,9 +1989,10 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         },
                     },
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [
@@ -1973,9 +2030,10 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(4e5484a, "add new file in B-on-A\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -2015,9 +2073,10 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
-                        commits_unique_from_tip: [
+                        commits: [
                             LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [
@@ -2072,9 +2131,10 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/unrelated",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -2136,9 +2196,10 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 ),
                 segments: [
                     StackSegment {
+                        id: 0,
                         ref_name: "refs/heads/unrelated",
                         remote_tracking_ref_name: "None",
-                        commits_unique_from_tip: [],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
