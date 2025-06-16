@@ -66,7 +66,7 @@
 	);
 
 	const isCommiting = $derived(
-		exclusiveAction?.type === 'commit' && (!exclusiveAction.stackId || stackId === stackId)
+		exclusiveAction?.type === 'commit' && selectionId.type === 'worktree'
 	);
 
 	const isUncommittedChange = $derived(selectionId.type === 'worktree');

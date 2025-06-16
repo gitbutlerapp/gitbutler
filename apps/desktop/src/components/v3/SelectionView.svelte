@@ -19,7 +19,7 @@
 	const selection = $derived(selectionId ? idSelection.values(selectionId) : []);
 	const lastAdded = $derived(selectionId ? idSelection.getById(selectionId).lastAdded : undefined);
 
-	const toPreview = $derived.by(() => {
+	const selectedFile = $derived.by(() => {
 		if (!selectionId) return;
 		if (selection.length === 0) return;
 		if (selection.length === 1 || !$lastAdded) return selection[0];
@@ -28,15 +28,15 @@
 </script>
 
 <div class="selection-view">
-	{#if toPreview}
+	{#if selectedFile}
 		<ScrollableContainer wide zIndex="var(--z-lifted)">
 			<SelectedChange
 				{projectId}
-				selectedFile={toPreview}
+				{selectedFile}
 				draggable={draggableFiles}
 				onCloseClick={() => {
 					if (selectionId) {
-						idSelection.remove(toPreview.path, toPreview);
+						idSelection.remove(selectedFile.path, selectedFile);
 					}
 				}}
 			/>
