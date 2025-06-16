@@ -117,7 +117,7 @@
 			icon="commit"
 			disabled={exclusiveAction?.type === 'commit' && exclusiveAction.stackId === undefined}
 			onkeydown={handleArrowNavigation}
-			testId={TestId.CreateStackButton}
+			testId={TestId.CommitToNewBranchButton}
 			kind="outline"
 		>
 			Commit to new branch

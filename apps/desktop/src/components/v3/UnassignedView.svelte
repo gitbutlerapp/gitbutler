@@ -1,15 +1,8 @@
 <script lang="ts">
-	import ReduxResult from '$components/ReduxResult.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
 	import WorktreeTipsFooter from '$components/v3/WorktreeTipsFooter.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
-	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
-	import { TestId } from '$lib/testing/testIds';
-	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
 	import type { SelectionId } from '$lib/selection/key';
 
 	interface Props {
@@ -19,15 +12,7 @@
 
 	const { projectId, focus }: Props = $props();
 
-	const [stackService, uncommittedService, uiState] = inject(
-		StackService,
-		UncommittedService,
-		UiState
-	);
-	const projectState = $derived(uiState.project(projectId));
-	const stacksResult = $derived(stackService.stacks(projectId));
 	const selectionId = { type: 'worktree', stackId: undefined } as SelectionId;
-	const isCommitting = $derived(projectState.exclusiveAction.current?.type === 'commit');
 </script>
 
 <div class="unassigned">
@@ -52,35 +37,6 @@
 			</div>
 		{/snippet}
 	</WorktreeChanges>
-
-	<ReduxResult {projectId} result={stacksResult?.current}>
-		{#snippet children(stacks)}
-			{#if stacks.length === 0}
-				<div class="start-commit">
-					<Button
-						testId={TestId.StartCommitButton}
-						type="button"
-						wide
-						kind={isCommitting ? 'outline' : 'solid'}
-						onclick={() => {
-							if (isCommitting) {
-								projectState.exclusiveAction.set(undefined);
-							} else {
-								projectState.exclusiveAction.set({ type: 'commit' });
-								uncommittedService.checkAll(null);
-							}
-						}}
-					>
-						{#if isCommitting}
-							Cancel
-						{:else}
-							Start a commit…
-						{/if}
-					</Button>
-				</div>
-			{/if}
-		{/snippet}
-	</ReduxResult>
 </div>
 
 <style lang="postcss">
@@ -112,9 +68,5 @@
 		overflow: hidden;
 		gap: 12px;
 		background-color: var(--clr-bg-1);
-	}
-	.start-commit {
-		flex-shrink: 0;
-		padding: 12px;
 	}
 </style>

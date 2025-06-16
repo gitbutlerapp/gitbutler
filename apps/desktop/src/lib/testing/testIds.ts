@@ -92,6 +92,7 @@ export enum TestId {
 	GlobalModalActionButton = 'global-modal-action-button',
 	PRBranchDrawer = 'pr-branch-view',
 	CreateStackButton = 'create-stack-button',
+	CommitToNewBranchButton = 'commit-to-new-branch-button',
 	ConfirmSubmit = 'confirm-submit'
 }
 

@@ -859,7 +859,7 @@ describe('Commit Actions with no stacks', () => {
 		cy.getByTestId('file-list-item').first().should('be.visible').should('contain', fileName);
 
 		// Click on the commit button
-		cy.getByTestId('start-commit-button').should('be.visible').should('be.enabled').click();
+		cy.getByTestId('commit-to-new-branch-button').should('be.visible').should('be.enabled').click();
 
 		// Should open the new commit drawer
 		cy.getByTestId('new-commit-view').should('be.visible');
