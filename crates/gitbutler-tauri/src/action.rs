@@ -30,6 +30,13 @@ pub fn handle_changes(
     let project = projects.get(project_id)?;
     let ctx = &mut CommandContext::open(&project, settings.get()?.clone())?;
     let openai = OpenAiProvider::with(None);
-    but_action::handle_changes(ctx, &openai, &change_summary, None, handler)
-        .map_err(|e| Error::from(anyhow::anyhow!(e)))
+    but_action::handle_changes(
+        ctx,
+        &openai,
+        &change_summary,
+        None,
+        handler,
+        but_action::Source::GitButler,
+    )
+    .map_err(|e| Error::from(anyhow::anyhow!(e)))
 }

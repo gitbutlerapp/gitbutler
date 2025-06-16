@@ -1,7 +1,10 @@
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 use anyhow::Result;
-use but_action::{ActionHandler, OpenAiProvider};
+use but_action::{ActionHandler, OpenAiProvider, Source};
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
@@ -27,10 +30,14 @@ pub(crate) async fn start(app_settings: AppSettings) -> Result<()> {
     tracing::info!("Starting MCP server");
 
     let transport = (tokio::io::stdin(), tokio::io::stdout());
-    let service = Mcp::new(app_settings).serve(transport).await?;
+    let client_info = Arc::new(Mutex::new(None));
+    let service = Mcp::new(app_settings, client_info.clone())
+        .serve(transport)
+        .await?;
     let info = service.peer_info();
-    let Implementation { name, version } = &info.client_info;
-    tracing::info!("Connected to client with info: {} v{}", name, version);
+    if let Ok(mut guard) = client_info.lock() {
+        guard.replace(info.client_info.clone());
+    }
     service.waiting().await?;
     Ok(())
 }
@@ -40,17 +47,19 @@ pub struct Mcp {
     app_settings: AppSettings,
     metrics: Metrics,
     openai: Option<OpenAiProvider>,
+    client_info: Arc<Mutex<Option<Implementation>>>,
 }
 
 #[tool(tool_box)]
 impl Mcp {
-    pub fn new(app_settings: AppSettings) -> Self {
+    pub fn new(app_settings: AppSettings, client_info: Arc<Mutex<Option<Implementation>>>) -> Self {
         let metrics = Metrics::new_with_background_handling(&app_settings);
         let openai = OpenAiProvider::with(None);
         Self {
             app_settings,
             metrics,
             openai,
+            client_info,
         }
     }
 
@@ -89,12 +98,19 @@ impl Mcp {
         let ctx = &mut CommandContext::open(&project, self.app_settings.clone())
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
+        let client_info = self
+            .client_info
+            .lock()
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?
+            .clone();
+
         let response = but_action::handle_changes(
             ctx,
             &self.openai,
             &request.changes_summary,
             Some(request.full_prompt),
             ActionHandler::HandleChangesSimple,
+            Source::Mcp(client_info.map(Into::into)),
         )
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
         Ok(CallToolResult::success(vec![Content::json(response)?]))

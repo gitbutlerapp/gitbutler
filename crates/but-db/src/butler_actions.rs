@@ -31,6 +31,8 @@ pub struct ButlerAction {
     pub response: Option<String>,
     /// An error message if the action failed.
     pub error: Option<String>,
+    /// The source of the action (e.g. "ButCli", "GitButler", "Mcp", "Unknown")
+    pub source: Option<String>,
 }
 
 impl DbHandle {
