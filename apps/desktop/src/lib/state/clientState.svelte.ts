@@ -1,12 +1,13 @@
 import { tauriBaseQuery } from '$lib/state/backendQuery';
 import { butlerModule } from '$lib/state/butlerModule';
 import { ReduxTag } from '$lib/state/tags';
-import { uiStatePersistConfig, uiStateSlice } from '$lib/state/uiState.svelte';
+import { uiStateSlice } from '$lib/state/uiState.svelte';
 import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
 import { combineSlices, configureStore, type Reducer } from '@reduxjs/toolkit';
 import { buildCreateApi, coreModule, setupListeners, type RootState } from '@reduxjs/toolkit/query';
 import { FLUSH, PAUSE, PERSIST, persistReducer, PURGE, REGISTER, REHYDRATE } from 'redux-persist';
 import persistStore from 'redux-persist/lib/persistStore';
+import storage from 'redux-persist/lib/storage';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { Tauri } from '$lib/backend/tauri';
 import type { SettingsService } from '$lib/config/appSettingsV2';
@@ -146,19 +147,38 @@ function createStore(params: {
 		settingsService,
 		userSettings
 	} = params;
+
+	// We can't use the `persistStore` function because it doesn't work
+	// with injected reducers. We should inject all reduces so we don't
+	// need to know about them in this file.
 	const reducer = combineSlices(
 		// RTK Query API for the back end.
 		backendApi,
-		githubApi,
 		gitlabApi
-	);
-	const reducer2 = reducer.inject({
-		reducerPath: uiStateSlice.reducerPath,
-		reducer: persistReducer(uiStatePersistConfig, uiStateSlice.reducer)
-	});
+	)
+		.inject({
+			reducerPath: uiStateSlice.reducerPath,
+			reducer: persistReducer(
+				{
+					key: uiStateSlice.reducerPath,
+					storage: storage
+				},
+				uiStateSlice.reducer
+			)
+		})
+		.inject({
+			reducerPath: githubApi.reducerPath,
+			reducer: persistReducer(
+				{
+					key: githubApi.reducerPath,
+					storage: storage
+				},
+				githubApi.reducer
+			)
+		});
 
 	const store = configureStore({
-		reducer: reducer2,
+		reducer,
 		middleware: (getDefaultMiddleware) => {
 			return getDefaultMiddleware({
 				thunk: {

@@ -6,13 +6,7 @@ import {
 	type ThunkDispatch,
 	type UnknownAction
 } from '@reduxjs/toolkit';
-import storage from 'redux-persist/lib/storage';
 import type { RejectionReason } from '$lib/stacks/stackService.svelte';
-
-export const uiStatePersistConfig = {
-	key: 'uiState',
-	storage: storage
-};
 
 export type StackSelection = {
 	branchName: string;
