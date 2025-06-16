@@ -31,7 +31,6 @@ const MOCK_GLOBAL_UI_STATE: GlobalUiState = {
 	historySidebarWidth: 30,
 	useRichText: true,
 	aiSuggestionsOnType: true,
-	selectedTip: undefined,
 	channel: undefined,
 	draftBranchName: undefined,
 	useRuler: false,
