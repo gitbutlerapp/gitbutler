@@ -149,10 +149,6 @@
 			// Close the drawer.
 			projectState.exclusiveAction.set(undefined);
 
-			// Select the newly created commit.
-			// Using `finalStackId` here because `stackState` might not have updated yet.
-			uiState.stack(finalStackId).selection.set({ branchName: finalBranchName, commitId: newId });
-
 			// Clear change/hunk selection used for creating the commit.
 			uncommittedService.clearHunkSelection();
 		}
