@@ -410,6 +410,9 @@ describe('Commit Actions', () => {
 		// Should display the commit rows
 		cy.getByTestId('commit-row').should('have.length', 2);
 
+		cy.getByTestId('commit-row').should('have.length', 2);
+		cy.getByTestId('commit-row', newCommitMessage).click();
+
 		// Should commit and select the new commit
 		cy.getByTestId('commit-drawer-title').should('contain', newCommitMessage);
 		cy.getByTestId('commit-drawer-description').should('contain', newCommitMessageBody);
@@ -901,7 +904,8 @@ describe('Commit Actions with no stacks', () => {
 		// Should display the commit rows
 		cy.getByTestId('commit-row').should('have.length', 1);
 
-		// Should commit and select the new commit
+		// Select new commit and validate message.
+		cy.getByTestId('commit-row', newCommitMessage).click();
 		cy.getByTestId('commit-drawer-title').should('contain', newCommitMessage);
 		cy.getByTestId('commit-drawer-description').should('contain', newCommitMessageBody);
 
