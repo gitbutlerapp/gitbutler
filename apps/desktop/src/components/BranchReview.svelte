@@ -50,8 +50,6 @@
 	const ctaLabel = $derived(canPublishReviewPlugin?.imports.ctaLabel);
 	const branchEmpty = $derived(canPublishReviewPlugin?.imports.branchIsEmpty);
 
-	const showCreateButton = false; // $derived(canPublishBR || canPublishPR);
-
 	const disabled = $derived(branchEmpty || branchConflicted);
 	const tooltip = $derived(
 		branchConflicted ? 'Please resolve the conflicts before creating a PR' : undefined
@@ -145,7 +143,7 @@
 		{@render branchStatus()}
 	{/if}
 
-	{#if showCreateButton}
+	{#if canPublishPR}
 		<Button
 			testId={TestId.CreateReviewButton}
 			onclick={() => {
