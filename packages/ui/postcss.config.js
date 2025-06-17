@@ -9,6 +9,9 @@ const config = {
 	plugins: [
 		pxToRem({
 			rootValue: 16,
+			unitPrecision: 5,
+			propList: ['*'],
+			replace: true,
 			mediaQuery: true
 		}),
 		autoprefixer(),

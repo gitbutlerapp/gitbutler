@@ -8,6 +8,9 @@ export default {
 		autoprefixer(),
 		pxToRem({
 			rootValue: 16,
+			unitPrecision: 5,
+			propList: ['*'],
+			replace: true,
 			mediaQuery: true
 		}),
 		postcssNesting(),
