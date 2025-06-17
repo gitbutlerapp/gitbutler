@@ -290,6 +290,13 @@ export class UncommittedService {
 		);
 	}
 
+	getAssignmentsByStackId(stackId: string): HunkAssignment[] {
+		return uncommittedSelectors.hunkAssignments.selectByPrefix(
+			this.state.hunkAssignments,
+			partialKey(stackId)
+		);
+	}
+
 	assignmentsByPath(stackId: string | null, path: string): Reactive<HunkAssignment[]> {
 		const assignments = $derived(this.getAssignmentsByPath(stackId, path));
 		return reactive(() => assignments);
