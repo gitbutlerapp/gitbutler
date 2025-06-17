@@ -88,6 +88,12 @@
 		if (!$aiGenEnabled || !aiConfigurationValid) return;
 
 		const commitMessages = commits?.map((commit) => commit.message) ?? [];
+		if (commitMessages.length === 0) {
+			throw new Error(
+				'There must be a commits in the branch before you can generate a branch name'
+			);
+		}
+
 		const prompt = promptService.selectedBranchPrompt(projectId);
 		const newBranchName = await aiService.summarizeBranch({
 			type: 'commitMessages',

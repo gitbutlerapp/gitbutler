@@ -30,6 +30,7 @@ interface HunkSelectionDiffInputContextArgs extends BaseDiffInputContextArgs {
 	 * The uncommitted changes service to select the changes from.
 	 */
 	uncommittedService: UncommittedService;
+	stackId?: string;
 }
 
 interface SelectionDiffInputContextArgs extends BaseDiffInputContextArgs {
@@ -57,6 +58,11 @@ export default class DiffInputContext {
 		private readonly args: DiffInputContextArgs
 	) {}
 
+	/**
+	 * Get the relevant tree changes. It should still be noted that tree changes
+	 * don't consider individual hunk selections. Diffs _may_ need to be
+	 * filtered to only include relevant hunks.
+	 */
 	private async changes(): Promise<TreeChange[] | null> {
 		switch (this.args.type) {
 			case 'commit': {
@@ -68,7 +74,7 @@ export default class DiffInputContext {
 			}
 
 			case 'change-selection': {
-				return await this.args.uncommittedService.selectedChanges();
+				return this.args.uncommittedService.selectedChanges(this.args.stackId);
 			}
 
 			case 'file-selection': {
@@ -90,12 +96,22 @@ export default class DiffInputContext {
 		return filePaths.filter((p) => !isLockfile(p));
 	}
 
+	/**
+	 * Filter out diff hunks that are not relevant to the current context.
+	 *
+	 * Currently this is only relevant for the change-selection context.
+	 */
+	private filterIrrelevantHunks(diffs: ChangeDiff[]): ChangeDiff[] {
+		if (this.args.type !== 'change-selection') return diffs;
+		return this.args.uncommittedService.filterDiffsBasedOnSelection(diffs, this.args.stackId);
+	}
+
 	private async diffs(): Promise<ChangeDiff[] | undefined> {
 		const changes = await this.changes();
 		if (!changes) return undefined;
 
 		const diffs = await this.diffService.fetchChanges(this.args.projectId, changes);
-		return diffs;
+		return this.filterIrrelevantHunks(diffs);
 	}
 
 	/**
@@ -105,7 +121,7 @@ export default class DiffInputContext {
 	 */
 	async diffInput(): Promise<DiffInput[] | undefined> {
 		const diffs = await this.diffs();
-		if (!diffs) return undefined;
+		if (!diffs || diffs.length === 0) return undefined;
 
 		const diffInput: DiffInput[] = [];
 
