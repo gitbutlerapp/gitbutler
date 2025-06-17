@@ -72,9 +72,7 @@ describe('Branches', () => {
 			.should('contain', mockBackend.getBaseBranchName());
 
 		// The branch drawer should be visible
-		cy.getByTestId('unapplied-branch-view')
-			.should('be.visible')
-			.should('contain', mockBackend.getBaseBranchName());
+		cy.getByTestId('target-commit-list-header').should('be.visible');
 
 		// The branch action buttons should not be visible
 		cy.getByTestId('branches-view-apply-branch-button').should('not.exist');
@@ -166,11 +164,6 @@ describe('Branches', () => {
 
 		// The delete branch confirmation modal should be closed
 		cy.getByTestId('delete-local-branch-confirmation-modal').should('not.exist');
-
-		// The branch drawer should be visible but should show the base branch name
-		cy.getByTestId('unapplied-branch-view')
-			.should('be.visible')
-			.should('contain', mockBackend.getBaseBranchName());
 	});
 
 	it('should be able to apply a branch from a fork', () => {

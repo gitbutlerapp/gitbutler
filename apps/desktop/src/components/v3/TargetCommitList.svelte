@@ -125,6 +125,7 @@
 <style lang="postcss">
 	.target-branch-header {
 		display: flex;
+		padding: 14px;
 		border-bottom: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml) var(--radius-ml) 0 0;
 		background-color: var(--clr-bg-2);
@@ -134,7 +135,6 @@
 		display: flex;
 		flex: 1;
 		flex-direction: column;
-		padding: 14px;
 		overflow: hidden;
 		gap: 8px;
 	}

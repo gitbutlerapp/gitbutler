@@ -54,6 +54,8 @@
 	}: Props = $props();
 
 	let rightClickTrigger = $state<HTMLDivElement>();
+
+	const actionsVisible = $derived(!draft && !isCommitting && (buttons || menu));
 </script>
 
 <div
@@ -69,6 +71,7 @@
 	onkeypress={onclick}
 	tabindex="0"
 	class:active
+	class:no-actions={!actionsVisible}
 >
 	{#if selected && selectIndicator}
 		<div
@@ -104,7 +107,7 @@
 	</div>
 </div>
 
-{#if !draft && !isCommitting}
+{#if actionsVisible}
 	<div class="branch-hedaer__actions-row" class:draft class:new-branch={isEmpty}>
 		{#if buttons}
 			<div class="text-12 branch-header__actions">
@@ -146,6 +149,9 @@
 		&:focus-within.selected {
 			--branch-selected-bg: var(--clr-selected-in-focus-bg);
 			--branch-selected-element-bg: var(--clr-selected-in-focus-element);
+		}
+		&.no-actions {
+			border-bottom: 1px solid var(--clr-border-2);
 		}
 	}
 
