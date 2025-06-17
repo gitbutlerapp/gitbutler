@@ -166,8 +166,9 @@ else
 	FEATURES=""
 fi
 
-# set the VERSION as an environment variable so that it's available in the but CLI
+# set the VERSION and CHANNEL as an environment variables so that they available in the but CLI
 export VERSION
+export CHANNEL
 
 # build the app with release config
 tauri build \

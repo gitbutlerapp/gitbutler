@@ -25,6 +25,10 @@ impl Event {
             option_env!("VERSION").unwrap_or_default().to_string(),
         ));
         props.push((
+            "releaseChannel".to_string(),
+            option_env!("CHANNEL").unwrap_or_default().to_string(),
+        ));
+        props.push((
             "appName".to_string(),
             option_env!("CARGO_BIN_NAME")
                 .unwrap_or_default()
