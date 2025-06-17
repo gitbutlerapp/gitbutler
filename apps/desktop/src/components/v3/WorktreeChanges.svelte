@@ -106,7 +106,7 @@
 {/snippet}
 
 <Dropzone
-	handlers={[uncommitDzHandler, assignmentDZHandler].filter(isDefined)}
+	handlers={[stackId ? undefined : uncommitDzHandler, assignmentDZHandler].filter(isDefined)}
 	maxHeight
 	onActivated={onDropzoneActivated}
 >
