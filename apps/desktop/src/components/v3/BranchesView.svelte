@@ -178,7 +178,7 @@
 			current.stackId || (current.branchName && isTargetBranch)}
 		{@const isNonLocalPr = !isStackOrNormalBranchPreview && current.prNumber !== undefined}
 
-		<MainViewport name="branches" leftWidth={{ default: 360, min: 280 }}>
+		<MainViewport name="branches" leftResizerRadius leftWidth={{ default: 360, min: 280 }}>
 			{#snippet left()}
 				<BranchesListGroup title="Current workspace target">
 					<!-- TODO: We need an API for `commitsCount`! -->

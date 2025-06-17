@@ -19,8 +19,7 @@
 		zIndex?: string;
 		/** imitate border */
 		imitateBorder?: boolean;
-		imitateBorderColor?: string;
-
+		borderColor?: string;
 		/** Other resizers with the same name will receive same updates. */
 		syncName?: string;
 		/** Name under which the latest width is stored. */
@@ -53,7 +52,7 @@
 		minHeight = 0,
 		borderRadius = 'none',
 		imitateBorder,
-		imitateBorderColor = 'var(--clr-border-2)',
+		borderColor = 'var(--clr-border-2)',
 		syncName,
 		persistId,
 		passive,
@@ -199,6 +198,7 @@
 	tabindex="0"
 	role="slider"
 	aria-valuenow={viewport?.clientHeight}
+	class:imitate-border={imitateBorder}
 	class="resizer"
 	class:dragging
 	class:vertical={orientation === 'vertical'}
@@ -209,13 +209,9 @@
 	class:right={direction === 'right'}
 	style:z-index={zIndex}
 	style:--resizer-border-radius="var(--radius-{borderRadius})"
-	style:--border-imitation-color={imitateBorderColor}
+	style:--border-imitation-color={borderColor}
 >
 	<div class="resizer-line"></div>
-
-	{#if imitateBorder}
-		<div class="border-imitation"></div>
-	{/if}
 </div>
 
 <style lang="postcss">
@@ -223,10 +219,15 @@
 		--resizer-line-thickness: 0;
 		--resizer-line-color: transparent;
 		/* should be big for large radius */
-		--resizer-line-frame: 20px;
+		--resizer-line-frame: var(--resizer-border-radius, 1px);
 		position: absolute;
 		outline: none;
 		/* background-color: rgba(255, 0, 0, 0.2); */
+
+		&.imitate-border {
+			--resizer-line-color: var(--border-imitation-color);
+			--resizer-line-thickness: 1px;
+		}
 
 		&:hover,
 		&:focus,
@@ -259,10 +260,6 @@
 		& .resizer-line {
 			width: var(--resizer-line-frame);
 		}
-
-		& .border-imitation {
-			width: 1px;
-		}
 	}
 
 	.vertical {
@@ -273,10 +270,6 @@
 
 		& .resizer-line {
 			height: var(--resizer-line-frame);
-		}
-
-		& .border-imitation {
-			height: 1px;
 		}
 	}
 
@@ -289,10 +282,6 @@
 			border-top-right-radius: var(--resizer-border-radius);
 			border-bottom-right-radius: var(--resizer-border-radius);
 		}
-
-		& .border-imitation {
-			left: auto;
-		}
 	}
 	.left {
 		left: 0;
@@ -302,10 +291,6 @@
 			border-left: var(--resizer-line-thickness) solid var(--resizer-line-color);
 			border-top-left-radius: var(--resizer-border-radius);
 			border-bottom-left-radius: var(--resizer-border-radius);
-		}
-
-		& .border-imitation {
-			right: auto;
 		}
 	}
 	.up {
@@ -327,17 +312,5 @@
 			border-bottom-right-radius: var(--resizer-border-radius);
 			border-bottom-left-radius: var(--resizer-border-radius);
 		}
-	}
-
-	.border-imitation {
-		z-index: -1;
-		position: absolute;
-		top: 0;
-		right: 0;
-		bottom: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		background-color: var(--border-imitation-color);
 	}
 </style>

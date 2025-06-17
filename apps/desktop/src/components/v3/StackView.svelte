@@ -197,6 +197,17 @@
 			bind:clientHeight
 			bind:this={laneEl}
 		>
+			<Resizer
+				persistId="resizer-panel1-${stack.id}"
+				viewport={laneEl!}
+				zIndex="var(--z-lifted)"
+				direction="right"
+				minWidth={16}
+				maxWidth={64}
+				syncName="panel1"
+				dblclickSize
+				imitateBorder
+			/>
 			<ReduxResult {projectId} result={branchesResult.current}>
 				{#snippet children(branches)}
 					<ConfigurableScrollableContainer>
@@ -270,15 +281,6 @@
 								// Clear one selection when you modify the other.
 								idSelection.clear({ type: 'worktree', stackId: stack.id });
 							}}
-						/>
-						<Resizer
-							persistId="resizer-panel1-${stack.id}"
-							viewport={laneEl!}
-							direction="right"
-							minWidth={16}
-							maxWidth={64}
-							syncName="panel1"
-							dblclickSize
 						/>
 					</ConfigurableScrollableContainer>
 					<StackStickyButtons>
@@ -387,7 +389,6 @@
 		position: relative;
 		flex-shrink: 0;
 		flex-direction: column;
-		border-right: 1px solid var(--clr-border-2);
 	}
 
 	.dimmed .stack-view {
