@@ -60,10 +60,6 @@
 			border-top: 1px solid var(--clr-border-2);
 			border-bottom: none;
 		}
-
-		&.draft {
-			border-bottom: none;
-		}
 	}
 	.pin {
 		position: relative;

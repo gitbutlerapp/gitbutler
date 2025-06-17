@@ -881,7 +881,7 @@ describe('Commit Actions with no stacks', () => {
 		});
 
 		// Should have the "Your commit goes here" text
-		cy.getByTestId('your-commit-goes-here').should('be.visible').should('have.class', 'draft');
+		cy.getByTestId('your-commit-goes-here').should('be.visible');
 
 		// Should have selected the file
 		cy.getByTestId('file-list-item').first().get('input[type="checkbox"]').should('be.checked');
