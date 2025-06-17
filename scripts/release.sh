@@ -166,6 +166,9 @@ else
 	FEATURES=""
 fi
 
+# set the VERSION as an environment variable so that it's available in the but CLI
+export VERSION
+
 # build the app with release config
 tauri build \
 	--verbose \
