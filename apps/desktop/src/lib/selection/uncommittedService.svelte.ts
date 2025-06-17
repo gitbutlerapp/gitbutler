@@ -1,5 +1,6 @@
 import { type TreeChange } from '$lib/hunks/change';
 import {
+	hunkHeaderEquals,
 	lineIdsToHunkHeaders,
 	orderHeaders,
 	type DiffHunk,
@@ -15,10 +16,11 @@ import {
 	uncommittedActions
 } from '$lib/selection/uncommitted';
 import { type Reactive, reactive } from '@gitbutler/shared/storeUtils';
+import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { type ThunkDispatch, type UnknownAction } from '@reduxjs/toolkit';
 import { persistReducer } from 'redux-persist';
 import storage from 'redux-persist/es/storage';
-import type { DiffService } from '$lib/hunks/diffService.svelte';
+import type { ChangeDiff, DiffService } from '$lib/hunks/diffService.svelte';
 import type { ClientState } from '$lib/state/clientState.svelte';
 import type { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 import type { LineId } from '@gitbutler/ui/utils/diffParsing';
@@ -157,23 +159,94 @@ export class UncommittedService {
 		return worktreeChanges;
 	}
 
-	async selectedChanges(stackId?: string): Promise<TreeChange[]> {
-		const state = structuredClone(this.state);
+	/**
+	 * It should be noted that this method looses hunk and line selection
+	 * information.
+	 *
+	 * If stackId is undefined, it will return only unassigned changes. If it is
+	 * defined, it will return the changes assigned to the stack as well as the
+	 * unassigned changes.
+	 */
+	selectedChanges(stackId?: string): TreeChange[] {
+		const pathSet = new Set<string>();
 
 		const key = partialKey(stackId ?? null);
-		const selection = uncommittedSelectors.hunkSelection.selectByPrefix(state.hunkSelection, key);
+		const selection = uncommittedSelectors.hunkSelection.selectByPrefix(
+			this.state.hunkSelection,
+			key
+		);
 
-		const pathSet = new Set<string>();
 		for (const item of selection) {
 			pathSet.add(item.path);
 		}
 
+		if (stackId) {
+			const nullKey = partialKey(null);
+			const nulls = uncommittedSelectors.hunkSelection.selectByPrefix(
+				this.state.hunkSelection,
+				nullKey
+			);
+			for (const item of nulls) {
+				pathSet.add(item.path);
+			}
+		}
+
 		const changes = uncommittedSelectors.treeChanges.selectByIds(
-			state.treeChanges,
+			this.state.treeChanges,
 			Array.from(pathSet)
 		);
 
 		return changes;
+	}
+
+	/**
+	 * Given a list of diffs, filter them out based on the current selection.
+	 *
+	 * If stackId is undefined, it will filter out hunks that are not unassigned.
+	 * If stackId is defined, it will filter out hunks that are not assigned to
+	 * that stack AND are not unassigned.
+	 *
+	 * It should be noted that this function does not _yet_ consider line
+	 * selections. Doing so would require re-assembling the hunks.
+	 */
+	filterDiffsBasedOnSelection(diffs: ChangeDiff[], stackId?: string): ChangeDiff[] {
+		const relevantHunks = this.selectedLines(stackId).current;
+
+		return diffs
+			.map((diff) => {
+				// Drop a whole ChangeDiff if there are no hunks at that path
+				// selected.
+				const hunksAtPath = relevantHunks.filter((l) => l.path === diff.path);
+				if (hunksAtPath.length === 0) return undefined;
+
+				// If the diff is not a patch, we can't/don't need to filter it.
+				if (diff.diff.type !== 'Patch') return diff;
+
+				// Select the diff hunks that are also in the list of relevant hunks.
+				const filteredDiff = diff.diff.subject.hunks.filter((h) => {
+					return hunksAtPath.some((l) => {
+						const assignment = uncommittedSelectors.hunkAssignments.selectById(
+							this.state.hunkAssignments,
+							l.assignmentId
+						);
+						if (!assignment?.hunkHeader) return false;
+
+						return hunkHeaderEquals(assignment.hunkHeader, h);
+					});
+				});
+
+				return {
+					...diff,
+					diff: {
+						...diff.diff,
+						subject: {
+							...diff.diff.subject,
+							hunks: filteredDiff
+						}
+					}
+				};
+			})
+			.filter(isDefined);
 	}
 
 	/**

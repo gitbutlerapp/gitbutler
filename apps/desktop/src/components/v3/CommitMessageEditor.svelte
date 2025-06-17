@@ -63,7 +63,7 @@
 	const diffInputArgs = $derived<DiffInputContextArgs>(
 		existingCommitId
 			? { type: 'commit', projectId, commitId: existingCommitId }
-			: { type: 'change-selection', projectId, uncommittedService }
+			: { type: 'change-selection', projectId, uncommittedService, stackId }
 	);
 	const diffInputContext = $derived(
 		new DiffInputContext(worktreeService, diffService, stackService, diffInputArgs)
