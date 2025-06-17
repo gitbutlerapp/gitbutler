@@ -151,10 +151,6 @@
 			border-bottom: 1px solid var(--clr-border-2);
 		}
 
-		&.last {
-			border-radius: 0 0 var(--radius-ml) var(--radius-ml);
-		}
-
 		&:focus-within,
 		&.selected {
 			background-color: var(--clr-selected-not-in-focus-bg);
