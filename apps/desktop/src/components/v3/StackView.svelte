@@ -156,6 +156,8 @@
 			}, 500);
 		}
 	});
+
+	const startCommitVisible = $derived(uncommittedService.startCommitVisible(stack.id));
 </script>
 
 <AsyncRender>
@@ -198,64 +200,66 @@
 			<ReduxResult {projectId} result={branchesResult.current}>
 				{#snippet children(branches)}
 					<ConfigurableScrollableContainer>
-						<div
-							class="assignments-wrap"
-							class:assignments__empty={changes.current.length === 0 && !isCommitting}
-							class:committing-when-empty={isCommitting && changes.current.length === 0}
-						>
+						{#if startCommitVisible.current}
 							<div
-								class="worktree-wrap"
-								class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
+								class="assignments-wrap"
+								class:assignments__empty={changes.current.length === 0 && !isCommitting}
+								class:committing-when-empty={isCommitting && changes.current.length === 0}
 							>
-								<WorktreeChanges
-									title="Assigned"
-									{projectId}
-									stackId={stack.id}
-									mode="assigned"
-									active={focusedStackId === stack.id}
-									dropzoneVisible={changes.current.length === 0 && !isCommitting}
-									onDropzoneActivated={(activated) => {
-										dropzoneActivated = activated;
-									}}
-									onselect={() => {
-										// Clear one selection when you modify the other.
-										stackState?.selection.set(undefined);
-									}}
+								<div
+									class="worktree-wrap"
+									class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
 								>
-									{#snippet emptyPlaceholder()}
-										{#if !isCommitting}
-											<div class="assigned-changes-empty">
-												<p class="text-12 text-body assigned-changes-empty__text">
-													Drop files to assign to the lane
-												</p>
-											</div>
-										{/if}
-									{/snippet}
-								</WorktreeChanges>
-							</div>
+									<WorktreeChanges
+										title="Assigned"
+										{projectId}
+										stackId={stack.id}
+										mode="assigned"
+										active={focusedStackId === stack.id}
+										dropzoneVisible={changes.current.length === 0 && !isCommitting}
+										onDropzoneActivated={(activated) => {
+											dropzoneActivated = activated;
+										}}
+										onselect={() => {
+											// Clear one selection when you modify the other.
+											stackState?.selection.set(undefined);
+										}}
+									>
+										{#snippet emptyPlaceholder()}
+											{#if !isCommitting}
+												<div class="assigned-changes-empty">
+													<p class="text-12 text-body assigned-changes-empty__text">
+														Drop files to assign to the lane
+													</p>
+												</div>
+											{/if}
+										{/snippet}
+									</WorktreeChanges>
+								</div>
 
-							<div class="new-commit">
-								{#if !isCommitting}
-									<div class="start-commit">
-										<Button
-											testId={TestId.StartCommitButton}
-											type="button"
-											wide
-											disabled={defaultBranchResult?.current.isLoading}
-											onclick={() => {
-												startCommit();
-											}}
-										>
-											Start a commit…
-										</Button>
-									</div>
-								{:else if isCommitting}
-									<div class="message-editor" data-testid={TestId.NewCommitView}>
-										<NewCommitView {projectId} stackId={stack.id} noDrawer />
-									</div>
-								{/if}
+								<div class="new-commit">
+									{#if !isCommitting}
+										<div class="start-commit">
+											<Button
+												testId={TestId.StartCommitButton}
+												type="button"
+												wide
+												disabled={defaultBranchResult?.current.isLoading}
+												onclick={() => {
+													startCommit();
+												}}
+											>
+												Start a commit…
+											</Button>
+										</div>
+									{:else if isCommitting}
+										<div class="message-editor" data-testid={TestId.NewCommitView}>
+											<NewCommitView {projectId} stackId={stack.id} noDrawer />
+										</div>
+									{/if}
+								</div>
 							</div>
-						</div>
+						{/if}
 
 						<BranchList
 							{projectId}
