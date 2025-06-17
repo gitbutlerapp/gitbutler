@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import ReduxResult from '$components/ReduxResult.svelte';
+	import Resizer from '$components/Resizer.svelte';
+	import Scrollbar from '$components/Scrollbar.svelte';
 	import BranchExplorer, { type SelectedOption } from '$components/v3/BranchExplorer.svelte';
 	import BranchView from '$components/v3/BranchView.svelte';
 	import BranchesViewBranch from '$components/v3/BranchesViewBranch.svelte';
@@ -48,8 +50,12 @@
 
 	const baseBranchResult = $derived(baseBranchService.baseBranch(projectId));
 	const branchesSelection = $derived(projectState.branchesSelection);
-
 	const selectedOption = persisted<SelectedOption>('all', `branches-selectedOption-${projectId}`);
+
+	let branchColumn = $state<HTMLDivElement>();
+	let commitColumn = $state<HTMLDivElement>();
+	let previewColumn = $state<HTMLDivElement>();
+	let rightWrapper = $state<HTMLDivElement>();
 
 	const selectionId: SelectionId | undefined = $derived.by(() => {
 		const current = branchesState?.current;
@@ -166,17 +172,13 @@
 		{@const lastCommit = baseBranch.recentCommits.at(0)}
 		{@const current = branchesState.current}
 		{@const someBranchSelected = current.branchName !== undefined}
-		{@const inWorkspaceOrTargetBranch =
-			current.inWorkspace || current.branchName === baseBranch.shortName}
+		{@const isTargetBranch = current.branchName === baseBranch.shortName}
+		{@const inWorkspaceOrTargetBranch = current.inWorkspace || isTargetBranch}
 		{@const isStackOrNormalBranchPreview =
-			current.stackId || (current.branchName && current.branchName !== baseBranch.shortName)}
+			current.stackId || (current.branchName && isTargetBranch)}
 		{@const isNonLocalPr = !isStackOrNormalBranchPreview && current.prNumber !== undefined}
 
-		<MainViewport
-			name="branches"
-			leftWidth={{ default: 360, min: 280 }}
-			middleWidth={{ default: 360, min: 280 }}
-		>
+		<MainViewport name="branches" leftWidth={{ default: 360, min: 280 }}>
 			{#snippet left()}
 				<BranchesListGroup title="Current workspace target">
 					<!-- TODO: We need an API for `commitsCount`! -->
@@ -250,8 +252,8 @@
 			{/snippet}
 
 			{#snippet right()}
-				<div class="right-wrapper">
-					<div class="details">
+				<div class="right-wrapper hide-native-scrollbar" bind:this={rightWrapper}>
+					<div class="branch-column" bind:this={branchColumn}>
 						<!-- Apply branch -->
 						{#if !inWorkspaceOrTargetBranch && someBranchSelected}
 							{@const doesNotHaveLocalTooltip = current.hasLocal
@@ -306,8 +308,8 @@
 							</div>
 						{/if}
 
-						<div class="branch-commits dotted-container">
-							{#if (current.branchName === undefined && current.prNumber === undefined) || current.branchName === baseBranch.shortName}
+						<div class="commits dotted-container" class:target-branch={isTargetBranch}>
+							{#if isTargetBranch || (current.branchName === undefined && current.prNumber === undefined)}
 								<TargetCommitList {projectId} />
 							{:else if current.stackId}
 								<BranchesViewStack {projectId} stackId={current.stackId} {onerror} />
@@ -327,8 +329,17 @@
 								/>
 							{/if}
 						</div>
+
+						<Resizer
+							viewport={branchColumn}
+							persistId="branches-branch-column"
+							direction="right"
+							defaultValue={15}
+							minWidth={10}
+							maxWidth={30}
+						/>
 					</div>
-					<div class="details">
+					<div class="commit-column" bind:this={commitColumn}>
 						{#if current.commitId}
 							<UnappliedCommitView {projectId} commitId={current.commitId} />
 						{:else if current.branchName}
@@ -353,25 +364,63 @@
 							{/if}
 						{:else if current.prNumber}
 							<PrBranchView {projectId} prNumber={current.prNumber} {onerror} />
-						{:else if !current.branchName && !current.prNumber}
-							<!-- TODO: Make this fallback better somehow? -->
-							<UnappliedBranchView
-								{projectId}
-								branchName={baseBranch.shortName}
-								remote={baseBranch.remoteName}
-								{onerror}
-							/>
 						{/if}
+						<Resizer
+							viewport={commitColumn}
+							persistId="branches-branch-column"
+							direction="right"
+							defaultValue={15}
+							minWidth={10}
+							maxWidth={30}
+						/>
 					</div>
-					<SelectionView {projectId} {selectionId} draggableFiles />
+					<div class="preview-column" bind:this={previewColumn}>
+						<SelectionView {projectId} {selectionId} draggableFiles />
+						<Resizer
+							viewport={previewColumn}
+							persistId="branches-preview-column"
+							direction="right"
+							defaultValue={35}
+							minWidth={20}
+							maxWidth={90}
+						/>
+					</div>
 				</div>
+				<Scrollbar viewport={rightWrapper} horz />
 			{/snippet}
 		</MainViewport>
 	{/snippet}
 </ReduxResult>
 
 <style lang="postcss">
-	.branch-commits {
+	.branch-column {
+		display: flex;
+		position: relative;
+		flex-grow: 0;
+		flex-shrink: 0;
+		flex-direction: column;
+		max-height: calc(100% + 1px);
+		border-right: 1px solid var(--clr-border-2);
+	}
+
+	.commit-column {
+		position: relative;
+		flex-grow: 0;
+		flex-shrink: 0;
+		max-height: calc(100% + 1px);
+		overflow: hidden;
+		border-right: 1px solid var(--clr-border-2);
+	}
+
+	.preview-column {
+		position: relative;
+		flex-grow: 0;
+		flex-shrink: 0;
+		max-height: calc(100% + 1px);
+		overflow: hidden;
+	}
+
+	.commits {
 		display: flex;
 		position: relative;
 		flex: 1;
@@ -391,6 +440,10 @@
 	.dotted-container {
 		padding: 12px;
 		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
+		&.target-branch {
+			padding: 0;
+			border-radius: 0;
+		}
 	}
 
 	.right-wrapper {
@@ -398,15 +451,6 @@
 		position: relative;
 		height: 100%;
 		overflow: hidden;
-	}
-
-	.details {
-		position: relative;
-		flex-grow: 0;
-		flex-shrink: 0;
-		flex-basis: 33%;
-		align-items: start;
-		max-height: calc(100% + 1px);
-		border-right: 1px solid var(--clr-border-2);
+		overflow-x: auto;
 	}
 </style>
