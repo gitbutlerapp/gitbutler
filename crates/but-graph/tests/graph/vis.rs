@@ -102,12 +102,12 @@ fn post_graph_traversal() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     └── 👉►►►:0:main <> origin/main
         ├── ►:3:A <> origin/A
-        │   ├── 🔵💥aaaaaaa (InW)❱"2 in A"
-        │   └── 🔵febafeb (InW)❱"1 in A"
+        │   ├── 🟣💥aaaaaaa (InW)❱"2 in A"
+        │   └── 🟣febafeb (InW)❱"1 in A"
         │       └── ►:4:origin/A
-        │           └── 🔵bbbbbbb❱"remote: on top of 1A"
+        │           └── 🟣bbbbbbb❱"remote: on top of 1A"
         ├── ►:2:origin/main
-        │   └── 🔵ccccccc❱"remote: on top of main"
+        │   └── 🟣ccccccc❱"remote: on top of main"
         └── ►:1:new-stack
     "#);
 
@@ -128,7 +128,7 @@ fn detached_head() {
     });
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     └── 👉►:0:anon:
-        └── 🔵aaaaaaa❱"init"
+        └── 🟣aaaaaaa❱"init"
     "#);
 }
 

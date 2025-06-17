@@ -193,7 +193,7 @@ impl Graph {
             // pick these up first.
             next.push_front((
                 ws_tip,
-                CommitFlags::InWorkspace,
+                CommitFlags::InWorkspace | CommitFlags::NotInRemote,
                 Instruction::CollectCommit { into: ws_segment },
             ));
         }

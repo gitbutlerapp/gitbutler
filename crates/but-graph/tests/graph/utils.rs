@@ -1,6 +1,4 @@
-use bstr::ByteSlice;
-use but_graph::{EntryPoint, LocalCommitRelation, SegmentIndex};
-use gix::refs::Category;
+use but_graph::{EntryPoint, Graph, LocalCommitRelation, SegmentIndex};
 use std::collections::{BTreeMap, BTreeSet};
 use termtree::Tree;
 
@@ -8,70 +6,13 @@ type SegmentTree = Tree<String>;
 
 /// Visualize `graph` as a tree.
 pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
-    enum CommitKind {
-        Local,
-        Remote,
-    }
-    fn shorten_ref(name: &gix::refs::FullName) -> String {
-        let (cat, sn) = name.category_and_short_name().expect("valid refs");
-        // Only shorten those that look good and are unambiguous enough.
-        if matches!(cat, Category::LocalBranch | Category::RemoteBranch) {
-            sn
-        } else {
-            name.as_bstr()
-                .strip_prefix(b"refs/")
-                .map(|n| n.as_bstr())
-                .unwrap_or(name.as_bstr())
-        }
-        .to_string()
-    }
     fn tree_for_commit<'a>(
         commit: &but_graph::Commit,
         extra: impl Into<Option<&'a str>>,
         has_conflicts: bool,
         is_entrypoint: bool,
-        kind: CommitKind,
     ) -> SegmentTree {
-        let extra = extra.into();
-        format!(
-            "{ep}{kind}{conflict}{hex}{extra}{flags}❱{msg:?}{refs}",
-            ep = if is_entrypoint { "👉" } else { "" },
-            kind = match kind {
-                CommitKind::Local => {
-                    "🔵"
-                }
-                CommitKind::Remote => {
-                    "🟣"
-                }
-            },
-            conflict = if has_conflicts { "💥" } else { "" },
-            extra = if let Some(extra) = extra {
-                format!(" [{extra}]")
-            } else {
-                "".into()
-            },
-            flags = if !commit.flags.is_empty() {
-                format!(" ({})", commit.flags.debug_string())
-            } else {
-                "".to_string()
-            },
-            hex = commit.id.to_hex_with_len(7),
-            msg = commit.message.trim().as_bstr(),
-            refs = if commit.refs.is_empty() {
-                "".to_string()
-            } else {
-                format!(
-                    " {}",
-                    commit
-                        .refs
-                        .iter()
-                        .map(|rn| format!("►{}", { shorten_ref(rn) }))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                )
-            }
-        )
-        .into()
+        Graph::commit_debug_string(commit, extra, has_conflicts, is_entrypoint, true).into()
     }
     fn recurse_segment(
         graph: &but_graph::Graph,
@@ -85,7 +26,7 @@ pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
                 name = graph[sidx]
                     .ref_name
                     .as_ref()
-                    .map(|n| format!(" ({})", shorten_ref(n)))
+                    .map(|n| format!(" ({})", Graph::ref_debug_string(n)))
                     .unwrap_or_default()
             )
             .into();
@@ -129,12 +70,12 @@ pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
             ref_name = segment
                 .ref_name
                 .as_ref()
-                .map(shorten_ref)
+                .map(Graph::ref_debug_string)
                 .unwrap_or("anon:".into()),
             remote = if let Some(remote_ref_name) = segment.remote_tracking_ref_name.as_ref() {
                 format!(
                     " <> {remote_name}",
-                    remote_name = shorten_ref(remote_ref_name)
+                    remote_name = Graph::ref_debug_string(remote_ref_name)
                 )
             } else {
                 "".into()
@@ -150,7 +91,6 @@ pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
                 },
                 commit.has_conflicts,
                 segment_is_entrypoint && Some(cidx) == ep.commit_index,
-                CommitKind::Local,
             );
             if let Some(segment_indices) = connected_segments.get(&Some(cidx)) {
                 for sidx in segment_indices {
@@ -172,7 +112,6 @@ pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
                 None,
                 commit.has_conflicts,
                 false, /* is_entrypoint */
-                CommitKind::Remote,
             ));
         }
 

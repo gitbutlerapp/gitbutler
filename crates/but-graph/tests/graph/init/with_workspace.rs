@@ -23,14 +23,14 @@ fn single_stack_ambigous() -> anyhow::Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── 👉►►►:0:gitbutler/workspace
-    │   └── 🔵20de6ee (InW|NiR)❱"GitButler Workspace Commit"
+    │   └── ·20de6ee (InW|NiR)❱"GitButler Workspace Commit"
     │       └── ►:1:B
-    │           ├── 🔵70e9a36 (InW|NiR)❱"with-ref"
-    │           ├── 🔵320e105 (InW|NiR)❱"segment-B" ►tags/without-ref
-    │           ├── 🔵2a31450 (InW|NiR)❱"segment-B~1" ►B-empty, ►ambiguous-01
-    │           └── 🔵70bde6b (InW|NiR)❱"segment-A" ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
+    │           ├── ·70e9a36 (InW|NiR)❱"with-ref"
+    │           ├── ·320e105 (InW|NiR)❱"segment-B" ►tags/without-ref
+    │           ├── ·2a31450 (InW|NiR)❱"segment-B~1" ►B-empty, ►ambiguous-01
+    │           └── ·70bde6b (InW|NiR)❱"segment-A" ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
     │               └── ►:3:main
-    │                   └── 🔵fafd9d0 (InW|NiR)❱"init" ►new-A, ►new-B
+    │                   └── ·fafd9d0 (InW|NiR)❱"init" ►new-A, ►new-B
     └── ►:2:origin/main
         └── →:3: (main)
     "#);
@@ -42,15 +42,15 @@ fn single_stack_ambigous() -> anyhow::Result<()> {
         .validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── ►►►:1:gitbutler/workspace
-    │   └── 🔵20de6ee (InW)❱"GitButler Workspace Commit"
+    │   └── ·20de6ee (InW|NiR)❱"GitButler Workspace Commit"
     │       └── ►:2:B
-    │           └── 🔵70e9a36 (InW)❱"with-ref"
+    │           └── ·70e9a36 (InW|NiR)❱"with-ref"
     │               └── 👉►:0:tags/without-ref
-    │                   ├── 🔵320e105 (InW|NiR)❱"segment-B"
-    │                   ├── 🔵2a31450 (InW|NiR)❱"segment-B~1" ►B-empty, ►ambiguous-01
-    │                   └── 🔵70bde6b (InW|NiR)❱"segment-A" ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
+    │                   ├── ·320e105 (InW|NiR)❱"segment-B"
+    │                   ├── ·2a31450 (InW|NiR)❱"segment-B~1" ►B-empty, ►ambiguous-01
+    │                   └── ·70bde6b (InW|NiR)❱"segment-A" ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
     │                       └── ►:4:main
-    │                           └── 🔵fafd9d0 (InW|NiR)❱"init" ►new-A, ►new-B
+    │                           └── ·fafd9d0 (InW|NiR)❱"init" ►new-A, ►new-B
     └── ►:3:origin/main
         └── →:4: (main)
     "#);
@@ -60,15 +60,15 @@ fn single_stack_ambigous() -> anyhow::Result<()> {
         .validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── ►►►:1:gitbutler/workspace
-    │   └── 🔵20de6ee (InW)❱"GitButler Workspace Commit"
+    │   └── ·20de6ee (InW|NiR)❱"GitButler Workspace Commit"
     │       └── ►:2:B
-    │           └── 🔵70e9a36 (InW)❱"with-ref"
+    │           └── ·70e9a36 (InW|NiR)❱"with-ref"
     │               └── ►:0:anon:
-    │                   ├── 👉🔵320e105 (InW|NiR)❱"segment-B" ►tags/without-ref
-    │                   ├── 🔵2a31450 (InW|NiR)❱"segment-B~1" ►B-empty, ►ambiguous-01
-    │                   └── 🔵70bde6b (InW|NiR)❱"segment-A" ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
+    │                   ├── 👉·320e105 (InW|NiR)❱"segment-B" ►tags/without-ref
+    │                   ├── ·2a31450 (InW|NiR)❱"segment-B~1" ►B-empty, ►ambiguous-01
+    │                   └── ·70bde6b (InW|NiR)❱"segment-A" ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
     │                       └── ►:4:main
-    │                           └── 🔵fafd9d0 (InW|NiR)❱"init" ►new-A, ►new-B
+    │                           └── ·fafd9d0 (InW|NiR)❱"init" ►new-A, ►new-B
     └── ►:3:origin/main
         └── →:4: (main)
     "#);
@@ -79,15 +79,15 @@ fn single_stack_ambigous() -> anyhow::Result<()> {
         Graph::from_commit_traversal(b_id_1, None, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── ►►►:1:gitbutler/workspace
-    │   └── 🔵20de6ee (InW)❱"GitButler Workspace Commit"
+    │   └── ·20de6ee (InW|NiR)❱"GitButler Workspace Commit"
     │       └── ►:2:B
-    │           ├── 🔵70e9a36 (InW)❱"with-ref"
-    │           └── 🔵320e105 (InW)❱"segment-B" ►tags/without-ref
+    │           ├── ·70e9a36 (InW|NiR)❱"with-ref"
+    │           └── ·320e105 (InW|NiR)❱"segment-B" ►tags/without-ref
     │               └── ►:0:anon:
-    │                   ├── 👉🔵2a31450 (InW|NiR)❱"segment-B~1" ►B-empty, ►ambiguous-01
-    │                   └── 🔵70bde6b (InW|NiR)❱"segment-A" ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
+    │                   ├── 👉·2a31450 (InW|NiR)❱"segment-B~1" ►B-empty, ►ambiguous-01
+    │                   └── ·70bde6b (InW|NiR)❱"segment-A" ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
     │                       └── ►:4:main
-    │                           └── 🔵fafd9d0 (InW|NiR)❱"init" ►new-A, ►new-B
+    │                           └── ·fafd9d0 (InW|NiR)❱"init" ►new-A, ►new-B
     └── ►:3:origin/main
         └── →:4: (main)
     "#);
@@ -97,15 +97,15 @@ fn single_stack_ambigous() -> anyhow::Result<()> {
         .validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── ►►►:1:gitbutler/workspace
-    │   └── 🔵20de6ee (InW)❱"GitButler Workspace Commit"
+    │   └── ·20de6ee (InW|NiR)❱"GitButler Workspace Commit"
     │       └── ►:2:B
-    │           ├── 🔵70e9a36 (InW)❱"with-ref"
-    │           └── 🔵320e105 (InW)❱"segment-B" ►tags/without-ref
+    │           ├── ·70e9a36 (InW|NiR)❱"with-ref"
+    │           └── ·320e105 (InW|NiR)❱"segment-B" ►tags/without-ref
     │               └── 👉►:0:B-empty
-    │                   ├── 🔵2a31450 (InW|NiR)❱"segment-B~1" ►ambiguous-01
-    │                   └── 🔵70bde6b (InW|NiR)❱"segment-A" ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
+    │                   ├── ·2a31450 (InW|NiR)❱"segment-B~1" ►ambiguous-01
+    │                   └── ·70bde6b (InW|NiR)❱"segment-A" ►A, ►A-empty-01, ►A-empty-02, ►A-empty-03
     │                       └── ►:4:main
-    │                           └── 🔵fafd9d0 (InW|NiR)❱"init" ►new-A, ►new-B
+    │                           └── ·fafd9d0 (InW|NiR)❱"init" ►new-A, ►new-B
     └── ►:3:origin/main
         └── →:4: (main)
     "#);
@@ -145,18 +145,18 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── 👉►►►:0:gitbutler/workspace
-    │   └── 🔵20de6ee (InW|NiR)❱"GitButler Workspace Commit"
+    │   └── ·20de6ee (InW|NiR)❱"GitButler Workspace Commit"
     │       └── ►:1:B
-    │           ├── 🔵70e9a36 (InW|NiR)❱"with-ref"
-    │           └── 🔵320e105 (InW|NiR)❱"segment-B" ►tags/without-ref
+    │           ├── ·70e9a36 (InW|NiR)❱"with-ref"
+    │           └── ·320e105 (InW|NiR)❱"segment-B" ►tags/without-ref
     │               └── ►:4:B-empty
-    │                   └── 🔵2a31450 (InW|NiR)❱"segment-B~1" ►ambiguous-01
+    │                   └── ·2a31450 (InW|NiR)❱"segment-B~1" ►ambiguous-01
     │                       └── ►:5:A-empty-03
     │                           └── ►:6:A-empty-01
     │                               └── ►:7:A
-    │                                   └── 🔵70bde6b (InW|NiR)❱"segment-A" ►A-empty-02
+    │                                   └── ·70bde6b (InW|NiR)❱"segment-A" ►A-empty-02
     │                                       └── ►:3:main
-    │                                           └── 🔵fafd9d0 (InW|NiR)❱"init" ►new-A, ►new-B
+    │                                           └── ·fafd9d0 (InW|NiR)❱"init" ►new-A, ►new-B
     └── ►:2:origin/main
         └── →:3: (main)
     "#);
@@ -238,15 +238,15 @@ fn single_stack() -> anyhow::Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── 👉►►►:0:gitbutler/workspace
-    │   └── 🔵2c12d75 (InW|NiR)❱"GitButler Workspace Commit"
+    │   └── ·2c12d75 (InW|NiR)❱"GitButler Workspace Commit"
     │       └── ►:1:B
-    │           └── 🔵320e105 (InW|NiR)❱"segment-B"
+    │           └── ·320e105 (InW|NiR)❱"segment-B"
     │               └── ►:2:B-sub
-    │                   └── 🔵2a31450 (InW|NiR)❱"segment-B~1"
+    │                   └── ·2a31450 (InW|NiR)❱"segment-B~1"
     │                       └── ►:3:A
-    │                           └── 🔵70bde6b (InW|NiR)❱"segment-A"
+    │                           └── ·70bde6b (InW|NiR)❱"segment-A"
     │                               └── ►:5:main
-    │                                   └── 🔵fafd9d0 (InW|NiR)❱"init" ►new-A
+    │                                   └── ·fafd9d0 (InW|NiR)❱"init" ►new-A
     └── ►:4:origin/main
         └── →:5: (main)
     "#);
@@ -276,16 +276,16 @@ fn single_stack() -> anyhow::Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── 👉►►►:0:gitbutler/workspace
-    │   └── 🔵2c12d75 (InW|NiR)❱"GitButler Workspace Commit"
+    │   └── ·2c12d75 (InW|NiR)❱"GitButler Workspace Commit"
     │       └── ►:1:B
-    │           └── 🔵320e105 (InW|NiR)❱"segment-B"
+    │           └── ·320e105 (InW|NiR)❱"segment-B"
     │               └── ►:2:B-sub
-    │                   └── 🔵2a31450 (InW|NiR)❱"segment-B~1"
+    │                   └── ·2a31450 (InW|NiR)❱"segment-B~1"
     │                       └── ►:3:A
-    │                           └── 🔵70bde6b (InW|NiR)❱"segment-A"
+    │                           └── ·70bde6b (InW|NiR)❱"segment-A"
     │                               └── ►:5:main
     │                                   └── ►:6:new-A
-    │                                       └── 🔵fafd9d0 (InW|NiR)❱"init"
+    │                                       └── ·fafd9d0 (InW|NiR)❱"init"
     └── ►:4:origin/main
         └── →:5: (main)
     "#);
@@ -315,22 +315,22 @@ fn minimal_merge_no_refs() -> anyhow::Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     └── 👉►:0:gitbutler/workspace
-        └── 🔵47e1cf1 (NiR)❱"GitButler Workspace Commit"
+        └── ·47e1cf1 (NiR)❱"GitButler Workspace Commit"
             └── ►:1:anon:
-                └── 🔵f40fb16 (NiR)❱"Merge branch \'C\' into merge-2"
+                └── ·f40fb16 (NiR)❱"Merge branch \'C\' into merge-2"
                     ├── ►:3:anon:
-                    │   └── 🔵c6d714c (NiR)❱"C"
+                    │   └── ·c6d714c (NiR)❱"C"
                     │       └── ►:4:anon:
-                    │           └── 🔵0cc5a6f (NiR)❱"Merge branch \'A\' into merge"
+                    │           └── ·0cc5a6f (NiR)❱"Merge branch \'A\' into merge"
                     │               ├── ►:6:anon:
-                    │               │   └── 🔵e255adc (NiR)❱"A"
+                    │               │   └── ·e255adc (NiR)❱"A"
                     │               │       └── ►:7:anon:
-                    │               │           └── 🔵fafd9d0 (NiR)❱"init"
+                    │               │           └── ·fafd9d0 (NiR)❱"init"
                     │               └── ►:5:anon:
-                    │                   └── 🔵7fdb58d (NiR)❱"B"
+                    │                   └── ·7fdb58d (NiR)❱"B"
                     │                       └── →:7:
                     └── ►:2:anon:
-                        └── 🔵450c58a (NiR)❱"D"
+                        └── ·450c58a (NiR)❱"D"
                             └── →:4:
     "#);
     Ok(())
@@ -358,16 +358,16 @@ fn segment_on_each_incoming_connection() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(id, name, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── 👉►:0:entrypoint
-    │   ├── 🔵98c5aba (NiR)❱"C"
-    │   ├── 🔵807b6ce (NiR)❱"B"
-    │   └── 🔵6d05486 (NiR)❱"A"
+    │   ├── ·98c5aba (NiR)❱"C"
+    │   ├── ·807b6ce (NiR)❱"B"
+    │   └── ·6d05486 (NiR)❱"A"
     │       └── ►:3:anon:
-    │           ├── 🔵b688f2d (InW|NiR)❱"other-1"
-    │           └── 🔵fafd9d0 (InW|NiR)❱"init"
+    │           ├── ·b688f2d (InW|NiR)❱"other-1"
+    │           └── ·fafd9d0 (InW|NiR)❱"init"
     └── ►►►:1:gitbutler/workspace
-        └── 🔵b6917c7 (InW)❱"GitButler Workspace Commit"
+        └── ·b6917c7 (InW|NiR)❱"GitButler Workspace Commit"
             └── ►:2:main
-                └── 🔵f7fe830 (InW)❱"other-2"
+                └── ·f7fe830 (InW|NiR)❱"other-2"
                     └── →:3:
     "#);
     Ok(())
@@ -395,22 +395,22 @@ fn minimal_merge() -> anyhow::Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── 👉►:0:gitbutler/workspace
-    │   └── 🔵47e1cf1 (NiR)❱"GitButler Workspace Commit"
+    │   └── ·47e1cf1 (NiR)❱"GitButler Workspace Commit"
     │       └── ►:1:merge-2
-    │           └── 🔵f40fb16 (NiR)❱"Merge branch \'C\' into merge-2"
+    │           └── ·f40fb16 (NiR)❱"Merge branch \'C\' into merge-2"
     │               ├── ►:3:C
-    │               │   └── 🔵c6d714c (NiR)❱"C"
+    │               │   └── ·c6d714c (NiR)❱"C"
     │               │       └── ►:4:anon:
-    │               │           └── 🔵0cc5a6f (NiR)❱"Merge branch \'A\' into merge" ►empty-1-on-merge, ►empty-2-on-merge, ►merge
+    │               │           └── ·0cc5a6f (NiR)❱"Merge branch \'A\' into merge" ►empty-1-on-merge, ►empty-2-on-merge, ►merge
     │               │               ├── ►:6:A
-    │               │               │   └── 🔵e255adc (NiR)❱"A"
+    │               │               │   └── ·e255adc (NiR)❱"A"
     │               │               │       └── ►:7:main
-    │               │               │           └── 🔵fafd9d0 (NiR)❱"init"
+    │               │               │           └── ·fafd9d0 (NiR)❱"init"
     │               │               └── ►:5:B
-    │               │                   └── 🔵7fdb58d (NiR)❱"B"
+    │               │                   └── ·7fdb58d (NiR)❱"B"
     │               │                       └── →:7: (main)
     │               └── ►:2:D
-    │                   └── 🔵450c58a (NiR)❱"D"
+    │                   └── ·450c58a (NiR)❱"D"
     │                       └── →:4:
     └── ►:8:origin/main
         └── →:7: (main)
@@ -428,24 +428,24 @@ fn minimal_merge() -> anyhow::Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── 👉►►►:0:gitbutler/workspace
-    │   └── 🔵47e1cf1 (InW|NiR)❱"GitButler Workspace Commit"
+    │   └── ·47e1cf1 (InW|NiR)❱"GitButler Workspace Commit"
     │       └── ►:1:merge-2
-    │           └── 🔵f40fb16 (InW|NiR)❱"Merge branch \'C\' into merge-2"
+    │           └── ·f40fb16 (InW|NiR)❱"Merge branch \'C\' into merge-2"
     │               ├── ►:3:C
-    │               │   └── 🔵c6d714c (InW|NiR)❱"C"
+    │               │   └── ·c6d714c (InW|NiR)❱"C"
     │               │       └── ►:9:empty-2-on-merge
     │               │           └── ►:10:empty-1-on-merge
     │               │               └── ►:11:merge
-    │               │                   └── 🔵0cc5a6f (InW|NiR)❱"Merge branch \'A\' into merge"
+    │               │                   └── ·0cc5a6f (InW|NiR)❱"Merge branch \'A\' into merge"
     │               │                       ├── ►:5:B
-    │               │                       │   └── 🔵7fdb58d (InW|NiR)❱"B"
+    │               │                       │   └── ·7fdb58d (InW|NiR)❱"B"
     │               │                       │       └── ►:7:main
-    │               │                       │           └── 🔵fafd9d0 (InW|NiR)❱"init"
+    │               │                       │           └── ·fafd9d0 (InW|NiR)❱"init"
     │               │                       └── ►:6:A
-    │               │                           └── 🔵e255adc (InW|NiR)❱"A"
+    │               │                           └── ·e255adc (InW|NiR)❱"A"
     │               │                               └── →:7: (main)
     │               └── ►:2:D
-    │                   └── 🔵450c58a (InW|NiR)❱"D"
+    │                   └── ·450c58a (InW|NiR)❱"D"
     │                       └── →:9: (empty-2-on-merge)
     └── ►:8:origin/main
         └── →:7: (main)
@@ -466,7 +466,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── ►►►:1:gitbutler/workspace
     │   └── 👉►:0:main
-    │       └── 🔵fafd9d0 (InW|NiR)❱"init" ►A, ►B, ►C, ►D, ►E, ►F
+    │       └── ·fafd9d0 (InW|NiR)❱"init" ►A, ►B, ►C, ►D, ►E, ►F
     └── ►:2:origin/main
         └── →:0: (main)
     "#);
@@ -495,7 +495,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
     │       └── ►:3:C
     │           └── ►:4:B
     │               └── ►:5:A
-    │                   └── 🔵fafd9d0 (InW|NiR)❱"init" ►D, ►E, ►F
+    │                   └── ·fafd9d0 (InW|NiR)❱"init" ►D, ►E, ►F
     └── ►:2:origin/main
         └── →:0: (main)
     "#);
@@ -519,13 +519,13 @@ fn proper_remote_ahead() -> anyhow::Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── 👉►►►:0:gitbutler/workspace
-    │   └── 🔵9bcd3af (InW|NiR)❱"GitButler Workspace Commit"
+    │   └── ·9bcd3af (InW|NiR)❱"GitButler Workspace Commit"
     │       └── ►:1:main
-    │           ├── 🔵998eae6 (InW|NiR)❱"shared"
-    │           └── 🔵fafd9d0 (InW|NiR)❱"init"
+    │           ├── ·998eae6 (InW|NiR)❱"shared"
+    │           └── ·fafd9d0 (InW|NiR)❱"init"
     └── ►:2:origin/main
-        ├── 🔵ca7baa7❱"only-remote-02"
-        └── 🔵7ea1468❱"only-remote-01"
+        ├── 🟣ca7baa7❱"only-remote-02"
+        └── 🟣7ea1468❱"only-remote-01"
             └── →:1: (main)
     "#);
     Ok(())
@@ -548,13 +548,13 @@ fn deduced_remote_ahead() -> anyhow::Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── 👉►►►:0:gitbutler/workspace
-    │   └── 🔵9bcd3af (InW|NiR)❱"GitButler Workspace Commit"
+    │   └── ·9bcd3af (InW|NiR)❱"GitButler Workspace Commit"
     │       └── ►:1:main
-    │           ├── 🔵998eae6 (InW|NiR)❱"shared"
-    │           └── 🔵fafd9d0 (InW|NiR)❱"init"
+    │           ├── ·998eae6 (InW|NiR)❱"shared"
+    │           └── ·fafd9d0 (InW|NiR)❱"init"
     └── ►:2:origin/main
-        ├── 🔵ca7baa7❱"only-remote-02"
-        └── 🔵7ea1468❱"only-remote-01"
+        ├── 🟣ca7baa7❱"only-remote-02"
+        └── 🟣7ea1468❱"only-remote-01"
             └── →:1: (main)
     "#);
 
@@ -562,14 +562,14 @@ fn deduced_remote_ahead() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(id, None, &*meta, standard_options())?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── ►►►:1:gitbutler/workspace
-    │   └── 🔵9bcd3af (InW)❱"GitButler Workspace Commit"
+    │   └── ·9bcd3af (InW|NiR)❱"GitButler Workspace Commit"
     │       └── ►:2:main
-    │           └── 🔵998eae6 (InW)❱"shared"
+    │           └── ·998eae6 (InW|NiR)❱"shared"
     │               └── ►:0:anon:
-    │                   └── 👉🔵fafd9d0 (InW|NiR)❱"init"
+    │                   └── 👉·fafd9d0 (InW|NiR)❱"init"
     └── ►:3:origin/main
-        ├── 🔵ca7baa7❱"only-remote-02"
-        └── 🔵7ea1468❱"only-remote-01"
+        ├── 🟣ca7baa7❱"only-remote-02"
+        └── 🟣7ea1468❱"only-remote-01"
             └── →:2: (main)
     "#);
     Ok(())
@@ -594,17 +594,17 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── 👉►►►:0:gitbutler/workspace
-    │   └── 🔵7786959 (InW|NiR)❱"GitButler Workspace Commit"
+    │   └── ·7786959 (InW|NiR)❱"GitButler Workspace Commit"
     │       └── ►:1:B
-    │           └── 🔵312f819 (InW|NiR)❱"B"
+    │           └── ·312f819 (InW|NiR)❱"B"
     │               └── ►:3:A
-    │                   └── 🔵e255adc (InW|NiR)❱"A"
+    │                   └── ·e255adc (InW|NiR)❱"A"
     │                       └── ►:5:main
-    │                           └── 🔵fafd9d0 (InW|NiR)❱"init"
+    │                           └── ·fafd9d0 (InW|NiR)❱"init"
     ├── ►:2:origin/B
-    │   └── 🔵682be32❱"B"
+    │   └── 🟣682be32❱"B"
     │       └── ►:4:origin/A
-    │           └── 🔵e29c23d❱"A"
+    │           └── 🟣e29c23d❱"A"
     │               └── →:5: (main)
     └── ►:6:origin/main
         └── →:5: (main)
@@ -615,17 +615,17 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(id, name, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── ►►►:1:gitbutler/workspace
-    │   └── 🔵7786959 (InW)❱"GitButler Workspace Commit"
+    │   └── ·7786959 (InW|NiR)❱"GitButler Workspace Commit"
     │       └── ►:3:B
-    │           └── 🔵312f819 (InW)❱"B"
+    │           └── ·312f819 (InW|NiR)❱"B"
     │               └── 👉►:0:A
-    │                   └── 🔵e255adc (InW|NiR)❱"A"
+    │                   └── ·e255adc (InW|NiR)❱"A"
     │                       └── ►:5:main
-    │                           └── 🔵fafd9d0 (InW|NiR)❱"init"
+    │                           └── ·fafd9d0 (InW|NiR)❱"init"
     ├── ►:4:origin/B
-    │   └── 🔵682be32❱"B"
+    │   └── 🟣682be32❱"B"
     │       └── ►:2:origin/A
-    │           └── 🔵e29c23d❱"A"
+    │           └── 🟣e29c23d❱"A"
     │               └── →:5: (main)
     └── ►:6:origin/main
         └── →:5: (main)
@@ -657,21 +657,21 @@ fn disambiguate_by_remote() -> anyhow::Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── 👉►►►:0:gitbutler/workspace
-    │   └── 🔵e30f90c (InW|NiR)❱"GitButler Workspace Commit"
+    │   └── ·e30f90c (InW|NiR)❱"GitButler Workspace Commit"
     │       └── ►:4:anon:
-    │           └── 🔵2173153 (InW|NiR)❱"C" ►C, ►ambiguous-C
+    │           └── ·2173153 (InW|NiR)❱"C" ►C, ►ambiguous-C
     │               └── ►:9:B
-    │                   └── 🔵312f819 (InW|NiR)❱"B" ►ambiguous-B
+    │                   └── ·312f819 (InW|NiR)❱"B" ►ambiguous-B
     │                       └── ►:8:A
-    │                           └── 🔵e255adc (InW|NiR)❱"A" ►ambiguous-A
+    │                           └── ·e255adc (InW|NiR)❱"A" ►ambiguous-A
     │                               └── ►:6:main
-    │                                   └── 🔵fafd9d0 (InW|NiR)❱"init"
+    │                                   └── ·fafd9d0 (InW|NiR)❱"init"
     ├── ►:1:origin/C
     │   └── →:4:
     ├── ►:2:origin/ambiguous-C
     │   └── →:4:
     ├── ►:3:origin/B
-    │   └── 🔵ac24e74❱"remote-of-B"
+    │   └── 🟣ac24e74❱"remote-of-B"
     │       └── →:9: (B)
     ├── ►:5:origin/A
     │   └── →:8: (A)

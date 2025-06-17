@@ -1,12 +1,15 @@
 use crate::init::PetGraph;
-use crate::{CommitIndex, Edge, EntryPoint, Graph, Segment, SegmentIndex};
+use crate::{CommitFlags, CommitIndex, Edge, EntryPoint, Graph, Segment, SegmentIndex};
 use anyhow::{Context, bail};
 use bstr::ByteSlice;
 use gix::refs::Category;
 use petgraph::Direction;
 use petgraph::graph::EdgeReference;
 use petgraph::prelude::EdgeRef;
+use std::io::Write;
 use std::ops::{Index, IndexMut};
+use std::process::Stdio;
+use std::sync::atomic::AtomicUsize;
 
 /// Mutation
 impl Graph {
@@ -167,6 +170,71 @@ impl Graph {
         Ok(self)
     }
 
+    /// Produce a string that concisely represents `commit`, adding `extra` information as needed.
+    pub fn commit_debug_string<'a>(
+        commit: &crate::Commit,
+        extra: impl Into<Option<&'a str>>,
+        has_conflicts: bool,
+        is_entrypoint: bool,
+        show_message: bool,
+    ) -> String {
+        let extra = extra.into();
+        format!(
+            "{ep}{kind}{conflict}{hex}{extra}{flags}{msg}{refs}",
+            ep = if is_entrypoint { "👉" } else { "" },
+            kind = if commit.flags.contains(CommitFlags::NotInRemote) {
+                "·"
+            } else {
+                "🟣"
+            },
+            conflict = if has_conflicts { "💥" } else { "" },
+            extra = if let Some(extra) = extra {
+                format!(" [{extra}]")
+            } else {
+                "".into()
+            },
+            flags = if !commit.flags.is_empty() {
+                format!(" ({})", commit.flags.debug_string())
+            } else {
+                "".to_string()
+            },
+            hex = commit.id.to_hex_with_len(7),
+            msg = if show_message {
+                format!("❱{:?}", commit.message.trim().as_bstr())
+            } else {
+                "".into()
+            },
+            refs = if commit.refs.is_empty() {
+                "".to_string()
+            } else {
+                format!(
+                    " {}",
+                    commit
+                        .refs
+                        .iter()
+                        .map(|rn| format!("►{}", { Self::ref_debug_string(rn) }))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            }
+        )
+    }
+
+    /// Shorten the given `name` so it's still clear if it is a special ref (like tag) or not.
+    pub fn ref_debug_string(name: &gix::refs::FullName) -> String {
+        let (cat, sn) = name.category_and_short_name().expect("valid refs");
+        // Only shorten those that look good and are unambiguous enough.
+        if matches!(cat, Category::LocalBranch | Category::RemoteBranch) {
+            sn
+        } else {
+            name.as_bstr()
+                .strip_prefix(b"refs/")
+                .map(|n| n.as_bstr())
+                .unwrap_or(name.as_bstr())
+        }
+        .to_string()
+    }
+
     /// Validate the graph for consistency and fail loudly when an issue was found, after printing the dot graph.
     /// Mostly useful for debugging to stop early when a connection wasn't created correctly.
     pub(crate) fn validate_or_eprint_dot(&mut self) -> anyhow::Result<()> {
@@ -193,6 +261,42 @@ impl Graph {
         eprintln!("{dot}");
     }
 
+    /// Open an SVG dot visualization in the browser or panic if the `dot` or `open` tool can't be found.
+    #[cfg(target_os = "macos")]
+    pub fn open_dot_graph(&self) {
+        static SUFFIX: AtomicUsize = AtomicUsize::new(0);
+        let suffix = SUFFIX.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let svg_name = format!("debug-graph-{suffix:02}.svg");
+        let mut dot = std::process::Command::new("dot")
+            .args(["-Tsvg", "-o", &svg_name])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("'dot' (graphviz) must be installed on the system");
+        dot.stdin
+            .as_mut()
+            .unwrap()
+            .write_all(self.dot_graph().as_bytes())
+            .unwrap();
+        let mut out = dot.wait_with_output().unwrap();
+        out.stdout.extend(out.stderr);
+        assert!(
+            out.status.success(),
+            "dot failed: {out}",
+            out = out.stdout.as_bstr()
+        );
+
+        assert!(
+            std::process::Command::new("open")
+                .arg(&svg_name)
+                .status()
+                .unwrap()
+                .success(),
+            "Opening of {svg_name} failed"
+        );
+    }
+
     /// Produces a dot-version of the graph.
     pub fn dot_graph(&self) -> String {
         const HEX: usize = 7;
@@ -216,51 +320,33 @@ impl Graph {
                     .commit_id_by_index(e.dst)
                     .map(|c| c.to_hex_with_len(HEX).to_string())
                     .unwrap_or_else(|| "dst".into());
-                format!(", label = \"⚠️{src} → {dst} ({err})\"")
+                format!(", label = \"⚠️{src} → {dst} ({err})\", fontname = Courier")
             },
             &|_, (sidx, s)| {
-                format!(
-                    ", shape = box, label = \":{id}:{name}\n{commits}\"",
-                    id = sidx.index(),
-                    name = s
-                        .ref_name
+                let name = format!(
+                    "{}{maybe_centering_newline}",
+                    s.ref_name
                         .as_ref()
                         .map(|rn| rn.shorten())
                         .unwrap_or_else(|| "<anon>".into()),
-                    commits = s
-                        .commits
-                        .iter()
-                        .map(|c| format!(
-                            "{id}{refs}",
-                            id = c.id.to_hex_with_len(HEX),
-                            refs = c
-                                .refs
-                                .iter()
-                                .map(|r| format!("►{name}", name = shorten_ref(r)))
-                                .collect::<Vec<_>>()
-                                .join(",")
-                        ))
-                        .collect::<Vec<_>>()
-                        .join("\n")
+                    maybe_centering_newline = if s.commits.is_empty() { "" } else { "\n" }
+                );
+                let commits = s
+                    .commits
+                    .iter()
+                    .map(|c| {
+                        Self::commit_debug_string(&c.inner, None, c.has_conflicts, false, false)
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\\l");
+                format!(
+                    ", shape = box, label = \":{id}:{name}{commits}\\l\", fontname = Courier, margin = 0.2",
+                    id = sidx.index(),
                 )
             },
         );
         format!("{dot:?}")
     }
-}
-
-fn shorten_ref(name: &gix::refs::FullName) -> String {
-    let (cat, sn) = name.category_and_short_name().expect("valid refs");
-    // Only shorten those that look good and are unambiguous enough.
-    if matches!(cat, Category::LocalBranch | Category::RemoteBranch) {
-        sn
-    } else {
-        name.as_bstr()
-            .strip_prefix(b"refs/")
-            .map(|n| n.as_bstr())
-            .unwrap_or(name.as_bstr())
-    }
-    .to_string()
 }
 
 /// Fail with an error if the `edge` isn't consistent.

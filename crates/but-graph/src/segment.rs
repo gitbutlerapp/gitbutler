@@ -79,7 +79,8 @@ bitflags! {
         /// Note that if this flag isn't present, this means the commit isn't reachable
         /// from a workspace.
         const InWorkspace = 1 << 0;
-        /// Identify commits that have never been owned only by a remote.
+        /// Identify commits that have never been owned *only* by a remote.
+        /// It may be that a remote is directly pointing at them though.
         const NotInRemote = 1 << 1;
     }
 }
