@@ -132,9 +132,7 @@
 		padding-right: 10px;
 		padding-left: 15px;
 		overflow: hidden;
-		border-bottom: 1px solid var(--clr-border-2);
-		border-top-right-radius: var(--radius-ml);
-		border-top-left-radius: var(--radius-ml);
+		/* border-bottom: 1px solid var(--clr-border-2); */
 		background-color: var(--branch-selected-bg);
 
 		/* Selected but NOT in focus */
@@ -213,7 +211,8 @@
 	.branch-hedaer__actions-row {
 		display: flex;
 		padding: 10px;
-		border-bottom: 1px solid var(--clr-border-2);
+		gap: 10px;
+		border-top: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-2);
 
 		/* MODIFIERS */
@@ -222,15 +221,15 @@
 			border-radius: 0 0 var(--radius-ml) var(--radius-ml);
 		}
 	}
-
-	.branch-header__menu {
-		display: flex;
-	}
-
 	.branch-header__actions {
 		display: flex;
 		flex: 1;
 		width: 100%;
+		overflow: hidden;
 		gap: 6px;
+	}
+
+	.branch-header__menu {
+		display: flex;
 	}
 </style>

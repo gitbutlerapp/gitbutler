@@ -52,7 +52,6 @@
 		"dayjs": "^1.11.13",
 		"postcss": "^8.4.38",
 		"postcss-cli": "^11.0.0",
-		"postcss-minify": "^1.1.0",
 		"postcss-nesting": "^12.1.5",
 		"postcss-pxtorem": "^6.1.0",
 		"rimraf": "^6.0.1",

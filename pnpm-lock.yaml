@@ -655,9 +655,6 @@ importers:
       postcss-cli:
         specifier: ^11.0.0
         version: 11.0.0(postcss@8.4.39)(tsx@4.19.3)
-      postcss-minify:
-        specifier: ^1.1.0
-        version: 1.1.0(postcss@8.4.39)
       postcss-nesting:
         specifier: ^12.1.5
         version: 12.1.5(postcss@8.4.39)
@@ -7109,11 +7106,6 @@ packages:
     engines: {node: ^18.12.0 || ^20.9.0 || >=22.0}
     peerDependencies:
       postcss: ^8.4.32
-
-  postcss-minify@1.1.0:
-    resolution: {integrity: sha512-9D64ueIW0DL2FdLajQTlXrnTN8Ox9NjuXqigKMmB819RhdClNPYx5Zp3i5x0ghjjy3vGrLBBYEYvJjY/1eMNbw==}
-    peerDependencies:
-      postcss: ^8.0
 
   postcss-nesting@12.1.5:
     resolution: {integrity: sha512-N1NgI1PDCiAGWPTYrwqm8wpjv0bgDmkYHH72pNsqTCv9CObxjxftdYu6AKtGN+pnJa7FQjMm3v4sp8QJbFsYdQ==}
@@ -16624,12 +16616,6 @@ snapshots:
       cssesc: 3.0.0
       postcss: 8.4.49
       postcss-selector-parser: 7.1.0
-
-  postcss-minify@1.1.0(postcss@8.4.39):
-    dependencies:
-      postcss: 8.4.39
-      postcss-selector-parser: 6.1.0
-      postcss-value-parser: 4.2.0
 
   postcss-nesting@12.1.5(postcss@8.4.39):
     dependencies:
