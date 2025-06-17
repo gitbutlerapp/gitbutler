@@ -11,6 +11,7 @@
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { AssignmentDropHandler } from '$lib/hunks/dropHandler';
+	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -49,11 +50,12 @@
 		onselect
 	}: Props = $props();
 
-	const [uiState, stackService, diffService, uncommittedService] = inject(
+	const [uiState, stackService, diffService, uncommittedService, idSelection] = inject(
 		UiState,
 		StackService,
 		DiffService,
-		UncommittedService
+		UncommittedService,
+		IdSelection
 	);
 
 	const uncommitDzHandler = $derived(
@@ -77,7 +79,13 @@
 	let scrollTopIsVisible = $state(true);
 
 	const assignmentDZHandler = $derived(
-		new AssignmentDropHandler(projectId, diffService, uncommittedService, stackId || null)
+		new AssignmentDropHandler(
+			projectId,
+			diffService,
+			uncommittedService,
+			stackId || null,
+			idSelection
+		)
 	);
 
 	function getDropzoneLabel(handler: DropzoneHandler | undefined): string {
