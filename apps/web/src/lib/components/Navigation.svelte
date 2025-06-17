@@ -11,7 +11,6 @@
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import { env } from '$env/dynamic/public';
 
 	const authService = getContext(AuthService);
 	const token = $derived(authService.tokenReadable);
@@ -24,13 +23,9 @@
 	let ctxUserTriggerButton = $state<HTMLButtonElement | undefined>();
 	let isCtxMenuOpen = $state(false);
 
-	function login() {
-		window.location.href = `${env.PUBLIC_APP_HOST}cloud/login?callback=${window.location.href}`;
-	}
-
 	function logout() {
 		authService.clearToken();
-		window.location.href = `${env.PUBLIC_APP_HOST}cloud/logout?returnTo=${window.location.href}`;
+		window.location.reload();
 	}
 </script>
 
@@ -82,7 +77,9 @@
 			>
 		{:else}
 			<div class="login-signup-wrap">
-				<Button kind="outline" onclick={login}>Join GitButler</Button>
+				<a href={routes.signupPath()}>
+					<Button kind="outline">Join GitButler</Button>
+				</a>
 				<a href={routes.loginPath()} title="Log in" aria-label="Log in">
 					<Button style="pop" icon="signin">Log in</Button>
 				</a>
