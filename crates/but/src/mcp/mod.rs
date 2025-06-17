@@ -86,31 +86,28 @@ impl Mcp {
                 .sum::<usize>()
                 .into()
         });
-        self.metrics.capture(Event::new(
-            EventKind::Mcp,
-            vec![
-                (
-                    "endpoint".to_string(),
-                    "gitbutler_update_branches".to_string(),
-                ),
-                (
-                    "aiCredentialsKind".to_string(),
-                    self.event_handler
-                        .credentials_kind()
-                        .map(|k| k.to_string())
-                        .unwrap_or_else(|| "None".to_string()),
-                ),
-                ("error".to_string(), error.unwrap_or_default()),
-                (
-                    "updatedBranchesCount".to_string(),
-                    updated_branches_count.unwrap_or_default().to_string(),
-                ),
-                (
-                    "commitsCreatedCount".to_string(),
-                    commits_count.unwrap_or_default().to_string(),
-                ),
-            ],
-        ));
+        let mut props = vec![
+            (
+                "endpoint".to_string(),
+                "gitbutler_update_branches".to_string(),
+            ),
+            (
+                "aiCredentialsKind".to_string(),
+                self.event_handler
+                    .credentials_kind()
+                    .map_or("None".to_string(), |k| k.to_string()),
+            ),
+        ];
+        if let Some(error) = &error {
+            props.push(("error".to_string(), error.to_string()));
+        }
+        if let Some(count) = updated_branches_count {
+            props.push(("updatedBranchesCount".to_string(), count.to_string()));
+        }
+        if let Some(count) = commits_count {
+            props.push(("commitsCreatedCount".to_string(), count.to_string()));
+        }
+        self.metrics.capture(Event::new(EventKind::Mcp, props));
 
         result.map(|outcome| Ok(CallToolResult::success(vec![Content::json(outcome)?])))?
     }
