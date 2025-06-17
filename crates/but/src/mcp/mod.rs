@@ -6,7 +6,7 @@ use std::{
 
 mod event;
 use anyhow::Result;
-use but_action::{ActionHandler, Source, reword::CommitEvent};
+use but_action::{ActionHandler, Outcome, Source, reword::CommitEvent};
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
@@ -72,13 +72,53 @@ impl Mcp {
         &self,
         #[tool(aggr)] request: GitButlerUpdateBranchesRequest,
     ) -> Result<CallToolResult, McpError> {
+        let result = self.gitbutler_update_branches_inner(request);
+        let error = result.as_ref().err().map(|e| e.to_string());
+        let updated_branches_count = result
+            .as_ref()
+            .ok()
+            .map(|outcome| outcome.updated_branches.len());
+        let commits_count = result.as_ref().ok().and_then(|outcome| {
+            outcome
+                .updated_branches
+                .iter()
+                .map(|branch| branch.new_commits.len())
+                .sum::<usize>()
+                .into()
+        });
         self.metrics.capture(Event::new(
             EventKind::Mcp,
-            vec![(
-                "endpoint".to_string(),
-                "gitbutler_update_branches".to_string(),
-            )],
+            vec![
+                (
+                    "endpoint".to_string(),
+                    "gitbutler_update_branches".to_string(),
+                ),
+                (
+                    "aiCredentialsKind".to_string(),
+                    self.event_handler
+                        .credentials_kind()
+                        .map(|k| k.to_string())
+                        .unwrap_or_else(|| "None".to_string()),
+                ),
+                ("error".to_string(), error.unwrap_or_default()),
+                (
+                    "updatedBranchesCount".to_string(),
+                    updated_branches_count.unwrap_or_default().to_string(),
+                ),
+                (
+                    "commitsCreatedCount".to_string(),
+                    commits_count.unwrap_or_default().to_string(),
+                ),
+            ],
         ));
+
+        result.map(|outcome| Ok(CallToolResult::success(vec![Content::json(outcome)?])))?
+    }
+
+    fn gitbutler_update_branches_inner(
+        &self,
+        request: GitButlerUpdateBranchesRequest,
+    ) -> Result<Outcome, McpError> {
         if request.changes_summary.is_empty() {
             return Err(McpError::invalid_request(
                 "ChangesSummary cannot be empty".to_string(),
@@ -109,7 +149,7 @@ impl Mcp {
             .map_err(|e| McpError::internal_error(e.to_string(), None))?
             .clone();
 
-        let response = but_action::handle_changes(
+        let outcome = but_action::handle_changes(
             ctx,
             &None,
             &request.changes_summary,
@@ -119,7 +159,7 @@ impl Mcp {
         )
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
         // Trigger commit message generation for newly created commits
-        for branch in &response.updated_branches {
+        for branch in &outcome.updated_branches {
             for commit in &branch.new_commits {
                 if let Ok(commit_id) = gix::ObjectId::from_str(commit) {
                     let commit_event = CommitEvent {
@@ -134,7 +174,7 @@ impl Mcp {
                 }
             }
         }
-        Ok(CallToolResult::success(vec![Content::json(response)?]))
+        Ok(outcome)
     }
 }
 

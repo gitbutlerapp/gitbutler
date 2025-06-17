@@ -4,7 +4,7 @@ use gitbutler_secret::{Sensitive, secret};
 use reqwest::header::{HeaderMap, HeaderValue};
 
 #[allow(unused)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, strum::Display)]
 pub enum CredentialsKind {
     EnvVarOpenAiKey,
     OwnOpenAiKey,
@@ -65,6 +65,10 @@ impl OpenAiProvider {
                 Ok(Client::with_config(config).with_http_client(http_client))
             }
         }
+    }
+
+    pub fn credentials_kind(&self) -> CredentialsKind {
+        self.credentials.0.clone()
     }
 
     fn gitbutler_proxied_creds() -> Result<(CredentialsKind, Sensitive<String>)> {
