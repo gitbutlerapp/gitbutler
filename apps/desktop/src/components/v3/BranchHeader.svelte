@@ -132,9 +132,7 @@
 		padding-right: 10px;
 		padding-left: 15px;
 		overflow: hidden;
-		border-bottom: 1px solid var(--clr-border-2);
-		border-top-right-radius: var(--radius-ml);
-		border-top-left-radius: var(--radius-ml);
+		/* border-bottom: 1px solid var(--clr-border-2); */
 		background-color: var(--branch-selected-bg);
 
 		/* Selected but NOT in focus */
@@ -214,7 +212,7 @@
 		display: flex;
 		padding: 10px;
 		gap: 10px;
-		border-bottom: 1px solid var(--clr-border-2);
+		border-top: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-2);
 
 		/* MODIFIERS */

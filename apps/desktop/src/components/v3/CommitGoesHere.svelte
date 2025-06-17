@@ -25,7 +25,9 @@
 			<div class="pin__line"></div>
 			<div class="pin__circle"></div>
 		</div>
-		<Badge size="tag" style="pop">Your commit goes here</Badge>
+		<div class="indicator__label waving-animation">
+			<Badge size="tag" style="pop">Your commit goes here</Badge>
+		</div>
 	</div>
 {/snippet}
 {#snippet commitHere(args: { last?: boolean })}
@@ -53,10 +55,6 @@
 		gap: 12px;
 		border-bottom: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
-
-		&.first {
-			border-top: none;
-		}
 
 		&.last {
 			border-top: 1px solid var(--clr-border-2);
@@ -92,6 +90,10 @@
 		height: 350%;
 		transform: translate(-50%, -50%);
 		background-color: var(--clr-theme-pop-element);
+	}
+
+	.indicator__label {
+		display: flex;
 	}
 
 	/* COMMIT HERE */
@@ -150,5 +152,20 @@
 		transition:
 			opacity var(--transition-fast),
 			transform var(--transition-medium);
+	}
+
+	.waving-animation {
+		animation: waving-animation 0.3s forwards;
+	}
+	@keyframes waving-animation {
+		0% {
+			transform: translateX(-3px);
+		}
+		50% {
+			transform: translateX(2px);
+		}
+		100% {
+			transform: translateX(0);
+		}
 	}
 </style>
