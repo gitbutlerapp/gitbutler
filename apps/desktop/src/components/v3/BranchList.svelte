@@ -110,6 +110,8 @@
 			branches.map((s) => ({ name: s.name, commitIds: s.commits.map((p) => p.id) }))
 		)
 	);
+
+	const canPublishPR = $derived(forge.current.authenticated);
 </script>
 
 <div class="wrapper">
@@ -226,13 +228,13 @@
 								/>
 							{/if}
 
-							{#if stackState?.action.current !== 'review' && !isNewBranch}
+							{#if stackState?.action.current !== 'review' && canPublishPR && !isNewBranch}
 								{#if !branch.prNumber}
 									<Button
 										size="tag"
 										kind="outline"
 										shrinkable
-										icon="github-small"
+										icon="github"
 										onclick={(e) => {
 											stackState?.action.set('review');
 											e.stopPropagation(); // Do not select branch.
