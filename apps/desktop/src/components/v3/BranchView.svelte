@@ -52,7 +52,7 @@
 	result={combineResults(branchesResult.current, branchResult.current, topCommitResult.current)}
 >
 	{#snippet children([branches, branch, topCommit], { stackId, projectId })}
-		{@const hasCommits = !!topCommit}
+		{@const hasCommits = !!topCommit || branch.upstreamCommits.length > 0}
 		{@const remoteTrackingBranch = branch.remoteTrackingBranch}
 		<Drawer testId={TestId.BranchView} {onclose}>
 			{#snippet header()}
