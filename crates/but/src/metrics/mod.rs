@@ -22,9 +22,7 @@ impl Event {
     pub fn new(event_name: EventKind, mut props: Vec<(String, String)>) -> Self {
         props.push((
             "appVersion".to_string(),
-            option_env!("CARGO_PKG_VERSION")
-                .unwrap_or_default()
-                .to_string(),
+            option_env!("VERSION").unwrap_or_default().to_string(),
         ));
         props.push((
             "appName".to_string(),
