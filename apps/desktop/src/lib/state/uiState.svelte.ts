@@ -44,6 +44,7 @@ export type ProjectUiState = {
 	commitDescription: string;
 	branchesSelection: BranchesSelection;
 	editingCommitMessage: boolean;
+	showActions: boolean;
 };
 
 type GlobalModalType = 'commit-failed';
@@ -98,7 +99,8 @@ export class UiState {
 		commitDescription: '',
 		branchesSelection: {},
 		stackId: undefined,
-		editingCommitMessage: false
+		editingCommitMessage: false,
+		showActions: false
 	});
 
 	/** Properties that are globally scoped. */
