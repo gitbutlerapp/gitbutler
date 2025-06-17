@@ -8,6 +8,7 @@ export enum DefinedFocusable {
 	MainViewport = 'workspace',
 	ViewportLeft = 'workspace-left',
 	ViewportRight = 'workspace-right',
+	ViewportDrawerRight = 'workspace-drawer-right',
 	ViewportMiddle = 'workspace-middle',
 	UncommittedChanges = 'uncommitted-changes',
 	Drawer = 'drawer',

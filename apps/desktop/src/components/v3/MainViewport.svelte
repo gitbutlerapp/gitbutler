@@ -38,6 +38,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		left: Snippet;
 		middle?: Snippet;
 		right: Snippet;
+		drawerRight?: Snippet;
 		leftWidth: {
 			default: number;
 			min: number;
@@ -49,7 +50,8 @@ the window, then enlarge it and retain the original widths of the layout.
 		middleOpen?: boolean;
 	};
 
-	const { name, left, middle, right, leftWidth, middleWidth, middleOpen }: Props = $props();
+	const { name, left, middle, right, drawerRight, leftWidth, middleWidth, middleOpen }: Props =
+		$props();
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const zoom = $derived($userSettings.zoom);
@@ -160,6 +162,20 @@ the window, then enlarge it and retain the original widths of the layout.
 			{@render right()}
 		</AsyncRender>
 	</div>
+
+	{#if drawerRight}
+		<div
+			class="drawer-right"
+			use:focusable={{
+				id: DefinedFocusable.ViewportDrawerRight,
+				parentId: DefinedFocusable.MainViewport
+			}}
+		>
+			<AsyncRender>
+				{@render drawerRight()}
+			</AsyncRender>
+		</div>
+	{/if}
 </div>
 
 <style lang="postcss">
@@ -221,5 +237,15 @@ the window, then enlarge it and retain the original widths of the layout.
 		height: 100%;
 		margin-left: 8px;
 		overflow-x: hidden;
+	}
+
+	.drawer-right {
+		position: relative;
+		flex-direction: column;
+		height: 100%;
+		margin-left: 8px;
+		overflow-x: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
 	}
 </style>

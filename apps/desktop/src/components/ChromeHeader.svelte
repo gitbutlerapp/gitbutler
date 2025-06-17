@@ -3,12 +3,14 @@
 	import SyncButton from '$components/SyncButton.svelte';
 	import IntegrateUpstreamModal from '$components/v3/IntegrateUpstreamModal.svelte';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
+	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { ircEnabled } from '$lib/config/uiFeatureFlags';
 	import { IrcService } from '$lib/irc/ircService.svelte';
 	import { platformName } from '$lib/platform/platform';
 	import { Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { ircPath, projectPath } from '$lib/routes/routes.svelte';
+	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -29,11 +31,15 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const ircService = getContext(IrcService);
 	const project = maybeGetContext(Project);
+	const settingsService = getContext(SettingsService);
+	const uiState = getContext(UiState);
 	const selectedProjectId: string | undefined = $derived(project ? project.id : undefined);
 	const baseReponse = $derived(
 		selectedProjectId ? baseBranchService.baseBranch(selectedProjectId) : undefined
 	);
 	const base = $derived(baseReponse?.current.data);
+	const settingsStore = $derived(settingsService.appSettings);
+	const canUseActions = $derived($settingsStore?.featureFlags.actions ?? false);
 
 	const projects = $derived(projectsService.projects);
 	const upstreamCommits = $derived(base?.behind ?? 0);
@@ -56,6 +62,11 @@
 
 	function openModal() {
 		modal?.show();
+	}
+
+	function toggleButActions() {
+		const showingActions = uiState.project(projectId).showActions.current;
+		uiState.project(projectId).showActions.set(!showingActions);
 	}
 </script>
 
@@ -150,6 +161,18 @@
 					goto(ircPath(projectId));
 				}}
 			/>
+		{/if}
+		{#if canUseActions}
+			<Button
+				kind="outline"
+				icon="ai"
+				onclick={() => {
+					toggleButActions();
+				}}
+				disabled={actionsDisabled}
+			>
+				Actions
+			</Button>
 		{/if}
 	</div>
 </div>

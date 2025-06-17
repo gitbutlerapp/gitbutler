@@ -1,11 +1,9 @@
 <script lang="ts">
 	import FeedItem from '$components/v3/FeedItem.svelte';
 	import { Feed } from '$lib/feed/feed';
-	import type { SelectionId } from '$lib/selection/key';
 
 	type Props = {
 		projectId: string;
-		selectionId: SelectionId;
 	};
 
 	const { projectId }: Props = $props();
@@ -34,11 +32,11 @@
 
 <style lang="postcss">
 	.action-log-wrap {
-		flex-grow: 1;
+		display: flex;
 
+		min-width: 0;
 		overflow: hidden;
 
-		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 		background-color: var(--clr-bg-1);
 	}
