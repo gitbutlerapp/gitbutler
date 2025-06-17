@@ -11,7 +11,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{Target, VirtualBranchesHandle};
-pub use openai::OpenAiProvider;
+pub use openai::{CredentialsKind, OpenAiProvider};
 use serde::{Deserialize, Serialize};
 
 mod action;

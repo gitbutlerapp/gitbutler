@@ -74,10 +74,19 @@ impl Mcp {
     ) -> Result<CallToolResult, McpError> {
         self.metrics.capture(Event::new(
             EventKind::Mcp,
-            vec![(
-                "endpoint".to_string(),
-                "gitbutler_update_branches".to_string(),
-            )],
+            vec![
+                (
+                    "endpoint".to_string(),
+                    "gitbutler_update_branches".to_string(),
+                ),
+                (
+                    "aiCredentialsKind".to_string(),
+                    self.event_handler
+                        .credentials_kind()
+                        .map(|k| k.to_string())
+                        .unwrap_or_else(|| "None".to_string()),
+                ),
+            ],
         ));
         if request.changes_summary.is_empty() {
             return Err(McpError::invalid_request(
