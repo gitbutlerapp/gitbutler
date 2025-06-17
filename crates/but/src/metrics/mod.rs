@@ -15,21 +15,25 @@ pub enum EventKind {
 }
 pub struct Event {
     event_name: EventKind,
-    props: Vec<(String, Option<String>)>,
+    props: Vec<(String, String)>,
 }
 
 impl Event {
-    pub fn new(event_name: EventKind, mut props: Vec<(String, Option<String>)>) -> Self {
+    pub fn new(event_name: EventKind, mut props: Vec<(String, String)>) -> Self {
         props.push((
             "appVersion".to_string(),
-            option_env!("CARGO_PKG_VERSION").map(|v| v.to_string()),
+            option_env!("CARGO_PKG_VERSION")
+                .unwrap_or_default()
+                .to_string(),
         ));
         props.push((
             "appName".to_string(),
-            option_env!("CARGO_BIN_NAME").map(|v| v.to_string()),
+            option_env!("CARGO_BIN_NAME")
+                .unwrap_or_default()
+                .to_string(),
         ));
-        props.push(("OS".to_string(), Some(Event::normalize_os(env::consts::OS))));
-        props.push(("Arch".to_string(), Some(env::consts::ARCH.to_string())));
+        props.push(("OS".to_string(), Event::normalize_os(env::consts::OS)));
+        props.push(("Arch".to_string(), env::consts::ARCH.to_string()));
         Self { event_name, props }
     }
 
