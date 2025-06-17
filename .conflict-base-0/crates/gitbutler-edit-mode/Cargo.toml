@@ -1,0 +1,34 @@
+[package]
+name = "gitbutler-edit-mode"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[dependencies]
+git2.workspace = true
+gix.workspace = true
+anyhow.workspace = true
+bstr.workspace = true
+gitbutler-branch.workspace = true
+gitbutler-commit.workspace = true
+gitbutler-repo.workspace = true
+gitbutler-command-context.workspace = true
+gitbutler-operating-modes.workspace = true
+gitbutler-project.workspace = true
+gitbutler-branch-actions.workspace = true
+gitbutler-oxidize.workspace = true
+gitbutler-reference.workspace = true
+gitbutler-oplog.workspace = true
+gitbutler-diff.workspace = true
+gitbutler-stack.workspace = true
+gitbutler-cherry-pick.workspace = true
+gitbutler-workspace.workspace = true
+but-workspace.workspace = true
+but-rebase.workspace = true
+serde.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+gitbutler-testsupport.workspace = true
+tempfile.workspace = true
