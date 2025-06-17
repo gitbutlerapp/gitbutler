@@ -1126,15 +1126,17 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					changes: DiffSpec[];
 					commitId: string;
 					stackId: string;
+					assignTo?: string;
 				}
 			>({
-				query: ({ projectId, changes, commitId, stackId }) => ({
+				query: ({ projectId, changes, commitId, stackId, assignTo }) => ({
 					command: 'uncommit_changes',
 					params: {
 						projectId,
 						changes,
 						commitId,
-						stackId
+						stackId,
+						assignTo
 					},
 					actionName: 'Uncommit Changes'
 				}),

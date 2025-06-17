@@ -128,7 +128,8 @@ export class UncommitDzHandler implements DropzoneHandler {
 	constructor(
 		private projectId: string,
 		private readonly stackService: StackService,
-		private readonly uiState: UiState
+		private readonly uiState: UiState,
+		private readonly assignTo?: string
 	) {}
 
 	accepts(data: unknown): boolean {
@@ -159,7 +160,8 @@ export class UncommitDzHandler implements DropzoneHandler {
 							projectId: this.projectId,
 							stackId,
 							commitId,
-							changes
+							changes,
+							assignTo: this.assignTo
 						});
 
 						// Update the project state to point to the new commit if needed.
@@ -200,7 +202,8 @@ export class UncommitDzHandler implements DropzoneHandler {
 							}
 						]
 					}
-				]
+				],
+				assignTo: this.assignTo
 			});
 
 			// Update the project state to point to the new commit if needed.
