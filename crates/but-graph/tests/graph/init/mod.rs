@@ -48,9 +48,9 @@ fn detached() -> anyhow::Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     └── 👉►:0:main
-        └── ·541396b (NiR)❱"first" ►tags/annotated, ►tags/release/v1
+        └── ·541396b (⌂)❱"first" ►tags/annotated, ►tags/release/v1
             └── ►:1:other
-                └── ·fafd9d0 (NiR)❱"init"
+                └── ·fafd9d0 (⌂)❱"init"
     "#);
     insta::assert_debug_snapshot!(graph, @r#"
     Graph {
@@ -130,19 +130,19 @@ fn multi_root() -> anyhow::Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     └── 👉►:0:main
-        └── ·c6c8c05 (NiR)❱"Merge branch \'C\'"
+        └── ·c6c8c05 (⌂)❱"Merge branch \'C\'"
             ├── ►:2:C
-            │   └── ·8631946 (NiR)❱"Merge branch \'D\' into C"
+            │   └── ·8631946 (⌂)❱"Merge branch \'D\' into C"
             │       ├── ►:6:D
-            │       │   └── ·f4955b6 (NiR)❱"D"
+            │       │   └── ·f4955b6 (⌂)❱"D"
             │       └── ►:5:anon:
-            │           └── ·00fab2a (NiR)❱"C"
+            │           └── ·00fab2a (⌂)❱"C"
             └── ►:1:anon:
-                └── ·76fc5c4 (NiR)❱"Merge branch \'B\'"
+                └── ·76fc5c4 (⌂)❱"Merge branch \'B\'"
                     ├── ►:4:B
-                    │   └── ·366d496 (NiR)❱"B"
+                    │   └── ·366d496 (⌂)❱"B"
                     └── ►:3:anon:
-                        └── ·e5d0542 (NiR)❱"A"
+                        └── ·e5d0542 (⌂)❱"A"
     "#);
     assert_eq!(
         graph.tip_segments().count(),
@@ -180,23 +180,23 @@ fn four_diamond() -> anyhow::Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     └── 👉►:0:merged
-        └── ·8a6c109 (NiR)❱"Merge branch \'C\' into merged"
+        └── ·8a6c109 (⌂)❱"Merge branch \'C\' into merged"
             ├── ►:2:C
-            │   └── ·7ed512a (NiR)❱"Merge branch \'D\' into C"
+            │   └── ·7ed512a (⌂)❱"Merge branch \'D\' into C"
             │       ├── ►:6:D
-            │       │   └── ·ecb1877 (NiR)❱"D"
+            │       │   └── ·ecb1877 (⌂)❱"D"
             │       │       └── ►:7:main
-            │       │           └── ·965998b (NiR)❱"base"
+            │       │           └── ·965998b (⌂)❱"base"
             │       └── ►:5:anon:
-            │           └── ·35ee481 (NiR)❱"C"
+            │           └── ·35ee481 (⌂)❱"C"
             │               └── →:7: (main)
             └── ►:1:A
-                └── ·62b409a (NiR)❱"Merge branch \'B\' into A"
+                └── ·62b409a (⌂)❱"Merge branch \'B\' into A"
                     ├── ►:4:B
-                    │   └── ·f16dddf (NiR)❱"B"
+                    │   └── ·f16dddf (⌂)❱"B"
                     │       └── →:7: (main)
                     └── ►:3:anon:
-                        └── ·592abec (NiR)❱"A"
+                        └── ·592abec (⌂)❱"A"
                             └── →:7: (main)
     "#);
 
@@ -230,11 +230,11 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── 👉►:0:B
-    │   └── ·312f819 (NiR)❱"B"
+    │   └── ·312f819 (⌂)❱"B"
     │       └── ►:2:A
-    │           └── ·e255adc (NiR)❱"A"
+    │           └── ·e255adc (⌂)❱"A"
     │               └── ►:4:main
-    │                   └── ·fafd9d0 (NiR)❱"init"
+    │                   └── ·fafd9d0 (⌂)❱"init"
     └── ►:1:origin/B
         └── 🟣682be32❱"B"
             └── ►:3:origin/A
@@ -247,9 +247,9 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(id, name, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── 👉►:0:A
-    │   └── ·e255adc (NiR)❱"A"
+    │   └── ·e255adc (⌂)❱"A"
     │       └── ►:2:main
-    │           └── ·fafd9d0 (NiR)❱"init"
+    │           └── ·fafd9d0 (⌂)❱"init"
     └── ►:1:origin/A
         └── 🟣e29c23d❱"A"
             └── →:2: (main)

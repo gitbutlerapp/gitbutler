@@ -6,10 +6,7 @@ use gix::refs::Category;
 use petgraph::Direction;
 use petgraph::graph::EdgeReference;
 use petgraph::prelude::EdgeRef;
-use std::io::Write;
 use std::ops::{Index, IndexMut};
-use std::process::Stdio;
-use std::sync::atomic::AtomicUsize;
 
 /// Mutation
 impl Graph {
@@ -263,7 +260,11 @@ impl Graph {
 
     /// Open an SVG dot visualization in the browser or panic if the `dot` or `open` tool can't be found.
     #[cfg(target_os = "macos")]
-    pub fn open_dot_graph(&self) {
+    pub fn open_as_svg(&self) {
+        use std::io::Write;
+        use std::process::Stdio;
+        use std::sync::atomic::AtomicUsize;
+
         static SUFFIX: AtomicUsize = AtomicUsize::new(0);
         let suffix = SUFFIX.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let svg_name = format!("debug-graph-{suffix:02}.svg");
@@ -300,6 +301,40 @@ impl Graph {
     /// Produces a dot-version of the graph.
     pub fn dot_graph(&self) -> String {
         const HEX: usize = 7;
+        let entrypoint = self.entrypoint;
+        let node_attrs = |_: &PetGraph, (sidx, s): (SegmentIndex, &Segment)| {
+            let name = format!(
+                "{}{maybe_centering_newline}",
+                s.ref_name
+                    .as_ref()
+                    .map(Self::ref_debug_string)
+                    .unwrap_or_else(|| "<anon>".into()),
+                maybe_centering_newline = if s.commits.is_empty() { "" } else { "\n" }
+            );
+            // Reduce noise by preferring ref-based entry-points.
+            let show_segment_entrypoint = s.ref_name.is_some()
+                && entrypoint.is_some_and(|(s, cidx)| s == sidx && matches!(cidx, None | Some(0)));
+            let commits = s
+                .commits
+                .iter()
+                .enumerate()
+                .map(|(cidx, c)| {
+                    Self::commit_debug_string(
+                        &c.inner,
+                        None,
+                        c.has_conflicts,
+                        !show_segment_entrypoint && Some((sidx, Some(cidx))) == entrypoint,
+                        false,
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\\l");
+            format!(
+                ", shape = box, label = \"{entrypoint}:{id}:{name}{commits}\\l\", fontname = Courier, margin = 0.2",
+                entrypoint = if show_segment_entrypoint { "👉" } else { "" },
+                id = sidx.index(),
+            )
+        };
         let dot = petgraph::dot::Dot::with_attr_getters(
             &self.inner,
             &[],
@@ -322,28 +357,7 @@ impl Graph {
                     .unwrap_or_else(|| "dst".into());
                 format!(", label = \"⚠️{src} → {dst} ({err})\", fontname = Courier")
             },
-            &|_, (sidx, s)| {
-                let name = format!(
-                    "{}{maybe_centering_newline}",
-                    s.ref_name
-                        .as_ref()
-                        .map(|rn| rn.shorten())
-                        .unwrap_or_else(|| "<anon>".into()),
-                    maybe_centering_newline = if s.commits.is_empty() { "" } else { "\n" }
-                );
-                let commits = s
-                    .commits
-                    .iter()
-                    .map(|c| {
-                        Self::commit_debug_string(&c.inner, None, c.has_conflicts, false, false)
-                    })
-                    .collect::<Vec<_>>()
-                    .join("\\l");
-                format!(
-                    ", shape = box, label = \":{id}:{name}{commits}\\l\", fontname = Courier, margin = 0.2",
-                    id = sidx.index(),
-                )
-            },
+            &node_attrs,
         );
         format!("{dot:?}")
     }

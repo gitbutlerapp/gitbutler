@@ -443,16 +443,22 @@ pub fn collect_ref_mapping_by_prefix<'a>(
     Ok(all_refs_by_id)
 }
 
-/// Returns `[(workspace_ref_name, workspace_info)]` for all available workspace, or exactly one workspace if `maybe_ref_name`
+/// Returns `([(workspace_ref_name, workspace_info)], target_refs)` for all available workspace,
+/// or exactly one workspace if `maybe_ref_name`.
 /// already points to a workspace. That way we can discover the workspace containing any starting point, but only if needed.
 ///
 /// This means we process all workspaces if we aren't currently and clearly looking at a workspace.
+///
+/// Also prune all non-standard workspaces early.
 #[allow(clippy::type_complexity)]
 pub fn obtain_workspace_infos(
     maybe_ref_name: Option<&gix::refs::FullNameRef>,
     meta: &impl RefMetadata,
-) -> anyhow::Result<Vec<(gix::refs::FullName, ref_metadata::Workspace)>> {
-    let workspaces = if let Some((ref_name, ws_data)) = maybe_ref_name
+) -> anyhow::Result<(
+    Vec<(gix::refs::FullName, ref_metadata::Workspace)>,
+    Vec<gix::refs::FullName>,
+)> {
+    let mut workspaces = if let Some((ref_name, ws_data)) = maybe_ref_name
         .and_then(|ref_name| {
             meta.workspace_opt(ref_name)
                 .transpose()
@@ -472,7 +478,39 @@ pub fn obtain_workspace_infos(
             .map(|(ref_name, ws)| (ref_name, (*ws).clone()))
             .collect()
     };
-    Ok(workspaces)
+
+    let target_refs: Vec<_> = workspaces
+        .iter()
+        .filter_map(|(_, data)| data.target_ref.clone())
+        .collect();
+    // defensive pruning
+    workspaces.retain(|(rn, data)| {
+        if rn.category() != Some(Category::LocalBranch) {
+            tracing::warn!(
+                "Skipped workspace at ref {} as workspaces can only ever be on normal branches",
+                rn.as_bstr()
+            );
+            return false;
+        }
+        if target_refs.contains(rn) {
+            tracing::warn!(
+                "Skipped workspace at ref {} as it was also a target ref for another workspace (or for itself)",
+                rn.as_bstr()
+            );
+            return false;
+        }
+        if let Some(invalid_target_ref) = data.target_ref.as_ref().filter(|trn| trn.category() != Some(Category::RemoteBranch)) {
+            tracing::warn!(
+                "Skipped workspace at ref {} as its target reference {target} was not a remote tracking branch",
+                rn.as_bstr(),
+                target = invalid_target_ref.as_bstr(),
+            );
+            return false;
+        }
+        true
+    });
+
+    Ok((workspaces, target_refs))
 }
 
 pub fn try_refname_to_id(
@@ -504,6 +542,8 @@ pub fn propagate_flags_downward(
 /// after the tracking branch.
 /// This eager queuing makes sure that the post-processing doesn't have to traverse again when it creates segments
 /// that were previously ambiguous.
+/// If a remote tracking branch is in `target_refs`, we assume it was already scheduled and won't schedule it again.
+#[allow(clippy::too_many_arguments)]
 pub fn try_queue_remote_tracking_branches(
     repo: &gix::Repository,
     refs: &[gix::refs::FullName],
@@ -511,6 +551,7 @@ pub fn try_queue_remote_tracking_branches(
     graph: &mut Graph,
     target_symbolic_remote_names: &[String],
     configured_remote_tracking_branches: &BTreeSet<FullName>,
+    target_refs: &[gix::refs::FullName],
     meta: &impl RefMetadata,
 ) -> anyhow::Result<()> {
     for rn in refs {
@@ -523,6 +564,9 @@ pub fn try_queue_remote_tracking_branches(
         else {
             continue;
         };
+        if target_refs.contains(&remote_tracking_branch) {
+            continue;
+        }
         // Note that we don't connect the remote segment yet as it still has to reach
         // any segment really. It could be anywhere and point to anything.
         let Some(remote_tip) = try_refname_to_id(repo, remote_tracking_branch.as_ref())? else {

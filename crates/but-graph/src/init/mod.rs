@@ -97,7 +97,7 @@ impl Graph {
     /// * Remote tracking branches are picked up during traversal for any ref that we reached through traversal.
     ///     - This implies that remotes aren't relevant for segments added during post-processing, which would typically
     ///       be empty anyway.
-    ///     - Remotes never take commits taht are already owned.
+    ///     - Remotes never take commits that are already owned.
     pub fn from_commit_traversal(
         tip: gix::Id<'_>,
         ref_name: impl Into<Option<gix::refs::FullName>>,
@@ -116,6 +116,7 @@ impl Graph {
         {
             // TODO: see if this is a thing - Git doesn't like to checkout remote tracking branches by name,
             //       and if we should handle it, we need to setup the initial flags accordingly.
+            //       Also we have to assure not to double-traverse the ref, once as tip and once by discovery.
             bail!("Cannot currently handle remotes as start position");
         }
         let commit_graph = repo.commit_graph_if_enabled()?;
@@ -132,14 +133,10 @@ impl Graph {
                 None
             }),
         )?;
-        let mut workspaces = obtain_workspace_infos(ref_name.as_ref().map(|rn| rn.as_ref()), meta)?;
-        let current = graph.insert_root(branch_segment_from_name_and_meta(
-            ref_name.clone(),
-            meta,
-            Some((&refs_by_id, tip.detach())),
-        )?);
+        let (workspaces, target_refs) =
+            obtain_workspace_infos(ref_name.as_ref().map(|rn| rn.as_ref()), meta)?;
         let mut seen = gix::revwalk::graph::IdMap::<SegmentIndex>::default();
-        let mut flags = CommitFlags::NotInRemote;
+        let tip_flags = CommitFlags::NotInRemote;
 
         let target_symbolic_remote_names = {
             let remote_names = repo.remote_names();
@@ -155,29 +152,22 @@ impl Graph {
             v
         };
 
-        if let Some(branch_ref) = ref_name {
-            // Transfer workspace data to our current ref if it has some.
-            workspaces.retain(|(workspace_ref, _workspace_info)| {
-                if workspace_ref != &branch_ref {
-                    return true;
-                }
-
-                let current = &mut graph[current];
-                debug_assert!(
-                    matches!(current.metadata, Some(SegmentMetadata::Workspace(_))),
-                    "BUG: newly created segments have the right metadata"
-                );
-                flags |= CommitFlags::InWorkspace;
-                false
-            })
-        }
-
         let mut next = VecDeque::<QueueItem>::new();
-        next.push_back((
-            tip.detach(),
-            flags,
-            Instruction::CollectCommit { into: current },
-        ));
+        if !workspaces
+            .iter()
+            .any(|(wsrn, _)| Some(wsrn) == ref_name.as_ref())
+        {
+            let current = graph.insert_root(branch_segment_from_name_and_meta(
+                ref_name.clone(),
+                meta,
+                Some((&refs_by_id, tip.detach())),
+            )?);
+            next.push_back((
+                tip.detach(),
+                tip_flags,
+                Instruction::CollectCommit { into: current },
+            ));
+        }
         for (ws_ref, workspace_info) in workspaces {
             let Some(ws_tip) = try_refname_to_id(repo, ws_ref.as_ref())? else {
                 tracing::warn!(
@@ -186,6 +176,25 @@ impl Graph {
                 );
                 continue;
             };
+            let target = workspace_info.target_ref.as_ref().and_then(|trn| {
+                try_refname_to_id(repo, trn.as_ref())
+                    .map_err(|err| {
+                        tracing::warn!(
+                            "Ignoring non-existing target branch {trn}: {err}",
+                            trn = trn.as_bstr()
+                        );
+                        err
+                    })
+                    .ok()
+                    .flatten()
+                    .map(|tid| (trn.clone(), tid))
+            });
+
+            let add_flags = if Some(&ws_ref) == ref_name.as_ref() {
+                tip_flags
+            } else {
+                CommitFlags::empty()
+            };
             let mut ws_segment = branch_segment_from_name_and_meta(Some(ws_ref), meta, None)?;
             ws_segment.metadata = Some(SegmentMetadata::Workspace(workspace_info));
             let ws_segment = graph.insert_root(ws_segment);
@@ -193,9 +202,27 @@ impl Graph {
             // pick these up first.
             next.push_front((
                 ws_tip,
-                CommitFlags::InWorkspace | CommitFlags::NotInRemote,
+                CommitFlags::InWorkspace |
+                    // We only allow workspaces that are not remote, and that are not target refs.
+                    // Theoretically they can still cross-reference each other, but then we'd simply ignore
+                    // their status for now.
+                    CommitFlags::NotInRemote | add_flags,
                 Instruction::CollectCommit { into: ws_segment },
             ));
+            if let Some((target_ref, target_ref_id)) = target {
+                let target_segment = graph.insert_root(branch_segment_from_name_and_meta(
+                    Some(target_ref),
+                    meta,
+                    None,
+                )?);
+                next.push_front((
+                    target_ref_id,
+                    CommitFlags::Integrated,
+                    Instruction::CollectCommit {
+                        into: target_segment,
+                    },
+                ));
+            }
         }
 
         while let Some((id, mut propagated_flags, instruction)) = next.pop_front() {
@@ -347,6 +374,7 @@ impl Graph {
                 &mut graph,
                 &target_symbolic_remote_names,
                 &configured_remote_tracking_branches,
+                &target_refs,
                 meta,
             )?;
         }

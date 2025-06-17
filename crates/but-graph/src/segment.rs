@@ -74,14 +74,20 @@ bitflags! {
     /// Provide more information about a commit, as gathered during traversal.
     #[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
     pub struct CommitFlags: u8 {
+        /// Identify commits that have never been owned *only* by a remote.
+        /// It may be that a remote is directly pointing at them though.
+        /// Note that this flag is negative as all flags are propagated through the graph,
+        /// a property we don't want for this trait.
+        const NotInRemote = 1 << 0;
         /// Following the graph upward will lead to at least one tip that is a workspace.
         ///
         /// Note that if this flag isn't present, this means the commit isn't reachable
         /// from a workspace.
-        const InWorkspace = 1 << 0;
-        /// Identify commits that have never been owned *only* by a remote.
-        /// It may be that a remote is directly pointing at them though.
-        const NotInRemote = 1 << 1;
+        const InWorkspace = 1 << 1;
+        /// The commit is reachable from either the target branch (usually `refs/remotes/origin/main`).
+        /// Note that when multiple workspaces are included in the traversal, this flag is set by
+        /// any of many target branches.
+        const Integrated = 1 << 2;
     }
 }
 
@@ -95,8 +101,9 @@ impl CommitFlags {
             let out = &string["CommitFlags(".len()..];
             out[..out.len() - 1]
                 .to_string()
-                .replace("NotInRemote", "NiR")
-                .replace("InWorkspace", "InW")
+                .replace("NotInRemote", "⌂")
+                .replace("InWorkspace", "🏘️")
+                .replace("Integrated", "✓")
                 .replace(" ", "")
         }
     }
