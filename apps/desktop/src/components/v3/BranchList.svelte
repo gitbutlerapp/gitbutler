@@ -231,6 +231,7 @@
 									<Button
 										size="tag"
 										kind="outline"
+										shrinkable
 										onclick={(e) => {
 											stackState?.action.set('review');
 											e.stopPropagation(); // Do not select branch.
@@ -244,6 +245,7 @@
 									<Button
 										size="tag"
 										kind="outline"
+										shrinkable
 										disabled={!prUrl}
 										icon="open-link"
 										onclick={() => {

@@ -213,6 +213,7 @@
 	.branch-hedaer__actions-row {
 		display: flex;
 		padding: 10px;
+		gap: 10px;
 		border-bottom: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-2);
 
@@ -222,15 +223,15 @@
 			border-radius: 0 0 var(--radius-ml) var(--radius-ml);
 		}
 	}
-
-	.branch-header__menu {
-		display: flex;
-	}
-
 	.branch-header__actions {
 		display: flex;
 		flex: 1;
 		width: 100%;
+		overflow: hidden;
 		gap: 6px;
+	}
+
+	.branch-header__menu {
+		display: flex;
 	}
 </style>
