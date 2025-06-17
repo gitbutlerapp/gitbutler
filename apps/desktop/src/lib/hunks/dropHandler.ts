@@ -1,6 +1,7 @@
 import { ChangeDropData, HunkDropDataV3 } from '$lib/dragging/draggables';
 import { type DiffService } from '$lib/hunks/diffService.svelte';
 import type { DropzoneHandler } from '$lib/dragging/handler';
+import type { IdSelection } from '$lib/selection/idSelection.svelte';
 import type { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 
 export class AssignmentDropHandler implements DropzoneHandler {
@@ -8,7 +9,8 @@ export class AssignmentDropHandler implements DropzoneHandler {
 		private readonly projectId: string,
 		private readonly diffService: DiffService,
 		private readonly uncommittedService: UncommittedService,
-		private readonly stackId: string | null
+		private readonly stackId: string | null,
+		private readonly idSelection: IdSelection
 	) {}
 
 	accepts(data: unknown) {
@@ -28,6 +30,7 @@ export class AssignmentDropHandler implements DropzoneHandler {
 
 	async ondrop(data: ChangeDropData | HunkDropDataV3) {
 		if (data instanceof ChangeDropData) {
+			// A whole file.
 			const changes = await data.treeChanges();
 			const assignments = changes
 				.flatMap((c) => this.uncommittedService.getAssignmentsByPath(data.stackId, c.path))
@@ -36,16 +39,28 @@ export class AssignmentDropHandler implements DropzoneHandler {
 				projectId: this.projectId,
 				assignments
 			});
+
+			// If files are coming from the uncommitted changes
+			this.idSelection.remove(data.change.path, data.selectionId);
 		} else {
 			const assignment = this.uncommittedService.getAssignmentByHeader(
 				data.stackId,
 				data.change.path,
 				data.hunk
 			).current!;
+			const allAssignments = this.uncommittedService.getAssignmentsByPath(
+				data.stackId,
+				data.change.path
+			);
 			await this.diffService.assignHunk({
 				projectId: this.projectId,
 				assignments: [{ ...assignment, stackId: this.stackId }]
 			});
+
+			// If we just moved the last assignment, remove the file from the selection.
+			if (allAssignments.length === 1) {
+				this.idSelection.remove(data.change.path, data.selectionId);
+			}
 		}
 	}
 }
