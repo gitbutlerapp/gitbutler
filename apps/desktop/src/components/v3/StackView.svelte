@@ -115,8 +115,13 @@
 			branchName: defaultBranchName,
 			stackId: stack.id
 		});
-		uncommittedService.checkAll(stack.id || null);
-		uncommittedService.checkAll(null);
+		const stackAssignments = uncommittedService.getAssignmentsByStackId(stack.id);
+		if (stackAssignments.length > 0) {
+			uncommittedService.checkAll(stack.id);
+			uncommittedService.uncheckAll(null);
+		} else {
+			uncommittedService.checkAll(null);
+		}
 	}
 
 	function onclose() {
