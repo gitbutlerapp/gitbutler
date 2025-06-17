@@ -56,7 +56,9 @@
 		UncommittedService
 	);
 
-	const uncommitDzHandler = $derived(new UncommitDzHandler(projectId, stackService, uiState));
+	const uncommitDzHandler = $derived(
+		new UncommitDzHandler(projectId, stackService, uiState, stackId)
+	);
 
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
@@ -106,7 +108,7 @@
 {/snippet}
 
 <Dropzone
-	handlers={[stackId ? undefined : uncommitDzHandler, assignmentDZHandler].filter(isDefined)}
+	handlers={[uncommitDzHandler, assignmentDZHandler].filter(isDefined)}
 	maxHeight
 	onActivated={onDropzoneActivated}
 >

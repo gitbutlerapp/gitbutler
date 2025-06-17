@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::error::Error;
 use crate::from_json::HexHash;
 use crate::virtual_branches::commands::emit_vbranches;
@@ -5,6 +7,7 @@ use crate::WindowState;
 use anyhow::Context;
 use but_core::ui::TreeChange;
 use but_graph::VirtualBranchesTomlMetadata;
+use but_hunk_assignment::HunkAssignmentRequest;
 use but_hunk_dependency::ui::{
     hunk_dependencies_for_changes, hunk_dependencies_for_workspace_changes_by_worktree_dir,
     HunkDependencies,
@@ -319,6 +322,11 @@ pub fn move_changes_between_commits(
     Ok(result.into())
 }
 
+/// Uncommits the changes specified in the `diffspec`.
+///
+/// If `assign_to` is provided, the changes will be assigned to the stack
+/// specified.
+/// If `assign_to` is not provided, the changes will be unassigned.
 #[allow(clippy::too_many_arguments)]
 #[tauri::command(async)]
 #[instrument(skip(projects, settings, windows), err(Debug))]
@@ -330,15 +338,36 @@ pub fn uncommit_changes(
     stack_id: StackId,
     commit_id: HexHash,
     changes: Vec<but_workspace::DiffSpec>,
+    assign_to: Option<StackId>,
 ) -> Result<UIMoveChangesResult, Error> {
     let project = projects.get(project_id)?;
-    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    let mut ctx = CommandContext::open(&project, settings.get()?.clone())?;
     let mut guard = project.exclusive_worktree_access();
 
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::DiscardChanges),
         guard.write_permission(),
     );
+
+    // If we want to assign the changes after uncommitting, we could try to do
+    // something with the hunk headers, but this is not precise as the hunk
+    // headers might have changed from what they were like when they were
+    // committed.
+    //
+    // As such, we take all the old assignments, and all the new assignments from after the
+    // uncommit, and find the ones that are not present in the old assignments.
+    // We then convert those into assignment requests for the given stack.
+    let before_assignments = if assign_to.is_some() {
+        let changes = but_hunk_assignment::assignments_with_fallback(
+            &mut ctx,
+            false,
+            None::<Vec<but_core::TreeChange>>,
+        )?;
+        Some(changes.0)
+    } else {
+        None
+    };
+
     let result = but_workspace::remove_changes_from_commit_in_stack(
         &ctx,
         stack_id,
@@ -349,6 +378,31 @@ pub fn uncommit_changes(
 
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     update_workspace_commit(&vb_state, &ctx)?;
+
+    if let (Some(before_assignments), Some(stack_id)) = (before_assignments, assign_to) {
+        let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
+            &mut ctx,
+            false,
+            None::<Vec<but_core::TreeChange>>,
+        )?;
+
+        let before_assignments = before_assignments
+            .into_iter()
+            .filter_map(|a| a.id)
+            .collect::<HashSet<_>>();
+
+        let to_assign = after_assignments
+            .into_iter()
+            .filter(|a| a.id.is_some_and(|id| !before_assignments.contains(&id)))
+            .map(|a| HunkAssignmentRequest {
+                hunk_header: a.hunk_header,
+                path_bytes: a.path_bytes,
+                stack_id: Some(stack_id),
+            })
+            .collect::<Vec<_>>();
+
+        but_hunk_assignment::assign(&mut ctx, to_assign)?;
+    }
 
     let app_settings = ctx.app_settings();
     if !app_settings.feature_flags.v3 {
