@@ -94,7 +94,7 @@ pub fn git_remove_global_config(key: &str) -> Result<(), Error> {
 }
 
 #[tauri::command(async)]
-#[instrument(err(Debug))]
+#[instrument(err(Debug), level = "trace")]
 pub fn git_get_global_config(key: &str) -> Result<Option<String>, Error> {
     Ok(App::git_get_global_config(key)?)
 }

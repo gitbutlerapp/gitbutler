@@ -6,7 +6,7 @@ use tracing::instrument;
 use crate::error::Error;
 
 #[tauri::command(async)]
-#[instrument(err(Debug))]
+#[instrument(err(Debug), level = "trace")]
 pub fn secret_get_global(handle: &str) -> Result<Option<String>, Error> {
     Ok(secret::retrieve(handle, secret::Namespace::Global)?.map(|s| s.0))
 }
