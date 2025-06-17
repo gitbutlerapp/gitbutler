@@ -819,7 +819,7 @@ impl TreeChange {
         &self,
         repo: &gix::Repository,
         context_lines: u32,
-    ) -> anyhow::Result<UnifiedDiff> {
+    ) -> anyhow::Result<Option<UnifiedDiff>> {
         let mut diff_filter = crate::unified_diff::filter_from_state(
             repo,
             self.status.state(),
@@ -834,7 +834,7 @@ impl TreeChange {
         repo: &gix::Repository,
         context_lines: u32,
         diff_filter: &mut gix::diff::blob::Platform,
-    ) -> anyhow::Result<UnifiedDiff> {
+    ) -> anyhow::Result<Option<UnifiedDiff>> {
         match &self.status {
             TreeStatus::Deletion { previous_state } => UnifiedDiff::compute_with_filter(
                 repo,

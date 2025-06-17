@@ -76,7 +76,7 @@ impl UnifiedDiff {
         current_state: impl Into<Option<ChangeState>>,
         previous_state: impl Into<Option<ChangeState>>,
         context_lines: u32,
-    ) -> anyhow::Result<Self> {
+    ) -> anyhow::Result<Option<Self>> {
         let current_state = current_state.into();
         let mut cache = filter_from_state(repo, current_state, Self::CONVERSION_MODE)?;
         Self::compute_with_filter(
@@ -102,10 +102,10 @@ impl UnifiedDiff {
         previous_state: impl Into<Option<ChangeState>>,
         context_lines: u32,
         diff_filter: &mut gix::diff::blob::Platform,
-    ) -> anyhow::Result<Self> {
+    ) -> anyhow::Result<Option<Self>> {
         let current_state = current_state.into();
         let previous_state = previous_state.into();
-        diff_filter.set_resource(
+        match diff_filter.set_resource(
             current_state.map_or(repo.object_hash().null(), |state| state.id),
             current_state.map_or_else(
                 || {
@@ -118,8 +118,14 @@ impl UnifiedDiff {
             path.as_bstr(),
             ResourceKind::NewOrDestination,
             repo,
-        )?;
-        diff_filter.set_resource(
+        ) {
+            Ok(()) => {}
+            Err(gix::diff::blob::platform::set_resource::Error::InvalidMode { .. }) => {
+                return Ok(None);
+            }
+            Err(err) => return Err(err.into()),
+        };
+        match diff_filter.set_resource(
             previous_state.map_or(repo.object_hash().null(), |state| state.id),
             previous_state.map_or_else(
                 || {
@@ -132,10 +138,16 @@ impl UnifiedDiff {
             previous_path.unwrap_or(path.as_bstr()),
             ResourceKind::OldOrSource,
             repo,
-        )?;
+        ) {
+            Ok(()) => {}
+            Err(gix::diff::blob::platform::set_resource::Error::InvalidMode { .. }) => {
+                return Ok(None);
+            }
+            Err(err) => return Err(err.into()),
+        };
 
         let prep = diff_filter.prepare_diff()?;
-        Ok(match prep.operation {
+        Ok(Some(match prep.operation {
             Operation::InternalDiff { algorithm } => {
                 #[derive(Default)]
                 struct ProduceDiffHunk {
@@ -216,7 +228,7 @@ impl UnifiedDiff {
                     UnifiedDiff::Binary
                 }
             }
-        })
+        }))
     }
 }
 
