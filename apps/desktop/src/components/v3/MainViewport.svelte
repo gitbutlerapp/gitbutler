@@ -43,7 +43,7 @@ the window, then enlarge it and retain the original widths of the layout.
 			default: number;
 			min: number;
 		};
-		middleWidth: {
+		middleWidth?: {
 			default: number;
 			min: number;
 		};
@@ -57,14 +57,14 @@ the window, then enlarge it and retain the original widths of the layout.
 	const zoom = $derived($userSettings.zoom);
 
 	let leftPreferredWidth = $derived(pxToRem(leftWidth.default, zoom));
-	let middlePreferredWidth = $derived(pxToRem(middleWidth.default, zoom));
+	let middlePreferredWidth = $derived(pxToRem(middleWidth?.default, zoom));
 
 	let leftDiv = $state<HTMLDivElement>();
 	let middleDiv = $state<HTMLDivElement>();
 	let rightDiv = $state<HTMLDivElement>();
 
 	const leftMinWidth = $derived(pxToRem(leftWidth.min, zoom));
-	const middleMinWidth = $derived(pxToRem(middleWidth.min, zoom));
+	const middleMinWidth = $derived(pxToRem(middleWidth?.min, zoom));
 
 	// These need to stay in px since they are bound to elements.
 	let containerBindWidth = $state<number>(1000); // TODO: What initial value should we give this?
@@ -142,7 +142,7 @@ the window, then enlarge it and retain the original widths of the layout.
 					maxWidth={middleMaxWidth}
 					borderRadius="ml"
 					persistId="viewport-${name}-middle"
-					defaultValue={pxToRem(middleWidth.default, zoom)}
+					defaultValue={pxToRem(middleWidth?.default, zoom)}
 					onWidth={(width) => (middlePreferredWidth = width)}
 				/>
 			</AsyncRender>
