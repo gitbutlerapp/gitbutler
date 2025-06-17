@@ -220,8 +220,8 @@ pub fn assign(
         but_core::diff::worktree_changes(repo)?.changes;
     let mut worktree_assignments = vec![];
     for change in &worktree_changes {
-        let diff = change.unified_diff(repo, ctx.app_settings().context_lines)?;
-        worktree_assignments.extend(diff_to_assignments(diff, change.path.clone()));
+        let diff = change.unified_diff(repo, ctx.app_settings().context_lines);
+        worktree_assignments.extend(diff_to_assignments(diff.ok(), change.path.clone()));
     }
 
     // Reconcile worktree with the persisted assignments
@@ -295,8 +295,8 @@ pub fn assignments_with_fallback(
     }
     let mut worktree_assignments = vec![];
     for change in &worktree_changes {
-        let diff = change.unified_diff(repo, ctx.app_settings().context_lines)?;
-        worktree_assignments.extend(diff_to_assignments(diff, change.path.clone()));
+        let diff = change.unified_diff(repo, ctx.app_settings().context_lines);
+        worktree_assignments.extend(diff_to_assignments(diff.ok(), change.path.clone()));
     }
     let reconciled = reconcile_with_worktree_and_locks(
         ctx,
@@ -408,66 +408,79 @@ fn hunk_dependency_assignments(
 }
 
 /// This also generates a UUID for the assignment
-fn diff_to_assignments(diff: UnifiedDiff, path: BString) -> Vec<HunkAssignment> {
+fn diff_to_assignments(diff: Option<UnifiedDiff>, path: BString) -> Vec<HunkAssignment> {
     let path_str = path.to_str_lossy();
-    match diff {
-        but_core::UnifiedDiff::Binary => vec![HunkAssignment {
-            id: Some(Uuid::new_v4()),
-            hunk_header: None,
-            path: path_str.into(),
-            path_bytes: path,
-            stack_id: None,
-            hunk_locks: None,
-            line_nums_added: None,
-            line_nums_removed: None,
-        }],
-        but_core::UnifiedDiff::TooLarge { .. } => vec![HunkAssignment {
-            id: Some(Uuid::new_v4()),
-            hunk_header: None,
-            path: path_str.into(),
-            path_bytes: path,
-            stack_id: None,
-            hunk_locks: None,
-            line_nums_added: None,
-            line_nums_removed: None,
-        }],
-        but_core::UnifiedDiff::Patch {
-            hunks,
-            is_result_of_binary_to_text_conversion,
-            ..
-        } => {
-            // If there are no hunks, then the assignment is for the whole file
-            if is_result_of_binary_to_text_conversion || hunks.is_empty() {
-                vec![HunkAssignment {
-                    id: Some(Uuid::new_v4()),
-                    hunk_header: None,
-                    path: path_str.into(),
-                    path_bytes: path,
-                    stack_id: None,
-                    hunk_locks: None,
-                    line_nums_added: None,
-                    line_nums_removed: None,
-                }]
-            } else {
-                hunks
-                    .iter()
-                    .map(|hunk| {
-                        let (line_nums_added_new, line_nums_removed_old) =
-                            line_nums_from_hunk(&hunk.diff, hunk.old_start, hunk.new_start);
-                        HunkAssignment {
-                            id: Some(Uuid::new_v4()),
-                            hunk_header: Some(hunk.into()),
-                            path: path_str.clone().into(),
-                            path_bytes: path.clone(),
-                            stack_id: None,
-                            hunk_locks: None,
-                            line_nums_added: Some(line_nums_added_new),
-                            line_nums_removed: Some(line_nums_removed_old),
-                        }
-                    })
-                    .collect()
+    if let Some(diff) = diff {
+        match diff {
+            but_core::UnifiedDiff::Binary => vec![HunkAssignment {
+                id: Some(Uuid::new_v4()),
+                hunk_header: None,
+                path: path_str.into(),
+                path_bytes: path,
+                stack_id: None,
+                hunk_locks: None,
+                line_nums_added: None,
+                line_nums_removed: None,
+            }],
+            but_core::UnifiedDiff::TooLarge { .. } => vec![HunkAssignment {
+                id: Some(Uuid::new_v4()),
+                hunk_header: None,
+                path: path_str.into(),
+                path_bytes: path,
+                stack_id: None,
+                hunk_locks: None,
+                line_nums_added: None,
+                line_nums_removed: None,
+            }],
+            but_core::UnifiedDiff::Patch {
+                hunks,
+                is_result_of_binary_to_text_conversion,
+                ..
+            } => {
+                // If there are no hunks, then the assignment is for the whole file
+                if is_result_of_binary_to_text_conversion || hunks.is_empty() {
+                    vec![HunkAssignment {
+                        id: Some(Uuid::new_v4()),
+                        hunk_header: None,
+                        path: path_str.into(),
+                        path_bytes: path,
+                        stack_id: None,
+                        hunk_locks: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                    }]
+                } else {
+                    hunks
+                        .iter()
+                        .map(|hunk| {
+                            let (line_nums_added_new, line_nums_removed_old) =
+                                line_nums_from_hunk(&hunk.diff, hunk.old_start, hunk.new_start);
+                            HunkAssignment {
+                                id: Some(Uuid::new_v4()),
+                                hunk_header: Some(hunk.into()),
+                                path: path_str.clone().into(),
+                                path_bytes: path.clone(),
+                                stack_id: None,
+                                hunk_locks: None,
+                                line_nums_added: Some(line_nums_added_new),
+                                line_nums_removed: Some(line_nums_removed_old),
+                            }
+                        })
+                        .collect()
+                }
             }
         }
+    } else {
+        vec![HunkAssignment {
+            id: Some(Uuid::new_v4()),
+            hunk_header: None,
+            path: path_str.into(),
+            path_bytes: path.clone(),
+            stack_id: None,
+            hunk_locks: None,
+            line_nums_added: None,
+            line_nums_removed: None,
+        }]
     }
 }
 
