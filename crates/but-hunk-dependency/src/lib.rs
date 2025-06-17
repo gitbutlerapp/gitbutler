@@ -184,20 +184,21 @@ pub fn tree_changes_to_input_files(
 ) -> anyhow::Result<Vec<InputFile>> {
     let mut files = Vec::new();
     for change in changes {
-        let diff = change.unified_diff(repo, 0)?;
-        let UnifiedDiff::Patch { hunks, .. } = diff else {
-            trace::warn!(
-                "Skipping change at '{}' as it doesn't have hunks to calculate dependencies for (binary/too large)",
-                change.path
-            );
-            continue;
-        };
-        let change_type = change.status.kind();
-        files.push(InputFile {
-            path: change.path,
-            hunks: hunks.iter().map(InputDiffHunk::from_unified_diff).collect(),
-            change_type,
-        })
+        if let Ok(diff) = change.unified_diff(repo, 0) {
+            let UnifiedDiff::Patch { hunks, .. } = diff else {
+                trace::warn!(
+                    "Skipping change at '{}' as it doesn't have hunks to calculate dependencies for (binary/too large)",
+                    change.path
+                );
+                continue;
+            };
+            let change_type = change.status.kind();
+            files.push(InputFile {
+                path: change.path,
+                hunks: hunks.iter().map(InputDiffHunk::from_unified_diff).collect(),
+                change_type,
+            })
+        }
     }
     Ok(files)
 }

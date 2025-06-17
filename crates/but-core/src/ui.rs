@@ -84,21 +84,23 @@ fn changes_to_unidiff_string(
                 builder.push_str(&format!("rename to {}\n", &change.path.to_string()));
             }
         }
-        match crate::TreeChange::from(change).unified_diff(repo, context_lines)? {
-            UnifiedDiff::Patch {
-                hunks,
-                is_result_of_binary_to_text_conversion,
-                ..
-            } => {
-                if is_result_of_binary_to_text_conversion {
-                    continue;
+        if let Ok(unidiff) = crate::TreeChange::from(change).unified_diff(repo, context_lines) {
+            match unidiff {
+                UnifiedDiff::Patch {
+                    hunks,
+                    is_result_of_binary_to_text_conversion,
+                    ..
+                } => {
+                    if is_result_of_binary_to_text_conversion {
+                        continue;
+                    }
+                    for hunk in hunks {
+                        builder.push_str(&hunk.diff.to_string());
+                        builder.push('\n');
+                    }
                 }
-                for hunk in hunks {
-                    builder.push_str(&hunk.diff.to_string());
-                    builder.push('\n');
-                }
+                _ => continue,
             }
-            _ => continue,
         }
     }
     Ok(builder)
