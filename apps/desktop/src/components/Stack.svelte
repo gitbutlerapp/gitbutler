@@ -210,7 +210,7 @@
 					direction="right"
 					minWidth={25}
 					imitateBorder
-					imitateBorderColor={$fileIdSelection.length === 1 ? 'trnsparent' : 'var(--clr-border-2)'}
+					borderColor={$fileIdSelection.length === 1 ? 'trnsparent' : 'var(--clr-border-2)'}
 				/>
 			{/if}
 		</div>

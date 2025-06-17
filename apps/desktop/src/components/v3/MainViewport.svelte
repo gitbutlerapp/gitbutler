@@ -39,6 +39,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		middle?: Snippet;
 		right: Snippet;
 		drawerRight?: Snippet;
+		leftResizerRadius?: boolean;
 		leftWidth: {
 			default: number;
 			min: number;
@@ -50,8 +51,17 @@ the window, then enlarge it and retain the original widths of the layout.
 		middleOpen?: boolean;
 	};
 
-	const { name, left, middle, right, drawerRight, leftWidth, middleWidth, middleOpen }: Props =
-		$props();
+	const {
+		name,
+		left,
+		middle,
+		right,
+		drawerRight,
+		leftResizerRadius,
+		leftWidth,
+		middleWidth,
+		middleOpen
+	}: Props = $props();
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const zoom = $derived($userSettings.zoom);
@@ -110,12 +120,16 @@ the window, then enlarge it and retain the original widths of the layout.
 		use:focusable={{ id: DefinedFocusable.ViewportLeft, parentId: DefinedFocusable.MainViewport }}
 	>
 		<AsyncRender>
-			{@render left()}
+			<div class="left-content">
+				{@render left()}
+			</div>
 			<Resizer
 				viewport={leftDiv}
 				direction="right"
 				minWidth={leftMinWidth}
 				maxWidth={leftMaxWidth}
+				imitateBorder
+				borderRadius={(!middleOpen && middle) || (leftResizerRadius && !middle) ? 'ml' : 'none'}
 				persistId="viewport-${name}-left"
 				onWidth={(width) => (leftPreferredWidth = width)}
 			/>
@@ -124,7 +138,7 @@ the window, then enlarge it and retain the original widths of the layout.
 
 	{#if middleOpen && middle}
 		<div
-			class="middle view-wrapper dotted-pattern"
+			class="middle view-wrapper"
 			bind:this={middleDiv}
 			style:width={derivedMiddleWidth + 'rem'}
 			style:min-width={middleMinWidth + 'rem'}
@@ -134,7 +148,9 @@ the window, then enlarge it and retain the original widths of the layout.
 			}}
 		>
 			<AsyncRender>
-				{@render middle()}
+				<div class="middle-content dotted-pattern">
+					{@render middle()}
+				</div>
 				<Resizer
 					viewport={middleDiv}
 					direction="right"
@@ -189,6 +205,12 @@ the window, then enlarge it and retain the original widths of the layout.
 		overflow: auto;
 	}
 
+	.view-wrapper {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+	}
+
 	.left {
 		display: flex;
 		position: relative;
@@ -197,19 +219,9 @@ the window, then enlarge it and retain the original widths of the layout.
 		flex-direction: column;
 		justify-content: flex-start;
 		height: 100%;
-		overflow: hidden;
 	}
 
-	.middle-open .left {
-		border-radius: var(--radius-ml) 0 0 var(--radius-ml);
-	}
-
-	.middle-open .middle {
-		border-left-width: 0;
-		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
-	}
-
-	.view-wrapper {
+	.left-content {
 		display: flex;
 		flex-direction: column;
 		height: 100%;
@@ -226,7 +238,21 @@ the window, then enlarge it and retain the original widths of the layout.
 		flex-direction: column;
 		justify-content: flex-start;
 		height: 100%;
+	}
+
+	.middle-content {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
 		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
+		border-left-color: transparent;
+	}
+
+	.middle-open .left-content {
+		border-radius: var(--radius-ml) 0 0 var(--radius-ml);
+		border-right-color: transparent;
 	}
 
 	.right {
@@ -237,6 +263,8 @@ the window, then enlarge it and retain the original widths of the layout.
 		height: 100%;
 		margin-left: 8px;
 		overflow-x: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
 	}
 
 	.drawer-right {
