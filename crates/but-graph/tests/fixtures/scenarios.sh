@@ -40,6 +40,10 @@ function setup_target_to_match_main() {
 [remote "origin"]
 	url = ./fake/local/path/which-is-fine-as-we-dont-fetch-or-push
 	fetch = +refs/heads/*:refs/remotes/origin/*
+
+[branch "main"]
+  remote = "origin"
+  merge = refs/heads/main
 EOF
 }
 
@@ -125,3 +129,206 @@ git init four-diamond
 
   git checkout -B merged A && git merge C
 )
+
+# A remote reference is seen while traversing another remote.
+git init remote-includes-another-remote
+(cd remote-includes-another-remote
+  commit init
+  git checkout -b A
+    git branch soon-remote-A
+    commit A
+  git checkout -b B
+    commit B
+
+  git checkout soon-remote-A
+    tick
+    commit A
+    git checkout -b soon-remote-B
+    commit B
+  setup_remote_tracking soon-remote-A A "move"
+  setup_remote_tracking soon-remote-B B "move"
+
+  git checkout B
+
+cat <<EOF >>.git/config
+ [remote "origin"]
+ 	url = .
+ 	fetch = +refs/heads/*:refs/remotes/origin/*
+
+ [branch "A"]
+   remote = "origin"
+   merge = refs/heads/A
+ [branch "B"]
+   remote = "origin"
+   merge = refs/heads/B
+EOF
+
+)
+
+mkdir ws
+(cd ws
+  git init single-stack-ambiguous
+  (cd single-stack-ambiguous
+     commit init
+       setup_target_to_match_main
+       git branch new-A
+       git branch new-B
+     git checkout -b A
+       commit segment-A
+       for name in A-empty-01 A-empty-02 A-empty-03; do
+         git branch "$name"
+       done
+     git checkout -b B
+       commit segment-B~1 && git branch B-empty && git branch ambiguous-01
+       commit segment-B && git tag without-ref
+       commit with-ref
+     create_workspace_commit_once B
+  )
+
+  git init single-stack
+  (cd single-stack
+     commit init
+       setup_target_to_match_main
+       git branch new-A
+     git checkout -b A
+       commit segment-A
+     git checkout -b B
+       commit segment-B~1
+         git branch B-sub
+       commit segment-B
+     create_workspace_commit_once B
+  )
+
+  git init dual-merge
+  (cd dual-merge
+     commit init
+       setup_target_to_match_main
+       git branch B
+     git checkout -b A
+       commit A
+     git checkout B
+       commit B
+     git checkout -b merge
+       git merge --no-ff A
+       git branch empty-1-on-merge
+       git branch empty-2-on-merge
+     git checkout -b C
+       git branch D
+       commit C
+     git checkout D
+       commit D
+     git checkout -b merge-2
+       git merge --no-ff C
+     create_workspace_commit_once merge-2
+  )
+
+  cp -rv dual-merge dual-merge-no-refs
+  (cd dual-merge-no-refs
+    git branch -d merge-2 C D A B merge empty-2-on-merge empty-1-on-merge main
+    rm .git/refs/remotes/origin/main
+  )
+
+  git init graph-splitting
+  (cd graph-splitting
+     commit init
+     commit other-1
+     git checkout -b entrypoint
+       commit A
+       commit B
+       commit C
+     git checkout main
+     commit other-2
+     create_workspace_commit_once main
+  )
+
+  git init just-init-with-branches
+  (cd just-init-with-branches
+    commit init && setup_target_to_match_main
+    for name in A B C D E F gitbutler/workspace; do
+      git branch "$name"
+    done
+  )
+
+  # The remote of 'main' is officially setup.
+  git init proper-remote-ahead
+  (cd proper-remote-ahead
+    commit init && setup_target_to_match_main
+    commit shared
+    git checkout -b soon-remote;
+      commit only-remote-01;
+      commit only-remote-02;
+    git checkout main && create_workspace_commit_once main
+    setup_remote_tracking soon-remote main "move"
+  )
+
+  # The remote of 'main' is just deduced by name.
+  git init deduced-remote-ahead
+  (cd deduced-remote-ahead
+    commit init
+    commit shared
+    git checkout -b soon-remote;
+      commit only-remote-01;
+      commit only-remote-02;
+    git checkout main && create_workspace_commit_once main
+    setup_remote_tracking soon-remote main "move"
+
+cat <<EOF >>.git/config
+[remote "origin"]
+  url = ./want-just-a-remote-name
+  fetch = +refs/heads/*:refs/remotes/origin/*
+EOF
+
+  )
+
+  # A remote reference is seen while traversing another remote.
+  git init remote-includes-another-remote
+  (cd remote-includes-another-remote
+    commit init && setup_target_to_match_main
+    git checkout -b A
+      git branch soon-remote-A
+      commit A
+    git checkout -b B
+      commit B
+    create_workspace_commit_once B
+
+    git checkout soon-remote-A
+      tick
+      commit A
+      git checkout -b soon-remote-B
+      commit B
+    setup_remote_tracking soon-remote-A A "move"
+    setup_remote_tracking soon-remote-B B "move"
+
+    git checkout gitbutler/workspace
+  )
+
+  git init disambiguate-by-remote
+  (cd disambiguate-by-remote
+    commit init && setup_target_to_match_main
+    git checkout -b A
+      commit A
+      git branch soon-remote-on-top-of-A
+      git branch ambiguous-A
+    git checkout -b B
+      commit B
+      git branch soon-remote-ahead-of-B
+      git branch ambiguous-B
+    git checkout -b C
+      commit C
+      git branch soon-remote-on-top-of-C
+      git branch ambiguous-C
+      git branch soon-remote-on-top-of-ambiguous-C
+
+    create_workspace_commit_once C
+    setup_remote_tracking soon-remote-on-top-of-A A "move"
+    setup_remote_tracking soon-remote-on-top-of-C C "move"
+    setup_remote_tracking soon-remote-on-top-of-ambiguous-C ambiguous-C "move"
+
+    git checkout soon-remote-ahead-of-B
+      commit remote-of-B
+      setup_remote_tracking soon-remote-ahead-of-B B "move"
+
+    git checkout gitbutler/workspace
+  )
+)
+

@@ -156,7 +156,12 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                 value,
             })
         } else {
-            bail!("This backend doesn't support arbitrary workspaces");
+            Ok(VBTomlMetadataHandle {
+                is_default: true,
+                ref_name: ref_name.to_owned(),
+                stack_id: None.into(),
+                value: Default::default(),
+            })
         }
     }
 

@@ -11,7 +11,7 @@
 /// We would have to detect this case by validating parents, and the refs pointing to it, before
 /// using the metadata, or at least have a way to communicate possible states when trying to use
 /// this information.
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Workspace {
     /// Standard data we want to know about any ref.
     pub ref_info: RefInfo,
@@ -125,7 +125,7 @@ impl RefInfo {
 }
 
 /// A stack that was applied to the workspace, i.e. a parent of the *workspace commit*.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorkspaceStack {
     /// All branches that were reachable from the tip of the stack that at the time it was merged into
     /// the *workspace commit*.
@@ -138,7 +138,7 @@ pub struct WorkspaceStack {
 
 /// A branch within a [`WorkspaceStack`], holding per-branch metadata that is
 /// stored alongside a stack that is available in a workspace.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorkspaceStackBranch {
     /// The name of the branch.
     pub ref_name: gix::refs::FullName,

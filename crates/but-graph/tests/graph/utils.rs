@@ -1,5 +1,4 @@
-use bstr::ByteSlice;
-use but_graph::{LocalCommitRelation, RefLocation, SegmentIndex};
+use but_graph::{EntryPoint, Graph, LocalCommitRelation, SegmentIndex};
 use std::collections::{BTreeMap, BTreeSet};
 use termtree::Tree;
 
@@ -7,50 +6,13 @@ type SegmentTree = Tree<String>;
 
 /// Visualize `graph` as a tree.
 pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
-    enum CommitKind {
-        Local,
-        Remote,
-    }
     fn tree_for_commit<'a>(
         commit: &but_graph::Commit,
         extra: impl Into<Option<&'a str>>,
         has_conflicts: bool,
-        kind: CommitKind,
+        is_entrypoint: bool,
     ) -> SegmentTree {
-        let extra = extra.into();
-        format!(
-            "{kind}{conflict}{hex}{extra}❱{msg:?}{refs}",
-            kind = match kind {
-                CommitKind::Local => {
-                    "🔵"
-                }
-                CommitKind::Remote => {
-                    "🟣"
-                }
-            },
-            conflict = if has_conflicts { "💥" } else { "" },
-            extra = if let Some(extra) = extra {
-                format!(" [{extra}]")
-            } else {
-                "".into()
-            },
-            hex = commit.id.to_hex_with_len(7),
-            msg = commit.message.trim().as_bstr(),
-            refs = if commit.refs.is_empty() {
-                "".to_string()
-            } else {
-                format!(
-                    " {}",
-                    commit
-                        .refs
-                        .iter()
-                        .map(|rn| format!("►{}", rn.shorten()))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                )
-            }
-        )
-        .into()
+        Graph::commit_debug_string(commit, extra, has_conflicts, is_entrypoint, true).into()
     }
     fn recurse_segment(
         graph: &but_graph::Graph,
@@ -59,15 +21,28 @@ pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
     ) -> SegmentTree {
         if seen.contains(&sidx) {
             return format!(
-                "ERROR: Reached segment {sidx} for a second time: {name:?}",
+                "→:{sidx}:{name}",
                 sidx = sidx.index(),
-                name = graph[sidx].ref_name.as_ref().map(|n| n.as_bstr())
+                name = graph[sidx]
+                    .ref_name
+                    .as_ref()
+                    .map(|n| format!(" ({})", Graph::ref_debug_string(n)))
+                    .unwrap_or_default()
             )
             .into();
         }
         seen.insert(sidx);
         let segment = &graph[sidx];
-        let on_top = {
+        let ep = no_first_commit_on_named_segments(graph.lookup_entrypoint().unwrap());
+        let segment_is_entrypoint = ep.segment_index == sidx;
+        let mut show_segment_entrypoint = segment_is_entrypoint;
+        if segment_is_entrypoint {
+            // Reduce noise by preferring ref-based entry-points.
+            if segment.ref_name.is_none() && ep.commit_index.is_some() {
+                show_segment_entrypoint = false;
+            }
+        }
+        let connected_segments = {
             let mut m = BTreeMap::<_, Vec<_>>::new();
             for (cidx, sidx) in graph.segments_on_top(sidx) {
                 m.entry(cidx).or_default().push(sidx);
@@ -76,24 +51,37 @@ pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
         };
 
         let mut root = Tree::new(format!(
-            "{ref_name}{location}{remote}",
-            ref_name = segment
-                .ref_name
-                .as_ref()
-                .map(|n| format!("►{}", n))
-                .unwrap_or("<anon>".into()),
-            location = if let Some(RefLocation::OutsideOfWorkspace) = segment.ref_location {
-                "(OUTSIDE)"
+            "{entrypoint}{kind}:{id}:{ref_name}{remote}",
+            id = segment.id,
+            kind = if segment.workspace_metadata().is_some() {
+                "►►►"
+            } else {
+                "►"
+            },
+            entrypoint = if show_segment_entrypoint {
+                if ep.commit.is_none() && ep.commit_index.is_some() {
+                    "🫱"
+                } else {
+                    "👉"
+                }
             } else {
                 ""
             },
+            ref_name = segment
+                .ref_name
+                .as_ref()
+                .map(Graph::ref_debug_string)
+                .unwrap_or("anon:".into()),
             remote = if let Some(remote_ref_name) = segment.remote_tracking_ref_name.as_ref() {
-                format!(" <> {remote_name}", remote_name = remote_ref_name.as_bstr())
+                format!(
+                    " <> {remote_name}",
+                    remote_name = Graph::ref_debug_string(remote_ref_name)
+                )
             } else {
                 "".into()
-            }
+            },
         ));
-        for (cidx, commit) in segment.commits_unique_from_tip.iter().enumerate().rev() {
+        for (cidx, commit) in segment.commits.iter().enumerate() {
             let mut commit_tree = tree_for_commit(
                 commit,
                 if commit.relation == LocalCommitRelation::LocalOnly {
@@ -102,9 +90,9 @@ pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
                     Some(commit.relation.display(commit.id))
                 },
                 commit.has_conflicts,
-                CommitKind::Local,
+                segment_is_entrypoint && Some(cidx) == ep.commit_index,
             );
-            if let Some(segment_indices) = on_top.get(&Some(cidx)) {
+            if let Some(segment_indices) = connected_segments.get(&Some(cidx)) {
                 for sidx in segment_indices {
                     commit_tree.push(recurse_segment(graph, *sidx, seen));
                 }
@@ -112,26 +100,29 @@ pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
             root.push(commit_tree);
         }
         // Get the segments that are directly connected.
-        if let Some(segment_indices) = on_top.get(&None) {
+        if let Some(segment_indices) = connected_segments.get(&None) {
             for sidx in segment_indices {
                 root.push(recurse_segment(graph, *sidx, seen));
             }
         }
 
-        for commit in segment
-            .commits_unique_in_remote_tracking_branch
-            .iter()
-            .rev()
-        {
+        for commit in segment.commits_unique_in_remote_tracking_branch.iter() {
             root.push(tree_for_commit(
                 &commit.inner,
                 None,
                 commit.has_conflicts,
-                CommitKind::Remote,
+                false, /* is_entrypoint */
             ));
         }
 
         root
+    }
+
+    fn no_first_commit_on_named_segments(mut ep: EntryPoint) -> EntryPoint {
+        if ep.segment.ref_name.is_some() && ep.commit_index == Some(0) {
+            ep.commit_index = None;
+        }
+        ep
     }
 
     let mut root = Tree::new("".to_string());
