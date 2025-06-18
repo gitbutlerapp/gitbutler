@@ -275,7 +275,8 @@ export class UncommittedService {
 	}
 
 	getChangesByStackId(stackId: string | null): TreeChange[] {
-		return uncommittedSelectors.treeChanges.selectByStackId(this.state, stackId);
+		const stackIdChanges = uncommittedSelectors.treeChanges.selectByStackId(this.state, stackId);
+		return stackIdChanges;
 	}
 
 	changesByStackId(stackId: string | null): Reactive<TreeChange[]> {
@@ -288,6 +289,14 @@ export class UncommittedService {
 			this.state.hunkAssignments,
 			partialKey(stackId, path)
 		);
+	}
+
+	getAssignmentsByPaths(stackId: string | null, paths: string[]): Record<string, HunkAssignment[]> {
+		const assignments: Record<string, HunkAssignment[]> = {};
+		for (const path of paths) {
+			assignments[path] = this.getAssignmentsByPath(stackId, path);
+		}
+		return assignments;
 	}
 
 	getAssignmentsByStackId(stackId: string): HunkAssignment[] {

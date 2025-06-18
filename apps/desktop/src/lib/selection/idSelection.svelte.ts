@@ -9,6 +9,7 @@ import {
 import { SvelteSet } from 'svelte/reactivity';
 import { get, writable, type Writable } from 'svelte/store';
 import type { TreeChange } from '$lib/hunks/change';
+import type { HunkAssignment } from '$lib/hunks/hunk';
 import type { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 import type { StackService } from '$lib/stacks/stackService.svelte';
 
@@ -141,6 +142,27 @@ export class IdSelection {
 				return await this.stackService.commitChangesByPaths(projectId, params.commitId, paths);
 			case 'snapshot':
 				throw new Error('unsupported');
+		}
+	}
+
+	/**
+	 * Retrieve the hunk assignments for the current selection.
+	 *
+	 * Hunk assignments are only relevant when selecting worktree files.
+	 * For branches, commits, and snapshots, this will return null.
+	 */
+	hunkAssignments(params: SelectionId): Record<string, HunkAssignment[]> | null {
+		switch (params.type) {
+			case 'worktree': {
+				const paths = this.values(params).map((fileSelection) => {
+					return fileSelection.path;
+				});
+				return this.uncommittedService.getAssignmentsByPaths(params.stackId || null, paths);
+			}
+			case 'branch':
+			case 'commit':
+			case 'snapshot':
+				return null;
 		}
 	}
 
