@@ -59,9 +59,7 @@
 	const isCommitting = $derived(action?.type === 'commit' && action.stackId === stack.id);
 
 	// If the user is making a commit to a different lane we dim this one.
-	const dimmed = $derived(
-		action?.type === 'commit' && action.stackId !== undefined && action.stackId !== stack.id
-	);
+	const dimmed = $derived(action?.type === 'commit' && action?.stackId !== stack.id);
 
 	const persistedStackWidth = persistWithExpiration(
 		uiState.global.stackWidth.current,
