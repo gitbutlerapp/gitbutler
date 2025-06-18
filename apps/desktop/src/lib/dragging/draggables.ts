@@ -4,7 +4,7 @@ import type { AnyCommit } from '$lib/commits/commit';
 import type { CommitDropData } from '$lib/commits/dropHandler';
 import type { AnyFile } from '$lib/files/file';
 import type { TreeChange } from '$lib/hunks/change';
-import type { Hunk, HunkHeader, HunkLock } from '$lib/hunks/hunk';
+import type { Hunk, HunkAssignment, HunkHeader, HunkLock } from '$lib/hunks/hunk';
 import type { IdSelection } from '$lib/selection/idSelection.svelte';
 
 export const NON_DRAGGABLE = {
@@ -70,6 +70,13 @@ export class ChangeDropData {
 			return await this.selection.treeChanges(this.projectId, this.selectionId);
 		}
 		return [this.change];
+	}
+
+	assignments(): Record<string, HunkAssignment[]> | undefined {
+		if (this.selection.has(this.change.path, this.selectionId)) {
+			return this.selection.hunkAssignments(this.selectionId) ?? undefined;
+		}
+		return undefined;
 	}
 
 	get isCommitted(): boolean {
