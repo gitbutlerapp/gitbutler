@@ -110,7 +110,8 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 				console.warn('Moving a branch into a commit is an invalid operation');
 				break;
 			case 'worktree': {
-				const diffSpec = changesToDiffSpec(await data.treeChanges());
+				const assignments = data.assignments();
+				const diffSpec = changesToDiffSpec(await data.treeChanges(), assignments);
 				return this.onresult(
 					await this.trigger({
 						projectId: this.projectId,
