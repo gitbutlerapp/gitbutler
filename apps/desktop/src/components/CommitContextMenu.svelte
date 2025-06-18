@@ -102,6 +102,13 @@
 			/>
 		{/if}
 		<ContextMenuItem
+			label="Copy commit hash"
+			onclick={() => {
+				writeClipboard(commit.id);
+				menu?.close();
+			}}
+		/>
+		<ContextMenuItem
 			label="Copy commit message"
 			onclick={() => {
 				writeClipboard(commit.description);
