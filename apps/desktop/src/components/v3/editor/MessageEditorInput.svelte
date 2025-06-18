@@ -21,7 +21,7 @@
 		testId
 	}: Props = $props();
 
-	let charsCount = $state(value.length);
+	let charsCount = $derived(value.length);
 
 	function stopPropagation(e: MouseEvent) {
 		e.stopPropagation();
@@ -40,7 +40,7 @@
 		class="text-14 text-semibold text-input"
 		type="text"
 		autofocus
-		{value}
+		bind:value
 		oninput={(e: Event) => {
 			const input = e.currentTarget as HTMLInputElement;
 			charsCount = input.value.length;
