@@ -22,10 +22,17 @@
 	}: Props = $props();
 
 	let charsCount = $state(value.length);
+
+	function stopPropagation(e: MouseEvent) {
+		e.stopPropagation();
+		e.preventDefault();
+	}
 </script>
 
 <!-- svelte-ignore a11y_autofocus -->
-<div class="message-editor-input">
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="message-editor-input" onclick={stopPropagation} ondblclick={stopPropagation}>
 	<input
 		data-testid={testId}
 		bind:this={ref}
