@@ -42,7 +42,14 @@ impl Graph {
     ) -> SegmentIndex {
         let dst = self.inner.add_node(dst);
         self.inner[dst].id = dst.index();
-        self.connect_segments_with_dst_id(src, src_commit, dst, dst_commit, dst_commit_id.into());
+        self.connect_segments_with_ids(
+            src,
+            src_commit,
+            None,
+            dst,
+            dst_commit,
+            dst_commit_id.into(),
+        );
         dst
     }
 }
@@ -56,13 +63,14 @@ impl Graph {
         dst: SegmentIndex,
         dst_commit: impl Into<Option<CommitIndex>>,
     ) {
-        self.connect_segments_with_dst_id(src, src_commit, dst, dst_commit, None)
+        self.connect_segments_with_ids(src, src_commit, None, dst, dst_commit, None)
     }
 
-    pub(crate) fn connect_segments_with_dst_id(
+    pub(crate) fn connect_segments_with_ids(
         &mut self,
         src: SegmentIndex,
         src_commit: impl Into<Option<CommitIndex>>,
+        src_id: Option<gix::ObjectId>,
         dst: SegmentIndex,
         dst_commit: impl Into<Option<CommitIndex>>,
         dst_id: Option<gix::ObjectId>,
@@ -74,7 +82,7 @@ impl Graph {
             dst,
             Edge {
                 src: src_commit,
-                src_id: self[src].commit_id_by_index(src_commit),
+                src_id: src_id.or_else(|| self[src].commit_id_by_index(src_commit)),
                 dst: dst_commit,
                 dst_id: dst_id.or_else(|| self[dst].commit_id_by_index(dst_commit)),
             },
@@ -114,6 +122,26 @@ impl Graph {
     /// Typically, there is only one, but there can easily be multiple.
     pub fn base_segments(&self) -> impl Iterator<Item = SegmentIndex> {
         self.inner.externals(Direction::Outgoing)
+    }
+
+    /// Return all segments that are both [base segments](Self::base_segments) and which
+    /// aren't fully defined as traversal stopped due to some abort condition being met.
+    /// Valid partial segments always have at least one commit.
+    pub fn partial_segments(&self) -> impl Iterator<Item = SegmentIndex> {
+        self.base_segments().filter(|s| {
+            let has_outgoing = self
+                .inner
+                .edges_directed(*s, Direction::Outgoing)
+                .next()
+                .is_some();
+            if has_outgoing {
+                return false;
+            }
+            self[*s]
+                .commits
+                .first()
+                .is_none_or(|c| !c.parent_ids.is_empty())
+        })
     }
 
     /// Return all segments that sit on top of the `sidx` segment as `(source_commit_index(of sidx), destination_segment_index)`,
@@ -174,11 +202,13 @@ impl Graph {
         has_conflicts: bool,
         is_entrypoint: bool,
         show_message: bool,
+        is_early_end: bool,
     ) -> String {
         let extra = extra.into();
         format!(
-            "{ep}{kind}{conflict}{hex}{extra}{flags}{msg}{refs}",
+            "{ep}{end}{kind}{conflict}{hex}{extra}{flags}{msg}{refs}",
             ep = if is_entrypoint { "👉" } else { "" },
+            end = if is_early_end { "✂️" } else { "" },
             kind = if commit.flags.contains(CommitFlags::NotInRemote) {
                 "·"
             } else {
@@ -234,15 +264,15 @@ impl Graph {
 
     /// Validate the graph for consistency and fail loudly when an issue was found, after printing the dot graph.
     /// Mostly useful for debugging to stop early when a connection wasn't created correctly.
-    pub(crate) fn validate_or_eprint_dot(&mut self) -> anyhow::Result<()> {
+    pub fn validated_or_open_as_svg(self) -> anyhow::Result<Self> {
         for edge in self.inner.edge_references() {
             let res = check_edge(&self.inner, edge);
             if res.is_err() {
-                self.eprint_dot_graph();
+                self.open_as_svg();
             }
             res?;
         }
-        Ok(())
+        Ok(self)
     }
 
     /// Output this graph in dot-format to stderr to allow copying it, and using like this for visualization:
@@ -298,6 +328,26 @@ impl Graph {
         );
     }
 
+    /// Return `true` if commit `cidx` in `sidx` is 'cut off', i.e. the traversal finished at this
+    /// commit due to an abort condition.
+    pub fn is_early_end_of_traversal(&self, sidx: SegmentIndex, cidx: CommitIndex) -> bool {
+        if cidx + 1 == self[sidx].commits.len() {
+            !self[sidx]
+                .commits
+                .last()
+                .expect("length check above works")
+                .parent_ids
+                .is_empty()
+                && self
+                    .inner
+                    .edges_directed(sidx, Direction::Outgoing)
+                    .next()
+                    .is_none()
+        } else {
+            false
+        }
+    }
+
     /// Produces a dot-version of the graph.
     pub fn dot_graph(&self) -> String {
         const HEX: usize = 7;
@@ -325,6 +375,7 @@ impl Graph {
                         c.has_conflicts,
                         !show_segment_entrypoint && Some((sidx, Some(cidx))) == entrypoint,
                         false,
+                        self.is_early_end_of_traversal(sidx, cidx),
                     )
                 })
                 .collect::<Vec<_>>()

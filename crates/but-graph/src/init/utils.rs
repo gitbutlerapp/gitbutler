@@ -443,7 +443,7 @@ pub fn collect_ref_mapping_by_prefix<'a>(
     Ok(all_refs_by_id)
 }
 
-/// Returns `([(workspace_ref_name, workspace_info)], target_refs)` for all available workspace,
+/// Returns `([(workspace_ref_name, workspace_info)], target_refs, desired_refs)` for all available workspace,
 /// or exactly one workspace if `maybe_ref_name`.
 /// already points to a workspace. That way we can discover the workspace containing any starting point, but only if needed.
 ///
@@ -457,6 +457,7 @@ pub fn obtain_workspace_infos(
 ) -> anyhow::Result<(
     Vec<(gix::refs::FullName, ref_metadata::Workspace)>,
     Vec<gix::refs::FullName>,
+    BTreeSet<gix::refs::FullName>,
 )> {
     let mut workspaces = if let Some((ref_name, ws_data)) = maybe_ref_name
         .and_then(|ref_name| {
@@ -482,6 +483,14 @@ pub fn obtain_workspace_infos(
     let target_refs: Vec<_> = workspaces
         .iter()
         .filter_map(|(_, data)| data.target_ref.clone())
+        .collect();
+    let desired_refs = workspaces
+        .iter()
+        .flat_map(|(_, data): &(_, ref_metadata::Workspace)| {
+            data.stacks
+                .iter()
+                .flat_map(|stacks| stacks.branches.iter().map(|b| b.ref_name.clone()))
+        })
         .collect();
     // defensive pruning
     workspaces.retain(|(rn, data)| {
@@ -510,7 +519,7 @@ pub fn obtain_workspace_infos(
         true
     });
 
-    Ok((workspaces, target_refs))
+    Ok((workspaces, target_refs, desired_refs))
 }
 
 pub fn try_refname_to_id(
@@ -590,4 +599,36 @@ pub fn try_queue_remote_tracking_branches(
         ));
     }
     Ok(())
+}
+
+/// Remove if there are only tips with integrated commits…
+///
+/// - keep tips that are adding segments that are or contain a workspace ref
+/// - prune the rest
+///    - delete empty segments of pruned tips.
+pub fn prune_integrated_tips(
+    graph: &mut PetGraph,
+    next: &mut VecDeque<QueueItem>,
+    workspace_refs: &BTreeSet<gix::refs::FullName>,
+) {
+    let all_integated = next
+        .iter()
+        .all(|tip| tip.1.contains(CommitFlags::Integrated));
+    if !all_integated {
+        return;
+    }
+    next.retain(|(_id, _flags, instruction)| {
+        let sidx = instruction.segment_idx();
+        let s = &graph[sidx];
+        let any_segment_ref_is_contained_in_workspace = s
+            .ref_name
+            .as_ref()
+            .into_iter()
+            .chain(s.commits.iter().flat_map(|c| c.refs.iter()))
+            .any(|segment_rn| workspace_refs.contains(segment_rn));
+        if !any_segment_ref_is_contained_in_workspace && s.commits.is_empty() {
+            graph.remove_node(sidx);
+        }
+        any_segment_ref_is_contained_in_workspace
+    });
 }

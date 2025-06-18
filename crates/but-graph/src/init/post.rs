@@ -35,8 +35,32 @@ impl Graph {
             configured_remote_tracking_branches,
         )?;
         self.workspace_upgrades(meta)?;
+        self.fill_flags_at_border_segments()?;
 
         Ok(self)
+    }
+
+    /// Borders are special as these are not fully traversed segments, so their flags might be partial.
+    /// Here we want to assure that segments with local branch names have `NotInRemote` set
+    /// (just to indicate they are local first).
+    fn fill_flags_at_border_segments(&mut self) -> anyhow::Result<()> {
+        for segment in self.partial_segments().collect::<Vec<_>>() {
+            let segment = &mut self[segment];
+            // Partial segments are naturally the end, so no need to propagate flags.
+            // Note that this is usually not relevant except for yielding more correct looking graphs.
+            let is_named_and_local = segment
+                .ref_name
+                .as_ref()
+                .is_some_and(|rn| rn.category() == Some(Category::LocalBranch));
+            if is_named_and_local {
+                for commit in segment.commits.iter_mut() {
+                    // We set this flag as the *lack* of it means it's in a remote, which is definitely wrong
+                    // knowing that we know what's purely remote by looking at the absence of this flag.
+                    commit.flags |= CommitFlags::NotInRemote;
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Perform operations on segments that can reach a workspace segment when searching upwards.

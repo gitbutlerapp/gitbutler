@@ -330,5 +330,47 @@ EOF
 
     git checkout gitbutler/workspace
   )
+
+  git init two-segments-one-integrated
+  (cd two-segments-one-integrated
+    for c in $(seq 3); do
+      commit "$c"
+    done
+    git checkout -b A
+      commit 4
+      git checkout -b A-feat
+        commit "A-feat-1"
+        commit "A-feat-2"
+      git checkout A
+      git merge --no-ff A-feat
+      for c in $(seq 5 8); do
+        commit "$c"
+      done
+    git checkout -b B
+      commit "B1"
+      commit "B2"
+
+    create_workspace_commit_once B
+
+    tick
+    git checkout -b soon-origin-main main
+      git merge --no-ff A
+      setup_remote_tracking soon-origin-main main "move"
+    git checkout gitbutler/workspace
+  )
+
+  git init on-top-of-target-with-history
+  (cd on-top-of-target-with-history
+    commit outdated-main
+    git checkout -b soon-origin-main
+    for c in $(seq 5); do
+      commit "$c"
+    done
+    for name in A B C D E F gitbutler/workspace; do
+      git branch "$name"
+    done
+    setup_remote_tracking soon-origin-main main "move"
+    git checkout gitbutler/workspace
+  )
 )
 

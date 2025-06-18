@@ -105,9 +105,9 @@ fn post_graph_traversal() -> anyhow::Result<()> {
         │   ├── 🟣💥aaaaaaa (🏘️)❱"2 in A"
         │   └── 🟣febafeb (🏘️)❱"1 in A"
         │       └── ►:4:origin/A
-        │           └── 🟣bbbbbbb❱"remote: on top of 1A"
+        │           └── ✂️🟣bbbbbbb❱"remote: on top of 1A"
         ├── ►:2:origin/main
-        │   └── 🟣ccccccc❱"remote: on top of main"
+        │   └── ✂️🟣ccccccc❱"remote: on top of main"
         └── ►:1:new-stack
     "#);
 

@@ -79,9 +79,10 @@ impl Graph {
     ///     - It maintains information about the intended connections, so modifications afterwards will show
     ///       in debugging output if edges are now in violation of this constraint.
     ///
-    /// ### (Arbitrary) Rules
+    /// ### Rules
     ///
-    /// These rules should help to create graphs and segmentations that feel natural and are desirable to the user.
+    /// These rules should help to create graphs and segmentations that feel natural and are desirable to the user,
+    /// while avoiding traversing the entire commit-graph all the time.
     /// Change the rules as you see fit to accomplish this.
     ///
     /// * a commit can be governed by multiple workspaces
@@ -98,6 +99,9 @@ impl Graph {
     ///     - This implies that remotes aren't relevant for segments added during post-processing, which would typically
     ///       be empty anyway.
     ///     - Remotes never take commits that are already owned.
+    /// * The traversal is cut short when there is only tips which are integrated, even though named segments that are
+    ///   supposed to be in the workspace will be fully traversed (implying they will stop at the first anon segment
+    ///   as will happen at merge commits).
     pub fn from_commit_traversal(
         tip: gix::Id<'_>,
         ref_name: impl Into<Option<gix::refs::FullName>>,
@@ -106,8 +110,6 @@ impl Graph {
     ) -> anyhow::Result<Self> {
         // TODO: also traverse (outside)-branches that ought to be in the workspace. That way we have the desired ones
         //       automatically and just have to find a way to prune the undesired ones.
-        // TODO: pickup ref-names and see if some simple logic can avoid messes, like lot's of refs pointing to a single commit.
-        //       while at it: make tags work.
         let repo = tip.repo;
         let ref_name = ref_name.into();
         if ref_name
@@ -133,7 +135,7 @@ impl Graph {
                 None
             }),
         )?;
-        let (workspaces, target_refs) =
+        let (workspaces, target_refs, desired_refs) =
             obtain_workspace_infos(ref_name.as_ref().map(|rn| rn.as_ref()), meta)?;
         let mut seen = gix::revwalk::graph::IdMap::<SegmentIndex>::default();
         let tip_flags = CommitFlags::NotInRemote;
@@ -299,8 +301,6 @@ impl Graph {
                             bottom_sidx,
                             Some(bottom_cidx),
                         );
-                        graph.validate_or_eprint_dot().unwrap();
-
                         continue;
                     }
                     Entry::Vacant(e) => {
@@ -320,8 +320,24 @@ impl Graph {
                     parent_above,
                     at_commit,
                 } => match seen.entry(id) {
-                    Entry::Occupied(_) => {
-                        todo!("handle previously existing segment when connecting a new one")
+                    Entry::Occupied(existing_sidx) => {
+                        let bottom_sidx = *existing_sidx.get();
+                        let bottom = &graph[bottom_sidx];
+                        let bottom_cidx = bottom.commit_index_of(id).context(
+                            "BUG: bottom segment must contain ID, `seen` seems out of date",
+                        )?;
+                        if bottom_cidx != 0 {
+                            todo!("split bottom segment at `at_commit`");
+                        }
+                        let bottom_flags = bottom.commits[bottom_cidx].flags;
+                        graph.connect_segments(parent_above, at_commit, bottom_sidx, bottom_cidx);
+                        propagate_flags_downward(
+                            &mut graph.inner,
+                            propagated_flags | bottom_flags,
+                            bottom_sidx,
+                            Some(bottom_cidx),
+                        );
+                        continue;
                     }
                     Entry::Vacant(e) => {
                         let segment_below =
@@ -377,6 +393,8 @@ impl Graph {
                 &target_refs,
                 meta,
             )?;
+
+            prune_integrated_tips(&mut graph.inner, &mut next, &desired_refs);
         }
 
         graph.post_processed(

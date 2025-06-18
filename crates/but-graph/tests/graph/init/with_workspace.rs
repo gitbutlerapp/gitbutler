@@ -659,5 +659,162 @@ fn disambiguate_by_remote() -> anyhow::Result<()> {
         └── →:7: (A)
     "#);
 
+    assert_eq!(
+        graph.partial_segments().count(),
+        0,
+        "a fully realized graph"
+    );
+    Ok(())
+}
+
+#[test]
+fn integrated_tips_stop_early() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/two-segments-one-integrated")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   7b9f260 (origin/main) Merge branch 'A' into soon-origin-main
+    |\  
+    | | * 4077353 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | | * 6b1a13b (B) B2
+    | | * 03ad472 B1
+    | |/  
+    | * 79bbb29 (A) 8
+    | * fc98174 7
+    | * a381df5 6
+    | * 777b552 5
+    | *   ce4a760 Merge branch 'A-feat' into A
+    | |\  
+    | | * fea59b5 (A-feat) A-feat-2
+    | | * 4deea74 A-feat-1
+    | |/  
+    | * 01d0e1e 4
+    |/  
+    * 4b3e5a8 (main) 3
+    * 34d0715 2
+    * eb5f731 1
+    ");
+
+    add_workspace(&mut meta);
+    // We can abort early if there is only integrated commits left.
+    // We also abort integrated named segments early, unless these are named as being part of the
+    // workspace - here `A` is cut off.
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    ├── 👉►►►:0:gitbutler/workspace
+    │   └── ·4077353 (⌂|🏘️)❱"GitButler Workspace Commit"
+    │       └── ►:4:B
+    │           ├── ·6b1a13b (⌂|🏘️)❱"B2"
+    │           └── ·03ad472 (⌂|🏘️)❱"B1"
+    │               └── ►:3:A
+    │                   ├── ·79bbb29 (⌂|🏘️|✓)❱"8"
+    │                   ├── ·fc98174 (⌂|🏘️|✓)❱"7"
+    │                   ├── ·a381df5 (⌂|🏘️|✓)❱"6"
+    │                   └── ✂️·777b552 (⌂|🏘️|✓)❱"5"
+    └── ►:1:origin/main
+        └── 🟣7b9f260 (✓)❱"Merge branch \'A\' into soon-origin-main"
+            ├── →:3: (A)
+            └── ►:2:main
+                ├── ·4b3e5a8 (⌂|✓)❱"3"
+                ├── ·34d0715 (⌂|✓)❱"2"
+                └── ·eb5f731 (⌂|✓)❱"1"
+    "#);
+
+    add_stack_with_segments(
+        &mut meta,
+        StackId::from_number_for_testing(0),
+        "B",
+        StackState::InWorkspace,
+        &["A"],
+    );
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    // Now that `A` is part of the workspace, it's not cut off anymore.
+    // Instead, we get to keep `A` in full, and it aborts only one later as the
+    // segment definitely isnt' in the workspace.
+    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    ├── 👉►►►:0:gitbutler/workspace
+    │   └── ·4077353 (⌂|🏘️)❱"GitButler Workspace Commit"
+    │       └── ►:4:B
+    │           ├── ·6b1a13b (⌂|🏘️)❱"B2"
+    │           └── ·03ad472 (⌂|🏘️)❱"B1"
+    │               └── ►:3:A
+    │                   ├── ·79bbb29 (⌂|🏘️|✓)❱"8"
+    │                   ├── ·fc98174 (⌂|🏘️|✓)❱"7"
+    │                   ├── ·a381df5 (⌂|🏘️|✓)❱"6"
+    │                   └── ·777b552 (⌂|🏘️|✓)❱"5"
+    │                       └── ►:5:anon:
+    │                           └── ✂️·ce4a760 (⌂|🏘️|✓)❱"Merge branch \'A-feat\' into A"
+    └── ►:1:origin/main
+        └── 🟣7b9f260 (✓)❱"Merge branch \'A\' into soon-origin-main"
+            ├── →:3: (A)
+            └── ►:2:main
+                ├── ·4b3e5a8 (⌂|✓)❱"3"
+                ├── ·34d0715 (⌂|✓)❱"2"
+                └── ·eb5f731 (⌂|✓)❱"1"
+    "#);
+
+    let (main_id, ref_name) = id_at(&repo, "main");
+    let graph =
+        Graph::from_commit_traversal(main_id, ref_name, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    ├── ►►►:1:gitbutler/workspace
+    │   └── ·4077353 (⌂|🏘️)❱"GitButler Workspace Commit"
+    │       └── ►:4:B
+    │           ├── ·6b1a13b (⌂|🏘️)❱"B2"
+    │           └── ·03ad472 (⌂|🏘️)❱"B1"
+    │               └── ►:3:A
+    │                   ├── ·79bbb29 (⌂|🏘️|✓)❱"8"
+    │                   ├── ·fc98174 (⌂|🏘️|✓)❱"7"
+    │                   ├── ·a381df5 (⌂|🏘️|✓)❱"6"
+    │                   └── ·777b552 (⌂|🏘️|✓)❱"5"
+    │                       └── ►:5:anon:
+    │                           └── ✂️·ce4a760 (⌂|🏘️|✓)❱"Merge branch \'A-feat\' into A"
+    └── ►:2:origin/main
+        └── 🟣7b9f260 (✓)❱"Merge branch \'A\' into soon-origin-main"
+            ├── →:3: (A)
+            └── 👉►:0:main
+                ├── ·4b3e5a8 (⌂|✓)❱"3"
+                ├── ·34d0715 (⌂|✓)❱"2"
+                └── ·eb5f731 (⌂|✓)❱"1"
+    "#);
+    Ok(())
+}
+
+#[test]
+fn on_top_of_target_with_history() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/on-top-of-target-with-history")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 2cde30a (HEAD -> gitbutler/workspace, origin/main, F, E, D, C, B, A) 5
+    * 1c938f4 4
+    * b82769f 3
+    * 988032f 2
+    * cd5b655 1
+    * 2be54cd (main) outdated-main
+    ");
+
+    add_workspace(&mut meta);
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    └── 👉►►►:0:gitbutler/workspace
+        └── ►:1:origin/main
+            ├── ·2cde30a (⌂|🏘️|✓)❱"5" ►A, ►B, ►C, ►D, ►E, ►F
+            └── ✂️·1c938f4 (⌂|🏘️|✓)❱"4"
+    "#);
+
+    // TODO: fix this - it builds a wrong graph.
+    // add_stack_with_segments(
+    //     &mut meta,
+    //     StackId::from_number_for_testing(0),
+    //     "C",
+    //     StackState::InWorkspace,
+    //     &["B", "A"],
+    // );
+    // add_stack_with_segments(
+    //     &mut meta,
+    //     StackId::from_number_for_testing(1),
+    //     "D",
+    //     StackState::InWorkspace,
+    //     &["E", "F"],
+    // );
+    // let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated_or_open_as_svg()?;
+    // insta::assert_snapshot!(graph_tree(&graph), @r#""#);
     Ok(())
 }
