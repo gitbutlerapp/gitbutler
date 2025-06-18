@@ -1,8 +1,9 @@
 <script lang="ts">
+	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import BranchCard from '$components/v3/BranchCard.svelte';
 	import CommitRow from '$components/v3/CommitRow.svelte';
-	import { pushStatusToColor, pushStatusToIcon } from '$lib/stacks/stack';
+	import { pushStatusToColor, pushStatusToIcon, type BranchDetails } from '$lib/stacks/stack';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { getContext } from '@gitbutler/shared/context';
@@ -33,74 +34,84 @@
 
 <ReduxResult result={branchResult.current} {projectId} {stackId} {onerror}>
 	{#snippet children(branch, env)}
-		{@const commitColor = getColorFromBranchType(pushStatusToColor(branch.pushStatus))}
-		<BranchCard
-			type="normal-branch"
-			first={isTopBranch}
-			lineColor={commitColor}
-			projectId={env.projectId}
-			branchName={branch.name}
-			active
-			{isTopBranch}
-			isNewBranch={branch.commits?.length === 0}
-			iconName={pushStatusToIcon(branch.pushStatus)}
-			trackingBranch={branch.remoteTrackingBranch || undefined}
-			readonly
-			selected={branchesState.current.branchName === branch.name &&
-				branchesState.current.stackId === env.stackId &&
-				!branchesState.current.commitId}
-			onclick={() => {
-				branchesState.current = {
-					branchName,
-					stackId: env.stackId,
-					remote
-				};
-			}}
-		>
-			{#snippet branchContent()}
-				{#each branch.upstreamCommits || [] as commit, idx}
-					<CommitRow
-						disableCommitActions
-						type="Remote"
-						active
-						commitMessage={commit.message}
-						createdAt={commit.createdAt}
-						commitId={commit.id}
-						branchName={branch.name}
-						selected={commit.id === branchesState?.current.commitId}
-						onclick={() => {
-							branchesState.set({
-								stackId: env.stackId,
-								branchName: branch.name,
-								commitId: commit.id,
-								remote
-							});
-						}}
-						lastCommit={idx === branch.upstreamCommits.length - 1 && branch.commits.length === 0}
-					/>
-				{/each}
-				{#each branch.commits || [] as commit, idx}
-					<CommitRow
-						disableCommitActions
-						type={branch.commits.at(0)?.state.type || 'LocalOnly'}
-						commitMessage={commit.message}
-						createdAt={commit.createdAt}
-						commitId={commit.id}
-						branchName={branch.name}
-						selected={commit.id === branchesState?.current.commitId}
-						onclick={() => {
-							branchesState.set({
-								stackId: env.stackId,
-								branchName: branch.name,
-								commitId: commit.id,
-								remote
-							});
-						}}
-						lastCommit={idx === branch.commits.length - 1}
-						active
-					/>
-				{/each}
-			{/snippet}
-		</BranchCard>
+		{#if stackId}
+			{@render branchCard(branch, env)}
+		{:else}
+			<ConfigurableScrollableContainer>
+				{@render branchCard(branch, env)}
+			</ConfigurableScrollableContainer>
+		{/if}
 	{/snippet}
 </ReduxResult>
+
+{#snippet branchCard(branch: BranchDetails, env: { projectId: string; stackId?: string })}
+	{@const commitColor = getColorFromBranchType(pushStatusToColor(branch.pushStatus))}
+	<BranchCard
+		type="normal-branch"
+		first={isTopBranch}
+		lineColor={commitColor}
+		projectId={env.projectId}
+		branchName={branch.name}
+		active
+		{isTopBranch}
+		isNewBranch={branch.commits?.length === 0}
+		iconName={pushStatusToIcon(branch.pushStatus)}
+		trackingBranch={branch.remoteTrackingBranch || undefined}
+		readonly
+		selected={branchesState.current.branchName === branch.name &&
+			branchesState.current.stackId === env.stackId &&
+			!branchesState.current.commitId}
+		onclick={() => {
+			branchesState.current = {
+				branchName,
+				stackId: env.stackId,
+				remote
+			};
+		}}
+	>
+		{#snippet branchContent()}
+			{#each branch.upstreamCommits || [] as commit, idx}
+				<CommitRow
+					disableCommitActions
+					type="Remote"
+					active
+					commitMessage={commit.message}
+					createdAt={commit.createdAt}
+					commitId={commit.id}
+					branchName={branch.name}
+					selected={commit.id === branchesState?.current.commitId}
+					onclick={() => {
+						branchesState.set({
+							stackId: env.stackId,
+							branchName: branch.name,
+							commitId: commit.id,
+							remote
+						});
+					}}
+					lastCommit={idx === branch.upstreamCommits.length - 1 && branch.commits.length === 0}
+				/>
+			{/each}
+			{#each branch.commits || [] as commit, idx}
+				<CommitRow
+					disableCommitActions
+					type={branch.commits.at(0)?.state.type || 'LocalOnly'}
+					commitMessage={commit.message}
+					createdAt={commit.createdAt}
+					commitId={commit.id}
+					branchName={branch.name}
+					selected={commit.id === branchesState?.current.commitId}
+					onclick={() => {
+						branchesState.set({
+							stackId: env.stackId,
+							branchName: branch.name,
+							commitId: commit.id,
+							remote
+						});
+					}}
+					lastCommit={idx === branch.commits.length - 1}
+					active
+				/>
+			{/each}
+		{/snippet}
+	</BranchCard>
+{/snippet}
