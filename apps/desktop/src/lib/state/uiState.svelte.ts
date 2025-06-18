@@ -107,7 +107,7 @@ export class UiState {
 	/** Properties that are globally scoped. */
 	readonly global = this.buildGlobalProps<GlobalUiState>({
 		drawerHeight: 20,
-		stackWidth: 20,
+		stackWidth: 22.5,
 		detailsWidth: 32,
 		previewWidth: 48,
 		historySidebarWidth: 30,
