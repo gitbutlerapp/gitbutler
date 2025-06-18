@@ -184,6 +184,11 @@
 	export function setText(text: string) {
 		composer?.setText(text);
 	}
+
+	function stopPropagation(e: MouseEvent) {
+		e.stopPropagation();
+		e.preventDefault();
+	}
 </script>
 
 <Modal
@@ -223,6 +228,8 @@
 	{/snippet}
 </Modal>
 
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	class="editor-wrapper"
 	style:--extratoolbar-height={extendedTools ? '2.625rem' : '0'}
@@ -232,6 +239,8 @@
 	style:--code-block-font={$userSettings.diffFont}
 	style:--code-block-tab-size={$userSettings.tabSize}
 	style:--code-block-ligatures={$userSettings.diffLigatures ? 'common-ligatures' : 'normal'}
+	onclick={stopPropagation}
+	ondblclick={stopPropagation}
 >
 	<div role="presentation" class="message-textarea">
 		<div
