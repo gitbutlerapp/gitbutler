@@ -120,7 +120,7 @@
 						{/if}
 					</div>
 				</div>
-				<MultiStackCreateNew {projectId} noStacks />
+				<MultiStackCreateNew {projectId} />
 			</div>
 		{/snippet}
 	</Dropzone>
