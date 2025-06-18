@@ -21,31 +21,28 @@ type LoginResponse<T = void> = SuccessLoginResponse<T> | ErrorLoginResponse;
 export default class LoginService {
 	constructor(private readonly httpClient: HttpClient) {}
 
-	async loginWithEmail(email: string, password: string): Promise<LoginResponse<string>> {
+	private async sendPostRequest<T>(
+		path: string,
+		body: Record<string, unknown>,
+		successHandler?: (data: any) => T | undefined
+	): Promise<LoginResponse<T>> {
 		try {
-			const response = await this.httpClient.postRaw('sessions/login_with_email', {
-				body: {
-					email,
-					password
-				}
-			});
+			const response = await this.httpClient.postRaw(path, { body });
+
+			const data = await response.json();
 
 			if (response.ok) {
-				const data = await response.json();
-
-				if (!isStr(data.token)) throw new Error('Invalid token format');
-
+				const result = successHandler ? successHandler(data) : data;
 				return {
 					type: 'success',
-					data: data.token
+					data: result as T
 				};
 			}
 
-			const errorData = await response.json();
 			return {
 				type: 'error',
-				errorCode: errorData.error_code || 'unknown_error',
-				errorMessage: errorData.error || 'An unknown error occurred'
+				errorCode: data.error_code || 'unknown_error',
+				errorMessage: data.error || 'An unknown error occurred'
 			};
 		} catch (error) {
 			if (error instanceof Error) {
@@ -65,89 +62,36 @@ export default class LoginService {
 		}
 	}
 
+	async loginWithEmail(email: string, password: string): Promise<LoginResponse<string>> {
+		return await this.sendPostRequest('sessions/login_with_email', { email, password }, (data) => {
+			if (!isStr(data.token)) throw new Error('Invalid token format');
+			return data.token;
+		});
+	}
+
 	async resendConfirmationEmail(email: string): Promise<LoginResponse<{ message: string }>> {
-		try {
-			const response = await this.httpClient.postRaw('sessions/resend_confirmation', {
-				body: { email }
-			});
-
-			if (response.ok) {
-				const data = await response.json();
-				if (!isStr(data.message)) {
-					throw new Error('Invalid message format');
-				}
-				return {
-					type: 'success',
-					data: { message: data.message }
-				};
-			}
-
-			const errorData = await response.json();
-			return {
-				type: 'error',
-				errorCode: errorData.error_code || 'unknown_error',
-				errorMessage: errorData.error || 'An unknown error occurred'
-			};
-		} catch (error) {
-			if (error instanceof Error) {
-				return {
-					type: 'error',
-					errorCode: 'network_error',
-					errorMessage: error.message,
-					raw: error
-				};
-			}
-			return {
-				type: 'error',
-				errorCode: 'unknown_error',
-				errorMessage: 'An unknown error occurred',
-				raw: error
-			};
-		}
+		return await this.sendPostRequest('sessions/resend_confirmation', { email }, (data) => {
+			if (!isStr(data.message)) throw new Error('Invalid message format');
+			return { message: data.message };
+		});
 	}
 
 	async createAccountWithEmail(
 		email: string,
 		password: string,
 		passwordConfirmation: string
-	): Promise<LoginResponse> {
-		try {
-			const response = await this.httpClient.postRaw('sessions/sign_up_email', {
-				body: {
-					email,
-					password,
-					password_confirmation: passwordConfirmation
-				}
-			});
-
-			if (response.ok) {
-				return {
-					type: 'success',
-					data: undefined
-				};
+	): Promise<LoginResponse<{ message: string }>> {
+		return await this.sendPostRequest(
+			'sessions/sign_up_email',
+			{
+				email,
+				password,
+				password_confirmation: passwordConfirmation
+			},
+			(data) => {
+				if (!isStr(data.message)) throw new Error('Invalid message format');
+				return { message: data.message };
 			}
-
-			const errorData = await response.json();
-			return {
-				type: 'error',
-				errorCode: errorData.error_code || 'unknown_error',
-				errorMessage: errorData.error || 'An unknown error occurred'
-			};
-		} catch (error) {
-			if (error instanceof Error) {
-				return {
-					type: 'error',
-					errorCode: 'network_error',
-					errorMessage: error.message,
-					raw: error
-				};
-			}
-			return {
-				type: 'error',
-				errorCode: 'unknown_error',
-				errorMessage: 'An unknown error occurred',
-				raw: error
-			};
-		}
+		);
 	}
 }
