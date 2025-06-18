@@ -152,7 +152,7 @@
 	<MessageEditorInput
 		testId={TestId.CommitDrawerTitleInput}
 		bind:ref={titleInput}
-		value={title}
+		bind:value={title}
 		placeholder="Commit title"
 		onchange={(value) => onChange?.({ title: value })}
 		onkeydown={async (e: KeyboardEvent) => {

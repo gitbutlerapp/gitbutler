@@ -43,11 +43,7 @@
 	style:width={uiState.global.stackWidth.current + 'rem'}
 >
 	<div class="new-commit-view" data-testid={TestId.NewCommitView}>
-		<NewCommitView
-			{projectId}
-			noDrawer
-			onclose={() => projectState.exclusiveAction.set(undefined)}
-		/>
+		<NewCommitView {projectId} onclose={() => projectState.exclusiveAction.set(undefined)} />
 	</div>
 	<BranchCard
 		type="draft-branch"
