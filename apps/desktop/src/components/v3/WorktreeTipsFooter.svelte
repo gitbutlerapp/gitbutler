@@ -45,58 +45,9 @@
 </div>
 
 <style lang="postcss">
-	.tip-footer {
-		display: flex;
-		flex-direction: column;
-
-		&:focus {
-			outline: none;
-		}
-	}
-
-	.tip-footer__tips,
 	.tip-footer__links {
 		display: flex;
 		border-top: 1px solid var(--clr-border-3);
-	}
-
-	.tip-footer__tips {
-		flex-direction: column;
-		padding: 18px 16px;
-		gap: 12px;
-	}
-
-	.tip-footer__group-list {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: 10px;
-	}
-
-	.tip-button {
-		position: relative;
-		color: var(--clr-text-3);
-		text-align: left;
-		transition: color var(--transition-fast);
-
-		&:hover {
-			color: var(--clr-text-2);
-		}
-
-		&.selected {
-			color: var(--clr-text-1);
-		}
-	}
-
-	.active-page-indicator {
-		position: absolute;
-		top: 2px;
-		left: -16px;
-		width: 6px;
-		height: 18px;
-		border-top-right-radius: var(--radius-s);
-		border-bottom-right-radius: var(--radius-s);
-		background-color: var(--clr-text-2);
 	}
 
 	.tip-footer__links {

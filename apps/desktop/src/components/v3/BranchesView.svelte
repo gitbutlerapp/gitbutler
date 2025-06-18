@@ -54,7 +54,6 @@
 
 	let branchColumn = $state<HTMLDivElement>();
 	let commitColumn = $state<HTMLDivElement>();
-	let previewColumn = $state<HTMLDivElement>();
 	let rightWrapper = $state<HTMLDivElement>();
 	let branchViewLeftEl = $state<HTMLDivElement>();
 
@@ -391,17 +390,9 @@
 						</div>
 					{/if}
 
-					<div class="preview-column" bind:this={previewColumn}>
-						<SelectionView {projectId} {selectionId} draggableFiles />
-						<Resizer
-							viewport={previewColumn}
-							persistId="branches-preview-column"
-							direction="right"
-							defaultValue={35}
-							minWidth={20}
-							maxWidth={90}
-						/>
-					</div>
+					<!-- <div class="preview-column" bind:this={previewColumn}> -->
+					<SelectionView {projectId} {selectionId} draggableFiles />
+					<!-- </div> -->
 				</div>
 				<Scrollbar viewport={rightWrapper} horz />
 			</div>
@@ -455,14 +446,6 @@
 		max-height: calc(100% + 1px);
 		overflow: hidden;
 		border-right: 1px solid var(--clr-border-2);
-	}
-
-	.preview-column {
-		position: relative;
-		flex-grow: 0;
-		flex-shrink: 0;
-		max-height: calc(100% + 1px);
-		overflow: hidden;
 	}
 
 	.commits {

@@ -70,48 +70,56 @@
 		}}
 	>
 		{#snippet branchContent()}
-			{#each branch.upstreamCommits || [] as commit, idx}
-				<CommitRow
-					disableCommitActions
-					type="Remote"
-					active
-					commitMessage={commit.message}
-					createdAt={commit.createdAt}
-					commitId={commit.id}
-					branchName={branch.name}
-					selected={commit.id === branchesState?.current.commitId}
-					onclick={() => {
-						branchesState.set({
-							stackId: env.stackId,
-							branchName: branch.name,
-							commitId: commit.id,
-							remote
-						});
-					}}
-					lastCommit={idx === branch.upstreamCommits.length - 1 && branch.commits.length === 0}
-				/>
-			{/each}
-			{#each branch.commits || [] as commit, idx}
-				<CommitRow
-					disableCommitActions
-					type={branch.commits.at(0)?.state.type || 'LocalOnly'}
-					commitMessage={commit.message}
-					createdAt={commit.createdAt}
-					commitId={commit.id}
-					branchName={branch.name}
-					selected={commit.id === branchesState?.current.commitId}
-					onclick={() => {
-						branchesState.set({
-							stackId: env.stackId,
-							branchName: branch.name,
-							commitId: commit.id,
-							remote
-						});
-					}}
-					lastCommit={idx === branch.commits.length - 1}
-					active
-				/>
-			{/each}
+			<div class="branch-commits hide-when-empty">
+				{#each branch.upstreamCommits || [] as commit, idx}
+					<CommitRow
+						disableCommitActions
+						type="Remote"
+						active
+						commitMessage={commit.message}
+						createdAt={commit.createdAt}
+						commitId={commit.id}
+						branchName={branch.name}
+						selected={commit.id === branchesState?.current.commitId}
+						onclick={() => {
+							branchesState.set({
+								stackId: env.stackId,
+								branchName: branch.name,
+								commitId: commit.id,
+								remote
+							});
+						}}
+						lastCommit={idx === branch.upstreamCommits.length - 1 && branch.commits.length === 0}
+					/>
+				{/each}
+				{#each branch.commits || [] as commit, idx}
+					<CommitRow
+						disableCommitActions
+						type={branch.commits.at(0)?.state.type || 'LocalOnly'}
+						commitMessage={commit.message}
+						createdAt={commit.createdAt}
+						commitId={commit.id}
+						branchName={branch.name}
+						selected={commit.id === branchesState?.current.commitId}
+						onclick={() => {
+							branchesState.set({
+								stackId: env.stackId,
+								branchName: branch.name,
+								commitId: commit.id,
+								remote
+							});
+						}}
+						lastCommit={idx === branch.commits.length - 1}
+						active
+					/>
+				{/each}
+			</div>
 		{/snippet}
 	</BranchCard>
 {/snippet}
+
+<style lang="postcss">
+	.branch-commits {
+		border-top: 1px solid var(--clr-border-2);
+	}
+</style>
