@@ -233,6 +233,8 @@
 			/>
 		{/if}
 
+		{@render commitReorderDz(stackingReorderDropzoneManager.top(branchName))}
+
 		{#if hasCommits}
 			<div class="commit-list hide-when-empty">
 				{#if hasRemoteCommits}
@@ -280,8 +282,6 @@
 						</CommitAction>
 					</CommitsAccordion>
 				{/if}
-
-				{@render commitReorderDz(stackingReorderDropzoneManager.top(branchName))}
 
 				{#each localAndRemoteCommits as commit, i (commit.id)}
 					{@const first = i === 0}

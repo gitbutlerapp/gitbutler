@@ -124,7 +124,7 @@
 		{#if !args.prNumber}
 			<PrNumberUpdater {projectId} stackId={args.stackId} {branchName} />
 		{/if}
-		<Dropzone handlers={[moveHandler]}>
+		<Dropzone handlers={args.first ? [moveHandler] : []}>
 			{#snippet overlay({ hovered, activated, handler })}
 				{@const label = handler instanceof MoveCommitDzHandler ? 'Move here' : 'Start commit'}
 				<CardOverlay {hovered} {activated} {label} />
