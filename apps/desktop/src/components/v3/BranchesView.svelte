@@ -280,6 +280,7 @@
 									<AsyncButton
 										testId={TestId.BranchesViewApplyBranchButton}
 										icon="workbench"
+										shrinkable
 										action={async () => {
 											await checkoutBranch();
 										}}
