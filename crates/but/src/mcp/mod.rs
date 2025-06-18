@@ -72,7 +72,12 @@ impl Mcp {
         &self,
         #[tool(aggr)] request: GitButlerUpdateBranchesRequest,
     ) -> Result<CallToolResult, McpError> {
-        let result = self.gitbutler_update_branches_inner(request);
+        let client_info = self
+            .client_info
+            .lock()
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?
+            .clone();
+        let result = self.gitbutler_update_branches_inner(request, &client_info);
         let error = result.as_ref().err().map(|e| e.to_string());
         let updated_branches_count = result
             .as_ref()
@@ -107,6 +112,10 @@ impl Mcp {
         if let Some(count) = commits_count {
             props.push(("commitsCreatedCount".to_string(), count.to_string()));
         }
+        if let Some(client_info) = &client_info {
+            props.push(("clientName".to_string(), client_info.name.clone()));
+            props.push(("clientVersion".to_string(), client_info.version.clone()));
+        }
         self.metrics.capture(Event::new(EventKind::Mcp, props));
 
         result.map(|outcome| Ok(CallToolResult::success(vec![Content::json(outcome)?])))?
@@ -115,6 +124,7 @@ impl Mcp {
     fn gitbutler_update_branches_inner(
         &self,
         request: GitButlerUpdateBranchesRequest,
+        client_info: &Option<Implementation>,
     ) -> Result<Outcome, McpError> {
         if request.changes_summary.is_empty() {
             return Err(McpError::invalid_request(
@@ -140,19 +150,13 @@ impl Mcp {
         let ctx = &mut CommandContext::open(&project, self.app_settings.clone())
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let client_info = self
-            .client_info
-            .lock()
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?
-            .clone();
-
         let outcome = but_action::handle_changes(
             ctx,
             &None,
             &request.changes_summary,
             Some(request.full_prompt.clone()),
             ActionHandler::HandleChangesSimple,
-            Source::Mcp(client_info.map(Into::into)),
+            Source::Mcp(client_info.clone().map(Into::into)),
         )
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
         // Trigger commit message generation for newly created commits
