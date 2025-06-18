@@ -107,7 +107,7 @@
 					href={branchesPath(projectId)}>Branches view</a
 				>
 			{:else}
-				Drag chanes here to
+				Drag changes here to
 				<br />
 				branch off your changes
 			{/if}
