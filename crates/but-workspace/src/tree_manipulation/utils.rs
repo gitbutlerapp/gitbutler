@@ -179,6 +179,9 @@ pub fn create_tree_without_diff(
                             kind: before_entry.mode().kind(),
                         },
                         context_lines,
+                    )?
+                    .context(
+                        "Cannot diff submodules - if this is encountered we should look into it",
                     )?;
 
                     let but_core::UnifiedDiff::Patch {

@@ -583,7 +583,7 @@ fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
         .map(|tree_change| tree_change.unified_diff(&repo, 3))
         .collect::<std::result::Result<Vec<_>, _>>()?
         .into_iter()
-        .filter_map(std::convert::identity)
+        .flatten()
         .collect();
     let actual = serde_json::to_string_pretty(&diffs)?;
     insta::assert_snapshot!(actual, @r#"

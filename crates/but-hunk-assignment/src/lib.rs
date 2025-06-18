@@ -221,7 +221,10 @@ pub fn assign(
     let mut worktree_assignments = vec![];
     for change in &worktree_changes {
         let diff = change.unified_diff(repo, ctx.app_settings().context_lines);
-        worktree_assignments.extend(diff_to_assignments(diff.ok(), change.path.clone()));
+        worktree_assignments.extend(diff_to_assignments(
+            diff.ok().flatten(),
+            change.path.clone(),
+        ));
     }
 
     // Reconcile worktree with the persisted assignments
@@ -296,7 +299,10 @@ pub fn assignments_with_fallback(
     let mut worktree_assignments = vec![];
     for change in &worktree_changes {
         let diff = change.unified_diff(repo, ctx.app_settings().context_lines);
-        worktree_assignments.extend(diff_to_assignments(diff.ok(), change.path.clone()));
+        worktree_assignments.extend(diff_to_assignments(
+            diff.ok().flatten(),
+            change.path.clone(),
+        ));
     }
     let reconciled = reconcile_with_worktree_and_locks(
         ctx,

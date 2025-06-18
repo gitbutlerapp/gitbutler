@@ -62,23 +62,22 @@ impl HunkDependencies {
     ) -> anyhow::Result<HunkDependencies> {
         let mut diffs = Vec::<(String, DiffHunk, Vec<HunkLock>)>::new();
         for change in worktree_changes {
-            if let Ok(unidiff) = change.unified_diff(repo, 0 /* zero context lines */) {
-                let UnifiedDiff::Patch { hunks, .. } = unidiff else {
-                    continue;
-                };
-                for hunk in hunks {
-                    if let Some(intersections) =
-                        ranges.intersection(&change.path, hunk.old_start, hunk.old_lines)
-                    {
-                        let locks: Vec<_> = intersections
-                            .into_iter()
-                            .map(|dependency| HunkLock {
-                                commit_id: dependency.commit_id,
-                                stack_id: dependency.stack_id,
-                            })
-                            .collect();
-                        diffs.push((change.path.to_string(), hunk, locks));
-                    }
+            let unidiff = change.unified_diff(repo, 0 /* zero context lines */)?;
+            let Some(UnifiedDiff::Patch { hunks, .. }) = unidiff else {
+                continue;
+            };
+            for hunk in hunks {
+                if let Some(intersections) =
+                    ranges.intersection(&change.path, hunk.old_start, hunk.old_lines)
+                {
+                    let locks: Vec<_> = intersections
+                        .into_iter()
+                        .map(|dependency| HunkLock {
+                            commit_id: dependency.commit_id,
+                            stack_id: dependency.stack_id,
+                        })
+                        .collect();
+                    diffs.push((change.path.to_string(), hunk, locks));
                 }
             }
         }

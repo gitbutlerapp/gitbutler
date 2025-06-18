@@ -124,7 +124,8 @@ fn from_end() -> anyhow::Result<()> {
         17
         18
         "));
-        let UnifiedDiff::Patch { mut hunks, .. } = change.unified_diff(&repo, CONTEXT_LINES)?
+        let Some(UnifiedDiff::Patch { mut hunks, .. }) =
+            change.unified_diff(&repo, CONTEXT_LINES)?
         else {
             unreachable!("We know there are hunks")
         };
@@ -197,7 +198,8 @@ fn from_beginning() -> anyhow::Result<()> {
         .into_iter()
         .find(|change| change.path == filename)
     {
-        let UnifiedDiff::Patch { mut hunks, .. } = change.unified_diff(&repo, CONTEXT_LINES)?
+        let Some(UnifiedDiff::Patch { mut hunks, .. }) =
+            change.unified_diff(&repo, CONTEXT_LINES)?
         else {
             unreachable!("We know there are hunks")
         };
@@ -852,7 +854,8 @@ mod util {
             .find(|change| change.path == filename)
             .expect("well-known fixture");
 
-        let UnifiedDiff::Patch { hunks, .. } = change.unified_diff(repo, context_lines)? else {
+        let Some(UnifiedDiff::Patch { hunks, .. }) = change.unified_diff(repo, context_lines)?
+        else {
             unreachable!("We know there are hunks")
         };
         Ok((change, hunks))

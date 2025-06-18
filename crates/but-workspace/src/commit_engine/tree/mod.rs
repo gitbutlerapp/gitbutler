@@ -226,7 +226,7 @@ pub fn apply_worktree_changes<'repo>(
                 "BUG: if this changes, the uses of worktree filters need a review"
             );
             // TODO(perf): avoid computing the unified diff here, we only need hunks with, usually with zero context.
-            let UnifiedDiff::Patch { hunks, .. } =
+            let Some(UnifiedDiff::Patch { hunks, .. }) =
                 worktree_change.unified_diff_with_filter(repo, context_lines, &mut diff_filter)?
             else {
                 into_err_spec(possible_change, RejectionReason::FileToLargeOrBinary);
@@ -239,10 +239,10 @@ pub fn apply_worktree_changes<'repo>(
                 .any(|h| h.old_range().is_null() || h.new_range().is_null());
             let worktree_hunks: Vec<HunkHeader> = hunks.into_iter().map(Into::into).collect();
             let worktree_hunks_no_context = if has_hunk_selections {
-                let UnifiedDiff::Patch {
+                let Some(UnifiedDiff::Patch {
                     hunks: hunks_no_context,
                     ..
-                } = worktree_change.unified_diff_with_filter(repo, 0, &mut diff_filter)?
+                }) = worktree_change.unified_diff_with_filter(repo, 0, &mut diff_filter)?
                 else {
                     into_err_spec(possible_change, RejectionReason::FileToLargeOrBinary);
                     continue;

@@ -815,6 +815,7 @@ impl TreeChange {
     /// for obtaining a working tree to read files from disk.
     /// Note that the mount of lines of context around each hunk are currently hardcoded to `3` as it *might* be relevant for creating
     /// commits later.
+    /// Return `None` if this change cannot produce a diff, typically because a submodule is involved.
     pub fn unified_diff(
         &self,
         repo: &gix::Repository,

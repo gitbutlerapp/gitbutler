@@ -62,6 +62,7 @@ impl UnifiedDiff {
     /// `current_state` is either the state we know the resource currently has, or is `None`, if there is no current state.
     /// `previous_state`, if `None`, indicates the file is new so there is nothing to compare to.
     /// Otherwise, it's the state of the resource as previously known.
+    /// Return `None` if the given states cannot produce a diff, typically because a submodule is involved.
     ///
     /// ### Special Types
     ///
