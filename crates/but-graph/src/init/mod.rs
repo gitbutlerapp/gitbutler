@@ -367,7 +367,7 @@ impl Graph {
 
             let refs_at_commit_before_removal = refs_by_id.remove(&id).unwrap_or_default();
             segment.commits.push(
-                info.into_local_commit(
+                info.into_commit(
                     repo,
                     segment
                         .commits

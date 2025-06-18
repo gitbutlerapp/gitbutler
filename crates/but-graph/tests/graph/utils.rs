@@ -1,4 +1,4 @@
-use but_graph::{EntryPoint, Graph, LocalCommitRelation, SegmentIndex};
+use but_graph::{EntryPoint, Graph, SegmentIndex};
 use std::collections::{BTreeMap, BTreeSet};
 use termtree::Tree;
 
@@ -6,16 +6,14 @@ type SegmentTree = Tree<String>;
 
 /// Visualize `graph` as a tree.
 pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
-    fn tree_for_commit<'a>(
+    fn tree_for_commit(
         commit: &but_graph::Commit,
-        extra: impl Into<Option<&'a str>>,
         has_conflicts: bool,
         is_entrypoint: bool,
         is_early_end: bool,
     ) -> SegmentTree {
         Graph::commit_debug_string(
             commit,
-            extra,
             has_conflicts,
             is_entrypoint,
             true, /* show message */
@@ -61,7 +59,7 @@ pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
 
         let mut root = Tree::new(format!(
             "{entrypoint}{kind}:{id}:{ref_name}{remote}",
-            id = segment.id,
+            id = segment.id.index(),
             kind = if segment.workspace_metadata().is_some() {
                 "►►►"
             } else {
@@ -93,11 +91,6 @@ pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
         for (cidx, commit) in segment.commits.iter().enumerate() {
             let mut commit_tree = tree_for_commit(
                 commit,
-                if commit.relation == LocalCommitRelation::LocalOnly {
-                    None
-                } else {
-                    Some(commit.relation.display(commit.id))
-                },
                 commit.has_conflicts,
                 segment_is_entrypoint && Some(cidx) == ep.commit_index,
                 graph.is_early_end_of_traversal(sidx, cidx),

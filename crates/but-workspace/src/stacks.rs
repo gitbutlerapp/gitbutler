@@ -1,4 +1,6 @@
 use crate::integrated::IsCommitIntegrated;
+use crate::ref_info::ui::Segment;
+use crate::ref_info::ui::{LocalCommit, LocalCommitRelation, RemoteCommit};
 use crate::ui::{CommitState, PushStatus, StackDetails};
 use crate::{
     RefInfo, StacksFilter, branch, head_info, id_from_name_v2_to_v3, ref_info, state_handle, ui,
@@ -6,10 +8,7 @@ use crate::{
 use anyhow::Context;
 use bstr::BString;
 use but_core::RefMetadata;
-use but_graph::{
-    Commit, LocalCommit, LocalCommitRelation, RemoteCommit, Segment, SegmentMetadata,
-    VirtualBranchesTomlMetadata,
-};
+use but_graph::{Commit, SegmentMetadata, VirtualBranchesTomlMetadata};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oxidize::{ObjectIdExt, OidExt, git2_signature_to_gix_signature};
@@ -564,8 +563,9 @@ impl From<&RemoteCommit> for ui::UpstreamCommit {
                     refs: _,
                     // TODO: also pass flags for the frontend.
                     flags: _,
+                    // TODO: Represent this in the UI (maybe) and/or deal with divergence of the local and remote tracking branch.
+                    has_conflicts: _,
                 },
-            // TODO: Represent this in the UI (maybe) and/or deal with divergence of the local and remote tracking branch.
             has_conflicts: _,
         }: &RemoteCommit,
     ) -> Self {
@@ -593,9 +593,9 @@ impl From<&LocalCommit> for ui::Commit {
                     refs: _,
                     // TODO: also flags refs
                     flags: _,
+                    has_conflicts,
                 },
             relation,
-            has_conflicts,
         }: &LocalCommit,
     ) -> Self {
         ui::Commit {

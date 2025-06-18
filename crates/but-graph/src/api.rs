@@ -13,7 +13,7 @@ impl Graph {
     /// Insert `segment` to the graph so that it's not connected to any other segment, and return its index.
     pub fn insert_root(&mut self, segment: Segment) -> SegmentIndex {
         let index = self.inner.add_node(segment);
-        self.inner[index].id = index.index();
+        self.inner[index].id = index;
         if self.entrypoint.is_none() {
             self.entrypoint = Some((index, None))
         }
@@ -41,7 +41,7 @@ impl Graph {
         dst_commit_id: impl Into<Option<gix::ObjectId>>,
     ) -> SegmentIndex {
         let dst = self.inner.add_node(dst);
-        self.inner[dst].id = dst.index();
+        self.inner[dst].id = dst;
         self.connect_segments_with_ids(
             src,
             src_commit,
@@ -196,17 +196,15 @@ impl Graph {
     }
 
     /// Produce a string that concisely represents `commit`, adding `extra` information as needed.
-    pub fn commit_debug_string<'a>(
+    pub fn commit_debug_string(
         commit: &crate::Commit,
-        extra: impl Into<Option<&'a str>>,
         has_conflicts: bool,
         is_entrypoint: bool,
         show_message: bool,
         is_early_end: bool,
     ) -> String {
-        let extra = extra.into();
         format!(
-            "{ep}{end}{kind}{conflict}{hex}{extra}{flags}{msg}{refs}",
+            "{ep}{end}{kind}{conflict}{hex}{flags}{msg}{refs}",
             ep = if is_entrypoint { "👉" } else { "" },
             end = if is_early_end { "✂️" } else { "" },
             kind = if commit.flags.contains(CommitFlags::NotInRemote) {
@@ -215,11 +213,6 @@ impl Graph {
                 "🟣"
             },
             conflict = if has_conflicts { "💥" } else { "" },
-            extra = if let Some(extra) = extra {
-                format!(" [{extra}]")
-            } else {
-                "".into()
-            },
             flags = if !commit.flags.is_empty() {
                 format!(" ({})", commit.flags.debug_string())
             } else {
@@ -264,6 +257,7 @@ impl Graph {
 
     /// Validate the graph for consistency and fail loudly when an issue was found, after printing the dot graph.
     /// Mostly useful for debugging to stop early when a connection wasn't created correctly.
+    #[cfg(target_os = "macos")]
     pub fn validated_or_open_as_svg(self) -> anyhow::Result<Self> {
         for edge in self.inner.edge_references() {
             let res = check_edge(&self.inner, edge);
@@ -370,8 +364,7 @@ impl Graph {
                 .enumerate()
                 .map(|(cidx, c)| {
                     Self::commit_debug_string(
-                        &c.inner,
-                        None,
+                        c,
                         c.has_conflicts,
                         !show_segment_entrypoint && Some((sidx, Some(cidx))) == entrypoint,
                         false,

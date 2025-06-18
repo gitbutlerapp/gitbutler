@@ -3,9 +3,7 @@
 #![deny(missing_docs, rust_2018_idioms)]
 
 mod segment;
-pub use segment::{
-    Commit, CommitFlags, LocalCommit, LocalCommitRelation, RemoteCommit, Segment, SegmentMetadata,
-};
+pub use segment::{Commit, CommitFlags, Segment, SegmentMetadata};
 
 /// Edges to other segments are the index into the list of local commits of the parent segment.
 /// That way we can tell where a segment branches off, despite the graph only connecting segments, and not commits.
@@ -33,7 +31,7 @@ pub struct EntryPoint<'graph> {
     /// The segment that served starting point for the traversal into this graph.
     pub segment: &'graph Segment,
     /// If present, the commit that started the traversal in the `segment`.
-    pub commit: Option<&'graph LocalCommit>,
+    pub commit: Option<&'graph Commit>,
 }
 
 /// This structure is used as data associated with each edge and is mainly for collecting

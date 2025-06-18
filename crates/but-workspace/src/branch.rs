@@ -412,10 +412,9 @@
 //!                                      walk along.
 //! ```
 
-use crate::StashStatus;
+use crate::{StashStatus, ref_info};
 use anyhow::{Context, bail};
 use but_core::RefMetadata;
-use but_graph::Segment;
 use gix::prelude::ObjectIdExt;
 
 /// The result of [`add_branch_to_workspace`].
@@ -501,7 +500,7 @@ pub struct Stack {
     pub base: Option<gix::ObjectId>,
     /// The branch-name denoted segments of the stack from its tip to the point of reference, typically a merge-base.
     /// This array is never empty.
-    pub segments: Vec<Segment>,
+    pub segments: Vec<ref_info::ui::Segment>,
     /// Additional information about possibly still available stashes, sitting on top of this stack.
     ///
     /// This means the stash is still there to be applied, something that can happen if the user switches branches
@@ -535,6 +534,6 @@ impl Stack {
 }
 
 /// Return all stack segments within the given `stack`.
-pub fn stack_segments(stack: Stack) -> anyhow::Result<Vec<Segment>> {
+pub fn stack_segments(stack: Stack) -> anyhow::Result<Vec<ref_info::ui::Segment>> {
     todo!()
 }

@@ -9,31 +9,30 @@ fn unborn() -> anyhow::Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?;
     insta::assert_snapshot!(graph_tree(&graph), @"└── 👉►:0:main");
     insta::assert_debug_snapshot!(graph, @r#"
-            Graph {
-                inner: Graph {
-                    Ty: "Directed",
-                    node_count: 1,
-                    edge_count: 0,
-                    node weights: {
-                        0: StackSegment {
-                            id: 0,
-                            ref_name: "refs/heads/main",
-                            remote_tracking_ref_name: "None",
-                            commits: [],
-                            commits_unique_in_remote_tracking_branch: [],
-                            metadata: "None",
-                        },
-                    },
-                    edge weights: {},
+    Graph {
+        inner: Graph {
+            Ty: "Directed",
+            node_count: 1,
+            edge_count: 0,
+            node weights: {
+                0: StackSegment {
+                    id: NodeIndex(0),
+                    ref_name: "refs/heads/main",
+                    remote_tracking_ref_name: "None",
+                    commits: [],
+                    metadata: "None",
                 },
-                entrypoint: Some(
-                    (
-                        NodeIndex(0),
-                        None,
-                    ),
-                ),
-            }
-            "#);
+            },
+            edge weights: {},
+        },
+        entrypoint: Some(
+            (
+                NodeIndex(0),
+                None,
+            ),
+        ),
+    }
+    "#);
     Ok(())
 }
 
@@ -61,23 +60,21 @@ fn detached() -> anyhow::Result<()> {
             edges: (0, 1),
             node weights: {
                 0: StackSegment {
-                    id: 0,
+                    id: NodeIndex(0),
                     ref_name: "refs/heads/main",
                     remote_tracking_ref_name: "None",
                     commits: [
-                        LocalCommit(541396b, "first\n", local, ►annotated, ►release/v1),
+                        Commit(541396b, "first\n", ⌂),
                     ],
-                    commits_unique_in_remote_tracking_branch: [],
                     metadata: "None",
                 },
                 1: StackSegment {
-                    id: 1,
+                    id: NodeIndex(1),
                     ref_name: "refs/heads/other",
                     remote_tracking_ref_name: "None",
                     commits: [
-                        LocalCommit(fafd9d0, "init\n", local),
+                        Commit(fafd9d0, "init\n", ⌂),
                     ],
-                    commits_unique_in_remote_tracking_branch: [],
                     metadata: "None",
                 },
             },

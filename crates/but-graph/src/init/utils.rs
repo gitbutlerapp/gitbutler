@@ -1,8 +1,8 @@
 use crate::init::walk::TopoWalk;
 use crate::init::{EdgeOwned, Instruction, PetGraph, QueueItem, remotes};
 use crate::{
-    Commit, CommitFlags, CommitIndex, Edge, Graph, LocalCommit, Segment, SegmentIndex,
-    SegmentMetadata, is_workspace_ref_name,
+    Commit, CommitFlags, CommitIndex, Edge, Graph, Segment, SegmentIndex, SegmentMetadata,
+    is_workspace_ref_name,
 };
 use anyhow::{Context, bail};
 use bstr::BString;
@@ -308,15 +308,15 @@ pub struct TraverseInfo {
 }
 
 impl TraverseInfo {
-    pub fn into_local_commit(
+    pub fn into_commit(
         self,
         repo: &gix::Repository,
         flags: CommitFlags,
         refs: Vec<gix::refs::FullName>,
-    ) -> anyhow::Result<LocalCommit> {
+    ) -> anyhow::Result<Commit> {
         let commit = but_core::Commit::from_id(self.id.attach(repo))?;
         let has_conflicts = commit.is_conflicted();
-        let commit = match self.commit {
+        Ok(match self.commit {
             Some(commit) => Commit {
                 refs,
                 flags,
@@ -329,13 +329,8 @@ impl TraverseInfo {
                 author: commit.author.clone(),
                 flags,
                 refs,
+                has_conflicts,
             },
-        };
-
-        Ok(LocalCommit {
-            inner: commit,
-            relation: Default::default(),
-            has_conflicts,
         })
     }
 }
@@ -394,6 +389,8 @@ pub fn find(
                 author: author.context("Every valid commit must have an author signature")?,
                 refs: Vec::new(),
                 flags: CommitFlags::empty(),
+                // TODO: we probably should set this
+                has_conflicts: false,
             })
         }
     };
