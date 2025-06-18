@@ -226,6 +226,7 @@
 		position: relative;
 		flex: 1;
 		flex-direction: column;
+		height: 100%;
 		overflow: hidden;
 		background-color: var(--clr-bg-2);
 	}

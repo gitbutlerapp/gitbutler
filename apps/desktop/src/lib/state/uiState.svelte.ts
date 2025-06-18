@@ -70,6 +70,7 @@ export type GlobalUiState = {
 	detailsWidth: number;
 	previewWidth: number;
 	historySidebarWidth: number;
+	branchViewSidebarWidth: number;
 	useRichText: boolean;
 	useRuler: boolean;
 	rulerCountValue: number;
@@ -110,6 +111,7 @@ export class UiState {
 		detailsWidth: 32,
 		previewWidth: 48,
 		historySidebarWidth: 30,
+		branchViewSidebarWidth: 30,
 		useRichText: false,
 		useRuler: false,
 		rulerCountValue: 72,
