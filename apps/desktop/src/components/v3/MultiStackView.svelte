@@ -4,8 +4,10 @@
 	import MultiStackPagination, { scrollToLane } from '$components/v3/MultiStackPagination.svelte';
 	import StackDraft from '$components/v3/StackDraft.svelte';
 	import StackView from '$components/v3/StackView.svelte';
+	import { onReorderDragOver } from '$lib/dragging/reordering';
 	import { branchesPath } from '$lib/routes/routes.svelte';
 	import { type SelectionId } from '$lib/selection/key';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import type { Stack } from '$lib/stacks/stack';
@@ -18,7 +20,9 @@
 		focusedStackId?: string;
 	};
 
-	const { projectId, selectedId, stacks, focusedStackId }: Props = $props();
+	let { projectId, selectedId, stacks, focusedStackId }: Props = $props();
+
+	const [stackService] = inject(StackService);
 
 	let lanesScrollableEl = $state<HTMLDivElement>();
 	let lanesScrollableWidth = $state<number>(0);
@@ -58,11 +62,22 @@
 {/if}
 
 <div
+	role="group"
 	class="lanes-scrollable hide-native-scrollbar"
 	bind:this={lanesScrollableEl}
 	bind:clientWidth={lanesScrollableWidth}
 	bind:clientHeight={lanesScrollableHeight}
 	class:multi={stacks.length < SHOW_PAGINATION_THRESHOLD}
+	ondragover={(e) => {
+		onReorderDragOver(e, stacks);
+		stacks = stacks;
+	}}
+	ondrop={() => {
+		stackService.updateBranchOrder({
+			projectId,
+			branches: stacks.map((b, i) => ({ id: b.id, order: i }))
+		});
+	}}
 >
 	{#each stacks as stack, i}
 		<StackView
@@ -127,6 +142,7 @@
 		margin: 0 -1px;
 		overflow-x: auto;
 		overflow-y: hidden;
+		scroll-snap-type: x proximity;
 	}
 
 	.pagination-container {

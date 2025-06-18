@@ -11,6 +11,7 @@
 	import PushButton from '$components/v3/PushButton.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
+	import { onReorderEnd, onReorderMouseDown, onReorderStart } from '$lib/dragging/reordering';
 	import { isParsedError } from '$lib/error/parser';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
@@ -24,6 +25,7 @@
 	import { inject } from '@gitbutler/shared/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
 	import type { Stack } from '$lib/stacks/stack';
 
@@ -100,7 +102,8 @@
 	);
 	const changes = $derived(uncommittedService.changesByStackId(stack.id || null));
 
-	let laneEl = $state<HTMLDivElement>();
+	let viewWrapperEl = $state<HTMLDivElement>();
+	let stackViewEl = $state<HTMLDivElement>();
 	let detailsEl = $state<HTMLDivElement>();
 	let previewEl = $state<HTMLDivElement>();
 
@@ -173,12 +176,19 @@
 		}
 	}}
 	<div
+		bind:this={viewWrapperEl}
 		class="stack-view-wrapper"
+		role="presentation"
 		class:dimmed
+		tabindex="-1"
+		draggable="true"
 		data-id={stack.id}
 		data-testid={TestId.Stack}
 		data-testid-stackid={stack.id}
 		data-testid-stack={stack.heads.at(0)?.name}
+		onmousedown={(e) => onReorderMouseDown(e, viewWrapperEl?.parentElement as HTMLDivElement)}
+		ondragstart={(e) => onReorderStart(e, stack.id)}
+		ondragend={onReorderEnd}
 		use:intersectionObserver={{
 			callback: (entry) => {
 				onVisible(!!entry?.isIntersecting);
@@ -193,16 +203,21 @@
 			parentId: DefinedFocusable.ViewportRight
 		}}
 	>
+		{#if !isCommitting}
+			<div class="drag-handle" data-drag-handle>
+				<Icon name="draggable" />
+			</div>
+		{/if}
 		<div
 			class="stack-view"
 			style:width={$persistedStackWidth + 'rem'}
 			bind:clientWidth
 			bind:clientHeight
-			bind:this={laneEl}
+			bind:this={stackViewEl}
 		>
 			<Resizer
 				persistId="resizer-panel1-${stack.id}"
-				viewport={laneEl!}
+				viewport={stackViewEl!}
 				zIndex="var(--z-lifted)"
 				direction="right"
 				minWidth={16}
@@ -378,6 +393,7 @@
 		display: flex;
 		flex-shrink: 0;
 		overflow: hidden;
+		scroll-snap-align: start;
 
 		&.dimmed {
 			opacity: 0.5;
@@ -467,5 +483,10 @@
 		gap: 12px;
 		background-color: var(--clr-bg-2);
 		transition: background-color var(--transition-fast);
+	}
+
+	.drag-handle {
+		z-index: var(--z-floating);
+		position: absolute;
 	}
 </style>

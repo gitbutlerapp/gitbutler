@@ -112,6 +112,7 @@ pub fn create_virtual_branch(
         id: stack.id,
         heads: stack_heads_info(&stack, &repo)?,
         tip: stack.head_oid(&repo)?,
+        order: Some(stack.order),
     })
 }
 
