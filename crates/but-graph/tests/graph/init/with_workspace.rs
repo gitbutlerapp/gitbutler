@@ -1,4 +1,5 @@
 use crate::graph_tree;
+use crate::init::utils::add_workspace_without_target;
 use crate::init::{StackState, add_stack_with_segments, add_workspace, id_at, id_by_rev};
 use crate::init::{read_only_in_memory_scenario, standard_options};
 use but_graph::Graph;
@@ -671,7 +672,9 @@ fn disambiguate_by_remote() -> anyhow::Result<()> {
 fn integrated_tips_stop_early() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/two-segments-one-integrated")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   7b9f260 (origin/main) Merge branch 'A' into soon-origin-main
+    * d0df794 (origin/main) remote-2
+    * 09c6e08 remote-1
+    *   7b9f260 Merge branch 'A' into soon-origin-main
     |\  
     | | * 4077353 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     | | * 6b1a13b (B) B2
@@ -701,21 +704,20 @@ fn integrated_tips_stop_early() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── 👉►►►:0:gitbutler/workspace
     │   └── ·4077353 (⌂|🏘️)❱"GitButler Workspace Commit"
-    │       └── ►:4:B
+    │       └── ►:2:B
     │           ├── ·6b1a13b (⌂|🏘️)❱"B2"
     │           └── ·03ad472 (⌂|🏘️)❱"B1"
-    │               └── ►:3:A
-    │                   ├── ·79bbb29 (⌂|🏘️|✓)❱"8"
-    │                   ├── ·fc98174 (⌂|🏘️|✓)❱"7"
-    │                   ├── ·a381df5 (⌂|🏘️|✓)❱"6"
-    │                   └── ✂️·777b552 (⌂|🏘️|✓)❱"5"
+    │               └── ►:5:A
+    │                   └── ✂️·79bbb29 (⌂|🏘️|✓)❱"8"
     └── ►:1:origin/main
-        └── 🟣7b9f260 (✓)❱"Merge branch \'A\' into soon-origin-main"
-            ├── →:3: (A)
-            └── ►:2:main
-                ├── ·4b3e5a8 (⌂|✓)❱"3"
-                ├── ·34d0715 (⌂|✓)❱"2"
-                └── ·eb5f731 (⌂|✓)❱"1"
+        ├── 🟣d0df794 (✓)❱"remote-2"
+        └── 🟣09c6e08 (✓)❱"remote-1"
+            └── ►:3:anon:
+                └── 🟣7b9f260 (✓)❱"Merge branch \'A\' into soon-origin-main"
+                    ├── →:5: (A)
+                    └── ►:4:main
+                        ├── ·4b3e5a8 (⌂|✓)❱"3"
+                        └── ✂️·34d0715 (⌂|✓)❱"2"
     "#);
 
     add_stack_with_segments(
@@ -725,55 +727,101 @@ fn integrated_tips_stop_early() -> anyhow::Result<()> {
         StackState::InWorkspace,
         &["A"],
     );
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    // As we start at a workspace, even a limit of 0 has no effect - we get to see the whole workspace.
+    let graph = Graph::from_head(&repo, &*meta, standard_options().with_limit(0))?.validated()?;
     // Now that `A` is part of the workspace, it's not cut off anymore.
     // Instead, we get to keep `A` in full, and it aborts only one later as the
-    // segment definitely isnt' in the workspace.
+    // segment definitely isn't in the workspace.
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── 👉►►►:0:gitbutler/workspace
     │   └── ·4077353 (⌂|🏘️)❱"GitButler Workspace Commit"
-    │       └── ►:4:B
+    │       └── ►:2:B
     │           ├── ·6b1a13b (⌂|🏘️)❱"B2"
     │           └── ·03ad472 (⌂|🏘️)❱"B1"
-    │               └── ►:3:A
+    │               └── ►:5:A
     │                   ├── ·79bbb29 (⌂|🏘️|✓)❱"8"
     │                   ├── ·fc98174 (⌂|🏘️|✓)❱"7"
     │                   ├── ·a381df5 (⌂|🏘️|✓)❱"6"
     │                   └── ·777b552 (⌂|🏘️|✓)❱"5"
-    │                       └── ►:5:anon:
+    │                       └── ►:6:anon:
     │                           └── ✂️·ce4a760 (⌂|🏘️|✓)❱"Merge branch \'A-feat\' into A"
     └── ►:1:origin/main
-        └── 🟣7b9f260 (✓)❱"Merge branch \'A\' into soon-origin-main"
-            ├── →:3: (A)
-            └── ►:2:main
-                ├── ·4b3e5a8 (⌂|✓)❱"3"
-                ├── ·34d0715 (⌂|✓)❱"2"
-                └── ·eb5f731 (⌂|✓)❱"1"
+        ├── 🟣d0df794 (✓)❱"remote-2"
+        └── 🟣09c6e08 (✓)❱"remote-1"
+            └── ►:3:anon:
+                └── 🟣7b9f260 (✓)❱"Merge branch \'A\' into soon-origin-main"
+                    ├── →:5: (A)
+                    └── ►:4:main
+                        ├── ·4b3e5a8 (⌂|✓)❱"3"
+                        └── ✂️·34d0715 (⌂|✓)❱"2"
     "#);
 
-    let (main_id, ref_name) = id_at(&repo, "main");
+    meta.data_mut().branches.clear();
+    add_workspace(&mut meta);
+    // When looking from an integrated branch, we get a bit further until we know we can stop as
+    // the target branch first has to catch up with us.
+    let (id, ref_name) = id_at(&repo, "A");
     let graph =
-        Graph::from_commit_traversal(main_id, ref_name, &*meta, standard_options())?.validated()?;
+        Graph::from_commit_traversal(id, ref_name, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── ►►►:1:gitbutler/workspace
     │   └── ·4077353 (⌂|🏘️)❱"GitButler Workspace Commit"
-    │       └── ►:4:B
+    │       └── ►:3:B
     │           ├── ·6b1a13b (⌂|🏘️)❱"B2"
     │           └── ·03ad472 (⌂|🏘️)❱"B1"
-    │               └── ►:3:A
+    │               └── 👉►:0:A
     │                   ├── ·79bbb29 (⌂|🏘️|✓)❱"8"
     │                   ├── ·fc98174 (⌂|🏘️|✓)❱"7"
     │                   ├── ·a381df5 (⌂|🏘️|✓)❱"6"
-    │                   └── ·777b552 (⌂|🏘️|✓)❱"5"
-    │                       └── ►:5:anon:
-    │                           └── ✂️·ce4a760 (⌂|🏘️|✓)❱"Merge branch \'A-feat\' into A"
+    │                   └── ✂️·777b552 (⌂|🏘️|✓)❱"5"
     └── ►:2:origin/main
-        └── 🟣7b9f260 (✓)❱"Merge branch \'A\' into soon-origin-main"
-            ├── →:3: (A)
-            └── 👉►:0:main
-                ├── ·4b3e5a8 (⌂|✓)❱"3"
-                ├── ·34d0715 (⌂|✓)❱"2"
-                └── ·eb5f731 (⌂|✓)❱"1"
+        ├── 🟣d0df794 (✓)❱"remote-2"
+        └── 🟣09c6e08 (✓)❱"remote-1"
+            └── ►:4:anon:
+                └── 🟣7b9f260 (✓)❱"Merge branch \'A\' into soon-origin-main"
+                    ├── →:0: (A)
+                    └── ►:5:main
+                        └── ✂️·4b3e5a8 (⌂|✓)❱"3"
+    "#);
+    Ok(())
+}
+
+#[test]
+fn workspace_obeys_limit_when_target_branch_is_missing() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/two-segments-one-integrated")?;
+    add_workspace_without_target(&mut meta);
+    assert!(
+        meta.data_mut().default_target.is_none(),
+        "without target, limits affect workspaces too"
+    );
+    let graph = Graph::from_head(&repo, &*meta, standard_options().with_limit(0))?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @"└── 👉►►►:0:gitbutler/workspace");
+
+    meta.data_mut().branches.clear();
+    add_workspace(&mut meta);
+    assert!(
+        meta.data_mut().default_target.is_some(),
+        "But with workspace and target, we see everything"
+    );
+    // It's notable that there is no way to bypass the early abort when everything is integrated.
+    let graph = Graph::from_head(&repo, &*meta, standard_options().with_limit(0))?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    ├── 👉►►►:0:gitbutler/workspace
+    │   └── ·4077353 (⌂|🏘️)❱"GitButler Workspace Commit"
+    │       └── ►:2:B
+    │           ├── ·6b1a13b (⌂|🏘️)❱"B2"
+    │           └── ·03ad472 (⌂|🏘️)❱"B1"
+    │               └── ►:5:A
+    │                   └── ✂️·79bbb29 (⌂|🏘️|✓)❱"8"
+    └── ►:1:origin/main
+        ├── 🟣d0df794 (✓)❱"remote-2"
+        └── 🟣09c6e08 (✓)❱"remote-1"
+            └── ►:3:anon:
+                └── 🟣7b9f260 (✓)❱"Merge branch \'A\' into soon-origin-main"
+                    ├── →:5: (A)
+                    └── ►:4:main
+                        ├── ·4b3e5a8 (⌂|✓)❱"3"
+                        └── ✂️·34d0715 (⌂|✓)❱"2"
     "#);
     Ok(())
 }

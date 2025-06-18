@@ -150,7 +150,7 @@ pub fn replace_queued_segments(
     find: SegmentIndex,
     replace: SegmentIndex,
 ) {
-    for instruction_to_replace in queue.iter_mut().map(|(_, _, instruction)| instruction) {
+    for instruction_to_replace in queue.iter_mut().map(|(_, _, instruction, _)| instruction) {
         let cmp = instruction_to_replace.segment_idx();
         if cmp == find {
             *instruction_to_replace = instruction_to_replace.with_replaced_sidx(replace);
@@ -159,7 +159,7 @@ pub fn replace_queued_segments(
 }
 
 pub fn swap_queued_segments(queue: &mut VecDeque<QueueItem>, a: SegmentIndex, b: SegmentIndex) {
-    for instruction_to_replace in queue.iter_mut().map(|(_, _, instruction)| instruction) {
+    for instruction_to_replace in queue.iter_mut().map(|(_, _, instruction, _)| instruction) {
         let cmp = instruction_to_replace.segment_idx();
         if cmp == a {
             *instruction_to_replace = instruction_to_replace.with_replaced_sidx(b);
@@ -236,28 +236,47 @@ pub fn try_split_non_empty_segment_at_branch(
     Ok(Some(segment_below))
 }
 
+fn is_exhausted_or_decrement(limit: &mut Option<usize>) -> bool {
+    *limit = match limit {
+        Some(limit) => {
+            if *limit == 0 {
+                return true;
+            }
+            Some(*limit - 1)
+        }
+        None => None,
+    };
+    false
+}
+
 /// Queue the `parent_ids` of the current commit, whose additional information like `current_kind` and `current_index`
 /// are used.
+/// `limit` is used to determine if the tip is NOT supposed to be dropped, with `0` meaning it's depleted.
 pub fn queue_parents(
     next: &mut VecDeque<QueueItem>,
     parent_ids: &[gix::ObjectId],
     flags: CommitFlags,
     current_sidx: SegmentIndex,
     current_cidx: CommitIndex,
+    mut limit: Option<usize>,
 ) {
+    if is_exhausted_or_decrement(&mut limit) {
+        return;
+    }
     if parent_ids.len() > 1 {
         let instruction = Instruction::ConnectNewSegment {
             parent_above: current_sidx,
             at_commit: current_cidx,
         };
         for pid in parent_ids {
-            next.push_back((*pid, flags, instruction))
+            next.push_back((*pid, flags, instruction, limit))
         }
     } else if !parent_ids.is_empty() {
         next.push_back((
             parent_ids[0],
             flags,
             Instruction::CollectCommit { into: current_sidx },
+            limit,
         ));
     } else {
         return;
@@ -549,6 +568,7 @@ pub fn propagate_flags_downward(
 /// This eager queuing makes sure that the post-processing doesn't have to traverse again when it creates segments
 /// that were previously ambiguous.
 /// If a remote tracking branch is in `target_refs`, we assume it was already scheduled and won't schedule it again.
+/// Note that remotes fully obey the limit.
 #[allow(clippy::too_many_arguments)]
 pub fn try_queue_remote_tracking_branches(
     repo: &gix::Repository,
@@ -559,7 +579,12 @@ pub fn try_queue_remote_tracking_branches(
     configured_remote_tracking_branches: &BTreeSet<FullName>,
     target_refs: &[gix::refs::FullName],
     meta: &impl RefMetadata,
+    limit: Option<usize>,
 ) -> anyhow::Result<()> {
+    if limit.is_some_and(|l| l == 0) {
+        return Ok(());
+    }
+
     for rn in refs {
         let Some(remote_tracking_branch) = remotes::lookup_remote_tracking_branch_or_deduce_it(
             repo,
@@ -593,6 +618,7 @@ pub fn try_queue_remote_tracking_branches(
             Instruction::CollectCommit {
                 into: remote_segment,
             },
+            limit.map(|l| l - 1),
         ));
     }
     Ok(())
@@ -614,7 +640,7 @@ pub fn prune_integrated_tips(
     if !all_integated {
         return;
     }
-    next.retain(|(_id, _flags, instruction)| {
+    next.retain(|(_id, _flags, instruction, _limit)| {
         let sidx = instruction.segment_idx();
         let s = &graph[sidx];
         let any_segment_ref_is_contained_in_workspace = s

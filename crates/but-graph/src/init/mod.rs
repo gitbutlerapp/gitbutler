@@ -21,12 +21,56 @@ mod walk;
 pub(super) type PetGraph = petgraph::Graph<Segment, Edge>;
 
 /// Options for use in [`Graph::from_head()`] and [`Graph::from_commit_traversal()`].
-#[derive(Default, Debug, Copy, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct Options {
     /// Associate tag references with commits.
     ///
     /// If `false`, tags are not collected.
     pub collect_tags: bool,
+    /// The maximum number of commits we should traverse outside any workspace *with a target branch*.
+    /// Workspaces with a target branch automatically have unlimited traversals as they rely on the target
+    /// branch to eventually stop the traversal.
+    ///
+    /// If `None`, there is no limit, which typically means that when lacking a workspace, the traversal
+    /// will end only when no commit is left to traverse.
+    /// `Some(0)` means nothing is going to be returned.
+    ///
+    /// Note that this doesn't affect the traversal of integrated commits, which is always stopped once there
+    /// is nothing interesting left to traverse.
+    ///
+    /// Also note: This is not a perfectly exact measure, and it's always possible to receive a few more commits
+    /// than the maximum as for simplicity, we assign each 'split' the same limit, effectively doubling it.
+    ///
+    /// ### Tip Configuration
+    ///
+    /// * HEAD - uses the limit
+    /// * workspaces with target branch - no limit, but auto-stop if workspace is exhausted as everything is integrated.
+    ///     - The target branch: no limit
+    /// * workspace without target branch - uses the limit
+    /// * remotes tracking branches - use the limit
+    pub max_commits_outside_of_workspace: Option<usize>,
+    /// A list of the last commits of partial segments previously returned that reset the amount of available
+    /// commits to traverse back to `max_commits_outside_of_workspace`.
+    /// Imagine it like a gas station that can be chosen to direct where the commit-budge should be spent.
+    pub max_commits_recharge_location: Vec<gix::ObjectId>,
+}
+
+/// Builder
+impl Options {
+    /// Set the maximum amount of commits that each lane in a tip may traverse.
+    pub fn with_limit(mut self, limit: usize) -> Self {
+        self.max_commits_outside_of_workspace = Some(limit);
+        self
+    }
+
+    /// Keep track of commits at which the traversal limit should be reset to the [`limit`](Self::with_limit()).
+    pub fn with_limit_extension_at(
+        mut self,
+        commits: impl IntoIterator<Item = gix::ObjectId>,
+    ) -> Self {
+        self.max_commits_recharge_location.extend(commits);
+        self
+    }
 }
 
 /// Lifecycle
@@ -106,7 +150,11 @@ impl Graph {
         tip: gix::Id<'_>,
         ref_name: impl Into<Option<gix::refs::FullName>>,
         meta: &impl RefMetadata,
-        Options { collect_tags }: Options,
+        Options {
+            collect_tags,
+            max_commits_outside_of_workspace: limit,
+            mut max_commits_recharge_location,
+        }: Options,
     ) -> anyhow::Result<Self> {
         // TODO: also traverse (outside)-branches that ought to be in the workspace. That way we have the desired ones
         //       automatically and just have to find a way to prune the undesired ones.
@@ -168,6 +216,7 @@ impl Graph {
                 tip.detach(),
                 tip_flags,
                 Instruction::CollectCommit { into: current },
+                limit,
             ));
         }
         for (ws_ref, workspace_info) in workspaces {
@@ -198,6 +247,12 @@ impl Graph {
                 CommitFlags::empty()
             };
             let mut ws_segment = branch_segment_from_name_and_meta(Some(ws_ref), meta, None)?;
+            // Drop the limit if we have a target ref
+            let limit = if workspace_info.target_ref.is_some() {
+                None
+            } else {
+                limit
+            };
             ws_segment.metadata = Some(SegmentMetadata::Workspace(workspace_info));
             let ws_segment = graph.insert_root(ws_segment);
             // As workspaces typically have integration branches which can help us to stop the traversal,
@@ -210,6 +265,7 @@ impl Graph {
                     // their status for now.
                     CommitFlags::NotInRemote | add_flags,
                 Instruction::CollectCommit { into: ws_segment },
+                limit,
             ));
             if let Some((target_ref, target_ref_id)) = target {
                 let target_segment = graph.insert_root(branch_segment_from_name_and_meta(
@@ -223,11 +279,22 @@ impl Graph {
                     Instruction::CollectCommit {
                         into: target_segment,
                     },
+                    /* unlimited traversal for 'negative' commits */
+                    None,
                 ));
             }
         }
 
-        while let Some((id, mut propagated_flags, instruction)) = next.pop_front() {
+        max_commits_recharge_location.sort();
+        // Set max-limit so that we compensate for the way this is counted.
+        let max_limit = limit.map(|l| l + 1);
+        while let Some((id, mut propagated_flags, instruction, mut limit)) = next.pop_front() {
+            if max_commits_recharge_location.binary_search(&id).is_ok() {
+                limit = max_limit;
+            }
+            if limit.is_some_and(|l| l == 0) {
+                continue;
+            }
             let info = find(commit_graph.as_ref(), repo, id, &mut buf)?;
             let src_flags = graph[instruction.segment_idx()]
                 .commits
@@ -363,6 +430,7 @@ impl Graph {
                 propagated_flags,
                 segment_idx_for_id,
                 commit_idx_for_possible_fork,
+                limit,
             );
 
             let refs_at_commit_before_removal = refs_by_id.remove(&id).unwrap_or_default();
@@ -392,6 +460,7 @@ impl Graph {
                 &configured_remote_tracking_branches,
                 &target_refs,
                 meta,
+                limit,
             )?;
 
             prune_integrated_tips(&mut graph.inner, &mut next, &desired_refs);
@@ -442,7 +511,7 @@ impl Instruction {
     }
 }
 
-type QueueItem = (ObjectId, CommitFlags, Instruction);
+type QueueItem = (ObjectId, CommitFlags, Instruction, Option<usize>);
 
 #[derive(Debug)]
 pub(crate) struct EdgeOwned {

@@ -212,7 +212,7 @@ fn four_diamond() -> anyhow::Result<()> {
 
 #[test]
 fn stacked_rebased_remotes() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("remote-includes-another-remote")?;
+    let (repo, meta) = read_only_in_memory_scenario("remote-includes-another-remote")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * 682be32 (origin/B) B
     * e29c23d (origin/A) A
@@ -223,7 +223,6 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     ");
 
     // Everything we encounter is checked for remotes.
-    add_workspace(&mut meta);
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── 👉►:0:B
@@ -250,6 +249,140 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     └── ►:1:origin/A
         └── 🟣e29c23d❱"A"
             └── →:2: (main)
+    "#);
+    Ok(())
+}
+
+#[test]
+fn with_limits() -> anyhow::Result<()> {
+    let (repo, meta) = read_only_in_memory_scenario("triple-merge")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *-.   2a95729 (HEAD -> C) Merge branches 'A' and 'B' into C
+    |\ \  
+    | | * 9908c99 (B) B3
+    | | * 60d9a56 B2
+    | | * 9d171ff B1
+    | * | 20a823c (A) A3
+    | * | 442a12f A2
+    | * | 686706b A1
+    | |/  
+    * | 6861158 C3
+    * | 4f1f248 C2
+    * | 487ffce C1
+    |/  
+    * edc4dee (main) 5
+    * 01d0e1e 4
+    * 4b3e5a8 3
+    * 34d0715 2
+    * eb5f731 1
+    ");
+
+    // Without limits
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    └── 👉►:0:C
+        └── ·2a95729 (⌂)❱"Merge branches \'A\' and \'B\' into C"
+            ├── ►:3:B
+            │   ├── ·9908c99 (⌂)❱"B3"
+            │   ├── ·60d9a56 (⌂)❱"B2"
+            │   └── ·9d171ff (⌂)❱"B1"
+            │       └── ►:4:main
+            │           ├── ·edc4dee (⌂)❱"5"
+            │           ├── ·01d0e1e (⌂)❱"4"
+            │           ├── ·4b3e5a8 (⌂)❱"3"
+            │           ├── ·34d0715 (⌂)❱"2"
+            │           └── ·eb5f731 (⌂)❱"1"
+            ├── ►:2:A
+            │   ├── ·20a823c (⌂)❱"A3"
+            │   ├── ·442a12f (⌂)❱"A2"
+            │   └── ·686706b (⌂)❱"A1"
+            │       └── →:4: (main)
+            └── ►:1:anon:
+                ├── ·6861158 (⌂)❱"C3"
+                ├── ·4f1f248 (⌂)❱"C2"
+                └── ·487ffce (⌂)❱"C1"
+                    └── →:4: (main)
+    "#);
+
+    // Just empty starting points.
+    let graph = Graph::from_head(&repo, &*meta, standard_options().with_limit(0))?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @"└── 👉►:0:C");
+
+    // A single commit, the merge commit.
+    let graph = Graph::from_head(&repo, &*meta, standard_options().with_limit(1))?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    └── 👉►:0:C
+        └── ✂️·2a95729 (⌂)❱"Merge branches \'A\' and \'B\' into C"
+    "#);
+
+    // The merge commit, then we witness lane-duplication of the limit so we get more than requested.
+    let graph = Graph::from_head(&repo, &*meta, standard_options().with_limit(2))?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    └── 👉►:0:C
+        └── ·2a95729 (⌂)❱"Merge branches \'A\' and \'B\' into C"
+            ├── ►:3:B
+            │   └── ✂️·9908c99 (⌂)❱"B3"
+            ├── ►:2:A
+            │   └── ✂️·20a823c (⌂)❱"A3"
+            └── ►:1:anon:
+                └── ✂️·6861158 (⌂)❱"C3"
+    "#);
+
+    // Allow to see more commits just in the middle lane, the limit is reset
+    // and we see two more.
+    let id = id_by_rev(&repo, ":/A3");
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        standard_options()
+            .with_limit(2)
+            .with_limit_extension_at(Some(id.detach())),
+    )?
+    .validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    └── 👉►:0:C
+        └── ·2a95729 (⌂)❱"Merge branches \'A\' and \'B\' into C"
+            ├── ►:3:B
+            │   └── ✂️·9908c99 (⌂)❱"B3"
+            ├── ►:2:A
+            │   ├── ·20a823c (⌂)❱"A3"
+            │   ├── ·442a12f (⌂)❱"A2"
+            │   └── ✂️·686706b (⌂)❱"A1"
+            └── ►:1:anon:
+                └── ✂️·6861158 (⌂)❱"C3"
+    "#);
+
+    // Multiple extensions are fine as well.
+    let id = |rev| id_by_rev(&repo, rev).detach();
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        standard_options().with_limit(2).with_limit_extension_at([
+            id(":/A3"),
+            id(":/A1"),
+            id(":/B3"),
+            id(":/C3"),
+        ]),
+    )?
+    .validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    └── 👉►:0:C
+        └── ·2a95729 (⌂)❱"Merge branches \'A\' and \'B\' into C"
+            ├── ►:3:B
+            │   ├── ·9908c99 (⌂)❱"B3"
+            │   ├── ·60d9a56 (⌂)❱"B2"
+            │   └── ✂️·9d171ff (⌂)❱"B1"
+            ├── ►:2:A
+            │   ├── ·20a823c (⌂)❱"A3"
+            │   ├── ·442a12f (⌂)❱"A2"
+            │   └── ·686706b (⌂)❱"A1"
+            │       └── ►:4:main
+            │           ├── ·edc4dee (⌂)❱"5"
+            │           └── ✂️·01d0e1e (⌂)❱"4"
+            └── ►:1:anon:
+                ├── ·6861158 (⌂)❱"C3"
+                ├── ·4f1f248 (⌂)❱"C2"
+                └── ✂️·487ffce (⌂)❱"C1"
     "#);
     Ok(())
 }

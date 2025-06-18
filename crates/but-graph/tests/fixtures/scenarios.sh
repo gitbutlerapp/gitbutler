@@ -165,6 +165,30 @@ EOF
 
 )
 
+git init triple-merge
+(cd triple-merge
+  for c in $(seq 5); do
+    commit "$c"
+  done
+  git checkout -b A
+    git branch B
+    git branch C
+    for c in $(seq 3); do
+      commit "A$c"
+    done
+
+  git checkout B
+    for c in $(seq 3); do
+      commit "B$c"
+    done
+
+  git checkout C
+    for c in $(seq 3); do
+      commit "C$c"
+    done
+  git merge A B
+)
+
 mkdir ws
 (cd ws
   git init single-stack-ambiguous
@@ -355,6 +379,9 @@ EOF
     tick
     git checkout -b soon-origin-main main
       git merge --no-ff A
+      for c in $(seq 2); do
+        commit "remote-$c"
+      done
       setup_remote_tracking soon-origin-main main "move"
     git checkout gitbutler/workspace
   )
