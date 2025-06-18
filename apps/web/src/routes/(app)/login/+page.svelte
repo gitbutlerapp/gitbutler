@@ -1,12 +1,15 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { AuthService } from '$lib/auth/authService.svelte';
+	import GitHubButton from '$lib/components/login/GitHubButton.svelte';
+	import GoogleButton from '$lib/components/login/GoogleButton.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import LoginService from '@gitbutler/shared/login/loginService';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import { isStr } from '@gitbutler/ui/utils/string';
+	import { env } from '$env/dynamic/public';
 
 	let email = $state<string>();
 	let password = $state<string>();
@@ -32,13 +35,9 @@
 			errorCode = response.errorCode;
 			console.error('Login failed:', response.raw ?? response.errorMessage);
 		} else {
-			// Redirect to home or dashboard after successful login
-			const searchParams = new URLSearchParams(window.location.search);
-			searchParams.set('gb_access_token', response.data);
-			const url = new URL(routesService.homeUrl());
-			url.search = searchParams.toString();
-
-			window.location.href = url.toString();
+			const token = response.data;
+			authService.setToken(token);
+			window.location.href = `${env.PUBLIC_APP_HOST}successful_login`;
 		}
 	}
 
@@ -106,6 +105,11 @@
 				>
 			{/if}
 		{/if}
+
+		<SectionCard>
+			<GitHubButton />
+			<GoogleButton />
+		</SectionCard>
 	</div>
 </form>
 
