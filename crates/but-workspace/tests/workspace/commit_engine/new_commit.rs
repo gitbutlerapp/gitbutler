@@ -1142,7 +1142,7 @@ mod utils {
                 (
                     c.previous_path().map(ToOwned::to_owned),
                     c.path.clone(),
-                    c.unified_diff(repo, context_lines).unwrap(),
+                    c.unified_diff(repo, context_lines).unwrap().unwrap(),
                 )
             })
             .collect())

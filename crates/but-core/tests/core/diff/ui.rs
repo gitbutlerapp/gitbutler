@@ -1,4 +1,3 @@
-use but_core::UnifiedDiff;
 use but_testsupport::gix_testtools;
 
 #[test]
@@ -578,11 +577,14 @@ fn commit_to_commit() -> anyhow::Result<()> {
 #[test]
 fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
     let repo = repo("many-in-worktree")?;
-    let diffs: Vec<UnifiedDiff> = but_core::diff::worktree_changes(&repo)?
+    let diffs: Vec<_> = but_core::diff::worktree_changes(&repo)?
         .changes
         .iter()
         .map(|tree_change| tree_change.unified_diff(&repo, 3))
-        .collect::<std::result::Result<_, _>>()?;
+        .collect::<std::result::Result<Vec<_>, _>>()?
+        .into_iter()
+        .flatten()
+        .collect();
     let actual = serde_json::to_string_pretty(&diffs)?;
     insta::assert_snapshot!(actual, @r#"
     [

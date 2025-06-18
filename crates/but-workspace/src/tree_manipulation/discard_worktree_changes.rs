@@ -599,10 +599,10 @@ mod hunk {
             Some(state_in_worktree),
             UnifiedDiff::CONVERSION_MODE,
         )?;
-        let UnifiedDiff::Patch {
+        let Some(UnifiedDiff::Patch {
             hunks: hunks_in_worktree,
             ..
-        } = wt_change.unified_diff_with_filter(repo, context_lines, &mut diff_filter)?
+        }) = wt_change.unified_diff_with_filter(repo, context_lines, &mut diff_filter)?
         else {
             bail!("Couldn't obtain diff for worktree changes.")
         };

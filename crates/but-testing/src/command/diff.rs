@@ -121,7 +121,7 @@ fn unified_diff_for_changes(
         .map(|tree_change| {
             tree_change
                 .unified_diff(repo, context_lines)
-                .map(|diff| (tree_change, diff))
+                .map(|diff| (tree_change, diff.expect("no submodule")))
         })
         .collect::<Result<Vec<_>, _>>()
 }
@@ -135,7 +135,7 @@ fn intersect_workspace_ranges(
     let mut missed_hunks = Vec::new();
     for change in worktree_changes {
         let unidiff = change.unified_diff(repo, 0)?;
-        let but_core::UnifiedDiff::Patch { hunks, .. } = unidiff else {
+        let Some(but_core::UnifiedDiff::Patch { hunks, .. }) = unidiff else {
             continue;
         };
         let mut intersections = Vec::new();

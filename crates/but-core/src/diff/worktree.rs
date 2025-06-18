@@ -815,11 +815,12 @@ impl TreeChange {
     /// for obtaining a working tree to read files from disk.
     /// Note that the mount of lines of context around each hunk are currently hardcoded to `3` as it *might* be relevant for creating
     /// commits later.
+    /// Return `None` if this change cannot produce a diff, typically because a submodule is involved.
     pub fn unified_diff(
         &self,
         repo: &gix::Repository,
         context_lines: u32,
-    ) -> anyhow::Result<UnifiedDiff> {
+    ) -> anyhow::Result<Option<UnifiedDiff>> {
         let mut diff_filter = crate::unified_diff::filter_from_state(
             repo,
             self.status.state(),
@@ -834,7 +835,7 @@ impl TreeChange {
         repo: &gix::Repository,
         context_lines: u32,
         diff_filter: &mut gix::diff::blob::Platform,
-    ) -> anyhow::Result<UnifiedDiff> {
+    ) -> anyhow::Result<Option<UnifiedDiff>> {
         match &self.status {
             TreeStatus::Deletion { previous_state } => UnifiedDiff::compute_with_filter(
                 repo,

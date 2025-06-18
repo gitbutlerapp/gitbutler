@@ -124,7 +124,8 @@ fn big_file_20_in_worktree() -> anyhow::Result<()> {
         },
         None,
         3,
-    )?;
+    )?
+    .expect("present");
     match actual {
         UnifiedDiff::Binary | UnifiedDiff::Patch { .. } => {
             unreachable!("Should be considered too large")
@@ -152,7 +153,8 @@ fn binary_file_in_worktree() -> anyhow::Result<()> {
         },
         None,
         3,
-    )?;
+    )?
+    .expect("present");
     match actual {
         UnifiedDiff::TooLarge { .. } | UnifiedDiff::Patch { .. } => {
             unreachable!("Should be considered binary, but was {actual:?}");
@@ -222,19 +224,18 @@ fn submodule_added() -> anyhow::Result<()> {
         },
     ]
     "#);
-    let err = changes[1].unified_diff(&repo, 3).unwrap_err();
-    assert_eq!(
-        err.to_string(),
-        "Can only diff blobs and links, not Commit",
-        "We can't consistently create unified diffs while it's somewhat \
-               hard to consistently read state (i.e. worktree or ODB with correct conversions)"
+    assert!(
+        changes[1].unified_diff(&repo, 3)?.is_none(),
+        "submodules produce no diffs"
     );
     Ok(())
 }
 
-fn extract_patch(diff: UnifiedDiff) -> Vec<unified_diff::DiffHunk> {
+fn extract_patch(diff: Option<UnifiedDiff>) -> Vec<unified_diff::DiffHunk> {
     match diff {
-        UnifiedDiff::Binary | UnifiedDiff::TooLarge { .. } => unreachable!("should have patches"),
-        UnifiedDiff::Patch { hunks, .. } => hunks,
+        None | Some(UnifiedDiff::Binary | UnifiedDiff::TooLarge { .. }) => {
+            unreachable!("should have patches")
+        }
+        Some(UnifiedDiff::Patch { hunks, .. }) => hunks,
     }
 }

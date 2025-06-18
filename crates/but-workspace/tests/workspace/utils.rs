@@ -136,14 +136,14 @@ pub fn to_change_specs_all_hunks_with_context_lines(
                 ..Default::default()
             },
             _ => {
-                match change.unified_diff(repo, context_lines) {
-                    Ok(but_core::UnifiedDiff::Patch { hunks, .. }) => DiffSpec {
+                match change.unified_diff(repo, context_lines)? {
+                    Some(but_core::UnifiedDiff::Patch { hunks, .. }) => DiffSpec {
                         previous_path: change.previous_path().map(ToOwned::to_owned),
                         path: change.path,
                         hunk_headers: hunks.into_iter().map(Into::into).collect(),
                     },
-                    Ok(_) => unreachable!("tests won't be binary or too large"),
-                    Err(_err) => {
+                    Some(_) => unreachable!("tests won't be binary or too large"),
+                    None => {
                         // Assume it's a submodule or something without content, don't do hunks then.
                         DiffSpec {
                             path: change.path,
@@ -254,8 +254,8 @@ pub fn worktree_changes_with_diffs(
             let diff = tree_change
                 .unified_diff(repo, 0 /* context_lines */)
                 .expect("diffs can always be generated");
-            let UnifiedDiff::Patch { hunks, .. } = diff else {
-                unreachable!("don't use this with binary files or large files")
+            let Some(UnifiedDiff::Patch { hunks, .. }) = diff else {
+                unreachable!("don't use this with binary files or large files or submodules")
             };
             (tree_change, hunks.into_iter().map(LeanDiffHunk).collect())
         })

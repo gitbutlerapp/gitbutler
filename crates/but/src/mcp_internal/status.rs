@@ -133,7 +133,7 @@ fn unified_diff_for_changes(
         .map(|tree_change| {
             tree_change
                 .unified_diff(repo, context_lines)
-                .map(|diff| (tree_change, diff))
+                .map(|diff| (tree_change, diff.expect("no submodule")))
         })
         .collect::<Result<Vec<_>, _>>()
 }
