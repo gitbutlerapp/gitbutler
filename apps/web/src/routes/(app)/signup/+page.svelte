@@ -1,4 +1,6 @@
 <script lang="ts">
+	import GitHubButton from '$lib/components/login/GitHubButton.svelte';
+	import GoogleButton from '$lib/components/login/GoogleButton.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import LoginService from '@gitbutler/shared/login/loginService';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -8,6 +10,7 @@
 	let password = $state<string>();
 	let passwordConfirmation = $state<string>();
 	let error = $state<string>();
+	let message = $state<string>();
 
 	const passwordsMatch = $derived(password === passwordConfirmation);
 
@@ -35,8 +38,8 @@
 			error = response.errorMessage;
 			console.error('Login failed:', response.raw ?? response.errorMessage);
 		} else {
-			// Redirect to home or dashboard after successful sign in
-			window.location.href = '/';
+			error = undefined;
+			message = response.data.message;
 		}
 	}
 </script>
@@ -74,11 +77,20 @@
 			</div>
 		</SectionCard>
 
-		<Button type="submit">Sign in</Button>
+		<Button type="submit">Create account</Button>
 
 		{#if error}
 			<div class="error-message">{error}</div>
 		{/if}
+
+		{#if message}
+			<div class="message">{message}</div>
+		{/if}
+
+		<SectionCard>
+			<GitHubButton />
+			<GoogleButton />
+		</SectionCard>
 	</div>
 </form>
 
@@ -128,6 +140,15 @@
 		border: 1px solid var(--clr-scale-err-60);
 		border-radius: var(--radius-m);
 		background-color: var(--clr-theme-err-bg-muted);
+		color: var(--clr-scale-err-10);
+		font-size: 14px;
+	}
+
+	.message {
+		padding: 8px;
+		border: 1px solid var(--clr-scale-succ-60);
+		border-radius: var(--radius-m);
+		background-color: var(--clr-theme-succ-bg-muted);
 		color: var(--clr-scale-err-10);
 		font-size: 14px;
 	}
