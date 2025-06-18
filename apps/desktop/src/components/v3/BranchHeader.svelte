@@ -18,14 +18,11 @@
 		draft: boolean;
 		isCommitting?: boolean;
 		isPushed: boolean;
-
 		lineColor: string;
 		iconName: keyof typeof iconsJson;
-
 		onclick?: () => void;
 		updateBranchName: (name: string) => void;
 		isUpdatingName: boolean;
-
 		emptyState?: Snippet;
 		content?: Snippet;
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
@@ -71,7 +68,6 @@
 	onkeypress={onclick}
 	tabindex="0"
 	class:active
-	class:no-actions={!actionsVisible}
 >
 	{#if selected && selectIndicator}
 		<div
@@ -150,9 +146,6 @@
 			--branch-selected-bg: var(--clr-selected-in-focus-bg);
 			--branch-selected-element-bg: var(--clr-selected-in-focus-element);
 		}
-		&.no-actions {
-			border-bottom: 1px solid var(--clr-border-2);
-		}
 	}
 
 	.branch-header__details {
@@ -219,6 +212,7 @@
 		padding: 10px;
 		gap: 10px;
 		border-top: 1px solid var(--clr-border-2);
+		/* border-bottom: 1px solid var(--clr-border-2); */
 		background-color: var(--clr-bg-2);
 
 		/* MODIFIERS */

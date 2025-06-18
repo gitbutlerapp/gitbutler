@@ -40,7 +40,8 @@ const MOCK_GLOBAL_UI_STATE: GlobalUiState = {
 	modal: undefined,
 	stackWidth: 25,
 	detailsWidth: 25,
-	previewWidth: 30
+	previewWidth: 30,
+	branchesViewSidebarWidth: 40
 };
 
 export function getUiStateMock() {

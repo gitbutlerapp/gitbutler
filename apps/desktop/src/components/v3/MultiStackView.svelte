@@ -102,7 +102,7 @@
 				<br />
 				or apply from the
 				<a
-					class="pointer-events underline-dotted"
+					class="pointer-events underline"
 					aria-label="Branches view"
 					href={branchesPath(projectId)}>Branches view</a
 				>

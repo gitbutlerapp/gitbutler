@@ -234,7 +234,7 @@
 										size="tag"
 										kind="outline"
 										shrinkable
-										icon="github"
+										icon="github-small"
 										onclick={(e) => {
 											stackState?.action.set('review');
 											e.stopPropagation(); // Do not select branch.
