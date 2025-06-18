@@ -4,8 +4,8 @@
 	import * as jsonLinks from '$home/data/links.json';
 	import { AuthService } from '$lib/auth/authService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
+	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { fly } from 'svelte/transition';
-	import { env } from '$env/dynamic/public';
 
 	let isMobileMenuOpen = $state(false);
 
@@ -15,6 +15,8 @@
 
 	const authService = getContext(AuthService);
 	let token = $derived(authService.tokenReadable);
+
+	const routes = getContext(WebRoutesService);
 </script>
 
 <header class="header">
@@ -115,11 +117,7 @@
 			{#if $token}
 				<HeaderLink label="My Dashboard" href="/" icon="dashboard" />
 			{:else}
-				<HeaderLink
-					label="Sign up / Log in"
-					href={`${env.PUBLIC_APP_HOST}cloud/login?callback=${window.location.href}`}
-					icon="login"
-				/>
+				<HeaderLink label="Sign up / Log in" href={routes.loginPath()} icon="login" />
 			{/if}
 		</section>
 	</nav>
@@ -171,11 +169,7 @@
 					{#if $token}
 						<HeaderMobileLink label="My Dashboard" href="/" icon="dashboard" />
 					{:else}
-						<HeaderMobileLink
-							label="Sign up / Log in"
-							href={`${env.PUBLIC_APP_HOST}cloud/login?callback=${window.location.href}`}
-							icon="login"
-						/>
+						<HeaderMobileLink label="Sign up / Log in" href={routes.loginPath()} icon="login" />
 					{/if}
 				</section>
 			</nav>
