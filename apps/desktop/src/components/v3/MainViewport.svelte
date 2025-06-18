@@ -36,10 +36,9 @@ the window, then enlarge it and retain the original widths of the layout.
 	type Props = {
 		name: string;
 		left: Snippet;
-		middle?: Snippet;
+		middle: Snippet;
 		right: Snippet;
 		drawerRight?: Snippet;
-		leftResizerRadius?: boolean;
 		leftWidth: {
 			default: number;
 			min: number;
@@ -51,17 +50,8 @@ the window, then enlarge it and retain the original widths of the layout.
 		middleOpen?: boolean;
 	};
 
-	const {
-		name,
-		left,
-		middle,
-		right,
-		drawerRight,
-		leftResizerRadius,
-		leftWidth,
-		middleWidth,
-		middleOpen
-	}: Props = $props();
+	const { name, left, middle, right, drawerRight, leftWidth, middleWidth, middleOpen }: Props =
+		$props();
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const zoom = $derived($userSettings.zoom);
@@ -129,7 +119,7 @@ the window, then enlarge it and retain the original widths of the layout.
 				minWidth={leftMinWidth}
 				maxWidth={leftMaxWidth}
 				imitateBorder
-				borderRadius={(!middleOpen && middle) || (leftResizerRadius && !middle) ? 'ml' : 'none'}
+				borderRadius={!middleOpen ? 'ml' : 'none'}
 				persistId="viewport-${name}-left"
 				onWidth={(width) => (leftPreferredWidth = width)}
 			/>
