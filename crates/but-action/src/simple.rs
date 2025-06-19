@@ -11,6 +11,7 @@ use gitbutler_oplog::{
 use gitbutler_oxidize::OidExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::VirtualBranchesHandle;
+use uuid::Uuid;
 
 use crate::{Outcome, Source, default_target_setting_if_none, generate, openai::OpenAiProvider};
 /// This is a GitButler automation which allows easy handling of uncommitted changes in a repository.
@@ -29,7 +30,7 @@ pub fn handle_changes(
     change_summary: &str,
     external_prompt: Option<String>,
     source: Source,
-) -> anyhow::Result<Outcome> {
+) -> anyhow::Result<(Uuid, Outcome)> {
     let mut guard = ctx.project().exclusive_worktree_access();
     let perm = guard.write_permission();
 
@@ -59,19 +60,17 @@ pub fn handle_changes(
         )?
         .to_gix();
 
-    crate::action::persist_action(
-        ctx,
-        crate::action::ButlerAction::new(
-            crate::ActionHandler::HandleChangesSimple,
-            external_prompt,
-            change_summary.to_owned(),
-            snapshot_before,
-            snapshot_after,
-            &response,
-            source,
-        ),
-    )?;
-
+    let action = crate::action::ButlerAction::new(
+        crate::ActionHandler::HandleChangesSimple,
+        external_prompt,
+        change_summary.to_owned(),
+        snapshot_before,
+        snapshot_after,
+        &response,
+        source,
+    );
+    let response = response.map(|outcome| (action.id, outcome));
+    crate::action::persist_action(ctx, action)?;
     response
 }
 

@@ -150,7 +150,7 @@ impl Mcp {
         let ctx = &mut CommandContext::open(&project, self.app_settings.clone())
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let outcome = but_action::handle_changes(
+        let (id, outcome) = but_action::handle_changes(
             ctx,
             &None,
             &request.changes_summary,
@@ -170,6 +170,7 @@ impl Mcp {
                         commit_id,
                         project: project.clone(),
                         app_settings: self.app_settings.clone(),
+                        trigger: id,
                     };
                     self.event_handler.process_commit(commit_event);
                 }

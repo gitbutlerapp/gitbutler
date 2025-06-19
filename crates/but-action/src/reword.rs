@@ -5,6 +5,7 @@ use but_workspace::{StacksFilter, ui::StackEntry};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::Project;
+use uuid::Uuid;
 
 use crate::workflow::{self, Workflow};
 
@@ -16,6 +17,7 @@ pub struct CommitEvent {
     pub external_prompt: String,
     pub branch_name: String,
     pub commit_id: gix::ObjectId,
+    pub trigger: Uuid,
 }
 
 #[allow(unused)]
@@ -54,7 +56,7 @@ pub async fn commit(client: &Client<OpenAIConfig>, event: CommitEvent) -> anyhow
 
     Workflow::new(
         workflow::Kind::Reword,
-        workflow::Trigger::default(),
+        workflow::Trigger::Snapshot(event.trigger),
         status,
         vec![event.commit_id],
         output_commits,

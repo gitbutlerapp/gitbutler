@@ -35,7 +35,7 @@ pub enum Source {
 #[serde(rename_all = "camelCase")]
 pub struct ButlerAction {
     /// UUID identifier of the action
-    id: Uuid,
+    pub id: Uuid,
     /// The time when the action was performed.
     created_at: chrono::NaiveDateTime,
     /// The prompt that was used to generate the changes that were made, if applicable
