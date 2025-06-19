@@ -64,6 +64,7 @@
 		stackId: string;
 		branchName: string;
 		selectedCommitId?: string;
+		firstBranch: boolean;
 		lastBranch: boolean;
 		branchDetails: BranchDetails;
 		stackingReorderDropzoneManager: ReorderCommitDzFactory;
@@ -86,6 +87,7 @@
 		branchName,
 		branchDetails,
 		selectedCommitId,
+		firstBranch,
 		lastBranch,
 		stackingReorderDropzoneManager,
 		handleUncommit,
@@ -214,8 +216,9 @@
 		{@const hasRemoteCommits = upstreamOnlyCommits.length > 0}
 		{@const hasCommits = localAndRemoteCommits.length > 0}
 		{@const ancestorMostConflicted = getAncestorMostConflicted(localAndRemoteCommits)}
+		{@const thisIsTheRightBranch = firstBranch && selectedCommitId === undefined}
 
-		{#if !hasCommits && isCommitting}
+		{#if !hasCommits && isCommitting && thisIsTheRightBranch}
 			<CommitGoesHere
 				last
 				draft

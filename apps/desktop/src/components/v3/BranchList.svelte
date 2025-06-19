@@ -139,6 +139,7 @@
 				)}
 			>
 				{#snippet children([localAndRemoteCommits, upstreamOnlyCommits, branchDetails, commit])}
+					{@const firstBranch = i === 0}
 					{@const lastBranch = i === branches.length - 1}
 					{@const iconName = getIconFromCommitState(commit?.id, commit?.state)}
 					{@const lineColor = commit
@@ -279,6 +280,7 @@
 
 						{#snippet branchContent()}
 							<BranchCommitList
+								{firstBranch}
 								{lastBranch}
 								active={focusedStackId === stackId}
 								{projectId}
