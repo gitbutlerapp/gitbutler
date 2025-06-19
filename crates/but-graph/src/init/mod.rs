@@ -16,7 +16,7 @@ use utils::*;
 mod remotes;
 
 mod post;
-mod walk;
+pub(crate) mod walk;
 
 pub(super) type PetGraph = petgraph::Graph<Segment, Edge>;
 
@@ -273,7 +273,7 @@ impl Graph {
             let mut ws_segment = branch_segment_from_name_and_meta(Some(ws_ref), meta, None)?;
             // Drop the limit if we have a target ref
             let limit = if workspace_info.target_ref.is_some() {
-                Limit::unspecified()
+                limit.with_goal(tip.detach())
             } else {
                 limit
             };
@@ -306,7 +306,7 @@ impl Graph {
                         into: target_segment,
                     },
                     /* unlimited traversal for integrated commits */
-                    Limit::unspecified(),
+                    limit.with_goal(tip.detach()),
                 )) {
                     return Ok(graph.with_hard_limit());
                 }
@@ -438,7 +438,7 @@ impl Graph {
                 return Ok(graph.with_hard_limit());
             }
 
-            prune_integrated_tips(&mut graph.inner, &mut next, &desired_refs, max_limit);
+            prune_integrated_tips(&mut graph, &mut next, &desired_refs, max_limit);
         }
 
         graph.post_processed(

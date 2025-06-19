@@ -549,17 +549,7 @@ pub fn graph(
         }
     }?;
 
-    eprintln!(
-        "Graph with {num_segments} segments ({num_remote_segments} of which remote), {num_edges} edges and {num_commits} commits{hard_limit}",
-        num_segments = graph.num_segments(),
-        num_edges = graph.num_edges(),
-        num_commits = graph.num_commits(),
-        num_remote_segments = graph.num_remote_segments(),
-        hard_limit = graph
-            .hard_limit_hit()
-            .then_some(" (HARD LIMIT REACHED)")
-            .unwrap_or_default()
-    );
+    eprintln!("{:#?}", graph.statistics());
     if no_open {
         stdout().write_all(graph.dot_graph().as_bytes())?;
     } else {

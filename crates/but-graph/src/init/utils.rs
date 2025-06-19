@@ -539,6 +539,8 @@ pub fn try_refname_to_id(
         .map(|id| id.detach()))
 }
 
+/// Propagation is always called if one segment reaches another one, which is when the flag
+/// among the shared commit are send downward, towards the base.
 pub fn propagate_flags_downward(
     graph: &mut PetGraph,
     next: &mut Queue,
@@ -554,6 +556,32 @@ pub fn propagate_flags_downward(
             // Note that this just works if the remote is still fast-forwardable.
             // If the goal isn't met, it's OK as well, but there is a chance for runaways.
             if Some(commit.id) == limit.goal {
+                next.inner.iter_mut().for_each(|t| t.3.goal = None);
+            }
+        }
+    }
+}
+
+pub fn propagate_limit_upward(
+    graph: &mut PetGraph,
+    next: &mut Queue,
+    limit: Limit,
+    dst_sidx: SegmentIndex,
+) {
+    let Some(goal) = limit.goal else {
+        return;
+    };
+    let commits = &graph[dst_sidx].commits;
+    let mut topo = TopoWalk::start_from(
+        dst_sidx,
+        commits.last().map(|_| commits.len()),
+        petgraph::Direction::Incoming,
+    );
+    while let Some((segment, commit_range)) = topo.next(graph) {
+        for commit in &mut graph[segment].commits[commit_range] {
+            // In case the goal was already seen, find it and assure we don't traverse it anymore,
+            // the graphs are now connected.
+            if commit.id == goal {
                 next.inner.iter_mut().for_each(|t| t.3.goal = None);
             }
         }
@@ -613,6 +641,8 @@ pub fn try_queue_remote_tracking_branches(
             Instruction::CollectCommit {
                 into: remote_segment,
             },
+            // If the remote is behind the goal it will never reach it, but it will stop once it
+            // touches another commit as well.
             limit.with_goal(id),
         )) {
             return Ok(true);
@@ -630,7 +660,7 @@ pub fn try_queue_remote_tracking_branches(
 /// `max_limit` is applied to integrated workspace refs if they are not yet limited, and should
 ///  be the initially configured limit.
 pub fn prune_integrated_tips(
-    graph: &mut PetGraph,
+    graph: &mut Graph,
     next: &mut Queue,
     workspace_refs: &BTreeSet<gix::refs::FullName>,
     max_limit: Limit,
@@ -642,6 +672,10 @@ pub fn prune_integrated_tips(
         return;
     }
     next.retain_mut(|(_id, _flags, instruction, tip_limit)| {
+        // Let them reach their goal - this could lead to runaways, if the integration branch is behind the entrypoint.
+        if tip_limit.goal.is_some() {
+            return true;
+        }
         let sidx = instruction.segment_idx();
         let s = &graph[sidx];
         let any_segment_ref_is_contained_in_workspace = s
@@ -655,9 +689,9 @@ pub fn prune_integrated_tips(
             *tip_limit = max_limit;
         }
         if !any_segment_ref_is_contained_in_workspace && s.commits.is_empty() {
-            graph.remove_node(sidx);
+            graph.inner.remove_node(sidx);
         }
-        any_segment_ref_is_contained_in_workspace
+        any_segment_ref_is_contained_in_workspace || tip_limit.goal.is_some()
     });
 }
 
@@ -729,6 +763,7 @@ pub fn possibly_split_occupied_segment(
         bottom_sidx,
         Some(bottom_cidx),
     );
+    propagate_limit_upward(&mut graph.inner, next, limit, bottom_sidx);
     Ok(())
 }
 
@@ -774,11 +809,7 @@ impl Limit {
 }
 
 impl Limit {
-    /// Allow unlimited traversal.
-    pub fn unspecified() -> Self {
-        Limit::from(None)
-    }
-
+    /// Keep queueing without limit until `goal` is seen during [propagate_flags_downward()] and [propagate_limit_upward()].
     pub fn with_goal(mut self, goal: gix::ObjectId) -> Self {
         self.goal = Some(goal);
         self

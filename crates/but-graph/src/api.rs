@@ -1,5 +1,8 @@
 use crate::init::PetGraph;
-use crate::{CommitFlags, CommitIndex, Edge, EntryPoint, Graph, Segment, SegmentIndex};
+use crate::{
+    CommitFlags, CommitIndex, Edge, EntryPoint, Graph, Segment, SegmentIndex, SegmentMetadata,
+    Statistics,
+};
 use anyhow::{Context, bail};
 use bstr::ByteSlice;
 use gix::refs::Category;
@@ -177,7 +180,7 @@ impl Graph {
     }
 
     /// Return the number of edges that are connecting segments.
-    pub fn num_edges(&self) -> usize {
+    pub fn num_connections(&self) -> usize {
         self.inner.edge_count()
     }
 
@@ -190,18 +193,123 @@ impl Graph {
             .sum::<usize>()
     }
 
-    /// Return the number segments whose commits are all exclusively in a remote.
-    pub fn num_remote_segments(&self) -> usize {
-        self.inner
-            .raw_nodes()
-            .iter()
-            .map(|n| usize::from(n.weight.commits.iter().all(|c| c.flags.is_empty())))
-            .sum::<usize>()
-    }
-
     /// Return an iterator over all indices of segments in the graph.
     pub fn segments(&self) -> impl Iterator<Item = SegmentIndex> {
         self.inner.node_indices()
+    }
+
+    /// Return the number segments whose commits are all exclusively in a remote.
+    pub fn statistics(&self) -> Statistics {
+        let mut out = Statistics::default();
+        let Statistics {
+            segments,
+            segments_integrated,
+            segments_remote,
+            segments_with_remote_tracking_branch,
+            segments_empty,
+            segments_unnamed,
+            segments_in_workspace,
+            segments_in_workspace_and_integrated,
+            segments_with_workspace_metadata,
+            segments_with_branch_metadata,
+            entrypoint_in_workspace,
+            segments_behind_of_entrypoint,
+            segments_ahead_of_entrypoint,
+            connections,
+            commits,
+            commit_references,
+            commits_at_cutoff,
+        } = &mut out;
+
+        *segments = self.inner.node_count();
+        *connections = self.inner.edge_count();
+
+        if let Ok(ep) = self.lookup_entrypoint() {
+            *entrypoint_in_workspace = ep
+                .segment
+                .commits
+                .first()
+                .map(|c| c.flags.contains(CommitFlags::InWorkspace));
+            for (storage, direction, start_cidx) in [
+                (
+                    segments_behind_of_entrypoint,
+                    Direction::Outgoing,
+                    ep.segment.commits.first().map(|_| 0),
+                ),
+                (
+                    segments_ahead_of_entrypoint,
+                    Direction::Incoming,
+                    ep.segment.commits.last().map(|_| ep.segment.commits.len()),
+                ),
+            ] {
+                let mut walk = crate::init::walk::TopoWalk::start_from(
+                    ep.segment_index,
+                    start_cidx,
+                    direction,
+                )
+                .skip_tip_segment();
+                while walk.next(&self.inner).is_some() {
+                    *storage += 1;
+                }
+            }
+        }
+
+        for node in self.inner.raw_nodes() {
+            let n = &node.weight;
+            *commits += n.commits.len();
+
+            if n.ref_name.is_none() {
+                *segments_unnamed += 1;
+            }
+            if n.remote_tracking_ref_name.is_some() {
+                *segments_with_remote_tracking_branch += 1;
+            }
+            match n.metadata {
+                None => {}
+                Some(SegmentMetadata::Workspace(_)) => {
+                    *segments_with_workspace_metadata += 1;
+                }
+                Some(SegmentMetadata::Branch(_)) => {
+                    *segments_with_branch_metadata += 1;
+                }
+            }
+            // We assume proper segmentation, so the first commit is all we need
+            match n.commits.first() {
+                Some(c) => {
+                    if c.flags.contains(CommitFlags::InWorkspace) {
+                        *segments_in_workspace += 1
+                    }
+                    if c.flags.contains(CommitFlags::Integrated) {
+                        *segments_integrated += 1
+                    }
+                    if c.flags
+                        .contains(CommitFlags::InWorkspace | CommitFlags::Integrated)
+                    {
+                        *segments_in_workspace_and_integrated += 1
+                    }
+                    if c.flags.is_empty() {
+                        *segments_remote += 1;
+                    }
+                }
+                None => {
+                    *segments_empty += 1;
+                }
+            }
+
+            *commit_references += n.commits.iter().map(|c| c.refs.len()).sum::<usize>();
+        }
+
+        for sidx in self.inner.node_indices() {
+            *commits_at_cutoff += usize::from(self[sidx].commits.last().is_some_and(|c| {
+                !c.parent_ids.is_empty()
+                    && self
+                        .inner
+                        .edges_directed(sidx, Direction::Outgoing)
+                        .next()
+                        .is_none()
+            }));
+        }
+        out
     }
 }
 

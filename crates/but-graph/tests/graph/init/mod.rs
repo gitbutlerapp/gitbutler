@@ -206,7 +206,7 @@ fn four_diamond() -> anyhow::Result<()> {
     );
     assert_eq!(graph.num_commits(), 8, "one commit per node");
     assert_eq!(
-        graph.num_edges(),
+        graph.num_connections(),
         10,
         "however, we see only a portion of the edges as the tree can only show simple stacks"
     );
@@ -229,9 +229,9 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     let graph =
         Graph::from_head(&repo, &*meta, standard_options().with_limit_hint(1))?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
-    ├── 👉►:0:B
+    ├── 👉►:0:B <> origin/B
     │   └── ·312f819 (⌂)❱"B"
-    │       └── ►:2:A
+    │       └── ►:2:A <> origin/A
     │           └── ·e255adc (⌂)❱"A"
     │               └── ►:4:main
     │                   └── ·fafd9d0 (⌂)❱"init"
@@ -259,9 +259,9 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     // Everything we encounter is checked for remotes.
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
-    ├── 👉►:0:B
+    ├── 👉►:0:B <> origin/B
     │   └── ·312f819 (⌂)❱"B"
-    │       └── ►:2:A
+    │       └── ►:2:A <> origin/A
     │           └── ·e255adc (⌂)❱"A"
     │               └── ►:4:main
     │                   └── ·fafd9d0 (⌂)❱"init"
@@ -276,7 +276,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     let (id, name) = id_at(&repo, "A");
     let graph = Graph::from_commit_traversal(id, name, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
-    ├── 👉►:0:A
+    ├── 👉►:0:A <> origin/A
     │   └── ·e255adc (⌂)❱"A"
     │       └── ►:2:main
     │           └── ·fafd9d0 (⌂)❱"init"
@@ -432,6 +432,30 @@ fn with_limits() -> anyhow::Result<()> {
                 ├── ·4f1f248 (⌂)❱"C2"
                 └── ✂️·487ffce (⌂)❱"C1"
     "#);
+
+    insta::assert_debug_snapshot!(graph.statistics(), @r"
+    Statistics {
+        segments: 5,
+        segments_integrated: 0,
+        segments_remote: 0,
+        segments_with_remote_tracking_branch: 0,
+        segments_empty: 0,
+        segments_unnamed: 1,
+        segments_in_workspace: 0,
+        segments_in_workspace_and_integrated: 0,
+        segments_with_workspace_metadata: 0,
+        segments_with_branch_metadata: 0,
+        entrypoint_in_workspace: Some(
+            false,
+        ),
+        segments_behind_of_entrypoint: 4,
+        segments_ahead_of_entrypoint: 0,
+        connections: 4,
+        commits: 12,
+        commit_references: 0,
+        commits_at_cutoff: 3,
+    }
+    ");
     Ok(())
 }
 

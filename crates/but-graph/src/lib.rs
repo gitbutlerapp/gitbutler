@@ -22,6 +22,50 @@ pub struct Graph {
     hard_limit_hit: bool,
 }
 
+/// All kinds of numbers generated from a graph, returned by [Graph::statistics()].
+///
+/// Note that the segment counts aren't mutually exclusive, so the sum of these fields can be more
+/// than the total of segments.
+#[derive(Default, Debug, Copy, Clone)]
+pub struct Statistics {
+    /// The number of segments in the graph.
+    pub segments: usize,
+    /// Segments where all commits are integrated.
+    pub segments_integrated: usize,
+    /// Segments where all commits are on a remote tracking branch.
+    pub segments_remote: usize,
+    /// Segments where the remote tracking branch is set
+    pub segments_with_remote_tracking_branch: usize,
+    /// Segments that are empty.
+    pub segments_empty: usize,
+    /// Segments that are anonymous.
+    pub segments_unnamed: usize,
+    /// Segments that are reachable by the workspace commit.
+    pub segments_in_workspace: usize,
+    /// Segments that are reachable by the workspace commit and are integrated.
+    pub segments_in_workspace_and_integrated: usize,
+    /// Segments that have metadata for workspaces.
+    pub segments_with_workspace_metadata: usize,
+    /// Segments that have metadata for branches.
+    pub segments_with_branch_metadata: usize,
+    /// `true` if the start of the traversal is in a workspace.
+    /// `None` if the information could not be determined, maybe because the entrypoint
+    /// is invalid (bug) or it's empty (unusual)
+    pub entrypoint_in_workspace: Option<bool>,
+    /// Segments, excluding the entrypoint, that can be reached downwards through the entrypoint.
+    pub segments_behind_of_entrypoint: usize,
+    /// Segments, excluding the entrypoint, that can be reached upwards through the entrypoint.
+    pub segments_ahead_of_entrypoint: usize,
+    /// Connections between segments.
+    pub connections: usize,
+    /// All commits within segments.
+    pub commits: usize,
+    /// All references stored with commits, i.e. not the ref-names absorbed by segments.
+    pub commit_references: usize,
+    /// The traversal was stopped at this many commits.
+    pub commits_at_cutoff: usize,
+}
+
 /// A resolved entry point into the graph for easy access to the segment, commit,
 /// and the respective indices for later traversal.
 #[derive(Debug, Copy, Clone)]

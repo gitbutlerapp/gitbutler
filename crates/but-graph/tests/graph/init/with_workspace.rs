@@ -389,7 +389,7 @@ fn minimal_merge() -> anyhow::Result<()> {
     │               │           └── ·0cc5a6f (⌂)❱"Merge branch \'A\' into merge" ►empty-1-on-merge, ►empty-2-on-merge, ►merge
     │               │               ├── ►:6:A
     │               │               │   └── ·e255adc (⌂)❱"A"
-    │               │               │       └── ►:7:main
+    │               │               │       └── ►:7:main <> origin/main
     │               │               │           └── ·fafd9d0 (⌂)❱"init"
     │               │               └── ►:5:B
     │               │                   └── ·7fdb58d (⌂)❱"B"
@@ -447,7 +447,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
     add_workspace(&mut meta);
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
-    ├── 👉►:0:main
+    ├── 👉►:0:main <> origin/main
     │   └── ►:2:origin/main
     │       └── ·fafd9d0 (⌂|🏘️|✓)❱"init" ►A, ►B, ►C, ►D, ►E, ►F, ►main
     └── ►►►:1:gitbutler/workspace
@@ -475,7 +475,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
     //       also: order is wrong now due to target branch handling
     //       - needs insertion of multi-segment above 'fixed' references like the target branch.
     insta::assert_snapshot!(graph_tree(&graph), @r#"
-    ├── 👉►:0:main
+    ├── 👉►:0:main <> origin/main
     │   └── ►:2:origin/main
     │       └── ►:3:C
     │           └── ►:4:B
@@ -505,7 +505,7 @@ fn proper_remote_ahead() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── 👉►►►:0:gitbutler/workspace
     │   └── ·9bcd3af (⌂|🏘️)❱"GitButler Workspace Commit"
-    │       └── ►:2:main
+    │       └── ►:2:main <> origin/main
     │           ├── ·998eae6 (⌂|🏘️|✓)❱"shared"
     │           └── ·fafd9d0 (⌂|🏘️|✓)❱"init"
     └── ►:1:origin/main
@@ -539,7 +539,7 @@ fn deduced_remote_ahead() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── 👉►►►:0:gitbutler/workspace
     │   └── ·8b39ce4 (⌂|🏘️)❱"GitButler Workspace Commit"
-    │       └── ►:1:A
+    │       └── ►:1:A <> origin/A
     │           ├── ·9d34471 (⌂|🏘️)❱"A2"
     │           └── ·5b89c71 (⌂|🏘️)❱"A1"
     │               └── ►:5:anon:
@@ -562,7 +562,7 @@ fn deduced_remote_ahead() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── ►►►:1:gitbutler/workspace
     │   └── ·8b39ce4 (⌂|🏘️)❱"GitButler Workspace Commit"
-    │       └── ►:2:A
+    │       └── ►:2:A <> origin/A
     │           ├── ·9d34471 (⌂|🏘️)❱"A2"
     │           └── ·5b89c71 (⌂|🏘️)❱"A1"
     │               └── ►:5:anon:
@@ -602,9 +602,9 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── 👉►►►:0:gitbutler/workspace
     │   └── ·7786959 (⌂|🏘️)❱"GitButler Workspace Commit"
-    │       └── ►:2:B
+    │       └── ►:2:B <> origin/B
     │           └── ·312f819 (⌂|🏘️)❱"B"
-    │               └── ►:4:A
+    │               └── ►:4:A <> origin/A
     │                   └── ·e255adc (⌂|🏘️)❱"A"
     │                       └── ►:1:origin/main
     │                           └── ·fafd9d0 (⌂|🏘️|✓)❱"init" ►main
@@ -621,9 +621,9 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── ►►►:1:gitbutler/workspace
     │   └── ·7786959 (⌂|🏘️)❱"GitButler Workspace Commit"
-    │       └── ►:4:B
+    │       └── ►:4:B <> origin/B
     │           └── ·312f819 (⌂|🏘️)❱"B"
-    │               └── 👉►:0:A
+    │               └── 👉►:0:A <> origin/A
     │                   └── ·e255adc (⌂|🏘️)❱"A"
     │                       └── ►:2:origin/main
     │                           └── ·fafd9d0 (⌂|🏘️|✓)❱"init" ►main
@@ -633,7 +633,29 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
                 └── 🟣e29c23d❱"A"
                     └── →:2: (origin/main)
     "#);
-    assert_eq!(graph.num_remote_segments(), 2);
+    insta::assert_debug_snapshot!(graph.statistics(), @r"
+    Statistics {
+        segments: 6,
+        segments_integrated: 1,
+        segments_remote: 2,
+        segments_with_remote_tracking_branch: 2,
+        segments_empty: 0,
+        segments_unnamed: 0,
+        segments_in_workspace: 4,
+        segments_in_workspace_and_integrated: 1,
+        segments_with_workspace_metadata: 1,
+        segments_with_branch_metadata: 0,
+        entrypoint_in_workspace: Some(
+            true,
+        ),
+        segments_behind_of_entrypoint: 1,
+        segments_ahead_of_entrypoint: 2,
+        connections: 5,
+        commits: 6,
+        commit_references: 1,
+        commits_at_cutoff: 0,
+    }
+    ");
     Ok(())
 }
 
@@ -666,9 +688,9 @@ fn disambiguate_by_remote() -> anyhow::Result<()> {
     │   └── ·e30f90c (⌂|🏘️)❱"GitButler Workspace Commit"
     │       └── ►:5:anon:
     │           └── ·2173153 (⌂|🏘️)❱"C" ►C, ►ambiguous-C
-    │               └── ►:8:B
+    │               └── ►:8:B <> origin/B
     │                   └── ·312f819 (⌂|🏘️)❱"B" ►ambiguous-B
-    │                       └── ►:7:A
+    │                       └── ►:7:A <> origin/A
     │                           └── ·e255adc (⌂|🏘️)❱"A" ►ambiguous-A
     │                               └── ►:1:origin/main
     │                                   └── ·fafd9d0 (⌂|🏘️|✓)❱"init" ►main
