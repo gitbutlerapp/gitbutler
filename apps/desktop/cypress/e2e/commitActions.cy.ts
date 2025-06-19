@@ -976,5 +976,37 @@ describe('Commit Actions with a stack of two empty branches', () => {
 		cy.get(`[data-series-name="${mockBackend.secondBranchName}"]`).within(() => {
 			cy.getByTestId('your-commit-goes-here').should('not.exist');
 		});
+
+		// Should commit to the top-most branch
+		const commitTitle = `This is a great commit title`;
+		const commitDescription = `And look at this amazing commit description\nOh wow, so good!`;
+
+		// Type in a commit message
+		cy.getByTestId('commit-drawer-title-input')
+			.should('be.visible')
+			.should('be.enabled')
+			.should('have.value', '')
+			.type(commitTitle); // Type the new commit message
+
+		// Type in a description
+		cy.getByTestId('commit-drawer-description-input')
+			.should('be.visible')
+			.should('contain', '')
+			.click()
+			.type(commitDescription); // Type the new commit message body
+
+		// Click on the commit button
+		cy.getByTestId('commit-drawer-action-button').should('be.visible').should('be.enabled').click();
+
+		// Should display the commit rows in th e top-most branch
+		cy.get(`[data-series-name="${mockBackend.firstBranchName}"]`).within(() => {
+			cy.getByTestId('commit-row').should('have.length', 1);
+			cy.getByTestId('commit-row', commitTitle).should('be.visible');
+		});
+
+		// There should be no commits in the second branch
+		cy.get(`[data-series-name="${mockBackend.secondBranchName}"]`).within(() => {
+			cy.getByTestId('commit-row').should('have.length', 0);
+		});
 	});
 });
