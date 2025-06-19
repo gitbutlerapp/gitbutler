@@ -9,7 +9,7 @@
 	let isSticked = $state(true);
 </script>
 
-<div class="sticky-buttons" class:is-sticked={isSticked}>
+<div class="sticky-buttons" data-remove-from-draggable class:is-sticked={isSticked}>
 	{#if children}
 		{@render children(isSticked)}
 	{/if}

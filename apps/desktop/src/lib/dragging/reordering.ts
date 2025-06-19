@@ -52,6 +52,12 @@ export function onReorderStart(e: DragEvent & { currentTarget: HTMLDivElement },
 	dragged = e.currentTarget;
 	draggedId = stackId;
 	dragged.style.opacity = '0.6';
+
+	// additional styles to the clone to make background and border visible
+	clone.style.position = 'absolute';
+	clone.style.backgroundColor = 'var(--clr-bg-2)';
+	clone.style.border = '1px solid var(--clr-border-2)';
+	clone.style.borderRadius = 'var(--radius-ml)';
 }
 
 export function onReorderEnd() {

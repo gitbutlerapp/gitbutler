@@ -203,11 +203,6 @@
 			parentId: DefinedFocusable.ViewportRight
 		}}
 	>
-		{#if !isCommitting}
-			<div class="drag-handle" data-drag-handle>
-				<Icon name="draggable" />
-			</div>
-		{/if}
 		<div
 			class="stack-view"
 			style:width={$persistedStackWidth + 'rem'}
@@ -215,6 +210,11 @@
 			bind:clientHeight
 			bind:this={stackViewEl}
 		>
+			{#if !isCommitting}
+				<div class="drag-handle" data-drag-handle>
+					<Icon name="draggable-narrow" rotate={90} />
+				</div>
+			{/if}
 			<Resizer
 				persistId="resizer-panel1-${stack.id}"
 				viewport={stackViewEl!}
@@ -391,6 +391,7 @@
 <style lang="postcss">
 	.stack-view-wrapper {
 		display: flex;
+		position: relative;
 		flex-shrink: 0;
 		overflow: hidden;
 		scroll-snap-align: start;
@@ -486,7 +487,18 @@
 	}
 
 	.drag-handle {
+		display: flex;
 		z-index: var(--z-floating);
 		position: absolute;
+		justify-content: flex-end;
+		width: 100%;
+		padding: 0 1px;
+		color: var(--clr-text-2);
+		cursor: grab;
+		transition: color var(--transition-fast);
+
+		&:hover {
+			color: var(--clr-text-1);
+		}
 	}
 </style>
