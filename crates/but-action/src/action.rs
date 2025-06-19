@@ -44,8 +44,6 @@ pub struct ButlerAction {
     pub external_summary: String,
     /// The handler / implementation that performed the action.
     handler: ActionHandler,
-    /// An optional prompt that was used by the handler to perform the action, if applicable.
-    handler_prompt: Option<String>,
     /// A GitBulter Oplog snapshot ID before the action was performed.
     #[serde(serialize_with = "gitbutler_serde::object_id::serialize")]
     snapshot_before: gix::ObjectId,
@@ -82,7 +80,6 @@ impl TryFrom<but_db::ButlerAction> for ButlerAction {
                 .handler
                 .parse()
                 .map_err(|_| anyhow::anyhow!("Invalid Handler value"))?,
-            handler_prompt: value.handler_prompt,
             snapshot_before: gix::ObjectId::from_str(&value.snapshot_before)?,
             snapshot_after: gix::ObjectId::from_str(&value.snapshot_after)?,
             response,
@@ -107,7 +104,6 @@ impl TryFrom<ButlerAction> for but_db::ButlerAction {
             external_prompt: value.external_prompt,
             external_summary: value.external_summary,
             handler: value.handler.to_string(),
-            handler_prompt: value.handler_prompt,
             snapshot_before: value.snapshot_before.to_string(),
             snapshot_after: value.snapshot_after.to_string(),
             response,
@@ -139,7 +135,6 @@ impl ButlerAction {
             handler,
             external_prompt,
             external_summary,
-            handler_prompt: None,
             snapshot_before,
             snapshot_after,
             response: rsp.cloned(),

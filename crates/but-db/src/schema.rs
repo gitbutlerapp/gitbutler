@@ -15,7 +15,6 @@ diesel::table! {
         external_prompt -> Nullable<Text>,
         external_summary -> Text,
         handler -> Text,
-        handler_prompt -> Nullable<Text>,
         snapshot_before -> Text,
         snapshot_after -> Text,
         response -> Nullable<Text>,

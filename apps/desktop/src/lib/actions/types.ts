@@ -25,8 +25,6 @@ export class ButlerAction {
 	externalPrompt!: string;
 	/** The handler / implementation that performed the action. */
 	handler!: ActionHandler;
-	/** An optional prompt that was used by the handler to perform the action, if applicable. */
-	handlerPrompt?: string;
 	/** A GitBulter Oplog snapshot ID before the action was performed. */
 	snapshotBefore!: string;
 	/** A GitBulter Oplog snapshot ID after the action was performed. */
