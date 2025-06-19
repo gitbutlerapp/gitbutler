@@ -93,7 +93,8 @@ export enum TestId {
 	PRBranchDrawer = 'pr-branch-view',
 	CreateStackButton = 'create-stack-button',
 	CommitToNewBranchButton = 'commit-to-new-branch-button',
-	ConfirmSubmit = 'confirm-submit'
+	ConfirmSubmit = 'confirm-submit',
+	CreateNewBranchModal = 'create-new-branch-modal'
 }
 
 export enum ElementId {

@@ -4,7 +4,7 @@
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
-	import { TestId } from '$lib/testing/testIds';
+	import { ElementId, TestId } from '$lib/testing/testIds';
 	import { sleep } from '$lib/utils/sleep';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -121,11 +121,11 @@
 	</div>
 </div>
 
-<Modal bind:this={createRefModal} width={500}>
+<Modal bind:this={createRefModal} width={500} testId={TestId.CreateNewBranchModal}>
 	<div class="content-wrap">
 		<Textbox
 			label="New branch"
-			id="newRemoteName"
+			id={ElementId.NewBranchNameInput}
 			bind:value={createRefName}
 			autofocus
 			helperText={generatedNameDiverges ? `Will be created as '${slugifiedRefName}'` : undefined}

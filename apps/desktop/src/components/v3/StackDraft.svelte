@@ -16,7 +16,6 @@
 
 	const [uiState, stackService] = inject(UiState, StackService);
 	const draftBranchName = $derived(uiState.global.draftBranchName);
-	const projectState = $derived(uiState.project(projectId));
 
 	// Automatic branch name suggested by back end.
 	let newName = $state('');
@@ -43,7 +42,7 @@
 	style:width={uiState.global.stackWidth.current + 'rem'}
 >
 	<div class="new-commit-view" data-testid={TestId.NewCommitView}>
-		<NewCommitView {projectId} onclose={() => projectState.exclusiveAction.set(undefined)} />
+		<NewCommitView {projectId} />
 	</div>
 	<BranchCard
 		type="draft-branch"

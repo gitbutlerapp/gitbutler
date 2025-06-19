@@ -14,8 +14,11 @@ import { PROJECT_ID } from './projects';
 import { isAddRemoteParams } from './remote';
 import {
 	createMockBranchDetails,
+	createMockStack,
+	createMockStackDetails,
 	isCreateBranchParams,
 	isCreateCommitParams,
+	isCreateStackParams,
 	isCreateVirtualBranchFromBranchParams,
 	isDeleteLocalBranchParams,
 	isGetTargetCommitsParams,
@@ -29,7 +32,6 @@ import {
 	MOCK_BRAND_NEW_BRANCH_NAME,
 	MOCK_COMMIT,
 	MOCK_STACK_A_ID,
-	MOCK_STACK_BRAND_NEW,
 	MOCK_STACK_BRAND_NEW_ID,
 	MOCK_STACK_DETAILS,
 	MOCK_STACK_DETAILS_BRAND_NEW,
@@ -112,9 +114,31 @@ export default class MockBackend {
 		return this.cannedBranchName ?? 'super-cool-branch-name';
 	}
 
-	public createBranch(): Stack {
-		this.stacks.push(MOCK_STACK_BRAND_NEW);
-		return MOCK_STACK_BRAND_NEW;
+	public createBranch(args: InvokeArgs | undefined): Stack {
+		if (!args || !isCreateStackParams(args)) {
+			throw new Error('Invalid arguments for createBranch');
+		}
+		const { branch } = args;
+		const { name } = branch;
+		if (!name) throw new Error('Branch name is required');
+
+		const stack = createMockStack({
+			heads: [
+				{
+					name,
+					tip: 'werwer'
+				}
+			],
+			id: name
+		});
+		this.stacks.push(stack);
+		const stackDetails = createMockStackDetails({
+			branchDetails: [createMockBranchDetails({ name, commits: [] })],
+			derivedName: name,
+			pushStatus: 'completelyUnpushed'
+		});
+		this.stackDetails.set(name, stackDetails);
+		return stack;
 	}
 
 	public getStackDetails(args: InvokeArgs | undefined): StackDetails {

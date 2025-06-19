@@ -822,7 +822,7 @@ describe('Commit Actions with no stacks', () => {
 	beforeEach(() => {
 		mockBackend = new MockBackend({ initalStacks: [] });
 		mockCommand('stacks', () => mockBackend.getStacks());
-		mockCommand('create_virtual_branch', () => mockBackend.createBranch());
+		mockCommand('create_virtual_branch', (params) => mockBackend.createBranch(params));
 		mockCommand('canned_branch_name', () => mockBackend.getCannedBranchName());
 		mockCommand('stack_details', (params) => mockBackend.getStackDetails(params));
 		mockCommand('update_commit_message', (params) => mockBackend.updateCommitMessage(params));
@@ -857,6 +857,7 @@ describe('Commit Actions with no stacks', () => {
 		// spies
 		cy.spy(mockBackend, 'getDiff').as('getDiffSpy');
 		cy.spy(mockBackend, 'createBranch').as('createBranchSpy');
+		cy.spy(mockBackend, 'createCommit').as('createCommitSpy');
 
 		// There should be uncommitted changes
 		cy.getByTestId('uncommitted-changes-file-list').should('be.visible');
@@ -909,6 +910,31 @@ describe('Commit Actions with no stacks', () => {
 		// Click on the commit button
 		cy.getByTestId('commit-drawer-action-button').should('be.visible').should('be.enabled').click();
 
+		cy.get('@createBranchSpy').should('be.calledWith', {
+			projectId: PROJECT_ID,
+			branch: {
+				name: 'my-cool-branch'
+			}
+		});
+
+		cy.get('@createCommitSpy').should('be.calledWith', {
+			projectId: '1',
+			parentId: undefined,
+			stackId: 'my-cool-branch',
+			message: 'New commit message\n\nNew commit message body',
+			stackBranchName: 'my-cool-branch',
+			worktreeChanges: [
+				{
+					pathBytes: [
+						47, 112, 97, 116, 104, 47, 116, 111, 47, 112, 114, 111, 106, 101, 99, 116, 65, 47, 102,
+						105, 108, 101, 65, 46, 116, 120, 116
+					],
+					previousPathBytes: null,
+					hunkHeaders: []
+				}
+			]
+		});
+
 		// Should display the commit rows
 		cy.getByTestId('commit-row').should('have.length', 1);
 
@@ -928,7 +954,7 @@ describe('Commit Actions with a stack of two empty branches', () => {
 	beforeEach(() => {
 		mockBackend = new StackWithTwoEmptyBranches();
 		mockCommand('stacks', () => mockBackend.getStacks());
-		mockCommand('create_virtual_branch', () => mockBackend.createBranch());
+		mockCommand('create_virtual_branch', (params) => mockBackend.createBranch(params));
 		mockCommand('canned_branch_name', () => mockBackend.getCannedBranchName());
 		mockCommand('stack_details', (params) => mockBackend.getStackDetails(params));
 		mockCommand('update_commit_message', (params) => mockBackend.updateCommitMessage(params));
