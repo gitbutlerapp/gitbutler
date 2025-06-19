@@ -79,6 +79,10 @@
 		});
 	}}
 >
+	{#if isCommitting && exclusiveAction?.stackId === undefined}
+		<StackDraft {projectId} />
+	{/if}
+
 	{#each stacks as stack, i}
 		<StackView
 			{projectId}
@@ -96,9 +100,6 @@
 		/>
 	{/each}
 
-	{#if isCommitting && exclusiveAction?.stackId === undefined}
-		<StackDraft {projectId} />
-	{/if}
 	<MultiStackOfflaneDropzone
 		{projectId}
 		viewport={lanesScrollableEl}
