@@ -177,6 +177,15 @@ impl Graph {
         self.inner.edge_count()
     }
 
+    /// Return the number of commits in all segments.
+    pub fn num_commits(&self) -> usize {
+        self.inner
+            .raw_nodes()
+            .iter()
+            .map(|n| n.weight.commits.len())
+            .sum::<usize>()
+    }
+
     /// Return an iterator over all indices of segments in the graph.
     pub fn segments(&self) -> impl Iterator<Item = SegmentIndex> {
         self.inner.node_indices()
@@ -257,7 +266,7 @@ impl Graph {
 
     /// Validate the graph for consistency and fail loudly when an issue was found, after printing the dot graph.
     /// Mostly useful for debugging to stop early when a connection wasn't created correctly.
-    #[cfg(target_os = "macos")]
+    #[cfg(unix)]
     pub fn validated_or_open_as_svg(self) -> anyhow::Result<Self> {
         for edge in self.inner.edge_references() {
             let res = check_edge(&self.inner, edge);
@@ -283,7 +292,8 @@ impl Graph {
     }
 
     /// Open an SVG dot visualization in the browser or panic if the `dot` or `open` tool can't be found.
-    #[cfg(target_os = "macos")]
+    #[cfg(unix)]
+    #[tracing::instrument(skip(self))]
     pub fn open_as_svg(&self) {
         use std::io::Write;
         use std::process::Stdio;

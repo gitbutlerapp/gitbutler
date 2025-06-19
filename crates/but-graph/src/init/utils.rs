@@ -1,5 +1,5 @@
 use crate::init::walk::TopoWalk;
-use crate::init::{EdgeOwned, Instruction, PetGraph, QueueItem, remotes};
+use crate::init::{EdgeOwned, Instruction, Limit, PetGraph, QueueItem, remotes};
 use crate::{
     Commit, CommitFlags, CommitIndex, Edge, Graph, Segment, SegmentIndex, SegmentMetadata,
     is_workspace_ref_name,
@@ -7,6 +7,7 @@ use crate::{
 use anyhow::{Context, bail};
 use bstr::BString;
 use but_core::{RefMetadata, ref_metadata};
+use gix::hashtable::hash_map::Entry;
 use gix::prelude::ObjectIdExt;
 use gix::reference::Category;
 use gix::refs::FullName;
@@ -236,19 +237,6 @@ pub fn try_split_non_empty_segment_at_branch(
     Ok(Some(segment_below))
 }
 
-fn is_exhausted_or_decrement(limit: &mut Option<usize>) -> bool {
-    *limit = match limit {
-        Some(limit) => {
-            if *limit == 0 {
-                return true;
-            }
-            Some(*limit - 1)
-        }
-        None => None,
-    };
-    false
-}
-
 /// Queue the `parent_ids` of the current commit, whose additional information like `current_kind` and `current_index`
 /// are used.
 /// `limit` is used to determine if the tip is NOT supposed to be dropped, with `0` meaning it's depleted.
@@ -258,9 +246,9 @@ pub fn queue_parents(
     flags: CommitFlags,
     current_sidx: SegmentIndex,
     current_cidx: CommitIndex,
-    mut limit: Option<usize>,
+    mut limit: Limit,
 ) {
-    if is_exhausted_or_decrement(&mut limit) {
+    if limit.is_exhausted_or_decrement(flags, next) {
         return;
     }
     if parent_ids.len() > 1 {
@@ -268,8 +256,9 @@ pub fn queue_parents(
             parent_above: current_sidx,
             at_commit: current_cidx,
         };
+        let limit_per_parent = limit.per_parent(parent_ids.len());
         for pid in parent_ids {
-            next.push_back((*pid, flags, instruction, limit))
+            next.push_back((*pid, flags, instruction, limit_per_parent))
         }
     } else if !parent_ids.is_empty() {
         next.push_back((
@@ -579,9 +568,14 @@ pub fn try_queue_remote_tracking_branches(
     configured_remote_tracking_branches: &BTreeSet<FullName>,
     target_refs: &[gix::refs::FullName],
     meta: &impl RefMetadata,
-    limit: Option<usize>,
+    mut limit: Limit,
 ) -> anyhow::Result<()> {
-    if limit.is_some_and(|l| l == 0) {
+    // As a commit can be reachable by many remote tracking branches while we need
+    // specificity, there is no need to propagate anything.
+    // We also *do not* propagate "NotInCommit" so remote-exclusive commits can be identified
+    // even across segment boundaries
+    let flags = CommitFlags::empty();
+    if limit.is_exhausted_or_decrement(flags, next) {
         return Ok(());
     }
 
@@ -610,15 +604,11 @@ pub fn try_queue_remote_tracking_branches(
         )?);
         next.push_back((
             remote_tip,
-            // As a commit can be reachable by many remote tracking branches while we need
-            // specificity, there is no need to propagate anything.
-            // We also *do not* propagate "NotInCommit" so remote-exclusive commits can be identified
-            // even across segment boundaries
-            CommitFlags::empty(),
+            flags,
             Instruction::CollectCommit {
                 into: remote_segment,
             },
-            limit.map(|l| l - 1),
+            limit,
         ));
     }
     Ok(())
@@ -629,10 +619,14 @@ pub fn try_queue_remote_tracking_branches(
 /// - keep tips that are adding segments that are or contain a workspace ref
 /// - prune the rest
 ///    - delete empty segments of pruned tips.
+///
+/// `max_limit` is applied to integrated workspace refs if they are not yet limited, and should
+///  be the initially configured limit.
 pub fn prune_integrated_tips(
     graph: &mut PetGraph,
     next: &mut VecDeque<QueueItem>,
     workspace_refs: &BTreeSet<gix::refs::FullName>,
+    max_limit: Limit,
 ) {
     let all_integated = next
         .iter()
@@ -640,7 +634,7 @@ pub fn prune_integrated_tips(
     if !all_integated {
         return;
     }
-    next.retain(|(_id, _flags, instruction, _limit)| {
+    next.retain_mut(|(_id, _flags, instruction, tip_limit)| {
         let sidx = instruction.segment_idx();
         let s = &graph[sidx];
         let any_segment_ref_is_contained_in_workspace = s
@@ -649,9 +643,134 @@ pub fn prune_integrated_tips(
             .into_iter()
             .chain(s.commits.iter().flat_map(|c| c.refs.iter()))
             .any(|segment_rn| workspace_refs.contains(segment_rn));
+        // For integrated workspace tips, use a limit to prevent runaway-worst-cases.
+        if any_segment_ref_is_contained_in_workspace && tip_limit.is_unset() {
+            *tip_limit = max_limit;
+        }
         if !any_segment_ref_is_contained_in_workspace && s.commits.is_empty() {
             graph.remove_node(sidx);
         }
         any_segment_ref_is_contained_in_workspace
     });
+}
+
+pub fn possibly_split_occupied_segment(
+    graph: &mut Graph,
+    seen: &mut gix::revwalk::graph::IdMap<SegmentIndex>,
+    next: &mut VecDeque<QueueItem>,
+    id: gix::ObjectId,
+    propagated_flags: CommitFlags,
+    src_sidx: SegmentIndex,
+) -> anyhow::Result<()> {
+    let Entry::Occupied(mut existing_sidx) = seen.entry(id) else {
+        bail!("BUG: Can only work with occupied entries")
+    };
+    let dst_sidx = *existing_sidx.get();
+    let (top_sidx, mut bottom_sidx) =
+        // If a normal branch walks into a workspace branch, put the workspace branch on top.
+        if graph[dst_sidx].workspace_metadata().is_some() &&
+            graph[src_sidx].ref_name.as_ref()
+                .is_some_and(|rn| rn.category().is_some_and(|c| matches!(c, Category::LocalBranch))) {
+            // `dst` is basically swapping with `src`, so must swap commits and connections.
+            swap_commits_and_connections(&mut graph.inner, dst_sidx, src_sidx);
+            swap_queued_segments(next, dst_sidx, src_sidx);
+
+            // Assure the first commit doesn't name the new owner segment.
+            {
+                let s = &mut graph[src_sidx];
+                if let Some(c) = s.commits.first_mut() {
+                    c.refs.retain(|rn| Some(rn) != s.ref_name.as_ref())
+                }
+                // Update the commit-ownership of the connecting commit, but also
+                // of all other commits in the segment.
+                existing_sidx.insert(src_sidx);
+                for commit_id in s.commits.iter().skip(1).map(|c| c.id) {
+                    seen.entry(commit_id).insert(src_sidx);
+                }
+            }
+            (dst_sidx, src_sidx)
+        } else {
+            // `src` naturally runs into destination, so nothing needs to be done
+            // except for connecting both. Commit ownership doesn't change.
+            (src_sidx, dst_sidx)
+        };
+    let top_cidx = graph[top_sidx].last_commit_index();
+    let mut bottom_cidx = graph[bottom_sidx].commit_index_of(id).with_context(|| {
+        format!(
+            "BUG: Didn't find commit {id} in segment {bottom_sidx}",
+            bottom_sidx = dst_sidx.index(),
+        )
+    })?;
+
+    if bottom_cidx != 0 {
+        let new_bottom_sidx =
+            split_commit_into_segment(graph, next, seen, bottom_sidx, bottom_cidx)?;
+        bottom_sidx = new_bottom_sidx;
+        bottom_cidx = 0;
+    }
+    graph.connect_segments(top_sidx, top_cidx, bottom_sidx, bottom_cidx);
+    let top_flags = top_cidx
+        .map(|cidx| graph[top_sidx].commits[cidx].flags)
+        .unwrap_or_default();
+    let bottom_flags = graph[bottom_sidx].commits[bottom_cidx].flags;
+    propagate_flags_downward(
+        &mut graph.inner,
+        propagated_flags | top_flags | bottom_flags,
+        bottom_sidx,
+        Some(bottom_cidx),
+    );
+    Ok(())
+}
+
+impl Limit {
+    /// It's important to try to split the limit evenly so we don't create too
+    /// much extra gas here. We do, however, make sure that we see each segment of a parent
+    /// with one commit so we know exactly where it stops.
+    /// The problem with this is that we never get back the split limit when segments re-unite,
+    /// so effectively we loose gas here.
+    fn per_parent(&self, num_parents: usize) -> Self {
+        Limit(
+            self.0
+                .map(|l| if l == 0 { 0 } else { (l / num_parents).max(1) }),
+        )
+    }
+
+    /// Return `true` if this limit is depleted, or decrement it by one otherwise.
+    ///
+    /// `flags` are used to selectively decrement this limit.
+    /// Thanks to flag-propagation there can be no runaways.
+    fn is_exhausted_or_decrement(
+        &mut self,
+        flags: CommitFlags,
+        next: &VecDeque<QueueItem>,
+    ) -> bool {
+        // Allow remote tracking branch tips to traverse until they meet a portion that is local,
+        // without burning their own fuel so that it arrives in the local branch they meet eventually.
+        if flags.is_empty() {
+            return false;
+        }
+        // Do not let *any* tip consume gas as long as there is still remotes tracking branches in the game
+        // that need to meet their local branches. Otherwise, everything is considered remote as the local tips
+        // that could tell otherwise never reach their remote counterparts.
+        let traverses_any_unmatched_remote = next.iter().any(|(_, flags, _, _)| flags.is_empty());
+        if traverses_any_unmatched_remote {
+            return false;
+        }
+        if self.0.is_some_and(|l| l == 0) {
+            return true;
+        }
+        self.0 = self.0.map(|l| l - 1);
+        false
+    }
+
+    fn is_unset(&self) -> bool {
+        self.0.is_none()
+    }
+}
+
+impl Limit {
+    /// Allow unlimited traversal.
+    pub(crate) fn unspecified() -> Self {
+        Limit(None)
+    }
 }

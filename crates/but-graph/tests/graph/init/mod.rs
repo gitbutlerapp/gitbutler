@@ -202,6 +202,7 @@ fn four_diamond() -> anyhow::Result<()> {
         8,
         "just as many as are displayed in the tree"
     );
+    assert_eq!(graph.num_commits(), 8, "one commit per node");
     assert_eq!(
         graph.num_edges(),
         10,
@@ -221,6 +222,22 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     |/  
     * fafd9d0 (main) init
     ");
+
+    // A remote will always be able to find their non-remotes so they don't seem cut-off.
+    let graph = Graph::from_head(&repo, &*meta, standard_options().with_limit(1))?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    ├── 👉►:0:B
+    │   └── ·312f819 (⌂)❱"B"
+    │       └── ►:2:A
+    │           └── ·e255adc (⌂)❱"A"
+    │               └── ►:4:main
+    │                   └── ·fafd9d0 (⌂)❱"init"
+    └── ►:1:origin/B
+        └── 🟣682be32❱"B"
+            └── ►:3:origin/A
+                └── 🟣e29c23d❱"A"
+                    └── →:4: (main)
+    "#);
 
     // Everything we encounter is checked for remotes.
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
@@ -304,19 +321,16 @@ fn with_limits() -> anyhow::Result<()> {
                     └── →:4: (main)
     "#);
 
-    // Just empty starting points.
+    // There is no empty starting points, we always traverse the first commit as we really want
+    // to get to remote processing there.
     let graph = Graph::from_head(&repo, &*meta, standard_options().with_limit(0))?.validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @"└── 👉►:0:C");
-
-    // A single commit, the merge commit.
-    let graph = Graph::from_head(&repo, &*meta, standard_options().with_limit(1))?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     └── 👉►:0:C
         └── ✂️·2a95729 (⌂)❱"Merge branches \'A\' and \'B\' into C"
     "#);
 
-    // The merge commit, then we witness lane-duplication of the limit so we get more than requested.
-    let graph = Graph::from_head(&repo, &*meta, standard_options().with_limit(2))?.validated()?;
+    // A single commit, the merge commit.
+    let graph = Graph::from_head(&repo, &*meta, standard_options().with_limit(1))?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     └── 👉►:0:C
         └── ·2a95729 (⌂)❱"Merge branches \'A\' and \'B\' into C"
@@ -328,28 +342,45 @@ fn with_limits() -> anyhow::Result<()> {
                 └── ✂️·6861158 (⌂)❱"C3"
     "#);
 
-    // Allow to see more commits just in the middle lane, the limit is reset
+    // The merge commit, then we witness lane-duplication of the limit so we get more than requested.
+    let graph = Graph::from_head(&repo, &*meta, standard_options().with_limit(2))?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    └── 👉►:0:C
+        └── ·2a95729 (⌂)❱"Merge branches \'A\' and \'B\' into C"
+            ├── ►:3:B
+            │   ├── ·9908c99 (⌂)❱"B3"
+            │   └── ✂️·60d9a56 (⌂)❱"B2"
+            ├── ►:2:A
+            │   ├── ·20a823c (⌂)❱"A3"
+            │   └── ✂️·442a12f (⌂)❱"A2"
+            └── ►:1:anon:
+                ├── ·6861158 (⌂)❱"C3"
+                └── ✂️·4f1f248 (⌂)❱"C2"
+    "#);
+
+    // Allow to see more commits just in the middle lane, the limit is reset,
     // and we see two more.
-    let id = id_by_rev(&repo, ":/A3");
     let graph = Graph::from_head(
         &repo,
         &*meta,
         standard_options()
             .with_limit(2)
-            .with_limit_extension_at(Some(id.detach())),
+            .with_limit_extension_at(Some(id_by_rev(&repo, ":/A3").detach())),
     )?
     .validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     └── 👉►:0:C
         └── ·2a95729 (⌂)❱"Merge branches \'A\' and \'B\' into C"
             ├── ►:3:B
-            │   └── ✂️·9908c99 (⌂)❱"B3"
+            │   ├── ·9908c99 (⌂)❱"B3"
+            │   └── ✂️·60d9a56 (⌂)❱"B2"
             ├── ►:2:A
             │   ├── ·20a823c (⌂)❱"A3"
             │   ├── ·442a12f (⌂)❱"A2"
             │   └── ✂️·686706b (⌂)❱"A1"
             └── ►:1:anon:
-                └── ✂️·6861158 (⌂)❱"C3"
+                ├── ·6861158 (⌂)❱"C3"
+                └── ✂️·4f1f248 (⌂)❱"C2"
     "#);
 
     // Multiple extensions are fine as well.

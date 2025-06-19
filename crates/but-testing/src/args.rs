@@ -150,6 +150,21 @@ pub enum Subcommands {
         /// The name of the ref to get workspace information for.
         ref_name: Option<String>,
     },
+    /// Returns a segmented graph starting from `HEAD`.
+    Graph {
+        /// The amount of commits to traverse in non-workspace regions.
+        /// Specifying no limit with `--limit` removes all limits.
+        #[clap(long, short = 'l', default_value = "300")]
+        limit: Option<Option<usize>>,
+        /// Refill the limit when running over these hashes, provided as short or long hash.
+        #[clap(long, short = 'e')]
+        limit_extension: Vec<String>,
+        /// Avoid opening the resulting dot-file and instead write it to standard output.
+        #[clap(long)]
+        no_open: bool,
+        /// The name of the ref to start the graph traversal at.
+        ref_name: Option<String>,
+    },
     /// Return all stack branches related to the given `id`.
     StackBranches {
         /// The ID of the stack to list branches from.

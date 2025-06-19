@@ -520,12 +520,17 @@ fn proper_remote_ahead() -> anyhow::Result<()> {
 fn deduced_remote_ahead() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/deduced-remote-ahead")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 9bcd3af (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    | * ca7baa7 (origin/main) only-remote-02
-    | * 7ea1468 only-remote-01
+    * 8b39ce4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 9d34471 (A) A2
+    * 5b89c71 A1
+    | * 3ea1a8f (origin/A) only-remote-02
+    | * 9c50f71 only-remote-01
+    | * 2cfbb79 merge
+    |/| 
+    | * e898cd0 feat-on-remote
     |/  
-    * 998eae6 (main) shared
-    * fafd9d0 init
+    * 998eae6 shared
+    * fafd9d0 (main) init
     ");
 
     // Remote segments are picked up automatically and traversed - they never take ownership of already assigned commits.
@@ -533,29 +538,46 @@ fn deduced_remote_ahead() -> anyhow::Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── 👉►►►:0:gitbutler/workspace
-    │   └── ·9bcd3af (⌂|🏘️)❱"GitButler Workspace Commit"
-    │       └── ►:2:main
-    │           ├── ·998eae6 (⌂|🏘️|✓)❱"shared"
-    │           └── ·fafd9d0 (⌂|🏘️|✓)❱"init"
-    └── ►:1:origin/main
-        ├── 🟣ca7baa7 (✓)❱"only-remote-02"
-        └── 🟣7ea1468 (✓)❱"only-remote-01"
-            └── →:2: (main)
+    │   └── ·8b39ce4 (⌂|🏘️)❱"GitButler Workspace Commit"
+    │       └── ►:1:A
+    │           ├── ·9d34471 (⌂|🏘️)❱"A2"
+    │           └── ·5b89c71 (⌂|🏘️)❱"A1"
+    │               └── ►:5:anon:
+    │                   └── ·998eae6 (⌂|🏘️)❱"shared"
+    │                       └── ►:3:main
+    │                           └── ·fafd9d0 (⌂|🏘️)❱"init"
+    └── ►:2:origin/A
+        ├── 🟣3ea1a8f❱"only-remote-02"
+        └── 🟣9c50f71❱"only-remote-01"
+            └── ►:4:anon:
+                └── 🟣2cfbb79❱"merge"
+                    ├── ►:6:anon:
+                    │   └── 🟣e898cd0❱"feat-on-remote"
+                    │       └── →:5:
+                    └── →:5:
     "#);
 
     let id = id_by_rev(&repo, ":/init");
     let graph = Graph::from_commit_traversal(id, None, &*meta, standard_options())?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── ►►►:1:gitbutler/workspace
-    │   └── ·9bcd3af (⌂|🏘️)❱"GitButler Workspace Commit"
-    │       └── ►:3:main
-    │           └── ·998eae6 (⌂|🏘️|✓)❱"shared"
-    │               └── ►:0:anon:
-    │                   └── 👉·fafd9d0 (⌂|🏘️|✓)❱"init"
-    └── ►:2:origin/main
-        ├── 🟣ca7baa7 (✓)❱"only-remote-02"
-        └── 🟣7ea1468 (✓)❱"only-remote-01"
-            └── →:3: (main)
+    │   └── ·8b39ce4 (⌂|🏘️)❱"GitButler Workspace Commit"
+    │       └── ►:2:A
+    │           ├── ·9d34471 (⌂|🏘️)❱"A2"
+    │           └── ·5b89c71 (⌂|🏘️)❱"A1"
+    │               └── ►:5:anon:
+    │                   └── ·998eae6 (⌂|🏘️)❱"shared"
+    │                       └── 👉►:0:main
+    │                           └── ·fafd9d0 (⌂|🏘️)❱"init"
+    └── ►:3:origin/A
+        ├── 🟣3ea1a8f❱"only-remote-02"
+        └── 🟣9c50f71❱"only-remote-01"
+            └── ►:4:anon:
+                └── 🟣2cfbb79❱"merge"
+                    ├── ►:6:anon:
+                    │   └── 🟣e898cd0❱"feat-on-remote"
+                    │       └── →:5:
+                    └── →:5:
     "#);
     Ok(())
 }
@@ -727,11 +749,11 @@ fn integrated_tips_stop_early() -> anyhow::Result<()> {
         StackState::InWorkspace,
         &["A"],
     );
-    // As we start at a workspace, even a limit of 0 has no effect - we get to see the whole workspace.
-    let graph = Graph::from_head(&repo, &*meta, standard_options().with_limit(0))?.validated()?;
     // Now that `A` is part of the workspace, it's not cut off anymore.
     // Instead, we get to keep `A` in full, and it aborts only one later as the
     // segment definitely isn't in the workspace.
+    // As we start at a workspace, even a limit of 0 has no effect - we get to see the whole workspace.
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── 👉►►►:0:gitbutler/workspace
     │   └── ·4077353 (⌂|🏘️)❱"GitButler Workspace Commit"
@@ -745,6 +767,29 @@ fn integrated_tips_stop_early() -> anyhow::Result<()> {
     │                   └── ·777b552 (⌂|🏘️|✓)❱"5"
     │                       └── ►:6:anon:
     │                           └── ✂️·ce4a760 (⌂|🏘️|✓)❱"Merge branch \'A-feat\' into A"
+    └── ►:1:origin/main
+        ├── 🟣d0df794 (✓)❱"remote-2"
+        └── 🟣09c6e08 (✓)❱"remote-1"
+            └── ►:3:anon:
+                └── 🟣7b9f260 (✓)❱"Merge branch \'A\' into soon-origin-main"
+                    ├── →:5: (A)
+                    └── ►:4:main
+                        ├── ·4b3e5a8 (⌂|✓)❱"3"
+                        └── ✂️·34d0715 (⌂|✓)❱"2"
+    "#);
+
+    // The limit is effective for integrated workspaces branches though to prevent runaways.
+    let graph = Graph::from_head(&repo, &*meta, standard_options().with_limit(1))?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    ├── 👉►►►:0:gitbutler/workspace
+    │   └── ·4077353 (⌂|🏘️)❱"GitButler Workspace Commit"
+    │       └── ►:2:B
+    │           ├── ·6b1a13b (⌂|🏘️)❱"B2"
+    │           └── ·03ad472 (⌂|🏘️)❱"B1"
+    │               └── ►:5:A
+    │                   ├── ·79bbb29 (⌂|🏘️|✓)❱"8"
+    │                   ├── ·fc98174 (⌂|🏘️|✓)❱"7"
+    │                   └── ✂️·a381df5 (⌂|🏘️|✓)❱"6"
     └── ►:1:origin/main
         ├── 🟣d0df794 (✓)❱"remote-2"
         └── 🟣09c6e08 (✓)❱"remote-1"
@@ -795,7 +840,10 @@ fn workspace_obeys_limit_when_target_branch_is_missing() -> anyhow::Result<()> {
         "without target, limits affect workspaces too"
     );
     let graph = Graph::from_head(&repo, &*meta, standard_options().with_limit(0))?.validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @"└── 👉►►►:0:gitbutler/workspace");
+    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    └── 👉►►►:0:gitbutler/workspace
+        └── ✂️·4077353 (⌂|🏘️)❱"GitButler Workspace Commit"
+    "#);
 
     meta.data_mut().branches.clear();
     add_workspace(&mut meta);

@@ -134,7 +134,7 @@ pub fn id_by_rev<'repo>(repo: &'repo gix::Repository, rev: &str) -> gix::Id<'rep
 pub fn standard_options() -> but_graph::init::Options {
     but_graph::init::Options {
         collect_tags: true,
-        max_commits_outside_of_workspace: None,
-        max_commits_recharge_location: vec![],
+        commits_limit_hint: None,
+        commits_limit_recharge_location: vec![],
     }
 }

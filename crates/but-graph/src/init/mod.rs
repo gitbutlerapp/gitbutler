@@ -1,14 +1,14 @@
 use crate::{CommitFlags, Edge};
 use crate::{CommitIndex, Graph, Segment, SegmentIndex, SegmentMetadata};
-use anyhow::{Context, bail};
+use anyhow::bail;
 use but_core::RefMetadata;
-use gix::ObjectId;
 use gix::hashtable::hash_map::Entry;
 use gix::prelude::{ObjectIdExt, ReferenceExt};
 use gix::refs::Category;
 use petgraph::graph::EdgeReference;
 use petgraph::prelude::EdgeRef;
 use std::collections::VecDeque;
+use tracing::instrument;
 
 mod utils;
 use utils::*;
@@ -27,39 +27,41 @@ pub struct Options {
     ///
     /// If `false`, tags are not collected.
     pub collect_tags: bool,
-    /// The maximum number of commits we should traverse outside any workspace *with a target branch*.
+    /// The (soft) maximum number of commits we should traverse.
     /// Workspaces with a target branch automatically have unlimited traversals as they rely on the target
     /// branch to eventually stop the traversal.
     ///
     /// If `None`, there is no limit, which typically means that when lacking a workspace, the traversal
     /// will end only when no commit is left to traverse.
-    /// `Some(0)` means nothing is going to be returned.
+    /// `Some(0)` means nothing but the first commit is going to be returned, but it should be avoided.
     ///
     /// Note that this doesn't affect the traversal of integrated commits, which is always stopped once there
     /// is nothing interesting left to traverse.
     ///
-    /// Also note: This is not a perfectly exact measure, and it's always possible to receive a few more commits
-    /// than the maximum as for simplicity, we assign each 'split' the same limit, effectively doubling it.
+    /// Also note: This is a hint and not an exact measure, and it's always possible to receive a more commits
+    /// for various reasons, for instance the need to let remote branches find their local brnach independently
+    /// of the limit.
     ///
     /// ### Tip Configuration
     ///
     /// * HEAD - uses the limit
     /// * workspaces with target branch - no limit, but auto-stop if workspace is exhausted as everything is integrated.
     ///     - The target branch: no limit
+    ///     - Integrated workspace branches: use the limit
     /// * workspace without target branch - uses the limit
-    /// * remotes tracking branches - use the limit
-    pub max_commits_outside_of_workspace: Option<usize>,
+    /// * remotes tracking branches - use the limit, but only once they have reached a local branch.
+    pub commits_limit_hint: Option<usize>,
     /// A list of the last commits of partial segments previously returned that reset the amount of available
-    /// commits to traverse back to `max_commits_outside_of_workspace`.
+    /// commits to traverse back to `commit_limit_hint`.
     /// Imagine it like a gas station that can be chosen to direct where the commit-budge should be spent.
-    pub max_commits_recharge_location: Vec<gix::ObjectId>,
+    pub commits_limit_recharge_location: Vec<gix::ObjectId>,
 }
 
 /// Builder
 impl Options {
     /// Set the maximum amount of commits that each lane in a tip may traverse.
     pub fn with_limit(mut self, limit: usize) -> Self {
-        self.max_commits_outside_of_workspace = Some(limit);
+        self.commits_limit_hint = Some(limit);
         self
     }
 
@@ -68,7 +70,7 @@ impl Options {
         mut self,
         commits: impl IntoIterator<Item = gix::ObjectId>,
     ) -> Self {
-        self.max_commits_recharge_location.extend(commits);
+        self.commits_limit_recharge_location.extend(commits);
         self
     }
 }
@@ -146,16 +148,18 @@ impl Graph {
     /// * The traversal is cut short when there is only tips which are integrated, even though named segments that are
     ///   supposed to be in the workspace will be fully traversed (implying they will stop at the first anon segment
     ///   as will happen at merge commits).
+    #[instrument(skip(meta, ref_name), err(Debug))]
     pub fn from_commit_traversal(
         tip: gix::Id<'_>,
         ref_name: impl Into<Option<gix::refs::FullName>>,
         meta: &impl RefMetadata,
         Options {
             collect_tags,
-            max_commits_outside_of_workspace: limit,
-            mut max_commits_recharge_location,
+            commits_limit_hint: limit,
+            commits_limit_recharge_location: mut max_commits_recharge_location,
         }: Options,
     ) -> anyhow::Result<Self> {
+        let limit = Limit(limit);
         // TODO: also traverse (outside)-branches that ought to be in the workspace. That way we have the desired ones
         //       automatically and just have to find a way to prune the undesired ones.
         let repo = tip.repo;
@@ -249,7 +253,7 @@ impl Graph {
             let mut ws_segment = branch_segment_from_name_and_meta(Some(ws_ref), meta, None)?;
             // Drop the limit if we have a target ref
             let limit = if workspace_info.target_ref.is_some() {
-                None
+                Limit::unspecified()
             } else {
                 limit
             };
@@ -279,21 +283,19 @@ impl Graph {
                     Instruction::CollectCommit {
                         into: target_segment,
                     },
-                    /* unlimited traversal for 'negative' commits */
-                    None,
+                    /* unlimited traversal for integrated commits */
+                    Limit::unspecified(),
                 ));
             }
         }
 
         max_commits_recharge_location.sort();
         // Set max-limit so that we compensate for the way this is counted.
-        let max_limit = limit.map(|l| l + 1);
+        // let max_limit = limit.incremented();
+        let max_limit = limit;
         while let Some((id, mut propagated_flags, instruction, mut limit)) = next.pop_front() {
             if max_commits_recharge_location.binary_search(&id).is_ok() {
                 limit = max_limit;
-            }
-            if limit.is_some_and(|l| l == 0) {
-                continue;
             }
             let info = find(commit_graph.as_ref(), repo, id, &mut buf)?;
             let src_flags = graph[instruction.segment_idx()]
@@ -307,67 +309,15 @@ impl Graph {
             propagated_flags |= src_flags;
             let segment_idx_for_id = match instruction {
                 Instruction::CollectCommit { into: src_sidx } => match seen.entry(id) {
-                    Entry::Occupied(mut existing_sidx) => {
-                        let dst_sidx = *existing_sidx.get();
-                        let (top_sidx, mut bottom_sidx) =
-                            // If a normal branch walks into a workspace branch, put the workspace branch on top.
-                            if graph[dst_sidx].workspace_metadata().is_some() &&
-                                graph[src_sidx].ref_name.as_ref()
-                                    .is_some_and(|rn| rn.category().is_some_and(|c| matches!(c, Category::LocalBranch))) {
-                                // `dst` is basically swapping with `src`, so must swap commits and connections.
-                                swap_commits_and_connections(&mut graph.inner, dst_sidx, src_sidx);
-                                swap_queued_segments(&mut next, dst_sidx, src_sidx);
-
-                                // Assure the first commit doesn't name the new owner segment.
-                                {
-                                    let s = &mut graph[src_sidx];
-                                    if let Some(c) = s.commits.first_mut() {
-                                        c.refs.retain(|rn| Some(rn) != s.ref_name.as_ref())
-                                    }
-                                    // Update the commit-ownership of the connecting commit, but also
-                                    // of all other commits in the segment.
-                                    existing_sidx.insert(src_sidx);
-                                    for commit_id in s.commits.iter().skip(1).map(|c| c.id) {
-                                        seen.entry(commit_id).insert(src_sidx);
-                                    }
-                                }
-                                (dst_sidx, src_sidx)
-                            } else {
-                                // `src` naturally runs into destination, so nothing needs to be done
-                                // except for connecting both. Commit ownership doesn't change.
-                                (src_sidx, dst_sidx)
-                            };
-                        let top_cidx = graph[top_sidx].last_commit_index();
-                        let mut bottom_cidx =
-                            graph[bottom_sidx].commit_index_of(id).with_context(|| {
-                                format!(
-                                    "BUG: Didn't find commit {id} in segment {bottom_sidx}",
-                                    bottom_sidx = dst_sidx.index(),
-                                )
-                            })?;
-
-                        if bottom_cidx != 0 {
-                            let new_bottom_sidx = split_commit_into_segment(
-                                &mut graph,
-                                &mut next,
-                                &mut seen,
-                                bottom_sidx,
-                                bottom_cidx,
-                            )?;
-                            bottom_sidx = new_bottom_sidx;
-                            bottom_cidx = 0;
-                        }
-                        graph.connect_segments(top_sidx, top_cidx, bottom_sidx, bottom_cidx);
-                        let top_flags = top_cidx
-                            .map(|cidx| graph[top_sidx].commits[cidx].flags)
-                            .unwrap_or_default();
-                        let bottom_flags = graph[bottom_sidx].commits[bottom_cidx].flags;
-                        propagate_flags_downward(
-                            &mut graph.inner,
-                            propagated_flags | top_flags | bottom_flags,
-                            bottom_sidx,
-                            Some(bottom_cidx),
-                        );
+                    Entry::Occupied(_) => {
+                        possibly_split_occupied_segment(
+                            &mut graph,
+                            &mut seen,
+                            &mut next,
+                            id,
+                            propagated_flags,
+                            src_sidx,
+                        )?;
                         continue;
                     }
                     Entry::Vacant(e) => {
@@ -387,23 +337,15 @@ impl Graph {
                     parent_above,
                     at_commit,
                 } => match seen.entry(id) {
-                    Entry::Occupied(existing_sidx) => {
-                        let bottom_sidx = *existing_sidx.get();
-                        let bottom = &graph[bottom_sidx];
-                        let bottom_cidx = bottom.commit_index_of(id).context(
-                            "BUG: bottom segment must contain ID, `seen` seems out of date",
+                    Entry::Occupied(_) => {
+                        possibly_split_occupied_segment(
+                            &mut graph,
+                            &mut seen,
+                            &mut next,
+                            id,
+                            propagated_flags,
+                            parent_above,
                         )?;
-                        if bottom_cidx != 0 {
-                            todo!("split bottom segment at `at_commit`");
-                        }
-                        let bottom_flags = bottom.commits[bottom_cidx].flags;
-                        graph.connect_segments(parent_above, at_commit, bottom_sidx, bottom_cidx);
-                        propagate_flags_downward(
-                            &mut graph.inner,
-                            propagated_flags | bottom_flags,
-                            bottom_sidx,
-                            Some(bottom_cidx),
-                        );
                         continue;
                     }
                     Entry::Vacant(e) => {
@@ -463,7 +405,7 @@ impl Graph {
                 limit,
             )?;
 
-            prune_integrated_tips(&mut graph.inner, &mut next, &desired_refs);
+            prune_integrated_tips(&mut graph.inner, &mut next, &desired_refs, max_limit);
         }
 
         graph.post_processed(
@@ -475,6 +417,9 @@ impl Graph {
         )
     }
 }
+
+#[derive(Debug, Copy, Clone)]
+struct Limit(Option<usize>);
 
 #[derive(Debug, Copy, Clone)]
 enum Instruction {
@@ -511,7 +456,7 @@ impl Instruction {
     }
 }
 
-type QueueItem = (ObjectId, CommitFlags, Instruction, Option<usize>);
+type QueueItem = (gix::ObjectId, CommitFlags, Instruction, Limit);
 
 #[derive(Debug)]
 pub(crate) struct EdgeOwned {

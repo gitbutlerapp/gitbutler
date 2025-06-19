@@ -289,12 +289,20 @@ mkdir ws
   git init deduced-remote-ahead
   (cd deduced-remote-ahead
     commit init
+    git checkout -b A
     commit shared
     git checkout -b soon-remote;
+      git checkout -b tmp
+        commit feat-on-remote
+      git checkout soon-remote
+      git merge --no-ff -m "merge" tmp && git branch -d tmp
       commit only-remote-01;
       commit only-remote-02;
-    git checkout main && create_workspace_commit_once main
-    setup_remote_tracking soon-remote main "move"
+    git checkout A
+      commit A1
+      commit A2
+    create_workspace_commit_once A
+    setup_remote_tracking soon-remote A "move"
 
 cat <<EOF >>.git/config
 [remote "origin"]
