@@ -21,11 +21,14 @@ mod openai;
 pub mod reword;
 mod serialize;
 mod simple;
+mod workflow;
 pub use action::ActionListing;
 pub use action::Source;
 pub use action::list_actions;
 use but_graph::VirtualBranchesTomlMetadata;
 use strum::EnumString;
+pub use workflow::WorkflowList;
+pub use workflow::list_workflows;
 
 pub fn handle_changes(
     ctx: &mut CommandContext,
