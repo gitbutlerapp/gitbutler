@@ -55,17 +55,34 @@ pub struct Options {
     /// commits to traverse back to `commit_limit_hint`.
     /// Imagine it like a gas station that can be chosen to direct where the commit-budge should be spent.
     pub commits_limit_recharge_location: Vec<gix::ObjectId>,
+    /// As opposed to the limit-hint, if not `None` we will stop after pretty much this many commits have been seen.
+    ///
+    /// This is a last line of defense against runaway traversals and for not it's recommended to set it to a high
+    /// but manageable value. Note that depending on the commit-graph, we may need more commits to find the local branch
+    /// for a remote branch, leaving remote branches unconnected.
+    ///
+    /// Due to multiple paths being taken, more commits may be queued (which is what's counted here) than actually
+    /// end up in the graph, so usually one will see many less.
+    pub hard_limit: Option<usize>,
 }
 
 /// Builder
 impl Options {
-    /// Set the maximum amount of commits that each lane in a tip may traverse.
-    pub fn with_limit(mut self, limit: usize) -> Self {
+    /// Set the maximum amount of commits that each lane in a tip may traverse, but that's less important
+    /// than building consistent, connected graphs.
+    pub fn with_limit_hint(mut self, limit: usize) -> Self {
         self.commits_limit_hint = Some(limit);
         self
     }
 
-    /// Keep track of commits at which the traversal limit should be reset to the [`limit`](Self::with_limit()).
+    /// Set a hard limit for the amount of commits to traverse. Even though it may be off by a couple, it's not dependent
+    /// on any additional logic.
+    pub fn with_hard_limit(mut self, limit: usize) -> Self {
+        self.hard_limit = Some(limit);
+        self
+    }
+
+    /// Keep track of commits at which the traversal limit should be reset to the [`limit`](Self::with_limit_hint()).
     pub fn with_limit_extension_at(
         mut self,
         commits: impl IntoIterator<Item = gix::ObjectId>,
@@ -157,9 +174,10 @@ impl Graph {
             collect_tags,
             commits_limit_hint: limit,
             commits_limit_recharge_location: mut max_commits_recharge_location,
+            hard_limit,
         }: Options,
     ) -> anyhow::Result<Self> {
-        let limit = Limit(limit);
+        let limit = Limit::from(limit);
         // TODO: also traverse (outside)-branches that ought to be in the workspace. That way we have the desired ones
         //       automatically and just have to find a way to prune the undesired ones.
         let repo = tip.repo;
@@ -206,7 +224,7 @@ impl Graph {
             v
         };
 
-        let mut next = VecDeque::<QueueItem>::new();
+        let mut next = Queue::new_with_limit(hard_limit);
         if !workspaces
             .iter()
             .any(|(wsrn, _)| Some(wsrn) == ref_name.as_ref())
@@ -216,12 +234,14 @@ impl Graph {
                 meta,
                 Some((&refs_by_id, tip.detach())),
             )?);
-            next.push_back((
+            if next.push_back_exhausted((
                 tip.detach(),
                 tip_flags,
                 Instruction::CollectCommit { into: current },
                 limit,
-            ));
+            )) {
+                return Ok(graph.with_hard_limit());
+            }
         }
         for (ws_ref, workspace_info) in workspaces {
             let Some(ws_tip) = try_refname_to_id(repo, ws_ref.as_ref())? else {
@@ -261,7 +281,7 @@ impl Graph {
             let ws_segment = graph.insert_root(ws_segment);
             // As workspaces typically have integration branches which can help us to stop the traversal,
             // pick these up first.
-            next.push_front((
+            if next.push_front_exhausted((
                 ws_tip,
                 CommitFlags::InWorkspace |
                     // We only allow workspaces that are not remote, and that are not target refs.
@@ -270,14 +290,16 @@ impl Graph {
                     CommitFlags::NotInRemote | add_flags,
                 Instruction::CollectCommit { into: ws_segment },
                 limit,
-            ));
+            )) {
+                return Ok(graph.with_hard_limit());
+            }
             if let Some((target_ref, target_ref_id)) = target {
                 let target_segment = graph.insert_root(branch_segment_from_name_and_meta(
                     Some(target_ref),
                     meta,
                     None,
                 )?);
-                next.push_front((
+                if next.push_front_exhausted((
                     target_ref_id,
                     CommitFlags::Integrated,
                     Instruction::CollectCommit {
@@ -285,7 +307,9 @@ impl Graph {
                     },
                     /* unlimited traversal for integrated commits */
                     Limit::unspecified(),
-                ));
+                )) {
+                    return Ok(graph.with_hard_limit());
+                }
             }
         }
 
@@ -295,7 +319,7 @@ impl Graph {
         let max_limit = limit;
         while let Some((id, mut propagated_flags, instruction, mut limit)) = next.pop_front() {
             if max_commits_recharge_location.binary_search(&id).is_ok() {
-                limit = max_limit;
+                limit.inner = max_limit.inner;
             }
             let info = find(commit_graph.as_ref(), repo, id, &mut buf)?;
             let src_flags = graph[instruction.segment_idx()]
@@ -315,6 +339,7 @@ impl Graph {
                             &mut seen,
                             &mut next,
                             id,
+                            limit,
                             propagated_flags,
                             src_sidx,
                         )?;
@@ -343,6 +368,7 @@ impl Graph {
                             &mut seen,
                             &mut next,
                             id,
+                            limit,
                             propagated_flags,
                             parent_above,
                         )?;
@@ -366,7 +392,7 @@ impl Graph {
 
             let segment = &mut graph[segment_idx_for_id];
             let commit_idx_for_possible_fork = segment.commits.len();
-            queue_parents(
+            let hard_limit_hit = queue_parents(
                 &mut next,
                 &info.parent_ids,
                 propagated_flags,
@@ -374,6 +400,9 @@ impl Graph {
                 commit_idx_for_possible_fork,
                 limit,
             );
+            if hard_limit_hit {
+                return Ok(graph.with_hard_limit());
+            }
 
             let refs_at_commit_before_removal = refs_by_id.remove(&id).unwrap_or_default();
             segment.commits.push(
@@ -393,7 +422,7 @@ impl Graph {
                 )?,
             );
 
-            try_queue_remote_tracking_branches(
+            let hard_limit_hit = try_queue_remote_tracking_branches(
                 repo,
                 &refs_at_commit_before_removal,
                 &mut next,
@@ -402,8 +431,12 @@ impl Graph {
                 &configured_remote_tracking_branches,
                 &target_refs,
                 meta,
+                id,
                 limit,
             )?;
+            if hard_limit_hit {
+                return Ok(graph.with_hard_limit());
+            }
 
             prune_integrated_tips(&mut graph.inner, &mut next, &desired_refs, max_limit);
         }
@@ -416,10 +449,28 @@ impl Graph {
             &configured_remote_tracking_branches,
         )
     }
+
+    fn with_hard_limit(mut self) -> Self {
+        self.hard_limit_hit = true;
+        self
+    }
+}
+
+/// A queue to keep track of tips, which additionally counts how much was queued over time.
+struct Queue {
+    inner: VecDeque<QueueItem>,
+    /// The current number of queued items.
+    count: usize,
+    /// The maximum number of queuing operations, each representing one commit.
+    max: Option<usize>,
 }
 
 #[derive(Debug, Copy, Clone)]
-struct Limit(Option<usize>);
+struct Limit {
+    inner: Option<usize>,
+    /// The commit we want to see to be able to assume normal limits. Until then there is no limit.
+    goal: Option<gix::ObjectId>,
+}
 
 #[derive(Debug, Copy, Clone)]
 enum Instruction {

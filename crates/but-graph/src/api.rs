@@ -92,6 +92,10 @@ impl Graph {
 
 /// Query
 impl Graph {
+    /// Return `true` if this graph is possibly partial as the hard limit was hit.
+    pub fn hard_limit_hit(&self) -> bool {
+        self.hard_limit_hit
+    }
     /// Return the entry-point of the graph as configured during traversal.
     /// It's useful for when one wants to know which commit was used to discover the entire graph.
     ///
@@ -186,6 +190,15 @@ impl Graph {
             .sum::<usize>()
     }
 
+    /// Return the number segments whose commits are all exclusively in a remote.
+    pub fn num_remote_segments(&self) -> usize {
+        self.inner
+            .raw_nodes()
+            .iter()
+            .map(|n| usize::from(n.weight.commits.iter().all(|c| c.flags.is_empty())))
+            .sum::<usize>()
+    }
+
     /// Return an iterator over all indices of segments in the graph.
     pub fn segments(&self) -> impl Iterator<Item = SegmentIndex> {
         self.inner.node_indices()
@@ -211,11 +224,16 @@ impl Graph {
         is_entrypoint: bool,
         show_message: bool,
         is_early_end: bool,
+        hard_limit: bool,
     ) -> String {
         format!(
             "{ep}{end}{kind}{conflict}{hex}{flags}{msg}{refs}",
             ep = if is_entrypoint { "👉" } else { "" },
-            end = if is_early_end { "✂️" } else { "" },
+            end = if is_early_end {
+                if hard_limit { "❌" } else { "✂️" }
+            } else {
+                ""
+            },
             kind = if commit.flags.contains(CommitFlags::NotInRemote) {
                 "·"
             } else {
@@ -379,6 +397,7 @@ impl Graph {
                         !show_segment_entrypoint && Some((sidx, Some(cidx))) == entrypoint,
                         false,
                         self.is_early_end_of_traversal(sidx, cidx),
+                        self.hard_limit_hit,
                     )
                 })
                 .collect::<Vec<_>>()
@@ -389,30 +408,31 @@ impl Graph {
                 id = sidx.index(),
             )
         };
-        let dot = petgraph::dot::Dot::with_attr_getters(
-            &self.inner,
-            &[],
-            &|g, e| {
-                let src = &g[e.source()];
-                let dst = &g[e.target()];
-                // Don't mark connections from the last commit to the first one,
-                // but those that are 'splitting' a segment. These shouldn't exist.
-                let Err(err) = check_edge(g, e) else {
-                    return ", label = \"\"".into();
-                };
-                let e = e.weight();
-                let src = src
-                    .commit_id_by_index(e.src)
-                    .map(|c| c.to_hex_with_len(HEX).to_string())
-                    .unwrap_or_else(|| "src".into());
-                let dst = dst
-                    .commit_id_by_index(e.dst)
-                    .map(|c| c.to_hex_with_len(HEX).to_string())
-                    .unwrap_or_else(|| "dst".into());
-                format!(", label = \"⚠️{src} → {dst} ({err})\", fontname = Courier")
-            },
-            &node_attrs,
-        );
+
+        let edge_attrs = &|g: &PetGraph, e: EdgeReference<'_, Edge>| {
+            let src = &g[e.source()];
+            let dst = &g[e.target()];
+            // Graphs may be half-baked, let's not worry about it then.
+            if self.hard_limit_hit {
+                return ", label = \"\"".into();
+            }
+            // Don't mark connections from the last commit to the first one,
+            // but those that are 'splitting' a segment. These shouldn't exist.
+            let Err(err) = check_edge(g, e) else {
+                return ", label = \"\"".into();
+            };
+            let e = e.weight();
+            let src = src
+                .commit_id_by_index(e.src)
+                .map(|c| c.to_hex_with_len(HEX).to_string())
+                .unwrap_or_else(|| "src".into());
+            let dst = dst
+                .commit_id_by_index(e.dst)
+                .map(|c| c.to_hex_with_len(HEX).to_string())
+                .unwrap_or_else(|| "dst".into());
+            format!(", label = \"⚠️{src} → {dst} ({err})\", fontname = Courier")
+        };
+        let dot = petgraph::dot::Dot::with_attr_getters(&self.inner, &[], &edge_attrs, &node_attrs);
         format!("{dot:?}")
     }
 }

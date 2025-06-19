@@ -152,7 +152,13 @@ pub enum Subcommands {
     },
     /// Returns a segmented graph starting from `HEAD`.
     Graph {
-        /// The amount of commits to traverse in non-workspace regions.
+        /// The maximum number of commits to traverse.
+        ///
+        /// Use only as safety net to prevent runaways.
+        #[clap(long)]
+        hard_limit: Option<usize>,
+        /// The hint of the number of commits to traverse.
+        ///
         /// Specifying no limit with `--limit` removes all limits.
         #[clap(long, short = 'l', default_value = "300")]
         limit: Option<Option<usize>>,

@@ -1,5 +1,5 @@
 use crate::init::walk::TopoWalk;
-use crate::init::{EdgeOwned, Instruction, Limit, PetGraph, QueueItem, remotes};
+use crate::init::{EdgeOwned, Instruction, Limit, PetGraph, Queue, QueueItem, remotes};
 use crate::{
     Commit, CommitFlags, CommitIndex, Edge, Graph, Segment, SegmentIndex, SegmentMetadata,
     is_workspace_ref_name,
@@ -13,7 +13,7 @@ use gix::reference::Category;
 use gix::refs::FullName;
 use gix::traverse::commit::Either;
 use petgraph::Direction;
-use std::collections::{BTreeSet, VecDeque};
+use std::collections::BTreeSet;
 use std::ops::Deref;
 
 type RefsById = gix::hashtable::HashMap<gix::ObjectId, Vec<gix::refs::FullName>>;
@@ -22,7 +22,7 @@ type RefsById = gix::hashtable::HashMap<gix::ObjectId, Vec<gix::refs::FullName>>
 /// from `sidx` to the new segment, and return that.
 pub fn split_commit_into_segment(
     graph: &mut Graph,
-    next: &mut VecDeque<QueueItem>,
+    next: &mut Queue,
     seen: &mut gix::revwalk::graph::IdMap<SegmentIndex>,
     sidx: SegmentIndex,
     commit: CommitIndex,
@@ -146,11 +146,7 @@ fn collect_edges_from_commit(
         .collect()
 }
 
-pub fn replace_queued_segments(
-    queue: &mut VecDeque<QueueItem>,
-    find: SegmentIndex,
-    replace: SegmentIndex,
-) {
+pub fn replace_queued_segments(queue: &mut Queue, find: SegmentIndex, replace: SegmentIndex) {
     for instruction_to_replace in queue.iter_mut().map(|(_, _, instruction, _)| instruction) {
         let cmp = instruction_to_replace.segment_idx();
         if cmp == find {
@@ -159,7 +155,7 @@ pub fn replace_queued_segments(
     }
 }
 
-pub fn swap_queued_segments(queue: &mut VecDeque<QueueItem>, a: SegmentIndex, b: SegmentIndex) {
+pub fn swap_queued_segments(queue: &mut Queue, a: SegmentIndex, b: SegmentIndex) {
     for instruction_to_replace in queue.iter_mut().map(|(_, _, instruction, _)| instruction) {
         let cmp = instruction_to_replace.segment_idx();
         if cmp == a {
@@ -240,16 +236,17 @@ pub fn try_split_non_empty_segment_at_branch(
 /// Queue the `parent_ids` of the current commit, whose additional information like `current_kind` and `current_index`
 /// are used.
 /// `limit` is used to determine if the tip is NOT supposed to be dropped, with `0` meaning it's depleted.
+#[must_use]
 pub fn queue_parents(
-    next: &mut VecDeque<QueueItem>,
+    next: &mut Queue,
     parent_ids: &[gix::ObjectId],
     flags: CommitFlags,
     current_sidx: SegmentIndex,
     current_cidx: CommitIndex,
     mut limit: Limit,
-) {
+) -> bool {
     if limit.is_exhausted_or_decrement(flags, next) {
-        return;
+        return false;
     }
     if parent_ids.len() > 1 {
         let instruction = Instruction::ConnectNewSegment {
@@ -258,18 +255,22 @@ pub fn queue_parents(
         };
         let limit_per_parent = limit.per_parent(parent_ids.len());
         for pid in parent_ids {
-            next.push_back((*pid, flags, instruction, limit_per_parent))
+            if next.push_back_exhausted((*pid, flags, instruction, limit_per_parent)) {
+                return true;
+            }
         }
-    } else if !parent_ids.is_empty() {
-        next.push_back((
+    } else if !parent_ids.is_empty()
+        && next.push_back_exhausted((
             parent_ids[0],
             flags,
             Instruction::CollectCommit { into: current_sidx },
             limit,
-        ));
-    } else {
-        return;
-    };
+        ))
+    {
+        return true;
+    }
+
+    false
 }
 
 pub fn branch_segment_from_name_and_meta(
@@ -540,6 +541,8 @@ pub fn try_refname_to_id(
 
 pub fn propagate_flags_downward(
     graph: &mut PetGraph,
+    next: &mut Queue,
+    limit: Limit,
     flags_to_add: CommitFlags,
     dst_sidx: SegmentIndex,
     dst_commit: Option<CommitIndex>,
@@ -548,6 +551,11 @@ pub fn propagate_flags_downward(
     while let Some((segment, commit_range)) = topo.next(graph) {
         for commit in &mut graph[segment].commits[commit_range] {
             commit.flags |= flags_to_add;
+            // Note that this just works if the remote is still fast-forwardable.
+            // If the goal isn't met, it's OK as well, but there is a chance for runaways.
+            if Some(commit.id) == limit.goal {
+                next.inner.iter_mut().for_each(|t| t.3.goal = None);
+            }
         }
     }
 }
@@ -562,23 +570,20 @@ pub fn propagate_flags_downward(
 pub fn try_queue_remote_tracking_branches(
     repo: &gix::Repository,
     refs: &[gix::refs::FullName],
-    next: &mut VecDeque<QueueItem>,
+    next: &mut Queue,
     graph: &mut Graph,
     target_symbolic_remote_names: &[String],
     configured_remote_tracking_branches: &BTreeSet<FullName>,
     target_refs: &[gix::refs::FullName],
     meta: &impl RefMetadata,
-    mut limit: Limit,
-) -> anyhow::Result<()> {
+    id: gix::ObjectId,
+    limit: Limit,
+) -> anyhow::Result<bool> {
     // As a commit can be reachable by many remote tracking branches while we need
     // specificity, there is no need to propagate anything.
     // We also *do not* propagate "NotInCommit" so remote-exclusive commits can be identified
     // even across segment boundaries
     let flags = CommitFlags::empty();
-    if limit.is_exhausted_or_decrement(flags, next) {
-        return Ok(());
-    }
-
     for rn in refs {
         let Some(remote_tracking_branch) = remotes::lookup_remote_tracking_branch_or_deduce_it(
             repo,
@@ -602,16 +607,18 @@ pub fn try_queue_remote_tracking_branches(
             meta,
             None,
         )?);
-        next.push_back((
+        if next.push_back_exhausted((
             remote_tip,
             flags,
             Instruction::CollectCommit {
                 into: remote_segment,
             },
-            limit,
-        ));
+            limit.with_goal(id),
+        )) {
+            return Ok(true);
+        };
     }
-    Ok(())
+    Ok(false)
 }
 
 /// Remove if there are only tips with integrated commits…
@@ -624,7 +631,7 @@ pub fn try_queue_remote_tracking_branches(
 ///  be the initially configured limit.
 pub fn prune_integrated_tips(
     graph: &mut PetGraph,
-    next: &mut VecDeque<QueueItem>,
+    next: &mut Queue,
     workspace_refs: &BTreeSet<gix::refs::FullName>,
     max_limit: Limit,
 ) {
@@ -657,8 +664,9 @@ pub fn prune_integrated_tips(
 pub fn possibly_split_occupied_segment(
     graph: &mut Graph,
     seen: &mut gix::revwalk::graph::IdMap<SegmentIndex>,
-    next: &mut VecDeque<QueueItem>,
+    next: &mut Queue,
     id: gix::ObjectId,
+    limit: Limit,
     propagated_flags: CommitFlags,
     src_sidx: SegmentIndex,
 ) -> anyhow::Result<()> {
@@ -715,6 +723,8 @@ pub fn possibly_split_occupied_segment(
     let bottom_flags = graph[bottom_sidx].commits[bottom_cidx].flags;
     propagate_flags_downward(
         &mut graph.inner,
+        next,
+        limit,
         propagated_flags | top_flags | bottom_flags,
         bottom_sidx,
         Some(bottom_cidx),
@@ -729,48 +739,103 @@ impl Limit {
     /// The problem with this is that we never get back the split limit when segments re-unite,
     /// so effectively we loose gas here.
     fn per_parent(&self, num_parents: usize) -> Self {
-        Limit(
-            self.0
+        Limit {
+            inner: self
+                .inner
                 .map(|l| if l == 0 { 0 } else { (l / num_parents).max(1) }),
-        )
+            goal: self.goal,
+        }
     }
 
     /// Return `true` if this limit is depleted, or decrement it by one otherwise.
     ///
     /// `flags` are used to selectively decrement this limit.
     /// Thanks to flag-propagation there can be no runaways.
-    fn is_exhausted_or_decrement(
-        &mut self,
-        flags: CommitFlags,
-        next: &VecDeque<QueueItem>,
-    ) -> bool {
-        // Allow remote tracking branch tips to traverse until they meet a portion that is local,
-        // without burning their own fuel so that it arrives in the local branch they meet eventually.
-        if flags.is_empty() {
+    fn is_exhausted_or_decrement(&mut self, flags: CommitFlags, next: &Queue) -> bool {
+        if self.goal.is_some() {
             return false;
         }
         // Do not let *any* tip consume gas as long as there is still remotes tracking branches in the game
         // that need to meet their local branches. Otherwise, everything is considered remote as the local tips
         // that could tell otherwise never reach their remote counterparts.
-        let traverses_any_unmatched_remote = next.iter().any(|(_, flags, _, _)| flags.is_empty());
-        if traverses_any_unmatched_remote {
+        if !flags.is_empty() && next.iter().any(|(_, flags, _, _)| flags.is_empty()) {
             return false;
         }
-        if self.0.is_some_and(|l| l == 0) {
+        if self.inner.is_some_and(|l| l == 0) {
             return true;
         }
-        self.0 = self.0.map(|l| l - 1);
+        self.inner = self.inner.map(|l| l - 1);
         false
     }
 
     fn is_unset(&self) -> bool {
-        self.0.is_none()
+        self.inner.is_none()
     }
 }
 
 impl Limit {
     /// Allow unlimited traversal.
-    pub(crate) fn unspecified() -> Self {
-        Limit(None)
+    pub fn unspecified() -> Self {
+        Limit::from(None)
+    }
+
+    pub fn with_goal(mut self, goal: gix::ObjectId) -> Self {
+        self.goal = Some(goal);
+        self
+    }
+}
+
+impl From<Option<usize>> for Limit {
+    fn from(value: Option<usize>) -> Self {
+        Limit {
+            inner: value,
+            goal: None,
+        }
+    }
+}
+
+/// Lifecycle
+impl Queue {
+    pub fn new_with_limit(limit: Option<usize>) -> Self {
+        Queue {
+            inner: Default::default(),
+            count: 0,
+            max: limit,
+        }
+    }
+}
+
+/// Counted queuing
+impl Queue {
+    #[must_use]
+    pub fn push_back_exhausted(&mut self, item: QueueItem) -> bool {
+        self.inner.push_back(item);
+        self.is_exhausted_after_increment()
+    }
+    #[must_use]
+    pub fn push_front_exhausted(&mut self, item: QueueItem) -> bool {
+        self.inner.push_front(item);
+        self.is_exhausted_after_increment()
+    }
+
+    fn is_exhausted_after_increment(&mut self) -> bool {
+        self.count += 1;
+        self.max.is_some_and(|l| self.count >= l)
+    }
+}
+
+/// Various other - good to know what we need though.
+impl Queue {
+    pub fn pop_front(&mut self) -> Option<QueueItem> {
+        self.inner.pop_front()
+    }
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut QueueItem> {
+        self.inner.iter_mut()
+    }
+    pub fn iter(&self) -> impl Iterator<Item = &QueueItem> {
+        self.inner.iter()
+    }
+    pub fn retain_mut(&mut self, f: impl FnMut(&mut QueueItem) -> bool) {
+        self.inner.retain_mut(f);
     }
 }

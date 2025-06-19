@@ -503,11 +503,13 @@ pub fn graph(
     no_open: bool,
     limit: Option<usize>,
     limit_extension: Vec<String>,
+    hard_limit: Option<usize>,
 ) -> anyhow::Result<()> {
     let (mut repo, project) = repo_and_maybe_project(args, RepositoryOpenMode::General)?;
     repo.objects.refresh = RefreshMode::Never;
     let opts = but_graph::init::Options {
         collect_tags: true,
+        hard_limit,
         commits_limit_hint: limit,
         commits_limit_recharge_location: limit_extension
             .into_iter()
@@ -548,17 +550,21 @@ pub fn graph(
     }?;
 
     eprintln!(
-        "Graph with {num_segments}, {num_edges} edges and {num_commits} commits",
+        "Graph with {num_segments} segments ({num_remote_segments} of which remote), {num_edges} edges and {num_commits} commits{hard_limit}",
         num_segments = graph.num_segments(),
         num_edges = graph.num_edges(),
-        num_commits = graph.num_commits()
+        num_commits = graph.num_commits(),
+        num_remote_segments = graph.num_remote_segments(),
+        hard_limit = graph
+            .hard_limit_hit()
+            .then_some(" (HARD LIMIT REACHED)")
+            .unwrap_or_default()
     );
     if no_open {
         stdout().write_all(graph.dot_graph().as_bytes())?;
-    } else if cfg!(unix) {
-        graph.open_as_svg();
     } else {
-        bail!("Can't show SVG on non-unix")
+        #[cfg(unix)]
+        graph.open_as_svg();
     }
     Ok(())
 }

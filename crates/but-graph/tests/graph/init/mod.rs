@@ -31,6 +31,7 @@ fn unborn() -> anyhow::Result<()> {
                 None,
             ),
         ),
+        hard_limit_hit: false,
     }
     "#);
     Ok(())
@@ -103,6 +104,7 @@ fn detached() -> anyhow::Result<()> {
                 ),
             ),
         ),
+        hard_limit_hit: false,
     }
     "#);
     Ok(())
@@ -224,7 +226,8 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     ");
 
     // A remote will always be able to find their non-remotes so they don't seem cut-off.
-    let graph = Graph::from_head(&repo, &*meta, standard_options().with_limit(1))?.validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, standard_options().with_limit_hint(1))?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── 👉►:0:B
     │   └── ·312f819 (⌂)❱"B"
@@ -237,6 +240,20 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
             └── ►:3:origin/A
                 └── 🟣e29c23d❱"A"
                     └── →:4: (main)
+    "#);
+    // The hard limit is always respected though.
+    let graph =
+        Graph::from_head(&repo, &*meta, standard_options().with_hard_limit(7))?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    ├── 👉►:0:B
+    │   └── ·312f819 (⌂)❱"B"
+    │       └── ►:2:A
+    │           └── ·e255adc (⌂)❱"A"
+    │               └── ►:4:main
+    │                   └── ·fafd9d0 (⌂)❱"init"
+    ├── ►:1:origin/B
+    │   └── ❌🟣682be32❱"B"
+    └── ►:3:origin/A
     "#);
 
     // Everything we encounter is checked for remotes.
@@ -323,14 +340,16 @@ fn with_limits() -> anyhow::Result<()> {
 
     // There is no empty starting points, we always traverse the first commit as we really want
     // to get to remote processing there.
-    let graph = Graph::from_head(&repo, &*meta, standard_options().with_limit(0))?.validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, standard_options().with_limit_hint(0))?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     └── 👉►:0:C
         └── ✂️·2a95729 (⌂)❱"Merge branches \'A\' and \'B\' into C"
     "#);
 
     // A single commit, the merge commit.
-    let graph = Graph::from_head(&repo, &*meta, standard_options().with_limit(1))?.validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, standard_options().with_limit_hint(1))?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     └── 👉►:0:C
         └── ·2a95729 (⌂)❱"Merge branches \'A\' and \'B\' into C"
@@ -343,7 +362,8 @@ fn with_limits() -> anyhow::Result<()> {
     "#);
 
     // The merge commit, then we witness lane-duplication of the limit so we get more than requested.
-    let graph = Graph::from_head(&repo, &*meta, standard_options().with_limit(2))?.validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, standard_options().with_limit_hint(2))?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     └── 👉►:0:C
         └── ·2a95729 (⌂)❱"Merge branches \'A\' and \'B\' into C"
@@ -364,7 +384,7 @@ fn with_limits() -> anyhow::Result<()> {
         &repo,
         &*meta,
         standard_options()
-            .with_limit(2)
+            .with_limit_hint(2)
             .with_limit_extension_at(Some(id_by_rev(&repo, ":/A3").detach())),
     )?
     .validated()?;
@@ -388,12 +408,9 @@ fn with_limits() -> anyhow::Result<()> {
     let graph = Graph::from_head(
         &repo,
         &*meta,
-        standard_options().with_limit(2).with_limit_extension_at([
-            id(":/A3"),
-            id(":/A1"),
-            id(":/B3"),
-            id(":/C3"),
-        ]),
+        standard_options()
+            .with_limit_hint(2)
+            .with_limit_extension_at([id(":/A3"), id(":/A1"), id(":/B3"), id(":/C3")]),
     )?
     .validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"

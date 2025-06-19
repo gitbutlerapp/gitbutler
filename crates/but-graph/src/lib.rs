@@ -18,6 +18,8 @@ pub struct Graph {
     /// The [`CommitIndex`] is empty if the entry point is an empty segment, one that is supposed to receive
     /// commits later.
     entrypoint: Option<(SegmentIndex, Option<CommitIndex>)>,
+    /// It's `true` only if we have stopped the traversal due to a hard limit.
+    hard_limit_hit: bool,
 }
 
 /// A resolved entry point into the graph for easy access to the segment, commit,

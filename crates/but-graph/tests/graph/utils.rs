@@ -11,6 +11,7 @@ pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
         has_conflicts: bool,
         is_entrypoint: bool,
         is_early_end: bool,
+        hard_limit_hit: bool,
     ) -> SegmentTree {
         Graph::commit_debug_string(
             commit,
@@ -18,6 +19,7 @@ pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
             is_entrypoint,
             true, /* show message */
             is_early_end,
+            hard_limit_hit,
         )
         .into()
     }
@@ -94,6 +96,7 @@ pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
                 commit.has_conflicts,
                 segment_is_entrypoint && Some(cidx) == ep.commit_index,
                 graph.is_early_end_of_traversal(sidx, cidx),
+                graph.hard_limit_hit(),
             );
             if let Some(segment_indices) = connected_segments.get(&Some(cidx)) {
                 for sidx in segment_indices {

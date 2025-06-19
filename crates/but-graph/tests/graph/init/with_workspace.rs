@@ -633,6 +633,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
                 └── 🟣e29c23d❱"A"
                     └── →:2: (origin/main)
     "#);
+    assert_eq!(graph.num_remote_segments(), 2);
     Ok(())
 }
 
@@ -779,7 +780,8 @@ fn integrated_tips_stop_early() -> anyhow::Result<()> {
     "#);
 
     // The limit is effective for integrated workspaces branches though to prevent runaways.
-    let graph = Graph::from_head(&repo, &*meta, standard_options().with_limit(1))?.validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, standard_options().with_limit_hint(1))?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── 👉►►►:0:gitbutler/workspace
     │   └── ·4077353 (⌂|🏘️)❱"GitButler Workspace Commit"
@@ -839,7 +841,8 @@ fn workspace_obeys_limit_when_target_branch_is_missing() -> anyhow::Result<()> {
         meta.data_mut().default_target.is_none(),
         "without target, limits affect workspaces too"
     );
-    let graph = Graph::from_head(&repo, &*meta, standard_options().with_limit(0))?.validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, standard_options().with_limit_hint(0))?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     └── 👉►►►:0:gitbutler/workspace
         └── ✂️·4077353 (⌂|🏘️)❱"GitButler Workspace Commit"
@@ -852,7 +855,8 @@ fn workspace_obeys_limit_when_target_branch_is_missing() -> anyhow::Result<()> {
         "But with workspace and target, we see everything"
     );
     // It's notable that there is no way to bypass the early abort when everything is integrated.
-    let graph = Graph::from_head(&repo, &*meta, standard_options().with_limit(0))?.validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, standard_options().with_limit_hint(0))?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r#"
     ├── 👉►►►:0:gitbutler/workspace
     │   └── ·4077353 (⌂|🏘️)❱"GitButler Workspace Commit"
