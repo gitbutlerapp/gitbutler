@@ -38,7 +38,7 @@ const MOCK_GLOBAL_UI_STATE: GlobalUiState = {
 	rulerCountValue: 0,
 	wrapTextByRuler: false,
 	modal: undefined,
-	stackWidth: 25,
+	stackWidth: 22.5,
 	detailsWidth: 25,
 	previewWidth: 30,
 	branchesViewSidebarWidth: 40

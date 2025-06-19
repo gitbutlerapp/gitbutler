@@ -86,7 +86,6 @@
 <MainViewport
 	name="workspace"
 	middleOpen={previewOpen}
-	leftResizerRadius
 	leftWidth={{ default: 280, min: 240 }}
 	middleWidth={{ default: 380, min: 240 }}
 	drawerRight={showingActions ? drawerRight : undefined}

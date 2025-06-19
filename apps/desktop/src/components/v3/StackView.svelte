@@ -268,7 +268,7 @@
 										</div>
 									{:else if isCommitting}
 										<div class="message-editor" data-testid={TestId.NewCommitView}>
-											<NewCommitView {projectId} stackId={stack.id} noDrawer />
+											<NewCommitView {projectId} stackId={stack.id} />
 										</div>
 									{/if}
 								</div>

@@ -16,13 +16,11 @@
 
 	type Props = {
 		el?: HTMLButtonElement;
-		scrollerEl?: HTMLDivElement;
 		projectId: string;
 		stackId?: string;
-		noStacks: boolean;
 	};
 
-	let { el = $bindable(), scrollerEl, projectId, stackId, noStacks }: Props = $props();
+	let { projectId, stackId }: Props = $props();
 	const [stackService, uiState, uncommittedService] = inject(
 		StackService,
 		UiState,
@@ -84,23 +82,6 @@
 
 	const isAddingNew = $derived(stackCreation.current.isLoading || branchCreation.current.isLoading);
 
-	function handleArrowNavigation(event: KeyboardEvent) {
-		if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
-			event.preventDefault();
-			const target = scrollerEl as HTMLDivElement;
-			// first child
-			const firstChild = target.firstElementChild as HTMLButtonElement;
-			// last child
-			const lastChild = target.lastElementChild as HTMLButtonElement;
-
-			if (event.key === 'ArrowRight') {
-				firstChild.focus();
-			} else if (event.key === 'ArrowLeft') {
-				lastChild.focus();
-			}
-		}
-	}
-
 	async function showAndPrefillName() {
 		createRefModal?.show();
 		createRefName = (await stackService.newBranchName(projectId))?.data ?? '';
@@ -119,7 +100,6 @@
 					uncommittedService.checkAll(null);
 				}}
 				icon="commit"
-				onkeydown={handleArrowNavigation}
 				testId={TestId.CommitToNewBranchButton}
 				kind="outline"
 			>
@@ -132,7 +112,6 @@
 		<Button
 			type="button"
 			onclick={() => showAndPrefillName()}
-			onkeydown={handleArrowNavigation}
 			testId={TestId.CreateStackButton}
 			kind="outline"
 			icon="plus-small"
@@ -173,13 +152,12 @@
 			<!-- Option 2 -->
 			<label
 				for="new-dependent"
-				class="radio-label"
-				class:disabled={noStacks}
+				class="radio-label disabled"
 				class:radio-selected={createRefType === 'dependent'}
 			>
 				<div class="radio-btn">
 					<RadioButton
-						disabled={noStacks}
+						disabled
 						name="create-new"
 						id="new-dependent"
 						onchange={handleOptionSelect}
