@@ -1,4 +1,4 @@
-import { ActionListing, ButlerAction } from '$lib/actions/types';
+import { ActionListing, ButlerAction, Workflow, WorkflowList } from '$lib/actions/types';
 import { invoke } from '$lib/backend/ipc';
 import { Snapshot, type Operation } from '$lib/history/types';
 import { plainToInstance } from 'class-transformer';
@@ -8,8 +8,9 @@ export class Feed {
 	private oplogBuffer: Snapshot[] = [];
 	private oplogCursor: string | undefined = undefined;
 	private actionsBuffer: ButlerAction[] = [];
+	private workflowsBuffer: Workflow[] = [];
 
-	readonly combined = writable<(Snapshot | ButlerAction)[]>([], (set) => {
+	readonly combined = writable<(Snapshot | ButlerAction | Workflow)[]>([], (set) => {
 		this.fetch();
 		return () => {
 			set([]);
@@ -23,6 +24,13 @@ export class Feed {
 		return (
 			this.actionsBuffer.length +
 			get(this.combined).filter((entry) => entry instanceof ButlerAction).length
+		);
+	}
+
+	private workflowsOffset(): number {
+		return (
+			this.workflowsBuffer.length +
+			get(this.combined).filter((entry) => entry instanceof Workflow).length
 		);
 	}
 
@@ -43,29 +51,42 @@ export class Feed {
 			);
 			this.actionsBuffer.push(...moreActions);
 		}
+		// If the workflows buffer has less than n entries, we need to fetch more workflows.
+		if (this.workflowsBuffer.length < n) {
+			const moreWorkflows = await this.fetchWorkflows(
+				n - this.workflowsBuffer.length,
+				this.workflowsOffset()
+			);
+			this.workflowsBuffer.push(...moreWorkflows);
+		}
 
 		// Then, create a combined feed list with n entries, maintaining the sorting by time and consuming items from the buffers.
 		// Since the combined feed has the same n, not all entries will be consumed from both buffers.
 		for (let i = 0; i < n; i++) {
-			if (this.oplogBuffer.length === 0 && this.actionsBuffer.length === 0) {
+			if (
+				this.oplogBuffer.length === 0 &&
+				this.actionsBuffer.length === 0 &&
+				this.workflowsBuffer.length === 0
+			) {
 				break; // No more entries to consume.
 			}
 			const firstOplog = this.oplogBuffer[0];
 			const firstAction = this.actionsBuffer[0];
-			if (firstOplog && firstAction) {
-				if (firstOplog.createdAt >= firstAction.createdAt) {
-					this.combined.update((entries) => [...entries, firstOplog]);
+			const firstWorkflow = this.workflowsBuffer[0];
+
+			const mostRecent = [firstOplog, firstAction, firstWorkflow]
+				.filter((item) => item !== undefined)
+				.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+			if (mostRecent) {
+				this.combined.update((entries) => [...entries, mostRecent]);
+				// Shift the corresponding buffer, based on the type of the earliest entry.
+				if (mostRecent instanceof Snapshot) {
 					this.oplogBuffer.shift(); // Consume the oplog entry.
-				} else {
-					this.combined.update((entries) => [...entries, firstAction]);
+				} else if (mostRecent instanceof ButlerAction) {
 					this.actionsBuffer.shift(); // Consume the action entry.
+				} else if (mostRecent instanceof Workflow) {
+					this.workflowsBuffer.shift(); // Consume the workflow entry.
 				}
-			} else if (firstOplog) {
-				this.combined.update((entries) => [...entries, firstOplog]);
-				this.oplogBuffer.shift(); // Consume the oplog entry.
-			} else if (firstAction) {
-				this.combined.update((entries) => [...entries, firstAction]);
-				this.actionsBuffer.shift(); // Consume the action entry.
 			}
 		}
 	}
@@ -94,5 +115,15 @@ export class Feed {
 		});
 		const actions = plainToInstance(ActionListing, listing).actions;
 		return actions;
+	}
+
+	private async fetchWorkflows(count: number, offset: number) {
+		const listing = await invoke<any>('list_workflows', {
+			projectId: this.projectId,
+			offset: offset,
+			limit: count
+		});
+		const workflows = plainToInstance(WorkflowList, listing).workflows;
+		return workflows;
 	}
 }

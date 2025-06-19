@@ -40,3 +40,42 @@ export class ActionListing {
 	@Type(() => ButlerAction)
 	actions!: ButlerAction[];
 }
+
+export type WorkflowKind = 'Reword';
+
+export type Trigger =
+	| { readonly type: 'Manual' }
+	| { readonly type: 'Snapshot'; readonly subject: string }
+	| { readonly type: 'Unknown' };
+
+export type Status =
+	| { readonly type: 'Completed' }
+	| { readonly type: 'Failed'; readonly subject: string }
+	| { readonly type: 'Interupted'; readonly subject: string };
+
+/** Represents a workflow that was executed by GitButler. */
+export class Workflow {
+	/** UUID identifier of the workflow */
+	id!: string;
+	/** The time when the workflow was captured. */
+	@Transform((obj) => new Date(obj.value))
+	createdAt!: Date;
+	/** The name of the workflow that was performed */
+	kind!: WorkflowKind;
+	/** The trigger that initiated the workflow. */
+	triggeredBy!: Trigger;
+	/** The status of the workflow. */
+	status!: Status;
+	/** Input commits */
+	inputCommits!: string[];
+	/** Output commits */
+	outputCommits!: string[];
+	/** Optional summary of the workflow */
+	summary?: string;
+}
+
+export class WorkflowList {
+	total!: number;
+	@Type(() => Workflow)
+	workflows!: Workflow[];
+}
