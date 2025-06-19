@@ -30,6 +30,13 @@ export const MOCK_STACK_BRAND_NEW: Stack = {
 	tip: '1234123'
 };
 
+export function createMockStack(override: Partial<Stack>): Stack {
+	return {
+		...MOCK_STACK_A,
+		...override
+	};
+}
+
 export const MOCK_STACKS: Stack[] = [MOCK_STACK_A];
 
 export const MOCK_AUTHOR: Author = {
@@ -432,5 +439,48 @@ export function isCreateBranchParams(params: unknown): params is CreateBranchPar
 		((params.request as any).targetPatch === undefined ||
 			typeof (params.request as any).targetPatch === 'string') &&
 		typeof (params.request as any).name === 'string'
+	);
+}
+
+type BranchParams = {
+	name?: string;
+	ownership?: string;
+	order?: number;
+	allow_rebasing?: boolean;
+	notes?: string;
+	selected_for_changes?: boolean;
+};
+
+function isBranchParams(params: unknown): params is BranchParams {
+	return (
+		typeof params === 'object' &&
+		params !== null &&
+		((params as BranchParams).name === undefined ||
+			typeof (params as BranchParams).name === 'string') &&
+		((params as BranchParams).ownership === undefined ||
+			typeof (params as BranchParams).ownership === 'string') &&
+		((params as BranchParams).order === undefined ||
+			typeof (params as BranchParams).order === 'number') &&
+		((params as BranchParams).allow_rebasing === undefined ||
+			typeof (params as BranchParams).allow_rebasing === 'boolean') &&
+		((params as BranchParams).notes === undefined ||
+			typeof (params as BranchParams).notes === 'string') &&
+		((params as BranchParams).selected_for_changes === undefined ||
+			typeof (params as BranchParams).selected_for_changes === 'boolean')
+	);
+}
+export type CreateStackParams = {
+	projectId: string;
+	branch: BranchParams;
+};
+
+export function isCreateStackParams(params: unknown): params is CreateStackParams {
+	return (
+		typeof params === 'object' &&
+		params !== null &&
+		'projectId' in params &&
+		typeof (params as CreateStackParams).projectId === 'string' &&
+		'branch' in params &&
+		isBranchParams((params as CreateStackParams).branch)
 	);
 }
