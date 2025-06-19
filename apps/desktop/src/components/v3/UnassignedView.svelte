@@ -22,6 +22,7 @@
 	const [uiState, uncommittedService] = inject(UiState, UncommittedService);
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
+	const isCommitting = $derived(exclusiveAction?.type === 'commit');
 	let isScrollable = $state<boolean>(false);
 
 	const treeChanges = $derived(uncommittedService.changesByStackId(null));
@@ -60,15 +61,20 @@
 			<Button
 				type="button"
 				wide
+				disabled={isCommitting}
 				onclick={() => {
 					projectState.exclusiveAction.set({ type: 'commit' });
 					uncommittedService.checkAll(null);
 				}}
-				icon="amend-commit"
+				icon={isCommitting ? undefined : 'plus-small'}
 				testId={TestId.CommitToNewBranchButton}
 				kind="outline"
 			>
-				Commit to new branch
+				{#if isCommitting}
+					Committing…
+				{:else}
+					Commit to new branch
+				{/if}
 			</Button>
 		</div>
 	{/if}
