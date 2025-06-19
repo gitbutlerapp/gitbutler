@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import BranchCard from '$components/v3/BranchCard.svelte';
 	import CommitGoesHere from '$components/v3/CommitGoesHere.svelte';
@@ -50,29 +51,33 @@
 	class="draft-stack"
 	style:width={uiState.global.stackWidth.current + 'rem'}
 >
-	<div class="new-commit-view" data-testid={TestId.NewCommitView}>
-		<NewCommitView {projectId} />
-	</div>
-	<BranchCard
-		type="draft-branch"
-		{projectId}
-		{branchName}
-		readonly={false}
-		lineColor="var(--clr-commit-local)"
-	>
-		{#snippet branchContent()}
-			<CommitGoesHere selected last />
-		{/snippet}
-	</BranchCard>
-	<Resizer
-		persistId="resizer-darft-panel"
-		viewport={draftPanelEl}
-		direction="right"
-		minWidth={16}
-		maxWidth={64}
-		syncName="panel1"
-		dblclickSize
-	/>
+	<ConfigurableScrollableContainer>
+		<div class="draft-stack__scroll-wrap">
+			<div class="new-commit-view" data-testid={TestId.NewCommitView}>
+				<NewCommitView {projectId} />
+			</div>
+			<BranchCard
+				type="draft-branch"
+				{projectId}
+				{branchName}
+				readonly={false}
+				lineColor="var(--clr-commit-local)"
+			>
+				{#snippet branchContent()}
+					<CommitGoesHere selected last />
+				{/snippet}
+			</BranchCard>
+			<Resizer
+				persistId="resizer-darft-panel"
+				viewport={draftPanelEl}
+				direction="right"
+				minWidth={16}
+				maxWidth={64}
+				syncName="panel1"
+				dblclickSize
+			/>
+		</div>
+	</ConfigurableScrollableContainer>
 </div>
 
 <style lang="postcss">
@@ -81,8 +86,12 @@
 		position: relative;
 		flex-shrink: 0;
 		flex-direction: column;
-		padding: 12px;
+
 		border-right: 1px solid var(--clr-border-2);
+	}
+	.draft-stack__scroll-wrap {
+		position: relative;
+		padding: 12px;
 	}
 	.new-commit-view {
 		margin-bottom: 12px;
