@@ -128,10 +128,5 @@ describe('Branch Actions', () => {
 		cy.getByTestId('branch-header-add-dependent-branch-modal-action-button')
 			.should('be.visible')
 			.click();
-
-		// The dependent branch should be visible in the list header
-		cy.getByTestId('branch-header', dependentBranchName)
-			.should('be.visible')
-			.should('have.class', 'selected');
 	});
 });

@@ -7,7 +7,6 @@
 
 <script lang="ts">
 	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 
 	import { inject } from '@gitbutler/shared/context';
@@ -19,14 +18,13 @@
 
 	const { projectId, stackId }: AddDependentBranchModalProps = $props();
 
-	const [stackService, uiState] = inject(StackService, UiState);
+	const [stackService] = inject(StackService);
 	const [createNewBranch, branchCreation] = stackService.newBranch;
 
 	let modal = $state<Modal>();
 	let branchName = $state<string>();
 
 	const slugifiedRefName = $derived(branchName && slugify(branchName));
-	const stackState = $derived(uiState.stack(stackId));
 
 	async function handleAddDependentBranch(close: () => void) {
 		if (!slugifiedRefName) return;
@@ -38,11 +36,6 @@
 				targetPatch: undefined,
 				name: slugifiedRefName
 			}
-		});
-
-		stackState.selection.set({
-			branchName: slugifiedRefName,
-			commitId: undefined
 		});
 
 		close();
