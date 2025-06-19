@@ -1,0 +1,3 @@
+ancestorEntries = ["apps/desktop/cypress/e2e/branchActions.cy.ts"]
+ourEntries = ["apps/desktop/cypress/e2e/branchActions.cy.ts"]
+theirEntries = ["apps/desktop/cypress/e2e/branchActions.cy.ts"]

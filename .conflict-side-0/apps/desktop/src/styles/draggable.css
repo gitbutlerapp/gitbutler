@@ -1,0 +1,235 @@
+/* DRAG CHIPS.
+ * General styles
+ * Basic container for single and multiple items */
+.dragchip-container {
+	display: flex;
+	position: absolute;
+}
+
+.dragchip {
+	display: flex;
+	z-index: 3;
+	position: relative;
+	min-width: 50px;
+	max-width: 250px;
+	border: 1px solid var(--clr-border-2);
+	border-radius: var(--radius-m);
+	background-color: var(--clr-bg-1);
+}
+
+.dragchip-amount {
+	display: flex;
+	position: absolute;
+	top: -6px;
+	right: -8px;
+	align-items: center;
+	justify-content: center;
+	min-width: 16px;
+	margin-left: 5px;
+	padding: 2px 4px;
+	border-radius: 16px;
+	background-color: var(--clr-scale-ntrl-20);
+	color: var(--clr-scale-ntrl-100);
+}
+
+/* if dragging more then one item */
+.dragchip-two:after,
+.dragchip-multiple:before,
+.dragchip-multiple:after {
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	border: 1px solid var(--clr-border-2);
+	border-radius: var(--radius-m);
+	background-color: var(--clr-bg-2);
+	content: '';
+}
+
+.dragchip-two {
+	&::after {
+		z-index: 2;
+		top: 6px;
+		left: 6px;
+	}
+}
+
+.dragchip-multiple {
+	&::before {
+		z-index: 2;
+		top: 6px;
+		left: 6px;
+	}
+
+	&::after {
+		z-index: 1;
+		top: 12px;
+		left: 12px;
+	}
+}
+
+/* FILE DRAG */
+.dragchip-file-container {
+	display: flex;
+	position: relative;
+	align-items: center;
+	padding: 8px;
+	gap: 6px;
+}
+
+.dragchip-file-name {
+	color: var(--clr-text-1);
+}
+
+.dragchip-file-icon {
+	width: 16px;
+	height: 16px;
+}
+
+/* Hunk drag */
+.dragchip-hunk-container {
+	display: flex;
+	font-size: 12px;
+	font-family: var(--fontfamily-mono);
+}
+
+.dragchip-hunk-decorator {
+	padding: 6px 5px;
+	border-right: 1px solid var(--clr-border-2);
+	border-radius: var(--radius-m) 0 0 var(--radius-m);
+	background-color: var(--clr-bg-2);
+	color: var(--clr-text-2);
+	font-variant-ligatures: none;
+	letter-spacing: -1px;
+}
+
+.dragchip-hunk-label {
+	padding: 6px 7px;
+}
+
+/* COMMIT DRAG CARD */
+.draggable-commit {
+	display: flex;
+	position: absolute;
+	flex-direction: column;
+	padding: 12px 12px 12px 16px;
+	overflow: hidden;
+	gap: 8px;
+	border: 1px solid var(--clr-border-2);
+	border-radius: var(--radius-m);
+	background-color: var(--clr-bg-1);
+}
+
+.draggable-commit-indicator {
+	&::before {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 4px;
+		height: 100%;
+		content: '';
+	}
+}
+
+.draggable-commit-localAndRemote {
+	&::before {
+		background-color: var(--clr-commit-remote);
+	}
+}
+
+.draggable-commit-local {
+	color: var(--clr-text-1);
+	&::before {
+		background-color: var(--clr-commit-local);
+	}
+}
+
+.draggable-commit-integrated {
+	color: var(--clr-text-1);
+	&::before {
+		background-color: var(--clr-commit-shadow);
+	}
+}
+
+.draggable-commit-author-img {
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+}
+
+.draggable-commit-info {
+	display: flex;
+	align-items: center;
+}
+
+.draggable-commit-info-text {
+	overflow: hidden;
+	color: var(--clr-text-2);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+
+	&:not(:first-child):before {
+		margin: 0 5px;
+		content: '•';
+		color: var(--clr-text-3);
+	}
+}
+
+/* COMMIT DRAG CARD V3 */
+.draggable-commit-v3 {
+	display: flex;
+	position: absolute;
+	align-items: center;
+	min-width: 50px;
+	max-width: 250px;
+	height: 36px;
+	padding: 0 10px;
+	overflow: hidden;
+	gap: 10px;
+	border: 1px solid var(--clr-border-2);
+	border-radius: var(--radius-m);
+	background-color: var(--clr-bg-1);
+
+	&::before {
+		z-index: 1;
+		position: absolute;
+		top: 0;
+		left: 14px;
+		width: 2px;
+		height: 100%;
+		background-color: var(--commit-color);
+		content: '';
+	}
+}
+
+.draggable-commit-v3-indicator {
+	z-index: 2;
+	flex-shrink: 0;
+	width: 10px;
+	height: 10px;
+	outline: 3px solid var(--clr-bg-1);
+	background-color: var(--commit-color);
+}
+
+.draggable-commit-v3-local {
+	& .draggable-commit-v3-indicator {
+		border-radius: 50%;
+	}
+}
+
+.draggable-commit-v3-remote {
+	& .draggable-commit-v3-indicator {
+		transform: rotate(45deg) scale(0.9);
+		border-radius: 2px;
+	}
+}
+
+@keyframes dropzone-scale {
+	from {
+		transform: scale(0.96);
+		opacity: 0;
+	}
+	to {
+		transform: scale(1);
+		opacity: 1;
+	}
+}
