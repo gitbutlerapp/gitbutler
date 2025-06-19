@@ -55,6 +55,7 @@ describe('Commit Actions', () => {
 			.should('have.value', originalCommitMessage)
 			.should('be.visible')
 			.should('be.enabled')
+			.should('be.focused')
 			.clear()
 			.type(newCommitMessageTitle); // Type the new commit message title
 
@@ -112,6 +113,7 @@ describe('Commit Actions', () => {
 		cy.getByTestId('commit-drawer-title-input')
 			.should('have.value', originalCommitMessage)
 			.should('be.visible')
+			.should('be.focused')
 			.should('be.enabled');
 
 		// Type in a description
@@ -169,6 +171,7 @@ describe('Commit Actions', () => {
 			.should('have.value', originalCommitMessage)
 			.should('be.visible')
 			.should('be.enabled')
+			.should('be.focused')
 			.clear()
 			.type(newCommitTitle); // Type the new commit message title
 
@@ -275,6 +278,7 @@ describe('Commit Actions', () => {
 			.should('have.value', originalCommitMessage)
 			.should('be.visible')
 			.should('be.enabled')
+			.should('be.focused')
 			.clear()
 			.type(newCommitMessageTitle); // Type the new commit message title
 
@@ -359,6 +363,7 @@ describe('Commit Actions', () => {
 			.should('have.value', originalCommitMessage)
 			.should('be.visible')
 			.should('be.enabled')
+			.should('be.focused')
 			.clear()
 			.type(newCommitMessageTitle); // Type the new commit message title
 	});
@@ -397,6 +402,7 @@ describe('Commit Actions', () => {
 		cy.getByTestId('commit-drawer-title-input')
 			.should('be.visible')
 			.should('be.enabled')
+			.should('be.focused')
 			.type(newCommitMessage); // Type the new commit message
 
 		// Type in a description
@@ -560,7 +566,7 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 			// Should open the commit rename drawer
 			cy.getByTestId('edit-commit-message-drawer').should('be.visible');
 
-			// Should have the original commit message, and be focused
+			// Should have the original commit message
 			cy.getByTestId('commit-drawer-title-input')
 				.should('have.value', commitTitle)
 				.should('be.visible')
@@ -670,6 +676,7 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 				.should('have.value', commitTitle)
 				.should('be.visible')
 				.should('be.enabled')
+				.should('be.focused')
 				.clear()
 				.type(newCommitTitle); // Type the new commit message title
 
@@ -985,6 +992,7 @@ describe('Commit Actions with a stack of two empty branches', () => {
 		cy.getByTestId('commit-drawer-title-input')
 			.should('be.visible')
 			.should('be.enabled')
+			.should('be.focused')
 			.should('have.value', '')
 			.type(commitTitle); // Type the new commit message
 
