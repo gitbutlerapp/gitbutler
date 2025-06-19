@@ -2,6 +2,7 @@ import { clearCommandMocks, mockCommand } from './support';
 import MockBackend from './support/mock/backend';
 import { PROJECT_ID } from './support/mock/projects';
 import LotsOfFileChanges from './support/scenarios/lotsOfFileChanges';
+import StackWithTwoEmptyBranches from './support/scenarios/stackWithTwoEmptyBranches';
 
 describe('Commit Actions', () => {
 	let mockBackend: MockBackend;
@@ -911,5 +912,69 @@ describe('Commit Actions with no stacks', () => {
 
 		// Should never get the diff information, because there are no partial changes being committed.
 		expect(mockBackend.getDiff).to.have.callCount(0);
+	});
+});
+
+describe('Commit Actions with a stack of two empty branches', () => {
+	let mockBackend: StackWithTwoEmptyBranches;
+
+	beforeEach(() => {
+		mockBackend = new StackWithTwoEmptyBranches();
+		mockCommand('stacks', () => mockBackend.getStacks());
+		mockCommand('create_virtual_branch', () => mockBackend.createBranch());
+		mockCommand('canned_branch_name', () => mockBackend.getCannedBranchName());
+		mockCommand('stack_details', (params) => mockBackend.getStackDetails(params));
+		mockCommand('update_commit_message', (params) => mockBackend.updateCommitMessage(params));
+		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
+		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
+		mockCommand('commit_details', (params) => mockBackend.getCommitChanges(params));
+		mockCommand('create_commit_from_worktree_changes', (params) =>
+			mockBackend.createCommit(params)
+		);
+		mockCommand('normalize_branch_name', (params) => {
+			if (!params) return '';
+			if ('name' in params && typeof params.name === 'string') {
+				return params.name;
+			}
+		});
+		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
+
+		cy.visit('/');
+
+		cy.urlMatches(`/${PROJECT_ID}/workspace`);
+	});
+
+	it('Should be able to commit to the top-most branch', () => {
+		// There should be two branches in the stack
+		cy.getByTestId('branch-card').should('have.length', 2);
+		cy.get(`[data-series-name="${mockBackend.firstBranchName}"]`).should('be.visible');
+		cy.get(`[data-series-name="${mockBackend.secondBranchName}"]`).should('be.visible');
+
+		// There should be uncommitted changes
+		cy.getByTestId('uncommitted-changes-file-list').should('be.visible');
+
+		const fileNames = mockBackend.getWorktreeChangesFileNames();
+
+		expect(fileNames).to.have.length(1);
+
+		const fileName = fileNames[0]!;
+
+		cy.getByTestId('file-list-item').first().should('be.visible').should('contain', fileName);
+
+		// Click on the commit button
+		cy.getByTestId('start-commit-button').should('be.visible').should('be.enabled').click();
+
+		// Should open the new commit drawer
+		cy.getByTestId('new-commit-view').should('be.visible');
+
+		// Should have the "Your commit goes here" text only once, in the top-most branch
+		cy.get(`[data-series-name="${mockBackend.firstBranchName}"]`).within(() => {
+			cy.getByTestId('your-commit-goes-here').should('be.visible').should('have.length', 1);
+		});
+
+		// The second branch should not have the "Your commit goes here" text
+		cy.get(`[data-series-name="${mockBackend.secondBranchName}"]`).within(() => {
+			cy.getByTestId('your-commit-goes-here').should('not.exist');
+		});
 	});
 });
