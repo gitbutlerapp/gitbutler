@@ -29,6 +29,10 @@ export type Stack = {
 	 * The commit hash of the tip of the stack.
 	 */
 	tip: string;
+	/**
+	 * Zero-based index for sorting the stacks.
+	 */
+	order: number;
 };
 
 /**

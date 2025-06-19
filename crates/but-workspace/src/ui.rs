@@ -86,6 +86,8 @@ pub struct StackEntry {
     /// The tip of the top-most branch, i.e., the most recent commit that would become the parent of new commits of the topmost stack branch.
     #[serde(with = "gitbutler_serde::object_id")]
     pub tip: gix::ObjectId,
+    /// The zero-based index for sorting stacks.
+    pub order: Option<usize>,
 }
 
 impl StackEntry {
@@ -103,6 +105,7 @@ impl StackEntry {
             id: stack.id,
             heads: crate::stack_heads_info(stack, repo)?,
             tip: stack.head_oid(repo)?,
+            order: Some(stack.order),
         })
     }
 }

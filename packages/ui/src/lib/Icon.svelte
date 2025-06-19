@@ -15,6 +15,7 @@
 		opacity?: number | undefined;
 		spinnerRadius?: number | undefined;
 		size?: number;
+		rotate?: number | undefined;
 		verticalAlign?: string;
 	}
 
@@ -24,6 +25,7 @@
 		opacity = 1,
 		spinnerRadius = 5,
 		size = 16,
+		rotate = undefined,
 		verticalAlign
 	}: Props = $props();
 </script>
@@ -40,6 +42,7 @@
 	style:fill-opacity={opacity}
 	style:width="{pxToRem(size)}rem"
 	style:height="{pxToRem(size)}rem"
+	style:transform={rotate ? `rotate(${rotate}deg)` : undefined}
 	style:vertical-align={verticalAlign}
 	style="--spinner-radius: {spinnerRadius}"
 >

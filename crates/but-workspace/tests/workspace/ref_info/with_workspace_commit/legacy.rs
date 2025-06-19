@@ -61,6 +61,7 @@ mod stacks {
                     },
                 ],
                 tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
+                order: None,
             },
             StackEntry {
                 id: 00000000-0000-0000-0000-000000000001,
@@ -71,6 +72,7 @@ mod stacks {
                     },
                 ],
                 tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
+                order: None,
             },
         ]
         "#);
@@ -92,6 +94,7 @@ mod stacks {
                     },
                 ],
                 tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
+                order: None,
             },
             StackEntry {
                 id: 00000000-0000-0000-0000-000000000001,
@@ -102,6 +105,7 @@ mod stacks {
                     },
                 ],
                 tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
+                order: None,
             },
         ]
         "#);
@@ -130,6 +134,7 @@ mod stacks {
                     },
                 ],
                 tip: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                order: None,
             },
         ]
         "#);

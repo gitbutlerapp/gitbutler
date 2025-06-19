@@ -112,6 +112,7 @@ fn try_from_stack_v3(
             .map(|h| h.tip)
             .unwrap_or(repo.object_hash().null()),
         heads,
+        order: None,
     })
 }
 
@@ -167,6 +168,7 @@ pub fn stacks_v3(
                     tip,
                 }],
                 tip,
+                order: None,
             })
         }
         Ok(out)
