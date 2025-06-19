@@ -22,22 +22,17 @@
 	}: Props = $props();
 
 	let charsCount = $derived(value.length);
-
-	function stopPropagation(e: MouseEvent) {
-		e.stopPropagation();
-		e.preventDefault();
-	}
+	const isCharCount = $derived(showCount && value.length > 0);
 </script>
 
 <!-- svelte-ignore a11y_autofocus -->
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="message-editor-input" onclick={stopPropagation} ondblclick={stopPropagation}>
+<div class="message-editor-input">
 	<input
 		data-testid={testId}
 		bind:this={ref}
 		{placeholder}
 		class="text-14 text-semibold text-input"
+		class:right-padding={isCharCount}
 		type="text"
 		autofocus
 		bind:value
@@ -49,7 +44,7 @@
 		onchange={(e) => onchange?.(e.currentTarget.value)}
 		{onkeydown}
 	/>
-	{#if charsCount > 0 && showCount}
+	{#if isCharCount}
 		<div class="text-12 text-semibold message-editor-input__chars-count">
 			<span>{charsCount}</span>
 		</div>
@@ -69,6 +64,10 @@
 		&:focus {
 			z-index: 1;
 		}
+
+		&.right-padding {
+			padding-right: 30px;
+		}
 	}
 
 	.message-editor-input {
@@ -79,29 +78,14 @@
 		z-index: 1;
 		position: absolute;
 		right: 6px;
-		bottom: 50%;
-		padding: 6px;
-		transform: translateY(50%);
+		bottom: 6px;
+		padding: 3px;
 		background-color: var(--clr-bg-1);
 		color: var(--clr-text-2);
+		pointer-events: none;
 
 		& span {
 			opacity: 0.6;
-		}
-
-		&:after {
-			position: absolute;
-			top: 0;
-			left: 0;
-			width: 100%;
-			height: 100%;
-			transform: translateX(-90%);
-			background: linear-gradient(
-				to right,
-				oklch(from var(--clr-bg-1) l c h / 0) 00%,
-				var(--clr-bg-1) 90%
-			);
-			content: '';
 		}
 	}
 </style>
