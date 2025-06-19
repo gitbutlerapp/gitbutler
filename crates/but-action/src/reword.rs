@@ -5,6 +5,9 @@ use but_workspace::{StacksFilter, ui::StackEntry};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::Project;
+use uuid::Uuid;
+
+use crate::workflow::{self, Workflow};
 
 #[derive(Debug, Clone)]
 pub struct CommitEvent {
@@ -14,11 +17,12 @@ pub struct CommitEvent {
     pub external_prompt: String,
     pub branch_name: String,
     pub commit_id: gix::ObjectId,
+    pub trigger: Uuid,
 }
 
 #[allow(unused)]
 pub async fn commit(client: &Client<OpenAIConfig>, event: CommitEvent) -> anyhow::Result<()> {
-    let ctx = CommandContext::open(&event.project, event.app_settings)?;
+    let ctx = &mut CommandContext::open(&event.project, event.app_settings)?;
     let repo = &ctx.gix_repo_for_merging_non_persisting()?;
     let changes = but_core::diff::ui::commit_changes_by_worktree_dir(repo, event.commit_id)?;
     let diff = changes.try_as_unidiff_string(repo, ctx.app_settings().context_lines)?;
@@ -29,18 +33,37 @@ pub async fn commit(client: &Client<OpenAIConfig>, event: CommitEvent) -> anyhow
         &diff,
     )
     .await?;
-    let stacks = stacks(&ctx)?;
+    let stacks = stacks(ctx)?;
     let stack_id = stacks
         .iter()
         .find(|s| s.heads.iter().any(|h| h.name == event.branch_name))
         .map(|s| s.id)
         .ok_or_else(|| anyhow::anyhow!("Stack with name '{}' not found", event.branch_name))?;
-    let new_commit_oid = gitbutler_branch_actions::update_commit_message(
-        &ctx,
+    let result = gitbutler_branch_actions::update_commit_message(
+        ctx,
         stack_id,
         event.commit_id.to_git2(),
         &message,
-    )?;
+    );
+    let status = match &result {
+        Ok(_) => workflow::Status::Completed,
+        Err(e) => workflow::Status::Failed(e.to_string()),
+    };
+    let output_commits = match &result {
+        Ok(_) => vec![event.commit_id],
+        Err(_) => vec![],
+    };
+
+    Workflow::new(
+        workflow::Kind::Reword,
+        workflow::Trigger::Snapshot(event.trigger),
+        status,
+        vec![event.commit_id],
+        output_commits,
+        None,
+    )
+    .persist(ctx);
+
     Ok(())
 }
 

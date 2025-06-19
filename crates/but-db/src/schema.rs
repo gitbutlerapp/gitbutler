@@ -15,11 +15,23 @@ diesel::table! {
         external_prompt -> Nullable<Text>,
         external_summary -> Text,
         handler -> Text,
-        handler_prompt -> Nullable<Text>,
         snapshot_before -> Text,
         snapshot_after -> Text,
         response -> Nullable<Text>,
         error -> Nullable<Text>,
         source -> Nullable<Text>,
+    }
+}
+
+diesel::table! {
+    workflows (id) {
+        id -> Text,
+        created_at -> Timestamp,
+        kind -> Text,
+        triggered_by -> Text,
+        status -> Text,
+        input_commits -> Text,
+        output_commits -> Text,
+        summary -> Nullable<Text>,
     }
 }

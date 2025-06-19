@@ -287,6 +287,7 @@ fn main() {
                     settings::update_telemetry_distinct_id,
                     action::list_actions,
                     action::handle_changes,
+                    action::list_workflows,
                     cli::install_cli,
                     cli::cli_path,
                     workspace::stacks,

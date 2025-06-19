@@ -21,11 +21,15 @@ mod openai;
 pub mod reword;
 mod serialize;
 mod simple;
+mod workflow;
 pub use action::ActionListing;
 pub use action::Source;
 pub use action::list_actions;
 use but_graph::VirtualBranchesTomlMetadata;
 use strum::EnumString;
+use uuid::Uuid;
+pub use workflow::WorkflowList;
+pub use workflow::list_workflows;
 
 pub fn handle_changes(
     ctx: &mut CommandContext,
@@ -34,7 +38,7 @@ pub fn handle_changes(
     external_prompt: Option<String>,
     handler: ActionHandler,
     source: Source,
-) -> anyhow::Result<Outcome> {
+) -> anyhow::Result<(Uuid, Outcome)> {
     match handler {
         ActionHandler::HandleChangesSimple => {
             simple::handle_changes(ctx, openai, change_summary, external_prompt, source)

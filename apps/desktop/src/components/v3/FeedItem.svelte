@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ButlerAction, type Outcome } from '$lib/actions/types';
+	import { ButlerAction, Workflow, type Outcome } from '$lib/actions/types';
 	import { Snapshot } from '$lib/history/types';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -14,7 +14,7 @@
 
 	type Props = {
 		projectId: string;
-		action: ButlerAction | Snapshot;
+		action: ButlerAction | Snapshot | Workflow;
 		last: boolean;
 		loadNextPage: () => void;
 	};
@@ -147,6 +147,15 @@
 			{#if last}
 				<div bind:this={lastIntersector}></div>
 			{/if}
+		</div>
+	{:else if action instanceof Workflow}
+		<div>
+			Workflow {action.id}
+			{action.createdAt}
+			{JSON.stringify(action.triggeredBy)}
+			{JSON.stringify(action.status)}
+			{JSON.stringify(action.inputCommits)}
+			{JSON.stringify(action.outputCommits)}
 		</div>
 	{/if}
 </div>

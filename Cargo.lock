@@ -764,6 +764,7 @@ dependencies = [
  "gitbutler-serde",
  "gitbutler-stack",
  "gix",
+ "itertools",
  "reqwest 0.12.18",
  "rmcp",
  "schemars 0.9.0",

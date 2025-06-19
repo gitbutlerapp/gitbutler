@@ -21,8 +21,6 @@ pub struct ButlerAction {
     pub external_summary: String,
     /// The handler / implementation that performed the action.
     pub handler: String,
-    /// An optional prompt that was used by the handler to perform the action, if applicable.
-    pub handler_prompt: Option<String>,
     /// A GitBulter Oplog snapshot ID (git oid) before the action was performed.
     pub snapshot_before: String,
     /// A GitBulter Oplog snapshot ID (git oid) after the action was performed.

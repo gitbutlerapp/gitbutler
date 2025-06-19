@@ -18,6 +18,7 @@ schemars = "0.9.0"
 serde_json = "1.0.138"
 anyhow = "1.0.98"
 chrono = "0.4.41"
+itertools = "0.14.0"
 secrecy = "0.10.3"
 uuid = { workspace = true }
 strum = { version = "0.27", features = ["derive"] }

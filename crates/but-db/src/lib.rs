@@ -11,6 +11,8 @@ pub use hunk_assignments::HunkAssignment;
 mod butler_actions;
 pub use butler_actions::ButlerAction;
 mod schema;
+mod workflows;
+pub use workflows::Workflow;
 
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("./migrations");
