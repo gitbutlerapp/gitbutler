@@ -313,6 +313,6 @@
 
 	.review-wrapper {
 		padding: 12px;
-		border-bottom: 1px solid var(--clr-border-2);
+		border-top: 1px solid var(--clr-border-2);
 	}
 </style>

@@ -20,6 +20,7 @@
 		onscrollTop?: (visible: boolean) => void;
 		onscrollEnd?: (visible: boolean) => void;
 		onscroll?: (e: Event) => void;
+		onscrollexists?: (exists: boolean) => void;
 		viewport?: HTMLDivElement;
 		viewportHeight?: number;
 		/** Top padding, used only with virtual list. */
@@ -44,6 +45,7 @@
 		onscroll,
 		onscrollTop,
 		onscrollEnd,
+		onscrollexists,
 		zIndex,
 		viewport = $bindable(),
 		top,
@@ -122,6 +124,7 @@
 			{thickness}
 			{zIndex}
 			{horz}
+			{onscrollexists}
 			{onthumbdrag}
 		/>
 	</div>

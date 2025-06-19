@@ -18,6 +18,7 @@
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
+
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { type Snippet } from 'svelte';
 	import type { DropzoneHandler } from '$lib/dragging/handler';
@@ -29,9 +30,11 @@
 		title: string;
 		mode?: 'unassigned' | 'assigned';
 		dropzoneVisible?: boolean;
+		overflow?: boolean;
 		onDropzoneActivated?: (activated: boolean) => void;
 		emptyPlaceholder?: Snippet;
 		onselect?: () => void;
+		onscrollexists?: (exists: boolean) => void;
 	};
 
 	let {
@@ -41,10 +44,11 @@
 		title,
 		mode = 'unassigned',
 		dropzoneVisible,
+		overflow,
 		onDropzoneActivated,
 		emptyPlaceholder,
-
-		onselect
+		onselect,
+		onscrollexists
 	}: Props = $props();
 
 	const [uiState, stackService, diffService, uncommittedService, idSelection] = inject(
@@ -116,6 +120,7 @@
 	handlers={[uncommitDzHandler, assignmentDZHandler].filter(isDefined)}
 	maxHeight
 	onActivated={onDropzoneActivated}
+	{overflow}
 >
 	{#snippet overlay({ hovered, activated, handler })}
 		<CardOverlay
@@ -156,6 +161,7 @@
 
 		{#if changes.current.length > 0}
 			<ScrollableContainer
+				{onscrollexists}
 				autoScroll={false}
 				onscrollTop={(visible) => {
 					scrollTopIsVisible = visible;
@@ -186,6 +192,7 @@
 		height: 42px;
 		padding: 10px 10px 10px 14px;
 		gap: 8px;
+		border-bottom: 1px solid transparent;
 		background-color: var(--clr-bg-1);
 		text-wrap: nowrap;
 		white-space: nowrap;
@@ -210,6 +217,6 @@
 
 	/* MODIFIERS */
 	.sticked-top {
-		border-bottom: 1px solid var(--clr-border-2);
+		border-bottom-color: var(--clr-border-2);
 	}
 </style>

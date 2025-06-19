@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import BranchCard from '$components/v3/BranchCard.svelte';
 	import CommitGoesHere from '$components/v3/CommitGoesHere.svelte';
@@ -11,9 +12,10 @@
 
 	type Props = {
 		projectId: string;
+		visible?: boolean;
 	};
 
-	const { projectId }: Props = $props();
+	const { projectId, visible }: Props = $props();
 
 	const [uiState, stackService] = inject(UiState, StackService);
 	const draftBranchName = $derived(uiState.global.draftBranchName);
@@ -37,11 +39,9 @@
 	const branchName = $derived(draftBranchName.current || newName);
 
 	onMount(() => {
-		setTimeout(() => {
-			if (draftPanelEl) {
-				draftPanelEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-			}
-		}, 100);
+		if (draftPanelEl) {
+			draftPanelEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		}
 	});
 </script>
 
@@ -61,35 +61,65 @@
 		readonly={false}
 		lineColor="var(--clr-commit-local)"
 	>
-		{#snippet branchContent()}
-			<CommitGoesHere selected last />
-		{/snippet}
-	</BranchCard>
-	<Resizer
-		persistId="resizer-darft-panel"
-		viewport={draftPanelEl}
-		direction="right"
-		minWidth={16}
-		maxWidth={64}
-		syncName="panel1"
-		dblclickSize
-	/>
-</div>
+		<ConfigurableScrollableContainer>
+			<div class="draft-stack__scroll-wrap">
+				<div class="new-commit-view" data-testid={TestId.NewCommitView}>
+					<NewCommitView {projectId} />
+				</div>
+				<BranchCard
+					type="draft-branch"
+					{projectId}
+					{branchName}
+					readonly={false}
+					lineColor="var(--clr-commit-local)"
+				>
+					{#snippet branchContent()}
+						<CommitGoesHere selected last />
+					{/snippet}
+				</BranchCard>
+				<Resizer
+					persistId="resizer-darft-panel"
+					viewport={draftPanelEl}
+					direction="right"
+					minWidth={16}
+					maxWidth={64}
+					syncName="panel1"
+					dblclickSize
+				/>
+			</div>
+		</ConfigurableScrollableContainer>
+	</div>
 
-<style lang="postcss">
-	.draft-stack {
-		display: flex;
-		position: relative;
-		flex-shrink: 0;
-		flex-direction: column;
-		padding: 12px;
-		border-right: 1px solid var(--clr-border-2);
-	}
-	.new-commit-view {
-		margin-bottom: 12px;
-		padding: 12px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-1);
-	}
-</style>
+	<style lang="postcss">
+		.draft-stack {
+			display: flex;
+			position: relative;
+			flex-shrink: 0;
+			flex-direction: column;
+			border-right: 1px solid var(--clr-border-2);
+			animation: appear-in 0.2s ease-in-out forwards;
+		}
+		.draft-stack__scroll-wrap {
+			position: relative;
+			padding: 12px;
+		}
+		.new-commit-view {
+			margin-bottom: 12px;
+			padding: 12px;
+			border: 1px solid var(--clr-border-2);
+			border-radius: var(--radius-ml);
+			background-color: var(--clr-bg-1);
+		}
+
+		@keyframes appear-in {
+			from {
+				transform: translateX(-20px);
+				opacity: 0;
+			}
+			to {
+				transform: translateX(0);
+				opacity: 1;
+			}
+		}
+	</style>
+{/if}

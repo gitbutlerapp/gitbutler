@@ -40,8 +40,15 @@
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 	const isCommitting = $derived(exclusiveAction?.type === 'commit');
+	const isDraftStackVisible = $derived(isCommitting && exclusiveAction?.stackId === undefined);
 
 	const SHOW_PAGINATION_THRESHOLD = 1;
+
+	// $effect(() => {
+	// 	if (lanesScrollableEl && isDraftStackVisible) {
+	// 		lanesScrollableEl.scrollLeft = lanesScrollableEl.scrollWidth;
+	// 	}
+	// });
 </script>
 
 {#if isNotEnoughHorzSpace}
@@ -79,9 +86,7 @@
 		});
 	}}
 >
-	{#if isCommitting && exclusiveAction?.stackId === undefined}
-		<StackDraft {projectId} />
-	{/if}
+	<StackDraft {projectId} visible={isDraftStackVisible} />
 
 	{#each stacks as stack, i}
 		<StackView
@@ -143,7 +148,6 @@
 		margin: 0 -1px;
 		overflow-x: auto;
 		overflow-y: hidden;
-		scroll-snap-type: x proximity;
 	}
 
 	.pagination-container {

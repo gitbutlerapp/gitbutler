@@ -21,6 +21,7 @@
 		onscrollTop?: (visible: boolean) => void;
 		onscrollEnd?: (visible: boolean) => void;
 		onscroll?: (e: Event) => void;
+		onscrollexists?: (exists: boolean) => void;
 	}
 
 	const {
@@ -38,7 +39,8 @@
 		onthumbdrag,
 		onscroll,
 		onscrollTop,
-		onscrollEnd
+		onscrollEnd,
+		onscrollexists
 	}: Props = $props();
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
@@ -62,6 +64,7 @@
 	{onscrollTop}
 	{onscrollEnd}
 	{onscroll}
+	{onscrollexists}
 	whenToShow={$userSettings.scrollbarVisibilityState}
 >
 	{@render children()}

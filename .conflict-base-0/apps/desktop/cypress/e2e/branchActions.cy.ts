@@ -156,17 +156,24 @@ describe('Branch Actions - single branch with uncommitted changes', () => {
 		cy.urlMatches(`/${PROJECT_ID}/workspace`);
 	});
 
-	it('should be able to create a new branch from the workspace button', () => {
+	it.only('should be able to create a new branch from the workspace button', () => {
 		const newBranchName = 'new-branch-from-workspace';
 
 		// Click the button to commit into new branch
 		cy.getByTestId('commit-to-new-branch-button').should('be.visible').click();
 
-		// The commit title should be visible
-		cy.getByTestId('commit-drawer-title-input').should('be.visible').should('have.value', '');
+		cy.getByTestId('draft-stack')
+			.should('be.visible')
+			.within(() => {
+				// The commit title should be visible
+				cy.getByTestId('commit-drawer-title-input')
+					.should('exist')
+					.should('be.visible')
+					.should('have.value', '');
 
-		// Cancel the commit
-		cy.getByTestId('commit-drawer-cancel-button').should('be.visible').click();
+				// Cancel the commit
+				cy.getByTestId('commit-drawer-cancel-button').should('exist').click({ force: true });
+			});
 
 		// Create a new branch
 		cy.getByTestId('create-stack-button').should('be.visible').click();

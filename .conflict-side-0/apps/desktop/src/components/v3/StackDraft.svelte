@@ -7,6 +7,7 @@
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
+	import { onMount } from 'svelte';
 
 	type Props = {
 		projectId: string;
@@ -34,6 +35,14 @@
 	});
 
 	const branchName = $derived(draftBranchName.current || newName);
+
+	onMount(() => {
+		setTimeout(() => {
+			if (draftPanelEl) {
+				draftPanelEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+			}
+		}, 100);
+	});
 </script>
 
 <div

@@ -143,7 +143,7 @@
 	}
 </script>
 
-<div class="commit-message-wrap">
+<div role="presentation" class="commit-message-wrap">
 	<MessageEditorInput
 		testId={TestId.CommitDrawerTitleInput}
 		bind:ref={titleInput}
@@ -155,10 +155,13 @@
 				e.preventDefault();
 				emitAction();
 			}
-
 			if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
 				e.preventDefault();
 				composer?.focus();
+			}
+			if (e.key === 'Escape') {
+				e.preventDefault();
+				handleCancel();
 			}
 		}}
 	/>
@@ -182,10 +185,14 @@
 				titleInput?.focus();
 				return true;
 			}
-
 			if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
 				e.preventDefault();
 				emitAction();
+				return true;
+			}
+			if (e.key === 'Escape') {
+				e.preventDefault();
+				handleCancel();
 				return true;
 			}
 

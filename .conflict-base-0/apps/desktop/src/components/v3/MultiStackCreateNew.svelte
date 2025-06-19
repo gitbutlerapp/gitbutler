@@ -21,17 +21,9 @@
 	};
 
 	let { projectId, stackId }: Props = $props();
-	const [stackService, uiState, uncommittedService] = inject(
-		StackService,
-		UiState,
-		UncommittedService
-	);
-	const projectState = $derived(uiState.project(projectId));
+	const [stackService, uiState] = inject(StackService, UiState, UncommittedService);
 	const [createNewStack, stackCreation] = stackService.newStack;
 	const [createNewBranch, branchCreation] = stackService.newBranch;
-
-	const treeChanges = $derived(uncommittedService.changesByStackId(null));
-	const changesToCommit = $derived(treeChanges.current.length > 0);
 
 	let createRefModal = $state<ReturnType<typeof Modal>>();
 	let createRefName = $state<string>();
@@ -44,8 +36,6 @@
 		stackId ? stackService.branchAt(projectId, stackId, 0) : undefined
 	);
 	const firstBranchName = $derived(firstBranchResult?.current?.data?.name);
-
-	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 
 	function handleOptionSelect(event: Event) {
 		const target = event.target as HTMLInputElement;
@@ -91,23 +81,6 @@
 </script>
 
 <div class="multi-stack-create-new">
-	{#if (exclusiveAction?.type !== 'commit' && exclusiveAction?.stackId) || changesToCommit}
-		<div class="multi-stack-create-new__button-wrap">
-			<Button
-				type="button"
-				onclick={() => {
-					projectState.exclusiveAction.set({ type: 'commit' });
-					uncommittedService.checkAll(null);
-				}}
-				icon="commit"
-				testId={TestId.CommitToNewBranchButton}
-				kind="outline"
-			>
-				Commit to new branch
-			</Button>
-		</div>
-	{/if}
-
 	<div class="multi-stack-create-new__button-wrap">
 		<Button
 			type="button"
