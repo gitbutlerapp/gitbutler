@@ -179,13 +179,15 @@
 	});
 
 	function cycleWidth() {
-		if (direction === 'up' || direction === 'down') return;
-		const width = $value || viewport.offsetWidth;
-		if (width && width > maxWidth / 2) {
-			value.set(Math.floor(width / 2));
-		} else if (width) {
-			value.set(Math.floor(width * 2));
-		}
+		// noop for now - way too many false positives where accidentally double-clicking causes content shift
+		//
+		// if (direction === 'up' || direction === 'down') return;
+		// const width = $value || viewport.offsetWidth;
+		// if (width && width > maxWidth / 2) {
+		// 	value.set(Math.floor(width / 2));
+		// } else if (width) {
+		// 	value.set(Math.floor(width * 2));
+		// }
 	}
 </script>
 
