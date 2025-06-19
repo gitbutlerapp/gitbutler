@@ -86,9 +86,7 @@
 		});
 	}}
 >
-	<!-- {#if isCommitting && exclusiveAction?.stackId === undefined} -->
 	<StackDraft {projectId} visible={isDraftStackVisible} />
-	<!-- {/if} -->
 
 	{#each stacks as stack, i}
 		<StackView
