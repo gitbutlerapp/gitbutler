@@ -150,7 +150,6 @@
 		margin: 0 -1px;
 		overflow-x: auto;
 		overflow-y: hidden;
-		scroll-snap-type: x proximity;
 	}
 
 	.pagination-container {
