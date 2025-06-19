@@ -30,9 +30,7 @@
 		mode?: 'unassigned' | 'assigned';
 		dropzoneVisible?: boolean;
 		onDropzoneActivated?: (activated: boolean) => void;
-
 		emptyPlaceholder?: Snippet;
-		notScrollable?: boolean;
 		onselect?: () => void;
 	};
 
@@ -43,10 +41,9 @@
 		title,
 		mode = 'unassigned',
 		dropzoneVisible,
-
 		onDropzoneActivated,
 		emptyPlaceholder,
-		notScrollable = false,
+
 		onselect
 	}: Props = $props();
 
@@ -158,19 +155,14 @@
 		{/if}
 
 		{#if changes.current.length > 0}
-			{#if notScrollable}
-				<!-- If not scrollable, we don't need to wrap in ScrollableContainer -->
+			<ScrollableContainer
+				autoScroll={false}
+				onscrollTop={(visible) => {
+					scrollTopIsVisible = visible;
+				}}
+			>
 				{@render fileList()}
-			{:else}
-				<ScrollableContainer
-					autoScroll={false}
-					onscrollTop={(visible) => {
-						scrollTopIsVisible = visible;
-					}}
-				>
-					{@render fileList()}
-				</ScrollableContainer>
-			{/if}
+			</ScrollableContainer>
 		{:else}
 			{@render emptyPlaceholder?.()}
 		{/if}

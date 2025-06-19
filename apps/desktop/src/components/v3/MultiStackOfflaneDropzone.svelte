@@ -120,7 +120,7 @@
 						{/if}
 					</div>
 				</div>
-				<MultiStackCreateNew {projectId} noStacks />
+				<MultiStackCreateNew {projectId} />
 			</div>
 		{/snippet}
 	</Dropzone>
@@ -130,8 +130,8 @@
 	.hidden-dropzone {
 		display: flex;
 		position: relative;
-		width: stretch;
-		min-width: 420px;
+		min-width: 400px;
+		max-width: 400px;
 		height: 100%;
 		overflow: hidden;
 		border-right: 1px solid var(--clr-border-2);

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import AsyncRender from '$components/v3/AsyncRender.svelte';
 	import CommitMessageEditor from '$components/v3/CommitMessageEditor.svelte';
-	import Drawer from '$components/v3/Drawer.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import { HooksService } from '$lib/hooks/hooksService';
 	import { type DiffSpec } from '$lib/hunks/hunk';
@@ -9,17 +8,15 @@
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { StackService, type RejectionReason } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
-	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import toasts from '@gitbutler/ui/toasts';
 
 	type Props = {
 		projectId: string;
-		noDrawer?: boolean;
 		stackId?: string;
 		onclose?: () => void;
 	};
-	const { projectId, noDrawer, stackId, onclose }: Props = $props();
+	const { projectId, stackId, onclose }: Props = $props();
 
 	const [stackService, uiState, hooksService, uncommittedService] = inject(
 		StackService,
@@ -97,7 +94,6 @@
 	);
 
 	let input = $state<ReturnType<typeof CommitMessageEditor>>();
-	let drawer = $state<ReturnType<typeof Drawer>>();
 
 	async function createCommit(message: string) {
 		let finalStackId = stackId;
@@ -210,27 +206,18 @@
 	}
 </script>
 
-{#snippet editor()}
-	<AsyncRender>
-		<CommitMessageEditor
-			bind:this={input}
-			{projectId}
-			{stackId}
-			actionLabel="Create commit"
-			action={({ title, description }) => handleCommitCreation(title, description)}
-			onChange={({ title, description }) => handleMessageUpdate(title, description)}
-			onCancel={cancel}
-			disabledAction={!canCommit}
-			loading={commitCreation.current.isLoading || newStackResult.current.isLoading}
-			title={projectState.commitTitle.current}
-			description={projectState.commitDescription.current}
-		/>
-	</AsyncRender>
-{/snippet}
-{#if noDrawer}
-	{@render editor()}
-{:else}
-	<Drawer testId={TestId.NewCommitView} bind:this={drawer} title="Create commit">
-		{@render editor()}
-	</Drawer>
-{/if}
+<AsyncRender>
+	<CommitMessageEditor
+		bind:this={input}
+		{projectId}
+		{stackId}
+		actionLabel="Create commit"
+		action={({ title, description }) => handleCommitCreation(title, description)}
+		onChange={({ title, description }) => handleMessageUpdate(title, description)}
+		onCancel={cancel}
+		disabledAction={!canCommit}
+		loading={commitCreation.current.isLoading || newStackResult.current.isLoading}
+		title={projectState.commitTitle.current}
+		description={projectState.commitDescription.current}
+	/>
+</AsyncRender>

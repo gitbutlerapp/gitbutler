@@ -42,7 +42,7 @@
 		onCancel,
 		disabledAction,
 		loading,
-		title,
+		title = $bindable(),
 		description,
 		existingCommitId
 	}: Props = $props();
@@ -83,14 +83,15 @@
 
 	$effect(() => {
 		if (generatedText) {
-			const { title, description } = splitMessage(generatedText);
-			if (titleInput) titleInput.value = title;
-			composer?.setText(description);
+			const newMessage = splitMessage(generatedText);
+			title = newMessage.title;
+
+			composer?.setText(newMessage.description);
 		}
 	});
 
 	function beginGeneration() {
-		if (titleInput) titleInput.value = '';
+		title = '';
 		composer?.setText('');
 		generatedText = '';
 	}
@@ -127,24 +128,18 @@
 	let composer = $state<ReturnType<typeof MessageEditor>>();
 	let titleInput = $state<HTMLInputElement>();
 
-	function getTitle() {
-		return titleInput?.value || '';
-	}
-
 	async function getDescription() {
 		return (await composer?.getPlaintext()) || '';
 	}
 
 	async function emitAction() {
-		const newTitle = getTitle();
 		const newDescription = await getDescription();
-		action({ title: newTitle, description: newDescription });
+		action({ title, description: newDescription });
 	}
 
 	async function handleCancel() {
-		const newTitle = getTitle();
 		const newDescription = await getDescription();
-		onCancel({ title: newTitle, description: newDescription });
+		onCancel({ title, description: newDescription });
 	}
 </script>
 
@@ -152,7 +147,7 @@
 	<MessageEditorInput
 		testId={TestId.CommitDrawerTitleInput}
 		bind:ref={titleInput}
-		value={title}
+		bind:value={title}
 		placeholder="Commit title"
 		onchange={(value) => onChange?.({ title: value })}
 		onkeydown={async (e: KeyboardEvent) => {
