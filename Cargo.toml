@@ -79,6 +79,7 @@ but-db = { path = "crates/but-db" }
 but-graph = { path = "crates/but-graph" }
 but-action = { path = "crates/but-action" }
 but-status = { path = "crates/but-status" }
+but-tools = { path = "crates/but-tools" }
 git2-hooks = { version = "0.5.0" }
 itertools = "0.14.0"
 
