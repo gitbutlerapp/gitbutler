@@ -18,10 +18,7 @@
 <style lang="postcss">
 	.sticky-buttons {
 		display: flex;
-		padding-top: 12px;
-		padding-right: 12px;
-		padding-bottom: 14px;
-		padding-left: 12px;
+		padding: 12px 12px 14px 12px;
 		gap: 6px;
 		border-top: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);

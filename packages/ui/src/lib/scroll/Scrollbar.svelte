@@ -21,6 +21,7 @@
 		whenToShow: 'hover' | 'always' | 'scroll';
 		onthumbdrag?: (dragging: boolean) => void;
 		onscroll?: (e: Event) => void;
+		onscrollexists?: (hasScroll: boolean) => void;
 	}
 
 	const {
@@ -33,7 +34,8 @@
 		zIndex = 'var(--z-ground)',
 		whenToShow = 'hover',
 		onthumbdrag,
-		onscroll
+		onscroll,
+		onscrollexists
 	}: Props = $props();
 
 	$effect(() => {
@@ -56,6 +58,11 @@
 
 	$effect(() => {
 		onthumbdrag?.(isDragging);
+	});
+
+	// New effect to call onscrollexists when scroll state changes
+	$effect(() => {
+		onscrollexists?.(isScrollable);
 	});
 
 	let thumb: Element | undefined = $state();
@@ -282,7 +289,6 @@
 	}
 </script>
 
-<!-- {#if mounted} -->
 <div
 	bind:this={track}
 	data-remove-from-draggable
@@ -314,8 +320,6 @@
         "
 	></div>
 </div>
-
-<!-- {/if} -->
 
 <style>
 	.scrollbar-track {
