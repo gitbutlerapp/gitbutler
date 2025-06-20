@@ -120,7 +120,8 @@
 
 	const isCommitPage = $derived(page.url.pathname.includes('/commit/'));
 	const isLoginPage = $derived(page.url.pathname.includes('/login'));
-	const hasNavigation = $derived(!isCommitPage && !isLoginPage);
+	const isSignupPage = $derived(page.url.pathname.includes('/signup'));
+	const hasNavigation = $derived(!isCommitPage && !isLoginPage && !isSignupPage);
 </script>
 
 <Toaster />
