@@ -141,9 +141,15 @@
 		const newDescription = await getDescription();
 		onCancel({ title, description: newDescription });
 	}
+
+	$effect(() => {
+		if (titleInput) {
+			titleInput.focus();
+		}
+	});
 </script>
 
-<div role="presentation" class="commit-message-wrap">
+<div class="commit-message-wrap">
 	<MessageEditorInput
 		testId={TestId.CommitDrawerTitleInput}
 		bind:ref={titleInput}
@@ -218,6 +224,5 @@
 		position: relative;
 		flex: 1;
 		flex-direction: column;
-		min-height: 0;
 	}
 </style>
