@@ -6,11 +6,12 @@
 	import { User } from '$lib/user/user';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getContextStore } from '@gitbutler/shared/context';
+	import EditorLogo from '@gitbutler/ui/EditorLogo.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
-	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import toasts from '@gitbutler/ui/toasts';
+	import { isStr } from '@gitbutler/ui/utils/string';
 
 	type Props = {
 		projectId: string;
@@ -66,22 +67,27 @@
 
 <div class="action-item">
 	{#if action instanceof ButlerAction}
-		<div class="action-item__robot">
-			<Icon name="robot" />
-		</div>
+		{#if isStr(action.source) || !action.source.Mcp}
+			<div class="action-item__robot">
+				<Icon name="robot" />
+			</div>
+		{:else}
+			<div>
+				<EditorLogo name={action.source.Mcp?.name} />
+			</div>
+		{/if}
 		<div class="action-item__content">
 			<div class="action-item__content__header">
 				<div>
-					<p class="text-13 text-bold">Updated workspace</p>
+					<p class="text-13 text-bold">Recorded changes</p>
 					<p class="text-13 text-bold text-grey">(MCP call)</p>
 					<span class="text-13 text-greyer"
 						><TimeAgo date={new Date(action.createdAt)} addSuffix /></span
 					>
-					<Tooltip text={action.externalPrompt}><div class="pill text-12">Prompt</div></Tooltip>
 				</div>
 			</div>
 			<span class="text-14 text-darkgrey">
-				<Markdown content={action.externalSummary} />
+				<Markdown content={action.externalPrompt} />
 			</span>
 			{#if action.response && action.response.updatedBranches.length > 0}
 				<div class="action-item__content__metadata">
@@ -270,12 +276,5 @@
 
 	.text-greyer {
 		color: var(--clr-text-3);
-	}
-
-	.pill {
-		padding: 2px 6px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: 99px;
-		background-color: var(--clr-bg-2);
 	}
 </style>
