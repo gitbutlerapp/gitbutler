@@ -15,29 +15,14 @@
 	type Props = {
 		projectId: string;
 		action: ButlerAction | Snapshot | Workflow;
-		last: boolean;
-		loadNextPage: () => void;
 	};
 
-	const { action, last, projectId, loadNextPage }: Props = $props();
+	const { action, projectId }: Props = $props();
 
 	const stackService = getContext(StackService);
 	const uiState = getContext(UiState);
 
 	const allStacks = $derived(stackService.allStacks(projectId));
-
-	let lastIntersector = $state<HTMLElement>();
-
-	$effect(() => {
-		if (!lastIntersector) return;
-		const observer = new IntersectionObserver((data) => {
-			if (data.at(0)?.isIntersecting) {
-				loadNextPage();
-			}
-		});
-		observer.observe(lastIntersector);
-		return () => observer.disconnect();
-	});
 
 	async function selectCommit(branchName: string, id: string) {
 		if (!allStacks.current.data) {
@@ -103,9 +88,6 @@
 					{@render outcome(action.response)}
 				</div>
 			{/if}
-			{#if last}
-				<div bind:this={lastIntersector}></div>
-			{/if}
 		</div>
 	{:else if action instanceof Snapshot}
 		<div class="action-item__picture">
@@ -144,9 +126,6 @@
 					<span class="text-greyer">{file}</span>
 				{/each}
 			</span>
-			{#if last}
-				<div bind:this={lastIntersector}></div>
-			{/if}
 		</div>
 	{:else if action instanceof Workflow}
 		<div>
