@@ -397,7 +397,6 @@
 		position: relative;
 		flex-shrink: 0;
 		overflow: hidden;
-		scroll-snap-align: start;
 
 		&.dimmed {
 			opacity: 0.5;
