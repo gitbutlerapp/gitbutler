@@ -397,6 +397,7 @@
 		position: relative;
 		flex-shrink: 0;
 		overflow: hidden;
+		transition: opacity 0.15s;
 
 		&.dimmed {
 			opacity: 0.5;
