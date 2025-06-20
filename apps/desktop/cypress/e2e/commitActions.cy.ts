@@ -913,7 +913,8 @@ describe('Commit Actions with no stacks', () => {
 		cy.get('@createBranchSpy').should('be.calledWith', {
 			projectId: PROJECT_ID,
 			branch: {
-				name: 'my-cool-branch'
+				name: 'my-cool-branch',
+				order: 0
 			}
 		});
 

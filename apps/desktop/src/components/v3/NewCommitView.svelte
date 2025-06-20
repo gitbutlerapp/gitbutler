@@ -102,7 +102,7 @@
 		if (!finalStackId) {
 			const stack = await createNewStack({
 				projectId,
-				branch: { name: draftBranchName }
+				branch: { name: draftBranchName, order: 0 }
 			});
 			finalStackId = stack.id;
 			projectState.stackId.set(finalStackId);
