@@ -187,7 +187,7 @@
 		data-testid-stackid={stack.id}
 		data-testid-stack={stack.heads.at(0)?.name}
 		onmousedown={(e) => onReorderMouseDown(e, viewWrapperEl?.parentElement as HTMLDivElement)}
-		ondragstart={(e) => onReorderStart(e, stack.id)}
+		ondragstart={(e) => onReorderStart(e, stack.id, onclose)}
 		ondragend={onReorderEnd}
 		use:intersectionObserver={{
 			callback: (entry) => {
@@ -318,6 +318,7 @@
 				bind:this={detailsEl}
 				style:width={uiState.global.detailsWidth.current + 'rem'}
 				class="details"
+				data-remove-from-draggable
 				data-details={stack.id}
 			>
 				{#if assignedKey && assignedKey.type === 'worktree'}
@@ -363,11 +364,13 @@
 				/>
 			</div>
 		{/if}
+
 		{#if selectedKey && !assignedKey}
 			<div
 				bind:this={previewEl}
 				style:width={uiState.global.previewWidth.current + 'rem'}
 				class="preview"
+				data-remove-from-draggable
 				use:focusable={{
 					id: DefinedFocusable.Preview + ':' + stack.id,
 					parentId: DefinedFocusable.ViewportRight
@@ -394,7 +397,7 @@
 		position: relative;
 		flex-shrink: 0;
 		overflow: hidden;
-		scroll-snap-align: start;
+		transition: opacity 0.15s;
 
 		&.dimmed {
 			opacity: 0.5;

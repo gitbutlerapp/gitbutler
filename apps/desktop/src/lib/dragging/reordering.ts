@@ -36,13 +36,20 @@ export function onReorderMouseDown(e: MouseEvent, element: HTMLDivElement | unde
 	lanesScrollableEl = element;
 }
 
-export function onReorderStart(e: DragEvent & { currentTarget: HTMLDivElement }, stackId: string) {
+export function onReorderStart(
+	e: DragEvent & { currentTarget: HTMLDivElement },
+	stackId: string,
+	callback?: () => void
+) {
 	if (dragHandle.dataset.dragHandle === undefined) {
 		// Only elements with`data-drag-handle` attribute can initiate drag.
 		e.preventDefault();
 		e.stopPropagation();
 		return;
 	}
+
+	callback?.();
+
 	clone = cloneElement(e.currentTarget);
 	document.body.appendChild(clone);
 	// Get chromium to fire dragover & drop events
