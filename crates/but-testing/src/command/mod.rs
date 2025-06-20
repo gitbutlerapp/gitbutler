@@ -504,6 +504,7 @@ pub fn graph(
     limit: Option<usize>,
     limit_extension: Vec<String>,
     hard_limit: Option<usize>,
+    debug: bool,
 ) -> anyhow::Result<()> {
     let (mut repo, project) = repo_and_maybe_project(args, RepositoryOpenMode::General)?;
     repo.objects.refresh = RefreshMode::Never;
@@ -549,12 +550,20 @@ pub fn graph(
         }
     }?;
 
+    let errors = graph.validation_errors();
+    if !errors.is_empty() {
+        eprintln!("VALIDATION FAILED: {errors:?}");
+    }
     eprintln!("{:#?}", graph.statistics());
     if no_open {
         stdout().write_all(graph.dot_graph().as_bytes())?;
     } else {
         #[cfg(unix)]
         graph.open_as_svg();
+    }
+
+    if debug {
+        eprintln!("{graph:#?}");
     }
     Ok(())
 }

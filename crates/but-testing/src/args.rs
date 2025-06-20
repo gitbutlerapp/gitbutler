@@ -152,6 +152,9 @@ pub enum Subcommands {
     },
     /// Returns a segmented graph starting from `HEAD`.
     Graph {
+        /// Debug-print the whole graph.
+        #[clap(long, short = 'd')]
+        debug: bool,
         /// The maximum number of commits to traverse.
         ///
         /// Use only as safety net to prevent runaways.

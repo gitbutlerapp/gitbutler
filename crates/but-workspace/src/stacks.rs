@@ -1,5 +1,5 @@
 use crate::integrated::IsCommitIntegrated;
-use crate::ref_info::ui::Segment;
+use crate::ref_info::ui::{Commit, Segment};
 use crate::ref_info::ui::{LocalCommit, LocalCommitRelation, RemoteCommit};
 use crate::ui::{CommitState, PushStatus, StackDetails};
 use crate::{
@@ -8,7 +8,7 @@ use crate::{
 use anyhow::Context;
 use bstr::BString;
 use but_core::RefMetadata;
-use but_graph::{Commit, SegmentMetadata, VirtualBranchesTomlMetadata};
+use but_graph::{SegmentMetadata, VirtualBranchesTomlMetadata};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oxidize::{ObjectIdExt, OidExt, git2_signature_to_gix_signature};

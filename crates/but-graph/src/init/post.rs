@@ -1,7 +1,6 @@
 use crate::init::walk::TopoWalk;
 use crate::init::{EdgeOwned, PetGraph, branch_segment_from_name_and_meta, remotes};
-use crate::{Commit, CommitFlags, CommitIndex, Edge, Graph, SegmentIndex};
-use bstr::{BStr, ByteSlice};
+use crate::{Commit, CommitFlags, CommitIndex, Edge, Graph, SegmentIndex, is_workspace_ref_name};
 use but_core::{RefMetadata, ref_metadata};
 use gix::reference::Category;
 use petgraph::Direction;
@@ -127,9 +126,13 @@ impl Graph {
                     }
                     continue;
                 };
-                if is_managed_workspace_commit(commit.message.as_bstr()) {
+                if commit
+                    .refs
+                    .iter()
+                    .any(|rn| is_workspace_ref_name(rn.as_ref()))
+                {
                     tracing::warn!(
-                        "Workspace commit {} had eligible references pointing to it - ignoring this for now",
+                        "Commit {} had eligible workspace references pointing to it - ignoring this for now",
                         commit.id
                     );
                     // Now we have to assign this uninteresting commit to the last created segment, if there was one.
@@ -300,12 +303,6 @@ fn delete_anon_if_empty_and_reconnect(graph: &mut Graph, sidx: SegmentIndex) {
     {
         *ep_sidx = new_target;
     }
-}
-
-fn is_managed_workspace_commit(message: &BStr) -> bool {
-    let message = gix::objs::commit::MessageRef::from_bytes(message);
-    let title = message.title.trim().as_bstr();
-    title == "GitButler Workspace Commit" || title == "GitButler Integration Commit"
 }
 
 /// Create a new stack from `N` refs that match a ref in `ws_stack` (in the order given there), with `N-1` segments being empty on top

@@ -2,7 +2,7 @@
 
 use crate::graph_tree;
 use but_core::ref_metadata;
-use but_graph::{Commit, CommitFlags, Graph, Segment, SegmentMetadata};
+use but_graph::{Commit, CommitDetails, CommitFlags, Graph, Segment, SegmentMetadata};
 
 /// Simulate a graph data structure after the first pass, i.e., right after the walk.
 /// There is no pruning of 'empty' branches, just a perfect representation of the graph as is,
@@ -59,10 +59,14 @@ fn post_graph_traversal() -> anyhow::Result<()> {
         remote_tracking_ref_name: Some("refs/remotes/origin/A".try_into()?),
         commits: vec![
             Commit {
-                has_conflicts: true,
+                details: Some(CommitDetails {
+                    has_conflicts: true,
+                    author: author(),
+                    message: "2 in A".into(),
+                }),
                 ..commit(
                     id("a"),
-                    "2 in A",
+                    "overridden above",
                     Some(init_commit_id),
                     CommitFlags::InWorkspace,
                 )
@@ -126,7 +130,7 @@ fn unborn_head() {
 }
 
 mod utils {
-    use but_graph::{Commit, CommitFlags};
+    use but_graph::{Commit, CommitDetails, CommitFlags};
     use gix::ObjectId;
     use std::str::FromStr;
 
@@ -139,11 +143,13 @@ mod utils {
         Commit {
             id,
             parent_ids: parent_ids.into_iter().collect(),
-            message: message.into(),
-            author: author(),
             refs: Vec::new(),
             flags,
-            has_conflicts: false,
+            details: Some(CommitDetails {
+                message: message.into(),
+                author: author(),
+                has_conflicts: false,
+            }),
         }
     }
 
@@ -161,7 +167,7 @@ mod utils {
         .unwrap()
     }
 
-    fn author() -> gix::actor::Signature {
+    pub fn author() -> gix::actor::Signature {
         gix::actor::Signature {
             name: "Name".into(),
             email: "name@example.com".into(),
@@ -169,4 +175,4 @@ mod utils {
         }
     }
 }
-use utils::{commit, id};
+use utils::{author, commit, id};

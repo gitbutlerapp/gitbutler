@@ -3,7 +3,7 @@
 #![deny(missing_docs, rust_2018_idioms)]
 
 mod segment;
-pub use segment::{Commit, CommitFlags, Segment, SegmentMetadata};
+pub use segment::{Commit, CommitDetails, CommitFlags, Segment, SegmentMetadata};
 
 /// Edges to other segments are the index into the list of local commits of the parent segment.
 /// That way we can tell where a segment branches off, despite the graph only connecting segments, and not commits.
@@ -26,7 +26,7 @@ pub struct Graph {
 ///
 /// Note that the segment counts aren't mutually exclusive, so the sum of these fields can be more
 /// than the total of segments.
-#[derive(Default, Debug, Copy, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct Statistics {
     /// The number of segments in the graph.
     pub segments: usize,
@@ -56,6 +56,20 @@ pub struct Statistics {
     pub segments_behind_of_entrypoint: usize,
     /// Segments, excluding the entrypoint, that can be reached upwards through the entrypoint.
     pub segments_ahead_of_entrypoint: usize,
+    /// The entrypoint of the graph traversal.
+    pub entrypoint: (SegmentIndex, Option<CommitIndex>),
+    /// The number of incoming connections into the entrypoint segment.
+    pub segment_entrypoint_incoming: usize,
+    /// The number of outgoing connections into the entrypoint segment.
+    pub segment_entrypoint_outgoing: usize,
+    /// Segments without incoming connections.
+    pub top_segments: Vec<(
+        Option<gix::refs::FullName>,
+        SegmentIndex,
+        Option<CommitFlags>,
+    )>,
+    /// Segments without outgoing connections.
+    pub segments_at_bottom: usize,
     /// Connections between segments.
     pub connections: usize,
     /// All commits within segments.

@@ -1,25 +1,33 @@
 use crate::{CommitIndex, SegmentIndex};
 use bitflags::bitflags;
+use bstr::ByteSlice;
 use gix::bstr::BString;
 
 /// A commit with must useful information extracted from the Git commit itself.
-///
-/// Note that additional information can be computed and placed in the [`LocalCommit`] and [`RemoteCommit`]
 #[derive(Clone, Eq, PartialEq)]
 pub struct Commit {
     /// The hash of the commit.
     pub id: gix::ObjectId,
     /// The IDs of the parent commits, but may be empty if this is the first commit.
     pub parent_ids: Vec<gix::ObjectId>,
+    /// Additional properties to help classify this commit.
+    pub flags: CommitFlags,
+    /// The references pointing to this commit, even after dereferencing tag objects.
+    /// These can be names of tags and branches.
+    pub refs: Vec<gix::refs::FullName>,
+    /// Additional, and possibly expensive information to obtain on demand for commits of interest only.
+    pub details: Option<CommitDetails>,
+}
+
+/// Lazily obtained detailed information.
+/// This should only be fetched when it's clear the commit is of interest,
+/// which a majority of commits in a traversal might not be.
+#[derive(Clone, Eq, PartialEq)]
+pub struct CommitDetails {
     /// The complete message, verbatim.
     pub message: BString,
     /// The signature at which the commit was authored.
     pub author: gix::actor::Signature,
-    /// The references pointing to this commit, even after dereferencing tag objects.
-    /// These can be names of tags and branches.
-    pub refs: Vec<gix::refs::FullName>,
-    /// Additional properties to help classify this commit.
-    pub flags: CommitFlags,
     /// Whether the commit is in a conflicted state, a GitButler concept.
     /// GitButler will perform rebasing/reordering etc. without interruptions and flag commits as conflicted if needed.
     /// Conflicts are resolved via the Edit Mode mechanism.
@@ -28,62 +36,30 @@ pub struct Commit {
     pub has_conflicts: bool,
 }
 
-impl Commit {
-    /// Read the object of the `commit_id` and extract relevant values, while setting `flags` as well.
-    pub fn new_from_id(
-        commit_id: gix::Id<'_>,
-        flags: CommitFlags,
-        has_conflicts: bool,
-    ) -> anyhow::Result<Self> {
-        let commit = commit_id.object()?.into_commit();
-        // Decode efficiently, no need to own this.
-        let commit = commit.decode()?;
-        Ok(Commit {
-            id: commit_id.detach(),
-            parent_ids: commit.parents().collect(),
-            message: commit.message.to_owned(),
-            author: commit.author.to_owned()?,
-            refs: Vec::new(),
-            flags,
-            has_conflicts,
-        })
-    }
-}
-
 impl std::fmt::Debug for Commit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "Commit({hash}, {msg:?}{flags})",
             hash = self.id.to_hex_with_len(7),
-            msg = self.message,
-            flags = if self.flags.is_empty() {
-                "".to_string()
-            } else {
-                format!(", {}", self.flags.debug_string())
-            }
+            msg = self
+                .details
+                .as_ref()
+                .map(|d| d.message.as_bstr())
+                .unwrap_or_default(),
+            flags = self.flags.debug_string()
         )
-    }
-}
-
-impl From<but_core::Commit<'_>> for Commit {
-    fn from(value: but_core::Commit<'_>) -> Self {
-        Commit {
-            id: value.id.into(),
-            parent_ids: value.parents.iter().cloned().collect(),
-            message: value.inner.message,
-            author: value.inner.author,
-            refs: Vec::new(),
-            flags: CommitFlags::empty(),
-            has_conflicts: false,
-        }
     }
 }
 
 bitflags! {
     /// Provide more information about a commit, as gathered during traversal.
+    ///
+    /// Note that unknown bits beyond this list are used to track individual goals that we want to discover.
+    /// This is useful for when they are ahead of the tip that looks for them.
+    /// If they are below, the goal will be propagated downward automatically.
     #[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
-    pub struct CommitFlags: u8 {
+    pub struct CommitFlags: u32 {
         /// Identify commits that have never been owned *only* by a remote.
         /// It may be that a remote is directly pointing at them though.
         /// Note that this flag is negative as all flags are propagated through the graph,
@@ -107,15 +83,27 @@ impl CommitFlags {
         if self.is_empty() {
             "".into()
         } else {
-            let string = format!("{:?}", self);
+            let flags = *self & Self::all();
+            let extra = (self.bits() & !Self::all().bits()) >> Self::all().iter().count();
+            let string = format!("{:?}", flags);
             let out = &string["CommitFlags(".len()..];
-            out[..out.len() - 1]
+            let mut out = out[..out.len() - 1]
                 .to_string()
                 .replace("NotInRemote", "⌂")
                 .replace("InWorkspace", "🏘️")
                 .replace("Integrated", "✓")
-                .replace(" ", "")
+                .replace(" ", "");
+            if extra != 0 {
+                out.push_str(&format!("|{:b}", extra));
+            }
+            out
         }
+    }
+
+    /// Return `true` if this flag denotes a remote commit, i.e. a commit that isn't reachable from anything
+    /// but a remote tracking branch tip.
+    pub fn is_remote(&self) -> bool {
+        self.is_empty()
     }
 }
 

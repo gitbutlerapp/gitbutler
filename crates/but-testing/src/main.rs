@@ -115,6 +115,7 @@ async fn main() -> Result<()> {
             limit,
             limit_extension,
             hard_limit,
+            debug,
         } => command::graph(
             &args,
             ref_name.as_deref(),
@@ -122,6 +123,7 @@ async fn main() -> Result<()> {
             limit.flatten(),
             limit_extension.clone(),
             *hard_limit,
+            *debug,
         ),
         args::Subcommands::HunkAssignments => {
             command::assignment::hunk_assignments(&args.current_dir, args.json)

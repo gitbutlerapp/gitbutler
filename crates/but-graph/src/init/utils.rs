@@ -1,5 +1,6 @@
 use crate::init::walk::TopoWalk;
-use crate::init::{EdgeOwned, Instruction, Limit, PetGraph, Queue, QueueItem, remotes};
+use crate::init::{EdgeOwned, Goals, Instruction, Limit, PetGraph, Queue, QueueItem, remotes};
+use crate::segment::CommitDetails;
 use crate::{
     Commit, CommitFlags, CommitIndex, Edge, Graph, Segment, SegmentIndex, SegmentMetadata,
     is_workspace_ref_name,
@@ -8,9 +9,7 @@ use anyhow::{Context, bail};
 use bstr::BString;
 use but_core::{RefMetadata, ref_metadata};
 use gix::hashtable::hash_map::Entry;
-use gix::prelude::ObjectIdExt;
 use gix::reference::Category;
-use gix::refs::FullName;
 use gix::traverse::commit::Either;
 use petgraph::Direction;
 use std::collections::BTreeSet;
@@ -319,12 +318,9 @@ pub struct TraverseInfo {
 impl TraverseInfo {
     pub fn into_commit(
         self,
-        repo: &gix::Repository,
         flags: CommitFlags,
         refs: Vec<gix::refs::FullName>,
     ) -> anyhow::Result<Commit> {
-        let commit = but_core::Commit::from_id(self.id.attach(repo))?;
-        let has_conflicts = commit.is_conflicted();
         Ok(match self.commit {
             Some(commit) => Commit {
                 refs,
@@ -334,11 +330,9 @@ impl TraverseInfo {
             None => Commit {
                 id: self.inner.id,
                 parent_ids: self.inner.parent_ids.into_iter().collect(),
-                message: commit.message.clone(),
-                author: commit.author.clone(),
                 flags,
                 refs,
-                has_conflicts,
+                details: None,
             },
         })
     }
@@ -394,12 +388,14 @@ pub fn find(
             Some(Commit {
                 id,
                 parent_ids: parent_ids.iter().cloned().collect(),
-                message: message.context("Every valid commit must have a message")?,
-                author: author.context("Every valid commit must have an author signature")?,
                 refs: Vec::new(),
                 flags: CommitFlags::empty(),
-                // TODO: we probably should set this
-                has_conflicts: false,
+                details: Some(CommitDetails {
+                    message: message.context("Every valid commit must have a message")?,
+                    author: author.context("Every valid commit must have an author signature")?,
+                    // TODO: make it clear that this is optionally computed as well, maybe `Option<bool>`?
+                    has_conflicts: false,
+                }),
             })
         }
     };
@@ -449,23 +445,24 @@ pub fn collect_ref_mapping_by_prefix<'a>(
     Ok(all_refs_by_id)
 }
 
-/// Returns `([(workspace_ref_name, workspace_info)], target_refs, desired_refs)` for all available workspace,
+/// Returns `([(workspace_tip, workspace_ref_name, workspace_info)], target_refs, desired_refs)` for all available workspace,
 /// or exactly one workspace if `maybe_ref_name`.
 /// already points to a workspace. That way we can discover the workspace containing any starting point, but only if needed.
 ///
 /// This means we process all workspaces if we aren't currently and clearly looking at a workspace.
 ///
-/// Also prune all non-standard workspaces early.
+/// Also prune all non-standard workspaces early, or those that don't have a tip.
 #[allow(clippy::type_complexity)]
 pub fn obtain_workspace_infos(
+    repo: &gix::Repository,
     maybe_ref_name: Option<&gix::refs::FullNameRef>,
     meta: &impl RefMetadata,
 ) -> anyhow::Result<(
-    Vec<(gix::refs::FullName, ref_metadata::Workspace)>,
+    Vec<(gix::ObjectId, gix::refs::FullName, ref_metadata::Workspace)>,
     Vec<gix::refs::FullName>,
     BTreeSet<gix::refs::FullName>,
 )> {
-    let mut workspaces = if let Some((ref_name, ws_data)) = maybe_ref_name
+    let workspaces = if let Some((ref_name, ws_data)) = maybe_ref_name
         .and_then(|ref_name| {
             meta.workspace_opt(ref_name)
                 .transpose()
@@ -486,46 +483,52 @@ pub fn obtain_workspace_infos(
             .collect()
     };
 
-    let target_refs: Vec<_> = workspaces
-        .iter()
-        .filter_map(|(_, data)| data.target_ref.clone())
-        .collect();
-    let desired_refs = workspaces
-        .iter()
-        .flat_map(|(_, data): &(_, ref_metadata::Workspace)| {
-            data.stacks
-                .iter()
-                .flat_map(|stacks| stacks.branches.iter().map(|b| b.ref_name.clone()))
-        })
-        .collect();
-    // defensive pruning
-    workspaces.retain(|(rn, data)| {
+    let (mut out, mut target_refs, mut desired_refs) = (Vec::new(), Vec::new(), BTreeSet::new());
+    for (rn, data) in workspaces {
         if rn.category() != Some(Category::LocalBranch) {
             tracing::warn!(
                 "Skipped workspace at ref {} as workspaces can only ever be on normal branches",
                 rn.as_bstr()
             );
-            return false;
+            continue;
         }
-        if target_refs.contains(rn) {
+        if target_refs.contains(&rn) {
             tracing::warn!(
                 "Skipped workspace at ref {} as it was also a target ref for another workspace (or for itself)",
                 rn.as_bstr()
             );
-            return false;
+            continue;
         }
-        if let Some(invalid_target_ref) = data.target_ref.as_ref().filter(|trn| trn.category() != Some(Category::RemoteBranch)) {
+        if let Some(invalid_target_ref) = data
+            .target_ref
+            .as_ref()
+            .filter(|trn| trn.category() != Some(Category::RemoteBranch))
+        {
             tracing::warn!(
                 "Skipped workspace at ref {} as its target reference {target} was not a remote tracking branch",
                 rn.as_bstr(),
                 target = invalid_target_ref.as_bstr(),
             );
-            return false;
+            continue;
         }
-        true
-    });
+        let Some(ws_tip) = try_refname_to_id(repo, rn.as_ref())? else {
+            tracing::warn!(
+                "Ignoring stale workspace ref '{ws_ref}', which didn't exist in Git but still had workspace data",
+                ws_ref = rn.as_bstr()
+            );
+            continue;
+        };
 
-    Ok((workspaces, target_refs, desired_refs))
+        target_refs.extend(data.target_ref.clone());
+        desired_refs.extend(
+            data.stacks
+                .iter()
+                .flat_map(|stacks| stacks.branches.iter().map(|b| b.ref_name.clone())),
+        );
+        out.push((ws_tip, rn, data))
+    }
+
+    Ok((out, target_refs, desired_refs))
 }
 
 pub fn try_refname_to_id(
@@ -555,41 +558,16 @@ pub fn propagate_flags_downward(
             commit.flags |= flags_to_add;
             // Note that this just works if the remote is still fast-forwardable.
             // If the goal isn't met, it's OK as well, but there is a chance for runaways.
-            if Some(commit.id) == limit.goal {
-                next.inner.iter_mut().for_each(|t| t.3.goal = None);
+            // TODO(perf): only walk to where the flags differ, with custom walk.
+            if commit.flags.contains(limit.goal) {
+                next.inner.iter_mut().for_each(|t| t.3.unset_goal());
             }
         }
     }
 }
 
-pub fn propagate_limit_upward(
-    graph: &mut PetGraph,
-    next: &mut Queue,
-    limit: Limit,
-    dst_sidx: SegmentIndex,
-) {
-    let Some(goal) = limit.goal else {
-        return;
-    };
-    let commits = &graph[dst_sidx].commits;
-    let mut topo = TopoWalk::start_from(
-        dst_sidx,
-        commits.last().map(|_| commits.len()),
-        petgraph::Direction::Incoming,
-    );
-    while let Some((segment, commit_range)) = topo.next(graph) {
-        for commit in &mut graph[segment].commits[commit_range] {
-            // In case the goal was already seen, find it and assure we don't traverse it anymore,
-            // the graphs are now connected.
-            if commit.id == goal {
-                next.inner.iter_mut().for_each(|t| t.3.goal = None);
-            }
-        }
-    }
-}
-
-/// Check `refs` for refs with remote tracking branches, and queue them for traversal after creating a segment named
-/// after the tracking branch.
+/// Check `refs` for refs with remote tracking branches, and return a queue for them for traversal after creating a segment
+/// named after the tracking branch.
 /// This eager queuing makes sure that the post-processing doesn't have to traverse again when it creates segments
 /// that were previously ambiguous.
 /// If a remote tracking branch is in `target_refs`, we assume it was already scheduled and won't schedule it again.
@@ -598,20 +576,22 @@ pub fn propagate_limit_upward(
 pub fn try_queue_remote_tracking_branches(
     repo: &gix::Repository,
     refs: &[gix::refs::FullName],
-    next: &mut Queue,
     graph: &mut Graph,
     target_symbolic_remote_names: &[String],
-    configured_remote_tracking_branches: &BTreeSet<FullName>,
+    configured_remote_tracking_branches: &BTreeSet<gix::refs::FullName>,
     target_refs: &[gix::refs::FullName],
     meta: &impl RefMetadata,
     id: gix::ObjectId,
-    limit: Limit,
-) -> anyhow::Result<bool> {
+    mut limit: Limit,
+    goals: &mut Goals,
+) -> anyhow::Result<(Vec<QueueItem>, CommitFlags)> {
     // As a commit can be reachable by many remote tracking branches while we need
     // specificity, there is no need to propagate anything.
     // We also *do not* propagate "NotInCommit" so remote-exclusive commits can be identified
     // even across segment boundaries
     let flags = CommitFlags::empty();
+    limit.goal = CommitFlags::empty();
+    let mut queue = Vec::new();
     for rn in refs {
         let Some(remote_tracking_branch) = remotes::lookup_remote_tracking_branch_or_deduce_it(
             repo,
@@ -635,7 +615,9 @@ pub fn try_queue_remote_tracking_branches(
             meta,
             None,
         )?);
-        if next.push_back_exhausted((
+
+        limit = limit.with_goal(id, goals);
+        queue.push((
             remote_tip,
             flags,
             Instruction::CollectCommit {
@@ -643,12 +625,10 @@ pub fn try_queue_remote_tracking_branches(
             },
             // If the remote is behind the goal it will never reach it, but it will stop once it
             // touches another commit as well.
-            limit.with_goal(id),
-        )) {
-            return Ok(true);
-        };
+            limit,
+        ));
     }
-    Ok(false)
+    Ok((queue, limit.goal))
 }
 
 /// Remove if there are only tips with integrated commits…
@@ -671,9 +651,11 @@ pub fn prune_integrated_tips(
     if !all_integated {
         return;
     }
-    next.retain_mut(|(_id, _flags, instruction, tip_limit)| {
-        // Let them reach their goal - this could lead to runaways, if the integration branch is behind the entrypoint.
-        if tip_limit.goal.is_some() {
+    next.retain_mut(|(_id, flags, instruction, tip_limit)| {
+        // Let them reach their goal - this could lead to runaways, if the integration branch is behind the entrypoint,
+        // but once the goal catches up with the bottom section of the graph it propagates the flags so we will eventually
+        // see it.
+        if tip_limit.goal_in(*flags) == Some(false) {
             return true;
         }
         let sidx = instruction.segment_idx();
@@ -691,7 +673,7 @@ pub fn prune_integrated_tips(
         if !any_segment_ref_is_contained_in_workspace && s.commits.is_empty() {
             graph.inner.remove_node(sidx);
         }
-        any_segment_ref_is_contained_in_workspace || tip_limit.goal.is_some()
+        any_segment_ref_is_contained_in_workspace
     });
 }
 
@@ -755,19 +737,45 @@ pub fn possibly_split_occupied_segment(
         .map(|cidx| graph[top_sidx].commits[cidx].flags)
         .unwrap_or_default();
     let bottom_flags = graph[bottom_sidx].commits[bottom_cidx].flags;
-    propagate_flags_downward(
-        &mut graph.inner,
-        next,
-        limit,
-        propagated_flags | top_flags | bottom_flags,
-        bottom_sidx,
-        Some(bottom_cidx),
-    );
-    propagate_limit_upward(&mut graph.inner, next, limit, bottom_sidx);
+    let new_flags = propagated_flags | top_flags | bottom_flags;
+    // Only propagate if there is something new.
+    if new_flags != bottom_flags {
+        propagate_flags_downward(
+            &mut graph.inner,
+            next,
+            limit,
+            new_flags,
+            bottom_sidx,
+            Some(bottom_cidx),
+        );
+    }
     Ok(())
 }
 
 impl Limit {
+    /// Return `true` if this limit is depleted, or decrement it by one otherwise.
+    ///
+    /// `flags` are used to selectively decrement this limit.
+    /// Thanks to flag-propagation there can be no runaways.
+    fn is_exhausted_or_decrement(&mut self, flags: CommitFlags, next: &Queue) -> bool {
+        // Keep going if the goal wasn't seen yet, unlimited gas.
+        if self.goal_in(flags) == Some(false) {
+            return false;
+        }
+        // Do not let *any* tip consume gas as long as there is still anything with a goal in the queue
+        // that need to meet their local branches.
+        // TODO(perf): could we remember that we are a tip and look for our specific counterpart by matching the goal?
+        //             That way unrelated tips wouldn't cause us to keep traversing.
+        if self.goal.is_empty() && next.iter().any(|(_, _, _, limit)| !limit.goal.is_empty()) {
+            return false;
+        }
+        if self.inner.is_some_and(|l| l == 0) {
+            return true;
+        }
+        self.inner = self.inner.map(|l| l - 1);
+        false
+    }
+
     /// It's important to try to split the limit evenly so we don't create too
     /// much extra gas here. We do, however, make sure that we see each segment of a parent
     /// with one commit so we know exactly where it stops.
@@ -782,37 +790,39 @@ impl Limit {
         }
     }
 
-    /// Return `true` if this limit is depleted, or decrement it by one otherwise.
-    ///
-    /// `flags` are used to selectively decrement this limit.
-    /// Thanks to flag-propagation there can be no runaways.
-    fn is_exhausted_or_decrement(&mut self, flags: CommitFlags, next: &Queue) -> bool {
-        if self.goal.is_some() {
-            return false;
-        }
-        // Do not let *any* tip consume gas as long as there is still remotes tracking branches in the game
-        // that need to meet their local branches. Otherwise, everything is considered remote as the local tips
-        // that could tell otherwise never reach their remote counterparts.
-        if !flags.is_empty() && next.iter().any(|(_, flags, _, _)| flags.is_empty()) {
-            return false;
-        }
-        if self.inner.is_some_and(|l| l == 0) {
-            return true;
-        }
-        self.inner = self.inner.map(|l| l - 1);
-        false
-    }
-
     fn is_unset(&self) -> bool {
         self.inner.is_none()
     }
 }
 
 impl Limit {
-    /// Keep queueing without limit until `goal` is seen during [propagate_flags_downward()] and [propagate_limit_upward()].
-    pub fn with_goal(mut self, goal: gix::ObjectId) -> Self {
-        self.goal = Some(goal);
+    /// Keep queueing without limit until `goal` is seen during [propagate_flags_downward()].
+    /// `goals` are used to keep track of existing bitflags.
+    /// No goal will be set if we can't track more goals, effectively causing traversal to stop earlier,
+    /// leaving potential isles in the graph.
+    pub fn with_goal(mut self, goal: gix::ObjectId, goals: &mut Goals) -> Self {
+        self.goal = goals.flag_for(goal).unwrap_or_default();
         self
+    }
+
+    /// Return `None` if this limit has no goal set, otherwise return `true` if `flags` contains it.
+    /// This is useful to determine if a commit that is ahead was seen during traversal.
+    #[inline]
+    fn goal_in(&self, flags: CommitFlags) -> Option<bool> {
+        if self.goal.is_empty() {
+            None
+        } else {
+            Some(flags.contains(self.goal))
+        }
+    }
+
+    /// Set our limit from `other`, but do not alter our goal.
+    pub(crate) fn set_but_keep_goal(&mut self, other: Limit) {
+        self.inner = other.inner;
+    }
+
+    fn unset_goal(&mut self) {
+        self.goal = CommitFlags::empty();
     }
 }
 
@@ -820,7 +830,7 @@ impl From<Option<usize>> for Limit {
     fn from(value: Option<usize>) -> Self {
         Limit {
             inner: value,
-            goal: None,
+            goal: CommitFlags::empty(),
         }
     }
 }

@@ -93,7 +93,11 @@ pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
         for (cidx, commit) in segment.commits.iter().enumerate() {
             let mut commit_tree = tree_for_commit(
                 commit,
-                commit.has_conflicts,
+                commit
+                    .details
+                    .as_ref()
+                    .map(|d| d.has_conflicts)
+                    .unwrap_or_default(),
                 segment_is_entrypoint && Some(cidx) == ep.commit_index,
                 graph.is_early_end_of_traversal(sidx, cidx),
                 graph.hard_limit_hit(),

@@ -206,15 +206,18 @@ impl Graph {
             }),
         )?;
         let (workspaces, target_refs, desired_refs) =
-            obtain_workspace_infos(ref_name.as_ref().map(|rn| rn.as_ref()), meta)?;
+            obtain_workspace_infos(repo, ref_name.as_ref().map(|rn| rn.as_ref()), meta)?;
         let mut seen = gix::revwalk::graph::IdMap::<SegmentIndex>::default();
-        let tip_flags = CommitFlags::NotInRemote;
+        let mut goals = Goals::default();
+        let tip_limit_with_goal = limit.with_goal(tip.detach(), &mut goals);
+        // The tip transports itself.
+        let tip_flags = CommitFlags::NotInRemote | tip_limit_with_goal.goal;
 
         let target_symbolic_remote_names = {
             let remote_names = repo.remote_names();
             let mut v: Vec<_> = workspaces
                 .iter()
-                .filter_map(|(_, data)| {
+                .filter_map(|(_, _, data)| {
                     let target_ref = data.target_ref.as_ref()?;
                     remotes::extract_remote_name(target_ref.as_ref(), &remote_names)
                 })
@@ -227,7 +230,7 @@ impl Graph {
         let mut next = Queue::new_with_limit(hard_limit);
         if !workspaces
             .iter()
-            .any(|(wsrn, _)| Some(wsrn) == ref_name.as_ref())
+            .any(|(_, wsrn, _)| Some(wsrn) == ref_name.as_ref())
         {
             let current = graph.insert_root(branch_segment_from_name_and_meta(
                 ref_name.clone(),
@@ -243,14 +246,7 @@ impl Graph {
                 return Ok(graph.with_hard_limit());
             }
         }
-        for (ws_ref, workspace_info) in workspaces {
-            let Some(ws_tip) = try_refname_to_id(repo, ws_ref.as_ref())? else {
-                tracing::warn!(
-                    "Ignoring stale workspace ref '{ws_ref}', which didn't exist in Git but still had workspace data",
-                    ws_ref = ws_ref.as_bstr()
-                );
-                continue;
-            };
+        for (ws_tip, ws_ref, workspace_info) in workspaces {
             let target = workspace_info.target_ref.as_ref().and_then(|trn| {
                 try_refname_to_id(repo, trn.as_ref())
                     .map_err(|err| {
@@ -265,18 +261,14 @@ impl Graph {
                     .map(|tid| (trn.clone(), tid))
             });
 
-            let add_flags = if Some(&ws_ref) == ref_name.as_ref() {
-                tip_flags
+            let (ws_flags, ws_limit) = if Some(&ws_ref) == ref_name.as_ref() {
+                (tip_flags, limit)
             } else {
-                CommitFlags::empty()
+                (CommitFlags::empty(), tip_limit_with_goal)
             };
             let mut ws_segment = branch_segment_from_name_and_meta(Some(ws_ref), meta, None)?;
-            // Drop the limit if we have a target ref
-            let limit = if workspace_info.target_ref.is_some() {
-                limit.with_goal(tip.detach())
-            } else {
-                limit
-            };
+            // The limits for the target ref and the worktree ref are synced so they can always find each other,
+            // while being able to stop when the entrypoint is included.
             ws_segment.metadata = Some(SegmentMetadata::Workspace(workspace_info));
             let ws_segment = graph.insert_root(ws_segment);
             // As workspaces typically have integration branches which can help us to stop the traversal,
@@ -287,9 +279,9 @@ impl Graph {
                     // We only allow workspaces that are not remote, and that are not target refs.
                     // Theoretically they can still cross-reference each other, but then we'd simply ignore
                     // their status for now.
-                    CommitFlags::NotInRemote | add_flags,
+                    CommitFlags::NotInRemote | ws_flags,
                 Instruction::CollectCommit { into: ws_segment },
-                limit,
+                ws_limit,
             )) {
                 return Ok(graph.with_hard_limit());
             }
@@ -305,8 +297,7 @@ impl Graph {
                     Instruction::CollectCommit {
                         into: target_segment,
                     },
-                    /* unlimited traversal for integrated commits */
-                    limit.with_goal(tip.detach()),
+                    tip_limit_with_goal,
                 )) {
                     return Ok(graph.with_hard_limit());
                 }
@@ -319,7 +310,7 @@ impl Graph {
         let max_limit = limit;
         while let Some((id, mut propagated_flags, instruction, mut limit)) = next.pop_front() {
             if max_commits_recharge_location.binary_search(&id).is_ok() {
-                limit.inner = max_limit.inner;
+                limit.set_but_keep_goal(max_limit);
             }
             let info = find(commit_graph.as_ref(), repo, id, &mut buf)?;
             let src_flags = graph[instruction.segment_idx()]
@@ -390,8 +381,23 @@ impl Graph {
                 },
             };
 
+            let refs_at_commit_before_removal = refs_by_id.remove(&id).unwrap_or_default();
+            let (remote_items, maybe_goal_for_id) = try_queue_remote_tracking_branches(
+                repo,
+                &refs_at_commit_before_removal,
+                &mut graph,
+                &target_symbolic_remote_names,
+                &configured_remote_tracking_branches,
+                &target_refs,
+                meta,
+                id,
+                limit,
+                &mut goals,
+            )?;
+
             let segment = &mut graph[segment_idx_for_id];
             let commit_idx_for_possible_fork = segment.commits.len();
+            let propagated_flags = propagated_flags | maybe_goal_for_id;
             let hard_limit_hit = queue_parents(
                 &mut next,
                 &info.parent_ids,
@@ -404,10 +410,8 @@ impl Graph {
                 return Ok(graph.with_hard_limit());
             }
 
-            let refs_at_commit_before_removal = refs_by_id.remove(&id).unwrap_or_default();
             segment.commits.push(
                 info.into_commit(
-                    repo,
                     segment
                         .commits
                         // Flags are additive, and meanwhile something may have dumped flags on us
@@ -422,20 +426,10 @@ impl Graph {
                 )?,
             );
 
-            let hard_limit_hit = try_queue_remote_tracking_branches(
-                repo,
-                &refs_at_commit_before_removal,
-                &mut next,
-                &mut graph,
-                &target_symbolic_remote_names,
-                &configured_remote_tracking_branches,
-                &target_refs,
-                meta,
-                id,
-                limit,
-            )?;
-            if hard_limit_hit {
-                return Ok(graph.with_hard_limit());
+            for item in remote_items {
+                if next.push_back_exhausted(item) {
+                    return Ok(graph.with_hard_limit());
+                }
             }
 
             prune_integrated_tips(&mut graph, &mut next, &desired_refs, max_limit);
@@ -469,7 +463,39 @@ struct Queue {
 struct Limit {
     inner: Option<usize>,
     /// The commit we want to see to be able to assume normal limits. Until then there is no limit.
-    goal: Option<gix::ObjectId>,
+    /// This is represented by bitflag, one for each goal.
+    /// The flag is empty if no goal is set.
+    goal: CommitFlags,
+}
+
+/// A set of commits to keep track of in bitflags.
+#[derive(Default)]
+struct Goals(Vec<gix::ObjectId>);
+
+impl Goals {
+    /// Return the bitflag for `goal`, or `None` if we can't track any more goals.
+    fn flag_for(&mut self, goal: gix::ObjectId) -> Option<CommitFlags> {
+        let existing_flags = CommitFlags::all().iter().count();
+        let max_goals = size_of::<CommitFlags>() * 8 - existing_flags;
+
+        let goals = &mut self.0;
+        let goal_index = match goals.iter().position(|existing| existing == &goal) {
+            None => {
+                let idx = goals.len();
+                goals.push(goal);
+                idx
+            }
+            Some(idx) => idx,
+        };
+        if goal_index >= max_goals {
+            tracing::warn!("Goals limit reached, cannot track {goal}");
+            None
+        } else {
+            Some(CommitFlags::from_bits_retain(
+                1 << (existing_flags + goal_index),
+            ))
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
