@@ -58,10 +58,12 @@ the window, then enlarge it and retain the original widths of the layout.
 
 	let leftPreferredWidth = $derived(pxToRem(leftWidth.default, zoom));
 	let middlePreferredWidth = $derived(pxToRem(middleWidth?.default, zoom));
+	let rightDrawerPreferredWidth = $derived(pxToRem(24, zoom));
 
 	let leftDiv = $state<HTMLDivElement>();
 	let middleDiv = $state<HTMLDivElement>();
 	let rightDiv = $state<HTMLDivElement>();
+	let drawerRightDiv = $state<HTMLDivElement>();
 
 	const leftMinWidth = $derived(pxToRem(leftWidth.min, zoom));
 	const middleMinWidth = $derived(pxToRem(middleWidth?.min, zoom));
@@ -172,12 +174,22 @@ the window, then enlarge it and retain the original widths of the layout.
 	{#if drawerRight}
 		<div
 			class="drawer-right"
+			bind:this={drawerRightDiv}
+			style:width={rightDrawerPreferredWidth + 'rem'}
 			use:focusable={{
 				id: DefinedFocusable.ViewportDrawerRight,
 				parentId: DefinedFocusable.MainViewport
 			}}
 		>
 			<AsyncRender>
+				<Resizer
+					viewport={drawerRightDiv}
+					direction="left"
+					minWidth={24}
+					borderRadius="ml"
+					persistId="viewport-${name}-middle"
+					onWidth={(width) => (rightDrawerPreferredWidth = width)}
+				/>
 				{@render drawerRight()}
 			</AsyncRender>
 		</div>
@@ -262,7 +274,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		flex-direction: column;
 		height: 100%;
 		margin-left: 8px;
-		overflow-x: hidden;
+		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 	}

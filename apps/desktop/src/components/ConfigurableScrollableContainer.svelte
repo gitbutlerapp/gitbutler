@@ -6,6 +6,7 @@
 	import { type Snippet } from 'svelte';
 
 	interface Props {
+		viewport?: HTMLDivElement;
 		height?: string;
 		maxHeight?: string;
 		initiallyVisible?: boolean;
@@ -24,7 +25,8 @@
 		onscrollexists?: (exists: boolean) => void;
 	}
 
-	const {
+	let {
+		viewport = $bindable(),
 		height,
 		maxHeight,
 		initiallyVisible,
@@ -50,6 +52,7 @@
 
 <ScrollableContainer
 	bind:this={scroller}
+	bind:viewport
 	{height}
 	{maxHeight}
 	{initiallyVisible}
