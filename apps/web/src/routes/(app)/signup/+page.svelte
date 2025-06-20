@@ -3,6 +3,7 @@
 	import GoogleButton from '$lib/components/login/GoogleButton.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import LoginService from '@gitbutler/shared/login/loginService';
+	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 
@@ -15,6 +16,7 @@
 	const passwordsMatch = $derived(password === passwordConfirmation);
 
 	const loginService = getContext(LoginService);
+	const routesService = getContext(WebRoutesService);
 
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
@@ -78,6 +80,11 @@
 		</SectionCard>
 
 		<Button type="submit">Create account</Button>
+
+		<div class="login-link">
+			Already have an account?
+			<a href={routesService.loginPath()}>Log in</a>
+		</div>
 
 		{#if error}
 			<div class="error-message">{error}</div>
@@ -151,5 +158,16 @@
 		background-color: var(--clr-theme-succ-bg-muted);
 		color: var(--clr-scale-err-10);
 		font-size: 14px;
+	}
+
+	.login-link {
+		display: flex;
+		justify-content: center;
+		gap: 4px;
+		font-size: 14px;
+
+		a {
+			text-decoration: underline;
+		}
 	}
 </style>

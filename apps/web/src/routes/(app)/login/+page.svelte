@@ -82,6 +82,11 @@
 
 		<Button type="submit">Log in</Button>
 
+		<div class="signup-link">
+			Don't have an account?
+			<a href={routesService.signupPath()}>Sign up</a>
+		</div>
+
 		{#if error}
 			<div class="error-message">
 				<span>
@@ -165,5 +170,16 @@
 		background-color: var(--clr-theme-err-bg-muted);
 		color: var(--clr-scale-err-10);
 		font-size: 14px;
+	}
+
+	.signup-link {
+		display: flex;
+		justify-content: center;
+		gap: 4px;
+		font-size: 14px;
+
+		a {
+			text-decoration: underline;
+		}
 	}
 </style>
