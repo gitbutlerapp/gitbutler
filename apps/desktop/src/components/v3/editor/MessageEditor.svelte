@@ -231,7 +231,6 @@
 <div
 	role="presentation"
 	class="editor-wrapper hide-native-scrollbar"
-	style:--extratoolbar-height={extendedTools ? `${pxToRem(42)}rem` : '0'}
 	style:--lexical-input-client-text-wrap={useRuler.current && !useRichText.current
 		? 'nowrap'
 		: 'normal'}
@@ -273,6 +272,7 @@
 
 			<div class="message-textarea__wrapper">
 				<RichTextEditor
+					minHeight="4rem"
 					styleContext="client-editor"
 					namespace="CommitMessageEditor"
 					{placeholder}
@@ -411,7 +411,7 @@
 	.editor-extratools {
 		display: flex;
 		align-items: center;
-		height: var(--extratoolbar-height);
+		height: 42px;
 		padding: 0 10px;
 		gap: 12px;
 		border-bottom: 1px solid var(--clr-border-3);
@@ -424,7 +424,6 @@
 		position: relative;
 		flex: 1;
 		flex-direction: column;
-		min-height: 120px;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
