@@ -12,6 +12,17 @@ export type Outcome = {
 };
 
 export type ActionHandler = 'handleChangesSimple';
+
+export type ActionSource =
+	| 'ButCli'
+	| 'GitButler'
+	| 'Unknown'
+	| {
+			Mcp: {
+				name: string;
+				version: string;
+			} | null;
+	  };
 /** Represents a snapshot of an automatic action taken by a GitButler automation.  */
 export class ButlerAction {
 	/** UUID identifier of the action */
@@ -33,6 +44,8 @@ export class ButlerAction {
 	response?: Outcome;
 	/** An error message if the action failed. */
 	error?: string;
+	/** The source of the action, if known. */
+	source!: ActionSource;
 }
 
 export class ActionListing {
