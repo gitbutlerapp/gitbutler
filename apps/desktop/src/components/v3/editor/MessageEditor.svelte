@@ -1,5 +1,4 @@
 <script lang="ts">
-	import AsyncRender from '$components/v3/AsyncRender.svelte';
 	import MessageEditorRuler from '$components/v3/editor/MessageEditorRuler.svelte';
 	import CommitSuggestions from '$components/v3/editor/commitSuggestions.svelte';
 	import { showError } from '$lib/notifications/toasts';
@@ -24,6 +23,7 @@
 	import FormattingButton from '@gitbutler/ui/richText/tools/FormattingButton.svelte';
 	import Segment from '@gitbutler/ui/segmentControl/Segment.svelte';
 	import SegmentControl from '@gitbutler/ui/segmentControl/SegmentControl.svelte';
+	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { tick } from 'svelte';
 
 	const ACCEPTED_FILE_TYPES = ['image/*', 'application/*', 'text/*', 'audio/*', 'video/*'];
@@ -228,11 +228,10 @@
 	{/snippet}
 </Modal>
 
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-	class="editor-wrapper"
-	style:--extratoolbar-height={extendedTools ? '2.625rem' : '0'}
+	role="presentation"
+	class="editor-wrapper hide-native-scrollbar"
+	style:--extratoolbar-height={extendedTools ? `${pxToRem(42)}rem` : '0'}
 	style:--lexical-input-client-text-wrap={useRuler.current && !useRichText.current
 		? 'nowrap'
 		: 'normal'}
@@ -252,9 +251,7 @@
 			}}
 		>
 			{#if useRuler.current && !useRichText.current && enableRuler}
-				<AsyncRender>
-					<MessageEditorRuler />
-				</AsyncRender>
+				<MessageEditorRuler />
 			{/if}
 
 			{#if extendedTools}
@@ -275,136 +272,129 @@
 			{/if}
 
 			<div class="message-textarea__wrapper">
-				<AsyncRender>
-					<RichTextEditor
-						styleContext="client-editor"
-						namespace="CommitMessageEditor"
-						{placeholder}
-						bind:this={composer}
-						markdown={useRichText.current}
-						onError={(e) => console.warn('Editor error', e)}
-						initialText={initialValue}
-						onChange={handleChange}
-						onKeyDown={handleKeyDown}
-						{disabled}
-						wrapCountValue={useRichText.current ? undefined : wrapCountValue}
-					>
-						{#snippet plugins()}
-							<Formatter bind:this={formatter} />
-							<FileUploadPlugin bind:this={fileUploadPlugin} onDrop={handleDropFiles} />
-							{#if suggestionsHandler}
-								<GhostTextPlugin
-									bind:this={suggestionsHandler.ghostTextComponent}
-									onSelection={(text) => suggestionsHandler.onAcceptSuggestion(text)}
-								/>
-							{/if}
-							{#if !useRichText.current}
-								<HardWrapPlugin
-									enabled={!useRichText.current && wrapTextByRuler.current}
-									maxLength={wrapCountValue}
-								/>
-							{/if}
-						{/snippet}
-					</RichTextEditor>
-				</AsyncRender>
+				<RichTextEditor
+					styleContext="client-editor"
+					namespace="CommitMessageEditor"
+					{placeholder}
+					bind:this={composer}
+					markdown={useRichText.current}
+					onError={(e) => console.warn('Editor error', e)}
+					initialText={initialValue}
+					onChange={handleChange}
+					onKeyDown={handleKeyDown}
+					{disabled}
+					wrapCountValue={useRichText.current ? undefined : wrapCountValue}
+				>
+					{#snippet plugins()}
+						<Formatter bind:this={formatter} />
+						<FileUploadPlugin bind:this={fileUploadPlugin} onDrop={handleDropFiles} />
+						{#if suggestionsHandler}
+							<GhostTextPlugin
+								bind:this={suggestionsHandler.ghostTextComponent}
+								onSelection={(text) => suggestionsHandler.onAcceptSuggestion(text)}
+							/>
+						{/if}
+						{#if !useRichText.current}
+							<HardWrapPlugin
+								enabled={!useRichText.current && wrapTextByRuler.current}
+								maxLength={wrapCountValue}
+							/>
+						{/if}
+					{/snippet}
+				</RichTextEditor>
 			</div>
 		</div>
 
 		<div class="message-textarea__toolbar">
-			<AsyncRender>
-				<div class="message-textarea__toolbar__left">
+			<div class="message-textarea__toolbar__left">
+				<Button
+					kind="ghost"
+					icon={extendedTools ? 'fullscreen-resize-exit' : 'fullscreen-resize-enter'}
+					tooltip="Extended mode"
+					onclick={() => {
+						extendedTools = !extendedTools;
+					}}
+				/>
+				<div class="message-textarea__toolbar__divider"></div>
+				{#if enableSmiles}
+					<EmojiPickerButton onEmojiSelect={(emoji) => onEmojiSelect(emoji.unicode)} />
+				{/if}
+				{#if enableFileUpload}
 					<Button
 						kind="ghost"
-						icon={extendedTools ? 'fullscreen-resize-exit' : 'fullscreen-resize-enter'}
-						tooltip="Extended mode"
-						onclick={() => {
-							extendedTools = !extendedTools;
-						}}
+						icon="attachment-small"
+						tooltip="Drop, paste or click to upload files"
+						onclick={handleAttachFiles}
 					/>
-					<div class="message-textarea__toolbar__divider"></div>
-					{#if enableSmiles}
-						<EmojiPickerButton onEmojiSelect={(emoji) => onEmojiSelect(emoji.unicode)} />
-					{/if}
-					{#if enableFileUpload}
-						<Button
-							kind="ghost"
-							icon="attachment-small"
-							tooltip="Drop, paste or click to upload files"
-							onclick={handleAttachFiles}
-						/>
-					{/if}
-					{#if !useRichText.current && enableRuler}
-						<div class="flex gap-2">
-							<FormattingButton
-								icon="ruler"
-								activated={useRuler.current}
-								tooltip="Text ruler"
-								onclick={() => {
-									useRuler.current = !useRuler.current;
-								}}
-							/>
-							{#if useRuler.current}
-								<div
-									class="message-textarea__ruler-input-wrapper"
-									class:disabled={!useRuler.current}
-								>
-									<input
-										disabled={!useRuler.current}
-										value={rulerCountValue.current}
-										min={MIN_RULER_VALUE}
-										max={MAX_RULER_VALUE}
-										class="text-13 text-input message-textarea__ruler-input"
-										type="number"
-										onblur={() => {
-											if (rulerCountValue.current < MIN_RULER_VALUE) {
-												console.warn('Ruler value must be greater than 10');
-												rulerCountValue.current = MIN_RULER_VALUE;
-											} else if (rulerCountValue.current > MAX_RULER_VALUE) {
-												rulerCountValue.current = MAX_RULER_VALUE;
-											}
-										}}
-										oninput={(e) => {
-											const input = e.currentTarget as HTMLInputElement;
-											rulerCountValue.current = parseInt(input.value);
-										}}
-										onkeydown={(e) => {
-											if (e.key === 'Enter') {
-												e.preventDefault();
-												composer?.focus();
-											}
-										}}
-									/>
-								</div>
-							{/if}
-						</div>
+				{/if}
+				{#if !useRichText.current && enableRuler}
+					<div class="flex gap-2">
 						<FormattingButton
-							icon="text-wrap"
-							disabled={!useRuler.current}
-							activated={wrapTextByRuler.current && useRuler.current}
-							tooltip="Wrap text automatically"
-							onclick={async () => {
-								wrapTextByRuler.current = !wrapTextByRuler.current;
-								await tick(); // Wait for reactive update.
-								if (wrapTextByRuler.current) {
-									composer?.wrapAll();
-								}
+							icon="ruler"
+							activated={useRuler.current}
+							tooltip="Text ruler"
+							onclick={() => {
+								useRuler.current = !useRuler.current;
 							}}
 						/>
-					{/if}
-				</div>
-				<Button
-					kind="outline"
-					icon="ai"
-					tooltip={!canUseAI
-						? 'You need to enable AI in the project settings to use this feature'
-						: undefined}
-					disabled={!canUseAI}
-					onclick={onAiButtonClick}
-					reversedDirection
-					shrinkable
-					loading={aiIsLoading}>Generate message</Button
-				>
-			</AsyncRender>
+						{#if useRuler.current}
+							<div class="message-textarea__ruler-input-wrapper" class:disabled={!useRuler.current}>
+								<input
+									disabled={!useRuler.current}
+									value={rulerCountValue.current}
+									min={MIN_RULER_VALUE}
+									max={MAX_RULER_VALUE}
+									class="text-13 text-input message-textarea__ruler-input"
+									type="number"
+									onblur={() => {
+										if (rulerCountValue.current < MIN_RULER_VALUE) {
+											console.warn('Ruler value must be greater than 10');
+											rulerCountValue.current = MIN_RULER_VALUE;
+										} else if (rulerCountValue.current > MAX_RULER_VALUE) {
+											rulerCountValue.current = MAX_RULER_VALUE;
+										}
+									}}
+									oninput={(e) => {
+										const input = e.currentTarget as HTMLInputElement;
+										rulerCountValue.current = parseInt(input.value);
+									}}
+									onkeydown={(e) => {
+										if (e.key === 'Enter') {
+											e.preventDefault();
+											composer?.focus();
+										}
+									}}
+								/>
+							</div>
+						{/if}
+					</div>
+					<FormattingButton
+						icon="text-wrap"
+						disabled={!useRuler.current}
+						activated={wrapTextByRuler.current && useRuler.current}
+						tooltip="Wrap text automatically"
+						onclick={async () => {
+							wrapTextByRuler.current = !wrapTextByRuler.current;
+							await tick(); // Wait for reactive update.
+							if (wrapTextByRuler.current) {
+								composer?.wrapAll();
+							}
+						}}
+					/>
+				{/if}
+			</div>
+			<Button
+				kind="outline"
+				icon="ai"
+				tooltip={!canUseAI
+					? 'You need to enable AI in the project settings to use this feature'
+					: undefined}
+				disabled={!canUseAI}
+				onclick={onAiButtonClick}
+				reversedDirection
+				shrinkable
+				loading={aiIsLoading}>Generate message</Button
+			>
 		</div>
 	</div>
 </div>
