@@ -67,6 +67,14 @@
 	<title>GitButler | Login</title>
 </svelte:head>
 
+<div class="main-links">
+	<a href={routesService.homePath()} class="logo" aria-label="main nav" title="Home">
+		<svg width="23" height="22" viewBox="0 0 23 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+			<path d="M0 22V0L11.4819 9.63333L23 0V22L11.4819 12.4L0 22Z" fill="var(--clr-text-1)" />
+		</svg>
+	</a>
+</div>
+
 <form onsubmit={handleSubmit} class="login-form">
 	<div class="login-form__content">
 		<SectionCard>
@@ -119,6 +127,18 @@
 </form>
 
 <style lang="postcss">
+	.main-links {
+		display: flex;
+		align-items: center;
+		margin-bottom: 16px;
+		overflow: hidden;
+		gap: 16px;
+	}
+
+	.logo {
+		display: flex;
+	}
+
 	.login-form__content {
 		display: flex;
 		flex-direction: column;
