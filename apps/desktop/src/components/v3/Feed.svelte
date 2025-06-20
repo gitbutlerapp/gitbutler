@@ -1,8 +1,8 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import LazyloadContainer from '$components/LazyloadContainer.svelte';
 	import FeedItem from '$components/v3/FeedItem.svelte';
 	import { Feed } from '$lib/feed/feed';
+	import { onMount } from 'svelte';
 
 	type Props = {
 		projectId: string;
@@ -12,6 +12,15 @@
 
 	const feed = new Feed(projectId);
 	const combinedEntries = feed.combined;
+
+	let viewport = $state<HTMLDivElement>();
+	onMount(() => {
+		if (viewport) {
+			setTimeout(() => {
+				viewport!.scrollTop = viewport!.scrollHeight;
+			}, 100);
+		}
+	});
 </script>
 
 <div class="action-log-wrap">
@@ -19,18 +28,11 @@
 		<div class="action-log__header">
 			<h2 class="text-16 text-semibold">Butler Actions</h2>
 		</div>
-		<ConfigurableScrollableContainer>
+		<ConfigurableScrollableContainer bind:viewport>
 			<div class="feed">
-				<LazyloadContainer
-					minTriggerCount={3}
-					ontrigger={() => {
-						feed.fetch();
-					}}
-				>
-					{#each $combinedEntries as entry (entry.id)}
-						<FeedItem {projectId} action={entry} />
-					{/each}
-				</LazyloadContainer>
+				{#each $combinedEntries as entry (entry.id)}
+					<FeedItem {projectId} action={entry} />
+				{/each}
 			</div>
 		</ConfigurableScrollableContainer>
 	</div>
@@ -68,8 +70,7 @@
 
 	.feed {
 		display: flex;
-
-		flex-direction: column;
+		flex-direction: column-reverse;
 		padding: 16px;
 
 		gap: 20px;
