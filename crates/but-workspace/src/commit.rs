@@ -29,7 +29,7 @@ impl<'repo> WorkspaceCommit<'repo> {
         let mut message = Self::GITBUTLER_WORKSPACE_COMMIT_TITLE.to_string();
         message.push_str("\n\n");
         if !stacks.is_empty() {
-            message.push_str("This is a merge commit the virtual branches in your workspace.\n\n");
+            message.push_str("This is a merge commit of the virtual branches in your workspace.\n\n");
         } else {
             message.push_str("This is placeholder commit and will be replaced by a merge of your virtual branches.\n\n");
         }
