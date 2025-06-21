@@ -1,5 +1,8 @@
 use crate::init::PetGraph;
-use crate::{CommitFlags, CommitIndex, Edge, EntryPoint, Graph, Segment, SegmentIndex};
+use crate::{
+    CommitFlags, CommitIndex, Edge, EntryPoint, Graph, Segment, SegmentIndex, SegmentMetadata,
+    Statistics,
+};
 use anyhow::{Context, bail};
 use bstr::ByteSlice;
 use gix::refs::Category;
@@ -13,7 +16,7 @@ impl Graph {
     /// Insert `segment` to the graph so that it's not connected to any other segment, and return its index.
     pub fn insert_root(&mut self, segment: Segment) -> SegmentIndex {
         let index = self.inner.add_node(segment);
-        self.inner[index].id = index.index();
+        self.inner[index].id = index;
         if self.entrypoint.is_none() {
             self.entrypoint = Some((index, None))
         }
@@ -41,8 +44,15 @@ impl Graph {
         dst_commit_id: impl Into<Option<gix::ObjectId>>,
     ) -> SegmentIndex {
         let dst = self.inner.add_node(dst);
-        self.inner[dst].id = dst.index();
-        self.connect_segments_with_dst_id(src, src_commit, dst, dst_commit, dst_commit_id.into());
+        self.inner[dst].id = dst;
+        self.connect_segments_with_ids(
+            src,
+            src_commit,
+            None,
+            dst,
+            dst_commit,
+            dst_commit_id.into(),
+        );
         dst
     }
 }
@@ -56,13 +66,14 @@ impl Graph {
         dst: SegmentIndex,
         dst_commit: impl Into<Option<CommitIndex>>,
     ) {
-        self.connect_segments_with_dst_id(src, src_commit, dst, dst_commit, None)
+        self.connect_segments_with_ids(src, src_commit, None, dst, dst_commit, None)
     }
 
-    pub(crate) fn connect_segments_with_dst_id(
+    pub(crate) fn connect_segments_with_ids(
         &mut self,
         src: SegmentIndex,
         src_commit: impl Into<Option<CommitIndex>>,
+        src_id: Option<gix::ObjectId>,
         dst: SegmentIndex,
         dst_commit: impl Into<Option<CommitIndex>>,
         dst_id: Option<gix::ObjectId>,
@@ -74,7 +85,7 @@ impl Graph {
             dst,
             Edge {
                 src: src_commit,
-                src_id: self[src].commit_id_by_index(src_commit),
+                src_id: src_id.or_else(|| self[src].commit_id_by_index(src_commit)),
                 dst: dst_commit,
                 dst_id: dst_id.or_else(|| self[dst].commit_id_by_index(dst_commit)),
             },
@@ -84,6 +95,10 @@ impl Graph {
 
 /// Query
 impl Graph {
+    /// Return `true` if this graph is possibly partial as the hard limit was hit.
+    pub fn hard_limit_hit(&self) -> bool {
+        self.hard_limit_hit
+    }
     /// Return the entry-point of the graph as configured during traversal.
     /// It's useful for when one wants to know which commit was used to discover the entire graph.
     ///
@@ -116,6 +131,26 @@ impl Graph {
         self.inner.externals(Direction::Outgoing)
     }
 
+    /// Return all segments that are both [base segments](Self::base_segments) and which
+    /// aren't fully defined as traversal stopped due to some abort condition being met.
+    /// Valid partial segments always have at least one commit.
+    pub fn partial_segments(&self) -> impl Iterator<Item = SegmentIndex> {
+        self.base_segments().filter(|s| {
+            let has_outgoing = self
+                .inner
+                .edges_directed(*s, Direction::Outgoing)
+                .next()
+                .is_some();
+            if has_outgoing {
+                return false;
+            }
+            self[*s]
+                .commits
+                .first()
+                .is_none_or(|c| !c.parent_ids.is_empty())
+        })
+    }
+
     /// Return all segments that sit on top of the `sidx` segment as `(source_commit_index(of sidx), destination_segment_index)`,
     /// along with the exact commit at which the segment branches off as seen from `sidx`, usually the last one.
     /// Also, **this will only return those segments where the incoming connection points to their first commit**.
@@ -145,13 +180,158 @@ impl Graph {
     }
 
     /// Return the number of edges that are connecting segments.
-    pub fn num_edges(&self) -> usize {
+    pub fn num_connections(&self) -> usize {
         self.inner.edge_count()
+    }
+
+    /// Return the number of commits in all segments.
+    pub fn num_commits(&self) -> usize {
+        self.inner
+            .raw_nodes()
+            .iter()
+            .map(|n| n.weight.commits.len())
+            .sum::<usize>()
     }
 
     /// Return an iterator over all indices of segments in the graph.
     pub fn segments(&self) -> impl Iterator<Item = SegmentIndex> {
         self.inner.node_indices()
+    }
+
+    /// Return the number segments whose commits are all exclusively in a remote.
+    pub fn statistics(&self) -> Statistics {
+        let mut out = Statistics::default();
+        let Statistics {
+            segments,
+            segments_integrated,
+            segments_remote,
+            segments_with_remote_tracking_branch,
+            segments_empty,
+            segments_unnamed,
+            segments_in_workspace,
+            segments_in_workspace_and_integrated,
+            segments_with_workspace_metadata,
+            segments_with_branch_metadata,
+            entrypoint_in_workspace,
+            segments_behind_of_entrypoint,
+            segments_ahead_of_entrypoint,
+            entrypoint,
+            segment_entrypoint_incoming,
+            segment_entrypoint_outgoing,
+            top_segments,
+            segments_at_bottom,
+            connections,
+            commits,
+            commit_references,
+            commits_at_cutoff,
+        } = &mut out;
+
+        *segments = self.inner.node_count();
+        *connections = self.inner.edge_count();
+        *top_segments = self
+            .tip_segments()
+            .map(|s| {
+                let s = &self[s];
+                (s.ref_name.clone(), s.id, s.flags_of_first_commit())
+            })
+            .collect();
+        *segments_at_bottom = self.base_segments().count();
+        *entrypoint = self.entrypoint.unwrap_or_default();
+
+        if let Ok(ep) = self.lookup_entrypoint() {
+            *entrypoint_in_workspace = ep
+                .segment
+                .commits
+                .first()
+                .map(|c| c.flags.contains(CommitFlags::InWorkspace));
+            *segment_entrypoint_incoming = self
+                .inner
+                .edges_directed(ep.segment_index, Direction::Incoming)
+                .count();
+            *segment_entrypoint_outgoing = self
+                .inner
+                .edges_directed(ep.segment_index, Direction::Outgoing)
+                .count();
+            for (storage, direction, start_cidx) in [
+                (
+                    segments_behind_of_entrypoint,
+                    Direction::Outgoing,
+                    ep.segment.commits.first().map(|_| 0),
+                ),
+                (
+                    segments_ahead_of_entrypoint,
+                    Direction::Incoming,
+                    ep.segment.commits.last().map(|_| ep.segment.commits.len()),
+                ),
+            ] {
+                let mut walk = crate::init::walk::TopoWalk::start_from(
+                    ep.segment_index,
+                    start_cidx,
+                    direction,
+                )
+                .skip_tip_segment();
+                while walk.next(&self.inner).is_some() {
+                    *storage += 1;
+                }
+            }
+        }
+
+        for node in self.inner.raw_nodes() {
+            let n = &node.weight;
+            *commits += n.commits.len();
+
+            if n.ref_name.is_none() {
+                *segments_unnamed += 1;
+            }
+            if n.remote_tracking_ref_name.is_some() {
+                *segments_with_remote_tracking_branch += 1;
+            }
+            match n.metadata {
+                None => {}
+                Some(SegmentMetadata::Workspace(_)) => {
+                    *segments_with_workspace_metadata += 1;
+                }
+                Some(SegmentMetadata::Branch(_)) => {
+                    *segments_with_branch_metadata += 1;
+                }
+            }
+            // We assume proper segmentation, so the first commit is all we need
+            match n.commits.first() {
+                Some(c) => {
+                    if c.flags.contains(CommitFlags::InWorkspace) {
+                        *segments_in_workspace += 1
+                    }
+                    if c.flags.contains(CommitFlags::Integrated) {
+                        *segments_integrated += 1
+                    }
+                    if c.flags
+                        .contains(CommitFlags::InWorkspace | CommitFlags::Integrated)
+                    {
+                        *segments_in_workspace_and_integrated += 1
+                    }
+                    if c.flags.is_remote() {
+                        *segments_remote += 1;
+                    }
+                }
+                None => {
+                    *segments_empty += 1;
+                }
+            }
+
+            *commit_references += n.commits.iter().map(|c| c.refs.len()).sum::<usize>();
+        }
+
+        for sidx in self.inner.node_indices() {
+            *commits_at_cutoff += usize::from(self[sidx].commits.last().is_some_and(|c| {
+                !c.parent_ids.is_empty()
+                    && self
+                        .inner
+                        .edges_directed(sidx, Direction::Outgoing)
+                        .next()
+                        .is_none()
+            }));
+        }
+        out
     }
 }
 
@@ -162,45 +342,55 @@ impl Graph {
     // TODO: maybe make this mandatory as part of post-processing.
     pub fn validated(self) -> anyhow::Result<Self> {
         for edge in self.inner.edge_references() {
-            check_edge(&self.inner, edge)?;
+            check_edge(&self.inner, edge, false)?;
         }
         Ok(self)
     }
 
+    /// Validate the graph for consistency and return all errors.
+    pub fn validation_errors(&self) -> Vec<anyhow::Error> {
+        self.inner
+            .edge_references()
+            .filter_map(|edge| check_edge(&self.inner, edge, false).err())
+            .collect()
+    }
+
     /// Produce a string that concisely represents `commit`, adding `extra` information as needed.
-    pub fn commit_debug_string<'a>(
+    pub fn commit_debug_string(
         commit: &crate::Commit,
-        extra: impl Into<Option<&'a str>>,
         has_conflicts: bool,
         is_entrypoint: bool,
         show_message: bool,
+        is_early_end: bool,
+        hard_limit: bool,
     ) -> String {
-        let extra = extra.into();
         format!(
-            "{ep}{kind}{conflict}{hex}{extra}{flags}{msg}{refs}",
+            "{ep}{end}{kind}{conflict}{hex}{flags}{msg}{refs}",
             ep = if is_entrypoint { "👉" } else { "" },
+            end = if is_early_end {
+                if hard_limit { "❌" } else { "✂️" }
+            } else {
+                ""
+            },
             kind = if commit.flags.contains(CommitFlags::NotInRemote) {
                 "·"
             } else {
                 "🟣"
             },
             conflict = if has_conflicts { "💥" } else { "" },
-            extra = if let Some(extra) = extra {
-                format!(" [{extra}]")
-            } else {
-                "".into()
-            },
             flags = if !commit.flags.is_empty() {
                 format!(" ({})", commit.flags.debug_string())
             } else {
                 "".to_string()
             },
             hex = commit.id.to_hex_with_len(7),
-            msg = if show_message {
-                format!("❱{:?}", commit.message.trim().as_bstr())
-            } else {
-                "".into()
-            },
+            msg = commit
+                .details
+                .as_ref()
+                .map(|d| d.message.trim().as_bstr())
+                .filter(|_| show_message)
+                .map(|msg| { format!("❱{:?}", msg.trim().as_bstr()) })
+                .unwrap_or_default(),
             refs = if commit.refs.is_empty() {
                 "".to_string()
             } else {
@@ -234,15 +424,16 @@ impl Graph {
 
     /// Validate the graph for consistency and fail loudly when an issue was found, after printing the dot graph.
     /// Mostly useful for debugging to stop early when a connection wasn't created correctly.
-    pub(crate) fn validate_or_eprint_dot(&mut self) -> anyhow::Result<()> {
+    #[cfg(unix)]
+    pub fn validated_or_open_as_svg(self) -> anyhow::Result<Self> {
         for edge in self.inner.edge_references() {
-            let res = check_edge(&self.inner, edge);
+            let res = check_edge(&self.inner, edge, false);
             if res.is_err() {
-                self.eprint_dot_graph();
+                self.open_as_svg();
             }
             res?;
         }
-        Ok(())
+        Ok(self)
     }
 
     /// Output this graph in dot-format to stderr to allow copying it, and using like this for visualization:
@@ -259,7 +450,8 @@ impl Graph {
     }
 
     /// Open an SVG dot visualization in the browser or panic if the `dot` or `open` tool can't be found.
-    #[cfg(target_os = "macos")]
+    #[cfg(unix)]
+    #[tracing::instrument(skip(self))]
     pub fn open_as_svg(&self) {
         use std::io::Write;
         use std::process::Stdio;
@@ -298,18 +490,46 @@ impl Graph {
         );
     }
 
+    /// Return `true` if commit `cidx` in `sidx` is 'cut off', i.e. the traversal finished at this
+    /// commit due to an abort condition.
+    pub fn is_early_end_of_traversal(&self, sidx: SegmentIndex, cidx: CommitIndex) -> bool {
+        if cidx + 1 == self[sidx].commits.len() {
+            !self[sidx]
+                .commits
+                .last()
+                .expect("length check above works")
+                .parent_ids
+                .is_empty()
+                && self
+                    .inner
+                    .edges_directed(sidx, Direction::Outgoing)
+                    .next()
+                    .is_none()
+        } else {
+            false
+        }
+    }
+
     /// Produces a dot-version of the graph.
     pub fn dot_graph(&self) -> String {
         const HEX: usize = 7;
         let entrypoint = self.entrypoint;
         let node_attrs = |_: &PetGraph, (sidx, s): (SegmentIndex, &Segment)| {
             let name = format!(
-                "{}{maybe_centering_newline}",
+                "{}{remote}{maybe_centering_newline}",
                 s.ref_name
                     .as_ref()
                     .map(Self::ref_debug_string)
                     .unwrap_or_else(|| "<anon>".into()),
-                maybe_centering_newline = if s.commits.is_empty() { "" } else { "\n" }
+                maybe_centering_newline = if s.commits.is_empty() { "" } else { "\n" },
+                remote = if let Some(remote_ref_name) = s.remote_tracking_ref_name.as_ref() {
+                    format!(
+                        " <> {remote_name}",
+                        remote_name = Self::ref_debug_string(remote_ref_name)
+                    )
+                } else {
+                    "".into()
+                }
             );
             // Reduce noise by preferring ref-based entry-points.
             let show_segment_entrypoint = s.ref_name.is_some()
@@ -320,11 +540,15 @@ impl Graph {
                 .enumerate()
                 .map(|(cidx, c)| {
                     Self::commit_debug_string(
-                        &c.inner,
-                        None,
-                        c.has_conflicts,
+                        c,
+                        c.details
+                            .as_ref()
+                            .map(|d| d.has_conflicts)
+                            .unwrap_or_default(),
                         !show_segment_entrypoint && Some((sidx, Some(cidx))) == entrypoint,
                         false,
+                        self.is_early_end_of_traversal(sidx, cidx),
+                        self.hard_limit_hit,
                     )
                 })
                 .collect::<Vec<_>>()
@@ -335,59 +559,71 @@ impl Graph {
                 id = sidx.index(),
             )
         };
-        let dot = petgraph::dot::Dot::with_attr_getters(
-            &self.inner,
-            &[],
-            &|g, e| {
-                let src = &g[e.source()];
-                let dst = &g[e.target()];
-                // Don't mark connections from the last commit to the first one,
-                // but those that are 'splitting' a segment. These shouldn't exist.
-                let Err(err) = check_edge(g, e) else {
-                    return ", label = \"\"".into();
-                };
-                let e = e.weight();
-                let src = src
-                    .commit_id_by_index(e.src)
-                    .map(|c| c.to_hex_with_len(HEX).to_string())
-                    .unwrap_or_else(|| "src".into());
-                let dst = dst
-                    .commit_id_by_index(e.dst)
-                    .map(|c| c.to_hex_with_len(HEX).to_string())
-                    .unwrap_or_else(|| "dst".into());
-                format!(", label = \"⚠️{src} → {dst} ({err})\", fontname = Courier")
-            },
-            &node_attrs,
-        );
+
+        let edge_attrs = &|g: &PetGraph, e: EdgeReference<'_, Edge>| {
+            let src = &g[e.source()];
+            let dst = &g[e.target()];
+            // Graphs may be half-baked, let's not worry about it then.
+            if self.hard_limit_hit {
+                return ", label = \"\"".into();
+            }
+            // Don't mark connections from the last commit to the first one,
+            // but those that are 'splitting' a segment. These shouldn't exist.
+            let Err(err) = check_edge(g, e, true) else {
+                return ", label = \"\"".into();
+            };
+            let e = e.weight();
+            let src = src
+                .commit_id_by_index(e.src)
+                .map(|c| c.to_hex_with_len(HEX).to_string())
+                .unwrap_or_else(|| "src".into());
+            let dst = dst
+                .commit_id_by_index(e.dst)
+                .map(|c| c.to_hex_with_len(HEX).to_string())
+                .unwrap_or_else(|| "dst".into());
+            format!(", label = \"⚠️{src} → {dst} ({err})\", fontname = Courier")
+        };
+        let dot = petgraph::dot::Dot::with_attr_getters(&self.inner, &[], &edge_attrs, &node_attrs);
         format!("{dot:?}")
     }
 }
 
 /// Fail with an error if the `edge` isn't consistent.
-fn check_edge(graph: &PetGraph, edge: EdgeReference<'_, Edge>) -> anyhow::Result<()> {
+fn check_edge(
+    graph: &PetGraph,
+    edge: EdgeReference<'_, Edge>,
+    weight_only: bool,
+) -> anyhow::Result<()> {
     let e = edge;
     let src = &graph[e.source()];
     let dst = &graph[e.target()];
     let w = e.weight();
+    let display = if weight_only {
+        w as &dyn std::fmt::Debug
+    } else {
+        &e as &dyn std::fmt::Debug
+    };
     if w.src != src.last_commit_index() {
         bail!(
-            "{w:?}: edge must start on last commit {last:?}",
+            "{display:?}: edge must start on last commit {last:?}",
             last = src.last_commit_index()
         );
     }
     let first_index = dst.commits.first().map(|_| 0);
     if w.dst != first_index {
-        bail!("{w:?}: edge must end on {first_index:?}");
+        bail!("{display:?}: edge must end on {first_index:?}");
     }
 
     let seg_cidx = src.commit_id_by_index(w.src);
     if w.src_id != seg_cidx {
-        bail!("{w:?}: the desired source index didn't match the one in the segment {seg_cidx:?}");
+        bail!(
+            "{display:?}: the desired source index didn't match the one in the segment {seg_cidx:?}"
+        );
     }
     let seg_cidx = dst.commit_id_by_index(w.dst);
     if w.dst_id != seg_cidx {
         bail!(
-            "{w:?}: the desired destination index didn't match the one in the segment {seg_cidx:?}"
+            "{display:?}: the desired destination index didn't match the one in the segment {seg_cidx:?}"
         );
     }
     Ok(())

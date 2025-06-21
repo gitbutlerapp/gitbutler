@@ -109,6 +109,22 @@ async fn main() -> Result<()> {
             ref_name,
             expensive,
         } => command::ref_info(&args, ref_name.as_deref(), *expensive),
+        args::Subcommands::Graph {
+            ref_name,
+            no_open,
+            limit,
+            limit_extension,
+            hard_limit,
+            debug,
+        } => command::graph(
+            &args,
+            ref_name.as_deref(),
+            *no_open,
+            limit.flatten(),
+            limit_extension.clone(),
+            *hard_limit,
+            *debug,
+        ),
         args::Subcommands::HunkAssignments => {
             command::assignment::hunk_assignments(&args.current_dir, args.json)
         }

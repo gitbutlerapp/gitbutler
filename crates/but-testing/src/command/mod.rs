@@ -5,6 +5,9 @@ use but_settings::AppSettings;
 use but_workspace::{DiffSpec, HunkHeader};
 use gitbutler_project::{Project, ProjectId};
 use gix::bstr::{BString, ByteSlice};
+use gix::odb::store::RefreshMode;
+use std::io::{Write, stdout};
+use std::mem::ManuallyDrop;
 use std::path::Path;
 use tokio::sync::mpsc::unbounded_channel;
 
@@ -492,6 +495,77 @@ pub fn ref_info(args: &super::Args, ref_name: Option<&str>, expensive: bool) -> 
         None => but_workspace::head_info(&repo, &meta, opts),
         Some(ref_name) => but_workspace::ref_info(repo.find_reference(ref_name)?, &meta, opts),
     }?)
+}
+
+pub fn graph(
+    args: &super::Args,
+    ref_name: Option<&str>,
+    no_open: bool,
+    limit: Option<usize>,
+    limit_extension: Vec<String>,
+    hard_limit: Option<usize>,
+    debug: bool,
+) -> anyhow::Result<()> {
+    let (mut repo, project) = repo_and_maybe_project(args, RepositoryOpenMode::General)?;
+    repo.objects.refresh = RefreshMode::Never;
+    let opts = but_graph::init::Options {
+        collect_tags: true,
+        hard_limit,
+        commits_limit_hint: limit,
+        commits_limit_recharge_location: limit_extension
+            .into_iter()
+            .map(|short_hash| {
+                repo.objects
+                    .lookup_prefix(
+                        gix::hash::Prefix::from_hex(&short_hash).expect("valid hex prefix"),
+                        None,
+                    )
+                    .unwrap()
+                    .expect("object for prefix exists")
+                    .expect("the prefix is unambiguous")
+            })
+            .collect(),
+    };
+
+    let meta_with_drop;
+    let meta_without_drop;
+    let meta = match project {
+        None => {
+            meta_without_drop = ManuallyDrop::new(VirtualBranchesTomlMetadata::from_path(
+                "should-never-be-written-back.toml",
+            )?);
+            &meta_without_drop
+        }
+        Some(project) => {
+            meta_with_drop = ref_metadata_toml(&project)?;
+            &meta_with_drop
+        }
+    };
+    let graph = match ref_name {
+        None => but_graph::Graph::from_head(&repo, meta, opts),
+        Some(ref_name) => {
+            let mut reference = repo.find_reference(ref_name)?;
+            let id = reference.peel_to_id_in_place()?;
+            but_graph::Graph::from_commit_traversal(id, reference.name().to_owned(), meta, opts)
+        }
+    }?;
+
+    let errors = graph.validation_errors();
+    if !errors.is_empty() {
+        eprintln!("VALIDATION FAILED: {errors:?}");
+    }
+    eprintln!("{:#?}", graph.statistics());
+    if no_open {
+        stdout().write_all(graph.dot_graph().as_bytes())?;
+    } else {
+        #[cfg(unix)]
+        graph.open_as_svg();
+    }
+
+    if debug {
+        eprintln!("{graph:#?}");
+    }
+    Ok(())
 }
 
 fn indices_or_headers_to_hunk_headers(

@@ -53,7 +53,7 @@ impl TopoWalk {
 /// Builder
 impl TopoWalk {
     /// Call to not return the tip as part of the iteration.
-    pub fn skip_tip(mut self) -> Self {
+    pub fn skip_tip_segment(mut self) -> Self {
         self.skip_tip = Some(());
         self
     }
@@ -107,7 +107,8 @@ impl TopoWalk {
                     {
                         continue;
                     }
-                    self.next.push_back((edge.source(), edge.weight().src));
+                    self.next
+                        .push_back((edge.source(), edge.weight().src.map(|cidx| cidx + 1)));
                 }
             }
         }
