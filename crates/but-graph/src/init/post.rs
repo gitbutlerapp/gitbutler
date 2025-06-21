@@ -358,7 +358,8 @@ fn create_connected_multi_segment(
             })
     {
         let ref_name = &refs[ref_idx];
-        let new_segment = branch_segment_from_name_and_meta(Some(ref_name.clone()), meta, None)?;
+        let new_segment =
+            branch_segment_from_name_and_meta(Some((ref_name.clone(), None)), meta, None)?;
         let above_commit_idx = {
             let s = &graph[above_idx];
             let cidx = s.commit_index_of(commit.id);

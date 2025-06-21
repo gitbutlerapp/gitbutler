@@ -232,11 +232,7 @@ impl Graph {
             .tip_segments()
             .map(|s| {
                 let s = &self[s];
-                (
-                    s.ref_name.as_ref().map(|rn| rn.clone()),
-                    s.id,
-                    s.flags_of_first_commit(),
-                )
+                (s.ref_name.clone(), s.id, s.flags_of_first_commit())
             })
             .collect();
         *segments_at_bottom = self.base_segments().count();

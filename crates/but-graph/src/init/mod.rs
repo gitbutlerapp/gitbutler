@@ -39,17 +39,8 @@ pub struct Options {
     /// is nothing interesting left to traverse.
     ///
     /// Also note: This is a hint and not an exact measure, and it's always possible to receive a more commits
-    /// for various reasons, for instance the need to let remote branches find their local brnach independently
+    /// for various reasons, for instance the need to let remote branches find their local branch independently
     /// of the limit.
-    ///
-    /// ### Tip Configuration
-    ///
-    /// * HEAD - uses the limit
-    /// * workspaces with target branch - no limit, but auto-stop if workspace is exhausted as everything is integrated.
-    ///     - The target branch: no limit
-    ///     - Integrated workspace branches: use the limit
-    /// * workspace without target branch - uses the limit
-    /// * remotes tracking branches - use the limit, but only once they have reached a local branch.
     pub commits_limit_hint: Option<usize>,
     /// A list of the last commits of partial segments previously returned that reset the amount of available
     /// commits to traverse back to `commit_limit_hint`.
@@ -107,7 +98,7 @@ impl Graph {
             gix::head::Kind::Unborn(ref_name) => {
                 let mut graph = Graph::default();
                 graph.insert_root(branch_segment_from_name_and_meta(
-                    Some(ref_name),
+                    Some((ref_name, None)),
                     meta,
                     None,
                 )?);
@@ -165,6 +156,8 @@ impl Graph {
     /// * The traversal is cut short when there is only tips which are integrated, even though named segments that are
     ///   supposed to be in the workspace will be fully traversed (implying they will stop at the first anon segment
     ///   as will happen at merge commits).
+    /// * The traversal is always as long as it needs to be to fully reconcile possibly disjoint branches, despite
+    ///   this sometimes costing some time when the remote is far ahead in a huge repository.
     #[instrument(skip(meta, ref_name), err(Debug))]
     pub fn from_commit_traversal(
         tip: gix::Id<'_>,
@@ -177,10 +170,10 @@ impl Graph {
             hard_limit,
         }: Options,
     ) -> anyhow::Result<Self> {
-        let limit = Limit::from(limit);
+        let repo = tip.repo;
+        let max_limit = Limit::new(limit);
         // TODO: also traverse (outside)-branches that ought to be in the workspace. That way we have the desired ones
         //       automatically and just have to find a way to prune the undesired ones.
-        let repo = tip.repo;
         let ref_name = ref_name.into();
         if ref_name
             .as_ref()
@@ -205,13 +198,15 @@ impl Graph {
                 None
             }),
         )?;
-        let (workspaces, target_refs, desired_refs) =
+        let (workspaces, target_refs) =
             obtain_workspace_infos(repo, ref_name.as_ref().map(|rn| rn.as_ref()), meta)?;
         let mut seen = gix::revwalk::graph::IdMap::<SegmentIndex>::default();
         let mut goals = Goals::default();
-        let tip_limit_with_goal = limit.with_goal(tip.detach(), &mut goals);
         // The tip transports itself.
-        let tip_flags = CommitFlags::NotInRemote | tip_limit_with_goal.goal;
+        let tip_flags = CommitFlags::NotInRemote
+            | goals
+                .flag_for(tip.detach())
+                .expect("we more than one bitflags for this");
 
         let target_symbolic_remote_names = {
             let remote_names = repo.remote_names();
@@ -233,7 +228,7 @@ impl Graph {
             .any(|(_, wsrn, _)| Some(wsrn) == ref_name.as_ref())
         {
             let current = graph.insert_root(branch_segment_from_name_and_meta(
-                ref_name.clone(),
+                ref_name.clone().map(|rn| (rn, None)),
                 meta,
                 Some((&refs_by_id, tip.detach())),
             )?);
@@ -241,7 +236,7 @@ impl Graph {
                 tip.detach(),
                 tip_flags,
                 Instruction::CollectCommit { into: current },
-                limit,
+                max_limit,
             )) {
                 return Ok(graph.with_hard_limit());
             }
@@ -261,12 +256,16 @@ impl Graph {
                     .map(|tid| (trn.clone(), tid))
             });
 
-            let (ws_flags, ws_limit) = if Some(&ws_ref) == ref_name.as_ref() {
-                (tip_flags, limit)
+            let (ws_extra_flags, ws_limit) = if Some(&ws_ref) == ref_name.as_ref() {
+                (tip_flags, max_limit)
             } else {
-                (CommitFlags::empty(), tip_limit_with_goal)
+                (
+                    CommitFlags::empty(),
+                    max_limit.with_indirect_goal(tip.detach(), &mut goals),
+                )
             };
-            let mut ws_segment = branch_segment_from_name_and_meta(Some(ws_ref), meta, None)?;
+            let mut ws_segment =
+                branch_segment_from_name_and_meta(Some((ws_ref, None)), meta, None)?;
             // The limits for the target ref and the worktree ref are synced so they can always find each other,
             // while being able to stop when the entrypoint is included.
             ws_segment.metadata = Some(SegmentMetadata::Workspace(workspace_info));
@@ -279,7 +278,7 @@ impl Graph {
                     // We only allow workspaces that are not remote, and that are not target refs.
                     // Theoretically they can still cross-reference each other, but then we'd simply ignore
                     // their status for now.
-                    CommitFlags::NotInRemote | ws_flags,
+                    CommitFlags::NotInRemote | ws_extra_flags,
                 Instruction::CollectCommit { into: ws_segment },
                 ws_limit,
             )) {
@@ -287,7 +286,7 @@ impl Graph {
             }
             if let Some((target_ref, target_ref_id)) = target {
                 let target_segment = graph.insert_root(branch_segment_from_name_and_meta(
-                    Some(target_ref),
+                    Some((target_ref, None)),
                     meta,
                     None,
                 )?);
@@ -297,7 +296,11 @@ impl Graph {
                     Instruction::CollectCommit {
                         into: target_segment,
                     },
-                    tip_limit_with_goal,
+                    // Once the goal was found, be done immediately,
+                    // we are not interested in these.
+                    max_limit
+                        .with_indirect_goal(tip.detach(), &mut goals)
+                        .without_allowance(),
                 )) {
                     return Ok(graph.with_hard_limit());
                 }
@@ -305,9 +308,6 @@ impl Graph {
         }
 
         max_commits_recharge_location.sort();
-        // Set max-limit so that we compensate for the way this is counted.
-        // let max_limit = limit.incremented();
-        let max_limit = limit;
         while let Some((id, mut propagated_flags, instruction, mut limit)) = next.pop_front() {
             if max_commits_recharge_location.binary_search(&id).is_ok() {
                 limit.set_but_keep_goal(max_limit);
@@ -330,7 +330,6 @@ impl Graph {
                             &mut seen,
                             &mut next,
                             id,
-                            limit,
                             propagated_flags,
                             src_sidx,
                         )?;
@@ -359,7 +358,6 @@ impl Graph {
                             &mut seen,
                             &mut next,
                             id,
-                            limit,
                             propagated_flags,
                             parent_above,
                         )?;
@@ -432,7 +430,7 @@ impl Graph {
                 }
             }
 
-            prune_integrated_tips(&mut graph, &mut next, &desired_refs, max_limit);
+            prune_integrated_tips(&mut graph, &mut next);
         }
 
         graph.post_processed(
@@ -457,15 +455,6 @@ struct Queue {
     count: usize,
     /// The maximum number of queuing operations, each representing one commit.
     max: Option<usize>,
-}
-
-#[derive(Debug, Copy, Clone)]
-struct Limit {
-    inner: Option<usize>,
-    /// The commit we want to see to be able to assume normal limits. Until then there is no limit.
-    /// This is represented by bitflag, one for each goal.
-    /// The flag is empty if no goal is set.
-    goal: CommitFlags,
 }
 
 /// A set of commits to keep track of in bitflags.
