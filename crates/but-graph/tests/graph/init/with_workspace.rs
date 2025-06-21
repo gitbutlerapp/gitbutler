@@ -996,23 +996,31 @@ fn on_top_of_target_with_history() -> anyhow::Result<()> {
             └── ✂️·1c938f4 (⌂|🏘️|✓|1)❱"4"
     "#);
 
-    // TODO: fix this - it builds a wrong graph.
-    // add_stack_with_segments(
-    //     &mut meta,
-    //     StackId::from_number_for_testing(0),
-    //     "C",
-    //     StackState::InWorkspace,
-    //     &["B", "A"],
-    // );
-    // add_stack_with_segments(
-    //     &mut meta,
-    //     StackId::from_number_for_testing(1),
-    //     "D",
-    //     StackState::InWorkspace,
-    //     &["E", "F"],
-    // );
-    // let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated_or_open_as_svg()?;
-    // insta::assert_snapshot!(graph_tree(&graph), @r#""#);
+    // TODO: setup two stacks
+    add_stack_with_segments(
+        &mut meta,
+        StackId::from_number_for_testing(0),
+        "C",
+        StackState::InWorkspace,
+        &["B", "A"],
+    );
+    add_stack_with_segments(
+        &mut meta,
+        StackId::from_number_for_testing(1),
+        "D",
+        StackState::InWorkspace,
+        &["E", "F"],
+    );
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated_or_open_as_svg()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    └── 👉►►►:0:gitbutler/workspace
+        └── ►:1:origin/main
+            └── ►:2:C
+                └── ►:3:B
+                    └── ►:4:A
+                        ├── ·2cde30a (⌂|🏘️|✓|1)❱"5" ►D, ►E, ►F
+                        └── ✂️·1c938f4 (⌂|🏘️|✓|1)❱"4"
+    "#);
     Ok(())
 }
 
