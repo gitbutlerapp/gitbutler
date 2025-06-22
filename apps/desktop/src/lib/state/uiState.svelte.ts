@@ -62,6 +62,16 @@ export type CommitFailedModalState = BaseGlobalModalState & {
 };
 
 export type GlobalModalState = CommitFailedModalState;
+export type FloatingCommitPosition =
+	| 'center'
+	| 'top-left'
+	| 'top-right'
+	| 'bottom-left'
+	| 'bottom-right'
+	| 'top-center'
+	| 'bottom-center'
+	| 'left-center'
+	| 'right-center';
 
 export type GlobalUiState = {
 	drawerHeight: number;
@@ -71,6 +81,10 @@ export type GlobalUiState = {
 	previewWidth: number;
 	historySidebarWidth: number;
 	branchesViewSidebarWidth: number;
+	useFloatingCommitBox: boolean;
+	floatingCommitWidth: number;
+	floatingCommitHeight: number;
+	floatingCommitPosition: FloatingCommitPosition;
 	useRichText: boolean;
 	useRuler: boolean;
 	rulerCountValue: number;
@@ -113,6 +127,10 @@ export class UiState {
 		historySidebarWidth: 30,
 		branchesViewSidebarWidth: 30,
 		useRichText: false,
+		floatingCommitPosition: 'bottom-center',
+		useFloatingCommitBox: false,
+		floatingCommitWidth: 640,
+		floatingCommitHeight: 330,
 		useRuler: false,
 		rulerCountValue: 72,
 		wrapTextByRuler: false,

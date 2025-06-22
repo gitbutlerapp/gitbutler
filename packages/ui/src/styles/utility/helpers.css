@@ -108,6 +108,49 @@ pre {
 	}
 }
 
+.highlight-animation {
+	animation: highlight-animation 0.5s forwards;
+}
+
+@keyframes highlight-animation {
+	0% {
+		transform: translate(0, 0) rotate(0deg);
+		box-shadow: 0 0 0 0 color-mix(in srgb, var(--clr-theme-pop-element), transparent, 0.5);
+	}
+	12.5% {
+		transform: translate(-1px, -1px) rotate(-0.5deg);
+		box-shadow: 0 0 0 1px var(--clr-theme-pop-element);
+	}
+	25% {
+		transform: translate(1px, 0px) rotate(0.5deg);
+		box-shadow: 0 0 0 1.5px var(--clr-theme-pop-element);
+	}
+	37.5% {
+		transform: translate(-1px, 1px) rotate(-0.3deg);
+		box-shadow: 0 0 0 2px var(--clr-theme-pop-element);
+	}
+	50% {
+		transform: translate(1px, -1px) rotate(0.3deg);
+		box-shadow: 0 0 0 2px var(--clr-theme-pop-element);
+	}
+	62.5% {
+		transform: translate(-1px, 0px) rotate(-0.2deg);
+		box-shadow: 0 0 0 1.5px var(--clr-theme-pop-element);
+	}
+	75% {
+		transform: translate(1px, 1px) rotate(0.2deg);
+		box-shadow: 0 0 0 1px var(--clr-theme-pop-element);
+	}
+	87.5% {
+		transform: translate(0px, -1px) rotate(-0.1deg);
+		box-shadow: 0 0 0 0.5px var(--clr-theme-pop-element);
+	}
+	100% {
+		transform: translate(0, 0) rotate(0deg);
+		box-shadow: 0 0 0 0 color-mix(in srgb, var(--clr-theme-pop-element), transparent, 0.5);
+	}
+}
+
 /* ACCESSIBILITY */
 .focus-state {
 	outline: none;

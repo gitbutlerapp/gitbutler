@@ -1,4 +1,5 @@
 <script lang="ts">
+	import FloatingCommitBox from '$components/v3/FloatingCommitBox.svelte';
 	import EditorFooter from '$components/v3/editor/EditorFooter.svelte';
 	import MessageEditor from '$components/v3/editor/MessageEditor.svelte';
 	import MessageEditorInput from '$components/v3/editor/MessageEditorInput.svelte';
@@ -50,6 +51,8 @@
 	const uiState = getContext(UiState);
 	const aiService = getContext(AIService);
 	const promptService = getContext(PromptService);
+
+	let isCommitFloating = $derived(uiState.global.useFloatingCommitBox.current);
 
 	const worktreeService = getContext(WorktreeService);
 	const diffService = getContext(DiffService);
@@ -149,7 +152,7 @@
 	});
 </script>
 
-<div class="commit-message-wrap">
+{#snippet editorContent()}
 	<MessageEditorInput
 		testId={TestId.CommitDrawerTitleInput}
 		bind:ref={titleInput}
@@ -205,24 +208,67 @@
 			return false;
 		}}
 	/>
-</div>
+	<EditorFooter onCancel={handleCancel}>
+		<Button
+			testId={TestId.CommitDrawerActionButton}
+			style="pop"
+			onclick={emitAction}
+			disabled={disabledAction}
+			{loading}
+			wide>{actionLabel}</Button
+		>
+	</EditorFooter>
+{/snippet}
 
-<EditorFooter onCancel={handleCancel}>
-	<Button
-		testId={TestId.CommitDrawerActionButton}
-		style="pop"
-		onclick={emitAction}
-		disabled={disabledAction}
-		{loading}
-		wide>{actionLabel}</Button
+{#if isCommitFloating}
+	<button
+		class="exit-floating-mode"
+		type="button"
+		onclick={() => {
+			uiState.global.useFloatingCommitBox.set(false);
+		}}
 	>
-</EditorFooter>
+		<span class="text-12 text-semibold underline-dotted">Exit floating commit</span>
+		<!-- <Icon name="exit-floating-box" /> -->
+	</button>
+
+	<FloatingCommitBox branchName={stackSelection?.current?.branchName}>
+		{@render editorContent()}
+	</FloatingCommitBox>
+{/if}
+
+{#if !isCommitFloating}
+	<div class="commit-message">
+		{@render editorContent()}
+	</div>
+{/if}
 
 <style lang="postcss">
-	.commit-message-wrap {
+	.commit-message {
 		display: flex;
 		position: relative;
 		flex: 1;
 		flex-direction: column;
+		padding: 12px;
+		border-top: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-1);
+	}
+
+	.exit-floating-mode {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		padding: 12px;
+		gap: 8px;
+		border-top: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-2);
+		color: var(--clr-text-2);
+		cursor: pointer;
+		transition: background-color 0.2s ease-in-out;
+
+		&:hover {
+			background-color: var(--clr-bg-1);
+		}
 	}
 </style>

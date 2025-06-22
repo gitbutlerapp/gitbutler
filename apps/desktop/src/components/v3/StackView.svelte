@@ -15,7 +15,6 @@
 	import { isParsedError } from '$lib/error/parser';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
-
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { readKey } from '$lib/selection/key';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
@@ -164,6 +163,9 @@
 	});
 
 	const startCommitVisible = $derived(uncommittedService.startCommitVisible(stack.id));
+	// const isCommittingAndFloating = $derived(
+	// 	isCommitting && isCommitFloating && startCommitVisible.current
+	// );
 </script>
 
 <AsyncRender>
@@ -266,27 +268,23 @@
 									</WorktreeChanges>
 								</div>
 
-								<div class="new-commit">
-									{#if !isCommitting}
-										<div class="start-commit">
-											<Button
-												testId={TestId.StartCommitButton}
-												type="button"
-												wide
-												disabled={defaultBranchResult?.current.isLoading}
-												onclick={() => {
-													startCommit();
-												}}
-											>
-												Start a commit…
-											</Button>
-										</div>
-									{:else if isCommitting}
-										<div class="message-editor" data-testid={TestId.NewCommitView}>
-											<NewCommitView {projectId} stackId={stack.id} />
-										</div>
-									{/if}
-								</div>
+								{#if !isCommitting}
+									<div class="start-commit">
+										<Button
+											testId={TestId.StartCommitButton}
+											type="button"
+											wide
+											disabled={defaultBranchResult?.current.isLoading}
+											onclick={() => {
+												startCommit();
+											}}
+										>
+											Start a commit…
+										</Button>
+									</div>
+								{:else if isCommitting}
+									<NewCommitView {projectId} stackId={stack.id} />
+								{/if}
 							</div>
 						{/if}
 
@@ -439,7 +437,7 @@
 		border-radius: var(--radius-ml);
 
 		&.committing-when-empty {
-			& .new-commit {
+			& .start-commit {
 				border-top: none;
 			}
 		}
@@ -472,7 +470,7 @@
 		white-space: wrap;
 	}
 
-	.new-commit {
+	.start-commit {
 		padding: 12px;
 		border-top: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);

@@ -23,7 +23,7 @@
 	import FormattingButton from '@gitbutler/ui/richText/tools/FormattingButton.svelte';
 	import Segment from '@gitbutler/ui/segmentControl/Segment.svelte';
 	import SegmentControl from '@gitbutler/ui/segmentControl/SegmentControl.svelte';
-	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
+
 	import { tick } from 'svelte';
 
 	const ACCEPTED_FILE_TYPES = ['image/*', 'application/*', 'text/*', 'audio/*', 'video/*'];
@@ -68,13 +68,16 @@
 	const uploadsService = getContext(UploadsService);
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
-	const useRichText = uiState.global.useRichText;
+	const useFloatingBox = uiState.global.useFloatingCommitBox;
+
 	const useRuler = uiState.global.useRuler;
 	const rulerCountValue = uiState.global.rulerCountValue;
 	const wrapTextByRuler = uiState.global.wrapTextByRuler;
 
+	let useRichText = $state<boolean>(false);
+
 	const wrapCountValue = $derived(
-		useRuler.current && !useRichText.current ? rulerCountValue.current : undefined
+		useRuler.current && !useRichText ? rulerCountValue.current : undefined
 	);
 
 	let composer = $state<ReturnType<typeof RichTextEditor>>();
@@ -85,8 +88,6 @@
 	let allowUploadOnce = $state<boolean>(false);
 	let uploadedBy = $state<'drop' | 'attach' | undefined>(undefined);
 	let tempDropFiles: FileList | undefined = $state(undefined);
-
-	let extendedTools = $state(false);
 
 	export async function getPlaintext(): Promise<string | undefined> {
 		return composer?.getPlaintext();
@@ -189,6 +190,12 @@
 		e.stopPropagation();
 		e.preventDefault();
 	}
+
+	$effect(() => {
+		if (useFloatingBox.current) {
+			useRichText = false;
+		}
+	});
 </script>
 
 <Modal
@@ -231,9 +238,8 @@
 <div
 	role="presentation"
 	class="editor-wrapper hide-native-scrollbar"
-	style:--lexical-input-client-text-wrap={useRuler.current && !useRichText.current
-		? 'nowrap'
-		: 'normal'}
+	style:--lexical-input-client-text-wrap={useRuler.current && !useRichText ? 'nowrap' : 'normal'}
+	style:--extratoolbar-height={useFloatingBox.current ? '2.625rem' : '0'}
 	style:--code-block-font={$userSettings.diffFont}
 	style:--code-block-tab-size={$userSettings.tabSize}
 	style:--code-block-ligatures={$userSettings.diffLigatures ? 'common-ligatures' : 'normal'}
@@ -249,19 +255,19 @@
 				composer?.focus();
 			}}
 		>
-			{#if useRuler.current && !useRichText.current && enableRuler}
+			{#if useRuler.current && !useRichText && enableRuler}
 				<MessageEditorRuler />
 			{/if}
 
-			{#if extendedTools}
+			{#if useFloatingBox.current}
 				<div class="editor-extratools">
 					<FormattingBar {formatter} />
 
 					<SegmentControl
 						size="small"
-						defaultIndex={!useRichText.current ? 0 : 1}
+						defaultIndex={!useRichText ? 0 : 1}
 						onselect={() => {
-							useRichText.current = !useRichText.current;
+							useRichText = !useRichText;
 						}}
 					>
 						<Segment id="plain-text">Plain text</Segment>
@@ -277,13 +283,13 @@
 					namespace="CommitMessageEditor"
 					{placeholder}
 					bind:this={composer}
-					markdown={useRichText.current}
+					markdown={useRichText}
 					onError={(e) => console.warn('Editor error', e)}
 					initialText={initialValue}
 					onChange={handleChange}
 					onKeyDown={handleKeyDown}
 					{disabled}
-					wrapCountValue={useRichText.current ? undefined : wrapCountValue}
+					wrapCountValue={useRichText ? undefined : wrapCountValue}
 				>
 					{#snippet plugins()}
 						<Formatter bind:this={formatter} />
@@ -294,9 +300,9 @@
 								onSelection={(text) => suggestionsHandler.onAcceptSuggestion(text)}
 							/>
 						{/if}
-						{#if !useRichText.current}
+						{#if !useRichText}
 							<HardWrapPlugin
-								enabled={!useRichText.current && wrapTextByRuler.current}
+								enabled={!useRichText && wrapTextByRuler.current}
 								maxLength={wrapCountValue}
 							/>
 						{/if}
@@ -309,10 +315,10 @@
 			<div class="message-textarea__toolbar__left">
 				<Button
 					kind="ghost"
-					icon={extendedTools ? 'fullscreen-resize-exit' : 'fullscreen-resize-enter'}
-					tooltip="Extended mode"
+					icon={useFloatingBox.current ? 'exit-floating-box' : 'enter-floating-box'}
+					tooltip={useFloatingBox.current ? 'Exit floating box mode' : 'Use floating box mode'}
 					onclick={() => {
-						extendedTools = !extendedTools;
+						useFloatingBox.current = !useFloatingBox.current;
 					}}
 				/>
 				<div class="message-textarea__toolbar__divider"></div>
@@ -327,7 +333,7 @@
 						onclick={handleAttachFiles}
 					/>
 				{/if}
-				{#if !useRichText.current && enableRuler}
+				{#if !useRichText && enableRuler}
 					<div class="flex gap-2">
 						<FormattingButton
 							icon="ruler"
@@ -411,7 +417,7 @@
 	.editor-extratools {
 		display: flex;
 		align-items: center;
-		height: 42px;
+		height: var(--extratoolbar-height);
 		padding: 0 10px;
 		gap: 12px;
 		border-bottom: 1px solid var(--clr-border-3);
