@@ -183,7 +183,7 @@
 				{/snippet}
 			</BranchHeader>
 		</Dropzone>
-		{#if stackState?.action.current === 'review' && selection?.branchName === branchName}
+		{#if stackState?.action.current === 'review'}
 			<div class="review-wrapper" class:no-padding={uiState.global.useFloatingPrBox.current}>
 				<ReviewView
 					{projectId}
