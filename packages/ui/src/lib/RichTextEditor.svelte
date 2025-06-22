@@ -44,6 +44,7 @@
 		styleContext: 'client-editor' | 'chat-input';
 		plugins?: Snippet;
 		placeholder?: string;
+		minHeight?: string;
 		onFocus?: () => void;
 		onBlur?: () => void;
 		onChange?: OnChangeCallback;
@@ -59,6 +60,7 @@
 		namespace,
 		markdown,
 		onError,
+		minHeight,
 		styleContext,
 		plugins,
 		placeholder,
@@ -236,6 +238,7 @@
 		bind:this={editorDiv}
 		class:plain-text={!markdown}
 		class:disabled={isDisabled}
+		style:min-height={minHeight}
 	>
 		<div class="editor">
 			<ContentEditable />
