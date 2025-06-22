@@ -284,7 +284,6 @@
 	}
 </script>
 
-<!-- ————————————————  MARK‑UP  ———————————————— -->
 <div
 	bind:this={modalEl}
 	use:portal={'body'}
@@ -311,6 +310,16 @@
 		{@render children()}
 	</div>
 </div>
+
+<button
+	class="exit-floating-mode"
+	type="button"
+	onclick={() => {
+		uiState.global.useFloatingCommitBox.set(false);
+	}}
+>
+	<span class="text-12 text-semibold underline-dotted">Exit floating commit</span>
+</button>
 
 <style>
 	.modal {
@@ -387,5 +396,22 @@
 		color: var(--clr-text-1);
 		text-decoration: dotted underline;
 		cursor: pointer;
+	}
+
+	.exit-floating-mode {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		padding: 12px;
+		gap: 8px;
+		background-color: var(--clr-bg-2);
+		color: var(--clr-text-2);
+		cursor: pointer;
+		transition: background-color 0.2s ease-in-out;
+
+		&:hover {
+			background-color: var(--clr-bg-1);
+		}
 	}
 </style>
