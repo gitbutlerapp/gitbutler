@@ -305,7 +305,7 @@ fn new_stack_receives_commit_and_adds_it_to_workspace_commit() -> anyhow::Result
     write_vrbranches_to_refs(&vb, &repo)?;
     // head was updated to point to the new workspace commit.
     insta::assert_snapshot!(visualize_commit_graph(&repo, repo.head_id()?)?, @r"
-    *   7051951 (HEAD -> main) GitButler Workspace Commit
+    *   8ce8b3d (HEAD -> main) GitButler Workspace Commit
     |\  
     | * 00fbfba (s2/top) new file with 15 lines
     * | b451685 (s1/top, feat1) insert 5 lines to the top
