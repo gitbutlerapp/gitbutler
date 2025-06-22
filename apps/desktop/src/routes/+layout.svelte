@@ -164,7 +164,7 @@
 	const cloudPatchService = new CloudPatchCommitService(data.cloud, appState.appDispatch);
 	const repositoryIdLookupService = new RepositoryIdLookupService(data.cloud, appState.appDispatch);
 	const latestBranchLookupService = new LatestBranchLookupService(data.cloud, appState.appDispatch);
-	const webRoutesService = new WebRoutesService(env.PUBLIC_CLOUD_BASE_URL);
+	const webRoutesService = new WebRoutesService(env.PUBLIC_CLOUD_BASE_URL ?? '');
 	const shortcutService = new ShortcutService(data.tauri);
 	const commitService = new CommitService();
 	const butRequestDetailsService = new ButRequestDetailsService(

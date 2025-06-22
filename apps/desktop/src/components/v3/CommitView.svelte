@@ -140,6 +140,7 @@
 			<Drawer testId={TestId.EditCommitMessageDrawer} title="Edit commit message" {onclose}>
 				<CommitMessageEditor
 					bind:this={editor}
+					noPadding
 					projectId={env.projectId}
 					stackId={env.stackId}
 					action={({ title, description }) => saveCommitMessage(title, description)}

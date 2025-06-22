@@ -384,9 +384,9 @@
 	--clr-theme-warn-soft-hover: var(--clr-core-warn-70);
 	--clr-tooltip-bg: var(--clr-core-ntrl-10);
 	--clr-tooltip-border: var(--clr-core-ntrl-10);
-	--effect-styles-shadow-l: 0 10px 40px 0 color(srgb 0 0 0 / 0.10196078431372549);
-	--effect-styles-shadow-m: 0 6px 30px 0 color(srgb 0 0 0 / 0.0784313725490196);
-	--effect-styles-shadow-s: 0 4px 14px 0 color(srgb 0 0 0 / 0.058823529411764705);
+	--fx-shadow-l: 0 10px 40px 0 color(srgb 0 0 0 / 0.10196078431372549);
+	--fx-shadow-m: 0 6px 30px 0 color(srgb 0 0 0 / 0.0784313725490196);
+	--fx-shadow-s: 0 4px 14px 0 color(srgb 0 0 0 / 0.058823529411764705);
 	--opacity-btn-icon-outline: 0.7;
 	--opacity-btn-icon-outline-hover: 0.8;
 	--opacity-btn-icon-solid: 0.8;

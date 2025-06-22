@@ -41,7 +41,6 @@
 		bottom: var(--lexical-input-client-toolbar-height);
 		left: var(--ruler-position);
 		width: 1px;
-		/* height: calc(100% - (var(--lexical-input-client-toolbar-height))); */
 		background-color: var(--clr-theme-pop-element);
 		opacity: 0.5;
 	}
