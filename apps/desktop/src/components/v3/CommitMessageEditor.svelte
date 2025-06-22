@@ -27,6 +27,7 @@
 		action: (args: { title: string; description: string }) => void;
 		onChange?: (args: { title?: string; description?: string }) => void;
 		onCancel: (args: { title: string; description: string }) => void;
+		noPadding?: boolean;
 		disabledAction?: boolean;
 		loading?: boolean;
 		existingCommitId?: string;
@@ -41,6 +42,7 @@
 		action,
 		onChange,
 		onCancel,
+		noPadding,
 		disabledAction,
 		loading,
 		title = $bindable(),
@@ -238,7 +240,7 @@
 {/if}
 
 {#if !isCommitFloating}
-	<div class="commit-message">
+	<div class="commit-message" class:no-padding={noPadding}>
 		{@render editorContent()}
 	</div>
 {/if}
@@ -249,9 +251,12 @@
 		position: relative;
 		flex: 1;
 		flex-direction: column;
-		padding: 12px;
 		/* border-top: 1px solid var(--clr-border-2); */
 		background-color: var(--clr-bg-1);
+
+		&:not(.no-padding) {
+			padding: 12px;
+		}
 	}
 
 	.exit-floating-mode {
