@@ -205,6 +205,7 @@
 				{#if projectState.editingCommitMessage.current}
 					<div
 						class="edit-commit-view"
+						data-testid={TestId.EditCommitMessageBox}
 						class:no-paddings={uiState.global.useFloatingCommitBox.current}
 					>
 						<CommitMessageEditor
