@@ -10,7 +10,6 @@
 		kebabMenu?: Snippet<[element: HTMLElement]>;
 		children: Snippet;
 		filesSplitView?: Snippet;
-
 		headerNoPaddingLeft?: boolean;
 		testId?: string;
 		onclose?: () => void;

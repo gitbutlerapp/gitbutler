@@ -72,6 +72,7 @@
 	const aiService = getContext(AIService);
 	const remotesService = getContext(RemotesService);
 	const uiState = getContext(UiState);
+
 	const stackState = $derived(uiState.stack(stackId));
 
 	const user = userService.user;
@@ -451,6 +452,7 @@
 				}}
 			/>
 			<MessageEditor
+				isPrCreation
 				bind:this={messageEditor}
 				testId={TestId.ReviewDescriptionInput}
 				{projectId}
@@ -496,6 +498,7 @@
 
 	.pr-editor__content {
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 	}
 </style>

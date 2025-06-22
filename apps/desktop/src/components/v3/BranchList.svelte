@@ -237,8 +237,8 @@
 										shrinkable
 										icon="github-small"
 										onclick={(e) => {
+											e.stopPropagation();
 											stackState?.action.set('review');
-											e.stopPropagation(); // Do not select branch.
 										}}
 										testId={TestId.CreateReviewButton}
 									>
@@ -261,6 +261,7 @@
 								{/if}
 							{/if}
 						{/snippet}
+
 						{#snippet menu({ rightClickTrigger })}
 							{@const data = {
 								branch,

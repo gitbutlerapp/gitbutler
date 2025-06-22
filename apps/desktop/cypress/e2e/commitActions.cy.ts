@@ -48,7 +48,7 @@ describe('Commit Actions', () => {
 		cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
 
 		// Should open the commit rename drawer
-		cy.getByTestId('edit-commit-message-drawer').should('be.visible');
+		cy.getByTestId('edit-commit-message-box').should('be.visible');
 
 		// Should have the original commit message, and be focused
 		cy.getByTestId('commit-drawer-title-input')
@@ -73,7 +73,7 @@ describe('Commit Actions', () => {
 			.should('contain', 'Save')
 			.click();
 
-		cy.getByTestId('edit-commit-message-drawer').should('not.exist');
+		cy.getByTestId('edit-commit-message-box').should('not.exist');
 
 		cy.getByTestId('commit-drawer-title').should('contain', newCommitMessageTitle);
 		cy.getByTestId('commit-drawer-description').should('contain', newCommitMessageBody);
@@ -107,7 +107,7 @@ describe('Commit Actions', () => {
 		cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
 
 		// Should open the commit rename drawer
-		cy.getByTestId('edit-commit-message-drawer').should('be.visible');
+		cy.getByTestId('edit-commit-message-box').should('be.visible');
 
 		// Should have the original commit message, and be focused
 		cy.getByTestId('commit-drawer-title-input')
@@ -130,7 +130,7 @@ describe('Commit Actions', () => {
 			.should('contain', 'Save')
 			.click();
 
-		cy.getByTestId('edit-commit-message-drawer').should('not.exist');
+		cy.getByTestId('edit-commit-message-box').should('not.exist');
 
 		cy.getByTestId('commit-drawer-title').should('contain', originalCommitMessage);
 		cy.getByTestId('commit-drawer-description').should('contain', newCommitDescription);
@@ -164,7 +164,7 @@ describe('Commit Actions', () => {
 		cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
 
 		// Should open the commit rename drawer
-		cy.getByTestId('edit-commit-message-drawer').should('be.visible');
+		cy.getByTestId('edit-commit-message-box').should('be.visible');
 
 		// Should have the original commit message, and be focused
 		cy.getByTestId('commit-drawer-title-input')
@@ -185,7 +185,7 @@ describe('Commit Actions', () => {
 			.should('contain', 'Save')
 			.click();
 
-		cy.getByTestId('edit-commit-message-drawer').should('not.exist');
+		cy.getByTestId('edit-commit-message-box').should('not.exist');
 
 		cy.getByTestId('commit-drawer-title').should('contain', newCommitTitle);
 		cy.getByTestId('commit-drawer-description').should('not.exist');
@@ -217,7 +217,7 @@ describe('Commit Actions', () => {
 		cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
 
 		// Should open the commit rename drawer
-		cy.getByTestId('edit-commit-message-drawer').should('be.visible');
+		cy.getByTestId('edit-commit-message-box').should('be.visible');
 
 		// Should have the original commit message, and be focused
 		cy.getByTestId('commit-drawer-title-input')
@@ -232,7 +232,7 @@ describe('Commit Actions', () => {
 			.should('contain', 'Save')
 			.click();
 
-		cy.getByTestId('edit-commit-message-drawer').should('not.exist');
+		cy.getByTestId('edit-commit-message-box').should('not.exist');
 
 		cy.getByTestId('commit-drawer-title').should('contain', originalCommitMessage);
 		cy.getByTestId('commit-drawer-description').should('not.exist');
@@ -271,7 +271,7 @@ describe('Commit Actions', () => {
 			});
 
 		// Should open the commit rename drawer
-		cy.getByTestId('edit-commit-message-drawer').should('be.visible');
+		cy.getByTestId('edit-commit-message-box').should('be.visible');
 
 		// Should have the original commit message, and be focused
 		cy.getByTestId('commit-drawer-title-input')
@@ -296,7 +296,7 @@ describe('Commit Actions', () => {
 			.should('contain', 'Save')
 			.click();
 
-		cy.getByTestId('edit-commit-message-drawer').should('not.exist');
+		cy.getByTestId('edit-commit-message-box').should('not.exist');
 
 		cy.getByTestId('commit-drawer-title').should('contain', newCommitMessageTitle);
 		cy.getByTestId('commit-drawer-description').should('contain', newCommitMessageBody);
@@ -330,7 +330,7 @@ describe('Commit Actions', () => {
 		cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
 
 		// Should open the commit rename drawer
-		cy.getByTestId('edit-commit-message-drawer').should('be.visible');
+		cy.getByTestId('edit-commit-message-box').should('be.visible');
 
 		// Should have the original commit message, and be focused
 		cy.getByTestId('commit-drawer-title-input')
@@ -343,7 +343,7 @@ describe('Commit Actions', () => {
 		// Click on the cancel button
 		cy.getByTestId('commit-drawer-cancel-button').should('be.visible').should('be.enabled').click();
 
-		cy.getByTestId('edit-commit-message-drawer').should('not.exist');
+		cy.getByTestId('edit-commit-message-box').should('not.exist');
 
 		cy.getByTestId('commit-drawer-title').should('contain', originalCommitMessage);
 		cy.getByTestId('commit-drawer-description').should('not.exist');
@@ -356,7 +356,7 @@ describe('Commit Actions', () => {
 		cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
 
 		// Should open the commit rename drawer
-		cy.getByTestId('edit-commit-message-drawer').should('be.visible');
+		cy.getByTestId('edit-commit-message-box').should('be.visible');
 
 		// Should have the original commit message, and be focused
 		cy.getByTestId('commit-drawer-title-input')
@@ -564,7 +564,7 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 			cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
 
 			// Should open the commit rename drawer
-			cy.getByTestId('edit-commit-message-drawer').should('be.visible');
+			cy.getByTestId('edit-commit-message-box').should('be.visible');
 
 			// Should have the original commit message
 			cy.getByTestId('commit-drawer-title-input')
@@ -589,7 +589,7 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 				.should('contain', 'Save')
 				.click();
 
-			cy.getByTestId('edit-commit-message-drawer').should('not.exist');
+			cy.getByTestId('edit-commit-message-box').should('not.exist');
 
 			cy.getByTestId('commit-drawer-title').should('contain', newCommitTitle);
 			cy.getByTestId('commit-drawer-description').should('contain', newCommitDescription);
@@ -669,7 +669,7 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 			cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
 
 			// Should open the commit rename drawer
-			cy.getByTestId('edit-commit-message-drawer').should('be.visible');
+			cy.getByTestId('edit-commit-message-box').should('be.visible');
 
 			// Should have the original commit message, and be focused
 			cy.getByTestId('commit-drawer-title-input')
@@ -694,7 +694,7 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 				.should('be.enabled')
 				.click();
 
-			cy.getByTestId('edit-commit-message-drawer').should('not.exist');
+			cy.getByTestId('edit-commit-message-box').should('not.exist');
 
 			cy.getByTestId('commit-drawer-title').should('contain', commitTitle);
 			cy.getByTestId('commit-drawer-description').should('contain', commitDescription);
@@ -784,7 +784,7 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 			cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
 
 			// Should open the commit rename drawer
-			cy.getByTestId('edit-commit-message-drawer').should('be.visible');
+			cy.getByTestId('edit-commit-message-box').should('be.visible');
 
 			// Should have the original commit message, and be focused
 			cy.getByTestId('commit-drawer-title-input')
@@ -808,7 +808,7 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 				.should('be.enabled')
 				.click();
 
-			cy.getByTestId('edit-commit-message-drawer').should('not.exist');
+			cy.getByTestId('edit-commit-message-box').should('not.exist');
 
 			cy.getByTestId('commit-drawer-title').should('contain', newCommitTitle);
 			cy.getByTestId('commit-drawer-description').should('contain', newCommitDescription);

@@ -95,7 +95,7 @@
 		}
 		.new-commit-view {
 			margin-bottom: 12px;
-			padding: 12px;
+			overflow: hidden;
 			border: 1px solid var(--clr-border-2);
 			border-radius: var(--radius-ml);
 			background-color: var(--clr-bg-1);
