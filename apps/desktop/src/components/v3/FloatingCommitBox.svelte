@@ -6,11 +6,12 @@
 	import { onMount, type Snippet } from 'svelte';
 
 	interface Props {
-		branchName?: string;
 		children: Snippet;
+		header: Snippet;
+		onExitFloatingModeClick: () => void;
 	}
 
-	const { branchName = 'Unknown branch', children }: Props = $props();
+	const { children, header, onExitFloatingModeClick }: Props = $props();
 
 	const uiState = getContext(UiState);
 
@@ -263,25 +264,6 @@
 		window.addEventListener('pointermove', onPointerMove);
 		window.addEventListener('pointerup', onPointerUp, { once: true });
 	}
-
-	function findBranchCardEl() {
-		//  select by "data-series-name" attribute
-		const branchCardEl = document.querySelector(
-			`.branch-card[data-series-name="${branchName}"]`
-		) as HTMLElement;
-
-		if (branchCardEl) {
-			// Scroll to the branch card element
-			branchCardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-			// add wiggle effect
-			branchCardEl.classList.add('highlight-animation');
-			setTimeout(() => {
-				branchCardEl.classList.remove('highlight-animation');
-			}, 1000); // Remove wiggle after 1 second
-		} else {
-			console.warn(`Branch card for "${branchName}" not found.`);
-		}
-	}
 </script>
 
 <div
@@ -297,9 +279,7 @@
 			<Icon name="draggable" />
 		</div>
 		<h4 class="text-14 text-semibold">
-			Commit to <span role="presentation" class="branch-name" onclick={findBranchCardEl}
-				>{branchName}</span
-			>
+			{@render header()}
 		</h4>
 
 		<div class="resize-handle" onpointerdown={onResizePointerDown}>
@@ -311,14 +291,8 @@
 	</div>
 </div>
 
-<button
-	class="exit-floating-mode"
-	type="button"
-	onclick={() => {
-		uiState.global.useFloatingCommitBox.set(false);
-	}}
->
-	<span class="text-12 text-semibold underline-dotted">Exit floating commit</span>
+<button class="exit-floating-mode" type="button" onclick={onExitFloatingModeClick}>
+	<span class="text-12 text-semibold underline-dotted">Exit floating mode</span>
 </button>
 
 <style>

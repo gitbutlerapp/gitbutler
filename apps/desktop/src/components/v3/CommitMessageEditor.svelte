@@ -54,7 +54,7 @@
 	const aiService = getContext(AIService);
 	const promptService = getContext(PromptService);
 
-	const useFloatingCommitBox = $derived(uiState.global.useFloatingCommitBox.current);
+	const useFloatingCommitBox = $derived(uiState.global.useFloatingCommitBox);
 
 	const worktreeService = getContext(WorktreeService);
 	const diffService = getContext(DiffService);
@@ -222,8 +222,16 @@
 	</EditorFooter>
 {/snippet}
 
-{#if useFloatingCommitBox}
-	<FloatingCommitBox branchName={stackSelection?.current?.branchName}>
+{#if useFloatingCommitBox.current}
+	<FloatingCommitBox
+		onExitFloatingModeClick={() => {
+			uiState.global.useFloatingCommitBox.set(false);
+		}}
+	>
+		{#snippet header()}
+			Create commit
+		{/snippet}
+
 		{@render editorContent()}
 	</FloatingCommitBox>
 {:else}
@@ -238,7 +246,6 @@
 		position: relative;
 		flex: 1;
 		flex-direction: column;
-		/* border-top: 1px solid var(--clr-border-2); */
 		background-color: var(--clr-bg-1);
 
 		&:not(.no-padding) {

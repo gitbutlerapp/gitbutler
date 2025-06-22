@@ -136,89 +136,93 @@
 <ReduxResult {stackId} {projectId} result={commitResult.current} {onerror}>
 	{#snippet children(commit, env)}
 		{@const isConflicted = isCommit(commit) && commit.hasConflicts}
-		{#if projectState.editingCommitMessage.current}
-			<Drawer testId={TestId.EditCommitMessageDrawer} title="Edit commit message" {onclose}>
-				<CommitMessageEditor
-					bind:this={editor}
-					noPadding
-					projectId={env.projectId}
-					stackId={env.stackId}
-					action={({ title, description }) => saveCommitMessage(title, description)}
-					actionLabel="Save changes"
-					onCancel={cancelEdit}
-					loading={messageUpdateResult.current.isLoading}
-					existingCommitId={commit.id}
-					title={parsedMessage?.title || ''}
-					description={parsedMessage?.description || ''}
-				/>
-			</Drawer>
-		{:else}
-			<Drawer testId={TestId.CommitDrawer} {onclose} headerNoPaddingLeft>
-				{#snippet header()}
-					<div class="commit-view__header text-13">
-						{#if isLocalAndRemoteCommit(commit)}
-							{@const commitState = commit.state}
-							<CommitLine
-								commitStatus={commitState.type}
-								diverged={commitState.type === 'LocalAndRemote' &&
-									commit.id !== commitState.subject}
-								width={24}
-							/>
-						{:else}
-							<CommitLine
-								commitStatus="Remote"
-								diverged={false}
-								tooltip={CommitStatus.Remote}
-								width={24}
-							/>
-						{/if}
 
-						<div class="commit-view__header-title text-13">
-							<Tooltip text="Copy commit SHA">
-								<button
-									type="button"
-									class="commit-view__header-sha"
-									onclick={() => {
-										writeClipboard(commit.id, {
-											message: 'Commit SHA copied'
-										});
-									}}
-								>
-									<span>
-										{commit.id.substring(0, 7)}
-									</span>
-									<Icon name="copy-small" /></button
-								>
-							</Tooltip>
-						</div>
-					</div>
-				{/snippet}
-
-				{#snippet kebabMenu(header)}
-					{@const data = isLocalAndRemoteCommit(commit)
-						? {
-								stackId,
-								commitId: commit.id,
-								commitMessage: commit.message,
-								commitStatus: commit.state.type,
-								commitUrl: forge.current.commitUrl(commit.id),
-								onUncommitClick: () => handleUncommit(),
-								onEditMessageClick: () => setMode('edit'),
-								onPatchEditClick: () => editPatch()
-							}
-						: undefined}
-					{#if data}
-						<KebabButton
-							contextElement={header}
-							onclick={(element) => (commitMenuContext = { data, position: { element } })}
-							oncontext={(coords) => (commitMenuContext = { data, position: { coords } })}
-							activated={!!commitMenuContext?.position.element}
+		<Drawer testId={TestId.CommitDrawer} {onclose} headerNoPaddingLeft>
+			{#snippet header()}
+				<div class="commit-view__header text-13">
+					{#if isLocalAndRemoteCommit(commit)}
+						{@const commitState = commit.state}
+						<CommitLine
+							commitStatus={commitState.type}
+							diverged={commitState.type === 'LocalAndRemote' && commit.id !== commitState.subject}
+							width={24}
+						/>
+					{:else}
+						<CommitLine
+							commitStatus="Remote"
+							diverged={false}
+							tooltip={CommitStatus.Remote}
+							width={24}
 						/>
 					{/if}
-				{/snippet}
 
-				<!-- <ConfigurableScrollableContainer> -->
-				<div class="commit-view">
+					<div class="commit-view__header-title text-13">
+						<Tooltip text="Copy commit SHA">
+							<button
+								type="button"
+								class="commit-view__header-sha"
+								onclick={() => {
+									writeClipboard(commit.id, {
+										message: 'Commit SHA copied'
+									});
+								}}
+							>
+								<span>
+									{commit.id.substring(0, 7)}
+								</span>
+								<Icon name="copy-small" /></button
+							>
+						</Tooltip>
+					</div>
+				</div>
+			{/snippet}
+
+			{#snippet kebabMenu(header)}
+				{@const data = isLocalAndRemoteCommit(commit)
+					? {
+							stackId,
+							commitId: commit.id,
+							commitMessage: commit.message,
+							commitStatus: commit.state.type,
+							commitUrl: forge.current.commitUrl(commit.id),
+							onUncommitClick: () => handleUncommit(),
+							onEditMessageClick: () => setMode('edit'),
+							onPatchEditClick: () => editPatch()
+						}
+					: undefined}
+				{#if data}
+					<KebabButton
+						contextElement={header}
+						onclick={(element) => (commitMenuContext = { data, position: { element } })}
+						oncontext={(coords) => (commitMenuContext = { data, position: { coords } })}
+						activated={!!commitMenuContext?.position.element}
+					/>
+				{/if}
+			{/snippet}
+
+			<!-- <ConfigurableScrollableContainer> -->
+			<div class="commit-view">
+				{#if projectState.editingCommitMessage.current}
+					<div
+						class="edit-commit-view"
+						data-testid={TestId.EditCommitMessageBox}
+						class:no-paddings={uiState.global.useFloatingCommitBox.current}
+					>
+						<CommitMessageEditor
+							bind:this={editor}
+							noPadding
+							projectId={env.projectId}
+							stackId={env.stackId}
+							action={({ title, description }) => saveCommitMessage(title, description)}
+							actionLabel="Save changes"
+							onCancel={cancelEdit}
+							loading={messageUpdateResult.current.isLoading}
+							existingCommitId={commit.id}
+							title={parsedMessage?.title || ''}
+							description={parsedMessage?.description || ''}
+						/>
+					</div>
+				{:else}
 					<CommitHeader
 						commitMessage={commit.message}
 						className="text-14 text-semibold text-body"
@@ -260,29 +264,30 @@
 							<AsyncButton size="tag" kind="outline" action={editPatch}>Edit commit</AsyncButton>
 						{/if}
 					</CommitDetails>
-				</div>
+				{/if}
+			</div>
 
-				{#snippet filesSplitView()}
-					<ReduxResult {projectId} {stackId} result={changesResult.current}>
-						{#snippet children(changes, { projectId, stackId })}
-							<ChangedFiles
-								title="Changed files"
-								{projectId}
-								{stackId}
-								draggableFiles={true}
-								selectionId={{ type: 'commit', commitId: commit.id }}
-								changes={changes.changes.filter(
-									(change) => !(change.path in (changes.conflictEntries?.entries ?? {}))
-								)}
-								conflictEntries={changes.conflictEntries}
-								{active}
-							/>
-						{/snippet}
-					</ReduxResult>
-				{/snippet}
-				<!-- </ConfigurableScrollableContainer> -->
-			</Drawer>
-		{/if}
+			{#snippet filesSplitView()}
+				<ReduxResult {projectId} {stackId} result={changesResult.current}>
+					{#snippet children(changes, { projectId, stackId })}
+						<ChangedFiles
+							title="Changed files"
+							{projectId}
+							{stackId}
+							draggableFiles={true}
+							selectionId={{ type: 'commit', commitId: commit.id }}
+							changes={changes.changes.filter(
+								(change) => !(change.path in (changes.conflictEntries?.entries ?? {}))
+							)}
+							conflictEntries={changes.conflictEntries}
+							{active}
+						/>
+					{/snippet}
+				</ReduxResult>
+			{/snippet}
+			<!-- </ConfigurableScrollableContainer> -->
+		</Drawer>
+		<!-- {/if} -->
 
 		<ConflictResolutionConfirmModal
 			bind:this={conflictResolutionConfirmationModal}
@@ -327,6 +332,15 @@
 
 		&:hover {
 			color: var(--clr-text-1);
+		}
+	}
+
+	.edit-commit-view {
+		display: flex;
+		flex-direction: column;
+
+		&.no-paddings {
+			margin: -14px;
 		}
 	}
 </style>

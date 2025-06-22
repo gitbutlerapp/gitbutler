@@ -23,7 +23,6 @@
 		projectId: string;
 		branchName: string;
 		isCommitting?: boolean;
-		expand?: boolean;
 		lineColor: string;
 		readonly: boolean;
 		first?: boolean;
@@ -76,7 +75,7 @@
 
 	type Props = DraftBranchProps | NormalBranchProps | StackBranchProps | PrBranchProps;
 
-	let { projectId, branchName, expand, active, lineColor, readonly, ...args }: Props = $props();
+	let { projectId, branchName, active, lineColor, readonly, ...args }: Props = $props();
 
 	const [uiState, stackService] = inject(UiState, StackService);
 
@@ -115,7 +114,6 @@
 	class="branch-card"
 	class:selected
 	class:draft={args.type === 'draft-branch'}
-	class:expand
 	data-series-name={branchName}
 	data-testid={TestId.BranchCard}
 >
@@ -186,7 +184,7 @@
 			</BranchHeader>
 		</Dropzone>
 		{#if stackState?.action.current === 'review'}
-			<div class="review-wrapper">
+			<div class="review-wrapper" class:no-padding={uiState.global.useFloatingPrBox.current}>
 				<ReviewView
 					{projectId}
 					{branchName}
@@ -285,9 +283,6 @@
 		border-radius: var(--radius-ml);
 		background: var(--clr-bg-1);
 	}
-	.expand {
-		height: 100%;
-	}
 
 	.branch-header__item {
 		color: var(--clr-text-2);
@@ -312,7 +307,10 @@
 	}
 
 	.review-wrapper {
-		padding: 12px;
 		border-top: 1px solid var(--clr-border-2);
+
+		&:not(.no-padding) {
+			padding: 12px;
+		}
 	}
 </style>
