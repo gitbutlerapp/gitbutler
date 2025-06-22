@@ -29,6 +29,7 @@
 	const ACCEPTED_FILE_TYPES = ['image/*', 'application/*', 'text/*', 'audio/*', 'video/*'];
 
 	interface Props {
+		isPrCreation?: boolean;
 		projectId: string;
 		disabled?: boolean;
 		initialValue?: string;
@@ -46,6 +47,7 @@
 	}
 
 	let {
+		isPrCreation,
 		initialValue,
 		placeholder,
 		disabled,
@@ -65,10 +67,13 @@
 	const MAX_RULER_VALUE = 200;
 
 	const uiState = getContext(UiState);
+
 	const uploadsService = getContext(UploadsService);
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
-	const useFloatingBox = uiState.global.useFloatingCommitBox;
+	const useFloatingBox = $derived(
+		isPrCreation ? uiState.global.useFloatingPrBox : uiState.global.useFloatingCommitBox
+	);
 
 	const useRuler = uiState.global.useRuler;
 	const rulerCountValue = uiState.global.rulerCountValue;
