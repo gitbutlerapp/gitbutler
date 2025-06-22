@@ -235,10 +235,10 @@
 							<div
 								class="assignments-wrap"
 								class:assignments__empty={changes.current.length === 0 && !isCommitting}
-								class:committing-when-empty={isCommitting && changes.current.length === 0}
 							>
 								<div
 									class="worktree-wrap"
+									class:remove-border-bottom={isCommitting && changes.current.length === 0}
 									class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
 								>
 									<WorktreeChanges
@@ -435,19 +435,17 @@
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
-
-		&.committing-when-empty {
-			& .start-commit {
-				border-top: none;
-			}
-		}
 	}
 
 	.worktree-wrap {
 		display: flex;
 		flex-direction: column;
-		border-bottom: none;
+		border-bottom: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml) var(--radius-ml) 0 0;
+
+		&.remove-border-bottom {
+			border-bottom: none;
+		}
 
 		&.dropzone-activated {
 			& .assigned-changes-empty {
@@ -472,7 +470,7 @@
 
 	.start-commit {
 		padding: 12px;
-		border-top: 1px solid var(--clr-border-2);
+		/* border-top: 1px solid var(--clr-border-2); */
 		background-color: var(--clr-bg-1);
 	}
 

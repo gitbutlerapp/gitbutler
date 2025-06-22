@@ -250,7 +250,7 @@
 		flex: 1;
 		flex-direction: column;
 		padding: 12px;
-		border-top: 1px solid var(--clr-border-2);
+		/* border-top: 1px solid var(--clr-border-2); */
 		background-color: var(--clr-bg-1);
 	}
 
@@ -261,7 +261,7 @@
 		width: 100%;
 		padding: 12px;
 		gap: 8px;
-		border-top: 1px solid var(--clr-border-2);
+		/* border-top: 1px solid var(--clr-border-2); */
 		background-color: var(--clr-bg-2);
 		color: var(--clr-text-2);
 		cursor: pointer;
