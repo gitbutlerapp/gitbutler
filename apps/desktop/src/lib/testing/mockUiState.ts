@@ -30,10 +30,13 @@ const MOCK_PROJECT_UI_STATE: ProjectUiState = {
 const MOCK_GLOBAL_UI_STATE: GlobalUiState = {
 	drawerHeight: 20,
 	historySidebarWidth: 30,
-	useRichText: true,
 	aiSuggestionsOnType: true,
 	channel: undefined,
 	draftBranchName: undefined,
+	useFloatingCommitBox: false,
+	floatingCommitPosition: 'bottom-center',
+	floatingCommitWidth: 640,
+	floatingCommitHeight: 330,
 	useRuler: false,
 	rulerCountValue: 0,
 	wrapTextByRuler: false,
@@ -51,11 +54,6 @@ export function getUiStateMock() {
 		drawerHeight: {
 			get() {
 				return MOCK_GLOBAL_UI_STATE.drawerHeight;
-			}
-		},
-		useRichText: {
-			get() {
-				return MOCK_GLOBAL_UI_STATE.useRichText;
 			}
 		},
 		aiSuggestionsOnType: {

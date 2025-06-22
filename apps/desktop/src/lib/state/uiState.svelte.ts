@@ -75,7 +75,6 @@ export type FloatingCommitPosition =
 
 export type GlobalUiState = {
 	drawerHeight: number;
-
 	stackWidth: number;
 	detailsWidth: number;
 	previewWidth: number;
@@ -85,7 +84,6 @@ export type GlobalUiState = {
 	floatingCommitWidth: number;
 	floatingCommitHeight: number;
 	floatingCommitPosition: FloatingCommitPosition;
-	useRichText: boolean;
 	useRuler: boolean;
 	rulerCountValue: number;
 	wrapTextByRuler: boolean;
@@ -126,9 +124,8 @@ export class UiState {
 		previewWidth: 48,
 		historySidebarWidth: 30,
 		branchesViewSidebarWidth: 30,
-		useRichText: false,
-		floatingCommitPosition: 'bottom-center',
 		useFloatingCommitBox: false,
+		floatingCommitPosition: 'bottom-center',
 		floatingCommitWidth: 640,
 		floatingCommitHeight: 330,
 		useRuler: false,
