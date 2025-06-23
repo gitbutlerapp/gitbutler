@@ -41,7 +41,7 @@
 
 	// Get display name for current editor
 	const editorDisplayName = $derived(
-		editorOptions.find(opt => opt.schemeIdentifer === $editor)?.displayName || $editor
+		editorOptions.find((opt) => opt.schemeIdentifer === $editor)?.displayName || $editor
 	);
 
 	// Get the current active project reactively

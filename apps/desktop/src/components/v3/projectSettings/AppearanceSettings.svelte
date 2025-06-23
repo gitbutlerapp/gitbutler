@@ -53,32 +53,6 @@
 	<ThemeSelector {userSettings} />
 </SectionCard>
 
-{#if platformName === 'windows'}
-	<SectionCard labelFor="useCustomTitleBar" orientation="row">
-		{#snippet title()}
-			Use custom title bar
-		{/snippet}
-		{#snippet caption()}
-			Use GitButler's custom title bar with menu items. When disabled, the default Windows title bar will be used.
-		{/snippet}
-		{#snippet actions()}
-			<Toggle
-				id="useCustomTitleBar"
-				checked={$userSettings.useCustomTitleBar}
-				onclick={async () => {
-					const newValue = !$userSettings.useCustomTitleBar;
-					userSettings.update((s) => ({
-						...s,
-						useCustomTitleBar: newValue
-					}));
-					// Update window decorations immediately
-					// Decorations are inverted: true = show default title bar, false = hide default title bar
-					await tauri.setDecorations(!newValue);
-				}}
-			/>
-		{/snippet}
-	</SectionCard>
-{/if}
 <div class="stack-v">
 	<SectionCard centerAlign roundedBottom={false}>
 		{#snippet title()}
@@ -317,3 +291,31 @@
 		/>
 	{/snippet}
 </SectionCard>
+
+{#if platformName === 'windows'}
+	<SectionCard labelFor="useCustomTitleBar" orientation="row">
+		{#snippet title()}
+			Use custom title bar
+		{/snippet}
+		{#snippet caption()}
+			Use GitButler's custom title bar with menu items. When disabled, the default Windows title bar
+			will be used.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="useCustomTitleBar"
+				checked={$userSettings.useCustomTitleBar}
+				onclick={async () => {
+					const newValue = !$userSettings.useCustomTitleBar;
+					userSettings.update((s) => ({
+						...s,
+						useCustomTitleBar: newValue
+					}));
+					// Update window decorations immediately
+					// Decorations are inverted: true = show default title bar, false = hide default title bar
+					await tauri.setDecorations(!newValue);
+				}}
+			/>
+		{/snippet}
+	</SectionCard>
+{/if}
