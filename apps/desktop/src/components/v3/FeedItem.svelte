@@ -6,6 +6,7 @@
 	import { User } from '$lib/user/user';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getContextStore } from '@gitbutler/shared/context';
+	import AgentAvatar from '@gitbutler/ui/AgentAvatar.svelte';
 	import EditorLogo from '@gitbutler/ui/EditorLogo.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
@@ -145,12 +146,21 @@
 		</div>
 	{:else if action instanceof Workflow}
 		<div>
-			Workflow {action.id}
-			{action.createdAt}
-			{JSON.stringify(action.triggeredBy)}
-			{JSON.stringify(action.status)}
-			{JSON.stringify(action.inputCommits)}
-			{JSON.stringify(action.outputCommits)}
+			<AgentAvatar />
+		</div>
+		<div class="action-item__content">
+			<div class="action-item__content__header">
+				<div>
+					<p class="text-13 text-bold">Agent action</p>
+					<p class="text-13 text-bold text-grey">But-agent</p>
+					<span class="text-13 text-greyer"
+						><TimeAgo date={new Date(action.createdAt)} addSuffix /></span
+					>
+				</div>
+			</div>
+			<span class="text-12">
+				{action.kind}
+			</span>
 		</div>
 	{/if}
 </div>
