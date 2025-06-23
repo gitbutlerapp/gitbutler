@@ -3,7 +3,7 @@ use but_graph::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
 use but_workspace::{StacksFilter, ui::StackEntry};
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::{ObjectIdExt, git2_to_gix_object_id};
+use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::Project;
 use uuid::Uuid;
 
@@ -50,7 +50,7 @@ pub async fn commit(client: &Client<OpenAIConfig>, event: CommitEvent) -> anyhow
         Err(e) => workflow::Status::Failed(e.to_string()),
     };
     let output_commits = match &result {
-        Ok(new_commit_id) => vec![git2_to_gix_object_id(*new_commit_id)],
+        Ok(new_commit_id) => vec![new_commit_id.to_gix()],
         Err(_) => vec![],
     };
 
