@@ -20,6 +20,7 @@
 	import { AIService } from '$lib/ai/service';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { CommandService, invoke } from '$lib/backend/ipc';
+	import { Tauri } from '$lib/backend/tauri';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { BranchService } from '$lib/branches/branchService.svelte';
 	import {
@@ -98,6 +99,7 @@
 	const gitLabClient = new GitLabClient();
 	setContext(GitHubClient, gitHubClient);
 	setContext(GitLabClient, gitLabClient);
+	setContext(Tauri, data.tauri);
 	const user = data.userService.user;
 	const accessToken = $derived($user?.github_access_token);
 	$effect(() => gitHubClient.setToken(accessToken));
