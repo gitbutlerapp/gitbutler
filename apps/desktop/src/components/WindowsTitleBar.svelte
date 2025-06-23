@@ -2,6 +2,7 @@
 	import { platformName } from '$lib/platform/platform';
 	import { Tauri } from '$lib/backend/tauri';
 	import { getContext } from '@gitbutler/shared/context';
+	import { maybeGetContext } from '@gitbutler/shared/context';
 	import DropDownButton from '$components/DropDownButton.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
@@ -22,7 +23,7 @@
 
 	const tauri = getContext(Tauri);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
-	const project = getContext(Project);
+	const project = maybeGetContext(Project); // Use maybeGetContext for optional project context
 	const projectsService = getContext(ProjectsService);
 	const shortcutService = getContext(ShortcutService);
 
@@ -302,6 +303,40 @@
 
 		<!-- Window Controls Spacer -->
 		<div class="title-bar__controls-spacer"></div>
+
+		<!-- Window Control Buttons -->
+		<div class="window-controls">
+			<button
+				class="control-button minimize"
+				onclick={() => tauri.minimize?.()}
+				title="Minimize"
+				aria-label="Minimize window"
+			>
+				<svg width="10" height="10" viewBox="0 0 10 10">
+					<path d="M0 5h10" stroke="currentColor" stroke-width="1" />
+				</svg>
+			</button>
+			<button
+				class="control-button maximize"
+				onclick={() => tauri.toggleMaximize?.()}
+				title="Maximize"
+				aria-label="Maximize window"
+			>
+				<svg width="10" height="10" viewBox="0 0 24 24">
+					<path d="M10.71,14.71,5.41,20H10a1,1,0,0,1,0,2H4a2,2,0,0,1-1.38-.56l0,0s0,0,0,0A2,2,0,0,1,2,20V14a1,1,0,0,1,2,0v4.59l5.29-5.3a1,1,0,0,1,1.42,1.42ZM21.44,2.62s0,0,0,0l0,0A2,2,0,0,0,20,2H14a1,1,0,0,0,0,2h4.59l-5.3,5.29a1,1,0,0,0,0,1.42,1,1,0,0,0,1.42,0L20,5.41V10a1,1,0,0,0,2,0V4A2,2,0,0,0,21.44,2.62Z" fill="currentColor"/>
+				</svg>
+			</button>
+			<button
+				class="control-button close"
+				onclick={() => tauri.close?.()}
+				title="Close"
+				aria-label="Close window"
+			>
+				<svg width="10" height="10" viewBox="0 0 10 10">
+					<path d="M0 0l10 10M10 0L0 10" stroke="currentColor" stroke-width="1" />
+				</svg>
+			</button>
+		</div>
 	</div>
 {/if}
 
@@ -318,7 +353,6 @@
 		height: 32px;
 		padding: 0 8px;
 		gap: 8px;
-		border-bottom: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
 		user-select: none;
 	}
@@ -327,25 +361,28 @@
 		display: flex;
 		flex-shrink: 0;
 		align-items: center;
-		gap: 8px;
+		gap: 6px; /* Reduced gap from 8px to 6px */
 	}
 
 	.app-icon {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 28px;
-		height: 28px;
+		width: 24px; /* Reduced from 28px to 24px */
+		height: 24px; /* Reduced from 28px to 24px */
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-s);
+		border-radius: var(
+			--radius-m
+		); /* Increased from --radius-s to --radius-m for more border radius */
 		background-color: var(--clr-bg-2);
 	}
 
 	.app-icon img {
-		width: 20px;
-		height: 20px;
+		width: 18px; /* Reduced from 20px to 18px to create less gap inside */
+		height: 18px; /* Reduced from 20px to 18px to create less gap inside */
 		object-fit: contain;
+		border-radius: var(--radius-s); /* Added border radius to the logo itself */
 	}
 
 	.brand-info {
@@ -390,7 +427,46 @@
 
 	.title-bar__controls-spacer {
 		flex: 1;
-		min-width: 140px; /* Space for Windows controls */
+		min-width: 20px; /* Reduced from 140px since we now have our own controls */
+	}
+
+	/* Window Control Buttons */
+	.window-controls {
+		display: flex;
+		align-items: center;
+		padding: 2px;
+		gap: 2px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-2);
+	}
+
+	.control-button {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 24px;
+		height: 20px;
+		border: none;
+		border-radius: var(--radius-s);
+		background: transparent;
+		color: var(--clr-text-2);
+		cursor: pointer;
+		transition: all var(--transition-fast);
+	}
+
+	.control-button:hover {
+		background-color: var(--clr-bg-3);
+		color: var(--clr-text-1);
+	}
+
+	.control-button.close:hover {
+		background-color: var(--clr-error);
+		color: white;
+	}
+
+	.control-button svg {
+		flex-shrink: 0;
 	}
 
 	/* Ensure content doesn't overlap with title bar */
@@ -407,5 +483,14 @@
 	:global(.dark) .app-icon {
 		border-color: var(--clr-border-2);
 		background-color: var(--clr-bg-2);
+	}
+
+	:global(.dark) .window-controls {
+		border-color: var(--clr-border-2);
+		background-color: var(--clr-bg-2);
+	}
+
+	:global(.dark) .control-button:hover {
+		background-color: var(--clr-bg-3);
 	}
 </style>
