@@ -29,6 +29,7 @@ export interface Settings {
 	inlineUnifiedDiffs: boolean;
 	diffContrast: 'light' | 'medium' | 'strong';
 	defaultCodeEditor: CodeEditorSettings;
+	useCustomTitleBar: boolean;
 }
 
 const defaults: Settings = {
@@ -49,7 +50,8 @@ const defaults: Settings = {
 	diffLigatures: false,
 	inlineUnifiedDiffs: false,
 	diffContrast: 'light',
-	defaultCodeEditor: { schemeIdentifer: 'vscode', displayName: 'VSCode' }
+	defaultCodeEditor: { schemeIdentifer: 'vscode', displayName: 'VSCode' },
+	useCustomTitleBar: true
 };
 
 export function loadUserSettings(): Writable<Settings> {

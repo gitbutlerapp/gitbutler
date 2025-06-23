@@ -262,6 +262,14 @@
 	let shareIssueModal: ShareIssueModal;
 
 	onMount(() => {
+		// Initialize window decorations based on user settings
+		// Only on Windows platform
+		if (platformName === 'windows') {
+			const currentSettings = $userSettings;
+			// Decorations are inverted: true = show default title bar, false = hide default title bar
+			data.tauri.setDecorations(!currentSettings.useCustomTitleBar);
+		}
+
 		return unsubscribe(
 			events.on('goto', async (path: string) => await goto(path)),
 			events.on('openSendIssueModal', () => shareIssueModal?.show())
