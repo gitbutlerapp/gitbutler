@@ -281,8 +281,8 @@ pub fn create(
     .disable_drag_drop_handler()
     .min_inner_size(1000.0, 600.0)
     .inner_size(1160.0, 720.0)
+    .decorations(false) // Hide default title bar on Windows
     .build()?;
-
     Ok(window)
 }
 
