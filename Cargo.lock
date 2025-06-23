@@ -3277,6 +3277,7 @@ dependencies = [
  "backtrace",
  "but-action",
  "but-core",
+ "but-db",
  "but-graph",
  "but-hunk-assignment",
  "but-hunk-dependency",

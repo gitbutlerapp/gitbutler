@@ -10,6 +10,11 @@ import { plainToInstance } from 'class-transformer';
 import { derived, get, writable, type Readable } from 'svelte/store';
 import type { HttpClient } from '@gitbutler/shared/network/httpClient';
 
+type ProjectInfo = {
+	is_exclusive: boolean;
+	db_error?: string;
+};
+
 export class ProjectsService {
 	private persistedId = persisted<string | undefined>(undefined, 'lastProject');
 	readonly projects = writable<Project[] | undefined>(undefined, (set) => {
@@ -40,10 +45,10 @@ export class ProjectsService {
 		this.projects.set(await this.loadAll());
 	}
 
-	async setActiveProject(projectId: string): Promise<boolean> {
-		const is_exclusive = await invoke<boolean>('set_project_active', { id: projectId });
+	async setActiveProject(projectId: string): Promise<ProjectInfo> {
+		const info = await invoke<ProjectInfo>('set_project_active', { id: projectId });
 		await this.reload();
-		return is_exclusive;
+		return info;
 	}
 
 	async getProject(projectId: string, noValidation?: boolean) {

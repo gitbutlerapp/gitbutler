@@ -262,12 +262,15 @@
 	async function setActiveProjectOrRedirect() {
 		// Optimistically assume the project is viewable
 		try {
-			const is_first_window_on_project = await projectsService.setActiveProject(projectId);
-			if (!is_first_window_on_project) {
+			const info = await projectsService.setActiveProject(projectId);
+			if (!info.is_exclusive) {
 				showInfo(
 					'Just FYI, this project is already open in another window',
 					'There might be some unexpected behavior if you open it in multiple windows'
 				);
+			}
+			if (info.db_error) {
+				showError('The database was corrupted', info.db_error);
 			}
 		} catch (error: unknown) {
 			showError('Failed to set the project active', error);
