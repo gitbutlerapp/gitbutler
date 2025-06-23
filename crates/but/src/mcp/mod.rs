@@ -77,6 +77,7 @@ impl Mcp {
             .lock()
             .map_err(|e| McpError::internal_error(e.to_string(), None))?
             .clone();
+        let start_time = std::time::Instant::now();
         let result = self.gitbutler_update_branches_inner(request, &client_info);
         let error = result.as_ref().err().map(|e| e.to_string());
         let updated_branches_count = result
@@ -101,6 +102,10 @@ impl Mcp {
                 self.event_handler
                     .credentials_kind()
                     .map_or("None".to_string(), |k| k.to_string()),
+            ),
+            (
+                "durationMs".to_string(),
+                start_time.elapsed().as_millis().to_string(),
             ),
         ];
         if let Some(error) = &error {
