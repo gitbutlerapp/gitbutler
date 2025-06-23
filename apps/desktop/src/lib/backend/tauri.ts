@@ -29,4 +29,9 @@ export class Tauri {
 		const window = getCurrentWindow();
 		await window.close();
 	}
+
+	async setDecorations(decorations: boolean) {
+		const window = getCurrentWindow();
+		await window.setDecorations(decorations);
+	}
 }

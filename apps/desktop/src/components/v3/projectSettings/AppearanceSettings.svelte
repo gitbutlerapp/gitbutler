@@ -1,11 +1,14 @@
 <script lang="ts">
 	import ThemeSelector from '$components/ThemeSelector.svelte';
 	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
+	import { platformName } from '$lib/platform/platform';
 	import {
 		SETTINGS,
 		type Settings,
 		type ScrollbarVisilitySettings
 	} from '$lib/settings/userSettings';
+	import { Tauri } from '$lib/backend/tauri';
+	import { getContext } from '@gitbutler/shared/context';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
 	import RadioButton from '@gitbutler/ui/RadioButton.svelte';
@@ -15,6 +18,8 @@
 	import Select from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import type { Writable } from 'svelte/store';
+
+	const tauri = getContext(Tauri);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 	const diff = `@@ -56,10 +56,9 @@
 			// Diff example
@@ -47,6 +52,33 @@
 	{/snippet}
 	<ThemeSelector {userSettings} />
 </SectionCard>
+
+{#if platformName === 'windows'}
+	<SectionCard labelFor="useCustomTitleBar" orientation="row">
+		{#snippet title()}
+			Use custom title bar
+		{/snippet}
+		{#snippet caption()}
+			Use GitButler's custom title bar with menu items. When disabled, the default Windows title bar will be used.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="useCustomTitleBar"
+				checked={$userSettings.useCustomTitleBar}
+				onclick={async () => {
+					const newValue = !$userSettings.useCustomTitleBar;
+					userSettings.update((s) => ({
+						...s,
+						useCustomTitleBar: newValue
+					}));
+					// Update window decorations immediately
+					// Decorations are inverted: true = show default title bar, false = hide default title bar
+					await tauri.setDecorations(!newValue);
+				}}
+			/>
+		{/snippet}
+	</SectionCard>
+{/if}
 <div class="stack-v">
 	<SectionCard centerAlign roundedBottom={false}>
 		{#snippet title()}

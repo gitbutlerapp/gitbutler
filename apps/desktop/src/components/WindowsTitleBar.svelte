@@ -12,6 +12,7 @@
 	import { settingsPath, newSettingsPath, clonePath } from '$lib/routes/routes.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { getEditorUri } from '$lib/utils/url';
+	import { editor } from '$lib/editorLink/editorLink';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { Project } from '$lib/project/project';
@@ -27,6 +28,21 @@
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 	const projectsService = getContext(ProjectsService);
 	const shortcutService = getContext(ShortcutService);
+
+	// Editor options mapping for display names
+	const editorOptions = [
+		{ schemeIdentifer: 'vscodium', displayName: 'VSCodium' },
+		{ schemeIdentifer: 'vscode', displayName: 'VSCode' },
+		{ schemeIdentifer: 'vscode-insiders', displayName: 'VSCode Insiders' },
+		{ schemeIdentifer: 'windsurf', displayName: 'Windsurf' },
+		{ schemeIdentifer: 'zed', displayName: 'Zed' },
+		{ schemeIdentifer: 'cursor', displayName: 'Cursor' }
+	];
+
+	// Get display name for current editor
+	const editorDisplayName = $derived(
+		editorOptions.find(opt => opt.schemeIdentifer === $editor)?.displayName || $editor
+	);
 
 	// Get the current active project reactively
 	let project = $state<Project | undefined>(undefined);
@@ -193,9 +209,17 @@
 	// Note: Project-specific shortcuts ('history', 'project-settings', 'open-in-vscode')
 	// are handled by ProjectSettingsMenuAction.svelte to avoid conflicts
 
-	// Only show on Windows
-	const showTitleBar = $derived(platformName === 'windows');
+	// Only show on Windows and when custom title bar is enabled
+	const showTitleBar = $derived(platformName === 'windows' && $userSettings.useCustomTitleBar);
 </script>
+
+{#snippet editorBadgeSnippet()}
+	{#if editorDisplayName}
+		<Badge style="neutral" size="icon">
+			{editorDisplayName}
+		</Badge>
+	{/if}
+{/snippet}
 
 {#if showTitleBar}
 	<div class="title-bar" data-tauri-drag-region>
@@ -318,7 +342,7 @@
 							onclick={() => {
 								if (project) {
 									const path = getEditorUri({
-										schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
+										schemeId: $editor,
 										path: [project.vscodePath],
 										searchParams: { windowId: '_blank' }
 									});
@@ -461,7 +485,7 @@
 		left: 0;
 		align-items: center;
 		width: 100%;
-		height: 32px;
+		height: 40px; /* Increased from 32px to make title bar taller */
 		padding: 0 8px;
 		gap: 8px;
 		background-color: var(--clr-bg-1);
@@ -599,7 +623,7 @@
 
 	/* Ensure content doesn't overlap with title bar */
 	:global(.app-root) {
-		padding-top: 32px;
+		padding-top: 40px; /* Matches the increased title bar height */
 	}
 
 	/* Dark theme adjustments */
