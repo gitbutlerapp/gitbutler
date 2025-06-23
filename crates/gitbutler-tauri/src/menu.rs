@@ -116,11 +116,7 @@ pub fn build<R: Runtime>(
 
     #[cfg(target_os = "macos")]
     {
-        edit_menu.append_items(&[
-            &PredefinedMenuItem::undo(handle, None)?,
-            &PredefinedMenuItem::redo(handle, None)?,
-            &PredefinedMenuItem::separator(handle)?,
-        ])?;
+        edit_menu.append_items(&[&PredefinedMenuItem::separator(handle)?])?;
     }
     #[cfg(not(target_os = "linux"))]
     {

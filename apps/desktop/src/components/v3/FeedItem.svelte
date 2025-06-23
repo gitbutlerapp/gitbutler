@@ -6,6 +6,7 @@
 	import { User } from '$lib/user/user';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getContextStore } from '@gitbutler/shared/context';
+	import AgentAvatar from '@gitbutler/ui/AgentAvatar.svelte';
 	import EditorLogo from '@gitbutler/ui/EditorLogo.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
@@ -78,16 +79,26 @@
 		{/if}
 		<div class="action-item__content">
 			<div class="action-item__content__header">
-				<div>
-					<p class="text-13 text-bold">Recorded changes</p>
-					<p class="text-13 text-bold text-grey">(MCP call)</p>
-					<span class="text-13 text-greyer"
-						><TimeAgo date={new Date(action.createdAt)} addSuffix /></span
-					>
-				</div>
+				{#if isStr(action.source) || !action.source.Mcp}
+					<div>
+						<p class="text-13 text-bold">Action</p>
+						<p class="text-13 text-bold text-grey">{action.source}</p>
+						<span class="text-13 text-greyer"
+							><TimeAgo date={new Date(action.createdAt)} addSuffix /></span
+						>
+					</div>
+				{:else}
+					<div>
+						<p class="text-13 text-bold">Recorded changes</p>
+						<p class="text-13 text-bold text-grey">(MCP call)</p>
+						<span class="text-13 text-greyer"
+							><TimeAgo date={new Date(action.createdAt)} addSuffix /></span
+						>
+					</div>
+				{/if}
 			</div>
 			<span class="text-14 text-darkgrey">
-				<Markdown content={action.externalPrompt} />
+				<Markdown content={action.externalPrompt ?? action.externalSummary} />
 			</span>
 			{#if action.response && action.response.updatedBranches.length > 0}
 				<div class="action-item__content__metadata">
@@ -135,12 +146,21 @@
 		</div>
 	{:else if action instanceof Workflow}
 		<div>
-			Workflow {action.id}
-			{action.createdAt}
-			{JSON.stringify(action.triggeredBy)}
-			{JSON.stringify(action.status)}
-			{JSON.stringify(action.inputCommits)}
-			{JSON.stringify(action.outputCommits)}
+			<AgentAvatar />
+		</div>
+		<div class="action-item__content">
+			<div class="action-item__content__header">
+				<div>
+					<p class="text-13 text-bold">Agent action</p>
+					<p class="text-13 text-bold text-grey">But-agent</p>
+					<span class="text-13 text-greyer"
+						><TimeAgo date={new Date(action.createdAt)} addSuffix /></span
+					>
+				</div>
+			</div>
+			<span class="text-12">
+				{action.kind}
+			</span>
 		</div>
 	{/if}
 </div>

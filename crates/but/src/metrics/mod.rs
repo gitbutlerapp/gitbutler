@@ -1,4 +1,4 @@
-use std::env;
+use std::{collections::HashMap, env};
 
 use but_settings::AppSettings;
 use serde::{Deserialize, Serialize};
@@ -13,30 +13,30 @@ pub struct Metrics {
 pub enum EventKind {
     Mcp,
 }
+#[derive(Debug, Clone)]
 pub struct Event {
     event_name: EventKind,
-    props: Vec<(String, String)>,
+    props: HashMap<String, serde_json::Value>,
 }
 
 impl Event {
-    pub fn new(event_name: EventKind, mut props: Vec<(String, String)>) -> Self {
-        props.push((
-            "appVersion".to_string(),
-            option_env!("VERSION").unwrap_or_default().to_string(),
-        ));
-        props.push((
-            "releaseChannel".to_string(),
-            option_env!("CHANNEL").unwrap_or_default().to_string(),
-        ));
-        props.push((
-            "appName".to_string(),
-            option_env!("CARGO_BIN_NAME")
-                .unwrap_or_default()
-                .to_string(),
-        ));
-        props.push(("OS".to_string(), Event::normalize_os(env::consts::OS)));
-        props.push(("Arch".to_string(), env::consts::ARCH.to_string()));
-        Self { event_name, props }
+    pub fn new(event_name: EventKind) -> Self {
+        let event = &mut Event {
+            event_name,
+            props: HashMap::new(),
+        };
+        event.insert_prop("appVersion", option_env!("VERSION").unwrap_or_default());
+        event.insert_prop("releaseChannel", option_env!("CHANNEL").unwrap_or_default());
+        event.insert_prop("appName", option_env!("CARGO_BIN_NAME").unwrap_or_default());
+        event.insert_prop("OS", Event::normalize_os(env::consts::OS));
+        event.insert_prop("Arch", env::consts::ARCH);
+        event.clone()
+    }
+
+    pub fn insert_prop<K: Into<String>, P: Serialize>(&mut self, key: K, prop: P) {
+        if let Ok(value) = serde_json::to_value(prop) {
+            let _ = self.props.insert(key.into(), value);
+        }
     }
 
     fn normalize_os(os: &str) -> String {
@@ -96,9 +96,9 @@ impl Metrics {
         metrics
     }
 
-    pub fn capture(&self, event: Event) {
+    pub fn capture(&self, event: &Event) {
         if let Some(sender) = &self.sender {
-            let _ = sender.send(event);
+            let _ = sender.send(event.clone());
         }
     }
 }

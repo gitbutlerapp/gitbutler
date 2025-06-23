@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use diesel::connection::SimpleConnection;
@@ -39,7 +39,7 @@ impl DbHandle {
         if db_dir.is_relative() {
             db_dir = cwd.join(db_dir);
         }
-        let db_file_path = db_dir.join(FILE_NAME);
+        let db_file_path = Self::db_file_path(&db_dir);
         if let Some(parent_dir_to_create) = db_file_path.parent().filter(|dir| !dir.exists()) {
             std::fs::create_dir_all(parent_dir_to_create)?;
         }
@@ -56,6 +56,11 @@ impl DbHandle {
         improve_concurrency(&mut conn)?;
         run_migrations(&mut conn)?;
         Ok(DbHandle { conn, url })
+    }
+
+    /// Return the path to the standard database file.
+    pub fn db_file_path(db_dir: impl AsRef<Path>) -> PathBuf {
+        db_dir.as_ref().join(FILE_NAME)
     }
 }
 
