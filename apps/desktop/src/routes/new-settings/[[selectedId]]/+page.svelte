@@ -77,11 +77,7 @@
 	pageUrl={(pageId) => newSettingsPath(pageId)}
 	isFullPage
 	onclose={() => {
-		if (history.length > 0) {
-			history.back();
-		} else {
-			goto('/');
-		}
+		goto('/');
 	}}
 	>{#snippet footer()}
 		<div class="profile-sidebar__footer">
