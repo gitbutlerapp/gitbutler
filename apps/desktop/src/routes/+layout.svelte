@@ -86,6 +86,7 @@
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
 	import { env } from '$env/dynamic/public';
+	import WindowsTitleBar from '$components/WindowsTitleBar.svelte';
 
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
 
@@ -301,6 +302,12 @@
 	{#if platformName === 'macos' && !$settingsStore?.featureFlags.v3}
 		<div class="drag-region" data-tauri-drag-region></div>
 	{/if}
+
+	<!-- Windows custom title bar -->
+	{#if platformName === 'windows'}
+		<WindowsTitleBar />
+	{/if}
+
 	{@render children()}
 </div>
 <Toaster />
