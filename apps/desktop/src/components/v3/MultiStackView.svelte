@@ -28,6 +28,11 @@
 	let lanesScrollableWidth = $state<number>(0);
 	let lanesScrollableHeight = $state<number>(0);
 
+	// Pan-to-scroll state
+	let isPanning = $state<boolean>(false);
+	let panStartX = $state<number>(0);
+	let panStartScrollLeft = $state<number>(0);
+
 	let laneWidths = $state<number[]>([]);
 	let lineHights = $state<number[]>([]);
 	let isNotEnoughHorzSpace = $derived(
@@ -44,11 +49,58 @@
 
 	const SHOW_PAGINATION_THRESHOLD = 1;
 
-	// $effect(() => {
-	// 	if (lanesScrollableEl && isDraftStackVisible) {
-	// 		lanesScrollableEl.scrollLeft = lanesScrollableEl.scrollWidth;
-	// 	}
-	// });
+	// Pan-to-scroll functions
+	function handleMouseDown(e: MouseEvent) {
+		if (!lanesScrollableEl) return;
+
+		// Only start panning on left mouse button and if not clicking on interactive elements
+		const target = e.target as HTMLElement;
+		if (e.button !== 0 || target.closest('button, a, input, select, textarea')) return;
+
+		isPanning = true;
+		panStartX = e.clientX;
+		panStartScrollLeft = lanesScrollableEl.scrollLeft;
+
+		// Prevent text selection during pan
+		e.preventDefault();
+
+		// Add global event listeners
+		document.addEventListener('mousemove', handleMouseMove);
+		document.addEventListener('mouseup', handleMouseUp);
+
+		// Change cursor
+		lanesScrollableEl.style.cursor = 'grabbing';
+	}
+
+	function handleMouseMove(e: MouseEvent) {
+		if (!isPanning || !lanesScrollableEl) return;
+
+		e.preventDefault();
+
+		const deltaX = e.clientX - panStartX;
+		lanesScrollableEl.scrollLeft = panStartScrollLeft - deltaX;
+	}
+
+	function handleMouseUp() {
+		if (!isPanning || !lanesScrollableEl) return;
+
+		isPanning = false;
+
+		// Remove global event listeners
+		document.removeEventListener('mousemove', handleMouseMove);
+		document.removeEventListener('mouseup', handleMouseUp);
+
+		// Reset cursor
+		lanesScrollableEl.style.cursor = '';
+	}
+
+	// Clean up event listeners on component destruction
+	$effect(() => {
+		return () => {
+			document.removeEventListener('mousemove', handleMouseMove);
+			document.removeEventListener('mouseup', handleMouseUp);
+		};
+	});
 </script>
 
 {#if isNotEnoughHorzSpace}
@@ -69,12 +121,14 @@
 {/if}
 
 <div
-	role="group"
+	role="presentation"
 	class="lanes-scrollable hide-native-scrollbar"
+	class:panning={isPanning}
 	bind:this={lanesScrollableEl}
 	bind:clientWidth={lanesScrollableWidth}
 	bind:clientHeight={lanesScrollableHeight}
 	class:multi={stacks.length < SHOW_PAGINATION_THRESHOLD}
+	onmousedown={handleMouseDown}
 	ondragover={(e) => {
 		onReorderDragOver(e, stacks);
 		stacks = stacks;
@@ -148,6 +202,12 @@
 		margin: 0 -1px;
 		overflow-x: auto;
 		overflow-y: hidden;
+		cursor: default;
+		user-select: none; /* Prevent text selection during pan */
+	}
+
+	.lanes-scrollable.panning {
+		cursor: grabbing;
 	}
 
 	.pagination-container {
