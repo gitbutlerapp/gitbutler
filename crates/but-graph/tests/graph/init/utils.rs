@@ -54,6 +54,11 @@ pub fn add_workspace(meta: &mut VirtualBranchesTomlMetadata) {
     );
 }
 
+pub fn add_workspace_without_target(meta: &mut VirtualBranchesTomlMetadata) {
+    add_workspace(meta);
+    meta.data_mut().default_target = None;
+}
+
 pub fn add_stack(
     meta: &mut VirtualBranchesTomlMetadata,
     stack_id: StackId,
@@ -127,5 +132,10 @@ pub fn id_by_rev<'repo>(repo: &'repo gix::Repository, rev: &str) -> gix::Id<'rep
 }
 
 pub fn standard_options() -> but_graph::init::Options {
-    but_graph::init::Options { collect_tags: true }
+    but_graph::init::Options {
+        collect_tags: true,
+        commits_limit_hint: None,
+        commits_limit_recharge_location: vec![],
+        hard_limit: None,
+    }
 }

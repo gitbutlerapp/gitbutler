@@ -1,4 +1,5 @@
 <script lang="ts">
+	import FloatingCommitBox from '$components/v3/FloatingCommitBox.svelte';
 	import EditorFooter from '$components/v3/editor/EditorFooter.svelte';
 	import MessageEditor from '$components/v3/editor/MessageEditor.svelte';
 	import MessageEditorInput from '$components/v3/editor/MessageEditorInput.svelte';
@@ -26,6 +27,7 @@
 		action: (args: { title: string; description: string }) => void;
 		onChange?: (args: { title?: string; description?: string }) => void;
 		onCancel: (args: { title: string; description: string }) => void;
+		noPadding?: boolean;
 		disabledAction?: boolean;
 		loading?: boolean;
 		existingCommitId?: string;
@@ -40,6 +42,7 @@
 		action,
 		onChange,
 		onCancel,
+		noPadding,
 		disabledAction,
 		loading,
 		title = $bindable(),
@@ -50,6 +53,8 @@
 	const uiState = getContext(UiState);
 	const aiService = getContext(AIService);
 	const promptService = getContext(PromptService);
+
+	const useFloatingCommitBox = $derived(uiState.global.useFloatingCommitBox);
 
 	const worktreeService = getContext(WorktreeService);
 	const diffService = getContext(DiffService);
@@ -141,9 +146,15 @@
 		const newDescription = await getDescription();
 		onCancel({ title, description: newDescription });
 	}
+
+	$effect(() => {
+		if (titleInput) {
+			titleInput.focus();
+		}
+	});
 </script>
 
-<div role="presentation" class="commit-message-wrap">
+{#snippet editorContent()}
 	<MessageEditorInput
 		testId={TestId.CommitDrawerTitleInput}
 		bind:ref={titleInput}
@@ -199,25 +210,46 @@
 			return false;
 		}}
 	/>
-</div>
+	<EditorFooter onCancel={handleCancel}>
+		<Button
+			testId={TestId.CommitDrawerActionButton}
+			style="pop"
+			onclick={emitAction}
+			disabled={disabledAction}
+			{loading}
+			wide>{actionLabel}</Button
+		>
+	</EditorFooter>
+{/snippet}
 
-<EditorFooter onCancel={handleCancel}>
-	<Button
-		testId={TestId.CommitDrawerActionButton}
-		style="pop"
-		onclick={emitAction}
-		disabled={disabledAction}
-		{loading}
-		wide>{actionLabel}</Button
+{#if useFloatingCommitBox.current}
+	<FloatingCommitBox
+		onExitFloatingModeClick={() => {
+			uiState.global.useFloatingCommitBox.set(false);
+		}}
 	>
-</EditorFooter>
+		{#snippet header()}
+			Create commit
+		{/snippet}
+
+		{@render editorContent()}
+	</FloatingCommitBox>
+{:else}
+	<div class="commit-message" class:no-padding={noPadding}>
+		{@render editorContent()}
+	</div>
+{/if}
 
 <style lang="postcss">
-	.commit-message-wrap {
+	.commit-message {
 		display: flex;
 		position: relative;
 		flex: 1;
 		flex-direction: column;
-		min-height: 0;
+		background-color: var(--clr-bg-1);
+
+		&:not(.no-padding) {
+			padding: 12px;
+		}
 	}
 </style>

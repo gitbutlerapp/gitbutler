@@ -15,6 +15,7 @@
 	import ShareIssueModal from '$components/ShareIssueModal.svelte';
 	import SwitchThemeMenuAction from '$components/SwitchThemeMenuAction.svelte';
 	import ToastController from '$components/ToastController.svelte';
+	import WindowsTitleBar from '$components/WindowsTitleBar.svelte';
 	import ZoomInOutMenuAction from '$components/ZoomInOutMenuAction.svelte';
 	import { PromptService as AIPromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
@@ -166,7 +167,7 @@
 	const cloudPatchService = new CloudPatchCommitService(data.cloud, appState.appDispatch);
 	const repositoryIdLookupService = new RepositoryIdLookupService(data.cloud, appState.appDispatch);
 	const latestBranchLookupService = new LatestBranchLookupService(data.cloud, appState.appDispatch);
-	const webRoutesService = new WebRoutesService(env.PUBLIC_CLOUD_BASE_URL);
+	const webRoutesService = new WebRoutesService(env.PUBLIC_CLOUD_BASE_URL ?? '');
 	const shortcutService = new ShortcutService(data.tauri);
 	const commitService = new CommitService();
 	const butRequestDetailsService = new ButRequestDetailsService(
@@ -303,6 +304,12 @@
 	{#if platformName === 'macos' && !$settingsStore?.featureFlags.v3}
 		<div class="drag-region" data-tauri-drag-region></div>
 	{/if}
+
+	<!-- Windows custom title bar -->
+	{#if platformName === 'windows'}
+		<WindowsTitleBar />
+	{/if}
+
 	{@render children()}
 </div>
 <Toaster />

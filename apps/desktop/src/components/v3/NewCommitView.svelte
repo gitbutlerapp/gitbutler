@@ -8,6 +8,7 @@
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { StackService, type RejectionReason } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import toasts from '@gitbutler/ui/toasts';
 
@@ -207,17 +208,19 @@
 </script>
 
 <AsyncRender>
-	<CommitMessageEditor
-		bind:this={input}
-		{projectId}
-		{stackId}
-		actionLabel="Create commit"
-		action={({ title, description }) => handleCommitCreation(title, description)}
-		onChange={({ title, description }) => handleMessageUpdate(title, description)}
-		onCancel={cancel}
-		disabledAction={!canCommit}
-		loading={commitCreation.current.isLoading || newStackResult.current.isLoading}
-		title={projectState.commitTitle.current}
-		description={projectState.commitDescription.current}
-	/>
+	<div data-testid={TestId.NewCommitView}>
+		<CommitMessageEditor
+			bind:this={input}
+			{projectId}
+			{stackId}
+			actionLabel="Create commit"
+			action={({ title, description }) => handleCommitCreation(title, description)}
+			onChange={({ title, description }) => handleMessageUpdate(title, description)}
+			onCancel={cancel}
+			disabledAction={!canCommit}
+			loading={commitCreation.current.isLoading || newStackResult.current.isLoading}
+			title={projectState.commitTitle.current}
+			description={projectState.commitDescription.current}
+		/>
+	</div>
 </AsyncRender>

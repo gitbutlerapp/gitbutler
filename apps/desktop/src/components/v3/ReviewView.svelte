@@ -2,8 +2,8 @@
 	import ReviewCreation from '$components/ReviewCreation.svelte';
 	import ReviewCreationControls from '$components/ReviewCreationControls.svelte';
 	import AsyncRender from '$components/v3/AsyncRender.svelte';
+	import FloatingCommitBox from '$components/v3/FloatingCommitBox.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
-
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
@@ -19,6 +19,7 @@
 	const { projectId, stackId, branchName, oncancel }: Props = $props();
 
 	const uiState = getContext(UiState);
+	const useFloatingPrBox = $derived(uiState.global.useFloatingPrBox);
 
 	let reviewCreation = $state<ReturnType<typeof ReviewCreation>>();
 
@@ -68,12 +69,26 @@
 	</AsyncRender>
 {/snippet}
 
-{@render editor()}
+{#if useFloatingPrBox.current}
+	<FloatingCommitBox
+		onExitFloatingModeClick={() => {
+			uiState.global.useFloatingPrBox.set(false);
+		}}
+	>
+		{#snippet header()}
+			Create Review
+		{/snippet}
+		{@render editor()}
+	</FloatingCommitBox>
+{:else}
+	{@render editor()}
+{/if}
 
 <style lang="postcss">
 	.review-view {
 		display: flex;
 		flex-direction: column;
+		height: 100%;
 		gap: 10px;
 	}
 </style>

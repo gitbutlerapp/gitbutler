@@ -1,4 +1,4 @@
-use but_graph::{EntryPoint, Graph, LocalCommitRelation, SegmentIndex};
+use but_graph::{EntryPoint, Graph, SegmentIndex};
 use std::collections::{BTreeMap, BTreeSet};
 use termtree::Tree;
 
@@ -6,13 +6,22 @@ type SegmentTree = Tree<String>;
 
 /// Visualize `graph` as a tree.
 pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
-    fn tree_for_commit<'a>(
+    fn tree_for_commit(
         commit: &but_graph::Commit,
-        extra: impl Into<Option<&'a str>>,
         has_conflicts: bool,
         is_entrypoint: bool,
+        is_early_end: bool,
+        hard_limit_hit: bool,
     ) -> SegmentTree {
-        Graph::commit_debug_string(commit, extra, has_conflicts, is_entrypoint, true).into()
+        Graph::commit_debug_string(
+            commit,
+            has_conflicts,
+            is_entrypoint,
+            true, /* show message */
+            is_early_end,
+            hard_limit_hit,
+        )
+        .into()
     }
     fn recurse_segment(
         graph: &but_graph::Graph,
@@ -52,7 +61,7 @@ pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
 
         let mut root = Tree::new(format!(
             "{entrypoint}{kind}:{id}:{ref_name}{remote}",
-            id = segment.id,
+            id = segment.id.index(),
             kind = if segment.workspace_metadata().is_some() {
                 "►►►"
             } else {
@@ -84,13 +93,14 @@ pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
         for (cidx, commit) in segment.commits.iter().enumerate() {
             let mut commit_tree = tree_for_commit(
                 commit,
-                if commit.relation == LocalCommitRelation::LocalOnly {
-                    None
-                } else {
-                    Some(commit.relation.display(commit.id))
-                },
-                commit.has_conflicts,
+                commit
+                    .details
+                    .as_ref()
+                    .map(|d| d.has_conflicts)
+                    .unwrap_or_default(),
                 segment_is_entrypoint && Some(cidx) == ep.commit_index,
+                graph.is_early_end_of_traversal(sidx, cidx),
+                graph.hard_limit_hit(),
             );
             if let Some(segment_indices) = connected_segments.get(&Some(cidx)) {
                 for sidx in segment_indices {
@@ -104,15 +114,6 @@ pub fn graph_tree(graph: &but_graph::Graph) -> SegmentTree {
             for sidx in segment_indices {
                 root.push(recurse_segment(graph, *sidx, seen));
             }
-        }
-
-        for commit in segment.commits_unique_in_remote_tracking_branch.iter() {
-            root.push(tree_for_commit(
-                &commit.inner,
-                None,
-                commit.has_conflicts,
-                false, /* is_entrypoint */
-            ));
         }
 
         root

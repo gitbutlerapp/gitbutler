@@ -56,7 +56,7 @@ describe('Error handling - commit actions', () => {
 		cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
 
 		// Should open the commit rename drawer
-		cy.getByTestId('edit-commit-message-drawer').should('be.visible');
+		cy.getByTestId('edit-commit-message-box').should('be.visible');
 
 		// Should have the original commit message, and be focused
 		cy.getByTestId('commit-drawer-title-input')

@@ -15,7 +15,6 @@
 	import { isParsedError } from '$lib/error/parser';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
-
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { readKey } from '$lib/selection/key';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
@@ -164,6 +163,9 @@
 	});
 
 	const startCommitVisible = $derived(uncommittedService.startCommitVisible(stack.id));
+	// const isCommittingAndFloating = $derived(
+	// 	isCommitting && isCommitFloating && startCommitVisible.current
+	// );
 </script>
 
 <AsyncRender>
@@ -233,10 +235,10 @@
 							<div
 								class="assignments-wrap"
 								class:assignments__empty={changes.current.length === 0 && !isCommitting}
-								class:committing-when-empty={isCommitting && changes.current.length === 0}
 							>
 								<div
 									class="worktree-wrap"
+									class:remove-border-bottom={isCommitting && changes.current.length === 0}
 									class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
 								>
 									<WorktreeChanges
@@ -266,27 +268,23 @@
 									</WorktreeChanges>
 								</div>
 
-								<div class="new-commit">
-									{#if !isCommitting}
-										<div class="start-commit">
-											<Button
-												testId={TestId.StartCommitButton}
-												type="button"
-												wide
-												disabled={defaultBranchResult?.current.isLoading}
-												onclick={() => {
-													startCommit();
-												}}
-											>
-												Start a commit…
-											</Button>
-										</div>
-									{:else if isCommitting}
-										<div class="message-editor" data-testid={TestId.NewCommitView}>
-											<NewCommitView {projectId} stackId={stack.id} />
-										</div>
-									{/if}
-								</div>
+								{#if !isCommitting}
+									<div class="start-commit">
+										<Button
+											testId={TestId.StartCommitButton}
+											type="button"
+											wide
+											disabled={defaultBranchResult?.current.isLoading}
+											onclick={() => {
+												startCommit();
+											}}
+										>
+											Start a commit…
+										</Button>
+									</div>
+								{:else if isCommitting}
+									<NewCommitView {projectId} stackId={stack.id} />
+								{/if}
 							</div>
 						{/if}
 
@@ -437,19 +435,17 @@
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
-
-		&.committing-when-empty {
-			& .new-commit {
-				border-top: none;
-			}
-		}
 	}
 
 	.worktree-wrap {
 		display: flex;
 		flex-direction: column;
-		border-bottom: none;
+		border-bottom: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml) var(--radius-ml) 0 0;
+
+		&.remove-border-bottom {
+			border-bottom: none;
+		}
 
 		&.dropzone-activated {
 			& .assigned-changes-empty {
@@ -472,9 +468,9 @@
 		white-space: wrap;
 	}
 
-	.new-commit {
+	.start-commit {
 		padding: 12px;
-		border-top: 1px solid var(--clr-border-2);
+		/* border-top: 1px solid var(--clr-border-2); */
 		background-color: var(--clr-bg-1);
 	}
 

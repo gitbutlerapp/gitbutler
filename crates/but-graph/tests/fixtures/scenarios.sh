@@ -165,6 +165,30 @@ EOF
 
 )
 
+git init triple-merge
+(cd triple-merge
+  for c in $(seq 5); do
+    commit "$c"
+  done
+  git checkout -b A
+    git branch B
+    git branch C
+    for c in $(seq 3); do
+      commit "A$c"
+    done
+
+  git checkout B
+    for c in $(seq 3); do
+      commit "B$c"
+    done
+
+  git checkout C
+    for c in $(seq 3); do
+      commit "C$c"
+    done
+  git merge A B
+)
+
 mkdir ws
 (cd ws
   git init single-stack-ambiguous
@@ -265,12 +289,20 @@ mkdir ws
   git init deduced-remote-ahead
   (cd deduced-remote-ahead
     commit init
+    git checkout -b A
     commit shared
     git checkout -b soon-remote;
+      git checkout -b tmp
+        commit feat-on-remote
+      git checkout soon-remote
+      git merge --no-ff -m "merge" tmp && git branch -d tmp
       commit only-remote-01;
       commit only-remote-02;
-    git checkout main && create_workspace_commit_once main
-    setup_remote_tracking soon-remote main "move"
+    git checkout A
+      commit A1
+      commit A2
+    create_workspace_commit_once A
+    setup_remote_tracking soon-remote A "move"
 
 cat <<EOF >>.git/config
 [remote "origin"]
@@ -329,6 +361,156 @@ EOF
       setup_remote_tracking soon-remote-ahead-of-B B "move"
 
     git checkout gitbutler/workspace
+  )
+
+  git init two-segments-one-integrated
+  (cd two-segments-one-integrated
+    for c in $(seq 3); do
+      commit "$c"
+    done
+    git checkout -b A
+      commit 4
+      git checkout -b A-feat
+        commit "A-feat-1"
+        commit "A-feat-2"
+      git checkout A
+      git merge --no-ff A-feat
+      for c in $(seq 5 8); do
+        commit "$c"
+      done
+    git checkout -b B
+      commit "B1"
+      commit "B2"
+
+    create_workspace_commit_once B
+
+    tick
+    git checkout -b soon-origin-main main
+      git merge --no-ff A
+      for c in $(seq 2); do
+        commit "remote-$c"
+      done
+      setup_remote_tracking soon-origin-main main "move"
+    git checkout gitbutler/workspace
+  )
+
+  git init on-top-of-target-with-history
+  (cd on-top-of-target-with-history
+    commit outdated-main
+    git checkout -b soon-origin-main
+    for c in $(seq 5); do
+      commit "$c"
+    done
+    for name in A B C D E F gitbutler/workspace; do
+      git branch "$name"
+    done
+    setup_remote_tracking soon-origin-main main "move"
+    git checkout gitbutler/workspace
+  )
+
+  # partition 1: main - start of traversal
+  # partition 2: workspace - connected to 1 via short route that isn't including the tip of partition 1
+  # partition 3: target - connected to 2 via short route and to 1 via longest rout (2 would find 1 first)
+  git init gitlab-case
+  (cd gitlab-case
+    # there is along tail of history under main which we should be able to traverse as well the entrypoint permits.
+    commit M1
+    commit M2
+    commit M3
+    commit M4
+    commit M5
+    commit M6
+    commit M7
+    commit M8
+    commit M9
+    commit M10
+    # short link to the workspace, connects to 'main'
+    git checkout -b main-to-workspace
+      commit Ws1
+
+    git checkout main
+    commit M2
+
+    # the long link to the workspace, through 'main'
+    git checkout -b long-main-to-workspace main
+      commit Wl1
+      commit Wl2
+      commit Wl3
+      commit Wl4
+
+    # workspace finds 'main' through short leg.
+    git checkout -b workspace main-to-workspace
+    git merge -m "W1-merge" --no-ff long-main-to-workspace
+    # NOTE: could have multiple lanes, to be done later for realism.
+    git checkout -b workspace-to-target
+      commit Ts1
+      commit Ts2
+      commit Ts3
+    git checkout -b long-workspace-to-target workspace
+      commit Tl1
+      commit Tl2
+      commit Tl3
+      commit Tl4
+      commit Tl5
+      commit Tl6
+      commit Tl7
+    git checkout -b soon-remote-main workspace-to-target
+      git merge -m "target" --no-ff long-workspace-to-target
+    git checkout workspace
+    # This creates a workspace commit outside of the workspace, it can't be reached by the target.
+    create_workspace_commit_once workspace
+
+    setup_remote_tracking soon-remote-main main "move"
+  )
+
+  # like above, but triggers a different case where 'main' can't be reached easily.
+  git init gitlab-case2
+  (cd gitlab-case2
+    commit M1
+    # short link to the workspace, connects to 'main'
+    git checkout -b main-to-workspace
+      commit Ws1
+    git checkout -b longer-workspace-to-target
+      commit Tll1
+      commit Tll2
+      commit Tll3
+      commit Tll4
+      commit Tll5
+      commit Tll6
+
+    git checkout main
+    commit M2
+
+    # the long link to the workspace, through 'main'
+    git checkout -b long-main-to-workspace main
+      commit Wl1
+      commit Wl2
+      commit Wl3
+      commit Wl4
+
+    # workspace finds 'main' through short leg.
+    git checkout -b workspace main-to-workspace
+    git merge -m "W1-merge" --no-ff long-main-to-workspace
+    # NOTE: could have multiple lanes, to be done later for realism.
+    git checkout -b long-workspace-to-target workspace
+      commit Tl1
+      git merge -m "Tl-merge" --no-ff longer-workspace-to-target
+      commit Tl2
+      commit Tl3
+      commit Tl4
+      commit Tl5
+      commit Tl6
+      commit Tl7
+      commit Tl8
+      commit Tl9
+      commit Tl10
+    # target is connected through a long leg that takes longer than everything else
+    git checkout -b soon-remote-main long-workspace-to-target
+    git checkout workspace
+    # This creates a workspace commit outside of the workspace, it can't be reached by the target.
+    create_workspace_commit_once workspace
+
+    setup_remote_tracking soon-remote-main main "move"
   )
 )
 
