@@ -323,7 +323,10 @@
 				aria-label="Maximize window"
 			>
 				<svg width="10" height="10" viewBox="0 0 24 24">
-					<path d="M10.71,14.71,5.41,20H10a1,1,0,0,1,0,2H4a2,2,0,0,1-1.38-.56l0,0s0,0,0,0A2,2,0,0,1,2,20V14a1,1,0,0,1,2,0v4.59l5.29-5.3a1,1,0,0,1,1.42,1.42ZM21.44,2.62s0,0,0,0l0,0A2,2,0,0,0,20,2H14a1,1,0,0,0,0,2h4.59l-5.3,5.29a1,1,0,0,0,0,1.42,1,1,0,0,0,1.42,0L20,5.41V10a1,1,0,0,0,2,0V4A2,2,0,0,0,21.44,2.62Z" fill="currentColor"/>
+					<path
+						d="M10.71,14.71,5.41,20H10a1,1,0,0,1,0,2H4a2,2,0,0,1-1.38-.56l0,0s0,0,0,0A2,2,0,0,1,2,20V14a1,1,0,0,1,2,0v4.59l5.29-5.3a1,1,0,0,1,1.42,1.42ZM21.44,2.62s0,0,0,0l0,0A2,2,0,0,0,20,2H14a1,1,0,0,0,0,2h4.59l-5.3,5.29a1,1,0,0,0,0,1.42,1,1,0,0,0,1.42,0L20,5.41V10a1,1,0,0,0,2,0V4A2,2,0,0,0,21.44,2.62Z"
+						fill="currentColor"
+					/>
 				</svg>
 			</button>
 			<button
@@ -410,24 +413,24 @@
 	}
 
 	.title-bar__menu :global(.dropdown-wrapper .btn) {
+		position: relative;
 		height: 28px;
 		padding: 6px 12px;
+		overflow: hidden;
 		border: none;
 		border-radius: var(--radius-m);
 		background: transparent;
 		color: var(--clr-text-2);
-		font-size: var(--text-11);
 		font-weight: var(--weight-medium);
+		font-size: var(--text-11);
 		transition: all var(--transition-fast);
-		position: relative;
-		overflow: hidden;
 	}
 
 	.title-bar__menu :global(.dropdown-wrapper .btn:hover) {
-		background-color: var(--clr-bg-2);
-		color: var(--clr-text-1);
 		transform: translateY(-1px);
+		background-color: var(--clr-bg-2);
 		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+		color: var(--clr-text-1);
 	}
 
 	.title-bar__menu :global(.dropdown-wrapper .btn:active) {
@@ -437,8 +440,8 @@
 
 	/* Add a subtle border for better definition */
 	.title-bar__menu :global(.dropdown-wrapper .btn:hover) {
-		border: 1px solid var(--clr-border-2);
 		padding: 5px 11px; /* Adjust padding to account for border */
+		border: 1px solid var(--clr-border-2);
 	}
 
 	.title-bar__controls-spacer {
