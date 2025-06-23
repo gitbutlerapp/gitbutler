@@ -197,6 +197,14 @@
 	const showTitleBar = $derived(platformName === 'windows');
 </script>
 
+{#snippet editorBadgeSnippet()}
+	{#if $userSettings.defaultCodeEditor?.displayName}
+		<Badge style="neutral" size="icon">
+			{$userSettings.defaultCodeEditor.displayName}
+		</Badge>
+	{/if}
+{/snippet}
+
 {#if showTitleBar}
 	<div class="title-bar" data-tauri-drag-region>
 		<!-- App Icon and Info Section -->
@@ -325,6 +333,7 @@
 									openExternalUrl(path);
 								}
 							}}
+							control={editorBadgeSnippet}
 						/>
 					</ContextMenuSection>
 					<ContextMenuSection>
