@@ -349,6 +349,7 @@
 									openExternalUrl(path);
 								}
 							}}
+							control={editorBadgeSnippet}
 						/>
 					</ContextMenuSection>
 					<ContextMenuSection>
