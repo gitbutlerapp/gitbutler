@@ -1,14 +1,16 @@
+use anyhow::bail;
 use gitbutler_project::Project;
+use std::path::{Path, PathBuf};
 
 pub mod commands {
-    use std::path;
-
     use anyhow::Context;
     use but_settings::AppSettingsWithDiskSync;
     use gitbutler_project::{self as projects, Controller, ProjectId};
+    use std::path;
     use tauri::{State, Window};
     use tracing::instrument;
 
+    use crate::projects::assure_database_valid;
     use crate::window::state::ProjectAccessMode;
     use crate::{error::Error, projects::ProjectForFrontend, window, WindowState};
 
@@ -88,6 +90,9 @@ pub mod commands {
             &project,
             app_settings.inner().clone(),
         )?;
+        if let Some(err) = assure_database_valid(project.gb_dir())? {
+            tracing::error!("{err}");
+        }
         Ok(match mode {
             ProjectAccessMode::First => true,
             ProjectAccessMode::Shared => false,
@@ -140,4 +145,38 @@ pub struct ProjectForFrontend {
     pub inner: Project,
     /// Tell if the project is known to be open in a Window in the frontend.
     pub is_open: bool,
+}
+
+/// Fatal errors are returned as error, fixed errors for tracing will be `Some(err)`
+fn assure_database_valid(gb_dir: PathBuf) -> anyhow::Result<Option<anyhow::Error>> {
+    if let Err(err) = but_db::DbHandle::new_in_directory(&gb_dir) {
+        let db_path = but_db::DbHandle::db_file_path(&gb_dir);
+        let db_filename = db_path.file_name().unwrap();
+        let max_attempts = 255;
+        for round in 1..max_attempts {
+            let backup_path = gb_dir.join(format!(
+                "{db_name}.maybe-broken-{round:02}",
+                db_name = Path::new(db_filename).display()
+            ));
+            if backup_path.is_file() {
+                continue;
+            }
+
+            if let Err(err) = std::fs::rename(&db_path, &backup_path) {
+                bail!(
+                    "Failed to rename {} to {} - application may fail to startup: {err}",
+                    db_path.display(),
+                    backup_path.display()
+                );
+            }
+
+            return Ok(Some(anyhow::anyhow!(
+                "Could not open db file at '{}'.\nIt was moved to {} for recovery. \n\nError was: {err}",
+                db_path.display(),
+                backup_path.display()
+            )));
+        }
+        bail!("Database file at '{db_path} has {max_attempts} corrupted copies - giving up, application probably won't work", db_path = db_path.display());
+    }
+    Ok(None)
 }
