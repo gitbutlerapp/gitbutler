@@ -4,7 +4,7 @@ use gitbutler_secret::{Sensitive, secret};
 use reqwest::header::{HeaderMap, HeaderValue};
 
 #[allow(unused)]
-#[derive(Debug, Clone, strum::Display)]
+#[derive(Debug, Clone, serde::Serialize, strum::Display)]
 pub enum CredentialsKind {
     EnvVarOpenAiKey,
     OwnOpenAiKey,

@@ -92,36 +92,16 @@ impl Mcp {
                 .sum::<usize>()
                 .into()
         });
-        let mut props = vec![
-            (
-                "endpoint".to_string(),
-                "gitbutler_update_branches".to_string(),
-            ),
-            (
-                "aiCredentialsKind".to_string(),
-                self.event_handler
-                    .credentials_kind()
-                    .map_or("None".to_string(), |k| k.to_string()),
-            ),
-            (
-                "durationMs".to_string(),
-                start_time.elapsed().as_millis().to_string(),
-            ),
-        ];
-        if let Some(error) = &error {
-            props.push(("error".to_string(), error.to_string()));
-        }
-        if let Some(count) = updated_branches_count {
-            props.push(("updatedBranchesCount".to_string(), count.to_string()));
-        }
-        if let Some(count) = commits_count {
-            props.push(("commitsCreatedCount".to_string(), count.to_string()));
-        }
-        if let Some(client_info) = &client_info {
-            props.push(("clientName".to_string(), client_info.name.clone()));
-            props.push(("clientVersion".to_string(), client_info.version.clone()));
-        }
-        self.metrics.capture(Event::new(EventKind::Mcp, props));
+        let event = &mut Event::new(EventKind::Mcp);
+        event.insert_prop("endpoint", "gitbutler_update_branches");
+        event.insert_prop("aiCredentialsKind", self.event_handler.credentials_kind());
+        event.insert_prop("durationMs", start_time.elapsed().as_millis());
+        event.insert_prop("error", error);
+        event.insert_prop("updatedBranchesCount", updated_branches_count);
+        event.insert_prop("commitsCreatedCount", commits_count);
+        event.insert_prop("clientName", client_info.clone().map(|i| i.name));
+        event.insert_prop("clientVersion", client_info.clone().map(|i| i.version));
+        self.metrics.capture(event);
 
         result.map(|outcome| Ok(CallToolResult::success(vec![Content::json(outcome)?])))?
     }
