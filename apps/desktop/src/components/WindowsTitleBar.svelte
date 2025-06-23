@@ -1,23 +1,23 @@
 <script lang="ts">
-	import { platformName } from '$lib/platform/platform';
-	import { Tauri } from '$lib/backend/tauri';
-	import { getContext } from '@gitbutler/shared/context';
-	import DropDownButton from '$components/DropDownButton.svelte';
-	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
-	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
-	import Badge from '@gitbutler/ui/Badge.svelte';
 	import { goto } from '$app/navigation';
+	import DropDownButton from '$components/DropDownButton.svelte';
+	import { Tauri } from '$lib/backend/tauri';
+	import { showHistoryView } from '$lib/config/config';
+	import { platformName } from '$lib/platform/platform';
+	import { Project } from '$lib/project/project';
+	import { ProjectsService } from '$lib/project/projectsService';
 	import { settingsPath, newSettingsPath, clonePath } from '$lib/routes/routes.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { getEditorUri } from '$lib/utils/url';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
-	import { Project } from '$lib/project/project';
 	import { projectSettingsPath } from '$lib/routes/routes.svelte';
-	import { ProjectsService } from '$lib/project/projectsService';
 	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
 	import * as events from '$lib/utils/events';
-	import { showHistoryView } from '$lib/config/config';
+	import { getContext } from '@gitbutler/shared/context';
+	import Badge from '@gitbutler/ui/Badge.svelte';
+	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
+	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import type { Writable } from 'svelte/store';
 
 	const tauri = getContext(Tauri);

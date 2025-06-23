@@ -15,6 +15,7 @@
 	import ShareIssueModal from '$components/ShareIssueModal.svelte';
 	import SwitchThemeMenuAction from '$components/SwitchThemeMenuAction.svelte';
 	import ToastController from '$components/ToastController.svelte';
+	import WindowsTitleBar from '$components/WindowsTitleBar.svelte';
 	import ZoomInOutMenuAction from '$components/ZoomInOutMenuAction.svelte';
 	import { PromptService as AIPromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
@@ -86,7 +87,6 @@
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
 	import { env } from '$env/dynamic/public';
-	import WindowsTitleBar from '$components/WindowsTitleBar.svelte';
 
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
 

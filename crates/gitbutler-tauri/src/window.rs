@@ -255,7 +255,7 @@ pub fn create(
     window_relative_url: String,
 ) -> tauri::Result<tauri::WebviewWindow> {
     tracing::info!("creating window '{label}' created at '{window_relative_url}'");
-    
+
     #[cfg(target_os = "windows")]
     let window = tauri::WebviewWindowBuilder::new(
         handle,
@@ -269,7 +269,7 @@ pub fn create(
     .inner_size(1160.0, 720.0)
     .decorations(false) // Hide default title bar on Windows
     .build()?;
-    
+
     #[cfg(not(any(target_os = "windows", target_os = "macos")))]
     let window = tauri::WebviewWindowBuilder::new(
         handle,
@@ -282,7 +282,7 @@ pub fn create(
     .min_inner_size(1000.0, 600.0)
     .inner_size(1160.0, 720.0)
     .build()?;
-    
+
     Ok(window)
 }
 
