@@ -185,9 +185,10 @@ the window, then enlarge it and retain the original widths of the layout.
 				<Resizer
 					viewport={drawerRightDiv}
 					direction="left"
-					minWidth={24}
+					minWidth={pxToRem(24, zoom)}
+					defaultValue={pxToRem(24, zoom)}
 					borderRadius="ml"
-					persistId="viewport-${name}-middle"
+					persistId="viewport-${name}-right-drawer"
 					onWidth={(width) => (rightDrawerPreferredWidth = width)}
 				/>
 				{@render drawerRight()}
