@@ -9,7 +9,6 @@ autotests = false
 [dependencies]
 git2.workspace = true
 gix = { workspace = true, features = [] }
-gix-utils = "0.3.0"
 itertools = "0.14"
 anyhow = "1.0.98"
 serde = { workspace = true, features = ["std"] }

@@ -18,8 +18,8 @@ use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname, Virtual
 use gitbutler_repo::logging::LogUntil;
 use gitbutler_repo::logging::RepositoryExt as _;
 use gitbutler_repo::RepositoryExt;
+use gix::utils::str::decompose;
 use gix::validate::reference::name_partial;
-use gix_utils::str::decompose;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 

@@ -12,6 +12,6 @@ doctest = false
 gix.workspace = true
 anyhow.workspace = true
 termtree = "0.5.1"
-gix-testtools = "0.16.1"
+gix-testtools.workspace = true
 
 [dev-dependencies]
