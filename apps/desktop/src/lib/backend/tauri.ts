@@ -9,29 +9,26 @@ export class Tauri {
 	checkUpdate = check;
 	currentVersion = getVersion;
 
-	// Window control methods
+	private window = getCurrentWindow();
+
 	async minimize() {
-		const window = getCurrentWindow();
-		await window.minimize();
+		await this.window.minimize();
 	}
 
 	async toggleMaximize() {
-		const window = getCurrentWindow();
-		const isMaximized = await window.isMaximized();
+		const isMaximized = await this.window.isMaximized();
 		if (isMaximized) {
-			await window.unmaximize();
+			await this.window.unmaximize();
 		} else {
-			await window.maximize();
+			await this.window.maximize();
 		}
 	}
 
 	async close() {
-		const window = getCurrentWindow();
-		await window.close();
+		await this.window.close();
 	}
 
 	async setDecorations(decorations: boolean) {
-		const window = getCurrentWindow();
-		await window.setDecorations(decorations);
+		await this.window.setDecorations(decorations);
 	}
 }

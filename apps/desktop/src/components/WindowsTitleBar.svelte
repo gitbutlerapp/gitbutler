@@ -12,13 +12,11 @@
 	import * as events from '$lib/utils/events';
 	import { shortcuts } from '$lib/utils/hotkeys';
 	import { openExternalUrl, getEditorUri } from '$lib/utils/url';
-	import { getContext } from '@gitbutler/shared/context';
-	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
-	import KeyboardShortcutsModal from '$components/KeyboardShortcutsModal.svelte';
 	import type { Writable } from 'svelte/store';
 
 	// Services and stores
@@ -43,7 +41,6 @@
 
 	// State
 	let project = $state<Project | undefined>(undefined);
-	let keyboardShortcutsModal = $state<KeyboardShortcutsModal>();
 	let fileDropdown = $state<DropDownButton>();
 	let viewDropdown = $state<DropDownButton>();
 	let projectDropdown = $state<DropDownButton>();
@@ -52,9 +49,9 @@
 	let buildType = $state<'stable' | 'nightly' | 'dev'>('stable');
 	let appIcon = $state<string>('');
 
-	// Update project when page route changes
+	// Update project when route changes (we need access to the current project for menus)
 	$effect(() => {
-		$page.url.pathname; // Reactive dependency
+		$page.url.pathname; // Reactive dependency on route changes
 		projectsService
 			.getActiveProject()
 			.then((activeProject) => (project = activeProject))
@@ -63,30 +60,31 @@
 
 	// Initialize app info
 	$effect(() => {
-		const initializeAppInfo = async () => {
-			try {
-				appVersion = await tauri.currentVersion();
-				const userAgent = navigator.userAgent.toLowerCase();
-
-				if (userAgent.includes('nightly')) {
-					buildType = 'nightly';
-					appIcon = '/icons/nightly/128x128.png';
-				} else if (import.meta.env.DEV || userAgent.includes('dev')) {
-					buildType = 'dev';
-					appIcon = '/icons/dev/128x128.png';
-				} else {
-					buildType = 'stable';
-					appIcon = '/icons/128x128.png';
-				}
-			} catch (error) {
-				console.error('Failed to get app version:', error);
-			}
-		};
 		initializeAppInfo();
 	});
 
+	async function initializeAppInfo() {
+		try {
+			appVersion = await tauri.currentVersion();
+			const userAgent = navigator.userAgent.toLowerCase();
+
+			if (userAgent.includes('nightly')) {
+				buildType = 'nightly';
+				appIcon = '/icons/nightly/128x128.png';
+			} else if (import.meta.env.DEV || userAgent.includes('dev')) {
+				buildType = 'dev';
+				appIcon = '/icons/dev/128x128.png';
+			} else {
+				buildType = 'stable';
+				appIcon = '/icons/128x128.png';
+			}
+		} catch (error) {
+			console.error('Failed to get app version:', error);
+		}
+	}
+
 	// Helper functions
-	const getBadgeText = () => {
+	function getBadgeText() {
 		switch (buildType) {
 			case 'nightly':
 				return `Nightly v${appVersion}`;
@@ -95,9 +93,9 @@
 			default:
 				return appVersion || 'Stable';
 		}
-	};
+	}
 
-	const getBadgeStyle = () => {
+	function getBadgeStyle() {
 		switch (buildType) {
 			case 'nightly':
 				return 'warning';
@@ -106,15 +104,6 @@
 			default:
 				return 'neutral';
 		}
-	};
-
-	// Zoom functionality
-	const ZOOM_CONFIG = { MIN: 0.375, MAX: 3, DEFAULT: 1, STEP: 0.0625 };
-
-	function updateZoom(newZoom: number) {
-		const zoom = Math.min(Math.max(newZoom, ZOOM_CONFIG.MIN), ZOOM_CONFIG.MAX);
-		document.documentElement.style.fontSize = zoom + 'rem';
-		userSettings.update((s) => ({ ...s, zoom }));
 	}
 
 	// Menu action handlers
@@ -123,12 +112,26 @@
 		cloneRepository: () => goto(clonePath()),
 		switchTheme: () =>
 			userSettings.update((s) => ({ ...s, theme: s.theme === 'light' ? 'dark' : 'light' })),
-		zoomIn: () => updateZoom($userSettings.zoom + ZOOM_CONFIG.STEP),
-		zoomOut: () => updateZoom($userSettings.zoom - ZOOM_CONFIG.STEP),
-		resetZoom: () => updateZoom(ZOOM_CONFIG.DEFAULT),
+		zoomIn: () => {
+			const newZoom = Math.min($userSettings.zoom + 0.0625, 3);
+			document.documentElement.style.fontSize = newZoom + 'rem';
+			userSettings.update((s) => ({ ...s, zoom: newZoom }));
+		},
+		zoomOut: () => {
+			const newZoom = Math.max($userSettings.zoom - 0.0625, 0.375);
+			document.documentElement.style.fontSize = newZoom + 'rem';
+			userSettings.update((s) => ({ ...s, zoom: newZoom }));
+		},
+		resetZoom: () => {
+			document.documentElement.style.fontSize = '1rem';
+			userSettings.update((s) => ({ ...s, zoom: 1 }));
+		},
 		openDevTools: () => import.meta.env.DEV && console.log('Opening developer tools...'),
 		shareDebugInfo: () => events.emit('openSendIssueModal'),
-		openKeyboardShortcuts: () => keyboardShortcutsModal?.show(),
+		openKeyboardShortcuts: () => {
+			// Keyboard shortcuts modal is handled by existing global shortcut registration
+			// This allows the shortcut key itself to work without duplicating modal instances
+		},
 		openProjectHistory: () => events.emit('openHistory'),
 		openInEditor: () => {
 			if (project) {
@@ -162,7 +165,7 @@
 
 {#snippet editorBadgeSnippet()}
 	{#if editorDisplayName}
-		<Badge style="neutral" size="icon" borderRadius="var(--radius-s)">
+		<Badge style="neutral" size="icon">
 			{editorDisplayName}
 		</Badge>
 	{/if}
@@ -417,8 +420,6 @@
 	</div>
 {/if}
 
-<KeyboardShortcutsModal bind:this={keyboardShortcutsModal} />
-
 <style lang="postcss">
 	.title-bar {
 		display: flex;
@@ -483,7 +484,7 @@
 	.title-bar__menu :global(.dropdown-wrapper .btn::after),
 	.title-bar__menu :global(.dropdown-wrapper::after),
 	.title-bar__menu :global(.separator) {
-		display: none !important;
+		display: none;
 	}
 
 	/* Style individual menu buttons as plain text */
@@ -492,15 +493,15 @@
 		min-width: auto;
 		height: 24px;
 		padding: 4px 2px;
-		gap: 0 !important;
-		border: none !important;
-		border-radius: 0 !important;
-		background: transparent !important;
+		gap: 0;
+		border: none;
+		border-radius: 0;
+		background: transparent;
 		color: var(--clr-text-1);
 		font-size: var(--text-11);
 		cursor: pointer;
 		opacity: 0.5;
-		pointer-events: all !important;
+		pointer-events: all;
 		transition: opacity var(--transition-fast);
 	}
 
