@@ -1,14 +1,11 @@
 <script lang="ts">
 	import ThemeSelector from '$components/ThemeSelector.svelte';
 	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
-	import { platformName } from '$lib/platform/platform';
 	import {
 		SETTINGS,
 		type Settings,
 		type ScrollbarVisilitySettings
 	} from '$lib/settings/userSettings';
-	import { Tauri } from '$lib/backend/tauri';
-	import { getContext } from '@gitbutler/shared/context';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
 	import RadioButton from '@gitbutler/ui/RadioButton.svelte';
@@ -17,10 +14,7 @@
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import Select from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
-	import { slide } from 'svelte/transition';
 	import type { Writable } from 'svelte/store';
-
-	const tauri = getContext(Tauri);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 	const diff = `@@ -56,10 +56,9 @@
 			// Diff example
