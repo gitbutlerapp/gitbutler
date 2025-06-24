@@ -228,8 +228,8 @@ export class StackService {
 		return this.api.endpoints.updateStack.mutate;
 	}
 
-	get updateBranchOrder() {
-		return this.api.endpoints.updateBranchOrder.mutate;
+	get updateStackOrder() {
+		return this.api.endpoints.updateStackOrder.mutate;
 	}
 
 	branches(projectId: string, stackId: string) {
@@ -799,16 +799,19 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					invalidatesList(ReduxTag.BranchListing)
 				]
 			}),
-			updateBranchOrder: build.mutation<
+			updateStackOrder: build.mutation<
 				void,
-				{ projectId: string; branches: { id: string; order: number }[] }
+				{ projectId: string; stacks: { id: string; order: number }[] }
 			>({
-				query: ({ projectId, branches }) => ({
-					command: 'update_branch_order',
-					params: { projectId, branches },
-					actionName: 'Update Branch Order'
-				}),
-				invalidatesTags: [invalidatesList(ReduxTag.Stacks)]
+				query: ({ projectId, stacks }) => ({
+					command: 'update_stack_order',
+					params: { projectId, stacks },
+					actionName: 'Update Stack Order'
+				})
+				// This invalidation causes the order to jump back and forth
+				// on save, and it's a bit unclear why. It's not important to
+				// reload, however, so leaving it like this for now.
+				// invalidatesTags: [invalidatesList(ReduxTag.Stacks)]
 			}),
 			stackDetails: build.query<
 				{

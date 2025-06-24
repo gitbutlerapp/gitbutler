@@ -15,7 +15,8 @@ const MOCK_STACK_B_ID = 'stack-b-id';
 const MOCK_STACK_A: Stack = {
 	id: MOCK_STACK_A_ID,
 	heads: [{ name: MOCK_STACK_A_ID, tip: '1234123' }],
-	tip: '1234123'
+	tip: '1234123',
+	order: 0
 };
 
 const MOCK_BRANCH_A_CHANGES: TreeChange[] = [
@@ -40,7 +41,8 @@ const MOCK_STACK_DETAILS_A = createMockStackDetails({
 const MOCK_STACK_B: Stack = {
 	id: MOCK_STACK_B_ID,
 	heads: [{ name: MOCK_STACK_B_ID, tip: '1234123' }],
-	tip: '1234123'
+	tip: '1234123',
+	order: 0
 };
 
 const MOCK_FILE_D = 'stackService.svelte.ts';
@@ -202,7 +204,7 @@ const MOCK_FILE_D_MODIFICATION_DIFF_HUNKS: DiffHunk[] = [
 		oldLines: 22,
 		newStart: 277,
 		newLines: 37,
-		diff: '@@ -210,22 +277,37 @@\n \t\t);\n \t}\n \n+\t/**\n+\t * Returns a mutation for creating a new stack.\n+\t */\n \tget newStack() {\n \t\treturn this.api.endpoints.createStack.useMutation();\n \t}\n \n+\t/**\n+\t * Returns the mutation function for creating a new stack.\n+\t */\n \tget newStackMutation() {\n \t\treturn this.api.endpoints.createStack.mutate;\n \t}\n \n+\t/**\n+\t * Returns the mutation function for updating a stack.\n+\t */\n \tget updateStack() {\n \t\treturn this.api.endpoints.updateStack.mutate;\n \t}\n \n+\t/**\n+\t * Returns the mutation function for updating branch order in a stack.\n+\t */\n \tget updateBranchOrder() {\n \t\treturn this.api.endpoints.updateBranchOrder.mutate;\n \t}\n \n+\t/**\n+\t * Returns a query for all branches in a stack.\n+\t */\n \tbranches(projectId: string, stackId: string) {\n \t\treturn this.api.endpoints.stackDetails.useQuery(\n \t\t\t{ projectId, stackId },\n'
+		diff: '@@ -210,22 +277,37 @@\n \t\t);\n \t}\n \n+\t/**\n+\t * Returns a mutation for creating a new stack.\n+\t */\n \tget newStack() {\n \t\treturn this.api.endpoints.createStack.useMutation();\n \t}\n \n+\t/**\n+\t * Returns the mutation function for creating a new stack.\n+\t */\n \tget newStackMutation() {\n \t\treturn this.api.endpoints.createStack.mutate;\n \t}\n \n+\t/**\n+\t * Returns the mutation function for updating a stack.\n+\t */\n \tget updateStack() {\n \t\treturn this.api.endpoints.updateStack.mutate;\n \t}\n \n+\t/**\n+\t * Returns the mutation function for updating branch order in a stack.\n+\t */\n \tget updateStackOrder() {\n \t\treturn this.api.endpoints.updateStackOrder.mutate;\n \t}\n \n+\t/**\n+\t * Returns a query for all branches in a stack.\n+\t */\n \tbranches(projectId: string, stackId: string) {\n \t\treturn this.api.endpoints.stackDetails.useQuery(\n \t\t\t{ projectId, stackId },\n'
 	},
 	{
 		oldStart: 235,
