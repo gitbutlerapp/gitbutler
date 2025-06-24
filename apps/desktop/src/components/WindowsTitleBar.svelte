@@ -51,12 +51,16 @@
 
 	// Update project when route changes (we need access to the current project for menus)
 	$effect(() => {
+		updateProjectFromRoute();
+	});
+
+	function updateProjectFromRoute() {
 		void $page.url.pathname; // Reactive dependency on route changes
 		projectsService
 			.getActiveProject()
 			.then((activeProject) => (project = activeProject))
 			.catch(() => (project = undefined));
-	});
+	}
 
 	// Initialize app info
 	$effect(() => {
@@ -106,26 +110,31 @@
 		}
 	}
 
+	// Zoom functionality - matches ZoomInOutMenuAction.svelte implementation
+	const MIN_ZOOM = 0.375;
+	const MAX_ZOOM = 3;
+	const DEFAULT_ZOOM = 1;
+	const ZOOM_STEP = 0.0625;
+
+	function setDomZoom(zoom: number) {
+		document.documentElement.style.fontSize = zoom + 'rem';
+	}
+
+	function updateZoom(newZoom: number) {
+		const zoom = Math.min(Math.max(newZoom, MIN_ZOOM), MAX_ZOOM);
+		setDomZoom(zoom);
+		userSettings.update((s) => ({ ...s, zoom }));
+	}
+
 	// Menu action handlers
 	const menuActions = {
 		addLocalRepository: () => projectsService.addProject(),
 		cloneRepository: () => goto(clonePath()),
 		switchTheme: () =>
 			userSettings.update((s) => ({ ...s, theme: s.theme === 'light' ? 'dark' : 'light' })),
-		zoomIn: () => {
-			const newZoom = Math.min($userSettings.zoom + 0.0625, 3);
-			document.documentElement.style.fontSize = newZoom + 'rem';
-			userSettings.update((s) => ({ ...s, zoom: newZoom }));
-		},
-		zoomOut: () => {
-			const newZoom = Math.max($userSettings.zoom - 0.0625, 0.375);
-			document.documentElement.style.fontSize = newZoom + 'rem';
-			userSettings.update((s) => ({ ...s, zoom: newZoom }));
-		},
-		resetZoom: () => {
-			document.documentElement.style.fontSize = '1rem';
-			userSettings.update((s) => ({ ...s, zoom: 1 }));
-		},
+		zoomIn: () => updateZoom($userSettings.zoom + ZOOM_STEP),
+		zoomOut: () => updateZoom($userSettings.zoom - ZOOM_STEP),
+		resetZoom: () => updateZoom(DEFAULT_ZOOM),
 		openDevTools: () => import.meta.env.DEV && console.warn('Opening developer tools...'),
 		shareDebugInfo: () => events.emit('openSendIssueModal'),
 		openKeyboardShortcuts: () => {
