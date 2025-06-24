@@ -13,6 +13,7 @@
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
@@ -23,7 +24,6 @@
 	import * as toasts from '@gitbutler/ui/toasts';
 	import type { User } from '$lib/user/user';
 	import type { Writable } from 'svelte/store';
-	import Icon from '@gitbutler/ui/Icon.svelte';
 
 	const userService = getContext(UserService);
 	const settingsService = getContext(SettingsService);
@@ -243,7 +243,11 @@
 				<div class="symlink-copy-box">
 					{#await cli_command() then command}
 						<p>{command}</p>
-						<button class="symlink-copy-icon" onclick={() => copyToClipboard(command)}>
+						<button
+							type="button"
+							class="symlink-copy-icon"
+							onclick={() => copyToClipboard(command)}
+						>
 							<Icon name="copy" />
 						</button>
 					{/await}
@@ -254,14 +258,12 @@
 		<div class="flex flex-col gap-16">
 			<div class="flex gap-8 justify-end">
 				<Button style="pop" icon="play" onclick={() => installCli()}>Install But CLI</Button>
-				{#await cli_command() then command}
-					<Button
-						style="neutral"
-						kind="outline"
-						disabled={showSymlink}
-						onclick={() => (showSymlink = !showSymlink)}>Show symlink</Button
-					>
-				{/await}
+				<Button
+					style="neutral"
+					kind="outline"
+					disabled={showSymlink}
+					onclick={() => (showSymlink = !showSymlink)}>Show symlink</Button
+				>
 			</div>
 		</div>
 	</SectionCard>
