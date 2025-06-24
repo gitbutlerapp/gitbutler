@@ -147,6 +147,7 @@ pub fn hunk_assignments(
         ctx,
         false,
         None::<Vec<but_core::TreeChange>>,
+        None,
     )?;
 
     Ok(assignments)

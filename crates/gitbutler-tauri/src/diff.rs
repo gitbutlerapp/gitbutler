@@ -7,6 +7,7 @@ use but_core::{
     Commit,
 };
 use but_hunk_assignment::{AssignmentRejection, HunkAssignmentRequest, WorktreeChanges};
+use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::{ObjectIdExt, OidExt};
@@ -164,13 +165,37 @@ pub fn changes_in_worktree(
 ) -> anyhow::Result<WorktreeChanges, Error> {
     let project = projects.get(project_id)?;
     let ctx = &mut CommandContext::open(&project, settings.get()?.clone())?;
-    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(project.path)?;
-    let (assignments, assignments_error) =
-        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.changes.clone()))?;
+    let changes = but_core::diff::worktree_changes(&ctx.gix_repo()?)?;
+
+    let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
+        ctx,
+        &ctx.project().path,
+        &ctx.project().gb_dir(),
+        Some(changes.changes.clone()),
+    );
+
+    let (assignments, assignments_error) = match &dependencies {
+        Ok(dependencies) => but_hunk_assignment::assignments_with_fallback(
+            ctx,
+            false,
+            Some(changes.changes.clone()),
+            Some(dependencies),
+        )?,
+        Err(e) => (
+            vec![],
+            Some(anyhow::anyhow!("failed to get hunk dependencies: {}", e)),
+        ),
+    };
+
     Ok(WorktreeChanges {
-        worktree_changes: changes,
+        worktree_changes: changes.into(),
         assignments,
         assignments_error: assignments_error.map(|err| serde_error::Error::new(&*err)),
+        dependencies: dependencies.as_ref().ok().cloned(),
+        dependencies_error: dependencies
+            .as_ref()
+            .err()
+            .map(|err| serde_error::Error::new(&**err)),
     })
 }
 
@@ -184,6 +209,6 @@ pub fn assign_hunk(
 ) -> anyhow::Result<Vec<AssignmentRejection>, Error> {
     let project = projects.get(project_id)?;
     let ctx = &mut CommandContext::open(&project, settings.get()?.clone())?;
-    let rejections = but_hunk_assignment::assign(ctx, assignments)?;
+    let rejections = but_hunk_assignment::assign(ctx, assignments, None)?;
     Ok(rejections)
 }

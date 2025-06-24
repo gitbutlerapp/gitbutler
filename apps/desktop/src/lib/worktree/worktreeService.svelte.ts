@@ -2,6 +2,8 @@ import { hasTauriExtra } from '$lib/state/backendQuery';
 import { createSelectByIds } from '$lib/state/customSelectors';
 import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
+import type { TauriCommandError } from '$lib/backend/ipc';
+import type { HunkDependencies } from '$lib/dependencies/dependencies';
 import type { IgnoredChange, TreeChange, WorktreeChanges } from '$lib/hunks/change';
 import type { HunkAssignment } from '$lib/hunks/hunk';
 import type { ClientState } from '$lib/state/clientState.svelte';
@@ -84,6 +86,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					rawChanges: TreeChange[];
 					ignoredChanges: IgnoredChange[];
 					hunkAssignments: HunkAssignment[];
+					dependencies: HunkDependencies | undefined;
+					dependenciesError: TauriCommandError | undefined;
 				},
 				{ projectId: string }
 			>({
@@ -111,7 +115,9 @@ function injectEndpoints(api: ClientState['backendApi']) {
 								),
 								rawChanges: event.payload.changes,
 								ignoredChanges: draft.ignoredChanges,
-								hunkAssignments: event.payload.assignments
+								hunkAssignments: event.payload.assignments,
+								dependencies: event.payload.dependencies ?? undefined,
+								dependenciesError: event.payload.dependenciesError ?? undefined
 							}));
 						}
 					);
@@ -123,12 +129,14 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				 * For convenience we transform the result using the entity adapter such
 				 * that we can use selectors like `selectById`.
 				 */
-				async transformResponse(response: WorktreeChanges) {
+				transformResponse(response: WorktreeChanges) {
 					return {
 						changes: worktreeAdapter.addMany(worktreeAdapter.getInitialState(), response.changes),
 						rawChanges: response.changes,
 						ignoredChanges: response.ignoredChanges,
-						hunkAssignments: response.assignments
+						hunkAssignments: response.assignments,
+						dependencies: response.dependencies ?? undefined,
+						dependenciesError: response.dependenciesError ?? undefined
 					};
 				}
 			})

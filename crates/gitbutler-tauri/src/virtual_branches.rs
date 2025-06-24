@@ -273,6 +273,7 @@ pub mod commands {
             ctx,
             false,
             Some(but_core::diff::ui::worktree_changes_by_worktree_dir(project.path)?.changes),
+            None,
         )?;
         let assigned_diffspec = but_workspace::flatten_diff_specs(
             assignments

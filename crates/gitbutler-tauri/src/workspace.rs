@@ -362,6 +362,7 @@ pub fn uncommit_changes(
             &mut ctx,
             false,
             None::<Vec<but_core::TreeChange>>,
+            None,
         )?;
         Some(changes.0)
     } else {
@@ -384,6 +385,7 @@ pub fn uncommit_changes(
             &mut ctx,
             false,
             None::<Vec<but_core::TreeChange>>,
+            None,
         )?;
 
         let before_assignments = before_assignments
@@ -401,7 +403,7 @@ pub fn uncommit_changes(
             })
             .collect::<Vec<_>>();
 
-        but_hunk_assignment::assign(&mut ctx, to_assign)?;
+        but_hunk_assignment::assign(&mut ctx, to_assign, None)?;
     }
 
     let app_settings = ctx.app_settings();

@@ -15,7 +15,9 @@ mod state;
 use anyhow::Result;
 use bstr::{BString, ByteSlice};
 use but_core::UnifiedDiff;
-use but_hunk_dependency::ui::{HunkLock, hunk_dependencies_for_workspace_changes_by_worktree_dir};
+use but_hunk_dependency::ui::{
+    HunkDependencies, HunkLock, hunk_dependencies_for_workspace_changes_by_worktree_dir,
+};
 use but_workspace::{HunkHeader, StackId};
 use gitbutler_command_context::CommandContext;
 use gitbutler_stack::VirtualBranchesHandle;
@@ -150,6 +152,8 @@ pub struct WorktreeChanges {
     pub worktree_changes: but_core::ui::WorktreeChanges,
     pub assignments: Vec<HunkAssignment>,
     pub assignments_error: Option<serde_error::Error>,
+    pub dependencies: Option<HunkDependencies>,
+    pub dependencies_error: Option<serde_error::Error>,
 }
 
 impl From<but_core::ui::WorktreeChanges> for WorktreeChanges {
@@ -158,6 +162,8 @@ impl From<but_core::ui::WorktreeChanges> for WorktreeChanges {
             worktree_changes,
             assignments: vec![],
             assignments_error: None,
+            dependencies: None,
+            dependencies_error: None,
         }
     }
 }
@@ -204,9 +210,15 @@ impl HunkAssignment {
 /// Sets the assignment for a hunk. It must be already present in the current assignments, errors out if it isn't.
 /// If the stack is not in the list of applied stacks, it errors out.
 /// Returns the updated assignments list.
+///
+/// Optionally takes pre-computed hunk dependencies. If not provided, they will
+/// be computed.
+///
+/// The provided hunk dependnecies should be computed for all workspace changes.
 pub fn assign(
     ctx: &mut CommandContext,
     requests: Vec<HunkAssignmentRequest>,
+    deps: Option<&HunkDependencies>,
 ) -> Result<Vec<AssignmentRejection>> {
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     let applied_stacks = vb_state
@@ -214,6 +226,17 @@ pub fn assign(
         .iter()
         .map(|s| s.id)
         .collect::<Vec<_>>();
+
+    let deps = if let Some(deps) = deps {
+        deps
+    } else {
+        &hunk_dependencies_for_workspace_changes_by_worktree_dir(
+            ctx,
+            &ctx.project().path,
+            &ctx.project().gb_dir(),
+            None,
+        )?
+    };
 
     let repo = &ctx.gix_repo()?;
     let worktree_changes: Vec<but_core::TreeChange> =
@@ -247,7 +270,7 @@ pub fn assign(
     )?;
 
     // Reconcile with hunk locks
-    let lock_assignments = hunk_dependency_assignments(ctx, Some(worktree_changes.clone()))?;
+    let lock_assignments = hunk_dependency_assignments(deps)?;
     let with_locks = reconcile::assignments(
         &with_requests,
         &lock_assignments,
@@ -287,12 +310,24 @@ pub fn assignments_with_fallback(
     ctx: &mut CommandContext,
     set_assignment_from_locks: bool,
     worktree_changes: Option<impl IntoIterator<Item = impl Into<but_core::TreeChange>>>,
+    deps: Option<&HunkDependencies>,
 ) -> Result<(Vec<HunkAssignment>, Option<anyhow::Error>)> {
     let repo = &ctx.gix_repo()?;
     let worktree_changes: Vec<but_core::TreeChange> = match worktree_changes {
         Some(wtc) => wtc.into_iter().map(Into::into).collect(),
         None => but_core::diff::worktree_changes(repo)?.changes,
     };
+    let deps = if let Some(deps) = deps {
+        deps
+    } else {
+        &hunk_dependencies_for_workspace_changes_by_worktree_dir(
+            ctx,
+            &ctx.project().path,
+            &ctx.project().gb_dir(),
+            Some(worktree_changes.clone()),
+        )?
+    };
+
     if worktree_changes.is_empty() {
         return Ok((vec![], None));
     }
@@ -307,8 +342,8 @@ pub fn assignments_with_fallback(
     let reconciled = reconcile_with_worktree_and_locks(
         ctx,
         set_assignment_from_locks,
-        &worktree_changes,
         &worktree_assignments,
+        deps,
     )
     .map(|a| (a, None))
     .unwrap_or_else(|e| (worktree_assignments, Some(e)));
@@ -336,12 +371,12 @@ pub fn assignments_with_fallback(
 /// This needs to be ran only after the worktree has changed.
 ///
 /// If `worktree_changes` is `None`, they will be fetched automatically.
-#[instrument(skip(ctx, worktree_changes, worktree_assignments), err(Debug))]
+#[instrument(skip(ctx, worktree_assignments), err(Debug))]
 fn reconcile_with_worktree_and_locks(
     ctx: &mut CommandContext,
     set_assignment_from_locks: bool,
-    worktree_changes: &[but_core::TreeChange],
     worktree_assignments: &[HunkAssignment],
+    deps: &HunkDependencies,
 ) -> Result<Vec<HunkAssignment>> {
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     let applied_stacks = vb_state
@@ -359,7 +394,7 @@ fn reconcile_with_worktree_and_locks(
         true,
     )?;
 
-    let lock_assignments = hunk_dependency_assignments(ctx, Some(worktree_changes.to_vec()))?;
+    let lock_assignments = hunk_dependency_assignments(deps)?;
     let with_locks = reconcile::assignments(
         &with_worktree,
         &lock_assignments,
@@ -371,22 +406,9 @@ fn reconcile_with_worktree_and_locks(
     Ok(with_locks)
 }
 
-fn hunk_dependency_assignments(
-    ctx: &CommandContext,
-    worktree_changes: Option<Vec<but_core::TreeChange>>,
-) -> Result<Vec<HunkAssignment>> {
-    // NB(Performance): This will do some extra work - in particular, worktree_changes will be fetched again, but that is a fast operation.
-    // Furthermore, this call will compute unified_diff for each change. While this is a slower operation, it is invoked with zero context lines,
-    // and that seems appropriate for limiting locking to only real overlaps.
-    let deps = hunk_dependencies_for_workspace_changes_by_worktree_dir(
-        ctx,
-        &ctx.project().path,
-        &ctx.project().gb_dir(),
-        worktree_changes,
-    )?
-    .diffs;
+fn hunk_dependency_assignments(deps: &HunkDependencies) -> Result<Vec<HunkAssignment>> {
     let mut assignments = vec![];
-    for (path, hunk, locks) in deps {
+    for (path, hunk, locks) in &deps.diffs {
         // If there are locks towards more than one stack, this means double locking and the assignment None - the user can resolve this by partial committing.
         let locked_to_stack_ids_count = locks
             .iter()
@@ -402,9 +424,9 @@ fn hunk_dependency_assignments(
             id: None,
             hunk_header: Some(hunk.into()),
             path: path.clone(),
-            path_bytes: path.into(),
+            path_bytes: path.clone().into(),
             stack_id,
-            hunk_locks: Some(locks),
+            hunk_locks: Some(locks.clone()),
             line_nums_added: None,   // derived data (not persisted)
             line_nums_removed: None, // derived data (not persisted)
         };

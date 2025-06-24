@@ -1,4 +1,5 @@
 import type { TauriCommandError } from '$lib/backend/ipc';
+import type { HunkDependencies } from '$lib/dependencies/dependencies';
 import type { HunkAssignment } from '$lib/hunks/hunk';
 
 /** Contains the changes that are in the worktree */
@@ -12,6 +13,8 @@ export type WorktreeChanges = {
 	readonly ignoredChanges: IgnoredChange[];
 	readonly assignments: HunkAssignment[];
 	readonly assignmentsError: TauriCommandError | null;
+	readonly dependencies: HunkDependencies | null;
+	readonly dependenciesError: TauriCommandError | null;
 };
 
 /**
