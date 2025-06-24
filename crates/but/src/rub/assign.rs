@@ -1,5 +1,6 @@
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_workspace::StackId;
+use colored::Colorize;
 use gitbutler_command_context::CommandContext;
 
 use crate::command;
@@ -10,12 +11,20 @@ pub(crate) fn assign_file_to_branch(
     branch_name: &str,
 ) -> anyhow::Result<()> {
     let reqs = to_assignment_request(ctx, path, Some(branch_name))?;
-    do_assignments(ctx, reqs)
+    do_assignments(ctx, reqs)?;
+    println!(
+        "Assigned {} → {}.",
+        path.bold(),
+        format!("[{}]", branch_name).green()
+    );
+    Ok(())
 }
 
 pub(crate) fn unassign_file(ctx: &mut CommandContext, path: &str) -> anyhow::Result<()> {
     let reqs = to_assignment_request(ctx, path, None)?;
-    do_assignments(ctx, reqs)
+    do_assignments(ctx, reqs)?;
+    println!("Unassigned {}", path.bold());
+    Ok(())
 }
 
 pub(crate) fn assign_all(
@@ -42,7 +51,26 @@ pub(crate) fn assign_all(
             });
         }
     }
-    do_assignments(ctx, reqs)
+    do_assignments(ctx, reqs)?;
+    if to_branch.is_some() {
+        println!(
+            "Assigned all {} changes to {}.",
+            from_branch
+                .map(|b| format!("[{}]", b).green())
+                .unwrap_or_else(|| "unassigned".to_string().bold()),
+            to_branch
+                .map(|b| format!("[{}]", b).green())
+                .unwrap_or_else(|| "unassigned".to_string().bold())
+        );
+    } else {
+        println!(
+            "Unassigned all {} changes.",
+            from_branch
+                .map(|b| format!("[{}]", b).green())
+                .unwrap_or_else(|| "unassigned".to_string().bold())
+        );
+    }
+    Ok(())
 }
 
 fn do_assignments(

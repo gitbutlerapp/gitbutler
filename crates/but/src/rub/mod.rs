@@ -42,7 +42,6 @@ pub(crate) fn handle(
             bail!(not_implemented("Amend all unassigned", &source, &target))
         }
         (CliId::Unassigned, CliId::Branch { name: to }) => {
-            //
             assign::assign_all(ctx, None, Some(to))
         }
         (CliId::Commit { .. }, CliId::UncommittedFile { .. }) => {
