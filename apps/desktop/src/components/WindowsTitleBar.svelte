@@ -1,35 +1,33 @@
 <script lang="ts">
-	import { platformName } from '$lib/platform/platform';
-	import { Tauri } from '$lib/backend/tauri';
-	import { getContext } from '@gitbutler/shared/context';
-	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
-	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
-	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
-	import Badge from '@gitbutler/ui/Badge.svelte';
-	import KeyboardShortcutsModal from '$components/KeyboardShortcutsModal.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { settingsPath, newSettingsPath, clonePath } from '$lib/routes/routes.svelte';
-	import { openExternalUrl } from '$lib/utils/url';
-	import { getEditorUri } from '$lib/utils/url';
+	import { Tauri } from '$lib/backend/tauri';
 	import { editor } from '$lib/editorLink/editorLink';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import { platformName } from '$lib/platform/platform';
 	import { Project } from '$lib/project/project';
-	import { projectSettingsPath } from '$lib/routes/routes.svelte';
 	import { ProjectsService } from '$lib/project/projectsService';
+	import { newSettingsPath, projectSettingsPath, clonePath } from '$lib/routes/routes.svelte';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
 	import * as events from '$lib/utils/events';
 	import { shortcuts } from '$lib/utils/hotkeys';
-	import { showHistoryView } from '$lib/config/config';
+	import { openExternalUrl, getEditorUri } from '$lib/utils/url';
+	import { getContext } from '@gitbutler/shared/context';
+	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import Badge from '@gitbutler/ui/Badge.svelte';
+	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
+	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
+	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
+	import KeyboardShortcutsModal from '$components/KeyboardShortcutsModal.svelte';
 	import type { Writable } from 'svelte/store';
 
+	// Services and stores
 	const tauri = getContext(Tauri);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 	const projectsService = getContext(ProjectsService);
 	const shortcutService = getContext(ShortcutService);
 
-	// Editor options mapping for display names
+	// Editor configuration
 	const editorOptions = [
 		{ schemeIdentifer: 'vscodium', displayName: 'VSCodium' },
 		{ schemeIdentifer: 'vscode', displayName: 'VSCode' },
@@ -39,54 +37,37 @@
 		{ schemeIdentifer: 'cursor', displayName: 'Cursor' }
 	];
 
-	// Get display name for current editor
 	const editorDisplayName = $derived(
 		editorOptions.find((opt) => opt.schemeIdentifer === $editor)?.displayName || $editor
 	);
 
-	// Get the current active project reactively
+	// State
 	let project = $state<Project | undefined>(undefined);
-
-	// Update project when page route changes
-	$effect(() => {
-		// Watch the current page URL to trigger updates when navigating between projects
-		$page.url.pathname;
-
-		const updateProject = async () => {
-			try {
-				const activeProject = await projectsService.getActiveProject();
-				project = activeProject;
-			} catch (error) {
-				// No active project or error getting it
-				project = undefined;
-			}
-		};
-
-		updateProject();
-	});
-
-	// Modal references
 	let keyboardShortcutsModal = $state<KeyboardShortcutsModal>();
-
-	// Dropdown references
 	let fileDropdown = $state<DropDownButton>();
 	let viewDropdown = $state<DropDownButton>();
 	let projectDropdown = $state<DropDownButton>();
 	let helpDropdown = $state<DropDownButton>();
-
-	// App version and build type information
 	let appVersion = $state<string>('');
 	let buildType = $state<'stable' | 'nightly' | 'dev'>('stable');
 	let appIcon = $state<string>('');
 
-	// Determine build type and icon based on app configuration
+	// Update project when page route changes
+	$effect(() => {
+		$page.url.pathname; // Reactive dependency
+		projectsService
+			.getActiveProject()
+			.then((activeProject) => (project = activeProject))
+			.catch(() => (project = undefined));
+	});
+
+	// Initialize app info
 	$effect(() => {
 		const initializeAppInfo = async () => {
 			try {
 				appVersion = await tauri.currentVersion();
-
-				// Check the app identifier to determine build type
 				const userAgent = navigator.userAgent.toLowerCase();
+
 				if (userAgent.includes('nightly')) {
 					buildType = 'nightly';
 					appIcon = '/icons/nightly/128x128.png';
@@ -101,119 +82,79 @@
 				console.error('Failed to get app version:', error);
 			}
 		};
-
 		initializeAppInfo();
 	});
 
-	// Badge text for version display
+	// Helper functions
 	const getBadgeText = () => {
 		switch (buildType) {
 			case 'nightly':
 				return `Nightly v${appVersion}`;
 			case 'dev':
 				return 'Development';
-			case 'stable':
 			default:
 				return appVersion || 'Stable';
 		}
 	};
 
-	// Badge style based on build type
 	const getBadgeStyle = () => {
 		switch (buildType) {
 			case 'nightly':
 				return 'warning';
 			case 'dev':
 				return 'error';
-			case 'stable':
 			default:
 				return 'neutral';
 		}
 	};
 
 	// Zoom functionality
-	const MIN_ZOOM = 0.375;
-	const MAX_ZOOM = 3;
-	const DEFAULT_ZOOM = 1;
-	const ZOOM_STEP = 0.0625;
-
-	function setDomZoom(zoom: number) {
-		document.documentElement.style.fontSize = zoom + 'rem';
-	}
+	const ZOOM_CONFIG = { MIN: 0.375, MAX: 3, DEFAULT: 1, STEP: 0.0625 };
 
 	function updateZoom(newZoom: number) {
-		const zoom = Math.min(Math.max(newZoom, MIN_ZOOM), MAX_ZOOM);
-		setDomZoom(zoom);
+		const zoom = Math.min(Math.max(newZoom, ZOOM_CONFIG.MIN), ZOOM_CONFIG.MAX);
+		document.documentElement.style.fontSize = zoom + 'rem';
 		userSettings.update((s) => ({ ...s, zoom }));
 	}
 
-	function zoomIn() {
-		updateZoom($userSettings.zoom + ZOOM_STEP);
-	}
-
-	function zoomOut() {
-		updateZoom($userSettings.zoom - ZOOM_STEP);
-	}
-
-	function resetZoom() {
-		updateZoom(DEFAULT_ZOOM);
-	}
-
-	// Add local repository
-	async function addLocalRepository() {
-		await projectsService.addProject();
-	}
-
-	// Clone repository
-	function cloneRepository() {
-		goto(clonePath());
-	}
-
-	// Switch theme functionality
-	function switchTheme() {
-		userSettings.update((s) => ({
-			...s,
-			theme: s.theme === 'light' ? 'dark' : 'light'
-		}));
-	}
-
-	// Project history
-	function openProjectHistory() {
-		$showHistoryView = !$showHistoryView;
-	}
-
-	// Developer tools
-	function openDevTools() {
-		if (import.meta.env.DEV) {
-			// Implementation would need Tauri API call to open devtools
-			console.log('Opening developer tools...');
+	// Menu action handlers
+	const menuActions = {
+		addLocalRepository: () => projectsService.addProject(),
+		cloneRepository: () => goto(clonePath()),
+		switchTheme: () =>
+			userSettings.update((s) => ({ ...s, theme: s.theme === 'light' ? 'dark' : 'light' })),
+		zoomIn: () => updateZoom($userSettings.zoom + ZOOM_CONFIG.STEP),
+		zoomOut: () => updateZoom($userSettings.zoom - ZOOM_CONFIG.STEP),
+		resetZoom: () => updateZoom(ZOOM_CONFIG.DEFAULT),
+		openDevTools: () => import.meta.env.DEV && console.log('Opening developer tools...'),
+		shareDebugInfo: () => events.emit('openSendIssueModal'),
+		openKeyboardShortcuts: () => keyboardShortcutsModal?.show(),
+		openProjectHistory: () => events.emit('openHistory'),
+		openInEditor: () => {
+			if (project) {
+				const path = getEditorUri({
+					schemeId: $editor,
+					path: [project.vscodePath],
+					searchParams: { windowId: '_blank' }
+				});
+				openExternalUrl(path);
+			}
 		}
-	}
-
-	// Share debug info
-	function shareDebugInfo() {
-		events.emit('openSendIssueModal');
-	}
-
-	// Keyboard shortcuts
-	function openKeyboardShortcuts() {
-		keyboardShortcutsModal?.show();
-	}
+	};
 
 	// Register keyboard shortcuts
-	shortcutService.on('add-local-repo', addLocalRepository);
-	shortcutService.on('clone-repo', cloneRepository);
-	shortcutService.on('global-settings', () => goto(newSettingsPath()));
-	shortcutService.on('switch-theme', switchTheme);
-	shortcutService.on('zoom-in', zoomIn);
-	shortcutService.on('zoom-out', zoomOut);
-	shortcutService.on('zoom-reset', resetZoom);
-	shortcutService.on('reload', () => location.reload());
-	shortcutService.on('keyboard-shortcuts', openKeyboardShortcuts);
-	shortcutService.on('share-debug', shareDebugInfo);
-
-	// Note: Project-specific shortcuts ('history', 'project-settings', 'open-in-vscode')
-	// are handled by ProjectSettingsMenuAction.svelte to avoid conflicts
+	Object.entries({
+		'add-local-repo': menuActions.addLocalRepository,
+		'clone-repo': menuActions.cloneRepository,
+		'global-settings': () => goto(newSettingsPath()),
+		'switch-theme': menuActions.switchTheme,
+		'zoom-in': menuActions.zoomIn,
+		'zoom-out': menuActions.zoomOut,
+		'zoom-reset': menuActions.resetZoom,
+		reload: () => location.reload(),
+		'keyboard-shortcuts': menuActions.openKeyboardShortcuts,
+		'share-debug': menuActions.shareDebugInfo
+	}).forEach(([key, handler]) => shortcutService.on(key, handler));
 
 	// Always show custom title bar on Windows
 	const showTitleBar = $derived(platformName === 'windows');
@@ -248,10 +189,8 @@
 			<DropDownButton
 				bind:this={fileDropdown}
 				menuPosition="bottom"
-				autoClose={true}
-				onclick={() => {
-					fileDropdown?.show();
-				}}
+				autoClose
+				onclick={() => fileDropdown?.show()}
 			>
 				File
 				{#snippet contextMenuSlot()}
@@ -259,21 +198,19 @@
 						<ContextMenuItem
 							label="Add Local Repository"
 							keyboardShortcut={shortcuts.global.open_repository.keys}
-							onclick={addLocalRepository}
+							onclick={menuActions.addLocalRepository}
 						/>
 						<ContextMenuItem
 							label="Clone Repository"
 							keyboardShortcut={shortcuts.global.clone_repository.keys}
-							onclick={cloneRepository}
+							onclick={menuActions.cloneRepository}
 						/>
 					</ContextMenuSection>
 					<ContextMenuSection>
 						<ContextMenuItem
 							label="Settings"
 							keyboardShortcut="$mod+,"
-							onclick={() => {
-								goto(newSettingsPath());
-							}}
+							onclick={() => goto(newSettingsPath())}
 						/>
 						<ContextMenuItem
 							label="Check for updates"
@@ -293,10 +230,8 @@
 			<DropDownButton
 				bind:this={viewDropdown}
 				menuPosition="bottom"
-				autoClose={true}
-				onclick={() => {
-					viewDropdown?.show();
-				}}
+				autoClose
+				onclick={() => viewDropdown?.show()}
 			>
 				View
 				{#snippet contextMenuSlot()}
@@ -304,24 +239,24 @@
 						<ContextMenuItem
 							label="Switch Theme"
 							keyboardShortcut={shortcuts.view.switch_theme.keys}
-							onclick={switchTheme}
+							onclick={menuActions.switchTheme}
 						/>
 					</ContextMenuSection>
 					<ContextMenuSection>
 						<ContextMenuItem
 							label="Zoom In"
 							keyboardShortcut={shortcuts.view.zoom_in.keys}
-							onclick={zoomIn}
+							onclick={menuActions.zoomIn}
 						/>
 						<ContextMenuItem
 							label="Zoom Out"
 							keyboardShortcut={shortcuts.view.zoom_out.keys}
-							onclick={zoomOut}
+							onclick={menuActions.zoomOut}
 						/>
 						<ContextMenuItem
 							label="Reset Zoom"
 							keyboardShortcut={shortcuts.view.reset_zoom.keys}
-							onclick={resetZoom}
+							onclick={menuActions.resetZoom}
 						/>
 					</ContextMenuSection>
 					{#if import.meta.env.DEV}
@@ -329,14 +264,12 @@
 							<ContextMenuItem
 								label="Developer Tools"
 								keyboardShortcut="$mod+Shift+C"
-								onclick={openDevTools}
+								onclick={menuActions.openDevTools}
 							/>
 							<ContextMenuItem
 								label="Reload View"
 								keyboardShortcut={shortcuts.view.reload_view.keys}
-								onclick={() => {
-									location.reload();
-								}}
+								onclick={() => location.reload()}
 							/>
 						</ContextMenuSection>
 					{/if}
@@ -347,10 +280,8 @@
 			<DropDownButton
 				bind:this={projectDropdown}
 				menuPosition="bottom"
-				autoClose={true}
-				onclick={() => {
-					projectDropdown?.show();
-				}}
+				autoClose
+				onclick={() => projectDropdown?.show()}
 			>
 				Project
 				{#snippet contextMenuSlot()}
@@ -359,21 +290,12 @@
 							label="Project History"
 							keyboardShortcut={shortcuts.project.project_history.keys}
 							disabled={!project}
-							onclick={openProjectHistory}
+							onclick={menuActions.openProjectHistory}
 						/>
 						<ContextMenuItem
 							label="Open in Editor"
 							disabled={!project}
-							onclick={() => {
-								if (project) {
-									const path = getEditorUri({
-										schemeId: $editor,
-										path: [project.vscodePath],
-										searchParams: { windowId: '_blank' }
-									});
-									openExternalUrl(path);
-								}
-							}}
+							onclick={menuActions.openInEditor}
 							control={editorBadgeSnippet}
 						/>
 					</ContextMenuSection>
@@ -381,11 +303,7 @@
 						<ContextMenuItem
 							label="Project Settings"
 							disabled={!project}
-							onclick={() => {
-								if (project) {
-									goto(projectSettingsPath(project.id));
-								}
-							}}
+							onclick={() => project && goto(projectSettingsPath(project.id))}
 						/>
 					</ContextMenuSection>
 				{/snippet}
@@ -395,66 +313,55 @@
 			<DropDownButton
 				bind:this={helpDropdown}
 				menuPosition="bottom"
-				autoClose={true}
-				onclick={() => {
-					helpDropdown?.show();
-				}}
+				autoClose
+				onclick={() => helpDropdown?.show()}
 			>
 				Help
 				{#snippet contextMenuSlot()}
 					<ContextMenuSection>
 						<ContextMenuItem
 							label="Documentation"
-							onclick={() => {
-								openExternalUrl('https://docs.gitbutler.com');
-							}}
+							onclick={() => openExternalUrl('https://docs.gitbutler.com')}
 						/>
 						<ContextMenuItem
 							label="Source Code"
-							onclick={() => {
-								openExternalUrl('https://github.com/gitbutlerapp/gitbutler');
-							}}
+							onclick={() => openExternalUrl('https://github.com/gitbutlerapp/gitbutler')}
 						/>
+						}} />
 						<ContextMenuItem
 							label="Release Notes"
-							onclick={() => {
-								openExternalUrl('https://github.com/gitbutlerapp/gitbutler/releases');
-							}}
+							onclick={() => openExternalUrl('https://github.com/gitbutlerapp/gitbutler/releases')}
 						/>
 					</ContextMenuSection>
 					<ContextMenuSection>
-						<ContextMenuItem label="Keyboard Shortcuts" onclick={openKeyboardShortcuts} />
+						<ContextMenuItem
+							label="Keyboard Shortcuts"
+							onclick={menuActions.openKeyboardShortcuts}
+						/>
 					</ContextMenuSection>
 					<ContextMenuSection>
-						<ContextMenuItem label="Share Debug Info" onclick={shareDebugInfo} />
+						<ContextMenuItem label="Share Debug Info" onclick={menuActions.shareDebugInfo} />
 						<ContextMenuItem
 							label="Report an Issue"
-							onclick={() => {
-								openExternalUrl('https://github.com/gitbutlerapp/gitbutler/issues/new/choose');
-							}}
+							onclick={() =>
+								openExternalUrl('https://github.com/gitbutlerapp/gitbutler/issues/new/choose')}
 						/>
 					</ContextMenuSection>
 					<ContextMenuSection>
 						<ContextMenuItem
 							label="Discord"
 							icon="discord"
-							onclick={() => {
-								openExternalUrl('https://discord.com/invite/MmFkmaJ42D');
-							}}
+							onclick={() => openExternalUrl('https://discord.com/invite/MmFkmaJ42D')}
 						/>
 						<ContextMenuItem
 							label="YouTube"
 							icon="youtube"
-							onclick={() => {
-								openExternalUrl('https://www.youtube.com/@gitbutlerapp');
-							}}
+							onclick={() => openExternalUrl('https://www.youtube.com/@gitbutlerapp')}
 						/>
 						<ContextMenuItem
 							label="X"
 							icon="x"
-							onclick={() => {
-								openExternalUrl('https://x.com/gitbutler');
-							}}
+							onclick={() => openExternalUrl('https://x.com/gitbutler')}
 						/>
 					</ContextMenuSection>
 					<ContextMenuSection>
@@ -582,6 +489,8 @@
 
 	/* Style individual menu buttons as plain text */
 	.title-bar__menu :global(.dropdown-wrapper .btn) {
+		width: fit-content;
+		min-width: auto;
 		height: 24px;
 		padding: 4px 2px;
 		gap: 0 !important;
@@ -594,8 +503,6 @@
 		opacity: 0.5;
 		pointer-events: all !important;
 		transition: opacity var(--transition-fast);
-		width: fit-content;
-		min-width: auto;
 	}
 
 	.title-bar__menu :global(.dropdown-wrapper .btn:hover) {
