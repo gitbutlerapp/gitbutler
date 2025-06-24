@@ -1,7 +1,16 @@
 use anyhow::{Context, Result};
-use async_openai::{Client, config::OpenAIConfig};
+use async_openai::{
+    Client,
+    config::OpenAIConfig,
+    types::{
+        ChatCompletionRequestMessage, CreateChatCompletionRequestArgs, ResponseFormat,
+        ResponseFormatJsonSchema,
+    },
+};
 use gitbutler_secret::{Sensitive, secret};
 use reqwest::header::{HeaderMap, HeaderValue};
+use schemars::{JsonSchema, schema_for};
+use serde::de::DeserializeOwned;
 
 #[allow(unused)]
 #[derive(Debug, Clone, serde::Serialize, strum::Display)]
@@ -98,4 +107,88 @@ impl OpenAiProvider {
         );
         Ok((CredentialsKind::EnvVarOpenAiKey, creds))
     }
+}
+
+pub fn structured_output_blocking<
+    T: serde::Serialize + DeserializeOwned + JsonSchema + std::marker::Send + 'static,
+>(
+    openai: &OpenAiProvider,
+    messages: Vec<ChatCompletionRequestMessage>,
+) -> anyhow::Result<Option<T>> {
+    let client = openai.client()?;
+    let messages_owned = messages.clone();
+
+    std::thread::spawn(move || {
+        tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(structured_output::<T>(&client, messages_owned))
+    })
+    .join()
+    .unwrap()
+}
+
+pub async fn structured_output<T: serde::Serialize + DeserializeOwned + JsonSchema>(
+    client: &Client<OpenAIConfig>,
+    messages: Vec<ChatCompletionRequestMessage>,
+) -> anyhow::Result<Option<T>> {
+    let schema = schema_for!(T);
+    let schema_value = serde_json::to_value(&schema)?;
+    let response_format = ResponseFormat::JsonSchema {
+        json_schema: ResponseFormatJsonSchema {
+            description: None,
+            name: "structured_response".into(),
+            schema: Some(schema_value),
+            strict: Some(false),
+        },
+    };
+
+    let request = CreateChatCompletionRequestArgs::default()
+        .model("gpt-4.1-mini")
+        .messages(messages)
+        .response_format(response_format)
+        .build()?;
+
+    let response = client.chat().create(request).await?;
+
+    for choice in response.choices {
+        if let Some(content) = choice.message.content {
+            return Ok(Some(serde_json::from_str::<T>(&content)?));
+        }
+    }
+
+    Ok(None)
+}
+
+pub fn tool_calling_blocking(
+    client: &OpenAiProvider,
+    messages: Vec<ChatCompletionRequestMessage>,
+    tools: Vec<async_openai::types::ChatCompletionTool>,
+) -> anyhow::Result<async_openai::types::CreateChatCompletionResponse> {
+    let client = client.client()?;
+    let messages_owned = messages.clone();
+    let tools_owned = tools.clone();
+
+    std::thread::spawn(move || {
+        tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(tool_calling(&client, messages_owned, tools_owned))
+    })
+    .join()
+    .unwrap()
+}
+
+pub async fn tool_calling(
+    client: &Client<OpenAIConfig>,
+    messages: Vec<ChatCompletionRequestMessage>,
+    tools: Vec<async_openai::types::ChatCompletionTool>,
+) -> anyhow::Result<async_openai::types::CreateChatCompletionResponse> {
+    let request = CreateChatCompletionRequestArgs::default()
+        .model("gpt-4.1-mini")
+        .messages(messages.clone())
+        .tools(tools)
+        .build()?;
+
+    let response = client.chat().create(request).await?;
+
+    Ok(response)
 }
