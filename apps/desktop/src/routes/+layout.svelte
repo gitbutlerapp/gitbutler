@@ -262,12 +262,11 @@
 	let shareIssueModal: ShareIssueModal;
 
 	onMount(() => {
-		// Initialize window decorations based on user settings
-		// Only on Windows platform
+		// Initialize window decorations for Windows
+		// Always use custom title bar on Windows, so hide default decorations
 		if (platformName === 'windows') {
-			const currentSettings = $userSettings;
 			// Decorations are inverted: true = show default title bar, false = hide default title bar
-			data.tauri.setDecorations(!currentSettings.useCustomTitleBar);
+			data.tauri.setDecorations(false);
 		}
 
 		return unsubscribe(
@@ -310,7 +309,7 @@
 
 <div
 	class="app-root"
-	class:has-custom-titlebar={platformName === 'windows' && $userSettings.useCustomTitleBar}
+	class:has-custom-titlebar={platformName === 'windows'}
 	role="application"
 	oncontextmenu={(e) => !dev && e.preventDefault()}
 >
