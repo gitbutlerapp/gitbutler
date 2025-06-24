@@ -327,7 +327,6 @@
 							label="Source Code"
 							onclick={() => openExternalUrl('https://github.com/gitbutlerapp/gitbutler')}
 						/>
-						}} />
 						<ContextMenuItem
 							label="Release Notes"
 							onclick={() => openExternalUrl('https://github.com/gitbutlerapp/gitbutler/releases')}
