@@ -83,25 +83,25 @@
 	<Feed {projectId} />
 {/snippet}
 
+{#snippet leftSideview()}
+	<SelectionView {projectId} {selectionId} draggableFiles />
+{/snippet}
+
 <MainViewport
 	name="workspace"
-	middleOpen={previewOpen}
-	leftWidth={{ default: 280, min: 240 }}
-	middleWidth={{ default: 380, min: 240 }}
-	drawerRight={showingActions ? drawerRight : undefined}
+	leftSectionWidth={{ default: 280, min: 240 }}
+	leftSideviewWidth={{ default: 380, min: 240 }}
+	rightSideview={showingActions ? drawerRight : undefined}
+	leftSideview={previewOpen ? leftSideview : undefined}
 >
-	{#snippet left()}
+	{#snippet leftSection()}
 		<UnassignedView {projectId} focus={focusGroup.current as DefinedFocusable} />
 	{/snippet}
-	{#snippet middle()}
-		<SelectionView {projectId} {selectionId} draggableFiles />
-	{/snippet}
-	{#snippet right()}
+	{#snippet mainSection()}
 		<ReduxResult {projectId} result={stacksResult?.current}>
 			{#snippet loading()}
 				<div class="stacks-view-skeleton"></div>
 			{/snippet}
-
 			{#snippet children(stacks, { projectId })}
 				<MultiStackView {projectId} {stacks} {selectionId} selectedId={stackId} {focusedStackId} />
 			{/snippet}
