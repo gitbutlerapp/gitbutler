@@ -89,9 +89,9 @@
 			if (!dragged) {
 				return; // Something other than a lane was dropped.
 			}
-			stackService.updateBranchOrder({
+			stackService.updateStackOrder({
 				projectId,
-				branches: sortedBranches.map((b, i) => ({ id: b.id, order: i }))
+				stacks: sortedBranches.map((b, i) => ({ id: b.id, order: i }))
 			});
 		}}
 	>
