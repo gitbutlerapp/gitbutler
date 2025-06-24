@@ -84,7 +84,7 @@ fn do_assignments(
     Ok(())
 }
 
-fn branch_name_to_stack_id(
+pub(crate) fn branch_name_to_stack_id(
     ctx: &CommandContext,
     branch_name: Option<&str>,
 ) -> anyhow::Result<Option<StackId>> {
