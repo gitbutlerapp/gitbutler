@@ -308,7 +308,7 @@ describe('getLineLocks', () => {
 		}
 	];
 	test('returns line locks for lines covered by locks', () => {
-		const [fullyLocked, lineLocks] = getLineLocks('stack2', hunk, locks);
+		const [fullyLocked, lineLocks] = getLineLocks(hunk, locks);
 		expect(fullyLocked).toBe(true);
 		expect(lineLocks).toEqual([
 			{ oldLine: 2, newLine: undefined, locks: [{ stackId: 'stack1', commitId: 'commit1' }] },
@@ -322,7 +322,7 @@ describe('getLineLocks', () => {
 				locks: [{ stackId: 'stack2', commitId: 'commit2' }]
 			}
 		];
-		const [fullyLocked, lineLocks] = getLineLocks('stack1', hunk, noLocks);
+		const [fullyLocked, lineLocks] = getLineLocks(hunk, noLocks);
 		expect(fullyLocked).toBe(false);
 		expect(lineLocks).toEqual([]);
 	});
@@ -338,7 +338,7 @@ describe('getLineLocks', () => {
 			}
 		];
 		// Only line 3 is locked, lines 2 and 4 are not
-		const [fullyLocked, lineLocks] = getLineLocks('stack2', partialHunk, partialLocks);
+		const [fullyLocked, lineLocks] = getLineLocks(partialHunk, partialLocks);
 		expect(fullyLocked).toBe(false);
 		expect(lineLocks).toEqual([
 			{ oldLine: 3, newLine: undefined, locks: [{ stackId: 'stack1', commitId: 'commit1' }] },

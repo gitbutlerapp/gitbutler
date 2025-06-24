@@ -69,6 +69,14 @@ export class WorktreeService {
 			{ transform: (res) => worktreeSelectors.selectById(res.changes, path)! }
 		);
 	}
+
+	/**
+	 * Exposes the worktreeChanges endpoint. This is currently intended to be
+	 * consumed by just the `DependencyService`.
+	 */
+	get worktreeChanges() {
+		return this.api.endpoints.worktreeChanges;
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {

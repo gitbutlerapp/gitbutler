@@ -4,65 +4,63 @@ import {
 	type HunkDependencies
 } from '$lib/dependencies/dependencies';
 import { createSelectByIds } from '$lib/state/customSelectors';
-import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
-import type { BackendApi, ClientState } from '$lib/state/clientState.svelte';
+import { createEntityAdapter } from '@reduxjs/toolkit';
+import type { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 
 export default class DependencyService {
-	private api: ReturnType<typeof injectEndpoints>;
-
-	constructor(backendApi: BackendApi) {
-		this.api = injectEndpoints(backendApi);
-	}
+	constructor(private readonly worktreeService: WorktreeService) {}
 
 	fileDependencies(projectId: string, filePath: string) {
-		return this.api.endpoints.dependencies.useQuery(
+		return this.worktreeService.worktreeChanges.useQuery(
 			{ projectId },
 			{
-				transform: ({ fileDependencies }) =>
-					fileDependencySelectors.selectById(fileDependencies, filePath) || {
-						path: filePath,
-						dependencies: []
+				transform: ({ dependencies }) => {
+					if (!dependencies) {
+						return {
+							path: filePath,
+							dependencies: []
+						};
 					}
+
+					const e = toEntityAdapter(dependencies);
+					return (
+						fileDependencySelectors.selectById(e.fileDependencies, filePath) || {
+							path: filePath,
+							dependencies: []
+						}
+					);
+				}
 			}
 		);
 	}
 
 	filesDependencies(projectId: string, filePaths: string[]) {
-		return this.api.endpoints.dependencies.useQuery(
+		return this.worktreeService.worktreeChanges.useQuery(
 			{ projectId },
 			{
-				transform: ({ fileDependencies }) =>
-					fileDependencySelectors.selectByIds(fileDependencies, filePaths)
+				transform: ({ dependencies }) => {
+					if (!dependencies) {
+						return [];
+					}
+
+					const e = toEntityAdapter(dependencies);
+					return fileDependencySelectors.selectByIds(e.fileDependencies, filePaths);
+				}
 			}
 		);
 	}
 }
 
-function injectEndpoints(api: ClientState['backendApi']) {
-	return api.injectEndpoints({
-		endpoints: (build) => ({
-			dependencies: build.query<
-				{ fileDependencies: EntityState<FileDependencies, string>; filePaths: string[] },
-				{ projectId: string }
-			>({
-				query: ({ projectId }) => ({
-					params: { projectId },
-					command: 'hunk_dependencies_for_workspace_changes'
-				}),
-				transformResponse(hunkDependencies: HunkDependencies) {
-					const [filePaths, fileDependencies] = aggregateFileDependencies(hunkDependencies);
+function toEntityAdapter(dependencies: HunkDependencies) {
+	const [filePaths, fileDependencies] = aggregateFileDependencies(dependencies);
 
-					return {
-						filePaths,
-						fileDependencies: fileDependenciesAdapter.addMany(
-							fileDependenciesAdapter.getInitialState(),
-							fileDependencies
-						)
-					};
-				}
-			})
-		})
-	});
+	return {
+		filePaths,
+		fileDependencies: fileDependenciesAdapter.addMany(
+			fileDependenciesAdapter.getInitialState(),
+			fileDependencies
+		)
+	};
 }
 
 const fileDependenciesAdapter = createEntityAdapter<FileDependencies, string>({
