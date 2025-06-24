@@ -117,7 +117,7 @@
 			cloneProgress = 'Finalizing project setup...';
 			posthog.capture('Repository Cloned', { protocol: remoteUrl.protocol });
 			await projectsService.addProject(targetDir);
-			
+
 			cloneProgress = 'Clone completed!';
 		} catch (e) {
 			Sentry.captureException(e);
@@ -148,12 +148,7 @@
 		<div class="clone__field--input-container">
 			<Textbox bind:value={repositoryUrl} placeholder="https://github.com/user/repo.git" />
 			{#if isGitHubAuthenticated}
-				<Button 
-					kind="outline" 
-					disabled={loading} 
-					onclick={openGitHubPicker}
-					icon="github"
-				>
+				<Button kind="outline" disabled={loading} onclick={openGitHubPicker} icon="github">
 					Browse GitHub
 				</Button>
 			{/if}
@@ -205,7 +200,7 @@
 
 <!-- GitHub Repository Picker Modal -->
 {#if isGitHubAuthenticated}
-	<GitHubRepoPicker 
+	<GitHubRepoPicker
 		bind:this={repoPicker}
 		{gitHubApi}
 		onRepoSelected={onRepoSelect}
@@ -257,8 +252,8 @@
 
 	.clone__field--input-container {
 		display: flex;
-		gap: 8px;
 		align-items: stretch;
+		gap: 8px;
 	}
 
 	.clone__field--input-container :global(.textbox) {
@@ -272,9 +267,9 @@
 	}
 
 	.clone__progress {
+		margin-bottom: 16px;
 		padding: 12px 0;
 		border-bottom: 1px solid var(--clr-border-2);
-		margin-bottom: 16px;
 	}
 
 	.clone__progress-indicator {
