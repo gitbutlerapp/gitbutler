@@ -196,7 +196,7 @@ impl Controller {
     /// This is intended to be used only when updating the path of a missing project.
     pub fn get_raw(&self, id: ProjectId) -> Result<Project> {
         #[cfg_attr(not(windows), allow(unused_mut))]
-        let mut project = self.projects_storage.get(id)?;
+        let project = self.projects_storage.get(id)?;
         Ok(project)
     }
 

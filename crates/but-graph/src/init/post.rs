@@ -1,5 +1,5 @@
-use crate::init::walk::TopoWalk;
-use crate::init::{EdgeOwned, PetGraph, branch_segment_from_name_and_meta, remotes};
+use crate::init::types::{EdgeOwned, TopoWalk};
+use crate::init::{PetGraph, branch_segment_from_name_and_meta, remotes};
 use crate::{Commit, CommitFlags, CommitIndex, Edge, Graph, SegmentIndex, is_workspace_ref_name};
 use but_core::{RefMetadata, ref_metadata};
 use gix::reference::Category;
