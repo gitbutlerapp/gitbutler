@@ -342,7 +342,7 @@ fn hunk_expantion() -> Result<()> {
     assert_eq!(files_by_branch_id[&stack2_id].len(), 0);
 
     // even though selected branch has changed
-    internal::update_branch(
+    internal::update_stack(
         ctx,
         &BranchUpdateRequest {
             id: stack1_id,
@@ -350,7 +350,7 @@ fn hunk_expantion() -> Result<()> {
             ..Default::default()
         },
     )?;
-    internal::update_branch(
+    internal::update_stack(
         ctx,
         &BranchUpdateRequest {
             id: stack2_id,
@@ -490,7 +490,7 @@ fn move_hunks_multiple_sources() -> Result<()> {
     // assert_eq!(files_by_branch_id[&stack2_id][0].hunks.len(), 1);
     assert_eq!(files_by_branch_id[&stack3_id].len(), 0);
 
-    internal::update_branch(
+    internal::update_stack(
         ctx,
         &BranchUpdateRequest {
             id: stack3_id,
@@ -583,7 +583,7 @@ fn move_hunks_partial_explicitly() -> Result<()> {
     // assert_eq!(files_by_branch_id[&stack1_id][0].hunks.len(), 2);
     assert_eq!(files_by_branch_id[&stack2_id].len(), 0);
 
-    internal::update_branch(
+    internal::update_stack(
         ctx,
         &BranchUpdateRequest {
             id: stack2_id,
@@ -980,7 +980,7 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
         "update target",
     )?;
 
-    internal::update_branch(
+    internal::update_stack(
         ctx,
         &BranchUpdateRequest {
             id: branch.id,
@@ -1114,7 +1114,7 @@ fn unapply_branch() -> Result<()> {
         .expect("failed to create virtual branch")
         .id;
 
-    internal::update_branch(
+    internal::update_stack(
         ctx,
         &BranchUpdateRequest {
             id: stack2_id,
@@ -1204,7 +1204,7 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
         .expect("failed to create virtual branch")
         .id;
 
-    internal::update_branch(
+    internal::update_stack(
         ctx,
         &BranchUpdateRequest {
             id: stack2_id,
@@ -1212,7 +1212,7 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
             ..Default::default()
         },
     )?;
-    internal::update_branch(
+    internal::update_stack(
         ctx,
         &BranchUpdateRequest {
             id: stack3_id,
@@ -1298,7 +1298,7 @@ fn detect_mergeable_branch() -> Result<()> {
         .expect("failed to create virtual branch")
         .id;
 
-    internal::update_branch(
+    internal::update_stack(
         ctx,
         &BranchUpdateRequest {
             id: stack2_id,
@@ -1464,7 +1464,7 @@ fn upstream_integrated_vbranch() -> Result<()> {
         "file3\nversion2\n",
     )?;
 
-    internal::update_branch(
+    internal::update_stack(
         ctx,
         &BranchUpdateRequest {
             id: stack1_id,
@@ -1474,7 +1474,7 @@ fn upstream_integrated_vbranch() -> Result<()> {
         },
     )?;
 
-    internal::update_branch(
+    internal::update_stack(
         ctx,
         &BranchUpdateRequest {
             id: stack2_id,
@@ -1484,7 +1484,7 @@ fn upstream_integrated_vbranch() -> Result<()> {
         },
     )?;
 
-    internal::update_branch(
+    internal::update_stack(
         ctx,
         &BranchUpdateRequest {
             id: stack3_id,

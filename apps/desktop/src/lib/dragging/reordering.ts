@@ -22,7 +22,6 @@
  * </div>
  */
 import { cloneElement } from '$lib/dragging/draggable';
-import { throttle } from '$lib/utils/misc';
 import type { Stack } from '$lib/stacks/stack';
 
 let dragHandle: any;
@@ -76,40 +75,43 @@ export function onReorderEnd() {
 	clone?.remove();
 }
 
-export const onReorderDragOver = throttle(
-	(e: MouseEvent & { currentTarget: HTMLDivElement }, sortedStacks: Stack[]) => {
-		e.preventDefault();
-		if (!dragged) {
-			return; // Something other than a lane is being dragged.
+export function onReorderDragOver(
+	e: MouseEvent & { currentTarget: HTMLDivElement },
+	sortedStacks: Stack[]
+) {
+	e.preventDefault();
+	if (!dragged) {
+		return; // Something other than a lane is being dragged.
+	}
+
+	const children = Array.from(e.currentTarget.children);
+	const currentPosition = sortedStacks.findIndex((stack) => stack.id === draggedId);
+
+	let dropPosition = 0;
+	const mouseLeft = e.clientX - (lanesScrollableEl?.getBoundingClientRect().left ?? 0);
+	let cumulativeWidth = lanesScrollableEl?.offsetLeft ?? 0;
+
+	for (let i = 0; i < children.length; i++) {
+		const childWidth = (children[i] as HTMLElement).offsetWidth;
+		// The commented out code below is necessary if the drag handle is
+		// aligned with the left side of the stack. Leaving it here until
+		// we are more certain about the layout.
+		// if (i === currentPosition) {
+		// 	continue;
+		// }
+		if (mouseLeft > cumulativeWidth + childWidth / 2) {
+			// New position depends on drag direction.
+			dropPosition = i < currentPosition ? i + 1 : i;
+			cumulativeWidth += childWidth;
+		} else {
+			break;
 		}
+	}
 
-		const children = Array.from(e.currentTarget.children);
-		const currentPosition = sortedStacks.findIndex((stack) => stack.id === draggedId);
-
-		let dropPosition = 0;
-		const mouseLeft = e.clientX - (lanesScrollableEl?.getBoundingClientRect().left ?? 0);
-		let cumulativeWidth = lanesScrollableEl?.offsetLeft ?? 0;
-
-		for (let i = 0; i < children.length; i++) {
-			const childWidth = (children[i] as HTMLElement).offsetWidth;
-			if (i === currentPosition) {
-				continue;
-			}
-			if (mouseLeft > cumulativeWidth + childWidth / 2) {
-				// New position depends on drag direction.
-				dropPosition = i < currentPosition ? i + 1 : i;
-				cumulativeWidth += childWidth;
-			} else {
-				break;
-			}
-		}
-
-		// Update sorted branch array manually.
-		if (currentPosition !== dropPosition) {
-			const el = sortedStacks.splice(currentPosition, 1);
-			sortedStacks.splice(dropPosition, 0, ...el);
-		}
-		return sortedStacks;
-	},
-	250
-);
+	// Update sorted branch array manually.
+	if (currentPosition !== dropPosition) {
+		const el = sortedStacks.splice(currentPosition, 1);
+		sortedStacks.splice(dropPosition, 0, ...el);
+	}
+	return sortedStacks;
+}

@@ -9,6 +9,7 @@
 	import { type SelectionId } from '$lib/selection/key';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { throttle } from '$lib/utils/misc';
 	import { inject } from '@gitbutler/shared/context';
 	import type { Stack } from '$lib/stacks/stack';
 
@@ -106,6 +107,21 @@
 			document.removeEventListener('mouseup', handleMouseUp);
 		};
 	});
+
+	// Throttle calls to the reordering code in order to save some cpu cycles.
+	const throttledDragOver = throttle(onReorderDragOver, 250);
+
+	// To support visual reordering of stacks we need a copy of the array
+	// that can be mutated as the stack is being dragged around.
+	let mutableStacks = $state<Stack[]>([]);
+
+	// This is a bit of anti-pattern, and reordering should be better
+	// encapsulated such that we don't need this somewhat messy code.
+	$effect(() => {
+		if (stacks) {
+			mutableStacks = stacks;
+		}
+	});
 </script>
 
 {#if isNotEnoughHorzSpace}
@@ -135,19 +151,27 @@
 	class:multi={stacks.length < SHOW_PAGINATION_THRESHOLD}
 	onmousedown={handleMouseDown}
 	ondragover={(e) => {
-		onReorderDragOver(e, stacks);
-		stacks = stacks;
+		// This call will actually mutate the array of stacks, showing
+		// where the lane will be placed when dropped.
+		throttledDragOver(e, mutableStacks);
 	}}
 	ondrop={() => {
-		stackService.updateBranchOrder({
+		stackService.updateStackOrder({
 			projectId,
-			branches: stacks.map((b, i) => ({ id: b.id, order: i }))
+			stacks: mutableStacks.map((b, i) => ({ id: b.id, order: i }))
 		});
 	}}
 >
 	<StackDraft {projectId} visible={isDraftStackVisible} />
 
-	{#each stacks as stack, i}
+	<!--
+	Ideally we wouldn't key on stack id, but the opacity change is done on the
+	element being dragged, and therefore stays in place without the key. We
+	should find a way of encapsulating the reordering logic better, perhaps
+	with some feedback that enables the opacity to become a prop for
+	`StackView` instead of being set imperatively in the dragstart handler.
+	 -->
+	{#each mutableStacks as stack, i (stack.id)}
 		<StackView
 			{projectId}
 			{stack}

@@ -244,16 +244,16 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects, settings, windows), err(Debug))]
-    pub fn update_branch_order(
+    pub fn update_stack_order(
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
-        branches: Vec<BranchUpdateRequest>,
+        stacks: Vec<BranchUpdateRequest>,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        gitbutler_branch_actions::update_branch_order(&ctx, branches)?;
+        gitbutler_branch_actions::update_stack_order(&ctx, stacks)?;
         emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
     }
