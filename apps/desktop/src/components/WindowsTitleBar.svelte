@@ -215,8 +215,8 @@
 	// Note: Project-specific shortcuts ('history', 'project-settings', 'open-in-vscode')
 	// are handled by ProjectSettingsMenuAction.svelte to avoid conflicts
 
-	// Only show on Windows and when custom title bar is enabled
-	const showTitleBar = $derived(platformName === 'windows' && $userSettings.useCustomTitleBar);
+	// Always show custom title bar on Windows
+	const showTitleBar = $derived(platformName === 'windows');
 </script>
 
 {#snippet editorBadgeSnippet()}
