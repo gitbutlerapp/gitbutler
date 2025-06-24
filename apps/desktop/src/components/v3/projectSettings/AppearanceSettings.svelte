@@ -17,6 +17,7 @@
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import Select from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
+	import { slide } from 'svelte/transition';
 	import type { Writable } from 'svelte/store';
 
 	const tauri = getContext(Tauri);
