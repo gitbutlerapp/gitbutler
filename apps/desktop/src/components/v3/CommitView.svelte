@@ -200,7 +200,6 @@
 				{/if}
 			{/snippet}
 
-			<!-- <ConfigurableScrollableContainer> -->
 			<div class="commit-view">
 				{#if projectState.editingCommitMessage.current}
 					<div
@@ -216,6 +215,7 @@
 							action={({ title, description }) => saveCommitMessage(title, description)}
 							actionLabel="Save changes"
 							onCancel={cancelEdit}
+							floatingBoxHeader="Edit commit message"
 							loading={messageUpdateResult.current.isLoading}
 							existingCommitId={commit.id}
 							title={parsedMessage?.title || ''}
@@ -285,9 +285,7 @@
 					{/snippet}
 				</ReduxResult>
 			{/snippet}
-			<!-- </ConfigurableScrollableContainer> -->
 		</Drawer>
-		<!-- {/if} -->
 
 		<ConflictResolutionConfirmModal
 			bind:this={conflictResolutionConfirmationModal}

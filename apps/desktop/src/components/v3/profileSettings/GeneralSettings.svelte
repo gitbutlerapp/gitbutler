@@ -13,6 +13,7 @@
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
@@ -144,6 +145,8 @@
 		const command = 'ln -sf ' + path + ' /usr/local/bin/but';
 		return command;
 	}
+
+	let showSymlink = $state(false);
 </script>
 
 {#if $user}
@@ -235,19 +238,32 @@
 		{#snippet caption()}
 			Installs the GitButler CLI (but) in your PATH, allowing you to use it from the terminal. This
 			action will request admin privileges. Alternatively, you could create a symlink manually.
+
+			{#if showSymlink}
+				<div class="symlink-copy-box">
+					{#await cli_command() then command}
+						<p>{command}</p>
+						<button
+							type="button"
+							class="symlink-copy-icon"
+							onclick={() => copyToClipboard(command)}
+						>
+							<Icon name="copy" />
+						</button>
+					{/await}
+				</div>
+			{/if}
 		{/snippet}
 
 		<div class="flex flex-col gap-16">
 			<div class="flex gap-8 justify-end">
-				<Button style="pop" icon="play" onclick={() => installCli()}>Install CLI</Button>
-				{#await cli_command() then command}
-					<Button
-						style="neutral"
-						kind="outline"
-						icon="copy"
-						onclick={() => copyToClipboard(command)}>Copy symlink to clipboard</Button
-					>
-				{/await}
+				<Button style="pop" icon="play" onclick={() => installCli()}>Install But CLI</Button>
+				<Button
+					style="neutral"
+					kind="outline"
+					disabled={showSymlink}
+					onclick={() => (showSymlink = !showSymlink)}>Show symlink</Button
+				>
 			</div>
 		</div>
 	</SectionCard>
@@ -366,5 +382,29 @@
 		flex-direction: column;
 		width: 100%;
 		gap: 12px;
+	}
+
+	.symlink-copy-box {
+		display: flex;
+		margin-top: 16px;
+		padding: 8px 10px;
+		gap: 10px;
+		border: 1px solid var(--clr-border-3);
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-1-muted);
+		color: var(--clr-text-1);
+		font-size: 12px;
+		font-family: var(--fontfamily-mono);
+		word-break: break-all;
+	}
+
+	.symlink-copy-icon {
+		display: flex;
+		color: var(--clr-text-3);
+		transition: color var(--transition-fast);
+
+		&:hover {
+			color: var(--clr-text-2);
+		}
 	}
 </style>

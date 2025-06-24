@@ -350,6 +350,7 @@
 							<CardOverlay {hovered} {activated} {label} />
 						{/snippet}
 						<div
+							data-remove-from-panning
 							use:draggableCommitV3={{
 								disabled: false,
 								label: commit.message.split('\n')[0],
@@ -387,7 +388,6 @@
 								lastCommit={last}
 								{lastBranch}
 								{selected}
-								draggable
 								{tooltip}
 								{active}
 								isOpen={commit.id === commitMenuContext?.data.commitId}

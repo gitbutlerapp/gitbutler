@@ -116,6 +116,7 @@
 		disabled: !isHeader
 	}}
 	class="filelistitem-wrapper"
+	data-remove-from-panning
 	class:filelistitem-header={isHeader}
 	bind:this={draggableEl}
 	use:draggableChips={{

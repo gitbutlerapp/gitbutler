@@ -321,7 +321,7 @@
 				<Button
 					kind="ghost"
 					icon={useFloatingBox.current ? 'exit-floating-box' : 'enter-floating-box'}
-					tooltip={useFloatingBox.current ? 'Exit floating box mode' : 'Use floating box mode'}
+					tooltip={useFloatingBox.current ? 'Exit floating mode' : 'Use floating mode'}
 					onclick={() => {
 						useFloatingBox.current = !useFloatingBox.current;
 					}}

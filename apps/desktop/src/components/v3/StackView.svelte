@@ -213,7 +213,7 @@
 			bind:this={stackViewEl}
 		>
 			{#if !isCommitting}
-				<div class="drag-handle" data-drag-handle>
+				<div class="drag-handle" data-remove-from-panning data-drag-handle>
 					<Icon name="draggable-narrow" rotate={90} />
 				</div>
 			{/if}

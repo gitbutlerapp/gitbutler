@@ -21,7 +21,6 @@
 		selected?: boolean;
 		opacity?: number;
 		borderTop?: boolean;
-		draggable?: boolean;
 		disableCommitActions?: boolean;
 		isOpen?: boolean;
 		active?: boolean;

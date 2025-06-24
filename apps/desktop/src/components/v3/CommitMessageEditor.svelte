@@ -32,6 +32,7 @@
 		loading?: boolean;
 		existingCommitId?: string;
 		title: string;
+		floatingBoxHeader?: string;
 		description: string;
 	};
 
@@ -47,6 +48,7 @@
 		loading,
 		title = $bindable(),
 		description,
+		floatingBoxHeader = 'Create commit',
 		existingCommitId
 	}: Props = $props();
 
@@ -229,7 +231,7 @@
 		}}
 	>
 		{#snippet header()}
-			Create commit
+			{floatingBoxHeader}
 		{/snippet}
 
 		{@render editorContent()}
