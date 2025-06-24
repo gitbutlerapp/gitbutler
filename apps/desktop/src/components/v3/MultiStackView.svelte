@@ -32,10 +32,6 @@
 	let isPanning = $state<boolean>(false);
 	let panStartX = $state<number>(0);
 	let panStartScrollLeft = $state<number>(0);
-	let lastMoveTime = $state<number>(0);
-	let lastMoveX = $state<number>(0);
-	let velocity = $state<number>(0);
-	let animationId = $state<number | null>(null);
 
 	let laneWidths = $state<number[]>([]);
 	let lineHights = $state<number[]>([]);
@@ -66,18 +62,9 @@
 		if (target.closest('button, a, input, select, textarea')) return;
 		if (target.closest('[data-remove-from-panning]')) return;
 
-		// Stop any ongoing momentum animation
-		if (animationId) {
-			cancelAnimationFrame(animationId);
-			animationId = null;
-		}
-
 		isPanning = true;
 		panStartX = e.clientX;
 		panStartScrollLeft = lanesScrollableEl.scrollLeft;
-		lastMoveTime = Date.now();
-		lastMoveX = e.clientX;
-		velocity = 0;
 
 		// Prevent text selection during pan
 		e.preventDefault();
@@ -95,20 +82,8 @@
 
 		e.preventDefault();
 
-		const currentTime = Date.now();
 		const deltaX = e.clientX - panStartX;
-		const timeDelta = currentTime - lastMoveTime;
-
-		// Calculate velocity (pixels per millisecond)
-		if (timeDelta > 0) {
-			const moveDelta = e.clientX - lastMoveX;
-			velocity = moveDelta / timeDelta;
-		}
-
 		lanesScrollableEl.scrollLeft = panStartScrollLeft - deltaX;
-
-		lastMoveTime = currentTime;
-		lastMoveX = e.clientX;
 	}
 
 	function handleMouseUp() {
@@ -122,63 +97,15 @@
 
 		// Reset cursor
 		lanesScrollableEl.style.cursor = '';
-
-		// Start momentum animation if there's enough velocity
-		if (Math.abs(velocity) > 0.1) {
-			startMomentumAnimation();
-		}
 	}
 
-	function startMomentumAnimation() {
-		if (!lanesScrollableEl) return;
-
-		const friction = 0.95; // Adjust this to control how quickly momentum dies down (0.9-0.98)
-		const minVelocity = 0.1; // Minimum velocity before stopping
-
-		function animate() {
-			if (!lanesScrollableEl || Math.abs(velocity) < minVelocity) {
-				animationId = null;
-				return;
-			}
-
-			// Apply velocity to scroll position
-			const newScrollLeft = lanesScrollableEl.scrollLeft - velocity * 16; // 16ms per frame approximation
-
-			// Check boundaries
-			const maxScrollLeft = lanesScrollableEl.scrollWidth - lanesScrollableEl.clientWidth;
-			if (newScrollLeft < 0 || newScrollLeft > maxScrollLeft) {
-				// Hit boundary, stop momentum
-				lanesScrollableEl.scrollLeft = Math.max(0, Math.min(newScrollLeft, maxScrollLeft));
-				velocity = 0;
-				animationId = null;
-				return;
-			}
-
-			lanesScrollableEl.scrollLeft = newScrollLeft;
-			velocity *= friction; // Apply friction
-
-			animationId = requestAnimationFrame(animate);
-		}
-
-		animationId = requestAnimationFrame(animate);
-	}
-
-	// Clean up event listeners and animations on component destruction
+	// Clean up event listeners on component destruction
 	$effect(() => {
 		return () => {
 			document.removeEventListener('mousemove', handleMouseMove);
 			document.removeEventListener('mouseup', handleMouseUp);
-			if (animationId) {
-				cancelAnimationFrame(animationId);
-			}
 		};
 	});
-
-	// $effect(() => {
-	// 	if (lanesScrollableEl && isDraftStackVisible) {
-	// 		lanesScrollableEl.scrollLeft = lanesScrollableEl.scrollWidth;
-	// 	}
-	// });
 </script>
 
 {#if isNotEnoughHorzSpace}
