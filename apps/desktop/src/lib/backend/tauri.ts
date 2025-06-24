@@ -1,7 +1,7 @@
 import { invoke as invokeIpc, listen as listenIpc } from '$lib/backend/ipc';
 import { getVersion } from '@tauri-apps/api/app';
-import { check } from '@tauri-apps/plugin-updater';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { check } from '@tauri-apps/plugin-updater';
 
 export class Tauri {
 	invoke = invokeIpc;
