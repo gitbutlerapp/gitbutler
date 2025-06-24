@@ -1,10 +1,13 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import GitHubRepoPicker from '$components/GitHubRepoPicker.svelte';
 	import InfoMessage, { type MessageStyle } from '$components/InfoMessage.svelte';
 	import Section from '$components/Section.svelte';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { invoke } from '$lib/backend/ipc';
 	import { ProjectsService } from '$lib/project/projectsService';
+	import { ClientState } from '$lib/state/clientState.svelte';
+	import { UserService } from '$lib/user/userService';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import { getContext } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
@@ -16,9 +19,17 @@
 	import { join } from '@tauri-apps/api/path';
 	import { open } from '@tauri-apps/plugin-dialog';
 	import { onMount } from 'svelte';
+	import type { GitHubRepository } from '$lib/forge/github/githubRepoListService.svelte';
 
 	const projectsService = getContext(ProjectsService);
+	const userService = getContext(UserService);
 	const posthog = getContext(PostHogWrapper);
+	const clientState = getContext(ClientState);
+
+	// Access GitHub API through client state
+	const gitHubApi = clientState.githubApi;
+
+	const user = userService.user;
 
 	let loading = $state(false);
 	let errors = $state<{ label: string }[]>([]);
@@ -26,6 +37,22 @@
 	let repositoryUrl = $state('');
 	let targetDirPath = $state('');
 	let savedTargetDirPath = persisted('', 'clone_targetDirPath');
+
+	// GitHub repo picker state
+	let showRepoPicker = $state(false);
+	let repoPicker = $state<typeof GitHubRepoPicker>();
+
+	// Check if user is authenticated with GitHub
+	const isGitHubAuthenticated = $derived(!!$user?.github_access_token);
+
+	function onRepoSelect(repoUrl: string) {
+		repositoryUrl = repoUrl;
+		showRepoPicker = false;
+	}
+
+	async function openGitHubPicker() {
+		await repoPicker?.openModal();
+	}
 
 	onMount(async () => {
 		if ($savedTargetDirPath) {
@@ -100,7 +127,19 @@
 <Section>
 	<div class="clone__field repositoryUrl">
 		<div class="text-13 text-semibold clone__field--label">Clone URL</div>
-		<Textbox bind:value={repositoryUrl} />
+		<div class="clone__field--input-container">
+			<Textbox bind:value={repositoryUrl} placeholder="https://github.com/user/repo.git" />
+			{#if isGitHubAuthenticated}
+				<Button 
+					kind="outline" 
+					disabled={loading} 
+					onclick={openGitHubPicker}
+					icon="github"
+				>
+					Browse GitHub
+				</Button>
+			{/if}
+		</div>
 	</div>
 	<div class="clone__field repositoryTargetPath">
 		<div class="text-13 text-semibold clone__field--label">Where to clone</div>
@@ -136,6 +175,16 @@
 		{/if}
 	</Button>
 </div>
+
+<!-- GitHub Repository Picker Modal -->
+{#if isGitHubAuthenticated}
+	<GitHubRepoPicker 
+		bind:this={repoPicker}
+		{gitHubApi}
+		onRepoSelected={onRepoSelect}
+		onClose={() => showRepoPicker = false}
+	/>
+{/if}
 
 {#snippet Notification({
 	title: titleLabel,
@@ -177,6 +226,22 @@
 
 	.clone__field--label {
 		color: var(--clr-scale-ntrl-50);
+	}
+
+	.clone__field--input-container {
+		display: flex;
+		gap: 8px;
+		align-items: stretch;
+	}
+
+	.clone__field--input-container :global(.textbox) {
+		flex: 0 0 70%;
+	}
+
+	.clone__field--input-container :global(button) {
+		flex: 0 0 30%;
+		min-width: 0;
+		height: auto;
 	}
 
 	.clone__actions {
