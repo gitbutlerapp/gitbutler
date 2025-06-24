@@ -37,11 +37,11 @@ export class Feed {
 	async fetch(n: number = 20) {
 		// First, get n oplog entries and n actions. They are already sorted by timestamp.
 		// If the oplog buffer hass less than n entries, we need to fetch more oplog entries.
-		if (this.oplogBuffer.length < n) {
-			const moreOplog = await this.fetchOplog(n - this.oplogBuffer.length, this.oplogCursor);
-			this.oplogCursor = moreOplog.at(-1)?.id;
-			this.oplogBuffer.push(...moreOplog);
-		}
+		// if (this.oplogBuffer.length < n) {
+		// 	const moreOplog = await this.fetchOplog(n - this.oplogBuffer.length, this.oplogCursor);
+		// 	this.oplogCursor = moreOplog.at(-1)?.id;
+		// 	this.oplogBuffer.push(...moreOplog);
+		// }
 
 		// If the actions buffer has less than n entries, we need to fetch more actions.
 		if (this.actionsBuffer.length < n) {
