@@ -53,9 +53,14 @@
 	function handleMouseDown(e: MouseEvent) {
 		if (!lanesScrollableEl) return;
 
-		// Only start panning on left mouse button and if not clicking on interactive elements
+		// Only start panning on left mouse button
+		if (e.button !== 0) return;
+
 		const target = e.target as HTMLElement;
-		if (e.button !== 0 || target.closest('button, a, input, select, textarea')) return;
+
+		// Exclude clicks on interactive elements
+		if (target.closest('button, a, input, select, textarea')) return;
+		if (target.closest('[data-remove-from-panning]')) return;
 
 		isPanning = true;
 		panStartX = e.clientX;
