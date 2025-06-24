@@ -519,15 +519,15 @@ fn is_requires_force(ctx: &CommandContext, stack: &Stack, repo: &gix::Repository
     Ok(merge_base != upstream_commit.id())
 }
 
-pub fn update_branch(ctx: &CommandContext, branch_update: &BranchUpdateRequest) -> Result<Stack> {
+pub fn update_stack(ctx: &CommandContext, update: &BranchUpdateRequest) -> Result<Stack> {
     let vb_state = ctx.project().virtual_branches();
-    let mut stack = vb_state.get_stack_in_workspace(branch_update.id)?;
+    let mut stack = vb_state.get_stack_in_workspace(update.id)?;
 
-    if let Some(ownership) = &branch_update.ownership {
+    if let Some(ownership) = &update.ownership {
         set_ownership(&vb_state, &mut stack, ownership).context("failed to set ownership")?;
     }
 
-    if let Some(name) = &branch_update.name {
+    if let Some(name) = &update.name {
         let all_virtual_branches = vb_state
             .list_stacks_in_workspace()
             .context("failed to read virtual branches")?;
@@ -537,7 +537,7 @@ pub fn update_branch(ctx: &CommandContext, branch_update: &BranchUpdateRequest) 
         stack.name = dedup(
             &all_virtual_branches
                 .iter()
-                .filter(|b| b.id != branch_update.id)
+                .filter(|b| b.id != update.id)
                 .map(|b| b.name.as_str())
                 .collect::<Vec<_>>(),
             name,
@@ -546,7 +546,7 @@ pub fn update_branch(ctx: &CommandContext, branch_update: &BranchUpdateRequest) 
         ctx.add_branch_reference(&stack)?;
     };
 
-    if let Some(updated_upstream) = &branch_update.upstream {
+    if let Some(updated_upstream) = &update.upstream {
         let default_target = vb_state.get_default_target()?;
         let upstream_remote = match default_target.push_remote_name {
             Some(remote) => remote.clone(),
@@ -563,15 +563,15 @@ pub fn update_branch(ctx: &CommandContext, branch_update: &BranchUpdateRequest) 
         stack.upstream = Some(remote_branch);
     };
 
-    if let Some(notes) = branch_update.notes.clone() {
+    if let Some(notes) = update.notes.clone() {
         stack.notes = notes;
     };
 
-    if let Some(order) = branch_update.order {
+    if let Some(order) = update.order {
         stack.order = order;
     };
 
-    if let Some(selected_for_changes) = branch_update.selected_for_changes {
+    if let Some(selected_for_changes) = update.selected_for_changes {
         stack.selected_for_changes = if selected_for_changes {
             for mut other_branch in vb_state
                 .list_stacks_in_workspace()
@@ -588,7 +588,7 @@ pub fn update_branch(ctx: &CommandContext, branch_update: &BranchUpdateRequest) 
         };
     };
 
-    if let Some(allow_rebasing) = branch_update.allow_rebasing {
+    if let Some(allow_rebasing) = update.allow_rebasing {
         stack.allow_rebasing = allow_rebasing;
     };
 

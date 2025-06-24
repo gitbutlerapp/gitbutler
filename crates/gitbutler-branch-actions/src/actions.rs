@@ -217,7 +217,7 @@ pub fn update_virtual_branch(
         .project()
         .virtual_branches()
         .get_stack_in_workspace(branch_update.id)?;
-    let result = vbranch::update_branch(ctx, &branch_update);
+    let result = vbranch::update_stack(ctx, &branch_update);
     let _ = snapshot_tree.and_then(|snapshot_tree| {
         ctx.snapshot_branch_update(
             snapshot_tree,
@@ -231,20 +231,17 @@ pub fn update_virtual_branch(
     Ok(())
 }
 
-pub fn update_branch_order(
-    ctx: &CommandContext,
-    branch_updates: Vec<BranchUpdateRequest>,
-) -> Result<()> {
+pub fn update_stack_order(ctx: &CommandContext, updates: Vec<BranchUpdateRequest>) -> Result<()> {
     ctx.verify(ctx.project().exclusive_worktree_access().write_permission())?;
     assure_open_workspace_mode(ctx)
         .context("Updating branch order requires open workspace mode")?;
-    for branch_update in branch_updates {
+    for stack_update in updates {
         let stack = ctx
             .project()
             .virtual_branches()
-            .get_stack_in_workspace(branch_update.id)?;
-        if branch_update.order != Some(stack.order) {
-            vbranch::update_branch(ctx, &branch_update)?;
+            .get_stack_in_workspace(stack_update.id)?;
+        if stack_update.order != Some(stack.order) {
+            vbranch::update_stack(ctx, &stack_update)?;
         }
     }
     Ok(())
