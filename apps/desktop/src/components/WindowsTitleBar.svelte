@@ -51,7 +51,7 @@
 
 	// Update project when route changes (we need access to the current project for menus)
 	$effect(() => {
-		$page.url.pathname; // Reactive dependency on route changes
+		void $page.url.pathname; // Reactive dependency on route changes
 		projectsService
 			.getActiveProject()
 			.then((activeProject) => (project = activeProject))
@@ -126,7 +126,7 @@
 			document.documentElement.style.fontSize = '1rem';
 			userSettings.update((s) => ({ ...s, zoom: 1 }));
 		},
-		openDevTools: () => import.meta.env.DEV && console.log('Opening developer tools...'),
+		openDevTools: () => import.meta.env.DEV && console.warn('Opening developer tools...'),
 		shareDebugInfo: () => events.emit('openSendIssueModal'),
 		openKeyboardShortcuts: () => {
 			// Keyboard shortcuts modal is handled by existing global shortcut registration
@@ -191,6 +191,8 @@
 			<!-- File Menu -->
 			<DropDownButton
 				bind:this={fileDropdown}
+				style="neutral"
+				kind="ghost"
 				menuPosition="bottom"
 				autoClose
 				onclick={() => fileDropdown?.show()}
@@ -232,6 +234,8 @@
 			<!-- View Menu -->
 			<DropDownButton
 				bind:this={viewDropdown}
+				style="neutral"
+				kind="ghost"
 				menuPosition="bottom"
 				autoClose
 				onclick={() => viewDropdown?.show()}
@@ -282,6 +286,8 @@
 			<!-- Project Menu -->
 			<DropDownButton
 				bind:this={projectDropdown}
+				style="neutral"
+				kind="ghost"
 				menuPosition="bottom"
 				autoClose
 				onclick={() => projectDropdown?.show()}
@@ -315,6 +321,8 @@
 			<!-- Help Menu -->
 			<DropDownButton
 				bind:this={helpDropdown}
+				style="neutral"
+				kind="ghost"
 				menuPosition="bottom"
 				autoClose
 				onclick={() => helpDropdown?.show()}
@@ -379,6 +387,7 @@
 		<!-- Native-style window controls -->
 		<div class="native-style-controls" data-tauri-drag-region="false">
 			<button
+				type="button"
 				class="native-control-button minimize"
 				onclick={() => tauri.minimize?.()}
 				title="Minimize"
@@ -389,6 +398,7 @@
 				</svg>
 			</button>
 			<button
+				type="button"
 				class="native-control-button maximize"
 				onclick={() => tauri.toggleMaximize?.()}
 				title="Maximize"
@@ -407,6 +417,7 @@
 				</svg>
 			</button>
 			<button
+				type="button"
 				class="native-control-button close"
 				onclick={() => tauri.close?.()}
 				title="Close"
