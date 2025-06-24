@@ -567,6 +567,7 @@
 
 	.title-bar__menu :global(.dropdown-wrapper) {
 		display: flex;
+		margin: 0;
 	}
 
 	/* Hide dropdown icons, separators, and vertical lines */
@@ -582,7 +583,7 @@
 	/* Style individual menu buttons as plain text */
 	.title-bar__menu :global(.dropdown-wrapper .btn) {
 		height: 24px;
-		padding: 4px 1px;
+		padding: 4px 2px;
 		gap: 0 !important;
 		border: none !important;
 		border-radius: 0 !important;
@@ -593,6 +594,8 @@
 		opacity: 0.5;
 		pointer-events: all !important;
 		transition: opacity var(--transition-fast);
+		width: fit-content;
+		min-width: auto;
 	}
 
 	.title-bar__menu :global(.dropdown-wrapper .btn:hover) {
