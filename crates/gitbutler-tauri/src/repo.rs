@@ -13,7 +13,8 @@ pub mod commands {
     use gitbutler_stack::BranchOwnershipClaims;
     use std::path::Path;
     use std::sync::atomic::AtomicBool;
-    use tauri::State;
+    use std::sync::Arc;
+    use tauri::{Emitter, State};
     use tracing::instrument;
 
     #[tauri::command(async)]
@@ -52,15 +53,29 @@ pub mod commands {
     #[tauri::command(async)]
     #[instrument]
     pub fn git_clone_repository(
+        app_handle: tauri::AppHandle,
         repository_url: &str,
         target_dir: &Path,
     ) -> Result<(), UnmarkedError> {
-        let should_interrupt = AtomicBool::new(false);
+        let emit_progress = |msg: &str| {
+            let _ = app_handle.emit("clone_progress", msg);
+        };
 
-        gix::prepare_clone(repository_url, target_dir)?
-            .fetch_then_checkout(gix::progress::Discard, &should_interrupt)
-            .map(|(checkout, _outcome)| checkout)?
-            .main_worktree(gix::progress::Discard, &should_interrupt)?;
+        emit_progress("Preparing to clone repository...");
+        
+        let should_interrupt = AtomicBool::new(false);
+        
+        emit_progress("Connecting to remote repository...");
+        let mut clone_operation = gix::prepare_clone(repository_url, target_dir)?;
+        
+        emit_progress("Fetching objects from remote...");
+        let (mut checkout, _outcome) = clone_operation
+            .fetch_then_checkout(gix::progress::Discard, &should_interrupt)?;
+            
+        emit_progress("Checking out files...");
+        checkout.main_worktree(gix::progress::Discard, &should_interrupt)?;
+        
+        emit_progress("Clone completed successfully");
         Ok(())
     }
 
