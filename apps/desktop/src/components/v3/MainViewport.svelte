@@ -2,10 +2,10 @@
 @component
 A three way split view that manages resizing of the panels.
 
-The left panel is set in rem units, the middle has fixed width constraints,
-and the right panel grows as the window resizes. If the window shrinks to where 
+The leftSection panel is set in rem units, the left-sideview has fixed width constraints,
+and the mainSection panel grows as the window resizes. If the window shrinks to where 
 it is smaller than the sum of the preferred widths, then the derived widths adjust 
-down, with the left hand side shrinking before the middle panel.
+down, with the leftSection hand side shrinking before the left-sideview panel.
 
 Persisted widths are only stored when resizing manually, meaning you can shrink
 the window, then enlarge it and retain the original widths of the layout.
@@ -14,12 +14,12 @@ the window, then enlarge it and retain the original widths of the layout.
 ```
 <MainViewport
 	name="workspace"
-	leftWidth={{ default: 200, min: 100}}
-	middleWidth={{ default: 200, min: 100}}
+	leftSectionWidth={{ default: 200, min: 100}}
+	leftSideviewWidth={{ default: 200, min: 100}}
 >
-	{#snippet left()} {/snippet}
-	{#snippet middle()} {/snippet}
-	{#snippet right()} {/snippet}
+	{#snippet leftSection()} {/snippet}
+	{#snippet leftSideview()} {/snippet}
+	{#snippet mainSection()} {/snippet}
 </MainViewport>
 ```
 -->
@@ -35,38 +35,46 @@ the window, then enlarge it and retain the original widths of the layout.
 
 	type Props = {
 		name: string;
-		left: Snippet;
-		middle: Snippet;
-		right: Snippet;
-		drawerRight?: Snippet;
-		leftWidth: {
+		leftSection: Snippet;
+		leftSideview?: Snippet;
+		mainSection: Snippet;
+		rightSideview?: Snippet;
+		leftSectionWidth: {
 			default: number;
 			min: number;
 		};
-		middleWidth?: {
+		leftSideviewWidth?: {
 			default: number;
 			min: number;
 		};
-		middleOpen?: boolean;
 	};
 
-	const { name, left, middle, right, drawerRight, leftWidth, middleWidth, middleOpen }: Props =
-		$props();
+	const {
+		name,
+		leftSection,
+		leftSideview,
+		mainSection,
+		rightSideview,
+		leftSectionWidth,
+		leftSideviewWidth
+	}: Props = $props();
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const zoom = $derived($userSettings.zoom);
 
-	let leftPreferredWidth = $derived(pxToRem(leftWidth.default, zoom));
-	let middlePreferredWidth = $derived(pxToRem(middleWidth?.default, zoom));
-	let rightDrawerPreferredWidth = $derived(pxToRem(24, zoom));
+	const defaultRightSideviewWidth = 480;
+	let leftSectionPreferredWidth = $derived(pxToRem(leftSectionWidth.default, zoom));
+	let leftSideviewPreferredWidth = $derived(pxToRem(leftSideviewWidth?.default, zoom));
+	let rightSideviewPreferredWidth = $derived(pxToRem(defaultRightSideviewWidth, zoom));
 
-	let leftDiv = $state<HTMLDivElement>();
-	let middleDiv = $state<HTMLDivElement>();
-	let rightDiv = $state<HTMLDivElement>();
-	let drawerRightDiv = $state<HTMLDivElement>();
+	let leftSectionDiv = $state<HTMLDivElement>();
+	let leftSideviewDiv = $state<HTMLDivElement>();
+	let mainSectionDiv = $state<HTMLDivElement>();
+	let rightSideviewDiv = $state<HTMLDivElement>();
 
-	const leftMinWidth = $derived(pxToRem(leftWidth.min, zoom));
-	const middleMinWidth = $derived(pxToRem(middleWidth?.min, zoom));
+	const leftSectionMinWidth = $derived(pxToRem(leftSectionWidth.min, zoom));
+	const leftSideviewMinWidth = $derived(pxToRem(leftSideviewWidth?.min, zoom));
+	const rightSideviewMinWidth = $derived(pxToRem(400, zoom));
 
 	// These need to stay in px since they are bound to elements.
 	let containerBindWidth = $state<number>(1000); // TODO: What initial value should we give this?
@@ -75,107 +83,117 @@ the window, then enlarge it and retain the original widths of the layout.
 	const padding = $derived(containerBindWidth - window.innerWidth);
 	const containerMinWidth = $derived(804 - padding);
 
-	// When swapped, the middle becomes flexible and right becomes fixed
+	// When swapped, the left-sideview becomes flexible and mainSection becomes fixed
+	const rightSideviewWidth = $derived(rightSideview ? rightSideviewPreferredWidth : 0);
 	const flexibleMinWidth = $derived(
-		pxToRem(containerMinWidth, zoom) - leftMinWidth - middleMinWidth
+		pxToRem(containerMinWidth, zoom) -
+			leftSectionMinWidth -
+			(leftSideviewMinWidth || 0) -
+			rightSideviewWidth
 	);
-	const totalAvailableWidth = $derived(pxToRem(containerBindWidth, zoom) - flexibleMinWidth - 1); // Reserve space for flexible panel and gaps
+	const totalAvailableWidth = $derived(
+		pxToRem(containerBindWidth, zoom) - flexibleMinWidth - rightSideviewWidth - 1
+	); // Reserve space for flexible panel, right sideview and gaps
 
 	// Calculate derived widths with proper constraints
-	const derivedLeftWidth = $derived(
-		Math.min(totalAvailableWidth - middleMinWidth, Math.max(leftMinWidth, leftPreferredWidth))
+	const derivedLeftSectionWidth = $derived(
+		Math.min(
+			totalAvailableWidth - leftSideviewMinWidth,
+			Math.max(leftSectionMinWidth, leftSectionPreferredWidth)
+		)
 	);
 
-	// Fixed panel width is constrained by remaining space after left panel
-	const remainingForFixed = $derived(totalAvailableWidth - derivedLeftWidth);
-	const derivedMiddleWidth = $derived(
-		Math.min(remainingForFixed, Math.max(middleMinWidth, middlePreferredWidth))
+	// Fixed panel width is constrained by remaining space after leftSection panel
+	const remainingForFixed = $derived(totalAvailableWidth - derivedLeftSectionWidth);
+	const derivedLeftSideviewWidth = $derived(
+		Math.min(remainingForFixed, Math.max(leftSideviewMinWidth, leftSideviewPreferredWidth))
 	);
 
 	// Calculate max widths for the resizers
-	const leftMaxWidth = $derived(totalAvailableWidth - middleMinWidth);
-	const middleMaxWidth = $derived(totalAvailableWidth - derivedLeftWidth);
+	const leftSectionMaxWidth = $derived(totalAvailableWidth - leftSideviewMinWidth);
+	const leftSideviewMaxWidth = $derived(totalAvailableWidth - derivedLeftSectionWidth);
 </script>
 
 <div
 	class="main-viewport"
 	use:focusable={{ id: DefinedFocusable.MainViewport }}
 	bind:clientWidth={containerBindWidth}
-	class:middle-open={middleOpen && middle}
+	class:left-sideview-open={!!leftSideview}
 >
 	<!-- Default layout: no swapping -->
 	<div
-		class="left view-wrapper"
-		bind:this={leftDiv}
-		style:width={derivedLeftWidth + 'rem'}
-		style:min-width={leftMinWidth + 'rem'}
+		class="left-section view-wrapper"
+		bind:this={leftSectionDiv}
+		style:width={derivedLeftSectionWidth + 'rem'}
+		style:min-width={leftSectionMinWidth + 'rem'}
 		use:focusable={{ id: DefinedFocusable.ViewportLeft, parentId: DefinedFocusable.MainViewport }}
 	>
 		<AsyncRender>
-			<div class="left-content">
-				{@render left()}
+			<div class="left-section-content">
+				{@render leftSection()}
 			</div>
 			<Resizer
-				viewport={leftDiv}
+				viewport={leftSectionDiv}
 				direction="right"
-				minWidth={leftMinWidth}
-				maxWidth={leftMaxWidth}
+				minWidth={leftSectionMinWidth}
+				maxWidth={leftSectionMaxWidth}
 				imitateBorder
-				borderRadius={!middleOpen ? 'ml' : 'none'}
-				persistId="viewport-${name}-left"
-				onWidth={(width) => (leftPreferredWidth = width)}
+				borderRadius={!leftSideview ? 'ml' : 'none'}
+				persistId="viewport-${name}-left-section"
+				onWidth={(width) => (leftSectionPreferredWidth = width)}
 			/>
 		</AsyncRender>
 	</div>
 
-	{#if middleOpen && middle}
+	{#if leftSideview}
 		<div
-			class="middle view-wrapper"
-			bind:this={middleDiv}
-			style:width={derivedMiddleWidth + 'rem'}
-			style:min-width={middleMinWidth + 'rem'}
+			class="left-sideview view-wrapper"
+			bind:this={leftSideviewDiv}
+			style:width={derivedLeftSideviewWidth + 'rem'}
+			style:min-width={leftSideviewMinWidth + 'rem'}
 			use:focusable={{
 				id: DefinedFocusable.ViewportMiddle,
 				parentId: DefinedFocusable.MainViewport
 			}}
 		>
 			<AsyncRender>
-				<div class="middle-content dotted-pattern">
-					{@render middle()}
+				<div class="left-sideview-content dotted-pattern">
+					{@render leftSideview()}
 				</div>
 				<Resizer
-					viewport={middleDiv}
+					viewport={leftSideviewDiv}
 					direction="right"
-					minWidth={middleMinWidth}
-					maxWidth={middleMaxWidth}
+					minWidth={leftSideviewMinWidth}
+					maxWidth={leftSideviewMaxWidth}
 					borderRadius="ml"
-					persistId="viewport-${name}-middle"
-					defaultValue={pxToRem(middleWidth?.default, zoom)}
-					onWidth={(width) => (middlePreferredWidth = width)}
+					persistId="viewport-${name}-left-sideview"
+					defaultValue={pxToRem(leftSideviewWidth?.default, zoom)}
+					onWidth={(width) => (leftSideviewPreferredWidth = width)}
 				/>
 			</AsyncRender>
 		</div>
 	{/if}
 
 	<div
-		class="right view-wrapper dotted-pattern"
-		bind:this={rightDiv}
+		class="main-section view-wrapper dotted-pattern"
+		bind:this={mainSectionDiv}
 		style:min-width={flexibleMinWidth + 'rem'}
+		style:margin-right={rightSideview ? '0' : ''}
 		use:focusable={{
 			id: DefinedFocusable.ViewportRight,
 			parentId: DefinedFocusable.MainViewport
 		}}
 	>
 		<AsyncRender>
-			{@render right()}
+			{@render mainSection()}
 		</AsyncRender>
 	</div>
 
-	{#if drawerRight}
+	{#if rightSideview}
 		<div
-			class="drawer-right"
-			bind:this={drawerRightDiv}
-			style:width={rightDrawerPreferredWidth + 'rem'}
+			class="right-sideview"
+			bind:this={rightSideviewDiv}
+			style:width={rightSideviewPreferredWidth + 'rem'}
 			use:focusable={{
 				id: DefinedFocusable.ViewportDrawerRight,
 				parentId: DefinedFocusable.MainViewport
@@ -183,15 +201,17 @@ the window, then enlarge it and retain the original widths of the layout.
 		>
 			<AsyncRender>
 				<Resizer
-					viewport={drawerRightDiv}
+					viewport={rightSideviewDiv}
 					direction="left"
-					minWidth={pxToRem(24, zoom)}
-					defaultValue={pxToRem(24, zoom)}
+					minWidth={rightSideviewMinWidth}
+					defaultValue={pxToRem(defaultRightSideviewWidth, zoom)}
 					borderRadius="ml"
-					persistId="viewport-${name}-right-drawer"
-					onWidth={(width) => (rightDrawerPreferredWidth = width)}
+					persistId="viewport-${name}-right-sideview"
+					onWidth={(width) => (rightSideviewPreferredWidth = width)}
 				/>
-				{@render drawerRight()}
+				<div class="right-sideview-content">
+					{@render rightSideview()}
+				</div>
 			</AsyncRender>
 		</div>
 	{/if}
@@ -214,7 +234,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		height: 100%;
 	}
 
-	.left {
+	.left-section {
 		display: flex;
 		position: relative;
 		flex-grow: 0;
@@ -224,7 +244,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		height: 100%;
 	}
 
-	.left-content {
+	.left-section-content {
 		display: flex;
 		flex-direction: column;
 		height: 100%;
@@ -233,7 +253,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		border-radius: var(--radius-ml);
 	}
 
-	.middle {
+	.left-sideview {
 		display: flex;
 		position: relative;
 		flex-grow: 0;
@@ -243,7 +263,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		height: 100%;
 	}
 
-	.middle-content {
+	.left-sideview-content {
 		display: flex;
 		flex-direction: column;
 		height: 100%;
@@ -253,12 +273,12 @@ the window, then enlarge it and retain the original widths of the layout.
 		border-left-color: transparent;
 	}
 
-	.middle-open .left-content {
+	.left-sideview-open .left-section-content {
 		border-radius: var(--radius-ml) 0 0 var(--radius-ml);
 		border-right-color: transparent;
 	}
 
-	.right {
+	.main-section {
 		position: relative;
 		flex-grow: 1;
 		flex-shrink: 1;
@@ -270,12 +290,22 @@ the window, then enlarge it and retain the original widths of the layout.
 		border-radius: var(--radius-ml);
 	}
 
-	.drawer-right {
+	.right-sideview {
+		display: flex;
 		position: relative;
+		flex-grow: 0;
+		flex-shrink: 0;
 		flex-direction: column;
+		justify-content: flex-start;
 		height: 100%;
 		margin-left: 8px;
-		overflow: hidden;
+	}
+
+	.right-sideview-content {
+		display: flex;
+		flex-direction: column;
+		width: 100%;
+		height: 100%;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 	}
