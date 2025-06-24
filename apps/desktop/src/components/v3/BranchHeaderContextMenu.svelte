@@ -190,7 +190,7 @@
 					}}
 					disabled={commitInsertion.current.isLoading}
 				/>
-				{#if stackLength && stackLength > 1}
+				{#if branch.commits.length > 1}
 					<ContextMenuItem
 						label="Squash all commits"
 						testId={TestId.BranchHeaderContextMenu_SquashAllCommits}
