@@ -5,10 +5,10 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
-	import ScrollableContainer from '@gitbutler/ui/scroll/ScrollableContainer.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
-	import type { GitHubApi } from '$lib/state/clientState.svelte';
+	import ScrollableContainer from '@gitbutler/ui/scroll/ScrollableContainer.svelte';
 	import type { GitHubRepository } from '$lib/forge/github/githubRepoListService.svelte';
+	import type { GitHubApi } from '$lib/state/clientState.svelte';
 
 	interface Props {
 		onRepoSelected: (repoUrl: string) => void;

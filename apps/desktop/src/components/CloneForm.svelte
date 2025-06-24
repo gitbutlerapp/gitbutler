@@ -7,8 +7,8 @@
 	import { invoke } from '$lib/backend/ipc';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { ClientState } from '$lib/state/clientState.svelte';
-	import { UserService } from '$lib/user/userService';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
+	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -16,10 +16,10 @@
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import * as Sentry from '@sentry/sveltekit';
+	import { listen } from '@tauri-apps/api/event';
 	import { documentDir } from '@tauri-apps/api/path';
 	import { join } from '@tauri-apps/api/path';
 	import { open } from '@tauri-apps/plugin-dialog';
-	import { listen } from '@tauri-apps/api/event';
 	import { onMount } from 'svelte';
 	import type { GitHubRepository } from '$lib/forge/github/githubRepoListService.svelte';
 
