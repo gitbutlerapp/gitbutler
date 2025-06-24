@@ -23,6 +23,7 @@
 	import * as toasts from '@gitbutler/ui/toasts';
 	import type { User } from '$lib/user/user';
 	import type { Writable } from 'svelte/store';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 
 	const userService = getContext(UserService);
 	const settingsService = getContext(SettingsService);
@@ -144,6 +145,8 @@
 		const command = 'ln -sf ' + path + ' /usr/local/bin/but';
 		return command;
 	}
+
+	let showSymlink = $state(false);
 </script>
 
 {#if $user}
@@ -235,17 +238,28 @@
 		{#snippet caption()}
 			Installs the GitButler CLI (but) in your PATH, allowing you to use it from the terminal. This
 			action will request admin privileges. Alternatively, you could create a symlink manually.
+
+			{#if showSymlink}
+				<div class="symlink-copy-box">
+					{#await cli_command() then command}
+						<p>{command}</p>
+						<button class="symlink-copy-icon" onclick={() => copyToClipboard(command)}>
+							<Icon name="copy" />
+						</button>
+					{/await}
+				</div>
+			{/if}
 		{/snippet}
 
 		<div class="flex flex-col gap-16">
 			<div class="flex gap-8 justify-end">
-				<Button style="pop" icon="play" onclick={() => installCli()}>Install CLI</Button>
+				<Button style="pop" icon="play" onclick={() => installCli()}>Install But CLI</Button>
 				{#await cli_command() then command}
 					<Button
 						style="neutral"
 						kind="outline"
-						icon="copy"
-						onclick={() => copyToClipboard(command)}>Copy symlink to clipboard</Button
+						disabled={showSymlink}
+						onclick={() => (showSymlink = !showSymlink)}>Show symlink</Button
 					>
 				{/await}
 			</div>
@@ -366,5 +380,29 @@
 		flex-direction: column;
 		width: 100%;
 		gap: 12px;
+	}
+
+	.symlink-copy-box {
+		display: flex;
+		margin-top: 16px;
+		padding: 8px 10px;
+		gap: 10px;
+		border: 1px solid var(--clr-border-3);
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-1-muted);
+		color: var(--clr-text-1);
+		font-size: 12px;
+		font-family: var(--fontfamily-mono);
+		word-break: break-all;
+	}
+
+	.symlink-copy-icon {
+		display: flex;
+		color: var(--clr-text-3);
+		transition: color var(--transition-fast);
+
+		&:hover {
+			color: var(--clr-text-2);
+		}
 	}
 </style>
