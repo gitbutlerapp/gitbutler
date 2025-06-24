@@ -622,8 +622,8 @@
 		flex-shrink: 0;
 	}
 
-	/* Ensure content doesn't overlap with title bar */
-	:global(.app-root) {
+	/* Ensure content doesn't overlap with title bar - only when custom title bar is shown */
+	:global(.app-root.has-custom-titlebar) {
 		padding-top: 40px; /* Matches the increased title bar height */
 	}
 

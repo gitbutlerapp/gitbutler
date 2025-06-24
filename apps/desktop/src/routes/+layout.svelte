@@ -308,7 +308,12 @@
 	onkeydown={handleKeyDown}
 />
 
-<div class="app-root" role="application" oncontextmenu={(e) => !dev && e.preventDefault()}>
+<div
+	class="app-root"
+	class:has-custom-titlebar={platformName === 'windows' && $userSettings.useCustomTitleBar}
+	role="application"
+	oncontextmenu={(e) => !dev && e.preventDefault()}
+>
 	{#if platformName === 'macos' && !$settingsStore?.featureFlags.v3}
 		<div class="drag-region" data-tauri-drag-region></div>
 	{/if}
