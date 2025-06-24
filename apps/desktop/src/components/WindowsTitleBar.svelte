@@ -68,6 +68,12 @@
 	// Modal references
 	let keyboardShortcutsModal = $state<KeyboardShortcutsModal>();
 
+	// Dropdown references
+	let fileDropdown = $state<DropDownButton>();
+	let viewDropdown = $state<DropDownButton>();
+	let projectDropdown = $state<DropDownButton>();
+	let helpDropdown = $state<DropDownButton>();
+
 	// App version and build type information
 	let appVersion = $state<string>('');
 	let buildType = $state<'stable' | 'nightly' | 'dev'>('stable');
@@ -83,13 +89,13 @@
 				const userAgent = navigator.userAgent.toLowerCase();
 				if (userAgent.includes('nightly')) {
 					buildType = 'nightly';
-					appIcon = '/icons/nightly/32x32.png';
+					appIcon = '/icons/nightly/128x128.png';
 				} else if (import.meta.env.DEV || userAgent.includes('dev')) {
 					buildType = 'dev';
-					appIcon = '/icons/dev/32x32.png';
+					appIcon = '/icons/dev/128x128.png';
 				} else {
 					buildType = 'stable';
-					appIcon = '/icons/32x32.png';
+					appIcon = '/icons/128x128.png';
 				}
 			} catch (error) {
 				console.error('Failed to get app version:', error);
@@ -215,7 +221,7 @@
 
 {#snippet editorBadgeSnippet()}
 	{#if editorDisplayName}
-		<Badge style="neutral" size="icon">
+		<Badge style="neutral" size="icon" borderRadius="var(--radius-s)">
 			{editorDisplayName}
 		</Badge>
 	{/if}
@@ -225,11 +231,9 @@
 	<div class="title-bar" data-tauri-drag-region>
 		<!-- App Icon and Info Section -->
 		<div class="title-bar__brand">
-			<div class="app-icon">
-				{#if appIcon}
-					<img src={appIcon} alt="GitButler" width="24" height="24" />
-				{/if}
-			</div>
+			{#if appIcon}
+				<img src={appIcon} alt="GitButler" class="app-logo" width="24" height="24" />
+			{/if}
 			<div class="brand-info">
 				<span class="app-name">GitButler</span>
 				<Badge style={getBadgeStyle()}>
@@ -239,9 +243,16 @@
 		</div>
 
 		<!-- Menu Items -->
-		<div class="title-bar__menu">
+		<div class="title-bar__menu" data-tauri-drag-region="false">
 			<!-- File Menu -->
-			<DropDownButton menuPosition="bottom" autoClose={true}>
+			<DropDownButton
+				bind:this={fileDropdown}
+				menuPosition="bottom"
+				autoClose={true}
+				onclick={() => {
+					fileDropdown?.show();
+				}}
+			>
 				File
 				{#snippet contextMenuSlot()}
 					<ContextMenuSection>
@@ -279,7 +290,14 @@
 			</DropDownButton>
 
 			<!-- View Menu -->
-			<DropDownButton menuPosition="bottom" autoClose={true}>
+			<DropDownButton
+				bind:this={viewDropdown}
+				menuPosition="bottom"
+				autoClose={true}
+				onclick={() => {
+					viewDropdown?.show();
+				}}
+			>
 				View
 				{#snippet contextMenuSlot()}
 					<ContextMenuSection>
@@ -326,7 +344,14 @@
 			</DropDownButton>
 
 			<!-- Project Menu -->
-			<DropDownButton menuPosition="bottom" autoClose={true}>
+			<DropDownButton
+				bind:this={projectDropdown}
+				menuPosition="bottom"
+				autoClose={true}
+				onclick={() => {
+					projectDropdown?.show();
+				}}
+			>
 				Project
 				{#snippet contextMenuSlot()}
 					<ContextMenuSection>
@@ -367,7 +392,14 @@
 			</DropDownButton>
 
 			<!-- Help Menu -->
-			<DropDownButton menuPosition="bottom" autoClose={true}>
+			<DropDownButton
+				bind:this={helpDropdown}
+				menuPosition="bottom"
+				autoClose={true}
+				onclick={() => {
+					helpDropdown?.show();
+				}}
+			>
 				Help
 				{#snippet contextMenuSlot()}
 					<ContextMenuSection>
@@ -435,10 +467,10 @@
 		<!-- Window Controls Spacer -->
 		<div class="title-bar__controls-spacer"></div>
 
-		<!-- Window Control Buttons -->
-		<div class="window-controls">
+		<!-- Native-style window controls -->
+		<div class="native-style-controls" data-tauri-drag-region="false">
 			<button
-				class="control-button minimize"
+				class="native-control-button minimize"
 				onclick={() => tauri.minimize?.()}
 				title="Minimize"
 				aria-label="Minimize window"
@@ -448,26 +480,31 @@
 				</svg>
 			</button>
 			<button
-				class="control-button maximize"
+				class="native-control-button maximize"
 				onclick={() => tauri.toggleMaximize?.()}
 				title="Maximize"
 				aria-label="Maximize window"
 			>
-				<svg width="10" height="10" viewBox="0 0 24 24">
-					<path
-						d="M10.71,14.71,5.41,20H10a1,1,0,0,1,0,2H4a2,2,0,0,1-1.38-.56l0,0s0,0,0,0A2,2,0,0,1,2,20V14a1,1,0,0,1,2,0v4.59l5.29-5.3a1,1,0,0,1,1.42,1.42ZM21.44,2.62s0,0,0,0l0,0A2,2,0,0,0,20,2H14a1,1,0,0,0,0,2h4.59l-5.3,5.29a1,1,0,0,0,0,1.42,1,1,0,0,0,1.42,0L20,5.41V10a1,1,0,0,0,2,0V4A2,2,0,0,0,21.44,2.62Z"
-						fill="currentColor"
+				<svg width="10" height="10" viewBox="0 0 10 10">
+					<rect
+						x="1"
+						y="1"
+						width="8"
+						height="8"
+						stroke="currentColor"
+						stroke-width="1"
+						fill="none"
 					/>
 				</svg>
 			</button>
 			<button
-				class="control-button close"
+				class="native-control-button close"
 				onclick={() => tauri.close?.()}
 				title="Close"
 				aria-label="Close window"
 			>
 				<svg width="10" height="10" viewBox="0 0 10 10">
-					<path d="M0 0l10 10M10 0L0 10" stroke="currentColor" stroke-width="1" />
+					<path d="M1 1l8 8M9 1L1 9" stroke="currentColor" stroke-width="1" />
 				</svg>
 			</button>
 		</div>
@@ -489,7 +526,7 @@
 		height: 40px; /* Increased from 32px to make title bar taller */
 		padding: 0 8px;
 		gap: 8px;
-		background-color: var(--clr-bg-1);
+		background-color: var(--clr-bg-3);
 		user-select: none;
 	}
 
@@ -497,28 +534,14 @@
 		display: flex;
 		flex-shrink: 0;
 		align-items: center;
-		gap: 6px; /* Reduced gap from 8px to 6px */
+		gap: 8px;
 	}
 
-	.app-icon {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 24px; /* Reduced from 28px to 24px */
-		height: 24px; /* Reduced from 28px to 24px */
-		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(
-			--radius-m
-		); /* Increased from --radius-s to --radius-m for more border radius */
-		background-color: var(--clr-bg-2);
-	}
-
-	.app-icon img {
-		width: 18px; /* Reduced from 20px to 18px to create less gap inside */
-		height: 18px; /* Reduced from 20px to 18px to create less gap inside */
+	.app-logo {
+		width: 24px;
+		height: 24px;
 		object-fit: contain;
-		border-radius: var(--radius-s); /* Added border radius to the logo itself */
+		border-radius: var(--radius-s);
 	}
 
 	.brand-info {
@@ -538,44 +561,42 @@
 		display: flex;
 		align-items: center;
 		margin-left: 12px;
-		gap: 4px;
+		gap: 0px;
+		pointer-events: auto;
 	}
 
 	.title-bar__menu :global(.dropdown-wrapper) {
 		display: flex;
 	}
 
-	/* Style the dropdown container as a unified card */
-	.title-bar__menu :global(.dropdown-wrapper .dropdown) {
-		display: flex;
-		height: 24px;
-		overflow: hidden; /* Ensures child buttons don't break the border radius */
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
-		background: transparent;
-		transition: all var(--transition-fast);
+	/* Hide dropdown icons, separators, and vertical lines */
+	.title-bar__menu :global(.dropdown-wrapper .btn .icon),
+	.title-bar__menu :global(.dropdown-wrapper .btn .separator),
+	.title-bar__menu :global(.dropdown-wrapper .btn svg),
+	.title-bar__menu :global(.dropdown-wrapper .btn::after),
+	.title-bar__menu :global(.dropdown-wrapper::after),
+	.title-bar__menu :global(.separator) {
+		display: none !important;
 	}
 
-	.title-bar__menu :global(.dropdown-wrapper .dropdown:hover) {
-		border-color: var(--clr-border-1);
-		background-color: var(--clr-bg-2);
-	}
-
-	/* Style individual buttons within the dropdown to fit seamlessly */
+	/* Style individual menu buttons as plain text */
 	.title-bar__menu :global(.dropdown-wrapper .btn) {
-		height: 100%;
-		padding: 4px 12px;
-		border: none !important; /* Remove individual button borders */
-		border-radius: 0 !important; /* Remove individual button border radius */
+		height: 24px;
+		padding: 4px 1px;
+		gap: 0 !important;
+		border: none !important;
+		border-radius: 0 !important;
 		background: transparent !important;
-		color: var(--clr-text-2);
+		color: var(--clr-text-1);
 		font-size: var(--text-11);
-		transition: color var(--transition-fast);
+		cursor: pointer;
+		opacity: 0.5;
+		pointer-events: all !important;
+		transition: opacity var(--transition-fast);
 	}
 
-	/* Change text color on hover of the dropdown container */
-	.title-bar__menu :global(.dropdown-wrapper .dropdown:hover .btn) {
-		color: var(--clr-text-1);
+	.title-bar__menu :global(.dropdown-wrapper .btn:hover) {
+		opacity: 1;
 	}
 
 	.title-bar__controls-spacer {
@@ -583,43 +604,33 @@
 		min-width: 20px; /* Reduced from 140px since we now have our own controls */
 	}
 
-	/* Window Control Buttons */
-	.window-controls {
+	/* Native-style Controls - Look like Windows native controls */
+	.native-style-controls {
 		display: flex;
 		align-items: center;
-		padding: 2px;
-		gap: 2px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-2);
+		height: 32px;
 	}
 
-	.control-button {
+	.native-control-button {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 24px;
-		height: 20px;
+		width: 46px;
+		height: 32px;
 		border: none;
-		border-radius: var(--radius-s);
 		background: transparent;
-		color: var(--clr-text-2);
-		cursor: pointer;
-		transition: all var(--transition-fast);
-	}
-
-	.control-button:hover {
-		background-color: var(--clr-bg-3);
 		color: var(--clr-text-1);
+		cursor: pointer;
+		transition: background-color 0.1s ease;
 	}
 
-	.control-button.close:hover {
-		background-color: var(--clr-error);
+	.native-control-button:hover {
+		background-color: rgba(255, 255, 255, 0.1);
+	}
+
+	.native-control-button.close:hover {
+		background-color: #e81123;
 		color: white;
-	}
-
-	.control-button svg {
-		flex-shrink: 0;
 	}
 
 	/* Ensure content doesn't overlap with title bar - only when custom title bar is shown */
@@ -631,19 +642,5 @@
 	:global(.dark) .title-bar {
 		border-bottom-color: var(--clr-border-2);
 		background-color: var(--clr-bg-1);
-	}
-
-	:global(.dark) .app-icon {
-		border-color: var(--clr-border-2);
-		background-color: var(--clr-bg-2);
-	}
-
-	:global(.dark) .window-controls {
-		border-color: var(--clr-border-2);
-		background-color: var(--clr-bg-2);
-	}
-
-	:global(.dark) .control-button:hover {
-		background-color: var(--clr-bg-3);
 	}
 </style>

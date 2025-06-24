@@ -14,6 +14,7 @@
 		tooltip?: string;
 		children?: Snippet;
 		onclick?: (e: MouseEvent) => void;
+		borderRadius?: string;
 	}
 
 	const {
@@ -24,7 +25,8 @@
 		reversedDirection,
 		tooltip,
 		children,
-		onclick
+		onclick,
+		borderRadius = '20px'
 	}: Props = $props();
 </script>
 
@@ -32,7 +34,12 @@
 	<!-- A badge is not a clickable UI element, but with exceptions. No button styling desired. -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<div class="badge {style} {kind} {size}-size" class:reversedDirection {onclick}>
+	<div
+		class="badge {style} {kind} {size}-size"
+		class:reversedDirection
+		{onclick}
+		style:border-radius={borderRadius}
+	>
 		{#if children}
 			<span
 				class="badge__label text-bold"
