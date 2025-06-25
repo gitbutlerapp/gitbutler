@@ -55,6 +55,8 @@
 	import { onDestroy, setContext, untrack, type Snippet } from 'svelte';
 	import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 	import type { LayoutData } from './$types';
+	import { GiteaState } from '$lib/forge/gitea/giteaState.svelte';
+	import { GiteaClient } from '$lib/forge/gitea/giteaClient.svelte';
 
 	const { data, children: pageChildren }: { data: LayoutData; children: Snippet } = $props();
 
@@ -89,6 +91,15 @@
 	const gitLabClient = getContext(GitLabClient);
 	$effect.pre(() => {
 		gitLabClient.set(gitLabState);
+	});
+
+	const giteaState = $derived(new GiteaState(secretService, repoInfo, projectId));
+	$effect.pre(() => {
+		setContext(GiteaState, giteaState);
+	});
+	const giteaClient = getContext(GiteaClient);
+	$effect.pre(() => {
+		giteaClient.set(giteaState);
 	});
 
 	const branchesError = $derived(vbranchService.branchesError);
@@ -172,6 +183,7 @@
 	});
 
 	const gitlabConfigured = $derived(gitLabState.configured);
+	const giteaConfigured = $derived(giteaState.configured);
 
 	$effect(() => {
 		forgeFactory.setConfig({
@@ -180,6 +192,7 @@
 			baseBranch: baseBranchName,
 			githubAuthenticated: !!$user?.github_access_token,
 			gitlabAuthenticated: !!$gitlabConfigured,
+			giteaAuthenticated: !!$giteaConfigured,
 			forgeOverride: $projects?.find((project) => project.id === projectId)?.forge_override
 		});
 	});

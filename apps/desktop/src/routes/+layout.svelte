@@ -88,6 +88,8 @@
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
 	import { env } from '$env/dynamic/public';
+	import { GiteaClient } from '$lib/forge/gitea/giteaClient.svelte';
+
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
 
 	const userSettings = loadUserSettings();
@@ -97,8 +99,10 @@
 
 	const gitHubClient = new GitHubClient();
 	const gitLabClient = new GitLabClient();
+	const giteaClient = new GiteaClient();
 	setContext(GitHubClient, gitHubClient);
 	setContext(GitLabClient, gitLabClient);
+	setContext(GiteaClient, giteaClient);
 	const user = data.userService.user;
 	const accessToken = $derived($user?.github_access_token);
 	$effect(() => gitHubClient.setToken(accessToken));
@@ -110,6 +114,7 @@
 		data.tauri,
 		gitHubClient,
 		gitLabClient,
+		giteaClient,
 		ircClient,
 		data.posthog,
 		data.settingsService,
@@ -132,8 +137,10 @@
 	const forgeFactory = new DefaultForgeFactory({
 		gitHubClient,
 		gitLabClient,
+		giteaClient,
 		gitHubApi: clientState['githubApi'],
 		gitLabApi: clientState['gitlabApi'],
+		giteaApi: clientState['giteaApi'],
 		dispatch: clientState.dispatch,
 		posthog: data.posthog,
 		projectMetrics: data.projectMetrics
