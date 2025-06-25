@@ -1,7 +1,10 @@
 <!-- This is a V3 replacement for `FileContextMenu.svelte` -->
 <script lang="ts">
+	import { ActionService } from '$lib/actions/actionService.svelte';
+	import { AIService } from '$lib/ai/service';
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { changesToDiffSpec } from '$lib/commits/utils';
+	import { projectAiGenEnabled } from '$lib/config/config';
 	import { isTreeChange, type TreeChange } from '$lib/hunks/change';
 	import { Project } from '$lib/project/project';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
@@ -47,18 +50,27 @@
 	}
 
 	const { trigger, selectionId, stackId, projectId }: Props = $props();
-	const [stackService, project, uiState, idSelection] = inject(
+	const [stackService, project, uiState, idSelection, aiService, actionService] = inject(
 		StackService,
 		Project,
 		UiState,
-		IdSelection
+		IdSelection,
+		AIService,
+		ActionService
 	);
+	const [autoCommit, autoCommitting] = actionService.autoCommit;
+
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 	const isUncommitted = $derived(selectionId.type === 'worktree');
 
 	let confirmationModal: ReturnType<typeof Modal> | undefined;
 	let stashConfirmationModal: ReturnType<typeof Modal> | undefined;
 	let contextMenu: ReturnType<typeof ContextMenu>;
+	let aiConfigurationValid = $state(false);
+
+	const aiGenEnabled = $derived(projectAiGenEnabled(projectId));
+
+	const canUseGBAI = $derived(aiGenEnabled && aiConfigurationValid);
 
 	function isDeleted(item: FileItem): boolean {
 		return item.changes.some((change) => {
@@ -105,6 +117,9 @@
 
 	export function open(e: MouseEvent, item: FileItem) {
 		contextMenu.open(e, item);
+		aiService.validateGitButlerAPIConfiguration().then((value) => {
+			aiConfigurationValid = value;
+		});
 	}
 
 	async function uncommitChanges(stackId: string, commitId: string, changes: TreeChange[]) {
@@ -129,7 +144,13 @@
 	}
 </script>
 
-<ContextMenu bind:this={contextMenu} rightClickTrigger={trigger}>
+<ContextMenu
+	bind:this={contextMenu}
+	rightClickTrigger={trigger}
+	onclose={() => {
+		aiConfigurationValid = false;
+	}}
+>
 	{#snippet children(item: unknown)}
 		{#if isFileItem(item)}
 			{@const deletion = isDeleted(item)}
@@ -155,6 +176,19 @@
 								stashConfirmationModal?.show(item);
 								contextMenu.close();
 							}}
+						/>
+					{/if}
+					{#if canUseGBAI}
+						<ContextMenuItem
+							label="Auto commit"
+							onclick={async () => {
+								await autoCommit({
+									projectId,
+									changes: item.changes
+								});
+								contextMenu.close();
+							}}
+							disabled={autoCommitting.current.isLoading}
 						/>
 					{/if}
 					{#if selectionId.type === 'commit' && stackId}

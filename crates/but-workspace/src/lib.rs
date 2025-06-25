@@ -28,7 +28,7 @@ use anyhow::{Context, Result};
 use bstr::BString;
 use serde::{Deserialize, Serialize};
 
-use but_core::RefMetadata;
+use but_core::{RefMetadata, TreeChange};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::OidExt;
 use gitbutler_stack::VirtualBranchesHandle;
@@ -107,6 +107,16 @@ pub struct DiffSpec {
     /// If empty, the whole file is taken as is if this seems to be an addition.
     /// Otherwise, the whole file is being deleted.
     pub hunk_headers: Vec<HunkHeader>,
+}
+
+impl From<&TreeChange> for DiffSpec {
+    fn from(change: &but_core::TreeChange) -> Self {
+        Self {
+            previous_path: change.previous_path().map(ToOwned::to_owned),
+            path: change.path.to_owned(),
+            hunk_headers: vec![],
+        }
+    }
 }
 
 /// The header of a hunk that represents a change to a file.

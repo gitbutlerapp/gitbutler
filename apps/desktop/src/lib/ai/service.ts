@@ -258,6 +258,13 @@ export class AIService {
 		);
 	}
 
+	async validateGitButlerAPIConfiguration(): Promise<boolean> {
+		if (!(await this.usingGitButlerAPI())) {
+			return false;
+		}
+		return !!get(this.tokenMemoryService.token);
+	}
+
 	// This optionally returns a summarizer. There are a few conditions for how this may occur
 	// Firstly, if the user has opted to use the GB API and isn't logged in, it will return undefined
 	// Secondly, if the user has opted to bring their own key but hasn't provided one, it will return undefined
