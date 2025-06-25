@@ -44,6 +44,14 @@ export default defineConfig({
 		strictPort: true,
 		fs: {
 			strict: false
+		},
+		// Disabling browser cache prevents sporadic error where the cache
+		// busting URLs somehow fail, and the webview ends up requesting
+		// files that no longer exist. The resulting error references
+		// something about a `first_child_getter`.
+		headers: {
+			'Cache-Control': 'no-store',
+			Pragma: 'no-cache'
 		}
 	},
 	// to make use of `TAURI_ENV_DEBUG` and other env variables
