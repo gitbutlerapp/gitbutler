@@ -10,9 +10,10 @@
 		projectId: string;
 		selectionId?: SelectionId;
 		draggableFiles?: boolean;
+		onclose?: () => void;
 	};
 
-	let { projectId, selectionId, draggableFiles }: Props = $props();
+	let { projectId, selectionId, draggableFiles, onclose }: Props = $props();
 
 	const [idSelection] = inject(IdSelection);
 
@@ -38,6 +39,7 @@
 					if (selectionId) {
 						idSelection.remove(selectedFile.path, selectedFile);
 					}
+					onclose?.();
 				}}
 			/>
 		</ScrollableContainer>

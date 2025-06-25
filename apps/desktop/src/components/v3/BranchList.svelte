@@ -15,6 +15,7 @@
 	import { getColorFromCommitState, getIconFromCommitState } from '$components/v3/lib';
 	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+	import { IntelligentScrollingService } from '$lib/intelligentScrolling/service';
 	import { ModeService } from '$lib/mode/modeService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
@@ -39,11 +40,12 @@
 	};
 
 	const { projectId, branches, stackId, focusedStackId, onselect }: Props = $props();
-	const [stackService, uiState, modeService, forge] = inject(
+	const [stackService, uiState, modeService, forge, intelligentScrollingService] = inject(
 		StackService,
 		UiState,
 		ModeService,
-		DefaultForgeFactory
+		DefaultForgeFactory,
+		IntelligentScrollingService
 	);
 
 	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
@@ -182,6 +184,7 @@
 								uiState.stack(stackId).selection.set(undefined);
 							} else {
 								uiState.stack(stackId).selection.set({ branchName });
+								intelligentScrollingService.show(projectId, stackId, 'details');
 							}
 							onselect?.();
 						}}

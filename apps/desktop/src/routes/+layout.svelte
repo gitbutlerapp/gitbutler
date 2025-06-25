@@ -42,6 +42,7 @@
 	import { OplogService } from '$lib/history/oplogService.svelte';
 	import { HooksService } from '$lib/hooks/hooksService';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
+	import { IntelligentScrollingService } from '$lib/intelligentScrolling/service';
 	import { IrcClient } from '$lib/irc/ircClient.svelte';
 	import { IrcService } from '$lib/irc/ircService.svelte';
 	import { platformName } from '$lib/platform/platform';
@@ -86,7 +87,6 @@
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
 	import { env } from '$env/dynamic/public';
-
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
 
 	const userSettings = loadUserSettings();
@@ -144,6 +144,8 @@
 		clientState.dispatch
 	);
 	setContext(UiState, uiState);
+	const intelligentScrollingService = new IntelligentScrollingService(uiState);
+	setContext(IntelligentScrollingService, intelligentScrollingService);
 
 	const stackService = new StackService(clientState['backendApi'], forgeFactory, uiState);
 	const oplogService = new OplogService(clientState['backendApi']);

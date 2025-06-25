@@ -15,6 +15,10 @@
 	import { isParsedError } from '$lib/error/parser';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
+	import {
+		IntelligentScrollingService,
+		scrollingAttachment
+	} from '$lib/intelligentScrolling/service';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { readKey } from '$lib/selection/key';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
@@ -48,12 +52,8 @@
 
 	let lanesSrollableEl = $state<HTMLDivElement>();
 
-	const [uiState, uncommittedService, idSelection, stackService] = inject(
-		UiState,
-		UncommittedService,
-		IdSelection,
-		StackService
-	);
+	const [uiState, uncommittedService, idSelection, stackService, intelligentScrollingService] =
+		inject(UiState, UncommittedService, IdSelection, StackService, IntelligentScrollingService);
 	const projectState = $derived(uiState.project(projectId));
 
 	const action = $derived(projectState.exclusiveAction.current);
@@ -126,6 +126,7 @@
 
 	function onclose() {
 		selection.set(undefined);
+		intelligentScrollingService.show(projectId, stack.id, 'stack');
 	}
 
 	// Clear selection if branch cannot be found.
@@ -211,6 +212,7 @@
 			bind:clientWidth
 			bind:clientHeight
 			bind:this={stackViewEl}
+			{@attach scrollingAttachment(intelligentScrollingService, projectId, stack.id, 'stack')}
 		>
 			{#if !isCommitting}
 				<div class="drag-handle" data-remove-from-panning data-drag-handle>
@@ -255,6 +257,7 @@
 										onselect={() => {
 											// Clear one selection when you modify the other.
 											stackState?.selection.set(undefined);
+											intelligentScrollingService.show(projectId, stack.id, 'diff');
 										}}
 									>
 										{#snippet emptyPlaceholder()}
@@ -297,6 +300,7 @@
 							onselect={() => {
 								// Clear one selection when you modify the other.
 								idSelection.clear({ type: 'worktree', stackId: stack.id });
+								intelligentScrollingService.show(projectId, stack.id, 'details');
 							}}
 						/>
 					</ConfigurableScrollableContainer>
@@ -321,36 +325,61 @@
 				data-details={stack.id}
 			>
 				{#if assignedKey && assignedKey.type === 'worktree'}
-					<SelectionView
-						{projectId}
-						selectionId={{ ...assignedKey, type: 'worktree', stackId: assignedKey.stackId }}
-					/>
+					<div
+						{@attach scrollingAttachment(intelligentScrollingService, projectId, stack.id, 'diff')}
+					>
+						<SelectionView
+							{projectId}
+							selectionId={{ ...assignedKey, type: 'worktree', stackId: assignedKey.stackId }}
+							onclose={() => {
+								intelligentScrollingService.show(projectId, stack.id, 'stack');
+							}}
+						/>
+					</div>
 				{:else if branchName && commitId}
-					<CommitView
-						{projectId}
-						stackId={stack.id}
-						commitKey={{
-							stackId: stack.id,
-							branchName,
-							commitId,
-							upstream: !!upstream
-						}}
-						active={selectedKey?.type === 'commit' && focusedStackId === stack.id}
-						{onerror}
-						{onclose}
-					/>
+					<div
+						{@attach scrollingAttachment(
+							intelligentScrollingService,
+							projectId,
+							stack.id,
+							'details'
+						)}
+					>
+						<CommitView
+							{projectId}
+							stackId={stack.id}
+							commitKey={{
+								stackId: stack.id,
+								branchName,
+								commitId,
+								upstream: !!upstream
+							}}
+							active={selectedKey?.type === 'commit' && focusedStackId === stack.id}
+							{onerror}
+							{onclose}
+						/>
+					</div>
 				{:else if branchName}
-					<BranchView
-						stackId={stack.id}
-						{projectId}
-						{branchName}
-						active={selectedKey?.type === 'branch' &&
-							selectedKey.branchName === branchName &&
-							focusedStackId === stack.id}
-						draggableFiles
-						{onerror}
-						{onclose}
-					/>
+					<div
+						{@attach scrollingAttachment(
+							intelligentScrollingService,
+							projectId,
+							stack.id,
+							'details'
+						)}
+					>
+						<BranchView
+							stackId={stack.id}
+							{projectId}
+							{branchName}
+							active={selectedKey?.type === 'branch' &&
+								selectedKey.branchName === branchName &&
+								focusedStackId === stack.id}
+							draggableFiles
+							{onerror}
+							{onclose}
+						/>
+					</div>
 				{/if}
 				<Resizer
 					viewport={detailsEl}
@@ -374,8 +403,15 @@
 					id: DefinedFocusable.Preview + ':' + stack.id,
 					parentId: DefinedFocusable.ViewportRight
 				}}
+				{@attach scrollingAttachment(intelligentScrollingService, projectId, stack.id, 'diff')}
 			>
-				<SelectionView {projectId} selectionId={selectedKey} />
+				<SelectionView
+					{projectId}
+					selectionId={selectedKey}
+					onclose={() => {
+						intelligentScrollingService.show(projectId, stack.id, 'details');
+					}}
+				/>
 				<Resizer
 					viewport={previewEl}
 					persistId="resizer-panel2-${stack.id}"
