@@ -46,6 +46,7 @@ pub struct HunkAssignment {
     pub stack_id: Option<StackId>,
     /// The dependencies(locks) that this hunk has. This determines where the hunk can be assigned.
     /// This field is ignored when HunkAssignment is passed by the UI to create a new assignment.
+    #[serde(skip)]
     pub hunk_locks: Option<Vec<HunkLock>>,
     /// The line numbers that were added in this hunk.
     pub line_nums_added: Option<Vec<usize>>,

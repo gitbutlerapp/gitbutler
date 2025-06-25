@@ -206,7 +206,6 @@ export default class MockBackend {
 					path: change.path,
 					pathBytes: change.pathBytes,
 					stackId: null,
-					hunkLocks: [],
 					lineNumsAdded: [],
 					lineNumsRemoved: []
 				});
@@ -220,7 +219,6 @@ export default class MockBackend {
 							path: change.path,
 							pathBytes: change.pathBytes,
 							stackId: null,
-							hunkLocks: [],
 							lineNumsAdded: [],
 							lineNumsRemoved: []
 						});
@@ -232,7 +230,6 @@ export default class MockBackend {
 								path: change.path,
 								pathBytes: change.pathBytes,
 								stackId: null,
-								hunkLocks: [],
 								lineNumsAdded: [],
 								lineNumsRemoved: []
 							});
@@ -245,7 +242,6 @@ export default class MockBackend {
 						path: change.path,
 						pathBytes: change.pathBytes,
 						stackId: null,
-						hunkLocks: [],
 						lineNumsAdded: [],
 						lineNumsRemoved: []
 					});
