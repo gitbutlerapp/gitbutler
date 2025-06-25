@@ -185,7 +185,7 @@
 		<!-- App Icon and Info Section -->
 		<div class="title-bar__brand">
 			{#if appIcon}
-				<img src={appIcon} alt="GitButler" class="app-logo" width="24" height="24" />
+				<img src={appIcon} alt="GitButler" class="app-logo" />
 			{/if}
 			<div class="brand-info">
 				<span class="app-name">GitButler</span>
@@ -450,8 +450,8 @@
 		left: 0;
 		align-items: center;
 		width: 100%;
-		height: 40px; /* Increased from 32px to make title bar taller */
-		padding: 0 8px;
+		padding: 0 0 0 8px;
+		height: 30px;
 		gap: 8px;
 		background-color: var(--clr-bg-3);
 		user-select: none;
@@ -465,9 +465,8 @@
 	}
 
 	.app-logo {
-		width: 24px;
-		height: 24px;
-		object-fit: contain;
+		width: 16px;
+		height: 16px;
 		border-radius: var(--radius-s);
 	}
 
@@ -518,7 +517,7 @@
 		border-radius: 0;
 		background: transparent;
 		color: var(--clr-text-1);
-		font-size: var(--text-11);
+		font-size: 12px;
 		cursor: pointer;
 		opacity: 0.5;
 		pointer-events: all;
@@ -556,7 +555,7 @@
 
 	.native-control-button:hover {
 		background-color: rgba(255, 255, 255, 0.1);
-	}
+	} 
 
 	.native-control-button.close:hover {
 		background-color: #e81123;
