@@ -453,6 +453,7 @@
 		height: var(--windows-title-bar-height);
 		padding-left: 8px;
 		gap: 8px;
+		border-bottom: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-3);
 		user-select: none;
 	}
@@ -542,26 +543,27 @@
 		background: transparent;
 		color: var(--clr-text-1);
 		cursor: pointer;
-		transition: background-color 0.1s ease;
+		opacity: 0.6;
+		transition:
+			background-color 0.1s,
+			color 0.1s,
+			opacity 0.1s;
 	}
 
 	.native-control-button:hover {
-		background-color: rgba(255, 255, 255, 0.1);
+		/* background-color: var(--clr-scale-ntrl-80); */
+		background-color: var(--clr-bg-3-muted);
+		opacity: 1;
 	}
 
 	.native-control-button.close:hover {
 		background-color: #e81123;
 		color: white;
+		opacity: 1;
 	}
 
 	/* Ensure content doesn't overlap with title bar - only when custom title bar is shown */
 	:global(.app-root.has-custom-titlebar) {
 		padding-top: var(--windows-title-bar-height);
-	}
-
-	/* Dark theme adjustments */
-	:global(.dark) .title-bar {
-		border-bottom-color: var(--clr-border-2);
-		background-color: var(--clr-bg-1);
 	}
 </style>
