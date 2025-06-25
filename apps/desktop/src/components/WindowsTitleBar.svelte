@@ -369,19 +369,13 @@
 					<ContextMenuSection>
 						<ContextMenuItem
 							label="Discord"
-							icon="discord"
 							onclick={() => openExternalUrl('https://discord.com/invite/MmFkmaJ42D')}
 						/>
 						<ContextMenuItem
 							label="YouTube"
-							icon="youtube"
 							onclick={() => openExternalUrl('https://www.youtube.com/@gitbutlerapp')}
 						/>
-						<ContextMenuItem
-							label="X"
-							icon="x"
-							onclick={() => openExternalUrl('https://x.com/gitbutler')}
-						/>
+						<ContextMenuItem label="X" onclick={() => openExternalUrl('https://x.com/gitbutler')} />
 					</ContextMenuSection>
 					<ContextMenuSection>
 						<ContextMenuItem label="Version {appVersion}" disabled onclick={() => {}} />
@@ -551,7 +545,6 @@
 	}
 
 	.native-control-button:hover {
-		/* background-color: var(--clr-scale-ntrl-80); */
 		background-color: var(--clr-bg-3-muted);
 		opacity: 1;
 	}
