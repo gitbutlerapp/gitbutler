@@ -49,14 +49,16 @@
 	const user = userService.user;
 	const shownId = $derived(selectedId || pages[0]!.id);
 	const shownPage = $derived(selectedId ? pages.find((p) => p.id === shownId) : pages[0]);
+
+	const isWithExtraSpace = $derived(platformName === 'macos' && isFullPage);
 </script>
 
-<div class="settings-wrap" class:full-page={isFullPage} class:chrome-page={!isFullPage}>
-	{#if platformName === 'macos' && isFullPage}
+<div class="settings-wrap" class:chrome-page={!isFullPage}>
+	{#if isWithExtraSpace}
 		<div data-tauri-drag-region class="page-drag-bar"></div>
 	{/if}
 	<div class="settings-sidebar">
-		<div class="settings-sidebar__title">
+		<div class="settings-sidebar__title" class:top-margin={isWithExtraSpace}>
 			{#if onclose}
 				<Button icon="chevron-left" kind="ghost" onclick={onclose} />
 			{/if}
@@ -116,12 +118,6 @@
 			border: 1px solid var(--clr-border-2);
 			border-radius: var(--radius-ml);
 		}
-
-		&.full-page {
-			& .settings-sidebar__title {
-				margin-top: 32px;
-			}
-		}
 	}
 
 	.settings-sidebar {
@@ -129,7 +125,7 @@
 		flex-direction: column;
 		width: 100%;
 		max-width: 250px;
-		padding: 20px 12px 12px 12px;
+		padding: 16px 12px 12px 12px;
 		border-right: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
 	}
@@ -140,6 +136,10 @@
 
 		& h3 {
 			margin-left: 8px;
+		}
+
+		&.top-margin {
+			margin-top: 32px;
 		}
 	}
 
