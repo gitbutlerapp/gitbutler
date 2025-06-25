@@ -371,7 +371,7 @@
 						<p class="text-13 text-body">
 							This repository is already added to GitButler as a local project.
 						</p>
-						
+
 						<div class="open-project-modal-badges">
 							<div class="repo-badge github-badge">
 								<Icon name="github" size={12} />
@@ -385,10 +385,8 @@
 								<span>{selectedExistingProject.title}</span>
 							</div>
 						</div>
-						
-						<p class="text-13 text-body">
-							Would you like to open this project now?
-						</p>
+
+						<p class="text-13 text-body">Would you like to open this project now?</p>
 					</div>
 				</div>
 			</div>
@@ -639,46 +637,46 @@
 
 	.open-project-modal-badges {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
 		justify-content: center;
 		margin: 16px 0;
 		gap: 8px;
-		flex-wrap: wrap;
 	}
 
 	.repo-badge {
 		display: inline-flex;
 		align-items: center;
+		min-width: fit-content;
+		max-width: 120px;
 		padding: 4px 8px;
+		overflow: hidden;
 		gap: 4px;
 		border-radius: 12px;
 		font-weight: 500;
 		font-size: 11px;
-		white-space: nowrap;
-		min-width: fit-content;
-		max-width: 120px;
-		overflow: hidden;
 		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.github-badge {
+		border: 1px solid var(--clr-theme-pop-element);
 		background-color: var(--clr-theme-pop-element);
 		color: var(--clr-theme-pop-on-element);
-		border: 1px solid var(--clr-theme-pop-element);
 	}
 
 	.local-badge {
+		border: 1px solid var(--clr-theme-succ-element);
 		background-color: var(--clr-theme-succ-element);
 		color: var(--clr-theme-succ-on-element);
-		border: 1px solid var(--clr-theme-succ-element);
 	}
 
 	.badge-arrow {
 		display: flex;
+		flex-shrink: 0;
 		align-items: center;
 		color: var(--clr-text-3);
 		opacity: 0.6;
-		flex-shrink: 0;
 	}
 
 	.open-project-modal-footer {
