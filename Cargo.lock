@@ -749,7 +749,9 @@ dependencies = [
  "but-db",
  "but-graph",
  "but-hunk-assignment",
+ "but-hunk-dependency",
  "but-settings",
+ "but-tools",
  "but-workspace",
  "chrono",
  "gitbutler-branch",
@@ -965,6 +967,27 @@ dependencies = [
  "gix",
  "gix-testtools",
  "termtree",
+]
+
+[[package]]
+name = "but-tools"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "async-openai",
+ "but-core",
+ "but-graph",
+ "but-workspace",
+ "futures",
+ "gitbutler-branch",
+ "gitbutler-branch-actions",
+ "gitbutler-command-context",
+ "gitbutler-oplog",
+ "gix",
+ "schemars 0.9.0",
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]

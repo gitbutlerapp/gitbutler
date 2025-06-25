@@ -1,7 +1,21 @@
+use std::ops::Deref;
+
 use anyhow::{Context, Result};
-use async_openai::{Client, config::OpenAIConfig};
+use async_openai::{
+    Client,
+    config::OpenAIConfig,
+    types::{
+        ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage,
+        ChatCompletionRequestUserMessage, CreateChatCompletionRequestArgs, ResponseFormat,
+        ResponseFormatJsonSchema,
+    },
+};
+
+use but_tools::tool::Toolset;
 use gitbutler_secret::{Sensitive, secret};
 use reqwest::header::{HeaderMap, HeaderValue};
+use schemars::{JsonSchema, schema_for};
+use serde::de::DeserializeOwned;
 
 #[allow(unused)]
 #[derive(Debug, Clone, serde::Serialize, strum::Display)]
@@ -98,4 +112,179 @@ impl OpenAiProvider {
         );
         Ok((CredentialsKind::EnvVarOpenAiKey, creds))
     }
+}
+
+#[allow(dead_code)]
+pub fn structured_output_blocking<
+    T: serde::Serialize + DeserializeOwned + JsonSchema + std::marker::Send + 'static,
+>(
+    openai: &OpenAiProvider,
+    messages: Vec<ChatCompletionRequestMessage>,
+) -> anyhow::Result<Option<T>> {
+    let client = openai.client()?;
+    let messages_owned = messages.clone();
+
+    std::thread::spawn(move || {
+        tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(structured_output::<T>(&client, messages_owned))
+    })
+    .join()
+    .unwrap()
+}
+
+#[allow(dead_code)]
+pub async fn structured_output<T: serde::Serialize + DeserializeOwned + JsonSchema>(
+    client: &Client<OpenAIConfig>,
+    messages: Vec<ChatCompletionRequestMessage>,
+) -> anyhow::Result<Option<T>> {
+    let schema = schema_for!(T);
+    let schema_value = serde_json::to_value(&schema)?;
+    let response_format = ResponseFormat::JsonSchema {
+        json_schema: ResponseFormatJsonSchema {
+            description: None,
+            name: "structured_response".into(),
+            schema: Some(schema_value),
+            strict: Some(false),
+        },
+    };
+
+    let request = CreateChatCompletionRequestArgs::default()
+        .model("gpt-4.1-mini")
+        .messages(messages)
+        .response_format(response_format)
+        .build()?;
+
+    let response = client.chat().create(request).await?;
+
+    for choice in response.choices {
+        if let Some(content) = choice.message.content {
+            return Ok(Some(serde_json::from_str::<T>(&content)?));
+        }
+    }
+
+    Ok(None)
+}
+
+#[allow(dead_code)]
+pub fn tool_calling_blocking(
+    client: &OpenAiProvider,
+    messages: Vec<ChatCompletionRequestMessage>,
+    tools: Vec<async_openai::types::ChatCompletionTool>,
+) -> anyhow::Result<async_openai::types::CreateChatCompletionResponse> {
+    let client = client.client()?;
+    let messages_owned = messages.clone();
+    let tools_owned = tools.clone();
+
+    std::thread::spawn(move || {
+        tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(tool_calling(&client, messages_owned, tools_owned))
+    })
+    .join()
+    .unwrap()
+}
+
+#[allow(dead_code)]
+pub async fn tool_calling(
+    client: &Client<OpenAIConfig>,
+    messages: Vec<ChatCompletionRequestMessage>,
+    tools: Vec<async_openai::types::ChatCompletionTool>,
+) -> anyhow::Result<async_openai::types::CreateChatCompletionResponse> {
+    let request = CreateChatCompletionRequestArgs::default()
+        .model("gpt-4.1-mini")
+        .messages(messages.clone())
+        .tools(tools)
+        .build()?;
+
+    let response = client.chat().create(request).await?;
+
+    Ok(response)
+}
+
+#[allow(dead_code)]
+pub fn tool_calling_loop(
+    provider: &OpenAiProvider,
+    system_message: &str,
+    prompt: &str,
+    tool_set: &mut Toolset,
+) -> anyhow::Result<async_openai::types::CreateChatCompletionResponse> {
+    let mut messages = vec![
+        ChatCompletionRequestSystemMessage::from(system_message).into(),
+        ChatCompletionRequestUserMessage::from(prompt).into(),
+    ];
+
+    let open_ai_tools = tool_set
+        .list()
+        .iter()
+        .map(|t| t.deref().try_into())
+        .collect::<Result<Vec<async_openai::types::ChatCompletionTool>, _>>()?;
+
+    let mut response =
+        crate::openai::tool_calling_blocking(provider, messages.clone(), open_ai_tools.clone())?;
+
+    while let Some(tool_calls) = response
+        .choices
+        .first()
+        .and_then(|choice| choice.message.tool_calls.as_ref())
+    {
+        let mut tool_calls_messages: Vec<async_openai::types::ChatCompletionMessageToolCall> =
+            vec![];
+        let mut tool_response_messages: Vec<async_openai::types::ChatCompletionRequestMessage> =
+            vec![];
+
+        for call in tool_calls {
+            let function_name = call.function.name.clone();
+            let function_args = call.function.arguments.clone();
+
+            let tool_response = tool_set
+                .call_tool(&function_name, &function_args)
+                .with_context(|| {
+                    format!(
+                        "Failed to call tool {} with arguments {}",
+                        function_name, function_args
+                    )
+                })?;
+
+            let tool_response_str = serde_json::to_string(&tool_response)
+                .context("Failed to serialize tool response")?;
+
+            tool_calls_messages.push(async_openai::types::ChatCompletionMessageToolCall {
+                id: call.id.clone(),
+                r#type: async_openai::types::ChatCompletionToolType::Function,
+                function: async_openai::types::FunctionCall {
+                    name: function_name,
+                    arguments: function_args,
+                },
+            });
+
+            tool_response_messages.push(async_openai::types::ChatCompletionRequestMessage::Tool(
+                async_openai::types::ChatCompletionRequestToolMessage {
+                    tool_call_id: call.id.clone(),
+                    content: async_openai::types::ChatCompletionRequestToolMessageContent::Text(
+                        tool_response_str,
+                    ),
+                },
+            ));
+        }
+
+        messages.push(
+            async_openai::types::ChatCompletionRequestMessage::Assistant(
+                async_openai::types::ChatCompletionRequestAssistantMessage {
+                    tool_calls: Some(tool_calls_messages),
+                    ..Default::default()
+                },
+            ),
+        );
+
+        messages.extend(tool_response_messages);
+
+        response = crate::openai::tool_calling_blocking(
+            provider,
+            messages.clone(),
+            open_ai_tools.clone(),
+        )?;
+    }
+
+    Ok(response)
 }

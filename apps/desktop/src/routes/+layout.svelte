@@ -17,6 +17,7 @@
 	import ToastController from '$components/ToastController.svelte';
 	import WindowsTitleBar from '$components/WindowsTitleBar.svelte';
 	import ZoomInOutMenuAction from '$components/ZoomInOutMenuAction.svelte';
+	import { ActionService } from '$lib/actions/actionService.svelte';
 	import { PromptService as AIPromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
@@ -44,6 +45,7 @@
 	import { OplogService } from '$lib/history/oplogService.svelte';
 	import { HooksService } from '$lib/hooks/hooksService';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
+	import { IntelligentScrollingService } from '$lib/intelligentScrolling/service';
 	import { IrcClient } from '$lib/irc/ircClient.svelte';
 	import { IrcService } from '$lib/irc/ircService.svelte';
 	import { platformName } from '$lib/platform/platform';
@@ -88,7 +90,6 @@
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
 	import { env } from '$env/dynamic/public';
-
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
 
 	const userSettings = loadUserSettings();
@@ -147,8 +148,11 @@
 		clientState.dispatch
 	);
 	setContext(UiState, uiState);
+	const intelligentScrollingService = new IntelligentScrollingService(uiState);
+	setContext(IntelligentScrollingService, intelligentScrollingService);
 
 	const stackService = new StackService(clientState['backendApi'], forgeFactory, uiState);
+	const actionService = new ActionService(clientState['backendApi']);
 	const oplogService = new OplogService(clientState['backendApi']);
 	const baseBranchService = new BaseBranchService(clientState.backendApi);
 	const worktreeService = new WorktreeService(clientState);
@@ -230,6 +234,7 @@
 	setContext(StackingLineManagerFactory, data.stackingLineManagerFactory);
 	setContext(AppSettings, data.appSettings);
 	setContext(StackService, stackService);
+	setContext(ActionService, actionService);
 	setContext(OplogService, oplogService);
 	setContext(BaseBranchService, baseBranchService);
 	setContext(UpstreamIntegrationService, upstreamIntegrationService);

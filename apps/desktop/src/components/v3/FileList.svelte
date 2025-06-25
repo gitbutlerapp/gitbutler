@@ -3,34 +3,19 @@
 	import LazyloadContainer from '$components/LazyloadContainer.svelte';
 	import FileListItemWrapper from '$components/v3/FileListItemWrapper.svelte';
 	import FileTreeNode from '$components/v3/FileTreeNode.svelte';
-	import DiffInputContext from '$lib/ai/diffInputContext.svelte';
-	import AIMacros from '$lib/ai/macros.svelte';
-	import { PromptService } from '$lib/ai/promptService';
+	import { ActionService } from '$lib/actions/actionService.svelte';
 	import { AIService } from '$lib/ai/service';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
 	import { abbreviateFolders, changesToFileTree, sortLikeFileTree } from '$lib/files/filetreeV3';
-	import {
-		type TreeChange,
-		type Modification,
-		previousPathBytesFromTreeChange
-	} from '$lib/hunks/change';
-	import { DiffService } from '$lib/hunks/diffService.svelte';
+	import { type TreeChange, type Modification } from '$lib/hunks/change';
 	import { showToast } from '$lib/notifications/toasts';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { selectFilesInList, updateSelection } from '$lib/selection/idSelectionUtils';
 	import { type SelectionId } from '$lib/selection/key';
-	import StackMacros from '$lib/stacks/macros';
-	import {
-		StackService,
-		type CreateCommitRequestWorktreeChanges
-	} from '$lib/stacks/stackService.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
 	import { chunk } from '$lib/utils/array';
-	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
-	import type { DiffInputContextArgs } from '$lib/ai/diffInputContext.svelte';
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
 
 	type Props = {
@@ -59,48 +44,24 @@
 		onselect
 	}: Props = $props();
 
-	const [
-		stackService,
-		uiState,
-		idSelection,
-		aiService,
-		promptService,
-		diffService,
-		worktreeService
-	] = inject(
-		StackService,
-		UiState,
-		IdSelection,
-		AIService,
-		PromptService,
-		DiffService,
-		WorktreeService
-	);
+	const [idSelection, aiService, actionService] = inject(IdSelection, AIService, ActionService);
 
+	const [autoCommit] = actionService.autoCommit;
 	let currentDisplayIndex = $state(0);
 
 	const sortedChanges = $derived(sortLikeFileTree(changes));
 	const fileChunks: TreeChange[][] = $derived(chunk(sortedChanges, 100));
 	const visibleFiles: TreeChange[] = $derived(fileChunks.slice(0, currentDisplayIndex + 1).flat());
+	let aiConfigurationValid = $state(false);
 
-	const selectedFiles = $derived(idSelection.values(selectionId));
-
-	const diffInputArgs = $derived<DiffInputContextArgs>({
-		type: 'file-selection',
-		projectId,
-		selectedFiles,
-		changes
-	});
-
-	const stackMacros = $derived(new StackMacros(projectId, stackService, uiState));
-	const diffInputContext = $derived(
-		new DiffInputContext(worktreeService, diffService, stackService, diffInputArgs)
-	);
-	const aiMacros = $derived(new AIMacros(projectId, aiService, promptService, diffInputContext));
 	const aiGenEnabled = $derived(projectAiGenEnabled(projectId));
 
+	const canUseGBAI = $derived(aiGenEnabled && aiConfigurationValid);
+
 	$effect(() => {
-		aiMacros.setGenAIEnabled($aiGenEnabled);
+		aiService.validateGitButlerAPIConfiguration().then((value) => {
+			aiConfigurationValid = value;
+		});
 	});
 
 	/**
@@ -112,9 +73,9 @@
 	 *
 	 * - Anonymous
 	 */
-	async function branchChanges() {
+	async function autoCommitSelection() {
 		const selectedFiles = idSelection.values(selectionId);
-		if (selectionId.type !== 'worktree' || selectedFiles.length === 0) return;
+		if (selectionId.type !== 'worktree' || selectedFiles.length === 0 || !canUseGBAI) return;
 
 		showToast({
 			style: 'neutral',
@@ -122,39 +83,25 @@
 			message: 'This may take a few seconds.'
 		});
 
-		const selectedChanges: CreateCommitRequestWorktreeChanges[] = [];
 		const treeChanges = changes.filter((change) =>
 			selectedFiles.some((file) => file.path === change.path)
 		);
-		for (const file of selectedFiles) {
-			const change = treeChanges.find((c) => c.path === file.path);
-			if (!change) continue;
-			const previousPathBytes = previousPathBytesFromTreeChange(change);
-			selectedChanges.push({
-				pathBytes: change.pathBytes,
-				previousPathBytes,
-				hunkHeaders: []
-			});
-		}
 
-		const { branchName, commitMessage } = await aiMacros.getBranchNameAndCommitMessage();
-
-		await stackMacros.branchChanges({
-			worktreeChanges: selectedChanges,
-			commitMessage,
-			branchName
+		await autoCommit({
+			projectId,
+			changes: treeChanges
 		});
 
 		showToast({
 			style: 'success',
 			title: 'Branch and commit created successfully.',
-			message: `Branch name: ${branchName}`
+			message: `Now, you're free to continue`
 		});
 	}
 
 	function handleKeyDown(e: KeyboardEvent) {
 		if (e.code === 'KeyB' && (e.ctrlKey || e.metaKey) && e.altKey) {
-			branchChanges();
+			autoCommitSelection();
 			e.preventDefault();
 			return;
 		}

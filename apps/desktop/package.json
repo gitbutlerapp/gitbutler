@@ -92,7 +92,6 @@
 	"dependencies": {
 		"@gitbeaker/rest": "^42.2.0",
 		"@tauri-apps/plugin-clipboard-manager": "^2.2.2",
-		"@types/redux-persist": "^4.3.1",
 		"dayjs": "^1.11.13",
 		"ollama": "^0.5.15",
 		"openai": "^4.87.3",

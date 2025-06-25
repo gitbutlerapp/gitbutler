@@ -804,18 +804,6 @@
 			&:checked {
 				border-color: var(--clr-scale-pop-70);
 				background-color: var(--clr-scale-pop-70);
-
-				&::after {
-					position: absolute;
-					top: 2px;
-					left: 5px;
-					width: 4px;
-					height: 8px;
-					transform: rotate(45deg);
-					border: solid white;
-					border-width: 0 2px 2px 0;
-					content: '';
-				}
 			}
 
 			&:disabled {
