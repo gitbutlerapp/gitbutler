@@ -13,9 +13,6 @@ describe('Review', () => {
 		mockCommand('changes_in_branch', (args) => mockBackend.getBranchChanges(args));
 		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
 		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
-		mockCommand('hunk_dependencies_for_workspace_changes', (params) =>
-			mockBackend.getHunkDependencies(params)
-		);
 		mockCommand('get_base_branch_data', () => mockBackend.getBaseBranchData());
 		mockCommand('get_available_review_templates', () => mockBackend.getAvailableReviewTemplates());
 		mockCommand('push_stack', (params) => mockBackend.pushStack(params));

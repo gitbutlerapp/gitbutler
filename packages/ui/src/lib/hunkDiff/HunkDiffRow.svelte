@@ -110,7 +110,7 @@
 	});
 
 	const locked = $derived(row.locks !== undefined && row.locks.length > 0);
-	const clickable = $derived(isClickable && !locked);
+	const clickable = $derived(isClickable);
 </script>
 
 {#snippet countColumn(side: CountColumnSide)}
@@ -130,9 +130,9 @@
 		class:locked
 		style="--staging-column-width: {stagingColumnWidth}px; --number-col-width: {minWidth}rem;"
 		class:stagable={staged !== undefined && !hideCheckboxes}
-		onmousedown={(ev) => !locked && lineSelection.onStart(ev, row, idx)}
-		onmouseenter={(ev) => !locked && lineSelection.onMoveOver(ev, row, idx)}
-		onmouseup={() => !locked && lineSelection.onEnd()}
+		onmousedown={(ev) => lineSelection.onStart(ev, row, idx)}
+		onmouseenter={(ev) => lineSelection.onMoveOver(ev, row, idx)}
+		onmouseup={() => lineSelection.onEnd()}
 		oncontextmenu={(ev) => {
 			ev.preventDefault();
 			ev.stopPropagation();
@@ -170,9 +170,9 @@
 			class:is-last={row.isLast}
 			class:staged={staged && deltaLine}
 			class:locked
-			onmousedown={(ev) => !locked && lineSelection.onStart(ev, row, idx)}
-			onmouseenter={(ev) => !locked && lineSelection.onMoveOver(ev, row, idx)}
-			onmouseup={() => !locked && lineSelection.onEnd()}
+			onmousedown={(ev) => lineSelection.onStart(ev, row, idx)}
+			onmouseenter={(ev) => lineSelection.onMoveOver(ev, row, idx)}
+			onmouseup={() => lineSelection.onEnd()}
 			oncontextmenu={(ev) => {
 				ev.preventDefault();
 				ev.stopPropagation();
@@ -430,6 +430,11 @@
 			border-color: var(--clr-diff-locked-count-border);
 			background-color: var(--clr-diff-locked-count-bg);
 			color: var(--clr-diff-locked-count-text);
+			&.staged {
+				border-color: var(--clr-diff-locked-count-border);
+				background-color: var(--clr-scale-warn-60);
+				color: var(--clr-scale-warn-30);
+			}
 		}
 	}
 

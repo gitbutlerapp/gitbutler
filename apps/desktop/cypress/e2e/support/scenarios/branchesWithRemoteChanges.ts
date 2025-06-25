@@ -24,6 +24,7 @@ const MOCK_STACK_B_ID = 'stack-b-id';
 const MOCK_STACK_C_ID = 'stack-c-id';
 
 const MOCK_STACK_A: Stack = {
+	order: 0,
 	id: MOCK_STACK_A_ID,
 	heads: [{ name: MOCK_STACK_A_ID, tip: '1234123' }],
 	tip: '1234123'
@@ -60,6 +61,7 @@ const MOCK_STACK_DETAILS_A = createMockStackDetails({
 });
 
 const MOCK_STACK_B: Stack = {
+	order: 1,
 	id: MOCK_STACK_B_ID,
 	heads: [{ name: MOCK_STACK_B_ID, tip: '1234123' }],
 	tip: '1234123'
@@ -84,6 +86,7 @@ const MOCK_STACK_DETAILS_B = createMockStackDetails({
 });
 
 const MOCK_STACK_C: Stack = {
+	order: 2,
 	id: MOCK_STACK_C_ID,
 	heads: [{ name: MOCK_STACK_C_ID, tip: '1234123' }],
 	tip: '1234123'
@@ -176,7 +179,12 @@ export default class BranchesWithRemoteChanges extends MockBackend {
 			changes: MOCK_UNCOMMITTED_CHANGES,
 			ignoredChanges: [],
 			assignments: [],
-			assignmentsError: null
+			assignmentsError: null,
+			dependencies: {
+				diffs: MOCK_DIFF_DEPENDENCY,
+				errors: []
+			},
+			dependenciesError: null
 		};
 
 		this.stacks = [MOCK_STACK_A, MOCK_STACK_B, MOCK_STACK_C];
@@ -198,10 +206,6 @@ export default class BranchesWithRemoteChanges extends MockBackend {
 		this.branchChanges.set(MOCK_STACK_C_ID, stackCChanges);
 
 		this.unifiedDiffs.set(MOCK_FILE_D, MOCK_FILE_D_MODIFICATION);
-		this.hunkDependencies = {
-			diffs: MOCK_DIFF_DEPENDENCY,
-			errors: []
-		};
 	}
 
 	public integrateUpstreamCommits(args: InvokeArgs | undefined) {

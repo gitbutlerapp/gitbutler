@@ -13,12 +13,14 @@ const MOCK_STACK_B_ID = 'stack-b-id';
 const MOCK_STACK_C_ID = 'stack-c-id';
 
 const MOCK_STACK_A: Stack = {
+	order: 0,
 	id: MOCK_STACK_A_ID,
 	heads: [{ name: MOCK_STACK_A_ID, tip: '1234123' }],
 	tip: '1234123'
 };
 
 const MOCK_STACK_B: Stack = {
+	order: 1,
 	id: MOCK_STACK_B_ID,
 	heads: [
 		{ name: MOCK_STACK_B_ID, tip: '1234123' },
@@ -28,6 +30,7 @@ const MOCK_STACK_B: Stack = {
 };
 
 const MOCK_STACK_C: Stack = {
+	order: 2,
 	id: MOCK_STACK_C_ID,
 	heads: [
 		{ name: MOCK_STACK_C_ID, tip: '1234123' },

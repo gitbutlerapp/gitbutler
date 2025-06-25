@@ -40,7 +40,6 @@ import {
 import { MOCK_BRANCH_STATUSES_RESPONSE, MOCK_INTEGRATION_OUTCOME } from './upstreamIntegration';
 import type { BranchListing } from '$lib/branches/branchListing';
 import type { Commit } from '$lib/branches/v3';
-import type { HunkDependencies } from '$lib/dependencies/dependencies';
 import type { TreeChange, TreeChanges, WorktreeChanges } from '$lib/hunks/change';
 import type { UnifiedDiff } from '$lib/hunks/diff';
 import type { HunkAssignment } from '$lib/hunks/hunk';
@@ -69,7 +68,6 @@ export default class MockBackend {
 	protected branchChanges: Map<StackId, BranchChanges>;
 	protected worktreeChanges: WorktreeChanges;
 	protected unifiedDiffs: Map<string, UnifiedDiff>;
-	protected hunkDependencies: HunkDependencies;
 	protected branchListings: BranchListing[];
 	protected baseBranchCommits: Commit[];
 
@@ -88,13 +86,14 @@ export default class MockBackend {
 			changes: [MOCK_TREE_CHANGE_A],
 			ignoredChanges: [],
 			assignments: [],
-			assignmentsError: null
+			assignmentsError: null,
+			dependencies: {
+				diffs: [],
+				errors: []
+			},
+			dependenciesError: null
 		};
 		this.unifiedDiffs = new Map<string, UnifiedDiff>();
-		this.hunkDependencies = {
-			diffs: [],
-			errors: []
-		};
 
 		this.branchListings = MOCK_BRANCH_LISTINGS;
 		this.branchListing = MOCK_BRANCH_LISTINGS[0]!;
@@ -486,13 +485,6 @@ export default class MockBackend {
 	): string[] {
 		const changes = this.getBranchChanges({ projectId, stackId, branchName });
 		return changes.changes.map((change) => change.path).map((path) => path.split('/').pop()!);
-	}
-
-	public getHunkDependencies(args: InvokeArgs | undefined): HunkDependencies {
-		if (!args) {
-			throw new Error('Invalid arguments for getHunkDependencies');
-		}
-		return this.hunkDependencies;
 	}
 
 	public listBranches(args: InvokeArgs | undefined): BranchListing[] {

@@ -6,6 +6,7 @@ const MOCK_STACK_A_ID = 'stack-a-id';
 const OTHER_HEADER_NAME = 'other-header-name';
 
 const MOCK_STACK_A: Stack = {
+	order: 0,
 	id: MOCK_STACK_A_ID,
 	heads: [
 		{ name: MOCK_STACK_A_ID, tip: '1234123' },
