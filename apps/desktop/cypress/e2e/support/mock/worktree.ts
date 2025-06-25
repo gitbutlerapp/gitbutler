@@ -4,5 +4,10 @@ export const MOCK_WORKTREE_CHANGES: WorktreeChanges = {
 	changes: [],
 	ignoredChanges: [],
 	assignments: [],
-	assignmentsError: null
+	assignmentsError: null,
+	dependencies: {
+		diffs: [],
+		errors: []
+	},
+	dependenciesError: null
 };

@@ -112,11 +112,6 @@ export type HunkAssignment = {
 	readonly pathBytes: number[];
 	/** The stack to which the hunk is assigned. If None, the hunk is not assigned to any stack (i.e. it belongs in the unassigned area */
 	readonly stackId: string | null;
-	/**
-	 * The dependencies(locks) that the hunk assignment (and the underlying hunk) has.
-	 * This determines where the hunk can be assigned.
-	 */
-	readonly hunkLocks: HunkLock[] | null;
 	/** The line numbers that were added in this hunk. The "after" or "new" line numbers.*/
 	readonly lineNumsAdded: number[] | null;
 	/** The line numbers that were removed in this hunk. The "before" or "old" line numbers.*/
@@ -423,14 +418,9 @@ export function hunkContainsLine(hunk: DiffHunk, line: LineId): boolean {
  * Get the line locks for a hunk.
  */
 export function getLineLocks(
-	excludeStackId: string | undefined,
 	hunk: DiffHunk,
 	locks: HunkLocks[]
 ): [boolean, LineLock[] | undefined] {
-	if (excludeStackId === undefined) {
-		return [false, undefined];
-	}
-
 	const lineLocks: LineLock[] = [];
 	const parsedHunk = memoizedParseHunk(hunk.diff);
 
@@ -449,17 +439,6 @@ export function getLineLocks(
 
 			const hunkLocks = locksContained.filter((lock) => hunkContainsLine(lock.hunk, lineId));
 			if (hunkLocks.length === 0) {
-				hunkIsFullyLocked = false;
-				continue;
-			}
-
-			// Filter out locks to the current stack ID
-			const locks = hunkLocks
-				.map((lock) => lock.locks)
-				.flat()
-				.filter((lock) => lock.stackId !== excludeStackId);
-
-			if (locks.length === 0) {
 				hunkIsFullyLocked = false;
 				continue;
 			}

@@ -645,7 +645,12 @@ export default class ComplexHunks extends MockBackend {
 			changes: MOCK_UNCOMMITTED_CHANGES,
 			ignoredChanges: [],
 			assignments: [],
-			assignmentsError: null
+			assignmentsError: null,
+			dependencies: {
+				diffs: [],
+				errors: []
+			},
+			dependenciesError: null
 		};
 
 		this.stacks = [MOCK_STACK_A, MOCK_STACK_B];
@@ -663,11 +668,6 @@ export default class ComplexHunks extends MockBackend {
 
 		this.unifiedDiffs.set(MOCK_FILE_D, MOCK_FILE_D_MODIFICATION);
 		this.unifiedDiffs.set(MOCK_FILE_J, MOCK_FILE_J_MODIFICATION);
-
-		this.hunkDependencies = {
-			diffs: [],
-			errors: []
-		};
 	}
 
 	getCommitTitle(stackId: string): string {

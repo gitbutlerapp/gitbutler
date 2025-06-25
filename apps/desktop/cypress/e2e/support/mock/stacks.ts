@@ -5,6 +5,7 @@ import type { BranchDetails, Stack, StackDetails } from '$lib/stacks/stack';
 export const MOCK_STACK_A_ID = '1234-123';
 
 export const MOCK_STACK_A: Stack = {
+	order: 0,
 	id: MOCK_STACK_A_ID,
 	heads: [
 		{
@@ -20,6 +21,7 @@ export const MOCK_BRAND_NEW_BRANCH_NAME = 'super-cool-branch-name';
 export const MOCK_STACK_BRAND_NEW_ID = 'empty-stack';
 
 export const MOCK_STACK_BRAND_NEW: Stack = {
+	order: 1,
 	id: MOCK_STACK_BRAND_NEW_ID,
 	heads: [
 		{

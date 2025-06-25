@@ -24,9 +24,6 @@ describe('Error handling - commit actions', () => {
 		mockCommand('undo_commit', () => {
 			throw new Error(COMMIT_UNDO_ERROR_MESSAGE);
 		});
-		mockCommand('hunk_dependencies_for_workspace_changes', (params) =>
-			mockBackend.getHunkDependencies(params)
-		);
 		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
 
 		cy.visit('/');

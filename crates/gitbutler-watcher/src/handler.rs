@@ -2,6 +2,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use crate::Change;
 use anyhow::{Context, Result};
+use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_branch_actions::{internal::StackListResult, VirtualBranches};
 use gitbutler_command_context::CommandContext;
@@ -159,16 +160,37 @@ impl Handler {
     }
 
     fn emit_worktree_changes(&self, ctx: &mut CommandContext) -> Result<()> {
-        let detailed_changes = but_core::diff::worktree_changes(&ctx.gix_repo()?)?;
-        let (assignments, assignments_error) = but_hunk_assignment::assignments_with_fallback(
+        let changes = but_core::diff::worktree_changes(&ctx.gix_repo()?)?;
+
+        let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
             ctx,
-            false,
-            Some(detailed_changes.changes.clone()),
-        )?;
+            &ctx.project().path,
+            &ctx.project().gb_dir(),
+            Some(changes.changes.clone()),
+        );
+
+        let (assignments, assignments_error) = match &dependencies {
+            Ok(dependencies) => but_hunk_assignment::assignments_with_fallback(
+                ctx,
+                false,
+                Some(changes.changes.clone()),
+                Some(dependencies),
+            )?,
+            Err(e) => (
+                vec![],
+                Some(anyhow::anyhow!("failed to get hunk dependencies: {}", e)),
+            ),
+        };
+
         let changes = but_hunk_assignment::WorktreeChanges {
-            worktree_changes: detailed_changes.into(),
+            worktree_changes: changes.into(),
             assignments,
             assignments_error: assignments_error.map(|err| serde_error::Error::new(&*err)),
+            dependencies: dependencies.as_ref().ok().cloned(),
+            dependencies_error: dependencies
+                .as_ref()
+                .err()
+                .map(|err| serde_error::Error::new(&**err)),
         };
         let _ = self.emit_app_event(Change::WorktreeChanges {
             project_id: ctx.project().id,

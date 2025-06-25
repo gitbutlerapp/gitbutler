@@ -70,7 +70,7 @@ fn wt_assignments(ctx: &mut CommandContext) -> anyhow::Result<Vec<HunkAssignment
     let changes =
         but_core::diff::ui::worktree_changes_by_worktree_dir(ctx.project().path.clone())?.changes;
     let (assignments, _assignments_error) =
-        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()))?;
+        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
     Ok(assignments)
 }
 

@@ -3400,6 +3400,7 @@ dependencies = [
  "anyhow",
  "but-core",
  "but-hunk-assignment",
+ "but-hunk-dependency",
  "but-settings",
  "gitbutler-branch-actions",
  "gitbutler-command-context",

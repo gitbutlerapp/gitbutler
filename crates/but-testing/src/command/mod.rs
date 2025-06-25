@@ -139,6 +139,7 @@ pub mod assignment {
             ctx,
             false,
             None::<Vec<but_core::TreeChange>>,
+            None,
         )?;
         if use_json {
             let json = serde_json::to_string_pretty(&assignments)?;
@@ -156,7 +157,7 @@ pub mod assignment {
     ) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
         let ctx = &mut CommandContext::open(&project, AppSettings::default())?;
-        let rejections = but_hunk_assignment::assign(ctx, vec![assignment])?;
+        let rejections = but_hunk_assignment::assign(ctx, vec![assignment], None)?;
         if use_json {
             let json = serde_json::to_string_pretty(&rejections)?;
             println!("{json}");

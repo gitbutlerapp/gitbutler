@@ -104,6 +104,7 @@ fn handle_changes_simple_inner(
         ctx,
         true,
         None::<Vec<but_core::TreeChange>>,
+        None,
     )
     .map_err(|err| serde_error::Error::new(&*err))?;
     if assignments.is_empty() {

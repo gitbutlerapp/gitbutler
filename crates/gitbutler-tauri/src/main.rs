@@ -293,7 +293,6 @@ fn main() {
                     workspace::stacks,
                     workspace::stack_details,
                     workspace::branch_details,
-                    workspace::hunk_dependencies_for_workspace_changes,
                     workspace::create_commit_from_worktree_changes,
                     workspace::amend_commit_from_worktree_changes,
                     workspace::discard_worktree_changes,
