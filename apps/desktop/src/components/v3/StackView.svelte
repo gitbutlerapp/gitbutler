@@ -231,7 +231,8 @@
 			<ReduxResult {projectId} result={branchesResult.current}>
 				{#snippet children(branches)}
 					<ConfigurableScrollableContainer>
-						{#if startCommitVisible.current}
+						<!-- If we are currently committing, we should keep this open so users can actually stop committing again :wink: -->
+						{#if startCommitVisible.current || isCommitting}
 							<div
 								class="assignments-wrap"
 								class:assignments__empty={changes.current.length === 0 && !isCommitting}
