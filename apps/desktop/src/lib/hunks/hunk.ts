@@ -112,11 +112,6 @@ export type HunkAssignment = {
 	readonly pathBytes: number[];
 	/** The stack to which the hunk is assigned. If None, the hunk is not assigned to any stack (i.e. it belongs in the unassigned area */
 	readonly stackId: string | null;
-	/**
-	 * The dependencies(locks) that the hunk assignment (and the underlying hunk) has.
-	 * This determines where the hunk can be assigned.
-	 */
-	readonly hunkLocks: HunkLock[] | null;
 	/** The line numbers that were added in this hunk. The "after" or "new" line numbers.*/
 	readonly lineNumsAdded: number[] | null;
 	/** The line numbers that were removed in this hunk. The "before" or "old" line numbers.*/

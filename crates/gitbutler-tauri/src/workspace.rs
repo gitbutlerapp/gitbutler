@@ -5,13 +5,8 @@ use crate::from_json::HexHash;
 use crate::virtual_branches::commands::emit_vbranches;
 use crate::WindowState;
 use anyhow::Context;
-use but_core::ui::TreeChange;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_hunk_assignment::HunkAssignmentRequest;
-use but_hunk_dependency::ui::{
-    hunk_dependencies_for_changes, hunk_dependencies_for_workspace_changes_by_worktree_dir,
-    HunkDependencies,
-};
 use but_settings::AppSettingsWithDiskSync;
 use but_workspace::commit_engine::StackSegmentId;
 use but_workspace::MoveChangesResult;
@@ -100,44 +95,6 @@ pub fn branch_details(
 
 fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMetadata> {
     VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))
-}
-
-/// Retrieve all changes in the workspace and associate them with commits in the Workspace of `project_id`.
-/// NOTE: right now there is no way to keep track of unassociated hunks.
-#[tauri::command(async)]
-#[instrument(skip(projects, settings), err(Debug))]
-pub fn hunk_dependencies_for_workspace_changes(
-    projects: State<'_, projects::Controller>,
-    settings: State<'_, AppSettingsWithDiskSync>,
-    project_id: ProjectId,
-) -> Result<HunkDependencies, Error> {
-    let project = projects.get(project_id)?;
-    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
-        &ctx,
-        &project.path,
-        &project.gb_dir(),
-        None,
-    )?;
-    Ok(dependencies)
-}
-
-/// Retrieve the hunk dependencies for a given set of changes.
-#[tauri::command(async)]
-#[instrument(skip(projects, settings), err(Debug))]
-pub fn hunk_dependencies_for_specific_changes(
-    projects: State<'_, projects::Controller>,
-    settings: State<'_, AppSettingsWithDiskSync>,
-    project_id: ProjectId,
-    changes: Vec<TreeChange>,
-) -> Result<HunkDependencies, Error> {
-    let project = projects.get(project_id)?;
-    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    let changes: Vec<but_core::TreeChange> =
-        changes.into_iter().map(|change| change.into()).collect();
-    let dependencies =
-        hunk_dependencies_for_changes(&ctx, &project.path, &project.gb_dir(), changes)?;
-    Ok(dependencies)
 }
 
 /// Create a new commit with `message` on top of `parent_id` that contains all `changes`.
