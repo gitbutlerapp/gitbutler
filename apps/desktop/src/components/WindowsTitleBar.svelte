@@ -41,59 +41,35 @@
 
 	// State
 	let project = $state<Project | undefined>(undefined);
-	let fileDropdown = $state<DropDownButton>();
-	let viewDropdown = $state<DropDownButton>();
-	let projectDropdown = $state<DropDownButton>();
-	let helpDropdown = $state<DropDownButton>();
 	let appVersion = $state<string>('');
 	let buildType = $state<'stable' | 'nightly' | 'dev'>('stable');
 	let appIcon = $state<string>('');
 
-	// Track dropdown visibility states
-	let fileDropdownVisible = $state(false);
-	let viewDropdownVisible = $state(false);
-	let projectDropdownVisible = $state(false);
-	let helpDropdownVisible = $state(false);
+	// Dropdown state management
+	const dropdowns = $state({
+		file: { ref: undefined as DropDownButton | undefined, visible: false },
+		view: { ref: undefined as DropDownButton | undefined, visible: false },
+		project: { ref: undefined as DropDownButton | undefined, visible: false },
+		help: { ref: undefined as DropDownButton | undefined, visible: false }
+	});
 
-	// Toggle functions for dropdowns
-	function toggleFileDropdown() {
-		if (fileDropdownVisible) {
-			fileDropdown?.close();
-			fileDropdownVisible = false;
+	// Generic toggle function for any dropdown
+	function toggleDropdown(name: keyof typeof dropdowns) {
+		const dropdown = dropdowns[name];
+		if (dropdown.visible) {
+			dropdown.ref?.close();
+			dropdown.visible = false;
 		} else {
-			fileDropdown?.show();
-			fileDropdownVisible = true;
+			dropdown.ref?.show();
+			dropdown.visible = true;
 		}
 	}
 
-	function toggleViewDropdown() {
-		if (viewDropdownVisible) {
-			viewDropdown?.close();
-			viewDropdownVisible = false;
-		} else {
-			viewDropdown?.show();
-			viewDropdownVisible = true;
-		}
-	}
-
-	function toggleProjectDropdown() {
-		if (projectDropdownVisible) {
-			projectDropdown?.close();
-			projectDropdownVisible = false;
-		} else {
-			projectDropdown?.show();
-			projectDropdownVisible = true;
-		}
-	}
-
-	function toggleHelpDropdown() {
-		if (helpDropdownVisible) {
-			helpDropdown?.close();
-			helpDropdownVisible = false;
-		} else {
-			helpDropdown?.show();
-			helpDropdownVisible = true;
-		}
+	// Helper function to close dropdown and update state
+	function closeDropdown(name: keyof typeof dropdowns) {
+		const dropdown = dropdowns[name];
+		dropdown.ref?.close();
+		dropdown.visible = false;
 	}
 
 	// Update project when route changes (we need access to the current project for menus)
@@ -246,12 +222,12 @@
 		<div class="title-bar__menu" data-tauri-drag-region="false">
 			<!-- File Menu -->
 			<DropDownButton
-				bind:this={fileDropdown}
+				bind:this={dropdowns.file.ref}
 				style="neutral"
 				kind="ghost"
 				menuPosition="bottom"
 				autoClose
-				onclick={toggleFileDropdown}
+				onclick={() => toggleDropdown('file')}
 			>
 				File
 				{#snippet contextMenuSlot()}
@@ -261,7 +237,7 @@
 							keyboardShortcut={shortcuts.global.open_repository.keys}
 							onclick={() => {
 								menuActions.addLocalRepository();
-								fileDropdownVisible = false;
+								closeDropdown('file');
 							}}
 						/>
 						<ContextMenuItem
@@ -269,7 +245,7 @@
 							keyboardShortcut={shortcuts.global.clone_repository.keys}
 							onclick={() => {
 								menuActions.cloneRepository();
-								fileDropdownVisible = false;
+								closeDropdown('file');
 							}}
 						/>
 					</ContextMenuSection>
@@ -279,7 +255,7 @@
 							keyboardShortcut="$mod+,"
 							onclick={() => {
 								goto(newSettingsPath());
-								fileDropdownVisible = false;
+								closeDropdown('file');
 							}}
 						/>
 						<ContextMenuItem
@@ -290,7 +266,7 @@
 								} catch (error) {
 									console.error('Failed to check for updates:', error);
 								}
-								fileDropdownVisible = false;
+								closeDropdown('file');
 							}}
 						/>
 					</ContextMenuSection>
@@ -299,12 +275,12 @@
 
 			<!-- View Menu -->
 			<DropDownButton
-				bind:this={viewDropdown}
+				bind:this={dropdowns.view.ref}
 				style="neutral"
 				kind="ghost"
 				menuPosition="bottom"
 				autoClose
-				onclick={toggleViewDropdown}
+				onclick={() => toggleDropdown('view')}
 			>
 				View
 				{#snippet contextMenuSlot()}
@@ -314,7 +290,7 @@
 							keyboardShortcut={shortcuts.view.switch_theme.keys}
 							onclick={() => {
 								menuActions.switchTheme();
-								viewDropdownVisible = false;
+								closeDropdown('view');
 							}}
 						/>
 					</ContextMenuSection>
@@ -324,7 +300,7 @@
 							keyboardShortcut={shortcuts.view.zoom_in.keys}
 							onclick={() => {
 								menuActions.zoomIn();
-								viewDropdownVisible = false;
+								closeDropdown('view');
 							}}
 						/>
 						<ContextMenuItem
@@ -332,7 +308,7 @@
 							keyboardShortcut={shortcuts.view.zoom_out.keys}
 							onclick={() => {
 								menuActions.zoomOut();
-								viewDropdownVisible = false;
+								closeDropdown('view');
 							}}
 						/>
 						<ContextMenuItem
@@ -340,7 +316,7 @@
 							keyboardShortcut={shortcuts.view.reset_zoom.keys}
 							onclick={() => {
 								menuActions.resetZoom();
-								viewDropdownVisible = false;
+								closeDropdown('view');
 							}}
 						/>
 					</ContextMenuSection>
@@ -351,7 +327,7 @@
 								keyboardShortcut="$mod+Shift+C"
 								onclick={() => {
 									menuActions.openDevTools();
-									viewDropdownVisible = false;
+									closeDropdown('view');
 								}}
 							/>
 							<ContextMenuItem
@@ -359,7 +335,7 @@
 								keyboardShortcut={shortcuts.view.reload_view.keys}
 								onclick={() => {
 									location.reload();
-									viewDropdownVisible = false;
+									closeDropdown('view');
 								}}
 							/>
 						</ContextMenuSection>
@@ -369,12 +345,12 @@
 
 			<!-- Project Menu -->
 			<DropDownButton
-				bind:this={projectDropdown}
+				bind:this={dropdowns.project.ref}
 				style="neutral"
 				kind="ghost"
 				menuPosition="bottom"
 				autoClose
-				onclick={toggleProjectDropdown}
+				onclick={() => toggleDropdown('project')}
 			>
 				Project
 				{#snippet contextMenuSlot()}
@@ -385,7 +361,7 @@
 							disabled={!project}
 							onclick={() => {
 								menuActions.openProjectHistory();
-								projectDropdownVisible = false;
+								closeDropdown('project');
 							}}
 						/>
 						<ContextMenuItem
@@ -393,7 +369,7 @@
 							disabled={!project}
 							onclick={() => {
 								menuActions.openInEditor();
-								projectDropdownVisible = false;
+								closeDropdown('project');
 							}}
 							control={editorBadgeSnippet}
 						/>
@@ -404,7 +380,7 @@
 							disabled={!project}
 							onclick={() => {
 								if (project) goto(projectSettingsPath(project.id));
-								projectDropdownVisible = false;
+								closeDropdown('project');
 							}}
 						/>
 					</ContextMenuSection>
@@ -413,12 +389,12 @@
 
 			<!-- Help Menu -->
 			<DropDownButton
-				bind:this={helpDropdown}
+				bind:this={dropdowns.help.ref}
 				style="neutral"
 				kind="ghost"
 				menuPosition="bottom"
 				autoClose
-				onclick={toggleHelpDropdown}
+				onclick={() => toggleDropdown('help')}
 			>
 				Help
 				{#snippet contextMenuSlot()}
@@ -427,21 +403,21 @@
 							label="Documentation"
 							onclick={() => {
 								openExternalUrl('https://docs.gitbutler.com');
-								helpDropdownVisible = false;
+								closeDropdown('help');
 							}}
 						/>
 						<ContextMenuItem
 							label="Source Code"
 							onclick={() => {
 								openExternalUrl('https://github.com/gitbutlerapp/gitbutler');
-								helpDropdownVisible = false;
+								closeDropdown('help');
 							}}
 						/>
 						<ContextMenuItem
 							label="Release Notes"
 							onclick={() => {
 								openExternalUrl('https://github.com/gitbutlerapp/gitbutler/releases');
-								helpDropdownVisible = false;
+								closeDropdown('help');
 							}}
 						/>
 					</ContextMenuSection>
@@ -450,7 +426,7 @@
 							label="Keyboard Shortcuts"
 							onclick={() => {
 								menuActions.openKeyboardShortcuts();
-								helpDropdownVisible = false;
+								closeDropdown('help');
 							}}
 						/>
 					</ContextMenuSection>
@@ -459,14 +435,14 @@
 							label="Share Debug Info"
 							onclick={() => {
 								menuActions.shareDebugInfo();
-								helpDropdownVisible = false;
+								closeDropdown('help');
 							}}
 						/>
 						<ContextMenuItem
 							label="Report an Issue"
 							onclick={() => {
 								openExternalUrl('https://github.com/gitbutlerapp/gitbutler/issues/new/choose');
-								helpDropdownVisible = false;
+								closeDropdown('help');
 							}}
 						/>
 					</ContextMenuSection>
@@ -475,21 +451,21 @@
 							label="Discord"
 							onclick={() => {
 								openExternalUrl('https://discord.com/invite/MmFkmaJ42D');
-								helpDropdownVisible = false;
+								closeDropdown('help');
 							}}
 						/>
 						<ContextMenuItem
 							label="YouTube"
 							onclick={() => {
 								openExternalUrl('https://www.youtube.com/@gitbutlerapp');
-								helpDropdownVisible = false;
+								closeDropdown('help');
 							}}
 						/>
 						<ContextMenuItem
 							label="X"
 							onclick={() => {
 								openExternalUrl('https://x.com/gitbutler');
-								helpDropdownVisible = false;
+								closeDropdown('help');
 							}}
 						/>
 					</ContextMenuSection>
