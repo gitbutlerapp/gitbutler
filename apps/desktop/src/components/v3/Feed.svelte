@@ -65,6 +65,7 @@
 		top: 0;
 		width: 100%;
 		padding: 16px;
+		gap: 8px;
 		border-bottom: 1px solid var(--clr-border-2);
 	}
 
