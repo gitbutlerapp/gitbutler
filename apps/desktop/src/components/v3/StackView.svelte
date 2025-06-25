@@ -414,11 +414,11 @@
 				/>
 				<Resizer
 					viewport={previewEl}
-					persistId="resizer-panel2-${stack.id}"
+					persistId="resizer-panel3-${stack.id}"
 					direction="right"
 					minWidth={20}
 					maxWidth={96}
-					syncName="panel2"
+					syncName="panel3"
 					dblclickSize
 				/>
 			</div>
