@@ -17,7 +17,6 @@ use serde::{Deserialize, Serialize};
 
 mod action;
 mod auto_commit;
-mod gb_client;
 mod generate;
 mod grouping;
 mod openai;
