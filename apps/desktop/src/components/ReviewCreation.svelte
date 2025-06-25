@@ -420,70 +420,67 @@
 </script>
 
 <div class="pr-editor">
-	<PrTemplateSection
-		{projectId}
-		disabled={isExecuting}
-		onselect={(value) => {
-			prBody.set(value);
-			messageEditor?.setText(value);
-		}}
-	/>
-
 	<AsyncRender>
-		<div class="pr-editor__content">
-			<MessageEditorInput
-				testId={TestId.ReviewTitleInput}
-				bind:ref={titleInput}
-				value={$prTitle}
-				onchange={(value) => {
-					prTitle.set(value);
-				}}
-				onkeydown={(e: KeyboardEvent) => {
-					if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
-						e.preventDefault();
-						messageEditor?.focus();
-					}
-				}}
-				placeholder="PR title"
-				showCount={false}
-				oninput={(e: Event) => {
-					const target = e.target as HTMLInputElement;
-					prTitle.set(target.value);
-				}}
-			/>
-			<MessageEditor
-				isPrCreation
-				bind:this={messageEditor}
-				testId={TestId.ReviewDescriptionInput}
-				{projectId}
-				disabled={isExecuting}
-				initialValue={$prBody}
-				enableFileUpload
-				enableSmiles
-				placeholder="PR Description"
-				{onAiButtonClick}
-				{canUseAI}
-				{aiIsLoading}
-				onChange={(text: string) => {
-					prBody.set(text);
-				}}
-				onKeyDown={(e: KeyboardEvent) => {
-					if (e.key === 'Tab' && e.shiftKey) {
-						e.preventDefault();
-						titleInput?.focus();
-						return true;
-					}
+		<PrTemplateSection
+			{projectId}
+			disabled={isExecuting}
+			onselect={(value) => {
+				prBody.set(value);
+				messageEditor?.setText(value);
+			}}
+		/>
+		<MessageEditorInput
+			testId={TestId.ReviewTitleInput}
+			bind:ref={titleInput}
+			value={$prTitle}
+			onchange={(value) => {
+				prTitle.set(value);
+			}}
+			onkeydown={(e: KeyboardEvent) => {
+				if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
+					e.preventDefault();
+					messageEditor?.focus();
+				}
+			}}
+			placeholder="PR title"
+			showCount={false}
+			oninput={(e: Event) => {
+				const target = e.target as HTMLInputElement;
+				prTitle.set(target.value);
+			}}
+		/>
+		<MessageEditor
+			isPrCreation
+			bind:this={messageEditor}
+			testId={TestId.ReviewDescriptionInput}
+			{projectId}
+			disabled={isExecuting}
+			initialValue={$prBody}
+			enableFileUpload
+			enableSmiles
+			placeholder="PR Description"
+			{onAiButtonClick}
+			{canUseAI}
+			{aiIsLoading}
+			onChange={(text: string) => {
+				prBody.set(text);
+			}}
+			onKeyDown={(e: KeyboardEvent) => {
+				if (e.key === 'Tab' && e.shiftKey) {
+					e.preventDefault();
+					titleInput?.focus();
+					return true;
+				}
 
-					if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-						e.preventDefault();
-						createReview();
-						return true;
-					}
+				if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+					e.preventDefault();
+					createReview();
+					return true;
+				}
 
-					return false;
-				}}
-			/>
-		</div>
+				return false;
+			}}
+		/>
 	</AsyncRender>
 </div>
 
@@ -494,11 +491,5 @@
 		flex-direction: column;
 		overflow: hidden;
 		gap: 10px;
-	}
-
-	.pr-editor__content {
-		display: flex;
-		flex: 1;
-		flex-direction: column;
 	}
 </style>
