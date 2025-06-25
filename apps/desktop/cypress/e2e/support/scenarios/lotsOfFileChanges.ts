@@ -93,7 +93,12 @@ export default class LotsOfFileChanges extends MockBackend {
 			changes: MOCK_FILE_TREE_CHANGES,
 			ignoredChanges: [],
 			assignments: [],
-			assignmentsError: null
+			assignmentsError: null,
+			dependencies: {
+				diffs: [],
+				errors: []
+			},
+			dependenciesError: null
 		};
 	}
 }

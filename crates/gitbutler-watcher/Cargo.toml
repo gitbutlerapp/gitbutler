@@ -27,6 +27,7 @@ gitbutler-project.workspace = true
 but-core.workspace = true
 but-settings.workspace = true
 but-hunk-assignment.workspace = true
+but-hunk-dependency.workspace = true
 serde-error = "0.1.3"
 
 [lints.clippy]

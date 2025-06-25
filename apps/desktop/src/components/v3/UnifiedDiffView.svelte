@@ -61,9 +61,6 @@
 
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
-	const targetStackId = $derived(
-		exclusiveAction?.type === 'commit' ? exclusiveAction.stackId : undefined
-	);
 
 	const isCommiting = $derived(
 		exclusiveAction?.type === 'commit' && selectionId.type === 'worktree'
@@ -129,11 +126,7 @@
 							change.path,
 							hunk
 						)}
-						{@const [fullyLocked, lineLocks] = getLineLocks(
-							targetStackId,
-							hunk,
-							fileDependencies.dependencies ?? []
-						)}
+						{@const [_, lineLocks] = getLineLocks(hunk, fileDependencies.dependencies ?? [])}
 						<div
 							class="hunk-content"
 							use:draggableChips={{
@@ -166,7 +159,6 @@
 								diffContrast={$userSettings.diffContrast}
 								inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
 								onLineClick={(p) => {
-									if (fullyLocked) return;
 									if (!canBePartiallySelected(diff.subject)) {
 										uncommittedService.checkHunk(stackId || null, change.path, hunk);
 									}
@@ -203,7 +195,7 @@
 									}
 								}}
 								onChangeStage={(selected) => {
-									if (fullyLocked || !selectable) return;
+									if (!selectable) return;
 									if (selected) {
 										uncommittedService.checkHunk(stackId || null, change.path, hunk);
 									} else {

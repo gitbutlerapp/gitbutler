@@ -153,7 +153,7 @@
 	const organizationService = new OrganizationService(data.cloud, appState.appDispatch);
 	const cloudUserService = new CloudUserService(data.cloud, appState.appDispatch);
 	const cloudProjectService = new CloudProjectService(data.cloud, appState.appDispatch);
-	const dependecyService = new DependencyService(clientState.backendApi);
+	const dependecyService = new DependencyService(worktreeService);
 	const diffService = new DiffService(clientState);
 
 	const uncommittedService = new UncommittedService(clientState, worktreeService, diffService);

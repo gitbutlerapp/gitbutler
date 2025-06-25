@@ -28,7 +28,7 @@ pub(crate) fn worktree(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
 
     let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(project.path)?.changes;
     let (assignments, _assignments_error) =
-        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()))?;
+        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
 
     let mut by_file: BTreeMap<BString, Vec<HunkAssignment>> = BTreeMap::new();
     for assignment in &assignments {
@@ -125,7 +125,7 @@ pub(crate) fn all_files(ctx: &mut CommandContext) -> anyhow::Result<Vec<CliId>> 
     let changes =
         but_core::diff::ui::worktree_changes_by_worktree_dir(ctx.project().path.clone())?.changes;
     let (assignments, _assignments_error) =
-        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()))?;
+        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
     let out = assignments
         .iter()
         .map(CliId::file_from_assignment)

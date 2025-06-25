@@ -39,7 +39,7 @@ pub(crate) fn assign_all(
     let changes =
         but_core::diff::ui::worktree_changes_by_worktree_dir(ctx.project().path.clone())?.changes;
     let (assignments, _assignments_error) =
-        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()))?;
+        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
 
     let mut reqs = Vec::new();
     for assignment in assignments {
@@ -77,7 +77,7 @@ fn do_assignments(
     ctx: &mut CommandContext,
     reqs: Vec<HunkAssignmentRequest>,
 ) -> anyhow::Result<()> {
-    let rejections = but_hunk_assignment::assign(ctx, reqs)?;
+    let rejections = but_hunk_assignment::assign(ctx, reqs, None)?;
     if !rejections.is_empty() {
         command::print(&rejections, false)?;
     }
@@ -109,7 +109,7 @@ fn to_assignment_request(
     let changes =
         but_core::diff::ui::worktree_changes_by_worktree_dir(ctx.project().path.clone())?.changes;
     let (assignments, _assignments_error) =
-        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()))?;
+        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
     let mut reqs = Vec::new();
     for assignment in assignments {
         if assignment.path == path {
