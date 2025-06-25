@@ -32,21 +32,7 @@
 	<!-- A badge is not a clickable UI element, but with exceptions. No button styling desired. -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<div
-		class="badge"
-		class:neutral={style === 'neutral'}
-		class:pop={style === 'pop'}
-		class:success={style === 'success'}
-		class:error={style === 'error'}
-		class:warning={style === 'warning'}
-		class:purple={style === 'purple'}
-		class:solid={kind === 'solid'}
-		class:soft={kind === 'soft'}
-		class:icon-size={size === 'icon'}
-		class:tag-size={size === 'tag'}
-		class:reversedDirection
-		{onclick}
-	>
+	<div class="badge {style} {kind} {size}-size" class:reversedDirection {onclick}>
 		{#if children}
 			<span
 				class="badge__label text-bold"
