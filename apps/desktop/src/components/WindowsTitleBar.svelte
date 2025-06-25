@@ -41,13 +41,36 @@
 
 	// State
 	let project = $state<Project | undefined>(undefined);
-	let fileDropdown = $state<DropDownButton>();
-	let viewDropdown = $state<DropDownButton>();
-	let projectDropdown = $state<DropDownButton>();
-	let helpDropdown = $state<DropDownButton>();
 	let appVersion = $state<string>('');
 	let buildType = $state<'stable' | 'nightly' | 'dev'>('stable');
 	let appIcon = $state<string>('');
+
+	// Dropdown state management
+	const dropdowns = $state({
+		file: { ref: undefined as DropDownButton | undefined, visible: false },
+		view: { ref: undefined as DropDownButton | undefined, visible: false },
+		project: { ref: undefined as DropDownButton | undefined, visible: false },
+		help: { ref: undefined as DropDownButton | undefined, visible: false }
+	});
+
+	// Generic toggle function for any dropdown
+	function toggleDropdown(name: keyof typeof dropdowns) {
+		const dropdown = dropdowns[name];
+		if (dropdown.visible) {
+			dropdown.ref?.close();
+			dropdown.visible = false;
+		} else {
+			dropdown.ref?.show();
+			dropdown.visible = true;
+		}
+	}
+
+	// Helper function to close dropdown and update state
+	function closeDropdown(name: keyof typeof dropdowns) {
+		const dropdown = dropdowns[name];
+		dropdown.ref?.close();
+		dropdown.visible = false;
+	}
 
 	// Update project when route changes (we need access to the current project for menus)
 	$effect(() => {
@@ -199,12 +222,12 @@
 		<div class="title-bar__menu" data-tauri-drag-region="false">
 			<!-- File Menu -->
 			<DropDownButton
-				bind:this={fileDropdown}
+				bind:this={dropdowns.file.ref}
 				style="neutral"
 				kind="ghost"
 				menuPosition="bottom"
 				autoClose
-				onclick={() => fileDropdown?.show()}
+				onclick={() => toggleDropdown('file')}
 			>
 				File
 				{#snippet contextMenuSlot()}
@@ -212,19 +235,28 @@
 						<ContextMenuItem
 							label="Add Local Repository"
 							keyboardShortcut={shortcuts.global.open_repository.keys}
-							onclick={menuActions.addLocalRepository}
+							onclick={() => {
+								menuActions.addLocalRepository();
+								closeDropdown('file');
+							}}
 						/>
 						<ContextMenuItem
 							label="Clone Repository"
 							keyboardShortcut={shortcuts.global.clone_repository.keys}
-							onclick={menuActions.cloneRepository}
+							onclick={() => {
+								menuActions.cloneRepository();
+								closeDropdown('file');
+							}}
 						/>
 					</ContextMenuSection>
 					<ContextMenuSection>
 						<ContextMenuItem
 							label="Settings"
 							keyboardShortcut="$mod+,"
-							onclick={() => goto(newSettingsPath())}
+							onclick={() => {
+								goto(newSettingsPath());
+								closeDropdown('file');
+							}}
 						/>
 						<ContextMenuItem
 							label="Check for updates"
@@ -234,6 +266,7 @@
 								} catch (error) {
 									console.error('Failed to check for updates:', error);
 								}
+								closeDropdown('file');
 							}}
 						/>
 					</ContextMenuSection>
@@ -242,12 +275,12 @@
 
 			<!-- View Menu -->
 			<DropDownButton
-				bind:this={viewDropdown}
+				bind:this={dropdowns.view.ref}
 				style="neutral"
 				kind="ghost"
 				menuPosition="bottom"
 				autoClose
-				onclick={() => viewDropdown?.show()}
+				onclick={() => toggleDropdown('view')}
 			>
 				View
 				{#snippet contextMenuSlot()}
@@ -255,24 +288,36 @@
 						<ContextMenuItem
 							label="Switch Theme"
 							keyboardShortcut={shortcuts.view.switch_theme.keys}
-							onclick={menuActions.switchTheme}
+							onclick={() => {
+								menuActions.switchTheme();
+								closeDropdown('view');
+							}}
 						/>
 					</ContextMenuSection>
 					<ContextMenuSection>
 						<ContextMenuItem
 							label="Zoom In"
 							keyboardShortcut={shortcuts.view.zoom_in.keys}
-							onclick={menuActions.zoomIn}
+							onclick={() => {
+								menuActions.zoomIn();
+								closeDropdown('view');
+							}}
 						/>
 						<ContextMenuItem
 							label="Zoom Out"
 							keyboardShortcut={shortcuts.view.zoom_out.keys}
-							onclick={menuActions.zoomOut}
+							onclick={() => {
+								menuActions.zoomOut();
+								closeDropdown('view');
+							}}
 						/>
 						<ContextMenuItem
 							label="Reset Zoom"
 							keyboardShortcut={shortcuts.view.reset_zoom.keys}
-							onclick={menuActions.resetZoom}
+							onclick={() => {
+								menuActions.resetZoom();
+								closeDropdown('view');
+							}}
 						/>
 					</ContextMenuSection>
 					{#if import.meta.env.DEV}
@@ -280,12 +325,18 @@
 							<ContextMenuItem
 								label="Developer Tools"
 								keyboardShortcut="$mod+Shift+C"
-								onclick={menuActions.openDevTools}
+								onclick={() => {
+									menuActions.openDevTools();
+									closeDropdown('view');
+								}}
 							/>
 							<ContextMenuItem
 								label="Reload View"
 								keyboardShortcut={shortcuts.view.reload_view.keys}
-								onclick={() => location.reload()}
+								onclick={() => {
+									location.reload();
+									closeDropdown('view');
+								}}
 							/>
 						</ContextMenuSection>
 					{/if}
@@ -294,12 +345,12 @@
 
 			<!-- Project Menu -->
 			<DropDownButton
-				bind:this={projectDropdown}
+				bind:this={dropdowns.project.ref}
 				style="neutral"
 				kind="ghost"
 				menuPosition="bottom"
 				autoClose
-				onclick={() => projectDropdown?.show()}
+				onclick={() => toggleDropdown('project')}
 			>
 				Project
 				{#snippet contextMenuSlot()}
@@ -308,12 +359,18 @@
 							label="Project History"
 							keyboardShortcut={shortcuts.project.project_history.keys}
 							disabled={!project}
-							onclick={menuActions.openProjectHistory}
+							onclick={() => {
+								menuActions.openProjectHistory();
+								closeDropdown('project');
+							}}
 						/>
 						<ContextMenuItem
 							label="Open in Editor"
 							disabled={!project}
-							onclick={menuActions.openInEditor}
+							onclick={() => {
+								menuActions.openInEditor();
+								closeDropdown('project');
+							}}
 							control={editorBadgeSnippet}
 						/>
 					</ContextMenuSection>
@@ -321,7 +378,10 @@
 						<ContextMenuItem
 							label="Project Settings"
 							disabled={!project}
-							onclick={() => project && goto(projectSettingsPath(project.id))}
+							onclick={() => {
+								if (project) goto(projectSettingsPath(project.id));
+								closeDropdown('project');
+							}}
 						/>
 					</ContextMenuSection>
 				{/snippet}
@@ -329,53 +389,85 @@
 
 			<!-- Help Menu -->
 			<DropDownButton
-				bind:this={helpDropdown}
+				bind:this={dropdowns.help.ref}
 				style="neutral"
 				kind="ghost"
 				menuPosition="bottom"
 				autoClose
-				onclick={() => helpDropdown?.show()}
+				onclick={() => toggleDropdown('help')}
 			>
 				Help
 				{#snippet contextMenuSlot()}
 					<ContextMenuSection>
 						<ContextMenuItem
 							label="Documentation"
-							onclick={() => openExternalUrl('https://docs.gitbutler.com')}
+							onclick={() => {
+								openExternalUrl('https://docs.gitbutler.com');
+								closeDropdown('help');
+							}}
 						/>
 						<ContextMenuItem
 							label="Source Code"
-							onclick={() => openExternalUrl('https://github.com/gitbutlerapp/gitbutler')}
+							onclick={() => {
+								openExternalUrl('https://github.com/gitbutlerapp/gitbutler');
+								closeDropdown('help');
+							}}
 						/>
 						<ContextMenuItem
 							label="Release Notes"
-							onclick={() => openExternalUrl('https://github.com/gitbutlerapp/gitbutler/releases')}
+							onclick={() => {
+								openExternalUrl('https://github.com/gitbutlerapp/gitbutler/releases');
+								closeDropdown('help');
+							}}
 						/>
 					</ContextMenuSection>
 					<ContextMenuSection>
 						<ContextMenuItem
 							label="Keyboard Shortcuts"
-							onclick={menuActions.openKeyboardShortcuts}
+							onclick={() => {
+								menuActions.openKeyboardShortcuts();
+								closeDropdown('help');
+							}}
 						/>
 					</ContextMenuSection>
 					<ContextMenuSection>
-						<ContextMenuItem label="Share Debug Info" onclick={menuActions.shareDebugInfo} />
+						<ContextMenuItem
+							label="Share Debug Info"
+							onclick={() => {
+								menuActions.shareDebugInfo();
+								closeDropdown('help');
+							}}
+						/>
 						<ContextMenuItem
 							label="Report an Issue"
-							onclick={() =>
-								openExternalUrl('https://github.com/gitbutlerapp/gitbutler/issues/new/choose')}
+							onclick={() => {
+								openExternalUrl('https://github.com/gitbutlerapp/gitbutler/issues/new/choose');
+								closeDropdown('help');
+							}}
 						/>
 					</ContextMenuSection>
 					<ContextMenuSection>
 						<ContextMenuItem
 							label="Discord"
-							onclick={() => openExternalUrl('https://discord.com/invite/MmFkmaJ42D')}
+							onclick={() => {
+								openExternalUrl('https://discord.com/invite/MmFkmaJ42D');
+								closeDropdown('help');
+							}}
 						/>
 						<ContextMenuItem
 							label="YouTube"
-							onclick={() => openExternalUrl('https://www.youtube.com/@gitbutlerapp')}
+							onclick={() => {
+								openExternalUrl('https://www.youtube.com/@gitbutlerapp');
+								closeDropdown('help');
+							}}
 						/>
-						<ContextMenuItem label="X" onclick={() => openExternalUrl('https://x.com/gitbutler')} />
+						<ContextMenuItem
+							label="X"
+							onclick={() => {
+								openExternalUrl('https://x.com/gitbutler');
+								closeDropdown('help');
+							}}
+						/>
 					</ContextMenuSection>
 					<ContextMenuSection>
 						<ContextMenuItem label="Version {appVersion}" disabled onclick={() => {}} />
