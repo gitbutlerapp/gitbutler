@@ -3,13 +3,13 @@
 	import WorktreeTipsFooter from '$components/v3/WorktreeTipsFooter.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
+	import { IntelligentScrollingService } from '$lib/intelligentScrolling/service';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import type { SelectionId } from '$lib/selection/key';
-
 	interface Props {
 		projectId: string;
 		focus: DefinedFocusable;
@@ -19,7 +19,11 @@
 
 	const selectionId = { type: 'worktree', stackId: undefined } as SelectionId;
 
-	const [uiState, uncommittedService] = inject(UiState, UncommittedService);
+	const [uiState, uncommittedService, intelligentScrollingService] = inject(
+		UiState,
+		UncommittedService,
+		IntelligentScrollingService
+	);
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 	const isCommitting = $derived(exclusiveAction?.type === 'commit');
@@ -41,6 +45,9 @@
 			isScrollable = exists;
 		}}
 		overflow
+		onselect={() => {
+			intelligentScrollingService.unassignedFileClicked(projectId);
+		}}
 	>
 		{#snippet emptyPlaceholder()}
 			<div class="unassigned-changes__empty">
