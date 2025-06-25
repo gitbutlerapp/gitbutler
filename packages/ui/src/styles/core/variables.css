@@ -20,4 +20,7 @@
 	--lexical-input-client-padding: 12px;
 	--lexical-input-client-toolbar-height: 48px;
 	--lexical-input-font-size: 13px;
+
+	/* OS related */
+	--windows-title-bar-height: 30px;
 }

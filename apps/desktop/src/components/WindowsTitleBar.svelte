@@ -88,6 +88,17 @@
 	}
 
 	// Helper functions
+	function getBadgeStyle() {
+		switch (buildType) {
+			// case 'nightly':
+			// 	return 'neutral';
+			// case 'dev':
+			// 	return 'error';
+			default:
+				return undefined;
+		}
+	}
+
 	function getBadgeText() {
 		switch (buildType) {
 			case 'nightly':
@@ -95,18 +106,7 @@
 			case 'dev':
 				return 'Development';
 			default:
-				return appVersion || 'Stable';
-		}
-	}
-
-	function getBadgeStyle() {
-		switch (buildType) {
-			case 'nightly':
-				return 'warning';
-			case 'dev':
-				return 'error';
-			default:
-				return 'neutral';
+				return undefined;
 		}
 	}
 
@@ -182,17 +182,17 @@
 
 {#if showTitleBar}
 	<div class="title-bar" data-tauri-drag-region>
-		<!-- App Icon and Info Section -->
 		<div class="title-bar__brand">
 			{#if appIcon}
 				<img src={appIcon} alt="GitButler" class="app-logo" />
 			{/if}
-			<div class="brand-info">
-				<span class="app-name">GitButler</span>
-				<Badge style={getBadgeStyle()}>
-					{getBadgeText()}
-				</Badge>
-			</div>
+			{#if getBadgeStyle()}
+				<div class="brand-info">
+					<Badge style={getBadgeStyle()}>
+						{getBadgeText()}
+					</Badge>
+				</div>
+			{/if}
 		</div>
 
 		<!-- Menu Items -->
@@ -450,8 +450,8 @@
 		left: 0;
 		align-items: center;
 		width: 100%;
-		padding: 0 0 0 8px;
-		height: 30px;
+		height: var(--windows-title-bar-height);
+		padding-left: 8px;
 		gap: 8px;
 		background-color: var(--clr-bg-3);
 		user-select: none;
@@ -465,8 +465,8 @@
 	}
 
 	.app-logo {
-		width: 16px;
-		height: 16px;
+		width: 18px;
+		height: 18px;
 		border-radius: var(--radius-s);
 	}
 
@@ -476,18 +476,10 @@
 		gap: 6px;
 	}
 
-	.app-name {
-		color: var(--clr-text-1);
-		font-weight: var(--weight-semibold);
-		font-size: var(--text-12);
-		white-space: nowrap;
-	}
-
 	.title-bar__menu {
 		display: flex;
 		align-items: center;
-		margin-left: 12px;
-		gap: 0px;
+		margin-left: 6px;
 		pointer-events: auto;
 	}
 
@@ -511,7 +503,7 @@
 		width: fit-content;
 		min-width: auto;
 		height: 24px;
-		padding: 4px 2px;
+		padding: 4px;
 		gap: 0;
 		border: none;
 		border-radius: 0;
@@ -537,7 +529,7 @@
 	.native-style-controls {
 		display: flex;
 		align-items: center;
-		height: 32px;
+		height: 100%;
 	}
 
 	.native-control-button {
@@ -545,7 +537,7 @@
 		align-items: center;
 		justify-content: center;
 		width: 46px;
-		height: 32px;
+		height: 100%;
 		border: none;
 		background: transparent;
 		color: var(--clr-text-1);
@@ -555,7 +547,7 @@
 
 	.native-control-button:hover {
 		background-color: rgba(255, 255, 255, 0.1);
-	} 
+	}
 
 	.native-control-button.close:hover {
 		background-color: #e81123;
@@ -564,7 +556,7 @@
 
 	/* Ensure content doesn't overlap with title bar - only when custom title bar is shown */
 	:global(.app-root.has-custom-titlebar) {
-		padding-top: 40px; /* Matches the increased title bar height */
+		padding-top: var(--windows-title-bar-height);
 	}
 
 	/* Dark theme adjustments */
