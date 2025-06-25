@@ -43,3 +43,5 @@ but-core.workspace = true
 but-graph.workspace = true
 but-workspace.workspace = true
 but-hunk-assignment.workspace = true
+but-hunk-dependency.workspace = true
+but-tools.workspace = true
