@@ -36,11 +36,12 @@ pub use workflow::list_workflows;
 pub(crate) const DIFF_CONTEXT_LINES: u32 = 3;
 
 pub fn auto_commit(
+    app_handle: &tauri::AppHandle,
     ctx: &mut CommandContext,
     openai: &OpenAiProvider,
     changes: Vec<TreeChange>,
 ) -> anyhow::Result<()> {
-    auto_commit::auto_commit(ctx, openai, changes)
+    auto_commit::auto_commit(app_handle, ctx, openai, changes)
 }
 
 pub fn handle_changes(

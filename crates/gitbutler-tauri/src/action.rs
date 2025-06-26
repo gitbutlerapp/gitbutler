@@ -58,8 +58,9 @@ pub fn list_workflows(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(projects, settings), err(Debug))]
+#[instrument(skip(app_handle, projects, settings), err(Debug))]
 pub fn auto_commit(
+    app_handle: tauri::AppHandle,
     projects: tauri::State<'_, gitbutler_project::Controller>,
     settings: tauri::State<'_, but_settings::AppSettingsWithDiskSync>,
     project_id: ProjectId,
@@ -71,7 +72,7 @@ pub fn auto_commit(
     let ctx = &mut CommandContext::open(&project, settings.get()?.clone())?;
     let openai = OpenAiProvider::with(Some(but_action::CredentialsKind::GitButlerProxied));
     match openai {
-        Some(openai) => but_action::auto_commit(ctx, &openai, changes).map_err(|e| Error::from(anyhow::anyhow!(e))),
+        Some(openai) => but_action::auto_commit(&app_handle, ctx, &openai, changes).map_err(|e| Error::from(anyhow::anyhow!(e))),
         None => {
             Err(Error::from(anyhow::anyhow!(
                 "No valid credentials found for AI provider. Please configure your GitButler account credentials."
