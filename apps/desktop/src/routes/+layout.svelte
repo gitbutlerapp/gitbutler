@@ -322,10 +322,7 @@
 		<div class="drag-region" data-tauri-drag-region></div>
 	{/if}
 
-	<!-- Windows custom title bar -->
-	{#if platformName === 'windows'}
-		<WindowsTitleBar />
-	{/if}
+	<WindowsTitleBar />
 
 	{@render children()}
 </div>
