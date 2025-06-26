@@ -10,7 +10,7 @@ import { plainToInstance } from 'class-transformer';
 import { derived, get, writable, type Readable } from 'svelte/store';
 import type { HttpClient } from '@gitbutler/shared/network/httpClient';
 
-type ProjectInfo = {
+export type ProjectInfo = {
 	is_exclusive: boolean;
 	db_error?: string;
 };
