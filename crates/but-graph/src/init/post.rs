@@ -290,7 +290,7 @@ fn delete_anon_if_empty_and_reconnect(graph: &mut Graph, sidx: SegmentIndex) {
         .edges_directed(sidx, Direction::Incoming)
         .map(EdgeOwned::from)
         .collect();
-    for edge in &incoming {
+    for edge in incoming.iter().rev() {
         graph.inner.add_edge(edge.source, new_target, edge.weight);
     }
     graph.inner.remove_node(sidx);
@@ -383,7 +383,7 @@ fn create_connected_multi_segment(
         if is_first {
             // connect incoming edges (and disconnect from source)
             // Connect to the commit if we have one.
-            let edges = collect_edges_at_commit(
+            let edges = collect_edges_at_commit_reverse_order(
                 &graph.inner,
                 (commit_parent, commit_idx),
                 Direction::Incoming,
@@ -391,7 +391,7 @@ fn create_connected_multi_segment(
             for edge in &edges {
                 graph.inner.remove_edge(edge.id);
             }
-            for edge in edges {
+            for edge in edges.into_iter().rev() {
                 let (target, target_cidx) = if commit_idx == 0 {
                     // the current target of the edge will be empty after we steal its commit.
                     // Thus, we want to keep pointing to it to naturally reach the commit later.
@@ -417,7 +417,7 @@ fn create_connected_multi_segment(
             let commit_id = commit.id;
             graph[new_segment].commits.push(commit);
 
-            let edges = collect_edges_at_commit(
+            let edges = collect_edges_at_commit_reverse_order(
                 &graph.inner,
                 (commit_parent, commit_idx),
                 Direction::Outgoing,
@@ -425,7 +425,7 @@ fn create_connected_multi_segment(
             for edge in &edges {
                 graph.inner.remove_edge(edge.id);
             }
-            for edge in edges {
+            for edge in edges.into_iter().rev() {
                 graph.inner.add_edge(
                     new_segment,
                     edge.target,
@@ -443,7 +443,7 @@ fn create_connected_multi_segment(
     Ok(Some(above_idx))
 }
 
-fn collect_edges_at_commit(
+fn collect_edges_at_commit_reverse_order(
     graph: &PetGraph,
     (segment, commit): (SegmentIndex, CommitIndex),
     direction: Direction,

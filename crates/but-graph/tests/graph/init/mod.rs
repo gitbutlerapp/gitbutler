@@ -10,7 +10,7 @@ fn unborn() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&graph), @"└── 👉►:0:main");
     insta::assert_debug_snapshot!(graph, @r#"
     Graph {
-        inner: Graph {
+        inner: StableGraph {
             Ty: "Directed",
             node_count: 1,
             edge_count: 0,
@@ -24,6 +24,8 @@ fn unborn() -> anyhow::Result<()> {
                 },
             },
             edge weights: {},
+            free_node: NodeIndex(4294967295),
+            free_edge: EdgeIndex(4294967295),
         },
         entrypoint: Some(
             (
@@ -34,6 +36,12 @@ fn unborn() -> anyhow::Result<()> {
         hard_limit_hit: false,
     }
     "#);
+
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    ⌂:0:main <> ✓!
+    └── ≡:0:main
+        └── :0:main
+    ");
     Ok(())
 }
 
@@ -46,15 +54,23 @@ fn detached() -> anyhow::Result<()> {
     ");
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?;
-    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    insta::assert_snapshot!(graph_tree(&graph), @r"
     └── 👉►:0:main
-        └── ·541396b (⌂|1)❱"first" ►tags/annotated, ►tags/release/v1
+        └── ·541396b (⌂|1) ►tags/annotated, ►tags/release/v1
             └── ►:1:other
-                └── ·fafd9d0 (⌂|1)❱"init"
-    "#);
+                └── ·fafd9d0 (⌂|1)
+    ");
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    ⌂:0:main <> ✓!
+    └── ≡:0:main
+        ├── :0:main
+        │   └── ·541396b ►tags/annotated, ►tags/release/v1
+        └── :1:other
+            └── ·fafd9d0
+    ");
     insta::assert_debug_snapshot!(graph, @r#"
     Graph {
-        inner: Graph {
+        inner: StableGraph {
             Ty: "Directed",
             node_count: 2,
             edge_count: 1,
@@ -65,7 +81,7 @@ fn detached() -> anyhow::Result<()> {
                     ref_name: "refs/heads/main",
                     remote_tracking_ref_name: "None",
                     commits: [
-                        Commit(541396b, "first\n"⌂|1),
+                        Commit(541396b, ⌂|1),
                     ],
                     metadata: "None",
                 },
@@ -74,7 +90,7 @@ fn detached() -> anyhow::Result<()> {
                     ref_name: "refs/heads/other",
                     remote_tracking_ref_name: "None",
                     commits: [
-                        Commit(fafd9d0, "init\n"⌂|1),
+                        Commit(fafd9d0, ⌂|1),
                     ],
                     metadata: "None",
                 },
@@ -95,6 +111,8 @@ fn detached() -> anyhow::Result<()> {
                     ),
                 },
             },
+            free_node: NodeIndex(4294967295),
+            free_edge: EdgeIndex(4294967295),
         },
         entrypoint: Some(
             (
@@ -127,22 +145,22 @@ fn multi_root() -> anyhow::Result<()> {
     ");
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?;
-    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    insta::assert_snapshot!(graph_tree(&graph), @r"
     └── 👉►:0:main
-        └── ·c6c8c05 (⌂|1)❱"Merge branch \'C\'"
+        └── ·c6c8c05 (⌂|1)
             ├── ►:2:C
-            │   └── ·8631946 (⌂|1)❱"Merge branch \'D\' into C"
+            │   └── ·8631946 (⌂|1)
             │       ├── ►:6:D
-            │       │   └── ·f4955b6 (⌂|1)❱"D"
+            │       │   └── ·f4955b6 (⌂|1)
             │       └── ►:5:anon:
-            │           └── ·00fab2a (⌂|1)❱"C"
+            │           └── ·00fab2a (⌂|1)
             └── ►:1:anon:
-                └── ·76fc5c4 (⌂|1)❱"Merge branch \'B\'"
+                └── ·76fc5c4 (⌂|1)
                     ├── ►:4:B
-                    │   └── ·366d496 (⌂|1)❱"B"
+                    │   └── ·366d496 (⌂|1)
                     └── ►:3:anon:
-                        └── ·e5d0542 (⌂|1)❱"A"
-    "#);
+                        └── ·e5d0542 (⌂|1)
+    ");
     assert_eq!(
         graph.tip_segments().count(),
         1,
@@ -153,6 +171,14 @@ fn multi_root() -> anyhow::Result<()> {
         4,
         "there are 4 orphaned bases"
     );
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    ⌂:0:main <> ✓!
+    └── ≡:0:main
+        └── :0:main
+            ├── ·c6c8c05
+            ├── ·76fc5c4
+            └── ·e5d0542
+    ");
     Ok(())
 }
 
@@ -177,27 +203,27 @@ fn four_diamond() -> anyhow::Result<()> {
     ");
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?;
-    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    insta::assert_snapshot!(graph_tree(&graph), @r"
     └── 👉►:0:merged
-        └── ·8a6c109 (⌂|1)❱"Merge branch \'C\' into merged"
+        └── ·8a6c109 (⌂|1)
             ├── ►:2:C
-            │   └── ·7ed512a (⌂|1)❱"Merge branch \'D\' into C"
+            │   └── ·7ed512a (⌂|1)
             │       ├── ►:6:D
-            │       │   └── ·ecb1877 (⌂|1)❱"D"
+            │       │   └── ·ecb1877 (⌂|1)
             │       │       └── ►:7:main
-            │       │           └── ·965998b (⌂|1)❱"base"
+            │       │           └── ·965998b (⌂|1)
             │       └── ►:5:anon:
-            │           └── ·35ee481 (⌂|1)❱"C"
+            │           └── ·35ee481 (⌂|1)
             │               └── →:7: (main)
             └── ►:1:A
-                └── ·62b409a (⌂|1)❱"Merge branch \'B\' into A"
+                └── ·62b409a (⌂|1)
                     ├── ►:4:B
-                    │   └── ·f16dddf (⌂|1)❱"B"
+                    │   └── ·f16dddf (⌂|1)
                     │       └── →:7: (main)
                     └── ►:3:anon:
-                        └── ·592abec (⌂|1)❱"A"
+                        └── ·592abec (⌂|1)
                             └── →:7: (main)
-    "#);
+    ");
 
     assert_eq!(
         graph.num_segments(),
@@ -210,6 +236,18 @@ fn four_diamond() -> anyhow::Result<()> {
         10,
         "however, we see only a portion of the edges as the tree can only show simple stacks"
     );
+
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    ⌂:0:merged <> ✓!
+    └── ≡:0:merged
+        ├── :0:merged
+        │   └── ·8a6c109
+        ├── :1:A
+        │   ├── ·62b409a
+        │   └── ·592abec
+        └── :7:main
+            └── ·965998b
+    ");
     Ok(())
 }
 
@@ -228,62 +266,98 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     // A remote will always be able to find their non-remotes so they don't seem cut-off.
     let graph =
         Graph::from_head(&repo, &*meta, standard_options().with_limit_hint(1))?.validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 👉►:0:B <> origin/B
-    │   └── ·312f819 (⌂|1)❱"B"
+    │   └── ·312f819 (⌂|1)
     │       └── ►:2:A <> origin/A
-    │           └── ·e255adc (⌂|11)❱"A"
+    │           └── ·e255adc (⌂|11)
     │               └── ►:4:main
-    │                   └── ·fafd9d0 (⌂|11)❱"init"
+    │                   └── ·fafd9d0 (⌂|11)
     └── ►:1:origin/B
-        └── 🟣682be32❱"B"
+        └── 🟣682be32
             └── ►:3:origin/A
-                └── 🟣e29c23d❱"A"
+                └── 🟣e29c23d
                     └── →:4: (main)
-    "#);
+    ");
+
+    // 'main' is frozen because it connects to a 'foreign' remote, the commit was pushed.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    ⌂:0:B <> ✓!
+    └── ≡:0:B <> origin/B⇡1⇣2
+        ├── :0:B <> origin/B⇡1⇣2
+        │   ├── 🟣682be32
+        │   ├── 🟣e29c23d
+        │   └── ·312f819
+        ├── :2:A <> origin/A⇡1⇣1
+        │   ├── 🟣e29c23d
+        │   └── ·e255adc
+        └── :4:main
+            └── ❄fafd9d0
+    ");
+
     // The hard limit is always respected though.
     let graph =
         Graph::from_head(&repo, &*meta, standard_options().with_hard_limit(7))?.validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 👉►:0:B
-    │   └── ·312f819 (⌂|1)❱"B"
+    │   └── ·312f819 (⌂|1)
     │       └── ►:2:A
-    │           └── ·e255adc (⌂|11)❱"A"
+    │           └── ·e255adc (⌂|11)
     │               └── ►:4:main
-    │                   └── ·fafd9d0 (⌂|11)❱"init"
+    │                   └── ·fafd9d0 (⌂|11)
     ├── ►:1:origin/B
-    │   └── ❌🟣682be32❱"B"
+    │   └── ❌🟣682be32
     └── ►:3:origin/A
-    "#);
+    ");
+    // As the remotes don't connect, they are entirely unknown.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    ⌂:0:B <> ✓!
+    └── ≡:0:B
+        ├── :0:B
+        │   └── ·312f819
+        ├── :2:A
+        │   └── ·e255adc
+        └── :4:main
+            └── ·fafd9d0
+    ");
 
-    // Everything we encounter is checked for remotes.
+    // Everything we encounter is checked for remotes (no limit)
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 👉►:0:B <> origin/B
-    │   └── ·312f819 (⌂|1)❱"B"
+    │   └── ·312f819 (⌂|1)
     │       └── ►:2:A <> origin/A
-    │           └── ·e255adc (⌂|11)❱"A"
+    │           └── ·e255adc (⌂|11)
     │               └── ►:4:main
-    │                   └── ·fafd9d0 (⌂|11)❱"init"
+    │                   └── ·fafd9d0 (⌂|11)
     └── ►:1:origin/B
-        └── 🟣682be32❱"B"
+        └── 🟣682be32
             └── ►:3:origin/A
-                └── 🟣e29c23d❱"A"
+                └── 🟣e29c23d
                     └── →:4: (main)
-    "#);
+    ");
 
     // With a lower entrypoint, we don't see part of the graph.
     let (id, name) = id_at(&repo, "A");
     let graph = Graph::from_commit_traversal(id, name, &*meta, standard_options())?.validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 👉►:0:A <> origin/A
-    │   └── ·e255adc (⌂|1)❱"A"
+    │   └── ·e255adc (⌂|1)
     │       └── ►:2:main
-    │           └── ·fafd9d0 (⌂|1)❱"init"
+    │           └── ·fafd9d0 (⌂|1)
     └── ►:1:origin/A
-        └── 🟣e29c23d❱"A"
+        └── 🟣e29c23d
             └── →:2: (main)
-    "#);
+    ");
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    ⌂:0:A <> ✓!
+    └── ≡:0:A <> origin/A⇡1⇣1
+        ├── :0:A <> origin/A⇡1⇣1
+        │   ├── 🟣e29c23d
+        │   └── ·e255adc
+        └── :2:main
+            └── ❄fafd9d0
+    ");
     Ok(())
 }
 
@@ -313,70 +387,108 @@ fn with_limits() -> anyhow::Result<()> {
 
     // Without limits
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    insta::assert_snapshot!(graph_tree(&graph), @r"
     └── 👉►:0:C
-        └── ·2a95729 (⌂|1)❱"Merge branches \'A\' and \'B\' into C"
+        └── ·2a95729 (⌂|1)
             ├── ►:3:B
-            │   ├── ·9908c99 (⌂|1)❱"B3"
-            │   ├── ·60d9a56 (⌂|1)❱"B2"
-            │   └── ·9d171ff (⌂|1)❱"B1"
+            │   ├── ·9908c99 (⌂|1)
+            │   ├── ·60d9a56 (⌂|1)
+            │   └── ·9d171ff (⌂|1)
             │       └── ►:4:main
-            │           ├── ·edc4dee (⌂|1)❱"5"
-            │           ├── ·01d0e1e (⌂|1)❱"4"
-            │           ├── ·4b3e5a8 (⌂|1)❱"3"
-            │           ├── ·34d0715 (⌂|1)❱"2"
-            │           └── ·eb5f731 (⌂|1)❱"1"
+            │           ├── ·edc4dee (⌂|1)
+            │           ├── ·01d0e1e (⌂|1)
+            │           ├── ·4b3e5a8 (⌂|1)
+            │           ├── ·34d0715 (⌂|1)
+            │           └── ·eb5f731 (⌂|1)
             ├── ►:2:A
-            │   ├── ·20a823c (⌂|1)❱"A3"
-            │   ├── ·442a12f (⌂|1)❱"A2"
-            │   └── ·686706b (⌂|1)❱"A1"
+            │   ├── ·20a823c (⌂|1)
+            │   ├── ·442a12f (⌂|1)
+            │   └── ·686706b (⌂|1)
             │       └── →:4: (main)
             └── ►:1:anon:
-                ├── ·6861158 (⌂|1)❱"C3"
-                ├── ·4f1f248 (⌂|1)❱"C2"
-                └── ·487ffce (⌂|1)❱"C1"
+                ├── ·6861158 (⌂|1)
+                ├── ·4f1f248 (⌂|1)
+                └── ·487ffce (⌂|1)
                     └── →:4: (main)
-    "#);
+    ");
+    // No limits list the first parent everywhere.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    ⌂:0:C <> ✓!
+    └── ≡:0:C
+        ├── :0:C
+        │   ├── ·2a95729
+        │   ├── ·6861158
+        │   ├── ·4f1f248
+        │   └── ·487ffce
+        └── :4:main
+            ├── ·edc4dee
+            ├── ·01d0e1e
+            ├── ·4b3e5a8
+            ├── ·34d0715
+            └── ·eb5f731
+    ");
 
     // There is no empty starting points, we always traverse the first commit as we really want
     // to get to remote processing there.
     let graph =
         Graph::from_head(&repo, &*meta, standard_options().with_limit_hint(0))?.validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    insta::assert_snapshot!(graph_tree(&graph), @r"
     └── 👉►:0:C
-        └── ✂️·2a95729 (⌂|1)❱"Merge branches \'A\' and \'B\' into C"
-    "#);
+        └── ✂️·2a95729 (⌂|1)
+    ");
+    // The cut by limit is also represented here.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    ⌂:0:C <> ✓!
+    └── ≡:0:C
+        └── :0:C
+            └── ✂️·2a95729
+    ");
 
     // A single commit, the merge commit.
     let graph =
         Graph::from_head(&repo, &*meta, standard_options().with_limit_hint(1))?.validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    insta::assert_snapshot!(graph_tree(&graph), @r"
     └── 👉►:0:C
-        └── ·2a95729 (⌂|1)❱"Merge branches \'A\' and \'B\' into C"
+        └── ·2a95729 (⌂|1)
             ├── ►:3:B
-            │   └── ✂️·9908c99 (⌂|1)❱"B3"
+            │   └── ✂️·9908c99 (⌂|1)
             ├── ►:2:A
-            │   └── ✂️·20a823c (⌂|1)❱"A3"
+            │   └── ✂️·20a823c (⌂|1)
             └── ►:1:anon:
-                └── ✂️·6861158 (⌂|1)❱"C3"
-    "#);
+                └── ✂️·6861158 (⌂|1)
+    ");
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    ⌂:0:C <> ✓!
+    └── ≡:0:C
+        └── :0:C
+            ├── ·2a95729
+            └── ✂️·6861158
+    ");
 
     // The merge commit, then we witness lane-duplication of the limit so we get more than requested.
     let graph =
         Graph::from_head(&repo, &*meta, standard_options().with_limit_hint(2))?.validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    insta::assert_snapshot!(graph_tree(&graph), @r"
     └── 👉►:0:C
-        └── ·2a95729 (⌂|1)❱"Merge branches \'A\' and \'B\' into C"
+        └── ·2a95729 (⌂|1)
             ├── ►:3:B
-            │   ├── ·9908c99 (⌂|1)❱"B3"
-            │   └── ✂️·60d9a56 (⌂|1)❱"B2"
+            │   ├── ·9908c99 (⌂|1)
+            │   └── ✂️·60d9a56 (⌂|1)
             ├── ►:2:A
-            │   ├── ·20a823c (⌂|1)❱"A3"
-            │   └── ✂️·442a12f (⌂|1)❱"A2"
+            │   ├── ·20a823c (⌂|1)
+            │   └── ✂️·442a12f (⌂|1)
             └── ►:1:anon:
-                ├── ·6861158 (⌂|1)❱"C3"
-                └── ✂️·4f1f248 (⌂|1)❱"C2"
-    "#);
+                ├── ·6861158 (⌂|1)
+                └── ✂️·4f1f248 (⌂|1)
+    ");
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    ⌂:0:C <> ✓!
+    └── ≡:0:C
+        └── :0:C
+            ├── ·2a95729
+            ├── ·6861158
+            └── ✂️·4f1f248
+    ");
 
     // Allow to see more commits just in the middle lane, the limit is reset,
     // and we see two more.
@@ -388,20 +500,28 @@ fn with_limits() -> anyhow::Result<()> {
             .with_limit_extension_at(Some(id_by_rev(&repo, ":/A3").detach())),
     )?
     .validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    insta::assert_snapshot!(graph_tree(&graph), @r"
     └── 👉►:0:C
-        └── ·2a95729 (⌂|1)❱"Merge branches \'A\' and \'B\' into C"
+        └── ·2a95729 (⌂|1)
             ├── ►:3:B
-            │   ├── ·9908c99 (⌂|1)❱"B3"
-            │   └── ✂️·60d9a56 (⌂|1)❱"B2"
+            │   ├── ·9908c99 (⌂|1)
+            │   └── ✂️·60d9a56 (⌂|1)
             ├── ►:2:A
-            │   ├── ·20a823c (⌂|1)❱"A3"
-            │   ├── ·442a12f (⌂|1)❱"A2"
-            │   └── ✂️·686706b (⌂|1)❱"A1"
+            │   ├── ·20a823c (⌂|1)
+            │   ├── ·442a12f (⌂|1)
+            │   └── ✂️·686706b (⌂|1)
             └── ►:1:anon:
-                ├── ·6861158 (⌂|1)❱"C3"
-                └── ✂️·4f1f248 (⌂|1)❱"C2"
-    "#);
+                ├── ·6861158 (⌂|1)
+                └── ✂️·4f1f248 (⌂|1)
+    ");
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    ⌂:0:C <> ✓!
+    └── ≡:0:C
+        └── :0:C
+            ├── ·2a95729
+            ├── ·6861158
+            └── ✂️·4f1f248
+    ");
 
     // Multiple extensions are fine as well.
     let id = |rev| id_by_rev(&repo, rev).detach();
@@ -413,25 +533,34 @@ fn with_limits() -> anyhow::Result<()> {
             .with_limit_extension_at([id(":/A3"), id(":/A1"), id(":/B3"), id(":/C3")]),
     )?
     .validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    insta::assert_snapshot!(graph_tree(&graph), @r"
     └── 👉►:0:C
-        └── ·2a95729 (⌂|1)❱"Merge branches \'A\' and \'B\' into C"
+        └── ·2a95729 (⌂|1)
             ├── ►:3:B
-            │   ├── ·9908c99 (⌂|1)❱"B3"
-            │   ├── ·60d9a56 (⌂|1)❱"B2"
-            │   └── ✂️·9d171ff (⌂|1)❱"B1"
+            │   ├── ·9908c99 (⌂|1)
+            │   ├── ·60d9a56 (⌂|1)
+            │   └── ✂️·9d171ff (⌂|1)
             ├── ►:2:A
-            │   ├── ·20a823c (⌂|1)❱"A3"
-            │   ├── ·442a12f (⌂|1)❱"A2"
-            │   └── ·686706b (⌂|1)❱"A1"
+            │   ├── ·20a823c (⌂|1)
+            │   ├── ·442a12f (⌂|1)
+            │   └── ·686706b (⌂|1)
             │       └── ►:4:main
-            │           ├── ·edc4dee (⌂|1)❱"5"
-            │           └── ✂️·01d0e1e (⌂|1)❱"4"
+            │           ├── ·edc4dee (⌂|1)
+            │           └── ✂️·01d0e1e (⌂|1)
             └── ►:1:anon:
-                ├── ·6861158 (⌂|1)❱"C3"
-                ├── ·4f1f248 (⌂|1)❱"C2"
-                └── ✂️·487ffce (⌂|1)❱"C1"
-    "#);
+                ├── ·6861158 (⌂|1)
+                ├── ·4f1f248 (⌂|1)
+                └── ✂️·487ffce (⌂|1)
+    ");
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    ⌂:0:C <> ✓!
+    └── ≡:0:C
+        └── :0:C
+            ├── ·2a95729
+            ├── ·6861158
+            ├── ·4f1f248
+            └── ✂️·487ffce
+    ");
 
     insta::assert_debug_snapshot!(graph.statistics(), @r#"
     Statistics {
@@ -486,6 +615,7 @@ fn with_limits() -> anyhow::Result<()> {
 mod with_workspace;
 
 mod utils;
+use crate::vis::utils::graph_workspace;
 pub use utils::{
     StackState, add_stack_with_segments, add_workspace, id_at, id_by_rev,
     read_only_in_memory_scenario, standard_options,

@@ -17,7 +17,7 @@ mod remotes;
 
 mod post;
 
-pub(super) type PetGraph = petgraph::Graph<Segment, Edge>;
+pub(super) type PetGraph = petgraph::stable_graph::StableGraph<Segment, Edge>;
 
 /// Options for use in [`Graph::from_head()`] and [`Graph::from_commit_traversal()`].
 #[derive(Default, Debug, Clone)]

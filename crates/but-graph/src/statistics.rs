@@ -37,7 +37,11 @@ impl Graph {
             .tip_segments()
             .map(|s| {
                 let s = &self[s];
-                (s.ref_name.clone(), s.id, s.flags_of_first_commit())
+                (
+                    s.ref_name.clone(),
+                    s.id,
+                    s.non_empty_flags_of_first_commit(),
+                )
             })
             .collect();
         *segments_at_bottom = self.base_segments().count();
@@ -77,8 +81,7 @@ impl Graph {
             }
         }
 
-        for node in self.inner.raw_nodes() {
-            let n = &node.weight;
+        for n in self.inner.node_indices().map(|n| &self[n]) {
             *commits += n.commits.len();
 
             if n.ref_name.is_none() {

@@ -1,13 +1,11 @@
 //! Utilities for graph-walking specifically.
 use crate::init::types::{EdgeOwned, Instruction, Limit, Queue, QueueItem, TopoWalk};
 use crate::init::{Goals, PetGraph, remotes};
-use crate::segment::CommitDetails;
 use crate::{
     Commit, CommitFlags, CommitIndex, Edge, Graph, Segment, SegmentIndex, SegmentMetadata,
     is_workspace_ref_name,
 };
 use anyhow::{Context, bail};
-use bstr::BString;
 use but_core::{RefMetadata, ref_metadata};
 use gix::hashtable::hash_map::Entry;
 use gix::reference::Category;
@@ -390,7 +388,6 @@ impl TraverseInfo {
                 parent_ids: self.inner.parent_ids.into_iter().collect(),
                 flags,
                 refs,
-                details: None,
             },
         })
     }
@@ -429,17 +426,14 @@ pub fn find(
             None
         }
         Either::CommitRefIter(iter) => {
-            let mut message = None::<BString>;
-            let mut author = None;
             for token in iter {
                 use gix::objs::commit::ref_iter::Token;
                 match token {
+                    Ok(Token::Tree { .. }) => continue,
                     Ok(Token::Parent { id }) => {
                         parent_ids.push(id);
                     }
-                    Ok(Token::Author { signature }) => author = Some(signature.to_owned()?),
-                    Ok(Token::Message(msg)) => message = Some(msg.into()),
-                    Ok(_other_tokens) => {}
+                    Ok(_other_tokens) => break,
                     Err(err) => return Err(err.into()),
                 };
             }
@@ -448,12 +442,6 @@ pub fn find(
                 parent_ids: parent_ids.iter().cloned().collect(),
                 refs: Vec::new(),
                 flags: CommitFlags::empty(),
-                details: Some(CommitDetails {
-                    message: message.context("Every valid commit must have a message")?,
-                    author: author.context("Every valid commit must have an author signature")?,
-                    // TODO: make it clear that this is optionally computed as well, maybe `Option<bool>`?
-                    has_conflicts: false,
-                }),
             })
         }
     };
@@ -753,7 +741,7 @@ pub fn prune_integrated_tips(graph: &mut Graph, next: &mut Queue) {
     if graph
         .lookup_entrypoint()
         .ok()
-        .and_then(|ep| ep.segment.flags_of_first_commit())
+        .and_then(|ep| ep.segment.non_empty_flags_of_first_commit())
         .is_some_and(|flags| flags.contains(CommitFlags::Integrated))
     {
         return;

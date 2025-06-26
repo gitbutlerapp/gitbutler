@@ -1,48 +1,39 @@
 use crate::init::PetGraph;
-use crate::{CommitFlags, Edge, Graph, Segment, SegmentIndex};
+use crate::{Edge, Graph, Segment, SegmentIndex, SegmentMetadata};
 use bstr::ByteSlice;
 use gix::reference::Category;
-use petgraph::graph::EdgeReference;
 use petgraph::prelude::EdgeRef;
+use petgraph::stable_graph::EdgeReference;
+use petgraph::visit::IntoEdgeReferences;
 
 /// Debugging
 impl Graph {
     /// Produce a string that concisely represents `commit`, adding `extra` information as needed.
     pub fn commit_debug_string(
         commit: &crate::Commit,
-        has_conflicts: bool,
         is_entrypoint: bool,
-        show_message: bool,
         is_early_end: bool,
         hard_limit: bool,
     ) -> String {
         format!(
-            "{ep}{end}{kind}{conflict}{hex}{flags}{msg}{refs}",
+            "{ep}{end}{kind}{hex}{flags}{refs}",
             ep = if is_entrypoint { "👉" } else { "" },
             end = if is_early_end {
                 if hard_limit { "❌" } else { "✂️" }
             } else {
                 ""
             },
-            kind = if commit.flags.contains(CommitFlags::NotInRemote) {
-                "·"
-            } else {
+            kind = if commit.flags.is_remote() {
                 "🟣"
+            } else {
+                "·"
             },
-            conflict = if has_conflicts { "💥" } else { "" },
             flags = if !commit.flags.is_empty() {
                 format!(" ({})", commit.flags.debug_string())
             } else {
                 "".to_string()
             },
             hex = commit.id.to_hex_with_len(7),
-            msg = commit
-                .details
-                .as_ref()
-                .map(|d| d.message.trim().as_bstr())
-                .filter(|_| show_message)
-                .map(|msg| { format!("❱{:?}", msg.trim().as_bstr()) })
-                .unwrap_or_default(),
             refs = if commit.refs.is_empty() {
                 "".to_string()
             } else {
@@ -151,7 +142,15 @@ impl Graph {
                 "{}{remote}{maybe_centering_newline}",
                 s.ref_name
                     .as_ref()
-                    .map(Self::ref_debug_string)
+                    .map(|rn| format!(
+                        "{arrow}{}",
+                        Self::ref_debug_string(rn),
+                        arrow = if s.workspace_metadata().is_some() {
+                            "►►►"
+                        } else {
+                            "►"
+                        }
+                    ))
                     .unwrap_or_else(|| "<anon>".into()),
                 maybe_centering_newline = if s.commits.is_empty() { "" } else { "\n" },
                 remote = if let Some(remote_ref_name) = s.remote_tracking_ref_name.as_ref() {
@@ -173,20 +172,30 @@ impl Graph {
                 .map(|(cidx, c)| {
                     Self::commit_debug_string(
                         c,
-                        c.details
-                            .as_ref()
-                            .map(|d| d.has_conflicts)
-                            .unwrap_or_default(),
                         !show_segment_entrypoint && Some((sidx, Some(cidx))) == entrypoint,
-                        false,
-                        self.is_early_end_of_traversal(sidx, cidx),
+                        if cidx + 1 != s.commits.len() {
+                            false
+                        } else {
+                            self.is_early_end_of_traversal(sidx)
+                        },
                         self.hard_limit_hit,
                     )
                 })
                 .collect::<Vec<_>>()
                 .join("\\l");
             format!(
-                ", shape = box, label = \"{entrypoint}:{id}:{name}{commits}\\l\", fontname = Courier, margin = 0.2",
+                ", shape = box, label = \"{entrypoint}{meta}:{id}:{name}{commits}\\l\", fontname = Courier, margin = 0.2",
+                meta = match s.metadata {
+                    None => {
+                        ""
+                    }
+                    Some(SegmentMetadata::Workspace(_)) => {
+                        "📕"
+                    }
+                    Some(SegmentMetadata::Branch(_)) => {
+                        "📙"
+                    }
+                },
                 entrypoint = if show_segment_entrypoint { "👉" } else { "" },
                 id = sidx.index(),
             )

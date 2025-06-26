@@ -38,11 +38,12 @@
 #![deny(missing_docs, rust_2018_idioms)]
 
 mod segment;
-pub use segment::{Commit, CommitDetails, CommitFlags, Segment, SegmentMetadata};
+pub use segment::{Commit, CommitFlags, Segment, SegmentMetadata};
 
 mod api;
 /// Produce a graph from a Git repository.
 pub mod init;
+pub mod projection;
 
 mod ref_metadata_legacy;
 pub use ref_metadata_legacy::{VirtualBranchesTomlMetadata, is_workspace_ref_name};
@@ -80,6 +81,9 @@ pub struct EntryPoint<'graph> {
     /// The segment that served starting point for the traversal into this graph.
     pub segment: &'graph Segment,
     /// If present, the commit that started the traversal in the `segment`.
+    ///
+    /// It's usually the first commit of the segment due to the way we split segments, and even though
+    /// downstream code relies on this properly, the graph itself does not.
     pub commit: Option<&'graph Commit>,
 }
 

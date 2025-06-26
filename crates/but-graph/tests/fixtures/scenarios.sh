@@ -512,5 +512,60 @@ EOF
 
     setup_remote_tracking soon-remote-main main "move"
   )
+    git init multi-lane-with-shared-segment
+    (cd multi-lane-with-shared-segment
+      commit M1
+      git checkout -b shared
+        commit S1
+        commit S2
+        commit S3
+      git checkout -b A
+        git branch B
+        git branch C
+        commit A1
+      git checkout B
+        commit B1
+        commit B2
+      git checkout C
+        commit C1
+        commit C2
+        commit C3
+      git checkout -b D
+        commit D1
+      create_workspace_commit_once A B D
+      git checkout -b soon-remote-main main
+      commit M2
+
+      git checkout gitbutler/workspace
+      setup_remote_tracking soon-remote-main main "move"
+    )
+
+    git init multi-lane-with-shared-segment-one-integrated
+    (cd multi-lane-with-shared-segment-one-integrated
+      commit M1
+      git checkout -b shared
+        commit S1
+        commit S2
+        commit S3
+      git checkout -b A
+        git branch B
+        git branch C
+        commit A1
+      git checkout B
+        commit B1
+        commit B2
+      git checkout C
+        commit C1
+        commit C2
+        commit C3
+      git checkout -b D
+        commit D1
+      create_workspace_commit_once A B D
+      git checkout -b soon-remote-main main
+      git merge --no-ff A
+
+      git checkout gitbutler/workspace
+      setup_remote_tracking soon-remote-main main "move"
+    )
 )
 

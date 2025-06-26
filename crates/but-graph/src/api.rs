@@ -2,8 +2,9 @@ use crate::init::PetGraph;
 use crate::{CommitIndex, Edge, EntryPoint, Graph, Segment, SegmentIndex};
 use anyhow::{Context, bail};
 use petgraph::Direction;
-use petgraph::graph::EdgeReference;
 use petgraph::prelude::EdgeRef;
+use petgraph::stable_graph::EdgeReference;
+use petgraph::visit::IntoEdgeReferences;
 use std::ops::{Index, IndexMut};
 
 /// Mutation
@@ -94,20 +95,25 @@ impl Graph {
     /// aren't fully defined as traversal stopped due to some abort condition being met.
     /// Valid partial segments always have at least one commit.
     pub fn partial_segments(&self) -> impl Iterator<Item = SegmentIndex> {
-        self.base_segments().filter(|s| {
-            let has_outgoing = self
-                .inner
-                .edges_directed(*s, Direction::Outgoing)
-                .next()
-                .is_some();
-            if has_outgoing {
-                return false;
-            }
-            self[*s]
-                .commits
-                .first()
-                .is_none_or(|c| !c.parent_ids.is_empty())
-        })
+        self.base_segments().filter(|s| self.is_partial_segment(*s))
+    }
+
+    /// Return `true` if the segment behind `sidx`
+    /// isn't fully defined as traversal stopped due to some abort condition.
+    /// Valid partial segments always have at least one commit.
+    fn is_partial_segment(&self, sidx: SegmentIndex) -> bool {
+        let has_outgoing = self
+            .inner
+            .edges_directed(sidx, Direction::Outgoing)
+            .next()
+            .is_some();
+        if has_outgoing {
+            return false;
+        }
+        self[sidx]
+            .commits
+            .last()
+            .is_none_or(|c| !c.parent_ids.is_empty())
     }
 
     /// Return all segments that sit on top of the `sidx` segment as `(source_commit_index(of sidx), destination_segment_index)`,
@@ -133,24 +139,21 @@ impl Graph {
             })
     }
 
-    /// Return `true` if commit `cidx` in `sidx` is 'cut off', i.e. the traversal finished at this
-    /// commit due to an abort condition.
-    pub fn is_early_end_of_traversal(&self, sidx: SegmentIndex, cidx: CommitIndex) -> bool {
-        if cidx + 1 == self[sidx].commits.len() {
-            !self[sidx]
-                .commits
-                .last()
-                .expect("length check above works")
-                .parent_ids
-                .is_empty()
-                && self
-                    .inner
-                    .edges_directed(sidx, Direction::Outgoing)
-                    .next()
-                    .is_none()
-        } else {
-            false
+    /// Return `true` if commit `sidx` is 'cut off', i.e. the traversal finished at
+    /// its last commit due to an abort condition.
+    pub fn is_early_end_of_traversal(&self, sidx: SegmentIndex) -> bool {
+        if self
+            .inner
+            .edges_directed(sidx, Direction::Outgoing)
+            .next()
+            .is_some()
+        {
+            return false;
         }
+        self[sidx]
+            .commits
+            .last()
+            .is_some_and(|c| !c.parent_ids.is_empty())
     }
 
     /// Return the number of segments stored within the graph.
@@ -166,9 +169,8 @@ impl Graph {
     /// Return the number of commits in all segments.
     pub fn num_commits(&self) -> usize {
         self.inner
-            .raw_nodes()
-            .iter()
-            .map(|n| n.weight.commits.len())
+            .node_indices()
+            .map(|n| self[n].commits.len())
             .sum::<usize>()
     }
 

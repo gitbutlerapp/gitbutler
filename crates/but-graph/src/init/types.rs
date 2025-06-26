@@ -1,7 +1,7 @@
 use crate::{CommitFlags, CommitIndex, Edge, SegmentIndex};
 use petgraph::Direction;
-use petgraph::graph::EdgeReference;
 use petgraph::prelude::EdgeRef;
+use petgraph::stable_graph::EdgeReference;
 use std::collections::{BTreeSet, VecDeque};
 use std::ops::Range;
 
