@@ -14,6 +14,7 @@ import { MOCK_WORKTREE_CHANGES } from './mock/worktree';
 // eslint-disable-next-line no-relative-import-paths/no-relative-import-paths
 import { TestId } from '../../../src/lib/testing/testIds';
 import { invoke, type InvokeArgs } from '@tauri-apps/api/core';
+import type { ProjectInfo } from '$lib/project/projectsService';
 
 function mockInternals(window: any) {
 	window.__TAURI_INTERNALS__ = window.__TAURI_INTERNALS__ ?? {};
@@ -122,10 +123,14 @@ Cypress.on('window:before:load', (win) => {
 				return MOCK_OPEN_WORKSPACE_MODE;
 			case 'set_project_active':
 				// Do nothing
-				return await Promise.resolve(true);
+				return await Promise.resolve<ProjectInfo>({
+					is_exclusive: true
+				});
 			case 'fetch_from_remotes':
 				// Do nothing
 				return await Promise.resolve();
+			case 'canned_branch_name':
+				return await Promise.resolve('canned-branch-name');
 			case 'git_head':
 				return MOCK_GIT_HEAD;
 			case 'get_base_branch_data':
@@ -262,6 +267,11 @@ Cypress.on('uncaught:exception', () => {
 });
 
 beforeEach(() => {
+	cy.intercept({ hostname: 'api.github.com' }, (req) => {
+		console.warn('Intercepted request to GitHub API:', req.method, req.url);
+		req.destroy();
+	});
+
 	cy.viewport('macbook-11');
 });
 
