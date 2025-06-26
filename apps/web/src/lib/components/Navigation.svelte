@@ -7,6 +7,7 @@
 	import { inject } from '@gitbutler/shared/context';
 	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { Button, ContextMenu, ContextMenuItem, ContextMenuSection, Icon } from '@gitbutler/ui';
+	import { env } from '$env/dynamic/public';
 
 
 	const authService = inject(AUTH_SERVICE);
@@ -22,7 +23,7 @@
 
 	function logout() {
 		authService.clearToken();
-		window.location.reload();
+		window.location.href = `${env.PUBLIC_APP_HOST}cloud/logout`;
 	}
 </script>
 
