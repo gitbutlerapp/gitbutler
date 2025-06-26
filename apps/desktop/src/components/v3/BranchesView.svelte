@@ -175,7 +175,7 @@
 		{@const isTargetBranch = current.branchName === baseBranch.shortName}
 		{@const inWorkspaceOrTargetBranch = current.inWorkspace || isTargetBranch}
 		{@const isStackOrNormalBranchPreview =
-			current.stackId || (current.branchName && isTargetBranch)}
+			current.stackId || (current.branchName && !isTargetBranch)}
 		{@const isNonLocalPr = !isStackOrNormalBranchPreview && current.prNumber !== undefined}
 
 		<div class="branches-view">
@@ -266,7 +266,7 @@
 				<div class="right-wrapper hide-native-scrollbar dotted-pattern" bind:this={rightWrapper}>
 					<div class="branch-column" bind:this={branchColumn}>
 						<!-- Apply branch -->
-						{#if !inWorkspaceOrTargetBranch && someBranchSelected}
+						{#if !inWorkspaceOrTargetBranch && someBranchSelected && !isNonLocalPr}
 							{@const doesNotHaveLocalTooltip = current.hasLocal
 								? undefined
 								: 'No local branch to delete'}
@@ -305,7 +305,6 @@
 							</div>
 						{/if}
 
-						<!-- Apply PR (from fork) -->
 						{#if isNonLocalPr && !inWorkspaceOrTargetBranch}
 							<div class="branches-actions">
 								{#if !current.isTarget}
@@ -353,9 +352,17 @@
 					</div>
 
 					{#if current.commitId || (current.branchName && ((current.inWorkspace && current.stackId) || !current.isTarget)) || current.prNumber}
-						<div class="commit-column" bind:this={commitColumn}>
+						<div class="commit-column" bind:this={commitColumn} class:non-local-pr={isNonLocalPr}>
 							{#if current.commitId}
 								<UnappliedCommitView {projectId} commitId={current.commitId} />
+								<Resizer
+									viewport={commitColumn}
+									persistId="branches-branch-column"
+									direction="right"
+									defaultValue={15}
+									minWidth={10}
+									maxWidth={30}
+								/>
 							{:else if current.branchName}
 								{#if current.inWorkspace && current.stackId}
 									<BranchView
@@ -376,23 +383,25 @@
 										{onerror}
 									/>
 								{/if}
+								<Resizer
+									viewport={commitColumn}
+									persistId="branches-branch-column"
+									direction="right"
+									defaultValue={15}
+									minWidth={10}
+									maxWidth={30}
+								/>
 							{:else if current.prNumber}
 								<PrBranchView {projectId} prNumber={current.prNumber} {onerror} />
 							{/if}
-							<Resizer
-								viewport={commitColumn}
-								persistId="branches-branch-column"
-								direction="right"
-								defaultValue={15}
-								minWidth={10}
-								maxWidth={30}
-							/>
 						</div>
 					{/if}
 
-					<!-- <div class="preview-column" bind:this={previewColumn}> -->
-					<SelectionView {projectId} {selectionId} draggableFiles />
-					<!-- </div> -->
+					{#if !isNonLocalPr}
+						<!-- <div class="preview-column" bind:this={previewColumn}> -->
+						<SelectionView {projectId} {selectionId} draggableFiles />
+						<!-- </div> -->
+					{/if}
 				</div>
 				<Scrollbar viewport={rightWrapper} horz />
 			</div>
@@ -446,6 +455,11 @@
 		max-height: calc(100% + 1px);
 		overflow: hidden;
 		border-right: 1px solid var(--clr-border-2);
+
+		&.non-local-pr {
+			flex-grow: 1;
+			border-right: none;
+		}
 	}
 
 	.commits {
