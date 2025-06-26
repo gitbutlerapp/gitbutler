@@ -25,6 +25,19 @@ export function isParsedError(something: unknown): something is ParsedError {
 	);
 }
 
+/**
+ * It appears that Vite sporadically experiences some bundling error where
+ * a resource that no longer exists is requested. The fastest way to resolve
+ * such an error is to disable the cache from the network tab and reload the
+ * page once. It would be great if we could root cause and fix this problem.
+ */
+export function isBundlingError(error: ParsedError): boolean {
+	return (
+		error.name === 'TypeError' &&
+		error.message.startsWith("undefined is not an object (evaluating 'first_child_getter.call')")
+	);
+}
+
 export function parseError(error: unknown): ParsedError {
 	if (isStr(error)) {
 		return { message: error };
