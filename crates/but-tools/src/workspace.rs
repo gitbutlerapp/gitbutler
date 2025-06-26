@@ -5,11 +5,15 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::{OplogExt, SnapshotExt};
 use schemars::{JsonSchema, schema_for};
 
+use crate::emit::EmitStackUpdate;
 use crate::tool::{Tool, Toolset};
 
 /// Creates a toolset for workspace-related operations.
-pub fn commit_toolset(ctx: &mut CommandContext) -> anyhow::Result<Toolset> {
-    let mut toolset = Toolset::new(ctx);
+pub fn commit_toolset<'a>(
+    ctx: &'a mut CommandContext,
+    app_handle: Option<&'a tauri::AppHandle>,
+) -> anyhow::Result<Toolset<'a>> {
+    let mut toolset = Toolset::new(ctx, app_handle);
 
     toolset.register_tool(Commit);
     toolset.register_tool(CreateBranch);
@@ -56,16 +60,18 @@ impl Tool for Commit {
         self: Arc<Self>,
         parameters: serde_json::Value,
         ctx: &mut CommandContext,
+        app_handle: Option<&tauri::AppHandle>,
     ) -> anyhow::Result<serde_json::Value> {
         let params: CommitParameters = serde_json::from_value(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
 
-        create_commit(ctx, params)
+        create_commit(ctx, app_handle, params)
     }
 }
 
 pub fn create_commit(
     ctx: &mut CommandContext,
+    app_handle: Option<&tauri::AppHandle>,
     params: CommitParameters,
 ) -> Result<serde_json::Value, anyhow::Error> {
     let repo = ctx.gix_repo()?;
@@ -109,8 +115,16 @@ pub fn create_commit(
         )
     });
 
+    // If there's an app handle provided, emit an event to update the stack details in the UI.
+    if let Some(app_handle) = app_handle {
+        let project_id = ctx.project().id;
+        app_handle.emit_stack_update(project_id, stack_id);
+    }
+
     let outcome: but_workspace::commit_engine::ui::CreateCommitOutcome = outcome?.into();
-    Ok(serde_json::to_value(outcome)?)
+    let value = serde_json::to_value(&outcome)
+        .map_err(|e| anyhow::anyhow!("Failed to serialize commit outcome: {}", e))?;
+    Ok(value)
 }
 
 fn stacks(
@@ -156,16 +170,18 @@ impl Tool for CreateBranch {
         self: Arc<Self>,
         parameters: serde_json::Value,
         ctx: &mut CommandContext,
+        app_handle: Option<&tauri::AppHandle>,
     ) -> anyhow::Result<serde_json::Value> {
         let params: CreateBranchParameters = serde_json::from_value(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
 
-        create_branch(ctx, params)
+        create_branch(ctx, app_handle, params)
     }
 }
 
 pub fn create_branch(
     ctx: &mut CommandContext,
+    app_handle: Option<&tauri::AppHandle>,
     params: CreateBranchParameters,
 ) -> Result<serde_json::Value, anyhow::Error> {
     let mut guard = ctx.project().exclusive_worktree_access();
@@ -177,6 +193,12 @@ pub fn create_branch(
     };
 
     let stack = gitbutler_branch_actions::create_virtual_branch(ctx, &branch, perm)?;
+
+    // If there's an app handle provided, emit an event to update the stack details in the UI.
+    if let Some(app_handle) = app_handle {
+        let project_id = ctx.project().id;
+        app_handle.emit_stack_update(project_id, stack.id);
+    }
 
     let outcome = serde_json::to_value(stack)?;
     Ok(outcome)

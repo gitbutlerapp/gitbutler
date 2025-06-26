@@ -6,6 +6,7 @@
 	import { changesToDiffSpec } from '$lib/commits/utils';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { isTreeChange, type TreeChange } from '$lib/hunks/change';
+	import { showToast } from '$lib/notifications/toasts';
 	import { Project } from '$lib/project/project';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
@@ -142,15 +143,30 @@
 		}
 		contextMenu.close();
 	}
+
+	async function triggerAutoCommit(changes: TreeChange[]) {
+		if (!canUseGBAI) {
+			toasts.error('GitButler AI is not configured or enabled for this project.');
+			return;
+		}
+
+		showToast({
+			style: 'neutral',
+			title: 'Figuring out where to commit the changes',
+			message: 'This may take a few seconds.'
+		});
+
+		await autoCommit({ projectId, changes });
+
+		showToast({
+			style: 'success',
+			title: 'And... done!',
+			message: `Now, you're free to continue`
+		});
+	}
 </script>
 
-<ContextMenu
-	bind:this={contextMenu}
-	rightClickTrigger={trigger}
-	onclose={() => {
-		aiConfigurationValid = false;
-	}}
->
+<ContextMenu bind:this={contextMenu} rightClickTrigger={trigger}>
 	{#snippet children(item: unknown)}
 		{#if isFileItem(item)}
 			{@const deletion = isDeleted(item)}
@@ -182,11 +198,8 @@
 						<ContextMenuItem
 							label="Auto commit"
 							onclick={async () => {
-								await autoCommit({
-									projectId,
-									changes: item.changes
-								});
 								contextMenu.close();
+								await triggerAutoCommit(item.changes);
 							}}
 							disabled={autoCommitting.current.isLoading}
 						/>

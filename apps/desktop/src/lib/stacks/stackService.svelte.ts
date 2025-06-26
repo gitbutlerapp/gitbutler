@@ -1,6 +1,7 @@
 import { StackOrder } from '$lib/branches/branch';
 import { ConflictEntries, type ConflictEntriesObj } from '$lib/files/conflicts';
 import { showToast } from '$lib/notifications/toasts';
+import { hasTauriExtra } from '$lib/state/backendQuery';
 import { ClientState, type BackendApi } from '$lib/state/clientState.svelte';
 import { createSelectByIds, createSelectNth } from '$lib/state/customSelectors';
 import {
@@ -751,6 +752,12 @@ export class StackService {
 	get saveEditAndReturnToWorkspace() {
 		return this.api.endpoints.saveEditAndReturnToWorkspace.mutate;
 	}
+
+	stackDetailsUpdateListener(projectId: string) {
+		return this.api.endpoints.stackDetailsUpdate.useQuery({
+			projectId
+		});
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -1486,6 +1493,30 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesList(ReduxTag.StackDetails)
 				]
+			}),
+			stackDetailsUpdate: build.query<void, { projectId: string }>({
+				queryFn: () => ({ data: undefined }),
+				async onCacheEntryAdded(arg, lifecycleApi) {
+					if (!hasTauriExtra(lifecycleApi.extra)) {
+						throw new Error('Stack details update endpoint requires Tauri extra');
+					}
+
+					await lifecycleApi.cacheDataLoaded;
+					const unsubscribe = lifecycleApi.extra.tauri.listen<{ stackId: string }>(
+						`project://${arg.projectId}/stack_details_update`,
+						(event) => {
+							lifecycleApi.dispatch(
+								api.util.invalidateTags([
+									invalidatesItem(ReduxTag.StackDetails, event.payload.stackId),
+									invalidatesList(ReduxTag.Stacks)
+								])
+							);
+						}
+					);
+
+					await lifecycleApi.cacheEntryRemoved;
+					unsubscribe();
+				}
 			})
 		})
 	});

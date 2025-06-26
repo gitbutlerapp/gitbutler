@@ -79,7 +79,7 @@
 
 		showToast({
 			style: 'neutral',
-			title: 'Creating a branch and commit...',
+			title: 'Figuring out where to commit the changes',
 			message: 'This may take a few seconds.'
 		});
 
@@ -94,7 +94,7 @@
 
 		showToast({
 			style: 'success',
-			title: 'Branch and commit created successfully.',
+			title: 'And... done!',
 			message: `Now, you're free to continue`
 		});
 	}

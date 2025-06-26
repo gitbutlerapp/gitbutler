@@ -4,13 +4,15 @@ use gitbutler_command_context::CommandContext;
 
 pub struct Toolset<'a> {
     ctx: &'a mut CommandContext,
+    app_handle: Option<&'a tauri::AppHandle>,
     tools: BTreeMap<String, Arc<dyn Tool>>,
 }
 
 impl<'a> Toolset<'a> {
-    pub fn new(ctx: &'a mut CommandContext) -> Self {
+    pub fn new(ctx: &'a mut CommandContext, app_handle: Option<&'a tauri::AppHandle>) -> Self {
         Toolset {
             ctx,
+            app_handle,
             tools: BTreeMap::new(),
         }
     }
@@ -33,7 +35,7 @@ impl<'a> Toolset<'a> {
             .ok_or_else(|| anyhow::anyhow!("Tool '{}' not found", name))?;
         let params: serde_json::Value = serde_json::from_str(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse parameters: {}", e))?;
-        tool.call(params, self.ctx)
+        tool.call(params, self.ctx, self.app_handle)
     }
 }
 
@@ -45,5 +47,6 @@ pub trait Tool: 'static + Send + Sync {
         self: Arc<Self>,
         parameters: serde_json::Value,
         ctx: &mut CommandContext,
+        app_handle: Option<&tauri::AppHandle>,
     ) -> anyhow::Result<serde_json::Value>;
 }

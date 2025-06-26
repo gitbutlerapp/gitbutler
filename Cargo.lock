@@ -775,6 +775,7 @@ dependencies = [
  "serde-error",
  "serde_json",
  "strum",
+ "tauri",
  "tokio",
  "tracing",
  "uuid",
@@ -983,10 +984,12 @@ dependencies = [
  "gitbutler-branch-actions",
  "gitbutler-command-context",
  "gitbutler-oplog",
+ "gitbutler-project",
  "gix",
  "schemars 0.9.0",
  "serde",
  "serde_json",
+ "tauri",
  "tokio",
 ]
 
