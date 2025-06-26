@@ -191,6 +191,7 @@
 		composer?.setText(text);
 	}
 
+	// We want to avoid letting most mouse events bubble up to the parent.
 	function stopPropagation(e: MouseEvent) {
 		e.stopPropagation();
 		e.preventDefault();
@@ -250,6 +251,16 @@
 	style:--code-block-ligatures={$userSettings.diffLigatures ? 'common-ligatures' : 'normal'}
 	onclick={stopPropagation}
 	ondblclick={stopPropagation}
+	onmousedown={stopPropagation}
+	onmouseup={stopPropagation}
+	ondrag={stopPropagation}
+	ondragend={stopPropagation}
+	ondragenter={stopPropagation}
+	ondragexit={stopPropagation}
+	ondragleave={stopPropagation}
+	ondragover={stopPropagation}
+	ondragstart={stopPropagation}
+	ondrop={stopPropagation}
 >
 	<div role="presentation" class="message-textarea">
 		<div
