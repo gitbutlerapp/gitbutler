@@ -11,9 +11,10 @@
 		selectionId?: SelectionId;
 		draggableFiles?: boolean;
 		onclose?: () => void;
+		testId?: string;
 	};
 
-	let { projectId, selectionId, draggableFiles, onclose }: Props = $props();
+	let { projectId, selectionId, draggableFiles, onclose, testId }: Props = $props();
 
 	const [idSelection] = inject(IdSelection);
 
@@ -28,7 +29,7 @@
 	});
 </script>
 
-<div class="selection-view">
+<div class="selection-view" data-testid={testId}>
 	{#if selectedFile}
 		<ScrollableContainer wide zIndex="var(--z-lifted)">
 			<SelectedChange

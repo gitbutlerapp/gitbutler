@@ -329,6 +329,7 @@
 						{@attach scrollingAttachment(intelligentScrollingService, projectId, stack.id, 'diff')}
 					>
 						<SelectionView
+							testId={TestId.WorktreeSelectionView}
 							{projectId}
 							selectionId={{ ...assignedKey, type: 'worktree', stackId: assignedKey.stackId }}
 							onclose={() => {
@@ -406,6 +407,7 @@
 				{@attach scrollingAttachment(intelligentScrollingService, projectId, stack.id, 'diff')}
 			>
 				<SelectionView
+					testId={TestId.StackSelectionView}
 					{projectId}
 					selectionId={selectedKey}
 					onclose={() => {
