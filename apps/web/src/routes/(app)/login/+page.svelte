@@ -37,7 +37,7 @@
 		} else {
 			const token = response.data;
 			authService.setToken(token);
-			window.location.href = `${env.PUBLIC_APP_HOST}successful_login`;
+			window.location.href = `${env.PUBLIC_APP_HOST}successful_login?access_token=${token}`;
 		}
 	}
 
@@ -87,6 +87,11 @@
 				<input id="password" type="password" bind:value={password} required />
 			</div>
 		</SectionCard>
+
+		<div class="reset-password-link">
+			Or did you forget your password? Wow. Ok.
+			<a href={routesService.resetPasswordPath()}>I mean... it's fine. Reset it</a>
+		</div>
 
 		<Button type="submit">Log in</Button>
 
@@ -192,9 +197,13 @@
 		font-size: 14px;
 	}
 
-	.signup-link {
+	.signup-link,
+	.reset-password-link {
 		display: flex;
+		flex-direction: column;
+		align-items: center;
 		justify-content: center;
+
 		gap: 4px;
 		font-size: 14px;
 

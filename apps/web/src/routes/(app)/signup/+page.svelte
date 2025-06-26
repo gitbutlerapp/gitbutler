@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { AuthService } from '$lib/auth/authService.svelte';
 	import GitHubButton from '$lib/components/login/GitHubButton.svelte';
 	import GoogleButton from '$lib/components/login/GoogleButton.svelte';
 	import { getContext } from '@gitbutler/shared/context';
@@ -6,6 +8,9 @@
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
+	import { isStr } from '@gitbutler/ui/utils/string';
+
+	const authService = getContext(AuthService);
 
 	let email = $state<string>();
 	let password = $state<string>();
@@ -44,6 +49,12 @@
 			message = response.data.message;
 		}
 	}
+
+	$effect(() => {
+		if (isStr(authService.token.current)) {
+			goto(routesService.homePath());
+		}
+	});
 </script>
 
 <svelte:head>
@@ -72,7 +83,7 @@
 					type="password"
 					bind:value={password}
 					required
-					autocomplete="current-password"
+					autocomplete="new-password"
 				/>
 			</div>
 			<div class="field">
