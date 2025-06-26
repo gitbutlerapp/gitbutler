@@ -11,6 +11,7 @@
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { env } from '$env/dynamic/public';
 
 	const authService = getContext(AuthService);
 	const token = $derived(authService.tokenReadable);
@@ -25,7 +26,7 @@
 
 	function logout() {
 		authService.clearToken();
-		window.location.reload();
+		window.location.href = `${env.PUBLIC_APP_HOST}cloud/logout`;
 	}
 </script>
 
