@@ -62,6 +62,33 @@ export default class LoginService {
 		}
 	}
 
+	async confirmPasswordReset(
+		token: string,
+		newPassword: string,
+		passwordConfirmation: string
+	): Promise<LoginResponse<{ message: string; token: string }>> {
+		return await this.sendPostRequest(
+			'sessions/confirm_new_password',
+			{
+				password_reset_token: token,
+				password: newPassword,
+				password_confirmation: passwordConfirmation
+			},
+			(data) => {
+				if (!isStr(data.message)) throw new Error('Invalid message format');
+				if (!isStr(data.token)) throw new Error('Invalid token format');
+				return { message: data.message, token: data.token };
+			}
+		);
+	}
+
+	async resetPassword(email: string): Promise<LoginResponse<{ message: string }>> {
+		return await this.sendPostRequest('sessions/forgot_password', { email }, (data) => {
+			if (!isStr(data.message)) throw new Error('Invalid message format');
+			return { message: data.message };
+		});
+	}
+
 	async loginWithEmail(email: string, password: string): Promise<LoginResponse<string>> {
 		return await this.sendPostRequest('sessions/login_with_email', { email, password }, (data) => {
 			if (!isStr(data.token)) throw new Error('Invalid token format');
