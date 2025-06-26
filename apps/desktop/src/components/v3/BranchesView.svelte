@@ -399,7 +399,13 @@
 
 					{#if !isNonLocalPr}
 						<!-- <div class="preview-column" bind:this={previewColumn}> -->
-						<SelectionView {projectId} {selectionId} draggableFiles />
+						<SelectionView
+							testId={TestId.BranchesSelectionView}
+							{projectId}
+							{selectionId}
+							draggableFiles
+						/>
+
 						<!-- </div> -->
 					{/if}
 				</div>

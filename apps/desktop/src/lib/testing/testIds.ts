@@ -94,7 +94,11 @@ export enum TestId {
 	CreateStackButton = 'create-stack-button',
 	CommitToNewBranchButton = 'commit-to-new-branch-button',
 	ConfirmSubmit = 'confirm-submit',
-	CreateNewBranchModal = 'create-new-branch-modal'
+	CreateNewBranchModal = 'create-new-branch-modal',
+	WorktreeSelectionView = 'worktree-selection-view',
+	StackSelectionView = 'stack-selection-view',
+	BranchesSelectionView = 'branches-selection-view',
+	WorkspaceSelectionView = 'workspace-selection-view'
 }
 
 export enum ElementId {

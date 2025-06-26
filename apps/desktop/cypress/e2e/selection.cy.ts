@@ -13,6 +13,8 @@ describe('Selection', () => {
 		mockCommand('stack_details', (params) => mockBackend.getStackDetails(params));
 		mockCommand('changes_in_branch', (args) => mockBackend.getBranchChanges(args));
 		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
+		mockCommand('commit_details', (params) => mockBackend.getCommitChanges(params));
+		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
 
 		cy.visit('/');
 
@@ -54,6 +56,30 @@ describe('Selection', () => {
 					}
 				});
 		}
+	});
+
+	it('should be able to preview the files', () => {
+		// Stack with branch should  be opened by default
+		cy.getByTestId('branch-header').should('contain', mockBackend.stackId);
+
+		const stacks = mockBackend.getStacks();
+		// There shuold be three stacks
+		cy.getByTestId('stack').should('have.length', stacks.length);
+
+		// Select the initial commit which should be local only
+		cy.getByTestId('commit-row', 'Initial commit').first().click();
+
+		cy.getByTestId('commit-drawer')
+			.should('be.visible')
+			.within(() => {
+				cy.getByTestId('commit-drawer-title').should('contain', 'Initial commit');
+				cy.getByTestId('commit-drawer-description').should('contain', 'This is a test commit');
+				cy.getByTestId('file-list-item', 'fileB.txt').should('be.visible');
+				cy.getByTestId('file-list-item', 'fileC.txt').should('be.visible');
+				cy.getByTestId('file-list-item', 'fileA.ts').should('be.visible').click();
+			});
+
+		cy.getByTestId('stack-selection-view').should('be.visible');
 	});
 });
 
