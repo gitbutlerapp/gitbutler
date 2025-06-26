@@ -324,6 +324,11 @@
 			});
 		}
 	});
+
+	// Listen for stack details updates from the backend.
+	$effect(() => {
+		stackService.stackDetailsUpdateListener(projectId);
+	});
 </script>
 
 <!-- forces components to be recreated when projectId changes -->
