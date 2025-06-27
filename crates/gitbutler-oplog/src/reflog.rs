@@ -26,7 +26,7 @@ impl ReflogCommits {
         let vb_state = VirtualBranchesHandle::new(project.gb_dir());
         let target = vb_state.get_default_target()?.sha.to_gix();
         let last_pushed_base = vb_state.last_pushed_base()?;
-        let oplog_state = OplogHandle::new(&project.path);
+        let oplog_state = OplogHandle::new(&project.gb_dir());
         let oplog = oplog_state.oplog_head()?.map(|commit| commit.to_gix());
 
         Ok(ReflogCommits {
