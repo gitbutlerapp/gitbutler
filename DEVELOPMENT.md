@@ -46,6 +46,8 @@ So everything that hits disk is in Rust, everything that the
 user sees is in HTML/JS. Specifically we use [Svelte](https://svelte.dev/)
 in Typescript for that layer.
 
+For a deep dive into the architecture, see [DEEPWIKI](https://deepwiki.com/gitbutlerapp/gitbutler).
+
 ---
 
 ## The Basics
