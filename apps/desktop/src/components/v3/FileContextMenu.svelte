@@ -194,7 +194,7 @@
 							}}
 						/>
 					{/if}
-					{#if canUseGBAI}
+					{#if canUseGBAI && isUncommitted}
 						<ContextMenuItem
 							label="Auto commit"
 							onclick={async () => {
