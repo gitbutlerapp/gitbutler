@@ -97,6 +97,7 @@ pub mod hook {
     use crate::DbHandle;
 
     /// An event fired when the database changes, returned as event stream by [DbHandle::register_update_hook].
+    #[derive(Debug)]
     pub struct ChangeEvent {
         /// The action performed in the database.
         pub action: rusqlite::hooks::Action,
@@ -109,8 +110,9 @@ pub mod hook {
     }
     impl DbHandle {
         /// Open a new database connection and register an update hook with events being sent through
-        /// the returned receiver.
-        /// The database connection must also be kept alive.
+        /// the returned receiver, to receives **in the same process only**.
+        ///
+        /// The database connection must also be kept alive by the caller.
         pub fn register_update_hook(
             &self,
         ) -> anyhow::Result<(rusqlite::Connection, std::sync::mpsc::Receiver<ChangeEvent>)>

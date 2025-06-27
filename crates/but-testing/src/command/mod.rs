@@ -469,6 +469,18 @@ pub async fn watch(args: &super::Args) -> anyhow::Result<()> {
     }
     Ok(())
 }
+pub fn watch_db(args: &super::Args) -> anyhow::Result<()> {
+    let (_repo, project) = repo_and_maybe_project(args, RepositoryOpenMode::General)?;
+    let project = project.context("Couldn't find GitButler project in directory, needed here")?;
+    let mut ctx = CommandContext::open(&project, AppSettings::default())?;
+    let db = ctx.db()?;
+    let (_conn, rx) = db.register_update_hook()?;
+    eprintln!("Press Ctrl + C to abort");
+    for event in rx {
+        dbg!(event);
+    }
+    Ok(())
+}
 
 pub fn operating_mode(args: &super::Args) -> anyhow::Result<()> {
     let (_repo, project) = repo_and_maybe_project(args, RepositoryOpenMode::General)?;
