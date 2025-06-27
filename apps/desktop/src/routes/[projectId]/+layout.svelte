@@ -8,10 +8,10 @@
 	import Navigation from '$components/Navigation.svelte';
 	import NoBaseBranch from '$components/NoBaseBranch.svelte';
 	import NotOnGitButlerBranch from '$components/NotOnGitButlerBranch.svelte';
+	import NowV3Modal from '$components/NowV3Modal.svelte';
 	import ProblemLoadingRepo from '$components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$components/ProjectSettingsMenuAction.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import TryV3Modal from '$components/TryV3Modal.svelte';
 	import IrcPopups from '$components/v3/IrcPopups.svelte';
 	import NotOnGitButlerBranchV3 from '$components/v3/NotOnGitButlerBranch.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
@@ -350,12 +350,12 @@
 				{:else if baseBranch}
 					{#if $mode?.type === 'OpenWorkspace' || $mode?.type === 'Edit'}
 						<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
+							<NowV3Modal />
 							{#if $settingsStore?.featureFlags.v3}
 								<Chrome {projectId} sidebarDisabled={$mode?.type === 'Edit'}>
 									{@render pageChildren()}
 								</Chrome>
 							{:else}
-								<TryV3Modal />
 								<Navigation {projectId} />
 								{@render pageChildren()}
 							{/if}
