@@ -1,6 +1,7 @@
 import { isTauriCommandError, type TauriCommandError } from '$lib/backend/ipc';
 import { SilentError } from '$lib/error/error';
-import { reactive, type Reactive } from '@gitbutler/shared/storeUtils';
+import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
+import { type Reactive } from '@gitbutler/shared/storeUtils';
 import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
 import {
 	type Api,

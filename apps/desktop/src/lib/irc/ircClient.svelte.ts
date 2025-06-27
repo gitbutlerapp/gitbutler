@@ -1,5 +1,5 @@
 import { Cmd, parseIRCMessage, toIrcEvent, type IrcEvent } from '$lib/irc/parser';
-import { reactive } from '@gitbutler/shared/storeUtils';
+import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import ReconnectingWebSocket, { type CloseEvent, type ErrorEvent } from 'reconnecting-websocket';
 
 export const connecting = ReconnectingWebSocket['CONNECTING'];

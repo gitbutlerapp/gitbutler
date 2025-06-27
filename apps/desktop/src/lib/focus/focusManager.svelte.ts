@@ -1,4 +1,5 @@
-import { reactive, type Reactive } from '@gitbutler/shared/storeUtils';
+import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
+import { type Reactive } from '@gitbutler/shared/storeUtils';
 import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
 import { on } from 'svelte/events';
 

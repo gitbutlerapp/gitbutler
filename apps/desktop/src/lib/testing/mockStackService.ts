@@ -1,5 +1,5 @@
 import { mockReduxFulfilled } from '$lib/testing/mockRedux';
-import { reactive } from '@gitbutler/shared/storeUtils';
+import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { vi } from 'vitest';
 import type { Author, Commit, UpstreamCommit } from '$lib/branches/v3';
 import type { BranchDetails } from '$lib/stacks/stack';

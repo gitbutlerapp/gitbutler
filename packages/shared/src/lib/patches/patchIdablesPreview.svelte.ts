@@ -3,8 +3,9 @@ import { registerInterest } from '$lib/interest/registerInterestFunction.svelte'
 import { PatchIdableService } from '$lib/patches/patchIdableService';
 import { patchIdableTable } from '$lib/patches/patchIdablesSlice';
 import { patchIdableId, type LoadablePatchIdable } from '$lib/patches/types';
+import { reactive } from '$lib/reactiveUtils.svelte';
 import { AppState } from '$lib/redux/store.svelte';
-import { reactive, type Reactive } from '$lib/storeUtils';
+import { type Reactive } from '$lib/storeUtils';
 
 export function getPatchIdable(
 	branchUuid: string,

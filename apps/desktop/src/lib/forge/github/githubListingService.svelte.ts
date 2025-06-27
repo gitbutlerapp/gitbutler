@@ -3,7 +3,7 @@ import { ghResponseToInstance } from '$lib/forge/github/types';
 import { createSelectByIds } from '$lib/state/customSelectors';
 import { combineResults } from '$lib/state/helpers';
 import { providesList, ReduxTag } from '$lib/state/tags';
-import { reactive } from '@gitbutler/shared/storeUtils';
+import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { ForgeListingService } from '$lib/forge/interface/forgeListingService';
