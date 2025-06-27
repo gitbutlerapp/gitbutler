@@ -191,7 +191,7 @@
 <div
 	bind:this={modalEl}
 	use:portal={'body'}
-	class="modal"
+	class="floating-modal"
 	class:snapping
 	class:resizing={dragResizeHandler.isResizing}
 	style="left: {x}px; top: {y}px; width: {width}px; height: {height}px;"
@@ -201,7 +201,7 @@
 </div>
 
 <style>
-	.modal {
+	.floating-modal {
 		display: flex;
 		z-index: var(--z-floating);
 		position: absolute;
@@ -225,25 +225,13 @@
 		}
 	}
 
-	.modal-head-wrapper {
-		display: flex;
-	}
-
-	.modal.snapping {
+	.floating-modal.snapping {
 		transition:
 			left 0.3s cubic-bezier(0.4, 0, 0.2, 1),
 			top 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 	}
 
-	.modal.resizing {
+	.floating-modal.resizing {
 		transition: none;
-	}
-
-	.modal-content {
-		display: flex;
-		flex-direction: column;
-		height: 100%;
-		padding: 16px;
-		overflow: auto;
 	}
 </style>
