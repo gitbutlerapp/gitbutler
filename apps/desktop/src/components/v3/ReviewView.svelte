@@ -74,10 +74,8 @@
 		onExitFloatingModeClick={() => {
 			uiState.global.useFloatingPrBox.set(false);
 		}}
+		title={pr ? `Edit PR #${pr.number}` : 'Create PR'}
 	>
-		{#snippet header()}
-			Create Review
-		{/snippet}
 		{@render editor()}
 	</FloatingCommitBox>
 {:else}

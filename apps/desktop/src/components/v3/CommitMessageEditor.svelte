@@ -226,14 +226,11 @@
 
 {#if useFloatingCommitBox.current}
 	<FloatingCommitBox
+		title={floatingBoxHeader}
 		onExitFloatingModeClick={() => {
 			uiState.global.useFloatingCommitBox.set(false);
 		}}
 	>
-		{#snippet header()}
-			{floatingBoxHeader}
-		{/snippet}
-
 		{@render editorContent()}
 	</FloatingCommitBox>
 {:else}

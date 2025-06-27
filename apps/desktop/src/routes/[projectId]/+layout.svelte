@@ -375,9 +375,9 @@
 	{/if}
 {/key}
 
-{#if $settingsStore?.featureFlags.v3}
-	<IrcPopups />
-{/if}
+<!-- {#if $settingsStore?.featureFlags.v3} -->
+<IrcPopups />
+<!-- {/if} -->
 
 <!-- Mounting metrics reporter in the board ensures dependent services are subscribed to. -->
 <MetricsReporter {projectId} {projectMetrics} />

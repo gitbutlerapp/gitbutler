@@ -1,6 +1,6 @@
 <script lang="ts">
 	import IrcChannel from '$components/v3/IrcChannel.svelte';
-	import IrcFloat from '$components/v3/IrcFloat.svelte';
+	import FloatingModal from '$lib/floating/FloatingModal.svelte';
 	import { IrcService } from '$lib/irc/ircService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -8,17 +8,23 @@
 	const [ircService] = inject(IrcService);
 
 	const chats = $derived(ircService.getChatsWithPopup());
+	let ircHeaderEl: HTMLDivElement | undefined = $state();
 	let collapsed = $state(false);
 </script>
 
 {#if chats.current.length > 0}
 	{#each chats.current as chat}
-		<IrcFloat
-			persistId={chat.username}
-			initialPosition={{ x: 100, y: 100 }}
-			initialSize={{ width: 260, height: 320 }}
+		<FloatingModal
+			defaults={{
+				width: 260,
+				minWidth: 260,
+				height: 320,
+				minHeight: 320,
+				snapPosition: 'top-right'
+			}}
+			dragHandleElement={ircHeaderEl}
 		>
-			<IrcChannel nick={chat.username} type="private">
+			<IrcChannel bind:headerElRef={ircHeaderEl} nick={chat.username} type="private">
 				{#snippet headerActions()}
 					<Button
 						size="icon"
@@ -38,7 +44,7 @@
 					/>
 				{/snippet}
 			</IrcChannel>
-		</IrcFloat>
+		</FloatingModal>
 	{/each}
 {/if}
 
