@@ -67,6 +67,11 @@ impl Options {
 
     /// Set a hard limit for the amount of commits to traverse. Even though it may be off by a couple, it's not dependent
     /// on any additional logic.
+    ///
+    /// ### Warning
+    ///
+    /// This stops traversal early despite not having discovered all desired graph partitions, possibly leading to
+    /// incorrect results. Ideally, this is not used.
     pub fn with_hard_limit(mut self, limit: usize) -> Self {
         self.hard_limit = Some(limit);
         self

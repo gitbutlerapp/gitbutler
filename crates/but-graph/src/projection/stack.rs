@@ -125,6 +125,8 @@ impl StackSegment {
             .next()
             .context("BUG: need one or more segments")?;
 
+        // TODO: copy the ReachableByMatchingRemote down to all segments from the first commit that has them,
+        //       as they are only detected (and set) on named commits, not their anonymous 'splits'.
         let mut commits_by_segment = Vec::new();
         for s in segments {
             let mut stack_commits = Vec::new();

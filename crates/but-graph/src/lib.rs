@@ -34,6 +34,167 @@
 //!
 //! All this makes the Graph the **new core data-structure** that is the world of GitButler and upon which visualisations and
 //! mutation operations are based.
+//!
+//! ### New Workspace Concepts
+//!
+//! The workspace is merely a projection of *The Graph*, and as such is mostly useful for display and user interaction.
+//! In the end it boils down to passing commit-hashes, or [segment-ids](SegmentIndex) at most.
+//!
+//! The workspace has been redesigned from the ground up for flexibility, enabling new user-experiences. To help thinking
+//! about these, a few new concepts will be good to know about.
+//!
+//! #### Entrypoint
+//!
+//! *The Graph* knows where its traversal started as *Entrypoint*, even though it may extend beyond the entrypoint as it
+//! needs to discover possible surrounding workspaces and the target branches that come with them.
+//! In practice, the entrypoint relates to the position of the Git `HEAD` reference, and with that it relates to what
+//! the user currently sees in their worktree.
+//!
+//! #### Early End of Traversal
+//!
+//! During traversal there are mandatory goals, but when reached the traversal usually obeys a limit, if configured.
+//! This is particularly relevant in open-ended traversals outside of workspaces, they can go on until the end of history,
+//! literally.
+//!
+//! For that reason, whenever a commit isn't the end of the graph, but the end traversal as a [limit was hit](init::Options::with_limit_hint),
+//! it will be flagged as such.
+//!
+//! This way one can visualize such Early Ends, and allow the user to extend the traversal selectively the next time it
+//! is performed.
+//!
+//! Despite that, one has to learn how to deal with possible huge graphs, and possible workspaces with a lot of commits,
+//! and [a hard limit](init::Options::with_hard_limit()) as long as downstream cannot deal with this on their own.
+//!
+//! #### Managed Workspaces, and unmanaged ones
+//!
+//! A Workspace is considered managed if it [has workspace metadata](projection::Workspace::metadata). This is typically
+//! only the case for workspaces that have been created by GitButler.
+//!
+//! Workspaces without such metadata can be anything, and are usually just made up to allow GitButler to work with it based
+//! on any `HEAD` position. These should be treated with care, and multi-lane workflows should generally be avoided - these
+//! are reserved to managed Workspaces with the managed merge commit that comes with them.
+//!
+//! #### Optional Targets
+//!
+//! Even on *Managed Workspaces*, target references are now optional. This makes it possible to have a workspace that doesn't
+//! know if it's integrated or not. These are the reason a [soft limit](init::Options::with_limit_hint()) must always be set
+//! to assure the traversal doesn't fetch the entire Git history.
+//!
+//! This, however, also means that the workspace creation doesn't have to be interrupted by a "what's your target" prompt anymore.
+//! Instead, this can be prompted once an action first requires it.
+//!
+//! #### Commit Flags and Segment Flags
+//!
+//! For convenience, various boolean parameters have been aggregated into [bitflags](Commit::flags). Thanks to the way *The Graph*
+//! is traversed, we know that the first commit of any [graph segment](Segment) will always bear the flags that are also used by every other commit
+//! contained within it. Thus, [segment flags](Segment::non_empty_flags_of_first_commit()) are equivalent to the flags of
+//! their first commit.
+//!
+//! The same is *not* true for [stack segments](projection::StackSegment), i.e. segments within a [workspace projection](projection::Workspace).
+//! The reason for this is that they are first-parent aggregations of one *or more* [graph segments](Segment), and thus have multiple
+//! sets of flags, possibly one per [segment](Segment).
+//!
+//! #### The 'frozen' Commit-Flag
+//!
+//! Commits now have a new state that tells for each if it is reachable by *any* remote, and further, if it's reachable
+//! by the remote configured for *their segment*.
+//!
+//! This additional partitioning could be leveraged for enhanced user experiences.
+//!
+//! ### The Graph - Traversal and more
+//!
+//! There are three distinct steps to processing the git commit-graph into more usable forms.
+//!
+//! * **traversal**
+//!     - walk the git commit graph to produce a segmented graph, which assigns commits to segments,
+//!       but also splits segments on incoming and multiple outgoing connections.
+//! * **reconciliation**
+//!     - a post-processing step which adds workspace metadata into the segmented graph, as such information
+//!       can't be held in the commit-graph itself.
+//! * **projection**
+//!     - transform the segmented and reconciled graph into a view that is application-specific, i.e. see
+//!       stacks of first-parent traversed named segments.
+//!
+//! #### Commits are owned by Segments
+//!
+//! A commit can only be owned by a single segment. Thus, there are empty *named* segments which point at other segments,
+//! effectively representing a reference.
+//! Which of these references gets to own a commit depends on the traversal logic, or can be the result of *Reconciliation*.
+//!
+//! #### Reconciliation
+//!
+//! *The Graph* is created from traversing the Git commit graph. Thus, information that is not contained in it has to be
+//! reconciled with *what was actually traversed*.
+//!
+//! Nonetheless, we can create *stacks* as independent branches and dependent branches inside of them without having
+//! a single commit to differentiate their respective branches from each other.
+//!
+//! Imagine a repository with a single commit `73a30f8` with the following Git references pointing to it: `gitbutler/workspace`,
+//! `stack1-segment1`, `stack1-segment2`, `stack2-segment1`, and `refs/remotes/origin/main`.
+//!
+//! Right after traversal, a Graph would look like this:
+//!
+//! ```text
+//!   ┌────────────────────┐
+//!   │    origin/main     │
+//!   └────────────────────┘
+//!              │
+//!              ▼
+//! ┌────────────────────────┐
+//! │gitbutler/workspace     │
+//! │------------------------│
+//! │73a30f8 ►stack1-segment1│
+//! │        ►stack1-segment2│
+//! │        ►stack2-segment1│
+//! │        ►main           │
+//! └────────────────────────┘
+//! ```
+//!
+//! This is due to `gitbutler/workspace` finding `73a30f8` first, with `origin/main` arriving later, pointing to the
+//! first commit in `gitbutler/workspace` effectively. The other references aren't participating in the traversal.
+//!
+//! The tip that finds the commit first is dependent on various factors, and it could also happen that `origin/main` finds
+//! it first. In any case, this needs to be adjusted after traversal in the process called *reconiliation*, so the graph
+//! matches what our [workspace metadata](but_core::ref_metadata::Workspace::stacks) says it should be.
+//!
+//! After reconciling, the graph would become this:
+//!
+//! ```text
+//! ┌────────────────────┐
+//! │    origin/main     │
+//! └────────────────────┘
+//!            │            ┌────────────────────┐
+//!            │            │gitbutler/workspace │
+//!            │            └────────────────────┘
+//!            │                       │
+//!            │             ┌─────────┴─────────┐
+//!            │             │                   │
+//!            │             ▼                   │
+//!            │     ┌───────────────┐           │
+//!            │     │stack1-segment1│           ▼
+//!            │     └───────────────┘   ┌───────────────┐
+//!            │             │           │stack2-segment1│
+//!            │             ▼           └───────────────┘
+//!            │     ┌───────────────┐           │
+//!            │     │stack1-segment2│           │
+//!            │     └───────────────┘           │
+//!            │             │                   │
+//!            │             └─────────┬─────────┘
+//!            │                       │
+//!            │                       ▼
+//!            │                  ┌─────────┐
+//!            │                  │  main   │
+//!            └─────────────────▶│ ------- │
+//!                               │ 73a30f8 │
+//!                               └─────────┘
+//! ```
+//!
+//! #### Projection
+//!
+//! A projection is a mapping of the segmented graph to any shape an application needs, and for any purpose.
+//! It cannot be stressed enough that the source of truth for all commit-graph manipulation must be the segmented graph,
+//! as projections are inherently lossy.
+//! Thus, it's useful create projects with links back to the segments that the information was extracted from.
 #![forbid(unsafe_code)]
 #![deny(missing_docs, rust_2018_idioms)]
 
