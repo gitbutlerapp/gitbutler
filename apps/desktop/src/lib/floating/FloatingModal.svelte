@@ -3,7 +3,6 @@
 	import { DragResizeHandler } from '$lib/floating/dragResizeHandler';
 	import { ResizeCalculator } from '$lib/floating/resizeCalculator';
 	import { SnapPointManager } from '$lib/floating/snapPointManager';
-	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { portal } from '@gitbutler/ui/utils/portal';
 	import { onMount, type Snippet } from 'svelte';
 	import type { SnapPositionName } from '$lib/floating/types';
@@ -11,22 +10,25 @@
 
 	interface Props {
 		children: Snippet;
-		header: Snippet;
+		dragHandleElement?: HTMLElement;
 		defaults: {
 			snapPosition: string;
 			width: number;
+			minWidth: number;
 			height: number;
+			minHeight: number;
 		};
 		onUpdateSnapPosition?: (snapPosition: SnapPositionName) => void;
 		onUpdateSize?: (width: number, height: number) => void;
 		// onExitFloatingModeClick: () => void;
 	}
 
-	const { children, header, defaults, onUpdateSnapPosition, onUpdateSize }: Props = $props();
+	const { children, dragHandleElement, defaults, onUpdateSnapPosition, onUpdateSize }: Props =
+		$props();
 
 	// Managers
 	const snapManager = new SnapPointManager(40);
-	const resizeCalculator = new ResizeCalculator(520, 330);
+	const resizeCalculator = new ResizeCalculator(defaults.minWidth, defaults.minHeight);
 	const dragResizeHandler = new DragResizeHandler(snapManager, resizeCalculator);
 
 	// Modal state
@@ -171,8 +173,18 @@
 			currentSnapPoint = defaultSnapPoint;
 		}
 
+		// Connect drag handle element if provided
+		if (dragHandleElement) {
+			dragHandleElement.addEventListener('pointerdown', handleHeaderPointerDown);
+		}
+
 		window.addEventListener('resize', handleWindowResize);
-		return () => window.removeEventListener('resize', handleWindowResize);
+		return () => {
+			window.removeEventListener('resize', handleWindowResize);
+			if (dragHandleElement) {
+				dragHandleElement.removeEventListener('pointerdown', handleHeaderPointerDown);
+			}
+		};
 	});
 </script>
 
@@ -185,19 +197,7 @@
 	style="left: {x}px; top: {y}px; width: {width}px; height: {height}px;"
 >
 	<ResizeHandles onResizeStart={handleResizeStart} snapPosition={currentSnapPoint?.name || ''} />
-
-	<div class="modal-header" onpointerdown={handleHeaderPointerDown}>
-		<div class="drag-handle">
-			<Icon name="draggable" />
-		</div>
-		<h4 class="text-14 text-semibold">
-			{@render header()}
-		</h4>
-	</div>
-
-	<div class="modal-content">
-		{@render children()}
-	</div>
+	{@render children()}
 </div>
 
 <style>
@@ -225,18 +225,8 @@
 		}
 	}
 
-	.modal-header {
+	.modal-head-wrapper {
 		display: flex;
-		align-items: center;
-		padding: 12px;
-		gap: 8px;
-		border-bottom: 1px solid var(--clr-border-2);
-		background: var(--clr-bg-2);
-		cursor: grab;
-	}
-
-	.modal-header h4 {
-		flex: 1;
 	}
 
 	.modal.snapping {
@@ -249,37 +239,11 @@
 		transition: none;
 	}
 
-	.drag-handle {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 16px;
-		height: 16px;
-		color: var(--clr-text-2);
-	}
-
 	.modal-content {
 		display: flex;
 		flex-direction: column;
 		height: 100%;
 		padding: 16px;
 		overflow: auto;
-	}
-
-	.exit-floating-mode {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 100%;
-		padding: 12px;
-		gap: 8px;
-		background-color: var(--clr-bg-2);
-		color: var(--clr-text-2);
-		cursor: pointer;
-		transition: background-color 0.2s ease-in-out;
-
-		&:hover {
-			background-color: var(--clr-bg-1);
-		}
 	}
 </style>

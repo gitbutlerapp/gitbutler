@@ -9,6 +9,7 @@
 
 	type Props = {
 		type: string;
+		headerElRef?: HTMLDivElement | undefined;
 		headerActions?: Snippet;
 	} & (
 		| { type: 'server' }
@@ -16,7 +17,7 @@
 		| { type: 'private'; nick: string }
 	);
 
-	const { ...props }: Props = $props();
+	let { headerElRef = $bindable(), ...props }: Props = $props();
 	const [ircService, ircClient] = inject(IrcService, IrcClient);
 
 	$effect(() => {
@@ -51,7 +52,7 @@
 </script>
 
 <div class="irc-channel">
-	<div class="header text-14 text-semibold">
+	<div class="header text-14 text-semibold" bind:this={headerElRef}>
 		<div class="header-left"></div>
 		<div class="header-center">
 			{#if props.type === 'group'}
