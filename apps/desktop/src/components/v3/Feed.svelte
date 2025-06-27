@@ -2,7 +2,7 @@
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import FeedItem from '$components/v3/FeedItem.svelte';
 	import { Feed } from '$lib/feed/feed';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 
 	type Props = {
 		projectId: string;
@@ -14,11 +14,53 @@
 	const combinedEntries = feed.combined;
 
 	let viewport = $state<HTMLDivElement>();
+	let topSentinel = $state<HTMLDivElement>();
+	let canLoadMore = $state(false);
+	let prevScrollHeight = $state<number>(0);
+
+	async function loadMoreItems() {
+		if (!canLoadMore || !viewport) return;
+		canLoadMore = false;
+		prevScrollHeight = viewport.scrollHeight;
+		await feed.fetch();
+		await tick();
+		const newScrollHeight = viewport.scrollHeight;
+		viewport.scrollTop = newScrollHeight - prevScrollHeight - 5;
+
+		await tick();
+		canLoadMore = true;
+	}
+
 	onMount(() => {
 		if (viewport) {
 			setTimeout(() => {
 				viewport!.scrollTop = viewport!.scrollHeight;
+				canLoadMore = true;
 			}, 100);
+
+			// Setup observer
+			const observer = new IntersectionObserver(
+				(entries) => {
+					const first = entries[0];
+					if (first?.isIntersecting) {
+						loadMoreItems();
+					}
+				},
+				{
+					root: viewport,
+					threshold: 0
+				}
+			);
+
+			if (topSentinel) {
+				observer.observe(topSentinel);
+			}
+
+			return () => {
+				if (topSentinel) {
+					observer.unobserve(topSentinel);
+				}
+			};
 		}
 	});
 </script>
@@ -33,6 +75,7 @@
 				{#each $combinedEntries as entry (entry.id)}
 					<FeedItem {projectId} action={entry} />
 				{/each}
+				<div bind:this={topSentinel} style="height: 1px"></div>
 			</div>
 		</ConfigurableScrollableContainer>
 	</div>
@@ -61,7 +104,6 @@
 
 	.action-log__header {
 		display: flex;
-		position: sticky;
 		top: 0;
 		width: 100%;
 		padding: 16px;
