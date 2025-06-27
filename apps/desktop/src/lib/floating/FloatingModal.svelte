@@ -146,7 +146,7 @@
 		if (Math.abs(x - constrainedPosition.x) > 1 || Math.abs(y - constrainedPosition.y) > 1) {
 			animateToPosition(constrainedPosition.x, constrainedPosition.y, 1);
 		}
-		snapToNearestPoint();
+		// Don't snap to nearest point on resize end - maintain current position
 	};
 
 	// Update current snap position for resize calculations
