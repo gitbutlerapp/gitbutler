@@ -22,6 +22,25 @@ export async function openExternalUrl(href: string) {
 	}
 }
 
+export async function openExternalFile(path: string) {
+	try {
+		// Use the Opener plugin to reveal the folder in the native file explorer
+		await invoke('plugin:opener|reveal_item_in_dir', { path: path });
+	} catch (e) {
+		if (typeof e === 'string' || e instanceof String) {
+			const message = `
+                Failed to reveal directory in file explorer:
+
+                ${path}
+            `;
+			showToast({ title: 'Explorer error', message, style: 'error' });
+		}
+
+		// Rethrowing for sentry and posthog
+		throw e;
+	}
+}
+
 // turn a git remote url into a web url (github, gitlab, bitbucket, etc)
 export function convertRemoteToWebUrl(url: string): string {
 	const gitRemote = GitUrlParse(url);
