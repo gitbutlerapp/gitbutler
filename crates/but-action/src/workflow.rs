@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use gix::ObjectId;
 use itertools::Itertools;
@@ -7,8 +8,48 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RewordOutcome {
+    pub stack_id: StackId,
+    pub branch_name: String,
+    #[serde(with = "gitbutler_serde::object_id")]
+    pub commit_id: ObjectId,
+    pub new_message: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "type", content = "subject", rename_all = "camelCase")]
 pub enum Kind {
-    Reword,
+    Reword(Option<RewordOutcome>),
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum KindCompat {
+    String(String),
+    KindObj {
+        #[serde(rename = "type")]
+        kind_type: String,
+        #[serde(default)]
+        subject: Option<RewordOutcome>,
+    },
+}
+
+impl<'de> Deserialize<'de> for Kind {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        match KindCompat::deserialize(deserializer)? {
+            KindCompat::String(s) if s == "Reword" => Ok(Kind::Reword(None)),
+            KindCompat::KindObj { kind_type, subject }
+                if kind_type == "reword" || kind_type == "Reword" =>
+            {
+                Ok(Kind::Reword(subject))
+            }
+            _ => Err(serde::de::Error::custom("Unknown Kind variant")),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

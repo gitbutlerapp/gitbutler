@@ -49,13 +49,22 @@ pub async fn commit(client: &Client<OpenAIConfig>, event: CommitEvent) -> anyhow
         Ok(_) => workflow::Status::Completed,
         Err(e) => workflow::Status::Failed(e.to_string()),
     };
+
     let output_commits = match &result {
         Ok(new_commit_id) => vec![new_commit_id.to_gix()],
         Err(_) => vec![],
     };
 
     Workflow::new(
-        workflow::Kind::Reword,
+        workflow::Kind::Reword(Some(workflow::RewordOutcome {
+            stack_id,
+            branch_name: event.branch_name.clone(),
+            commit_id: output_commits
+                .first()
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("No output commit found"))?,
+            new_message: message.clone(),
+        })),
         workflow::Trigger::Snapshot(event.trigger),
         status,
         vec![event.commit_id],
