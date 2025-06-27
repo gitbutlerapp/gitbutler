@@ -9,6 +9,7 @@
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	// import FloatingModal from '$lib/floating/FloatingModal.svelte';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';

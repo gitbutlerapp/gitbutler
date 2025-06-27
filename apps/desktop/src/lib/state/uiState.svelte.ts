@@ -1,3 +1,4 @@
+import { type SnapPositionName } from '$lib/floating/types';
 import { reactive, type Reactive, type WritableReactive } from '@gitbutler/shared/storeUtils';
 import {
 	createEntityAdapter,
@@ -62,16 +63,6 @@ export type CommitFailedModalState = BaseGlobalModalState & {
 };
 
 export type GlobalModalState = CommitFailedModalState;
-export type FloatingCommitPosition =
-	| 'center'
-	| 'top-left'
-	| 'top-right'
-	| 'bottom-left'
-	| 'bottom-right'
-	| 'top-center'
-	| 'bottom-center'
-	| 'left-center'
-	| 'right-center';
 
 export type GlobalUiState = {
 	drawerHeight: number;
@@ -84,7 +75,7 @@ export type GlobalUiState = {
 	useFloatingPrBox: boolean;
 	floatingCommitWidth: number;
 	floatingCommitHeight: number;
-	floatingCommitPosition: FloatingCommitPosition;
+	floatingCommitPosition: SnapPositionName;
 	useRuler: boolean;
 	rulerCountValue: number;
 	wrapTextByRuler: boolean;
