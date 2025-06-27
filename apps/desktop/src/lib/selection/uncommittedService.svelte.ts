@@ -15,7 +15,8 @@ import {
 	type CheckboxStatus,
 	uncommittedActions
 } from '$lib/selection/uncommitted';
-import { type Reactive, reactive } from '@gitbutler/shared/storeUtils';
+import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
+import { type Reactive } from '@gitbutler/shared/storeUtils';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { type ThunkDispatch, type UnknownAction } from '@reduxjs/toolkit';
 import { persistReducer } from 'redux-persist';

@@ -1,5 +1,6 @@
 import { type SnapPositionName } from '$lib/floating/types';
-import { reactive, type Reactive, type WritableReactive } from '@gitbutler/shared/storeUtils';
+import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
+import { type Reactive, type WritableReactive } from '@gitbutler/shared/storeUtils';
 import {
 	createEntityAdapter,
 	createSlice,
