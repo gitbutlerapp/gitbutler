@@ -54,17 +54,34 @@ export class ActionListing {
 	actions!: ButlerAction[];
 }
 
-export type WorkflowKind = 'Reword';
+type RewordKind = {
+	type: 'reword';
+	subject: {
+		stackId: string;
+		branchName: string;
+		commitId: string;
+		newMessage: string;
+	} | null;
+};
+
+export type WorkflowKind = RewordKind;
+
+export function getDisplayNameForWorkflowKind(kind: WorkflowKind): string {
+	switch (kind.type) {
+		case 'reword':
+			return 'Improved commit message';
+	}
+}
 
 export type Trigger =
-	| { readonly type: 'Manual' }
-	| { readonly type: 'Snapshot'; readonly subject: string }
-	| { readonly type: 'Unknown' };
+	| { readonly type: 'manual' }
+	| { readonly type: 'snapshot'; readonly subject: string }
+	| { readonly type: 'unknown' };
 
 export type Status =
-	| { readonly type: 'Completed' }
-	| { readonly type: 'Failed'; readonly subject: string }
-	| { readonly type: 'Interupted'; readonly subject: string };
+	| { readonly type: 'completed' }
+	| { readonly type: 'failed'; readonly subject: string }
+	| { readonly type: 'interupted'; readonly subject: string };
 
 /** Represents a workflow that was executed by GitButler. */
 export class Workflow {
