@@ -194,7 +194,6 @@
 	// We want to avoid letting most mouse events bubble up to the parent.
 	function stopPropagation(e: MouseEvent) {
 		e.stopPropagation();
-		e.preventDefault();
 	}
 
 	$effect(() => {
