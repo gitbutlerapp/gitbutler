@@ -1,5 +1,6 @@
 use anyhow::{Context, anyhow, bail};
 use but_core::UnifiedDiff;
+use but_db::poll::ItemKind;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
 use but_workspace::{DiffSpec, HunkHeader};
@@ -474,11 +475,15 @@ pub fn watch_db(args: &super::Args) -> anyhow::Result<()> {
     let project = project.context("Couldn't find GitButler project in directory, needed here")?;
     let mut ctx = CommandContext::open(&project, AppSettings::default())?;
     let db = ctx.db()?;
-    let (_conn, rx) = db.register_update_hook()?;
+    let rx = db.poll_changes(
+        ItemKind::Actions | ItemKind::Assignments | ItemKind::Workflows,
+        std::time::Duration::from_millis(500),
+    )?;
     eprintln!("Press Ctrl + C to abort");
     for event in rx {
-        dbg!(event);
+        eprintln!("{event:?} changed");
     }
+    eprintln!("subscription stopped unexpectedly");
     Ok(())
 }
 

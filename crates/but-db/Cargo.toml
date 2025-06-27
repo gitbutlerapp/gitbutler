@@ -21,6 +21,7 @@ diesel_migrations = { version = "2.0.0", features = ["sqlite"] }
 chrono = { version = "0.4.41", features = ["serde"] }
 # Needed for bundled libsqlite3 for Windows and hooks
 rusqlite = { version = "0.35.0", default-features = false, features = ["hooks", "bundled"]}
+bitflags = "2.9.1"
 
 [dev-dependencies]
 tempfile = "3.20.0"

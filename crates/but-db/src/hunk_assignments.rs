@@ -5,7 +5,7 @@ use crate::{DbHandle, schema::hunk_assignments::dsl::*};
 use diesel::prelude::{Insertable, Queryable, Selectable};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Selectable, Insertable)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::hunk_assignments)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct HunkAssignment {
