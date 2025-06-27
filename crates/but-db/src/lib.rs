@@ -91,3 +91,42 @@ fn run_migrations(
         Err(e) => anyhow::bail!("Failed to run migrations: {}", e),
     }
 }
+
+///
+pub mod hook {
+    use crate::DbHandle;
+
+    /// An event fired when the database changes, returned as event stream by [DbHandle::register_update_hook].
+    pub struct ChangeEvent {
+        /// The action performed in the database.
+        pub action: rusqlite::hooks::Action,
+        /// The name of the database that contains the table that changed.
+        pub db_name: String,
+        /// The name of the table that change.
+        pub table_name: String,
+        /// The id of the row that changed.
+        pub row_id: i64,
+    }
+    impl DbHandle {
+        /// Open a new database connection and register an update hook with events being sent through
+        /// the returned receiver.
+        /// The database connection must also be kept alive.
+        pub fn register_update_hook(
+            &self,
+        ) -> anyhow::Result<(rusqlite::Connection, std::sync::mpsc::Receiver<ChangeEvent>)>
+        {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let conn = rusqlite::Connection::open(&self.url)?;
+            conn.update_hook(Some(move |action, db: &str, table: &str, row_id| {
+                tx.send(ChangeEvent {
+                    action,
+                    db_name: db.to_string(),
+                    table_name: table.to_string(),
+                    row_id,
+                })
+                .ok();
+            }));
+            Ok((conn, rx))
+        }
+    }
+}
