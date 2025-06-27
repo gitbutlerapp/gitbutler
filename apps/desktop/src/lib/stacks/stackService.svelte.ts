@@ -391,7 +391,8 @@ export class StackService {
 			onError: (commandError: TauriCommandError) => {
 				const { code, message } = commandError;
 				surfaceStackError('push', code ?? '', message);
-			}
+			},
+			throwSlientError: true
 		});
 	}
 

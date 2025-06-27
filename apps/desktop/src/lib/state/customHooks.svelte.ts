@@ -1,5 +1,7 @@
 import { isTauriCommandError, type TauriCommandError } from '$lib/backend/ipc';
+import { SilentError } from '$lib/error/error';
 import { reactive, type Reactive } from '@gitbutler/shared/storeUtils';
+import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
 import {
 	type Api,
 	type ApiEndpointMutation,
@@ -186,6 +188,18 @@ export type UseMutationHookParams<Definition extends MutationDefinition<any, any
 	 * This does not stop the error from being thrown, but allows you to add a side effect depending on the error.
 	 */
 	onError?: (error: TauriCommandError, queryArgs: QueryArgFrom<Definition>) => void;
+	/**
+	 * If true, wraps the error in a `SilentError`. This is useful if you are
+	 * providing error messages through `onError` and don't want the global
+	 * error handler to also display it.
+	 *
+	 * This can be used in combination with `onError` to do custom error
+	 * handling.
+	 *
+	 * Important: If an error is thrown inside a provided `onError` callback, it
+	 * will not be wrapped in a `SilentError`.
+	 */
+	throwSlientError?: boolean;
 };
 
 export type CustomMutationResult<Definition extends MutationDefinition<any, any, string, any>> =
@@ -231,6 +245,13 @@ export interface MutationHooks<
 	): Promise<ResultTypeFrom<Definition>>;
 }
 
+function throwError(error: unknown, silent: boolean): never {
+	if (!silent) throw error;
+	if (error instanceof Error) throw SilentError.from(error);
+	if (isErrorlike(error)) throw new SilentError(error.message);
+	throw new SilentError(String(error));
+}
+
 /**
  * Returns implementations for custom endpoint methods defined in `ButlerModule`.
  */
@@ -252,7 +273,7 @@ export function buildMutationHooks<
 	const { initiate, select } = endpoint as unknown as ApiEndpointMutation<D, Definitions>;
 	async function mutate(queryArg: QueryArgFrom<D>, options?: UseMutationHookParams<D>) {
 		const dispatch = getDispatch();
-		const { fixedCacheKey, sideEffect, preEffect, onError } = options ?? {};
+		const { fixedCacheKey, sideEffect, preEffect, onError, throwSlientError } = options ?? {};
 		preEffect?.(queryArg);
 		const dispatchResult = dispatch(initiate(queryArg, { fixedCacheKey }));
 		try {
@@ -263,7 +284,7 @@ export function buildMutationHooks<
 			if (onError && isTauriCommandError(error)) {
 				onError(error, queryArg);
 			}
-			throw error;
+			throwError(error, throwSlientError ?? false);
 		}
 	}
 
@@ -277,7 +298,7 @@ export function buildMutationHooks<
 	 * @see: https://github.com/reduxjs/redux-toolkit/blob/637b0cad2b227079ccd0c5a3073c09ace6d8759e/packages/toolkit/src/query/react/buildHooks.ts#L867-L935
 	 */
 	function useMutation(params?: UseMutationHookParams<D>) {
-		const { fixedCacheKey, preEffect, sideEffect, onError } = params || {};
+		const { fixedCacheKey, preEffect, sideEffect, onError, throwSlientError } = params || {};
 		const dispatch = getDispatch();
 
 		let promise = $state<MutationActionCreatorResult<D>>();
@@ -293,7 +314,7 @@ export function buildMutationHooks<
 				if (onError && isTauriCommandError(error)) {
 					onError(error, queryArg);
 				}
-				throw error;
+				throwError(error, throwSlientError ?? false);
 			}
 		}
 
