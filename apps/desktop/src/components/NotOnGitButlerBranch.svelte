@@ -130,7 +130,7 @@
 				loading={targetBranchSwitch.current.isLoading}
 				action={initSwithToWorkspace}
 			>
-				Switch to to gitbutler/workspace
+				Switch to gitbutler/workspace
 			</AsyncButton>
 
 			{#if project}
