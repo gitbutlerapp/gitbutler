@@ -41,9 +41,9 @@ impl OpenAiProvider {
                 CredentialsKind::GitButlerProxied => OpenAiProvider::gitbutler_proxied_creds(),
             }
         } else {
-            OpenAiProvider::openai_env_var_creds()
+            OpenAiProvider::gitbutler_proxied_creds()
                 .or_else(|_| OpenAiProvider::openai_own_key_creds())
-                .or_else(|_| OpenAiProvider::gitbutler_proxied_creds())
+                .or_else(|_| OpenAiProvider::openai_env_var_creds())
                 .context("No OpenAI credentials found. This can be configured in the app or read from a OPENAI_API_KEY environment variable")
         };
 
