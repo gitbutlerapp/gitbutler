@@ -2,13 +2,15 @@
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import FeedItem from '$components/v3/FeedItem.svelte';
 	import { Feed } from '$lib/feed/feed';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import { onMount, tick } from 'svelte';
 
 	type Props = {
 		projectId: string;
+		onCloseClick: () => void;
 	};
 
-	const { projectId }: Props = $props();
+	const { projectId, onCloseClick }: Props = $props();
 
 	const feed = new Feed(projectId);
 	const combinedEntries = feed.combined;
@@ -68,7 +70,8 @@
 <div class="action-log-wrap">
 	<div class="action-log">
 		<div class="action-log__header">
-			<h2 class="text-16 text-semibold">Butler Actions</h2>
+			<h2 class="flex-1 text-14 text-semibold">Butler Actions</h2>
+			<Button icon="cross" kind="ghost" onclick={onCloseClick} />
 		</div>
 		<ConfigurableScrollableContainer bind:viewport>
 			<div class="feed">
@@ -85,11 +88,8 @@
 	.action-log-wrap {
 		display: flex;
 		position: relative;
-
-		min-width: 0;
 		height: 100%;
 		overflow: hidden;
-
 		border-radius: var(--radius-ml);
 		background-color: var(--clr-bg-1);
 	}
@@ -98,15 +98,14 @@
 		display: flex;
 		flex-direction: column;
 		width: 100%;
-
 		height: 100%;
 	}
 
 	.action-log__header {
 		display: flex;
-		top: 0;
+		align-items: center;
 		width: 100%;
-		padding: 16px;
+		padding: 8px 8px 8px 14px;
 		gap: 8px;
 		border-bottom: 1px solid var(--clr-border-2);
 	}
