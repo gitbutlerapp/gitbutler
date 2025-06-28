@@ -208,10 +208,9 @@
 
 	.action-item {
 		display: flex;
-
-		align-items: flex-start;
-
+		padding: 16px 12px;
 		gap: 14px;
+		border-bottom: 1px solid var(--clr-border-3);
 	}
 
 	.action-item__content__header {
@@ -243,15 +242,13 @@
 
 	.action-item__editor-logo {
 		position: relative;
+		height: fit-content;
 	}
 
 	.action-item__editor-source {
-		display: flex;
 		position: absolute;
 		right: -5px;
 		bottom: -5px;
-		align-items: center;
-		justify-content: center;
 
 		width: 20px;
 		height: 20px;

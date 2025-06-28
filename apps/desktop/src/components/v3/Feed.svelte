@@ -119,7 +119,5 @@
 		display: flex;
 		flex-direction: column-reverse;
 		min-height: 100%;
-		padding: 16px;
-		gap: 20px;
 	}
 </style>
