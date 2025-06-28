@@ -16,6 +16,7 @@ import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 import type { IrcClient } from '$lib/irc/ircClient.svelte';
 import type { Settings } from '$lib/settings/userSettings';
 import type { Readable } from 'svelte/store';
+import type { GiteaClient } from '$lib/forge/gitea/giteaClient.svelte';
 
 /**
  * GitHub API object that enables the declaration and usage of endpoints
@@ -34,6 +35,12 @@ export type GitHubApi = ReturnType<typeof createGitHubApi>;
  * colocated with the feature they support.
  */
 export type GitLabApi = ReturnType<typeof createGitLabApi>;
+
+/**
+ * Gitea API object that enables the declaration and usage of endpoints
+ * colocated with the feature they support.
+ */
+export type GiteaApi = ReturnType<typeof createGiteaApi>;
 
 /**
  * A redux store with dependency injection through middleware.
@@ -58,6 +65,9 @@ export class ClientState {
 	/** rtk-query api for communicating with GitLab. */
 	readonly gitlabApi: GitLabApi;
 
+	/** rtk-query api for communicating with Gitea. */
+	readonly giteaApi: GiteaApi;
+
 	get reactiveState() {
 		return this.rootState;
 	}
@@ -66,6 +76,7 @@ export class ClientState {
 		tauri: Tauri,
 		gitHubClient: GitHubClient,
 		gitLabClient: GitLabClient,
+		giteaClient: GiteaClient,
 		ircClient: IrcClient,
 		posthog: PostHogWrapper,
 		settingsService: SettingsService,
@@ -80,15 +91,18 @@ export class ClientState {
 		this.githubApi = createGitHubApi(butlerMod);
 		this.gitlabApi = createGitLabApi(butlerMod);
 		this.backendApi = createBackendApi(butlerMod);
+		this.giteaApi = createGiteaApi(butlerMod);
 
 		const { store, reducer } = createStore({
 			tauri,
 			gitHubClient,
 			gitLabClient,
+			giteaClient,
 			ircClient,
 			backendApi: this.backendApi,
 			githubApi: this.githubApi,
 			gitlabApi: this.gitlabApi,
+			giteaApi: this.giteaApi,
 			posthog,
 			settingsService,
 			userSettings
@@ -127,10 +141,12 @@ function createStore(params: {
 	tauri: Tauri;
 	gitHubClient: GitHubClient;
 	gitLabClient: GitLabClient;
+	giteaClient: GiteaClient;
 	ircClient: IrcClient;
 	backendApi: BackendApi;
 	githubApi: GitHubApi;
 	gitlabApi: GitLabApi;
+	giteaApi: GiteaApi;
 	posthog: PostHogWrapper;
 	settingsService: SettingsService;
 	userSettings: Readable<Settings>;
@@ -143,6 +159,7 @@ function createStore(params: {
 		backendApi,
 		githubApi,
 		gitlabApi,
+		giteaApi,
 		posthog,
 		settingsService,
 		userSettings
@@ -154,7 +171,8 @@ function createStore(params: {
 	const reducer = combineSlices(
 		// RTK Query API for the back end.
 		backendApi,
-		gitlabApi
+		gitlabApi,
+		giteaApi
 	)
 		.inject({
 			reducerPath: uiStateSlice.reducerPath,
@@ -255,6 +273,24 @@ export function createGitLabApi(butlerMod: ReturnType<typeof butlerModule>) {
 		butlerMod
 	)({
 		reducerPath: 'gitlab',
+		tagTypes: Object.values(ReduxTag),
+		invalidationBehavior: 'immediately',
+		baseQuery: tauriBaseQuery,
+		refetchOnFocus: true,
+		refetchOnReconnect: true,
+		keepUnusedDataFor: KEEP_UNUSED_SECONDS,
+		endpoints: (_) => {
+			return {};
+		}
+	});
+}
+
+export function createGiteaApi(butlerMod: ReturnType<typeof butlerModule>) {
+	return buildCreateApi(
+		coreModule(),
+		butlerMod
+	)({
+		reducerPath: 'gitea',
 		tagTypes: Object.values(ReduxTag),
 		invalidationBehavior: 'immediately',
 		baseQuery: tauriBaseQuery,

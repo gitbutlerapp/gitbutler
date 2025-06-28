@@ -9,6 +9,8 @@ import { expect, test, describe } from 'vitest';
 import type { GitHubClient } from '$lib/forge/github/githubClient';
 import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 import type { ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
+import type { GiteaClient } from '$lib/forge/gitea/giteaClient.svelte';
+import { Gitea } from '$lib/forge/gitea/gitea';
 
 describe.concurrent('DefaultforgeFactory', () => {
 	const MockSettingsService = getSettingsdServiceMock();
@@ -27,10 +29,12 @@ describe.concurrent('DefaultforgeFactory', () => {
 	};
 	const gitHubClient = { onReset: () => {} } as any as GitHubClient;
 	const gitLabClient = { onReset: () => {} } as any as GitLabClient;
+	const giteaClient = { onReset: () => {} } as any as GiteaClient;
 
 	// TODO: Replace with a better mock.
 	const dispatch = (() => {}) as ThunkDispatch<any, any, UnknownAction>;
 	const gitLabApi: any = {};
+	const giteaApi: any = {};
 
 	test('Create GitHub service', async () => {
 		const factory = new DefaultForgeFactory({
@@ -38,6 +42,8 @@ describe.concurrent('DefaultforgeFactory', () => {
 			gitHubApi,
 			gitLabClient,
 			gitLabApi,
+			giteaClient,
+			giteaApi,
 			posthog,
 			projectMetrics,
 			dispatch
@@ -61,6 +67,8 @@ describe.concurrent('DefaultforgeFactory', () => {
 			gitHubApi,
 			gitLabClient,
 			gitLabApi,
+			giteaClient,
+			giteaApi,
 			posthog,
 			projectMetrics,
 			dispatch
@@ -84,6 +92,8 @@ describe.concurrent('DefaultforgeFactory', () => {
 			gitHubApi,
 			gitLabClient,
 			gitLabApi,
+			giteaClient,
+			giteaApi,
 			posthog,
 			projectMetrics,
 			dispatch
@@ -99,5 +109,55 @@ describe.concurrent('DefaultforgeFactory', () => {
 				forgeOverride: undefined
 			})
 		).instanceOf(GitLab);
+	});
+
+	test('Create self hosted Gitea service', async () => {
+		const factory = new DefaultForgeFactory({
+			gitHubClient,
+			gitHubApi,
+			gitLabClient,
+			gitLabApi,
+			giteaClient,
+			giteaApi,
+			posthog,
+			projectMetrics,
+			dispatch
+		});
+		expect(
+			factory.build({
+				repo: {
+					domain: 'gitea.domain.com',
+					name: 'test-repo',
+					owner: 'test-owner'
+				},
+				baseBranch: 'some-base',
+				forgeOverride: undefined
+			})
+		).instanceOf(Gitea);
+	});
+
+	test('Create Gitea service', async () => {
+		const factory = new DefaultForgeFactory({
+			gitHubClient,
+			gitHubApi,
+			gitLabClient,
+			gitLabApi,
+			giteaClient,
+			giteaApi,
+			posthog,
+			projectMetrics,
+			dispatch
+		});
+		expect(
+			factory.build({
+				repo: {
+					domain: 'gitea.com',
+					name: 'test-repo',
+					owner: 'test-owner'
+				},
+				baseBranch: 'some-base',
+				forgeOverride: undefined
+			})
+		).instanceOf(Gitea);
 	});
 });

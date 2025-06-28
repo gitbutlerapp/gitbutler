@@ -10,12 +10,14 @@ import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 import type { Forge, ForgeName } from '$lib/forge/interface/forge';
 import type { ReadonlyBehaviorSubject } from '$lib/rxjs';
-import type { GitHubApi, GitLabApi } from '$lib/state/clientState.svelte';
+import type { GiteaApi, GitHubApi, GitLabApi } from '$lib/state/clientState.svelte';
 import type { ReduxTag } from '$lib/state/tags';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { Reactive } from '@gitbutler/shared/storeUtils';
 import type { ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
 import type { TagDescription } from '@reduxjs/toolkit/query';
+import { Gitea, GITEA_DOMAIN, GITEA_SUB_DOMAIN } from '$lib/forge/gitea/gitea';
+import type { GiteaClient } from '$lib/forge/gitea/giteaClient.svelte';
 
 export type ForgeConfig = {
 	repo?: RepoInfo;
@@ -23,6 +25,7 @@ export type ForgeConfig = {
 	baseBranch?: string;
 	githubAuthenticated?: boolean;
 	gitlabAuthenticated?: boolean;
+	giteaAuthenticated?: boolean;
 	forgeOverride?: ForgeName;
 };
 
@@ -37,6 +40,8 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 			gitHubApi: GitHubApi;
 			gitLabClient: GitLabClient;
 			gitLabApi: GitLabApi;
+			giteaClient: GiteaClient;
+			giteaApi: GiteaApi;
 			posthog: PostHogWrapper;
 			projectMetrics: ProjectMetrics;
 			dispatch: ThunkDispatch<any, any, UnknownAction>;
@@ -52,8 +57,15 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 	}
 
 	setConfig(config: ForgeConfig) {
-		const { repo, pushRepo, baseBranch, githubAuthenticated, gitlabAuthenticated, forgeOverride } =
-			config;
+		const {
+			repo,
+			pushRepo,
+			baseBranch,
+			githubAuthenticated,
+			gitlabAuthenticated,
+			giteaAuthenticated,
+			forgeOverride
+		} = config;
 		if (repo && baseBranch) {
 			this._determinedForgeType.next(this.determineForgeType(repo));
 			this._forge = this.build({
@@ -62,6 +74,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 				baseBranch,
 				githubAuthenticated,
 				gitlabAuthenticated,
+				giteaAuthenticated,
 				forgeOverride
 			});
 		} else {
@@ -75,6 +88,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		baseBranch,
 		githubAuthenticated,
 		gitlabAuthenticated,
+		giteaAuthenticated,
 		forgeOverride
 	}: {
 		repo: RepoInfo;
@@ -82,6 +96,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		baseBranch: string;
 		githubAuthenticated?: boolean;
 		gitlabAuthenticated?: boolean;
+		giteaAuthenticated?: boolean;
 		forgeOverride: ForgeName | undefined;
 	}): Forge {
 		let forgeType = this.determineForgeType(repo);
@@ -119,6 +134,17 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 				authenticated: !!gitlabAuthenticated
 			});
 		}
+		if (forgeType === 'gitea') {
+			const { giteaClient, giteaApi, posthog } = this.params;
+			return new Gitea({
+				...baseParams,
+				api: giteaApi,
+				client: giteaClient,
+				posthog: posthog,
+				authenticated: !!giteaAuthenticated
+			});
+		}
+
 		if (forgeType === 'bitbucket') {
 			return new BitBucket(baseParams);
 		}
@@ -146,6 +172,13 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		}
 		if (domain.includes(AZURE_DOMAIN)) {
 			return 'azure';
+		}
+		if (
+			domain.includes(GITEA_DOMAIN) ||
+			domain.startsWith(GITEA_SUB_DOMAIN + '.') ||
+			domain.startsWith('xy' + GITEA_SUB_DOMAIN + '.')
+		) {
+			return 'gitea';
 		}
 
 		return 'default';

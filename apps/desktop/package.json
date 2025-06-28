@@ -93,6 +93,7 @@
 		"@gitbeaker/rest": "^42.2.0",
 		"@tauri-apps/plugin-clipboard-manager": "^2.2.2",
 		"dayjs": "^1.11.13",
+		"gitea-js": "^1.23.0",
 		"ollama": "^0.5.15",
 		"openai": "^4.87.3",
 		"reconnecting-websocket": "^4.4.0",
