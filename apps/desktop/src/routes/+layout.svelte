@@ -41,6 +41,7 @@
 	import { GitHubUserService } from '$lib/forge/github/githubUserService.svelte';
 	import { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 	import { OplogService } from '$lib/history/oplogService.svelte';
+	import SnapshotDiffService from '$lib/history/snapshotDiffService.svelte';
 	import { HooksService } from '$lib/hooks/hooksService';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { IntelligentScrollingService } from '$lib/intelligentScrolling/service';
@@ -183,6 +184,9 @@
 		cloudBranchService,
 		latestBranchLookupService
 	);
+
+	const snapshotDiffService = new SnapshotDiffService(clientState['backendApi']);
+	setContext(SnapshotDiffService, snapshotDiffService);
 
 	const branchService = new BranchService(clientState['backendApi']);
 	setContext(BranchService, branchService);
