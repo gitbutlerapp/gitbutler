@@ -1,49 +1,15 @@
 <script lang="ts">
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
-	import ScrollableContainer from '@gitbutler/ui/scroll/ScrollableContainer.svelte';
-	import { type ScrollbarPaddingType } from '@gitbutler/ui/scroll/Scrollbar.svelte';
-	import { type Snippet } from 'svelte';
-
-	interface Props {
-		viewport?: HTMLDivElement;
-		height?: string;
-		maxHeight?: string;
-		initiallyVisible?: boolean;
-		wide?: boolean;
-		padding?: ScrollbarPaddingType;
-		shift?: string;
-		thickness?: string;
-		horz?: boolean;
-		autoScroll?: boolean;
-		zIndex?: string;
-		onthumbdrag?: (dragging: boolean) => void;
-		children: Snippet;
-		onscrollTop?: (visible: boolean) => void;
-		onscrollEnd?: (visible: boolean) => void;
-		onscroll?: (e: Event) => void;
-		onscrollexists?: (exists: boolean) => void;
-	}
+	import ScrollableContainer, {
+		type ScrollableProps
+	} from '@gitbutler/ui/scroll/ScrollableContainer.svelte';
 
 	let {
 		viewport = $bindable(),
-		height,
-		maxHeight,
-		initiallyVisible,
-		wide,
-		padding,
-		shift,
-		thickness,
-		horz,
-		autoScroll,
-		zIndex,
-		children,
-		onthumbdrag,
-		onscroll,
-		onscrollTop,
-		onscrollEnd,
-		onscrollexists
-	}: Props = $props();
+		viewportHeight = $bindable(),
+		...restProps
+	}: ScrollableProps = $props();
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
@@ -53,22 +19,7 @@
 <ScrollableContainer
 	bind:this={scroller}
 	bind:viewport
-	{height}
-	{maxHeight}
-	{initiallyVisible}
-	{wide}
-	{padding}
-	{shift}
-	{thickness}
-	{horz}
-	{autoScroll}
-	{zIndex}
-	{onthumbdrag}
-	{onscrollTop}
-	{onscrollEnd}
-	{onscroll}
-	{onscrollexists}
+	bind:viewportHeight
 	whenToShow={$userSettings.scrollbarVisibilityState}
->
-	{@render children()}
-</ScrollableContainer>
+	{...restProps}
+/>

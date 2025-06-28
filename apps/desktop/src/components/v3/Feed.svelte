@@ -73,13 +73,18 @@
 			<h2 class="flex-1 text-14 text-semibold">Butler Actions</h2>
 			<Button icon="cross" kind="ghost" onclick={onCloseClick} />
 		</div>
-		<ConfigurableScrollableContainer bind:viewport>
-			<div class="feed">
-				{#each $combinedEntries as entry (entry.id)}
-					<FeedItem {projectId} action={entry} />
-				{/each}
-				<div bind:this={topSentinel} style="height: 1px"></div>
-			</div>
+		<ConfigurableScrollableContainer childrenWrapHeight="100%" bind:viewport>
+			<!-- {console.log('Combined Entries:', $combinedEntries)} -->
+			{#if $combinedEntries.length === 0}
+				<div class="text-14 text-center text-muted">No actions yet</div>
+			{:else}
+				<div class="feed">
+					{#each $combinedEntries as entry (entry.id)}
+						<FeedItem {projectId} action={entry} />
+					{/each}
+					<div bind:this={topSentinel} style="height: 1px"></div>
+				</div>
+			{/if}
 		</ConfigurableScrollableContainer>
 	</div>
 </div>
@@ -113,8 +118,8 @@
 	.feed {
 		display: flex;
 		flex-direction: column-reverse;
+		min-height: 100%;
 		padding: 16px;
-
 		gap: 20px;
 	}
 </style>

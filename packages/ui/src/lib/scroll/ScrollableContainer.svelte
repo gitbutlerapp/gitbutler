@@ -1,10 +1,5 @@
-<script lang="ts">
-	import Scrollbar, { type ScrollbarPaddingType } from '$lib/scroll/Scrollbar.svelte';
-	import { useAutoScroll } from '$lib/utils/autoscroll';
-	import type { Snippet } from 'svelte';
-
-	interface Props {
-		height?: string;
+<script lang="ts" module>
+	export interface ScrollableProps {
 		maxHeight?: string;
 		initiallyVisible?: boolean;
 		wide?: boolean;
@@ -13,7 +8,7 @@
 		thickness?: string;
 		horz?: boolean;
 		zIndex?: string;
-		whenToShow: 'hover' | 'always' | 'scroll';
+		whenToShow?: 'hover' | 'always' | 'scroll';
 		autoScroll?: boolean;
 		onthumbdrag?: (dragging: boolean) => void;
 		children: Snippet;
@@ -23,14 +18,20 @@
 		onscrollexists?: (exists: boolean) => void;
 		viewport?: HTMLDivElement;
 		viewportHeight?: number;
+		childrenWrapHeight?: string;
 		/** Top padding, used only with virtual list. */
 		top?: number;
 		/** Bottom padding, used with virtual list. */
 		bottom?: number;
 	}
+</script>
+
+<script lang="ts">
+	import Scrollbar, { type ScrollbarPaddingType } from '$lib/scroll/Scrollbar.svelte';
+	import { useAutoScroll } from '$lib/utils/autoscroll';
+	import type { Snippet } from 'svelte';
 
 	let {
-		height,
 		maxHeight,
 		initiallyVisible,
 		wide,
@@ -38,7 +39,7 @@
 		shift,
 		thickness,
 		horz,
-		whenToShow,
+		whenToShow = 'hover',
 		autoScroll,
 		children,
 		onthumbdrag,
@@ -47,11 +48,12 @@
 		onscrollEnd,
 		onscrollexists,
 		zIndex,
-		viewport = $bindable(),
 		top,
 		bottom,
-		viewportHeight = $bindable()
-	}: Props = $props();
+		viewport = $bindable(),
+		viewportHeight = $bindable(),
+		childrenWrapHeight
+	}: ScrollableProps = $props();
 
 	let scrollTopVisible = $state<boolean>(true);
 	let scrollEndVisible = $state<boolean>(true);
@@ -110,9 +112,8 @@
 		onscroll={handleScroll}
 		class="viewport hide-native-scrollbar"
 		style="padding-top: {top}px; padding-bottom: {bottom}px;"
-		style:height
 	>
-		<div class="children-wrap hide-native-scrollbar">
+		<div class="children-wrap hide-native-scrollbar" style:height={childrenWrapHeight}>
 			{@render children()}
 		</div>
 		<Scrollbar
