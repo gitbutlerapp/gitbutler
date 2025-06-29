@@ -32,6 +32,7 @@
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { GitConfigService } from '$lib/config/gitConfigService';
 	import { ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
+	import DbService from '$lib/db/dbService.svelte';
 	import DependencyService from '$lib/dependencies/dependencyService.svelte';
 	import { DropzoneRegistry } from '$lib/dragging/registry';
 	import { FileService } from '$lib/files/fileService';
@@ -89,6 +90,7 @@
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
 	import { env } from '$env/dynamic/public';
+
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
 
 	const userSettings = loadUserSettings();
@@ -152,6 +154,7 @@
 	const stackService = new StackService(clientState['backendApi'], forgeFactory, uiState);
 	const actionService = new ActionService(clientState['backendApi']);
 	const oplogService = new OplogService(clientState['backendApi']);
+	const dbService = new DbService(clientState['backendApi']);
 	const baseBranchService = new BaseBranchService(clientState.backendApi);
 	const worktreeService = new WorktreeService(clientState);
 	const feedService = new FeedService(data.cloud, appState.appDispatch);
@@ -237,6 +240,7 @@
 	setContext(StackService, stackService);
 	setContext(ActionService, actionService);
 	setContext(OplogService, oplogService);
+	setContext(DbService, dbService);
 	setContext(BaseBranchService, baseBranchService);
 	setContext(UpstreamIntegrationService, upstreamIntegrationService);
 	setContext(WorktreeService, worktreeService);
