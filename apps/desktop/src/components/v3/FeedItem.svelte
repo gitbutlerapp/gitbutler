@@ -53,7 +53,7 @@
 	}
 </script>
 
-<div class="action-item">
+<div class="action-item" id="action-{action.id}">
 	{#if action instanceof ButlerAction}
 		{#if isStr(action.source) || !action.source.Mcp}
 			<div class="action-item__robot">

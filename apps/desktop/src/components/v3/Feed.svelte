@@ -8,6 +8,7 @@
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { Feed } from '$lib/feed/feed';
 	import { newProjectSettingsPath } from '$lib/routes/routes.svelte';
+	import { getContext } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -22,8 +23,9 @@
 
 	const { projectId, onCloseClick }: Props = $props();
 
-	const feed = new Feed(projectId);
+	const feed = getContext(Feed);
 	const combinedEntries = feed.combined;
+	const lastAddedId = feed.lastAddedId;
 
 	let viewport = $state<HTMLDivElement>();
 	let topSentinel = $state<HTMLDivElement>();
@@ -80,6 +82,16 @@
 
 	let showCLISetupSteps = $state(false);
 	let showSymlink = $state(false);
+
+	$effect(() => {
+		if ($lastAddedId !== null && viewport) {
+			const actionItem = document.getElementById(`action-${$lastAddedId}`);
+			actionItem?.scrollIntoView({
+				behavior: 'smooth',
+				block: 'start'
+			});
+		}
+	});
 </script>
 
 <div class="feed-wrap" class:has-actions={$combinedEntries.length > 0}>
