@@ -246,9 +246,11 @@ pub mod ui {
         /// Read-only metadata with additional information about the branch naming the segment,
         /// or `None` if nothing was present.
         pub metadata: Option<ref_metadata::Branch>,
-        /// This is `true` for exactly one segment in a workspace if the entrypoint of [the traversal](Graph::from_commit_traversal())
+        /// This is `true` a segment in a workspace if the entrypoint of [the traversal](Graph::from_commit_traversal())
         /// is this segment, and the surrounding workspace is provided for context.
+        ///
         /// This means one will see the entire workspace, while knowing the focus is on one specific segment.
+        /// *Note* that this segment can be listed in *multiple stacks* as it's reachable from multiple 'ahead' segments.
         pub is_entrypoint: bool,
     }
 
@@ -272,7 +274,7 @@ pub mod ui {
                 is_entrypoint,
             } = self;
             f.debug_struct(&format!(
-                "{ep}StackSegment",
+                "{ep}ref_info::ui::Segment",
                 ep = if *is_entrypoint { "👉" } else { "" }
             ))
             .field("id", &id)
@@ -365,7 +367,8 @@ pub(crate) mod function {
                         stash_status: None,
                     }],
                     is_entrypoint: true,
-                    is_managed,
+                    is_managed_ref: is_managed,
+                    is_managed_commit: false,
                 });
             }
             gix::head::Kind::Detached { .. } => {
@@ -374,7 +377,8 @@ pub(crate) mod function {
                     stacks: vec![],
                     target_ref: None,
                     is_entrypoint: true,
-                    is_managed: false,
+                    is_managed_ref: false,
+                    is_managed_commit: false,
                 });
             }
             gix::head::Kind::Symbolic(name) => name.attach(repo),
@@ -438,13 +442,28 @@ pub(crate) mod function {
         let cache = repo.commit_graph_if_enabled()?;
         let mut graph_cache = repo.revision_graph(cache.as_ref());
 
+        let (workspace_ref_name, is_managed_commit) = match head {
+            HeadLocation::Workspace { ref_name } => {
+                let is_managed = try_refname_to_id(repo, ref_name.as_ref())?
+                    .map(|id| WorkspaceCommit::from_id(id.attach(repo)))
+                    .transpose()?
+                    .is_some_and(|wsc| wsc.is_managed());
+                (Some(ref_name), is_managed)
+            }
+            HeadLocation::Segment { segment_index } => {
+                (graph[segment_index].ref_name.clone(), false)
+            }
+        };
         Ok(RefInfo {
-            workspace_ref_name: match head {
-                HeadLocation::Workspace { ref_name } => Some(ref_name),
-                HeadLocation::Segment { segment_index } => graph[segment_index].ref_name.clone(),
-            },
+            workspace_ref_name,
             stacks: stacks
                 .into_iter()
+                // `but-graph` produces the order as seen by the merge commit,
+                // but GB traditionally shows it the other way around.
+                // TODO: validate that this is still correct to do here if the workspace
+                //       was generated from 'virtual' stacks only, i.e. stacks not from real
+                //       merges.
+                .rev()
                 .map(|stack| {
                     branch::Stack::try_from_graph_stack(
                         stack,
@@ -458,7 +477,8 @@ pub(crate) mod function {
                 })
                 .collect::<anyhow::Result<_>>()?,
             target_ref: target.map(|t| t.ref_name),
-            is_managed: metadata.is_some(),
+            is_managed_ref: metadata.is_some(),
+            is_managed_commit,
             is_entrypoint: graph.lookup_entrypoint()?.segment_index == id,
         })
     }
@@ -928,7 +948,8 @@ pub(crate) mod function {
             stacks,
             target_ref,
             is_entrypoint: false,
-            is_managed,
+            is_managed_commit: false,
+            is_managed_ref: is_managed,
         })
     }
 

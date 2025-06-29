@@ -45,6 +45,7 @@ mod stacks {
         * d79bba9 (A) new file in A
         * c166d42 (origin/main, origin/HEAD, main) init-integration
         ");
+        // It's notable that the segment A is shared between both stacks.
         let actual = stacks_v3(&repo, &meta, StacksFilter::All)?;
         insta::assert_debug_snapshot!(actual, @r#"
         [
@@ -69,6 +70,10 @@ mod stacks {
                     StackHeadInfo {
                         name: "B-on-A",
                         tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
+                    },
+                    StackHeadInfo {
+                        name: "A",
+                        tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
                     },
                 ],
                 tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
@@ -102,6 +107,10 @@ mod stacks {
                     StackHeadInfo {
                         name: "B-on-A",
                         tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
+                    },
+                    StackHeadInfo {
+                        name: "A",
+                        tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
                     },
                 ],
                 tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
@@ -201,7 +210,7 @@ mod stack_details {
                     pr_number: None,
                     review_id: None,
                     tip: Sha1(cbc6713ccfc78aa9a3c9cf8305a6fadce0bbe1a4),
-                    base_commit: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    base_commit: Sha1(0000000000000000000000000000000000000000),
                     push_status: NothingToPush,
                     last_updated_at: Some(
                         0,
@@ -245,6 +254,12 @@ mod stack_details {
             "B-on-A",
             StackState::InWorkspace,
         );
+        let c_stack_id = add_stack(
+            &mut meta,
+            StackId::from_number_for_testing(2),
+            "C-on-A",
+            StackState::InWorkspace,
+        );
         let actual = but_workspace::stack_details_v3(b_stack_id, &repo, &meta)?;
         insta::assert_debug_snapshot!(actual, @r#"
         StackDetails {
@@ -258,7 +273,7 @@ mod stack_details {
                     pr_number: None,
                     review_id: None,
                     tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
-                    base_commit: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                    base_commit: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
                     push_status: CompletelyUnpushed,
                     last_updated_at: Some(
                         0,
@@ -273,17 +288,35 @@ mod stack_details {
                     upstream_commits: [],
                     is_remote_head: false,
                 },
+                BranchDetails {
+                    name: "A",
+                    remote_tracking_branch: Some(
+                        "refs/remotes/origin/A",
+                    ),
+                    description: None,
+                    pr_number: None,
+                    review_id: None,
+                    tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
+                    base_commit: Sha1(0000000000000000000000000000000000000000),
+                    push_status: NothingToPush,
+                    last_updated_at: None,
+                    authors: [
+                        author <author@example.com>,
+                    ],
+                    is_conflicted: false,
+                    commits: [
+                        Commit(d79bba9, "new file in A", local/remote(identity)),
+                    ],
+                    upstream_commits: [
+                        UpstreamCommit(89cc2d3, "change in A"),
+                    ],
+                    is_remote_head: false,
+                },
             ],
             is_conflicted: false,
         }
         "#);
 
-        let c_stack_id = add_stack(
-            &mut meta,
-            StackId::from_number_for_testing(2),
-            "C-on-A",
-            StackState::InWorkspace,
-        );
         let actual = but_workspace::stack_details_v3(c_stack_id, &repo, &meta)?;
         insta::assert_debug_snapshot!(actual, @r#"
         StackDetails {
@@ -321,7 +354,7 @@ mod stack_details {
                     pr_number: None,
                     review_id: None,
                     tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
-                    base_commit: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                    base_commit: Sha1(0000000000000000000000000000000000000000),
                     push_status: NothingToPush,
                     last_updated_at: None,
                     authors: [

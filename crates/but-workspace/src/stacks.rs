@@ -3,7 +3,8 @@ use crate::ref_info::ui::{Commit, Segment};
 use crate::ref_info::ui::{LocalCommit, LocalCommitRelation};
 use crate::ui::{CommitState, PushStatus, StackDetails};
 use crate::{
-    RefInfo, StacksFilter, branch, head_info, id_from_name_v2_to_v3, ref_info, state_handle, ui,
+    RefInfo, StacksFilter, branch, head_info2, id_from_name_v2_to_v3, ref_info, ref_info2,
+    state_handle, ui,
 };
 use anyhow::Context;
 use bstr::BString;
@@ -173,14 +174,19 @@ pub fn stacks_v3(
         Ok(out)
     }
 
-    let info = head_info(
+    let info = head_info2(
         repo,
         meta,
         ref_info::Options {
             // TODO: set this to a good value for the UI to not slow down, and also a value that forces us to re-investigate this.
             stack_commit_limit: 100,
             expensive_commit_info: false,
-            ..Default::default()
+            traversal: but_graph::init::Options {
+                collect_tags: false,
+                commits_limit_hint: Some(300),
+                commits_limit_recharge_location: vec![],
+                hard_limit: None,
+            },
         },
     )?;
 
@@ -390,7 +396,12 @@ pub fn stack_details_v3(
     let ref_info_options = ref_info::Options {
         stack_commit_limit: 0,
         expensive_commit_info: true,
-        ..Default::default()
+        traversal: but_graph::init::Options {
+            collect_tags: false,
+            commits_limit_hint: Some(300),
+            commits_limit_recharge_location: vec![],
+            hard_limit: None,
+        },
     };
     let stack = meta.data().branches.get(&stack_id).with_context(|| {
         format!("Couldn't find {stack_id} even when looking at virtual_branches.toml directly")
@@ -400,7 +411,7 @@ pub fn stack_details_v3(
         shortname = stack.derived_name()?
     ))?;
     let existing_ref = repo.find_reference(&full_name)?;
-    let stack = stack_by_id(ref_info(existing_ref, meta, ref_info_options)?, stack_id, meta)?
+    let stack = stack_by_id(ref_info2(existing_ref, meta, ref_info_options)?, stack_id, meta)?
         .with_context(|| format!("Really couldn't find {stack_id} in current HEAD or when searching virtual_branches.toml plainly"))?;
 
     let branch_details = stack

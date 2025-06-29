@@ -568,5 +568,21 @@ EOF
       git checkout gitbutler/workspace
       setup_remote_tracking soon-remote-main main "move"
     )
+
+   git init three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependant
+   (cd three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependant
+     git commit -m "init" --allow-empty
+     setup_target_to_match_main
+     git checkout -b lane main
+
+     git checkout -b advanced-lane
+     git commit -m "change" --allow-empty
+     # This works without an official remote setup as we go by name as fallback.
+     remote_tracking_caught_up advanced-lane
+     git branch dependant
+     git branch on-top-of-dependant
+
+     create_workspace_commit_once advanced-lane
+   )
 )
 

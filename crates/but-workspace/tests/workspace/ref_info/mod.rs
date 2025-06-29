@@ -21,7 +21,7 @@ fn unborn_untracked() -> anyhow::Result<()> {
             Stack {
                 base: None,
                 segments: [
-                    StackSegment {
+                    ref_info::ui::Segment {
                         id: 0,
                         ref_name: "refs/heads/main",
                         remote_tracking_ref_name: "None",
@@ -34,7 +34,8 @@ fn unborn_untracked() -> anyhow::Result<()> {
             },
         ],
         target_ref: None,
-        is_managed: false,
+        is_managed_ref: false,
+        is_managed_commit: false,
         is_entrypoint: true,
     }
     "#);
@@ -54,7 +55,7 @@ fn detached() -> anyhow::Result<()> {
             Stack {
                 base: None,
                 segments: [
-                    StackSegment {
+                    ref_info::ui::Segment {
                         id: 0,
                         ref_name: "None",
                         remote_tracking_ref_name: "None",
@@ -69,7 +70,8 @@ fn detached() -> anyhow::Result<()> {
             },
         ],
         target_ref: None,
-        is_managed: false,
+        is_managed_ref: false,
+        is_managed_commit: false,
         is_entrypoint: true,
     }
     "#);
@@ -92,7 +94,7 @@ fn conflicted_in_local_branch() -> anyhow::Result<()> {
             Stack {
                 base: None,
                 segments: [
-                    StackSegment {
+                    ref_info::ui::Segment {
                         id: 0,
                         ref_name: "refs/heads/main",
                         remote_tracking_ref_name: "None",
@@ -108,7 +110,8 @@ fn conflicted_in_local_branch() -> anyhow::Result<()> {
             },
         ],
         target_ref: None,
-        is_managed: false,
+        is_managed_ref: false,
+        is_managed_commit: false,
         is_entrypoint: true,
     }
     "#);
@@ -136,7 +139,7 @@ fn single_branch() -> anyhow::Result<()> {
             Stack {
                 base: None,
                 segments: [
-                    StackSegment {
+                    ref_info::ui::Segment {
                         id: 0,
                         ref_name: "refs/heads/main",
                         remote_tracking_ref_name: "None",
@@ -160,7 +163,8 @@ fn single_branch() -> anyhow::Result<()> {
             },
         ],
         target_ref: None,
-        is_managed: false,
+        is_managed_ref: false,
+        is_managed_commit: false,
         is_entrypoint: true,
     }
     "#);
@@ -183,7 +187,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
             Stack {
                 base: None,
                 segments: [
-                    StackSegment {
+                    ref_info::ui::Segment {
                         id: 0,
                         ref_name: "refs/heads/main",
                         remote_tracking_ref_name: "None",
@@ -193,7 +197,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
                     },
-                    StackSegment {
+                    ref_info::ui::Segment {
                         id: 1,
                         ref_name: "refs/heads/nine",
                         remote_tracking_ref_name: "None",
@@ -205,7 +209,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
                     },
-                    StackSegment {
+                    ref_info::ui::Segment {
                         id: 2,
                         ref_name: "refs/heads/six",
                         remote_tracking_ref_name: "None",
@@ -217,7 +221,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
                     },
-                    StackSegment {
+                    ref_info::ui::Segment {
                         id: 3,
                         ref_name: "refs/heads/three",
                         remote_tracking_ref_name: "None",
@@ -228,7 +232,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
                     },
-                    StackSegment {
+                    ref_info::ui::Segment {
                         id: 4,
                         ref_name: "refs/heads/one",
                         remote_tracking_ref_name: "None",
@@ -243,7 +247,8 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
             },
         ],
         target_ref: None,
-        is_managed: false,
+        is_managed_ref: false,
+        is_managed_commit: false,
         is_entrypoint: true,
     }
     "#);

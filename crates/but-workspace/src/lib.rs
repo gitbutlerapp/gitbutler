@@ -178,7 +178,10 @@ pub struct RefInfo {
     /// It's never present in single-branch mode.
     pub target_ref: Option<gix::refs::FullName>,
     /// The `workspace_ref_name` is `Some(_)` and belongs to GitButler, because it had metadata attached.
-    pub is_managed: bool,
+    pub is_managed_ref: bool,
+    /// The `workspace_ref_name` points to a commit that was specifically created by us.
+    /// If the user advanced the workspace head by hand, this would be `false`.
+    pub is_managed_commit: bool,
     /// The workspace represents what `HEAD` is pointing to.
     pub is_entrypoint: bool,
 }
