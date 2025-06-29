@@ -99,6 +99,7 @@ git init detached
 (cd detached
   commit init && git branch other
   commit first && git tag release/v1 && git tag -am "tag object" annotated
+  git checkout -f @
 )
 
 # A top-down split that is highly unusual, but good to assure we can handle it.

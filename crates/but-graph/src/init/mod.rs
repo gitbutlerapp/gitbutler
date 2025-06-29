@@ -1,6 +1,6 @@
 use crate::{CommitFlags, CommitIndex, Edge};
 use crate::{Graph, Segment, SegmentIndex, SegmentMetadata};
-use anyhow::bail;
+use anyhow::{Context, bail};
 use but_core::RefMetadata;
 use gix::hashtable::hash_map::Entry;
 use gix::prelude::{ObjectIdExt, ReferenceExt};
@@ -98,6 +98,7 @@ impl Graph {
         options: Options,
     ) -> anyhow::Result<Self> {
         let head = repo.head()?;
+        let mut is_detached = false;
         let (tip, maybe_name) = match head.kind {
             gix::head::Kind::Unborn(ref_name) => {
                 let mut graph = Graph::default();
@@ -109,6 +110,7 @@ impl Graph {
                 return Ok(graph);
             }
             gix::head::Kind::Detached { target, peeled } => {
+                is_detached = true;
                 (peeled.unwrap_or(target).attach(repo), None)
             }
             gix::head::Kind::Symbolic(existing_reference) => {
@@ -117,7 +119,23 @@ impl Graph {
                 (tip, Some(existing_reference.inner.name))
             }
         };
-        Self::from_commit_traversal(tip, maybe_name, meta, options)
+        let mut graph = Self::from_commit_traversal(tip, maybe_name, meta, options)?;
+        if is_detached {
+            // graph is eagerly naming segments, which we undo to show it's detached.
+            let sidx = graph
+                .entrypoint
+                .context("BUG: entrypoint is set after first traversal")?
+                .0;
+            let s = &mut graph[sidx];
+            if let Some((rn, first_commit)) = s
+                .commits
+                .first_mut()
+                .and_then(|first_commit| s.ref_name.take().map(|rn| (rn, first_commit)))
+            {
+                first_commit.refs.push(rn);
+            }
+        };
+        Ok(graph)
     }
     /// Produce a minimal-effort representation of the commit-graph reachable from the commit at `tip` such the returned instance
     /// can represent everything that's observed, without loosing information.

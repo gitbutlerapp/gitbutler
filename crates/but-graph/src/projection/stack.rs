@@ -2,6 +2,7 @@ use crate::{CommitFlags, Graph, SegmentIndex, SegmentMetadata};
 use anyhow::{Context, bail};
 use bitflags::bitflags;
 use but_core::ref_metadata;
+use gix::reference::Category;
 use petgraph::Direction;
 use std::fmt::Formatter;
 
@@ -80,9 +81,12 @@ pub struct StackSegment {
     ///
     /// The list could be empty for when this is a dedicated empty segment as insertion position of commits.
     pub commits: Vec<StackCommit>,
-    /// Commits that are *only* reachable from the remote-tracking branch that is associated with this branch.
+    /// Commits that are *only* reachable from the tip of the remote-tracking branch that is associated with this branch,
+    /// down to the first (and possibly unrelated) non-remote commit.
     /// Note that these commits may not have an actual commit-graph connection to the local
     /// `commits` available above.
+    /// Further, despite being in a simple list, their order is based on a simple topological walk, so
+    /// this form doesn't imply a linear history.
     pub commits_on_remote: Vec<StackCommit>,
     /// Read-only branch metadata with additional information, or `None` if nothing was present.
     pub metadata: Option<ref_metadata::Branch>,
@@ -127,6 +131,7 @@ impl StackSegment {
 
         // TODO: copy the ReachableByMatchingRemote down to all segments from the first commit that has them,
         //       as they are only detected (and set) on named commits, not their anonymous 'splits'.
+        //       Is this not sufficiently done below? I think so - needs test.
         let mut commits_by_segment = Vec::new();
         for s in segments {
             let mut stack_commits = Vec::new();
@@ -153,7 +158,12 @@ impl StackSegment {
 
             let mut v = Vec::new();
             graph.visit_all_segments_until(remote_sidx, Direction::Outgoing, |s| {
-                let prune = !s.commits.iter().all(|c| c.flags.is_remote());
+                let prune = !s.commits.iter().all(|c| c.flags.is_remote())
+                    // Do not 'steal' commits from other known remote segments while they are officially connected.
+                    || (s.id != remote_sidx
+                        && s.ref_name
+                            .as_ref()
+                            .is_some_and(|orn| orn.category() == Some(Category::RemoteBranch)));
                 if prune {
                     // See if this segment links to a commit we know as local, and mark it accordingly.
                     // `s` may be in `segments`, let's find it and mark all its commits (and all that follow).

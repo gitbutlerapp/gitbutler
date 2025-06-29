@@ -483,6 +483,7 @@ pub fn ref_info(args: &super::Args, ref_name: Option<&str>, expensive: bool) -> 
     let opts = but_workspace::ref_info::Options {
         stack_commit_limit: 0,
         expensive_commit_info: expensive,
+        traversal: Default::default(),
     };
 
     let project = project.with_context(|| {

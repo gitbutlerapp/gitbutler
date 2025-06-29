@@ -49,22 +49,24 @@ fn unborn() -> anyhow::Result<()> {
 fn detached() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("detached")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 541396b (HEAD -> main, tag: release/v1, tag: annotated) first
+    * 541396b (HEAD, tag: release/v1, tag: annotated, main) first
     * fafd9d0 (other) init
     ");
 
+    // Detached branches are forcefully made anonymous, and it's something
+    // we only know by examining `HEAD`.
     let graph = Graph::from_head(&repo, &*meta, standard_options())?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
-    └── 👉►:0:main
-        └── ·541396b (⌂|1) ►tags/annotated, ►tags/release/v1
+    └── ►:0:anon:
+        └── 👉·541396b (⌂|1) ►tags/annotated, ►tags/release/v1, ►main
             └── ►:1:other
                 └── ·fafd9d0 (⌂|1)
     ");
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
-    ⌂:0:main <> ✓!
-    └── ≡:0:main
-        ├── :0:main
-        │   └── ·541396b ►tags/annotated, ►tags/release/v1
+    ⌂:0:DETACHED <> ✓!
+    └── ≡:0:<anon>
+        ├── :0:<anon>
+        │   └── ·541396b ►tags/annotated, ►tags/release/v1, ►main
         └── :1:other
             └── ·fafd9d0
     ");
@@ -78,7 +80,7 @@ fn detached() -> anyhow::Result<()> {
             node weights: {
                 0: StackSegment {
                     id: NodeIndex(0),
-                    ref_name: "refs/heads/main",
+                    ref_name: "None",
                     remote_tracking_ref_name: "None",
                     commits: [
                         Commit(541396b, ⌂|1),
@@ -283,10 +285,9 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     // 'main' is frozen because it connects to a 'foreign' remote, the commit was pushed.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:B <> ✓!
-    └── ≡:0:B <> origin/B⇡1⇣2
-        ├── :0:B <> origin/B⇡1⇣2
+    └── ≡:0:B <> origin/B⇡1⇣1
+        ├── :0:B <> origin/B⇡1⇣1
         │   ├── 🟣682be32
-        │   ├── 🟣e29c23d
         │   └── ·312f819
         ├── :2:A <> origin/A⇡1⇣1
         │   ├── 🟣e29c23d

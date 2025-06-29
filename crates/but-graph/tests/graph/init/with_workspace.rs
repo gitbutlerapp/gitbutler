@@ -839,14 +839,14 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
                 └── 🟣e29c23d
                     └── →:1: (origin/main)
     ");
-    // It's worth noting that we can list remote commits multiple times, and this is because
+    // It's worth noting that we avoid double-listing remote commits that are also
+    // directly owned by another remote segment.
     // they have to be considered as something relevant to the branch history.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main
-    └── ≡:2:B <> origin/B⇡1⇣2
-        ├── :2:B <> origin/B⇡1⇣2
+    └── ≡:2:B <> origin/B⇡1⇣1
+        ├── :2:B <> origin/B⇡1⇣1
         │   ├── 🟣682be32
-        │   ├── 🟣e29c23d
         │   └── ·312f819 (🏘️)
         └── :4:A <> origin/A⇡1⇣1
             ├── 🟣e29c23d
@@ -873,10 +873,9 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     ");
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:1:gitbutler/workspace <> ✓refs/remotes/origin/main
-    └── ≡:4:B <> origin/B⇡1⇣2
-        ├── :4:B <> origin/B⇡1⇣2
+    └── ≡:4:B <> origin/B⇡1⇣1
+        ├── :4:B <> origin/B⇡1⇣1
         │   ├── 🟣682be32
-        │   ├── 🟣e29c23d
         │   └── ·312f819 (🏘️)
         └── 👉:0:A <> origin/A⇡1⇣1
             ├── 🟣e29c23d
