@@ -3336,6 +3336,7 @@ dependencies = [
  "gitbutler-watcher",
  "gix",
  "log",
+ "once_cell",
  "open",
  "parking_lot",
  "reqwest 0.12.18",

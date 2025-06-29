@@ -26,6 +26,7 @@ pub mod action;
 pub mod askpass;
 pub mod cli;
 pub mod config;
+pub mod db;
 pub mod error;
 pub mod forge;
 pub mod github;
