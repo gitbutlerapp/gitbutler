@@ -80,7 +80,7 @@
 </script>
 
 {#snippet drawerRight()}
-	<Feed {projectId} />
+	<Feed {projectId} onCloseClick={() => uiState.project(projectId).showActions.set(false)} />
 {/snippet}
 
 {#snippet leftSideview()}

@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import Login from '$components/Login.svelte';
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
+	import CliSymLink from '$components/v3/profileSettings/CliSymLink.svelte';
 	import { invoke } from '$lib/backend/ipc';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { showError } from '$lib/notifications/toasts';
@@ -9,11 +10,11 @@
 	import { SETTINGS, type Settings, type CodeEditorSettings } from '$lib/settings/userSettings';
 	import { UpdaterService } from '$lib/updater/updater';
 	import { UserService } from '$lib/user/userService';
-	import { copyToClipboard } from '@gitbutler/shared/clipboard';
+
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
@@ -136,16 +137,6 @@
 		}
 	}
 
-	async function installCli() {
-		await invoke('install_cli');
-	}
-
-	async function cli_command(): Promise<string> {
-		const path: string = await invoke('cli_path');
-		const command = 'ln -sf ' + path + ' /usr/local/bin/but';
-		return command;
-	}
-
 	let showSymlink = $state(false);
 </script>
 
@@ -240,24 +231,15 @@
 			action will request admin privileges. Alternatively, you could create a symlink manually.
 
 			{#if showSymlink}
-				<div class="symlink-copy-box">
-					{#await cli_command() then command}
-						<p>{command}</p>
-						<button
-							type="button"
-							class="symlink-copy-icon"
-							onclick={() => copyToClipboard(command)}
-						>
-							<Icon name="copy" />
-						</button>
-					{/await}
-				</div>
+				<CliSymLink class="m-top-14" />
 			{/if}
 		{/snippet}
 
 		<div class="flex flex-col gap-16">
 			<div class="flex gap-8 justify-end">
-				<Button style="pop" icon="play" onclick={() => installCli()}>Install But CLI</Button>
+				<Button style="pop" icon="play" onclick={async () => await invoke('install_cli')}
+					>Install But CLI</Button
+				>
 				<Button
 					style="neutral"
 					kind="outline"
@@ -382,29 +364,5 @@
 		flex-direction: column;
 		width: 100%;
 		gap: 12px;
-	}
-
-	.symlink-copy-box {
-		display: flex;
-		margin-top: 16px;
-		padding: 8px 10px;
-		gap: 10px;
-		border: 1px solid var(--clr-border-3);
-		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1-muted);
-		color: var(--clr-text-1);
-		font-size: 12px;
-		font-family: var(--fontfamily-mono);
-		word-break: break-all;
-	}
-
-	.symlink-copy-icon {
-		display: flex;
-		color: var(--clr-text-3);
-		transition: color var(--transition-fast);
-
-		&:hover {
-			color: var(--clr-text-2);
-		}
 	}
 </style>

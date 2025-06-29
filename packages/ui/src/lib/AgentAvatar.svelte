@@ -9,9 +9,16 @@
 <style lang="postcss">
 	.but-agent-avatar {
 		display: flex;
+		position: relative;
 		align-items: center;
 		justify-content: center;
 		width: 26px;
 		height: 26px;
+	}
+
+	:global(.but-agent-avatar svg) {
+		position: absolute;
+		bottom: 0;
+		left: 0;
 	}
 </style>

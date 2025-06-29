@@ -3,13 +3,13 @@
 	import SnapshotAttachment from '$components/SnapshotAttachment.svelte';
 	import FeedItemKind from '$components/v3/FeedItemKind.svelte';
 	import { ButlerAction, getDisplayNameForWorkflowKind, Workflow } from '$lib/actions/types';
+	import butbotSvg from '$lib/assets/butbot-actions.svg?raw';
 	import SnapshotDiffService from '$lib/history/snapshotDiffService.svelte';
 	import { Snapshot } from '$lib/history/types';
 	import { User } from '$lib/user/user';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import AgentAvatar from '@gitbutler/ui/AgentAvatar.svelte';
-	import ButBot from '@gitbutler/ui/ButBot.svelte';
 	import EditorLogo from '@gitbutler/ui/EditorLogo.svelte';
 	import Icon, { type IconName } from '@gitbutler/ui/Icon.svelte';
 	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
@@ -63,8 +63,7 @@
 			<div class="action-item__editor-logo">
 				<EditorLogo name={action.source.Mcp?.name} />
 				<div class="action-item__editor-source">
-					<!-- robot icon with mask -->
-					<ButBot />
+					{@html butbotSvg}
 				</div>
 			</div>
 		{/if}
@@ -182,22 +181,23 @@
 <style lang="postcss">
 	.action-item__picture {
 		display: flex;
+		flex-shrink: 0;
 		align-items: center;
 		justify-content: center;
-
-		width: 30px;
-		min-width: 30px;
-		height: 30px;
-		padding: 2px;
+		width: 28px;
+		height: 28px;
+		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
-
-		border-radius: var(--radius-m);
+		border-radius: 100%;
 		background-color: var(--clr-bg-2);
-
-		> img {
-			border-radius: var(--radius-s);
-		}
 	}
+
+	.user-icon__image {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
 	.action-item__robot {
 		padding: 4px 6px;
 		border: 1px solid var(--clr-border-2);
@@ -208,10 +208,9 @@
 
 	.action-item {
 		display: flex;
-
-		align-items: flex-start;
-
+		padding: 16px 12px;
 		gap: 14px;
+		border-bottom: 1px solid var(--clr-border-3);
 	}
 
 	.action-item__content__header {
@@ -243,15 +242,13 @@
 
 	.action-item__editor-logo {
 		position: relative;
+		height: fit-content;
 	}
 
 	.action-item__editor-source {
-		display: flex;
 		position: absolute;
 		right: -5px;
 		bottom: -5px;
-		align-items: center;
-		justify-content: center;
 
 		width: 20px;
 		height: 20px;
