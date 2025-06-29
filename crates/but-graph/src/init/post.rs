@@ -27,14 +27,13 @@ impl Graph {
                 .and_then(|s| s.commit_index_of(tip));
         }
 
-        // TODO: swap these expressions and tests validation will fail.
+        self.workspace_upgrades(meta)?;
+        self.fill_flags_at_border_segments()?;
         self.non_workspace_adjustments(
             repo,
             symbolic_remote_names,
             configured_remote_tracking_branches,
         )?;
-        self.workspace_upgrades(meta)?;
-        self.fill_flags_at_border_segments()?;
 
         Ok(self)
     }

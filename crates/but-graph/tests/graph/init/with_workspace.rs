@@ -1358,6 +1358,72 @@ fn workspace_obeys_limit_when_target_branch_is_missing() -> anyhow::Result<()> {
 }
 
 #[test]
+fn three_branches_one_advanced_ws_commit_advanced_fully_pushed_empty_dependant()
+-> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario(
+        "ws/three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependant",
+    )?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * f8f33a7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * cbc6713 (origin/advanced-lane, on-top-of-dependant, dependant, advanced-lane) change
+    * fafd9d0 (origin/main, main, lane) init
+    ");
+
+    add_workspace(&mut meta);
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    ├── 👉📕►►►:0:gitbutler/workspace
+    │   └── ·f8f33a7 (⌂|🏘️|1)
+    │       └── ►:3:advanced-lane <> origin/advanced-lane
+    │           └── ·cbc6713 (⌂|🏘️|11) ►dependant, ►on-top-of-dependant
+    │               └── ►:1:origin/main
+    │                   └── ·fafd9d0 (⌂|🏘️|✓|11) ►lane, ►main
+    └── ►:2:origin/advanced-lane
+        └── →:3: (advanced-lane)
+    ");
+
+    // By default, the advanced lane is simply frozen as its remote contains the commit.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main
+    └── ≡:3:advanced-lane <> origin/advanced-lane
+        └── :3:advanced-lane <> origin/advanced-lane
+            └── ❄️cbc6713 (🏘️) ►dependant, ►on-top-of-dependant
+    ");
+
+    add_stack_with_segments(
+        &mut meta,
+        StackId::from_number_for_testing(1),
+        "dependant",
+        StackState::InWorkspace,
+        &["advanced-lane"],
+    );
+
+    // Lanes are properly ordered
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    ├── 👉📕►►►:0:gitbutler/workspace
+    │   └── ·f8f33a7 (⌂|🏘️|1)
+    │       └── 📙►:4:dependant
+    │           └── 📙►:5:advanced-lane <> origin/advanced-lane
+    │               └── ·cbc6713 (⌂|🏘️|11) ►on-top-of-dependant
+    │                   └── ►:1:origin/main
+    │                       └── ·fafd9d0 (⌂|🏘️|✓|11) ►lane, ►main
+    └── ►:2:origin/advanced-lane
+        └── →:4: (dependant)
+    ");
+
+    // When putting the dependent branch on top as empty segment, the frozen state is retained.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main
+    └── ≡📙:4:dependant
+        ├── 📙:4:dependant
+        └── 📙:5:advanced-lane <> origin/advanced-lane
+            └── ❄️cbc6713 (🏘️) ►on-top-of-dependant
+    ");
+    Ok(())
+}
+
+#[test]
 fn on_top_of_target_with_history() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/on-top-of-target-with-history")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
