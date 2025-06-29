@@ -158,11 +158,4 @@
 		width: 100%;
 		gap: 6px;
 	}
-
-	.modal-footer__checkbox {
-		display: flex;
-		flex: 1;
-		align-items: center;
-		gap: 8px;
-	}
 </style>
