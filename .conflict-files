@@ -1,3 +1,0 @@
-ancestorEntries = ["apps/desktop/src/components/v3/Feed.svelte", "apps/desktop/src/components/v3/FeedItem.svelte"]
-ourEntries = ["apps/desktop/src/components/v3/Feed.svelte", "apps/desktop/src/components/v3/FeedItem.svelte"]
-theirEntries = ["apps/desktop/src/components/v3/Feed.svelte", "apps/desktop/src/components/v3/FeedItem.svelte"]
