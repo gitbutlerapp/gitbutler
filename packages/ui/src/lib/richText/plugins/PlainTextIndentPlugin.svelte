@@ -5,7 +5,6 @@ of the Enter key.
 -->
 <script lang="ts">
 	import { parseIndent, parseBullet } from '$lib/richText/linewrap';
-	import { mergeUnlisten } from '$lib/utils/mergeUnlisten';
 
 	import {
 		TextNode,
@@ -13,8 +12,8 @@ of the Enter key.
 		$getSelection as getSelection,
 		$isRangeSelection as isRangeSelection,
 		$insertNodes as insertNodes,
-		COMMAND_PRIORITY_CRITICAL,
-		KEY_ENTER_COMMAND
+		COMMAND_PRIORITY_HIGH,
+		INSERT_PARAGRAPH_COMMAND
 	} from 'lexical';
 	import { getEditor } from 'svelte-lexical';
 
@@ -45,26 +44,10 @@ of the Enter key.
 			insertNodes([new LineBreakNode(), new TextNode(newIndent)]);
 		}
 
-		return true; // Prevent default Enter handling.
+		return true;
 	}
 
 	$effect(() => {
-		return mergeUnlisten(
-			/**
-			 * The default handler for this command dispatches the
-			 * `INSERT_LINE_BREAK` command, but we override upstream
-			 * since there were some behavioral differences between
-			 * storybook and in-app experiences.
-			 */
-			editor.registerCommand(
-				KEY_ENTER_COMMAND,
-				(e: KeyboardEvent) => {
-					e.preventDefault();
-					handleEnter();
-					return true;
-				},
-				COMMAND_PRIORITY_CRITICAL
-			)
-		);
+		editor.registerCommand(INSERT_PARAGRAPH_COMMAND, handleEnter, COMMAND_PRIORITY_HIGH);
 	});
 </script>
