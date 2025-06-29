@@ -1,5 +1,6 @@
 import { getUserErrorCode } from '$lib/backend/ipc';
 import { GitBranchService } from '$lib/branches/gitBranch';
+import { Feed } from '$lib/feed/feed';
 import { FetchSignal } from '$lib/fetchSignal/fetchSignal.js';
 import { UncommitedFilesWatcher } from '$lib/files/watcher';
 import { TemplateService } from '$lib/forge/templateService';
@@ -15,7 +16,7 @@ export const prerender = false;
 
 // eslint-disable-next-line
 export const load: LayoutLoad = async ({ params, parent }) => {
-	const { projectsService, commandService, userService, projectMetrics } = await parent();
+	const { projectsService, commandService, userService, projectMetrics, tauri } = await parent();
 
 	const projectId = params.projectId;
 	projectsService.setLastOpenedProject(projectId);
@@ -44,6 +45,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	const templateService = new TemplateService(projectId);
 
 	const gitBranchService = new GitBranchService(projectId);
+	const feed = new Feed(tauri, projectId);
 
 	const uncommitedFileWatcher = new UncommitedFilesWatcher(project);
 	const syncedSnapshotService = new SyncedSnapshotService(
@@ -69,6 +71,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		uncommitedFileWatcher,
 		// Cloud-related services
 		syncedSnapshotService,
-		stackPublishingService
+		stackPublishingService,
+		feed
 	};
 };

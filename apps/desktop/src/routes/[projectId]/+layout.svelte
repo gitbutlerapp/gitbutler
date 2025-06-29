@@ -22,6 +22,7 @@
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { showHistoryView } from '$lib/config/config';
 	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
+	import { Feed } from '$lib/feed/feed';
 	import { UncommitedFilesWatcher } from '$lib/files/watcher';
 	import { FocusManager } from '$lib/focus/focusManager.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
@@ -139,6 +140,7 @@
 		// Cloud related services
 		setContext(SyncedSnapshotService, data.syncedSnapshotService);
 		setContext(StackPublishingService, data.stackPublishingService);
+		setContext(Feed, data.feed);
 	});
 
 	const focusManager = new FocusManager();
