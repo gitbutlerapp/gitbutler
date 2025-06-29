@@ -7,7 +7,7 @@ use crate::{DbHandle, schema::workflows as schema};
 use diesel::prelude::{Insertable, Queryable, Selectable};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Selectable, Insertable)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::workflows)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct Workflow {

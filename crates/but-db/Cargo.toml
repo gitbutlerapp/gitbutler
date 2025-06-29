@@ -17,6 +17,7 @@ diesel = { version = "2.2.10", features = [
 ] }
 # Bundled libsqlite3 for Windows
 libsqlite3-sys = { version = "0.29", features = ["bundled"] }
+bitflags = "2.9.1"
 serde = { workspace = true, features = ["std"] }
 anyhow = "1.0.98"
 diesel_migrations = { version = "2.0.0", features = ["sqlite"] }

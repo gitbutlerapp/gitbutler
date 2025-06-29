@@ -96,6 +96,7 @@ async fn main() -> Result<()> {
             *unified_diff,
         ),
         args::Subcommands::Watch => command::watch(&args).await,
+        args::Subcommands::WatchDb => command::watch_db(&args),
         args::Subcommands::Stacks { workspace_only } => {
             command::stacks::list(&args.current_dir, args.json, args.v3, *workspace_only)
         }
