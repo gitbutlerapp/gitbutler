@@ -11,6 +11,7 @@ pub(crate) mod state {
 
     pub(crate) mod event {
         use anyhow::{Context, Result};
+        use but_db::poll::ItemKind;
         use but_settings::AppSettings;
         use gitbutler_project::ProjectId;
         use gitbutler_watcher::Change;
@@ -78,6 +79,46 @@ pub(crate) mod state {
                     payload: serde_json::json!(settings),
                     // TODO: remove dummy project id
                     project_id: ProjectId::default(),
+                }
+            }
+        }
+
+        impl From<(ProjectId, ItemKind)> for ChangeForFrontend {
+            fn from(project_item: (ProjectId, ItemKind)) -> Self {
+                let (project_id, item) = project_item;
+                match item {
+                    ItemKind::Actions => ChangeForFrontend {
+                        name: format!("project://{}/db-updates", project_id),
+                        payload: serde_json::json!({
+                            "kind": "actions"
+                        }),
+                        project_id,
+                    },
+                    ItemKind::Workflows => ChangeForFrontend {
+                        name: format!("project://{}/db-updates", project_id),
+                        payload: serde_json::json!({
+                            "kind": "workflows"
+                        }),
+                        project_id,
+                    },
+                    ItemKind::Assignments => ChangeForFrontend {
+                        name: format!("project://{}/db-updates", project_id),
+                        payload: serde_json::json!({
+                            "kind": "hunk-assignments"
+                        }),
+                        project_id,
+                    },
+                    _ => {
+                        tracing::warn!("Unhandled ItemKind in ChangeForFrontend: {:?}", item);
+                        ChangeForFrontend {
+                            name: format!("project://{}/db-updates", project_id),
+                            payload: serde_json::json!({
+                                "kind": "unknown",
+                                "item": format!("{:?}", item)
+                            }),
+                            project_id,
+                        }
+                    }
                 }
             }
         }
