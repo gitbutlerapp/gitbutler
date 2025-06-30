@@ -32,6 +32,7 @@
 	let openAIKeyOption: KeyOption | undefined = $state();
 	let anthropicKeyOption: KeyOption | undefined = $state();
 	let openAIKey: string | undefined = $state();
+	let openAICustomEndpoint: string | undefined = $state();
 	let openAIModelName: OpenAIModelName | undefined = $state();
 	let anthropicKey: string | undefined = $state();
 	let anthropicModelName: AnthropicModelName | undefined = $state();
@@ -57,6 +58,7 @@
 		openAIKeyOption = await aiService.getOpenAIKeyOption();
 		openAIModelName = await aiService.getOpenAIModleName();
 		openAIKey = await aiService.getOpenAIKey();
+		openAICustomEndpoint = await aiService.getOpenAICustomEndpoint();
 
 		anthropicKeyOption = await aiService.getAnthropicKeyOption();
 		anthropicModelName = await aiService.getAnthropicModelName();
@@ -139,6 +141,9 @@
 	});
 	run(() => {
 		setConfiguration(GitAIConfigKey.OpenAIModelName, openAIModelName);
+	});
+	run(() => {
+		setConfiguration(GitAIConfigKey.OpenAICustomEndpoint, openAICustomEndpoint);
 	});
 	run(() => {
 		setSecret(AISecretHandle.OpenAIKey, openAIKey);
@@ -243,6 +248,12 @@
 						</SelectItem>
 					{/snippet}
 				</Select>
+
+				<Textbox
+					label="Custom endpoint"
+					bind:value={openAICustomEndpoint}
+					placeholder="https://api.openai.com/v1"
+				/>
 			{/if}
 		</SectionCard>
 	{/if}
