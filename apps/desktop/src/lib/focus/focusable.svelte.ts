@@ -12,16 +12,21 @@ interface FocusableOptions {
  */
 // eslint-disable-next-line func-style
 export const focusable: Action<HTMLElement, FocusableOptions> = (element, options) => {
-	const { id, parentId = null } = options;
 	const focus = getContext(FocusManager);
 
+	let { id, parentId = null } = options;
 	focus.register(id, parentId, element);
+
 	return {
 		destroy() {
 			focus.unregister(id);
 		},
 		update(options) {
-			focus.unregister(options.id);
+			if (id !== options.id) {
+				focus.unregister(id);
+			}
+			id = options.id;
+			parentId = options.parentId || null;
 			focus.register(id, parentId, element);
 		}
 	};
