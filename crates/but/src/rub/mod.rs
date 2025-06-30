@@ -7,6 +7,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 mod amend;
 mod assign;
+mod undo;
 
 use crate::id::CliId;
 
@@ -44,9 +45,7 @@ pub(crate) fn handle(
         (CliId::Commit { .. }, CliId::UncommittedFile { .. }) => {
             bail!(makes_no_sense_error(&source, &target))
         }
-        (CliId::Commit { .. }, CliId::Unassigned) => {
-            bail!(not_implemented("Uncommit", &source, &target))
-        }
+        (CliId::Commit { oid }, CliId::Unassigned) => undo::commit(ctx, oid),
         (CliId::Commit { .. }, CliId::Commit { .. }) => {
             bail!(not_implemented("Squash commits", &source, &target))
         }

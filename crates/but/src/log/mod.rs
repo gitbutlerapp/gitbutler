@@ -173,7 +173,10 @@ pub(crate) fn stacks(ctx: &CommandContext) -> anyhow::Result<Vec<StackEntry>> {
     }
 }
 
-fn stack_details(ctx: &CommandContext, stack_id: StackId) -> anyhow::Result<StackDetails> {
+pub(crate) fn stack_details(
+    ctx: &CommandContext,
+    stack_id: StackId,
+) -> anyhow::Result<StackDetails> {
     if ctx.app_settings().feature_flags.ws3 {
         let repo = ctx.gix_repo_for_merging_non_persisting()?;
         let meta = VirtualBranchesTomlMetadata::from_path(
