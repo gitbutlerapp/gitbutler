@@ -176,6 +176,7 @@
 						{lastUpdatedAt}
 						{reviewId}
 						{prNumber}
+						dropzones={[stackingReorderDropzoneManager.top(branchName)]}
 						active={focusedStackId === stackId}
 						trackingBranch={branch.remoteTrackingBranch ?? undefined}
 						readonly={!!branch.remoteTrackingBranch}
