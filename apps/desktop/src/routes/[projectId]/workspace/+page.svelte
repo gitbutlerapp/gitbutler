@@ -3,8 +3,10 @@
 	import { page } from '$app/state';
 	import WorkspaceView from '$components/v3/WorkspaceView.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
-	import DbService from '$lib/db/dbService.svelte';
-	import { Feed } from '$lib/feed/feed';
+	// Commnet out a couple of things that are non-performant for now
+
+	// import DbService from '$lib/db/dbService.svelte';
+	// import { Feed } from '$lib/feed/feed';
 	import { ModeService } from '$lib/mode/modeService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -14,8 +16,8 @@
 
 	const settingsService = getContext(SettingsService);
 	const modeService = getContext(ModeService);
-	const dbService = getContext(DbService);
-	const feed = getContext(Feed);
+	// const dbService = getContext(DbService);
+	// const feed = getContext(Feed);
 
 	const settingsStore = settingsService.appSettings;
 	const mode = modeService.mode;
@@ -33,13 +35,13 @@
 
 	// Start watching the database for changes.
 	// This will automatically stop watching when the component is destroyed.
-	$effect(() => {
-		const stopWatching = dbService.startWatchingDb(projectId);
-		return () => {
-			stopWatching();
-			feed.unlisten();
-		};
-	});
+	// $effect(() => {
+	// 	const stopWatching = dbService.startWatchingDb(projectId);
+	// 	return () => {
+	// 		stopWatching();
+	// 		feed.unlisten();
+	// 	};
+	// });
 
 	$effect(() => {
 		if (stackId === undefined && firstStack) {
