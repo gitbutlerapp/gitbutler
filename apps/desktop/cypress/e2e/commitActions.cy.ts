@@ -428,23 +428,23 @@ describe('Commit Actions', () => {
 		expect(mockBackend.getDiff).to.have.callCount(0);
 	});
 
-	// it('Should hide the drawer on uncommit from context menu', () => {
-	// 	// Click on the first commit and open the commit menu
-	// 	cy.getByTestId('commit-row')
-	// 		.click()
-	// 		.within(() => {
-	// 			cy.getByTestId('kebab-menu-btn').click();
-	// 		});
+	it('Should hide the drawer on uncommit from context menu', () => {
+		// Click on the first commit and open the commit menu
+		cy.getByTestId('commit-row')
+			.click()
+			.within(() => {
+				cy.getByTestId('kebab-menu-btn').click();
+			});
 
-	// 	// Click on the uncommit option
-	// 	cy.getByTestId('commit-row-context-menu-uncommit-menu-btn').click();
+		// Click on the uncommit option
+		cy.getByTestId('commit-row-context-menu-uncommit-menu-btn').click();
 
-	// 	// The drawer should be closed
-	// 	cy.getByTestId('commit-drawer').should('not.exist');
+		// The drawer should be closed
+		cy.getByTestId('commit-drawer').should('not.exist');
 
-	// 	// The commit should be removed from the list
-	// 	cy.getByTestId('commit-row').should('have.length', 0);
-	// });
+		// The commit should be removed from the list
+		cy.getByTestId('commit-row').should('have.length', 0);
+	});
 
 	it('Should hide the drawer on uncommit from the commit drawer', () => {
 		// Click on the first commit
