@@ -151,7 +151,8 @@ Cypress.on('window:before:load', (win) => {
 				return listProjects();
 			case 'update_telemetry_distinct_id':
 				return await Promise.resolve();
-
+			case 'start_watching_db':
+				return await Promise.resolve();
 			case 'plugin:updater|check':
 				return null;
 			case 'get_user':
