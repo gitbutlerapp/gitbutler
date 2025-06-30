@@ -36,7 +36,6 @@ pub fn lookup_remote_tracking_branch_or_deduce_it(
             // Deduce the ref-name as fallback.
             // TODO: remove this - this is only required to support legacy repos that
             //       didn't setup normal Git remotes.
-            // let remote_name = target_
             let remote_tracking_ref_name = format!(
                 "refs/remotes/{symbolic_remote_name}/{short_name}",
                 short_name = ref_name.shorten()

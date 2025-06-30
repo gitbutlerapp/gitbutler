@@ -120,6 +120,8 @@ pub fn branch_details(
 ///
 /// - `push_status` - `Integrated` variant is not computed for now (but it's conceivably doable later).
 /// - `is_conflicted` - only local commits contribute.
+// TODO: make use of `but-graph` here: traverse with `name` as entrypoint, maybe even try to cache the
+//       graph and find its segment in there first before traversing unnecessarily.
 pub fn branch_details_v3(
     repo: &gix::Repository,
     name: &gix::refs::FullNameRef,

@@ -500,6 +500,7 @@ pub fn ref_info(args: &super::Args, ref_name: Option<&str>, expensive: bool) -> 
     let opts = but_workspace::ref_info::Options {
         stack_commit_limit: 0,
         expensive_commit_info: expensive,
+        traversal: Default::default(),
     };
 
     let project = project.with_context(|| {
@@ -515,6 +516,7 @@ pub fn ref_info(args: &super::Args, ref_name: Option<&str>, expensive: bool) -> 
     }?)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn graph(
     args: &super::Args,
     ref_name: Option<&str>,
@@ -522,7 +524,9 @@ pub fn graph(
     limit: Option<usize>,
     limit_extension: Vec<String>,
     hard_limit: Option<usize>,
-    debug: bool,
+    debug_graph: bool,
+    no_debug_workspace: bool,
+    no_dot: bool,
 ) -> anyhow::Result<()> {
     let (mut repo, project) = repo_and_maybe_project(args, RepositoryOpenMode::General)?;
     repo.objects.refresh = RefreshMode::Never;
@@ -573,14 +577,36 @@ pub fn graph(
         eprintln!("VALIDATION FAILED: {errors:?}");
     }
     eprintln!("{:#?}", graph.statistics());
-    if no_open {
-        stdout().write_all(graph.dot_graph().as_bytes())?;
-    } else {
-        #[cfg(unix)]
-        graph.open_as_svg();
+
+    if !no_dot {
+        if no_open {
+            stdout().write_all(graph.dot_graph().as_bytes())?;
+        } else {
+            #[cfg(unix)]
+            graph.open_as_svg();
+        }
     }
 
-    if debug {
+    let workspace = graph.to_workspace()?;
+    if no_debug_workspace {
+        eprintln!(
+            "Workspace with {} stacks and {} segments across all stacks with {} commits total",
+            workspace.stacks.len(),
+            workspace
+                .stacks
+                .iter()
+                .map(|s| s.segments.len())
+                .sum::<usize>(),
+            workspace
+                .stacks
+                .iter()
+                .flat_map(|s| s.segments.iter().map(|s| s.commits.len()))
+                .sum::<usize>(),
+        );
+    } else {
+        eprintln!("{:#?}", workspace);
+    }
+    if debug_graph {
         eprintln!("{graph:#?}");
     }
     Ok(())

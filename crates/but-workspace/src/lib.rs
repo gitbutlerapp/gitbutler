@@ -73,7 +73,7 @@ mod commit;
 ///
 /// Note that many of these types should eventually end up in the crate root.
 pub mod ref_info;
-pub use ref_info::function::{head_info, ref_info};
+pub use ref_info::function::{head_info, head_info2, ref_info, ref_info2};
 
 /// High level Stack funtions that use primitives from this crate (`but-workspace`)
 pub mod stack_ext;
@@ -162,11 +162,12 @@ impl HunkHeader {
 ///
 /// We always try to deduce a set of stacks that are currently applied to a workspace,
 /// even though it's possible to look at refs that are outside a workspace as well.
+/// TODO: this should become the UI version of [`but_graph::projection::Workspace`].
+///       This should also include base-branch data, see `get_base_branch_data()`.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct RefInfo {
-    /// The name of the ref that points to a workspace commit.
-    ///
-    /// Such a commit always combines one or more branches and stacks.
+    /// The name of the ref that points to a workspace commit,
+    /// *or* the name of the first stack segment.
     pub workspace_ref_name: Option<gix::refs::FullName>,
     /// The stacks visible in the current workspace.
     ///
@@ -174,7 +175,15 @@ pub struct RefInfo {
     /// Otherwise, there is one or more stacks.
     pub stacks: Vec<branch::Stack>,
     /// The full name to the target reference that we should integrate with, if present.
+    /// It's never present in single-branch mode.
     pub target_ref: Option<gix::refs::FullName>,
+    /// The `workspace_ref_name` is `Some(_)` and belongs to GitButler, because it had metadata attached.
+    pub is_managed_ref: bool,
+    /// The `workspace_ref_name` points to a commit that was specifically created by us.
+    /// If the user advanced the workspace head by hand, this would be `false`.
+    pub is_managed_commit: bool,
+    /// The workspace represents what `HEAD` is pointing to.
+    pub is_entrypoint: bool,
 }
 
 /// A representation of the commit that is the tip of the workspace i.e., usually what `HEAD` points to,

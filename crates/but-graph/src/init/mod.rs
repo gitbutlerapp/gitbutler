@@ -1,24 +1,23 @@
-use crate::{CommitFlags, Edge};
-use crate::{CommitIndex, Graph, Segment, SegmentIndex, SegmentMetadata};
-use anyhow::bail;
+use crate::{CommitFlags, CommitIndex, Edge};
+use crate::{Graph, Segment, SegmentIndex, SegmentMetadata};
+use anyhow::{Context, bail};
 use but_core::RefMetadata;
 use gix::hashtable::hash_map::Entry;
 use gix::prelude::{ObjectIdExt, ReferenceExt};
 use gix::refs::Category;
-use petgraph::graph::EdgeReference;
-use petgraph::prelude::EdgeRef;
-use std::collections::VecDeque;
 use tracing::instrument;
 
-mod utils;
-use utils::*;
+mod walk;
+use walk::*;
+
+pub(crate) mod types;
+use types::{Goals, Instruction, Limit, Queue};
 
 mod remotes;
 
 mod post;
-pub(crate) mod walk;
 
-pub(super) type PetGraph = petgraph::Graph<Segment, Edge>;
+pub(super) type PetGraph = petgraph::stable_graph::StableGraph<Segment, Edge>;
 
 /// Options for use in [`Graph::from_head()`] and [`Graph::from_commit_traversal()`].
 #[derive(Default, Debug, Clone)]
@@ -68,6 +67,11 @@ impl Options {
 
     /// Set a hard limit for the amount of commits to traverse. Even though it may be off by a couple, it's not dependent
     /// on any additional logic.
+    ///
+    /// ### Warning
+    ///
+    /// This stops traversal early despite not having discovered all desired graph partitions, possibly leading to
+    /// incorrect results. Ideally, this is not used.
     pub fn with_hard_limit(mut self, limit: usize) -> Self {
         self.hard_limit = Some(limit);
         self
@@ -94,6 +98,7 @@ impl Graph {
         options: Options,
     ) -> anyhow::Result<Self> {
         let head = repo.head()?;
+        let mut is_detached = false;
         let (tip, maybe_name) = match head.kind {
             gix::head::Kind::Unborn(ref_name) => {
                 let mut graph = Graph::default();
@@ -105,6 +110,7 @@ impl Graph {
                 return Ok(graph);
             }
             gix::head::Kind::Detached { target, peeled } => {
+                is_detached = true;
                 (peeled.unwrap_or(target).attach(repo), None)
             }
             gix::head::Kind::Symbolic(existing_reference) => {
@@ -113,7 +119,23 @@ impl Graph {
                 (tip, Some(existing_reference.inner.name))
             }
         };
-        Self::from_commit_traversal(tip, maybe_name, meta, options)
+        let mut graph = Self::from_commit_traversal(tip, maybe_name, meta, options)?;
+        if is_detached {
+            // graph is eagerly naming segments, which we undo to show it's detached.
+            let sidx = graph
+                .entrypoint
+                .context("BUG: entrypoint is set after first traversal")?
+                .0;
+            let s = &mut graph[sidx];
+            if let Some((rn, first_commit)) = s
+                .commits
+                .first_mut()
+                .and_then(|first_commit| s.ref_name.take().map(|rn| (rn, first_commit)))
+            {
+                first_commit.refs.push(rn);
+            }
+        };
+        Ok(graph)
     }
     /// Produce a minimal-effort representation of the commit-graph reachable from the commit at `tip` such the returned instance
     /// can represent everything that's observed, without loosing information.
@@ -448,97 +470,38 @@ impl Graph {
     }
 }
 
-/// A queue to keep track of tips, which additionally counts how much was queued over time.
-struct Queue {
-    inner: VecDeque<QueueItem>,
-    /// The current number of queued items.
-    count: usize,
-    /// The maximum number of queuing operations, each representing one commit.
-    max: Option<usize>,
-}
-
-/// A set of commits to keep track of in bitflags.
-#[derive(Default)]
-struct Goals(Vec<gix::ObjectId>);
-
-impl Goals {
-    /// Return the bitflag for `goal`, or `None` if we can't track any more goals.
-    fn flag_for(&mut self, goal: gix::ObjectId) -> Option<CommitFlags> {
-        let existing_flags = CommitFlags::all().iter().count();
-        let max_goals = size_of::<CommitFlags>() * 8 - existing_flags;
-
-        let goals = &mut self.0;
-        let goal_index = match goals.iter().position(|existing| existing == &goal) {
-            None => {
-                let idx = goals.len();
-                goals.push(goal);
-                idx
-            }
-            Some(idx) => idx,
-        };
-        if goal_index >= max_goals {
-            tracing::warn!("Goals limit reached, cannot track {goal}");
-            None
-        } else {
-            Some(CommitFlags::from_bits_retain(
-                1 << (existing_flags + goal_index),
-            ))
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone)]
-enum Instruction {
-    /// Contains the segment into which to place this commit.
-    CollectCommit { into: SegmentIndex },
-    /// This is the first commit in a new segment which is below `parent_above` and which should be placed
-    /// at the last commit (at the time) via `at_commit`.
-    ConnectNewSegment {
-        parent_above: SegmentIndex,
-        at_commit: CommitIndex,
-    },
-}
-
-impl Instruction {
-    /// Returns any segment index we may be referring to.
-    fn segment_idx(&self) -> SegmentIndex {
-        match self {
-            Instruction::CollectCommit { into } => *into,
-            Instruction::ConnectNewSegment { parent_above, .. } => *parent_above,
-        }
+impl Graph {
+    /// Connect two existing segments `src` from `src_commit` to point `dst_commit` of `b`.
+    pub(crate) fn connect_segments(
+        &mut self,
+        src: SegmentIndex,
+        src_commit: impl Into<Option<CommitIndex>>,
+        dst: SegmentIndex,
+        dst_commit: impl Into<Option<CommitIndex>>,
+    ) {
+        self.connect_segments_with_ids(src, src_commit, None, dst, dst_commit, None)
     }
 
-    fn with_replaced_sidx(self, sidx: SegmentIndex) -> Self {
-        match self {
-            Instruction::CollectCommit { into: _ } => Instruction::CollectCommit { into: sidx },
-            Instruction::ConnectNewSegment {
-                parent_above: _,
-                at_commit,
-            } => Instruction::ConnectNewSegment {
-                parent_above: sidx,
-                at_commit,
+    pub(crate) fn connect_segments_with_ids(
+        &mut self,
+        src: SegmentIndex,
+        src_commit: impl Into<Option<CommitIndex>>,
+        src_id: Option<gix::ObjectId>,
+        dst: SegmentIndex,
+        dst_commit: impl Into<Option<CommitIndex>>,
+        dst_id: Option<gix::ObjectId>,
+    ) {
+        let src_commit = src_commit.into();
+        let dst_commit = dst_commit.into();
+        self.inner.add_edge(
+            src,
+            dst,
+            Edge {
+                src: src_commit,
+                src_id: src_id.or_else(|| self[src].commit_id_by_index(src_commit)),
+                dst: dst_commit,
+                dst_id: dst_id.or_else(|| self[dst].commit_id_by_index(dst_commit)),
             },
-        }
-    }
-}
-
-type QueueItem = (gix::ObjectId, CommitFlags, Instruction, Limit);
-
-#[derive(Debug)]
-pub(crate) struct EdgeOwned {
-    source: SegmentIndex,
-    target: SegmentIndex,
-    weight: Edge,
-    id: petgraph::graph::EdgeIndex,
-}
-
-impl From<EdgeReference<'_, Edge>> for EdgeOwned {
-    fn from(e: EdgeReference<'_, Edge>) -> Self {
-        EdgeOwned {
-            source: e.source(),
-            target: e.target(),
-            weight: *e.weight(),
-            id: e.id(),
-        }
+        );
     }
 }

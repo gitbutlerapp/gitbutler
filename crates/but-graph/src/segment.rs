@@ -1,7 +1,5 @@
 use crate::{CommitIndex, SegmentIndex};
 use bitflags::bitflags;
-use bstr::ByteSlice;
-use gix::bstr::BString;
 
 /// A commit with must useful information extracted from the Git commit itself.
 #[derive(Clone, Eq, PartialEq)]
@@ -15,38 +13,14 @@ pub struct Commit {
     /// The references pointing to this commit, even after dereferencing tag objects.
     /// These can be names of tags and branches.
     pub refs: Vec<gix::refs::FullName>,
-    /// Additional, and possibly expensive information to obtain on demand for commits of interest only.
-    pub details: Option<CommitDetails>,
-}
-
-/// Lazily obtained detailed information.
-/// This should only be fetched when it's clear the commit is of interest,
-/// which a majority of commits in a traversal might not be.
-#[derive(Clone, Eq, PartialEq)]
-pub struct CommitDetails {
-    /// The complete message, verbatim.
-    pub message: BString,
-    /// The signature at which the commit was authored.
-    pub author: gix::actor::Signature,
-    /// Whether the commit is in a conflicted state, a GitButler concept.
-    /// GitButler will perform rebasing/reordering etc. without interruptions and flag commits as conflicted if needed.
-    /// Conflicts are resolved via the Edit Mode mechanism.
-    ///
-    /// Note that even though GitButler won't push branches with conflicts, the user can still push such branches at will.
-    pub has_conflicts: bool,
 }
 
 impl std::fmt::Debug for Commit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Commit({hash}, {msg:?}{flags})",
+            "Commit({hash}, {flags})",
             hash = self.id.to_hex_with_len(7),
-            msg = self
-                .details
-                .as_ref()
-                .map(|d| d.message.as_bstr())
-                .unwrap_or_default(),
             flags = self.flags.debug_string()
         )
     }
@@ -103,14 +77,20 @@ impl CommitFlags {
     /// Return `true` if this flag denotes a remote commit, i.e. a commit that isn't reachable from anything
     /// but a remote tracking branch tip.
     pub fn is_remote(&self) -> bool {
-        self.is_empty()
+        !self.contains(CommitFlags::NotInRemote)
     }
 }
 
 /// A segment of a commit graph, representing a set of commits exclusively.
 #[derive(Default, Clone, Eq, PartialEq)]
 pub struct Segment {
-    /// The unambiguous or disambiguated name of the branch at the tip of the segment, i.e. at the first commit.
+    /// An ID which can uniquely identify this segment among all segments within the graph that owned it.
+    /// Note that it's not suitable to permanently identify the segment, so should not be persisted.
+    pub id: SegmentIndex,
+    /// The unambiguous or disambiguated name of the branch *or tag* at the tip of the segment, i.e. at the first commit.
+    ///
+    /// Even though most of the time this will be local branches, when setting the entrypoint onto a commit with a *tag*,
+    /// it will be used for naming it.
     ///
     /// It is `None` if this branch is the top-most stack segment and the `ref_name` wasn't pointing to
     /// a commit anymore that was reached by our rev-walk.
@@ -119,9 +99,6 @@ pub struct Segment {
     /// Finally, this is `None` of the original name can be found searching upwards, finding exactly one
     /// named segment.
     pub ref_name: Option<gix::refs::FullName>,
-    /// An ID which can uniquely identify this segment among all segments within the graph that owned it.
-    /// Note that it's not suitable to permanently identify the segment, so should not be persisted.
-    pub id: SegmentIndex,
     /// The name of the remote tracking branch of this segment, if present, i.e. `refs/remotes/origin/main`.
     /// Its presence means that a remote is configured and that the stack content
     pub remote_tracking_ref_name: Option<gix::refs::FullName>,
@@ -170,12 +147,15 @@ impl Segment {
 
     /// Return the flags of the first commit if non-empty, which is the top-most commit in the stack assuming
     /// it grows upwards into the future.
-    pub fn flags_of_first_commit(&self) -> Option<CommitFlags> {
+    pub fn non_empty_flags_of_first_commit(&self) -> Option<CommitFlags> {
         let commit = self.commits.first()?;
         (!commit.flags.is_empty()).then_some(commit.flags)
     }
 
     /// Return `Some(md)` if this segment contains workspace metadata, which makes it governing a workspace.
+    ///
+    /// Note that we assume that this kind of metadata is only assigned to portions of the graph which don't include
+    /// each other *outside* of integrated portions of the graph, i.e. workspaces can't be nested.
     pub fn workspace_metadata(&self) -> Option<&but_core::ref_metadata::Workspace> {
         self.metadata.as_ref().and_then(|md| match md {
             SegmentMetadata::Workspace(md) => Some(md),

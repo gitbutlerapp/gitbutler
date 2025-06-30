@@ -117,6 +117,8 @@ async fn main() -> Result<()> {
             limit_extension,
             hard_limit,
             debug,
+            no_debug_workspace,
+            no_dot,
         } => command::graph(
             &args,
             ref_name.as_deref(),
@@ -125,6 +127,8 @@ async fn main() -> Result<()> {
             limit_extension.clone(),
             *hard_limit,
             *debug,
+            *no_debug_workspace,
+            *no_dot,
         ),
         args::Subcommands::HunkAssignments => {
             command::assignment::hunk_assignments(&args.current_dir, args.json)

@@ -156,6 +156,14 @@ pub enum Subcommands {
         /// Debug-print the whole graph.
         #[clap(long, short = 'd')]
         debug: bool,
+        /// Do not debug-print the workspace.
+        ///
+        /// If too large, it takes a long time or runs out of memory.
+        #[clap(long)]
+        no_debug_workspace: bool,
+        /// Do not output the dot-file to stdout.
+        #[clap(long, conflicts_with = "no_open")]
+        no_dot: bool,
         /// The maximum number of commits to traverse.
         ///
         /// Use only as safety net to prevent runaways.

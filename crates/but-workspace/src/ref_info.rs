@@ -1,7 +1,9 @@
 #![allow(clippy::indexing_slicing)]
+// TODO: rename this module to `workspace`, make it private, and pub-use all content in the top-level, as we now literally
+//       get the workspace, while possibly processing it for use in the UI.
 
 /// Options for the [`ref_info()`](crate::ref_info) call.
-#[derive(Default, Debug, Copy, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct Options {
     /// The maximum amount of commits to list *per stack*. Note that a [`StackSegment`](crate::branch::Segment) will always have a single commit, if available,
     ///  even if this exhausts the commit limit in that stack.
@@ -13,8 +15,10 @@ pub struct Options {
     ///
     /// Callers can check for the limit by looking as the oldest commit - if it has no parents, then the limit wasn't hit, or if it is
     /// connected to a merge-base.
+    /// TODO: remove this.
     pub stack_commit_limit: usize,
-
+    /// Control how to traverse the commit-graph as the basis for the workspace conversion.
+    pub traversal: but_graph::init::Options,
     /// Perform expensive computations on a per-commit basis.
     ///
     /// Note that less expensive checks are still performed.
@@ -23,9 +27,11 @@ pub struct Options {
 
 /// Types driven by the user interface, not general purpose.
 pub mod ui {
-    use bstr::BString;
-    use but_graph::{CommitFlags, SegmentMetadata};
     use std::ops::{Deref, DerefMut};
+
+    use bstr::BString;
+    use but_core::ref_metadata;
+    use but_graph::CommitFlags;
 
     /// A commit with must useful information extracted from the Git commit itself.
     ///
@@ -51,11 +57,15 @@ pub mod ui {
         ///
         /// Note that even though GitButler won't push branches with conflicts, the user can still push such branches at will.
         pub has_conflicts: bool,
+        /// The GitButler assigned change-id that we hold on to for convenience to avoid duplicate decoding of commits
+        /// when trying to associate remote commits with local ones.
+        /// TODO: Skip once this type is serialized to the UI directly.
+        pub change_id: Option<String>,
     }
 
     impl Commit {
         /// Read the object of the `commit_id` and extract relevant values, while setting `flags` as well.
-        pub fn new_from_id(
+        pub(crate) fn new_from_id(
             commit_id: gix::Id<'_>,
             flags: CommitFlags,
             has_conflicts: bool,
@@ -71,6 +81,7 @@ pub mod ui {
                 refs: Vec::new(),
                 flags,
                 has_conflicts,
+                change_id: None,
             })
         }
     }
@@ -89,14 +100,17 @@ pub mod ui {
 
     impl From<but_core::Commit<'_>> for Commit {
         fn from(value: but_core::Commit<'_>) -> Self {
+            let has_conflicts = value.is_conflicted();
+            let change_id = value.headers().map(|hdr| hdr.change_id);
             Commit {
                 id: value.id.into(),
                 parent_ids: value.parents.iter().cloned().collect(),
                 message: value.inner.message,
                 author: value.inner.author,
+                has_conflicts,
+                change_id,
                 refs: Vec::new(),
                 flags: CommitFlags::empty(),
-                has_conflicts: false,
             }
         }
     }
@@ -138,7 +152,7 @@ pub mod ui {
     impl LocalCommit {
         /// Create a new branch-commit, along with default values for the non-commit fields.
         // TODO: remove this function once ref_info code doesn't need it anymore (i.e. mapping is implemented).
-        pub fn new_from_id(value: gix::Id<'_>, flags: CommitFlags) -> anyhow::Result<Self> {
+        pub(crate) fn new_from_id(value: gix::Id<'_>, flags: CommitFlags) -> anyhow::Result<Self> {
             Ok(LocalCommit {
                 inner: Commit::new_from_id(value, flags, false)?,
                 relation: LocalCommitRelation::LocalOnly,
@@ -198,48 +212,6 @@ pub mod ui {
         }
     }
 
-    /// A commit that is reachable only through the *remote tracking branch*, with additional, computed information.
-    ///
-    /// TODO: Remote commits can also be integrated, without the local branch being all caught up. Currently we can't represent that.
-    #[derive(Clone, Eq, PartialEq)]
-    pub struct RemoteCommit {
-        /// The simple commit.
-        pub inner: Commit,
-        /// Whether the commit is in a conflicted state, a GitButler concept.
-        /// GitButler will perform rebasing/reordering etc. without interruptions and flag commits as conflicted if needed.
-        /// Conflicts are resolved via the Edit Mode mechanism.
-        ///
-        /// Note that even though GitButler won't push branches with conflicts, the user can still push such branches at will.
-        /// For remote commits, this only happens if someone manually pushed them.
-        pub has_conflicts: bool,
-    }
-
-    impl std::fmt::Debug for RemoteCommit {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(
-                f,
-                "RemoteCommit({conflict}{hash}, {msg:?}",
-                conflict = if self.has_conflicts { "💥" } else { "" },
-                hash = self.id.to_hex_with_len(7),
-                msg = self.message,
-            )
-        }
-    }
-
-    impl Deref for RemoteCommit {
-        type Target = Commit;
-
-        fn deref(&self) -> &Self::Target {
-            &self.inner
-        }
-    }
-
-    impl DerefMut for RemoteCommit {
-        fn deref_mut(&mut self) -> &mut Self::Target {
-            &mut self.inner
-        }
-    }
-
     /// A segment of a commit graph, representing a set of commits exclusively.
     #[derive(Default, Clone, Eq, PartialEq)]
     pub struct Segment {
@@ -270,9 +242,16 @@ pub mod ui {
         /// Note that remote commits along with their remote tracking branch should always retain a shared history
         /// with the local tracking branch. If these diverge, we can represent this in data, but currently there is
         /// no derived value to make this visible explicitly.
-        pub commits_unique_in_remote_tracking_branch: Vec<RemoteCommit>,
-        /// Read-only metadata with additional information, or `None` if nothing was present.
-        pub metadata: Option<SegmentMetadata>,
+        pub commits_unique_in_remote_tracking_branch: Vec<Commit>,
+        /// Read-only metadata with additional information about the branch naming the segment,
+        /// or `None` if nothing was present.
+        pub metadata: Option<ref_metadata::Branch>,
+        /// This is `true` a segment in a workspace if the entrypoint of [the traversal](Graph::from_commit_traversal())
+        /// is this segment, and the surrounding workspace is provided for context.
+        ///
+        /// This means one will see the entire workspace, while knowing the focus is on one specific segment.
+        /// *Note* that this segment can be listed in *multiple stacks* as it's reachable from multiple 'ahead' segments.
+        pub is_entrypoint: bool,
     }
 
     /// Direct Access (without graph)
@@ -292,58 +271,70 @@ pub mod ui {
                 commits_unique_in_remote_tracking_branch,
                 remote_tracking_ref_name,
                 metadata,
+                is_entrypoint,
             } = self;
-            f.debug_struct("StackSegment")
-                .field("id", &id)
-                .field(
-                    "ref_name",
-                    &match ref_name.as_ref() {
-                        None => "None".to_string(),
-                        Some(name) => name.to_string(),
-                    },
-                )
-                .field(
-                    "remote_tracking_ref_name",
-                    &match remote_tracking_ref_name.as_ref() {
-                        None => "None".to_string(),
-                        Some(name) => name.to_string(),
-                    },
-                )
-                .field("commits", &commits)
-                .field(
-                    "commits_unique_in_remote_tracking_branch",
-                    &commits_unique_in_remote_tracking_branch,
-                )
-                .field(
-                    "metadata",
-                    match metadata {
-                        None => &"None",
-                        Some(SegmentMetadata::Branch(m)) => m,
-                        Some(SegmentMetadata::Workspace(m)) => m,
-                    },
-                )
-                .finish()
+            f.debug_struct(&format!(
+                "{ep}ref_info::ui::Segment",
+                ep = if *is_entrypoint { "👉" } else { "" }
+            ))
+            .field("id", &id)
+            .field(
+                "ref_name",
+                &match ref_name.as_ref() {
+                    None => "None".to_string(),
+                    Some(name) => name.to_string(),
+                },
+            )
+            .field(
+                "remote_tracking_ref_name",
+                &match remote_tracking_ref_name.as_ref() {
+                    None => "None".to_string(),
+                    Some(name) => name.to_string(),
+                },
+            )
+            .field("commits", &commits)
+            .field(
+                "commits_unique_in_remote_tracking_branch",
+                &commits_unique_in_remote_tracking_branch,
+            )
+            .field(
+                "metadata",
+                match metadata {
+                    None => &"None",
+                    Some(m) => m,
+                },
+            )
+            .finish()
         }
     }
 }
 
 pub(crate) mod function {
-    use super::ui::{LocalCommit, LocalCommitRelation, RemoteCommit, Segment};
-    use crate::branch::Stack;
-    use crate::integrated::{IsCommitIntegrated, MergeBaseCommitGraph};
-    use crate::{RefInfo, WorkspaceCommit};
+    use std::collections::{BTreeSet, HashMap, HashSet, hash_map::Entry};
+
     use anyhow::bail;
     use bstr::BString;
     use but_core::ref_metadata::{ValueInfo, Workspace, WorkspaceStack};
-    use but_graph::CommitFlags;
-    use but_graph::{SegmentMetadata, is_workspace_ref_name};
-    use gix::prelude::{ObjectIdExt, ReferenceExt};
-    use gix::refs::{Category, FullName};
-    use gix::revision::walk::Sorting;
-    use gix::{ObjectId, Repository, trace};
-    use std::collections::hash_map::Entry;
-    use std::collections::{BTreeSet, HashMap, HashSet};
+    use but_graph::{
+        CommitFlags, Graph, is_workspace_ref_name,
+        projection::{HeadLocation, StackCommit},
+    };
+    use gix::{
+        ObjectId,
+        prelude::{ObjectIdExt, ReferenceExt},
+        refs::{Category, FullName},
+        revision::walk::Sorting,
+        trace,
+    };
     use tracing::instrument;
+
+    use super::ui::{LocalCommit, LocalCommitRelation, Segment};
+    use crate::{
+        RefInfo, WorkspaceCommit, branch,
+        branch::Stack,
+        integrated::{IsCommitIntegrated, MergeBaseCommitGraph},
+        ref_info::ui,
+    };
 
     /// Gather information about the current `HEAD` and the workspace that might be associated with it, based on data in `repo` and `meta`.
     /// Use `options` to further configure the call.
@@ -357,8 +348,9 @@ pub(crate) mod function {
         let head = repo.head()?;
         let existing_ref = match head.kind {
             gix::head::Kind::Unborn(ref_name) => {
+                let is_managed = meta.workspace_opt(ref_name.as_ref())?.is_some();
                 return Ok(RefInfo {
-                    workspace_ref_name: None,
+                    workspace_ref_name: Some(ref_name.clone()),
                     target_ref: workspace_data_of_workspace_branch(meta, ref_name.as_ref())?
                         .and_then(|ws| ws.target_ref),
                     stacks: vec![Stack {
@@ -368,12 +360,15 @@ pub(crate) mod function {
                             commits: vec![],
                             commits_unique_in_remote_tracking_branch: vec![],
                             remote_tracking_ref_name: None,
-                            metadata: branch_metadata_opt(meta, ref_name.as_ref())?
-                                .map(SegmentMetadata::Branch),
+                            metadata: branch_metadata_opt(meta, ref_name.as_ref())?,
                             ref_name: Some(ref_name),
+                            is_entrypoint: true,
                         }],
                         stash_status: None,
                     }],
+                    is_entrypoint: true,
+                    is_managed_ref: is_managed,
+                    is_managed_commit: false,
                 });
             }
             gix::head::Kind::Detached { .. } => {
@@ -381,11 +376,300 @@ pub(crate) mod function {
                     workspace_ref_name: None,
                     stacks: vec![],
                     target_ref: None,
+                    is_entrypoint: true,
+                    is_managed_ref: false,
+                    is_managed_commit: false,
                 });
             }
             gix::head::Kind::Symbolic(name) => name.attach(repo),
         };
         ref_info(existing_ref, meta, opts)
+    }
+
+    /// Gather information about the current `HEAD` and the workspace that might be associated with it,
+    /// based on data in `repo` and `meta`. Use `options` to further configure the call.
+    ///
+    /// For details, see [`ref_info2()`].
+    pub fn head_info2(
+        repo: &gix::Repository,
+        meta: &impl but_core::RefMetadata,
+        opts: super::Options,
+    ) -> anyhow::Result<RefInfo> {
+        let graph = Graph::from_head(repo, meta, opts.traversal.clone())?;
+        graph_to_ref_info(graph, repo, opts)
+    }
+
+    /// Gather information about the commit at `existing_ref` and the workspace that might be associated with it,
+    /// based on data in `repo` and `meta`.
+    ///
+    /// Use `options` to further configure the call.
+    ///
+    /// ### Performance
+    ///
+    /// Make sure the `repo` is initialized with a decently sized Object cache so querying the same commit multiple times will be cheap(er).
+    /// Also, **IMPORTANT**, it must use in-memory objects to avoid leaking objects generated during test-merges to disk!
+    #[instrument(level = tracing::Level::DEBUG, skip(meta), err(Debug))]
+    pub fn ref_info2(
+        mut existing_ref: gix::Reference<'_>,
+        meta: &impl but_core::RefMetadata,
+        opts: super::Options,
+    ) -> anyhow::Result<RefInfo> {
+        let id = existing_ref.peel_to_id_in_place()?;
+        let repo = id.repo;
+        let graph = Graph::from_commit_traversal(
+            id,
+            existing_ref.inner.name,
+            meta,
+            opts.traversal.clone(),
+        )?;
+        graph_to_ref_info(graph, repo, opts)
+    }
+
+    fn graph_to_ref_info(
+        graph: Graph,
+        repo: &gix::Repository,
+        opts: super::Options,
+    ) -> anyhow::Result<RefInfo> {
+        let but_graph::projection::Workspace {
+            graph,
+            id,
+            head,
+            stacks,
+            target,
+            metadata,
+        } = graph.to_workspace()?;
+
+        let cache = repo.commit_graph_if_enabled()?;
+        let mut graph_cache = repo.revision_graph(cache.as_ref());
+
+        let (workspace_ref_name, is_managed_commit) = match head {
+            HeadLocation::Workspace { ref_name } => {
+                let is_managed = try_refname_to_id(repo, ref_name.as_ref())?
+                    .map(|id| WorkspaceCommit::from_id(id.attach(repo)))
+                    .transpose()?
+                    .is_some_and(|wsc| wsc.is_managed());
+                (Some(ref_name), is_managed)
+            }
+            HeadLocation::Segment { segment_index } => {
+                (graph[segment_index].ref_name.clone(), false)
+            }
+        };
+        Ok(RefInfo {
+            workspace_ref_name,
+            stacks: stacks
+                .into_iter()
+                // `but-graph` produces the order as seen by the merge commit,
+                // but GB traditionally shows it the other way around.
+                // TODO: validate that this is still correct to do here if the workspace
+                //       was generated from 'virtual' stacks only, i.e. stacks not from real
+                //       merges.
+                .rev()
+                .map(|stack| {
+                    branch::Stack::try_from_graph_stack(
+                        stack,
+                        repo,
+                        SimilarityContext {
+                            target_ref_name: target.as_ref().map(|t| &t.ref_name),
+                            expensive: opts.expensive_commit_info,
+                            graph_cache: &mut graph_cache,
+                        },
+                    )
+                })
+                .collect::<anyhow::Result<_>>()?,
+            target_ref: target.map(|t| t.ref_name),
+            is_managed_ref: metadata.is_some(),
+            is_managed_commit,
+            is_entrypoint: graph.lookup_entrypoint()?.segment_index == id,
+        })
+    }
+
+    impl branch::Stack {
+        fn try_from_graph_stack<'repo>(
+            but_graph::projection::Stack { base, segments }: but_graph::projection::Stack,
+            repo: &'repo gix::Repository,
+            mut ctx: SimilarityContext<'_, '_, 'repo, '_>,
+        ) -> anyhow::Result<Self> {
+            Ok(branch::Stack {
+                base,
+                segments: segments
+                    .into_iter()
+                    .map(|s| ui::Segment::try_from_graph_segment(s, repo, &mut ctx))
+                    .collect::<anyhow::Result<_>>()?,
+                stash_status: None,
+            })
+        }
+    }
+
+    impl ui::Segment {
+        fn try_from_graph_segment<'repo>(
+            but_graph::projection::StackSegment {
+                ref_name,
+                remote_tracking_ref_name,
+                id,
+                commits,
+                commits_on_remote,
+                metadata,
+                is_entrypoint,
+            }: but_graph::projection::StackSegment,
+            repo: &'repo gix::Repository,
+            ctx: &mut SimilarityContext<'_, '_, 'repo, '_>,
+        ) -> anyhow::Result<Self> {
+            let mut commits: Vec<_> = commits
+                .into_iter()
+                .map(|c| LocalCommit::try_from_graph_commit(c, repo))
+                .collect::<anyhow::Result<_>>()?;
+            let commits_unique_in_remote_tracking_branch = if commits_on_remote.is_empty() {
+                Vec::new()
+            } else {
+                compute_commit_similarity(repo, &mut commits, commits_on_remote, ctx)?
+            };
+            Ok(Self {
+                ref_name,
+                id: id.index(),
+                remote_tracking_ref_name,
+                commits,
+                commits_unique_in_remote_tracking_branch,
+                metadata,
+                is_entrypoint,
+            })
+        }
+    }
+
+    impl LocalCommit {
+        // Note that commit-relationships here don't see remotes.
+        fn try_from_graph_commit(c: StackCommit, repo: &gix::Repository) -> anyhow::Result<Self> {
+            use but_graph::projection::StackCommitFlags;
+            let mut inner: ui::Commit = but_core::Commit::from_id(c.id.attach(repo))?.into();
+            inner.refs = c.refs;
+            Ok(LocalCommit {
+                inner,
+                relation: if c.flags.contains(StackCommitFlags::Integrated) {
+                    LocalCommitRelation::Integrated
+                } else if c
+                    .flags
+                    .contains(StackCommitFlags::ReachableByMatchingRemote)
+                {
+                    LocalCommitRelation::LocalAndRemote(c.id)
+                } else {
+                    LocalCommitRelation::LocalOnly
+                },
+            })
+        }
+    }
+
+    struct SimilarityContext<'a, 'b, 'repo, 'cache> {
+        target_ref_name: Option<&'a gix::refs::FullName>,
+        expensive: bool,
+        graph_cache: &'b mut MergeBaseCommitGraph<'repo, 'cache>,
+    }
+
+    /// Given `local` commits, try to associate each of them to a `remote` commit by similarity, but only
+    /// if they are considered local.
+    /// Commits that are seen as duplicate in `local` won't be listed in `remote` anymore, and instead their
+    /// hashes will be associated with each other.
+    /// Perform expensive computation if `expensive` is `true`.
+    fn compute_commit_similarity<'repo>(
+        repo: &'repo gix::Repository,
+        local: &mut [LocalCommit],
+        remote: Vec<StackCommit>,
+        SimilarityContext {
+            target_ref_name,
+            expensive,
+            graph_cache,
+        }: &mut SimilarityContext<'_, '_, 'repo, '_>,
+    ) -> anyhow::Result<Vec<ui::Commit>> {
+        #[derive(Hash, Clone, Eq, PartialEq)]
+        enum ChangeIdOrCommitData {
+            ChangeId(String),
+            CommitData {
+                author: gix::actor::Identity,
+                message: BString,
+            },
+        }
+        // NOTE: The check for similarity is currently run across all remote branches in the stack.
+        //       Further, this doesn't handle reorderings/topology differences at all, it's just there or not.
+        let mut similarity_lut = HashMap::<ChangeIdOrCommitData, gix::ObjectId>::new();
+        let mut remote_commits_unpruned = Vec::<ui::Commit>::new();
+        {
+            let mut ambiguous_commits = HashSet::<ChangeIdOrCommitData>::new();
+            let mut insert_or_expell_ambiguous = |k: ChangeIdOrCommitData, v: gix::ObjectId| {
+                if ambiguous_commits.contains(&k) {
+                    return;
+                }
+                match similarity_lut.entry(k) {
+                    Entry::Occupied(ambiguous) => {
+                        ambiguous_commits.insert(ambiguous.key().clone());
+                        ambiguous.remove();
+                    }
+                    Entry::Vacant(entry) => {
+                        entry.insert(v);
+                    }
+                }
+            };
+            for commit in &remote {
+                let commit = but_core::Commit::from_id(commit.id.attach(repo))?;
+                if let Some(hdr) = commit.headers() {
+                    insert_or_expell_ambiguous(
+                        ChangeIdOrCommitData::ChangeId(hdr.change_id),
+                        commit.id.detach(),
+                    );
+                }
+                insert_or_expell_ambiguous(
+                    ChangeIdOrCommitData::CommitData {
+                        author: commit.author.clone().into(),
+                        message: commit.message.clone(),
+                    },
+                    commit.id.detach(),
+                );
+                remote_commits_unpruned.push(commit.into());
+            }
+        }
+
+        // At this stage, local commits are either matched by ID and reachable from our remote,
+        // or integrated, our they are local.
+        for commit in local
+            .iter_mut()
+            .take_while(|c| c.relation == LocalCommitRelation::LocalOnly)
+        {
+            if let Some(remote_commit_id) = commit
+                .change_id
+                .as_ref()
+                .and_then(|cid| similarity_lut.get(&ChangeIdOrCommitData::ChangeId(cid.clone())))
+                .or_else(|| {
+                    similarity_lut.get(&ChangeIdOrCommitData::CommitData {
+                        author: commit.author.clone().into(),
+                        message: commit.message.clone(),
+                    })
+                })
+            {
+                commit.relation = LocalCommitRelation::LocalAndRemote(*remote_commit_id);
+            }
+        }
+
+        if let Some(target_ref_name) = target_ref_name.filter(|_| *expensive) {
+            let mut check_commit =
+                IsCommitIntegrated::new_with_gix(repo, target_ref_name.as_ref(), graph_cache)?;
+            let mut is_integrated = false;
+            // TODO: remote commits could also be integrated, this seems overly simplified.
+            //      For now, just emulate the current implementation (hopefully).
+            for local_commit in &mut *local {
+                if is_integrated || { check_commit.is_integrated_gix(local_commit.id) }? {
+                    is_integrated = true;
+                    local_commit.relation = LocalCommitRelation::Integrated;
+                }
+            }
+        }
+
+        // Finally, assure we don't show remotes commits that are also visible locally.
+        Ok(remote_commits_unpruned
+            .into_iter()
+            .filter(|rc| {
+                let is_used_in_local_commits = local
+                    .iter()
+                    .any(|c| matches!(c.relation,  LocalCommitRelation::LocalAndRemote(rid) if rid == rc.id));
+                !is_used_in_local_commits
+            })
+            .collect())
     }
 
     /// Gather information about the commit at `existing_ref` and the workspace that might be associated with it,
@@ -439,21 +723,18 @@ pub(crate) mod function {
 
         let mut stacks = if ref_commit.is_managed() {
             let base: Option<_> = match target_ids {
-                None => {
-                    match repo.merge_base_octopus_with_graph(
-                        ref_commit.parents.iter().cloned(),
-                        &mut graph,
-                    ) {
-                        Ok(id) => Some(id),
-                        Err(err) => {
-                            tracing::warn!(
-                                "Parents of {existing_ref} are disjoint: {err}",
-                                existing_ref = existing_ref.name().as_bstr(),
-                            );
-                            None
-                        }
+                None => match repo
+                    .merge_base_octopus_with_graph(ref_commit.parents.iter().cloned(), &mut graph)
+                {
+                    Ok(id) => Some(id),
+                    Err(err) => {
+                        tracing::warn!(
+                            "Parents of {existing_ref} are disjoint: {err}",
+                            existing_ref = existing_ref.name().as_bstr(),
+                        );
+                        None
                     }
-                }
+                },
                 Some((remote_target_id, local_target_id)) => {
                     // We actually get the best results if we use the merge-base between the most recent target,
                     // the local one, and (in case we are behind somehow), our own parents.
@@ -661,10 +942,14 @@ pub(crate) mod function {
             )?;
         }
 
+        let is_managed = workspace_ref_name.is_some();
         Ok(RefInfo {
             workspace_ref_name,
             stacks,
             target_ref,
+            is_entrypoint: false,
+            is_managed_commit: false,
+            is_managed_ref: is_managed,
         })
     }
 
@@ -673,7 +958,7 @@ pub(crate) mod function {
     /// TODO: once we can handle local tracking branches, then one end is optional, but it would be harder bring them
     ///       in order outside of this function. Maybe return a Vec instead?
     pub(crate) fn remote_and_local_target_ids(
-        repo: &Repository,
+        repo: &gix::Repository,
         target_ref: &gix::refs::FullNameRef,
     ) -> anyhow::Result<Option<(ObjectId, ObjectId)>> {
         let Some(Category::RemoteBranch) = target_ref.category() else {
@@ -1074,7 +1359,8 @@ pub(crate) mod function {
             commits_unique_in_remote_tracking_branch: vec![],
             metadata: meta
                 .branch_opt(virtual_segment_ref_name)?
-                .map(|b| SegmentMetadata::Branch(b.clone())),
+                .map(|b| b.clone()),
+            is_entrypoint: false,
         })
     }
 
@@ -1292,7 +1578,6 @@ pub(crate) mod function {
                             continue 'remote_branch_traversal;
                         } else {
                             let commit = but_core::Commit::from_id(id.attach(repo))?;
-                            let has_conflicts = commit.is_conflicted();
                             if let Some(hdr) = commit.headers() {
                                 insert_or_expell_ambiguous(
                                     ChangeIdOrCommitData::ChangeId(hdr.change_id),
@@ -1308,10 +1593,7 @@ pub(crate) mod function {
                             );
                             segment
                                 .commits_unique_in_remote_tracking_branch
-                                .push(RemoteCommit {
-                                    inner: commit.into(),
-                                    has_conflicts,
-                                });
+                                .push(commit.into());
                         }
                     }
                 }
@@ -1353,12 +1635,12 @@ pub(crate) mod function {
             // Finally, check for integration into the target if available.
             // TODO: This can probably be more efficient if this is staged, by first trying
             //       to check if the tip is merged, to flag everything else as merged.
-            let mut is_integrated = false;
             if let Some((target_ref_name, (target_remote_id, target_local_id))) =
                 target_ref_name_and_ids
             {
                 let mut check_commit =
                     IsCommitIntegrated::new_with_gix(repo, target_ref_name.as_ref(), merge_graph)?;
+                let mut is_integrated = false;
                 // TODO: remote commits could also be integrated, this seems overly simplified.
                 //      For now, just emulate the current implementation (hopefully).
                 for local_commit in stack
@@ -1495,6 +1777,7 @@ pub(crate) mod function {
                     // The fields that follow will be set later.
                     remote_tracking_ref_name: None,
                     metadata: None,
+                    is_entrypoint: false,
                 });
                 continue;
             } else {
@@ -1518,7 +1801,7 @@ pub(crate) mod function {
             )?;
             let branch_info = meta.branch(ref_name.as_ref())?;
             if !branch_info.is_default() {
-                segment.metadata = Some(SegmentMetadata::Branch((*branch_info).clone()))
+                segment.metadata = Some((*branch_info).clone())
             }
         }
         Ok(out)
