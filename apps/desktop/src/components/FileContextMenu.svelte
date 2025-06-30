@@ -78,7 +78,7 @@
 				{/if}
 				{#if files.length === 1}
 					<ContextMenuItem
-						label="Copy Path"
+						label="Copy path"
 						onclick={async () => {
 							if (!project) return;
 							const absPath = await join(project.path, item.files[0].path);
@@ -89,7 +89,7 @@
 						}}
 					/>
 					<ContextMenuItem
-						label="Copy Relative Path"
+						label="Copy relative path"
 						onclick={async () => {
 							if (!project) return;
 							await writeClipboard(item.files[0].path, {
