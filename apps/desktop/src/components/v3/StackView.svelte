@@ -341,6 +341,7 @@
 					</div>
 				{:else if branchName && commitId}
 					<div
+						class="full-height"
 						{@attach scrollingAttachment(
 							intelligentScrollingService,
 							projectId,
@@ -364,6 +365,7 @@
 					</div>
 				{:else if branchName}
 					<div
+						class="full-height"
 						{@attach scrollingAttachment(
 							intelligentScrollingService,
 							projectId,
