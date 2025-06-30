@@ -144,7 +144,7 @@
 									Perform automated workflows directly from the app — semantic splitting, amending and
 									reorganizing of commits.
 								</p>
-								<Badge kind="soft" style="pop" size="tag">Comming soon!</Badge>
+								<Badge kind="soft" style="pop" size="tag">Coming soon!</Badge>
 							</li>
 						</ul>
 
