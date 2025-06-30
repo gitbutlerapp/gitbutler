@@ -17,10 +17,10 @@ export class OpenAIClient implements AIClient {
 	private openAIKey: string;
 	private modelName: OpenAIModelName;
 
-	constructor(openAIKey: string, modelName: OpenAIModelName) {
+	constructor(openAIKey: string, modelName: OpenAIModelName, baseURL: string | undefined) {
 		this.openAIKey = openAIKey;
 		this.modelName = modelName;
-		this.client = new OpenAI({ apiKey: openAIKey, dangerouslyAllowBrowser: true });
+		this.client = new OpenAI({ apiKey: openAIKey, dangerouslyAllowBrowser: true, baseURL });
 	}
 
 	async evaluate(prompt: Prompt, options?: AIEvalOptions): Promise<string> {
