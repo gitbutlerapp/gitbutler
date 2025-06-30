@@ -1,5 +1,8 @@
 import type { BrandedId } from '@gitbutler/shared/utils/branding';
 
+// ASCII Unit Separator, used to separate data units within a record or field.
+const UNIT_SEP = '\u001F';
+
 const SELECTION_TYPES = ['commit', 'branch', 'worktree', 'snapshot'] as const;
 
 export type SelectionIdType = (typeof SELECTION_TYPES)[number];
@@ -44,18 +47,18 @@ export type SelectedFileKey = BrandedId<'SelectedFileKey'>;
 export function key(params: SelectedFile): SelectedFileKey {
 	switch (params.type) {
 		case 'commit':
-			return `${params.type}:${params.path}:${params.commitId}` as SelectedFileKey;
+			return `${params.type}${UNIT_SEP}${params.path}${UNIT_SEP}${params.commitId}` as SelectedFileKey;
 		case 'branch':
-			return `${params.type}:${params.path}:${params.stackId}:${params.branchName}` as SelectedFileKey;
+			return `${params.type}${UNIT_SEP}${params.path}${UNIT_SEP}${params.stackId}${UNIT_SEP}${params.branchName}` as SelectedFileKey;
 		case 'worktree':
-			return `${params.type}:${params.path}:${params.stackId}` as SelectedFileKey;
+			return `${params.type}${UNIT_SEP}${params.path}${UNIT_SEP}${params.stackId}` as SelectedFileKey;
 		case 'snapshot':
-			return `${params.type}:${params.before}:${params.after}:${params.path}` as SelectedFileKey;
+			return `${params.type}${UNIT_SEP}${params.before}${UNIT_SEP}${params.after}${UNIT_SEP}${params.path}` as SelectedFileKey;
 	}
 }
 
 export function readKey(key: SelectedFileKey): SelectedFile {
-	const [type, ...parts] = key.split(':');
+	const [type, ...parts] = key.split(UNIT_SEP);
 
 	if (!isSelectionType(type)) throw new Error('Invalid selection key');
 
@@ -97,12 +100,12 @@ export function readKey(key: SelectedFileKey): SelectedFile {
 export function selectionKey(id: SelectionId): SelectedFileKey {
 	switch (id.type) {
 		case 'commit':
-			return `${id.type}:${id.commitId}` as SelectedFileKey;
+			return `${id.type}${UNIT_SEP}${id.commitId}` as SelectedFileKey;
 		case 'branch':
-			return `${id.type}:${id.stackId}:${id.branchName}` as SelectedFileKey;
+			return `${id.type}${UNIT_SEP}${id.stackId}${UNIT_SEP}${id.branchName}` as SelectedFileKey;
 		case 'worktree':
-			return `${id.type}:${id.stackId}` as SelectedFileKey;
+			return `${id.type}${UNIT_SEP}${id.stackId}` as SelectedFileKey;
 		case 'snapshot':
-			return `${id.type}:${id.before}:${id.after}` as SelectedFileKey;
+			return `${id.type}${UNIT_SEP}${id.before}${UNIT_SEP}${id.after}` as SelectedFileKey;
 	}
 }
