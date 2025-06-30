@@ -151,7 +151,12 @@
 	const intelligentScrollingService = new IntelligentScrollingService(uiState);
 	setContext(IntelligentScrollingService, intelligentScrollingService);
 
-	const stackService = new StackService(clientState['backendApi'], forgeFactory, uiState);
+	const stackService = new StackService(
+		clientState['backendApi'],
+		clientState.dispatch,
+		forgeFactory,
+		uiState
+	);
 	const actionService = new ActionService(clientState['backendApi']);
 	const oplogService = new OplogService(clientState['backendApi']);
 	const dbService = new DbService(clientState['backendApi']);

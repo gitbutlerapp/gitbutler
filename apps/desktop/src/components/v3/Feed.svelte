@@ -8,6 +8,7 @@
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { Feed } from '$lib/feed/feed';
 	import { newProjectSettingsPath } from '$lib/routes/routes.svelte';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -24,8 +25,10 @@
 	const { projectId, onCloseClick }: Props = $props();
 
 	const feed = getContext(Feed);
+	const stackService = getContext(StackService);
 	const combinedEntries = feed.combined;
 	const lastAddedId = feed.lastAddedId;
+	const stackIdToUpdate = feed.stackToUpdate;
 
 	let viewport = $state<HTMLDivElement>();
 	let topSentinel = $state<HTMLDivElement>();
@@ -90,6 +93,13 @@
 				behavior: 'smooth',
 				block: 'start'
 			});
+		}
+	});
+
+	$effect(() => {
+		if ($stackIdToUpdate) {
+			stackService.invalidateStackDetailsUpdate($stackIdToUpdate);
+			feed.stackToUpdate.set(null);
 		}
 	});
 </script>

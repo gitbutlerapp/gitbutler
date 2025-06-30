@@ -37,6 +37,7 @@ export class Feed {
 	private updateTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	readonly lastAddedId = writable<string | null>(null);
+	readonly stackToUpdate = writable<string | null>(null);
 
 	readonly combined = writable<(Snapshot | ButlerAction | Workflow)[]>([], () => {
 		this.fetch();
@@ -63,6 +64,15 @@ export class Feed {
 				// Do nothing for now, as we are not handling these events.
 				return;
 			}
+		}
+	}
+
+	private async handleLastAdded(entry: Snapshot | ButlerAction | Workflow) {
+		this.lastAddedId.set(entry.id);
+
+		if (entry instanceof Workflow) {
+			const stackId = entry.kind.subject?.stackId;
+			if (stackId) this.stackToUpdate.set(stackId);
 		}
 	}
 
@@ -99,7 +109,7 @@ export class Feed {
 						this.combined.update((entries) => {
 							const existing = entries.find((entry) => entry.id === lessRecent.id);
 							if (!existing) {
-								this.lastAddedId.set(lessRecent.id);
+								this.handleLastAdded(lessRecent);
 								return [lessRecent, ...entries];
 							}
 							return entries;
