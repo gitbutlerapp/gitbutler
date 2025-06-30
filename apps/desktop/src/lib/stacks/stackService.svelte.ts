@@ -12,7 +12,12 @@ import {
 	ReduxTag
 } from '$lib/state/tags';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
-import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
+import {
+	createEntityAdapter,
+	type EntityState,
+	type ThunkDispatch,
+	type UnknownAction
+} from '@reduxjs/toolkit';
 import type { TauriCommandError } from '$lib/backend/ipc';
 import type { Commit, CommitDetails, UpstreamCommit } from '$lib/branches/v3';
 import type { CommitKey } from '$lib/commits/commit';
@@ -122,6 +127,7 @@ export class StackService {
 
 	constructor(
 		backendApi: BackendApi,
+		private dispatch: ThunkDispatch<any, any, UnknownAction>,
 		private forgeFactory: DefaultForgeFactory,
 		private uiState: UiState
 	) {
@@ -768,6 +774,15 @@ export class StackService {
 		return this.api.endpoints.stackDetailsUpdate.useQuery({
 			projectId
 		});
+	}
+
+	invalidateStackDetailsUpdate(stackId: string) {
+		this.dispatch(
+			this.api.util.invalidateTags([
+				invalidatesItem(ReduxTag.StackDetails, stackId),
+				invalidatesList(ReduxTag.Stacks)
+			])
+		);
 	}
 }
 
