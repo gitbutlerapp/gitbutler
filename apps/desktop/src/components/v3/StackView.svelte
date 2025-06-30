@@ -124,7 +124,7 @@
 		}
 	}
 
-	function onclose() {
+	export function onclose() {
 		selection.set(undefined);
 		intelligentScrollingService.show(projectId, stack.id, 'stack');
 	}
