@@ -32,7 +32,7 @@ type BranchesSelection = {
 	prNumber?: number;
 };
 
-type ExclusiveAction = { type: 'commit' } & {
+export type ExclusiveAction = { type: 'commit' } & {
 	type: 'commit';
 	stackId?: string;
 	branchName?: string;

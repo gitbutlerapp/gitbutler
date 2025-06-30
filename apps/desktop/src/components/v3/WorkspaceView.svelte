@@ -15,7 +15,7 @@
 	} from '$lib/focus/focusManager.svelte';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
+	import { UiState, type ExclusiveAction } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { setContext } from 'svelte';
 	import { writable } from 'svelte/store';
@@ -41,6 +41,7 @@
 	const settingsStore = $derived(settingsService.appSettings);
 	const canUseActions = $derived($settingsStore?.featureFlags.actions ?? false);
 	const showingActions = $derived(projectState.showActions.current && canUseActions);
+	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 
 	const snapshotFocusables = writable<string[]>([]);
 	setContext('snapshot-focusables', snapshotFocusables);
@@ -77,6 +78,49 @@
 
 	const lastAdded = $derived(worktreeSelection.lastAdded);
 	const previewOpen = $derived(!!$lastAdded?.key);
+
+	// Ensures that the exclusive action is still valid.
+	$effect(() => {
+		if (exclusiveAction?.type === 'commit') {
+			ensureExclusiveCommitValid(exclusiveAction);
+		}
+	});
+
+	function ensureExclusiveCommitValid(action: ExclusiveAction & { type: 'commit' }) {
+		// We are committing to a stack that has not been created yet
+		if (!action.stackId) {
+			return;
+		}
+
+		const stacks = stackService.stacks(projectId);
+		const branch = stackService.branchDetails(projectId, action.stackId, action.branchName);
+
+		$effect(() => {
+			const stackFound = stacks.current?.data?.find((s) => s.id === action.stackId);
+			if (!stackFound) {
+				uiState.project(projectId).exclusiveAction.set(undefined);
+			}
+
+			if (!action.branchName) {
+				return;
+			}
+
+			if (!branch?.current?.data) {
+				uiState.project(projectId).exclusiveAction.set(undefined);
+				return;
+			}
+
+			// If the parentCommitId is not set, we are committing to the top of the stack.
+			if (!action.parentCommitId) {
+				return;
+			}
+
+			const hasCommit = branch.current.data.commits.some((c) => c.id === action.parentCommitId);
+			if (!hasCommit) {
+				uiState.project(projectId).exclusiveAction.set(undefined);
+			}
+		});
+	}
 </script>
 
 {#snippet drawerRight()}
