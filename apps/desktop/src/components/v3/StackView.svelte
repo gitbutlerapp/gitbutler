@@ -113,7 +113,8 @@
 		projectState.exclusiveAction.set({
 			type: 'commit',
 			branchName: defaultBranchName,
-			stackId: stack.id
+			stackId: stack.id,
+			parentCommitId: stackState.selection.current?.commitId
 		});
 		const stackAssignments = uncommittedService.getAssignmentsByStackId(stack.id);
 		if (stackAssignments.length > 0) {

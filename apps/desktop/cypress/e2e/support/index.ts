@@ -271,7 +271,7 @@ beforeEach(() => {
 	cy.intercept({ hostname: 'api.github.com' }, (req) => {
 		console.warn('Intercepted request to GitHub API:', req.method, req.url);
 		req.destroy();
-	});
+	}).as('githubApi');
 
 	cy.viewport('macbook-11');
 });

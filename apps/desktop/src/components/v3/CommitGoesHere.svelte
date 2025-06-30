@@ -3,6 +3,7 @@
 	import Badge from '@gitbutler/ui/Badge.svelte';
 
 	type Props = {
+		commitId: string | undefined;
 		first?: boolean;
 		last?: boolean;
 		draft?: boolean;
@@ -10,12 +11,13 @@
 		onclick?: () => void;
 	};
 
-	const { first, last, draft, selected, onclick }: Props = $props();
+	const { commitId, first, last, draft, selected, onclick }: Props = $props();
 </script>
 
 {#snippet indicator(args?: { last?: boolean; first?: boolean; draft?: boolean })}
 	<div
 		data-testid={TestId.YourCommitGoesHere}
+		data-testid-commit-id={commitId}
 		class="indicator"
 		class:first={args?.first}
 		class:last={args?.last}

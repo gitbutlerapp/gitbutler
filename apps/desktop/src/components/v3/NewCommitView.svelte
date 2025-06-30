@@ -78,7 +78,6 @@
 
 	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
 	const selection = $derived(stackState?.selection.current);
-	const selectedCommitId = $derived(selection?.commitId);
 
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 	const commitAction = $derived(exclusiveAction?.type === 'commit' ? exclusiveAction : undefined);
@@ -99,6 +98,7 @@
 	async function createCommit(message: string) {
 		let finalStackId = stackId;
 		let finalBranchName = commitAction?.branchName || topBranchName;
+		const parentId = commitAction?.parentCommitId;
 
 		if (!finalStackId) {
 			const stack = await createNewStack({
@@ -126,7 +126,7 @@
 
 		const response = await createCommitInStack({
 			projectId,
-			parentId: selectedCommitId,
+			parentId,
 			stackId: finalStackId,
 			message: message,
 			stackBranchName: finalBranchName,

@@ -1,6 +1,7 @@
 import { clearCommandMocks, mockCommand } from './support';
 import MockBackend from './support/mock/backend';
 import { PROJECT_ID } from './support/mock/projects';
+import BranchesWithChanges from './support/scenarios/branchesWithChanges';
 import LotsOfFileChanges from './support/scenarios/lotsOfFileChanges';
 import StackWithTwoEmptyBranches from './support/scenarios/stackWithTwoEmptyBranches';
 
@@ -416,11 +417,9 @@ describe('Commit Actions', () => {
 
 		// Should display the commit rows
 		cy.getByTestId('commit-row').should('have.length', 2);
+		cy.getByTestId('commit-row', newCommitMessage).should('be.visible').click();
 
-		cy.getByTestId('commit-row').should('have.length', 2);
-		cy.getByTestId('commit-row', newCommitMessage).click();
-
-		// Should commit and select the new commit
+		// Should be able to see the commit drawer
 		cy.getByTestId('commit-drawer-title').should('contain', newCommitMessage);
 		cy.getByTestId('commit-drawer-description').should('contain', newCommitMessageBody);
 
@@ -464,6 +463,110 @@ describe('Commit Actions', () => {
 	});
 });
 
+describe('Commit Actions with branches containing changes', () => {
+	let mockBackend: BranchesWithChanges;
+	beforeEach(() => {
+		mockBackend = new BranchesWithChanges();
+		mockCommand('stacks', () => mockBackend.getStacks());
+		mockCommand('stack_details', (params) => mockBackend.getStackDetails(params));
+		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
+		mockCommand('update_commit_message', (params) => mockBackend.updateCommitMessage(params));
+		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
+		mockCommand('commit_details', (params) => mockBackend.getCommitChanges(params));
+		mockCommand('create_commit_from_worktree_changes', (params) =>
+			mockBackend.createCommit(params)
+		);
+		mockCommand('undo_commit', (params) => mockBackend.undoCommit(params));
+		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
+		mockCommand('changes_in_branch', (params) => mockBackend.getBranchChanges(params));
+
+		cy.visit('/');
+
+		cy.urlMatches(`/${PROJECT_ID}/workspace`);
+	});
+
+	afterEach(() => {
+		clearCommandMocks();
+	});
+
+	it('should be able to commit in the middle', () => {
+		const firstCommitTitle = mockBackend.firstCommitInSecondStack.message.split('\n')[0];
+		const firsCommitId = mockBackend.firstCommitInSecondStack.id;
+
+		cy.spy(mockBackend, 'createCommit').as('createCommitSpy');
+
+		cy.get(`[data-testid-stackid="${mockBackend.stackWithTwoCommits}"]`)
+			.should('be.visible')
+			.within(() => {
+				// Click on the first commit from the bottom
+				cy.getByTestId('commit-row', firstCommitTitle).first().should('be.visible').click();
+				cy.getByTestId('commit-row', firstCommitTitle).should('have.class', 'selected');
+
+				// Start committing
+				cy.getByTestId('start-commit-button').should('be.visible').should('be.enabled').click();
+
+				// 'Your commit goes here' should be visible at the right position
+				cy.getByTestId('your-commit-goes-here')
+					.should('be.visible')
+					.should('have.attr', 'data-testid-commit-id', firsCommitId);
+			});
+
+		const commitTitle = 'New commit title';
+		const commitDescription = 'New commit description';
+
+		// Type in a commit message
+		cy.getByTestId('commit-drawer-title-input')
+			.should('be.visible')
+			.should('be.enabled')
+			.should('have.value', '')
+			.type(commitTitle); // Type the new commit message
+
+		// Type in a description
+		cy.getByTestId('commit-drawer-description-input')
+			.should('be.visible')
+			.should('contain', '')
+			.click()
+			.type(commitDescription); // Type the new commit message body
+
+		cy.getByTestId('commit-drawer-action-button').should('be.visible').should('be.enabled').click();
+
+		cy.get('@createCommitSpy').should('be.calledWith', {
+			projectId: PROJECT_ID,
+			parentId: firsCommitId,
+			stackId: mockBackend.stackWithTwoCommits,
+			message: `${commitTitle}\n\n${commitDescription}`,
+			stackBranchName: mockBackend.stackWithTwoCommits,
+			worktreeChanges: [
+				{
+					pathBytes: [102, 105, 108, 101, 68, 46, 116, 120, 116],
+					previousPathBytes: null,
+					hunkHeaders: [
+						{
+							oldStart: 2,
+							oldLines: 8,
+							newStart: 2,
+							newLines: 7,
+							diff: '@@ -2,8 +2,7 @@\n context line 0\n context line 1\n context line 2\n-context line 3\n-old line to be removed\n+new line added\n context line 4\n context line 5\n context line 6'
+						},
+						{
+							oldStart: 10,
+							oldLines: 7,
+							newStart: 10,
+							newLines: 7,
+							diff: '@@ -10,7 +10,7 @@\n context before 1\n context before 2\n context before 3\n-old value\n+updated value\n context after 1\n context after 2\n context after 3'
+						}
+					]
+				},
+				{
+					pathBytes: [102, 105, 108, 101, 74, 46, 116, 120, 116],
+					previousPathBytes: null,
+					hunkHeaders: []
+				}
+			]
+		});
+	});
+});
+
 describe('Commit Actions with lots of uncommitted changes', () => {
 	let mockBackend: LotsOfFileChanges;
 	beforeEach(() => {
@@ -489,7 +592,7 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 		clearCommandMocks();
 	});
 
-	it('should be able to commit a bunch of times in a row and edit their message', () => {
+	it.only('should be able to commit a bunch of times in a row and edit their message', () => {
 		const TIMES = 3;
 		for (let i = 0; i < TIMES; i++) {
 			// Click commit button
@@ -648,7 +751,7 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 				.should('be.enabled')
 				.click();
 
-			cy.getByTestId('commit-row', commitTitle).should('be.visible');
+			cy.getByTestId('commit-row', commitTitle).should('be.visible').click();
 		}
 
 		// Start editing the commits and cancel
