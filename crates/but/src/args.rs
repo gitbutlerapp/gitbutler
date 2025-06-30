@@ -23,7 +23,7 @@ pub enum Subcommands {
 
     /// Combines two entities together to perform an operation.
     #[clap(about = "Combines two entities together to perform an operation.
-Non-exhaustive list of operations 
+Non-exhaustive list of operations
       │Source     │Target
 ──────┼───────────┼──────
 Amend │File,Branch│Commit
@@ -41,10 +41,11 @@ For examples `but rub --help`.")]
     /// Starts up the MCP server.
     Mcp {
         /// Starts the internal MCP server which has more granular tools.
-        #[clap(long, short = 'i')]
+        #[clap(long, short = 'i', hide = true)]
         internal: bool,
     },
     /// GitButler Actions are automated tasks (like macros) that can be peformed on a repository.
+    #[clap(hide = true)]
     Actions(actions::Platform),
 }
 
