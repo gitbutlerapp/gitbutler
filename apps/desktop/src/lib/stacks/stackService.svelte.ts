@@ -207,12 +207,15 @@ export class StackService {
 		);
 	}
 
-	branchDetails(projectId: string, stackId: string, branchName: string) {
+	branchDetails(projectId: string, stackId: string, branchName?: string) {
 		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
 			{
-				transform: ({ branchDetails }) =>
-					branchDetailsSelectors.selectById(branchDetails, branchName)
+				transform: ({ branchDetails }) => {
+					return branchName
+						? branchDetailsSelectors.selectById(branchDetails, branchName)
+						: undefined;
+				}
 			}
 		);
 	}
