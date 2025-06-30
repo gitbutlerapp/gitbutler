@@ -603,6 +603,8 @@ const MOCK_UNIFIED_DIFF_FILE_A = createMockUnifiedDiffPatch(
 export default class BranchesWithChanges extends MockBackend {
 	dependsOnStack = MOCK_STACK_B_ID;
 	bigFileName = MOCK_FILE_J;
+	stackWithTwoCommits = MOCK_STACK_B_ID;
+	firstCommitInSecondStack = MOCK_COMMIT_IN_BRANCH_B_2;
 
 	constructor() {
 		super();
@@ -644,6 +646,8 @@ export default class BranchesWithChanges extends MockBackend {
 		this.unifiedDiffs.set(MOCK_FILE_J, MOCK_FILE_J_MODIFICATION);
 
 		this.commitChanges.set(MOCK_COMMIT_IN_BRANCH_A.id, MOCK_BRANCH_A_CHANGES);
+		this.commitChanges.set(MOCK_COMMIT_IN_BRANCH_B.id, MOCK_BRANCH_B_CHANGES);
+		this.commitChanges.set(MOCK_COMMIT_IN_BRANCH_B_2.id, MOCK_BRANCH_B_CHANGES);
 	}
 
 	getCommitTitle(stackId: string): string {

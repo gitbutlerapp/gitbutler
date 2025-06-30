@@ -74,9 +74,9 @@ describe('Selection', () => {
 			.within(() => {
 				cy.getByTestId('commit-drawer-title').should('contain', 'Initial commit');
 				cy.getByTestId('commit-drawer-description').should('contain', 'This is a test commit');
-				cy.getByTestId('file-list-item', 'fileB.txt').should('be.visible');
-				cy.getByTestId('file-list-item', 'fileC.txt').should('be.visible');
-				cy.getByTestId('file-list-item', 'fileA.ts').should('be.visible').click();
+				cy.getByTestId('file-list-item', 'fileF.txt').should('be.visible');
+				cy.getByTestId('file-list-item', 'fileE.txt').should('be.visible');
+				cy.getByTestId('file-list-item', 'fileD.txt').should('be.visible').click();
 			});
 
 		cy.getByTestId('stack-selection-view').should('be.visible');
