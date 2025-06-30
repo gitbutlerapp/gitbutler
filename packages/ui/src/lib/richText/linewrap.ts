@@ -204,14 +204,15 @@ function getRelatedLines(node: TextNode, indent: string): TextNode[] {
 		if (!isTextNode(n) || line.trimStart() === '') {
 			break;
 		}
-		// Check for decrease in indent.
-		if (!line.startsWith(indent)) {
+
+		// We don't consider altered indentations or new bullet points to be
+		// part of the same paragraph.
+		const bullet = parseBullet(line);
+		const lineIndent = parseIndent(line);
+		if (indent !== lineIndent || bullet) {
 			break;
 		}
-		// Check for increase in indent.
-		if (line.length > indent.length && line[indent.length].match(/\s/)) {
-			break;
-		}
+
 		collectedNodes.push(n);
 		n = n.getNextSibling();
 		if (!n) {
