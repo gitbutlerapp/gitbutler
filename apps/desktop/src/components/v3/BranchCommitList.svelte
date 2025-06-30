@@ -63,7 +63,6 @@
 		projectId: string;
 		stackId: string;
 		branchName: string;
-		selectedCommitId?: string;
 		firstBranch: boolean;
 		lastBranch: boolean;
 		branchDetails: BranchDetails;
@@ -86,7 +85,6 @@
 		stackId,
 		branchName,
 		branchDetails,
-		selectedCommitId,
 		firstBranch,
 		lastBranch,
 		stackingReorderDropzoneManager,
@@ -114,6 +112,7 @@
 	const stackState = $derived(uiState.stack(stackId));
 	const selection = $derived(stackState.selection.get());
 	const selectedBranchName = $derived(selection.current?.branchName);
+	const selectedCommitId = $derived(selection.current?.commitId);
 
 	const localAndRemoteCommits = $derived(stackService.commits(projectId, stackId, branchName));
 	const upstreamOnlyCommits = $derived(
@@ -157,6 +156,7 @@
 		} else {
 			stackState.selection.set({ branchName, commitId, upstream });
 		}
+		projectState.stackId.set(stackId);
 		onselect?.();
 	}
 </script>
@@ -220,6 +220,7 @@
 
 		{#if !hasCommits && isCommitting && thisIsTheRightBranch}
 			<CommitGoesHere
+				commitId={baseSha}
 				last
 				draft
 				selected={branchName === commitAction?.branchName ||
@@ -294,6 +295,7 @@
 					{#if isCommitting}
 						<!-- Only commits to the base can be `last`, see next `CommitGoesHere`. -->
 						<CommitGoesHere
+							{commitId}
 							selected={(commitAction?.parentCommitId === commitId ||
 								(first && commitAction?.parentCommitId === undefined)) &&
 								commitAction?.branchName === branchName}
@@ -310,11 +312,11 @@
 						/>
 					{/if}
 					{@const dzCommit: DzCommitData = {
-					id: commit.id,
-					isRemote: isUpstreamCommit(commit),
-					isIntegrated: isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated',
-					hasConflicts: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
-				}}
+						id: commit.id,
+						isRemote: isUpstreamCommit(commit),
+						isIntegrated: isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated',
+						hasConflicts: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
+					}}
 					{@const amendHandler = new AmendCommitWithChangeDzHandler(
 						projectId,
 						stackService,
@@ -438,6 +440,7 @@
 					)}
 					{#if isCommitting && last}
 						<CommitGoesHere
+							commitId={baseSha}
 							{first}
 							{last}
 							selected={exclusiveAction?.parentCommitId === baseSha}

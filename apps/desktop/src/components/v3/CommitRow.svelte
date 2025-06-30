@@ -78,6 +78,7 @@
 </script>
 
 <div
+	data-testid={TestId.CommitRow}
 	bind:this={container}
 	role="button"
 	tabindex="0"
@@ -116,7 +117,7 @@
 		{lastBranch}
 	/>
 
-	<div data-testid={TestId.CommitRow} class="commit-content" class:shift-to-left={hasConflicts}>
+	<div class="commit-content" class:shift-to-left={hasConflicts}>
 		{#if hasConflicts}
 			<div class="commit-conflict-indicator">
 				<Icon name="warning" size={12} />

@@ -290,7 +290,6 @@
 								{projectId}
 								{stackId}
 								{branchName}
-								{selectedCommitId}
 								{branchDetails}
 								{stackingReorderDropzoneManager}
 								{handleUncommit}
