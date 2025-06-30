@@ -19,7 +19,7 @@ describe('Project', () => {
 		await findAndClick('button[data-testid="set-base-branch"]');
 		await findAndClick('button[data-testid="accept-git-auth"]');
 
-		const workspaceButton = await $('button=Workspace');
+		const workspaceButton = await $('button[data-testid="navigation-workspace-button"]');
 		await expect(workspaceButton).toExist();
 	});
 });
