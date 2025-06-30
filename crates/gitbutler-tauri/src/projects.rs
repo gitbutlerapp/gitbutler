@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 pub mod commands {
     use anyhow::Context;
     use but_settings::AppSettingsWithDiskSync;
+    use gitbutler_command_context::CommandContext;
     use gitbutler_project::{self as projects, Controller, ProjectId};
     use std::path;
     use tauri::{State, Window};
@@ -94,10 +95,12 @@ pub mod commands {
         id: ProjectId,
     ) -> Result<ProjectInfo, Error> {
         let project = projects.get_validated(id).context("project not found")?;
+        let ctx = &mut CommandContext::open(&project, app_settings.get()?.clone())?;
         let mode = window_state.set_project_to_window(
             window.label(),
             &project,
             app_settings.inner().clone(),
+            ctx,
         )?;
         let db_error = assure_database_valid(project.gb_dir())?.map(|err| err.to_string());
         if let Some(db_error) = &db_error {

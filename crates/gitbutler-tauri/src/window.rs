@@ -3,6 +3,7 @@ pub(crate) mod state {
 
     use anyhow::{Context, Result};
     use but_settings::AppSettingsWithDiskSync;
+    use gitbutler_command_context::CommandContext;
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
     use gitbutler_user as users;
@@ -143,6 +144,9 @@ pub(crate) mod state {
         /// An active lock to signal that the entire project is locked for the Window this state belongs to.
         /// Let's make it optional while it's only in our own way, while aiming for making that reasonably well working.
         exclusive_access: Option<gitbutler_project::access::LockFile>,
+        // Database watcher handle.
+        #[allow(dead_code)]
+        db_watcher: but_db::poll::DBWatcherHandle,
     }
 
     impl Drop for State {
@@ -197,12 +201,13 @@ pub(crate) mod state {
         /// uniquely identified by `window`.
         ///
         /// The previous state will be removed and its resources cleaned up.
-        #[instrument(skip(self, project, app_settings), err(Debug))]
+        #[instrument(skip(self, project, app_settings, ctx), err(Debug))]
         pub fn set_project_to_window(
             &self,
             window: &WindowLabelRef,
             project: &projects::Project,
             app_settings: AppSettingsWithDiskSync,
+            ctx: &mut CommandContext,
         ) -> Result<ProjectAccessMode> {
             let mut state_by_label = self.state.lock();
             if let Some(state) = state_by_label.get(window) {
@@ -224,6 +229,13 @@ pub(crate) mod state {
                 project_id,
                 app_settings,
             )?;
+
+            let db = ctx.db()?;
+            let db_watcher = but_db::poll::watch_in_background(db, {
+                let app_handle = self.app_handle.clone();
+                move |item| ChangeForFrontend::from((project_id, item)).send(&app_handle)
+            })?;
+
             let has_exclusive_access = exclusive_access.is_some();
             state_by_label.insert(
                 window.to_owned(),
@@ -231,6 +243,7 @@ pub(crate) mod state {
                     project_id,
                     watcher,
                     exclusive_access,
+                    db_watcher,
                 },
             );
             tracing::debug!("Maintaining {} Windows", state_by_label.len());
