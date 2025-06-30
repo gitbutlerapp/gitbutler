@@ -57,7 +57,6 @@
 
 	{#if description}
 		<p data-testid={TestId.CommitDrawerDescription} class="text-13 text-body commit-description">
-			<!-- {@html marked(description)} -->
 			<Markdown content={marked(description)} />
 		</p>
 	{/if}
