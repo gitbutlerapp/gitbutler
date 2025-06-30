@@ -1,4 +1,5 @@
 <script lang="ts">
+	import claudeLogoSvg from '$lib/assets/claude.svg?raw';
 	import cursorLogoSvg from '$lib/assets/cursor.svg?raw';
 	import vsCodeInsidersLogoSvg from '$lib/assets/vscode-insiders.svg?raw';
 	import vsCodeLogoSvg from '$lib/assets/vscode.svg?raw';
@@ -12,6 +13,7 @@
 	const vsCodeKeywords = ['vscode', 'visual studio code'];
 	const isVsCode = $derived(vsCodeKeywords.some((keyword) => name.toLowerCase().includes(keyword)));
 	const isVsCodeInsiders = $derived(isVsCode && name.toLowerCase().includes('insiders'));
+	const isClaude = $derived(name.toLowerCase().includes('claude'));
 </script>
 
 <div class="editor-logo">
@@ -21,6 +23,8 @@
 		{@html vsCodeInsidersLogoSvg}
 	{:else if isVsCode}
 		{@html vsCodeLogoSvg}
+	{:else if isClaude}
+		{@html claudeLogoSvg}
 	{/if}
 </div>
 
