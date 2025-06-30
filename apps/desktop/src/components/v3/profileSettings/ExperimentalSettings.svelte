@@ -55,7 +55,7 @@
 		{/snippet}
 	</SectionCard>
 
-	<SectionCard labelFor="confetti" roundedTop={false} roundedBottom={true} orientation="row">
+	<SectionCard labelFor="confetti" roundedTop={false} roundedBottom={false} orientation="row">
 		{#snippet title()}
 			Confetti
 		{/snippet}
@@ -72,27 +72,26 @@
 		{/snippet}
 	</SectionCard>
 
-	<Spacer margin={20} />
+	<SectionCard labelFor="gitbutler-actions" roundedTop={false} orientation="row">
+		{#snippet title()}
+			GitButler Actions
+		{/snippet}
+		{#snippet caption()}
+			Enable the GitButler Actions log
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="gitbutler-actions"
+				checked={$settingsStore?.featureFlags.actions}
+				onclick={() =>
+					settingsService.updateFeatureFlags({ actions: !$settingsStore?.featureFlags.actions })}
+			/>
+		{/snippet}
+	</SectionCard>
 
 	{#if $user?.role === 'admin'}
 		<Spacer margin={20} />
 
-		<SectionCard labelFor="gitbutler-actions" roundedBottom={false} orientation="row">
-			{#snippet title()}
-				GitButler Actions
-			{/snippet}
-			{#snippet caption()}
-				Enable the GitButler Actions log
-			{/snippet}
-			{#snippet actions()}
-				<Toggle
-					id="gitbutler-actions"
-					checked={$settingsStore?.featureFlags.actions}
-					onclick={() =>
-						settingsService.updateFeatureFlags({ actions: !$settingsStore?.featureFlags.actions })}
-				/>
-			{/snippet}
-		</SectionCard>
 		<SectionCard labelFor="irc" roundedTop={false} roundedBottom={!$ircEnabled} orientation="row">
 			{#snippet title()}
 				IRC
