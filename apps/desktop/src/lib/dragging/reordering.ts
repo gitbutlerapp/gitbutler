@@ -60,7 +60,11 @@ export function onReorderStart(
 	dragged.style.opacity = '0.6';
 
 	// additional styles to the clone to make background and border visible
-	clone.style.position = 'absolute';
+	clone.style.position = 'fixed';
+	clone.style.zIndex = '-1';
+	clone.style.top = '-10000px'; // Move it out of the way
+	clone.style.left = '-10000px';
+	clone.style.pointerEvents = 'none';
 	clone.style.backgroundColor = 'var(--clr-bg-2)';
 	clone.style.border = '1px solid var(--clr-border-2)';
 	clone.style.borderRadius = 'var(--radius-ml)';

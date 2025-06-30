@@ -173,9 +173,6 @@
 	});
 
 	const startCommitVisible = $derived(uncommittedService.startCommitVisible(stack.id));
-	// const isCommittingAndFloating = $derived(
-	// 	isCommitting && isCommitFloating && startCommitVisible.current
-	// );
 </script>
 
 <AsyncRender>
