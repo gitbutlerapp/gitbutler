@@ -4,6 +4,8 @@
 	import MultiStackPagination, { scrollToLane } from '$components/v3/MultiStackPagination.svelte';
 	import StackDraft from '$components/v3/StackDraft.svelte';
 	import StackView from '$components/v3/StackView.svelte';
+	import { onReorderEnd, onReorderMouseDown, onReorderStart } from '$lib/dragging/reordering';
+
 	import { onReorderDragOver } from '$lib/dragging/reordering';
 	import { branchesPath } from '$lib/routes/routes.svelte';
 	import { type SelectionId } from '$lib/selection/key';
@@ -11,6 +13,7 @@
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { throttle } from '$lib/utils/misc';
 	import { inject } from '@gitbutler/shared/context';
+	import { flip } from 'svelte/animate';
 	import type { Stack } from '$lib/stacks/stack';
 
 	type Props = {
@@ -122,6 +125,8 @@
 			mutableStacks = stacks;
 		}
 	});
+
+	let viewWrapperEl: HTMLDivElement | undefined;
 </script>
 
 {#if isNotEnoughHorzSpace}
@@ -144,6 +149,7 @@
 <div
 	role="presentation"
 	class="lanes-scrollable hide-native-scrollbar"
+	bind:this={viewWrapperEl}
 	class:panning={isPanning}
 	bind:this={lanesScrollableEl}
 	bind:clientWidth={lanesScrollableWidth}
@@ -172,20 +178,29 @@
 	`StackView` instead of being set imperatively in the dragstart handler.
 	 -->
 	{#each mutableStacks as stack, i (stack.id)}
-		<StackView
-			{projectId}
-			{stack}
-			{focusedStackId}
-			bind:clientWidth={laneWidths[i]}
-			bind:clientHeight={lineHights[i]}
-			onVisible={(visible) => {
-				if (visible) {
-					visibleIndexes = [...visibleIndexes, i];
-				} else {
-					visibleIndexes = visibleIndexes.filter((index) => index !== i);
-				}
-			}}
-		/>
+		<div
+			class="reorderable-stack"
+			role="presentation"
+			animate:flip={{ duration: 150 }}
+			onmousedown={(e) => onReorderMouseDown(e, viewWrapperEl as HTMLDivElement)}
+			ondragstart={(e) => onReorderStart(e, stack.id, close)}
+			ondragend={onReorderEnd}
+		>
+			<StackView
+				{projectId}
+				{stack}
+				{focusedStackId}
+				bind:clientWidth={laneWidths[i]}
+				bind:clientHeight={lineHights[i]}
+				onVisible={(visible) => {
+					if (visible) {
+						visibleIndexes = [...visibleIndexes, i];
+					} else {
+						visibleIndexes = visibleIndexes.filter((index) => index !== i);
+					}
+				}}
+			/>
+		</div>
 	{/each}
 
 	<MultiStackOfflaneDropzone
@@ -245,5 +260,17 @@
 		position: absolute;
 		right: 6px;
 		bottom: 8px;
+	}
+
+	.reorderable-stack {
+		display: flex;
+		flex-shrink: 0;
+		flex-direction: column;
+		width: fit-content;
+		height: 100%;
+
+		&:first-child {
+			border-left: 1px solid var(--clr-border-2);
+		}
 	}
 </style>
