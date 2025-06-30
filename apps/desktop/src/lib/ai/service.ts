@@ -52,6 +52,7 @@ export enum GitAIConfigKey {
 	ModelProvider = 'gitbutler.aiModelProvider',
 	OpenAIKeyOption = 'gitbutler.aiOpenAIKeyOption',
 	OpenAIModelName = 'gitbutler.aiOpenAIModelName',
+	OpenAICustomEndpoint = 'gitbutler.aiOpenAICustomEndpoint',
 	AnthropicKeyOption = 'gitbutler.aiAnthropicKeyOption',
 	AnthropicModelName = 'gitbutler.aiAnthropicModelName',
 	DiffLengthLimit = 'gitbutler.diffLengthLimit',
@@ -138,6 +139,10 @@ export class AIService {
 			GitAIConfigKey.OpenAIKeyOption,
 			KeyOption.ButlerAPI
 		);
+	}
+
+	async getOpenAICustomEndpoint() {
+		return await this.gitConfig.get<string>(GitAIConfigKey.OpenAICustomEndpoint);
 	}
 
 	async getOpenAIKey() {
@@ -301,6 +306,7 @@ export class AIService {
 		if (modelKind === ModelKind.OpenAI) {
 			const openAIModelName = await this.getOpenAIModleName();
 			const openAIKey = await this.getOpenAIKey();
+			const openAICustomEndpoint = await this.getOpenAICustomEndpoint();
 
 			if (!openAIKey) {
 				throw new Error(
@@ -308,7 +314,7 @@ export class AIService {
 				);
 			}
 
-			return new OpenAIClient(openAIKey, openAIModelName);
+			return new OpenAIClient(openAIKey, openAIModelName, openAICustomEndpoint);
 		}
 
 		if (modelKind === ModelKind.Anthropic) {
