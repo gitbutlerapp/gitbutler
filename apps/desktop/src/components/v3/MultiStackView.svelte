@@ -4,13 +4,16 @@
 	import MultiStackPagination, { scrollToLane } from '$components/v3/MultiStackPagination.svelte';
 	import StackDraft from '$components/v3/StackDraft.svelte';
 	import StackView from '$components/v3/StackView.svelte';
+	import { onReorderEnd, onReorderMouseDown, onReorderStart } from '$lib/dragging/reordering';
 	import { onReorderDragOver } from '$lib/dragging/reordering';
+	import { IntelligentScrollingService } from '$lib/intelligentScrolling/service';
 	import { branchesPath } from '$lib/routes/routes.svelte';
 	import { type SelectionId } from '$lib/selection/key';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { throttle } from '$lib/utils/misc';
 	import { inject } from '@gitbutler/shared/context';
+	import { flip } from 'svelte/animate';
 	import type { Stack } from '$lib/stacks/stack';
 
 	type Props = {
@@ -23,7 +26,11 @@
 
 	let { projectId, selectedId, stacks, focusedStackId }: Props = $props();
 
-	const [stackService] = inject(StackService);
+	const [uiState, stackService, intelligentScrollingService] = inject(
+		UiState,
+		StackService,
+		IntelligentScrollingService
+	);
 
 	let lanesScrollableEl = $state<HTMLDivElement>();
 	let lanesScrollableWidth = $state<number>(0);
@@ -42,7 +49,6 @@
 	let visibleIndexes = $state<number[]>([0]);
 	let isCreateNewVisible = $state<boolean>(false);
 
-	const [uiState] = inject(UiState);
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 	const isCommitting = $derived(exclusiveAction?.type === 'commit');
@@ -124,6 +130,8 @@
 			mutableStacks = stacks;
 		}
 	});
+
+	let viewWrapperEl: HTMLDivElement | undefined;
 </script>
 
 {#if isNotEnoughHorzSpace}
@@ -146,6 +154,7 @@
 <div
 	role="presentation"
 	class="lanes-scrollable hide-native-scrollbar"
+	bind:this={viewWrapperEl}
 	class:panning={isPanning}
 	bind:this={lanesScrollableEl}
 	bind:clientWidth={lanesScrollableWidth}
@@ -174,20 +183,35 @@
 	`StackView` instead of being set imperatively in the dragstart handler.
 	 -->
 	{#each mutableStacks as stack, i (stack.id)}
-		<StackView
-			{projectId}
-			{stack}
-			{focusedStackId}
-			bind:clientWidth={laneWidths[i]}
-			bind:clientHeight={lineHights[i]}
-			onVisible={(visible) => {
-				if (visible) {
-					visibleIndexes = [...visibleIndexes, i];
-				} else {
-					visibleIndexes = visibleIndexes.filter((index) => index !== i);
-				}
-			}}
-		/>
+		{@const stackState = uiState.stack(stack.id)}
+		{@const selection = stackState.selection}
+		<div
+			class="reorderable-stack"
+			role="presentation"
+			animate:flip={{ duration: 150 }}
+			onmousedown={(e) => onReorderMouseDown(e, viewWrapperEl as HTMLDivElement)}
+			ondragstart={(e) =>
+				onReorderStart(e, stack.id, () => {
+					selection.set(undefined);
+					intelligentScrollingService.show(projectId, stack.id, 'stack');
+				})}
+			ondragend={onReorderEnd}
+		>
+			<StackView
+				{projectId}
+				{stack}
+				{focusedStackId}
+				bind:clientWidth={laneWidths[i]}
+				bind:clientHeight={lineHights[i]}
+				onVisible={(visible) => {
+					if (visible) {
+						visibleIndexes = [...visibleIndexes, i];
+					} else {
+						visibleIndexes = visibleIndexes.filter((index) => index !== i);
+					}
+				}}
+			/>
+		</div>
 	{/each}
 
 	<MultiStackOfflaneDropzone
@@ -234,7 +258,6 @@
 		overflow-x: auto;
 		overflow-y: hidden;
 		cursor: default;
-		user-select: none; /* Prevent text selection during pan */
 	}
 
 	.lanes-scrollable.panning {
@@ -247,5 +270,17 @@
 		position: absolute;
 		right: 6px;
 		bottom: 8px;
+	}
+
+	.reorderable-stack {
+		display: flex;
+		flex-shrink: 0;
+		flex-direction: column;
+		width: fit-content;
+		height: 100%;
+
+		&:first-child {
+			border-left: 1px solid var(--clr-border-2);
+		}
 	}
 </style>
