@@ -402,6 +402,11 @@
 				style:width={uiState.global.previewWidth.current + 'rem'}
 				class="preview"
 				data-remove-from-draggable
+				data-remove-from-panning
+				use:focusable={{
+					id: DefinedFocusable.Preview + ':' + stack.id,
+					parentId: DefinedFocusable.ViewportRight
+				}}
 				{@attach scrollingAttachment(intelligentScrollingService, projectId, stack.id, 'diff')}
 			>
 				<SelectionView

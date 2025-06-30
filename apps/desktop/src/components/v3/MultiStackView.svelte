@@ -256,7 +256,6 @@
 		overflow-x: auto;
 		overflow-y: hidden;
 		cursor: default;
-		user-select: none; /* Prevent text selection during pan */
 	}
 
 	.lanes-scrollable.panning {
