@@ -23,7 +23,6 @@ const MOCK_PROJECT_UI_STATE: ProjectUiState = {
 	exclusiveAction: undefined,
 	branchesSelection: { branchName: 'test' },
 	stackId: undefined,
-	editingCommitMessage: false,
 	showActions: false
 };
 

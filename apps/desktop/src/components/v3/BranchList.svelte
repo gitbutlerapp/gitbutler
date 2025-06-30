@@ -73,8 +73,7 @@
 
 	function startEditingCommitMessage(branchName: string, commitId: string) {
 		stackState.selection.set({ branchName, commitId });
-		projectState.exclusiveAction.set(undefined);
-		projectState.editingCommitMessage.set(true);
+		projectState.exclusiveAction.set({ type: 'edit-commit-message', commitId });
 	}
 
 	async function handleEditPatch(args: {

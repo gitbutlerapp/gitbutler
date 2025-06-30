@@ -63,7 +63,7 @@
 		{/snippet}
 	</WorktreeChanges>
 
-	{#if (exclusiveAction?.type !== 'commit' && exclusiveAction?.stackId) || changesToCommit}
+	{#if changesToCommit}
 		<div class="create-new" class:sticked-bottom={isScrollable}>
 			<Button
 				type="button"

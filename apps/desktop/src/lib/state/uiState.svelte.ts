@@ -32,12 +32,17 @@ type BranchesSelection = {
 	prNumber?: number;
 };
 
-export type ExclusiveAction = { type: 'commit' } & {
-	type: 'commit';
-	stackId?: string;
-	branchName?: string;
-	parentCommitId?: string;
-};
+export type ExclusiveAction =
+	| {
+			type: 'commit';
+			stackId?: string;
+			branchName?: string;
+			parentCommitId?: string;
+	  }
+	| {
+			type: 'edit-commit-message';
+			commitId: string;
+	  };
 
 export type ProjectUiState = {
 	exclusiveAction: ExclusiveAction | undefined;
@@ -45,7 +50,6 @@ export type ProjectUiState = {
 	commitTitle: string;
 	commitDescription: string;
 	branchesSelection: BranchesSelection;
-	editingCommitMessage: boolean;
 	showActions: boolean;
 };
 
@@ -105,7 +109,6 @@ export class UiState {
 		commitDescription: '',
 		branchesSelection: {},
 		stackId: undefined,
-		editingCommitMessage: false,
 		showActions: false
 	});
 
