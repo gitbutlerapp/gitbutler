@@ -61,6 +61,8 @@ export function onReorderStart(
 
 	// additional styles to the clone to make background and border visible
 	clone.style.position = 'fixed';
+	clone.style.maxHeight = `${window.innerHeight - 100}px`;
+	clone.style.height = 'auto';
 	clone.style.zIndex = '-1';
 	clone.style.top = '-10000px'; // Move it out of the way
 	clone.style.left = '-10000px';

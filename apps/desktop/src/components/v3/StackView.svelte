@@ -11,7 +11,6 @@
 	import PushButton from '$components/v3/PushButton.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
-	import { onReorderEnd, onReorderMouseDown, onReorderStart } from '$lib/dragging/reordering';
 	import { isParsedError } from '$lib/error/parser';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
@@ -124,7 +123,7 @@
 		}
 	}
 
-	function onclose() {
+	export function onclose() {
 		selection.set(undefined);
 		intelligentScrollingService.show(projectId, stack.id, 'stack');
 	}
@@ -194,9 +193,6 @@
 		data-testid={TestId.Stack}
 		data-testid-stackid={stack.id}
 		data-testid-stack={stack.heads.at(0)?.name}
-		onmousedown={(e) => onReorderMouseDown(e, viewWrapperEl?.parentElement as HTMLDivElement)}
-		ondragstart={(e) => onReorderStart(e, stack.id, onclose)}
-		ondragend={onReorderEnd}
 		use:intersectionObserver={{
 			callback: (entry) => {
 				onVisible(!!entry?.isIntersecting);
@@ -344,6 +340,7 @@
 					</div>
 				{:else if branchName && commitId}
 					<div
+						class="full-height"
 						{@attach scrollingAttachment(
 							intelligentScrollingService,
 							projectId,
@@ -367,6 +364,7 @@
 					</div>
 				{:else if branchName}
 					<div
+						class="full-height"
 						{@attach scrollingAttachment(
 							intelligentScrollingService,
 							projectId,
@@ -405,6 +403,11 @@
 				style:width={uiState.global.previewWidth.current + 'rem'}
 				class="preview"
 				data-remove-from-draggable
+				data-remove-from-panning
+				use:focusable={{
+					id: DefinedFocusable.Preview + ':' + stack.id,
+					parentId: DefinedFocusable.ViewportRight
+				}}
 				{@attach scrollingAttachment(intelligentScrollingService, projectId, stack.id, 'diff')}
 			>
 				<SelectionView
@@ -434,14 +437,12 @@
 		display: flex;
 		position: relative;
 		flex-shrink: 0;
+		height: 100%;
 		overflow: hidden;
 		transition: opacity 0.15s;
 
 		&.dimmed {
 			opacity: 0.5;
-		}
-		&:first-child {
-			border-left: 1px solid var(--clr-border-2);
 		}
 	}
 

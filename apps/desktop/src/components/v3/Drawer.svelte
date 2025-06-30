@@ -132,7 +132,6 @@
 		position: relative;
 		flex-direction: column;
 		padding: 14px;
-		user-select: text;
 	}
 
 	.drawer__files-split-view {

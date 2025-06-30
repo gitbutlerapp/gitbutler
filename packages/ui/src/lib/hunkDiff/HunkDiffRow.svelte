@@ -296,7 +296,7 @@
 		white-space: pre;
 		cursor: text;
 		tab-size: var(--tab-size);
-		user-select: text;
+		user-select: all;
 	}
 
 	.table__row-header {
@@ -305,8 +305,7 @@
 		text-wrap: var(--wrap);
 		white-space: pre;
 		cursor: text;
-		user-select: text;
-		-webkit-user-select: text;
+		user-select: all;
 	}
 
 	.table__selected-row-overlay {
