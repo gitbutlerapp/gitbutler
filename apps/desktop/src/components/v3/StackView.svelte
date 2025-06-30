@@ -150,13 +150,21 @@
 		if (selection.current) {
 			setTimeout(() => {
 				if (selection.current) {
-					const { branchName, commitId } = selection.current;
+					const { branchName, commitId, upstream } = selection.current;
 					if (branchName && commitId) {
-						stackService.fetchCommitById(projectId, stack.id, commitId).then((result) => {
-							if (!result.data) {
-								selection.set(undefined);
-							}
-						});
+						if (upstream) {
+							stackService.fetchUpstreamCommitById(projectId, stack.id, commitId).then((result) => {
+								if (!result.data) {
+									selection.set(undefined);
+								}
+							});
+						} else {
+							stackService.fetchCommitById(projectId, stack.id, commitId).then((result) => {
+								if (!result.data) {
+									selection.set(undefined);
+								}
+							});
+						}
 					}
 				}
 			}, 500);

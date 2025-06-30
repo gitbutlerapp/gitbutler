@@ -238,7 +238,7 @@
 
 		{@render commitReorderDz(stackingReorderDropzoneManager.top(branchName))}
 
-		{#if hasCommits}
+		{#if hasCommits || hasRemoteCommits}
 			<div class="commit-list hide-when-empty">
 				{#if hasRemoteCommits}
 					<CommitsAccordion
