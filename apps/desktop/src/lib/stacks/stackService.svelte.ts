@@ -376,6 +376,16 @@ export class StackService {
 		);
 	}
 
+	fetchUpstreamCommitById(projectId: string, stackId: string, commitId: string) {
+		return this.api.endpoints.stackDetails.fetch(
+			{ projectId, stackId },
+			{
+				transform: ({ upstreamCommits }) =>
+					upstreamCommitSelectors.selectById(upstreamCommits, commitId)
+			}
+		);
+	}
+
 	get pushStack() {
 		return this.api.endpoints.pushStack.useMutation({
 			sideEffect: (_, args) => {
