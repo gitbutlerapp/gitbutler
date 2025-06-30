@@ -154,28 +154,18 @@ function createStore(params: {
 	const reducer = combineSlices(
 		// RTK Query API for the back end.
 		backendApi,
+		githubApi,
 		gitlabApi
-	)
-		.inject({
-			reducerPath: uiStateSlice.reducerPath,
-			reducer: persistReducer(
-				{
-					key: uiStateSlice.reducerPath,
-					storage: storage
-				},
-				uiStateSlice.reducer
-			)
-		})
-		.inject({
-			reducerPath: githubApi.reducerPath,
-			reducer: persistReducer(
-				{
-					key: githubApi.reducerPath,
-					storage: storage
-				},
-				githubApi.reducer
-			)
-		});
+	).inject({
+		reducerPath: uiStateSlice.reducerPath,
+		reducer: persistReducer(
+			{
+				key: uiStateSlice.reducerPath,
+				storage: storage
+			},
+			uiStateSlice.reducer
+		)
+	});
 
 	const store = configureStore({
 		reducer,
