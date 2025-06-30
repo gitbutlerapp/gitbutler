@@ -8,12 +8,14 @@
 	import PrNumberUpdater from '$components/v3/PrNumberUpdater.svelte';
 	import ReviewView from '$components/v3/ReviewView.svelte';
 	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
+	import { ReorderCommitDzHandler } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
+	import type { DropzoneHandler } from '$lib/dragging/handler';
 	import type { PushStatus } from '$lib/stacks/stack';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';
@@ -60,6 +62,7 @@
 		lastUpdatedAt?: number;
 		isConflicted: boolean;
 		contextMenu?: typeof BranchHeaderContextMenu;
+		dropzones: DropzoneHandler[];
 		onclick: () => void;
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
 		buttons?: Snippet;
@@ -122,9 +125,14 @@
 		{#if !args.prNumber}
 			<PrNumberUpdater {projectId} stackId={args.stackId} {branchName} />
 		{/if}
-		<Dropzone handlers={args.first ? [moveHandler] : []}>
+		<Dropzone handlers={args.first ? [moveHandler, ...args.dropzones] : args.dropzones}>
 			{#snippet overlay({ hovered, activated, handler })}
-				{@const label = handler instanceof MoveCommitDzHandler ? 'Move here' : 'Start commit'}
+				{@const label =
+					handler instanceof MoveCommitDzHandler
+						? 'Move here'
+						: handler instanceof ReorderCommitDzHandler
+							? 'Reorder here'
+							: 'Start commit'}
 				<CardOverlay {hovered} {activated} {label} />
 			{/snippet}
 
