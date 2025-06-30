@@ -443,7 +443,8 @@
 							commitId={baseSha}
 							{first}
 							{last}
-							selected={exclusiveAction?.parentCommitId === baseSha}
+							selected={exclusiveAction?.type === 'commit' &&
+								exclusiveAction.parentCommitId === baseSha}
 							onclick={() => {
 								projectState.exclusiveAction.set({
 									type: 'commit',

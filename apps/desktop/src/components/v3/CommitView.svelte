@@ -69,10 +69,13 @@
 	function setMode(newMode: Mode) {
 		switch (newMode) {
 			case 'edit':
-				projectState.editingCommitMessage.set(true);
+				projectState.exclusiveAction.set({
+					type: 'edit-commit-message',
+					commitId: commitKey.commitId
+				});
 				break;
 			case 'view':
-				projectState.editingCommitMessage.set(false);
+				projectState.exclusiveAction.set(undefined);
 				break;
 		}
 	}
@@ -201,7 +204,7 @@
 			{/snippet}
 
 			<div class="commit-view">
-				{#if projectState.editingCommitMessage.current}
+				{#if projectState.exclusiveAction.current?.type === 'edit-commit-message' && projectState.exclusiveAction.current.commitId === commit.id}
 					<div
 						class="edit-commit-view"
 						data-testid={TestId.EditCommitMessageBox}

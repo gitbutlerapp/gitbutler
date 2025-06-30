@@ -46,7 +46,9 @@
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 	const isCommitting = $derived(exclusiveAction?.type === 'commit');
-	const isDraftStackVisible = $derived(isCommitting && exclusiveAction?.stackId === undefined);
+	const isDraftStackVisible = $derived(
+		isCommitting && exclusiveAction?.type === 'commit' && exclusiveAction?.stackId === undefined
+	);
 
 	const SHOW_PAGINATION_THRESHOLD = 1;
 
