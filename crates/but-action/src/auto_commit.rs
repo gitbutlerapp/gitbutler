@@ -32,7 +32,7 @@ pub fn auto_commit(
         Follow these steps:
         1. Take a look at the exisiting branches (stack heads) and the file changes. You can see all this information in the **project status** below.
         2. Determine which are the related changes that should be grouped together. You can do this by looking at the diffs, assignments, and dependency locks, if any.
-        3. Determine if any new branches need to be created. If so, create them using the provided tool.
+        3. Determine if any new branches need to be created. If so, create them using the provided tool. Most of the time, all commits should be made to the same branch. Prefer that, but if you find that the changes are unrelated, commit to separate branches.
         4. For each group of changes, create a commit (using the provided tool) with a detailed summary of the changes in the group (not the intention, but an overview of the actual changes made and why they are related).
         5. When you're done, only send the message 'done'
 
