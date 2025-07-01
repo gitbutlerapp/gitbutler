@@ -15,6 +15,7 @@ use gitbutler_stack::{Target, VirtualBranchesHandle};
 pub use openai::{CredentialsKind, OpenAiProvider};
 use serde::{Deserialize, Serialize};
 
+mod absorb;
 mod action;
 mod auto_commit;
 mod branch_changes;
@@ -34,7 +35,14 @@ use uuid::Uuid;
 pub use workflow::WorkflowList;
 pub use workflow::list_workflows;
 
-pub(crate) const DIFF_CONTEXT_LINES: u32 = 3;
+pub fn absorb(
+    app_handle: &tauri::AppHandle,
+    ctx: &mut CommandContext,
+    openai: &OpenAiProvider,
+    changes: Vec<TreeChange>,
+) -> anyhow::Result<()> {
+    absorb::absorb(app_handle, ctx, openai, changes)
+}
 
 pub fn branch_changes(
     app_handle: &tauri::AppHandle,
