@@ -68,6 +68,7 @@ export function onReorderStart(
 	clone.style.backgroundColor = 'var(--clr-bg-2)';
 	clone.style.border = '1px solid var(--clr-border-2)';
 	clone.style.borderRadius = 'var(--radius-ml)';
+	clone.style.overflow = 'hidden';
 }
 
 export function onReorderEnd() {
