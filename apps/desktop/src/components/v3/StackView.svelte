@@ -327,6 +327,7 @@
 			>
 				{#if assignedKey && assignedKey.type === 'worktree'}
 					<div
+						class="full-height"
 						{@attach scrollingAttachment(intelligentScrollingService, projectId, stack.id, 'diff')}
 					>
 						<SelectionView
@@ -392,6 +393,7 @@
 					minWidth={16}
 					maxWidth={56}
 					syncName="panel2"
+					imitateBorder
 					dblclickSize
 				/>
 			</div>
@@ -425,6 +427,7 @@
 					minWidth={20}
 					maxWidth={96}
 					syncName="panel3"
+					imitateBorder
 					dblclickSize
 				/>
 			</div>
@@ -505,13 +508,12 @@
 	.preview {
 		position: relative;
 		flex-shrink: 0;
-		border-right: 1px solid var(--clr-border-2);
+		height: 100%;
 		white-space: wrap;
 	}
 
 	.start-commit {
 		padding: 12px;
-		/* border-top: 1px solid var(--clr-border-2); */
 		background-color: var(--clr-bg-1);
 	}
 
