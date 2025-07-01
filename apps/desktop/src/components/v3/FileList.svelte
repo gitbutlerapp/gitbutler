@@ -47,6 +47,7 @@
 	const [idSelection, aiService, actionService] = inject(IdSelection, AIService, ActionService);
 
 	const [autoCommit] = actionService.autoCommit;
+	const [branchChanges] = actionService.branchChanges;
 	let currentDisplayIndex = $state(0);
 
 	const sortedChanges = $derived(sortLikeFileTree(changes));
@@ -73,6 +74,32 @@
 	 *
 	 * - Anonymous
 	 */
+	async function branchSelection() {
+		const selectedFiles = idSelection.values(selectionId);
+		if (selectionId.type !== 'worktree' || selectedFiles.length === 0 || !canUseGBAI) return;
+
+		showToast({
+			style: 'neutral',
+			title: 'Creating a branch and committing the changes',
+			message: 'This may take a few seconds.'
+		});
+
+		const treeChanges = changes.filter((change) =>
+			selectedFiles.some((file) => file.path === change.path)
+		);
+
+		await branchChanges({
+			projectId,
+			changes: treeChanges
+		});
+
+		showToast({
+			style: 'success',
+			title: 'And... done!',
+			message: `Now, you're free to continue`
+		});
+	}
+
 	async function autoCommitSelection() {
 		const selectedFiles = idSelection.values(selectionId);
 		if (selectionId.type !== 'worktree' || selectedFiles.length === 0 || !canUseGBAI) return;
@@ -101,6 +128,12 @@
 
 	function handleKeyDown(e: KeyboardEvent) {
 		if (e.code === 'KeyB' && (e.ctrlKey || e.metaKey) && e.altKey) {
+			branchSelection();
+			e.preventDefault();
+			return;
+		}
+
+		if (e.code === 'KeyC' && (e.ctrlKey || e.metaKey) && e.altKey) {
 			autoCommitSelection();
 			e.preventDefault();
 			return;

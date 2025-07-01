@@ -60,6 +60,7 @@
 		ActionService
 	);
 	const [autoCommit, autoCommitting] = actionService.autoCommit;
+	const [branchChanges, branchingChanges] = actionService.branchChanges;
 
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 	const isUncommitted = $derived(selectionId.type === 'worktree');
@@ -164,6 +165,27 @@
 			message: `Now, you're free to continue`
 		});
 	}
+
+	async function triggerBranchChanges(changes: TreeChange[]) {
+		if (!canUseGBAI) {
+			toasts.error('GitButler AI is not configured or enabled for this project.');
+			return;
+		}
+
+		showToast({
+			style: 'neutral',
+			title: 'Creating a branch and committing the changes',
+			message: 'This may take a few seconds.'
+		});
+
+		await branchChanges({ projectId, changes });
+
+		showToast({
+			style: 'success',
+			title: 'And... done!',
+			message: `Now, you're free to continue`
+		});
+	}
 </script>
 
 <ContextMenu bind:this={contextMenu} rightClickTrigger={trigger}>
@@ -196,12 +218,20 @@
 					{/if}
 					{#if canUseGBAI && isUncommitted}
 						<ContextMenuItem
-							label="Auto commit"
+							label="Auto commit (🧪)"
 							onclick={async () => {
 								contextMenu.close();
 								await triggerAutoCommit(item.changes);
 							}}
 							disabled={autoCommitting.current.isLoading}
+						/>
+						<ContextMenuItem
+							label="Branch changes (🧪)"
+							onclick={async () => {
+								contextMenu.close();
+								await triggerBranchChanges(item.changes);
+							}}
+							disabled={branchingChanges.current.isLoading}
 						/>
 					{/if}
 					{#if selectionId.type === 'commit' && stackId}
