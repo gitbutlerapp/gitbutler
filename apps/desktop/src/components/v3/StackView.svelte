@@ -236,44 +236,45 @@
 				{#snippet children(branches)}
 					<ConfigurableScrollableContainer>
 						<!-- If we are currently committing, we should keep this open so users can actually stop committing again :wink: -->
-						{#if startCommitVisible.current || isCommitting}
+						<div
+							class="assignments-wrap"
+							class:assignments__empty={changes.current.length === 0 && !isCommitting}
+						>
 							<div
-								class="assignments-wrap"
-								class:assignments__empty={changes.current.length === 0 && !isCommitting}
+								class="worktree-wrap"
+								class:remove-border-bottom={(isCommitting && changes.current.length === 0) ||
+									!startCommitVisible.current}
+								class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
 							>
-								<div
-									class="worktree-wrap"
-									class:remove-border-bottom={isCommitting && changes.current.length === 0}
-									class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
+								<WorktreeChanges
+									title="Assigned"
+									{projectId}
+									stackId={stack.id}
+									mode="assigned"
+									active={focusedStackId === stack.id}
+									dropzoneVisible={changes.current.length === 0 && !isCommitting}
+									onDropzoneActivated={(activated) => {
+										dropzoneActivated = activated;
+									}}
+									onselect={() => {
+										// Clear one selection when you modify the other.
+										stackState?.selection.set(undefined);
+										intelligentScrollingService.show(projectId, stack.id, 'diff');
+									}}
 								>
-									<WorktreeChanges
-										title="Assigned"
-										{projectId}
-										stackId={stack.id}
-										mode="assigned"
-										active={focusedStackId === stack.id}
-										dropzoneVisible={changes.current.length === 0 && !isCommitting}
-										onDropzoneActivated={(activated) => {
-											dropzoneActivated = activated;
-										}}
-										onselect={() => {
-											// Clear one selection when you modify the other.
-											stackState?.selection.set(undefined);
-											intelligentScrollingService.show(projectId, stack.id, 'diff');
-										}}
-									>
-										{#snippet emptyPlaceholder()}
-											{#if !isCommitting}
-												<div class="assigned-changes-empty">
-													<p class="text-12 text-body assigned-changes-empty__text">
-														Drop files to assign to the lane
-													</p>
-												</div>
-											{/if}
-										{/snippet}
-									</WorktreeChanges>
-								</div>
+									{#snippet emptyPlaceholder()}
+										{#if !isCommitting}
+											<div class="assigned-changes-empty">
+												<p class="text-12 text-body assigned-changes-empty__text">
+													Drop files to assign to the lane
+												</p>
+											</div>
+										{/if}
+									{/snippet}
+								</WorktreeChanges>
+							</div>
 
+							{#if startCommitVisible.current || isCommitting}
 								{#if !isCommitting}
 									<div class="start-commit">
 										<Button
@@ -291,8 +292,8 @@
 								{:else if isCommitting}
 									<NewCommitView {projectId} stackId={stack.id} />
 								{/if}
-							</div>
-						{/if}
+							{/if}
+						</div>
 
 						<BranchList
 							{projectId}
