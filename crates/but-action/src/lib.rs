@@ -6,11 +6,11 @@ use std::{
 };
 
 use but_core::{TreeChange, UnifiedDiff};
-use but_workspace::ui::StackEntry;
+use but_workspace::{local_and_remote_commits, ui::StackEntry};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::ObjectIdExt;
-use gitbutler_project::access::WorktreeWritePermission;
+use gitbutler_project::{Project, access::WorktreeWritePermission};
 use gitbutler_stack::{Target, VirtualBranchesHandle};
 pub use openai::{CredentialsKind, OpenAiProvider};
 use serde::{Deserialize, Serialize};
@@ -105,10 +105,22 @@ fn default_target_setting_if_none(
 }
 
 fn stacks(ctx: &CommandContext, repo: &gix::Repository) -> anyhow::Result<Vec<StackEntry>> {
-    let meta = VirtualBranchesTomlMetadata::from_path(
-        ctx.project().gb_dir().join("virtual_branches.toml"),
-    )?;
-    but_workspace::stacks_v3(repo, &meta, but_workspace::StacksFilter::InWorkspace)
+    let project = ctx.project();
+    if ctx.app_settings().feature_flags.ws3 {
+        let meta = ref_metadata_toml(ctx.project())?;
+        but_workspace::stacks_v3(repo, &meta, but_workspace::StacksFilter::InWorkspace)
+    } else {
+        but_workspace::stacks(
+            ctx,
+            &project.gb_dir(),
+            repo,
+            but_workspace::StacksFilter::InWorkspace,
+        )
+    }
+}
+
+fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMetadata> {
+    VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))
 }
 
 /// Returns the currently applied stacks, creating one if none exists.
@@ -179,6 +191,60 @@ pub struct RichHunk {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct SimpleCommit {
+    /// The commit sha.
+    #[serde(with = "gitbutler_serde::object_id")]
+    pub id: gix::ObjectId,
+    /// The commit message.
+    pub message_title: String,
+    /// The commit message body.
+    pub message_body: String,
+}
+
+impl From<but_workspace::ui::Commit> for SimpleCommit {
+    fn from(commit: but_workspace::ui::Commit) -> Self {
+        let message_str = commit.message.to_string();
+        let mut lines = message_str.lines();
+        let message_title = lines.next().unwrap_or_default().to_string();
+        let mut message_body = lines.collect::<Vec<_>>().join("\n");
+        // Remove leading empty lines from the body
+        while message_body.starts_with('\n') || message_body.starts_with("\r\n") {
+            message_body = message_body
+                .trim_start_matches('\n')
+                .trim_start_matches("\r\n")
+                .to_string();
+        }
+        SimpleCommit {
+            id: commit.id,
+            message_title,
+            message_body,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SimpleBranch {
+    /// The name of the branch.
+    pub name: String,
+    /// The description of the branch.
+    pub description: Option<String>,
+    /// The commits in the branch.
+    pub commits: Vec<SimpleCommit>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SimpleStack {
+    /// The stack ID.
+    pub id: but_workspace::StackId,
+    /// The name of the stack.
+    pub name: String,
+    /// The branches in the stack.
+    pub branches: Vec<SimpleBranch>,
+}
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FileChange {
     /// The path of the file that has changed.
     pub path: String,
@@ -195,7 +261,7 @@ pub struct FileChange {
 #[serde(rename_all = "camelCase")]
 pub struct ProjectStatus {
     /// List of stacks applied to the project's workspace
-    stacks: Vec<but_workspace::ui::StackEntry>,
+    stacks: Vec<SimpleStack>,
     /// Unified diff changes that could be committed.
     file_changes: Vec<FileChange>,
 }
@@ -205,7 +271,8 @@ pub fn get_project_status(
     repo: &gix::Repository,
     filter_changes: Option<Vec<but_core::TreeChange>>,
 ) -> anyhow::Result<ProjectStatus> {
-    let stacks = crate::stacks(ctx, repo)?;
+    let stacks = stacks(ctx, repo)?;
+    let stacks = entries_to_simple_stacks(&stacks, ctx, repo)?;
 
     let worktree = but_core::diff::worktree_changes(repo)?;
     let changes = if let Some(filter) = filter_changes {
@@ -233,6 +300,49 @@ pub fn get_project_status(
         stacks,
         file_changes,
     })
+}
+
+fn entries_to_simple_stacks(
+    entries: &[StackEntry],
+    ctx: &mut CommandContext,
+    repo: &gix::Repository,
+) -> anyhow::Result<Vec<SimpleStack>> {
+    let mut stacks = vec![];
+    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    for entry in entries {
+        let stack = vb_state.get_stack(entry.id)?;
+        let branches = stack.branches();
+        let branches = branches.iter().filter(|b| !b.archived);
+        let mut simple_branches = vec![];
+        for branch in branches {
+            let commits = local_and_remote_commits(ctx, repo, branch, &stack)?;
+
+            if commits.is_empty() {
+                continue;
+            }
+
+            let simple_commits = commits
+                .into_iter()
+                .map(SimpleCommit::from)
+                .collect::<Vec<_>>();
+
+            simple_branches.push(SimpleBranch {
+                name: branch.name.to_string(),
+                description: branch.description.clone(),
+                commits: simple_commits,
+            });
+        }
+        if simple_branches.is_empty() {
+            continue;
+        }
+
+        stacks.push(SimpleStack {
+            id: entry.id,
+            name: entry.name().unwrap_or_default().to_string(),
+            branches: simple_branches,
+        });
+    }
+    Ok(stacks)
 }
 
 fn get_file_changes(
