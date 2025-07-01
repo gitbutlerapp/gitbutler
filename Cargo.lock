@@ -812,6 +812,8 @@ dependencies = [
  "libsqlite3-sys",
  "serde",
  "tempfile",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -3337,7 +3339,6 @@ dependencies = [
  "gitbutler-watcher",
  "gix",
  "log",
- "once_cell",
  "open",
  "parking_lot",
  "reqwest 0.12.18",

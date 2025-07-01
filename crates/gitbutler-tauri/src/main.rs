@@ -15,7 +15,7 @@ use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::csp::csp_with_extras;
 use gitbutler_tauri::settings::SettingsStore;
 use gitbutler_tauri::{
-    action, askpass, cli, commands, config, db, diff, env, forge, github, logs, menu, modes, open,
+    action, askpass, cli, commands, config, diff, env, forge, github, logs, menu, modes, open,
     projects, remotes, repo, secret, settings, stack, undo, users, virtual_branches, workspace,
     zip, App, WindowState,
 };
@@ -307,8 +307,6 @@ fn main() {
                     diff::changes_in_branch,
                     diff::tree_change_diffs,
                     diff::assign_hunk,
-                    db::start_watching_db,
-                    db::stop_watching_db,
                     // `env_vars` is only supposed to be avaialble in debug mode, not in production.
                     #[cfg(debug_assertions)]
                     env::env_vars,

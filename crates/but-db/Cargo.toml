@@ -22,6 +22,9 @@ serde = { workspace = true, features = ["std"] }
 anyhow = "1.0.98"
 diesel_migrations = { version = "2.0.0", features = ["sqlite"] }
 chrono = { version = "0.4.41", features = ["serde"] }
+# other things
+tokio = { workspace = true, features = ["rt-multi-thread", "parking_lot"] }
+tracing.workspace = true
 
 [dev-dependencies]
 tempfile = "3.20.0"
