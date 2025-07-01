@@ -15,7 +15,7 @@ but-core.workspace = true
 
 gix.workspace = true
 bstr.workspace = true
-petgraph = { version = "0.8.1", default-features = false, features = ["stable_graph", "std"] }
+petgraph = { version = "0.8.2", default-features = false, features = ["stable_graph", "std"] }
 anyhow.workspace = true
 bitflags = "2.9.1"
 
