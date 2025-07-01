@@ -16,6 +16,10 @@ export class ActionService {
 	get branchChanges() {
 		return this.api.endpoints.autoBranchChanges.useMutation();
 	}
+
+	get absorb() {
+		return this.api.endpoints.absorb.useMutation();
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -38,6 +42,18 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'auto_branch_changes',
 					params: { projectId, changes },
 					actionName: 'Create a branch for the given changes'
+				}),
+				invalidatesTags: [
+					invalidatesList(ReduxTag.Stacks),
+					invalidatesList(ReduxTag.StackDetails),
+					invalidatesList(ReduxTag.WorktreeChanges)
+				]
+			}),
+			absorb: build.mutation<void, { projectId: string; changes: TreeChange[] }>({
+				query: ({ projectId, changes }) => ({
+					command: 'absorb',
+					params: { projectId, changes },
+					actionName: 'Absorb changes into the best matching branch and commit'
 				}),
 				invalidatesTags: [
 					invalidatesList(ReduxTag.Stacks),
