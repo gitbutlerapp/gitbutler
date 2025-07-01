@@ -1,4 +1,3 @@
-import { listen, invoke } from '$lib/backend/ipc';
 import { writable } from 'svelte/store';
 import type { Tauri } from '$lib/backend/tauri';
 import type { ProjectsService } from '$lib/project/projectsService';
@@ -6,11 +5,13 @@ import type { ProjectsService } from '$lib/project/projectsService';
 export class SettingsService {
 	readonly appSettings = writable<AppSettings | undefined>(undefined, () => {
 		this.refresh();
-		const unsubscribe = this.subscribe(async (settings) => await this.handlePayload(settings));
+		const unsubscribe = this.listen(async (settings) => await this.handlePayload(settings));
 		return () => {
 			unsubscribe();
 		};
 	});
+
+	readonly subscribe = this.appSettings.subscribe;
 
 	constructor(
 		private tauri: Tauri,
@@ -22,33 +23,33 @@ export class SettingsService {
 	}
 
 	async refresh() {
-		const response = await invoke<AppSettings>('get_app_settings');
+		const response = await this.tauri.invoke<AppSettings>('get_app_settings');
 		const settings = response;
 		this.handlePayload(settings);
 	}
 
-	private subscribe(callback: (settings: AppSettings) => void) {
-		return listen<AppSettings>(`settings://update`, (event) => callback(event.payload));
+	private listen(callback: (settings: AppSettings) => void) {
+		return this.tauri.listen<AppSettings>(`settings://update`, (event) => callback(event.payload));
 	}
 
 	async updateOnboardingComplete(update: boolean) {
-		await invoke('update_onboarding_complete', { update });
+		await this.tauri.invoke('update_onboarding_complete', { update });
 	}
 
 	async updateTelemetry(update: Partial<TelemetrySettings>) {
-		await invoke('update_telemetry', { update });
+		await this.tauri.invoke('update_telemetry', { update });
 	}
 
 	async updateTelemetryDistinctId(appDistinctId: string | null) {
-		await invoke('update_telemetry_distinct_id', { appDistinctId });
+		await this.tauri.invoke('update_telemetry_distinct_id', { appDistinctId });
 	}
 
 	async updateFeatureFlags(update: Partial<FeatureFlags>) {
 		// Doing a call to list_virtual_branches first to ensure the stack.tree properties are updated
-		await invoke<any>('list_virtual_branches', {
+		await this.tauri.invoke<any>('list_virtual_branches', {
 			projectId: this.projectsService.getLastOpenedProject()
 		});
-		await invoke('update_feature_flags', { update });
+		await this.tauri.invoke('update_feature_flags', { update });
 	}
 
 	/**

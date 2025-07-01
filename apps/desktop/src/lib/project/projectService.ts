@@ -10,11 +10,13 @@ import type { Readable } from 'svelte/store';
 
 export class ProjectService {
 	project: Readable<Project | undefined>;
+	subscribe: typeof this.project.subscribe;
 
 	constructor(
 		projectsService: ProjectsService,
 		readonly projectId: string
 	) {
 		this.project = projectsService.getProjectStore(projectId);
+		this.subscribe = this.project.subscribe;
 	}
 }
