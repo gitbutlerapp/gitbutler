@@ -508,6 +508,7 @@ pub(crate) mod function {
                 id,
                 commits,
                 commits_on_remote,
+                commits_by_segment: _,
                 metadata,
                 is_entrypoint,
             }: but_graph::projection::StackSegment,
@@ -545,10 +546,7 @@ pub(crate) mod function {
                 inner,
                 relation: if c.flags.contains(StackCommitFlags::Integrated) {
                     LocalCommitRelation::Integrated
-                } else if c
-                    .flags
-                    .contains(StackCommitFlags::ReachableByMatchingRemote)
-                {
+                } else if c.flags.contains(StackCommitFlags::ReachableByRemote) {
                     LocalCommitRelation::LocalAndRemote(c.id)
                 } else {
                     LocalCommitRelation::LocalOnly

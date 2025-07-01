@@ -255,7 +255,7 @@ pub struct EntryPoint<'graph> {
 /// The idea is to write code that keeps edge information consistent, and our visualization tools hightlights
 /// issues with the inherent invariants.
 #[derive(Debug, Copy, Clone)]
-struct Edge {
+pub struct Edge {
     /// `None` if the source segment has no commit.
     src: Option<CommitIndex>,
     /// The commit id at `src` in the segment commit list.

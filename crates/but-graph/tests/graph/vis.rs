@@ -24,7 +24,6 @@ fn post_graph_traversal() -> anyhow::Result<()> {
     };
 
     let local_target = graph.insert_root(local_target);
-    // TODO: another two branches on top of base, empty to be filled.
     graph.connect_new_segment(
         local_target,
         None,
@@ -74,14 +73,14 @@ fn post_graph_traversal() -> anyhow::Result<()> {
 
     insta::assert_snapshot!(graph_tree(&graph), @r"
     └── 👉📕►►►:0:main <> origin/main
-        ├── ►:3:A <> origin/A
-        │   ├── 🟣aaaaaaa (🏘️)
-        │   └── 🟣febafeb (🏘️)
-        │       └── ►:4:origin/A
-        │           └── ✂️🟣bbbbbbb
+        ├── ►:1:new-stack
         ├── ►:2:origin/main
         │   └── ✂️🟣ccccccc
-        └── ►:1:new-stack
+        └── ►:3:A <> origin/A
+            ├── 🟣aaaaaaa (🏘️)
+            └── 🟣febafeb (🏘️)
+                └── ►:4:origin/A
+                    └── ✂️🟣bbbbbbb
     ");
 
     Ok(())
@@ -256,7 +255,9 @@ pub(crate) mod utils {
         }
         let connected_segments = {
             let mut m = BTreeMap::<_, Vec<_>>::new();
-            for (cidx, sidx) in graph.segments_on_top(sidx) {
+            let below = graph.segments_below_in_order(sidx).collect::<Vec<_>>();
+            for (cidx, sidx) in below {
+                // for (cidx, sidx) in graph.segments_below(sidx) {
                 m.entry(cidx).or_default().push(sidx);
             }
             m

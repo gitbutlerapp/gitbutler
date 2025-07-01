@@ -1,10 +1,11 @@
-use crate::projection::{Stack, StackCommitFlags, StackSegment};
+use crate::projection::{Stack, StackCommit, StackCommitFlags, StackSegment};
 use crate::{CommitFlags, Graph, Segment, SegmentIndex};
 use anyhow::Context;
 use but_core::ref_metadata;
 use gix::reference::Category;
 use petgraph::Direction;
 use petgraph::prelude::EdgeRef;
+use petgraph::visit::NodeRef;
 use std::collections::{BTreeSet, VecDeque};
 use std::fmt::Formatter;
 use tracing::instrument;
@@ -95,9 +96,9 @@ impl Graph {
             let ep = self.lookup_entrypoint()?;
             match ep.segment.workspace_metadata() {
                 None => {
-                    if ep
-                        .segment
-                        .non_empty_flags_of_first_commit()
+                    // Skip over empty segments.
+                    if ep.segment.non_empty_flags_of_first_commit()
+                        .or_else(||self.find_map_downwards_along_first_parent(ep.segment_index, |s| s.commits.first().map(|c|c.flags)))
                         .is_some_and(|f| {
                             f.contains(CommitFlags::InWorkspace)
                                 && !f.contains(CommitFlags::Integrated)
@@ -205,6 +206,10 @@ impl Graph {
                             s.commits
                                 .first()
                                 .is_none_or(|c| !c.flags.contains(CommitFlags::Integrated))
+                                && self
+                                    .inner
+                                    .neighbors_directed(s.id, Direction::Incoming)
+                                    .all(|n| n.id() != ws_tip_segment.id)
                         },
                         |s| {
                             s.commits
@@ -244,6 +249,7 @@ impl Graph {
             );
         }
 
+        ws.mark_remote_reachability()?;
         Ok(ws)
     }
 }
@@ -282,6 +288,51 @@ impl Graph {
             }
         }
         (out, stopped_at)
+    }
+
+    /// Visit the ancestry of `start` along the first parents, itself included, until `stop` returns `true`.
+    /// Also return the segment that we stopped at.
+    /// **Important**: `stop` is not called with `start`, this is a feature.
+    ///
+    /// Note that the traversal assumes as well-segmented graph without cycles.
+    fn visit_segments_along_first_parent_until(
+        &self,
+        start: SegmentIndex,
+        mut stop: impl FnMut(&Segment) -> bool,
+    ) {
+        let mut edge = self.inner.edges_directed(start, Direction::Outgoing).last();
+        let mut seen = BTreeSet::new();
+        while let Some(first_edge) = edge {
+            let next = &self[first_edge.target()];
+            if stop(next) {
+                break;
+            }
+            if seen.insert(next.id) {
+                edge = self
+                    .inner
+                    .edges_directed(next.id, Direction::Outgoing)
+                    .last();
+            }
+        }
+    }
+
+    /// Visit all segments from `start`, excluding, and return once `find` returns something mapped from the
+    /// first suitable segment it encountered.
+    fn find_map_downwards_along_first_parent<T>(
+        &self,
+        start: SegmentIndex,
+        mut find: impl FnMut(&Segment) -> Option<T>,
+    ) -> Option<T> {
+        let mut out = None;
+        self.visit_segments_along_first_parent_until(start, |s| {
+            if let Some(res) = find(s) {
+                out = Some(res);
+                true
+            } else {
+                false
+            }
+        });
+        out
     }
 
     /// Return `OK(None)` if the post-process discarded this segment after collecting it in full as it was not
@@ -359,7 +410,7 @@ impl Graph {
             out.truncate(new_len);
         }
 
-        // TODO: remove the hack of avoiding empty segments as special case, reove .is_empty() condition
+        // TODO: remove the hack of avoiding empty segments as special case, remove .is_empty() condition
         let mut is_pruned = |s: &StackSegment| {
             !s.commits.is_empty() && (!is_entrypoint_or_local(s) || discard_stack(s))
         };
@@ -432,6 +483,113 @@ impl Graph {
             );
         }
         None
+    }
+}
+
+/// More processing
+impl Workspace<'_> {
+    // NOTE: it's a disadvantage to not do this on graph level - then all we'd need is
+    //       - a remote_sidx to know which segment belongs to our remote tracking ref (for ease of use)
+    //       - an identity set for each remote ref
+    //       - a field that tells us the identity bit on the remote segment, so we can check if it's set.
+    //       Now we basically re-do the remote tracking in the workspace projection, which is always a bit
+    //       awkward to do.
+    fn mark_remote_reachability(&mut self) -> anyhow::Result<()> {
+        let remote_refs: Vec<_> = self
+            .stacks
+            .iter()
+            .flat_map(|s| {
+                s.segments
+                    .iter()
+                    // TODO: it would be good to keep the remote_sidx for later so we don't have to 'find' it, on graph level.
+                    .filter_map(|s| s.remote_tracking_ref_name.as_ref().cloned())
+            })
+            .collect();
+        let graph = self.graph;
+        for remote_tracking_ref_name in remote_refs {
+            let Some(remote_sidx) = graph
+                .inner
+                .node_indices()
+                .find(|sidx| graph[*sidx].ref_name.as_ref() == Some(&remote_tracking_ref_name))
+            else {
+                tracing::error!(
+                    "BUG: Stack had remote reference '{rn}' that didn't have a node in graph",
+                    rn = remote_tracking_ref_name.as_bstr()
+                );
+                continue;
+            };
+            let mut remote_commits = Vec::new();
+            graph.visit_all_segments_until(remote_sidx, Direction::Outgoing, |s| {
+                let prune = !s.commits.iter().all(|c| c.flags.is_remote())
+                    // Do not 'steal' commits from other known remote segments while they are officially connected.
+                    || (s.id != remote_sidx
+                    && s.ref_name
+                    .as_ref()
+                    .is_some_and(|orn| orn.category() == Some(Category::RemoteBranch)));
+                if prune {
+                    // See if this segment links to a commit we know as local, and mark it accordingly,
+                    // along with all segments in that stack.
+                    for stack in &mut self.stacks {
+                        let Some((first_segment, first_commit_index)) =
+                            stack.segments.iter().enumerate().find_map(|(os_idx, os)| {
+                                os.commits_by_segment
+                                    .iter()
+                                    .find_map(|(sidx, commit_ofs)| {
+                                        (*sidx == s.id).then_some(commit_ofs)
+                                    })
+                                    .map(|commit_ofs| (os_idx, *commit_ofs))
+                            })
+                        else {
+                            continue;
+                        };
+
+                        let mut first_commit_index = Some(first_commit_index);
+                        for segment in &mut stack.segments[first_segment..] {
+                            let remote_reachable = StackCommitFlags::ReachableByRemote
+                                | if segment.remote_tracking_ref_name.as_ref()
+                                    == Some(&remote_tracking_ref_name)
+                                {
+                                    StackCommitFlags::ReachableByMatchingRemote
+                                } else {
+                                    StackCommitFlags::empty()
+                                };
+                            for commit in &mut segment.commits
+                                [first_commit_index.take().unwrap_or_default()..]
+                            {
+                                commit.flags |= remote_reachable;
+                            }
+                        }
+                        // keep looking - other stacks can repeat the segment!
+                        continue;
+                    }
+                } else {
+                    for commit in &s.commits {
+                        remote_commits.push(StackCommit::from_graph_commit(commit));
+                    }
+                }
+                prune
+            });
+
+            // Have to keep looking for matching segments, they can be mentioned multiple times.
+            let mut found_segment = false;
+            let remote_commits: Vec<_> = remote_commits.into_iter().collect::<Result<_, _>>()?;
+            for local_segment_with_this_remote in self.stacks.iter_mut().flat_map(|stack| {
+                stack.segments.iter_mut().filter_map(|s| {
+                    (s.remote_tracking_ref_name.as_ref() == Some(&remote_tracking_ref_name))
+                        .then_some(s)
+                })
+            }) {
+                found_segment = true;
+                local_segment_with_this_remote.commits_on_remote = remote_commits.clone();
+            }
+            if found_segment {
+                tracing::error!(
+                    "BUG: Couldn't find local segment with remote tracking ref '{rn}' - remote commits for it seem to be missing",
+                    rn = remote_tracking_ref_name.as_bstr()
+                );
+            }
+        }
+        Ok(())
     }
 }
 

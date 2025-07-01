@@ -1209,11 +1209,9 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
         &["dependant"],
     );
 
-    // TODO(head_info2): 'advanced-lane' has to keep its commit even when moved up.
-    //                    The only way to know that preference is to treat it specially due to remote.
-    // TODO(head_info2): don't forget tests that also see what happens if there is no remote - then
-    //                   the commit has to go to just the bottom-branch by convention.
-    let info = head_info(&repo, &*meta, opts)?;
+    // Even though we *could* special-case this to keep the commit in the branch that has a remote,
+    // we just keep it below at all times. The frontend currently only creates them on top, for good reason.
+    let info = head_info2(&repo, &*meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -1223,17 +1221,13 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
         ),
         stacks: [
             Stack {
-                base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
+                base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: 4,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
-                        commits: [
-                            LocalCommit(cbc6713, "change\n", local/remote(identity)),
-                        ],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -1242,10 +1236,12 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: 5,
                         ref_name: "refs/heads/dependant",
                         remote_tracking_ref_name: "None",
-                        commits: [],
+                        commits: [
+                            LocalCommit(cbc6713, "change\n", local/remote(identity)),
+                        ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -1263,8 +1259,8 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
             ),
         ),
         is_managed_ref: true,
-        is_managed_commit: false,
-        is_entrypoint: false,
+        is_managed_commit: true,
+        is_entrypoint: true,
     }
     "#);
     Ok(())
@@ -1729,8 +1725,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
     }
 
     let opts = standard_options();
-    // TODO(head_info2): prefer stacks instead of segments, avoid double-listing then!
-    let info = head_info(&repo, &*meta, opts.clone())?;
+    let info = head_info2(&repo, &*meta, opts.clone())?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -1740,15 +1735,15 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         ),
         stacks: [
             Stack {
-                base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
+                base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: 3,
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
-                        commits: [],
+                        commits: [
+                            LocalCommit(fafd9d0, "init\n", local, ►main),
+                        ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -1760,11 +1755,71 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 stash_status: None,
             },
             Stack {
-                base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
+                base: None,
                 segments: [
                     ref_info::ui::Segment {
+                        id: 2,
+                        ref_name: "refs/heads/advanced-lane",
+                        remote_tracking_ref_name: "None",
+                        commits: [
+                            LocalCommit(cbc6713, "change\n", local),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Branch {
+                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                            description: None,
+                            review: Review { pull_request: None, review_id: None },
+                        },
+                    },
+                ],
+                stash_status: None,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+        is_managed_ref: true,
+        is_managed_commit: true,
+        is_entrypoint: true,
+    }
+    "#);
+
+    // Everything is show so the workspace stays clear, the entrypoint says what to focus on.
+    let info = ref_info2(repo.find_reference("advanced-lane")?, &*meta, opts.clone())?;
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [
+            Stack {
+                base: None,
+                segments: [
+                    ref_info::ui::Segment {
+                        id: 3,
+                        ref_name: "refs/heads/lane",
+                        remote_tracking_ref_name: "None",
+                        commits: [
+                            LocalCommit(fafd9d0, "init\n", local, ►main),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Branch {
+                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                            description: None,
+                            review: Review { pull_request: None, review_id: None },
+                        },
+                    },
+                ],
+                stash_status: None,
+            },
+            Stack {
+                base: None,
+                segments: [
+                    👉ref_info::ui::Segment {
                         id: 0,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
@@ -1788,12 +1843,12 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
             ),
         ),
         is_managed_ref: true,
-        is_managed_commit: false,
+        is_managed_commit: true,
         is_entrypoint: false,
     }
     "#);
 
-    let info = ref_info(repo.find_reference("advanced-lane")?, &*meta, opts.clone())?;
+    let info = ref_info2(repo.find_reference("lane")?, &*meta, opts.clone())?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -1803,12 +1858,30 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         ),
         stacks: [
             Stack {
-                base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
+                base: None,
+                segments: [
+                    👉ref_info::ui::Segment {
+                        id: 0,
+                        ref_name: "refs/heads/lane",
+                        remote_tracking_ref_name: "None",
+                        commits: [
+                            LocalCommit(fafd9d0, "init\n", local, ►main),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Branch {
+                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                            description: None,
+                            review: Review { pull_request: None, review_id: None },
+                        },
+                    },
+                ],
+                stash_status: None,
+            },
+            Stack {
+                base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: 3,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -1831,48 +1904,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
             ),
         ),
         is_managed_ref: true,
-        is_managed_commit: false,
-        is_entrypoint: false,
-    }
-    "#);
-
-    let info = ref_info(repo.find_reference("lane")?, &*meta, opts.clone())?;
-    insta::assert_debug_snapshot!(info, @r#"
-    RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
-        ),
-        stacks: [
-            Stack {
-                base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
-                segments: [
-                    ref_info::ui::Segment {
-                        id: 0,
-                        ref_name: "refs/heads/lane",
-                        remote_tracking_ref_name: "None",
-                        commits: [],
-                        commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
-                    },
-                ],
-                stash_status: None,
-            },
-        ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
-        ),
-        is_managed_ref: true,
-        is_managed_commit: false,
+        is_managed_commit: true,
         is_entrypoint: false,
     }
     "#);
@@ -1888,7 +1920,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         );
     }
 
-    let info = head_info(&repo, &*meta, opts)?;
+    let info = head_info2(&repo, &*meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -1898,12 +1930,10 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         ),
         stacks: [
             Stack {
-                base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
+                base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: 2,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -1920,15 +1950,15 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 stash_status: None,
             },
             Stack {
-                base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
+                base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: 3,
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
-                        commits: [],
+                        commits: [
+                            LocalCommit(fafd9d0, "init\n", local, ►main),
+                        ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -1946,8 +1976,8 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
             ),
         ),
         is_managed_ref: true,
-        is_managed_commit: false,
-        is_entrypoint: false,
+        is_managed_commit: true,
+        is_entrypoint: true,
     }
     "#);
     Ok(())

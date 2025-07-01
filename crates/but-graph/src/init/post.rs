@@ -28,7 +28,6 @@ impl Graph {
         }
 
         self.workspace_upgrades(meta)?;
-        self.fill_flags_at_border_segments()?;
         self.non_workspace_adjustments(
             repo,
             symbolic_remote_names,
@@ -38,41 +37,20 @@ impl Graph {
         Ok(self)
     }
 
-    /// Borders are special as these are not fully traversed segments, so their flags might be partial.
-    /// Here we want to assure that segments with local branch names have `NotInRemote` set
-    /// (just to indicate they are local first).
-    fn fill_flags_at_border_segments(&mut self) -> anyhow::Result<()> {
-        for segment in self.partial_segments().collect::<Vec<_>>() {
-            let segment = &mut self[segment];
-            // Partial segments are naturally the end, so no need to propagate flags.
-            // Note that this is usually not relevant except for yielding more correct looking graphs.
-            let is_named_and_local = segment
-                .ref_name
-                .as_ref()
-                .is_some_and(|rn| rn.category() == Some(Category::LocalBranch));
-            if is_named_and_local {
-                for commit in segment.commits.iter_mut() {
-                    // We set this flag as the *lack* of it means it's in a remote, which is definitely wrong
-                    // knowing that we know what's purely remote by looking at the absence of this flag.
-                    commit.flags |= CommitFlags::NotInRemote;
-                }
-            }
-        }
-        Ok(())
-    }
-
     /// Perform operations on segments that can reach a workspace segment when searching upwards.
     ///
     /// * insert empty segments as defined by the workspace that affects its downstream.
+    /// * put workspace connection into the order defined in the workspace metadata.
     fn workspace_upgrades(&mut self, meta: &impl RefMetadata) -> anyhow::Result<()> {
+        let tips_with_ws_data: Vec<_> = self
+            .tip_segments()
+            .filter(|sidx| self.inner[*sidx].workspace_metadata().is_some())
+            .collect();
+
         // Maps any segment to any workspace that it can reach, even the workspace maps itself as it may need processing too
         let mut ws_by_segment_map =
             BTreeMap::<SegmentIndex, Vec<(SegmentIndex, std::ops::Range<CommitIndex>)>>::new();
-
-        for ws_sidx in self
-            .tip_segments()
-            .filter(|sidx| self.inner[*sidx].workspace_metadata().is_some())
-        {
+        for ws_sidx in tips_with_ws_data.iter().cloned() {
             let start_idx = self[ws_sidx].commits.first().map(|_| 0);
             let mut walk = TopoWalk::start_from(ws_sidx, start_idx, Direction::Outgoing);
 
@@ -159,6 +137,50 @@ impl Graph {
                 // Keep only the commits that weren't reassigned to other segments.
                 segment.commits.truncate(truncate_from);
                 delete_anon_if_empty_and_reconnect(self, orig_sidx);
+            }
+        }
+
+        // Redo workspace outgoing connections according to desired stack order.
+        for ws_tip in tips_with_ws_data {
+            let ws_data = &self[ws_tip]
+                .workspace_metadata()
+                .expect("tips are chosen because they have metadata");
+            let mut edges_pointing_to_named_segment = self
+                .edges_directed_in_order_of_creation(ws_tip, Direction::Outgoing)
+                .into_iter()
+                .map(|e| {
+                    let rn = self[e.target()].ref_name.clone();
+                    (e.id(), e.target(), rn)
+                })
+                .collect::<Vec<_>>();
+
+            let edges_original_order: Vec<_> = edges_pointing_to_named_segment
+                .iter()
+                .map(|(_e, sidx, _rn)| *sidx)
+                .collect();
+            edges_pointing_to_named_segment.sort_by_key(|(_e, sidx, rn)| {
+                let res = ws_data.stacks.iter().position(|s| {
+                    s.branches
+                        .first()
+                        .is_some_and(|b| Some(&b.ref_name) == rn.as_ref())
+                });
+                // This makes it so that edges that weren't mentioned in workspace metadata
+                // retain their relative order, with first-come-first-serve semantics.
+                // The expected case is that each segment is defined.
+                res.or_else(|| {
+                    edges_original_order
+                        .iter()
+                        .position(|sidx_for_order| sidx_for_order == sidx)
+                })
+            });
+
+            for (eid, target_sidx, _) in edges_pointing_to_named_segment {
+                let weight = self
+                    .inner
+                    .remove_edge(eid)
+                    .expect("we found the edge before");
+                // Reconnect according to the new order.
+                self.inner.add_edge(ws_tip, target_sidx, weight);
             }
         }
         Ok(())

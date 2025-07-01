@@ -2,8 +2,6 @@ use crate::{CommitFlags, Graph, SegmentIndex, SegmentMetadata};
 use anyhow::{Context, bail};
 use bitflags::bitflags;
 use but_core::ref_metadata;
-use gix::reference::Category;
-use petgraph::Direction;
 use std::fmt::Formatter;
 
 /// A list of segments that together represent a list of dependent branches, stacked on top of each other.
@@ -70,6 +68,7 @@ pub struct StackSegment {
     pub remote_tracking_ref_name: Option<gix::refs::FullName>,
     /// An ID which uniquely identifies the [first graph segment](crate::Segment) that is contained
     /// in this instance.
+    /// This is always the first id in the `commits_by_segment`.
     /// Note that it's not suitable to permanently identify the segment, so should not be persisted,
     /// and is only stable within this graph as it exists right now. Traversing the graph again will yield
     /// different IDs in an unpredictable way as the underlying commit-graph may have changed.
@@ -81,6 +80,10 @@ pub struct StackSegment {
     ///
     /// The list could be empty for when this is a dedicated empty segment as insertion position of commits.
     pub commits: Vec<StackCommit>,
+    /// A mapping of `(segment_idx, offset)` to know which segment contributed the commits of the
+    /// given range.
+    /// This is useful to be able to retain the ability to associate a commit to a segment in the graph.
+    pub commits_by_segment: Vec<(SegmentIndex, usize)>,
     /// Commits that are *only* reachable from the tip of the remote-tracking branch that is associated with this branch,
     /// down to the first (and possibly unrelated) non-remote commit.
     /// Note that these commits may not have an actual commit-graph connection to the local
@@ -129,9 +132,6 @@ impl StackSegment {
             .next()
             .context("BUG: need one or more segments")?;
 
-        // TODO: copy the ReachableByMatchingRemote down to all segments from the first commit that has them,
-        //       as they are only detected (and set) on named commits, not their anonymous 'splits'.
-        //       Is this not sufficiently done below? I think so - needs test.
         let mut commits_by_segment = Vec::new();
         for s in segments {
             let mut stack_commits = Vec::new();
@@ -140,75 +140,6 @@ impl StackSegment {
             }
             commits_by_segment.push((s.id, stack_commits));
         }
-        let commits_on_remote = (|| -> anyhow::Result<_> {
-            if remote_tracking_ref_name.is_none() {
-                return Ok(Vec::new());
-            }
-            let Some(remote_sidx) = graph
-                .inner
-                .node_indices()
-                .find(|sidx| &graph[*sidx].ref_name == remote_tracking_ref_name)
-            else {
-                tracing::warn!(
-                    "BUG: didn't find remote tracking ref '{:?}' in graph even though it should have been traversed",
-                    remote_tracking_ref_name
-                );
-                return Ok(Vec::new());
-            };
-
-            let mut v = Vec::new();
-            graph.visit_all_segments_until(remote_sidx, Direction::Outgoing, |s| {
-                let prune = !s.commits.iter().all(|c| c.flags.is_remote())
-                    // Do not 'steal' commits from other known remote segments while they are officially connected.
-                    || (s.id != remote_sidx
-                        && s.ref_name
-                            .as_ref()
-                            .is_some_and(|orn| orn.category() == Some(Category::RemoteBranch)));
-                if prune {
-                    // See if this segment links to a commit we know as local, and mark it accordingly.
-                    // `s` may be in `segments`, let's find it and mark all its commits (and all that follow).
-                    if let Some(idx) = commits_by_segment
-                        .iter()
-                        .enumerate()
-                        .find_map(|(idx, (our_sid, _))| (*our_sid == s.id).then_some(idx))
-                    {
-                        for (_, commits) in &mut commits_by_segment[idx..] {
-                            for commit in commits {
-                                let remote_reachable = StackCommitFlags::ReachableByMatchingRemote
-                                    | StackCommitFlags::ReachableByRemote;
-                                commit.flags |= remote_reachable;
-                            }
-                        }
-                    }
-                } else {
-                    for commit in &s.commits {
-                        v.push(StackCommit::from_graph_commit(commit));
-                    }
-                }
-                prune
-            });
-            v.into_iter().collect()
-        })()?;
-
-        // If any of our segments is connected to any remote segment, all its commits must be frozen,
-        // as well as all that follow.
-        'outer: for (idx, (sidx, _)) in commits_by_segment.iter().enumerate() {
-            for incoming_sidx in graph.inner.neighbors_directed(*sidx, Direction::Incoming) {
-                if graph[incoming_sidx]
-                    .commits
-                    .first()
-                    .is_some_and(|c| c.flags.is_remote())
-                {
-                    for (_, commits_of_segment) in &mut commits_by_segment[idx..] {
-                        for commit in commits_of_segment {
-                            commit.flags |= StackCommitFlags::ReachableByRemote;
-                        }
-                    }
-                    break 'outer;
-                }
-            }
-        }
-
         // The last (actual) segment could be partial.
         if let Some(commits) = commits_by_segment
             .last_mut()
@@ -223,11 +154,23 @@ impl StackSegment {
             ref_name: ref_name.clone(),
             id: *id,
             remote_tracking_ref_name: remote_tracking_ref_name.clone(),
+            commits_by_segment: {
+                let mut ofs = 0;
+                commits_by_segment
+                    .iter()
+                    .map(|(sidx, commits)| {
+                        let res = (*sidx, ofs);
+                        ofs += commits.len();
+                        res
+                    })
+                    .collect()
+            },
             commits: commits_by_segment
                 .into_iter()
                 .flat_map(|(_sid, commits)| commits)
                 .collect(),
-            commits_on_remote,
+            // Will be set later once all stacks are known.
+            commits_on_remote: Vec::new(),
             metadata: metadata
                 .as_ref()
                 .map(|md| match md {
