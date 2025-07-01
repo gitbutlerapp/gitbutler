@@ -1,9 +1,11 @@
 use std::sync::Arc;
 
-use but_graph::VirtualBranchesTomlMetadata;
+use but_workspace::ui::StackEntry;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::{OplogExt, SnapshotExt};
+use gitbutler_stack::{PatchReferenceUpdate, VirtualBranchesHandle};
 use schemars::{JsonSchema, schema_for};
+use serde_json::json;
 
 use crate::emit::EmitStackUpdate;
 use crate::tool::{Tool, Toolset};
@@ -26,16 +28,76 @@ pub struct Commit;
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CommitParameters {
-    /// The commit message to use.
-    #[schemars(description = "The commit message to use")]
-    pub message: String,
+    /// The commit title.
+    #[schemars(description = "
+    <description>
+        The commit message title.
+        This is only a short summary of the commit.
+    </description>
+
+    <important_notes>
+        The commit message title should be concise and descriptive.
+        It is typically a single line that summarizes the changes made in the commit.
+        For example: 'Fix issue with user login' or 'Update README with installation instructions'.
+        Don't excede 50 characters in length.
+    </important_notes>
+    ")]
+    pub message_title: String,
+    /// The commit description.
+    #[schemars(description = "
+    <description>
+        The commit message body.
+        This is a more detailed description of the changes made in the commit.
+    </description>
+
+    <important_notes>
+        The commit message body should provide context and details about the changes made.
+        It should span multiple lines if necessary.
+        A good description focuses on describing the 'what' of the changes.
+        Don't make assumption about the 'why', only describe the changes in the context of the branch (and other commits if any).
+    </important_notes>
+    ")]
+    pub message_body: String,
     /// The branch name to commit to.
-    #[schemars(description = "The branch name to commit to")]
+    #[schemars(description = "
+    <description>
+        The name of the branch to commit to.
+        If this is the name of a branch that does not exist, it will be created.
+    </description>
+
+    <important_notes>
+        The branch name should be a valid Git branch name.
+        It should not contain spaces or special characters.
+        Keep it to maximum 5 words, and use hyphens to separate words.
+        Don't use slashes or other special characters.
+    </important_notes>
+    ")]
     pub branch_name: String,
+    /// The branch description.
+    #[schemars(description = "
+    <description>
+        The description of the branch.
+        This is a short summary of the branch's purpose.
+        If the branch already exists, this will be overwritten with this description.
+    </description>
+
+    <important_notes>
+        The branch description should be a concise summary of the branch's purpose and changes.
+        It's important to keep it clear and informative.
+        This description should also point out which kind of changes should be assigned to this branch.
+    </important_notes>
+    ")]
+    pub branch_description: String,
     /// The list of files to commit.
-    #[schemars(
-        description = "The list of files to commit. This should be the paths of the files relative to the project root."
-    )]
+    #[schemars(description = "
+        <description>
+            The list of file paths to commit.
+        </description>
+
+        <important_notes>
+            The file paths should be relative to the workspace root.
+        </important_notes>
+        ")]
     pub files: Vec<String>,
 }
 
@@ -48,7 +110,17 @@ impl Tool for Commit {
     }
 
     fn description(&self) -> String {
-        "Commit the file changes into a branch".to_string()
+        "
+        <description>
+            Commit file changes to a branch in the workspace.
+        </description>
+
+        <important_notes>
+            This tool allows you to commit changes to a specific branch in the workspace.
+            You can specify the commit message, target branch name, and a list of file paths to commit.
+            If the branch does not exist, it will be created.
+        </important_notes>
+        ".to_string()
     }
 
     fn parameters(&self) -> serde_json::Value {
@@ -65,7 +137,21 @@ impl Tool for Commit {
         let params: CommitParameters = serde_json::from_value(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
 
-        create_commit(ctx, app_handle, params)
+        let value = create_commit(ctx, app_handle, params)
+            .map(|outcome| {
+                serde_json::to_value(outcome).unwrap_or_else(|e| {
+                    json!({
+                        "error": format!("Failed to serialize commit outcome: {}", e),
+                    })
+                })
+            })
+            .unwrap_or_else(|e| {
+                json!({
+                    "error": format!("Failed to create commit: {}", e),
+                })
+            });
+
+        Ok(value)
     }
 }
 
@@ -73,11 +159,12 @@ pub fn create_commit(
     ctx: &mut CommandContext,
     app_handle: Option<&tauri::AppHandle>,
     params: CommitParameters,
-) -> Result<serde_json::Value, anyhow::Error> {
+) -> Result<but_workspace::commit_engine::ui::CreateCommitOutcome, anyhow::Error> {
     let repo = ctx.gix_repo()?;
     let mut guard = ctx.project().exclusive_worktree_access();
-
     let worktree = but_core::diff::worktree_changes(&repo)?;
+    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+
     let file_changes: Vec<but_workspace::DiffSpec> = worktree
         .changes
         .iter()
@@ -89,19 +176,49 @@ pub fn create_commit(
 
     let stack_id = stacks
         .iter()
-        .find(|s| s.heads.iter().any(|h| h.name == params.branch_name))
-        .map(|s| s.id)
-        .ok_or_else(|| anyhow::anyhow!("Branch '{}' not found", params.branch_name))?;
+        .find_map(|s| {
+            let found = s.heads.iter().any(|h| h.name == params.branch_name);
+            if found { Some(s.id) } else { None }
+        })
+        .unwrap_or_else(|| {
+            let perm = guard.write_permission();
+
+            let branch = gitbutler_branch::BranchCreateRequest {
+                name: Some(params.branch_name.clone()),
+                ..Default::default()
+            };
+
+            let stack = gitbutler_branch_actions::create_virtual_branch(ctx, &branch, perm)
+                .expect("Failed to create virtual branch");
+            stack.id
+        });
+
+    // Update the branch description.
+    let mut stack = vb_state.get_stack(stack_id)?;
+    stack.update_branch(
+        ctx,
+        params.branch_name.clone(),
+        &PatchReferenceUpdate {
+            description: Some(Some(params.branch_description)),
+            ..Default::default()
+        },
+    )?;
 
     let snapshot_tree = ctx.prepare_snapshot(guard.read_permission());
+
+    let message = format!(
+        "{}\n\n{}",
+        params.message_title.trim(),
+        params.message_body.trim()
+    );
 
     let outcome = but_workspace::commit_engine::create_commit_simple(
         ctx,
         stack_id,
         None,
         file_changes,
-        params.message.clone(),
-        params.branch_name,
+        message.clone(),
+        params.branch_name.clone(),
         guard.write_permission(),
     );
 
@@ -109,7 +226,7 @@ pub fn create_commit(
         ctx.snapshot_commit_creation(
             snapshot_tree,
             outcome.as_ref().err(),
-            params.message,
+            message.clone(),
             None,
             guard.write_permission(),
         )
@@ -122,19 +239,19 @@ pub fn create_commit(
     }
 
     let outcome: but_workspace::commit_engine::ui::CreateCommitOutcome = outcome?.into();
-    let value = serde_json::to_value(&outcome)
-        .map_err(|e| anyhow::anyhow!("Failed to serialize commit outcome: {}", e))?;
-    Ok(value)
+    Ok(outcome)
 }
 
 fn stacks(
     ctx: &CommandContext,
     repo: &gix::Repository,
 ) -> anyhow::Result<Vec<but_workspace::ui::StackEntry>> {
-    let meta = VirtualBranchesTomlMetadata::from_path(
-        ctx.project().gb_dir().join("virtual_branches.toml"),
-    )?;
-    but_workspace::stacks_v3(repo, &meta, but_workspace::StacksFilter::InWorkspace)
+    but_workspace::stacks(
+        ctx,
+        &ctx.project().gb_dir(),
+        repo,
+        but_workspace::StacksFilter::InWorkspace,
+    )
 }
 
 pub struct CreateBranch;
@@ -142,23 +259,49 @@ pub struct CreateBranch;
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateBranchParameters {
-    /// The name of the new branch to create.
-    #[schemars(description = "The name of the new branch to create")]
+    /// The name of the branch to create.
+    #[schemars(description = "
+    <description>
+        The name of the branch to create.
+        If this is the name of a branch that does not exist, it will be created.
+    </description>
+
+    <important_notes>
+        The branch name should be a valid Git branch name.
+        It should not contain spaces or special characters.
+        Keep it to maximum 5 words, and use hyphens to separate words.
+        Don't use slashes or other special characters.
+    </important_notes>
+    ")]
     pub branch_name: String,
-    /// The description of the new branch.
-    #[schemars(
-        description = "The description of the new branch. This should be a short summary of the branch's purpose."
-    )]
-    pub description: String,
+    /// The branch description.
+    #[schemars(description = "
+    <description>
+        The description of the branch.
+        This is a short summary of the branch's purpose.
+    </description>
+
+    <important_notes>
+        The branch description should be a concise summary of the branch's purpose and changes.
+        It's important to keep it clear and informative.
+        This description should also point out which kind of changes should be assigned to this branch.
+    </important_notes>
+    ")]
+    pub branch_description: String,
 }
 
 impl Tool for CreateBranch {
     fn name(&self) -> String {
-        "createBranch".to_string()
+        "create_branch".to_string()
     }
 
     fn description(&self) -> String {
-        "Create a new branch in the workspace".to_string()
+        "
+        <description>
+            Create a new branch in the workspace.
+        </description>
+        "
+        .to_string()
     }
 
     fn parameters(&self) -> serde_json::Value {
@@ -175,7 +318,21 @@ impl Tool for CreateBranch {
         let params: CreateBranchParameters = serde_json::from_value(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
 
-        create_branch(ctx, app_handle, params)
+        let stack = create_branch(ctx, app_handle, params)
+            .map(|stack| {
+                serde_json::to_value(stack).unwrap_or_else(|e| {
+                    json!({
+                        "error": format!("Failed to serialize branch creation outcome: {}", e),
+                    })
+                })
+            })
+            .unwrap_or_else(|e| {
+                json!({
+                    "error": format!("Failed to create branch: {}", e),
+                })
+            });
+
+        Ok(stack)
     }
 }
 
@@ -183,16 +340,31 @@ pub fn create_branch(
     ctx: &mut CommandContext,
     app_handle: Option<&tauri::AppHandle>,
     params: CreateBranchParameters,
-) -> Result<serde_json::Value, anyhow::Error> {
+) -> Result<StackEntry, anyhow::Error> {
     let mut guard = ctx.project().exclusive_worktree_access();
     let perm = guard.write_permission();
+    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+
+    let name = params.branch_name;
+    let description = params.branch_description;
 
     let branch = gitbutler_branch::BranchCreateRequest {
-        name: Some(params.branch_name),
+        name: Some(name.clone()),
         ..Default::default()
     };
 
-    let stack = gitbutler_branch_actions::create_virtual_branch(ctx, &branch, perm)?;
+    let stack_entry = gitbutler_branch_actions::create_virtual_branch(ctx, &branch, perm)?;
+
+    // Update the branch description.
+    let mut stack = vb_state.get_stack(stack_entry.id)?;
+    stack.update_branch(
+        ctx,
+        name,
+        &PatchReferenceUpdate {
+            description: Some(Some(description)),
+            ..Default::default()
+        },
+    )?;
 
     // If there's an app handle provided, emit an event to update the stack details in the UI.
     if let Some(app_handle) = app_handle {
@@ -200,6 +372,5 @@ pub fn create_branch(
         app_handle.emit_stack_update(project_id, stack.id);
     }
 
-    let outcome = serde_json::to_value(stack)?;
-    Ok(outcome)
+    Ok(stack_entry)
 }

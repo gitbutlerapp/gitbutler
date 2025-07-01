@@ -990,6 +990,7 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-oplog",
  "gitbutler-project",
+ "gitbutler-stack",
  "gix",
  "schemars 0.9.0",
  "serde",

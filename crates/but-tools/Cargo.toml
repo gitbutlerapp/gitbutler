@@ -27,3 +27,4 @@ but-graph.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-project.workspace = true
+gitbutler-stack.workspace = true
