@@ -4,6 +4,7 @@
 	import Dropzone from '$components/Dropzone.svelte';
 	import FileList from '$components/v3/FileList.svelte';
 	import FileListMode from '$components/v3/FileListMode.svelte';
+	import UnassignedFoldButton from '$components/v3/UnassignedFoldButton.svelte';
 	import WorktreeChangesSelectAll from '$components/v3/WorktreeChangesSelectAll.svelte';
 	import { createCommitStore } from '$lib/commits/contexts';
 	import { UncommitDzHandler } from '$lib/commits/dropHandler';
@@ -62,6 +63,7 @@
 	const uncommitDzHandler = $derived(
 		new UncommitDzHandler(projectId, stackService, uiState, stackId)
 	);
+	const unassignedSidebaFolded = $derived(uiState.global.unassignedSidebaFolded);
 
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
@@ -97,6 +99,10 @@
 		} else {
 			return 'Unassign changes';
 		}
+	}
+
+	function foldUnnassignedView() {
+		unassignedSidebaFolded.set(true);
 	}
 </script>
 
@@ -138,12 +144,19 @@
 			parentId: stackId ? DefinedFocusable.ViewportRight : DefinedFocusable.ViewportLeft
 		}}
 	>
-		{#if mode !== 'assigned' || changes.current.length > 0}
+		{#if mode === 'unassigned'}
 			<div
+				role="presentation"
 				data-testid={TestId.UncommittedChanges_Header}
 				class="worktree-header"
 				class:sticked-top={!scrollTopIsVisible}
 			>
+				{#if !isCommitting}
+					<div class="worktree-header__fold">
+						<UnassignedFoldButton active={false} onclick={foldUnnassignedView} />
+					</div>
+				{/if}
+
 				<div class="worktree-header__general">
 					{#if isCommitting}
 						<WorktreeChangesSelectAll {stackId} />
@@ -187,11 +200,10 @@
 	.worktree-header {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
 		width: 100%;
 		height: 42px;
 		padding: 10px 10px 10px 14px;
-		gap: 8px;
+		gap: 6px;
 		border-bottom: 1px solid transparent;
 		background-color: var(--clr-bg-1);
 		text-wrap: nowrap;
@@ -200,9 +212,17 @@
 
 	.worktree-header__general {
 		display: flex;
+		flex: 1;
 		align-items: center;
 		overflow: hidden;
 		gap: 10px;
+	}
+
+	.worktree-header__fold {
+		display: flex;
+		/* Align this icon's position with the folded one.
+   	Prevent any position shifting or jumping. */
+		margin-left: -3px;
 	}
 
 	.worktree-header__title {

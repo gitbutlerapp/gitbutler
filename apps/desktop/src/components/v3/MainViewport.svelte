@@ -29,7 +29,9 @@ the window, then enlarge it and retain the original widths of the layout.
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { UiState } from '$lib/state/uiState.svelte';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import type { Snippet } from 'svelte';
 
@@ -61,6 +63,9 @@ the window, then enlarge it and retain the original widths of the layout.
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const zoom = $derived($userSettings.zoom);
+
+	const [uiState] = inject(UiState);
+	const unassignedSidebaFolded = $derived(uiState.global.unassignedSidebaFolded);
 
 	const defaultRightSideviewWidth = 480;
 	let leftSectionPreferredWidth = $derived(pxToRem(leftSectionWidth.default, zoom));
@@ -120,57 +125,62 @@ the window, then enlarge it and retain the original widths of the layout.
 	bind:clientWidth={containerBindWidth}
 	class:left-sideview-open={!!leftSideview}
 >
-	<!-- Default layout: no swapping -->
-	<div
-		class="left-section view-wrapper"
-		bind:this={leftSectionDiv}
-		style:width={derivedLeftSectionWidth + 'rem'}
-		style:min-width={leftSectionMinWidth + 'rem'}
-		use:focusable={{ id: DefinedFocusable.ViewportLeft, parentId: DefinedFocusable.MainViewport }}
-	>
-		<AsyncRender>
-			<div class="left-section-content">
-				{@render leftSection()}
-			</div>
-			<Resizer
-				viewport={leftSectionDiv}
-				direction="right"
-				minWidth={leftSectionMinWidth}
-				maxWidth={leftSectionMaxWidth}
-				imitateBorder
-				borderRadius={!leftSideview ? 'ml' : 'none'}
-				persistId="viewport-${name}-left-section"
-				onWidth={(width) => (leftSectionPreferredWidth = width)}
-			/>
-		</AsyncRender>
-	</div>
-
-	{#if leftSideview}
+	{#if !unassignedSidebaFolded.current}
 		<div
-			class="left-sideview view-wrapper"
-			bind:this={leftSideviewDiv}
-			style:width={derivedLeftSideviewWidth + 'rem'}
-			style:min-width={leftSideviewMinWidth + 'rem'}
-			use:focusable={{
-				id: DefinedFocusable.ViewportMiddle,
-				parentId: DefinedFocusable.MainViewport
-			}}
+			class="left-section view-wrapper"
+			bind:this={leftSectionDiv}
+			style:width={derivedLeftSectionWidth + 'rem'}
+			style:min-width={leftSectionMinWidth + 'rem'}
+			use:focusable={{ id: DefinedFocusable.ViewportLeft, parentId: DefinedFocusable.MainViewport }}
 		>
 			<AsyncRender>
-				<div class="left-sideview-content dotted-pattern">
-					{@render leftSideview()}
+				<div class="left-section__content">
+					{@render leftSection()}
 				</div>
 				<Resizer
-					viewport={leftSideviewDiv}
+					viewport={leftSectionDiv}
 					direction="right"
-					minWidth={leftSideviewMinWidth}
-					maxWidth={leftSideviewMaxWidth}
-					borderRadius="ml"
-					persistId="viewport-${name}-left-sideview"
-					defaultValue={pxToRem(leftSideviewWidth?.default, zoom)}
-					onWidth={(width) => (leftSideviewPreferredWidth = width)}
+					minWidth={leftSectionMinWidth}
+					maxWidth={leftSectionMaxWidth}
+					imitateBorder
+					borderRadius={!leftSideview ? 'ml' : 'none'}
+					persistId="viewport-${name}-left-section"
+					onWidth={(width) => (leftSectionPreferredWidth = width)}
 				/>
 			</AsyncRender>
+		</div>
+
+		{#if leftSideview}
+			<div
+				class="left-sideview view-wrapper"
+				bind:this={leftSideviewDiv}
+				style:width={derivedLeftSideviewWidth + 'rem'}
+				style:min-width={leftSideviewMinWidth + 'rem'}
+				use:focusable={{
+					id: DefinedFocusable.ViewportMiddle,
+					parentId: DefinedFocusable.MainViewport
+				}}
+			>
+				<AsyncRender>
+					<div class="left-sideview-content dotted-pattern">
+						{@render leftSideview()}
+					</div>
+					<Resizer
+						viewport={leftSideviewDiv}
+						direction="right"
+						minWidth={leftSideviewMinWidth}
+						maxWidth={leftSideviewMaxWidth}
+						borderRadius="ml"
+						persistId="viewport-${name}-left-sideview"
+						defaultValue={pxToRem(leftSideviewWidth?.default, zoom)}
+						onWidth={(width) => (leftSideviewPreferredWidth = width)}
+					/>
+				</AsyncRender>
+			</div>
+		{/if}
+	{:else}
+		<div class="left-section__folded">
+			{@render leftSection()}
 		</div>
 	{/if}
 
@@ -244,9 +254,20 @@ the window, then enlarge it and retain the original widths of the layout.
 		height: 100%;
 	}
 
-	.left-section-content {
+	.left-section__content {
 		display: flex;
 		flex-direction: column;
+		height: 100%;
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+	}
+
+	.left-section__folded {
+		display: flex;
+		flex-shrink: 0;
+		flex-direction: column;
+		width: 44px;
 		height: 100%;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
@@ -269,11 +290,12 @@ the window, then enlarge it and retain the original widths of the layout.
 		height: 100%;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
+		border-left-width: 0;
 		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
 		border-left-color: transparent;
 	}
 
-	.left-sideview-open .left-section-content {
+	.left-sideview-open .left-section__content {
 		border-radius: var(--radius-ml) 0 0 var(--radius-ml);
 		border-right-color: transparent;
 	}

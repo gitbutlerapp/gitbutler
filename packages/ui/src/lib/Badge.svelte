@@ -59,7 +59,6 @@
 		text-align: center;
 
 		/* SOLID */
-
 		&.neutral.solid {
 			background-color: var(--clr-scale-ntrl-40);
 			color: var(--clr-scale-ntrl-100);
@@ -125,14 +124,14 @@
 		&.icon-size {
 			min-width: var(--size-icon);
 			height: var(--size-icon);
-			padding: 0 3px;
+			padding: 0 2px;
 			gap: 1px;
 		}
 
 		&.tag-size {
 			min-width: var(--size-tag);
 			height: var(--size-tag);
-			padding: 0 5px;
+			padding: 0 4px;
 			gap: 2px;
 		}
 

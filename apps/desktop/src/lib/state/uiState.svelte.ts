@@ -81,6 +81,7 @@ export type GlobalUiState = {
 	floatingCommitWidth: number;
 	floatingCommitHeight: number;
 	floatingCommitPosition: SnapPositionName;
+	unassignedSidebaFolded: boolean;
 	useRuler: boolean;
 	rulerCountValue: number;
 	wrapTextByRuler: boolean;
@@ -125,6 +126,7 @@ export class UiState {
 		floatingCommitPosition: 'bottom-center',
 		floatingCommitWidth: 640,
 		floatingCommitHeight: 330,
+		unassignedSidebaFolded: false,
 		useRuler: false,
 		rulerCountValue: 72,
 		wrapTextByRuler: false,
