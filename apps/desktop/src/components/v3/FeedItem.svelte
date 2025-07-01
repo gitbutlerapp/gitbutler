@@ -73,14 +73,14 @@
 					<div>
 						<p class="text-13 text-bold">Action</p>
 						<p class="text-13 text-bold text-grey">{action.source}</p>
-						<span class="text-13 text-greyer"
+						<span class="text-13 text-greyer" title={new Date(action.createdAt).toLocaleString()}
 							><TimeAgo date={new Date(action.createdAt)} addSuffix /></span
 						>
 					</div>
 				{:else}
 					<div>
 						<p class="text-13 text-bold">Recorded changes</p>
-						<span class="text-13 text-greyer"
+						<span class="text-13 text-greyer" title={new Date(action.createdAt).toLocaleString()}
 							>MCP call <TimeAgo date={new Date(action.createdAt)} addSuffix /></span
 						>
 					</div>
@@ -127,7 +127,7 @@
 			<div class="action-item__content__header">
 				<div>
 					<p class="text-13 text-bold">{action.details?.operation}</p>
-					<span class="text-13 text-greyer"
+					<span class="text-13 text-greyer" title={new Date(action.createdAt).toLocaleString()}
 						><TimeAgo date={new Date(action.createdAt)} addSuffix /></span
 					>
 				</div>
@@ -163,7 +163,7 @@
 							<Icon name={iconName} />
 						</div>
 					</Tooltip>
-					<span class="text-13 text-greyer"
+					<span class="text-13 text-greyer" title={new Date(action.createdAt).toLocaleString()}
 						>But-agent <TimeAgo date={new Date(action.createdAt)} addSuffix /></span
 					>
 				</div>
