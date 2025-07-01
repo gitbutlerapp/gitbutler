@@ -137,8 +137,8 @@
 			animate:flip={{ duration: 150 }}
 			onmousedown={onReorderMouseDown}
 			ondragstart={(e) => {
-				draggingStack = true;
 				onReorderStart(e, stack.id, () => {
+					draggingStack = true;
 					selection.set(undefined);
 					intelligentScrollingService.show(projectId, stack.id, 'stack');
 				});
