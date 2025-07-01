@@ -40,12 +40,17 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
             } else {
                 ""
             };
+            let id = CliId::branch(&branch.name.to_string())
+                .to_string()
+                .underline()
+                .blue();
             println!(
-                "{}{}{} [{}]",
+                "{}{}{} [{}] {}",
                 "│ ".repeat(nesting),
                 extra_space,
                 line,
-                branch.name.to_string().green().bold()
+                branch.name.to_string().green().bold(),
+                id
             );
             for (j, commit) in branch.upstream_commits.iter().enumerate() {
                 let time_string = chrono::DateTime::from_timestamp_millis(commit.created_at as i64)
