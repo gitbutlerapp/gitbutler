@@ -1,14 +1,15 @@
 use std::sync::Arc;
 
+use but_graph::VirtualBranchesTomlMetadata;
 use but_workspace::ui::StackEntry;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::{OplogExt, SnapshotExt};
+use gitbutler_project::Project;
 use gitbutler_stack::{PatchReferenceUpdate, VirtualBranchesHandle};
 use schemars::{JsonSchema, schema_for};
-use serde_json::json;
 
 use crate::emit::EmitStackUpdate;
-use crate::tool::{Tool, Toolset};
+use crate::tool::{Tool, ToolResult, Toolset};
 
 /// Creates a toolset for workspace-related operations.
 pub fn commit_toolset<'a>(
@@ -137,20 +138,7 @@ impl Tool for Commit {
         let params: CommitParameters = serde_json::from_value(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
 
-        let value = create_commit(ctx, app_handle, params)
-            .map(|outcome| {
-                serde_json::to_value(outcome).unwrap_or_else(|e| {
-                    json!({
-                        "error": format!("Failed to serialize commit outcome: {}", e),
-                    })
-                })
-            })
-            .unwrap_or_else(|e| {
-                json!({
-                    "error": format!("Failed to create commit: {}", e),
-                })
-            });
-
+        let value = create_commit(ctx, app_handle, params).to_json("create_commit");
         Ok(value)
     }
 }
@@ -324,20 +312,7 @@ impl Tool for CreateBranch {
         let params: CreateBranchParameters = serde_json::from_value(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
 
-        let stack = create_branch(ctx, app_handle, params)
-            .map(|stack| {
-                serde_json::to_value(stack).unwrap_or_else(|e| {
-                    json!({
-                        "error": format!("Failed to serialize branch creation outcome: {}", e),
-                    })
-                })
-            })
-            .unwrap_or_else(|e| {
-                json!({
-                    "error": format!("Failed to create branch: {}", e),
-                })
-            });
-
+        let stack = create_branch(ctx, app_handle, params).to_json("create branch");
         Ok(stack)
     }
 }
@@ -379,4 +354,8 @@ pub fn create_branch(
     }
 
     Ok(stack_entry)
+}
+
+fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMetadata> {
+    VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))
 }

@@ -1,6 +1,8 @@
 use std::{collections::BTreeMap, sync::Arc};
 
+use but_workspace::ui::StackEntry;
 use gitbutler_command_context::CommandContext;
+use serde_json::json;
 
 pub struct Toolset<'a> {
     ctx: &'a mut CommandContext,
@@ -49,4 +51,33 @@ pub trait Tool: 'static + Send + Sync {
         ctx: &mut CommandContext,
         app_handle: Option<&tauri::AppHandle>,
     ) -> anyhow::Result<serde_json::Value>;
+}
+
+fn result_to_json<T: serde::Serialize>(
+    result: &Result<T, anyhow::Error>,
+    action_identifier: &str,
+    data_identifier: &str,
+) -> serde_json::Value {
+    match result {
+        Ok(entry) => serde_json::to_value(entry).unwrap_or_else(
+            |e| json!({ "error": format!("Failed to serialize {}: {}", data_identifier, e.to_string())}),
+        ),
+        Err(e) => serde_json::json!({ "error": format!("Failed to {}: {}", action_identifier, e.to_string())}),
+    }
+}
+
+pub trait ToolResult: 'static + Send + Sync {
+    fn to_json(&self, action_identifier: &str) -> serde_json::Value;
+}
+
+impl ToolResult for Result<StackEntry, anyhow::Error> {
+    fn to_json(&self, action_identifier: &str) -> serde_json::Value {
+        result_to_json(self, action_identifier, "StackEntry")
+    }
+}
+
+impl ToolResult for Result<but_workspace::commit_engine::ui::CreateCommitOutcome, anyhow::Error> {
+    fn to_json(&self, action_identifier: &str) -> serde_json::Value {
+        result_to_json(self, action_identifier, "CreateCommitOutcome")
+    }
 }
