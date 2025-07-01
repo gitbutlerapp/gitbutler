@@ -1,10 +1,11 @@
 use std::{fmt::Debug, str};
 
 use async_openai::types::{ChatCompletionRequestSystemMessage, ChatCompletionRequestUserMessage};
+use but_tools::workspace::ProjectStatus;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{OpenAiProvider, ProjectStatus, openai};
+use crate::{OpenAiProvider, openai};
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub enum BranchSuggestion {

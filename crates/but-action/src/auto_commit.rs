@@ -12,7 +12,11 @@ pub fn auto_commit(
 ) -> anyhow::Result<()> {
     let repo = ctx.gix_repo()?;
 
-    let project_status = crate::get_project_status(ctx, &repo, Some(changes))?;
+    let paths = changes
+        .iter()
+        .map(|change| change.path.clone())
+        .collect::<Vec<_>>();
+    let project_status = but_tools::workspace::get_project_status(ctx, &repo, Some(paths))?;
     let serialized_status = serde_json::to_string_pretty(&project_status)
         .context("Failed to serialize project status")?;
 
