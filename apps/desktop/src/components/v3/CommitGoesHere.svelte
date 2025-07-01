@@ -34,7 +34,14 @@
 {/snippet}
 {#snippet commitHere(args: { last?: boolean })}
 	{@const last = args?.last}
-	<button class="commit-here" class:commit-here_last={last} type="button" {onclick}>
+	<button
+		data-testid={TestId.CommitHereButton}
+		data-testid-commit-id={commitId}
+		class="commit-here"
+		class:commit-here_last={last}
+		type="button"
+		{onclick}
+	>
 		<div class="commit-here__line"></div>
 		<div class="commit-here__circle"></div>
 

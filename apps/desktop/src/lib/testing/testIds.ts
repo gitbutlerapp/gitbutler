@@ -42,6 +42,7 @@ export enum TestId {
 	NewCommitView = 'new-commit-view',
 	StackDraft = 'draft-stack',
 	YourCommitGoesHere = 'your-commit-goes-here',
+	CommitHereButton = 'commit-here-button',
 	KebabMenuButton = 'kebab-menu-btn',
 	IntegrateUpstreamCommitsButton = 'integrate-upstream-commits-button',
 	IntegrateUpstreamCommitsModal = 'integrate-upstream-commits-modal',

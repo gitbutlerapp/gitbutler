@@ -490,7 +490,6 @@ describe('Commit Actions with branches containing changes', () => {
 	});
 
 	it('should be able to commit in the middle', () => {
-		const firstCommitTitle = mockBackend.firstCommitInSecondStack.message.split('\n')[0];
 		const firsCommitId = mockBackend.firstCommitInSecondStack.id;
 
 		cy.spy(mockBackend, 'createCommit').as('createCommitSpy');
@@ -498,12 +497,15 @@ describe('Commit Actions with branches containing changes', () => {
 		cy.get(`[data-testid-stackid="${mockBackend.stackWithTwoCommits}"]`)
 			.should('be.visible')
 			.within(() => {
-				// Click on the first commit from the bottom
-				cy.getByTestId('commit-row', firstCommitTitle).first().should('be.visible').click();
-				cy.getByTestId('commit-row', firstCommitTitle).should('have.class', 'selected');
-
 				// Start committing
 				cy.getByTestId('start-commit-button').should('be.visible').should('be.enabled').click();
+
+				// Click where we want to commit
+				cy.getByTestId('commit-here-button')
+					.should('have.attr', 'data-testid-commit-id', firsCommitId)
+					.first()
+					.trigger('mouseenter')
+					.click();
 
 				// 'Your commit goes here' should be visible at the right position
 				cy.getByTestId('your-commit-goes-here')
@@ -592,7 +594,7 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 		clearCommandMocks();
 	});
 
-	it.only('should be able to commit a bunch of times in a row and edit their message', () => {
+	it('should be able to commit a bunch of times in a row and edit their message', () => {
 		const TIMES = 3;
 		for (let i = 0; i < TIMES; i++) {
 			// Click commit button
