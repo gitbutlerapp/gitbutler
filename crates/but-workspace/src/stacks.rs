@@ -770,7 +770,8 @@ fn upstream_only_commits(
     Ok(upstream_only)
 }
 
-fn local_and_remote_commits(
+/// Returns a list of the commits that are local and optionally remote as well.
+pub fn local_and_remote_commits(
     ctx: &CommandContext,
     repo: &gix::Repository,
     stack_branch: &gitbutler_stack::StackBranch,

@@ -53,7 +53,7 @@ pub trait Tool: 'static + Send + Sync {
     ) -> anyhow::Result<serde_json::Value>;
 }
 
-fn result_to_json<T: serde::Serialize>(
+pub fn result_to_json<T: serde::Serialize>(
     result: &Result<T, anyhow::Error>,
     action_identifier: &str,
     data_identifier: &str,

@@ -61,6 +61,7 @@
 	);
 	const [autoCommit, autoCommitting] = actionService.autoCommit;
 	const [branchChanges, branchingChanges] = actionService.branchChanges;
+	const [absorbChanges, absorbingChanges] = actionService.absorb;
 
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 	const isUncommitted = $derived(selectionId.type === 'worktree');
@@ -186,6 +187,27 @@
 			message: `Now, you're free to continue`
 		});
 	}
+
+	async function triggerAbsorbChanges(changes: TreeChange[]) {
+		if (!canUseGBAI) {
+			toasts.error('GitButler AI is not configured or enabled for this project.');
+			return;
+		}
+
+		showToast({
+			style: 'neutral',
+			title: 'Looking for the best place to absorb the changes',
+			message: 'This may take a few seconds.'
+		});
+
+		await absorbChanges({ projectId, changes });
+
+		showToast({
+			style: 'success',
+			title: 'And... done!',
+			message: `Now, you're free to continue`
+		});
+	}
 </script>
 
 <ContextMenu bind:this={contextMenu} rightClickTrigger={trigger}>
@@ -214,24 +236,6 @@
 								stashConfirmationModal?.show(item);
 								contextMenu.close();
 							}}
-						/>
-					{/if}
-					{#if canUseGBAI && isUncommitted}
-						<ContextMenuItem
-							label="Auto commit 🧪"
-							onclick={async () => {
-								contextMenu.close();
-								await triggerAutoCommit(item.changes);
-							}}
-							disabled={autoCommitting.current.isLoading}
-						/>
-						<ContextMenuItem
-							label="Branch changes 🧪"
-							onclick={async () => {
-								contextMenu.close();
-								await triggerBranchChanges(item.changes);
-							}}
-							disabled={branchingChanges.current.isLoading}
 						/>
 					{/if}
 					{#if selectionId.type === 'commit' && stackId}
@@ -287,6 +291,37 @@
 					/>
 				{/if}
 			</ContextMenuSection>
+			{#if canUseGBAI && isUncommitted}
+				<ContextMenuSection title="experimental stuff">
+					<ContextMenuItem
+						label="Auto commit 🧪"
+						tooltip="Try to figure out where to commit the changes. Can create new branches too."
+						onclick={async () => {
+							contextMenu.close();
+							await triggerAutoCommit(item.changes);
+						}}
+						disabled={autoCommitting.current.isLoading}
+					/>
+					<ContextMenuItem
+						label="Branch changes 🧪"
+						tooltip="Create a new branch and commit the changes into it."
+						onclick={async () => {
+							contextMenu.close();
+							await triggerBranchChanges(item.changes);
+						}}
+						disabled={branchingChanges.current.isLoading}
+					/>
+					<ContextMenuItem
+						label="Absorb changes 🧪"
+						tooltip="Try to find the best place to absorb the changes into."
+						onclick={async () => {
+							contextMenu.close();
+							await triggerAbsorbChanges(item.changes);
+						}}
+						disabled={absorbingChanges.current.isLoading}
+					/>
+				</ContextMenuSection>
+			{/if}
 		{:else}
 			<ContextMenuSection>
 				<p class="text-13">'Woops! Malformed data :(</p>
