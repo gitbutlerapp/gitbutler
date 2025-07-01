@@ -1,3 +1,4 @@
+import { AnalyticsContext } from '$lib/analytics/analyticsContext';
 import { PostHogWrapper } from '$lib/analytics/posthog';
 import { GitHub } from '$lib/forge/github/github';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
@@ -18,7 +19,8 @@ describe('GitHubListingService', () => {
 	let projectMetrics: ProjectMetrics;
 	const MockSettingsService = getSettingsdServiceMock();
 	const settingsService = new MockSettingsService();
-	const posthog = new PostHogWrapper(settingsService);
+	const analyticsContext = new AnalyticsContext();
+	const posthog = new PostHogWrapper(settingsService, analyticsContext);
 
 	vi.useFakeTimers();
 
