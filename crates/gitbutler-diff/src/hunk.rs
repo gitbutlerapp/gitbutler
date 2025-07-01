@@ -182,7 +182,7 @@ impl Hunk {
         diff.lines_with_terminator()
             .skip(1) // skip the first line which is the diff header.
             .for_each(|line| ctx.consume(line));
-        ctx.compute()
+        ctx.finalize()
     }
 
     /// Produce a hash of `input` using the same function as [`Self::hash_diff()`], but without any assumptions.
