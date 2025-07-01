@@ -39,7 +39,7 @@ serde-error = "0.1.3"
 bstr.workspace = true
 git2-hooks.workspace = true
 url = { version = "2.5.4", features = ["serde"] }
-md5 = "0.7.0"
+md5 = "0.8.0"
 itertools = "0.14"
 gitbutler-command-context.workspace = true
 gitbutler-project.workspace = true
