@@ -17,7 +17,9 @@ futures = "0.3.31"
 anyhow = "1.0.98"
 schemars = "0.9.0"
 serde = { workspace = true, features = ["std"] }
+serde-error = "0.1.3"
 tauri = { version = "^2.4.1", features = ["unstable"] }
+bstr.workspace = true
 gix.workspace = true
 but-core.workspace = true
 but-workspace.workspace = true
@@ -28,3 +30,6 @@ gitbutler-branch-actions.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-project.workspace = true
 gitbutler-stack.workspace = true
+gitbutler-serde.workspace = true
+but-hunk-dependency.workspace = true
+but-hunk-assignment.workspace = true
