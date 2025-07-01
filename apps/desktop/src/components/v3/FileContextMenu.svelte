@@ -218,7 +218,7 @@
 					{/if}
 					{#if canUseGBAI && isUncommitted}
 						<ContextMenuItem
-							label="Auto commit (🧪)"
+							label="Auto commit 🧪"
 							onclick={async () => {
 								contextMenu.close();
 								await triggerAutoCommit(item.changes);
@@ -226,7 +226,7 @@
 							disabled={autoCommitting.current.isLoading}
 						/>
 						<ContextMenuItem
-							label="Branch changes (🧪)"
+							label="Branch changes 🧪"
 							onclick={async () => {
 								contextMenu.close();
 								await triggerBranchChanges(item.changes);
