@@ -28,11 +28,9 @@ let dragHandle: any;
 let dragged: HTMLDivElement | undefined;
 let clone: any;
 let draggedId: string | undefined;
-let lanesScrollableEl: HTMLElement | undefined;
 
-export function onReorderMouseDown(e: MouseEvent, element: HTMLDivElement | undefined) {
+export function onReorderMouseDown(e: MouseEvent) {
 	dragHandle = e.target;
-	lanesScrollableEl = element;
 }
 
 export function onReorderStart(
@@ -81,43 +79,45 @@ export function onReorderEnd() {
 	clone?.remove();
 }
 
-export function onReorderDragOver(
+export function onDragOver(
 	e: MouseEvent & { currentTarget: HTMLDivElement },
-	sortedStacks: Stack[]
+	sortedStacks: Stack[],
+	thisStackId: string
 ) {
-	e.preventDefault();
-	if (!dragged) {
-		return; // Something other than a lane is being dragged.
+	// Return early if we are currently dragging over ourself.
+	if (draggedId === thisStackId) {
+		return;
 	}
 
-	const children = Array.from(e.currentTarget.children);
-	const currentPosition = sortedStacks.findIndex((stack) => stack.id === draggedId);
+	const thisIdx = sortedStacks.findIndex((stack) => stack.id === thisStackId);
+	const draggedIdx = sortedStacks.findIndex((stack) => stack.id === draggedId);
+	if (draggedIdx === -1 || thisIdx === -1) {
+		return;
+	}
 
-	let dropPosition = 0;
-	const mouseLeft = e.clientX - (lanesScrollableEl?.getBoundingClientRect().left ?? 0);
-	let cumulativeWidth = lanesScrollableEl?.offsetLeft ?? 0;
+	// If we are dragging over an adjacent stack, only swap if the mouse is half
+	// way over the adjacent stack.
+	if (Math.abs(thisIdx - draggedIdx) === 1) {
+		// The mouse position relative to the LHS of the current stack.
+		const mouseLeft = e.clientX - (e.currentTarget?.getBoundingClientRect().left ?? 0);
 
-	for (let i = 0; i < children.length; i++) {
-		const childWidth = (children[i] as HTMLElement).offsetWidth;
-		// The commented out code below is necessary if the drag handle is
-		// aligned with the left side of the stack. Leaving it here until
-		// we are more certain about the layout.
-		// if (i === currentPosition) {
-		// 	continue;
-		// }
-		if (mouseLeft > cumulativeWidth + childWidth / 2) {
-			// New position depends on drag direction.
-			dropPosition = i < currentPosition ? i + 1 : i;
-			cumulativeWidth += childWidth;
+		const isRightOfTarget = thisIdx > draggedIdx;
+
+		const midpoint = (e.currentTarget?.clientWidth ?? 0) / 2;
+
+		let pastOfMidpoint = false;
+		if (isRightOfTarget) {
+			pastOfMidpoint = mouseLeft > midpoint;
 		} else {
-			break;
+			pastOfMidpoint = mouseLeft < midpoint;
 		}
-	}
 
-	// Update sorted branch array manually.
-	if (currentPosition !== dropPosition) {
-		const el = sortedStacks.splice(currentPosition, 1);
-		sortedStacks.splice(dropPosition, 0, ...el);
+		if (pastOfMidpoint) {
+			const draggedStack = sortedStacks.splice(draggedIdx, 1);
+			sortedStacks.splice(thisIdx, 0, ...draggedStack);
+		}
+	} else {
+		const draggedStack = sortedStacks.splice(draggedIdx, 1);
+		sortedStacks.splice(thisIdx, 0, ...draggedStack);
 	}
-	return sortedStacks;
 }
