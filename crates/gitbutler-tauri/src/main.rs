@@ -289,6 +289,7 @@ fn main() {
                     action::handle_changes,
                     action::list_workflows,
                     action::auto_commit,
+                    action::auto_branch_changes,
                     cli::install_cli,
                     cli::cli_path,
                     workspace::stacks,

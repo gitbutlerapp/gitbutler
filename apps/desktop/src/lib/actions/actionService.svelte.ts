@@ -12,6 +12,10 @@ export class ActionService {
 	get autoCommit() {
 		return this.api.endpoints.autoCommit.useMutation();
 	}
+
+	get branchChanges() {
+		return this.api.endpoints.autoBranchChanges.useMutation();
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -22,6 +26,18 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'auto_commit',
 					params: { projectId, changes },
 					actionName: 'Figure out where to commit the given changes'
+				}),
+				invalidatesTags: [
+					invalidatesList(ReduxTag.Stacks),
+					invalidatesList(ReduxTag.StackDetails),
+					invalidatesList(ReduxTag.WorktreeChanges)
+				]
+			}),
+			autoBranchChanges: build.mutation<void, { projectId: string; changes: TreeChange[] }>({
+				query: ({ projectId, changes }) => ({
+					command: 'auto_branch_changes',
+					params: { projectId, changes },
+					actionName: 'Create a branch for the given changes'
 				}),
 				invalidatesTags: [
 					invalidatesList(ReduxTag.Stacks),

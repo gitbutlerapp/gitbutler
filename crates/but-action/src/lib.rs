@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 
 mod action;
 mod auto_commit;
+mod branch_changes;
 mod generate;
 mod grouping;
 mod openai;
@@ -34,6 +35,15 @@ pub use workflow::WorkflowList;
 pub use workflow::list_workflows;
 
 pub(crate) const DIFF_CONTEXT_LINES: u32 = 3;
+
+pub fn branch_changes(
+    app_handle: &tauri::AppHandle,
+    ctx: &mut CommandContext,
+    openai: &OpenAiProvider,
+    changes: Vec<TreeChange>,
+) -> anyhow::Result<()> {
+    branch_changes::branch_changes(app_handle, ctx, openai, changes)
+}
 
 pub fn auto_commit(
     app_handle: &tauri::AppHandle,
