@@ -92,7 +92,8 @@ pub fn reorder_stack(
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     if ctx.app_settings().feature_flags.v3 {
-        update_uncommited_changes(ctx, old_workspace, new_workspace, perm)?;
+        // Even if this fails, it's not actionable
+        let _ = update_uncommited_changes(ctx, old_workspace, new_workspace, perm);
     } else {
         #[allow(deprecated)]
         checkout_branch_trees(ctx, perm)?;
