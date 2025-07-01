@@ -394,6 +394,7 @@
 					minWidth={16}
 					maxWidth={56}
 					syncName="panel2"
+					imitateBorder
 					dblclickSize
 				/>
 			</div>
@@ -427,6 +428,7 @@
 					minWidth={20}
 					maxWidth={96}
 					syncName="panel3"
+					imitateBorder
 					dblclickSize
 				/>
 			</div>
