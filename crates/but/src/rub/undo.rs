@@ -6,6 +6,7 @@ use gix::ObjectId;
 
 pub(crate) fn commit(ctx: &mut CommandContext, oid: &ObjectId) -> anyhow::Result<()> {
     gitbutler_branch_actions::undo_commit(ctx, stack_id_by_commit_id(ctx, oid)?, oid.to_git2())?;
+    println!("Uncommitted {}", oid.to_string()[..7].blue());
     Ok(())
 }
 
@@ -24,7 +25,6 @@ pub(crate) fn stack_id_by_commit_id(
             .iter()
             .any(|branch| branch.commits.iter().any(|commit| commit.id == *oid))
     }) {
-        println!("Uncommitted {}", oid.to_string()[..7].blue());
         return Ok(*id);
     }
     anyhow::bail!("No stack found for commit {}", oid.to_string())
