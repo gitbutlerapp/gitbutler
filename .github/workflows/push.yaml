@@ -116,7 +116,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2.7.8
+        uses: Swatinem/rust-cache@v2.8.0
         with:
           shared-key: unix-rust-testing-v2
       - run: |
@@ -173,7 +173,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2.7.8
+        uses: Swatinem/rust-cache@v2.8.0
         with:
           shared-key: windows-rust-testing
       - name: 'cargo check'
