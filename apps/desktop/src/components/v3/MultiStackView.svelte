@@ -10,6 +10,7 @@
 		onReorderStart,
 		onDragOver
 	} from '$lib/dragging/reordering';
+	import { WorkspacePanner } from '$lib/dragging/workspacePanner';
 	import { IntelligentScrollingService } from '$lib/intelligentScrolling/service';
 	import { branchesPath } from '$lib/routes/routes.svelte';
 	import { type SelectionId } from '$lib/selection/key';
@@ -40,11 +41,6 @@
 	let lanesScrollableWidth = $state<number>(0);
 	let lanesScrollableHeight = $state<number>(0);
 
-	// Pan-to-scroll state
-	let isPanning = $state<boolean>(false);
-	let panStartX = $state<number>(0);
-	let panStartScrollLeft = $state<number>(0);
-
 	let laneWidths = $state<number[]>([]);
 	let lineHights = $state<number[]>([]);
 	let isNotEnoughHorzSpace = $derived(
@@ -62,64 +58,6 @@
 
 	const SHOW_PAGINATION_THRESHOLD = 1;
 
-	// Pan-to-scroll functions
-	function handleMouseDown(e: MouseEvent) {
-		if (!lanesScrollableEl) return;
-
-		// Only start panning on left mouse button
-		if (e.button !== 0) return;
-
-		const target = e.target as HTMLElement;
-
-		// Exclude clicks on interactive elements
-		if (target.closest('button, a, input, select, textarea')) return;
-		if (target.closest('[data-remove-from-panning]')) return;
-
-		isPanning = true;
-		panStartX = e.clientX;
-		panStartScrollLeft = lanesScrollableEl.scrollLeft;
-
-		// Prevent text selection during pan
-		e.preventDefault();
-
-		// Add global event listeners
-		document.addEventListener('mousemove', handleMouseMove);
-		document.addEventListener('mouseup', handleMouseUp);
-
-		// Change cursor
-		lanesScrollableEl.style.cursor = 'grabbing';
-	}
-
-	function handleMouseMove(e: MouseEvent) {
-		if (!isPanning || !lanesScrollableEl) return;
-
-		e.preventDefault();
-
-		const deltaX = e.clientX - panStartX;
-		lanesScrollableEl.scrollLeft = panStartScrollLeft - deltaX;
-	}
-
-	function handleMouseUp() {
-		if (!isPanning || !lanesScrollableEl) return;
-
-		isPanning = false;
-
-		// Remove global event listeners
-		document.removeEventListener('mousemove', handleMouseMove);
-		document.removeEventListener('mouseup', handleMouseUp);
-
-		// Reset cursor
-		lanesScrollableEl.style.cursor = '';
-	}
-
-	// Clean up event listeners on component destruction
-	$effect(() => {
-		return () => {
-			document.removeEventListener('mousemove', handleMouseMove);
-			document.removeEventListener('mouseup', handleMouseUp);
-		};
-	});
-
 	// Throttle calls to the reordering code in order to save some cpu cycles.
 	const throttledDragOver = throttle(onDragOver, 25);
 
@@ -132,6 +70,19 @@
 	$effect(() => {
 		if (stacks) {
 			mutableStacks = stacks;
+		}
+	});
+
+	const workspacePanner = $derived(
+		lanesScrollableEl ? new WorkspacePanner(lanesScrollableEl) : undefined
+	);
+
+	// Enable panning when a stack is being dragged.
+	let draggingStack = $state(false);
+	$effect(() => {
+		if (draggingStack) {
+			const unsub = workspacePanner?.enablePanning();
+			return () => unsub?.();
 		}
 	});
 </script>
@@ -156,12 +107,11 @@
 <div
 	role="presentation"
 	class="lanes-scrollable hide-native-scrollbar"
-	class:panning={isPanning}
+	class:panning={false}
 	bind:this={lanesScrollableEl}
 	bind:clientWidth={lanesScrollableWidth}
 	bind:clientHeight={lanesScrollableHeight}
 	class:multi={stacks.length < SHOW_PAGINATION_THRESHOLD}
-	onmousedown={handleMouseDown}
 	ondrop={() => {
 		stackService.updateStackOrder({
 			projectId,
@@ -186,13 +136,20 @@
 			role="presentation"
 			animate:flip={{ duration: 150 }}
 			onmousedown={onReorderMouseDown}
-			ondragstart={(e) =>
+			ondragstart={(e) => {
+				draggingStack = true;
 				onReorderStart(e, stack.id, () => {
 					selection.set(undefined);
 					intelligentScrollingService.show(projectId, stack.id, 'stack');
-				})}
-			ondragover={(e) => throttledDragOver(e, mutableStacks, stack.id)}
-			ondragend={onReorderEnd}
+				});
+			}}
+			ondragover={(e) => {
+				throttledDragOver(e, mutableStacks, stack.id);
+			}}
+			ondragend={() => {
+				draggingStack = false;
+				onReorderEnd();
+			}}
 		>
 			<StackView
 				{projectId}
