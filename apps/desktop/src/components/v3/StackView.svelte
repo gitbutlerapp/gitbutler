@@ -278,6 +278,8 @@
 									<div class="start-commit">
 										<Button
 											testId={TestId.StartCommitButton}
+											kind={changes.current.length > 0 ? 'solid' : 'outline'}
+											style={changes.current.length > 0 ? 'pop' : 'neutral'}
 											type="button"
 											wide
 											disabled={defaultBranchResult?.current.isLoading}
