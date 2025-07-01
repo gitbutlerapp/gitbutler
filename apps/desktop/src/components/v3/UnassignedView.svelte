@@ -37,7 +37,6 @@
 	const treeChanges = $derived(uncommittedService.changesByStackId(null));
 	const treeChangesCount = $derived(treeChanges.current.length);
 	const changesToCommit = $derived(treeChangesCount > 0);
-
 	let foldedContentWidth = $state<number>(0);
 
 	function unfoldView() {

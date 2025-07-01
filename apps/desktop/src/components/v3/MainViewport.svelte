@@ -290,6 +290,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		height: 100%;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
+		border-left-width: 0;
 		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
 		border-left-color: transparent;
 	}
