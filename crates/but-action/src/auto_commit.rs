@@ -35,6 +35,14 @@ pub fn auto_commit(
         3. Determine if any new branches need to be created. If so, create them using the provided tool. Most of the time, all commits should be made to the same branch. Prefer that, but if you find that the changes are unrelated, commit to separate branches.
         4. For each group of changes, create a commit (using the provided tool) with a detailed summary of the changes in the group (not the intention, but an overview of the actual changes made and why they are related).
         5. When you're done, only send the message 'done'
+        
+        Grouping rules:
+        - Group changes that modify files within the same feature, module, or directory.
+        - If multiple files are changed together to implement a single feature or fix, group them in one commit.
+        - Dependency updates (e.g., lockfiles or package manifests) should be grouped separately from code changes unless they are tightly coupled.
+        - Refactoring or formatting changes that affect many files but do not change functionality should be grouped together.
+        - Avoid grouping unrelated changes in the same commit.
+        - Aim to keep commits small and focused, but don't go overboard with tiny commits that don't add value.
 
         Here is the project status:
         <project_status>
