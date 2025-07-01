@@ -184,6 +184,8 @@
 	}}
 	<div
 		bind:this={viewWrapperEl}
+		bind:clientWidth
+		bind:clientHeight
 		class="stack-view-wrapper"
 		role="presentation"
 		class:dimmed
@@ -210,8 +212,6 @@
 		<div
 			class="stack-view"
 			style:width={$persistedStackWidth + 'rem'}
-			bind:clientWidth
-			bind:clientHeight
 			bind:this={stackViewEl}
 			{@attach scrollingAttachment(intelligentScrollingService, projectId, stack.id, 'stack')}
 		>

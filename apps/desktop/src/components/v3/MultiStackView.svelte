@@ -4,8 +4,12 @@
 	import MultiStackPagination, { scrollToLane } from '$components/v3/MultiStackPagination.svelte';
 	import StackDraft from '$components/v3/StackDraft.svelte';
 	import StackView from '$components/v3/StackView.svelte';
-	import { onReorderEnd, onReorderMouseDown, onReorderStart } from '$lib/dragging/reordering';
-	import { onReorderDragOver } from '$lib/dragging/reordering';
+	import {
+		onReorderEnd,
+		onReorderMouseDown,
+		onReorderStart,
+		onDragOver
+	} from '$lib/dragging/reordering';
 	import { IntelligentScrollingService } from '$lib/intelligentScrolling/service';
 	import { branchesPath } from '$lib/routes/routes.svelte';
 	import { type SelectionId } from '$lib/selection/key';
@@ -117,7 +121,7 @@
 	});
 
 	// Throttle calls to the reordering code in order to save some cpu cycles.
-	const throttledDragOver = throttle(onReorderDragOver, 250);
+	const throttledDragOver = throttle(onDragOver, 25);
 
 	// To support visual reordering of stacks we need a copy of the array
 	// that can be mutated as the stack is being dragged around.
@@ -130,8 +134,6 @@
 			mutableStacks = stacks;
 		}
 	});
-
-	let viewWrapperEl: HTMLDivElement | undefined;
 </script>
 
 {#if isNotEnoughHorzSpace}
@@ -154,18 +156,12 @@
 <div
 	role="presentation"
 	class="lanes-scrollable hide-native-scrollbar"
-	bind:this={viewWrapperEl}
 	class:panning={isPanning}
 	bind:this={lanesScrollableEl}
 	bind:clientWidth={lanesScrollableWidth}
 	bind:clientHeight={lanesScrollableHeight}
 	class:multi={stacks.length < SHOW_PAGINATION_THRESHOLD}
 	onmousedown={handleMouseDown}
-	ondragover={(e) => {
-		// This call will actually mutate the array of stacks, showing
-		// where the lane will be placed when dropped.
-		throttledDragOver(e, mutableStacks);
-	}}
 	ondrop={() => {
 		stackService.updateStackOrder({
 			projectId,
@@ -189,12 +185,13 @@
 			class="reorderable-stack"
 			role="presentation"
 			animate:flip={{ duration: 150 }}
-			onmousedown={(e) => onReorderMouseDown(e, viewWrapperEl as HTMLDivElement)}
+			onmousedown={onReorderMouseDown}
 			ondragstart={(e) =>
 				onReorderStart(e, stack.id, () => {
 					selection.set(undefined);
 					intelligentScrollingService.show(projectId, stack.id, 'stack');
 				})}
+			ondragover={(e) => throttledDragOver(e, mutableStacks, stack.id)}
 			ondragend={onReorderEnd}
 		>
 			<StackView
