@@ -42,8 +42,13 @@
 
 	function unfoldView() {
 		unassignedSidebaFolded.set(false);
-		intelligentScrollingService.unassignedFileClicked(projectId);
 	}
+
+	$effect(() => {
+		if (isCommitting) {
+			unassignedSidebaFolded.set(false);
+		}
+	});
 </script>
 
 {#if !unassignedSidebaFolded.current}

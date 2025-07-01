@@ -151,9 +151,11 @@
 				class="worktree-header"
 				class:sticked-top={!scrollTopIsVisible}
 			>
-				<div class="worktree-header__fold">
-					<UnassignedFoldButton active={false} onclick={foldUnnassignedView} />
-				</div>
+				{#if !isCommitting}
+					<div class="worktree-header__fold">
+						<UnassignedFoldButton active={false} onclick={foldUnnassignedView} />
+					</div>
+				{/if}
 
 				<div class="worktree-header__general">
 					{#if isCommitting}
