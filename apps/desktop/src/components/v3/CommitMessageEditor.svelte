@@ -228,7 +228,7 @@
 	<FloatingCommitBox
 		title={floatingBoxHeader}
 		onExitFloatingModeClick={() => {
-			uiState.global.useFloatingCommitBox.set(false);
+			useFloatingCommitBox.set(false);
 		}}
 	>
 		{@render editorContent()}
