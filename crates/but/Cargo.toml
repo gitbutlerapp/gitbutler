@@ -21,7 +21,7 @@ serde.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "io-std"] }
 tokio-util = "0.7.15"
 strum = { version = "0.27", features = ["derive"] }
-clap = { version = "4.5.39", features = ["derive", "env"] }
+clap = { version = "4.5.40", features = ["derive", "env"] }
 chrono = { version = "0.4.41" }
 bstr.workspace = true
 anyhow.workspace = true

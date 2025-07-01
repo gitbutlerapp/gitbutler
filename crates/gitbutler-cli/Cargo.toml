@@ -26,7 +26,7 @@ gitbutler-stack.workspace = true
 gitbutler-oxidize.workspace = true
 gix = { workspace = true, features = ["max-performance", "tracing"] }
 dirs-next = "2.0.0"
-clap = { version = "4.5.39", features = ["derive", "env"] }
+clap = { version = "4.5.40", features = ["derive", "env"] }
 anyhow = "1.0.98"
 chrono = "0.4.41"
 tracing-forest = { version = "0.1.6" }

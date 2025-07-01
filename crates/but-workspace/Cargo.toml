@@ -28,7 +28,7 @@ serde = { workspace = true, features = ["std"] }
 gitbutler-serde.workspace = true
 itertools = "0.14"
 url = { version = "2.5.4", features = ["serde"] }
-md5 = "0.7.0"
+md5 = "0.8.0"
 tracing.workspace = true
 
 [dev-dependencies]
