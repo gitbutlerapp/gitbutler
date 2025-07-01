@@ -12,6 +12,7 @@
 	import ProblemLoadingRepo from '$components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$components/ProjectSettingsMenuAction.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
+	import AnalyticsMonitor from '$components/v3/AnalyticsMonitor.svelte';
 	import IrcPopups from '$components/v3/IrcPopups.svelte';
 	import NotOnGitButlerBranchV3 from '$components/v3/NotOnGitButlerBranch.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
@@ -388,6 +389,7 @@
 
 <!-- Mounting metrics reporter in the board ensures dependent services are subscribed to. -->
 <MetricsReporter {projectId} {projectMetrics} />
+<AnalyticsMonitor {projectId} />
 
 <style>
 	.view-wrap {

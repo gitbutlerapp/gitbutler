@@ -10,12 +10,9 @@ import persistStore from 'redux-persist/lib/persistStore';
 import storage from 'redux-persist/lib/storage';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { Tauri } from '$lib/backend/tauri';
-import type { SettingsService } from '$lib/config/appSettingsV2';
 import type { GitHubClient } from '$lib/forge/github/githubClient';
 import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 import type { IrcClient } from '$lib/irc/ircClient.svelte';
-import type { Settings } from '$lib/settings/userSettings';
-import type { Readable } from 'svelte/store';
 
 /**
  * GitHub API object that enables the declaration and usage of endpoints
@@ -67,9 +64,7 @@ export class ClientState {
 		gitHubClient: GitHubClient,
 		gitLabClient: GitLabClient,
 		ircClient: IrcClient,
-		posthog: PostHogWrapper,
-		settingsService: SettingsService,
-		userSettings: Readable<Settings>
+		posthog: PostHogWrapper
 	) {
 		const butlerMod = butlerModule({
 			// Reactive loop without nested function.
@@ -89,9 +84,7 @@ export class ClientState {
 			backendApi: this.backendApi,
 			githubApi: this.githubApi,
 			gitlabApi: this.gitlabApi,
-			posthog,
-			settingsService,
-			userSettings
+			posthog
 		});
 
 		this.store = store;
@@ -132,8 +125,6 @@ function createStore(params: {
 	githubApi: GitHubApi;
 	gitlabApi: GitLabApi;
 	posthog: PostHogWrapper;
-	settingsService: SettingsService;
-	userSettings: Readable<Settings>;
 }) {
 	const {
 		tauri,
@@ -143,9 +134,7 @@ function createStore(params: {
 		backendApi,
 		githubApi,
 		gitlabApi,
-		posthog,
-		settingsService,
-		userSettings
+		posthog
 	} = params;
 
 	// We can't use the `persistStore` function because it doesn't work
@@ -177,9 +166,7 @@ function createStore(params: {
 						gitHubClient,
 						gitLabClient,
 						ircClient,
-						posthog,
-						settingsService,
-						userSettings
+						posthog
 					}
 				},
 				serializableCheck: {

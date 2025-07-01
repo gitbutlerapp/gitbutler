@@ -1,3 +1,4 @@
+import { AnalyticsContext } from '$lib/analytics/analyticsContext';
 import { PostHogWrapper } from '$lib/analytics/posthog';
 import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 import { GitHub } from '$lib/forge/github/github';
@@ -13,7 +14,8 @@ import type { ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
 describe.concurrent('DefaultforgeFactory', () => {
 	const MockSettingsService = getSettingsdServiceMock();
 	const settingsService = new MockSettingsService();
-	const posthog = new PostHogWrapper(settingsService);
+	const analyticsContext = new AnalyticsContext();
+	const posthog = new PostHogWrapper(settingsService, analyticsContext);
 	const projectMetrics = new ProjectMetrics();
 	const gitHubApi: GitHubApi = {
 		endpoints: {},

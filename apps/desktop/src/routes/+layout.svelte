@@ -19,6 +19,7 @@
 	import { ActionService } from '$lib/actions/actionService.svelte';
 	import { PromptService as AIPromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
+	import { AnalyticsContext } from '$lib/analytics/analyticsContext';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { CommandService, invoke } from '$lib/backend/ipc';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
@@ -113,9 +114,7 @@
 		gitHubClient,
 		gitLabClient,
 		ircClient,
-		data.posthog,
-		data.settingsService,
-		userSettings
+		data.posthog
 	);
 
 	const ircService = new IrcService(clientState, clientState.dispatch, ircClient);
@@ -240,6 +239,7 @@
 	setContext(LineManagerFactory, data.lineManagerFactory);
 	setContext(StackingLineManagerFactory, data.stackingLineManagerFactory);
 	setContext(AppSettings, data.appSettings);
+	setContext(AnalyticsContext, data.analyticsContext);
 	setContext(StackService, stackService);
 	setContext(ActionService, actionService);
 	setContext(OplogService, oplogService);
@@ -253,7 +253,6 @@
 	setContext(IdSelection, idSelection);
 	setContext(DropzoneRegistry, new DropzoneRegistry());
 	setContext(ResizeSync, new ResizeSync());
-
 	setNameNormalizationServiceContext(new IpcNameNormalizationService(invoke));
 
 	const settingsService = data.settingsService;
