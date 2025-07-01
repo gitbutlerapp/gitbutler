@@ -10,7 +10,7 @@ doctest = false
 test = false
 
 [dependencies]
-async-openai = "0.28.2"
+async-openai = "0.29.0"
 tokio = { workspace = true, features = ["rt-multi-thread", "io-std"] }
 serde_json = "1.0.138"
 futures = "0.3.31"

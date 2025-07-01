@@ -32,7 +32,7 @@ gitbutler-operating-modes.workspace = true
 
 gitbutler-commit = { workspace = true, optional = true, features = ["testing"] }
 
-clap = { version = "4.5.39", features = ["derive", "env"] }
+clap = { version = "4.5.40", features = ["derive", "env"] }
 gix.workspace = true
 anyhow.workspace = true
 itertools.workspace = true
