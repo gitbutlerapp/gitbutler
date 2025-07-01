@@ -19,7 +19,7 @@ pub(crate) fn handle(
     target_str: &str,
 ) -> anyhow::Result<()> {
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
-    let ctx = &mut CommandContext::open(&project, AppSettings::default())?;
+    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let (source, target) = ids(ctx, source_str, target_str)?;
 
     match (&source, &target) {

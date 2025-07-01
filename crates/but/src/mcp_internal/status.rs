@@ -116,7 +116,7 @@ fn get_file_changes(
 
 fn list_applied_stacks(current_dir: &Path) -> anyhow::Result<Vec<but_workspace::ui::StackEntry>> {
     let project = crate::mcp_internal::project::project_from_path(current_dir)?;
-    let ctx = CommandContext::open(&project, AppSettings::default())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
     let repo = ctx.gix_repo_for_merging_non_persisting()?;
     let meta = crate::mcp_internal::project::ref_metadata_toml(ctx.project())?;
@@ -142,7 +142,7 @@ pub fn hunk_assignments(
     current_dir: &Path,
 ) -> anyhow::Result<Vec<but_hunk_assignment::HunkAssignment>> {
     let project = super::project::project_from_path(current_dir)?;
-    let ctx = &mut CommandContext::open(&project, AppSettings::default())?;
+    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
         ctx,
         false,
