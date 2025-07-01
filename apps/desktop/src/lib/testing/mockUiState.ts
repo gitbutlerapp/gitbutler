@@ -34,6 +34,7 @@ const MOCK_GLOBAL_UI_STATE: GlobalUiState = {
 	draftBranchName: undefined,
 	useFloatingCommitBox: false,
 	useFloatingPrBox: false,
+	unassignedSidebaFolded: false,
 	floatingCommitPosition: 'bottom-center',
 	floatingCommitWidth: 640,
 	floatingCommitHeight: 330,
