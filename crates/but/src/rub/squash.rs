@@ -1,3 +1,4 @@
+use colored::Colorize;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::ObjectIdExt;
 use gix::ObjectId;
@@ -21,5 +22,10 @@ pub(crate) fn commits(
         vec![source.to_git2()],
         destination.to_git2(),
     )?;
+    println!(
+        "Squashed {} → {}",
+        source.to_string()[..7].blue(),
+        destination.to_string()[..7].blue()
+    );
     Ok(())
 }

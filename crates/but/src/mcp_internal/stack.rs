@@ -10,7 +10,7 @@ use serde::Serialize;
 /// This includes information about the branch itself and its commits
 pub fn branch_details(ref_name: &str, current_dir: &Path) -> anyhow::Result<BranchDetails> {
     let project = super::project::project_from_path(current_dir)?;
-    let ctx = CommandContext::open(&project, AppSettings::default())?;
+    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let meta = super::project::ref_metadata_toml(ctx.project())?;
     let repo = ctx.gix_repo_for_merging_non_persisting()?;
     let ref_name = repo.find_reference(ref_name)?.name().to_owned();
@@ -34,7 +34,7 @@ pub fn create_stack_with_branch(
             ws3: false,
             actions: false,
         },
-        ..AppSettings::default()
+        ..AppSettings::load_from_default_path_creating()?
     };
     let ctx = CommandContext::open(&project, app_settings)?;
 

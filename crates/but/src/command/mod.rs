@@ -13,7 +13,7 @@ pub(crate) fn handle_changes(
     change_description: &str,
 ) -> anyhow::Result<()> {
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
-    let ctx = &mut CommandContext::open(&project, AppSettings::default())?;
+    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let openai = OpenAiProvider::with(None);
     let response = but_action::handle_changes(
         ctx,
@@ -41,7 +41,7 @@ pub(crate) fn list_actions(
     limit: i64,
 ) -> anyhow::Result<()> {
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
-    let ctx = &mut CommandContext::open(&project, AppSettings::default())?;
+    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
     let response = but_action::list_actions(ctx, offset, limit)?;
     print(&response, json)

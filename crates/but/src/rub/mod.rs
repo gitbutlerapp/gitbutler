@@ -7,6 +7,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 mod amend;
 mod assign;
+mod move_commit;
 mod squash;
 mod undo;
 
@@ -19,7 +20,7 @@ pub(crate) fn handle(
     target_str: &str,
 ) -> anyhow::Result<()> {
     let project = Project::from_path(repo_path).expect("Failed to create project from path");
-    let ctx = &mut CommandContext::open(&project, AppSettings::default())?;
+    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let (source, target) = ids(ctx, source_str, target_str)?;
 
     match (&source, &target) {
@@ -50,9 +51,7 @@ pub(crate) fn handle(
         (CliId::Commit { oid: source }, CliId::Commit { oid: destination }) => {
             squash::commits(ctx, source, destination)
         }
-        (CliId::Commit { .. }, CliId::Branch { .. }) => {
-            bail!(not_implemented("Move commit to branch", &source, &target))
-        }
+        (CliId::Commit { oid }, CliId::Branch { name }) => move_commit::to_branch(ctx, oid, name),
         (CliId::Branch { .. }, CliId::UncommittedFile { .. }) => {
             bail!(makes_no_sense_error(&source, &target))
         }
@@ -68,16 +67,6 @@ pub(crate) fn handle(
     }
 }
 
-fn not_implemented(desc: &str, source: &CliId, target: &CliId) -> String {
-    format!(
-        "{} is not implemented yet. Source {} is {} and target {} is {}.",
-        desc,
-        source.to_string().blue().underline(),
-        source.kind().yellow(),
-        target.to_string().blue().underline(),
-        target.kind().yellow()
-    )
-}
 fn makes_no_sense_error(source: &CliId, target: &CliId) -> String {
     format!(
         "Operation doesn't make sense. Source {} is {} and target {} is {}.",
