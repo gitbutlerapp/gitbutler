@@ -9,7 +9,10 @@ pub(crate) fn commit(ctx: &mut CommandContext, oid: &ObjectId) -> anyhow::Result
     Ok(())
 }
 
-fn stack_id_by_commit_id(ctx: &CommandContext, oid: &ObjectId) -> anyhow::Result<StackId> {
+pub(crate) fn stack_id_by_commit_id(
+    ctx: &CommandContext,
+    oid: &ObjectId,
+) -> anyhow::Result<StackId> {
     let stacks = crate::log::stacks(ctx)?
         .iter()
         .map(|s| crate::log::stack_details(ctx, s.id).map(|d| (s.id, d)))
