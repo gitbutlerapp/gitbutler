@@ -235,7 +235,6 @@ the window, then enlarge it and retain the original widths of the layout.
 		align-items: stretch;
 		width: 100%;
 		height: 100%;
-		overflow: auto;
 	}
 
 	.view-wrapper {
