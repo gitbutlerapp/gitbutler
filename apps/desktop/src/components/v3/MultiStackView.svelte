@@ -18,13 +18,12 @@
 
 	type Props = {
 		projectId: string;
-		selectedId?: string;
 		stacks: Stack[];
 		selectionId: SelectionId;
 		focusedStackId?: string;
 	};
 
-	let { projectId, selectedId, stacks, focusedStackId }: Props = $props();
+	let { projectId, stacks, focusedStackId }: Props = $props();
 
 	const [uiState, stackService, intelligentScrollingService] = inject(
 		UiState,
@@ -139,7 +138,7 @@
 			{visibleIndexes}
 			{isCreateNewVisible}
 			selectedBranchIndex={stacks.findIndex((s) => {
-				return s.id === selectedId;
+				return s.id === focusedStackId;
 			})}
 			onPageClick={(index) => scrollToLane(lanesScrollableEl, index)}
 			onCreateNewClick={() => {

@@ -12,7 +12,6 @@
 		branchName: string;
 		isEmpty: boolean | undefined;
 		selected: boolean;
-		selectIndicator: boolean;
 		active: boolean | undefined;
 		readonly: boolean;
 		draft: boolean;
@@ -33,7 +32,6 @@
 		branchName,
 		isEmpty = false,
 		selected,
-		selectIndicator,
 		draft,
 		active,
 		isCommitting,
@@ -69,7 +67,7 @@
 	tabindex="0"
 	class:active
 >
-	{#if selected && selectIndicator}
+	{#if selected && !draft}
 		<div
 			class="branch-header__select-indicator"
 			in:slide={{ axis: 'x', duration: 150 }}
@@ -131,7 +129,6 @@
 		padding-right: 10px;
 		padding-left: 15px;
 		overflow: hidden;
-		/* border-bottom: 1px solid var(--clr-border-2); */
 		background-color: var(--branch-selected-bg);
 
 		/* Selected but NOT in focus */
