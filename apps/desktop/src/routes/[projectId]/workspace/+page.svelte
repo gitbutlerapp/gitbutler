@@ -58,4 +58,4 @@
 	});
 </script>
 
-<WorkspaceView {projectId} {stackId} />
+<WorkspaceView {projectId} />

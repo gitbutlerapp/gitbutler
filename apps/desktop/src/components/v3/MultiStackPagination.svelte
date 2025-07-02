@@ -32,11 +32,11 @@
 
 	function getPaginationTooltip(index: number) {
 		if (visibleIndexes.includes(index)) {
-			return `Branch ${index + 1}`;
+			return 'In view';
 		} else if (index === selectedBranchIndex) {
-			return 'Selected branch';
+			return 'Selected';
 		} else {
-			return `Switch to branch ${index + 1}`;
+			return 'Scroll to lane';
 		}
 	}
 </script>
