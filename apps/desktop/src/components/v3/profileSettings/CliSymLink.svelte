@@ -11,7 +11,7 @@
 
 	async function cli_command(): Promise<string> {
 		const path: string = await invoke('cli_path');
-		const command = 'ln -sf ' + path + ' /usr/local/bin/but';
+		const command = "sudo ln -sf '" + path + "' /usr/local/bin/but";
 		return command;
 	}
 </script>
