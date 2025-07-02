@@ -523,6 +523,75 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
 }
 
 #[test]
+fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Result<()> {
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("two-dependent-branches-first-rebased-and-merged")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 0b6b861 (origin/main, origin/A) A
+    | * 4f08b8d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | * da597e8 (B) B
+    | * 1818c17 (A) A
+    |/  
+    * 281456a (main) init
+    ");
+
+    add_workspace(&mut meta);
+
+    let opts = standard_options();
+    let info = head_info2(&repo, &*meta, opts)?;
+    // TODO: need to detect that A is integrated.
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [
+            Stack {
+                base: None,
+                segments: [
+                    ref_info::ui::Segment {
+                        id: 3,
+                        ref_name: "refs/heads/B",
+                        remote_tracking_ref_name: "None",
+                        commits: [
+                            LocalCommit(da597e8, "B\n", local),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: "None",
+                    },
+                    ref_info::ui::Segment {
+                        id: 4,
+                        ref_name: "refs/heads/A",
+                        remote_tracking_ref_name: "refs/remotes/origin/A",
+                        commits: [
+                            LocalCommit(1818c17, "A\n", local),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: "None",
+                    },
+                ],
+                stash_status: None,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+        is_managed_ref: true,
+        is_managed_commit: true,
+        is_entrypoint: true,
+    }
+    "#);
+
+    // TODO: test without remote configuration (remove remote from config in memory) - integration checks should happen
+    //       independently of remotes.
+    Ok(())
+}
+
+#[test]
 fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("target-ahead-remote-rewritten")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"

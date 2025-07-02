@@ -1050,6 +1050,8 @@ fn integrated_tips_stop_early() -> anyhow::Result<()> {
     // We can abort early if there is only integrated commits left.
     // We also abort integrated named segments early, unless these are named as being part of the
     // workspace - here `A` is cut off.
+    // TODO: need to know intersection with `main` as well, and should not stop until we found it with
+    //       workspace commit. Needs multi-goal.
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
     assert_eq!(graph.partial_segments().count(), 1);
     insta::assert_snapshot!(graph_tree(&graph), @r"

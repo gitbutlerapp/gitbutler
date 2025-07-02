@@ -522,7 +522,12 @@ pub(crate) mod function {
             let commits_unique_in_remote_tracking_branch = if commits_on_remote.is_empty() {
                 Vec::new()
             } else {
-                compute_commit_similarity(repo, &mut commits, commits_on_remote, ctx)?
+                compute_commit_similarity(
+                    repo,
+                    &mut commits,
+                    commits_on_remote.iter().map(|c| c.id),
+                    ctx,
+                )?
             };
             Ok(Self {
                 ref_name,
@@ -569,7 +574,7 @@ pub(crate) mod function {
     fn compute_commit_similarity<'repo>(
         repo: &'repo gix::Repository,
         local: &mut [LocalCommit],
-        remote: Vec<StackCommit>,
+        remote: impl Iterator<Item = gix::ObjectId>,
         SimilarityContext {
             target_ref_name,
             expensive,
@@ -604,8 +609,8 @@ pub(crate) mod function {
                     }
                 }
             };
-            for commit in &remote {
-                let commit = but_core::Commit::from_id(commit.id.attach(repo))?;
+            for commit_id in remote {
+                let commit = but_core::Commit::from_id(commit_id.attach(repo))?;
                 if let Some(hdr) = commit.headers() {
                     insert_or_expell_ambiguous(
                         ChangeIdOrCommitData::ChangeId(hdr.change_id),

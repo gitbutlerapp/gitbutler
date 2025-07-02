@@ -86,6 +86,18 @@ function create_workspace_commit_aggressively() {
   fi
 }
 
+function add_fake_remote() {
+  cat <<EOF >>.git/config
+[remote "origin"]
+	url = ./fake/local/path/which-is-fine-as-we-dont-fetch-or-push
+	fetch = +refs/heads/*:refs/remotes/origin/*
+
+[branch "main"]
+  remote = "origin"
+  merge = refs/heads/main
+EOF
+}
+
 git init remote
 (cd remote
   touch file
@@ -395,4 +407,21 @@ git init two-dependent-branches-with-interesting-remote-setup
 
   setup_remote_tracking soon-main-remote main "move"
   create_workspace_commit_once A
+)
+
+git init "two-dependent-branches-first-rebased-and-merged"
+(cd "two-dependent-branches-first-rebased-and-merged"
+  echo init>file && git add file && git commit -m "init"
+  git checkout -b A && echo A >>file && git commit -am "A"
+  git checkout -b B && echo B >>file && git commit -am "B"
+  create_workspace_commit_once B
+  git checkout -b soon-origin-main main
+    tick
+    git cherry-pick A
+
+  git checkout gitbutler/workspace
+  setup_remote_tracking soon-origin-main main "move"
+
+  add_fake_remote
+  cp .git/refs/remotes/origin/main .git/refs/remotes/origin/A
 )
