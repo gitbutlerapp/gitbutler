@@ -140,7 +140,6 @@
 				{branchName}
 				isEmpty={args.isNewBranch}
 				selected={args.selected}
-				selectIndicator
 				draft={false}
 				{lineColor}
 				isCommitting={args.isCommitting}
@@ -206,7 +205,6 @@
 			{branchName}
 			isEmpty={args.isNewBranch}
 			selected={args.selected}
-			selectIndicator
 			draft={false}
 			{lineColor}
 			iconName={args.iconName}
@@ -234,7 +232,6 @@
 			{branchName}
 			isEmpty
 			selected={args.selected}
-			selectIndicator
 			draft={false}
 			{lineColor}
 			iconName="branch-remote"
@@ -257,7 +254,6 @@
 			{branchName}
 			isEmpty
 			selected
-			selectIndicator={false}
 			draft
 			{lineColor}
 			iconName="branch-local"
