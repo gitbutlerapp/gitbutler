@@ -2,10 +2,10 @@
 @component
 A three way split view that manages resizing of the panels.
 
-The leftSection panel is set in rem units, the left-sideview has fixed width constraints,
+The left panel is set in rem units, the left-sideview has fixed width constraints,
 and the mainSection panel grows as the window resizes. If the window shrinks to where 
 it is smaller than the sum of the preferred widths, then the derived widths adjust 
-down, with the leftSection hand side shrinking before the left-sideview panel.
+down, with the left hand side shrinking before the left-sideview panel.
 
 Persisted widths are only stored when resizing manually, meaning you can shrink
 the window, then enlarge it and retain the original widths of the layout.
@@ -14,11 +14,11 @@ the window, then enlarge it and retain the original widths of the layout.
 ```
 <MainViewport
 	name="workspace"
-	leftSectionWidth={{ default: 200, min: 100}}
-	leftSideviewWidth={{ default: 200, min: 100}}
+	leftWidth={{ default: 200, min: 100}}
+	previewWidth={{ default: 200, min: 100}}
 >
-	{#snippet leftSection()} {/snippet}
-	{#snippet leftSideview()} {/snippet}
+	{#snippet left()} {/snippet}
+	{#snippet preview()} {/snippet}
 	{#snippet mainSection()} {/snippet}
 </MainViewport>
 ```
@@ -37,29 +37,26 @@ the window, then enlarge it and retain the original widths of the layout.
 
 	type Props = {
 		name: string;
-		leftSection: Snippet;
-		leftSideview?: Snippet;
-		mainSection: Snippet;
-		rightSideview?: Snippet;
-		leftSectionWidth: {
+		left: Snippet;
+		leftWidth: {
 			default: number;
 			min: number;
 		};
-		leftSideviewWidth?: {
+		preview?: Snippet;
+		previewWidth?: {
+			default: number;
+			min: number;
+		};
+		middle: Snippet;
+		right?: Snippet;
+		rightWidth: {
 			default: number;
 			min: number;
 		};
 	};
 
-	const {
-		name,
-		leftSection,
-		leftSideview,
-		mainSection,
-		rightSideview,
-		leftSectionWidth,
-		leftSideviewWidth
-	}: Props = $props();
+	const { name, left, leftWidth, preview, previewWidth, middle, right, rightWidth }: Props =
+		$props();
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const zoom = $derived($userSettings.zoom);
@@ -67,95 +64,111 @@ the window, then enlarge it and retain the original widths of the layout.
 	const [uiState] = inject(UiState);
 	const unassignedSidebaFolded = $derived(uiState.global.unassignedSidebaFolded);
 
-	const defaultRightSideviewWidth = 480;
-	let leftSectionPreferredWidth = $derived(pxToRem(leftSectionWidth.default, zoom));
-	let leftSideviewPreferredWidth = $derived(pxToRem(leftSideviewWidth?.default, zoom));
-	let rightSideviewPreferredWidth = $derived(pxToRem(defaultRightSideviewWidth, zoom));
+	let leftPreferredWidth = $derived(pxToRem(leftWidth.default, zoom));
+	let previewPreferredWidth = $derived(pxToRem(previewWidth?.default, zoom));
+	let rightPreferredWidth = $derived(pxToRem(rightWidth.default, zoom));
 
-	let leftSectionDiv = $state<HTMLDivElement>();
-	let leftSideviewDiv = $state<HTMLDivElement>();
-	let mainSectionDiv = $state<HTMLDivElement>();
-	let rightSideviewDiv = $state<HTMLDivElement>();
+	let leftDiv = $state<HTMLDivElement>();
+	let previewDiv = $state<HTMLDivElement>();
+	let middleDiv = $state<HTMLDivElement>();
+	let rightDiv = $state<HTMLDivElement>();
 
-	const leftSectionMinWidth = $derived(pxToRem(leftSectionWidth.min, zoom));
-	const leftSideviewMinWidth = $derived(pxToRem(leftSideviewWidth?.min, zoom));
-	const rightSideviewMinWidth = $derived(pxToRem(400, zoom));
+	const leftMinWidth = $derived(pxToRem(leftWidth.min, zoom));
+	const previewMinWidth = $derived(preview ? pxToRem(previewWidth?.min, zoom) : 0);
+	const rightMinWidth = $derived(pxToRem(rightWidth.min, zoom));
 
 	// These need to stay in px since they are bound to elements.
 	let containerBindWidth = $state<number>(1000); // TODO: What initial value should we give this?
+	const containerBindWidthRem = $derived(pxToRem(containerBindWidth, zoom));
 
 	// Total width we cannot go below.
 	const padding = $derived(containerBindWidth - window.innerWidth);
-	const containerMinWidth = $derived(804 - padding);
 
-	// When swapped, the left-sideview becomes flexible and mainSection becomes fixed
-	const rightSideviewWidth = $derived(rightSideview ? rightSideviewPreferredWidth : 0);
-	const flexibleMinWidth = $derived(
-		pxToRem(containerMinWidth, zoom) -
-			leftSectionMinWidth -
-			(leftSideviewMinWidth || 0) -
-			rightSideviewWidth
+	// While the minimum window width is 1000px we use a slightly smaller value
+	// here since it happens in dev mode that the window gets smaller.
+	const containerMinWidth = $derived(pxToRem(800 - padding, zoom));
+
+	// Sum of all inner margins that cannot be used by container widths.
+	const marginSum = 1;
+
+	const middleMinWidth = $derived(
+		containerMinWidth - leftMinWidth - pxToRem(previewWidth?.min, zoom) - rightMinWidth - marginSum
 	);
-	const totalAvailableWidth = $derived(
-		pxToRem(containerBindWidth, zoom) - flexibleMinWidth - rightSideviewWidth - 1
-	); // Reserve space for flexible panel, right sideview and gaps
+
+	const leftMaxWidth = $derived(
+		containerBindWidthRem - previewMinWidth - middleMinWidth - rightMinWidth - marginSum
+	);
 
 	// Calculate derived widths with proper constraints
-	const derivedLeftSectionWidth = $derived(
+	const finalLeftWidth = $derived(
 		Math.min(
-			totalAvailableWidth - leftSideviewMinWidth,
-			Math.max(leftSectionMinWidth, leftSectionPreferredWidth)
+			containerBindWidthRem - previewMinWidth - middleMinWidth - rightMinWidth - marginSum,
+			Math.max(leftMinWidth, leftPreferredWidth)
 		)
 	);
 
-	// Fixed panel width is constrained by remaining space after leftSection panel
-	const remainingForFixed = $derived(totalAvailableWidth - derivedLeftSectionWidth);
-	const derivedLeftSideviewWidth = $derived(
-		Math.min(remainingForFixed, Math.max(leftSideviewMinWidth, leftSideviewPreferredWidth))
+	const previewMaxWidth = $derived(
+		containerBindWidthRem - finalLeftWidth - middleMinWidth - rightMinWidth - marginSum
 	);
 
-	// Calculate max widths for the resizers
-	const leftSectionMaxWidth = $derived(totalAvailableWidth - leftSideviewMinWidth);
-	const leftSideviewMaxWidth = $derived(totalAvailableWidth - derivedLeftSectionWidth);
+	const remainingForPreview = $derived(
+		containerBindWidthRem - finalLeftWidth - middleMinWidth - rightMinWidth
+	);
+	const finalPreviewWidth = $derived(
+		preview ? Math.min(remainingForPreview, Math.max(previewMinWidth, previewPreferredWidth)) : 0
+	);
+
+	const remainingForRight = $derived(
+		containerBindWidthRem - finalLeftWidth - finalPreviewWidth - middleMinWidth - marginSum
+	);
+	const finalRightWidth = $derived(
+		Math.min(remainingForRight, Math.max(rightMinWidth, rightPreferredWidth))
+	);
+
+	const rightMaxWidth = $derived(
+		containerBindWidthRem - finalLeftWidth - finalPreviewWidth - middleMinWidth - 1
+	);
 </script>
 
 <div
 	class="main-viewport"
 	use:focusable={{ id: DefinedFocusable.MainViewport }}
 	bind:clientWidth={containerBindWidth}
-	class:left-sideview-open={!!leftSideview}
+	class:left-sideview-open={!!preview}
 >
 	{#if !unassignedSidebaFolded.current}
 		<div
 			class="left-section view-wrapper"
-			bind:this={leftSectionDiv}
-			style:width={derivedLeftSectionWidth + 'rem'}
-			style:min-width={leftSectionMinWidth + 'rem'}
+			bind:this={leftDiv}
+			style:width={finalLeftWidth + 'rem'}
+			style:min-width={leftMinWidth + 'rem'}
 			use:focusable={{ id: DefinedFocusable.ViewportLeft, parentId: DefinedFocusable.MainViewport }}
 		>
 			<AsyncRender>
 				<div class="left-section__content">
-					{@render leftSection()}
+					{@render left()}
 				</div>
 				<Resizer
-					viewport={leftSectionDiv}
+					viewport={leftDiv}
 					direction="right"
-					minWidth={leftSectionMinWidth}
-					maxWidth={leftSectionMaxWidth}
+					minWidth={leftMinWidth}
+					maxWidth={leftMaxWidth}
 					imitateBorder
-					borderRadius={!leftSideview ? 'ml' : 'none'}
+					borderRadius={!preview ? 'ml' : 'none'}
 					persistId="viewport-${name}-left-section"
-					onWidth={(width) => (leftSectionPreferredWidth = width)}
+					onWidth={(width) => {
+						leftPreferredWidth = width;
+					}}
 				/>
 			</AsyncRender>
 		</div>
 
-		{#if leftSideview}
+		{#if preview}
 			<div
 				class="left-sideview view-wrapper"
-				bind:this={leftSideviewDiv}
-				style:width={derivedLeftSideviewWidth + 'rem'}
-				style:min-width={leftSideviewMinWidth + 'rem'}
+				bind:this={previewDiv}
+				style:width={finalPreviewWidth + 'rem'}
+				style:min-width={previewMinWidth + 'rem'}
 				use:focusable={{
 					id: DefinedFocusable.ViewportMiddle,
 					parentId: DefinedFocusable.MainViewport
@@ -163,47 +176,49 @@ the window, then enlarge it and retain the original widths of the layout.
 			>
 				<AsyncRender>
 					<div class="left-sideview-content dotted-pattern">
-						{@render leftSideview()}
+						{@render preview()}
 					</div>
 					<Resizer
-						viewport={leftSideviewDiv}
+						viewport={previewDiv}
 						direction="right"
-						minWidth={leftSideviewMinWidth}
-						maxWidth={leftSideviewMaxWidth}
+						minWidth={previewMinWidth}
+						maxWidth={previewMaxWidth}
 						borderRadius="ml"
 						persistId="viewport-${name}-left-sideview"
-						defaultValue={pxToRem(leftSideviewWidth?.default, zoom)}
-						onWidth={(width) => (leftSideviewPreferredWidth = width)}
+						defaultValue={pxToRem(previewWidth?.default, zoom)}
+						onWidth={(width) => {
+							previewPreferredWidth = width;
+						}}
 					/>
 				</AsyncRender>
 			</div>
 		{/if}
 	{:else}
 		<div class="left-section__folded">
-			{@render leftSection()}
+			{@render left()}
 		</div>
 	{/if}
 
 	<div
 		class="main-section view-wrapper dotted-pattern"
-		bind:this={mainSectionDiv}
-		style:min-width={flexibleMinWidth + 'rem'}
-		style:margin-right={rightSideview ? '0' : ''}
+		bind:this={middleDiv}
+		style:min-width={middleMinWidth + 'rem'}
+		style:margin-right={right ? '0' : ''}
 		use:focusable={{
 			id: DefinedFocusable.ViewportRight,
 			parentId: DefinedFocusable.MainViewport
 		}}
 	>
 		<AsyncRender>
-			{@render mainSection()}
+			{@render middle()}
 		</AsyncRender>
 	</div>
 
-	{#if rightSideview}
+	{#if right}
 		<div
 			class="right-sideview"
-			bind:this={rightSideviewDiv}
-			style:width={rightSideviewPreferredWidth + 'rem'}
+			bind:this={rightDiv}
+			style:width={finalRightWidth + 'rem'}
 			use:focusable={{
 				id: DefinedFocusable.ViewportDrawerRight,
 				parentId: DefinedFocusable.MainViewport
@@ -211,16 +226,19 @@ the window, then enlarge it and retain the original widths of the layout.
 		>
 			<AsyncRender>
 				<Resizer
-					viewport={rightSideviewDiv}
+					viewport={rightDiv}
 					direction="left"
-					minWidth={rightSideviewMinWidth}
-					defaultValue={pxToRem(defaultRightSideviewWidth, zoom)}
+					minWidth={rightMinWidth}
+					defaultValue={pxToRem(rightWidth.default, zoom)}
+					maxWidth={rightMaxWidth}
 					borderRadius="ml"
 					persistId="viewport-${name}-right-sideview"
-					onWidth={(width) => (rightSideviewPreferredWidth = width)}
+					onWidth={(width) => {
+						rightPreferredWidth = width;
+					}}
 				/>
 				<div class="right-sideview-content">
-					{@render rightSideview()}
+					{@render right()}
 				</div>
 			</AsyncRender>
 		</div>
