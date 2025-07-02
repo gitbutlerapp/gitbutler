@@ -190,7 +190,6 @@
 		role="presentation"
 		class:dimmed
 		tabindex="-1"
-		draggable="true"
 		data-id={stack.id}
 		data-testid={TestId.Stack}
 		data-testid-stackid={stack.id}
@@ -216,7 +215,7 @@
 			{@attach scrollingAttachment(intelligentScrollingService, projectId, stack.id, 'stack')}
 		>
 			{#if !isCommitting}
-				<div class="drag-handle" data-remove-from-panning data-drag-handle>
+				<div class="drag-handle" data-remove-from-panning data-drag-handle draggable="true">
 					<Icon name="draggable-narrow" rotate={90} />
 				</div>
 			{/if}
