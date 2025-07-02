@@ -4,6 +4,7 @@
 	import MultiStackPagination, { scrollToLane } from '$components/v3/MultiStackPagination.svelte';
 	import StackDraft from '$components/v3/StackDraft.svelte';
 	import StackView from '$components/v3/StackView.svelte';
+	import { HorizontalPanner } from '$lib/dragging/horizontalPanner';
 	import {
 		onReorderEnd,
 		onReorderMouseDown,
@@ -73,7 +74,7 @@
 		}
 	});
 
-	const workspacePanner = $derived(
+	const workspaceAutoPanner = $derived(
 		lanesScrollableEl ? new WorkspaceAutoPanner(lanesScrollableEl) : undefined
 	);
 
@@ -81,7 +82,17 @@
 	let draggingStack = $state(false);
 	$effect(() => {
 		if (draggingStack) {
-			const unsub = workspacePanner?.enablePanning();
+			const unsub = workspaceAutoPanner?.enablePanning();
+			return () => unsub?.();
+		}
+	});
+
+	const horizontalPanner = $derived(
+		lanesScrollableEl ? new HorizontalPanner(lanesScrollableEl) : undefined
+	);
+	$effect(() => {
+		if (horizontalPanner) {
+			const unsub = horizontalPanner.registerListeners();
 			return () => unsub?.();
 		}
 	});
