@@ -4,6 +4,7 @@ use std::sync::Arc;
 use bstr::BString;
 use but_core::{TreeChange, UnifiedDiff};
 use but_graph::VirtualBranchesTomlMetadata;
+use but_workspace::StackId;
 use but_workspace::ui::StackEntry;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::{OplogExt, SnapshotExt};
@@ -420,17 +421,17 @@ pub struct AmendParameters {
     </important_notes>
     ")]
     pub message_body: String,
-    /// The branch name containing the commit to amend.
+    /// The id of the stack to amend the commit on.
     #[schemars(description = "
     <description>
-        The name of the branch containing the commit to amend.
+        This is the Id of the stack that contains the commit to amend.
     </description>
 
     <important_notes>
-        The branch name should match an existing branch in the workspace.
+        The ID should refer to a stack in the workspace.
     </important_notes>
     ")]
-    pub branch_name: String,
+    pub stack_id: String,
     /// The list of files to include in the amended commit.
     #[schemars(description = "
         <description>
@@ -486,6 +487,15 @@ pub fn amend_commit(
     app_handle: Option<&tauri::AppHandle>,
     params: AmendParameters,
 ) -> Result<but_workspace::commit_engine::ui::CreateCommitOutcome, anyhow::Error> {
+    let outcome = amend_commit_inner(ctx, app_handle, params)?;
+    Ok(outcome.into())
+}
+
+pub fn amend_commit_inner(
+    ctx: &mut CommandContext,
+    app_handle: Option<&tauri::AppHandle>,
+    params: AmendParameters,
+) -> anyhow::Result<but_workspace::commit_engine::CreateCommitOutcome> {
     let repo = ctx.gix_repo()?;
     let project = ctx.project();
     let settings = ctx.app_settings();
@@ -499,21 +509,13 @@ pub fn amend_commit(
         .map(Into::into)
         .collect::<Vec<_>>();
 
-    let stacks = stacks(ctx, &repo)?;
-
-    let stack_id = stacks
-        .iter()
-        .find_map(|s| {
-            let found = s.heads.iter().any(|h| h.name == params.branch_name);
-            if found { Some(s.id) } else { None }
-        })
-        .ok_or_else(|| anyhow::anyhow!("Branch not found: {}", params.branch_name))?;
-
     let message = format!(
         "{}\n\n{}",
         params.message_title.trim(),
         params.message_body.trim()
     );
+
+    let stack_id = StackId::from_str(&params.stack_id)?;
 
     let outcome = but_workspace::commit_engine::create_commit_and_update_refs_with_project(
         &repo,
@@ -535,8 +537,7 @@ pub fn amend_commit(
         app_handle.emit_stack_update(project_id, stack_id);
     }
 
-    let outcome: but_workspace::commit_engine::ui::CreateCommitOutcome = outcome?.into();
-    Ok(outcome)
+    outcome
 }
 
 pub struct GetProjectStatus;
@@ -684,9 +685,9 @@ pub struct FileChange {
 #[serde(rename_all = "camelCase")]
 pub struct ProjectStatus {
     /// List of stacks applied to the project's workspace
-    stacks: Vec<SimpleStack>,
+    pub stacks: Vec<SimpleStack>,
     /// Unified diff changes that could be committed.
-    file_changes: Vec<FileChange>,
+    pub file_changes: Vec<FileChange>,
 }
 
 impl ToolResult for Result<ProjectStatus, anyhow::Error> {
@@ -703,6 +704,19 @@ pub fn get_project_status(
     let stacks = stacks(ctx, repo)?;
     let stacks = entries_to_simple_stacks(&stacks, ctx, repo)?;
 
+    let file_changes = get_filtered_changes(ctx, repo, filter_changes)?;
+
+    Ok(ProjectStatus {
+        stacks,
+        file_changes,
+    })
+}
+
+pub fn get_filtered_changes(
+    ctx: &mut CommandContext,
+    repo: &gix::Repository,
+    filter_changes: Option<Vec<BString>>,
+) -> Result<Vec<FileChange>, anyhow::Error> {
     let worktree = but_core::diff::worktree_changes(repo)?;
     let changes = if let Some(filter) = filter_changes {
         worktree
@@ -714,7 +728,6 @@ pub fn get_project_status(
         worktree.changes.clone()
     };
     let diff = unified_diff_for_changes(repo, changes, ctx.app_settings().context_lines)?;
-    // Get any assignments that may have been made, which also includes any hunk locks. Assignments should be updated according to locks where applicable.
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
         ctx,
         true,
@@ -722,13 +735,8 @@ pub fn get_project_status(
         None,
     )
     .map_err(|err| serde_error::Error::new(&*err))?;
-
     let file_changes = get_file_changes(&diff, assignments.clone());
-
-    Ok(ProjectStatus {
-        stacks,
-        file_changes,
-    })
+    Ok(file_changes)
 }
 
 fn entries_to_simple_stacks(
@@ -845,4 +853,36 @@ fn unified_diff_for_changes(
                 .map(|diff| (tree_change, diff.expect("no submodule")))
         })
         .collect::<Result<Vec<_>, _>>()
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, JsonSchema)]
+#[schemars(deny_unknown_fields)]
+pub struct AbsorbSpec {
+    /// The title of the commti to use in the amended commit.
+    #[schemars(description = "
+    <description>
+        The title of the commit to use in the amended commit.
+    </description>
+    
+    <important_notes>
+        The title should be concise and descriptive.
+        Don't use more than 50 characters.
+        It should be differente from the original commit title only if needed.
+    </important_notes>
+    ")]
+    pub commit_title: String,
+    /// The description of the commit to use in the amended commit.
+    #[schemars(description = "
+    <description>
+        The description of the commit to use in the amended commit.
+    </description>
+
+    <important_notes>
+        The description should provide context and details about the changes made.
+        It should span multiple lines if necessary.
+        A good description focuses on describing the 'what' of the changes.
+        Don't make assumption about the 'why', only describe the changes in the context of the branch (and other commits if any).
+    </important_notes>
+    ")]
+    pub commit_description: String,
 }
