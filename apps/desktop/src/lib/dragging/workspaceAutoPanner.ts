@@ -4,7 +4,10 @@ import { on } from 'svelte/events';
 const GUTTER_WIDTH_RATIO = 0.25;
 const PAN_SPEED_MULTIPLIER = 10;
 
-export class WorkspacePanner {
+/**
+ * Automatically pans the workspace, usually when something is being dragged.
+ */
+export class WorkspaceAutoPanner {
 	private scrollSpeed = 0;
 
 	constructor(private readonly workspace: HTMLElement) {}
