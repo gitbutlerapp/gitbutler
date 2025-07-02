@@ -58,6 +58,8 @@
 		label: option.displayName,
 		value: option.schemeIdentifer
 	}));
+	const settingsStore = $derived(settingsService.appSettings);
+	const canUseActions = $derived($settingsStore?.featureFlags.actions ?? false);
 
 	$effect(() => {
 		if ($user && !loaded) {
@@ -220,7 +222,7 @@
 	{/snippet}
 </SectionCard>
 
-{#if $user && $user.role?.includes('admin')}
+{#if canUseActions}
 	<SectionCard orientation="column">
 		{#snippet title()}
 			Install the GitButler CLI (but)

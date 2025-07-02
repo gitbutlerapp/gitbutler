@@ -189,6 +189,7 @@
 											size="tag"
 											onclick={async () => await invoke('install_cli')}>Install But CLI</Button
 										>
+										<span class="clr-text-2">(requires admin)</span>
 										or
 										<span
 											role="presentation"
@@ -197,7 +198,7 @@
 												showSymlink = !showSymlink;
 											}}>configure manually</span
 										>
-										<span class="clr-text-2">(requires admin rights)</span>.
+										.
 									</li>
 									{#if showSymlink}
 										<CliSymLink class="m-top-2 m-bottom-6" />
