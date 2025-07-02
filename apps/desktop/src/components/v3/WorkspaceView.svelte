@@ -123,25 +123,26 @@
 	}
 </script>
 
-{#snippet drawerRight()}
+{#snippet right()}
 	<Feed {projectId} onCloseClick={() => uiState.project(projectId).showActions.set(false)} />
 {/snippet}
 
-{#snippet leftSideview()}
+{#snippet leftPreview()}
 	<SelectionView {projectId} {selectionId} draggableFiles />
 {/snippet}
 
 <MainViewport
 	name="workspace"
-	leftSectionWidth={{ default: 280, min: 240 }}
-	leftSideviewWidth={{ default: 380, min: 240 }}
-	rightSideview={showingActions ? drawerRight : undefined}
-	leftSideview={previewOpen ? leftSideview : undefined}
+	leftWidth={{ default: 280, min: 220 }}
+	preview={previewOpen ? leftPreview : undefined}
+	previewWidth={{ default: 480, min: 220 }}
+	right={showingActions ? right : undefined}
+	rightWidth={{ default: 320, min: 220 }}
 >
-	{#snippet leftSection()}
+	{#snippet left()}
 		<UnassignedView {projectId} focus={focusGroup.current as DefinedFocusable} />
 	{/snippet}
-	{#snippet mainSection()}
+	{#snippet middle()}
 		<ReduxResult {projectId} result={stacksResult?.current}>
 			{#snippet loading()}
 				<div class="stacks-view-skeleton"></div>

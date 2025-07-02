@@ -60,7 +60,8 @@
 		onResizing,
 		onOverflow,
 		onHover,
-		onDblClick
+		onDblClick,
+		onWidth
 	}: Props = $props();
 
 	const orientation = $derived(['left', 'right'].includes(direction) ? 'horizontal' : 'vertical');
@@ -119,6 +120,7 @@
 		}
 		if (newValue) {
 			updateDom(newValue);
+			onWidth?.(newValue);
 		}
 		if (overflow) {
 			onOverflow?.(overflow);
@@ -158,10 +160,7 @@
 			return resizeSync.subscribe({
 				key: syncName,
 				resizerId,
-				callback: (newValue) => {
-					value.set(newValue);
-					updateDom(newValue);
-				}
+				callback: (newValue) => value.set(newValue)
 			});
 		}
 	});
@@ -169,6 +168,7 @@
 	$effect(() => {
 		if ($value && viewport) {
 			updateDom($value);
+			onWidth?.($value);
 		}
 	});
 
