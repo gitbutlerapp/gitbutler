@@ -18,13 +18,13 @@
 
 	const [idSelection] = inject(IdSelection);
 
-	const selection = $derived(selectionId ? idSelection.values(selectionId) : []);
+	const selection = $derived(selectionId ? idSelection.valuesReactive(selectionId) : undefined);
 	const lastAdded = $derived(selectionId ? idSelection.getById(selectionId).lastAdded : undefined);
 
 	const selectedFile = $derived.by(() => {
-		if (!selectionId) return;
-		if (selection.length === 0) return;
-		if (selection.length === 1 || !$lastAdded) return selection[0];
+		if (!selectionId || !selection) return;
+		if (selection.current.length === 0) return;
+		if (selection.current.length === 1 || !$lastAdded) return selection.current[0];
 		return readKey($lastAdded.key);
 	});
 </script>

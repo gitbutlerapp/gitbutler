@@ -6,6 +6,7 @@ import {
 	type SelectionId,
 	type SelectedFile
 } from '$lib/selection/key';
+import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { SvelteSet } from 'svelte/reactivity';
 import { get, writable, type Writable } from 'svelte/store';
 import type { TreeChange } from '$lib/hunks/change';
@@ -113,6 +114,12 @@ export class IdSelection {
 
 	values(params: SelectionId) {
 		return this.keys(params).map((key) => readKey(key));
+	}
+
+	valuesReactive(params: SelectionId) {
+		const selection = this.getById(params);
+		const keys = $derived(Array.from(selection.entries).map(readKey));
+		return reactive(() => keys);
 	}
 
 	/**
