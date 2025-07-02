@@ -84,8 +84,7 @@ export class ClientState {
 			ircClient,
 			backendApi: this.backendApi,
 			githubApi: this.githubApi,
-			gitlabApi: this.gitlabApi,
-			posthog
+			gitlabApi: this.gitlabApi
 		});
 
 		this.store = store;
@@ -125,18 +124,8 @@ function createStore(params: {
 	backendApi: BackendApi;
 	githubApi: GitHubApi;
 	gitlabApi: GitLabApi;
-	posthog: PostHogWrapper;
 }) {
-	const {
-		tauri,
-		gitHubClient,
-		gitLabClient,
-		ircClient,
-		backendApi,
-		githubApi,
-		gitlabApi,
-		posthog
-	} = params;
+	const { tauri, gitHubClient, gitLabClient, ircClient, backendApi, githubApi, gitlabApi } = params;
 
 	// We can't use the `persistStore` function because it doesn't work
 	// with injected reducers. We should inject all reduces so we don't
@@ -166,8 +155,7 @@ function createStore(params: {
 						tauri,
 						gitHubClient,
 						gitLabClient,
-						ircClient,
-						posthog
+						ircClient
 					}
 				},
 				serializableCheck: {
