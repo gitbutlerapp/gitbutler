@@ -144,14 +144,14 @@
 			parentId: stackId ? DefinedFocusable.ViewportRight : DefinedFocusable.ViewportLeft
 		}}
 	>
-		{#if mode === 'unassigned'}
+		{#if mode === 'unassigned' || changes.current.length > 0}
 			<div
 				role="presentation"
 				data-testid={TestId.UncommittedChanges_Header}
 				class="worktree-header"
 				class:sticked-top={!scrollTopIsVisible}
 			>
-				{#if !isCommitting}
+				{#if !isCommitting && mode === 'unassigned' && !unassignedSidebaFolded.current}
 					<div class="worktree-header__fold">
 						<UnassignedFoldButton active={false} onclick={foldUnnassignedView} />
 					</div>
