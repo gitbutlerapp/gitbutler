@@ -86,7 +86,7 @@
 					</div>
 				{/if}
 			</div>
-			<p class="action-item__prompt text-13 text-darkgrey">
+			<p class="action-item__prompt text-13">
 				<span class="text-grey">Prompt:</span>{' ' +
 					(action.externalPrompt ?? action.externalSummary)}
 			</p>
