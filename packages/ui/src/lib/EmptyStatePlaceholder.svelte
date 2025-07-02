@@ -77,7 +77,6 @@
 		border-radius: var(--radius-m);
 		color: var(--clr-scale-ntrl-60);
 		cursor: default; /* was defaulting to text cursor */
-		user-select: none;
 	}
 
 	.empty-state__content {
