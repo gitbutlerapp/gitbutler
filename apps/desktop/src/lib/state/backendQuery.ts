@@ -4,12 +4,16 @@ import { Tauri } from '$lib/backend/tauri';
 import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
 import { type BaseQueryApi, type QueryReturnValue } from '@reduxjs/toolkit/query';
 
-export type TauriBaseQueryFn = typeof tauriBaseQuery;
+import type { BaseQueryFn } from '@reduxjs/toolkit/query';
 
-export async function tauriBaseQuery(
+export type ExtraOptions = { [key: string]: string };
+export type TauriBaseQueryFn = BaseQueryFn<ApiArgs, unknown, unknown, ExtraOptions | undefined>;
+
+// eslint-disable-next-line func-style
+export const tauriBaseQuery: TauriBaseQueryFn = async (
 	args: ApiArgs,
 	api: BaseQueryApi
-): Promise<QueryReturnValue<unknown, TauriCommandError, undefined>> {
+): Promise<QueryReturnValue<unknown, TauriCommandError, undefined>> => {
 	if (!hasTauriExtra(api.extra)) {
 		return {
 			error: { name: 'Failed to execute Tauri query', message: 'Redux dependency Tauri not found!' }
@@ -56,7 +60,7 @@ export async function tauriBaseQuery(
 
 		return { error: { name, message: String(error) } };
 	}
-}
+};
 
 type ApiArgs = {
 	command: string;

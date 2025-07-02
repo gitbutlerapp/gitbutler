@@ -1,5 +1,5 @@
-import { PostHog, posthog } from 'posthog-js';
-import type { AnalyticsContext } from '$lib/analytics/analyticsContext';
+import { PostHog, posthog, type Properties } from 'posthog-js';
+import type { EventContext } from '$lib/analytics/eventContext';
 import type { SettingsService } from '$lib/config/appSettingsV2';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import { PUBLIC_POSTHOG_API_KEY } from '$env/static/public';
@@ -9,13 +9,13 @@ export class PostHogWrapper {
 
 	constructor(
 		private settingsService: SettingsService,
-		private analyticsContext: AnalyticsContext
+		private eventContext: EventContext
 	) {}
 
-	capture(...args: Parameters<typeof posthog.capture>) {
-		const context = this.analyticsContext.getAll();
-		const properties = { ...context, ...(args[1] || {}) };
-		this._instance?.capture(args[0], properties, args[2]);
+	capture(eventName: string, properties?: Properties) {
+		const context = this.eventContext.getAll();
+		const newProperties = { ...context, ...properties };
+		this._instance?.capture(eventName, newProperties);
 	}
 
 	async init(appName: string, appVersion: string) {

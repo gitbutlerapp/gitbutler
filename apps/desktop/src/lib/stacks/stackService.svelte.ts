@@ -26,6 +26,7 @@ import type { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 import type { TreeChange, TreeChanges } from '$lib/hunks/change';
 import type { DiffSpec, Hunk } from '$lib/hunks/hunk';
 import type { BranchDetails, Stack, StackDetails } from '$lib/stacks/stack';
+import type { PropertiesFn } from '$lib/state/customHooks.svelte';
 import type { UiState } from '$lib/state/uiState.svelte';
 import type { User } from '$lib/user/user';
 
@@ -415,8 +416,9 @@ export class StackService {
 		});
 	}
 
-	get createCommit() {
-		return this.api.endpoints.createCommit.useMutation();
+	createCommit(args: { propertiesFn?: PropertiesFn }) {
+		const propertiesFn = args.propertiesFn;
+		return this.api.endpoints.createCommit.useMutation({ propertiesFn });
 	}
 
 	get createCommitMutation() {
@@ -968,7 +970,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
 					invalidatesItem(ReduxTag.StackDetails, args.stackId)
-				]
+				],
+				extraOptions: { actionName: 'Commit' }
 			}),
 			createCommitLegacy: build.mutation<
 				undefined,

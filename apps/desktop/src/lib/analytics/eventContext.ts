@@ -7,7 +7,7 @@ interface StateData {
 /**
  * Stuff that gets added to posthog events.
  */
-export class AnalyticsContext {
+export class EventContext {
 	private state: StateData = {};
 
 	set(key: string, value: StateValue): void {

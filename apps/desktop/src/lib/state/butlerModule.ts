@@ -1,7 +1,7 @@
 import {
-	buildMutationHooks,
+	buildMutationHook,
 	buildQueryHooks,
-	type MutationHooks
+	type MutationHook
 } from '$lib/state/customHooks.svelte';
 import { isMutationDefinition, isQueryDefinition } from '$lib/state/helpers';
 import { type Reactive } from '@gitbutler/shared/storeUtils';
@@ -24,7 +24,7 @@ import type { tauriBaseQuery, TauriBaseQueryFn } from '$lib/state/backendQuery';
 import type { HookContext } from '$lib/state/context';
 
 /** Gives our module a namespace in the extended `ApiModules` interface. */
-const butlerModuleName = Symbol();
+export const butlerModuleName = Symbol();
 type ButlerModule = typeof butlerModuleName;
 
 /**
@@ -49,7 +49,7 @@ declare module '@reduxjs/toolkit/query' {
 				[K in keyof Definitions]: Definitions[K] extends CustomQuery<any>
 					? QueryHooks<Definitions[K]>
 					: Definitions[K] extends MutationDefinition<any, any, any, any>
-						? MutationHooks<Definitions[K]>
+						? MutationHook<Definitions[K]>
 						: Definitions[K];
 			};
 		};
@@ -60,10 +60,10 @@ type CustomEndpoints<T> = {
 	[x: string]: EndpointDefinition<any, any, any, any> & { [K in keyof T]: T[K] };
 };
 
-type ExtensionDefinitions = ApiModules<
+export type ExtensionDefinitions = ApiModules<
 	typeof tauriBaseQuery,
 	CustomEndpoints<
-		QueryHooks<CustomQuery<any>> & MutationHooks<MutationDefinition<any, any, any, any>>
+		QueryHooks<CustomQuery<any>> & MutationHook<MutationDefinition<any, any, any, any>>
 	>,
 	string,
 	string
@@ -80,7 +80,13 @@ export function butlerModule(ctx: HookContext): Module<ButlerModule> {
 		name: butlerModuleName,
 
 		init(api, _options, _context) {
-			const anyApi = api as any as Api<any, ExtensionDefinitions, string, string, ButlerModule>;
+			const anyApi = api as any as Api<
+				TauriBaseQueryFn,
+				ExtensionDefinitions,
+				string,
+				string,
+				ButlerModule
+			>;
 			return {
 				injectEndpoint(endpointName, definition) {
 					const endpoint = anyApi.endpoints[endpointName]!; // Known to exist.
@@ -97,8 +103,12 @@ export function butlerModule(ctx: HookContext): Module<ButlerModule> {
 						endpoint.useQueries = useQueries;
 						endpoint.useQueryTimeStamp = useQueryTimeStamp;
 					} else if (isMutationDefinition(definition)) {
-						const { mutate, useMutation } = buildMutationHooks({
+						// TODO: Find a way to get a typed `extraOptions` object.
+						const extraOptions = definition.extraOptions as { actionName: string } | undefined;
+						const actionName = extraOptions?.actionName;
+						const { mutate, useMutation } = buildMutationHook({
 							endpointName,
+							actionName,
 							api,
 							ctx
 						});
@@ -171,7 +181,9 @@ type DefaultTransformer<T extends CustomQuery<any>> = (
  * A custom defintion of our queries since it needs to be referenced in a few
  * different places.
  */
-export type CustomQuery<T> = QueryDefinition<CustomArgs, TauriBaseQueryFn, string, T>;
+export type CustomQuery<T> = QueryDefinition<CustomArgs, TauriBaseQueryFn, string, T> & {
+	actionName?: string;
+};
 
 /** Options for queries. */
 export type QueryOptions = StartQueryActionCreatorOptions & { forceRefetch?: boolean };

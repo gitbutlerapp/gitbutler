@@ -1,7 +1,7 @@
 import { PromptService as AIPromptService } from '$lib/ai/promptService';
 import { AIService } from '$lib/ai/service';
 import { initAnalyticsIfEnabled } from '$lib/analytics/analytics';
-import { AnalyticsContext } from '$lib/analytics/analyticsContext';
+import { EventContext } from '$lib/analytics/eventContext';
 import { PostHogWrapper } from '$lib/analytics/posthog';
 import { CommandService } from '$lib/backend/ipc';
 import { Tauri } from '$lib/backend/tauri';
@@ -50,10 +50,10 @@ export const load: LayoutLoad = async () => {
 	const projectsService = new ProjectsService(defaultPath, httpClient);
 	const settingsService = new SettingsService(tauri, projectsService);
 
-	const analyticsContext = new AnalyticsContext();
+	const eventContext = new EventContext();
 	// Awaited and will block initial render, but it is necessary in order to respect the user
 	// settings on telemetry.
-	const posthog = new PostHogWrapper(settingsService, analyticsContext);
+	const posthog = new PostHogWrapper(settingsService, eventContext);
 	const appSettings = await loadAppSettings();
 	initAnalyticsIfEnabled(appSettings, posthog);
 
@@ -97,6 +97,6 @@ export const load: LayoutLoad = async () => {
 		settingsService,
 		projectMetrics,
 		uploadsService,
-		analyticsContext
+		eventContext
 	};
 };

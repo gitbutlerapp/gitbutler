@@ -19,7 +19,7 @@
 	import { ActionService } from '$lib/actions/actionService.svelte';
 	import { PromptService as AIPromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
-	import { AnalyticsContext } from '$lib/analytics/analyticsContext';
+	import { EventContext } from '$lib/analytics/eventContext';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { CommandService, invoke } from '$lib/backend/ipc';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
@@ -239,7 +239,7 @@
 	setContext(LineManagerFactory, data.lineManagerFactory);
 	setContext(StackingLineManagerFactory, data.stackingLineManagerFactory);
 	setContext(AppSettings, data.appSettings);
-	setContext(AnalyticsContext, data.analyticsContext);
+	setContext(EventContext, data.eventContext);
 	setContext(StackService, stackService);
 	setContext(ActionService, actionService);
 	setContext(OplogService, oplogService);
