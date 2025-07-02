@@ -22,12 +22,14 @@ import type { HookContext } from '$lib/state/context';
 import type { Prettify } from '@gitbutler/shared/utils/typeUtils';
 
 /** Extra properties included for event tracking. */
-export type ExtraProperties = { [key: string]: string | number | boolean | undefined };
+export type EventProperties = { [key: string]: string | number | boolean | undefined };
 
 /** A callback function for getting extra properties for event tracking. */
-export type PropertiesFn = () => ExtraProperties;
+export type PropertiesFn = () => EventProperties;
 
 type TranformerFn = (data: any, args: any) => any;
+
+const EVENT_NAME = 'tauri_command';
 
 /**
  * Returns implementations for custom endpoint methods defined in `ButlerModule`.
@@ -39,7 +41,6 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 }: {
 	api: Api<any, Definitions, any, any, CoreModule>;
 	endpointName: string;
-	actionName?: string;
 	ctx: HookContext;
 }) {
 	const endpoint = api.endpoints[endpointName]!;
@@ -226,7 +227,7 @@ type UseMutationResult<Definition extends MutationDefinition<any, any, string, a
 		args: QueryArgFrom<Definition>,
 		options?: {
 			/** Properties for event tracking. */
-			properties?: ExtraProperties;
+			properties?: EventProperties;
 		}
 	) => Promise<ResultTypeFrom<Definition>>,
 	/**
@@ -293,24 +294,48 @@ export function buildMutationHook<
 
 	const { initiate, select } = endpoint as unknown as ApiEndpointMutation<D, Definitions>;
 
+	function track(args: {
+		actionName?: string;
+		failure: boolean;
+		properties: EventProperties;
+		startTime: number;
+	}) {
+		if (!actionName) return;
+		const durationMs = Date.now() - args.startTime;
+		posthog?.capture(EVENT_NAME, {
+			...args.properties,
+			actionName,
+			failure: args.failure,
+			durationMs
+		});
+
+		/** TODO: How long do we need to send these duplicates? */
+		const legacyName = args.failure ? `${actionName} Failed` : `${actionName} Successful`;
+		posthog?.capture(legacyName, {
+			...args.properties,
+			failure: args.failure,
+			durationMs
+		});
+	}
+
 	async function mutate(queryArg: QueryArgFrom<D>, options?: UseMutationHookParams<D>) {
 		const dispatch = getDispatch();
 		const { fixedCacheKey, sideEffect, preEffect, onError, propertiesFn, throwSlientError } =
 			options ?? {};
 
-		const eventName = 'mutation_command';
 		const properties = Object.assign(propertiesFn?.() || {}, { command: endpointName, actionName });
 
 		preEffect?.(queryArg);
 
 		const dispatchResult = dispatch(initiate(queryArg, { fixedCacheKey }));
+		const startTime = Date.now();
 		try {
 			const result = await dispatchResult.unwrap();
 			sideEffect?.(result, queryArg);
-			posthog?.capture(eventName, { ...properties, failure: false });
+			track({ actionName, failure: false, properties, startTime });
 			return result;
 		} catch (error: unknown) {
-			posthog?.capture(eventName, { ...properties, failure: true });
+			track({ actionName, failure: true, properties, startTime });
 			if (onError && isTauriCommandError(error)) {
 				onError(error, queryArg);
 			}
@@ -336,22 +361,22 @@ export function buildMutationHook<
 
 		async function triggerMutation(
 			queryArg: QueryArgFrom<D>,
-			options?: { properties?: ExtraProperties }
+			options?: { properties?: EventProperties }
 		) {
-			const eventName = 'mutation_command';
 			const properties = Object.assign({}, propertiesFn?.(), options?.properties, {
 				command: endpointName,
 				actionName
 			});
 			preEffect?.(queryArg);
 			promise = dispatch(initiate(queryArg, { fixedCacheKey }));
+			const startTime = Date.now();
 			try {
 				const result = await promise.unwrap();
 				sideEffect?.(result, queryArg);
-				posthog?.capture(eventName, { ...properties, failure: false });
+				track({ actionName, failure: false, properties, startTime });
 				return result;
 			} catch (error: unknown) {
-				posthog?.capture(eventName, { ...properties, failure: true });
+				track({ actionName, failure: true, properties, startTime });
 				if (onError && isTauriCommandError(error)) {
 					onError(error, queryArg);
 				}

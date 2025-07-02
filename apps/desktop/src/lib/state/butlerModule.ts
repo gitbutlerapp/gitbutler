@@ -20,7 +20,7 @@ import {
 	type QueryActionCreatorResult,
 	type StartQueryActionCreatorOptions
 } from '@reduxjs/toolkit/query';
-import type { tauriBaseQuery, TauriBaseQueryFn } from '$lib/state/backendQuery';
+import type { TauriBaseQueryFn } from '$lib/state/backendQuery';
 import type { HookContext } from '$lib/state/context';
 
 /** Gives our module a namespace in the extended `ApiModules` interface. */
@@ -61,7 +61,7 @@ type CustomEndpoints<T> = {
 };
 
 export type ExtensionDefinitions = ApiModules<
-	typeof tauriBaseQuery,
+	TauriBaseQueryFn,
 	CustomEndpoints<
 		QueryHooks<CustomQuery<any>> & MutationHook<MutationDefinition<any, any, any, any>>
 	>,
@@ -181,9 +181,7 @@ type DefaultTransformer<T extends CustomQuery<any>> = (
  * A custom defintion of our queries since it needs to be referenced in a few
  * different places.
  */
-export type CustomQuery<T> = QueryDefinition<CustomArgs, TauriBaseQueryFn, string, T> & {
-	actionName?: string;
-};
+export type CustomQuery<T> = QueryDefinition<CustomArgs, TauriBaseQueryFn, string, T>;
 
 /** Options for queries. */
 export type QueryOptions = StartQueryActionCreatorOptions & { forceRefetch?: boolean };
