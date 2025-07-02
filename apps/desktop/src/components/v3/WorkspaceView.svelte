@@ -23,10 +23,9 @@
 
 	interface Props {
 		projectId: string;
-		stackId?: string;
 	}
 
-	const { stackId, projectId }: Props = $props();
+	const { projectId }: Props = $props();
 
 	const [stackService, focusManager, idSelection, uiState, settingsService] = inject(
 		StackService,
@@ -148,7 +147,7 @@
 				<div class="stacks-view-skeleton"></div>
 			{/snippet}
 			{#snippet children(stacks, { projectId })}
-				<MultiStackView {projectId} {stacks} {selectionId} selectedId={stackId} {focusedStackId} />
+				<MultiStackView {projectId} {stacks} {selectionId} {focusedStackId} />
 			{/snippet}
 		</ReduxResult>
 	{/snippet}
