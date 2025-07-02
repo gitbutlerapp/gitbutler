@@ -42,6 +42,5 @@
 		align-items: self-start;
 		padding: 0 14px 14px 0;
 		overflow: hidden;
-		user-select: none;
 	}
 </style>

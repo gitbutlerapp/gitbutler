@@ -85,7 +85,6 @@
 		flex-grow: 1;
 		background-color: var(--clr-bg-1);
 		cursor: default;
-		user-select: none;
 
 		&.v3 {
 			height: 100%;

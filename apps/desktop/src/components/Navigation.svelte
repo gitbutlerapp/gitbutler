@@ -141,7 +141,6 @@
 		width: 280px;
 		max-height: 100%;
 		background: var(--clr-bg-1);
-		user-select: none;
 	}
 
 	.navigation-top {

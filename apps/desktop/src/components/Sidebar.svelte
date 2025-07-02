@@ -181,7 +181,6 @@
 		padding: 14px;
 		border-right: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
-		user-select: none;
 	}
 
 	.profile-sidebar__header-wrapper {

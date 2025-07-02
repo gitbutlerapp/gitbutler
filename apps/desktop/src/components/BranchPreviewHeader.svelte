@@ -236,7 +236,6 @@
 		gap: 4px;
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
 		background: var(--clr-bg-2);
-		user-select: none;
 	}
 	.header__buttons {
 		display: flex;

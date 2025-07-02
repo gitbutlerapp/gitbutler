@@ -62,7 +62,7 @@
 		{#snippet children([change, diff], env)}
 			{#if change}
 				{@const isExecutable = (change.status.subject as Modification).flags}
-				<div class="selected-change-item">
+				<div class="selected-change-item" data-remove-from-panning>
 					<FileListItemWrapper
 						selectionId={selectedFile}
 						projectId={env.projectId}

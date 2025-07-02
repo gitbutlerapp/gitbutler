@@ -214,7 +214,6 @@
 
 	.sections-divider {
 		border-top: 1px solid var(--clr-border-3);
-		user-select: none;
 	}
 
 	.actions {

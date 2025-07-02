@@ -83,7 +83,6 @@
 		overflow: hidden;
 		gap: 8px;
 		cursor: default;
-		user-select: none;
 
 		&:focus-within {
 			outline: none;
