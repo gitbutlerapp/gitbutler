@@ -229,7 +229,6 @@
 		height: 100%;
 		overflow-x: hidden;
 		overflow-y: scroll;
-		user-select: none;
 	}
 
 	.lane-branches {
@@ -305,7 +304,6 @@
 		border-top-width: 0px;
 		color: var(--clr-scale-ntrl-60);
 		cursor: default; /* was defaulting to text cursor */
-		user-select: none;
 	}
 
 	/* COLLAPSED LANE */

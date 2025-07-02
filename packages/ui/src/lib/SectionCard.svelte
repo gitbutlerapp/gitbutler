@@ -136,12 +136,10 @@
 
 	.section-card__title {
 		color: var(--clr-scale-ntrl-0);
-		user-select: none;
 	}
 
 	.section-card__text {
 		color: var(--clr-text-2);
-		user-select: none;
 
 		/* if empty hide the caption */
 		&:empty {
