@@ -10,7 +10,7 @@
 		onReorderStart,
 		onDragOver
 	} from '$lib/dragging/reordering';
-	import { WorkspacePanner } from '$lib/dragging/workspacePanner';
+	import { WorkspaceAutoPanner } from '$lib/dragging/workspaceAutoPanner';
 	import { IntelligentScrollingService } from '$lib/intelligentScrolling/service';
 	import { branchesPath } from '$lib/routes/routes.svelte';
 	import { type SelectionId } from '$lib/selection/key';
@@ -74,7 +74,7 @@
 	});
 
 	const workspacePanner = $derived(
-		lanesScrollableEl ? new WorkspacePanner(lanesScrollableEl) : undefined
+		lanesScrollableEl ? new WorkspaceAutoPanner(lanesScrollableEl) : undefined
 	);
 
 	// Enable panning when a stack is being dragged.
