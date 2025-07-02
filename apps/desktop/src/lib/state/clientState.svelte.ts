@@ -70,7 +70,8 @@ export class ClientState {
 			// Reactive loop without nested function.
 			// TODO: Can it be done without nesting?
 			getState: () => () => this.rootState as any as RootState<any, any, any>,
-			getDispatch: () => this.dispatch
+			getDispatch: () => this.dispatch,
+			posthog
 		});
 		this.githubApi = createGitHubApi(butlerMod);
 		this.gitlabApi = createGitLabApi(butlerMod);

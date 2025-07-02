@@ -8,7 +8,6 @@ import {
 	type ApiEndpointMutation,
 	type ApiEndpointQuery,
 	type CoreModule,
-	type EndpointDefinitions,
 	type MutationActionCreatorResult,
 	type MutationDefinition,
 	type MutationResultSelectorResult,
@@ -18,22 +17,29 @@ import {
 	type RootState,
 	type StartQueryActionCreatorOptions
 } from '@reduxjs/toolkit/query';
-import type { CustomQuery } from '$lib/state/butlerModule';
+import type { CustomQuery, ExtensionDefinitions } from '$lib/state/butlerModule';
 import type { HookContext } from '$lib/state/context';
 import type { Prettify } from '@gitbutler/shared/utils/typeUtils';
+
+/** Extra properties included for event tracking. */
+export type ExtraProperties = { [key: string]: string | number | boolean | undefined };
+
+/** A callback function for getting extra properties for event tracking. */
+export type PropertiesFn = () => ExtraProperties;
 
 type TranformerFn = (data: any, args: any) => any;
 
 /**
  * Returns implementations for custom endpoint methods defined in `ButlerModule`.
  */
-export function buildQueryHooks<Definitions extends EndpointDefinitions>({
+export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 	api,
 	endpointName,
 	ctx: { getState, getDispatch }
 }: {
 	api: Api<any, Definitions, any, any, CoreModule>;
 	endpointName: string;
+	actionName?: string;
 	ctx: HookContext;
 }) {
 	const endpoint = api.endpoints[endpointName]!;
@@ -201,18 +207,28 @@ export type UseMutationHookParams<Definition extends MutationDefinition<any, any
 	 * will not be wrapped in a `SilentError`.
 	 */
 	throwSlientError?: boolean;
+	/**
+	 * Optional function that fetches additional metadata for logging purposes.
+	 */
+	propertiesFn?: PropertiesFn;
 };
 
 export type CustomMutationResult<Definition extends MutationDefinition<any, any, string, any>> =
 	Prettify<MutationResultSelectorResult<Definition>>;
 
-type CustomMutation<Definition extends MutationDefinition<any, any, string, any>> = readonly [
+type UseMutationResult<Definition extends MutationDefinition<any, any, string, any>> = readonly [
 	/**
 	 * Trigger the mutation with the given arguments.
 	 *
 	 * If awaited, the result will contain the mutation result.
 	 */
-	(args: QueryArgFrom<Definition>) => Promise<ResultTypeFrom<Definition>>,
+	(
+		args: QueryArgFrom<Definition>,
+		options?: {
+			/** Properties for event tracking. */
+			properties?: ExtraProperties;
+		}
+	) => Promise<ResultTypeFrom<Definition>>,
 	/**
 	 * The reactive state of the mutation.
 	 *
@@ -228,7 +244,7 @@ type CustomMutation<Definition extends MutationDefinition<any, any, string, any>
 /**
  * Declaration of custom methods for mutations.
  */
-export interface MutationHooks<
+export interface MutationHook<
 	Definition extends MutationDefinition<unknown, any, string, unknown>
 > {
 	/**
@@ -236,7 +252,9 @@ export interface MutationHooks<
 	 *
 	 * Returns a function to trigger the mutation, a reactive state of the mutation and a function to reset it.
 	 * */
-	useMutation: (params?: UseMutationHookParams<Definition>) => Prettify<CustomMutation<Definition>>;
+	useMutation: (
+		params?: UseMutationHookParams<Definition>
+	) => Prettify<UseMutationResult<Definition>>;
 	/**
 	 * Execute query and return results.
 	 */
@@ -256,32 +274,43 @@ function throwError(error: unknown, silent: boolean): never {
 /**
  * Returns implementations for custom endpoint methods defined in `ButlerModule`.
  */
-export function buildMutationHooks<
-	Definitions extends EndpointDefinitions,
+export function buildMutationHook<
+	Definitions extends ExtensionDefinitions,
 	D extends MutationDefinition<unknown, any, string, unknown>
 >({
 	api,
 	endpointName,
-	ctx: { getState, getDispatch }
+	actionName,
+	ctx: { getState, getDispatch, posthog }
 }: {
 	api: Api<any, Definitions, any, any, CoreModule>;
 	endpointName: string;
+	actionName?: string;
 	ctx: HookContext;
-}): MutationHooks<D> {
+}): MutationHook<D> {
 	const endpoint = api.endpoints[endpointName]!;
 	const state = getState() as any as () => RootState<any, any, any>;
 
 	const { initiate, select } = endpoint as unknown as ApiEndpointMutation<D, Definitions>;
+
 	async function mutate(queryArg: QueryArgFrom<D>, options?: UseMutationHookParams<D>) {
 		const dispatch = getDispatch();
-		const { fixedCacheKey, sideEffect, preEffect, onError, throwSlientError } = options ?? {};
+		const { fixedCacheKey, sideEffect, preEffect, onError, propertiesFn, throwSlientError } =
+			options ?? {};
+
+		const eventName = 'mutation_command';
+		const properties = Object.assign(propertiesFn?.() || {}, { command: endpointName, actionName });
+
 		preEffect?.(queryArg);
+
 		const dispatchResult = dispatch(initiate(queryArg, { fixedCacheKey }));
 		try {
 			const result = await dispatchResult.unwrap();
 			sideEffect?.(result, queryArg);
+			posthog?.capture(eventName, { ...properties, failure: false });
 			return result;
 		} catch (error: unknown) {
+			posthog?.capture(eventName, { ...properties, failure: true });
 			if (onError && isTauriCommandError(error)) {
 				onError(error, queryArg);
 			}
@@ -299,19 +328,30 @@ export function buildMutationHooks<
 	 * @see: https://github.com/reduxjs/redux-toolkit/blob/637b0cad2b227079ccd0c5a3073c09ace6d8759e/packages/toolkit/src/query/react/buildHooks.ts#L867-L935
 	 */
 	function useMutation(params?: UseMutationHookParams<D>) {
-		const { fixedCacheKey, preEffect, sideEffect, onError, throwSlientError } = params || {};
+		const { fixedCacheKey, preEffect, sideEffect, onError, propertiesFn, throwSlientError } =
+			params || {};
 		const dispatch = getDispatch();
 
 		let promise = $state<MutationActionCreatorResult<D>>();
 
-		async function triggerMutation(queryArg: QueryArgFrom<D>) {
+		async function triggerMutation(
+			queryArg: QueryArgFrom<D>,
+			options?: { properties?: ExtraProperties }
+		) {
+			const eventName = 'mutation_command';
+			const properties = Object.assign({}, propertiesFn?.(), options?.properties, {
+				command: endpointName,
+				actionName
+			});
 			preEffect?.(queryArg);
 			promise = dispatch(initiate(queryArg, { fixedCacheKey }));
 			try {
 				const result = await promise.unwrap();
 				sideEffect?.(result, queryArg);
+				posthog?.capture(eventName, { ...properties, failure: false });
 				return result;
 			} catch (error: unknown) {
+				posthog?.capture(eventName, { ...properties, failure: true });
 				if (onError && isTauriCommandError(error)) {
 					onError(error, queryArg);
 				}

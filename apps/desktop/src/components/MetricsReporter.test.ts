@@ -3,7 +3,7 @@ import MetricsReporter, {
 	DELAY_MS,
 	INTERVAL_MS
 } from '$components/MetricsReporter.svelte';
-import { AnalyticsContext } from '$lib/analytics/analyticsContext';
+import { EventContext } from '$lib/analytics/eventContext';
 import { PostHogWrapper } from '$lib/analytics/posthog';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { ProjectService } from '$lib/project/projectService';
@@ -24,8 +24,8 @@ describe('MetricsReporter', () => {
 		projectMetrics = new ProjectMetrics();
 		const MockSettingsService = getSettingsdServiceMock();
 		const settingsService = new MockSettingsService();
-		const analyticsContext = new AnalyticsContext();
-		posthog = new PostHogWrapper(settingsService, analyticsContext);
+		const eventContext = new EventContext();
+		posthog = new PostHogWrapper(settingsService, eventContext);
 
 		context = new Map([
 			[PostHogWrapper as object, posthog as any],

@@ -28,7 +28,13 @@
 
 	const projectState = $derived(uiState.project(projectId));
 
-	const [createCommitInStack, commitCreation] = stackService.createCommit;
+	const useFloatingCommitBox = $derived(uiState.global.useFloatingCommitBox);
+
+	const [createCommitInStack, commitCreation] = stackService.createCommit({
+		propertiesFn: () => ({
+			floatingCommitBox: useFloatingCommitBox.current
+		})
+	});
 
 	const runCommitHooks = $derived(projectRunCommitHooks(projectId));
 
@@ -124,14 +130,17 @@
 		const preHookFailed = await runPreHook(worktreeChanges);
 		if (preHookFailed) return;
 
-		const response = await createCommitInStack({
-			projectId,
-			parentId,
-			stackId: finalStackId,
-			message: message,
-			stackBranchName: finalBranchName,
-			worktreeChanges
-		});
+		const response = await createCommitInStack(
+			{
+				projectId,
+				parentId,
+				stackId: finalStackId,
+				message: message,
+				stackBranchName: finalBranchName,
+				worktreeChanges
+			},
+			{ properties: { messageLength: message.length } }
+		);
 
 		const postHookFailed = await runPostHook();
 		if (postHookFailed) return;

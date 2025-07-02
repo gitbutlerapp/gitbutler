@@ -1,4 +1,4 @@
-import { AnalyticsContext } from '$lib/analytics/analyticsContext';
+import { EventContext } from '$lib/analytics/eventContext';
 import { PostHogWrapper } from '$lib/analytics/posthog';
 import { Tauri } from '$lib/backend/tauri';
 import { getSettingsdServiceMock } from '$lib/testing/mockSettingsdService';
@@ -16,8 +16,8 @@ describe('Updater', () => {
 	let updater: UpdaterService;
 	const MockSettingsService = getSettingsdServiceMock();
 	const settingsService = new MockSettingsService();
-	const analyticsContext = new AnalyticsContext();
-	const posthog = new PostHogWrapper(settingsService, analyticsContext);
+	const eventContext = new EventContext();
+	const posthog = new PostHogWrapper(settingsService, eventContext);
 
 	beforeEach(() => {
 		vi.useFakeTimers();

@@ -4,7 +4,7 @@ This component keeps the analytics context up-to-date, i.e. the metadata
 attached to posthog events.
 -->
 <script lang="ts">
-	import { AnalyticsContext } from '$lib/analytics/analyticsContext';
+	import { EventContext } from '$lib/analytics/eventContext';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { confettiEnabled } from '$lib/config/uiFeatureFlags';
 	import { ProjectService } from '$lib/project/projectService';
@@ -15,9 +15,9 @@ attached to posthog events.
 
 	const { projectId }: { projectId: string } = $props();
 
-	const [uiState, analyticsContext, projectService, settingsService] = inject(
+	const [uiState, eventContext, projectService, settingsService] = inject(
 		UiState,
-		AnalyticsContext,
+		EventContext,
 		ProjectService,
 		SettingsService
 	);
@@ -28,14 +28,14 @@ attached to posthog events.
 	const settings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
 	$effect(() => {
-		analyticsContext.update({
+		eventContext.update({
 			showActions: projectState.showActions.current,
 			exclusiveAction: projectState.exclusiveAction.current?.type
 		});
 	});
 
 	$effect(() => {
-		analyticsContext.update({
+		eventContext.update({
 			rulerCount: globalState.rulerCountValue.current,
 			useRuler: globalState.useRuler.current,
 			wrapTextByRuler: globalState.wrapTextByRuler.current
@@ -43,7 +43,7 @@ attached to posthog events.
 	});
 
 	$effect(() => {
-		analyticsContext.update({
+		eventContext.update({
 			zoom: $settings.zoom,
 			theme: $settings.theme,
 			tabSize: $settings.tabSize,
@@ -54,14 +54,14 @@ attached to posthog events.
 	});
 
 	$effect(() => {
-		analyticsContext.update({
+		eventContext.update({
 			forcePushAllowed: $projectService?.ok_with_force_push,
 			gitAuthType: $projectService?.gitAuthType()
 		});
 	});
 
 	$effect(() => {
-		analyticsContext.update({
+		eventContext.update({
 			v3: $settingsService?.featureFlags.v3,
 			butlerActions: $settingsService?.featureFlags.actions,
 			ws3: $settingsService?.featureFlags.ws3
@@ -69,7 +69,7 @@ attached to posthog events.
 	});
 
 	$effect(() => {
-		analyticsContext.update({ confetti: $confettiEnabled });
+		eventContext.update({ confetti: $confettiEnabled });
 	});
 </script>
 
