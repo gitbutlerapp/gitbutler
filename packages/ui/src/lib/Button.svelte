@@ -24,12 +24,10 @@
 		solidBackground?: boolean;
 		class?: string | (string | undefined)[] | Record<string, string>;
 		iconClass?: string;
-		/**
-		 * Custom style to be applied to the button.
-		 */
 		customStyle?: string;
 		// Additional elements
 		icon?: keyof typeof iconsJson | undefined;
+		hotkey?: string;
 		tooltip?: string;
 		tooltipPosition?: TooltipPosition;
 		tooltipAlign?: TooltipAlign;
@@ -73,6 +71,7 @@
 		dropdownChild = false,
 		style = 'neutral',
 		kind = 'solid',
+		hotkey,
 		solidBackground = false,
 		class: className = '',
 		iconClass = '',
@@ -145,6 +144,12 @@
 				class:text-10={size === 'icon'}
 			>
 				{@render children()}
+
+				{#if hotkey}
+					<span class="btn-hotkey">
+						{hotkey}
+					</span>
+				{/if}
 			</span>
 		{/if}
 
@@ -231,6 +236,12 @@
 			opacity: var(--icon-opacity);
 			pointer-events: none;
 			transition: opacity var(--transition-fast);
+		}
+
+		.btn-hotkey {
+			margin-left: 2px;
+			opacity: 0.5;
+			pointer-events: none;
 		}
 
 		/* Neutral theme */
