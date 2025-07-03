@@ -299,22 +299,25 @@ export function buildMutationHook<
 		failure: boolean;
 		properties: EventProperties;
 		startTime: number;
+		error?: unknown;
 	}) {
 		if (!actionName) return;
 		const durationMs = Date.now() - args.startTime;
 		posthog?.capture(EVENT_NAME, {
 			...args.properties,
 			actionName,
+			durationMs,
 			failure: args.failure,
-			durationMs
+			error: args.error
 		});
 
 		/** TODO: How long do we need to send these duplicates? */
 		const legacyName = args.failure ? `${actionName} Failed` : `${actionName} Successful`;
 		posthog?.capture(legacyName, {
 			...args.properties,
+			durationMs,
 			failure: args.failure,
-			durationMs
+			error: args.error
 		});
 	}
 
@@ -335,7 +338,7 @@ export function buildMutationHook<
 			track({ actionName, failure: false, properties, startTime });
 			return result;
 		} catch (error: unknown) {
-			track({ actionName, failure: true, properties, startTime });
+			track({ actionName, failure: true, properties, startTime, error });
 			if (onError && isTauriCommandError(error)) {
 				onError(error, queryArg);
 			}
@@ -376,7 +379,7 @@ export function buildMutationHook<
 				track({ actionName, failure: false, properties, startTime });
 				return result;
 			} catch (error: unknown) {
-				track({ actionName, failure: true, properties, startTime });
+				track({ actionName, failure: true, properties, startTime, error });
 				if (onError && isTauriCommandError(error)) {
 					onError(error, queryArg);
 				}
