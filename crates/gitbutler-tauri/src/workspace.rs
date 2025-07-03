@@ -255,7 +255,7 @@ pub fn move_changes_between_commits(
     let mut guard = project.exclusive_worktree_access();
 
     let _ = ctx.create_snapshot(
-        SnapshotDetails::new(OperationKind::DiscardChanges),
+        SnapshotDetails::new(OperationKind::AmendCommit),
         guard.write_permission(),
     );
     let result = but_workspace::move_changes_between_commits(
