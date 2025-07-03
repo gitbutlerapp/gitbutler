@@ -2,6 +2,11 @@ import { invalidatesList, ReduxTag } from '$lib/state/tags';
 import type { TreeChange } from '$lib/hunks/change';
 import type { BackendApi, ClientState } from '$lib/state/clientState.svelte';
 
+type ChatMessage = {
+	type: 'user' | 'assistant';
+	content: string;
+};
+
 export class ActionService {
 	private api: ReturnType<typeof injectEndpoints>;
 
@@ -65,10 +70,10 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					invalidatesList(ReduxTag.WorktreeChanges)
 				]
 			}),
-			freestyle: build.mutation<string, { projectId: string; prompt: string }>({
-				query: ({ projectId, prompt }) => ({
+			freestyle: build.mutation<string, { projectId: string; chatMessages: ChatMessage[] }>({
+				query: ({ projectId, chatMessages }) => ({
 					command: 'freestyle',
-					params: { projectId, prompt },
+					params: { projectId, chatMessages },
 					actionName: 'Perform a freestyle action based on the given prompt'
 				}),
 				invalidatesTags: [

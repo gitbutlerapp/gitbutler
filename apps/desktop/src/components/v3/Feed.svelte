@@ -47,12 +47,12 @@
 		const content = await editor?.getPlaintext();
 		if (!content || content?.trim() === '') return;
 		editor?.clear();
-		feed.addUserMessage(content);
+		const messages = await feed.addUserMessage(content);
 		const response = await freestyle({
 			projectId,
-			prompt: content
+			chatMessages: messages
 		});
-		feed.addAssistantMessage(response);
+		await feed.addAssistantMessage(response);
 	}
 
 	function handleKeyDown(event: KeyboardEvent | null): boolean {

@@ -106,6 +106,10 @@ export class Feed {
 		}
 	}
 
+	private getFeedMessages(): FeedMessage[] {
+		return get(this.combined).filter((entry) => isFeedMessage(entry)) as FeedMessage[];
+	}
+
 	async addUserMessage(content: string) {
 		const message: UserMessage = {
 			id: `user-${crypto.randomUUID()}`,
@@ -122,6 +126,8 @@ export class Feed {
 				return entries;
 			});
 		});
+
+		return this.getFeedMessages();
 	}
 
 	async addAssistantMessage(content: string) {
