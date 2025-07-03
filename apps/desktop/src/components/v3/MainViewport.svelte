@@ -70,7 +70,6 @@ the window, then enlarge it and retain the original widths of the layout.
 
 	let leftDiv = $state<HTMLDivElement>();
 	let previewDiv = $state<HTMLDivElement>();
-	let middleDiv = $state<HTMLDivElement>();
 	let rightDiv = $state<HTMLDivElement>();
 
 	const leftMinWidth = $derived(pxToRem(leftWidth.min, zoom));
@@ -201,7 +200,6 @@ the window, then enlarge it and retain the original widths of the layout.
 
 	<div
 		class="main-section view-wrapper dotted-pattern"
-		bind:this={middleDiv}
 		style:min-width={middleMinWidth + 'rem'}
 		style:margin-right={right ? '0' : ''}
 		use:focusable={{
