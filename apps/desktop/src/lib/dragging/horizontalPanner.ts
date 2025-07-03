@@ -11,6 +11,8 @@ export class HorizontalPanner {
 	constructor(private readonly element: HTMLElement) {}
 
 	private handleMouseMove(e: MouseEvent) {
+		e.preventDefault();
+
 		if (!this.isPanning) return;
 
 		const deltaX = e.clientX - this.panStartX;
@@ -43,7 +45,6 @@ export class HorizontalPanner {
 
 	private handleMouseDown(e: MouseEvent) {
 		if (e.button !== 0) return;
-
 		if (!(e.target instanceof HTMLElement)) return;
 
 		// Exclude clicks on interactive elements
@@ -52,6 +53,8 @@ export class HorizontalPanner {
 		this.isPanning = true;
 		this.panStartX = e.clientX;
 		this.panStartScrollLeft = this.element.scrollLeft;
+
+		e.preventDefault();
 
 		// Make sure we clear any old subscriptions.
 		this.clearSubscription();
