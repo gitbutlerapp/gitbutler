@@ -182,6 +182,11 @@
 			console.warn('Workspace selection cleared');
 		}
 	}}
+
+	{@const showAssignedChange = assignedKey && assignedKey.type === 'worktree'}
+	{@const showCommitChange = branchName && commitId}
+	{@const showBranchChange = branchName}
+
 	<div
 		bind:this={viewWrapperEl}
 		bind:clientWidth
@@ -319,7 +324,7 @@
 			</ReduxResult>
 		</div>
 
-		{#if assignedKey || branchName || commitId}
+		{#if showAssignedChange || showCommitChange || showBranchChange}
 			<div
 				bind:this={detailsEl}
 				style:width={uiState.global.detailsWidth.current + 'rem'}
@@ -327,7 +332,7 @@
 				data-remove-from-draggable
 				data-details={stack.id}
 			>
-				{#if assignedKey && assignedKey.type === 'worktree'}
+				{#if showAssignedChange}
 					<div
 						class="full-height"
 						{@attach scrollingAttachment(intelligentScrollingService, projectId, stack.id, 'diff')}
@@ -341,7 +346,7 @@
 							}}
 						/>
 					</div>
-				{:else if branchName && commitId}
+				{:else if showCommitChange}
 					<div
 						class="full-height"
 						{@attach scrollingAttachment(
@@ -365,7 +370,7 @@
 							{onclose}
 						/>
 					</div>
-				{:else if branchName}
+				{:else if showBranchChange}
 					<div
 						class="full-height"
 						{@attach scrollingAttachment(
