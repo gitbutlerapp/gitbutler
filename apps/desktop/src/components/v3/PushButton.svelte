@@ -8,7 +8,10 @@
 	import { TestId } from '$lib/testing/testIds';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
+	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
 
 	type Props = {
 		projectId: string;
@@ -42,6 +45,15 @@
 	const hasThingsToPush = $derived(stackInfo && stackHasUnpushedCommits(stackInfo));
 	const hasConflicts = $derived(stackInfo && stackHasConflicts(stackInfo));
 
+	function handleClick() {
+		if (multipleBranches && !isLastBranchInStack && !$doNotShowPushBelowWarning) {
+			confirmationModal?.show();
+			return;
+		}
+
+		push();
+	}
+
 	async function push() {
 		if (requiresForce === undefined) return;
 		await pushStack({ projectId, stackId, withForce: requiresForce, branch: branchName });
@@ -72,7 +84,43 @@
 
 		return undefined;
 	}
+
+	const doNotShowPushBelowWarning = persisted<boolean>(false, 'doNotShowPushBelowWarning');
+	let confirmationModal = $state<ReturnType<typeof Modal>>();
 </script>
+
+<Modal
+	type="warning"
+	title="Push this and dependent branches"
+	width={440}
+	bind:this={confirmationModal}
+	onSubmit={async (close) => {
+		close();
+		push();
+	}}
+>
+	<p>
+		You're about to push <span class="text-bold">{branchName}</span>. To maintain the correct
+		history, GitButler will also push all branches below in the stack.
+	</p>
+
+	{#snippet controls(close)}
+		<div class="modal-footer">
+			<label for="dont-show-again" class="modal-footer__checkbox">
+				<Checkbox name="dont-show-again" small bind:checked={$doNotShowPushBelowWarning} />
+				<span class="text-12"> Don’t show again</span>
+			</label>
+			<Button
+				kind="outline"
+				onclick={() => {
+					$doNotShowPushBelowWarning = false;
+					close();
+				}}>Cancel</Button
+			>
+			<Button style="pop" type="submit">Push with dependencies</Button>
+		</div>
+	{/snippet}
+</Modal>
 
 <Button
 	testId={TestId.StackPushButton}
@@ -82,8 +130,24 @@
 	{loading}
 	disabled={!hasThingsToPush || hasConflicts}
 	tooltip={getButtonTooltip()}
-	onclick={push}
+	onclick={handleClick}
 	icon={multipleBranches && !isLastBranchInStack ? 'push-below' : 'push'}
 >
 	{requiresForce ? 'Force push' : 'Push'}
 </Button>
+
+<style>
+	/* MODAL */
+	.modal-footer {
+		display: flex;
+		width: 100%;
+		gap: 6px;
+	}
+
+	.modal-footer__checkbox {
+		display: flex;
+		flex: 1;
+		align-items: center;
+		gap: 8px;
+	}
+</style>
