@@ -229,7 +229,7 @@ mod push_virtual_branch {
         fs::write(repo.path().join("file.txt"), "content").unwrap();
 
         gitbutler_branch_actions::create_commit(ctx, stack_entry_1.id, "test", None).unwrap();
-        gitbutler_branch_actions::stack::push_stack(ctx, stack_entry_1.id, false).unwrap();
+        gitbutler_branch_actions::stack::push_stack(ctx, stack_entry_1.id, false, None).unwrap();
 
         let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
         let branches = list_result.branches;
@@ -280,7 +280,8 @@ mod push_virtual_branch {
             .unwrap();
             fs::write(repo.path().join("file.txt"), "content").unwrap();
             gitbutler_branch_actions::create_commit(ctx, stack_entry_1.id, "test", None).unwrap();
-            gitbutler_branch_actions::stack::push_stack(ctx, stack_entry_1.id, false).unwrap();
+            gitbutler_branch_actions::stack::push_stack(ctx, stack_entry_1.id, false, None)
+                .unwrap();
             stack_entry_1
         };
 
@@ -308,7 +309,8 @@ mod push_virtual_branch {
             .unwrap();
             fs::write(repo.path().join("file.txt"), "updated content").unwrap();
             gitbutler_branch_actions::create_commit(ctx, stack_entry_2.id, "test", None).unwrap();
-            gitbutler_branch_actions::stack::push_stack(ctx, stack_entry_2.id, false).unwrap();
+            gitbutler_branch_actions::stack::push_stack(ctx, stack_entry_2.id, false, None)
+                .unwrap();
             stack_entry_2
         };
 

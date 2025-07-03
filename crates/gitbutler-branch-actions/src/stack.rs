@@ -161,7 +161,12 @@ pub fn update_branch_pr_number(
 
 /// Pushes all series in the stack to the remote.
 /// This operation will error out if the target has no push remote configured.
-pub fn push_stack(ctx: &CommandContext, stack_id: StackId, with_force: bool) -> Result<()> {
+pub fn push_stack(
+    ctx: &CommandContext,
+    stack_id: StackId,
+    with_force: bool,
+    branch_limit: Option<String>,
+) -> Result<()> {
     ctx.verify(ctx.project().exclusive_worktree_access().write_permission())?;
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let state = ctx.project().virtual_branches();
@@ -205,7 +210,13 @@ pub fn push_stack(ctx: &CommandContext, stack_id: StackId, with_force: bool) -> 
             with_force,
             None,
             Some(Some(stack.id)),
-        )?
+        )?;
+        if let Some(limit) = &branch_limit {
+            // Push only up to the specified branch limit (inclusive)
+            if branch.name().eq(limit) {
+                break;
+            }
+        }
     }
     Ok(())
 }
