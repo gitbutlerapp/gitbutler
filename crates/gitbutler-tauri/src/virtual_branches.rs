@@ -471,7 +471,7 @@ pub mod commands {
                 stack.head_oid(&gix_repo)?.to_git2()
             }
         };
-        gitbutler_branch_actions::insert_blank_commit(&ctx, stack_id, commit_oid, offset)?;
+        gitbutler_branch_actions::insert_blank_commit(&ctx, stack_id, commit_oid, offset, None)?;
         emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
     }

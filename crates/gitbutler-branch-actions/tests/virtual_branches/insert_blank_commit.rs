@@ -38,7 +38,8 @@ fn insert_blank_commit_down() -> anyhow::Result<()> {
     let _commit3_id =
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit three", None).unwrap();
 
-    gitbutler_branch_actions::insert_blank_commit(ctx, stack_entry.id, commit2_id, 1).unwrap();
+    gitbutler_branch_actions::insert_blank_commit(ctx, stack_entry.id, commit2_id, 1, None)
+        .unwrap();
 
     let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
@@ -111,7 +112,8 @@ fn insert_blank_commit_up() -> anyhow::Result<()> {
     let _commit3_id =
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit three", None).unwrap();
 
-    gitbutler_branch_actions::insert_blank_commit(ctx, stack_entry.id, commit2_id, -1).unwrap();
+    gitbutler_branch_actions::insert_blank_commit(ctx, stack_entry.id, commit2_id, -1, None)
+        .unwrap();
 
     let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
         .unwrap()
