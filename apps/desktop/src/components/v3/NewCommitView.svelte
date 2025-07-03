@@ -6,6 +6,7 @@
 	import { type DiffSpec } from '$lib/hunks/hunk';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
+	import { CommitAnalytics } from '$lib/soup/commitAnalytics';
 	import { StackService, type RejectionReason } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
@@ -19,22 +20,17 @@
 	};
 	const { projectId, stackId, onclose }: Props = $props();
 
-	const [stackService, uiState, hooksService, uncommittedService] = inject(
+	const [stackService, uiState, hooksService, uncommittedService, commitAnalytics] = inject(
 		StackService,
 		UiState,
 		HooksService,
-		UncommittedService
+		UncommittedService,
+		CommitAnalytics
 	);
 
 	const projectState = $derived(uiState.project(projectId));
 
-	const useFloatingCommitBox = $derived(uiState.global.useFloatingCommitBox);
-
-	const [createCommitInStack, commitCreation] = stackService.createCommit({
-		propertiesFn: () => ({
-			floatingCommitBox: useFloatingCommitBox.current
-		})
-	});
+	const [createCommitInStack, commitCreation] = stackService.createCommit({});
 
 	const runCommitHooks = $derived(projectRunCommitHooks(projectId));
 
@@ -130,6 +126,15 @@
 		const preHookFailed = await runPreHook(worktreeChanges);
 		if (preHookFailed) return;
 
+		// Await analytics data before creating commit
+		const analyticsProperties = await commitAnalytics.getCommitProperties({
+			projectId,
+			stackId: finalStackId,
+			selectedBranchName: finalBranchName,
+			message,
+			parentId
+		});
+
 		const response = await createCommitInStack(
 			{
 				projectId,
@@ -139,7 +144,7 @@
 				stackBranchName: finalBranchName,
 				worktreeChanges
 			},
-			{ properties: { messageLength: message.length } }
+			{ properties: analyticsProperties }
 		);
 
 		const postHookFailed = await runPostHook();

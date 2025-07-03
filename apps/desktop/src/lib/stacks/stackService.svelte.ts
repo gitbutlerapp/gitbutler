@@ -325,6 +325,24 @@ export class StackService {
 		);
 	}
 
+	async fetchStackById(projectId: string, stackId: string) {
+		return await this.api.endpoints.stacks.fetch(
+			{ projectId },
+			{
+				transform: (stacks) => stackSelectors.selectById(stacks, stackId)
+			}
+		);
+	}
+
+	async fetchBranches(projectId: string, stackId: string) {
+		return await this.api.endpoints.stackDetails.fetch(
+			{ projectId, stackId },
+			{
+				transform: ({ branchDetails }) => branchDetailsSelectors.selectAll(branchDetails)
+			}
+		);
+	}
+
 	commitAt(projectId: string, stackId: string, branchName: string, index: number) {
 		return this.api.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },

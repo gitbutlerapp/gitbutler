@@ -57,6 +57,7 @@
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
 	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
+	import { CommitAnalytics } from '$lib/soup/commitAnalytics';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { ClientState } from '$lib/state/clientState.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -189,6 +190,9 @@
 		cloudBranchService,
 		latestBranchLookupService
 	);
+
+	const commitAnalytics = new CommitAnalytics(stackService, uiState, worktreeService);
+	setContext(CommitAnalytics, commitAnalytics);
 
 	const snapshotDiffService = new SnapshotDiffService(clientState['backendApi']);
 	setContext(SnapshotDiffService, snapshotDiffService);
