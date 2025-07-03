@@ -27,6 +27,8 @@ pub fn workspace_toolset<'a>(
     toolset.register_tool(CreateBranch);
     toolset.register_tool(Amend);
     toolset.register_tool(GetProjectStatus);
+    toolset.register_tool(CreateBlankCommit);
+    toolset.register_tool(MoveFileChanges);
 
     Ok(toolset)
 }
@@ -750,6 +752,157 @@ pub fn create_blank_commit(
     }
 
     Ok(commit_mapping)
+}
+
+pub struct MoveFileChanges;
+
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct MoveFileChangesParameters {
+    /// The commit id to move file changes from.
+    #[schemars(description = "
+    <description>
+        The commit id of the commit to move file changes from.
+    </description>
+
+    <important_notes>
+        The commit id should refer to a commit on the specified source stack.
+    </important_notes>
+    ")]
+    pub source_commit_id: String,
+
+    /// The stack id of the source commit.
+    #[schemars(description = "
+    <description>
+        The stack id containing the source commit.
+    </description>
+
+    <important_notes>
+        The stack id should refer to a stack in the workspace.
+    </important_notes>
+    ")]
+    pub source_stack_id: String,
+
+    /// The commit id to move file changes to.
+    #[schemars(description = "
+    <description>
+        The commit id of the commit to move file changes to.
+    </description>
+
+    <important_notes>
+        The commit id should refer to a commit on the specified destination stack.
+    </important_notes>
+    ")]
+    pub destination_commit_id: String,
+
+    /// The stack id of the destination commit.
+    #[schemars(description = "
+    <description>
+        The stack id containing the destination commit.
+    </description>
+
+    <important_notes>
+        The stack id should refer to a stack in the workspace.
+    </important_notes>
+    ")]
+    pub destination_stack_id: String,
+
+    /// The list of files to move.
+    #[schemars(description = "
+    <description>
+        The list of file paths to move from the source commit to the destination commit.
+    </description>
+
+    <important_notes>
+        The file paths should be relative to the workspace root.
+        The file paths should be contained in the source commit.
+        Only the specified files will be moved.
+    </important_notes>
+    ")]
+    pub files: Vec<String>,
+}
+
+impl Tool for MoveFileChanges {
+    fn name(&self) -> String {
+        "move_file_changes".to_string()
+    }
+
+    fn description(&self) -> String {
+        "
+        <description>
+            Move file changes from one commit to another in the workspace.
+        </description>
+
+        <important_notes>
+            Use this tool when you want to move file changes from one commit to another.
+            This is useful when you want to split a commit into more parts.
+        </important_notes>
+        "
+        .to_string()
+    }
+
+    fn parameters(&self) -> serde_json::Value {
+        let schema = schema_for!(MoveFileChangesParameters);
+        serde_json::to_value(&schema).unwrap_or_default()
+    }
+
+    fn call(
+        self: Arc<Self>,
+        parameters: serde_json::Value,
+        ctx: &mut CommandContext,
+        app_handle: Option<&tauri::AppHandle>,
+    ) -> anyhow::Result<serde_json::Value> {
+        let params: MoveFileChangesParameters = serde_json::from_value(parameters)
+            .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
+
+        match move_file_changes(ctx, app_handle, params) {
+            Ok(_) => Ok("Success".into()),
+            Err(e) => Ok(error_to_json(&e, "move_file_changes")),
+        }
+    }
+}
+
+pub fn move_file_changes(
+    ctx: &mut CommandContext,
+    app_handle: Option<&tauri::AppHandle>,
+    params: MoveFileChangesParameters,
+) -> Result<Vec<(gix::ObjectId, gix::ObjectId)>, anyhow::Error> {
+    let source_commit_id = gix::ObjectId::from_str(&params.source_commit_id)?;
+    let source_stack_id = StackId::from_str(&params.source_stack_id)?;
+    let destination_commit_id = gix::ObjectId::from_str(&params.destination_commit_id)?;
+    let destination_stack_id = StackId::from_str(&params.destination_stack_id)?;
+
+    let changes = params
+        .files
+        .iter()
+        .map(|f| but_workspace::DiffSpec {
+            path: BString::from(f.as_str()),
+            previous_path: None,
+            hunk_headers: vec![],
+        })
+        .collect::<Vec<_>>();
+
+    let result = but_workspace::move_changes_between_commits(
+        ctx,
+        source_stack_id,
+        source_commit_id,
+        destination_stack_id,
+        destination_commit_id,
+        changes,
+        ctx.app_settings().context_lines,
+    )?;
+
+    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    gitbutler_branch_actions::update_workspace_commit(&vb_state, ctx)?;
+
+    // If there's an app handle provided, emit an event to update the stack details in the UI.
+    if let Some(app_handle) = app_handle {
+        let project_id = ctx.project().id;
+        app_handle.emit_stack_update(project_id, source_stack_id);
+        app_handle.emit_stack_update(project_id, destination_stack_id);
+    }
+
+    Ok(result.replaced_commits)
 }
 
 fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMetadata> {
