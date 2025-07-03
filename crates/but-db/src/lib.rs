@@ -13,6 +13,8 @@ pub use butler_actions::ButlerAction;
 mod schema;
 mod workflows;
 pub use workflows::Workflow;
+mod claude_code_sessions;
+pub use claude_code_sessions::ClaudeCodeSession;
 
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("./migrations");
