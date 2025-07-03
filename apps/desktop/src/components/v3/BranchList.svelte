@@ -254,7 +254,7 @@
 										kind="outline"
 										shrinkable
 										disabled={!prUrl}
-										icon="open-link"
+										icon="view-pr-browser"
 										onclick={() => {
 											if (prUrl) {
 												openExternalUrl(prUrl);
