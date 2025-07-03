@@ -4,6 +4,7 @@
 	import FeedItemKind from '$components/v3/FeedItemKind.svelte';
 	import { ButlerAction, getDisplayNameForWorkflowKind, Workflow } from '$lib/actions/types';
 	import butbotSvg from '$lib/assets/butbot-actions.svg?raw';
+	import { isFeedMessage, type FeedEntry } from '$lib/feed/feed';
 	import SnapshotDiffService from '$lib/history/snapshotDiffService.svelte';
 	import { Snapshot } from '$lib/history/types';
 	import { User } from '$lib/user/user';
@@ -20,7 +21,7 @@
 
 	type Props = {
 		projectId: string;
-		action: ButlerAction | Snapshot | Workflow;
+		action: FeedEntry;
 	};
 
 	const { action, projectId }: Props = $props();
@@ -174,6 +175,31 @@
 			</span>
 
 			<FeedItemKind {projectId} kind={action.kind} />
+		</div>
+	{:else if isFeedMessage(action)}
+		{#if action.type === 'assistant'}
+			<div>
+				<AgentAvatar />
+			</div>
+		{:else}
+			<div class="action-item__picture">
+				{#if $user?.picture && !failedToLoadImage}
+					<img
+						class="user-icon__image"
+						src={$user.picture}
+						alt=""
+						referrerpolicy="no-referrer"
+						onerror={() => (failedToLoadImage = true)}
+					/>
+				{:else}
+					<Icon name="profile" />
+				{/if}
+			</div>
+		{/if}
+		<div class="action-item__content">
+			<span class="text-14 text-darkgrey">
+				<Markdown content={action.content} />
+			</span>
 		</div>
 	{/if}
 </div>

@@ -3,6 +3,7 @@
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import FeedItem from '$components/v3/FeedItem.svelte';
 	import CliSymLink from '$components/v3/profileSettings/CliSymLink.svelte';
+	import { ActionService } from '$lib/actions/actionService.svelte';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import { invoke } from '$lib/backend/ipc';
 	import { projectAiGenEnabled } from '$lib/config/config';
@@ -13,6 +14,7 @@
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
 	import { onMount, tick } from 'svelte';
@@ -26,16 +28,44 @@
 
 	const feed = getContext(Feed);
 	const stackService = getContext(StackService);
+	const actionService = getContext(ActionService);
 	const combinedEntries = feed.combined;
 	const lastAddedId = feed.lastAddedId;
 	const stackIdToUpdate = feed.stackToUpdate;
+
+	const [freestyle, freestylin] = actionService.freestyle;
 
 	let viewport = $state<HTMLDivElement>();
 	let topSentinel = $state<HTMLDivElement>();
 	let canLoadMore = $state(false);
 	let prevScrollHeight = $state<number>(0);
 
+	let editor = $state<RichTextEditor>();
 	const aiGenEnabled = projectAiGenEnabled(projectId);
+
+	async function sendCommand() {
+		const content = await editor?.getPlaintext();
+		if (!content || content?.trim() === '') return;
+		editor?.clear();
+		feed.addUserMessage(content);
+		const response = await freestyle({
+			projectId,
+			prompt: content
+		});
+		feed.addAssistantMessage(response);
+	}
+
+	function handleKeyDown(event: KeyboardEvent | null): boolean {
+		if (event === null) return false;
+
+		if (event.key === 'Enter' && !event.shiftKey) {
+			event.preventDefault();
+			event.stopPropagation();
+			sendCommand();
+			return true;
+		}
+		return false;
+	}
 
 	async function loadMoreItems() {
 		if (!canLoadMore || !viewport) return;
@@ -56,7 +86,11 @@
 				viewport!.scrollTop = viewport!.scrollHeight;
 				canLoadMore = true;
 			}, 100);
+		}
+	});
 
+	$effect(() => {
+		if (topSentinel) {
 			// Setup observer
 			const observer = new IntersectionObserver(
 				(entries) => {
@@ -125,7 +159,6 @@
 			<h2 class="flex-1 text-14 text-semibold">Butler Actions</h2>
 			<Button icon="cross" kind="ghost" onclick={onCloseClick} />
 		</div>
-
 		<ConfigurableScrollableContainer childrenWrapHeight="100%" bind:viewport>
 			{#if $combinedEntries.length === 0}
 				<div class="feed__empty-state">
@@ -219,10 +252,34 @@
 					{#each $combinedEntries as entry (entry.id)}
 						<FeedItem {projectId} action={entry} />
 					{/each}
-					<div bind:this={topSentinel} style="height: 1px"></div>
+					<div bind:this={topSentinel} style="height: 1px; background-color: red;"></div>
 				</div>
 			{/if}
 		</ConfigurableScrollableContainer>
+		<div class="feed__input-container">
+			<div class="text-input feed__input">
+				<RichTextEditor
+					bind:this={editor}
+					namespace="feed"
+					markdown={false}
+					styleContext="chat-input"
+					placeholder="Tab tab tab"
+					disabled={freestylin.current.isLoading}
+					onKeyDown={handleKeyDown}
+					onError={(e) => {
+						console.error('RichTextEditor error:', e);
+					}}
+				></RichTextEditor>
+				<div class="feed__input-commands">
+					<Button
+						style="pop"
+						icon="arrow-top"
+						onclick={sendCommand}
+						loading={freestylin.current.isLoading}
+					></Button>
+				</div>
+			</div>
+		</div>
 	</div>
 </div>
 
@@ -343,5 +400,24 @@
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
 		box-shadow: var(--fx-shadow-m);
+	}
+	.feed__input-container {
+		display: flex;
+		align-items: center;
+		padding: 8px;
+		border-top: 1px solid var(--clr-border-2);
+	}
+
+	.feed__input {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		width: 100%;
+		padding: 4px;
+	}
+
+	.feed__input-commands {
+		display: flex;
+		justify-content: flex-end;
 	}
 </style>

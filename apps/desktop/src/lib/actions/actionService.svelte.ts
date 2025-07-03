@@ -20,6 +20,10 @@ export class ActionService {
 	get absorb() {
 		return this.api.endpoints.absorb.useMutation();
 	}
+
+	get freestyle() {
+		return this.api.endpoints.freestyle.useMutation();
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -54,6 +58,18 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'absorb',
 					params: { projectId, changes },
 					actionName: 'Absorb changes into the best matching branch and commit'
+				}),
+				invalidatesTags: [
+					invalidatesList(ReduxTag.Stacks),
+					invalidatesList(ReduxTag.StackDetails),
+					invalidatesList(ReduxTag.WorktreeChanges)
+				]
+			}),
+			freestyle: build.mutation<string, { projectId: string; prompt: string }>({
+				query: ({ projectId, prompt }) => ({
+					command: 'freestyle',
+					params: { projectId, prompt },
+					actionName: 'Perform a freestyle action based on the given prompt'
 				}),
 				invalidatesTags: [
 					invalidatesList(ReduxTag.Stacks),
