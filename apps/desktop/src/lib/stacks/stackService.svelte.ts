@@ -943,11 +943,17 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			}),
 			pushStack: build.mutation<
 				BranchPushResult,
-				{ projectId: string; stackId: string; withForce: boolean }
+				{
+					projectId: string;
+					stackId: string;
+					withForce: boolean;
+					/** if set, it will push up to this branch (inclusive) */
+					branch?: string | undefined;
+				}
 			>({
-				query: ({ projectId, stackId, withForce }) => ({
+				query: ({ projectId, stackId, withForce, branch }) => ({
 					command: 'push_stack',
-					params: { projectId, stackId, withForce }
+					params: { projectId, stackId, withForce, branch }
 				}),
 				extraOptions: { actionName: 'Push' },
 				invalidatesTags: (_result, _error, args) => [

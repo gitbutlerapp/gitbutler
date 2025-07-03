@@ -34,7 +34,7 @@ fn detect_upstream_commits() {
     };
 
     // push
-    gitbutler_branch_actions::stack::push_stack(ctx, stack_entry_1.id, false).unwrap();
+    gitbutler_branch_actions::stack::push_stack(ctx, stack_entry_1.id, false, None).unwrap();
 
     let oid3 = {
         // create third commit
@@ -90,7 +90,7 @@ fn detect_integrated_commits() {
     };
 
     // push
-    gitbutler_branch_actions::stack::push_stack(ctx, stack_entry_1.id, false).unwrap();
+    gitbutler_branch_actions::stack::push_stack(ctx, stack_entry_1.id, false, None).unwrap();
 
     {
         // merge branch upstream

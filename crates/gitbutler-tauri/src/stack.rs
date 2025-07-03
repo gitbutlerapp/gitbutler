@@ -118,10 +118,11 @@ pub fn push_stack(
     project_id: ProjectId,
     stack_id: StackId,
     with_force: bool,
+    branch: Option<String>,
 ) -> Result<(), Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    gitbutler_branch_actions::stack::push_stack(&ctx, stack_id, with_force)?;
+    gitbutler_branch_actions::stack::push_stack(&ctx, stack_id, with_force, branch)?;
     emit_vbranches(&windows, project_id, ctx.app_settings());
     Ok(())
 }
