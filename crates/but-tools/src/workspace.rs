@@ -8,12 +8,13 @@ use but_workspace::StackId;
 use but_workspace::ui::StackEntry;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::{OplogExt, SnapshotExt};
+use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::Project;
 use gitbutler_stack::{PatchReferenceUpdate, VirtualBranchesHandle};
 use schemars::{JsonSchema, schema_for};
 
 use crate::emit::EmitStackUpdate;
-use crate::tool::{Tool, ToolResult, Toolset, result_to_json};
+use crate::tool::{Tool, ToolResult, Toolset, error_to_json, result_to_json};
 
 /// Creates a toolset for any kind of workspace operations.
 pub fn workspace_toolset<'a>(
@@ -456,6 +457,7 @@ pub struct AmendParameters {
 
         <important_notes>
             The file paths should be relative to the workspace root.
+            Leave this empty if you only want to edit the commit message.
         </important_notes>
         ")]
     pub files: Vec<String>,
@@ -475,6 +477,9 @@ impl Tool for Amend {
         <important_notes>
             This tool allows you to amend a specific commit on a branch in the workspace.
             You can specify the new commit message, target branch name, commit id, and a list of file paths to include in the amended commit.
+            Use this tool if:
+            - You want to add uncommitted changes to an existing commit.
+            - You want to update the commit message of an existing commit.
         </important_notes>
         ".to_string()
     }
@@ -612,6 +617,139 @@ impl Tool for GetProjectStatus {
         let value = get_project_status(ctx, &repo, paths).to_json("get_project_status");
         Ok(value)
     }
+}
+
+pub struct CreateBlankCommit;
+
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateBlankCommitParameters {
+    /// The commit message title.
+    #[schemars(description = "
+    <description>
+        The commit message title.
+        This is only a short summary of the commit.
+    </description>
+
+    <important_notes>
+        The commit message title should be concise and descriptive.
+        It is typically a single line that summarizes the changes made in the commit.
+        For example: 'Fix issue with user login' or 'Update README with installation instructions'.
+        Don't exceed 50 characters in length.
+    </important_notes>
+    ")]
+    pub message_title: String,
+    /// The commit message body.
+    #[schemars(description = "
+    <description>
+        The commit message body.
+        This is a more detailed description of the changes made in the commit.
+    </description>
+
+    <important_notes>
+        The commit message body should provide context and details about the changes made.
+        It should span multiple lines if necessary.
+        A good description focuses on describing the 'what' of the changes.
+        Don't make assumption about the 'why', only describe the changes in the context of the branch (and other commits if any).
+    </important_notes>
+    ")]
+    pub message_body: String,
+    /// The stack id to create the blank commit on.
+    #[schemars(description = "
+    <description>
+        The stack id where the blank commit should be created.
+    </description>
+
+    <important_notes>
+        The stack id should refer to an existing stack in the workspace.
+    </important_notes>
+    ")]
+    pub stack_id: String,
+    /// The ID of the commit to insert the blank commit on top of.
+    #[schemars(description = "
+    <description>
+        The ID of the commit to insert the blank commit on top of.
+    </description>
+
+    <important_notes>
+        This should be the ID of an existinf commit in the stack.
+    </important_notes>
+    ")]
+    pub commit_id: String,
+}
+
+impl Tool for CreateBlankCommit {
+    fn name(&self) -> String {
+        "create_blank_commit".to_string()
+    }
+
+    fn description(&self) -> String {
+        "
+        <description>
+            Create a blank commit on a specific stack in the workspace.
+        </description>
+
+        <important_notes>
+            Use this tool when you want to split a commit into more parts.
+            That you you can:
+                1. Create one or more blank commits on top of an existing commit.
+                2. Move the file changes from the existing commit to the new commit.
+        </important_notes>
+        "
+        .to_string()
+    }
+
+    fn parameters(&self) -> serde_json::Value {
+        let schema = schema_for!(CreateBlankCommitParameters);
+        serde_json::to_value(&schema).unwrap_or_default()
+    }
+
+    fn call(
+        self: Arc<Self>,
+        parameters: serde_json::Value,
+        ctx: &mut CommandContext,
+        app_handle: Option<&tauri::AppHandle>,
+    ) -> anyhow::Result<serde_json::Value> {
+        let params: CreateBlankCommitParameters = serde_json::from_value(parameters)
+            .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
+
+        match create_blank_commit(ctx, app_handle, params) {
+            Ok(_) => Ok("Suceess".into()),
+            Err(e) => Ok(error_to_json(&e, "create_blank_commit")),
+        }
+    }
+}
+
+pub fn create_blank_commit(
+    ctx: &mut CommandContext,
+    app_handle: Option<&tauri::AppHandle>,
+    params: CreateBlankCommitParameters,
+) -> Result<Vec<(gix::ObjectId, gix::ObjectId)>, anyhow::Error> {
+    let stack_id = StackId::from_str(&params.stack_id)?;
+    let commit_oid = gix::ObjectId::from_str(&params.commit_id)?;
+    let commit_oid = commit_oid.to_git2();
+
+    let message = format!(
+        "{}\n\n{}",
+        params.message_title.trim(),
+        params.message_body.trim()
+    );
+
+    let commit_mapping = gitbutler_branch_actions::insert_blank_commit(
+        ctx,
+        stack_id,
+        commit_oid,
+        -1,
+        Some(&message),
+    )?;
+
+    // If there's an app handle provided, emit an event to update the stack details in the UI.
+    if let Some(app_handle) = app_handle {
+        let project_id = ctx.project().id;
+        app_handle.emit_stack_update(project_id, stack_id);
+    }
+
+    Ok(commit_mapping)
 }
 
 fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMetadata> {
