@@ -6,8 +6,7 @@ use async_openai::{
     config::OpenAIConfig,
     types::{
         ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage,
-        ChatCompletionRequestUserMessage, CreateChatCompletionRequestArgs, ResponseFormat,
-        ResponseFormatJsonSchema,
+        CreateChatCompletionRequestArgs, ResponseFormat, ResponseFormatJsonSchema,
     },
 };
 
@@ -171,6 +170,7 @@ pub fn tool_calling_blocking(
     client: &OpenAiProvider,
     messages: Vec<ChatCompletionRequestMessage>,
     tools: Vec<async_openai::types::ChatCompletionTool>,
+    model: Option<String>,
 ) -> anyhow::Result<async_openai::types::CreateChatCompletionResponse> {
     let client = client.client()?;
     let messages_owned = messages.clone();
@@ -179,7 +179,7 @@ pub fn tool_calling_blocking(
     std::thread::spawn(move || {
         tokio::runtime::Runtime::new()
             .unwrap()
-            .block_on(tool_calling(&client, messages_owned, tools_owned))
+            .block_on(tool_calling(&client, messages_owned, tools_owned, model))
     })
     .join()
     .unwrap()
@@ -190,9 +190,11 @@ pub async fn tool_calling(
     client: &Client<OpenAIConfig>,
     messages: Vec<ChatCompletionRequestMessage>,
     tools: Vec<async_openai::types::ChatCompletionTool>,
+    model: Option<String>,
 ) -> anyhow::Result<async_openai::types::CreateChatCompletionResponse> {
+    let model = model.unwrap_or_else(|| "gpt-4.1-mini".to_string());
     let request = CreateChatCompletionRequestArgs::default()
-        .model("gpt-4.1-mini")
+        .model(model)
         .messages(messages.clone())
         .tools(tools)
         .build()?;
@@ -202,17 +204,55 @@ pub async fn tool_calling(
     Ok(response)
 }
 
-#[allow(dead_code)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "type", content = "content", rename_all = "camelCase")]
+pub enum ChatMessage {
+    User(String),
+    Assistant(String),
+}
+
+impl From<ChatMessage> for ChatCompletionRequestMessage {
+    fn from(msg: ChatMessage) -> Self {
+        match msg {
+            ChatMessage::User(content) => ChatCompletionRequestMessage::User(content.into()),
+            ChatMessage::Assistant(content) => ChatCompletionRequestMessage::Assistant(
+                async_openai::types::ChatCompletionRequestAssistantMessage {
+                    content: Some(content.into()),
+                    ..Default::default()
+                },
+            ),
+        }
+    }
+}
+
+impl From<&str> for ChatMessage {
+    fn from(msg: &str) -> Self {
+        ChatMessage::User(msg.to_string())
+    }
+}
+
+impl From<String> for ChatMessage {
+    fn from(msg: String) -> Self {
+        ChatMessage::User(msg)
+    }
+}
+
 pub fn tool_calling_loop(
     provider: &OpenAiProvider,
     system_message: &str,
-    prompt: &str,
+    chat_messages: Vec<ChatMessage>,
     tool_set: &mut Toolset,
+    model: Option<String>,
 ) -> anyhow::Result<async_openai::types::CreateChatCompletionResponse> {
-    let mut messages = vec![
-        ChatCompletionRequestSystemMessage::from(system_message).into(),
-        ChatCompletionRequestUserMessage::from(prompt).into(),
-    ];
+    let mut messages: Vec<ChatCompletionRequestMessage> =
+        vec![ChatCompletionRequestSystemMessage::from(system_message).into()];
+
+    messages.extend(
+        chat_messages
+            .into_iter()
+            .map(ChatCompletionRequestMessage::from)
+            .collect::<Vec<_>>(),
+    );
 
     let open_ai_tools = tool_set
         .list()
@@ -220,8 +260,12 @@ pub fn tool_calling_loop(
         .map(|t| t.deref().try_into())
         .collect::<Result<Vec<async_openai::types::ChatCompletionTool>, _>>()?;
 
-    let mut response =
-        crate::openai::tool_calling_blocking(provider, messages.clone(), open_ai_tools.clone())?;
+    let mut response = crate::openai::tool_calling_blocking(
+        provider,
+        messages.clone(),
+        open_ai_tools.clone(),
+        model.clone(),
+    )?;
 
     while let Some(tool_calls) = response
         .choices
@@ -283,6 +327,7 @@ pub fn tool_calling_loop(
             provider,
             messages.clone(),
             open_ai_tools.clone(),
+            model.clone(),
         )?;
     }
 

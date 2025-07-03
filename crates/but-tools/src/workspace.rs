@@ -15,6 +15,21 @@ use schemars::{JsonSchema, schema_for};
 use crate::emit::EmitStackUpdate;
 use crate::tool::{Tool, ToolResult, Toolset, result_to_json};
 
+/// Creates a toolset for any kind of workspace operations.
+pub fn workspace_toolset<'a>(
+    ctx: &'a mut CommandContext,
+    app_handle: Option<&'a tauri::AppHandle>,
+) -> anyhow::Result<Toolset<'a>> {
+    let mut toolset = Toolset::new(ctx, app_handle);
+
+    toolset.register_tool(Commit);
+    toolset.register_tool(CreateBranch);
+    toolset.register_tool(Amend);
+    toolset.register_tool(GetProjectStatus);
+
+    Ok(toolset)
+}
+
 /// Creates a toolset for workspace-related operations.
 pub fn commit_toolset<'a>(
     ctx: &'a mut CommandContext,
@@ -36,6 +51,7 @@ pub fn amend_toolset<'a>(
     let mut toolset = Toolset::new(ctx, app_handle);
 
     toolset.register_tool(Amend);
+    toolset.register_tool(GetProjectStatus);
 
     Ok(toolset)
 }

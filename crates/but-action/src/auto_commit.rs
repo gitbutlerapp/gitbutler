@@ -54,7 +54,13 @@ pub fn auto_commit(
         </project_status>
     ", serialized_status);
 
-    crate::openai::tool_calling_loop(openai, system_message, &prompt, &mut toolset)?;
+    crate::openai::tool_calling_loop(
+        openai,
+        system_message,
+        vec![prompt.into()],
+        &mut toolset,
+        None,
+    )?;
 
     Ok(())
 }

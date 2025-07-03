@@ -98,7 +98,13 @@ pub fn absorb(
     ", path_strings,  serialized_status);
 
     // Now we trigger the tool calling loop to absorb the remaining changes.
-    crate::openai::tool_calling_loop(openai, system_message, &prompt, &mut toolset)?;
+    crate::openai::tool_calling_loop(
+        openai,
+        system_message,
+        vec![prompt.into()],
+        &mut toolset,
+        None,
+    )?;
 
     Ok(())
 }

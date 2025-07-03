@@ -291,6 +291,7 @@ fn main() {
                     action::auto_commit,
                     action::auto_branch_changes,
                     action::absorb,
+                    action::freestyle,
                     cli::install_cli,
                     cli::cli_path,
                     workspace::stacks,
