@@ -7,6 +7,7 @@ export class HorizontalPanner {
 	private isPanning = false;
 	private panStartX = 0;
 	private panStartScrollLeft = 0;
+	private originalCursor: string = '';
 
 	constructor(private readonly element: HTMLElement) {}
 
@@ -23,10 +24,10 @@ export class HorizontalPanner {
 		const mouseDown = on(this.element, 'mousedown', this.handleMouseDown.bind(this), {
 			capture: true
 		});
-		const mouseUp = on(this.element, 'mouseup', this.clearSubscription.bind(this), {
+		const mouseUp = on(this.element, 'mouseup', this.stopPanning.bind(this), {
 			capture: true
 		});
-		const mouseLeave = on(this.element, 'mouseleave', this.clearSubscription.bind(this), {
+		const mouseLeave = on(this.element, 'mouseleave', this.stopPanning.bind(this), {
 			capture: true
 		});
 
@@ -34,13 +35,22 @@ export class HorizontalPanner {
 			mouseDown();
 			mouseUp();
 			mouseLeave();
-			this.clearSubscription();
+			this.stopPanning();
 		};
 	}
 
 	private mouseMoveSubscription?: () => void;
+
 	private clearSubscription() {
 		this.mouseMoveSubscription?.();
+	}
+
+	private stopPanning() {
+		if (this.isPanning) {
+			this.isPanning = false;
+			this.element.style.cursor = this.originalCursor;
+		}
+		this.clearSubscription();
 	}
 
 	private handleMouseDown(e: MouseEvent) {
@@ -50,9 +60,14 @@ export class HorizontalPanner {
 		// Exclude clicks on interactive elements
 		if (e.target.closest('button, a, input, select, textarea')) return;
 		if (e.target.closest('[data-remove-from-panning]')) return;
+
 		this.isPanning = true;
 		this.panStartX = e.clientX;
 		this.panStartScrollLeft = this.element.scrollLeft;
+
+		// Store original cursor and set to grabbing
+		this.originalCursor = this.element.style.cursor;
+		this.element.style.cursor = 'grabbing';
 
 		e.preventDefault();
 

@@ -222,7 +222,6 @@
 		margin: 0 -1px;
 		overflow-x: auto;
 		overflow-y: hidden;
-		cursor: default;
 	}
 
 	.lanes-scrollable {
