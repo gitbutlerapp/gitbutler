@@ -152,7 +152,7 @@ pub fn discard_workspace_changes(
                 } => {
                     if flags.is_some_and(|f| f.is_typechange()) {
                         bail!(
-                            "Type-changed items can't be discard by hunks - use the whole-file mode isntead"
+                            "Type-changed items can't be discard by hunks - use the whole-file mode instead"
                         )
                     }
                     hunk::restore_state_to_worktree(
@@ -655,7 +655,14 @@ mod hunk {
         let mut new = repo.empty_reusable_buffer();
         let rela_path = wt_change.path.as_bstr();
         let worktree_path = path_check.verified_path_allow_nonexisting(rela_path)?;
-        worktree_file_to_git_in_buf(&mut new, rela_path, &worktree_path, pipeline, index)?;
+        let md = gix::index::fs::Metadata::from_path_no_follow(&worktree_path)?;
+        if !md.is_file() {
+            bail!(
+                "Cannot discard lines in '{}' - invalid type",
+                worktree_path.display()
+            );
+        }
+        worktree_file_to_git_in_buf(&mut new, &md, rela_path, &worktree_path, pipeline, index)?;
 
         let base_with_patches = apply_hunks(old.as_bstr(), new.as_bstr(), &hunks_to_keep)?;
 

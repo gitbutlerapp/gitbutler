@@ -101,7 +101,7 @@ fn from_unborn_head_with_selection() -> anyhow::Result<()> {
         message: "the commit with selection".into(),
         stack_segment: None,
     };
-    let outcome = but_workspace::commit_engine::create_commit(
+    let outcome = commit_engine::create_commit(
         &repo,
         destination,
         None,
@@ -125,7 +125,7 @@ fn from_unborn_head_with_selection() -> anyhow::Result<()> {
         message: "the commit with sub-selection".into(),
         stack_segment: None,
     };
-    let outcome = but_workspace::commit_engine::create_commit(
+    let outcome = commit_engine::create_commit(
         &repo,
         destination.clone(),
         None,
@@ -150,7 +150,7 @@ fn from_unborn_head_with_selection() -> anyhow::Result<()> {
     └── not-yet-tracked:100644:d95f3ad "content\n"
     "#);
 
-    let outcome = but_workspace::commit_engine::create_commit(
+    let outcome = commit_engine::create_commit(
         &repo,
         destination,
         None,
@@ -187,14 +187,13 @@ fn from_unborn_head_all_file_types() -> anyhow::Result<()> {
     assure_stable_env();
 
     let repo = read_only_in_memory_scenario("unborn-untracked-all-file-types")?;
-    let outcome = commit_whole_files_and_all_hunks_from_workspace(
-        &repo,
-        Destination::NewCommit {
-            parent_commit_id: None,
-            message: "the commit message".into(),
-            stack_segment: None,
-        },
-    )?;
+    let new_commit_from_unborn = Destination::NewCommit {
+        parent_commit_id: None,
+        message: "the commit message".into(),
+        stack_segment: None,
+    };
+    let outcome =
+        commit_whole_files_and_all_hunks_from_workspace(&repo, new_commit_from_unborn.clone())?;
 
     assert_eq!(
         outcome.rejected_specs,
@@ -212,6 +211,20 @@ fn from_unborn_head_all_file_types() -> anyhow::Result<()> {
     ├── link:120000:faf96c1 "untracked"
     ├── untracked:100644:d95f3ad "content\n"
     └── untracked-exe:100755:86daf54 "exe\n"
+    "#);
+
+    let outcome = commit_engine::create_commit(
+        &repo,
+        new_commit_from_unborn,
+        None,
+        vec![diff_spec(None, "link", Some(hunk_header("-1,0", "+1,1")))],
+        CONTEXT_LINES,
+    )?;
+    // The link points to the untracked file.
+    let tree = visualize_tree(&repo, &outcome)?;
+    insta::assert_snapshot!(tree, @r#"
+    654694d
+    └── link:120000:faf96c1 "untracked"
     "#);
 
     Ok(())
@@ -294,14 +307,13 @@ fn deletions() -> anyhow::Result<()> {
     ├── link:120000:b158162 "file-to-remain"
     └── submodule:160000:a047f81
     "#);
-    let outcome = commit_whole_files_and_all_hunks_from_workspace(
-        &repo,
-        Destination::NewCommit {
-            parent_commit_id: Some(head_commit.into()),
-            message: "deletions maybe a bit special".into(),
-            stack_segment: None,
-        },
-    )?;
+    let new_commit_from_deletions = Destination::NewCommit {
+        parent_commit_id: Some(head_commit.into()),
+        message: "deletions maybe a bit special".into(),
+        stack_segment: None,
+    };
+    let outcome =
+        commit_whole_files_and_all_hunks_from_workspace(&repo, new_commit_from_deletions.clone())?;
 
     insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
     c15318d
@@ -312,6 +324,69 @@ fn deletions() -> anyhow::Result<()> {
         5,
         "we don't actually change the index to match, nor is the HEAD changed, worktree changes seem to remain"
     );
+
+    let outcome = commit_engine::create_commit(
+        &repo,
+        new_commit_from_deletions,
+        None,
+        // Pass the link with hunks that indicate a line deletion.
+        vec![diff_spec(None, "link", Some(hunk_header("-1,1", "+1,0")))],
+        CONTEXT_LINES,
+    )?;
+    // And the link got deleted.
+    insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
+    921b85b
+    ├── .gitmodules:100644:51f8807 "[submodule \"submodule\"]\n\tpath = submodule\n\turl = ./embedded-repository\n"
+    ├── embedded-repository:160000:a047f81 
+    ├── executable:100755:86daf54 "exe\n"
+    ├── file-to-remain:100644:d95f3ad "content\n"
+    └── submodule:160000:a047f81
+    "#);
+
+    Ok(())
+}
+
+#[test]
+fn modifications() -> anyhow::Result<()> {
+    assure_stable_env();
+
+    let repo = read_only_in_memory_scenario("all-file-types-modified")?;
+    let head_commit = repo.rev_parse_single("HEAD")?;
+    insta::assert_snapshot!(but_testsupport::visualize_tree(head_commit.object()?.peel_to_tree()?.id()), @r#"
+    3fd29f0
+    ├── executable:100755:01e79c3 "1\n2\n3\n"
+    ├── file:100644:3aac70f "5\n6\n7\n8\n"
+    └── link:120000:c4c364c "nonexisting-target"
+    "#);
+    let new_commit_from_rename = Destination::NewCommit {
+        parent_commit_id: Some(head_commit.into()),
+        message: "modifications of content and symlinks".into(),
+        stack_segment: None,
+    };
+    let outcome =
+        commit_whole_files_and_all_hunks_from_workspace(&repo, new_commit_from_rename.clone())?;
+
+    insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
+    db51146
+    ├── executable:100755:8a1218a "1\n2\n3\n4\n5\n"
+    ├── file:100644:c5c4315 "5\n6\n7\n8\n9\n10\n"
+    └── link:120000:94e4e07 "other-nonexisting-target"
+    "#);
+
+    let outcome = commit_engine::create_commit(
+        &repo,
+        new_commit_from_rename,
+        None,
+        // Pass the link with hunks that indicate a modification.
+        vec![diff_spec(None, "link", Some(hunk_header("-1,1", "+1,1")))],
+        CONTEXT_LINES,
+    )?;
+    insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
+    f10dc60
+    ├── executable:100755:01e79c3 "1\n2\n3\n"
+    ├── file:100644:3aac70f "5\n6\n7\n8\n"
+    └── link:120000:94e4e07 "other-nonexisting-target"
+    "#);
     Ok(())
 }
 
@@ -327,19 +402,105 @@ fn renames() -> anyhow::Result<()> {
     ├── file:100644:3aac70f "5\n6\n7\n8\n"
     └── link:120000:c4c364c "nonexisting-target"
     "#);
-    let outcome = commit_whole_files_and_all_hunks_from_workspace(
-        &repo,
-        Destination::NewCommit {
-            parent_commit_id: Some(head_commit.into()),
-            message: "renames need special care to delete the source".into(),
-            stack_segment: None,
-        },
-    )?;
+    let new_commit_from_rename = Destination::NewCommit {
+        parent_commit_id: Some(head_commit.into()),
+        message: "renames need special care to delete the source".into(),
+        stack_segment: None,
+    };
+    let outcome =
+        commit_whole_files_and_all_hunks_from_workspace(&repo, new_commit_from_rename.clone())?;
 
     insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
     e56fc9b
     ├── executable-renamed:100755:8a1218a "1\n2\n3\n4\n5\n"
     ├── file-renamed:100644:c5c4315 "5\n6\n7\n8\n9\n10\n"
+    └── link-renamed:120000:94e4e07 "other-nonexisting-target"
+    "#);
+
+    insta::assert_debug_snapshot!(
+        utils::worktree_change_diffs(&repo, 0)?, @r#"
+    [
+        (
+            Some(
+                "executable",
+            ),
+            "executable-renamed",
+            Patch {
+                hunks: [
+                    DiffHunk("@@ -4,0 +4,2 @@
+                    +4
+                    +5
+                    "),
+                ],
+                is_result_of_binary_to_text_conversion: false,
+                lines_added: 2,
+                lines_removed: 0,
+            },
+        ),
+        (
+            Some(
+                "file",
+            ),
+            "file-renamed",
+            Patch {
+                hunks: [
+                    DiffHunk("@@ -5,0 +5,2 @@
+                    +9
+                    +10
+                    "),
+                ],
+                is_result_of_binary_to_text_conversion: false,
+                lines_added: 2,
+                lines_removed: 0,
+            },
+        ),
+        (
+            None,
+            "link",
+            Patch {
+                hunks: [
+                    DiffHunk("@@ -1,1 +1,0 @@
+                    -nonexisting-target
+                    "),
+                ],
+                is_result_of_binary_to_text_conversion: false,
+                lines_added: 0,
+                lines_removed: 1,
+            },
+        ),
+        (
+            None,
+            "link-renamed",
+            Patch {
+                hunks: [
+                    DiffHunk("@@ -1,0 +1,1 @@
+                    +other-nonexisting-target
+                    "),
+                ],
+                is_result_of_binary_to_text_conversion: false,
+                lines_added: 1,
+                lines_removed: 0,
+            },
+        ),
+    ]
+    "#);
+    let outcome = commit_engine::create_commit(
+        &repo,
+        new_commit_from_rename,
+        None,
+        // Links are never considered renamed, so this is only the addition part.
+        vec![diff_spec(
+            None,
+            "link-renamed",
+            Some(hunk_header("-1,0", "+1,1")),
+        )],
+        CONTEXT_LINES,
+    )?;
+    insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
+    7accf8d
+    ├── executable:100755:01e79c3 "1\n2\n3\n"
+    ├── file:100644:3aac70f "5\n6\n7\n8\n"
+    ├── link:120000:c4c364c "nonexisting-target"
     └── link-renamed:120000:94e4e07 "other-nonexisting-target"
     "#);
     Ok(())
@@ -427,7 +588,7 @@ fn renames_with_selections() -> anyhow::Result<()> {
     "#
     );
 
-    let outcome = but_workspace::commit_engine::create_commit(
+    let outcome = commit_engine::create_commit(
         &repo,
         Destination::NewCommit {
             parent_commit_id: Some(head_commit_id.into()),
@@ -453,7 +614,7 @@ fn renames_with_selections() -> anyhow::Result<()> {
                     hunk_header("-0,0", "+6,1"),
                 ),
             ),
-            // delete the source of the link, selections don't apply and we don't want to see it.
+            // delete the source of the link, selections don't apply, and we don't want to see it.
             diff_spec(None, "link", None),
         ],
         UI_CONTEXT_LINES,
@@ -517,7 +678,7 @@ fn modification_with_complex_selection() -> anyhow::Result<()> {
     )
     "#);
 
-    let outcome = but_workspace::commit_engine::create_commit(
+    let outcome = commit_engine::create_commit(
         &repo,
         Destination::NewCommit {
             parent_commit_id: Some(repo.head_id()?.into()),
@@ -848,7 +1009,7 @@ fn commit_whole_file_to_conflicting_position() -> anyhow::Result<()> {
                 },
             ),
         ]
-        "#)};
+        "#)}
     }
 
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
@@ -907,7 +1068,7 @@ fn commit_whole_file_to_conflicting_position_one_unconflicting_file_remains() ->
                 },
             ),
         ]
-        "#)};
+        "#)}
         // Different bases mean different base versions for the conflicting file.
         if conflicting_parent_commit == "A" {
             insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"

@@ -3,6 +3,7 @@
 /delete-all-file-types.tar
 /two-commits-with-line-offset.tar
 /all-file-types-changed.tar
+/all-file-types-modified.tar
 /merge-with-two-branches-line-offset-two-files.tar
 /merge-with-two-branches-line-offset.tar
 /unborn-with-submodules.tar
