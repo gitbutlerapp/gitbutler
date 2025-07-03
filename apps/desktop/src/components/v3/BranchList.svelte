@@ -8,10 +8,10 @@
 	import BranchHeaderContextMenu, {
 		type BranchHeaderContextItem
 	} from '$components/v3/BranchHeaderContextMenu.svelte';
-
 	import ConflictResolutionConfirmModal from '$components/v3/ConflictResolutionConfirmModal.svelte';
 	import KebabButton from '$components/v3/KebabButton.svelte';
 	import NewBranchModal from '$components/v3/NewBranchModal.svelte';
+	import PushButton from '$components/v3/PushButton.svelte';
 	import { getColorFromCommitState, getIconFromCommitState } from '$components/v3/lib';
 	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
@@ -245,7 +245,7 @@
 										}}
 										testId={TestId.CreateReviewButton}
 									>
-										Create Pull Request
+										Create PR
 									</Button>
 								{:else}
 									{@const prUrl = prResult?.current.data?.htmlUrl}
@@ -259,10 +259,18 @@
 											if (prUrl) {
 												openExternalUrl(prUrl);
 											}
-										}}>Open PR in browser</Button
+										}}>View PR</Button
 									>
 								{/if}
 							{/if}
+							<PushButton
+								{branchName}
+								{projectId}
+								{stackId}
+								multipleBranches={branches.length > 1}
+								isFirstBranchInStack={firstBranch}
+								isLastBranchInStack={lastBranch}
+							/>
 						{/snippet}
 
 						{#snippet menu({ rightClickTrigger })}

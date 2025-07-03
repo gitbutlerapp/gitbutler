@@ -13,11 +13,20 @@
 	type Props = {
 		projectId: string;
 		stackId: string;
-		flex?: string;
+		branchName: string;
 		multipleBranches: boolean;
+		isLastBranchInStack?: boolean;
+		isFirstBranchInStack?: boolean;
 	};
 
-	const { projectId, stackId, flex, multipleBranches }: Props = $props();
+	const {
+		projectId,
+		branchName,
+		stackId,
+		multipleBranches,
+		isFirstBranchInStack,
+		isLastBranchInStack
+	}: Props = $props();
 
 	const stackService = getContext(StackService);
 	const userService = getContext(UserService);
@@ -35,7 +44,7 @@
 
 	async function push() {
 		if (requiresForce === undefined) return;
-		await pushStack({ projectId, stackId, withForce: requiresForce });
+		await pushStack({ projectId, stackId, withForce: requiresForce, branch: branchName });
 
 		// Update published branches if they have already been published before
 		const topPushedBranch = branches.find((branch) => branch.reviewId);
@@ -57,36 +66,24 @@
 		if (hasConflicts) {
 			return 'In order to push, please resolve any conflicted commits.';
 		}
-		if (multipleBranches) {
-			return 'Push all branches';
+		if (multipleBranches && !isLastBranchInStack) {
+			return 'Push this and all branches below';
 		}
 
 		return undefined;
 	}
 </script>
 
-<div class="push-button" class:use-flex={!flex} style:flex>
-	<Button
-		testId={TestId.StackPushButton}
-		style="neutral"
-		wide
-		{loading}
-		disabled={!hasThingsToPush || hasConflicts}
-		tooltip={getButtonTooltip()}
-		onclick={push}
-	>
-		{requiresForce ? 'Force push' : multipleBranches ? 'Push all' : 'Push'}
-	</Button>
-</div>
-
-<style lang="postcss">
-	.push-button {
-		/* This is just here so that the disabled button is still opaque */
-		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
-	}
-
-	.use-flex {
-		flex: 1;
-	}
-</style>
+<Button
+	testId={TestId.StackPushButton}
+	kind={isFirstBranchInStack ? 'solid' : 'outline'}
+	size="tag"
+	style="neutral"
+	{loading}
+	disabled={!hasThingsToPush || hasConflicts}
+	tooltip={getButtonTooltip()}
+	onclick={push}
+	icon={multipleBranches && !isLastBranchInStack ? 'push-below' : 'push'}
+>
+	{requiresForce ? 'Force push' : 'Push'}
+</Button>
