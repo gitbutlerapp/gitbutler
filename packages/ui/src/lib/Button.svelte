@@ -219,7 +219,7 @@
 
 		/* Child elements */
 		.btn-label {
-			padding: 0 2px;
+			padding: 0 3px;
 			white-space: nowrap;
 			pointer-events: none;
 		}
@@ -422,19 +422,19 @@
 		&.tag-size {
 			height: var(--size-tag);
 			padding: 2px 4px;
-			gap: 2px;
+			gap: 0;
 		}
 
 		&.button-size {
 			height: var(--size-button);
 			padding: 4px 6px;
-			gap: 4px;
+			gap: 2px;
 		}
 
 		&.cta-size {
 			height: var(--size-cta);
 			padding: 6px 8px;
-			gap: 4px;
+			gap: 2px;
 		}
 
 		/* Fixed width variants */
