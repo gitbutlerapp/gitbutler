@@ -112,6 +112,7 @@ pub(crate) async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
 
     // Trigger commit message generation for newly created commits
     // TODO: Maybe this can be done in the main app process i.e. the GitButler GUI, if avaialbe
+    // Alternatively, and probably better - we could spawn a new process to do this
     if let Some(openai_client) =
         OpenAiProvider::with(None).and_then(|provider| provider.client().ok())
     {
