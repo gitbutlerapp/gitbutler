@@ -1,5 +1,6 @@
 use anyhow::bail;
 use gitbutler_project::Project;
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 pub mod commands {
@@ -11,7 +12,7 @@ pub mod commands {
     use tauri::{State, Window};
     use tracing::instrument;
 
-    use crate::projects::assure_database_valid;
+    use crate::projects::{assure_database_valid, warn_about_filters_and_git_lfs};
     use crate::window::state::ProjectAccessMode;
     use crate::{error::Error, projects::ProjectForFrontend, window, WindowState};
 
@@ -79,6 +80,8 @@ pub mod commands {
         is_exclusive: bool,
         /// The display version of the error that communicates what went wrong while opening the database.
         db_error: Option<String>,
+        /// Provide information about the project just opened.
+        headsup: Option<String>,
     }
 
     /// This trigger is the GUI telling us that the project with `id` is now displayed.
@@ -102,9 +105,12 @@ pub mod commands {
             app_settings.inner().clone(),
             ctx,
         )?;
-        let db_error = assure_database_valid(project.gb_dir())?.map(|err| err.to_string());
-        if let Some(db_error) = &db_error {
-            tracing::error!("{db_error}");
+        let db_error = assure_database_valid(project.gb_dir())?;
+        let filter_error = warn_about_filters_and_git_lfs(ctx.gix_repo_minimal()?)?;
+        for err in [&db_error, &filter_error] {
+            if let Some(err) = &err {
+                tracing::error!("{err}");
+            }
         }
         let is_exclusive = match mode {
             ProjectAccessMode::First => true,
@@ -113,6 +119,7 @@ pub mod commands {
         Ok(ProjectInfo {
             is_exclusive,
             db_error,
+            headsup: filter_error,
         })
     }
 
@@ -165,7 +172,7 @@ pub struct ProjectForFrontend {
 }
 
 /// Fatal errors are returned as error, fixed errors for tracing will be `Some(err)`
-fn assure_database_valid(gb_dir: PathBuf) -> anyhow::Result<Option<anyhow::Error>> {
+fn assure_database_valid(gb_dir: PathBuf) -> anyhow::Result<Option<String>> {
     if let Err(err) = but_db::DbHandle::new_in_directory(&gb_dir) {
         let db_path = but_db::DbHandle::db_file_path(&gb_dir);
         let db_filename = db_path.file_name().unwrap();
@@ -187,7 +194,7 @@ fn assure_database_valid(gb_dir: PathBuf) -> anyhow::Result<Option<anyhow::Error
                 );
             }
 
-            return Ok(Some(anyhow::anyhow!(
+            return Ok(Some(format!(
                 "Could not open db file at '{}'.\nIt was moved to {} for recovery. \n\nError was: {err}",
                 db_path.display(),
                 backup_path.display()
@@ -196,4 +203,46 @@ fn assure_database_valid(gb_dir: PathBuf) -> anyhow::Result<Option<anyhow::Error
         bail!("Database file at '{db_path} has {max_attempts} corrupted copies - giving up, application probably won't work", db_path = db_path.display());
     }
     Ok(None)
+}
+
+/// Return an error message that
+fn warn_about_filters_and_git_lfs(repo: gix::Repository) -> anyhow::Result<Option<String>> {
+    let index = repo.index_or_empty()?;
+    let mut cache = repo.attributes_only(
+        &index,
+        gix::worktree::stack::state::attributes::Source::IdMapping,
+    )?;
+    let mut attrs = cache.selected_attribute_matches(Some("filter"));
+    let mut all_filters = BTreeSet::<String>::new();
+    for entry in index.entries() {
+        let entry = cache.at_entry(entry.path(&index), None)?;
+        if entry.matching_attributes(&mut attrs) {
+            all_filters.extend(
+                attrs
+                    .iter()
+                    .filter_map(|attr| attr.assignment.state.as_bstr().map(|s| s.to_string())),
+            );
+        }
+    }
+
+    if all_filters.is_empty() {
+        return Ok(None);
+    }
+
+    let has_lfs = all_filters.contains("lfs");
+    let mut msg = format!(
+        "Worktree filter(s) detected: {comma_separated}\n\
+These will silently not be applied during workspace operations.\n\
+Assure these aren't touched by GitButler or avoid using it in this repository.\n\
+See https://github.com/gitbutlerapp/gitbutler/issues/2595#issuecomment-3036097607 for details.",
+        comma_separated = Vec::from_iter(all_filters).join(", ")
+    );
+    if has_lfs {
+        msg.push_str(
+            r#"
+
+Use `git lfs pull --include="*" to restore git-lfs files.`"#,
+        );
+    }
+    Ok(Some(msg))
 }
