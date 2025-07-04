@@ -1,0 +1,178 @@
+//! Tests for visualizing the graph data structure.
+
+use crate::graph_tree;
+use but_core::ref_metadata;
+use but_graph::{Commit, CommitDetails, CommitFlags, Graph, Segment, SegmentMetadata};
+
+/// Simulate a graph data structure after the first pass, i.e., right after the walk.
+/// There is no pruning of 'empty' branches, just a perfect representation of the graph as is,
+/// with *some* logic applied.
+#[test]
+fn post_graph_traversal() -> anyhow::Result<()> {
+    let mut graph = Graph::default();
+    let init_commit_id = id("feba");
+    // The local target branch sets right at the base and typically doesn't have commits,
+    // these are in the segments above it.
+    let local_target = Segment {
+        id: 0.into(),
+        ref_name: Some("refs/heads/main".try_into()?),
+        remote_tracking_ref_name: Some("refs/remotes/origin/main".try_into()?),
+        metadata: Some(SegmentMetadata::Workspace(ref_metadata::Workspace {
+            ref_info: Default::default(),
+            stacks: vec![],
+            target_ref: None,
+        })),
+        ..Default::default()
+    };
+
+    let local_target = graph.insert_root(local_target);
+    // TODO: another two branches on top of base, empty to be filled.
+    graph.connect_new_segment(
+        local_target,
+        None,
+        // A newly created branch which appears at the workspace base.
+        Segment {
+            id: 1.into(),
+            ref_name: Some("refs/heads/new-stack".try_into()?),
+            ..Default::default()
+        },
+        0,
+        None,
+    );
+
+    let remote_to_local_target = Segment {
+        id: 2.into(),
+        ref_name: Some("refs/remotes/origin/main".try_into()?),
+        commits: vec![commit(
+            id("c"),
+            "remote: on top of main",
+            Some(init_commit_id),
+            CommitFlags::empty(),
+        )],
+        ..Default::default()
+    };
+    graph.connect_new_segment(local_target, None, remote_to_local_target, 0, None);
+
+    let branch = Segment {
+        id: 3.into(),
+        ref_name: Some("refs/heads/A".try_into()?),
+        remote_tracking_ref_name: Some("refs/remotes/origin/A".try_into()?),
+        commits: vec![
+            Commit {
+                details: Some(CommitDetails {
+                    has_conflicts: true,
+                    author: author(),
+                    message: "2 in A".into(),
+                }),
+                ..commit(
+                    id("a"),
+                    "overridden above",
+                    Some(init_commit_id),
+                    CommitFlags::InWorkspace,
+                )
+            },
+            commit(init_commit_id, "1 in A", None, CommitFlags::InWorkspace),
+        ],
+        metadata: None,
+    };
+    let branch = graph.connect_new_segment(local_target, None, branch, 0, None);
+
+    let remote_to_root_branch = Segment {
+        id: 4.into(),
+        ref_name: Some("refs/remotes/origin/A".try_into()?),
+        commits: vec![
+            commit(
+                id("b"),
+                "remote: on top of 1A",
+                Some(init_commit_id),
+                CommitFlags::empty(),
+            ),
+            // Note that the initial commit was assigned to the base segment already,
+            // and we are connected to it.
+            // This also means that local branches absorb commits preferably and that commit-traversal
+            // may need to include commits from connected segments, depending on logical constraints.
+        ],
+        ..Default::default()
+    };
+    graph.connect_new_segment(branch, 1, remote_to_root_branch, 0, None);
+
+    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    └── 👉►►►:0:main <> origin/main
+        ├── ►:3:A <> origin/A
+        │   ├── 🟣💥aaaaaaa (🏘️)❱"2 in A"
+        │   └── 🟣febafeb (🏘️)❱"1 in A"
+        │       └── ►:4:origin/A
+        │           └── ✂️🟣bbbbbbb❱"remote: on top of 1A"
+        ├── ►:2:origin/main
+        │   └── ✂️🟣ccccccc❱"remote: on top of main"
+        └── ►:1:new-stack
+    "#);
+
+    Ok(())
+}
+
+#[test]
+fn detached_head() {
+    let mut graph = Graph::default();
+    graph.insert_root(Segment {
+        commits: vec![commit(id("a"), "init", None, CommitFlags::empty())],
+        ..Default::default()
+    });
+    insta::assert_snapshot!(graph_tree(&graph), @r#"
+    └── 👉►:0:anon:
+        └── 🟣aaaaaaa❱"init"
+    "#);
+}
+
+#[test]
+fn unborn_head() {
+    insta::assert_snapshot!(graph_tree(&Graph::default()), @"<UNBORN>");
+}
+
+mod utils {
+    use but_graph::{Commit, CommitDetails, CommitFlags};
+    use gix::ObjectId;
+    use std::str::FromStr;
+
+    pub fn commit(
+        id: ObjectId,
+        message: &str,
+        parent_ids: impl IntoIterator<Item = ObjectId>,
+        flags: CommitFlags,
+    ) -> Commit {
+        Commit {
+            id,
+            parent_ids: parent_ids.into_iter().collect(),
+            refs: Vec::new(),
+            flags,
+            details: Some(CommitDetails {
+                message: message.into(),
+                author: author(),
+                has_conflicts: false,
+            }),
+        }
+    }
+
+    pub fn id(hex: &str) -> ObjectId {
+        let hash_len = gix::hash::Kind::Sha1.len_in_hex();
+        if hex.len() != hash_len {
+            ObjectId::from_str(
+                &std::iter::repeat_n(hex, hash_len / hex.len())
+                    .collect::<Vec<_>>()
+                    .join(""),
+            )
+        } else {
+            ObjectId::from_str(hex)
+        }
+        .unwrap()
+    }
+
+    pub fn author() -> gix::actor::Signature {
+        gix::actor::Signature {
+            name: "Name".into(),
+            email: "name@example.com".into(),
+            time: Default::default(),
+        }
+    }
+}
+use utils::{author, commit, id};

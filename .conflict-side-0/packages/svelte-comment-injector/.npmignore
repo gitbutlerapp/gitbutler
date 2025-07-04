@@ -1,0 +1,6 @@
+/src/
+/node_modules/
+tsconfig.tsbuildinfo
+*.test.ts
+*.test.d.ts
+/src/testFixture/
