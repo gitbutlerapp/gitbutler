@@ -24,17 +24,13 @@ export class HorizontalPanner {
 		const mouseDown = on(this.element, 'mousedown', this.handleMouseDown.bind(this), {
 			capture: true
 		});
-		const mouseUp = on(this.element, 'mouseup', this.stopPanning.bind(this), {
-			capture: true
-		});
-		const mouseLeave = on(this.element, 'mouseleave', this.stopPanning.bind(this), {
+		const mouseUp = on(document, 'mouseup', this.stopPanning.bind(this), {
 			capture: true
 		});
 
 		return () => {
 			mouseDown();
 			mouseUp();
-			mouseLeave();
 			this.stopPanning();
 		};
 	}
@@ -73,6 +69,6 @@ export class HorizontalPanner {
 
 		// Make sure we clear any old subscriptions.
 		this.clearSubscription();
-		this.mouseMoveSubscription = on(this.element, 'mousemove', this.handleMouseMove.bind(this));
+		this.mouseMoveSubscription = on(document, 'mousemove', this.handleMouseMove.bind(this));
 	}
 }
