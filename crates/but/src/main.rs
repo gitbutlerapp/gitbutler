@@ -1,3 +1,5 @@
+use std::io::{self, Read};
+
 use anyhow::{Context, Ok, Result};
 
 mod args;
@@ -35,6 +37,30 @@ async fn main() -> Result<()> {
             }) => {
                 let handler = *handler;
                 command::handle_changes(&args.current_dir, args.json, handler, description)
+            }
+            Some(actions::Subcommands::ClaudePreToolUse) => {
+                let mut buffer = String::new();
+                io::stdin().read_to_string(&mut buffer)?;
+                buffer.trim().to_string();
+                let out = command::claude::handle_pre_tool_call(buffer)?;
+                println!("{}", serde_json::to_string(&out)?);
+                Ok(())
+            }
+            Some(actions::Subcommands::ClaudePostToolUse) => {
+                let mut buffer = String::new();
+                io::stdin().read_to_string(&mut buffer)?;
+                buffer.trim().to_string();
+                let out = command::claude::handle_post_tool_call(buffer)?;
+                println!("{}", serde_json::to_string(&out)?);
+                Ok(())
+            }
+            Some(actions::Subcommands::ClaudeStop) => {
+                let mut buffer = String::new();
+                io::stdin().read_to_string(&mut buffer)?;
+                buffer.trim().to_string();
+                let out = command::claude::handle_stop(buffer).await?;
+                println!("{}", serde_json::to_string(&out)?);
+                Ok(())
             }
             None => command::list_actions(&args.current_dir, args.json, 0, 10),
         },

@@ -66,6 +66,9 @@ pub mod actions {
             #[clap(long, value_enum, default_value = "simple")]
             handler: Handler,
         },
+        ClaudePreToolUse,
+        ClaudePostToolUse,
+        ClaudeStop,
     }
 
     #[derive(Debug, Clone, Copy, clap::ValueEnum)]

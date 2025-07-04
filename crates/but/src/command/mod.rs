@@ -5,6 +5,8 @@ use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use serde::Serialize;
+pub mod claude;
+mod claude_transcript;
 
 pub(crate) fn handle_changes(
     repo_path: &Path,

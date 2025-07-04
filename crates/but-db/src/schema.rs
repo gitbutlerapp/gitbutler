@@ -35,3 +35,19 @@ diesel::table! {
         summary -> Nullable<Text>,
     }
 }
+
+diesel::table! {
+    claude_code_sessions (id) {
+        id -> Text,
+        created_at -> Timestamp,
+        stack_id -> Text,
+    }
+}
+
+diesel::table! {
+    file_write_locks (path) {
+        path -> Text,
+        created_at -> Timestamp,
+        owner -> Text,
+    }
+}

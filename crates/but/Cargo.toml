@@ -30,6 +30,7 @@ rmcp = "0.1.5"
 gitbutler-project.workspace = true
 gix.workspace = true
 but-core.workspace = true
+but-db.workspace = true
 but-action.workspace = true
 but-graph.workspace = true
 but-workspace.workspace = true
