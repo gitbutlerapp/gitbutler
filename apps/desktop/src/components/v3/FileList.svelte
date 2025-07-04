@@ -192,33 +192,42 @@
 	/>
 {/snippet}
 
-{#each Object.entries(unrepresentedConflictedEntries) as [path, kind]}
-	<FileListItemV3
-		draggable={draggableFiles}
-		filePath={path}
-		conflicted
-		conflictHint={conflictEntryHint(kind)}
-		listMode="list"
-	/>
-{/each}
-{#if visibleFiles.length > 0}
-	{#if listMode === 'tree'}
-		<!-- We need to use sortedChanges here because otherwise we will end up
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div onkeydown={handleKeyDown}>
+	{#each Object.entries(unrepresentedConflictedEntries) as [path, kind]}
+		<FileListItemV3
+			draggable={draggableFiles}
+			filePath={path}
+			conflicted
+			conflictHint={conflictEntryHint(kind)}
+			listMode="list"
+		/>
+	{/each}
+	{#if visibleFiles.length > 0}
+		{#if listMode === 'tree'}
+			<!-- We need to use sortedChanges here because otherwise we will end up
 		with incorrect indexes -->
-		{@const node = abbreviateFolders(changesToFileTree(sortedChanges))}
-		<FileTreeNode isRoot {stackId} {node} {showCheckboxes} changes={sortedChanges} {fileTemplate} />
-	{:else}
-		<LazyloadContainer
-			minTriggerCount={80}
-			ontrigger={() => {
-				loadMore();
-			}}
-			role="listbox"
-			onkeydown={handleKeyDown}
-		>
-			{#each visibleFiles as change, idx}
-				{@render fileTemplate(change, idx)}
-			{/each}
-		</LazyloadContainer>
+			{@const node = abbreviateFolders(changesToFileTree(sortedChanges))}
+			<FileTreeNode
+				isRoot
+				{stackId}
+				{node}
+				{showCheckboxes}
+				changes={sortedChanges}
+				{fileTemplate}
+			/>
+		{:else}
+			<LazyloadContainer
+				minTriggerCount={80}
+				ontrigger={() => {
+					loadMore();
+				}}
+				role="listbox"
+			>
+				{#each visibleFiles as change, idx}
+					{@render fileTemplate(change, idx)}
+				{/each}
+			</LazyloadContainer>
+		{/if}
 	{/if}
-{/if}
+</div>
