@@ -23,6 +23,7 @@
 		maxHeight?: number;
 		searchable?: boolean;
 		popupAlign?: 'left' | 'right' | 'center';
+		popupVerticalAlign?: 'top' | 'bottom';
 		customSelectButton?: Snippet;
 		itemSnippet: Snippet<[{ item: SelectItem<T>; highlighted: boolean; idx: number }]>;
 		children?: Snippet;
@@ -58,6 +59,7 @@
 		maxHeight,
 		searchable,
 		popupAlign = 'left',
+		popupVerticalAlign = 'bottom',
 		customSelectButton,
 		itemSnippet,
 		children,
@@ -177,8 +179,16 @@
 	}
 
 	function getTopStyle() {
-		if (inputBoundingRect?.top) {
-			return `${inputBoundingRect.top + inputBoundingRect.height}px`;
+		if (popupVerticalAlign === 'bottom') {
+			if (inputBoundingRect?.top) {
+				return `${inputBoundingRect.top + inputBoundingRect.height}px`;
+			}
+		}
+
+		if (popupVerticalAlign === 'top') {
+			if (inputBoundingRect?.top && optionsGroupBoundingRect) {
+				return `${inputBoundingRect.top - optionsGroupBoundingRect.height}px`;
+			}
 		}
 	}
 
