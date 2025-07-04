@@ -4,7 +4,6 @@
 </script>
 
 <script lang="ts">
-	import Checkbox from '$lib/Checkbox.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import HunkDiffBody from '$lib/hunkDiff/HunkDiffBody.svelte';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
@@ -111,13 +110,11 @@
 							}
 						}}
 					>
-						<div class="table__checkbox">
+						<div class="table__checkbox" class:staged>
 							{#if staged && !hideCheckboxes}
-								<Checkbox checked={staged} small style="ghost" />
+								<Icon name="tick-small" />
 							{:else if showingCheckboxes}
-								<div class="table__checkbox-unstaged">
-									<Icon name="minus-small" />
-								</div>
+								<Icon name="minus-small" />
 							{/if}
 						</div>
 
@@ -227,19 +224,12 @@
 		align-items: center;
 		justify-content: flex-start;
 		padding: 4px;
-		pointer-events: none;
-	}
-
-	.table__checkbox-unstaged {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 16px;
-		height: 16px;
-		margin: 0;
-		padding: 0;
-
 		color: var(--clr-diff-count-checkmark);
+		pointer-events: none;
+
+		&.staged {
+			color: var(--clr-diff-selected-count-checkmark);
+		}
 	}
 
 	.table__title {
@@ -284,9 +274,7 @@
 
 	.table__title-content {
 		box-sizing: border-box;
-
 		display: flex;
-
 		position: absolute;
 		top: var(--top);
 		left: var(--number-col-width);
@@ -332,7 +320,6 @@
 	}
 
 	/* CONTRAST MODIFIERS */
-
 	.contrast-light {
 		--clr-diff-count-text: var('--', var(--clr-diff-count-text));
 		/* deletion */

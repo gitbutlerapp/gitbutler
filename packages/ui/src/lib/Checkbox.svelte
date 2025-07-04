@@ -1,5 +1,4 @@
 <script lang="ts" module>
-	export type CheckboxStyle = 'default' | 'neutral' | 'ghost';
 	export interface Props {
 		name?: string;
 		small?: boolean;
@@ -7,7 +6,6 @@
 		checked?: boolean;
 		value?: string;
 		indeterminate?: boolean;
-		style?: CheckboxStyle;
 		onclick?: (e: MouseEvent) => void;
 		onchange?: (
 			e: Event & {
@@ -27,7 +25,6 @@
 		checked = $bindable(),
 		value = '',
 		indeterminate = false,
-		style = 'default',
 		onclick,
 		onchange
 	}: Props = $props();
@@ -37,161 +34,173 @@
 	});
 </script>
 
-<input
-	bind:this={input}
-	bind:checked
-	onclick={(e) => {
-		e.stopPropagation();
-		onclick?.(e);
-	}}
-	onchange={(e) => {
-		e.stopPropagation();
-		onchange?.(e);
-	}}
-	onkeydown={(e) => {
-		if (e.key === 'Enter') {
-			e.preventDefault();
-			e.stopPropagation();
-			if (input) {
-				input.checked = !input.checked;
-			}
-			onchange?.(e);
-		}
-	}}
-	type="checkbox"
-	class={`focus-state checkbox ${style}`}
+<div
+	class="checkbox-wrapper"
+	class:checked
 	class:small
-	{value}
-	id={name}
-	{name}
-	{disabled}
-/>
+	class:disabled
+	class:indeterminate
+	style:--checkmark-color="var(--clr-theme-pop-on-element)"
+>
+	<div class="checkbox-checkmark">
+		{#if !indeterminate}
+			<!-- This is a tick icon, it will be shown when the checkbox is checked -->
+			<svg
+				width="10"
+				height="10"
+				viewBox="0 0 10 10"
+				fill="none"
+				xmlns="http://www.w3.org/2000/svg"
+			>
+				<path
+					d="M9 2.5L4.92139 6.74855C4.52783 7.15851 3.87217 7.15851 3.47861 6.74856L1 4.16667"
+					stroke="var(--checkmark-color)"
+					stroke-width="1.5"
+				/>
+			</svg>
+		{:else}
+			<svg width="8" height="2" viewBox="0 0 8 2" fill="none" xmlns="http://www.w3.org/2000/svg">
+				<path d="M8 1L0 1" stroke="var(--checkmark-color)" stroke-width="1.5" />
+			</svg>
+		{/if}
+	</div>
+
+	<input
+		bind:this={input}
+		bind:checked
+		tabindex="0"
+		onclick={(e) => {
+			e.stopPropagation();
+			onclick?.(e);
+		}}
+		onchange={(e) => {
+			e.stopPropagation();
+			onchange?.(e);
+		}}
+		onkeydown={(e) => {
+			if (e.key === 'Enter') {
+				e.preventDefault();
+				e.stopPropagation();
+
+				checked = !checked;
+				onchange?.(e);
+			}
+		}}
+		type="checkbox"
+		class="focus-state checkbox-input"
+		{value}
+		id={name}
+		{name}
+		{disabled}
+	/>
+</div>
 
 <style lang="postcss">
-	.checkbox {
-		appearance: none;
+	.checkbox-wrapper,
+	.checkbox-input {
+		border-radius: var(--radius-s);
+	}
+
+	.checkbox-wrapper {
+		display: flex;
 		position: relative;
 		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
 		width: 16px;
 		height: 16px;
-		border-radius: var(--radius-s);
 		background-color: var(--clr-bg-1);
 		box-shadow: inset 0 0 0 1px var(--clr-border-2);
-		cursor: pointer;
 		transition:
 			background-color var(--transition-fast),
-			border-color var(--transition-fast),
-			opacity var(--transition-fast),
-			transform var(--transition-fast);
+			border-color var(--transition-fast);
 
-		/* disabled */
-		&:not(:disabled)&:not(:checked):hover {
-			&::after {
-				transform: scale(0.8);
-				opacity: 0.8;
+		/* NOT CHECKED */
+		&:not(.checked):not(.disabled) {
+			& .checkbox-checkmark {
+				--checkmark-color: var(--clr-text-2);
 			}
 		}
-
-		&:disabled {
-			background-color: var(--clr-scale-ntrl-70);
-			cursor: not-allowed;
-			opacity: 0.4;
-		}
-
-		/* indeterminate */
-
-		&:indeterminate::before {
-			position: absolute;
-			top: 50%;
-			left: 50%;
-			width: 50%;
-			height: 2px;
-			transform: translate(-50%, -50%);
-			content: '';
-		}
-		&.ghost:indeterminate,
-		&.default:indeterminate {
-			background-color: var(--clr-theme-pop-element);
-			box-shadow: inset 0 0 0 1px var(--clr-theme-pop-element);
-
-			&:hover {
-				background-color: var(--clr-theme-pop-element-hover);
-			}
-
-			&::before {
-				background-color: white;
-			}
-		}
-
-		&.neutral:indeterminate {
-			background-color: var(--clr-bg-2);
-
-			&:hover {
-				background-color: var(--clr-bg-3);
-			}
-
-			&::before {
-				background-color: var(--clr-scale-ntrl-30);
-			}
-		}
-
-		/* checked */
-		&:checked {
-			&::after {
-				transform: scale(1);
-				filter: brightness(2);
+		/* NOT CHECKED. HOVER */
+		&:not(.checked):not(.disabled):hover {
+			box-shadow: inset 0 0 0 1px var(--clr-border-1);
+			& .checkbox-checkmark {
 				opacity: 1;
 			}
 		}
 
-		&.ghost:checked {
-			background-color: transparent;
-			box-shadow: none;
-		}
-
-		&.default:checked {
+		/* CHECKED */
+		&:not(.disabled).checked {
 			background-color: var(--clr-theme-pop-element);
 			box-shadow: inset 0 0 0 1px var(--clr-theme-pop-element);
-
-			&:hover {
-				background-color: var(--clr-theme-pop-element-hover);
+			& .checkbox-checkmark {
+				transform: scale(1);
+				opacity: 1;
+			}
+		}
+		/* CHECKED. HOVER */
+		&:not(.disabled).checked:hover {
+			background-color: var(--clr-theme-pop-element-hover);
+			box-shadow: inset 0 0 0 1px var(--clr-theme-pop-element-hover);
+			& .checkbox-checkmark {
+				opacity: 1;
 			}
 		}
 
-		&.neutral:checked {
-			background-color: var(--clr-bg-2);
-			box-shadow: inset 0 0 0 1px var(--clr-scale-ntrl-30);
-
-			&:hover {
-				background-color: var(--clr-bg-3);
+		/* CURSOR */
+		&:not(.disabled) {
+			& .checkbox-input {
+				cursor: pointer;
+			}
+		}
+		&.disabled {
+			& .checkbox-input {
+				cursor: not-allowed;
 			}
 		}
 
-		&::after {
-			position: absolute;
-			width: 100%;
-			height: 100%;
-			border-radius: var(--radius-s);
-			content: '';
-			opacity: 0;
-			transition:
-				opacity var(--transition-fast),
-				transform var(--transition-fast);
+		/* DISABLED */
+		&:not(.checked).disabled {
+			background-color: color-mix(in srgb, var(--clr-scale-ntrl-70) 50%, var(--clr-bg-1));
+			box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--clr-scale-ntrl-70) 50%, var(--clr-bg-1));
+		}
+		/* DISABLED. CHECKED */
+		&.disabled.checked {
+			--checkmark-color: var(--clr-text-2);
+			background-color: color-mix(in srgb, var(--clr-theme-pop-element) 50%, var(--clr-bg-1));
+			box-shadow: inset 0 0 0 1px
+				color-mix(in srgb, var(--clr-theme-pop-element) 50%, var(--clr-bg-1));
+
+			& .checkbox-checkmark {
+				transform: scale(1);
+				opacity: 1;
+			}
 		}
 
-		/* tick element */
-		&:not(:indeterminate)::after {
-			background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAiIGhlaWdodD0iNyIgdmlld0JveD0iMCAwIDEwIDciIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik05IDEuNUw0LjkyMTM5IDUuNzQ4NTVDNC41Mjc4MyA2LjE1ODUxIDMuODcyMTcgNi4xNTg1MSAzLjQ3ODYxIDUuNzQ4NTZMMSAzLjE2NjY3IiBzdHJva2U9IiNBNUE1QTUiIHN0cm9rZS13aWR0aD0iMS41Ii8+Cjwvc3ZnPgo=');
-			background-position: center;
-			background-size: 80%;
-			background-repeat: no-repeat;
-		}
-
-		/* modifiers */
-
+		/* MODIFIERS */
 		&.small {
 			width: 14px;
 			height: 14px;
 		}
+	}
+
+	.checkbox-checkmark {
+		display: flex;
+		transform: scale(0.8);
+		opacity: 0;
+		pointer-events: none; /* Prevents the checkmark from blocking clicks */
+		transition:
+			opacity var(--transition-fast),
+			transform var(--transition-fast);
+	}
+
+	.checkbox-input {
+		appearance: none;
+		z-index: 1;
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
 	}
 </style>
