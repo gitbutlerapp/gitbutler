@@ -328,6 +328,7 @@
 						{@attach scrollingAttachment(intelligentScrollingService, projectId, stack.id, 'diff')}
 					>
 						<SelectionView
+							draggableFiles
 							testId={TestId.WorktreeSelectionView}
 							{projectId}
 							selectionId={{ ...assignedKey, type: 'worktree', stackId: assignedKey.stackId }}
@@ -358,6 +359,7 @@
 							active={selectedKey?.type === 'commit' && focusedStackId === stack.id}
 							{onerror}
 							{onclose}
+							draggableFiles
 						/>
 					</div>
 				{:else if showBranchChange}
@@ -377,7 +379,6 @@
 							active={selectedKey?.type === 'branch' &&
 								selectedKey.branchName === branchName &&
 								focusedStackId === stack.id}
-							draggableFiles
 							{onerror}
 							{onclose}
 						/>
@@ -415,6 +416,7 @@
 					onclose={() => {
 						intelligentScrollingService.show(projectId, stack.id, 'details');
 					}}
+					draggableFiles={selectedKey.type === 'commit'}
 				/>
 				<Resizer
 					viewport={previewEl}

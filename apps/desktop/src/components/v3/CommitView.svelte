@@ -34,11 +34,13 @@
 		stackId: string;
 		commitKey: CommitKey;
 		active?: boolean;
+		draggableFiles: boolean;
 		onerror: (err: unknown) => void;
 		onclose?: () => void;
 	};
 
-	const { projectId, stackId, commitKey, active, onerror, onclose }: Props = $props();
+	const { projectId, stackId, commitKey, active, draggableFiles, onerror, onclose }: Props =
+		$props();
 
 	const [stackService, uiState] = inject(StackService, UiState);
 
@@ -277,7 +279,7 @@
 							title="Changed files"
 							{projectId}
 							{stackId}
-							draggableFiles={true}
+							{draggableFiles}
 							selectionId={{ type: 'commit', commitId: commit.id }}
 							changes={changes.changes.filter(
 								(change) => !(change.path in (changes.conflictEntries?.entries ?? {}))

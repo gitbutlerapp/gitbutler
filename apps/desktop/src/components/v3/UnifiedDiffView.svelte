@@ -76,10 +76,6 @@
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
-	const draggingDisabled = $derived(
-		!draggable || !['commit', 'worktree'].includes(selectionId.type)
-	);
-
 	const assignments = $derived(uncommittedService.assignmentsByPath(stackId || null, change.path));
 
 	function filter(hunks: DiffHunk[]): DiffHunk[] {
@@ -139,13 +135,13 @@
 									commitId,
 									selectionId
 								),
-								disabled: draggingDisabled,
+								disabled: !draggable,
 								chipType: 'hunk',
 								dropzoneRegistry
 							}}
 						>
 							<HunkDiff
-								{draggingDisabled}
+								draggingDisabled={!draggable}
 								hideCheckboxes={!isCommiting}
 								filePath={change.path}
 								hunkStr={hunk.diff}

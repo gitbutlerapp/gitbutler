@@ -27,7 +27,7 @@
 		selectionId: SelectionId;
 		active?: boolean;
 		conflictEntries?: ConflictEntriesObj;
-		draggableFiles: boolean;
+		draggableFiles?: boolean;
 		onselect?: () => void;
 	};
 

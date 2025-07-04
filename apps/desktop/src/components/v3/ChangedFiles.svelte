@@ -18,7 +18,7 @@
 		title: string;
 		active?: boolean;
 		conflictEntries?: ConflictEntriesObj;
-		draggableFiles: boolean;
+		draggableFiles?: boolean;
 	};
 
 	const {

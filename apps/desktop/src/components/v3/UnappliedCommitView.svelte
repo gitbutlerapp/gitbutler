@@ -64,7 +64,6 @@
 				<ReduxResult {projectId} result={changesResult.current}>
 					{#snippet children(changes)}
 						<ChangedFiles
-							draggableFiles={false}
 							title="Changed files"
 							active
 							{projectId}

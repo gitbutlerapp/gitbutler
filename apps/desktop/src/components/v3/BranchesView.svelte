@@ -369,7 +369,6 @@
 										{projectId}
 										branchName={current.branchName}
 										stackId={current.stackId}
-										draggableFiles={false}
 										active
 										{onerror}
 									/>
@@ -399,12 +398,7 @@
 
 					{#if !isNonLocalPr}
 						<!-- <div class="preview-column" bind:this={previewColumn}> -->
-						<SelectionView
-							testId={TestId.BranchesSelectionView}
-							{projectId}
-							{selectionId}
-							draggableFiles
-						/>
+						<SelectionView testId={TestId.BranchesSelectionView} {projectId} {selectionId} />
 
 						<!-- </div> -->
 					{/if}
