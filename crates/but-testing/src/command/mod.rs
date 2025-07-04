@@ -362,6 +362,7 @@ pub mod stacks {
                 // Keep this off until it caught up at least.
                 ws3: false,
                 actions: false,
+                butbot: false,
             },
             ..AppSettings::default()
         };

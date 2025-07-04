@@ -18,6 +18,7 @@ pub struct FeatureFlagsUpdate {
     pub v3: Option<bool>,
     pub ws3: Option<bool>,
     pub actions: Option<bool>,
+    pub butbot: Option<bool>,
 }
 
 /// Mutation, immediately followed by writing everything to disk.
@@ -50,7 +51,12 @@ impl AppSettingsWithDiskSync {
 
     pub fn update_feature_flags(
         &self,
-        FeatureFlagsUpdate { v3, ws3, actions }: FeatureFlagsUpdate,
+        FeatureFlagsUpdate {
+            v3,
+            ws3,
+            actions,
+            butbot,
+        }: FeatureFlagsUpdate,
     ) -> Result<()> {
         let mut settings = self.get_mut_enforce_save()?;
         if let Some(v3) = v3 {
@@ -61,6 +67,9 @@ impl AppSettingsWithDiskSync {
         }
         if let Some(actions) = actions {
             settings.feature_flags.actions = actions;
+        }
+        if let Some(butbot) = butbot {
+            settings.feature_flags.butbot = butbot;
         }
         settings.save()
     }

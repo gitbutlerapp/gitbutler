@@ -29,6 +29,8 @@ pub struct FeatureFlags {
     pub ws3: bool,
     /// Enable the usage of GitButler Acitions.
     pub actions: bool,
+    /// Enable the usage of the butbot chat.
+    pub butbot: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
