@@ -115,9 +115,8 @@
 {/if}
 
 <div
+	class="scrollbar-container hide-native-scrollbar"
 	role="presentation"
-	class="lanes-scrollable hide-native-scrollbar"
-	class:panning={false}
 	bind:this={lanesScrollableEl}
 	bind:clientWidth={lanesScrollableWidth}
 	bind:clientHeight={lanesScrollableHeight}
@@ -129,103 +128,106 @@
 		});
 	}}
 >
-	<StackDraft {projectId} visible={isDraftStackVisible} />
+	<div class="lanes-scrollable">
+		<StackDraft {projectId} visible={isDraftStackVisible} />
 
-	<!--
+		<!--
 	Ideally we wouldn't key on stack id, but the opacity change is done on the
 	element being dragged, and therefore stays in place without the key. We
 	should find a way of encapsulating the reordering logic better, perhaps
 	with some feedback that enables the opacity to become a prop for
 	`StackView` instead of being set imperatively in the dragstart handler.
 	 -->
-	{#each mutableStacks as stack, i (stack.id)}
-		{@const stackState = uiState.stack(stack.id)}
-		{@const selection = stackState.selection}
-		<div
-			class="reorderable-stack"
-			role="presentation"
-			animate:flip={{ duration: 150 }}
-			onmousedown={onReorderMouseDown}
-			ondragstart={(e) => {
-				onReorderStart(e, stack.id, () => {
-					draggingStack = true;
-					selection.set(undefined);
-					intelligentScrollingService.show(projectId, stack.id, 'stack');
-				});
-			}}
-			ondragover={(e) => {
-				throttledDragOver(e, mutableStacks, stack.id);
-			}}
-			ondragend={() => {
-				draggingStack = false;
-				onReorderEnd();
+		{#each mutableStacks as stack, i (stack.id)}
+			{@const stackState = uiState.stack(stack.id)}
+			{@const selection = stackState.selection}
+			<div
+				class="reorderable-stack"
+				role="presentation"
+				animate:flip={{ duration: 150 }}
+				onmousedown={onReorderMouseDown}
+				ondragstart={(e) => {
+					onReorderStart(e, stack.id, () => {
+						draggingStack = true;
+						selection.set(undefined);
+						intelligentScrollingService.show(projectId, stack.id, 'stack');
+					});
+				}}
+				ondragover={(e) => {
+					throttledDragOver(e, mutableStacks, stack.id);
+				}}
+				ondragend={() => {
+					draggingStack = false;
+					onReorderEnd();
+				}}
+			>
+				<StackView
+					{projectId}
+					{stack}
+					{focusedStackId}
+					bind:clientWidth={laneWidths[i]}
+					bind:clientHeight={lineHights[i]}
+					onVisible={(visible) => {
+						if (visible) {
+							visibleIndexes = [...visibleIndexes, i];
+						} else {
+							visibleIndexes = visibleIndexes.filter((index) => index !== i);
+						}
+					}}
+				/>
+			</div>
+		{/each}
+
+		<MultiStackOfflaneDropzone
+			{projectId}
+			viewport={lanesScrollableEl}
+			onVisible={(visible) => {
+				isCreateNewVisible = visible;
 			}}
 		>
-			<StackView
-				{projectId}
-				{stack}
-				{focusedStackId}
-				bind:clientWidth={laneWidths[i]}
-				bind:clientHeight={lineHights[i]}
-				onVisible={(visible) => {
-					if (visible) {
-						visibleIndexes = [...visibleIndexes, i];
-					} else {
-						visibleIndexes = visibleIndexes.filter((index) => index !== i);
-					}
-				}}
-			/>
-		</div>
-	{/each}
+			{#snippet title()}
+				{#if stacks.length === 0}
+					No branches in Workspace
+				{/if}
+			{/snippet}
+			{#snippet description()}
+				{#if stacks.length === 0}
+					Drop files to start a branch,
+					<br />
+					or apply from the
+					<a
+						class="pointer-events underline"
+						aria-label="Branches view"
+						href={branchesPath(projectId)}>Branches view</a
+					>
+				{:else}
+					Drag changes here to
+					<br />
+					branch off your changes
+				{/if}
+			{/snippet}
+		</MultiStackOfflaneDropzone>
+	</div>
 
-	<MultiStackOfflaneDropzone
-		{projectId}
-		viewport={lanesScrollableEl}
-		onVisible={(visible) => {
-			isCreateNewVisible = visible;
-		}}
-	>
-		{#snippet title()}
-			{#if stacks.length === 0}
-				No branches in Workspace
-			{/if}
-		{/snippet}
-		{#snippet description()}
-			{#if stacks.length === 0}
-				Drop files to start a branch,
-				<br />
-				or apply from the
-				<a
-					class="pointer-events underline"
-					aria-label="Branches view"
-					href={branchesPath(projectId)}>Branches view</a
-				>
-			{:else}
-				Drag changes here to
-				<br />
-				branch off your changes
-			{/if}
-		{/snippet}
-	</MultiStackOfflaneDropzone>
+	{#if lanesScrollableEl}
+		<Scrollbar viewport={lanesScrollableEl} horz />
+	{/if}
 </div>
-{#if lanesScrollableEl}
-	<Scrollbar viewport={lanesScrollableEl} horz />
-{/if}
 
 <style lang="postcss">
-	.lanes-scrollable {
+	.scrollbar-container {
 		display: flex;
-		position: relative;
 		flex: 1;
 		height: 100%;
 		margin: 0 -1px;
 		overflow-x: auto;
 		overflow-y: hidden;
-		cursor: default;
 	}
 
-	.lanes-scrollable.panning {
-		cursor: grabbing;
+	.lanes-scrollable {
+		display: flex;
+		position: relative;
+		height: 100%;
 	}
 
 	.pagination-container {

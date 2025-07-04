@@ -232,7 +232,7 @@
 		<div class="modal-footer">
 			<label for="dont-show-again" class="modal-footer__checkbox">
 				<Checkbox name="dont-show-again" small bind:checked={$doNotShowUploadWarning} />
-				<span class="text-12"> Don’t show this again</span>
+				<span class="text-12"> Don’t show again</span>
 			</label>
 			<Button kind="outline" onclick={close}>Cancel</Button>
 			<Button style="pop" type="submit">Yes, upload!</Button>

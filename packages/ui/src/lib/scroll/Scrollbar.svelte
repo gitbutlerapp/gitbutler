@@ -291,6 +291,7 @@
 
 <div
 	bind:this={track}
+	data-remove-from-panning
 	data-remove-from-draggable
 	class="scrollbar-track"
 	class:horz

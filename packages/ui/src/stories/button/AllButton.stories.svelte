@@ -38,6 +38,10 @@
 		<Button {size} {style} kind="outline" {reversedDirection}>{label}</Button>
 		<Button {size} {style} kind="ghost" {reversedDirection}>{label}</Button>
 
+		<Button {size} {style} kind="solid" {reversedDirection} hotkey="Esc">{label}</Button>
+		<Button {size} {style} kind="outline" {reversedDirection} hotkey="Esc">{label}</Button>
+		<Button {size} {style} kind="ghost" {reversedDirection} hotkey="Esc">{label}</Button>
+
 		<Button {size} {style} kind="solid" icon="plus-small" />
 		<Button {size} {style} kind="outline" icon="plus-small" />
 		<Button {size} {style} kind="ghost" icon="plus-small" />

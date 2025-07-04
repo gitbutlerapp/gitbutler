@@ -218,6 +218,7 @@
 			style="pop"
 			onclick={emitAction}
 			disabled={disabledAction}
+			hotkey="⌘↵"
 			{loading}
 			wide>{actionLabel}</Button
 		>

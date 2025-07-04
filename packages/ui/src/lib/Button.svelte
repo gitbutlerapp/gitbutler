@@ -24,12 +24,10 @@
 		solidBackground?: boolean;
 		class?: string | (string | undefined)[] | Record<string, string>;
 		iconClass?: string;
-		/**
-		 * Custom style to be applied to the button.
-		 */
 		customStyle?: string;
 		// Additional elements
 		icon?: keyof typeof iconsJson | undefined;
+		hotkey?: string;
 		tooltip?: string;
 		tooltipPosition?: TooltipPosition;
 		tooltipAlign?: TooltipAlign;
@@ -73,6 +71,7 @@
 		dropdownChild = false,
 		style = 'neutral',
 		kind = 'solid',
+		hotkey,
 		solidBackground = false,
 		class: className = '',
 		iconClass = '',
@@ -145,6 +144,12 @@
 				class:text-10={size === 'icon'}
 			>
 				{@render children()}
+
+				{#if hotkey}
+					<span class="btn-hotkey">
+						{hotkey}
+					</span>
+				{/if}
 			</span>
 		{/if}
 
@@ -219,7 +224,7 @@
 
 		/* Child elements */
 		.btn-label {
-			padding: 0 2px;
+			padding: 0 3px;
 			white-space: nowrap;
 			pointer-events: none;
 		}
@@ -231,6 +236,12 @@
 			opacity: var(--icon-opacity);
 			pointer-events: none;
 			transition: opacity var(--transition-fast);
+		}
+
+		.btn-hotkey {
+			margin-left: 2px;
+			opacity: 0.5;
+			pointer-events: none;
 		}
 
 		/* Neutral theme */
@@ -422,19 +433,19 @@
 		&.tag-size {
 			height: var(--size-tag);
 			padding: 2px 4px;
-			gap: 2px;
+			gap: 0;
 		}
 
 		&.button-size {
 			height: var(--size-button);
 			padding: 4px 6px;
-			gap: 4px;
+			gap: 2px;
 		}
 
 		&.cta-size {
 			height: var(--size-cta);
 			padding: 6px 8px;
-			gap: 4px;
+			gap: 2px;
 		}
 
 		/* Fixed width variants */

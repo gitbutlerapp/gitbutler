@@ -2,13 +2,11 @@
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
-	import StackStickyButtons from '$components/StackStickyButtons.svelte';
 	import AsyncRender from '$components/v3/AsyncRender.svelte';
 	import BranchList from '$components/v3/BranchList.svelte';
 	import BranchView from '$components/v3/BranchView.svelte';
 	import CommitView from '$components/v3/CommitView.svelte';
 	import NewCommitView from '$components/v3/NewCommitView.svelte';
-	import PushButton from '$components/v3/PushButton.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
 	import { isParsedError } from '$lib/error/parser';
@@ -312,14 +310,6 @@
 							}}
 						/>
 					</ConfigurableScrollableContainer>
-					<StackStickyButtons>
-						<PushButton
-							flex="1"
-							{projectId}
-							stackId={stack.id}
-							multipleBranches={branches.length > 1}
-						/>
-					</StackStickyButtons>
 				{/snippet}
 			</ReduxResult>
 		</div>
