@@ -275,6 +275,9 @@
 			if (info.db_error) {
 				showError('The database was corrupted', info.db_error);
 			}
+			if (info.headsup) {
+				showError('Important PSA', info.headsup);
+			}
 		} catch (error: unknown) {
 			showError('Failed to set the project active', error);
 		}

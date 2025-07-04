@@ -13,6 +13,7 @@ import type { HttpClient } from '@gitbutler/shared/network/httpClient';
 export type ProjectInfo = {
 	is_exclusive: boolean;
 	db_error?: string;
+	headsup?: string;
 };
 
 export class ProjectsService {
