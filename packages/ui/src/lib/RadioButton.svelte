@@ -56,7 +56,6 @@
 			opacity var(--transition-fast),
 			transform var(--transition-fast);
 
-		/* disabled */
 		&:not(:disabled)&:not(:checked):hover {
 			box-shadow: inset 0 0 0 1px var(--clr-border-1);
 

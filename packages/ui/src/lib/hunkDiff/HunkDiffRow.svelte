@@ -14,7 +14,6 @@
 
 <script lang="ts">
 	import Button from '$lib/Button.svelte';
-	import Checkbox from '$lib/Checkbox.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import InfoButton from '$lib/InfoButton.svelte';
 	import {
@@ -184,7 +183,7 @@
 			}}
 		>
 			{#if deltaLine}
-				<div class="table__row-checkbox" class:locked>
+				<div class="table__row-checkbox" class:staged class:locked>
 					{#if locked}
 						{@const locks = row.locks}
 						{#if lockWarning && locks && locks.length > 0}
@@ -197,7 +196,7 @@
 							<Icon name="locked-small" />
 						{/if}
 					{:else if staged}
-						<Checkbox checked={staged} small style="ghost" />
+						<Icon name="tick-small" />
 					{:else}
 						<Icon name="minus-small" />
 					{/if}
@@ -461,12 +460,10 @@
 		height: 18px;
 		margin: 0;
 		padding: 0;
-
-		color: var(--checkmark-color);
 		pointer-events: none;
 
-		&.locked {
-			color: var(--clr-diff-locked-count-text);
+		&:not(.locked).staged {
+			color: var(--clr-diff-selected-count-checkmark);
 		}
 	}
 

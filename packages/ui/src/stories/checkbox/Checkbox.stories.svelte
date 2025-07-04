@@ -6,7 +6,6 @@
 		title: 'Inputs / Checkbox',
 		component: Checkbox,
 		args: {
-			style: 'default',
 			checked: false,
 			disabled: false,
 			indeterminate: false,
