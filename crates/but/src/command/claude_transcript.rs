@@ -63,8 +63,8 @@ pub(crate) fn first_cwd(records: &Vec<Record>) -> Result<String, anyhow::Error> 
     Err(anyhow::anyhow!("No user record with cwd found"))
 }
 
-pub(crate) fn summary(records: &Vec<Record>) -> Option<String> {
-    for record in records {
+pub(crate) fn summary(records: &[Record]) -> Option<String> {
+    for record in records.iter().rev() {
         if let Record::Summary { summary, .. } = record {
             return Some(summary.to_string());
         }
@@ -73,8 +73,8 @@ pub(crate) fn summary(records: &Vec<Record>) -> Option<String> {
 }
 
 /// Gets the user message from a record if it exists.
-pub(crate) fn prompt(records: &Vec<Record>) -> Option<String> {
-    for record in records {
+pub(crate) fn prompt(records: &[Record]) -> Option<String> {
+    for record in records.iter().rev() {
         if let Record::User {
             message: Some(msg), ..
         } = record
