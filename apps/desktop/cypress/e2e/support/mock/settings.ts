@@ -10,7 +10,8 @@ export const MOCK_TELEMETRY_SETINGS: TelemetrySettings = {
 export const MOCK_FEATURE_FLAGS: FeatureFlags = {
 	v3: true,
 	ws3: false,
-	actions: false
+	actions: false,
+	butbot: false
 };
 
 export const MOCK_APP_SETTINGS: AppSettings = {

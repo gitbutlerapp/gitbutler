@@ -6,6 +6,7 @@
 	import { ActionService } from '$lib/actions/actionService.svelte';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import { invoke } from '$lib/backend/ipc';
+	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { persistedChatModelName, projectAiGenEnabled } from '$lib/config/config';
 	import { Feed } from '$lib/feed/feed';
 	import { newProjectSettingsPath } from '$lib/routes/routes.svelte';
@@ -33,6 +34,9 @@
 	const stackService = getContext(StackService);
 	const actionService = getContext(ActionService);
 	const user = getContextStore(User);
+	const settingsService = getContext(SettingsService);
+	const settingsStore = $derived(settingsService.appSettings);
+
 	const isAdmin = $derived($user.role === 'admin');
 	const combinedEntries = feed.combined;
 	const lastAddedId = feed.lastAddedId;
@@ -267,74 +271,76 @@
 					{#each $combinedEntries as entry (entry.id)}
 						<FeedItem {projectId} action={entry} />
 					{/each}
-					<div bind:this={topSentinel} style="height: 1px; background-color: red;"></div>
+					<div bind:this={topSentinel} style="height: 1px;"></div>
 				</div>
 			{/if}
 		</ConfigurableScrollableContainer>
-		<div class="feed__input-container">
-			<div class="text-input feed__input">
-				<RichTextEditor
-					bind:this={editor}
-					namespace="feed"
-					markdown={false}
-					styleContext="chat-input"
-					placeholder="Tab tab tab"
-					disabled={freestylin.current.isLoading}
-					onKeyDown={handleKeyDown}
-					onError={(e) => {
-						console.error('RichTextEditor error:', e);
-					}}
-				></RichTextEditor>
-
-				<div class="feed__input-commands">
-					<Select
-						popupAlign="right"
-						popupVerticalAlign="top"
-						value={$selectedModel}
-						maxHeight={200}
-						customWidth={150}
-						options={MODELS.map((model) => ({
-							value: model,
-							label: model
-						}))}
-						onselect={(value: string) => {
-							if (value === $selectedModel) return;
-							if (!isAdmin) return;
-							if (!MODELS.includes(value as Model)) return;
-							selectedModel.set(value as Model);
+		{#if $settingsStore?.featureFlags.butbot}
+			<div class="feed__input-container">
+				<div class="text-input feed__input">
+					<RichTextEditor
+						bind:this={editor}
+						namespace="feed"
+						markdown={false}
+						styleContext="chat-input"
+						placeholder="Tab tab tab"
+						disabled={freestylin.current.isLoading}
+						onKeyDown={handleKeyDown}
+						onError={(e) => {
+							console.error('RichTextEditor error:', e);
 						}}
-					>
-						{#snippet customSelectButton()}
-							<div class="model-selector">
-								<span class="text-11 model-selector__selected">{$selectedModel}</span>
-								<div class="model-selector__icon"><Icon name="chevron-down-small" /></div>
-							</div>
-						{/snippet}
+					></RichTextEditor>
 
-						{#snippet itemSnippet({ item, highlighted })}
-							{@const disabled = RESTRICTED_MODELS.includes(item.value as Model) && !isAdmin}
-							<SelectItem
-								selected={item.value === $selectedModel}
-								{highlighted}
-								{disabled}
-								icon={disabled ? 'locked-small' : undefined}
-							>
-								<p>
-									{item.label}
-								</p>
-							</SelectItem>
-						{/snippet}
-					</Select>
+					<div class="feed__input-commands">
+						<Select
+							popupAlign="right"
+							popupVerticalAlign="top"
+							value={$selectedModel}
+							maxHeight={200}
+							customWidth={150}
+							options={MODELS.map((model) => ({
+								value: model,
+								label: model
+							}))}
+							onselect={(value: string) => {
+								if (value === $selectedModel) return;
+								if (!isAdmin) return;
+								if (!MODELS.includes(value as Model)) return;
+								selectedModel.set(value as Model);
+							}}
+						>
+							{#snippet customSelectButton()}
+								<div class="model-selector">
+									<span class="text-11 model-selector__selected">{$selectedModel}</span>
+									<div class="model-selector__icon"><Icon name="chevron-down-small" /></div>
+								</div>
+							{/snippet}
 
-					<Button
-						style="pop"
-						icon="arrow-top"
-						onclick={sendCommand}
-						loading={freestylin.current.isLoading}
-					></Button>
+							{#snippet itemSnippet({ item, highlighted })}
+								{@const disabled = RESTRICTED_MODELS.includes(item.value as Model) && !isAdmin}
+								<SelectItem
+									selected={item.value === $selectedModel}
+									{highlighted}
+									{disabled}
+									icon={disabled ? 'locked-small' : undefined}
+								>
+									<p>
+										{item.label}
+									</p>
+								</SelectItem>
+							{/snippet}
+						</Select>
+
+						<Button
+							style="pop"
+							icon="arrow-top"
+							onclick={sendCommand}
+							loading={freestylin.current.isLoading}
+						></Button>
+					</div>
 				</div>
 			</div>
-		</div>
+		{/if}
 	</div>
 </div>
 

@@ -91,8 +91,31 @@
 
 	{#if $user?.role === 'admin'}
 		<Spacer margin={20} />
+		{#if $settingsStore?.featureFlags.actions}
+			<SectionCard labelFor="butbot" roundedTop roundedBottom={false} orientation="row">
+				{#snippet title()}
+					butbot
+				{/snippet}
+				{#snippet caption()}
+					Enable the butbot chat.
+				{/snippet}
+				{#snippet actions()}
+					<Toggle
+						id="butbot"
+						checked={$settingsStore?.featureFlags.butbot}
+						onclick={() =>
+							settingsService.updateFeatureFlags({ butbot: !$settingsStore?.featureFlags.butbot })}
+					/>
+				{/snippet}
+			</SectionCard>
+		{/if}
 
-		<SectionCard labelFor="irc" roundedTop={false} roundedBottom={!$ircEnabled} orientation="row">
+		<SectionCard
+			labelFor="irc"
+			roundedTop={!$settingsStore?.featureFlags.actions}
+			roundedBottom={!$ircEnabled}
+			orientation="row"
+		>
 			{#snippet title()}
 				IRC
 			{/snippet}
