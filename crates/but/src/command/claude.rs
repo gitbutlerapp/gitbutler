@@ -12,6 +12,8 @@ use gitbutler_project::{Project, access::WorktreeWritePermission};
 use gitbutler_stack::VirtualBranchesHandle;
 use serde::{Deserialize, Serialize};
 
+use super::claude_transcript::Transcript;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClaudePostToolUseInput {
     pub session_id: String,
@@ -77,16 +79,16 @@ pub struct ClaudeStopInput {
 pub(crate) async fn handle_stop(input: String) -> anyhow::Result<ClaudeHookOutput> {
     let input: ClaudeStopInput = serde_json::from_str(&input)
         .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
-    let transcript = super::claude_transcript::parse_jsonl(input.transcript_path)?;
-    let cwd = super::claude_transcript::first_cwd(&transcript)?;
+    let transcript = Transcript::from_file(input.transcript_path)?;
+    let cwd = transcript.dir()?;
     let repo = gix::discover(cwd)?;
     let project = Project::from_path(
         repo.workdir()
             .ok_or(anyhow!("No worktree found for repo"))?,
     )?;
 
-    let summary = super::claude_transcript::summary(&transcript).unwrap_or_default();
-    let prompt = super::claude_transcript::prompt(&transcript).unwrap_or_default();
+    let summary = transcript.summary().unwrap_or_default();
+    let prompt = transcript.prompt().unwrap_or_default();
 
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
