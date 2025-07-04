@@ -230,10 +230,12 @@
 	feel free to share the link however you like 🔐
 	{#snippet controls(close)}
 		<div class="modal-footer">
-			<label for="dont-show-again" class="modal-footer__checkbox">
-				<Checkbox name="dont-show-again" small bind:checked={$doNotShowUploadWarning} />
-				<span class="text-12"> Don’t show again</span>
-			</label>
+			<div class="flex flex-1">
+				<label for="dont-show-again" class="modal-footer__checkbox">
+					<Checkbox name="dont-show-again" small bind:checked={$doNotShowUploadWarning} />
+					<span class="text-12"> Don’t show again</span>
+				</label>
+			</div>
 			<Button kind="outline" onclick={close}>Cancel</Button>
 			<Button style="pop" type="submit">Yes, upload!</Button>
 		</div>
@@ -543,7 +545,6 @@
 
 	.modal-footer__checkbox {
 		display: flex;
-		flex: 1;
 		align-items: center;
 		gap: 8px;
 	}
