@@ -90,8 +90,14 @@ pub(crate) async fn handle_stop(input: String) -> anyhow::Result<ClaudeHookOutpu
 
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
-    let (id, outcome) = but_action::handle_changes(
+    let defer = ClearLocksGuard {
         ctx,
+        session_id: input.session_id.clone(),
+        file_path: None,
+    };
+
+    let (id, outcome) = but_action::handle_changes(
+        defer.ctx,
         &None,
         &summary,
         Some(prompt.clone()),
@@ -113,7 +119,7 @@ pub(crate) async fn handle_stop(input: String) -> anyhow::Result<ClaudeHookOutpu
                         branch_name: branch.branch_name.clone(),
                         commit_id,
                         project: project.clone(),
-                        app_settings: ctx.app_settings().clone(),
+                        app_settings: defer.ctx.app_settings().clone(),
                         trigger: id,
                     };
                     but_action::reword::commit(&openai_client, commit_event)
@@ -130,6 +136,125 @@ pub(crate) async fn handle_stop(input: String) -> anyhow::Result<ClaudeHookOutpu
         stop_reason: String::default(),
         suppress_output: true,
     })
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ClaudePreToolUseInput {
+    pub session_id: String,
+    pub transcript_path: String,
+    pub hook_event_name: String,
+    pub tool_name: String,
+    pub tool_input: ToolInput,
+}
+
+pub(crate) fn handle_pre_tool_call(input: String) -> anyhow::Result<ClaudeHookOutput> {
+    let mut input: ClaudePreToolUseInput = serde_json::from_str(&input)
+        .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
+    let dir = std::path::Path::new(&input.tool_input.file_path)
+        .parent()
+        .ok_or(anyhow!("Failed to get parent directory of file path"))?;
+    let repo = gix::discover(dir)?;
+    let project = Project::from_path(
+        repo.workdir()
+            .ok_or(anyhow!("No worktree found for repo"))?,
+    )?;
+    let relative_file_path = std::path::PathBuf::from(&input.tool_input.file_path)
+        .strip_prefix(project.path.clone())?
+        .to_string_lossy()
+        .to_string();
+    input.tool_input.file_path = relative_file_path;
+
+    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+
+    obtain_lock(ctx, input.session_id, input.tool_input.file_path.clone())?;
+
+    Ok(ClaudeHookOutput {
+        do_continue: true,
+        stop_reason: String::default(),
+        suppress_output: true,
+    })
+}
+
+fn obtain_lock(
+    ctx: &mut CommandContext,
+    session_id: String,
+    file_path: String,
+) -> anyhow::Result<()> {
+    let mut db = ctx.db()?.file_write_locks();
+    let max_wait_time = std::time::Duration::from_secs(60 * 10);
+    let start = std::time::Instant::now();
+
+    loop {
+        let locks = db.list()?;
+
+        if let Some(lock) = locks.into_iter().find(|l| l.path == file_path) {
+            if lock.owner == session_id {
+                // We already own the lock, so we can proceed
+                return Ok(());
+            } else {
+                // Another session owns the lock, wait and retry, but not indefinitely
+                if start.elapsed() > max_wait_time {
+                    return Err(anyhow::anyhow!(
+                        "Failed to obtain lock for {} after waiting for {:?}",
+                        file_path,
+                        max_wait_time
+                    ));
+                }
+                std::thread::sleep(std::time::Duration::from_secs(1));
+            }
+        } else {
+            // Create a lock entry
+            let lock = but_db::FileWriteLock {
+                path: file_path.clone(),
+                created_at: chrono::Local::now().naive_local(),
+                owner: session_id.clone(),
+            };
+            db.insert(lock)
+                .map_err(|e| anyhow::anyhow!("Failed to insert lock: {}", e))?;
+            return Ok(());
+        }
+    }
+}
+
+/// If file_path is provided, it will clear the lock for that file.
+/// Otherwise, it will clear all locks for the session_id.
+fn clear_locks(
+    ctx: &mut CommandContext,
+    session_id: String,
+    file_path: Option<String>,
+) -> anyhow::Result<()> {
+    let mut db = ctx.db()?.file_write_locks();
+
+    let locks = db.list()?;
+    let locks_to_remove: Vec<_> = if let Some(path) = file_path {
+        locks
+            .into_iter()
+            .filter(|l| l.path == path && l.owner == session_id)
+            .collect()
+    } else {
+        locks
+            .into_iter()
+            .filter(|l| l.owner == session_id)
+            .collect()
+    };
+
+    for lock in locks_to_remove {
+        db.delete(&lock.path)
+            .map_err(|e| anyhow::anyhow!("Failed to remove lock for path {}: {}", lock.path, e))?;
+    }
+    Ok(())
+}
+
+struct ClearLocksGuard<'a> {
+    pub ctx: &'a mut CommandContext,
+    session_id: String,
+    file_path: Option<String>,
+}
+
+impl Drop for ClearLocksGuard<'_> {
+    fn drop(&mut self) {
+        clear_locks(self.ctx, self.session_id.clone(), self.file_path.clone()).ok();
+    }
 }
 
 pub(crate) fn handle_post_tool_call(input: String) -> anyhow::Result<ClaudeHookOutput> {
@@ -152,12 +277,18 @@ pub(crate) fn handle_post_tool_call(input: String) -> anyhow::Result<ClaudeHookO
 
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
-    let stacks = crate::log::stacks(ctx)?;
-    let sessions = list_sessions(ctx)?;
+    let defer = ClearLocksGuard {
+        ctx,
+        session_id: input.session_id.clone(),
+        file_path: Some(input.tool_response.file_path.clone()),
+    };
 
-    let vb_state = &VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let stacks = crate::log::stacks(defer.ctx)?;
+    let sessions = list_sessions(defer.ctx)?;
 
-    let mut guard = ctx.project().exclusive_worktree_access();
+    let vb_state = &VirtualBranchesHandle::new(defer.ctx.project().gb_dir());
+
+    let mut guard = defer.ctx.project().exclusive_worktree_access();
     let perm = guard.write_permission();
 
     let stack_id = if let Some(session) = sessions.iter().find(|s| s.id == input.session_id) {
@@ -166,8 +297,10 @@ pub(crate) fn handle_post_tool_call(input: String) -> anyhow::Result<ClaudeHookO
         if let Some(stack) = stacks.iter().find(|s| s.id.to_string() == session.stack_id) {
             stack.id
         } else {
-            let stack_id = create_stack(ctx, vb_state, perm)?;
-            ctx.db()?
+            let stack_id = create_stack(defer.ctx, vb_state, perm)?;
+            defer
+                .ctx
+                .db()?
                 .claude_code_sessions()
                 .update_stack_id(&input.session_id, &stack_id.to_string())
                 .map_err(|e| anyhow::anyhow!("Failed to update session stack ID: {}", e))?;
@@ -176,13 +309,15 @@ pub(crate) fn handle_post_tool_call(input: String) -> anyhow::Result<ClaudeHookO
     } else {
         // If the session is not in the list of sessions, then create a new stack + session entry
         // Create a new stack
-        let stack_id = create_stack(ctx, vb_state, perm)?;
+        let stack_id = create_stack(defer.ctx, vb_state, perm)?;
         let new_session = ClaudeCodeSession {
             id: input.session_id.clone(),
             created_at: chrono::Local::now().naive_local(),
             stack_id: stack_id.to_string(),
         };
-        ctx.db()?
+        defer
+            .ctx
+            .db()?
             .claude_code_sessions()
             .insert(new_session)
             .map_err(|e| anyhow::anyhow!("Failed to insert new session: {}", e))?;
@@ -190,8 +325,12 @@ pub(crate) fn handle_post_tool_call(input: String) -> anyhow::Result<ClaudeHookO
     };
 
     let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(project.path)?.changes;
-    let (assignments, _assignments_error) =
-        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
+    let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
+        defer.ctx,
+        false,
+        Some(changes.clone()),
+        None,
+    )?;
 
     let hook_headers = input
         .tool_response
@@ -218,7 +357,7 @@ pub(crate) fn handle_post_tool_call(input: String) -> anyhow::Result<ClaudeHookO
         })
         .collect();
 
-    let _rejections = but_hunk_assignment::assign(ctx, assignment_reqs, None)?;
+    let _rejections = but_hunk_assignment::assign(defer.ctx, assignment_reqs, None)?;
 
     Ok(ClaudeHookOutput {
         do_continue: true,

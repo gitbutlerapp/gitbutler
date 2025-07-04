@@ -38,6 +38,14 @@ async fn main() -> Result<()> {
                 let handler = *handler;
                 command::handle_changes(&args.current_dir, args.json, handler, description)
             }
+            Some(actions::Subcommands::ClaudePreToolUse) => {
+                let mut buffer = String::new();
+                io::stdin().read_to_string(&mut buffer)?;
+                buffer.trim().to_string();
+                let out = command::claude::handle_pre_tool_call(buffer)?;
+                println!("{}", serde_json::to_string(&out)?);
+                Ok(())
+            }
             Some(actions::Subcommands::ClaudePostToolUse) => {
                 let mut buffer = String::new();
                 io::stdin().read_to_string(&mut buffer)?;

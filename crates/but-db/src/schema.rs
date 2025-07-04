@@ -43,3 +43,11 @@ diesel::table! {
         stack_id -> Text,
     }
 }
+
+diesel::table! {
+    file_write_locks (path) {
+        path -> Text,
+        created_at -> Timestamp,
+        owner -> Text,
+    }
+}
