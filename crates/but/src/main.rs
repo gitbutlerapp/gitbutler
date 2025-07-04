@@ -46,6 +46,14 @@ async fn main() -> Result<()> {
                 println!("{}", serde_json::to_string(&out)?);
                 Ok(())
             }
+            Some(actions::Subcommands::ClaudeStop) => {
+                let mut buffer = String::new();
+                io::stdin().read_to_string(&mut buffer)?;
+                buffer.trim().to_string();
+                let out = command::claude::handle_stop(buffer).await?;
+                println!("{}", serde_json::to_string(&out)?);
+                Ok(())
+            }
             None => command::list_actions(&args.current_dir, args.json, 0, 10),
         },
         Subcommands::Log => log::commit_graph(&args.current_dir, args.json),

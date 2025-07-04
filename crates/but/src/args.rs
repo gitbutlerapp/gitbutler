@@ -67,6 +67,7 @@ pub mod actions {
             handler: Handler,
         },
         ClaudePostToolUse,
+        ClaudeStop,
     }
 
     #[derive(Debug, Clone, Copy, clap::ValueEnum)]

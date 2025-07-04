@@ -26,6 +26,7 @@ pub enum Source {
     ButCli,
     GitButler,
     Mcp(Option<McpClientInfo>),
+    ClaudeCode(String),
     #[default]
     Unknown,
 }

@@ -20,7 +20,6 @@ pub struct CommitEvent {
     pub trigger: Uuid,
 }
 
-#[allow(unused)]
 pub async fn commit(client: &Client<OpenAIConfig>, event: CommitEvent) -> anyhow::Result<()> {
     let ctx = &mut CommandContext::open(&event.project, event.app_settings)?;
     let repo = &ctx.gix_repo_for_merging_non_persisting()?;
@@ -71,7 +70,8 @@ pub async fn commit(client: &Client<OpenAIConfig>, event: CommitEvent) -> anyhow
         output_commits,
         None,
     )
-    .persist(ctx);
+    .persist(ctx)
+    .ok();
 
     Ok(())
 }

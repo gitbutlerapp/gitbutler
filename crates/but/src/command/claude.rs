@@ -1,4 +1,7 @@
+use std::str::FromStr;
+
 use anyhow::anyhow;
+use but_action::{ActionHandler, OpenAiProvider, Source, reword::CommitEvent};
 use but_db::ClaudeCodeSession;
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_settings::AppSettings;
@@ -61,6 +64,72 @@ impl From<&StructuredPatch> for HunkHeader {
             new_lines: patch.new_lines,
         }
     }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ClaudeStopInput {
+    pub session_id: String,
+    pub transcript_path: String,
+    pub hook_event_name: String,
+    pub stop_hook_active: bool,
+}
+
+pub(crate) async fn handle_stop(input: String) -> anyhow::Result<ClaudeHookOutput> {
+    let input: ClaudeStopInput = serde_json::from_str(&input)
+        .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
+    let transcript = super::claude_transcript::parse_jsonl(input.transcript_path)?;
+    let cwd = super::claude_transcript::first_cwd(&transcript)?;
+    let repo = gix::discover(cwd)?;
+    let project = Project::from_path(
+        repo.workdir()
+            .ok_or(anyhow!("No worktree found for repo"))?,
+    )?;
+
+    let summary = super::claude_transcript::summary(&transcript).unwrap_or_default();
+    let prompt = super::claude_transcript::prompt(&transcript).unwrap_or_default();
+
+    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+
+    let (id, outcome) = but_action::handle_changes(
+        ctx,
+        &None,
+        &summary,
+        Some(prompt.clone()),
+        ActionHandler::HandleChangesSimple,
+        Source::ClaudeCode(input.session_id),
+    )?;
+
+    // Trigger commit message generation for newly created commits
+    // TODO: Maybe this can be done in the main app process i.e. the GitButler GUI, if avaialbe
+    if let Some(openai_client) =
+        OpenAiProvider::with(None).and_then(|provider| provider.client().ok())
+    {
+        for branch in &outcome.updated_branches {
+            for commit in &branch.new_commits {
+                if let Ok(commit_id) = gix::ObjectId::from_str(commit) {
+                    let commit_event = CommitEvent {
+                        external_summary: summary.clone(),
+                        external_prompt: prompt.clone(),
+                        branch_name: branch.branch_name.clone(),
+                        commit_id,
+                        project: project.clone(),
+                        app_settings: ctx.app_settings().clone(),
+                        trigger: id,
+                    };
+                    but_action::reword::commit(&openai_client, commit_event)
+                        .await
+                        .ok();
+                }
+            }
+        }
+    }
+
+    // For now, we just return a response indicating that the tool call was handled
+    Ok(ClaudeHookOutput {
+        do_continue: true,
+        stop_reason: String::default(),
+        suppress_output: true,
+    })
 }
 
 pub(crate) fn handle_post_tool_call(input: String) -> anyhow::Result<ClaudeHookOutput> {
