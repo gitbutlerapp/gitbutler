@@ -165,7 +165,9 @@
 		bind:ref={titleInput}
 		bind:value={title}
 		placeholder="Commit title"
-		onchange={(value) => onChange?.({ title: value })}
+		onchange={(value) => {
+			onChange?.({ title: value });
+		}}
 		onkeydown={async (e: KeyboardEvent) => {
 			if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
 				e.preventDefault();
