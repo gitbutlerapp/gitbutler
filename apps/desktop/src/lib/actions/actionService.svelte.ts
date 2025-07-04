@@ -70,10 +70,13 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					invalidatesList(ReduxTag.WorktreeChanges)
 				]
 			}),
-			freestyle: build.mutation<string, { projectId: string; chatMessages: ChatMessage[] }>({
-				query: ({ projectId, chatMessages }) => ({
+			freestyle: build.mutation<
+				string,
+				{ projectId: string; chatMessages: ChatMessage[]; model: string | null }
+			>({
+				query: ({ projectId, chatMessages, model }) => ({
 					command: 'freestyle',
-					params: { projectId, chatMessages },
+					params: { projectId, chatMessages, model },
 					actionName: 'Perform a freestyle action based on the given prompt'
 				}),
 				invalidatesTags: [
