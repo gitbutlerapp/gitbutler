@@ -47,6 +47,9 @@ For examples `but rub --help`.")]
     /// GitButler Actions are automated tasks (like macros) that can be peformed on a repository.
     #[clap(hide = true)]
     Actions(actions::Platform),
+    // Claude hooks
+    #[clap(hide = true)]
+    Claude(claude::Platform),
 }
 
 pub mod actions {
@@ -66,14 +69,27 @@ pub mod actions {
             #[clap(long, value_enum, default_value = "simple")]
             handler: Handler,
         },
-        ClaudePreToolUse,
-        ClaudePostToolUse,
-        ClaudeStop,
     }
 
     #[derive(Debug, Clone, Copy, clap::ValueEnum)]
     pub enum Handler {
         /// Handles changes in a simple way.
         Simple,
+    }
+}
+
+pub mod claude {
+    #[derive(Debug, clap::Parser)]
+    pub struct Platform {
+        #[clap(subcommand)]
+        pub cmd: Subcommands,
+    }
+    #[derive(Debug, clap::Subcommand)]
+    pub enum Subcommands {
+        #[clap(alias = "pre-tool-use")]
+        PreTool,
+        #[clap(alias = "post-tool-use")]
+        PostTool,
+        Stop,
     }
 }

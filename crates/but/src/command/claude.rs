@@ -1,3 +1,4 @@
+use std::io::{self, Read};
 use std::str::FromStr;
 
 use anyhow::anyhow;
@@ -11,6 +12,10 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::{Project, access::WorktreeWritePermission};
 use gitbutler_stack::VirtualBranchesHandle;
 use serde::{Deserialize, Serialize};
+
+use crate::command::file_lock;
+
+use super::claude_transcript::Transcript;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClaudePostToolUseInput {
@@ -74,19 +79,19 @@ pub struct ClaudeStopInput {
     pub stop_hook_active: bool,
 }
 
-pub(crate) async fn handle_stop(input: String) -> anyhow::Result<ClaudeHookOutput> {
-    let input: ClaudeStopInput = serde_json::from_str(&input)
+pub(crate) async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
+    let input: ClaudeStopInput = serde_json::from_str(&stdin()?)
         .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
-    let transcript = super::claude_transcript::parse_jsonl(input.transcript_path)?;
-    let cwd = super::claude_transcript::first_cwd(&transcript)?;
+    let transcript = Transcript::from_file(input.transcript_path)?;
+    let cwd = transcript.dir()?;
     let repo = gix::discover(cwd)?;
     let project = Project::from_path(
         repo.workdir()
             .ok_or(anyhow!("No worktree found for repo"))?,
     )?;
 
-    let summary = super::claude_transcript::summary(&transcript).unwrap_or_default();
-    let prompt = super::claude_transcript::prompt(&transcript).unwrap_or_default();
+    let summary = transcript.summary().unwrap_or_default();
+    let prompt = transcript.prompt().unwrap_or_default();
 
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
@@ -107,6 +112,7 @@ pub(crate) async fn handle_stop(input: String) -> anyhow::Result<ClaudeHookOutpu
 
     // Trigger commit message generation for newly created commits
     // TODO: Maybe this can be done in the main app process i.e. the GitButler GUI, if avaialbe
+    // Alternatively, and probably better - we could spawn a new process to do this
     if let Some(openai_client) =
         OpenAiProvider::with(None).and_then(|provider| provider.client().ok())
     {
@@ -147,8 +153,8 @@ pub struct ClaudePreToolUseInput {
     pub tool_input: ToolInput,
 }
 
-pub(crate) fn handle_pre_tool_call(input: String) -> anyhow::Result<ClaudeHookOutput> {
-    let mut input: ClaudePreToolUseInput = serde_json::from_str(&input)
+pub(crate) fn handle_pre_tool_call() -> anyhow::Result<ClaudeHookOutput> {
+    let mut input: ClaudePreToolUseInput = serde_json::from_str(&stdin()?)
         .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
     let dir = std::path::Path::new(&input.tool_input.file_path)
         .parent()
@@ -166,7 +172,7 @@ pub(crate) fn handle_pre_tool_call(input: String) -> anyhow::Result<ClaudeHookOu
 
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
-    obtain_lock(ctx, input.session_id, input.tool_input.file_path.clone())?;
+    file_lock::obtain(ctx, input.session_id, input.tool_input.file_path.clone())?;
 
     Ok(ClaudeHookOutput {
         do_continue: true,
@@ -175,90 +181,8 @@ pub(crate) fn handle_pre_tool_call(input: String) -> anyhow::Result<ClaudeHookOu
     })
 }
 
-fn obtain_lock(
-    ctx: &mut CommandContext,
-    session_id: String,
-    file_path: String,
-) -> anyhow::Result<()> {
-    let mut db = ctx.db()?.file_write_locks();
-    let max_wait_time = std::time::Duration::from_secs(60 * 10);
-    let start = std::time::Instant::now();
-
-    loop {
-        let locks = db.list()?;
-
-        if let Some(lock) = locks.into_iter().find(|l| l.path == file_path) {
-            if lock.owner == session_id {
-                // We already own the lock, so we can proceed
-                return Ok(());
-            } else {
-                // Another session owns the lock, wait and retry, but not indefinitely
-                if start.elapsed() > max_wait_time {
-                    return Err(anyhow::anyhow!(
-                        "Failed to obtain lock for {} after waiting for {:?}",
-                        file_path,
-                        max_wait_time
-                    ));
-                }
-                std::thread::sleep(std::time::Duration::from_secs(1));
-            }
-        } else {
-            // Create a lock entry
-            let lock = but_db::FileWriteLock {
-                path: file_path.clone(),
-                created_at: chrono::Local::now().naive_local(),
-                owner: session_id.clone(),
-            };
-            db.insert(lock)
-                .map_err(|e| anyhow::anyhow!("Failed to insert lock: {}", e))?;
-            return Ok(());
-        }
-    }
-}
-
-/// If file_path is provided, it will clear the lock for that file.
-/// Otherwise, it will clear all locks for the session_id.
-fn clear_locks(
-    ctx: &mut CommandContext,
-    session_id: String,
-    file_path: Option<String>,
-) -> anyhow::Result<()> {
-    let mut db = ctx.db()?.file_write_locks();
-
-    let locks = db.list()?;
-    let locks_to_remove: Vec<_> = if let Some(path) = file_path {
-        locks
-            .into_iter()
-            .filter(|l| l.path == path && l.owner == session_id)
-            .collect()
-    } else {
-        locks
-            .into_iter()
-            .filter(|l| l.owner == session_id)
-            .collect()
-    };
-
-    for lock in locks_to_remove {
-        db.delete(&lock.path)
-            .map_err(|e| anyhow::anyhow!("Failed to remove lock for path {}: {}", lock.path, e))?;
-    }
-    Ok(())
-}
-
-struct ClearLocksGuard<'a> {
-    pub ctx: &'a mut CommandContext,
-    session_id: String,
-    file_path: Option<String>,
-}
-
-impl Drop for ClearLocksGuard<'_> {
-    fn drop(&mut self) {
-        clear_locks(self.ctx, self.session_id.clone(), self.file_path.clone()).ok();
-    }
-}
-
-pub(crate) fn handle_post_tool_call(input: String) -> anyhow::Result<ClaudeHookOutput> {
-    let mut input: ClaudePostToolUseInput = serde_json::from_str(&input)
+pub(crate) fn handle_post_tool_call() -> anyhow::Result<ClaudeHookOutput> {
+    let mut input: ClaudePostToolUseInput = serde_json::from_str(&stdin()?)
         .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
     let dir = std::path::Path::new(&input.tool_response.file_path)
         .parent()
@@ -366,6 +290,12 @@ pub(crate) fn handle_post_tool_call(input: String) -> anyhow::Result<ClaudeHookO
     })
 }
 
+fn stdin() -> anyhow::Result<String> {
+    let mut buffer = String::new();
+    io::stdin().read_to_string(&mut buffer)?;
+    Ok(buffer.trim().to_string())
+}
+
 fn create_stack(
     ctx: &CommandContext,
     vb_state: &VirtualBranchesHandle,
@@ -400,4 +330,16 @@ pub struct ClaudeHookOutput {
     do_continue: bool,
     stop_reason: String,
     suppress_output: bool,
+}
+
+pub(crate) struct ClearLocksGuard<'a> {
+    pub ctx: &'a mut CommandContext,
+    session_id: String,
+    file_path: Option<String>,
+}
+
+impl Drop for ClearLocksGuard<'_> {
+    fn drop(&mut self) {
+        file_lock::clear(self.ctx, self.session_id.clone(), self.file_path.clone()).ok();
+    }
 }

@@ -1,9 +1,7 @@
-use std::io::{self, Read};
-
 use anyhow::{Context, Ok, Result};
 
 mod args;
-use args::{Args, Subcommands, actions};
+use args::{Args, Subcommands, actions, claude};
 use but_settings::AppSettings;
 mod command;
 mod id;
@@ -38,31 +36,24 @@ async fn main() -> Result<()> {
                 let handler = *handler;
                 command::handle_changes(&args.current_dir, args.json, handler, description)
             }
-            Some(actions::Subcommands::ClaudePreToolUse) => {
-                let mut buffer = String::new();
-                io::stdin().read_to_string(&mut buffer)?;
-                buffer.trim().to_string();
-                let out = command::claude::handle_pre_tool_call(buffer)?;
-                println!("{}", serde_json::to_string(&out)?);
-                Ok(())
-            }
-            Some(actions::Subcommands::ClaudePostToolUse) => {
-                let mut buffer = String::new();
-                io::stdin().read_to_string(&mut buffer)?;
-                buffer.trim().to_string();
-                let out = command::claude::handle_post_tool_call(buffer)?;
-                println!("{}", serde_json::to_string(&out)?);
-                Ok(())
-            }
-            Some(actions::Subcommands::ClaudeStop) => {
-                let mut buffer = String::new();
-                io::stdin().read_to_string(&mut buffer)?;
-                buffer.trim().to_string();
-                let out = command::claude::handle_stop(buffer).await?;
-                println!("{}", serde_json::to_string(&out)?);
-                Ok(())
-            }
             None => command::list_actions(&args.current_dir, args.json, 0, 10),
+        },
+        Subcommands::Claude(claude::Platform { cmd }) => match cmd {
+            claude::Subcommands::PreTool => {
+                let out = command::claude::handle_pre_tool_call()?;
+                println!("{}", serde_json::to_string(&out)?);
+                Ok(())
+            }
+            claude::Subcommands::PostTool => {
+                let out = command::claude::handle_post_tool_call()?;
+                println!("{}", serde_json::to_string(&out)?);
+                Ok(())
+            }
+            claude::Subcommands::Stop => {
+                let out = command::claude::handle_stop().await?;
+                println!("{}", serde_json::to_string(&out)?);
+                Ok(())
+            }
         },
         Subcommands::Log => log::commit_graph(&args.current_dir, args.json),
         Subcommands::Status => status::worktree(&args.current_dir, args.json),
