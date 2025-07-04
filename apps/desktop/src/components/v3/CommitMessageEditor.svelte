@@ -1,7 +1,9 @@
 <script lang="ts">
 	import FloatingCommitBox from '$components/v3/FloatingCommitBox.svelte';
 	import EditorFooter from '$components/v3/editor/EditorFooter.svelte';
-	import MessageEditor from '$components/v3/editor/MessageEditor.svelte';
+	import MessageEditor, {
+		type AiButtonClickParams
+	} from '$components/v3/editor/MessageEditor.svelte';
 	import MessageEditorInput from '$components/v3/editor/MessageEditorInput.svelte';
 	import CommitSuggestions from '$components/v3/editor/commitSuggestions.svelte';
 	import DiffInputContext, { type DiffInputContextArgs } from '$lib/ai/diffInputContext.svelte';
@@ -103,7 +105,7 @@
 		generatedText = '';
 	}
 
-	async function onAiButtonClick() {
+	async function onAiButtonClick(params: AiButtonClickParams = {}) {
 		if (aiIsLoading) return;
 
 		suggestionsHandler.clear();
@@ -121,7 +123,8 @@
 					}
 					const updatedText = generatedText + t;
 					generatedText = updatedText;
-				}
+				},
+				...params
 			});
 
 			if (output) {
