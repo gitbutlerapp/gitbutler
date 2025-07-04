@@ -203,10 +203,10 @@
 {/each}
 {#if visibleFiles.length > 0}
 	{#if listMode === 'tree'}
-		<!-- We don't need to use the `sortedChanges` here because
-		`changeToFileTree` does the sorting for us -->
-		{@const node = abbreviateFolders(changesToFileTree(changes))}
-		<FileTreeNode isRoot {stackId} {node} {showCheckboxes} {changes} {fileTemplate} />
+		<!-- We need to use sortedChanges here because otherwise we will end up
+		with incorrect indexes -->
+		{@const node = abbreviateFolders(changesToFileTree(sortedChanges))}
+		<FileTreeNode isRoot {stackId} {node} {showCheckboxes} changes={sortedChanges} {fileTemplate} />
 	{:else}
 		<LazyloadContainer
 			minTriggerCount={80}
