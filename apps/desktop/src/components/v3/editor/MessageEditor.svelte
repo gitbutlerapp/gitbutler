@@ -243,6 +243,7 @@
 </Modal>
 
 <div
+	data-remove-from-panning
 	role="presentation"
 	class="editor-wrapper hide-native-scrollbar"
 	style:--lexical-input-client-text-wrap={useRuler.current && !useRichText ? 'nowrap' : 'normal'}
