@@ -122,3 +122,7 @@
 .text-monospace {
 	font-family: var(--fontfamily-mono);
 }
+
+.text-balance {
+	text-wrap: balance;
+}

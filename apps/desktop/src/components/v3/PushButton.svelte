@@ -90,9 +90,8 @@
 </script>
 
 <Modal
-	type="warning"
-	title="Push this and dependent branches"
-	width={440}
+	title="Push with dependencies"
+	width="small"
 	bind:this={confirmationModal}
 	onSubmit={async (close) => {
 		close();
@@ -101,15 +100,17 @@
 >
 	<p>
 		You're about to push <span class="text-bold">{branchName}</span>. To maintain the correct
-		history, GitButler will also push all branches below in the stack.
+		history, GitButler will also push all branches below this branch in the stack.
 	</p>
 
 	{#snippet controls(close)}
 		<div class="modal-footer">
-			<label for="dont-show-again" class="modal-footer__checkbox">
-				<Checkbox name="dont-show-again" small bind:checked={$doNotShowPushBelowWarning} />
-				<span class="text-12"> Don’t show again</span>
-			</label>
+			<div class="flex flex-1">
+				<label for="dont-show-again" class="modal-footer__checkbox">
+					<Checkbox name="dont-show-again" small bind:checked={$doNotShowPushBelowWarning} />
+					<span class="text-12"> Don’t show again</span>
+				</label>
+			</div>
 			<Button
 				kind="outline"
 				onclick={() => {
@@ -117,7 +118,7 @@
 					close();
 				}}>Cancel</Button
 			>
-			<Button style="pop" type="submit">Push with dependencies</Button>
+			<Button style="pop" type="submit" width={90}>Push</Button>
 		</div>
 	{/snippet}
 </Modal>
@@ -146,7 +147,6 @@
 
 	.modal-footer__checkbox {
 		display: flex;
-		flex: 1;
 		align-items: center;
 		gap: 8px;
 	}
