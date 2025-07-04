@@ -41,6 +41,7 @@ pub fn freestyle(
     ctx: &mut CommandContext,
     openai: &OpenAiProvider,
     chat_messages: Vec<openai::ChatMessage>,
+    model: Option<String>,
 ) -> anyhow::Result<String> {
     let repo = ctx.gix_repo()?;
 
@@ -117,7 +118,7 @@ pub fn freestyle(
         system_message,
         chat_messages,
         &mut toolset,
-        Some("gpt-4.1".to_string()),
+        model,
     )?;
 
     let response_message = response
