@@ -212,6 +212,9 @@
 		projectState.commitDescription.set(args.description);
 		projectState.exclusiveAction.set(undefined);
 		uncommittedService.uncheckAll(null);
+		if (stackId) {
+			uncommittedService.uncheckAll(stackId);
+		}
 		onclose?.();
 	}
 </script>
