@@ -24,7 +24,7 @@ pub struct ToolInput {
     pub file_path: String,
     pub new_string: String,
     pub old_string: String,
-    pub replace_all: bool,
+    pub replace_all: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -34,22 +34,12 @@ pub struct ToolResponse {
     pub old_string: String,
     pub new_string: String,
     pub original_file: String,
+    /// The hunk headers can't be trusted - it seems like:
+    ///    - they cont account for the hunk context lines
+    ///    - the new lines are not always correct
     pub structured_patch: Vec<StructuredPatch>,
-    pub user_modified: bool,
-    pub replace_all: bool,
-}
-
-impl ToolResponse {
-    pub fn to_assignment_requests(&self, stack_id: StackId) -> Vec<HunkAssignmentRequest> {
-        self.structured_patch
-            .iter()
-            .map(|patch| HunkAssignmentRequest {
-                hunk_header: Some(patch.into()),
-                path_bytes: bstr::BString::from(self.file_path.clone()),
-                stack_id: Some(stack_id),
-            })
-            .collect()
-    }
+    pub user_modified: Option<bool>,
+    pub replace_all: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -130,7 +120,35 @@ pub(crate) fn handle_post_tool_call(input: String) -> anyhow::Result<ClaudeHookO
         stack_id
     };
 
-    let assignment_reqs = input.tool_response.to_assignment_requests(stack_id);
+    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(project.path)?.changes;
+    let (assignments, _assignments_error) =
+        but_hunk_assignment::assignments_with_fallback(ctx, false, Some(changes.clone()), None)?;
+
+    let hook_headers = input
+        .tool_response
+        .structured_patch
+        .iter()
+        .map(|p| p.into())
+        .collect::<Vec<HunkHeader>>();
+    let assignment_reqs: Vec<HunkAssignmentRequest> = assignments
+        .into_iter()
+        .filter(|a| a.stack_id.is_none())
+        .filter(|a| {
+            if let Some(a) = a.hunk_header {
+                hook_headers
+                    .iter()
+                    .any(|h| h.new_range().intersects(a.new_range()))
+            } else {
+                true // If no header is present, then the whole file is considered, in which case intersection is true
+            }
+        })
+        .map(|a| HunkAssignmentRequest {
+            hunk_header: a.hunk_header,
+            path_bytes: a.path_bytes,
+            stack_id: Some(stack_id),
+        })
+        .collect();
+
     let _rejections = but_hunk_assignment::assign(ctx, assignment_reqs, None)?;
 
     Ok(ClaudeHookOutput {
