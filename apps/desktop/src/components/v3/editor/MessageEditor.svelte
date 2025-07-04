@@ -1,6 +1,17 @@
+<script lang="ts" module>
+	export type AiButtonClickParams = {
+		useEmojiStyle?: boolean;
+		useBriefStyle?: boolean;
+	};
+</script>
+
 <script lang="ts">
 	import MessageEditorRuler from '$components/v3/editor/MessageEditorRuler.svelte';
 	import CommitSuggestions from '$components/v3/editor/commitSuggestions.svelte';
+	import {
+		projectCommitGenerationExtraConcise,
+		projectCommitGenerationUseEmojis
+	} from '$lib/config/config';
 	import { showError } from '$lib/notifications/toasts';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -10,6 +21,9 @@
 	import { UploadsService } from '@gitbutler/shared/uploads/uploadsService';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
+	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
+	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
+	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
 	import EmojiPickerButton from '@gitbutler/ui/EmojiPickerButton.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
@@ -39,7 +53,7 @@
 		enableFileUpload?: boolean;
 		enableSmiles?: boolean;
 		enableRuler?: boolean;
-		onAiButtonClick: (e: MouseEvent) => void;
+		onAiButtonClick: (params: AiButtonClickParams) => void;
 		canUseAI: boolean;
 		aiIsLoading: boolean;
 		suggestionsHandler?: CommitSuggestions;
@@ -47,6 +61,7 @@
 	}
 
 	let {
+		projectId,
 		isPrCreation,
 		initialValue,
 		placeholder,
@@ -70,6 +85,8 @@
 
 	const uploadsService = getContext(UploadsService);
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
+	const commitGenerationExtraConcise = projectCommitGenerationExtraConcise(projectId);
+	const commitGenerationUseEmojis = projectCommitGenerationUseEmojis(projectId);
 
 	const useFloatingBox = $derived(
 		isPrCreation ? uiState.global.useFloatingPrBox : uiState.global.useFloatingCommitBox
@@ -194,6 +211,15 @@
 	// We want to avoid letting most mouse events bubble up to the parent.
 	function stopPropagation(e: MouseEvent) {
 		e.stopPropagation();
+	}
+
+	function handleGenerateMessage() {
+		if (aiIsLoading) return;
+
+		onAiButtonClick({
+			useEmojiStyle: $commitGenerationUseEmojis,
+			useBriefStyle: $commitGenerationExtraConcise
+		});
 	}
 
 	$effect(() => {
@@ -407,18 +433,41 @@
 					/>
 				{/if}
 			</div>
-			<Button
+			<DropDownButton
 				kind="outline"
-				icon="ai"
+				icon="ai-small"
 				tooltip={!canUseAI
 					? 'You need to enable AI in the project settings to use this feature'
 					: undefined}
 				disabled={!canUseAI}
-				onclick={onAiButtonClick}
-				reversedDirection
-				shrinkable
-				loading={aiIsLoading}>Generate message</Button
+				loading={aiIsLoading}
+				menuPosition="top"
+				onclick={handleGenerateMessage}
 			>
+				Generate message
+
+				{#snippet contextMenuSlot()}
+					<ContextMenuSection>
+						<ContextMenuItem
+							label="Extra concise"
+							onclick={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
+						>
+							{#snippet control()}
+								<Checkbox small bind:checked={$commitGenerationExtraConcise} />
+							{/snippet}
+						</ContextMenuItem>
+
+						<ContextMenuItem
+							label="Use emojis 😎"
+							onclick={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
+						>
+							{#snippet control()}
+								<Checkbox small bind:checked={$commitGenerationUseEmojis} />
+							{/snippet}
+						</ContextMenuItem>
+					</ContextMenuSection>
+				{/snippet}
+			</DropDownButton>
 		</div>
 	</div>
 </div>
