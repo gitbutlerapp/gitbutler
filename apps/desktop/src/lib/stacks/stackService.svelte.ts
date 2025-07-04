@@ -1542,7 +1542,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 							lifecycleApi.dispatch(
 								api.util.invalidateTags([
 									invalidatesItem(ReduxTag.StackDetails, event.payload.stackId),
-									invalidatesList(ReduxTag.Stacks)
+									invalidatesList(ReduxTag.Stacks),
+									invalidatesList(ReduxTag.WorktreeChanges)
 								])
 							);
 						}

@@ -28,6 +28,36 @@ class Mutex {
 	}
 }
 
+export type UserMessage = {
+	id: `user-${string}`;
+	type: 'user';
+	content: string;
+};
+
+export type AssistantMessage = {
+	id: `assistant-${string}`;
+	type: 'assistant';
+	content: string;
+};
+
+export type FeedMessage = UserMessage | AssistantMessage;
+
+export type FeedEntry = ButlerAction | Workflow | Snapshot | FeedMessage;
+
+export function isFeedMessage(entry: FeedEntry): entry is FeedMessage {
+	return (entry as FeedMessage).type !== undefined;
+}
+
+export function isUserMessage(entry: FeedEntry): entry is UserMessage {
+	if (!isFeedMessage(entry)) return false;
+	return (entry as UserMessage).id.startsWith('user-');
+}
+
+export function isAssistantMessage(entry: FeedEntry): entry is AssistantMessage {
+	if (!isFeedMessage(entry)) return false;
+	return (entry as AssistantMessage).id.startsWith('assistant-');
+}
+
 export class Feed {
 	private actionsBuffer: ButlerAction[] = [];
 	private workflowsBuffer: Workflow[] = [];
@@ -39,7 +69,7 @@ export class Feed {
 	readonly lastAddedId = writable<string | null>(null);
 	readonly stackToUpdate = writable<string | null>(null);
 
-	readonly combined = writable<(Snapshot | ButlerAction | Workflow)[]>([], () => {
+	readonly combined = writable<FeedEntry[]>([], () => {
 		this.fetch();
 	});
 
@@ -67,13 +97,55 @@ export class Feed {
 		}
 	}
 
-	private async handleLastAdded(entry: Snapshot | ButlerAction | Workflow) {
+	private async handleLastAdded(entry: FeedEntry) {
 		this.lastAddedId.set(entry.id);
 
 		if (entry instanceof Workflow) {
 			const stackId = entry.kind.subject?.stackId;
 			if (stackId) this.stackToUpdate.set(stackId);
 		}
+	}
+
+	private getFeedMessages(): FeedMessage[] {
+		return get(this.combined).filter((entry) => isFeedMessage(entry)) as FeedMessage[];
+	}
+
+	async addUserMessage(content: string) {
+		const message: UserMessage = {
+			id: `user-${crypto.randomUUID()}`,
+			type: 'user',
+			content
+		};
+		await this.mutex.lock(async () => {
+			this.combined.update((entries) => {
+				const existing = entries.find((entry) => entry.id === message.id);
+				if (!existing) {
+					this.handleLastAdded(message);
+					return [message, ...entries];
+				}
+				return entries;
+			});
+		});
+
+		return this.getFeedMessages();
+	}
+
+	async addAssistantMessage(content: string) {
+		const message: AssistantMessage = {
+			id: `assistant-${crypto.randomUUID()}`,
+			type: 'assistant',
+			content
+		};
+		await this.mutex.lock(async () => {
+			this.combined.update((entries) => {
+				const existing = entries.find((entry) => entry.id === message.id);
+				if (!existing) {
+					this.handleLastAdded(message);
+					return [message, ...entries];
+				}
+				return entries;
+			});
+		});
 	}
 
 	async updateCombinedFeed() {

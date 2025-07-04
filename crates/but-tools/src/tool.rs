@@ -53,6 +53,12 @@ pub trait Tool: 'static + Send + Sync {
     ) -> anyhow::Result<serde_json::Value>;
 }
 
+pub fn error_to_json(error: &anyhow::Error, action_identifier: &str) -> serde_json::Value {
+    serde_json::json!({
+        "error": format!("Failed to {}: {}", action_identifier, error.to_string())
+    })
+}
+
 pub fn result_to_json<T: serde::Serialize>(
     result: &Result<T, anyhow::Error>,
     action_identifier: &str,
@@ -62,7 +68,7 @@ pub fn result_to_json<T: serde::Serialize>(
         Ok(entry) => serde_json::to_value(entry).unwrap_or_else(
             |e| json!({ "error": format!("Failed to serialize {}: {}", data_identifier, e.to_string())}),
         ),
-        Err(e) => serde_json::json!({ "error": format!("Failed to {}: {}", action_identifier, e.to_string())}),
+        Err(e) => error_to_json(e, action_identifier)
     }
 }
 

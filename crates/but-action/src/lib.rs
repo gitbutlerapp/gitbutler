@@ -30,10 +30,105 @@ pub use action::ActionListing;
 pub use action::Source;
 pub use action::list_actions;
 use but_graph::VirtualBranchesTomlMetadata;
+pub use openai::ChatMessage;
 use strum::EnumString;
 use uuid::Uuid;
 pub use workflow::WorkflowList;
 pub use workflow::list_workflows;
+
+pub fn freestyle(
+    app_handle: &tauri::AppHandle,
+    ctx: &mut CommandContext,
+    openai: &OpenAiProvider,
+    chat_messages: Vec<openai::ChatMessage>,
+    model: Option<String>,
+) -> anyhow::Result<String> {
+    let repo = ctx.gix_repo()?;
+
+    let project_status = but_tools::workspace::get_project_status(ctx, &repo, None)?;
+    let serialized_status = serde_json::to_string_pretty(&project_status)
+        .map_err(|e| anyhow::anyhow!("Failed to serialize project status: {}", e))?;
+
+    let mut toolset = but_tools::workspace::workspace_toolset(ctx, Some(app_handle))?;
+
+    let system_message ="
+    You are a GitButler agent that can perform various actions on a Git project.
+    Your name is ButBot. Your main goal is to help the user with handling file changes in the project.
+    Use the tools provided to you to perform the actions and respond with a summary of the action you've taken.
+    Don't be too verbose, but be thorough and outline everything you did.
+    
+    ### Main task
+    Please, take a look at the provided prompt and the project status below, and perform the actions you think are necessary.
+    In order to do that, please follow these steps:
+        1. Take a look at the prompt and reflect on what the intention of the user is.
+        2. Take a look at the project status and see what changes are present in the project. It's important to understand what stacks and branche are present, and what the file changes are.
+        3. Try to correlate the prompt with the project status and determine what actions you can take to help the user.
+        4. Use the tools provided to you to perform the actions.
+    
+    ### Capabilities
+    You can generally perform the normal Git operations, such as creating branches and committing to them.
+    You can also perform more advanced operations, such as:
+    - `absorb`: Take a set of file changes and amend them into the existing commits in the project.
+      This requires you to figure out where the changes should go based on the locks, assingments and any other user provided information.
+    - `split`: Take an existing commit and split it into multiple commits based on the the user directive.
+        This is a multi-step operation where you will need to create one or more black commits, and the move the file changes from the original commit to the new commits.
+    ";
+
+    let mut internal_chat_messages = vec![];
+    let mut updated_last_user_message = false;
+    for message in chat_messages.iter().rev() {
+        match message {
+            openai::ChatMessage::User(content) => {
+                if !updated_last_user_message {
+                    // Update the last user message with the prompt.
+                    let prompt = format!(
+                        "
+                            <prompt>
+                            {}
+                            </prompt>
+
+                            Here is the project status:
+                            <project_status>
+                            {}
+                            </project_status>
+                        ",
+                        content, serialized_status
+                    );
+
+                    internal_chat_messages.push(openai::ChatMessage::User(prompt));
+                    updated_last_user_message = true;
+                } else {
+                    // Add the user message as is.
+                    internal_chat_messages.push(openai::ChatMessage::User(content.clone()));
+                }
+            }
+            openai::ChatMessage::Assistant(content) => {
+                // Add the assistant message as is.
+                internal_chat_messages.push(openai::ChatMessage::Assistant(content.clone()));
+            }
+        }
+    }
+
+    // Reverse the messages to maintain the original order.
+    internal_chat_messages.reverse();
+
+    // Now we trigger the tool calling loop to absorb the remaining changes.
+    let response = crate::openai::tool_calling_loop(
+        openai,
+        system_message,
+        chat_messages,
+        &mut toolset,
+        model,
+    )?;
+
+    let response_message = response
+        .choices
+        .first()
+        .and_then(|choice| choice.message.content.clone())
+        .unwrap_or_else(|| "No response from OpenAI".to_string());
+
+    Ok(response_message)
+}
 
 pub fn absorb(
     app_handle: &tauri::AppHandle,

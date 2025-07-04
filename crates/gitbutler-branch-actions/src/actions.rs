@@ -391,7 +391,8 @@ pub fn insert_blank_commit(
     stack_id: StackId,
     commit_oid: git2::Oid,
     offset: i32,
-) -> Result<()> {
+    message: Option<&str>,
+) -> Result<Vec<(gix::ObjectId, gix::ObjectId)>> {
     let mut guard = ctx.project().exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     assure_open_workspace_mode(ctx)
@@ -400,7 +401,7 @@ pub fn insert_blank_commit(
         SnapshotDetails::new(OperationKind::InsertBlankCommit),
         guard.write_permission(),
     );
-    vbranch::insert_blank_commit(ctx, stack_id, commit_oid, offset)
+    vbranch::insert_blank_commit(ctx, stack_id, commit_oid, offset, message)
 }
 
 pub fn reorder_stack(

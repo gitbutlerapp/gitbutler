@@ -61,3 +61,11 @@ export function persistedCommitMessage(projectId: string, branchId: string): Per
 }
 
 export const showHistoryView = persisted(false, 'showHistoryView');
+
+export function persistedChatModelName<T extends string>(
+	projectId: string,
+	defaultValue: T
+): Persisted<T> {
+	const key = 'projectChatModelName_';
+	return persisted(defaultValue, key + projectId);
+}

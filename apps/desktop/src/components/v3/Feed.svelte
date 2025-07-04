@@ -3,18 +3,24 @@
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import FeedItem from '$components/v3/FeedItem.svelte';
 	import CliSymLink from '$components/v3/profileSettings/CliSymLink.svelte';
+	import { ActionService } from '$lib/actions/actionService.svelte';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import { invoke } from '$lib/backend/ipc';
-	import { projectAiGenEnabled } from '$lib/config/config';
+	import { SettingsService } from '$lib/config/appSettingsV2';
+	import { persistedChatModelName, projectAiGenEnabled } from '$lib/config/config';
 	import { Feed } from '$lib/feed/feed';
 	import { newProjectSettingsPath } from '$lib/routes/routes.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { User } from '$lib/user/user';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
+	import Select from '@gitbutler/ui/select/Select.svelte';
+	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import { onMount, tick } from 'svelte';
 
 	type Props = {
@@ -26,16 +32,59 @@
 
 	const feed = getContext(Feed);
 	const stackService = getContext(StackService);
+	const actionService = getContext(ActionService);
+	const user = getContextStore(User);
+	const settingsService = getContext(SettingsService);
+	const settingsStore = $derived(settingsService.appSettings);
+
+	const isAdmin = $derived($user.role === 'admin');
 	const combinedEntries = feed.combined;
 	const lastAddedId = feed.lastAddedId;
 	const stackIdToUpdate = feed.stackToUpdate;
+
+	const MODELS = ['gpt-4.1', 'gpt-4.1-mini'] as const;
+
+	type Model = (typeof MODELS)[number];
+	const RESTRICTED_MODELS: Model[] = ['gpt-4.1'];
+	const DEFAULT_MODEL: Model = 'gpt-4.1-mini';
+
+	const selectedModel = persistedChatModelName<Model>(projectId, DEFAULT_MODEL);
+
+	const [freestyle, freestylin] = actionService.freestyle;
 
 	let viewport = $state<HTMLDivElement>();
 	let topSentinel = $state<HTMLDivElement>();
 	let canLoadMore = $state(false);
 	let prevScrollHeight = $state<number>(0);
 
+	let editor = $state<RichTextEditor>();
 	const aiGenEnabled = projectAiGenEnabled(projectId);
+
+	async function sendCommand() {
+		const content = await editor?.getPlaintext();
+		if (!content || content?.trim() === '') return;
+		editor?.clear();
+		const messages = await feed.addUserMessage(content);
+		const model = isAdmin ? $selectedModel : DEFAULT_MODEL;
+		const response = await freestyle({
+			projectId,
+			chatMessages: messages,
+			model
+		});
+		await feed.addAssistantMessage(response);
+	}
+
+	function handleKeyDown(event: KeyboardEvent | null): boolean {
+		if (event === null) return false;
+
+		if (event.key === 'Enter' && !event.shiftKey) {
+			event.preventDefault();
+			event.stopPropagation();
+			sendCommand();
+			return true;
+		}
+		return false;
+	}
 
 	async function loadMoreItems() {
 		if (!canLoadMore || !viewport) return;
@@ -56,7 +105,11 @@
 				viewport!.scrollTop = viewport!.scrollHeight;
 				canLoadMore = true;
 			}, 100);
+		}
+	});
 
+	$effect(() => {
+		if (topSentinel) {
 			// Setup observer
 			const observer = new IntersectionObserver(
 				(entries) => {
@@ -125,7 +178,6 @@
 			<h2 class="flex-1 text-14 text-semibold">Butler Actions</h2>
 			<Button icon="cross" kind="ghost" onclick={onCloseClick} />
 		</div>
-
 		<ConfigurableScrollableContainer childrenWrapHeight="100%" bind:viewport>
 			{#if $combinedEntries.length === 0}
 				<div class="feed__empty-state">
@@ -219,10 +271,76 @@
 					{#each $combinedEntries as entry (entry.id)}
 						<FeedItem {projectId} action={entry} />
 					{/each}
-					<div bind:this={topSentinel} style="height: 1px"></div>
+					<div bind:this={topSentinel} style="height: 1px;"></div>
 				</div>
 			{/if}
 		</ConfigurableScrollableContainer>
+		{#if $settingsStore?.featureFlags.butbot}
+			<div class="feed__input-container">
+				<div class="text-input feed__input">
+					<RichTextEditor
+						bind:this={editor}
+						namespace="feed"
+						markdown={false}
+						styleContext="chat-input"
+						placeholder="Tab tab tab"
+						disabled={freestylin.current.isLoading}
+						onKeyDown={handleKeyDown}
+						onError={(e) => {
+							console.error('RichTextEditor error:', e);
+						}}
+					></RichTextEditor>
+
+					<div class="feed__input-commands">
+						<Select
+							popupAlign="right"
+							popupVerticalAlign="top"
+							value={$selectedModel}
+							maxHeight={200}
+							customWidth={150}
+							options={MODELS.map((model) => ({
+								value: model,
+								label: model
+							}))}
+							onselect={(value: string) => {
+								if (value === $selectedModel) return;
+								if (!isAdmin) return;
+								if (!MODELS.includes(value as Model)) return;
+								selectedModel.set(value as Model);
+							}}
+						>
+							{#snippet customSelectButton()}
+								<div class="model-selector">
+									<span class="text-11 model-selector__selected">{$selectedModel}</span>
+									<div class="model-selector__icon"><Icon name="chevron-down-small" /></div>
+								</div>
+							{/snippet}
+
+							{#snippet itemSnippet({ item, highlighted })}
+								{@const disabled = RESTRICTED_MODELS.includes(item.value as Model) && !isAdmin}
+								<SelectItem
+									selected={item.value === $selectedModel}
+									{highlighted}
+									{disabled}
+									icon={disabled ? 'locked-small' : undefined}
+								>
+									<p>
+										{item.label}
+									</p>
+								</SelectItem>
+							{/snippet}
+						</Select>
+
+						<Button
+							style="pop"
+							icon="arrow-top"
+							onclick={sendCommand}
+							loading={freestylin.current.isLoading}
+						></Button>
+					</div>
+				</div>
+			</div>
+		{/if}
 	</div>
 </div>
 
@@ -343,5 +461,48 @@
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
 		box-shadow: var(--fx-shadow-m);
+	}
+	.feed__input-container {
+		display: flex;
+		align-items: center;
+		padding: 8px;
+		border-top: 1px solid var(--clr-border-2);
+	}
+
+	.feed__input {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		width: 100%;
+		padding: 4px;
+	}
+
+	.feed__input-commands {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 8px;
+	}
+
+	.model-selector {
+		display: flex;
+		align-items: center;
+		padding: 2px 4px 2px 6px;
+		gap: 2px;
+		color: var(--clr-text-3);
+		text-wrap: nowrap;
+
+		&:hover {
+			color: var(--clr-text-2);
+			& .model-selector__icon {
+				color: var(--clr-text-2);
+			}
+		}
+	}
+
+	.model-selector__icon {
+		display: flex;
+		color: var(--clr-text-3);
+		transition: opacity var(--transition-fast);
 	}
 </style>

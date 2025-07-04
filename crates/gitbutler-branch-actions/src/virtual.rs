@@ -1195,13 +1195,14 @@ pub(crate) fn move_commit_file(
 
 // create and insert a blank commit (no tree change) either above or below a commit
 // if offset is positive, insert below, if negative, insert above
-// return the oid of the new head commit of the branch with the inserted blank commit
+// return map of the updated commit ids
 pub(crate) fn insert_blank_commit(
     ctx: &CommandContext,
     stack_id: StackId,
     commit_oid: git2::Oid,
     offset: i32,
-) -> Result<()> {
+    message: Option<&str>,
+) -> Result<Vec<(gix::ObjectId, gix::ObjectId)>> {
     let vb_state = ctx.project().virtual_branches();
 
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
@@ -1216,9 +1217,11 @@ pub(crate) fn insert_blank_commit(
     }
 
     let repo = ctx.repo();
+    let message = message.unwrap_or_default();
 
     let commit_tree = repo.find_real_tree(&commit, Default::default()).unwrap();
-    let blank_commit_oid = ctx.commit("", &commit_tree, &[&commit], Some(Default::default()))?;
+    let blank_commit_oid =
+        ctx.commit(message, &commit_tree, &[&commit], Some(Default::default()))?;
 
     let merge_base = stack.merge_base(ctx)?;
     let repo = ctx.gix_repo()?;
@@ -1250,6 +1253,11 @@ pub(crate) fn insert_blank_commit(
     rebase.steps(updated_steps)?;
     rebase.rebase_noops(false);
     let output = rebase.rebase()?;
+    let commit_map = output
+        .commit_mapping
+        .into_iter()
+        .map(|(_, old, new)| (old, new))
+        .collect::<Vec<_>>();
     stack.set_heads_from_rebase_output(ctx, output.references)?;
 
     stack.set_stack_head(&vb_state, &repo, output.top_commit.to_git2(), None)?;
@@ -1257,7 +1265,7 @@ pub(crate) fn insert_blank_commit(
     crate::integration::update_workspace_commit(&vb_state, ctx)
         .context("failed to update gitbutler workspace")?;
 
-    Ok(())
+    Ok(commit_map)
 }
 
 // changes a commit message for commit_oid, rebases everything above it, updates branch head if successful

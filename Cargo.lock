@@ -992,6 +992,7 @@ dependencies = [
  "gitbutler-branch-actions",
  "gitbutler-command-context",
  "gitbutler-oplog",
+ "gitbutler-oxidize",
  "gitbutler-project",
  "gitbutler-serde",
  "gitbutler-stack",
