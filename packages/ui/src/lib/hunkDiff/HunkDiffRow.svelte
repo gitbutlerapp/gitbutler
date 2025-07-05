@@ -207,7 +207,7 @@
 				class:locked
 				class:staged
 			>
-				<InfoButton inheritColor size="small" icon="locked-small">
+				<InfoButton inheritColor size="small" icon="locked-extra-small" maxWidth="15rem">
 					{@render lockWarning(row.locks ?? [])}
 				</InfoButton>
 			</td>
@@ -331,9 +331,7 @@
 		width: calc(var(--width) + 1px);
 		height: var(--height);
 		border-right: 1px solid var(--clr-theme-warn-element);
-
 		border-left: 1px solid var(--clr-theme-warn-element);
-
 		background: color-mix(in srgb, var(--clr-btn-warn-outline-bg), transparent 30%);
 		mix-blend-mode: multiply;
 
@@ -388,7 +386,6 @@
 		background-color: var(--clr-diff-count-bg);
 		color: var(--clr-diff-count-text);
 		font-size: 11px;
-		text-align: center;
 		text-align: right;
 		touch-action: none;
 		user-select: none;
@@ -444,7 +441,7 @@
 	}
 
 	.table__lockColumn {
-		padding: 0 2px;
+		padding: 0 1px;
 		border-color: var(--clr-diff-count-border);
 		border-right: 1px solid var(--clr-border-2);
 		background-color: var(--clr-diff-count-bg);
