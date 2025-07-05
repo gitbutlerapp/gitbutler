@@ -30,8 +30,8 @@ pub struct ClaudePostToolUseInput {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ToolInput {
     pub file_path: String,
-    pub new_string: String,
-    pub old_string: String,
+    pub new_string: Option<String>,
+    pub old_string: Option<String>,
     pub replace_all: Option<bool>,
 }
 
@@ -39,9 +39,9 @@ pub struct ToolInput {
 #[serde(rename_all = "camelCase")]
 pub struct ToolResponse {
     pub file_path: String,
-    pub old_string: String,
-    pub new_string: String,
-    pub original_file: String,
+    pub old_string: Option<String>,
+    pub new_string: Option<String>,
+    pub original_file: Option<String>,
     /// The hunk headers can't be trusted - it seems like:
     ///    - they cont account for the hunk context lines
     ///    - the new lines are not always correct
@@ -76,7 +76,7 @@ pub struct ClaudeStopInput {
     pub session_id: String,
     pub transcript_path: String,
     pub hook_event_name: String,
-    pub stop_hook_active: bool,
+    pub stop_hook_active: Option<bool>,
 }
 
 pub(crate) async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
