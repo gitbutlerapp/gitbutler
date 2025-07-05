@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { AuthService } from '$lib/auth/authService.svelte';
+	import { UserService } from '$lib/user/userService';
 	import { eventTimeStamp } from '@gitbutler/shared/branches/utils';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
@@ -11,12 +11,13 @@
 	import type { Rule } from '@gitbutler/shared/rules/types';
 
 	// Get authentication service and check if user is logged in
-	const authService = getContext(AuthService);
 	const routes = getContext(WebRoutesService);
+	const userService = getContext(UserService);
+	const user = userService.user;
 
-	// If there is no token (user not logged in), redirect to home
+	// If there is no user (user not logged in), redirect to home
 	$effect(() => {
-		if (!authService.token.current) {
+		if ($user === undefined) {
 			goto(routes.homePath());
 		}
 	});

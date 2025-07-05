@@ -54,6 +54,27 @@ export class WebRoutesService {
 		return this.toUrl(this.homePath());
 	}
 
+	loginPath() {
+		return `/login`;
+	}
+	loginUrl() {
+		return this.toUrl(this.loginPath());
+	}
+
+	resetPasswordPath() {
+		return `/login/reset-password`;
+	}
+	resetPasswordUrl() {
+		return this.toUrl(this.resetPasswordPath());
+	}
+
+	signupPath() {
+		return `/signup`;
+	}
+	signupUrl() {
+		return this.toUrl(this.signupPath());
+	}
+
 	projectsPath() {
 		return `/`;
 	}
