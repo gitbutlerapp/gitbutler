@@ -62,6 +62,25 @@ export default class LoginService {
 		}
 	}
 
+	async finalizeAccount(
+		token: string,
+		email: string,
+		username: string
+	): Promise<LoginResponse<{ message: string }>> {
+		return await this.sendPostRequest(
+			'sessions/finalize',
+			{
+				token,
+				email,
+				login: username
+			},
+			(data) => {
+				if (!isStr(data.message)) throw new Error('Invalid message format');
+				return { message: data.message };
+			}
+		);
+	}
+
 	async confirmPasswordReset(
 		token: string,
 		newPassword: string,
