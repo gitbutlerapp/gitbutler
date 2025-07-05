@@ -128,11 +128,22 @@
 		setContext(StackingReorderDropzoneManagerFactory, stackingReorderDropzoneManagerFactory);
 	});
 
+	const focusManager = new FocusManager();
+	setContext(FocusManager, focusManager);
+
+	// Set the Project context immediately so child components can access it
+	// Even if project is undefined, we set the context to prevent "no instance" errors
+	setContext(Project, data.project);
+
+	// Debug logging to help diagnose the issue
+	if (!data.project) {
+		console.warn('Project is undefined in [projectId] layout, projectId:', data.projectId);
+	}
+
 	$effect.pre(() => {
 		setContext(HistoryService, data.historyService);
 		setContext(TemplateService, data.templateService);
 		setContext(BaseBranch, baseBranch);
-		setContext(Project, project);
 		setContext(GitBranchService, data.gitBranchService);
 		setContext(UncommitedFilesWatcher, data.uncommitedFileWatcher);
 		setContext(ProjectService, data.projectService);
@@ -143,9 +154,6 @@
 		setContext(StackPublishingService, data.stackPublishingService);
 		setContext(Feed, data.feed);
 	});
-
-	const focusManager = new FocusManager();
-	setContext(FocusManager, focusManager);
 
 	let intervalId: any;
 
