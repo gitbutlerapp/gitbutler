@@ -1,13 +1,19 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import DashboardLayout from '$lib/components/dashboard/DashboardLayout.svelte';
+	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { isFound } from '@gitbutler/shared/network/loadable';
 	import { getRecentlyPushedProjects } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 
 	const routes = getContext(WebRoutesService);
+	const userService = getContext(UserService);
+	const user = userService.user;
+
+	const loggedIn = $derived($user !== undefined);
 	const recentProjects = getRecentlyPushedProjects();
 	let hasRecentProjects = $state(false);
 
@@ -27,7 +33,12 @@
 	});
 </script>
 
-{#if hasRecentProjects}
+{#if !loggedIn}
+	<SectionCard>
+		<h1 class="title">Who this?</h1>
+		<p>Log into your butler account, create one or do whatever you please.</p>
+	</SectionCard>
+{:else if hasRecentProjects}
 	<DashboardLayout>
 		<p>You have no recent projects!</p>
 	</DashboardLayout>
