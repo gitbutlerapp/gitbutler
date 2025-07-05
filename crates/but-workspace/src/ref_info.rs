@@ -505,9 +505,11 @@ pub(crate) mod function {
             but_graph::projection::StackSegment {
                 ref_name,
                 remote_tracking_ref_name,
+                sibling_segment_id: _,
                 id,
                 commits,
                 commits_on_remote,
+                commits_by_segment: _,
                 metadata,
                 is_entrypoint,
             }: but_graph::projection::StackSegment,
@@ -521,7 +523,12 @@ pub(crate) mod function {
             let commits_unique_in_remote_tracking_branch = if commits_on_remote.is_empty() {
                 Vec::new()
             } else {
-                compute_commit_similarity(repo, &mut commits, commits_on_remote, ctx)?
+                compute_commit_similarity(
+                    repo,
+                    &mut commits,
+                    commits_on_remote.iter().map(|c| c.id),
+                    ctx,
+                )?
             };
             Ok(Self {
                 ref_name,
@@ -545,10 +552,7 @@ pub(crate) mod function {
                 inner,
                 relation: if c.flags.contains(StackCommitFlags::Integrated) {
                     LocalCommitRelation::Integrated
-                } else if c
-                    .flags
-                    .contains(StackCommitFlags::ReachableByMatchingRemote)
-                {
+                } else if c.flags.contains(StackCommitFlags::ReachableByRemote) {
                     LocalCommitRelation::LocalAndRemote(c.id)
                 } else {
                     LocalCommitRelation::LocalOnly
@@ -571,7 +575,7 @@ pub(crate) mod function {
     fn compute_commit_similarity<'repo>(
         repo: &'repo gix::Repository,
         local: &mut [LocalCommit],
-        remote: Vec<StackCommit>,
+        remote: impl Iterator<Item = gix::ObjectId>,
         SimilarityContext {
             target_ref_name,
             expensive,
@@ -606,8 +610,8 @@ pub(crate) mod function {
                     }
                 }
             };
-            for commit in &remote {
-                let commit = but_core::Commit::from_id(commit.id.attach(repo))?;
+            for commit_id in remote {
+                let commit = but_core::Commit::from_id(commit_id.attach(repo))?;
                 if let Some(hdr) = commit.headers() {
                     insert_or_expell_ambiguous(
                         ChangeIdOrCommitData::ChangeId(hdr.change_id),

@@ -48,7 +48,7 @@ pub enum StackState {
 pub fn add_workspace(meta: &mut VirtualBranchesTomlMetadata) {
     add_stack(
         meta,
-        StackId::from_number_for_testing(u128::MAX),
+        usize::MAX,
         "definitely outside of the workspace just to have it",
         StackState::Inactive,
     );
@@ -61,7 +61,7 @@ pub fn add_workspace_without_target(meta: &mut VirtualBranchesTomlMetadata) {
 
 pub fn add_stack(
     meta: &mut VirtualBranchesTomlMetadata,
-    stack_id: StackId,
+    stack_id: usize,
     stack_name: &str,
     state: StackState,
 ) -> StackId {
@@ -71,7 +71,7 @@ pub fn add_stack(
 // Add parameters as needed.
 pub fn add_stack_with_segments(
     meta: &mut VirtualBranchesTomlMetadata,
-    stack_id: StackId,
+    stack_id: usize,
     stack_name: &str,
     state: StackState,
     segments: &[&str],
@@ -106,6 +106,8 @@ pub fn add_stack_with_segments(
             StackState::Inactive => false,
         },
     );
+    stack.order = stack_id;
+    let stack_id = StackId::from_number_for_testing(stack_id as u128);
     stack.id = stack_id;
     meta.data_mut().branches.insert(stack_id, stack);
     // Assure we have a target set.

@@ -571,18 +571,72 @@ EOF
 
    git init three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependant
    (cd three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependant
-     git commit -m "init" --allow-empty
+     commit "init"
      setup_target_to_match_main
      git checkout -b lane main
 
      git checkout -b advanced-lane
-     git commit -m "change" --allow-empty
+     commit "change"
      # This works without an official remote setup as we go by name as fallback.
      remote_tracking_caught_up advanced-lane
      git branch dependant
      git branch on-top-of-dependant
 
      create_workspace_commit_once advanced-lane
+   )
+
+   git init two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependant
+   (cd two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependant
+     commit "init"
+     setup_target_to_match_main
+     git checkout -b lane main
+
+     git checkout -b advanced-lane
+     commit "change"
+
+     create_workspace_commit_aggressively lane advanced-lane
+
+     remote_tracking_caught_up advanced-lane
+     git branch dependant advanced-lane
+   )
+
+   # There are multiple stacked branches that could lead towards a shared stack.
+   git init multiple-stacks-with-shared-segment-and-remote
+   (cd multiple-stacks-with-shared-segment-and-remote
+     commit init && setup_target_to_match_main
+     git checkout -b A
+      commit A
+      git checkout -b soon-origin-A
+        commit A-on-remote
+
+     git checkout -b B-on-A A
+       commit "B-on-A"
+
+     git checkout -b C-on-A A
+       commit "C-on-A"
+
+     setup_remote_tracking soon-origin-A A "move"
+     create_workspace_commit_once B-on-A C-on-A
+   )
+
+   git init two-branches-one-advanced-two-parent-ws-commit-diverged-ttb
+   (cd two-branches-one-advanced-two-parent-ws-commit-diverged-ttb
+     commit "init"
+     git checkout -b lane main
+
+     git checkout -b advanced-lane
+     commit "change"
+
+     create_workspace_commit_aggressively advanced-lane lane
+     # swap trees - Git puts 'lane' first for some reason, but we really need the other way to reproduce a bug!
+     commit_swapped_parents=$(git commit-tree -p "HEAD^2" -p "HEAD^1" -m "GitButler Workspace Commit" "HEAD^{tree}")
+     echo "${commit_swapped_parents}" >.git/refs/heads/gitbutler/workspace
+
+     git checkout --orphan disjoint-target-tracking
+     commit "disjoint remote target"
+
+     setup_remote_tracking disjoint-target-tracking main 'move'
+     git checkout gitbutler/workspace
    )
 )
 

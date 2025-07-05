@@ -65,6 +65,39 @@ impl Graph {
         .to_string()
     }
 
+    /// Return a useful one-line string showing the relationship between `ref_name`, `remote_ref_name` and how
+    /// they are linked with `sibling_id`.
+    pub fn ref_and_remote_debug_string(
+        ref_name: Option<&gix::refs::FullName>,
+        remote_ref_name: Option<&gix::refs::FullName>,
+        sibling_id: Option<SegmentIndex>,
+    ) -> String {
+        format!(
+            "{ref_name}{remote}",
+            ref_name = ref_name
+                .as_ref()
+                .map(|rn| format!(
+                    "{}{maybe_id}",
+                    Graph::ref_debug_string(rn),
+                    maybe_id = sibling_id
+                        .filter(|_| rn.category() == Some(Category::RemoteBranch))
+                        .map(|id| format!(" →:{}:", id.index()))
+                        .unwrap_or_default()
+                ))
+                .unwrap_or("anon:".into()),
+            remote = remote_ref_name
+                .as_ref()
+                .map(|remote_ref_name| format!(
+                    " <> {remote_name}{maybe_id}",
+                    remote_name = Graph::ref_debug_string(remote_ref_name),
+                    maybe_id = sibling_id
+                        .map(|id| format!(" →:{}:", id.index()))
+                        .unwrap_or_default()
+                ))
+                .unwrap_or_default()
+        )
+    }
+
     /// Validate the graph for consistency and fail loudly when an issue was found, after printing the dot graph.
     /// Mostly useful for debugging to stop early when a connection wasn't created correctly.
     #[cfg(unix)]
@@ -139,28 +172,13 @@ impl Graph {
         let entrypoint = self.entrypoint;
         let node_attrs = |_: &PetGraph, (sidx, s): (SegmentIndex, &Segment)| {
             let name = format!(
-                "{}{remote}{maybe_centering_newline}",
-                s.ref_name
-                    .as_ref()
-                    .map(|rn| format!(
-                        "{arrow}{}",
-                        Self::ref_debug_string(rn),
-                        arrow = if s.workspace_metadata().is_some() {
-                            "►►►"
-                        } else {
-                            "►"
-                        }
-                    ))
-                    .unwrap_or_else(|| "<anon>".into()),
+                "{ref_name_and_remote}{maybe_centering_newline}",
+                ref_name_and_remote = Self::ref_and_remote_debug_string(
+                    s.ref_name.as_ref(),
+                    s.remote_tracking_ref_name.as_ref(),
+                    s.sibling_segment_id
+                ),
                 maybe_centering_newline = if s.commits.is_empty() { "" } else { "\n" },
-                remote = if let Some(remote_ref_name) = s.remote_tracking_ref_name.as_ref() {
-                    format!(
-                        " <> {remote_name}",
-                        remote_name = Self::ref_debug_string(remote_ref_name)
-                    )
-                } else {
-                    "".into()
-                }
             );
             // Reduce noise by preferring ref-based entry-points.
             let show_segment_entrypoint = s.ref_name.is_some()

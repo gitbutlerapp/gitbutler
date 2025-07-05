@@ -28,7 +28,6 @@ impl Graph {
         }
 
         self.workspace_upgrades(meta)?;
-        self.fill_flags_at_border_segments()?;
         self.non_workspace_adjustments(
             repo,
             symbolic_remote_names,
@@ -38,41 +37,20 @@ impl Graph {
         Ok(self)
     }
 
-    /// Borders are special as these are not fully traversed segments, so their flags might be partial.
-    /// Here we want to assure that segments with local branch names have `NotInRemote` set
-    /// (just to indicate they are local first).
-    fn fill_flags_at_border_segments(&mut self) -> anyhow::Result<()> {
-        for segment in self.partial_segments().collect::<Vec<_>>() {
-            let segment = &mut self[segment];
-            // Partial segments are naturally the end, so no need to propagate flags.
-            // Note that this is usually not relevant except for yielding more correct looking graphs.
-            let is_named_and_local = segment
-                .ref_name
-                .as_ref()
-                .is_some_and(|rn| rn.category() == Some(Category::LocalBranch));
-            if is_named_and_local {
-                for commit in segment.commits.iter_mut() {
-                    // We set this flag as the *lack* of it means it's in a remote, which is definitely wrong
-                    // knowing that we know what's purely remote by looking at the absence of this flag.
-                    commit.flags |= CommitFlags::NotInRemote;
-                }
-            }
-        }
-        Ok(())
-    }
-
     /// Perform operations on segments that can reach a workspace segment when searching upwards.
     ///
     /// * insert empty segments as defined by the workspace that affects its downstream.
+    /// * put workspace connection into the order defined in the workspace metadata.
     fn workspace_upgrades(&mut self, meta: &impl RefMetadata) -> anyhow::Result<()> {
+        let tips_with_ws_data: Vec<_> = self
+            .tip_segments()
+            .filter(|sidx| self.inner[*sidx].workspace_metadata().is_some())
+            .collect();
+
         // Maps any segment to any workspace that it can reach, even the workspace maps itself as it may need processing too
         let mut ws_by_segment_map =
             BTreeMap::<SegmentIndex, Vec<(SegmentIndex, std::ops::Range<CommitIndex>)>>::new();
-
-        for ws_sidx in self
-            .tip_segments()
-            .filter(|sidx| self.inner[*sidx].workspace_metadata().is_some())
-        {
+        for ws_sidx in tips_with_ws_data.iter().cloned() {
             let start_idx = self[ws_sidx].commits.first().map(|_| 0);
             let mut walk = TopoWalk::start_from(ws_sidx, start_idx, Direction::Outgoing);
 
@@ -161,11 +139,56 @@ impl Graph {
                 delete_anon_if_empty_and_reconnect(self, orig_sidx);
             }
         }
+
+        // Redo workspace outgoing connections according to desired stack order.
+        for ws_tip in tips_with_ws_data {
+            let ws_data = &self[ws_tip]
+                .workspace_metadata()
+                .expect("tips are chosen because they have metadata");
+            let mut edges_pointing_to_named_segment = self
+                .edges_directed_in_order_of_creation(ws_tip, Direction::Outgoing)
+                .into_iter()
+                .map(|e| {
+                    let rn = self[e.target()].ref_name.clone();
+                    (e.id(), e.target(), rn)
+                })
+                .collect::<Vec<_>>();
+
+            let edges_original_order: Vec<_> = edges_pointing_to_named_segment
+                .iter()
+                .map(|(_e, sidx, _rn)| *sidx)
+                .collect();
+            edges_pointing_to_named_segment.sort_by_key(|(_e, sidx, rn)| {
+                let res = ws_data.stacks.iter().position(|s| {
+                    s.branches
+                        .first()
+                        .is_some_and(|b| Some(&b.ref_name) == rn.as_ref())
+                });
+                // This makes it so that edges that weren't mentioned in workspace metadata
+                // retain their relative order, with first-come-first-serve semantics.
+                // The expected case is that each segment is defined.
+                res.or_else(|| {
+                    edges_original_order
+                        .iter()
+                        .position(|sidx_for_order| sidx_for_order == sidx)
+                })
+            });
+
+            for (eid, target_sidx, _) in edges_pointing_to_named_segment {
+                let weight = self
+                    .inner
+                    .remove_edge(eid)
+                    .expect("we found the edge before");
+                // Reconnect according to the new order.
+                self.inner.add_edge(ws_tip, target_sidx, weight);
+            }
+        }
         Ok(())
     }
 
     /// Name ambiguous segments if they are reachable by remote tracking branch and
     /// if the first commit has (unambiguously) the matching local tracking branch.
+    /// Also, link up all remote segments with their local ones, and vice versa.
     fn non_workspace_adjustments(
         &mut self,
         repo: &gix::Repository,
@@ -174,9 +197,12 @@ impl Graph {
     ) -> anyhow::Result<()> {
         // Map (segment-to-be-named, [candidate-remote]), so we don't set a name if there is more
         // than one remote.
-        let mut remotes_by_segment_map =
-            BTreeMap::<SegmentIndex, Vec<(gix::refs::FullName, gix::refs::FullName)>>::new();
+        let mut remotes_by_segment_map = BTreeMap::<
+            SegmentIndex,
+            Vec<(gix::refs::FullName, gix::refs::FullName, SegmentIndex)>,
+        >::new();
 
+        let mut remote_sidx_by_ref_name = BTreeMap::new();
         for (remote_sidx, remote_ref_name) in self.inner.node_indices().filter_map(|sidx| {
             self[sidx]
                 .ref_name
@@ -184,6 +210,7 @@ impl Graph {
                 .filter(|rn| (rn.category() == Some(Category::RemoteBranch)))
                 .map(|rn| (sidx, rn))
         }) {
+            remote_sidx_by_ref_name.insert(remote_ref_name.clone(), remote_sidx);
             let start_idx = self[remote_sidx].commits.first().map(|_| 0);
             let mut walk = TopoWalk::start_from(remote_sidx, start_idx, Direction::Outgoing)
                 .skip_tip_segment();
@@ -223,10 +250,11 @@ impl Graph {
                             (rrn.as_ref() == remote_ref_name.as_ref()).then_some(rn.clone())
                         })
                     }) {
-                        remotes_by_segment_map
-                            .entry(sidx)
-                            .or_default()
-                            .push((local_tracking_branch, remote_ref_name.clone()));
+                        remotes_by_segment_map.entry(sidx).or_default().push((
+                            local_tracking_branch,
+                            remote_ref_name.clone(),
+                            remote_sidx,
+                        ));
                     }
                     break;
                 }
@@ -240,15 +268,18 @@ impl Graph {
             .filter(|(_, candidates)| candidates.len() == 1)
         {
             let s = &mut self[anon_sidx];
-            let (local, remote) = disambiguated_name.pop().expect("one item as checked above");
+            let (local, remote, remote_sidx) =
+                disambiguated_name.pop().expect("one item as checked above");
             s.ref_name = Some(local);
             s.remote_tracking_ref_name = Some(remote);
-            let rn = s.ref_name.as_ref().unwrap();
+            s.sibling_segment_id = Some(remote_sidx);
+            let rn = s.ref_name.as_ref().expect("just set it");
             s.commits.first_mut().unwrap().refs.retain(|crn| crn != rn);
         }
 
-        // TODO: we should probably try to set this right when we traverse the segment
-        //       to save remote-ref lookup.
+        // NOTE: setting this directly at iteration time isn't great as the post-processing then
+        //       also has to deal with these implicit connections. So it's best to redo them in the end.
+        let mut links_from_remote_to_local = Vec::new();
         for segment in self.inner.node_weights_mut() {
             if segment.remote_tracking_ref_name.is_some() {
                 continue;
@@ -262,6 +293,18 @@ impl Graph {
                 symbolic_remote_names,
                 configured_remote_tracking_branches,
             )?;
+
+            if let Some(remote_sidx) = segment
+                .remote_tracking_ref_name
+                .as_ref()
+                .and_then(|rn| remote_sidx_by_ref_name.remove(rn))
+            {
+                segment.sibling_segment_id = Some(remote_sidx);
+                links_from_remote_to_local.push((remote_sidx, segment.id));
+            }
+        }
+        for (remote_sidx, local_sidx) in links_from_remote_to_local {
+            self[remote_sidx].sibling_segment_id = Some(local_sidx);
         }
         Ok(())
     }

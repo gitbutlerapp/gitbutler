@@ -124,19 +124,31 @@ impl Graph {
     /// Thus, a [`CommitIndex`] of `0` indicates the paired segment sits directly on top of `sidx`, probably as part of
     /// a merge commit that is the last commit in the respective segment. The index is always valid in the
     /// [`Segment::commits_unique_from_tip`] field of `sidx`.
-    ///
-    /// Note that they are in reverse order, i.e., the segments that were added last will be returned first.
-    pub fn segments_on_top(
+    pub fn segments_below_in_order(
         &self,
         sidx: SegmentIndex,
     ) -> impl Iterator<Item = (Option<CommitIndex>, SegmentIndex)> {
-        self.inner
-            .edges_directed(sidx, Direction::Outgoing)
+        self.edges_directed_in_order_of_creation(sidx, Direction::Outgoing)
+            .into_iter()
             .filter_map(|edge| {
                 let dst = edge.weight().dst;
                 dst.is_none_or(|dst| dst == 0)
                     .then_some((edge.weight().src, edge.target()))
             })
+    }
+
+    /// Just like [petgraph::Graph::edges_directed()](petgraph::Graph::edges_directed()), but it returns the edges
+    /// in the order in which they were added, and *not* in reverse.
+    ///
+    /// Use this whenever you need to maintain a certain order of operation.
+    pub fn edges_directed_in_order_of_creation(
+        &self,
+        sidx: SegmentIndex,
+        direction: Direction,
+    ) -> Vec<EdgeReference<'_, Edge>> {
+        let mut edges: Vec<_> = self.inner.edges_directed(sidx, direction).collect();
+        edges.reverse();
+        edges
     }
 
     /// Return `true` if commit `sidx` is 'cut off', i.e. the traversal finished at
