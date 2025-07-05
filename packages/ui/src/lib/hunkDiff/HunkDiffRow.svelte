@@ -110,6 +110,7 @@
 
 	const locked = $derived(row.locks !== undefined && row.locks.length > 0);
 	const clickable = $derived(isClickable);
+	const isSelectingForCommit = $derived(staged !== undefined && !hideCheckboxes);
 </script>
 
 {#snippet countColumn(side: CountColumnSide)}
@@ -128,7 +129,7 @@
 		class:staged={staged && deltaLine}
 		class:locked
 		style="--staging-column-width: {stagingColumnWidth}px; --number-col-width: {minWidth}rem;"
-		class:stagable={staged !== undefined && !hideCheckboxes}
+		class:stagable={isSelectingForCommit}
 		onmousedown={(ev) => lineSelection.onStart(ev, row, idx)}
 		onmouseenter={(ev) => lineSelection.onMoveOver(ev, row, idx)}
 		onmouseup={() => lineSelection.onEnd()}
@@ -155,7 +156,7 @@
 	data-no-drag
 	style="--diff-font: {diffFont};"
 >
-	{#if staged !== undefined && !hideCheckboxes}
+	{#if isSelectingForCommit}
 		{@const deltaLine = isDeltaLine(row.type)}
 		<td
 			bind:clientWidth={stagingColumnWidth}
@@ -184,18 +185,7 @@
 		>
 			{#if deltaLine}
 				<div class="table__row-checkbox" class:staged class:locked>
-					{#if locked}
-						{@const locks = row.locks}
-						{#if lockWarning && locks && locks.length > 0}
-							<div data-testid="hunk-line-locking-info" class="table__row-locks-info-button">
-								<InfoButton inheritColor size="small" icon="locked-small">
-									{@render lockWarning(locks)}
-								</InfoButton>
-							</div>
-						{:else}
-							<Icon name="locked-small" />
-						{/if}
-					{:else if staged}
+					{#if staged}
 						<Icon name="tick-small" />
 					{:else}
 						<Icon name="minus-small" />
@@ -205,8 +195,27 @@
 		</td>
 	{/if}
 
+	{#if !isSelectingForCommit}
+		{#if lockWarning && locked}
+			<td
+				data-testid="hunk-count-column"
+				class="table__numberColumn table__lockColumn"
+				data-no-drag
+				class:locked
+				class:staged
+			>
+				<InfoButton inheritColor size="small" icon="locked-small">
+					{@render lockWarning(row.locks ?? [])}
+				</InfoButton>
+			</td>
+		{:else}
+			<td class="table__numberColumn table__lockColumn" data-no-drag> </td>
+		{/if}
+	{/if}
+
 	{@render countColumn(CountColumnSide.Before)}
 	{@render countColumn(CountColumnSide.After)}
+
 	<td
 		class="table__textContent"
 		style="--tab-size: {tabSize}; --wrap: {wrapText ? 'wrap' : 'nowrap'}"
@@ -272,6 +281,17 @@
 				</div>
 			{/if}
 
+			<!-- 
+			{#if locked && lockWarning}
+				<div
+					style="--number-col-width: {numberHeaderWidth}px; --height: {rowHeight}px; --overflow-menu-height: {overflowMenuHeight}px;"
+					bind:clientHeight={overflowMenuHeight}
+					class="table__row-locks-info-button"
+				>
+					asd
+				</div>
+			{/if} -->
+
 			{@html row.tokens.join('')}
 		</div>
 	</td>
@@ -298,6 +318,18 @@
 		user-select: text;
 	}
 
+	.table__lock-icon {
+		position: absolute;
+		top: 0;
+		left: 0;
+		padding: 1px;
+		border-radius: var(--radius-s);
+		background-color: var(--clr-diff-locked-count-bg);
+		color: var(--clr-diff-locked-count-text);
+		opacity: 0;
+		pointer-events: none;
+	}
+
 	.table__row-header {
 		position: relative;
 		min-height: 18px;
@@ -312,7 +344,6 @@
 		top: 0;
 		pointer-events: none;
 
-		/* border + left padding + number column width */
 		--offset: calc(2px + 4px + var(--number-col-width));
 		box-sizing: border-box;
 
@@ -363,10 +394,14 @@
 		display: flex;
 	}
 
+	.table__lockColumn {
+		width: var(--table-lock-col-width);
+	}
+
 	.table__numberColumn {
 		z-index: var(--z-ground);
 
-		position: sticky;
+		/* position: sticky; */
 		left: calc(var(--number-col-width));
 		width: var(--number-col-width);
 		min-width: var(--number-col-width);
@@ -427,10 +462,11 @@
 			border-color: var(--clr-diff-locked-count-border);
 			background-color: var(--clr-diff-locked-count-bg);
 			color: var(--clr-diff-locked-count-text);
+
 			&.staged {
-				border-color: var(--clr-diff-locked-count-border);
-				background-color: var(--clr-scale-warn-60);
-				color: var(--clr-scale-warn-30);
+				border-color: var(--clr-diff-locked-selected-count-border);
+				background-color: var(--clr-diff-locked-selected-count-bg);
+				color: var(--clr-diff-locked-selected-count-text);
 			}
 		}
 	}
@@ -464,6 +500,12 @@
 
 		&:not(.locked).staged {
 			color: var(--clr-diff-selected-count-checkmark);
+		}
+		&.locked {
+			color: var(--clr-diff-locked-count-checkmark);
+		}
+		&.staged.locked {
+			color: var(--clr-diff-locked-selected-count-checkmark);
 		}
 	}
 

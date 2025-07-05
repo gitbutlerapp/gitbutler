@@ -15,11 +15,14 @@
 	});
 
 	const hunkStr = {
-		diff: '@@ -140,7 +140,7 @@ \n <Modal\n \tbind:this={modal}\n \twidth="small"\n-\ttitle="Git fetch requires input"\n+\ttitle="Git --ds--tch requires input"\n…',
+		diff: '@@ -140,7 +140,7 @@ \n <Modal\n \tbind:this={modal}\n \twidth="small"\n-\ttitle="Git fetch requires input"\n+\ttitle="Git --ds--tch requires input"\n…<div class="modal-body">\n \t\t<p>Git fetch requires input</p>\n \t</div>\n </Modal>\n',
 		newLines: 7,
 		newStart: 140,
 		oldLines: 7,
-		oldStart: 140
+		oldStart: 140,
+		linesAdded: 1,
+		linesRemoved: 1,
+		linesChanged: 2
 	};
 </script>
 
