@@ -134,13 +134,14 @@
 
 	.dropzone-label {
 		display: flex;
+		z-index: 1;
 		align-items: center;
-		padding: 3px 8px 3px 6px;
+		padding: 4px 8px 4px 6px;
 		gap: 5px;
 		transform: translateY(3px) scale(0.95);
 		border-radius: 100px;
-		background-color: var(--clr-theme-pop-element);
-		color: var(--clr-theme-pop-on-element);
+		background-color: var(--clr-theme-ntrl-element);
+		color: var(--clr-theme-ntrl-on-element);
 		opacity: 0;
 
 		transition:
