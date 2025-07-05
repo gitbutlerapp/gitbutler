@@ -225,6 +225,7 @@
 			{hideCheckboxes}
 			{handleLineContextMenu}
 			{lockWarning}
+			hunkHasLocks={lineLocks && lineLocks.length > 0}
 		/>
 	</tbody>
 {/if}
@@ -269,6 +270,7 @@
 					{hideCheckboxes}
 					{handleLineContextMenu}
 					{lockWarning}
+					hunkHasLocks={lineLocks && lineLocks.length > 0}
 				/>
 			{/each}
 		{:else}

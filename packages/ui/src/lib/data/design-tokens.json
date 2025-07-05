@@ -2938,23 +2938,23 @@
 			"locked-selected": {
 				"count-bg": {
 					"$type": "color",
+					"$value": "#fad487",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#fad487",
+							"dark": "#9b681d"
+						}
+					}
+				},
+				"count-bg-hover": {
+					"$type": "color",
 					"$value": "#f5c76a",
 					"$description": "",
 					"$extensions": {
 						"mode": {
 							"light": "#f5c76a",
 							"dark": "#aa7220"
-						}
-					}
-				},
-				"count-bg-hover": {
-					"$type": "color",
-					"$value": "#ebbd60",
-					"$description": "",
-					"$extensions": {
-						"mode": {
-							"light": "#ebbd60",
-							"dark": "#b47c2a"
 						}
 					}
 				},
@@ -2965,28 +2965,28 @@
 					"$extensions": {
 						"mode": {
 							"light": "#dda84d",
-							"dark": "#7d5925"
+							"dark": "#734f1b"
 						}
 					}
 				},
 				"count-text": {
 					"$type": "color",
-					"$value": "#906110",
+					"$value": "#a47524",
 					"$description": "",
 					"$extensions": {
 						"mode": {
-							"light": "#906110",
+							"light": "#a47524",
 							"dark": "#ecd2a5"
 						}
 					}
 				},
 				"count-checkmark": {
 					"$type": "color",
-					"$value": "#906110",
+					"$value": "#a47524",
 					"$description": "",
 					"$extensions": {
 						"mode": {
-							"light": "#906110",
+							"light": "#a47524",
 							"dark": "#ecd2a5"
 						}
 					}
@@ -3761,7 +3761,7 @@
 			"useDTCGKeys": true,
 			"colorMode": "hex",
 			"variableCollections": ["clr-core", "clr", "size", "radius", "text", "opacity"],
-			"createdAt": "2025-07-04T13:56:31.653Z"
+			"createdAt": "2025-07-05T14:05:37.398Z"
 		}
 	}
 }

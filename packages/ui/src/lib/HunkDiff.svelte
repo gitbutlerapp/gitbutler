@@ -83,7 +83,8 @@
 		`@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@`
 	);
 	const showingCheckboxes = $derived(!hideCheckboxes && staged !== undefined);
-	const colspan = $derived(showingCheckboxes ? 3 : 2);
+	const hunkHasLocks = $derived(lineLocks && lineLocks.length > 0);
+	const colspan = $derived(showingCheckboxes || hunkHasLocks ? 3 : 2);
 </script>
 
 <div
@@ -117,21 +118,18 @@
 								<Icon name="minus-small" />
 							{/if}
 						</div>
+					</th>
 
-						<div
-							class="table__title-content"
-							style="--number-col-width: {numberHeaderWidth}px; --table-width: {tableWidth}px; --border-width: {BORDER_WIDTH}px; --top: -{BORDER_WIDTH}px"
-						>
-							<span>
-								{hunkSummary}
-							</span>
+					<th class="table__title-content" {colspan}>
+						<span>
+							{hunkSummary}
+						</span>
 
-							{#if !draggingDisabled}
-								<div class="table__drag-handle">
-									<Icon name="draggable" />
-								</div>
-							{/if}
-						</div>
+						{#if !draggingDisabled}
+							<div class="table__drag-handle">
+								<Icon name="draggable" />
+							</div>
+						{/if}
 					</th>
 				</tr>
 			</thead>
@@ -197,7 +195,7 @@
 	}
 
 	table thead th {
-		position: sticky;
+		/* position: sticky; */
 		top: 0;
 		left: 0;
 		height: 28px;
@@ -249,8 +247,6 @@
 		align-items: center;
 		justify-content: center;
 		transform-origin: top right;
-		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
 		color: var(--clr-text-2);
 		opacity: 0;
 		pointer-events: none;
@@ -275,15 +271,15 @@
 	.table__title-content {
 		box-sizing: border-box;
 		display: flex;
-		position: absolute;
+		/* position: absolute;
 		top: var(--top);
-		left: var(--number-col-width);
+		left: var(--number-col-width); */
 		align-items: center;
-		width: calc(var(--table-width) - var(--number-col-width));
-		height: calc(100% + var(--border-width) * 2);
+		/* width: calc(var(--table-width) - var(--number-col-width));
+		height: calc(100% + var(--border-width) * 2); */
 		padding: 4px 6px;
 		border-bottom: 1px solid var(--clr-border-2);
-		border-top-right-radius: var(--radius-m);
+		/* border-top-right-radius: var(--radius-m); */
 		color: var(--clr-text-2);
 		font-size: 12px;
 		text-wrap: nowrap;
@@ -334,6 +330,10 @@
 		--clr-diff-addition-count-bg: var('--', var(--clr-diff-addition-count-bg));
 		--clr-diff-addition-count-text: var('--', var(--clr-diff-addition-count-text));
 		--clr-diff-addition-count-border: var('--', var(--clr-diff-addition-count-border));
+		/* locked */
+		--clr-diff-locked-count-bg: var('--', var(--clr-diff-locked-count-bg));
+		--clr-diff-locked-count-text: var('--', var(--clr-diff-locked-count-text));
+		--clr-diff-locked-count-border: var('--', var(--clr-diff-locked-count-border));
 	}
 
 	.contrast-medium {
@@ -350,6 +350,10 @@
 		--clr-diff-addition-count-bg: var(--clr-diff-addition-contrast-2-count-bg);
 		--clr-diff-addition-count-text: var(--clr-diff-addition-contrast-2-count-text);
 		--clr-diff-addition-count-border: var(--clr-diff-addition-contrast-2-count-border);
+		/* locked */
+		--clr-diff-locked-count-bg: var(--clr-diff-locked-contrast-2-count-bg);
+		--clr-diff-locked-count-text: var(--clr-diff-locked-contrast-2-count-text);
+		--clr-diff-locked-count-border: var(--clr-diff-locked-contrast-2-count-border);
 	}
 
 	.contrast-strong {
@@ -366,5 +370,9 @@
 		--clr-diff-addition-count-bg: var(--clr-diff-addition-contrast-3-count-bg);
 		--clr-diff-addition-count-text: var(--clr-diff-addition-contrast-3-count-text);
 		--clr-diff-addition-count-border: var(--clr-diff-addition-contrast-3-count-border);
+		/* locked */
+		--clr-diff-locked-count-bg: var(--clr-diff-locked-contrast-3-count-bg);
+		--clr-diff-locked-count-text: var(--clr-diff-locked-contrast-3-count-text);
+		--clr-diff-locked-count-border: var(--clr-diff-locked-contrast-3-count-border);
 	}
 </style>
