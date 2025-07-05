@@ -1,16 +1,17 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { AuthService } from '$lib/auth/authService.svelte';
 	import GitHubButton from '$lib/components/login/GitHubButton.svelte';
 	import GoogleButton from '$lib/components/login/GoogleButton.svelte';
+	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import LoginService from '@gitbutler/shared/login/loginService';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
-	import { isStr } from '@gitbutler/ui/utils/string';
 
-	const authService = getContext(AuthService);
+	const userService = getContext(UserService);
+	const user = userService.user;
+	const isLoggedIn = $derived($user !== undefined);
 
 	let email = $state<string>();
 	let password = $state<string>();
@@ -51,7 +52,7 @@
 	}
 
 	$effect(() => {
-		if (isStr(authService.token.current)) {
+		if (isLoggedIn) {
 			goto(routesService.homePath());
 		}
 	});

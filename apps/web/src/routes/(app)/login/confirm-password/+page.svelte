@@ -1,13 +1,12 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import RedirectIfLoggedIn from '$lib/auth/RedirectIfLoggedIn.svelte';
 	import { AuthService } from '$lib/auth/authService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import LoginService from '@gitbutler/shared/login/loginService';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
-	import { isStr } from '@gitbutler/ui/utils/string';
 	import { env } from '$env/dynamic/public';
 
 	const loginService = getContext(LoginService);
@@ -53,17 +52,13 @@
 		authService.setToken(response.data.token);
 		window.location.href = `${env.PUBLIC_APP_HOST}successful_login?access_token=${token}`;
 	}
-
-	$effect(() => {
-		if (isStr(authService.token.current)) {
-			goto(routesService.homePath());
-		}
-	});
 </script>
 
 <svelte:head>
 	<title>GitButler | Confirm Password</title>
 </svelte:head>
+
+<RedirectIfLoggedIn />
 
 <div class="main-links">
 	<a href={routesService.homePath()} class="logo" aria-label="main nav" title="Home">

@@ -1,16 +1,13 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { AuthService } from '$lib/auth/authService.svelte';
+	import RedirectIfLoggedIn from '$lib/auth/RedirectIfLoggedIn.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import LoginService from '@gitbutler/shared/login/loginService';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
-	import { isStr } from '@gitbutler/ui/utils/string';
 
 	const loginService = getContext(LoginService);
 	const routesService = getContext(WebRoutesService);
-	const authService = getContext(AuthService);
 
 	let email = $state<string>();
 	let error = $state<string>();
@@ -31,16 +28,13 @@
 			message = response.data.message;
 		}
 	}
-	$effect(() => {
-		if (isStr(authService.token.current)) {
-			goto(routesService.homePath());
-		}
-	});
 </script>
 
 <svelte:head>
 	<title>GitButler | Login</title>
 </svelte:head>
+
+<RedirectIfLoggedIn />
 
 <div class="main-links">
 	<a href={routesService.homePath()} class="logo" aria-label="main nav" title="Home">

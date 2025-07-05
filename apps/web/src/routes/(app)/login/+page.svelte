@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import RedirectIfLoggedIn from '$lib/auth/RedirectIfLoggedIn.svelte';
 	import { AuthService } from '$lib/auth/authService.svelte';
 	import GitHubButton from '$lib/components/login/GitHubButton.svelte';
 	import GoogleButton from '$lib/components/login/GoogleButton.svelte';
@@ -8,7 +8,6 @@
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
-	import { isStr } from '@gitbutler/ui/utils/string';
 	import { env } from '$env/dynamic/public';
 
 	let email = $state<string>();
@@ -55,17 +54,13 @@
 			error = 'Confirmation email resent. Please check your inbox.';
 		}
 	}
-
-	$effect(() => {
-		if (isStr(authService.token.current)) {
-			goto(routesService.homePath());
-		}
-	});
 </script>
 
 <svelte:head>
 	<title>GitButler | Login</title>
 </svelte:head>
+
+<RedirectIfLoggedIn />
 
 <div class="main-links">
 	<a href={routesService.homePath()} class="logo" aria-label="main nav" title="Home">
