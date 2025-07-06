@@ -18,6 +18,8 @@
 		linesRemoved?: number;
 		conflicted?: boolean;
 		executable?: boolean;
+		transparent?: boolean;
+		compact?: boolean;
 		oncontextmenu?: (e: MouseEvent) => void;
 		oncloseclick?: () => void;
 	}
@@ -32,6 +34,8 @@
 		linesRemoved = 0,
 		conflicted,
 		executable,
+		transparent,
+		compact,
 		oncontextmenu,
 		oncloseclick
 	}: Props = $props();
@@ -42,6 +46,8 @@
 	{id}
 	class="file-header"
 	class:draggable
+	class:transparent
+	class:compact
 	oncontextmenu={(e) => {
 		if (oncontextmenu) {
 			e.preventDefault();
@@ -96,6 +102,10 @@
 		gap: 12px;
 		background-color: var(--clr-bg-1);
 
+		&.transparent {
+			background-color: transparent;
+		}
+
 		&.draggable {
 			cursor: grab;
 
@@ -104,6 +114,11 @@
 					opacity: 1;
 				}
 			}
+		}
+
+		&.compact {
+			padding-right: 0;
+			padding-left: 0;
 		}
 	}
 

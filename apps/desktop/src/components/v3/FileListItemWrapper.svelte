@@ -37,6 +37,7 @@
 		executable?: boolean;
 		showCheckbox?: boolean;
 		draggable?: boolean;
+		transparent?: boolean;
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 		onCloseClick?: () => void;
@@ -59,6 +60,7 @@
 		showCheckbox,
 		conflictEntries,
 		draggable,
+		transparent,
 		onclick,
 		onkeydown,
 		onCloseClick
@@ -118,6 +120,7 @@
 	class="filelistitem-wrapper"
 	data-remove-from-panning
 	class:filelistitem-header={isHeader}
+	class:transparent
 	bind:this={draggableEl}
 	use:draggableChips={{
 		label: getFilename(change.path),
@@ -188,6 +191,10 @@
 		   makes any :hover css trigger excessive layout passes, thus making
 		   the interface super slow. */
 		display: block;
+		background-color: var(--clr-bg-1);
+		&.transparent {
+			background-color: transparent;
+		}
 	}
 	.filelistitem-header {
 		z-index: var(--z-lifted);

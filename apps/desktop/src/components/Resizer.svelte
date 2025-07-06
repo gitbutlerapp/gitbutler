@@ -27,11 +27,13 @@
 		/** Minimum width for the resizable element */
 		minWidth?: number;
 		maxWidth?: number;
+		maxHeight?: number;
 		minHeight?: number;
 		/** Enabled, but does not set the width/height on the dom element */
 		passive?: boolean;
 		/** Doubles or halves the width on double click */
 		dblclickSize?: boolean;
+		clientHeight?: number;
 
 		// Actions
 		onHeight?: (height: number) => void;
@@ -42,7 +44,7 @@
 		onDblClick?: () => void;
 	}
 
-	const {
+	let {
 		defaultValue,
 		viewport,
 		direction,
@@ -50,6 +52,7 @@
 		minWidth = 0,
 		maxWidth = 120,
 		minHeight = 0,
+		maxHeight = 120,
 		borderRadius = 'none',
 		imitateBorder,
 		borderColor = 'var(--clr-border-2)',
@@ -57,6 +60,7 @@
 		persistId,
 		passive,
 		dblclickSize,
+		clientHeight = $bindable(),
 		onResizing,
 		onOverflow,
 		onHover,
@@ -79,6 +83,7 @@
 
 	let initial = 0;
 	let dragging = $state(false);
+	let resizerDiv = $state<HTMLDivElement>();
 
 	function onMouseDown(e: MouseEvent) {
 		e.stopPropagation();
@@ -94,38 +99,62 @@
 		onResizing?.(true);
 	}
 
-	function onMouseMove(e: MouseEvent) {
-		dragging = true;
+	function applyLimits(value: number) {
 		let newValue: number | undefined;
 		let overflow: number | undefined;
 		if (direction === 'down') {
-			let height = (e.clientY - initial) / base;
-			newValue = Math.max(height, minHeight);
-			overflow = minHeight - height;
+			newValue = Math.min(Math.max(value, minHeight), maxHeight);
+			overflow = minHeight - value;
 		}
 		if (direction === 'up') {
-			let height = (document.body.scrollHeight - e.clientY - initial) / base;
-			newValue = Math.max(height, minHeight);
-			overflow = minHeight - height;
+			newValue = Math.min(Math.max(value, minHeight), maxHeight);
+			overflow = minHeight - value;
 		}
 		if (direction === 'right') {
-			let width = (e.clientX - initial + 2) / base;
-			newValue = Math.min(Math.max(width, minWidth), maxWidth);
-			overflow = minWidth - width;
+			newValue = Math.min(Math.max(value, minWidth), maxWidth);
+			overflow = minWidth - value;
 		}
 		if (direction === 'left') {
-			let width = (document.body.scrollWidth - e.clientX - initial) / base;
-			newValue = Math.min(Math.max(width, minWidth), maxWidth);
-			overflow = minWidth - width;
+			newValue = Math.min(Math.max(value, minWidth), maxWidth);
+			overflow = minWidth - value;
 		}
-		if (newValue) {
+
+		return { newValue, overflow };
+	}
+
+	function onMouseMove(e: MouseEvent) {
+		dragging = true;
+		let limitedValue:
+			| {
+					newValue?: number;
+					overflow?: number;
+			  }
+			| undefined;
+		if (direction === 'down') {
+			limitedValue = applyLimits((e.clientY - initial) / base);
+		}
+		if (direction === 'up') {
+			limitedValue = applyLimits((document.body.scrollHeight - e.clientY - initial) / base);
+		}
+		if (direction === 'right') {
+			limitedValue = applyLimits((e.clientX - initial + 2) / base);
+		}
+		if (direction === 'left') {
+			limitedValue = applyLimits((document.body.scrollWidth - e.clientX - initial) / base);
+		}
+		if (!limitedValue) {
+			return;
+		}
+		const { newValue, overflow } = limitedValue;
+		if (newValue && !passive) {
+			value.set(newValue);
 			updateDom(newValue);
 			onWidth?.(newValue);
 		}
 		if (overflow) {
 			onOverflow?.(overflow);
 		}
-		if (e.shiftKey && syncName && newValue !== undefined) {
+		if (e.shiftKey && syncName && newValue !== undefined && !passive) {
 			resizeSync.emit(syncName, resizerId, newValue);
 		}
 	}
@@ -137,18 +166,30 @@
 		onResizing?.(false);
 	}
 
-	function updateDom(newValue: number) {
+	function updateDom(newValue?: number) {
+		if (!viewport) {
+			return;
+		}
 		if (passive) {
 			viewport.style.width = '';
 			viewport.style.height = '';
 			return;
 		}
-		if (direction === 'left' || direction === 'right') {
+
+		if (newValue === undefined) {
+			newValue = defaultValue;
+		} else {
+			newValue = applyLimits(newValue).newValue;
+		}
+
+		if (newValue === undefined) {
+			viewport.style.width = '';
+			viewport.style.height = '';
+		} else if (direction === 'left' || direction === 'right') {
 			viewport.style.width = newValue + 'rem';
 		} else if (direction === 'up' || direction === 'down') {
 			viewport.style.height = newValue + 'rem';
 		}
-		value.set(newValue);
 	}
 
 	function isHovered(isHovered: boolean) {
@@ -166,32 +207,41 @@
 	});
 
 	$effect(() => {
-		if ($value && viewport) {
+		if ($value) {
 			updateDom($value);
 			onWidth?.($value);
 		}
 	});
 
 	$effect(() => {
-		if (viewport && dblclickSize) {
-			return on(viewport, 'dblclick', cycleWidth);
+		if (maxWidth || minWidth || maxHeight || minHeight) {
+			updateDom($value);
 		}
 	});
 
-	function cycleWidth() {
-		// noop for now - way too many false positives where accidentally double-clicking causes content shift
-		//
-		// if (direction === 'up' || direction === 'down') return;
-		// const width = $value || viewport.offsetWidth;
-		// if (width && width > maxWidth / 2) {
-		// 	value.set(Math.floor(width / 2));
-		// } else if (width) {
-		// 	value.set(Math.floor(width * 2));
-		// }
+	$effect(() => {
+		if (resizerDiv && dblclickSize) {
+			return on(resizerDiv, 'dblclick', reset);
+		}
+	});
+
+	$effect(() => {
+		if (viewport) {
+			clientHeight = viewport.clientHeight;
+			const monitor = new ResizeObserver((e) => (clientHeight = e[0]?.target.clientHeight));
+			monitor.observe(viewport);
+			return () => monitor.disconnect();
+		}
+	});
+
+	function reset() {
+		updateDom(undefined);
+		value.set(undefined);
 	}
 </script>
 
 <div
+	bind:this={resizerDiv}
 	data-remove-from-draggable
 	onmousedown={onMouseDown}
 	ondblclick={onDblClick}
