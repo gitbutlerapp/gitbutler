@@ -32,7 +32,7 @@
 	import { AppSettings } from '$lib/config/appSettings';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { GitConfigService } from '$lib/config/gitConfigService';
-	import { ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
+	import { compactWorkspace, ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
 	import DependencyService from '$lib/dependencies/dependencyService.svelte';
 	import { DropzoneRegistry } from '$lib/dragging/registry';
 	import { FileService } from '$lib/files/fileService';
@@ -169,7 +169,13 @@
 
 	const uncommittedService = new UncommittedService(clientState, worktreeService, diffService);
 	setContext(UncommittedService, uncommittedService);
-	const idSelection = new IdSelection(stackService, uncommittedService);
+
+	const idSelection = new IdSelection(
+		stackService,
+		uncommittedService,
+		worktreeService,
+		oplogService
+	);
 
 	const cloudBranchService = new CloudBranchService(data.cloud, appState.appDispatch);
 	const cloudPatchService = new CloudPatchCommitService(data.cloud, appState.appDispatch);
@@ -284,6 +290,10 @@
 	});
 
 	const handleKeyDown = createKeybind({
+		// Toggle v3 design on/off
+		'c 3': () => {
+			compactWorkspace.set(!$compactWorkspace);
+		},
 		// Toggle v3 design on/off
 		'v 3': () => {
 			settingsService.updateFeatureFlags({ v3: !$settingsStore?.featureFlags.v3 });

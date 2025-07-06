@@ -8,8 +8,6 @@
 	import WorktreeChangesSelectAll from '$components/v3/WorktreeChangesSelectAll.svelte';
 	import { createCommitStore } from '$lib/commits/contexts';
 	import { UncommitDzHandler } from '$lib/commits/dropHandler';
-	import { DefinedFocusable, uncommittedFocusableId } from '$lib/focus/focusManager.svelte';
-	import { focusable } from '$lib/focus/focusable.svelte';
 	import { DiffService } from '$lib/hunks/diffService.svelte';
 	import { AssignmentDropHandler } from '$lib/hunks/dropHandler';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
@@ -137,13 +135,7 @@
 		/>
 	{/snippet}
 
-	<div
-		class="uncommitted-changes-wrap"
-		use:focusable={{
-			id: stackId ? uncommittedFocusableId(stackId) : DefinedFocusable.UncommittedChanges,
-			parentId: stackId ? DefinedFocusable.ViewportRight : DefinedFocusable.ViewportLeft
-		}}
-	>
+	<div class="uncommitted-changes-wrap">
 		{#if mode === 'unassigned' || changes.current.length > 0}
 			<div
 				role="presentation"

@@ -1,7 +1,14 @@
 <script lang="ts">
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
+	import ReduxResult from '$components/ReduxResult.svelte';
+	import FileListItemWrapper from '$components/v3/FileListItemWrapper.svelte';
 	import SelectTopreviewPlaceholder from '$components/v3/SelectTopreviewPlaceholder.svelte';
-	import SelectedChange from '$components/v3/SelectedChange.svelte';
+	import UnifiedDiffView from '$components/v3/UnifiedDiffView.svelte';
+	import { DiffService } from '$lib/hunks/diffService.svelte';
+	import {
+		IntelligentScrollingService,
+		scrollingAttachment
+	} from '$lib/intelligentScrolling/service';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { readKey, type SelectionId } from '$lib/selection/key';
 	import { inject } from '@gitbutler/shared/context';
@@ -10,13 +17,27 @@
 		projectId: string;
 		selectionId?: SelectionId;
 		draggableFiles?: boolean;
+		diffOnly?: boolean;
+		topPadding?: boolean;
 		onclose?: () => void;
 		testId?: string;
 	};
 
-	let { projectId, selectionId, draggableFiles, onclose, testId }: Props = $props();
+	let {
+		projectId,
+		selectionId,
+		draggableFiles: draggable,
+		diffOnly,
+		topPadding,
+		onclose,
+		testId
+	}: Props = $props();
 
-	const [idSelection] = inject(IdSelection);
+	const [idSelection, diffService, intelligentScrollingService] = inject(
+		IdSelection,
+		DiffService,
+		IntelligentScrollingService
+	);
 
 	const selection = $derived(selectionId ? idSelection.valuesReactive(selectionId) : undefined);
 	const lastAdded = $derived(selectionId ? idSelection.getById(selectionId).lastAdded : undefined);
@@ -27,22 +48,59 @@
 		if (selection.current.length === 1 || !$lastAdded) return selection.current[0];
 		return readKey($lastAdded.key);
 	});
+
+	const stackId = selectionId && `stackId` in selectionId ? selectionId.stackId : undefined;
 </script>
 
-<div class="selection-view" data-testid={testId}>
+<div
+	class="selection-view"
+	data-testid={testId}
+	{@attach scrollingAttachment(intelligentScrollingService, stackId, 'diff')}
+>
 	{#if selectedFile}
+		{@const changeResult = idSelection.changeByKey(projectId, selectedFile)}
 		<ScrollableContainer wide zIndex="var(--z-lifted)">
-			<SelectedChange
-				{projectId}
-				{selectedFile}
-				draggable={draggableFiles}
-				onCloseClick={() => {
-					if (selectionId) {
-						idSelection.remove(selectedFile.path, selectedFile);
-					}
-					onclose?.();
-				}}
-			/>
+			<ReduxResult {projectId} result={changeResult.current}>
+				{#snippet children(change)}
+					{@const diffResult = diffService.getDiff(projectId, change)}
+					<ReduxResult {projectId} result={diffResult.current}>
+						{#snippet children(diff, env)}
+							{@const isExecutable = true}
+							<div class="selected-change-item" data-remove-from-panning>
+								{#if !diffOnly}
+									<FileListItemWrapper
+										selectionId={selectedFile}
+										projectId={env.projectId}
+										{change}
+										{diff}
+										{draggable}
+										isHeader
+										executable={!!isExecutable}
+										listMode="list"
+										onCloseClick={() => {
+											if (idSelection) {
+												idSelection.remove(selectedFile.path, selectedFile);
+											}
+											onclose?.();
+										}}
+									/>
+								{/if}
+								<UnifiedDiffView
+									projectId={env.projectId}
+									stackId={'stackId' in selectedFile ? selectedFile.stackId : undefined}
+									commitId={selectedFile.type === 'commit' ? selectedFile.commitId : undefined}
+									{draggable}
+									{change}
+									{diff}
+									selectable
+									selectionId={selectedFile}
+									{topPadding}
+								/>
+							</div>
+						{/snippet}
+					</ReduxResult>
+				{/snippet}
+			</ReduxResult>
 		</ScrollableContainer>
 	{:else}
 		<SelectTopreviewPlaceholder />
@@ -56,5 +114,8 @@
 		width: 100%;
 		height: 100%;
 		overflow: hidden;
+	}
+	.selected-change-item {
+		background-color: var(--clr-bg-1);
 	}
 </style>

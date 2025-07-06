@@ -37,6 +37,7 @@ describe('Selection', () => {
 
 		for (const stack of stacks) {
 			const stackName = stack.heads[0]?.name;
+			const stackId = stack.id;
 			if (!stackName) continue;
 
 			cy.getByTestIdByValue('branch-header', stackName)
@@ -46,7 +47,7 @@ describe('Selection', () => {
 					cy.urlMatches(`/${PROJECT_ID}/workspace`);
 				});
 			// Check if the file list is updated
-			cy.getByTestId('branch-view', stackName)
+			cy.getByTestIdByValue('stack', stackId)
 				.scrollIntoView()
 				.should('be.visible')
 				.within(() => {
@@ -63,13 +64,14 @@ describe('Selection', () => {
 		cy.getByTestId('branch-header').should('contain', mockBackend.stackId);
 
 		const stacks = mockBackend.getStacks();
+		const stack = stacks[0]!;
 		// There shuold be three stacks
 		cy.getByTestId('stack').should('have.length', stacks.length);
 
 		// Select the initial commit which should be local only
 		cy.getByTestId('commit-row', 'Initial commit').first().click();
 
-		cy.getByTestId('commit-drawer')
+		cy.getByTestIdByValue('stack', stack.id)
 			.should('be.visible')
 			.within(() => {
 				cy.getByTestId('commit-drawer-title').should('contain', 'Initial commit');

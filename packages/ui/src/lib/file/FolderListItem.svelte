@@ -10,6 +10,7 @@
 		indeterminate?: boolean;
 		isExpanded?: boolean;
 		depth?: number;
+		transparent?: boolean;
 		oncheck?: (
 			e: Event & {
 				currentTarget: EventTarget & HTMLInputElement;
@@ -28,6 +29,7 @@
 		indeterminate,
 		isExpanded = true,
 		depth,
+		transparent,
 		oncheck,
 		ontoggle,
 		onclick,
@@ -43,6 +45,7 @@
 	class="folder-list-item"
 	role="presentation"
 	tabindex="-1"
+	class:transparent
 	onclick={(e) => {
 		e.stopPropagation();
 		onclick?.(e);
@@ -94,10 +97,14 @@
 		height: 32px;
 		padding: 8px 8px 8px 14px;
 		gap: 8px;
+		background-color: var(--clr-bg-1);
 		cursor: pointer;
 
 		&:hover {
 			background-color: var(--clr-bg-1-muted);
+		}
+		&.transparent {
+			background-color: transparent;
 		}
 	}
 
