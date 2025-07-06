@@ -159,8 +159,9 @@ pre {
 /* ACCESSIBILITY */
 .focus-state {
 	outline: none;
+	outline-offset: 2px;
 
 	&:focus-visible {
-		outline: 2px solid var(--focus-color);
+		outline: 0.094rem solid var(--focus-color);
 	}
 }

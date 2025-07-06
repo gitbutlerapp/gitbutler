@@ -13,8 +13,7 @@
 		args: {
 			title: 'The title of the InfoButton',
 			children: 'This is the content of the InfoButton' as any,
-			size: 'medium',
-			icon: 'info'
+			size: 'medium'
 		},
 		argTypes: {
 			size: {

@@ -44,7 +44,7 @@
 	}
 
 	$effect(() => {
-		if (isCommitting) {
+		if (isCommitting && changesToCommit) {
 			unassignedSidebaFolded.set(false);
 		}
 	});

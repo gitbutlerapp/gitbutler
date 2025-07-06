@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Icon from '$lib/Icon.svelte';
 	import { portal } from '$lib/utils/portal';
-	import { setPosition } from '$lib/utils/tooltipPosition';
+	import { tooltip } from '$lib/utils/tooltipPosition';
 	import { flyScale } from '$lib/utils/transitions';
 	import type iconsJson from '$lib/data/icons.json';
 	import type { Snippet } from 'svelte';
@@ -9,12 +9,20 @@
 	interface Props {
 		title?: string;
 		size?: 'small' | 'medium';
+		maxWidth?: string;
 		icon?: keyof typeof iconsJson;
 		inheritColor?: boolean;
 		children: Snippet;
 	}
 
-	const { title, size = 'medium', icon, children, inheritColor }: Props = $props();
+	const {
+		title,
+		size = 'medium',
+		maxWidth = '16rem',
+		icon,
+		children,
+		inheritColor
+	}: Props = $props();
 
 	let targetEl: HTMLElement | undefined = $state();
 	let show = $state(false);
@@ -71,16 +79,18 @@
 	{#if show}
 		<div
 			use:portal={'body'}
-			use:setPosition={{ targetEl, position: 'bottom', align: 'center', gap: 2 }}
+			use:tooltip={{
+				targetEl,
+				position: 'bottom',
+				align: 'center'
+			}}
 			class="tooltip-container"
 			role="presentation"
 			transition:flyScale
 			onmouseenter={handleCardMouseEnter}
 			onmouseleave={handleCardMouseLeave}
 		>
-			<div class="tooltip-arrow"></div>
-
-			<div class="tooltip-card">
+			<div class="tooltip-card" style:max-width={maxWidth}>
 				{#if title}
 					<h3 class="text-13 text-semibold tooltip-title">{title}</h3>
 				{/if}
@@ -94,12 +104,12 @@
 
 <style lang="postcss">
 	.wrapper {
+		--default-size: 14px;
+		--small-size: 12px;
+
 		display: inline-flex;
 		position: relative;
 		transform: translateY(10%);
-
-		--default-size: 14px;
-		--small-size: 12px;
 	}
 
 	.info-custom-icon {
@@ -119,7 +129,7 @@
 
 	.info-button {
 		position: relative;
-		flex-shrink: 0;
+		width: 50px;
 		border-radius: var(--default-size);
 		box-shadow: inset 0 0 0 1.5px var(--clr-text-2);
 		color: var(--clr-text-2);
@@ -156,7 +166,6 @@
 				width: 2px;
 				height: 2px;
 			}
-
 			&::after {
 				top: 6px;
 				width: 2px;
@@ -175,7 +184,6 @@
 				width: 2px;
 				height: 2px;
 			}
-
 			&::after {
 				top: 6px;
 				width: 2px;
@@ -196,11 +204,10 @@
 		display: flex;
 		flex-direction: column;
 		width: max-content;
-		max-width: 260px;
 		padding: 12px;
-		gap: 6px;
+		gap: 4px;
 		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
+		border-radius: var(--radius-ml);
 		background-color: var(--clr-bg-1);
 		box-shadow: var(--fx-shadow-m);
 	}
@@ -213,30 +220,5 @@
 	.tooltip-description {
 		color: var(--clr-scale-ntrl-40);
 		user-select: text;
-	}
-
-	.tooltip-arrow {
-		display: flex;
-		z-index: var(--z-lifted);
-		position: relative;
-		top: 1px;
-		justify-content: center;
-		width: 100%;
-		width: fit-content;
-		height: 10px;
-		margin: 0 auto;
-		overflow: hidden;
-
-		&::before {
-			position: relative;
-			top: 4px;
-			width: 20px;
-			height: 20px;
-			transform: rotate(45deg);
-			border: 1px solid var(--clr-border-2);
-			border-radius: 2px;
-			background-color: var(--clr-bg-1);
-			content: '';
-		}
 	}
 </style>
