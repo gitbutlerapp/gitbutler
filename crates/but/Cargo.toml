@@ -1,6 +1,6 @@
 [package]
 name = "but"
-version = "0.0.0"
+version = "0.0.1"
 edition = "2024"
 repository = "https://github.com/gitbutlerapp/gitbutler"
 license-file = "../../LICENSE.md"
@@ -53,3 +53,6 @@ tracing-subscriber = { version = "0.3", features = [
     "fmt",
 ] }
 dirs-next = "2.0.0"
+
+[build-dependencies]
+chrono = "0.4"

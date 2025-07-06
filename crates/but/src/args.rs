@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 #[derive(Debug, clap::Parser)]
-#[clap(name = "but", about = "A GitButler CLI tool", version = option_env!("GIX_VERSION"))]
+#[clap(name = "but", about = "A GitButler CLI tool", version = option_env!("GIX_VERSION"), disable_version_flag = true)]
 pub struct Args {
     /// Run as if gitbutler-cli was started in PATH instead of the current working directory.
     #[clap(short = 'C', long, default_value = ".", value_name = "PATH")]
@@ -9,9 +9,12 @@ pub struct Args {
     /// Whether to use JSON output format.
     #[clap(long, short = 'j')]
     pub json: bool,
+    /// Show the version and exit (custom -v/--version flag).
+    #[clap(long = "version", short = 'v', action)]
+    pub custom_version: bool,
     /// Subcommand to run.
     #[clap(subcommand)]
-    pub cmd: Subcommands,
+    pub cmd: Option<Subcommands>,
 }
 
 #[derive(Debug, clap::Subcommand)]
