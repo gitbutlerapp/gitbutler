@@ -22,7 +22,7 @@ describe('Unified Diff View', () => {
 		clearCommandMocks();
 	});
 
-	it('should open the unified diff view when clicking on a file and show the dependency locks', () => {
+	it('should show dependency locks when viewing diffs and hide them when in commit mode', () => {
 		// There should be uncommitted changes
 		cy.getByTestId('uncommitted-changes-file-list')
 			.should('be.visible')
@@ -73,15 +73,12 @@ describe('Unified Diff View', () => {
 			cy.getByTestId('file-list-item', fileName).click();
 		});
 
-		// Click on the commit button
-		cy.getByTestId('start-commit-button').first().click();
-
-		// The unified diff view should be visible
+		// The unified diff view should be visible and show locks before entering commit mode
 		cy.getByTestId('unified-diff-view')
 			.first()
 			.should('be.visible')
 			.within(() => {
-				// The line locks shold be visible
+				// The line locks should be visible when not in commit mode
 				cy.get('[data-testid="hunk-line-locking-info"]')
 					.should('have.length', 5)
 					.first()
@@ -90,6 +87,18 @@ describe('Unified Diff View', () => {
 
 		// The tooltip should be visible
 		cy.getByTestId('unified-diff-view-lock-warning').should('be.visible');
+
+		// Click on the commit button to enter commit mode
+		cy.getByTestId('start-commit-button').first().click();
+
+		// The unified diff view should be visible but locks should be hidden in commit mode
+		cy.getByTestId('unified-diff-view')
+			.first()
+			.should('be.visible')
+			.within(() => {
+				// The line locks should NOT be visible when in commit mode
+				cy.get('[data-testid="hunk-line-locking-info"]').should('not.exist');
+			});
 
 		// Cancel the commit.
 		cy.getByTestId('commit-drawer-cancel-button').scrollIntoView().should('be.visible').click();

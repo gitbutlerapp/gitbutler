@@ -115,12 +115,7 @@
 	.info-custom-icon {
 		display: flex;
 		color: var(--clr-text-1);
-		opacity: 0.5;
 		transition: all var(--transition-fast);
-
-		&:hover {
-			opacity: 0.7;
-		}
 
 		&.inherit-color {
 			color: inherit;

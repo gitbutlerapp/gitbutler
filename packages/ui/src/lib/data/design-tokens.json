@@ -2789,12 +2789,205 @@
 				},
 				"count-text": {
 					"$type": "color",
+					"$value": "#d09226",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#d09226",
+							"dark": "#d7a754"
+						}
+					}
+				},
+				"count-bg-hover": {
+					"$type": "color",
+					"$value": "#fae5b9",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#fae5b9",
+							"dark": "#6b4916"
+						}
+					}
+				},
+				"count-checkmark": {
+					"$type": "color",
 					"$value": "#d38f19",
 					"$description": "",
 					"$extensions": {
 						"mode": {
 							"light": "#d38f19",
-							"dark": "#ebbb68"
+							"dark": "#d7a754"
+						}
+					}
+				}
+			},
+			"locked-contrast-2": {
+				"count-bg": {
+					"$type": "color",
+					"$value": "#fdedcd",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#fdedcd",
+							"dark": "#6d4b19"
+						}
+					}
+				},
+				"count-bg-hover": {
+					"$type": "color",
+					"$value": "#fae5b9",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#fae5b9",
+							"dark": "#73511d"
+						}
+					}
+				},
+				"count-border": {
+					"$type": "color",
+					"$value": "#eec681",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#eec681",
+							"dark": "#916d39"
+						}
+					}
+				},
+				"count-text": {
+					"$type": "color",
+					"$value": "#d09227",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#d09227",
+							"dark": "#e1b15e"
+						}
+					}
+				},
+				"count-checkmark": {
+					"$type": "color",
+					"$value": "#d09227",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#d09227",
+							"dark": "#dfb670"
+						}
+					}
+				}
+			},
+			"locked-contrast-3": {
+				"count-bg": {
+					"$type": "color",
+					"$value": "#fae6ad",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#fae6ad",
+							"dark": "#775118"
+						}
+					}
+				},
+				"count-bg-hover": {
+					"$type": "color",
+					"$value": "#f8d996",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#f8d996",
+							"dark": "#875f23"
+						}
+					}
+				},
+				"count-border": {
+					"$type": "color",
+					"$value": "#e6be79",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#e6be79",
+							"dark": "#9c7237"
+						}
+					}
+				},
+				"count-text": {
+					"$type": "color",
+					"$value": "#bc7e13",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#bc7e13",
+							"dark": "#e0b05d"
+						}
+					}
+				},
+				"count-checkmark": {
+					"$type": "color",
+					"$value": "#bc7e13",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#bc7e13",
+							"dark": "#e1b15e"
+						}
+					}
+				}
+			},
+			"locked-selected": {
+				"count-bg": {
+					"$type": "color",
+					"$value": "#fad487",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#fad487",
+							"dark": "#9b681d"
+						}
+					}
+				},
+				"count-bg-hover": {
+					"$type": "color",
+					"$value": "#f5c76a",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#f5c76a",
+							"dark": "#aa7220"
+						}
+					}
+				},
+				"count-border": {
+					"$type": "color",
+					"$value": "#dda84d",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#dda84d",
+							"dark": "#734f1b"
+						}
+					}
+				},
+				"count-text": {
+					"$type": "color",
+					"$value": "#a47524",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#a47524",
+							"dark": "#ecd2a5"
+						}
+					}
+				},
+				"count-checkmark": {
+					"$type": "color",
+					"$value": "#a47524",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#a47524",
+							"dark": "#ecd2a5"
 						}
 					}
 				}
@@ -3520,7 +3713,7 @@
 			}
 		}
 	},
-	"Effect-styles": {
+	"fx": {
 		"shadow": {
 			"s": {
 				"$type": "shadow",
@@ -3568,7 +3761,7 @@
 			"useDTCGKeys": true,
 			"colorMode": "hex",
 			"variableCollections": ["clr-core", "clr", "size", "radius", "text", "opacity"],
-			"createdAt": "2025-06-16T09:39:08.710Z"
+			"createdAt": "2025-07-05T14:05:37.398Z"
 		}
 	}
 }
