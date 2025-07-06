@@ -201,7 +201,7 @@
 	{#if !isSelectingForCommit && hunkHasLocks}
 		{#if lockWarning && locked}
 			<td
-				data-testid="hunk-count-column"
+				data-testid="hunk-line-locking-info"
 				class="table__lockColumn"
 				data-no-drag
 				class:locked
