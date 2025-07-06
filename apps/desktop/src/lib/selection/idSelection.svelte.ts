@@ -9,10 +9,12 @@ import {
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { SvelteSet } from 'svelte/reactivity';
 import { get, writable, type Writable } from 'svelte/store';
+import type { OplogService } from '$lib/history/oplogService.svelte';
 import type { TreeChange } from '$lib/hunks/change';
 import type { HunkAssignment } from '$lib/hunks/hunk';
 import type { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 import type { StackService } from '$lib/stacks/stackService.svelte';
+import type { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 
 /**
  * File selection mechanism based on strings id's.
@@ -38,7 +40,9 @@ export class IdSelection {
 
 	constructor(
 		private stackService: StackService,
-		private uncommittedService: UncommittedService
+		private uncommittedService: UncommittedService,
+		private worktreeService: WorktreeService,
+		private oplogService: OplogService
 	) {
 		this.selections = new Map();
 		this.selections.set(selectionKey({ type: 'worktree' }), {
@@ -217,6 +221,30 @@ export class IdSelection {
 	removeMany(fileKey: SelectedFile[]) {
 		for (const key of fileKey) {
 			this.remove(key.path, key);
+		}
+	}
+
+	changeByKey(projectId: string, selectedFile: SelectedFile) {
+		switch (selectedFile.type) {
+			case 'commit':
+				return this.stackService.commitChange(projectId, selectedFile.commitId, selectedFile.path);
+			case 'branch':
+				return this.stackService.branchChange({
+					projectId,
+					stackId: selectedFile.stackId,
+					branchName: selectedFile.branchName,
+					path: selectedFile.path
+				});
+			case 'worktree':
+				this.uncommittedService.assignmentsByPath(selectedFile.stackId || null, selectedFile.path);
+				return this.worktreeService.treeChangeByPath(projectId, selectedFile.path);
+			case 'snapshot':
+				return this.oplogService.diffWorktreeByPath({
+					projectId,
+					before: selectedFile.before,
+					after: selectedFile.after,
+					path: selectedFile.path
+				});
 		}
 	}
 }

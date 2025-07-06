@@ -141,7 +141,10 @@ the window, then enlarge it and retain the original widths of the layout.
 			bind:this={leftDiv}
 			style:width={finalLeftWidth + 'rem'}
 			style:min-width={leftMinWidth + 'rem'}
-			use:focusable={{ id: DefinedFocusable.ViewportLeft, parentId: DefinedFocusable.MainViewport }}
+			use:focusable={{
+				id: DefinedFocusable.ViewportLeft,
+				parentId: DefinedFocusable.MainViewport
+			}}
 		>
 			<AsyncRender>
 				<div class="left-section__content">
@@ -203,7 +206,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		style:min-width={middleMinWidth + 'rem'}
 		style:margin-right={right ? '0' : ''}
 		use:focusable={{
-			id: DefinedFocusable.ViewportRight,
+			id: DefinedFocusable.ViewportMiddle,
 			parentId: DefinedFocusable.MainViewport
 		}}
 	>
@@ -218,7 +221,7 @@ the window, then enlarge it and retain the original widths of the layout.
 			bind:this={rightDiv}
 			style:width={finalRightWidth + 'rem'}
 			use:focusable={{
-				id: DefinedFocusable.ViewportDrawerRight,
+				id: DefinedFocusable.ViewportRight,
 				parentId: DefinedFocusable.MainViewport
 			}}
 		>

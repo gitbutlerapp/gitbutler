@@ -54,7 +54,7 @@ describe('Unified Diff View', () => {
 			.should('contain', stackName)
 			.click()
 			.then(() => {
-				cy.getByTestId('branch-view')
+				cy.getByTestIdByValue('stack', stack.id)
 					.should('be.visible')
 					.within(() => {
 						// Check if the file list is updated
@@ -164,7 +164,8 @@ describe('Unified Diff View', () => {
 
 		// The branch drawer should be opened.
 		// Open a file from the list changes.
-		cy.getByTestId('branch-view')
+		cy.getByTestId('stack')
+			.first()
 			.should('be.visible')
 			.within(() => {
 				cy.getByTestId('file-list-item').should('have.length', 3).first().click();

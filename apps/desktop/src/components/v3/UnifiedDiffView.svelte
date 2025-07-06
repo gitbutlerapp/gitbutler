@@ -40,6 +40,7 @@
 		stackId?: string;
 		commitId?: string;
 		draggable?: boolean;
+		topPadding?: boolean;
 	};
 
 	const {
@@ -50,7 +51,8 @@
 		selectionId,
 		stackId,
 		commitId,
-		draggable
+		draggable,
+		topPadding
 	}: Props = $props();
 
 	const [project, uiState, dropzoneRegistry] = inject(Project, UiState, DropzoneRegistry);
@@ -106,7 +108,12 @@
 
 <ReduxResult {projectId} result={fileDependenciesResult.current}>
 	{#snippet children(fileDependencies)}
-		<div data-testid={TestId.UnifiedDiffView} class="diff-section" bind:this={viewport}>
+		<div
+			data-testid={TestId.UnifiedDiffView}
+			class="diff-section"
+			class:top-padding={topPadding}
+			bind:this={viewport}
+		>
 			{#if diff.type === 'Patch'}
 				{@const linesModified = diff.subject.linesAdded + diff.subject.linesRemoved}
 				{#if linesModified > LARGE_DIFF_THRESHOLD && !showAnyways}
@@ -265,6 +272,9 @@
 		padding: 0 14px 14px 14px;
 		overflow-x: hidden;
 		gap: 14px;
+		&.top-padding {
+			padding-top: 14px;
+		}
 	}
 	.hunk-placehoder {
 		border: 1px solid var(--clr-border-3);

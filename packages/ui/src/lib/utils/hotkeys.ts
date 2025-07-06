@@ -30,11 +30,3 @@ export enum KeyName {
 	Right = 'ArrowRight',
 	Delete = 'Backspace'
 }
-
-export function onMetaEnter(callback: () => void) {
-	return (e: KeyboardEvent) => {
-		if (e.key === KeyName.Enter && (e.metaKey || e.ctrlKey)) {
-			callback();
-		}
-	};
-}

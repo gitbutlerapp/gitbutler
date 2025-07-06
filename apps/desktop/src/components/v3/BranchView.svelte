@@ -5,7 +5,6 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import BranchDetails from '$components/v3/BranchDetails.svelte';
 	import BranchHeaderContextMenu from '$components/v3/BranchHeaderContextMenu.svelte';
-	import ChangedFiles from '$components/v3/ChangedFiles.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
 	import KebabButton from '$components/v3/KebabButton.svelte';
 	import NewBranchModal from '$components/v3/NewBranchModal.svelte';
@@ -17,23 +16,38 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import type { BranchHeaderContextItem } from '$components/v3/BranchHeaderContextMenu.svelte';
+	import type { TargetType } from '$lib/intelligentScrolling/service';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		stackId: string;
 		projectId: string;
 		branchName: string;
 		active?: boolean;
+		collapsible?: boolean;
+		scrollToType?: TargetType;
+		scrollToId?: string;
+		resizer?: Snippet<[{ element: HTMLDivElement; collapsed?: boolean }]>;
 		onerror?: (err: unknown) => void;
 		onclose?: () => void;
 	}
 
-	const { stackId, projectId, branchName, active, onerror, onclose }: Props = $props();
+	const {
+		stackId,
+		projectId,
+		branchName,
+		collapsible,
+		scrollToId,
+		scrollToType,
+		resizer,
+		onerror,
+		onclose
+	}: Props = $props();
 
 	const [stackService] = inject(StackService);
 
-	const branchesResult = $derived(stackService.branches(projectId, stackId));
-
 	const branchResult = $derived(stackService.branchDetails(projectId, stackId, branchName));
+	const branchesResult = $derived(stackService.branches(projectId, stackId));
 	const topCommitResult = $derived(stackService.commitAt(projectId, stackId, branchName, 0));
 
 	let headerMenuContext = $state<BranchHeaderContextItem>();
@@ -52,7 +66,16 @@
 	{#snippet children([branches, branch, topCommit], { stackId, projectId })}
 		{@const hasCommits = !!topCommit || branch.upstreamCommits.length > 0}
 		{@const remoteTrackingBranch = branch.remoteTrackingBranch}
-		<Drawer testId={TestId.BranchView} {onclose}>
+		<Drawer
+			testId={TestId.BranchView}
+			{collapsible}
+			{scrollToId}
+			{scrollToType}
+			{resizer}
+			{onclose}
+			headerNoPaddingLeft={collapsible}
+			bottomBorder={!!resizer || !collapsible}
+		>
 			{#snippet header()}
 				<div class="branch__header">
 					{#if hasCommits}
@@ -110,22 +133,6 @@
 					</p>
 				</div>
 			{/if}
-
-			{#snippet filesSplitView()}
-				{@const changesResult = stackService.branchChanges({ projectId, stackId, branchName })}
-				<ReduxResult {projectId} {stackId} result={changesResult.current} {onerror}>
-					{#snippet children(changes, { projectId, stackId })}
-						<ChangedFiles
-							title="All changed files"
-							{projectId}
-							{stackId}
-							selectionId={{ type: 'branch', stackId, branchName }}
-							{changes}
-							{active}
-						/>
-					{/snippet}
-				</ReduxResult>
-			{/snippet}
 		</Drawer>
 
 		<NewBranchModal {projectId} {stackId} bind:this={newBranchModal} />

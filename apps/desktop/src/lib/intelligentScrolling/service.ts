@@ -1,21 +1,19 @@
 import { sleep } from '$lib/utils/sleep';
 import type { UiState } from '$lib/state/uiState.svelte';
 
-type Target = 'stack' | 'new-stack' | 'details' | 'diff';
+export type TargetType = 'stack' | 'new-stack' | 'details' | 'diff';
 
 export class IntelligentScrollingService {
 	private targets: {
 		element: Element;
-		target: Target;
-		projectId: string;
-		stackId: string;
+		type: TargetType;
+		id: string;
 	}[] = [];
 
 	constructor(private readonly uiState: UiState) {}
 
-	register(target: { element: Element; target: Target; projectId: string; stackId: string }) {
+	register(target: { element: Element; type: TargetType; id: string }) {
 		this.targets.push(target);
-
 		return () => {
 			this.targets = this.targets.filter((t) => t !== target);
 		};
@@ -30,9 +28,7 @@ export class IntelligentScrollingService {
 		if (committingState?.type !== 'commit') return;
 
 		const targetId = committingState.stackId;
-		const target = this.targets.find(
-			(t) => t.projectId === projectId && t.target === 'stack' && t.stackId === targetId
-		);
+		const target = this.targets.find((t) => t.type === 'stack' && t.id === targetId);
 
 		if (!target) return;
 
@@ -40,12 +36,10 @@ export class IntelligentScrollingService {
 	}
 
 	/** Handles clicking on either a commit or branch header */
-	async show(projectId: string, stackId: string, type: Target) {
+	async show(projectId: string, stackId: string, type: TargetType) {
 		await sleep(15);
 
-		const target = this.targets.find(
-			(t) => t.projectId === projectId && t.target === type && t.stackId === stackId
-		);
+		const target = this.targets.find((t) => t.type === type && t.id === stackId);
 
 		if (!target) return;
 
@@ -59,16 +53,15 @@ export class IntelligentScrollingService {
 
 export function scrollingAttachment(
 	intelligentScrollingService: IntelligentScrollingService,
-	projectId: string,
-	stackId: string,
-	target: Target
+	id?: string,
+	type?: TargetType
 ) {
+	if (!id || !type) return;
 	return (el: Element) => {
 		const registration = intelligentScrollingService.register({
 			element: el,
-			target,
-			projectId,
-			stackId
+			type,
+			id
 		});
 
 		return () => registration();

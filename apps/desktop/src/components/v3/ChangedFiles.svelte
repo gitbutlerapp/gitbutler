@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Drawer from '$components/v3/Drawer.svelte';
 	import FileList from '$components/v3/FileList.svelte';
 	import FileListMode from '$components/v3/FileListMode.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
@@ -9,6 +10,7 @@
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
 	import type { TreeChange } from '$lib/hunks/change';
 	import type { SelectionId } from '$lib/selection/key';
+	import type { Snippet } from 'svelte';
 
 	type Props = {
 		projectId: string;
@@ -19,6 +21,10 @@
 		active?: boolean;
 		conflictEntries?: ConflictEntriesObj;
 		draggableFiles?: boolean;
+		collapsible?: boolean;
+		grow?: boolean;
+		ontoggle?: () => void;
+		resizer?: Snippet<[{ element: HTMLDivElement; collapsed?: boolean }]>;
 	};
 
 	const {
@@ -29,7 +35,10 @@
 		title,
 		active,
 		conflictEntries,
-		draggableFiles
+		draggableFiles,
+		collapsible,
+		grow,
+		resizer
 	}: Props = $props();
 
 	const [intelligentScrollingService] = inject(IntelligentScrollingService);
@@ -37,53 +46,45 @@
 	let listMode: 'list' | 'tree' = $state('tree');
 </script>
 
-<div class="changed-files__header">
-	<div class="changed-files__header-left">
+<Drawer
+	{collapsible}
+	{resizer}
+	{grow}
+	transparent
+	headerNoPaddingLeft={collapsible}
+	bottomBorder={!!resizer || !collapsible}
+>
+	{#snippet header()}
 		<h4 class="text-14 text-semibold truncate">{title}</h4>
 		<Badge>{changes.length}</Badge>
-	</div>
-	<FileListMode bind:mode={listMode} persist="committed" />
-</div>
-{#if changes.length > 0}
-	<FileList
-		{selectionId}
-		{projectId}
-		{stackId}
-		{changes}
-		{listMode}
-		{active}
-		{conflictEntries}
-		{draggableFiles}
-		onselect={() => {
-			if (stackId) {
-				intelligentScrollingService.show(projectId, stackId, 'diff');
-			}
-		}}
-	/>
-{:else}
-	<EmptyStatePlaceholder image={emptyFolderSvg} width={180} gap={4}>
-		{#snippet caption()}
-			No files changed
-		{/snippet}
-	</EmptyStatePlaceholder>
-{/if}
+	{/snippet}
+	{#snippet extraActions()}
+		<FileListMode bind:mode={listMode} persist="committed" />
+	{/snippet}
+	{#if changes.length > 0}
+		<FileList
+			{selectionId}
+			{projectId}
+			{stackId}
+			{changes}
+			{listMode}
+			{active}
+			{conflictEntries}
+			{draggableFiles}
+			onselect={() => {
+				if (stackId) {
+					intelligentScrollingService.show(projectId, stackId, 'diff');
+				}
+			}}
+		/>
+	{:else}
+		<EmptyStatePlaceholder image={emptyFolderSvg} width={180} gap={4}>
+			{#snippet caption()}
+				No files changed
+			{/snippet}
+		</EmptyStatePlaceholder>
+	{/if}
+</Drawer>
 
 <style lang="postcss">
-	.changed-files__header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 10px 10px 10px 14px;
-		gap: 8px;
-		border-top: 1px solid var(--clr-border-2);
-		border-bottom: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-2);
-	}
-
-	.changed-files__header-left {
-		display: flex;
-		align-items: center;
-		overflow: hidden;
-		gap: 6px;
-	}
 </style>

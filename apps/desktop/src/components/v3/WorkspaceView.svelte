@@ -60,7 +60,7 @@
 	let focusGroup = $derived(
 		focusManager.radioGroup({
 			triggers: [
-				DefinedFocusable.UncommittedChanges,
+				DefinedFocusable.ViewportLeft,
 				DefinedFocusable.Drawer,
 				...stackFocusables,
 				...$snapshotFocusables,

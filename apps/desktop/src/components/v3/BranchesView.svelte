@@ -449,9 +449,11 @@
 	}
 
 	.commit-column {
+		display: flex;
 		position: relative;
 		flex-grow: 0;
 		flex-shrink: 0;
+		flex-direction: column;
 		max-height: calc(100% + 1px);
 		overflow: hidden;
 		border-right: 1px solid var(--clr-border-2);

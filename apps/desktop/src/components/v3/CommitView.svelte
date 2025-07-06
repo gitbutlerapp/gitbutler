@@ -1,6 +1,5 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import ChangedFiles from '$components/v3/ChangedFiles.svelte';
 	import CommitContextMenu, {
 		type CommitMenuContext
 	} from '$components/v3/CommitContextMenu.svelte';
@@ -8,7 +7,6 @@
 	import CommitHeader from '$components/v3/CommitHeader.svelte';
 	import CommitLine from '$components/v3/CommitLine.svelte';
 	import CommitMessageEditor from '$components/v3/CommitMessageEditor.svelte';
-	import ConflictResolutionConfirmModal from '$components/v3/ConflictResolutionConfirmModal.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
 	import KebabButton from '$components/v3/KebabButton.svelte';
 	import { isLocalAndRemoteCommit } from '$components/v3/lib';
@@ -28,6 +26,8 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
+	import type { TargetType } from '$lib/intelligentScrolling/service';
+	import type { Snippet } from 'svelte';
 
 	type Props = {
 		projectId: string;
@@ -35,17 +35,27 @@
 		commitKey: CommitKey;
 		active?: boolean;
 		draggableFiles: boolean;
+		collapsible?: boolean;
+		scrollToType?: TargetType;
+		scrollToId?: string;
+		resizer?: Snippet<[{ element: HTMLDivElement; collapsed?: boolean }]>;
 		onerror: (err: unknown) => void;
 		onclose?: () => void;
 	};
 
-	const { projectId, stackId, commitKey, active, draggableFiles, onerror, onclose }: Props =
-		$props();
+	const {
+		projectId,
+		stackId,
+		commitKey,
+		collapsible,
+		scrollToId,
+		scrollToType,
+		resizer,
+		onerror,
+		onclose
+	}: Props = $props();
 
 	const [stackService, uiState] = inject(StackService, UiState);
-
-	let conflictResolutionConfirmationModal =
-		$state<ReturnType<typeof ConflictResolutionConfirmModal>>();
 
 	const forge = getContext(DefaultForgeFactory);
 	const modeService = maybeGetContext(ModeService);
@@ -59,8 +69,6 @@
 			? stackService.upstreamCommitById(projectId, commitKey)
 			: stackService.commitById(projectId, commitKey)
 	);
-
-	const changesResult = $derived(stackService.commitChanges(projectId, commitKey.commitId));
 
 	const [updateCommitMessage, messageUpdateResult] = stackService.updateCommitMessage;
 
@@ -142,7 +150,16 @@
 	{#snippet children(commit, env)}
 		{@const isConflicted = isCommit(commit) && commit.hasConflicts}
 
-		<Drawer testId={TestId.CommitDrawer} {onclose} headerNoPaddingLeft>
+		<Drawer
+			{collapsible}
+			testId={TestId.CommitDrawer}
+			headerNoPaddingLeft={collapsible}
+			bottomBorder={!!resizer || !collapsible}
+			{scrollToId}
+			{scrollToType}
+			{onclose}
+			{resizer}
+		>
 			{#snippet header()}
 				<div class="commit-view__header text-13">
 					{#if isLocalAndRemoteCommit(commit)}
@@ -271,31 +288,7 @@
 					</CommitDetails>
 				{/if}
 			</div>
-
-			{#snippet filesSplitView()}
-				<ReduxResult {projectId} {stackId} result={changesResult.current}>
-					{#snippet children(changes, { projectId, stackId })}
-						<ChangedFiles
-							title="Changed files"
-							{projectId}
-							{stackId}
-							{draggableFiles}
-							selectionId={{ type: 'commit', commitId: commit.id }}
-							changes={changes.changes.filter(
-								(change) => !(change.path in (changes.conflictEntries?.entries ?? {}))
-							)}
-							conflictEntries={changes.conflictEntries}
-							{active}
-						/>
-					{/snippet}
-				</ReduxResult>
-			{/snippet}
 		</Drawer>
-
-		<ConflictResolutionConfirmModal
-			bind:this={conflictResolutionConfirmationModal}
-			onSubmit={editPatch}
-		/>
 	{/snippet}
 </ReduxResult>
 
@@ -310,7 +303,9 @@
 		flex: 1;
 		flex-direction: column;
 		height: 100%;
+		padding: 14px;
 		gap: 14px;
+		background-color: var(--clr-bg-1);
 	}
 
 	.commit-view__header {

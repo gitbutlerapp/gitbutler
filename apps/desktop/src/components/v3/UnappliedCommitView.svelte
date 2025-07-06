@@ -27,7 +27,7 @@
 <ReduxResult {projectId} result={commitResult.current}>
 	{#snippet children(commit)}
 		{@const commitState = commit.state}
-		<Drawer {onclose}>
+		<Drawer {onclose} bottomBorder>
 			{#snippet header()}
 				<div class="commit-view__header text-13">
 					<CommitLine
@@ -60,20 +60,18 @@
 				<CommitHeader commitMessage={commit.message} className="text-14 text-semibold text-body" />
 				<CommitDetails {commit} />
 			</div>
-			{#snippet filesSplitView()}
-				<ReduxResult {projectId} result={changesResult.current}>
-					{#snippet children(changes)}
-						<ChangedFiles
-							title="Changed files"
-							active
-							{projectId}
-							selectionId={{ type: 'commit', commitId }}
-							changes={changes.changes}
-						/>
-					{/snippet}
-				</ReduxResult>
-			{/snippet}
 		</Drawer>
+		<ReduxResult {projectId} result={changesResult.current}>
+			{#snippet children(changes)}
+				<ChangedFiles
+					title="Changed files"
+					active
+					{projectId}
+					selectionId={{ type: 'commit', commitId }}
+					changes={changes.changes}
+				/>
+			{/snippet}
+		</ReduxResult>
 	{/snippet}
 </ReduxResult>
 
@@ -84,6 +82,7 @@
 		flex: 1;
 		flex-direction: column;
 		height: 100%;
+		padding: 14px;
 		gap: 14px;
 	}
 

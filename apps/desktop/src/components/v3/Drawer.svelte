@@ -1,18 +1,35 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
+	import {
+		IntelligentScrollingService,
+		scrollingAttachment,
+		type TargetType
+	} from '$lib/intelligentScrolling/service';
+	import { inject } from '@gitbutler/shared/context';
+	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { writable, type Writable } from 'svelte/store';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
 		title?: string;
-		header?: Snippet;
+		header?: Snippet<[HTMLDivElement]>;
 		extraActions?: Snippet;
 		kebabMenu?: Snippet<[element: HTMLElement]>;
-		children: Snippet;
+		children?: Snippet;
 		filesSplitView?: Snippet;
 		headerNoPaddingLeft?: boolean;
 		testId?: string;
+		persistId?: string;
+		collapsible?: boolean;
+		bottomBorder?: boolean;
+		transparent?: boolean;
+		scrollToId?: string;
+		scrollToType?: TargetType;
+		grow?: boolean;
 		onclose?: () => void;
+		resizer?: Snippet<[{ element: HTMLDivElement; collapsed?: boolean }]>;
 	};
 
 	const {
@@ -24,14 +41,60 @@
 		filesSplitView,
 		headerNoPaddingLeft,
 		testId,
-		onclose
+		persistId,
+		collapsible,
+		bottomBorder,
+		transparent,
+		scrollToId,
+		scrollToType,
+		grow,
+		onclose,
+		resizer
 	}: Props = $props();
 
+	const [intelligentScrollingService] = inject(IntelligentScrollingService);
+
 	let headerDiv = $state<HTMLDivElement>();
+	let containerDiv = $state<HTMLDivElement>();
+	let collapsed: Writable<boolean | undefined> = $derived.by(() => {
+		if (!collapsible) {
+			return writable(undefined);
+		}
+		if (persistId) {
+			return persistWithExpiration<boolean>(false, persistId, 1440);
+		}
+		return writable(false);
+	});
 </script>
 
-<div data-testid={testId} class="drawer">
-	<div bind:this={headerDiv} class="drawer-header" class:no-padding-left={headerNoPaddingLeft}>
+<div
+	data-testid={testId}
+	class="drawer"
+	bind:this={containerDiv}
+	class:collapsed={$collapsed}
+	class:bottom-border={bottomBorder}
+	class:transparent
+	class:grow
+	class:no-shrink={resizer && $collapsed !== undefined}
+	{@attach scrollingAttachment(intelligentScrollingService, scrollToId, scrollToType)}
+>
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div
+		bind:this={headerDiv}
+		class="drawer-header"
+		class:no-padding-left={headerNoPaddingLeft}
+		ondblclick={() => {
+			if ($collapsed !== undefined) {
+				collapsed.set(!$collapsed);
+			}
+		}}
+	>
+		{#if $collapsed !== undefined}
+			{@const name = $collapsed ? 'chevron-down' : ('chevron-up' as const)}
+			<div class="chevron">
+				<Icon {name} />
+			</div>
+		{/if}
 		<div class="drawer-header__title">
 			{#if title}
 				<h3 class="text-15 text-bold truncate">
@@ -39,7 +102,7 @@
 				</h3>
 			{/if}
 			{#if header}
-				{@render header()}
+				{@render header(containerDiv)}
 			{/if}
 		</div>
 
@@ -61,19 +124,22 @@
 		</div>
 	</div>
 
-	<ConfigurableScrollableContainer>
-		{#if children}
-			<div class="drawer__content">
-				{@render children()}
-			</div>
-
-			{#if filesSplitView}
-				<div class="drawer__files-split-view">
-					{@render filesSplitView()}
+	{#if !$collapsed}
+		<ConfigurableScrollableContainer>
+			{#if children}
+				<div class="drawer__content">
+					{@render children()}
 				</div>
+
+				{#if filesSplitView}
+					<div class="drawer__files-split-view">
+						{@render filesSplitView()}
+					</div>
+				{/if}
 			{/if}
-		{/if}
-	</ConfigurableScrollableContainer>
+		</ConfigurableScrollableContainer>
+	{/if}
+	{@render resizer?.({ element: containerDiv, collapsed: $collapsed })}
 </div>
 
 <style>
@@ -84,12 +150,25 @@
 		width: 100%;
 		max-height: calc(100% + 1px);
 		overflow: hidden;
-		border-bottom: 1px solid var(--clr-border-2);
-		background: var(--clr-bg-1);
+		background-color: var(--clr-bg-1);
+
+		&.bottom-border {
+			border-bottom: 1px solid var(--clr-border-2);
+		}
+		&.transparent {
+			background-color: transparent;
+		}
+		&.no-shrink {
+			flex-shrink: 0;
+		}
+		&.grow {
+			flex-grow: 1;
+		}
 	}
 
 	.drawer-header {
 		display: flex;
+		position: relative;
 		align-items: center;
 		justify-content: space-between;
 		height: 42px;
@@ -131,7 +210,6 @@
 		display: flex;
 		position: relative;
 		flex-direction: column;
-		padding: 14px;
 	}
 
 	.drawer__files-split-view {
@@ -139,5 +217,12 @@
 		flex: 1;
 		flex-direction: column;
 		overflow: hidden;
+	}
+
+	.chevron {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding-left: 14px;
 	}
 </style>

@@ -58,7 +58,7 @@
 			stackId={undefined}
 			active={selectionId.type === 'worktree' &&
 				selectionId.stackId === undefined &&
-				focus === DefinedFocusable.UncommittedChanges}
+				focus === DefinedFocusable.ViewportLeft}
 			onscrollexists={(exists: boolean) => {
 				isScrollable = exists;
 			}}

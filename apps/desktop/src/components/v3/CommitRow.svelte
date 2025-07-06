@@ -90,10 +90,7 @@
 	style:opacity
 	class:border-top={borderTop || first}
 	class:last={lastCommit}
-	onclick={(e) => {
-		e.stopPropagation();
-		onclick?.();
-	}}
+	{onclick}
 	onkeydown={(e) => {
 		if (e.key === 'Enter' || e.key === ' ') {
 			e.stopPropagation();

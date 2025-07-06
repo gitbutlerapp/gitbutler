@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { SettingsService } from '$lib/config/appSettingsV2';
-	import { confettiEnabled, ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
+	import {
+		compactWorkspace,
+		confettiEnabled,
+		ircEnabled,
+		ircServer
+	} from '$lib/config/uiFeatureFlags';
 	import { User } from '$lib/user/user';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
@@ -51,6 +56,23 @@
 				id="v3Design"
 				checked={$settingsStore?.featureFlags.v3}
 				onclick={() => settingsService.updateFeatureFlags({ v3: !$settingsStore?.featureFlags.v3 })}
+			/>
+		{/snippet}
+	</SectionCard>
+
+	<SectionCard labelFor="confetti" roundedTop={false} roundedBottom={false} orientation="row">
+		{#snippet title()}
+			Compact workspace
+		{/snippet}
+		{#snippet caption()}
+			Show file preview in the same column as the branch or commit.
+		{/snippet}
+
+		{#snippet actions()}
+			<Toggle
+				id="confetti"
+				checked={$compactWorkspace}
+				onclick={() => compactWorkspace.set(!$compactWorkspace)}
 			/>
 		{/snippet}
 	</SectionCard>
