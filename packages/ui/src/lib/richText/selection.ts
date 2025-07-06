@@ -7,7 +7,8 @@ import {
 	$nodesOfType,
 	$createTextNode,
 	$getRoot,
-	$createParagraphNode
+	$createParagraphNode,
+	$createLineBreakNode
 } from 'lexical';
 import { ImageNode } from 'svelte-lexical';
 
@@ -180,20 +181,11 @@ export function setEditorText(editor: LexicalEditor, text: string) {
 	editor.update(() => {
 		const root = $getRoot();
 		root.clear();
-		const textNode = $createTextNode(text);
 		const paragraphNode = $createParagraphNode();
-		paragraphNode.append(textNode);
-		root.append(paragraphNode);
-
-		// Set the caret at the end of the text
-		const selection = $getSelection();
-		if ($isRangeSelection(selection)) {
-			selection.setTextNodeRange(
-				textNode,
-				textNode.getTextContentSize(),
-				textNode,
-				textNode.getTextContentSize()
-			);
+		for (const line of text.split('\n')) {
+			const textNode = $createTextNode(line);
+			paragraphNode.append(textNode, $createLineBreakNode());
 		}
+		root.append(paragraphNode);
 	});
 }
