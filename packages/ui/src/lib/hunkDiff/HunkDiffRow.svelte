@@ -14,7 +14,6 @@
 
 <script lang="ts">
 	import Button from '$lib/Button.svelte';
-	import Checkbox from '$lib/Checkbox.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import InfoButton from '$lib/InfoButton.svelte';
 	import {
@@ -46,6 +45,7 @@
 		handleLineContextMenu?: (params: ContextMenuParams) => void;
 		minWidth: number;
 		lockWarning?: Snippet<[DependencyLock[]]>;
+		hunkHasLocks?: boolean;
 	}
 
 	const {
@@ -65,7 +65,8 @@
 		hideCheckboxes,
 		handleLineContextMenu,
 		minWidth,
-		lockWarning
+		lockWarning,
+		hunkHasLocks
 	}: Props = $props();
 
 	const touchDevice = isTouchDevice();
@@ -111,6 +112,7 @@
 
 	const locked = $derived(row.locks !== undefined && row.locks.length > 0);
 	const clickable = $derived(isClickable);
+	const isSelectingForCommit = $derived(staged !== undefined && !hideCheckboxes);
 </script>
 
 {#snippet countColumn(side: CountColumnSide)}
@@ -129,7 +131,7 @@
 		class:staged={staged && deltaLine}
 		class:locked
 		style="--staging-column-width: {stagingColumnWidth}px; --number-col-width: {minWidth}rem;"
-		class:stagable={staged !== undefined && !hideCheckboxes}
+		class:stagable={isSelectingForCommit}
 		onmousedown={(ev) => lineSelection.onStart(ev, row, idx)}
 		onmouseenter={(ev) => lineSelection.onMoveOver(ev, row, idx)}
 		onmouseup={() => lineSelection.onEnd()}
@@ -156,7 +158,7 @@
 	data-no-drag
 	style="--diff-font: {diffFont};"
 >
-	{#if staged !== undefined && !hideCheckboxes}
+	{#if isSelectingForCommit}
 		{@const deltaLine = isDeltaLine(row.type)}
 		<td
 			bind:clientWidth={stagingColumnWidth}
@@ -184,20 +186,9 @@
 			}}
 		>
 			{#if deltaLine}
-				<div class="table__row-checkbox" class:locked>
-					{#if locked}
-						{@const locks = row.locks}
-						{#if lockWarning && locks && locks.length > 0}
-							<div data-testid="hunk-line-locking-info" class="table__row-locks-info-button">
-								<InfoButton inheritColor size="small" icon="locked-small">
-									{@render lockWarning(locks)}
-								</InfoButton>
-							</div>
-						{:else}
-							<Icon name="locked-small" />
-						{/if}
-					{:else if staged}
-						<Checkbox checked={staged} small style="ghost" />
+				<div class="table__row-checkbox" class:staged class:locked>
+					{#if staged}
+						<Icon name="tick-small" />
 					{:else}
 						<Icon name="minus-small" />
 					{/if}
@@ -206,8 +197,28 @@
 		</td>
 	{/if}
 
+	<!-- LOCK COLUMN -->
+	{#if !isSelectingForCommit && hunkHasLocks}
+		{#if lockWarning && locked}
+			<td
+				data-testid="hunk-line-locking-info"
+				class="table__lockColumn"
+				data-no-drag
+				class:locked
+				class:staged
+			>
+				<InfoButton inheritColor size="small" icon="locked-extra-small" maxWidth="15rem">
+					{@render lockWarning(row.locks ?? [])}
+				</InfoButton>
+			</td>
+		{:else}
+			<td class="table__lockColumn" data-no-drag> </td>
+		{/if}
+	{/if}
+
 	{@render countColumn(CountColumnSide.Before)}
 	{@render countColumn(CountColumnSide.After)}
+
 	<td
 		class="table__textContent"
 		style="--tab-size: {tabSize}; --wrap: {wrapText ? 'wrap' : 'nowrap'}"
@@ -313,7 +324,6 @@
 		top: 0;
 		pointer-events: none;
 
-		/* border + left padding + number column width */
 		--offset: calc(2px + 4px + var(--number-col-width));
 		box-sizing: border-box;
 
@@ -321,9 +331,7 @@
 		width: calc(var(--width) + 1px);
 		height: var(--height);
 		border-right: 1px solid var(--clr-theme-warn-element);
-
 		border-left: 1px solid var(--clr-theme-warn-element);
-
 		background: color-mix(in srgb, var(--clr-btn-warn-outline-bg), transparent 30%);
 		mix-blend-mode: multiply;
 
@@ -364,28 +372,23 @@
 		display: flex;
 	}
 
+	.table__lockColumn {
+		padding: 0;
+	}
+
 	.table__numberColumn {
 		z-index: var(--z-ground);
-
-		position: sticky;
-		left: calc(var(--number-col-width));
 		width: var(--number-col-width);
 		min-width: var(--number-col-width);
 		padding: 0 4px;
 		border-color: var(--clr-diff-count-border);
-
 		border-right: 1px solid var(--clr-border-2);
 		background-color: var(--clr-diff-count-bg);
 		color: var(--clr-diff-count-text);
 		font-size: 11px;
-		text-align: center;
 		text-align: right;
 		touch-action: none;
 		user-select: none;
-
-		/* Staging column width + 1 border width-ish. */
-		/* It's kind of a hack to ad the fraction of a pixel here, but table CSS sucks */
-		--column-and-boder: calc(var(--staging-column-width) + 0.5px);
 
 		&.diff-line-addition {
 			border-color: var(--clr-diff-addition-count-border);
@@ -428,10 +431,31 @@
 			border-color: var(--clr-diff-locked-count-border);
 			background-color: var(--clr-diff-locked-count-bg);
 			color: var(--clr-diff-locked-count-text);
+
 			&.staged {
-				border-color: var(--clr-diff-locked-count-border);
-				background-color: var(--clr-scale-warn-60);
-				color: var(--clr-scale-warn-30);
+				border-color: var(--clr-diff-locked-selected-count-border);
+				background-color: var(--clr-diff-locked-selected-count-bg);
+				color: var(--clr-diff-locked-selected-count-text);
+			}
+		}
+	}
+
+	.table__lockColumn {
+		padding: 0 1px;
+		border-color: var(--clr-diff-count-border);
+		border-right: 1px solid var(--clr-border-2);
+		background-color: var(--clr-diff-count-bg);
+		color: var(--clr-diff-count-text);
+
+		&.locked {
+			border-color: var(--clr-diff-locked-count-border);
+			background-color: var(--clr-diff-locked-count-bg);
+			color: var(--clr-diff-locked-count-text);
+
+			&.staged {
+				border-color: var(--clr-diff-locked-selected-count-border);
+				background-color: var(--clr-diff-locked-selected-count-bg);
+				color: var(--clr-diff-locked-selected-count-text);
 			}
 		}
 	}
@@ -461,16 +485,16 @@
 		height: 18px;
 		margin: 0;
 		padding: 0;
-
-		color: var(--checkmark-color);
 		pointer-events: none;
 
-		&.locked {
-			color: var(--clr-diff-locked-count-text);
+		&:not(.locked).staged {
+			color: var(--clr-diff-selected-count-checkmark);
 		}
-	}
-
-	.table__row-locks-info-button {
-		pointer-events: all;
+		&.locked {
+			color: var(--clr-diff-locked-count-checkmark);
+		}
+		&.staged.locked {
+			color: var(--clr-diff-locked-selected-count-checkmark);
+		}
 	}
 </style>
