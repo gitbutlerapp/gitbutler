@@ -6,7 +6,7 @@
 <script lang="ts">
 	import { portal } from '$lib/utils/portal';
 	import { pxToRem } from '$lib/utils/pxToRem';
-	import { setPosition } from '$lib/utils/tooltipPosition';
+	import { tooltip } from '$lib/utils/tooltipPosition';
 	import { flyScale } from '$lib/utils/transitions';
 	import { type Snippet } from 'svelte';
 
@@ -97,7 +97,7 @@
 
 		{#if show}
 			<div
-				use:setPosition={{ targetEl, position, align, overrideYScroll }}
+				use:tooltip={{ targetEl, position, align, overrideYScroll }}
 				use:portal={'body'}
 				class="tooltip-container text-11 text-body"
 				style:max-width="{pxToRem(maxWidth)}rem"

@@ -10,7 +10,7 @@
 
 <script lang="ts">
 	import MentionSuggestionItem from '$lib/components/chat/MentionSuggestionItem.svelte';
-	import { setPosition } from '@gitbutler/ui/utils/tooltipPosition';
+	import { tooltip } from '@gitbutler/ui/utils/tooltipPosition';
 	import { flyScale } from '@gitbutler/ui/utils/transitions';
 
 	const { suggestions, selectSuggestion, isLoading }: Props = $props();
@@ -73,7 +73,7 @@
 
 	{#if suggestions !== undefined}
 		<div
-			use:setPosition={{ targetEl, position: 'top', align: 'center', gap: 2 }}
+			use:tooltip={{ targetEl, position: 'top', align: 'center' }}
 			transition:flyScale
 			role="presentation"
 			class="popup-positioner"
