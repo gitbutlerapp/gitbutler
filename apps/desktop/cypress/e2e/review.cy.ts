@@ -19,6 +19,7 @@ describe('Review', () => {
 		mockCommand('list_remotes', (params) => mockBackend.listRemotes(params));
 		mockCommand('update_branch_pr_number', (params) => mockBackend.updateBranchPrNumber(params));
 		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
+		mockCommand('get_review_template_contents', (args) => mockBackend.getTemplateContent(args));
 
 		cy.intercept(
 			{
@@ -246,6 +247,101 @@ describe('Review', () => {
 					cy.getByTestId('review-view-description-input')
 						.should('be.visible')
 						.should('contain', mockBackend.getCommitMessage(stack.id))
+						.click()
+						.clear()
+						.type(prDescription);
+
+					// Cancel the creation of the review.
+					cy.getByTestId('review-view-cancel-button').should('be.visible').click();
+
+					// The Review Drawer should not be visible.
+					cy.getByTestId('review-view').should('not.exist');
+
+					// Reopen the Review Drawer.
+					cy.getByTestId('create-review-button')
+						.first()
+						.scrollIntoView()
+						.should('be.visible')
+						.click();
+
+					// The inputs should be persisted
+					cy.getByTestId('review-view-title-input')
+						.should('be.visible')
+						.should('be.enabled')
+						.should('have.value', prTitle);
+
+					cy.getByTestId('review-view-description-input')
+						.should('be.visible')
+						.should('contain', prDescription);
+
+					// The Create Review button should be visible.
+					// Click it.
+					cy.getByTestId('review-view-create-button')
+						.should('be.visible')
+						.should('be.enabled')
+						.click();
+
+					// Click branch header to reveal pull request card.
+					cy.getByTestId('branch-header', stack.id).should('be.visible').click();
+				});
+			cy.get(`[data-details="${stack.id}"]`).within(() => {
+				// The PR card should be visible.
+				cy.getByTestId('stacked-pull-request-card').should('be.visible');
+			});
+		}
+	});
+
+	it('should be able to create multiple pull requests with templates', () => {
+		const stacks = mockBackend.getStacks();
+		expect(stacks).to.have.length(3);
+		let enabledTemplates = false;
+
+		for (const stack of stacks) {
+			const prTitle = 'Test PR Title' + stack.id;
+			const prDescription = 'Test PR Description' + stack.id;
+
+			// Scroll the publish buttons into view
+			cy.get('[data-id="' + stack.id + '"]')
+				.should('exist')
+				.scrollIntoView()
+				.within(() => {
+					cy.getByTestId('create-review-button').should('be.visible').click();
+
+					// The Review Drawer should be visible.
+					cy.getByTestId('review-view').should('be.visible');
+
+					// The template toggle should be visible and enabled.
+					cy.getByTestId('review-view-template-toggle').should('be.visible').should('be.enabled');
+
+					// If the template toggle is not enabled, enable it.
+					if (!enabledTemplates) {
+						// Since this branch has a single commit, the commit message should be pre-filled.
+						// Update both.
+						cy.getByTestId('review-view-title-input')
+							.should('be.visible')
+							.should('be.enabled')
+							.should('have.value', mockBackend.getCommitTitle(stack.id));
+
+						cy.getByTestId('review-view-template-toggle').click();
+						enabledTemplates = true;
+					}
+					// Since this branch has a single commit, the commit message should be pre-filled.
+					// Update both.
+					cy.getByTestId('review-view-title-input')
+						.should('be.visible')
+						.should('be.enabled')
+						.should('have.value', mockBackend.getCommitTitle(stack.id))
+						.clear()
+						.type(prTitle);
+
+					for (const line of mockBackend.prTemplateContent.split('\n')) {
+						cy.getByTestId('review-view-description-input')
+							.should('be.visible')
+							.should('contain', line);
+					}
+
+					cy.getByTestId('review-view-description-input')
+						.should('be.visible')
 						.click()
 						.clear()
 						.type(prDescription);

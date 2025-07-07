@@ -1,33 +1,27 @@
 <script lang="ts">
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
-	import { TemplateService } from '$lib/forge/templateService';
-	import { getContext } from '@gitbutler/shared/context';
-	import { persisted } from '@gitbutler/shared/persisted';
+	import { TestId } from '$lib/testing/testIds';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import Select from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
+	import type { PrTemplateStore } from '$lib/forge/prContents';
 
 	interface Props {
 		projectId: string;
 		disabled: boolean;
 		onselect: (template: string) => void;
+		templateStore: PrTemplateStore;
 	}
 
-	let { projectId, disabled, onselect }: Props = $props();
+	let { templateStore, disabled, onselect }: Props = $props();
 
-	const forge = getContext(DefaultForgeFactory);
-	const templateService = getContext(TemplateService);
+	const templatePath = $derived(templateStore.templatePath);
+	const templateEnabled = $derived(templateStore.templateEnabled);
 
 	// Available pull request templates.
-	const templatesResult = $derived(templateService.getAvailable(forge.current.name));
-
-	// The last template that was used. It is used as default if it is in the
-	// list of available template.
-	const templatePath = persisted<string | undefined>(undefined, `last-template-${projectId}`);
-	const templateEnabled = persisted(false, `enable-template-${projectId}`);
+	const templatesResult = $derived(templateStore.getAvailable());
 
 	async function selectTemplate(path: string) {
-		const template = await templateService.getContent(forge.current.name, path);
+		const template = await templateStore.getTemplateContent(path);
 		templatePath.set(path);
 		onselect(template);
 	}
@@ -50,6 +44,7 @@
 			<label class="pr-template__toggle" for="pr-template-toggle">
 				<span class="text-13 text-semibold">Use template</span>
 				<Toggle
+					testId={TestId.ReviewTemplateToggle}
 					small
 					id="pr-template-toggle"
 					onchange={(checked) => setEnabled(checked)}

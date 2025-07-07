@@ -5,14 +5,25 @@
 		checked?: boolean;
 		value?: string;
 		id?: string;
+		testId?: string;
 		onclick?: (e: MouseEvent) => void;
 		onchange?: (checked: boolean) => void;
 	}
 
-	let { small, disabled, checked = $bindable(), value, id, onclick, onchange }: Props = $props();
+	let {
+		testId,
+		small,
+		disabled,
+		checked = $bindable(),
+		value,
+		id,
+		onclick,
+		onchange
+	}: Props = $props();
 </script>
 
 <input
+	data-testid={testId}
 	bind:checked
 	onclick={(e) => {
 		e.stopPropagation();

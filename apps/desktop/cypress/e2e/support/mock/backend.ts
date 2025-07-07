@@ -12,6 +12,7 @@ import {
 } from './changes';
 import { PROJECT_ID } from './projects';
 import { isAddRemoteParams } from './remote';
+import { getMockTemplateContent, isGetReviewTemplateParams } from './review';
 import {
 	createMockBranchDetails,
 	createMockStack,
@@ -710,5 +711,13 @@ export default class MockBackend {
 		const { name } = args;
 
 		return `refs/remotes/${name}`;
+	}
+
+	public getTemplateContent(args: InvokeArgs | undefined): string {
+		if (!args || !isGetReviewTemplateParams(args)) {
+			throw new Error('Invalid arguments for getTemplateContent');
+		}
+
+		return getMockTemplateContent();
 	}
 }
