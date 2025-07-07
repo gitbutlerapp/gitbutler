@@ -11,10 +11,11 @@
 	interface Props {
 		hideDetails?: boolean;
 		img?: string;
+		testId?: string;
 		children?: Snippet;
 	}
 
-	const { hideDetails, img, children }: Props = $props();
+	const { hideDetails, img, children, testId }: Props = $props();
 
 	const user = getContextStore(User);
 
@@ -22,7 +23,7 @@
 	const appSettings = settingsService.appSettings;
 </script>
 
-<div class="decorative-split-view" class:v3={$appSettings?.featureFlags.v3}>
+<div class="decorative-split-view" data-testid={testId} class:v3={$appSettings?.featureFlags.v3}>
 	<div class="left-side hide-native-scrollbar">
 		<div class="left-side__content">
 			{#if children}

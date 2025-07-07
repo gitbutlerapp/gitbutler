@@ -99,7 +99,8 @@ export enum TestId {
 	WorktreeSelectionView = 'worktree-selection-view',
 	StackSelectionView = 'stack-selection-view',
 	BranchesSelectionView = 'branches-selection-view',
-	WorkspaceSelectionView = 'workspace-selection-view'
+	WorkspaceSelectionView = 'workspace-selection-view',
+	ProjectNotFoundPage = 'project-not-found-page'
 }
 
 export enum ElementId {
