@@ -26,6 +26,7 @@
 	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
+	import { parseHunk } from '@gitbutler/ui/utils/diffParsing';
 	import type { TreeChange } from '$lib/hunks/change';
 	import type { UnifiedDiff } from '$lib/hunks/diff';
 	import type { LineId } from '@gitbutler/ui/utils/diffParsing';
@@ -109,6 +110,55 @@
 		return (
 			lines.length === 0 || lines.some((l) => l.newLine === newStart && l.oldLine === oldStart)
 		);
+	}
+
+	function selectAllHunkLines(hunk: DiffHunk) {
+		uncommittedService.checkHunk(stackId || null, change.path, hunk);
+	}
+
+	function unselectAllHunkLines(hunk: DiffHunk) {
+		uncommittedService.uncheckHunk(stackId || null, change.path, hunk);
+	}
+
+	function invertHunkSelection(hunk: DiffHunk) {
+		// Parse the hunk to get all selectable lines
+		const parsedHunk = parseHunk(hunk.diff);
+		const allSelectableLines = parsedHunk.contentSections
+			.flatMap((section) => section.lines)
+			.filter((line) => line.beforeLineNumber !== undefined || line.afterLineNumber !== undefined)
+			.map((line) => ({
+				newLine: line.afterLineNumber,
+				oldLine: line.beforeLineNumber
+			}));
+
+		const selection = uncommittedService.hunkCheckStatus(stackId || null, change.path, hunk);
+		const currentSelectedLines = selection.current.lines;
+		const isSelected = selection.current.selected;
+
+		// If nothing is selected (hunk not checked)
+		if (!isSelected) {
+			selectAllHunkLines(hunk);
+		}
+		// If all lines are selected (empty lines array indicates full selection)
+		else if (isSelected && currentSelectedLines.length === 0) {
+			unselectAllHunkLines(hunk);
+		} else {
+			const unselectedLines = allSelectableLines.filter(
+				(line) =>
+					!currentSelectedLines.some(
+						(selectedLine) =>
+							selectedLine.newLine === line.newLine && selectedLine.oldLine === line.oldLine
+					)
+			);
+
+			// First unselect all lines
+			unselectAllHunkLines(hunk);
+
+			// Then select the previously unselected lines
+			unselectedLines.forEach((line) => {
+				uncommittedService.checkLine(stackId || null, change.path, hunk, line);
+			});
+		}
 	}
 </script>
 
@@ -245,9 +295,10 @@
 					{projectId}
 					{change}
 					discardable={isUncommittedChange}
-					unSelectHunk={(hunk) => {
-						uncommittedService.uncheckHunk(stackId || null, change.path, hunk);
-					}}
+					{selectable}
+					{selectAllHunkLines}
+					{unselectAllHunkLines}
+					{invertHunkSelection}
 				/>
 			{:else if diff.type === 'TooLarge'}
 				<div class="hunk-placehoder">
