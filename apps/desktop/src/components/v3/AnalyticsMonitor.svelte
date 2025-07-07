@@ -6,7 +6,6 @@ attached to posthog events.
 <script lang="ts">
 	import { EventContext } from '$lib/analytics/eventContext';
 	import { SettingsService } from '$lib/config/appSettingsV2';
-	import { confettiEnabled } from '$lib/config/uiFeatureFlags';
 	import { ProjectService } from '$lib/project/projectService';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -66,10 +65,6 @@ attached to posthog events.
 			butlerActions: $settingsService?.featureFlags.actions,
 			ws3: $settingsService?.featureFlags.ws3
 		});
-	});
-
-	$effect(() => {
-		eventContext.update({ confetti: $confettiEnabled });
 	});
 </script>
 
