@@ -5,8 +5,8 @@
 	import BranchDividerLine from '$components/v3/BranchDividerLine.svelte';
 	import BranchHeader from '$components/v3/BranchHeader.svelte';
 	import BranchHeaderContextMenu from '$components/v3/BranchHeaderContextMenu.svelte';
+	import CreateReviewBox from '$components/v3/CreateReviewBox.svelte';
 	import PrNumberUpdater from '$components/v3/PrNumberUpdater.svelte';
-	import ReviewView from '$components/v3/ReviewView.svelte';
 	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
 	import { ReorderCommitDzHandler } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -200,7 +200,7 @@
 		</Dropzone>
 		{#if showPrCreation}
 			<div class="review-wrapper" class:no-padding={uiState.global.useFloatingPrBox.current}>
-				<ReviewView
+				<CreateReviewBox
 					{projectId}
 					{branchName}
 					stackId={args.stackId}

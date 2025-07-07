@@ -104,18 +104,18 @@ describe('Review', () => {
 		cy.getByTestId('create-review-button').first().should('be.visible').click();
 
 		// The Review Drawer should be visible.
-		cy.getByTestId('review-view').should('be.visible');
+		cy.getByTestId('create-review-box').should('be.visible');
 
 		// Since this branch has a single commit, the commit message should be pre-filled.
 		// Update both.
-		cy.getByTestId('review-view-title-input')
+		cy.getByTestId('create-review-box-title-input')
 			.should('be.visible')
 			.should('be.enabled')
 			.should('have.value', mockBackend.getCommitTitle(mockBackend.stackId))
 			.clear()
 			.type(prTitle);
 
-		cy.getByTestId('review-view-description-input')
+		cy.getByTestId('create-review-box-description-input')
 			.should('be.visible')
 			.should('contain', mockBackend.getCommitMessage(mockBackend.stackId))
 			.click()
@@ -123,27 +123,30 @@ describe('Review', () => {
 			.type(prDescription);
 
 		// Cancel the creation of the review.
-		cy.getByTestId('review-view-cancel-button').should('be.visible').click();
+		cy.getByTestId('create-review-box-cancel-button').should('be.visible').click();
 
 		// The Review Drawer should not be visible.
-		cy.getByTestId('review-view').should('not.exist');
+		cy.getByTestId('create-review-box').should('not.exist');
 
 		// Reopen the Review Drawer.
 		cy.getByTestId('create-review-button').first().should('be.visible').click();
 
 		// The inputs should be persisted
-		cy.getByTestId('review-view-title-input')
+		cy.getByTestId('create-review-box-title-input')
 			.should('be.visible')
 			.should('be.enabled')
 			.should('have.value', prTitle);
 
-		cy.getByTestId('review-view-description-input')
+		cy.getByTestId('create-review-box-description-input')
 			.should('be.visible')
 			.should('contain', prDescription);
 
 		// The Create Review button should be visible.
 		// Click it.
-		cy.getByTestId('review-view-create-button').should('be.visible').should('be.enabled').click();
+		cy.getByTestId('create-review-box-create-button')
+			.should('be.visible')
+			.should('be.enabled')
+			.click();
 
 		// The PR card should be visible.
 		cy.getByTestId('stacked-pull-request-card').should('be.visible');
@@ -165,18 +168,18 @@ describe('Review', () => {
 				cy.getByTestId('create-review-button').first().should('be.visible').click();
 
 				// The Review Drawer should be visible.
-				cy.getByTestId('review-view').should('be.visible');
+				cy.getByTestId('create-review-box').should('be.visible');
 
 				// Since this branch has a single commit, the commit message should be pre-filled.
 				// Update both.
-				cy.getByTestId('review-view-title-input')
+				cy.getByTestId('create-review-box-title-input')
 					.should('be.visible')
 					.should('be.enabled')
 					.should('have.value', mockBackend.getCommitTitle(stack.id))
 					.clear()
 					.type(prTitle);
 
-				cy.getByTestId('review-view-description-input')
+				cy.getByTestId('create-review-box-description-input')
 					.should('be.visible')
 					.should('contain', mockBackend.getCommitMessage(stack.id))
 					.click()
@@ -184,27 +187,27 @@ describe('Review', () => {
 					.type(prDescription);
 
 				// Cancel the creation of the review.
-				cy.getByTestId('review-view-cancel-button').should('be.visible').click();
+				cy.getByTestId('create-review-box-cancel-button').should('be.visible').click();
 
 				// The Review Drawer should not be visible.
-				cy.getByTestId('review-view').should('not.exist');
+				cy.getByTestId('create-review-box').should('not.exist');
 
 				// Reopen the Review Drawer.
 				cy.getByTestId('create-review-button').first().should('be.visible').click();
 
 				// The inputs should be persisted
-				cy.getByTestId('review-view-title-input')
+				cy.getByTestId('create-review-box-title-input')
 					.should('be.visible')
 					.should('be.enabled')
 					.should('have.value', prTitle);
 
-				cy.getByTestId('review-view-description-input')
+				cy.getByTestId('create-review-box-description-input')
 					.should('be.visible')
 					.should('contain', prDescription);
 
 				// The Create Review button should be visible.
 				// Click it.
-				cy.getByTestId('review-view-create-button')
+				cy.getByTestId('create-review-box-create-button')
 					.should('be.visible')
 					.should('be.enabled')
 					.click();
@@ -233,18 +236,18 @@ describe('Review', () => {
 					cy.getByTestId('create-review-button').should('be.visible').click();
 
 					// The Review Drawer should be visible.
-					cy.getByTestId('review-view').should('be.visible');
+					cy.getByTestId('create-review-box').should('be.visible');
 
 					// Since this branch has a single commit, the commit message should be pre-filled.
 					// Update both.
-					cy.getByTestId('review-view-title-input')
+					cy.getByTestId('create-review-box-title-input')
 						.should('be.visible')
 						.should('be.enabled')
 						.should('have.value', mockBackend.getCommitTitle(stack.id))
 						.clear()
 						.type(prTitle);
 
-					cy.getByTestId('review-view-description-input')
+					cy.getByTestId('create-review-box-description-input')
 						.should('be.visible')
 						.should('contain', mockBackend.getCommitMessage(stack.id))
 						.click()
@@ -252,10 +255,10 @@ describe('Review', () => {
 						.type(prDescription);
 
 					// Cancel the creation of the review.
-					cy.getByTestId('review-view-cancel-button').should('be.visible').click();
+					cy.getByTestId('create-review-box-cancel-button').should('be.visible').click();
 
 					// The Review Drawer should not be visible.
-					cy.getByTestId('review-view').should('not.exist');
+					cy.getByTestId('create-review-box').should('not.exist');
 
 					// Reopen the Review Drawer.
 					cy.getByTestId('create-review-button')
@@ -265,18 +268,18 @@ describe('Review', () => {
 						.click();
 
 					// The inputs should be persisted
-					cy.getByTestId('review-view-title-input')
+					cy.getByTestId('create-review-box-title-input')
 						.should('be.visible')
 						.should('be.enabled')
 						.should('have.value', prTitle);
 
-					cy.getByTestId('review-view-description-input')
+					cy.getByTestId('create-review-box-description-input')
 						.should('be.visible')
 						.should('contain', prDescription);
 
 					// The Create Review button should be visible.
 					// Click it.
-					cy.getByTestId('review-view-create-button')
+					cy.getByTestId('create-review-box-create-button')
 						.should('be.visible')
 						.should('be.enabled')
 						.click();
@@ -308,26 +311,28 @@ describe('Review', () => {
 					cy.getByTestId('create-review-button').should('be.visible').click();
 
 					// The Review Drawer should be visible.
-					cy.getByTestId('review-view').should('be.visible');
+					cy.getByTestId('create-review-box').should('be.visible');
 
 					// The template toggle should be visible and enabled.
-					cy.getByTestId('review-view-template-toggle').should('be.visible').should('be.enabled');
+					cy.getByTestId('create-review-box-template-toggle')
+						.should('be.visible')
+						.should('be.enabled');
 
 					// If the template toggle is not enabled, enable it.
 					if (!enabledTemplates) {
 						// Since this branch has a single commit, the commit message should be pre-filled.
 						// Update both.
-						cy.getByTestId('review-view-title-input')
+						cy.getByTestId('create-review-box-title-input')
 							.should('be.visible')
 							.should('be.enabled')
 							.should('have.value', mockBackend.getCommitTitle(stack.id));
 
-						cy.getByTestId('review-view-template-toggle').click();
+						cy.getByTestId('create-review-box-template-toggle').click();
 						enabledTemplates = true;
 					}
 					// Since this branch has a single commit, the commit message should be pre-filled.
 					// Update both.
-					cy.getByTestId('review-view-title-input')
+					cy.getByTestId('create-review-box-title-input')
 						.should('be.visible')
 						.should('be.enabled')
 						.should('have.value', mockBackend.getCommitTitle(stack.id))
@@ -335,22 +340,22 @@ describe('Review', () => {
 						.type(prTitle);
 
 					for (const line of mockBackend.prTemplateContent.split('\n')) {
-						cy.getByTestId('review-view-description-input')
+						cy.getByTestId('create-review-box-description-input')
 							.should('be.visible')
 							.should('contain', line);
 					}
 
-					cy.getByTestId('review-view-description-input')
+					cy.getByTestId('create-review-box-description-input')
 						.should('be.visible')
 						.click()
 						.clear()
 						.type(prDescription);
 
 					// Cancel the creation of the review.
-					cy.getByTestId('review-view-cancel-button').should('be.visible').click();
+					cy.getByTestId('create-review-box-cancel-button').should('be.visible').click();
 
 					// The Review Drawer should not be visible.
-					cy.getByTestId('review-view').should('not.exist');
+					cy.getByTestId('create-review-box').should('not.exist');
 
 					// Reopen the Review Drawer.
 					cy.getByTestId('create-review-button')
@@ -360,18 +365,18 @@ describe('Review', () => {
 						.click();
 
 					// The inputs should be persisted
-					cy.getByTestId('review-view-title-input')
+					cy.getByTestId('create-review-box-title-input')
 						.should('be.visible')
 						.should('be.enabled')
 						.should('have.value', prTitle);
 
-					cy.getByTestId('review-view-description-input')
+					cy.getByTestId('create-review-box-description-input')
 						.should('be.visible')
 						.should('contain', prDescription);
 
 					// The Create Review button should be visible.
 					// Click it.
-					cy.getByTestId('review-view-create-button')
+					cy.getByTestId('create-review-box-create-button')
 						.should('be.visible')
 						.should('be.enabled')
 						.click();
