@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { onMount, tick } from 'svelte';
+
 	interface Props {
 		ref: HTMLInputElement | undefined;
 		value: string;
@@ -23,9 +25,16 @@
 
 	let charsCount = $derived(value.length);
 	const isCharCount = $derived(showCount && value.length > 0);
+
+	// auto-focus the input when it is mounted
+	onMount(async () => {
+		if (ref) {
+			await tick();
+			ref.focus();
+		}
+	});
 </script>
 
-<!-- svelte-ignore a11y_autofocus -->
 <div class="message-editor-input">
 	<input
 		data-testid={testId}
@@ -34,7 +43,6 @@
 		class="text-14 text-semibold text-input"
 		class:right-padding={isCharCount}
 		type="text"
-		autofocus
 		bind:value
 		oninput={(e: Event) => {
 			const input = e.currentTarget as HTMLInputElement;
