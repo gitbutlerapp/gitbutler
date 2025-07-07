@@ -7,7 +7,6 @@
 import { persisted, persistWithExpiration } from '@gitbutler/shared/persisted';
 
 export const autoSelectBranchNameFeature = persisted(false, 'autoSelectBranchLaneContentsFeature');
-export const confettiEnabled = persisted(false, 'experimental-confetti');
 export const workspaceSwapPanels = persisted<
 	'dont-swap-panels' | 'swap-middle-to-right' | 'swap-middle-to-left'
 >('dont-swap-panels', 'workspace-swap-panels');

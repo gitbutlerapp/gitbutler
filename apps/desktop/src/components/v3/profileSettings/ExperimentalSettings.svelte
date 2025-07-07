@@ -1,11 +1,6 @@
 <script lang="ts">
 	import { SettingsService } from '$lib/config/appSettingsV2';
-	import {
-		compactWorkspace,
-		confettiEnabled,
-		ircEnabled,
-		ircServer
-	} from '$lib/config/uiFeatureFlags';
+	import { compactWorkspace, ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
 	import { User } from '$lib/user/user';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
@@ -60,7 +55,12 @@
 		{/snippet}
 	</SectionCard>
 
-	<SectionCard labelFor="confetti" roundedTop={false} roundedBottom={false} orientation="row">
+	<SectionCard
+		labelFor="compact-workspace"
+		roundedTop={false}
+		roundedBottom={false}
+		orientation="row"
+	>
 		{#snippet title()}
 			Compact workspace
 		{/snippet}
@@ -70,26 +70,9 @@
 
 		{#snippet actions()}
 			<Toggle
-				id="confetti"
+				id="compact-workspace"
 				checked={$compactWorkspace}
 				onclick={() => compactWorkspace.set(!$compactWorkspace)}
-			/>
-		{/snippet}
-	</SectionCard>
-
-	<SectionCard labelFor="confetti" roundedTop={false} roundedBottom={false} orientation="row">
-		{#snippet title()}
-			Confetti
-		{/snippet}
-		{#snippet caption()}
-			Mom's spaghetti, who want's some confetti? 🎉
-		{/snippet}
-
-		{#snippet actions()}
-			<Toggle
-				id="confetti"
-				checked={$confettiEnabled}
-				onclick={() => confettiEnabled.set(!$confettiEnabled)}
 			/>
 		{/snippet}
 	</SectionCard>
