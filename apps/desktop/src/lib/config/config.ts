@@ -38,17 +38,9 @@ export function projectAiGenEnabled(projectId: string): Persisted<boolean> {
 	return persisted(false, key + projectId);
 }
 
-// Using a WeakRef means that if all the users of the persisted go away, the
-// objects can get correctly GCed.
-const projectRunCommitHookPersisteds = new Map<string, WeakRef<Persisted<boolean>>>();
 export function projectRunCommitHooks(projectId: string): Persisted<boolean> {
-	const key = `projectRunCommitHooks_${projectId}`;
-	let out = projectRunCommitHookPersisteds.get(key)?.deref();
-	if (!out) {
-		out = persisted(false, key + projectId);
-		projectRunCommitHookPersisteds.set(key, new WeakRef(out));
-	}
-	return out;
+	const key = 'projectRunCommitHooks_';
+	return persisted(false, key + projectId);
 }
 
 export function projectLaneCollapsed(projectId: string, laneId: string): Persisted<boolean> {
