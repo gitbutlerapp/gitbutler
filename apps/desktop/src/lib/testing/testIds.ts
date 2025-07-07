@@ -81,6 +81,7 @@ export enum TestId {
 	ReviewDescriptionInput = 'review-view-description-input',
 	ReviewCreateButton = 'review-view-create-button',
 	ReviewCancelButton = 'review-view-cancel-button',
+	ReviewTemplateToggle = 'review-view-template-toggle',
 	StackedPullRequestCard = 'stacked-pull-request-card',
 	BranchView = 'branch-view',
 	HunkContextMenu = 'hunk-context-menu',

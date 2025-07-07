@@ -5,6 +5,7 @@ import {
 	createMockModificationTreeChange,
 	createMockUnifiedDiffPatch
 } from '../mock/changes';
+import { getMockTemplateContent } from '../mock/review';
 import { createMockBranchDetails, createMockCommit, createMockStackDetails } from '../mock/stacks';
 import type { DiffDependency } from '$lib/dependencies/dependencies';
 import type { TreeChange } from '$lib/hunks/change';
@@ -605,6 +606,7 @@ export default class BranchesWithChanges extends MockBackend {
 	bigFileName = MOCK_FILE_J;
 	stackWithTwoCommits = MOCK_STACK_B_ID;
 	firstCommitInSecondStack = MOCK_COMMIT_IN_BRANCH_B_2;
+	prTemplateContent = getMockTemplateContent();
 
 	constructor() {
 		super();
@@ -690,5 +692,9 @@ export default class BranchesWithChanges extends MockBackend {
 				['workspaceMergeConflict', MOCK_FILE_6]
 			]
 		};
+	}
+
+	public getAvailableReviewTemplates(): string[] {
+		return ['.github/PULL_REQUEST_TEMPLATE.md'];
 	}
 }
