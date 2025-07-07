@@ -21,12 +21,8 @@ export class HorizontalPanner {
 	}
 
 	registerListeners() {
-		const mouseDown = on(this.element, 'mousedown', this.handleMouseDown.bind(this), {
-			capture: true
-		});
-		const mouseUp = on(document, 'mouseup', this.stopPanning.bind(this), {
-			capture: true
-		});
+		const mouseDown = on(this.element, 'mousedown', this.handleMouseDown.bind(this), {});
+		const mouseUp = on(document, 'mouseup', this.stopPanning.bind(this), {});
 
 		return () => {
 			mouseDown();
