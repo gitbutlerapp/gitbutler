@@ -18,7 +18,6 @@ export type StackSelection = {
 
 export type StackState = {
 	selection: StackSelection | undefined;
-	action: 'review' | undefined;
 };
 
 type BranchesSelection = {
@@ -42,6 +41,11 @@ export type ExclusiveAction =
 	| {
 			type: 'edit-commit-message';
 			commitId: string;
+	  }
+	| {
+			type: 'create-pr';
+			stackId?: string;
+			branchName?: string;
 	  };
 
 export type ProjectUiState = {
@@ -99,8 +103,7 @@ export class UiState {
 
 	/** Properties scoped to a specific stack. */
 	readonly stack = this.buildScopedProps<StackState>({
-		selection: undefined,
-		action: undefined
+		selection: undefined
 	});
 
 	/** Properties scoped to a specific project. */

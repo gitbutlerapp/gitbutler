@@ -491,7 +491,8 @@
 											style={changes.current.length > 0 ? 'pop' : 'neutral'}
 											type="button"
 											wide
-											disabled={defaultBranchResult?.current.isLoading}
+											disabled={defaultBranchResult?.current.isLoading ||
+												!!projectState.exclusiveAction.current}
 											onclick={() => {
 												startCommit();
 											}}

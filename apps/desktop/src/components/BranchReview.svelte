@@ -148,9 +148,11 @@
 			testId={TestId.CreateReviewButton}
 			onclick={() => {
 				if ($settingsStore?.featureFlags.v3) {
-					if (stackId) {
-						uiState.stack(stackId).action.current = 'review';
-					}
+					uiState.project(projectId).exclusiveAction.set({
+						type: 'create-pr',
+						stackId,
+						branchName
+					});
 				} else {
 					modal?.show();
 				}

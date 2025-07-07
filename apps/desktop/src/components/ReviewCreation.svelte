@@ -75,8 +75,6 @@
 	const uiState = getContext(UiState);
 	const templateService = getContext(TemplateService);
 
-	const stackState = $derived(uiState.stack(stackId));
-
 	const user = userService.user;
 	const project = projectsService.getProjectStore(projectId);
 
@@ -281,7 +279,7 @@
 
 			prBody.reset();
 			prTitle.reset();
-			stackState.action.set(undefined);
+			uiState.project(projectId).exclusiveAction.set(undefined);
 		} finally {
 			isCreatingReview = false;
 		}

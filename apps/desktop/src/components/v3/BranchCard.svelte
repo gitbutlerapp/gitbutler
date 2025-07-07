@@ -84,6 +84,14 @@
 
 	const [updateName, nameUpdate] = stackService.updateBranchName;
 
+	const projectState = $derived(uiState.project(projectId));
+	const exclusiveAction = $derived(projectState.exclusiveAction.current);
+	const showPrCreation = $derived(
+		exclusiveAction?.type === 'create-pr' &&
+			exclusiveAction.stackId === (args.type === 'stack-branch' ? args.stackId : undefined) &&
+			exclusiveAction.branchName === branchName
+	);
+
 	const stackState = $derived(
 		args.type === 'stack-branch' ? uiState.stack(args.stackId) : undefined
 	);
@@ -190,13 +198,15 @@
 				{/snippet}
 			</BranchHeader>
 		</Dropzone>
-		{#if stackState?.action.current === 'review'}
+		{#if showPrCreation}
 			<div class="review-wrapper" class:no-padding={uiState.global.useFloatingPrBox.current}>
 				<ReviewView
 					{projectId}
 					{branchName}
 					stackId={args.stackId}
-					oncancel={() => stackState.action.set(undefined)}
+					oncancel={() => {
+						projectState.exclusiveAction.set(undefined);
+					}}
 				/>
 			</div>
 		{/if}
