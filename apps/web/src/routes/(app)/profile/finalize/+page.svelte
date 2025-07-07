@@ -25,6 +25,7 @@
 	let username = $state<string>();
 
 	let error = $state<string>();
+	let message = $state<string>();
 	const effectiveEmail = $derived(email ?? userEmail);
 	const effectiveUsername = $derived(username ?? userLogin);
 	const canSubmit = $derived(agreeToTerms && !!effectiveEmail && !!effectiveUsername);
@@ -60,7 +61,7 @@
 		}
 
 		error = undefined;
-		goto(routesService.homePath());
+		message = response.data.message;
 	}
 
 	$effect(() => {
@@ -125,6 +126,10 @@
 					{error}
 				</span>
 			</div>
+		{/if}
+
+		{#if message}
+			<div class="message">{message}</div>
 		{/if}
 	</div>
 </form>
@@ -195,6 +200,15 @@
 		border-radius: var(--radius-m);
 
 		background-color: var(--clr-theme-err-bg-muted);
+		color: var(--clr-scale-err-10);
+		font-size: 14px;
+	}
+
+	.message {
+		padding: 8px;
+		border: 1px solid var(--clr-scale-succ-60);
+		border-radius: var(--radius-m);
+		background-color: var(--clr-theme-succ-bg-muted);
 		color: var(--clr-scale-err-10);
 		font-size: 14px;
 	}

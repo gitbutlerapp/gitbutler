@@ -2,6 +2,7 @@
 	import '$lib/styles/global.css';
 	import { page } from '$app/state';
 	import { ButlerAIClient } from '$lib/ai/service';
+	import RedirectIfNotFinalized from '$lib/auth/RedirectIfNotFinalized.svelte';
 	import { AuthService } from '$lib/auth/authService.svelte';
 	import Footer from '$lib/components/Footer.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
@@ -123,6 +124,8 @@
 	const isSignupPage = $derived(page.url.pathname.includes('/signup'));
 	const hasNavigation = $derived(!isCommitPage && !isLoginPage && !isSignupPage);
 </script>
+
+<RedirectIfNotFinalized />
 
 <Toaster />
 
