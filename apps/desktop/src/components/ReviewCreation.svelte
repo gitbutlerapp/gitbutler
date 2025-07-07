@@ -24,11 +24,12 @@
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
 	import { GitHubPrService } from '$lib/forge/github/githubPrService.svelte';
 	import { type PullRequest } from '$lib/forge/interface/types';
-	import { PrPersistedStore } from '$lib/forge/prContents';
+	import { PrPersistedStore, PrTemplateStore } from '$lib/forge/prContents';
 	import {
 		BrToPrService,
 		updatePrDescriptionTables as updatePrStackInfo
 	} from '$lib/forge/shared/prFooter';
+	import { TemplateService } from '$lib/forge/templateService';
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { ProjectsService } from '$lib/project/projectsService';
@@ -72,6 +73,7 @@
 	const aiService = getContext(AIService);
 	const remotesService = getContext(RemotesService);
 	const uiState = getContext(UiState);
+	const templateService = getContext(TemplateService);
 
 	const stackState = $derived(uiState.stack(stackId));
 
@@ -138,7 +140,7 @@
 	const canPublishBR = $derived(!!($canPublish && branchName && !reviewId));
 	const canPublishPR = $derived(!!(forge.current.authenticated && !pr));
 
-	function getDefaultTitle(commits: Commit[]): string {
+	async function getDefaultTitle(commits: Commit[]): Promise<string> {
 		if (commits.length === 1) {
 			const commitMessage = commits[0]!.message;
 			const { title } = splitMessage(commitMessage);
@@ -147,7 +149,16 @@
 		return branchName;
 	}
 
-	function getDefaultBody(commits: Commit[]): string {
+	const templateStore = $derived(
+		new PrTemplateStore(projectId, forge.current.name, templateService)
+	);
+	const templateEnabled = $derived(templateStore.templateEnabled);
+	const templatePath = $derived(templateStore.templatePath);
+
+	async function getDefaultBody(commits: Commit[]): Promise<string> {
+		if ($templateEnabled && $templatePath) {
+			return await templateStore.getTemplateContent($templatePath);
+		}
 		if (commits.length === 1) {
 			return splitMessage(commits[0]!.message).description;
 		}
@@ -423,6 +434,7 @@
 	<AsyncRender>
 		<PrTemplateSection
 			{projectId}
+			{templateStore}
 			disabled={isExecuting}
 			onselect={(value) => {
 				prBody.set(value);
