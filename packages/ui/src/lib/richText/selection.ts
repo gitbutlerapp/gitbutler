@@ -182,9 +182,14 @@ export function setEditorText(editor: LexicalEditor, text: string) {
 		const root = $getRoot();
 		root.clear();
 		const paragraphNode = $createParagraphNode();
-		for (const line of text.split('\n')) {
-			const textNode = $createTextNode(line);
-			paragraphNode.append(textNode, $createLineBreakNode());
+		const lines = text.split('\n');
+		for (let i = 0; i < lines.length; i++) {
+			const textNode = $createTextNode(lines[i]);
+			paragraphNode.append(textNode);
+			// Only add line break if it's not the last line
+			if (i < lines.length - 1) {
+				paragraphNode.append($createLineBreakNode());
+			}
 		}
 		root.append(paragraphNode);
 	});
