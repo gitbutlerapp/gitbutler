@@ -5,11 +5,11 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import SeriesLabelsRow from '@gitbutler/ui/SeriesLabelsRow.svelte';
-	import type { Persisted } from '@gitbutler/shared/persisted';
+	import type { Writable } from 'svelte/store';
 
 	interface Props {
 		uncommittedChanges?: number;
-		isLaneCollapsed: Persisted<boolean>;
+		isLaneCollapsed: Writable<boolean>;
 	}
 
 	const { uncommittedChanges = 0, isLaneCollapsed }: Props = $props();
