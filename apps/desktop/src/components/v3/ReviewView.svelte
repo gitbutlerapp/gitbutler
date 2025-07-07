@@ -24,7 +24,7 @@
 	let reviewCreation = $state<ReturnType<typeof ReviewCreation>>();
 
 	function close() {
-		uiState.stack(stackId).action.set(undefined);
+		uiState.project(projectId).exclusiveAction.set(undefined);
 	}
 
 	const stackService = getContext(StackService);

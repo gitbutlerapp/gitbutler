@@ -232,7 +232,7 @@
 								/>
 							{/if}
 
-							{#if stackState?.action.current !== 'review' && canPublishPR && !isNewBranch}
+							{#if canPublishPR && !isNewBranch}
 								{#if !branch.prNumber}
 									<Button
 										size="tag"
@@ -241,9 +241,14 @@
 										icon="github-small"
 										onclick={(e) => {
 											e.stopPropagation();
-											stackState?.action.set('review');
+											projectState.exclusiveAction.set({
+												type: 'create-pr',
+												stackId,
+												branchName
+											});
 										}}
 										testId={TestId.CreateReviewButton}
+										disabled={!!projectState.exclusiveAction.current}
 									>
 										Create PR
 									</Button>

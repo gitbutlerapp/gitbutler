@@ -86,7 +86,7 @@
 				<Button
 					type="button"
 					wide
-					disabled={isCommitting}
+					disabled={!!projectState.exclusiveAction.current}
 					onclick={() => {
 						projectState.exclusiveAction.set({ type: 'commit' });
 						uncommittedService.checkAll(null);
