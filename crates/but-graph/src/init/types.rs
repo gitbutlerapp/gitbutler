@@ -40,6 +40,12 @@ impl Limit {
         self
     }
 
+    /// Set two or more goals, by setting `goal` directly as previously obtained by [Goals::flag_for()].
+    pub fn additional_goal(mut self, goal: CommitFlags) -> Self {
+        self.goal |= goal;
+        self
+    }
+
     /// It's important to try to split the limit evenly so we don't create too
     /// much extra gas here. We do, however, make sure that we see each segment of a parent
     /// with one commit so we know exactly where it stops.
@@ -69,10 +75,10 @@ impl Limit {
     /// Thanks to flag-propagation there can be no runaways.
     pub fn is_exhausted_or_decrement(&mut self, flags: CommitFlags, next: &Queue) -> bool {
         // Keep going if the goal wasn't seen yet, unlimited gas.
-        match self.goal_reachable(flags) {
-            Some(false) => return false,
-            Some(true) => self.set_goal_reached(),
-            None => {}
+        if let Some(maybe_goal) = self.goal_reachable(flags) {
+            if maybe_goal.is_empty() || self.set_single_goal_reached_keep_searching(maybe_goal) {
+                return false;
+            }
         }
         // Do not let *any* non-goal tip consume gas as long as there is still anything with a goal in the queue
         // that need to meet their local branches.
@@ -94,8 +100,15 @@ impl Limit {
 impl Limit {
     /// Out-of-band way to use commit-flags differently - they never set the earlier flags, so we
     /// can use them.
-    pub fn set_goal_reached(&mut self) {
-        self.goal.insert(CommitFlags::Integrated);
+    /// Return `true` if all goals are reached now.
+    pub fn set_single_goal_reached_keep_searching(&mut self, goal: CommitFlags) -> bool {
+        self.goal.remove(goal);
+        if self.goal.is_empty() {
+            self.goal.insert(CommitFlags::Integrated);
+            false
+        } else {
+            true
+        }
     }
 
     pub fn goal_reached(&self) -> bool {
@@ -105,15 +118,15 @@ impl Limit {
     fn goal_unset(&self) -> bool {
         self.goal.is_empty()
     }
-    /// Return `None` if this limit has no goal set, otherwise return `true` if `flags` contains it,
+    /// Return `None` if this limit has no goal set, otherwise return `!CommitFlags::empty()` if `flags` contains it,
     /// meaning it was reached through the commit the flags belong to.
     /// This is useful to determine if a commit that is ahead was seen during traversal.
     #[inline]
-    pub fn goal_reachable(&self, flags: CommitFlags) -> Option<bool> {
+    pub fn goal_reachable(&self, flags: CommitFlags) -> Option<CommitFlags> {
         if self.goal_reached() {
             None
         } else {
-            Some(flags.contains(self.goal_flags()))
+            Some(flags.intersection(self.goal_flags()))
         }
     }
 
