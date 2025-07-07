@@ -282,7 +282,6 @@
 					direction="down"
 					minHeight={minDetailsHeight}
 					maxHeight={maxDetailsHeight}
-					dblclickSize
 				/>
 			{/if}
 		{/snippet}
@@ -316,7 +315,6 @@
 					direction="down"
 					minHeight={minDetailsHeight}
 					maxHeight={maxDetailsHeight}
-					dblclickSize
 				/>
 			{/if}
 		{/snippet}
@@ -351,7 +349,6 @@
 							passive={collapsed}
 							direction="down"
 							syncName="blah"
-							dblclickSize
 						/>
 					{/if}
 				{/snippet}
@@ -388,7 +385,6 @@
 							passive={collapsed}
 							direction="down"
 							syncName="blah"
-							dblclickSize
 						/>
 					{/if}
 				{/snippet}
@@ -442,7 +438,6 @@
 				minWidth={16}
 				maxWidth={64}
 				syncName="panel1"
-				dblclickSize
 				imitateBorder
 			/>
 			<ReduxResult {projectId} result={branchesResult.current}>
@@ -575,7 +570,6 @@
 					defaultValue={20}
 					syncName="panel2"
 					imitateBorder
-					dblclickSize
 				/>
 			</div>
 		{:else if branchName || commitId}
@@ -602,7 +596,6 @@
 					maxWidth={56}
 					syncName="panel2"
 					imitateBorder
-					dblclickSize
 				/>
 			</div>
 			{#if assignedKey || selectedKey}
@@ -626,7 +619,6 @@
 						maxWidth={96}
 						syncName="panel3"
 						imitateBorder
-						dblclickSize
 					/>
 				</div>
 			{/if}
