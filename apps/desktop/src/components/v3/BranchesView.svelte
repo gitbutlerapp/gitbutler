@@ -175,7 +175,7 @@
 		{@const currentBranchName = current.branchName ?? baseBranch.shortName}
 		{@const someBranchSelected = current.branchName !== undefined}
 		{@const isTargetBranch =
-			currentBranchName === baseBranch.shortName || current.prNumber === undefined}
+			currentBranchName === baseBranch.shortName && current.prNumber === undefined}
 		{@const inWorkspaceOrTargetBranch = current.inWorkspace || isTargetBranch}
 		{@const isStackOrNormalBranchPreview =
 			current.stackId || (current.branchName && !isTargetBranch)}
