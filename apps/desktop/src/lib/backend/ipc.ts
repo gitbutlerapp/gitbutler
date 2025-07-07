@@ -50,7 +50,8 @@ export function getUserErrorCode(error: unknown): Code | undefined {
 	if (error instanceof UserError) {
 		return error.code;
 	}
-	return undefined;
+	const userError = UserError.fromError(error);
+	return userError.code;
 }
 
 export async function invoke<T>(command: string, params: Record<string, unknown> = {}): Promise<T> {

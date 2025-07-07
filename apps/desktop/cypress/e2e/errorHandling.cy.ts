@@ -201,10 +201,6 @@ describe('Error handling - commit actions', () => {
 		cy.getByTestId('commit-drawer-description-input').should('contain', newCommitMessageBody);
 	});
 
-	// PAVELITO: If you want to see the commit failed modal, change the `it(` to `it.only`, that will make it so that
-	// this test is the only one run.
-	// When you're done with your changes, please change the `it.only` to `it` and remove the comment.
-	// I also commented out some lines at the bottom of this test, please uncomment them when you're done.
 	it('Partially failing to commit with rejection reasons shuold be handled graceful', () => {
 		const newCommitId = '29384726398746289374';
 		mockCommand('create_commit_from_worktree_changes', () =>
@@ -261,13 +257,11 @@ describe('Error handling - commit actions', () => {
 		// The commit id should be displayed
 		cy.getByTestId('global-modal-commit-failed').should('contain', newCommitId.substring(0, 7));
 
-		// PAVELITO: The following 5 lines should be uncommented when the modal redesign is done, please.
-
 		// // Should be able to dismiss the modal
-		// cy.getByTestId('global-modal-action-button').should('be.visible').click();
-		// cy.getByTestId('global-modal-commit-failed').should('not.exist');
+		cy.getByTestId('global-modal-action-button').should('be.visible').click();
+		cy.getByTestId('global-modal-commit-failed').should('not.exist');
 		// // The commit drawer should be closed
-		// cy.getByTestId('new-commit-view').should('not.exist');
+		cy.getByTestId('new-commit-view').should('not.exist');
 	});
 
 	it('Failing to uncommit should fail graceful', () => {
@@ -284,5 +278,19 @@ describe('Error handling - commit actions', () => {
 		cy.getByTestId('toast-info-message')
 			.should('be.visible')
 			.should('contain', COMMIT_UNDO_ERROR_MESSAGE);
+	});
+});
+
+describe('Error handling - project acitons', () => {
+	beforeEach(() => {
+		cy.visit('/');
+
+		mockCommand('get_project', () => {
+			throw { code: 'errors.projects.missing', message: 'Project not found' };
+		});
+	});
+
+	it.only('Gracefully handle missing project', () => {
+		cy.getByTestId('project-not-found-page').should('be.visible');
 	});
 });

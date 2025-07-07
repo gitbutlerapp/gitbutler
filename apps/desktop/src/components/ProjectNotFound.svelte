@@ -5,6 +5,7 @@
 	import RemoveProjectButton from '$components/RemoveProjectButton.svelte';
 	import notFoundSvg from '$lib/assets/illustrations/not-found.svg?raw';
 	import { ProjectsService } from '$lib/project/projectsService';
+	import { TestId } from '$lib/testing/testIds';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
@@ -48,7 +49,7 @@
 	}
 </script>
 
-<DecorativeSplitView img={notFoundSvg}>
+<DecorativeSplitView testId={TestId.ProjectNotFoundPage} img={notFoundSvg}>
 	<div class="container">
 		{#await projectPromise then project}
 			{#if deleteSucceeded === undefined}
