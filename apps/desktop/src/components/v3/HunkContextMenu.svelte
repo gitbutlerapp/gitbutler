@@ -33,10 +33,23 @@
 		change: TreeChange;
 		projectPath: string | undefined;
 		discardable: boolean;
-		unSelectHunk: (hunk: DiffHunk) => void;
+		selectable: boolean;
+		selectAllHunkLines: (hunk: DiffHunk) => void;
+		unselectAllHunkLines: (hunk: DiffHunk) => void;
+		invertHunkSelection: (hunk: DiffHunk) => void;
 	}
 
-	const { trigger, projectId, change, projectPath, discardable, unSelectHunk }: Props = $props();
+	const {
+		trigger,
+		projectId,
+		change,
+		projectPath,
+		discardable,
+		selectable,
+		selectAllHunkLines,
+		unselectAllHunkLines,
+		invertHunkSelection
+	}: Props = $props();
 
 	const [stackService, ircService] = inject(StackService, IrcService);
 
@@ -61,7 +74,7 @@
 		const previousPathBytes =
 			change.status.type === 'Rename' ? change.status.subject.previousPathBytes : null;
 
-		unSelectHunk(item.hunk);
+		unselectAllHunkLines(item.hunk);
 
 		await stackService.discardChanges({
 			projectId,
@@ -80,7 +93,7 @@
 		const previousPathBytes =
 			change.status.type === 'Rename' ? change.status.subject.previousPathBytes : null;
 
-		unSelectHunk(item.hunk);
+		unselectAllHunkLines(item.hunk);
 
 		await stackService.discardChanges({
 			projectId,
@@ -169,6 +182,34 @@
 					/>
 				{/if}
 			</ContextMenuSection>
+			{#if selectable}
+				<ContextMenuSection>
+					<ContextMenuItem
+						testId={TestId.HunkContextMenu_SelectAll}
+						label="Select all"
+						onclick={() => {
+							selectAllHunkLines(item.hunk);
+							contextMenu?.close();
+						}}
+					/>
+					<ContextMenuItem
+						testId={TestId.HunkContextMenu_UnselectAll}
+						label="Unselect all"
+						onclick={() => {
+							unselectAllHunkLines(item.hunk);
+							contextMenu?.close();
+						}}
+					/>
+					<ContextMenuItem
+						testId={TestId.HunkContextMenu_InvertSelection}
+						label="Invert selection"
+						onclick={() => {
+							invertHunkSelection(item.hunk);
+							contextMenu?.close();
+						}}
+					/>
+				</ContextMenuSection>
+			{/if}
 		{:else}
 			Malformed item :(
 		{/if}
