@@ -45,7 +45,7 @@
 
 {#snippet editor()}
 	<AsyncRender>
-		<div class="review-view" data-testid={TestId.ReviewView}>
+		<div class="create-review-box" data-testid={TestId.CreateReviewBox}>
 			<ReviewCreation
 				bind:this={reviewCreation}
 				{projectId}
@@ -83,7 +83,7 @@
 {/if}
 
 <style lang="postcss">
-	.review-view {
+	.create-review-box {
 		display: flex;
 		flex-direction: column;
 		height: 100%;

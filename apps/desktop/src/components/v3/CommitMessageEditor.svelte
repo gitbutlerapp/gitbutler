@@ -151,12 +151,6 @@
 		const newDescription = await getDescription();
 		onCancel({ title, description: newDescription });
 	}
-
-	$effect(() => {
-		if (titleInput) {
-			titleInput.focus();
-		}
-	});
 </script>
 
 {#snippet editorContent()}

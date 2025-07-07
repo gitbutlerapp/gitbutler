@@ -205,6 +205,7 @@ pub fn build<R: Runtime>(
         .separator()
         .text("help/discord", "Discord")
         .text("help/youtube", "YouTube")
+        .text("help/Bluesky", "Bluesky")
         .text("help/x", "X")
         .separator()
         .item(
@@ -334,6 +335,7 @@ pub fn handle_event(webview: &WebviewWindow, event: &MenuEvent) {
             }
             "help/discord" => open::that("https://discord.com/invite/MmFkmaJ42D"),
             "help/youtube" => open::that("https://www.youtube.com/@gitbutlerapp"),
+            "help/bluesky" => open::that("https://bsky.app/profile/gitbutler.com"),
             "help/x" => open::that("https://x.com/gitbutler"),
             _ => break 'open_link,
         };

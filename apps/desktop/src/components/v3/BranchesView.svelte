@@ -50,6 +50,7 @@
 
 	const baseBranchResult = $derived(baseBranchService.baseBranch(projectId));
 	const branchesSelection = $derived(projectState.branchesSelection);
+
 	const selectedOption = persisted<SelectedOption>('all', `branches-selectedOption-${projectId}`);
 
 	let branchColumn = $state<HTMLDivElement>();
@@ -171,8 +172,10 @@
 	{#snippet children(baseBranch)}
 		{@const lastCommit = baseBranch.recentCommits.at(0)}
 		{@const current = branchesState.current}
+		{@const currentBranchName = current.branchName ?? baseBranch.shortName}
 		{@const someBranchSelected = current.branchName !== undefined}
-		{@const isTargetBranch = current.branchName === baseBranch.shortName}
+		{@const isTargetBranch =
+			currentBranchName === baseBranch.shortName && current.prNumber === undefined}
 		{@const inWorkspaceOrTargetBranch = current.inWorkspace || isTargetBranch}
 		{@const isStackOrNormalBranchPreview =
 			current.stackId || (current.branchName && !isTargetBranch)}
@@ -320,7 +323,7 @@
 						{/if}
 
 						<div class="commits" class:target-branch={isTargetBranch}>
-							{#if isTargetBranch || (current.branchName === undefined && current.prNumber === undefined)}
+							{#if isTargetBranch}
 								<TargetCommitList {projectId} />
 							{:else if current.stackId}
 								<BranchesViewStack {projectId} stackId={current.stackId} {onerror} />
