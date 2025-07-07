@@ -36,7 +36,7 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 2,
+                        id: 3,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -198,7 +198,7 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 2,
+                        id: 3,
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                         commits: [
@@ -212,7 +212,7 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -282,7 +282,7 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 2,
+                        id: 3,
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                         commits: [
@@ -296,7 +296,7 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -310,7 +310,7 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: 6,
                         ref_name: "refs/heads/base-of-A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -1168,7 +1168,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<(
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 2,
+                        id: 3,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
@@ -1229,7 +1229,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1241,7 +1241,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: 6,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
@@ -1293,7 +1293,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [],
@@ -1305,7 +1305,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: 6,
                         ref_name: "refs/heads/dependant",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -1368,7 +1368,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/on-top-of-dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1380,7 +1380,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: 6,
                         ref_name: "refs/heads/dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1392,7 +1392,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 6,
+                        id: 7,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
@@ -1442,7 +1442,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1454,7 +1454,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: 6,
                         ref_name: "refs/heads/on-top-of-dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1466,7 +1466,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 6,
+                        id: 7,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
@@ -1529,7 +1529,7 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 2,
+                        id: 3,
                         ref_name: "refs/heads/on-top-of-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/on-top-of-lane",
                         commits: [
@@ -1543,7 +1543,7 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "refs/remotes/origin/lane",
                         commits: [
@@ -1674,7 +1674,7 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 2,
+                        id: 3,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -2147,7 +2147,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 2,
+                        id: 3,
                         ref_name: "refs/heads/C-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -2161,7 +2161,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2179,7 +2179,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 3,
+                        id: 4,
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -2189,7 +2189,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         metadata: "None",
                     },
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2244,7 +2244,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2262,7 +2262,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 3,
+                        id: 4,
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -2272,7 +2272,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         metadata: "None",
                     },
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2313,7 +2313,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 3,
+                        id: 4,
                         ref_name: "refs/heads/C-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -2327,7 +2327,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2355,7 +2355,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         metadata: "None",
                     },
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2397,7 +2397,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/C-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -2429,7 +2429,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: 6,
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [

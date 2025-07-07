@@ -265,7 +265,7 @@ impl Graph {
         }
         for (ws_tip, ws_ref, workspace_info) in workspaces {
             let target = workspace_info.target_ref.as_ref().and_then(|trn| {
-                try_refname_to_id(repo, trn.as_ref())
+                let tid = try_refname_to_id(repo, trn.as_ref())
                     .map_err(|err| {
                         tracing::warn!(
                             "Ignoring non-existing target branch {trn}: {err}",
@@ -273,9 +273,19 @@ impl Graph {
                         );
                         err
                     })
+                    .ok()??;
+                let local_info = repo
+                    .upstream_branch_and_remote_for_tracking_branch(trn.as_ref())
                     .ok()
                     .flatten()
-                    .map(|tid| (trn.clone(), tid))
+                    .and_then(|(local_tracking_name, _remote_name)| {
+                        let ltid = try_refname_to_id(repo, local_tracking_name.as_ref()).ok()??;
+                        if next.inner.iter().any(|(tip, _, _, _)| tip == &ltid) {
+                            return None;
+                        }
+                        Some((local_tracking_name, ltid))
+                    });
+                Some((trn.clone(), tid, local_info))
             });
 
             let (ws_extra_flags, ws_limit) = if Some(&ws_ref) == ref_name.as_ref() {
@@ -306,12 +316,33 @@ impl Graph {
             )) {
                 return Ok(graph.with_hard_limit());
             }
-            if let Some((target_ref, target_ref_id)) = target {
+            if let Some((target_ref, target_ref_id, local_tip_info)) = target {
                 let target_segment = graph.insert_root(branch_segment_from_name_and_meta(
                     Some((target_ref, None)),
                     meta,
                     None,
                 )?);
+                let local_sidx = if let Some((local_ref_name, target_local_tip)) = local_tip_info {
+                    let local_sidx = graph.insert_root(branch_segment_from_name_and_meta_sibling(
+                        Some((local_ref_name, None)),
+                        Some(target_segment),
+                        meta,
+                        None,
+                    )?);
+                    if next.push_front_exhausted((
+                        target_local_tip,
+                        CommitFlags::NotInRemote,
+                        Instruction::CollectCommit { into: local_sidx },
+                        max_limit
+                            .with_indirect_goal(tip.detach(), &mut goals)
+                            .without_allowance(),
+                    )) {
+                        return Ok(graph.with_hard_limit());
+                    }
+                    Some(local_sidx)
+                } else {
+                    None
+                };
                 if next.push_front_exhausted((
                     target_ref_id,
                     CommitFlags::Integrated,
@@ -326,6 +357,7 @@ impl Graph {
                 )) {
                     return Ok(graph.with_hard_limit());
                 }
+                graph[target_segment].sibling_segment_id = local_sidx;
             }
         }
 

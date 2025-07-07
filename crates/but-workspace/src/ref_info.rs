@@ -505,6 +505,7 @@ pub(crate) mod function {
             but_graph::projection::StackSegment {
                 ref_name,
                 remote_tracking_ref_name,
+                sibling_segment_id: _,
                 id,
                 commits,
                 commits_on_remote,

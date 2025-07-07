@@ -276,11 +276,23 @@ pub fn branch_segment_from_name_and_meta(
     meta: &impl RefMetadata,
     refs_by_id_lookup: Option<(&RefsById, gix::ObjectId)>,
 ) -> anyhow::Result<Segment> {
+    branch_segment_from_name_and_meta_sibling(ref_name, None, meta, refs_by_id_lookup)
+}
+
+/// Like `branch_segment_from_name_and_meta`, but allows to set `sibling_sidx` as well to link
+/// a new remote segment to a local tracking branch.
+pub fn branch_segment_from_name_and_meta_sibling(
+    ref_name: Option<(gix::refs::FullName, Option<SegmentMetadata>)>,
+    sibling_sidx: Option<SegmentIndex>,
+    meta: &impl RefMetadata,
+    refs_by_id_lookup: Option<(&RefsById, gix::ObjectId)>,
+) -> anyhow::Result<Segment> {
     let (ref_name, metadata) =
         unambiguous_local_branch_and_segment_data(ref_name, meta, refs_by_id_lookup)?;
     Ok(Segment {
         metadata,
         ref_name,
+        sibling_segment_id: sibling_sidx,
         ..Default::default()
     })
 }
@@ -604,6 +616,7 @@ pub fn propagate_flags_downward(
 /// that were previously ambiguous.
 /// If a remote tracking branch is in `target_refs`, we assume it was already scheduled and won't schedule it again.
 /// Note that remotes fully obey the limit.
+/// If the created remote segment belongs to the segment of `local_tracking_sidx`, return its Segment index along with its name.
 #[allow(clippy::too_many_arguments)]
 pub fn try_queue_remote_tracking_branches(
     repo: &gix::Repository,
@@ -638,7 +651,7 @@ pub fn try_queue_remote_tracking_branches(
             continue;
         };
         let remote_segment = graph.insert_root(branch_segment_from_name_and_meta(
-            Some((remote_tracking_branch, None)),
+            Some((remote_tracking_branch.clone(), None)),
             meta,
             None,
         )?);

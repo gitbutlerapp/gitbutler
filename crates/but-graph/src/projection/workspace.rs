@@ -417,7 +417,7 @@ impl Graph {
         // Prune the whole stack if we start with unwanted segments.
         if out.first().is_some_and(&mut is_pruned) {
             tracing::warn!(
-                "Ignoring stack {:?} ({:?})",
+                "Ignoring stack {:?} ({:?}) as it is pruned",
                 out.first().and_then(|s| s.ref_name.as_ref()),
                 from,
             );
@@ -499,25 +499,16 @@ impl Workspace<'_> {
             .stacks
             .iter()
             .flat_map(|s| {
-                s.segments
-                    .iter()
-                    // TODO: it would be good to keep the remote_sidx for later so we don't have to 'find' it, on graph level.
-                    .filter_map(|s| s.remote_tracking_ref_name.as_ref().cloned())
+                s.segments.iter().filter_map(|s| {
+                    s.remote_tracking_ref_name
+                        .as_ref()
+                        .cloned()
+                        .zip(s.sibling_segment_id)
+                })
             })
             .collect();
         let graph = self.graph;
-        for remote_tracking_ref_name in remote_refs {
-            let Some(remote_sidx) = graph
-                .inner
-                .node_indices()
-                .find(|sidx| graph[*sidx].ref_name.as_ref() == Some(&remote_tracking_ref_name))
-            else {
-                tracing::error!(
-                    "BUG: Stack had remote reference '{rn}' that didn't have a node in graph",
-                    rn = remote_tracking_ref_name.as_bstr()
-                );
-                continue;
-            };
+        for (remote_tracking_ref_name, remote_sidx) in remote_refs {
             let mut remote_commits = Vec::new();
             graph.visit_all_segments_until(remote_sidx, Direction::Outgoing, |s| {
                 let prune = !s.commits.iter().all(|c| c.flags.is_remote())

@@ -1,6 +1,6 @@
 //! Tests for visualizing the graph data structure.
 use but_core::ref_metadata;
-use but_graph::{CommitFlags, Graph, Segment, SegmentMetadata};
+use but_graph::{CommitFlags, Graph, Segment, SegmentIndex, SegmentMetadata};
 
 /// Simulate a graph data structure after the first pass, i.e., right after the walk.
 /// There is no pruning of 'empty' branches, just a perfect representation of the graph as is,
@@ -49,6 +49,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
         id: 3.into(),
         ref_name: Some("refs/heads/A".try_into()?),
         remote_tracking_ref_name: Some("refs/remotes/origin/A".try_into()?),
+        sibling_segment_id: Some(SegmentIndex::from(1)),
         commits: vec![
             commit(id("a"), Some(init_commit_id), CommitFlags::InWorkspace),
             commit(init_commit_id, None, CommitFlags::InWorkspace),
@@ -76,7 +77,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
         ├── ►:1:new-stack
         ├── ►:2:origin/main
         │   └── ✂️🟣ccccccc
-        └── ►:3:A <> origin/A
+        └── ►:3:A <> origin/A →:1:
             ├── 🟣aaaaaaa (🏘️)
             └── 🟣febafeb (🏘️)
                 └── ►:4:origin/A
@@ -230,6 +231,7 @@ pub(crate) mod utils {
         sidx: SegmentIndex,
         seen: &mut BTreeSet<SegmentIndex>,
     ) -> StringTree {
+        let segment = &graph[sidx];
         if seen.contains(&sidx) {
             return format!(
                 "→:{sidx}:{name}",
@@ -237,13 +239,18 @@ pub(crate) mod utils {
                 name = graph[sidx]
                     .ref_name
                     .as_ref()
-                    .map(|n| format!(" ({})", Graph::ref_debug_string(n)))
+                    .map(|n| format!(
+                        " ({}{maybe_sibling})",
+                        Graph::ref_debug_string(n),
+                        maybe_sibling = segment
+                            .sibling_segment_id
+                            .map_or_else(String::new, |sid| format!(" →:{}:", sid.index()))
+                    ))
                     .unwrap_or_default()
             )
             .into();
         }
         seen.insert(sidx);
-        let segment = &graph[sidx];
         let ep = no_first_commit_on_named_segments(graph.lookup_entrypoint().unwrap());
         let segment_is_entrypoint = ep.segment_index == sidx;
         let mut show_segment_entrypoint = segment_is_entrypoint;
@@ -264,7 +271,7 @@ pub(crate) mod utils {
         };
 
         let mut root = Tree::new(format!(
-            "{entrypoint}{meta}{arrow}:{id}:{ref_name}{remote}",
+            "{entrypoint}{meta}{arrow}:{id}:{ref_name_and_remote}",
             meta = match segment.metadata {
                 None => {
                     ""
@@ -291,19 +298,11 @@ pub(crate) mod utils {
             } else {
                 ""
             },
-            ref_name = segment
-                .ref_name
-                .as_ref()
-                .map(Graph::ref_debug_string)
-                .unwrap_or("anon:".into()),
-            remote = if let Some(remote_ref_name) = segment.remote_tracking_ref_name.as_ref() {
-                format!(
-                    " <> {remote_name}",
-                    remote_name = Graph::ref_debug_string(remote_ref_name)
-                )
-            } else {
-                "".into()
-            },
+            ref_name_and_remote = Graph::ref_and_remote_debug_string(
+                segment.ref_name.as_ref(),
+                segment.remote_tracking_ref_name.as_ref(),
+                segment.sibling_segment_id
+            ),
         ));
         for (cidx, commit) in segment.commits.iter().enumerate() {
             let mut commit_tree = tree_for_commit(

@@ -66,6 +66,11 @@ pub struct StackSegment {
     /// The name of the remote tracking branch of this segment, if present, i.e. `refs/remotes/origin/main`.
     /// Its presence means [`commits_unique_in_remote_tracking_branch`] are possibly available.
     pub remote_tracking_ref_name: Option<gix::refs::FullName>,
+    /// If `remote_tracking_ref_name` is set, this field is also set to make accessing the respective segment easy,
+    /// avoiding a search through the entire graph.
+    /// If `remote_tracking_ref_name` is `None`, and `ref_name` is a remote tracking branch, then this is set to be
+    /// the segment id of the local tracking branch, effectively doubly-linking them for ease of traversal.
+    pub sibling_segment_id: Option<SegmentIndex>,
     /// An ID which uniquely identifies the [first graph segment](crate::Segment) that is contained
     /// in this instance.
     /// This is always the first id in the `commits_by_segment`.
@@ -81,7 +86,7 @@ pub struct StackSegment {
     /// The list could be empty for when this is a dedicated empty segment as insertion position of commits.
     pub commits: Vec<StackCommit>,
     /// A mapping of `(segment_idx, offset)` to know which segment contributed the commits of the
-    /// given range.
+    /// given offset into `commits`. The offsets are ascending, starting at `0`.
     /// This is useful to be able to retain the ability to associate a commit to a segment in the graph.
     pub commits_by_segment: Vec<(SegmentIndex, usize)>,
     /// Commits that are *only* reachable from the tip of the remote-tracking branch that is associated with this branch,
@@ -126,6 +131,7 @@ impl StackSegment {
             id,
             ref_name,
             remote_tracking_ref_name,
+            sibling_segment_id,
             commits: _,
             metadata,
         } = segments_iter
@@ -154,6 +160,7 @@ impl StackSegment {
             ref_name: ref_name.clone(),
             id: *id,
             remote_tracking_ref_name: remote_tracking_ref_name.clone(),
+            sibling_segment_id: *sibling_segment_id,
             commits_by_segment: {
                 let mut ofs = 0;
                 commits_by_segment
@@ -195,23 +202,15 @@ impl StackSegment {
             0
         };
         format!(
-            "{ep}{meta}:{id}:{name}{remote}{local_commits}{remote_commits}",
+            "{ep}{meta}:{id}:{ref_name_remote}{local_commits}{remote_commits}",
             ep = if self.is_entrypoint { "👉" } else { "" },
             meta = if self.metadata.is_some() { "📙" } else { "" },
             id = self.id.index(),
-            name = self
-                .ref_name
-                .as_ref()
-                .map(Graph::ref_debug_string)
-                .unwrap_or_else(|| "<anon>".into()),
-            remote = if let Some(remote_ref_name) = self.remote_tracking_ref_name.as_ref() {
-                format!(
-                    " <> {remote_name}",
-                    remote_name = Graph::ref_debug_string(remote_ref_name)
-                )
-            } else {
-                "".into()
-            },
+            ref_name_remote = Graph::ref_and_remote_debug_string(
+                self.ref_name.as_ref(),
+                self.remote_tracking_ref_name.as_ref(),
+                self.sibling_segment_id
+            ),
             local_commits = if num_local_commits == 0 {
                 "".into()
             } else {
