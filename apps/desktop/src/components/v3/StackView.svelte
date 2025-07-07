@@ -572,7 +572,7 @@
 					imitateBorder
 				/>
 			</div>
-		{:else if branchName || commitId}
+		{:else if branchName}
 			<div
 				bind:this={detailsEl}
 				style:width={uiState.global.detailsWidth.current + 'rem'}
@@ -598,30 +598,30 @@
 					imitateBorder
 				/>
 			</div>
-			{#if assignedKey || selectedKey}
-				<div
-					bind:this={previewEl}
-					style:width={uiState.global.previewWidth.current + 'rem'}
-					class="preview"
-					data-remove-from-draggable
-					{@attach scrollingAttachment(intelligentScrollingService, stack.id, 'diff')}
-				>
-					{#if assignedKey?.type === 'worktree' && assignedKey.stackId}
-						{@render assignedChangePreview(assignedKey.stackId)}
-					{:else if selectedKey}
-						{@render otherChangePreview(selectedKey)}
-					{/if}
-					<Resizer
-						viewport={previewEl}
-						persistId="resizer-panel3-${stack.id}"
-						direction="right"
-						minWidth={20}
-						maxWidth={96}
-						syncName="panel3"
-						imitateBorder
-					/>
-				</div>
-			{/if}
+		{/if}
+		{#if (assignedKey?.type === 'worktree' && assignedKey.stackId) || selectedKey}
+			<div
+				bind:this={previewEl}
+				style:width={uiState.global.previewWidth.current + 'rem'}
+				class="preview"
+				data-remove-from-draggable
+				{@attach scrollingAttachment(intelligentScrollingService, stack.id, 'diff')}
+			>
+				{#if assignedKey?.type === 'worktree' && assignedKey.stackId}
+					{@render assignedChangePreview(assignedKey.stackId)}
+				{:else if selectedKey}
+					{@render otherChangePreview(selectedKey)}
+				{/if}
+				<Resizer
+					viewport={previewEl}
+					persistId="resizer-panel3-${stack.id}"
+					direction="right"
+					minWidth={20}
+					maxWidth={96}
+					syncName="panel3"
+					imitateBorder
+				/>
+			</div>
 		{/if}
 	</div>
 </AsyncRender>
