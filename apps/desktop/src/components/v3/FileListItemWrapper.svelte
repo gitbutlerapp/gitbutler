@@ -2,6 +2,7 @@
 <script lang="ts">
 	import FileContextMenu from '$components/v3/FileContextMenu.svelte';
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
+	import { DragStateService } from '$lib/dragging/dragStateService.svelte';
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { ChangeDropData } from '$lib/dragging/draggables';
 	import { DropzoneRegistry } from '$lib/dragging/registry';
@@ -69,6 +70,7 @@
 	const idSelection = getContext(IdSelection);
 	const uncommittedService = getContext(UncommittedService);
 	const dropzoneRegistry = getContext(DropzoneRegistry);
+	const dragStateService = getContext(DragStateService);
 
 	let contextMenu = $state<ReturnType<typeof FileContextMenu>>();
 	let draggableEl: HTMLDivElement | undefined = $state();
@@ -130,7 +132,8 @@
 		selector: '.selected-draggable',
 		disabled: draggableDisabled,
 		chipType: 'file',
-		dropzoneRegistry
+		dropzoneRegistry,
+		dragStateService
 	}}
 >
 	<FileContextMenu

@@ -34,6 +34,7 @@
 	import { GitConfigService } from '$lib/config/gitConfigService';
 	import { compactWorkspace, ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
 	import DependencyService from '$lib/dependencies/dependencyService.svelte';
+	import { DragStateService } from '$lib/dragging/dragStateService.svelte';
 	import { DropzoneRegistry } from '$lib/dragging/registry';
 	import { FileService } from '$lib/files/fileService';
 	import { ButRequestDetailsService } from '$lib/forge/butRequestDetailsService';
@@ -262,6 +263,7 @@
 	setContext(DependencyService, dependecyService);
 	setContext(IdSelection, idSelection);
 	setContext(DropzoneRegistry, new DropzoneRegistry());
+	setContext(DragStateService, new DragStateService());
 	setContext(ResizeSync, new ResizeSync());
 	setNameNormalizationServiceContext(new IpcNameNormalizationService(invoke));
 

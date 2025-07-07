@@ -3,6 +3,7 @@ import { type CommitStatusType } from '$lib/commits/commit';
 import { FileDropData, ChangeDropData, type DropData } from '$lib/dragging/draggables';
 import { getFileIcon } from '@gitbutler/ui/file/getFileIcon';
 import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
+import type { DragStateService } from '$lib/dragging/dragStateService.svelte';
 import type { DropzoneRegistry } from '$lib/dragging/registry';
 
 // Added to element being dragged (not the clone that follows the cursor).
@@ -25,6 +26,7 @@ export type DraggableConfig = {
 	readonly viewportId?: string;
 	readonly chipType?: 'file' | 'hunk';
 	readonly dropzoneRegistry: DropzoneRegistry;
+	readonly dragStateService?: DragStateService;
 };
 
 function createElement<K extends keyof HTMLElementTagNameMap>(
@@ -57,6 +59,7 @@ function setupDragHandlers(
 	let dragHandle: HTMLElement | null;
 	let clone: HTMLElement | undefined;
 	let selectedElements: Element[] = [];
+	let endDragging: (() => void) | undefined;
 
 	function handleMouseDown(e: MouseEvent) {
 		dragHandle = e.target as HTMLElement;
@@ -75,6 +78,11 @@ function setupDragHandlers(
 		if (!parentNode) {
 			console.error('draggable parent node not found');
 			return;
+		}
+
+		// Start drag state tracking
+		if (opts.dragStateService) {
+			endDragging = opts.dragStateService.startDragging();
 		}
 
 		// This should be deleted once V3 design has shipped.
@@ -193,6 +201,9 @@ function setupDragHandlers(
 		dragHandle = null;
 		e.stopPropagation();
 		deactivateDropzones();
+
+		// End drag state tracking
+		endDragging?.();
 	}
 
 	function setup(newOpts: DraggableConfig) {
@@ -217,6 +228,9 @@ function setupDragHandlers(
 		node.removeEventListener('drag', handleDrag);
 		node.removeEventListener('dragend', handleDragEnd);
 		node.removeEventListener('mousedown', handleMouseDown, { capture: false });
+
+		// Clean up drag state if not already done
+		endDragging?.();
 	}
 
 	function deactivateDropzones() {
