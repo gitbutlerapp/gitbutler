@@ -3,7 +3,6 @@
 	import { ResizeSync } from '$lib/utils/resizeSync';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
-	import { on } from 'svelte/events';
 	import { writable } from 'svelte/store';
 
 	interface Props {
@@ -32,7 +31,6 @@
 		/** Enabled, but does not set the width/height on the dom element */
 		passive?: boolean;
 		/** Doubles or halves the width on double click */
-		dblclickSize?: boolean;
 		clientHeight?: number;
 
 		// Actions
@@ -59,7 +57,6 @@
 		syncName,
 		persistId,
 		passive,
-		dblclickSize,
 		clientHeight = $bindable(),
 		onResizing,
 		onOverflow,
@@ -220,12 +217,6 @@
 	});
 
 	$effect(() => {
-		if (resizerDiv && dblclickSize) {
-			return on(resizerDiv, 'dblclick', reset);
-		}
-	});
-
-	$effect(() => {
 		if (viewport) {
 			clientHeight = viewport.clientHeight;
 			const monitor = new ResizeObserver((e) => (clientHeight = e[0]?.target.clientHeight));
@@ -233,11 +224,6 @@
 			return () => monitor.disconnect();
 		}
 	});
-
-	function reset() {
-		updateDom(undefined);
-		value.set(undefined);
-	}
 </script>
 
 <div

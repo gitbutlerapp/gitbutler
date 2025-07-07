@@ -74,7 +74,6 @@
 					minWidth={16}
 					maxWidth={64}
 					syncName="panel1"
-					dblclickSize
 				/>
 			</div>
 		</ConfigurableScrollableContainer>
