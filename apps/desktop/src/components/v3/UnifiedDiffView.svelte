@@ -7,6 +7,7 @@
 	import emptyFileSvg from '$lib/assets/empty-state/empty-file.svg?raw';
 	import tooLargeSvg from '$lib/assets/empty-state/too-large.svg?raw';
 	import DependencyService from '$lib/dependencies/dependencyService.svelte';
+	import { DragStateService } from '$lib/dragging/dragStateService.svelte';
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { HunkDropDataV3 } from '$lib/dragging/draggables';
 	import { DropzoneRegistry } from '$lib/dragging/registry';
@@ -55,7 +56,12 @@
 		topPadding
 	}: Props = $props();
 
-	const [project, uiState, dropzoneRegistry] = inject(Project, UiState, DropzoneRegistry);
+	const [project, uiState, dropzoneRegistry, dragStateService] = inject(
+		Project,
+		UiState,
+		DropzoneRegistry,
+		DragStateService
+	);
 
 	let contextMenu = $state<ReturnType<typeof HunkContextMenu>>();
 	let showAnyways = $state(false);
@@ -144,7 +150,8 @@
 								),
 								disabled: !draggable,
 								chipType: 'hunk',
-								dropzoneRegistry
+								dropzoneRegistry,
+								dragStateService
 							}}
 						>
 							<HunkDiff

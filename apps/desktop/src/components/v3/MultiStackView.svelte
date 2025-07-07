@@ -4,6 +4,7 @@
 	import MultiStackPagination, { scrollToLane } from '$components/v3/MultiStackPagination.svelte';
 	import StackDraft from '$components/v3/StackDraft.svelte';
 	import StackView from '$components/v3/StackView.svelte';
+	import { DragStateService } from '$lib/dragging/dragStateService.svelte';
 	import { HorizontalPanner } from '$lib/dragging/horizontalPanner';
 	import {
 		onReorderEnd,
@@ -31,10 +32,11 @@
 
 	let { projectId, stacks, focusedStackId }: Props = $props();
 
-	const [uiState, stackService, intelligentScrollingService] = inject(
+	const [uiState, stackService, intelligentScrollingService, dragStateService] = inject(
 		UiState,
 		StackService,
-		IntelligentScrollingService
+		IntelligentScrollingService,
+		DragStateService
 	);
 
 	let lanesScrollableEl = $state<HTMLDivElement>();
@@ -65,6 +67,9 @@
 	// that can be mutated as the stack is being dragged around.
 	let mutableStacks = $state<Stack[]>([]);
 
+	// Enable panning when a stack is being dragged.
+	let draggingStack = $state(false);
+
 	// This is a bit of anti-pattern, and reordering should be better
 	// encapsulated such that we don't need this somewhat messy code.
 	$effect(() => {
@@ -77,10 +82,10 @@
 		lanesScrollableEl ? new WorkspaceAutoPanner(lanesScrollableEl) : undefined
 	);
 
-	// Enable panning when a stack is being dragged.
-	let draggingStack = $state(false);
+	// Enable panning when anything is being dragged.
+	const isDragging = dragStateService.isDragging;
 	$effect(() => {
-		if (draggingStack) {
+		if ($isDragging || draggingStack) {
 			const unsub = workspaceAutoPanner?.enablePanning();
 			return () => unsub?.();
 		}

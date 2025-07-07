@@ -20,6 +20,7 @@
 		type DzCommitData,
 		SquashCommitDzHandler
 	} from '$lib/commits/dropHandler';
+	import { DragStateService } from '$lib/dragging/dragStateService.svelte';
 	import { draggableCommitV3 } from '$lib/dragging/draggable';
 	import { DropzoneRegistry } from '$lib/dragging/registry';
 	import {
@@ -94,13 +95,15 @@
 		onselect
 	}: Props = $props();
 
-	const [stackService, uiState, forge, baseBranchService, dropzoneRegistry] = inject(
-		StackService,
-		UiState,
-		DefaultForgeFactory,
-		BaseBranchService,
-		DropzoneRegistry
-	);
+	const [stackService, uiState, forge, baseBranchService, dropzoneRegistry, dragStateService] =
+		inject(
+			StackService,
+			UiState,
+			DefaultForgeFactory,
+			BaseBranchService,
+			DropzoneRegistry,
+			DragStateService
+		);
 	const [integrateUpstreamCommits, upstreamIntegration] = stackService.integrateUpstreamCommits;
 
 	const projectState = $derived(uiState.project(projectId));
@@ -373,7 +376,8 @@
 									branchName
 								),
 								viewportId: 'board-viewport',
-								dropzoneRegistry
+								dropzoneRegistry,
+								dragStateService
 							}}
 						>
 							<CommitRow
