@@ -102,6 +102,11 @@ pub struct Segment {
     /// The name of the remote tracking branch of this segment, if present, i.e. `refs/remotes/origin/main`.
     /// Its presence means that a remote is configured and that the stack content
     pub remote_tracking_ref_name: Option<gix::refs::FullName>,
+    /// If `remote_tracking_ref_name` is set, this field is also set to make accessing the respective segment easy,
+    /// avoiding a search through the entire graph.
+    /// If `remote_tracking_ref_name` is `None`, and `ref_name` is a remote tracking branch, then this is set to be
+    /// the segment id of the local tracking branch, effectively doubly-linking them for ease of traversal.
+    pub sibling_segment_id: Option<SegmentIndex>,
     /// The portion of commits that can be reached from the tip of the *branch* downwards, so that they are unique
     /// for that stack segment and not included in any other stack or stack segment.
     ///
@@ -166,38 +171,53 @@ impl Segment {
 
 impl std::fmt::Debug for Segment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let Segment {
-            ref_name,
-            id,
-            commits,
-            remote_tracking_ref_name,
-            metadata,
-        } = self;
-        f.debug_struct("StackSegment")
-            .field("id", &id)
-            .field(
-                "ref_name",
-                &match ref_name.as_ref() {
-                    None => "None".to_string(),
-                    Some(name) => name.to_string(),
-                },
-            )
-            .field(
-                "remote_tracking_ref_name",
-                &match remote_tracking_ref_name.as_ref() {
-                    None => "None".to_string(),
-                    Some(name) => name.to_string(),
-                },
-            )
-            .field("commits", &commits)
-            .field(
-                "metadata",
-                match metadata {
-                    None => &"None",
-                    Some(SegmentMetadata::Branch(m)) => m,
-                    Some(SegmentMetadata::Workspace(m)) => m,
-                },
+        if f.alternate() {
+            let Segment {
+                ref_name,
+                id,
+                commits,
+                remote_tracking_ref_name,
+                sibling_segment_id,
+                metadata,
+            } = self;
+            f.debug_struct("StackSegment")
+                .field("id", &id)
+                .field(
+                    "ref_name",
+                    &match ref_name.as_ref() {
+                        None => "None".to_string(),
+                        Some(name) => name.to_string(),
+                    },
+                )
+                .field(
+                    "remote_tracking_ref_name",
+                    &match remote_tracking_ref_name.as_ref() {
+                        None => "None".to_string(),
+                        Some(name) => name.to_string(),
+                    },
+                )
+                .field(
+                    "sibling_segment_id",
+                    &match sibling_segment_id.as_ref() {
+                        None => "None".to_string(),
+                        Some(id) => id.index().to_string(),
+                    },
+                )
+                .field("commits", &commits)
+                .field(
+                    "metadata",
+                    match metadata {
+                        None => &"None",
+                        Some(SegmentMetadata::Branch(m)) => m,
+                        Some(SegmentMetadata::Workspace(m)) => m,
+                    },
+                )
+                .finish()
+        } else {
+            f.debug_struct(
+                "StackSegment(empty for 'dot' program to not get past 2^16 max label size)",
             )
             .finish()
+        }
     }
 }

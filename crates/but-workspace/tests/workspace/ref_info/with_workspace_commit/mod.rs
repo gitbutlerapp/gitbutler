@@ -33,10 +33,12 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 2,
+                        id: 3,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -78,7 +80,9 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
                 segments: [
                     👉ref_info::ui::Segment {
                         id: 0,
@@ -127,7 +131,9 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
                 segments: [
                     👉ref_info::ui::Segment {
                         id: 0,
@@ -195,10 +201,12 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 2,
+                        id: 3,
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                         commits: [
@@ -212,7 +220,7 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -279,10 +287,12 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 2,
+                        id: 3,
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                         commits: [
@@ -296,7 +306,7 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -310,7 +320,7 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: 6,
                         ref_name: "refs/heads/base-of-A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -523,6 +533,77 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
 }
 
 #[test]
+fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Result<()> {
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("two-dependent-branches-first-rebased-and-merged")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 0b6b861 (origin/main, origin/A) A
+    | * 4f08b8d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | * da597e8 (B) B
+    | * 1818c17 (A) A
+    |/  
+    * 281456a (main) init
+    ");
+
+    add_workspace(&mut meta);
+
+    let opts = standard_options();
+    let info = head_info2(&repo, &*meta, opts)?;
+    // TODO: need to detect that A is integrated.
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [
+            Stack {
+                base: Some(
+                    Sha1(281456a55524d78e1e0ecab946032423aec1abe8),
+                ),
+                segments: [
+                    ref_info::ui::Segment {
+                        id: 3,
+                        ref_name: "refs/heads/B",
+                        remote_tracking_ref_name: "None",
+                        commits: [
+                            LocalCommit(da597e8, "B\n", local),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: "None",
+                    },
+                    ref_info::ui::Segment {
+                        id: 4,
+                        ref_name: "refs/heads/A",
+                        remote_tracking_ref_name: "refs/remotes/origin/A",
+                        commits: [
+                            LocalCommit(1818c17, "A\n", local),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: "None",
+                    },
+                ],
+                stash_status: None,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+        is_managed_ref: true,
+        is_managed_commit: true,
+        is_entrypoint: true,
+    }
+    "#);
+
+    // TODO: test without remote configuration (remove remote from config in memory) - integration checks should happen
+    //       independently of remotes.
+    Ok(())
+}
+
+#[test]
 fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("target-ahead-remote-rewritten")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -557,7 +638,9 @@ fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
                 segments: [
                     👉ref_info::ui::Segment {
                         id: 0,
@@ -1096,10 +1179,12 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<(
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 2,
+                        id: 3,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
@@ -1157,10 +1242,12 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1172,7 +1259,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: 6,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
@@ -1209,11 +1296,9 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
         &["dependant"],
     );
 
-    // TODO(head_info2): 'advanced-lane' has to keep its commit even when moved up.
-    //                    The only way to know that preference is to treat it specially due to remote.
-    // TODO(head_info2): don't forget tests that also see what happens if there is no remote - then
-    //                   the commit has to go to just the bottom-branch by convention.
-    let info = head_info(&repo, &*meta, opts)?;
+    // Even though we *could* special-case this to keep the commit in the branch that has a remote,
+    // we just keep it below at all times. The frontend currently only creates them on top, for good reason.
+    let info = head_info2(&repo, &*meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -1228,12 +1313,10 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: 5,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
-                        commits: [
-                            LocalCommit(cbc6713, "change\n", local/remote(identity)),
-                        ],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -1242,10 +1325,12 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: 6,
                         ref_name: "refs/heads/dependant",
                         remote_tracking_ref_name: "None",
-                        commits: [],
+                        commits: [
+                            LocalCommit(cbc6713, "change\n", local/remote(identity)),
+                        ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -1263,8 +1348,8 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
             ),
         ),
         is_managed_ref: true,
-        is_managed_commit: false,
-        is_entrypoint: false,
+        is_managed_commit: true,
+        is_entrypoint: true,
     }
     "#);
     Ok(())
@@ -1300,10 +1385,12 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/on-top-of-dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1315,7 +1402,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: 6,
                         ref_name: "refs/heads/dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1327,7 +1414,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 6,
+                        id: 7,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
@@ -1374,10 +1461,12 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1389,7 +1478,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: 6,
                         ref_name: "refs/heads/on-top-of-dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1401,7 +1490,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 6,
+                        id: 7,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
@@ -1461,10 +1550,12 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 2,
+                        id: 3,
                         ref_name: "refs/heads/on-top-of-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/on-top-of-lane",
                         commits: [
@@ -1478,7 +1569,7 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "refs/remotes/origin/lane",
                         commits: [
@@ -1543,7 +1634,9 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     👉ref_info::ui::Segment {
                         id: 0,
@@ -1551,6 +1644,7 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(aadad9d, "shared by name\n", local/remote(similarity)),
+                            LocalCommit(96a2408, "another unrelated\n", integrated),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
@@ -1558,6 +1652,17 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                    },
+                    ref_info::ui::Segment {
+                        id: 5,
+                        ref_name: "refs/heads/integrated",
+                        remote_tracking_ref_name: "None",
+                        commits: [
+                            LocalCommit(f15ca75, "other integrated\n", integrated),
+                            LocalCommit(9456d79, "integrated in target\n", integrated),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: "None",
                     },
                 ],
                 stash_status: None,
@@ -1606,10 +1711,12 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 2,
+                        id: 3,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -1729,8 +1836,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
     }
 
     let opts = standard_options();
-    // TODO(head_info2): prefer stacks instead of segments, avoid double-listing then!
-    let info = head_info(&repo, &*meta, opts.clone())?;
+    let info = head_info2(&repo, &*meta, opts.clone())?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -1745,10 +1851,12 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: 3,
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
-                        commits: [],
+                        commits: [
+                            LocalCommit(fafd9d0, "init\n", local, ►main),
+                        ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -1765,6 +1873,72 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
                 segments: [
                     ref_info::ui::Segment {
+                        id: 2,
+                        ref_name: "refs/heads/advanced-lane",
+                        remote_tracking_ref_name: "None",
+                        commits: [
+                            LocalCommit(cbc6713, "change\n", local),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Branch {
+                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                            description: None,
+                            review: Review { pull_request: None, review_id: None },
+                        },
+                    },
+                ],
+                stash_status: None,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+        is_managed_ref: true,
+        is_managed_commit: true,
+        is_entrypoint: true,
+    }
+    "#);
+
+    // Everything is show so the workspace stays clear, the entrypoint says what to focus on.
+    let info = ref_info2(repo.find_reference("advanced-lane")?, &*meta, opts.clone())?;
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [
+            Stack {
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                segments: [
+                    ref_info::ui::Segment {
+                        id: 3,
+                        ref_name: "refs/heads/lane",
+                        remote_tracking_ref_name: "None",
+                        commits: [
+                            LocalCommit(fafd9d0, "init\n", local, ►main),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Branch {
+                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                            description: None,
+                            review: Review { pull_request: None, review_id: None },
+                        },
+                    },
+                ],
+                stash_status: None,
+            },
+            Stack {
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                segments: [
+                    👉ref_info::ui::Segment {
                         id: 0,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
@@ -1788,12 +1962,12 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
             ),
         ),
         is_managed_ref: true,
-        is_managed_commit: false,
+        is_managed_commit: true,
         is_entrypoint: false,
     }
     "#);
 
-    let info = ref_info(repo.find_reference("advanced-lane")?, &*meta, opts.clone())?;
+    let info = ref_info2(repo.find_reference("lane")?, &*meta, opts.clone())?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -1807,8 +1981,30 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
                 segments: [
-                    ref_info::ui::Segment {
+                    👉ref_info::ui::Segment {
                         id: 0,
+                        ref_name: "refs/heads/lane",
+                        remote_tracking_ref_name: "None",
+                        commits: [
+                            LocalCommit(fafd9d0, "init\n", local, ►main),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Branch {
+                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                            description: None,
+                            review: Review { pull_request: None, review_id: None },
+                        },
+                    },
+                ],
+                stash_status: None,
+            },
+            Stack {
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                segments: [
+                    ref_info::ui::Segment {
+                        id: 3,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -1831,48 +2027,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
             ),
         ),
         is_managed_ref: true,
-        is_managed_commit: false,
-        is_entrypoint: false,
-    }
-    "#);
-
-    let info = ref_info(repo.find_reference("lane")?, &*meta, opts.clone())?;
-    insta::assert_debug_snapshot!(info, @r#"
-    RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
-        ),
-        stacks: [
-            Stack {
-                base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
-                segments: [
-                    ref_info::ui::Segment {
-                        id: 0,
-                        ref_name: "refs/heads/lane",
-                        remote_tracking_ref_name: "None",
-                        commits: [],
-                        commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
-                    },
-                ],
-                stash_status: None,
-            },
-        ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
-        ),
-        is_managed_ref: true,
-        is_managed_commit: false,
+        is_managed_commit: true,
         is_entrypoint: false,
     }
     "#);
@@ -1888,7 +2043,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         );
     }
 
-    let info = head_info(&repo, &*meta, opts)?;
+    let info = head_info2(&repo, &*meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -1903,7 +2058,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: 2,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -1925,10 +2080,12 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: 3,
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
-                        commits: [],
+                        commits: [
+                            LocalCommit(fafd9d0, "init\n", local, ►main),
+                        ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -1946,8 +2103,8 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
             ),
         ),
         is_managed_ref: true,
-        is_managed_commit: false,
-        is_entrypoint: false,
+        is_managed_commit: true,
+        is_entrypoint: true,
     }
     "#);
     Ok(())
@@ -2045,10 +2202,12 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 2,
+                        id: 3,
                         ref_name: "refs/heads/C-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -2062,7 +2221,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2077,10 +2236,12 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 stash_status: None,
             },
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 3,
+                        id: 4,
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -2090,7 +2251,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         metadata: "None",
                     },
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2128,7 +2289,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
                 segments: [
                     👉ref_info::ui::Segment {
                         id: 0,
@@ -2145,7 +2308,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2160,10 +2323,12 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 stash_status: None,
             },
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 3,
+                        id: 4,
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -2173,7 +2338,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         metadata: "None",
                     },
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2211,10 +2376,12 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 3,
+                        id: 4,
                         ref_name: "refs/heads/C-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -2228,7 +2395,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2243,7 +2410,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 stash_status: None,
             },
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
                 segments: [
                     👉ref_info::ui::Segment {
                         id: 0,
@@ -2256,7 +2425,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         metadata: "None",
                     },
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2295,10 +2464,12 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 5,
                         ref_name: "refs/heads/C-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -2327,10 +2498,12 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 stash_status: None,
             },
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: 6,
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
