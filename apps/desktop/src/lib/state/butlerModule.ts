@@ -27,6 +27,13 @@ import type { HookContext } from '$lib/state/context';
 export const butlerModuleName = Symbol();
 type ButlerModule = typeof butlerModuleName;
 
+export type ExtraOptions = {
+	// I have tried in vain to make this property required, but getting
+	// types working correctly for `extraOptions` would be sick.
+	// TODO: Find a way to make `actionName` required.
+	actionName?: string;
+};
+
 /**
  * Extends the `ApiModules` interface with new definitions.
  *
@@ -63,7 +70,7 @@ type CustomEndpoints<T> = {
 export type ExtensionDefinitions = ApiModules<
 	TauriBaseQueryFn,
 	CustomEndpoints<
-		QueryHooks<CustomQuery<any>> & MutationHook<MutationDefinition<any, any, any, any>>
+		QueryHooks<CustomQuery<any>> & MutationHook<MutationDefinition<any, TauriBaseQueryFn, any, any>>
 	>,
 	string,
 	string
@@ -113,9 +120,19 @@ export function butlerModule(ctx: HookContext): Module<ButlerModule> {
 						) {
 							actionName = definition.extraOptions.actionName;
 						}
+						let command = undefined;
+						if (
+							definition.extraOptions &&
+							typeof definition.extraOptions === 'object' &&
+							'command' in definition.extraOptions &&
+							typeof definition.extraOptions.command === 'string'
+						) {
+							command = definition.extraOptions.command;
+						}
 						const { mutate, useMutation } = buildMutationHook({
 							endpointName,
 							actionName,
+							command,
 							api,
 							ctx
 						});

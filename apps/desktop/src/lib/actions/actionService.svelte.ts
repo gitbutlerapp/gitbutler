@@ -35,10 +35,12 @@ function injectEndpoints(api: ClientState['backendApi']) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			autoCommit: build.mutation<void, { projectId: string; changes: TreeChange[] }>({
-				query: ({ projectId, changes }) => ({
+				extraOptions: {
 					command: 'auto_commit',
-					params: { projectId, changes },
 					actionName: 'Figure out where to commit the given changes'
+				},
+				query: ({ projectId, changes }) => ({
+					params: { projectId, changes }
 				}),
 				invalidatesTags: [
 					invalidatesList(ReduxTag.Stacks),
@@ -47,10 +49,12 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				]
 			}),
 			autoBranchChanges: build.mutation<void, { projectId: string; changes: TreeChange[] }>({
-				query: ({ projectId, changes }) => ({
+				extraOptions: {
 					command: 'auto_branch_changes',
-					params: { projectId, changes },
 					actionName: 'Create a branch for the given changes'
+				},
+				query: ({ projectId, changes }) => ({
+					params: { projectId, changes }
 				}),
 				invalidatesTags: [
 					invalidatesList(ReduxTag.Stacks),
@@ -59,10 +63,12 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				]
 			}),
 			absorb: build.mutation<void, { projectId: string; changes: TreeChange[] }>({
-				query: ({ projectId, changes }) => ({
+				extraOptions: {
 					command: 'absorb',
-					params: { projectId, changes },
 					actionName: 'Absorb changes into the best matching branch and commit'
+				},
+				query: ({ projectId, changes }) => ({
+					params: { projectId, changes }
 				}),
 				invalidatesTags: [
 					invalidatesList(ReduxTag.Stacks),
@@ -74,10 +80,12 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				string,
 				{ projectId: string; chatMessages: ChatMessage[]; model: string | null }
 			>({
-				query: ({ projectId, chatMessages, model }) => ({
+				extraOptions: {
 					command: 'freestyle',
-					params: { projectId, chatMessages, model },
 					actionName: 'Perform a freestyle action based on the given prompt'
+				},
+				query: ({ projectId, chatMessages, model }) => ({
+					params: { projectId, chatMessages, model }
 				}),
 				invalidatesTags: [
 					invalidatesList(ReduxTag.Stacks),

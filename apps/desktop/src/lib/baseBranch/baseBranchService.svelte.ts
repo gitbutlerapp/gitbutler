@@ -139,8 +139,10 @@ function injectEndpoints(api: BackendApi) {
 				BaseBranch,
 				{ projectId: string; branch: string; pushRemote?: string; stashUncommitted?: boolean }
 			>({
+				extraOptions: {
+					command: 'set_base_branch'
+				},
 				query: ({ projectId, branch, pushRemote, stashUncommitted }) => ({
-					command: 'set_base_branch',
 					params: { projectId, branch, pushRemote, stashUncommitted }
 				}),
 				invalidatesTags: [
@@ -150,8 +152,10 @@ function injectEndpoints(api: BackendApi) {
 				]
 			}),
 			push: build.mutation<void, { projectId: string; withForce?: boolean }>({
+				extraOptions: {
+					command: 'push_base_branch'
+				},
 				query: ({ projectId, withForce }) => ({
-					command: 'push_base_branch',
 					params: { projectId, withForce }
 				}),
 				invalidatesTags: [invalidatesType(ReduxTag.BaseBranchData)]
