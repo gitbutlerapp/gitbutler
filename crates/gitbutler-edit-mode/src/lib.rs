@@ -265,6 +265,9 @@ pub(crate) fn save_and_return_to_workspace(
     let parents = commit.parents().collect::<Vec<_>>();
 
     // Write out all the changes, including unstaged changes to a tree for re-committing
+    let mut index = repository.index()?;
+    index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
+    index.write()?;
     let tree = repository.create_wd_tree(0)?;
 
     let (_, committer) = repository.signatures()?;
@@ -303,24 +306,25 @@ pub(crate) fn save_and_return_to_workspace(
     rebase.rebase_noops(false);
     rebase.steps(steps)?;
     let output = rebase.rebase()?;
-    let new_branch_head = output.top_commit.to_git2();
 
     // Update virtual_branch
-    let (new_branch_head, new_branch_tree) = if ctx.app_settings().feature_flags.v3 {
-        (new_branch_head, None)
-    } else {
+    if !ctx.app_settings().feature_flags.v3 {
+        let new_branch_head = output.top_commit.to_git2();
         #[allow(deprecated)]
         let res = compute_updated_branch_head(ctx.repo(), &gix_repo, &stack, new_branch_head, ctx)?;
-        (res.head, Some(res.tree))
+
+        stack.set_stack_head(&vb_state, &gix_repo, res.head, Some(res.tree))?;
     };
 
-    stack.set_stack_head(&vb_state, &gix_repo, new_branch_head, new_branch_tree)?;
     stack.set_heads_from_rebase_output(ctx, output.references)?;
 
     // Switch branch to gitbutler/workspace
     repository
         .set_head(WORKSPACE_BRANCH_REF)
         .context("Failed to set head reference")?;
+    repository.checkout_head(Some(CheckoutBuilder::new().force()))?;
+
+    update_workspace_commit(&vb_state, ctx)?;
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let uncommtied_changes = get_uncommited_changes(ctx)?;
@@ -331,6 +335,7 @@ pub(crate) fn save_and_return_to_workspace(
             old_workspace,
             new_workspace,
             uncommtied_changes,
+            Some(true),
             perm,
         )?;
     } else {
@@ -338,8 +343,6 @@ pub(crate) fn save_and_return_to_workspace(
         #[allow(deprecated)]
         checkout_branch_trees(ctx, perm)?;
     }
-
-    update_workspace_commit(&vb_state, ctx)?;
 
     // Currently if the index goes wonky then files don't appear quite right.
     // This just makes sure the index is all good.
