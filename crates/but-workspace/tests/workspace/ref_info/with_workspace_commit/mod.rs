@@ -33,7 +33,9 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
                 segments: [
                     ref_info::ui::Segment {
                         id: 3,
@@ -78,7 +80,9 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
                 segments: [
                     👉ref_info::ui::Segment {
                         id: 0,
@@ -127,7 +131,9 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
                 segments: [
                     👉ref_info::ui::Segment {
                         id: 0,
@@ -195,7 +201,9 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     ref_info::ui::Segment {
                         id: 3,
@@ -279,7 +287,9 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     ref_info::ui::Segment {
                         id: 3,
@@ -549,7 +559,9 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(281456a55524d78e1e0ecab946032423aec1abe8),
+                ),
                 segments: [
                     ref_info::ui::Segment {
                         id: 3,
@@ -626,7 +638,9 @@ fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
                 segments: [
                     👉ref_info::ui::Segment {
                         id: 0,
@@ -1165,7 +1179,9 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<(
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     ref_info::ui::Segment {
                         id: 3,
@@ -1226,7 +1242,9 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     ref_info::ui::Segment {
                         id: 5,
@@ -1290,7 +1308,9 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     ref_info::ui::Segment {
                         id: 5,
@@ -1365,7 +1385,9 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     ref_info::ui::Segment {
                         id: 5,
@@ -1439,7 +1461,9 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     ref_info::ui::Segment {
                         id: 5,
@@ -1526,7 +1550,9 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     ref_info::ui::Segment {
                         id: 3,
@@ -1608,7 +1634,9 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     👉ref_info::ui::Segment {
                         id: 0,
@@ -1616,6 +1644,7 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(aadad9d, "shared by name\n", local/remote(similarity)),
+                            LocalCommit(96a2408, "another unrelated\n", integrated),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
@@ -1623,6 +1652,17 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                    },
+                    ref_info::ui::Segment {
+                        id: 5,
+                        ref_name: "refs/heads/integrated",
+                        remote_tracking_ref_name: "None",
+                        commits: [
+                            LocalCommit(f15ca75, "other integrated\n", integrated),
+                            LocalCommit(9456d79, "integrated in target\n", integrated),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: "None",
                     },
                 ],
                 stash_status: None,
@@ -1671,7 +1711,9 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     ref_info::ui::Segment {
                         id: 3,
@@ -1804,7 +1846,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     ref_info::ui::Segment {
                         id: 3,
@@ -1824,7 +1868,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 stash_status: None,
             },
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     ref_info::ui::Segment {
                         id: 2,
@@ -1866,7 +1912,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     ref_info::ui::Segment {
                         id: 3,
@@ -1886,7 +1934,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 stash_status: None,
             },
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     👉ref_info::ui::Segment {
                         id: 0,
@@ -1927,7 +1977,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     👉ref_info::ui::Segment {
                         id: 0,
@@ -1947,7 +1999,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 stash_status: None,
             },
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     ref_info::ui::Segment {
                         id: 3,
@@ -1999,7 +2053,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     ref_info::ui::Segment {
                         id: 2,
@@ -2019,7 +2075,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 stash_status: None,
             },
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
                 segments: [
                     ref_info::ui::Segment {
                         id: 3,
@@ -2144,7 +2202,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
                 segments: [
                     ref_info::ui::Segment {
                         id: 3,
@@ -2176,7 +2236,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 stash_status: None,
             },
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
                 segments: [
                     ref_info::ui::Segment {
                         id: 4,
@@ -2227,7 +2289,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
                 segments: [
                     👉ref_info::ui::Segment {
                         id: 0,
@@ -2259,7 +2323,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 stash_status: None,
             },
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
                 segments: [
                     ref_info::ui::Segment {
                         id: 4,
@@ -2310,7 +2376,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
                 segments: [
                     ref_info::ui::Segment {
                         id: 4,
@@ -2342,7 +2410,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 stash_status: None,
             },
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
                 segments: [
                     👉ref_info::ui::Segment {
                         id: 0,
@@ -2394,7 +2464,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
                 segments: [
                     ref_info::ui::Segment {
                         id: 5,
@@ -2426,7 +2498,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 stash_status: None,
             },
             Stack {
-                base: None,
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
                 segments: [
                     ref_info::ui::Segment {
                         id: 6,

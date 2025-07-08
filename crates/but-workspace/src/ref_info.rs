@@ -252,6 +252,7 @@ pub mod ui {
         /// This means one will see the entire workspace, while knowing the focus is on one specific segment.
         /// *Note* that this segment can be listed in *multiple stacks* as it's reachable from multiple 'ahead' segments.
         pub is_entrypoint: bool,
+        // TODO: Add base?
     }
 
     /// Direct Access (without graph)
@@ -504,6 +505,8 @@ pub(crate) mod function {
         fn try_from_graph_segment<'repo>(
             but_graph::projection::StackSegment {
                 ref_name,
+                // TODO: use base
+                base: _,
                 remote_tracking_ref_name,
                 sibling_segment_id: _,
                 id,

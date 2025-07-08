@@ -9,12 +9,31 @@ use std::fmt::Formatter;
 pub struct Stack {
     /// If there is an integration branch, we know a base commit shared with the integration branch from
     /// which we branched off.
+    /// As such, it's always the base of the `last()` of our `segments`.
     /// It is `None` if this is a stack derived from a branch without relation to any other branch.
-    // TODO: figure out what this is used for, I have a feeling that we'd not want it anymore.
     pub base: Option<gix::ObjectId>,
     /// The branch-name denoted segments of the stack from its tip to the point of reference, typically a merge-base.
     /// This array is never empty.
     pub segments: Vec<StackSegment>,
+}
+
+impl Stack {
+    pub(crate) fn from_base_and_segments(
+        base: Option<gix::ObjectId>,
+        mut segments: Vec<StackSegment>,
+    ) -> Self {
+        let mut iter = segments.iter_mut();
+        let mut cur = iter.next();
+        while let Some((a, b)) = cur.zip(iter.next()) {
+            a.base = b.commits.first().map(|c| c.id);
+            cur = Some(b);
+        }
+        if let Some(s) = segments.last_mut() {
+            s.base = base;
+        }
+
+        Stack { base, segments }
+    }
 }
 
 impl Stack {
@@ -38,15 +57,6 @@ impl std::fmt::Debug for Stack {
         f.debug_struct(&format!("Stack({})", self.debug_string()))
             .field("segments", &self.segments)
             .finish()
-    }
-}
-
-impl From<Vec<StackSegment>> for Stack {
-    fn from(segments: Vec<StackSegment>) -> Self {
-        Stack {
-            base: None,
-            segments,
-        }
     }
 }
 
@@ -85,6 +95,10 @@ pub struct StackSegment {
     ///
     /// The list could be empty for when this is a dedicated empty segment as insertion position of commits.
     pub commits: Vec<StackCommit>,
+    /// This is always the `first()` commit in `commits` of the next stacksegment, or the fork-point with the
+    /// local tracking branch of the integration branch if this is the last stack segment.
+    /// It is `None` if this is a stack derived from a branch without relation to any other branch.
+    pub base: Option<gix::ObjectId>,
     /// A mapping of `(segment_idx, offset)` to know which segment contributed the commits of the
     /// given offset into `commits`. The offsets are ascending, starting at `0`.
     /// This is useful to be able to retain the ability to associate a commit to a segment in the graph.
@@ -161,6 +175,8 @@ impl StackSegment {
             id: *id,
             remote_tracking_ref_name: remote_tracking_ref_name.clone(),
             sibling_segment_id: *sibling_segment_id,
+            // `base` is set later in the context of the entire stack.
+            base: None,
             commits_by_segment: {
                 let mut ofs = 0;
                 commits_by_segment
@@ -183,7 +199,10 @@ impl StackSegment {
                 .map(|md| match md {
                     SegmentMetadata::Branch(md) => Ok(md.clone()),
                     SegmentMetadata::Workspace(_) => {
-                        bail!("BUG: Should always stop stacks at workspaces")
+                        bail!(
+                            "BUG: Should always stop stacks at workspaces, \
+                        but got a stack that thinks it's a workspace"
+                        )
                     }
                 })
                 .transpose()?,
@@ -196,7 +215,11 @@ impl StackSegment {
         let num_local_commits = if self.remote_tracking_ref_name.is_some() {
             self.commits
                 .iter()
-                .filter(|c| !c.flags.contains(StackCommitFlags::ReachableByRemote))
+                .filter(|c| {
+                    !c.flags.intersects(
+                        StackCommitFlags::ReachableByRemote | StackCommitFlags::Integrated,
+                    )
+                })
                 .count()
         } else {
             0

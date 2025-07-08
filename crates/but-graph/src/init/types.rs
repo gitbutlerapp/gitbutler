@@ -180,6 +180,21 @@ impl Queue {
         self.count += 1;
         self.max.is_some_and(|l| self.count >= l)
     }
+
+    /// Return `true` if `id` is on the queue.
+    pub fn is_queued(&self, id: gix::ObjectId) -> bool {
+        self.inner.iter().any(|(tip, _, _, _)| tip == &id)
+    }
+
+    /// Add `goal` as additional goal to `id` or panic if `id` was not found.
+    pub fn add_goal_to(&mut self, id: gix::ObjectId, goal: CommitFlags) {
+        let limit = self
+            .inner
+            .iter_mut()
+            .find_map(|(tip, _, _, limit)| (tip == &id).then_some(limit))
+            .expect("BUG: id is queued");
+        *limit = limit.additional_goal(goal);
+    }
 }
 
 /// Various other - good to know what we need though.

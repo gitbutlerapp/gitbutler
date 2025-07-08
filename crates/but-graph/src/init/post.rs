@@ -99,7 +99,13 @@ impl Graph {
                     // Now we have to assign this uninteresting commit to the last created segment, if there was one.
                     if has_inserted_segment_above {
                         let commit = commit.clone();
+                        let commit_id = commit.id;
                         self[current_above].commits.push(commit);
+                        reconnect_outgoing(
+                            &mut self.inner,
+                            (orig_sidx, commit_idx),
+                            (current_above, commit_id),
+                        );
                     }
                     continue;
                 };
@@ -117,6 +123,8 @@ impl Graph {
                         let commit = commit.clone();
                         self[current_above].commits.push(commit);
                     }
+
+                    // TODO(test)
                     continue;
                 }
 
@@ -130,6 +138,7 @@ impl Graph {
                     meta,
                 )?
                 .unwrap_or(current_above);
+                // TODO(test): try with two commits, 1 (a,b,c) and 2 (c,d,e) to validate the commit-stealing works.
                 truncate_commits_from.get_or_insert(commit_idx);
             }
             if let Some(truncate_from) = truncate_commits_from {
@@ -459,30 +468,45 @@ fn create_connected_multi_segment(
             let commit_id = commit.id;
             graph[new_segment].commits.push(commit);
 
-            let edges = collect_edges_at_commit_reverse_order(
-                &graph.inner,
+            reconnect_outgoing(
+                &mut graph.inner,
                 (commit_parent, commit_idx),
-                Direction::Outgoing,
+                (new_segment, commit_id),
             );
-            for edge in &edges {
-                graph.inner.remove_edge(edge.id);
-            }
-            for edge in edges.into_iter().rev() {
-                graph.inner.add_edge(
-                    new_segment,
-                    edge.target,
-                    Edge {
-                        src: Some(0),
-                        src_id: Some(commit_id),
-                        dst: edge.weight.dst,
-                        dst_id: edge.weight.dst_id,
-                    },
-                );
-            }
             break;
         }
     }
     Ok(Some(above_idx))
+}
+
+/// This removes outgoing connections from `source_sidx` and places them on the first commit
+/// of `target_sidx`.
+fn reconnect_outgoing(
+    graph: &mut PetGraph,
+    (source_sidx, source_cidx): (SegmentIndex, CommitIndex),
+    (target_sidx, target_first_commit_id): (SegmentIndex, gix::ObjectId),
+) {
+    let edges = collect_edges_at_commit_reverse_order(
+        graph,
+        (source_sidx, source_cidx),
+        Direction::Outgoing,
+    );
+    for edge in &edges {
+        graph.remove_edge(edge.id);
+    }
+    for edge in edges.into_iter().rev() {
+        let src = graph[target_sidx].commit_index_of(target_first_commit_id);
+        graph.add_edge(
+            target_sidx,
+            edge.target,
+            Edge {
+                src,
+                src_id: Some(target_first_commit_id),
+                dst: edge.weight.dst,
+                dst_id: edge.weight.dst_id,
+            },
+        );
+    }
 }
 
 fn collect_edges_at_commit_reverse_order(

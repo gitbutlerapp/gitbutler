@@ -280,7 +280,7 @@ impl Graph {
                     .flatten()
                     .and_then(|(local_tracking_name, _remote_name)| {
                         let ltid = try_refname_to_id(repo, local_tracking_name.as_ref()).ok()??;
-                        if next.inner.iter().any(|(tip, _, _, _)| tip == &ltid) {
+                        if next.is_queued(ltid) {
                             return None;
                         }
                         Some((local_tracking_name, ltid))
@@ -322,16 +322,19 @@ impl Graph {
                     meta,
                     None,
                 )?);
-                let local_sidx = if let Some((local_ref_name, target_local_tip)) = local_tip_info {
+                let (local_sidx, local_goal) = if let Some((local_ref_name, target_local_tip)) =
+                    local_tip_info
+                {
                     let local_sidx = graph.insert_root(branch_segment_from_name_and_meta_sibling(
                         Some((local_ref_name, None)),
                         Some(target_segment),
                         meta,
                         None,
                     )?);
+                    let goal = goals.flag_for(target_local_tip).unwrap_or_default();
                     if next.push_front_exhausted((
                         target_local_tip,
-                        CommitFlags::NotInRemote,
+                        CommitFlags::NotInRemote | goal,
                         Instruction::CollectCommit { into: local_sidx },
                         max_limit
                             .with_indirect_goal(tip.detach(), &mut goals)
@@ -339,9 +342,10 @@ impl Graph {
                     )) {
                         return Ok(graph.with_hard_limit());
                     }
-                    Some(local_sidx)
+                    next.add_goal_to(tip.detach(), goal);
+                    (Some(local_sidx), goal)
                 } else {
-                    None
+                    (None, CommitFlags::empty())
                 };
                 if next.push_front_exhausted((
                     target_ref_id,
@@ -353,6 +357,7 @@ impl Graph {
                     // we are not interested in these.
                     max_limit
                         .with_indirect_goal(tip.detach(), &mut goals)
+                        .additional_goal(local_goal)
                         .without_allowance(),
                 )) {
                     return Ok(graph.with_hard_limit());

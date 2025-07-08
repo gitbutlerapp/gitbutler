@@ -36,6 +36,10 @@ function tick () {
 function setup_target_to_match_main() {
   remote_tracking_caught_up main
 
+  add_main_remote_setup
+}
+
+function add_main_remote_setup() {
   cat <<EOF >>.git/config
 [remote "origin"]
 	url = ./fake/local/path/which-is-fine-as-we-dont-fetch-or-push
@@ -364,8 +368,8 @@ EOF
     git checkout gitbutler/workspace
   )
 
-  git init two-segments-one-integrated
-  (cd two-segments-one-integrated
+  git init two-segments-one-integrated-without-remote
+  (cd two-segments-one-integrated-without-remote
     for c in $(seq 3); do
       commit "$c"
     done
@@ -395,6 +399,11 @@ EOF
     git checkout gitbutler/workspace
   )
 
+  cp -R two-segments-one-integrated-without-remote two-segments-one-integrated
+  (cd two-segments-one-integrated
+    add_main_remote_setup
+  )
+
   git init on-top-of-target-with-history
   (cd on-top-of-target-with-history
     commit outdated-main
@@ -406,6 +415,7 @@ EOF
       git branch "$name"
     done
     setup_remote_tracking soon-origin-main main "move"
+    add_main_remote_setup
     git checkout gitbutler/workspace
   )
 
@@ -513,130 +523,155 @@ EOF
 
     setup_remote_tracking soon-remote-main main "move"
   )
-    git init multi-lane-with-shared-segment
-    (cd multi-lane-with-shared-segment
-      commit M1
-      git checkout -b shared
-        commit S1
-        commit S2
-        commit S3
-      git checkout -b A
-        git branch B
-        git branch C
-        commit A1
-      git checkout B
-        commit B1
-        commit B2
-      git checkout C
-        commit C1
-        commit C2
-        commit C3
-      git checkout -b D
-        commit D1
-      create_workspace_commit_once A B D
-      git checkout -b soon-remote-main main
-      commit M2
+  git init multi-lane-with-shared-segment
+  (cd multi-lane-with-shared-segment
+    commit M1
+    git checkout -b shared
+      commit S1
+      commit S2
+      commit S3
+    git checkout -b A
+      git branch B
+      git branch C
+      commit A1
+    git checkout B
+      commit B1
+      commit B2
+    git checkout C
+      commit C1
+      commit C2
+      commit C3
+    git checkout -b D
+      commit D1
+    create_workspace_commit_once A B D
+    git checkout -b soon-remote-main main
+    commit M2
 
-      git checkout gitbutler/workspace
-      setup_remote_tracking soon-remote-main main "move"
-    )
+    git checkout gitbutler/workspace
+    setup_remote_tracking soon-remote-main main "move"
+  )
 
-    git init multi-lane-with-shared-segment-one-integrated
-    (cd multi-lane-with-shared-segment-one-integrated
-      commit M1
-      git checkout -b shared
-        commit S1
-        commit S2
-        commit S3
-      git checkout -b A
-        git branch B
-        git branch C
-        commit A1
-      git checkout B
-        commit B1
-        commit B2
-      git checkout C
-        commit C1
-        commit C2
-        commit C3
-      git checkout -b D
-        commit D1
-      create_workspace_commit_once A B D
-      git checkout -b soon-remote-main main
-      git merge --no-ff A
+  git init multi-lane-with-shared-segment-one-integrated
+  (cd multi-lane-with-shared-segment-one-integrated
+    commit M1
+    git checkout -b shared
+      commit S1
+      commit S2
+      commit S3
+    git checkout -b A
+      git branch B
+      git branch C
+      commit A1
+    git checkout B
+      commit B1
+      commit B2
+    git checkout C
+      commit C1
+      commit C2
+      commit C3
+    git checkout -b D
+      commit D1
+    create_workspace_commit_once A B D
+    git checkout -b soon-remote-main main
+    git merge --no-ff A
 
-      git checkout gitbutler/workspace
-      setup_remote_tracking soon-remote-main main "move"
-    )
+    git checkout gitbutler/workspace
+    setup_remote_tracking soon-remote-main main "move"
+    add_main_remote_setup
+  )
 
-   git init three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependant
-   (cd three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependant
-     commit "init"
-     setup_target_to_match_main
-     git checkout -b lane main
+  git init three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependant
+  (cd three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependant
+    commit "init"
+    setup_target_to_match_main
+    git checkout -b lane main
 
-     git checkout -b advanced-lane
-     commit "change"
-     # This works without an official remote setup as we go by name as fallback.
-     remote_tracking_caught_up advanced-lane
-     git branch dependant
-     git branch on-top-of-dependant
+    git checkout -b advanced-lane
+    commit "change"
+    # This works without an official remote setup as we go by name as fallback.
+    remote_tracking_caught_up advanced-lane
+    git branch dependant
+    git branch on-top-of-dependant
 
-     create_workspace_commit_once advanced-lane
-   )
+    create_workspace_commit_once advanced-lane
+  )
 
-   git init two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependant
-   (cd two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependant
-     commit "init"
-     setup_target_to_match_main
-     git checkout -b lane main
+  git init two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependant
+  (cd two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependant
+    commit "init"
+    setup_target_to_match_main
+    git checkout -b lane main
 
-     git checkout -b advanced-lane
-     commit "change"
+    git checkout -b advanced-lane
+    commit "change"
 
-     create_workspace_commit_aggressively lane advanced-lane
+    create_workspace_commit_aggressively lane advanced-lane
 
-     remote_tracking_caught_up advanced-lane
-     git branch dependant advanced-lane
-   )
+    remote_tracking_caught_up advanced-lane
+    git branch dependant advanced-lane
+  )
 
-   # There are multiple stacked branches that could lead towards a shared stack.
-   git init multiple-stacks-with-shared-segment-and-remote
-   (cd multiple-stacks-with-shared-segment-and-remote
-     commit init && setup_target_to_match_main
-     git checkout -b A
-      commit A
-      git checkout -b soon-origin-A
-        commit A-on-remote
+  # There are multiple stacked branches that could lead towards a shared stack.
+  git init multiple-stacks-with-shared-segment-and-remote
+  (cd multiple-stacks-with-shared-segment-and-remote
+    commit init && setup_target_to_match_main
+    git checkout -b A
+     commit A
+     git checkout -b soon-origin-A
+       commit A-on-remote
 
-     git checkout -b B-on-A A
-       commit "B-on-A"
+    git checkout -b B-on-A A
+      commit "B-on-A"
 
-     git checkout -b C-on-A A
-       commit "C-on-A"
+    git checkout -b C-on-A A
+      commit "C-on-A"
 
-     setup_remote_tracking soon-origin-A A "move"
-     create_workspace_commit_once B-on-A C-on-A
-   )
+    setup_remote_tracking soon-origin-A A "move"
+    create_workspace_commit_once B-on-A C-on-A
+  )
 
-   git init two-branches-one-advanced-two-parent-ws-commit-diverged-ttb
-   (cd two-branches-one-advanced-two-parent-ws-commit-diverged-ttb
-     commit "init"
-     git checkout -b lane main
+  git init two-branches-one-advanced-two-parent-ws-commit-diverged-ttb
+  (cd two-branches-one-advanced-two-parent-ws-commit-diverged-ttb
+    commit "init"
+    git checkout -b lane main
 
-     git checkout -b advanced-lane
-     commit "change"
+    git checkout -b advanced-lane
+    commit "change"
 
-     create_workspace_commit_aggressively advanced-lane lane
-     # swap trees - Git puts 'lane' first for some reason, but we really need the other way to reproduce a bug!
-     commit_swapped_parents=$(git commit-tree -p "HEAD^2" -p "HEAD^1" -m "GitButler Workspace Commit" "HEAD^{tree}")
-     echo "${commit_swapped_parents}" >.git/refs/heads/gitbutler/workspace
+    create_workspace_commit_aggressively advanced-lane lane
+    # swap trees - Git puts 'lane' first for some reason, but we really need the other way to reproduce a bug!
+    commit_swapped_parents=$(git commit-tree -p "HEAD^2" -p "HEAD^1" -m "GitButler Workspace Commit" "HEAD^{tree}")
+    echo "${commit_swapped_parents}" >.git/refs/heads/gitbutler/workspace
 
-     git checkout --orphan disjoint-target-tracking
-     commit "disjoint remote target"
+    git checkout --orphan disjoint-target-tracking
+    commit "disjoint remote target"
 
-     setup_remote_tracking disjoint-target-tracking main 'move'
-     git checkout gitbutler/workspace
-   )
+    setup_remote_tracking disjoint-target-tracking main 'move'
+    git checkout gitbutler/workspace
+  )
+
+  git init two-dependent-branches-with-interesting-remote-setup
+  (cd two-dependent-branches-with-interesting-remote-setup
+    commit init
+    setup_target_to_match_main
+
+    git checkout -b integrated
+      commit "integrated in target"
+      commit "other integrated"
+
+    git checkout -b soon-A-remote
+      commit "shared by name"
+    setup_remote_tracking soon-A-remote A "move"
+
+    git checkout -b soon-main-remote integrated
+      commit "another unrelated"
+
+    git checkout -b A
+      commit "shared by name" --allow-empty
+
+    setup_remote_tracking soon-main-remote main "move"
+    create_workspace_commit_once A
+  )
+
 )
 
