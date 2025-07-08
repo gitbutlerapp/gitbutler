@@ -437,6 +437,7 @@
 				direction="right"
 				minWidth={16}
 				maxWidth={64}
+				defaultValue={23}
 				syncName="panel1"
 				imitateBorder
 			/>
