@@ -228,7 +228,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		margin-left: 14px;
+		margin-left: 13px;
 		color: var(--clr-text-3);
 		transition: color var(--transition-fast);
 
