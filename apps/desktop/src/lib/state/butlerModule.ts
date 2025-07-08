@@ -104,8 +104,15 @@ export function butlerModule(ctx: HookContext): Module<ButlerModule> {
 						endpoint.useQueryTimeStamp = useQueryTimeStamp;
 					} else if (isMutationDefinition(definition)) {
 						// TODO: Find a way to get a typed `extraOptions` object.
-						const extraOptions = definition.extraOptions as { actionName: string } | undefined;
-						const actionName = extraOptions?.actionName;
+						let actionName = undefined;
+						if (
+							definition.extraOptions &&
+							typeof definition.extraOptions === 'object' &&
+							'actionName' in definition.extraOptions &&
+							typeof definition.extraOptions.actionName === 'string'
+						) {
+							actionName = definition.extraOptions.actionName;
+						}
 						const { mutate, useMutation } = buildMutationHook({
 							endpointName,
 							actionName,
