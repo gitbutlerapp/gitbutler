@@ -343,12 +343,12 @@
 				{#snippet resizer({ element, collapsed })}
 					{#if $compactWorkspace}
 						<Resizer
+							bind:clientHeight={actualDetailsHeight}
 							viewport={element}
-							maxHeight={maxChangedFilesHeight}
-							minHeight={minChangedFilesHeight}
 							passive={collapsed}
 							direction="down"
-							syncName="blah"
+							minHeight={minChangedFilesHeight}
+							maxHeight={maxChangedFilesHeight}
 						/>
 					{/if}
 				{/snippet}
@@ -375,20 +375,7 @@
 				selectionId={{ type: 'branch', stackId: stack.id, branchName }}
 				{changes}
 				{active}
-			>
-				{#snippet resizer({ element, collapsed })}
-					{#if $compactWorkspace}
-						<Resizer
-							viewport={element}
-							maxHeight={maxChangedFilesHeight}
-							minHeight={minChangedFilesHeight}
-							passive={collapsed}
-							direction="down"
-							syncName="blah"
-						/>
-					{/if}
-				{/snippet}
-			</ChangedFiles>
+			/>
 		{/snippet}
 	</ReduxResult>
 {/snippet}
@@ -538,7 +525,7 @@
 						{#snippet children(previewChange)}
 							{@const diffResult = diffService.getDiff(projectId, previewChange)}
 							{@const diffData = diffResult.current.data}
-							<Drawer headerNoPaddingLeft collapsible>
+							<Drawer collapsible>
 								{#snippet header()}
 									<FileViewHeader
 										compact

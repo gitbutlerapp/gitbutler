@@ -4,9 +4,9 @@
 		type CommitMenuContext
 	} from '$components/v3/CommitContextMenu.svelte';
 	import CommitDetails from '$components/v3/CommitDetails.svelte';
-	import CommitHeader from '$components/v3/CommitHeader.svelte';
 	import CommitLine from '$components/v3/CommitLine.svelte';
 	import CommitMessageEditor from '$components/v3/CommitMessageEditor.svelte';
+	import CommitTitle from '$components/v3/CommitTitle.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
 	import KebabButton from '$components/v3/KebabButton.svelte';
 	import { isLocalAndRemoteCommit } from '$components/v3/lib';
@@ -73,8 +73,6 @@
 	const [updateCommitMessage, messageUpdateResult] = stackService.updateCommitMessage;
 
 	type Mode = 'view' | 'edit';
-
-	let editor = $state<CommitMessageEditor>();
 
 	function setMode(newMode: Mode) {
 		switch (newMode) {
@@ -153,7 +151,6 @@
 		<Drawer
 			{collapsible}
 			testId={TestId.CommitDrawer}
-			headerNoPaddingLeft={collapsible}
 			bottomBorder={!!resizer || !collapsible}
 			{scrollToId}
 			{scrollToType}
@@ -161,7 +158,7 @@
 			{resizer}
 		>
 			{#snippet header()}
-				<div class="commit-view__header text-13">
+				<!-- <div class="commit-view__header text-13">
 					{#if isLocalAndRemoteCommit(commit)}
 						{@const commitState = commit.state}
 						<CommitLine
@@ -196,7 +193,12 @@
 							>
 						</Tooltip>
 					</div>
-				</div>
+				</div> -->
+				<CommitTitle
+					truncate
+					commitMessage={commit.message}
+					className="text-14 text-semibold text-body"
+				/>
 			{/snippet}
 
 			{#snippet kebabMenu(header)}
@@ -230,7 +232,6 @@
 						class:no-paddings={uiState.global.useFloatingCommitBox.current}
 					>
 						<CommitMessageEditor
-							bind:this={editor}
 							noPadding
 							projectId={env.projectId}
 							stackId={env.stackId}
@@ -245,10 +246,7 @@
 						/>
 					</div>
 				{:else}
-					<CommitHeader
-						commitMessage={commit.message}
-						className="text-14 text-semibold text-body"
-					/>
+					<!-- <CommitTitle commitMessage={commit.message} className="text-14 text-semibold text-body" /> -->
 					<CommitDetails {commit}>
 						<Button
 							testId={TestId.CommitDrawerActionEditMessage}
