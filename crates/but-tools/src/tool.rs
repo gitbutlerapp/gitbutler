@@ -65,10 +65,10 @@ pub fn result_to_json<T: serde::Serialize>(
     data_identifier: &str,
 ) -> serde_json::Value {
     match result {
-        Ok(entry) => serde_json::to_value(entry).unwrap_or_else(
+        Ok(entry) => json!({ "result": serde_json::to_value(entry).unwrap_or_else(
             |e| json!({ "error": format!("Failed to serialize {}: {}", data_identifier, e.to_string())}),
-        ),
-        Err(e) => error_to_json(e, action_identifier)
+        )}),
+        Err(e) => error_to_json(e, action_identifier),
     }
 }
 
