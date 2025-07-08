@@ -326,7 +326,7 @@ export function buildMutationHook<
 		const { fixedCacheKey, sideEffect, preEffect, onError, propertiesFn, throwSlientError } =
 			options ?? {};
 
-		const properties = Object.assign(propertiesFn?.() || {}, { command: endpointName, actionName });
+		const properties = Object.assign(propertiesFn?.() || {}, { actionName });
 
 		preEffect?.(queryArg);
 
@@ -366,10 +366,7 @@ export function buildMutationHook<
 			queryArg: QueryArgFrom<D>,
 			options?: { properties?: EventProperties }
 		) {
-			const properties = Object.assign({}, propertiesFn?.(), options?.properties, {
-				command: endpointName,
-				actionName
-			});
+			const properties = Object.assign({}, propertiesFn?.(), options?.properties, { actionName });
 			preEffect?.(queryArg);
 			promise = dispatch(initiate(queryArg, { fixedCacheKey }));
 			const startTime = Date.now();
