@@ -35,6 +35,7 @@ const MOCK_COMMIT_TITLE_A = 'Initial commit';
 const MOCK_COMMIT_MESSAGE_A = 'This is a test commit';
 
 const MOCK_COMMIT_IN_BRANCH_A = createMockCommit({
+	id: '444444',
 	message: `${MOCK_COMMIT_TITLE_A}\n\n${MOCK_COMMIT_MESSAGE_A}`
 });
 
@@ -55,11 +56,14 @@ const MOCK_STACK_B: Stack = {
 const MOCK_FILE_D = 'fileD.txt';
 const MOCK_FILE_J = 'fileJ.txt';
 
-const MOCK_BRANCH_B_CHANGES: TreeChange[] = [
-	createMockAdditionTreeChange({ path: MOCK_FILE_D }),
+const MOCK_COMMIT_B_CHANGES: TreeChange[] = [createMockAdditionTreeChange({ path: MOCK_FILE_D })];
+
+const MOCK_COMMIT_B_CHANGES_2: TreeChange[] = [
 	createMockModificationTreeChange({ path: 'fileE.txt' }),
 	createMockDeletionTreeChange({ path: 'fileF.txt' })
 ];
+
+const MOCK_BRANCH_B_CHANGES: TreeChange[] = [...MOCK_COMMIT_B_CHANGES, ...MOCK_COMMIT_B_CHANGES_2];
 
 const MOCK_COMMIT_TITLE_B = 'Second commit';
 const MOCK_COMMIT_MESSAGE_B = 'This is another test commit';
@@ -648,8 +652,8 @@ export default class BranchesWithChanges extends MockBackend {
 		this.unifiedDiffs.set(MOCK_FILE_J, MOCK_FILE_J_MODIFICATION);
 
 		this.commitChanges.set(MOCK_COMMIT_IN_BRANCH_A.id, MOCK_BRANCH_A_CHANGES);
-		this.commitChanges.set(MOCK_COMMIT_IN_BRANCH_B.id, MOCK_BRANCH_B_CHANGES);
-		this.commitChanges.set(MOCK_COMMIT_IN_BRANCH_B_2.id, MOCK_BRANCH_B_CHANGES);
+		this.commitChanges.set(MOCK_COMMIT_IN_BRANCH_B.id, MOCK_COMMIT_B_CHANGES);
+		this.commitChanges.set(MOCK_COMMIT_IN_BRANCH_B_2.id, MOCK_COMMIT_B_CHANGES_2);
 	}
 
 	getCommitTitle(stackId: string): string {
