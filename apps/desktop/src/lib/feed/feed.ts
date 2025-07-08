@@ -107,7 +107,8 @@ export class Feed {
 	}
 
 	private getFeedMessages(): FeedMessage[] {
-		return get(this.combined).filter((entry) => isFeedMessage(entry)) as FeedMessage[];
+		const messages = get(this.combined).filter((entry) => isFeedMessage(entry)) as FeedMessage[];
+		return messages.reverse();
 	}
 
 	async addUserMessage(content: string) {
