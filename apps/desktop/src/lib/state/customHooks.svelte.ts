@@ -282,10 +282,12 @@ export function buildMutationHook<
 	api,
 	endpointName,
 	actionName,
+	command,
 	ctx: { getState, getDispatch, posthog }
 }: {
 	api: Api<any, Definitions, any, any, CoreModule>;
 	endpointName: string;
+	command?: string;
 	actionName?: string;
 	ctx: HookContext;
 }): MutationHook<D> {
@@ -295,16 +297,15 @@ export function buildMutationHook<
 	const { initiate, select } = endpoint as unknown as ApiEndpointMutation<D, Definitions>;
 
 	function track(args: {
-		actionName?: string;
 		failure: boolean;
 		properties: EventProperties;
 		startTime: number;
 		error?: unknown;
 	}) {
-		if (!actionName) return;
 		const durationMs = Date.now() - args.startTime;
 		posthog?.capture(EVENT_NAME, {
 			...args.properties,
+			command,
 			actionName,
 			durationMs,
 			failure: args.failure,
@@ -315,6 +316,8 @@ export function buildMutationHook<
 		const legacyName = args.failure ? `${actionName} Failed` : `${actionName} Successful`;
 		posthog?.capture(legacyName, {
 			...args.properties,
+			actionName,
+			command,
 			durationMs,
 			failure: args.failure,
 			error: args.error
@@ -326,7 +329,7 @@ export function buildMutationHook<
 		const { fixedCacheKey, sideEffect, preEffect, onError, propertiesFn, throwSlientError } =
 			options ?? {};
 
-		const properties = Object.assign(propertiesFn?.() || {}, { actionName });
+		const properties = propertiesFn?.() || {};
 
 		preEffect?.(queryArg);
 
@@ -335,10 +338,10 @@ export function buildMutationHook<
 		try {
 			const result = await dispatchResult.unwrap();
 			sideEffect?.(result, queryArg);
-			track({ actionName, failure: false, properties, startTime });
+			track({ failure: false, properties, startTime });
 			return result;
 		} catch (error: unknown) {
-			track({ actionName, failure: true, properties, startTime, error });
+			track({ failure: true, properties, startTime, error });
 			if (onError && isTauriCommandError(error)) {
 				onError(error, queryArg);
 			}
@@ -366,17 +369,17 @@ export function buildMutationHook<
 			queryArg: QueryArgFrom<D>,
 			options?: { properties?: EventProperties }
 		) {
-			const properties = Object.assign({}, propertiesFn?.(), options?.properties, { actionName });
+			const properties = Object.assign({}, propertiesFn?.(), options?.properties);
 			preEffect?.(queryArg);
 			promise = dispatch(initiate(queryArg, { fixedCacheKey }));
 			const startTime = Date.now();
 			try {
 				const result = await promise.unwrap();
 				sideEffect?.(result, queryArg);
-				track({ actionName, failure: false, properties, startTime });
+				track({ failure: false, properties, startTime });
 				return result;
 			} catch (error: unknown) {
-				track({ actionName, failure: true, properties, startTime, error });
+				track({ failure: true, properties, startTime, error });
 				if (onError && isTauriCommandError(error)) {
 					onError(error, queryArg);
 				}
