@@ -29,6 +29,7 @@ pub fn workspace_toolset<'a>(
     toolset.register_tool(GetProjectStatus);
     toolset.register_tool(CreateBlankCommit);
     toolset.register_tool(MoveFileChanges);
+    toolset.register_tool(GetCommitDetails);
 
     Ok(toolset)
 }
@@ -905,6 +906,84 @@ pub fn move_file_changes(
     Ok(result.replaced_commits)
 }
 
+pub struct GetCommitDetails;
+
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GetCommitDetailsParameters {
+    /// The commit id to get details for.
+    #[schemars(description = "
+    <description>
+        The commit id of the commit to get details for.
+    </description>
+
+    <important_notes>
+        The commit id should refer to a commit in the workspace.
+    </important_notes>
+    ")]
+    pub commit_id: String,
+}
+
+impl Tool for GetCommitDetails {
+    fn name(&self) -> String {
+        "get_commit_details".to_string()
+    }
+
+    fn description(&self) -> String {
+        "
+        <description>
+            Get details of a specific commit in the workspace.
+        </description>
+
+        <important_notes>
+            This tool allows you to retrieve detailed information about a specific commit in the workspace.
+            Use this tool to get the information about the files changed in the commit.
+            You'll want to use this tool before moving file changes from one commit to another.
+        </important_notes>
+        "
+        .to_string()
+    }
+
+    fn parameters(&self) -> serde_json::Value {
+        let schema = schema_for!(GetCommitDetailsParameters);
+        serde_json::to_value(&schema).unwrap_or_default()
+    }
+
+    fn call(
+        self: Arc<Self>,
+        parameters: serde_json::Value,
+        ctx: &mut CommandContext,
+        _app_handle: Option<&tauri::AppHandle>,
+    ) -> anyhow::Result<serde_json::Value> {
+        let params: GetCommitDetailsParameters = serde_json::from_value(parameters)
+            .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
+
+        let file_changes = commit_details(ctx, params).to_json("commit_details");
+
+        Ok(file_changes)
+    }
+}
+
+pub fn commit_details(
+    ctx: &mut CommandContext,
+    params: GetCommitDetailsParameters,
+) -> anyhow::Result<Vec<FileChange>> {
+    let repo = ctx.gix_repo()?;
+    let commit_id = gix::ObjectId::from_str(&params.commit_id)?;
+
+    let changes = but_core::diff::ui::commit_changes_by_worktree_dir(&repo, commit_id)?;
+    let changes: Vec<but_core::TreeChange> = changes
+        .changes
+        .into_iter()
+        .map(|change| change.into())
+        .collect();
+
+    let diff = unified_diff_for_changes(&repo, changes, ctx.app_settings().context_lines)?;
+    let file_changes = get_file_changes(&diff, vec![]);
+
+    Ok(file_changes)
+}
+
 fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMetadata> {
     VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))
 }
@@ -983,6 +1062,12 @@ pub struct FileChange {
     pub status: String,
     /// The hunk changes in the file.
     pub hunks: Vec<RichHunk>,
+}
+
+impl ToolResult for Result<Vec<FileChange>, anyhow::Error> {
+    fn to_json(&self, action_identifier: &str) -> serde_json::Value {
+        result_to_json(self, action_identifier, "Vec<FileChange>")
+    }
 }
 
 /// Represents the status of a project, including applied stacks and file changes.
