@@ -46,14 +46,7 @@
 	let listMode: 'list' | 'tree' = $state('tree');
 </script>
 
-<Drawer
-	{collapsible}
-	{resizer}
-	{grow}
-	transparent
-	headerNoPaddingLeft={collapsible}
-	bottomBorder={!!resizer || !collapsible}
->
+<Drawer {collapsible} {resizer} {grow} headerNoPaddingLeft={collapsible} bottomBorder={collapsible}>
 	{#snippet header()}
 		<h4 class="text-14 text-semibold truncate">{title}</h4>
 		<Badge>{changes.length}</Badge>
