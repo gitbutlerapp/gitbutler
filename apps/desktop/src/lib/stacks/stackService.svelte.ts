@@ -831,9 +831,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'create_virtual_branch',
 					actionName: 'Create Stack'
 				},
-				query: ({ projectId, branch }) => ({
-					params: { projectId, branch }
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: (result, _error) => [
 					invalidatesItem(ReduxTag.StackDetails, result?.id),
 					invalidatesList(ReduxTag.Stacks),
@@ -849,9 +847,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'update_virtual_branch',
 					actionName: 'Update Stack'
 				},
-				query: ({ projectId, branch }) => ({
-					params: { projectId, branch }
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: (result, _error) => [
 					invalidatesItem(ReduxTag.StackDetails, result?.id),
 					invalidatesList(ReduxTag.Stacks),
@@ -867,9 +863,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'update_stack_order',
 					actionName: 'Update Stack Order'
 				},
-				query: ({ projectId, stacks }) => ({
-					params: { projectId, stacks }
-				})
+				query: (args) => ({ params: args })
 				// This invalidation causes the order to jump back and forth
 				// on save, and it's a bit unclear why. It's not important to
 				// reload, however, so leaving it like this for now.
@@ -937,9 +931,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'branch_details',
 					actionName: 'Unstacked Branch Details'
 				},
-				query: ({ projectId, branchName, remote }) => ({
-					params: { projectId, branchName, remote }
-				}),
+				query: (args) => ({ params: args }),
 				transformResponse(branchDetails: BranchDetails) {
 					// This is a list of all the commits accross all branches in the stack.
 					// If you want to acces the commits of a specific branch, use the
@@ -981,9 +973,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'push_stack',
 					actionName: 'Push'
 				},
-				query: ({ projectId, stackId, withForce, branch }) => ({
-					params: { projectId, stackId, withForce, branch }
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesList(ReduxTag.Checks),
 					invalidatesItem(ReduxTag.PullRequests, args.stackId),
@@ -999,9 +989,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'create_commit_from_worktree_changes',
 					actionName: 'Commit'
 				},
-				query: ({ projectId, ...commitData }) => ({
-					params: { projectId, ...commitData }
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
@@ -1021,9 +1009,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'commit_virtual_branch',
 					actionName: 'Commit'
 				},
-				query: ({ projectId, stackId, message, ownership }) => ({
-					params: { projectId, stackId, message, ownership }
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
 					invalidatesItem(ReduxTag.StackDetails, args.stackId)
@@ -1096,9 +1082,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'create_branch',
 					actionName: 'Create Branch'
 				},
-				query: ({ projectId, stackId, request: { targetPatch, name } }) => ({
-					params: { projectId, stackId, request: { targetPatch, name } }
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesItem(ReduxTag.StackDetails, args.stackId),
 					invalidatesList(ReduxTag.BranchListing)
@@ -1130,9 +1114,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'amend_virtual_branch',
 					actionName: 'Amend Commit'
 				},
-				query: ({ projectId, stackId, commitId, worktreeChanges }) => ({
-					params: { projectId, stackId, commitId, worktreeChanges }
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesItem(ReduxTag.BranchChanges, args.stackId),
@@ -1162,9 +1144,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'discard_worktree_changes',
 					actionName: 'Discard Changes'
 				},
-				query: ({ projectId, worktreeChanges }) => ({
-					params: { projectId, worktreeChanges }
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: [invalidatesList(ReduxTag.WorktreeChanges)]
 			}),
 			moveChangesBetweenCommits: build.mutation<
@@ -1182,23 +1162,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'move_changes_between_commits',
 					actionName: 'Move Changes Between Commits'
 				},
-				query: ({
-					projectId,
-					changes,
-					sourceCommitId,
-					sourceStackId,
-					destinationCommitId,
-					destinationStackId
-				}) => ({
-					params: {
-						projectId,
-						changes,
-						sourceCommitId,
-						sourceStackId,
-						destinationCommitId,
-						destinationStackId
-					}
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags(result, _error, arg) {
 					const commitChangesTags = [arg.sourceCommitId, arg.destinationCommitId]
 						.map((id) => result?.replacedCommits.find(([oldId]) => oldId === id)?.[1])
@@ -1226,9 +1190,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'uncommit_changes',
 					actionName: 'Uncommit Changes'
 				},
-				query: ({ projectId, changes, commitId, stackId, assignTo }) => ({
-					params: { projectId, changes, commitId, stackId, assignTo }
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags(_result, _error, arg) {
 					return [
 						invalidatesItem(ReduxTag.BranchChanges, arg.stackId),
@@ -1258,9 +1220,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'unapply_stack',
 					actionName: 'Unapply Stack'
 				},
-				query: ({ projectId, stackId }) => ({
-					params: { projectId, stackId }
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: () => [
 					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesList(ReduxTag.Stacks),
@@ -1275,9 +1235,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'push_stack_to_review',
 					actionName: 'Publish Stack'
 				},
-				query: ({ projectId, stackId, user, topBranch }) => ({
-					params: { projectId, stackId, user, topBranch }
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesItem(ReduxTag.StackDetails, args.stackId)
 				]
@@ -1296,14 +1254,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'update_branch_pr_number',
 					actionName: 'Update Branch PR Number'
 				},
-				query: ({ projectId, stackId, branchName, prNumber }) => ({
-					params: {
-						projectId,
-						stackId,
-						branchName,
-						prNumber
-					}
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesItem(ReduxTag.StackDetails, args.stackId),
 					invalidatesList(ReduxTag.BranchListing)
@@ -1322,14 +1273,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'update_branch_name',
 					actionName: 'Update Branch Name'
 				},
-				query: ({ projectId, stackId, branchName, newName }) => ({
-					params: {
-						projectId,
-						stackId,
-						branchName,
-						newName
-					}
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: (_r, _e, args) => [
 					invalidatesList(ReduxTag.Stacks),
 					invalidatesItem(ReduxTag.StackDetails, args.stackId),
@@ -1348,13 +1292,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'remove_branch',
 					actionName: 'Remove Branch'
 				},
-				query: ({ projectId, stackId, branchName }) => ({
-					params: {
-						projectId,
-						stackId,
-						branchName
-					}
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesItem(ReduxTag.StackDetails, args.stackId),
 					invalidatesList(ReduxTag.BranchListing)
@@ -1368,9 +1306,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'update_branch_description',
 					actionName: 'Update Branch Description'
 				},
-				query: ({ projectId, stackId, branchName, description }) => ({
-					params: { projectId, stackId, branchName, description }
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesItem(ReduxTag.StackDetails, args.stackId),
 					invalidatesList(ReduxTag.BranchListing)
@@ -1399,9 +1335,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'move_commit',
 					actionName: 'Move Commit'
 				},
-				query: ({ projectId, sourceStackId, commitOid, targetStackId }) => ({
-					params: { projectId, sourceStackId, commitOid, targetStackId }
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesList(ReduxTag.WorktreeChanges), // Moving commits can cause conflicts
 					invalidatesItem(ReduxTag.StackDetails, args.sourceStackId),
@@ -1421,9 +1355,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'integrate_upstream_commits',
 					actionName: 'Integrate Upstream Commits'
 				},
-				query: ({ projectId, stackId, seriesName, strategy }) => ({
-					params: { projectId, stackId, seriesName, strategy }
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesItem(ReduxTag.StackDetails, args.stackId)
@@ -1486,9 +1418,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'create_virtual_branch_from_branch',
 					actionName: 'Create Virtual Branch From Branch'
 				},
-				query: ({ projectId, branch, remote, prNumber }) => ({
-					params: { projectId, branch, remote, prNumber }
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: [invalidatesList(ReduxTag.Stacks), invalidatesList(ReduxTag.BranchListing)]
 			}),
 			deleteLocalBranch: build.mutation<
@@ -1499,9 +1429,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'delete_local_branch',
 					actionName: 'Delete Local Branch'
 				},
-				query: ({ projectId, refname, givenName }) => ({
-					params: { projectId, refname, givenName }
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: (_result, _error, { givenName: branchName }) => [
 					invalidatesItem(ReduxTag.BranchDetails, branchName)
 				]
@@ -1514,9 +1442,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'squash_commits',
 					actionName: 'Squash Commits'
 				},
-				query: ({ projectId, stackId, sourceCommitOids, targetCommitOid }) => ({
-					params: { projectId, stackId, sourceCommitOids, targetCommitOid }
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesList(ReduxTag.WorktreeChanges), // Could cause conflicts
 					invalidatesItem(ReduxTag.StackDetails, args.stackId)
