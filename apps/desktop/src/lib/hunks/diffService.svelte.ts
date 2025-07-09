@@ -69,9 +69,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				extraOptions: {
 					command: 'assign_hunk'
 				},
-				query: ({ projectId, assignments }) => ({
-					params: { projectId, assignments }
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: [invalidatesList(ReduxTag.WorktreeChanges)]
 			})
 		})
