@@ -208,6 +208,10 @@
 		composer?.setText(text);
 	}
 
+	export function isRichTextMode(): boolean {
+		return useRichText;
+	}
+
 	// We want to avoid letting most mouse events bubble up to the parent.
 	function stopPropagation(e: MouseEvent) {
 		e.stopPropagation();

@@ -126,13 +126,17 @@
 		const preHookFailed = await runPreHook(worktreeChanges);
 		if (preHookFailed) return;
 
+		// Get current editor mode from the component instance
+		const isRichTextMode = input?.isRichTextMode?.() || false;
+
 		// Await analytics data before creating commit
 		const analyticsProperties = await commitAnalytics.getCommitProperties({
 			projectId,
 			stackId: finalStackId,
 			selectedBranchName: finalBranchName,
 			message,
-			parentId
+			parentId,
+			isRichTextMode
 		});
 
 		const response = await createCommitInStack(

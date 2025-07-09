@@ -151,6 +151,10 @@
 		const newDescription = await getDescription();
 		onCancel({ title, description: newDescription });
 	}
+
+	export function isRichTextMode(): boolean {
+		return composer?.isRichTextMode?.() || false;
+	}
 </script>
 
 {#snippet editorContent()}
