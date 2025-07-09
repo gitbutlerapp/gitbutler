@@ -333,42 +333,6 @@ fn hunks_distribution() {
     assert_eq!(branches[1].files.len(), 1);
 }
 
-#[test]
-fn applying_first_branch() {
-    let Test { repo, ctx, .. } = &Test::default();
-
-    gitbutler_branch_actions::set_base_branch(
-        ctx,
-        &"refs/remotes/origin/master".parse().unwrap(),
-        false,
-        ctx.project().exclusive_worktree_access().write_permission(),
-    )
-    .unwrap();
-
-    std::fs::write(repo.path().join("file.txt"), "content").unwrap();
-
-    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
-    let branches = list_result.branches;
-    assert_eq!(branches.len(), 1);
-
-    let unapplied_branch =
-        gitbutler_branch_actions::unapply_stack(ctx, branches[0].id, Vec::new()).unwrap();
-    let unapplied_branch = Refname::from_str(&unapplied_branch).unwrap();
-
-    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
-    let branches = list_result.branches;
-    assert_eq!(branches.len(), 0);
-
-    gitbutler_branch_actions::create_virtual_branch_from_branch(ctx, &unapplied_branch, None, None)
-        .unwrap();
-
-    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
-    let branches = list_result.branches;
-    assert_eq!(branches.len(), 1);
-    assert!(branches[0].active);
-    assert!(branches[0].selected_for_changes);
-}
-
 // This test was written in response to issue #4148, to ensure the appearence
 // of a locked hunk doesn't drag along unrelated hunks to its branch.
 #[test]

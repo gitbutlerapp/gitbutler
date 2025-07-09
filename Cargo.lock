@@ -3466,10 +3466,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "but-rebase",
- "but-settings",
  "git2",
- "gitbutler-branch",
- "gitbutler-branch-actions",
  "gitbutler-cherry-pick",
  "gitbutler-command-context",
  "gitbutler-commit",
@@ -3477,8 +3474,6 @@ dependencies = [
  "gitbutler-project",
  "gitbutler-repo",
  "gitbutler-stack",
- "gitbutler-testsupport",
- "gitbutler-workspace",
  "gix",
  "tracing",
 ]

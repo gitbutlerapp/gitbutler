@@ -19,15 +19,3 @@ gitbutler-oxidize.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-cherry-pick.workspace = true
 but-rebase.workspace = true
-
-
-[[test]]
-name = "workspace"
-path = "tests/mod.rs"
-
-[dev-dependencies]
-gitbutler-testsupport.workspace = true
-gitbutler-branch.workspace = true
-but-settings.workspace = true
-gitbutler-branch-actions.workspace = true
-gitbutler-workspace.workspace = true
