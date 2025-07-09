@@ -601,7 +601,7 @@
 				/>
 			</div>
 		{/if}
-		{#if (assignedKey?.type === 'worktree' && assignedKey.stackId) || selectedKey}
+		{#if !$compactWorkspace && ((assignedKey?.type === 'worktree' && assignedKey.stackId) || selectedKey)}
 			<div
 				bind:this={previewEl}
 				style:width={uiState.global.previewWidth.current + 'rem'}
