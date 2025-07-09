@@ -43,7 +43,7 @@ describe('Commit Actions', () => {
 		cy.getByTestId('commit-row').first().should('contain', originalCommitMessage).click();
 
 		// Should open the commit drawer
-		cy.get('.commit-view').first().should('contain', originalCommitMessage);
+		cy.getByTestId('commit-drawer-title').first().should('contain', originalCommitMessage);
 
 		// Click on the edit message button
 		cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
@@ -102,7 +102,7 @@ describe('Commit Actions', () => {
 		cy.getByTestId('commit-row').first().should('contain', originalCommitMessage).click();
 
 		// Should open the commit drawer
-		cy.get('.commit-view').first().should('contain', originalCommitMessage);
+		cy.getByTestId('commit-drawer-title').first().should('contain', originalCommitMessage);
 
 		// Click on the edit message button
 		cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
@@ -159,7 +159,7 @@ describe('Commit Actions', () => {
 		cy.getByTestId('commit-row').first().should('contain', originalCommitMessage).click();
 
 		// Should open the commit drawer
-		cy.get('.commit-view').first().should('contain', originalCommitMessage);
+		cy.getByTestId('commit-drawer-title').first().should('contain', originalCommitMessage);
 
 		// Click on the edit message button
 		cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
@@ -212,7 +212,7 @@ describe('Commit Actions', () => {
 		cy.getByTestId('commit-row').first().should('contain', originalCommitMessage).click();
 
 		// Should open the commit drawer
-		cy.get('.commit-view').first().should('contain', originalCommitMessage);
+		cy.getByTestId('commit-drawer-title').first().should('contain', originalCommitMessage);
 
 		// Click on the edit message button
 		cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
@@ -325,7 +325,7 @@ describe('Commit Actions', () => {
 		cy.getByTestId('commit-row').first().should('contain', originalCommitMessage).click();
 
 		// Should open the commit drawer
-		cy.get('.commit-view').first().should('contain', originalCommitMessage);
+		cy.getByTestId('commit-drawer-title').first().should('contain', originalCommitMessage);
 
 		// Click on the edit message button
 		cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
@@ -351,7 +351,7 @@ describe('Commit Actions', () => {
 
 		// Start the message edit again.
 		// The commit drawer should be open still.
-		cy.get('.commit-view').first().should('contain', originalCommitMessage);
+		cy.getByTestId('commit-drawer-title').first().should('contain', originalCommitMessage);
 
 		// Click on the edit message button
 		cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
@@ -663,7 +663,9 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 			cy.getByTestId('commit-row', commitTitle).should('contain', commitTitle).click();
 
 			// Should open the commit drawer
-			cy.get('.commit-view').first().should('contain', commitTitle);
+			cy.getByTestId('commit-drawer').within(() => {
+				cy.getByTestId('commit-drawer-title').first().should('contain', commitTitle);
+			});
 
 			// Click on the edit message button
 			cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
@@ -768,7 +770,9 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 			cy.getByTestId('commit-row', commitTitle).should('contain', commitTitle).click();
 
 			// Should open the commit drawer
-			cy.get('.commit-view').first().should('contain', commitTitle);
+			cy.getByTestId('commit-drawer').within(() => {
+				cy.getByTestId('commit-drawer-title').first().should('contain', commitTitle);
+			});
 
 			// Click on the edit message button
 			cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
@@ -883,7 +887,10 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 			cy.getByTestId('commit-row', commitTitle).should('contain', commitTitle).click();
 
 			// Should open the commit drawer
-			cy.get('.commit-view').first().should('contain', commitTitle);
+			cy.getByTestId('commit-drawer').within(() => {
+				// Should have the commit title
+				cy.getByTestId('commit-drawer-title').first().should('contain', commitTitle);
+			});
 
 			// Click on the edit message button
 			cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
@@ -979,7 +986,7 @@ describe('Commit Actions with no stacks', () => {
 		cy.getByTestId('commit-to-new-branch-button').should('be.visible').should('be.enabled').click();
 
 		// Should open the new commit drawer
-		cy.getByTestId('new-commit-view').should('be.visible');
+		cy.getByTestId('commit-drawer-title-input').should('be.visible');
 
 		// Should display the draft stack
 		cy.getByTestId('draft-stack').should('be.visible');

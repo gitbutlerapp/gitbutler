@@ -149,6 +149,25 @@
 	const defaultBranchResult = $derived(stackService.defaultBranch(projectId, stack.id));
 	const defaultBranchName = $derived(defaultBranchResult?.current.data);
 
+	// Resizer configuration constants
+	const RESIZER_CONFIG = {
+		panel1: {
+			minWidth: 18,
+			maxWidth: 64,
+			defaultValue: 23
+		},
+		panel2: {
+			minWidth: 18,
+			maxWidth: 56,
+			defaultValue: 23
+		},
+		panel3: {
+			minWidth: 20,
+			maxWidth: 96,
+			defaultValue: 36
+		}
+	} as const;
+
 	function startCommit() {
 		projectState.exclusiveAction.set({
 			type: 'commit',
@@ -437,9 +456,9 @@
 				viewport={stackViewEl!}
 				zIndex="var(--z-lifted)"
 				direction="right"
-				minWidth={16}
-				maxWidth={64}
-				defaultValue={23}
+				minWidth={RESIZER_CONFIG.panel1.minWidth}
+				maxWidth={RESIZER_CONFIG.panel1.maxWidth}
+				defaultValue={RESIZER_CONFIG.panel1.defaultValue}
 				syncName="panel1"
 				imitateBorder
 			/>
@@ -540,7 +559,7 @@
 						{#snippet children(previewChange)}
 							{@const diffResult = diffService.getDiff(projectId, previewChange)}
 							{@const diffData = diffResult.current.data}
-							<Drawer headerNoPaddingLeft collapsible>
+							<Drawer collapsible>
 								{#snippet header()}
 									<FileViewHeader
 										compact
@@ -569,9 +588,9 @@
 					viewport={compactDiv}
 					persistId="resizer-panel2-${stack.id}"
 					direction="right"
-					minWidth={16}
-					maxWidth={56}
-					defaultValue={20}
+					minWidth={RESIZER_CONFIG.panel2.minWidth}
+					maxWidth={RESIZER_CONFIG.panel2.maxWidth}
+					defaultValue={RESIZER_CONFIG.panel2.defaultValue}
 					syncName="panel2"
 					imitateBorder
 				/>
@@ -595,9 +614,9 @@
 					viewport={detailsEl}
 					persistId="resizer-panel2-${stack.id}"
 					direction="right"
-					minWidth={16}
-					defaultValue={20}
-					maxWidth={56}
+					minWidth={RESIZER_CONFIG.panel2.minWidth}
+					defaultValue={RESIZER_CONFIG.panel2.defaultValue}
+					maxWidth={RESIZER_CONFIG.panel2.maxWidth}
 					syncName="panel2"
 					imitateBorder
 				/>
@@ -620,8 +639,9 @@
 					viewport={previewEl}
 					persistId="resizer-panel3-${stack.id}"
 					direction="right"
-					minWidth={20}
-					maxWidth={96}
+					minWidth={RESIZER_CONFIG.panel3.minWidth}
+					maxWidth={RESIZER_CONFIG.panel3.maxWidth}
+					defaultValue={RESIZER_CONFIG.panel3.defaultValue}
 					syncName="panel3"
 					imitateBorder
 				/>

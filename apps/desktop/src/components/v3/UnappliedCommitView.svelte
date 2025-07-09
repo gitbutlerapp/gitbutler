@@ -2,8 +2,8 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import ChangedFiles from '$components/v3/ChangedFiles.svelte';
 	import CommitDetails from '$components/v3/CommitDetails.svelte';
-	import CommitHeader from '$components/v3/CommitHeader.svelte';
 	import CommitLine from '$components/v3/CommitLine.svelte';
+	import CommitTitle from '$components/v3/CommitTitle.svelte';
 	import Drawer from '$components/v3/Drawer.svelte';
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -57,7 +57,7 @@
 			{/snippet}
 
 			<div class="commit-view">
-				<CommitHeader commitMessage={commit.message} className="text-14 text-semibold text-body" />
+				<CommitTitle commitMessage={commit.message} className="text-14 text-semibold text-body" />
 				<CommitDetails {commit} />
 			</div>
 		</Drawer>

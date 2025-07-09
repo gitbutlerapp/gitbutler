@@ -29,11 +29,6 @@
 		overflow: hidden;
 		border-top: 1px solid var(--clr-border-3);
 		background-color: var(--clr-bg-1);
-
-		&:not(:last-child),
-		&.is-last {
-			border-radius: 0 0 var(--radius-m) var(--radius-m);
-		}
 	}
 
 	.action {
