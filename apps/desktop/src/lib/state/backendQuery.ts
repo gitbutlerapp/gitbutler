@@ -13,9 +13,9 @@ export type TauriBaseQueryFn = BaseQueryFn<ApiArgs, unknown, unknown, TauriExtra
 export const tauriBaseQuery: TauriBaseQueryFn = async (
 	args: ApiArgs,
 	api: BaseQueryApi,
-	extra?: TauriExtraOptions
+	extra: TauriExtraOptions
 ): Promise<QueryReturnValue<unknown, TauriCommandError, undefined>> => {
-	const command = extra?.command || args.command;
+	const command = extra.command || args.command;
 	if (!command) {
 		return newError('Expected a command!');
 	}
