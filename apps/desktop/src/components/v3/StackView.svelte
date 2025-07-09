@@ -559,7 +559,7 @@
 						{#snippet children(previewChange)}
 							{@const diffResult = diffService.getDiff(projectId, previewChange)}
 							{@const diffData = diffResult.current.data}
-							<Drawer headerNoPaddingLeft collapsible>
+							<Drawer collapsible>
 								{#snippet header()}
 									<FileViewHeader
 										compact
