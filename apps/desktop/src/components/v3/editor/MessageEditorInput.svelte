@@ -1,8 +1,9 @@
 <script lang="ts">
+	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import { onMount, tick } from 'svelte';
 
 	interface Props {
-		ref: HTMLInputElement | undefined;
+		ref: HTMLTextAreaElement | undefined;
 		value: string;
 		showCount?: boolean;
 		placeholder?: string;
@@ -35,20 +36,21 @@
 	});
 </script>
 
-<div class="message-editor-input">
-	<input
+<div class="message-editor-input text-input">
+	<Textarea
 		data-testid={testId}
-		bind:this={ref}
-		{placeholder}
-		class="text-14 text-semibold text-input"
-		class:right-padding={isCharCount}
-		type="text"
+		bind:textBoxEl={ref}
 		bind:value
+		{placeholder}
+		fontSize={14}
+		fontWeight="semibold"
+		padding={{ top: 8, right: 24, bottom: 8, left: 12 }}
 		oninput={(e: Event) => {
-			const input = e.currentTarget as HTMLInputElement;
+			const input = e.currentTarget as HTMLTextAreaElement;
 			charsCount = input.value.length;
 			oninput?.(e);
 		}}
+		unstyled
 		onchange={(e) => onchange?.(e.currentTarget.value)}
 		{onkeydown}
 	/>
@@ -79,16 +81,24 @@
 	}
 
 	.message-editor-input {
+		z-index: 0;
 		position: relative;
+		width: 100%;
+		margin-bottom: -1px;
+		padding: 0;
+		border-radius: var(--radius-m) var(--radius-m) 0 0;
+
+		&:hover,
+		&:focus-within {
+			z-index: 1;
+		}
 	}
 
 	.message-editor-input__chars-count {
 		z-index: 1;
 		position: absolute;
+		top: 6px;
 		right: 6px;
-		bottom: 6px;
-		padding: 3px;
-		background-color: var(--clr-bg-1);
 		color: var(--clr-text-2);
 		pointer-events: none;
 
