@@ -115,10 +115,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				BranchStatusesResponse | undefined,
 				{ projectId: string; targetCommitOid?: string }
 			>({
-				query: ({ projectId, targetCommitOid }) => ({
-					command: 'upstream_integration_statuses',
-					params: { projectId, targetCommitOid }
-				}),
+				extraOptions: { command: 'upstream_integration_statuses' },
+				query: (args) => ({ params: args }),
 				providesTags: [providesList(ReduxTag.UpstreamIntegrationStatus)]
 			}),
 			integrateUpstream: build.mutation<

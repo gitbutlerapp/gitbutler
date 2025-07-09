@@ -42,10 +42,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				TreeChanges,
 				{ projectId: string; before: string; after: string }
 			>({
-				query: ({ projectId, before, after }) => ({
-					command: 'oplog_diff_worktrees',
-					params: { projectId, before, after }
-				})
+				extraOptions: { command: 'oplog_diff_worktrees' },
+				query: (args) => ({ params: args })
 			})
 		})
 	});

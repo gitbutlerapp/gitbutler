@@ -45,7 +45,10 @@ function injectEndpoints(api: ClientState['backendApi']) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			diff: build.query<{ [key: string]: unknown }, { projectId: string; sha: string }>({
-				query: ({ projectId, sha }) => ({ command: 'snapshot_diff', params: { projectId, sha } }),
+				extraOptions: {
+					command: 'snapshot_diff'
+				},
+				query: (args) => ({ params: args }),
 				providesTags: (_result, _error, args) => providesItem(ReduxTag.SnapshotDiff, args.sha)
 			})
 		})

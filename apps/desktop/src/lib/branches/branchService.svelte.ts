@@ -27,15 +27,17 @@ function injectEndpoints(api: ClientState['backendApi']) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			listBranches: build.query<BranchListing[], { projectId: string }>({
-				query: ({ projectId }) => ({
-					command: 'list_branches',
-					params: { projectId }
-				}),
+				extraOptions: {
+					command: 'list_branches'
+				},
+				query: (args) => ({ params: args }),
 				providesTags: [providesList(ReduxTag.BranchListing)]
 			}),
 			branchDetails: build.query<BranchListingDetails, { projectId: string; branchName: string }>({
+				extraOptions: {
+					command: 'get_branch_listing_details'
+				},
 				query: ({ projectId, branchName }) => ({
-					command: 'get_branch_listing_details',
 					params: { projectId, branchNames: [branchName] }
 				}),
 				transformResponse: (response: BranchListingDetails[]) => response.at(0)!,
