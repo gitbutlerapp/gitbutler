@@ -38,7 +38,7 @@
 
 <div class="message-editor-input text-input">
 	<Textarea
-		data-testid={testId}
+		{testId}
 		bind:textBoxEl={ref}
 		bind:value
 		{placeholder}
