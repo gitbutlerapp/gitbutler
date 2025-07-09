@@ -43,7 +43,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				{ projectId: string; before: string; after: string }
 			>({
 				extraOptions: { command: 'oplog_diff_worktrees' },
-				query: (args) => ({ params: args })
+				query: (args) => args
 			})
 		})
 	});

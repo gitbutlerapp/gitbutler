@@ -118,13 +118,14 @@ function injectEndpoints(api: BackendApi) {
 		endpoints: (build) => ({
 			baseBranch: build.query<unknown, { projectId: string }>({
 				extraOptions: { command: 'get_base_branch_data' },
-				query: (args) => ({ params: args }),
+				query: (args) => args,
 				providesTags: [providesType(ReduxTag.BaseBranchData)]
 			}),
 			fetchFromRemotes: build.mutation<void, { projectId: string; action?: string }>({
 				extraOptions: { command: 'fetch_from_remotes' },
 				query: ({ projectId, action }) => ({
-					params: { projectId, action: action ?? 'auto' }
+					projectId,
+					action: action ?? 'auto'
 				}),
 				invalidatesTags: [
 					invalidatesType(ReduxTag.BaseBranchData),
@@ -138,7 +139,7 @@ function injectEndpoints(api: BackendApi) {
 				{ projectId: string; branch: string; pushRemote?: string; stashUncommitted?: boolean }
 			>({
 				extraOptions: { command: 'set_base_branch' },
-				query: (args) => ({ params: args }),
+				query: (args) => args,
 				invalidatesTags: [
 					invalidatesType(ReduxTag.BaseBranchData),
 					invalidatesList(ReduxTag.Stacks),
@@ -147,14 +148,12 @@ function injectEndpoints(api: BackendApi) {
 			}),
 			push: build.mutation<void, { projectId: string; withForce?: boolean }>({
 				extraOptions: { command: 'push_base_branch' },
-				query: (args) => ({ params: args }),
+				query: (args) => args,
 				invalidatesTags: [invalidatesType(ReduxTag.BaseBranchData)]
 			}),
 			remoteBranches: build.query<RemoteBranchInfo[], { projectId: string }>({
-				extraOptions: {
-					command: 'git_remote_branches'
-				},
-				query: (args) => ({ params: args }),
+				extraOptions: { command: 'git_remote_branches' },
+				query: (args) => args,
 				transformResponse: (data: string[]) => {
 					return data
 						.map((name) => name.substring(13))
