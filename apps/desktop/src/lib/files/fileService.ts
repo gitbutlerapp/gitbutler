@@ -29,10 +29,10 @@ export class FileService {
 		};
 	}
 
-	async listCommitFiles(projectId: string, commitOid: string) {
+	async listCommitFiles(projectId: string, commitId: string) {
 		return plainToInstance(
 			RemoteFile,
-			await this.tauri.invoke<any[]>('list_commit_files', { projectId, commitOid })
+			await this.tauri.invoke<any[]>('list_commit_files', { projectId, commitId })
 		).sort((a, b) => a.path?.localeCompare(b.path));
 	}
 }

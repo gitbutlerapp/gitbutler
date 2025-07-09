@@ -358,12 +358,12 @@ pub mod commands {
         projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
-        commit_oid: String,
+        commit_id: String,
     ) -> Result<Vec<RemoteBranchFile>, Error> {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
-        gitbutler_branch_actions::list_commit_files(&ctx, commit_oid).map_err(Into::into)
+        let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
+        gitbutler_branch_actions::list_commit_files(&ctx, commit_id).map_err(Into::into)
     }
 
     #[tauri::command(async)]
@@ -374,12 +374,12 @@ pub mod commands {
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         stack_id: StackId,
-        target_commit_oid: String,
+        target_commit_id: String,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        let target_commit_oid = git2::Oid::from_str(&target_commit_oid).map_err(|e| anyhow!(e))?;
-        gitbutler_branch_actions::reset_virtual_branch(&ctx, stack_id, target_commit_oid)?;
+        let target_commit_id = git2::Oid::from_str(&target_commit_id).map_err(|e| anyhow!(e))?;
+        gitbutler_branch_actions::reset_virtual_branch(&ctx, stack_id, target_commit_id)?;
         emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
     }
@@ -397,8 +397,8 @@ pub mod commands {
     ) -> Result<String, Error> {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        let commit_oid = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
-        let oid = gitbutler_branch_actions::amend(&ctx, stack_id, commit_oid, worktree_changes)?;
+        let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
+        let oid = gitbutler_branch_actions::amend(&ctx, stack_id, commit_id, worktree_changes)?;
         emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(oid.to_string())
     }
@@ -412,19 +412,19 @@ pub mod commands {
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         stack_id: StackId,
-        from_commit_oid: String,
-        to_commit_oid: String,
+        from_commit_id: String,
+        to_commit_id: String,
         ownership: BranchOwnershipClaims,
     ) -> Result<String, Error> {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        let from_commit_oid = git2::Oid::from_str(&from_commit_oid).map_err(|e| anyhow!(e))?;
-        let to_commit_oid = git2::Oid::from_str(&to_commit_oid).map_err(|e| anyhow!(e))?;
+        let from_commit_id = git2::Oid::from_str(&from_commit_id).map_err(|e| anyhow!(e))?;
+        let to_commit_id = git2::Oid::from_str(&to_commit_id).map_err(|e| anyhow!(e))?;
         let oid = gitbutler_branch_actions::move_commit_file(
             &ctx,
             stack_id,
-            from_commit_oid,
-            to_commit_oid,
+            from_commit_id,
+            to_commit_id,
             &ownership,
         )?;
         emit_vbranches(&windows, project_id, ctx.app_settings());
@@ -439,12 +439,12 @@ pub mod commands {
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         stack_id: StackId,
-        commit_oid: String,
+        commit_id: String,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
-        gitbutler_branch_actions::undo_commit(&ctx, stack_id, commit_oid)?;
+        let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
+        gitbutler_branch_actions::undo_commit(&ctx, stack_id, commit_id)?;
         emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
     }
@@ -457,12 +457,12 @@ pub mod commands {
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         stack_id: StackId,
-        commit_oid: Option<String>,
+        commit_id: Option<String>,
         offset: i32,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        let commit_oid = match commit_oid {
+        let commit_id = match commit_id {
             Some(oid) => git2::Oid::from_str(&oid).map_err(|e| anyhow!(e))?,
             None => {
                 let state = VirtualBranchesHandle::new(ctx.project().gb_dir());
@@ -471,7 +471,7 @@ pub mod commands {
                 stack.head_oid(&gix_repo)?.to_git2()
             }
         };
-        gitbutler_branch_actions::insert_blank_commit(&ctx, stack_id, commit_oid, offset, None)?;
+        gitbutler_branch_actions::insert_blank_commit(&ctx, stack_id, commit_id, offset, None)?;
         emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
     }
@@ -543,23 +543,23 @@ pub mod commands {
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         stack_id: StackId,
-        source_commit_oids: Vec<String>,
-        target_commit_oid: String,
+        source_commit_ids: Vec<String>,
+        target_commit_id: String,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        let source_commit_oids: Vec<git2::Oid> = source_commit_oids
+        let source_commit_ids: Vec<git2::Oid> = source_commit_ids
             .into_iter()
             .map(|oid| git2::Oid::from_str(&oid))
             .collect::<Result<_, _>>()
             .map_err(|e| anyhow!(e))?;
-        let destination_commit_oid =
-            git2::Oid::from_str(&target_commit_oid).map_err(|e| anyhow!(e))?;
+        let destination_commit_id =
+            git2::Oid::from_str(&target_commit_id).map_err(|e| anyhow!(e))?;
         gitbutler_branch_actions::squash_commits(
             &ctx,
             stack_id,
-            source_commit_oids,
-            destination_commit_oid,
+            source_commit_ids,
+            destination_commit_id,
         )?;
         emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
@@ -609,14 +609,14 @@ pub mod commands {
         projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
-        commit_oid: String,
+        commit_id: String,
         target_stack_id: StackId,
         source_stack_id: StackId,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
-        gitbutler_branch_actions::move_commit(&ctx, target_stack_id, commit_oid, source_stack_id)?;
+        let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
+        gitbutler_branch_actions::move_commit(&ctx, target_stack_id, commit_id, source_stack_id)?;
         emit_vbranches(&windows, project_id, ctx.app_settings());
         Ok(())
     }
@@ -629,16 +629,16 @@ pub mod commands {
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         stack_id: StackId,
-        commit_oid: String,
+        commit_id: String,
         message: &str,
     ) -> Result<String, Error> {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
-        let new_commit_oid =
-            gitbutler_branch_actions::update_commit_message(&ctx, stack_id, commit_oid, message)?;
+        let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
+        let new_commit_id =
+            gitbutler_branch_actions::update_commit_message(&ctx, stack_id, commit_id, message)?;
         emit_vbranches(&windows, project_id, ctx.app_settings());
-        Ok(new_commit_oid.to_string())
+        Ok(new_commit_id.to_string())
     }
 
     #[tauri::command(async)]
@@ -647,12 +647,12 @@ pub mod commands {
         projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
-        commit_oid: String,
+        commit_id: String,
     ) -> Result<Option<RemoteCommit>, Error> {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
-        gitbutler_branch_actions::find_commit(&ctx, commit_oid).map_err(Into::into)
+        let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
+        gitbutler_branch_actions::find_commit(&ctx, commit_id).map_err(Into::into)
     }
 
     #[tauri::command(async)]
@@ -661,15 +661,15 @@ pub mod commands {
         projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
-        target_commit_oid: Option<String>,
+        target_commit_id: Option<String>,
     ) -> Result<StackStatuses, Error> {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        let commit_oid = target_commit_oid
+        let commit_id = target_commit_id
             .map(|commit_id| git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e)))
             .transpose()?;
         Ok(gitbutler_branch_actions::upstream_integration_statuses(
-            &ctx, commit_oid,
+            &ctx, commit_id,
         )?)
     }
 

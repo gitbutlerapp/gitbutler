@@ -6,7 +6,7 @@ import type { ConflictEntryPresence } from '$lib/conflictEntryPresence';
 import type { StackService } from '$lib/stacks/stackService.svelte';
 
 export interface EditModeMetadata {
-	commitOid: string;
+	commitId: string;
 	branchReference: string;
 }
 
@@ -58,10 +58,10 @@ export class ModeService {
 		this.headAndMode.set({ head, operatingMode });
 	}
 
-	async enterEditMode(commitOid: string, stackId: string) {
+	async enterEditMode(commitId: string, stackId: string) {
 		this.stackService.enterEditMode({
 			projectId: this.projectId,
-			commitOid,
+			commitId,
 			stackId
 		});
 		await this.awaitMode('Edit');

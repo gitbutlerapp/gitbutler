@@ -1054,7 +1054,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			}),
 			updateCommitMessage: build.mutation<
 				string,
-				{ projectId: string; stackId: string; commitOid: string; message: string }
+				{ projectId: string; stackId: string; commitId: string; message: string }
 			>({
 				extraOptions: {
 					command: 'update_commit_message',
@@ -1112,7 +1112,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			}),
 			insertBlankCommit: build.mutation<
 				void,
-				{ projectId: string; stackId: string; commitOid: string | undefined; offset: number }
+				{ projectId: string; stackId: string; commitId: string | undefined; offset: number }
 			>({
 				extraOptions: {
 					command: 'insert_blank_commit',
@@ -1312,7 +1312,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			}),
 			moveCommit: build.mutation<
 				void,
-				{ projectId: string; sourceStackId: string; commitOid: string; targetStackId: string }
+				{ projectId: string; sourceStackId: string; commitId: string; targetStackId: string }
 			>({
 				extraOptions: {
 					command: 'move_commit',
@@ -1485,13 +1485,12 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				transformResponse: (commits: Commit[]) =>
 					commitAdapter.addMany(commitAdapter.getInitialState(), commits)
 			}),
-			enterEditMode: build.mutation<
-				void,
-				{ projectId: string; commitOid: string; stackId: string }
-			>({
-				extraOptions: { command: 'enter_edit_mode' },
-				query: (args) => args
-			}),
+			enterEditMode: build.mutation<void, { projectId: string; commitId: string; stackId: string }>(
+				{
+					extraOptions: { command: 'enter_edit_mode' },
+					query: (args) => args
+				}
+			),
 			abortEditAndReturnToWorkspace: build.mutation<void, { projectId: string }>({
 				extraOptions: { command: 'abort_edit_and_return_to_workspace' },
 				query: (args) => args

@@ -60,7 +60,7 @@
 		await insertBlankCommitInBranch({
 			projectId,
 			stackId: context?.data.stackId,
-			commitOid: commitId,
+			commitId: commitId,
 			offset: location === 'above' ? -1 : 1
 		});
 	}

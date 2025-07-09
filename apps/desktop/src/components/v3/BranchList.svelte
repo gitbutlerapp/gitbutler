@@ -199,7 +199,7 @@
 									await insertBlankCommitInBranch({
 										projectId,
 										stackId,
-										commitOid: undefined,
+										commitId: undefined,
 										offset: -1
 									});
 								}}
