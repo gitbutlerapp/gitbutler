@@ -39,9 +39,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'auto_commit',
 					actionName: 'Figure out where to commit the given changes'
 				},
-				query: ({ projectId, changes }) => ({
-					params: { projectId, changes }
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: [
 					invalidatesList(ReduxTag.Stacks),
 					invalidatesList(ReduxTag.StackDetails),
@@ -53,9 +51,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'auto_branch_changes',
 					actionName: 'Create a branch for the given changes'
 				},
-				query: ({ projectId, changes }) => ({
-					params: { projectId, changes }
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: [
 					invalidatesList(ReduxTag.Stacks),
 					invalidatesList(ReduxTag.StackDetails),
@@ -67,9 +63,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'absorb',
 					actionName: 'Absorb changes into the best matching branch and commit'
 				},
-				query: ({ projectId, changes }) => ({
-					params: { projectId, changes }
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: [
 					invalidatesList(ReduxTag.Stacks),
 					invalidatesList(ReduxTag.StackDetails),
@@ -84,9 +78,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'freestyle',
 					actionName: 'Perform a freestyle action based on the given prompt'
 				},
-				query: ({ projectId, chatMessages, model }) => ({
-					params: { projectId, chatMessages, model }
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: [
 					invalidatesList(ReduxTag.Stacks),
 					invalidatesList(ReduxTag.StackDetails),

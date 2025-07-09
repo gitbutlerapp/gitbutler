@@ -142,9 +142,7 @@ function injectEndpoints(api: BackendApi) {
 				extraOptions: {
 					command: 'set_base_branch'
 				},
-				query: ({ projectId, branch, pushRemote, stashUncommitted }) => ({
-					params: { projectId, branch, pushRemote, stashUncommitted }
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: [
 					invalidatesType(ReduxTag.BaseBranchData),
 					invalidatesList(ReduxTag.Stacks),
@@ -155,9 +153,7 @@ function injectEndpoints(api: BackendApi) {
 				extraOptions: {
 					command: 'push_base_branch'
 				},
-				query: ({ projectId, withForce }) => ({
-					params: { projectId, withForce }
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: [invalidatesType(ReduxTag.BaseBranchData)]
 			}),
 			remoteBranches: build.query<RemoteBranchInfo[], { projectId: string }>({
