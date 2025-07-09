@@ -19,6 +19,7 @@
 		kebabMenu?: Snippet<[element: HTMLElement]>;
 		children?: Snippet;
 		filesSplitView?: Snippet;
+		headerNoPaddingLeft?: boolean;
 		testId?: string;
 		persistId?: string;
 		collapsible?: boolean;
@@ -38,6 +39,7 @@
 		kebabMenu,
 		children,
 		filesSplitView,
+		headerNoPaddingLeft,
 		testId,
 		persistId,
 		collapsible,
@@ -70,12 +72,13 @@
 	class="drawer"
 	bind:this={containerDiv}
 	class:collapsed={$collapsed}
-	class:bottom-border={bottomBorder || collapsed}
+	class:bottom-border={bottomBorder}
 	class:transparent
 	class:grow
+	class:no-shrink={resizer && $collapsed !== undefined}
 	{@attach scrollingAttachment(intelligentScrollingService, scrollToId, scrollToType)}
 >
-	<div bind:this={headerDiv} class="drawer-header">
+	<div bind:this={headerDiv} class="drawer-header" class:no-padding-left={headerNoPaddingLeft}>
 		{#if $collapsed !== undefined}
 			{@const name = $collapsed ? 'chevron-right' : ('chevron-down' as const)}
 			<button
@@ -177,6 +180,10 @@
 		gap: 8px;
 		border-bottom: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-2);
+
+		&.no-padding-left {
+			padding-left: 0;
+		}
 	}
 
 	.drawer-header__title {
@@ -221,6 +228,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		margin-left: 13px;
 		color: var(--clr-text-3);
 		transition: color var(--transition-fast);
 

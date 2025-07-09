@@ -7,7 +7,6 @@
 	:before {
 		box-sizing: border-box;
 		border: 0 solid;
-		text-underline-offset: 3px;
 	}
 
 	html {

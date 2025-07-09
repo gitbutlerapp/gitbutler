@@ -84,6 +84,11 @@ pre {
 	text-decoration: underline dotted;
 }
 
+.underline,
+.underline-dotted {
+	text-underline-offset: 3px;
+}
+
 /* ANIMATION */
 
 .wiggle-animation {

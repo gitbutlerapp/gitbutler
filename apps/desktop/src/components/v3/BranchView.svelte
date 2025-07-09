@@ -73,6 +73,7 @@
 			{scrollToType}
 			{resizer}
 			{onclose}
+			headerNoPaddingLeft={collapsible}
 			bottomBorder={!!resizer || !collapsible}
 		>
 			{#snippet header()}
@@ -191,6 +192,10 @@
 		max-width: 540px;
 		margin: 0 auto;
 		padding: 30px;
+
+		@container drawer-content (max-width: 400px) {
+			padding: 10px;
+		}
 	}
 
 	.branch-view__empty-state__image {
