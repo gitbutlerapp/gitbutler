@@ -27,7 +27,9 @@
 		collapsible?: boolean;
 		scrollToType?: TargetType;
 		scrollToId?: string;
+		grow?: boolean;
 		resizer?: Snippet<[{ element: HTMLDivElement; collapsed?: boolean }]>;
+		ontoggle?: (collapsed: boolean) => void;
 		onerror?: (err: unknown) => void;
 		onclose?: () => void;
 	}
@@ -39,7 +41,9 @@
 		collapsible,
 		scrollToId,
 		scrollToType,
+		grow,
 		resizer,
+		ontoggle,
 		onerror,
 		onclose
 	}: Props = $props();
@@ -74,6 +78,8 @@
 			{resizer}
 			{onclose}
 			bottomBorder={!!resizer || !collapsible}
+			{ontoggle}
+			{grow}
 		>
 			{#snippet header()}
 				<div class="branch__header">

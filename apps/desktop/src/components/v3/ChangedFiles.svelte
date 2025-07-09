@@ -23,7 +23,7 @@
 		draggableFiles?: boolean;
 		collapsible?: boolean;
 		grow?: boolean;
-		ontoggle?: () => void;
+		ontoggle?: (collapsed: boolean) => void;
 		resizer?: Snippet<[{ element: HTMLDivElement; collapsed?: boolean }]>;
 	};
 
@@ -38,6 +38,7 @@
 		draggableFiles,
 		collapsible,
 		grow,
+		ontoggle,
 		resizer
 	}: Props = $props();
 
@@ -46,7 +47,7 @@
 	let listMode: 'list' | 'tree' = $state('tree');
 </script>
 
-<Drawer {resizer} {collapsible} {grow}>
+<Drawer {grow} {collapsible} {ontoggle} {resizer}>
 	{#snippet header()}
 		<h4 class="text-14 text-semibold truncate">{title}</h4>
 		<Badge>{changes.length}</Badge>

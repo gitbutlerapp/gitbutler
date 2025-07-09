@@ -28,6 +28,7 @@
 		scrollToType?: TargetType;
 		grow?: boolean;
 		onclose?: () => void;
+		ontoggle?: (collapsed: boolean) => void;
 		resizer?: Snippet<[{ element: HTMLDivElement; collapsed?: boolean }]>;
 	};
 
@@ -46,6 +47,7 @@
 		scrollToId,
 		scrollToType,
 		grow,
+		ontoggle,
 		onclose,
 		resizer
 	}: Props = $props();
@@ -73,6 +75,7 @@
 	class:bottom-border={bottomBorder || collapsed}
 	class:transparent
 	class:grow
+	class:no-shrink={resizer && $collapsed !== undefined}
 	{@attach scrollingAttachment(intelligentScrollingService, scrollToId, scrollToType)}
 >
 	<div bind:this={headerDiv} class="drawer-header">
@@ -83,7 +86,9 @@
 				class="chevron-btn focus-state"
 				onclick={() => {
 					if ($collapsed !== undefined) {
-						collapsed.set(!$collapsed);
+						const newValue = !$collapsed;
+						collapsed.set(newValue);
+						ontoggle?.(newValue);
 					}
 				}}
 			>

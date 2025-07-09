@@ -20,6 +20,7 @@
 	const { projectId }: Props = $props();
 
 	const minResizerWidth = 14;
+	const defaultResizerWidth = 20;
 	const minResizerRatio = 7;
 
 	let viewport = $state<HTMLDivElement>();
@@ -55,6 +56,7 @@
 				passive={$isNavCollapsed}
 				direction="right"
 				minWidth={minResizerWidth}
+				defaultValue={defaultResizerWidth}
 				zIndex="var(--z-floating)"
 				onDblClick={toggleNavCollapse}
 				imitateBorder
