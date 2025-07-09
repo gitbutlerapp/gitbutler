@@ -71,6 +71,7 @@
 					persistId="resizer-darft-panel"
 					viewport={draftPanelEl}
 					direction="right"
+					defaultValue={23}
 					minWidth={16}
 					maxWidth={64}
 					syncName="panel1"
