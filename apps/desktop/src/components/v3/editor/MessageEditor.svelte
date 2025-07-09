@@ -226,12 +226,33 @@
 		});
 	}
 
+	const DROPDOWN_BTN_BREAKPOINTS = {
+		short: 280,
+		medium: 320
+	};
+
+	function getTooltipText(): string | undefined {
+		if (!canUseAI) {
+			return 'You need to enable AI in the project settings to use this feature';
+		}
+		if (currentEditorWidth <= DROPDOWN_BTN_BREAKPOINTS.medium) {
+			return 'Generate commit message';
+		}
+		return undefined;
+	}
+
 	$effect(() => {
 		if (useFloatingBox.current) {
 			useRichText = false;
 		}
 	});
+
+	let currentEditorWidth = $state<number>(0);
 </script>
+
+{#snippet buttonText()}
+	{currentEditorWidth > DROPDOWN_BTN_BREAKPOINTS.medium ? 'Generate message' : 'Generate'}
+{/snippet}
 
 <Modal
 	type="warning"
@@ -296,6 +317,7 @@
 >
 	<div role="presentation" class="message-textarea">
 		<div
+			bind:clientWidth={currentEditorWidth}
 			data-testid={testId}
 			role="presentation"
 			class="message-textarea__inner"
@@ -440,16 +462,14 @@
 			<DropDownButton
 				kind="outline"
 				icon="ai-small"
-				tooltip={!canUseAI
-					? 'You need to enable AI in the project settings to use this feature'
-					: undefined}
+				shrinkable
 				disabled={!canUseAI}
 				loading={aiIsLoading}
 				menuPosition="top"
 				onclick={handleGenerateMessage}
+				children={currentEditorWidth > DROPDOWN_BTN_BREAKPOINTS.short ? buttonText : undefined}
+				tooltip={getTooltipText()}
 			>
-				Generate message
-
 				{#snippet contextMenuSlot()}
 					<ContextMenuSection>
 						<ContextMenuItem
