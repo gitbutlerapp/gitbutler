@@ -154,7 +154,7 @@ fn handle_changes_simple_inner(
             &diff,
         )?
     } else if let Some(prompt) = external_prompt {
-        format!("{}/n/n{}", prompt, change_summary)
+        format!("{}\n\n{}", prompt, change_summary)
     } else {
         change_summary.to_string()
     };
