@@ -48,7 +48,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				extraOptions: {
 					command: 'snapshot_diff'
 				},
-				query: (args) => ({ params: args }),
+				query: (args) => args,
 				providesTags: (_result, _error, args) => providesItem(ReduxTag.SnapshotDiff, args.sha)
 			})
 		})
