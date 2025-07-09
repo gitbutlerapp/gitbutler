@@ -44,7 +44,7 @@
 		{placeholder}
 		fontSize={14}
 		fontWeight="semibold"
-		padding={{ top: 8, right: 24, bottom: 8, left: 12 }}
+		padding={{ top: 8, right: isCharCount ? 24 : 12, bottom: 8, left: 12 }}
 		oninput={(e: Event) => {
 			const input = e.currentTarget as HTMLTextAreaElement;
 			charsCount = input.value.length;
