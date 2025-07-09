@@ -19,7 +19,7 @@ export class CommitAnalytics {
 		selectedBranchName: string;
 		message: string;
 		parentId?: string;
-		isCommitToNewBranch?: boolean;
+		isRichTextMode?: boolean;
 	}): Promise<EventProperties> {
 		try {
 			// Fetch all data upfront
@@ -52,6 +52,8 @@ export class CommitAnalytics {
 
 			return {
 				floatingCommitBox: this.uiState.global.useFloatingCommitBox.current,
+				// Whether the message editor was in rich-text mode (true) or plain-text mode (false)
+				messageEditorRichTextMode: args.isRichTextMode || false,
 				// Number of branches in the stack we are committing to
 				branchCount: this.getBranchCount(stack),
 				// Number of commits in the stack we are committing to
@@ -64,8 +66,6 @@ export class CommitAnalytics {
 				messageCharacterCount: this.getMessageCharacterCount(args.message),
 				// Number of new lines in the commit message
 				messageNewLineCount: this.getMessageNewLineCount(args.message),
-				// Whether the commit was initiated via "Commit to new branch"
-				isCommitToNewBranch: args.isCommitToNewBranch || false,
 				// How many files were assigned to the lane where the commit is being created
 				filesAssignedToCurrentLane: this.getFilesForStack(assignments, args.stackId).length,
 				// How many lanes there are in the workspace
