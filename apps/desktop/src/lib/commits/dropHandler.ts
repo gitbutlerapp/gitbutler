@@ -47,7 +47,7 @@ export class MoveCommitDzHandler implements DropzoneHandler {
 		this.stackService.moveCommit({
 			projectId: this.projectId,
 			targetStackId: this.stackId,
-			commitOid: data.commit.id,
+			commitId: data.commit.id,
 			sourceStackId: data.stackId
 		});
 	}

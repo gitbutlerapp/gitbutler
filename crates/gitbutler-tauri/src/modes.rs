@@ -34,7 +34,7 @@ pub fn enter_edit_mode(
     projects: State<'_, Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
-    commit_oid: String,
+    commit_id: String,
     stack_id: StackId,
 ) -> Result<EditModeMetadata, Error> {
     let project = projects.get(project_id)?;
@@ -42,7 +42,7 @@ pub fn enter_edit_mode(
     let handle = VirtualBranchesHandle::new(project.gb_dir());
     let stack = handle.get_stack(stack_id)?;
 
-    let commit = git2::Oid::from_str(&commit_oid).context("Failed to parse commit oid")?;
+    let commit = git2::Oid::from_str(&commit_id).context("Failed to parse commit oid")?;
 
     gitbutler_edit_mode::commands::enter_edit_mode(
         &ctx,

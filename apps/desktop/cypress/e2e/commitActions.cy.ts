@@ -83,7 +83,7 @@ describe('Commit Actions', () => {
 		cy.get('@updateCommitMessageSpy').should('be.calledWith', {
 			projectId: PROJECT_ID,
 			stackId: mockBackend.stackId,
-			commitOid: mockBackend.commitOid,
+			commitId: mockBackend.commitId,
 			message: `${newCommitMessageTitle}\n\n${newCommitMessageBody}`
 		});
 
@@ -140,7 +140,7 @@ describe('Commit Actions', () => {
 		cy.get('@updateCommitMessageSpy').should('be.calledWith', {
 			projectId: PROJECT_ID,
 			stackId: mockBackend.stackId,
-			commitOid: mockBackend.commitOid,
+			commitId: mockBackend.commitId,
 			message: `${originalCommitMessage}\n\n${newCommitDescription}`
 		});
 
@@ -195,7 +195,7 @@ describe('Commit Actions', () => {
 		cy.get('@updateCommitMessageSpy').should('be.calledWith', {
 			projectId: PROJECT_ID,
 			stackId: mockBackend.stackId,
-			commitOid: mockBackend.commitOid,
+			commitId: mockBackend.commitId,
 			message: newCommitTitle
 		});
 
@@ -242,7 +242,7 @@ describe('Commit Actions', () => {
 		cy.get('@updateCommitMessageSpy').should('be.calledWith', {
 			projectId: PROJECT_ID,
 			stackId: mockBackend.stackId,
-			commitOid: mockBackend.commitOid,
+			commitId: mockBackend.commitId,
 			message: originalCommitMessage
 		});
 
@@ -306,7 +306,7 @@ describe('Commit Actions', () => {
 		cy.get('@updateCommitMessageSpy').should('be.calledWith', {
 			projectId: PROJECT_ID,
 			stackId: mockBackend.stackId,
-			commitOid: mockBackend.commitOid,
+			commitId: mockBackend.commitId,
 			message: `${newCommitMessageTitle}\n\n${newCommitMessageBody}`
 		});
 
