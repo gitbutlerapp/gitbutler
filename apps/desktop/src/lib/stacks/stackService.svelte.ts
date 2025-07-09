@@ -813,14 +813,16 @@ function injectEndpoints(api: ClientState['backendApi']) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			stacks: build.query<EntityState<Stack, string>, { projectId: string }>({
-				query: ({ projectId }) => ({ command: 'stacks', params: { projectId } }),
+				extraOptions: { command: 'stacks' },
+				query: (args) => ({ params: args }),
 				providesTags: [providesList(ReduxTag.Stacks)],
 				transformResponse(response: Stack[]) {
 					return stackAdapter.addMany(stackAdapter.getInitialState(), response);
 				}
 			}),
 			allStacks: build.query<EntityState<Stack, string>, { projectId: string }>({
-				query: ({ projectId }) => ({ command: 'stacks', params: { projectId, filter: 'All' } }),
+				extraOptions: { command: 'stacks' },
+				query: ({ projectId }) => ({ params: { projectId, filter: 'All' } }),
 				providesTags: [providesList(ReduxTag.Stacks)],
 				transformResponse(response: Stack[]) {
 					return stackAdapter.addMany(stackAdapter.getInitialState(), response);
@@ -878,10 +880,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				},
 				{ projectId: string; stackId: string }
 			>({
-				query: ({ projectId, stackId }) => ({
-					command: 'stack_details',
-					params: { projectId, stackId }
-				}),
+				extraOptions: { command: 'stack_details' },
+				query: (args) => ({ params: args }),
 				providesTags: (_result, _error, { stackId }) => [
 					...providesItem(ReduxTag.StackDetails, stackId)
 				],
@@ -927,10 +927,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				},
 				{ projectId: string; branchName: string; remote?: string }
 			>({
-				extraOptions: {
-					command: 'branch_details',
-					actionName: 'Unstacked Branch Details'
-				},
+				extraOptions: { command: 'branch_details' },
 				query: (args) => ({ params: args }),
 				transformResponse(branchDetails: BranchDetails) {
 					// This is a list of all the commits accross all branches in the stack.
@@ -1023,10 +1020,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				},
 				{ projectId: string; commitId: string }
 			>({
-				query: ({ projectId, commitId }) => ({
-					command: 'commit_details',
-					params: { projectId, commitId }
-				}),
+				extraOptions: { command: 'commit_details' },
+				query: (args) => ({ params: args }),
 				providesTags: (_result, _error, { commitId }) => [
 					...providesItem(ReduxTag.CommitChanges, commitId)
 				],
@@ -1049,10 +1044,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				EntityState<TreeChange, string>,
 				{ projectId: string; stackId?: string; branchName: string; remote?: string }
 			>({
-				query: ({ projectId, stackId, branchName, remote }) => ({
-					command: 'changes_in_branch',
-					params: { projectId, stackId, branchName, remote }
-				}),
+				extraOptions: { command: 'changes_in_branch' },
+				query: (args) => ({ params: args }),
 				providesTags: (_result, _error, { stackId }) =>
 					stackId ? providesItem(ReduxTag.BranchChanges, stackId) : [],
 				transformResponse(rsp: TreeChanges) {
@@ -1067,9 +1060,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'update_commit_message',
 					actionName: 'Update Commit Message'
 				},
-				query: ({ projectId, stackId, commitId, message }) => ({
-					params: { projectId, stackId, commitOid: commitId, message }
-				}),
+				query: (args) => ({ params: args }),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesItem(ReduxTag.StackDetails, args.stackId)
 				]
@@ -1458,10 +1449,11 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					ownership: string;
 				}
 			>({
-				query: ({ projectId, stackId, fromCommitOid, toCommitOid, ownership }) => ({
+				extraOptions: {
 					command: 'move_commit_file',
-					params: { projectId, stackId, fromCommitOid, toCommitOid, ownership }
-				}),
+					actionName: 'Move Commit File'
+				},
+				query: (args) => ({ params: args }),
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesList(ReduxTag.WorktreeChanges), // Could cause conflicts
 					invalidatesItem(ReduxTag.StackDetails, args.stackId),
@@ -1474,10 +1466,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					projectId: string;
 				}
 			>({
-				query: ({ projectId }) => ({
-					command: 'canned_branch_name',
-					params: { projectId }
-				})
+				extraOptions: { command: 'canned_branch_name' },
+				query: (args) => ({ params: args })
 			}),
 			normalizeBranchName: build.query<
 				string,
@@ -1485,10 +1475,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					name: string;
 				}
 			>({
-				query: ({ name }) => ({
-					command: 'normalize_branch_name',
-					params: { name }
-				})
+				extraOptions: { command: 'normalize_branch_name' },
+				query: (args) => ({ params: args })
 			}),
 			targetCommits: build.query<
 				EntityState<Commit, string>,
@@ -1498,10 +1486,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					pageSize: number;
 				}
 			>({
-				query: (params) => ({
-					command: 'target_commits',
-					params
-				}),
+				extraOptions: { command: 'target_commits' },
+				query: (args) => ({ params: args }),
 				transformResponse: (commits: Commit[]) =>
 					commitAdapter.addMany(commitAdapter.getInitialState(), commits)
 			}),
@@ -1509,22 +1495,16 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				void,
 				{ projectId: string; commitOid: string; stackId: string }
 			>({
-				query: (params) => ({
-					command: 'enter_edit_mode',
-					params
-				})
+				extraOptions: { command: 'enter_edit_mode' },
+				query: (args) => ({ params: args })
 			}),
 			abortEditAndReturnToWorkspace: build.mutation<void, { projectId: string }>({
-				query: (params) => ({
-					command: 'abort_edit_and_return_to_workspace',
-					params
-				})
+				extraOptions: { command: 'abort_edit_and_return_to_workspace' },
+				query: (args) => ({ params: args })
 			}),
 			saveEditAndReturnToWorkspace: build.mutation<void, { projectId: string }>({
-				query: (params) => ({
-					command: 'save_edit_and_return_to_workspace',
-					params
-				}),
+				extraOptions: { command: 'save_edit_and_return_to_workspace' },
+				query: (args) => ({ params: args }),
 				invalidatesTags: [
 					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesList(ReduxTag.StackDetails)

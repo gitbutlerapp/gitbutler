@@ -99,7 +99,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				},
 				{ projectId: string }
 			>({
-				query: ({ projectId }) => ({ command: 'changes_in_worktree', params: { projectId } }),
+				extraOptions: { command: 'changes_in_worktree' },
+				query: (args) => ({ params: args }),
 				/** Invalidating tags causes data to be refreshed. */
 				providesTags: [providesList(ReduxTag.WorktreeChanges)],
 				/**
