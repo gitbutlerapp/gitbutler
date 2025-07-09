@@ -12,21 +12,12 @@
 		node: TreeNode;
 		isRoot?: boolean;
 		showCheckboxes?: boolean;
-		changes: TreeChange[];
 		depth?: number;
 		initiallyExpanded?: boolean;
 		fileTemplate: Snippet<[TreeChange, number, number]>;
 	};
 
-	let {
-		stackId,
-		node,
-		isRoot = false,
-		showCheckboxes,
-		changes,
-		depth = 0,
-		fileTemplate
-	}: Props = $props();
+	let { stackId, node, isRoot = false, showCheckboxes, depth = 0, fileTemplate }: Props = $props();
 
 	// Local state to track whether the folder is expanded
 	let isExpanded = $state<boolean>(true);
@@ -40,7 +31,7 @@
 {#if isRoot}
 	<!-- Node is a root and should only render children! -->
 	{#each node.children as childNode (childNode.name)}
-		<Self {stackId} {depth} node={childNode} {showCheckboxes} {changes} {fileTemplate} />
+		<Self {stackId} {depth} node={childNode} {showCheckboxes} {fileTemplate} />
 	{/each}
 {:else if node.kind === 'file'}
 	{@render fileTemplate(node.change, node.index, depth)}
@@ -58,14 +49,7 @@
 	{#if isExpanded}
 		<AsyncRender>
 			{#each node.children as childNode (childNode.name)}
-				<Self
-					{stackId}
-					depth={depth + 1}
-					node={childNode}
-					{showCheckboxes}
-					{changes}
-					{fileTemplate}
-				/>
+				<Self {stackId} depth={depth + 1} node={childNode} {showCheckboxes} {fileTemplate} />
 			{/each}
 		</AsyncRender>
 	{/if}
