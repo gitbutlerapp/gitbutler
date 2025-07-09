@@ -112,7 +112,7 @@
 		!forgeBranch || (branchDetails ? requiresPush(branchDetails.pushStatus) : true)
 	);
 
-	let titleInput = $state<HTMLInputElement | undefined>(undefined);
+	let titleInput = $state<HTMLTextAreaElement | undefined>(undefined);
 	let messageEditor = $state<MessageEditor>();
 
 	// AI things

@@ -73,7 +73,6 @@
 			{scrollToType}
 			{resizer}
 			{onclose}
-			headerNoPaddingLeft={collapsible}
 			bottomBorder={!!resizer || !collapsible}
 		>
 			{#snippet header()}

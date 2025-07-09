@@ -272,7 +272,7 @@
 									tooltip="Upstream"
 									{branchName}
 									{first}
-									lastCommit={lastCommit && localAndRemoteCommits.length === 0}
+									{lastCommit}
 									{selected}
 									{active}
 									onclick={() => handleCommitClick(commit.id, true)}

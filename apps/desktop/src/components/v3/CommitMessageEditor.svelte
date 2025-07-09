@@ -136,7 +136,7 @@
 	}
 
 	let composer = $state<ReturnType<typeof MessageEditor>>();
-	let titleInput = $state<HTMLInputElement>();
+	let titleInput = $state<HTMLTextAreaElement>();
 
 	async function getDescription() {
 		return (await composer?.getPlaintext()) || '';

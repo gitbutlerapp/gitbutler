@@ -1,6 +1,6 @@
 <script lang="ts">
-	import CommitHeader from '$components/v3/CommitHeader.svelte';
 	import CommitLine from '$components/v3/CommitLine.svelte';
+	import CommitTitle from '$components/v3/CommitTitle.svelte';
 	import { type CommitStatusType } from '$lib/commits/commit';
 	import { TestId } from '$lib/testing/testIds';
 
@@ -122,7 +122,7 @@
 		{/if}
 
 		<div class="commit-name truncate">
-			<CommitHeader {commitMessage} truncate className="text-13 text-semibold" />
+			<CommitTitle {commitMessage} truncate className="text-13 text-semibold" />
 		</div>
 
 		{#if !args.disableCommitActions}

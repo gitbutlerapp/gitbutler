@@ -4,6 +4,7 @@
 
 	interface Props extends HTMLTextareaAttributes {
 		textBoxEl?: HTMLTextAreaElement;
+		testId?: string;
 		label?: string;
 		value?: string;
 		fontWeight?: 'regular' | 'bold' | 'semibold';
@@ -28,6 +29,7 @@
 
 	let {
 		id,
+		testId,
 		textBoxEl = $bindable(),
 		label,
 		value = $bindable(),
@@ -112,6 +114,7 @@
 		style:max-height="{pxToRem(maxHeight)}rem">{value + '\n'}</pre>
 	<textarea
 		bind:this={textBoxEl}
+		data-testid={testId}
 		name={id}
 		{id}
 		class="textarea scrollbar {className} text-{fontWeight}"
