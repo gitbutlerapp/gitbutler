@@ -53,7 +53,7 @@
 		await insertBlankCommitMutation({
 			projectId: project.id,
 			stackId: branch.id,
-			commitOid: commitId,
+			commitId: commitId,
 			offset: location === 'above' ? -1 : 1
 		});
 	}

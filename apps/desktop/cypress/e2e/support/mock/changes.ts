@@ -168,7 +168,7 @@ export function isGetBranchChangesParams(args: unknown): args is GetBranchChange
 export type UndoCommitParams = {
 	projectId: string;
 	stackId: string;
-	commitOid: string;
+	commitId: string;
 };
 
 export function isUndoCommitParams(args: unknown): args is UndoCommitParams {
@@ -177,8 +177,8 @@ export function isUndoCommitParams(args: unknown): args is UndoCommitParams {
 		args !== null &&
 		'projectId' in args &&
 		typeof args['projectId'] === 'string' &&
-		'commitOid' in args &&
-		typeof args['commitOid'] === 'string' &&
+		'commitId' in args &&
+		typeof args['commitId'] === 'string' &&
 		'stackId' in args &&
 		typeof args['stackId'] === 'string'
 	);

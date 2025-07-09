@@ -117,7 +117,7 @@
 		const newCommitId = await updateCommitMessage({
 			projectId,
 			stackId,
-			commitOid: commitKey.commitId,
+			commitId: commitKey.commitId,
 			message: commitMessage
 		});
 

@@ -150,7 +150,7 @@ export function createMockStackDetails(overrides: Partial<StackDetails> = {}): S
 export type UpdateCommitMessageParams = {
 	projectId: string;
 	stackId: string;
-	commitOid: string;
+	commitId: string;
 	message: string;
 };
 
@@ -162,8 +162,8 @@ export function isUpdateCommitMessageParams(params: unknown): params is UpdateCo
 		typeof params.projectId === 'string' &&
 		'stackId' in params &&
 		typeof params.stackId === 'string' &&
-		'commitOid' in params &&
-		typeof params.commitOid === 'string' &&
+		'commitId' in params &&
+		typeof params.commitId === 'string' &&
 		'message' in params &&
 		typeof params.message === 'string'
 	);

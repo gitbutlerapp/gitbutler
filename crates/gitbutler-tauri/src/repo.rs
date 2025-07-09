@@ -86,8 +86,8 @@ pub mod commands {
         commit_id: String,
     ) -> Result<FileInfo, Error> {
         let project = projects.get(project_id)?;
-        let commit_oid = git2::Oid::from_str(commit_id.as_ref()).map_err(anyhow::Error::from)?;
-        Ok(project.read_file_from_commit(commit_oid, relative_path)?)
+        let commit_id = git2::Oid::from_str(commit_id.as_ref()).map_err(anyhow::Error::from)?;
+        Ok(project.read_file_from_commit(commit_id, relative_path)?)
     }
 
     #[tauri::command(async)]

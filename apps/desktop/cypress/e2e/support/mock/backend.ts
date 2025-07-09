@@ -74,7 +74,7 @@ export default class MockBackend {
 
 	stackId: string = MOCK_STACK_A_ID;
 	renamedCommitId: string = '424242424242';
-	commitOid: string = MOCK_COMMIT.id;
+	commitId: string = MOCK_COMMIT.id;
 	cannedBranchName = MOCK_BRAND_NEW_BRANCH_NAME;
 	branchListing: BranchListing;
 
@@ -157,7 +157,7 @@ export default class MockBackend {
 		if (!args || !isUpdateCommitMessageParams(args)) {
 			throw new Error('Invalid arguments for renameCommit');
 		}
-		const { stackId, commitOid, message } = args;
+		const { stackId, commitId, message } = args;
 
 		const stackDetails = this.stackDetails.get(stackId);
 		if (!stackDetails) {
@@ -167,7 +167,7 @@ export default class MockBackend {
 		const editableDetails = structuredClone(stackDetails);
 
 		for (const branch of editableDetails.branchDetails) {
-			const commitIndex = branch.commits.findIndex((commit) => commit.id === commitOid);
+			const commitIndex = branch.commits.findIndex((commit) => commit.id === commitId);
 			if (commitIndex === -1) continue;
 			const commit = branch.commits[commitIndex]!;
 			const newId = this.renamedCommitId + message;
@@ -181,7 +181,7 @@ export default class MockBackend {
 			return newId;
 		}
 
-		throw new Error(`Commit with ID ${commitOid} not found`);
+		throw new Error(`Commit with ID ${commitId} not found`);
 	}
 
 	public getWorktreeChanges(args: InvokeArgs | undefined): WorktreeChanges {
@@ -383,7 +383,7 @@ export default class MockBackend {
 			throw new Error('Invalid arguments for getCommitChanges');
 		}
 
-		const { stackId, commitOid } = args;
+		const { stackId, commitId } = args;
 
 		const stackDetails = this.stackDetails.get(stackId);
 		if (!stackDetails) {
@@ -393,16 +393,16 @@ export default class MockBackend {
 		const editableDetails = structuredClone(stackDetails);
 
 		for (const branch of editableDetails.branchDetails) {
-			const commitToUndo = branch.commits.find((commit) => commit.id === commitOid);
+			const commitToUndo = branch.commits.find((commit) => commit.id === commitId);
 			if (!commitToUndo) continue;
 
-			branch.commits = branch.commits.filter((commit) => commit.id !== commitOid);
+			branch.commits = branch.commits.filter((commit) => commit.id !== commitId);
 			this.stackDetails.set(stackId, editableDetails);
 			// TODO: update the worktree changes
 			return;
 		}
 
-		throw new Error(`Commit with ID ${commitOid} not found`);
+		throw new Error(`Commit with ID ${commitId} not found`);
 	}
 
 	public getBaseBranchData() {

@@ -151,7 +151,7 @@
 		await updateCommitMessage({
 			projectId: project.id,
 			stackId: stack.id,
-			commitOid: commit.id,
+			commitId: commit.id,
 			message: description
 		});
 
