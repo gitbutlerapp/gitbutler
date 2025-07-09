@@ -14,7 +14,7 @@
 <style lang="postcss">
 	.fold-btn {
 		--border-width: 0.094rem; /* 1.5px */
-		--border-color: var(--clr-text-3);
+		--border-color: var(--clr-text-2);
 		--radius: 4px;
 		--transition: width 0.15s ease, color var(--transition-fast);
 

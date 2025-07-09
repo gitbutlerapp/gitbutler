@@ -186,7 +186,7 @@
 		overflow: hidden;
 		gap: 8px;
 		outline: none;
-		background: transparent;
+		background-color: var(--clr-bg-1);
 		text-align: left;
 		user-select: none;
 
@@ -227,7 +227,6 @@
 		display: flex;
 		align-items: center;
 		gap: 6px;
-		/* height: 100%; */
 	}
 
 	.draggable-handle {
@@ -254,6 +253,7 @@
 
 		& .conflicted {
 			display: flex;
+			margin-right: -2px;
 		}
 	}
 </style>

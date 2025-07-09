@@ -78,23 +78,22 @@
 	class:no-shrink={resizer && $collapsed !== undefined}
 	{@attach scrollingAttachment(intelligentScrollingService, scrollToId, scrollToType)}
 >
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div
-		bind:this={headerDiv}
-		class="drawer-header"
-		class:no-padding-left={headerNoPaddingLeft}
-		ondblclick={() => {
-			if ($collapsed !== undefined) {
-				collapsed.set(!$collapsed);
-			}
-		}}
-	>
+	<div bind:this={headerDiv} class="drawer-header" class:no-padding-left={headerNoPaddingLeft}>
 		{#if $collapsed !== undefined}
-			{@const name = $collapsed ? 'chevron-down' : ('chevron-up' as const)}
-			<div class="chevron">
+			{@const name = $collapsed ? 'chevron-right' : ('chevron-down' as const)}
+			<button
+				type="button"
+				class="chevron-btn focus-state"
+				onclick={() => {
+					if ($collapsed !== undefined) {
+						collapsed.set(!$collapsed);
+					}
+				}}
+			>
 				<Icon {name} />
-			</div>
+			</button>
 		{/if}
+
 		<div class="drawer-header__title">
 			{#if title}
 				<h3 class="text-15 text-bold truncate">
@@ -106,22 +105,27 @@
 			{/if}
 		</div>
 
-		<div class="drawer-header__actions">
-			{#if extraActions}
-				<div class="drawer-header__actions-group">
-					{@render extraActions()}
-				</div>
-			{/if}
-			<div class="drawer-header__actions-group">
-				{#if kebabMenu}
-					{@render kebabMenu(headerDiv)}
+		{#if extraActions || kebabMenu || onclose}
+			<div class="drawer-header__actions">
+				{#if extraActions}
+					<div class="drawer-header__actions-group">
+						{@render extraActions()}
+					</div>
 				{/if}
 
-				{#if onclose}
-					<Button kind="ghost" icon="cross" size="tag" onclick={() => onclose()} />
+				{#if kebabMenu || onclose}
+					<div class="drawer-header__actions-group">
+						{#if kebabMenu}
+							{@render kebabMenu(headerDiv)}
+						{/if}
+
+						{#if onclose}
+							<Button kind="ghost" icon="cross" size="tag" onclick={() => onclose()} />
+						{/if}
+					</div>
 				{/if}
 			</div>
-		</div>
+		{/if}
 	</div>
 
 	{#if !$collapsed}
@@ -172,8 +176,8 @@
 		align-items: center;
 		justify-content: space-between;
 		height: 42px;
-		padding: 0 8px 0 14px;
-		gap: 6px;
+		padding: 0 12px 0 14px;
+		gap: 8px;
 		border-bottom: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-2);
 
@@ -195,6 +199,7 @@
 		display: flex;
 		flex-shrink: 0;
 		align-items: center;
+		margin-right: -2px; /* buttons have some paddings that look not aligned. With this we "remove" them */
 		gap: 12px;
 	}
 
@@ -219,10 +224,16 @@
 		overflow: hidden;
 	}
 
-	.chevron {
+	.chevron-btn {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding-left: 14px;
+		margin-left: 13px;
+		color: var(--clr-text-3);
+		transition: color var(--transition-fast);
+
+		&:hover {
+			color: var(--clr-text-2);
+		}
 	}
 </style>
