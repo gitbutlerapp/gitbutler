@@ -841,7 +841,7 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
 
     //update repo ref refs/remotes/origin/master to up_target oid
     ctx.repo().reference(
-        "refs/remotes/origin/g-branch-1",
+        "refs/remotes/origin/Lane",
         coworker_work,
         true,
         "update target",

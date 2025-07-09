@@ -323,7 +323,7 @@ fn conflicting_reorder_stack() -> Result<()> {
 
     // There is a stack of 2:
     // [] <- top-series
-    // [  <- a-branch-2
+    // [  <- my_stack
     //   commit 2,
     //   commit 1
     // ]
@@ -404,7 +404,7 @@ fn order(series: Vec<Vec<Oid>>) -> StackOrder {
                 commit_ids: series[0].clone(),
             },
             SeriesOrder {
-                name: "a-branch-2".to_string(),
+                name: "my_stack".to_string(),
                 commit_ids: series[1].clone(),
             },
         ],
