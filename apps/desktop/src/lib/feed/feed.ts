@@ -1,6 +1,7 @@
 import { ActionListing, ButlerAction, Workflow, WorkflowList } from '$lib/actions/types';
 import { invoke } from '$lib/backend/ipc';
 import { Snapshot } from '$lib/history/types';
+import Mutex from '$lib/utils/mutex';
 import { deduplicateBy } from '@gitbutler/shared/utils/array';
 import { plainToInstance } from 'class-transformer';
 import { get, writable } from 'svelte/store';
@@ -10,23 +11,6 @@ type DBEvent = {
 	kind: 'actions' | 'workflows' | 'hunk-assignments' | 'unknown';
 	item?: string;
 };
-
-class Mutex {
-	private mutex = Promise.resolve();
-
-	async lock<T>(fn: () => Promise<T>): Promise<T> {
-		let release: () => void;
-		const wait = new Promise<void>((res) => (release = res));
-		const prev = this.mutex;
-		this.mutex = prev.then(async () => await wait);
-		await prev;
-		try {
-			return await fn();
-		} finally {
-			release!();
-		}
-	}
-}
 
 export type UserMessage = {
 	id: `user-${string}`;
