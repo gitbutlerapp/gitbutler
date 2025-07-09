@@ -194,12 +194,13 @@
 		   makes any :hover css trigger excessive layout passes, thus making
 		   the interface super slow. */
 		display: block;
-		background-color: var(--clr-bg-1);
+
 		&.transparent {
 			background-color: transparent;
 		}
 	}
 	.filelistitem-header {
 		z-index: var(--z-lifted);
+		background-color: var(--clr-bg-1);
 	}
 </style>
