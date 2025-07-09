@@ -21,6 +21,7 @@ export type SelectionId = {
 	| {
 			type: 'commit';
 			commitId: string;
+			stackId?: string;
 	  }
 	| {
 			type: 'branch';
@@ -47,7 +48,7 @@ export type SelectedFileKey = BrandedId<'SelectedFileKey'>;
 export function key(params: SelectedFile): SelectedFileKey {
 	switch (params.type) {
 		case 'commit':
-			return `${params.type}${UNIT_SEP}${params.path}${UNIT_SEP}${params.commitId}` as SelectedFileKey;
+			return `${params.type}${UNIT_SEP}${params.path}${UNIT_SEP}${params.commitId}${UNIT_SEP}${params.stackId}` as SelectedFileKey;
 		case 'branch':
 			return `${params.type}${UNIT_SEP}${params.path}${UNIT_SEP}${params.stackId}${UNIT_SEP}${params.branchName}` as SelectedFileKey;
 		case 'worktree':
@@ -64,11 +65,12 @@ export function readKey(key: SelectedFileKey): SelectedFile {
 
 	switch (type) {
 		case 'commit':
-			if (parts.length !== 2) throw new Error('Invalid commit key');
+			if (parts.length !== 3) throw new Error('Invalid commit key');
 			return {
 				type,
 				path: parts[0]!,
-				commitId: parts[1]!
+				commitId: parts[1]!,
+				stackId: parts[2]!
 			};
 		case 'branch':
 			if (parts.length !== 3) throw new Error('Invalid branch key');

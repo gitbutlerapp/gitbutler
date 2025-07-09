@@ -61,7 +61,7 @@
 	const selectionId: SelectionId | undefined = $derived.by(() => {
 		const current = branchesState?.current;
 		if (current.commitId) {
-			return { type: 'commit', commitId: current.commitId };
+			return { type: 'commit', commitId: current.commitId, stackId: current.stackId };
 		}
 		if (current.branchName) {
 			const branchName = current.remote

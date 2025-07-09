@@ -49,7 +49,9 @@
 		return readKey($lastAdded.key);
 	});
 
-	const stackId = selectionId && `stackId` in selectionId ? selectionId.stackId : undefined;
+	const stackId = $derived(
+		selectionId && `stackId` in selectionId ? selectionId.stackId : undefined
+	);
 </script>
 
 <div
@@ -87,7 +89,7 @@
 								{/if}
 								<UnifiedDiffView
 									projectId={env.projectId}
-									stackId={'stackId' in selectedFile ? selectedFile.stackId : undefined}
+									{stackId}
 									commitId={selectedFile.type === 'commit' ? selectedFile.commitId : undefined}
 									{draggable}
 									{change}

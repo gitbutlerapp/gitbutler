@@ -108,7 +108,7 @@
 
 	const selectedLastAdded = $derived.by(() => {
 		if (commitId) {
-			return idSelection.getById({ type: 'commit', commitId }).lastAdded;
+			return idSelection.getById({ type: 'commit', commitId, stackId: stack.id }).lastAdded;
 		} else if (branchName) {
 			return idSelection.getById({ type: 'branch', stackId: stack.id, branchName }).lastAdded;
 		}
@@ -243,6 +243,7 @@
 		onclose={() => {
 			intelligentScrollingService.show(projectId, stack.id, 'stack');
 		}}
+		draggableFiles
 	/>
 {/snippet}
 
@@ -256,6 +257,7 @@
 		onclose={() => {
 			intelligentScrollingService.show(projectId, stack.id, 'details');
 		}}
+		draggableFiles={selectionId.type === 'commit'}
 	/>
 {/snippet}
 
@@ -333,7 +335,7 @@
 				grow
 				draggableFiles
 				collapsible={$compactWorkspace}
-				selectionId={{ type: 'commit', commitId }}
+				selectionId={{ type: 'commit', commitId, stackId: stack.id }}
 				changes={changes.changes.filter(
 					(change) => !(change.path in (changes.conflictEntries?.entries ?? {}))
 				)}
