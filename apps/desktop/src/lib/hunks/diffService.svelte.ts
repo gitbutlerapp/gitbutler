@@ -56,10 +56,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			getDiff: build.query<UnifiedDiff, { projectId: string; change: TreeChange }>({
-				extraOptions: {
-					command: 'tree_change_diffs'
-				},
-				query: (args) => ({ params: args }),
+				extraOptions: { command: 'tree_change_diffs' },
+				query: (args) => args,
 				providesTags: [providesList(ReduxTag.Diff)]
 			}),
 			assignHunk: build.mutation<
@@ -69,7 +67,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				extraOptions: {
 					command: 'assign_hunk'
 				},
-				query: (args) => ({ params: args }),
+				query: (args) => args,
 				invalidatesTags: [invalidatesList(ReduxTag.WorktreeChanges)]
 			})
 		})

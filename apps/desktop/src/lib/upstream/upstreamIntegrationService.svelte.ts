@@ -116,7 +116,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				{ projectId: string; targetCommitOid?: string }
 			>({
 				extraOptions: { command: 'upstream_integration_statuses' },
-				query: (args) => ({ params: args }),
+				query: (args) => args,
 				providesTags: [providesList(ReduxTag.UpstreamIntegrationStatus)]
 			}),
 			integrateUpstream: build.mutation<
@@ -131,7 +131,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: 'integrate_upstream',
 					actionName: 'Integrate Upstream'
 				},
-				query: (args) => ({ params: args }),
+				query: (args) => args,
 				invalidatesTags: [
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
 					invalidatesList(ReduxTag.Stacks),
@@ -146,7 +146,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					command: `resolve_upstream_integration`,
 					actionName: 'Resolve Integrate Upstream'
 				},
-				query: (args) => ({ params: args }),
+				query: (args) => args,
 				invalidatesTags: [invalidatesList(ReduxTag.UpstreamIntegrationStatus)]
 			})
 		})

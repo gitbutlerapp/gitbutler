@@ -15,7 +15,7 @@ export const tauriBaseQuery: TauriBaseQueryFn = async (
 	api: BaseQueryApi,
 	extra: TauriExtraOptions
 ): Promise<QueryReturnValue<unknown, TauriCommandError, undefined>> => {
-	const command = extra.command || args.command;
+	const command = extra.command;
 	if (!command) {
 		return newError('Expected a command!');
 	}
@@ -25,13 +25,13 @@ export const tauriBaseQuery: TauriBaseQueryFn = async (
 	}
 
 	try {
-		const result = { data: await api.extra.tauri.invoke(command, args.params) };
+		const result = { data: await api.extra.tauri.invoke(command, args) };
 		return result;
 	} catch (error: unknown) {
 		const name = `API error: (${command})`;
 		if (isTauriCommandError(error)) {
 			const newMessage =
-				`command: ${command}\nparams: ${JSON.stringify(args.params)})\n\n` + error.message;
+				`command: ${command}\nparams: ${JSON.stringify(args)})\n\n` + error.message;
 			return { error: { name, message: newMessage, code: error.code } };
 		}
 
@@ -49,10 +49,7 @@ function newError(message: string) {
 	};
 }
 
-type ApiArgs = {
-	command?: string;
-	params: Record<string, unknown>;
-};
+type ApiArgs = Record<string, unknown>;
 
 /**
  * Typeguard for accessing injected Tauri dependency safely.
