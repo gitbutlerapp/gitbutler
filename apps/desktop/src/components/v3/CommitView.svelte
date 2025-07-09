@@ -34,7 +34,9 @@
 		collapsible?: boolean;
 		scrollToType?: TargetType;
 		scrollToId?: string;
+		grow?: boolean;
 		resizer?: Snippet<[{ element: HTMLDivElement; collapsed?: boolean }]>;
+		ontoggle?: (collapsed: boolean) => void;
 		onerror: (err: unknown) => void;
 		onclose?: () => void;
 	};
@@ -46,7 +48,9 @@
 		collapsible,
 		scrollToId,
 		scrollToType,
+		grow,
 		resizer,
+		ontoggle,
 		onerror,
 		onclose
 	}: Props = $props();
@@ -150,8 +154,10 @@
 			bottomBorder={!!resizer || !collapsible}
 			{scrollToId}
 			{scrollToType}
+			{ontoggle}
 			{onclose}
 			{resizer}
+			{grow}
 		>
 			{#snippet header()}
 				<CommitTitle

@@ -3,11 +3,14 @@
 	import { ResizeSync } from '$lib/utils/resizeSync';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
+	import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
+	import { pxToRem, remToPx } from '@gitbutler/ui/utils/pxToRem';
 	import { writable } from 'svelte/store';
+	import type { ResizeGroup } from '$lib/utils/resizeManager';
 
 	interface Props {
 		/** Default value */
-		defaultValue?: number;
+		defaultValue: number;
 		/** The element that is being resized */
 		viewport: HTMLElement;
 		/** Sets direction of resizing for viewport */
@@ -32,6 +35,10 @@
 		passive?: boolean;
 		/** Doubles or halves the width on double click */
 		clientHeight?: number;
+		/** Optional manager that can coordinate multiple resizers */
+		resizeGroup?: ResizeGroup;
+		/** Optional ordering of resizer for use with `resizeManager` */
+		order?: number;
 
 		// Actions
 		onHeight?: (height: number) => void;
@@ -58,6 +65,8 @@
 		persistId,
 		passive,
 		clientHeight = $bindable(),
+		resizeGroup,
+		order,
 		onResizing,
 		onOverflow,
 		onHover,
@@ -68,12 +77,12 @@
 	const orientation = $derived(['left', 'right'].includes(direction) ? 'horizontal' : 'vertical');
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const resizeSync = getContext(ResizeSync);
-	const base = $derived($userSettings.zoom * 16);
+	const zoom = $derived($userSettings.zoom);
 
 	let value = $derived(
 		persistId
 			? persistWithExpiration(defaultValue, persistId, 1440)
-			: writable<number | undefined>()
+			: writable<number>(defaultValue)
 	);
 
 	const resizerId = Symbol();
@@ -97,23 +106,25 @@
 	}
 
 	function applyLimits(value: number) {
-		let newValue: number | undefined;
-		let overflow: number | undefined;
-		if (direction === 'down') {
-			newValue = Math.min(Math.max(value, minHeight), maxHeight);
-			overflow = minHeight - value;
-		}
-		if (direction === 'up') {
-			newValue = Math.min(Math.max(value, minHeight), maxHeight);
-			overflow = minHeight - value;
-		}
-		if (direction === 'right') {
-			newValue = Math.min(Math.max(value, minWidth), maxWidth);
-			overflow = minWidth - value;
-		}
-		if (direction === 'left') {
-			newValue = Math.min(Math.max(value, minWidth), maxWidth);
-			overflow = minWidth - value;
+		let newValue: number;
+		let overflow: number;
+		switch (direction) {
+			case 'down':
+				newValue = Math.min(Math.max(value, minHeight), maxHeight);
+				overflow = minHeight - value;
+				break;
+			case 'up':
+				newValue = Math.min(Math.max(value, minHeight), maxHeight);
+				overflow = minHeight - value;
+				break;
+			case 'right':
+				newValue = Math.min(Math.max(value, minWidth), maxWidth);
+				overflow = minWidth - value;
+				break;
+			case 'left':
+				newValue = Math.min(Math.max(value, minWidth), maxWidth);
+				overflow = minWidth - value;
+				break;
 		}
 
 		return { newValue, overflow };
@@ -121,28 +132,36 @@
 
 	function onMouseMove(e: MouseEvent) {
 		dragging = true;
-		let limitedValue:
-			| {
-					newValue?: number;
-					overflow?: number;
-			  }
-			| undefined;
-		if (direction === 'down') {
-			limitedValue = applyLimits((e.clientY - initial) / base);
+		let offsetPx: number | undefined;
+		switch (direction) {
+			case 'down':
+				offsetPx = e.clientY - initial;
+				break;
+			case 'up':
+				offsetPx = document.body.scrollHeight - e.clientY - initial;
+				break;
+			case 'right':
+				offsetPx = e.clientX - initial + 2;
+				break;
+			case 'left':
+				offsetPx = document.body.scrollWidth - e.clientX - initial;
+				break;
 		}
-		if (direction === 'up') {
-			limitedValue = applyLimits((document.body.scrollHeight - e.clientY - initial) / base);
-		}
-		if (direction === 'right') {
-			limitedValue = applyLimits((e.clientX - initial + 2) / base);
-		}
-		if (direction === 'left') {
-			limitedValue = applyLimits((document.body.scrollWidth - e.clientX - initial) / base);
-		}
-		if (!limitedValue) {
+
+		const offsetRem = pxToRem(offsetPx, zoom);
+
+		// Presence of a resize group means we hand off the rest of the
+		// handling of this event.
+		if (resizeGroup) {
+			const subtracted = resizeGroup.resize(resizerId, offsetRem);
+			// The initial offset needs to be adjusted if an adjustement
+			// means the whole resizer has moved.
+			initial = initial - remToPx(subtracted, zoom);
 			return;
 		}
-		const { newValue, overflow } = limitedValue;
+
+		const { newValue, overflow } = applyLimits(offsetRem);
+
 		if (newValue && !passive) {
 			value.set(newValue);
 			updateDom(newValue);
@@ -193,26 +212,48 @@
 		onHover?.(isHovered);
 	}
 
+	function getValue() {
+		return $value;
+	}
+
+	function setValue(newSize: number) {
+		value.set(newSize);
+		onWidth?.(newSize);
+	}
+
 	$effect(() => {
-		if (syncName) {
-			return resizeSync.subscribe({
-				key: syncName,
+		if (resizeGroup && order !== undefined) {
+			// It's important we do not make use of maxValue in the resize
+			// manager, and in this effect. It changes with the value of
+			// neighbors and would make this effect trigger constantly.
+			return resizeGroup?.register({
 				resizerId,
-				callback: (newValue) => value.set(newValue)
+				getValue,
+				setValue,
+				minValue: minHeight || minWidth,
+				position: order
 			});
 		}
 	});
 
 	$effect(() => {
-		if ($value) {
-			updateDom($value);
-			onWidth?.($value);
+		if (syncName) {
+			const unlistenFns = [];
+			unlistenFns.push(
+				resizeSync.subscribe({
+					key: syncName,
+					resizerId,
+					callback: setValue
+				})
+			);
+			return mergeUnlisten(...unlistenFns);
 		}
 	});
 
 	$effect(() => {
 		if (maxWidth || minWidth || maxHeight || minHeight) {
 			updateDom($value);
+			onWidth?.($value);
 		}
 	});
 

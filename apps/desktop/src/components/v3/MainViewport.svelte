@@ -73,6 +73,7 @@ the window, then enlarge it and retain the original widths of the layout.
 	let rightDiv = $state<HTMLDivElement>();
 
 	const leftMinWidth = $derived(pxToRem(leftWidth.min, zoom));
+	const leftDefaultWidth = $derived(pxToRem(leftWidth.default, zoom));
 	const previewMinWidth = $derived(preview ? pxToRem(previewWidth?.min, zoom) : 0);
 	const rightMinWidth = $derived(pxToRem(rightWidth.min, zoom));
 
@@ -154,6 +155,7 @@ the window, then enlarge it and retain the original widths of the layout.
 					viewport={leftDiv}
 					direction="right"
 					minWidth={leftMinWidth}
+					defaultValue={leftDefaultWidth}
 					maxWidth={leftMaxWidth}
 					imitateBorder
 					borderRadius={!preview ? 'ml' : 'none'}

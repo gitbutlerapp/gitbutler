@@ -27,6 +27,7 @@
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
+	import { ResizeGroup } from '$lib/utils/resizeManager';
 	import { inject } from '@gitbutler/shared/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -137,9 +138,11 @@
 	let actualDetailsHeight = $state<number>(0);
 	let actualDetailsHeightRem = $derived(pxToRem(actualDetailsHeight, 1));
 
-	let minDetailsHeight = $state(10);
-	let minChangedFilesHeight = $state(10);
-	let minPreviewHeight = $derived(previewChangeResult ? 10 : 0);
+	let minDetailsHeight = $state(6);
+	let defaultDetailsHeight = $derived(verticalHeightRem / 4);
+	let minChangedFilesHeight = $state(6);
+	let defaultChangedFilesHeight = $derived(verticalHeightRem / 3);
+	let minPreviewHeight = $derived(previewChangeResult ? 6 : 0);
 
 	let maxDetailsHeight = $derived(verticalHeightRem - minChangedFilesHeight - minPreviewHeight);
 	let maxChangedFilesHeight = $derived(
@@ -239,6 +242,12 @@
 			console.warn('Workspace selection cleared');
 		}
 	}
+
+	let previewCollapsed = $state<boolean>();
+	let changedFilesCollapsed = $state<boolean>();
+	let detailsCollapsed = $state<boolean>();
+
+	const resizeGroup = new ResizeGroup();
 </script>
 
 <!-- ATTENTION -->
@@ -289,6 +298,10 @@
 			focusedStackId === stack.id}
 		scrollToType="details"
 		scrollToId={stack.id}
+		grow={!detailsCollapsed && changedFilesCollapsed}
+		ontoggle={(collapsed) => {
+			detailsCollapsed = collapsed;
+		}}
 		{onerror}
 		{onclose}
 	>
@@ -299,8 +312,12 @@
 					viewport={element}
 					passive={collapsed}
 					direction="down"
+					persistId="resizer-panel2-details-${stack.id}"
+					defaultValue={defaultDetailsHeight}
 					minHeight={minDetailsHeight}
 					maxHeight={maxDetailsHeight}
+					order={0}
+					{resizeGroup}
 				/>
 			{/if}
 		{/snippet}
@@ -320,8 +337,12 @@
 		}}
 		draggableFiles
 		active={selectedKey?.type === 'commit' && focusedStackId === stack.id}
-		scrollToId={stack.id}
 		scrollToType="details"
+		scrollToId={stack.id}
+		grow={!detailsCollapsed && changedFilesCollapsed}
+		ontoggle={(collapsed) => {
+			detailsCollapsed = collapsed;
+		}}
 		{onerror}
 		{onclose}
 	>
@@ -332,8 +353,12 @@
 					viewport={element}
 					passive={collapsed}
 					direction="down"
+					persistId="resizer-panel2-details-${stack.id}"
+					defaultValue={defaultDetailsHeight}
 					minHeight={minDetailsHeight}
 					maxHeight={maxDetailsHeight}
+					order={0}
+					{resizeGroup}
 				/>
 			{/if}
 		{/snippet}
@@ -349,10 +374,14 @@
 				title="Changed Files"
 				{projectId}
 				{stackId}
-				grow
+				grow={(!assignedKey && !selectedKey) ||
+					(previewCollapsed && !changedFilesCollapsed && !detailsCollapsed)}
 				draggableFiles
 				collapsible={$compactWorkspace}
 				selectionId={{ type: 'commit', commitId }}
+				ontoggle={(collapsed) => {
+					changedFilesCollapsed = collapsed;
+				}}
 				changes={changes.changes.filter(
 					(change) => !(change.path in (changes.conflictEntries?.entries ?? {}))
 				)}
@@ -362,9 +391,13 @@
 				{#snippet resizer({ element, collapsed })}
 					{#if $compactWorkspace}
 						<Resizer
+							{resizeGroup}
+							order={1}
 							viewport={element}
 							maxHeight={maxChangedFilesHeight}
 							minHeight={minChangedFilesHeight}
+							defaultValue={defaultChangedFilesHeight}
+							persistId="resizer-panel2-changed-files-${stack.id}"
 							passive={collapsed}
 							direction="down"
 							syncName="blah"
@@ -390,17 +423,27 @@
 				{projectId}
 				{stackId}
 				draggableFiles
+				grow={(!assignedKey && !selectedKey) ||
+					(previewCollapsed && !changedFilesCollapsed && !detailsCollapsed) ||
+					undefined}
 				collapsible={$compactWorkspace}
 				selectionId={{ type: 'branch', stackId: stack.id, branchName }}
+				ontoggle={() => {
+					changedFilesCollapsed = !changedFilesCollapsed;
+				}}
 				{changes}
 				{active}
 			>
 				{#snippet resizer({ element, collapsed })}
 					{#if $compactWorkspace}
 						<Resizer
+							{resizeGroup}
+							order={1}
 							viewport={element}
 							maxHeight={maxChangedFilesHeight}
 							minHeight={minChangedFilesHeight}
+							defaultValue={defaultChangedFilesHeight}
+							persistId="resizer-panel2-changed-files-${stack.id}"
 							passive={collapsed}
 							direction="down"
 							syncName="blah"
@@ -557,7 +600,12 @@
 						{#snippet children(previewChange)}
 							{@const diffResult = diffService.getDiff(projectId, previewChange)}
 							{@const diffData = diffResult.current.data}
-							<Drawer collapsible>
+							<Drawer
+								collapsible
+								ontoggle={(collapsed) => {
+									previewCollapsed = collapsed;
+								}}
+							>
 								{#snippet header()}
 									<FileViewHeader
 										compact

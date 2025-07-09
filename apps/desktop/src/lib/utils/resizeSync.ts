@@ -1,4 +1,4 @@
-type ResizeCallback = (value: number) => void;
+export type ResizeCallback = (value: number) => void;
 
 /**
  * The `Resizer` component uses this class for shift + drag synchronizing
