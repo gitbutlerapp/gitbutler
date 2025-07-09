@@ -16,6 +16,35 @@ use std::ops::Deref;
 
 type RefsById = gix::hashtable::HashMap<gix::ObjectId, Vec<gix::refs::FullName>>;
 
+/// Assure that the first tips most important to us in `next` actually get to own commits.
+/// `graph` is used to lookup segments and their names.
+pub fn prioritize_initial_tips(graph: &PetGraph, next: &mut Queue) {
+    next.inner
+        .make_contiguous()
+        .sort_by_key(|(_id, _flags, instruction, _limit)| {
+            // put local branches first, everything else later.
+            #[derive(Ord, PartialOrd, PartialEq, Eq)]
+            enum Kind {
+                Local,
+                Workspace,
+                NonLocal,
+            }
+            graph[instruction.segment_idx()]
+                .ref_name
+                .as_ref()
+                .map(|rn| match rn.category() {
+                    Some(Category::LocalBranch) => {
+                        if is_workspace_ref_name(rn.as_ref()) {
+                            Kind::Workspace
+                        } else {
+                            Kind::Local
+                        }
+                    }
+                    _ => Kind::NonLocal,
+                })
+        })
+}
+
 /// Split `sidx[commit..]` into its own segment and connect the parts. Move all connections in `commit..`
 /// from `sidx` to the new segment, and return that.
 pub fn split_commit_into_segment(

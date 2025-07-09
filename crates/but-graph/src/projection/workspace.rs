@@ -198,7 +198,7 @@ impl Graph {
         };
 
         // The entrypoint is integrated and has a workspace above it.
-        // Right now we would be using it, but will discard it the entrypoint is at or below the merge-base.
+        // Right now we would be using it, but will discard it the entrypoint is *at* or *below* the merge-base.
         if let Some(((_lowest_base, lowest_base_sidx), ep_sidx)) = merge_info
             .filter(|_| entrypoint_first_commit_flags.contains(CommitFlags::Integrated))
             .zip(entrypoint_sidx)
@@ -221,7 +221,7 @@ impl Graph {
                     metadata,
                 } = &mut ws;
                 *id = ep_sidx;
-                // TODO: deduplicate head location
+                // TODO: deduplicate head location and 'id' - feels like `HeadLocation` could be a without data.
                 *head = HeadLocation::Segment {
                     segment_index: ep_sidx,
                 };

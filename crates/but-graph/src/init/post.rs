@@ -1,16 +1,18 @@
 use crate::init::types::{EdgeOwned, TopoWalk};
 use crate::init::{PetGraph, branch_segment_from_name_and_meta, remotes};
-use crate::{Commit, CommitFlags, CommitIndex, Edge, Graph, SegmentIndex, is_workspace_ref_name};
+use crate::{Commit, CommitFlags, CommitIndex, Edge, Graph, SegmentIndex};
 use but_core::{RefMetadata, ref_metadata};
 use gix::reference::Category;
 use petgraph::Direction;
 use petgraph::prelude::EdgeRef;
 use std::collections::{BTreeMap, BTreeSet};
+use tracing::instrument;
 
 /// Processing
 impl Graph {
     /// Now that the graph is complete, perform additional structural improvements with
     /// the requirement of them to be computationally cheap.
+    #[instrument(skip(self, meta, repo), err(Debug))]
     pub(super) fn post_processed(
         mut self,
         meta: &impl RefMetadata,
@@ -27,6 +29,8 @@ impl Graph {
                 .and_then(|s| s.commit_index_of(tip));
         }
 
+        // We perform view-related updates here for convenience, but in theory
+        // they should have nothing to do with a standard graph. Move it out if needed.
         self.workspace_upgrades(meta)?;
         self.non_workspace_adjustments(
             repo,
@@ -37,60 +41,32 @@ impl Graph {
         Ok(self)
     }
 
-    /// Perform operations on segments that can reach a workspace segment when searching upwards.
+    /// Perform operations on the current workspace, or do nothing if there is None that we would consider one.
     ///
     /// * insert empty segments as defined by the workspace that affects its downstream.
     /// * put workspace connection into the order defined in the workspace metadata.
     fn workspace_upgrades(&mut self, meta: &impl RefMetadata) -> anyhow::Result<()> {
-        let tips_with_ws_data: Vec<_> = self
-            .tip_segments()
-            .filter(|sidx| self.inner[*sidx].workspace_metadata().is_some())
-            .collect();
+        let Some((ws_id, ws_stacks, ws_data)) = self.to_workspace().ok().and_then(|mut ws| {
+            let md = ws.metadata.take();
+            md.map(|d| (ws.id, ws.stacks, d))
+        }) else {
+            return Ok(());
+        };
 
-        // Maps any segment to any workspace that it can reach, even the workspace maps itself as it may need processing too
-        let mut ws_by_segment_map =
-            BTreeMap::<SegmentIndex, Vec<(SegmentIndex, std::ops::Range<CommitIndex>)>>::new();
-        for ws_sidx in tips_with_ws_data.iter().cloned() {
-            let start_idx = self[ws_sidx].commits.first().map(|_| 0);
-            let mut walk = TopoWalk::start_from(ws_sidx, start_idx, Direction::Outgoing);
-
-            while let Some((sidx, commit_range)) = walk.next(&self.inner) {
-                ws_by_segment_map
-                    .entry(sidx)
-                    .or_default()
-                    .push((ws_sidx, commit_range));
-            }
-        }
-
-        for (orig_sidx, mut ws_indices) in ws_by_segment_map {
-            if ws_indices.len() > 1 {
-                tracing::warn!(
-                    "Segment named {ref_name:?} ({idx}) is contained in multiple workspaces - ignored for post-processing",
-                    ref_name = self[orig_sidx].ref_name.as_ref(),
-                    idx = orig_sidx.index()
-                );
-                continue;
-            }
-            let Some((_ws_sidx, ws_data, commit_range)) =
-                ws_indices.pop().map(|(ws_sidx, commit_range)| {
-                    let ws = &self[ws_sidx];
-                    let md = ws
-                        .workspace_metadata()
-                        .expect("we know this is a workspace");
-                    (ws_sidx, md.clone(), commit_range)
-                })
-            else {
-                continue;
-            };
-
+        for ws_segment_sidx in ws_stacks.iter().flat_map(|stack| {
+            stack
+                .segments
+                .iter()
+                .flat_map(|segment| segment.commits_by_segment.iter().map(|t| t.0))
+        }) {
             // Find all commit-refs which are mentioned in ws_data.stacks, for simplicity in any stack that matches (for now).
             // Stacks shouldn't be so different that they don't match reality anymore and each mutation has to re-set them to
             // match reality.
-            let mut current_above = orig_sidx;
+            let mut current_above = ws_segment_sidx;
             let mut truncate_commits_from = None;
-            for commit_idx in commit_range {
-                let commit = &self[orig_sidx].commits[commit_idx];
-                let has_inserted_segment_above = current_above != orig_sidx;
+            for commit_idx in 0..self[ws_segment_sidx].commits.len() {
+                let commit = &self[ws_segment_sidx].commits[commit_idx];
+                let has_inserted_segment_above = current_above != ws_segment_sidx;
                 let Some(ws_stack) = ws_data
                     .stacks
                     .iter()
@@ -103,36 +79,18 @@ impl Graph {
                         self[current_above].commits.push(commit);
                         reconnect_outgoing(
                             &mut self.inner,
-                            (orig_sidx, commit_idx),
+                            (ws_segment_sidx, commit_idx),
                             (current_above, commit_id),
                         );
                     }
                     continue;
                 };
-                if commit
-                    .refs
-                    .iter()
-                    .any(|rn| is_workspace_ref_name(rn.as_ref()))
-                {
-                    tracing::warn!(
-                        "Commit {} had eligible workspace references pointing to it - ignoring this for now",
-                        commit.id
-                    );
-                    // Now we have to assign this uninteresting commit to the last created segment, if there was one.
-                    if has_inserted_segment_above {
-                        let commit = commit.clone();
-                        self[current_above].commits.push(commit);
-                    }
-
-                    // TODO(test)
-                    continue;
-                }
 
                 // In ws-stack segment order, map all the indices from top to bottom
                 current_above = create_connected_multi_segment(
                     self,
                     current_above,
-                    orig_sidx,
+                    ws_segment_sidx,
                     commit_idx,
                     ws_stack,
                     meta,
@@ -142,55 +100,50 @@ impl Graph {
                 truncate_commits_from.get_or_insert(commit_idx);
             }
             if let Some(truncate_from) = truncate_commits_from {
-                let segment = &mut self[orig_sidx];
+                let segment = &mut self[ws_segment_sidx];
                 // Keep only the commits that weren't reassigned to other segments.
                 segment.commits.truncate(truncate_from);
-                delete_anon_if_empty_and_reconnect(self, orig_sidx);
+                delete_anon_if_empty_and_reconnect(self, ws_segment_sidx);
             }
         }
 
         // Redo workspace outgoing connections according to desired stack order.
-        for ws_tip in tips_with_ws_data {
-            let ws_data = &self[ws_tip]
-                .workspace_metadata()
-                .expect("tips are chosen because they have metadata");
-            let mut edges_pointing_to_named_segment = self
-                .edges_directed_in_order_of_creation(ws_tip, Direction::Outgoing)
-                .into_iter()
-                .map(|e| {
-                    let rn = self[e.target()].ref_name.clone();
-                    (e.id(), e.target(), rn)
-                })
-                .collect::<Vec<_>>();
+        let mut edges_pointing_to_named_segment = self
+            .edges_directed_in_order_of_creation(ws_id, Direction::Outgoing)
+            .into_iter()
+            .map(|e| {
+                let rn = self[e.target()].ref_name.clone();
+                (e.id(), e.target(), rn)
+            })
+            .collect::<Vec<_>>();
 
-            let edges_original_order: Vec<_> = edges_pointing_to_named_segment
-                .iter()
-                .map(|(_e, sidx, _rn)| *sidx)
-                .collect();
-            edges_pointing_to_named_segment.sort_by_key(|(_e, sidx, rn)| {
-                let res = ws_data.stacks.iter().position(|s| {
-                    s.branches
-                        .first()
-                        .is_some_and(|b| Some(&b.ref_name) == rn.as_ref())
-                });
-                // This makes it so that edges that weren't mentioned in workspace metadata
-                // retain their relative order, with first-come-first-serve semantics.
-                // The expected case is that each segment is defined.
-                res.or_else(|| {
-                    edges_original_order
-                        .iter()
-                        .position(|sidx_for_order| sidx_for_order == sidx)
-                })
+        let edges_original_order: Vec<_> = edges_pointing_to_named_segment
+            .iter()
+            .map(|(_e, sidx, _rn)| *sidx)
+            .collect();
+        edges_pointing_to_named_segment.sort_by_key(|(_e, sidx, rn)| {
+            let res = ws_data.stacks.iter().position(|s| {
+                s.branches
+                    .first()
+                    .is_some_and(|b| Some(&b.ref_name) == rn.as_ref())
             });
+            // This makes it so that edges that weren't mentioned in workspace metadata
+            // retain their relative order, with first-come-first-serve semantics.
+            // The expected case is that each segment is defined.
+            res.or_else(|| {
+                edges_original_order
+                    .iter()
+                    .position(|sidx_for_order| sidx_for_order == sidx)
+            })
+        });
 
-            for (eid, target_sidx, _) in edges_pointing_to_named_segment {
-                let weight = self
-                    .inner
-                    .remove_edge(eid)
-                    .expect("we found the edge before");
-                // Reconnect according to the new order.
-                self.inner.add_edge(ws_tip, target_sidx, weight);
-            }
+        for (eid, target_sidx, _) in edges_pointing_to_named_segment {
+            let weight = self
+                .inner
+                .remove_edge(eid)
+                .expect("we found the edge before");
+            // Reconnect according to the new order.
+            self.inner.add_edge(ws_id, target_sidx, weight);
         }
         Ok(())
     }

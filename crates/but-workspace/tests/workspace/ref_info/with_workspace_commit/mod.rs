@@ -1702,6 +1702,8 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
     let opts = standard_options();
     let info = head_info2(&repo, &*meta, opts.clone())?;
     // It's fine to have no managed commit, but we have to deal with it - see flag is_managed.
+    // TODO: shouldn't have 'main' as stack segment, but it's a strange workspace segment to start with.
+    //       Can't really say it's invalid though, just have to deal with it.
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -1709,30 +1711,7 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 "refs/heads/gitbutler/workspace",
             ),
         ),
-        stacks: [
-            Stack {
-                base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
-                segments: [
-                    ref_info::ui::Segment {
-                        id: 3,
-                        ref_name: "refs/heads/advanced-lane",
-                        remote_tracking_ref_name: "None",
-                        commits: [
-                            LocalCommit(cbc6713, "change\n", local),
-                        ],
-                        commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
-                    },
-                ],
-                stash_status: None,
-            },
-        ],
+        stacks: [],
         target_ref: Some(
             FullName(
                 "refs/remotes/origin/main",
@@ -2308,7 +2287,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: 4,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2328,7 +2307,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 6,
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -2338,7 +2317,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         metadata: "None",
                     },
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: 4,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2381,7 +2360,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 6,
                         ref_name: "refs/heads/C-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -2395,7 +2374,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: 4,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2425,7 +2404,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         metadata: "None",
                     },
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: 4,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [

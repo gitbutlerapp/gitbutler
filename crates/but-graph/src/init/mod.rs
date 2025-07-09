@@ -180,6 +180,7 @@ impl Graph {
     ///   as will happen at merge commits).
     /// * The traversal is always as long as it needs to be to fully reconcile possibly disjoint branches, despite
     ///   this sometimes costing some time when the remote is far ahead in a huge repository.
+    // TODO: review the docs!
     #[instrument(skip(meta, ref_name), err(Debug))]
     pub fn from_commit_traversal(
         tip: gix::Id<'_>,
@@ -366,6 +367,7 @@ impl Graph {
             }
         }
 
+        prioritize_initial_tips(&graph.inner, &mut next);
         max_commits_recharge_location.sort();
         while let Some((id, mut propagated_flags, instruction, mut limit)) = next.pop_front() {
             if max_commits_recharge_location.binary_search(&id).is_ok() {

@@ -208,9 +208,11 @@ mkdir ws
          git branch "$name"
        done
      git checkout -b B
+       git branch soon-origin-B
        commit segment-B~1 && git branch B-empty && git branch ambiguous-01
        commit segment-B && git tag without-ref
        commit with-ref
+       setup_remote_tracking soon-origin-B B "move"
      create_workspace_commit_once B
   )
 
