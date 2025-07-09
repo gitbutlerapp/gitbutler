@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
-	import { onMount, tick } from 'svelte';
 
 	interface Props {
 		ref: HTMLTextAreaElement | undefined;
@@ -26,23 +25,17 @@
 
 	let charsCount = $derived(value.length);
 	const isCharCount = $derived(showCount && value.length > 0);
-
-	// auto-focus the input when it is mounted
-	onMount(async () => {
-		if (ref) {
-			await tick();
-			ref.focus();
-		}
-	});
 </script>
 
 <div class="message-editor-input text-input">
 	<Textarea
 		{testId}
+		name="message-editor-input"
 		bind:textBoxEl={ref}
 		bind:value
 		{placeholder}
 		fontSize={14}
+		autofocus
 		fontWeight="semibold"
 		padding={{ top: 8, right: isCharCount ? 24 : 12, bottom: 8, left: 12 }}
 		oninput={(e: Event) => {

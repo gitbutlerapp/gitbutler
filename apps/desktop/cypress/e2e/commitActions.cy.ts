@@ -986,7 +986,7 @@ describe('Commit Actions with no stacks', () => {
 		cy.getByTestId('commit-to-new-branch-button').should('be.visible').should('be.enabled').click();
 
 		// Should open the new commit drawer
-		cy.getByTestId('commit-drawer-title').should('be.visible');
+		cy.getByTestId('commit-drawer-title-input').should('be.visible');
 
 		// Should display the draft stack
 		cy.getByTestId('draft-stack').should('be.visible');
