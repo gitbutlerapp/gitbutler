@@ -130,7 +130,7 @@ pub fn update_uncommited_changes(
     let repo = ctx.repo();
     let uncommited_changes = repo.create_wd_tree(0)?;
 
-    update_uncommited_changes_with_tree(ctx, old, new, uncommited_changes.id(), perm)
+    update_uncommited_changes_with_tree(ctx, old, new, uncommited_changes.id(), None, perm)
 }
 
 pub fn update_uncommited_changes_with_tree(
@@ -138,6 +138,7 @@ pub fn update_uncommited_changes_with_tree(
     old: WorkspaceState,
     new: WorkspaceState,
     old_uncommited_changes: git2::Oid,
+    always_checkout: Option<bool>,
     _perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     let repo = ctx.repo();
@@ -146,7 +147,7 @@ pub fn update_uncommited_changes_with_tree(
         move_tree_between_workspaces(repo, old_uncommited_changes, old, new)?;
 
     // If the new tree and old tree are the same, then we don't need to do anything
-    if !new_uncommited_changes.has_conflicts() {
+    if !new_uncommited_changes.has_conflicts() && !always_checkout.unwrap_or(false) {
         let tree = new_uncommited_changes.write_tree_to(repo)?;
         if tree == old_uncommited_changes {
             return Ok(());
