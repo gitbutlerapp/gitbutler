@@ -7,7 +7,7 @@ use but_workspace::stack_ext::StackExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_oxidize::{
-    git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt, ObjectIdExt, OidExt, RepoExt,
+    git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt, ObjectIdExt, OidExt,
 };
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::logging::RepositoryExt as _;
@@ -18,7 +18,6 @@ use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::{Stack, StackId, Target, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
 #[allow(deprecated)]
-use gitbutler_workspace::compute_updated_branch_head;
 use gix::merge::tree::TreatAsUnresolved;
 use serde::{Deserialize, Serialize};
 
@@ -632,7 +631,6 @@ fn compute_resolutions(
         new_target,
         target,
         stacks_in_workspace,
-        ctx,
         ..
     } = context;
 

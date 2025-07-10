@@ -210,7 +210,6 @@ fn main() {
                     repo::commands::pre_commit_hook_diffspecs,
                     repo::commands::post_commit_hook,
                     repo::commands::message_hook,
-                    virtual_branches::commands::list_virtual_branches,
                     virtual_branches::commands::create_virtual_branch,
                     virtual_branches::commands::delete_local_branch,
                     virtual_branches::commands::commit_virtual_branch,

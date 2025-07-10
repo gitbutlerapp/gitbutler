@@ -5,14 +5,13 @@ pub mod commands {
     use but_workspace::DiffSpec;
     use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
     use gitbutler_branch_actions::branch_upstream_integration::IntegrationStrategy;
-    use gitbutler_branch_actions::internal::StackListResult;
     use gitbutler_branch_actions::upstream_integration::{
         BaseBranchResolution, BaseBranchResolutionApproach, IntegrationOutcome, Resolution,
         StackStatuses,
     };
     use gitbutler_branch_actions::{
         BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, RemoteBranchData,
-        RemoteBranchFile, RemoteCommit, StackOrder, VirtualBranchHunkRangeMap, VirtualBranches,
+        RemoteBranchFile, RemoteCommit, StackOrder, VirtualBranchHunkRangeMap,
     };
     use gitbutler_command_context::CommandContext;
     use gitbutler_oxidize::ObjectIdExt;
@@ -47,37 +46,6 @@ pub mod commands {
         let oid =
             gitbutler_branch_actions::create_commit(&ctx, stack_id, message, ownership.as_ref())?;
         Ok(oid.to_string())
-    }
-
-    #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
-    pub fn list_virtual_branches(
-        projects: State<'_, projects::Controller>,
-        settings: State<'_, AppSettingsWithDiskSync>,
-        project_id: ProjectId,
-    ) -> Result<VirtualBranches, Error> {
-        if settings.get()?.feature_flags.v3 {
-            return Ok(VirtualBranches {
-                branches: vec![],
-                skipped_files: vec![],
-                dependency_errors: vec![],
-            });
-        }
-        let project = projects.get(project_id)?;
-        let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        gitbutler_branch_actions::list_virtual_branches(&ctx)
-            .map_err(Into::into)
-            .map(
-                |StackListResult {
-                     branches,
-                     skipped_files,
-                     dependency_errors,
-                 }| VirtualBranches {
-                    branches,
-                    skipped_files,
-                    dependency_errors,
-                },
-            )
     }
 
     #[tauri::command(async)]
