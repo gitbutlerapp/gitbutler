@@ -146,7 +146,7 @@
 			const actionItem = document.getElementById(`action-${$lastAddedId}`);
 			actionItem?.scrollIntoView({
 				behavior: 'smooth',
-				block: 'start'
+				block: 'end'
 			});
 		}
 	});

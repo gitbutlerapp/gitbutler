@@ -3,6 +3,7 @@
 	import SnapshotAttachment from '$components/SnapshotAttachment.svelte';
 	import FeedItemKind from '$components/v3/FeedItemKind.svelte';
 	import FeedStreamMessage from '$components/v3/FeedStreamMessage.svelte';
+	import FeedToolCall from '$components/v3/FeedToolCall.svelte';
 	import { ButlerAction, getDisplayNameForWorkflowKind, Workflow } from '$lib/actions/types';
 	import butbotSvg from '$lib/assets/butbot-actions.svg?raw';
 	import { isFeedMessage, isInProgressAssistantMessage, type FeedEntry } from '$lib/feed/feed';
@@ -211,7 +212,7 @@
 					</div>
 				</div>
 				{#each action.toolCalls as toolCall}
-					<pre class="text-12">{JSON.stringify(toolCall, null, 2)}</pre>
+					<FeedToolCall {toolCall} />
 				{/each}
 			{/if}
 			<span class="text-14">

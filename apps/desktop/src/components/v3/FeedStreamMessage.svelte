@@ -1,4 +1,5 @@
 <script lang="ts">
+	import FeedToolCall from '$components/v3/FeedToolCall.svelte';
 	import { Feed, type InProgressAssistantMessage, type ToolCall } from '$lib/feed/feed';
 	import { getContext } from '@gitbutler/shared/context';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
@@ -19,12 +20,15 @@
 	function handleToken(token: string) {
 		messageContent += token;
 		if (bottom) {
-			bottom.scrollIntoView({ behavior: 'smooth', block: 'end' });
+			bottom.scrollIntoView({ behavior: 'instant', block: 'end' });
 		}
 	}
 
 	function handleToolCall(toolCall: ToolCall) {
 		toolCalls.push(toolCall);
+		if (bottom) {
+			bottom.scrollIntoView({ behavior: 'instant', block: 'end' });
+		}
 	}
 
 	$effect(() => {
@@ -48,7 +52,7 @@
 {:else if toolCalls.length > 0}
 	<p class="vibing">Vibing</p>
 	{#each toolCalls as toolCall, index (index)}
-		<pre class="text-12">{JSON.stringify(toolCall, null, 2)}</pre>
+		<FeedToolCall {toolCall} />
 	{/each}
 {:else}
 	{#each messageContentLines as line, index (index)}
@@ -64,6 +68,7 @@
 <style>
 	.thinking,
 	.vibing {
+		margin: 4px 0;
 		color: var(--clr-text-3);
 		font-style: italic;
 		animation: pulse 1.5s ease-in-out infinite;
