@@ -6,7 +6,7 @@ import type { ConflictEntryPresence } from '$lib/conflictEntryPresence';
 import type { StackService } from '$lib/stacks/stackService.svelte';
 
 export interface EditModeMetadata {
-	commitId: string;
+	commitOid: string;
 	branchReference: string;
 }
 
