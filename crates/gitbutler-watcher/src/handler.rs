@@ -10,10 +10,6 @@ use gitbutler_diff::DiffByPathMap;
 use gitbutler_error::error::Marker;
 use gitbutler_filemonitor::InternalEvent;
 use gitbutler_operating_modes::{in_open_workspace_mode, operating_mode};
-use gitbutler_oplog::{
-    entry::{OperationKind, SnapshotDetails},
-    OplogExt,
-};
 use gitbutler_project::{self as projects, ProjectId};
 use gitbutler_sync::cloud::{push_oplog, push_repo};
 use gitbutler_user as users;
@@ -146,15 +142,7 @@ impl Handler {
 
     #[instrument(skip(self, paths, ctx), fields(paths = paths.len()))]
     fn project_files_change(&self, paths: Vec<PathBuf>, ctx: &mut CommandContext) -> Result<()> {
-        let worktree_changes = self.emit_uncommited_files(ctx).ok();
-
-        if ctx.app_settings().feature_flags.v3 {
-            // This is part of the v3 APIs set and in the future this fully replaces the list virtual branches flow
-            let _ = self.emit_worktree_changes(ctx);
-        } else if in_open_workspace_mode(ctx) {
-            self.maybe_create_snapshot(ctx).ok();
-            self.calculate_virtual_branches(ctx, worktree_changes)?;
-        }
+        let _ = self.emit_worktree_changes(ctx);
 
         Ok(())
     }
@@ -199,35 +187,6 @@ impl Handler {
         Ok(())
     }
 
-    /// Try to emit uncommited files. Swollow errors if they arrise.
-    fn emit_uncommited_files(&self, ctx: &CommandContext) -> Result<DiffByPathMap> {
-        let files = gitbutler_branch_actions::get_uncommited_files_reusable(ctx)?;
-
-        let _ = self.emit_app_event(Change::UncommitedFiles {
-            project_id: ctx.project().id,
-            files: files
-                .clone()
-                .into_values()
-                .map(|file| file.into())
-                .collect(),
-        });
-        Ok(files)
-    }
-
-    fn maybe_create_snapshot(&self, ctx: &CommandContext) -> anyhow::Result<()> {
-        if ctx
-            .should_auto_snapshot(std::time::Duration::from_secs(300))
-            .unwrap_or_default()
-        {
-            let mut guard = ctx.project().exclusive_worktree_access();
-            ctx.create_snapshot(
-                SnapshotDetails::new(OperationKind::FileChanges),
-                guard.write_permission(),
-            )?;
-        }
-        Ok(())
-    }
-
     pub fn git_files_change(&self, paths: Vec<PathBuf>, ctx: &mut CommandContext) -> Result<()> {
         for path in paths {
             let Some(file_name) = path.to_str() else {
@@ -241,9 +200,7 @@ impl Handler {
                     self.emit_app_event(Change::GitActivity(ctx.project().id))?;
                 }
                 "index" => {
-                    if ctx.app_settings().feature_flags.v3 {
-                        let _ = self.emit_worktree_changes(ctx);
-                    }
+                    let _ = self.emit_worktree_changes(ctx);
                 }
                 "HEAD" => {
                     let head_ref = ctx.repo().head().context("failed to get head")?;
