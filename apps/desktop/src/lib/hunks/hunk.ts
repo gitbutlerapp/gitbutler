@@ -455,11 +455,49 @@ export function getLineLocks(
 
 /**
  * Order hunk headers from the top of a file to the bottom.
+ *
+ * We expect the headers to have lines selected by having a whole side 0'ed out:
+ * ```json
+ * {
+ *		"oldStart": 0,
+ *		"oldLines": 0,
+ *		"newStart": 3,
+ *		"newLines": 1
+ * }
+ * ```
+ * This is how it'd look to select the added line 3.
+ *
+ * Sorting them, requires us to compare the non-zeroed sides to each other.
+ * This is an example of what a set of sorted headers should look like:
+ * ```json
+ * {
+ *		"oldStart": 0,
+ *		"oldLines": 0,
+ *		"newStart": 3,
+ *		"newLines": 1
+ *	},
+ *	{
+ *		"oldStart": 3,
+ *		"oldLines": 1,
+ *		"newStart": 0,
+ *		"newLines": 0
+ *	},
+ *	{
+ *		"oldStart": 0,
+ *		"oldLines": 0,
+ *		"newStart": 5,
+ *		"newLines": 1
+ *	},
+ *	{
+ *		"oldStart": 5,
+ *		"oldLines": 1,
+ *		"newStart": 0,
+ *		"newLines": 0
+ *	}
+ * ```
  */
 export function orderHeaders(a: HunkHeader, b: HunkHeader): number {
-	const old = a.oldStart - b.oldStart;
-	if (old === 0) {
-		return a.newStart - b.newStart;
-	}
-	return old;
+	const startA = a.oldStart || a.newStart;
+	const startB = b.oldStart || b.newStart;
+	return startA - startB;
 }
