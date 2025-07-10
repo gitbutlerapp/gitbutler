@@ -20,7 +20,8 @@
 		tooltip?: string;
 		type?: 'button' | 'submit' | 'reset';
 		menuPosition?: 'top' | 'bottom';
-		children: Snippet;
+		shrinkable?: boolean;
+		children?: Snippet;
 		contextMenuSlot: Snippet;
 		onclick?: (e: MouseEvent) => void;
 	}
@@ -39,6 +40,7 @@
 		type,
 		tooltip,
 		menuPosition = 'bottom',
+		shrinkable,
 		children,
 		contextMenuSlot,
 		onclick
@@ -65,77 +67,73 @@
 </script>
 
 <Tooltip text={tooltip}>
-	<div class="dropdown-wrapper" class:wide class:grow>
-		<div class="dropdown">
-			<Button
-				{testId}
-				{style}
-				{icon}
-				{kind}
-				{type}
-				{width}
-				reversedDirection
-				disabled={disabled || loading}
-				dropdownChild
-				{onclick}
-				oncontextmenu={preventContextMenu}
-			>
-				{@render children()}
-			</Button>
-			<Button
-				bind:el={iconEl}
-				{style}
-				{kind}
-				icon={visible ? 'chevron-up' : 'chevron-down'}
-				{loading}
-				disabled={disabled || loading}
-				dropdownChild
-				onclick={() => {
-					visible = !visible;
-					contextMenu?.toggle();
-				}}
-				oncontextmenu={preventContextMenu}
-			/>
-		</div>
-		<ContextMenu
-			bind:this={contextMenu}
-			leftClickTrigger={iconEl}
-			verticalAlign={menuPosition}
-			onclose={() => {
-				visible = false;
-			}}
+	<div class="dropdown" class:wide class:grow class:shrinkable>
+		<Button
+			{testId}
+			{style}
+			{icon}
+			{kind}
+			{shrinkable}
+			{type}
+			{width}
+			reversedDirection
+			disabled={disabled || loading}
+			dropdownChild
+			{onclick}
+			oncontextmenu={preventContextMenu}
+			{children}
+		></Button>
+		<Button
+			bind:el={iconEl}
+			{style}
+			{kind}
+			icon={visible ? 'chevron-up' : 'chevron-down'}
+			{loading}
+			disabled={disabled || loading}
+			dropdownChild
 			onclick={() => {
-				if (autoClose) {
-					contextMenu?.close();
-				}
+				visible = !visible;
+				contextMenu?.toggle();
 			}}
-			onkeypress={() => {
-				if (autoClose) {
-					contextMenu?.close();
-				}
-			}}
-		>
-			{@render contextMenuSlot()}
-		</ContextMenu>
+			oncontextmenu={preventContextMenu}
+		/>
 	</div>
+	<ContextMenu
+		bind:this={contextMenu}
+		leftClickTrigger={iconEl}
+		verticalAlign={menuPosition}
+		onclose={() => {
+			visible = false;
+		}}
+		onclick={() => {
+			if (autoClose) {
+				contextMenu?.close();
+			}
+		}}
+		onkeypress={() => {
+			if (autoClose) {
+				contextMenu?.close();
+			}
+		}}
+	>
+		{@render contextMenuSlot()}
+	</ContextMenu>
 </Tooltip>
 
 <style lang="postcss">
-	.dropdown-wrapper {
-		/* display set directly on element */
-		position: relative;
-	}
-
-	.grow {
-		flex-grow: 1;
-	}
-
 	.dropdown {
 		display: flex;
-		flex-grow: 1;
+		position: relative;
 		align-items: center;
-	}
-	.wide {
-		width: 100%;
+
+		&.grow {
+			flex-grow: 1;
+		}
+		&.wide {
+			width: 100%;
+		}
+		&.shrinkable {
+			overflow: hidden;
+		}
 	}
 </style>
