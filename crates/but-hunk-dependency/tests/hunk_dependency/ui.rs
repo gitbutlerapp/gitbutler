@@ -199,7 +199,7 @@ fn dependencies_ignore_merge_commits() -> anyhow::Result<()> {
                 [
                     HunkLock {
                         stack_id: stack_1,
-                        commit_id: Sha1(306c01518260b03afa8b92443850bf27b45d6d84),
+                        commit_id: Sha1(7184f6b6ff8d248c65507c863118b25888bdc013),
                     },
                 ],
             ),
