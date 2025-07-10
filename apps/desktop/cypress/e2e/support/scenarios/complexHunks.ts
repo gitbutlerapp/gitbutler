@@ -615,22 +615,72 @@ export default class ComplexHunks extends MockBackend {
 			],
 			previousPathBytes: null,
 			hunkHeaders: [
-				{ oldStart: 0, oldLines: 0, newStart: 55, newLines: 4 },
-				{ oldStart: 0, oldLines: 0, newStart: 65, newLines: 1 },
-				{ oldStart: 0, oldLines: 0, newStart: 72, newLines: 1 },
-				{ oldStart: 0, oldLines: 0, newStart: 79, newLines: 1 },
-				{ oldStart: 0, oldLines: 0, newStart: 82, newLines: 6 },
-				{ oldStart: 0, oldLines: 0, newStart: 93, newLines: 6 },
-				{ oldStart: 0, oldLines: 0, newStart: 104, newLines: 1 },
-				{ oldStart: 0, oldLines: 0, newStart: 107, newLines: 6 },
-				{ oldStart: 60, oldLines: 3, newStart: 0, newLines: 0 },
-				{ oldStart: 75, oldLines: 3, newStart: 0, newLines: 0 },
+				{
+					oldStart: 0,
+					oldLines: 0,
+					newStart: 55,
+					newLines: 4
+				},
+				{
+					oldStart: 60,
+					oldLines: 3,
+					newStart: 0,
+					newLines: 0
+				},
+				{
+					oldStart: 0,
+					oldLines: 0,
+					newStart: 65,
+					newLines: 1
+				},
+				{
+					oldStart: 0,
+					oldLines: 0,
+					newStart: 72,
+					newLines: 1
+				},
+				{
+					oldStart: 75,
+					oldLines: 3,
+					newStart: 0,
+					newLines: 0
+				},
+				{
+					oldStart: 0,
+					oldLines: 0,
+					newStart: 79,
+					newLines: 1
+				},
+				{
+					oldStart: 0,
+					oldLines: 0,
+					newStart: 82,
+					newLines: 6
+				},
 				{
 					oldStart: 84,
 					oldLines: 29,
 					newStart: 117,
 					newLines: 51,
 					diff: '@@ -84,29 +117,51 @@\n \t\t\tthis.suggest(true);\n \t\t\treturn true;\n \t\t}\n+\n+\t\t// return things\n \t\treturn false;\n \t}\n \n+\t/**\n+\t * Accepts the current AI suggestion and marks it as selected to avoid redundant suggestions.\n+\t * @param text - The accepted suggestion text.\n+\t */\n \tonAcceptSuggestion(text: string) {\n \t\tthis.lasSelectedGhostText = text;\n \t}\n \n+\t/**\n+\t * Gets whether AI suggestions on type are currently enabled.\n+\t */\n \tget suggestOnType() {\n \t\treturn this._suggestOnType.current;\n \t}\n \n+\t/**\n+\t * Toggles the AI suggestions on type feature on or off.\n+\t */\n \ttoggleSuggestOnType() {\n \t\tthis._suggestOnType.current = !this._suggestOnType.current;\n \t}\n \n+\t/**\n+\t * Gets the current ghost text component instance.\n+\t */\n \tget ghostTextComponent(): ReturnType<typeof GhostTextPlugin> | undefined {\n \t\treturn this._ghostTextComponent;\n \t}\n \n+\t/**\n+\t * Sets the ghost text component instance for displaying suggestions.\n+\t * @param value - The ghost text component instance.\n+\t */\n \tset ghostTextComponent(value: ReturnType<typeof GhostTextPlugin>) {\n \t\tthis._ghostTextComponent = value;\n \t}\n \n+\t/**\n+\t * Clears all internal state, including input text, last message, and resets the ghost text component.\n+\t */\n \tclear() {\n \t\tthis.textUpToAnchor = undefined;\n \t\tthis.textAfterAnchor = undefined;\n'
+				},
+				{
+					oldStart: 0,
+					oldLines: 0,
+					newStart: 93,
+					newLines: 6
+				},
+				{
+					oldStart: 0,
+					oldLines: 0,
+					newStart: 104,
+					newLines: 1
+				},
+				{
+					oldStart: 0,
+					oldLines: 0,
+					newStart: 107,
+					newLines: 6
 				}
 			]
 		}
