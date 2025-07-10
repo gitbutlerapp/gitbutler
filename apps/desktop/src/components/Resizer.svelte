@@ -6,11 +6,11 @@
 	import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
 	import { pxToRem, remToPx } from '@gitbutler/ui/utils/pxToRem';
 	import { writable } from 'svelte/store';
-	import type { ResizeGroup } from '$lib/utils/resizeManager';
+	import type { ResizeGroup } from '$lib/utils/resizeGroup';
 
 	interface Props {
 		/** Default value */
-		defaultValue: number;
+		defaultValue: number | undefined;
 		/** The element that is being resized */
 		viewport: HTMLElement;
 		/** Sets direction of resizing for viewport */
@@ -39,6 +39,8 @@
 		resizeGroup?: ResizeGroup;
 		/** Optional ordering of resizer for use with `resizeManager` */
 		order?: number;
+		/** Unset max height */
+		unsetMaxHeight?: string;
 
 		// Actions
 		onHeight?: (height: number) => void;
@@ -67,6 +69,7 @@
 		clientHeight = $bindable(),
 		resizeGroup,
 		order,
+		unsetMaxHeight,
 		onResizing,
 		onOverflow,
 		onHover,
@@ -79,10 +82,10 @@
 	const resizeSync = getContext(ResizeSync);
 	const zoom = $derived($userSettings.zoom);
 
-	let value = $derived(
+	const value = $derived(
 		persistId
 			? persistWithExpiration(defaultValue, persistId, 1440)
-			: writable<number>(defaultValue)
+			: writable<number | undefined>(defaultValue)
 	);
 
 	const resizerId = Symbol();
@@ -192,19 +195,30 @@
 			return;
 		}
 
-		if (newValue === undefined) {
-			newValue = defaultValue;
-		} else {
+		if (newValue !== undefined) {
 			newValue = applyLimits(newValue).newValue;
 		}
 
-		if (newValue === undefined) {
-			viewport.style.width = '';
-			viewport.style.height = '';
-		} else if (direction === 'left' || direction === 'right') {
-			viewport.style.width = newValue + 'rem';
+		if (direction === 'left' || direction === 'right') {
+			if (newValue === undefined) {
+				viewport.style.width = '';
+				viewport.style.maxWidth = maxWidth ? maxWidth + 'rem' : '';
+				viewport.style.minWidth = minWidth ? minWidth + 'rem' : '';
+			} else {
+				viewport.style.width = newValue + 'rem';
+				viewport.style.maxWidth = '';
+				viewport.style.minWidth = '';
+			}
 		} else if (direction === 'up' || direction === 'down') {
-			viewport.style.height = newValue + 'rem';
+			if (newValue === undefined) {
+				viewport.style.height = '';
+				viewport.style.maxHeight = unsetMaxHeight || '';
+				viewport.style.minHeight = minHeight ? minHeight + 'rem' : '';
+			} else {
+				viewport.style.height = newValue + 'rem';
+				viewport.style.maxHeight = '';
+				viewport.style.minHeight = '';
+			}
 		}
 	}
 
@@ -213,12 +227,21 @@
 	}
 
 	function getValue() {
-		return $value;
+		if ($value !== undefined) {
+			return $value;
+		}
+		if (direction === 'left' || direction === 'right') {
+			return pxToRem(viewport.clientWidth, zoom);
+		}
+		return pxToRem(viewport.clientHeight, zoom);
 	}
 
-	function setValue(newSize: number) {
+	function setValue(newSize?: number) {
 		value.set(newSize);
-		onWidth?.(newSize);
+		updateDom(newSize);
+		if (newSize !== undefined) {
+			onWidth?.(newSize);
+		}
 	}
 
 	$effect(() => {
@@ -253,7 +276,9 @@
 	$effect(() => {
 		if (maxWidth || minWidth || maxHeight || minHeight) {
 			updateDom($value);
-			onWidth?.($value);
+			if ($value !== undefined) {
+				onWidth?.($value);
+			}
 		}
 	});
 
@@ -267,16 +292,19 @@
 	});
 </script>
 
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	bind:this={resizerDiv}
 	data-remove-from-draggable
 	onmousedown={onMouseDown}
-	ondblclick={onDblClick}
+	ondblclick={() => {
+		onDblClick?.();
+		setValue(defaultValue);
+	}}
 	onmouseenter={() => isHovered(true)}
 	onmouseleave={() => isHovered(false)}
 	tabindex="0"
-	role="slider"
-	aria-valuenow={viewport?.clientHeight}
 	class:imitate-border={imitateBorder}
 	class="resizer"
 	class:dragging
@@ -289,6 +317,7 @@
 	style:z-index={zIndex}
 	style:--resizer-border-radius="var(--radius-{borderRadius})"
 	style:--border-imitation-color={borderColor}
+	title="default value {defaultValue}"
 >
 	<div class="resizer-line"></div>
 </div>
