@@ -2,9 +2,10 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import SnapshotAttachment from '$components/SnapshotAttachment.svelte';
 	import FeedItemKind from '$components/v3/FeedItemKind.svelte';
+	import FeedStreamMessage from '$components/v3/FeedStreamMessage.svelte';
 	import { ButlerAction, getDisplayNameForWorkflowKind, Workflow } from '$lib/actions/types';
 	import butbotSvg from '$lib/assets/butbot-actions.svg?raw';
-	import { isFeedMessage, type FeedEntry } from '$lib/feed/feed';
+	import { isFeedMessage, isInProgressAssistantMessage, type FeedEntry } from '$lib/feed/feed';
 	import SnapshotDiffService from '$lib/history/snapshotDiffService.svelte';
 	import { Snapshot } from '$lib/history/types';
 	import { User } from '$lib/user/user';
@@ -157,7 +158,7 @@
 		<div class="action-item__content">
 			<div class="action-item__content__header">
 				<div>
-					<p class="text-13 text-bold">Agent action</p>
+					<p class="text-13 text-bold">Butler action</p>
 
 					<Tooltip text={tooltip}>
 						<div class="action-item__workflow-source">
@@ -197,8 +198,41 @@
 			</div>
 		{/if}
 		<div class="action-item__content">
-			<span class="text-14 text-darkgrey">
+			{#if action.type === 'assistant'}
+				<div class="action-item__content__header">
+					<div>
+						<p class="text-13 text-bold">Butler action</p>
+
+						<Tooltip text="Triggered by chat message">
+							<div class="action-item__chat-source">
+								<Icon name="bowtie-small" />
+							</div>
+						</Tooltip>
+					</div>
+				</div>
+			{/if}
+			<span class="text-14">
 				<Markdown content={action.content} />
+			</span>
+		</div>
+	{:else if isInProgressAssistantMessage(action)}
+		<div>
+			<AgentAvatar />
+		</div>
+		<div class="action-item__content">
+			<div class="action-item__content__header">
+				<div>
+					<p class="text-13 text-bold">Butler action</p>
+
+					<Tooltip text="Triggered by chat message">
+						<div class="action-item__chat-source">
+							<Icon name="bowtie" />
+						</div>
+					</Tooltip>
+				</div>
+			</div>
+			<span class="text-14">
+				<FeedStreamMessage message={action} />
 			</span>
 		</div>
 	{/if}
@@ -283,6 +317,15 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		color: var(--clr-text-2);
+	}
+
+	.action-item__chat-source {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 2px;
+		background-color: var(--clr-bg-2);
 		color: var(--clr-text-2);
 	}
 

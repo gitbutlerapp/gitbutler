@@ -72,7 +72,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			}),
 			freestyle: build.mutation<
 				string,
-				{ projectId: string; chatMessages: ChatMessage[]; model: string | null }
+				{ projectId: string; messageId: string; chatMessages: ChatMessage[]; model: string | null }
 			>({
 				extraOptions: {
 					command: 'freestyle',
