@@ -23,7 +23,7 @@ async fn main() -> Result<()> {
     match &args.cmd {
         Subcommands::Mcp { internal } => {
             if *internal {
-                mcp_internal::start().await
+                mcp_internal::start(app_settings).await
             } else {
                 mcp::start(app_settings).await
             }

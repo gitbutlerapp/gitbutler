@@ -12,6 +12,7 @@ pub struct Metrics {
 #[serde(rename_all = "camelCase")]
 pub enum EventKind {
     Mcp,
+    McpInternal,
 }
 #[derive(Debug, Clone)]
 pub struct Event {
