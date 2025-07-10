@@ -45,10 +45,10 @@
 				>
 					<path
 						d="M12.5303 7.73599L8.23738 3.4431C7.84686 3.05257 7.21369 3.05257 6.82317 3.4431L2.53027 7.73599"
-						stroke="white"
+						stroke="currentColor"
 						stroke-width="1.5"
 					/>
-					<path d="M7.53027 3.73602L7.53027 11.736" stroke="white" stroke-width="1.5" />
+					<path d="M7.53027 3.73602L7.53027 11.736" stroke="currentColor" stroke-width="1.5" />
 				</svg>
 
 				<span class="text-11 text-bold">{label}</span>
