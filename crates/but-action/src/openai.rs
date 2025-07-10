@@ -337,10 +337,27 @@ pub async fn tool_calling_stream(
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolCallContent {
+    pub id: String,
+    pub name: String,
+    pub arguments: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolResponseContent {
+    pub id: String,
+    pub result: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", content = "content", rename_all = "camelCase")]
 pub enum ChatMessage {
     User(String),
     Assistant(String),
+    ToolCall(ToolCallContent),
+    ToolResponse(ToolResponseContent),
 }
 
 impl From<ChatMessage> for ChatCompletionRequestMessage {
@@ -351,6 +368,28 @@ impl From<ChatMessage> for ChatCompletionRequestMessage {
                 async_openai::types::ChatCompletionRequestAssistantMessage {
                     content: Some(content.into()),
                     ..Default::default()
+                },
+            ),
+            ChatMessage::ToolCall(content) => ChatCompletionRequestMessage::Assistant(
+                async_openai::types::ChatCompletionRequestAssistantMessage {
+                    content: None,
+                    tool_calls: Some(vec![async_openai::types::ChatCompletionMessageToolCall {
+                        id: content.id,
+                        r#type: async_openai::types::ChatCompletionToolType::Function,
+                        function: async_openai::types::FunctionCall {
+                            name: content.name,
+                            arguments: content.arguments,
+                        },
+                    }]),
+                    ..Default::default()
+                },
+            ),
+            ChatMessage::ToolResponse(content) => ChatCompletionRequestMessage::Tool(
+                async_openai::types::ChatCompletionRequestToolMessage {
+                    tool_call_id: content.id,
+                    content: async_openai::types::ChatCompletionRequestToolMessageContent::Text(
+                        content.result,
+                    ),
                 },
             ),
         }
