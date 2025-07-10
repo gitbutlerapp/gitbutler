@@ -452,14 +452,7 @@ pub fn tool_calling_loop(
             let function_name = call.function.name.clone();
             let function_args = call.function.arguments.clone();
 
-            let tool_response = tool_set
-                .call_tool(&function_name, &function_args)
-                .with_context(|| {
-                    format!(
-                        "Failed to call tool {} with arguments {}",
-                        function_name, function_args
-                    )
-                })?;
+            let tool_response = tool_set.call_tool(&function_name, &function_args);
 
             let tool_response_str = serde_json::to_string(&tool_response)
                 .context("Failed to serialize tool response")?;
@@ -555,14 +548,7 @@ pub fn tool_calling_loop_stream(
                 arguments: function_args,
             } = call;
 
-            let tool_response = tool_set
-                .call_tool(&function_name, &function_args)
-                .with_context(|| {
-                    format!(
-                        "Failed to call tool {} with arguments {}",
-                        function_name, function_args
-                    )
-                })?;
+            let tool_response = tool_set.call_tool(&function_name, &function_args);
 
             let tool_response_str = serde_json::to_string(&tool_response)
                 .context("Failed to serialize tool response")?;

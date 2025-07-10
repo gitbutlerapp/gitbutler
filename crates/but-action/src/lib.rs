@@ -58,7 +58,8 @@ pub fn freestyle(
     let serialized_status = serde_json::to_string_pretty(&project_status)
         .map_err(|e| anyhow::anyhow!("Failed to serialize project status: {}", e))?;
 
-    let mut toolset = but_tools::workspace::workspace_toolset(ctx, Some(app_handle))?;
+    let mut toolset =
+        but_tools::workspace::workspace_toolset(ctx, Some(app_handle), message_id.clone())?;
 
     let system_message ="
     You are a GitButler agent that can perform various actions on a Git project.
