@@ -20,8 +20,9 @@ use crate::tool::{Tool, ToolResult, Toolset, error_to_json, result_to_json};
 pub fn workspace_toolset<'a>(
     ctx: &'a mut CommandContext,
     app_handle: Option<&'a tauri::AppHandle>,
+    message_id: String,
 ) -> anyhow::Result<Toolset<'a>> {
-    let mut toolset = Toolset::new(ctx, app_handle);
+    let mut toolset = Toolset::new(ctx, app_handle, Some(message_id));
 
     toolset.register_tool(Commit);
     toolset.register_tool(CreateBranch);
@@ -39,7 +40,7 @@ pub fn commit_toolset<'a>(
     ctx: &'a mut CommandContext,
     app_handle: Option<&'a tauri::AppHandle>,
 ) -> anyhow::Result<Toolset<'a>> {
-    let mut toolset = Toolset::new(ctx, app_handle);
+    let mut toolset = Toolset::new(ctx, app_handle, None);
 
     toolset.register_tool(Commit);
     toolset.register_tool(CreateBranch);
@@ -52,7 +53,7 @@ pub fn amend_toolset<'a>(
     ctx: &'a mut CommandContext,
     app_handle: Option<&'a tauri::AppHandle>,
 ) -> anyhow::Result<Toolset<'a>> {
-    let mut toolset = Toolset::new(ctx, app_handle);
+    let mut toolset = Toolset::new(ctx, app_handle, None);
 
     toolset.register_tool(Amend);
     toolset.register_tool(GetProjectStatus);

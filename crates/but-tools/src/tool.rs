@@ -4,17 +4,25 @@ use but_workspace::ui::StackEntry;
 use gitbutler_command_context::CommandContext;
 use serde_json::json;
 
+use crate::emit::EmitToolCall;
+
 pub struct Toolset<'a> {
     ctx: &'a mut CommandContext,
     app_handle: Option<&'a tauri::AppHandle>,
+    message_id: Option<String>,
     tools: BTreeMap<String, Arc<dyn Tool>>,
 }
 
 impl<'a> Toolset<'a> {
-    pub fn new(ctx: &'a mut CommandContext, app_handle: Option<&'a tauri::AppHandle>) -> Self {
+    pub fn new(
+        ctx: &'a mut CommandContext,
+        app_handle: Option<&'a tauri::AppHandle>,
+        message_id: Option<String>,
+    ) -> Self {
         Toolset {
             ctx,
             app_handle,
+            message_id,
             tools: BTreeMap::new(),
         }
     }
@@ -31,13 +39,43 @@ impl<'a> Toolset<'a> {
         self.tools.values().cloned().collect()
     }
 
-    pub fn call_tool(&mut self, name: &str, parameters: &str) -> anyhow::Result<serde_json::Value> {
+    fn call_tool_inner(
+        &mut self,
+        name: &str,
+        parameters: &str,
+    ) -> anyhow::Result<serde_json::Value> {
         let tool = self
             .get(name)
             .ok_or_else(|| anyhow::anyhow!("Tool '{}' not found", name))?;
         let params: serde_json::Value = serde_json::from_str(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse parameters: {}", e))?;
         tool.call(params, self.ctx, self.app_handle)
+    }
+
+    pub fn call_tool(&mut self, name: &str, parameters: &str) -> serde_json::Value {
+        let result = self.call_tool_inner(name, parameters).unwrap_or_else(|e| {
+            serde_json::json!({
+                "error": format!("Failed to call tool '{}': {}", name, e.to_string())
+            })
+        });
+
+        // Emit the tool call event if a message ID is provided
+        if let Some(message_id) = &self.message_id {
+            if let Some(app_handle) = self.app_handle {
+                let project_id = self.ctx.project().id;
+                app_handle.emit_tool_call(
+                    project_id,
+                    message_id.to_owned(),
+                    crate::emit::ToolCall {
+                        name: name.to_string(),
+                        parameters: parameters.to_string(),
+                        result: result.to_string(),
+                    },
+                );
+            }
+        }
+
+        result
     }
 }
 
