@@ -13,11 +13,7 @@ use gitbutler_repo::{
     RepositoryExt as _,
 };
 use gitbutler_stack::StackId;
-#[allow(deprecated)]
-use gitbutler_workspace::{
-    branch_trees::{update_uncommited_changes, WorkspaceState},
-    checkout_branch_trees, compute_updated_branch_head,
-};
+use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
 use itertools::Itertools;
 
 use crate::{
@@ -202,23 +198,10 @@ fn do_squash_commits(
 
     let new_stack_head = output.top_commit.to_git2();
 
-    let (new_head_oid, new_tree_oid) = if ctx.app_settings().feature_flags.v3 {
-        (new_stack_head, None)
-    } else {
-        #[allow(deprecated)]
-        let res = compute_updated_branch_head(ctx.repo(), &gix_repo, &stack, new_stack_head, ctx)?;
-        (res.head, Some(res.tree))
-    };
-
-    stack.set_stack_head(&vb_state, &gix_repo, new_head_oid, new_tree_oid)?;
+    stack.set_stack_head(&vb_state, &gix_repo, new_stack_head, None)?;
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    if ctx.app_settings().feature_flags.v3 {
-        update_uncommited_changes(ctx, old_workspace, new_workspace, perm)?;
-    } else {
-        #[allow(deprecated)]
-        checkout_branch_trees(ctx, perm)?;
-    }
+    update_uncommited_changes(ctx, old_workspace, new_workspace, perm)?;
     crate::integration::update_workspace_commit(&vb_state, ctx)
         .context("failed to update gitbutler workspace")?;
     stack.set_heads_from_rebase_output(ctx, output.references)?;

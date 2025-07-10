@@ -2,7 +2,6 @@ use std::{env, fs};
 
 use crate::error::Error;
 use anyhow::Context;
-use but_settings::AppSettingsWithDiskSync;
 use gitbutler_error::error::{self, Code};
 #[cfg(target_os = "macos")]
 use tauri::menu::AboutMetadata;
@@ -58,10 +57,7 @@ fn check_if_installed(executable_name: &str) -> bool {
     }
 }
 
-pub fn build<R: Runtime>(
-    handle: &AppHandle<R>,
-    settings: &AppSettingsWithDiskSync,
-) -> tauri::Result<tauri::menu::Menu<R>> {
+pub fn build<R: Runtime>(handle: &AppHandle<R>) -> tauri::Result<tauri::menu::Menu<R>> {
     let check_for_updates =
         MenuItemBuilder::with_id("global/update", "Check for updates…").build(handle)?;
 
@@ -190,15 +186,13 @@ pub fn build<R: Runtime>(
         .text("help/github", "Source Code")
         .text("help/release-notes", "Release Notes")
         .separator();
-    if settings.get()?.feature_flags.v3 {
-        help_menu = help_menu
-            .item(
-                &MenuItemBuilder::with_id("help/keyboard-shortcuts", "Keyboard Shortcuts")
-                    .accelerator("CmdOrCtrl+/")
-                    .build(handle)?,
-            )
-            .separator();
-    };
+    help_menu = help_menu
+        .item(
+            &MenuItemBuilder::with_id("help/keyboard-shortcuts", "Keyboard Shortcuts")
+                .accelerator("CmdOrCtrl+/")
+                .build(handle)?,
+        )
+        .separator();
     let help_menu = help_menu
         .text("help/share-debug-info", "Share Debug Info…")
         .text("help/report-issue", "Report an Issue…")

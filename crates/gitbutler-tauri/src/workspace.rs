@@ -2,8 +2,6 @@ use std::collections::HashSet;
 
 use crate::error::Error;
 use crate::from_json::HexHash;
-use crate::virtual_branches::commands::emit_vbranches;
-use crate::WindowState;
 use anyhow::Context;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_hunk_assignment::HunkAssignmentRequest;
@@ -238,9 +236,8 @@ impl From<MoveChangesResult> for UIMoveChangesResult {
 
 #[allow(clippy::too_many_arguments)]
 #[tauri::command(async)]
-#[instrument(skip(projects, settings, windows), err(Debug))]
+#[instrument(skip(projects, settings), err(Debug))]
 pub fn move_changes_between_commits(
-    windows: State<'_, WindowState>,
     projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
@@ -271,11 +268,6 @@ pub fn move_changes_between_commits(
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     update_workspace_commit(&vb_state, &ctx)?;
 
-    let app_settings = ctx.app_settings();
-    if !app_settings.feature_flags.v3 {
-        emit_vbranches(&windows, project_id, app_settings);
-    }
-
     Ok(result.into())
 }
 
@@ -286,9 +278,8 @@ pub fn move_changes_between_commits(
 /// If `assign_to` is not provided, the changes will be unassigned.
 #[allow(clippy::too_many_arguments)]
 #[tauri::command(async)]
-#[instrument(skip(projects, settings, windows), err(Debug))]
+#[instrument(skip(projects, settings), err(Debug))]
 pub fn uncommit_changes(
-    windows: State<'_, WindowState>,
     projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
@@ -361,11 +352,6 @@ pub fn uncommit_changes(
             .collect::<Vec<_>>();
 
         but_hunk_assignment::assign(&mut ctx, to_assign, None)?;
-    }
-
-    let app_settings = ctx.app_settings();
-    if !app_settings.feature_flags.v3 {
-        emit_vbranches(&windows, project_id, app_settings);
     }
 
     Ok(result.into())

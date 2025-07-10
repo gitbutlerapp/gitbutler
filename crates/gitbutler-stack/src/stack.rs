@@ -223,15 +223,11 @@ impl Stack {
     }
 
     pub fn tree(&self, ctx: &CommandContext) -> Result<git2::Oid> {
-        if ctx.app_settings().feature_flags.v3 {
-            ctx.gix_repo()?
-                .find_commit(self.head_oid(&ctx.gix_repo()?)?)?
-                .tree()
-                .map(|tree| tree.id.to_git2())
-                .map_err(Into::into)
-        } else {
-            Ok(self.tree)
-        }
+        ctx.gix_repo()?
+            .find_commit(self.head_oid(&ctx.gix_repo()?)?)?
+            .tree()
+            .map(|tree| tree.id.to_git2())
+            .map_err(Into::into)
     }
 
     fn set_head(&mut self, head: git2::Oid) {
@@ -379,10 +375,8 @@ impl Stack {
 
         let name = if let Some(refname) = self.upstream.as_ref() {
             refname.branch().to_string()
-        } else if ctx.app_settings().feature_flags.v3 {
-            self.name.clone()
         } else {
-            canned_branch_name(ctx.repo())?
+            self.name.clone()
         };
 
         let name = Stack::next_available_name(&repo, &state, name, allow_duplicate_refs)?;

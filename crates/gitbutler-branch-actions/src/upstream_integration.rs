@@ -4,11 +4,10 @@ use anyhow::{anyhow, bail, Context, Result};
 use but_core::Reference;
 use but_rebase::{RebaseOutput, RebaseStep};
 use but_workspace::stack_ext::StackExt;
-use gitbutler_cherry_pick::RepositoryExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_oxidize::{
-    git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt, ObjectIdExt, OidExt, RepoExt,
+    git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt, ObjectIdExt, OidExt,
 };
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::logging::RepositoryExt as _;
@@ -19,7 +18,6 @@ use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::{Stack, StackId, Target, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
 #[allow(deprecated)]
-use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head};
 use gix::merge::tree::TreatAsUnresolved;
 use serde::{Deserialize, Serialize};
 
@@ -328,40 +326,7 @@ fn get_stack_status(
         });
     }
 
-    let stack_head = repo.find_commit(stack.head_oid(gix_repo)?.to_git2())?;
-
-    let tree_status;
-    if ctx.app_settings().feature_flags.v3 {
-        // If we are in v3 then we don't care about the trees and we should
-        // assume they are empty
-        tree_status = TreeStatus::Empty;
-    } else if stack.tree(ctx)? == repo.find_real_tree(&stack_head, Default::default())?.id() {
-        tree_status = TreeStatus::Empty;
-    } else {
-        let (merge_options_fail_fast, conflict_kind) =
-            gix_repo.merge_options_no_rewrites_fail_fast()?;
-
-        let tree_merge_base = gix_repo.find_commit(new_target_commit_id)?.tree_id()?;
-        let tree_id = git2_to_gix_object_id(stack.tree(ctx)?);
-        let new_head_commit = gix_repo.find_commit(last_head.to_gix())?;
-        let tree_conflicted = gix_repo
-            .merge_trees(
-                tree_merge_base,
-                tree_id,
-                new_head_commit.tree_id()?,
-                gix_repo.default_merge_labels(),
-                merge_options_fail_fast.clone(),
-            )?
-            .has_unresolved_conflicts(conflict_kind);
-
-        if tree_conflicted {
-            tree_status = TreeStatus::Conflicted;
-        } else {
-            tree_status = TreeStatus::SaflyUpdatable;
-        }
-    }
-
-    StackStatus::create(tree_status, branch_statuses)
+    StackStatus::create(TreeStatus::Empty, branch_statuses)
 }
 
 pub fn upstream_integration_statuses(
@@ -596,28 +561,7 @@ pub(crate) fn integrate_upstream(
 
         {
             let new_workspace = WorkspaceState::create(ctx, permission.read_permission())?;
-
-            if ctx.app_settings().feature_flags.v3 {
-                update_uncommited_changes(ctx, old_workspace, new_workspace, permission)?;
-            } else {
-                // checkout_branch_trees won't checkout anything if there are no
-                // applied branches, and returns the current_wd_tree as its result.
-                // This is very sensible, but in this case, we want to checkout the
-                // new target sha.
-                if stacks.is_empty() {
-                    context
-                        .repo
-                        .checkout_tree_builder(&context.new_target.tree()?)
-                        .force()
-                        .remove_untracked()
-                        .checkout()?;
-                } else {
-                    // Now that we've potentially updated the branch trees, lets checkout
-                    // the result of merging them all together.
-                    #[allow(deprecated)]
-                    checkout_branch_trees(ctx, permission)?;
-                }
-            }
+            update_uncommited_changes(ctx, old_workspace, new_workspace, permission)?;
         }
 
         crate::integration::update_workspace_commit(&virtual_branches_state, ctx)?;
@@ -687,7 +631,6 @@ fn compute_resolutions(
         new_target,
         target,
         stacks_in_workspace,
-        ctx,
         ..
     } = context;
 
@@ -728,25 +671,11 @@ fn compute_resolutions(
                         &incoming_branch_name,
                     )?;
 
-                    let (new_head, new_tree) = if context.ctx.app_settings().feature_flags.v3 {
-                        (new_head.id(), None)
-                    } else {
-                        #[allow(deprecated)]
-                        let res = compute_updated_branch_head(
-                            repo,
-                            &repo.to_gix()?,
-                            branch_stack,
-                            new_head.id(),
-                            ctx,
-                        )?;
-                        (res.head, Some(res.tree))
-                    };
-
                     Ok((
                         branch_stack.id,
                         IntegrationResult::UpdatedObjects {
-                            head: new_head,
-                            tree: new_tree,
+                            head: new_head.id(),
+                            tree: None,
                             rebase_output: None,
                             for_archival: vec![],
                         },
@@ -831,26 +760,11 @@ fn compute_resolutions(
                     let output = rebase.rebase()?;
                     let new_head = output.top_commit.to_git2();
 
-                    // Get the updated tree oid
-                    let (new_head, new_tree) = if context.ctx.app_settings().feature_flags.v3 {
-                        (new_head, None)
-                    } else {
-                        #[allow(deprecated)]
-                        let res = compute_updated_branch_head(
-                            repo,
-                            &gix_repo,
-                            branch_stack,
-                            new_head,
-                            ctx,
-                        )?;
-                        (res.head, Some(res.tree))
-                    };
-
                     Ok((
                         branch_stack.id,
                         IntegrationResult::UpdatedObjects {
                             head: new_head,
-                            tree: new_tree,
+                            tree: None,
                             rebase_output: Some(output),
                             for_archival,
                         },

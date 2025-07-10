@@ -7,10 +7,7 @@ use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{Stack, StackId};
 
 #[allow(deprecated)]
-use gitbutler_workspace::{
-    branch_trees::{update_uncommited_changes, WorkspaceState},
-    checkout_branch_trees, compute_updated_branch_head_for_commits,
-};
+use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
@@ -45,7 +42,6 @@ pub fn reorder_stack(
     let default_target_commit = repo
         .find_reference(&default_target.branch.to_string())?
         .peel_to_commit()?;
-    let old_head = repo.find_commit(stack.head_oid(&gix_repo)?.to_git2())?;
     let merge_base = repo.merge_base(
         default_target_commit.id(),
         stack.head_oid(&gix_repo)?.to_git2(),
@@ -70,34 +66,14 @@ pub fn reorder_stack(
 
     let new_head = output.top_commit.to_git2();
 
-    // Calculate the new head and tree
-    let (new_head_oid, new_tree_oid) = if ctx.app_settings().feature_flags.v3 {
-        (new_head, None)
-    } else {
-        #[allow(deprecated)]
-        let res = compute_updated_branch_head_for_commits(
-            repo,
-            &gix_repo,
-            old_head.id(),
-            stack.tree(ctx)?,
-            new_head,
-        )?;
-        (res.head, Some(res.tree))
-    };
-
     // Ensure the stack head is set to the new oid after rebasing
-    stack.set_stack_head(&state, &gix_repo, new_head_oid, new_tree_oid)?;
+    stack.set_stack_head(&state, &gix_repo, new_head, None)?;
 
     stack.set_heads_from_rebase_output(ctx, output.references.clone())?;
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    if ctx.app_settings().feature_flags.v3 {
-        // Even if this fails, it's not actionable
-        let _ = update_uncommited_changes(ctx, old_workspace, new_workspace, perm);
-    } else {
-        #[allow(deprecated)]
-        checkout_branch_trees(ctx, perm)?;
-    }
+    // Even if this fails, it's not actionable
+    let _ = update_uncommited_changes(ctx, old_workspace, new_workspace, perm);
     crate::integration::update_workspace_commit(&state, ctx)
         .context("failed to update gitbutler workspace")?;
 

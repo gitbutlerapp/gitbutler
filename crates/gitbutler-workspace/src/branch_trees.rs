@@ -1,88 +1,13 @@
-use anyhow::{bail, Result};
+use anyhow::Result;
 use gitbutler_cherry_pick::RepositoryExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
-use gitbutler_oxidize::{
-    git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt, ObjectIdExt, OidExt, RepoExt,
-};
+use gitbutler_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
-use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
 use gitbutler_repo::RepositoryExt as _;
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
-use tracing::instrument;
 
 use crate::workspace_base;
-
-/// Checks out the combined trees of all branches in the workspace.
-///
-/// This function will fail if the applied branches conflict with each other.
-#[instrument(level = tracing::Level::DEBUG, skip(ctx, _perm), err(Debug))]
-#[deprecated]
-pub fn checkout_branch_trees<'a>(
-    ctx: &'a CommandContext,
-    _perm: &mut WorktreeWritePermission,
-) -> Result<git2::Tree<'a>> {
-    if ctx.app_settings().feature_flags.v3 {
-        bail!("Checkout branch trees was run in v3");
-    }
-
-    let repo = ctx.repo();
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    let stacks = vb_state.list_stacks_in_workspace()?;
-
-    if stacks.is_empty() {
-        // If there are no applied branches, then return the current uncommtied state
-        return repo.create_wd_tree(AUTO_TRACK_LIMIT_BYTES);
-    };
-
-    if stacks.len() == 1 {
-        let tree = repo.find_tree(stacks[0].tree(ctx)?)?;
-        repo.checkout_tree_builder(&tree)
-            .force()
-            .remove_untracked()
-            .checkout()?;
-
-        Ok(tree)
-    } else {
-        let gix_repo = ctx.gix_repo_for_merging()?;
-        let heads = stacks
-            .iter()
-            .map(|b| b.head_oid(&gix_repo))
-            .collect::<Result<Vec<_>>>()?;
-        let merge_base_tree_id = gix_repo
-            .merge_base_octopus(heads)?
-            .object()?
-            .into_commit()
-            .tree_id()?;
-
-        let mut final_tree_id = merge_base_tree_id;
-        let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
-        for branch in stacks {
-            let their_tree_id = git2_to_gix_object_id(branch.tree(ctx)?);
-            let mut merge = gix_repo.merge_trees(
-                merge_base_tree_id,
-                final_tree_id,
-                their_tree_id,
-                gix_repo.default_merge_labels(),
-                merge_options_fail_fast.clone(),
-            )?;
-
-            if merge.has_unresolved_conflicts(conflict_kind) {
-                bail!("There appears to be conflicts between the virtual branches");
-            };
-
-            final_tree_id = merge.tree.write()?;
-        }
-
-        let final_tree = repo.find_tree(gix_to_git2_oid(final_tree_id))?;
-        repo.checkout_tree_builder(&final_tree)
-            .force()
-            .remove_untracked()
-            .checkout()?;
-
-        Ok(final_tree)
-    }
-}
 
 /// A snapshot of the workspace at a point in time.
 #[derive(Debug)]
