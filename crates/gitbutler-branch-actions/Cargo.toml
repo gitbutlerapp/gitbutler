@@ -52,6 +52,7 @@ gitbutler-workspace.workspace = true
 gix = { workspace = true, features = [] }
 glob = "0.3.2"
 tempfile.workspace = true
+but-hunk-assignment.workspace = true
 gitbutler-git = { workspace = true, features = [
     "test-askpass-path",
 ] } # Runtime test dependency

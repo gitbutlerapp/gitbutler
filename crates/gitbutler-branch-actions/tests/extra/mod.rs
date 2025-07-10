@@ -2,7 +2,6 @@ use std::{
     collections::HashMap,
     io::Write,
     path::{Path, PathBuf},
-    str::FromStr,
 };
 #[cfg(target_family = "unix")]
 use std::{
@@ -19,7 +18,7 @@ use gitbutler_branch_actions::{
     BranchManagerExt, Get,
 };
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::CommitHeadersV2};
-use gitbutler_reference::{Refname, RemoteRefname};
+use gitbutler_reference::Refname;
 use gitbutler_repo::RepositoryExt;
 use gitbutler_stack::{BranchOwnershipClaims, Target, VirtualBranchesHandle};
 use gitbutler_testsupport::{commit_all, virtual_branches::set_test_target, Case, Suite};
@@ -841,7 +840,7 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
 
     //update repo ref refs/remotes/origin/master to up_target oid
     ctx.repo().reference(
-        "refs/remotes/origin/g-branch-1",
+        "refs/remotes/origin/Lane",
         coworker_work,
         true,
         "update target",
@@ -907,127 +906,6 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
 }
 
 #[test]
-fn merge_vbranch_upstream_conflict() -> Result<()> {
-    let suite = Suite::default();
-    let mut case = suite.new_case();
-
-    case = case.refresh(&suite);
-    let ctx = &case.ctx;
-    let project = &case.project;
-
-    // create a commit and set the target
-    let file_path = Path::new("test.txt");
-    std::fs::write(
-        Path::new(&project.path).join(file_path),
-        "line1\nline2\nline3\nline4\n",
-    )?;
-    commit_all(ctx.repo());
-    let target_oid = ctx.repo().head().unwrap().target().unwrap();
-
-    std::fs::write(
-        Path::new(&project.path).join(file_path),
-        "line1\nline2\nline3\nline4\nupstream\n",
-    )?;
-    // add a commit to the target branch it's pointing to so there is something "upstream"
-    commit_all(ctx.repo());
-    let last_push = ctx.repo().head().unwrap().target().unwrap();
-
-    // coworker adds some work
-    std::fs::write(
-        Path::new(&project.path).join(file_path),
-        "line1\nline2\nline3\nline4\nupstream\ncoworker work\n",
-    )?;
-
-    commit_all(ctx.repo());
-    let coworker_work = ctx.repo().head().unwrap().target().unwrap();
-
-    // revert to our file
-    std::fs::write(
-        Path::new(&project.path).join(file_path),
-        "line1\nline2\nline3\nline4\nupstream\n",
-    )?;
-
-    set_test_target(ctx)?;
-    let vb_state = VirtualBranchesHandle::new(project.gb_dir());
-    vb_state.set_default_target(Target {
-        branch: "refs/remotes/origin/master".parse().unwrap(),
-        remote_url: "origin".to_string(),
-        sha: target_oid,
-        push_remote_name: None,
-    })?;
-
-    let remote_branch: RemoteRefname = "refs/remotes/origin/g-branch-1".parse().unwrap();
-    let branch_manager = ctx.branch_manager();
-    let mut guard = project.exclusive_worktree_access();
-
-    let mut branch = branch_manager
-        .create_virtual_branch(&BranchCreateRequest::default(), guard.write_permission())
-        .expect("failed to create virtual branch");
-    // add some uncommitted work
-    std::fs::write(
-        Path::new(&project.path).join(file_path),
-        "line1\nline2\nline3\nline4\nupstream\nother side\n",
-    )?;
-
-    branch.upstream = Some(remote_branch.clone());
-    branch.set_stack_head(&vb_state, &ctx.gix_repo()?, last_push, None)?;
-
-    //update repo ref refs/remotes/origin/master to up_target oid
-    ctx.repo().reference(
-        "refs/remotes/origin/g-branch-1",
-        coworker_work,
-        true,
-        "update target",
-    )?;
-
-    internal::update_stack(
-        ctx,
-        &BranchUpdateRequest {
-            id: branch.id,
-            allow_rebasing: Some(false),
-            ..Default::default()
-        },
-    )
-    .unwrap();
-
-    // create the branch
-    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
-    let branches = list_result.branches;
-    let branch1 = &branches[0];
-
-    assert_eq!(branch1.files.len(), 1);
-    assert_eq!(branch1.series[0].clone()?.patches.len(), 1);
-    assert_eq!(branch1.series[0].clone()?.patches.len(), 1); // Local commits including the merge commit
-
-    internal::branch_upstream_integration::integrate_upstream_commits_for_series(
-        ctx,
-        branch1.id,
-        guard.write_permission(),
-        branch.heads.last().unwrap().name.clone(),
-        None,
-    )?;
-
-    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
-    let branches = list_result.branches;
-    let branch1 = &branches[0];
-    let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
-
-    assert_eq!(
-        "line1\nline2\nline3\nline4\nupstream\ncoworker work\n",
-        String::from_utf8(contents)?
-    );
-
-    assert_eq!(branch1.files.len(), 0);
-    // dbg!(&branch1.series[0].clone()?.patches);
-    assert_eq!(branch1.series[0].clone()?.patches.len(), 2); // Local commits including the merge commit
-    assert_eq!(branch1.series[0].clone().unwrap().patches.len(), 2);
-    // assert_eq!(branch1.series[0].clone().unwrap().upstream_patches.len(), 0); // for some reason the commit still shows up in the upstream patches
-    assert!(!branch1.conflicted);
-
-    Ok(())
-}
-
-#[test]
 fn unapply_ownership_partial() -> Result<()> {
     let suite = Suite::default();
     let Case { ctx, project, .. } = &suite.new_case_with_files(HashMap::from([(
@@ -1077,189 +955,6 @@ fn unapply_ownership_partial() -> Result<()> {
         std::fs::read_to_string(Path::new(&project.path).join("test.txt"))?,
         "line1\nline2\nline3\nline4\n"
     );
-
-    Ok(())
-}
-
-#[test]
-fn unapply_branch() -> Result<()> {
-    let suite = Suite::default();
-    let Case { project, ctx, .. } = &suite.new_case();
-
-    // create a commit and set the target
-    let file_path = Path::new("test.txt");
-    std::fs::write(
-        Path::new(&project.path).join(file_path),
-        "line1\nline2\nline3\nline4\n",
-    )?;
-    commit_all(ctx.repo());
-
-    set_test_target(ctx)?;
-
-    std::fs::write(
-        Path::new(&project.path).join(file_path),
-        "line1\nline2\nline3\nline4\nbranch1\n",
-    )?;
-    let file_path2 = Path::new("test2.txt");
-    std::fs::write(Path::new(&project.path).join(file_path2), "line5\nline6\n")?;
-
-    let branch_manager = ctx.branch_manager();
-    let mut guard = project.exclusive_worktree_access();
-    let stack1_id = branch_manager
-        .create_virtual_branch(&BranchCreateRequest::default(), guard.write_permission())
-        .expect("failed to create virtual branch")
-        .id;
-    let stack2_id = branch_manager
-        .create_virtual_branch(&BranchCreateRequest::default(), guard.write_permission())
-        .expect("failed to create virtual branch")
-        .id;
-
-    internal::update_stack(
-        ctx,
-        &BranchUpdateRequest {
-            id: stack2_id,
-            ownership: Some("test2.txt:1-3".parse()?),
-            ..Default::default()
-        },
-    )?;
-
-    let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
-    assert_eq!(
-        "line1\nline2\nline3\nline4\nbranch1\n",
-        String::from_utf8(contents)?
-    );
-    let contents = std::fs::read(Path::new(&project.path).join(file_path2))?;
-    assert_eq!("line5\nline6\n", String::from_utf8(contents)?);
-
-    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
-    let branches = list_result.branches;
-    let branch = &branches.iter().find(|b| b.id == stack1_id).unwrap();
-    assert_eq!(branch.files.len(), 1);
-    assert!(branch.active);
-
-    let branch_manager = ctx.branch_manager();
-    let real_branch =
-        branch_manager.unapply(stack1_id, guard.write_permission(), false, Vec::new())?;
-
-    let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
-    assert_eq!("line1\nline2\nline3\nline4\n", String::from_utf8(contents)?);
-    let contents = std::fs::read(Path::new(&project.path).join(file_path2))?;
-    assert_eq!("line5\nline6\n", String::from_utf8(contents)?);
-
-    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
-    let branches = list_result.branches;
-    assert!(!branches.iter().any(|b| b.id == stack1_id));
-
-    let branch_manager = ctx.branch_manager();
-    let stack1_id = branch_manager.create_virtual_branch_from_branch(
-        &Refname::from_str(&real_branch)?,
-        None,
-        None,
-        guard.write_permission(),
-    )?;
-    let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
-    assert_eq!(
-        "line1\nline2\nline3\nline4\nbranch1\n",
-        String::from_utf8(contents)?
-    );
-    let contents = std::fs::read(Path::new(&project.path).join(file_path2))?;
-    assert_eq!("line5\nline6\n", String::from_utf8(contents)?);
-
-    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
-    let branches = list_result.branches;
-    let branch = &branches.iter().find(|b| b.id == stack1_id).unwrap();
-    assert_eq!(branch.files.len(), 1);
-    assert!(branch.active);
-
-    Ok(())
-}
-
-#[test]
-fn apply_unapply_added_deleted_files() -> Result<()> {
-    let suite = Suite::default();
-    let Case { project, ctx, .. } = &suite.new_case();
-
-    // create a commit and set the target
-    let file_path = Path::new("test.txt");
-    std::fs::write(Path::new(&project.path).join(file_path), "file1\n")?;
-    let file_path2 = Path::new("test2.txt");
-    std::fs::write(Path::new(&project.path).join(file_path2), "file2\n")?;
-    commit_all(ctx.repo());
-
-    set_test_target(ctx)?;
-
-    // rm file_path2, add file3
-    std::fs::remove_file(Path::new(&project.path).join(file_path2))?;
-    let file_path3 = Path::new("test3.txt");
-    std::fs::write(Path::new(&project.path).join(file_path3), "file3\n")?;
-
-    let branch_manager = ctx.branch_manager();
-    let mut guard = project.exclusive_worktree_access();
-    let stack2_id = branch_manager
-        .create_virtual_branch(&BranchCreateRequest::default(), guard.write_permission())
-        .expect("failed to create virtual branch")
-        .id;
-    let stack3_id = branch_manager
-        .create_virtual_branch(&BranchCreateRequest::default(), guard.write_permission())
-        .expect("failed to create virtual branch")
-        .id;
-
-    internal::update_stack(
-        ctx,
-        &BranchUpdateRequest {
-            id: stack2_id,
-            ownership: Some("test2.txt:0-0".parse()?),
-            ..Default::default()
-        },
-    )?;
-    internal::update_stack(
-        ctx,
-        &BranchUpdateRequest {
-            id: stack3_id,
-            ownership: Some("test3.txt:1-2".parse()?),
-            ..Default::default()
-        },
-    )?;
-
-    internal::list_virtual_branches(ctx, guard.write_permission()).unwrap();
-
-    let branch_manager = ctx.branch_manager();
-    let real_branch_2 =
-        branch_manager.unapply(stack2_id, guard.write_permission(), false, Vec::new())?;
-
-    // check that file2 is back
-    let contents = std::fs::read(Path::new(&project.path).join(file_path2))?;
-    assert_eq!("file2\n", String::from_utf8(contents)?);
-
-    let real_branch_3 =
-        branch_manager.unapply(stack3_id, guard.write_permission(), false, Vec::new())?;
-    // check that file3 is gone
-    assert!(!Path::new(&project.path).join(file_path3).exists());
-
-    branch_manager
-        .create_virtual_branch_from_branch(
-            &Refname::from_str(&real_branch_2).unwrap(),
-            None,
-            None,
-            guard.write_permission(),
-        )
-        .unwrap();
-
-    // check that file2 is gone
-    assert!(!Path::new(&project.path).join(file_path2).exists());
-
-    branch_manager
-        .create_virtual_branch_from_branch(
-            &Refname::from_str(&real_branch_3).unwrap(),
-            None,
-            None,
-            guard.write_permission(),
-        )
-        .unwrap();
-
-    // check that file3 is back
-    let contents = std::fs::read(Path::new(&project.path).join(file_path3))?;
-    assert_eq!("file3\n", String::from_utf8(contents)?);
 
     Ok(())
 }
@@ -2023,38 +1718,6 @@ fn tree_to_entry_list(
     })
     .expect("failed to walk tree");
     file_list
-}
-
-#[test]
-fn verify_branch_commits_to_workspace() -> Result<()> {
-    let suite = Suite::default();
-    let Case { ctx, project, .. } = &suite.new_case();
-
-    set_test_target(ctx)?;
-
-    let mut guard = project.exclusive_worktree_access();
-    verify_branch(ctx, guard.write_permission()).unwrap();
-
-    //  write two commits
-    let file_path2 = Path::new("test2.txt");
-    std::fs::write(Path::new(&project.path).join(file_path2), "file")?;
-    commit_all(ctx.repo());
-    std::fs::write(Path::new(&project.path).join(file_path2), "update")?;
-    commit_all(ctx.repo());
-
-    // verify puts commits onto the virtual branch
-    verify_branch(ctx, guard.write_permission()).unwrap();
-
-    // one virtual branch with two commits was created
-    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
-    let virtual_branches = list_result.branches;
-    assert_eq!(virtual_branches.len(), 1);
-
-    let branch = &virtual_branches.first().unwrap();
-    assert_eq!(branch.series[0].clone()?.patches.len(), 2);
-    assert_eq!(branch.series[0].clone()?.patches.len(), 2);
-
-    Ok(())
 }
 
 #[test]

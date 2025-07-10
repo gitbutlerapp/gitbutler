@@ -245,14 +245,14 @@ mod push_virtual_branch {
             .upstream_reference
             .as_ref()
             .unwrap();
-        assert_eq!(name, "refs/remotes/origin/a-branch-1");
+        assert_eq!(name, "refs/remotes/origin/name");
 
         let refnames = repo
             .references()
             .into_iter()
             .filter_map(|reference| reference.name().map(|name| name.to_string()))
             .collect::<Vec<_>>();
-        assert!(refnames.contains(&"refs/remotes/origin/a-branch-1".to_string()));
+        assert!(refnames.contains(&"refs/remotes/origin/name".to_string()));
     }
 
     #[test]
@@ -329,7 +329,7 @@ mod push_virtual_branch {
             .upstream_reference
             .as_ref()
             .unwrap();
-        assert_eq!(name_0, "refs/remotes/origin/a-branch-1");
+        assert_eq!(name_0, "refs/remotes/origin/name");
         // new branch is pushing to new ref remotely
         assert_eq!(branches[1].id, stack_entry_2.id);
         assert_eq!(branches[1].name, "name");
@@ -342,14 +342,14 @@ mod push_virtual_branch {
             .upstream_reference
             .as_ref()
             .unwrap();
-        assert_eq!(name_1, "refs/remotes/origin/a-branch-2");
+        assert_eq!(name_1, "refs/remotes/origin/name-1");
 
         let refnames = repo
             .references()
             .into_iter()
             .filter_map(|reference| reference.name().map(|name| name.to_string()))
             .collect::<Vec<_>>();
-        assert!(refnames.contains(&"refs/remotes/origin/a-branch-1".to_string()));
-        assert!(refnames.contains(&"refs/remotes/origin/a-branch-2".to_string()));
+        assert!(refnames.contains(&"refs/remotes/origin/name".to_string()));
+        assert!(refnames.contains(&"refs/remotes/origin/name-1".to_string()));
     }
 }

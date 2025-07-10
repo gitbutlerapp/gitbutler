@@ -691,17 +691,14 @@ fn locked_hunks_on_source_branch() {
     )
     .unwrap();
 
-    assert_eq!(
-        gitbutler_branch_actions::move_commit(
-            ctx,
-            target_stack_entry.id,
-            commit_oid,
-            source_branch_id
-        )
-        .unwrap_err()
-        .to_string(),
-        "Commit has dependent uncommitted changes"
-    );
+    // This should be OK in the new assignments system because when the assignments are reevaluated, the uncommitted changes will be in the right place
+    assert!(gitbutler_branch_actions::move_commit(
+        ctx,
+        target_stack_entry.id,
+        commit_oid,
+        source_branch_id
+    )
+    .is_ok());
 }
 
 #[test]

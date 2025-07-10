@@ -457,7 +457,7 @@ fn test_ctx(ctx: &CommandContext) -> Result<TestContext<'_>> {
     let stacks = handle.list_all_stacks()?;
     let stack = stacks.iter().find(|b| b.name == "my_stack").unwrap();
     let branches = stack.branches();
-    let branch_1 = branches.iter().find(|b| b.name() == "a-branch-1").unwrap();
+    let branch_1 = branches.iter().find(|b| b.name() == "my_stack").unwrap();
     let commit_1 = branch_1.commits(ctx, stack)?.local_commits[0].clone();
     let branch_2 = branches.iter().find(|b| b.name() == "a-branch-2").unwrap();
     let commit_2 = branch_2.commits(ctx, stack)?.local_commits[0].clone();
@@ -519,7 +519,7 @@ fn list_branches(ctx: &CommandContext) -> Result<TestBranchListing> {
         branches.iter().find(|b| b.name == name).unwrap().clone()
     }
     Ok(TestBranchListing {
-        b1: find(&branches, "a-branch-1"),
+        b1: find(&branches, "my_stack"),
         b2: find(&branches, "a-branch-2"),
         b3: find(&branches, "a-branch-3"),
     })
