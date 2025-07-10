@@ -1702,29 +1702,6 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
     let opts = standard_options();
     let info = head_info2(&repo, &*meta, opts.clone())?;
     // It's fine to have no managed commit, but we have to deal with it - see flag is_managed.
-    // TODO: shouldn't have 'main' as stack segment, but it's a strange workspace segment to start with.
-    //       Can't really say it's invalid though, just have to deal with it.
-    insta::assert_debug_snapshot!(info, @r#"
-    RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
-        ),
-        stacks: [],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
-        ),
-        is_managed_ref: true,
-        is_managed_commit: false,
-        is_entrypoint: true,
-    }
-    "#);
-
-    // TODO(ref_info2): virtual lane should still be present even if entrypoint is changed. After all, it's still in the workspace.
-    let info = ref_info(repo.find_reference("advanced-lane")?, &*meta, opts).unwrap();
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -1739,6 +1716,65 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 ),
                 segments: [
                     ref_info::ui::Segment {
+                        id: 3,
+                        ref_name: "refs/heads/advanced-lane",
+                        remote_tracking_ref_name: "None",
+                        commits: [
+                            LocalCommit(cbc6713, "change\n", local),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: "None",
+                    },
+                ],
+                stash_status: None,
+            },
+            Stack {
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                segments: [
+                    ref_info::ui::Segment {
+                        id: 4,
+                        ref_name: "refs/heads/lane",
+                        remote_tracking_ref_name: "None",
+                        commits: [],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Branch {
+                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                            description: None,
+                            review: Review { pull_request: None, review_id: None },
+                        },
+                    },
+                ],
+                stash_status: None,
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+        is_managed_ref: true,
+        is_managed_commit: false,
+        is_entrypoint: true,
+    }
+    "#);
+
+    let info = ref_info2(repo.find_reference("advanced-lane")?, &*meta, opts).unwrap();
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [
+            Stack {
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                segments: [
+                    👉ref_info::ui::Segment {
                         id: 0,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
@@ -1761,7 +1797,7 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: 4,
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
                         commits: [],

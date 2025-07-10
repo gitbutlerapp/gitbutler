@@ -1,11 +1,13 @@
-use crate::{CommitFlags, CommitIndex, Edge};
-use crate::{Graph, Segment, SegmentIndex, SegmentMetadata};
 use anyhow::{Context, bail};
 use but_core::RefMetadata;
-use gix::hashtable::hash_map::Entry;
-use gix::prelude::{ObjectIdExt, ReferenceExt};
-use gix::refs::Category;
+use gix::{
+    hashtable::hash_map::Entry,
+    prelude::{ObjectIdExt, ReferenceExt},
+    refs::Category,
+};
 use tracing::instrument;
+
+use crate::{CommitFlags, CommitIndex, Edge, Graph, Segment, SegmentIndex, SegmentMetadata};
 
 mod walk;
 use walk::*;
@@ -264,7 +266,10 @@ impl Graph {
                 return Ok(graph.with_hard_limit());
             }
         }
+
+        let mut ws_tips = Vec::new();
         for (ws_tip, ws_ref, workspace_info) in workspaces {
+            ws_tips.push(ws_tip);
             let target = workspace_info.target_ref.as_ref().and_then(|trn| {
                 let tid = try_refname_to_id(repo, trn.as_ref())
                     .map_err(|err| {
@@ -311,12 +316,13 @@ impl Graph {
                     // We only allow workspaces that are not remote, and that are not target refs.
                     // Theoretically they can still cross-reference each other, but then we'd simply ignore
                     // their status for now.
-                    CommitFlags::NotInRemote | ws_extra_flags,
+                    CommitFlags::NotInRemote| ws_extra_flags,
                 Instruction::CollectCommit { into: ws_segment },
                 ws_limit,
             )) {
                 return Ok(graph.with_hard_limit());
             }
+
             if let Some((target_ref, target_ref_id, local_tip_info)) = target {
                 let target_segment = graph.insert_root(branch_segment_from_name_and_meta(
                     Some((target_ref, None)),
@@ -367,7 +373,11 @@ impl Graph {
             }
         }
 
-        prioritize_initial_tips(&graph.inner, &mut next);
+        let inserted_proxy_segments = prioritize_initial_tips_and_assure_ws_commit_ownership(
+            &mut graph,
+            &mut next,
+            (ws_tips, repo, meta),
+        )?;
         max_commits_recharge_location.sort();
         while let Some((id, mut propagated_flags, instruction, mut limit)) = next.pop_front() {
             if max_commits_recharge_location.binary_search(&id).is_ok() {
@@ -500,6 +510,7 @@ impl Graph {
             repo,
             &target_symbolic_remote_names,
             &configured_remote_tracking_branches,
+            inserted_proxy_segments,
         )
     }
 

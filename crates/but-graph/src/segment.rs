@@ -17,9 +17,15 @@ pub struct Commit {
 
 impl std::fmt::Debug for Commit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let refs = self
+            .refs
+            .iter()
+            .map(|rn| format!("►{}", rn.shorten()))
+            .collect::<Vec<_>>()
+            .join(", ");
         write!(
             f,
-            "Commit({hash}, {flags})",
+            "Commit({hash}, {flags}{refs})",
             hash = self.id.to_hex_with_len(7),
             flags = self.flags.debug_string()
         )

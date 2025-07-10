@@ -12,6 +12,8 @@ pub struct Stack {
     /// As such, it's always the base of the `last()` of our `segments`.
     /// It is `None` if this is a stack derived from a branch without relation to any other branch.
     pub base: Option<gix::ObjectId>,
+    /// If `base` is set, this is the segment owning the commit.
+    pub base_segment_id: Option<SegmentIndex>,
     /// The branch-name denoted segments of the stack from its tip to the point of reference, typically a merge-base.
     /// This array is never empty.
     pub segments: Vec<StackSegment>,
@@ -20,19 +22,26 @@ pub struct Stack {
 impl Stack {
     pub(crate) fn from_base_and_segments(
         base: Option<gix::ObjectId>,
+        base_segment_id: Option<SegmentIndex>,
         mut segments: Vec<StackSegment>,
     ) -> Self {
         let mut iter = segments.iter_mut();
         let mut cur = iter.next();
         while let Some((a, b)) = cur.zip(iter.next()) {
             a.base = b.commits.first().map(|c| c.id);
+            a.base_segment_id = b.id.into();
             cur = Some(b);
         }
         if let Some(s) = segments.last_mut() {
             s.base = base;
+            s.base_segment_id = base_segment_id;
         }
 
-        Stack { base, segments }
+        Stack {
+            base,
+            base_segment_id,
+            segments,
+        }
     }
 }
 
@@ -97,8 +106,13 @@ pub struct StackSegment {
     pub commits: Vec<StackCommit>,
     /// This is always the `first()` commit in `commits` of the next stacksegment, or the fork-point with the
     /// local tracking branch of the integration branch if this is the last stack segment.
-    /// It is `None` if this is a stack derived from a branch without relation to any other branch.
+    /// It is `None` if this is a stack derived from a branch without relation to any other branch,
+    /// which could be the case only for the bottom-most segment in a stack.
     pub base: Option<gix::ObjectId>,
+    /// If `base` is set, this is the segment owning the commit.
+    /// This is particularly interesting if this is the bottom-most segment in a stack as it connects to
+    /// the segment outside the stack.
+    pub base_segment_id: Option<SegmentIndex>,
     /// A mapping of `(segment_idx, offset)` to know which segment contributed the commits of the
     /// given offset into `commits`. The offsets are ascending, starting at `0`.
     /// This is useful to be able to retain the ability to associate a commit to a segment in the graph.
@@ -177,6 +191,7 @@ impl StackSegment {
             sibling_segment_id: *sibling_segment_id,
             // `base` is set later in the context of the entire stack.
             base: None,
+            base_segment_id: None,
             commits_by_segment: {
                 let mut ofs = 0;
                 commits_by_segment

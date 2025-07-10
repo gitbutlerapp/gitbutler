@@ -15,12 +15,11 @@ use tracing::instrument;
 #[derive(Clone)]
 pub struct Workspace<'graph> {
     /// The underlying graph for providing simplified access to data.
-    // TODO: remove this if this struct wants to be more than intermediate.
     pub graph: &'graph Graph,
     /// An ID which uniquely identifies the [graph segment](Segment) that represents the tip of the workspace.
     pub id: SegmentIndex,
-    /// Where `HEAD` is currently pointing to.
-    pub head: HeadLocation,
+    /// Specify what kind of workspace this is.
+    pub kind: WorkspaceKind,
     /// One or more stacks that live in the workspace.
     pub stacks: Vec<Stack>,
     /// The target to integrate workspace stacks into.
@@ -29,26 +28,35 @@ pub struct Workspace<'graph> {
     /// This happens when there is a local branch checked out without a remote tracking branch.
     pub target: Option<Target>,
     /// Read-only workspace metadata with additional information, or `None` if nothing was present.
+    /// If this is `Some()` the `kind` is always [`WorkspaceKind::Managed`]
     pub metadata: Option<ref_metadata::Workspace>,
 }
 
-/// Learn where the current `HEAD` is pointing to.
+/// A classifier for the workspace.
 #[derive(Debug, Clone)]
-pub enum HeadLocation {
-    /// The `HEAD` is pointing to the workspace reference, like `refs/heads/gitbutler/workspace`.
-    Workspace {
+pub enum WorkspaceKind {
+    /// The `HEAD` is pointing to a dedicated workspace reference, like `refs/heads/gitbutler/workspace`.
+    Managed {
         /// The name of the reference pointing to the workspace commit. Useful for deriving the workspace name.
         ref_name: gix::refs::FullName,
     },
     /// A segment is checked out directly.
     ///
-    /// It can be inside or outside of a workspace.
-    /// If the respective segment is not named, this means the `HEAD` id detached.
+    /// It can be inside or outside a workspace.
+    /// If the respective segment is [not named](Workspace::ref_name), this means the `HEAD` id detached.
     /// The commit that the working tree is at is always implied to be the first commit of the [`StackSegment`].
-    Segment {
-        /// The id of the segment to be found in any stack of the [workspace stacks](Workspace::stacks).
-        segment_index: SegmentIndex,
-    },
+    AdHoc,
+}
+
+impl WorkspaceKind {
+    fn managed(ref_name: &Option<gix::refs::FullName>) -> anyhow::Result<Self> {
+        Ok(WorkspaceKind::Managed {
+            ref_name: ref_name
+                .as_ref()
+                .cloned()
+                .context("BUG: managed workspaces must always be on a named segment")?,
+        })
+    }
 }
 
 /// Information about the target reference.
@@ -95,20 +103,14 @@ impl Graph {
     /// only do so on the ones that the user can interact with.
     #[instrument(skip(self), err(Debug))]
     pub fn to_workspace(&self) -> anyhow::Result<Workspace<'_>> {
-        let (head, metadata, mut ws_tip_segment, entrypoint_sidx, entrypoint_first_commit_flags) = {
+        let (kind, metadata, mut ws_tip_segment, entrypoint_sidx, entrypoint_first_commit_flags) = {
             let ep = self.lookup_entrypoint()?;
             match ep.segment.workspace_metadata() {
                 None => {
                     // Skip over empty segments.
-                    if let Some((maybe_integrated_flags, sidx_of_flags)) = ep
-                        .segment
-                        .non_empty_flags_of_first_commit()
-                        .map(|f| (f, ep.segment_index))
-                        .or_else(|| {
-                            self.find_map_downwards_along_first_parent(ep.segment_index, |s| {
-                                s.commits.first().map(|c| (c.flags, s.id))
-                            })
-                        })
+                    if let Some((maybe_integrated_flags, sidx_of_flags)) = self
+                        .first_commit_or_find_along_first_parent(ep.segment_index)
+                        .map(|(c, sidx)| (c.flags, sidx))
                         .filter(|(f, _sidx)| f.contains(CommitFlags::InWorkspace))
                     {
                         // search the (for now just one) workspace upstream and use it instead,
@@ -126,16 +128,7 @@ impl Graph {
                             })?;
 
                         (
-                            HeadLocation::Workspace {
-                                ref_name: ws_segment
-                                    .ref_name
-                                    .as_ref()
-                                    .context(
-                                        "BUG: cannot have workspace metadata but \
-                                no ref name in segment",
-                                    )?
-                                    .clone(),
-                            },
+                            WorkspaceKind::managed(&ws_segment.ref_name)?,
                             ws_segment.workspace_metadata().cloned(),
                             ws_segment,
                             Some(ep.segment_index),
@@ -143,9 +136,7 @@ impl Graph {
                         )
                     } else {
                         (
-                            HeadLocation::Segment {
-                                segment_index: ep.segment_index,
-                            },
+                            WorkspaceKind::AdHoc,
                             None,
                             ep.segment,
                             None,
@@ -154,16 +145,7 @@ impl Graph {
                     }
                 }
                 Some(meta) => (
-                    HeadLocation::Workspace {
-                        ref_name: ep
-                            .segment
-                            .ref_name
-                            .as_ref()
-                            .context(
-                                "BUG: cannot have workspace metadata but no ref name in segment",
-                            )?
-                            .clone(),
-                    },
+                    WorkspaceKind::managed(&ep.segment.ref_name)?,
                     Some(meta.clone()),
                     ep.segment,
                     None,
@@ -175,7 +157,7 @@ impl Graph {
         let mut ws = Workspace {
             graph: self,
             id: ws_tip_segment.id,
-            head,
+            kind,
             stacks: vec![],
             target: metadata
                 .as_ref()
@@ -187,11 +169,19 @@ impl Graph {
             self.compute_lowest_base(ws.id, ws.target.as_ref())
                 .or_else(|| {
                     // target not available? Try the base of the workspace itself
-                    // TODO: test
-                    self.inner
+                    if self
+                        .inner
                         .neighbors_directed(ws_tip_segment.id, Direction::Outgoing)
-                        .reduce(|a, b| self.first_merge_base(a, b).unwrap_or(a))
-                        .and_then(|base| self[base].commits.first().map(|c| (c.id, base)))
+                        .count()
+                        == 1
+                    {
+                        None
+                    } else {
+                        self.inner
+                            .neighbors_directed(ws_tip_segment.id, Direction::Outgoing)
+                            .reduce(|a, b| self.first_merge_base(a, b).unwrap_or(a))
+                            .and_then(|base| self[base].commits.first().map(|c| (c.id, base)))
+                    }
                 })
         } else {
             None
@@ -215,16 +205,13 @@ impl Graph {
                 let Workspace {
                     graph: _,
                     id,
-                    head,
+                    kind: head,
                     stacks: _,
                     target,
                     metadata,
                 } = &mut ws;
                 *id = ep_sidx;
-                // TODO: deduplicate head location and 'id' - feels like `HeadLocation` could be a without data.
-                *head = HeadLocation::Segment {
-                    segment_index: ep_sidx,
-                };
+                *head = WorkspaceKind::AdHoc;
                 *target = None;
                 *metadata = None;
                 ws_tip_segment = &self[ep_sidx];
@@ -284,7 +271,9 @@ impl Graph {
                                 .is_some_and(|c| c.flags.contains(StackCommitFlags::Integrated))
                         },
                     )?
-                    .map(|segments| Stack::from_base_and_segments(lowest_base, segments)),
+                    .map(|segments| {
+                        Stack::from_base_and_segments(lowest_base, lowest_base_sidx, segments)
+                    }),
                 );
             }
         } else {
@@ -310,7 +299,7 @@ impl Graph {
                     // Never discard stacks
                     |_s| false,
                 )?
-                .map(|segments| Stack::from_base_and_segments(None, segments)),
+                .map(|segments| Stack::from_base_and_segments(None, None, segments)),
             );
         }
 
@@ -346,15 +335,8 @@ impl Graph {
         if base == stack_tip {
             None
         } else {
-            self[base]
-                .commits
-                .first()
-                .map(|c| (c.id, base))
-                .or_else(|| {
-                    self.find_map_downwards_along_first_parent(base, |s| {
-                        s.commits.first().map(|c| (c.id, s.id))
-                    })
-                })
+            self.first_commit_or_find_along_first_parent(base)
+                .map(|(c, sidx)| (c.id, sidx))
         }
     }
 
@@ -477,6 +459,18 @@ impl Graph {
             }
         });
         out
+    }
+
+    /// Return `(commit, start)` if `start` has a commit, or find the first commit downstream along the first parent.
+    pub(crate) fn first_commit_or_find_along_first_parent(
+        &self,
+        start: SegmentIndex,
+    ) -> Option<(&crate::Commit, SegmentIndex)> {
+        self[start].commits.first().map(|c| (c, start)).or_else(|| {
+            self.find_map_downwards_along_first_parent(start, |s| s.commits.first().map(|_c| s.id))
+                // workaround borrowchk
+                .map(|sidx| (self[sidx].commits.first().expect("present"), sidx))
+        })
     }
 
     /// Return `OK(None)` if the post-process discarded this segment after collecting it in full as it was not
@@ -737,7 +731,14 @@ impl Workspace<'_> {
     /// Return `true` if this workspace is managed, meaning we control certain aspects of it.
     /// If `false`, we are more conservative and may not support all features.
     pub fn is_managed(&self) -> bool {
-        self.metadata.is_some()
+        matches!(self.kind, WorkspaceKind::Managed { .. })
+    }
+
+    /// Return the name of the workspace reference by looking our segment up in `graph`.
+    /// Note that for managed workspaces, this can be retrieved via [`WorkspaceKind::Managed`].
+    /// Note that it can be expected to be set on any workspace, but the data would allow it to not be set.
+    pub fn ref_name<'a>(&self, graph: &'a Graph) -> Option<&'a gix::refs::FullNameRef> {
+        graph[self.id].ref_name.as_ref().map(|rn| rn.as_ref())
     }
 }
 
@@ -746,10 +747,10 @@ impl Workspace<'_> {
     /// Produce a distinct and compressed debug string to show at a glance what the workspace is about.
     pub fn debug_string(&self) -> String {
         let graph = self.graph;
-        let (name, sign) = match &self.head {
-            HeadLocation::Workspace { ref_name } => (Graph::ref_debug_string(ref_name), "🏘️"),
-            HeadLocation::Segment { segment_index } => (
-                graph[*segment_index]
+        let (name, sign) = match &self.kind {
+            WorkspaceKind::Managed { ref_name } => (Graph::ref_debug_string(ref_name), "🏘️"),
+            WorkspaceKind::AdHoc => (
+                graph[self.id]
                     .ref_name
                     .as_ref()
                     .map_or("DETACHED".into(), Graph::ref_debug_string),

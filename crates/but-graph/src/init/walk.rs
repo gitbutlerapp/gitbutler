@@ -14,21 +14,24 @@ use petgraph::Direction;
 use std::collections::BTreeSet;
 use std::ops::Deref;
 
-type RefsById = gix::hashtable::HashMap<gix::ObjectId, Vec<gix::refs::FullName>>;
+pub(crate) type RefsById = gix::hashtable::HashMap<gix::ObjectId, Vec<gix::refs::FullName>>;
 
 /// Assure that the first tips most important to us in `next` actually get to own commits.
 /// `graph` is used to lookup segments and their names.
-pub fn prioritize_initial_tips(graph: &PetGraph, next: &mut Queue) {
+///
+/// The third argument is used to assure the workspace commit is always owned by the workspace segment,
+/// and that otherwise the workspace segment won't own commits.
+/// Note that these workspaces are identified by having metadata attached, it doesn't say anything about
+/// the reference name.
+pub fn prioritize_initial_tips_and_assure_ws_commit_ownership(
+    graph: &mut Graph,
+    next: &mut Queue,
+    (ws_tips, repo, meta): (Vec<gix::ObjectId>, &gix::Repository, &impl RefMetadata),
+) -> anyhow::Result<Vec<SegmentIndex>> {
     next.inner
         .make_contiguous()
         .sort_by_key(|(_id, _flags, instruction, _limit)| {
             // put local branches first, everything else later.
-            #[derive(Ord, PartialOrd, PartialEq, Eq)]
-            enum Kind {
-                Local,
-                Workspace,
-                NonLocal,
-            }
             graph[instruction.segment_idx()]
                 .ref_name
                 .as_ref()
@@ -42,7 +45,85 @@ pub fn prioritize_initial_tips(graph: &PetGraph, next: &mut Queue) {
                     }
                     _ => Kind::NonLocal,
                 })
-        })
+        });
+
+    #[derive(Ord, PartialOrd, PartialEq, Eq)]
+    enum Kind {
+        Local,
+        /// Must sort after `Local` so workspaces don't capture commits by default,
+        /// code that follows relies on this.
+        Workspace,
+        NonLocal,
+    }
+
+    let mut out = Vec::new();
+    'next_ws_tip: for ws_tip in ws_tips {
+        if crate::projection::commit::is_managed_workspace_by_message(
+            repo.find_commit(ws_tip)?.message_raw()?,
+        ) {
+            if next.iter().filter(|(tip, ..)| *tip == ws_tip).count() <= 1 {
+                // Assume it's the workspace tip, and it's uniquely assigned to a workspace segment.
+                continue 'next_ws_tip;
+            }
+            let mut segments_with_ws_tip =
+                next.iter()
+                    .enumerate()
+                    .filter_map(|(idx, (tip, _, instruction, _))| {
+                        (*tip == ws_tip).then_some((idx, instruction.segment_idx()))
+                    });
+            let (first, second) = (
+                segments_with_ws_tip.next().expect("at least two"),
+                segments_with_ws_tip.next().expect("at least two"),
+            );
+            if graph[first.1].workspace_metadata().is_some() {
+                continue 'next_ws_tip;
+            }
+            // Assure that the workspace comes first.
+            drop(segments_with_ws_tip);
+            next.inner.swap(first.0, second.0);
+        } else if next.iter().filter(|(tip, ..)| *tip == ws_tip).count() >= 2 {
+            // There are multiple tips pointing to the unmanaged workspace commit.
+            let mut segments_with_ws_tip =
+                next.iter()
+                    .enumerate()
+                    .filter_map(|(idx, (tip, _, instruction, _))| {
+                        (*tip == ws_tip).then_some((idx, instruction.segment_idx()))
+                    });
+            let (first, second) = (
+                segments_with_ws_tip.next().expect("at least two"),
+                segments_with_ws_tip.next().expect("at least two"),
+            );
+            if graph[first.1].workspace_metadata().is_none() {
+                continue 'next_ws_tip;
+            }
+
+            // Assure that the non-workspace comes first.
+            drop(segments_with_ws_tip);
+            next.inner.swap(first.0, second.0);
+        } else {
+            // Otherwise, assure there is an owner that isn't the workspace branch.
+            // To keep it simple, just create anon segments that are fixed up later.
+
+            let (_, flags, _instruction, limit) = next
+                .iter()
+                .find(|t| t.0 == ws_tip)
+                .cloned()
+                .expect("each ws-tip has one entry on queue");
+            let new_anon_segment =
+                graph.insert_root(branch_segment_from_name_and_meta(None, meta, None)?);
+            // This segment acts as stand-in - always process it even if the queue says it's done.
+            _ = next.push_front_exhausted((
+                ws_tip,
+                flags,
+                Instruction::CollectCommit {
+                    into: new_anon_segment,
+                },
+                limit,
+            ));
+            out.push(new_anon_segment);
+        }
+    }
+    Ok(out)
 }
 
 /// Split `sidx[commit..]` into its own segment and connect the parts. Move all connections in `commit..`
@@ -230,7 +311,7 @@ pub fn try_split_non_empty_segment_at_branch(
         return Ok(None);
     }
     let maybe_segment_name_from_unabigous_refs =
-        disambiguate_refs_by_branch_metadata((refs_by_id, info.id), meta);
+        disambiguate_refs_by_branch_metadata_with_lookup((refs_by_id, info.id), meta);
     let Some(maybe_segment_name) = maybe_segment_name_from_unabigous_refs
         .map(Some)
         .or_else(|| {
@@ -336,7 +417,7 @@ fn unambiguous_local_branch_and_segment_data(
             let Some(lookup) = refs_by_id_lookup else {
                 return Ok(Default::default());
             };
-            disambiguate_refs_by_branch_metadata(lookup, meta)
+            disambiguate_refs_by_branch_metadata_with_lookup(lookup, meta)
                 .map(|(rn, md)| (Some(rn), md))
                 .unwrap_or_default()
         }
@@ -350,37 +431,43 @@ fn unambiguous_local_branch_and_segment_data(
     })
 }
 
-fn disambiguate_refs_by_branch_metadata(
+fn disambiguate_refs_by_branch_metadata_with_lookup(
     refs_by_id_lookup: (&RefsById, gix::ObjectId),
     meta: &impl RefMetadata,
 ) -> Option<(gix::refs::FullName, Option<SegmentMetadata>)> {
     let (refs_by_id, id) = refs_by_id_lookup;
-    local_branches_by_id(refs_by_id, id).and_then(|branches| {
-        let branches = branches
-            .map(|rn| {
-                (
-                    rn,
-                    extract_local_branch_metadata(rn.as_ref(), meta)
-                        .ok()
-                        .flatten(),
-                )
-            })
-            .collect::<Vec<_>>();
-        let mut branches_with_metadata = branches
-            .iter()
-            .filter_map(|(rn, md)| md.is_some().then_some((*rn, md.as_ref())));
-        // Take an unambiguous branch *with* metadata, or fallback to one without metadata.
-        branches_with_metadata
-            .next()
-            .filter(|_| branches_with_metadata.next().is_none())
-            .or_else(|| {
-                let mut iter = branches.iter();
-                iter.next()
-                    .filter(|_| iter.next().is_none())
-                    .map(|(rn, md)| (*rn, md.as_ref()))
-            })
-            .map(|(rn, md)| (rn.clone(), md.cloned()))
-    })
+    let branches = local_branches_by_id(refs_by_id, id)?;
+    disambiguate_refs_by_branch_metadata(branches, meta)
+}
+
+pub fn disambiguate_refs_by_branch_metadata<'a>(
+    branches: impl Iterator<Item = &'a gix::refs::FullName>,
+    meta: &impl RefMetadata,
+) -> Option<(gix::refs::FullName, Option<SegmentMetadata>)> {
+    let branches = branches
+        .map(|rn| {
+            (
+                rn,
+                extract_local_branch_metadata(rn.as_ref(), meta)
+                    .ok()
+                    .flatten(),
+            )
+        })
+        .collect::<Vec<_>>();
+    let mut branches_with_metadata = branches
+        .iter()
+        .filter_map(|(rn, md)| md.is_some().then_some((*rn, md.as_ref())));
+    // Take an unambiguous branch *with* metadata, or fallback to one without metadata.
+    branches_with_metadata
+        .next()
+        .filter(|_| branches_with_metadata.next().is_none())
+        .or_else(|| {
+            let mut iter = branches.iter();
+            iter.next()
+                .filter(|_| iter.next().is_none())
+                .map(|(rn, md)| (*rn, md.as_ref()))
+        })
+        .map(|(rn, md)| (rn.clone(), md.cloned()))
 }
 
 fn extract_local_branch_metadata(
