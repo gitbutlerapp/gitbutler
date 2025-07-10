@@ -1,4 +1,7 @@
+use std::sync::{Arc, Mutex};
+
 use anyhow::Result;
+use but_settings::AppSettings;
 use rmcp::{
     RoleServer, ServerHandler, ServiceExt,
     model::{
@@ -12,6 +15,8 @@ use rmcp::{
 };
 use tracing_subscriber::{self, EnvFilter};
 
+use crate::metrics::{Event, EventKind, Metrics};
+
 pub mod commit;
 pub mod project;
 pub mod stack;
@@ -19,7 +24,7 @@ pub mod status;
 
 pub(crate) const UI_CONTEXT_LINES: u32 = 3;
 
-pub(crate) async fn start() -> Result<()> {
+pub(crate) async fn start(app_settings: AppSettings) -> Result<()> {
     // Initialize the tracing subscriber with file and stdout logging
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env().add_directive(tracing::Level::DEBUG.into()))
@@ -29,23 +34,33 @@ pub(crate) async fn start() -> Result<()> {
 
     tracing::info!("Starting MCP server");
 
+    let client_info = Arc::new(Mutex::new(None));
     let transport = (tokio::io::stdin(), tokio::io::stdout());
-    let server = Mcp::new();
-    let service = server.serve(transport).await?;
+    let service = Mcp::new(app_settings, client_info.clone())
+        .serve(transport)
+        .await?;
     let info = service.peer_info();
-    let Implementation { name, version } = &info.client_info;
-    tracing::info!("Connected to client with info: {} v{}", name, version);
+    if let Ok(mut guard) = client_info.lock() {
+        guard.replace(info.client_info.clone());
+    }
     service.waiting().await?;
     Ok(())
 }
 
 #[derive(Debug, Clone)]
-pub struct Mcp {}
+pub struct Mcp {
+    metrics: Metrics,
+    client_info: Arc<Mutex<Option<Implementation>>>,
+}
 
 #[tool(tool_box)]
 impl Mcp {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(app_settings: AppSettings, client_info: Arc<Mutex<Option<Implementation>>>) -> Self {
+        let metrics = Metrics::new_with_background_handling(&app_settings);
+        Self {
+            metrics,
+            client_info,
+        }
     }
 
     #[tool(description = "Get the status of a project.
@@ -54,9 +69,23 @@ impl Mcp {
         &self,
         #[tool(aggr)] params: ProjectStatusParams,
     ) -> Result<CallToolResult, rmcp::Error> {
+        let client_info = self
+            .client_info
+            .lock()
+            .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?
+            .clone();
+
+        let start_time = std::time::Instant::now();
         let project_path = std::path::PathBuf::from(&params.current_working_directory);
         let status = crate::mcp_internal::status::project_status(&project_path)
             .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?;
+
+        let event = &mut Event::new(EventKind::Mcp);
+        event.insert_prop("endpoint", "project_status");
+        event.insert_prop("durationMs", start_time.elapsed().as_millis());
+        event.insert_prop("clientName", client_info.clone().map(|i| i.name));
+        event.insert_prop("clientVersion", client_info.clone().map(|i| i.version));
+        self.metrics.capture(event);
 
         Ok(CallToolResult::success(vec![rmcp::model::Content::json(
             status,
@@ -69,6 +98,13 @@ impl Mcp {
         &self,
         #[tool(aggr)] params: CommitParams,
     ) -> Result<CallToolResult, rmcp::Error> {
+        let client_info = self
+            .client_info
+            .lock()
+            .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?
+            .clone();
+
+        let start_time = std::time::Instant::now();
         let project_path = std::path::PathBuf::from(&params.current_working_directory);
         let outcome = crate::mcp_internal::commit::commit(
             &project_path,
@@ -79,6 +115,13 @@ impl Mcp {
         )
         .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?;
 
+        let event = &mut Event::new(EventKind::Mcp);
+        event.insert_prop("endpoint", "commit");
+        event.insert_prop("durationMs", start_time.elapsed().as_millis());
+        event.insert_prop("clientName", client_info.clone().map(|i| i.name));
+        event.insert_prop("clientVersion", client_info.clone().map(|i| i.version));
+        self.metrics.capture(event);
+
         Ok(CallToolResult::success(vec![rmcp::model::Content::json(
             outcome,
         )?]))
@@ -87,6 +130,13 @@ impl Mcp {
     #[tool(description = "Amend an existing commit in the repository.
         Updates the commit message and file changes for the specified commit.")]
     pub fn amend(&self, #[tool(aggr)] params: AmendParams) -> Result<CallToolResult, rmcp::Error> {
+        let client_info = self
+            .client_info
+            .lock()
+            .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?
+            .clone();
+
+        let start_time = std::time::Instant::now();
         let project_path = std::path::PathBuf::from(&params.current_working_directory);
         let outcome = crate::mcp_internal::commit::amend(
             &project_path,
@@ -96,6 +146,13 @@ impl Mcp {
             params.branch_name,
         )
         .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?;
+
+        let event = &mut Event::new(EventKind::Mcp);
+        event.insert_prop("endpoint", "amend");
+        event.insert_prop("durationMs", start_time.elapsed().as_millis());
+        event.insert_prop("clientName", client_info.clone().map(|i| i.name));
+        event.insert_prop("clientVersion", client_info.clone().map(|i| i.version));
+        self.metrics.capture(event);
 
         Ok(CallToolResult::success(vec![rmcp::model::Content::json(
             outcome,
@@ -107,10 +164,24 @@ impl Mcp {
         &self,
         #[tool(aggr)] params: BranchDetailsParams,
     ) -> Result<CallToolResult, rmcp::Error> {
+        let client_info = self
+            .client_info
+            .lock()
+            .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?
+            .clone();
+
+        let start_time = std::time::Instant::now();
         let project_path = std::path::PathBuf::from(&params.current_working_directory);
         let details =
             crate::mcp_internal::stack::branch_details(&params.branch_name, &project_path)
                 .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?;
+
+        let event = &mut Event::new(EventKind::Mcp);
+        event.insert_prop("endpoint", "branch_details");
+        event.insert_prop("durationMs", start_time.elapsed().as_millis());
+        event.insert_prop("clientName", client_info.clone().map(|i| i.name));
+        event.insert_prop("clientVersion", client_info.clone().map(|i| i.version));
+        self.metrics.capture(event);
 
         Ok(CallToolResult::success(vec![rmcp::model::Content::json(
             details,
@@ -123,6 +194,13 @@ impl Mcp {
         &self,
         #[tool(aggr)] params: CreateBranchParams,
     ) -> Result<CallToolResult, rmcp::Error> {
+        let client_info = self
+            .client_info
+            .lock()
+            .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?
+            .clone();
+
+        let start_time = std::time::Instant::now();
         let project_path = std::path::PathBuf::from(&params.current_working_directory);
         let stack_entry = crate::mcp_internal::stack::create_stack_with_branch(
             &params.branch_name,
@@ -130,6 +208,13 @@ impl Mcp {
             &project_path,
         )
         .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?;
+
+        let event = &mut Event::new(EventKind::Mcp);
+        event.insert_prop("endpoint", "create_branch");
+        event.insert_prop("durationMs", start_time.elapsed().as_millis());
+        event.insert_prop("clientName", client_info.clone().map(|i| i.name));
+        event.insert_prop("clientVersion", client_info.clone().map(|i| i.version));
+        self.metrics.capture(event);
 
         Ok(CallToolResult::success(vec![rmcp::model::Content::json(
             stack_entry,
