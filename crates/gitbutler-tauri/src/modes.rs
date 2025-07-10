@@ -13,8 +13,6 @@ use tauri::State;
 use tracing::instrument;
 
 use crate::error::Error;
-use crate::virtual_branches::commands::emit_vbranches;
-use crate::WindowState;
 
 #[tauri::command(async)]
 #[instrument(skip(projects, settings), err(Debug))]
@@ -53,9 +51,8 @@ pub fn enter_edit_mode(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(windows, projects, settings), err(Debug))]
+#[instrument(skip(projects, settings), err(Debug))]
 pub fn abort_edit_and_return_to_workspace(
-    windows: State<'_, WindowState>,
     projects: State<'_, Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
@@ -65,14 +62,12 @@ pub fn abort_edit_and_return_to_workspace(
 
     gitbutler_edit_mode::commands::abort_and_return_to_workspace(&ctx)?;
 
-    emit_vbranches(&windows, project_id, ctx.app_settings());
     Ok(())
 }
 
 #[tauri::command(async)]
-#[instrument(skip(windows, projects, settings), err(Debug))]
+#[instrument(skip(projects, settings), err(Debug))]
 pub fn save_edit_and_return_to_workspace(
-    windows: State<'_, WindowState>,
     projects: State<'_, Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
@@ -82,7 +77,6 @@ pub fn save_edit_and_return_to_workspace(
 
     gitbutler_edit_mode::commands::save_and_return_to_workspace(&ctx)?;
 
-    emit_vbranches(&windows, project_id, ctx.app_settings());
     Ok(())
 }
 
