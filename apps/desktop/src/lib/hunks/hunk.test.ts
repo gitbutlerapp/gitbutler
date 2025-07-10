@@ -3,7 +3,8 @@ import {
 	extractLineGroups,
 	hunkContainsHunk,
 	hunkContainsLine,
-	getLineLocks
+	getLineLocks,
+	orderHeaders
 } from '$lib/hunks/hunk';
 import { describe, expect, test } from 'vitest';
 import type { LineId } from '@gitbutler/ui/utils/diffParsing';
@@ -343,6 +344,136 @@ describe('getLineLocks', () => {
 		expect(lineLocks).toEqual([
 			{ oldLine: 3, newLine: undefined, locks: [{ stackId: 'stack1', commitId: 'commit1' }] },
 			{ oldLine: undefined, newLine: 3, locks: [{ stackId: 'stack1', commitId: 'commit1' }] }
+		]);
+	});
+});
+
+describe('orderHeaders', () => {
+	test('should properly order the headers', () => {
+		const headers = [
+			{
+				oldStart: 0,
+				oldLines: 0,
+				newStart: 3,
+				newLines: 1
+			},
+			{
+				oldStart: 0,
+				oldLines: 0,
+				newStart: 5,
+				newLines: 1
+			},
+			{
+				oldStart: 3,
+				oldLines: 1,
+				newStart: 0,
+				newLines: 0
+			},
+			{
+				oldStart: 5,
+				oldLines: 1,
+				newStart: 0,
+				newLines: 0
+			}
+		];
+
+		const orderedHeaders = headers.sort(orderHeaders);
+
+		expect(orderedHeaders).toEqual([
+			{
+				oldStart: 0,
+				oldLines: 0,
+				newStart: 3,
+				newLines: 1
+			},
+			{
+				oldStart: 3,
+				oldLines: 1,
+				newStart: 0,
+				newLines: 0
+			},
+			{
+				oldStart: 0,
+				oldLines: 0,
+				newStart: 5,
+				newLines: 1
+			},
+			{
+				oldStart: 5,
+				oldLines: 1,
+				newStart: 0,
+				newLines: 0
+			}
+		]);
+	});
+
+	test('should order headers with mixed zeroed and non-zeroed starts', () => {
+		const headers = [
+			{ oldStart: 0, oldLines: 0, newStart: 10, newLines: 2 },
+			{ oldStart: 2, oldLines: 1, newStart: 0, newLines: 0 },
+			{ oldStart: 0, oldLines: 0, newStart: 1, newLines: 1 },
+			{ oldStart: 5, oldLines: 2, newStart: 0, newLines: 0 }
+		];
+		const ordered = headers.sort(orderHeaders);
+		expect(ordered).toEqual([
+			{ oldStart: 0, oldLines: 0, newStart: 1, newLines: 1 },
+			{ oldStart: 2, oldLines: 1, newStart: 0, newLines: 0 },
+			{ oldStart: 5, oldLines: 2, newStart: 0, newLines: 0 },
+			{ oldStart: 0, oldLines: 0, newStart: 10, newLines: 2 }
+		]);
+	});
+
+	test('should order headers with all oldStart zeroed', () => {
+		const headers = [
+			{ oldStart: 0, oldLines: 0, newStart: 8, newLines: 1 },
+			{ oldStart: 0, oldLines: 0, newStart: 2, newLines: 1 },
+			{ oldStart: 0, oldLines: 0, newStart: 5, newLines: 1 }
+		];
+		const ordered = headers.sort(orderHeaders);
+		expect(ordered).toEqual([
+			{ oldStart: 0, oldLines: 0, newStart: 2, newLines: 1 },
+			{ oldStart: 0, oldLines: 0, newStart: 5, newLines: 1 },
+			{ oldStart: 0, oldLines: 0, newStart: 8, newLines: 1 }
+		]);
+	});
+
+	test('should order headers with all newStart zeroed', () => {
+		const headers = [
+			{ oldStart: 7, oldLines: 1, newStart: 0, newLines: 0 },
+			{ oldStart: 2, oldLines: 1, newStart: 0, newLines: 0 },
+			{ oldStart: 5, oldLines: 1, newStart: 0, newLines: 0 }
+		];
+		const ordered = headers.sort(orderHeaders);
+		expect(ordered).toEqual([
+			{ oldStart: 2, oldLines: 1, newStart: 0, newLines: 0 },
+			{ oldStart: 5, oldLines: 1, newStart: 0, newLines: 0 },
+			{ oldStart: 7, oldLines: 1, newStart: 0, newLines: 0 }
+		]);
+	});
+
+	test('should handle headers with both starts zeroed (should remain stable)', () => {
+		const headers = [
+			{ oldStart: 0, oldLines: 0, newStart: 0, newLines: 0 },
+			{ oldStart: 0, oldLines: 0, newStart: 0, newLines: 0 }
+		];
+		const ordered = headers.sort(orderHeaders);
+		expect(ordered).toEqual([
+			{ oldStart: 0, oldLines: 0, newStart: 0, newLines: 0 },
+			{ oldStart: 0, oldLines: 0, newStart: 0, newLines: 0 }
+		]);
+	});
+
+	test('should order headers with negative values', () => {
+		const headers = [
+			{ oldStart: -2, oldLines: 1, newStart: 0, newLines: 0 },
+			{ oldStart: 0, oldLines: 0, newStart: -5, newLines: 1 },
+			{ oldStart: 1, oldLines: 1, newStart: 0, newLines: 0 }
+		];
+		const ordered = headers.sort(orderHeaders);
+		expect(ordered).toEqual([
+			{ oldStart: 0, oldLines: 0, newStart: -5, newLines: 1 },
+			{ oldStart: -2, oldLines: 1, newStart: 0, newLines: 0 },
+			{ oldStart: 1, oldLines: 1, newStart: 0, newLines: 0 }
 		]);
 	});
 });
