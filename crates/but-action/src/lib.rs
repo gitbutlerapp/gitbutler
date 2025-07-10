@@ -3,6 +3,7 @@
 use std::{
     fmt::{Debug, Display},
     str::FromStr,
+    sync::Arc,
 };
 
 use but_core::TreeChange;
@@ -10,7 +11,7 @@ use but_workspace::ui::StackEntry;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::ObjectIdExt;
-use gitbutler_project::{Project, access::WorktreeWritePermission};
+use gitbutler_project::{Project, ProjectId, access::WorktreeWritePermission};
 use gitbutler_stack::{Target, VirtualBranchesHandle};
 pub use openai::{CredentialsKind, OpenAiProvider};
 use serde::{Deserialize, Serialize};
@@ -19,6 +20,7 @@ mod absorb;
 mod action;
 mod auto_commit;
 mod branch_changes;
+mod emit;
 mod generate;
 mod grouping;
 mod openai;
@@ -36,7 +38,14 @@ use uuid::Uuid;
 pub use workflow::WorkflowList;
 pub use workflow::list_workflows;
 
+use crate::{
+    emit::EmitTokenEvent,
+    openai::{ToolCallContent, ToolResponseContent},
+};
+
 pub fn freestyle(
+    project_id: ProjectId,
+    message_id: String,
     app_handle: &tauri::AppHandle,
     ctx: &mut CommandContext,
     openai: &OpenAiProvider,
@@ -74,60 +83,36 @@ pub fn freestyle(
         This is a multi-step operation where you will need to create one or more black commits, and the move the file changes from the original commit to the new commits.
     ";
 
-    let mut internal_chat_messages = vec![];
-    let mut updated_last_user_message = false;
-    for message in chat_messages.iter().rev() {
-        match message {
-            openai::ChatMessage::User(content) => {
-                if !updated_last_user_message {
-                    // Update the last user message with the prompt.
-                    let prompt = format!(
-                        "
-                            <prompt>
-                            {}
-                            </prompt>
+    let mut internal_chat_messages = chat_messages;
 
-                            Here is the project status:
-                            <project_status>
-                            {}
-                            </project_status>
-                        ",
-                        content, serialized_status
-                    );
+    // Add the project status to the chat messages.
+    internal_chat_messages.push(ChatMessage::ToolCall(ToolCallContent {
+        id: "project_status".to_string(),
+        name: "get_project_status".to_string(),
+        arguments: "{\"filterChanges\": null}".to_string(),
+    }));
 
-                    internal_chat_messages.push(openai::ChatMessage::User(prompt));
-                    updated_last_user_message = true;
-                } else {
-                    // Add the user message as is.
-                    internal_chat_messages.push(openai::ChatMessage::User(content.clone()));
-                }
-            }
-            openai::ChatMessage::Assistant(content) => {
-                // Add the assistant message as is.
-                internal_chat_messages.push(openai::ChatMessage::Assistant(content.clone()));
-            }
-        }
-    }
-
-    // Reverse the messages to maintain the original order.
-    internal_chat_messages.reverse();
+    internal_chat_messages.push(ChatMessage::ToolResponse(ToolResponseContent {
+        id: "project_status".to_string(),
+        result: serialized_status,
+    }));
 
     // Now we trigger the tool calling loop to absorb the remaining changes.
-    let response = crate::openai::tool_calling_loop(
+    let response = crate::openai::tool_calling_loop_stream(
         openai,
         system_message,
-        chat_messages,
+        internal_chat_messages,
         &mut toolset,
         model,
+        Arc::new({
+            let app_handle = app_handle.clone();
+            move |token: &str| {
+                app_handle.emit_token_event(token, project_id, message_id.clone());
+            }
+        }),
     )?;
 
-    let response_message = response
-        .choices
-        .first()
-        .and_then(|choice| choice.message.content.clone())
-        .unwrap_or_else(|| "No response from OpenAI".to_string());
-
-    Ok(response_message)
+    Ok(response.unwrap_or_default())
 }
 
 pub fn absorb(

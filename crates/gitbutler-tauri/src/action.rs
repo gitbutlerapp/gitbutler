@@ -136,6 +136,7 @@ pub fn freestyle(
     projects: tauri::State<'_, gitbutler_project::Controller>,
     settings: tauri::State<'_, but_settings::AppSettingsWithDiskSync>,
     project_id: ProjectId,
+    message_id: String,
     chat_messages: Vec<but_action::ChatMessage>,
     model: Option<String>,
 ) -> anyhow::Result<String, Error> {
@@ -143,7 +144,7 @@ pub fn freestyle(
     let ctx = &mut CommandContext::open(&project, settings.get()?.clone())?;
     let openai = OpenAiProvider::with(Some(but_action::CredentialsKind::GitButlerProxied));
     match openai {
-        Some(openai) => but_action::freestyle(&app_handle, ctx, &openai, chat_messages, model).map_err(|e| Error::from(anyhow::anyhow!(e))),
+        Some(openai) => but_action::freestyle(project_id, message_id, &app_handle, ctx, &openai, chat_messages, model).map_err(|e| Error::from(anyhow::anyhow!(e))),
         None => {
             Err(Error::from(anyhow::anyhow!(
                 "No valid credentials found for AI provider. Please configure your GitButler account credentials."

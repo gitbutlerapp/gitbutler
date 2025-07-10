@@ -64,14 +64,16 @@
 		const content = await editor?.getPlaintext();
 		if (!content || content?.trim() === '') return;
 		editor?.clear();
-		const messages = await feed.addUserMessage(content);
+		const [id, messages] = await feed.addUserMessage(content);
 		const model = isAdmin ? $selectedModel : DEFAULT_MODEL;
 		const response = await freestyle({
 			projectId,
+			messageId: id,
 			chatMessages: messages,
 			model
 		});
-		await feed.addAssistantMessage(response);
+
+		await feed.addAssistantMessage(id, response);
 	}
 
 	function handleKeyDown(event: KeyboardEvent | null): boolean {

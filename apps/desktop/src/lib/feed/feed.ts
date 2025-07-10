@@ -12,24 +12,46 @@ type DBEvent = {
 	item?: string;
 };
 
+type TokenEvent = {
+	messageId: string;
+	token: string;
+};
+
+type UserMessageId = `user-${string}`;
+
 export type UserMessage = {
-	id: `user-${string}`;
+	id: UserMessageId;
 	type: 'user';
 	content: string;
 };
 
+type AssistantMessageId = `assistant-${string}`;
+
 export type AssistantMessage = {
-	id: `assistant-${string}`;
+	id: AssistantMessageId;
 	type: 'assistant';
+	content: string;
+};
+
+type InProgressAssistantMessageId = `assistant-in-progress-${string}`;
+
+export type InProgressAssistantMessage = {
+	id: InProgressAssistantMessageId;
+	type: 'assistant-in-progress';
 	content: string;
 };
 
 export type FeedMessage = UserMessage | AssistantMessage;
 
-export type FeedEntry = ButlerAction | Workflow | Snapshot | FeedMessage;
+export type FeedEntry =
+	| ButlerAction
+	| Workflow
+	| Snapshot
+	| FeedMessage
+	| InProgressAssistantMessage;
 
 export function isFeedMessage(entry: FeedEntry): entry is FeedMessage {
-	return (entry as FeedMessage).type !== undefined;
+	return (entry as FeedMessage).type === 'user' || (entry as FeedMessage).type === 'assistant';
 }
 
 export function isUserMessage(entry: FeedEntry): entry is UserMessage {
@@ -42,13 +64,21 @@ export function isAssistantMessage(entry: FeedEntry): entry is AssistantMessage 
 	return (entry as AssistantMessage).id.startsWith('assistant-');
 }
 
+export function isInProgressAssistantMessage(
+	entry: FeedEntry
+): entry is InProgressAssistantMessage {
+	return (entry as InProgressAssistantMessage).id.startsWith('assistant-in-progress-');
+}
+
 export class Feed {
 	private actionsBuffer: ButlerAction[] = [];
 	private workflowsBuffer: Workflow[] = [];
 	private unlistenDB: () => void;
+	private unlistenTokens: () => void;
 	private initialized = false;
 	private mutex = new Mutex();
 	private updateTimeout: ReturnType<typeof setTimeout> | null = null;
+	private messageSubscribers: Map<InProgressAssistantMessageId, ((message: string) => void)[]>;
 
 	readonly lastAddedId = writable<string | null>(null);
 	readonly stackToUpdate = writable<string | null>(null);
@@ -61,9 +91,42 @@ export class Feed {
 		private tauri: Tauri,
 		private projectId: string
 	) {
+		this.messageSubscribers = new Map();
+
 		this.unlistenDB = this.tauri.listen<DBEvent>(`project://${projectId}/db-updates`, (event) => {
 			this.handleDBEvent(event.payload);
 		});
+
+		this.unlistenTokens = this.tauri.listen<TokenEvent>(
+			`project://${projectId}/token-updates`,
+			(event) => {
+				this.handleTokenEvent(event.payload);
+			}
+		);
+	}
+
+	subscribeToMessage(messageId: InProgressAssistantMessageId, callback: (message: string) => void) {
+		if (!this.messageSubscribers.has(messageId)) {
+			this.messageSubscribers.set(messageId, []);
+		}
+
+		const subscribers = this.messageSubscribers.get(messageId) ?? [];
+		subscribers.push(callback);
+		this.messageSubscribers.set(messageId, subscribers);
+
+		return () => {
+			const subscribers = this.messageSubscribers.get(messageId) ?? [];
+			const index = subscribers.indexOf(callback);
+			if (index !== -1) {
+				subscribers.splice(index, 1);
+				this.messageSubscribers.set(messageId, subscribers);
+			}
+		};
+	}
+
+	private notifySubscribers(messageId: InProgressAssistantMessageId, message: string) {
+		const subscribers = this.messageSubscribers.get(messageId) ?? [];
+		subscribers.forEach((callback) => callback(message));
 	}
 
 	private handleDBEvent(event: DBEvent) {
@@ -81,6 +144,11 @@ export class Feed {
 		}
 	}
 
+	private async handleTokenEvent(event: TokenEvent) {
+		const inProgressId: InProgressAssistantMessageId = `assistant-in-progress-${event.messageId}`;
+		this.notifySubscribers(inProgressId, event.token);
+	}
+
 	private async handleLastAdded(entry: FeedEntry) {
 		this.lastAddedId.set(entry.id);
 
@@ -95,9 +163,10 @@ export class Feed {
 		return messages.reverse();
 	}
 
-	async addUserMessage(content: string) {
+	async addUserMessage(content: string): Promise<[string, FeedMessage[]]> {
+		const uuid = crypto.randomUUID();
 		const message: UserMessage = {
-			id: `user-${crypto.randomUUID()}`,
+			id: `user-${uuid}` as UserMessageId,
 			type: 'user',
 			content
 		};
@@ -105,32 +174,45 @@ export class Feed {
 			this.combined.update((entries) => {
 				const existing = entries.find((entry) => entry.id === message.id);
 				if (!existing) {
-					this.handleLastAdded(message);
-					return [message, ...entries];
+					const newMessage: InProgressAssistantMessage = {
+						id: `assistant-in-progress-${uuid}`,
+						type: 'assistant-in-progress',
+						content: ''
+					};
+					this.handleLastAdded(newMessage);
+					return [newMessage, message, ...entries];
 				}
 				return entries;
 			});
 		});
 
-		return this.getFeedMessages();
+		const messages = this.getFeedMessages();
+		return [uuid, messages];
 	}
 
-	async addAssistantMessage(content: string) {
+	async addAssistantMessage(uuid: string, content: string): Promise<AssistantMessage> {
+		const inProgressId: InProgressAssistantMessageId = `assistant-in-progress-${uuid}`;
+		const id: AssistantMessageId = `assistant-${uuid}`;
 		const message: AssistantMessage = {
-			id: `assistant-${crypto.randomUUID()}`,
+			id,
 			type: 'assistant',
 			content
 		};
+
 		await this.mutex.lock(async () => {
 			this.combined.update((entries) => {
-				const existing = entries.find((entry) => entry.id === message.id);
+				// Remove the in-progress message if it exists.
+				const updatedEntries = entries.filter((entry) => entry.id !== inProgressId);
+
+				const existing = updatedEntries.find((entry) => entry.id === id);
 				if (!existing) {
-					this.handleLastAdded(message);
-					return [message, ...entries];
+					return [message, ...updatedEntries];
 				}
-				return entries;
+				return updatedEntries;
 			});
 		});
+
+		return message;
 	}
 
 	async updateCombinedFeed() {
@@ -279,5 +361,6 @@ export class Feed {
 
 	unlisten() {
 		this.unlistenDB();
+		this.unlistenTokens();
 	}
 }

@@ -756,6 +756,7 @@ dependencies = [
  "but-tools",
  "but-workspace",
  "chrono",
+ "futures",
  "gitbutler-branch",
  "gitbutler-branch-actions",
  "gitbutler-command-context",
