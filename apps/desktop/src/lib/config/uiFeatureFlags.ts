@@ -13,4 +13,4 @@ export const workspaceSwapPanels = persisted<
 
 export const ircEnabled = persistWithExpiration(false, 'feature-irc', 1440 * 30);
 export const ircServer = persistWithExpiration('', 'feature-irc-server', 1440 * 30);
-export const compactWorkspace = persistWithExpiration(false, 'compact-workspace', 1440 * 30);
+export const compactWorkspace = persistWithExpiration(true, 'compact-workspace', 1440 * 30);
