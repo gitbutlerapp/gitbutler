@@ -54,7 +54,7 @@
 	let commit = $state<Commit>();
 
 	async function getCommitData() {
-		commit = await remoteCommitService.find(project.id, editModeMetadata.commitId);
+		commit = await remoteCommitService.find(project.id, editModeMetadata.commitOid);
 	}
 
 	$effect(() => {
@@ -238,7 +238,7 @@
 	<div class="editmode__container">
 		<h2 class="editmode__title text-18 text-body text-bold">
 			You are editing commit <span class="code-string">
-				{editModeMetadata.commitId.slice(0, 7)}
+				{editModeMetadata.commitOid.slice(0, 7)}
 			</span>
 			<InfoButton title="Edit Mode">
 				Edit Mode lets you modify an existing commit in isolation or resolve conflicts. Any changes
@@ -258,7 +258,7 @@
 							<Avatar srcUrl={authorImgUrl} tooltip={commit.author.email} />
 							<span class="commit-card__divider">•</span>
 						{/if}
-						<span class="">{editModeMetadata.commitId.slice(0, 7)}</span>
+						<span class="">{editModeMetadata.commitOid.slice(0, 7)}</span>
 						<span class="commit-card__divider">•</span>
 						<span class="">{commit.author.name}</span>
 					</div>
