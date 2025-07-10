@@ -27,6 +27,7 @@
 		scrollToId?: string;
 		scrollToType?: TargetType;
 		grow?: boolean;
+		maxHeight?: string;
 		onclose?: () => void;
 		ontoggle?: (collapsed: boolean) => void;
 		resizer?: Snippet<[{ element: HTMLDivElement; collapsed?: boolean }]>;
@@ -47,6 +48,7 @@
 		scrollToId,
 		scrollToType,
 		grow,
+		maxHeight,
 		ontoggle,
 		onclose,
 		resizer
@@ -75,6 +77,7 @@
 	class:bottom-border={bottomBorder || collapsed}
 	class:transparent
 	class:grow
+	style:max-height={maxHeight}
 	class:no-shrink={resizer && $collapsed !== undefined}
 	{@attach scrollingAttachment(intelligentScrollingService, scrollToId, scrollToType)}
 >

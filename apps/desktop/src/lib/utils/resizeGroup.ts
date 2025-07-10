@@ -1,7 +1,7 @@
 type Resizer = {
 	resizerId: symbol;
 	getValue: () => number;
-	setValue: (newValue: number) => void;
+	setValue: (newValue?: number) => void;
 	minValue: number;
 	position: number;
 };
