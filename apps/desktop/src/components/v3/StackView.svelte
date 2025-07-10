@@ -11,7 +11,6 @@
 	import NewCommitView from '$components/v3/NewCommitView.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
-	import { compactWorkspace } from '$lib/config/uiFeatureFlags';
 	import { isParsedError } from '$lib/error/parser';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
@@ -21,7 +20,7 @@
 		scrollingAttachment
 	} from '$lib/intelligentScrolling/service';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
-	import { readKey, type SelectionId } from '$lib/selection/key';
+	import { readKey } from '$lib/selection/key';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -127,8 +126,6 @@
 	const changes = $derived(uncommittedService.changesByStackId(stack.id || null));
 
 	let stackViewEl = $state<HTMLDivElement>();
-	let detailsEl = $state<HTMLDivElement>();
-	let previewEl = $state<HTMLDivElement>();
 
 	let compactDiv = $state<HTMLDivElement>();
 
@@ -261,202 +258,6 @@
 	integration tests only covers the default layout.
 -->
 
-{#snippet assignedChangePreview(stackId?: string)}
-	<SelectionView
-		testId={TestId.WorktreeSelectionView}
-		{projectId}
-		diffOnly={$compactWorkspace}
-		topPadding={$compactWorkspace}
-		selectionId={{ ...assignedKey, type: 'worktree', stackId }}
-		onclose={() => {
-			intelligentScrollingService.show(projectId, stack.id, 'stack');
-		}}
-		draggableFiles
-	/>
-{/snippet}
-
-{#snippet otherChangePreview(selectionId: SelectionId)}
-	<SelectionView
-		testId={TestId.StackSelectionView}
-		{projectId}
-		{selectionId}
-		diffOnly={$compactWorkspace}
-		topPadding={$compactWorkspace}
-		onclose={() => {
-			intelligentScrollingService.show(projectId, stack.id, 'details');
-		}}
-		draggableFiles={selectionId.type === 'commit'}
-	/>
-{/snippet}
-
-{#snippet branchView(branchName: string)}
-	<BranchView
-		collapsible
-		stackId={stack.id}
-		{projectId}
-		{branchName}
-		active={selectedKey?.type === 'branch' &&
-			selectedKey.branchName === branchName &&
-			focusedStackId === stack.id}
-		scrollToType="details"
-		scrollToId={stack.id}
-		grow={!detailsCollapsed && changedFilesCollapsed}
-		ontoggle={(collapsed) => {
-			detailsCollapsed = collapsed;
-		}}
-		{onerror}
-		{onclose}
-	>
-		{#snippet resizer({ element, collapsed })}
-			{#if $compactWorkspace}
-				<Resizer
-					bind:clientHeight={actualDetailsHeight}
-					viewport={element}
-					passive={collapsed}
-					direction="down"
-					persistId="resizer-panel2-details-${stack.id}"
-					defaultValue={defaultDetailsHeight}
-					minHeight={minDetailsHeight}
-					maxHeight={maxDetailsHeight}
-					order={0}
-					{resizeGroup}
-				/>
-			{/if}
-		{/snippet}
-	</BranchView>
-{/snippet}
-
-{#snippet commitView(branchName: string, commitId: string)}
-	<CommitView
-		{projectId}
-		collapsible={$compactWorkspace}
-		stackId={stack.id}
-		commitKey={{
-			stackId: stack.id,
-			branchName,
-			commitId,
-			upstream: !!upstream
-		}}
-		draggableFiles
-		active={selectedKey?.type === 'commit' && focusedStackId === stack.id}
-		scrollToType="details"
-		scrollToId={stack.id}
-		grow={!detailsCollapsed && changedFilesCollapsed}
-		ontoggle={(collapsed) => {
-			detailsCollapsed = collapsed;
-		}}
-		{onerror}
-		{onclose}
-	>
-		{#snippet resizer({ element, collapsed })}
-			{#if $compactWorkspace}
-				<Resizer
-					bind:clientHeight={actualDetailsHeight}
-					viewport={element}
-					passive={collapsed}
-					direction="down"
-					persistId="resizer-panel2-details-${stack.id}"
-					defaultValue={defaultDetailsHeight}
-					minHeight={minDetailsHeight}
-					maxHeight={maxDetailsHeight}
-					order={0}
-					{resizeGroup}
-				/>
-			{/if}
-		{/snippet}
-	</CommitView>
-{/snippet}
-
-{#snippet commitChangedFiles(commitId: string)}
-	{@const active = selectedKey?.type === 'commit' && focusedStackId === stack.id}
-	{@const changesResult = stackService.commitChanges(projectId, commitId)}
-	<ReduxResult {projectId} stackId={stack.id} result={changesResult.current}>
-		{#snippet children(changes, { projectId, stackId })}
-			<ChangedFiles
-				title="Changed Files"
-				{projectId}
-				{stackId}
-				grow={(!assignedKey && !selectedKey) ||
-					(previewCollapsed && !changedFilesCollapsed && !detailsCollapsed)}
-				draggableFiles
-				collapsible={$compactWorkspace}
-				selectionId={{ type: 'commit', commitId, stackId: stack.id }}
-				ontoggle={(collapsed) => {
-					changedFilesCollapsed = collapsed;
-				}}
-				changes={changes.changes.filter(
-					(change) => !(change.path in (changes.conflictEntries?.entries ?? {}))
-				)}
-				conflictEntries={changes.conflictEntries}
-				{active}
-			>
-				{#snippet resizer({ element, collapsed })}
-					{#if $compactWorkspace}
-						<Resizer
-							{resizeGroup}
-							order={1}
-							viewport={element}
-							maxHeight={maxChangedFilesHeight}
-							minHeight={minChangedFilesHeight}
-							defaultValue={defaultChangedFilesHeight}
-							persistId="resizer-panel2-changed-files-${stack.id}"
-							passive={collapsed}
-							direction="down"
-							syncName="blah"
-						/>
-					{/if}
-				{/snippet}
-			</ChangedFiles>
-		{/snippet}
-	</ReduxResult>
-{/snippet}
-
-{#snippet branchChangedFiles(branchName: string)}
-	{@const active = selectedKey?.type === 'branch'}
-	{@const changesResult = stackService.branchChanges({
-		projectId,
-		stackId: stack.id,
-		branchName
-	})}
-	<ReduxResult {projectId} stackId={stack.id} result={changesResult.current}>
-		{#snippet children(changes, { projectId, stackId })}
-			<ChangedFiles
-				title="Combined Changes"
-				{projectId}
-				{stackId}
-				draggableFiles
-				grow={(!assignedKey && !selectedKey) ||
-					(previewCollapsed && !changedFilesCollapsed && !detailsCollapsed) ||
-					undefined}
-				collapsible={$compactWorkspace}
-				selectionId={{ type: 'branch', stackId: stack.id, branchName }}
-				ontoggle={() => {
-					changedFilesCollapsed = !changedFilesCollapsed;
-				}}
-				{changes}
-				{active}
-			>
-				{#snippet resizer({ element, collapsed })}
-					{#if $compactWorkspace}
-						<Resizer
-							{resizeGroup}
-							order={1}
-							viewport={element}
-							maxHeight={maxChangedFilesHeight}
-							minHeight={minChangedFilesHeight}
-							defaultValue={defaultChangedFilesHeight}
-							persistId="resizer-panel2-changed-files-${stack.id}"
-							passive={collapsed}
-							direction="down"
-							syncName="blah"
-						/>
-					{/if}
-				{/snippet}
-			</ChangedFiles>
-		{/snippet}
-	</ReduxResult>
-{/snippet}
-
 <AsyncRender>
 	<div
 		bind:clientWidth
@@ -587,14 +388,158 @@
 			</ReduxResult>
 		</div>
 
-		{#if $compactWorkspace && (commitId || branchName || assignedKey || selectedKey)}
+		{#if commitId || branchName || assignedKey || selectedKey}
 			<div class="combined-view" bind:this={compactDiv} bind:clientHeight={verticalHeight}>
 				{#if branchName && commitId}
-					{@render commitView(branchName, commitId)}
-					{@render commitChangedFiles(commitId)}
+					<CommitView
+						{projectId}
+						collapsible
+						stackId={stack.id}
+						commitKey={{
+							stackId: stack.id,
+							branchName,
+							commitId,
+							upstream: !!upstream
+						}}
+						draggableFiles
+						active={selectedKey?.type === 'commit' && focusedStackId === stack.id}
+						scrollToType="details"
+						scrollToId={stack.id}
+						grow={!detailsCollapsed && changedFilesCollapsed}
+						ontoggle={(collapsed) => {
+							detailsCollapsed = collapsed;
+						}}
+						{onerror}
+						{onclose}
+					>
+						{#snippet resizer({ element, collapsed })}
+							<Resizer
+								bind:clientHeight={actualDetailsHeight}
+								viewport={element}
+								passive={collapsed}
+								direction="down"
+								persistId="resizer-panel2-details-${stack.id}"
+								defaultValue={defaultDetailsHeight}
+								minHeight={minDetailsHeight}
+								maxHeight={maxDetailsHeight}
+								order={0}
+								{resizeGroup}
+							/>
+						{/snippet}
+					</CommitView>
+					{@const active = selectedKey?.type === 'commit' && focusedStackId === stack.id}
+					{@const changesResult = stackService.commitChanges(projectId, commitId)}
+					<ReduxResult {projectId} stackId={stack.id} result={changesResult.current}>
+						{#snippet children(changes, { projectId, stackId })}
+							<ChangedFiles
+								title="Changed Files"
+								{projectId}
+								{stackId}
+								grow={(!assignedKey && !selectedKey) ||
+									(previewCollapsed && !changedFilesCollapsed && !detailsCollapsed)}
+								draggableFiles
+								collapsible
+								selectionId={{ type: 'commit', commitId, stackId: stack.id }}
+								ontoggle={(collapsed) => {
+									changedFilesCollapsed = collapsed;
+								}}
+								changes={changes.changes.filter(
+									(change) => !(change.path in (changes.conflictEntries?.entries ?? {}))
+								)}
+								conflictEntries={changes.conflictEntries}
+								{active}
+							>
+								{#snippet resizer({ element, collapsed })}
+									<Resizer
+										{resizeGroup}
+										order={1}
+										viewport={element}
+										maxHeight={maxChangedFilesHeight}
+										minHeight={minChangedFilesHeight}
+										defaultValue={defaultChangedFilesHeight}
+										persistId="resizer-panel2-changed-files-${stack.id}"
+										passive={collapsed}
+										direction="down"
+										syncName="blah"
+									/>
+								{/snippet}
+							</ChangedFiles>
+						{/snippet}
+					</ReduxResult>
 				{:else if branchName}
-					{@render branchView(branchName)}
-					{@render branchChangedFiles(branchName)}
+					<BranchView
+						collapsible
+						stackId={stack.id}
+						{projectId}
+						{branchName}
+						active={selectedKey?.type === 'branch' &&
+							selectedKey.branchName === branchName &&
+							focusedStackId === stack.id}
+						scrollToType="details"
+						scrollToId={stack.id}
+						grow={!detailsCollapsed && changedFilesCollapsed}
+						ontoggle={(collapsed) => {
+							detailsCollapsed = collapsed;
+						}}
+						{onerror}
+						{onclose}
+					>
+						{#snippet resizer({ element, collapsed })}
+							<Resizer
+								bind:clientHeight={actualDetailsHeight}
+								viewport={element}
+								passive={collapsed}
+								direction="down"
+								persistId="resizer-panel2-details-${stack.id}"
+								defaultValue={defaultDetailsHeight}
+								minHeight={minDetailsHeight}
+								maxHeight={maxDetailsHeight}
+								order={0}
+								{resizeGroup}
+							/>
+						{/snippet}
+					</BranchView>
+					{@const active = selectedKey?.type === 'branch'}
+					{@const changesResult = stackService.branchChanges({
+						projectId,
+						stackId: stack.id,
+						branchName
+					})}
+					<ReduxResult {projectId} stackId={stack.id} result={changesResult.current}>
+						{#snippet children(changes, { projectId, stackId })}
+							<ChangedFiles
+								title="Combined Changes"
+								{projectId}
+								{stackId}
+								draggableFiles
+								grow={(!assignedKey && !selectedKey) ||
+									(previewCollapsed && !changedFilesCollapsed && !detailsCollapsed) ||
+									undefined}
+								collapsible
+								selectionId={{ type: 'branch', stackId: stack.id, branchName }}
+								ontoggle={() => {
+									changedFilesCollapsed = !changedFilesCollapsed;
+								}}
+								{changes}
+								{active}
+							>
+								{#snippet resizer({ element, collapsed })}
+									<Resizer
+										{resizeGroup}
+										order={1}
+										viewport={element}
+										maxHeight={maxChangedFilesHeight}
+										minHeight={minChangedFilesHeight}
+										defaultValue={defaultChangedFilesHeight}
+										persistId="resizer-panel2-changed-files-${stack.id}"
+										passive={collapsed}
+										direction="down"
+										syncName="blah"
+									/>
+								{/snippet}
+							</ChangedFiles>
+						{/snippet}
+					</ReduxResult>
 				{/if}
 
 				{#if assignedKey || selectedKey}
@@ -623,9 +568,29 @@
 									/>
 								{/snippet}
 								{#if assignedKey?.type === 'worktree' && assignedKey.stackId}
-									{@render assignedChangePreview(assignedKey.stackId)}
+									<SelectionView
+										testId={TestId.WorktreeSelectionView}
+										{projectId}
+										diffOnly
+										topPadding
+										selectionId={{ ...assignedKey, type: 'worktree', stackId: assignedKey.stackId }}
+										onclose={() => {
+											intelligentScrollingService.show(projectId, stack.id, 'stack');
+										}}
+										draggableFiles
+									/>
 								{:else if selectedKey}
-									{@render otherChangePreview(selectedKey)}
+									<SelectionView
+										testId={TestId.StackSelectionView}
+										{projectId}
+										selectionId={selectedKey}
+										diffOnly
+										topPadding
+										onclose={() => {
+											intelligentScrollingService.show(projectId, stack.id, 'details');
+										}}
+										draggableFiles={selectedKey.type === 'commit'}
+									/>
 								{/if}
 							</Drawer>
 						{/snippet}
@@ -640,57 +605,6 @@
 					maxWidth={RESIZER_CONFIG.panel2.maxWidth}
 					defaultValue={RESIZER_CONFIG.panel2.defaultValue}
 					syncName="panel2"
-					imitateBorder
-				/>
-			</div>
-		{:else if branchName}
-			<div
-				bind:this={detailsEl}
-				style:width={uiState.global.detailsWidth.current + 'rem'}
-				class="details"
-				data-remove-from-draggable
-				data-details={stack.id}
-			>
-				{#if branchName && commitId}
-					{@render commitView(branchName, commitId)}
-					{@render commitChangedFiles(commitId)}
-				{:else if branchName}
-					{@render branchView(branchName)}
-					{@render branchChangedFiles(branchName)}
-				{/if}
-				<Resizer
-					viewport={detailsEl}
-					persistId="resizer-panel2-${stack.id}"
-					direction="right"
-					minWidth={RESIZER_CONFIG.panel2.minWidth}
-					defaultValue={RESIZER_CONFIG.panel2.defaultValue}
-					maxWidth={RESIZER_CONFIG.panel2.maxWidth}
-					syncName="panel2"
-					imitateBorder
-				/>
-			</div>
-		{/if}
-		{#if !$compactWorkspace && ((assignedKey?.type === 'worktree' && assignedKey.stackId) || selectedKey)}
-			<div
-				bind:this={previewEl}
-				style:width={uiState.global.previewWidth.current + 'rem'}
-				class="preview"
-				data-remove-from-draggable
-				{@attach scrollingAttachment(intelligentScrollingService, stack.id, 'diff')}
-			>
-				{#if assignedKey?.type === 'worktree' && assignedKey.stackId}
-					{@render assignedChangePreview(assignedKey.stackId)}
-				{:else if selectedKey}
-					{@render otherChangePreview(selectedKey)}
-				{/if}
-				<Resizer
-					viewport={previewEl}
-					persistId="resizer-panel3-${stack.id}"
-					direction="right"
-					minWidth={RESIZER_CONFIG.panel3.minWidth}
-					maxWidth={RESIZER_CONFIG.panel3.maxWidth}
-					defaultValue={RESIZER_CONFIG.panel3.defaultValue}
-					syncName="panel3"
 					imitateBorder
 				/>
 			</div>
@@ -765,14 +679,6 @@
 				color: var(--clr-theme-pop-on-soft);
 			}
 		}
-	}
-
-	.details,
-	.preview {
-		position: relative;
-		flex-shrink: 0;
-		height: 100%;
-		white-space: wrap;
 	}
 
 	.combined-view {
