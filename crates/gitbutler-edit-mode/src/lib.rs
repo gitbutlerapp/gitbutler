@@ -6,7 +6,6 @@ use anyhow::{bail, Context, Result};
 use bstr::ByteSlice;
 use but_workspace::stack_ext::StackExt;
 use git2::build::CheckoutBuilder;
-use gitbutler_branch_actions::internal::list_virtual_branches;
 use gitbutler_branch_actions::{update_workspace_commit, RemoteBranchFile};
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};
 use gitbutler_command_context::{gix_repo_for_merging, CommandContext};
@@ -29,7 +28,6 @@ use gitbutler_repo::{signature, SignaturePurpose};
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{update_uncommited_changes_with_tree, WorkspaceState};
 #[allow(deprecated)]
-use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head};
 use serde::Serialize;
 
 pub mod commands;
@@ -307,15 +305,6 @@ pub(crate) fn save_and_return_to_workspace(
     rebase.steps(steps)?;
     let output = rebase.rebase()?;
 
-    // Update virtual_branch
-    if !ctx.app_settings().feature_flags.v3 {
-        let new_branch_head = output.top_commit.to_git2();
-        #[allow(deprecated)]
-        let res = compute_updated_branch_head(ctx.repo(), &gix_repo, &stack, new_branch_head, ctx)?;
-
-        stack.set_stack_head(&vb_state, &gix_repo, res.head, Some(res.tree))?;
-    };
-
     stack.set_heads_from_rebase_output(ctx, output.references)?;
 
     // Switch branch to gitbutler/workspace
@@ -329,30 +318,20 @@ pub(crate) fn save_and_return_to_workspace(
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let uncommtied_changes = get_uncommited_changes(ctx)?;
 
-    if ctx.app_settings().feature_flags.v3 {
-        update_uncommited_changes_with_tree(
-            ctx,
-            old_workspace,
-            new_workspace,
-            uncommtied_changes,
-            Some(true),
-            perm,
-        )?;
-    } else {
-        // Checkout the applied branches
-        #[allow(deprecated)]
-        checkout_branch_trees(ctx, perm)?;
-    }
+    update_uncommited_changes_with_tree(
+        ctx,
+        old_workspace,
+        new_workspace,
+        uncommtied_changes,
+        Some(true),
+        perm,
+    )?;
 
     // Currently if the index goes wonky then files don't appear quite right.
     // This just makes sure the index is all good.
     let mut index = repository.index()?;
     index.read_tree(&repository.head()?.peel_to_tree()?)?;
     index.write()?;
-
-    if !ctx.app_settings().feature_flags.v3 {
-        list_virtual_branches(ctx, perm)?;
-    }
 
     Ok(())
 }

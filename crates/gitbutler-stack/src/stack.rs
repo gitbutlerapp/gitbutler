@@ -379,10 +379,8 @@ impl Stack {
 
         let name = if let Some(refname) = self.upstream.as_ref() {
             refname.branch().to_string()
-        } else if ctx.app_settings().feature_flags.v3 {
-            self.name.clone()
         } else {
-            canned_branch_name(ctx.repo())?
+            self.name.clone()
         };
 
         let name = Stack::next_available_name(&repo, &state, name, allow_duplicate_refs)?;

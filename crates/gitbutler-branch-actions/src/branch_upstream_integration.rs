@@ -15,7 +15,6 @@ use gitbutler_repo::{
 use gitbutler_stack::StackId;
 use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
 #[allow(deprecated)]
-use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head_for_commits};
 use gix::refs::FullName;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -66,14 +65,11 @@ pub fn integrate_upstream_commits_for_series(
     let integrate_upstream_context = IntegrateUpstreamContext {
         repo,
         target_branch_head: default_target.sha,
-        branch_head: stack.head_oid(&gix_repo)?.to_git2(),
-        branch_tree: stack.tree(ctx)?,
         branch_name: subject_branch.name(),
         branch_full_name: subject_branch.full_name()?,
         remote_head: remote_head.id(),
         remote_branch_name: &subject_branch.remote_reference(&remote),
         strategy,
-        v3: ctx.app_settings().feature_flags.v3,
         stack_steps: stack.as_rebase_steps(ctx, &gix_repo)?,
         gix_repo: &gix_repo,
     };
@@ -84,12 +80,7 @@ pub fn integrate_upstream_commits_for_series(
     let mut branch = stack.clone();
     branch.set_stack_head(&vb_state, &gix_repo, head, tree)?;
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    if ctx.app_settings().feature_flags.v3 {
-        update_uncommited_changes(ctx, old_workspace, new_workspace, perm)?;
-    } else {
-        #[allow(deprecated)]
-        checkout_branch_trees(ctx, perm)?;
-    }
+    update_uncommited_changes(ctx, old_workspace, new_workspace, perm)?;
     branch.set_heads_from_rebase_output(ctx, rebase_output.references)?;
     // branch.replace_head(ctx, &series_head, &repo.find_commit(new_series_head)?)?;
     crate::integration::update_workspace_commit(&vb_state, ctx)?;
@@ -108,10 +99,6 @@ struct IntegrateUpstreamContext<'a, 'b> {
     /// GitButler's target branch
     target_branch_head: git2::Oid,
 
-    /// The local branch head
-    branch_head: git2::Oid,
-    /// The uncommited changes associated to the branch
-    branch_tree: git2::Oid,
     /// The name of the local branch
     branch_name: &'b str,
     branch_full_name: FullName,
@@ -123,9 +110,6 @@ struct IntegrateUpstreamContext<'a, 'b> {
 
     /// Strategy to use when integrating the upstream commits
     strategy: IntegrationStrategy,
-
-    /// Whether v3 is enabled
-    v3: bool,
 
     stack_steps: Vec<RebaseStep>,
     gix_repo: &'a gix::Repository,
@@ -227,21 +211,7 @@ impl IntegrateUpstreamContext<'_, '_> {
                 )
             }
         };
-        // Find what the new head and branch tree should be
-        let head_and_tree = if self.v3 {
-            (new_stack_head, None)
-        } else {
-            #[allow(deprecated)]
-            let res = compute_updated_branch_head_for_commits(
-                self.repo,
-                self.gix_repo,
-                self.branch_head,
-                self.branch_tree,
-                new_stack_head,
-            )?;
-            (res.head, Some(res.tree))
-        };
-        Ok((head_and_tree, new_series_head, rebase_output))
+        Ok(((new_stack_head, None), new_series_head, rebase_output))
     }
 }
 
@@ -544,14 +514,11 @@ mod test {
             let ctx = IntegrateUpstreamContext {
                 repo: &repo.repository,
                 target_branch_head: base_commit.id(),
-                branch_head: local_d.id(),
-                branch_tree: local_d.tree_id(),
                 branch_name: "One",
                 branch_full_name: "refs/heads/One".try_into().unwrap(),
                 remote_head: remote_y.id(),
                 remote_branch_name: "One",
                 strategy: IntegrationStrategy::Rebase,
-                v3: false,
                 stack_steps: steps,
                 gix_repo: &repo.gix_repository(),
             };

@@ -9,7 +9,7 @@ use gitbutler_stack::{Stack, StackId};
 #[allow(deprecated)]
 use gitbutler_workspace::{
     branch_trees::{update_uncommited_changes, WorkspaceState},
-    checkout_branch_trees, compute_updated_branch_head_for_commits,
+    compute_updated_branch_head_for_commits,
 };
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -91,13 +91,8 @@ pub fn reorder_stack(
     stack.set_heads_from_rebase_output(ctx, output.references.clone())?;
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    if ctx.app_settings().feature_flags.v3 {
-        // Even if this fails, it's not actionable
-        let _ = update_uncommited_changes(ctx, old_workspace, new_workspace, perm);
-    } else {
-        #[allow(deprecated)]
-        checkout_branch_trees(ctx, perm)?;
-    }
+    // Even if this fails, it's not actionable
+    let _ = update_uncommited_changes(ctx, old_workspace, new_workspace, perm);
     crate::integration::update_workspace_commit(&state, ctx)
         .context("failed to update gitbutler workspace")?;
 

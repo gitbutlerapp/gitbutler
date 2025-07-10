@@ -11,7 +11,7 @@ use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
 #[allow(deprecated)]
-use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head};
+use gitbutler_workspace::compute_updated_branch_head;
 
 use crate::dependencies::commit_dependencies_from_workspace;
 use crate::VirtualBranchesExt;
@@ -70,16 +70,11 @@ pub(crate) fn move_commit(
         &workspace_dependencies,
     )?;
 
-    move_commit_to_destination_stack(&vb_state, ctx, repo, destination_stack, subject_commit_oid)?;
+    move_commit_to_destination_stack(&vb_state, ctx, destination_stack, subject_commit_oid)?;
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    if ctx.app_settings().feature_flags.v3 {
-        // Even if this fails, it's not actionable
-        let _ = update_uncommited_changes(ctx, old_workspace, new_workspace, perm);
-    } else {
-        #[allow(deprecated)]
-        checkout_branch_trees(ctx, perm)?;
-    }
+    // Even if this fails, it's not actionable
+    let _ = update_uncommited_changes(ctx, old_workspace, new_workspace, perm);
     crate::integration::update_workspace_commit(&vb_state, ctx)
         .context("failed to update gitbutler workspace")?;
 
@@ -171,7 +166,6 @@ fn take_commit_from_source_stack(
 fn move_commit_to_destination_stack(
     vb_state: &VirtualBranchesHandle,
     ctx: &CommandContext,
-    repo: &git2::Repository,
     mut destination_stack: gitbutler_stack::Stack,
     commit_id: git2::Oid,
 ) -> Result<(), anyhow::Error> {
@@ -192,27 +186,7 @@ fn move_commit_to_destination_stack(
     let output = rebase.rebase()?;
     let new_destination_head_oid = output.top_commit.to_git2();
 
-    let (new_destination_head_oid, new_destination_tree_oid) =
-        if ctx.app_settings().feature_flags.v3 {
-            (new_destination_head_oid, None)
-        } else {
-            #[allow(deprecated)]
-            let res = compute_updated_branch_head(
-                repo,
-                &gix_repo,
-                &destination_stack,
-                new_destination_head_oid,
-                ctx,
-            )?;
-            (res.head, Some(res.tree))
-        };
-
     destination_stack.set_heads_from_rebase_output(ctx, output.references)?;
-    destination_stack.set_stack_head(
-        vb_state,
-        &gix_repo,
-        new_destination_head_oid,
-        new_destination_tree_oid,
-    )?;
+    destination_stack.set_stack_head(vb_state, &gix_repo, new_destination_head_oid, None)?;
     Ok(())
 }

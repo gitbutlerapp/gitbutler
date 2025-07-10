@@ -164,44 +164,6 @@ pub fn update_workspace_commit(
     index.read_tree(&workspace_tree)?;
     index.write()?;
 
-    if !ctx.app_settings().feature_flags.v3 {
-        // finally, update the refs/gitbutler/ heads to the states of the current virtual branches
-        for branch in &virtual_branches {
-            let wip_tree = repo.find_tree(branch.tree(ctx)?)?;
-            let mut branch_head = repo.find_commit(branch.head_oid(&gix_repo)?.to_git2())?;
-            let head_tree = branch_head.tree()?;
-
-            // create a wip commit if there is wip
-            if head_tree.id() != wip_tree.id() {
-                let mut message = "GitButler WIP Commit".to_string();
-                message.push_str("\n\n");
-                message.push_str("This is a WIP commit for the virtual branch '");
-                message.push_str(branch.name.as_str());
-                message.push_str("'\n\n");
-                message.push_str("This commit is used to store the state of the virtual branch\n");
-                message.push_str("while you are working on it. It is not meant to be used for\n");
-                message.push_str("anything else.\n\n");
-                let branch_head_oid = repo.commit(
-                    None,
-                    &committer,
-                    &committer,
-                    &message,
-                    &wip_tree,
-                    &[&branch_head],
-                    // None,
-                )?;
-                branch_head = repo.find_commit(branch_head_oid)?;
-            }
-
-            repo.reference(
-                &branch.refname()?.to_string(),
-                branch_head.id(),
-                true,
-                "update virtual branch",
-            )?;
-        }
-    }
-
     Ok(final_commit)
 }
 

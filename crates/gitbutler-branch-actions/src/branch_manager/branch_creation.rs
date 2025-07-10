@@ -20,7 +20,6 @@ use gitbutler_stack::{BranchOwnershipClaims, Stack, StackId};
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
 #[allow(deprecated)]
-use gitbutler_workspace::checkout_branch_trees;
 use tracing::instrument;
 
 impl BranchManager<'_> {
@@ -403,13 +402,7 @@ impl BranchManager<'_> {
 
         let new_workspace = WorkspaceState::create(self.ctx, perm.read_permission())?;
 
-        if self.ctx.app_settings().feature_flags.v3 {
-            update_uncommited_changes(self.ctx, workspace_state, new_workspace, perm)?;
-        } else {
-            // Now that we've added a branch to the workspace, lets merge together all the trees
-            #[allow(deprecated)]
-            checkout_branch_trees(self.ctx, perm)?;
-        }
+        update_uncommited_changes(self.ctx, workspace_state, new_workspace, perm)?;
 
         update_workspace_commit(&vb_state, self.ctx)?;
 

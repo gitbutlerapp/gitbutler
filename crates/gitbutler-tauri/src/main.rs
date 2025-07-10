@@ -43,7 +43,6 @@ fn main() {
     ) {
         tauri_context.config_mut().app.security.csp = updated_csp;
     };
-    let settings_for_menu = app_settings.clone();
 
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -148,21 +147,18 @@ fn main() {
                         menu::handle_event(&window.clone(), &event)
                     });
 
-                    if app_settings.get()?.clone().feature_flags.v3 {
-                        #[cfg(target_os = "macos")]
-                        use tauri::LogicalPosition;
-                        #[cfg(target_os = "macos")]
-                        use tauri_plugin_trafficlights_positioner::WindowExt;
-                        #[cfg(target_os = "macos")]
-                        // NOTE: Make sure you only call this ONCE per window.
-                        {
-                            if let Some(window) = tauri_app.get_window("main") {
-                                #[cfg(target_os = "macos")]
-                                // NOTE: Make sure you only call this ONCE per window.
-                                window
-                                    .setup_traffic_lights_inset(LogicalPosition::new(16.0, 25.0))?;
-                            };
-                        }
+                    #[cfg(target_os = "macos")]
+                    use tauri::LogicalPosition;
+                    #[cfg(target_os = "macos")]
+                    use tauri_plugin_trafficlights_positioner::WindowExt;
+                    #[cfg(target_os = "macos")]
+                    // NOTE: Make sure you only call this ONCE per window.
+                    {
+                        if let Some(window) = tauri_app.get_window("main") {
+                            #[cfg(target_os = "macos")]
+                            // NOTE: Make sure you only call this ONCE per window.
+                            window.setup_traffic_lights_inset(LogicalPosition::new(16.0, 25.0))?;
+                        };
                     }
                     app_handle.manage(app_settings);
 
@@ -314,7 +310,7 @@ fn main() {
                     #[cfg(debug_assertions)]
                     env::env_vars,
                 ])
-                .menu(move |handle| menu::build(handle, &settings_for_menu))
+                .menu(menu::build)
                 .on_window_event(|window, event| match event {
                     #[cfg(target_os = "macos")]
                     tauri::WindowEvent::CloseRequested { .. } => {
