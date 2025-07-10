@@ -9,6 +9,7 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
+	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import type { Snippet } from 'svelte';
 
@@ -46,13 +47,27 @@
 <div class="commit">
 	{#if description}
 		<div class="text-13 text-body description-container">
-			<p
-				data-testid={TestId.CommitDrawerDescription}
-				class="description"
-				class:truncated={isLongDescription && !showFullDescription}
-			>
-				{description}
-
+			{#if !showFullDescription}
+				<p
+					data-testid={TestId.CommitDrawerDescription}
+					class="description"
+					class:truncated={isLongDescription}
+				>
+					{description}
+				</p>
+				{#if isLongDescription}
+					<button
+						type="button"
+						class="fold-text-button truncated"
+						onclick={() => {
+							showFullDescription = !showFullDescription;
+						}}
+					>
+						show more
+					</button>
+				{/if}
+			{:else}
+				<Markdown content={description} />
 				{#if isLongDescription && showFullDescription}
 					<button
 						type="button"
@@ -64,17 +79,6 @@
 						show less
 					</button>
 				{/if}
-			</p>
-			{#if isLongDescription && !showFullDescription}
-				<button
-					type="button"
-					class="fold-text-button truncated"
-					onclick={() => {
-						showFullDescription = !showFullDescription;
-					}}
-				>
-					show more
-				</button>
 			{/if}
 		</div>
 	{/if}
