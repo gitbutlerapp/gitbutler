@@ -82,6 +82,11 @@ pub fn freestyle(
       This requires you to figure out where the changes should go based on the locks, assingments and any other user provided information.
     - `split`: Take an existing commit and split it into multiple commits based on the the user directive.
         This is a multi-step operation where you will need to create one or more black commits, and the move the file changes from the original commit to the new commits.
+    
+    ### Important notes
+    - Only perform the action on the file changes specified in the prompt.
+    - If the prompt is not clear, ask the user for clarification.
+    - When told to commit to the existing branch, commit to the applied stack-branch. Don't create a new branch unless explicitly asked to do so.
     ";
 
     let mut internal_chat_messages = chat_messages;
