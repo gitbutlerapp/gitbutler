@@ -3,6 +3,7 @@
 use std::{
     fmt::{Debug, Display},
     str::FromStr,
+    sync::Arc,
 };
 
 use but_core::TreeChange;
@@ -10,7 +11,7 @@ use but_workspace::ui::StackEntry;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::ObjectIdExt;
-use gitbutler_project::{Project, access::WorktreeWritePermission};
+use gitbutler_project::{Project, ProjectId, access::WorktreeWritePermission};
 use gitbutler_stack::{Target, VirtualBranchesHandle};
 pub use openai::{CredentialsKind, OpenAiProvider};
 use serde::{Deserialize, Serialize};
@@ -19,6 +20,7 @@ mod absorb;
 mod action;
 mod auto_commit;
 mod branch_changes;
+mod emit;
 mod generate;
 mod grouping;
 mod openai;
@@ -36,7 +38,11 @@ use uuid::Uuid;
 pub use workflow::WorkflowList;
 pub use workflow::list_workflows;
 
+use crate::emit::EmitTokenEvent;
+
 pub fn freestyle(
+    project_id: ProjectId,
+    message_id: String,
     app_handle: &tauri::AppHandle,
     ctx: &mut CommandContext,
     openai: &OpenAiProvider,
@@ -113,21 +119,21 @@ pub fn freestyle(
     internal_chat_messages.reverse();
 
     // Now we trigger the tool calling loop to absorb the remaining changes.
-    let response = crate::openai::tool_calling_loop(
+    let response = crate::openai::tool_calling_loop_stream(
         openai,
         system_message,
         chat_messages,
         &mut toolset,
         model,
+        Arc::new({
+            let app_handle = app_handle.clone();
+            move |token: &str| {
+                app_handle.emit_token_event(token, project_id, message_id.clone());
+            }
+        }),
     )?;
 
-    let response_message = response
-        .choices
-        .first()
-        .and_then(|choice| choice.message.content.clone())
-        .unwrap_or_else(|| "No response from OpenAI".to_string());
-
-    Ok(response_message)
+    Ok(response.unwrap_or_default())
 }
 
 pub fn absorb(

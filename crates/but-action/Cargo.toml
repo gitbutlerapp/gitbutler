@@ -26,6 +26,7 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 gix.workspace = true
 rmcp = "0.1.5"
 tauri = { version = "^2.4.1", features = ["unstable"] }
+futures = "0.3.31"
 gitbutler-command-context.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-operating-modes.workspace = true
