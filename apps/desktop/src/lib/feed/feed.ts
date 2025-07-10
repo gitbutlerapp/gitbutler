@@ -17,6 +17,16 @@ type TokenEvent = {
 	token: string;
 };
 
+export type ToolCall = {
+	name: string;
+	parameters: string;
+	result: string;
+};
+
+type ToolCallEvent = ToolCall & {
+	messageId: string;
+};
+
 type UserMessageId = `user-${string}`;
 
 export type UserMessage = {
@@ -31,6 +41,7 @@ export type AssistantMessage = {
 	id: AssistantMessageId;
 	type: 'assistant';
 	content: string;
+	toolCalls: ToolCall[];
 };
 
 type InProgressAssistantMessageId = `assistant-in-progress-${string}`;
@@ -39,6 +50,7 @@ export type InProgressAssistantMessage = {
 	id: InProgressAssistantMessageId;
 	type: 'assistant-in-progress';
 	content: string;
+	toolCalls: ToolCall[];
 };
 
 export type FeedMessage = UserMessage | AssistantMessage;
@@ -70,15 +82,34 @@ export function isInProgressAssistantMessage(
 	return (entry as InProgressAssistantMessage).id.startsWith('assistant-in-progress-');
 }
 
+interface BaseInProgressUpdate {
+	type: 'token' | 'tool-call';
+}
+
+export interface TokenUpdate extends BaseInProgressUpdate {
+	type: 'token';
+	token: string;
+}
+
+export interface ToolCallUpdate extends BaseInProgressUpdate {
+	type: 'tool-call';
+	toolCall: ToolCall;
+}
+
+export type InProgressUpdate = TokenUpdate | ToolCallUpdate;
+
+type InProgressSubscribeCallback = (update: InProgressUpdate) => void;
+
 export class Feed {
 	private actionsBuffer: ButlerAction[] = [];
 	private workflowsBuffer: Workflow[] = [];
 	private unlistenDB: () => void;
 	private unlistenTokens: () => void;
+	private unlistenToolCalls: () => void;
 	private initialized = false;
 	private mutex = new Mutex();
 	private updateTimeout: ReturnType<typeof setTimeout> | null = null;
-	private messageSubscribers: Map<InProgressAssistantMessageId, ((message: string) => void)[]>;
+	private messageSubscribers: Map<InProgressAssistantMessageId, InProgressSubscribeCallback[]>;
 
 	readonly lastAddedId = writable<string | null>(null);
 	readonly stackToUpdate = writable<string | null>(null);
@@ -103,9 +134,19 @@ export class Feed {
 				this.handleTokenEvent(event.payload);
 			}
 		);
+
+		this.unlistenToolCalls = this.tauri.listen<ToolCallEvent>(
+			`project://${projectId}/tool-call`,
+			(event) => {
+				this.handleToolCallEvent(event.payload);
+			}
+		);
 	}
 
-	subscribeToMessage(messageId: InProgressAssistantMessageId, callback: (message: string) => void) {
+	subscribeToMessage(
+		messageId: InProgressAssistantMessageId,
+		callback: InProgressSubscribeCallback
+	): () => void {
 		if (!this.messageSubscribers.has(messageId)) {
 			this.messageSubscribers.set(messageId, []);
 		}
@@ -124,9 +165,14 @@ export class Feed {
 		};
 	}
 
-	private notifySubscribers(messageId: InProgressAssistantMessageId, message: string) {
+	private notifySubscribersToken(messageId: InProgressAssistantMessageId, token: string) {
 		const subscribers = this.messageSubscribers.get(messageId) ?? [];
-		subscribers.forEach((callback) => callback(message));
+		subscribers.forEach((callback) => callback({ type: 'token', token }));
+	}
+
+	private notifySubscribersToolCall(messageId: InProgressAssistantMessageId, toolCall: ToolCall) {
+		const subscribers = this.messageSubscribers.get(messageId) ?? [];
+		subscribers.forEach((callback) => callback({ type: 'tool-call', toolCall }));
 	}
 
 	private handleDBEvent(event: DBEvent) {
@@ -146,7 +192,24 @@ export class Feed {
 
 	private async handleTokenEvent(event: TokenEvent) {
 		const inProgressId: InProgressAssistantMessageId = `assistant-in-progress-${event.messageId}`;
-		this.notifySubscribers(inProgressId, event.token);
+		this.notifySubscribersToken(inProgressId, event.token);
+	}
+
+	private async handleToolCallEvent(event: ToolCallEvent) {
+		const { messageId, name, parameters, result } = event;
+		const inProgressId: InProgressAssistantMessageId = `assistant-in-progress-${messageId}`;
+		this.notifySubscribersToolCall(inProgressId, { name, parameters, result });
+
+		await this.mutex.lock(async () => {
+			this.combined.update((entries) => {
+				const existing = entries.find((entry) => entry.id === inProgressId);
+				if (existing && isInProgressAssistantMessage(existing)) {
+					existing.toolCalls.push({ name, parameters, result });
+					return deduplicateBy([...entries], 'id');
+				}
+				return entries; // If not found, do nothing.
+			});
+		});
 	}
 
 	private async handleLastAdded(entry: FeedEntry) {
@@ -177,7 +240,8 @@ export class Feed {
 					const newMessage: InProgressAssistantMessage = {
 						id: `assistant-in-progress-${uuid}`,
 						type: 'assistant-in-progress',
-						content: ''
+						content: '',
+						toolCalls: []
 					};
 					this.handleLastAdded(newMessage);
 					return [newMessage, message, ...entries];
@@ -190,19 +254,41 @@ export class Feed {
 		return [uuid, messages];
 	}
 
+	private getToolCallsAndRemoveInProgress(
+		entries: FeedEntry[],
+		inProgressId: InProgressAssistantMessageId
+	): [ToolCall[], FeedEntry[]] {
+		const toolCalls: ToolCall[] = [];
+		const updatedEntries = entries.filter((entry) => {
+			if (isInProgressAssistantMessage(entry) && entry.id === inProgressId) {
+				toolCalls.push(...entry.toolCalls);
+				return false; // Remove the in-progress message.
+			}
+			return true; // Keep other entries.
+		});
+
+		return [toolCalls, updatedEntries] as const;
+	}
+
 	async addAssistantMessage(uuid: string, content: string): Promise<AssistantMessage> {
 		const inProgressId: InProgressAssistantMessageId = `assistant-in-progress-${uuid}`;
 		const id: AssistantMessageId = `assistant-${uuid}`;
 		const message: AssistantMessage = {
 			id,
 			type: 'assistant',
-			content
+			content,
+			toolCalls: []
 		};
 
 		await this.mutex.lock(async () => {
 			this.combined.update((entries) => {
 				// Remove the in-progress message if it exists.
-				const updatedEntries = entries.filter((entry) => entry.id !== inProgressId);
+				const [toolCalls, updatedEntries] = this.getToolCallsAndRemoveInProgress(
+					entries,
+					inProgressId
+				);
+
+				message.toolCalls = toolCalls;
 
 				const existing = updatedEntries.find((entry) => entry.id === id);
 				if (!existing) {
@@ -362,5 +448,6 @@ export class Feed {
 	unlisten() {
 		this.unlistenDB();
 		this.unlistenTokens();
+		this.unlistenToolCalls();
 	}
 }

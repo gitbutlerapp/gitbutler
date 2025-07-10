@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Feed, type InProgressAssistantMessage } from '$lib/feed/feed';
+	import { Feed, type InProgressAssistantMessage, type ToolCall } from '$lib/feed/feed';
 	import { getContext } from '@gitbutler/shared/context';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 
@@ -10,15 +10,30 @@
 	const { message }: Props = $props();
 
 	const feed = getContext(Feed);
+	let toolCalls = $state<ToolCall[]>(message.toolCalls);
 	let messageContent = $state(message.content);
 	const messageContentLines = $derived(messageContent.split('\n'));
+
 	let bottom = $state<HTMLDivElement>();
+
+	function handleToken(token: string) {
+		messageContent += token;
+		if (bottom) {
+			bottom.scrollIntoView({ behavior: 'smooth', block: 'end' });
+		}
+	}
+
+	function handleToolCall(toolCall: ToolCall) {
+		toolCalls.push(toolCall);
+	}
 
 	$effect(() => {
 		const unsubscribe = feed.subscribeToMessage(message.id, (updatedMessage) => {
-			messageContent += updatedMessage;
-			if (bottom) {
-				bottom.scrollIntoView({ behavior: 'smooth', block: 'end' });
+			switch (updatedMessage.type) {
+				case 'token':
+					return handleToken(updatedMessage.token);
+				case 'tool-call':
+					return handleToolCall(updatedMessage.toolCall);
 			}
 		});
 
@@ -28,8 +43,13 @@
 	});
 </script>
 
-{#if messageContent === ''}
+{#if messageContent === '' && toolCalls.length === 0}
 	<p class="thinking">Thinking...</p>
+{:else if toolCalls.length > 0}
+	<p class="vibing">Vibing</p>
+	{#each toolCalls as toolCall, index (index)}
+		<pre class="text-12">{JSON.stringify(toolCall, null, 2)}</pre>
+	{/each}
 {:else}
 	{#each messageContentLines as line, index (index)}
 		{#if line === ''}
@@ -42,7 +62,8 @@
 <div bind:this={bottom} style="margin-top: 8px;height: 1px; width: 100%;"></div>
 
 <style>
-	.thinking {
+	.thinking,
+	.vibing {
 		color: var(--clr-text-3);
 		font-style: italic;
 		animation: pulse 1.5s ease-in-out infinite;

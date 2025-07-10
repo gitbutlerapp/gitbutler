@@ -210,6 +210,9 @@
 						</Tooltip>
 					</div>
 				</div>
+				{#each action.toolCalls as toolCall}
+					<pre class="text-12">{JSON.stringify(toolCall, null, 2)}</pre>
+				{/each}
 			{/if}
 			<span class="text-14">
 				<Markdown content={action.content} />
