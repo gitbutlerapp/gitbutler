@@ -174,6 +174,7 @@ pub fn stacks_v3(
         Ok(out)
     }
 
+    let extra_target = meta.data().default_target.as_ref().map(|t| t.sha.to_gix());
     let info = head_info2(
         repo,
         meta,
@@ -186,6 +187,7 @@ pub fn stacks_v3(
                 commits_limit_hint: Some(300),
                 commits_limit_recharge_location: vec![],
                 hard_limit: None,
+                extra_target_commit_id: extra_target,
             },
         },
     )?;
@@ -401,6 +403,7 @@ pub fn stack_details_v3(
             commits_limit_hint: Some(300),
             commits_limit_recharge_location: vec![],
             hard_limit: None,
+            extra_target_commit_id: meta.data().default_target.as_ref().map(|t| t.sha.to_gix()),
         },
     };
     let stack = meta.data().branches.get(&stack_id).with_context(|| {

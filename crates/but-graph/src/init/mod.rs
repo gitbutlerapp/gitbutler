@@ -56,6 +56,12 @@ pub struct Options {
     /// Due to multiple paths being taken, more commits may be queued (which is what's counted here) than actually
     /// end up in the graph, so usually one will see many less.
     pub hard_limit: Option<usize>,
+    /// Provide the commit that should act like the tip of an additional target reference,
+    /// just as if it was set by one of the workspaces.
+    /// This everything it touches will be considered integrated, and it can be used to 'extend' the border of
+    /// the workspace.
+    /// Typically, it's a past position of an existing target, or a target chosen by the user.
+    pub extra_target_commit_id: Option<gix::ObjectId>,
 }
 
 /// Builder
@@ -190,6 +196,7 @@ impl Graph {
         meta: &impl RefMetadata,
         Options {
             collect_tags,
+            extra_target_commit_id,
             commits_limit_hint: limit,
             commits_limit_recharge_location: mut max_commits_recharge_location,
             hard_limit,
@@ -371,6 +378,37 @@ impl Graph {
                 }
                 graph[target_segment].sibling_segment_id = local_sidx;
             }
+        }
+
+        if let Some(extra_target) = extra_target_commit_id {
+            let sidx = if let Some(existing_segment) =
+                next.iter().find_map(|(tip_id, _, instruction, _)| {
+                    (tip_id == &extra_target).then_some(instruction.segment_idx())
+                }) {
+                // For now just assume the settings are good/similar enough so we don't
+                // have to adjust the existing queue item.
+                existing_segment
+            } else {
+                let extra_target_sidx = graph.insert_root(branch_segment_from_name_and_meta(
+                    None,
+                    meta,
+                    Some((&refs_by_id, extra_target)),
+                )?);
+                if next.push_front_exhausted((
+                    extra_target,
+                    CommitFlags::Integrated,
+                    Instruction::CollectCommit {
+                        into: extra_target_sidx,
+                    },
+                    max_limit
+                        .with_indirect_goal(tip.detach(), &mut goals)
+                        .without_allowance(),
+                )) {
+                    return Ok(graph.with_hard_limit());
+                }
+                extra_target_sidx
+            };
+            graph.extra_target = Some(sidx);
         }
 
         let inserted_proxy_segments = prioritize_initial_tips_and_assure_ws_commit_ownership(

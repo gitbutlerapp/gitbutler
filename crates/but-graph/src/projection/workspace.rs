@@ -101,6 +101,10 @@ impl Graph {
     /// No matter what, each location of `HEAD`, which corresponds to the entrypoint, can be represented as workspace.
     /// Further, the most expensive operations we perform to query additional commit information by reading it, but we
     /// only do so on the ones that the user can interact with.
+    ///
+    /// The [`extra_target`](crate::init::Options::extra_target) options extends the workspace to include that target as base.
+    /// This affects what we consider to be the part of the workspace.
+    /// Typically, that's a previous location of the target segment.
     #[instrument(skip(self), err(Debug))]
     pub fn to_workspace(&self) -> anyhow::Result<Workspace<'_>> {
         let (kind, metadata, mut ws_tip_segment, entrypoint_sidx, entrypoint_first_commit_flags) = {
@@ -166,7 +170,7 @@ impl Graph {
         };
 
         let merge_info = if ws.is_managed() {
-            self.compute_lowest_base(ws.id, ws.target.as_ref())
+            self.compute_lowest_base(ws.id, ws.target.as_ref(), self.extra_target)
                 .or_else(|| {
                     // target not available? Try the base of the workspace itself
                     if self
@@ -307,8 +311,10 @@ impl Graph {
         Ok(ws)
     }
 
-    /// Compute the lowest base (i.e. the highest generation) between the top-most segment of a stack, the `stack_tip`,
-    /// and the `target` segment as the lowest possible base between the local and remote target tracking segments.
+    /// Compute the lowest base (i.e. the highest generation) between the `ws_tip` of a top-most segment of the workspace,
+    /// another `target` segment, and any amount of `additional` segements which could be *past targets* to keep
+    /// an artificial lower base for consistency.
+    ///
     /// Returns `Some((lowest_base, segment_idx_with_lowest_base))`.
     ///
     /// ## Note
@@ -316,23 +322,21 @@ impl Graph {
     /// This is a **merge-base octopus** effectively, and works without generation numbers.
     fn compute_lowest_base(
         &self,
-        stack_tip: SegmentIndex,
+        ws_tip: SegmentIndex,
         target: Option<&Target>,
+        additional: impl IntoIterator<Item = SegmentIndex>,
     ) -> Option<(gix::ObjectId, SegmentIndex)> {
-        let target = target?;
+        // It's important to not start from the tip, but instead find paths to the merge-base from each stack individually.
+        // Otherwise, we may end up with a short path to a segment that isn't actually reachable by all stacks.
+        let stacks = self.inner.neighbors_directed(ws_tip, Direction::Outgoing);
+        let mut count = 0;
+        let base = stacks
+            .chain(target.map(|t| t.segment_index))
+            .chain(additional)
+            .inspect(|_| count += 1)
+            .reduce(|a, b| self.first_merge_base(a, b).unwrap_or(a))?;
 
-        let mut base = stack_tip;
-        for next in Some(target.segment_index)
-            .into_iter()
-            .chain(self[target.segment_index].sibling_segment_id)
-        {
-            let Some(next) = self.first_merge_base(base, next) else {
-                continue;
-            };
-            base = next;
-        }
-
-        if base == stack_tip {
+        if count < 2 || base == ws_tip {
             None
         } else {
             self.first_commit_or_find_along_first_parent(base)

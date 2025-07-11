@@ -34,6 +34,7 @@ fn unborn() -> anyhow::Result<()> {
                 None,
             ),
         ),
+        extra_target: None,
         hard_limit_hit: false,
     }
     "#);
@@ -127,6 +128,7 @@ fn detached() -> anyhow::Result<()> {
                 ),
             ),
         ),
+        extra_target: None,
         hard_limit_hit: false,
     }
     "#);

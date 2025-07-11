@@ -156,6 +156,9 @@ pub enum Subcommands {
         /// Debug-print the whole graph.
         #[clap(long, short = 'd')]
         debug: bool,
+        /// The rev-spec of the extra target to provide for traversal.
+        #[clap(long)]
+        extra_target: Option<String>,
         /// Do not debug-print the workspace.
         ///
         /// If too large, it takes a long time or runs out of memory.

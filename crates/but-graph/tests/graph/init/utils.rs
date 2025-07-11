@@ -139,5 +139,22 @@ pub fn standard_options() -> but_graph::init::Options {
         commits_limit_hint: None,
         commits_limit_recharge_location: vec![],
         hard_limit: None,
+        extra_target_commit_id: None,
+    }
+}
+
+pub fn standard_options_with_extra_target(
+    repo: &gix::Repository,
+    name: &str,
+) -> but_graph::init::Options {
+    but_graph::init::Options {
+        extra_target_commit_id: Some(
+            repo.find_reference(name)
+                .expect("present")
+                .peel_to_id_in_place()
+                .unwrap()
+                .detach(),
+        ),
+        ..standard_options()
     }
 }
