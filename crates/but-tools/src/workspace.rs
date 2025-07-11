@@ -679,7 +679,7 @@ pub struct CreateBlankCommitParameters {
         This should be the ID of an existinf commit in the stack.
     </important_notes>
     ")]
-    pub commit_id: String,
+    pub parent_id: String,
 }
 
 impl Tool for CreateBlankCommit {
@@ -730,7 +730,7 @@ pub fn create_blank_commit(
     params: CreateBlankCommitParameters,
 ) -> Result<Vec<(gix::ObjectId, gix::ObjectId)>, anyhow::Error> {
     let stack_id = StackId::from_str(&params.stack_id)?;
-    let commit_oid = gix::ObjectId::from_str(&params.commit_id)?;
+    let commit_oid = gix::ObjectId::from_str(&params.parent_id)?;
     let commit_oid = commit_oid.to_git2();
 
     let message = format!(
