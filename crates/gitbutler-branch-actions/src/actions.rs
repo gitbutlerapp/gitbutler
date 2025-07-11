@@ -380,21 +380,6 @@ pub fn reorder_stack(
     Ok(())
 }
 
-pub fn reset_virtual_branch(
-    ctx: &CommandContext,
-    stack_id: StackId,
-    target_commit_oid: git2::Oid,
-) -> Result<()> {
-    let mut guard = ctx.project().exclusive_worktree_access();
-    ctx.verify(guard.write_permission())?;
-    assure_open_workspace_mode(ctx).context("Resetting a branch requires open workspace mode")?;
-    let _ = ctx.create_snapshot(
-        SnapshotDetails::new(OperationKind::UndoCommit),
-        guard.write_permission(),
-    );
-    vbranch::reset_branch(ctx, stack_id, target_commit_oid)
-}
-
 pub fn find_git_branches(ctx: &CommandContext, branch_name: &str) -> Result<Vec<RemoteBranchData>> {
     remote::find_git_branches(ctx, branch_name)
 }
