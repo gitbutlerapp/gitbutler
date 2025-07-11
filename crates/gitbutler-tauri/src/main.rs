@@ -212,7 +212,6 @@ fn main() {
                     repo::commands::message_hook,
                     virtual_branches::commands::create_virtual_branch,
                     virtual_branches::commands::delete_local_branch,
-                    virtual_branches::commands::commit_virtual_branch,
                     virtual_branches::commands::get_base_branch_data,
                     virtual_branches::commands::set_base_branch,
                     virtual_branches::commands::push_base_branch,
