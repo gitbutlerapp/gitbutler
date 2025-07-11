@@ -22,6 +22,20 @@ pub struct Workspace<'graph> {
     pub kind: WorkspaceKind,
     /// One or more stacks that live in the workspace.
     pub stacks: Vec<Stack>,
+    /// The bound can be imagined as the commit from which all other commits in the workspace originate.
+    /// It can also be imagined to be the delimiter at the bottom beyond which nothing belongs to the workspace,
+    /// as antagonist to the first commit in tip of the segment with `id`, serving as first commit that is
+    /// inside the workspace.
+    ///
+    /// As such, it's always the longest path to the first shared commit with the target among
+    /// all of our stacks, or it is the first commit that is shared among all of our stacks in absence of a target.
+    /// One can also think of it as the starting point from which all workspace commits can be reached when
+    /// following all incoming connections and stopping at the tip of the workspace.
+    ///
+    /// It is `None` there is only a single stack and no target, so nothing was integrated.
+    pub lower_bound: Option<gix::ObjectId>,
+    /// If `base` is set, this is the segment owning the commit.
+    pub lower_bound_segment_id: Option<SegmentIndex>,
     /// The target to integrate workspace stacks into.
     ///
     /// If `None`, this is a local workspace that doesn't know when possibly pushed branches are considered integrated.
@@ -167,9 +181,11 @@ impl Graph {
                 .as_ref()
                 .and_then(|md| Target::from_ref_name(md.target_ref.as_ref()?, self)),
             metadata,
+            lower_bound_segment_id: None,
+            lower_bound: None,
         };
 
-        let merge_info = if ws.is_managed() {
+        let ws_lower_bound = if ws.is_managed() {
             self.compute_lowest_base(ws.id, ws.target.as_ref(), self.extra_target)
                 .or_else(|| {
                     // target not available? Try the base of the workspace itself
@@ -191,10 +207,14 @@ impl Graph {
             None
         };
 
+        (ws.lower_bound, ws.lower_bound_segment_id) = ws_lower_bound
+            .map(|(a, b)| (Some(a), Some(b)))
+            .unwrap_or_default();
+
         // The entrypoint is integrated and has a workspace above it.
         // Right now we would be using it, but will discard it the entrypoint is *at* or *below* the merge-base,
-        // but only if it doesn't obviously belong to the workspace, by having metadata..
-        if let Some(((_lowest_base, lowest_base_sidx), ep_sidx)) = merge_info
+        // but only if it doesn't obviously belong to the workspace, by having metadata.
+        if let Some(((_lowest_base, lowest_base_sidx), ep_sidx)) = ws_lower_bound
             .filter(|(_, ep_sidx)| {
                 entrypoint_first_commit_flags.contains(CommitFlags::Integrated)
                     && self[*ep_sidx].metadata.is_none()
@@ -217,18 +237,22 @@ impl Graph {
                     stacks: _,
                     target,
                     metadata,
+                    lower_bound,
+                    lower_bound_segment_id,
                 } = &mut ws;
                 *id = ep_sidx;
                 *head = WorkspaceKind::AdHoc;
                 *target = None;
                 *metadata = None;
                 ws_tip_segment = &self[ep_sidx];
+                *lower_bound = None;
+                *lower_bound_segment_id = None;
             }
         }
 
         if ws.is_managed() {
-            let (lowest_base, lowest_base_sidx) =
-                merge_info.map_or((None, None), |(base, sidx)| (Some(base), Some(sidx)));
+            let (_lowest_base, lowest_base_sidx) =
+                ws_lower_bound.map_or((None, None), |(base, sidx)| (Some(base), Some(sidx)));
             for stack_top_sidx in self
                 .inner
                 .neighbors_directed(ws_tip_segment.id, Direction::Outgoing)
@@ -273,15 +297,9 @@ impl Graph {
                                     .neighbors_directed(s.id, Direction::Incoming)
                                     .all(|n| n.id() != ws_tip_segment.id)
                         },
-                        |s| {
-                            s.commits
-                                .first()
-                                .is_some_and(|c| c.flags.contains(StackCommitFlags::Integrated))
-                        },
+                        |s| Some(s.id) == ws.lower_bound_segment_id && s.metadata.is_none(),
                     )?
-                    .map(|segments| {
-                        Stack::from_base_and_segments(lowest_base, lowest_base_sidx, segments)
-                    }),
+                    .map(|segments| Stack::from_base_and_segments(&self.inner, segments)),
                 );
             }
         } else {
@@ -307,7 +325,7 @@ impl Graph {
                     // Never discard stacks
                     |_s| false,
                 )?
-                .map(|segments| Stack::from_base_and_segments(None, None, segments)),
+                .map(|segments| Stack::from_base_and_segments(&self.inner, segments)),
             );
         }
 
@@ -780,9 +798,13 @@ impl Workspace<'_> {
             },
         );
         format!(
-            "{meta}{sign}:{id}:{name} <> ✓{target}",
+            "{meta}{sign}:{id}:{name} <> ✓{target}{bound}",
             meta = if self.metadata.is_some() { "📕" } else { "" },
             id = self.id.index(),
+            bound = self
+                .lower_bound
+                .map(|base| format!(" on {}", base.to_hex_with_len(7)))
+                .unwrap_or_default()
         )
     }
 }

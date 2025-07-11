@@ -15,7 +15,7 @@ use tracing::instrument;
 impl Graph {
     /// Now that the graph is complete, perform additional structural improvements with
     /// the requirement of them to be computationally cheap.
-    #[instrument(skip(self, meta, repo), err(Debug))]
+    #[instrument(skip(self, meta, repo, refs_by_id), err(Debug))]
     #[allow(clippy::too_many_arguments)]
     pub(super) fn post_processed(
         mut self,
@@ -196,7 +196,7 @@ impl Graph {
         let mut out: Vec<_> = ws_stacks
             .iter()
             .filter_map(|s| {
-                s.base_segment_id.and_then(|sidx| {
+                s.base_segment_id().and_then(|sidx| {
                     let base_is_directly_connected_to_workspace = self
                         .inner
                         .neighbors_directed(sidx, Direction::Incoming)
@@ -207,7 +207,7 @@ impl Graph {
                     let base_segment = &self[sidx];
                     // These are naturally in the workspace.
                     base_segment
-                        .commit_index_of(s.base.expect("must be set if sidx is set"))
+                        .commit_index_of(s.base().expect("must be set if sidx is set"))
                         .map(|cidx| (sidx, &base_segment.commits[cidx]))
                 })
             })

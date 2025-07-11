@@ -2054,24 +2054,6 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ],
                 stash_status: None,
             },
-            Stack {
-                base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
-                segments: [
-                    ref_info::ui::Segment {
-                        id: 0,
-                        ref_name: "None",
-                        remote_tracking_ref_name: "None",
-                        commits: [
-                            LocalCommit(fafd9d0, "init\n", local, ►main),
-                        ],
-                        commits_unique_in_remote_tracking_branch: [],
-                        metadata: "None",
-                    },
-                ],
-                stash_status: None,
-            },
         ],
         target_ref: Some(
             FullName(
