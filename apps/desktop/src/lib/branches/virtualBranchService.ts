@@ -109,7 +109,13 @@ export class VirtualBranchService {
 	}
 
 	private async listVirtualBranches(): Promise<BranchStack[]> {
-		const response = await invoke<any>('list_virtual_branches', { projectId: this.projectId });
+		const response = await invoke<any>('list_virtual_branches', {
+			projectId: this.projectId
+		}).catch((e) => {
+			// Swallow this error since this is only a transitional error from v2 -> v3.
+			console.error('Failed to list virtual branches (v2):', e);
+			return { branches: [], dependencyErrors: [], skippedFiles: [] };
+		});
 		const virtualBranches = plainToInstance(VirtualBranches, response);
 
 		if (virtualBranches.dependencyErrors.length > 0) {
