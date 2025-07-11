@@ -180,21 +180,6 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects, settings), err(Debug))]
-    pub fn update_virtual_branch(
-        projects: State<'_, projects::Controller>,
-        settings: State<'_, AppSettingsWithDiskSync>,
-        project_id: ProjectId,
-        branch: BranchUpdateRequest,
-    ) -> Result<(), Error> {
-        let project = projects.get(project_id)?;
-        let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        gitbutler_branch_actions::update_virtual_branch(&ctx, branch)?;
-
-        Ok(())
-    }
-
-    #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
     pub fn update_stack_order(
         projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
