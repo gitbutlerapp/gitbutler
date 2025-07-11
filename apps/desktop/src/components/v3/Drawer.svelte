@@ -27,6 +27,7 @@
 		scrollToId?: string;
 		scrollToType?: TargetType;
 		grow?: boolean;
+		shrink?: boolean;
 		maxHeight?: string;
 		onclose?: () => void;
 		ontoggle?: (collapsed: boolean) => void;
@@ -48,6 +49,7 @@
 		scrollToId,
 		scrollToType,
 		grow,
+		shrink,
 		maxHeight,
 		ontoggle,
 		onclose,
@@ -78,7 +80,7 @@
 	class:transparent
 	class:grow
 	style:max-height={maxHeight}
-	class:no-shrink={resizer && $collapsed !== undefined}
+	class:no-shrink={!shrink && resizer && $collapsed !== undefined}
 	{@attach scrollingAttachment(intelligentScrollingService, scrollToId, scrollToType)}
 >
 	<div bind:this={headerDiv} class="drawer-header">
