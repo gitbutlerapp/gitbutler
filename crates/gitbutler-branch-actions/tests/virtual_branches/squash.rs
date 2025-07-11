@@ -1,4 +1,4 @@
-use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
+use gitbutler_branch::BranchCreateRequest;
 
 use super::*;
 
@@ -239,79 +239,4 @@ fn forcepush_allowed() {
         vec!["commit four", "commit three", "commit one\ncommit two"]
     );
     assert!(branch.requires_force);
-}
-
-#[test]
-fn forcepush_forbidden() {
-    let Test { repo, ctx, .. } = &Test::default();
-
-    gitbutler_branch_actions::set_base_branch(
-        ctx,
-        &"refs/remotes/origin/master".parse().unwrap(),
-        false,
-        ctx.project().exclusive_worktree_access().write_permission(),
-    )
-    .unwrap();
-
-    let stack_entry = gitbutler_branch_actions::create_virtual_branch(
-        ctx,
-        &BranchCreateRequest::default(),
-        ctx.project().exclusive_worktree_access().write_permission(),
-    )
-    .unwrap();
-
-    gitbutler_branch_actions::update_virtual_branch(
-        ctx,
-        BranchUpdateRequest {
-            id: stack_entry.id,
-            allow_rebasing: Some(false),
-            ..Default::default()
-        },
-    )
-    .unwrap();
-
-    {
-        fs::write(repo.path().join("file one.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap()
-    };
-
-    let commit_two_oid = {
-        fs::write(repo.path().join("file two.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit two", None).unwrap()
-    };
-
-    {
-        fs::write(repo.path().join("file three.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit three", None).unwrap()
-    };
-
-    {
-        fs::write(repo.path().join("file four.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit four", None).unwrap()
-    };
-
-    // TODO: flag the old one as deprecated
-    gitbutler_branch_actions::stack::push_stack(ctx, stack_entry.id, false, None).unwrap();
-
-    let commit_two_parent_oid = repo
-        .find_commit(commit_two_oid)
-        .unwrap()
-        .parent(0)
-        .unwrap()
-        .id();
-
-    assert_eq!(
-        gitbutler_branch_actions::squash_commits(
-            ctx,
-            stack_entry.id,
-            vec![commit_two_oid],
-            commit_two_parent_oid,
-        )
-        .unwrap_err()
-        .to_string(),
-        format!(
-            "Force push is now allowed. Source commits with id {} has already been pushed",
-            commit_two_oid
-        )
-    );
 }

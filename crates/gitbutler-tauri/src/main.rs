@@ -217,7 +217,6 @@ fn main() {
                     virtual_branches::commands::set_base_branch,
                     virtual_branches::commands::push_base_branch,
                     virtual_branches::commands::integrate_upstream_commits,
-                    virtual_branches::commands::update_virtual_branch,
                     virtual_branches::commands::update_stack_order,
                     virtual_branches::commands::unapply_stack,
                     virtual_branches::commands::create_virtual_branch_from_branch,
