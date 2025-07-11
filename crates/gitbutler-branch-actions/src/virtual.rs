@@ -5,6 +5,7 @@ use crate::{
 };
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::{BString, ByteSlice};
+use but_core::commit::ConflictEntries;
 use but_rebase::RebaseStep;
 use but_workspace::stack_ext::StackExt;
 use gitbutler_branch::dedup;
@@ -149,6 +150,54 @@ pub fn list_virtual_branches(
 ) -> Result<StackListResult> {
     let diffs = gitbutler_diff::workdir(ctx.repo(), but_workspace::head(ctx)?)?;
     list_virtual_branches_cached(ctx, perm, &diffs)
+}
+
+impl From<but_workspace::ui::Author> for crate::author::Author {
+    fn from(value: but_workspace::ui::Author) -> Self {
+        crate::author::Author {
+            name: value.name,
+            email: value.email,
+            gravatar_url: value.gravatar_url,
+        }
+    }
+}
+
+impl From<but_workspace::ui::Commit> for VirtualBranchCommit {
+    fn from(c: but_workspace::ui::Commit) -> Self {
+        let remote_commit_id = match c.state {
+            but_workspace::ui::CommitState::LocalAndRemote(remote_commit_id) => {
+                Some(remote_commit_id.to_git2())
+            }
+            _ => None,
+        };
+        VirtualBranchCommit {
+            id: c.id.to_git2(),
+            description: c.message.into(),
+            created_at: c.created_at as u128,
+            author: c.author.into(),
+            is_remote: false,
+            is_local_and_remote: matches!(
+                c.state,
+                but_workspace::ui::CommitState::LocalAndRemote(_)
+            ),
+            is_integrated: matches!(c.state, but_workspace::ui::CommitState::Integrated),
+            parent_ids: c.parent_ids.iter().map(|p| p.to_git2()).collect(),
+            branch_id: StackId::default(),
+            change_id: None,
+            is_signed: false,
+            conflicted: c.has_conflicts,
+            copied_from_remote_id: None,
+            remote_commit_id,
+            conflicted_files: ConflictEntries {
+                ancestor_entries: vec![],
+                our_entries: vec![],
+                their_entries: vec![],
+            },
+            dependencies: vec![],
+            reverse_dependencies: vec![],
+            dependent_diffs: vec![],
+        }
+    }
 }
 
 /// `worktree_changes` are all changed files against the current `HEAD^{tree}` and index
