@@ -753,5 +753,23 @@ EOF
 
     create_workspace_commit_once S1
   )
+
+  git init multiple-dependent-branches-per-stack-without-ws-commit
+  (cd multiple-dependent-branches-per-stack-without-ws-commit
+    git commit -m "init" --allow-empty
+    setup_target_to_match_main
+
+    git branch lane-segment-01
+    git branch lane-segment-02
+
+    git branch lane-2
+    git branch lane-2-segment-01
+    git branch lane-2-segment-02
+
+    git checkout -b lane
+    commit "change"
+
+    git checkout -b gitbutler/workspace
+ )
 )
 

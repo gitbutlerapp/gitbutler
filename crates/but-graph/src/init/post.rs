@@ -161,7 +161,14 @@ impl Graph {
                             .first()
                             .is_some_and(|rn| rn.category() == Some(Category::LocalBranch))
                         {
-                            s.ref_name = first_commit.refs.pop()
+                            s.ref_name = first_commit.refs.pop();
+                            s.metadata = meta
+                                .branch_opt(
+                                    s.ref_name.as_ref().map(|rn| rn.as_ref()).expect("just set"),
+                                )
+                                .ok()
+                                .flatten()
+                                .map(|md| SegmentMetadata::Branch(md.clone()));
                         }
                     }
                     _ => {

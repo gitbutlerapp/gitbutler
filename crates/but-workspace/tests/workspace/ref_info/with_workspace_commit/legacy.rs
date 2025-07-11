@@ -3,34 +3,23 @@ mod stacks {
     use crate::ref_info::with_workspace_commit::utils::{StackState, add_stack};
     use but_testsupport::visualize_commit_graph_all;
     use but_workspace::{StacksFilter, stacks_v3};
-    use gitbutler_stack::StackId;
 
     #[test]
     fn multiple_branches_with_shared_segment_automatically_know_containing_workspace()
     -> anyhow::Result<()> {
         let (repo, mut meta) = read_only_in_memory_scenario("multiple-stacks-with-shared-segment")?;
 
+        add_stack(&mut meta, 1, "B-on-A", StackState::InWorkspace);
+        add_stack(&mut meta, 2, "C-on-A", StackState::Inactive);
         add_stack(
             &mut meta,
-            StackId::from_number_for_testing(1),
-            "B-on-A",
-            StackState::InWorkspace,
-        );
-        add_stack(
-            &mut meta,
-            StackId::from_number_for_testing(2),
-            "C-on-A",
-            StackState::Inactive,
-        );
-        add_stack(
-            &mut meta,
-            StackId::from_number_for_testing(3),
+            3,
             "does-not-exist-inactive",
             StackState::Inactive,
         );
         add_stack(
             &mut meta,
-            StackId::from_number_for_testing(4),
+            4,
             "does-not-exist-active",
             StackState::InWorkspace,
         );
@@ -123,12 +112,7 @@ mod stacks {
         // nothing reachable
         insta::assert_debug_snapshot!(actual, @"[]");
 
-        add_stack(
-            &mut meta,
-            StackId::from_number_for_testing(5),
-            "main",
-            StackState::Inactive,
-        );
+        add_stack(&mut meta, 5, "main", StackState::Inactive);
 
         let actual = stacks_v3(&repo, &meta, StacksFilter::Unapplied)?;
         // Still nothing reachable
@@ -157,7 +141,6 @@ mod stack_details {
         StackState, add_stack, add_stack_with_segments,
     };
     use but_testsupport::visualize_commit_graph_all;
-    use gitbutler_stack::StackId;
 
     #[test]
     fn simple_fully_pushed() -> anyhow::Result<()> {
@@ -172,7 +155,7 @@ mod stack_details {
 
         let stack_id = add_stack_with_segments(
             &mut meta,
-            StackId::from_number_for_testing(1),
+            1,
             "dependant",
             StackState::InWorkspace,
             &["advanced-lane"],
@@ -248,18 +231,8 @@ mod stack_details {
         * c166d42 (origin/main, origin/HEAD, main) init-integration
         ");
 
-        let b_stack_id = add_stack(
-            &mut meta,
-            StackId::from_number_for_testing(1),
-            "B-on-A",
-            StackState::InWorkspace,
-        );
-        let c_stack_id = add_stack(
-            &mut meta,
-            StackId::from_number_for_testing(2),
-            "C-on-A",
-            StackState::InWorkspace,
-        );
+        let b_stack_id = add_stack(&mut meta, 1, "B-on-A", StackState::InWorkspace);
+        let c_stack_id = add_stack(&mut meta, 2, "C-on-A", StackState::InWorkspace);
         let actual = but_workspace::stack_details_v3(b_stack_id, &repo, &meta)?;
         insta::assert_debug_snapshot!(actual, @r#"
         StackDetails {

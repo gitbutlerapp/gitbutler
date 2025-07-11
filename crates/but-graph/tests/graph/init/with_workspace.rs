@@ -3325,3 +3325,101 @@ fn no_workspace_no_target_commit_under_managed_ref() -> anyhow::Result<()> {
     ");
     Ok(())
 }
+
+#[test]
+fn no_workspace_commit() -> anyhow::Result<()> {
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("ws/multiple-dependent-branches-per-stack-without-ws-commit")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * cbc6713 (HEAD -> gitbutler/workspace, lane) change
+    * fafd9d0 (origin/main, main, lane-segment-02, lane-segment-01, lane-2-segment-02, lane-2-segment-01, lane-2) init
+    ");
+
+    // Follow the natural order, lane first.
+    add_stack_with_segments(
+        &mut meta,
+        0,
+        "lane",
+        StackState::InWorkspace,
+        &["lane-segment-01", "lane-segment-02"],
+    );
+    add_stack_with_segments(
+        &mut meta,
+        1,
+        "lane-2",
+        StackState::InWorkspace,
+        &["lane-2-segment-01", "lane-2-segment-02"],
+    );
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    // It's notable that `lane` can't pick up its additional segments as these aren't on the actual
+    // segment, they are on the base which isn't where it can pick them up from and isn't were they
+    // would be created.
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    ├── 👉📕►►►:0:gitbutler/workspace
+    │   ├── 📙►:3:lane
+    │   │   └── ·cbc6713 (⌂|🏘️|1)
+    │   │       └── ►:2:main <> origin/main →:1:
+    │   │           └── ·fafd9d0 (⌂|🏘️|✓|11) ►lane-segment-01, ►lane-segment-02
+    │   └── 📙►:4:lane-2
+    │       └── 📙►:5:lane-2-segment-01
+    │           └── 📙►:6:lane-2-segment-02
+    │               └── →:2: (main →:1:)
+    └── ►:1:origin/main →:2:
+        └── →:2: (main →:1:)
+    ");
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
+    ├── ≡📙:4:lane-2 on fafd9d0
+    │   ├── 📙:4:lane-2
+    │   ├── 📙:5:lane-2-segment-01
+    │   └── 📙:6:lane-2-segment-02
+    └── ≡📙:3:lane on fafd9d0
+        └── 📙:3:lane
+            └── ·cbc6713 (🏘️)
+    ");
+
+    // Natural order here is `lane` first, but we say we want `lane-2` first
+    meta.data_mut().branches.clear();
+    add_stack_with_segments(
+        &mut meta,
+        0,
+        "lane-2",
+        StackState::InWorkspace,
+        &["lane-2-segment-01", "lane-2-segment-02"],
+    );
+    add_stack_with_segments(
+        &mut meta,
+        1,
+        "lane",
+        StackState::InWorkspace,
+        &["lane-segment-01", "lane-segment-02"],
+    );
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    // the order is maintained as provided in the workspace.
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    ├── 👉📕►►►:0:gitbutler/workspace
+    │   ├── 📙►:4:lane-2
+    │   │   └── 📙►:5:lane-2-segment-01
+    │   │       └── 📙►:6:lane-2-segment-02
+    │   │           └── ►:2:main <> origin/main →:1:
+    │   │               └── ·fafd9d0 (⌂|🏘️|✓|11) ►lane-segment-01, ►lane-segment-02
+    │   └── 📙►:3:lane
+    │       └── ·cbc6713 (⌂|🏘️|1)
+    │           └── →:2: (main →:1:)
+    └── ►:1:origin/main →:2:
+        └── →:2: (main →:1:)
+    ");
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
+    ├── ≡📙:3:lane on fafd9d0
+    │   └── 📙:3:lane
+    │       └── ·cbc6713 (🏘️)
+    └── ≡📙:4:lane-2 on fafd9d0
+        ├── 📙:4:lane-2
+        ├── 📙:5:lane-2-segment-01
+        └── 📙:6:lane-2-segment-02
+    ");
+    Ok(())
+}
