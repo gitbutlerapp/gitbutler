@@ -190,8 +190,15 @@
 			return;
 		}
 		if (passive) {
-			viewport.style.width = '';
-			viewport.style.height = '';
+			if (orientation === 'horizontal') {
+				viewport.style.width = '';
+				viewport.style.maxWidth = '';
+				viewport.style.minWidth = '';
+			} else {
+				viewport.style.height = '';
+				viewport.style.maxHeight = '';
+				viewport.style.minHeight = '';
+			}
 			return;
 		}
 
@@ -199,7 +206,7 @@
 			newValue = applyLimits(newValue).newValue;
 		}
 
-		if (direction === 'left' || direction === 'right') {
+		if (orientation === 'horizontal') {
 			if (newValue === undefined) {
 				viewport.style.width = '';
 				viewport.style.maxWidth = maxWidth ? maxWidth + 'rem' : '';
@@ -209,7 +216,7 @@
 				viewport.style.maxWidth = '';
 				viewport.style.minWidth = '';
 			}
-		} else if (direction === 'up' || direction === 'down') {
+		} else {
 			if (newValue === undefined) {
 				viewport.style.height = '';
 				viewport.style.maxHeight = unsetMaxHeight || '';
@@ -230,7 +237,7 @@
 		if ($value !== undefined) {
 			return $value;
 		}
-		if (direction === 'left' || direction === 'right') {
+		if (orientation === 'horizontal') {
 			return pxToRem(viewport.clientWidth, zoom);
 		}
 		return pxToRem(viewport.clientHeight, zoom);

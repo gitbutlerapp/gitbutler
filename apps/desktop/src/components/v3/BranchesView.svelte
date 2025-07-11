@@ -346,9 +346,9 @@
 
 						<Resizer
 							viewport={branchColumn}
-							persistId="branches-branch-column"
+							persistId="branches-branch-column-1"
 							direction="right"
-							defaultValue={15}
+							defaultValue={20}
 							minWidth={10}
 							maxWidth={30}
 						/>
@@ -360,9 +360,9 @@
 								<UnappliedCommitView {projectId} commitId={current.commitId} />
 								<Resizer
 									viewport={commitColumn}
-									persistId="branches-branch-column"
+									persistId="branches-branch-column-2"
 									direction="right"
-									defaultValue={15}
+									defaultValue={20}
 									minWidth={10}
 									maxWidth={30}
 								/>
@@ -387,9 +387,9 @@
 								{/if}
 								<Resizer
 									viewport={commitColumn}
-									persistId="branches-branch-column"
+									persistId="branches-branch-column-2"
 									direction="right"
-									defaultValue={15}
+									defaultValue={20}
 									minWidth={10}
 									maxWidth={30}
 								/>
