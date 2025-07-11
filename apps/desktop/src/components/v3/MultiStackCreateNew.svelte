@@ -70,11 +70,6 @@
 		}
 	});
 
-	// Get the selected stack's first branch name for the info text
-	const selectedStackFirstBranch = $derived(
-		selectedStackId ? allStacks.find((s) => s.id === selectedStackId)?.heads[0]?.name : undefined
-	);
-
 	function handleOptionSelect(event: Event) {
 		const target = event.target as HTMLInputElement;
 		createRefType = target.id === 'new-stack' ? 'stack' : 'dependent';
@@ -149,7 +144,12 @@
 			<!-- Option 1 -->
 			<label for="new-stack" class="radio-label" class:radio-selected={createRefType === 'stack'}>
 				<div class="radio-btn">
-					<RadioButton checked name="create-new" id="new-stack" onchange={handleOptionSelect} />
+					<RadioButton
+						checked={createRefType === 'stack'}
+						name="create-new"
+						id="new-stack"
+						onchange={handleOptionSelect}
+					/>
 				</div>
 
 				<div class="radio-content">
@@ -172,6 +172,7 @@
 			>
 				<div class="radio-btn">
 					<RadioButton
+						checked={createRefType === 'dependent'}
 						name="create-new"
 						id="new-dependent"
 						disabled={allStacks.length === 0}
@@ -380,6 +381,7 @@
 		--btn-bg: var(--clr-theme-pop-bg);
 		--btn-bg-opacity: 1;
 		--btn-border-clr: var(--clr-btn-pop-outline);
+		--btn-border-opacity: 0.6;
 		/* illustration */
 		--illustration-outline: var(--clr-text-3);
 		--illustration-text: var(--clr-text-2);
