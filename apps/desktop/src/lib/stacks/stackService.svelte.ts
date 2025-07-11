@@ -1076,6 +1076,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				query: (args) => args,
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesItem(ReduxTag.StackDetails, args.stackId),
+					invalidatesList(ReduxTag.Stacks),
 					invalidatesList(ReduxTag.BranchListing)
 				]
 			}),
