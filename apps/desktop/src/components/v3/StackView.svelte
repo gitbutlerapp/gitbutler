@@ -368,6 +368,7 @@
 				draggableFiles
 				collapsible={$compactWorkspace}
 				selectionId={{ type: 'commit', commitId, stackId: stack.id }}
+				shrink={!previewKey}
 				ontoggle={(collapsed) => {
 					changedFilesCollapsed = collapsed;
 				}}
@@ -381,7 +382,7 @@
 					{#if $compactWorkspace}
 						<Resizer
 							{resizeGroup}
-							{unsetMaxHeight}
+							unsetMaxHeight={previewKey ? unsetMaxHeight : undefined}
 							order={1}
 							viewport={element}
 							maxHeight={maxChangedFilesHeight}
