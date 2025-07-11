@@ -1,7 +1,7 @@
 pub(crate) mod state {
     use std::{collections::BTreeMap, sync::Arc};
 
-    use anyhow::{Context, Result};
+    use anyhow::Result;
     use but_settings::AppSettingsWithDiskSync;
     use gitbutler_command_context::CommandContext;
     use gitbutler_project as projects;
@@ -257,21 +257,6 @@ pub(crate) mod state {
         pub fn get_active_project_by_window(&self, window: &WindowLabelRef) -> Option<ProjectId> {
             let state_by_label = self.state.lock();
             state_by_label.get(window).map(|state| state.project_id)
-        }
-
-        pub fn post(&self, action: gitbutler_watcher::Action) -> Result<()> {
-            let mut state_by_label = self.state.lock();
-            let state = state_by_label
-                .values_mut()
-                .find(|state| state.project_id == action.project_id());
-            if let Some(state) = state {
-                state.watcher.post(action).context("failed to post event")
-            } else {
-                Err(anyhow::anyhow!(
-                    "matching watcher to post event not found, wanted {wanted}",
-                    wanted = action.project_id(),
-                ))
-            }
         }
 
         /// Flush file-monitor watcher events once the windows regains focus for it to respond instantly

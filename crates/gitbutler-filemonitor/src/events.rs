@@ -5,9 +5,6 @@ use gitbutler_project::ProjectId;
 /// An event for internal use, as merge between [super::file_monitor::Event] and [Action].
 #[derive(Debug)]
 pub enum InternalEvent {
-    // From public action API
-    CalculateVirtualBranches(ProjectId),
-
     // From file monitor
     GitFilesChange(ProjectId, Vec<PathBuf>),
     ProjectFilesChange(ProjectId, Vec<PathBuf>),
@@ -37,7 +34,6 @@ impl Display for InternalEvent {
                     comma_separated_paths(paths)
                 )
             }
-            InternalEvent::CalculateVirtualBranches(pid) => write!(f, "VirtualBranch({})", pid),
         }
     }
 }
