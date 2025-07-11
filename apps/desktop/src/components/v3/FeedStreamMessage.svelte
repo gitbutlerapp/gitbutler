@@ -1,14 +1,16 @@
 <script lang="ts">
-	import FeedToolCall from '$components/v3/FeedToolCall.svelte';
-	import { Feed, type InProgressAssistantMessage, type ToolCall } from '$lib/feed/feed';
+	import FeedItemKind from '$components/v3/FeedItemKind.svelte';
+	import { Feed, type InProgressAssistantMessage } from '$lib/feed/feed';
 	import { getContext } from '@gitbutler/shared/context';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
+	import type { ToolCall } from '$lib/ai/tool';
 
 	type Props = {
+		projectId: string;
 		message: InProgressAssistantMessage;
 	};
 
-	const { message }: Props = $props();
+	const { projectId, message }: Props = $props();
 
 	const feed = getContext(Feed);
 	let toolCalls = $state<ToolCall[]>(message.toolCalls);
@@ -52,7 +54,7 @@
 {:else if toolCalls.length > 0}
 	<p class="vibing">Vibing</p>
 	{#each toolCalls as toolCall, index (index)}
-		<FeedToolCall {toolCall} />
+		<FeedItemKind type="tool-call" {projectId} {toolCall} />
 	{/each}
 {:else}
 	{#each messageContentLines as line, index (index)}

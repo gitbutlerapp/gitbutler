@@ -5,6 +5,7 @@ import Mutex from '$lib/utils/mutex';
 import { deduplicateBy } from '@gitbutler/shared/utils/array';
 import { plainToInstance } from 'class-transformer';
 import { get, writable } from 'svelte/store';
+import type { ToolCall } from '$lib/ai/tool';
 import type { Tauri } from '$lib/backend/tauri';
 
 type DBEvent = {
@@ -15,12 +16,6 @@ type DBEvent = {
 type TokenEvent = {
 	messageId: string;
 	token: string;
-};
-
-export type ToolCall = {
-	name: string;
-	parameters: string;
-	result: string;
 };
 
 type ToolCallEvent = ToolCall & {
