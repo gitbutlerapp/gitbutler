@@ -60,7 +60,6 @@ impl Test {
 
 mod amend;
 mod apply_virtual_branch;
-mod create_commit;
 mod create_virtual_branch_from_branch;
 mod init;
 mod insert_blank_commit;
@@ -69,16 +68,13 @@ mod list_details;
 mod move_commit_file;
 mod move_commit_to_vbranch;
 mod oplog;
-mod references;
 mod reset_virtual_branch;
 mod save_and_unapply_virtual_branch;
-mod selected_for_changes;
 mod set_base_branch;
 mod squash;
 mod unapply_ownership;
 mod unapply_without_saving_virtual_branch;
 mod undo_commit;
 mod update_commit_message;
-mod upstream;
 mod verify_branch;
 mod workspace_migration;
