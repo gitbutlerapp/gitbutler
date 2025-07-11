@@ -390,7 +390,6 @@
 							persistId="resizer-panel2-changed-files-${stack.id}"
 							passive={collapsed}
 							direction="down"
-							syncName="blah"
 						/>
 					{/if}
 				{/snippet}
@@ -433,7 +432,6 @@
 							persistId="resizer-panel2-changed-files-${stack.id}"
 							passive={collapsed}
 							direction="down"
-							syncName="blah"
 						/>
 					{/if}
 				{/snippet}
