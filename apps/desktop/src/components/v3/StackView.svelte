@@ -400,7 +400,7 @@
 {/snippet}
 
 {#snippet branchChangedFiles(branchName: string)}
-	{@const active = selectedKey?.type === 'branch'}
+	{@const active = selectedKey?.type === 'branch' && focusedStackId === stack.id}
 	{@const changesResult = stackService.branchChanges({
 		projectId,
 		stackId: stack.id,
