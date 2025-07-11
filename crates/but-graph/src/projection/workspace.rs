@@ -192,9 +192,13 @@ impl Graph {
         };
 
         // The entrypoint is integrated and has a workspace above it.
-        // Right now we would be using it, but will discard it the entrypoint is *at* or *below* the merge-base.
+        // Right now we would be using it, but will discard it the entrypoint is *at* or *below* the merge-base,
+        // but only if it doesn't obviously belong to the workspace, by having metadata..
         if let Some(((_lowest_base, lowest_base_sidx), ep_sidx)) = merge_info
-            .filter(|_| entrypoint_first_commit_flags.contains(CommitFlags::Integrated))
+            .filter(|(_, ep_sidx)| {
+                entrypoint_first_commit_flags.contains(CommitFlags::Integrated)
+                    && self[*ep_sidx].metadata.is_none()
+            })
             .zip(entrypoint_sidx)
         {
             if ep_sidx == lowest_base_sidx

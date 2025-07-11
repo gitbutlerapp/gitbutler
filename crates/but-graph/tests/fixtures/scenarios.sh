@@ -736,5 +736,22 @@ EOF
     git checkout -b gitbutler/workspace
       commit unmanaged
   )
+
+  git init one-stacks-many-refs
+  (cd one-stacks-many-refs
+    commit init && setup_target_to_match_main
+    for name in A B C;  do
+      git branch "$name"
+    done
+    git checkout -b S1
+      commit 1
+        git branch D
+        git branch E
+      commit 2
+        git branch F
+        git branch G
+
+    create_workspace_commit_once S1
+  )
 )
 

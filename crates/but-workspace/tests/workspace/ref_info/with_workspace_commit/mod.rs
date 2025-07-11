@@ -2004,7 +2004,6 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
     "#);
 
     let info = ref_info2(repo.find_reference("lane")?, &meta, opts.clone())?;
-    // TODO: test for entrypoint movement to newly proxied segments
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -2018,7 +2017,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
                 segments: [
-                    ref_info::ui::Segment {
+                    👉ref_info::ui::Segment {
                         id: 4,
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
@@ -2060,7 +2059,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
                 segments: [
-                    👉ref_info::ui::Segment {
+                    ref_info::ui::Segment {
                         id: 0,
                         ref_name: "None",
                         remote_tracking_ref_name: "None",

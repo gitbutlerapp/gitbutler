@@ -255,10 +255,10 @@ impl Graph {
         };
 
         let mut next = Queue::new_with_limit(hard_limit);
-        if !workspaces
+        let tip_is_not_workspace_commit = !workspaces
             .iter()
-            .any(|(_, wsrn, _)| Some(wsrn) == ref_name.as_ref())
-        {
+            .any(|(_, wsrn, _)| Some(wsrn) == ref_name.as_ref());
+        if tip_is_not_workspace_commit {
             let current = graph.insert_root(branch_segment_from_name_and_meta(
                 ref_name.clone().map(|rn| (rn, None)),
                 meta,
@@ -389,6 +389,7 @@ impl Graph {
                 // have to adjust the existing queue item.
                 existing_segment
             } else {
+                // TODO: test in graph
                 let extra_target_sidx = graph.insert_root(branch_segment_from_name_and_meta(
                     None,
                     meta,
@@ -549,6 +550,7 @@ impl Graph {
             &target_symbolic_remote_names,
             &configured_remote_tracking_branches,
             inserted_proxy_segments,
+            &refs_by_id,
         )
     }
 
