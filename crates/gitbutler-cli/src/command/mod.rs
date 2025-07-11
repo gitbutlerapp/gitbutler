@@ -7,37 +7,6 @@ fn debug_print(this: impl std::fmt::Debug) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub mod ownership {
-    use but_settings::AppSettings;
-    use gitbutler_command_context::CommandContext;
-    use gitbutler_diff::Hunk;
-    use gitbutler_project::Project;
-    use gitbutler_stack::{BranchOwnershipClaims, OwnershipClaim};
-    use std::path::PathBuf;
-
-    pub fn unapply(
-        project: Project,
-        file_path: PathBuf,
-        from_line: u32,
-        to_line: u32,
-    ) -> anyhow::Result<()> {
-        let claims = BranchOwnershipClaims {
-            claims: vec![OwnershipClaim {
-                file_path,
-                hunks: vec![Hunk {
-                    hash: None,
-                    start: from_line,
-                    end: to_line,
-                    hunk_header: None,
-                }],
-            }],
-        };
-
-        let ctx = CommandContext::open(&project, AppSettings::default())?;
-        gitbutler_branch_actions::unapply_ownership(&ctx, &claims)
-    }
-}
-
 pub mod workspace {
     use crate::args::UpdateMode;
     use but_settings::AppSettings;

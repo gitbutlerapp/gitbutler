@@ -21,14 +21,6 @@ fn main() -> Result<()> {
             let project = command::prepare::project_from_path(args.current_dir)?;
             command::workspace::update(project, mode)
         }
-        args::Subcommands::UnapplyOwnership {
-            filepath,
-            from_line,
-            to_line,
-        } => {
-            let project = command::prepare::project_from_path(args.current_dir)?;
-            command::ownership::unapply(project, filepath, from_line, to_line)
-        }
         args::Subcommands::Branch(vbranch::Platform { cmd }) => {
             let project = command::prepare::project_from_path(args.current_dir)?;
             match cmd {

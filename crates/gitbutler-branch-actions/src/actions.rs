@@ -8,7 +8,6 @@ use crate::upstream_integration::{
     self, BaseBranchResolution, BaseBranchResolutionApproach, IntegrationOutcome, Resolution,
     StackStatuses, UpstreamIntegrationContext,
 };
-use crate::VirtualBranchHunkRangeMap;
 use crate::{
     base,
     base::BaseBranch,
@@ -36,7 +35,6 @@ use gitbutler_repo::RepositoryExt;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{BranchOwnershipClaims, StackId};
 
-use std::path::PathBuf;
 use tracing::instrument;
 
 pub fn create_commit(
@@ -262,44 +260,6 @@ pub fn unapply_stack(
     let branch_name =
         branch_manager.unapply(stack_id, guard.write_permission(), false, assigned_diffspec)?;
     Ok(branch_name)
-}
-
-pub fn unapply_lines(
-    ctx: &CommandContext,
-    ownership: &BranchOwnershipClaims,
-    lines: VirtualBranchHunkRangeMap,
-) -> Result<()> {
-    let mut guard = ctx.project().exclusive_worktree_access();
-    ctx.verify(guard.write_permission())?;
-    assure_open_workspace_mode(ctx).context("Unapply a patch requires open workspace mode")?;
-    let _ = ctx.create_snapshot(
-        SnapshotDetails::new(OperationKind::DiscardLines),
-        guard.write_permission(),
-    );
-
-    vbranch::unapply_ownership(ctx, ownership, Some(lines), guard.write_permission())
-}
-
-pub fn unapply_ownership(ctx: &CommandContext, ownership: &BranchOwnershipClaims) -> Result<()> {
-    let mut guard = ctx.project().exclusive_worktree_access();
-    ctx.verify(guard.write_permission())?;
-    assure_open_workspace_mode(ctx).context("Unapply a patch requires open workspace mode")?;
-    let _ = ctx.create_snapshot(
-        SnapshotDetails::new(OperationKind::DiscardHunk),
-        guard.write_permission(),
-    );
-    vbranch::unapply_ownership(ctx, ownership, None, guard.write_permission())
-}
-
-pub fn reset_files(ctx: &CommandContext, stack_id: StackId, files: &[PathBuf]) -> Result<()> {
-    let mut guard = ctx.project().exclusive_worktree_access();
-    ctx.verify(guard.write_permission())?;
-    assure_open_workspace_mode(ctx).context("Resetting a file requires open workspace mode")?;
-    let _ = ctx.create_snapshot(
-        SnapshotDetails::new(OperationKind::DiscardFile),
-        guard.write_permission(),
-    );
-    vbranch::reset_files(ctx, stack_id, files, guard.write_permission())
 }
 
 pub fn amend(
