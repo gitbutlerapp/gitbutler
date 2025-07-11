@@ -47,6 +47,7 @@ toml.workspace = true
 
 [dev-dependencies]
 pretty_assertions = "1.4"
+but-graph.workspace = true
 gitbutler-testsupport.workspace = true
 gitbutler-workspace.workspace = true
 gix = { workspace = true, features = [] }
