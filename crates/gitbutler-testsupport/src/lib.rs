@@ -1,6 +1,9 @@
 #![forbid(rust_2018_idioms)]
 pub const VAR_NO_CLEANUP: &str = "GITBUTLER_TESTS_NO_CLEANUP";
 
+use but_graph::VirtualBranchesTomlMetadata;
+use but_workspace::{ui::StackDetails, StacksFilter};
+use gitbutler_command_context::CommandContext;
 use gix::bstr::BStr;
 /// Direct access to lower-level utilities for cases where this is enough.
 ///
@@ -160,6 +163,36 @@ pub fn visualize_gix_tree(tree_id: gix::Id<'_>) -> termtree::Tree<String> {
 pub fn visualize_git2_tree(tree_id: git2::Oid, repo: &git2::Repository) -> termtree::Tree<String> {
     let repo = gix::open_opts(repo.path(), gix::open::Options::isolated()).unwrap();
     visualize_gix_tree(git2_to_gix_object_id(tree_id).attach(&repo))
+}
+
+pub fn stack_details(ctx: &CommandContext) -> Vec<StackDetails> {
+    let repo = ctx.gix_repo_for_merging_non_persisting().unwrap();
+    let stacks = if ctx.app_settings().feature_flags.ws3 {
+        let meta = VirtualBranchesTomlMetadata::from_path(
+            ctx.project().gb_dir().join("virtual_branches.toml"),
+        )
+        .unwrap();
+        but_workspace::stacks_v3(&repo, &meta, StacksFilter::default())
+    } else {
+        but_workspace::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
+    }
+    .unwrap();
+    let mut details = vec![];
+    for stack in stacks {
+        details.push(
+            if ctx.app_settings().feature_flags.ws3 {
+                let meta = VirtualBranchesTomlMetadata::from_path(
+                    ctx.project().gb_dir().join("virtual_branches.toml"),
+                )
+                .unwrap();
+                but_workspace::stack_details_v3(stack.id, &repo, &meta)
+            } else {
+                but_workspace::stack_details(&ctx.project().gb_dir(), stack.id, ctx)
+            }
+            .unwrap(),
+        );
+    }
+    details
 }
 
 pub mod read_only {

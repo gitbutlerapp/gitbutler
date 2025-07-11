@@ -3384,7 +3384,9 @@ name = "gitbutler-testsupport"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-graph",
  "but-settings",
+ "but-workspace",
  "git2",
  "gitbutler-branch-actions",
  "gitbutler-command-context",

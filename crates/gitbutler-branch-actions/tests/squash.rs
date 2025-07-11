@@ -1,6 +1,6 @@
 use anyhow::Result;
 use bstr::ByteSlice;
-use gitbutler_branch_actions::{internal::PatchSeries, list_virtual_branches, squash_commits};
+use gitbutler_branch_actions::{internal::PatchSeries, squash_commits};
 use gitbutler_command_context::CommandContext;
 use gitbutler_stack::{StackBranch, VirtualBranchesHandle};
 use itertools::Itertools;
@@ -507,13 +507,22 @@ struct TestBranchListing {
 
 /// Stack branches from the API
 fn list_branches(ctx: &CommandContext) -> Result<TestBranchListing> {
-    let branches = list_virtual_branches(ctx)?
-        .branches
+    let details = gitbutler_testsupport::stack_details(ctx);
+    let branches: Vec<PatchSeries> = details
         .first()
         .unwrap()
-        .series
+        .branch_details
         .iter()
-        .map(|s| s.clone().unwrap())
+        .map(|d| PatchSeries {
+            name: d.name.clone().to_string(),
+            description: None,
+            upstream_reference: None,
+            patches: d.commits.iter().cloned().map(Into::into).collect(),
+            upstream_patches: vec![],
+            pr_number: None,
+            archived: false,
+            review_id: None,
+        })
         .collect_vec();
     fn find(branches: &[PatchSeries], name: &str) -> PatchSeries {
         branches.iter().find(|b| b.name == name).unwrap().clone()
