@@ -524,6 +524,7 @@ pub fn graph(
     no_open: bool,
     limit: Option<usize>,
     limit_extension: Vec<String>,
+    extra_target_spec: Option<&str>,
     hard_limit: Option<usize>,
     debug_graph: bool,
     no_debug_workspace: bool,
@@ -531,7 +532,12 @@ pub fn graph(
 ) -> anyhow::Result<()> {
     let (mut repo, project) = repo_and_maybe_project(args, RepositoryOpenMode::General)?;
     repo.objects.refresh = RefreshMode::Never;
+    let extra_target = extra_target_spec
+        .map(|rev_spec| repo.rev_parse_single(rev_spec))
+        .transpose()?
+        .map(|id| id.detach());
     let opts = but_graph::init::Options {
+        extra_target_commit_id: extra_target,
         collect_tags: true,
         hard_limit,
         commits_limit_hint: limit,

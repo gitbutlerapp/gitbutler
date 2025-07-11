@@ -208,9 +208,11 @@ mkdir ws
          git branch "$name"
        done
      git checkout -b B
+       git branch soon-origin-B
        commit segment-B~1 && git branch B-empty && git branch ambiguous-01
        commit segment-B && git tag without-ref
        commit with-ref
+       setup_remote_tracking soon-origin-B B "move"
      create_workspace_commit_once B
   )
 
@@ -673,5 +675,83 @@ EOF
     create_workspace_commit_once A
   )
 
+  git init no-target-without-ws-commit
+  (cd no-target-without-ws-commit
+    commit init
+    git checkout -b A
+      commit A1
+      commit A2
+    git branch gitbutler/workspace
+    git checkout -b soon-A-remote
+      commit A-remote
+      setup_remote_tracking soon-A-remote A "move"
+    git checkout gitbutler/workspace
+  )
+
+  git init no-target-without-ws-commit-ambiguous
+  (cd no-target-without-ws-commit-ambiguous
+    commit init
+    git checkout -b A
+      commit A1
+      commit A2
+    git branch gitbutler/workspace
+    git branch B
+    git checkout -b soon-A-remote
+      commit A-remote
+      setup_remote_tracking soon-A-remote A "move"
+    git checkout gitbutler/workspace
+  )
+
+  git init no-target-with-ws-commit
+  (cd no-target-with-ws-commit
+    commit init
+    git checkout -b A
+      commit A1
+      commit A2
+    git checkout -b soon-A-remote
+      commit A-remote
+      setup_remote_tracking soon-A-remote A "move"
+
+    git checkout A
+    create_workspace_commit_once A
+  )
+
+  git init ws-commit-pushed-to-target
+  (cd ws-commit-pushed-to-target
+    commit init
+    git checkout -b A
+      commit A1
+    create_workspace_commit_once A
+    git checkout -b soon-main-remote
+      setup_remote_tracking soon-main-remote main "move"
+
+    git checkout gitbutler/workspace
+  )
+
+  git init no-ws-no-target-commit-with-managed-ref
+  (cd no-ws-no-target-commit-with-managed-ref
+    commit init
+    git checkout -b A
+      commit A1
+    git checkout -b gitbutler/workspace
+      commit unmanaged
+  )
+
+  git init one-stacks-many-refs
+  (cd one-stacks-many-refs
+    commit init && setup_target_to_match_main
+    for name in A B C;  do
+      git branch "$name"
+    done
+    git checkout -b S1
+      commit 1
+        git branch D
+        git branch E
+      commit 2
+        git branch F
+        git branch G
+
+    create_workspace_commit_once S1
+  )
 )
 

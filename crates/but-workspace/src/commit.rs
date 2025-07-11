@@ -3,7 +3,6 @@ use bstr::ByteSlice;
 
 /// Construction
 impl<'repo> WorkspaceCommit<'repo> {
-    const GITBUTLER_INTEGRATION_COMMIT_TITLE: &'static str = "GitButler Integration Commit";
     const GITBUTLER_WORKSPACE_COMMIT_TITLE: &'static str = "GitButler Workspace Commit";
 
     /// Decode the object at `commit_id` and keep its data for later query.
@@ -93,10 +92,7 @@ impl WorkspaceCommit<'_> {
     /// If `false`, this is the tip of the stack itself which will be put underneath a *managed* workspace commit
     /// once another branch is added to the workspace.
     pub fn is_managed(&self) -> bool {
-        let message = gix::objs::commit::MessageRef::from_bytes(&self.message);
-        let title = message.title.trim().as_bstr();
-        title == Self::GITBUTLER_INTEGRATION_COMMIT_TITLE
-            || title == Self::GITBUTLER_WORKSPACE_COMMIT_TITLE
+        but_graph::projection::commit::is_managed_workspace_by_message(self.message.as_bstr())
     }
 }
 

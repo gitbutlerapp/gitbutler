@@ -117,6 +117,7 @@ async fn main() -> Result<()> {
             limit_extension,
             hard_limit,
             debug,
+            extra_target,
             no_debug_workspace,
             no_dot,
         } => command::graph(
@@ -125,6 +126,7 @@ async fn main() -> Result<()> {
             *no_open,
             limit.flatten(),
             limit_extension.clone(),
+            extra_target.as_deref(),
             *hard_limit,
             *debug,
             *no_debug_workspace,

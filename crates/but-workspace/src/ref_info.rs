@@ -318,7 +318,7 @@ pub(crate) mod function {
     use but_core::ref_metadata::{ValueInfo, Workspace, WorkspaceStack};
     use but_graph::{
         CommitFlags, Graph, is_workspace_ref_name,
-        projection::{HeadLocation, StackCommit},
+        projection::{StackCommit, WorkspaceKind},
     };
     use gix::{
         ObjectId,
@@ -434,7 +434,7 @@ pub(crate) mod function {
         let but_graph::projection::Workspace {
             graph,
             id,
-            head,
+            kind,
             stacks,
             target,
             metadata,
@@ -443,17 +443,15 @@ pub(crate) mod function {
         let cache = repo.commit_graph_if_enabled()?;
         let mut graph_cache = repo.revision_graph(cache.as_ref());
 
-        let (workspace_ref_name, is_managed_commit) = match head {
-            HeadLocation::Workspace { ref_name } => {
+        let (workspace_ref_name, is_managed_commit) = match kind {
+            WorkspaceKind::Managed { ref_name } => {
                 let is_managed = try_refname_to_id(repo, ref_name.as_ref())?
                     .map(|id| WorkspaceCommit::from_id(id.attach(repo)))
                     .transpose()?
                     .is_some_and(|wsc| wsc.is_managed());
                 (Some(ref_name), is_managed)
             }
-            HeadLocation::Segment { segment_index } => {
-                (graph[segment_index].ref_name.clone(), false)
-            }
+            WorkspaceKind::AdHoc => (graph[id].ref_name.clone(), false),
         };
         Ok(RefInfo {
             workspace_ref_name,
@@ -486,7 +484,11 @@ pub(crate) mod function {
 
     impl branch::Stack {
         fn try_from_graph_stack<'repo>(
-            but_graph::projection::Stack { base, segments }: but_graph::projection::Stack,
+            but_graph::projection::Stack {
+                base,
+                base_segment_id: _,
+                segments,
+            }: but_graph::projection::Stack,
             repo: &'repo gix::Repository,
             mut ctx: SimilarityContext<'_, '_, 'repo, '_>,
         ) -> anyhow::Result<Self> {
@@ -507,6 +509,7 @@ pub(crate) mod function {
                 ref_name,
                 // TODO: use base
                 base: _,
+                base_segment_id: _,
                 remote_tracking_ref_name,
                 sibling_segment_id: _,
                 id,

@@ -1,7 +1,32 @@
 use bstr::ByteSlice;
 use but_testsupport::{visualize_commit_graph, visualize_commit_graph_all};
-use but_workspace::{head_info, head_info2, ref_info, ref_info2};
+use but_workspace::{RefInfo, head_info, ref_info};
+use gitbutler_oxidize::OidExt;
 use gitbutler_stack::StackId;
+
+pub fn head_info2(
+    repo: &gix::Repository,
+    meta: &but_graph::VirtualBranchesTomlMetadata,
+    mut opts: but_workspace::ref_info::Options,
+) -> anyhow::Result<RefInfo> {
+    if opts.traversal.extra_target_commit_id.is_none() {
+        opts.traversal.extra_target_commit_id =
+            meta.data().default_target.as_ref().map(|t| t.sha.to_gix());
+    }
+    but_workspace::head_info2(repo, meta, opts)
+}
+
+pub fn ref_info2(
+    existing_ref: gix::Reference<'_>,
+    meta: &but_graph::VirtualBranchesTomlMetadata,
+    mut opts: but_workspace::ref_info::Options,
+) -> anyhow::Result<RefInfo> {
+    if opts.traversal.extra_target_commit_id.is_none() {
+        opts.traversal.extra_target_commit_id =
+            meta.data().default_target.as_ref().map(|t| t.sha.to_gix());
+    }
+    but_workspace::ref_info2(existing_ref, meta, opts)
+}
 
 #[test]
 fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
@@ -23,7 +48,7 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
     );
     // We can look at a workspace ref directly (via HEAD)
     let opts = standard_options();
-    let info = head_info2(&repo, &*meta, opts.clone())?;
+    let info = head_info2(&repo, &meta, opts.clone())?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -69,7 +94,7 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
     "#);
 
     let at = repo.find_reference("refs/heads/A")?;
-    let info = ref_info2(at, &*meta, opts.clone())?;
+    let info = ref_info2(at, &meta, opts.clone())?;
     // Information doesn't change just because the starting point is different.
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
@@ -121,7 +146,7 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
         .remove_section("branch", info.stacks[0].name().unwrap().shorten().as_bstr());
 
     let at = repo.find_reference("refs/heads/A")?;
-    let info = ref_info2(at, &*meta, opts)?;
+    let info = ref_info2(at, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -191,7 +216,7 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
     );
 
     let opts = standard_options();
-    let info = head_info2(&repo, &*meta, opts)?;
+    let info = head_info2(&repo, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -277,7 +302,7 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
     );
 
     let opts = standard_options();
-    let info = head_info2(&repo, &*meta, opts)?;
+    let info = head_info2(&repo, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -548,7 +573,7 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
     add_workspace(&mut meta);
 
     let opts = standard_options();
-    let info = head_info2(&repo, &*meta, opts)?;
+    let info = head_info2(&repo, &meta, opts)?;
     // TODO: need to detect that A is integrated.
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
@@ -628,7 +653,7 @@ fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
         StackState::InWorkspace,
     );
     let opts = standard_options();
-    let info = ref_info2(repo.find_reference("A")?, &*meta, opts)?;
+    let info = ref_info2(repo.find_reference("A")?, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -1169,7 +1194,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<(
     // For complexity, we also don't set up any branch metadata, only 'something' to get the target ref.
     add_workspace(&mut meta);
     let opts = standard_options();
-    let info = head_info2(&repo, &*meta, opts)?;
+    let info = head_info2(&repo, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -1232,7 +1257,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
     );
 
     let opts = standard_options();
-    let info = head_info2(&repo, &*meta, opts.clone())?;
+    let info = head_info2(&repo, &meta, opts.clone())?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -1298,7 +1323,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
 
     // Even though we *could* special-case this to keep the commit in the branch that has a remote,
     // we just keep it below at all times. The frontend currently only creates them on top, for good reason.
-    let info = head_info2(&repo, &*meta, opts)?;
+    let info = head_info2(&repo, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -1375,7 +1400,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
     );
 
     let opts = standard_options();
-    let info = head_info2(&repo, &*meta, opts.clone())?;
+    let info = head_info2(&repo, &meta, opts.clone())?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -1451,7 +1476,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
         &["on-top-of-dependant", "advanced-lane"],
     );
 
-    let info = head_info2(&repo, &*meta, opts.clone())?;
+    let info = head_info2(&repo, &meta, opts.clone())?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -1540,7 +1565,7 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
     );
 
     let opts = standard_options();
-    let info = head_info2(&repo, &*meta, opts)?;
+    let info = head_info2(&repo, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -1623,7 +1648,7 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
     );
 
     let opts = standard_options();
-    let info = ref_info2(repo.find_reference("A")?, &*meta, opts).unwrap();
+    let info = ref_info2(repo.find_reference("A")?, &meta, opts).unwrap();
 
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
@@ -1700,7 +1725,7 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
     }
 
     let opts = standard_options();
-    let info = head_info2(&repo, &*meta, opts.clone())?;
+    let info = head_info2(&repo, &meta, opts.clone())?;
     // It's fine to have no managed commit, but we have to deal with it - see flag is_managed.
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
@@ -1723,6 +1748,22 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                             LocalCommit(cbc6713, "change\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
+                        metadata: "None",
+                    },
+                ],
+                stash_status: None,
+            },
+            Stack {
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                segments: [
+                    ref_info::ui::Segment {
+                        id: 4,
+                        ref_name: "refs/heads/lane",
+                        remote_tracking_ref_name: "None",
+                        commits: [],
+                        commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
                             description: None,
@@ -1744,8 +1785,7 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
     }
     "#);
 
-    // TODO(ref_info2): virtual lane should still be present even if entrypoint is changed. After all, it's still in the workspace.
-    let info = ref_info(repo.find_reference("advanced-lane")?, &*meta, opts).unwrap();
+    let info = ref_info2(repo.find_reference("advanced-lane")?, &meta, opts).unwrap();
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -1759,7 +1799,7 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
                 segments: [
-                    ref_info::ui::Segment {
+                    👉ref_info::ui::Segment {
                         id: 0,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
@@ -1782,7 +1822,7 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: 4,
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1836,7 +1876,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
     }
 
     let opts = standard_options();
-    let info = head_info2(&repo, &*meta, opts.clone())?;
+    let info = head_info2(&repo, &meta, opts.clone())?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -1851,12 +1891,10 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 3,
+                        id: 4,
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
-                        commits: [
-                            LocalCommit(fafd9d0, "init\n", local, ►main),
-                        ],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -1873,7 +1911,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 2,
+                        id: 3,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -1902,7 +1940,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
     "#);
 
     // Everything is show so the workspace stays clear, the entrypoint says what to focus on.
-    let info = ref_info2(repo.find_reference("advanced-lane")?, &*meta, opts.clone())?;
+    let info = ref_info2(repo.find_reference("advanced-lane")?, &meta, opts.clone())?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -1917,12 +1955,10 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 3,
+                        id: 4,
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
-                        commits: [
-                            LocalCommit(fafd9d0, "init\n", local, ►main),
-                        ],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -1967,7 +2003,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
     }
     "#);
 
-    let info = ref_info2(repo.find_reference("lane")?, &*meta, opts.clone())?;
+    let info = ref_info2(repo.find_reference("lane")?, &meta, opts.clone())?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -1982,12 +2018,10 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
                 segments: [
                     👉ref_info::ui::Segment {
-                        id: 0,
+                        id: 4,
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
-                        commits: [
-                            LocalCommit(fafd9d0, "init\n", local, ►main),
-                        ],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -2016,6 +2050,24 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                    },
+                ],
+                stash_status: None,
+            },
+            Stack {
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                segments: [
+                    ref_info::ui::Segment {
+                        id: 0,
+                        ref_name: "None",
+                        remote_tracking_ref_name: "None",
+                        commits: [
+                            LocalCommit(fafd9d0, "init\n", local, ►main),
+                        ],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: "None",
                     },
                 ],
                 stash_status: None,
@@ -2043,7 +2095,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         );
     }
 
-    let info = head_info2(&repo, &*meta, opts)?;
+    let info = head_info2(&repo, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -2058,7 +2110,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 2,
+                        id: 3,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -2080,12 +2132,10 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 3,
+                        id: 4,
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
-                        commits: [
-                            LocalCommit(fafd9d0, "init\n", local, ►main),
-                        ],
+                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -2126,7 +2176,7 @@ fn disjoint() -> anyhow::Result<()> {
     );
 
     let opts = standard_options();
-    let info = head_info2(&repo, &*meta, opts)?;
+    let info = head_info2(&repo, &meta, opts)?;
 
     // We see the commit in the branch as there is no base to hide it.
     insta::assert_debug_snapshot!(info, @r#"
@@ -2190,7 +2240,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
     );
 
     let opts = standard_options();
-    let info = head_info2(&repo, &*meta, opts.clone())?;
+    let info = head_info2(&repo, &meta, opts.clone())?;
 
     // The shared "A" segment is used in both stacks, as it's reachable from both.
     insta::assert_debug_snapshot!(info, @r#"
@@ -2277,7 +2327,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
     }
     "#);
 
-    let info = ref_info2(repo.find_reference("C-on-A")?, &*meta, opts.clone())?;
+    let info = ref_info2(repo.find_reference("C-on-A")?, &meta, opts.clone())?;
 
     // A partial workspace is provided, but the entire workspace is known.
     insta::assert_debug_snapshot!(info, @r#"
@@ -2308,7 +2358,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: 4,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2328,7 +2378,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 6,
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -2338,7 +2388,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         metadata: "None",
                     },
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: 4,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2364,7 +2414,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
     }
     "#);
 
-    let b_info = ref_info2(repo.find_reference("B-on-A")?, &*meta, opts.clone())?;
+    let b_info = ref_info2(repo.find_reference("B-on-A")?, &meta, opts.clone())?;
 
     // It's like the stack is part of the workspace, the result is the same, with entrypoints changed.
     insta::assert_debug_snapshot!(b_info, @r#"
@@ -2381,7 +2431,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: 6,
                         ref_name: "refs/heads/C-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -2395,7 +2445,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: 4,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2425,7 +2475,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         metadata: "None",
                     },
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: 4,
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2451,7 +2501,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
     }
     "#);
 
-    let a_info = ref_info2(repo.find_reference("A")?, &*meta, opts)?;
+    let a_info = ref_info2(repo.find_reference("A")?, &meta, opts)?;
 
     // We can also show segments that are part of the stack (like homing in on them), as long as they are in a workspace.
     // It's notable how there are two entrypoints, so the UI has to assure both are visible.
@@ -2609,7 +2659,7 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
         StackState::Inactive,
     );
 
-    let info = head_info2(&repo, &*meta, opts.clone())?;
+    let info = head_info2(&repo, &meta, opts.clone())?;
     // Now there should be no stack, it's an empty workspace.
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
@@ -2681,6 +2731,7 @@ mod legacy;
 mod utils {
     use crate::ref_info::utils::named_read_only_in_memory_scenario;
     use but_graph::VirtualBranchesTomlMetadata;
+    use gitbutler_oxidize::ObjectIdExt;
     use gitbutler_stack::StackId;
 
     pub fn read_only_in_memory_scenario(
@@ -2697,7 +2748,10 @@ mod utils {
             branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
             // Not required
             remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-            sha: git2::Oid::zero(),
+            sha: repo
+                .find_reference("main")?
+                .peel_to_id_in_place()?
+                .to_git2(),
             push_remote_name: None,
         });
         Ok((repo, meta))

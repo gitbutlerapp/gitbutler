@@ -1,11 +1,13 @@
-use crate::{CommitFlags, CommitIndex, Edge};
-use crate::{Graph, Segment, SegmentIndex, SegmentMetadata};
 use anyhow::{Context, bail};
 use but_core::RefMetadata;
-use gix::hashtable::hash_map::Entry;
-use gix::prelude::{ObjectIdExt, ReferenceExt};
-use gix::refs::Category;
+use gix::{
+    hashtable::hash_map::Entry,
+    prelude::{ObjectIdExt, ReferenceExt},
+    refs::Category,
+};
 use tracing::instrument;
+
+use crate::{CommitFlags, CommitIndex, Edge, Graph, Segment, SegmentIndex, SegmentMetadata};
 
 mod walk;
 use walk::*;
@@ -54,6 +56,12 @@ pub struct Options {
     /// Due to multiple paths being taken, more commits may be queued (which is what's counted here) than actually
     /// end up in the graph, so usually one will see many less.
     pub hard_limit: Option<usize>,
+    /// Provide the commit that should act like the tip of an additional target reference,
+    /// just as if it was set by one of the workspaces.
+    /// This everything it touches will be considered integrated, and it can be used to 'extend' the border of
+    /// the workspace.
+    /// Typically, it's a past position of an existing target, or a target chosen by the user.
+    pub extra_target_commit_id: Option<gix::ObjectId>,
 }
 
 /// Builder
@@ -180,6 +188,7 @@ impl Graph {
     ///   as will happen at merge commits).
     /// * The traversal is always as long as it needs to be to fully reconcile possibly disjoint branches, despite
     ///   this sometimes costing some time when the remote is far ahead in a huge repository.
+    // TODO: review the docs!
     #[instrument(skip(meta, ref_name), err(Debug))]
     pub fn from_commit_traversal(
         tip: gix::Id<'_>,
@@ -187,6 +196,7 @@ impl Graph {
         meta: &impl RefMetadata,
         Options {
             collect_tags,
+            extra_target_commit_id,
             commits_limit_hint: limit,
             commits_limit_recharge_location: mut max_commits_recharge_location,
             hard_limit,
@@ -245,10 +255,10 @@ impl Graph {
         };
 
         let mut next = Queue::new_with_limit(hard_limit);
-        if !workspaces
+        let tip_is_not_workspace_commit = !workspaces
             .iter()
-            .any(|(_, wsrn, _)| Some(wsrn) == ref_name.as_ref())
-        {
+            .any(|(_, wsrn, _)| Some(wsrn) == ref_name.as_ref());
+        if tip_is_not_workspace_commit {
             let current = graph.insert_root(branch_segment_from_name_and_meta(
                 ref_name.clone().map(|rn| (rn, None)),
                 meta,
@@ -263,7 +273,10 @@ impl Graph {
                 return Ok(graph.with_hard_limit());
             }
         }
+
+        let mut ws_tips = Vec::new();
         for (ws_tip, ws_ref, workspace_info) in workspaces {
+            ws_tips.push(ws_tip);
             let target = workspace_info.target_ref.as_ref().and_then(|trn| {
                 let tid = try_refname_to_id(repo, trn.as_ref())
                     .map_err(|err| {
@@ -310,12 +323,13 @@ impl Graph {
                     // We only allow workspaces that are not remote, and that are not target refs.
                     // Theoretically they can still cross-reference each other, but then we'd simply ignore
                     // their status for now.
-                    CommitFlags::NotInRemote | ws_extra_flags,
+                    CommitFlags::NotInRemote| ws_extra_flags,
                 Instruction::CollectCommit { into: ws_segment },
                 ws_limit,
             )) {
                 return Ok(graph.with_hard_limit());
             }
+
             if let Some((target_ref, target_ref_id, local_tip_info)) = target {
                 let target_segment = graph.insert_root(branch_segment_from_name_and_meta(
                     Some((target_ref, None)),
@@ -366,6 +380,43 @@ impl Graph {
             }
         }
 
+        if let Some(extra_target) = extra_target_commit_id {
+            let sidx = if let Some(existing_segment) =
+                next.iter().find_map(|(tip_id, _, instruction, _)| {
+                    (tip_id == &extra_target).then_some(instruction.segment_idx())
+                }) {
+                // For now just assume the settings are good/similar enough so we don't
+                // have to adjust the existing queue item.
+                existing_segment
+            } else {
+                // TODO: test in graph
+                let extra_target_sidx = graph.insert_root(branch_segment_from_name_and_meta(
+                    None,
+                    meta,
+                    Some((&refs_by_id, extra_target)),
+                )?);
+                if next.push_front_exhausted((
+                    extra_target,
+                    CommitFlags::Integrated,
+                    Instruction::CollectCommit {
+                        into: extra_target_sidx,
+                    },
+                    max_limit
+                        .with_indirect_goal(tip.detach(), &mut goals)
+                        .without_allowance(),
+                )) {
+                    return Ok(graph.with_hard_limit());
+                }
+                extra_target_sidx
+            };
+            graph.extra_target = Some(sidx);
+        }
+
+        let inserted_proxy_segments = prioritize_initial_tips_and_assure_ws_commit_ownership(
+            &mut graph,
+            &mut next,
+            (ws_tips, repo, meta),
+        )?;
         max_commits_recharge_location.sort();
         while let Some((id, mut propagated_flags, instruction, mut limit)) = next.pop_front() {
             if max_commits_recharge_location.binary_search(&id).is_ok() {
@@ -498,6 +549,8 @@ impl Graph {
             repo,
             &target_symbolic_remote_names,
             &configured_remote_tracking_branches,
+            inserted_proxy_segments,
+            &refs_by_id,
         )
     }
 

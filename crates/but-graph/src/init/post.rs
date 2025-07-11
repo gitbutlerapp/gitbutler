@@ -1,16 +1,22 @@
 use crate::init::types::{EdgeOwned, TopoWalk};
+use crate::init::walk::{RefsById, disambiguate_refs_by_branch_metadata};
 use crate::init::{PetGraph, branch_segment_from_name_and_meta, remotes};
-use crate::{Commit, CommitFlags, CommitIndex, Edge, Graph, SegmentIndex, is_workspace_ref_name};
+use crate::{Commit, CommitFlags, CommitIndex, Edge, Graph, SegmentIndex, SegmentMetadata};
+use anyhow::bail;
 use but_core::{RefMetadata, ref_metadata};
+use gix::prelude::ObjectIdExt;
 use gix::reference::Category;
 use petgraph::Direction;
 use petgraph::prelude::EdgeRef;
 use std::collections::{BTreeMap, BTreeSet};
+use tracing::instrument;
 
 /// Processing
 impl Graph {
     /// Now that the graph is complete, perform additional structural improvements with
     /// the requirement of them to be computationally cheap.
+    #[instrument(skip(self, meta, repo), err(Debug))]
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn post_processed(
         mut self,
         meta: &impl RefMetadata,
@@ -18,6 +24,8 @@ impl Graph {
         repo: &gix::Repository,
         symbolic_remote_names: &[String],
         configured_remote_tracking_branches: &BTreeSet<gix::refs::FullName>,
+        inserted_proxy_segments: Vec<SegmentIndex>,
+        refs_by_id: &RefsById,
     ) -> anyhow::Result<Self> {
         // For the first id to be inserted into our entrypoint segment, set index.
         if let Some((segment, ep_commit)) = self.entrypoint.as_mut() {
@@ -27,8 +35,22 @@ impl Graph {
                 .and_then(|s| s.commit_index_of(tip));
         }
 
-        self.workspace_upgrades(meta)?;
-        self.non_workspace_adjustments(
+        // This should be first as what follows could help name these new segments that it creates.
+        self.fixup_workspace_segments(repo, refs_by_id, meta)?;
+        // All non-workspace fixups must come first, otherwise the workspace handling might
+        // differ as it relies on non-anonymous segments much more.
+        self.fixup_segment_names(meta, inserted_proxy_segments);
+        // We perform view-related updates here for convenience, but also because the graph
+        // traversal should have nothing to do with workspace details. It's just about laying
+        // the foundation for figuring out our workspaces more easily.
+        self.workspace_upgrades(meta, repo)?;
+
+        // However, when it comes to using remotes to disambiguate, it's better to
+        // *not* do that before workspaces are sorted as it might incorrectly place
+        // a segment on top of another one, setting a first-second relationship that isn't
+        // what we have in the workspace metadata, which then also can't set it anymore
+        // because it can't reorder existing empty segments (which are not natural).
+        self.improve_remote_segments(
             repo,
             symbolic_remote_names,
             configured_remote_tracking_branches,
@@ -37,160 +59,367 @@ impl Graph {
         Ok(self)
     }
 
-    /// Perform operations on segments that can reach a workspace segment when searching upwards.
-    ///
-    /// * insert empty segments as defined by the workspace that affects its downstream.
-    /// * put workspace connection into the order defined in the workspace metadata.
-    fn workspace_upgrades(&mut self, meta: &impl RefMetadata) -> anyhow::Result<()> {
-        let tips_with_ws_data: Vec<_> = self
-            .tip_segments()
-            .filter(|sidx| self.inner[*sidx].workspace_metadata().is_some())
+    /// Assure that workspace segments with managed commits only have that commit, and move all others
+    /// into a new segment.
+    fn fixup_workspace_segments(
+        &mut self,
+        repo: &gix::Repository,
+        refs_by_id: &RefsById,
+        meta: &impl RefMetadata,
+    ) -> anyhow::Result<()> {
+        let workspace_segments_with_multiple_commits: Vec<_> = self
+            .inner
+            .node_indices()
+            .filter(|sidx| {
+                let s = &self[*sidx];
+                s.workspace_metadata().is_some() && s.commits.len() > 1
+            })
             .collect();
 
-        // Maps any segment to any workspace that it can reach, even the workspace maps itself as it may need processing too
-        let mut ws_by_segment_map =
-            BTreeMap::<SegmentIndex, Vec<(SegmentIndex, std::ops::Range<CommitIndex>)>>::new();
-        for ws_sidx in tips_with_ws_data.iter().cloned() {
-            let start_idx = self[ws_sidx].commits.first().map(|_| 0);
-            let mut walk = TopoWalk::start_from(ws_sidx, start_idx, Direction::Outgoing);
+        for ws_sidx in workspace_segments_with_multiple_commits {
+            let s = &mut self[ws_sidx];
+            let first_commit = &mut s.commits[0];
+            if !crate::projection::commit::is_managed_workspace_by_message(
+                repo.find_commit(first_commit.id)?.message_raw()?,
+            ) {
+                continue;
+            }
+            let second_commit_id = s.commits[1].id;
+            let new_segment_commits = s.commits.drain(1..).collect();
+            let edges_to_reconnect: Vec<_> = self
+                .edges_directed_in_order_of_creation(ws_sidx, Direction::Outgoing)
+                .into_iter()
+                .map(EdgeOwned::from)
+                .collect();
+            let mut new_segment = branch_segment_from_name_and_meta(
+                None,
+                meta,
+                Some((refs_by_id, second_commit_id)),
+            )?;
+            new_segment.commits = new_segment_commits;
+            let new_segment_sidx =
+                self.connect_new_segment(ws_sidx, 0, new_segment, 0, second_commit_id);
 
-            while let Some((sidx, commit_range)) = walk.next(&self.inner) {
-                ws_by_segment_map
-                    .entry(sidx)
-                    .or_default()
-                    .push((ws_sidx, commit_range));
+            let (src, src_id) = {
+                let s = &self[new_segment_sidx];
+                let last = s.commits.len() - 1;
+                (Some(last), Some(s.commits[last].id))
+            };
+            for edge in edges_to_reconnect {
+                self.inner.add_edge(
+                    new_segment_sidx,
+                    edge.target,
+                    Edge {
+                        src,
+                        src_id,
+                        dst: edge.weight.dst,
+                        dst_id: edge.weight.dst_id,
+                    },
+                );
+                self.inner.remove_edge(edge.id);
+            }
+        }
+        Ok(())
+    }
+
+    /// To keep it simple, the iteration will not always create perfect segment names right away so we
+    /// fix it in post.
+    ///
+    /// * segments are anonymous even though there is an unambiguous name for its first parent.
+    ///   These segments sometimes are inserted to assure workspace segments don't own non-workspace commits.
+    /// * segments have a name, but the same name is still visible in the refs of the first commit.
+    ///
+    /// Only perform disambiguation on proxy segments (i.e. those inserted segments to prevent commit-ownership).
+    fn fixup_segment_names(
+        &mut self,
+        meta: &impl RefMetadata,
+        inserted_proxy_segments: Vec<SegmentIndex>,
+    ) {
+        let segments_with_refs_on_first_commit: Vec<_> = self
+            .inner
+            .node_indices()
+            .filter(|sidx| {
+                self[*sidx]
+                    .commits
+                    .first()
+                    .is_some_and(|c| !c.refs.is_empty())
+            })
+            .collect();
+        for sidx in segments_with_refs_on_first_commit {
+            let s = &mut self.inner[sidx];
+            let first_commit = &mut s.commits[0];
+            if let Some(srn) = &s.ref_name {
+                if let Some(pos) = first_commit.refs.iter().position(|rn| rn == srn) {
+                    first_commit.refs.remove(pos);
+                }
+            } else {
+                match first_commit.refs.len() {
+                    0 => unreachable!("prefiltered"),
+                    1 => {
+                        if first_commit
+                            .refs
+                            .first()
+                            .is_some_and(|rn| rn.category() == Some(Category::LocalBranch))
+                        {
+                            s.ref_name = first_commit.refs.pop()
+                        }
+                    }
+                    _ => {
+                        if !inserted_proxy_segments.contains(&sidx) {
+                            continue;
+                        }
+                        let Some((rn, metadata)) =
+                            disambiguate_refs_by_branch_metadata(first_commit.refs.iter(), meta)
+                        else {
+                            continue;
+                        };
+
+                        s.metadata = metadata;
+                        first_commit.refs.retain(|crn| crn != &rn);
+                        s.ref_name = Some(rn);
+                    }
+                }
+            }
+        }
+    }
+
+    /// Find all *unique* commits (along with their owning segments) where we can look for references that are to be
+    /// spread out as independent branches.
+    /// This means these commits must be in the workspace!
+    fn candidates_for_independent_branches_in_workspace(
+        &self,
+        ws_sidx: SegmentIndex,
+        target: Option<&crate::projection::Target>,
+        ws_stacks: &[crate::projection::Stack],
+        repo: &gix::Repository,
+    ) -> anyhow::Result<Vec<SegmentIndex>> {
+        let mut out: Vec<_> = ws_stacks
+            .iter()
+            .filter_map(|s| {
+                s.base_segment_id.and_then(|sidx| {
+                    let base_is_directly_connected_to_workspace = self
+                        .inner
+                        .neighbors_directed(sidx, Direction::Incoming)
+                        .any(|above_sidx| above_sidx == ws_sidx);
+                    if base_is_directly_connected_to_workspace {
+                        return None;
+                    }
+                    let base_segment = &self[sidx];
+                    // These are naturally in the workspace.
+                    base_segment
+                        .commit_index_of(s.base.expect("must be set if sidx is set"))
+                        .map(|cidx| (sidx, &base_segment.commits[cidx]))
+                })
+            })
+            .collect();
+        out.sort_by_key(|t| t.1.id);
+        out.dedup_by_key(|t| t.1.id);
+
+        let mut out: Vec<_> = out.into_iter().map(|t| t.0).collect();
+        if let Some(extra_target) = self.extra_target {
+            out.extend(
+                self.first_commit_or_find_along_first_parent(extra_target)
+                    .and_then(|(c, sidx)| {
+                        (!out.contains(&sidx) && c.flags.contains(CommitFlags::InWorkspace))
+                            .then_some(sidx)
+                    }),
+            );
+        }
+
+        match target {
+            None => {
+                let Some(commit_with_refs) =
+                    self[ws_sidx].commits.first().filter(|c| !c.refs.is_empty())
+                else {
+                    return Ok(out);
+                };
+
+                // Never create anything on top of managed commits.
+                if crate::projection::commit::is_managed_workspace_by_message(
+                    commit_with_refs
+                        .id
+                        .attach(repo)
+                        .object()?
+                        .try_into_commit()?
+                        .message_raw()?,
+                ) {
+                    return Ok(out);
+                }
+
+                // This means we are managed, but have lost our workspace commit, instead we
+                // own a commit. This really shouldn't happen.
+                tracing::warn!(
+                    "Workspace segment {ws_sidx:?} is owning a non-workspace commit\
+                     - this shouldn't be possible"
+                )
+            }
+            Some(target) => {
+                let target_rtb = &self[target.segment_index];
+                out.extend(
+                    self.first_commit_or_find_along_first_parent(target_rtb.id)
+                        .and_then(|(c, sidx)| {
+                            c.flags.contains(CommitFlags::InWorkspace).then_some(sidx)
+                        }),
+                );
+                out.sort();
+                out.dedup();
+            }
+        }
+        Ok(out)
+    }
+
+    /// Perform operations on the current workspace, or do nothing if there is None that we would consider one.
+    ///
+    /// * workspace segments are either empty, or have just one managed commit.
+    /// * insert empty segments as defined by the workspace that affects its downstream.
+    /// * put workspace connection into the order defined in the workspace metadata.
+    fn workspace_upgrades(
+        &mut self,
+        meta: &impl RefMetadata,
+        repo: &gix::Repository,
+    ) -> anyhow::Result<()> {
+        let Some((ws_sidx, ws_stacks, ws_data, ws_target)) =
+            self.to_workspace().ok().and_then(|mut ws| {
+                let md = ws.metadata.take();
+                md.map(|d| (ws.id, ws.stacks, d, ws.target))
+            })
+        else {
+            return Ok(());
+        };
+
+        // Setup independent stacks, first by looking at potential bases.
+        let candidates = self.candidates_for_independent_branches_in_workspace(
+            ws_sidx,
+            ws_target.as_ref(),
+            &ws_stacks,
+            repo,
+        )?;
+        for base_sidx in candidates.iter().cloned() {
+            let base_segment = &self[base_sidx];
+            // Also use the segment name as part of available refs to latch on to, and make
+            // the segment anonymous if it actually gets used.
+            let base_segment_name = base_segment.ref_name.clone();
+            let matching_refs_per_stack: Vec<_> = find_all_desired_stack_refs_in_commit(
+                &ws_data,
+                base_segment_name
+                    .as_ref()
+                    .into_iter()
+                    .chain(base_segment.commits[0].refs.iter()),
+                Some((&self.inner, ws_sidx, &candidates)),
+            )
+            .collect();
+            for refs_for_independent_branches in matching_refs_per_stack {
+                create_independent_segments(
+                    self,
+                    ws_sidx,
+                    base_sidx,
+                    refs_for_independent_branches,
+                    meta,
+                )?;
             }
         }
 
-        for (orig_sidx, mut ws_indices) in ws_by_segment_map {
-            if ws_indices.len() > 1 {
-                tracing::warn!(
-                    "Segment named {ref_name:?} ({idx}) is contained in multiple workspaces - ignored for post-processing",
-                    ref_name = self[orig_sidx].ref_name.as_ref(),
-                    idx = orig_sidx.index()
-                );
-                continue;
-            }
-            let Some((_ws_sidx, ws_data, commit_range)) =
-                ws_indices.pop().map(|(ws_sidx, commit_range)| {
-                    let ws = &self[ws_sidx];
-                    let md = ws
-                        .workspace_metadata()
-                        .expect("we know this is a workspace");
-                    (ws_sidx, md.clone(), commit_range)
-                })
-            else {
-                continue;
-            };
-
+        // Setup dependent stacks based on searching refs on existing workspace commits.
+        // Note that we can still source names from previously used stacks just to be able to capture more
+        // of the original intent, despite the graph having changed. This works because in the end, we are consuming
+        // refs on commits that can't be re-used once they have been moved into their own segment.
+        for ws_segment_sidx in ws_stacks.iter().flat_map(|stack| {
+            stack
+                .segments
+                .iter()
+                .flat_map(|segment| segment.commits_by_segment.iter().map(|t| t.0))
+        }) {
             // Find all commit-refs which are mentioned in ws_data.stacks, for simplicity in any stack that matches (for now).
             // Stacks shouldn't be so different that they don't match reality anymore and each mutation has to re-set them to
             // match reality.
-            let mut current_above = orig_sidx;
+            let mut current_above = ws_segment_sidx;
             let mut truncate_commits_from = None;
-            for commit_idx in commit_range {
-                let commit = &self[orig_sidx].commits[commit_idx];
-                let has_inserted_segment_above = current_above != orig_sidx;
-                let Some(ws_stack) = ws_data
-                    .stacks
-                    .iter()
-                    .find(|stack| stack_contains_any_commit_branch(stack, commit))
+            for commit_idx in 0..self[ws_segment_sidx].commits.len() {
+                let commit = &self[ws_segment_sidx].commits[commit_idx];
+                let has_inserted_segment_above = current_above != ws_segment_sidx;
+                let Some(refs_for_dependent_branches) =
+                    find_all_desired_stack_refs_in_commit(&ws_data, commit.refs.iter(), None)
+                        .next()
                 else {
                     // Now we have to assign this uninteresting commit to the last created segment, if there was one.
                     if has_inserted_segment_above {
-                        let commit = commit.clone();
-                        let commit_id = commit.id;
-                        self[current_above].commits.push(commit);
-                        reconnect_outgoing(
-                            &mut self.inner,
-                            (orig_sidx, commit_idx),
-                            (current_above, commit_id),
+                        self.push_commit_and_reconnect_outgoing(
+                            commit.clone(),
+                            current_above,
+                            (ws_segment_sidx, commit_idx),
                         );
                     }
                     continue;
                 };
-                if commit
-                    .refs
-                    .iter()
-                    .any(|rn| is_workspace_ref_name(rn.as_ref()))
-                {
-                    tracing::warn!(
-                        "Commit {} had eligible workspace references pointing to it - ignoring this for now",
-                        commit.id
-                    );
-                    // Now we have to assign this uninteresting commit to the last created segment, if there was one.
-                    if has_inserted_segment_above {
-                        let commit = commit.clone();
-                        self[current_above].commits.push(commit);
-                    }
-
-                    // TODO(test)
-                    continue;
-                }
 
                 // In ws-stack segment order, map all the indices from top to bottom
-                current_above = create_connected_multi_segment(
+                let new_above = maybe_create_multiple_segments(
                     self,
                     current_above,
-                    orig_sidx,
+                    ws_segment_sidx,
                     commit_idx,
-                    ws_stack,
+                    refs_for_dependent_branches,
                     meta,
-                )?
-                .unwrap_or(current_above);
-                // TODO(test): try with two commits, 1 (a,b,c) and 2 (c,d,e) to validate the commit-stealing works.
+                )?;
+                // Did it actually do something?
+                if new_above == Some(current_above) {
+                    if has_inserted_segment_above {
+                        self.push_commit_and_reconnect_outgoing(
+                            self[ws_segment_sidx].commits[commit_idx].clone(),
+                            current_above,
+                            (ws_segment_sidx, commit_idx),
+                        );
+                    }
+                    continue;
+                }
+                current_above = new_above.unwrap_or(current_above);
                 truncate_commits_from.get_or_insert(commit_idx);
             }
             if let Some(truncate_from) = truncate_commits_from {
-                let segment = &mut self[orig_sidx];
+                let segment = &mut self[ws_segment_sidx];
                 // Keep only the commits that weren't reassigned to other segments.
                 segment.commits.truncate(truncate_from);
-                delete_anon_if_empty_and_reconnect(self, orig_sidx);
+                delete_anon_if_empty_and_reconnect(self, ws_segment_sidx);
             }
         }
 
         // Redo workspace outgoing connections according to desired stack order.
-        for ws_tip in tips_with_ws_data {
-            let ws_data = &self[ws_tip]
-                .workspace_metadata()
-                .expect("tips are chosen because they have metadata");
-            let mut edges_pointing_to_named_segment = self
-                .edges_directed_in_order_of_creation(ws_tip, Direction::Outgoing)
-                .into_iter()
-                .map(|e| {
-                    let rn = self[e.target()].ref_name.clone();
-                    (e.id(), e.target(), rn)
-                })
-                .collect::<Vec<_>>();
+        let mut edges_pointing_to_named_segment = self
+            .edges_directed_in_order_of_creation(ws_sidx, Direction::Outgoing)
+            .into_iter()
+            .map(|e| {
+                let rn = self[e.target()].ref_name.clone();
+                (e.id(), e.target(), rn)
+            })
+            .collect::<Vec<_>>();
 
-            let edges_original_order: Vec<_> = edges_pointing_to_named_segment
-                .iter()
-                .map(|(_e, sidx, _rn)| *sidx)
-                .collect();
-            edges_pointing_to_named_segment.sort_by_key(|(_e, sidx, rn)| {
-                let res = ws_data.stacks.iter().position(|s| {
-                    s.branches
-                        .first()
-                        .is_some_and(|b| Some(&b.ref_name) == rn.as_ref())
-                });
-                // This makes it so that edges that weren't mentioned in workspace metadata
-                // retain their relative order, with first-come-first-serve semantics.
-                // The expected case is that each segment is defined.
-                res.or_else(|| {
-                    edges_original_order
-                        .iter()
-                        .position(|sidx_for_order| sidx_for_order == sidx)
-                })
+        let edges_original_order: Vec<_> = edges_pointing_to_named_segment
+            .iter()
+            .map(|(_e, sidx, _rn)| *sidx)
+            .collect();
+        edges_pointing_to_named_segment.sort_by_key(|(_e, sidx, rn)| {
+            let res = ws_data.stacks.iter().position(|s| {
+                s.branches
+                    .first()
+                    .is_some_and(|b| Some(&b.ref_name) == rn.as_ref())
             });
+            // This makes it so that edges that weren't mentioned in workspace metadata
+            // retain their relative order, with first-come-first-serve semantics.
+            // The expected case is that each segment is defined.
+            res.or_else(|| {
+                edges_original_order
+                    .iter()
+                    .position(|sidx_for_order| sidx_for_order == sidx)
+            })
+        });
 
-            for (eid, target_sidx, _) in edges_pointing_to_named_segment {
-                let weight = self
-                    .inner
-                    .remove_edge(eid)
-                    .expect("we found the edge before");
-                // Reconnect according to the new order.
-                self.inner.add_edge(ws_tip, target_sidx, weight);
-            }
+        for (eid, target_sidx, _) in edges_pointing_to_named_segment {
+            let weight = self
+                .inner
+                .remove_edge(eid)
+                .expect("we found the edge before");
+            // Reconnect according to the new order.
+            self.inner.add_edge(ws_sidx, target_sidx, weight);
         }
         Ok(())
     }
@@ -198,7 +427,7 @@ impl Graph {
     /// Name ambiguous segments if they are reachable by remote tracking branch and
     /// if the first commit has (unambiguously) the matching local tracking branch.
     /// Also, link up all remote segments with their local ones, and vice versa.
-    fn non_workspace_adjustments(
+    fn improve_remote_segments(
         &mut self,
         repo: &gix::Repository,
         symbolic_remote_names: &[String],
@@ -317,6 +546,55 @@ impl Graph {
         }
         Ok(())
     }
+
+    fn push_commit_and_reconnect_outgoing(
+        &mut self,
+        commit: Commit,
+        current_above: SegmentIndex,
+        (ws_segment_sidx, commit_idx): (SegmentIndex, CommitIndex),
+    ) {
+        let commit_id = commit.id;
+        self[current_above].commits.push(commit);
+        reconnect_outgoing(
+            &mut self.inner,
+            (ws_segment_sidx, commit_idx),
+            (current_above, commit_id),
+        );
+    }
+}
+
+fn find_all_desired_stack_refs_in_commit<'a>(
+    ws_data: &'a ref_metadata::Workspace,
+    commit_refs: impl Iterator<Item = &'a gix::refs::FullName> + Clone + 'a,
+    graph_and_ws_idx_and_candidates: Option<(&'a PetGraph, SegmentIndex, &'a [SegmentIndex])>,
+) -> impl Iterator<Item = Vec<gix::refs::FullName>> + 'a {
+    ws_data.stacks.iter().filter_map(move |stack| {
+        let matching_refs: Vec<_> = stack
+            .branches
+            .iter()
+            .filter_map(|s| commit_refs.clone().find(|rn| *rn == &s.ref_name).cloned())
+            .collect();
+        if matching_refs.is_empty() {
+            return None;
+        }
+
+        // We match any part of a stack above, so have to assure we don't recreate
+        // part of an existing stack as new stack.
+        let is_used_in_existing_stack = graph_and_ws_idx_and_candidates
+            .zip(stack.branches.first())
+            .is_some_and(|((graph, ws_idx, candidates), top_segment_name)| {
+                graph
+                    .neighbors_directed(ws_idx, Direction::Outgoing)
+                    .filter(|sidx| !candidates.contains(sidx))
+                    .any(|stack_sidx| {
+                        graph[stack_sidx].ref_name.as_ref() == Some(&top_segment_name.ref_name)
+                    })
+            });
+        if is_used_in_existing_stack {
+            return None;
+        }
+        Some(matching_refs)
+    })
 }
 
 fn delete_anon_if_empty_and_reconnect(graph: &mut Graph, sidx: SegmentIndex) {
@@ -356,61 +634,119 @@ fn delete_anon_if_empty_and_reconnect(graph: &mut Graph, sidx: SegmentIndex) {
     }
 }
 
-/// Create a new stack from `N` refs that match a ref in `ws_stack` (in the order given there), with `N-1` segments being empty on top
+/// Create as many new segments as refs in `matching_refs`, connect them to each other in order, and finally connect them
+/// with `above_idx` and `below_idx` to integrate them into the workspace that is bounded by these segments.
+fn create_independent_segments(
+    graph: &mut Graph,
+    above_idx: SegmentIndex,
+    below_idx: SegmentIndex,
+    matching_refs: Vec<gix::refs::FullName>,
+    meta: &impl RefMetadata,
+) -> anyhow::Result<()> {
+    assert!(!matching_refs.is_empty());
+
+    let mut above = above_idx;
+    let mut new_refs = graph[below_idx].commits[0].refs.clone();
+    for ref_name in matching_refs {
+        let new_segment =
+            branch_segment_from_name_and_meta(Some((ref_name.clone(), None)), meta, None)?;
+        let new_segment_sidx = graph.connect_new_segment(
+            above,
+            graph[above].last_commit_index(),
+            new_segment,
+            None,
+            None,
+        );
+        above = new_segment_sidx;
+
+        match new_refs.iter().position(|rn| rn == &ref_name) {
+            None => {
+                let s = &mut graph[below_idx];
+                if s.ref_name.as_ref() != Some(&ref_name) {
+                    bail!(
+                        "BUG: ref-names must either be present in the first commit, or be the segment name"
+                    )
+                }
+                s.ref_name = None;
+                s.metadata = None;
+                let sibling = s.sibling_segment_id.take();
+                graph[new_segment_sidx].sibling_segment_id = sibling;
+
+                if let Some((ep_sidx, ep_commit_idx)) = graph.entrypoint.as_mut() {
+                    if *ep_sidx == below_idx {
+                        *ep_sidx = new_segment_sidx;
+                        *ep_commit_idx = None;
+                    }
+                }
+            }
+            Some(pos) => {
+                new_refs.remove(pos);
+            }
+        }
+    }
+    graph.connect_segments(above, None, below_idx, Some(0));
+    if let Some(first_comit) = graph[below_idx].commits.first_mut() {
+        first_comit.refs = new_refs;
+    }
+    Ok(())
+}
+
+/// Maybe create a new stack from `N` (where `N` > 1) refs that match a ref in `ws_stack` (in the order given there), with `N-1` segments being empty on top
 /// of the last one `N`.
 /// `commit_parent` is the segment to use `commit_idx` on to get its data. We also use this information to re-link
 /// Return `Some(bottom_segment_index)`, or `None` no ref matched commit. There may be any amount of new segments above
 /// the `bottom_segment_index`.
 /// Note that the Segment at `bottom_segment_index` will own `commit`.
 /// Also note that we reconnect commit-by-commit, so the outer processing has to do that.
-fn create_connected_multi_segment(
+/// Note that it may avoid creating a new segment.
+fn maybe_create_multiple_segments(
     graph: &mut Graph,
     mut above_idx: SegmentIndex,
     commit_parent: SegmentIndex,
     commit_idx: CommitIndex,
-    ws_stack: &ref_metadata::WorkspaceStack,
+    mut matching_refs: Vec<gix::refs::FullName>,
     meta: &impl RefMetadata,
 ) -> anyhow::Result<Option<SegmentIndex>> {
+    assert!(!matching_refs.is_empty());
     let commit = &graph[commit_parent].commits[commit_idx];
-    let matching_refs_in_commit_indices: Vec<_> = ws_stack
-        .branches
-        .iter()
-        .filter_map(|s| commit.refs.iter().position(|crn| &s.ref_name == crn))
-        .collect();
-    if matching_refs_in_commit_indices.is_empty() {
-        return Ok(None);
+
+    let iter_len = matching_refs.len();
+    // Shortcut: instead of replacing single anonymous segments, set their name.
+    if iter_len == 1 && graph[above_idx].ref_name.is_none() {
+        let s = &mut graph[above_idx];
+        let rn = matching_refs.pop().expect("exactly viable name");
+        s.metadata = meta
+            .branch_opt(rn.as_ref())?
+            .map(|md| SegmentMetadata::Branch(md.clone()));
+        s.commits
+            .first_mut()
+            .expect("at least one commit")
+            .refs
+            .retain(|crn| crn != &rn);
+        s.ref_name = rn.into();
+        return Ok(Some(above_idx));
     }
 
-    let (commit, refs) = {
-        let mut current = 0;
+    let commit = {
         let mut c = commit.clone();
-        let refs = commit.refs.clone();
-        c.refs.retain(|_rn| {
-            let keep = !matching_refs_in_commit_indices.contains(&current);
-            current += 1;
-            keep
-        });
-        (c, refs)
+        c.refs.retain(|rn| !matching_refs.contains(rn));
+        c
     };
-    let iter_len = matching_refs_in_commit_indices.len();
-    for (is_first, is_last, ref_idx) in
-        matching_refs_in_commit_indices
-            .into_iter()
-            .enumerate()
-            .map(|(idx, ref_idx)| {
-                let (mut first, mut last) = (false, false);
-                if idx == 0 {
-                    first = true;
-                }
-                if idx + 1 == iter_len {
-                    last = true;
-                }
-                (first, last, ref_idx)
-            })
-    {
-        let ref_name = &refs[ref_idx];
-        let new_segment =
-            branch_segment_from_name_and_meta(Some((ref_name.clone(), None)), meta, None)?;
+    let matching_refs = matching_refs
+        .into_iter()
+        .enumerate()
+        .map(|(idx, ref_name)| {
+            let (mut first, mut last) = (false, false);
+            if idx == 0 {
+                first = true;
+            }
+            if idx + 1 == iter_len {
+                last = true;
+            }
+            (first, last, ref_name)
+        });
+    for (is_first, is_last, ref_name) in matching_refs {
+        let new_segment = branch_segment_from_name_and_meta(Some((ref_name, None)), meta, None)?;
         let above_commit_idx = {
             let s = &graph[above_idx];
             let cidx = s.commit_index_of(commit.id);
@@ -522,11 +858,4 @@ fn collect_edges_at_commit_reverse_order(
         })
         .map(Into::into)
         .collect()
-}
-
-fn stack_contains_any_commit_branch(stack: &ref_metadata::WorkspaceStack, c: &Commit) -> bool {
-    stack
-        .branches
-        .iter()
-        .any(|sref| c.refs.iter().any(|cref| *cref == sref.ref_name))
 }

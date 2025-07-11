@@ -34,6 +34,7 @@ fn unborn() -> anyhow::Result<()> {
                 None,
             ),
         ),
+        extra_target: None,
         hard_limit_hit: false,
     }
     "#);
@@ -85,7 +86,7 @@ fn detached() -> anyhow::Result<()> {
                     remote_tracking_ref_name: "None",
                     sibling_segment_id: "None",
                     commits: [
-                        Commit(541396b, ⌂|1),
+                        Commit(541396b, ⌂|1►annotated, ►release/v1, ►main),
                     ],
                     metadata: "None",
                 },
@@ -127,6 +128,7 @@ fn detached() -> anyhow::Result<()> {
                 ),
             ),
         ),
+        extra_target: None,
         hard_limit_hit: false,
     }
     "#);
