@@ -1,30 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="193" height="72" viewBox="0 0 193 72" fill="none">
-  <path d="M86 1.00005H182C187.523 1.00005 192 5.4772 192 11V72H86V1.00005Z" fill="var(--clr-bg-1)" />
-  <path d="M109 45V52" stroke="var(--illustration-outline)" stroke-width="1.2" opacity="0.7" />
-  <path
-    d="M99 16C99 12.6863 101.686 10 105 10H163C166.314 10 169 12.6863 169 16V39C169 42.3138 166.314 45 163 45H105C101.686 45 99 42.3138 99 39V16Z"
-    stroke="var(--illustration-outline)" stroke-width="1.2" opacity="0.7" />
-  <text fill="var(--illustration-outline)" xml:space="preserve" style="white-space: pre"
-    font-family="Inter"
-    font-size="11" font-weight="600" letter-spacing="0em">
-    <tspan x="107" y="26.5">Branch #1</tspan>
-  </text>
-  <path d="M169 72V58C169 54.6863 166.314 52 163 52H105C101.686 52 99 54.6863 99 58V72"
-    stroke="var(--illustration-outline)" stroke-width="1.2" opacity="0.7" />
-  <path
-    d="M86 1.00005H177.5M192 72V11C192 5.4772 187.523 1.00005 182 1.00005H177.5M177.5 1.00005V72"
-    stroke="var(--illustration-outline)" stroke-width="1.2" />
-  <path d="M90 72V1.00005H11C5.47715 1.00005 1 5.4772 1 11V72"
-    stroke="var(--illustration-accent-outline)"
+<svg xmlns="http://www.w3.org/2000/svg" width="168" height="58" viewBox="0 0 168 58" fill="none">
+  <path d="M155 1H87V58H165V11C165 5.47715 160.523 1 155 1Z" fill="var(--clr-bg-1)" />
+  <path d="M87 1H157C162.523 1 167 5.47715 167 11V58" stroke="var(--illustration-outline)"
     stroke-width="1.2" />
+  <path opacity="0.7" d="M159 58V15C159 11.6863 156.314 9 153 9H101C97.6863 9 95 11.6863 95 15V58"
+    stroke="var(--illustration-outline)" stroke-width="1.2" />
+  <text fill="var(--illustration-text)" xml:space="preserve" style="white-space: pre"
+    font-family="Inter" font-size="12" font-weight="600" letter-spacing="0em">
+    <tspan x="102" y="26.8636">Branch 1</tspan>
+  </text>
+  <path d="M87.0001 58V0.999977H11.0001C5.47721 0.999977 1.00006 5.47713 1.00006 11V58"
+    stroke="var(--illustration-accent-outline)" stroke-width="1.2" />
   <path opacity="0.1"
-    d="M10 16C10 12.6863 12.6863 10 16 10H75C78.3137 10 81 12.6863 81 16V56C81 59.3138 78.3137 62 75 62H16C12.6863 62 10 59.3138 10 56V16Z"
+    d="M9.00006 15C9.00006 11.6863 11.6863 8.99998 15.0001 8.99998H73.0001C76.3138 8.99998 79.0001 11.6863 79.0001 15V58H9.00006V15Z"
     fill="var(--illustration-accent-outline)" />
   <path
-    d="M10 16C10 12.6863 12.6863 10 16 10H75C78.3137 10 81 12.6863 81 16V56C81 59.3138 78.3137 62 75 62H16C12.6863 62 10 59.3138 10 56V16Z"
+    d="M79.0001 58V15C79.0001 11.6863 76.3138 8.99998 73.0001 8.99998H15.0001C11.6863 8.99998 9.00006 11.6863 9.00006 15V58"
     stroke="var(--illustration-accent-outline)" stroke-width="1.2" />
   <text fill="var(--illustration-accent-outline)" xml:space="preserve" style="white-space: pre"
-    font-family="Inter" font-size="11" font-weight="600" letter-spacing="0em">
-    <tspan x="18" y="26.5">Branch #2</tspan>
+    font-family="Inter" font-size="12" font-weight="600" letter-spacing="0em">
+    <tspan x="19.0001" y="26.8636">Branch 2</tspan>
   </text>
 </svg>
