@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use but_graph::VirtualBranchesTomlMetadata;
-use but_workspace::StacksFilter;
 use git2::Oid;
 use gitbutler_branch_actions::{reorder_stack, SeriesOrder, StackOrder};
 use gitbutler_command_context::CommandContext;
@@ -439,34 +437,7 @@ impl CommitHelpers for Vec<(Oid, String, bool, u128)> {
 
 /// Commits from list_virtual_branches
 fn vb_commits(ctx: &CommandContext) -> Vec<Vec<(git2::Oid, String, bool, u128)>> {
-    // commitid, message, conflicted, timestamp
-    let repo = ctx.gix_repo_for_merging_non_persisting().unwrap();
-    let stacks = if ctx.app_settings().feature_flags.ws3 {
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            ctx.project().gb_dir().join("virtual_branches.toml"),
-        )
-        .unwrap();
-        but_workspace::stacks_v3(&repo, &meta, StacksFilter::default())
-    } else {
-        but_workspace::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
-    }
-    .unwrap();
-    let mut details = vec![];
-    for stack in stacks {
-        details.push(
-            if ctx.app_settings().feature_flags.ws3 {
-                let meta = VirtualBranchesTomlMetadata::from_path(
-                    ctx.project().gb_dir().join("virtual_branches.toml"),
-                )
-                .unwrap();
-                but_workspace::stack_details_v3(stack.id, &repo, &meta)
-            } else {
-                but_workspace::stack_details(&ctx.project().gb_dir(), stack.id, ctx)
-            }
-            .unwrap(),
-        );
-    }
-
+    let details = gitbutler_testsupport::stack_details(ctx);
     let my_stack = details
         .iter()
         .find(|d| d.derived_name == "top-series")
