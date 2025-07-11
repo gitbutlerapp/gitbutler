@@ -1,5 +1,7 @@
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch_actions::list_commit_files;
+use gitbutler_oxidize::ObjectIdExt;
+use gitbutler_testsupport::stack_details;
 
 use super::*;
 
@@ -40,34 +42,32 @@ fn undo_commit_simple() -> anyhow::Result<()> {
 
     gitbutler_branch_actions::undo_commit(ctx, stack_entry.id, commit2_id).unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
-        .unwrap()
-        .branches
-        .into_iter()
-        .find(|b| b.id == stack_entry.id)
-        .unwrap();
-
     // should be two uncommitted files now (file2.txt and file3.txt)
-    assert_eq!(branch.files.len(), 2);
-    assert_eq!(branch.series[0].clone().unwrap().patches.len(), 2);
+    let changes =
+        but_core::diff::ui::worktree_changes_by_worktree_dir(ctx.project().path.clone())?.changes;
+    assert_eq!(changes.len(), 2);
+    let (_, b) = stack_details(ctx)
+        .into_iter()
+        .find(|d| d.0 == stack_entry.id)
+        .unwrap();
+    assert_eq!(b.branch_details[0].clone().commits.len(), 2);
     assert_eq!(
-        list_commit_files(ctx, branch.series[0].clone().unwrap().patches[0].id)?.len(),
+        list_commit_files(ctx, b.branch_details[0].clone().commits[0].id.to_git2())?.len(),
         1
     );
     assert_eq!(
-        list_commit_files(ctx, branch.series[0].clone().unwrap().patches[1].id)?.len(),
+        list_commit_files(ctx, b.branch_details[0].clone().commits[1].id.to_git2())?.len(),
         1
     );
 
-    let descriptions = branch.series[0]
+    let messages = b.branch_details[0]
         .clone()
-        .unwrap()
-        .patches
+        .commits
         .iter()
-        .map(|c| c.description.clone())
+        .map(|c| c.message.clone())
         .collect::<Vec<_>>();
 
-    assert_eq!(descriptions, vec!["commit three", "commit one"]);
+    assert_eq!(messages, vec!["commit three", "commit one"]);
     Ok(())
 }
 
@@ -120,36 +120,40 @@ fn undo_commit_in_non_default_branch() -> anyhow::Result<()> {
 
     gitbutler_branch_actions::undo_commit(ctx, stack_entry.id, commit2_id).unwrap();
 
-    let mut branches = gitbutler_branch_actions::list_virtual_branches(ctx)
-        .unwrap()
-        .branches
-        .into_iter();
-
-    let branch = &branches.find(|b| b.id == stack_entry.id).unwrap();
-    let default_branch = &branches.find(|b| b.id == default_stack_entry.id).unwrap();
-
     // should be two uncommitted files now (file2.txt and file3.txt)
-    assert_eq!(branch.files.len(), 2);
-    assert_eq!(branch.series[0].clone().unwrap().patches.len(), 2);
-    assert_eq!(
-        list_commit_files(ctx, branch.series[0].clone().unwrap().patches[0].id)?.len(),
-        1
-    );
-    assert_eq!(
-        list_commit_files(ctx, branch.series[0].clone().unwrap().patches[1].id)?.len(),
-        1
-    );
-    assert_eq!(default_branch.files.len(), 0);
-    assert_eq!(default_branch.series[0].clone().unwrap().patches.len(), 0);
+    let changes =
+        but_core::diff::ui::worktree_changes_by_worktree_dir(ctx.project().path.clone())?.changes;
+    assert_eq!(changes.len(), 2);
 
-    let descriptions = branch.series[0]
+    let (_, b) = stack_details(ctx)
+        .into_iter()
+        .find(|d| d.0 == stack_entry.id)
+        .unwrap();
+
+    assert_eq!(b.branch_details[0].clone().commits.len(), 2);
+    assert_eq!(
+        list_commit_files(ctx, b.branch_details[0].clone().commits[0].id.to_git2())?.len(),
+        1
+    );
+    assert_eq!(
+        list_commit_files(ctx, b.branch_details[0].clone().commits[1].id.to_git2())?.len(),
+        1
+    );
+
+    let (_, default) = stack_details(ctx)
+        .into_iter()
+        .find(|d| d.0 == default_stack_entry.id)
+        .unwrap();
+
+    assert_eq!(default.branch_details[0].clone().commits.len(), 0);
+
+    let messages = b.branch_details[0]
         .clone()
-        .unwrap()
-        .patches
+        .commits
         .iter()
-        .map(|c| c.description.clone())
+        .map(|c| c.message.clone())
         .collect::<Vec<_>>();
 
-    assert_eq!(descriptions, vec!["commit three", "commit one"]);
+    assert_eq!(messages, vec!["commit three", "commit one"]);
     Ok(())
 }
