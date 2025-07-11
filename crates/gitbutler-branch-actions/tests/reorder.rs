@@ -438,9 +438,9 @@ impl CommitHelpers for Vec<(Oid, String, bool, u128)> {
 /// Commits from list_virtual_branches
 fn vb_commits(ctx: &CommandContext) -> Vec<Vec<(git2::Oid, String, bool, u128)>> {
     let details = gitbutler_testsupport::stack_details(ctx);
-    let my_stack = details
+    let (_, my_stack) = details
         .iter()
-        .find(|d| d.derived_name == "top-series")
+        .find(|(_, d)| d.derived_name == "top-series")
         .expect("top-series should exist");
 
     let mut out = vec![];
