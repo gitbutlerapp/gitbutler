@@ -4,12 +4,9 @@ use crate::Change;
 use anyhow::{Context, Result};
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
-use gitbutler_branch_actions::{internal::StackListResult, VirtualBranches};
 use gitbutler_command_context::CommandContext;
-use gitbutler_diff::DiffByPathMap;
-use gitbutler_error::error::Marker;
 use gitbutler_filemonitor::InternalEvent;
-use gitbutler_operating_modes::{in_open_workspace_mode, operating_mode};
+use gitbutler_operating_modes::operating_mode;
 use gitbutler_project::{self as projects, ProjectId};
 use gitbutler_sync::cloud::{push_oplog, push_repo};
 use gitbutler_user as users;
@@ -57,28 +54,21 @@ impl Handler {
     ) -> Result<()> {
         match event {
             InternalEvent::ProjectFilesChange(project_id, paths) => {
-                let ctx = &mut self.open_command_context(project_id, app_settings.get()?.clone())?;
+                let ctx =
+                    &mut self.open_command_context(project_id, app_settings.get()?.clone())?;
                 self.project_files_change(paths, ctx)
             }
 
             InternalEvent::GitFilesChange(project_id, paths) => {
-                let ctx = &mut self.open_command_context(project_id, app_settings.get()?.clone())?;
+                let ctx =
+                    &mut self.open_command_context(project_id, app_settings.get()?.clone())?;
                 self.git_files_change(paths, ctx)
                     .context("failed to handle git file change event")
             }
             InternalEvent::GitButlerOplogChange(project_id) => {
                 let ctx = self.open_command_context(project_id, app_settings.get()?.clone())?;
-                self
-                .gitbutler_oplog_change(&ctx)
-                .context("failed to handle gitbutler oplog change event")
-            }
-            ,
-
-            // This is only produced at the end of mutating Tauri commands to trigger a fresh state being served to the UI.
-            InternalEvent::CalculateVirtualBranches(project_id) => {
-                let ctx = self.open_command_context(project_id, app_settings.get()?.clone())?;
-                self.calculate_virtual_branches(&ctx, None)
-                    .context("failed to handle virtual branch event")
+                self.gitbutler_oplog_change(&ctx)
+                    .context("failed to handle gitbutler oplog change event")
             }
         }
     }
@@ -97,47 +87,6 @@ impl Handler {
             .get(project_id)
             .context("failed to get project")?;
         CommandContext::open(&project, app_settings).context("Failed to create a command context")
-    }
-
-    #[instrument(skip(self, ctx, worktree_changes))]
-    fn calculate_virtual_branches(
-        &self,
-        ctx: &CommandContext,
-        worktree_changes: Option<DiffByPathMap>,
-    ) -> Result<()> {
-        // Skip if we're not on the open workspace mode
-        if !in_open_workspace_mode(ctx) {
-            return Ok(());
-        }
-
-        let virtual_branches = if let Some(changes) = worktree_changes {
-            gitbutler_branch_actions::list_virtual_branches_cached(ctx, changes)
-        } else {
-            gitbutler_branch_actions::list_virtual_branches(ctx)
-        };
-        match virtual_branches {
-            Ok(StackListResult {
-                branches,
-                skipped_files,
-                dependency_errors,
-            }) => self.emit_app_event(Change::VirtualBranches {
-                project_id: ctx.project().id,
-                virtual_branches: VirtualBranches {
-                    branches,
-                    skipped_files,
-                    dependency_errors,
-                },
-            }),
-            Err(err)
-                if matches!(
-                    err.downcast_ref::<Marker>(),
-                    Some(Marker::VerificationFailure)
-                ) =>
-            {
-                Ok(())
-            }
-            Err(err) => Err(err.context("failed to list virtual branches")),
-        }
     }
 
     #[instrument(skip(self, paths, ctx), fields(paths = paths.len()))]
