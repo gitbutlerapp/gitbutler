@@ -8,10 +8,13 @@
 	import { sleep } from '$lib/utils/sleep';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import RadioButton from '@gitbutler/ui/RadioButton.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
+	import Select from '@gitbutler/ui/select/Select.svelte';
+	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import { slugify } from '@gitbutler/ui/utils/string';
 
 	type Props = {
@@ -28,14 +31,44 @@
 	let createRefModal = $state<ReturnType<typeof Modal>>();
 	let createRefName = $state<string>();
 	let createRefType = $state<'stack' | 'dependent'>('stack');
+	let selectedStackId = $state<string>();
 
 	const slugifiedRefName = $derived(createRefName && slugify(createRefName));
 	const generatedNameDiverges = $derived(!!createRefName && slugifiedRefName !== createRefName);
 
-	const firstBranchResult = $derived(
-		stackId ? stackService.branchAt(projectId, stackId, 0) : undefined
+	// Get all stacks in the workspace
+	const allStacksResult = $derived(stackService.stacks(projectId));
+	const allStacks = $derived(allStacksResult?.current?.data ?? []);
+
+	// Create options for the selector (stack represented by first branch name)
+	const stackOptions = $derived(
+		allStacks.map((stack) => {
+			const firstBranchName = stack.heads[0]?.name ?? `Stack ${stack.id.slice(0, 8)}`;
+			return {
+				label: firstBranchName,
+				value: stack.id
+			};
+		})
 	);
-	const firstBranchName = $derived(firstBranchResult?.current?.data?.name);
+
+	// Set default selected stack and handle if current selected stack is no longer available
+	$effect(() => {
+		if (stackOptions.length === 0) {
+			selectedStackId = undefined;
+			// If no stacks available and dependent is selected, switch to stack
+			if (createRefType === 'dependent') {
+				createRefType = 'stack';
+			}
+			return;
+		}
+
+		// If no stack selected or the currently selected stack doesn't exist, pick a default
+		if (!selectedStackId || !stackOptions.some((option) => option.value === selectedStackId)) {
+			// Default to current stack if it exists, otherwise first stack
+			selectedStackId =
+				stackId && allStacks.some((s) => s.id === stackId) ? stackId : stackOptions[0]?.value;
+		}
+	});
 
 	function handleOptionSelect(event: Event) {
 		const target = event.target as HTMLInputElement;
@@ -54,20 +87,21 @@
 			uiState.project(projectId).stackId.set(stack.id);
 			createRefModal?.close();
 		} else {
-			if (!stackId || !slugifiedRefName) {
+			if (!selectedStackId || !slugifiedRefName) {
 				// TODO: Add input validation.
 				return;
 			}
 			await createNewBranch({
 				projectId,
-				stackId,
+				stackId: selectedStackId,
 				request: { targetPatch: undefined, name: slugifiedRefName }
 			});
 			createRefModal?.close();
 		}
 
-		// Reset the branch name if we're successful
+		// Reset the form if we're successful
 		createRefName = undefined;
+		selectedStackId = undefined;
 	}
 
 	const isAddingNew = $derived(stackCreation.current.isLoading || branchCreation.current.isLoading);
@@ -75,6 +109,8 @@
 	async function showAndPrefillName() {
 		createRefModal?.show();
 		createRefName = (await stackService.newBranchName(projectId))?.data ?? '';
+		// Reset selected stack to default
+		selectedStackId = undefined;
 	}
 
 	// TODO: it would be nice to remember the last selected option for the next time the modal is opened
@@ -108,7 +144,12 @@
 			<!-- Option 1 -->
 			<label for="new-stack" class="radio-label" class:radio-selected={createRefType === 'stack'}>
 				<div class="radio-btn">
-					<RadioButton checked name="create-new" id="new-stack" onchange={handleOptionSelect} />
+					<RadioButton
+						checked={createRefType === 'stack'}
+						name="create-new"
+						id="new-stack"
+						onchange={handleOptionSelect}
+					/>
 				</div>
 
 				<div class="radio-content">
@@ -125,14 +166,16 @@
 			<!-- Option 2 -->
 			<label
 				for="new-dependent"
-				class="radio-label disabled"
+				class="radio-label"
 				class:radio-selected={createRefType === 'dependent'}
+				class:disabled={allStacks.length === 0}
 			>
 				<div class="radio-btn">
 					<RadioButton
-						disabled
+						checked={createRefType === 'dependent'}
 						name="create-new"
 						id="new-dependent"
+						disabled={allStacks.length === 0}
 						onchange={handleOptionSelect}
 					/>
 				</div>
@@ -140,7 +183,11 @@
 				<div class="radio-content">
 					<h3 class="text-13 text-bold text-body radio-title">Dependent branch</h3>
 					<p class="text-12 text-body radio-caption">
-						Create a branch that depends on<br />the branches in the current stack.
+						{#if allStacks.length === 0}
+							Create a branch that depends<br />on another stack (none available).
+						{:else}
+							Create a branch that depends<br />on a selected stack.
+						{/if}
 					</p>
 
 					<div class="radio-illustration">
@@ -150,11 +197,38 @@
 			</label>
 		</div>
 
-		<span class="text-12 text-body radio-aditional-info"
-			>{createRefType === 'stack'
-				? '└ The new branch will be applied in parallel with other stacks in the workspace.'
-				: `└ The new branch will be added on top of \`${firstBranchName}\``}</span
-		>
+		{#if createRefType === 'dependent'}
+			<Select
+				options={stackOptions}
+				value={selectedStackId}
+				label="Add to stack"
+				disabled={stackOptions.length <= 1}
+				placeholder="Select a stack..."
+				onselect={(value) => (selectedStackId = value)}
+			>
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem selected={item.value === selectedStackId} {highlighted}>
+						{item.label}
+					</SelectItem>
+				{/snippet}
+			</Select>
+		{/if}
+
+		<div class="text-12 text-body clr-text-2 radio-aditional-info">
+			<span>└</span>
+
+			<p>
+				{#if createRefType === 'stack'}
+					The new branch will be applied in parallel with other stacks in the workspace.
+				{:else}
+					Creates a branch that depends on a selected stack.
+					<br />
+					A stack's top branches also have a
+					<i class="create-dependent-icon"><Icon name="new-dep-branch" /></i> icon to create dependent
+					branches.
+				{/if}
+			</p>
+		</div>
 	</div>
 
 	{#snippet controls(close)}
@@ -163,7 +237,7 @@
 				>See more: <Link
 					target="_blank"
 					rel="noreferrer"
-					href="https://docs.gitbutler.com/features/stacked-branches#comparison-to-virtual-branches"
+					href="https://docs.gitbutler.com/features/virtual-branches/stacked-branches"
 					>Stacked vs. Dependent</Link
 				></span
 			>
@@ -174,7 +248,7 @@
 					style="pop"
 					type="submit"
 					onclick={addNew}
-					disabled={!createRefName}
+					disabled={!createRefName || (createRefType === 'dependent' && !selectedStackId)}
 					loading={isAddingNew}
 					testId={TestId.ConfirmSubmit}
 				>
@@ -291,7 +365,15 @@
 	}
 
 	.radio-aditional-info {
-		color: var(--clr-text-2);
+		display: flex;
+		gap: 8px;
+	}
+
+	.create-dependent-icon {
+		display: inline-flex;
+		align-items: center;
+		margin: 0 2px;
+		transform: translateY(4px);
 	}
 
 	/* MODIFIERS */
@@ -299,6 +381,7 @@
 		--btn-bg: var(--clr-theme-pop-bg);
 		--btn-bg-opacity: 1;
 		--btn-border-clr: var(--clr-btn-pop-outline);
+		--btn-border-opacity: 0.6;
 		/* illustration */
 		--illustration-outline: var(--clr-text-3);
 		--illustration-text: var(--clr-text-2);
