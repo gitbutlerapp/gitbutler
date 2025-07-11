@@ -3,6 +3,7 @@ import { initSentry } from '$lib/analytics/sentry';
 import { AppSettings } from '$lib/config/appSettings';
 import { getName, getVersion } from '@tauri-apps/api/app';
 import posthog from 'posthog-js';
+import { PUBLIC_POSTHOG_API_KEY } from '$env/static/public';
 
 export function initAnalyticsIfEnabled(appSettings: AppSettings, postHog: PostHogWrapper) {
 	if (import.meta.env.MODE === 'development') return;
@@ -15,7 +16,7 @@ export function initAnalyticsIfEnabled(appSettings: AppSettings, postHog: PostHo
 			appSettings.appMetricsEnabled.onDisk().then(async (enabled) => {
 				if (enabled) {
 					const [appName, appVersion] = await Promise.all([getName(), getVersion()]);
-					postHog.init(appName, appVersion);
+					postHog.init(appName, appVersion, PUBLIC_POSTHOG_API_KEY);
 				}
 			});
 			appSettings.appNonAnonMetricsEnabled.onDisk().then((enabled) => {
