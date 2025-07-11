@@ -11,7 +11,7 @@ pub mod commands {
     };
     use gitbutler_branch_actions::{
         BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, RemoteBranchData,
-        RemoteBranchFile, RemoteCommit, StackOrder, VirtualBranchHunkRangeMap,
+        RemoteBranchFile, RemoteCommit, StackOrder,
     };
     use gitbutler_command_context::CommandContext;
     use gitbutler_oxidize::ObjectIdExt;
@@ -19,7 +19,6 @@ pub mod commands {
     use gitbutler_project::{FetchResult, ProjectId};
     use gitbutler_reference::{normalize_branch_name as normalize_name, Refname, RemoteRefname};
     use gitbutler_stack::{BranchOwnershipClaims, StackId, VirtualBranchesHandle};
-    use std::path::PathBuf;
     use tauri::State;
     use tracing::instrument;
 
@@ -232,50 +231,6 @@ pub mod commands {
                 .collect::<Vec<DiffSpec>>(),
         );
         gitbutler_branch_actions::unapply_stack(ctx, stack_id, assigned_diffspec)?;
-        Ok(())
-    }
-
-    #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
-    pub fn unapply_ownership(
-        projects: State<'_, projects::Controller>,
-        settings: State<'_, AppSettingsWithDiskSync>,
-        project_id: ProjectId,
-        ownership: BranchOwnershipClaims,
-    ) -> Result<(), Error> {
-        let project = projects.get(project_id)?;
-        let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        gitbutler_branch_actions::unapply_ownership(&ctx, &ownership)?;
-        Ok(())
-    }
-
-    #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
-    pub fn unapply_lines(
-        projects: State<'_, projects::Controller>,
-        settings: State<'_, AppSettingsWithDiskSync>,
-        project_id: ProjectId,
-        ownership: BranchOwnershipClaims,
-        lines: VirtualBranchHunkRangeMap,
-    ) -> Result<(), Error> {
-        let project = projects.get(project_id)?;
-        let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        gitbutler_branch_actions::unapply_lines(&ctx, &ownership, lines)?;
-        Ok(())
-    }
-
-    #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
-    pub fn reset_files(
-        projects: State<'_, projects::Controller>,
-        settings: State<'_, AppSettingsWithDiskSync>,
-        project_id: ProjectId,
-        stack_id: StackId,
-        files: Vec<PathBuf>,
-    ) -> Result<(), Error> {
-        let project = projects.get(project_id)?;
-        let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        gitbutler_branch_actions::reset_files(&ctx, stack_id, &files)?;
         Ok(())
     }
 
