@@ -25,7 +25,7 @@ import persistReducer from 'redux-persist/es/persistReducer';
 import storage from 'redux-persist/lib/storage';
 import type { IrcClient } from '$lib/irc/ircClient.svelte';
 import type { IrcEvent } from '$lib/irc/parser';
-import type { IrcChannel, IrcChat, WhoInfo } from '$lib/irc/types';
+import type { IrcChannel, IrcChat, IRCState, WhoInfo } from '$lib/irc/types';
 import type { ClientState } from '$lib/state/clientState.svelte';
 import type { Reactive } from '@gitbutler/shared/storeUtils';
 import type { ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
@@ -49,32 +49,25 @@ export class IrcService {
 		};
 
 		clientState.inject(ircSlice.reducerPath, persistReducer(persistConfig, ircSlice.reducer));
+		const store = clientState.rootState;
 
-		$effect(() => {
-			if (clientState.reactiveState) {
-				if (ircSlice.reducerPath in clientState.reactiveState) {
-					// @ts-expect-error code-splitting means it's not defined in client state.
-					this.state = clientState.reactiveState[ircSlice.reducerPath] as IRCState;
+		store.subscribe((value) => {
+			// @ts-expect-error code-splitting means it's not defined in client state.
+			this.state = value[ircSlice.reducerPath] as IRCState;
+		});
+
+		this.ircClient.onevent(async (event) => {
+			return this.handleEvent(event);
+		});
+
+		this.ircClient.onopen(() => {
+			const channels = this.getChannels();
+			this.dispatch(clearNames());
+			setTimeout(() => {
+				for (const channel of channels.current) {
+					this.send(`JOIN ${channel?.name}`);
 				}
-			}
-		});
-
-		$effect(() => {
-			return this.ircClient.onevent(async (event) => {
-				return this.handleEvent(event);
-			});
-		});
-
-		$effect(() => {
-			return this.ircClient.onopen(() => {
-				const channels = this.getChannels();
-				this.dispatch(clearNames());
-				setTimeout(() => {
-					for (const channel of channels.current) {
-						this.send(`JOIN ${channel?.name}`);
-					}
-				}, 5000);
-			});
+			}, 5000);
 		});
 	}
 

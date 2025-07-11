@@ -2,12 +2,12 @@ import { tauriBaseQuery } from '$lib/state/backendQuery';
 import { butlerModule } from '$lib/state/butlerModule';
 import { ReduxTag } from '$lib/state/tags';
 import { uiStateSlice } from '$lib/state/uiState.svelte';
-import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
 import { combineSlices, configureStore, type Reducer } from '@reduxjs/toolkit';
 import { buildCreateApi, coreModule, setupListeners, type RootState } from '@reduxjs/toolkit/query';
 import { FLUSH, PAUSE, PERSIST, persistReducer, PURGE, REGISTER, REHYDRATE } from 'redux-persist';
 import persistStore from 'redux-persist/lib/persistStore';
 import storage from 'redux-persist/lib/storage';
+import { derived, writable, type Readable } from 'svelte/store';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { Tauri } from '$lib/backend/tauri';
 import type { GitHubClient } from '$lib/forge/github/githubClient';
@@ -43,8 +43,8 @@ export class ClientState {
 	// $state requires field declaration, but we have to assign the initial
 	// value in the constructor such that we can inject dependencies. The
 	// incorrect casting `as` seems difficult to avoid.
-	rootState = $state.raw({} as ReturnType<typeof this.store.getState>);
-	readonly uiState = $derived(this.rootState.uiState);
+	readonly rootState = writable({} as ReturnType<typeof this.store.getState>);
+	readonly uiState = derived(this.rootState, (value) => value.uiState);
 
 	/** rtk-query api for communicating with the back end. */
 	readonly backendApi: BackendApi;
@@ -54,10 +54,6 @@ export class ClientState {
 
 	/** rtk-query api for communicating with GitLab. */
 	readonly gitlabApi: GitLabApi;
-
-	get reactiveState() {
-		return this.rootState;
-	}
 
 	constructor(
 		tauri: Tauri,
@@ -69,7 +65,7 @@ export class ClientState {
 		const butlerMod = butlerModule({
 			// Reactive loop without nested function.
 			// TODO: Can it be done without nesting?
-			getState: () => () => this.rootState as any as RootState<any, any, any>,
+			store: this.rootState as any as Readable<RootState<any, any, any>>,
 			getDispatch: () => this.dispatch,
 			posthog
 		});
@@ -91,16 +87,13 @@ export class ClientState {
 		this.reducer = reducer;
 		setupListeners(this.store.dispatch);
 		this.dispatch = this.store.dispatch;
-		this.rootState = this.store.getState();
+		this.rootState.set(this.store.getState());
 
-		$effect(() =>
-			mergeUnlisten(
-				this.store.subscribe(() => {
-					this.rootState = this.store.getState();
-				}),
-				setupListeners(this.store.dispatch)
-			)
-		);
+		this.store.subscribe(() => {
+			this.rootState.set(this.store.getState());
+		});
+
+		setupListeners(this.store.dispatch);
 	}
 
 	inject(reducerPath: string, reducer: Reducer<any>) {

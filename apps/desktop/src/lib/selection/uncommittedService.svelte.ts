@@ -47,10 +47,10 @@ export class UncommittedService {
 			persistReducer(persistConfig, uncommittedSlice.reducer)
 		);
 
-		$effect(() => {
-			if (clientState.reactiveState && uncommittedSlice.reducerPath in clientState.reactiveState) {
+		clientState.rootState.subscribe((value) => {
+			if (value && uncommittedSlice.reducerPath in value) {
 				// @ts-expect-error code-splitting means it's not defined in client state.
-				this.state = clientState.reactiveState[uncommittedSlice.reducerPath];
+				this.state = value[uncommittedSlice.reducerPath];
 			}
 		});
 	}
