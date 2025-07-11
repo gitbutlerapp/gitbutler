@@ -31,23 +31,6 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings,), err(Debug))]
-    pub fn commit_virtual_branch(
-        projects: State<'_, projects::Controller>,
-        settings: State<'_, AppSettingsWithDiskSync>,
-        project_id: ProjectId,
-        stack_id: StackId,
-        message: &str,
-        ownership: Option<BranchOwnershipClaims>,
-    ) -> Result<String, Error> {
-        let project = projects.get(project_id)?;
-        let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        let oid =
-            gitbutler_branch_actions::create_commit(&ctx, stack_id, message, ownership.as_ref())?;
-        Ok(oid.to_string())
-    }
-
-    #[tauri::command(async)]
     #[instrument(skip(projects, settings), err(Debug))]
     pub fn create_virtual_branch(
         projects: State<'_, projects::Controller>,
