@@ -70,7 +70,6 @@ mod move_commit_to_vbranch;
 mod oplog;
 mod save_and_unapply_virtual_branch;
 mod set_base_branch;
-mod squash;
 mod unapply_without_saving_virtual_branch;
 mod undo_commit;
 mod update_commit_message;
