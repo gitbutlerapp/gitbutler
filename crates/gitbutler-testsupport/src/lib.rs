@@ -2,7 +2,7 @@
 pub const VAR_NO_CLEANUP: &str = "GITBUTLER_TESTS_NO_CLEANUP";
 
 use but_graph::VirtualBranchesTomlMetadata;
-use but_workspace::{ui::StackDetails, StacksFilter};
+use but_workspace::{ui::StackDetails, StackId, StacksFilter};
 use gitbutler_command_context::CommandContext;
 use gix::bstr::BStr;
 /// Direct access to lower-level utilities for cases where this is enough.
@@ -165,7 +165,7 @@ pub fn visualize_git2_tree(tree_id: git2::Oid, repo: &git2::Repository) -> termt
     visualize_gix_tree(git2_to_gix_object_id(tree_id).attach(&repo))
 }
 
-pub fn stack_details(ctx: &CommandContext) -> Vec<StackDetails> {
+pub fn stack_details(ctx: &CommandContext) -> Vec<(StackId, StackDetails)> {
     let repo = ctx.gix_repo_for_merging_non_persisting().unwrap();
     let stacks = if ctx.app_settings().feature_flags.ws3 {
         let meta = VirtualBranchesTomlMetadata::from_path(
@@ -179,7 +179,8 @@ pub fn stack_details(ctx: &CommandContext) -> Vec<StackDetails> {
     .unwrap();
     let mut details = vec![];
     for stack in stacks {
-        details.push(
+        details.push((
+            stack.id,
             if ctx.app_settings().feature_flags.ws3 {
                 let meta = VirtualBranchesTomlMetadata::from_path(
                     ctx.project().gb_dir().join("virtual_branches.toml"),
@@ -190,7 +191,7 @@ pub fn stack_details(ctx: &CommandContext) -> Vec<StackDetails> {
                 but_workspace::stack_details(&ctx.project().gb_dir(), stack.id, ctx)
             }
             .unwrap(),
-        );
+        ));
     }
     details
 }
