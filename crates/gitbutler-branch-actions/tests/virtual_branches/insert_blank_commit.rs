@@ -1,5 +1,7 @@
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch_actions::list_commit_files;
+use gitbutler_oxidize::ObjectIdExt;
+use gitbutler_testsupport::stack_details;
 
 use super::*;
 
@@ -41,37 +43,32 @@ fn insert_blank_commit_down() -> anyhow::Result<()> {
     gitbutler_branch_actions::insert_blank_commit(ctx, stack_entry.id, commit2_id, 1, None)
         .unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
-        .unwrap()
-        .branches
+    let (_, b) = stack_details(ctx)
         .into_iter()
-        .find(|b| b.id == stack_entry.id)
+        .find(|d| d.0 == stack_entry.id)
         .unwrap();
-
-    assert_eq!(branch.series[0].clone()?.patches.len(), 4);
-
+    assert_eq!(b.branch_details[0].clone().commits.len(), 4);
     assert_eq!(
-        list_commit_files(ctx, branch.series[0].clone()?.patches[0].id)?.len(),
+        list_commit_files(ctx, b.branch_details[0].clone().commits[0].id.to_git2())?.len(),
         1
     );
     assert_eq!(
-        list_commit_files(ctx, branch.series[0].clone()?.patches[1].id)?.len(),
+        list_commit_files(ctx, b.branch_details[0].clone().commits[1].id.to_git2())?.len(),
         2
     );
     assert_eq!(
-        list_commit_files(ctx, branch.series[0].clone()?.patches[2].id)?.len(),
+        list_commit_files(ctx, b.branch_details[0].clone().commits[2].id.to_git2())?.len(),
         0
-    ); // blank commit
-
-    let descriptions = branch.series[0]
-        .clone()?
-        .patches
+    );
+    let messages = b.branch_details[0]
+        .clone()
+        .commits
         .iter()
-        .map(|c| c.description.clone())
+        .map(|c| c.message.clone())
         .collect::<Vec<_>>();
 
     assert_eq!(
-        descriptions,
+        messages,
         vec!["commit three", "commit two", "", "commit one"]
     );
     Ok(())
@@ -115,36 +112,32 @@ fn insert_blank_commit_up() -> anyhow::Result<()> {
     gitbutler_branch_actions::insert_blank_commit(ctx, stack_entry.id, commit2_id, -1, None)
         .unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
-        .unwrap()
-        .branches
+    let (_, b) = stack_details(ctx)
         .into_iter()
-        .find(|b| b.id == stack_entry.id)
+        .find(|d| d.0 == stack_entry.id)
         .unwrap();
-
-    assert_eq!(branch.series[0].clone()?.patches.len(), 4);
+    assert_eq!(b.branch_details[0].clone().commits.len(), 4);
     assert_eq!(
-        list_commit_files(ctx, branch.series[0].clone()?.patches[0].id)?.len(),
+        list_commit_files(ctx, b.branch_details[0].clone().commits[0].id.to_git2())?.len(),
         1
     );
     assert_eq!(
-        list_commit_files(ctx, branch.series[0].clone()?.patches[1].id)?.len(),
+        list_commit_files(ctx, b.branch_details[0].clone().commits[1].id.to_git2())?.len(),
         0
-    ); // blank commit
+    );
     assert_eq!(
-        list_commit_files(ctx, branch.series[0].clone()?.patches[2].id)?.len(),
+        list_commit_files(ctx, b.branch_details[0].clone().commits[2].id.to_git2())?.len(),
         2
     );
-
-    let descriptions = branch.series[0]
-        .clone()?
-        .patches
+    let messages = b.branch_details[0]
+        .clone()
+        .commits
         .iter()
-        .map(|c| c.description.clone())
+        .map(|c| c.message.clone())
         .collect::<Vec<_>>();
 
     assert_eq!(
-        descriptions,
+        messages,
         vec!["commit three", "", "commit two", "commit one"]
     );
     Ok(())
