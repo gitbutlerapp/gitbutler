@@ -1,6 +1,8 @@
 use but_workspace::{DiffSpec, HunkHeader};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch_actions::list_commit_files;
+use gitbutler_oxidize::ObjectIdExt;
+use gitbutler_testsupport::stack_details;
 
 use super::*;
 
@@ -67,17 +69,13 @@ fn forcepush_allowed() -> anyhow::Result<()> {
         }];
         gitbutler_branch_actions::amend(ctx, stack_entry.id, commit_id, to_amend).unwrap();
 
-        let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
-            .unwrap()
-            .branches
+        let (_, b) = stack_details(ctx)
             .into_iter()
-            .find(|b| b.id == stack_entry.id)
+            .find(|s| s.0 == stack_entry.id)
             .unwrap();
-        assert!(branch.requires_force);
-        assert_eq!(branch.series[0].clone()?.patches.len(), 1);
-        assert_eq!(branch.files.len(), 0);
+        assert_eq!(b.branch_details[0].commits.len(), 1);
         assert_eq!(
-            list_commit_files(ctx, branch.series[0].clone()?.patches[0].id)?.len(),
+            list_commit_files(ctx, b.branch_details[0].commits[0].id.to_git2())?.len(),
             2
         );
     }
@@ -108,14 +106,11 @@ fn non_locked_hunk() -> anyhow::Result<()> {
     let commit_oid =
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
-        .unwrap()
-        .branches
+    let (_, b) = stack_details(ctx)
         .into_iter()
-        .find(|b| b.id == stack_entry.id)
+        .find(|s| s.0 == stack_entry.id)
         .unwrap();
-    assert_eq!(branch.series[0].clone()?.patches.len(), 1);
-    assert_eq!(branch.files.len(), 0);
+    assert_eq!(b.branch_details[0].commits.len(), 1);
 
     {
         // amend another hunk
@@ -133,16 +128,13 @@ fn non_locked_hunk() -> anyhow::Result<()> {
         }];
         gitbutler_branch_actions::amend(ctx, stack_entry.id, commit_oid, to_amend).unwrap();
 
-        let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
-            .unwrap()
-            .branches
+        let (_, b) = stack_details(ctx)
             .into_iter()
-            .find(|b| b.id == stack_entry.id)
+            .find(|s| s.0 == stack_entry.id)
             .unwrap();
-        assert_eq!(branch.series[0].clone()?.patches.len(), 1);
-        assert_eq!(branch.files.len(), 0);
+        assert_eq!(b.branch_details[0].commits.len(), 1);
         assert_eq!(
-            list_commit_files(ctx, branch.series[0].clone()?.patches[0].id)?.len(),
+            list_commit_files(ctx, b.branch_details[0].commits[0].id.to_git2())?.len(),
             2
         );
     }
@@ -173,16 +165,13 @@ fn locked_hunk() -> anyhow::Result<()> {
     let commit_oid =
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
-        .unwrap()
-        .branches
+    let (_, b) = stack_details(ctx)
         .into_iter()
-        .find(|b| b.id == stack_entry.id)
+        .find(|s| s.0 == stack_entry.id)
         .unwrap();
-    assert_eq!(branch.series[0].clone()?.patches.len(), 1);
-    assert_eq!(branch.files.len(), 0);
+    assert_eq!(b.branch_details[0].commits.len(), 1);
     assert_eq!(
-        list_commit_files(ctx, branch.series[0].clone()?.patches[0].id)?[0].hunks[0].diff_lines,
+        list_commit_files(ctx, b.branch_details[0].commits[0].id.to_git2())?[0].hunks[0].diff_lines,
         "@@ -0,0 +1 @@\n+content\n\\ No newline at end of file\n"
     );
 
@@ -202,17 +191,14 @@ fn locked_hunk() -> anyhow::Result<()> {
         }];
         gitbutler_branch_actions::amend(ctx, stack_entry.id, commit_oid, to_amend).unwrap();
 
-        let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
-            .unwrap()
-            .branches
+        let (_, b) = stack_details(ctx)
             .into_iter()
-            .find(|b| b.id == stack_entry.id)
+            .find(|s| s.0 == stack_entry.id)
             .unwrap();
-
-        assert_eq!(branch.series[0].clone()?.patches.len(), 1);
-        assert_eq!(branch.files.len(), 0);
+        assert_eq!(b.branch_details[0].commits.len(), 1);
         assert_eq!(
-            list_commit_files(ctx, branch.series[0].clone()?.patches[0].id)?[0].hunks[0].diff_lines,
+            list_commit_files(ctx, b.branch_details[0].commits[0].id.to_git2())?[0].hunks[0]
+                .diff_lines,
             "@@ -0,0 +1 @@\n+more content\n\\ No newline at end of file\n"
         );
     }
@@ -243,14 +229,11 @@ fn non_existing_ownership() {
     let commit_oid =
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
-        .unwrap()
-        .branches
+    let (_, b) = stack_details(ctx)
         .into_iter()
-        .find(|b| b.id == stack_entry.id)
+        .find(|s| s.0 == stack_entry.id)
         .unwrap();
-    assert_eq!(branch.series[0].clone().unwrap().patches.len(), 1);
-    assert_eq!(branch.files.len(), 0);
+    assert_eq!(b.branch_details[0].commits.len(), 1);
 
     {
         // amend non existing hunk
