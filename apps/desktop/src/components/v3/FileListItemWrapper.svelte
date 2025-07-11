@@ -112,6 +112,19 @@
 
 	const conflict = $derived(conflictEntries ? conflictEntries.entries[change.path] : undefined);
 	const draggableDisabled = $derived(!draggable || showCheckbox || selectionId.type === 'branch');
+
+	let timeoutId: any;
+
+	$effect(() => {
+		if (selected && draggableEl) {
+			if (timeoutId) {
+				clearTimeout(timeoutId);
+			}
+			timeoutId = setTimeout(() => {
+				draggableEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+			}, 50);
+		}
+	});
 </script>
 
 <div
