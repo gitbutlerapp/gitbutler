@@ -250,22 +250,6 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects, settings), err(Debug))]
-    pub fn reset_virtual_branch(
-        projects: State<'_, projects::Controller>,
-        settings: State<'_, AppSettingsWithDiskSync>,
-        project_id: ProjectId,
-        stack_id: StackId,
-        target_commit_id: String,
-    ) -> Result<(), Error> {
-        let project = projects.get(project_id)?;
-        let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        let target_commit_id = git2::Oid::from_str(&target_commit_id).map_err(|e| anyhow!(e))?;
-        gitbutler_branch_actions::reset_virtual_branch(&ctx, stack_id, target_commit_id)?;
-        Ok(())
-    }
-
-    #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
     pub fn amend_virtual_branch(
         projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,

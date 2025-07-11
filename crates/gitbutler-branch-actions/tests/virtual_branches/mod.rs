@@ -68,7 +68,6 @@ mod list_details;
 mod move_commit_file;
 mod move_commit_to_vbranch;
 mod oplog;
-mod reset_virtual_branch;
 mod save_and_unapply_virtual_branch;
 mod set_base_branch;
 mod squash;

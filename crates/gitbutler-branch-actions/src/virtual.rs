@@ -12,7 +12,7 @@ use gitbutler_branch::BranchUpdateRequest;
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
-use gitbutler_diff::{trees, GitHunk, Hunk};
+use gitbutler_diff::GitHunk;
 use gitbutler_hunk_dependency::RangeCalculationError;
 use gitbutler_operating_modes::assure_open_workspace_mode;
 use gitbutler_oxidize::{
@@ -494,83 +494,6 @@ pub(crate) fn set_ownership(
 
 pub type BranchStatus = HashMap<PathBuf, Vec<gitbutler_diff::GitHunk>>;
 pub type VirtualBranchHunksByPathMap = HashMap<PathBuf, Vec<VirtualBranchHunk>>;
-
-// reset virtual branch to a specific commit
-pub(crate) fn reset_branch(
-    ctx: &CommandContext,
-    stack_id: StackId,
-    target_commit_id: git2::Oid,
-) -> Result<()> {
-    let vb_state = ctx.project().virtual_branches();
-
-    let default_target = vb_state.get_default_target()?;
-
-    let gix_repo = ctx.gix_repo()?;
-    let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
-    if stack.head_oid(&gix_repo)? == target_commit_id.to_gix() {
-        // nothing to do
-        return Ok(());
-    }
-
-    if default_target.sha != target_commit_id
-        && !ctx
-            .repo()
-            .l(
-                stack.head_oid(&gix_repo)?.to_git2(),
-                LogUntil::Commit(default_target.sha),
-                false,
-            )?
-            .contains(&target_commit_id)
-    {
-        bail!("commit {target_commit_id} not in the branch");
-    }
-
-    // Compute the old workspace before resetting, so we can figure out
-    // what hunks were released by this reset, and assign them to this branch.
-    let old_head = but_workspace::head(ctx)?;
-
-    stack.set_stack_head(&vb_state, &gix_repo, target_commit_id, None)?;
-
-    let updated_head = but_workspace::head(ctx)?;
-    let repo = ctx.repo();
-    let diff = trees(
-        repo,
-        &repo
-            .find_commit(updated_head)?
-            .tree()
-            .map_err(anyhow::Error::from)?,
-        &repo
-            .find_commit(old_head)?
-            .tree()
-            .map_err(anyhow::Error::from)?,
-        true,
-    )?;
-
-    // Assign the new hunks to the branch we're working on.
-    for (path, filediff) in diff {
-        for hunk in filediff.hunks {
-            let hash = Hunk::hash_diff(&hunk.diff_lines);
-            stack.ownership.put(
-                format!(
-                    "{}:{}-{}-{:?}",
-                    path.display(),
-                    hunk.new_start,
-                    hunk.new_start + hunk.new_lines,
-                    &hash
-                )
-                .parse()?,
-            );
-        }
-    }
-    vb_state
-        .set_stack(stack)
-        .context("failed to write branch")?;
-
-    crate::integration::update_workspace_commit(&vb_state, ctx)
-        .context("failed to update gitbutler workspace")?;
-
-    Ok(())
-}
 
 #[allow(clippy::too_many_arguments)]
 pub fn commit(
