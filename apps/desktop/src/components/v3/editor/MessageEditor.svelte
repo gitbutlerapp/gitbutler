@@ -572,11 +572,6 @@
 		align-items: center;
 		padding: 0 4px;
 		gap: 5px;
-
-		&.disabled {
-			opacity: 0.5;
-			pointer-events: none;
-		}
 	}
 
 	.message-textarea__ruler-input {
