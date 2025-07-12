@@ -594,6 +594,7 @@
 				class="combined-view"
 				bind:this={compactDiv}
 				bind:clientHeight={verticalHeight}
+				data-remove-from-draggable
 				data-details={stack.id}
 			>
 				{#if branchName && commitId}
