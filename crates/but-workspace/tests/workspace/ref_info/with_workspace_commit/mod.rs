@@ -1,8 +1,7 @@
 use bstr::ByteSlice;
 use but_testsupport::{visualize_commit_graph, visualize_commit_graph_all};
-use but_workspace::{RefInfo, head_info, ref_info};
+use but_workspace::{RefInfo, head_info};
 use gitbutler_oxidize::OidExt;
-use gitbutler_stack::StackId;
 
 pub fn head_info2(
     repo: &gix::Repository,
@@ -40,12 +39,7 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
     ");
 
     // Needs a branch for workspace implied by a branch with metadata.
-    add_stack(
-        &mut meta,
-        StackId::from_number_for_testing(1),
-        "A",
-        StackState::InWorkspace,
-    );
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     // We can look at a workspace ref directly (via HEAD)
     let opts = standard_options();
     let info = head_info2(&repo, &meta, opts.clone())?;
@@ -207,13 +201,7 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
     * fafd9d0 (origin/main, main) init
     ");
 
-    add_stack_with_segments(
-        &mut meta,
-        StackId::from_number_for_testing(0),
-        "B-on-A",
-        StackState::InWorkspace,
-        &["A"],
-    );
+    add_stack_with_segments(&mut meta, 0, "B-on-A", StackState::InWorkspace, &["A"]);
 
     let opts = standard_options();
     let info = head_info2(&repo, &meta, opts)?;
@@ -293,13 +281,7 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
 
     // Note how `base-of-A` is absent, it's just something the user may have added,
     // and it comes with an official remote configuration.
-    add_stack_with_segments(
-        &mut meta,
-        StackId::from_number_for_testing(0),
-        "B-on-A",
-        StackState::InWorkspace,
-        &["A"],
-    );
+    add_stack_with_segments(&mut meta, 0, "B-on-A", StackState::InWorkspace, &["A"]);
 
     let opts = standard_options();
     let info = head_info2(&repo, &meta, opts)?;
@@ -387,13 +369,7 @@ fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
     * fafd9d0 (main) init
     ");
 
-    add_stack_with_segments(
-        &mut meta,
-        StackId::from_number_for_testing(0),
-        "B-on-A",
-        StackState::InWorkspace,
-        &["A"],
-    );
+    add_stack_with_segments(&mut meta, 0, "B-on-A", StackState::InWorkspace, &["A"]);
 
     let opts = standard_options();
     // TODO(head_info2) needs to know the base, so local tracking branch of target ref needs to be tracked.
@@ -480,13 +456,7 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
     * fafd9d0 init
     ");
 
-    add_stack_with_segments(
-        &mut meta,
-        StackId::from_number_for_testing(0),
-        "B-on-A",
-        StackState::InWorkspace,
-        &["A"],
-    );
+    add_stack_with_segments(&mut meta, 0, "B-on-A", StackState::InWorkspace, &["A"]);
 
     // TODO(old): A must be considered integrated, and ideally still has its commits.
     //       Having commits would mean we still know the previous position of
@@ -646,12 +616,7 @@ fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
     * c166d42 (origin/main, origin/HEAD, main) init-integration
     ");
 
-    add_stack(
-        &mut meta,
-        StackId::from_number_for_testing(1),
-        "A",
-        StackState::InWorkspace,
-    );
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let opts = standard_options();
     let info = ref_info2(repo.find_reference("A")?, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
@@ -720,20 +685,11 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
         .into_iter()
         .enumerate()
     {
-        add_stack(
-            &mut meta,
-            StackId::from_number_for_testing(idx as u128),
-            name,
-            StackState::InWorkspace,
-        );
+        add_stack(&mut meta, idx as u128, name, StackState::InWorkspace);
     }
 
     let opts = standard_options();
-    // TODO(head_info2): needs multi-stack creation
-    let info = head_info(&repo, &*meta, opts)?;
-    // The difficulty here is that there is no merge-parent for the newly created stack, and that
-    // empty stacks rest on the merge-base which naturally is hidden during traversal.
-    // Also, according to
+    let info = head_info2(&repo, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -748,7 +704,7 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: 5,
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -768,7 +724,7 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: 3,
                         ref_name: "refs/heads/advanced-lane-2",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -790,7 +746,7 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: 4,
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -813,8 +769,8 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
             ),
         ),
         is_managed_ref: true,
-        is_managed_commit: false,
-        is_entrypoint: false,
+        is_managed_commit: true,
+        is_entrypoint: true,
     }
     "#);
     Ok(())
@@ -832,23 +788,23 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
     // Follow the natural order, lane first.
     add_stack_with_segments(
         &mut meta,
-        StackId::from_number_for_testing(0),
+        0,
         "lane",
         StackState::InWorkspace,
         &["lane-segment-01", "lane-segment-02"],
     );
     add_stack_with_segments(
         &mut meta,
-        StackId::from_number_for_testing(1),
+        1,
         "lane-2",
         StackState::InWorkspace,
         &["lane-2-segment-01", "lane-2-segment-02"],
     );
 
     // The stacks should come out just like defined above, "lane" and then "lane2" with all the right segments.
+    // he lane-segment01|02 bits can't be connected as they are not physically connected in the graph anymore.
     let opts = standard_options();
-    // TODO(head_info2): needs multi-stack creation
-    let info = ref_info(repo.find_reference("lane")?, &*meta, opts)?;
+    let info = ref_info2(repo.find_reference("lane")?, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -862,37 +818,13 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
                 segments: [
-                    ref_info::ui::Segment {
+                    👉ref_info::ui::Segment {
                         id: 0,
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local),
                         ],
-                        commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
-                    },
-                    ref_info::ui::Segment {
-                        id: 0,
-                        ref_name: "refs/heads/lane-segment-01",
-                        remote_tracking_ref_name: "None",
-                        commits: [],
-                        commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
-                    },
-                    ref_info::ui::Segment {
-                        id: 0,
-                        ref_name: "refs/heads/lane-segment-02",
-                        remote_tracking_ref_name: "None",
-                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -909,7 +841,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: 4,
                         ref_name: "refs/heads/lane-2",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -921,7 +853,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: 5,
                         ref_name: "refs/heads/lane-2-segment-01",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -933,7 +865,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: 6,
                         ref_name: "refs/heads/lane-2-segment-02",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -963,21 +895,21 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
     meta.data_mut().branches.clear();
     add_stack_with_segments(
         &mut meta,
-        StackId::from_number_for_testing(1),
+        0,
         "lane-2",
         StackState::InWorkspace,
         &["lane-2-segment-01", "lane-2-segment-02"],
     );
     add_stack_with_segments(
         &mut meta,
-        StackId::from_number_for_testing(0),
+        1,
         "lane",
         StackState::InWorkspace,
         &["lane-segment-01", "lane-segment-02"],
     );
 
     let opts = standard_options();
-    let info = ref_info(repo.find_reference("lane")?, &*meta, opts)?;
+    let info = ref_info2(repo.find_reference("lane")?, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -992,7 +924,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: 4,
                         ref_name: "refs/heads/lane-2",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1004,7 +936,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: 5,
                         ref_name: "refs/heads/lane-2-segment-01",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1016,7 +948,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         },
                     },
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: 6,
                         ref_name: "refs/heads/lane-2-segment-02",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1035,37 +967,13 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
                 segments: [
-                    ref_info::ui::Segment {
+                    👉ref_info::ui::Segment {
                         id: 0,
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local),
                         ],
-                        commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
-                    },
-                    ref_info::ui::Segment {
-                        id: 0,
-                        ref_name: "refs/heads/lane-segment-01",
-                        remote_tracking_ref_name: "None",
-                        commits: [],
-                        commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
-                    },
-                    ref_info::ui::Segment {
-                        id: 0,
-                        ref_name: "refs/heads/lane-segment-02",
-                        remote_tracking_ref_name: "None",
-                        commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -1103,12 +1011,7 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
     ");
 
     for (idx, name) in ["advanced-lane", "lane"].into_iter().enumerate() {
-        add_stack(
-            &mut meta,
-            StackId::from_number_for_testing(idx as u128),
-            name,
-            StackState::InWorkspace,
-        );
+        add_stack(&mut meta, idx as u128, name, StackState::InWorkspace);
     }
 
     let opts = standard_options();
@@ -1250,7 +1153,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
 
     add_stack_with_segments(
         &mut meta,
-        StackId::from_number_for_testing(0),
+        0,
         "dependant",
         StackState::InWorkspace,
         &["advanced-lane"],
@@ -1315,7 +1218,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
     // Put it below - this is fine, new commits will the placed onto `base`.
     add_stack_with_segments(
         &mut meta,
-        StackId::from_number_for_testing(0),
+        0,
         "advanced-lane",
         StackState::InWorkspace,
         &["dependant"],
@@ -1393,7 +1296,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
 
     add_stack_with_segments(
         &mut meta,
-        StackId::from_number_for_testing(0),
+        0,
         "on-top-of-dependant",
         StackState::InWorkspace,
         &["dependant", "advanced-lane"],
@@ -1470,7 +1373,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
     meta.data_mut().branches.clear();
     add_stack_with_segments(
         &mut meta,
-        StackId::from_number_for_testing(0),
+        0,
         "dependant",
         StackState::InWorkspace,
         &["on-top-of-dependant", "advanced-lane"],
@@ -1558,7 +1461,7 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
 
     add_stack_with_segments(
         &mut meta,
-        StackId::from_number_for_testing(0),
+        0,
         "on-top-of-lane",
         StackState::InWorkspace,
         &["lane"],
@@ -1640,12 +1543,7 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
     ");
 
     // Just a single explicit reference we want to know of.
-    add_stack(
-        &mut meta,
-        StackId::from_number_for_testing(1),
-        "A",
-        StackState::InWorkspace,
-    );
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
 
     let opts = standard_options();
     let info = ref_info2(repo.find_reference("A")?, &meta, opts).unwrap();
@@ -1716,12 +1614,7 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
     ");
 
     for (idx, name) in ["advanced-lane", "lane"].into_iter().enumerate() {
-        add_stack(
-            &mut meta,
-            StackId::from_number_for_testing(idx as u128),
-            name,
-            StackState::InWorkspace,
-        );
+        add_stack(&mut meta, idx as u128, name, StackState::InWorkspace);
     }
 
     let opts = standard_options();
@@ -1748,7 +1641,11 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                             LocalCommit(cbc6713, "change\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: "None",
+                        metadata: Branch {
+                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                            description: None,
+                            review: Review { pull_request: None, review_id: None },
+                        },
                     },
                 ],
                 stash_status: None,
@@ -1867,12 +1764,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
     ");
 
     for (idx, name) in ["lane", "advanced-lane"].into_iter().enumerate() {
-        add_stack(
-            &mut meta,
-            StackId::from_number_for_testing(idx as u128),
-            name,
-            StackState::InWorkspace,
-        );
+        add_stack(&mut meta, idx as u128, name, StackState::InWorkspace);
     }
 
     let opts = standard_options();
@@ -2069,12 +1961,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
     meta.data_mut().branches.clear();
     // Invert the order to invert stack order.
     for (idx, name) in ["advanced-lane", "lane"].into_iter().enumerate() {
-        add_stack(
-            &mut meta,
-            StackId::from_number_for_testing(idx as u128),
-            name,
-            StackState::InWorkspace,
-        );
+        add_stack(&mut meta, idx as u128, name, StackState::InWorkspace);
     }
 
     let info = head_info2(&repo, &meta, opts)?;
@@ -2150,12 +2037,7 @@ fn disjoint() -> anyhow::Result<()> {
     * fafd9d0 (origin/main, main) init
     ");
 
-    add_stack(
-        &mut meta,
-        StackId::from_number_for_testing(1),
-        "disjoint",
-        StackState::InWorkspace,
-    );
+    add_stack(&mut meta, 1, "disjoint", StackState::InWorkspace);
 
     let opts = standard_options();
     let info = head_info2(&repo, &meta, opts)?;
@@ -2214,12 +2096,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
     * c166d42 (origin/main, origin/HEAD, main) init-integration
     ");
 
-    add_stack(
-        &mut meta,
-        StackId::from_number_for_testing(1),
-        "C-on-A",
-        StackState::InWorkspace,
-    );
+    add_stack(&mut meta, 1, "C-on-A", StackState::InWorkspace);
 
     let opts = standard_options();
     let info = head_info2(&repo, &meta, opts.clone())?;
@@ -2581,16 +2458,10 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
     * c166d42 (origin/main, origin/HEAD, unrelated, main) init-integration
     ");
 
-    add_stack(
-        &mut meta,
-        StackId::from_number_for_testing(1),
-        "unrelated",
-        StackState::InWorkspace,
-    );
+    add_stack(&mut meta, 1, "unrelated", StackState::InWorkspace);
 
     let opts = standard_options();
-    // TODO(head_info2): it must be possible to have an empty virtual branch on top of an integrated commit.
-    let info = head_info(&repo, &*meta, opts.clone())?;
+    let info = head_info2(&repo, &meta, opts.clone())?;
     // Active branches we should see, but only "unrelated",
     // not any other branch that happens to point at that commit.
     insta::assert_debug_snapshot!(info, @r#"
@@ -2607,7 +2478,7 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: 3,
                         ref_name: "refs/heads/unrelated",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -2628,18 +2499,13 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
             ),
         ),
         is_managed_ref: true,
-        is_managed_commit: false,
-        is_entrypoint: false,
+        is_managed_commit: true,
+        is_entrypoint: true,
     }
     "#);
 
     // Change the stack to be inactive, so it's not considered to be part of the workspace.
-    add_stack(
-        &mut meta,
-        StackId::from_number_for_testing(1),
-        "unrelated",
-        StackState::Inactive,
-    );
+    add_stack(&mut meta, 1, "unrelated", StackState::Inactive);
 
     let info = head_info2(&repo, &meta, opts.clone())?;
     // Now there should be no stack, it's an empty workspace.
@@ -2662,9 +2528,8 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
     }
     "#);
 
-    // But if it's requested directly, we should see it nonetheless.
-    // TODO(ref_info2): once 'unrelated' is part of the workspace, the workspace reference will be used as workspace name.
-    let info = ref_info(repo.find_reference("unrelated")?, &*meta, opts)?;
+    // The unrelated reference would be its own pseudo-workspace, single-branch mode effectively.
+    let info = ref_info2(repo.find_reference("unrelated")?, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
@@ -2674,15 +2539,15 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                base: Some(
-                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-                ),
+                base: None,
                 segments: [
-                    ref_info::ui::Segment {
+                    👉ref_info::ui::Segment {
                         id: 0,
                         ref_name: "refs/heads/unrelated",
                         remote_tracking_ref_name: "None",
-                        commits: [],
+                        commits: [
+                            LocalCommit(c166d42, "init-integration\n", integrated, ►main),
+                        ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch {
                             ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
@@ -2700,7 +2565,7 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
             ),
         ),
         is_managed_ref: true,
-        is_managed_commit: false,
+        is_managed_commit: true,
         is_entrypoint: false,
     }
     "#);
@@ -2747,7 +2612,7 @@ mod utils {
     pub fn add_workspace(meta: &mut VirtualBranchesTomlMetadata) {
         add_stack(
             meta,
-            StackId::from_number_for_testing(u128::MAX),
+            u128::MAX,
             "definitely outside of the workspace just to have it",
             StackState::Inactive,
         );
@@ -2755,7 +2620,7 @@ mod utils {
 
     pub fn add_stack(
         meta: &mut VirtualBranchesTomlMetadata,
-        stack_id: StackId,
+        stack_id: u128,
         stack_name: &str,
         state: StackState,
     ) -> StackId {
@@ -2765,7 +2630,7 @@ mod utils {
     // Add parameters as needed.
     pub fn add_stack_with_segments(
         meta: &mut VirtualBranchesTomlMetadata,
-        stack_id: StackId,
+        stack_id: u128,
         stack_name: &str,
         state: StackState,
         segments: &[&str],
@@ -2800,6 +2665,8 @@ mod utils {
                 StackState::Inactive => false,
             },
         );
+        stack.order = stack_id as usize;
+        let stack_id = StackId::from_number_for_testing(stack_id);
         stack.id = stack_id;
         meta.data_mut().branches.insert(stack_id, stack);
         stack_id
