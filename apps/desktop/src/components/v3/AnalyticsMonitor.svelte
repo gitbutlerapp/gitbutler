@@ -36,8 +36,7 @@ attached to posthog events.
 	$effect(() => {
 		eventContext.update({
 			rulerCount: globalState.rulerCountValue.current,
-			useRuler: globalState.useRuler.current,
-			wrapTextByRuler: globalState.wrapTextByRuler.current
+			useRuler: globalState.useRuler.current
 		});
 	});
 
