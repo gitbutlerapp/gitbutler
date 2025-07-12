@@ -88,7 +88,6 @@ export type GlobalUiState = {
 	unassignedSidebaFolded: boolean;
 	useRuler: boolean;
 	rulerCountValue: number;
-	wrapTextByRuler: boolean;
 	aiSuggestionsOnType: boolean;
 	channel: string | undefined;
 	draftBranchName: string | undefined;
@@ -130,9 +129,8 @@ export class UiState {
 		floatingCommitWidth: 640,
 		floatingCommitHeight: 330,
 		unassignedSidebaFolded: false,
-		useRuler: false,
+		useRuler: true,
 		rulerCountValue: 72,
-		wrapTextByRuler: false,
 		aiSuggestionsOnType: false,
 		channel: undefined,
 		draftBranchName: undefined,
