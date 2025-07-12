@@ -104,7 +104,8 @@ export enum TestId {
 	StackSelectionView = 'stack-selection-view',
 	BranchesSelectionView = 'branches-selection-view',
 	WorkspaceSelectionView = 'workspace-selection-view',
-	ProjectNotFoundPage = 'project-not-found-page'
+	ProjectNotFoundPage = 'project-not-found-page',
+	FloatingModeButton = 'floating-mode-button'
 }
 
 export enum ElementId {

@@ -30,6 +30,5 @@
 		"src/**/*.ts",
 		"src/**/*.svelte",
 		"cypress.config.ts",
-		"cypress/**/*.ts"
 	]
 }

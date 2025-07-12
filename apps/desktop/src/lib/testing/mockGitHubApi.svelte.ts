@@ -4,6 +4,7 @@ import { butlerModule } from '$lib/state/butlerModule';
 import { createGitHubApi } from '$lib/state/clientState.svelte';
 import { Octokit } from '@octokit/rest';
 import { configureStore, type ThunkDispatch, type UnknownAction } from '@reduxjs/toolkit';
+import { readable } from 'svelte/store';
 
 /**
  * Mock for GitHub RTKQ.
@@ -31,7 +32,7 @@ export function setupMockGitHubApi() {
 	const gitHubClient = new GitHubClient({ client: octokit });
 	gitHubClient.setRepo({ owner: 'test-owner', repo: 'test-repo' });
 	const gitHubApi = createGitHubApi(
-		butlerModule({ getDispatch: () => dispatch!, getState: () => () => state })
+		butlerModule({ getDispatch: () => dispatch!, store: readable(state) })
 	);
 
 	const store = configureStore({

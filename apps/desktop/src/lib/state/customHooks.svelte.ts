@@ -37,14 +37,18 @@ const EVENT_NAME = 'tauri_command';
 export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 	api,
 	endpointName,
-	ctx: { getState, getDispatch }
+	ctx: { store, getDispatch }
 }: {
 	api: Api<any, Definitions, any, any, CoreModule>;
 	endpointName: string;
 	ctx: HookContext;
 }) {
 	const endpoint = api.endpoints[endpointName]!;
-	const state = getState() as any as () => RootState<any, any, any>;
+	let state = $state.raw<RootState<any, any, any>>({});
+
+	store.subscribe((value) => {
+		state = value as RootState<any, any, any>;
+	});
 
 	const { initiate, select } = endpoint as ApiEndpointQuery<CustomQuery<any>, Definitions>;
 
@@ -94,7 +98,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 		}
 
 		const selector = $derived(select(queryArg));
-		const result = $derived(selector(state()));
+		const result = $derived(selector(state));
 		const output = $derived.by(() => {
 			let data = result.data;
 			if (options?.transform && data) {
@@ -133,7 +137,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 
 		const results = queryArgs.map((queryArg) => {
 			const selector = $derived(select(queryArg));
-			const result = $derived(selector(state()));
+			const result = $derived(selector(state));
 			const output = $derived.by(() => {
 				let data = result.data;
 				if (options?.transform && data) {
@@ -151,7 +155,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 
 	function useQueryState<T extends TranformerFn>(queryArg: unknown, options?: { transform?: T }) {
 		const selector = $derived(select(queryArg));
-		const result = $derived(selector(state()));
+		const result = $derived(selector(state));
 		const output = $derived.by(() => {
 			let data = result.data;
 			if (options?.transform && data) {
@@ -167,7 +171,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 
 	function useQueryTimeStamp(queryArg: unknown) {
 		const selector = $derived(select(queryArg));
-		const result = $derived(selector(state()));
+		const result = $derived(selector(state));
 		return reactive(() => result.startedTimeStamp);
 	}
 
@@ -283,7 +287,7 @@ export function buildMutationHook<
 	endpointName,
 	actionName,
 	command,
-	ctx: { getState, getDispatch, posthog }
+	ctx: { store: getState, getDispatch, posthog }
 }: {
 	api: Api<any, Definitions, any, any, CoreModule>;
 	endpointName: string;
@@ -292,7 +296,10 @@ export function buildMutationHook<
 	ctx: HookContext;
 }): MutationHook<D> {
 	const endpoint = api.endpoints[endpointName]!;
-	const state = getState() as any as () => RootState<any, any, any>;
+	let state = $state.raw<RootState<any, any, any>>({});
+	getState.subscribe((value) => {
+		state = value as RootState<any, any, any>;
+	});
 
 	const { initiate, select } = endpoint as unknown as ApiEndpointMutation<D, Definitions>;
 
@@ -398,7 +405,7 @@ export function buildMutationHook<
 		}
 
 		const selector = $derived(select({ requestId: promise?.requestId, fixedCacheKey }));
-		const result = $derived(selector(state()));
+		const result = $derived(selector(state));
 
 		$effect(() => {
 			return () => {

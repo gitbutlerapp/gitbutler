@@ -1,17 +1,19 @@
+import { IS_TAURI_ENV } from '$lib/backend/tauri';
 import { getCurrentWindow, type Theme } from '@tauri-apps/api/window';
 import { type Writable } from 'svelte/store';
 import type { Settings } from '$lib/settings/userSettings';
-const appWindow = getCurrentWindow();
+
+const appWindow = IS_TAURI_ENV ? getCurrentWindow() : undefined;
 
 let systemTheme: string | null;
 let selectedTheme: string | undefined;
 
 export function initTheme(userSettings: Writable<Settings>) {
-	appWindow.theme().then((value: Theme | null) => {
+	appWindow?.theme().then((value: Theme | null) => {
 		systemTheme = value;
 		updateDom();
 	});
-	appWindow.onThemeChanged((e) => {
+	appWindow?.onThemeChanged((e) => {
 		systemTheme = e.payload;
 		updateDom();
 	});
