@@ -2,10 +2,8 @@
 	import '@gitbutler/ui/main.css';
 	import '../styles/styles.css';
 
-	import { browser } from '$app/environment';
-	import { dev } from '$app/environment';
-	import { beforeNavigate, afterNavigate } from '$app/navigation';
-	import { goto } from '$app/navigation';
+	import { browser, dev } from '$app/environment';
+	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
 	import AppUpdater from '$components/AppUpdater.svelte';
 	import GlobalModal from '$components/GlobalModal.svelte';
 	import GlobalSettingsMenuAction from '$components/GlobalSettingsMenuAction.svelte';
@@ -56,7 +54,7 @@
 	import { setSecretsService } from '$lib/secrets/secretsService';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
-	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
+	import { loadUserSettings, SETTINGS } from '$lib/settings/userSettings';
 	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
 	import { CommitAnalytics } from '$lib/soup/commitAnalytics';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -85,8 +83,10 @@
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { UploadsService } from '@gitbutler/shared/uploads/uploadsService';
 	import { UserService as CloudUserService } from '@gitbutler/shared/users/userService';
-	import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
-	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
+	import {
+		LineManagerFactory as StackingLineManagerFactory,
+		LineManagerFactory
+	} from '@gitbutler/ui/commitLines/lineManager';
 	import { setExternalLinkService } from '@gitbutler/ui/link/externalLinkService';
 	import { onMount, setContext, type Snippet } from 'svelte';
 	import { Toaster } from 'svelte-french-toast';
@@ -303,6 +303,12 @@
 		// Toggle v3 workspace APIs on/off
 		'w s 3': () => {
 			settingsService.updateFeatureFlags({ ws3: !$settingsStore?.featureFlags.ws3 });
+		},
+		// This is a debug tool to see how the commit-graph looks like, the basis for all workspace computation.
+		// For good measure, it also shows the workspace.
+		'd o t': async () => {
+			const projectId = new URL(window.location.href).pathname.split('/')[1];
+			await invoke('show_graph_svg', { projectId });
 		},
 		// This is a debug tool to learn about environment variables actually present - only available if the backend is in debug mode.
 		'e n v': async () => {

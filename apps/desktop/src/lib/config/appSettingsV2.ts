@@ -45,10 +45,6 @@ export class SettingsService {
 	}
 
 	async updateFeatureFlags(update: Partial<FeatureFlags>) {
-		// Doing a call to list_virtual_branches first to ensure the stack.tree properties are updated
-		await this.tauri.invoke<any>('list_virtual_branches', {
-			projectId: this.projectsService.getLastOpenedProject()
-		});
 		await this.tauri.invoke('update_feature_flags', { update });
 	}
 
