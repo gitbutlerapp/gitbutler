@@ -13,6 +13,7 @@
 	import ShareIssueModal from '$components/ShareIssueModal.svelte';
 	import SwitchThemeMenuAction from '$components/SwitchThemeMenuAction.svelte';
 	import ToastController from '$components/ToastController.svelte';
+	import WindowsTitleBar from '$components/WindowsTitleBar.svelte';
 	import ZoomInOutMenuAction from '$components/ZoomInOutMenuAction.svelte';
 	import { ActionService } from '$lib/actions/actionService.svelte';
 	import { PromptService as AIPromptService } from '$lib/ai/promptService';
@@ -20,6 +21,7 @@
 	import { EventContext } from '$lib/analytics/eventContext';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { CommandService, invoke } from '$lib/backend/ipc';
+	import { Tauri } from '$lib/backend/tauri';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { BranchService } from '$lib/branches/branchService.svelte';
 	import {
@@ -104,6 +106,7 @@
 	const gitLabClient = new GitLabClient();
 	setContext(GitHubClient, gitHubClient);
 	setContext(GitLabClient, gitLabClient);
+	setContext(Tauri, data.tauri);
 	const user = data.userService.user;
 	const accessToken = $derived($user?.github_access_token);
 	$effect(() => gitHubClient.setToken(accessToken));
@@ -285,6 +288,13 @@
 	let shareIssueModal: ShareIssueModal;
 
 	onMount(() => {
+		// Initialize window decorations for Windows
+		// Always use custom title bar on Windows, so hide default decorations
+		if (platformName === 'windows') {
+			// Decorations are inverted: true = show default title bar, false = hide default title bar
+			data.tauri.setDecorations(false);
+		}
+
 		return unsubscribe(
 			events.on('goto', async (path: string) => await goto(path)),
 			events.on('openSendIssueModal', () => shareIssueModal?.show())
@@ -333,10 +343,18 @@
 	onkeydown={handleKeyDown}
 />
 
-<div class="app-root" role="application" oncontextmenu={(e) => !dev && e.preventDefault()}>
+<div
+	class="app-root"
+	class:has-custom-titlebar={platformName === 'windows'}
+	role="application"
+	oncontextmenu={(e) => !dev && e.preventDefault()}
+>
 	{#if platformName === 'macos' && !$settingsStore?.featureFlags.v3}
 		<div class="drag-region" data-tauri-drag-region></div>
 	{/if}
+
+	<WindowsTitleBar />
+
 	{@render children()}
 </div>
 <Toaster />
