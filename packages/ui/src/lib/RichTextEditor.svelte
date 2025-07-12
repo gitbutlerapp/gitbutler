@@ -172,6 +172,9 @@
 			const currentText = await getPlaintext();
 			if (currentText?.trim() === '') {
 				setText(initialText);
+				if (wrapCountValue !== undefined) {
+					wrapAll();
+				}
 			}
 		}
 	}
