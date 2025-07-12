@@ -438,6 +438,9 @@ pub(crate) mod function {
             stacks,
             target,
             metadata,
+            // TODO: use base
+            lower_bound: _,
+            lower_bound_segment_id: _,
         } = graph.to_workspace()?;
 
         let cache = repo.commit_graph_if_enabled()?;
@@ -484,14 +487,12 @@ pub(crate) mod function {
 
     impl branch::Stack {
         fn try_from_graph_stack<'repo>(
-            but_graph::projection::Stack {
-                base,
-                base_segment_id: _,
-                segments,
-            }: but_graph::projection::Stack,
+            stack: but_graph::projection::Stack,
             repo: &'repo gix::Repository,
             mut ctx: SimilarityContext<'_, '_, 'repo, '_>,
         ) -> anyhow::Result<Self> {
+            let base = stack.base();
+            let but_graph::projection::Stack { segments } = stack;
             Ok(branch::Stack {
                 base,
                 segments: segments

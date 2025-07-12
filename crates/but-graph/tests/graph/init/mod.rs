@@ -615,12 +615,65 @@ fn with_limits() -> anyhow::Result<()> {
         commits_at_cutoff: 3,
     }
     "#);
+
+    // We can specify any target, despite not having a workspace setup.
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        standard_options_with_extra_target(&repo, "main"),
+    )?
+    .validated()?;
+
+    // This limits the reach of the stack naturally.
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    └── 👉►:0:C
+        └── ·2a95729 (⌂|1)
+            ├── ►:2:anon:
+            │   ├── ·6861158 (⌂|1)
+            │   ├── ·4f1f248 (⌂|1)
+            │   └── ·487ffce (⌂|1)
+            │       └── ►:1:main
+            │           ├── ·edc4dee (⌂|✓|1)
+            │           ├── ·01d0e1e (⌂|✓|1)
+            │           ├── ·4b3e5a8 (⌂|✓|1)
+            │           ├── ·34d0715 (⌂|✓|1)
+            │           └── ·eb5f731 (⌂|✓|1)
+            ├── ►:3:A
+            │   ├── ·20a823c (⌂|1)
+            │   ├── ·442a12f (⌂|1)
+            │   └── ·686706b (⌂|1)
+            │       └── →:1: (main)
+            └── ►:4:B
+                ├── ·9908c99 (⌂|1)
+                ├── ·60d9a56 (⌂|1)
+                └── ·9d171ff (⌂|1)
+                    └── →:1: (main)
+    ");
+    // TODO(extra-target): we'd have to detect single-branch mode and differentiate between
+    //       integrated-by-workspace and the extra target to be able to decide that
+    //       integrated portions (see below) shouldn't be shown.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    ⌂:0:C <> ✓!
+    └── ≡:0:C
+        ├── :0:C
+        │   ├── ·2a95729
+        │   ├── ·6861158
+        │   ├── ·4f1f248
+        │   └── ·487ffce
+        └── :1:main
+            ├── ·edc4dee (✓)
+            ├── ·01d0e1e (✓)
+            ├── ·4b3e5a8 (✓)
+            ├── ·34d0715 (✓)
+            └── ·eb5f731 (✓)
+    ");
     Ok(())
 }
 
 mod with_workspace;
 
 mod utils;
+use crate::init::utils::standard_options_with_extra_target;
 use crate::vis::utils::graph_workspace;
 pub use utils::{
     StackState, add_stack_with_segments, add_workspace, id_at, id_by_rev,

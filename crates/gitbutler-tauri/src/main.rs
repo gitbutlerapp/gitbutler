@@ -299,9 +299,11 @@ fn main() {
                     diff::changes_in_branch,
                     diff::tree_change_diffs,
                     diff::assign_hunk,
-                    // `env_vars` is only supposed to be avaialble in debug mode, not in production.
+                    // Debug-only - not for production!
                     #[cfg(debug_assertions)]
                     env::env_vars,
+                    #[cfg(all(debug_assertions, unix))]
+                    workspace::show_graph_svg,
                 ])
                 .menu(menu::build)
                 .on_window_event(|window, event| match event {

@@ -13,6 +13,7 @@ use gitbutler_branch_actions::{update_workspace_commit, BranchManagerExt};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, SnapshotExt};
+use gitbutler_oxidize::OidExt;
 use gitbutler_project as projects;
 use gitbutler_project::{Project, ProjectId};
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
@@ -38,6 +39,33 @@ pub fn stacks(
         but_workspace::stacks(&ctx, &project.gb_dir(), &repo, filter.unwrap_or_default())
     }
     .map_err(Into::into)
+}
+
+#[cfg(unix)]
+#[tauri::command(async)]
+#[instrument(skip(projects, settings), err(Debug))]
+pub fn show_graph_svg(
+    projects: State<'_, projects::Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
+    project_id: ProjectId,
+) -> Result<(), Error> {
+    let project = projects.get(project_id)?;
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    let repo = ctx.gix_repo_minimal()?;
+    let meta = ref_metadata_toml(&project)?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        but_graph::init::Options {
+            collect_tags: false,
+            commits_limit_hint: Some(100),
+            commits_limit_recharge_location: vec![],
+            hard_limit: Some(3000),
+            extra_target_commit_id: meta.data().default_target.as_ref().map(|t| t.sha.to_gix()),
+        },
+    )?;
+    graph.open_as_svg();
+    Ok(())
 }
 
 #[tauri::command(async)]

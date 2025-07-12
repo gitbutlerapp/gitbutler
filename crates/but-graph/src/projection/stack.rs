@@ -1,28 +1,35 @@
+use crate::init::PetGraph;
 use crate::{CommitFlags, Graph, SegmentIndex, SegmentMetadata};
 use anyhow::{Context, bail};
 use bitflags::bitflags;
 use but_core::ref_metadata;
+use petgraph::Direction;
 use std::fmt::Formatter;
 
 /// A list of segments that together represent a list of dependent branches, stacked on top of each other.
 #[derive(Clone)]
 pub struct Stack {
-    /// If there is an integration branch, we know a base commit shared with the integration branch from
-    /// which we branched off.
-    /// As such, it's always the base of the `last()` of our `segments`.
-    /// It is `None` if this is a stack derived from a branch without relation to any other branch.
-    pub base: Option<gix::ObjectId>,
-    /// If `base` is set, this is the segment owning the commit.
-    pub base_segment_id: Option<SegmentIndex>,
     /// The branch-name denoted segments of the stack from its tip to the point of reference, typically a merge-base.
     /// This array is never empty.
     pub segments: Vec<StackSegment>,
 }
 
+/// Query
+impl Stack {
+    /// The [base](StackSegment::base) of the last of our segments.
+    pub fn base(&self) -> Option<gix::ObjectId> {
+        self.segments.last().and_then(|s| s.base)
+    }
+
+    /// The [base_segment_id](StackSegment::base_segment_id) of the last of our segments.
+    pub fn base_segment_id(&self) -> Option<SegmentIndex> {
+        self.segments.last().and_then(|s| s.base_segment_id)
+    }
+}
+
 impl Stack {
     pub(crate) fn from_base_and_segments(
-        base: Option<gix::ObjectId>,
-        base_segment_id: Option<SegmentIndex>,
+        graph: &PetGraph,
         mut segments: Vec<StackSegment>,
     ) -> Self {
         let mut iter = segments.iter_mut();
@@ -32,16 +39,30 @@ impl Stack {
             a.base_segment_id = b.id.into();
             cur = Some(b);
         }
-        if let Some(s) = segments.last_mut() {
-            s.base = base;
-            s.base_segment_id = base_segment_id;
+        if let Some((last_segment, last_aggregated_sidx)) = segments.last_mut().and_then(|s| {
+            let sidx = s.commits_by_segment.last().map(|t| t.0)?;
+            (s, sidx).into()
+        }) {
+            let first_parent_sidx = graph
+                .neighbors_directed(last_aggregated_sidx, Direction::Outgoing)
+                .last();
+            last_segment.base = first_parent_sidx.and_then(|sidx| {
+                graph[sidx].commits.first().and_then(|c| {
+                    if c.parent_ids.is_empty() || graph[sidx].commits.get(1).is_some() {
+                        return c.id.into();
+                    }
+                    graph
+                        .neighbors_directed(sidx, Direction::Outgoing)
+                        .next()
+                        .is_some()
+                        .then_some(c.id)
+                })
+            });
+            last_segment.base_segment_id =
+                first_parent_sidx.filter(|_| last_segment.base.is_some());
         }
 
-        Stack {
-            base,
-            base_segment_id,
-            segments,
-        }
+        Stack { segments }
     }
 }
 
@@ -52,7 +73,7 @@ impl Stack {
             .segments
             .first()
             .map_or_else(|| "<anon>".into(), |s| s.debug_string());
-        if let Some(base) = self.base {
+        if let Some(base) = self.base() {
             dbg.push_str(" on ");
             dbg.push_str(&base.to_hex_with_len(7).to_string());
         }
@@ -104,14 +125,16 @@ pub struct StackSegment {
     ///
     /// The list could be empty for when this is a dedicated empty segment as insertion position of commits.
     pub commits: Vec<StackCommit>,
-    /// This is always the `first()` commit in `commits` of the next stacksegment, or the fork-point with the
-    /// local tracking branch of the integration branch if this is the last stack segment.
-    /// It is `None` if this is a stack derived from a branch without relation to any other branch,
-    /// which could be the case only for the bottom-most segment in a stack.
+    /// This is always the `first()` commit in `commits` of the next stacksegment, or the first commit of
+    /// the first ancestor segment.
+    /// It can be imagined as the base upon which the segment is resting, or the connection point to the rest
+    /// of the commit-graph along the first parent.
+    /// It is `None` if the stack segment contains the first commit in the history, an orphan without ancestry,
+    /// or if the history traversal was stopped early.
     pub base: Option<gix::ObjectId>,
     /// If `base` is set, this is the segment owning the commit.
-    /// This is particularly interesting if this is the bottom-most segment in a stack as it connects to
-    /// the segment outside the stack.
+    /// This is particularly interesting if this is the bottom-most segment in a stack as it typically connects to
+    /// the first segment outside the stack.
     pub base_segment_id: Option<SegmentIndex>,
     /// A mapping of `(segment_idx, offset)` to know which segment contributed the commits of the
     /// given offset into `commits`. The offsets are ascending, starting at `0`.
