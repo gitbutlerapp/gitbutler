@@ -52,6 +52,7 @@
 		onKeyDown?: (e: KeyboardEvent) => boolean;
 		enableFileUpload?: boolean;
 		enableSmiles?: boolean;
+		enableRichText?: boolean;
 		enableRuler?: boolean;
 		onAiButtonClick: (params: AiButtonClickParams) => void;
 		canUseAI: boolean;
@@ -68,6 +69,7 @@
 		disabled,
 		enableFileUpload,
 		enableSmiles,
+		enableRichText,
 		onChange,
 		onKeyDown,
 		onAiButtonClick,
@@ -241,12 +243,6 @@
 		return undefined;
 	}
 
-	$effect(() => {
-		if (useFloatingBox.current) {
-			useRichText = false;
-		}
-	});
-
 	let currentEditorWidth = $state<number>(0);
 </script>
 
@@ -333,16 +329,18 @@
 				<div class="editor-extratools">
 					<FormattingBar {formatter} />
 
-					<SegmentControl
-						size="small"
-						defaultIndex={!useRichText ? 0 : 1}
-						onselect={() => {
-							useRichText = !useRichText;
-						}}
-					>
-						<Segment id="plain-text">Plain text</Segment>
-						<Segment id="rich-text">Rich editor</Segment>
-					</SegmentControl>
+					{#if enableRichText}
+						<SegmentControl
+							size="small"
+							defaultIndex={!useRichText ? 0 : 1}
+							onselect={() => {
+								useRichText = enableRichText ? !useRichText : false;
+							}}
+						>
+							<Segment id="plain-text">Plain text</Segment>
+							<Segment id="rich-text">Rich editor</Segment>
+						</SegmentControl>
+					{/if}
 				</div>
 			{/if}
 

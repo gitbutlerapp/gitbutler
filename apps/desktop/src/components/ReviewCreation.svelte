@@ -467,6 +467,7 @@
 			/>
 			<MessageEditor
 				isPrCreation
+				enableRichText
 				bind:this={messageEditor}
 				testId={TestId.ReviewDescriptionInput}
 				{projectId}
