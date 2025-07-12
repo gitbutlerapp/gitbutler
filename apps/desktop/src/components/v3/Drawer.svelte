@@ -76,14 +76,14 @@
 	class="drawer"
 	bind:this={containerDiv}
 	class:collapsed={$collapsed}
-	class:bottom-border={bottomBorder || collapsed}
+	class:bottom-border={bottomBorder}
 	class:transparent
 	class:grow
 	style:max-height={maxHeight}
 	class:no-shrink={!shrink && resizer && $collapsed !== undefined}
 	{@attach scrollingAttachment(intelligentScrollingService, scrollToId, scrollToType)}
 >
-	<div bind:this={headerDiv} class="drawer-header">
+	<div bind:this={headerDiv} class="drawer-header" class:bottom-border={!$collapsed}>
 		{#if $collapsed !== undefined}
 			{@const name = $collapsed ? 'chevron-right' : ('chevron-down' as const)}
 			<button
@@ -185,8 +185,12 @@
 		height: 42px;
 		padding: 0 12px 0 14px;
 		gap: 8px;
-		border-bottom: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid transparent;
 		background-color: var(--clr-bg-2);
+
+		&.bottom-border {
+			border-bottom-color: var(--clr-border-2);
+		}
 	}
 
 	.drawer-header__title {

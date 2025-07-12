@@ -343,8 +343,9 @@
 					bind:clientHeight={actualDetailsHeight}
 					defaultValue={undefined}
 					viewport={element}
-					passive={collapsed}
+					hidden={collapsed}
 					direction="down"
+					imitateBorder
 					persistId="resizer-panel2-details-${stack.id}"
 					minHeight={minDetailsHeight}
 					maxHeight={maxDetailsHeight}
@@ -385,11 +386,12 @@
 							unsetMaxHeight={previewKey ? unsetMaxHeight : undefined}
 							order={1}
 							viewport={element}
+							imitateBorder
+							hidden={collapsed}
 							maxHeight={maxChangedFilesHeight}
 							minHeight={minChangedFilesHeight}
 							defaultValue={undefined}
 							persistId="resizer-panel2-changed-files-${stack.id}"
-							passive={collapsed}
 							direction="down"
 						/>
 					{/if}
@@ -591,7 +593,7 @@
 						{#snippet children(previewChange)}
 							{@const diffResult = diffService.getDiff(projectId, previewChange)}
 							{@const diffData = diffResult.current.data}
-							<Drawer collapsible>
+							<Drawer collapsible bottomBorder>
 								{#snippet header()}
 									<FileViewHeader
 										compact

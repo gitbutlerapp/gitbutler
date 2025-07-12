@@ -33,6 +33,8 @@
 		minHeight?: number;
 		/** Enabled, but does not set the width/height on the dom element */
 		passive?: boolean;
+		/** Whether the resizer is hidden */
+		hidden?: boolean;
 		/** Doubles or halves the width on double click */
 		clientHeight?: number;
 		/** Optional manager that can coordinate multiple resizers */
@@ -66,6 +68,7 @@
 		syncName,
 		persistId,
 		passive,
+		hidden,
 		clientHeight = $bindable(),
 		resizeGroup,
 		order,
@@ -165,7 +168,7 @@
 
 		const { newValue, overflow } = applyLimits(offsetRem);
 
-		if (newValue && !passive) {
+		if (newValue && !passive && !hidden) {
 			value.set(newValue);
 			updateDom(newValue);
 			onWidth?.(newValue);
@@ -173,7 +176,7 @@
 		if (overflow) {
 			onOverflow?.(overflow);
 		}
-		if (e.shiftKey && syncName && newValue !== undefined && !passive) {
+		if (e.shiftKey && syncName && newValue !== undefined && !passive && !hidden) {
 			resizeSync.emit(syncName, resizerId, newValue);
 		}
 	}
@@ -189,7 +192,7 @@
 		if (!viewport) {
 			return;
 		}
-		if (passive) {
+		if (passive || hidden) {
 			if (orientation === 'horizontal') {
 				viewport.style.width = '';
 				viewport.style.maxWidth = '';
@@ -312,6 +315,7 @@
 	onmouseenter={() => isHovered(true)}
 	onmouseleave={() => isHovered(false)}
 	tabindex="0"
+	class:hidden
 	class:imitate-border={imitateBorder}
 	class="resizer"
 	class:dragging
@@ -333,26 +337,97 @@
 	.resizer {
 		--resizer-line-thickness: 0;
 		--resizer-line-color: transparent;
-		/* should be big for large radius */
+		/* resizer-line-frame should be the same as border-radius */
 		--resizer-line-frame: var(--resizer-border-radius, 1px);
+		--resizer-cursor: default;
 		position: absolute;
 		outline: none;
-		/* background-color: rgba(255, 0, 0, 0.2); */
+		cursor: var(--resizer-cursor);
 
 		&.imitate-border {
 			--resizer-line-color: var(--border-imitation-color);
 			--resizer-line-thickness: 1px;
 		}
 
-		&:hover,
-		&:focus,
-		&.dragging {
-			--resizer-line-color: var(--resizer-color);
-			--resizer-line-thickness: 0.14rem;
+		&:not(.hidden) {
+			&:hover,
+			&:focus,
+			&.dragging {
+				--resizer-line-color: var(--resizer-color);
+				--resizer-line-thickness: 0.14rem;
+
+				& .resizer-line {
+					transition-delay: 0.1s;
+				}
+			}
+		}
+
+		&.horizontal {
+			--resizer-cursor: col-resize;
+			top: 0;
+			width: 4px;
+			height: 100%;
 
 			& .resizer-line {
-				transition-delay: 0.1s;
+				width: var(--resizer-line-frame);
 			}
+		}
+
+		&.vertical {
+			--resizer-cursor: row-resize;
+			left: 0;
+			width: 100%;
+			height: 4px;
+
+			& .resizer-line {
+				height: var(--resizer-line-frame);
+			}
+		}
+
+		&.right {
+			right: 0;
+
+			& .resizer-line {
+				left: auto;
+				border-right: var(--resizer-line-thickness) solid var(--resizer-line-color);
+				border-top-right-radius: var(--resizer-border-radius);
+				border-bottom-right-radius: var(--resizer-border-radius);
+			}
+		}
+		&.left {
+			left: 0;
+
+			& .resizer-line {
+				right: auto;
+				border-left: var(--resizer-line-thickness) solid var(--resizer-line-color);
+				border-top-left-radius: var(--resizer-border-radius);
+				border-bottom-left-radius: var(--resizer-border-radius);
+			}
+		}
+		&.up {
+			top: 0;
+
+			& .resizer-line {
+				bottom: auto;
+				border-top: var(--resizer-line-thickness) solid var(--resizer-line-color);
+				border-top-right-radius: var(--resizer-border-radius);
+				border-top-left-radius: var(--resizer-border-radius);
+			}
+		}
+		&.down {
+			bottom: 0;
+
+			& .resizer-line {
+				top: auto;
+				border-bottom: var(--resizer-line-thickness) solid var(--resizer-line-color);
+				border-bottom-right-radius: var(--resizer-border-radius);
+				border-bottom-left-radius: var(--resizer-border-radius);
+			}
+		}
+
+		&.hidden {
+			pointer-events: none;
+			--resizer-cursor: default;
 		}
 	}
 
@@ -364,68 +439,5 @@
 		left: 0;
 		pointer-events: none;
 		transition: border 0.1s ease;
-	}
-
-	.horizontal {
-		top: 0;
-		width: 4px;
-		height: 100%;
-		cursor: col-resize;
-
-		& .resizer-line {
-			width: var(--resizer-line-frame);
-		}
-	}
-
-	.vertical {
-		left: 0;
-		width: 100%;
-		height: 4px;
-		cursor: row-resize;
-
-		& .resizer-line {
-			height: var(--resizer-line-frame);
-		}
-	}
-
-	.right {
-		right: 0;
-
-		& .resizer-line {
-			left: auto;
-			border-right: var(--resizer-line-thickness) solid var(--resizer-line-color);
-			border-top-right-radius: var(--resizer-border-radius);
-			border-bottom-right-radius: var(--resizer-border-radius);
-		}
-	}
-	.left {
-		left: 0;
-
-		& .resizer-line {
-			right: auto;
-			border-left: var(--resizer-line-thickness) solid var(--resizer-line-color);
-			border-top-left-radius: var(--resizer-border-radius);
-			border-bottom-left-radius: var(--resizer-border-radius);
-		}
-	}
-	.up {
-		top: 0;
-
-		& .resizer-line {
-			bottom: auto;
-			border-top: var(--resizer-line-thickness) solid var(--resizer-line-color);
-			border-top-right-radius: var(--resizer-border-radius);
-			border-top-left-radius: var(--resizer-border-radius);
-		}
-	}
-	.down {
-		bottom: 0;
-
-		& .resizer-line {
-			top: auto;
-			border-bottom: var(--resizer-line-thickness) solid var(--resizer-line-color);
-			border-bottom-right-radius: var(--resizer-border-radius);
-			border-bottom-left-radius: var(--resizer-border-radius);
-		}
 	}
 </style>
