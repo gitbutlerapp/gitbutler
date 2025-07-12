@@ -151,7 +151,6 @@
 		<Drawer
 			{collapsible}
 			testId={TestId.CommitDrawer}
-			bottomBorder={!!resizer || !collapsible}
 			{scrollToId}
 			{scrollToType}
 			{ontoggle}

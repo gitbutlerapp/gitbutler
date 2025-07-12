@@ -77,7 +77,6 @@
 			{scrollToType}
 			{resizer}
 			{onclose}
-			bottomBorder={!!resizer || !collapsible}
 			{ontoggle}
 			{grow}
 		>

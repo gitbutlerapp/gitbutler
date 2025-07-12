@@ -12,6 +12,7 @@
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
 	import { compactWorkspace } from '$lib/config/uiFeatureFlags';
+	import { DragStateService } from '$lib/dragging/dragStateService.svelte';
 	import { isParsedError } from '$lib/error/parser';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
@@ -63,14 +64,16 @@
 		idSelection,
 		stackService,
 		intelligentScrollingService,
-		diffService
+		diffService,
+		dragStateService
 	] = inject(
 		UiState,
 		UncommittedService,
 		IdSelection,
 		StackService,
 		IntelligentScrollingService,
-		DiffService
+		DiffService,
+		DragStateService
 	);
 	const projectState = $derived(uiState.project(projectId));
 
@@ -102,6 +105,17 @@
 	const assignedKey = $derived(
 		$lastAddedAssigned?.key ? readKey($lastAddedAssigned.key) : undefined
 	);
+
+	// Close assigned preview when dragging starts (without clearing file selections)
+	$effect(() => {
+		const unsubscribe = dragStateService.isDragging.subscribe((isDragging) => {
+			if (isDragging) {
+				// Only clear the lastAdded to close preview, keep file selections intact
+				assignedSelection.lastAdded.set(undefined);
+			}
+		});
+		return unsubscribe;
+	});
 
 	const commitId = $derived(selection.current?.commitId);
 	const branchName = $derived(selection.current?.branchName);
@@ -303,13 +317,14 @@
 				<Resizer
 					bind:clientHeight={actualDetailsHeight}
 					viewport={element}
-					passive={collapsed}
 					direction="down"
 					persistId="resizer-panel2-details-${stack.id}"
 					defaultValue={undefined}
 					minHeight={minDetailsHeight}
 					maxHeight={maxDetailsHeight}
 					order={0}
+					imitateBorder
+					hidden={collapsed}
 					{resizeGroup}
 				/>
 			{/if}
@@ -341,8 +356,9 @@
 					bind:clientHeight={actualDetailsHeight}
 					defaultValue={undefined}
 					viewport={element}
-					passive={collapsed}
+					hidden={collapsed}
 					direction="down"
+					imitateBorder
 					persistId="resizer-panel2-details-${stack.id}"
 					minHeight={minDetailsHeight}
 					maxHeight={maxDetailsHeight}
@@ -383,11 +399,12 @@
 							unsetMaxHeight={previewKey ? unsetMaxHeight : undefined}
 							order={1}
 							viewport={element}
+							imitateBorder
+							hidden={collapsed}
 							maxHeight={maxChangedFilesHeight}
 							minHeight={minChangedFilesHeight}
 							defaultValue={undefined}
 							persistId="resizer-panel2-changed-files-${stack.id}"
-							passive={collapsed}
 							direction="down"
 						/>
 					{/if}
@@ -429,7 +446,8 @@
 							minHeight={minChangedFilesHeight}
 							defaultValue={undefined}
 							persistId="resizer-panel2-changed-files-${stack.id}"
-							passive={collapsed}
+							imitateBorder
+							hidden={collapsed}
 							direction="down"
 						/>
 					{/if}
@@ -574,6 +592,7 @@
 				class="combined-view"
 				bind:this={compactDiv}
 				bind:clientHeight={verticalHeight}
+				data-remove-from-draggable
 				data-details={stack.id}
 			>
 				{#if branchName && commitId}
@@ -589,7 +608,7 @@
 						{#snippet children(previewChange)}
 							{@const diffResult = diffService.getDiff(projectId, previewChange)}
 							{@const diffData = diffResult.current.data}
-							<Drawer collapsible>
+							<Drawer collapsible bottomBorder>
 								{#snippet header()}
 									<FileViewHeader
 										compact
