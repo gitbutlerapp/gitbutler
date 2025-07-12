@@ -94,15 +94,12 @@
 		isPrCreation ? uiState.global.useFloatingPrBox : uiState.global.useFloatingCommitBox
 	);
 
-	const useRuler = uiState.global.useRuler;
 	const rulerCountValue = uiState.global.rulerCountValue;
-	const wrapTextByRuler = uiState.global.wrapTextByRuler;
+	const useRuler = uiState.global.useRuler;
 
 	let useRichText = $state<boolean>(false);
 
-	const wrapCountValue = $derived(
-		useRuler.current && !useRichText ? rulerCountValue.current : undefined
-	);
+	const wrapCountValue = $derived(!useRichText ? rulerCountValue.current : undefined);
 
 	let composer = $state<ReturnType<typeof RichTextEditor>>();
 	let formatter = $state<ReturnType<typeof Formatter>>();
@@ -293,7 +290,7 @@
 	data-remove-from-panning
 	role="presentation"
 	class="editor-wrapper hide-native-scrollbar"
-	style:--lexical-input-client-text-wrap={useRuler.current && !useRichText ? 'nowrap' : 'normal'}
+	style:--lexical-input-client-text-wrap={!useRichText ? 'nowrap' : 'normal'}
 	style:--extratoolbar-height={useFloatingBox.current ? '2.625rem' : '0'}
 	style:--code-block-font={$userSettings.diffFont}
 	style:--code-block-tab-size={$userSettings.tabSize}
@@ -370,7 +367,7 @@
 						{/if}
 						{#if !useRichText}
 							<HardWrapPlugin
-								enabled={!useRichText && wrapTextByRuler.current}
+								enabled={!useRichText && useRuler.current}
 								maxLength={wrapCountValue}
 							/>
 						{/if}
@@ -402,55 +399,43 @@
 					/>
 				{/if}
 				{#if !useRichText && enableRuler}
-					<div class="flex gap-2">
-						<FormattingButton
-							icon="ruler"
-							activated={useRuler.current}
-							tooltip="Text ruler"
-							onclick={() => {
-								useRuler.current = !useRuler.current;
-							}}
-						/>
-						{#if useRuler.current}
-							<div class="message-textarea__ruler-input-wrapper" class:disabled={!useRuler.current}>
-								<input
-									disabled={!useRuler.current}
-									value={rulerCountValue.current}
-									min={MIN_RULER_VALUE}
-									max={MAX_RULER_VALUE}
-									class="text-13 text-input message-textarea__ruler-input"
-									type="number"
-									onblur={() => {
-										if (rulerCountValue.current < MIN_RULER_VALUE) {
-											console.warn('Ruler value must be greater than 10');
-											rulerCountValue.current = MIN_RULER_VALUE;
-										} else if (rulerCountValue.current > MAX_RULER_VALUE) {
-											rulerCountValue.current = MAX_RULER_VALUE;
-										}
-									}}
-									oninput={(e) => {
-										const input = e.currentTarget as HTMLInputElement;
-										rulerCountValue.current = parseInt(input.value);
-									}}
-									onkeydown={(e) => {
-										if (e.key === 'Enter') {
-											e.preventDefault();
-											composer?.focus();
-										}
-									}}
-								/>
-							</div>
-						{/if}
-					</div>
+					{#if useRuler.current}
+						<div class="message-textarea__ruler-input-wrapper">
+							<input
+								value={rulerCountValue.current}
+								min={MIN_RULER_VALUE}
+								max={MAX_RULER_VALUE}
+								class="text-13 text-input message-textarea__ruler-input"
+								type="number"
+								onblur={() => {
+									if (rulerCountValue.current < MIN_RULER_VALUE) {
+										console.warn('Ruler value must be greater than 10');
+										rulerCountValue.current = MIN_RULER_VALUE;
+									} else if (rulerCountValue.current > MAX_RULER_VALUE) {
+										rulerCountValue.current = MAX_RULER_VALUE;
+									}
+								}}
+								oninput={(e) => {
+									const input = e.currentTarget as HTMLInputElement;
+									rulerCountValue.current = parseInt(input.value);
+								}}
+								onkeydown={(e) => {
+									if (e.key === 'Enter') {
+										e.preventDefault();
+										composer?.focus();
+									}
+								}}
+							/>
+						</div>
+					{/if}
 					<FormattingButton
 						icon="text-wrap"
-						disabled={!useRuler.current}
-						activated={wrapTextByRuler.current && useRuler.current}
+						activated={useRuler.current}
 						tooltip="Wrap text automatically"
 						onclick={async () => {
-							wrapTextByRuler.current = !wrapTextByRuler.current;
+							useRuler.current = !useRuler.current;
 							await tick(); // Wait for reactive update.
-							if (wrapTextByRuler.current) {
+							if (useRuler.current) {
 								composer?.wrapAll();
 							}
 						}}
