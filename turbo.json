@@ -20,7 +20,8 @@
 		"dev": {
 			"dependsOn": ["package"],
 			"cache": false,
-			"persistent": true
+			"persistent": true,
+			"interruptible": true
 		},
 		"check": {
 			"dependsOn": ["package"]

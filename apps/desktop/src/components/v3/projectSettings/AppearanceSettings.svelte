@@ -47,6 +47,7 @@
 	{/snippet}
 	<ThemeSelector {userSettings} />
 </SectionCard>
+
 <div class="stack-v">
 	<SectionCard centerAlign roundedBottom={false}>
 		{#snippet title()}
