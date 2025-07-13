@@ -166,6 +166,8 @@
 								{parsedCall.parameters?.commitId.substring(0, 7)}
 							</span>
 						</p>
+					{:else if parsedCall.name === 'squash_commits'}
+						<p class="operation__title">Squashed commits</p>
 					{/if}
 				</div>
 

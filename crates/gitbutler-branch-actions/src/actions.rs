@@ -389,7 +389,7 @@ pub fn squash_commits(
     stack_id: StackId,
     source_ids: Vec<git2::Oid>,
     destination_id: git2::Oid,
-) -> Result<()> {
+) -> Result<git2::Oid> {
     let mut guard = ctx.project().exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     assure_open_workspace_mode(ctx).context("Squashing a commit requires open workspace mode")?;

@@ -8,7 +8,7 @@ use but_workspace::StackId;
 use but_workspace::ui::StackEntry;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::{OplogExt, SnapshotExt};
-use gitbutler_oxidize::ObjectIdExt;
+use gitbutler_oxidize::{ObjectIdExt, git2_to_gix_object_id};
 use gitbutler_project::Project;
 use gitbutler_stack::{PatchReferenceUpdate, VirtualBranchesHandle};
 use schemars::{JsonSchema, schema_for};
@@ -27,6 +27,7 @@ pub fn workspace_toolset<'a>(
     toolset.register_tool(Commit);
     toolset.register_tool(CreateBranch);
     toolset.register_tool(Amend);
+    toolset.register_tool(SquashCommits);
     toolset.register_tool(GetProjectStatus);
     toolset.register_tool(CreateBlankCommit);
     toolset.register_tool(MoveFileChanges);
@@ -983,6 +984,150 @@ pub fn commit_details(
     let file_changes = get_file_changes(&diff, vec![]);
 
     Ok(file_changes)
+}
+
+pub struct SquashCommits;
+
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SquashCommitsParameters {
+    /// The stack id containing the commits to squash.
+    #[schemars(description = "
+        <description>
+            The stack id where the commits to squash are located.
+        </description>
+
+        <important_notes>
+            The stack id should refer to an existing stack in the workspace.
+        </important_notes>
+        ")]
+    pub stack_id: String,
+    /// The list of commit ids to squash (in order).
+    #[schemars(description = "
+        <description>
+            The list of commit ids to squash, in the order they should be squashed.
+        </description>
+
+        <important_notes>
+            The commit ids should refer to commits in the specified stack.
+            The commits should be in the order they were created, with the oldest commit first.
+            All commit should be part of the same stack specified by `stack_id`.
+        </important_notes>
+        ")]
+    pub source_commit_ids: Vec<String>,
+    /// The commit to squash into.
+    #[schemars(description = "
+        <description>
+            The commit id to squash the other commits into.
+        </description>
+
+        <important_notes>
+            This should be the id of an existing commit in the stack.
+            The commit should be present in the stack specified by `stack_id`.
+        </important_notes>
+        ")]
+    pub destination_commit_id: String,
+    /// The new commit title.
+    #[schemars(description = "
+        <description>
+            The new commit message title for the squashed commit.
+        </description>
+
+        <important_notes>
+            The commit message title should be concise and descriptive.
+            Don't exceed 50 characters in length.
+        </important_notes>
+        ")]
+    pub message_title: String,
+    /// The new commit description.
+    #[schemars(description = "
+        <description>
+            The new commit message body for the squashed commit.
+        </description>
+
+        <important_notes>
+            The commit message body should provide context and details about the changes made.
+            It should span multiple lines if necessary.
+        </important_notes>
+        ")]
+    pub message_body: String,
+}
+
+impl Tool for SquashCommits {
+    fn name(&self) -> String {
+        "squash_commits".to_string()
+    }
+
+    fn description(&self) -> String {
+        "
+        <description>
+            Squash multiple commits in a stack into a single commit.
+        </description>
+
+        <important_notes>
+            This tool allows you to squash a sequence of commits in a stack into a single commit with a new message.
+            Use this tool to clean up commit history before merging or sharing.
+        </important_notes>
+        ".to_string()
+    }
+
+    fn parameters(&self) -> serde_json::Value {
+        let schema = schema_for!(SquashCommitsParameters);
+        serde_json::to_value(&schema).unwrap_or_default()
+    }
+
+    fn call(
+        self: Arc<Self>,
+        parameters: serde_json::Value,
+        ctx: &mut CommandContext,
+        app_handle: Option<&tauri::AppHandle>,
+    ) -> anyhow::Result<serde_json::Value> {
+        let params: SquashCommitsParameters = serde_json::from_value(parameters)
+            .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
+
+        squash_commits(ctx, app_handle, params)?;
+
+        Ok("Success".into())
+    }
+}
+
+pub fn squash_commits(
+    ctx: &mut CommandContext,
+    app_handle: Option<&tauri::AppHandle>,
+    params: SquashCommitsParameters,
+) -> Result<gix::ObjectId, anyhow::Error> {
+    let destination_id = gix::ObjectId::from_str(&params.destination_commit_id)?.to_git2();
+    let source_ids = params
+        .source_commit_ids
+        .iter()
+        .map(|id| gix::ObjectId::from_str(id).map(|oid| oid.to_git2()))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let stack_id = StackId::from_str(&params.stack_id)?;
+
+    let message = format!(
+        "{}\n\n{}",
+        params.message_title.trim(),
+        params.message_body.trim()
+    );
+
+    let squashed_commit =
+        gitbutler_branch_actions::squash_commits(ctx, stack_id, source_ids, destination_id)?;
+
+    let new_commit_id = gitbutler_branch_actions::update_commit_message(
+        ctx,
+        stack_id,
+        squashed_commit,
+        message.as_str(),
+    )?;
+
+    // If there's an app handle provided, emit an event to update the stack details in the UI.
+    if let Some(app_handle) = app_handle {
+        let project_id = ctx.project().id;
+        app_handle.emit_stack_update(project_id, stack_id);
+    }
+
+    Ok(git2_to_gix_object_id(new_commit_id))
 }
 
 fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMetadata> {

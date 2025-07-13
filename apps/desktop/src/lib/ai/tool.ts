@@ -7,7 +7,8 @@ type ToolName =
 	| 'get_project_status'
 	| 'create_blank_commit'
 	| 'move_file_changes'
-	| 'get_commit_details';
+	| 'get_commit_details'
+	| 'squash_commits';
 
 export type ToolCall = {
 	name: ToolName;
@@ -138,6 +139,29 @@ function isGetCommitDetailsToolParams(params: unknown): params is GetCommitDetai
 	);
 }
 
+type SquashCommitsToolParams = {
+	stackId: string;
+	sourceCommitIds: string[];
+	destinationCommitId: string;
+	messageTitle: string;
+	messageBody: string;
+};
+
+function isSquashCommitsToolParams(params: unknown): params is SquashCommitsToolParams {
+	return (
+		typeof params === 'object' &&
+		params !== null &&
+		typeof (params as SquashCommitsToolParams).stackId === 'string' &&
+		Array.isArray((params as SquashCommitsToolParams).sourceCommitIds) &&
+		(params as SquashCommitsToolParams).sourceCommitIds.every(
+			(commitId) => typeof commitId === 'string'
+		) &&
+		typeof (params as SquashCommitsToolParams).destinationCommitId === 'string' &&
+		typeof (params as SquashCommitsToolParams).messageTitle === 'string' &&
+		typeof (params as SquashCommitsToolParams).messageBody === 'string'
+	);
+}
+
 interface BaseParsedToolCall {
 	name: ToolName;
 	parameters:
@@ -148,6 +172,7 @@ interface BaseParsedToolCall {
 		| CreateBlankCommitToolParams
 		| MoveFileChangesToolParams
 		| GetCommitDetailsToolParams
+		| SquashCommitsToolParams
 		| undefined;
 	result: string;
 	isError: boolean;
@@ -192,6 +217,11 @@ interface ParsedGetCommitDetailsToolCall extends BaseParsedToolCall {
 	parameters: GetCommitDetailsToolParams | undefined;
 }
 
+interface ParsedSquashCommitsToolCall extends BaseParsedToolCall {
+	name: 'squash_commits';
+	parameters: SquashCommitsToolParams | undefined;
+}
+
 export type ParsedToolCall =
 	| ParsedCommitToolCall
 	| ParsedCreateBranchToolCall
@@ -199,7 +229,8 @@ export type ParsedToolCall =
 	| ParsedGetProjectStatusToolCall
 	| ParsedCreateBlankCommitToolCall
 	| ParsedMoveFileChangesToolCall
-	| ParsedGetCommitDetailsToolCall;
+	| ParsedGetCommitDetailsToolCall
+	| ParsedSquashCommitsToolCall;
 
 function safeParseJson(jsonString: string): unknown {
 	try {
@@ -264,6 +295,8 @@ export function getToolCallIcon(name: ToolName, isError: boolean): IconName {
 			return 'move-commit-file-small';
 		case 'get_commit_details':
 			return 'info';
+		case 'squash_commits':
+			return 'squash-commit';
 	}
 }
 
@@ -345,6 +378,17 @@ export function parseToolCall(toolCall: ToolCall): ParsedToolCall {
 		}
 		case 'get_commit_details': {
 			const parameters = isGetCommitDetailsToolParams(rawParams) ? rawParams : undefined;
+			return {
+				name: toolCall.name,
+				parameters,
+				result: toolCall.result,
+				isError,
+				rawParameters: rawParams,
+				rawResult
+			};
+		}
+		case 'squash_commits': {
+			const parameters = isSquashCommitsToolParams(rawParams) ? rawParams : undefined;
 			return {
 				name: toolCall.name,
 				parameters,
