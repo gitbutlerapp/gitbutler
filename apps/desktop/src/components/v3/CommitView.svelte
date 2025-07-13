@@ -234,7 +234,6 @@
 						/>
 					</div>
 				{:else}
-					<!-- <CommitTitle commitMessage={commit.message} className="text-14 text-semibold text-body" /> -->
 					<CommitDetails {commit} />
 				{/if}
 			</div>
