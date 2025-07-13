@@ -24,7 +24,6 @@
 		projectId: string;
 		branchName: string;
 		active?: boolean;
-		collapsible?: boolean;
 		scrollToType?: TargetType;
 		scrollToId?: string;
 		grow?: boolean;
@@ -38,7 +37,6 @@
 		stackId,
 		projectId,
 		branchName,
-		collapsible,
 		scrollToId,
 		scrollToType,
 		grow,
@@ -72,7 +70,6 @@
 		{@const remoteTrackingBranch = branch.remoteTrackingBranch}
 		<Drawer
 			testId={TestId.BranchView}
-			{collapsible}
 			{scrollToId}
 			{scrollToType}
 			{resizer}

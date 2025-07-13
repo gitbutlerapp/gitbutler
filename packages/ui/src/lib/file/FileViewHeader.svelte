@@ -19,7 +19,7 @@
 		conflicted?: boolean;
 		executable?: boolean;
 		transparent?: boolean;
-		compact?: boolean;
+		noPaddings?: boolean;
 		oncontextmenu?: (e: MouseEvent) => void;
 		oncloseclick?: () => void;
 	}
@@ -35,7 +35,7 @@
 		conflicted,
 		executable,
 		transparent,
-		compact,
+		noPaddings,
 		oncontextmenu,
 		oncloseclick
 	}: Props = $props();
@@ -47,7 +47,7 @@
 	class="file-header"
 	class:draggable
 	class:transparent
-	class:compact
+	class:no-paddings={noPaddings}
 	oncontextmenu={(e) => {
 		if (oncontextmenu) {
 			e.preventDefault();
@@ -116,9 +116,8 @@
 			}
 		}
 
-		&.compact {
-			padding-right: 0;
-			padding-left: 0;
+		&.no-paddings {
+			padding: 0;
 		}
 	}
 

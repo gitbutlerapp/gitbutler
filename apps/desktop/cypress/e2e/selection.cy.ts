@@ -145,12 +145,7 @@ describe('Selection', () => {
 			});
 	});
 
-	it('should be update the commit drawer when changing the commit selection - compact', () => {
-		// Set the compact workspace feature flag
-		cy.window().then((win) => {
-			win.localStorage.setItem('lscache-compact-workspace', JSON.stringify(true));
-		});
-
+	it('should be update the commit drawer when changing the commit selection', () => {
 		// Stack with branch should  be opened by default
 		cy.getByTestId('branch-header').should('contain', mockBackend.stackWithTwoCommits);
 
