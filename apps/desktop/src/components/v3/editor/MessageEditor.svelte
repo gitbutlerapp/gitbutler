@@ -43,7 +43,6 @@
 	const ACCEPTED_FILE_TYPES = ['image/*', 'application/*', 'text/*', 'audio/*', 'video/*'];
 
 	interface Props {
-		isPrCreation?: boolean;
 		projectId: string;
 		disabled?: boolean;
 		initialValue?: string;
@@ -63,7 +62,6 @@
 
 	let {
 		projectId,
-		isPrCreation,
 		initialValue,
 		placeholder,
 		disabled,
@@ -90,9 +88,7 @@
 	const commitGenerationExtraConcise = projectCommitGenerationExtraConcise(projectId);
 	const commitGenerationUseEmojis = projectCommitGenerationUseEmojis(projectId);
 
-	const useFloatingBox = $derived(
-		isPrCreation ? uiState.global.useFloatingPrBox : uiState.global.useFloatingCommitBox
-	);
+	const useFloatingBox = uiState.global.useFloatingBox;
 
 	const rulerCountValue = uiState.global.rulerCountValue;
 	const useRuler = uiState.global.useRuler;

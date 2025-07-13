@@ -53,7 +53,7 @@ export class CommitAnalytics {
 			const assignments = worktreeData.hunkAssignments;
 
 			return {
-				floatingCommitBox: this.uiState.global.useFloatingCommitBox.current,
+				floatingCommitBox: this.uiState.global.useFloatingBox.current,
 				// Number of branches in the stack we are committing to
 				branchCount: this.getBranchCount(stack),
 				// Number of commits in the stack we are committing to

@@ -199,7 +199,7 @@
 			</BranchHeader>
 		</Dropzone>
 		{#if showPrCreation}
-			<div class="review-wrapper" class:no-padding={uiState.global.useFloatingPrBox.current}>
+			<div class="review-wrapper" class:no-padding={uiState.global.useFloatingBox.current}>
 				<CreateReviewBox
 					{projectId}
 					{branchName}

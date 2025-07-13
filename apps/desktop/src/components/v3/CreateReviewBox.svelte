@@ -19,7 +19,7 @@
 	const { projectId, stackId, branchName, oncancel }: Props = $props();
 
 	const uiState = getContext(UiState);
-	const useFloatingPrBox = $derived(uiState.global.useFloatingPrBox);
+	const useFloatingBox = uiState.global.useFloatingBox;
 
 	let reviewCreation = $state<ReturnType<typeof ReviewCreation>>();
 
@@ -69,10 +69,10 @@
 	</AsyncRender>
 {/snippet}
 
-{#if useFloatingPrBox.current}
+{#if useFloatingBox.current}
 	<FloatingCommitBox
 		onExitFloatingModeClick={() => {
-			uiState.global.useFloatingPrBox.set(false);
+			uiState.global.useFloatingBox.set(false);
 		}}
 		title={pr ? `Edit PR #${pr.number}` : 'Create PR'}
 	>

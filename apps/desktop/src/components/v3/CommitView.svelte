@@ -194,7 +194,7 @@
 					<div
 						class="edit-commit-view"
 						data-testid={TestId.EditCommitMessageBox}
-						class:no-paddings={uiState.global.useFloatingCommitBox.current}
+						class:no-paddings={uiState.global.useFloatingBox.current}
 					>
 						<CommitMessageEditor
 							noPadding
