@@ -21,7 +21,6 @@
 		active?: boolean;
 		conflictEntries?: ConflictEntriesObj;
 		draggableFiles?: boolean;
-		collapsible?: boolean;
 		grow?: boolean;
 		shrink?: boolean;
 		ontoggle?: (collapsed: boolean) => void;
@@ -37,7 +36,6 @@
 		active,
 		conflictEntries,
 		draggableFiles,
-		collapsible,
 		grow,
 		shrink,
 		ontoggle,
@@ -49,7 +47,7 @@
 	let listMode: 'list' | 'tree' = $state('tree');
 </script>
 
-<Drawer {grow} {collapsible} {ontoggle} {resizer} {shrink}>
+<Drawer {grow} {ontoggle} {resizer} {shrink}>
 	{#snippet header()}
 		<h4 class="text-14 text-semibold truncate">{title}</h4>
 		<Badge>{changes.length}</Badge>

@@ -21,7 +21,6 @@
 		filesSplitView?: Snippet;
 		testId?: string;
 		persistId?: string;
-		collapsible?: boolean;
 		bottomBorder?: boolean;
 		transparent?: boolean;
 		scrollToId?: string;
@@ -43,7 +42,6 @@
 		filesSplitView,
 		testId,
 		persistId,
-		collapsible,
 		bottomBorder,
 		transparent,
 		scrollToId,
@@ -61,9 +59,6 @@
 	let headerDiv = $state<HTMLDivElement>();
 	let containerDiv = $state<HTMLDivElement>();
 	let collapsed: Writable<boolean | undefined> = $derived.by(() => {
-		if (!collapsible) {
-			return writable(undefined);
-		}
 		if (persistId) {
 			return persistWithExpiration<boolean>(false, persistId, 1440);
 		}

@@ -299,7 +299,6 @@
 
 {#snippet branchView(branchName: string)}
 	<BranchView
-		collapsible
 		stackId={stack.id}
 		{projectId}
 		{branchName}
@@ -332,7 +331,6 @@
 {#snippet commitView(branchName: string, commitId: string)}
 	<CommitView
 		{projectId}
-		collapsible={true}
 		stackId={stack.id}
 		commitKey={{
 			stackId: stack.id,
@@ -375,7 +373,6 @@
 				{projectId}
 				{stackId}
 				draggableFiles
-				collapsible={true}
 				selectionId={{ type: 'commit', commitId, stackId: stack.id }}
 				shrink={!previewKey}
 				ontoggle={(collapsed) => {
@@ -421,7 +418,6 @@
 				{projectId}
 				{stackId}
 				draggableFiles
-				collapsible={true}
 				selectionId={{ type: 'branch', stackId: stack.id, branchName }}
 				ontoggle={() => {
 					changedFilesCollapsed = !changedFilesCollapsed;
@@ -599,7 +595,7 @@
 						{#snippet children(previewChange)}
 							{@const diffResult = diffService.getDiff(projectId, previewChange)}
 							{@const diffData = diffResult.current.data}
-							<Drawer collapsible bottomBorder>
+							<Drawer bottomBorder>
 								{#snippet header()}
 									<FileViewHeader
 										noPaddings
