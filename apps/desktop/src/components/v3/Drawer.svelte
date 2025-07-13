@@ -115,21 +115,15 @@
 		{#if extraActions || kebabMenu || onclose}
 			<div class="drawer-header__actions">
 				{#if extraActions}
-					<div class="drawer-header__actions-group">
-						{@render extraActions()}
-					</div>
+					{@render extraActions()}
 				{/if}
 
-				{#if kebabMenu || onclose}
-					<div class="drawer-header__actions-group">
-						{#if kebabMenu}
-							{@render kebabMenu(headerDiv)}
-						{/if}
+				{#if kebabMenu}
+					{@render kebabMenu(headerDiv)}
+				{/if}
 
-						{#if onclose}
-							<Button kind="ghost" icon="cross" size="tag" onclick={() => onclose()} />
-						{/if}
-					</div>
+				{#if onclose}
+					<Button kind="ghost" icon="cross" size="tag" onclick={() => onclose()} />
 				{/if}
 			</div>
 		{/if}
@@ -207,12 +201,6 @@
 		flex-shrink: 0;
 		align-items: center;
 		margin-right: -2px; /* buttons have some paddings that look not aligned. With this we "remove" them */
-		gap: 12px;
-	}
-
-	.drawer-header__actions-group {
-		display: flex;
-		align-items: center;
 		gap: 4px;
 	}
 
