@@ -45,8 +45,13 @@ describe('Commit Actions', () => {
 		// Should open the commit drawer
 		cy.getByTestId('commit-drawer-title').first().should('contain', originalCommitMessage);
 
-		// Click on the edit message button
-		cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
+		// Click on the kebab menu to access edit message
+		cy.getByTestId('commit-drawer').within(() => {
+			cy.getByTestId('kebab-menu-btn').click();
+		});
+
+		// Click on the edit message button in the context menu
+		cy.getByTestId('commit-row-context-menu-edit-message-menu-btn').should('be.enabled').click();
 
 		// Should open the commit rename drawer
 		cy.getByTestId('edit-commit-message-box').should('be.visible');
@@ -104,8 +109,13 @@ describe('Commit Actions', () => {
 		// Should open the commit drawer
 		cy.getByTestId('commit-drawer-title').first().should('contain', originalCommitMessage);
 
-		// Click on the edit message button
-		cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
+		// Click on the kebab menu to access edit message
+		cy.getByTestId('commit-drawer').within(() => {
+			cy.getByTestId('kebab-menu-btn').click();
+		});
+
+		// Click on the edit message button in the context menu
+		cy.getByTestId('commit-row-context-menu-edit-message-menu-btn').should('be.enabled').click();
 
 		// Should open the commit rename drawer
 		cy.getByTestId('edit-commit-message-box').should('be.visible');
@@ -161,8 +171,13 @@ describe('Commit Actions', () => {
 		// Should open the commit drawer
 		cy.getByTestId('commit-drawer-title').first().should('contain', originalCommitMessage);
 
-		// Click on the edit message button
-		cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
+		// Click on the kebab menu to access edit message
+		cy.getByTestId('commit-drawer').within(() => {
+			cy.getByTestId('kebab-menu-btn').click();
+		});
+
+		// Click on the edit message button in the context menu
+		cy.getByTestId('commit-row-context-menu-edit-message-menu-btn').should('be.enabled').click();
 
 		// Should open the commit rename drawer
 		cy.getByTestId('edit-commit-message-box').should('be.visible');
@@ -214,8 +229,13 @@ describe('Commit Actions', () => {
 		// Should open the commit drawer
 		cy.getByTestId('commit-drawer-title').first().should('contain', originalCommitMessage);
 
-		// Click on the edit message button
-		cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
+		// Click on the kebab menu to access edit message
+		cy.getByTestId('commit-drawer').within(() => {
+			cy.getByTestId('kebab-menu-btn').click();
+		});
+
+		// Click on the edit message button in the context menu
+		cy.getByTestId('commit-row-context-menu-edit-message-menu-btn').should('be.enabled').click();
 
 		// Should open the commit rename drawer
 		cy.getByTestId('edit-commit-message-box').should('be.visible');
@@ -327,8 +347,13 @@ describe('Commit Actions', () => {
 		// Should open the commit drawer
 		cy.getByTestId('commit-drawer-title').first().should('contain', originalCommitMessage);
 
-		// Click on the edit message button
-		cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
+		// Click on the kebab menu to access edit message
+		cy.getByTestId('commit-drawer').within(() => {
+			cy.getByTestId('kebab-menu-btn').click();
+		});
+
+		// Click on the edit message button in the context menu
+		cy.getByTestId('commit-row-context-menu-edit-message-menu-btn').should('be.enabled').click();
 
 		// Should open the commit rename drawer
 		cy.getByTestId('edit-commit-message-box').should('be.visible');
@@ -353,8 +378,13 @@ describe('Commit Actions', () => {
 		// The commit drawer should be open still.
 		cy.getByTestId('commit-drawer-title').first().should('contain', originalCommitMessage);
 
-		// Click on the edit message button
-		cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
+		// Click on the kebab menu to access edit message again
+		cy.getByTestId('commit-drawer').within(() => {
+			cy.getByTestId('kebab-menu-btn').click();
+		});
+
+		// Click on the edit message button in the context menu
+		cy.getByTestId('commit-row-context-menu-edit-message-menu-btn').should('be.enabled').click();
 
 		// Should open the commit rename drawer
 		cy.getByTestId('edit-commit-message-box').should('be.visible');
@@ -452,8 +482,13 @@ describe('Commit Actions', () => {
 		// Should open the commit drawer
 		cy.getByTestId('commit-drawer').first().should('be.visible');
 
+		// Click on the kebab menu to access uncommit
+		cy.getByTestId('commit-drawer').within(() => {
+			cy.getByTestId('kebab-menu-btn').click();
+		});
+
 		// Click on the uncommit button
-		cy.getByTestId('commit-drawer-action-uncommit').click();
+		cy.getByTestId('commit-row-context-menu-uncommit-menu-btn').click();
 
 		// The drawer should be closed
 		cy.getByTestId('commit-drawer').should('not.exist');
@@ -667,8 +702,13 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 				cy.getByTestId('commit-drawer-title').first().should('contain', commitTitle);
 			});
 
-			// Click on the edit message button
-			cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
+			// Click on the kebab menu to access edit message
+			cy.getByTestId('commit-drawer').within(() => {
+				cy.getByTestId('kebab-menu-btn').click();
+			});
+
+			// Click on the edit message button in the context menu
+			cy.getByTestId('commit-row-context-menu-edit-message-menu-btn').should('be.enabled').click();
 
 			// Should open the commit rename drawer
 			cy.getByTestId('edit-commit-message-box').should('be.visible');
@@ -774,8 +814,13 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 				cy.getByTestId('commit-drawer-title').first().should('contain', commitTitle);
 			});
 
-			// Click on the edit message button
-			cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
+			// Click on the kebab menu to access edit message
+			cy.getByTestId('commit-drawer').within(() => {
+				cy.getByTestId('kebab-menu-btn').click();
+			});
+
+			// Click on the edit message button in the context menu
+			cy.getByTestId('commit-row-context-menu-edit-message-menu-btn').should('be.enabled').click();
 
 			// Should open the commit rename drawer
 			cy.getByTestId('edit-commit-message-box').should('be.visible');
@@ -892,8 +937,13 @@ describe('Commit Actions with lots of uncommitted changes', () => {
 				cy.getByTestId('commit-drawer-title').first().should('contain', commitTitle);
 			});
 
-			// Click on the edit message button
-			cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
+			// Click on the kebab menu to access edit message
+			cy.getByTestId('commit-drawer').within(() => {
+				cy.getByTestId('kebab-menu-btn').click();
+			});
+
+			// Click on the edit message button in the context menu
+			cy.getByTestId('commit-row-context-menu-edit-message-menu-btn').should('be.enabled').click();
 
 			// Should open the commit rename drawer
 			cy.getByTestId('edit-commit-message-box').should('be.visible');

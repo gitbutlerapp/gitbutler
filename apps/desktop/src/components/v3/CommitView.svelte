@@ -166,6 +166,32 @@
 				/>
 			{/snippet}
 
+			{#snippet extraActions()}
+				{#if isConflicted}
+					<AsyncButton
+						size="tag"
+						kind="solid"
+						style="error"
+						action={editPatch}
+						icon="warning-small"
+						tooltip="Resolve conflicts"
+					>
+						Resolve
+					</AsyncButton>
+				{/if}
+
+				{#if canEdit()}
+					<Button
+						testId={TestId.CommitDrawerActionEditMessage}
+						size="tag"
+						kind="ghost"
+						icon="edit-text"
+						onclick={() => setMode('edit')}
+						tooltip="Edit commit message"
+					/>
+				{/if}
+			{/snippet}
+
 			{#snippet kebabMenu(header)}
 				{@const data = isLocalAndRemoteCommit(commit)
 					? {
@@ -212,43 +238,7 @@
 					</div>
 				{:else}
 					<!-- <CommitTitle commitMessage={commit.message} className="text-14 text-semibold text-body" /> -->
-					<CommitDetails {commit}>
-						<Button
-							testId={TestId.CommitDrawerActionEditMessage}
-							size="tag"
-							kind="outline"
-							icon="edit-small"
-							onclick={() => {
-								setMode('edit');
-							}}
-						>
-							Edit message
-						</Button>
-
-						<AsyncButton
-							testId={TestId.CommitDrawerActionUncommit}
-							size="tag"
-							kind="outline"
-							icon="undo-small"
-							action={async () => await handleUncommit()}
-						>
-							Uncommit
-						</AsyncButton>
-
-						{#if isConflicted}
-							<AsyncButton
-								size="tag"
-								kind="solid"
-								style="error"
-								action={editPatch}
-								icon="warning-small"
-							>
-								Resolve conflicts
-							</AsyncButton>
-						{:else}
-							<AsyncButton size="tag" kind="outline" action={editPatch}>Edit commit</AsyncButton>
-						{/if}
-					</CommitDetails>
+					<CommitDetails {commit} />
 				{/if}
 			</div>
 		</Drawer>
