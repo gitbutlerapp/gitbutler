@@ -286,6 +286,7 @@
 	data-remove-from-panning
 	role="presentation"
 	class="editor-wrapper hide-native-scrollbar"
+	class:nowrap={useRuler.current}
 	style:--lexical-input-client-text-wrap={!useRichText ? 'nowrap' : 'normal'}
 	style:--extratoolbar-height={useFloatingBox.current ? '2.625rem' : '0'}
 	style:--code-block-font={$userSettings.diffFont}
@@ -482,6 +483,10 @@
 		flex-direction: column;
 		min-height: 0;
 		overflow: auto;
+		&.nowrap :global(.ContentEditable__root) {
+			/* Use of !important for white-space since it cannot be overridden. */
+			white-space: nowrap !important;
+		}
 	}
 
 	.editor-extratools {
