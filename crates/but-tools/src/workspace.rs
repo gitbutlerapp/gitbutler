@@ -1,15 +1,19 @@
 use std::str::FromStr;
 use std::sync::Arc;
 
+use anyhow::Context;
 use bstr::BString;
 use but_core::{TreeChange, UnifiedDiff};
 use but_graph::VirtualBranchesTomlMetadata;
 use but_workspace::StackId;
 use but_workspace::ui::StackEntry;
+use gitbutler_branch_actions::{BranchManagerExt, update_workspace_commit};
 use gitbutler_command_context::CommandContext;
+use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, SnapshotExt};
-use gitbutler_oxidize::{ObjectIdExt, git2_to_gix_object_id};
+use gitbutler_oxidize::{ObjectIdExt, OidExt, git2_to_gix_object_id};
 use gitbutler_project::Project;
+use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{PatchReferenceUpdate, VirtualBranchesHandle};
 use schemars::{JsonSchema, schema_for};
 
@@ -32,6 +36,8 @@ pub fn workspace_toolset<'a>(
     toolset.register_tool(CreateBlankCommit);
     toolset.register_tool(MoveFileChanges);
     toolset.register_tool(GetCommitDetails);
+    toolset.register_tool(GetBranchChanges);
+    toolset.register_tool(SplitBranch);
 
     Ok(toolset)
 }
@@ -986,6 +992,89 @@ pub fn commit_details(
     Ok(file_changes)
 }
 
+pub struct GetBranchChanges;
+
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GetBranchChangesParameters {
+    /// The branch name to get changes for.
+    #[schemars(description = "
+    <description>
+        The name of the branch to get changes for.
+    </description>
+
+    <important_notes>
+        The branch name should be a valid Git branch name present in the workspace.
+    </important_notes>
+    ")]
+    pub branch_name: String,
+}
+
+impl Tool for GetBranchChanges {
+    fn name(&self) -> String {
+        "get_branch_changes".to_string()
+    }
+
+    fn description(&self) -> String {
+        "
+        <description>
+            Get the list of file changes for a specific branch in the workspace.
+        </description>
+
+        <important_notes>
+            This tool allows you to retrieve a list of file paths that have been changed on a specific branch.
+            Call this tool before splitting a branch.
+            Use this to inspect what files have been changed on a branch.
+        </important_notes>
+        ".to_string()
+    }
+
+    fn parameters(&self) -> serde_json::Value {
+        let schema = schema_for!(GetBranchChangesParameters);
+        serde_json::to_value(&schema).unwrap_or_default()
+    }
+
+    fn call(
+        self: Arc<Self>,
+        parameters: serde_json::Value,
+        ctx: &mut CommandContext,
+        _app_handle: Option<&tauri::AppHandle>,
+    ) -> anyhow::Result<serde_json::Value> {
+        let params: GetBranchChangesParameters = serde_json::from_value(parameters)
+            .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
+
+        let file_changes = branch_changes(ctx, params).to_json("get_branch_changes");
+
+        Ok(file_changes)
+    }
+}
+
+pub fn branch_changes(
+    ctx: &mut CommandContext,
+    params: GetBranchChangesParameters,
+) -> anyhow::Result<Vec<FileChangeSimple>> {
+    let repo = ctx.gix_repo()?;
+    let stacks = stacks(ctx, &repo)?;
+    let stack_id = stacks
+        .iter()
+        .find_map(|s| {
+            let found = s.heads.iter().any(|h| h.name == params.branch_name);
+            if found { Some(s.id) } else { None }
+        })
+        .ok_or_else(|| {
+            anyhow::anyhow!("Branch '{}' not found in the workspace", params.branch_name)
+        })?;
+
+    let changes = changes_in_branch_inner(ctx, params.branch_name, Some(stack_id))?;
+    let file_changes = changes
+        .changes
+        .into_iter()
+        .map(|change| change.into())
+        .collect();
+
+    Ok(file_changes)
+}
+
 pub struct SquashCommits;
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize, JsonSchema)]
@@ -1130,6 +1219,146 @@ pub fn squash_commits(
     Ok(git2_to_gix_object_id(new_commit_id))
 }
 
+pub struct SplitBranch;
+
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SplitBranchParameters {
+    /// The name of the branch to split from.
+    #[schemars(description = "
+    <description>
+        The name of the branch to split from.
+    </description>
+
+    <important_notes>
+        This should be the name of an existing branch in the workspace.
+    </important_notes>
+    ")]
+    pub source_branch_name: String,
+
+    /// The name of the new branch to create with the split-off files.
+    #[schemars(description = "
+    <description>
+        The name of the new branch to create with the split-off files.
+    </description>
+
+    <important_notes>
+        The branch name should be a valid Git branch name.
+        It should not contain spaces or special characters.
+        Keep it to maximum 5 words, and use hyphens to separate words.
+        Don't use slashes or other special characters.
+    </important_notes>
+    ")]
+    pub new_branch_name: String,
+
+    /// The list of file paths to split off into the new branch.
+    #[schemars(description = "
+    <description>
+        The list of file paths to split off into the new branch.
+    </description>
+
+    <important_notes>
+        The file paths should be relative to the workspace root.
+        Only the specified files will be moved to the new branch.
+    </important_notes>
+    ")]
+    pub files_to_split_off: Vec<String>,
+}
+
+impl Tool for SplitBranch {
+    fn name(&self) -> String {
+        "split_branch".to_string()
+    }
+
+    fn description(&self) -> String {
+        "
+        <description>
+            Split off selected files from an existing branch into a new branch.
+        </description>
+
+        <important_notes>
+            This tool allows you to move a set of files from one branch to a new branch, effectively splitting the branch.
+            This will copy the same commit history from the source branch to the new branch, so probably you'll want to amend the commit messages afterwards.
+            Use this when you want to organize changes into separate branches.
+        </important_notes>
+        ".to_string()
+    }
+
+    fn parameters(&self) -> serde_json::Value {
+        let schema = schema_for!(SplitBranchParameters);
+        serde_json::to_value(&schema).unwrap_or_default()
+    }
+
+    fn call(
+        self: Arc<Self>,
+        parameters: serde_json::Value,
+        ctx: &mut CommandContext,
+        app_handle: Option<&tauri::AppHandle>,
+    ) -> anyhow::Result<serde_json::Value> {
+        let params: SplitBranchParameters = serde_json::from_value(parameters)
+            .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
+
+        Ok(split_branch(ctx, app_handle, params).to_json("split_branch"))
+    }
+}
+
+pub fn split_branch(
+    ctx: &mut CommandContext,
+    app_handle: Option<&tauri::AppHandle>,
+    params: SplitBranchParameters,
+) -> Result<StackId, anyhow::Error> {
+    let project = ctx.project();
+    let repo = ctx.gix_repo()?;
+    let mut guard = project.exclusive_worktree_access();
+    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+
+    let stacks = stacks(ctx, &repo)?;
+    let source_stack_id = stacks
+        .iter()
+        .find(|s| s.heads.iter().any(|b| b.name == params.source_branch_name))
+        .map(|s| s.id)
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "Source branch '{}' not found in the workspace",
+                params.source_branch_name
+            )
+        })?;
+
+    let _ = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::SplitBranch),
+        guard.write_permission(),
+    );
+
+    but_workspace::split_branch(
+        ctx,
+        source_stack_id,
+        params.source_branch_name,
+        params.new_branch_name.clone(),
+        &params.files_to_split_off,
+        ctx.app_settings().context_lines,
+    )?;
+
+    update_workspace_commit(&vb_state, ctx)?;
+
+    let refname = Refname::Local(LocalRefname::new(&params.new_branch_name, None));
+    let branch_manager = ctx.branch_manager();
+
+    let stack_id = branch_manager.create_virtual_branch_from_branch(
+        &refname,
+        None,
+        None,
+        guard.write_permission(),
+    )?;
+
+    // If there's an app handle provided, emit an event to update the stack details in the UI.
+    if let Some(app_handle) = app_handle {
+        let project_id = ctx.project().id;
+        app_handle.emit_stack_update(project_id, stack_id);
+    }
+
+    Ok(stack_id)
+}
+
 fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMetadata> {
     VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))
 }
@@ -1199,6 +1428,36 @@ pub struct SimpleStack {
     /// The branches in the stack.
     pub branches: Vec<SimpleBranch>,
 }
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileChangeSimple {
+    /// The path of the file that has changed.
+    pub path: String,
+    /// The file change status
+    pub status: String,
+}
+
+impl From<but_core::ui::TreeChange> for FileChangeSimple {
+    fn from(change: but_core::ui::TreeChange) -> Self {
+        FileChangeSimple {
+            path: change.path.to_string(),
+            status: match change.status {
+                but_core::ui::TreeStatus::Addition { .. } => "added".to_string(),
+                but_core::ui::TreeStatus::Deletion { .. } => "deleted".to_string(),
+                but_core::ui::TreeStatus::Modification { .. } => "modified".to_string(),
+                but_core::ui::TreeStatus::Rename { .. } => "renamed".to_string(),
+            },
+        }
+    }
+}
+
+impl ToolResult for Result<Vec<FileChangeSimple>, anyhow::Error> {
+    fn to_json(&self, action_identifier: &str) -> serde_json::Value {
+        result_to_json(self, action_identifier, "Vec<FileChangeSimple>")
+    }
+}
+
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileChange {
@@ -1391,6 +1650,69 @@ fn unified_diff_for_changes(
                 .map(|diff| (tree_change, diff.expect("no submodule")))
         })
         .collect::<Result<Vec<_>, _>>()
+}
+
+fn changes_in_branch_inner(
+    ctx: &CommandContext,
+    branch_name: String,
+    stack_id: Option<StackId>,
+) -> anyhow::Result<but_core::ui::TreeChanges> {
+    let state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let repo = ctx.gix_repo()?;
+    let (start_commit_id, base_commit_id) = if let Some(stack_id) = stack_id {
+        commit_and_base_from_stack(ctx, &state, stack_id, branch_name.clone())
+    } else {
+        let start_commit_id = repo.find_reference(&branch_name)?.peel_to_commit()?.id;
+        let target = state.get_default_target()?;
+        let merge_base = ctx
+            .repo()
+            .merge_base(start_commit_id.to_git2(), target.sha)?;
+        Ok((start_commit_id, merge_base.to_gix()))
+    }?;
+
+    but_core::diff::ui::changes_in_range(
+        ctx.project().path.clone(),
+        start_commit_id,
+        base_commit_id,
+    )
+}
+
+fn commit_and_base_from_stack(
+    ctx: &CommandContext,
+    state: &VirtualBranchesHandle,
+    stack_id: StackId,
+    branch_name: String,
+) -> anyhow::Result<(gix::ObjectId, gix::ObjectId)> {
+    let stack = state.get_stack(stack_id)?;
+
+    // Find the branch head and the one before it
+    let heads = stack.heads(false);
+    let (start, end) = heads
+        .iter()
+        .rev()
+        .fold((None, None), |(start, end), branch| {
+            if start.is_some() && end.is_none() {
+                (start, Some(branch))
+            } else if branch == &branch_name {
+                (Some(branch), None)
+            } else {
+                (start, end)
+            }
+        });
+    let repo = ctx.gix_repo()?;
+
+    // Find the head that matches the branch name - the commit contained is our commit_id
+    let start_commit_id = repo
+        .find_reference(start.with_context(|| format!("Branch {} not found", branch_name))?)?
+        .peel_to_commit()?
+        .id;
+
+    // Now, find the preceding head in the stack. If it is not present, use the stack merge base
+    let base_commit_id = match end {
+        Some(end) => repo.find_reference(end)?.peel_to_commit()?.id,
+        None => stack.merge_base(ctx)?,
+    };
+    Ok((start_commit_id, base_commit_id))
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, JsonSchema)]

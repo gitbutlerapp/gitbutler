@@ -16,6 +16,7 @@ use gitbutler_oplog::{OplogExt, SnapshotExt};
 use gitbutler_oxidize::OidExt;
 use gitbutler_project as projects;
 use gitbutler_project::{Project, ProjectId};
+use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use serde::Serialize;
 use tauri::State;
@@ -297,6 +298,51 @@ pub fn move_changes_between_commits(
     update_workspace_commit(&vb_state, &ctx)?;
 
     Ok(result.into())
+}
+
+#[allow(clippy::too_many_arguments)]
+#[tauri::command(async)]
+#[instrument(skip(projects, settings), err(Debug))]
+pub fn split_branch(
+    projects: State<'_, projects::Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
+    project_id: ProjectId,
+    source_stack_id: StackId,
+    source_branch_name: String,
+    new_branch_name: String,
+    file_changes_to_split_off: Vec<String>,
+) -> Result<Option<UIMoveChangesResult>, Error> {
+    let project = projects.get(project_id)?;
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    let mut guard = project.exclusive_worktree_access();
+
+    let _ = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::SplitBranch),
+        guard.write_permission(),
+    );
+
+    let (_, move_changes_result) = but_workspace::split_branch(
+        &ctx,
+        source_stack_id,
+        source_branch_name,
+        new_branch_name.clone(),
+        &file_changes_to_split_off,
+        settings.get()?.context_lines,
+    )?;
+
+    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    update_workspace_commit(&vb_state, &ctx)?;
+
+    let refname = Refname::Local(LocalRefname::new(&new_branch_name, None));
+    let branch_manager = ctx.branch_manager();
+    branch_manager.create_virtual_branch_from_branch(
+        &refname,
+        None,
+        None,
+        guard.write_permission(),
+    )?;
+
+    Ok(move_changes_result.map(Into::into))
 }
 
 /// Uncommits the changes specified in the `diffspec`.

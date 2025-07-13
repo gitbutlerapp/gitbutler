@@ -154,6 +154,8 @@
 				return { text: 'Enter Edit Mode', icon: 'edit-text' };
 			case 'RestoreFromSnapshot':
 				return { text: 'Revert snapshot' };
+			case 'SplitBranch':
+				return { text: 'Split branch', icon: 'branch-local' };
 			default:
 				return { text: snapshotDetails.operation, icon: 'commit' };
 		}

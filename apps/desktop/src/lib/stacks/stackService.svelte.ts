@@ -793,6 +793,10 @@ export class StackService {
 		return this.api.endpoints.saveEditAndReturnToWorkspace.mutate;
 	}
 
+	get splitBranch() {
+		return this.api.endpoints.splitBranch.useMutation();
+	}
+
 	stackDetailsUpdateListener(projectId: string) {
 		return this.api.endpoints.stackDetailsUpdate.useQuery({
 			projectId
@@ -1502,6 +1506,26 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				invalidatesTags: [
 					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesList(ReduxTag.StackDetails)
+				]
+			}),
+			splitBranch: build.mutation<
+				{ replacedCommits: [string, string][] },
+				{
+					projectId: string;
+					sourceStackId: string;
+					sourceBranchName: string;
+					newBranchName: string;
+					fileChangesToSplitOff: string[];
+				}
+			>({
+				extraOptions: {
+					command: 'split_branch'
+				},
+				query: (args) => args,
+				invalidatesTags: (_result, _error, args) => [
+					invalidatesItem(ReduxTag.StackDetails, args.sourceStackId),
+					invalidatesItem(ReduxTag.BranchChanges, args.sourceStackId),
+					invalidatesList(ReduxTag.Stacks)
 				]
 			}),
 			stackDetailsUpdate: build.query<void, { projectId: string }>({
