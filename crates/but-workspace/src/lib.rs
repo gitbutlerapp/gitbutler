@@ -45,6 +45,7 @@ pub use tree_manipulation::MoveChangesResult;
 pub use tree_manipulation::discard_worktree_changes::discard_workspace_changes;
 pub use tree_manipulation::move_between_commits::move_changes_between_commits;
 pub use tree_manipulation::remove_changes_from_commit_in_stack::remove_changes_from_commit_in_stack;
+pub use tree_manipulation::split_branch::split_branch;
 pub mod head;
 pub use head::{head, merge_worktree_with_workspace};
 mod relapath;

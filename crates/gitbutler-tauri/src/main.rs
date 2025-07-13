@@ -294,6 +294,7 @@ fn main() {
                     workspace::target_commits,
                     workspace::move_changes_between_commits,
                     workspace::uncommit_changes,
+                    workspace::split_branch,
                     diff::changes_in_worktree,
                     diff::commit_details,
                     diff::changes_in_branch,

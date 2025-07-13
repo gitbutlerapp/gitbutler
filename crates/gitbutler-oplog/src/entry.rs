@@ -167,6 +167,7 @@ pub enum OperationKind {
     UpdateDependentBranchPrNumber,
     AutoHandleChangesBefore,
     AutoHandleChangesAfter,
+    SplitBranch,
     #[default]
     Unknown,
 }
