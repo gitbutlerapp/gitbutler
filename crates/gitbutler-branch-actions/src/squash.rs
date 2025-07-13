@@ -29,7 +29,7 @@ pub(crate) fn squash_commits(
     source_ids: Vec<git2::Oid>,
     desitnation_id: git2::Oid,
     perm: &mut WorktreeWritePermission,
-) -> Result<()> {
+) -> Result<git2::Oid> {
     // create a snapshot
     let snap = ctx.create_snapshot(SnapshotDetails::new(OperationKind::SquashCommit), perm)?;
     let result = do_squash_commits(ctx, stack_id, source_ids, desitnation_id, perm);
@@ -46,7 +46,7 @@ fn do_squash_commits(
     mut source_ids: Vec<git2::Oid>,
     desitnation_id: git2::Oid,
     perm: &mut WorktreeWritePermission,
-) -> Result<()> {
+) -> Result<git2::Oid> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let vb_state = ctx.project().virtual_branches();
     let stack = vb_state.get_stack_in_workspace(stack_id)?;
@@ -205,7 +205,7 @@ fn do_squash_commits(
     crate::integration::update_workspace_commit(&vb_state, ctx)
         .context("failed to update gitbutler workspace")?;
     stack.set_heads_from_rebase_output(ctx, output.references)?;
-    Ok(())
+    Ok(new_commit_oid)
 }
 
 fn validate(
