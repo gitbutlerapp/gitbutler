@@ -23,6 +23,8 @@ gitbutler-branch.workspace = true
 gitbutler-diff.workspace = true
 but-settings.workspace = true
 gitbutler-stack.workspace = true
+but-graph.workspace = true
+but-workspace.workspace = true
 gitbutler-oxidize.workspace = true
 gix = { workspace = true, features = ["max-performance", "tracing"] }
 dirs-next = "2.0.0"

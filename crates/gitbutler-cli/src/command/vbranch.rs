@@ -1,5 +1,7 @@
 use anyhow::{bail, Context, Result};
+use but_graph::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
+use but_workspace::{ui::StackDetails, StackId, StacksFilter};
 use gitbutler_branch::{BranchCreateRequest, BranchIdentity, BranchUpdateRequest};
 use gitbutler_branch_actions::{get_branch_listing_details, list_branches, BranchManagerExt};
 use gitbutler_command_context::CommandContext;
@@ -61,7 +63,34 @@ pub fn list(project: Project) -> Result<()> {
 
 pub fn status(project: Project) -> Result<()> {
     let ctx = CommandContext::open(&project, AppSettings::default())?;
-    debug_print(gitbutler_branch_actions::list_virtual_branches(&ctx)?)
+    debug_print(stacks(&ctx))
+}
+
+pub(crate) fn stacks(ctx: &CommandContext) -> Result<Vec<(StackId, StackDetails)>> {
+    let repo = ctx.gix_repo_for_merging_non_persisting()?;
+    let stacks = if ctx.app_settings().feature_flags.ws3 {
+        let meta = VirtualBranchesTomlMetadata::from_path(
+            ctx.project().gb_dir().join("virtual_branches.toml"),
+        )?;
+        but_workspace::stacks_v3(&repo, &meta, StacksFilter::default())
+    } else {
+        but_workspace::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
+    }?;
+    let mut details = vec![];
+    for stack in stacks {
+        details.push((
+            stack.id,
+            if ctx.app_settings().feature_flags.ws3 {
+                let meta = VirtualBranchesTomlMetadata::from_path(
+                    ctx.project().gb_dir().join("virtual_branches.toml"),
+                )?;
+                but_workspace::stack_details_v3(stack.id, &repo, &meta)
+            } else {
+                but_workspace::stack_details(&ctx.project().gb_dir(), stack.id, ctx)
+            }?,
+        ));
+    }
+    Ok(details)
 }
 
 pub fn unapply(project: Project, branch_name: String) -> Result<()> {
