@@ -22,11 +22,10 @@ pub mod workspace {
             UpdateMode::Delete => upstream_integration::ResolutionApproach::Delete,
         };
         let ctx = CommandContext::open(&project, AppSettings::default())?;
-        let resolutions: Vec<_> = gitbutler_branch_actions::list_virtual_branches(&ctx)?
-            .branches
+        let resolutions: Vec<_> = super::vbranch::stacks(&ctx)?
             .into_iter()
-            .map(|b| upstream_integration::Resolution {
-                branch_id: b.id,
+            .map(|(id, _details)| upstream_integration::Resolution {
+                branch_id: id,
                 approach,
                 delete_integrated_branches: false,
                 force_integrated_branches: vec![],
