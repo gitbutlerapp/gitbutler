@@ -38,6 +38,7 @@ mod error {
 
 mod go_back_to_workspace {
     use gitbutler_branch::BranchCreateRequest;
+    use gitbutler_testsupport::stack_details;
     use pretty_assertions::assert_eq;
 
     use super::*;
@@ -70,10 +71,8 @@ mod go_back_to_workspace {
         std::fs::write(repo.path().join("another file.txt"), "content").unwrap();
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "one", None).unwrap();
 
-        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
-        let branches = list_result.branches;
-
-        assert_eq!(branches.len(), 1);
+        let stacks = stack_details(ctx);
+        assert_eq!(stacks.len(), 1);
 
         repo.checkout_commit(oid_one);
 
@@ -85,11 +84,9 @@ mod go_back_to_workspace {
         )
         .unwrap();
 
-        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
-        let branches = list_result.branches;
-        assert_eq!(branches.len(), 1);
-        assert_eq!(branches[0].id, stack_entry.id);
-        assert!(branches[0].active);
+        let stacks = stack_details(ctx);
+        assert_eq!(stacks.len(), 1);
+        assert_eq!(stacks[0].0, stack_entry.id);
     }
 
     #[test]
@@ -110,10 +107,8 @@ mod go_back_to_workspace {
         )
         .unwrap();
 
-        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
-        let branches = list_result.branches;
-
-        assert!(branches.is_empty());
+        let stacks = stack_details(ctx);
+        assert!(stacks.is_empty());
 
         repo.checkout_commit(oid_one);
         std::fs::write(repo.path().join("file.txt"), "tree").unwrap();
@@ -149,9 +144,8 @@ mod go_back_to_workspace {
         )
         .unwrap();
 
-        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
-        let branches = list_result.branches;
-        assert!(branches.is_empty());
+        let stacks = stack_details(ctx);
+        assert!(stacks.is_empty());
 
         repo.checkout_commit(oid_one);
         std::fs::write(repo.path().join("file.txt"), "tree").unwrap();
@@ -187,9 +181,8 @@ mod go_back_to_workspace {
         )
         .unwrap();
 
-        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
-        let branches = list_result.branches;
-        assert!(branches.is_empty());
+        let stacks = stack_details(ctx);
+        assert!(stacks.is_empty());
 
         repo.checkout_commit(oid_one);
         std::fs::write(repo.path().join("another file.txt"), "tree").unwrap();
@@ -203,9 +196,8 @@ mod go_back_to_workspace {
         )
         .unwrap();
 
-        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
-        let branches = list_result.branches;
-        assert_eq!(branches.len(), 0);
+        let stacks = stack_details(ctx);
+        assert_eq!(stacks.len(), 0);
         assert_eq!(base_two, base);
     }
 
@@ -227,9 +219,8 @@ mod go_back_to_workspace {
         )
         .unwrap();
 
-        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
-        let branches = list_result.branches;
-        assert!(branches.is_empty());
+        let stacks = stack_details(ctx);
+        assert!(stacks.is_empty());
 
         repo.checkout_commit(oid_one);
 
@@ -241,9 +232,8 @@ mod go_back_to_workspace {
         )
         .unwrap();
 
-        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
-        let branches = list_result.branches;
-        assert_eq!(branches.len(), 0);
+        let stacks = stack_details(ctx);
+        assert_eq!(stacks.len(), 0);
         assert_eq!(base_two, base);
     }
 }
