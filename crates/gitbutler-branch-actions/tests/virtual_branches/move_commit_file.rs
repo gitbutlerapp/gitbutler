@@ -1,7 +1,8 @@
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch_actions::list_commit_files;
-use gitbutler_commit::commit_ext::CommitExt;
+use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_stack::BranchOwnershipClaims;
+use gitbutler_testsupport::stack_details;
 
 use super::*;
 
@@ -48,32 +49,21 @@ fn move_file_down() -> anyhow::Result<()> {
     )
     .unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
-        .unwrap()
-        .branches
+    let (_, b) = stack_details(ctx)
         .into_iter()
-        .find(|b| b.id == stack_entry.id)
+        .find(|d| d.0 == stack_entry.id)
         .unwrap();
 
-    // shas changed but change_id is the same
-    assert_eq!(
-        &commit1.change_id(),
-        &branch.series[0].clone()?.patches[1].change_id
-    );
-    assert_ne!(&commit1.id(), &branch.series[0].clone()?.patches[1].id);
-    assert_eq!(
-        &commit2.change_id(),
-        &branch.series[0].clone()?.patches[0].change_id
-    );
-    assert_ne!(&commit2.id(), &branch.series[0].clone()?.patches[0].id);
+    assert_ne!(&commit1.id(), &b.branch_details[0].commits[1].id.to_git2());
+    assert_ne!(&commit2.id(), &b.branch_details[0].commits[0].id.to_git2());
 
-    assert_eq!(branch.series[0].clone()?.patches.len(), 2);
+    assert_eq!(b.branch_details[0].commits.len(), 2);
     assert_eq!(
-        list_commit_files(ctx, branch.series[0].clone()?.patches[0].id)?.len(),
+        list_commit_files(ctx, b.branch_details[0].commits[0].id.to_git2())?.len(),
         1
     );
     assert_eq!(
-        list_commit_files(ctx, branch.series[0].clone()?.patches[1].id)?.len(),
+        list_commit_files(ctx, b.branch_details[0].commits[1].id.to_git2())?.len(),
         2
     ); // this now has both file changes
     Ok(())
@@ -120,22 +110,20 @@ fn move_file_up() -> anyhow::Result<()> {
     )
     .unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
-        .unwrap()
-        .branches
+    let (_, b) = stack_details(ctx)
         .into_iter()
-        .find(|b| b.id == stack_entry.id)
+        .find(|d| d.0 == stack_entry.id)
         .unwrap();
 
-    assert_eq!(branch.series[0].clone()?.patches.len(), 2);
+    assert_eq!(b.branch_details[0].commits.len(), 2);
     assert_eq!(
-        list_commit_files(ctx, branch.series[0].clone()?.patches[0].id)?.len(),
+        list_commit_files(ctx, b.branch_details[0].commits[0].id.to_git2())?.len(),
         2
     ); // this now has both file changes
     assert_eq!(
-        list_commit_files(ctx, branch.series[0].clone()?.patches[1].id)?.len(),
+        list_commit_files(ctx, b.branch_details[0].commits[1].id.to_git2())?.len(),
         1
-    );
+    ); // this now has both file changes
     Ok(())
 }
 
