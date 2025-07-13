@@ -54,6 +54,7 @@
 
 	let viewport = $state<HTMLDivElement>();
 	let topSentinel = $state<HTMLDivElement>();
+	let bottomAnchor = $state<HTMLDivElement>();
 	let canLoadMore = $state(false);
 	let prevScrollHeight = $state<number>(0);
 
@@ -142,9 +143,8 @@
 	let showSymlink = $state(false);
 
 	$effect(() => {
-		if ($lastAddedId !== null && viewport) {
-			const actionItem = document.getElementById(`action-${$lastAddedId}`);
-			actionItem?.scrollIntoView({
+		if ($lastAddedId !== null && bottomAnchor) {
+			bottomAnchor.scrollIntoView({
 				behavior: 'smooth',
 				block: 'end'
 			});
@@ -270,6 +270,7 @@
 				</div>
 			{:else}
 				<div class="feed-list">
+					<div bind:this={bottomAnchor} style="height: 1px; margin-top: 8px;"></div>
 					{#each $combinedEntries as entry (entry.id)}
 						<FeedItem {projectId} action={entry} />
 					{/each}
