@@ -58,7 +58,7 @@
 	const aiService = getContext(AIService);
 	const promptService = getContext(PromptService);
 
-	const useFloatingCommitBox = $derived(uiState.global.useFloatingCommitBox);
+	const useFloatingBox = $derived(uiState.global.useFloatingBox);
 
 	const worktreeService = getContext(WorktreeService);
 	const diffService = getContext(DiffService);
@@ -228,11 +228,11 @@
 	</EditorFooter>
 {/snippet}
 
-{#if useFloatingCommitBox.current}
+{#if useFloatingBox.current}
 	<FloatingCommitBox
 		title={floatingBoxHeader}
 		onExitFloatingModeClick={() => {
-			useFloatingCommitBox.set(false);
+			useFloatingBox.set(false);
 		}}
 	>
 		{@render editorContent()}
