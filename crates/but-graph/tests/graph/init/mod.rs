@@ -7,7 +7,7 @@ fn unborn() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("unborn")?;
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?;
-    insta::assert_snapshot!(graph_tree(&graph), @"└── 👉►:0:main");
+    insta::assert_snapshot!(graph_tree(&graph), @"└── 👉►:0[0]:main");
     insta::assert_debug_snapshot!(graph, @r#"
     Graph {
         inner: StableGraph {
@@ -17,6 +17,7 @@ fn unborn() -> anyhow::Result<()> {
             node weights: {
                 0: StackSegment {
                     id: NodeIndex(0),
+                    generation: 0,
                     ref_name: "refs/heads/main",
                     remote_tracking_ref_name: "None",
                     sibling_segment_id: "None",
@@ -59,9 +60,9 @@ fn detached() -> anyhow::Result<()> {
     // we only know by examining `HEAD`.
     let graph = Graph::from_head(&repo, &*meta, standard_options())?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
-    └── ►:0:anon:
+    └── ►:0[0]:anon:
         └── 👉·541396b (⌂|1) ►tags/annotated, ►tags/release/v1, ►main
-            └── ►:1:other
+            └── ►:1[1]:other
                 └── ·fafd9d0 (⌂|1)
     ");
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
@@ -82,6 +83,7 @@ fn detached() -> anyhow::Result<()> {
             node weights: {
                 0: StackSegment {
                     id: NodeIndex(0),
+                    generation: 0,
                     ref_name: "None",
                     remote_tracking_ref_name: "None",
                     sibling_segment_id: "None",
@@ -92,6 +94,7 @@ fn detached() -> anyhow::Result<()> {
                 },
                 1: StackSegment {
                     id: NodeIndex(1),
+                    generation: 1,
                     ref_name: "refs/heads/other",
                     remote_tracking_ref_name: "None",
                     sibling_segment_id: "None",
@@ -153,19 +156,19 @@ fn multi_root() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
-    └── 👉►:0:main
+    └── 👉►:0[0]:main
         └── ·c6c8c05 (⌂|1)
-            ├── ►:1:anon:
+            ├── ►:1[1]:anon:
             │   └── ·76fc5c4 (⌂|1)
-            │       ├── ►:3:anon:
+            │       ├── ►:3[2]:anon:
             │       │   └── ·e5d0542 (⌂|1)
-            │       └── ►:4:B
+            │       └── ►:4[2]:B
             │           └── ·366d496 (⌂|1)
-            └── ►:2:C
+            └── ►:2[1]:C
                 └── ·8631946 (⌂|1)
-                    ├── ►:5:anon:
+                    ├── ►:5[2]:anon:
                     │   └── ·00fab2a (⌂|1)
-                    └── ►:6:D
+                    └── ►:6[2]:D
                         └── ·f4955b6 (⌂|1)
     ");
     assert_eq!(
@@ -211,23 +214,23 @@ fn four_diamond() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
-    └── 👉►:0:merged
+    └── 👉►:0[0]:merged
         └── ·8a6c109 (⌂|1)
-            ├── ►:1:A
+            ├── ►:1[1]:A
             │   └── ·62b409a (⌂|1)
-            │       ├── ►:3:anon:
+            │       ├── ►:3[2]:anon:
             │       │   └── ·592abec (⌂|1)
-            │       │       └── ►:7:main
+            │       │       └── ►:7[3]:main
             │       │           └── ·965998b (⌂|1)
-            │       └── ►:4:B
+            │       └── ►:4[2]:B
             │           └── ·f16dddf (⌂|1)
             │               └── →:7: (main)
-            └── ►:2:C
+            └── ►:2[1]:C
                 └── ·7ed512a (⌂|1)
-                    ├── ►:5:anon:
+                    ├── ►:5[2]:anon:
                     │   └── ·35ee481 (⌂|1)
                     │       └── →:7: (main)
-                    └── ►:6:D
+                    └── ►:6[2]:D
                         └── ·ecb1877 (⌂|1)
                             └── →:7: (main)
     ");
@@ -274,15 +277,15 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     let graph =
         Graph::from_head(&repo, &*meta, standard_options().with_limit_hint(1))?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
-    ├── 👉►:0:B <> origin/B →:1:
+    ├── 👉►:0[0]:B <> origin/B →:1:
     │   └── ·312f819 (⌂|1)
-    │       └── ►:2:A <> origin/A →:3:
+    │       └── ►:2[1]:A <> origin/A →:3:
     │           └── ·e255adc (⌂|11)
-    │               └── ►:4:main
+    │               └── ►:4[2]:main
     │                   └── ·fafd9d0 (⌂|11)
-    └── ►:1:origin/B →:0:
+    └── ►:1[0]:origin/B →:0:
         └── 🟣682be32
-            └── ►:3:origin/A →:2:
+            └── ►:3[1]:origin/A →:2:
                 └── 🟣e29c23d
                     └── →:4: (main)
     ");
@@ -305,23 +308,24 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     let graph =
         Graph::from_head(&repo, &*meta, standard_options().with_hard_limit(7))?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
-    ├── 👉►:0:B
+    ├── 👉►:0[0]:B <> origin/B →:1:
     │   └── ·312f819 (⌂|1)
-    │       └── ►:2:A
+    │       └── ►:2[1]:A <> origin/A →:3:
     │           └── ·e255adc (⌂|11)
-    │               └── ►:4:main
+    │               └── ►:4[2]:main
     │                   └── ·fafd9d0 (⌂|11)
-    ├── ►:1:origin/B
+    ├── ►:1[0]:origin/B →:0:
     │   └── ❌🟣682be32
-    └── ►:3:origin/A
+    └── ►:3[0]:origin/A →:2:
     ");
     // As the remotes don't connect, they are entirely unknown.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:B <> ✓!
-    └── ≡:0:B
-        ├── :0:B
+    └── ≡:0:B <> origin/B →:1:⇡1⇣1
+        ├── :0:B <> origin/B →:1:⇡1⇣1
+        │   ├── 🟣682be32
         │   └── ·312f819
-        ├── :2:A
+        ├── :2:A <> origin/A →:3:⇡1
         │   └── ·e255adc
         └── :4:main
             └── ·fafd9d0
@@ -330,15 +334,15 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     // Everything we encounter is checked for remotes (no limit)
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
-    ├── 👉►:0:B <> origin/B →:1:
+    ├── 👉►:0[0]:B <> origin/B →:1:
     │   └── ·312f819 (⌂|1)
-    │       └── ►:2:A <> origin/A →:3:
+    │       └── ►:2[1]:A <> origin/A →:3:
     │           └── ·e255adc (⌂|11)
-    │               └── ►:4:main
+    │               └── ►:4[2]:main
     │                   └── ·fafd9d0 (⌂|11)
-    └── ►:1:origin/B →:0:
+    └── ►:1[0]:origin/B →:0:
         └── 🟣682be32
-            └── ►:3:origin/A →:2:
+            └── ►:3[1]:origin/A →:2:
                 └── 🟣e29c23d
                     └── →:4: (main)
     ");
@@ -347,11 +351,11 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     let (id, name) = id_at(&repo, "A");
     let graph = Graph::from_commit_traversal(id, name, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
-    ├── 👉►:0:A <> origin/A →:1:
+    ├── 👉►:0[0]:A <> origin/A →:1:
     │   └── ·e255adc (⌂|1)
-    │       └── ►:2:main
+    │       └── ►:2[1]:main
     │           └── ·fafd9d0 (⌂|1)
-    └── ►:1:origin/A →:0:
+    └── ►:1[0]:origin/A →:0:
         └── 🟣e29c23d
             └── →:2: (main)
     ");
@@ -394,24 +398,24 @@ fn with_limits() -> anyhow::Result<()> {
     // Without limits
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
-    └── 👉►:0:C
+    └── 👉►:0[0]:C
         └── ·2a95729 (⌂|1)
-            ├── ►:1:anon:
+            ├── ►:1[1]:anon:
             │   ├── ·6861158 (⌂|1)
             │   ├── ·4f1f248 (⌂|1)
             │   └── ·487ffce (⌂|1)
-            │       └── ►:4:main
+            │       └── ►:4[2]:main
             │           ├── ·edc4dee (⌂|1)
             │           ├── ·01d0e1e (⌂|1)
             │           ├── ·4b3e5a8 (⌂|1)
             │           ├── ·34d0715 (⌂|1)
             │           └── ·eb5f731 (⌂|1)
-            ├── ►:2:A
+            ├── ►:2[1]:A
             │   ├── ·20a823c (⌂|1)
             │   ├── ·442a12f (⌂|1)
             │   └── ·686706b (⌂|1)
             │       └── →:4: (main)
-            └── ►:3:B
+            └── ►:3[1]:B
                 ├── ·9908c99 (⌂|1)
                 ├── ·60d9a56 (⌂|1)
                 └── ·9d171ff (⌂|1)
@@ -439,7 +443,7 @@ fn with_limits() -> anyhow::Result<()> {
     let graph =
         Graph::from_head(&repo, &*meta, standard_options().with_limit_hint(0))?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
-    └── 👉►:0:C
+    └── 👉►:0[0]:C
         └── ✂️·2a95729 (⌂|1)
     ");
     // The cut by limit is also represented here.
@@ -454,13 +458,13 @@ fn with_limits() -> anyhow::Result<()> {
     let graph =
         Graph::from_head(&repo, &*meta, standard_options().with_limit_hint(1))?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
-    └── 👉►:0:C
+    └── 👉►:0[0]:C
         └── ·2a95729 (⌂|1)
-            ├── ►:1:anon:
+            ├── ►:1[1]:anon:
             │   └── ✂️·6861158 (⌂|1)
-            ├── ►:2:A
+            ├── ►:2[1]:A
             │   └── ✂️·20a823c (⌂|1)
-            └── ►:3:B
+            └── ►:3[1]:B
                 └── ✂️·9908c99 (⌂|1)
     ");
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
@@ -475,15 +479,15 @@ fn with_limits() -> anyhow::Result<()> {
     let graph =
         Graph::from_head(&repo, &*meta, standard_options().with_limit_hint(2))?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
-    └── 👉►:0:C
+    └── 👉►:0[0]:C
         └── ·2a95729 (⌂|1)
-            ├── ►:1:anon:
+            ├── ►:1[1]:anon:
             │   ├── ·6861158 (⌂|1)
             │   └── ✂️·4f1f248 (⌂|1)
-            ├── ►:2:A
+            ├── ►:2[1]:A
             │   ├── ·20a823c (⌂|1)
             │   └── ✂️·442a12f (⌂|1)
-            └── ►:3:B
+            └── ►:3[1]:B
                 ├── ·9908c99 (⌂|1)
                 └── ✂️·60d9a56 (⌂|1)
     ");
@@ -507,16 +511,16 @@ fn with_limits() -> anyhow::Result<()> {
     )?
     .validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
-    └── 👉►:0:C
+    └── 👉►:0[0]:C
         └── ·2a95729 (⌂|1)
-            ├── ►:1:anon:
+            ├── ►:1[1]:anon:
             │   ├── ·6861158 (⌂|1)
             │   └── ✂️·4f1f248 (⌂|1)
-            ├── ►:2:A
+            ├── ►:2[1]:A
             │   ├── ·20a823c (⌂|1)
             │   ├── ·442a12f (⌂|1)
             │   └── ✂️·686706b (⌂|1)
-            └── ►:3:B
+            └── ►:3[1]:B
                 ├── ·9908c99 (⌂|1)
                 └── ✂️·60d9a56 (⌂|1)
     ");
@@ -540,20 +544,20 @@ fn with_limits() -> anyhow::Result<()> {
     )?
     .validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
-    └── 👉►:0:C
+    └── 👉►:0[0]:C
         └── ·2a95729 (⌂|1)
-            ├── ►:1:anon:
+            ├── ►:1[1]:anon:
             │   ├── ·6861158 (⌂|1)
             │   ├── ·4f1f248 (⌂|1)
             │   └── ✂️·487ffce (⌂|1)
-            ├── ►:2:A
+            ├── ►:2[1]:A
             │   ├── ·20a823c (⌂|1)
             │   ├── ·442a12f (⌂|1)
             │   └── ·686706b (⌂|1)
-            │       └── ►:4:main
+            │       └── ►:4[2]:main
             │           ├── ·edc4dee (⌂|1)
             │           └── ✂️·01d0e1e (⌂|1)
-            └── ►:3:B
+            └── ►:3[1]:B
                 ├── ·9908c99 (⌂|1)
                 ├── ·60d9a56 (⌂|1)
                 └── ✂️·9d171ff (⌂|1)
@@ -626,24 +630,24 @@ fn with_limits() -> anyhow::Result<()> {
 
     // This limits the reach of the stack naturally.
     insta::assert_snapshot!(graph_tree(&graph), @r"
-    └── 👉►:0:C
+    └── 👉►:0[0]:C
         └── ·2a95729 (⌂|1)
-            ├── ►:2:anon:
+            ├── ►:2[1]:anon:
             │   ├── ·6861158 (⌂|1)
             │   ├── ·4f1f248 (⌂|1)
             │   └── ·487ffce (⌂|1)
-            │       └── ►:1:main
+            │       └── ►:1[2]:main
             │           ├── ·edc4dee (⌂|✓|1)
             │           ├── ·01d0e1e (⌂|✓|1)
             │           ├── ·4b3e5a8 (⌂|✓|1)
             │           ├── ·34d0715 (⌂|✓|1)
             │           └── ·eb5f731 (⌂|✓|1)
-            ├── ►:3:A
+            ├── ►:3[1]:A
             │   ├── ·20a823c (⌂|1)
             │   ├── ·442a12f (⌂|1)
             │   └── ·686706b (⌂|1)
             │       └── →:1: (main)
-            └── ►:4:B
+            └── ►:4[1]:B
                 ├── ·9908c99 (⌂|1)
                 ├── ·60d9a56 (⌂|1)
                 └── ·9d171ff (⌂|1)

@@ -270,7 +270,15 @@ impl Graph {
                 Instruction::CollectCommit { into: current },
                 max_limit,
             )) {
-                return Ok(graph.with_hard_limit());
+                return graph.with_hard_limit().post_processed(
+                    meta,
+                    tip.detach(),
+                    repo,
+                    &target_symbolic_remote_names,
+                    &configured_remote_tracking_branches,
+                    Vec::new(),
+                    &refs_by_id,
+                );
             }
         }
 
@@ -327,7 +335,15 @@ impl Graph {
                 Instruction::CollectCommit { into: ws_segment },
                 ws_limit,
             )) {
-                return Ok(graph.with_hard_limit());
+                return graph.with_hard_limit().post_processed(
+                    meta,
+                    tip.detach(),
+                    repo,
+                    &target_symbolic_remote_names,
+                    &configured_remote_tracking_branches,
+                    Vec::new(),
+                    &refs_by_id,
+                );
             }
 
             if let Some((target_ref, target_ref_id, local_tip_info)) = target {
@@ -354,7 +370,15 @@ impl Graph {
                             .with_indirect_goal(tip.detach(), &mut goals)
                             .without_allowance(),
                     )) {
-                        return Ok(graph.with_hard_limit());
+                        return graph.with_hard_limit().post_processed(
+                            meta,
+                            tip.detach(),
+                            repo,
+                            &target_symbolic_remote_names,
+                            &configured_remote_tracking_branches,
+                            Vec::new(),
+                            &refs_by_id,
+                        );
                     }
                     next.add_goal_to(tip.detach(), goal);
                     (Some(local_sidx), goal)
@@ -374,7 +398,15 @@ impl Graph {
                         .additional_goal(local_goal)
                         .without_allowance(),
                 )) {
-                    return Ok(graph.with_hard_limit());
+                    return graph.with_hard_limit().post_processed(
+                        meta,
+                        tip.detach(),
+                        repo,
+                        &target_symbolic_remote_names,
+                        &configured_remote_tracking_branches,
+                        Vec::new(),
+                        &refs_by_id,
+                    );
                 }
                 graph[target_segment].sibling_segment_id = local_sidx;
             }
@@ -405,7 +437,15 @@ impl Graph {
                         .with_indirect_goal(tip.detach(), &mut goals)
                         .without_allowance(),
                 )) {
-                    return Ok(graph.with_hard_limit());
+                    return graph.with_hard_limit().post_processed(
+                        meta,
+                        tip.detach(),
+                        repo,
+                        &target_symbolic_remote_names,
+                        &configured_remote_tracking_branches,
+                        Vec::new(),
+                        &refs_by_id,
+                    );
                 }
                 extra_target_sidx
             };
@@ -515,7 +555,15 @@ impl Graph {
                 limit,
             );
             if hard_limit_hit {
-                return Ok(graph.with_hard_limit());
+                return graph.with_hard_limit().post_processed(
+                    meta,
+                    tip.detach(),
+                    repo,
+                    &target_symbolic_remote_names,
+                    &configured_remote_tracking_branches,
+                    inserted_proxy_segments,
+                    &refs_by_id,
+                );
             }
 
             segment.commits.push(
@@ -536,7 +584,15 @@ impl Graph {
 
             for item in remote_items {
                 if next.push_back_exhausted(item) {
-                    return Ok(graph.with_hard_limit());
+                    return graph.with_hard_limit().post_processed(
+                        meta,
+                        tip.detach(),
+                        repo,
+                        &target_symbolic_remote_names,
+                        &configured_remote_tracking_branches,
+                        inserted_proxy_segments,
+                        &refs_by_id,
+                    );
                 }
             }
 

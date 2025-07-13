@@ -214,7 +214,7 @@ impl Graph {
                 commits.push_str(&format!("[{cut} bytes cut]…\\l"));
             }
             format!(
-                ", shape = box, label = \"{entrypoint}{meta}:{id}:{name}{commits}\\l\", fontname = Courier, margin = 0.2",
+                ", shape = box, label = \"{entrypoint}{meta}:{id}[{generation}]:{name}{commits}\\l\", fontname = Courier, margin = 0.2",
                 meta = match s.metadata {
                     None => {
                         ""
@@ -228,6 +228,7 @@ impl Graph {
                 },
                 entrypoint = if show_segment_entrypoint { "👉" } else { "" },
                 id = sidx.index(),
+                generation = s.generation,
             )
         };
 

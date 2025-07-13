@@ -180,6 +180,7 @@ impl StackSegment {
         let mut segments_iter = segments.iter();
         let crate::Segment {
             id,
+            generation: _,
             ref_name,
             remote_tracking_ref_name,
             sibling_segment_id,

@@ -86,7 +86,7 @@ function create_workspace_commit_aggressively() {
   fi
 }
 
-function add_fake_remote() {
+function add_main_remote_setup() {
   cat <<EOF >>.git/config
 [remote "origin"]
 	url = ./fake/local/path/which-is-fine-as-we-dont-fetch-or-push
@@ -422,6 +422,6 @@ git init "two-dependent-branches-first-rebased-and-merged"
   git checkout gitbutler/workspace
   setup_remote_tracking soon-origin-main main "move"
 
-  add_fake_remote
+  add_main_remote_setup
   cp .git/refs/remotes/origin/main .git/refs/remotes/origin/A
 )

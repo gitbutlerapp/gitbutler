@@ -1,15 +1,19 @@
-use crate::projection::{Stack, StackCommit, StackCommitFlags, StackSegment};
-use crate::{CommitFlags, Graph, Segment, SegmentIndex};
+use std::{
+    cell::RefCell,
+    collections::{BTreeSet, VecDeque},
+    fmt::Formatter,
+};
+
 use anyhow::Context;
 use but_core::ref_metadata;
 use gix::reference::Category;
-use petgraph::Direction;
-use petgraph::prelude::EdgeRef;
-use petgraph::visit::NodeRef;
-use std::cell::RefCell;
-use std::collections::{BTreeSet, VecDeque};
-use std::fmt::Formatter;
+use petgraph::{Direction, prelude::EdgeRef, visit::NodeRef};
 use tracing::instrument;
+
+use crate::{
+    CommitFlags, Graph, Segment, SegmentIndex,
+    projection::{Stack, StackCommit, StackCommitFlags, StackSegment},
+};
 
 /// A workspace is a list of [Stacks](Stack).
 #[derive(Clone)]
@@ -41,6 +45,10 @@ pub struct Workspace<'graph> {
     /// If `None`, this is a local workspace that doesn't know when possibly pushed branches are considered integrated.
     /// This happens when there is a local branch checked out without a remote tracking branch.
     pub target: Option<Target>,
+    /// The segment index of the extra target as provided for traversal,
+    /// useful for AdHoc workspaces, but generally applicable to all workspaces to keep the lower bound lower than it
+    /// otherwise would be.
+    pub extra_target: Option<SegmentIndex>,
     /// Read-only workspace metadata with additional information, or `None` if nothing was present.
     /// If this is `Some()` the `kind` is always [`WorkspaceKind::Managed`]
     pub metadata: Option<ref_metadata::Workspace>,
@@ -77,6 +85,7 @@ impl WorkspaceKind {
 #[derive(Debug, Clone)]
 pub struct Target {
     /// The name of the target branch, i.e. the branch that all [Stacks](Stack) want to get merged into.
+    /// Typically, this is `origin/main`.
     pub ref_name: gix::refs::FullName,
     /// The index to the respective segment in the graph.
     pub segment_index: SegmentIndex,
@@ -180,6 +189,7 @@ impl Graph {
             target: metadata
                 .as_ref()
                 .and_then(|md| Target::from_ref_name(md.target_ref.as_ref()?, self)),
+            extra_target: self.extra_target,
             metadata,
             lower_bound_segment_id: None,
             lower_bound: None,
@@ -237,6 +247,7 @@ impl Graph {
                     stacks: _,
                     target,
                     metadata,
+                    extra_target: _,
                     lower_bound,
                     lower_bound_segment_id,
                 } = &mut ws;
@@ -334,7 +345,7 @@ impl Graph {
     }
 
     /// Compute the lowest base (i.e. the highest generation) between the `ws_tip` of a top-most segment of the workspace,
-    /// another `target` segment, and any amount of `additional` segements which could be *past targets* to keep
+    /// another `target` segment, and any amount of `additional` segments which could be *past targets* to keep
     /// an artificial lower base for consistency.
     ///
     /// Returns `Some((lowest_base, segment_idx_with_lowest_base))`.
@@ -342,6 +353,9 @@ impl Graph {
     /// ## Note
     ///
     /// This is a **merge-base octopus** effectively, and works without generation numbers.
+    // TODO: actually compute the lowest base, see `first_merge_base()` which should be `lowest_merge_base()` by itself,
+    //       accounting for finding the lowest of all merge-bases which would be assumed to be reachable by all segments
+    //       searching downward, a necessary trait for many search problems.
     fn compute_lowest_base(
         &self,
         ws_tip: SegmentIndex,
@@ -366,9 +380,14 @@ impl Graph {
         }
     }
 
-    /// Compute the merge-base between two segments.
+    /// Compute the loweset merge-base between two segments.
+    /// Such a merge-base is reachable from all possible paths from `a` and `b`.
+    ///
     /// We know this works as all branching and merging is represented by a segment.
     /// Thus, the merge-base is always the first commit of the returned segment
+    // TODO: should be multi, with extra segments as third parameter
+    // TODO: actually find the lowest merge-base, right now it just finds the first merge-base, but that's not
+    //       the lowest.
     fn first_merge_base(&self, a: SegmentIndex, b: SegmentIndex) -> Option<SegmentIndex> {
         // TODO(perf): improve this by allowing to set bitflags on the segments themselves, to allow
         //       marking them accordingly, just like Git does.
@@ -606,28 +625,6 @@ impl Graph {
         Ok((!out.is_empty()).then_some(out))
     }
 
-    /// Visit all segments, including `start`, unless `visit_and_prune(segment)` returns `true`.
-    /// Pruned segments aren't returned and not traversed.
-    pub(crate) fn visit_all_segments_until(
-        &self,
-        start: SegmentIndex,
-        direction: Direction,
-        mut visit_and_prune: impl FnMut(&Segment) -> bool,
-    ) {
-        let mut next = VecDeque::new();
-        next.push_back(start);
-        let mut seen = BTreeSet::new();
-        while let Some(next_sidx) = next.pop_front() {
-            if !visit_and_prune(&self[next_sidx]) {
-                next.extend(
-                    self.inner
-                        .neighbors_directed(next_sidx, direction)
-                        .filter(|n| seen.insert(*n)),
-                )
-            }
-        }
-    }
-
     /// Visit all segments across all connections, including `start` and return the segment for which `f(segment)` returns `true`.
     /// There is no traversal pruning.
     pub(crate) fn find_segment_upwards(
@@ -656,7 +653,7 @@ impl Graph {
 /// More processing
 impl Workspace<'_> {
     // NOTE: it's a disadvantage to not do this on graph level - then all we'd need is
-    //       - a remote_sidx to know which segment belongs to our remote tracking ref (for ease of use)
+    //       - a sibling_sidx to know which segment belongs to our remote tracking ref (for ease of use)
     //       - an identity set for each remote ref
     //       - a field that tells us the identity bit on the remote segment, so we can check if it's set.
     //       Now we basically re-do the remote tracking in the workspace projection, which is always a bit
@@ -678,13 +675,23 @@ impl Workspace<'_> {
         let graph = self.graph;
         for (remote_tracking_ref_name, remote_sidx) in remote_refs {
             let mut remote_commits = Vec::new();
+            let mut may_take_commits_from_first_remote = graph[remote_sidx].commits.is_empty();
             graph.visit_all_segments_until(remote_sidx, Direction::Outgoing, |s| {
                 let prune = !s.commits.iter().all(|c| c.flags.is_remote())
-                    // Do not 'steal' commits from other known remote segments while they are officially connected.
-                    || (s.id != remote_sidx
+                    // Do not 'steal' commits from other known remote segments while they are officially connected,
+                    // unless we started out empty. That means ambiguous ownership, as multiple remotes point
+                    // to the same commit.
+                    || {
+                    let mut prune = s.id != remote_sidx
                     && s.ref_name
                     .as_ref()
-                    .is_some_and(|orn| orn.category() == Some(Category::RemoteBranch)));
+                    .is_some_and(|orn| orn.category() == Some(Category::RemoteBranch));
+                    if prune && may_take_commits_from_first_remote {
+                        prune = false;
+                        may_take_commits_from_first_remote = false;
+                    }
+                    prune
+                };
                 if prune {
                     // See if this segment links to a commit we know as local, and mark it accordingly,
                     // along with all segments in that stack.

@@ -56,6 +56,10 @@ impl Graph {
             configured_remote_tracking_branches,
         )?;
 
+        // Finally, once all segments were added, it's good to generations
+        // have to figure out early abort conditions, or to know what's ahead of another.
+        self.compute_generation_numbers();
+
         Ok(self)
     }
 
@@ -161,7 +165,14 @@ impl Graph {
                             .first()
                             .is_some_and(|rn| rn.category() == Some(Category::LocalBranch))
                         {
-                            s.ref_name = first_commit.refs.pop()
+                            s.ref_name = first_commit.refs.pop();
+                            s.metadata = meta
+                                .branch_opt(
+                                    s.ref_name.as_ref().map(|rn| rn.as_ref()).expect("just set"),
+                                )
+                                .ok()
+                                .flatten()
+                                .map(|md| SegmentMetadata::Branch(md.clone()));
                         }
                     }
                     _ => {
@@ -560,6 +571,22 @@ impl Graph {
             (ws_segment_sidx, commit_idx),
             (current_above, commit_id),
         );
+    }
+
+    // Fill in generation numbers by walking down the graph topologically.
+    fn compute_generation_numbers(&mut self) {
+        // Start at tips, those without incoming connections.
+        // TODO(perf): save tips from actual iteration, computing these is expensive.
+        let mut topo = petgraph::visit::Topo::new(&self.inner);
+        while let Some(sidx) = topo.next(&self.inner) {
+            let max_gen_of_incoming = self
+                .inner
+                .neighbors_directed(sidx, petgraph::Direction::Incoming)
+                .map(|sidx| self[sidx].generation + 1)
+                .max()
+                .unwrap_or(0);
+            self[sidx].generation = max_gen_of_incoming;
+        }
     }
 }
 
