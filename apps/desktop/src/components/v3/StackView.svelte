@@ -354,7 +354,7 @@
 				direction="down"
 				imitateBorder
 				persistId="resizer-panel2-details-${stack.id}"
-				minHeight={minDetailsHeight}
+				minHeight={undefined}
 				maxHeight={maxDetailsHeight}
 				order={0}
 				{resizeGroup}
