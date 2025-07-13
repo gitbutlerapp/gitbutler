@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, sync::Arc};
 
-use but_workspace::ui::StackEntry;
+use but_workspace::{StackId, ui::StackEntry};
 use gitbutler_command_context::CommandContext;
 use serde_json::json;
 
@@ -123,5 +123,11 @@ impl ToolResult for Result<StackEntry, anyhow::Error> {
 impl ToolResult for Result<but_workspace::commit_engine::ui::CreateCommitOutcome, anyhow::Error> {
     fn to_json(&self, action_identifier: &str) -> serde_json::Value {
         result_to_json(self, action_identifier, "CreateCommitOutcome")
+    }
+}
+
+impl ToolResult for Result<StackId, anyhow::Error> {
+    fn to_json(&self, action_identifier: &str) -> serde_json::Value {
+        result_to_json(self, action_identifier, "StackId")
     }
 }

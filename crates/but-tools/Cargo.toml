@@ -32,5 +32,6 @@ gitbutler-project.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-serde.workspace = true
 gitbutler-oxidize.workspace = true
+gitbutler-reference.workspace = true
 but-hunk-dependency.workspace = true
 but-hunk-assignment.workspace = true
