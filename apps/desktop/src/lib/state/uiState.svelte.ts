@@ -81,9 +81,11 @@ export type GlobalUiState = {
 	historySidebarWidth: number;
 	branchesViewSidebarWidth: number;
 	useFloatingBox: boolean;
-	floatingCommitWidth: number;
-	floatingCommitHeight: number;
-	floatingCommitPosition: SnapPositionName;
+	floatingBoxSize: {
+		width: number;
+		height: number;
+	};
+	floatingBoxPosition: SnapPositionName;
 	unassignedSidebaFolded: boolean;
 	useRuler: boolean;
 	rulerCountValue: number;
@@ -123,9 +125,11 @@ export class UiState {
 		historySidebarWidth: 30,
 		branchesViewSidebarWidth: 30,
 		useFloatingBox: false,
-		floatingCommitPosition: 'bottom-center',
-		floatingCommitWidth: 640,
-		floatingCommitHeight: 330,
+		floatingBoxSize: {
+			width: 640,
+			height: 330
+		},
+		floatingBoxPosition: 'bottom-center',
 		unassignedSidebaFolded: false,
 		useRuler: true,
 		rulerCountValue: 72,

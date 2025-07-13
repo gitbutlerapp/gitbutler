@@ -16,10 +16,8 @@
 
 	const uiState = getContext(UiState);
 
-	/** Modal dimensions */
-	const width = $derived(uiState.global.floatingCommitWidth.current);
-	const height = $derived(uiState.global.floatingCommitHeight.current);
-	const floatingPosition = $derived(uiState.global.floatingCommitPosition);
+	const { width, height } = $derived(uiState.global.floatingBoxSize.current);
+	const snapPosition = $derived(uiState.global.floatingBoxPosition.current);
 
 	let headerElRef = $state<HTMLDivElement | undefined>(undefined);
 </script>
@@ -27,17 +25,16 @@
 <FloatingModal
 	defaults={{
 		width,
-		minWidth: 420,
 		height,
-		minHeight: 300,
-		snapPosition: floatingPosition.current
+		snapPosition,
+		minWidth: 420,
+		minHeight: 300
 	}}
 	onUpdateSize={(newWidth, newHeight) => {
-		uiState.global.floatingCommitWidth.current = newWidth;
-		uiState.global.floatingCommitHeight.current = newHeight;
+		uiState.global.floatingBoxSize.set({ width: newWidth, height: newHeight });
 	}}
 	onUpdateSnapPosition={(snapPosition: SnapPositionName) => {
-		uiState.global.floatingCommitPosition.current = snapPosition;
+		uiState.global.floatingBoxPosition.current = snapPosition;
 	}}
 	dragHandleElement={headerElRef}
 >
