@@ -321,12 +321,13 @@ pub(crate) mod function {
         projection::{StackCommit, WorkspaceKind},
     };
     use gix::{
-        ObjectId,
+        ObjectId, Repository,
         prelude::{ObjectIdExt, ReferenceExt},
         refs::{Category, FullName},
         revision::walk::Sorting,
         trace,
     };
+    use itertools::Itertools;
     use tracing::instrument;
 
     use super::ui::{LocalCommit, LocalCommitRelation, Segment};
@@ -437,10 +438,10 @@ pub(crate) mod function {
             kind,
             stacks,
             target,
+            extra_target,
             metadata,
-            // TODO: use base
             lower_bound: _,
-            lower_bound_segment_id: _,
+            lower_bound_segment_id,
         } = graph.to_workspace()?;
 
         let cache = repo.commit_graph_if_enabled()?;
@@ -472,6 +473,36 @@ pub(crate) mod function {
                         repo,
                         SimilarityContext {
                             target_ref_name: target.as_ref().map(|t| &t.ref_name),
+                            upstream_commits: {
+                                let topmost_target_sidx = target
+                                    .as_ref()
+                                    .map(|t| t.segment_index)
+                                    .into_iter()
+                                    .chain(extra_target)
+                                    .sorted_by_key(|sidx| graph[*sidx].generation)
+                                    .next();
+                                let mut out = Vec::new();
+                                if let Some(start) = topmost_target_sidx {
+                                    graph.visit_all_segments_until(
+                                        start,
+                                        but_graph::petgraph::Direction::Outgoing,
+                                        |s| {
+                                            let prune = true;
+                                            if Some(s.id) == lower_bound_segment_id {
+                                                return prune;
+                                            }
+                                            for c in &s.commits {
+                                                if !c.flags.is_remote() {
+                                                    return prune;
+                                                }
+                                                out.push(c.id);
+                                            }
+                                            !prune
+                                        },
+                                    );
+                                }
+                                out
+                            },
                             expensive: opts.expensive_commit_info,
                             graph_cache: &mut graph_cache,
                         },
@@ -508,7 +539,6 @@ pub(crate) mod function {
         fn try_from_graph_segment<'repo>(
             but_graph::projection::StackSegment {
                 ref_name,
-                // TODO: use base
                 base: _,
                 base_segment_id: _,
                 remote_tracking_ref_name,
@@ -527,16 +557,12 @@ pub(crate) mod function {
                 .into_iter()
                 .map(|c| LocalCommit::try_from_graph_commit(c, repo))
                 .collect::<anyhow::Result<_>>()?;
-            let commits_unique_in_remote_tracking_branch = if commits_on_remote.is_empty() {
-                Vec::new()
-            } else {
-                compute_commit_similarity(
-                    repo,
-                    &mut commits,
-                    commits_on_remote.iter().map(|c| c.id),
-                    ctx,
-                )?
-            };
+            let commits_unique_in_remote_tracking_branch = compute_commit_similarity(
+                repo,
+                &mut commits,
+                commits_on_remote.iter().map(|c| c.id),
+                ctx,
+            )?;
             Ok(Self {
                 ref_name,
                 id: id.index(),
@@ -570,6 +596,8 @@ pub(crate) mod function {
 
     struct SimilarityContext<'a, 'b, 'repo, 'cache> {
         target_ref_name: Option<&'a gix::refs::FullName>,
+        /// Remote-only commits from the topmost target ref, but no further down than the lower bound of the workspace.
+        upstream_commits: Vec<gix::ObjectId>,
         expensive: bool,
         graph_cache: &'b mut MergeBaseCommitGraph<'repo, 'cache>,
     }
@@ -579,28 +607,107 @@ pub(crate) mod function {
     /// Commits that are seen as duplicate in `local` won't be listed in `remote` anymore, and instead their
     /// hashes will be associated with each other.
     /// Perform expensive computation if `expensive` is `true`.
+    // TODO(perf): there is a lot of duplicate computation going on here, revamp this completely. Mostly
+    //             due to upstream commits, per segment processing, and better ways to do integration checks
+    //             (probably with changeset-ids, which could also be cached).
     fn compute_commit_similarity<'repo>(
         repo: &'repo gix::Repository,
         local: &mut [LocalCommit],
         remote: impl Iterator<Item = gix::ObjectId>,
         SimilarityContext {
             target_ref_name,
+            upstream_commits,
             expensive,
             graph_cache,
         }: &mut SimilarityContext<'_, '_, 'repo, '_>,
     ) -> anyhow::Result<Vec<ui::Commit>> {
-        #[derive(Hash, Clone, Eq, PartialEq)]
-        enum ChangeIdOrCommitData {
-            ChangeId(String),
-            CommitData {
-                author: gix::actor::Identity,
-                message: BString,
-            },
-        }
         // NOTE: The check for similarity is currently run across all remote branches in the stack.
         //       Further, this doesn't handle reorderings/topology differences at all, it's just there or not.
+        let (similarity_lut_remote, remote_commits_in_similarity_map) =
+            create_similarity_lut(repo, remote)?;
+
+        let (similarity_lut_upstream, _upstream_commits_in_similarity_map) =
+            create_similarity_lut(repo, upstream_commits.iter().cloned())?;
+
+        // At this stage, local commits are either matched by ID and reachable from our remote,
+        // or integrated, our they are local.
+        let mut matched_remote_commits = gix::hashtable::HashSet::default();
+        for commit in local
+            .iter_mut()
+            .take_while(|c| c.relation == LocalCommitRelation::LocalOnly)
+        {
+            fn lookup_similar<'a>(
+                map: &'a SimilarityLut,
+                commit: &LocalCommit,
+            ) -> Option<&'a gix::ObjectId> {
+                commit
+                    .change_id
+                    .as_ref()
+                    .and_then(|cid| map.get(&ChangeIdOrCommitData::ChangeId(cid.clone())))
+                    .or_else(|| {
+                        map.get(&ChangeIdOrCommitData::CommitData {
+                            author: commit.author.clone().into(),
+                            message: commit.message.clone(),
+                        })
+                    })
+            }
+            if let Some(upstream_commit_id) = lookup_similar(&similarity_lut_upstream, commit) {
+                commit.relation = LocalCommitRelation::Integrated;
+                // We prefer the integrated state, which currently doesn't track the matching commit. This probably
+                // should be changed to make our life easier here.
+                matched_remote_commits.insert(upstream_commit_id);
+            } else if let Some(remote_commit_id) = lookup_similar(&similarity_lut_remote, commit) {
+                commit.relation = LocalCommitRelation::LocalAndRemote(*remote_commit_id);
+                matched_remote_commits.insert(remote_commit_id);
+            }
+        }
+
+        if let Some(target_ref_name) = target_ref_name.filter(|_| *expensive) {
+            // TODO: this should only operate on commits that are given to it, not compute these
+            //       by itself. These commits must be remote-only commits as figured out by the graph.
+            // TODO: remote commits could also be integrated this way, this seems overly simplified.
+            //      For now, just emulate the current implementation (hopefully).
+            let mut check_commit =
+                IsCommitIntegrated::new_with_gix(repo, target_ref_name.as_ref(), graph_cache)?;
+            let mut is_integrated = false;
+            for local_commit in &mut *local {
+                if is_integrated || check_commit.is_integrated_gix(local_commit.id)? {
+                    is_integrated = true;
+                    local_commit.relation = LocalCommitRelation::Integrated;
+                }
+            }
+        }
+
+        // Finally, assure we don't show remotes commits that are also visible locally.
+        Ok(remote_commits_in_similarity_map
+            .into_iter()
+            .filter(|rc| {
+                let is_used_in_local_commits = local.iter().any(|c| {
+                    matches!(c.relation,  LocalCommitRelation::LocalAndRemote(rid) if rid == rc.id)
+                        || matched_remote_commits.contains(&rc.id)
+                });
+                !is_used_in_local_commits
+            })
+            .collect())
+    }
+
+    #[derive(Hash, Clone, Eq, PartialEq)]
+    enum ChangeIdOrCommitData {
+        ChangeId(String),
+        CommitData {
+            author: gix::actor::Identity,
+            message: BString,
+        },
+    }
+
+    type SimilarityLut = HashMap<ChangeIdOrCommitData, ObjectId>;
+
+    fn create_similarity_lut(
+        repo: &Repository,
+        commits: impl Iterator<Item = ObjectId>,
+    ) -> anyhow::Result<(SimilarityLut, Vec<ui::Commit>)> {
         let mut similarity_lut = HashMap::<ChangeIdOrCommitData, gix::ObjectId>::new();
-        let mut remote_commits_unpruned = Vec::<ui::Commit>::new();
+        let mut commits_not_in_upstream = Vec::<ui::Commit>::new();
         {
             let mut ambiguous_commits = HashSet::<ChangeIdOrCommitData>::new();
             let mut insert_or_expell_ambiguous = |k: ChangeIdOrCommitData, v: gix::ObjectId| {
@@ -617,7 +724,7 @@ pub(crate) mod function {
                     }
                 }
             };
-            for commit_id in remote {
+            for commit_id in commits {
                 let commit = but_core::Commit::from_id(commit_id.attach(repo))?;
                 if let Some(hdr) = commit.headers() {
                     insert_or_expell_ambiguous(
@@ -632,55 +739,10 @@ pub(crate) mod function {
                     },
                     commit.id.detach(),
                 );
-                remote_commits_unpruned.push(commit.into());
+                commits_not_in_upstream.push(commit.into());
             }
         }
-
-        // At this stage, local commits are either matched by ID and reachable from our remote,
-        // or integrated, our they are local.
-        for commit in local
-            .iter_mut()
-            .take_while(|c| c.relation == LocalCommitRelation::LocalOnly)
-        {
-            if let Some(remote_commit_id) = commit
-                .change_id
-                .as_ref()
-                .and_then(|cid| similarity_lut.get(&ChangeIdOrCommitData::ChangeId(cid.clone())))
-                .or_else(|| {
-                    similarity_lut.get(&ChangeIdOrCommitData::CommitData {
-                        author: commit.author.clone().into(),
-                        message: commit.message.clone(),
-                    })
-                })
-            {
-                commit.relation = LocalCommitRelation::LocalAndRemote(*remote_commit_id);
-            }
-        }
-
-        if let Some(target_ref_name) = target_ref_name.filter(|_| *expensive) {
-            let mut check_commit =
-                IsCommitIntegrated::new_with_gix(repo, target_ref_name.as_ref(), graph_cache)?;
-            let mut is_integrated = false;
-            // TODO: remote commits could also be integrated, this seems overly simplified.
-            //      For now, just emulate the current implementation (hopefully).
-            for local_commit in &mut *local {
-                if is_integrated || { check_commit.is_integrated_gix(local_commit.id) }? {
-                    is_integrated = true;
-                    local_commit.relation = LocalCommitRelation::Integrated;
-                }
-            }
-        }
-
-        // Finally, assure we don't show remotes commits that are also visible locally.
-        Ok(remote_commits_unpruned
-            .into_iter()
-            .filter(|rc| {
-                let is_used_in_local_commits = local
-                    .iter()
-                    .any(|c| matches!(c.relation,  LocalCommitRelation::LocalAndRemote(rid) if rid == rc.id));
-                !is_used_in_local_commits
-            })
-            .collect())
+        Ok((similarity_lut, commits_not_in_upstream))
     }
 
     /// Gather information about the commit at `existing_ref` and the workspace that might be associated with it,

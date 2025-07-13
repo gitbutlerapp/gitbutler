@@ -5,6 +5,7 @@ use petgraph::Direction;
 use petgraph::prelude::EdgeRef;
 use petgraph::stable_graph::EdgeReference;
 use petgraph::visit::IntoEdgeReferences;
+use std::collections::{BTreeSet, VecDeque};
 use std::ops::{Index, IndexMut};
 
 /// Mutation
@@ -189,6 +190,29 @@ impl Graph {
     /// Return an iterator over all indices of segments in the graph.
     pub fn segments(&self) -> impl Iterator<Item = SegmentIndex> {
         self.inner.node_indices()
+    }
+
+    /// Visit all segments, including `start`, until `visit_and_prune(segment)` returns `true`.
+    /// Pruned segments aren't returned and not traversed, but note that `visit_and_prune` may
+    /// be called multiple times until the traversal stops.
+    pub fn visit_all_segments_until(
+        &self,
+        start: SegmentIndex,
+        direction: Direction,
+        mut visit_and_prune: impl FnMut(&Segment) -> bool,
+    ) {
+        let mut next = VecDeque::new();
+        next.push_back(start);
+        let mut seen = BTreeSet::new();
+        while let Some(next_sidx) = next.pop_front() {
+            if !visit_and_prune(&self[next_sidx]) {
+                next.extend(
+                    self.inner
+                        .neighbors_directed(next_sidx, direction)
+                        .filter(|n| seen.insert(*n)),
+                )
+            }
+        }
     }
 }
 

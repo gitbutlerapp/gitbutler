@@ -47,6 +47,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
 
     let branch = Segment {
         id: 3.into(),
+        generation: 2,
         ref_name: Some("refs/heads/A".try_into()?),
         remote_tracking_ref_name: Some("refs/remotes/origin/A".try_into()?),
         sibling_segment_id: Some(SegmentIndex::from(1)),
@@ -73,14 +74,14 @@ fn post_graph_traversal() -> anyhow::Result<()> {
     graph.connect_new_segment(branch, 1, remote_to_root_branch, 0, None);
 
     insta::assert_snapshot!(graph_tree(&graph), @r"
-    └── 👉📕►►►:0:main <> origin/main
-        ├── ►:1:new-stack
-        ├── ►:2:origin/main
+    └── 👉📕►►►:0[0]:main <> origin/main
+        ├── ►:1[0]:new-stack
+        ├── ►:2[0]:origin/main
         │   └── ✂️🟣ccccccc
-        └── ►:3:A <> origin/A →:1:
+        └── ►:3[2]:A <> origin/A →:1:
             ├── 🟣aaaaaaa (🏘️)
             └── 🟣febafeb (🏘️)
-                └── ►:4:origin/A
+                └── ►:4[0]:origin/A
                     └── ✂️🟣bbbbbbb
     ");
 
@@ -95,7 +96,7 @@ fn detached_head() {
         ..Default::default()
     });
     insta::assert_snapshot!(graph_tree(&graph), @r"
-    └── 👉►:0:anon:
+    └── 👉►:0[0]:anon:
         └── 🟣aaaaaaa
     ");
 }
@@ -264,14 +265,13 @@ pub(crate) mod utils {
             let mut m = BTreeMap::<_, Vec<_>>::new();
             let below = graph.segments_below_in_order(sidx).collect::<Vec<_>>();
             for (cidx, sidx) in below {
-                // for (cidx, sidx) in graph.segments_below(sidx) {
                 m.entry(cidx).or_default().push(sidx);
             }
             m
         };
 
         let mut root = Tree::new(format!(
-            "{entrypoint}{meta}{arrow}:{id}:{ref_name_and_remote}",
+            "{entrypoint}{meta}{arrow}:{id}[{generation}]:{ref_name_and_remote}",
             meta = match segment.metadata {
                 None => {
                     ""
@@ -284,6 +284,7 @@ pub(crate) mod utils {
                 }
             },
             id = segment.id.index(),
+            generation = segment.generation,
             arrow = if segment.workspace_metadata().is_some() {
                 "►►►"
             } else {

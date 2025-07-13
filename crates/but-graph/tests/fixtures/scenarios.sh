@@ -753,5 +753,39 @@ EOF
 
     create_workspace_commit_once S1
   )
+
+  git init multiple-dependent-branches-per-stack-without-ws-commit
+  (cd multiple-dependent-branches-per-stack-without-ws-commit
+    git commit -m "init" --allow-empty
+    setup_target_to_match_main
+
+    git branch lane-segment-01
+    git branch lane-segment-02
+
+    git branch lane-2
+    git branch lane-2-segment-01
+    git branch lane-2-segment-02
+
+    git checkout -b lane
+    commit "change"
+
+    git checkout -b gitbutler/workspace
+  )
+  git init "two-dependent-branches-first-rebased-and-merged"
+  (cd "two-dependent-branches-first-rebased-and-merged"
+    echo init>file && git add file && git commit -m "init"
+    git checkout -b A && echo A >>file && git commit -am "A"
+    git checkout -b B && echo B >>file && git commit -am "B"
+    create_workspace_commit_once B
+    git checkout -b soon-origin-main main
+      tick
+      git cherry-pick A
+
+    git checkout gitbutler/workspace
+    setup_remote_tracking soon-origin-main main "move"
+
+    add_main_remote_setup
+    cp .git/refs/remotes/origin/main .git/refs/remotes/origin/A
+  )
 )
 

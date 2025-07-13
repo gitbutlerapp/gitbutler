@@ -93,6 +93,10 @@ pub struct Segment {
     /// An ID which can uniquely identify this segment among all segments within the graph that owned it.
     /// Note that it's not suitable to permanently identify the segment, so should not be persisted.
     pub id: SegmentIndex,
+    /// A non-null number, and starting at `1`, to indicate how high up the segment is in the graph past the root nodes.
+    /// Thus, higher numbers mean they are further down.
+    /// If `0`, this is a root node, i.e. one without any incoming connections.
+    pub generation: usize,
     /// The unambiguous or disambiguated name of the branch *or tag* at the tip of the segment, i.e. at the first commit.
     ///
     /// Even though most of the time this will be local branches, when setting the entrypoint onto a commit with a *tag*,
@@ -180,6 +184,7 @@ impl std::fmt::Debug for Segment {
         if f.alternate() {
             let Segment {
                 ref_name,
+                generation,
                 id,
                 commits,
                 remote_tracking_ref_name,
@@ -187,7 +192,8 @@ impl std::fmt::Debug for Segment {
                 metadata,
             } = self;
             f.debug_struct("StackSegment")
-                .field("id", &id)
+                .field("id", id)
+                .field("generation", generation)
                 .field(
                     "ref_name",
                     &match ref_name.as_ref() {
