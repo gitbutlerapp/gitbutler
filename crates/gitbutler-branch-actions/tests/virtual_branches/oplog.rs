@@ -3,7 +3,9 @@ use std::{io::Write, path::Path, time::Duration};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch_actions::list_commit_files;
 use gitbutler_oplog::OplogExt;
+use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_stack::VirtualBranchesHandle;
+use gitbutler_testsupport::stack_details;
 use itertools::Itertools;
 
 use super::*;
@@ -156,22 +158,20 @@ fn basic_oplog() -> anyhow::Result<()> {
     let _commit3_id =
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit three", None)?;
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(ctx)?
-        .branches
+    let (_, b) = stack_details(ctx)
         .into_iter()
-        .find(|b| b.id == stack_entry.id)
+        .find(|d| d.0 == stack_entry.id)
         .unwrap();
 
-    let branches = gitbutler_branch_actions::list_virtual_branches(ctx)?;
-    assert_eq!(branches.branches.len(), 2);
+    assert_eq!(stack_details(ctx).len(), 2);
 
-    assert_eq!(branch.series[0].clone()?.patches.len(), 3);
+    assert_eq!(b.branch_details[0].clone().commits.len(), 3);
     assert_eq!(
-        list_commit_files(ctx, branch.series[0].clone()?.patches[0].id)?.len(),
+        list_commit_files(ctx, b.branch_details[0].clone().commits[0].id.to_git2())?.len(),
         1
     );
     assert_eq!(
-        list_commit_files(ctx, branch.series[0].clone()?.patches[1].id)?.len(),
+        list_commit_files(ctx, b.branch_details[0].clone().commits[1].id.to_git2())?.len(),
         3
     );
 
@@ -210,8 +210,7 @@ fn basic_oplog() -> anyhow::Result<()> {
     }
 
     // the restore removed our new branch
-    let branches = gitbutler_branch_actions::list_virtual_branches(ctx)?;
-    assert_eq!(branches.branches.len(), 1);
+    assert_eq!(stack_details(ctx).len(), 1);
 
     // assert that the conflicts file was removed
     assert!(!&conflicts_path.try_exists()?);
