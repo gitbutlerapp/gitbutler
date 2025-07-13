@@ -228,23 +228,27 @@ export class Feed {
 			type: 'user',
 			content
 		};
+
+		const inProgress: InProgressAssistantMessage = {
+			id: `assistant-in-progress-${uuid}`,
+			type: 'assistant-in-progress',
+			content: '',
+			toolCalls: []
+		};
+
+		let added = false;
 		await this.mutex.lock(async () => {
 			this.combined.update((entries) => {
 				const existing = entries.find((entry) => entry.id === message.id);
 				if (!existing) {
-					const newMessage: InProgressAssistantMessage = {
-						id: `assistant-in-progress-${uuid}`,
-						type: 'assistant-in-progress',
-						content: '',
-						toolCalls: []
-					};
-					this.handleLastAdded(newMessage);
-					return [newMessage, message, ...entries];
+					added = true;
+					return [inProgress, message, ...entries];
 				}
 				return entries;
 			});
 		});
 
+		if (added) this.handleLastAdded(inProgress);
 		const messages = this.getFeedMessages();
 		return [uuid, messages];
 	}
@@ -275,6 +279,8 @@ export class Feed {
 			toolCalls: []
 		};
 
+		let added = false;
+
 		await this.mutex.lock(async () => {
 			this.combined.update((entries) => {
 				// Remove the in-progress message if it exists.
@@ -287,11 +293,14 @@ export class Feed {
 
 				const existing = updatedEntries.find((entry) => entry.id === id);
 				if (!existing) {
+					added = true;
 					return [message, ...updatedEntries];
 				}
 				return updatedEntries;
 			});
 		});
+
+		if (added) this.handleLastAdded(message);
 
 		return message;
 	}
@@ -303,6 +312,7 @@ export class Feed {
 		}
 
 		this.updateTimeout = setTimeout(async () => {
+			let lastAddedItem: FeedEntry | undefined = undefined;
 			await this.mutex.lock(async () => {
 				const n = 5;
 				// If the actions buffer has less than n entries, we need to fetch more actions.
@@ -329,7 +339,7 @@ export class Feed {
 						this.combined.update((entries) => {
 							const existing = entries.find((entry) => entry.id === lessRecent.id);
 							if (!existing) {
-								this.handleLastAdded(lessRecent);
+								lastAddedItem = lessRecent;
 								return [lessRecent, ...entries];
 							}
 							return entries;
@@ -343,6 +353,10 @@ export class Feed {
 					}
 				}
 			});
+
+			if (lastAddedItem) {
+				this.handleLastAdded(lastAddedItem);
+			}
 		}, 500);
 	}
 
