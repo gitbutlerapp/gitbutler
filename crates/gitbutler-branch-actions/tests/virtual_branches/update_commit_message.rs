@@ -1,5 +1,8 @@
+use but_workspace::ui::PushStatus;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_commit::commit_ext::CommitExt;
+use gitbutler_oxidize::ObjectIdExt;
+use gitbutler_testsupport::stack_details;
 
 use super::*;
 
@@ -47,30 +50,27 @@ fn head() {
     )
     .unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
-        .unwrap()
-        .branches
+    let (_, b) = stack_details(ctx)
         .into_iter()
-        .find(|b| b.id == stack_entry.id)
+        .find(|d| d.0 == stack_entry.id)
         .unwrap();
-
-    let descriptions = branch.series[0]
-        .clone()
-        .unwrap()
-        .patches
+    let messages = b
+        .branch_details
         .iter()
-        .map(|c| c.description.clone())
+        .flat_map(|branch| branch.commits.iter().map(|c| c.message.clone()))
         .collect::<Vec<_>>();
 
     // get the last commit
-    let commit = repo.find_commit(branch.head).unwrap();
+    let commit = repo
+        .find_commit(b.branch_details[0].commits[0].id.to_git2())
+        .unwrap();
 
     // make sure the SHA changed, but the change ID did not
     assert_ne!(&commit_three.id(), &commit.id());
     assert_eq!(before_change_id, &commit.change_id());
 
     assert_eq!(
-        descriptions,
+        messages,
         vec!["commit three updated", "commit two", "commit one"]
     );
 }
@@ -117,22 +117,18 @@ fn middle() {
     )
     .unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
-        .unwrap()
-        .branches
+    let (_, b) = stack_details(ctx)
         .into_iter()
-        .find(|b| b.id == stack_entry.id)
+        .find(|d| d.0 == stack_entry.id)
         .unwrap();
-
-    let descriptions = branch.series[0]
-        .clone()
-        .unwrap()
-        .patches
+    let messages = b
+        .branch_details
         .iter()
-        .map(|c| c.description.clone())
+        .flat_map(|branch| branch.commits.iter().map(|c| c.message.clone()))
         .collect::<Vec<_>>();
+
     assert_eq!(
-        descriptions,
+        messages,
         vec!["commit three", "commit two updated", "commit one"]
     );
 }
@@ -185,22 +181,21 @@ fn forcepush_allowed() {
     )
     .unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
-        .unwrap()
-        .branches
+    let (_, b) = stack_details(ctx)
         .into_iter()
-        .find(|b| b.id == stack_entry.id)
+        .find(|d| d.0 == stack_entry.id)
         .unwrap();
-
-    let descriptions = branch.series[0]
-        .clone()
-        .unwrap()
-        .patches
+    let messages = b
+        .branch_details
         .iter()
-        .map(|c| c.description.clone())
+        .flat_map(|branch| branch.commits.iter().map(|c| c.message.clone()))
         .collect::<Vec<_>>();
-    assert_eq!(descriptions, vec!["commit one updated"]);
-    assert!(branch.requires_force);
+
+    assert_eq!(messages, vec!["commit one updated"]);
+    assert!(matches!(
+        b.push_status,
+        PushStatus::UnpushedCommitsRequiringForce
+    ));
 }
 
 #[test]
@@ -245,22 +240,18 @@ fn root() {
     )
     .unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(ctx)
-        .unwrap()
-        .branches
+    let (_, b) = stack_details(ctx)
         .into_iter()
-        .find(|b| b.id == branch_id.id)
+        .find(|d| d.0 == branch_id.id)
         .unwrap();
-
-    let descriptions = branch.series[0]
-        .clone()
-        .unwrap()
-        .patches
+    let messages = b
+        .branch_details
         .iter()
-        .map(|c| c.description.clone())
+        .flat_map(|branch| branch.commits.iter().map(|c| c.message.clone()))
         .collect::<Vec<_>>();
+
     assert_eq!(
-        descriptions,
+        messages,
         vec!["commit three", "commit two", "commit one updated"]
     );
 }
