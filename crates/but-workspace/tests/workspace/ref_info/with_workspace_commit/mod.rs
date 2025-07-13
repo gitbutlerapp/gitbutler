@@ -1106,7 +1106,7 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
     }
 
     let opts = standard_options();
-    let info = head_info2(&repo, &*meta, opts)?;
+    let info = head_info2(&repo, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
