@@ -400,10 +400,7 @@
 					{/if}
 
 					{#if !isNonLocalPr}
-						<!-- <div class="preview-column" bind:this={previewColumn}> -->
 						<SelectionView testId={TestId.BranchesSelectionView} {projectId} {selectionId} />
-
-						<!-- </div> -->
 					{/if}
 				</div>
 				<Scrollbar viewport={rightWrapper} horz />

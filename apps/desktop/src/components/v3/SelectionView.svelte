@@ -18,9 +18,9 @@
 		selectionId?: SelectionId;
 		draggableFiles?: boolean;
 		diffOnly?: boolean;
-		topPadding?: boolean;
 		onclose?: () => void;
 		testId?: string;
+		bottomBorder?: boolean;
 	};
 
 	let {
@@ -28,9 +28,9 @@
 		selectionId,
 		draggableFiles: draggable,
 		diffOnly,
-		topPadding,
 		onclose,
-		testId
+		testId,
+		bottomBorder
 	}: Props = $props();
 
 	const [idSelection, diffService, intelligentScrollingService] = inject(
@@ -68,7 +68,11 @@
 					<ReduxResult {projectId} result={diffResult.current}>
 						{#snippet children(diff, env)}
 							{@const isExecutable = true}
-							<div class="selected-change-item" data-remove-from-panning>
+							<div
+								class="selected-change-item"
+								class:bottom-border={bottomBorder}
+								data-remove-from-panning
+							>
 								{#if !diffOnly}
 									<FileListItemWrapper
 										selectionId={selectedFile}
@@ -96,7 +100,7 @@
 									{diff}
 									selectable
 									selectionId={selectedFile}
-									{topPadding}
+									topPadding={diffOnly}
 								/>
 							</div>
 						{/snippet}
@@ -119,5 +123,9 @@
 	}
 	.selected-change-item {
 		background-color: var(--clr-bg-1);
+
+		&.bottom-border {
+			border-bottom: 1px solid var(--clr-border-2);
+		}
 	}
 </style>

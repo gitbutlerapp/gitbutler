@@ -87,7 +87,6 @@
 	.filelist-wrapper {
 		display: flex;
 		flex-direction: column;
-		border-bottom: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
 	}
 </style>

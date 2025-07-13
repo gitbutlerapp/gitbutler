@@ -271,10 +271,9 @@
 
 {#snippet assignedChangePreview(stackId?: string)}
 	<SelectionView
+		bottomBorder
 		testId={TestId.WorktreeSelectionView}
 		{projectId}
-		diffOnly={true}
-		topPadding={true}
 		selectionId={{ ...assignedKey, type: 'worktree', stackId }}
 		onclose={() => {
 			intelligentScrollingService.show(projectId, stack.id, 'stack');
@@ -289,7 +288,6 @@
 		{projectId}
 		{selectionId}
 		diffOnly={true}
-		topPadding={true}
 		onclose={() => {
 			intelligentScrollingService.show(projectId, stack.id, 'details');
 		}}
@@ -354,7 +352,7 @@
 				direction="down"
 				imitateBorder
 				persistId="resizer-panel2-details-${stack.id}"
-				minHeight={minDetailsHeight}
+				minHeight={undefined}
 				maxHeight={maxDetailsHeight}
 				order={0}
 				{resizeGroup}
@@ -595,30 +593,32 @@
 						{#snippet children(previewChange)}
 							{@const diffResult = diffService.getDiff(projectId, previewChange)}
 							{@const diffData = diffResult.current.data}
-							<Drawer bottomBorder>
-								{#snippet header()}
-									<FileViewHeader
-										noPaddings
-										transparent
-										filePath={previewChange.path}
-										fileStatus={computeChangeStatus(previewChange)}
-										linesAdded={diffData?.type === 'Patch'
-											? diffData.subject.linesAdded
-											: undefined}
-										linesRemoved={diffData?.type === 'Patch'
-											? diffData.subject.linesRemoved
-											: undefined}
-									/>
-								{/snippet}
-								{#if assignedKey?.type === 'worktree' && assignedKey.stackId}
-									{@render assignedChangePreview(assignedKey.stackId)}
-								{:else if selectedKey}
+
+							{#if assignedKey?.type === 'worktree' && assignedKey.stackId}
+								{@render assignedChangePreview(assignedKey.stackId)}
+							{:else if selectedKey}
+								<Drawer bottomBorder>
+									{#snippet header()}
+										<FileViewHeader
+											noPaddings
+											transparent
+											filePath={previewChange.path}
+											fileStatus={computeChangeStatus(previewChange)}
+											linesAdded={diffData?.type === 'Patch'
+												? diffData.subject.linesAdded
+												: undefined}
+											linesRemoved={diffData?.type === 'Patch'
+												? diffData.subject.linesRemoved
+												: undefined}
+										/>
+									{/snippet}
 									{@render otherChangePreview(selectedKey)}
-								{/if}
-							</Drawer>
+								</Drawer>
+							{/if}
 						{/snippet}
 					</ReduxResult>
 				{/if}
+
 				<!-- The id of this resizer is intentionally the same as in default view. -->
 				<Resizer
 					viewport={compactDiv}
