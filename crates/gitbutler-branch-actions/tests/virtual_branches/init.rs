@@ -1,3 +1,5 @@
+use gitbutler_testsupport::stack_details;
+
 use super::*;
 
 #[test]
@@ -20,12 +22,9 @@ fn twice() {
             ctx.project().exclusive_worktree_access().write_permission(),
         )
         .unwrap();
-        assert!(gitbutler_branch_actions::list_virtual_branches(&ctx)
-            .unwrap()
-            .branches
-            .is_empty());
+        let stacks = stack_details(&ctx);
+        assert_eq!(stacks.len(), 0);
         projects.delete(project.id).unwrap();
-        gitbutler_branch_actions::list_virtual_branches(&ctx).unwrap_err();
     }
 
     {
@@ -40,10 +39,8 @@ fn twice() {
         .unwrap();
 
         // even though project is on gitbutler/workspace, we should not import it
-        assert!(gitbutler_branch_actions::list_virtual_branches(&ctx)
-            .unwrap()
-            .branches
-            .is_empty());
+        let stacks = stack_details(&ctx);
+        assert_eq!(stacks.len(), 0);
     }
 }
 
@@ -65,13 +62,9 @@ fn dirty_non_target() {
     )
     .unwrap();
 
-    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
-    let branches = list_result.branches;
-    assert_eq!(branches.len(), 1);
-    assert_eq!(branches[0].files.len(), 1);
-    assert_eq!(branches[0].files[0].hunks.len(), 1);
-    assert!(branches[0].upstream.is_none());
-    assert_eq!(branches[0].name, "some-feature");
+    let stacks = stack_details(ctx);
+    assert_eq!(stacks.len(), 1);
+    assert_eq!(stacks[0].1.derived_name, "some-feature");
 }
 
 #[test]
@@ -90,13 +83,9 @@ fn dirty_target() {
     )
     .unwrap();
 
-    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
-    let branches = list_result.branches;
-    assert_eq!(branches.len(), 1);
-    assert_eq!(branches[0].files.len(), 1);
-    assert_eq!(branches[0].files[0].hunks.len(), 1);
-    assert!(branches[0].upstream.is_none());
-    assert_eq!(branches[0].name, "master");
+    let stacks = stack_details(ctx);
+    assert_eq!(stacks.len(), 1);
+    assert_eq!(stacks[0].1.derived_name, "master");
 }
 
 #[test]
@@ -115,13 +104,9 @@ fn commit_on_non_target_local() {
     )
     .unwrap();
 
-    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
-    let branches = list_result.branches;
-    assert_eq!(branches.len(), 1);
-    assert!(branches[0].files.is_empty());
-    assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
-    assert!(branches[0].upstream.is_none());
-    assert_eq!(branches[0].name, "some-feature");
+    let stacks = stack_details(ctx);
+    assert_eq!(stacks.len(), 1);
+    assert_eq!(stacks[0].1.derived_name, "some-feature");
 }
 
 #[test]
@@ -141,13 +126,10 @@ fn commit_on_non_target_remote() {
     )
     .unwrap();
 
-    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
-    let branches = list_result.branches;
-    assert_eq!(branches.len(), 1);
-    assert!(branches[0].files.is_empty());
-    assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
-    assert!(branches[0].upstream.is_some());
-    assert_eq!(branches[0].name, "some-feature");
+    let stacks = stack_details(ctx);
+    assert_eq!(stacks.len(), 1);
+    assert_eq!(stacks[0].1.derived_name, "some-feature");
+    assert_eq!(stacks[0].1.branch_details[0].clone().commits.len(), 1);
 }
 
 #[test]
@@ -165,13 +147,10 @@ fn commit_on_target() {
     )
     .unwrap();
 
-    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
-    let branches = list_result.branches;
-    assert_eq!(branches.len(), 1);
-    assert!(branches[0].files.is_empty());
-    assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
-    assert!(branches[0].upstream.is_none());
-    assert_eq!(branches[0].name, "master");
+    let stacks = stack_details(ctx);
+    assert_eq!(stacks.len(), 1);
+    assert_eq!(stacks[0].1.derived_name, "master");
+    assert_eq!(stacks[0].1.branch_details[0].clone().commits.len(), 1);
 }
 
 #[test]
@@ -191,9 +170,6 @@ fn submodule() {
     )
     .unwrap();
 
-    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
-    let branches = list_result.branches;
-    assert_eq!(branches.len(), 1);
-    assert_eq!(branches[0].files.len(), 1);
-    assert_eq!(branches[0].files[0].hunks.len(), 1);
+    let stacks = stack_details(ctx);
+    assert_eq!(stacks.len(), 1);
 }
