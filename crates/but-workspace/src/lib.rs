@@ -120,6 +120,16 @@ impl From<&TreeChange> for DiffSpec {
     }
 }
 
+impl From<TreeChange> for DiffSpec {
+    fn from(change: but_core::TreeChange) -> Self {
+        Self {
+            previous_path: change.previous_path().map(ToOwned::to_owned),
+            path: change.path.to_owned(),
+            hunk_headers: vec![],
+        }
+    }
+}
+
 /// The header of a hunk that represents a change to a file.
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
