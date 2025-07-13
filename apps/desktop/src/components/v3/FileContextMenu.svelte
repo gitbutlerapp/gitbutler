@@ -62,9 +62,11 @@
 	const [autoCommit, autoCommitting] = actionService.autoCommit;
 	const [branchChanges, branchingChanges] = actionService.branchChanges;
 	const [absorbChanges, absorbingChanges] = actionService.absorb;
+	const [splitOffChanges] = stackService.splitBranch;
 
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 	const isUncommitted = $derived(selectionId.type === 'worktree');
+	const isBranchFiles = $derived(selectionId.type === 'branch');
 
 	let confirmationModal: ReturnType<typeof Modal> | undefined;
 	let stashConfirmationModal: ReturnType<typeof Modal> | undefined;
@@ -208,6 +210,36 @@
 			message: `Now, you're free to continue`
 		});
 	}
+
+	async function split(changes: TreeChange[]) {
+		if (!stackId) {
+			toasts.error('No stack selected to split off changes.');
+			return;
+		}
+
+		if (selectionId.type !== 'branch') {
+			toasts.error('Please select a branch to split off changes.');
+			return;
+		}
+
+		const branchName = selectionId.branchName;
+
+		const fileNames = changes.map((change) => change.path);
+		const newBranchName = await stackService.newBranchName(projectId);
+
+		if (!newBranchName.data) {
+			toasts.error('Failed to generate a new branch name.');
+			return;
+		}
+
+		await splitOffChanges({
+			projectId,
+			sourceStackId: stackId,
+			sourceBranchName: branchName,
+			fileChangesToSplitOff: fileNames,
+			newBranchName: newBranchName.data
+		});
+	}
 </script>
 
 <ContextMenu bind:this={contextMenu} rightClickTrigger={trigger}>
@@ -289,6 +321,15 @@
 							}
 						}}
 					/>
+					{#if isBranchFiles}
+						<ContextMenuItem
+							label="Split off changes"
+							onclick={async () => {
+								await split(changes);
+								contextMenu.close();
+							}}
+						/>
+					{/if}
 				{/if}
 			</ContextMenuSection>
 			{#if canUseGBAI && isUncommitted}
