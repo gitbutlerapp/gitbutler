@@ -134,7 +134,7 @@
 {/snippet}
 
 {#snippet leftPreview()}
-	<SelectionView {projectId} {selectionId} draggableFiles />
+	<SelectionView bottomBorder {projectId} {selectionId} draggableFiles />
 {/snippet}
 
 <MainViewport

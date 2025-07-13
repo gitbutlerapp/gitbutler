@@ -595,7 +595,7 @@
 						{#snippet children(previewChange)}
 							{@const diffResult = diffService.getDiff(projectId, previewChange)}
 							{@const diffData = diffResult.current.data}
-							<Drawer bottomBorder>
+							<Drawer>
 								{#snippet header()}
 									<FileViewHeader
 										noPaddings
