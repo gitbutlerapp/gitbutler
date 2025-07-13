@@ -1,5 +1,6 @@
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_reference::Refname;
+use gitbutler_testsupport::stack_details;
 
 use super::*;
 
@@ -39,13 +40,10 @@ fn rebase_commit() {
         gitbutler_branch_actions::create_commit(ctx, stack_entry_1.id, "virtual commit", None)
             .unwrap();
 
-        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
-        let branches = list_result.branches;
-        assert_eq!(branches.len(), 1);
-        assert_eq!(branches[0].id, stack_entry_1.id);
-        assert!(branches[0].active);
-        assert_eq!(branches[0].files.len(), 0);
-        assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
+        let stacks = stack_details(ctx);
+        assert_eq!(stacks.len(), 1);
+        assert_eq!(stacks[0].0, stack_entry_1.id);
+        assert_eq!(stacks[0].1.branch_details[0].commits.len(), 1);
 
         stack_entry_1.id
     };
@@ -64,9 +62,8 @@ fn rebase_commit() {
             "one"
         );
 
-        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
-        let branches = list_result.branches;
-        assert_eq!(branches.len(), 0);
+        let stacks = stack_details(ctx);
+        assert_eq!(stacks.len(), 0);
 
         Refname::from_str(&unapplied_branch).unwrap()
     };
@@ -76,9 +73,8 @@ fn rebase_commit() {
         gitbutler_branch_actions::integrate_upstream(ctx, &[], None).unwrap();
 
         // branch is stil unapplied
-        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
-        let branches = list_result.branches;
-        assert_eq!(branches.len(), 0);
+        let stacks = stack_details(ctx);
+        assert_eq!(stacks.len(), 0);
 
         assert_eq!(
             fs::read_to_string(repo.path().join("another_file.txt")).unwrap(),
@@ -101,14 +97,11 @@ fn rebase_commit() {
         .unwrap();
 
         // it should be rebased
-        let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
-        let branches = list_result.branches;
-        assert_eq!(branches.len(), 1);
-        assert_eq!(branches[0].id, stack_1_id);
-        assert_eq!(branches[0].files.len(), 0);
-        assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
-        assert!(branches[0].active);
-        assert!(!branches[0].conflicted);
+        let stacks = stack_details(ctx);
+        assert_eq!(stacks.len(), 1);
+        assert_eq!(stacks[0].0, stack_1_id);
+        assert_eq!(stacks[0].1.branch_details[0].commits.len(), 1);
+        assert!(!stacks[0].1.branch_details[0].is_conflicted);
 
         assert_eq!(
             fs::read_to_string(repo.path().join("another_file.txt")).unwrap(),
