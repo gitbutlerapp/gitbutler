@@ -80,22 +80,6 @@ pub fn list_virtual_branches(ctx: &CommandContext) -> Result<StackListResult> {
     )
 }
 
-pub fn list_virtual_branches_cached(
-    ctx: &CommandContext,
-    worktree_changes: DiffByPathMap,
-) -> Result<StackListResult> {
-    ctx.verify(ctx.project().exclusive_worktree_access().write_permission())?;
-
-    assure_open_workspace_mode(ctx)
-        .context("Listing virtual branches requires open workspace mode")?;
-
-    vbranch::list_virtual_branches_cached(
-        ctx,
-        ctx.project().exclusive_worktree_access().write_permission(),
-        &worktree_changes,
-    )
-}
-
 pub fn create_virtual_branch(
     ctx: &CommandContext,
     create: &BranchCreateRequest,

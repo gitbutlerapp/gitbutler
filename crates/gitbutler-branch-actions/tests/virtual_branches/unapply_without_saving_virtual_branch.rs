@@ -1,3 +1,5 @@
+use gitbutler_testsupport::stack_details;
+
 use super::*;
 
 #[test]
@@ -15,17 +17,20 @@ fn should_unapply_diff() {
     // write some
     std::fs::write(repo.path().join("file.txt"), "content").unwrap();
 
-    let list_details = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
-    let branches = list_details.branches;
-    let c =
-        gitbutler_branch_actions::create_commit(ctx, branches.first().unwrap().id, "asdf", None);
+    let _stack_entry = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest::default(),
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )
+    .unwrap();
+    let stacks = stack_details(ctx);
+    let c = gitbutler_branch_actions::create_commit(ctx, stacks[0].0, "asdf", None);
     assert!(c.is_ok());
 
-    gitbutler_branch_actions::unapply_stack(ctx, branches[0].id, Vec::new()).unwrap();
+    gitbutler_branch_actions::unapply_stack(ctx, stacks[0].0, Vec::new()).unwrap();
 
-    let list_result = gitbutler_branch_actions::list_virtual_branches(ctx).unwrap();
-    let branches = list_result.branches;
-    assert_eq!(branches.len(), 0);
+    let stacks = stack_details(ctx);
+    assert_eq!(stacks.len(), 0);
     assert!(!repo.path().join("file.txt").exists());
 
     let mut opts = git2::StatusOptions::new();
