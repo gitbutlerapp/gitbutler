@@ -2,6 +2,7 @@ use anyhow::{Result, bail};
 use but_rebase::{Rebase, replace_commit_tree};
 use gitbutler_command_context::CommandContext;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
+use gix::ObjectId;
 
 use crate::{
     DiffSpec,
@@ -41,21 +42,9 @@ pub fn remove_changes_from_commit_in_stack(
     let source_stack = vb_state.get_stack(source_stack_id)?;
     let repository = ctx.gix_repo()?;
 
-    let (source_tree_without_changes, rejected_specs) = create_tree_without_diff(
-        &repository,
-        ChangesSource::Commit {
-            id: source_commit_id,
-        },
-        changes,
-        context_lines,
-    )?;
-
-    if !rejected_specs.is_empty() {
-        bail!("Failed to remove certain changes");
-    }
-
     let rewritten_source_commit =
-        replace_commit_tree(&repository, source_commit_id, source_tree_without_changes)?;
+        remove_changes_from_commit(ctx, source_commit_id, changes, context_lines)?;
+
     let mut steps = source_stack.as_rebase_steps(ctx, &repository)?;
     replace_pick_with_commit(&mut steps, source_commit_id, rewritten_source_commit)?;
     let base = source_stack.merge_base(ctx)?;
@@ -72,4 +61,34 @@ pub fn remove_changes_from_commit_in_stack(
     Ok(MoveChangesResult {
         replaced_commits: commit_mapping.into_iter().collect(),
     })
+}
+
+/// Removes the specified changes from a commit.
+///
+/// This function does not update the stack or the workspace commit. Only generates a new commit
+/// that has the specified changes removed.
+pub fn remove_changes_from_commit(
+    ctx: &CommandContext,
+    source_commit_id: gix::ObjectId,
+    changes: impl IntoIterator<Item = DiffSpec>,
+    context_lines: u32,
+) -> Result<ObjectId> {
+    let repository = ctx.gix_repo()?;
+
+    let (source_tree_without_changes, rejected_specs) = create_tree_without_diff(
+        &repository,
+        ChangesSource::Commit {
+            id: source_commit_id,
+        },
+        changes,
+        context_lines,
+    )?;
+
+    if !rejected_specs.is_empty() {
+        bail!("Failed to remove certain changes");
+    }
+
+    let rewritten_source_commit =
+        replace_commit_tree(&repository, source_commit_id, source_tree_without_changes)?;
+    Ok(rewritten_source_commit)
 }
