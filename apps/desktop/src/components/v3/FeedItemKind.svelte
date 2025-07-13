@@ -168,6 +168,24 @@
 						</p>
 					{:else if parsedCall.name === 'squash_commits'}
 						<p class="operation__title">Squashed commits</p>
+					{:else if parsedCall.name === 'split_branch'}
+						<p class="operation__title">
+							Split branch
+							<span>
+								{parsedCall.parameters?.sourceBranchName}
+							</span>
+							<span>→</span>
+							<span>
+								{parsedCall.parameters?.newBranchName}
+							</span>
+						</p>
+					{:else if parsedCall.name === 'get_branch_changes'}
+						<p class="operation__title">
+							Reading branch changes for
+							<span>
+								{parsedCall.parameters?.branchName}
+							</span>
+						</p>
 					{/if}
 				</div>
 
