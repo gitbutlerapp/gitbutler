@@ -39,7 +39,8 @@ export type Operation =
 	| 'UpdateDependentBranchDescription'
 	| 'UpdateDependentBranchPrNumber'
 	| 'AutoHandleChangesBefore'
-	| 'AutoHandleChangesAfter';
+	| 'AutoHandleChangesAfter'
+	| 'SplitBranch';
 
 export class Trailer {
 	key!: string;
