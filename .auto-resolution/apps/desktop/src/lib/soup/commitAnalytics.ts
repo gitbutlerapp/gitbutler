@@ -1,8 +1,6 @@
-import { compactWorkspace } from '$lib/config/uiFeatureFlags';
 import { StackService } from '$lib/stacks/stackService.svelte';
 import { UiState } from '$lib/state/uiState.svelte';
 import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
-import { get } from 'svelte/store';
 import type { Commit } from '$lib/branches/v3';
 import type { HunkAssignment } from '$lib/hunks/hunk';
 import type { Stack, BranchDetails } from '$lib/stacks/stack';
@@ -77,9 +75,7 @@ export class CommitAnalytics {
 				// Total number of files that have been assigned to any lane in the workspace
 				totalAssignedFiles: this.getAssignedFiles(assignments).length,
 				// Total number of files that have not been assigned
-				totalUnassignedFiles: this.getUnassignedFiles(assignments).length,
-				// Compact preview mode enabled
-				compactPreview: get(compactWorkspace)
+				totalUnassignedFiles: this.getUnassignedFiles(assignments).length
 			};
 		} catch (error) {
 			console.error('Failed to fetch commit analytics:', error);

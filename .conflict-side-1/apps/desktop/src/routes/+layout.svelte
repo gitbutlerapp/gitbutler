@@ -30,7 +30,7 @@
 	import { AppSettings } from '$lib/config/appSettings';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { GitConfigService } from '$lib/config/gitConfigService';
-	import { compactWorkspace, ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
+	import { ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
 	import DependencyService from '$lib/dependencies/dependencyService.svelte';
 	import { DragStateService } from '$lib/dragging/dragStateService.svelte';
 	import { DropzoneRegistry } from '$lib/dragging/registry';
@@ -292,10 +292,6 @@
 	});
 
 	const handleKeyDown = createKeybind({
-		// Toggle v3 design on/off
-		'c 3': () => {
-			compactWorkspace.set(!$compactWorkspace);
-		},
 		// Toggle v3 design on/off
 		'v 3': () => {
 			settingsService.updateFeatureFlags({ v3: !$settingsStore?.featureFlags.v3 });

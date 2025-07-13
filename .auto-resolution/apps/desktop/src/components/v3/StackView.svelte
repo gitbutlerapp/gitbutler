@@ -11,7 +11,6 @@
 	import NewCommitView from '$components/v3/NewCommitView.svelte';
 	import SelectionView from '$components/v3/SelectionView.svelte';
 	import WorktreeChanges from '$components/v3/WorktreeChanges.svelte';
-	import { compactWorkspace } from '$lib/config/uiFeatureFlags';
 	import { DragStateService } from '$lib/dragging/dragStateService.svelte';
 	import { isParsedError } from '$lib/error/parser';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
@@ -141,8 +140,6 @@
 	const changes = $derived(uncommittedService.changesByStackId(stack.id || null));
 
 	let stackViewEl = $state<HTMLDivElement>();
-	let detailsEl = $state<HTMLDivElement>();
-	let previewEl = $state<HTMLDivElement>();
 
 	let compactDiv = $state<HTMLDivElement>();
 
@@ -276,8 +273,8 @@
 	<SelectionView
 		testId={TestId.WorktreeSelectionView}
 		{projectId}
-		diffOnly={$compactWorkspace}
-		topPadding={$compactWorkspace}
+		diffOnly={true}
+		topPadding={true}
 		selectionId={{ ...assignedKey, type: 'worktree', stackId }}
 		onclose={() => {
 			intelligentScrollingService.show(projectId, stack.id, 'stack');
@@ -290,8 +287,8 @@
 		testId={TestId.StackSelectionView}
 		{projectId}
 		{selectionId}
-		diffOnly={$compactWorkspace}
-		topPadding={$compactWorkspace}
+		diffOnly={true}
+		topPadding={true}
 		onclose={() => {
 			intelligentScrollingService.show(projectId, stack.id, 'details');
 		}}
@@ -300,7 +297,6 @@
 
 {#snippet branchView(branchName: string)}
 	<BranchView
-		collapsible
 		stackId={stack.id}
 		{projectId}
 		{branchName}
@@ -313,21 +309,19 @@
 		{onclose}
 	>
 		{#snippet resizer({ element, collapsed })}
-			{#if $compactWorkspace}
-				<Resizer
-					bind:clientHeight={actualDetailsHeight}
-					viewport={element}
-					direction="down"
-					persistId="resizer-panel2-details-${stack.id}"
-					defaultValue={undefined}
-					minHeight={minDetailsHeight}
-					maxHeight={maxDetailsHeight}
-					order={0}
-					imitateBorder
-					hidden={collapsed}
-					{resizeGroup}
-				/>
-			{/if}
+			<Resizer
+				bind:clientHeight={actualDetailsHeight}
+				viewport={element}
+				direction="down"
+				persistId="resizer-panel2-details-${stack.id}"
+				defaultValue={undefined}
+				minHeight={minDetailsHeight}
+				maxHeight={maxDetailsHeight}
+				order={0}
+				imitateBorder
+				hidden={collapsed}
+				{resizeGroup}
+			/>
 		{/snippet}
 	</BranchView>
 {/snippet}
@@ -335,7 +329,6 @@
 {#snippet commitView(branchName: string, commitId: string)}
 	<CommitView
 		{projectId}
-		collapsible={$compactWorkspace}
 		stackId={stack.id}
 		commitKey={{
 			stackId: stack.id,
@@ -351,21 +344,19 @@
 		{onclose}
 	>
 		{#snippet resizer({ element, collapsed })}
-			{#if $compactWorkspace}
-				<Resizer
-					bind:clientHeight={actualDetailsHeight}
-					defaultValue={undefined}
-					viewport={element}
-					hidden={collapsed}
-					direction="down"
-					imitateBorder
-					persistId="resizer-panel2-details-${stack.id}"
-					minHeight={minDetailsHeight}
-					maxHeight={maxDetailsHeight}
-					order={0}
-					{resizeGroup}
-				/>
-			{/if}
+			<Resizer
+				bind:clientHeight={actualDetailsHeight}
+				defaultValue={undefined}
+				viewport={element}
+				hidden={collapsed}
+				direction="down"
+				imitateBorder
+				persistId="resizer-panel2-details-${stack.id}"
+				minHeight={minDetailsHeight}
+				maxHeight={maxDetailsHeight}
+				order={0}
+				{resizeGroup}
+			/>
 		{/snippet}
 	</CommitView>
 {/snippet}
@@ -380,7 +371,6 @@
 				{projectId}
 				{stackId}
 				draggableFiles
-				collapsible={$compactWorkspace}
 				selectionId={{ type: 'commit', commitId }}
 				shrink={!previewKey}
 				ontoggle={(collapsed) => {
@@ -393,21 +383,19 @@
 				{active}
 			>
 				{#snippet resizer({ element, collapsed })}
-					{#if $compactWorkspace}
-						<Resizer
-							{resizeGroup}
-							unsetMaxHeight={previewKey ? unsetMaxHeight : undefined}
-							order={1}
-							viewport={element}
-							imitateBorder
-							hidden={collapsed}
-							maxHeight={maxChangedFilesHeight}
-							minHeight={minChangedFilesHeight}
-							defaultValue={undefined}
-							persistId="resizer-panel2-changed-files-${stack.id}"
-							direction="down"
-						/>
-					{/if}
+					<Resizer
+						{resizeGroup}
+						unsetMaxHeight={previewKey ? unsetMaxHeight : undefined}
+						order={1}
+						viewport={element}
+						imitateBorder
+						hidden={collapsed}
+						maxHeight={maxChangedFilesHeight}
+						minHeight={minChangedFilesHeight}
+						defaultValue={undefined}
+						persistId="resizer-panel2-changed-files-${stack.id}"
+						direction="down"
+					/>
 				{/snippet}
 			</ChangedFiles>
 		{/snippet}
@@ -428,7 +416,6 @@
 				{projectId}
 				{stackId}
 				draggableFiles
-				collapsible={$compactWorkspace}
 				selectionId={{ type: 'branch', stackId: stack.id, branchName }}
 				ontoggle={() => {
 					changedFilesCollapsed = !changedFilesCollapsed;
@@ -437,20 +424,18 @@
 				{active}
 			>
 				{#snippet resizer({ element, collapsed })}
-					{#if $compactWorkspace}
-						<Resizer
-							{resizeGroup}
-							order={1}
-							viewport={element}
-							maxHeight={maxChangedFilesHeight}
-							minHeight={minChangedFilesHeight}
-							defaultValue={undefined}
-							persistId="resizer-panel2-changed-files-${stack.id}"
-							imitateBorder
-							hidden={collapsed}
-							direction="down"
-						/>
-					{/if}
+					<Resizer
+						{resizeGroup}
+						order={1}
+						viewport={element}
+						maxHeight={maxChangedFilesHeight}
+						minHeight={minChangedFilesHeight}
+						defaultValue={undefined}
+						persistId="resizer-panel2-changed-files-${stack.id}"
+						imitateBorder
+						hidden={collapsed}
+						direction="down"
+					/>
 				{/snippet}
 			</ChangedFiles>
 		{/snippet}
@@ -587,7 +572,7 @@
 			</ReduxResult>
 		</div>
 
-		{#if $compactWorkspace && (commitId || branchName || assignedKey || selectedKey)}
+		{#if commitId || branchName || assignedKey || selectedKey}
 			<div
 				class="combined-view"
 				bind:this={compactDiv}
@@ -608,10 +593,10 @@
 						{#snippet children(previewChange)}
 							{@const diffResult = diffService.getDiff(projectId, previewChange)}
 							{@const diffData = diffResult.current.data}
-							<Drawer collapsible bottomBorder>
+							<Drawer bottomBorder>
 								{#snippet header()}
 									<FileViewHeader
-										compact
+										noPaddings
 										transparent
 										filePath={previewChange.path}
 										fileStatus={computeChangeStatus(previewChange)}
@@ -640,32 +625,6 @@
 					minWidth={RESIZER_CONFIG.panel2.minWidth}
 					maxWidth={RESIZER_CONFIG.panel2.maxWidth}
 					defaultValue={RESIZER_CONFIG.panel2.defaultValue}
-					syncName="panel2"
-					imitateBorder
-				/>
-			</div>
-		{:else if branchName}
-			<div
-				bind:this={detailsEl}
-				style:width={uiState.global.detailsWidth.current + 'rem'}
-				class="details"
-				data-remove-from-draggable
-				data-details={stack.id}
-			>
-				{#if branchName && commitId}
-					{@render commitView(branchName, commitId)}
-					{@render commitChangedFiles(commitId)}
-				{:else if branchName}
-					{@render branchView(branchName)}
-					{@render branchChangedFiles(branchName)}
-				{/if}
-				<Resizer
-					viewport={detailsEl}
-					persistId="resizer-panel2-${stack.id}"
-					direction="right"
-					minWidth={RESIZER_CONFIG.panel2.minWidth}
-					defaultValue={RESIZER_CONFIG.panel2.defaultValue}
-					maxWidth={RESIZER_CONFIG.panel2.maxWidth}
 					syncName="panel2"
 					imitateBorder
 				/>
@@ -766,14 +725,6 @@
 				color: var(--clr-theme-pop-on-soft);
 			}
 		}
-	}
-
-	.details,
-	.preview {
-		position: relative;
-		flex-shrink: 0;
-		height: 100%;
-		white-space: wrap;
 	}
 
 	.combined-view {

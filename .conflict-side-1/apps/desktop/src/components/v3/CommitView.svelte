@@ -31,7 +31,6 @@
 		commitKey: CommitKey;
 		active?: boolean;
 		draggableFiles: boolean;
-		collapsible?: boolean;
 		scrollToType?: TargetType;
 		scrollToId?: string;
 		grow?: boolean;
@@ -45,7 +44,6 @@
 		projectId,
 		stackId,
 		commitKey,
-		collapsible,
 		scrollToId,
 		scrollToType,
 		grow,
@@ -149,7 +147,6 @@
 		{@const isConflicted = isCommit(commit) && commit.hasConflicts}
 
 		<Drawer
-			{collapsible}
 			testId={TestId.CommitDrawer}
 			{scrollToId}
 			{scrollToType}
