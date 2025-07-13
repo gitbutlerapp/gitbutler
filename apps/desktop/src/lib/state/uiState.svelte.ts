@@ -80,8 +80,7 @@ export type GlobalUiState = {
 	previewWidth: number;
 	historySidebarWidth: number;
 	branchesViewSidebarWidth: number;
-	useFloatingCommitBox: boolean;
-	useFloatingPrBox: boolean;
+	useFloatingBox: boolean;
 	floatingCommitWidth: number;
 	floatingCommitHeight: number;
 	floatingCommitPosition: SnapPositionName;
@@ -123,8 +122,7 @@ export class UiState {
 		previewWidth: 48,
 		historySidebarWidth: 30,
 		branchesViewSidebarWidth: 30,
-		useFloatingCommitBox: false,
-		useFloatingPrBox: false,
+		useFloatingBox: false,
 		floatingCommitPosition: 'bottom-center',
 		floatingCommitWidth: 640,
 		floatingCommitHeight: 330,
