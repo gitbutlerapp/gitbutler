@@ -1,5 +1,4 @@
 <script lang="ts">
-	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import FileListItemWrapper from '$components/FileListItemWrapper.svelte';
 	import FilePreviewPlaceholder from '$components/FilePreviewPlaceholder.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
@@ -61,53 +60,51 @@
 >
 	{#if selectedFile}
 		{@const changeResult = idSelection.changeByKey(projectId, selectedFile)}
-		<ScrollableContainer wide zIndex="var(--z-lifted)">
-			<ReduxResult {projectId} result={changeResult.current}>
-				{#snippet children(change)}
-					{@const diffResult = diffService.getDiff(projectId, change)}
-					<ReduxResult {projectId} result={diffResult.current}>
-						{#snippet children(diff, env)}
-							{@const isExecutable = true}
-							<div
-								class="selected-change-item"
-								class:bottom-border={bottomBorder}
-								data-remove-from-panning
-							>
-								{#if !diffOnly}
-									<FileListItemWrapper
-										selectionId={selectedFile}
-										projectId={env.projectId}
-										{change}
-										{diff}
-										{draggable}
-										isHeader
-										executable={!!isExecutable}
-										listMode="list"
-										onCloseClick={() => {
-											if (idSelection) {
-												idSelection.remove(selectedFile.path, selectedFile);
-											}
-											onclose?.();
-										}}
-									/>
-								{/if}
-								<UnifiedDiffView
+		<ReduxResult {projectId} result={changeResult.current}>
+			{#snippet children(change)}
+				{@const diffResult = diffService.getDiff(projectId, change)}
+				<ReduxResult {projectId} result={diffResult.current}>
+					{#snippet children(diff, env)}
+						{@const isExecutable = true}
+						<div
+							class="selected-change-item"
+							class:bottom-border={bottomBorder}
+							data-remove-from-panning
+						>
+							{#if !diffOnly}
+								<FileListItemWrapper
+									selectionId={selectedFile}
 									projectId={env.projectId}
-									{stackId}
-									commitId={selectedFile.type === 'commit' ? selectedFile.commitId : undefined}
-									{draggable}
 									{change}
 									{diff}
-									selectable
-									selectionId={selectedFile}
-									topPadding={diffOnly}
+									{draggable}
+									isHeader
+									executable={!!isExecutable}
+									listMode="list"
+									onCloseClick={() => {
+										if (idSelection) {
+											idSelection.remove(selectedFile.path, selectedFile);
+										}
+										onclose?.();
+									}}
 								/>
-							</div>
-						{/snippet}
-					</ReduxResult>
-				{/snippet}
-			</ReduxResult>
-		</ScrollableContainer>
+							{/if}
+							<UnifiedDiffView
+								projectId={env.projectId}
+								{stackId}
+								commitId={selectedFile.type === 'commit' ? selectedFile.commitId : undefined}
+								{draggable}
+								{change}
+								{diff}
+								selectable
+								selectionId={selectedFile}
+								topPadding={diffOnly}
+							/>
+						</div>
+					{/snippet}
+				</ReduxResult>
+			{/snippet}
+		</ReduxResult>
 	{:else}
 		<FilePreviewPlaceholder />
 	{/if}
@@ -119,9 +116,9 @@
 		flex-grow: 1;
 		width: 100%;
 		height: 100%;
-		overflow: hidden;
 	}
 	.selected-change-item {
+		width: 100%;
 		background-color: var(--clr-bg-1);
 
 		&.bottom-border {

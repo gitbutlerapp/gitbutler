@@ -595,7 +595,9 @@
 							{@const diffData = diffResult.current.data}
 
 							{#if assignedKey?.type === 'worktree' && assignedKey.stackId}
-								{@render assignedChangePreview(assignedKey.stackId)}
+								<ConfigurableScrollableContainer zIndex="var(--z-lifted)">
+									{@render assignedChangePreview(assignedKey.stackId)}
+								</ConfigurableScrollableContainer>
 							{:else if selectedKey}
 								<Drawer bottomBorder>
 									{#snippet header()}
