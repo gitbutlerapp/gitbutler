@@ -35,8 +35,6 @@
 	import HardWrapPlugin from '@gitbutler/ui/richText/plugins/HardWrapPlugin.svelte';
 	import FormattingBar from '@gitbutler/ui/richText/tools/FormattingBar.svelte';
 	import FormattingButton from '@gitbutler/ui/richText/tools/FormattingButton.svelte';
-	import Segment from '@gitbutler/ui/segmentControl/Segment.svelte';
-	import SegmentControl from '@gitbutler/ui/segmentControl/SegmentControl.svelte';
 
 	import { tick } from 'svelte';
 
@@ -51,13 +49,13 @@
 		onKeyDown?: (e: KeyboardEvent) => boolean;
 		enableFileUpload?: boolean;
 		enableSmiles?: boolean;
-		enableRichText?: boolean;
 		enableRuler?: boolean;
 		onAiButtonClick: (params: AiButtonClickParams) => void;
 		canUseAI: boolean;
 		aiIsLoading: boolean;
 		suggestionsHandler?: CommitSuggestions;
 		testId?: string;
+		forceSansFont?: boolean;
 	}
 
 	let {
@@ -67,7 +65,6 @@
 		disabled,
 		enableFileUpload,
 		enableSmiles,
-		enableRichText,
 		onChange,
 		onKeyDown,
 		onAiButtonClick,
@@ -75,7 +72,8 @@
 		canUseAI,
 		aiIsLoading,
 		suggestionsHandler,
-		testId
+		testId,
+		forceSansFont
 	}: Props = $props();
 
 	const MIN_RULER_VALUE = 30;
@@ -93,9 +91,7 @@
 	const rulerCountValue = uiState.global.rulerCountValue;
 	const useRuler = uiState.global.useRuler;
 
-	let useRichText = $state<boolean>(false);
-
-	const wrapCountValue = $derived(!useRichText ? rulerCountValue.current : undefined);
+	const wrapCountValue = $derived(rulerCountValue.current);
 
 	let composer = $state<ReturnType<typeof RichTextEditor>>();
 	let formatter = $state<ReturnType<typeof Formatter>>();
@@ -204,7 +200,7 @@
 	}
 
 	export function isRichTextMode(): boolean {
-		return useRichText;
+		return false;
 	}
 
 	// We want to avoid letting most mouse events bubble up to the parent.
@@ -286,11 +282,15 @@
 	data-remove-from-panning
 	role="presentation"
 	class="editor-wrapper hide-native-scrollbar"
-	style:--lexical-input-client-text-wrap={useRuler.current ? 'nowrap' : 'normal'}
+	style:--lexical-input-client-text-wrap={useRuler.current && !forceSansFont ? 'nowrap' : 'normal'}
 	style:--extratoolbar-height={useFloatingBox.current ? '2.625rem' : '0'}
-	style:--code-block-font={$userSettings.diffFont}
-	style:--code-block-tab-size={$userSettings.tabSize}
-	style:--code-block-ligatures={$userSettings.diffLigatures ? 'common-ligatures' : 'normal'}
+	style:--code-block-font={useRuler.current && !forceSansFont
+		? $userSettings.diffFont
+		: 'var(--fontfamily-default)'}
+	style:--code-block-tab-size={$userSettings.tabSize && !forceSansFont ? $userSettings.tabSize : 4}
+	style:--code-block-ligatures={$userSettings.diffLigatures && !forceSansFont
+		? 'common-ligatures'
+		: 'normal'}
 	onclick={stopPropagation}
 	ondblclick={stopPropagation}
 	onmousedown={stopPropagation}
@@ -314,26 +314,13 @@
 				composer?.focus();
 			}}
 		>
-			{#if useRuler.current && !useRichText && enableRuler}
+			{#if useRuler.current && enableRuler}
 				<MessageEditorRuler />
 			{/if}
 
 			{#if useFloatingBox.current}
 				<div class="editor-extratools">
 					<FormattingBar {formatter} />
-
-					{#if enableRichText}
-						<SegmentControl
-							size="small"
-							defaultIndex={!useRichText ? 0 : 1}
-							onselect={() => {
-								useRichText = enableRichText ? !useRichText : false;
-							}}
-						>
-							<Segment id="plain-text">Plain text</Segment>
-							<Segment id="rich-text">Rich editor</Segment>
-						</SegmentControl>
-					{/if}
 				</div>
 			{/if}
 
@@ -344,13 +331,13 @@
 					namespace="CommitMessageEditor"
 					{placeholder}
 					bind:this={composer}
-					markdown={useRichText}
+					markdown={false}
 					onError={(e) => console.warn('Editor error', e)}
 					initialText={initialValue}
 					onChange={handleChange}
 					onKeyDown={handleKeyDown}
 					{disabled}
-					wrapCountValue={useRichText ? undefined : wrapCountValue}
+					{wrapCountValue}
 				>
 					{#snippet plugins()}
 						<Formatter bind:this={formatter} />
@@ -361,12 +348,7 @@
 								onSelection={(text) => suggestionsHandler.onAcceptSuggestion(text)}
 							/>
 						{/if}
-						{#if !useRichText}
-							<HardWrapPlugin
-								enabled={!useRichText && useRuler.current}
-								maxLength={wrapCountValue}
-							/>
-						{/if}
+						<HardWrapPlugin enabled={useRuler.current} maxLength={wrapCountValue} />
 					{/snippet}
 				</RichTextEditor>
 			</div>
@@ -394,7 +376,19 @@
 						onclick={handleAttachFiles}
 					/>
 				{/if}
-				{#if !useRichText && enableRuler}
+				{#if enableRuler}
+					<FormattingButton
+						icon="text-wrap"
+						activated={useRuler.current}
+						tooltip="Wrap text automatically"
+						onclick={async () => {
+							useRuler.current = !useRuler.current;
+							await tick(); // Wait for reactive update.
+							if (useRuler.current) {
+								composer?.wrapAll();
+							}
+						}}
+					/>
 					{#if useRuler.current}
 						<div class="message-textarea__ruler-input-wrapper">
 							<input
@@ -424,18 +418,6 @@
 							/>
 						</div>
 					{/if}
-					<FormattingButton
-						icon="text-wrap"
-						activated={useRuler.current}
-						tooltip="Wrap text automatically"
-						onclick={async () => {
-							useRuler.current = !useRuler.current;
-							await tick(); // Wait for reactive update.
-							if (useRuler.current) {
-								composer?.wrapAll();
-							}
-						}}
-					/>
 				{/if}
 			</div>
 			<DropDownButton
