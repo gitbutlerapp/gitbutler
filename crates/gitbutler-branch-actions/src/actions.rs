@@ -336,7 +336,7 @@ pub fn insert_blank_commit(
     commit_oid: git2::Oid,
     offset: i32,
     message: Option<&str>,
-) -> Result<Vec<(gix::ObjectId, gix::ObjectId)>> {
+) -> Result<(gix::ObjectId, Vec<(gix::ObjectId, gix::ObjectId)>)> {
     let mut guard = ctx.project().exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     assure_open_workspace_mode(ctx)
