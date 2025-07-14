@@ -1018,7 +1018,7 @@ pub(crate) fn insert_blank_commit(
     commit_oid: git2::Oid,
     offset: i32,
     message: Option<&str>,
-) -> Result<Vec<(gix::ObjectId, gix::ObjectId)>> {
+) -> Result<(gix::ObjectId, Vec<(gix::ObjectId, gix::ObjectId)>)> {
     let vb_state = ctx.project().virtual_branches();
 
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
@@ -1081,7 +1081,18 @@ pub(crate) fn insert_blank_commit(
     crate::integration::update_workspace_commit(&vb_state, ctx)
         .context("failed to update gitbutler workspace")?;
 
-    Ok(commit_map)
+    let blank_commit_id = commit_map
+        .iter()
+        .find_map(|(old, new)| {
+            if *old == blank_commit_oid.to_gix() {
+                Some(*new)
+            } else {
+                None
+            }
+        })
+        .ok_or_else(|| anyhow!("failed to find the blank commit id after rebasing"))?;
+
+    Ok((blank_commit_id, commit_map))
 }
 
 // changes a commit message for commit_oid, rebases everything above it, updates branch head if successful

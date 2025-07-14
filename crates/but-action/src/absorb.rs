@@ -259,6 +259,7 @@ fn absorb_file_changes_into_commit(
             message_body: commit.message_body.clone(),
             files: files.iter().map(|f| f.to_owned().path).collect(),
         },
+        None,
     )?;
 
     Ok(outcome)

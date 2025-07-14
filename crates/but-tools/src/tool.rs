@@ -1,7 +1,11 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::Arc,
+};
 
 use but_workspace::{StackId, ui::StackEntry};
 use gitbutler_command_context::CommandContext;
+use gix::ObjectId;
 use serde_json::json;
 
 use crate::emit::EmitToolCall;
@@ -11,6 +15,7 @@ pub struct Toolset<'a> {
     app_handle: Option<&'a tauri::AppHandle>,
     message_id: Option<String>,
     tools: BTreeMap<String, Arc<dyn Tool>>,
+    commit_mapping: HashMap<ObjectId, ObjectId>,
 }
 
 impl<'a> Toolset<'a> {
@@ -24,6 +29,7 @@ impl<'a> Toolset<'a> {
             app_handle,
             message_id,
             tools: BTreeMap::new(),
+            commit_mapping: HashMap::new(),
         }
     }
 
@@ -49,7 +55,7 @@ impl<'a> Toolset<'a> {
             .ok_or_else(|| anyhow::anyhow!("Tool '{}' not found", name))?;
         let params: serde_json::Value = serde_json::from_str(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse parameters: {}", e))?;
-        tool.call(params, self.ctx, self.app_handle)
+        tool.call(params, self.ctx, self.app_handle, &mut self.commit_mapping)
     }
 
     pub fn call_tool(&mut self, name: &str, parameters: &str) -> serde_json::Value {
@@ -88,6 +94,7 @@ pub trait Tool: 'static + Send + Sync {
         parameters: serde_json::Value,
         ctx: &mut CommandContext,
         app_handle: Option<&tauri::AppHandle>,
+        commit_mapping: &mut HashMap<ObjectId, ObjectId>,
     ) -> anyhow::Result<serde_json::Value>;
 }
 
@@ -129,5 +136,11 @@ impl ToolResult for Result<but_workspace::commit_engine::ui::CreateCommitOutcome
 impl ToolResult for Result<StackId, anyhow::Error> {
     fn to_json(&self, action_identifier: &str) -> serde_json::Value {
         result_to_json(self, action_identifier, "StackId")
+    }
+}
+
+impl ToolResult for Result<gix::ObjectId, anyhow::Error> {
+    fn to_json(&self, action_identifier: &str) -> serde_json::Value {
+        result_to_json(self, action_identifier, "gix::ObjectId")
     }
 }

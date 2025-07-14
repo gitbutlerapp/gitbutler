@@ -1,3 +1,4 @@
+use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -178,6 +179,7 @@ impl Tool for Commit {
         parameters: serde_json::Value,
         ctx: &mut CommandContext,
         app_handle: Option<&tauri::AppHandle>,
+        _: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
         let params: CommitParameters = serde_json::from_value(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
@@ -352,6 +354,7 @@ impl Tool for CreateBranch {
         parameters: serde_json::Value,
         ctx: &mut CommandContext,
         app_handle: Option<&tauri::AppHandle>,
+        _: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
         let params: CreateBranchParameters = serde_json::from_value(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
@@ -505,11 +508,12 @@ impl Tool for Amend {
         parameters: serde_json::Value,
         ctx: &mut CommandContext,
         app_handle: Option<&tauri::AppHandle>,
+        commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
         let params: AmendParameters = serde_json::from_value(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
 
-        let value = amend_commit(ctx, app_handle, params).to_json("amend_commit");
+        let value = amend_commit(ctx, app_handle, params, commit_mapping).to_json("amend_commit");
         Ok(value)
     }
 }
@@ -518,8 +522,17 @@ pub fn amend_commit(
     ctx: &mut CommandContext,
     app_handle: Option<&tauri::AppHandle>,
     params: AmendParameters,
+    commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
 ) -> Result<but_workspace::commit_engine::ui::CreateCommitOutcome, anyhow::Error> {
-    let outcome = amend_commit_inner(ctx, app_handle, params)?;
+    let outcome = amend_commit_inner(ctx, app_handle, params, Some(commit_mapping))?;
+
+    // Update the commit mapping with the new commit id.
+    if let Some(rebase_output) = outcome.rebase_output.clone() {
+        for (_, old_commit_id, new_commit_id) in rebase_output.commit_mapping.iter() {
+            commit_mapping.insert(*old_commit_id, *new_commit_id);
+        }
+    }
+
     Ok(outcome.into())
 }
 
@@ -527,6 +540,7 @@ pub fn amend_commit_inner(
     ctx: &mut CommandContext,
     app_handle: Option<&tauri::AppHandle>,
     params: AmendParameters,
+    commit_mapping: Option<&HashMap<gix::ObjectId, gix::ObjectId>>,
 ) -> anyhow::Result<but_workspace::commit_engine::CreateCommitOutcome> {
     let repo = ctx.gix_repo()?;
     let project = ctx.project();
@@ -548,13 +562,19 @@ pub fn amend_commit_inner(
     );
 
     let stack_id = StackId::from_str(&params.stack_id)?;
+    let commit_id = gix::ObjectId::from_str(&params.commit_id)?;
+    let commit_id = if let Some(commit_mapping) = commit_mapping {
+        find_the_right_commit_id(commit_id, commit_mapping)
+    } else {
+        commit_id
+    };
 
     let outcome = but_workspace::commit_engine::create_commit_and_update_refs_with_project(
         &repo,
         project,
         Some(stack_id),
         but_workspace::commit_engine::Destination::AmendCommit {
-            commit_id: gix::ObjectId::from_str(&params.commit_id)?,
+            commit_id,
             new_message: Some(message),
         },
         None,
@@ -616,6 +636,7 @@ impl Tool for GetProjectStatus {
         parameters: serde_json::Value,
         ctx: &mut CommandContext,
         _app_handle: Option<&tauri::AppHandle>,
+        _commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
         let repo = ctx.gix_repo()?;
         let params: GetProjectStatusParameters = serde_json::from_value(parameters)
@@ -720,14 +741,14 @@ impl Tool for CreateBlankCommit {
         parameters: serde_json::Value,
         ctx: &mut CommandContext,
         app_handle: Option<&tauri::AppHandle>,
+        commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
         let params: CreateBlankCommitParameters = serde_json::from_value(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
 
-        match create_blank_commit(ctx, app_handle, params) {
-            Ok(_) => Ok("Suceess".into()),
-            Err(e) => Ok(error_to_json(&e, "create_blank_commit")),
-        }
+        let value = create_blank_commit(ctx, app_handle, params, commit_mapping)
+            .to_json("create_blank_commit");
+        Ok(value)
     }
 }
 
@@ -735,9 +756,11 @@ pub fn create_blank_commit(
     ctx: &mut CommandContext,
     app_handle: Option<&tauri::AppHandle>,
     params: CreateBlankCommitParameters,
-) -> Result<Vec<(gix::ObjectId, gix::ObjectId)>, anyhow::Error> {
+    commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
+) -> Result<gix::ObjectId, anyhow::Error> {
     let stack_id = StackId::from_str(&params.stack_id)?;
-    let commit_oid = gix::ObjectId::from_str(&params.parent_id)?;
+    let commit_oid = gix::ObjectId::from_str(&params.parent_id)
+        .map(|id| find_the_right_commit_id(id, commit_mapping))?;
     let commit_oid = commit_oid.to_git2();
 
     let message = format!(
@@ -746,7 +769,7 @@ pub fn create_blank_commit(
         params.message_body.trim()
     );
 
-    let commit_mapping = gitbutler_branch_actions::insert_blank_commit(
+    let (new_commit, outcome) = gitbutler_branch_actions::insert_blank_commit(
         ctx,
         stack_id,
         commit_oid,
@@ -760,7 +783,12 @@ pub fn create_blank_commit(
         app_handle.emit_stack_update(project_id, stack_id);
     }
 
-    Ok(commit_mapping)
+    // Update the commit mapping with the new commit id.
+    for (old_commit_id, new_commit_id) in outcome.iter() {
+        commit_mapping.insert(*old_commit_id, *new_commit_id);
+    }
+
+    Ok(new_commit)
 }
 
 pub struct MoveFileChanges;
@@ -860,11 +888,12 @@ impl Tool for MoveFileChanges {
         parameters: serde_json::Value,
         ctx: &mut CommandContext,
         app_handle: Option<&tauri::AppHandle>,
+        commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
         let params: MoveFileChangesParameters = serde_json::from_value(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
 
-        match move_file_changes(ctx, app_handle, params) {
+        match move_file_changes(ctx, app_handle, params, commit_mapping) {
             Ok(_) => Ok("Success".into()),
             Err(e) => Ok(error_to_json(&e, "move_file_changes")),
         }
@@ -875,10 +904,13 @@ pub fn move_file_changes(
     ctx: &mut CommandContext,
     app_handle: Option<&tauri::AppHandle>,
     params: MoveFileChangesParameters,
+    commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
 ) -> Result<Vec<(gix::ObjectId, gix::ObjectId)>, anyhow::Error> {
-    let source_commit_id = gix::ObjectId::from_str(&params.source_commit_id)?;
+    let source_commit_id = gix::ObjectId::from_str(&params.source_commit_id)
+        .map(|id| find_the_right_commit_id(id, commit_mapping))?;
     let source_stack_id = StackId::from_str(&params.source_stack_id)?;
-    let destination_commit_id = gix::ObjectId::from_str(&params.destination_commit_id)?;
+    let destination_commit_id = gix::ObjectId::from_str(&params.destination_commit_id)
+        .map(|id| find_the_right_commit_id(id, commit_mapping))?;
     let destination_stack_id = StackId::from_str(&params.destination_stack_id)?;
 
     let changes = params
@@ -909,6 +941,11 @@ pub fn move_file_changes(
         let project_id = ctx.project().id;
         app_handle.emit_stack_update(project_id, source_stack_id);
         app_handle.emit_stack_update(project_id, destination_stack_id);
+    }
+
+    // Update the commit mapping with the new commit ids.
+    for (old_commit_id, new_commit_id) in result.replaced_commits.clone().iter() {
+        commit_mapping.insert(*old_commit_id, *new_commit_id);
     }
 
     Ok(result.replaced_commits)
@@ -962,11 +999,12 @@ impl Tool for GetCommitDetails {
         parameters: serde_json::Value,
         ctx: &mut CommandContext,
         _app_handle: Option<&tauri::AppHandle>,
+        commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
         let params: GetCommitDetailsParameters = serde_json::from_value(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
 
-        let file_changes = commit_details(ctx, params).to_json("commit_details");
+        let file_changes = commit_details(ctx, params, commit_mapping).to_json("commit_details");
 
         Ok(file_changes)
     }
@@ -975,9 +1013,11 @@ impl Tool for GetCommitDetails {
 pub fn commit_details(
     ctx: &mut CommandContext,
     params: GetCommitDetailsParameters,
+    commit_mapping: &HashMap<gix::ObjectId, gix::ObjectId>,
 ) -> anyhow::Result<Vec<FileChange>> {
     let repo = ctx.gix_repo()?;
-    let commit_id = gix::ObjectId::from_str(&params.commit_id)?;
+    let commit_id = gix::ObjectId::from_str(&params.commit_id)
+        .map(|id| find_the_right_commit_id(id, commit_mapping))?;
 
     let changes = but_core::diff::ui::commit_changes_by_worktree_dir(&repo, commit_id)?;
     let changes: Vec<but_core::TreeChange> = changes
@@ -1039,6 +1079,7 @@ impl Tool for GetBranchChanges {
         parameters: serde_json::Value,
         ctx: &mut CommandContext,
         _app_handle: Option<&tauri::AppHandle>,
+        _commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
         let params: GetBranchChangesParameters = serde_json::from_value(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
@@ -1171,11 +1212,12 @@ impl Tool for SquashCommits {
         parameters: serde_json::Value,
         ctx: &mut CommandContext,
         app_handle: Option<&tauri::AppHandle>,
+        commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
         let params: SquashCommitsParameters = serde_json::from_value(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
 
-        squash_commits(ctx, app_handle, params)?;
+        squash_commits(ctx, app_handle, params, commit_mapping)?;
 
         Ok("Success".into())
     }
@@ -1185,12 +1227,20 @@ pub fn squash_commits(
     ctx: &mut CommandContext,
     app_handle: Option<&tauri::AppHandle>,
     params: SquashCommitsParameters,
+    commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
 ) -> Result<gix::ObjectId, anyhow::Error> {
-    let destination_id = gix::ObjectId::from_str(&params.destination_commit_id)?.to_git2();
+    let destination_id = gix::ObjectId::from_str(&params.destination_commit_id)
+        .map(|id| find_the_right_commit_id(id, commit_mapping))?
+        .to_git2();
     let source_ids = params
         .source_commit_ids
         .iter()
-        .map(|id| gix::ObjectId::from_str(id).map(|oid| oid.to_git2()))
+        .map(|id| {
+            gix::ObjectId::from_str(id).map(|oid| {
+                let id = find_the_right_commit_id(oid, commit_mapping);
+                id.to_git2()
+            })
+        })
         .collect::<Result<Vec<_>, _>>()?;
 
     let stack_id = StackId::from_str(&params.stack_id)?;
@@ -1216,6 +1266,9 @@ pub fn squash_commits(
         let project_id = ctx.project().id;
         app_handle.emit_stack_update(project_id, stack_id);
     }
+
+    // Update the commit mapping with the new commit id.
+    commit_mapping.insert(destination_id.to_gix(), new_commit_id.to_gix());
 
     Ok(git2_to_gix_object_id(new_commit_id))
 }
@@ -1295,11 +1348,12 @@ impl Tool for SplitBranch {
         parameters: serde_json::Value,
         ctx: &mut CommandContext,
         app_handle: Option<&tauri::AppHandle>,
+        commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
         let params: SplitBranchParameters = serde_json::from_value(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
 
-        Ok(split_branch(ctx, app_handle, params).to_json("split_branch"))
+        Ok(split_branch(ctx, app_handle, params, commit_mapping).to_json("split_branch"))
     }
 }
 
@@ -1307,6 +1361,7 @@ pub fn split_branch(
     ctx: &mut CommandContext,
     app_handle: Option<&tauri::AppHandle>,
     params: SplitBranchParameters,
+    commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
 ) -> Result<StackId, anyhow::Error> {
     let project = ctx.project();
     let repo = ctx.gix_repo()?;
@@ -1330,7 +1385,7 @@ pub fn split_branch(
         guard.write_permission(),
     );
 
-    but_workspace::split_branch(
+    let (_, move_result) = but_workspace::split_branch(
         ctx,
         source_stack_id,
         params.source_branch_name,
@@ -1355,6 +1410,13 @@ pub fn split_branch(
     if let Some(app_handle) = app_handle {
         let project_id = ctx.project().id;
         app_handle.emit_stack_update(project_id, stack_id);
+    }
+
+    if let Some(move_result) = move_result {
+        // Update the commit mapping with the new commit ids.
+        for (old_commit_id, new_commit_id) in move_result.replaced_commits.iter() {
+            commit_mapping.insert(*old_commit_id, *new_commit_id);
+        }
     }
 
     Ok(stack_id)
@@ -1746,4 +1808,27 @@ pub struct AbsorbSpec {
     </important_notes>
     ")]
     pub commit_description: String,
+}
+
+fn find_the_right_commit_id(
+    commit_id: gix::ObjectId,
+    commit_mapping: &HashMap<gix::ObjectId, gix::ObjectId>,
+) -> gix::ObjectId {
+    let mut visited_commits = HashSet::new();
+    let mut commit_id = commit_id;
+    while let Some(mapped_id) = commit_mapping.get(&commit_id) {
+        if *mapped_id == commit_id {
+            // If the mapped id is the same as the original, we can stop.
+            break;
+        }
+
+        if visited_commits.contains(mapped_id) {
+            // If we have already visited this commit, we are in a loop.
+            break;
+        }
+
+        visited_commits.insert(commit_id);
+        commit_id = *mapped_id;
+    }
+    commit_id
 }
