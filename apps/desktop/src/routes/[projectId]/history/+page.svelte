@@ -1,11 +1,11 @@
 <script lang="ts">
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
+	import FilePreviewPlaceholder from '$components/FilePreviewPlaceholder.svelte';
 	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import LazyloadContainer from '$components/LazyloadContainer.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import SnapshotCard from '$components/SnapshotCard.svelte';
-	import SelectTopreviewPlaceholder from '$components/v3/SelectTopreviewPlaceholder.svelte';
 	import emptyFileSvg from '$lib/assets/empty-state/empty-file.svg?raw';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { RemoteFile } from '$lib/files/file';
@@ -250,7 +250,7 @@
 				</ConfigurableScrollableContainer>
 			</div>
 		{:else}
-			<SelectTopreviewPlaceholder />
+			<FilePreviewPlaceholder />
 		{/if}
 	</div>
 </div>

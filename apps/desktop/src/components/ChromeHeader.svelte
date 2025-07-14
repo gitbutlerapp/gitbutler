@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import IntegrateUpstreamModal from '$components/IntegrateUpstreamModal.svelte';
 	import SyncButton from '$components/SyncButton.svelte';
-	import IntegrateUpstreamModal from '$components/v3/IntegrateUpstreamModal.svelte';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { ircEnabled } from '$lib/config/uiFeatureFlags';

@@ -10,10 +10,10 @@
 </script>
 
 <script lang="ts">
+	import AsyncRender from '$components/AsyncRender.svelte';
 	import PrTemplateSection from '$components/PrTemplateSection.svelte';
-	import AsyncRender from '$components/v3/AsyncRender.svelte';
-	import MessageEditor from '$components/v3/editor/MessageEditor.svelte';
-	import MessageEditorInput from '$components/v3/editor/MessageEditorInput.svelte';
+	import MessageEditor from '$components/editor/MessageEditor.svelte';
+	import MessageEditorInput from '$components/editor/MessageEditorInput.svelte';
 	import { AIService } from '$lib/ai/service';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';

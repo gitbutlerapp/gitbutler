@@ -1,5 +1,5 @@
 <script lang="ts">
-	import IrcChat from '$components/v3/IrcChat.svelte';
+	import IrcChat from '$components/IrcChat.svelte';
 </script>
 
 <IrcChat />

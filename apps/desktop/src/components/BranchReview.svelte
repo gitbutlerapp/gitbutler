@@ -1,10 +1,10 @@
 <script lang="ts">
 	import BranchReviewButRequest from '$components/BranchReviewButRequest.svelte';
+	import CanPublishReviewPlugin from '$components/CanPublishReviewPlugin.svelte';
 	import PullRequestCard from '$components/PullRequestCard.svelte';
 	import ReviewCreation from '$components/ReviewCreation.svelte';
 	import ReviewCreationControls from '$components/ReviewCreationControls.svelte';
 	import StackedPullRequestCard from '$components/StackedPullRequestCard.svelte';
-	import CanPublishReviewPlugin from '$components/v3/CanPublishReviewPlugin.svelte';
 	import { syncBrToPr } from '$lib/forge/brToPrSync.svelte';
 	import { syncPrToBr } from '$lib/forge/prToBrSync.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';

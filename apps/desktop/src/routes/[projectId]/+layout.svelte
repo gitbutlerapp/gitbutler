@@ -1,17 +1,17 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import AnalyticsMonitor from '$components/AnalyticsMonitor.svelte';
 	import Chrome from '$components/Chrome.svelte';
 	import FileMenuAction from '$components/FileMenuAction.svelte';
 	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import History from '$components/History.svelte';
+	import IrcPopups from '$components/IrcPopups.svelte';
 	import MetricsReporter from '$components/MetricsReporter.svelte';
 	import NoBaseBranch from '$components/NoBaseBranch.svelte';
+	import NotOnGitButlerBranchV3 from '$components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$components/ProjectSettingsMenuAction.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import AnalyticsMonitor from '$components/v3/AnalyticsMonitor.svelte';
-	import IrcPopups from '$components/v3/IrcPopups.svelte';
-	import NotOnGitButlerBranchV3 from '$components/v3/NotOnGitButlerBranch.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { BranchService } from '$lib/branches/branchService.svelte';
