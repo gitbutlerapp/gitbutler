@@ -1,51 +1,110 @@
 <script lang="ts" module>
 	export interface HunkContextItem {
-		hunk: Hunk;
+		hunk: DiffHunk;
+		selectedLines: LineId[] | undefined;
 		beforeLineNumber: number | undefined;
 		afterLineNumber: number | undefined;
-		section: ContentSection;
+	}
+
+	export function isHunkContextItem(item: unknown): item is HunkContextItem {
+		return typeof item === 'object' && item !== null && 'hunk' in item && isDiffHunk(item.hunk);
 	}
 </script>
 
 <script lang="ts">
+	import { ircEnabled } from '$lib/config/uiFeatureFlags';
+	import { isDiffHunk, lineIdsToHunkHeaders, type DiffHunk } from '$lib/hunks/hunk';
+	import { IrcService } from '$lib/irc/ircService.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
-	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
-	import { getContext } from '@gitbutler/shared/context';
+	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
-	import type { Hunk } from '$lib/hunks/hunk';
-	import type { ContentSection } from '$lib/utils/fileSections';
+	import type { TreeChange } from '$lib/hunks/change';
+	import type { LineId } from '@gitbutler/ui/utils/diffParsing';
 	import type { Writable } from 'svelte/store';
 
 	interface Props {
 		trigger: HTMLElement | undefined;
-		filePath: string;
-		projectPath: string | undefined;
-		readonly: boolean;
 		projectId: string;
+		change: TreeChange;
+		projectPath: string | undefined;
+		discardable: boolean;
+		selectable: boolean;
+		selectAllHunkLines: (hunk: DiffHunk) => void;
+		unselectAllHunkLines: (hunk: DiffHunk) => void;
+		invertHunkSelection: (hunk: DiffHunk) => void;
 	}
 
-	const { trigger, filePath, projectPath, readonly, projectId }: Props = $props();
+	const {
+		trigger,
+		projectId,
+		change,
+		projectPath,
+		discardable,
+		selectable,
+		selectAllHunkLines,
+		unselectAllHunkLines,
+		invertHunkSelection
+	}: Props = $props();
 
-	const stackService = getContext(StackService);
+	const [stackService, ircService] = inject(StackService, IrcService);
+
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
+	const ircChats = $derived(ircService.getChats());
+	const ircUsers = $derived(Object.keys(ircChats));
+	const ircChannels = $derived(Object.keys(ircService.getChannels()));
 
+	const filePath = $derived(change.path);
 	let contextMenu: ReturnType<typeof ContextMenu> | undefined;
 
-	function getDiscardLineLabel(
-		beforeLineNumber: number | undefined,
-		afterLineNumber: number | undefined
-	) {
-		if (beforeLineNumber !== undefined && afterLineNumber !== undefined)
-			return `Discard line ${beforeLineNumber} -> ${afterLineNumber}`;
-		if (beforeLineNumber !== undefined) return `Discard old line ${beforeLineNumber}`;
+	function getDiscardLineLabel(item: HunkContextItem) {
+		const { selectedLines } = item;
 
-		if (afterLineNumber !== undefined) return `Discard new line ${afterLineNumber}`;
+		if (selectedLines !== undefined && selectedLines.length > 0)
+			return `Discard ${selectedLines.length} selected lines`;
 
-		return 'Discard line';
+		return '';
+	}
+
+	async function discardHunk(item: HunkContextItem) {
+		const previousPathBytes =
+			change.status.type === 'Rename' ? change.status.subject.previousPathBytes : null;
+
+		unselectAllHunkLines(item.hunk);
+
+		await stackService.discardChanges({
+			projectId,
+			worktreeChanges: [
+				{
+					previousPathBytes,
+					pathBytes: change.pathBytes,
+					hunkHeaders: [item.hunk]
+				}
+			]
+		});
+	}
+
+	async function discardHunkLines(item: HunkContextItem) {
+		if (item.selectedLines === undefined || item.selectedLines.length === 0) return;
+		const previousPathBytes =
+			change.status.type === 'Rename' ? change.status.subject.previousPathBytes : null;
+
+		unselectAllHunkLines(item.hunk);
+
+		await stackService.discardChanges({
+			projectId,
+			worktreeChanges: [
+				{
+					previousPathBytes,
+					pathBytes: change.pathBytes,
+					hunkHeaders: lineIdsToHunkHeaders(item.selectedLines, item.hunk.diff, 'discard')
+				}
+			]
+		});
 	}
 
 	export function open(e: MouseEvent, item: HunkContextItem) {
@@ -57,47 +116,102 @@
 	}
 </script>
 
-<ContextMenu bind:this={contextMenu} rightClickTrigger={trigger}>
+<ContextMenu testId={TestId.HunkContextMenu} bind:this={contextMenu} rightClickTrigger={trigger}>
 	{#snippet children(item)}
-		<ContextMenuSection>
-			{#if item.hunk !== undefined && !readonly}
-				<ContextMenuItem
-					label="Discard change"
-					onclick={async () => {
-						stackService.legacyUnapplyHunk({ projectId, hunk: item.hunk });
-						contextMenu?.close();
-					}}
-				/>
+		{#if isHunkContextItem(item)}
+			<ContextMenuSection>
+				{#if discardable}
+					<ContextMenuItem
+						testId={TestId.HunkContextMenu_DiscardChange}
+						label="Discard change"
+						onclick={() => {
+							discardHunk(item);
+							contextMenu?.close();
+						}}
+					/>
+				{/if}
+				{#if item.selectedLines !== undefined && item.selectedLines.length > 0 && discardable}
+					<ContextMenuItem
+						testId={TestId.HunkContextMenu_DiscardLines}
+						label={getDiscardLineLabel(item)}
+						onclick={() => {
+							discardHunkLines(item);
+							contextMenu?.close();
+						}}
+					/>
+				{/if}
+				{#if $ircEnabled}
+					{#each ircUsers as ircUser}
+						<ContextMenuItem
+							label={ircUser}
+							onclick={() => {
+								const data = btoa(JSON.stringify({ change, diff: item.hunk }));
+								if (!data) return;
+								ircService.sendToNick(ircUser, change.path, data);
+								contextMenu?.close();
+							}}
+						/>
+					{/each}
+					{#each ircChannels as ircChannel}
+						<ContextMenuItem
+							label={ircChannel}
+							onclick={() => {
+								const data = btoa(JSON.stringify({ change, diff: item.hunk }));
+								if (!data) return;
+								ircService.sendToGroup(ircChannel, change.path, data);
+								contextMenu?.close();
+							}}
+						/>
+					{/each}
+				{/if}
+				{#if item.beforeLineNumber !== undefined || item.afterLineNumber !== undefined}
+					<ContextMenuItem
+						testId={TestId.HunkContextMenu_OpenInEditor}
+						label="Open in {$userSettings.defaultCodeEditor.displayName}"
+						onclick={() => {
+							if (projectPath) {
+								const path = getEditorUri({
+									schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
+									path: [projectPath, filePath],
+									line: item.beforeLineNumber ?? item.afterLineNumber
+								});
+								openExternalUrl(path);
+							}
+							contextMenu?.close();
+						}}
+					/>
+				{/if}
+			</ContextMenuSection>
+			{#if selectable}
+				<ContextMenuSection>
+					<ContextMenuItem
+						testId={TestId.HunkContextMenu_SelectAll}
+						label="Select all"
+						onclick={() => {
+							selectAllHunkLines(item.hunk);
+							contextMenu?.close();
+						}}
+					/>
+					<ContextMenuItem
+						testId={TestId.HunkContextMenu_UnselectAll}
+						label="Unselect all"
+						onclick={() => {
+							unselectAllHunkLines(item.hunk);
+							contextMenu?.close();
+						}}
+					/>
+					<ContextMenuItem
+						testId={TestId.HunkContextMenu_InvertSelection}
+						label="Invert selection"
+						onclick={() => {
+							invertHunkSelection(item.hunk);
+							contextMenu?.close();
+						}}
+					/>
+				</ContextMenuSection>
 			{/if}
-			{#if item.hunk !== undefined && (item.beforeLineNumber !== undefined || item.afterLineNumber !== undefined) && !readonly}
-				<ContextMenuItem
-					label={getDiscardLineLabel(item.beforeLineNumber, item.afterLineNumber)}
-					onclick={async () => {
-						stackService.legacyUnapplyLines({
-							projectId,
-							hunk: item.hunk,
-							linesToUnapply: [{ old: item.beforeLineNumber, new: item.afterLineNumber }]
-						});
-						contextMenu?.close();
-					}}
-				/>
-			{/if}
-			{#if item.beforeLineNumber !== undefined || item.afterLineNumber !== undefined}
-				<ContextMenuItem
-					label="Open in {$userSettings.defaultCodeEditor.displayName}"
-					onclick={() => {
-						if (projectPath) {
-							const path = getEditorUri({
-								schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
-								path: [projectPath, filePath],
-								line: item.beforeLineNumber ?? item.afterLineNumber
-							});
-							openExternalUrl(path);
-						}
-						contextMenu?.close();
-					}}
-				/>
-			{/if}
-		</ContextMenuSection>
+		{:else}
+			Malformed item :(
+		{/if}
 	{/snippet}
 </ContextMenu>

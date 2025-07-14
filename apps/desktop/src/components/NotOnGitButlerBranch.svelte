@@ -1,10 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import Chrome from '$components/Chrome.svelte';
 	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
-	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
-	import ProjectSwitcher from '$components/ProjectSwitcher.svelte';
 	import RemoveProjectButton from '$components/RemoveProjectButton.svelte';
-	import derectionDoubtSvg from '$lib/assets/illustrations/direction-doubt.svg?raw';
+	import directionDoubtSvg from '$lib/assets/illustrations/direction-doubt.svg?raw';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { ModeService } from '$lib/mode/modeService';
@@ -15,15 +14,13 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import { inject } from '@gitbutler/shared/context';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
-	import Spacer from '@gitbutler/ui/Spacer.svelte';
-	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
+	import RadioButton from '@gitbutler/ui/RadioButton.svelte';
+	import FileListItem from '@gitbutler/ui/file/FileListItemV3.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
-	import Select from '@gitbutler/ui/select/Select.svelte';
-	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import * as toasts from '@gitbutler/ui/toasts';
 	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
+
+	type OptionsType = 'stash' | 'bring-to-workspace';
 
 	interface Props {
 		baseBranch: BaseBranch;
@@ -43,8 +40,6 @@
 
 	const [worktreeService] = inject(WorktreeService);
 	const changes = worktreeService.treeChanges(project.id);
-
-	let modal = $state<Modal>();
 
 	async function switchTarget(branch: string, remote?: string, stashUncommitted?: boolean) {
 		await setBaseBranchTarget({
@@ -80,18 +75,18 @@
 		$mode?.type === 'OutsideWorkspace' && $mode.subject?.worktreeConflicts.length > 0
 	);
 
-	let selectedHandlingOfUncommitted = $state('Stash');
-	let doStash = $derived(selectedHandlingOfUncommitted === 'Stash');
+	let selectedHandlingOfUncommitted: OptionsType = $state('stash');
+	let doStash = $derived(selectedHandlingOfUncommitted === 'stash');
 
-	let handlingOptions: { label: string; value: string; selectable: boolean }[] = $derived([
+	let handlingOptions: { label: string; value: OptionsType; selectable: boolean }[] = $derived([
 		{
 			label: 'Stash',
-			value: 'Stash',
+			value: 'stash',
 			selectable: true
 		},
 		{
 			label: 'Bring to Workspace',
-			value: 'Bring to Workspace',
+			value: 'bring-to-workspace',
 			selectable: !conflicts // TODO: Reactivity??
 		}
 	]);
@@ -100,146 +95,174 @@
 		if (changes.current.data?.length === 0) {
 			switchTarget(baseBranch.branchName);
 		} else {
-			modal?.show();
+			switchTarget(baseBranch.branchName, undefined, doStash);
 		}
 	}
 </script>
 
-<DecorativeSplitView img={derectionDoubtSvg}>
-	<div class="switchrepo">
-		<div class="project-name">
-			<ProjectNameLabel projectName={project?.title} />
-		</div>
-		<p class="switchrepo__title text-18 text-body text-bold">
-			Looks like you've switched away from <span class="code-string"> gitbutler/workspace </span>
-		</p>
+<Chrome projectId={project.id} sidebarDisabled>
+	<DecorativeSplitView img={directionDoubtSvg} hideDetails>
+		{@const uncommittedChanges = changes.current.data || []}
 
-		<p class="switchrepo__message text-13 text-body">
-			Due to GitButler managing multiple virtual branches, you cannot switch back and forth between
-			git branches and virtual branches easily.
-			<Link href="https://docs.gitbutler.com/features/virtual-branches/integration-branch">
-				Learn more
-			</Link>
-		</p>
+		<div class="switchrepo__content">
+			<p class="switchrepo__title text-18 text-body text-bold">
+				You've switched away from <span class="code-string"> gitbutler/workspace </span>
+			</p>
 
-		<div class="switchrepo__actions">
-			<AsyncButton
-				style="pop"
-				icon="undo-small"
-				reversedDirection
-				loading={targetBranchSwitch.current.isLoading}
-				action={initSwithToWorkspace}
-			>
-				Switch to gitbutler/workspace
-			</AsyncButton>
+			<p class="switchrepo__message text-13 text-body">
+				Due to GitButler managing multiple virtual branches, you cannot switch back and forth
+				between git branches and virtual branches easily.
+				<Link href="https://docs.gitbutler.com/features/virtual-branches/integration-branch">
+					Learn more
+				</Link>
+			</p>
 
-			{#if project}
-				<RemoveProjectButton
-					bind:this={deleteConfirmationModal}
-					projectTitle={project.title}
-					{isDeleting}
-					{onDeleteClicked}
-				/>
-			{/if}
-		</div>
+			{#if uncommittedChanges.length > 0}
+				<div class="switchrepo__uncommited-changes">
+					<div class="switchrepo__uncommited-changes__section">
+						<p class="switchrepo__label text-13 text-body text-bold">
+							You have uncommitted changes:
+						</p>
+						<div class="switchrepo__file-list">
+							{#each uncommittedChanges as change}
+								<FileListItem
+									filePath={change.path}
+									clickable={false}
+									isLast={change === uncommittedChanges[uncommittedChanges.length - 1]}
+								/>
+							{/each}
+						</div>
+						{#if conflicts}
+							<p class="switchrepo__label text-13 text-body clr-text-2">
+								Some files can’t be applied due to conflicts:
+							</p>
+							<div class="switchrepo__file-list">
+								{#if $mode?.type === 'OutsideWorkspace'}
+									{#each $mode.subject?.worktreeConflicts || [] as path}
+										<FileListItem
+											filePath={path}
+											clickable={false}
+											conflicted
+											conflictHint="Resolve to apply"
+											isLast={path ===
+												$mode.subject?.worktreeConflicts[
+													$mode.subject?.worktreeConflicts.length - 1
+												]}
+										/>
+									{/each}
+								{/if}
+							</div>
+						{/if}
+					</div>
 
-		<Spacer dotted margin={0} />
+					<hr class="switchrepo__divider" />
 
-		<div class="switchrepo__project">
-			<ProjectSwitcher />
-		</div>
-	</div>
+					<p class="switchrepo__label text-13 text-body text-bold">
+						What should we do with your uncommitted changes?
+					</p>
 
-	<Modal
-		bind:this={modal}
-		width={520}
-		noPadding
-		onClose={() => {}}
-		onSubmit={() => switchTarget(baseBranch.branchName, undefined, doStash)}
-	>
-		<div class="content-wrap text-13">
-			<h1 class="text-15 text-bold">It looks like there are uncommitted changes</h1>
-			<p>The following are uncommitted files in your worktree:</p>
-			<div class="file-list">
-				{#each changes.current.data || [] as change}
-					<FileListItem filePath={change.path} />
-				{/each}
-			</div>
-			{#if conflicts}
-				<div>
-					The following are uncommitted files that can't be applied to the workspace due to
-					conflicts:
-				</div>
-				<div class="file-list">
-					{#if $mode?.type === 'OutsideWorkspace'}
-						{#each $mode.subject?.worktreeConflicts || [] as path}
-							<FileListItem filePath={path} />
+					<div class="switchrepo__handling-options">
+						{#each handlingOptions as item (item.value)}
+							<label for={item.value} class="switchrepo__handling-options__item">
+								<RadioButton
+									id={item.value}
+									value={item.value}
+									onchange={() => {
+										selectedHandlingOfUncommitted = item.value as OptionsType;
+										doStash = selectedHandlingOfUncommitted === 'stash';
+									}}
+									checked={selectedHandlingOfUncommitted === item.value}
+								/>
+								<p class="text-13 text-body">{item.label}</p>
+							</label>
 						{/each}
-					{/if}
+					</div>
 				</div>
 			{/if}
 
-			<p>What would you like to do with the files?</p>
-			<Select
-				value={selectedHandlingOfUncommitted}
-				options={handlingOptions}
-				onselect={(value) => {
-					selectedHandlingOfUncommitted = value;
-				}}
-			>
-				{#snippet itemSnippet({ item, highlighted })}
-					<SelectItem
-						disabled={!item.selectable}
-						selected={item.value === selectedHandlingOfUncommitted}
-						{highlighted}
-					>
-						{item.label}
-					</SelectItem>
-				{/snippet}
-			</Select>
+			<div class="switchrepo__actions">
+				<AsyncButton
+					style="pop"
+					icon="arrow-left"
+					reversedDirection
+					loading={targetBranchSwitch.current.isLoading}
+					action={initSwithToWorkspace}
+				>
+					Switch back
+				</AsyncButton>
+
+				{#if project}
+					<RemoveProjectButton
+						bind:this={deleteConfirmationModal}
+						outlineStyle
+						projectTitle={project.title}
+						{isDeleting}
+						{onDeleteClicked}
+					/>
+				{/if}
+			</div>
 		</div>
-		{#snippet controls(close)}
-			<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
-			<Button style="pop" type="submit">Confirm</Button>
-		{/snippet}
-	</Modal>
-</DecorativeSplitView>
+	</DecorativeSplitView>
+</Chrome>
 
 <style lang="postcss">
-	.project-name {
-		margin-bottom: 12px;
-	}
-
 	.switchrepo__title {
 		margin-bottom: 12px;
-		color: var(--clr-scale-ntrl-30);
+		color: var(--clr-text-1);
 	}
 
 	.switchrepo__message {
 		margin-bottom: 20px;
-		color: var(--clr-scale-ntrl-50);
+		color: var(--clr-text-2);
 	}
+
+	.switchrepo__content {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.switchrepo__uncommited-changes {
+		margin-bottom: 20px;
+		padding: 16px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+	}
+
+	.switchrepo__divider {
+		margin: 20px -16px;
+		border: 0;
+		border-top: 1px solid var(--clr-border-2);
+	}
+
+	.switchrepo__label {
+		margin-bottom: 12px;
+	}
+
+	.switchrepo__file-list {
+		margin-bottom: 16px;
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+	}
+
+	.switchrepo__handling-options {
+		display: flex;
+		gap: 20px;
+	}
+
+	.switchrepo__handling-options__item {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		cursor: pointer;
+	}
+
 	.switchrepo__actions {
 		display: flex;
 		flex-wrap: wrap;
+		justify-content: flex-end;
+		width: 100%;
 		padding-bottom: 24px;
 		gap: 8px;
-	}
-
-	.switchrepo__project {
-		padding-top: 24px;
-	}
-
-	.content-wrap {
-		display: flex;
-		flex-direction: column;
-		padding: 16px 12px;
-		gap: 16px;
-	}
-
-	.file-list {
-		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-ml);
 	}
 </style>

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ChecksPolling from '$components/ChecksPolling.svelte';
+	import PrStatusBadge from '$components/PrStatusBadge.svelte';
 	import PullRequestPolling from '$components/PullRequestPolling.svelte';
-	import PrStatusBadge from '$components/v3/PrStatusBadge.svelte';
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { openExternalUrl } from '$lib/utils/url';

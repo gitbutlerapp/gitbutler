@@ -4,8 +4,8 @@
 	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import LazyloadContainer from '$components/LazyloadContainer.svelte';
 	import Resizer from '$components/Resizer.svelte';
+	import SelectTopreviewPlaceholder from '$components/SelectTopreviewPlaceholder.svelte';
 	import SnapshotCard from '$components/SnapshotCard.svelte';
-	import SelectTopreviewPlaceholder from '$components/v3/SelectTopreviewPlaceholder.svelte';
 	import emptyFileSvg from '$lib/assets/empty-state/empty-file.svg?raw';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { RemoteFile } from '$lib/files/file';
