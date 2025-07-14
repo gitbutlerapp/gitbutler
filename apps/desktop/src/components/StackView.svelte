@@ -11,7 +11,6 @@
 	import Resizer from '$components/Resizer.svelte';
 	import SelectionView from '$components/SelectionView.svelte';
 	import WorktreeChanges from '$components/WorktreeChanges.svelte';
-	import { DragStateService } from '$lib/dragging/dragStateService.svelte';
 	import { isParsedError } from '$lib/error/parser';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
@@ -66,16 +65,14 @@
 		idSelection,
 		stackService,
 		intelligentScrollingService,
-		diffService,
-		dragStateService
+		diffService
 	] = inject(
 		UiState,
 		UncommittedService,
 		IdSelection,
 		StackService,
 		IntelligentScrollingService,
-		DiffService,
-		DragStateService
+		DiffService
 	);
 	const projectState = $derived(uiState.project(projectId));
 
@@ -110,17 +107,6 @@
 	const assignedKey = $derived(
 		$lastAddedAssigned?.key ? readKey($lastAddedAssigned.key) : undefined
 	);
-
-	// Close assigned preview when dragging starts (without clearing file selections)
-	$effect(() => {
-		const unsubscribe = dragStateService.isDragging.subscribe((isDragging) => {
-			if (isDragging) {
-				// Only clear the lastAdded to close preview, keep file selections intact
-				assignedSelection.lastAdded.set(undefined);
-			}
-		});
-		return unsubscribe;
-	});
 
 	const commitId = $derived(selection.current?.commitId);
 	const branchName = $derived(selection.current?.branchName);

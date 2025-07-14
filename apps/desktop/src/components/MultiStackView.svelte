@@ -69,7 +69,6 @@
 
 	// Enable panning when a stack is being dragged.
 	let draggingStack = $state(false);
-	let endStackDrag: (() => void) | undefined = $state();
 
 	// This is a bit of anti-pattern, and reordering should be better
 	// encapsulated such that we don't need this somewhat messy code.
@@ -155,7 +154,6 @@
 				ondragstart={(e) => {
 					onReorderStart(e, stack.id, () => {
 						draggingStack = true;
-						endStackDrag = dragStateService.startDragging();
 						selection.set(undefined);
 						intelligentScrollingService.show(projectId, stack.id, 'stack');
 					});
@@ -165,8 +163,6 @@
 				}}
 				ondragend={() => {
 					draggingStack = false;
-					endStackDrag?.();
-					endStackDrag = undefined;
 					onReorderEnd();
 				}}
 			>
