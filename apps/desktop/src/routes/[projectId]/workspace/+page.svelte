@@ -2,21 +2,15 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import WorkspaceView from '$components/v3/WorkspaceView.svelte';
-	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { ModeService } from '$lib/mode/modeService';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { getContext, inject } from '@gitbutler/shared/context';
 	import { QueryStatus } from '@reduxjs/toolkit/query';
-	import type { PageData } from './$types';
 
-	const settingsService = getContext(SettingsService);
 	const modeService = getContext(ModeService);
 
-	const settingsStore = settingsService.appSettings;
 	const mode = modeService.mode;
-
-	const { data }: { data: PageData } = $props();
 
 	const projectId = $derived(page.params.projectId!);
 	const [uiState, stackService] = inject(UiState, StackService);
@@ -36,13 +30,6 @@
 			stackResult.current.data === undefined
 		) {
 			projectState.stackId.set(undefined);
-		}
-	});
-
-	// Redirect to board if we have switched away from V3 feature.
-	$effect(() => {
-		if ($settingsStore && !$settingsStore.featureFlags.v3) {
-			goto(`/${data.projectId}/board`);
 		}
 	});
 

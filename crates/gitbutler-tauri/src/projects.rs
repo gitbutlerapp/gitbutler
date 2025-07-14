@@ -152,7 +152,7 @@ pub mod commands {
             .or_else(|_| std::time::UNIX_EPOCH.duration_since(std::time::SystemTime::now()))
             .map(|d| d.as_millis().to_string())
             .context("didn't manage to get any time-based unique ID")?;
-        window::create(&handle, &label, format!("{id}/board")).map_err(anyhow::Error::from)?;
+        window::create(&handle, &label, id.to_string()).map_err(anyhow::Error::from)?;
         Ok(())
     }
 

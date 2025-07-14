@@ -7,7 +7,6 @@
 	import RemoveProjectButton from '$components/RemoveProjectButton.svelte';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
-	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { showError } from '$lib/notifications/toasts';
 	import { Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
@@ -27,8 +26,6 @@
 	const projectsService = getContext(ProjectsService);
 	const posthog = getContext(PostHogWrapper);
 	const project = getContext(Project);
-	const settingsService = getContext(SettingsService);
-	const appSettings = settingsService.appSettings;
 
 	let loading = $state(false);
 	let deleteConfirmationModal: ReturnType<typeof RemoveProjectButton> | undefined = $state();
@@ -93,13 +90,9 @@
 	</DecorativeSplitView>
 {/snippet}
 
-{#if $appSettings?.featureFlags.v3}
-	<Chrome projectId={project.id} sidebarDisabled>
-		{@render page()}
-	</Chrome>
-{:else}
+<Chrome projectId={project.id} sidebarDisabled>
 	{@render page()}
-{/if}
+</Chrome>
 
 <style lang="postcss">
 	.project-name {

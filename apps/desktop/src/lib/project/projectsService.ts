@@ -107,7 +107,7 @@ export class ProjectsService {
 			await this.updateProject(project);
 			toasts.success(`Project ${project.title} relocated`);
 
-			goto(`/${project.id}/board`);
+			goto(`/${project.id}`);
 		} catch (error: any) {
 			showError('Failed to relocate project:', error.message);
 		}
@@ -123,8 +123,7 @@ export class ProjectsService {
 			const project = await this.add(path);
 			if (!project) return;
 			toasts.success(`Project ${project.title} created`);
-			// linkProjectModal?.show(project.id);
-			goto(`/${project.id}/board`);
+			goto(`/${project.id}`);
 		} catch (e: any) {
 			showError('There was an error while adding project', e.message);
 		}

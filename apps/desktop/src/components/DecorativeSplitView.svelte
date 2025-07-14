@@ -1,10 +1,9 @@
 <script lang="ts">
 	import AccountLink from '$components/AccountLink.svelte';
 	import gbLogoSvg from '$lib/assets/gb-logo.svg?raw';
-	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { User } from '$lib/user/user';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { getContext, getContextStore } from '@gitbutler/shared/context';
+	import { getContextStore } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { type Snippet } from 'svelte';
 
@@ -18,12 +17,9 @@
 	const { hideDetails, img, children, testId }: Props = $props();
 
 	const user = getContextStore(User);
-
-	const settingsService = getContext(SettingsService);
-	const appSettings = settingsService.appSettings;
 </script>
 
-<div class="decorative-split-view" data-testid={testId} class:v3={$appSettings?.featureFlags.v3}>
+<div class="decorative-split-view" data-testid={testId}>
 	<div class="left-side hide-native-scrollbar">
 		<div class="left-side__content">
 			{#if children}
@@ -84,15 +80,12 @@
 	.decorative-split-view {
 		display: flex;
 		flex-grow: 1;
+		height: 100%;
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-l);
 		background-color: var(--clr-bg-1);
 		cursor: default;
-
-		&.v3 {
-			height: 100%;
-			overflow: hidden;
-			border: 1px solid var(--clr-border-2);
-			border-radius: var(--radius-l);
-		}
 	}
 
 	.right-side {
