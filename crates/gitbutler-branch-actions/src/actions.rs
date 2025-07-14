@@ -2,7 +2,6 @@ use super::r#virtual as vbranch;
 use crate::branch_upstream_integration;
 use crate::branch_upstream_integration::IntegrationStrategy;
 use crate::move_commits;
-use crate::r#virtual::StackListResult;
 use crate::reorder::{self, StackOrder};
 use crate::upstream_integration::{
     self, BaseBranchResolution, BaseBranchResolutionApproach, IntegrationOutcome, Resolution,
@@ -21,7 +20,6 @@ use anyhow::{Context, Result};
 use but_workspace::{commit_engine, stack_heads_info, ui, DiffSpec};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_command_context::CommandContext;
-use gitbutler_diff::DiffByPathMap;
 use gitbutler_operating_modes::assure_open_workspace_mode;
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
@@ -66,18 +64,6 @@ pub fn can_apply_remote_branch(ctx: &CommandContext, branch_name: &RemoteRefname
     assure_open_workspace_mode(ctx)
         .context("Testing branch mergability requires open workspace mode")?;
     vbranch::is_remote_branch_mergeable(ctx, branch_name)
-}
-
-pub fn list_virtual_branches(ctx: &CommandContext) -> Result<StackListResult> {
-    ctx.verify(ctx.project().exclusive_worktree_access().write_permission())?;
-
-    assure_open_workspace_mode(ctx)
-        .context("Listing virtual branches requires open workspace mode")?;
-
-    vbranch::list_virtual_branches(
-        ctx,
-        ctx.project().exclusive_worktree_access().write_permission(),
-    )
 }
 
 pub fn create_virtual_branch(
@@ -479,13 +465,6 @@ pub fn create_virtual_branch_from_branch(
 pub fn get_uncommited_files(ctx: &CommandContext) -> Result<Vec<RemoteBranchFile>> {
     let guard = ctx.project().exclusive_worktree_access();
     crate::branch::get_uncommited_files(ctx, guard.read_permission())
-}
-
-/// Like [`get_uncommited_files()`], but returns a type that can be re-used with
-/// [`list_virtual_branches()`].
-pub fn get_uncommited_files_reusable(ctx: &CommandContext) -> Result<DiffByPathMap> {
-    let guard = ctx.project().exclusive_worktree_access();
-    crate::branch::get_uncommited_files_raw(ctx, guard.read_permission())
 }
 
 pub fn upstream_integration_statuses(

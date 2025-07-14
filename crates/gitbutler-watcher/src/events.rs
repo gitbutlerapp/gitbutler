@@ -1,4 +1,3 @@
-use gitbutler_branch_actions::VirtualBranches;
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_project::ProjectId;
 
@@ -13,10 +12,6 @@ pub enum Change {
         operating_mode: OperatingMode,
     },
     GitActivity(ProjectId),
-    VirtualBranches {
-        project_id: ProjectId,
-        virtual_branches: VirtualBranches,
-    },
     WorktreeChanges {
         project_id: ProjectId,
         changes: but_hunk_assignment::WorktreeChanges,
