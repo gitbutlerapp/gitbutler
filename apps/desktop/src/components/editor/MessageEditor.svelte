@@ -55,6 +55,7 @@
 		aiIsLoading: boolean;
 		suggestionsHandler?: CommitSuggestions;
 		testId?: string;
+		forceSansFont?: boolean;
 	}
 
 	let {
@@ -71,7 +72,8 @@
 		canUseAI,
 		aiIsLoading,
 		suggestionsHandler,
-		testId
+		testId,
+		forceSansFont
 	}: Props = $props();
 
 	const MIN_RULER_VALUE = 30;
@@ -280,11 +282,15 @@
 	data-remove-from-panning
 	role="presentation"
 	class="editor-wrapper hide-native-scrollbar"
-	style:--lexical-input-client-text-wrap={useRuler.current ? 'nowrap' : 'normal'}
+	style:--lexical-input-client-text-wrap={useRuler.current && !forceSansFont ? 'nowrap' : 'normal'}
 	style:--extratoolbar-height={useFloatingBox.current ? '2.625rem' : '0'}
-	style:--code-block-font={useRuler.current ? $userSettings.diffFont : 'var(--fontfamily-default)'}
-	style:--code-block-tab-size={$userSettings.tabSize}
-	style:--code-block-ligatures={$userSettings.diffLigatures ? 'common-ligatures' : 'normal'}
+	style:--code-block-font={useRuler.current && !forceSansFont
+		? $userSettings.diffFont
+		: 'var(--fontfamily-default)'}
+	style:--code-block-tab-size={$userSettings.tabSize && !forceSansFont ? $userSettings.tabSize : 4}
+	style:--code-block-ligatures={$userSettings.diffLigatures && !forceSansFont
+		? 'common-ligatures'
+		: 'normal'}
 	onclick={stopPropagation}
 	ondblclick={stopPropagation}
 	onmousedown={stopPropagation}
