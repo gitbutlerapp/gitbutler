@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Feed from '$components/Feed.svelte';
 	import MainViewport from '$components/MainViewport.svelte';
 	import MultiStackView from '$components/MultiStackView.svelte';
@@ -134,7 +135,9 @@
 {/snippet}
 
 {#snippet leftPreview()}
-	<SelectionView bottomBorder {projectId} {selectionId} draggableFiles />
+	<ConfigurableScrollableContainer zIndex="var(--z-lifted)">
+		<SelectionView bottomBorder {projectId} {selectionId} draggableFiles />
+	</ConfigurableScrollableContainer>
 {/snippet}
 
 <MainViewport

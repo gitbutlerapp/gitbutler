@@ -27,19 +27,21 @@
 		scrollToType?: TargetType;
 		scrollToId?: string;
 		grow?: boolean;
+		contentHeight?: number;
 		resizer?: Snippet<[{ element: HTMLDivElement; collapsed?: boolean }]>;
 		ontoggle?: (collapsed: boolean) => void;
 		onerror?: (err: unknown) => void;
 		onclose?: () => void;
 	}
 
-	const {
+	let {
 		stackId,
 		projectId,
 		branchName,
 		scrollToId,
 		scrollToType,
 		grow,
+		contentHeight = $bindable(),
 		resizer,
 		ontoggle,
 		onerror,
@@ -70,6 +72,7 @@
 		{@const remoteTrackingBranch = branch.remoteTrackingBranch}
 		<Drawer
 			testId={TestId.BranchView}
+			bind:contentHeight
 			{scrollToId}
 			{scrollToType}
 			{resizer}

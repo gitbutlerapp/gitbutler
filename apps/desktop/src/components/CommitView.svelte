@@ -32,24 +32,27 @@
 		scrollToType?: TargetType;
 		scrollToId?: string;
 		grow?: boolean;
+		contentHeight?: number;
 		resizer?: Snippet<[{ element: HTMLDivElement; collapsed?: boolean }]>;
 		ontoggle?: (collapsed: boolean) => void;
 		onerror: (err: unknown) => void;
 		onclose?: () => void;
 	};
 
-	const {
+	let {
 		projectId,
 		stackId,
 		commitKey,
 		scrollToId,
 		scrollToType,
 		grow,
+		contentHeight = $bindable(),
+		isInEditMessageMode = $bindable(false),
 		resizer,
 		ontoggle,
 		onerror,
 		onclose
-	}: Props = $props();
+	}: Props & { isInEditMessageMode?: boolean } = $props();
 
 	const [stackService, uiState] = inject(StackService, UiState);
 
@@ -69,6 +72,17 @@
 	const [updateCommitMessage, messageUpdateResult] = stackService.updateCommitMessage;
 
 	type Mode = 'view' | 'edit';
+
+	// Track if this commit is in edit message mode
+	const inEditMessageMode = $derived(
+		projectState.exclusiveAction.current?.type === 'edit-commit-message' &&
+			projectState.exclusiveAction.current.commitId === commitKey.commitId
+	);
+
+	// Sync the edit mode state with the bindable property
+	$effect(() => {
+		isInEditMessageMode = inEditMessageMode;
+	});
 
 	function setMode(newMode: Mode) {
 		switch (newMode) {
@@ -145,6 +159,7 @@
 		{@const isConflicted = isCommit(commit) && commit.hasConflicts}
 
 		<Drawer
+			bind:contentHeight
 			testId={TestId.CommitDrawer}
 			{scrollToId}
 			{scrollToType}
