@@ -288,7 +288,7 @@
 	class="editor-wrapper hide-native-scrollbar"
 	style:--lexical-input-client-text-wrap={useRuler.current ? 'nowrap' : 'normal'}
 	style:--extratoolbar-height={useFloatingBox.current ? '2.625rem' : '0'}
-	style:--code-block-font={$userSettings.diffFont}
+	style:--code-block-font={useRuler.current ? $userSettings.diffFont : 'var(--fontfamily-default)'}
 	style:--code-block-tab-size={$userSettings.tabSize}
 	style:--code-block-ligatures={$userSettings.diffLigatures ? 'common-ligatures' : 'normal'}
 	onclick={stopPropagation}
