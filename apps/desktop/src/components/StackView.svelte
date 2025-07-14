@@ -142,6 +142,9 @@
 	let stackViewEl = $state<HTMLDivElement>();
 	let compactDiv = $state<HTMLDivElement>();
 
+	let branchContentHeight = $state<number>(0);
+	let branchContentHeightRem = $derived(pxToRem(branchContentHeight, 1));
+
 	let commitContentHeight = $state<number>(0);
 	let commitContentHeightRem = $derived(pxToRem(commitContentHeight, 1));
 
@@ -155,7 +158,6 @@
 	let minChangedFilesHeight = $state(5);
 	let minPreviewHeight = $derived(previewChangeResult ? 5 : 0);
 
-	let maxDetailsHeight = $derived(verticalHeightRem - minChangedFilesHeight - minPreviewHeight);
 	let maxChangedFilesHeight = $derived(
 		verticalHeightRem - actualDetailsHeightRem - minPreviewHeight
 	);
@@ -303,6 +305,7 @@
 {#snippet branchView(branchName: string)}
 	<BranchView
 		stackId={stack.id}
+		bind:contentHeight={branchContentHeight}
 		{projectId}
 		{branchName}
 		active={selectedKey?.type === 'branch' &&
@@ -321,7 +324,7 @@
 				persistId="resizer-panel2-details-${stack.id}"
 				defaultValue={undefined}
 				minHeight={minDetailsHeight}
-				maxHeight={maxDetailsHeight}
+				maxHeight={branchContentHeightRem}
 				order={0}
 				imitateBorder
 				hidden={collapsed}
