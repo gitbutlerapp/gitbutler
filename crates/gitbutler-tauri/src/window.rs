@@ -56,11 +56,6 @@ pub(crate) mod state {
                         payload: serde_json::json!(virtual_branches),
                         project_id,
                     },
-                    Change::UncommitedFiles { project_id, files } => ChangeForFrontend {
-                        name: format!("project://{}/uncommited-files", project_id), // This appears to be something related to "EditMode"
-                        payload: serde_json::json!(files),
-                        project_id,
-                    },
                     Change::WorktreeChanges {
                         project_id,
                         changes,
