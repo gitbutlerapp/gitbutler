@@ -466,7 +466,7 @@
 				}}
 			/>
 			<MessageEditor
-				enableRichText
+				forceSansFont
 				bind:this={messageEditor}
 				testId={TestId.ReviewDescriptionInput}
 				{projectId}

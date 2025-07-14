@@ -66,6 +66,9 @@
 	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
 	const stackSelection = $derived(stackState?.selection);
 
+	let composer = $state<ReturnType<typeof MessageEditor>>();
+	let titleInput = $state<HTMLTextAreaElement>();
+
 	const suggestionsHandler = new CommitSuggestions(aiService, uiState);
 	const diffInputArgs = $derived<DiffInputContextArgs>(
 		existingCommitId
@@ -133,21 +136,18 @@
 		}
 	}
 
-	let composer = $state<ReturnType<typeof MessageEditor>>();
-	let titleInput = $state<HTMLTextAreaElement>();
-
 	async function getDescription() {
 		return (await composer?.getPlaintext()) || '';
 	}
 
 	async function emitAction() {
 		const newDescription = await getDescription();
-		action({ title, description: newDescription });
+		action({ title: title.trim(), description: newDescription.trim() });
 	}
 
 	async function handleCancel() {
 		const newDescription = await getDescription();
-		onCancel({ title, description: newDescription });
+		onCancel({ title: title.trim(), description: newDescription.trim() });
 	}
 
 	export function isRichTextMode(): boolean {
@@ -160,14 +160,16 @@
 		testId={TestId.CommitDrawerTitleInput}
 		bind:ref={titleInput}
 		bind:value={title}
-		placeholder="Commit title"
+		placeholder="Commit title (required)"
 		onchange={(value) => {
 			onChange?.({ title: value });
 		}}
 		onkeydown={async (e: KeyboardEvent) => {
 			if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
 				e.preventDefault();
-				emitAction();
+				if (title.trim()) {
+					emitAction();
+				}
 			}
 			if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
 				e.preventDefault();
@@ -183,7 +185,7 @@
 		testId={TestId.CommitDrawerDescriptionInput}
 		bind:this={composer}
 		initialValue={description}
-		placeholder="Your commit message"
+		placeholder="Commit message"
 		enableRuler
 		{projectId}
 		{onAiButtonClick}
@@ -201,7 +203,9 @@
 			}
 			if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
 				e.preventDefault();
-				emitAction();
+				if (title.trim()) {
+					emitAction();
+				}
 				return true;
 			}
 			if (e.key === 'Escape') {
@@ -218,7 +222,8 @@
 			testId={TestId.CommitDrawerActionButton}
 			style="pop"
 			onclick={emitAction}
-			disabled={disabledAction}
+			disabled={disabledAction || !title.trim()}
+			tooltip={!title.trim() ? 'Commit title is required' : undefined}
 			hotkey="⌘↵"
 			{loading}
 			wide>{actionLabel}</Button
