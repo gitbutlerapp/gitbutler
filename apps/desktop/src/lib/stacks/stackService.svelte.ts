@@ -731,8 +731,8 @@ export class StackService {
 		await this.squashCommits({
 			projectId,
 			stackId,
-			sourceCommitOids: squashCommits.map((commit) => commit.id),
-			targetCommitOid: targetCommit.id
+			sourceCommitIds: squashCommits.map((commit) => commit.id),
+			targetCommitId: targetCommit.id
 		});
 	}
 
@@ -1426,7 +1426,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			}),
 			squashCommits: build.mutation<
 				void,
-				{ projectId: string; stackId: string; sourceCommitOids: string[]; targetCommitOid: string }
+				{ projectId: string; stackId: string; sourceCommitIds: string[]; targetCommitId: string }
 			>({
 				extraOptions: {
 					command: 'squash_commits',
