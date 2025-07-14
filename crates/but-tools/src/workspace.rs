@@ -1101,6 +1101,7 @@ pub struct SquashCommitsParameters {
             The commit ids should refer to commits in the specified stack.
             The commits should be in the order they were created, with the oldest commit first.
             All commit should be part of the same stack specified by `stack_id`.
+            This shuold NOT include the commit to squash into.
         </important_notes>
         ")]
     pub source_commit_ids: Vec<String>,
