@@ -184,14 +184,15 @@
 		prTitle.setDefault(commits);
 	});
 
-	async function pushIfNeeded(): Promise<string | undefined> {
+	async function pushIfNeeded(branchName: string): Promise<string | undefined> {
 		let upstreamBranchName: string | undefined = branchName;
 		if (pushBeforeCreate) {
 			const firstPush = branchDetails?.pushStatus === 'completelyUnpushed';
 			const pushResult = await pushStack({
 				projectId,
 				stackId,
-				withForce: branchDetails?.pushStatus === 'unpushedCommitsRequiringForce'
+				withForce: branchDetails?.pushStatus === 'unpushedCommitsRequiringForce',
+				branch: branchName
 			});
 
 			if (pushResult) {
@@ -235,7 +236,7 @@
 			isCreatingReview = true;
 			await tick();
 
-			const upstreamBranchName = await pushIfNeeded();
+			const upstreamBranchName = await pushIfNeeded(closureBranchName);
 
 			let newReviewId: string | undefined;
 			let newPrNumber: number | undefined;
