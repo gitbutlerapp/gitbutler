@@ -80,7 +80,7 @@
 	class:no-shrink={!shrink && resizer && $collapsed !== undefined}
 	{@attach scrollingAttachment(intelligentScrollingService, scrollToId, scrollToType)}
 >
-	<div bind:clientHeight={contentHeight}>
+	<div class="drawer-wrap" bind:clientHeight={contentHeight}>
 		<div bind:this={headerDiv} class="drawer-header" class:bottom-border={!$collapsed}>
 			{#if $collapsed !== undefined}
 				{@const name = $collapsed ? 'chevron-right' : ('chevron-down' as const)}
@@ -168,6 +168,13 @@
 		&.grow {
 			flex-grow: 1;
 		}
+	}
+
+	.drawer-wrap {
+		display: flex;
+		flex-grow: 1;
+		flex-direction: column;
+		height: 100%;
 	}
 
 	.drawer-header {
