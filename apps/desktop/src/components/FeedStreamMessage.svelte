@@ -49,23 +49,27 @@
 	});
 </script>
 
-{#if messageContent === '' && toolCalls.length === 0}
-	<p class="thinking">Thinking...</p>
-{:else if toolCalls.length > 0}
-	<p class="vibing">Vibing</p>
-	{#each toolCalls as toolCall, index (index)}
-		<FeedItemKind type="tool-call" {projectId} {toolCall} />
-	{/each}
-{:else}
-	{#each messageContentLines as line, index (index)}
-		{#if line === ''}
-			<br />
-		{:else}
-			<Markdown content={line} />
+<div>
+	{#if messageContent === '' && toolCalls.length === 0}
+		<p class="thinking">Thinking...</p>
+	{:else}
+		{#if toolCalls.length > 0}
+			<p class="vibing">Vibing</p>
+			{#each toolCalls as toolCall, index (index)}
+				<FeedItemKind type="tool-call" {projectId} {toolCall} />
+			{/each}
 		{/if}
-	{/each}
-{/if}
-<div bind:this={bottom} style="margin-top: 8px;height: 1px; width: 100%;"></div>
+
+		{#each messageContentLines as line, index (index)}
+			{#if line === ''}
+				<br />
+			{:else}
+				<Markdown content={line} />
+			{/if}
+		{/each}
+	{/if}
+	<div bind:this={bottom} style="margin-top: 8px; height: 1px; width: 100%;"></div>
+</div>
 
 <style>
 	.thinking,
