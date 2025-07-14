@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use anyhow::Context;
 use anyhow::Result;
 use gitbutler_command_context::CommandContext;
@@ -14,7 +12,6 @@ use gitbutler_repo::logging::LogUntil;
 use gitbutler_repo::logging::RepositoryExt as _;
 use gitbutler_stack::Stack;
 use gitbutler_stack::StackId;
-use md5::Digest;
 
 use crate::file::list_virtual_commit_files;
 use crate::BranchStatus;
@@ -105,86 +102,10 @@ fn get_commits_to_process<'a>(
     Ok(commit_ids)
 }
 
-pub struct StackDependencies {
-    pub commit_dependencies: HashMap<git2::Oid, Vec<git2::Oid>>,
-    pub reverse_commit_dependencies: HashMap<git2::Oid, Vec<git2::Oid>>,
-    pub dependent_diffs: HashMap<git2::Oid, Vec<Digest>>,
-}
-
 pub struct CommitDependencies {
     pub dependencies: Vec<git2::Oid>,
     pub reverse_dependencies: Vec<git2::Oid>,
     pub dependent_diffs: Vec<String>,
-}
-
-/// Returns the dependencies of a commit from the stack dependencies.
-pub fn commit_dependencies_from_stack(
-    stack_dependencies: &StackDependencies,
-    commit_id: git2::Oid,
-) -> CommitDependencies {
-    let dependencies = stack_dependencies
-        .commit_dependencies
-        .get(&commit_id)
-        .cloned()
-        .unwrap_or_default();
-
-    let reverse_dependencies = stack_dependencies
-        .reverse_commit_dependencies
-        .get(&commit_id)
-        .cloned()
-        .unwrap_or_default();
-
-    let dependent_diffs = stack_dependencies
-        .dependent_diffs
-        .get(&commit_id)
-        .map(|v| {
-            v.iter()
-                .map(|hunk_hash| format!("{:x}", hunk_hash).to_string())
-                .collect()
-        })
-        .unwrap_or_default();
-
-    CommitDependencies {
-        dependencies,
-        reverse_dependencies,
-        dependent_diffs,
-    }
-}
-
-/// Returns the dependencies of a stack from the workspace dependencies.
-pub fn stack_dependencies_from_workspace(
-    workspace_dependencies: &HunkDependencyResult,
-    stack_id: StackId,
-) -> StackDependencies {
-    let commit_dependencies = workspace_dependencies
-        .commit_dependencies
-        .get(&stack_id)
-        .unwrap_or(&Default::default())
-        .iter()
-        .map(|(commit_id, dependencies)| (*commit_id, dependencies.iter().cloned().collect()))
-        .collect();
-
-    let reverse_commit_dependencies = workspace_dependencies
-        .inverse_commit_dependencies
-        .get(&stack_id)
-        .unwrap_or(&Default::default())
-        .iter()
-        .map(|(commit_id, dependencies)| (*commit_id, dependencies.iter().cloned().collect()))
-        .collect();
-
-    let dependent_diffs = workspace_dependencies
-        .commit_dependent_diffs
-        .get(&stack_id)
-        .unwrap_or(&Default::default())
-        .iter()
-        .map(|(commit_id, hunk_hashes)| (*commit_id, hunk_hashes.iter().cloned().collect()))
-        .collect();
-
-    StackDependencies {
-        commit_dependencies,
-        reverse_commit_dependencies,
-        dependent_diffs,
-    }
 }
 
 /// Returns the dependencies of a commit from the workspace dependencies.

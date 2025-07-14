@@ -1,11 +1,6 @@
-use crate::{
-    commit::VirtualBranchCommit, dependencies::stack_dependencies_from_workspace,
-    file::VirtualBranchFile, hunk::VirtualBranchHunk, remote::branch_to_remote_branch,
-    stack::stack_series, status::get_applied_status_cached, RemoteBranchData, VirtualBranchesExt,
-};
+use crate::{hunk::VirtualBranchHunk, status::get_applied_status_cached, VirtualBranchesExt};
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::{BString, ByteSlice};
-use but_core::commit::ConflictEntries;
 use but_rebase::RebaseStep;
 use but_workspace::stack_ext::StackExt;
 use gitbutler_branch::dedup;
@@ -14,13 +9,10 @@ use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
 use gitbutler_diff::GitHunk;
-use gitbutler_hunk_dependency::RangeCalculationError;
-use gitbutler_operating_modes::assure_open_workspace_mode;
 use gitbutler_oxidize::{
     git2_signature_to_gix_signature, git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt,
     ObjectIdExt, OidExt,
 };
-use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
 use gitbutler_repo::{
@@ -35,81 +27,6 @@ use gitbutler_time::time::now_since_unix_epoch_ms;
 use itertools::Itertools;
 use serde::Serialize;
 use std::{collections::HashMap, path::PathBuf, vec};
-use tracing::instrument;
-
-// this struct is a mapping to the view `Branch` type in Typescript
-// found in src-tauri/src/routes/repo/[project_id]/types.ts
-// it holds a materialized view for presentation purposes of the Branch struct in Rust
-// which is our persisted data structure for virtual branches
-//
-// it is not persisted, it is only used for presentation purposes through the ipc
-//
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-#[allow(clippy::struct_excessive_bools)]
-pub struct VirtualBranch {
-    pub id: StackId,
-    pub name: String,
-    pub notes: String,
-    pub active: bool,
-    pub files: Vec<VirtualBranchFile>,
-    pub requires_force: bool, // does this branch require a force push to the upstream?
-    pub conflicted: bool, // is this branch currently in a conflicted state (only for the workspace)
-    pub order: usize,     // the order in which this branch should be displayed in the UI
-    pub upstream: Option<RemoteBranchData>, // the upstream branch where this branch pushes to, if any
-    pub upstream_name: Option<String>, // the upstream branch where this branch will push to on next push
-    pub base_current: bool, // is this vbranch based on the current base branch? if false, this needs to be manually merged with conflicts
-    /// The hunks (as `[(file, [hunks])]`) which are uncommitted but assigned to this branch.
-    /// This makes them committable.
-    pub ownership: BranchOwnershipClaims,
-    pub updated_at: u128,
-    pub selected_for_changes: bool,
-    pub allow_rebasing: bool,
-    #[serde(with = "gitbutler_serde::oid")]
-    pub head: git2::Oid,
-    /// The merge base between the target branch and the virtual branch
-    #[serde(with = "gitbutler_serde::oid")]
-    pub merge_base: git2::Oid,
-    /// The fork point between the target branch and the virtual branch
-    #[serde(with = "gitbutler_serde::oid_opt", default)]
-    pub fork_point: Option<git2::Oid>,
-    pub refname: Refname,
-    #[serde(with = "gitbutler_serde::oid")]
-    pub tree: git2::Oid,
-    /// New way to group commits into a multiple patch series
-    /// Most recent entries are first in order
-    pub series: Vec<Result<PatchSeries, serde_error::Error>>,
-}
-
-/// A grouping that combines multiple commits into a patch series
-///
-/// We deviate slightly from established language as we are transitioning from lanes representing
-/// independent branches to representing independent stacks of dependent patch series (branches).
-#[derive(Debug, PartialEq, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PatchSeries {
-    pub name: String,
-    pub description: Option<String>,
-    pub upstream_reference: Option<String>,
-    /// List of patches beloning to this series, from newest to oldest
-    pub patches: Vec<VirtualBranchCommit>,
-    /// List of patches that only exist on the upstream branch
-    pub upstream_patches: Vec<VirtualBranchCommit>,
-    /// The pull request associated with the branch, or None if a pull request has not been created.
-    pub pr_number: Option<usize>,
-    /// Archived represents the state when series/branch has been integrated and is below the merge base of the branch.
-    /// This would occur when the branch has been merged at the remote and the workspace has been updated with that change.
-    pub archived: bool,
-    pub review_id: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct VirtualBranches {
-    pub branches: Vec<VirtualBranch>,
-    pub skipped_files: Vec<gitbutler_diff::FileDiff>,
-    pub dependency_errors: Vec<RangeCalculationError>,
-}
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -137,21 +54,6 @@ fn find_base_tree<'a>(
     Ok(base_tree)
 }
 
-#[derive(Debug)]
-pub struct StackListResult {
-    pub branches: Vec<VirtualBranch>,
-    pub skipped_files: Vec<gitbutler_diff::FileDiff>,
-    pub dependency_errors: Vec<RangeCalculationError>,
-}
-
-pub fn list_virtual_branches(
-    ctx: &CommandContext,
-    perm: &mut WorktreeWritePermission,
-) -> Result<StackListResult> {
-    let diffs = gitbutler_diff::workdir(ctx.repo(), but_workspace::head(ctx)?)?;
-    list_virtual_branches_cached(ctx, perm, &diffs)
-}
-
 impl From<but_workspace::ui::Author> for crate::author::Author {
     fn from(value: but_workspace::ui::Author) -> Self {
         crate::author::Author {
@@ -160,196 +62,6 @@ impl From<but_workspace::ui::Author> for crate::author::Author {
             gravatar_url: value.gravatar_url,
         }
     }
-}
-
-impl From<but_workspace::ui::Commit> for VirtualBranchCommit {
-    fn from(c: but_workspace::ui::Commit) -> Self {
-        let remote_commit_id = match c.state {
-            but_workspace::ui::CommitState::LocalAndRemote(remote_commit_id) => {
-                Some(remote_commit_id.to_git2())
-            }
-            _ => None,
-        };
-        VirtualBranchCommit {
-            id: c.id.to_git2(),
-            description: c.message.into(),
-            created_at: c.created_at as u128,
-            author: c.author.into(),
-            is_remote: false,
-            is_local_and_remote: matches!(
-                c.state,
-                but_workspace::ui::CommitState::LocalAndRemote(_)
-            ),
-            is_integrated: matches!(c.state, but_workspace::ui::CommitState::Integrated),
-            parent_ids: c.parent_ids.iter().map(|p| p.to_git2()).collect(),
-            branch_id: StackId::default(),
-            change_id: None,
-            is_signed: false,
-            conflicted: c.has_conflicts,
-            copied_from_remote_id: None,
-            remote_commit_id,
-            conflicted_files: ConflictEntries {
-                ancestor_entries: vec![],
-                our_entries: vec![],
-                their_entries: vec![],
-            },
-            dependencies: vec![],
-            reverse_dependencies: vec![],
-            dependent_diffs: vec![],
-        }
-    }
-}
-
-/// `worktree_changes` are all changed files against the current `HEAD^{tree}` and index
-/// against the current working tree directory, and it's used to avoid double-computing
-/// this expensive information.
-#[instrument(level = tracing::Level::DEBUG, skip(ctx, perm, worktree_changes))]
-pub fn list_virtual_branches_cached(
-    ctx: &CommandContext,
-    // TODO(ST): this should really only shared access, but there is some internals
-    //           that conditionally write things.
-    perm: &mut WorktreeWritePermission,
-    worktree_changes: &gitbutler_diff::DiffByPathMap,
-) -> Result<StackListResult> {
-    assure_open_workspace_mode(ctx)
-        .context("Listing virtual branches requires open workspace mode")?;
-    let mut branches: Vec<VirtualBranch> = Vec::new();
-
-    let vb_state = ctx.project().virtual_branches();
-
-    let default_target = vb_state
-        .get_default_target()
-        .context("failed to get default target")?;
-
-    let status = get_applied_status_cached(ctx, Some(perm), worktree_changes)?;
-    let max_selected_for_changes = status
-        .branches
-        .iter()
-        .filter_map(|(branch, _)| branch.selected_for_changes)
-        .max()
-        .unwrap_or(-1);
-
-    let branches_span =
-        tracing::debug_span!("handle branches", num_branches = status.branches.len()).entered();
-    let repo = ctx.repo();
-    let gix_repo = ctx.gix_repo_for_merging_non_persisting()?;
-    // We will perform virtual merges, no need to write them to the ODB.
-    let cache = gix_repo.commit_graph_if_enabled()?;
-    let mut graph = gix_repo.revision_graph(cache.as_ref());
-    for (mut branch, mut files) in status.branches {
-        let upstream_branch = match &branch.upstream {
-            Some(upstream) => repo.maybe_find_branch_by_refname(&Refname::from(upstream))?,
-            None => None,
-        };
-
-        // find all commits on head that are not on target.sha
-        let commits = repo.log(
-            branch.head_oid(&gix_repo)?.to_git2(),
-            LogUntil::Commit(default_target.sha),
-            false,
-        )?;
-        let mut check_commit =
-            IsCommitIntegrated::new(ctx, &default_target, &gix_repo, &mut graph)?;
-
-        let merge_base = gix_repo
-            .merge_base_with_graph(
-                default_target.sha.to_gix(),
-                branch.head_oid(&gix_repo)?,
-                check_commit.graph,
-            )
-            .context("failed to find merge base")?;
-        let merge_base = gix_to_git2_oid(merge_base);
-        let base_current = true;
-
-        let raw_remotes = repo.remotes()?;
-        let remotes: Vec<_> = raw_remotes.into_iter().flatten().collect();
-        let upstream = upstream_branch
-            .map(|upstream_branch| branch_to_remote_branch(ctx, &upstream_branch, &remotes))
-            .transpose()?;
-
-        let path_claim_positions: HashMap<&PathBuf, usize> = branch
-            .ownership
-            .claims
-            .iter()
-            .enumerate()
-            .map(|(index, ownership_claim)| (&ownership_claim.file_path, index))
-            .collect();
-
-        files.sort_by(|a, b| {
-            path_claim_positions
-                .get(&a.path)
-                .unwrap_or(&usize::MAX)
-                .cmp(path_claim_positions.get(&b.path).unwrap_or(&usize::MAX))
-        });
-        let mut requires_force = is_requires_force(ctx, &branch, &gix_repo)?;
-
-        let fork_point = commits
-            .last()
-            .and_then(|c| c.parent(0).ok())
-            .map(|c| c.id());
-
-        let refname = branch.refname()?.into();
-
-        let stack_dependencies =
-            stack_dependencies_from_workspace(&status.workspace_dependencies, branch.id);
-
-        // TODO: Error out here once this API is stable
-        let (series, force) = stack_series(
-            ctx,
-            &mut branch,
-            &default_target,
-            &mut check_commit,
-            stack_dependencies,
-        );
-
-        if series
-            .iter()
-            .cloned()
-            .filter_map(Result::ok)
-            .any(|s| s.upstream_reference.is_some())
-        {
-            requires_force = force // derive force requirement from the series
-        }
-
-        let head = branch.head_oid(&gix_repo)?;
-        let tree = branch.tree(ctx)?;
-        let branch = VirtualBranch {
-            id: branch.id,
-            name: branch.name,
-            notes: branch.notes,
-            active: true,
-            files,
-            order: branch.order,
-            requires_force,
-            upstream,
-            upstream_name: branch
-                .upstream
-                .and_then(|r| Refname::from(r).branch().map(Into::into)),
-            conflicted: false, // TODO: Get this from the index
-            base_current,
-            ownership: branch.ownership,
-            updated_at: branch.updated_timestamp_ms,
-            selected_for_changes: branch.selected_for_changes == Some(max_selected_for_changes),
-            allow_rebasing: branch.allow_rebasing,
-            head: head.to_git2(),
-            merge_base,
-            fork_point,
-            refname,
-            tree,
-            series,
-        };
-        branches.push(branch);
-    }
-    drop(branches_span);
-
-    let mut branches = branches_with_large_files_abridged(branches);
-    branches.sort_by(|a, b| a.order.cmp(&b.order));
-
-    Ok(StackListResult {
-        branches,
-        skipped_files: status.skipped_files,
-        dependency_errors: status.workspace_dependencies.errors,
-    })
 }
 
 /// The commit-data we can use for comparison to see which remote-commit was used to craete
@@ -370,46 +82,6 @@ impl TryFrom<&git2::Commit<'_>> for CommitData {
             author: git2_signature_to_gix_signature(commit.author()),
         })
     }
-}
-
-fn branches_with_large_files_abridged(mut branches: Vec<VirtualBranch>) -> Vec<VirtualBranch> {
-    for branch in &mut branches {
-        for file in &mut branch.files {
-            // Diffs larger than 500kb are considered large
-            if file.hunks.iter().any(|hunk| hunk.diff.len() > 500_000) {
-                file.large = true;
-                file.hunks.iter_mut().for_each(|hunk| {
-                    hunk.diff.drain(..);
-                });
-            }
-        }
-    }
-    branches
-}
-
-fn is_requires_force(ctx: &CommandContext, stack: &Stack, repo: &gix::Repository) -> Result<bool> {
-    let upstream = if let Some(upstream) = &stack.upstream {
-        upstream
-    } else {
-        return Ok(false);
-    };
-
-    let reference = match ctx.repo().refname_to_id(&upstream.to_string()) {
-        Ok(reference) => reference,
-        Err(err) if err.code() == git2::ErrorCode::NotFound => return Ok(false),
-        Err(other) => return Err(other).context("failed to find upstream reference"),
-    };
-
-    let upstream_commit = ctx
-        .repo()
-        .find_commit(reference)
-        .context("failed to find upstream commit")?;
-
-    let merge_base = ctx
-        .repo()
-        .merge_base(upstream_commit.id(), stack.head_oid(repo)?.to_git2())?;
-
-    Ok(merge_base != upstream_commit.id())
 }
 
 pub fn update_stack(ctx: &CommandContext, update: &BranchUpdateRequest) -> Result<Stack> {

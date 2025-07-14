@@ -48,14 +48,6 @@ pub(crate) mod state {
                         payload: serde_json::json!({}),
                         project_id,
                     },
-                    Change::VirtualBranches {
-                        project_id,
-                        virtual_branches,
-                    } => ChangeForFrontend {
-                        name: format!("project://{}/virtual-branches", project_id),
-                        payload: serde_json::json!(virtual_branches),
-                        project_id,
-                    },
                     Change::WorktreeChanges {
                         project_id,
                         changes,
