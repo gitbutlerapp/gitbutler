@@ -1,4 +1,4 @@
-import { getColorFromCommitState } from '$components/v3/lib';
+import { getColorFromCommitState } from '$components/lib';
 import { type CommitStatusType } from '$lib/commits/commit';
 import { FileDropData, ChangeDropData, type DropData } from '$lib/dragging/draggables';
 import { getFileIcon } from '@gitbutler/ui/file/getFileIcon';

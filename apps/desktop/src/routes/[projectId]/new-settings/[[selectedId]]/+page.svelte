@@ -4,8 +4,8 @@
 	import CloudProjectSettings from '$components/CloudProjectSettings.svelte';
 	import GitForm from '$components/GitForm.svelte';
 	import PreferencesForm from '$components/PreferencesForm.svelte';
-	import SettingsPages, { type Page } from '$components/v3/SettingsPages.svelte';
-	import GeneralSettings from '$components/v3/projectSettings/GeneralSettings.svelte';
+	import SettingsPages, { type Page } from '$components/SettingsPages.svelte';
+	import GeneralSettings from '$components/projectSettings/GeneralSettings.svelte';
 	import { newProjectSettingsPath } from '$lib/routes/routes.svelte';
 
 	const pages: Page[] = [

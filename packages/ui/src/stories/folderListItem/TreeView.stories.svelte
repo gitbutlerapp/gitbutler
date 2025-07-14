@@ -32,7 +32,7 @@
 		/>
 		<FileListItemV3
 			showCheckbox={args.checkboxes}
-			filePath="src/components/v3/FileTreeNode.svelte"
+			filePath="src/components/FileTreeNode.svelte"
 			draggable
 			listMode="tree"
 			depth={1}
@@ -48,14 +48,14 @@
 		<FileListItemV3
 			showCheckbox={args.checkboxes}
 			depth={2}
-			filePath="src/components/v3/List.svelte"
+			filePath="src/components/List.svelte"
 			draggable
 			listMode="tree"
 		/>
 		<FileListItemV3
 			showCheckbox={args.checkboxes}
 			depth={2}
-			filePath="src/components/v3/lib.js"
+			filePath="src/components/lib.js"
 			draggable
 			listMode="tree"
 		/>
