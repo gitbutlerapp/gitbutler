@@ -12,6 +12,7 @@
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import toasts from '@gitbutler/ui/toasts';
+	import { tick } from 'svelte';
 
 	type Props = {
 		projectId: string;
@@ -33,6 +34,8 @@
 	const [createCommitInStack, commitCreation] = stackService.createCommit({});
 
 	const runCommitHooks = $derived(projectRunCommitHooks(projectId));
+
+	let isCooking = $state(false);
 
 	async function runPreHook(changes: DiffSpec[]): Promise<boolean> {
 		if (!$runCommitHooks) return false;
@@ -98,93 +101,104 @@
 	let input = $state<ReturnType<typeof CommitMessageEditor>>();
 
 	async function createCommit(message: string) {
-		let finalStackId = stackId;
-		let finalBranchName = commitAction?.branchName || topBranchName;
-		const parentId = commitAction?.parentCommitId;
+		if (isCooking) {
+			showToast({ message: 'Commit is already in progress', style: 'error' });
+			return;
+		}
 
-		if (!finalStackId) {
-			const stack = await createNewStack({
+		isCooking = true;
+		await tick();
+		try {
+			let finalStackId = stackId;
+			let finalBranchName = commitAction?.branchName || topBranchName;
+			const parentId = commitAction?.parentCommitId;
+
+			if (!finalStackId) {
+				const stack = await createNewStack({
+					projectId,
+					branch: { name: draftBranchName, order: 0 }
+				});
+				finalStackId = stack.id;
+				projectState.stackId.set(finalStackId);
+				finalBranchName = stack.heads[0]?.name; // Updated to access the name property
+				uiState.global.draftBranchName.set(undefined);
+			}
+
+			if (!finalStackId) {
+				throw new Error('No stack selected!');
+			}
+
+			if (!finalBranchName) {
+				throw new Error('No branch selected!');
+			}
+
+			const worktreeChanges = await uncommittedService.worktreeChanges(projectId, stackId);
+
+			const preHookFailed = await runPreHook(worktreeChanges);
+			if (preHookFailed) return;
+
+			// Get current editor mode from the component instance
+			const isRichTextMode = input?.isRichTextMode?.() || false;
+
+			// Await analytics data before creating commit
+			const analyticsProperties = await commitAnalytics.getCommitProperties({
 				projectId,
-				branch: { name: draftBranchName, order: 0 }
-			});
-			finalStackId = stack.id;
-			projectState.stackId.set(finalStackId);
-			finalBranchName = stack.heads[0]?.name; // Updated to access the name property
-			uiState.global.draftBranchName.set(undefined);
-		}
-
-		if (!finalStackId) {
-			throw new Error('No stack selected!');
-		}
-
-		if (!finalBranchName) {
-			throw new Error('No branch selected!');
-		}
-
-		const worktreeChanges = await uncommittedService.worktreeChanges(projectId, stackId);
-
-		const preHookFailed = await runPreHook(worktreeChanges);
-		if (preHookFailed) return;
-
-		// Get current editor mode from the component instance
-		const isRichTextMode = input?.isRichTextMode?.() || false;
-
-		// Await analytics data before creating commit
-		const analyticsProperties = await commitAnalytics.getCommitProperties({
-			projectId,
-			stackId: finalStackId,
-			selectedBranchName: finalBranchName,
-			message,
-			parentId,
-			isRichTextMode
-		});
-
-		const response = await createCommitInStack(
-			{
-				projectId,
-				parentId,
 				stackId: finalStackId,
-				message: message,
-				stackBranchName: finalBranchName,
-				worktreeChanges
-			},
-			{ properties: analyticsProperties }
-		);
+				selectedBranchName: finalBranchName,
+				message,
+				parentId,
+				isRichTextMode
+			});
 
-		const postHookFailed = await runPostHook();
-		if (postHookFailed) return;
-
-		const newId = response.newCommit;
-
-		if (newId) {
-			// Clear saved state for commit message editor.
-			projectState.commitTitle.set('');
-			projectState.commitDescription.set('');
-
-			// Close the drawer.
-			projectState.exclusiveAction.set(undefined);
-
-			// Clear change/hunk selection used for creating the commit.
-			uncommittedService.clearHunkSelection();
-		}
-
-		if (response.pathsToRejectedChanges.length > 0) {
-			const pathsToRejectedChanges = response.pathsToRejectedChanges.reduce(
-				(acc: Record<string, RejectionReason>, [reason, path]) => {
-					acc[path] = reason;
-					return acc;
+			const response = await createCommitInStack(
+				{
+					projectId,
+					parentId,
+					stackId: finalStackId,
+					message: message,
+					stackBranchName: finalBranchName,
+					worktreeChanges
 				},
-				{}
+				{ properties: analyticsProperties }
 			);
 
-			uiState.global.modal.set({
-				type: 'commit-failed',
-				projectId,
-				targetBranchName: finalBranchName,
-				newCommitId: newId ?? undefined,
-				commitTitle: projectState.commitTitle.current,
-				pathsToRejectedChanges
-			});
+			const postHookFailed = await runPostHook();
+			if (postHookFailed) return;
+
+			const newId = response.newCommit;
+
+			if (newId) {
+				// Clear saved state for commit message editor.
+				projectState.commitTitle.set('');
+				projectState.commitDescription.set('');
+
+				// Close the drawer.
+				projectState.exclusiveAction.set(undefined);
+
+				// Clear change/hunk selection used for creating the commit.
+				uncommittedService.clearHunkSelection();
+			}
+
+			if (response.pathsToRejectedChanges.length > 0) {
+				const pathsToRejectedChanges = response.pathsToRejectedChanges.reduce(
+					(acc: Record<string, RejectionReason>, [reason, path]) => {
+						acc[path] = reason;
+						return acc;
+					},
+					{}
+				);
+
+				uiState.global.modal.set({
+					type: 'commit-failed',
+					projectId,
+					targetBranchName: finalBranchName,
+					newCommitId: newId ?? undefined,
+					commitTitle: projectState.commitTitle.current,
+					pathsToRejectedChanges
+				});
+			}
+		} finally {
+			isCooking = false;
 		}
 	}
 
@@ -239,7 +253,7 @@
 			onChange={({ title, description }) => handleMessageUpdate(title, description)}
 			onCancel={cancel}
 			disabledAction={!canCommit}
-			loading={commitCreation.current.isLoading || newStackResult.current.isLoading}
+			loading={commitCreation.current.isLoading || newStackResult.current.isLoading || isCooking}
 			title={projectState.commitTitle.current}
 			description={projectState.commitDescription.current}
 		/>
