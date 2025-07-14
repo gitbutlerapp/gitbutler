@@ -520,14 +520,14 @@
 		align-items: center;
 		justify-content: flex-start;
 		height: var(--lexical-input-client-toolbar-height);
-		padding: 0 12px;
+		padding: 0 8px;
 		gap: 6px;
 
 		&:after {
 			position: absolute;
 			top: 0;
-			left: 12px;
-			width: calc(100% - 24px);
+			left: 8px;
+			width: calc(100% - 16px);
 			height: 1px;
 			background-color: var(--clr-border-3);
 			content: '';
