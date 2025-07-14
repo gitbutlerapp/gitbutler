@@ -208,14 +208,7 @@
 			<!-- We need to use sortedChanges here because otherwise we will end up
 		with incorrect indexes -->
 			{@const node = abbreviateFolders(changesToFileTree(sortedChanges))}
-			<FileTreeNode
-				isRoot
-				{stackId}
-				{node}
-				{showCheckboxes}
-				changes={sortedChanges}
-				{fileTemplate}
-			/>
+			<FileTreeNode isRoot {stackId} {node} {showCheckboxes} {fileTemplate} />
 		{:else}
 			<LazyloadContainer
 				minTriggerCount={80}
