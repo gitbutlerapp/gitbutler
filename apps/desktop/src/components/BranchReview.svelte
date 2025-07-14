@@ -5,7 +5,6 @@
 	import ReviewCreationControls from '$components/ReviewCreationControls.svelte';
 	import StackedPullRequestCard from '$components/StackedPullRequestCard.svelte';
 	import CanPublishReviewPlugin from '$components/v3/CanPublishReviewPlugin.svelte';
-	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { syncBrToPr } from '$lib/forge/brToPrSync.svelte';
 	import { syncPrToBr } from '$lib/forge/prToBrSync.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -35,8 +34,6 @@
 
 	const stackService = getContext(StackService);
 	const uiState = getContext(UiState);
-	const settingsService = getContext(SettingsService);
-	const settingsStore = settingsService.appSettings;
 	const commits = $derived(
 		stackId ? stackService.commits(projectId, stackId, branchName) : undefined
 	);
@@ -147,15 +144,11 @@
 		<Button
 			testId={TestId.CreateReviewButton}
 			onclick={() => {
-				if ($settingsStore?.featureFlags.v3) {
-					uiState.project(projectId).exclusiveAction.set({
-						type: 'create-pr',
-						stackId,
-						branchName
-					});
-				} else {
-					modal?.show();
-				}
+				uiState.project(projectId).exclusiveAction.set({
+					type: 'create-pr',
+					stackId,
+					branchName
+				});
 			}}
 			kind="outline"
 			{disabled}

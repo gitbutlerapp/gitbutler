@@ -15,7 +15,7 @@
 		if ($mode?.type === 'Edit') {
 			editModeMetadata = $mode.subject;
 		} else {
-			goto(`/${project.id}/board`);
+			goto(`/${project.id}`);
 		}
 	});
 </script>
