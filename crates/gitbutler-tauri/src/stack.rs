@@ -106,7 +106,7 @@ pub fn push_stack(
     project_id: ProjectId,
     stack_id: StackId,
     with_force: bool,
-    branch: Option<String>,
+    branch: String,
 ) -> Result<(), Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;

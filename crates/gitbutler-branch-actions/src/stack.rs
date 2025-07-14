@@ -165,7 +165,7 @@ pub fn push_stack(
     ctx: &CommandContext,
     stack_id: StackId,
     with_force: bool,
-    branch_limit: Option<String>,
+    branch_limit: String,
 ) -> Result<()> {
     ctx.verify(ctx.project().exclusive_worktree_access().write_permission())?;
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
@@ -211,11 +211,9 @@ pub fn push_stack(
             None,
             Some(Some(stack.id)),
         )?;
-        if let Some(limit) = &branch_limit {
-            // Push only up to the specified branch limit (inclusive)
-            if branch.name().eq(limit) {
-                break;
-            }
+
+        if branch.name().eq(&branch_limit) {
+            break;
         }
     }
     Ok(())

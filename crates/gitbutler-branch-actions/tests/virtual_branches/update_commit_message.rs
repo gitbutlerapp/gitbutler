@@ -171,7 +171,13 @@ fn forcepush_allowed() {
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap()
     };
 
-    gitbutler_branch_actions::stack::push_stack(ctx, stack_entry.id, false, None).unwrap();
+    gitbutler_branch_actions::stack::push_stack(
+        ctx,
+        stack_entry.id,
+        false,
+        stack_entry.name().map(|n| n.to_string()).unwrap(),
+    )
+    .unwrap();
 
     gitbutler_branch_actions::update_commit_message(
         ctx,
