@@ -198,51 +198,26 @@ pub fn series(project: Project, stack_name: String, new_series_name: String) -> 
 pub fn commit(project: Project, branch_name: String, message: String) -> Result<()> {
     let ctx = CommandContext::open(&project, AppSettings::default())?;
     let stack = stack_by_name(&project, &branch_name)?;
-    let list_result = gitbutler_branch_actions::list_virtual_branches(&ctx)?;
+    let (_, d) = stacks(&ctx)?
+        .into_iter()
+        .find(|(i, _)| *i == stack.id)
+        .unwrap();
 
-    if !list_result.skipped_files.is_empty() {
-        eprintln!(
-            "{} files could not be processed (binary or large size)",
-            list_result.skipped_files.len()
-        )
-    }
+    let repo = ctx.gix_repo()?;
+    let worktree = but_core::diff::worktree_changes(&repo)?;
+    let file_changes: Vec<but_workspace::DiffSpec> =
+        worktree.changes.iter().map(Into::into).collect::<Vec<_>>();
 
-    let target_branch = list_result
-        .branches
-        .iter()
-        .find(|b| b.id == stack.id)
-        .expect("A populated branch exists for a branch we can list");
-    if target_branch.ownership.claims.is_empty() {
-        bail!(
-            "Branch '{branch_name}' has no change to commit{hint}",
-            hint = {
-                let candidate_names = list_result
-                    .branches
-                    .iter()
-                    .filter_map(|b| (!b.ownership.claims.is_empty()).then_some(b.name.as_str()))
-                    .collect::<Vec<_>>();
-                let mut candidates = candidate_names.join(", ");
-                if !candidate_names.is_empty() {
-                    candidates = format!(
-                        ". {candidates} {have} changes.",
-                        have = if candidate_names.len() == 1 {
-                            "has"
-                        } else {
-                            "have"
-                        }
-                    )
-                };
-                candidates
-            }
-        )
-    }
-
-    debug_print(gitbutler_branch_actions::create_commit(
+    let outcome = but_workspace::commit_engine::create_commit_simple(
         &ctx,
         stack.id,
-        &message,
-        Some(&target_branch.ownership),
-    )?)
+        None,
+        file_changes,
+        message,
+        d.derived_name,
+        ctx.project().exclusive_worktree_access().write_permission(),
+    )?;
+    debug_print(outcome)
 }
 
 fn stack_by_name(project: &Project, name: &str) -> Result<Stack> {

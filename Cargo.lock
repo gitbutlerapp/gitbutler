@@ -2858,7 +2858,9 @@ name = "gitbutler-cli"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-core",
  "but-graph",
+ "but-hunk-assignment",
  "but-settings",
  "but-workspace",
  "chrono",
