@@ -77,7 +77,6 @@
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { PatchCommitService as CloudPatchCommitService } from '@gitbutler/shared/patches/patchCommitService';
-	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { UploadsService } from '@gitbutler/shared/uploads/uploadsService';
@@ -141,11 +140,7 @@
 		projectMetrics: data.projectMetrics
 	});
 
-	const uiStateSlice = $derived(clientState.uiState);
-	const uiState = new UiState(
-		reactive(() => uiStateSlice),
-		clientState.dispatch
-	);
+	const uiState = new UiState(clientState.uiState, clientState.dispatch);
 	setContext(UiState, uiState);
 	const intelligentScrollingService = new IntelligentScrollingService(uiState);
 	setContext(IntelligentScrollingService, intelligentScrollingService);

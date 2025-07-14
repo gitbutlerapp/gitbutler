@@ -4,7 +4,7 @@ import { initAnalyticsIfEnabled } from '$lib/analytics/analytics';
 import { EventContext } from '$lib/analytics/eventContext';
 import { PostHogWrapper } from '$lib/analytics/posthog';
 import { CommandService } from '$lib/backend/ipc';
-import { Tauri } from '$lib/backend/tauri';
+import { IS_TAURI_ENV, Tauri } from '$lib/backend/tauri';
 import { loadAppSettings } from '$lib/config/appSettings';
 import { SettingsService } from '$lib/config/appSettingsV2';
 import { GitConfigService } from '$lib/config/gitConfigService';
@@ -37,7 +37,9 @@ export const csr = true;
 export const load: LayoutLoad = async () => {
 	// TODO: Find a workaround to avoid this dynamic import
 	// https://github.com/sveltejs/kit/issues/905
-	const defaultPath = await (await import('@tauri-apps/api/path')).homeDir();
+	const defaultPath = IS_TAURI_ENV
+		? await (await import('@tauri-apps/api/path')).homeDir()
+		: undefined;
 
 	const commandService = new CommandService();
 

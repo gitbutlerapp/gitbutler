@@ -15,6 +15,7 @@
 	import { showError } from '$lib/notifications/toasts';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { uploadFiles } from '@gitbutler/shared/dom';
 	import { persisted } from '@gitbutler/shared/persisted';
@@ -53,9 +54,9 @@
 		enableSmiles?: boolean;
 		enableRichText?: boolean;
 		enableRuler?: boolean;
-		onAiButtonClick: (params: AiButtonClickParams) => void;
-		canUseAI: boolean;
-		aiIsLoading: boolean;
+		onAiButtonClick?: (params: AiButtonClickParams) => void;
+		canUseAI?: boolean;
+		aiIsLoading?: boolean;
 		suggestionsHandler?: CommitSuggestions;
 		testId?: string;
 	}
@@ -215,7 +216,7 @@
 	function handleGenerateMessage() {
 		if (aiIsLoading) return;
 
-		onAiButtonClick({
+		onAiButtonClick?.({
 			useEmojiStyle: $commitGenerationUseEmojis,
 			useBriefStyle: $commitGenerationExtraConcise
 		});
@@ -381,6 +382,7 @@
 					onclick={() => {
 						useFloatingBox.current = !useFloatingBox.current;
 					}}
+					testId={TestId.FloatingModeButton}
 				/>
 				<div class="message-textarea__toolbar__divider"></div>
 				{#if enableSmiles}

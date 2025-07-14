@@ -2,7 +2,6 @@ import { PostHog, posthog, type Properties } from 'posthog-js';
 import type { EventContext } from '$lib/analytics/eventContext';
 import type { SettingsService } from '$lib/config/appSettingsV2';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import { PUBLIC_POSTHOG_API_KEY } from '$env/static/public';
 
 export class PostHogWrapper {
 	private _instance: PostHog | void = undefined;
@@ -18,8 +17,8 @@ export class PostHogWrapper {
 		this._instance?.capture(eventName, newProperties);
 	}
 
-	async init(appName: string, appVersion: string) {
-		this._instance = posthog.init(PUBLIC_POSTHOG_API_KEY, {
+	async init(appName: string, appVersion: string, apiKey: string) {
+		this._instance = posthog.init(apiKey, {
 			api_host: 'https://eu.posthog.com',
 			autocapture: false,
 			disable_session_recording: true,

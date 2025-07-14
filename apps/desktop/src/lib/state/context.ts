@@ -1,6 +1,7 @@
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { EntityState, ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
 import type { CombinedState } from '@reduxjs/toolkit/query';
+import type { Readable } from 'svelte/store';
 
 /**
  *	The api is necessary to create the store, so we need to provide
@@ -11,7 +12,7 @@ import type { CombinedState } from '@reduxjs/toolkit/query';
  */
 export type HookContext = {
 	/** Without the nested function we get looping reactivity.  */
-	getState: () => () => { [k: string]: CombinedState<any, any, any> | EntityState<any, any> };
+	store: Readable<{ [k: string]: CombinedState<any, any, any> | EntityState<any, any> }>;
 	getDispatch: () => ThunkDispatch<any, any, UnknownAction>;
 	posthog?: PostHogWrapper;
 };

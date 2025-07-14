@@ -9,6 +9,7 @@ import {
 	type UnknownAction
 } from '@reduxjs/toolkit';
 import type { RejectionReason } from '$lib/stacks/stackService.svelte';
+import type { Readable } from 'svelte/store';
 
 export type StackSelection = {
 	branchName: string;
@@ -140,11 +141,11 @@ export class UiState {
 	});
 
 	constructor(
-		reactiveState: Reactive<typeof this.state>,
+		store: Readable<typeof this.state>,
 		private dispatch: ThunkDispatch<any, any, UnknownAction>
 	) {
-		$effect(() => {
-			this.state = reactiveState.current;
+		store.subscribe((value) => {
+			this.state = value;
 		});
 	}
 
