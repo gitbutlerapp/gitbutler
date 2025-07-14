@@ -51,7 +51,13 @@ fn forcepush_allowed() -> anyhow::Result<()> {
     let commit_id =
         gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "commit one", None).unwrap();
 
-    gitbutler_branch_actions::stack::push_stack(ctx, stack_entry.id, false, None).unwrap();
+    gitbutler_branch_actions::stack::push_stack(
+        ctx,
+        stack_entry.id,
+        false,
+        stack_entry.name().map(|s| s.to_string()).unwrap(),
+    )
+    .unwrap();
 
     {
         // amend another hunk

@@ -1,6 +1,7 @@
 import { clearCommandMocks, mockCommand } from './support';
 import { PROJECT_ID } from './support/mock/projects';
 import BranchesWithChanges from './support/scenarios/branchesWithChanges';
+import StackBranchesWithCommits from './support/scenarios/stackBrancheshWithCommits';
 
 describe('Review', () => {
 	let mockBackend: BranchesWithChanges;
@@ -389,5 +390,300 @@ describe('Review', () => {
 				cy.getByTestId('stacked-pull-request-card').should('be.visible');
 			});
 		}
+	});
+});
+
+describe('Review - stacked branches', () => {
+	let mockBackend: StackBranchesWithCommits;
+
+	beforeEach(() => {
+		mockBackend = new StackBranchesWithCommits();
+
+		mockCommand('stacks', () => mockBackend.getStacks());
+		mockCommand('stack_details', (params) => mockBackend.getStackDetails(params));
+		mockCommand('changes_in_branch', (args) => mockBackend.getBranchChanges(args));
+		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
+		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
+		mockCommand('get_base_branch_data', () => mockBackend.getBaseBranchData());
+		mockCommand('get_available_review_templates', () => mockBackend.getAvailableReviewTemplates());
+		mockCommand('push_stack', (params) => mockBackend.pushStack(params));
+		mockCommand('list_remotes', (params) => mockBackend.listRemotes(params));
+		mockCommand('update_branch_pr_number', (params) => mockBackend.updateBranchPrNumber(params));
+		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
+		mockCommand('get_review_template_contents', (args) => mockBackend.getTemplateContent(args));
+
+		cy.intercept(
+			{
+				method: 'POST',
+				url: 'https://api.github.com/repos/example/repo/pulls'
+			},
+			(req) => {
+				const prNumber = req.body.head === mockBackend.bottomBranchName ? 42 : 43;
+				req.reply({
+					statusCode: 201,
+					body: {
+						number: prNumber
+					}
+				});
+			}
+		).as('createPullRequest');
+
+		cy.intercept(
+			{
+				method: 'GET',
+				url: 'https://api.github.com/repos/example/repo/pulls'
+			},
+			{
+				statusCode: 200,
+				body: []
+			}
+		).as('listPullRequests');
+
+		cy.intercept(
+			{
+				method: 'GET',
+				url: 'https://api.github.com/repos/example/repo'
+			},
+			{
+				statusCode: 200
+			}
+		).as('getRepo');
+
+		cy.intercept(
+			{
+				method: 'GET',
+				url: 'https://api.github.com/repos/example/repo/pulls/42'
+			},
+			{
+				statusCode: 200,
+				body: {
+					number: 42,
+					state: 'open'
+				}
+			}
+		).as('getPullRequest42');
+
+		cy.intercept(
+			{
+				method: 'GET',
+				url: 'https://api.github.com/repos/example/repo/pulls/43'
+			},
+			{
+				statusCode: 200,
+				body: {
+					number: 43,
+					state: 'open'
+				}
+			}
+		).as('getPullRequest43');
+
+		cy.intercept(
+			{
+				method: 'GET',
+				url: 'https://api.github.com/repos/example/repo/commits/check-runs'
+			},
+			{
+				statusCode: 200,
+				body: {
+					total_count: 0,
+					check_runs: []
+				}
+			}
+		).as('getChecks');
+
+		cy.intercept(
+			{
+				method: 'PATCH',
+				url: 'https://api.github.com/repos/example/repo/pulls/42'
+			},
+			{
+				statusCode: 200,
+				body: {
+					number: 42,
+					state: 'open'
+				}
+			}
+		).as('updatePullRequest42');
+
+		cy.intercept(
+			{
+				method: 'PATCH',
+				url: 'https://api.github.com/repos/example/repo/pulls/43'
+			},
+			{
+				statusCode: 200,
+				body: {
+					number: 43,
+					state: 'open'
+				}
+			}
+		).as('updatePullRequest43');
+
+		cy.visit('/');
+
+		cy.urlMatches(`/${PROJECT_ID}/workspace`);
+	});
+
+	afterEach(() => {
+		clearCommandMocks();
+	});
+
+	it('Should be able to create a pull request from a stacked branch - bottom up', () => {
+		const prTitle1 = 'Test PR Title';
+		const prDescription1 = 'Test PR Description';
+
+		const prTitle2 = 'Test PR Title 2';
+		const prDescription2 = 'Test PR Description 2';
+
+		// The branch should be applied. Click it.
+		cy.getByTestId('branch-header', mockBackend.bottomBranchName).should('be.visible').click();
+
+		// Both 'create review' buttons should be visible.
+		cy.getByTestId('create-review-button').should('have.length', 3);
+
+		// Click the bottom branch 'create review' button.
+		cy.getByDataValue('series-name', mockBackend.bottomBranchName).within(() => {
+			cy.getByTestId('create-review-button')
+				.should('have.length', 1)
+				.should('be.visible')
+				.should('be.enabled')
+				.click();
+		});
+
+		// The Review Drawer should be visible.
+		cy.getByTestId('create-review-box').should('be.visible').should('have.length', 1);
+
+		// Since this branch has a single commit, the commit message should be pre-filled.
+		// Update both.
+		cy.getByTestId('create-review-box-title-input')
+			.should('be.visible')
+			.should('be.enabled')
+			.should('have.value', mockBackend.getCommitTitle(mockBackend.bottomBranchName))
+			.clear()
+			.type(prTitle1);
+
+		cy.getByTestId('create-review-box-description-input')
+			.should('be.visible')
+			.should('contain', mockBackend.getCommitMessage(mockBackend.bottomBranchName))
+			.click()
+			.clear()
+			.type(prDescription1);
+
+		// Cancel the creation of the review.
+		cy.getByTestId('create-review-box-cancel-button').should('be.visible').click();
+
+		// The Review Drawer should not be visible.
+		cy.getByTestId('create-review-box').should('not.exist');
+
+		// Reopen the Review Drawer.
+		// Click the bottom branch 'create review' button.
+		cy.getByDataValue('series-name', mockBackend.bottomBranchName).within(() => {
+			cy.getByTestId('create-review-button')
+				.should('have.length', 1)
+				.should('be.visible')
+				.should('be.enabled')
+				.click();
+		});
+
+		// The inputs should be persisted
+		cy.getByTestId('create-review-box-title-input')
+			.should('be.visible')
+			.should('be.enabled')
+			.should('have.value', prTitle1);
+
+		cy.getByTestId('create-review-box-description-input')
+			.should('be.visible')
+			.should('contain', prDescription1);
+
+		// The Create Review button should be visible.
+		// Click it.
+		cy.getByTestId('create-review-box-create-button')
+			.should('be.visible')
+			.should('be.enabled')
+			.click();
+
+		cy.wait('@createPullRequest').its('request.body').should('deep.equal', {
+			head: mockBackend.bottomBranchName,
+			base: 'main',
+			title: prTitle1,
+			body: prDescription1,
+			draft: false
+		});
+
+		// The PR card should be visible.
+		cy.getByTestId('stacked-pull-request-card').should('be.visible');
+
+		// Open the top branch.
+		cy.getByTestId('branch-header', mockBackend.topBranchName).should('be.visible').click();
+
+		// The PR card should not be visible for the top branch.
+		cy.getByTestId('stacked-pull-request-card').should('not.exist');
+
+		// Now, open a review for the top branch.
+		cy.getByDataValue('series-name', mockBackend.topBranchName).within(() => {
+			cy.getByTestId('create-review-button')
+				.should('have.length', 1)
+				.should('be.visible')
+				.should('be.enabled')
+				.click();
+		});
+
+		// The Review Drawer should be visible.
+		cy.getByTestId('create-review-box').should('be.visible').should('have.length', 1);
+
+		// Since this branch has a single commit, the commit message should be pre-filled.
+		// Update both.
+		cy.getByTestId('create-review-box-title-input')
+			.should('be.visible')
+			.should('be.enabled')
+			.should('have.value', mockBackend.getCommitTitle(mockBackend.topBranchName))
+			.clear()
+			.type(prTitle2);
+
+		cy.getByTestId('create-review-box-description-input')
+			.should('be.visible')
+			.should('contain', mockBackend.getCommitMessage(mockBackend.topBranchName))
+			.click()
+			.clear()
+			.type(prDescription2);
+
+		// Cancel the creation of the review.
+		cy.getByTestId('create-review-box-cancel-button').should('be.visible').click();
+
+		// The Review Drawer should not be visible.
+		cy.getByTestId('create-review-box').should('not.exist');
+
+		// Reopen the Review Drawer.
+		cy.getByDataValue('series-name', mockBackend.topBranchName).within(() => {
+			cy.getByTestId('create-review-button')
+				.should('have.length', 1)
+				.should('be.visible')
+				.should('be.enabled')
+				.click();
+		});
+
+		// The inputs should be persisted
+		cy.getByTestId('create-review-box-title-input')
+			.should('be.visible')
+			.should('be.enabled')
+			.should('have.value', prTitle2);
+		cy.getByTestId('create-review-box-description-input')
+			.should('be.visible')
+			.should('contain', prDescription2);
+
+		// The Create Review button should be visible.
+		// Click it.
+		cy.getByTestId('create-review-box-create-button')
+			.should('be.visible')
+			.should('be.enabled')
+			.click();
+
+		cy.wait('@createPullRequest').its('request.body').should('deep.equal', {
+			head: mockBackend.topBranchName,
+			base: mockBackend.bottomBranchName,
+			title: prTitle2,
+			body: prDescription2,
+			draft: false
+		});
 	});
 });

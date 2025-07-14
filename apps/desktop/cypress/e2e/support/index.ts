@@ -203,6 +203,12 @@ declare global {
 			 */
 			getByTestIdByValue(testId: TestIdValues, withValue: string): Chainable<JQuery<HTMLElement>>;
 			/**
+			 *  Get an element by its data-* attribute value.
+			 * @param dataName - The data-* attribute name to search for.
+			 * @param value - The value of the data-* attribute to search for.
+			 */
+			getByDataValue(dataName: string, value: string): Chainable<JQuery<HTMLElement>>;
+			/**
 			 * Clear all mocks.
 			 */
 			clearMocks(): void;
@@ -241,6 +247,10 @@ Cypress.Commands.add('getByTestId', (testId: TestIdValues, containingText?: stri
 
 Cypress.Commands.add('getByTestIdByValue', (testId: TestIdValues, withValue: string) => {
 	return cy.get(`[data-testid-${testId}="${withValue}"]`, { timeout: 15000 }).first();
+});
+
+Cypress.Commands.add('getByDataValue', (dataName: string, value: string) => {
+	return cy.get(`[data-${dataName}="${value}"]`, { timeout: 15000 }).first();
 });
 
 Cypress.Commands.add('selectText', (element: Cypress.Chainable<JQuery<HTMLElement>>) => {
