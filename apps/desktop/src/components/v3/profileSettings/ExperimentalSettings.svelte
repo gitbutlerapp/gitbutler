@@ -7,7 +7,6 @@
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
-	import Link from '@gitbutler/ui/link/Link.svelte';
 
 	const settingsService = getContext(SettingsService);
 	const settingsStore = settingsService.appSettings;
@@ -23,39 +22,7 @@
 </p>
 
 <div class="experimental-settings__toggles">
-	<SectionCard labelFor="v3Design" orientation="row" roundedBottom={false}>
-		{#snippet title()}
-			V3 Design
-		{/snippet}
-		{#snippet caption()}
-			<p>Enable the new V3 User Interface.</p>
-			<p>
-				Share your feedback on <Link href="https://discord.gg/MmFkmaJ42D">Discord</Link>, or create
-				a <Link href="https://github.com/gitbutlerapp/gitbutler/issues/new?template=BLANK_ISSUE"
-					>GitHub issue</Link
-				>.
-			</p>
-
-			<p class="clr-text-2">Known issues:</p>
-			<ul class="clr-text-2">
-				<li>- A restart may be needed for the change to fully take effect</li>
-				<li>
-					- It is currently not possible to assign uncommitted changes to a lane
-					<Link href="https://github.com/gitbutlerapp/gitbutler/issues/8637">GitHub Issue</Link>
-				</li>
-			</ul>
-		{/snippet}
-
-		{#snippet actions()}
-			<Toggle
-				id="v3Design"
-				checked={$settingsStore?.featureFlags.v3}
-				onclick={() => settingsService.updateFeatureFlags({ v3: !$settingsStore?.featureFlags.v3 })}
-			/>
-		{/snippet}
-	</SectionCard>
-
-	<SectionCard labelFor="gitbutler-actions" roundedTop={false} orientation="row">
+	<SectionCard labelFor="gitbutler-actions" roundedTop orientation="row">
 		{#snippet title()}
 			GitButler Actions
 		{/snippet}

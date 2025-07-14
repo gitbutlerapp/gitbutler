@@ -47,7 +47,6 @@
 	import { IntelligentScrollingService } from '$lib/intelligentScrolling/service';
 	import { IrcClient } from '$lib/irc/ircClient.svelte';
 	import { IrcService } from '$lib/irc/ircService.svelte';
-	import { platformName } from '$lib/platform/platform';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { PromptService } from '$lib/prompt/promptService';
 	import { RemotesService } from '$lib/remotes/remotesService';
@@ -292,10 +291,6 @@
 	});
 
 	const handleKeyDown = createKeybind({
-		// Toggle v3 design on/off
-		'v 3': () => {
-			settingsService.updateFeatureFlags({ v3: !$settingsStore?.featureFlags.v3 });
-		},
 		// Toggle v3 workspace APIs on/off
 		'w s 3': () => {
 			settingsService.updateFeatureFlags({ ws3: !$settingsStore?.featureFlags.ws3 });
@@ -330,9 +325,6 @@
 />
 
 <div class="app-root" role="application" oncontextmenu={(e) => !dev && e.preventDefault()}>
-	{#if platformName === 'macos' && !$settingsStore?.featureFlags.v3}
-		<div class="drag-region" data-tauri-drag-region></div>
-	{/if}
 	{@render children()}
 </div>
 <Toaster />
@@ -355,14 +347,5 @@
 		display: flex;
 		height: 100%;
 		cursor: default;
-	}
-
-	.drag-region {
-		z-index: var(--z-modal);
-		position: fixed;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 14px;
 	}
 </style>

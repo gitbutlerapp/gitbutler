@@ -6,7 +6,7 @@
 
 	$effect(() => {
 		if (projectId) {
-			goto(`/${projectId}/board`, { replaceState: true });
+			goto(`/${projectId}/workspace`, { replaceState: true });
 		}
 	});
 </script>

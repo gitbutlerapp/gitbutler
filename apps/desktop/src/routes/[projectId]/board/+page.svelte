@@ -3,7 +3,6 @@
 	import Board from '$components/Board.svelte';
 	import Scrollbar from '$components/Scrollbar.svelte';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { ModeService } from '$lib/mode/modeService';
@@ -16,9 +15,6 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const baseRepoResponse = $derived(baseBranchService.repo(project.id));
 	const baseRepo = $derived(baseRepoResponse.current.data);
-
-	const settingsService = getContext(SettingsService);
-	const settingsStore = settingsService.appSettings;
 
 	let viewport: HTMLDivElement | undefined = $state();
 	let contents: HTMLDivElement | undefined = $state();
@@ -53,13 +49,6 @@
 		if ($mode?.type === 'Edit') {
 			// That was causing an incorrect linting error when project.id was accessed inside the reactive block
 			gotoEdit();
-		}
-	});
-
-	// Redirect to workspace if we have enabled V3 feature.
-	$effect(() => {
-		if ($settingsStore?.featureFlags.v3) {
-			goto(`/${project.id}/workspace`);
 		}
 	});
 </script>

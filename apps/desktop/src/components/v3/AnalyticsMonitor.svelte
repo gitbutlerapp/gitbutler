@@ -60,7 +60,7 @@ attached to posthog events.
 
 	$effect(() => {
 		eventContext.update({
-			v3: $settingsService?.featureFlags.v3,
+			v3: true,
 			butlerActions: $settingsService?.featureFlags.actions,
 			ws3: $settingsService?.featureFlags.ws3
 		});

@@ -5,10 +5,7 @@
 	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import History from '$components/History.svelte';
 	import MetricsReporter from '$components/MetricsReporter.svelte';
-	import Navigation from '$components/Navigation.svelte';
 	import NoBaseBranch from '$components/NoBaseBranch.svelte';
-	import NotOnGitButlerBranch from '$components/NotOnGitButlerBranch.svelte';
-	import NowV3Modal from '$components/NowV3Modal.svelte';
 	import ProblemLoadingRepo from '$components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$components/ProjectSettingsMenuAction.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
@@ -356,22 +353,14 @@
 				{:else if baseBranch}
 					{#if $mode?.type === 'OpenWorkspace' || $mode?.type === 'Edit'}
 						<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
-							<NowV3Modal />
-							{#if $settingsStore?.featureFlags.v3}
-								<Chrome {projectId} sidebarDisabled={$mode?.type === 'Edit'}>
-									{@render pageChildren()}
-								</Chrome>
-							{:else}
-								<Navigation {projectId} />
+							<Chrome {projectId} sidebarDisabled={$mode?.type === 'Edit'}>
 								{@render pageChildren()}
-							{/if}
+							</Chrome>
 							{#if $showHistoryView}
 								<History onHide={() => ($showHistoryView = false)} />
 							{/if}
 						</div>
-					{:else if $mode?.type === 'OutsideWorkspace' && !$settingsStore?.featureFlags.v3}
-						<NotOnGitButlerBranch {baseBranch} />
-					{:else if $mode?.type === 'OutsideWorkspace' && $settingsStore?.featureFlags.v3}
+					{:else if $mode?.type === 'OutsideWorkspace'}
 						<NotOnGitButlerBranchV3 {baseBranch} />
 					{/if}
 				{/if}

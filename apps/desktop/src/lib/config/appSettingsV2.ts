@@ -81,8 +81,6 @@ export type TelemetrySettings = {
 };
 
 export type FeatureFlags = {
-	/** Enables the v3 design, as well as the purgatory mode (no uncommitted diff ownership assignments). */
-	v3: boolean;
 	/** Enable the usage of the V3 workspace API */
 	ws3: boolean;
 	/** Enable the usage of GitButler Acitions. */
