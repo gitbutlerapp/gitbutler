@@ -26,7 +26,7 @@ gitbutler-stack.workspace = true
 but-graph.workspace = true
 but-workspace.workspace = true
 but-hunk-assignment.workspace = true
-but-core.workspace = true
+but-core = { workspace = true, features = ["testing"] }
 gitbutler-oxidize.workspace = true
 gix = { workspace = true, features = ["max-performance", "tracing"] }
 dirs-next = "2.0.0"
