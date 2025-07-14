@@ -966,8 +966,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					projectId: string;
 					stackId: string;
 					withForce: boolean;
-					/** if set, it will push up to this branch (inclusive) */
-					branch?: string | undefined;
+					branch: string;
 				}
 			>({
 				extraOptions: {
