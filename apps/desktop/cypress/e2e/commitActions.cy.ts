@@ -457,6 +457,97 @@ describe('Commit Actions', () => {
 		expect(mockBackend.getDiff).to.have.callCount(0);
 	});
 
+	it('Should be able to commit - even if it takes too long and runs hooks', () => {
+		// enable the commit hooks
+		cy.window().then((win) => {
+			win.localStorage.setItem('projectRunCommitHooks_' + PROJECT_ID, 'true');
+		});
+
+		mockCommand('pre_commit_hook_diffspecs', async () => {
+			return await mockBackend.precommitHookDiffspecs(2000);
+		});
+
+		mockCommand('post_commit_hook', async () => {
+			return await mockBackend.postcommitHook(2000);
+		});
+
+		mockCommand('create_commit_from_worktree_changes', async (params) => {
+			return await new Promise((resolve) => {
+				setTimeout(() => {
+					resolve(mockBackend.createCommit(params));
+				}, 2000); // Simulate a delay of 2 seconds
+			});
+		});
+
+		const newCommitMessage = 'New commit message';
+		const newCommitMessageBody = 'New commit message body';
+
+		// spies
+		cy.spy(mockBackend, 'getDiff').as('getDiffSpy');
+		cy.spy(mockBackend, 'precommitHookDiffspecs').as('precommitHookDiffspecsSpy');
+		cy.spy(mockBackend, 'postcommitHook').as('postcommitHookSpy');
+
+		// There should be uncommitted changes
+		cy.getByTestId('uncommitted-changes-file-list').should('be.visible');
+
+		const fileNames = mockBackend.getWorktreeChangesFileNames();
+
+		expect(fileNames).to.have.length(1);
+
+		const fileName = fileNames[0]!;
+
+		cy.getByTestId('file-list-item').first().should('be.visible').should('contain', fileName);
+
+		// Click on the commit button
+		cy.getByTestId('start-commit-button').should('be.visible').should('be.enabled').click();
+
+		// Should open the new commit drawer
+		cy.getByTestId('new-commit-view').should('be.visible');
+
+		// Should have the "Your commit goes here" text
+		cy.getByTestId('your-commit-goes-here').should('be.visible').should('have.class', 'first');
+
+		// Select the file
+		cy.getByTestId('file-list-item').first().get('input[type="checkbox"]').check();
+
+		// Type in a commit message
+		cy.getByTestId('commit-drawer-title-input')
+			.should('be.visible')
+			.should('be.enabled')
+			.should('be.focused')
+			.type(newCommitMessage); // Type the new commit message
+
+		// Type in a description
+		cy.getByTestId('commit-drawer-description-input')
+			.should('be.visible')
+			// .click()
+			.type(newCommitMessageBody); // Type the new commit message body
+
+		// Click on the commit button
+		cy.getByTestId('commit-drawer-action-button').should('be.visible').should('be.enabled').click();
+
+		cy.get('@precommitHookDiffspecsSpy').should('have.callCount', 1);
+
+		// Try to click the commit button again
+		cy.getByTestId('commit-drawer-action-button').click({ force: true });
+
+		cy.get('@precommitHookDiffspecsSpy').should('have.callCount', 1);
+
+		// Commit button should enter the loading state and be unclickable
+		cy.getByTestId('commit-drawer-action-button').should('be.visible').should('be.disabled');
+
+		// Should display the commit rows
+		cy.getByTestId('commit-row').should('have.length', 2);
+		cy.getByTestId('commit-row', newCommitMessage).should('be.visible').click();
+
+		// Should be able to see the commit drawer
+		cy.getByTestId('commit-drawer-title').should('contain', newCommitMessage);
+		cy.getByTestId('commit-drawer-description').should('contain', newCommitMessageBody);
+
+		// Should never get the diff information, because there are no partial changes being committed.
+		expect(mockBackend.getDiff).to.have.callCount(0);
+	});
+
 	it('Should hide the drawer on uncommit from context menu', () => {
 		// Click on the first commit and open the commit menu
 		cy.getByTestId('commit-row')

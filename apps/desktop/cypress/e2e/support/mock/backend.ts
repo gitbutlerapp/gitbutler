@@ -41,6 +41,7 @@ import {
 import { MOCK_BRANCH_STATUSES_RESPONSE, MOCK_INTEGRATION_OUTCOME } from './upstreamIntegration';
 import type { BranchListing } from '$lib/branches/branchListing';
 import type { Commit } from '$lib/branches/v3';
+import type { HookStatus } from '$lib/hooks/hooksService';
 import type { TreeChange, TreeChanges, WorktreeChanges } from '$lib/hunks/change';
 import type { UnifiedDiff } from '$lib/hunks/diff';
 import type { HunkAssignment } from '$lib/hunks/hunk';
@@ -719,5 +720,21 @@ export default class MockBackend {
 		}
 
 		return getMockTemplateContent();
+	}
+
+	public async precommitHookDiffspecs(waitTime: number): Promise<HookStatus> {
+		return await new Promise((resolve) => {
+			setTimeout(() => {
+				resolve({ status: 'success' });
+			}, waitTime);
+		});
+	}
+
+	public async postcommitHook(waitTime: number): Promise<HookStatus> {
+		return await new Promise((resolve) => {
+			setTimeout(() => {
+				resolve({ status: 'success' });
+			}, waitTime);
+		});
 	}
 }
