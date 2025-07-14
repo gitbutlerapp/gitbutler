@@ -17,19 +17,23 @@ export function stickyHeader(
 	node.style.position = 'sticky';
 	node.style.zIndex = 'var(--z-lifted)';
 
+	const BORDER_WIDTH = '0.063rem'; // 1px in rem
+
 	if (align === 'top') {
-		node.style.top = '-1px';
+		node.style.top = `-${BORDER_WIDTH}`;
 	} else {
-		node.style.bottom = '-1px';
+		node.style.bottom = `-${BORDER_WIDTH}`;
 	}
 
 	function applyStickyStyles() {
 		if (unstyled) return;
 
+		node.style.borderBottom = `${BORDER_WIDTH} solid transparent`;
+
 		if (align === 'top') {
-			node.style.borderBottom = '1px solid var(--clr-border-2)';
+			node.style.borderBottom = `${BORDER_WIDTH} solid var(--clr-border-2)`;
 		} else {
-			node.style.borderTop = '1px solid var(--clr-border-2)';
+			node.style.borderTop = `${BORDER_WIDTH} solid var(--clr-border-2)`;
 		}
 	}
 

@@ -140,8 +140,13 @@
 	const changes = $derived(uncommittedService.changesByStackId(stack.id || null));
 
 	let stackViewEl = $state<HTMLDivElement>();
-
 	let compactDiv = $state<HTMLDivElement>();
+
+	let branchContentHeight = $state<number>(0);
+	let branchContentHeightRem = $derived(pxToRem(branchContentHeight, 1));
+
+	let commitContentHeight = $state<number>(0);
+	let commitContentHeightRem = $derived(pxToRem(commitContentHeight, 1));
 
 	let verticalHeight = $state<number>(0);
 	let verticalHeightRem = $derived(pxToRem(verticalHeight, 1));
@@ -153,7 +158,6 @@
 	let minChangedFilesHeight = $state(5);
 	let minPreviewHeight = $derived(previewChangeResult ? 5 : 0);
 
-	let maxDetailsHeight = $derived(verticalHeightRem - minChangedFilesHeight - minPreviewHeight);
 	let maxChangedFilesHeight = $derived(
 		verticalHeightRem - actualDetailsHeightRem - minPreviewHeight
 	);
@@ -256,6 +260,9 @@
 
 	const resizeGroup = new ResizeGroup();
 	const unsetMaxHeight = '25%';
+
+	// State to track if commit is in edit message mode
+	let commitEditMode = $state(false);
 </script>
 
 <!-- ATTENTION -->
@@ -298,6 +305,7 @@
 {#snippet branchView(branchName: string)}
 	<BranchView
 		stackId={stack.id}
+		bind:contentHeight={branchContentHeight}
 		{projectId}
 		{branchName}
 		active={selectedKey?.type === 'branch' &&
@@ -316,7 +324,7 @@
 				persistId="resizer-panel2-details-${stack.id}"
 				defaultValue={undefined}
 				minHeight={minDetailsHeight}
-				maxHeight={maxDetailsHeight}
+				maxHeight={branchContentHeightRem}
 				order={0}
 				imitateBorder
 				hidden={collapsed}
@@ -336,6 +344,8 @@
 			commitId,
 			upstream: !!upstream
 		}}
+		bind:contentHeight={commitContentHeight}
+		bind:isInEditMessageMode={commitEditMode}
 		draggableFiles
 		active={selectedKey?.type === 'commit' && focusedStackId === stack.id}
 		scrollToType="details"
@@ -352,8 +362,8 @@
 				direction="down"
 				imitateBorder
 				persistId="resizer-panel2-details-${stack.id}"
-				minHeight={undefined}
-				maxHeight={maxDetailsHeight}
+				minHeight={commitEditMode ? commitContentHeightRem : 4}
+				maxHeight={commitContentHeightRem}
 				order={0}
 				{resizeGroup}
 			/>
@@ -595,7 +605,9 @@
 							{@const diffData = diffResult.current.data}
 
 							{#if assignedKey?.type === 'worktree' && assignedKey.stackId}
-								{@render assignedChangePreview(assignedKey.stackId)}
+								<ConfigurableScrollableContainer zIndex="var(--z-lifted)">
+									{@render assignedChangePreview(assignedKey.stackId)}
+								</ConfigurableScrollableContainer>
 							{:else if selectedKey}
 								<Drawer bottomBorder>
 									{#snippet header()}
