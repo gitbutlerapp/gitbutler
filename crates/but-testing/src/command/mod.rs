@@ -512,8 +512,8 @@ pub fn ref_info(args: &super::Args, ref_name: Option<&str>, expensive: bool) -> 
     })?;
     let meta = ref_metadata_toml(&project)?;
     debug_print(match ref_name {
-        None => but_workspace::head_info2(&repo, &meta, opts),
-        Some(ref_name) => but_workspace::ref_info2(repo.find_reference(ref_name)?, &meta, opts),
+        None => but_workspace::head_info(&repo, &meta, opts),
+        Some(ref_name) => but_workspace::ref_info(repo.find_reference(ref_name)?, &meta, opts),
     }?)
 }
 

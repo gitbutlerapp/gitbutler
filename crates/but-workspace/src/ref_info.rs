@@ -29,6 +29,7 @@ pub struct Options {
 pub mod ui {
     use std::ops::{Deref, DerefMut};
 
+    use crate::ui;
     use bstr::BString;
     use but_core::ref_metadata;
     use but_graph::CommitFlags;
@@ -179,7 +180,7 @@ pub mod ui {
     }
 
     /// A segment of a commit graph, representing a set of commits exclusively.
-    #[derive(Default, Clone, Eq, PartialEq)]
+    #[derive(Clone, Eq, PartialEq)]
     pub struct Segment {
         /// The unambiguous or disambiguated name of the branch at the tip of the segment, i.e. at the first commit.
         ///
@@ -218,6 +219,8 @@ pub mod ui {
         /// This means one will see the entire workspace, while knowing the focus is on one specific segment.
         /// *Note* that this segment can be listed in *multiple stacks* as it's reachable from multiple 'ahead' segments.
         pub is_entrypoint: bool,
+        /// A derived value to help the UI decide which functions to make available.
+        pub push_status: ui::PushStatus,
         // TODO: Add base?
     }
 
@@ -239,6 +242,7 @@ pub mod ui {
                 remote_tracking_ref_name,
                 metadata,
                 is_entrypoint,
+                push_status,
             } = self;
             f.debug_struct(&format!(
                 "{ep}ref_info::ui::Segment",
@@ -271,6 +275,7 @@ pub mod ui {
                     Some(m) => m,
                 },
             )
+            .field("push_status", push_status)
             .finish()
         }
     }
@@ -290,7 +295,8 @@ pub(crate) mod function {
     use itertools::Itertools;
     use tracing::instrument;
 
-    use super::ui::{LocalCommit, LocalCommitRelation};
+    use super::ui::{Commit, LocalCommit, LocalCommitRelation};
+    use crate::ui::PushStatus;
     use crate::{
         RefInfo, WorkspaceCommit, branch,
         integrated::{IsCommitIntegrated, MergeBaseCommitGraph},
@@ -300,8 +306,8 @@ pub(crate) mod function {
     /// Gather information about the current `HEAD` and the workspace that might be associated with it,
     /// based on data in `repo` and `meta`. Use `options` to further configure the call.
     ///
-    /// For details, see [`ref_info2()`].
-    pub fn head_info2(
+    /// For details, see [`ref_info()`].
+    pub fn head_info(
         repo: &gix::Repository,
         meta: &impl but_core::RefMetadata,
         opts: super::Options,
@@ -320,7 +326,7 @@ pub(crate) mod function {
     /// Make sure the `repo` is initialized with a decently sized Object cache so querying the same commit multiple times will be cheap(er).
     /// Also, **IMPORTANT**, it must use in-memory objects to avoid leaking objects generated during test-merges to disk!
     #[instrument(level = tracing::Level::DEBUG, skip(meta), err(Debug))]
-    pub fn ref_info2(
+    pub fn ref_info(
         mut existing_ref: gix::Reference<'_>,
         meta: &impl but_core::RefMetadata,
         opts: super::Options,
@@ -439,7 +445,6 @@ pub(crate) mod function {
                     .into_iter()
                     .map(|s| ui::Segment::try_from_graph_segment(s, repo, &mut ctx))
                     .collect::<anyhow::Result<_>>()?,
-                stash_status: None,
             })
         }
     }
@@ -472,6 +477,11 @@ pub(crate) mod function {
                 commits_on_remote.iter().map(|c| c.id),
                 ctx,
             )?;
+            let push_status = PushStatus::derive_from_commits(
+                remote_tracking_ref_name.is_some(),
+                &commits,
+                &commits_unique_in_remote_tracking_branch,
+            );
             Ok(Self {
                 ref_name,
                 id: id.index(),
@@ -480,6 +490,7 @@ pub(crate) mod function {
                 commits_unique_in_remote_tracking_branch,
                 metadata,
                 is_entrypoint,
+                push_status,
             })
         }
     }
@@ -716,5 +727,53 @@ pub(crate) mod function {
                 .try_into()
                 .expect("statically known"),
         )
+    }
+
+    impl PushStatus {
+        /// Derive the push-status by looking at commits in the local and remote tracking branches.
+        /// TODO: tests
+        ///       * generally this doesn't currently handle advanced (and possibly fast-forwardable)
+        ///         remotes very well. It doesn't feel like it can be expressed.
+        ///       * It doesn't deal with diverged local/remote branches.
+        ///       * Special cases of remote is merged, and remote tracking branch is deleted after fetch
+        ///         if it was deleted on the remote?
+        fn derive_from_commits(
+            has_remote_tracking_ref: bool,
+            commits: &[LocalCommit],
+            commits_in_remote: &[Commit],
+        ) -> Self {
+            if !has_remote_tracking_ref {
+                // Generally, don't do anything if no remote relationship is set up (anymore).
+                // There may be better ways to deal with this.
+                return PushStatus::CompletelyUnpushed;
+            }
+
+            let first_is_local = commits
+                .first()
+                .is_some_and(|c| matches!(c.relation, LocalCommitRelation::LocalOnly));
+            let everything_integrated_locally = commits
+                .first()
+                .is_some_and(|c| matches!(c.relation, LocalCommitRelation::Integrated));
+            if everything_integrated_locally {
+                PushStatus::Integrated
+            } else if first_is_local {
+                if commits_in_remote.is_empty() {
+                    PushStatus::UnpushedCommits
+                } else {
+                    PushStatus::UnpushedCommitsRequiringForce
+                }
+            } else {
+                // Local commits intersect with remote, either by similarity or identity.
+                if commits
+                    .first()
+                    .is_some_and(|c| matches!(c.relation, LocalCommitRelation::LocalAndRemote(remote_id) if remote_id != c.id)) {
+                    PushStatus::UnpushedCommitsRequiringForce
+                } else {
+                    // TODO: There could be remote commits that can be forwarded to, but that can't be expressed.
+                    //       Probably an update would fix it automatically.
+                    PushStatus::NothingToPush
+                }
+            }
+        }
     }
 }

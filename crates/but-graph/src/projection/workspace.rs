@@ -5,6 +5,7 @@ use std::{
 };
 
 use anyhow::Context;
+use bstr::ByteSlice;
 use but_core::ref_metadata;
 use gix::reference::Category;
 use petgraph::{Direction, prelude::EdgeRef, visit::NodeRef};
@@ -130,6 +131,15 @@ impl Graph {
     /// Typically, that's a previous location of the target segment.
     #[instrument(skip(self), err(Debug))]
     pub fn to_workspace(&self) -> anyhow::Result<Workspace<'_>> {
+        self.to_workspace_inner(true /* allow downgrade */)
+    }
+
+    /// `allow_downgrade` allows to turn a workspace above a selection to be downgraded back to the selection if it turns
+    /// out to be outside the workspace.
+    pub(crate) fn to_workspace_inner(
+        &self,
+        allow_downgrade: bool,
+    ) -> anyhow::Result<Workspace<'_>> {
         let (kind, metadata, mut ws_tip_segment, entrypoint_sidx, entrypoint_first_commit_flags) = {
             let ep = self.lookup_entrypoint()?;
             match ep.segment.workspace_metadata() {
@@ -222,12 +232,10 @@ impl Graph {
             .unwrap_or_default();
 
         // The entrypoint is integrated and has a workspace above it.
-        // Right now we would be using it, but will discard it the entrypoint is *at* or *below* the merge-base,
-        // but only if it doesn't obviously belong to the workspace, by having metadata.
+        // Right now we would be using it, but will discard it the entrypoint is *at* or *below* the merge-base.
         if let Some(((_lowest_base, lowest_base_sidx), ep_sidx)) = ws_lower_bound
-            .filter(|(_, ep_sidx)| {
-                entrypoint_first_commit_flags.contains(CommitFlags::Integrated)
-                    && self[*ep_sidx].metadata.is_none()
+            .filter(|_| {
+                allow_downgrade && entrypoint_first_commit_flags.contains(CommitFlags::Integrated)
             })
             .zip(entrypoint_sidx)
         {
@@ -261,6 +269,12 @@ impl Graph {
             }
         }
 
+        fn segment_name_is_special(s: &Segment) -> bool {
+            s.ref_name
+                .as_ref()
+                .is_some_and(|rn| rn.as_bstr().starts_with_str("refs/heads/gitbutler/"))
+        }
+
         if ws.is_managed() {
             let (_lowest_base, lowest_base_sidx) =
                 ws_lower_bound.map_or((None, None), |(base, sidx)| (Some(base), Some(sidx)));
@@ -276,6 +290,9 @@ impl Graph {
                         entrypoint_sidx,
                         |s| {
                             let stop = true;
+                            if segment_name_is_special(s) {
+                                return !stop;
+                            }
                             // The lowest base is a segment that all stacks will run into.
                             // If we meet it, we are done. Note how we ignored the integration state
                             // as pruning of fully integrated stacks happens later.
@@ -287,10 +304,6 @@ impl Graph {
                             if s.id != stack_top_sidx && Some(s.id) == entrypoint_sidx {
                                 return stop;
                             }
-                            // TODO: test for that!
-                            if s.workspace_metadata().is_some() {
-                                return stop;
-                            }
                             match (
                                 &stack_segment.ref_name,
                                 s.ref_name
@@ -298,7 +311,7 @@ impl Graph {
                                     .filter(|rn| rn.category() == Some(Category::LocalBranch)),
                             ) {
                                 (Some(_), Some(_)) | (None, Some(_)) => stop,
-                                (Some(_), None) | (None, None) => false,
+                                (Some(_), None) | (None, None) => !stop,
                             }
                         },
                         |s| {
@@ -322,13 +335,12 @@ impl Graph {
                     None,
                     |s| {
                         let stop = true;
-                        // TODO: test for that!
-                        if s.workspace_metadata().is_some() {
-                            return stop;
+                        if segment_name_is_special(s) {
+                            return !stop;
                         }
                         match (&start.ref_name, &s.ref_name) {
                             (Some(_), Some(_)) | (None, Some(_)) => stop,
-                            (Some(_), None) | (None, None) => false,
+                            (Some(_), None) | (None, None) => !stop,
                         }
                     },
                     // We keep going until depletion

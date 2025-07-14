@@ -290,7 +290,7 @@ impl Graph {
         repo: &gix::Repository,
     ) -> anyhow::Result<()> {
         let Some((ws_sidx, ws_stacks, ws_data, ws_target)) =
-            self.to_workspace().ok().and_then(|mut ws| {
+            self.to_workspace_inner(false).ok().and_then(|mut ws| {
                 let md = ws.metadata.take();
                 md.map(|d| (ws.id, ws.stacks, d, ws.target))
             })

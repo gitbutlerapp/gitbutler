@@ -12,7 +12,7 @@ pub fn head_info2(
         opts.traversal.extra_target_commit_id =
             meta.data().default_target.as_ref().map(|t| t.sha.to_gix());
     }
-    but_workspace::head_info2(repo, meta, opts)
+    but_workspace::head_info(repo, meta, opts)
 }
 
 pub fn ref_info2(
@@ -24,7 +24,7 @@ pub fn ref_info2(
         opts.traversal.extra_target_commit_id =
             meta.data().default_target.as_ref().map(|t| t.sha.to_gix());
     }
-    but_workspace::ref_info2(existing_ref, meta, opts)
+    but_workspace::ref_info(existing_ref, meta, opts)
 }
 
 #[test]
@@ -71,9 +71,9 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: NothingToPush,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -118,9 +118,9 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: NothingToPush,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -169,9 +169,9 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: NothingToPush,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -231,6 +231,7 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: UnpushedCommitsRequiringForce,
                     },
                     ref_info::ui::Segment {
                         id: 5,
@@ -246,9 +247,9 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: UnpushedCommits,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -311,6 +312,7 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: UnpushedCommitsRequiringForce,
                     },
                     ref_info::ui::Segment {
                         id: 5,
@@ -325,6 +327,7 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                     ref_info::ui::Segment {
                         id: 6,
@@ -335,9 +338,9 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
+                        push_status: NothingToPush,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -399,6 +402,7 @@ fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: NothingToPush,
                     },
                     ref_info::ui::Segment {
                         id: 5,
@@ -413,9 +417,9 @@ fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: Integrated,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -486,9 +490,9 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: NothingToPush,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -535,6 +539,7 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: NothingToPush,
                     },
                     ref_info::ui::Segment {
                         id: 4,
@@ -551,9 +556,9 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: Integrated,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -608,6 +613,7 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
+                        push_status: CompletelyUnpushed,
                     },
                     ref_info::ui::Segment {
                         id: 4,
@@ -618,9 +624,9 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
+                        push_status: Integrated,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -661,6 +667,7 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
+                        push_status: CompletelyUnpushed,
                     },
                     ref_info::ui::Segment {
                         id: 4,
@@ -671,9 +678,9 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -741,9 +748,9 @@ fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: UnpushedCommitsRequiringForce,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -805,9 +812,9 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
             Stack {
                 base: Some(
@@ -827,9 +834,9 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
             Stack {
                 base: Some(
@@ -849,9 +856,9 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -922,9 +929,9 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
             Stack {
                 base: Some(
@@ -942,6 +949,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                     ref_info::ui::Segment {
                         id: 5,
@@ -954,6 +962,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                     ref_info::ui::Segment {
                         id: 6,
@@ -966,9 +975,9 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -1025,6 +1034,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                     ref_info::ui::Segment {
                         id: 5,
@@ -1037,6 +1047,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                     ref_info::ui::Segment {
                         id: 6,
@@ -1049,9 +1060,9 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
             Stack {
                 base: Some(
@@ -1071,9 +1082,9 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -1133,9 +1144,9 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
             Stack {
                 base: Some(
@@ -1153,9 +1164,9 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -1210,9 +1221,9 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<(
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
+                        push_status: NothingToPush,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -1275,6 +1286,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                     ref_info::ui::Segment {
                         id: 6,
@@ -1289,9 +1301,9 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: NothingToPush,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -1341,6 +1353,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: NothingToPush,
                     },
                     ref_info::ui::Segment {
                         id: 6,
@@ -1355,9 +1368,9 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -1418,6 +1431,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                     ref_info::ui::Segment {
                         id: 6,
@@ -1430,6 +1444,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                     ref_info::ui::Segment {
                         id: 7,
@@ -1444,9 +1459,9 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: NothingToPush,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -1494,6 +1509,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                     ref_info::ui::Segment {
                         id: 6,
@@ -1506,6 +1522,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                     ref_info::ui::Segment {
                         id: 7,
@@ -1520,9 +1537,9 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: NothingToPush,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -1585,6 +1602,7 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: NothingToPush,
                     },
                     ref_info::ui::Segment {
                         id: 5,
@@ -1599,9 +1617,9 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: NothingToPush,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -1665,6 +1683,7 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: UnpushedCommitsRequiringForce,
                     },
                     ref_info::ui::Segment {
                         id: 5,
@@ -1676,9 +1695,9 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -1736,9 +1755,9 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
             Stack {
                 base: Some(
@@ -1756,9 +1775,9 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -1799,9 +1818,9 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
             Stack {
                 base: Some(
@@ -1819,9 +1838,9 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -1883,9 +1902,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
             Stack {
                 base: Some(
@@ -1905,9 +1924,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -1947,9 +1966,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
             Stack {
                 base: Some(
@@ -1969,9 +1988,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -2010,9 +2029,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
             Stack {
                 base: Some(
@@ -2032,9 +2051,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -2081,9 +2100,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
             Stack {
                 base: Some(
@@ -2101,9 +2120,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -2157,9 +2176,9 @@ fn disjoint() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: None,
@@ -2218,6 +2237,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                     ref_info::ui::Segment {
                         id: 5,
@@ -2230,9 +2250,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                             Commit(89cc2d3, "change in A\n"),
                         ],
                         metadata: "None",
+                        push_status: NothingToPush,
                     },
                 ],
-                stash_status: None,
             },
             Stack {
                 base: Some(
@@ -2248,6 +2268,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
+                        push_status: CompletelyUnpushed,
                     },
                     ref_info::ui::Segment {
                         id: 5,
@@ -2260,9 +2281,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                             Commit(89cc2d3, "change in A\n"),
                         ],
                         metadata: "None",
+                        push_status: NothingToPush,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -2305,6 +2326,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                     ref_info::ui::Segment {
                         id: 4,
@@ -2317,9 +2339,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                             Commit(89cc2d3, "change in A\n"),
                         ],
                         metadata: "None",
+                        push_status: NothingToPush,
                     },
                 ],
-                stash_status: None,
             },
             Stack {
                 base: Some(
@@ -2335,6 +2357,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
+                        push_status: CompletelyUnpushed,
                     },
                     ref_info::ui::Segment {
                         id: 4,
@@ -2347,9 +2370,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                             Commit(89cc2d3, "change in A\n"),
                         ],
                         metadata: "None",
+                        push_status: NothingToPush,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -2392,6 +2415,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                     ref_info::ui::Segment {
                         id: 4,
@@ -2404,9 +2428,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                             Commit(89cc2d3, "change in A\n"),
                         ],
                         metadata: "None",
+                        push_status: NothingToPush,
                     },
                 ],
-                stash_status: None,
             },
             Stack {
                 base: Some(
@@ -2422,6 +2446,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
+                        push_status: CompletelyUnpushed,
                     },
                     ref_info::ui::Segment {
                         id: 4,
@@ -2434,9 +2459,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                             Commit(89cc2d3, "change in A\n"),
                         ],
                         metadata: "None",
+                        push_status: NothingToPush,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -2480,6 +2505,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                     👉ref_info::ui::Segment {
                         id: 0,
@@ -2492,9 +2518,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                             Commit(89cc2d3, "change in A\n"),
                         ],
                         metadata: "None",
+                        push_status: NothingToPush,
                     },
                 ],
-                stash_status: None,
             },
             Stack {
                 base: Some(
@@ -2510,6 +2536,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
+                        push_status: CompletelyUnpushed,
                     },
                     👉ref_info::ui::Segment {
                         id: 0,
@@ -2522,9 +2549,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                             Commit(89cc2d3, "change in A\n"),
                         ],
                         metadata: "None",
+                        push_status: NothingToPush,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -2578,9 +2605,9 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: Some(
@@ -2591,6 +2618,48 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
         is_managed_ref: true,
         is_managed_commit: true,
         is_entrypoint: true,
+    }
+    "#);
+
+    let info = ref_info2(repo.find_reference("unrelated")?, &meta, opts.clone())?;
+    // It can be checked out with the same effect, the parent workspace is still known.
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [
+            Stack {
+                base: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                ),
+                segments: [
+                    👉ref_info::ui::Segment {
+                        id: 3,
+                        ref_name: "refs/heads/unrelated",
+                        remote_tracking_ref_name: "None",
+                        commits: [],
+                        commits_unique_in_remote_tracking_branch: [],
+                        metadata: Branch {
+                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                            description: None,
+                            review: Review { pull_request: None, review_id: None },
+                        },
+                        push_status: CompletelyUnpushed,
+                    },
+                ],
+            },
+        ],
+        target_ref: Some(
+            FullName(
+                "refs/remotes/origin/main",
+            ),
+        ),
+        is_managed_ref: true,
+        is_managed_commit: true,
+        is_entrypoint: false,
     }
     "#);
 
@@ -2619,19 +2688,20 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
     "#);
 
     // The unrelated reference would be its own pseudo-workspace, single-branch mode effectively.
+    // It's on the base and clearly outside the workspace.
     let info = ref_info2(repo.find_reference("unrelated")?, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
         workspace_ref_name: Some(
             FullName(
-                "refs/heads/gitbutler/workspace",
+                "refs/heads/unrelated",
             ),
         ),
         stacks: [
             Stack {
                 base: None,
                 segments: [
-                    👉ref_info::ui::Segment {
+                    ref_info::ui::Segment {
                         id: 0,
                         ref_name: "refs/heads/unrelated",
                         remote_tracking_ref_name: "None",
@@ -2644,29 +2714,25 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                             description: None,
                             review: Review { pull_request: None, review_id: None },
                         },
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
-        ),
-        is_managed_ref: true,
-        is_managed_commit: true,
-        is_entrypoint: false,
+        target_ref: None,
+        is_managed_ref: false,
+        is_managed_commit: false,
+        is_entrypoint: true,
     }
     "#);
     Ok(())
 }
 
 mod branch_details;
+mod journey;
 mod legacy;
 
 mod utils {
-    use crate::ref_info::utils::named_read_only_in_memory_scenario;
     use but_graph::VirtualBranchesTomlMetadata;
     use gitbutler_oxidize::ObjectIdExt;
     use gitbutler_stack::StackId;
@@ -2677,8 +2743,17 @@ mod utils {
         gix::Repository,
         std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
     )> {
+        named_read_only_in_memory_scenario("with-remotes-and-workspace", name)
+    }
+    pub fn named_read_only_in_memory_scenario(
+        script: &str,
+        name: &str,
+    ) -> anyhow::Result<(
+        gix::Repository,
+        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+    )> {
         let (repo, mut meta) =
-            named_read_only_in_memory_scenario("with-remotes-and-workspace", name)?;
+            crate::ref_info::utils::named_read_only_in_memory_scenario(script, name)?;
         let vb = meta.data_mut();
         vb.default_target = Some(gitbutler_stack::Target {
             // For simplicity, we stick to the defaults.
@@ -2686,9 +2761,11 @@ mod utils {
             // Not required
             remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
             sha: repo
-                .find_reference("main")?
-                .peel_to_id_in_place()?
-                .to_git2(),
+                .try_find_reference("main")?
+                .map(|mut r| r.peel_to_id_in_place())
+                .transpose()?
+                .map(|id| id.to_git2())
+                .unwrap_or_else(git2::Oid::zero),
             push_remote_name: None,
         });
         Ok((repo, meta))
@@ -2767,4 +2844,4 @@ use crate::ref_info::with_workspace_commit::utils::{
     StackState, add_stack_with_segments, add_workspace,
 };
 use utils::add_stack;
-pub use utils::read_only_in_memory_scenario;
+pub use utils::{named_read_only_in_memory_scenario, read_only_in_memory_scenario};

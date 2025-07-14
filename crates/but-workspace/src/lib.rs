@@ -51,22 +51,8 @@ pub use head::{head, merge_worktree_with_workspace};
 mod relapath;
 
 /// 🚧utilities for applying and unapplying branches 🚧.
-///‼️To be superseded by `but-graph` ‼️- the research in there is valuable and should still be migrated.
 /// Ignore the name of this module; it's just a place to put code by now.
 pub mod branch;
-
-/// 🚧Deal with worktree changes 🚧.
-mod stash {
-    /// Information about a stash which is associated with the tip of a stack.
-    #[derive(Debug, Eq, PartialEq, Copy, Clone)]
-    pub enum StashStatus {
-        /// The parent reference is still present, but it doesn't point to the first parent of the *stash commit* anymore.
-        Desynced,
-        /// The parent reference could not be found. Maybe it was removed, maybe it was renamed.
-        Orphaned,
-    }
-}
-pub use stash::StashStatus;
 
 mod commit;
 
@@ -74,7 +60,7 @@ mod commit;
 ///
 /// Note that many of these types should eventually end up in the crate root.
 pub mod ref_info;
-pub use ref_info::function::{head_info2, ref_info2};
+pub use ref_info::function::{head_info, ref_info};
 
 /// High level Stack funtions that use primitives from this crate (`but-workspace`)
 pub mod stack_ext;

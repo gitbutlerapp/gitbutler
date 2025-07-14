@@ -230,7 +230,7 @@ impl std::fmt::Debug for UpstreamCommit {
 }
 
 /// Represents the pushable status for the current stack.
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum PushStatus {
     /// Can push, but there are no changes to be pushed

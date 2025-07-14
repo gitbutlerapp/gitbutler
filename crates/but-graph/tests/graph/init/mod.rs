@@ -674,6 +674,38 @@ fn with_limits() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
+    let (repo, meta) = read_only_in_memory_scenario("special-branches")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 3686017 (HEAD -> main) top
+    * 9725482 (gitbutler/edit) middle
+    * fafd9d0 (gitbutler/target) init
+    ");
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    // Standard handling after travrsal and post-processing.
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    └── 👉►:0[0]:main
+        └── ·3686017 (⌂|1)
+            └── ►:1[1]:gitbutler/edit
+                └── ·9725482 (⌂|1)
+                    └── ►:2[2]:gitbutler/target
+                        └── ·fafd9d0 (⌂|1)
+    ");
+
+    // But special handling for workspace views.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    ⌂:0:main <> ✓!
+    └── ≡:0:main
+        └── :0:main
+            ├── ·3686017
+            ├── ·9725482
+            └── ·fafd9d0
+    ");
+    Ok(())
+}
+
 mod with_workspace;
 
 mod utils;

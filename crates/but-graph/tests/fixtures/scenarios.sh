@@ -194,6 +194,15 @@ git init triple-merge
   git merge A B
 )
 
+git init special-branches
+(cd special-branches
+  commit init
+    git branch gitbutler/target
+  commit middle
+    git branch gitbutler/edit
+  commit top
+)
+
 mkdir ws
 (cd ws
   git init single-stack-ambiguous
@@ -786,6 +795,16 @@ EOF
 
     add_main_remote_setup
     cp .git/refs/remotes/origin/main .git/refs/remotes/origin/A
+  )
+
+  git init special-branches
+  (cd special-branches
+    commit init
+      git branch gitbutler/target
+    commit middle
+      git branch gitbutler/edit
+    commit top
+    create_workspace_commit_once main
   )
 )
 

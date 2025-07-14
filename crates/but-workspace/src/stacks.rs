@@ -3,8 +3,7 @@ use crate::ref_info::ui::{Commit, Segment};
 use crate::ref_info::ui::{LocalCommit, LocalCommitRelation};
 use crate::ui::{CommitState, PushStatus, StackDetails};
 use crate::{
-    RefInfo, StacksFilter, branch, head_info2, id_from_name_v2_to_v3, ref_info, ref_info2,
-    state_handle, ui,
+    RefInfo, StacksFilter, branch, head_info, id_from_name_v2_to_v3, ref_info, state_handle, ui,
 };
 use anyhow::Context;
 use bstr::BString;
@@ -175,7 +174,7 @@ pub fn stacks_v3(
     }
 
     let extra_target = meta.data().default_target.as_ref().map(|t| t.sha.to_gix());
-    let info = head_info2(
+    let info = head_info(
         repo,
         meta,
         ref_info::Options {
@@ -414,7 +413,7 @@ pub fn stack_details_v3(
         shortname = stack.derived_name()?
     ))?;
     let existing_ref = repo.find_reference(&full_name)?;
-    let stack = stack_by_id(ref_info2(existing_ref, meta, ref_info_options)?, stack_id, meta)?
+    let stack = stack_by_id(ref_info(existing_ref, meta, ref_info_options)?, stack_id, meta)?
         .with_context(|| format!("Really couldn't find {stack_id} in current HEAD or when searching virtual_branches.toml plainly"))?;
 
     let branch_details = stack
@@ -453,6 +452,7 @@ impl ui::BranchDetails {
             commits_unique_in_remote_tracking_branch,
             remote_tracking_ref_name,
             metadata,
+            push_status,
             is_entrypoint: _,
         }: &Segment,
         previous_tip_or_stack_base: Option<gix::ObjectId>,
@@ -490,11 +490,7 @@ impl ui::BranchDetails {
                 .map(|commit| commit.id)
                 .unwrap_or(base_commit),
             base_commit,
-            push_status: PushStatus::derive_from_commits(
-                remote_tracking_ref_name.is_some(),
-                commits_unique_from_tip,
-                commits_unique_in_remote_tracking_branch,
-            ),
+            push_status: *push_status,
             last_updated_at: updated_at.map(|time| time.seconds as i128 * 1_000),
             authors: {
                 let mut authors = HashSet::<ui::Author>::new();
@@ -516,54 +512,6 @@ impl ui::BranchDetails {
                 .map(Into::into)
                 .collect(),
         })
-    }
-}
-
-impl PushStatus {
-    /// Derive the push-status by looking at commits in the local and remote tracking branches.
-    /// TODO: tests
-    ///       * generally this doesn't currently handle advanced (and possibly fast-forwardable)
-    ///         remotes very well. It doesn't feel like it can be expressed.
-    ///       * It doesn't deal with diverged local/remote branches.
-    ///       * Special cases of remote is merged, and remote tracking branch is deleted after fetch
-    ///         if it was deleted on the remote?
-    fn derive_from_commits(
-        has_remote_tracking_ref: bool,
-        commits_unique_from_tip: &[LocalCommit],
-        commits_unique_in_remote_tracking_branch: &[Commit],
-    ) -> Self {
-        if !has_remote_tracking_ref {
-            // Generally, don't do anything if no remote relationship is set up (anymore).
-            // There may be better ways to deal with this.
-            return PushStatus::CompletelyUnpushed;
-        }
-
-        let everything_local = commits_unique_from_tip
-            .last()
-            .is_some_and(|c| matches!(c.relation, LocalCommitRelation::LocalOnly));
-        let everything_integrated_locally = commits_unique_from_tip
-            .last()
-            .is_some_and(|c| matches!(c.relation, LocalCommitRelation::Integrated));
-        if everything_integrated_locally {
-            PushStatus::Integrated
-        } else if everything_local {
-            if commits_unique_in_remote_tracking_branch.is_empty() {
-                PushStatus::UnpushedCommits
-            } else {
-                PushStatus::UnpushedCommitsRequiringForce
-            }
-        } else {
-            // Local commits intersect with remote, either by similarity or identity.
-            if commits_unique_from_tip
-                .last()
-                .is_some_and(|c| matches!(c.relation, LocalCommitRelation::LocalAndRemote(remote_id) if remote_id != c.id)) {
-                PushStatus::UnpushedCommitsRequiringForce
-            } else {
-                // TODO: There could be remote commits that can be forwarded to, but that can't be expressed.
-                //       Probably an update would fix it automatically.
-                PushStatus::NothingToPush
-            }
-        }
     }
 }
 

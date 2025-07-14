@@ -4,9 +4,9 @@ use anyhow::{Context, bail};
 use petgraph::Direction;
 use petgraph::prelude::EdgeRef;
 use petgraph::stable_graph::EdgeReference;
-use petgraph::visit::IntoEdgeReferences;
+use petgraph::visit::{IntoEdgeReferences, Visitable};
 use std::collections::{BTreeSet, VecDeque};
-use std::ops::{Index, IndexMut};
+use std::ops::{Deref, Index, IndexMut};
 
 /// Mutation
 impl Graph {
@@ -56,10 +56,21 @@ impl Graph {
 
 /// Query
 impl Graph {
-    /// Return `true` if this graph is possibly partial as the hard limit was hit.
+    /// Return `true` if this graph is possibly partial as the hard limit was hit,
+    /// meaning that the core traversal algorithm was interrupted without necessarily
+    /// satisfying all constraints.
+    ///
+    /// Such a graph is possibly partial, which can affect algorithms
+    /// relying on it being complete.
     pub fn hard_limit_hit(&self) -> bool {
         self.hard_limit_hit
     }
+
+    /// Claim that the graph was pruned without regard to the core graph algorithm.
+    pub fn set_hard_limit_hit(&mut self) {
+        self.hard_limit_hit = true;
+    }
+
     /// Return the entry-point of the graph as configured during traversal.
     /// It's useful for when one wants to know which commit was used to discover the entire graph.
     ///
@@ -216,6 +227,17 @@ impl Graph {
     }
 }
 
+/// Query
+///
+/// The query relies on the segmentation of the graph being as advertised, something we assure as part
+/// of the initial creation.
+impl Graph {
+    /// Return a utility to perform topological walks on the graph.
+    pub fn topo_walk(&self) -> petgraph::visit::Topo<SegmentIndex, <PetGraph as Visitable>::Map> {
+        petgraph::visit::Topo::new(&self.inner)
+    }
+}
+
 /// Validation
 impl Graph {
     /// Validate the graph for consistency and fail loudly when an issue was found.
@@ -289,5 +311,20 @@ impl Index<SegmentIndex> for Graph {
 impl IndexMut<SegmentIndex> for Graph {
     fn index_mut(&mut self, index: SegmentIndex) -> &mut Self::Output {
         &mut self.inner[index]
+    }
+}
+
+impl Deref for Graph {
+    type Target = PetGraph;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+// This in particular is only for those who know what they are doing.
+impl std::ops::DerefMut for Graph {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
     }
 }
