@@ -23,11 +23,14 @@
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { readKey, type SelectionId } from '$lib/selection/key';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
+
 	import { TestId } from '$lib/testing/testIds';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { ResizeGroup } from '$lib/utils/resizeGroup';
+	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { inject } from '@gitbutler/shared/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -78,6 +81,9 @@
 
 	const action = $derived(projectState.exclusiveAction.current);
 	const isCommitting = $derived(action?.type === 'commit' && action.stackId === stack.id);
+
+	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
+	const zoom = $derived($userSettings.zoom);
 
 	// If the user is making a commit to a different lane we dim this one.
 	const dimmed = $derived(action?.type === 'commit' && action?.stackId !== stack.id);
@@ -143,16 +149,16 @@
 	let compactDiv = $state<HTMLDivElement>();
 
 	let branchContentHeight = $state<number>(0);
-	let branchContentHeightRem = $derived(pxToRem(branchContentHeight, 1));
+	let branchContentHeightRem = $derived(pxToRem(branchContentHeight, zoom));
 
 	let commitContentHeight = $state<number>(0);
-	let commitContentHeightRem = $derived(pxToRem(commitContentHeight, 1));
+	let commitContentHeightRem = $derived(pxToRem(commitContentHeight, zoom));
 
 	let verticalHeight = $state<number>(0);
-	let verticalHeightRem = $derived(pxToRem(verticalHeight, 1));
+	let verticalHeightRem = $derived(pxToRem(verticalHeight, zoom));
 
 	let actualDetailsHeight = $state<number>(0);
-	let actualDetailsHeightRem = $derived(pxToRem(actualDetailsHeight, 1));
+	let actualDetailsHeightRem = $derived(pxToRem(actualDetailsHeight, zoom));
 
 	let minDetailsHeight = $state(8);
 	let minChangedFilesHeight = $state(5);
