@@ -84,7 +84,7 @@
 						onclick={() => {
 							branchesState.set({
 								stackId: env.stackId,
-								branchName: branch.name,
+								branchName: branchName,
 								commitId: commit.id,
 								remote
 							});
@@ -104,7 +104,7 @@
 						onclick={() => {
 							branchesState.set({
 								stackId: env.stackId,
-								branchName: branch.name,
+								branchName: branchName,
 								commitId: commit.id,
 								remote
 							});
