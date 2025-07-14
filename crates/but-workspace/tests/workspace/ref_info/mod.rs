@@ -7,7 +7,7 @@ mod with_workspace_commit;
 #[test]
 fn unborn_untracked() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("unborn-untracked")?;
-    let info = but_workspace::head_info2(&repo, &*meta, standard_options())?;
+    let info = but_workspace::head_info(&repo, &*meta, standard_options())?;
     // It's clear that this branch is unborn as there is not a single commit,
     // in absence of a target ref.
     insta::assert_debug_snapshot!(&info, @r#"
@@ -28,9 +28,9 @@ fn unborn_untracked() -> anyhow::Result<()> {
                         commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: None,
@@ -45,7 +45,7 @@ fn unborn_untracked() -> anyhow::Result<()> {
 #[test]
 fn detached() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("one-commit-detached")?;
-    let info = but_workspace::head_info2(&repo, &*meta, ref_info::Options::default())?;
+    let info = but_workspace::head_info(&repo, &*meta, ref_info::Options::default())?;
     // As the workspace name is derived from the first segment, it's empty as well.
     // We do know that `main` is pointing at the local commit though, despite the unnamed segment owning it.
     insta::assert_debug_snapshot!(&info, @r#"
@@ -64,9 +64,9 @@ fn detached() -> anyhow::Result<()> {
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: None,
@@ -81,7 +81,7 @@ fn detached() -> anyhow::Result<()> {
 #[test]
 fn conflicted_in_local_branch() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("with-conflict")?;
-    let info = but_workspace::head_info2(&repo, &*meta, ref_info::Options::default())?;
+    let info = but_workspace::head_info(&repo, &*meta, ref_info::Options::default())?;
     // The conflict is detected in the local commit.
     insta::assert_debug_snapshot!(&info, @r#"
     RefInfo {
@@ -104,9 +104,9 @@ fn conflicted_in_local_branch() -> anyhow::Result<()> {
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: None,
@@ -121,7 +121,7 @@ fn conflicted_in_local_branch() -> anyhow::Result<()> {
 #[test]
 fn single_branch() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("single-branch-10-commits")?;
-    let info = but_workspace::head_info2(&repo, &*meta, standard_options())?;
+    let info = but_workspace::head_info(&repo, &*meta, standard_options())?;
 
     assert_eq!(
         info.stacks[0].segments.len(),
@@ -157,9 +157,9 @@ fn single_branch() -> anyhow::Result<()> {
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: None,
@@ -174,7 +174,7 @@ fn single_branch() -> anyhow::Result<()> {
 #[test]
 fn single_branch_multiple_segments() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("single-branch-10-commits-multi-segment")?;
-    let info = but_workspace::head_info2(&repo, &*meta, standard_options())?;
+    let info = but_workspace::head_info(&repo, &*meta, standard_options())?;
 
     insta::assert_debug_snapshot!(&info, @r#"
     RefInfo {
@@ -196,6 +196,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
+                        push_status: CompletelyUnpushed,
                     },
                     ref_info::ui::Segment {
                         id: 1,
@@ -208,6 +209,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
+                        push_status: CompletelyUnpushed,
                     },
                     ref_info::ui::Segment {
                         id: 2,
@@ -220,6 +222,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
+                        push_status: CompletelyUnpushed,
                     },
                     ref_info::ui::Segment {
                         id: 3,
@@ -231,6 +234,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
+                        push_status: CompletelyUnpushed,
                     },
                     ref_info::ui::Segment {
                         id: 4,
@@ -241,9 +245,9 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
+                        push_status: CompletelyUnpushed,
                     },
                 ],
-                stash_status: None,
             },
         ],
         target_ref: None,

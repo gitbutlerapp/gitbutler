@@ -385,7 +385,7 @@
 //!
 //!
 //!
-//!  ┌───┐     ██████████████████ Lis Commits in ordinary Merge ██████████████
+//!  ┌───┐     ██████████████████ List Commits in ordinary Merge ██████████████
 //!  │   │                   ┌─┐
 //!  │ L │       H:S:main──▶ └3┘
 //!  │ a │                    │
@@ -412,7 +412,7 @@
 //!                                      walk along.
 //! ```
 
-use crate::{StashStatus, ref_info};
+use crate::ref_info;
 use anyhow::{Context, bail};
 use but_core::RefMetadata;
 use gix::prelude::ObjectIdExt;
@@ -491,6 +491,7 @@ pub fn remove_branch_from_workspace(
 ///
 /// Mote that a stack is also used to represent detached heads, which is far-fetched but necessary
 // TODO: move this to the crate root once the 'old' implementation isn't used anymore.
+// TODO: this is going to be the UI version, ideally consumed directly.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Stack {
     /// If there is an integration branch, we know a base commit shared with the integration branch from
@@ -501,14 +502,6 @@ pub struct Stack {
     /// The branch-name denoted segments of the stack from its tip to the point of reference, typically a merge-base.
     /// This array is never empty.
     pub segments: Vec<ref_info::ui::Segment>,
-    /// Additional information about possibly still available stashes, sitting on top of this stack.
-    ///
-    /// This means the stash is still there to be applied, something that can happen if the user switches branches
-    /// using Git commands.
-    ///
-    /// The backend auto-applies floating stashes, but if that didn't happen, the frontend may guide the user.
-    // TODO: refactor/remove this in favor of special stash commits.
-    pub stash_status: Option<StashStatus>,
 }
 
 impl Stack {

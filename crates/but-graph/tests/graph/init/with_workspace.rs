@@ -683,18 +683,26 @@ fn just_init_with_branches() -> anyhow::Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 📕►►►:1[0]:gitbutler/workspace
-    │   └── 👉►:0[1]:main <> origin/main →:2:
-    │       └── ·fafd9d0 (⌂|🏘️|✓|1) ►A, ►B, ►C, ►D, ►E, ►F
+    │   ├── 👉►:0[4]:main <> origin/main →:2:
+    │   │   └── ·fafd9d0 (⌂|🏘️|✓|1)
+    │   ├── 📙►:3[1]:C
+    │   │   └── 📙►:4[2]:B
+    │   │       └── 📙►:5[3]:A
+    │   │           └── →:0: (main →:2:)
+    │   └── 📙►:6[1]:D
+    │       └── 📙►:7[2]:E
+    │           └── 📙►:8[3]:F
+    │               └── →:0: (main →:2:)
     └── ►:2[0]:origin/main →:0:
         └── →:0: (main →:2:)
     ");
 
-    // There is no segmentation outside the workspace.
+    // ~~There is no segmentation outside the workspace.~~ workspace segmentation always happens so the view is consistent.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     ⌂:0:main <> ✓!
     └── ≡:0:main <> origin/main →:2:
         └── :0:main <> origin/main →:2:
-            └── ❄️fafd9d0 (🏘️|✓) ►A, ►B, ►C, ►D, ►E, ►F
+            └── ❄️fafd9d0 (🏘️|✓)
     ");
 
     let graph =
@@ -3462,6 +3470,42 @@ fn two_dependent_branches_first_merged_by_rebase() -> anyhow::Result<()> {
         └── :4:A <> origin/A →:5:⇡1⇣1
             ├── 🟣0b6b861 (✓)
             └── ·1818c17 (🏘️)
+    ");
+    Ok(())
+}
+
+#[test]
+fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/special-branches")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 8926b15 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 3686017 (main) top
+    * 9725482 (gitbutler/edit) middle
+    * fafd9d0 (gitbutler/target) init
+    ");
+
+    add_workspace(&mut meta);
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    // Standard handling after travrsal and post-processing.
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    └── 👉📕►►►:0[0]:gitbutler/workspace
+        └── ·8926b15 (⌂|🏘️|1)
+            └── ►:1[1]:main
+                └── ·3686017 (⌂|🏘️|1)
+                    └── ►:2[2]:gitbutler/edit
+                        └── ·9725482 (⌂|🏘️|1)
+                            └── ►:3[3]:gitbutler/target
+                                └── ·fafd9d0 (⌂|🏘️|1)
+    ");
+
+    // But special handling for workspace views.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓!
+    └── ≡:1:main
+        └── :1:main
+            ├── ·3686017 (🏘️)
+            ├── ·9725482 (🏘️)
+            └── ·fafd9d0 (🏘️)
     ");
     Ok(())
 }
