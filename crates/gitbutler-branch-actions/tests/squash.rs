@@ -1,7 +1,9 @@
 use anyhow::Result;
 use bstr::ByteSlice;
-use gitbutler_branch_actions::{internal::PatchSeries, squash_commits};
+use but_workspace::ui::Commit;
+use gitbutler_branch_actions::squash_commits;
 use gitbutler_command_context::CommandContext;
+use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_stack::{StackBranch, VirtualBranchesHandle};
 use itertools::Itertools;
 use tempfile::TempDir;
@@ -33,12 +35,12 @@ fn squash_without_affecting_stack() -> Result<()> {
     let branches = list_branches(&ctx)?;
     // branch 1
     assert_eq!(branches.b1.patches.len(), 1);
-    assert_eq!(branches.b1.patches[0].description, "commit 1");
+    assert_eq!(branches.b1.patches[0].message, "commit 1");
 
     // branch 2
     assert_eq!(branches.b2.patches.len(), 2);
-    assert_eq!(branches.b2.patches[0].description, "commit 4");
-    assert_eq!(branches.b2.patches[1].description, "commit 2\ncommit 3");
+    assert_eq!(branches.b2.patches[0].message, "commit 4");
+    assert_eq!(branches.b2.patches[1].message, "commit 2\ncommit 3");
     assert_eq!(
         blob_content(ctx.repo(), branches.b2.patches[1].id, "file2_3")?,
         "change3\n"
@@ -46,7 +48,7 @@ fn squash_without_affecting_stack() -> Result<()> {
 
     // branch 3
     assert_eq!(branches.b3.patches.len(), 1);
-    assert_eq!(branches.b3.patches[0].description, "commit 5");
+    assert_eq!(branches.b3.patches[0].message, "commit 5");
     Ok(())
 }
 
@@ -78,12 +80,12 @@ fn squash_below() -> Result<()> {
     let branches = list_branches(&ctx)?;
     // branch 1
     assert_eq!(branches.b1.patches.len(), 1);
-    assert_eq!(branches.b1.patches[0].description, "commit 1");
+    assert_eq!(branches.b1.patches[0].message, "commit 1");
 
     // branch 2
     assert_eq!(branches.b2.patches.len(), 2);
-    assert_eq!(branches.b2.patches[0].description, "commit 3");
-    assert_eq!(branches.b2.patches[1].description, "commit 2\ncommit 4");
+    assert_eq!(branches.b2.patches[0].message, "commit 3");
+    assert_eq!(branches.b2.patches[1].message, "commit 2\ncommit 4");
     assert_eq!(
         blob_content(ctx.repo(), branches.b2.patches[1].id, "file2_3")?,
         "change2\n"
@@ -95,7 +97,7 @@ fn squash_below() -> Result<()> {
 
     // branch 3
     assert_eq!(branches.b3.patches.len(), 1);
-    assert_eq!(branches.b3.patches[0].description, "commit 5");
+    assert_eq!(branches.b3.patches[0].message, "commit 5");
     Ok(())
 }
 
@@ -132,8 +134,8 @@ fn squash_above() -> Result<()> {
 
     // branch 2
     assert_eq!(branches.b2.patches.len(), 3);
-    assert_eq!(branches.b2.patches[0].description, "commit 4");
-    assert_eq!(branches.b2.patches[1].description, "commit 3\ncommit 1");
+    assert_eq!(branches.b2.patches[0].message, "commit 4");
+    assert_eq!(branches.b2.patches[1].message, "commit 3\ncommit 1");
     assert_eq!(
         blob_content(ctx.repo(), branches.b2.patches[1].id, "file2_3")?,
         "change3\n"
@@ -142,11 +144,11 @@ fn squash_above() -> Result<()> {
         blob_content(ctx.repo(), branches.b2.patches[1].id, "file1")?,
         "change1\n"
     );
-    assert_eq!(branches.b2.patches[2].description, "commit 2");
+    assert_eq!(branches.b2.patches[2].message, "commit 2");
 
     // branch 3
     assert_eq!(branches.b3.patches.len(), 1);
-    assert_eq!(branches.b3.patches[0].description, "commit 5");
+    assert_eq!(branches.b3.patches[0].message, "commit 5");
     Ok(())
 }
 
@@ -179,15 +181,15 @@ fn squash_producting_conflict_errors_out() -> Result<()> {
     // After a failed squash, the stack should be unchanged (i.e. the reordering that takes place is reversed)
     let branches = list_branches(&ctx)?;
     // branch 3
-    assert_eq!(branches.b3.patches[0].description, "commit 5");
+    assert_eq!(branches.b3.patches[0].message, "commit 5");
     // branch 2
     assert_eq!(branches.b2.patches.len(), 3);
-    assert_eq!(branches.b2.patches[0].description, "commit 4");
-    assert_eq!(branches.b2.patches[1].description, "commit 3");
-    assert_eq!(branches.b2.patches[2].description, "commit 2");
+    assert_eq!(branches.b2.patches[0].message, "commit 4");
+    assert_eq!(branches.b2.patches[1].message, "commit 3");
+    assert_eq!(branches.b2.patches[2].message, "commit 2");
     // branch 1
     assert_eq!(branches.b1.patches.len(), 1);
-    assert_eq!(branches.b1.patches[0].description, "commit 1");
+    assert_eq!(branches.b1.patches[0].message, "commit 1");
     Ok(())
 }
 
@@ -220,12 +222,12 @@ fn squash_down_with_overlap_ok() -> Result<()> {
 
     // branch 1
     assert_eq!(branches.b1.patches.len(), 1);
-    assert_eq!(branches.b1.patches[0].description, "commit 1");
+    assert_eq!(branches.b1.patches[0].message, "commit 1");
 
     // branch 2
     assert_eq!(branches.b2.patches.len(), 2);
-    assert_eq!(branches.b2.patches[0].description, "commit 4");
-    assert_eq!(branches.b2.patches[1].description, "commit 2\ncommit 3");
+    assert_eq!(branches.b2.patches[0].message, "commit 4");
+    assert_eq!(branches.b2.patches[1].message, "commit 2\ncommit 3");
     assert_eq!(
         blob_content(ctx.repo(), branches.b2.patches[1].id, "file2_3")?,
         "change3\n"
@@ -233,7 +235,7 @@ fn squash_down_with_overlap_ok() -> Result<()> {
 
     // branch 3
     assert_eq!(branches.b3.patches.len(), 1);
-    assert_eq!(branches.b3.patches[0].description, "commit 5");
+    assert_eq!(branches.b3.patches[0].message, "commit 5");
     Ok(())
 }
 
@@ -264,7 +266,7 @@ fn squash_below_into_stack_head() -> Result<()> {
 
     // branch 1
     assert_eq!(branches.b1.patches.len(), 1);
-    assert_eq!(branches.b1.patches[0].description, "commit 1\ncommit 4");
+    assert_eq!(branches.b1.patches[0].message, "commit 1\ncommit 4");
     assert_eq!(
         blob_content(ctx.repo(), branches.b1.patches[0].id, "file4")?,
         "change4\n"
@@ -276,12 +278,12 @@ fn squash_below_into_stack_head() -> Result<()> {
 
     // branch 2
     assert_eq!(branches.b2.patches.len(), 2);
-    assert_eq!(branches.b2.patches[0].description, "commit 3");
-    assert_eq!(branches.b2.patches[1].description, "commit 2");
+    assert_eq!(branches.b2.patches[0].message, "commit 3");
+    assert_eq!(branches.b2.patches[1].message, "commit 2");
 
     // branch 3
     assert_eq!(branches.b3.patches.len(), 1);
-    assert_eq!(branches.b3.patches[0].description, "commit 5");
+    assert_eq!(branches.b3.patches[0].message, "commit 5");
     Ok(())
 }
 
@@ -313,7 +315,7 @@ fn squash_multiple() -> Result<()> {
     // branch 1
     assert_eq!(branches.b1.patches.len(), 1);
     assert_eq!(
-        branches.b1.patches[0].description,
+        branches.b1.patches[0].message,
         "commit 1\ncommit 4\ncommit 2"
     );
     assert_eq!(
@@ -331,11 +333,11 @@ fn squash_multiple() -> Result<()> {
 
     // branch 2
     assert_eq!(branches.b2.patches.len(), 1);
-    assert_eq!(branches.b2.patches[0].description, "commit 3");
+    assert_eq!(branches.b2.patches[0].message, "commit 3");
 
     // branch 3
     assert_eq!(branches.b3.patches.len(), 1);
-    assert_eq!(branches.b3.patches[0].description, "commit 5");
+    assert_eq!(branches.b3.patches[0].message, "commit 5");
     Ok(())
 }
 
@@ -366,13 +368,13 @@ fn squash_multiple_from_heads() -> Result<()> {
 
     // branch 1
     assert_eq!(branches.b1.patches.len(), 1);
-    assert_eq!(branches.b1.patches[0].description, "commit 1");
+    assert_eq!(branches.b1.patches[0].message, "commit 1");
 
     // branch 2
     assert_eq!(branches.b2.patches.len(), 2);
-    assert_eq!(branches.b2.patches[0].description, "commit 3");
+    assert_eq!(branches.b2.patches[0].message, "commit 3");
     assert_eq!(
-        branches.b2.patches[1].description,
+        branches.b2.patches[1].message,
         "commit 2\ncommit 5\ncommit 4"
     );
     assert_eq!(
@@ -424,9 +426,9 @@ fn squash_multiple_above_and_below() -> Result<()> {
 
     // branch 2
     assert_eq!(branches.b2.patches.len(), 3);
-    assert_eq!(branches.b2.patches[0].description, "commit 4");
+    assert_eq!(branches.b2.patches[0].message, "commit 4");
     assert_eq!(
-        branches.b2.patches[1].description,
+        branches.b2.patches[1].message,
         "commit 3\ncommit 5\ncommit 1"
     );
     assert_eq!(
@@ -441,7 +443,7 @@ fn squash_multiple_above_and_below() -> Result<()> {
         blob_content(ctx.repo(), branches.b2.patches[1].id, "file1")?,
         "change1\n"
     );
-    assert_eq!(branches.b2.patches[2].description, "commit 2");
+    assert_eq!(branches.b2.patches[2].message, "commit 2");
 
     // branch 3
     assert_eq!(branches.b3.patches.len(), 0);
@@ -498,32 +500,32 @@ struct TestContext<'a> {
 }
 
 /// Stack branches, but from the list API
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone)]
 struct TestBranchListing {
-    b1: PatchSeries,
-    b2: PatchSeries,
-    b3: PatchSeries,
+    b1: Branch,
+    b2: Branch,
+    b3: Branch,
+}
+
+#[derive(Debug, Clone)]
+struct Branch {
+    name: String,
+    patches: Vec<Commit>,
 }
 
 /// Stack branches from the API
 fn list_branches(ctx: &CommandContext) -> Result<TestBranchListing> {
     let details = gitbutler_testsupport::stack_details(ctx);
     let (_, details) = details.first().unwrap();
-    let branches: Vec<PatchSeries> = details
+    let branches: Vec<Branch> = details
         .branch_details
         .iter()
-        .map(|d| PatchSeries {
+        .map(|d| Branch {
             name: d.name.clone().to_string(),
-            description: None,
-            upstream_reference: None,
-            patches: d.commits.iter().cloned().map(Into::into).collect(),
-            upstream_patches: vec![],
-            pr_number: None,
-            archived: false,
-            review_id: None,
+            patches: d.commits.clone(),
         })
         .collect_vec();
-    fn find(branches: &[PatchSeries], name: &str) -> PatchSeries {
+    fn find(branches: &[Branch], name: &str) -> Branch {
         branches.iter().find(|b| b.name == name).unwrap().clone()
     }
     Ok(TestBranchListing {
@@ -533,8 +535,8 @@ fn list_branches(ctx: &CommandContext) -> Result<TestBranchListing> {
     })
 }
 
-fn blob_content(repo: &git2::Repository, commit_oid: git2::Oid, file: &str) -> Result<String> {
-    let tree = repo.find_commit(commit_oid)?.tree()?;
+fn blob_content(repo: &git2::Repository, commit_oid: gix::ObjectId, file: &str) -> Result<String> {
+    let tree = repo.find_commit(commit_oid.to_git2())?.tree()?;
     let entry = tree.get_name(file).unwrap();
     let blob = repo.find_blob(entry.id())?;
     let blob_content: &str = blob.content().to_str()?;
