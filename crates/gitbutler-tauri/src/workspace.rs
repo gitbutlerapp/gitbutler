@@ -54,17 +54,38 @@ pub fn show_graph_svg(
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     let repo = ctx.gix_repo_minimal()?;
     let meta = ref_metadata_toml(&project)?;
-    let graph = but_graph::Graph::from_head(
+    let mut graph = but_graph::Graph::from_head(
         &repo,
         &meta,
         but_graph::init::Options {
             collect_tags: false,
-            commits_limit_hint: Some(100),
+            commits_limit_hint: Some(300),
             commits_limit_recharge_location: vec![],
-            hard_limit: Some(3000),
+            hard_limit: None,
             extra_target_commit_id: meta.data().default_target.as_ref().map(|t| t.sha.to_gix()),
         },
     )?;
+    const LIMIT: usize = 3000;
+    if graph.num_segments() > LIMIT {
+        let mut topo = graph.topo_walk();
+        let mut count = 0;
+
+        let mut remove = Vec::new();
+        while let Some(sidx) = topo.next(&*graph) {
+            count += 1;
+            if count > LIMIT {
+                remove.push(sidx);
+            }
+        }
+        tracing::warn!(
+            "Pruning {nodes} to assure 'dot' won't hang",
+            nodes = remove.len()
+        );
+        for sidx in remove {
+            graph.remove_node(sidx);
+        }
+        graph.set_hard_limit_hit();
+    }
     graph.open_as_svg();
     Ok(())
 }
