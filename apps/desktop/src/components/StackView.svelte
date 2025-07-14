@@ -140,8 +140,10 @@
 	const changes = $derived(uncommittedService.changesByStackId(stack.id || null));
 
 	let stackViewEl = $state<HTMLDivElement>();
-
 	let compactDiv = $state<HTMLDivElement>();
+
+	let commitContentHeight = $state<number>(0);
+	let commitContentHeightRem = $derived(pxToRem(commitContentHeight, 1));
 
 	let verticalHeight = $state<number>(0);
 	let verticalHeightRem = $derived(pxToRem(verticalHeight, 1));
@@ -256,6 +258,9 @@
 
 	const resizeGroup = new ResizeGroup();
 	const unsetMaxHeight = '25%';
+
+	// State to track if commit is in edit message mode
+	let commitEditMode = $state(false);
 </script>
 
 <!-- ATTENTION -->
@@ -336,6 +341,8 @@
 			commitId,
 			upstream: !!upstream
 		}}
+		bind:contentHeight={commitContentHeight}
+		bind:isInEditMessageMode={commitEditMode}
 		draggableFiles
 		active={selectedKey?.type === 'commit' && focusedStackId === stack.id}
 		scrollToType="details"
@@ -352,8 +359,8 @@
 				direction="down"
 				imitateBorder
 				persistId="resizer-panel2-details-${stack.id}"
-				minHeight={undefined}
-				maxHeight={maxDetailsHeight}
+				minHeight={commitEditMode ? commitContentHeightRem : 4}
+				maxHeight={commitContentHeightRem}
 				order={0}
 				{resizeGroup}
 			/>

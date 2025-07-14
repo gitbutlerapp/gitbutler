@@ -28,12 +28,13 @@
 		grow?: boolean;
 		shrink?: boolean;
 		maxHeight?: string;
+		contentHeight?: number;
 		onclose?: () => void;
 		ontoggle?: (collapsed: boolean) => void;
 		resizer?: Snippet<[{ element: HTMLDivElement; collapsed?: boolean }]>;
 	};
 
-	const {
+	let {
 		title,
 		header,
 		extraActions,
@@ -49,6 +50,7 @@
 		grow,
 		shrink,
 		maxHeight,
+		contentHeight = $bindable(),
 		ontoggle,
 		onclose,
 		resizer
@@ -78,67 +80,69 @@
 	class:no-shrink={!shrink && resizer && $collapsed !== undefined}
 	{@attach scrollingAttachment(intelligentScrollingService, scrollToId, scrollToType)}
 >
-	<div bind:this={headerDiv} class="drawer-header" class:bottom-border={!$collapsed}>
-		{#if $collapsed !== undefined}
-			{@const name = $collapsed ? 'chevron-right' : ('chevron-down' as const)}
-			<button
-				type="button"
-				class="chevron-btn focus-state"
-				onclick={() => {
-					if ($collapsed !== undefined) {
-						const newValue = !$collapsed;
-						collapsed.set(newValue);
-						ontoggle?.(newValue);
-					}
-				}}
-			>
-				<Icon {name} />
-			</button>
-		{/if}
-
-		<div class="drawer-header__title">
-			{#if title}
-				<h3 class="text-15 text-bold truncate">
-					{title}
-				</h3>
+	<div bind:clientHeight={contentHeight}>
+		<div bind:this={headerDiv} class="drawer-header" class:bottom-border={!$collapsed}>
+			{#if $collapsed !== undefined}
+				{@const name = $collapsed ? 'chevron-right' : ('chevron-down' as const)}
+				<button
+					type="button"
+					class="chevron-btn focus-state"
+					onclick={() => {
+						if ($collapsed !== undefined) {
+							const newValue = !$collapsed;
+							collapsed.set(newValue);
+							ontoggle?.(newValue);
+						}
+					}}
+				>
+					<Icon {name} />
+				</button>
 			{/if}
-			{#if header}
-				{@render header(containerDiv)}
+
+			<div class="drawer-header__title">
+				{#if title}
+					<h3 class="text-15 text-bold truncate">
+						{title}
+					</h3>
+				{/if}
+				{#if header}
+					{@render header(containerDiv)}
+				{/if}
+			</div>
+
+			{#if extraActions || kebabMenu || onclose}
+				<div class="drawer-header__actions">
+					{#if extraActions}
+						{@render extraActions()}
+					{/if}
+
+					{#if kebabMenu}
+						{@render kebabMenu(headerDiv)}
+					{/if}
+
+					{#if onclose}
+						<Button kind="ghost" icon="cross" size="tag" onclick={() => onclose()} />
+					{/if}
+				</div>
 			{/if}
 		</div>
 
-		{#if extraActions || kebabMenu || onclose}
-			<div class="drawer-header__actions">
-				{#if extraActions}
-					{@render extraActions()}
-				{/if}
+		{#if !$collapsed}
+			<ConfigurableScrollableContainer>
+				{#if children}
+					<div class="drawer__content">
+						{@render children()}
+					</div>
 
-				{#if kebabMenu}
-					{@render kebabMenu(headerDiv)}
+					{#if filesSplitView}
+						<div class="drawer__files-split-view">
+							{@render filesSplitView()}
+						</div>
+					{/if}
 				{/if}
-
-				{#if onclose}
-					<Button kind="ghost" icon="cross" size="tag" onclick={() => onclose()} />
-				{/if}
-			</div>
+			</ConfigurableScrollableContainer>
 		{/if}
 	</div>
-
-	{#if !$collapsed}
-		<ConfigurableScrollableContainer>
-			{#if children}
-				<div class="drawer__content">
-					{@render children()}
-				</div>
-
-				{#if filesSplitView}
-					<div class="drawer__files-split-view">
-						{@render filesSplitView()}
-					</div>
-				{/if}
-			{/if}
-		</ConfigurableScrollableContainer>
-	{/if}
 	{@render resizer?.({ element: containerDiv, collapsed: $collapsed })}
 </div>
 
