@@ -395,6 +395,18 @@
 					/>
 				{/if}
 				{#if !useRichText && enableRuler}
+					<FormattingButton
+						icon="text-wrap"
+						activated={useRuler.current}
+						tooltip="Wrap text automatically"
+						onclick={async () => {
+							useRuler.current = !useRuler.current;
+							await tick(); // Wait for reactive update.
+							if (useRuler.current) {
+								composer?.wrapAll();
+							}
+						}}
+					/>
 					{#if useRuler.current}
 						<div class="message-textarea__ruler-input-wrapper">
 							<input
@@ -424,18 +436,6 @@
 							/>
 						</div>
 					{/if}
-					<FormattingButton
-						icon="text-wrap"
-						activated={useRuler.current}
-						tooltip="Wrap text automatically"
-						onclick={async () => {
-							useRuler.current = !useRuler.current;
-							await tick(); // Wait for reactive update.
-							if (useRuler.current) {
-								composer?.wrapAll();
-							}
-						}}
-					/>
 				{/if}
 			</div>
 			<DropDownButton
