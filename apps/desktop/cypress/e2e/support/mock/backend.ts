@@ -659,7 +659,7 @@ export default class MockBackend {
 		this.stackDetails.set(args.stackId, editableDetails);
 
 		return {
-			refname: `refs/remotes/origin/${args.stackId}`,
+			refname: `refs/remotes/origin/${args.branch}`,
 			remote: 'origin'
 		};
 	}

@@ -341,6 +341,7 @@ export type PushStackParams = {
 	projectId: string;
 	stackId: string;
 	withForce: boolean;
+	branch: string;
 };
 
 export function isPushStackParams(params: unknown): params is PushStackParams {
@@ -352,7 +353,9 @@ export function isPushStackParams(params: unknown): params is PushStackParams {
 		'stackId' in params &&
 		typeof params.stackId === 'string' &&
 		'withForce' in params &&
-		typeof params.withForce === 'boolean'
+		typeof params.withForce === 'boolean' &&
+		'branch' in params &&
+		typeof params.branch === 'string'
 	);
 }
 
