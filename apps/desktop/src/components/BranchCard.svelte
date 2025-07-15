@@ -4,11 +4,13 @@
 	import BranchHeader from '$components/BranchHeader.svelte';
 	import BranchHeaderContextMenu from '$components/BranchHeaderContextMenu.svelte';
 	import CardOverlay from '$components/CardOverlay.svelte';
+	import ChecksPolling from '$components/ChecksPolling.svelte';
 	import CreateReviewBox from '$components/CreateReviewBox.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
 	import PrNumberUpdater from '$components/PrNumberUpdater.svelte';
 	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
 	import { ReorderCommitDzHandler } from '$lib/dragging/stackingReorderDropzoneManager';
+	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
@@ -80,7 +82,8 @@
 
 	let { projectId, branchName, active, lineColor, readonly, ...args }: Props = $props();
 
-	const [uiState, stackService] = inject(UiState, StackService);
+	const [uiState, stackService, forge] = inject(UiState, StackService, DefaultForgeFactory);
+	const prService = $derived(forge.current.prService);
 
 	const [updateName, nameUpdate] = stackService.updateBranchName;
 
@@ -191,7 +194,17 @@
 								<ReviewBadge brId={args.reviewId} brStatus="unknown" />
 							{/if}
 							{#if args.prNumber}
+								{@const prResult = prService?.get(args.prNumber, { forceRefetch: true })}
+								{@const pr = prResult?.current.data}
 								<ReviewBadge prNumber={args.prNumber} prStatus="unknown" />
+								{#if pr && !pr.closedAt && forge.current.checks && pr.state === 'open'}
+									<ChecksPolling
+										branchName={pr.sourceBranch}
+										isFork={pr.fork}
+										isMerged={pr.merged}
+										reduced
+									/>
+								{/if}
 							{/if}
 						</div>
 					{/if}
@@ -316,7 +329,9 @@
 	}
 
 	.branch-header__review-badges {
+		box-sizing: border-box;
 		display: flex;
+		align-items: center;
 		gap: 4px;
 	}
 

@@ -4,6 +4,7 @@
 	import PullRequestPolling from '$components/PullRequestPolling.svelte';
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -191,7 +192,7 @@
 				{`${abbr} ${symbol}${pr.number}`}
 			</h4>
 
-			<PrStatusBadge {pr} />
+			<PrStatusBadge testId={TestId.PRStatusBadge} {pr} />
 		</div>
 		<div class="text-12 pr-row">
 			{#if !pr.closedAt && forge.current.checks}

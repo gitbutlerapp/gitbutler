@@ -6,6 +6,7 @@
 	import type { Snippet } from 'svelte';
 
 	interface Props {
+		testId?: string;
 		style?: ComponentColorType;
 		kind?: 'solid' | 'soft';
 		size?: 'icon' | 'tag';
@@ -17,6 +18,7 @@
 	}
 
 	const {
+		testId,
 		style = 'neutral',
 		kind = 'solid',
 		size = 'icon',
@@ -32,7 +34,12 @@
 	<!-- A badge is not a clickable UI element, but with exceptions. No button styling desired. -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<div class="badge {style} {kind} {size}-size" class:reversedDirection {onclick}>
+	<div
+		data-testid={testId}
+		class="badge {style} {kind} {size}-size"
+		class:reversedDirection
+		{onclick}
+	>
 		{#if children}
 			<span
 				class="badge__label text-bold"

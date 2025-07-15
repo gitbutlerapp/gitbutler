@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import type { MessageStyle } from '$components/InfoMessage.svelte';
@@ -11,18 +12,19 @@
 		hasChecks?: boolean;
 		isFork?: boolean;
 		isMerged?: boolean;
-		size?: 'icon' | 'tag';
+		reduced?: boolean;
 	};
 
 	type StatusInfo = {
 		text: string;
+		reducedText: string;
 		icon: keyof typeof iconsJson | undefined;
 		style?: ComponentColorType;
 		messageStyle?: MessageStyle;
 		tooltip?: string;
 	};
 
-	let { branchName, isFork, isMerged, hasChecks = $bindable(), size = 'tag' }: Props = $props();
+	let { branchName, isFork, isMerged, hasChecks = $bindable(), reduced = false }: Props = $props();
 
 	const [forge] = inject(DefaultForgeFactory);
 
@@ -82,12 +84,18 @@
 				style: 'neutral',
 				icon: 'info',
 				text: 'No PR checks',
+				reducedText: 'No checks',
 				tooltip: 'Checks for forked repos only available on the web.'
 			};
 		}
 
 		if (checksResult?.current.error) {
-			return { style: 'error', icon: 'warning-small', text: 'Failed to load' };
+			return {
+				style: 'error',
+				icon: 'warning-small',
+				text: 'Failed to load',
+				reducedText: 'Failed'
+			};
 		}
 
 		if (checks) {
@@ -103,13 +111,15 @@
 					? 'Checks passed'
 					: 'Checks failed'
 				: 'Checks running';
-			return { style, icon, text };
+
+			const reducedText = checks.completed ? (checks.success ? 'Passed' : 'Failed') : 'Running';
+			return { style, icon, text, reducedText };
 		}
 		if (loading) {
-			return { style: 'neutral', icon: 'spinner', text: 'Checks' };
+			return { style: 'neutral', icon: 'spinner', text: 'Checks', reducedText: 'Checks' };
 		}
 
-		return { style: 'neutral', icon: undefined, text: 'No PR checks' };
+		return { style: 'neutral', icon: undefined, text: 'No PR checks', reducedText: 'No checks' };
 	});
 
 	$effect(() => {
@@ -136,15 +146,35 @@
 	});
 </script>
 
-<Badge
-	{size}
-	icon={checksTagInfo.icon}
-	style={checksTagInfo.style}
-	kind={checksTagInfo.icon === 'success-small' ? 'solid' : 'soft'}
-	tooltip={checksTagInfo.tooltip}
-	onclick={() => {
-		checksService?.fetch(branchName, { forceRefetch: true });
-	}}
->
-	{checksTagInfo.text}
-</Badge>
+{#if !reduced}
+	<div data-testid={TestId.PRChecksBadge}>
+		<Badge
+			icon={checksTagInfo.icon}
+			style={checksTagInfo.style}
+			kind={checksTagInfo.icon === 'success-small' ? 'solid' : 'soft'}
+			tooltip={checksTagInfo.tooltip}
+			onclick={() => {
+				checksService?.fetch(branchName, { forceRefetch: true });
+			}}
+		>
+			{checksTagInfo.text}
+		</Badge>
+	</div>
+{:else}
+	<Badge
+		testId={TestId.PRChecksBadgeReduced}
+		size="icon"
+		icon={checksTagInfo.icon}
+		style={checksTagInfo.style}
+		kind={checksTagInfo.icon === 'success-small' ? 'solid' : 'soft'}
+		tooltip={checksTagInfo.tooltip}
+		reversedDirection
+		onclick={() => {
+			checksService?.fetch(branchName, { forceRefetch: true });
+		}}
+	>
+		<span class="truncate">
+			{checksTagInfo.reducedText}
+		</span>
+	</Badge>
+{/if}
