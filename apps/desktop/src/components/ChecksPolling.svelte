@@ -112,8 +112,13 @@
 					: 'Checks failed'
 				: 'Checks running';
 
+			const tooltip =
+				checks.completed && !checks.success
+					? `Checks failed: ${checks.failedChecks.join(', ')}`
+					: undefined;
+
 			const reducedText = checks.completed ? (checks.success ? 'Passed' : 'Failed') : 'Running';
-			return { style, icon, text, reducedText };
+			return { style, icon, text, reducedText, tooltip };
 		}
 		if (loading) {
 			return { style: 'neutral', icon: 'spinner', text: 'Checks', reducedText: 'Checks' };
