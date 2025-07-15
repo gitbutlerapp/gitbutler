@@ -1,4 +1,5 @@
 use anyhow::{Result, bail};
+use but_core::TreeChange;
 use but_rebase::{Rebase, replace_commit_tree};
 use gitbutler_command_context::CommandContext;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
@@ -91,4 +92,28 @@ pub fn remove_changes_from_commit(
     let rewritten_source_commit =
         replace_commit_tree(&repository, source_commit_id, source_tree_without_changes)?;
     Ok(rewritten_source_commit)
+}
+
+/// Keeps only the specified file changes in a commit, removing all others.
+pub fn keep_only_file_changes_in_commit(
+    ctx: &CommandContext,
+    source_commit_id: gix::ObjectId,
+    file_changes_to_keep: &[String],
+    context_lines: u32,
+) -> Result<ObjectId> {
+    let repository = ctx.gix_repo()?;
+    let commit_changes =
+        but_core::diff::ui::commit_changes_by_worktree_dir(&repository, source_commit_id)?;
+    let changes_to_remove: Vec<TreeChange> = commit_changes
+        .changes
+        .into_iter()
+        .filter(|change| !file_changes_to_keep.contains(&change.path.to_string()))
+        .map(|change| change.into())
+        .collect();
+    let diff_specs: Vec<DiffSpec> = changes_to_remove
+        .into_iter()
+        .map(|change| change.into())
+        .collect();
+
+    remove_changes_from_commit(ctx, source_commit_id, diff_specs, context_lines)
 }

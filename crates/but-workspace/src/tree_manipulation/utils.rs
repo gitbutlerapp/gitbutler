@@ -346,3 +346,40 @@ pub fn replace_pick_with_commit(
         ))
     }
 }
+
+pub fn replace_pick_with_multiple_commits(
+    steps: &mut Vec<RebaseStep>,
+    target_commit_id: gix::ObjectId,
+    replacement_commit_ids: &[(gix::ObjectId, Option<String>)],
+) -> anyhow::Result<()> {
+    let mut found = false;
+    let mut new_steps =
+        Vec::with_capacity(steps.len() + replacement_commit_ids.len().saturating_sub(1));
+    for step in steps.drain(..) {
+        if step.commit_id() == Some(&target_commit_id) {
+            let RebaseStep::Pick { .. } = step else {
+                new_steps.push(step);
+                continue;
+            };
+            found = true;
+            for (replacement_commit_id, new_message) in replacement_commit_ids {
+                new_steps.push(RebaseStep::Pick {
+                    commit_id: *replacement_commit_id,
+                    new_message: new_message.clone().map(|msg| msg.into()),
+                });
+            }
+        } else {
+            new_steps.push(step);
+        }
+    }
+    *steps = new_steps;
+
+    if found {
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!(
+            "Failed to replace pick step {} with multiple commits",
+            target_commit_id
+        ))
+    }
+}
