@@ -720,6 +720,7 @@ dependencies = [
  "chrono",
  "clap",
  "colored",
+ "command-group",
  "dirs-next",
  "gitbutler-branch",
  "gitbutler-branch-actions",
@@ -735,6 +736,7 @@ dependencies = [
  "serde",
  "serde_json",
  "strum",
+ "sysinfo 0.36.0",
  "tokio",
  "tokio-util",
  "tracing",
@@ -1377,6 +1379,18 @@ checksum = "ba5a308b75df32fe02788e748662718f03fde005016435c444eea572398219fd"
 dependencies = [
  "bytes",
  "memchr",
+]
+
+[[package]]
+name = "command-group"
+version = "5.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a68fa787550392a9d58f44c21a3022cfb3ea3e2458b7f85d3b399d0ceeccf409"
+dependencies = [
+ "async-trait",
+ "nix 0.27.1",
+ "tokio",
+ "winapi",
 ]
 
 [[package]]
@@ -3018,7 +3032,7 @@ dependencies = [
  "nix 0.30.1",
  "rand 0.9.1",
  "serde",
- "sysinfo",
+ "sysinfo 0.35.2",
  "thiserror 2.0.12",
  "tokio",
  "uuid",
@@ -6210,6 +6224,17 @@ checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 
 [[package]]
 name = "nix"
+version = "0.27.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2eb04e9c688eff1c89d72b407f168cf79bb9e867a9d3323ed6c01519eb9cc053"
+dependencies = [
+ "bitflags 2.9.1",
+ "cfg-if",
+ "libc",
+]
+
+[[package]]
+name = "nix"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71e2746dc3a24dd78b3cfcb7be93368c6de9963d30f43a6a73998a9cf4b17b46"
@@ -8828,6 +8853,20 @@ name = "sysinfo"
 version = "0.35.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c3ffa3e4ff2b324a57f7aeb3c349656c7b127c3c189520251a648102a92496e"
+dependencies = [
+ "libc",
+ "memchr",
+ "ntapi",
+ "objc2-core-foundation",
+ "objc2-io-kit",
+ "windows",
+]
+
+[[package]]
+name = "sysinfo"
+version = "0.36.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aab138f5c1bb35231de19049060a87977ad23e04f2303e953bc5c2947ac7dec4"
 dependencies = [
  "libc",
  "memchr",

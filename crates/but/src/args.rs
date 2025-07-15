@@ -54,12 +54,14 @@ For examples `but rub --help`.")]
     #[clap(hide = true)]
     Metrics {
         #[clap(long, value_enum)]
-        command_name: MetricsCommandName,
+        command_name: CommandName,
+        #[clap(long)]
+        props: String,
     },
 }
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
-pub enum MetricsCommandName {
+pub enum CommandName {
     #[clap(alias = "log")]
     Log,
     #[clap(alias = "status")]

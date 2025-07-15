@@ -1,10 +1,12 @@
 use std::{collections::HashMap, env};
 
 use but_settings::AppSettings;
+use clap::ValueEnum;
+use command_group::AsyncCommandGroup;
 use posthog_rs::Client;
 use serde::{Deserialize, Serialize};
 
-use crate::args::MetricsCommandName;
+use crate::args::CommandName;
 
 #[derive(Debug, Clone)]
 pub struct Metrics {
@@ -25,16 +27,49 @@ pub enum EventKind {
     Unknown,
 }
 
-impl From<MetricsCommandName> for EventKind {
-    fn from(command_name: MetricsCommandName) -> Self {
+impl From<CommandName> for EventKind {
+    fn from(command_name: CommandName) -> Self {
         match command_name {
-            MetricsCommandName::Log => EventKind::CliLog,
-            MetricsCommandName::Status => EventKind::CliStatus,
-            MetricsCommandName::Rub => EventKind::CliRub,
-            MetricsCommandName::ClaudePreTool => EventKind::ClaudePreTool,
-            MetricsCommandName::ClaudePostTool => EventKind::ClaudePostTool,
-            MetricsCommandName::ClaudeStop => EventKind::ClaudeStop,
+            CommandName::Log => EventKind::CliLog,
+            CommandName::Status => EventKind::CliStatus,
+            CommandName::Rub => EventKind::CliRub,
+            CommandName::ClaudePreTool => EventKind::ClaudePreTool,
+            CommandName::ClaudePostTool => EventKind::ClaudePostTool,
+            CommandName::ClaudeStop => EventKind::ClaudeStop,
             _ => EventKind::Unknown,
+        }
+    }
+}
+
+pub struct Props {
+    values: HashMap<String, serde_json::Value>,
+}
+
+impl Props {
+    pub fn new() -> Self {
+        Props {
+            values: HashMap::new(),
+        }
+    }
+
+    pub fn insert<K: Into<String>, V: Serialize>(&mut self, key: K, value: V) {
+        if let Ok(value) = serde_json::to_value(value) {
+            self.values.insert(key.into(), value);
+        }
+    }
+
+    pub fn as_json_string(&self) -> String {
+        serde_json::to_string(&self.values).unwrap_or_default()
+    }
+
+    pub fn from_json_string(json: &str) -> Result<Self, serde_json::Error> {
+        let values: HashMap<String, serde_json::Value> = serde_json::from_str(json)?;
+        Ok(Props { values })
+    }
+
+    pub fn update_event(&self, event: &mut Event) {
+        for (key, value) in &self.values {
+            event.insert_prop(key, value);
         }
     }
 }
@@ -148,4 +183,31 @@ fn posthog_client(app_settings: AppSettings) -> Option<impl Future<Output = post
     } else {
         None
     }
+}
+
+/// If metrics are configured, this function spawns a process to handle metrics logging so that this CLI process can exit as soon as possible.
+pub(crate) fn metrics_if_configured(
+    app_settings: AppSettings,
+    cmd: CommandName,
+    props: Props,
+) -> anyhow::Result<()> {
+    if !app_settings.telemetry.app_metrics_enabled {
+        return Ok(());
+    }
+    if let Some(v) = cmd.to_possible_value() {
+        let binary_path = std::env::current_exe().unwrap_or_default();
+        let mut group = tokio::process::Command::new(binary_path)
+            .arg("metrics")
+            .arg("--command-name")
+            .arg(v.get_name())
+            .arg("--props")
+            .arg(props.as_json_string())
+            .stderr(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .group()
+            .kill_on_drop(false)
+            .spawn()?;
+        group.inner().id().map(|id| sysinfo::Pid::from(id as usize));
+    }
+    Ok(())
 }
