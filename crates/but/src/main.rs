@@ -3,6 +3,7 @@ use anyhow::{Context, Ok, Result};
 mod args;
 use args::{Args, Subcommands, actions, claude};
 use but_settings::AppSettings;
+use metrics::{Event, Metrics};
 mod command;
 mod id;
 mod log;
@@ -38,6 +39,11 @@ async fn main() -> Result<()> {
             }
             None => command::list_actions(&args.current_dir, args.json, 0, 10),
         },
+        Subcommands::Metrics { command_name } => {
+            let event = &mut Event::new((*command_name).into());
+            Metrics::capture_blocking(&app_settings, event.clone()).await;
+            Ok(())
+        }
         Subcommands::Claude(claude::Platform { cmd }) => match cmd {
             claude::Subcommands::PreTool => {
                 let out = command::claude::handle_pre_tool_call()?;

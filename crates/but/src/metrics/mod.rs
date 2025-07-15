@@ -1,7 +1,10 @@
 use std::{collections::HashMap, env};
 
 use but_settings::AppSettings;
+use posthog_rs::Client;
 use serde::{Deserialize, Serialize};
+
+use crate::args::MetricsCommandName;
 
 #[derive(Debug, Clone)]
 pub struct Metrics {
@@ -13,7 +16,29 @@ pub struct Metrics {
 pub enum EventKind {
     Mcp,
     McpInternal,
+    CliLog,
+    CliStatus,
+    CliRub,
+    ClaudePreTool,
+    ClaudePostTool,
+    ClaudeStop,
+    Unknown,
 }
+
+impl From<MetricsCommandName> for EventKind {
+    fn from(command_name: MetricsCommandName) -> Self {
+        match command_name {
+            MetricsCommandName::Log => EventKind::CliLog,
+            MetricsCommandName::Status => EventKind::CliStatus,
+            MetricsCommandName::Rub => EventKind::CliRub,
+            MetricsCommandName::ClaudePreTool => EventKind::ClaudePreTool,
+            MetricsCommandName::ClaudePostTool => EventKind::ClaudePostTool,
+            MetricsCommandName::ClaudeStop => EventKind::ClaudeStop,
+            _ => EventKind::Unknown,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Event {
     event_name: EventKind,
@@ -55,18 +80,7 @@ impl Metrics {
     pub fn new_with_background_handling(app_settings: &AppSettings) -> Self {
         let metrics_permitted = app_settings.telemetry.app_metrics_enabled;
         // Only create client and sender if metrics are permitted
-        let client = if metrics_permitted {
-            option_env!("POSTHOG_API_KEY").and_then(|api_key| {
-                let options = posthog_rs::ClientOptionsBuilder::default()
-                    .api_key(api_key.to_string())
-                    .api_endpoint("https://eu.i.posthog.com/i/v0/e/".to_string())
-                    .build()
-                    .ok()?;
-                Some(posthog_rs::client(options))
-            })
-        } else {
-            None
-        };
+        let client = posthog_client(app_settings.clone());
         let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
         let sender = if metrics_permitted {
             Some(sender)
@@ -77,19 +91,11 @@ impl Metrics {
 
         if let Some(client_future) = client {
             let mut receiver = receiver;
-            let distinct_id = app_settings.telemetry.app_distinct_id.clone();
+            let app_settings = app_settings.clone();
             tokio::task::spawn(async move {
                 let client = client_future.await;
                 while let Some(event) = receiver.recv().await {
-                    let mut posthog_event = if let Some(id) = &distinct_id {
-                        posthog_rs::Event::new(event.event_name.to_string(), id.clone())
-                    } else {
-                        posthog_rs::Event::new_anon(event.event_name.to_string())
-                    };
-                    for (key, prop) in event.props {
-                        let _ = posthog_event.insert_prop(key, prop);
-                    }
-                    let _ = client.capture(posthog_event).await;
+                    do_capture(&client, event, &app_settings).await.ok();
                 }
             });
         }
@@ -101,5 +107,45 @@ impl Metrics {
         if let Some(sender) = &self.sender {
             let _ = sender.send(event.clone());
         }
+    }
+
+    pub async fn capture_blocking(app_settings: &AppSettings, event: Event) {
+        if let Some(client) = posthog_client(app_settings.clone()) {
+            do_capture(&client.await, event, app_settings).await.ok();
+        }
+    }
+}
+
+fn do_capture(
+    client: &Client,
+    event: Event,
+    app_settings: &AppSettings,
+) -> impl Future<Output = Result<(), posthog_rs::Error>> {
+    let mut posthog_event = if let Some(id) = &app_settings.telemetry.app_distinct_id.clone() {
+        posthog_rs::Event::new(event.event_name.to_string(), id.clone())
+    } else {
+        posthog_rs::Event::new_anon(event.event_name.to_string())
+    };
+    for (key, prop) in event.props {
+        let _ = posthog_event.insert_prop(key, prop);
+    }
+    client.capture(posthog_event)
+}
+
+/// Creates a PostHog client if metrics are enabled and the API key is set.
+fn posthog_client(app_settings: AppSettings) -> Option<impl Future<Output = posthog_rs::Client>> {
+    if app_settings.telemetry.app_metrics_enabled {
+        if let Some(api_key) = option_env!("POSTHOG_API_KEY") {
+            let options = posthog_rs::ClientOptionsBuilder::default()
+                .api_key(api_key.to_string())
+                .api_endpoint("https://eu.i.posthog.com/i/v0/e/".to_string())
+                .build()
+                .ok()?;
+            Some(posthog_rs::client(options))
+        } else {
+            None
+        }
+    } else {
+        None
     }
 }
