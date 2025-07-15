@@ -10,7 +10,8 @@ type ToolName =
 	| 'get_commit_details'
 	| 'squash_commits'
 	| 'split_branch'
-	| 'get_branch_changes';
+	| 'get_branch_changes'
+	| 'split_commit';
 
 export type ToolCall = {
 	name: ToolName;
@@ -193,6 +194,40 @@ function isGetBranchChangesParameters(params: unknown): params is GetBranchChang
 	);
 }
 
+type CommitShard = {
+	messageTitle: string;
+	messageBody: string;
+	files: string[];
+};
+
+function isCommitShard(shard: unknown): shard is CommitShard {
+	return (
+		typeof shard === 'object' &&
+		shard !== null &&
+		typeof (shard as CommitShard).messageTitle === 'string' &&
+		typeof (shard as CommitShard).messageBody === 'string' &&
+		Array.isArray((shard as CommitShard).files) &&
+		(shard as CommitShard).files.every((file) => typeof file === 'string')
+	);
+}
+
+type SplitCommitParameters = {
+	sourceStackId: string;
+	sourceCommitId: string;
+	shards: CommitShard[];
+};
+
+function isSplitCommitParameters(params: unknown): params is SplitCommitParameters {
+	return (
+		typeof params === 'object' &&
+		params !== null &&
+		typeof (params as SplitCommitParameters).sourceStackId === 'string' &&
+		typeof (params as SplitCommitParameters).sourceCommitId === 'string' &&
+		Array.isArray((params as SplitCommitParameters).shards) &&
+		(params as SplitCommitParameters).shards.every(isCommitShard)
+	);
+}
+
 interface BaseParsedToolCall {
 	name: ToolName;
 	parameters:
@@ -206,6 +241,7 @@ interface BaseParsedToolCall {
 		| SquashCommitsToolParams
 		| SplitBranchToolParams
 		| GetBranchChangesParameters
+		| SplitCommitParameters
 		| undefined;
 	result: string;
 	isError: boolean;
@@ -265,6 +301,11 @@ interface ParsedGetBranchChangesToolCall extends BaseParsedToolCall {
 	parameters: GetBranchChangesParameters | undefined;
 }
 
+interface ParsedSplitCommitToolCall extends BaseParsedToolCall {
+	name: 'split_commit';
+	parameters: SplitCommitParameters | undefined;
+}
+
 export type ParsedToolCall =
 	| ParsedCommitToolCall
 	| ParsedCreateBranchToolCall
@@ -275,7 +316,8 @@ export type ParsedToolCall =
 	| ParsedGetCommitDetailsToolCall
 	| ParsedSquashCommitsToolCall
 	| ParsedSplitBranchToolCall
-	| ParsedGetBranchChangesToolCall;
+	| ParsedGetBranchChangesToolCall
+	| ParsedSplitCommitToolCall;
 
 function safeParseJson(jsonString: string): unknown {
 	try {
@@ -326,6 +368,8 @@ export function getToolCallIcon(name: ToolName, isError: boolean): IconName {
 	}
 
 	switch (name) {
+		case 'split_commit':
+			return 'branch-shadow-commit';
 		case 'commit':
 			return 'commit';
 		case 'amend':
@@ -460,6 +504,17 @@ export function parseToolCall(toolCall: ToolCall): ParsedToolCall {
 		}
 		case 'get_branch_changes': {
 			const parameters = isGetBranchChangesParameters(rawParams) ? rawParams : undefined;
+			return {
+				name: toolCall.name,
+				parameters,
+				result: toolCall.result,
+				isError,
+				rawParameters: rawParams,
+				rawResult
+			};
+		}
+		case 'split_commit': {
+			const parameters = isSplitCommitParameters(rawParams) ? rawParams : undefined;
 			return {
 				name: toolCall.name,
 				parameters,

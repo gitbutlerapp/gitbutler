@@ -186,6 +186,13 @@
 								{parsedCall.parameters?.branchName}
 							</span>
 						</p>
+					{:else if parsedCall.name === 'split_commit'}
+						<p class="operation__title">
+							Split commit
+							<span>
+								{parsedCall.parameters?.sourceCommitId.substring(0, 7)}
+							</span>
+						</p>
 					{/if}
 				</div>
 

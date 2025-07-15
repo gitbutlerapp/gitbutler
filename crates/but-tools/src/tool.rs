@@ -144,3 +144,8 @@ impl ToolResult for Result<gix::ObjectId, anyhow::Error> {
         result_to_json(self, action_identifier, "gix::ObjectId")
     }
 }
+impl ToolResult for Result<Vec<gix::ObjectId>, anyhow::Error> {
+    fn to_json(&self, action_identifier: &str) -> serde_json::Value {
+        result_to_json(self, action_identifier, "Vec<gix::ObjectId>")
+    }
+}

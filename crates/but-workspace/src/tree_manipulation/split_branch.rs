@@ -9,12 +9,11 @@ use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_oxidize::OidExt;
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
-use gix::ObjectId;
 
 use crate::DiffSpec;
 use crate::MoveChangesResult;
 use crate::remove_changes_from_commit_in_stack;
-use crate::tree_manipulation::remove_changes_from_commit_in_stack::remove_changes_from_commit;
+use crate::tree_manipulation::remove_changes_from_commit_in_stack::keep_only_file_changes_in_commit;
 
 /// Splits a branch by creating a new branch with the specified changes.
 ///
@@ -164,27 +163,4 @@ fn remove_file_changes_from_commit(
         diff_specs,
         context_lines,
     )
-}
-
-fn keep_only_file_changes_in_commit(
-    ctx: &CommandContext,
-    source_commit_id: gix::ObjectId,
-    file_changes_to_keep: &[String],
-    context_lines: u32,
-) -> Result<ObjectId> {
-    let repository = ctx.gix_repo()?;
-    let commit_changes =
-        but_core::diff::ui::commit_changes_by_worktree_dir(&repository, source_commit_id)?;
-    let changes_to_remove: Vec<TreeChange> = commit_changes
-        .changes
-        .into_iter()
-        .filter(|change| !file_changes_to_keep.contains(&change.path.to_string()))
-        .map(|change| change.into())
-        .collect();
-    let diff_specs: Vec<DiffSpec> = changes_to_remove
-        .into_iter()
-        .map(|change| change.into())
-        .collect();
-
-    remove_changes_from_commit(ctx, source_commit_id, diff_specs, context_lines)
 }
