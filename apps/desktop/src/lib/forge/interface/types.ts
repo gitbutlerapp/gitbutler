@@ -63,8 +63,12 @@ export interface DetailedPullRequest {
 
 export type ChecksStatus = {
 	startedAt: string;
+	/**
+	 * Checks are considered completed if all checks have completed  or if there is at least one failure.
+	 */
 	completed: boolean;
 	success: boolean;
+	failedChecks: string[];
 };
 
 export enum MergeMethod {

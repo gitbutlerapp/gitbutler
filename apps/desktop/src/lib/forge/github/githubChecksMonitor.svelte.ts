@@ -51,18 +51,20 @@ function parseChecks(data: ChecksResult): ChecksStatus | null {
 		.filter((startedAt) => startedAt !== null) as string[];
 	const startTimes = starts.map((startedAt) => new Date(startedAt));
 
-	const failed = checkRuns.filter((c) => c.conclusion === 'failure').length;
+	const failedChecks = checkRuns.filter((c) => c.conclusion === 'failure');
+	const failed = failedChecks.length;
 	const actionRequired = checkRuns.filter((c) => c.conclusion === 'action_required').length;
 
 	const firstStart = new Date(Math.min(...startTimes.map((date) => date.getTime())));
-	const completed = checkRuns.every((check) => !!check.completed_at);
+	const completed = failed !== 0 || checkRuns.every((check) => !!check.completed_at);
 
-	const success = completed && failed === 0 && actionRequired === 0;
+	const success = failed === 0 && completed && actionRequired === 0;
 
 	return {
 		startedAt: firstStart.toISOString(),
 		success,
-		completed
+		completed,
+		failedChecks: failedChecks.map((check) => check.name)
 	};
 }
 

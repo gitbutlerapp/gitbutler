@@ -2,6 +2,7 @@ import { clearCommandMocks, mockCommand } from './support';
 import { PROJECT_ID } from './support/mock/projects';
 import BranchesWithChanges from './support/scenarios/branchesWithChanges';
 import StackBranchesWithCommits from './support/scenarios/stackBrancheshWithCommits';
+import type { ChecksResult } from '$lib/forge/github/types';
 
 describe('Review', () => {
 	let mockBackend: BranchesWithChanges;
@@ -684,6 +685,293 @@ describe('Review - stacked branches', () => {
 			title: prTitle2,
 			body: prDescription2,
 			draft: false
+		});
+	});
+
+	type CheckRun = Partial<ChecksResult['check_runs'][number]>;
+	type CustomChecksData = {
+		total_count: number;
+		check_runs: CheckRun[];
+	};
+
+	it('Should be able to create a pull request and listen for CI checks', () => {
+		const data: CustomChecksData = {
+			total_count: 1,
+			check_runs: [
+				{
+					id: 1,
+					started_at: new Date(Date.now() - 10000).toISOString(),
+					conclusion: null,
+					completed_at: null,
+					head_sha: 'abc123',
+					name: 'CI Check 1',
+					status: 'in_progress'
+				}
+			]
+		};
+
+		const finishedData: CustomChecksData = {
+			total_count: 1,
+			check_runs: [
+				{
+					...data.check_runs[0],
+					status: 'completed',
+					conclusion: 'success',
+					completed_at: new Date().toISOString()
+				}
+			]
+		};
+
+		let requestCount = 0;
+
+		cy.intercept(
+			{
+				method: 'GET',
+				url: 'https://api.github.com/repos/example/repo/commits/check-runs'
+			},
+			(req) => {
+				requestCount++;
+				if (requestCount > 2) {
+					req.reply({
+						statusCode: 200,
+						body: finishedData
+					});
+					return;
+				}
+
+				req.reply({
+					statusCode: 200,
+					body: data
+				});
+			}
+		).as('getChecksWithActualChecks');
+
+		const prTitle = 'Test PR Title';
+		const prDescription = 'Test PR Description';
+
+		// Open the top branch.
+		cy.getByTestId('branch-header', mockBackend.topBranchName).should('be.visible').click();
+
+		// The PR card should not be visible for the top branch.
+		cy.getByTestId('stacked-pull-request-card').should('not.exist');
+
+		// Now, open a review for the top branch.
+		cy.getByDataValue('series-name', mockBackend.topBranchName).within(() => {
+			cy.getByTestId('create-review-button')
+				.should('have.length', 1)
+				.should('be.visible')
+				.should('be.enabled')
+				.click();
+		});
+
+		// The Review Drawer should be visible.
+		cy.getByTestId('create-review-box').should('be.visible').should('have.length', 1);
+
+		// Since this branch has a single commit, the commit message should be pre-filled.
+		// Update both.
+		cy.getByTestId('create-review-box-title-input')
+			.should('be.visible')
+			.should('be.enabled')
+			.should('have.value', mockBackend.getCommitTitle(mockBackend.topBranchName))
+			.clear()
+			.type(prTitle);
+
+		cy.getByTestId('create-review-box-description-input')
+			.should('be.visible')
+			.should('contain', mockBackend.getCommitMessage(mockBackend.topBranchName))
+			.click()
+			.clear()
+			.type(prDescription);
+
+		// The Create Review button should be visible.
+		// Click it.
+		cy.getByTestId('create-review-box-create-button')
+			.should('be.visible')
+			.should('be.enabled')
+			.click();
+
+		// The PR card should be visible.
+		cy.getByTestId('stacked-pull-request-card').should('be.visible');
+
+		cy.getByTestId('stacked-pull-request-card').within(() => {
+			cy.getByTestId('pr-status-badge').should('be.visible');
+			cy.getByDataValue('pr-status', 'open').should('be.visible');
+			cy.getByTestId('pr-checks-badge').should('be.visible').contains('Checks running');
+		});
+
+		cy.getByTestId('branch-card', mockBackend.topBranchName)
+			.should('be.visible')
+			.within(() => {
+				cy.getByTestId('pr-checks-badge-reduced').should('be.visible');
+			});
+
+		cy.wait(
+			['@getChecksWithActualChecks', '@getChecksWithActualChecks', '@getChecksWithActualChecks'],
+			{ timeout: 11000 }
+		).spread((first, second, third) => {
+			expect(first.response.body).to.deep.equal(data);
+			expect(second.response.body).to.deep.equal(data);
+			expect(third.response.body).to.deep.equal(finishedData);
+		});
+
+		cy.getByTestId('stacked-pull-request-card').within(() => {
+			cy.getByTestId('pr-status-badge').should('be.visible');
+			cy.getByDataValue('pr-status', 'open').should('be.visible');
+			cy.getByTestId('pr-checks-badge').should('be.visible').contains('Checks passed');
+		});
+
+		cy.getByTestId('branch-card', mockBackend.topBranchName)
+			.should('be.visible')
+			.within(() => {
+				cy.getByTestId('pr-checks-badge-reduced').should('be.visible');
+			});
+	});
+
+	it('Should fail fast when checking for multiple checks', () => {
+		const data: CustomChecksData = {
+			total_count: 2,
+			check_runs: [
+				{
+					id: 1,
+					started_at: new Date(Date.now() - 10000).toISOString(),
+					conclusion: null,
+					completed_at: null,
+					head_sha: 'abc123',
+					name: 'CI Check 1',
+					status: 'in_progress'
+				},
+				{
+					id: 2,
+					started_at: new Date(Date.now() - 10000).toISOString(),
+					conclusion: null,
+					completed_at: null,
+					head_sha: 'abc123',
+					name: 'CI Check 2',
+					status: 'in_progress'
+				}
+			]
+		};
+
+		const oneCheckFailed: CustomChecksData = {
+			total_count: 1,
+			check_runs: [
+				{
+					...data.check_runs[0]
+				},
+				{
+					...data.check_runs[1],
+					status: 'completed',
+					conclusion: 'failure',
+					completed_at: new Date().toISOString()
+				}
+			]
+		};
+
+		let requestCount = 0;
+
+		cy.intercept(
+			{
+				method: 'GET',
+				url: 'https://api.github.com/repos/example/repo/commits/check-runs'
+			},
+			(req) => {
+				requestCount++;
+				if (requestCount > 2) {
+					req.reply({
+						statusCode: 200,
+						body: oneCheckFailed
+					});
+					return;
+				}
+
+				req.reply({
+					statusCode: 200,
+					body: data
+				});
+			}
+		).as('getChecksWithActualChecks');
+
+		const prTitle = 'Test PR Title';
+		const prDescription = 'Test PR Description';
+
+		// Open the top branch.
+		cy.getByTestId('branch-header', mockBackend.topBranchName).should('be.visible').click();
+
+		// The PR card should not be visible for the top branch.
+		cy.getByTestId('stacked-pull-request-card').should('not.exist');
+
+		// Now, open a review for the top branch.
+		cy.getByDataValue('series-name', mockBackend.topBranchName).within(() => {
+			cy.getByTestId('create-review-button')
+				.should('have.length', 1)
+				.should('be.visible')
+				.should('be.enabled')
+				.click();
+		});
+
+		// The Review Drawer should be visible.
+		cy.getByTestId('create-review-box').should('be.visible').should('have.length', 1);
+
+		// Since this branch has a single commit, the commit message should be pre-filled.
+		// Update both.
+		cy.getByTestId('create-review-box-title-input')
+			.should('be.visible')
+			.should('be.enabled')
+			.should('have.value', mockBackend.getCommitTitle(mockBackend.topBranchName))
+			.clear()
+			.type(prTitle);
+
+		cy.getByTestId('create-review-box-description-input')
+			.should('be.visible')
+			.should('contain', mockBackend.getCommitMessage(mockBackend.topBranchName))
+			.click()
+			.clear()
+			.type(prDescription);
+
+		// The Create Review button should be visible.
+		// Click it.
+		cy.getByTestId('create-review-box-create-button')
+			.should('be.visible')
+			.should('be.enabled')
+			.click();
+
+		// The PR card should be visible.
+		cy.getByTestId('stacked-pull-request-card').should('be.visible');
+
+		cy.getByTestId('stacked-pull-request-card').within(() => {
+			cy.getByTestId('pr-status-badge').should('be.visible');
+			cy.getByDataValue('pr-status', 'open').should('be.visible');
+			cy.getByTestId('pr-checks-badge').should('be.visible').contains('Checks running');
+		});
+
+		cy.getByTestId('branch-card', mockBackend.topBranchName)
+			.should('be.visible')
+			.within(() => {
+				cy.getByTestId('pr-checks-badge-reduced').should('be.visible');
+			});
+
+		cy.wait(
+			['@getChecksWithActualChecks', '@getChecksWithActualChecks', '@getChecksWithActualChecks'],
+			{ timeout: 11000 }
+		).spread((first, second, third) => {
+			expect(first.response.body).to.deep.equal(data);
+			expect(second.response.body).to.deep.equal(data);
+			expect(third.response.body).to.deep.equal(oneCheckFailed);
+		});
+
+		cy.getByTestId('branch-card', mockBackend.topBranchName)
+			.should('be.visible')
+			.within(() => {
+				cy.getByTestId('pr-checks-badge-reduced').should('be.visible');
+			});
+
+		cy.getByTestId('stacked-pull-request-card').within(() => {
+			cy.getByTestId('pr-status-badge').should('be.visible');
+			cy.getByDataValue('pr-status', 'open').should('be.visible');
+			cy.getByTestId('pr-checks-badge')
+				.should('be.visible')
+				.contains('Checks failed')
+				.trigger('mouseover');
 		});
 	});
 });
