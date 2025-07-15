@@ -490,6 +490,68 @@ fn j08_next_local_commit() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn j09_rewritten_remote_and_local_commit() -> anyhow::Result<()> {
+    let (repo, mut meta, description) = step("09-rewritten-local-commit")?;
+    insta::assert_snapshot!(description, @"The new local commit was rewritten after pushing it to the remote");
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 8010a9f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * c591296 (S1) two
+    | * c5aaf6b (origin/S1) two
+    |/  
+    * ba16348 one
+    * fafd9d0 (origin/main, main) init
+    ");
+
+    add_stack_with_segments(&mut meta, 0, "S1", StackState::InWorkspace, &[]);
+    let info = but_workspace::head_info(&repo, &*meta, standard_options());
+    insta::assert_debug_snapshot!(info, @r#"
+    Ok(
+        RefInfo {
+            workspace_ref_name: Some(
+                FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
+            ),
+            stacks: [
+                Stack {
+                    base: Some(
+                        Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    ),
+                    segments: [
+                        ref_info::ui::Segment {
+                            id: 3,
+                            ref_name: "refs/heads/S1",
+                            remote_tracking_ref_name: "refs/remotes/origin/S1",
+                            commits: [
+                                LocalCommit(c591296, "two\n", local/remote(similarity)),
+                                LocalCommit(ba16348, "one\n", local/remote(identity)),
+                            ],
+                            commits_unique_in_remote_tracking_branch: [],
+                            metadata: Branch {
+                                ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
+                                description: None,
+                                review: Review { pull_request: None, review_id: None },
+                            },
+                            push_status: UnpushedCommitsRequiringForce,
+                        },
+                    ],
+                },
+            ],
+            target_ref: Some(
+                FullName(
+                    "refs/remotes/origin/main",
+                ),
+            ),
+            is_managed_ref: true,
+            is_managed_commit: true,
+            is_entrypoint: true,
+        },
+    )
+    "#);
+    Ok(())
+}
+
 mod utils {
     use crate::ref_info::utils::standard_options;
     use crate::ref_info::with_workspace_commit::named_read_only_in_memory_scenario;

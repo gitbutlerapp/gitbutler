@@ -41,9 +41,10 @@ cp -R 04-create-workspace 05-empty-stack
   git branch S1 gitbutler/workspace~1
 )
 
-cp -R 03-main-pushed 06-create-commit-in-stack
+git init 06-create-commit-in-stack
 (cd 06-create-commit-in-stack
   echo "Create a new commit in the newly added stack S1" >.git/description
+  commit init && setup_target_to_match_main
   git checkout -b S1
     commit one
   create_workspace_commit_once S1
@@ -55,15 +56,32 @@ cp -R 06-create-commit-in-stack 07-push-commit
   git rev-parse S1 > .git/refs/remotes/origin/S1
 )
 
-cp -R 03-main-pushed 08-new-local-commit
+git init 08-new-local-commit
 (cd 08-new-local-commit
   echo "Create a new local commit right after the previous pushed one
 
   This leaves the stack in a state where it can be pushed.
   " >.git/description
+  commit init && setup_target_to_match_main
   git checkout -b S1
     commit one
     git rev-parse @ > .git/refs/remotes/origin/S1
     commit two
+  create_workspace_commit_once S1
+)
+
+git init 09-rewritten-local-commit
+(cd 09-rewritten-local-commit
+  echo "The new local commit was rewritten after pushing it to the remote" >.git/description
+  commit init && setup_target_to_match_main
+  git checkout -b S1
+    commit one
+    git branch soon-S1-remote
+    echo hi>file && git add file && git commit -am two
+  git checkout soon-S1-remote
+    tick
+    git cherry-pick S1
+    setup_remote_tracking soon-S1-remote S1 "move"
+  git checkout S1
   create_workspace_commit_once S1
 )
