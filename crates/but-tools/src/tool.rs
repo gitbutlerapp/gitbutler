@@ -104,6 +104,26 @@ pub fn error_to_json(error: &anyhow::Error, action_identifier: &str) -> serde_js
     })
 }
 
+pub fn string_result_to_json(
+    result: &Result<String, &anyhow::Error>,
+    action_identifier: &str,
+) -> serde_json::Value {
+    match result {
+        Ok(value) => json!({ "result": value }),
+        Err(e) => error_to_json(e, action_identifier),
+    }
+}
+
+pub fn string_vec_result_to_json(
+    result: &Result<Vec<String>, &anyhow::Error>,
+    action_identifier: &str,
+) -> serde_json::Value {
+    match result {
+        Ok(values) => json!({ "result": values }),
+        Err(e) => error_to_json(e, action_identifier),
+    }
+}
+
 pub fn result_to_json<T: serde::Serialize>(
     result: &Result<T, anyhow::Error>,
     action_identifier: &str,
@@ -141,11 +161,15 @@ impl ToolResult for Result<StackId, anyhow::Error> {
 
 impl ToolResult for Result<gix::ObjectId, anyhow::Error> {
     fn to_json(&self, action_identifier: &str) -> serde_json::Value {
-        result_to_json(self, action_identifier, "gix::ObjectId")
+        let result = self.as_ref().map(|id| id.to_string());
+        string_result_to_json(&result, action_identifier)
     }
 }
 impl ToolResult for Result<Vec<gix::ObjectId>, anyhow::Error> {
     fn to_json(&self, action_identifier: &str) -> serde_json::Value {
-        result_to_json(self, action_identifier, "Vec<gix::ObjectId>")
+        let result = self
+            .as_ref()
+            .map(|ids| ids.iter().map(|id| id.to_string()).collect::<Vec<String>>());
+        string_vec_result_to_json(&result, action_identifier)
     }
 }
