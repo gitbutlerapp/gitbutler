@@ -13,14 +13,21 @@ pub struct Metrics {
     sender: Option<tokio::sync::mpsc::UnboundedSender<Event>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, strum::Display)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, strum::Display)]
 #[serde(rename_all = "camelCase")]
 pub enum EventKind {
     Mcp,
     McpInternal,
-    CliLog,
-    CliStatus,
-    CliRub,
+    #[strum(serialize = "Cli")]
+    Cli(Command),
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, strum::Display)]
+#[serde(rename_all = "camelCase")]
+pub enum Command {
+    Log,
+    Status,
+    Rub,
     ClaudePreTool,
     ClaudePostTool,
     ClaudeStop,
@@ -30,13 +37,13 @@ pub enum EventKind {
 impl From<CommandName> for EventKind {
     fn from(command_name: CommandName) -> Self {
         match command_name {
-            CommandName::Log => EventKind::CliLog,
-            CommandName::Status => EventKind::CliStatus,
-            CommandName::Rub => EventKind::CliRub,
-            CommandName::ClaudePreTool => EventKind::ClaudePreTool,
-            CommandName::ClaudePostTool => EventKind::ClaudePostTool,
-            CommandName::ClaudeStop => EventKind::ClaudeStop,
-            _ => EventKind::Unknown,
+            CommandName::Log => EventKind::Cli(Command::Log),
+            CommandName::Status => EventKind::Cli(Command::Status),
+            CommandName::Rub => EventKind::Cli(Command::Rub),
+            CommandName::ClaudePreTool => EventKind::Cli(Command::ClaudePreTool),
+            CommandName::ClaudePostTool => EventKind::Cli(Command::ClaudePostTool),
+            CommandName::ClaudeStop => EventKind::Cli(Command::ClaudeStop),
+            _ => EventKind::Cli(Command::Unknown),
         }
     }
 }
@@ -86,6 +93,9 @@ impl Event {
             event_name,
             props: HashMap::new(),
         };
+        if let EventKind::Cli(command) = event_name {
+            event.insert_prop("command", command);
+        }
         event.insert_prop("appVersion", option_env!("VERSION").unwrap_or_default());
         event.insert_prop("releaseChannel", option_env!("CHANNEL").unwrap_or_default());
         event.insert_prop("appName", option_env!("CARGO_BIN_NAME").unwrap_or_default());
