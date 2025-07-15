@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { projectRunCommitHooks } from '$lib/config/config';
 	import { Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { getContext } from '@gitbutler/shared/context';
@@ -6,9 +7,12 @@
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
+	import Toggle from '@gitbutler/ui/Toggle.svelte';
 
 	const project = getContext(Project);
 	const projectsService = getContext(ProjectsService);
+
+	const runCommitHooks = $derived(projectRunCommitHooks(project.id));
 
 	let title = $state(project?.title);
 	let description = $state(project?.description);
@@ -45,6 +49,20 @@
 			</section>
 		</fieldset>
 	</form>
+</SectionCard>
+
+<Spacer />
+
+<SectionCard labelFor="runHooks" orientation="row">
+	{#snippet title()}
+		Run commit hooks
+	{/snippet}
+	{#snippet caption()}
+		Enabling this will run any git pre and post commit hooks you have configured in your repository.
+	{/snippet}
+	{#snippet actions()}
+		<Toggle id="runHooks" bind:checked={$runCommitHooks} />
+	{/snippet}
 </SectionCard>
 
 <Spacer />

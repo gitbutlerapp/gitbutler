@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Section from '$components/Section.svelte';
-	import { projectRunCommitHooks } from '$lib/config/config';
 	import { Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { getContext } from '@gitbutler/shared/context';
@@ -13,8 +12,6 @@
 
 	let snaphotLinesThreshold = project?.snapshot_lines_threshold || 20; // when undefined, the default is 20
 	let omitCertificateCheck = project?.omit_certificate_check;
-
-	const runCommitHooks = projectRunCommitHooks(project.id);
 
 	async function setOmitCertificateCheck(value: boolean | undefined) {
 		project.omit_certificate_check = !!value;
@@ -45,19 +42,6 @@
 				checked={omitCertificateCheck}
 				onclick={handleOmitCertificateCheckClick}
 			/>
-		{/snippet}
-	</SectionCard>
-
-	<SectionCard labelFor="runHooks" orientation="row">
-		{#snippet title()}
-			Run commit hooks
-		{/snippet}
-		{#snippet caption()}
-			Enabling this will run any git pre and post commit hooks you have configured in your
-			repository.
-		{/snippet}
-		{#snippet actions()}
-			<Toggle id="runHooks" bind:checked={$runCommitHooks} />
 		{/snippet}
 	</SectionCard>
 
