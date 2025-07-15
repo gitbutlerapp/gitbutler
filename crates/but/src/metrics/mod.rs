@@ -1,7 +1,12 @@
 use std::{collections::HashMap, env};
 
 use but_settings::AppSettings;
+use clap::ValueEnum;
+use command_group::AsyncCommandGroup;
+use posthog_rs::Client;
 use serde::{Deserialize, Serialize};
+
+use crate::args::CommandName;
 
 #[derive(Debug, Clone)]
 pub struct Metrics {
@@ -13,7 +18,62 @@ pub struct Metrics {
 pub enum EventKind {
     Mcp,
     McpInternal,
+    CliLog,
+    CliStatus,
+    CliRub,
+    ClaudePreTool,
+    ClaudePostTool,
+    ClaudeStop,
+    Unknown,
 }
+
+impl From<CommandName> for EventKind {
+    fn from(command_name: CommandName) -> Self {
+        match command_name {
+            CommandName::Log => EventKind::CliLog,
+            CommandName::Status => EventKind::CliStatus,
+            CommandName::Rub => EventKind::CliRub,
+            CommandName::ClaudePreTool => EventKind::ClaudePreTool,
+            CommandName::ClaudePostTool => EventKind::ClaudePostTool,
+            CommandName::ClaudeStop => EventKind::ClaudeStop,
+            _ => EventKind::Unknown,
+        }
+    }
+}
+
+pub struct Props {
+    values: HashMap<String, serde_json::Value>,
+}
+
+impl Props {
+    pub fn new() -> Self {
+        Props {
+            values: HashMap::new(),
+        }
+    }
+
+    pub fn insert<K: Into<String>, V: Serialize>(&mut self, key: K, value: V) {
+        if let Ok(value) = serde_json::to_value(value) {
+            self.values.insert(key.into(), value);
+        }
+    }
+
+    pub fn as_json_string(&self) -> String {
+        serde_json::to_string(&self.values).unwrap_or_default()
+    }
+
+    pub fn from_json_string(json: &str) -> Result<Self, serde_json::Error> {
+        let values: HashMap<String, serde_json::Value> = serde_json::from_str(json)?;
+        Ok(Props { values })
+    }
+
+    pub fn update_event(&self, event: &mut Event) {
+        for (key, value) in &self.values {
+            event.insert_prop(key, value);
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Event {
     event_name: EventKind,
@@ -55,18 +115,7 @@ impl Metrics {
     pub fn new_with_background_handling(app_settings: &AppSettings) -> Self {
         let metrics_permitted = app_settings.telemetry.app_metrics_enabled;
         // Only create client and sender if metrics are permitted
-        let client = if metrics_permitted {
-            option_env!("POSTHOG_API_KEY").and_then(|api_key| {
-                let options = posthog_rs::ClientOptionsBuilder::default()
-                    .api_key(api_key.to_string())
-                    .api_endpoint("https://eu.i.posthog.com/i/v0/e/".to_string())
-                    .build()
-                    .ok()?;
-                Some(posthog_rs::client(options))
-            })
-        } else {
-            None
-        };
+        let client = posthog_client(app_settings.clone());
         let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
         let sender = if metrics_permitted {
             Some(sender)
@@ -77,19 +126,11 @@ impl Metrics {
 
         if let Some(client_future) = client {
             let mut receiver = receiver;
-            let distinct_id = app_settings.telemetry.app_distinct_id.clone();
+            let app_settings = app_settings.clone();
             tokio::task::spawn(async move {
                 let client = client_future.await;
                 while let Some(event) = receiver.recv().await {
-                    let mut posthog_event = if let Some(id) = &distinct_id {
-                        posthog_rs::Event::new(event.event_name.to_string(), id.clone())
-                    } else {
-                        posthog_rs::Event::new_anon(event.event_name.to_string())
-                    };
-                    for (key, prop) in event.props {
-                        let _ = posthog_event.insert_prop(key, prop);
-                    }
-                    let _ = client.capture(posthog_event).await;
+                    do_capture(&client, event, &app_settings).await.ok();
                 }
             });
         }
@@ -102,4 +143,71 @@ impl Metrics {
             let _ = sender.send(event.clone());
         }
     }
+
+    pub async fn capture_blocking(app_settings: &AppSettings, event: Event) {
+        if let Some(client) = posthog_client(app_settings.clone()) {
+            do_capture(&client.await, event, app_settings).await.ok();
+        }
+    }
+}
+
+fn do_capture(
+    client: &Client,
+    event: Event,
+    app_settings: &AppSettings,
+) -> impl Future<Output = Result<(), posthog_rs::Error>> {
+    let mut posthog_event = if let Some(id) = &app_settings.telemetry.app_distinct_id.clone() {
+        posthog_rs::Event::new(event.event_name.to_string(), id.clone())
+    } else {
+        posthog_rs::Event::new_anon(event.event_name.to_string())
+    };
+    for (key, prop) in event.props {
+        let _ = posthog_event.insert_prop(key, prop);
+    }
+    client.capture(posthog_event)
+}
+
+/// Creates a PostHog client if metrics are enabled and the API key is set.
+fn posthog_client(app_settings: AppSettings) -> Option<impl Future<Output = posthog_rs::Client>> {
+    if app_settings.telemetry.app_metrics_enabled {
+        if let Some(api_key) = option_env!("POSTHOG_API_KEY") {
+            let options = posthog_rs::ClientOptionsBuilder::default()
+                .api_key(api_key.to_string())
+                .api_endpoint("https://eu.i.posthog.com/i/v0/e/".to_string())
+                .build()
+                .ok()?;
+            Some(posthog_rs::client(options))
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
+/// If metrics are configured, this function spawns a process to handle metrics logging so that this CLI process can exit as soon as possible.
+pub(crate) fn metrics_if_configured(
+    app_settings: AppSettings,
+    cmd: CommandName,
+    props: Props,
+) -> anyhow::Result<()> {
+    if !app_settings.telemetry.app_metrics_enabled {
+        return Ok(());
+    }
+    if let Some(v) = cmd.to_possible_value() {
+        let binary_path = std::env::current_exe().unwrap_or_default();
+        let mut group = tokio::process::Command::new(binary_path)
+            .arg("metrics")
+            .arg("--command-name")
+            .arg(v.get_name())
+            .arg("--props")
+            .arg(props.as_json_string())
+            .stderr(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .group()
+            .kill_on_drop(false)
+            .spawn()?;
+        group.inner().id().map(|id| sysinfo::Pid::from(id as usize));
+    }
+    Ok(())
 }

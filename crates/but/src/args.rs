@@ -50,6 +50,47 @@ For examples `but rub --help`.")]
     // Claude hooks
     #[clap(hide = true)]
     Claude(claude::Platform),
+    /// If metrics are permitted, this subcommand handles posthog event creation.
+    #[clap(hide = true)]
+    Metrics {
+        #[clap(long, value_enum)]
+        command_name: CommandName,
+        #[clap(long)]
+        props: String,
+    },
+}
+
+#[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
+pub enum CommandName {
+    #[clap(alias = "log")]
+    Log,
+    #[clap(alias = "status")]
+    Status,
+    #[clap(alias = "rub")]
+    Rub,
+    #[clap(
+        alias = "claude-pre-tool",
+        alias = "claudepretool",
+        alias = "claudePreTool",
+        alias = "ClaudePreTool"
+    )]
+    ClaudePreTool,
+    #[clap(
+        alias = "claude-post-tool",
+        alias = "claudeposttool",
+        alias = "claudePostTool",
+        alias = "ClaudePostTool"
+    )]
+    ClaudePostTool,
+    #[clap(
+        alias = "claude-stop",
+        alias = "claudestop",
+        alias = "claudeStop",
+        alias = "ClaudeStop"
+    )]
+    ClaudeStop,
+    #[default]
+    Unknown,
 }
 
 pub mod actions {
