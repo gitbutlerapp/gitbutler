@@ -58,8 +58,10 @@
 <div class="action-item" id="action-{action.id}">
 	{#if action instanceof ButlerAction}
 		{#if isStr(action.source) || !action.source.Mcp}
-			<div class="action-item__robot">
-				<Icon name="robot" />
+			<div>
+				<div class="action-item__robot">
+					<Icon name="robot" />
+				</div>
 			</div>
 		{:else}
 			<div class="action-item__editor-logo">
@@ -71,7 +73,7 @@
 		{/if}
 		<div class="action-item__content">
 			<div class="action-item__content__header">
-				{#if isStr(action.source) || !action.source.Mcp}
+				{#if isStr(action.source)}
 					<div>
 						<p class="text-13 text-bold">Action</p>
 						<p class="text-13 text-bold text-grey">{action.source}</p>
