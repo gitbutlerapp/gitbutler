@@ -6,8 +6,8 @@ use anyhow::Context;
 use bstr::BString;
 use but_core::{TreeChange, UnifiedDiff};
 use but_graph::VirtualBranchesTomlMetadata;
-use but_workspace::StackId;
 use but_workspace::ui::StackEntry;
+use but_workspace::{CommmitSplitOutcome, StackId};
 use gitbutler_branch_actions::{BranchManagerExt, update_workspace_commit};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
@@ -34,11 +34,11 @@ pub fn workspace_toolset<'a>(
     toolset.register_tool(Amend);
     toolset.register_tool(SquashCommits);
     toolset.register_tool(GetProjectStatus);
-    toolset.register_tool(CreateBlankCommit);
     toolset.register_tool(MoveFileChanges);
     toolset.register_tool(GetCommitDetails);
     toolset.register_tool(GetBranchChanges);
     toolset.register_tool(SplitBranch);
+    toolset.register_tool(SplitCommit);
 
     Ok(toolset)
 }
@@ -274,24 +274,6 @@ pub fn create_commit(
 
     let outcome: but_workspace::commit_engine::ui::CreateCommitOutcome = outcome?.into();
     Ok(outcome)
-}
-
-fn stacks(
-    ctx: &CommandContext,
-    repo: &gix::Repository,
-) -> anyhow::Result<Vec<but_workspace::ui::StackEntry>> {
-    let project = ctx.project();
-    if ctx.app_settings().feature_flags.ws3 {
-        let meta = ref_metadata_toml(ctx.project())?;
-        but_workspace::stacks_v3(repo, &meta, but_workspace::StacksFilter::InWorkspace)
-    } else {
-        but_workspace::stacks(
-            ctx,
-            &project.gb_dir(),
-            repo,
-            but_workspace::StacksFilter::InWorkspace,
-        )
-    }
 }
 
 pub struct CreateBranch;
@@ -722,10 +704,7 @@ impl Tool for CreateBlankCommit {
         </description>
 
         <important_notes>
-            Use this tool when you want to split a commit into more parts.
-            That you you can:
-                1. Create one or more blank commits on top of an existing commit.
-                2. Move the file changes from the existing commit to the new commit.
+            Use this tool when you want to create a new commit without any file changes and only want to prepare a branch structure.
         </important_notes>
         "
         .to_string()
@@ -1422,6 +1401,198 @@ pub fn split_branch(
     Ok(stack_id)
 }
 
+pub struct SplitCommit;
+
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SplitCommitParameters {
+    /// The stack id containing the commit to split.
+    #[schemars(description = "
+    <description>
+        The stack id containing the commit to split.
+    </description>
+
+    <important_notes>
+        The stack id should refer to a stack in the workspace that contains the source commit.
+    </important_notes>
+    ")]
+    pub source_stack_id: String,
+    /// The commit id to split.
+    #[schemars(description = "
+    <description>
+        The commit id of the commit to split.
+    </description>
+
+    <important_notes>
+        The commit id should refer to a commit in the workspace.
+        This is the commit whose changes will be split into multiple new commits.
+        The commit id should be contained in the stack specified by `source_stack_id`.
+    </important_notes>
+    ")]
+    pub source_commit_id: String,
+
+    /// The definitions for each new commit shard.
+    #[schemars(description = "
+    <description>
+        The definitions for each new commit shard.
+        Each shard specifies the commit message and the list of files to include in that shard.
+    </description>
+
+    <important_notes>
+        Each shard must have a unique set of files (no overlap).
+        All files in the source commit must be assigned to a shard.
+        The order of the shards determines the order of the resulting commits (first being the newest or 'child-most' commit and las being the oldest or 'parent-most').
+    </important_notes>
+    ")]
+    pub shards: Vec<CommitShard>,
+}
+
+impl Tool for SplitCommit {
+    fn name(&self) -> String {
+        "split_commit".to_string()
+    }
+
+    fn description(&self) -> String {
+        "
+        <description>
+            Split a single commit into multiple new commits, each with its own message and file set.
+        </description>
+
+        <important_notes>
+            This tool allows you to break up a commit into several smaller commits, each defined by a shard.
+            Each shard must have a unique set of files, and all files in the source commit must be assigned to a shard.
+            The order of the shards determines the order of the resulting commits.
+        </important_notes>
+        ".to_string()
+    }
+
+    fn parameters(&self) -> serde_json::Value {
+        let schema = schema_for!(SplitCommitParameters);
+        serde_json::to_value(&schema).unwrap_or_default()
+    }
+
+    fn call(
+        self: Arc<Self>,
+        parameters: serde_json::Value,
+        ctx: &mut CommandContext,
+        app_handle: Option<&tauri::AppHandle>,
+        commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
+    ) -> anyhow::Result<serde_json::Value> {
+        let params = serde_json::from_value::<SplitCommitParameters>(parameters)
+            .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
+
+        let value = split_commit(ctx, params, app_handle, commit_mapping).to_json("split_commit");
+        Ok(value)
+    }
+}
+pub fn split_commit(
+    ctx: &mut CommandContext,
+    params: SplitCommitParameters,
+    app_handle: Option<&tauri::AppHandle>,
+    commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
+) -> Result<Vec<gix::ObjectId>, anyhow::Error> {
+    let source_stack_id = StackId::from_str(&params.source_stack_id)?;
+    let source_commit_id = gix::ObjectId::from_str(&params.source_commit_id)
+        .map(|id| find_the_right_commit_id(id, commit_mapping))?;
+
+    let pieces = params
+        .shards
+        .into_iter()
+        .map(Into::into)
+        .collect::<Vec<but_workspace::CommitFiles>>();
+
+    let outcome = but_workspace::split_commit(
+        ctx,
+        source_stack_id,
+        source_commit_id,
+        &pieces,
+        ctx.app_settings().context_lines,
+    )?;
+
+    let CommmitSplitOutcome {
+        new_commits,
+        move_changes_result,
+    } = outcome;
+
+    // Emit an stack update for the frontend.
+    if let Some(app_handle) = app_handle {
+        let project_id = ctx.project().id;
+        app_handle.emit_stack_update(project_id, source_stack_id);
+    }
+
+    // Update the commit mapping with the new commit ids.
+    for (old_commit_id, new_commit_id) in move_changes_result.replaced_commits.iter() {
+        commit_mapping.insert(*old_commit_id, *new_commit_id);
+    }
+
+    Ok(new_commits)
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitShard {
+    /// The commit title.
+    #[schemars(description = "
+    <description>
+        The commit message title.
+        This is only a short summary of the commit.
+    </description>
+
+    <important_notes>
+        The commit message title should be concise and descriptive.
+        It is typically a single line that summarizes the changes made in the commit.
+        For example: 'Fix issue with user login' or 'Update README with installation instructions'.
+        Don't excede 50 characters in length.
+    </important_notes>
+    ")]
+    pub message_title: String,
+    /// The commit description.
+    #[schemars(description = "
+    <description>
+        The commit message body.
+        This is a more detailed description of the changes made in the commit.
+    </description>
+
+    <important_notes>
+        The commit message body should provide context and details about the changes made.
+        It should span multiple lines if necessary.
+        A good description focuses on describing the 'what' of the changes.
+        Don't make assumption about the 'why', only describe the changes in the context of the branch (and other commits if any).
+    </important_notes>
+    ")]
+    pub message_body: String,
+    /// The list of file paths to be included in the commit.
+    ///
+    /// Each entry is a string representing the relative path to a file.
+    #[schemars(description = "
+    <description>
+        The list of file paths to be included in the commit.
+        Each entry is a string representing the relative path to a file.
+    </description>
+
+    <important_notes>
+        The file paths should be files that exist in the the source commit.
+        The file paths are unique to this commit shard, there can't be duplicates.
+    </important_notes>
+    ")]
+    pub files: Vec<String>,
+}
+
+impl From<CommitShard> for but_workspace::CommitFiles {
+    fn from(value: CommitShard) -> Self {
+        let message = format!(
+            "{}\n\n{}",
+            value.message_title.trim(),
+            value.message_body.trim()
+        );
+
+        but_workspace::CommitFiles {
+            message,
+            files: value.files,
+        }
+    }
+}
+
 fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMetadata> {
     VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))
 }
@@ -1831,4 +2002,22 @@ fn find_the_right_commit_id(
         commit_id = *mapped_id;
     }
     commit_id
+}
+
+fn stacks(
+    ctx: &CommandContext,
+    repo: &gix::Repository,
+) -> anyhow::Result<Vec<but_workspace::ui::StackEntry>> {
+    let project = ctx.project();
+    if ctx.app_settings().feature_flags.ws3 {
+        let meta = ref_metadata_toml(ctx.project())?;
+        but_workspace::stacks_v3(repo, &meta, but_workspace::StacksFilter::InWorkspace)
+    } else {
+        but_workspace::stacks(
+            ctx,
+            &project.gb_dir(),
+            repo,
+            but_workspace::StacksFilter::InWorkspace,
+        )
+    }
 }

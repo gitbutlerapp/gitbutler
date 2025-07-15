@@ -90,7 +90,7 @@ pub fn freestyle(
     - `absorb`: Take a set of file changes and amend them into the existing commits in the project.
       This requires you to figure out where the changes should go based on the locks, assingments and any other user provided information.
     - `split a commit`: Take an existing commit and split it into multiple commits based on the the user directive.
-        This is a multi-step operation where you will need to create one or more black commits, and the move the file changes from the original commit to the new commits.
+        This can be achieved by using the `split_commit` tool.
     - `split a branch`: Take an existing branch and split it into two branches. This basically takes a set of committed file changes and moves them to a new branch, removing them from the original branch.
         This is useful when you want to separate the changes into a new branch for further work.
         In order to do this, you will need to get the branch changes for the intended source branch (call the `get_branch_changes` tool), and then call the split branch tool with the changes you want to split off.
