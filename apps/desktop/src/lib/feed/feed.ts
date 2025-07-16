@@ -7,6 +7,7 @@ import { plainToInstance } from 'class-transformer';
 import { get, writable } from 'svelte/store';
 import type { ToolCall } from '$lib/ai/tool';
 import type { Tauri } from '$lib/backend/tauri';
+import type { StackService } from '$lib/stacks/stackService.svelte';
 
 type DBEvent = {
 	kind: 'actions' | 'workflows' | 'hunk-assignments' | 'unknown';
@@ -107,7 +108,6 @@ export class Feed {
 	private messageSubscribers: Map<InProgressAssistantMessageId, InProgressSubscribeCallback[]>;
 
 	readonly lastAddedId = writable<string | null>(null);
-	readonly stackToUpdate = writable<string | null>(null);
 
 	readonly combined = writable<FeedEntry[]>([], () => {
 		this.fetch();
@@ -115,7 +115,8 @@ export class Feed {
 
 	constructor(
 		private tauri: Tauri,
-		private projectId: string
+		private projectId: string,
+		private stackService: StackService
 	) {
 		this.messageSubscribers = new Map();
 
@@ -212,7 +213,7 @@ export class Feed {
 
 		if (entry instanceof Workflow) {
 			const stackId = entry.kind.subject?.stackId;
-			if (stackId) this.stackToUpdate.set(stackId);
+			if (stackId) this.stackService.invalidateStackDetailsUpdate(stackId);
 		}
 	}
 

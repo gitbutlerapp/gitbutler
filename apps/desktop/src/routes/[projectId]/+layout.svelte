@@ -57,8 +57,16 @@
 
 	const { data, children: pageChildren }: { data: LayoutData; children: Snippet } = $props();
 
-	const { project, projectId, projectsService, userService, fetchSignal, posthog, projectMetrics } =
-		$derived(data);
+	const {
+		project,
+		projectId,
+		projectsService,
+		userService,
+		fetchSignal,
+		posthog,
+		projectMetrics,
+		tauri
+	} = $derived(data);
 
 	const baseBranchService = getContext(BaseBranchService);
 	const repoInfoResponse = $derived(baseBranchService.repo(projectId));
@@ -71,6 +79,7 @@
 	const branchService = getContext(BranchService);
 
 	const stackService = getContext(StackService);
+	const feed = $derived(new Feed(tauri, projectId, stackService));
 	const modeService = $derived(new ModeService(projectId, stackService));
 	$effect.pre(() => {
 		setContext(ModeService, modeService);
@@ -138,7 +147,7 @@
 		// Cloud related services
 		setContext(SyncedSnapshotService, data.syncedSnapshotService);
 		setContext(StackPublishingService, data.stackPublishingService);
-		setContext(Feed, data.feed);
+		setContext(Feed, feed);
 	});
 
 	const focusManager = new FocusManager();
