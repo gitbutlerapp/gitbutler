@@ -2,6 +2,7 @@ use std::io::{self, Read};
 use std::str::FromStr;
 
 use anyhow::anyhow;
+use but_action::rename_branch::RenameBranchParams;
 use but_action::{ActionHandler, OpenAiProvider, Source, reword::CommitEvent};
 use but_db::ClaudeCodeSession;
 use but_hunk_assignment::HunkAssignmentRequest;
@@ -111,6 +112,10 @@ pub(crate) async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
     )?;
 
     let stacks = crate::log::stacks(defer.ctx)?;
+    let existing_branch_names = stacks
+        .iter()
+        .flat_map(|s| s.heads.iter().map(|h| h.name.clone().to_string()))
+        .collect::<Vec<_>>();
 
     // Trigger commit message generation for newly created commits
     // TODO: Maybe this can be done in the main app process i.e. the GitButler GUI, if avaialbe
@@ -140,17 +145,16 @@ pub(crate) async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
 
             match elegibility {
                 RenameEligibility::Eligible(commit) => {
-                    but_action::rename_branch::rename_branch(
-                        defer.ctx,
-                        &openai_client,
-                        commit.id,
-                        commit.message,
-                        branch.stack_id,
-                        branch.branch_name.clone(),
-                        id,
-                    )
-                    .await
-                    .ok();
+                    let params = RenameBranchParams {
+                        commit_id: commit.id,
+                        commit_message: commit.message,
+                        stack_id: branch.stack_id,
+                        current_branch_name: branch.branch_name.clone(),
+                        existing_branch_names: existing_branch_names.clone(),
+                    };
+                    but_action::rename_branch::rename_branch(defer.ctx, &openai_client, params, id)
+                        .await
+                        .ok();
                 }
                 RenameEligibility::NotEligible => {
                     // Do nothing, branch is not eligible for renaming

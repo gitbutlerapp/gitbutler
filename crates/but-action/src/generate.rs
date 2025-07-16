@@ -96,6 +96,7 @@ pub struct StructuredOutput {
 pub async fn branch_name(
     client: &Client<OpenAIConfig>,
     commit_messages: &[String],
+    existing_branch_names: &[String],
 ) -> anyhow::Result<String> {
     let system_message =
         "You are a version control assistant that helps with Git branch naming.".to_string();
@@ -105,11 +106,28 @@ pub async fn branch_name(
         Don't use other special characters or spaces.
         The branche name should reflect the main content of the commit messages.
 
+        Try to make the branch name unique and noticeably different from existing branch names.
+        
+        Here are the existing branch names:
+        {}
+
         Here are the commit messages:
 
         {}",
+        existing_branch_names.join(",\n"),
         commit_messages.join("\n==================\n")
     );
+
+    let schema = schema_for!(GenerateBranchNameOutput);
+    let schema_json = serde_json::to_value(schema)?;
+    let response_format = ResponseFormat::JsonSchema {
+        json_schema: ResponseFormatJsonSchema {
+            description: None,
+            name: "branch_name".into(),
+            schema: Some(schema_json),
+            strict: Some(false),
+        },
+    };
 
     let request = CreateChatCompletionRequestArgs::default()
         .model("gpt-4o")
@@ -117,19 +135,43 @@ pub async fn branch_name(
             ChatCompletionRequestSystemMessage::from(system_message).into(),
             ChatCompletionRequestUserMessage::from(user_message).into(),
         ])
+        .response_format(response_format)
         .build()?;
 
     let response = client.chat().create(request).await?;
-    let response_string = response
+    let choice = response
         .choices
         .first()
-        .unwrap()
+        .ok_or_else(|| anyhow::anyhow!("No choices returned from OpenAI response"))?;
+
+    let response_string = choice
         .message
         .content
         .as_ref()
-        .unwrap();
+        .ok_or_else(|| anyhow::anyhow!("No content in OpenAI response message"))?;
 
-    Ok(response_string.trim().to_string())
+    let structured_output: GenerateBranchNameOutput = serde_json::from_str(response_string)
+        .map_err(|e| anyhow::anyhow!("Failed to parse response: {}", e))?;
+
+    Ok(structured_output.branch_name)
+}
+
+#[derive(serde::Serialize, serde::Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GenerateBranchNameOutput {
+    #[schemars(description = "
+    <description>
+        The generated branch name based on the commit messages.
+    </description>
+
+    <important_notes>
+        The branch name should be concise, descriptive, and follow the naming conventions.
+        It should not contain spaces or special characters other than hyphens.
+        Return the branch name only, no backticks or quotes.
+        It should be noticeably different from existing branch names.
+    </important_notes>
+    ")]
+    pub branch_name: String,
 }
 
 const DEFAULT_COMMIT_MESSAGE_INSTRUCTIONS: &str = r#"The message should be a short summary line, followed by two newlines, then a short paragraph explaining WHY the change was needed based off the prompt.
