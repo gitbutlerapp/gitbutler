@@ -6,7 +6,7 @@
 	import { TestId } from '$lib/testing/testIds';
 	import { UserService } from '$lib/user/userService';
 	import { splitMessage } from '$lib/utils/commitMessage';
-	import { truncate } from '$lib/utils/string';
+	import { rejoinParagraphs, truncate } from '$lib/utils/string';
 	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
@@ -17,9 +17,10 @@
 
 	type Props = {
 		commit: UpstreamCommit | Commit;
+		rewrap?: boolean;
 	};
 
-	const { commit }: Props = $props();
+	const { commit, rewrap }: Props = $props();
 
 	const [userService] = inject(UserService, UiState);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
@@ -36,7 +37,8 @@
 	const maxLength = $derived((messageWidthRem - 2) * 2 - 1 * (Math.pow(zoom, 2) - 1));
 
 	const message = $derived(commit.message);
-	const description = $derived(splitMessage(message).description);
+	const raw = $derived(splitMessage(message).description);
+	const description = $derived(rewrap ? rejoinParagraphs(raw) : raw);
 	const abbreviated = $derived(truncate(description, maxLength, 3));
 	const isAbbrev = $derived(abbreviated !== description);
 
