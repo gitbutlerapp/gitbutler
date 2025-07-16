@@ -1,16 +1,19 @@
 <script lang="ts">
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { type Commit, type UpstreamCommit } from '$lib/branches/v3';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { UserService } from '$lib/user/userService';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { truncate } from '$lib/utils/string';
-	import { inject } from '@gitbutler/shared/context';
+	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
+	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
+	import type { Writable } from 'svelte/store';
 
 	type Props = {
 		commit: UpstreamCommit | Commit;
@@ -19,12 +22,22 @@
 	const { commit }: Props = $props();
 
 	const [userService] = inject(UserService, UiState);
+	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
+	const zoom = $derived($userSettings.zoom);
 
 	const user = $derived(userService.user);
 
+	let messageWidth = $state(0);
+	const messageWidthRem = $derived(pxToRem(messageWidth, zoom));
+
+	// Calculate approximately how many characters fit on one line, as a
+	// function of container width as well as zoom level.
+	// TODO: Turn this magic formula into something meaningful.
+	const maxLength = $derived((messageWidthRem - 2) * 2 - 1 * (Math.pow(zoom, 2) - 1));
+
 	const message = $derived(commit.message);
 	const description = $derived(splitMessage(message).description);
-	const abbreviated = $derived(truncate(description, 80, 3));
+	const abbreviated = $derived(truncate(description, maxLength, 3));
 	const isAbbrev = $derived(abbreviated !== description);
 
 	let expanded = $state(false);
@@ -70,7 +83,12 @@
 	</div>
 
 	{#if description}
-		<div class="text-13 description" class:expanded data-testid={TestId.CommitDrawerDescription}>
+		<div
+			class="text-13 description"
+			class:expanded
+			bind:clientWidth={messageWidth}
+			data-testid={TestId.CommitDrawerDescription}
+		>
 			{#if expanded}
 				{description}
 			{:else}
