@@ -465,7 +465,7 @@
 										{#if !isCommitting}
 											<div class="assigned-changes-empty">
 												<p class="text-12 text-body assigned-changes-empty__text">
-													Drop files to assign to the lane
+													Drop files to assign or commit directly
 												</p>
 											</div>
 										{/if}
