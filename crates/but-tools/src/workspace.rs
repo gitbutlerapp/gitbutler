@@ -1177,6 +1177,8 @@ impl Tool for SquashCommits {
         <important_notes>
             This tool allows you to squash a sequence of commits in a stack into a single commit with a new message.
             Use this tool to clean up commit history before merging or sharing.
+            Always squash the commits down, meanding newer commits into their parents.
+            Remember that the commits listed in the project status are in reverse order, so the first commit in the list is the newest one.
         </important_notes>
         ".to_string()
     }
