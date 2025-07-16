@@ -73,6 +73,19 @@
 	let headerHeight = $state(0);
 	let contentHeight = $state(0);
 	const totalHeightRem = $derived(pxToRem(headerHeight + contentHeight, zoom));
+
+	let resizerInstance = $state<Resizer>();
+	$effect(() => {
+		// Reset resizer if we happen on a value that equals the scroll
+		// height, enabling the user to more easily undo manual sizing. It
+		// is assumed that an unset value makes the element display in
+		// full, otherwise there would be sudden content shift.
+		if (clientHeight === headerHeight + contentHeight) {
+			requestAnimationFrame(() => {
+				resizerInstance?.setValue(undefined);
+			});
+		}
+	});
 </script>
 
 <div
@@ -155,6 +168,7 @@
 	{/if}
 	{#if resizer}
 		<Resizer
+			bind:this={resizerInstance}
 			defaultValue={undefined}
 			viewport={containerDiv}
 			hidden={$collapsed}

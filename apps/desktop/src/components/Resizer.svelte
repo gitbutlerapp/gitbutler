@@ -243,7 +243,7 @@
 		return pxToRem(viewport.clientHeight, zoom);
 	}
 
-	function setValue(newSize?: number) {
+	export function setValue(newSize?: number) {
 		value.set(newSize);
 		updateDom(newSize);
 		if (newSize !== undefined) {
