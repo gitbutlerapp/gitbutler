@@ -28,7 +28,6 @@
 
 	import { TestId } from '$lib/testing/testIds';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
-	import { ResizeGroup } from '$lib/utils/resizeGroup';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { inject } from '@gitbutler/shared/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
@@ -131,6 +130,8 @@
 
 	const changes = $derived(uncommittedService.changesByStackId(stack.id || null));
 
+	const unsetMaxHeight = '25%';
+
 	let stackViewEl = $state<HTMLDivElement>();
 	let compactDiv = $state<HTMLDivElement>();
 
@@ -140,14 +141,14 @@
 	let actualDetailsHeight = $state<number>(0);
 	let actualDetailsHeightRem = $derived(pxToRem(actualDetailsHeight, zoom));
 
-	let minDetailsHeight = $state(8);
 	let minChangedFilesHeight = $state(5);
-	let minPreviewHeight = $derived(previewChangeResult ? 5 : 0);
+	let minPreviewHeight = $derived(previewChangeResult ? 7 : 0);
 
-	let maxDetailsHeight = $derived(verticalHeightRem - minChangedFilesHeight - minPreviewHeight);
 	let maxChangedFilesHeight = $derived(
-		verticalHeightRem - actualDetailsHeightRem - minPreviewHeight - 2
+		verticalHeightRem - actualDetailsHeightRem - minPreviewHeight
 	);
+
+	let changedFilesCollapsed = $state<boolean>();
 
 	const defaultBranchResult = $derived(stackService.defaultBranch(projectId, stack.id));
 	const defaultBranchName = $derived(defaultBranchResult?.current.data);
@@ -162,12 +163,7 @@
 		panel2: {
 			minWidth: 18,
 			maxWidth: 56,
-			defaultValue: 23
-		},
-		panel3: {
-			minWidth: 20,
-			maxWidth: 96,
-			defaultValue: 36
+			defaultValue: 32
 		}
 	} as const;
 
@@ -242,11 +238,6 @@
 			console.warn('Workspace selection cleared');
 		}
 	}
-
-	let changedFilesCollapsed = $state<boolean>();
-
-	const resizeGroup = new ResizeGroup();
-	const unsetMaxHeight = '25%';
 </script>
 
 <!-- ATTENTION -->
@@ -296,15 +287,7 @@
 			focusedStackId === stack.id}
 		scrollToType="details"
 		scrollToId={stack.id}
-		resizer={{
-			persistId: 'resizer-panel2-details-${stack.id}',
-			defaultValue: undefined,
-			maxHeight: maxDetailsHeight,
-			minHeight: minDetailsHeight,
-			order: 0,
-			resizeGroup
-		}}
-		bind:contentHeight={actualDetailsHeight}
+		bind:clientHeight={actualDetailsHeight}
 		{onerror}
 		{onclose}
 	/>
@@ -324,14 +307,6 @@
 		active={selectedKey?.type === 'commit' && focusedStackId === stack.id}
 		scrollToType="details"
 		scrollToId={stack.id}
-		resizer={{
-			persistId: 'resizer-panel2-details-${stack.id}',
-			defaultValue: undefined,
-			maxHeight: maxDetailsHeight,
-			minHeight: minDetailsHeight,
-			order: 0,
-			resizeGroup
-		}}
 		bind:clientHeight={actualDetailsHeight}
 		{onerror}
 		{onclose}
@@ -349,7 +324,7 @@
 				{stackId}
 				draggableFiles
 				selectionId={{ type: 'commit', commitId, stackId: stack.id }}
-				shrink={!previewKey}
+				noshrink={!!previewKey}
 				ontoggle={(collapsed) => {
 					changedFilesCollapsed = collapsed;
 				}}
@@ -365,10 +340,9 @@
 					minHeight: minChangedFilesHeight,
 					passive: !previewKey,
 					order: 1,
-					resizeGroup,
 					unsetMaxHeight: previewKey ? unsetMaxHeight : undefined
 				}}
-			></ChangedFiles>
+			/>
 		{/snippet}
 	</ReduxResult>
 {/snippet}
@@ -388,6 +362,7 @@
 				{stackId}
 				draggableFiles
 				selectionId={{ type: 'branch', stackId: stack.id, branchName }}
+				noshrink={!!previewKey}
 				ontoggle={() => {
 					changedFilesCollapsed = !changedFilesCollapsed;
 				}}
@@ -400,7 +375,6 @@
 					minHeight: minChangedFilesHeight,
 					passive: !previewKey,
 					order: 1,
-					resizeGroup,
 					unsetMaxHeight: previewKey ? unsetMaxHeight : undefined
 				}}
 			></ChangedFiles>
