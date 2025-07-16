@@ -3,6 +3,7 @@
 	import { clickOutside } from '$lib/hooks/clickOutside';
 	import { targetDownload } from '$lib/store';
 	import { latestClientVersion } from '$lib/store';
+	import { onMount } from 'svelte';
 	import { quadIn } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 
@@ -45,6 +46,33 @@
 	function handleClickOutside() {
 		showSelect = false;
 	}
+
+	async function detectDefaultDownload() {
+		const platform = navigator.userAgent.toLowerCase();
+
+		if (platform.includes('mac')) {
+			const userAgentData = await navigator.userAgentData?.getHighEntropyValues(['architecture']);
+			if (userAgentData?.architecture === 'arm' || userAgentData === undefined) {
+				return jsonLinks.downloads.appleSilicon;
+			} else {
+				return jsonLinks.downloads.intelMac;
+			}
+		}
+
+		if (platform.includes('win')) {
+			return jsonLinks.downloads.windowsMsi;
+		}
+
+		if (platform.includes('linux')) {
+			return jsonLinks.downloads.linuxAppimage;
+		}
+	}
+
+	onMount(() => {
+		detectDefaultDownload().then(
+			(platformDownload) => platformDownload && targetDownload.set(platformDownload)
+		);
+	});
 </script>
 
 <section class="wrapper">
