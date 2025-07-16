@@ -103,7 +103,6 @@ pub(crate) async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
 
     let (id, outcome) = but_action::handle_changes(
         defer.ctx,
-        &None,
         &summary,
         Some(prompt.clone()),
         ActionHandler::HandleChangesSimple,

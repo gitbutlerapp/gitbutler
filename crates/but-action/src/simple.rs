@@ -13,7 +13,7 @@ use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::VirtualBranchesHandle;
 use uuid::Uuid;
 
-use crate::{Outcome, Source, default_target_setting_if_none, generate, openai::OpenAiProvider};
+use crate::{Outcome, Source, default_target_setting_if_none};
 /// This is a GitButler automation which allows easy handling of uncommitted changes in a repository.
 /// At a high level, it will:
 ///   - Checkout GitButler's workspace branch if not already checked out
@@ -26,7 +26,6 @@ use crate::{Outcome, Source, default_target_setting_if_none, generate, openai::O
 ///   - Create a separate persisted entry recording the request context and IDs for the two oplog snapshots
 pub fn handle_changes(
     ctx: &mut CommandContext,
-    openai: &Option<OpenAiProvider>,
     change_summary: &str,
     external_prompt: Option<String>,
     source: Source,
@@ -44,14 +43,8 @@ pub fn handle_changes(
         )?
         .to_gix();
 
-    let response = handle_changes_simple_inner(
-        ctx,
-        openai,
-        change_summary,
-        external_prompt.clone(),
-        vb_state,
-        perm,
-    );
+    let response =
+        handle_changes_simple_inner(ctx, change_summary, external_prompt.clone(), vb_state, perm);
 
     let snapshot_after = ctx
         .create_snapshot(
@@ -76,7 +69,6 @@ pub fn handle_changes(
 
 fn handle_changes_simple_inner(
     ctx: &mut CommandContext,
-    openai: &Option<OpenAiProvider>,
     change_summary: &str,
     external_prompt: Option<String>,
     vb_state: &VirtualBranchesHandle,
@@ -143,17 +135,7 @@ fn handle_changes_simple_inner(
 
     let mut updated_branches = vec![];
 
-    let commit_message = if let Some(openai) = openai {
-        let changes =
-            but_core::diff::ui::worktree_changes_by_worktree_dir(repo.path().to_path_buf())?;
-        let diff = changes.try_as_unidiff_string(&repo, ctx.app_settings().context_lines)?;
-        generate::commit_message_blocking(
-            openai,
-            change_summary,
-            external_prompt.as_deref().unwrap_or_default(),
-            &diff,
-        )?
-    } else if let Some(prompt) = external_prompt {
+    let commit_message = if let Some(prompt) = external_prompt {
         format!("{}\n\n{}", prompt, change_summary)
     } else {
         change_summary.to_string()

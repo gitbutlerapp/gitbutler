@@ -30,10 +30,8 @@ pub fn handle_changes(
 ) -> anyhow::Result<but_action::Outcome, Error> {
     let project = projects.get(project_id)?;
     let ctx = &mut CommandContext::open(&project, settings.get()?.clone())?;
-    let openai = OpenAiProvider::with(None);
     but_action::handle_changes(
         ctx,
-        &openai,
         &change_summary,
         None,
         handler,
