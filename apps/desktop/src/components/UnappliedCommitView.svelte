@@ -66,6 +66,7 @@
 				<ChangedFiles
 					title="Changed files"
 					active
+					autoselect
 					{projectId}
 					selectionId={{ type: 'commit', commitId }}
 					changes={changes.changes}

@@ -194,7 +194,8 @@ export function selectFilesInList(
 	idSelection: IdSelection,
 	allowMultiple: boolean,
 	index: number,
-	selectionId: SelectionId
+	selectionId: SelectionId,
+	allowUnselect?: boolean
 ) {
 	// e.stopPropagation();
 	const isAlreadySelected = idSelection.has(change.path, selectionId);
@@ -216,7 +217,9 @@ export function selectFilesInList(
 	} else {
 		// if only one file is selected and it is already selected, unselect it
 		if (isTheOnlyOneSelected) {
-			idSelection.clear(selectionId);
+			if (allowUnselect) {
+				idSelection.clear(selectionId);
+			}
 		} else {
 			idSelection.set(change.path, selectionId, index);
 		}

@@ -1,5 +1,6 @@
 import { StackOrder } from '$lib/branches/branch';
 import { ConflictEntries, type ConflictEntriesObj } from '$lib/files/conflicts';
+import { sortLikeFileTree } from '$lib/files/filetreeV3';
 import { showToast } from '$lib/notifications/toasts';
 import { hasTauriExtra } from '$lib/state/backendQuery';
 import { ClientState, type BackendApi } from '$lib/state/clientState.svelte';
@@ -452,7 +453,7 @@ export class StackService {
 			{ projectId, commitId },
 			{
 				transform: (result) => ({
-					changes: changesSelectors.selectAll(result.changes),
+					changes: sortLikeFileTree(changesSelectors.selectAll(result.changes)),
 					conflictEntries: result.conflictEntries
 				})
 			}
