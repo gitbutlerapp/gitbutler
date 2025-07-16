@@ -342,6 +342,7 @@
 					order: 1,
 					unsetMaxHeight: previewKey ? unsetMaxHeight : undefined
 				}}
+				autoselect
 			/>
 		{/snippet}
 	</ReduxResult>

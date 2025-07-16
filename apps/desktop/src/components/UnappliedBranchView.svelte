@@ -116,6 +116,7 @@
 							projectId={env.projectId}
 							stackId={env.stackId}
 							active
+							autoselect
 							{selectionId}
 							{changes}
 						/>
