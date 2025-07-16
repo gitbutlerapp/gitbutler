@@ -100,7 +100,7 @@
 				<button
 					onclick={() => (expanded = !expanded)}
 					type="button"
-					class="readmore text-13 text-bold"
+					class="readmore text-13 text-semibold"
 				>
 					{#if expanded}
 						less
@@ -147,17 +147,7 @@
 
 	.readmore {
 		display: inline;
-		background: var(--clr-bg-1);
+		position: relative;
 		text-decoration: underline dotted;
-
-		&::before {
-			position: absolute;
-			top: 0;
-			left: -20px;
-			width: 20px;
-			height: 100%;
-			background: linear-gradient(to right, transparent 0%, var(--clr-bg-1) 100%);
-			content: '';
-		}
 	}
 </style>

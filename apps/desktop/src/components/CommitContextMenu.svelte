@@ -160,8 +160,7 @@
 		{/if}
 		<ContextMenuSection>
 			<ContextMenuItem
-				icon="text-wrap"
-				label={$rewrapCommitMessage ? 'Original' : 'Re-wrap'}
+				label={$rewrapCommitMessage ? 'Show original wrapping' : 'Rewrap message'}
 				disabled={commitInsertion.current.isLoading}
 				onclick={() => {
 					rewrapCommitMessage.set(!$rewrapCommitMessage);
