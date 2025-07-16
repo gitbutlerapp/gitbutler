@@ -5,7 +5,6 @@
 	import RemoveProjectButton from '$components/RemoveProjectButton.svelte';
 	import directionDoubtSvg from '$lib/assets/illustrations/direction-doubt.svg?raw';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { ModeService } from '$lib/mode/modeService';
 	import { showError } from '$lib/notifications/toasts';
 	import { Project } from '$lib/project/project';
@@ -29,7 +28,6 @@
 	const { baseBranch }: Props = $props();
 
 	const projectsService = getContext(ProjectsService);
-	const vbranchService = getContext(VirtualBranchService);
 	const baseBranchService = getContext(BaseBranchService);
 	const project = getContext(Project);
 	const [setBaseBranchTarget, targetBranchSwitch] = baseBranchService.setTarget;
@@ -48,7 +46,6 @@
 			pushRemote: remote,
 			stashUncommitted
 		});
-		await vbranchService.refresh();
 	}
 
 	let isDeleting = $state(false);
