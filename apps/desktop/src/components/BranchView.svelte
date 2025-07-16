@@ -28,7 +28,7 @@
 		scrollToType?: TargetType;
 		scrollToId?: string;
 		grow?: boolean;
-		contentHeight?: number;
+		clientHeight?: number;
 		resizer?: Partial<ComponentProps<typeof Resizer>>;
 		ontoggle?: (collapsed: boolean) => void;
 		onerror?: (err: unknown) => void;
@@ -42,7 +42,7 @@
 		scrollToId,
 		scrollToType,
 		grow,
-		contentHeight = $bindable(),
+		clientHeight = $bindable(),
 		resizer,
 		ontoggle,
 		onerror,
@@ -72,13 +72,16 @@
 		{@const hasCommits = !!topCommit || branch.upstreamCommits.length > 0}
 		{@const remoteTrackingBranch = branch.remoteTrackingBranch}
 		<Drawer
+			bind:clientHeight
 			testId={TestId.BranchView}
 			{scrollToId}
 			{scrollToType}
 			{resizer}
+			{grow}
 			{onclose}
 			{ontoggle}
-			{grow}
+			bottomBorder
+			noshrink
 		>
 			{#snippet header()}
 				<div class="branch__header">

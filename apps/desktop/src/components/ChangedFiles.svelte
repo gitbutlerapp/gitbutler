@@ -23,7 +23,7 @@
 		conflictEntries?: ConflictEntriesObj;
 		draggableFiles?: boolean;
 		grow?: boolean;
-		shrink?: boolean;
+		noshrink?: boolean;
 		resizer?: Partial<ComponentProps<typeof Resizer>>;
 		ontoggle?: (collapsed: boolean) => void;
 	};
@@ -38,7 +38,7 @@
 		conflictEntries,
 		draggableFiles,
 		grow,
-		shrink,
+		noshrink,
 		ontoggle,
 		resizer
 	}: Props = $props();
@@ -48,7 +48,7 @@
 	let listMode: 'list' | 'tree' = $state('tree');
 </script>
 
-<Drawer {grow} {ontoggle} {resizer} {shrink}>
+<Drawer {grow} {ontoggle} {resizer} {noshrink}>
 	{#snippet header()}
 		<h4 class="text-14 text-semibold truncate">{title}</h4>
 		<Badge>{changes.length}</Badge>
