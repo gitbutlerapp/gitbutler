@@ -2,6 +2,7 @@
 	import Drawer from '$components/Drawer.svelte';
 	import FileList from '$components/FileList.svelte';
 	import FileListMode from '$components/FileListMode.svelte';
+	import Resizer from '$components/Resizer.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { IntelligentScrollingService } from '$lib/intelligentScrolling/service';
 	import { inject } from '@gitbutler/shared/context';
@@ -10,7 +11,7 @@
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
 	import type { TreeChange } from '$lib/hunks/change';
 	import type { SelectionId } from '$lib/selection/key';
-	import type { Snippet } from 'svelte';
+	import type { ComponentProps } from 'svelte';
 
 	type Props = {
 		projectId: string;
@@ -23,8 +24,8 @@
 		draggableFiles?: boolean;
 		grow?: boolean;
 		shrink?: boolean;
+		resizer?: Partial<ComponentProps<typeof Resizer>>;
 		ontoggle?: (collapsed: boolean) => void;
-		resizer?: Snippet<[{ element: HTMLDivElement; collapsed?: boolean }]>;
 	};
 
 	const {
