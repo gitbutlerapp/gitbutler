@@ -5,6 +5,7 @@
 	import BranchesViewBranch from '$components/BranchesViewBranch.svelte';
 	import BranchesViewPr from '$components/BranchesViewPR.svelte';
 	import BranchesViewStack from '$components/BranchesViewStack.svelte';
+	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import PrBranchView from '$components/PRBranchView.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
@@ -400,9 +401,19 @@
 					{/if}
 
 					{#if !isNonLocalPr}
-						<SelectionView testId={TestId.BranchesSelectionView} {projectId} {selectionId} />
+						<div class="preview-selection">
+							<ConfigurableScrollableContainer zIndex="var(--z-lifted)">
+								<SelectionView
+									testId={TestId.BranchesSelectionView}
+									{projectId}
+									{selectionId}
+									notClosable
+								/>
+							</ConfigurableScrollableContainer>
+						</div>
 					{/if}
 				</div>
+
 				<Scrollbar viewport={rightWrapper} horz />
 			</div>
 		</div>
@@ -483,5 +494,14 @@
 		gap: 6px;
 		border-bottom: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
+	}
+
+	.preview-selection {
+		display: flex;
+		position: relative;
+		flex: 1;
+		flex-direction: column;
+		min-height: 100%;
+		overflow: hidden;
 	}
 </style>

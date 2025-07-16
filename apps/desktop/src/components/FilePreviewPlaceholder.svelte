@@ -13,14 +13,13 @@
 	.select-some {
 		display: flex;
 		z-index: 0;
-		position: relative;
+		position: absolute;
+		top: 50%;
+		left: 50%;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		width: 100%;
-		height: 100%;
-		padding: 40px 0;
-		overflow: hidden;
+		transform: translate(-50%, -50%);
 
 		&:after {
 			z-index: -1;
@@ -33,7 +32,6 @@
 			border-radius: 100%;
 			background-color: red;
 			background: radial-gradient(var(--clr-bg-2) 10%, oklch(from var(--clr-bg-2) l c h / 0) 50%);
-			/* background: radial-gradient(red 10%, oklch(from red l c h / 0) 50%); */
 			content: '';
 			transition: opacity 0.1s;
 		}
