@@ -141,7 +141,7 @@
 	let actualDetailsHeight = $state<number>(0);
 	let actualDetailsHeightRem = $derived(pxToRem(actualDetailsHeight, zoom));
 
-	let minChangedFilesHeight = $state(5);
+	let minChangedFilesHeight = $state(8);
 	let minPreviewHeight = $derived(previewChangeResult ? 7 : 0);
 
 	let maxChangedFilesHeight = $derived(

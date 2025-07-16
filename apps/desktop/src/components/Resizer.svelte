@@ -113,19 +113,31 @@
 		let overflow: number;
 		switch (direction) {
 			case 'down':
-				newValue = Math.min(Math.max(value, minHeight), maxHeight);
+				newValue =
+					minHeight > maxHeight
+						? Math.max(value, minHeight)
+						: Math.min(Math.max(value, minHeight), maxHeight);
 				overflow = minHeight - value;
 				break;
 			case 'up':
-				newValue = Math.min(Math.max(value, minHeight), maxHeight);
+				newValue =
+					minHeight > maxHeight
+						? Math.max(value, minHeight)
+						: Math.min(Math.max(value, minHeight), maxHeight);
 				overflow = minHeight - value;
 				break;
 			case 'right':
-				newValue = Math.min(Math.max(value, minWidth), maxWidth);
+				newValue =
+					minWidth > maxWidth
+						? Math.max(value, minWidth)
+						: Math.min(Math.max(value, minWidth), maxWidth);
 				overflow = minWidth - value;
 				break;
 			case 'left':
-				newValue = Math.min(Math.max(value, minWidth), maxWidth);
+				newValue =
+					minWidth > maxWidth
+						? Math.max(value, minWidth)
+						: Math.min(Math.max(value, minWidth), maxWidth);
 				overflow = minWidth - value;
 				break;
 		}
