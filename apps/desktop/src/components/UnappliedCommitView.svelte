@@ -6,6 +6,7 @@
 	import Drawer from '$components/Drawer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { writeClipboard } from '$lib/backend/clipboard';
+	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -58,7 +59,7 @@
 
 			<div class="commit-view">
 				<CommitTitle commitMessage={commit.message} className="text-14 text-semibold text-body" />
-				<CommitDetails {commit} />
+				<CommitDetails {commit} rewrap={$rewrapCommitMessage} />
 			</div>
 		</Drawer>
 		<ReduxResult {projectId} result={changesResult.current}>
