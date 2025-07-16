@@ -17,10 +17,19 @@ pub struct RewordOutcome {
     pub new_message: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RenameBranchOutcome {
+    pub stack_id: StackId,
+    pub old_branch_name: String,
+    pub new_branch_name: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", content = "subject", rename_all = "camelCase")]
 pub enum Kind {
     Reword(Option<RewordOutcome>),
+    RenameBranch(RenameBranchOutcome),
 }
 
 #[derive(Deserialize)]
