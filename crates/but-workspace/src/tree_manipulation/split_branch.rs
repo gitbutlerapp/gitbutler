@@ -1,6 +1,5 @@
 use anyhow::Result;
 use but_core::Reference;
-use but_core::TreeChange;
 use but_rebase::Rebase;
 use but_rebase::RebaseStep;
 use but_rebase::ReferenceSpec;
@@ -10,12 +9,10 @@ use gitbutler_oxidize::OidExt;
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 
-use crate::DiffSpec;
 use crate::MoveChangesResult;
 use crate::stack_ext::StackExt;
-use crate::tree_manipulation::remove_changes_from_commit_in_stack::{
-    keep_only_file_changes_in_commit, remove_changes_from_commit,
-};
+use crate::tree_manipulation::remove_changes_from_commit_in_stack::keep_only_file_changes_in_commit;
+use crate::tree_manipulation::remove_changes_from_commit_in_stack::remove_file_changes_from_commit;
 
 /// Splits a branch by creating a new branch with the specified changes.
 ///
@@ -61,30 +58,16 @@ pub fn split_branch(
         new_branch_log_message.clone(),
     )?;
 
-    // Remove all the specified changes from the source branch
-    let mut source_steps = source_stack.as_rebase_steps(ctx, &repository)?;
-
-    for step in &mut source_steps {
-        if let RebaseStep::Pick { commit_id, .. } = step {
-            let rewritten_commit_id = remove_file_changes_from_commit(
-                ctx,
-                *commit_id,
-                file_changes_to_split_off,
-                context_lines,
-            )?;
-
-            if *commit_id == rewritten_commit_id {
-                continue; // No changes were made to this commit
-            }
-
-            *commit_id = rewritten_commit_id;
-        }
-    }
-
-    let mut source_rebase = Rebase::new(&repository, merge_base, None)?;
-    source_rebase.steps(source_steps)?;
-    source_rebase.rebase_noops(false);
-    let source_result = source_rebase.rebase()?;
+    // Remove all the specified changes from the source branch, dropping empty rewritten commits
+    let source_result = filter_file_changes_in_branch(
+        ctx,
+        &repository,
+        file_changes_to_split_off,
+        source_stack,
+        source_branch_name,
+        merge_base,
+        context_lines,
+    )?;
 
     let replaced_commits = source_result
         .commit_mapping
@@ -108,17 +91,19 @@ pub fn split_branch(
 
     for commit in new_branch_commits {
         let commit_id = commit.to_gix();
-        let new_commit_id = keep_only_file_changes_in_commit(
+        if let Some(new_commit_id) = keep_only_file_changes_in_commit(
             ctx,
             commit_id,
             file_changes_to_split_off,
             context_lines,
-        )?;
-        let pick_step = RebaseStep::Pick {
-            commit_id: new_commit_id,
-            new_message: None,
-        };
-        steps.push(pick_step);
+            true,
+        )? {
+            let pick_step = RebaseStep::Pick {
+                commit_id: new_commit_id,
+                new_message: None,
+            };
+            steps.push(pick_step);
+        }
     }
     steps.reverse();
 
@@ -143,25 +128,94 @@ pub fn split_branch(
     Ok((new_branch_ref, move_changes_result))
 }
 
-fn remove_file_changes_from_commit(
+/// Filters out the specified file changes from the branch.
+///
+/// All commits that end up empty after removing the specified file changes will be dropped.
+fn filter_file_changes_in_branch(
     ctx: &CommandContext,
-    source_commit_id: gix::ObjectId,
+    repository: &gix::Repository,
     file_changes_to_split_off: &[String],
+    source_stack: gitbutler_stack::Stack,
+    source_branch_name: String,
+    merge_base: gix::ObjectId,
     context_lines: u32,
-) -> Result<gix::ObjectId> {
-    let repository = ctx.gix_repo()?;
-    let commit_changes =
-        but_core::diff::ui::commit_changes_by_worktree_dir(&repository, source_commit_id)?;
-    let changes_to_remove: Vec<TreeChange> = commit_changes
-        .changes
-        .into_iter()
-        .filter(|change| file_changes_to_split_off.contains(&change.path.to_string()))
-        .map(|change| change.into())
-        .collect();
-    let diff_specs: Vec<DiffSpec> = changes_to_remove
-        .into_iter()
-        .map(|change| change.into())
-        .collect();
+) -> Result<but_rebase::RebaseOutput, anyhow::Error> {
+    let source_steps = source_stack.as_rebase_steps_rev(ctx, repository)?;
+    let mut new_source_steps = Vec::new();
+    let mut inside_branch = false;
+    let branch_ref = repository
+        .try_find_reference(&source_branch_name)?
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "Source branch '{}' not found in repository",
+                source_branch_name
+            )
+        })?;
+    let branch_ref_name = branch_ref.name().to_owned();
 
-    remove_changes_from_commit(ctx, source_commit_id, diff_specs, context_lines)
+    for step in source_steps {
+        if let RebaseStep::Reference(but_core::Reference::Git(name)) = &step {
+            if *name == branch_ref_name {
+                inside_branch = true;
+            } else if inside_branch {
+                inside_branch = false;
+            }
+        }
+
+        if let RebaseStep::Reference(but_core::Reference::Virtual(name)) = &step {
+            if *name == source_branch_name {
+                inside_branch = true;
+            } else if inside_branch {
+                inside_branch = false;
+            }
+        }
+
+        if !inside_branch {
+            // Not inside the source branch, keep the step as is
+            new_source_steps.push(step);
+            continue;
+        }
+
+        if let RebaseStep::Pick { commit_id, .. } = &step {
+            match remove_file_changes_from_commit(
+                ctx,
+                *commit_id,
+                file_changes_to_split_off,
+                context_lines,
+                true,
+            )? {
+                Some(rewritten_commit_id) if *commit_id != rewritten_commit_id => {
+                    // Commit was rewritten, add updated step
+                    let mut new_step = step.clone();
+                    if let RebaseStep::Pick { commit_id, .. } = &mut new_step {
+                        *commit_id = rewritten_commit_id;
+                    }
+                    new_source_steps.push(new_step);
+                }
+                Some(_) => {
+                    // No changes, keep original step
+                    new_source_steps.push(step);
+                }
+                None => {
+                    // Commit became empty, drop it
+                    // Do nothing
+                }
+            }
+        } else {
+            // Not a Pick step, keep as is
+            new_source_steps.push(step);
+        }
+    }
+
+    new_source_steps.reverse();
+
+    let mut source_rebase = Rebase::new(repository, merge_base, None)?;
+    source_rebase.steps(new_source_steps)?;
+    source_rebase.rebase_noops(false);
+    let source_result = source_rebase.rebase()?;
+
+    let mut source_stack = source_stack;
+    source_stack.set_heads_from_rebase_output(ctx, source_result.clone().references)?;
+
+    Ok(source_result)
 }

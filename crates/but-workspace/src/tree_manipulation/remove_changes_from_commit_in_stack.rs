@@ -100,20 +100,56 @@ pub fn keep_only_file_changes_in_commit(
     source_commit_id: gix::ObjectId,
     file_changes_to_keep: &[String],
     context_lines: u32,
-) -> Result<ObjectId> {
+    skip_if_empty: bool,
+) -> Result<Option<gix::ObjectId>> {
     let repository = ctx.gix_repo()?;
     let commit_changes =
         but_core::diff::ui::commit_changes_by_worktree_dir(&repository, source_commit_id)?;
     let changes_to_remove: Vec<TreeChange> = commit_changes
         .changes
+        .clone()
         .into_iter()
         .filter(|change| !file_changes_to_keep.contains(&change.path.to_string()))
         .map(|change| change.into())
         .collect();
+    if skip_if_empty && changes_to_remove.len() == commit_changes.changes.len() {
+        // If we are skipping if empty and all changes are to be removed, return None
+        return Ok(None);
+    }
+
     let diff_specs: Vec<DiffSpec> = changes_to_remove
         .into_iter()
         .map(|change| change.into())
         .collect();
 
-    remove_changes_from_commit(ctx, source_commit_id, diff_specs, context_lines)
+    remove_changes_from_commit(ctx, source_commit_id, diff_specs, context_lines).map(Some)
+}
+
+pub fn remove_file_changes_from_commit(
+    ctx: &CommandContext,
+    source_commit_id: gix::ObjectId,
+    file_changes_to_split_off: &[String],
+    context_lines: u32,
+    skip_if_empty: bool,
+) -> Result<Option<gix::ObjectId>> {
+    let repository = ctx.gix_repo()?;
+    let commit_changes =
+        but_core::diff::ui::commit_changes_by_worktree_dir(&repository, source_commit_id)?;
+    let changes_to_remove: Vec<TreeChange> = commit_changes
+        .changes
+        .clone()
+        .into_iter()
+        .filter(|change| file_changes_to_split_off.contains(&change.path.to_string()))
+        .map(|change| change.into())
+        .collect();
+    if skip_if_empty && changes_to_remove.len() == commit_changes.changes.len() {
+        // If we are skipping if empty and all changes are to be removed, return None
+        return Ok(None);
+    }
+    let diff_specs: Vec<DiffSpec> = changes_to_remove
+        .into_iter()
+        .map(|change| change.into())
+        .collect();
+
+    remove_changes_from_commit(ctx, source_commit_id, diff_specs, context_lines).map(Some)
 }

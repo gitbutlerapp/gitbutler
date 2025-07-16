@@ -3,8 +3,17 @@ use gitbutler_command_context::CommandContext;
 
 /// Extension trait for `gitbutler_stack::Stack`.
 pub trait StackExt {
-    /// Return the stack as a series of rebase steps.
+    /// Return the stack as a series of rebase steps in the order the steps should be applied.
     fn as_rebase_steps(
+        &self,
+        ctx: &CommandContext,
+        repo: &gix::Repository,
+    ) -> anyhow::Result<Vec<RebaseStep>>;
+    /// Return the stack as a series of rebase steps in reverse order, i.e. in the order they were generated.
+    ///
+    /// The generation order starts at the top of the stack (tip first) and goes down to the merge base (parent most commit).
+    /// This is useful for operations that need to process the stack in reverse order.
+    fn as_rebase_steps_rev(
         &self,
         ctx: &CommandContext,
         repo: &gix::Repository,
@@ -13,6 +22,17 @@ pub trait StackExt {
 
 impl StackExt for gitbutler_stack::Stack {
     fn as_rebase_steps(
+        &self,
+        ctx: &CommandContext,
+        repo: &gix::Repository,
+    ) -> anyhow::Result<Vec<RebaseStep>> {
+        self.as_rebase_steps_rev(ctx, repo).map(|mut steps| {
+            steps.reverse();
+            steps
+        })
+    }
+
+    fn as_rebase_steps_rev(
         &self,
         ctx: &CommandContext,
         repo: &gix::Repository,
@@ -42,7 +62,6 @@ impl StackExt for gitbutler_stack::Stack {
                 steps.push(pick_step);
             }
         }
-        steps.reverse();
         Ok(steps)
     }
 }
