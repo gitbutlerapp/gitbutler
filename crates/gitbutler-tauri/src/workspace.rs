@@ -332,7 +332,7 @@ pub fn split_branch(
     source_branch_name: String,
     new_branch_name: String,
     file_changes_to_split_off: Vec<String>,
-) -> Result<Option<UIMoveChangesResult>, Error> {
+) -> Result<UIMoveChangesResult, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     let mut guard = project.exclusive_worktree_access();
@@ -363,7 +363,7 @@ pub fn split_branch(
         guard.write_permission(),
     )?;
 
-    Ok(move_changes_result.map(Into::into))
+    Ok(move_changes_result.into())
 }
 
 /// Uncommits the changes specified in the `diffspec`.

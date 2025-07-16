@@ -12,8 +12,10 @@ use gitbutler_stack::{StackId, VirtualBranchesHandle};
 
 use crate::DiffSpec;
 use crate::MoveChangesResult;
-use crate::remove_changes_from_commit_in_stack;
-use crate::tree_manipulation::remove_changes_from_commit_in_stack::keep_only_file_changes_in_commit;
+use crate::stack_ext::StackExt;
+use crate::tree_manipulation::remove_changes_from_commit_in_stack::{
+    keep_only_file_changes_in_commit, remove_changes_from_commit,
+};
 
 /// Splits a branch by creating a new branch with the specified changes.
 ///
@@ -35,17 +37,14 @@ pub fn split_branch(
     new_branch_name: String,
     file_changes_to_split_off: &[String],
     context_lines: u32,
-) -> Result<(ReferenceSpec, Option<MoveChangesResult>)> {
+) -> Result<(ReferenceSpec, MoveChangesResult)> {
     let repository = ctx.gix_repo()?;
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
 
-    let default_target = vb_state.get_default_target()?;
-    let stack = vb_state.get_stack_in_workspace(stack_id)?;
-    let merge_base = ctx
-        .repo()
-        .merge_base(stack.head_oid(&repository)?.to_git2(), default_target.sha)?;
+    let source_stack = vb_state.get_stack_in_workspace(stack_id)?;
+    let merge_base = source_stack.merge_base(ctx)?;
 
-    let push_details = stack.push_details(ctx, source_branch_name.clone())?;
+    let push_details = source_stack.push_details(ctx, source_branch_name.clone())?;
     let branch_head = push_details.head;
 
     // Create a new branch from the source branch's head
@@ -63,34 +62,43 @@ pub fn split_branch(
     )?;
 
     // Remove all the specified changes from the source branch
-    let source_branch_commits = ctx
-        .repo()
-        .l(branch_head, LogUntil::Commit(merge_base), false)?;
+    let mut source_steps = source_stack.as_rebase_steps(ctx, &repository)?;
 
-    let mut move_changes_result: Option<MoveChangesResult> = None;
+    for step in &mut source_steps {
+        if let RebaseStep::Pick { commit_id, .. } = step {
+            let rewritten_commit_id = remove_file_changes_from_commit(
+                ctx,
+                *commit_id,
+                file_changes_to_split_off,
+                context_lines,
+            )?;
 
-    for commit in source_branch_commits {
-        let commit_id = commit.to_gix();
+            if *commit_id == rewritten_commit_id {
+                continue; // No changes were made to this commit
+            }
 
-        let result = remove_file_changes_from_commit(
-            ctx,
-            stack_id,
-            commit_id,
-            file_changes_to_split_off,
-            context_lines,
-        )?;
-
-        if let Some(ref mut res) = move_changes_result {
-            res.merge(result);
-        } else {
-            move_changes_result = Some(result);
+            *commit_id = rewritten_commit_id;
         }
     }
 
+    let mut source_rebase = Rebase::new(&repository, merge_base, None)?;
+    source_rebase.steps(source_steps)?;
+    source_rebase.rebase_noops(false);
+    let source_result = source_rebase.rebase()?;
+
+    let replaced_commits = source_result
+        .commit_mapping
+        .iter()
+        .filter(|(_, old, new)| old != new)
+        .map(|(_, old, new)| (*old, *new))
+        .collect();
+
+    let move_changes_result = MoveChangesResult { replaced_commits };
+
     // Remove all but the specified changes from the new branch
-    let new_branch_commits = ctx
-        .repo()
-        .l(branch_head, LogUntil::Commit(merge_base), false)?;
+    let new_branch_commits =
+        ctx.repo()
+            .l(branch_head, LogUntil::Commit(merge_base.to_git2()), false)?;
 
     // Branch as rebase steps
     let mut steps: Vec<RebaseStep> = Vec::new();
@@ -114,7 +122,7 @@ pub fn split_branch(
     }
     steps.reverse();
 
-    let mut rebase = Rebase::new(&repository, merge_base.to_gix(), None)?;
+    let mut rebase = Rebase::new(&repository, merge_base, None)?;
     rebase.steps(steps)?;
     rebase.rebase_noops(false);
     let result = rebase.rebase()?;
@@ -137,11 +145,10 @@ pub fn split_branch(
 
 fn remove_file_changes_from_commit(
     ctx: &CommandContext,
-    source_stack_id: StackId,
     source_commit_id: gix::ObjectId,
     file_changes_to_split_off: &[String],
     context_lines: u32,
-) -> Result<MoveChangesResult> {
+) -> Result<gix::ObjectId> {
     let repository = ctx.gix_repo()?;
     let commit_changes =
         but_core::diff::ui::commit_changes_by_worktree_dir(&repository, source_commit_id)?;
@@ -156,11 +163,5 @@ fn remove_file_changes_from_commit(
         .map(|change| change.into())
         .collect();
 
-    remove_changes_from_commit_in_stack(
-        ctx,
-        source_stack_id,
-        source_commit_id,
-        diff_specs,
-        context_lines,
-    )
+    remove_changes_from_commit(ctx, source_commit_id, diff_specs, context_lines)
 }
