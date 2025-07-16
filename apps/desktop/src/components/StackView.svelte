@@ -134,12 +134,6 @@
 	let stackViewEl = $state<HTMLDivElement>();
 	let compactDiv = $state<HTMLDivElement>();
 
-	let branchContentHeight = $state<number>(0);
-	let branchContentHeightRem = $derived(pxToRem(branchContentHeight, zoom));
-
-	let commitContentHeight = $state<number>(0);
-	let commitContentHeightRem = $derived(pxToRem(commitContentHeight, zoom));
-
 	let verticalHeight = $state<number>(0);
 	let verticalHeightRem = $derived(pxToRem(verticalHeight, zoom));
 
@@ -150,8 +144,9 @@
 	let minChangedFilesHeight = $state(5);
 	let minPreviewHeight = $derived(previewChangeResult ? 5 : 0);
 
+	let maxDetailsHeight = $derived(verticalHeightRem - minChangedFilesHeight - minPreviewHeight);
 	let maxChangedFilesHeight = $derived(
-		verticalHeightRem - actualDetailsHeightRem - minPreviewHeight
+		verticalHeightRem - actualDetailsHeightRem - minPreviewHeight - 2
 	);
 
 	const defaultBranchResult = $derived(stackService.defaultBranch(projectId, stack.id));
@@ -252,9 +247,6 @@
 
 	const resizeGroup = new ResizeGroup();
 	const unsetMaxHeight = '25%';
-
-	// State to track if commit is in edit message mode
-	let commitEditMode = $state(false);
 </script>
 
 <!-- ATTENTION -->
@@ -297,7 +289,6 @@
 {#snippet branchView(branchName: string)}
 	<BranchView
 		stackId={stack.id}
-		bind:contentHeight={branchContentHeight}
 		{projectId}
 		{branchName}
 		active={selectedKey?.type === 'branch' &&
@@ -305,25 +296,18 @@
 			focusedStackId === stack.id}
 		scrollToType="details"
 		scrollToId={stack.id}
+		resizer={{
+			persistId: 'resizer-panel2-details-${stack.id}',
+			defaultValue: undefined,
+			maxHeight: maxDetailsHeight,
+			minHeight: minDetailsHeight,
+			order: 0,
+			resizeGroup
+		}}
+		bind:contentHeight={actualDetailsHeight}
 		{onerror}
 		{onclose}
-	>
-		{#snippet resizer({ element, collapsed })}
-			<Resizer
-				bind:clientHeight={actualDetailsHeight}
-				viewport={element}
-				direction="down"
-				persistId="resizer-panel2-details-${stack.id}"
-				defaultValue={undefined}
-				minHeight={minDetailsHeight}
-				maxHeight={branchContentHeightRem}
-				order={0}
-				imitateBorder
-				hidden={collapsed}
-				{resizeGroup}
-			/>
-		{/snippet}
-	</BranchView>
+	/>
 {/snippet}
 
 {#snippet commitView(branchName: string, commitId: string)}
@@ -336,31 +320,22 @@
 			commitId,
 			upstream: !!upstream
 		}}
-		bind:contentHeight={commitContentHeight}
-		bind:isInEditMessageMode={commitEditMode}
 		draggableFiles
 		active={selectedKey?.type === 'commit' && focusedStackId === stack.id}
 		scrollToType="details"
 		scrollToId={stack.id}
+		resizer={{
+			persistId: 'resizer-panel2-details-${stack.id}',
+			defaultValue: undefined,
+			maxHeight: maxDetailsHeight,
+			minHeight: minDetailsHeight,
+			order: 0,
+			resizeGroup
+		}}
+		bind:clientHeight={actualDetailsHeight}
 		{onerror}
 		{onclose}
-	>
-		{#snippet resizer({ element, collapsed })}
-			<Resizer
-				bind:clientHeight={actualDetailsHeight}
-				defaultValue={undefined}
-				viewport={element}
-				hidden={collapsed}
-				direction="down"
-				imitateBorder
-				persistId="resizer-panel2-details-${stack.id}"
-				minHeight={commitEditMode ? commitContentHeightRem : 4}
-				maxHeight={commitContentHeightRem}
-				order={0}
-				{resizeGroup}
-			/>
-		{/snippet}
-	</CommitView>
+	/>
 {/snippet}
 
 {#snippet commitChangedFiles(commitId: string)}
@@ -383,23 +358,17 @@
 				)}
 				conflictEntries={changes.conflictEntries}
 				{active}
-			>
-				{#snippet resizer({ element, collapsed })}
-					<Resizer
-						{resizeGroup}
-						unsetMaxHeight={previewKey ? unsetMaxHeight : undefined}
-						order={1}
-						viewport={element}
-						imitateBorder
-						hidden={collapsed}
-						maxHeight={maxChangedFilesHeight}
-						minHeight={minChangedFilesHeight}
-						defaultValue={undefined}
-						persistId="resizer-panel2-changed-files-${stack.id}"
-						direction="down"
-					/>
-				{/snippet}
-			</ChangedFiles>
+				resizer={{
+					persistId: `resizer-panel2-changed-files-${stack.id}`,
+					defaultValue: undefined,
+					maxHeight: maxChangedFilesHeight,
+					minHeight: minChangedFilesHeight,
+					passive: !previewKey,
+					order: 1,
+					resizeGroup,
+					unsetMaxHeight: previewKey ? unsetMaxHeight : undefined
+				}}
+			></ChangedFiles>
 		{/snippet}
 	</ReduxResult>
 {/snippet}
@@ -424,22 +393,17 @@
 				}}
 				{changes}
 				{active}
-			>
-				{#snippet resizer({ element, collapsed })}
-					<Resizer
-						{resizeGroup}
-						order={1}
-						viewport={element}
-						maxHeight={maxChangedFilesHeight}
-						minHeight={minChangedFilesHeight}
-						defaultValue={undefined}
-						persistId="resizer-panel2-changed-files-${stack.id}"
-						imitateBorder
-						hidden={collapsed}
-						direction="down"
-					/>
-				{/snippet}
-			</ChangedFiles>
+				resizer={{
+					persistId: `resizer-panel2-changed-files-${stack.id}`,
+					defaultValue: undefined,
+					maxHeight: maxChangedFilesHeight,
+					minHeight: minChangedFilesHeight,
+					passive: !previewKey,
+					order: 1,
+					resizeGroup,
+					unsetMaxHeight: previewKey ? unsetMaxHeight : undefined
+				}}
+			></ChangedFiles>
 		{/snippet}
 	</ReduxResult>
 {/snippet}

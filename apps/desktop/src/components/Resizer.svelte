@@ -35,8 +35,6 @@
 		passive?: boolean;
 		/** Whether the resizer is hidden */
 		hidden?: boolean;
-		/** Doubles or halves the width on double click */
-		clientHeight?: number;
 		/** Optional manager that can coordinate multiple resizers */
 		resizeGroup?: ResizeGroup;
 		/** Optional ordering of resizer for use with `resizeManager` */
@@ -69,7 +67,6 @@
 		persistId,
 		passive,
 		hidden,
-		clientHeight = $bindable(),
 		resizeGroup,
 		order,
 		unsetMaxHeight,
@@ -291,15 +288,6 @@
 			}
 		}
 	});
-
-	$effect(() => {
-		if (viewport) {
-			clientHeight = viewport.clientHeight;
-			const monitor = new ResizeObserver((e) => (clientHeight = e[0]?.target.clientHeight));
-			monitor.observe(viewport);
-			return () => monitor.disconnect();
-		}
-	});
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
@@ -328,7 +316,6 @@
 	style:z-index={zIndex}
 	style:--resizer-border-radius="var(--radius-{borderRadius})"
 	style:--border-imitation-color={borderColor}
-	title="default value {defaultValue}"
 >
 	<div class="resizer-line"></div>
 </div>
