@@ -2,7 +2,6 @@
 	import MergeButton from '$components/MergeButton.svelte';
 	import PullRequestCard from '$components/PullRequestCard.svelte';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
@@ -20,7 +19,6 @@
 
 	const { projectId, stackId, branchName, prNumber }: Props = $props();
 
-	const vbranchService = getContext(VirtualBranchService);
 	const baseBranchService = getContext(BaseBranchService);
 	const forge = getContext(DefaultForgeFactory);
 	const stackService = getContext(StackService);
@@ -85,7 +83,6 @@
 
 		await Promise.all([
 			baseBranchService.fetchFromRemotes(projectId),
-			vbranchService.refresh(),
 			baseBranchService.refreshBaseBranch(projectId)
 		]);
 	}
