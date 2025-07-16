@@ -37,6 +37,15 @@
 		});
 		projectState.stackId.set(stackId);
 	}
+
+	function selectBranch(stackId: string, branchName: string) {
+		const projectState = uiState.project(projectId);
+		const stackState = uiState.stack(stackId);
+		stackState.selection.set({
+			branchName
+		});
+		projectState.stackId.set(stackId);
+	}
 </script>
 
 {#snippet code(value: unknown)}
@@ -83,6 +92,35 @@
 			{:else}
 				<span class="text-13 text-greyer">Reword action without subject</span>
 			{/if}
+		</div>
+	{:else if kind.type === 'renameBranch'}
+		<div class="text-13">
+			<div class="operations">
+				<div class="operation-row text-13">
+					<div class="operation-icon">
+						<Icon name="branch-local" />
+					</div>
+
+					<div class="operation-content">
+						<p class="operation__title">
+							Renamed branch from
+							<span>{kind.subject.oldBranchName}</span>
+
+							<span>→</span>
+
+							<button
+								class="operation__commit-branch"
+								type="button"
+								onclick={() => selectBranch(kind.subject.stackId, kind.subject.newBranchName)}
+							>
+								<span>
+									{kind.subject.newBranchName}
+								</span>
+							</button>
+						</p>
+					</div>
+				</div>
+			</div>
 		</div>
 	{/if}
 {:else if rest.type === 'tool-call'}
@@ -255,6 +293,7 @@
 		text-wrap: nowrap;
 	}
 
+	.operation__commit-branch,
 	.operation__commit-sha {
 		display: inline-flex;
 		align-items: center;
