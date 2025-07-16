@@ -30,6 +30,7 @@
 <script lang="ts">
 	import ContextMenu from '$components/ContextMenu.svelte';
 	import { writeClipboard } from '$lib/backend/clipboard';
+	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { openExternalUrl } from '$lib/utils/url';
@@ -157,5 +158,16 @@
 				/>
 			</ContextMenuSection>
 		{/if}
+		<ContextMenuSection>
+			<ContextMenuItem
+				icon="text-wrap"
+				label={$rewrapCommitMessage ? 'Original' : 'Re-wrap'}
+				disabled={commitInsertion.current.isLoading}
+				onclick={() => {
+					rewrapCommitMessage.set(!$rewrapCommitMessage);
+					close();
+				}}
+			/>
+		</ContextMenuSection>
 	</ContextMenu>
 {/if}

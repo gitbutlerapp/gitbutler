@@ -10,6 +10,7 @@
 	import { isLocalAndRemoteCommit } from '$components/lib';
 	import { isCommit } from '$lib/branches/v3';
 	import { type CommitKey } from '$lib/commits/commit';
+	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { ModeService } from '$lib/mode/modeService';
 	import { showToast } from '$lib/notifications/toasts';
@@ -238,7 +239,7 @@
 						/>
 					</div>
 				{:else}
-					<CommitDetails {commit} />
+					<CommitDetails {commit} rewrap={$rewrapCommitMessage} />
 				{/if}
 			</div>
 		</Drawer>
