@@ -39,7 +39,7 @@ pub struct Workspace<'graph> {
     ///
     /// It is `None` there is only a single stack and no target, so nothing was integrated.
     pub lower_bound: Option<gix::ObjectId>,
-    /// If `base` is set, this is the segment owning the commit.
+    /// If `lower_bound` is set, this is the segment owning the commit.
     pub lower_bound_segment_id: Option<SegmentIndex>,
     /// The target to integrate workspace stacks into.
     ///

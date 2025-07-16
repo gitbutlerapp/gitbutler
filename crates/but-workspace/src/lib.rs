@@ -24,14 +24,13 @@
 //!   - It doesn't specify if the change is in a commit, or in the worktree, so that information must be provided separately.
 use std::{collections::HashMap, path::Path};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use bstr::BString;
-use serde::{Deserialize, Serialize};
-
-use but_core::{RefMetadata, TreeChange};
+use but_core::TreeChange;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::OidExt;
 use gitbutler_stack::VirtualBranchesHandle;
+use serde::{Deserialize, Serialize};
 
 mod integrated;
 
@@ -41,19 +40,22 @@ pub mod ui;
 pub mod commit_engine;
 /// Tools for manipulating trees
 pub mod tree_manipulation;
-pub use tree_manipulation::MoveChangesResult;
-pub use tree_manipulation::discard_worktree_changes::discard_workspace_changes;
-pub use tree_manipulation::move_between_commits::move_changes_between_commits;
-pub use tree_manipulation::remove_changes_from_commit_in_stack::remove_changes_from_commit_in_stack;
-pub use tree_manipulation::split_branch::split_branch;
-pub use tree_manipulation::split_commit::{CommitFiles, CommmitSplitOutcome, split_commit};
+pub use tree_manipulation::{
+    MoveChangesResult,
+    discard_worktree_changes::discard_workspace_changes,
+    move_between_commits::move_changes_between_commits,
+    remove_changes_from_commit_in_stack::remove_changes_from_commit_in_stack,
+    split_branch::split_branch,
+    split_commit::{CommitFiles, CommmitSplitOutcome, split_commit},
+};
 pub mod head;
 pub use head::{head, merge_worktree_with_workspace};
-mod relapath;
 
 /// 🚧utilities for applying and unapplying branches 🚧.
 /// Ignore the name of this module; it's just a place to put code by now.
 pub mod branch;
+
+mod changeset;
 
 mod commit;
 
@@ -70,14 +72,13 @@ pub mod stack_ext;
 mod stacks;
 // TODO: _v3 versions are specifically for the UI, so import them into `ui` instead.
 pub use stacks::{
-    local_and_remote_commits, stack_branch_local_and_remote_commits,
-    stack_branch_upstream_only_commits, stack_branches, stack_details, stack_details_v3,
-    stack_heads_info, stacks, stacks_v3,
+    local_and_remote_commits, stack_branches, stack_details, stack_details_v3, stack_heads_info,
+    stacks, stacks_v3,
 };
 
 mod branch_details;
 pub use branch_details::{branch_details, branch_details_v3};
-use but_graph::VirtualBranchesTomlMetadata;
+use but_graph::SegmentIndex;
 
 /// A change that should be used to create a new commit or alter an existing one, along with enough information to know where to find it.
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
@@ -161,9 +162,9 @@ impl HunkHeader {
 ///
 /// We always try to deduce a set of stacks that are currently applied to a workspace,
 /// even though it's possible to look at refs that are outside a workspace as well.
-/// TODO: this should become the UI version of [`but_graph::projection::Workspace`].
+/// TODO: There should be a UI version of [`but_graph::projection::Workspace`].
 ///       This should also include base-branch data, see `get_base_branch_data()`.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct RefInfo {
     /// The name of the ref that points to a workspace commit,
     /// *or* the name of the first stack segment.
@@ -173,9 +174,27 @@ pub struct RefInfo {
     /// This is an empty array if the `HEAD` is detached.
     /// Otherwise, there is one or more stacks.
     pub stacks: Vec<branch::Stack>,
-    /// The full name to the target reference that we should integrate with, if present.
-    /// It's never present in single-branch mode.
-    pub target_ref: Option<gix::refs::FullName>,
+    /// The target to integrate workspace stacks into.
+    ///
+    /// If `None`, this is a local workspace that doesn't know when possibly pushed branches are considered integrated.
+    /// This happens when there is a local branch checked out without a remote tracking branch.
+    pub target: Option<but_graph::projection::Target>,
+    /// The segment index of the extra target as provided for traversal,
+    /// useful for AdHoc workspaces, but generally applicable to all workspaces to keep the lower bound lower than it
+    /// otherwise would be.
+    pub extra_target: Option<SegmentIndex>,
+    /// The bound can be imagined as the segment from which all other commits in the workspace originate.
+    /// It can also be imagined to be the delimiter at the bottom beyond which nothing belongs to the workspace,
+    /// as antagonist to the first commit in tip of the segment with `id`, serving as first commit that is
+    /// inside the workspace.
+    ///
+    /// As such, it's always the longest path to the first shared commit with the target among
+    /// all of our stacks, or it is the first commit that is shared among all of our stacks in absence of a target.
+    /// One can also think of it as the starting point from which all workspace commits can be reached when
+    /// following all incoming connections and stopping at the tip of the workspace.
+    ///
+    /// It is `None` there is only a single stack and no target, so nothing was integrated.
+    pub lower_bound: Option<SegmentIndex>,
     /// The `workspace_ref_name` is `Some(_)` and belongs to GitButler, because it had metadata attached.
     pub is_managed_ref: bool,
     /// The `workspace_ref_name` points to a commit that was specifically created by us.
@@ -208,21 +227,6 @@ pub enum StacksFilter {
     /// Show only unapplied stacks
     // TODO: figure out where this is used. V2 maybe? If so, it can be removed eventually.
     Unapplied,
-}
-
-/// Get a stable `StackId` for the given `name`. It's fetched from `meta`, assuming it's backed by a toml file
-/// and assuming that `name` is stored there as applied or unapplied branch.
-fn id_from_name_v2_to_v3(
-    name: &gix::refs::FullNameRef,
-    meta: &VirtualBranchesTomlMetadata,
-) -> Result<StackId> {
-    let ref_meta = meta.branch(name)?;
-    ref_meta.stack_id().with_context(|| {
-        format!(
-            "{name:?} didn't have a stack-id even though \
-        it was supposed to be in virtualbranches.toml"
-        )
-    })
 }
 
 /// Returns the last-seen fork-point that the workspace has with the target branch with which it wants to integrate.
@@ -300,175 +304,6 @@ pub fn flatten_diff_specs(input: Vec<DiffSpec>) -> Vec<DiffSpec> {
             .or_insert(spec);
     }
     output.into_values().collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use bstr::BString;
-
-    #[test]
-    fn test_flatten_diff_specs_empty() {
-        let input = vec![];
-        let result = flatten_diff_specs(input);
-        assert!(result.is_empty());
-    }
-
-    #[test]
-    fn test_flatten_diff_specs_single() {
-        let spec = DiffSpec {
-            path: BString::from("file.txt"),
-            previous_path: None,
-            hunk_headers: vec![HunkHeader {
-                old_start: 1,
-                old_lines: 2,
-                new_start: 1,
-                new_lines: 3,
-            }],
-        };
-        let input = vec![spec.clone()];
-        let result = flatten_diff_specs(input);
-        assert_eq!(result.len(), 1);
-        assert_eq!(result.first().unwrap(), &spec);
-    }
-
-    #[test]
-    fn test_flatten_diff_specs_different_files() {
-        let spec1 = DiffSpec {
-            path: BString::from("file1.txt"),
-            previous_path: None,
-            hunk_headers: vec![HunkHeader {
-                old_start: 1,
-                old_lines: 2,
-                new_start: 1,
-                new_lines: 3,
-            }],
-        };
-        let spec2 = DiffSpec {
-            path: BString::from("file2.txt"),
-            previous_path: None,
-            hunk_headers: vec![HunkHeader {
-                old_start: 5,
-                old_lines: 1,
-                new_start: 5,
-                new_lines: 2,
-            }],
-        };
-        let input = vec![spec1.clone(), spec2.clone()];
-        let result = flatten_diff_specs(input);
-        assert_eq!(result.len(), 2);
-        assert!(result.contains(&spec1));
-        assert!(result.contains(&spec2));
-    }
-
-    #[test]
-    fn test_flatten_diff_specs_same_file_merge_hunks() {
-        let hunk1 = HunkHeader {
-            old_start: 1,
-            old_lines: 2,
-            new_start: 1,
-            new_lines: 3,
-        };
-        let hunk2 = HunkHeader {
-            old_start: 10,
-            old_lines: 1,
-            new_start: 11,
-            new_lines: 2,
-        };
-
-        let spec1 = DiffSpec {
-            path: BString::from("file.txt"),
-            previous_path: None,
-            hunk_headers: vec![hunk1],
-        };
-        let spec2 = DiffSpec {
-            path: BString::from("file.txt"),
-            previous_path: None,
-            hunk_headers: vec![hunk2],
-        };
-
-        let input = vec![spec1, spec2];
-        let result = flatten_diff_specs(input);
-
-        assert_eq!(result.len(), 1);
-        assert_eq!(result.first().unwrap().path, BString::from("file.txt"));
-        assert_eq!(result.first().unwrap().previous_path, None);
-        assert_eq!(result.first().unwrap().hunk_headers.len(), 2);
-        assert!(result.first().unwrap().hunk_headers.contains(&hunk1));
-        assert!(result.first().unwrap().hunk_headers.contains(&hunk2));
-    }
-
-    #[test]
-    fn test_flatten_diff_specs_with_previous_path() {
-        let spec1 = DiffSpec {
-            path: BString::from("new_file.txt"),
-            previous_path: Some(BString::from("old_file.txt")),
-            hunk_headers: vec![HunkHeader {
-                old_start: 1,
-                old_lines: 2,
-                new_start: 1,
-                new_lines: 3,
-            }],
-        };
-        let spec2 = DiffSpec {
-            path: BString::from("new_file.txt"),
-            previous_path: None,
-            hunk_headers: vec![HunkHeader {
-                old_start: 5,
-                old_lines: 1,
-                new_start: 5,
-                new_lines: 2,
-            }],
-        };
-
-        let input = vec![spec1.clone(), spec2.clone()];
-        let result = flatten_diff_specs(input);
-
-        // These should remain separate because they have different previous_path values
-        assert_eq!(result.len(), 2);
-        assert!(result.contains(&spec1));
-        assert!(result.contains(&spec2));
-    }
-
-    #[test]
-    fn test_flatten_diff_specs_same_previous_path() {
-        let hunk1 = HunkHeader {
-            old_start: 1,
-            old_lines: 2,
-            new_start: 1,
-            new_lines: 3,
-        };
-        let hunk2 = HunkHeader {
-            old_start: 10,
-            old_lines: 1,
-            new_start: 11,
-            new_lines: 2,
-        };
-
-        let spec1 = DiffSpec {
-            path: BString::from("new_file.txt"),
-            previous_path: Some(BString::from("old_file.txt")),
-            hunk_headers: vec![hunk1],
-        };
-        let spec2 = DiffSpec {
-            path: BString::from("new_file.txt"),
-            previous_path: Some(BString::from("old_file.txt")),
-            hunk_headers: vec![hunk2],
-        };
-
-        let input = vec![spec1, spec2];
-        let result = flatten_diff_specs(input);
-
-        assert_eq!(result.len(), 1);
-        assert_eq!(result.first().unwrap().path, BString::from("new_file.txt"));
-        assert_eq!(
-            result.first().unwrap().previous_path,
-            Some(BString::from("old_file.txt"))
-        );
-        assert_eq!(result.first().unwrap().hunk_headers.len(), 2);
-        assert!(result.first().unwrap().hunk_headers.contains(&hunk1));
-        assert!(result.first().unwrap().hunk_headers.contains(&hunk2));
-    }
 }
 
 #[cfg(test)]

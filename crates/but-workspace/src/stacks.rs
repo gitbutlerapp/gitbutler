@@ -2,9 +2,7 @@ use crate::integrated::IsCommitIntegrated;
 use crate::ref_info::ui::{Commit, Segment};
 use crate::ref_info::ui::{LocalCommit, LocalCommitRelation};
 use crate::ui::{CommitState, PushStatus, StackDetails};
-use crate::{
-    RefInfo, StacksFilter, branch, head_info, id_from_name_v2_to_v3, ref_info, state_handle, ui,
-};
+use crate::{RefInfo, StacksFilter, branch, head_info, ref_info, state_handle, ui};
 use anyhow::Context;
 use bstr::BString;
 use but_core::RefMetadata;
@@ -17,6 +15,21 @@ use gix::date::parse::TimeBuf;
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
+
+/// Get a stable `StackId` for the given `name`. It's fetched from `meta`, assuming it's backed by a toml file
+/// and assuming that `name` is stored there as applied or unapplied branch.
+fn id_from_name_v2_to_v3(
+    name: &gix::refs::FullNameRef,
+    meta: &VirtualBranchesTomlMetadata,
+) -> anyhow::Result<StackId> {
+    let ref_meta = meta.branch(name)?;
+    ref_meta.stack_id().with_context(|| {
+        format!(
+            "{name:?} didn't have a stack-id even though \
+        it was supposed to be in virtualbranches.toml"
+        )
+    })
+}
 
 /// Returns the list of branch information for the branches in a stack.
 pub fn stack_heads_info(
@@ -419,17 +432,7 @@ pub fn stack_details_v3(
     let branch_details = stack
         .segments
         .iter()
-        .enumerate()
-        .map(|(idx, segment)| {
-            ui::BranchDetails::from_segment(
-                segment,
-                stack
-                    .segments
-                    .get(idx + 1)
-                    .and_then(|below| below.commits.first().map(|commit| commit.id))
-                    .or(stack.base),
-            )
-        })
+        .map(ui::BranchDetails::from_segment)
         .collect::<Result<Vec<_>, _>>()?;
 
     let topmost_branch = branch_details
@@ -449,13 +452,13 @@ impl ui::BranchDetails {
             id: _,
             ref_name,
             commits: commits_unique_from_tip,
-            commits_unique_in_remote_tracking_branch,
+            commits_on_remote: commits_unique_in_remote_tracking_branch,
             remote_tracking_ref_name,
             metadata,
             push_status,
             is_entrypoint: _,
+            base,
         }: &Segment,
-        previous_tip_or_stack_base: Option<gix::ObjectId>,
     ) -> anyhow::Result<Self> {
         let ref_name = ref_name
             .clone()
@@ -471,9 +474,7 @@ impl ui::BranchDetails {
                 )
             })
             .unwrap_or_default();
-        let base_commit = previous_tip_or_stack_base
-            // This case is for unborn branches only where there is a segment with nothing
-            .unwrap_or_else(|| gix::ObjectId::null(gix::hash::Kind::Sha1));
+        let base_commit = base.unwrap_or(gix::hash::Kind::Sha1.null());
         Ok(ui::BranchDetails {
             is_remote_head: ref_name
                 .category()
@@ -520,6 +521,7 @@ impl From<&Commit> for ui::UpstreamCommit {
         Commit {
             id,
             parent_ids: _,
+            tree_id: _,
             message,
             author,
             // TODO: also pass refs for the frontend.
@@ -548,6 +550,7 @@ impl From<&LocalCommit> for ui::Commit {
             inner:
                 Commit {
                     id,
+                    tree_id: _,
                     parent_ids,
                     message,
                     author,
@@ -581,7 +584,7 @@ impl From<LocalCommitRelation> for ui::CommitState {
         match value {
             LocalCommitRelation::LocalOnly => E::LocalOnly,
             LocalCommitRelation::LocalAndRemote(id) => E::LocalAndRemote(id),
-            LocalCommitRelation::Integrated => E::Integrated,
+            LocalCommitRelation::Integrated(_) => E::Integrated,
         }
     }
 }
@@ -652,33 +655,6 @@ pub fn stack_branch_local_and_remote_commits(
         return Ok(vec![]);
     }
     local_and_remote_commits(ctx, repo, branch, &stack)
-}
-
-/// Returns a fift of commits belonging to this branch. Ordered from newest to oldest (child-most to parent-most).
-///
-/// These are the commits that exist **only** on the upstream branch. Ordered from newest to oldest.
-/// Created from the tip of the local tracking branch eg. refs/remotes/origin/my-branch -> refs/heads/my-branch
-///
-/// This does **not** include the commits that are in the commits list (local)
-/// This is effectively the list of commits that are on the remote branch but are not in the working copy.
-pub fn stack_branch_upstream_only_commits(
-    stack_id: StackId,
-    branch_name: String,
-    ctx: &CommandContext,
-    repo: &gix::Repository,
-) -> anyhow::Result<Vec<ui::UpstreamCommit>> {
-    let state = state_handle(&ctx.project().gb_dir());
-    let stack = state.get_stack(stack_id)?;
-
-    let branches = stack.branches();
-    let branch = branches
-        .iter()
-        .find(|b| b.name() == &branch_name)
-        .with_context(|| format!("Could not find branch {branch_name:?}"))?;
-    if branch.archived {
-        return Ok(vec![]);
-    }
-    upstream_only_commits(ctx, repo, branch, &stack, None)
 }
 
 fn upstream_only_commits(

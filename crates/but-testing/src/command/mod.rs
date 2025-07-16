@@ -173,10 +173,7 @@ pub mod stacks {
     use crate::command::{debug_print, project_from_path, ref_metadata_toml};
     use anyhow::Context;
     use but_settings::AppSettings;
-    use but_workspace::{
-        StacksFilter, stack_branch_local_and_remote_commits, stack_branch_upstream_only_commits,
-        stack_branches, ui,
-    };
+    use but_workspace::{StacksFilter, stack_branches, ui};
     use gitbutler_command_context::CommandContext;
     use gitbutler_stack::StackId;
     use gix::bstr::ByteSlice;
@@ -381,34 +378,6 @@ pub mod stacks {
             Ok(())
         } else {
             debug_print(stack_entry)
-        }
-    }
-
-    pub fn branch_commits(
-        id: StackId,
-        name: &str,
-        current_dir: &Path,
-        use_json: bool,
-    ) -> anyhow::Result<()> {
-        let project = project_from_path(current_dir)?;
-        let ctx = CommandContext::open(&project, AppSettings::default())?;
-        let repo = ctx.gix_repo()?;
-        let local_and_remote =
-            stack_branch_local_and_remote_commits(id, name.to_string(), &ctx, &repo);
-        let upstream_only = stack_branch_upstream_only_commits(id, name.to_string(), &ctx, &repo);
-
-        if use_json {
-            let branch_commits = BranchCommits {
-                local_and_remote: local_and_remote?,
-                upstream_commits: upstream_only?,
-            };
-
-            let json = serde_json::to_string_pretty(&branch_commits)?;
-            println!("{json}");
-            Ok(())
-        } else {
-            debug_print(local_and_remote)?;
-            debug_print(upstream_only)
         }
     }
 }

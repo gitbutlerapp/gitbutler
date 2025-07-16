@@ -71,11 +71,27 @@ pub struct Branch {
 
 impl std::fmt::Debug for Branch {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Branch")
-            .field("ref_info", &self.ref_info)
-            .field("description", &MaybeDebug(&self.description))
-            .field("review", &self.review)
-            .finish()
+        const DEFAULT_IN_TESTSUITE: gix::date::Time = gix::date::Time {
+            seconds: 0,
+            offset: 0,
+        };
+        let mut d = f.debug_struct("Branch");
+        if self
+            .ref_info
+            .created_at
+            .is_some_and(|t| t != DEFAULT_IN_TESTSUITE)
+            || self
+                .ref_info
+                .updated_at
+                .is_some_and(|t| t != DEFAULT_IN_TESTSUITE)
+            || self.description.is_some()
+            || self.review.pull_request.is_some()
+        {
+            d.field("ref_info", &self.ref_info)
+                .field("description", &MaybeDebug(&self.description))
+                .field("review", &self.review);
+        }
+        d.finish()
     }
 }
 

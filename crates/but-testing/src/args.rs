@@ -205,11 +205,6 @@ pub enum Subcommands {
         #[clap(long, short = 'd')]
         description: Option<String>,
     },
-    /// Returns all commits for the branch with the given `name` in the stack with the given `id`.
-    StackBranchCommits {
-        id: StackId,
-        name: String,
-    },
 }
 
 #[cfg(test)]

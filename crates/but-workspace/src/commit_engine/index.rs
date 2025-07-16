@@ -1,8 +1,6 @@
 use bstr::{BStr, BString, ByteSlice};
 use std::{collections::HashSet, path::Path};
 
-use crate::relapath::RelaPath as _;
-
 /// Turn `rhs` into `lhs` by modifying `rhs`. This will leave `rhs` intact as much as possible, but will remove
 /// Note that conflicting entries will be replaced by an addition or edit automatically.
 /// extensions that might be affected by these changes, for a lack of finesse with our edits.
@@ -34,7 +32,7 @@ pub fn apply_lhs_to_rhs(
     use gix::diff::index::Change;
     for change in changes {
         if let Some(filter_paths) = &filter_paths {
-            if !filter_paths.contains(&change.rela_path().to_owned()) {
+            if !filter_paths.contains(&change.location().to_owned()) {
                 continue;
             }
         }

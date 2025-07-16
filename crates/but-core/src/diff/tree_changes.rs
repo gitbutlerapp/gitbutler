@@ -4,6 +4,7 @@ use crate::{ModeFlags, TreeChange};
 use gix::diff::tree_with_rewrites::Change;
 use gix::prelude::TreeDiffChangeExt;
 
+// TODO: use `peel_to_tree()` once special conflict markers aren't needed anymore.
 fn id_to_tree(repo: &gix::Repository, id: gix::ObjectId) -> anyhow::Result<gix::Tree<'_>> {
     let object = repo.find_object(id)?;
     if object.kind == gix::object::Kind::Commit {

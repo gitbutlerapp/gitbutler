@@ -57,7 +57,7 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 3,
+                        id: NodeIndex(3),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -66,20 +66,27 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                         commits_unique_in_remote_tracking_branch: [
                             Commit(89cc2d3, "change in A\n"),
                         ],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: NothingToPush,
+                        base: "c166d42",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(1),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(1),
+        ),
+        lower_bound: Some(
+            NodeIndex(2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -104,7 +111,7 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 ),
                 segments: [
                     👉ref_info::ui::Segment {
-                        id: 0,
+                        id: NodeIndex(0),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -113,20 +120,27 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                         commits_unique_in_remote_tracking_branch: [
                             Commit(89cc2d3, "change in A\n"),
                         ],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: NothingToPush,
+                        base: "c166d42",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(2),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(2),
+        ),
+        lower_bound: Some(
+            NodeIndex(3),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -155,7 +169,7 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 ),
                 segments: [
                     👉ref_info::ui::Segment {
-                        id: 0,
+                        id: NodeIndex(0),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -164,20 +178,27 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                         commits_unique_in_remote_tracking_branch: [
                             Commit(89cc2d3, "change in A\n"),
                         ],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: NothingToPush,
+                        base: "c166d42",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(2),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(2),
+        ),
+        lower_bound: Some(
+            NodeIndex(3),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -219,22 +240,19 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 3,
+                        id: NodeIndex(3),
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                         commits: [
                             LocalCommit(31b3f92, "change in B\n", local/remote(similarity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: UnpushedCommitsRequiringForce,
+                        base: "51db0ec",
                     },
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -242,20 +260,27 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
                             LocalCommit(807f596, "change in A\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: UnpushedCommits,
+                        base: "fafd9d0",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(1),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(1),
+        ),
+        lower_bound: Some(
+            NodeIndex(2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -300,37 +325,31 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 3,
+                        id: NodeIndex(3),
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                         commits: [
                             LocalCommit(31b3f92, "change in B\n", local/remote(similarity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: UnpushedCommitsRequiringForce,
+                        base: "51db0ec",
                     },
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(51db0ec, "change after push\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "807f596",
                     },
                     ref_info::ui::Segment {
-                        id: 6,
+                        id: NodeIndex(6),
                         ref_name: "refs/heads/base-of-A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -339,14 +358,25 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
                         push_status: NothingToPush,
+                        base: "fafd9d0",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(1),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(1),
+        ),
+        lower_bound: Some(
+            NodeIndex(2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -390,42 +420,46 @@ fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 3,
+                        id: NodeIndex(3),
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                         commits: [
                             LocalCommit(de11c03, "change in B\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: NothingToPush,
+                        base: "0ee3a9e",
                     },
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
-                            LocalCommit(0ee3a9e, "change in A\n", integrated),
+                            LocalCommit(0ee3a9e, "change in A\n", integrated(0ee3a9e)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: Integrated,
+                        base: "fafd9d0",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(1),
+                commits_ahead: 1,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(2),
+        ),
+        lower_bound: Some(
+            NodeIndex(2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -478,27 +512,34 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 6,
+                        id: NodeIndex(6),
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                         commits: [
                             LocalCommit(de11c03, "change in B\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: NothingToPush,
+                        base: "0ee3a9e",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(1),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(1),
+        ),
+        lower_bound: Some(
+            NodeIndex(4),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -527,44 +568,48 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 6,
+                        id: NodeIndex(6),
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                         commits: [
                             LocalCommit(de11c03, "change in B\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: NothingToPush,
+                        base: "0ee3a9e",
                     },
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: NodeIndex(4),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
-                            LocalCommit(0ee3a9e, "change in A\n", integrated),
+                            LocalCommit(0ee3a9e, "change in A\n", integrated(0ee3a9e)),
                         ],
                         commits_unique_in_remote_tracking_branch: [
                             Commit(059cc4f, "Merge branch \'B-on-A\' into new-origin-A\n"),
                         ],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: Integrated,
+                        base: "fafd9d0",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(1),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(3),
+        ),
+        lower_bound: Some(
+            NodeIndex(3),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -605,7 +650,7 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 3,
+                        id: NodeIndex(3),
                         ref_name: "refs/heads/B",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -614,25 +659,37 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
                         push_status: CompletelyUnpushed,
+                        base: "1818c17",
                     },
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: NodeIndex(4),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
-                            LocalCommit(1818c17, "A\n", integrated),
+                            LocalCommit(1818c17, "A\n", integrated(0b6b861)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
                         push_status: Integrated,
+                        base: "281456a",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(1),
+                commits_ahead: 1,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(2),
+        ),
+        lower_bound: Some(
+            NodeIndex(2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -659,7 +716,7 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 3,
+                        id: NodeIndex(3),
                         ref_name: "refs/heads/B",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -668,25 +725,37 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
                         push_status: CompletelyUnpushed,
+                        base: "1818c17",
                     },
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: NodeIndex(4),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "None",
                         commits: [
-                            LocalCommit(1818c17, "A\n", integrated),
+                            LocalCommit(1818c17, "A\n", integrated(0b6b861)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
                         push_status: CompletelyUnpushed,
+                        base: "281456a",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(1),
+                commits_ahead: 1,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(2),
+        ),
+        lower_bound: Some(
+            NodeIndex(2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -731,7 +800,7 @@ fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
                 ),
                 segments: [
                     👉ref_info::ui::Segment {
-                        id: 0,
+                        id: NodeIndex(0),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -743,20 +812,27 @@ fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
                         commits_unique_in_remote_tracking_branch: [
                             Commit(50d31c8, "unique remote\n"),
                         ],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: UnpushedCommitsRequiringForce,
+                        base: "c166d42",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(2),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(2),
+        ),
+        lower_bound: Some(
+            NodeIndex(3),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -802,17 +878,14 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "fafd9d0",
                     },
                 ],
             },
@@ -822,19 +895,16 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 3,
+                        id: NodeIndex(3),
                         ref_name: "refs/heads/advanced-lane-2",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(93d7eac, "change 2\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "fafd9d0",
                     },
                 ],
             },
@@ -844,27 +914,34 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: NodeIndex(4),
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "fafd9d0",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(1),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(1),
+        ),
+        lower_bound: Some(
+            NodeIndex(2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -917,19 +994,16 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ),
                 segments: [
                     👉ref_info::ui::Segment {
-                        id: 0,
+                        id: NodeIndex(0),
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "fafd9d0",
                     },
                 ],
             },
@@ -939,51 +1013,52 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: NodeIndex(4),
                         ref_name: "refs/heads/lane-2",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/lane-2-segment-01",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: 6,
+                        id: NodeIndex(6),
                         ref_name: "refs/heads/lane-2-segment-02",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "fafd9d0",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(2),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(2),
+        ),
+        lower_bound: Some(
+            NodeIndex(3),
         ),
         is_managed_ref: true,
         is_managed_commit: false,
@@ -1024,43 +1099,34 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: NodeIndex(4),
                         ref_name: "refs/heads/lane-2",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/lane-2-segment-01",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: 6,
+                        id: NodeIndex(6),
                         ref_name: "refs/heads/lane-2-segment-02",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "fafd9d0",
                     },
                 ],
             },
@@ -1070,27 +1136,34 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ),
                 segments: [
                     👉ref_info::ui::Segment {
-                        id: 0,
+                        id: NodeIndex(0),
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "fafd9d0",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(2),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(2),
+        ),
+        lower_bound: Some(
+            NodeIndex(3),
         ),
         is_managed_ref: true,
         is_managed_commit: false,
@@ -1132,19 +1205,16 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 3,
+                        id: NodeIndex(3),
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "fafd9d0",
                     },
                 ],
             },
@@ -1154,25 +1224,32 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: NodeIndex(4),
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "fafd9d0",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(1),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(1),
+        ),
+        lower_bound: Some(
+            NodeIndex(2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -1213,7 +1290,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 3,
+                        id: NodeIndex(3),
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
@@ -1222,14 +1299,25 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<(
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
                         push_status: NothingToPush,
+                        base: "fafd9d0",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(1),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(1),
+        ),
+        lower_bound: Some(
+            NodeIndex(2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -1276,40 +1364,44 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "cbc6713",
                     },
                     ref_info::ui::Segment {
-                        id: 6,
+                        id: NodeIndex(6),
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: NothingToPush,
+                        base: "fafd9d0",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(1),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(1),
+        ),
+        lower_bound: Some(
+            NodeIndex(2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -1343,40 +1435,44 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: NothingToPush,
+                        base: "cbc6713",
                     },
                     ref_info::ui::Segment {
-                        id: 6,
+                        id: NodeIndex(6),
                         ref_name: "refs/heads/dependant",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "fafd9d0",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(1),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(1),
+        ),
+        lower_bound: Some(
+            NodeIndex(2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -1421,53 +1517,54 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/on-top-of-dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: 6,
+                        id: NodeIndex(6),
                         ref_name: "refs/heads/dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "cbc6713",
                     },
                     ref_info::ui::Segment {
-                        id: 7,
+                        id: NodeIndex(7),
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: NothingToPush,
+                        base: "fafd9d0",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(1),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(1),
+        ),
+        lower_bound: Some(
+            NodeIndex(2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -1499,53 +1596,54 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: 6,
+                        id: NodeIndex(6),
                         ref_name: "refs/heads/on-top-of-dependant",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "cbc6713",
                     },
                     ref_info::ui::Segment {
-                        id: 7,
+                        id: NodeIndex(7),
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: NothingToPush,
+                        base: "fafd9d0",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(1),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(1),
+        ),
+        lower_bound: Some(
+            NodeIndex(2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -1590,42 +1688,46 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 3,
+                        id: NodeIndex(3),
                         ref_name: "refs/heads/on-top-of-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/on-top-of-lane",
                         commits: [
                             LocalCommit(788ad06, "change on top\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: NothingToPush,
+                        base: "cbc6713",
                     },
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "refs/remotes/origin/lane",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: NothingToPush,
+                        base: "fafd9d0",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(1),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(1),
+        ),
+        lower_bound: Some(
+            NodeIndex(2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -1670,40 +1772,48 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
                 ),
                 segments: [
                     👉ref_info::ui::Segment {
-                        id: 0,
+                        id: NodeIndex(0),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(aadad9d, "shared by name\n", local/remote(similarity)),
-                            LocalCommit(96a2408, "another unrelated\n", integrated),
+                            LocalCommit(96a2408, "another unrelated\n", integrated(96a2408)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: UnpushedCommitsRequiringForce,
+                        base: "f15ca75",
                     },
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/integrated",
                         remote_tracking_ref_name: "None",
                         commits: [
-                            LocalCommit(f15ca75, "other integrated\n", integrated),
-                            LocalCommit(9456d79, "integrated in target\n", integrated),
+                            LocalCommit(f15ca75, "other integrated\n", integrated(f15ca75)),
+                            LocalCommit(9456d79, "integrated in target\n", integrated(9456d79)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
                         push_status: CompletelyUnpushed,
+                        base: "fafd9d0",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(2),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(3),
+        ),
+        lower_bound: Some(
+            NodeIndex(3),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -1743,19 +1853,16 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 3,
+                        id: NodeIndex(3),
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "fafd9d0",
                     },
                 ],
             },
@@ -1765,25 +1872,32 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: NodeIndex(4),
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "fafd9d0",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(1),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(1),
+        ),
+        lower_bound: Some(
+            NodeIndex(2),
         ),
         is_managed_ref: true,
         is_managed_commit: false,
@@ -1806,19 +1920,16 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 ),
                 segments: [
                     👉ref_info::ui::Segment {
-                        id: 0,
+                        id: NodeIndex(0),
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "fafd9d0",
                     },
                 ],
             },
@@ -1828,25 +1939,32 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: NodeIndex(4),
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "fafd9d0",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(2),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(2),
+        ),
+        lower_bound: Some(
+            NodeIndex(3),
         ),
         is_managed_ref: true,
         is_managed_commit: false,
@@ -1892,17 +2010,14 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: NodeIndex(4),
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "fafd9d0",
                     },
                 ],
             },
@@ -1912,27 +2027,34 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 3,
+                        id: NodeIndex(3),
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "fafd9d0",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(1),
+                commits_ahead: 1,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(2),
+        ),
+        lower_bound: Some(
+            NodeIndex(2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -1956,17 +2078,14 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: NodeIndex(4),
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "fafd9d0",
                     },
                 ],
             },
@@ -1976,27 +2095,34 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
                 segments: [
                     👉ref_info::ui::Segment {
-                        id: 0,
+                        id: NodeIndex(0),
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "fafd9d0",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(2),
+                commits_ahead: 1,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(3),
+        ),
+        lower_bound: Some(
+            NodeIndex(3),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -2019,17 +2145,14 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
                 segments: [
                     👉ref_info::ui::Segment {
-                        id: 4,
+                        id: NodeIndex(4),
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "fafd9d0",
                     },
                 ],
             },
@@ -2039,27 +2162,34 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 3,
+                        id: NodeIndex(3),
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "fafd9d0",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(2),
+                commits_ahead: 1,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(0),
+        ),
+        lower_bound: Some(
+            NodeIndex(0),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -2088,19 +2218,16 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 3,
+                        id: NodeIndex(3),
                         ref_name: "refs/heads/advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "fafd9d0",
                     },
                 ],
             },
@@ -2110,25 +2237,32 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: NodeIndex(4),
                         ref_name: "refs/heads/lane",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "fafd9d0",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(1),
+                commits_ahead: 1,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(2),
+        ),
+        lower_bound: Some(
+            NodeIndex(2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -2164,24 +2298,25 @@ fn disjoint() -> anyhow::Result<()> {
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: NodeIndex(0),
                         ref_name: "refs/heads/disjoint",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(32791d2, "disjoint init\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "None",
                     },
                 ],
             },
         ],
-        target_ref: None,
+        target: None,
+        extra_target: Some(
+            NodeIndex(1),
+        ),
+        lower_bound: None,
         is_managed_ref: false,
         is_managed_commit: false,
         is_entrypoint: true,
@@ -2225,22 +2360,19 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 3,
+                        id: NodeIndex(3),
                         ref_name: "refs/heads/C-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(5f37dbf, "add new file in C-on-A\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "d79bba9",
                     },
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2251,6 +2383,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         ],
                         metadata: "None",
                         push_status: NothingToPush,
+                        base: "c166d42",
                     },
                 ],
             },
@@ -2260,7 +2393,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: NodeIndex(4),
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -2269,9 +2402,10 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
                         push_status: CompletelyUnpushed,
+                        base: "d79bba9",
                     },
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2282,14 +2416,25 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         ],
                         metadata: "None",
                         push_status: NothingToPush,
+                        base: "c166d42",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(1),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(1),
+        ),
+        lower_bound: Some(
+            NodeIndex(2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -2314,22 +2459,19 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
                 segments: [
                     👉ref_info::ui::Segment {
-                        id: 0,
+                        id: NodeIndex(0),
                         ref_name: "refs/heads/C-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(5f37dbf, "add new file in C-on-A\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "d79bba9",
                     },
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: NodeIndex(4),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2340,6 +2482,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         ],
                         metadata: "None",
                         push_status: NothingToPush,
+                        base: "c166d42",
                     },
                 ],
             },
@@ -2349,7 +2492,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 6,
+                        id: NodeIndex(6),
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -2358,9 +2501,10 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
                         push_status: CompletelyUnpushed,
+                        base: "d79bba9",
                     },
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: NodeIndex(4),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2371,14 +2515,25 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         ],
                         metadata: "None",
                         push_status: NothingToPush,
+                        base: "c166d42",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(2),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(2),
+        ),
+        lower_bound: Some(
+            NodeIndex(3),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -2403,22 +2558,19 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 6,
+                        id: NodeIndex(6),
                         ref_name: "refs/heads/C-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(5f37dbf, "add new file in C-on-A\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "d79bba9",
                     },
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: NodeIndex(4),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2429,6 +2581,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         ],
                         metadata: "None",
                         push_status: NothingToPush,
+                        base: "c166d42",
                     },
                 ],
             },
@@ -2438,7 +2591,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
                 segments: [
                     👉ref_info::ui::Segment {
-                        id: 0,
+                        id: NodeIndex(0),
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -2447,9 +2600,10 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
                         push_status: CompletelyUnpushed,
+                        base: "d79bba9",
                     },
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: NodeIndex(4),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2460,14 +2614,25 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         ],
                         metadata: "None",
                         push_status: NothingToPush,
+                        base: "c166d42",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(2),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(2),
+        ),
+        lower_bound: Some(
+            NodeIndex(3),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -2493,22 +2658,19 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 5,
+                        id: NodeIndex(5),
                         ref_name: "refs/heads/C-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(5f37dbf, "add new file in C-on-A\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "d79bba9",
                     },
                     👉ref_info::ui::Segment {
-                        id: 0,
+                        id: NodeIndex(0),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2519,6 +2681,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         ],
                         metadata: "None",
                         push_status: NothingToPush,
+                        base: "c166d42",
                     },
                 ],
             },
@@ -2528,7 +2691,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 6,
+                        id: NodeIndex(6),
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -2537,9 +2700,10 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
                         push_status: CompletelyUnpushed,
+                        base: "d79bba9",
                     },
                     👉ref_info::ui::Segment {
-                        id: 0,
+                        id: NodeIndex(0),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2550,14 +2714,25 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                         ],
                         metadata: "None",
                         push_status: NothingToPush,
+                        base: "c166d42",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(2),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(2),
+        ),
+        lower_bound: Some(
+            NodeIndex(3),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -2595,25 +2770,32 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 3,
+                        id: NodeIndex(3),
                         ref_name: "refs/heads/unrelated",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "c166d42",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(1),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(1),
+        ),
+        lower_bound: Some(
+            NodeIndex(2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -2637,25 +2819,32 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 ),
                 segments: [
                     👉ref_info::ui::Segment {
-                        id: 3,
+                        id: NodeIndex(3),
                         ref_name: "refs/heads/unrelated",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "c166d42",
                     },
                 ],
             },
         ],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(2),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(2),
+        ),
+        lower_bound: Some(
+            NodeIndex(0),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -2676,10 +2865,20 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
             ),
         ),
         stacks: [],
-        target_ref: Some(
-            FullName(
-                "refs/remotes/origin/main",
-            ),
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(1),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(1),
+        ),
+        lower_bound: Some(
+            NodeIndex(2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -2702,24 +2901,25 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: NodeIndex(0),
                         ref_name: "refs/heads/unrelated",
                         remote_tracking_ref_name: "None",
                         commits: [
-                            LocalCommit(c166d42, "init-integration\n", integrated, ►main),
+                            LocalCommit(c166d42, "init-integration\n", integrated(c166d42), ►main),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch {
-                            ref_info: RefInfo { created_at: None, updated_at: "1970-01-01 00:00:00 +0000" },
-                            description: None,
-                            review: Review { pull_request: None, review_id: None },
-                        },
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
+                        base: "None",
                     },
                 ],
             },
         ],
-        target_ref: None,
+        target: None,
+        extra_target: Some(
+            NodeIndex(2),
+        ),
+        lower_bound: None,
         is_managed_ref: false,
         is_managed_commit: false,
         is_entrypoint: true,
@@ -2769,6 +2969,19 @@ mod utils {
             push_remote_name: None,
         });
         Ok((repo, meta))
+    }
+
+    pub fn named_read_only_in_memory_scenario_with_description(
+        script: &str,
+        name: &str,
+    ) -> anyhow::Result<(
+        gix::Repository,
+        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+        String,
+    )> {
+        let (repo, meta) = named_read_only_in_memory_scenario(script, name)?;
+        let desc = std::fs::read_to_string(repo.git_dir().join("description"))?;
+        Ok((repo, meta, desc))
     }
 
     pub enum StackState {
@@ -2844,4 +3057,4 @@ use crate::ref_info::with_workspace_commit::utils::{
     StackState, add_stack_with_segments, add_workspace,
 };
 use utils::add_stack;
-pub use utils::{named_read_only_in_memory_scenario, read_only_in_memory_scenario};
+pub use utils::read_only_in_memory_scenario;
