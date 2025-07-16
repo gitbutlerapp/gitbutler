@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
+	import Resizer from '$components/Resizer.svelte';
 	import {
 		IntelligentScrollingService,
 		scrollingAttachment,
@@ -9,8 +10,9 @@
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { writable, type Writable } from 'svelte/store';
-	import type { Snippet } from 'svelte';
+	import type { ComponentProps, Snippet } from 'svelte';
 
 	type Props = {
 		title?: string;
@@ -27,11 +29,10 @@
 		scrollToType?: TargetType;
 		grow?: boolean;
 		shrink?: boolean;
-		maxHeight?: string;
-		contentHeight?: number;
+		clientHeight?: number;
+		resizer?: Partial<ComponentProps<typeof Resizer>>;
 		onclose?: () => void;
 		ontoggle?: (collapsed: boolean) => void;
-		resizer?: Snippet<[{ element: HTMLDivElement; collapsed?: boolean }]>;
 	};
 
 	let {
@@ -49,11 +50,10 @@
 		scrollToType,
 		grow,
 		shrink,
-		maxHeight,
-		contentHeight = $bindable(),
+		resizer,
+		clientHeight = $bindable(),
 		ontoggle,
-		onclose,
-		resizer
+		onclose
 	}: Props = $props();
 
 	const [intelligentScrollingService] = inject(IntelligentScrollingService);
@@ -66,84 +66,103 @@
 		}
 		return writable(false);
 	});
+
+	let headerHeight = $state(0);
+	let contentHeight = $state(0);
 </script>
 
 <div
 	data-testid={testId}
 	class="drawer"
 	bind:this={containerDiv}
+	bind:clientHeight
 	class:collapsed={$collapsed}
 	class:bottom-border={bottomBorder}
 	class:transparent
 	class:grow
-	style:max-height={maxHeight}
 	class:no-shrink={!shrink && resizer && $collapsed !== undefined}
 	{@attach scrollingAttachment(intelligentScrollingService, scrollToId, scrollToType)}
 >
-	<div class="drawer-wrap" bind:clientHeight={contentHeight}>
-		<div bind:this={headerDiv} class="drawer-header" class:bottom-border={!$collapsed}>
-			{#if $collapsed !== undefined}
-				{@const name = $collapsed ? 'chevron-right' : ('chevron-down' as const)}
-				<button
-					type="button"
-					class="chevron-btn focus-state"
-					onclick={() => {
-						if ($collapsed !== undefined) {
-							const newValue = !$collapsed;
-							collapsed.set(newValue);
-							ontoggle?.(newValue);
-						}
-					}}
-				>
-					<Icon {name} />
-				</button>
+	<div
+		bind:this={headerDiv}
+		class="drawer-header"
+		class:bottom-border={!$collapsed}
+		bind:clientHeight={headerHeight}
+	>
+		{#if $collapsed !== undefined}
+			{@const name = $collapsed ? 'chevron-right' : ('chevron-down' as const)}
+			<button
+				type="button"
+				class="chevron-btn focus-state"
+				onclick={() => {
+					if ($collapsed !== undefined) {
+						const newValue = !$collapsed;
+						collapsed.set(newValue);
+						ontoggle?.(newValue);
+					}
+				}}
+			>
+				<Icon {name} />
+			</button>
+		{/if}
+
+		<div class="drawer-header__title">
+			{#if title}
+				<h3 class="text-15 text-bold truncate">
+					{title}
+				</h3>
 			{/if}
-
-			<div class="drawer-header__title">
-				{#if title}
-					<h3 class="text-15 text-bold truncate">
-						{title}
-					</h3>
-				{/if}
-				{#if header}
-					{@render header(containerDiv)}
-				{/if}
-			</div>
-
-			{#if extraActions || kebabMenu || onclose}
-				<div class="drawer-header__actions">
-					{#if extraActions}
-						{@render extraActions()}
-					{/if}
-
-					{#if kebabMenu}
-						{@render kebabMenu(headerDiv)}
-					{/if}
-
-					{#if onclose}
-						<Button kind="ghost" icon="cross" size="tag" onclick={() => onclose()} />
-					{/if}
-				</div>
+			{#if header}
+				{@render header(containerDiv)}
 			{/if}
 		</div>
 
-		{#if !$collapsed}
-			<ConfigurableScrollableContainer>
-				{#if children}
-					<div class="drawer__content">
-						{@render children()}
-					</div>
-
-					{#if filesSplitView}
-						<div class="drawer__files-split-view">
-							{@render filesSplitView()}
-						</div>
-					{/if}
+		{#if extraActions || kebabMenu || onclose}
+			<div class="drawer-header__actions">
+				{#if extraActions}
+					{@render extraActions()}
 				{/if}
-			</ConfigurableScrollableContainer>
+
+				{#if kebabMenu}
+					{@render kebabMenu(headerDiv)}
+				{/if}
+
+				{#if onclose}
+					<Button kind="ghost" icon="cross" size="tag" onclick={() => onclose()} />
+				{/if}
+			</div>
 		{/if}
 	</div>
-	{@render resizer?.({ element: containerDiv, collapsed: $collapsed })}
+
+	{#if !$collapsed}
+		<ConfigurableScrollableContainer>
+			{#if children}
+				<div class="drawer__content" bind:clientHeight={contentHeight}>
+					{@render children()}
+				</div>
+
+				{#if filesSplitView}
+					<div class="drawer__files-split-view">
+						{@render filesSplitView()}
+					</div>
+				{/if}
+			{/if}
+		</ConfigurableScrollableContainer>
+	{/if}
+	{#if resizer}
+		<Resizer
+			defaultValue={undefined}
+			viewport={containerDiv}
+			hidden={$collapsed}
+			direction="down"
+			imitateBorder
+			{...resizer}
+			maxHeight={resizer.maxHeight
+				? Math.min(resizer.maxHeight, pxToRem(contentHeight + headerHeight, 1))
+				: undefined}
+			passive={resizer.passive}
+		/>
+	{/if}
 </div>
 
 <style>
@@ -168,13 +187,6 @@
 		&.grow {
 			flex-grow: 1;
 		}
-	}
-
-	.drawer-wrap {
-		display: flex;
-		flex-grow: 1;
-		flex-direction: column;
-		height: 100%;
 	}
 
 	.drawer-header {

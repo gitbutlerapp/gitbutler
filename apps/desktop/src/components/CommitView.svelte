@@ -6,6 +6,7 @@
 	import Drawer from '$components/Drawer.svelte';
 	import KebabButton from '$components/KebabButton.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
+	import Resizer from '$components/Resizer.svelte';
 	import { isLocalAndRemoteCommit } from '$components/lib';
 	import { isCommit } from '$lib/branches/v3';
 	import { type CommitKey } from '$lib/commits/commit';
@@ -21,7 +22,7 @@
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import type { TargetType } from '$lib/intelligentScrolling/service';
-	import type { Snippet } from 'svelte';
+	import type { ComponentProps } from 'svelte';
 
 	type Props = {
 		projectId: string;
@@ -32,8 +33,8 @@
 		scrollToType?: TargetType;
 		scrollToId?: string;
 		grow?: boolean;
-		contentHeight?: number;
-		resizer?: Snippet<[{ element: HTMLDivElement; collapsed?: boolean }]>;
+		clientHeight?: number;
+		resizer?: Partial<ComponentProps<typeof Resizer>>;
 		ontoggle?: (collapsed: boolean) => void;
 		onerror: (err: unknown) => void;
 		onclose?: () => void;
@@ -46,8 +47,7 @@
 		scrollToId,
 		scrollToType,
 		grow,
-		contentHeight = $bindable(),
-		isInEditMessageMode = $bindable(false),
+		clientHeight = $bindable(),
 		resizer,
 		ontoggle,
 		onerror,
@@ -74,15 +74,10 @@
 	type Mode = 'view' | 'edit';
 
 	// Track if this commit is in edit message mode
-	const inEditMessageMode = $derived(
+	const isEditing = $derived(
 		projectState.exclusiveAction.current?.type === 'edit-commit-message' &&
 			projectState.exclusiveAction.current.commitId === commitKey.commitId
 	);
-
-	// Sync the edit mode state with the bindable property
-	$effect(() => {
-		isInEditMessageMode = inEditMessageMode;
-	});
 
 	function setMode(newMode: Mode) {
 		switch (newMode) {
@@ -159,14 +154,18 @@
 		{@const isConflicted = isCommit(commit) && commit.hasConflicts}
 
 		<Drawer
-			bind:contentHeight
+			bind:clientHeight
 			testId={TestId.CommitDrawer}
 			{scrollToId}
 			{scrollToType}
+			resizer={{
+				...resizer,
+				imitateBorder: true,
+				passive: isEditing ? true : resizer?.passive
+			}}
+			{grow}
 			{ontoggle}
 			{onclose}
-			{resizer}
-			{grow}
 		>
 			{#snippet header()}
 				<CommitTitle

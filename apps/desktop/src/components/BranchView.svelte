@@ -8,6 +8,7 @@
 	import KebabButton from '$components/KebabButton.svelte';
 	import NewBranchModal from '$components/NewBranchModal.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
+	import Resizer from '$components/Resizer.svelte';
 	import newBranchSmolSVG from '$lib/assets/empty-state/new-branch-smol.svg?raw';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
@@ -17,7 +18,7 @@
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import type { BranchHeaderContextItem } from '$components/BranchHeaderContextMenu.svelte';
 	import type { TargetType } from '$lib/intelligentScrolling/service';
-	import type { Snippet } from 'svelte';
+	import type { ComponentProps } from 'svelte';
 
 	interface Props {
 		stackId: string;
@@ -28,7 +29,7 @@
 		scrollToId?: string;
 		grow?: boolean;
 		contentHeight?: number;
-		resizer?: Snippet<[{ element: HTMLDivElement; collapsed?: boolean }]>;
+		resizer?: Partial<ComponentProps<typeof Resizer>>;
 		ontoggle?: (collapsed: boolean) => void;
 		onerror?: (err: unknown) => void;
 		onclose?: () => void;
@@ -72,7 +73,6 @@
 		{@const remoteTrackingBranch = branch.remoteTrackingBranch}
 		<Drawer
 			testId={TestId.BranchView}
-			bind:contentHeight
 			{scrollToId}
 			{scrollToType}
 			{resizer}
@@ -170,7 +170,6 @@
 		gap: 8px;
 	}
 
-	/*  */
 	.remote-tracking-branch-icon {
 		display: flex;
 		gap: 6px;
@@ -187,7 +186,6 @@
 		}
 	}
 
-	/* EMPTY STATE */
 	.branch-view__empty-state {
 		display: flex;
 		flex: 1;
