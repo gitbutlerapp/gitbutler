@@ -5,11 +5,11 @@
 	import { TestId } from '$lib/testing/testIds';
 	import { UserService } from '$lib/user/userService';
 	import { splitMessage } from '$lib/utils/commitMessage';
+	import { truncate } from '$lib/utils/string';
 	import { inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
-	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 
 	type Props = {
@@ -23,7 +23,11 @@
 	const user = $derived(userService.user);
 
 	const message = $derived(commit.message);
-	const { description } = $derived(splitMessage(message));
+	const description = $derived(splitMessage(message).description);
+	const abbreviated = $derived(truncate(description, 80, 3));
+	const isAbbrev = $derived(abbreviated !== description);
+
+	let expanded = $state(false);
 
 	function getGravatarUrl(email: string, existingGravatarUrl: string): string {
 		if ($user?.email === undefined) {
@@ -66,11 +70,25 @@
 	</div>
 
 	{#if description}
-		<div
-			class="text-13 text-body description-container"
-			data-testid={TestId.CommitDrawerDescription}
-		>
-			<Markdown content={description} />
+		<div class="text-13 description" class:expanded data-testid={TestId.CommitDrawerDescription}>
+			{#if expanded}
+				{description}
+			{:else}
+				{abbreviated}
+			{/if}
+			{#if isAbbrev}
+				<button
+					onclick={() => (expanded = !expanded)}
+					type="button"
+					class="readmore text-13 text-bold"
+				>
+					{#if expanded}
+						less
+					{:else}
+						more
+					{/if}
+				</button>
+			{/if}
 		</div>
 	{/if}
 </div>
@@ -101,7 +119,25 @@
 		text-decoration: underline dotted;
 	}
 
-	.description-container {
-		position: relative;
+	.description {
+		line-height: var(--text-lineheight-body);
+		font-family: var(--fontfamily-mono);
+		white-space: pre-line;
+	}
+
+	.readmore {
+		display: inline;
+		background: var(--clr-bg-1);
+		text-decoration: underline dotted;
+
+		&::before {
+			position: absolute;
+			top: 0;
+			left: -20px;
+			width: 20px;
+			height: 100%;
+			background: linear-gradient(to right, transparent 0%, var(--clr-bg-1) 100%);
+			content: '';
+		}
 	}
 </style>
