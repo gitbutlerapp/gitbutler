@@ -164,6 +164,7 @@ fn handle_changes_simple_inner(
 
         if let Some(new_commit) = outcome.new_commit {
             updated_branches.push(crate::UpdatedBranch {
+                stack_id,
                 branch_name: stack_branch_name,
                 new_commits: vec![new_commit.to_string()],
             });

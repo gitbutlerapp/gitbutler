@@ -93,6 +93,45 @@ pub struct StructuredOutput {
     pub commit_message: String,
 }
 
+pub async fn branch_name(
+    client: &Client<OpenAIConfig>,
+    commit_messages: &[String],
+) -> anyhow::Result<String> {
+    let system_message =
+        "You are a version control assistant that helps with Git branch naming.".to_string();
+    let user_message = format!(
+        "Generate a concise and descriptive branch name based on the provided commit messages.
+        Keep the branch name short, ideally under 50 characters. Only user lowercase letters, numbers, and hyphens.
+        Don't use other special characters or spaces.
+        The branche name should reflect the main content of the commit messages.
+
+        Here are the commit messages:
+
+        {}",
+        commit_messages.join("\n==================\n")
+    );
+
+    let request = CreateChatCompletionRequestArgs::default()
+        .model("gpt-4o")
+        .messages([
+            ChatCompletionRequestSystemMessage::from(system_message).into(),
+            ChatCompletionRequestUserMessage::from(user_message).into(),
+        ])
+        .build()?;
+
+    let response = client.chat().create(request).await?;
+    let response_string = response
+        .choices
+        .first()
+        .unwrap()
+        .message
+        .content
+        .as_ref()
+        .unwrap();
+
+    Ok(response_string.trim().to_string())
+}
+
 const DEFAULT_COMMIT_MESSAGE_INSTRUCTIONS: &str = r#"The message should be a short summary line, followed by two newlines, then a short paragraph explaining WHY the change was needed based off the prompt.
 
 - If a summary is provided, use it to create more short paragraphs or bullet points explaining the changes.
