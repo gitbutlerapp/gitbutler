@@ -10,7 +10,6 @@
 	import { persistedChatModelName, projectAiGenEnabled } from '$lib/config/config';
 	import { Feed } from '$lib/feed/feed';
 	import { newProjectSettingsPath } from '$lib/routes/routes.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { User } from '$lib/user/user';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
@@ -31,7 +30,6 @@
 	const { projectId, onCloseClick }: Props = $props();
 
 	const feed = getContext(Feed);
-	const stackService = getContext(StackService);
 	const actionService = getContext(ActionService);
 	const user = getContextStore(User);
 	const settingsService = getContext(SettingsService);
@@ -40,7 +38,6 @@
 	const isAdmin = $derived($user.role === 'admin');
 	const combinedEntries = feed.combined;
 	const lastAddedId = feed.lastAddedId;
-	const stackIdToUpdate = feed.stackToUpdate;
 
 	const MODELS = ['gpt-4.1', 'gpt-4.1-mini'] as const;
 
@@ -148,13 +145,6 @@
 				behavior: 'smooth',
 				block: 'end'
 			});
-		}
-	});
-
-	$effect(() => {
-		if ($stackIdToUpdate) {
-			stackService.invalidateStackDetailsUpdate($stackIdToUpdate);
-			feed.stackToUpdate.set(null);
 		}
 	});
 </script>
