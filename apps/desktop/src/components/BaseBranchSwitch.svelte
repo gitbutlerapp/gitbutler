@@ -2,8 +2,8 @@
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { Project } from '$lib/project/project';
+	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
@@ -13,19 +13,17 @@
 	const project = getContext(Project);
 	const projectId = $derived(project.id);
 	const baseBranch = getContext(BaseBranch);
-	const vbranchService = getContext(VirtualBranchService);
+	const stackService = getContext(StackService);
 	const baseBranchService = getContext(BaseBranchService);
 	const remoteBranchesResponse = $derived(baseBranchService.remoteBranches(projectId));
-	const activeBranches = vbranchService.branches;
 	const [setBaseBranchTarget, targetBranchSwitch] = baseBranchService.setTarget;
 
 	let selectedBranch = $state({ name: baseBranch.branchName });
 	let selectedRemote = $state({ name: baseBranch.actualPushRemoteName() });
-	let targetChangeDisabled = $state(false);
 
-	if ($activeBranches) {
-		targetChangeDisabled = $activeBranches.length > 0;
-	}
+	const stacksResult = $derived(stackService.stacks(projectId));
+	const stackCount = $derived(stacksResult.current.data?.length);
+	const targetChangeDisabled = $derived(!!(stackCount && stackCount > 0));
 
 	function uniqueRemotes(remoteBranches: { name: string }[]) {
 		return Array.from(new Set(remoteBranches.map((b) => b.name.split('/')[0]))).map((r) => ({
@@ -39,7 +37,6 @@
 			branch,
 			pushRemote: remote
 		});
-		await vbranchService.refresh();
 	}
 
 	async function onSetBaseBranchClick() {
@@ -109,13 +106,11 @@
 				</Select>
 			{/if}
 
-			{#if $activeBranches && targetChangeDisabled}
+			{#if targetChangeDisabled}
 				<InfoMessage filled outlined={false} icon="info">
 					{#snippet content()}
-						You have {$activeBranches.length === 1
-							? '1 active branch'
-							: `${$activeBranches.length} active branches`} in your workspace. Please clear the workspace
-						before switching the base branch.
+						You have {stackCount === 1 ? '1 active branch' : `${stackCount} active branches`} in your
+						workspace. Please clear the workspace before switching the base branch.
 					{/snippet}
 				</InfoMessage>
 			{:else}

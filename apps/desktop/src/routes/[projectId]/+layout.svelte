@@ -16,7 +16,6 @@
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { BranchService } from '$lib/branches/branchService.svelte';
 	import { GitBranchService } from '$lib/branches/gitBranch';
-	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { showHistoryView } from '$lib/config/config';
 	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
@@ -42,10 +41,8 @@
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { ClientState } from '$lib/state/clientState.svelte';
-	import { UpstreamIntegrationService } from '$lib/upstream/upstreamIntegrationService';
 	import { debounce } from '$lib/utils/debounce';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
-	import { BranchService as CloudBranchService } from '@gitbutler/shared/branches/branchService';
 	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { HttpClient } from '@gitbutler/shared/network/httpClient';
@@ -85,10 +82,6 @@
 		setContext(ModeService, modeService);
 	});
 
-	const vbranchService = $derived(
-		new VirtualBranchService(projectId, projectMetrics, modeService, branchService)
-	);
-
 	const secretService = getSecretsService();
 	const gitLabState = $derived(new GitLabState(secretService, repoInfo, projectId));
 	$effect.pre(() => {
@@ -99,7 +92,6 @@
 		gitLabClient.set(gitLabState);
 	});
 
-	const branchesError = $derived(vbranchService.branchesError);
 	const user = $derived(userService.user);
 	const accessToken = $derived($user?.github_access_token);
 
@@ -110,20 +102,8 @@
 	const projectError = $derived(projectsService.error);
 	const projects = $derived(projectsService.projects);
 
-	const cloudBranchService = getContext(CloudBranchService);
 	const cloudProjectService = getContext(CloudProjectService);
 	const latestBranchLookupService = getContext(LatestBranchLookupService);
-
-	$effect.pre(() => {
-		const upstreamIntegrationService = new UpstreamIntegrationService(
-			project,
-			vbranchService,
-			cloudBranchService,
-			cloudProjectService,
-			latestBranchLookupService
-		);
-		setContext(UpstreamIntegrationService, upstreamIntegrationService);
-	});
 
 	$effect.pre(() => {
 		const stackingReorderDropzoneManagerFactory = new StackingReorderDropzoneManagerFactory(
@@ -142,7 +122,6 @@
 		setContext(GitBranchService, data.gitBranchService);
 		setContext(UncommitedFilesWatcher, data.uncommitedFileWatcher);
 		setContext(ProjectService, data.projectService);
-		setContext(VirtualBranchService, vbranchService);
 
 		// Cloud related services
 		setContext(SyncedSnapshotService, data.syncedSnapshotService);
@@ -355,8 +334,6 @@
 			{#snippet children(baseBranch, { projectId })}
 				{#if !baseBranch}
 					<NoBaseBranch />
-				{:else if $branchesError}
-					<ProblemLoadingRepo error={$branchesError} />
 				{:else if $projectError}
 					<ProblemLoadingRepo error={$projectError} />
 				{:else if baseBranch}
