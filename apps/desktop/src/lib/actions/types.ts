@@ -13,16 +13,48 @@ export type Outcome = {
 
 export type ActionHandler = 'handleChangesSimple';
 
+type MCPSourceDefinition = {
+	name: string;
+	version: string;
+};
+
+type DefinedMCPSource = { Mcp: MCPSourceDefinition };
+type UndefinedMCPSource = { Mcp: null };
+export type MCPActionSource = DefinedMCPSource | UndefinedMCPSource;
+
+type ClaudeCodeActionSource = {
+	ClaudeCode: string;
+};
+
 export type ActionSource =
 	| 'ButCli'
 	| 'GitButler'
 	| 'Unknown'
-	| {
-			Mcp: {
-				name: string;
-				version: string;
-			} | null;
-	  };
+	| MCPActionSource
+	| ClaudeCodeActionSource;
+
+export function isStringActionSource(
+	source: ActionSource
+): source is Exclude<MCPActionSource, ClaudeCodeActionSource> {
+	return typeof source === 'string';
+}
+
+export function isMCPActionSource(source: ActionSource): source is MCPActionSource {
+	return typeof source === 'object' && source !== null && 'Mcp' in source;
+}
+
+export function isUndefinedMCPActionSource(source: ActionSource): source is UndefinedMCPSource {
+	return isMCPActionSource(source) && source.Mcp === null;
+}
+
+export function isDefinedMCPActionSource(source: ActionSource): source is DefinedMCPSource {
+	return isMCPActionSource(source) && source.Mcp !== null;
+}
+
+export function isClaudeCodeActionSource(source: ActionSource): source is ClaudeCodeActionSource {
+	return typeof source === 'object' && source !== null && 'ClaudeCode' in source;
+}
+
 /** Represents a snapshot of an automatic action taken by a GitButler automation.  */
 export class ButlerAction {
 	/** UUID identifier of the action */
@@ -64,12 +96,23 @@ type RewordKind = {
 	} | null;
 };
 
-export type WorkflowKind = RewordKind;
+type RenameBranchKind = {
+	type: 'renameBranch';
+	subject: {
+		stackId: string;
+		oldBranchName: string;
+		newBranchName: string;
+	};
+};
+
+export type WorkflowKind = RewordKind | RenameBranchKind;
 
 export function getDisplayNameForWorkflowKind(kind: WorkflowKind): string {
 	switch (kind.type) {
 		case 'reword':
 			return 'Improved commit message';
+		case 'renameBranch':
+			return `Renamed branch from '${kind.subject.oldBranchName}' to '${kind.subject.newBranchName}'`;
 	}
 }
 

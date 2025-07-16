@@ -3,7 +3,15 @@
 	import FeedStreamMessage from '$components/FeedStreamMessage.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import SnapshotAttachment from '$components/SnapshotAttachment.svelte';
-	import { ButlerAction, getDisplayNameForWorkflowKind, Workflow } from '$lib/actions/types';
+	import {
+		ButlerAction,
+		getDisplayNameForWorkflowKind,
+		isClaudeCodeActionSource,
+		isDefinedMCPActionSource,
+		isStringActionSource,
+		isUndefinedMCPActionSource,
+		Workflow
+	} from '$lib/actions/types';
 	import butbotSvg from '$lib/assets/butbot-actions.svg?raw';
 	import { isFeedMessage, isInProgressAssistantMessage, type FeedEntry } from '$lib/feed/feed';
 	import SnapshotDiffService from '$lib/history/snapshotDiffService.svelte';
@@ -57,15 +65,22 @@
 
 <div class="action-item" id="action-{action.id}">
 	{#if action instanceof ButlerAction}
-		{#if isStr(action.source) || !action.source.Mcp}
+		{#if isStringActionSource(action.source) || isUndefinedMCPActionSource(action.source)}
 			<div>
 				<div class="action-item__robot">
 					<Icon name="robot" />
 				</div>
 			</div>
-		{:else}
+		{:else if isDefinedMCPActionSource(action.source)}
 			<div class="action-item__editor-logo">
-				<EditorLogo name={action.source.Mcp?.name} />
+				<EditorLogo name={action.source.Mcp.name} />
+				<div class="action-item__editor-source">
+					{@html butbotSvg}
+				</div>
+			</div>
+		{:else if isClaudeCodeActionSource(action.source)}
+			<div class="action-item__editor-logo">
+				<EditorLogo name="claude" />
 				<div class="action-item__editor-source">
 					{@html butbotSvg}
 				</div>

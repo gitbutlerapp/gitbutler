@@ -5,7 +5,7 @@
 	import vsCodeLogoSvg from '$lib/assets/vscode.svg?raw';
 
 	type Props = {
-		name: string;
+		name: 'vscode' | 'cursor' | 'claude' | (string & {});
 	};
 
 	const { name }: Props = $props();

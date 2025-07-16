@@ -6,6 +6,7 @@ use but_action::{ActionHandler, OpenAiProvider, Source, reword::CommitEvent};
 use but_db::ClaudeCodeSession;
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_settings::AppSettings;
+use but_workspace::ui::Commit;
 use but_workspace::{HunkHeader, StackId};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_command_context::CommandContext;
@@ -109,6 +110,8 @@ pub(crate) async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
         Source::ClaudeCode(input.session_id),
     )?;
 
+    let stacks = crate::log::stacks(defer.ctx)?;
+
     // Trigger commit message generation for newly created commits
     // TODO: Maybe this can be done in the main app process i.e. the GitButler GUI, if avaialbe
     // Alternatively, and probably better - we could spawn a new process to do this
@@ -116,6 +119,8 @@ pub(crate) async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
         OpenAiProvider::with(None).and_then(|provider| provider.client().ok())
     {
         for branch in &outcome.updated_branches {
+            let elegibility = is_branch_eligible_for_rename(&defer, &stacks, branch)?;
+
             for commit in &branch.new_commits {
                 if let Ok(commit_id) = gix::ObjectId::from_str(commit) {
                     let commit_event = CommitEvent {
@@ -132,6 +137,25 @@ pub(crate) async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
                         .ok();
                 }
             }
+
+            match elegibility {
+                RenameEligibility::Eligible(commit) => {
+                    but_action::rename_branch::rename_branch(
+                        defer.ctx,
+                        &openai_client,
+                        commit.id,
+                        commit.message,
+                        branch.stack_id,
+                        branch.branch_name.clone(),
+                        id,
+                    )
+                    .await
+                    .ok();
+                }
+                RenameEligibility::NotEligible => {
+                    // Do nothing, branch is not eligible for renaming
+                }
+            }
         }
     }
 
@@ -141,6 +165,74 @@ pub(crate) async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
         stop_reason: String::default(),
         suppress_output: true,
     })
+}
+
+enum RenameEligibility {
+    Eligible(Box<Commit>),
+    NotEligible,
+}
+
+/// Determines whether a branch can and should be renamed based on the current state of the stack and the branch.
+///
+/// The conditions for renaming a branch are:
+/// - The branch has exactly one commit.
+/// - The branch is unpushed.
+///
+/// ## Intention
+///
+/// The intention behind this implementation is to ensure that the more costly operation (getting the stack details)
+/// is only performed if necessary.
+/// This is determined by first checking if the newly added commits are only one and the branch tip matches the commit ID.
+fn is_branch_eligible_for_rename(
+    defer: &ClearLocksGuard<'_>,
+    stacks: &[but_workspace::ui::StackEntry],
+    branch: &but_action::UpdatedBranch,
+) -> Result<RenameEligibility, anyhow::Error> {
+    // Find the stack entry for this branch
+    let stack_entry = stacks
+        .iter()
+        .find(|s| s.id == branch.stack_id)
+        .ok_or_else(|| anyhow::anyhow!("Stack not found"))?;
+
+    // Only eligible if exactly one new commit
+    if branch.new_commits.len() != 1 {
+        return Ok(RenameEligibility::NotEligible);
+    }
+    let commit_id = &branch.new_commits[0];
+
+    // Find the branch head in the stack
+    let branch_head = stack_entry
+        .heads
+        .iter()
+        .find(|h| h.name == branch.branch_name)
+        .ok_or_else(|| anyhow::anyhow!("Branch head not found"))?;
+
+    // Commit id must match branch tip
+    if gix::ObjectId::from_str(commit_id)? != branch_head.tip {
+        return Ok(RenameEligibility::NotEligible);
+    }
+
+    // Get stack details and branch details
+    let details = crate::log::stack_details(defer.ctx, stack_entry.id)?;
+    let branch_details = details
+        .branch_details
+        .iter()
+        .find(|b| b.name == branch.branch_name)
+        .ok_or_else(|| anyhow::anyhow!("Branch details not found"))?;
+
+    // Must have exactly one commit and be unpushed
+    if branch_details.commits.len() == 1
+        && matches!(
+            branch_details.push_status,
+            but_workspace::ui::PushStatus::CompletelyUnpushed
+        )
+    {
+        Ok(RenameEligibility::Eligible(Box::new(
+            branch_details.commits[0].clone(),
+        )))
+    } else {
+        Ok(RenameEligibility::NotEligible)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

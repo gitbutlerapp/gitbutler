@@ -7,7 +7,7 @@ use std::{
 };
 
 use but_core::TreeChange;
-use but_workspace::ui::StackEntry;
+use but_workspace::{StackId, ui::StackEntry};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::ObjectIdExt;
@@ -24,6 +24,7 @@ mod emit;
 mod generate;
 mod grouping;
 mod openai;
+pub mod rename_branch;
 pub mod reword;
 mod serialize;
 mod simple;
@@ -279,6 +280,7 @@ pub struct Outcome {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdatedBranch {
+    pub stack_id: StackId,
     pub branch_name: String,
     pub new_commits: Vec<String>,
 }
