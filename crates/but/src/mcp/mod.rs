@@ -137,7 +137,6 @@ impl Mcp {
 
         let (id, outcome) = but_action::handle_changes(
             ctx,
-            &None,
             &request.changes_summary,
             Some(request.full_prompt.clone()),
             ActionHandler::HandleChangesSimple,

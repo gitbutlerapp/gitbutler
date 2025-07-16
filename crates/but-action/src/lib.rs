@@ -162,7 +162,6 @@ pub fn auto_commit(
 
 pub fn handle_changes(
     ctx: &mut CommandContext,
-    openai: &Option<OpenAiProvider>,
     change_summary: &str,
     external_prompt: Option<String>,
     handler: ActionHandler,
@@ -170,7 +169,7 @@ pub fn handle_changes(
 ) -> anyhow::Result<(Uuid, Outcome)> {
     match handler {
         ActionHandler::HandleChangesSimple => {
-            simple::handle_changes(ctx, openai, change_summary, external_prompt, source)
+            simple::handle_changes(ctx, change_summary, external_prompt, source)
         }
     }
 }

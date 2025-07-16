@@ -10,6 +10,7 @@ use schemars::{JsonSchema, schema_for};
 
 use crate::OpenAiProvider;
 
+#[allow(dead_code)]
 pub fn commit_message_blocking(
     openai: &OpenAiProvider,
     external_summary: &str,
