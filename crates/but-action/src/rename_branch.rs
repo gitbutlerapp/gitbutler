@@ -5,17 +5,30 @@ use gix::bstr::BString;
 
 use crate::workflow::{self, Workflow};
 
+pub struct RenameBranchParams {
+    pub commit_id: gix::ObjectId,
+    pub commit_message: BString,
+    pub stack_id: StackId,
+    pub current_branch_name: String,
+    pub existing_branch_names: Vec<String>,
+}
+
 pub async fn rename_branch(
     ctx: &mut CommandContext,
     client: &Client<OpenAIConfig>,
-    commit_id: gix::ObjectId,
-    commit_message: BString,
-    stack_id: StackId,
-    current_branch_name: String,
+    parameters: RenameBranchParams,
     trigger_id: uuid::Uuid,
 ) -> anyhow::Result<()> {
+    let RenameBranchParams {
+        commit_id,
+        commit_message,
+        stack_id,
+        current_branch_name,
+        existing_branch_names,
+    } = parameters;
     let commit_messages = vec![commit_message.to_string()];
-    let branch_name = crate::generate::branch_name(client, &commit_messages).await?;
+    let branch_name =
+        crate::generate::branch_name(client, &commit_messages, &existing_branch_names).await?;
     let normalized_branch_name = gitbutler_reference::normalize_branch_name(&branch_name)?;
 
     let update = gitbutler_branch_actions::stack::update_branch_name(
