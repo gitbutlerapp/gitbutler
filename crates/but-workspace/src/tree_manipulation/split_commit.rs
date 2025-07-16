@@ -72,9 +72,15 @@ fn new_commits(
 ) -> Result<Vec<(gix::ObjectId, Option<String>)>> {
     let mut new_commits = Vec::new();
     for piece in pieces {
-        let rewritten_commit =
-            keep_only_file_changes_in_commit(ctx, source_commit_id, &piece.files, context_lines)?;
-        new_commits.push((rewritten_commit, Some(piece.message.clone())));
+        if let Some(rewritten_commit) = keep_only_file_changes_in_commit(
+            ctx,
+            source_commit_id,
+            &piece.files,
+            context_lines,
+            false,
+        )? {
+            new_commits.push((rewritten_commit, Some(piece.message.clone())));
+        }
     }
     Ok(new_commits)
 }

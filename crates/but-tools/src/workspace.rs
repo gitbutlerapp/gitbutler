@@ -1391,11 +1391,9 @@ pub fn split_branch(
         app_handle.emit_stack_update(project_id, stack_id);
     }
 
-    if let Some(move_result) = move_result {
-        // Update the commit mapping with the new commit ids.
-        for (old_commit_id, new_commit_id) in move_result.replaced_commits.iter() {
-            commit_mapping.insert(*old_commit_id, *new_commit_id);
-        }
+    // Update the commit mapping with the new commit ids.
+    for (old_commit_id, new_commit_id) in move_result.replaced_commits.iter() {
+        commit_mapping.insert(*old_commit_id, *new_commit_id);
     }
 
     Ok(stack_id)
