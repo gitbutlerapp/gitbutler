@@ -7,7 +7,7 @@
 	import { AIService } from '$lib/ai/service';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
-	import { abbreviateFolders, changesToFileTree, sortLikeFileTree } from '$lib/files/filetreeV3';
+	import { abbreviateFolders, changesToFileTree } from '$lib/files/filetreeV3';
 	import { type TreeChange, type Modification } from '$lib/hunks/change';
 	import { showToast } from '$lib/notifications/toasts';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
@@ -28,6 +28,7 @@
 		active?: boolean;
 		conflictEntries?: ConflictEntriesObj;
 		draggableFiles?: boolean;
+		allowUnselect?: boolean;
 		onselect?: () => void;
 	};
 
@@ -41,6 +42,7 @@
 		stackId,
 		conflictEntries,
 		draggableFiles,
+		allowUnselect,
 		onselect
 	}: Props = $props();
 
@@ -50,8 +52,7 @@
 	const [branchChanges] = actionService.branchChanges;
 	let currentDisplayIndex = $state(0);
 
-	const sortedChanges = $derived(sortLikeFileTree(changes));
-	const fileChunks: TreeChange[][] = $derived(chunk(sortedChanges, 100));
+	const fileChunks: TreeChange[][] = $derived(chunk(changes, 100));
 	const visibleFiles: TreeChange[] = $derived(fileChunks.slice(0, currentDisplayIndex + 1).flat());
 	let aiConfigurationValid = $state(false);
 
@@ -145,7 +146,7 @@
 			shiftKey: e.shiftKey,
 			key: e.key,
 			targetElement: e.currentTarget as HTMLElement,
-			files: sortedChanges,
+			files: changes,
 			selectedFileIds: idSelection.values(selectionId),
 			fileIdSelection: idSelection,
 			selectionId: selectionId,
@@ -185,7 +186,7 @@
 		isLast={idx === visibleFiles.length - 1}
 		selected={idSelection.has(change.path, selectionId)}
 		onclick={(e) => {
-			selectFilesInList(e, change, sortedChanges, idSelection, true, idx, selectionId);
+			selectFilesInList(e, change, changes, idSelection, true, idx, selectionId, allowUnselect);
 			onselect?.();
 		}}
 		{conflictEntries}
@@ -207,15 +208,8 @@
 		{#if listMode === 'tree'}
 			<!-- We need to use sortedChanges here because otherwise we will end up
 		with incorrect indexes -->
-			{@const node = abbreviateFolders(changesToFileTree(sortedChanges))}
-			<FileTreeNode
-				isRoot
-				{stackId}
-				{node}
-				{showCheckboxes}
-				changes={sortedChanges}
-				{fileTemplate}
-			/>
+			{@const node = abbreviateFolders(changesToFileTree(changes))}
+			<FileTreeNode isRoot {stackId} {node} {showCheckboxes} {changes} {fileTemplate} />
 		{:else}
 			<LazyloadContainer
 				minTriggerCount={80}
