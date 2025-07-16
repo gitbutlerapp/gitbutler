@@ -18,6 +18,7 @@
 		draggableFiles?: boolean;
 		diffOnly?: boolean;
 		onclose?: () => void;
+		notClosable?: boolean;
 		testId?: string;
 		bottomBorder?: boolean;
 	};
@@ -28,6 +29,7 @@
 		draggableFiles: draggable,
 		diffOnly,
 		onclose,
+		notClosable,
 		testId,
 		bottomBorder
 	}: Props = $props();
@@ -81,12 +83,14 @@
 									isHeader
 									executable={!!isExecutable}
 									listMode="list"
-									onCloseClick={() => {
-										if (idSelection) {
-											idSelection.remove(selectedFile.path, selectedFile);
-										}
-										onclose?.();
-									}}
+									onCloseClick={notClosable
+										? undefined
+										: () => {
+												if (idSelection) {
+													idSelection.remove(selectedFile.path, selectedFile);
+												}
+												onclose?.();
+											}}
 								/>
 							{/if}
 							<UnifiedDiffView
