@@ -6,7 +6,8 @@
 		scrollingAttachment,
 		type TargetType
 	} from '$lib/intelligentScrolling/service';
-	import { inject } from '@gitbutler/shared/context';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -57,6 +58,8 @@
 	}: Props = $props();
 
 	const [intelligentScrollingService] = inject(IntelligentScrollingService);
+	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
+	const zoom = $derived($userSettings.zoom);
 
 	let headerDiv = $state<HTMLDivElement>();
 	let containerDiv = $state<HTMLDivElement>();
@@ -69,6 +72,7 @@
 
 	let headerHeight = $state(0);
 	let contentHeight = $state(0);
+	const totalHeightRem = $derived(pxToRem(headerHeight + contentHeight, zoom));
 </script>
 
 <div
@@ -157,8 +161,8 @@
 			direction="down"
 			imitateBorder
 			{...resizer}
-			maxHeight={resizer.maxHeight
-				? Math.min(resizer.maxHeight, pxToRem(contentHeight + headerHeight, 1))
+			maxHeight={resizer.maxHeight && resizer.minHeight
+				? Math.min(resizer.maxHeight, Math.max(totalHeightRem, resizer.minHeight))
 				: undefined}
 			passive={resizer.passive}
 		/>
@@ -171,7 +175,7 @@
 		position: relative;
 		flex-direction: column;
 		width: 100%;
-		max-height: calc(100% + 1px);
+		max-height: 100%;
 		overflow: hidden;
 		background-color: var(--clr-bg-1);
 
