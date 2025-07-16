@@ -28,7 +28,7 @@
 		scrollToId?: string;
 		scrollToType?: TargetType;
 		grow?: boolean;
-		shrink?: boolean;
+		noshrink?: boolean;
 		clientHeight?: number;
 		resizer?: Partial<ComponentProps<typeof Resizer>>;
 		onclose?: () => void;
@@ -49,7 +49,7 @@
 		scrollToId,
 		scrollToType,
 		grow,
-		shrink,
+		noshrink,
 		resizer,
 		clientHeight = $bindable(),
 		ontoggle,
@@ -80,7 +80,7 @@
 	class:bottom-border={bottomBorder}
 	class:transparent
 	class:grow
-	class:no-shrink={!shrink && resizer && $collapsed !== undefined}
+	class:noshrink
 	{@attach scrollingAttachment(intelligentScrollingService, scrollToId, scrollToType)}
 >
 	<div
@@ -181,7 +181,7 @@
 		&.transparent {
 			background-color: transparent;
 		}
-		&.no-shrink {
+		&.noshrink {
 			flex-shrink: 0;
 		}
 		&.grow {

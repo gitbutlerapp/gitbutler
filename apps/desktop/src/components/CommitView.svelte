@@ -73,12 +73,6 @@
 
 	type Mode = 'view' | 'edit';
 
-	// Track if this commit is in edit message mode
-	const isEditing = $derived(
-		projectState.exclusiveAction.current?.type === 'edit-commit-message' &&
-			projectState.exclusiveAction.current.commitId === commitKey.commitId
-	);
-
 	function setMode(newMode: Mode) {
 		switch (newMode) {
 			case 'edit':
@@ -158,14 +152,12 @@
 			testId={TestId.CommitDrawer}
 			{scrollToId}
 			{scrollToType}
-			resizer={{
-				...resizer,
-				imitateBorder: true,
-				passive: isEditing ? true : resizer?.passive
-			}}
+			{resizer}
 			{grow}
 			{ontoggle}
 			{onclose}
+			bottomBorder
+			noshrink
 		>
 			{#snippet header()}
 				<CommitTitle
@@ -259,13 +251,8 @@
 
 <style>
 	.commit-view {
-		display: flex;
 		position: relative;
-		flex: 1;
-		flex-direction: column;
-		height: 100%;
 		padding: 14px;
-		gap: 14px;
 		background-color: var(--clr-bg-1);
 	}
 
