@@ -22,7 +22,7 @@
 </p>
 
 <div class="experimental-settings__toggles">
-	<SectionCard labelFor="gitbutler-actions" roundedTop orientation="row">
+	<SectionCard labelFor="gitbutler-actions" roundedTop roundedBottom={false} orientation="row">
 		{#snippet title()}
 			GitButler Actions
 		{/snippet}
@@ -35,6 +35,24 @@
 				checked={$settingsStore?.featureFlags.actions}
 				onclick={() =>
 					settingsService.updateFeatureFlags({ actions: !$settingsStore?.featureFlags.actions })}
+			/>
+		{/snippet}
+	</SectionCard>
+	<SectionCard labelFor="ws3" roundedTop={false} orientation="row">
+		{#snippet title()}
+			New workspace backend
+		{/snippet}
+		{#snippet caption()}
+			Enable this to use the new API for rendering the workspace state. Enabling this should be
+			functionally identical to the old API but it resolves a class of bugs that were present in the
+			old implementation.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="ws3"
+				checked={$settingsStore?.featureFlags.ws3}
+				onclick={() =>
+					settingsService.updateFeatureFlags({ ws3: !$settingsStore?.featureFlags.ws3 })}
 			/>
 		{/snippet}
 	</SectionCard>
