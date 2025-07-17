@@ -4,7 +4,7 @@
 	import { AIService } from '$lib/ai/service';
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { changesToDiffSpec } from '$lib/commits/utils';
-	import { projectAiGenEnabled } from '$lib/config/config';
+	import { projectAiExperimentalFeaturesEnabled, projectAiGenEnabled } from '$lib/config/config';
 	import { isTreeChange, type TreeChange } from '$lib/hunks/change';
 	import { showToast } from '$lib/notifications/toasts';
 	import { Project } from '$lib/project/project';
@@ -74,8 +74,11 @@
 	let aiConfigurationValid = $state(false);
 
 	const aiGenEnabled = $derived(projectAiGenEnabled(projectId));
+	const experimentalFeaturesEnabled = $derived(projectAiExperimentalFeaturesEnabled(projectId));
 
-	const canUseGBAI = $derived(aiGenEnabled && aiConfigurationValid);
+	const canUseGBAI = $derived(
+		$aiGenEnabled && aiConfigurationValid && $experimentalFeaturesEnabled
+	);
 
 	function isDeleted(item: FileItem): boolean {
 		return item.changes.some((change) => {
