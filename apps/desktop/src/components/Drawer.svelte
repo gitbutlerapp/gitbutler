@@ -72,7 +72,7 @@
 
 	let headerHeight = $state(0);
 	let contentHeight = $state(0);
-	const totalHeightRem = $derived(pxToRem(headerHeight + contentHeight, zoom));
+	const totalHeightRem = $derived(pxToRem(headerHeight + 1 + contentHeight, zoom));
 
 	let resizerInstance = $state<Resizer>();
 	$effect(() => {
@@ -80,7 +80,9 @@
 		// height, enabling the user to more easily undo manual sizing. It
 		// is assumed that an unset value makes the element display in
 		// full, otherwise there would be sudden content shift.
-		if (clientHeight === headerHeight + contentHeight) {
+		// TODO: Figure out why we need to +1 the total height.
+		const totalHeight = headerHeight + contentHeight + 1;
+		if (clientHeight === totalHeight) {
 			requestAnimationFrame(() => {
 				resizerInstance?.setValue(undefined);
 			});
