@@ -1,18 +1,8 @@
 import { type Author, Commit, DetailedCommit } from '$lib/commits/commit';
-import { SkippedFile } from '$lib/files/file';
 import { LocalFile } from '$lib/files/file';
 import { Type, Transform, plainToInstance } from 'class-transformer';
 import type { PullRequest } from '$lib/forge/interface/types';
 import 'reflect-metadata';
-
-export class VirtualBranches {
-	@Type(() => BranchStack)
-	branches!: BranchStack[];
-	@Type(() => SkippedFile)
-	skippedFiles!: SkippedFile[];
-	@Type(() => DependencyError)
-	dependencyErrors!: DependencyError[];
-}
 
 export function isPatchSeries(item: PatchSeries | Error): item is PatchSeries {
 	return item instanceof PatchSeries;
@@ -177,7 +167,7 @@ export class StackOrder {
  * @property commitIds - This is the desired commit order for the series. Because the commits will be rabased, naturally, the the commit ids will be different afte updating. The changes are ordered from newest to oldest (most recent changes go first)
  */
 
-export class SeriesOrder {
+class SeriesOrder {
 	name!: string;
 	commitIds!: string[];
 }
@@ -185,13 +175,7 @@ export class SeriesOrder {
  * Represents an error that occurred when calculating dependencies for a given file change.
  */
 
-export class DependencyError {
-	errorMessage!: string;
-	stackId!: string;
-	commitId!: string;
-	path!: string;
-}
-export function transformResultToType(type: any, value: any) {
+function transformResultToType(type: any, value: any) {
 	if (!Array.isArray(value)) return plainToInstance(type, value);
 
 	return value.map((item) => {

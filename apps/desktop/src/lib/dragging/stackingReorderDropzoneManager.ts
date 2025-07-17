@@ -106,7 +106,7 @@ export class StackingReorderDropzoneManagerFactory {
 	}
 }
 
-export function buildNewStackOrder(
+function buildNewStackOrder(
 	allSeries: { name: string; commitIds: string[] }[],
 	currentSeriesName: string,
 	actorCommitId: string,

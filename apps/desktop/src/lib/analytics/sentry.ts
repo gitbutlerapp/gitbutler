@@ -1,10 +1,9 @@
 import { dev } from '$app/environment';
 import * as Sentry from '@sentry/sveltekit';
-import { type Span } from '@sentry/sveltekit';
 import type { User } from '$lib/user/user';
 import { PUBLIC_SENTRY_ENVIRONMENT } from '$env/static/public';
 
-const { startSpan, setUser, init } = Sentry;
+const { setUser, init } = Sentry;
 
 export function initSentry() {
 	init({
@@ -26,8 +25,4 @@ export function setSentryUser(user: User) {
 
 export function resetSentry() {
 	setUser(null);
-}
-
-export function instrument<T>(name: string, callback: (span: Span | undefined) => T): T {
-	return startSpan({ name }, callback);
 }

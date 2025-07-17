@@ -45,13 +45,6 @@ export class RemoteFile {
 		return false;
 	}
 }
-export class SkippedFile {
-	oldPath!: string | undefined;
-	newPath!: string | undefined;
-	binary!: boolean;
-	oldSizeBytes!: number;
-	newSizeBytes!: number;
-}
 
 export class LocalFile {
 	id!: string;

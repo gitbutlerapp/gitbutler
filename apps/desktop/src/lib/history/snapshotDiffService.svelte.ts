@@ -3,10 +3,6 @@ import { providesItem, ReduxTag } from '$lib/state/tags';
 import { plainToInstance } from 'class-transformer';
 import type { BackendApi, ClientState } from '$lib/state/clientState.svelte';
 
-export type SnapsotDiffByPath = {
-	[path: string]: SnapshotDiff;
-};
-
 export default class SnapshotDiffService {
 	private api: ReturnType<typeof injectEndpoints>;
 

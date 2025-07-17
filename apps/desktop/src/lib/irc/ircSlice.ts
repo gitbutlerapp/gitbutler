@@ -378,16 +378,9 @@ export const getChatsWithPopup = createSelector([selectSelf], (rootState) => {
 		.filter((chat) => chat?.floating)
 		.filter(isDefined);
 });
-export const getChatsWithoutPopup = createSelector([selectSelf], (rootState) => {
-	return Object.keys(rootState.chats)
-		.map((key) => rootState.chats[key])
-		.filter((chat) => !chat?.floating)
-		.filter(isDefined);
-});
 export const getChannels = createSelector([selectSelf], (rootState) =>
 	Object.values(rootState.channels)
 );
-export const getConnectionState = createSelector([selectSelf], (rootState) => rootState.connection);
 
 export const getUnreadCount = createSelector([getChannels], (channels) =>
 	Object.values(channels).reduce((prev, curr) => prev + curr.unread || 0, 0)
@@ -410,5 +403,3 @@ export const getChannelUsers = createSelector(
 
 export const { setConnectionState, markOpen, setPopup, clearNames, processIncoming } =
 	ircSlice.actions;
-
-export const ircReducer = ircSlice.reducer;

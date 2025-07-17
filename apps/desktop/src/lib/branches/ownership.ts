@@ -1,25 +1,7 @@
-import { unstringifyFileKey } from '$lib/selection/fileIdSelection';
 import type { BranchStack } from '$lib/branches/branch';
-import type { RemoteFile } from '$lib/files/file';
 import type { AnyFile } from '$lib/files/file';
 import type { RemoteHunk } from '$lib/hunks/hunk';
 import type { Hunk } from '$lib/hunks/hunk';
-import type { Writable } from 'svelte/store';
-
-export function filesToOwnership(files: AnyFile[]) {
-	return files
-		.map((f) => `${f.path}:${f.hunks.map(({ id, hash }) => `${id}-${hash}`).join(',')}`)
-		.join('\n');
-}
-
-export function filesToSimpleOwnership(files: RemoteFile[]) {
-	return files
-		.map(
-			(f) =>
-				`${f.path}:${f.hunks.map(({ newStart, newLines }) => `${newStart}-${newStart + newLines}`).join(',')}`
-		)
-		.join('\n');
-}
 
 // These types help keep track of what maps to what.
 // TODO: refactor code for clarity, these types should not be needed
@@ -208,55 +190,4 @@ export class SelectedOwnership {
 	nothingSelected() {
 		return this.selection.size === 0;
 	}
-}
-
-interface OwnershipUpdateParams {
-	selectedFileIds: string[];
-	files: AnyFile[];
-	selectedOwnership: Writable<SelectedOwnership> | undefined;
-}
-
-export function updateOwnership(params: OwnershipUpdateParams) {
-	const selectedFiles = params.selectedFileIds
-		.map((id) => unstringifyFileKey(id))
-		.map((id) => params.files.find((f) => f.id === id))
-		.filter((f): f is AnyFile => !!f);
-
-	if (selectedFiles.length === 0) return;
-
-	if (selectedFiles.length === 1) {
-		const file = selectedFiles[0]!;
-
-		params.selectedOwnership?.update((ownership) => {
-			const someHunksSelected = file.hunks.some((h) => ownership.isSelected(file.id, h.id));
-
-			if (someHunksSelected) {
-				ownership.ignore(file.id, ...file.hunkIds);
-			} else {
-				ownership.select(file.id, ...file.hunks);
-			}
-
-			return ownership;
-		});
-
-		return;
-	}
-
-	params.selectedOwnership?.update((ownership) => {
-		const someFilesSelected = selectedFiles.some((f) =>
-			f.hunks.some((h) => ownership.isSelected(f.id, h.id))
-		);
-
-		if (someFilesSelected) {
-			for (const file of selectedFiles) {
-				ownership.ignore(file.id, ...file.hunkIds);
-			}
-		} else {
-			for (const file of selectedFiles) {
-				ownership.select(file.id, ...file.hunks);
-			}
-		}
-
-		return ownership;
-	});
 }

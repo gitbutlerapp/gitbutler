@@ -5,8 +5,6 @@ export interface RemoteBranchInfo {
 	name: string;
 }
 
-export class NoDefaultTarget extends Error {}
-
 export class BaseBranch {
 	branchName!: string;
 	remoteName!: string;

@@ -51,29 +51,6 @@ export function hasConflicts(commit: Commit): boolean {
 	return commit.state.type === 'LocalAndRemote' && commit.id !== commit.state.subject;
 }
 
-export function isEditableCommit(
-	status: CommitStatusType
-): status is 'LocalOnly' | 'LocalAndRemote' {
-	return status === 'LocalOnly' || status === 'LocalAndRemote';
-}
-
-export function getCommitType(commit: Commit | UpstreamCommit) {
-	const isLocalAndRemote = isLocalAndRemoteCommit(commit) && commit.state.type === 'LocalAndRemote';
-	const isDiverged = isLocalAndRemote && commit.state.subject !== commit.id;
-	const isUpstream = !isLocalAndRemoteCommit(commit);
-	const isLocalOnly = !isLocalAndRemote && !isUpstream;
-
-	// return string
-	if (isLocalOnly) {
-		return 'local';
-	} else if (isLocalAndRemote) {
-		return isDiverged ? 'diverged' : 'local-and-remote';
-	} else if (isUpstream) {
-		return 'upstream';
-	}
-	return 'local';
-}
-
 export function getBranchStatusLabelAndColor(pushStatus: PushStatus): {
 	label: string;
 	color: string;

@@ -102,13 +102,6 @@ export function pushStatusToIcon(pushStatus: PushStatus): keyof typeof iconsJson
 	}
 }
 
-export function branchRefName(branch: BranchDetails): string {
-	if (branch.isRemoteHead) {
-		return `refs/remotes/${branch.name}`;
-	}
-	return `refs/heads/${branch.name}`;
-}
-
 export type BranchDetails = {
 	/** The name of the branch */
 	readonly name: string;
@@ -199,8 +192,4 @@ export function requiresPush(status: PushStatus): boolean {
 		status === 'unpushedCommitsRequiringForce' ||
 		status === 'completelyUnpushed'
 	);
-}
-
-export function stackIsIntegrated(stack: StackDetails): boolean {
-	return stack.pushStatus === 'integrated';
 }

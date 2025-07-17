@@ -1,7 +1,6 @@
 import { parseRemoteUrl } from '$lib/url/gitUrl';
 import type { GhResponse } from '$lib/forge/github/ghQuery';
 import type {
-	CheckSuite,
 	DetailedPullRequest,
 	Label,
 	PullRequest,
@@ -10,18 +9,14 @@ import type {
 import type { RestEndpointMethodTypes } from '@octokit/rest';
 
 export type DetailedGitHubPullRequest = RestEndpointMethodTypes['pulls']['get']['response']['data'];
-export type MergeResult = RestEndpointMethodTypes['pulls']['merge']['response']['data'];
 export type CreatePrResult = RestEndpointMethodTypes['pulls']['create']['response']['data'];
 export type CreateIssueResult = RestEndpointMethodTypes['issues']['create']['response']['data'];
-export type UpdateResult = RestEndpointMethodTypes['pulls']['update']['response']['data'];
 
 export type PullRequestListItem =
 	| CreatePrResult
 	| RestEndpointMethodTypes['pulls']['list']['response']['data'][number];
 
 export type ChecksResult = RestEndpointMethodTypes['checks']['listForRef']['response']['data'];
-export type SuitesResult =
-	RestEndpointMethodTypes['checks']['listSuitesForRef']['response']['data'];
 export type RepoResult = RestEndpointMethodTypes['repos']['get']['response']['data'];
 
 export interface GitHubRepoPermissions {
@@ -133,18 +128,4 @@ export function ghResponseToInstance(pr: PullRequestListItem): PullRequest {
 		repositoryHttpsUrl: pr.head?.repo?.clone_url,
 		reviewers
 	};
-}
-
-export type GitHubListCheckSuitesResp =
-	RestEndpointMethodTypes['checks']['listSuitesForRef']['response']['data'];
-export type GitHubCheckSuites =
-	RestEndpointMethodTypes['checks']['listSuitesForRef']['response']['data']['check_suites'];
-
-export function parseGitHubCheckSuites(data: GitHubListCheckSuitesResp): CheckSuite[] {
-	const result = data.check_suites.map((checkSuite) => ({
-		name: checkSuite.app?.name,
-		status: checkSuite.status,
-		count: checkSuite.latest_check_runs_count
-	}));
-	return result;
 }

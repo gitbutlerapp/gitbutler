@@ -11,7 +11,7 @@ export type UnifiedDiff =
 	| { readonly type: 'Patch'; readonly subject: Patch };
 
 /** The file was too large and couldn't be diffed. */
-export type TooLarge = {
+type TooLarge = {
 	/** The size of the file on disk that made it too large. */
 	readonly sizeInBytes: number;
 };

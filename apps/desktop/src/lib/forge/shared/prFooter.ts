@@ -103,7 +103,7 @@ function reviewAllToAvatars(reviewAll: PatchReview) {
 		.join(' ');
 }
 
-export function formatButRequestDescription(
+function formatButRequestDescription(
 	prBody: string,
 	butRequestUrl: string,
 	butReview: Branch
@@ -214,7 +214,7 @@ function updateBody(body: string | undefined, prNumber: number, allPrNumbers: nu
 /**
  * Generates a footer for use in pull request descriptions when part of a stack.
  */
-export function generateFooter(forPrNumber: number, allPrNumbers: number[]) {
+function generateFooter(forPrNumber: number, allPrNumbers: number[]) {
 	const stackLength = allPrNumbers.length;
 	const stackIndex = allPrNumbers.findIndex((number) => number === forPrNumber);
 	const nth = stackLength - stackIndex;

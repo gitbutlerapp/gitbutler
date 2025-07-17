@@ -4,10 +4,6 @@ import type { TreeChange } from '$lib/hunks/change';
 import type { Hunk, HunkAssignment, HunkHeader, HunkLock } from '$lib/hunks/hunk';
 import type { IdSelection } from '$lib/selection/idSelection.svelte';
 
-export const NON_DRAGGABLE = {
-	disabled: true
-};
-
 export class HunkDropData {
 	constructor(
 		public readonly branchId: string,

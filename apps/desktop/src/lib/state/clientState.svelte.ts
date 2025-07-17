@@ -178,7 +178,7 @@ function createStore(params: {
  * Unlike with React, it isn't possible to access the Svelte context
  * during event handling.
  */
-export function createBackendApi(butlerMod: ReturnType<typeof butlerModule>) {
+function createBackendApi(butlerMod: ReturnType<typeof butlerModule>) {
 	return buildCreateApi(
 		coreModule(),
 		butlerMod
@@ -215,7 +215,7 @@ export function createGitHubApi(butlerMod: ReturnType<typeof butlerModule>) {
 	});
 }
 
-export function createGitLabApi(butlerMod: ReturnType<typeof butlerModule>) {
+function createGitLabApi(butlerMod: ReturnType<typeof butlerModule>) {
 	return buildCreateApi(
 		coreModule(),
 		butlerMod

@@ -21,7 +21,7 @@ export function initTheme(userSettings: Writable<Settings>) {
 	});
 }
 
-export function updateDom() {
+function updateDom() {
 	const docEl = document.documentElement;
 	if (
 		selectedTheme === 'dark' ||

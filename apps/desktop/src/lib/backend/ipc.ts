@@ -24,10 +24,6 @@ export function isTauriCommandError(something: unknown): something is TauriComma
 	);
 }
 
-export function isUserErrorCode(something: unknown): something is Code {
-	return Object.values(Code).includes(something as Code);
-}
-
 export class UserError extends Error {
 	code!: Code;
 	cause: Error | undefined;

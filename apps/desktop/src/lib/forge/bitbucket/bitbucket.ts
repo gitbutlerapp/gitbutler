@@ -1,12 +1,8 @@
 import { BitBucketBranch } from '$lib/forge/bitbucket/bitbucketBranch';
 import type { Forge, ForgeName } from '$lib/forge/interface/forge';
-import type { DetailedPullRequest, ForgeArguments } from '$lib/forge/interface/types';
+import type { ForgeArguments } from '$lib/forge/interface/types';
 import type { ReduxTag } from '$lib/state/tags';
 import type { TagDescription } from '@reduxjs/toolkit/query';
-
-export type PrAction = 'creating_pr';
-export type PrState = { busy: boolean; branchId: string; action?: PrAction };
-export type PrCacheKey = { value: DetailedPullRequest | undefined; fetchedAt: Date };
 
 export const BITBUCKET_DOMAIN = 'bitbucket.org';
 
