@@ -166,9 +166,7 @@
 		const { newValue, overflow } = applyLimits(offsetRem);
 
 		if (newValue && !passive && !hidden) {
-			value.set(newValue);
-			updateDom(newValue);
-			onWidth?.(newValue);
+			setValue(newValue);
 		}
 		if (overflow) {
 			onOverflow?.(overflow);
@@ -243,11 +241,15 @@
 		return pxToRem(viewport.clientHeight, zoom);
 	}
 
-	export function setValue(newSize?: number) {
-		value.set(newSize);
-		updateDom(newSize);
-		if (newSize !== undefined) {
-			onWidth?.(newSize);
+	export function setValue(newValue?: number) {
+		const currentValue = getValue();
+		if (currentValue === newValue) {
+			return;
+		}
+		value.set(newValue);
+		updateDom(newValue);
+		if (newValue !== undefined) {
+			onWidth?.(newValue);
 		}
 	}
 
