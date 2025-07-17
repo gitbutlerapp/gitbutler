@@ -4,13 +4,13 @@
 	import LargeDiffMessage from '$components/LargeDiffMessage.svelte';
 	import { FileService } from '$lib/files/fileService';
 	import { getLockText } from '$lib/files/lock';
-	import { Project } from '$lib/project/project';
 	import { computeAddedRemovedByHunk } from '$lib/utils/metrics';
 	import { getContext } from '@gitbutler/shared/context';
 	import type { FileInfo } from '$lib/files/file';
 	import type { HunkSection, ContentSection } from '$lib/utils/fileSections';
 
 	interface Props {
+		projectId: string;
 		filePath: string;
 		isBinary: boolean;
 		isLarge: boolean;
@@ -23,6 +23,7 @@
 	}
 
 	let {
+		projectId,
 		filePath,
 		isBinary,
 		isLarge,
@@ -35,7 +36,6 @@
 	}: Props = $props();
 
 	let alwaysShow = $state(false);
-	const project = getContext(Project);
 	const fileService = getContext(FileService);
 
 	function getGutterMinWidth(max: number | undefined) {
@@ -75,8 +75,8 @@
 		}
 		try {
 			const file = commitId
-				? await fileService.readFromCommit(filePath, project.id, commitId)
-				: await fileService.readFromWorkspace(filePath, project.id);
+				? await fileService.readFromCommit(filePath, projectId, commitId)
+				: await fileService.readFromWorkspace(filePath, projectId);
 			fileInfo = file.data;
 			isLarge = file.isLarge;
 		} catch (error) {
@@ -140,6 +140,7 @@
 						</div>
 					{/if}
 					<HunkViewer
+						{projectId}
 						{filePath}
 						{section}
 						{selectable}

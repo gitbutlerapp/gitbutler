@@ -1,9 +1,6 @@
 import { showError } from '$lib/notifications/toasts';
 import { ProjectsService } from '$lib/project/projectsService';
 import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
-import { BranchService as CloudBranchService } from '@gitbutler/shared/branches/branchService';
-import { BranchStatus as CloudBranchStatus } from '@gitbutler/shared/branches/types';
-import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import type { StackService } from '$lib/stacks/stackService.svelte';
 import type { ClientState } from '$lib/state/clientState.svelte';
@@ -15,7 +12,6 @@ import type {
 	Resolution,
 	StackStatusesWithBranchesV3
 } from '$lib/upstream/types';
-import type { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
 
 export class UpstreamIntegrationService {
 	private api: ReturnType<typeof injectEndpoints>;
@@ -23,10 +19,7 @@ export class UpstreamIntegrationService {
 	constructor(
 		state: ClientState,
 		private stackService: StackService,
-		private projectsService: ProjectsService,
-		private cloudProjectService: CloudProjectService,
-		private cloudBranchService: CloudBranchService,
-		private latestBranchLookupService: LatestBranchLookupService
+		private projectsService: ProjectsService
 	) {
 		this.api = injectEndpoints(state.backendApi);
 	}
@@ -83,28 +76,8 @@ export class UpstreamIntegrationService {
 		return this.api.endpoints.resolveUpstreamIntegration.mutate;
 	}
 
-	integrateUpstream(projectId: string) {
-		return this.api.endpoints.integrateUpstream.useMutation({
-			sideEffect: async (data) =>
-				await this.closeArchivedButRequests(projectId, data.reviewIdsToClose)
-		});
-	}
-
-	private async closeArchivedButRequests(projectId: string, reviewIdsToClose: string[]) {
-		const project = await this.projectsService.getProject(projectId);
-		if (!project.api) return;
-		const cloudProject = await this.cloudProjectService.getProject(project.api.repository_id);
-		if (!cloudProject) return;
-
-		for (const reviewId of reviewIdsToClose) {
-			const cloudBranch = await this.latestBranchLookupService.getBranch(
-				cloudProject.owner,
-				cloudProject.slug,
-				reviewId
-			);
-			if (!cloudBranch) continue;
-			this.cloudBranchService.updateBranch(cloudBranch.uuid, { status: CloudBranchStatus.Closed });
-		}
+	integrateUpstream() {
+		return this.api.endpoints.integrateUpstream.useMutation();
 	}
 }
 

@@ -2,29 +2,28 @@ import { listen, invoke } from '$lib/backend/ipc';
 import { RemoteFile } from '$lib/files/file';
 import { parseFileSections, type ContentSection, type HunkSection } from '$lib/utils/fileSections';
 import { plainToInstance } from 'class-transformer';
-import { readable, type Readable } from 'svelte/store';
-import type { Project } from '$lib/project/project';
+import { readable } from 'svelte/store';
 
 type ParsedFiles = [RemoteFile, (ContentSection | HunkSection)[]][];
 
 export class UncommitedFilesWatcher {
-	uncommitedFiles: Readable<ParsedFiles>;
+	constructor() {}
 
-	constructor(private project: Project) {
-		this.uncommitedFiles = readable([] as ParsedFiles, (set) => {
-			this.getUncommitedFiles().then((files) => {
+	uncommittedFiles(projectId: string) {
+		return readable([] as ParsedFiles, (set) => {
+			this.getUncommitedFiles(projectId).then((files) => {
 				set(files);
 			});
 
-			const unsubscribe = this.listen(set);
+			const unsubscribe = this.listen(projectId, set);
 
 			return unsubscribe;
 		});
 	}
 
-	private async getUncommitedFiles() {
+	private async getUncommitedFiles(projectId: string) {
 		const uncommitedFiles = await invoke<unknown[]>('get_uncommited_files', {
-			id: this.project.id
+			id: projectId
 		});
 
 		const orderedFiles = plainToInstance(RemoteFile, uncommitedFiles).sort((a, b) =>
@@ -34,8 +33,8 @@ export class UncommitedFilesWatcher {
 		return parseRemoteFiles(orderedFiles);
 	}
 
-	private listen(callback: (files: ParsedFiles) => void) {
-		return listen<unknown[]>(`project://${this.project.id}/uncommited-files`, (event) => {
+	private listen(projectId: string, callback: (files: ParsedFiles) => void) {
+		return listen<unknown[]>(`project://${projectId}/uncommited-files`, (event) => {
 			const orderedFiles = plainToInstance(RemoteFile, event.payload).sort((a, b) =>
 				a.path?.localeCompare(b.path)
 			);

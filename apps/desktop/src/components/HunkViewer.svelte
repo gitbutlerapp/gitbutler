@@ -8,7 +8,6 @@
 	import { HunkDropData } from '$lib/dragging/draggables';
 	import { DropzoneRegistry } from '$lib/dragging/registry';
 	import { type Hunk } from '$lib/hunks/hunk';
-	import { Project } from '$lib/project/project';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { type HunkSection } from '$lib/utils/fileSections';
 	import {
@@ -19,6 +18,7 @@
 	import type { Writable } from 'svelte/store';
 
 	interface Props {
+		projectId: string;
 		filePath: string;
 		section: HunkSection;
 		selectable: boolean;
@@ -31,6 +31,7 @@
 	}
 
 	const {
+		projectId,
 		filePath,
 		section,
 		linesModified,
@@ -46,7 +47,6 @@
 		maybeGetContextStore(SelectedOwnership);
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const stack = maybeGetContextStore(BranchStack);
-	const project = getContext(Project);
 	const dropzoneRegistry = getContext(DropzoneRegistry);
 
 	let alwaysShow = $state(false);
@@ -64,14 +64,7 @@
 	}
 </script>
 
-<HunkContextMenu
-	bind:this={contextMenu}
-	trigger={viewport}
-	projectId={project.id}
-	projectPath={project.vscodePath}
-	{filePath}
-	{readonly}
-/>
+<HunkContextMenu bind:this={contextMenu} trigger={viewport} {projectId} {filePath} {readonly} />
 
 <div class="scrollable">
 	<div

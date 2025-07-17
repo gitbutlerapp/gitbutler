@@ -21,7 +21,8 @@ export enum ReduxTag {
 	BranchListing = 'BranchListing',
 	BranchDetails = 'BranchDetails',
 	SnapshotDiff = 'SnapshotDiff',
-	WorkspaceRules = 'WorkspaceRules'
+	WorkspaceRules = 'WorkspaceRules',
+	Project = 'Project'
 }
 
 type Tag<T extends string | number> = {

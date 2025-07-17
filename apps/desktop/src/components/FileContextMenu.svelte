@@ -3,7 +3,7 @@
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { LocalFile } from '$lib/files/file';
 	import { isAnyFile } from '$lib/files/file';
-	import { Project } from '$lib/project/project';
+	import { vscodePath } from '$lib/project/project';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
@@ -24,14 +24,21 @@
 	interface Props {
 		isUnapplied: boolean;
 		projectId: string;
+		projectPath: string;
 		stackId?: string;
 		trigger?: HTMLElement;
 		isBinary?: boolean;
 	}
 
-	const { projectId, stackId, trigger, isUnapplied, isBinary = false }: Props = $props();
+	const {
+		projectId,
+		projectPath,
+		stackId,
+		trigger,
+		isUnapplied,
+		isBinary = false
+	}: Props = $props();
 
-	const project = getContext(Project);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 	const stackService = getContext(StackService);
 
@@ -80,8 +87,7 @@
 					<ContextMenuItem
 						label="Copy path"
 						onclick={async () => {
-							if (!project) return;
-							const absPath = await join(project.path, item.files[0].path);
+							const absPath = await join(projectPath, item.files[0].path);
 							await writeClipboard(absPath, {
 								errorMessage: 'Failed to copy path'
 							});
@@ -91,7 +97,6 @@
 					<ContextMenuItem
 						label="Copy relative path"
 						onclick={async () => {
-							if (!project) return;
 							await writeClipboard(item.files[0].path, {
 								errorMessage: 'Failed to copy relative path'
 							});
@@ -104,11 +109,10 @@
 					disabled={isDeleted(item)}
 					onclick={async () => {
 						try {
-							if (!project) return;
 							for (let file of item.files) {
 								const path = getEditorUri({
 									schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
-									path: [project.vscodePath, file.path]
+									path: [vscodePath(projectPath), file.path]
 								});
 								openExternalUrl(path);
 							}

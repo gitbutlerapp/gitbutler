@@ -4,7 +4,6 @@
 	import Section from '$components/Section.svelte';
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
 	import { projectAiExperimentalFeaturesEnabled, projectAiGenEnabled } from '$lib/config/config';
-	import { Project } from '$lib/project/project';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -12,12 +11,13 @@
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 
+	const { projectId }: { projectId: string } = $props();
+
 	const userService = getContext(UserService);
-	const project = getContext(Project);
 	const user = userService.user;
 
-	const aiGenEnabled = $derived(projectAiGenEnabled(project.id));
-	const experimentalAiGenEnabled = $derived(projectAiExperimentalFeaturesEnabled(project.id));
+	const aiGenEnabled = $derived(projectAiGenEnabled(projectId));
+	const experimentalAiGenEnabled = $derived(projectAiExperimentalFeaturesEnabled(projectId));
 </script>
 
 <Section>
@@ -87,8 +87,8 @@
 			Custom prompts
 		{/snippet}
 
-		<AiPromptSelect promptUse="commits" />
-		<AiPromptSelect promptUse="branches" />
+		<AiPromptSelect {projectId} promptUse="commits" />
+		<AiPromptSelect {projectId} promptUse="branches" />
 
 		<Spacer margin={8} />
 

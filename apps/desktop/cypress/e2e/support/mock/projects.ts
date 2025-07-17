@@ -19,13 +19,18 @@ export function listProjects() {
 }
 
 type GetProjectArgs = {
-	id: string;
+	projectId: string;
 };
 
 export function isGetProjectArgs(args: unknown): args is GetProjectArgs {
-	return typeof args === 'object' && args !== null && 'id' in args && typeof args.id === 'string';
+	return (
+		typeof args === 'object' &&
+		args !== null &&
+		'projectId' in args &&
+		typeof args.projectId === 'string'
+	);
 }
 
 export function getProject(args: GetProjectArgs) {
-	return MOCK_PROJECT_A.id === args.id ? MOCK_PROJECT_A : undefined;
+	return MOCK_PROJECT_A.id === args.projectId ? MOCK_PROJECT_A : undefined;
 }

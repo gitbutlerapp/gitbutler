@@ -17,7 +17,6 @@
 		hunkHeaderEquals,
 		type DiffHunk
 	} from '$lib/hunks/hunk';
-	import { Project } from '$lib/project/project';
 	import { type SelectionId } from '$lib/selection/key';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
@@ -57,8 +56,7 @@
 		topPadding
 	}: Props = $props();
 
-	const [project, uiState, dropzoneRegistry, dragStateService] = inject(
-		Project,
+	const [uiState, dropzoneRegistry, dragStateService] = inject(
 		UiState,
 		DropzoneRegistry,
 		DragStateService
@@ -291,7 +289,6 @@
 				<HunkContextMenu
 					bind:this={contextMenu}
 					trigger={viewport}
-					projectPath={project.vscodePath}
 					{projectId}
 					{change}
 					discardable={isUncommittedChange}

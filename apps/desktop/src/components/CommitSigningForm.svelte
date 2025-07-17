@@ -4,7 +4,6 @@
 	import SectionCardDisclaimer from '$components/SectionCardDisclaimer.svelte';
 	import { invoke } from '$lib/backend/ipc';
 	import { GitConfigService } from '$lib/config/gitConfigService';
-	import { Project } from '$lib/project/project';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
@@ -15,14 +14,15 @@
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import { onMount } from 'svelte';
 
-	const project = getContext(Project);
+	const { projectId }: { projectId: string } = $props();
+
 	const gitConfig = getContext(GitConfigService);
 
 	let signCommits = $state(false);
 
 	async function setSignCommits(targetState: boolean) {
 		signCommits = targetState;
-		await gitConfig.setGbConfig(project.id, { signCommits: targetState });
+		await gitConfig.setGbConfig(projectId, { signCommits: targetState });
 	}
 
 	// gpg.format
@@ -62,7 +62,7 @@
 		errorMessage = '';
 		checked = true;
 		loading = true;
-		await invoke('check_signing_settings', { id: project.id })
+		await invoke('check_signing_settings', { id: projectId })
 			.then((_) => {
 				signCheckResult = true;
 			})
@@ -81,11 +81,11 @@
 			gpgProgram: signingFormat === 'openpgp' ? signingProgram : '',
 			gpgSshProgram: signingFormat === 'ssh' ? signingProgram : ''
 		};
-		await gitConfig.setGbConfig(project.id, signUpdate);
+		await gitConfig.setGbConfig(projectId, signUpdate);
 	}
 
 	onMount(async () => {
-		let gitConfigSettings = await gitConfig.getGbConfig(project.id);
+		let gitConfigSettings = await gitConfig.getGbConfig(projectId);
 		signCommits = gitConfigSettings.signCommits || false;
 		signingFormat = gitConfigSettings.signingFormat || 'openpgp';
 		signingKey = gitConfigSettings.signingKey || '';

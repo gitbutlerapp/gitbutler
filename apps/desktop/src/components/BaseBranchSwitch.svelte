@@ -2,7 +2,6 @@
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import { Project } from '$lib/project/project';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -10,8 +9,8 @@
 	import Select from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 
-	const project = getContext(Project);
-	const projectId = $derived(project.id);
+	const { projectId }: { projectId: string } = $props();
+
 	const baseBranch = getContext(BaseBranch);
 	const stackService = getContext(StackService);
 	const baseBranchService = getContext(BaseBranchService);
@@ -31,12 +30,8 @@
 		}));
 	}
 
-	async function switchTarget(branch: string, remote?: string) {
-		await setBaseBranchTarget({
-			projectId: project.id,
-			branch,
-			pushRemote: remote
-		});
+	async function switchTarget(branch: string, pushRemote?: string) {
+		await setBaseBranchTarget({ projectId, branch, pushRemote });
 	}
 
 	async function onSetBaseBranchClick() {
