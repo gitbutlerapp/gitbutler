@@ -66,7 +66,7 @@
 	const reviewMap = $derived(new Map(filteredReviews?.map((r) => [r.sourceBranch, r])));
 
 	const isDivergedResolved = $derived(base?.diverged && !baseResolutionApproach);
-	const [integrateUpstream] = $derived(upstreamIntegrationService.integrateUpstream(projectId));
+	const [integrateUpstream] = $derived(upstreamIntegrationService.integrateUpstream());
 
 	$effect(() => {
 		if (!modal?.imports.open) return;
