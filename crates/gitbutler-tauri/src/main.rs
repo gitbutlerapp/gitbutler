@@ -299,6 +299,7 @@ fn main() {
                     workspace::move_changes_between_commits,
                     workspace::uncommit_changes,
                     workspace::split_branch,
+                    workspace::split_branch_into_dependent_branch,
                     diff::changes_in_worktree,
                     diff::commit_details,
                     diff::changes_in_branch,

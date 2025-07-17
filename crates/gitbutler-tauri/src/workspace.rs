@@ -366,6 +366,42 @@ pub fn split_branch(
     Ok(move_changes_result.into())
 }
 
+#[allow(clippy::too_many_arguments)]
+#[tauri::command(async)]
+#[instrument(skip(projects, settings), err(Debug))]
+pub fn split_branch_into_dependent_branch(
+    projects: State<'_, projects::Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
+    project_id: ProjectId,
+    source_stack_id: StackId,
+    source_branch_name: String,
+    new_branch_name: String,
+    file_changes_to_split_off: Vec<String>,
+) -> Result<UIMoveChangesResult, Error> {
+    let project = projects.get(project_id)?;
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+    let mut guard = project.exclusive_worktree_access();
+
+    let _ = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::SplitBranch),
+        guard.write_permission(),
+    );
+
+    let move_changes_result = but_workspace::split_into_dependent_branch(
+        &ctx,
+        source_stack_id,
+        source_branch_name,
+        new_branch_name.clone(),
+        &file_changes_to_split_off,
+        settings.get()?.context_lines,
+    )?;
+
+    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    update_workspace_commit(&vb_state, &ctx)?;
+
+    Ok(move_changes_result.into())
+}
+
 /// Uncommits the changes specified in the `diffspec`.
 ///
 /// If `assign_to` is provided, the changes will be assigned to the stack
