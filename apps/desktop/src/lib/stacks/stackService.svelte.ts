@@ -29,7 +29,6 @@ import type { TreeChange, TreeChanges } from '$lib/hunks/change';
 import type { DiffSpec, Hunk } from '$lib/hunks/hunk';
 import type { BranchDetails, Stack, StackDetails } from '$lib/stacks/stack';
 import type { PropertiesFn } from '$lib/state/customHooks.svelte';
-import type { User } from '$lib/user/user';
 
 type BranchParams = {
 	name?: string;
@@ -593,10 +592,6 @@ export class StackService {
 
 	get unapply() {
 		return this.api.endpoints.unapply.mutate;
-	}
-
-	get publishBranch() {
-		return this.api.endpoints.publishBranch.useMutation();
 	}
 
 	get discardChanges() {
@@ -1229,19 +1224,6 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesList(ReduxTag.Stacks),
 					invalidatesList(ReduxTag.BranchListing)
-				]
-			}),
-			publishBranch: build.mutation<
-				string,
-				{ projectId: string; stackId: string; user: User; topBranch: string }
-			>({
-				extraOptions: {
-					command: 'push_stack_to_review',
-					actionName: 'Publish Stack'
-				},
-				query: (args) => args,
-				invalidatesTags: (_result, _error, args) => [
-					invalidatesItem(ReduxTag.StackDetails, args.stackId)
 				]
 			}),
 			// TODO: Why is this not part of the regular update call?

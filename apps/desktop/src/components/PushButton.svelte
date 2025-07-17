@@ -6,7 +6,6 @@
 	} from '$lib/stacks/stack';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
-	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -32,14 +31,9 @@
 	}: Props = $props();
 
 	const stackService = getContext(StackService);
-	const userService = getContext(UserService);
-	const user = userService.user;
 	const stackInfoResult = $derived(stackService.stackInfo(projectId, stackId));
 	const stackInfo = $derived(stackInfoResult.current.data);
-	const branchesResult = $derived(stackService.branches(projectId, stackId));
-	const branches = $derived(branchesResult.current.data || []);
 	const [pushStack, pushResult] = stackService.pushStack;
-	const [publishBranch, publishResult] = stackService.publishBranch;
 
 	const requiresForce = $derived(stackInfo && stackRequiresForcePush(stackInfo));
 	const hasThingsToPush = $derived(stackInfo && stackHasUnpushedCommits(stackInfo));
@@ -57,19 +51,9 @@
 	async function push() {
 		if (requiresForce === undefined) return;
 		await pushStack({ projectId, stackId, withForce: requiresForce, branch: branchName });
-
-		// Update published branches if they have already been published before
-		const topPushedBranch = branches.find((branch) => branch.reviewId);
-		if (topPushedBranch && $user) {
-			await publishBranch({ projectId, stackId, topBranch: topPushedBranch.name, user: $user });
-		}
 	}
 
-	const loading = $derived(
-		pushResult.current.isLoading ||
-			stackInfoResult.current.isLoading ||
-			publishResult.current.isLoading
-	);
+	const loading = $derived(pushResult.current.isLoading || stackInfoResult.current.isLoading);
 
 	function getButtonTooltip() {
 		if (!hasThingsToPush) {

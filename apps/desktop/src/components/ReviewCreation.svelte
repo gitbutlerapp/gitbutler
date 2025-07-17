@@ -15,24 +15,17 @@
 	import MessageEditor from '$components/editor/MessageEditor.svelte';
 	import MessageEditorInput from '$components/editor/MessageEditorInput.svelte';
 	import { AIService } from '$lib/ai/service';
-	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { type Commit } from '$lib/branches/v3';
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import { ButRequestDetailsService } from '$lib/forge/butRequestDetailsService';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
 	import { GitHubPrService } from '$lib/forge/github/githubPrService.svelte';
 	import { type PullRequest } from '$lib/forge/interface/types';
 	import { PrPersistedStore, PrTemplateStore } from '$lib/forge/prContents';
-	import {
-		BrToPrService,
-		updatePrDescriptionTables as updatePrStackInfo
-	} from '$lib/forge/shared/prFooter';
+	import { updatePrDescriptionTables as updatePrStackInfo } from '$lib/forge/shared/prFooter';
 	import { TemplateService } from '$lib/forge/templateService';
-	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { showError, showToast } from '$lib/notifications/toasts';
-	import { ProjectsService } from '$lib/project/projectsService';
 	import { RemotesService } from '$lib/remotes/remotesService';
 	import { requiresPush } from '$lib/stacks/stack';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -58,17 +51,12 @@
 		onClose: () => void;
 	};
 
-	const { projectId, stackId, branchName, prNumber, reviewId, onClose }: Props = $props();
+	const { projectId, stackId, branchName, prNumber, onClose }: Props = $props();
 
 	const baseBranch = getContext(BaseBranch);
 	const forge = getContext(DefaultForgeFactory);
 	const prService = $derived(forge.current.prService);
-	const stackPublishingService = getContext(StackPublishingService);
-	const butRequestDetailsService = getContext(ButRequestDetailsService);
-	const brToPrService = getContext(BrToPrService);
-	const posthog = getContext(PostHogWrapper);
 	const stackService = getContext(StackService);
-	const projectsService = getContext(ProjectsService);
 	const userService = getContext(UserService);
 	const aiService = getContext(AIService);
 	const remotesService = getContext(RemotesService);
@@ -76,9 +64,7 @@
 	const templateService = getContext(TemplateService);
 
 	const user = userService.user;
-	const project = projectsService.getProjectStore(projectId);
 
-	const [publishBranch, branchPublishing] = stackService.publishBranch;
 	const [pushStack, stackPush] = stackService.pushStack;
 
 	const branchesResult = $derived(stackService.branches(projectId, stackId));
@@ -96,8 +82,6 @@
 	const commitsResult = $derived(stackService.commits(projectId, stackId, branchName));
 	const commits = $derived(commitsResult.current.data || []);
 
-	const canPublish = stackPublishingService.canPublish;
-
 	const prResult = $derived(prNumber ? prService?.get(prNumber) : undefined);
 	const pr = $derived(prResult?.current.data);
 
@@ -105,7 +89,6 @@
 	const baseBranchName = $derived(baseBranch.shortName);
 
 	const createDraft = persisted<boolean>(false, 'createDraftPr');
-	const createButlerRequest = persisted<boolean>(false, 'createButlerRequest');
 	const createPullRequest = persisted<boolean>(true, 'createPullRequest');
 
 	const pushBeforeCreate = $derived(
@@ -128,14 +111,8 @@
 	});
 
 	let isCreatingReview = $state<boolean>(false);
-	const isExecuting = $derived(
-		branchPublishing.current.isLoading ||
-			stackPush.current.isLoading ||
-			aiIsLoading ||
-			isCreatingReview
-	);
+	const isExecuting = $derived(stackPush.current.isLoading || aiIsLoading || isCreatingReview);
 
-	const canPublishBR = $derived(!!($canPublish && branchName && !reviewId));
 	const canPublishPR = $derived(!!(forge.current.authenticated && !pr));
 
 	async function getDefaultTitle(commits: Commit[]): Promise<string> {
@@ -208,17 +185,6 @@
 		return upstreamBranchName;
 	}
 
-	function shouldAddPrBody() {
-		// If there is a branch review already, then the BR to PR sync will
-		// update the PR description for us.
-		if (reviewId) return false;
-		// If we can't publish a BR, then we must add the PR description
-		if (!canPublishBR) return true;
-		// If the user wants to create a butler request then we don't want
-		// to add the PR body as it will be handled by the syncing
-		return !$createButlerRequest;
-	}
-
 	export async function createReview() {
 		if (isExecuting) return;
 		if (!$user) return;
@@ -229,7 +195,7 @@
 		const closureStackId = stackId;
 		const closureBranchName = branchName;
 		const title = $prTitle;
-		const body = shouldAddPrBody() ? effectivePRBody : '';
+		const body = effectivePRBody;
 		const draft = $createDraft;
 
 		try {
@@ -238,45 +204,14 @@
 
 			const upstreamBranchName = await pushIfNeeded(closureBranchName);
 
-			let newReviewId: string | undefined;
-			let newPrNumber: number | undefined;
-
-			// Even if createButlerRequest is false, if we _cant_ create a PR, then
-			// We want to always create the BR, and vice versa.
-			if ((canPublishBR && $createButlerRequest) || !canPublishPR) {
-				const reviewId = await publishBranch({
-					projectId,
-					stackId,
-					topBranch: branchName,
-					user: $user
-				});
-				if (!reviewId) {
-					posthog.capture('Butler Review Creation Failed');
-					return;
-				}
-				posthog.capture('Butler Review Created');
-				butRequestDetailsService.setDetails(reviewId, $prTitle, effectivePRBody);
-			}
-
-			if ((canPublishPR && $createPullRequest) || !canPublishBR) {
-				const pr = await createPr({
-					stackId: closureStackId,
-					branchName: closureBranchName,
-					title,
-					body,
-					draft,
-					upstreamBranchName
-				});
-				newPrNumber = pr?.number;
-			}
-
-			if (newReviewId && newPrNumber && $project?.api?.repository_id) {
-				brToPrService.refreshButRequestPrDescription(
-					newPrNumber,
-					newReviewId,
-					$project.api.repository_id
-				);
-			}
+			await createPr({
+				stackId: closureStackId,
+				branchName: closureBranchName,
+				title,
+				body,
+				draft,
+				upstreamBranchName
+			});
 
 			prBody.reset();
 			prTitle.reset();
@@ -376,10 +311,7 @@
 	}
 
 	const isCreateButtonEnabled = $derived.by(() => {
-		if ((canPublishBR && $createButlerRequest) || !canPublishPR) {
-			return true;
-		}
-		if ((canPublishPR && $createPullRequest) || !canPublishBR) {
+		if (canPublishPR && $createPullRequest) {
 			return true;
 		}
 		return false;
