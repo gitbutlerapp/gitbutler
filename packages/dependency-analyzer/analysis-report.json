@@ -1,0 +1,1052 @@
+{
+	"stats": {
+		"totalFiles": 466,
+		"totalSymbols": 2564,
+		"totalDependencies": 2704,
+		"unusedExports": 139,
+		"unusedFiles": 12,
+		"circularDependencies": 1,
+		"analysisTime": 164
+	},
+	"unusedExports": [
+		{
+			"name": "isEditableCommit",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/lib.ts",
+			"line": 54,
+			"column": 1
+		},
+		{
+			"name": "getCommitType",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/lib.ts",
+			"line": 60,
+			"column": 1
+		},
+		{
+			"name": "convertRemoteToWebUrl",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/utils/url.ts",
+			"line": 26,
+			"column": 1
+		},
+		{
+			"name": "parseDate",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/utils/time.ts",
+			"line": 3,
+			"column": 1
+		},
+		{
+			"name": "toHumanReadableDate",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/utils/time.ts",
+			"line": 14,
+			"column": 1
+		},
+		{
+			"name": "updateDom",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/utils/theme.ts",
+			"line": 24,
+			"column": 1
+		},
+		{
+			"name": "collapse",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/utils/paths.ts",
+			"line": 1,
+			"column": 1
+		},
+		{
+			"name": "joinClassNames",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/utils/joinClassNames.ts",
+			"line": 1,
+			"column": 1
+		},
+		{
+			"name": "groupBy",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/utils/groupBy.ts",
+			"line": 2,
+			"column": 1
+		},
+		{
+			"name": "debouncedDerive",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/utils/debounce.ts",
+			"line": 31,
+			"column": 1
+		},
+		{
+			"name": "itemsSatisfy",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/utils/array.ts",
+			"line": 7,
+			"column": 1
+		},
+		{
+			"name": "groupByCondition",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/utils/array.ts",
+			"line": 41,
+			"column": 1
+		},
+		{
+			"name": "uniqueBy",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/utils/array.ts",
+			"line": 61,
+			"column": 1
+		},
+		{
+			"name": "outerJoinBy",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/utils/array.ts",
+			"line": 71,
+			"column": 1
+		},
+		{
+			"name": "leftJoinBy",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/utils/array.ts",
+			"line": 91,
+			"column": 1
+		},
+		{
+			"name": "NameAndBranchStatus",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/upstream/types.ts",
+			"line": 9,
+			"column": 1
+		},
+		{
+			"name": "TreeStatus",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/upstream/types.ts",
+			"line": 32,
+			"column": 1
+		},
+		{
+			"name": "StackStatusesWithBranches",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/upstream/types.ts",
+			"line": 38,
+			"column": 1
+		},
+		{
+			"name": "getResolutionApproach",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/upstream/types.ts",
+			"line": 94,
+			"column": 1
+		},
+		{
+			"name": "sortStatusInfo",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/upstream/types.ts",
+			"line": 106,
+			"column": 1
+		},
+		{
+			"name": "logs",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/support/dataSharing.ts",
+			"line": 3,
+			"column": 1
+		},
+		{
+			"name": "projectData",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/support/dataSharing.ts",
+			"line": 7,
+			"column": 1
+		},
+		{
+			"name": "setup",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/testing/setup.ts",
+			"line": 45,
+			"column": 1
+		},
+		{
+			"name": "getSettingsdServiceMock",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/testing/mockSettingsdService.ts",
+			"line": 3,
+			"column": 1
+		},
+		{
+			"name": "mockReduxPending",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/testing/mockRedux.ts",
+			"line": 14,
+			"column": 1
+		},
+		{
+			"name": "setupMockGitHubApi",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/testing/mockGitHubApi.svelte.ts",
+			"line": 25,
+			"column": 1
+		},
+		{
+			"name": "getMockBaseBranchCommit",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/testing/mockBaseBranch.ts",
+			"line": 3,
+			"column": 1
+		},
+		{
+			"name": "getMockCommit",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/testing/mockBaseBranch.ts",
+			"line": 9,
+			"column": 1
+		},
+		{
+			"name": "shallowDeduplicate",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/stores/shallowDeduplicate.ts",
+			"line": 4,
+			"column": 1
+		},
+		{
+			"name": "providesItems",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/state/tags.ts",
+			"line": 54,
+			"column": 1
+		},
+		{
+			"name": "mapReduxResult",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/state/helpers.ts",
+			"line": 70,
+			"column": 1
+		},
+		{
+			"name": "selectSelectNthAfterId",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/state/customSelectors.ts",
+			"line": 35,
+			"column": 1
+		},
+		{
+			"name": "createBackendApi",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/state/clientState.svelte.ts",
+			"line": 181,
+			"column": 1
+		},
+		{
+			"name": "createGitLabApi",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/state/clientState.svelte.ts",
+			"line": 218,
+			"column": 1
+		},
+		{
+			"name": "SubscribeResult",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/state/butlerModule.ts",
+			"line": 165,
+			"column": 1
+		},
+		{
+			"name": "FetchResult",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/state/butlerModule.ts",
+			"line": 172,
+			"column": 1
+		},
+		{
+			"name": "CommitIdOrChangeId",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/stacks/stackService.svelte.ts",
+			"line": 94,
+			"column": 1
+		},
+		{
+			"name": "branchRefName",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/stacks/stack.ts",
+			"line": 105,
+			"column": 1
+		},
+		{
+			"name": "stackIsIntegrated",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/stacks/stack.ts",
+			"line": 204,
+			"column": 1
+		},
+		{
+			"name": "NewStackDzHandler",
+			"type": "class",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/stacks/dropHandler.ts",
+			"line": 11,
+			"column": 1
+		},
+		{
+			"name": "FileIdSelection",
+			"type": "class",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/selection/fileIdSelection.ts",
+			"line": 39,
+			"column": 1
+		},
+		{
+			"name": "isProjectPath",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/routes/routes.svelte.ts",
+			"line": 13,
+			"column": 1
+		},
+		{
+			"name": "isProjectSettingsPath",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/routes/routes.svelte.ts",
+			"line": 32,
+			"column": 1
+		},
+		{
+			"name": "isPreviewStackPath",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/routes/routes.svelte.ts",
+			"line": 72,
+			"column": 1
+		},
+		{
+			"name": "previewStackPath",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/routes/routes.svelte.ts",
+			"line": 76,
+			"column": 1
+		},
+		{
+			"name": "isCommitPath",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/routes/routes.svelte.ts",
+			"line": 80,
+			"column": 1
+		},
+		{
+			"name": "settingsPath",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/routes/routes.svelte.ts",
+			"line": 84,
+			"column": 1
+		},
+		{
+			"name": "getChatsWithoutPopup",
+			"type": "variable",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/irc/ircSlice.ts",
+			"line": 381,
+			"column": 14
+		},
+		{
+			"name": "getConnectionState",
+			"type": "variable",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/irc/ircSlice.ts",
+			"line": 390,
+			"column": 14
+		},
+		{
+			"name": "ircReducer",
+			"type": "variable",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/irc/ircSlice.ts",
+			"line": 414,
+			"column": 14
+		},
+		{
+			"name": "isFileAdditionHunk",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/hunks/hunk.ts",
+			"line": 347,
+			"column": 1
+		},
+		{
+			"name": "TooLarge",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/hunks/diff.ts",
+			"line": 14,
+			"column": 1
+		},
+		{
+			"name": "previousPathBytesFromTreeChange",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/hunks/change.ts",
+			"line": 36,
+			"column": 1
+		},
+		{
+			"name": "isChangeStatus",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/hunks/change.ts",
+			"line": 89,
+			"column": 1
+		},
+		{
+			"name": "Addition",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/hunks/change.ts",
+			"line": 98,
+			"column": 1
+		},
+		{
+			"name": "Deletion",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/hunks/change.ts",
+			"line": 105,
+			"column": 1
+		},
+		{
+			"name": "IgnoredChangeStatus",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/hunks/change.ts",
+			"line": 150,
+			"column": 1
+		},
+		{
+			"name": "SnapsotDiffByPath",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/history/snapshotDiffService.svelte.ts",
+			"line": 6,
+			"column": 1
+		},
+		{
+			"name": "closedStateSync",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/forge/closedStateSync.svelte.ts",
+			"line": 16,
+			"column": 1
+		},
+		{
+			"name": "FocusArea",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/focus/focusManager.svelte.ts",
+			"line": 6,
+			"column": 1
+		},
+		{
+			"name": "snapshotChangesFocusableId",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/focus/focusManager.svelte.ts",
+			"line": 43,
+			"column": 1
+		},
+		{
+			"name": "parseSnapshotChangesFocusableId",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/focus/focusManager.svelte.ts",
+			"line": 47,
+			"column": 1
+		},
+		{
+			"name": "getDir",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/files/utils.ts",
+			"line": 5,
+			"column": 1
+		},
+		{
+			"name": "sortLikeFileTree",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/files/filetree.ts",
+			"line": 66,
+			"column": 1
+		},
+		{
+			"name": "FetchSignal",
+			"type": "class",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/fetchSignal/fetchSignal.ts",
+			"line": 4,
+			"column": 1
+		},
+		{
+			"name": "isUserMessage",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/feed/feed.ts",
+			"line": 65,
+			"column": 1
+		},
+		{
+			"name": "isAssistantMessage",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/feed/feed.ts",
+			"line": 70,
+			"column": 1
+		},
+		{
+			"name": "isBackendError",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/error/typeguards.ts",
+			"line": 3,
+			"column": 1
+		},
+		{
+			"name": "buildNewStackOrder",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/dragging/stackingReorderDropzoneManager.ts",
+			"line": 109,
+			"column": 1
+		},
+		{
+			"name": "NON_DRAGGABLE",
+			"type": "variable",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/dragging/draggables.ts",
+			"line": 7,
+			"column": 14
+		},
+		{
+			"name": "NonDraggableConfig",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/dragging/draggable.ts",
+			"line": 12,
+			"column": 1
+		},
+		{
+			"name": "draggableCommit",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/dragging/draggable.ts",
+			"line": 280,
+			"column": 1
+		},
+		{
+			"name": "workspaceSwapPanels",
+			"type": "variable",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/config/uiFeatureFlags.ts",
+			"line": 10,
+			"column": 14
+		},
+		{
+			"name": "GitCredentialCheck",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/config/gitConfigService.ts",
+			"line": 3,
+			"column": 1
+		},
+		{
+			"name": "CredentialCheckError",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/config/gitConfigService.ts",
+			"line": 9,
+			"column": 1
+		},
+		{
+			"name": "GbConfig",
+			"type": "class",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/config/gitConfigService.ts",
+			"line": 73,
+			"column": 1
+		},
+		{
+			"name": "projectHttpsWarningBannerDismissed",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/config/config.ts",
+			"line": 3,
+			"column": 1
+		},
+		{
+			"name": "projectDeleteBranchesOnMergeWarningDismissed",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/config/config.ts",
+			"line": 8,
+			"column": 1
+		},
+		{
+			"name": "projectPullRequestListingFilter",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/config/config.ts",
+			"line": 31,
+			"column": 1
+		},
+		{
+			"name": "projectLaneCollapsed",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/config/config.ts",
+			"line": 46,
+			"column": 1
+		},
+		{
+			"name": "persistedCommitMessage",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/config/config.ts",
+			"line": 51,
+			"column": 1
+		},
+		{
+			"name": "AppSettings",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/config/appSettingsV2.ts",
+			"line": 61,
+			"column": 1
+		},
+		{
+			"name": "TelemetrySettings",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/config/appSettingsV2.ts",
+			"line": 72,
+			"column": 1
+		},
+		{
+			"name": "FeatureFlags",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/config/appSettingsV2.ts",
+			"line": 83,
+			"column": 1
+		},
+		{
+			"name": "Fetch",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/config/appSettingsV2.ts",
+			"line": 92,
+			"column": 1
+		},
+		{
+			"name": "findLastDivergentCommit",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/commits/utils.ts",
+			"line": 13,
+			"column": 1
+		},
+		{
+			"name": "transformAnyCommit",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/commits/transformers.ts",
+			"line": 4,
+			"column": 1
+		},
+		{
+			"name": "CommitStateType",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/branches/v3.ts",
+			"line": 95,
+			"column": 1
+		},
+		{
+			"name": "filesToOwnership",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/branches/ownership.ts",
+			"line": 9,
+			"column": 1
+		},
+		{
+			"name": "filesToSimpleOwnership",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/branches/ownership.ts",
+			"line": 15,
+			"column": 1
+		},
+		{
+			"name": "updateOwnership",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/branches/ownership.ts",
+			"line": 219,
+			"column": 1
+		},
+		{
+			"name": "BranchHunkDzHandler",
+			"type": "class",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/branches/dropHandler.ts",
+			"line": 6,
+			"column": 1
+		},
+		{
+			"name": "VirtualBranches",
+			"type": "class",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/branches/branch.ts",
+			"line": 8,
+			"column": 1
+		},
+		{
+			"name": "SeriesOrder",
+			"type": "class",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/branches/branch.ts",
+			"line": 180,
+			"column": 1
+		},
+		{
+			"name": "DependencyError",
+			"type": "class",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/branches/branch.ts",
+			"line": 188,
+			"column": 1
+		},
+		{
+			"name": "transformResultToType",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/branches/branch.ts",
+			"line": 194,
+			"column": 1
+		},
+		{
+			"name": "isUserErrorCode",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/backend/ipc.ts",
+			"line": 27,
+			"column": 1
+		},
+		{
+			"name": "readClipboard",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/backend/clipboard.ts",
+			"line": 30,
+			"column": 1
+		},
+		{
+			"name": "NoDefaultTarget",
+			"type": "class",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/baseBranch/baseBranch.ts",
+			"line": 8,
+			"column": 1
+		},
+		{
+			"name": "instrument",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/analytics/sentry.ts",
+			"line": 31,
+			"column": 1
+		},
+		{
+			"name": "formatButRequestDescription",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/forge/shared/prFooter.ts",
+			"line": 106,
+			"column": 1
+		},
+		{
+			"name": "updatePrDescriptionTables",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/forge/shared/prFooter.ts",
+			"line": 188,
+			"column": 1
+		},
+		{
+			"name": "generateFooter",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/forge/shared/prFooter.ts",
+			"line": 217,
+			"column": 1
+		},
+		{
+			"name": "hasGitLab",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/forge/gitlab/gitlabClient.svelte.ts",
+			"line": 68,
+			"column": 1
+		},
+		{
+			"name": "PrState",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/forge/gitlab/gitlab.ts",
+			"line": 14,
+			"column": 1
+		},
+		{
+			"name": "PrCacheKey",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/forge/gitlab/gitlab.ts",
+			"line": 15,
+			"column": 1
+		},
+		{
+			"name": "CheckSuites",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/forge/interface/types.ts",
+			"line": 79,
+			"column": 1
+		},
+		{
+			"name": "MergeResult",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/forge/github/types.ts",
+			"line": 13,
+			"column": 1
+		},
+		{
+			"name": "UpdateResult",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/forge/github/types.ts",
+			"line": 16,
+			"column": 1
+		},
+		{
+			"name": "SuitesResult",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/forge/github/types.ts",
+			"line": 23,
+			"column": 1
+		},
+		{
+			"name": "GitHubCheckSuites",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/forge/github/types.ts",
+			"line": 140,
+			"column": 1
+		},
+		{
+			"name": "parseGitHubCheckSuites",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/forge/github/types.ts",
+			"line": 143,
+			"column": 1
+		},
+		{
+			"name": "octokitFromAccessToken",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/forge/github/octokit.ts",
+			"line": 4,
+			"column": 1
+		},
+		{
+			"name": "GitHubRepoService",
+			"type": "class",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/forge/github/githubRepoService.ts",
+			"line": 8,
+			"column": 1
+		},
+		{
+			"name": "MIN_COMPLETED_AGE",
+			"type": "variable",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/forge/github/githubChecksMonitor.svelte.ts",
+			"line": 9,
+			"column": 14
+		},
+		{
+			"name": "GhArgs",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/forge/github/ghQuery.ts",
+			"line": 76,
+			"column": 1
+		},
+		{
+			"name": "InferGhResponse",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/forge/github/ghQuery.ts",
+			"line": 95,
+			"column": 1
+		},
+		{
+			"name": "hasGitHub",
+			"type": "function",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/forge/github/ghQuery.ts",
+			"line": 132,
+			"column": 1
+		},
+		{
+			"name": "PrState",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/forge/bitbucket/bitbucket.ts",
+			"line": 8,
+			"column": 1
+		},
+		{
+			"name": "PrCacheKey",
+			"type": "type",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/forge/bitbucket/bitbucket.ts",
+			"line": 9,
+			"column": 1
+		},
+		{
+			"name": "Sidebar",
+			"type": "component",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/Sidebar.svelte",
+			"line": 0,
+			"column": 0
+		},
+		{
+			"name": "close",
+			"type": "variable",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/RemoveProjectButton.svelte",
+			"line": 0,
+			"column": 0
+		},
+		{
+			"name": "NotOnGitButlerBranch",
+			"type": "component",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/NotOnGitButlerBranch.svelte",
+			"line": 0,
+			"column": 0
+		},
+		{
+			"name": "close",
+			"type": "variable",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/HunkContextMenu.svelte",
+			"line": 0,
+			"column": 0
+		},
+		{
+			"name": "Footer",
+			"type": "component",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/Footer.svelte",
+			"line": 0,
+			"column": 0
+		},
+		{
+			"name": "CurrentSeries",
+			"type": "component",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/CurrentSeries.svelte",
+			"line": 0,
+			"column": 0
+		},
+		{
+			"name": "close",
+			"type": "variable",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/ConflictResolutionConfirmModal.svelte",
+			"line": 0,
+			"column": 0
+		},
+		{
+			"name": "BranchesViewPR",
+			"type": "component",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/BranchesViewPR.svelte",
+			"line": 0,
+			"column": 0
+		},
+		{
+			"name": "BranchStatus",
+			"type": "component",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/BranchStatus.svelte",
+			"line": 0,
+			"column": 0
+		},
+		{
+			"name": "BranchLaneContextMenu",
+			"type": "component",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/BranchLaneContextMenu.svelte",
+			"line": 0,
+			"column": 0
+		},
+		{
+			"name": "open",
+			"type": "variable",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/v3/HunkContextMenu.svelte",
+			"line": 0,
+			"column": 0
+		},
+		{
+			"name": "close",
+			"type": "variable",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/v3/HunkContextMenu.svelte",
+			"line": 0,
+			"column": 0
+		},
+		{
+			"name": "setText",
+			"type": "variable",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/editor/MessageEditor.svelte",
+			"line": 0,
+			"column": 0
+		},
+		{
+			"name": "isRichTextMode",
+			"type": "variable",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/editor/MessageEditor.svelte",
+			"line": 0,
+			"column": 0
+		},
+		{
+			"name": "Component",
+			"type": "component",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/test/change-during-async-sees-updates-two-components/Component.svelte",
+			"line": 0,
+			"column": 0
+		},
+		{
+			"name": "Component",
+			"type": "component",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/test/change-during-async-sees-updates/Component.svelte",
+			"line": 0,
+			"column": 0
+		},
+		{
+			"name": "Component",
+			"type": "component",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/test/change-during-async-capturing-state-with-assignment-two-components/Component.svelte",
+			"line": 0,
+			"column": 0
+		},
+		{
+			"name": "Child",
+			"type": "component",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/test/change-during-async-capturing-state-with-assignment-two-components/Child.svelte",
+			"line": 0,
+			"column": 0
+		},
+		{
+			"name": "Component",
+			"type": "component",
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/test/change-during-async-capturing-state-with-assignment/Component.svelte",
+			"line": 0,
+			"column": 0
+		}
+	],
+	"unusedFiles": [
+		{
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/utils/joinClassNames.ts",
+			"lastModified": 1752763163573
+		},
+		{
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/lib/forge/github/octokit.ts",
+			"lastModified": 1752763163562
+		},
+		{
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/Sidebar.svelte",
+			"lastModified": 1751463877025
+		},
+		{
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/Footer.svelte",
+			"lastModified": 1750238929347
+		},
+		{
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/CurrentSeries.svelte",
+			"lastModified": 1744545466562
+		},
+		{
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/BranchStatus.svelte",
+			"lastModified": 1744545466552
+		},
+		{
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/BranchLaneContextMenu.svelte",
+			"lastModified": 1750238929339
+		},
+		{
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/test/change-during-async-sees-updates-two-components/Component.svelte",
+			"lastModified": 1750238929361
+		},
+		{
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/test/change-during-async-sees-updates/Component.svelte",
+			"lastModified": 1750238929362
+		},
+		{
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/test/change-during-async-capturing-state-with-assignment-two-components/Component.svelte",
+			"lastModified": 1750238929361
+		},
+		{
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/test/change-during-async-capturing-state-with-assignment-two-components/Child.svelte",
+			"lastModified": 1750238929361
+		},
+		{
+			"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/test/change-during-async-capturing-state-with-assignment/Component.svelte",
+			"lastModified": 1750238929361
+		}
+	],
+	"circularDependencies": [
+		[
+			{
+				"name": "FileTreeNode",
+				"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/FileTreeNode.svelte"
+			},
+			{
+				"name": "FileTreeNode",
+				"filePath": "/Users/calebowens/Sherman/projects/gitbutler-client/apps/desktop/src/components/FileTreeNode.svelte"
+			}
+		]
+	],
+	"savings": {
+		"linesOfCode": 1917,
+		"filesCount": 12
+	}
+}
