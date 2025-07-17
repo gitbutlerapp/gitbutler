@@ -20,7 +20,7 @@ tokio = { version = "1.45.1", default-features = false }
 keyring = { version = "3.6.1", features = [
     "apple-native",
     "windows-native",
-    "linux-native",
+    "linux-native-sync-persistent",
     "crypto-rust",
 ] }
 anyhow = "1.0.98"
