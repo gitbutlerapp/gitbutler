@@ -1,14 +1,7 @@
 import { changesToDiffSpec } from '$lib/commits/utils';
-import {
-	ChangeDropData,
-	FileDropData,
-	HunkDropData,
-	HunkDropDataV3
-} from '$lib/dragging/draggables';
-import { LocalFile, RemoteFile } from '$lib/files/file';
+import { ChangeDropData, HunkDropData, HunkDropDataV3 } from '$lib/dragging/draggables';
 import { untrack } from 'svelte';
 import type { DropzoneHandler } from '$lib/dragging/handler';
-import type { DiffSpec } from '$lib/hunks/hunk';
 import type { StackService } from '$lib/stacks/stackService.svelte';
 import type { UiState } from '$lib/state/uiState.svelte';
 
@@ -380,57 +373,6 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 }
 
 /**
- * Handler that is able to amend a commit using `AnyFile`.
- */
-export class AmendCommitDzHandler implements DropzoneHandler {
-	constructor(
-		private args: {
-			stackService: StackService;
-			okWithForce: boolean;
-			projectId: string;
-			stackId: string;
-			commit: DzCommitData;
-		}
-	) {}
-
-	accepts(dropData: unknown): boolean {
-		const { stackId, commit, okWithForce } = this.args;
-		if (!okWithForce && commit.isRemote) return false;
-		if (commit.isIntegrated) return false;
-		return (
-			dropData instanceof FileDropData &&
-			dropData.stackId === stackId &&
-			dropData.commit?.id !== commit.id &&
-			!commit.hasConflicts
-		);
-	}
-
-	ondrop(data: FileDropData): void {
-		const { stackService, projectId, stackId, commit } = this.args;
-		if (data.file instanceof LocalFile) {
-			stackService.amendCommitMutation({
-				projectId,
-				stackId,
-				commitId: commit.id,
-				worktreeChanges: filesToDiffSpec(data)
-			});
-		} else if (data.file instanceof RemoteFile) {
-			// this is a file from a commit, rather than an uncommitted file
-			if (data.commit) {
-				stackService.moveChangesBetweenCommits({
-					projectId,
-					destinationStackId: stackId,
-					destinationCommitId: commit.id,
-					sourceStackId: data.stackId,
-					sourceCommitId: data.commit.id,
-					changes: filesToDiffSpec(data)
-				});
-			}
-		}
-	}
-}
-
-/**
  * Handler that is able to squash two commits using `DzCommitData`.
  */
 export class SquashCommitDzHandler implements DropzoneHandler {
@@ -465,17 +407,6 @@ export class SquashCommitDzHandler implements DropzoneHandler {
 			});
 		}
 	}
-}
-
-/** Helper function that converts `FileDropData` to `DiffSpec`. */
-function filesToDiffSpec(data: FileDropData): DiffSpec[] {
-	return data.files.map((file) => {
-		return {
-			previousPathBytes: null,
-			pathBytes: file.path as any, // Rust type is BString.
-			hunkHeaders: []
-		};
-	});
 }
 
 function updateUiState(

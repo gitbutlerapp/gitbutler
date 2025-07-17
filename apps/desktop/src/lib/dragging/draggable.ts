@@ -1,6 +1,6 @@
 import { getColorFromCommitState } from '$components/lib';
 import { type CommitStatusType } from '$lib/commits/commit';
-import { FileDropData, ChangeDropData, type DropData } from '$lib/dragging/draggables';
+import { ChangeDropData, type DropData } from '$lib/dragging/draggables';
 import { getFileIcon } from '@gitbutler/ui/file/getFileIcon';
 import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 import type { DragStateService } from '$lib/dragging/dragStateService.svelte';
@@ -83,27 +83,6 @@ function setupDragHandlers(
 		// Start drag state tracking
 		if (opts.dragStateService) {
 			endDragging = opts.dragStateService.startDragging();
-		}
-
-		// This should be deleted once V3 design has shipped.
-		if (opts.data instanceof FileDropData) {
-			selectedElements = [];
-			for (const file of opts.data.files) {
-				const element = parentNode.querySelector(`[data-file-id="${file.id}"]`);
-				if (element) {
-					if (file.locked) {
-						element.classList.add('locked-file-animation');
-						element.addEventListener(
-							'animationend',
-							() => {
-								element.classList.remove('locked-file-animation');
-							},
-							{ once: true }
-						);
-					}
-					selectedElements.push(element);
-				}
-			}
 		}
 
 		if (opts.data instanceof ChangeDropData) {

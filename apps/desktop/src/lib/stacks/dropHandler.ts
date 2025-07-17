@@ -1,6 +1,5 @@
-import { filesToOwnership } from '$lib/branches/ownership';
 import { changesToDiffSpec } from '$lib/commits/utils';
-import { ChangeDropData, FileDropData, HunkDropData } from '$lib/dragging/draggables';
+import { ChangeDropData, HunkDropData } from '$lib/dragging/draggables';
 import StackMacros from '$lib/stacks/macros';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { DiffService } from '$lib/hunks/diffService.svelte';
@@ -16,23 +15,15 @@ export class NewStackDzHandler implements DropzoneHandler {
 	) {}
 
 	accepts(data: unknown) {
-		if (data instanceof FileDropData) {
-			return !(data.isCommitted || data.files.some((f) => f.locked));
-		}
 		if (data instanceof HunkDropData) {
 			return !(data.isCommitted || data.hunk.locked);
 		}
 		return false;
 	}
 
-	ondrop(data: FileDropData | HunkDropData) {
-		if (data instanceof HunkDropData) {
-			const ownership = `${data.hunk.filePath}:${data.hunk.id}`;
-			this.stackService.newStackMutation({ projectId: this.projectId, branch: { ownership } });
-		} else if (data instanceof FileDropData) {
-			const ownership = filesToOwnership(data.files);
-			this.stackService.newStackMutation({ projectId: this.projectId, branch: { ownership } });
-		}
+	ondrop(data: HunkDropData) {
+		const ownership = `${data.hunk.filePath}:${data.hunk.id}`;
+		this.stackService.newStackMutation({ projectId: this.projectId, branch: { ownership } });
 	}
 }
 
