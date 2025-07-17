@@ -269,7 +269,7 @@
 				icon="keyboard"
 				kind="ghost"
 				style="neutral"
-				tooltip="Keyboard Shortcuts"
+				tooltip="Keyboard Shortcuts (Coming soon...)"
 				tooltipPosition="top"
 				tooltipAlign="start"
 				width={34}
