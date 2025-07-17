@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { type Commit, type UpstreamCommit } from '$lib/branches/v3';
+	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
@@ -86,8 +87,11 @@
 
 	{#if description}
 		<div
-			class="text-13 description"
+			class="description"
 			class:expanded
+			style:--commit-message-font={$rewrapCommitMessage
+				? 'var(--fontfamily-default)'
+				: 'var(--fontfamily-mono)'}
 			bind:clientWidth={messageWidth}
 			data-testid={TestId.CommitDrawerDescription}
 		>
@@ -97,11 +101,7 @@
 				{abbreviated}
 			{/if}
 			{#if isAbbrev}
-				<button
-					onclick={() => (expanded = !expanded)}
-					type="button"
-					class="readmore text-13 text-semibold"
-				>
+				<button onclick={() => (expanded = !expanded)} type="button" class="readmore text-bold">
 					{#if expanded}
 						less
 					{:else}
@@ -140,8 +140,9 @@
 	}
 
 	.description {
+		font-size: 13px;
 		line-height: var(--text-lineheight-body);
-		font-family: var(--fontfamily-mono);
+		font-family: var(--commit-message-font);
 		white-space: pre-line;
 	}
 
