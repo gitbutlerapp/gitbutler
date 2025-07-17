@@ -174,9 +174,6 @@ async fn main() -> Result<()> {
                 )
             }
         },
-        args::Subcommands::StackBranchCommits { id, name } => {
-            command::stacks::branch_commits(*id, name, &args.current_dir, args.json)
-        }
     }
 }
 

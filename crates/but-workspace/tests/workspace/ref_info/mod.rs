@@ -22,18 +22,21 @@ fn unborn_untracked() -> anyhow::Result<()> {
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: NodeIndex(0),
                         ref_name: "refs/heads/main",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
                         push_status: CompletelyUnpushed,
+                        base: "None",
                     },
                 ],
             },
         ],
-        target_ref: None,
+        target: None,
+        extra_target: None,
+        lower_bound: None,
         is_managed_ref: false,
         is_managed_commit: false,
         is_entrypoint: true,
@@ -56,7 +59,7 @@ fn detached() -> anyhow::Result<()> {
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: NodeIndex(0),
                         ref_name: "None",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -65,11 +68,14 @@ fn detached() -> anyhow::Result<()> {
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
                         push_status: CompletelyUnpushed,
+                        base: "None",
                     },
                 ],
             },
         ],
-        target_ref: None,
+        target: None,
+        extra_target: None,
+        lower_bound: None,
         is_managed_ref: false,
         is_managed_commit: false,
         is_entrypoint: true,
@@ -95,7 +101,7 @@ fn conflicted_in_local_branch() -> anyhow::Result<()> {
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: NodeIndex(0),
                         ref_name: "refs/heads/main",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -105,11 +111,14 @@ fn conflicted_in_local_branch() -> anyhow::Result<()> {
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
                         push_status: CompletelyUnpushed,
+                        base: "None",
                     },
                 ],
             },
         ],
-        target_ref: None,
+        target: None,
+        extra_target: None,
+        lower_bound: None,
         is_managed_ref: false,
         is_managed_commit: false,
         is_entrypoint: true,
@@ -140,7 +149,7 @@ fn single_branch() -> anyhow::Result<()> {
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: NodeIndex(0),
                         ref_name: "refs/heads/main",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -158,11 +167,14 @@ fn single_branch() -> anyhow::Result<()> {
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
                         push_status: CompletelyUnpushed,
+                        base: "None",
                     },
                 ],
             },
         ],
-        target_ref: None,
+        target: None,
+        extra_target: None,
+        lower_bound: None,
         is_managed_ref: false,
         is_managed_commit: false,
         is_entrypoint: true,
@@ -188,7 +200,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: 0,
+                        id: NodeIndex(0),
                         ref_name: "refs/heads/main",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -197,9 +209,10 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
                         push_status: CompletelyUnpushed,
+                        base: "344e320",
                     },
                     ref_info::ui::Segment {
-                        id: 1,
+                        id: NodeIndex(1),
                         ref_name: "refs/heads/nine",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -210,9 +223,10 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
                         push_status: CompletelyUnpushed,
+                        base: "c4f2a35",
                     },
                     ref_info::ui::Segment {
-                        id: 2,
+                        id: NodeIndex(2),
                         ref_name: "refs/heads/six",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -223,9 +237,10 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
                         push_status: CompletelyUnpushed,
+                        base: "281da94",
                     },
                     ref_info::ui::Segment {
-                        id: 3,
+                        id: NodeIndex(3),
                         ref_name: "refs/heads/three",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -235,9 +250,10 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
                         push_status: CompletelyUnpushed,
+                        base: "3d57fc1",
                     },
                     ref_info::ui::Segment {
-                        id: 4,
+                        id: NodeIndex(4),
                         ref_name: "refs/heads/one",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -246,11 +262,14 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: "None",
                         push_status: CompletelyUnpushed,
+                        base: "None",
                     },
                 ],
             },
         ],
-        target_ref: None,
+        target: None,
+        extra_target: None,
+        lower_bound: None,
         is_managed_ref: false,
         is_managed_commit: false,
         is_entrypoint: true,

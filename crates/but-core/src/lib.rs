@@ -69,11 +69,11 @@ pub mod settings;
 pub use settings::git::types::GitConfigSettings;
 
 mod repo_ext;
-use crate::ref_metadata::ValueInfo;
 pub use repo_ext::RepositoryExt;
 
 /// Various types
 pub mod ref_metadata;
+use crate::ref_metadata::ValueInfo;
 
 /// A trait to associate arbitrary metadata with any *Git reference name*.
 /// Note that a single reference name can have multiple distinct pieces of metadata associated with it.
