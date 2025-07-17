@@ -1,71 +1,67 @@
 <script lang="ts">
+	import ReduxResult from '$components/ReduxResult.svelte';
 	import Section from '$components/Section.svelte';
-	import { Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { getContext } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 
+	const { projectId }: { projectId: string } = $props();
 	const projectsService = getContext(ProjectsService);
-	const project = getContext(Project);
-
-	let snaphotLinesThreshold = project?.snapshot_lines_threshold || 20; // when undefined, the default is 20
-	let omitCertificateCheck = project?.omit_certificate_check;
-
-	async function setOmitCertificateCheck(value: boolean | undefined) {
-		project.omit_certificate_check = !!value;
-		await projectsService.updateProject(project);
-	}
-
-	async function setSnapshotLinesThreshold(value: number) {
-		project.snapshot_lines_threshold = value;
-		await projectsService.updateProject(project);
-	}
-
-	async function handleOmitCertificateCheckClick(event: MouseEvent) {
-		await setOmitCertificateCheck((event.target as HTMLInputElement)?.checked);
-	}
+	const projectResult = $derived(projectsService.getProject(projectId));
 </script>
 
-<Section gap={8}>
-	<SectionCard orientation="row" labelFor="omitCertificateCheck">
-		{#snippet title()}
-			Ignore host certificate checks
-		{/snippet}
-		{#snippet caption()}
-			Enabling this will ignore host certificate checks when authenticating with ssh.
-		{/snippet}
-		{#snippet actions()}
-			<Toggle
-				id="omitCertificateCheck"
-				checked={omitCertificateCheck}
-				onclick={handleOmitCertificateCheckClick}
-			/>
-		{/snippet}
-	</SectionCard>
+<ReduxResult {projectId} result={projectResult.current}>
+	{#snippet children(project)}
+		<Section gap={8}>
+			<SectionCard orientation="row" labelFor="omitCertificateCheck">
+				{#snippet title()}
+					Ignore host certificate checks
+				{/snippet}
+				{#snippet caption()}
+					Enabling this will ignore host certificate checks when authenticating with ssh.
+				{/snippet}
+				{#snippet actions()}
+					<Toggle
+						id="omitCertificateCheck"
+						checked={project.omit_certificate_check}
+						onchange={async (value: boolean) => {
+							await projectsService.updateProject({
+								...project,
+								omit_certificate_check: value
+							});
+						}}
+					/>
+				{/snippet}
+			</SectionCard>
 
-	<SectionCard orientation="row" centerAlign>
-		{#snippet title()}
-			Snapshot lines threshold
-		{/snippet}
-		{#snippet caption()}
-			The number of lines that trigger a snapshot when saving.
-		{/snippet}
+			<SectionCard orientation="row" centerAlign>
+				{#snippet title()}
+					Snapshot lines threshold
+				{/snippet}
+				{#snippet caption()}
+					The number of lines that trigger a snapshot when saving.
+				{/snippet}
 
-		{#snippet actions()}
-			<Textbox
-				type="number"
-				width={100}
-				textAlign="center"
-				value={snaphotLinesThreshold?.toString()}
-				minVal={5}
-				maxVal={1000}
-				showCountActions
-				onchange={(value: string) => {
-					setSnapshotLinesThreshold(parseInt(value));
-				}}
-			/>
-		{/snippet}
-	</SectionCard>
-</Section>
+				{#snippet actions()}
+					<Textbox
+						type="number"
+						width={100}
+						textAlign="center"
+						value={project.snapshot_lines_threshold?.toString()}
+						minVal={5}
+						maxVal={1000}
+						showCountActions
+						onchange={async (value: string) => {
+							await projectsService.updateProject({
+								...project,
+								snapshot_lines_threshold: parseInt(value)
+							});
+						}}
+					/>
+				{/snippet}
+			</SectionCard>
+		</Section>
+	{/snippet}
+</ReduxResult>

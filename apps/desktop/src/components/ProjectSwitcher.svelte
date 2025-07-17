@@ -1,26 +1,25 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
-	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import OptionsGroup from '@gitbutler/ui/select/OptionsGroup.svelte';
 	import Select from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 
-	const projectsService = getContext(ProjectsService);
-	const project = maybeGetContext(Project);
+	const { projectId }: { projectId?: string } = $props();
 
-	const projects = $derived(projectsService.projects);
+	const projectsService = getContext(ProjectsService);
+	const projectsResult = $derived(projectsService.projects());
+
+	let selectedId = $state<string>();
 
 	const mappedProjects = $derived(
-		$projects?.map((project) => ({
+		projectsResult.current?.data?.map((project) => ({
 			value: project.id,
 			label: project.title
 		})) || []
 	);
-
-	let selectedProjectId: string | undefined = $state(project ? project.id : undefined);
 
 	let newProjectLoading = $state(false);
 	let cloneProjectLoading = $state(false);
@@ -28,17 +27,17 @@
 
 <div class="project-switcher">
 	<Select
-		value={selectedProjectId}
+		value={projectId}
 		options={mappedProjects}
 		label="Switch to another project"
 		wide
 		onselect={(value) => {
-			selectedProjectId = value;
+			selectedId = value;
 		}}
 		searchable
 	>
 		{#snippet itemSnippet({ item, highlighted })}
-			<SelectItem selected={item.value === selectedProjectId} {highlighted}>
+			<SelectItem selected={item.value === projectId} {highlighted}>
 				{item.label}
 			</SelectItem>
 		{/snippet}
@@ -78,9 +77,9 @@
 	<Button
 		style="pop"
 		icon="chevron-right-small"
-		disabled={selectedProjectId === project?.id}
+		disabled={selectedId === projectId}
 		onmousedown={() => {
-			if (selectedProjectId) goto(`/${selectedProjectId}/`);
+			if (projectId) goto(`/${projectId}/`);
 		}}
 	>
 		Open project

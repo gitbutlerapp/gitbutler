@@ -7,12 +7,11 @@
 	import { ircEnabled } from '$lib/config/uiFeatureFlags';
 	import { IrcService } from '$lib/irc/ircService.svelte';
 	import { platformName } from '$lib/platform/platform';
-	import { Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { ircPath, projectPath } from '$lib/routes/routes.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
-	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import NotificationButton from '@gitbutler/ui/NotificationButton.svelte';
@@ -22,33 +21,31 @@
 
 	type Props = {
 		projectId: string;
+		projectTitle: string;
 		actionsDisabled?: boolean;
 	};
 
-	const { projectId, actionsDisabled = false }: Props = $props();
+	const { projectId, projectTitle, actionsDisabled = false }: Props = $props();
 
 	const projectsService = getContext(ProjectsService);
 	const baseBranchService = getContext(BaseBranchService);
 	const ircService = getContext(IrcService);
-	const project = maybeGetContext(Project);
 	const settingsService = getContext(SettingsService);
 	const uiState = getContext(UiState);
-	const selectedProjectId: string | undefined = $derived(project ? project.id : undefined);
-	const baseReponse = $derived(
-		selectedProjectId ? baseBranchService.baseBranch(selectedProjectId) : undefined
-	);
+	const baseReponse = $derived(projectId ? baseBranchService.baseBranch(projectId) : undefined);
 	const base = $derived(baseReponse?.current.data);
 	const settingsStore = $derived(settingsService.appSettings);
 	const canUseActions = $derived($settingsStore?.featureFlags.actions ?? false);
 
-	const projects = $derived(projectsService.projects);
 	const upstreamCommits = $derived(base?.behind ?? 0);
 	const isHasUpstreamCommits = $derived(upstreamCommits > 0);
 
 	let modal = $state<ReturnType<typeof IntegrateUpstreamModal>>();
 
+	const projects = $derived(projectsService.projects());
+
 	const mappedProjects = $derived(
-		$projects?.map((project) => ({
+		projects.current.data?.map((project) => ({
 			value: project.id,
 			label: project.title
 		})) || []
@@ -72,8 +69,8 @@
 	}
 </script>
 
-{#if selectedProjectId}
-	<IntegrateUpstreamModal bind:this={modal} projectId={selectedProjectId} />
+{#if projectId}
+	<IntegrateUpstreamModal bind:this={modal} {projectId} />
 {/if}
 
 <div class="chrome-header" class:mac={platformName === 'macos'} data-tauri-drag-region>
@@ -85,7 +82,7 @@
 					testId={TestId.IntegrateUpstreamCommitsButton}
 					style="pop"
 					onclick={openModal}
-					disabled={!selectedProjectId || actionsDisabled}
+					disabled={!projectId || actionsDisabled}
 				>
 					{upstreamCommits} upstream commits
 				</Button>
@@ -100,7 +97,7 @@
 	<div class="chrome-center" data-tauri-drag-region>
 		<Select
 			searchable
-			value={selectedProjectId}
+			value={projectId}
 			options={mappedProjects}
 			loading={newProjectLoading || cloneProjectLoading}
 			disabled={newProjectLoading || cloneProjectLoading}
@@ -112,13 +109,13 @@
 		>
 			{#snippet customSelectButton()}
 				<div class="selector-series-select">
-					<span class="text-13 text-bold">{project?.title}</span>
+					<span class="text-13 text-bold">{projectTitle}</span>
 					<div class="selector-series-select__icon"><Icon name="chevron-down-small" /></div>
 				</div>
 			{/snippet}
 
 			{#snippet itemSnippet({ item, highlighted })}
-				<SelectItem selected={item.value === selectedProjectId} {highlighted}>
+				<SelectItem selected={item.value === projectId} {highlighted}>
 					{item.label}
 				</SelectItem>
 			{/snippet}

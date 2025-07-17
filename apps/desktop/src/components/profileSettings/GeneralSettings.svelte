@@ -124,7 +124,6 @@
 		isDeleting = true;
 		try {
 			await settingsService.deleteAllData();
-			await projectsService.reload();
 			projectsService.unsetLastOpenedProject();
 			await userService.logout();
 			// TODO: Delete user from observable!!!

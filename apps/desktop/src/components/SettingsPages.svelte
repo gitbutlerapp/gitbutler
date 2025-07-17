@@ -7,10 +7,18 @@
 		id: string;
 		label: string;
 		icon: keyof typeof iconsJson;
-		component: Component;
 		// Only show for admins.
 		adminOnly?: boolean;
-	};
+	} & (
+		| {
+				type: 'global';
+				component: Component;
+		  }
+		| {
+				type: 'project';
+				component: Component<{ projectId: string }>;
+		  }
+	);
 </script>
 
 <script lang="ts">
@@ -22,6 +30,7 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 
 	type Props = {
+		projectId?: string;
 		title: string;
 		selectedId?: string;
 		pages: Page[];
@@ -34,6 +43,7 @@
 	};
 
 	const {
+		projectId,
 		title,
 		selectedId: selectedId,
 		pages,
@@ -97,7 +107,11 @@
 							{shownPage.label}
 						</h1>
 					{/if}
-					<shownPage.component />
+					{#if projectId && shownPage.type === 'project'}
+						<shownPage.component {projectId} />
+					{:else if shownPage.type === 'global'}
+						<shownPage.component />
+					{/if}
 				{:else}
 					Settings page {selectedId} not Found.
 				{/if}

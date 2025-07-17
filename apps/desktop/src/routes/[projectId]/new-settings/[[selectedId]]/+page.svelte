@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import CloudForm from '$components/CloudForm.svelte';
-	import CloudProjectSettings from '$components/CloudProjectSettings.svelte';
 	import GitForm from '$components/GitForm.svelte';
 	import PreferencesForm from '$components/PreferencesForm.svelte';
 	import SettingsPages, { type Page } from '$components/SettingsPages.svelte';
@@ -10,30 +9,28 @@
 
 	const pages: Page[] = [
 		{
+			type: 'project',
 			id: 'project',
 			label: 'Project',
 			icon: 'profile',
 			component: GeneralSettings
 		},
 		{
-			id: 'cloud',
-			label: 'Cloud',
-			icon: 'bowtie',
-			component: CloudProjectSettings
-		},
-		{
+			type: 'project',
 			id: 'git',
 			label: 'Git stuff',
 			icon: 'git',
 			component: GitForm
 		},
 		{
+			type: 'project',
 			id: 'ai',
 			label: 'AI options',
 			icon: 'ai',
 			component: CloudForm
 		},
 		{
+			type: 'project',
 			id: 'experimental',
 			label: 'Experimental',
 			icon: 'idea',
@@ -47,6 +44,7 @@
 
 <SettingsPages
 	title="Project settings"
+	{projectId}
 	{selectedId}
 	{pages}
 	pageUrl={(pageId) => newProjectSettingsPath(projectId, pageId)}

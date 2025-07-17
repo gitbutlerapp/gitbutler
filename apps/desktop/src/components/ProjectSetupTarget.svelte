@@ -6,7 +6,6 @@
 	import SetupFeature from '$components/SetupFeature.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { platformName } from '$lib/platform/platform';
-	import { Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { UserService } from '$lib/user/userService';
 	import { unique } from '$lib/utils/array';
@@ -19,18 +18,18 @@
 	import type { RemoteBranchInfo } from '$lib/baseBranch/baseBranch';
 
 	interface Props {
+		projectId: string;
 		projectName: string;
 		remoteBranches: RemoteBranchInfo[];
 		onBranchSelected?: (branch: string[]) => void;
 	}
 
-	const { projectName, remoteBranches, onBranchSelected }: Props = $props();
+	const { projectId, projectName, remoteBranches, onBranchSelected }: Props = $props();
 
-	const project = getContext(Project);
 	const userService = getContext(UserService);
 	const user = userService.user;
 
-	const aiGenEnabled = projectAiGenEnabled(project.id);
+	const aiGenEnabled = projectAiGenEnabled(projectId);
 
 	let aiGenCheckbox = $state<Toggle>();
 	let loading = $state<boolean>(false);
@@ -60,8 +59,7 @@
 
 	const projectsService = getContext(ProjectsService);
 	async function deleteProjectAndGoBack() {
-		await projectsService.deleteProject(project.id);
-		await projectsService.reload();
+		await projectsService.deleteProject(projectId);
 
 		if (history.length > 0) {
 			history.back();

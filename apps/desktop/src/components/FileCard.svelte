@@ -6,6 +6,7 @@
 	import type { AnyFile } from '$lib/files/file';
 
 	interface Props {
+		projectId: string;
 		file: AnyFile;
 		isUnapplied: boolean;
 		selectable?: boolean;
@@ -16,6 +17,7 @@
 	}
 
 	const {
+		projectId,
 		file,
 		isUnapplied,
 		commitId,
@@ -39,6 +41,7 @@
 
 	<ScrollableContainer wide>
 		<FileDiff
+			{projectId}
 			filePath={file.path}
 			isLarge={file.large}
 			isBinary={file.binary}

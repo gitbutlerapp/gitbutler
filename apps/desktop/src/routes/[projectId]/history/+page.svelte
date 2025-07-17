@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import FilePreviewPlaceholder from '$components/FilePreviewPlaceholder.svelte';
@@ -10,7 +11,6 @@
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { RemoteFile } from '$lib/files/file';
 	import { HistoryService, createdOnDay } from '$lib/history/history';
-	import { Project } from '$lib/project/project';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
@@ -24,6 +24,9 @@
 	import { plainToInstance } from 'class-transformer';
 	import type { Snapshot, SnapshotDiff } from '$lib/history/types';
 
+	// TODO: Refactor so we don't need non-null assertion.
+	const projectId = $derived(page.params.projectId!);
+
 	const MIN_SNAPSHOTS_TO_LOAD = 30;
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
@@ -31,7 +34,6 @@
 	const sidebarWidth = $derived(uiState.global.historySidebarWidth);
 	let sidebarEl = $state<HTMLElement>();
 
-	const project = getContext(Project);
 	const historyService = getContext(HistoryService);
 	const snapshots = historyService.snapshots;
 
@@ -135,7 +137,7 @@
 								isWithinRestore={withinRestoreItems.includes(entry.id)}
 								{entry}
 								onRestoreClick={() => {
-									historyService.restoreSnapshot(project.id, entry.id);
+									historyService.restoreSnapshot(projectId, entry.id);
 									// In some cases, restoring the snapshot doesnt update the UI correctly
 									// Until we have that figured out, we need to reload the page.
 									location.reload();
@@ -152,7 +154,7 @@
 									} else {
 										snapshotFilesTempStore = {
 											entryId: entry.id,
-											diffs: await historyService.getSnapshotDiff(project.id, entry.id)
+											diffs: await historyService.getSnapshotDiff(projectId, entry.id)
 										};
 										updateFilePreview(entry, path);
 									}

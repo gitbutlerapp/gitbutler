@@ -1,24 +1,47 @@
 <script lang="ts">
 	import ChromeHeader from '$components/ChromeHeader.svelte';
 	import ChromeSidebar from '$components/ChromeSidebar.svelte';
+	import ProjectNotFound from '$components/ProjectNotFound.svelte';
+	import ReduxResult from '$components/ReduxResult.svelte';
+	import { Code, isTauriCommandError } from '$lib/backend/ipc';
+	import { ProjectsService } from '$lib/project/projectsService';
+	import { inject } from '@gitbutler/shared/context';
 	import type { Snippet } from 'svelte';
 
 	const {
 		projectId,
-		children,
+		children: children2,
 		sidebarDisabled = false
 	}: { projectId: string; children: Snippet; sidebarDisabled?: boolean } = $props();
+
+	const [projectService] = inject(ProjectsService);
+	const projectResult = $derived(projectService.getProject(projectId));
 </script>
 
-<div class="chrome">
-	<ChromeHeader {projectId} actionsDisabled={sidebarDisabled} />
-	<div class="chrome-body">
-		<ChromeSidebar disabled={sidebarDisabled} />
-		<div class="chrome-content">
-			{@render children()}
+<ReduxResult {projectId} result={projectResult.current}>
+	{#snippet children(project, env)}
+		<div class="chrome">
+			<ChromeHeader
+				projectId={env.projectId}
+				projectTitle={project.title}
+				actionsDisabled={sidebarDisabled}
+			/>
+			<div class="chrome-body">
+				<ChromeSidebar projectId={env.projectId} disabled={sidebarDisabled} />
+				<div class="chrome-content">
+					{@render children2()}
+				</div>
+			</div>
 		</div>
-	</div>
-</div>
+	{/snippet}
+	{#snippet error(e)}
+		{#if isTauriCommandError(e)}
+			{#if e.code === Code.ProjectMissing}
+				<ProjectNotFound {projectId} />
+			{/if}
+		{/if}
+	{/snippet}
+</ReduxResult>
 
 <style>
 	.chrome {

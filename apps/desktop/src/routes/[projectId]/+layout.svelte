@@ -8,7 +8,7 @@
 	import IrcPopups from '$components/IrcPopups.svelte';
 	import MetricsReporter from '$components/MetricsReporter.svelte';
 	import NoBaseBranch from '$components/NoBaseBranch.svelte';
-	import NotOnGitButlerBranchV3 from '$components/NotOnGitButlerBranch.svelte';
+	import NotOnGitButlerBranch from '$components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$components/ProjectSettingsMenuAction.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
@@ -20,22 +20,16 @@
 	import { showHistoryView } from '$lib/config/config';
 	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { Feed } from '$lib/feed/feed';
-	import { UncommitedFilesWatcher } from '$lib/files/watcher';
 	import { FocusManager } from '$lib/focus/focusManager.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { GitHubClient } from '$lib/forge/github/githubClient';
 	import { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 	import { GitLabState } from '$lib/forge/gitlab/gitlabState.svelte';
-	import { BrToPrService } from '$lib/forge/shared/prFooter';
 	import { TemplateService } from '$lib/forge/templateService';
 	import { HistoryService } from '$lib/history/history';
-	import { StackPublishingService } from '$lib/history/stackPublishingService';
-	import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
 	import { ModeService } from '$lib/mode/modeService';
 	import { showError, showInfo } from '$lib/notifications/toasts';
-	import { Project } from '$lib/project/project';
-	import { projectCloudSync } from '$lib/project/projectCloudSync.svelte';
-	import { ProjectService } from '$lib/project/projectService';
+	import { ProjectsService } from '$lib/project/projectsService';
 	import { getSecretsService } from '$lib/secrets/secretsService';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
@@ -43,27 +37,14 @@
 	import { ClientState } from '$lib/state/clientState.svelte';
 	import { debounce } from '$lib/utils/debounce';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
-	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
 	import { getContext } from '@gitbutler/shared/context';
-	import { HttpClient } from '@gitbutler/shared/network/httpClient';
-	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
-	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { onDestroy, setContext, untrack, type Snippet } from 'svelte';
 	import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 	import type { LayoutData } from './$types';
 
 	const { data, children: pageChildren }: { data: LayoutData; children: Snippet } = $props();
 
-	const {
-		project,
-		projectId,
-		projectsService,
-		userService,
-		fetchSignal,
-		posthog,
-		projectMetrics,
-		tauri
-	} = $derived(data);
+	const { projectId, userService, fetchSignal, posthog, projectMetrics, tauri } = $derived(data);
 
 	const baseBranchService = getContext(BaseBranchService);
 	const repoInfoResponse = $derived(baseBranchService.repo(projectId));
@@ -99,11 +80,9 @@
 	$effect.pre(() => gitHubClient.setToken(accessToken));
 	$effect.pre(() => gitHubClient.setRepo({ owner: repoInfo?.owner, repo: repoInfo?.name }));
 
-	const projectError = $derived(projectsService.error);
-	const projects = $derived(projectsService.projects);
-
-	const cloudProjectService = getContext(CloudProjectService);
-	const latestBranchLookupService = getContext(LatestBranchLookupService);
+	const projectsService = getContext(ProjectsService);
+	const projectsResult = $derived(projectsService.projects());
+	const projects = $derived(projectsResult.current.data);
 
 	$effect.pre(() => {
 		const stackingReorderDropzoneManagerFactory = new StackingReorderDropzoneManagerFactory(
@@ -118,14 +97,9 @@
 		setContext(HistoryService, data.historyService);
 		setContext(TemplateService, data.templateService);
 		setContext(BaseBranch, baseBranch);
-		setContext(Project, project);
 		setContext(GitBranchService, data.gitBranchService);
-		setContext(UncommitedFilesWatcher, data.uncommitedFileWatcher);
-		setContext(ProjectService, data.projectService);
 
 		// Cloud related services
-		setContext(SyncedSnapshotService, data.syncedSnapshotService);
-		setContext(StackPublishingService, data.stackPublishingService);
 		setContext(Feed, feed);
 	});
 
@@ -168,7 +142,7 @@
 			baseBranch: baseBranchName,
 			githubAuthenticated: !!$user?.github_access_token,
 			gitlabAuthenticated: !!$gitlabConfigured,
-			forgeOverride: $projects?.find((project) => project.id === projectId)?.forge_override
+			forgeOverride: projects?.find((project) => project.id === projectId)?.forge_override
 		});
 	});
 
@@ -225,23 +199,8 @@
 		if (intervalId) clearInterval(intervalId);
 	}
 
-	const httpClient = getContext(HttpClient);
-
 	const settingsService = getContext(SettingsService);
 	const settingsStore = settingsService.appSettings;
-
-	const webRoutesService = getContext(WebRoutesService);
-	const brToPrService = new BrToPrService(
-		webRoutesService,
-		cloudProjectService,
-		latestBranchLookupService,
-		forgeFactory
-	);
-	setContext(BrToPrService, brToPrService);
-
-	$effect(() => {
-		projectCloudSync(data.projectsService, data.projectService, httpClient);
-	});
 
 	onDestroy(() => {
 		clearFetchInterval();
@@ -322,44 +281,35 @@
 	});
 </script>
 
-<!-- forces components to be recreated when projectId changes -->
-{#key projectId}
-	<ProjectSettingsMenuAction />
-	<FileMenuAction />
+<ProjectSettingsMenuAction {projectId} />
+<FileMenuAction />
 
-	{#if !project}
-		<p>Project not found!</p>
-	{:else}
-		<ReduxResult {projectId} result={baseBranchResponse.current}>
-			{#snippet children(baseBranch, { projectId })}
-				{#if !baseBranch}
-					<NoBaseBranch />
-				{:else if $projectError}
-					<ProblemLoadingRepo error={$projectError} />
-				{:else if baseBranch}
-					{#if $mode?.type === 'OpenWorkspace' || $mode?.type === 'Edit'}
-						<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
-							<Chrome {projectId} sidebarDisabled={$mode?.type === 'Edit'}>
-								{@render pageChildren()}
-							</Chrome>
-							{#if $showHistoryView}
-								<History onHide={() => ($showHistoryView = false)} />
-							{/if}
-						</div>
-					{:else if $mode?.type === 'OutsideWorkspace'}
-						<NotOnGitButlerBranchV3 {baseBranch} />
+<ReduxResult {projectId} result={baseBranchResponse.current}>
+	{#snippet children(baseBranch, { projectId })}
+		{#if !baseBranch}
+			<NoBaseBranch {projectId} />
+		{:else if baseBranch}
+			{#if $mode?.type === 'OpenWorkspace' || $mode?.type === 'Edit'}
+				<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
+					<Chrome {projectId} sidebarDisabled={$mode?.type === 'Edit'}>
+						{@render pageChildren()}
+					</Chrome>
+					{#if $showHistoryView}
+						<History {projectId} onHide={() => ($showHistoryView = false)} />
 					{/if}
-				{/if}
-			{/snippet}
-			{#snippet loading()}
-				<FullviewLoading />
-			{/snippet}
-			{#snippet error(baseError)}
-				<ProblemLoadingRepo error={baseError} />
-			{/snippet}
-		</ReduxResult>
-	{/if}
-{/key}
+				</div>
+			{:else if $mode?.type === 'OutsideWorkspace'}
+				<NotOnGitButlerBranch {projectId} {baseBranch} />
+			{/if}
+		{/if}
+	{/snippet}
+	{#snippet loading()}
+		<FullviewLoading />
+	{/snippet}
+	{#snippet error(baseError)}
+		<ProblemLoadingRepo {projectId} error={baseError} />
+	{/snippet}
+</ReduxResult>
 
 <!-- {#if $settingsStore?.featureFlags.v3} -->
 <IrcPopups />

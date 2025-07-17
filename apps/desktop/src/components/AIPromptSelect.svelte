@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { PromptService } from '$lib/ai/promptService';
-	import { Project } from '$lib/project/project';
 	import { getContext } from '@gitbutler/shared/context';
 	import Select from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
@@ -8,13 +7,13 @@
 	import type { Prompts, UserPrompt } from '$lib/ai/types';
 	import type { Persisted } from '@gitbutler/shared/persisted';
 
-	interface Props {
+	type Props = {
+		projectId: string;
 		promptUse: 'commits' | 'branches';
-	}
+	};
 
-	const { promptUse }: Props = $props();
+	const { projectId, promptUse }: Props = $props();
 
-	const project = getContext(Project);
 	const promptService = getContext(PromptService);
 
 	let prompts: Prompts;
@@ -22,10 +21,10 @@
 
 	if (promptUse === 'commits') {
 		prompts = promptService.commitPrompts;
-		selectedPromptId = promptService.selectedCommitPromptId(project.id);
+		selectedPromptId = promptService.selectedCommitPromptId(projectId);
 	} else {
 		prompts = promptService.branchPrompts;
-		selectedPromptId = promptService.selectedBranchPromptId(project.id);
+		selectedPromptId = promptService.selectedBranchPromptId(projectId);
 	}
 
 	let userPrompts = prompts.userPrompts;

@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { showHistoryView } from '$lib/config/config';
-	import { Project } from '$lib/project/project';
+	import { vscodePath } from '$lib/project/project';
+	import { ProjectsService } from '$lib/project/projectsService';
 	import { projectSettingsPath } from '$lib/routes/routes.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
@@ -13,21 +14,30 @@
 	import { onMount } from 'svelte';
 	import type { Writable } from 'svelte/store';
 
-	const project = getContext(Project);
+	const { projectId }: { projectId: string } = $props();
+
+	const projectsService = getContext(ProjectsService);
+
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 	const shortcutService = getContext(ShortcutService);
 
 	shortcutService.on('project-settings', () => {
-		goto(projectSettingsPath(project.id));
+		goto(projectSettingsPath(projectId));
 	});
 
-	shortcutService.on('open-in-vscode', () => {
-		const path = getEditorUri({
-			schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
-			path: [project.vscodePath],
-			searchParams: { windowId: '_blank' }
-		});
-		openExternalUrl(path);
+	shortcutService.on('open-in-vscode', async () => {
+		const result = await projectsService.fetchProject(projectId);
+		const project = result.data;
+		if (!project) {
+			throw new Error(`Project not found: ${projectId}`);
+		}
+		openExternalUrl(
+			getEditorUri({
+				schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
+				path: [vscodePath(project.path)],
+				searchParams: { windowId: '_blank' }
+			})
+		);
 	});
 
 	shortcutService.on('history', () => {

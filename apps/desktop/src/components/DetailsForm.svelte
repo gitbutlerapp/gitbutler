@@ -1,6 +1,6 @@
 <script lang="ts">
+	import ReduxResult from '$components/ReduxResult.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
-	import { Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { getContext } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
@@ -9,46 +9,47 @@
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 
-	const project = getContext(Project);
+	const { projectId }: { projectId: string } = $props();
+
 	const projectsService = getContext(ProjectsService);
+	const projectResult = $derived(projectsService.getProject(projectId));
 
-	const runCommitHooks = $derived(projectRunCommitHooks(project.id));
-
-	let title = $state(project?.title);
-	let description = $state(project?.description);
+	const runCommitHooks = $derived(projectRunCommitHooks(projectId));
 </script>
 
 <SectionCard>
-	<form>
-		<fieldset class="fields-wrapper">
-			<Textbox label="Project path" readonly id="path" value={project?.path} />
-			<section class="description-wrapper">
-				<Textbox
-					label="Project name"
-					id="name"
-					placeholder="Project name can't be empty"
-					bind:value={title}
-					required
-					onchange={(value: string) => {
-						project.title = value;
-						projectsService.updateProject(project);
-					}}
-				/>
-				<Textarea
-					id="description"
-					minRows={3}
-					maxRows={6}
-					placeholder="Project description"
-					bind:value={description}
-					oninput={(e: Event) => {
-						const target = e.currentTarget as HTMLTextAreaElement;
-						project.description = target.value;
-						projectsService.updateProject(project);
-					}}
-				/>
-			</section>
-		</fieldset>
-	</form>
+	<ReduxResult {projectId} result={projectResult.current}>
+		{#snippet children(project)}
+			<form>
+				<fieldset class="fields-wrapper">
+					<Textbox label="Project path" readonly id="path" value={project?.path} />
+					<section class="description-wrapper">
+						<Textbox
+							label="Project name"
+							id="name"
+							placeholder="Project name can't be empty"
+							value={project.title}
+							required
+							onchange={(value: string) => {
+								projectsService.updateProject({ ...project, title: value });
+							}}
+						/>
+						<Textarea
+							id="description"
+							minRows={3}
+							maxRows={6}
+							placeholder="Project description"
+							value={project.description}
+							oninput={(e: Event) => {
+								const target = e.currentTarget as HTMLTextAreaElement;
+								projectsService.updateProject({ ...project, description: target.value });
+							}}
+						/>
+					</section>
+				</fieldset>
+			</form>
+		{/snippet}
+	</ReduxResult>
 </SectionCard>
 
 <Spacer />

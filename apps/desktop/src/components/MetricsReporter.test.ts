@@ -6,7 +6,6 @@ import MetricsReporter, {
 import { EventContext } from '$lib/analytics/eventContext';
 import { PostHogWrapper } from '$lib/analytics/posthog';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
-import { ProjectService } from '$lib/project/projectService';
 import { getSettingsdServiceMock } from '$lib/testing/mockSettingsdService';
 import { render } from '@testing-library/svelte';
 import { assert, test, describe, vi, beforeEach, afterEach } from 'vitest';
@@ -27,10 +26,7 @@ describe('MetricsReporter', () => {
 		const eventContext = new EventContext();
 		posthog = new PostHogWrapper(settingsService, eventContext);
 
-		context = new Map([
-			[PostHogWrapper as object, posthog as any],
-			[ProjectService as object, vi.fn() as any]
-		]);
+		context = new Map([[PostHogWrapper as object, posthog as any]]);
 	});
 
 	afterEach(() => {

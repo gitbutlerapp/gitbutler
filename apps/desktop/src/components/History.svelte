@@ -7,7 +7,6 @@
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { RemoteFile } from '$lib/files/file';
 	import { HistoryService, createdOnDay } from '$lib/history/history';
-	import { Project } from '$lib/project/project';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
@@ -16,15 +15,15 @@
 	import { plainToInstance } from 'class-transformer';
 	import type { Snapshot, SnapshotDiff } from '$lib/history/types';
 
+	const MIN_SNAPSHOTS_TO_LOAD = 30;
+
 	interface Props {
+		projectId: string;
 		onHide: () => void;
 	}
 
-	const MIN_SNAPSHOTS_TO_LOAD = 30;
+	const { projectId, onHide }: Props = $props();
 
-	const { onHide }: Props = $props();
-
-	const project = getContext(Project);
 	const historyService = getContext(HistoryService);
 	const snapshots = historyService.snapshots;
 
@@ -129,7 +128,7 @@
 								isWithinRestore={withinRestoreItems.includes(entry.id)}
 								{entry}
 								onRestoreClick={() => {
-									historyService.restoreSnapshot(project.id, entry.id);
+									historyService.restoreSnapshot(projectId, entry.id);
 									// In some cases, restoring the snapshot doesnt update the UI correctly
 									// Until we have that figured out, we need to reload the page.
 									location.reload();
@@ -146,7 +145,7 @@
 									} else {
 										snapshotFilesTempStore = {
 											entryId: entry.id,
-											diffs: await historyService.getSnapshotDiff(project.id, entry.id)
+											diffs: await historyService.getSnapshotDiff(projectId, entry.id)
 										};
 										updateFilePreview(entry, path);
 									}
@@ -187,6 +186,7 @@
 	{#if currentFilePreview}
 		<div class="file-preview" class:show-file-view={currentFilePreview}>
 			<FileCard
+				{projectId}
 				isCard={false}
 				file={currentFilePreview}
 				isUnapplied={false}

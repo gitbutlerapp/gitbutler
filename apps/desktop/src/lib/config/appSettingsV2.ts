@@ -1,6 +1,5 @@
 import { writable } from 'svelte/store';
 import type { Tauri } from '$lib/backend/tauri';
-import type { ProjectsService } from '$lib/project/projectsService';
 
 export class SettingsService {
 	readonly appSettings = writable<AppSettings | undefined>(undefined, () => {
@@ -13,10 +12,7 @@ export class SettingsService {
 
 	readonly subscribe = this.appSettings.subscribe;
 
-	constructor(
-		private tauri: Tauri,
-		private projectsService: ProjectsService
-	) {}
+	constructor(private tauri: Tauri) {}
 
 	private async handlePayload(settings: AppSettings) {
 		this.appSettings.set(settings);

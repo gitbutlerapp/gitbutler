@@ -5,10 +5,11 @@
 	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
 
 	interface Props {
+		projectId?: string;
 		error?: any;
 	}
 
-	const { error = undefined }: Props = $props();
+	const { projectId, error = undefined }: Props = $props();
 </script>
 
 <DecorativeSplitView img={loadErrorSvg}>
@@ -21,7 +22,7 @@
 			{/snippet}
 		</InfoMessage>
 
-		<ProjectSwitcher />
+		<ProjectSwitcher {projectId} />
 	</div>
 </DecorativeSplitView>
 
