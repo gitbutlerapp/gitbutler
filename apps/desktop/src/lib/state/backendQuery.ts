@@ -49,7 +49,7 @@ function newError(message: string) {
 	};
 }
 
-type ApiArgs = Record<string, unknown>;
+type ApiArgs = Record<string, unknown> | undefined;
 
 /**
  * Typeguard for accessing injected Tauri dependency safely.

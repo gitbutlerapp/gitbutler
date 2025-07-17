@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { GitLabState } from '$lib/forge/gitlab/gitlabState.svelte';
-	import { ProjectService } from '$lib/project/projectService';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { getContext } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
@@ -13,6 +12,8 @@
 	import type { ForgeName } from '$lib/forge/interface/forge';
 	import type { Project } from '$lib/project/project';
 
+	const { projectId }: { projectId: string } = $props();
+
 	const forge = getContext(DefaultForgeFactory);
 	const gitLabState = getContext(GitLabState);
 	const determinedForgeType = forge.determinedForgeType;
@@ -22,8 +23,8 @@
 	const instanceUrl = gitLabState.instanceUrl;
 
 	const projectsService = getContext(ProjectsService);
-	const projectService = getContext(ProjectService);
-	const project = projectService.project;
+	const projectResult = $derived(projectsService.getProject(projectId));
+	const project = $derived(projectResult.current.data);
 
 	const forgeOptions: { label: string; value: ForgeName }[] = [
 		{
@@ -47,12 +48,12 @@
 			value: 'bitbucket'
 		}
 	];
-	let selectedOption = $derived($project?.forge_override || 'default');
+	let selectedOption = $derived(project?.forge_override || 'default');
 
 	function handleSelectionChange(selectedOption: ForgeName) {
-		if (!$project) return;
+		if (!project) return;
 
-		const mutableProject: Project & { unset_forge_override?: boolean } = structuredClone($project);
+		const mutableProject: Project & { unset_forge_override?: boolean } = structuredClone(project);
 
 		if (selectedOption === 'default') {
 			mutableProject.unset_forge_override = true;

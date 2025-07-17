@@ -3,7 +3,6 @@
 	import KeyboardShortcutsModal from '$components/KeyboardShortcutsModal.svelte';
 	import ShareIssueModal from '$components/ShareIssueModal.svelte';
 	import { ircEnabled } from '$lib/config/uiFeatureFlags';
-	import { Project } from '$lib/project/project';
 	import {
 		branchesPath,
 		ircPath,
@@ -32,9 +31,8 @@
 	import { slide } from 'svelte/transition';
 	import type { Writable } from 'svelte/store';
 
-	const { disabled = false }: { disabled?: boolean } = $props();
+	const { projectId, disabled = false }: { projectId: string; disabled?: boolean } = $props();
 
-	const project = getContext(Project);
 	const user = getContextStore(User);
 
 	let contextTriggerButton = $state<HTMLButtonElement | undefined>();
@@ -55,7 +53,7 @@
 			<Button
 				testId={TestId.NavigationWorkspaceButton}
 				kind="outline"
-				onclick={() => goto(workspacePath(project.id))}
+				onclick={() => goto(workspacePath(projectId))}
 				width={34}
 				class={['btn-square', isWorkspacePath() && 'btn-active']}
 				tooltip="Workspace"
@@ -85,7 +83,7 @@
 			<Button
 				testId={TestId.NavigationBranchesButton}
 				kind="outline"
-				onclick={() => goto(branchesPath(project.id))}
+				onclick={() => goto(branchesPath(projectId))}
 				width={34}
 				class={['btn-square', isBranchesPath() && 'btn-active']}
 				tooltip="Branches"
@@ -139,7 +137,7 @@
 			{/if}
 			<Button
 				kind="outline"
-				onclick={() => goto(historyPath(project.id))}
+				onclick={() => goto(historyPath(projectId))}
 				width={34}
 				class={['btn-square', isHistoryPath() && 'btn-active']}
 				tooltip="Operations history"
@@ -187,7 +185,7 @@
 				{/if}
 				<Button
 					kind="outline"
-					onclick={() => goto(ircPath(project.id))}
+					onclick={() => goto(ircPath(projectId))}
 					icon="chat"
 					width={34}
 					class={['btn-square', isIrcPath() && 'btn-active']}
@@ -205,7 +203,7 @@
 				{/if}
 				<Button
 					kind="outline"
-					onclick={() => goto(newProjectSettingsPath(project.id))}
+					onclick={() => goto(newProjectSettingsPath(projectId))}
 					width={34}
 					class={['btn-square', isNewProjectSettingsPath() && 'btn-active']}
 					tooltipPosition="top"

@@ -15,6 +15,8 @@
 	import { ircEnabled } from '$lib/config/uiFeatureFlags';
 	import { isDiffHunk, lineIdsToHunkHeaders, type DiffHunk } from '$lib/hunks/hunk';
 	import { IrcService } from '$lib/irc/ircService.svelte';
+	import { vscodePath } from '$lib/project/project';
+	import { ProjectsService } from '$lib/project/projectsService';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
@@ -31,7 +33,6 @@
 		trigger: HTMLElement | undefined;
 		projectId: string;
 		change: TreeChange;
-		projectPath: string | undefined;
 		discardable: boolean;
 		selectable: boolean;
 		selectAllHunkLines: (hunk: DiffHunk) => void;
@@ -43,7 +44,6 @@
 		trigger,
 		projectId,
 		change,
-		projectPath,
 		discardable,
 		selectable,
 		selectAllHunkLines,
@@ -51,7 +51,11 @@
 		invertHunkSelection
 	}: Props = $props();
 
-	const [stackService, ircService] = inject(StackService, IrcService);
+	const [stackService, ircService, projectService] = inject(
+		StackService,
+		IrcService,
+		ProjectsService
+	);
 
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 	const ircChats = $derived(ircService.getChats());
@@ -168,11 +172,12 @@
 					<ContextMenuItem
 						testId={TestId.HunkContextMenu_OpenInEditor}
 						label="Open in {$userSettings.defaultCodeEditor.displayName}"
-						onclick={() => {
-							if (projectPath) {
+						onclick={async () => {
+							const project = await projectService.fetchProject(projectId);
+							if (project.data?.path) {
 								const path = getEditorUri({
 									schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
-									path: [projectPath, filePath],
+									path: [vscodePath(project.data.path), filePath],
 									line: item.beforeLineNumber ?? item.afterLineNumber
 								});
 								openExternalUrl(path);

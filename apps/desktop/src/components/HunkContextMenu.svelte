@@ -8,6 +8,8 @@
 </script>
 
 <script lang="ts">
+	import { vscodePath } from '$lib/project/project';
+	import { ProjectsService } from '$lib/project/projectsService';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
@@ -23,15 +25,15 @@
 	interface Props {
 		trigger: HTMLElement | undefined;
 		filePath: string;
-		projectPath: string | undefined;
 		readonly: boolean;
 		projectId: string;
 	}
 
-	const { trigger, filePath, projectPath, readonly, projectId }: Props = $props();
+	const { trigger, filePath, readonly, projectId }: Props = $props();
 
 	const stackService = getContext(StackService);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
+	const projectService = getContext(ProjectsService);
 
 	let contextMenu: ReturnType<typeof ContextMenu> | undefined;
 
@@ -85,11 +87,12 @@
 			{#if item.beforeLineNumber !== undefined || item.afterLineNumber !== undefined}
 				<ContextMenuItem
 					label="Open in {$userSettings.defaultCodeEditor.displayName}"
-					onclick={() => {
-						if (projectPath) {
+					onclick={async () => {
+						const project = await projectService.fetchProject(projectId);
+						if (project.data?.path) {
 							const path = getEditorUri({
 								schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
-								path: [projectPath, filePath],
+								path: [vscodePath(project.data.path), filePath],
 								line: item.beforeLineNumber ?? item.afterLineNumber
 							});
 							openExternalUrl(path);

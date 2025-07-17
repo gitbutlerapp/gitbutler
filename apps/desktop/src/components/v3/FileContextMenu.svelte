@@ -7,14 +7,15 @@
 	import { projectAiExperimentalFeaturesEnabled, projectAiGenEnabled } from '$lib/config/config';
 	import { isTreeChange, type TreeChange } from '$lib/hunks/change';
 	import { showToast } from '$lib/notifications/toasts';
-	import { Project } from '$lib/project/project';
+	import { vscodePath } from '$lib/project/project';
+	import { ProjectsService } from '$lib/project/projectsService';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
-	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
+	import { getContext, getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
@@ -51,9 +52,8 @@
 	}
 
 	const { trigger, selectionId, stackId, projectId }: Props = $props();
-	const [stackService, project, uiState, idSelection, aiService, actionService] = inject(
+	const [stackService, uiState, idSelection, aiService, actionService] = inject(
 		StackService,
-		Project,
 		UiState,
 		IdSelection,
 		AIService,
@@ -64,6 +64,8 @@
 	const [absorbChanges, absorbingChanges] = actionService.absorb;
 	const [splitOffChanges] = stackService.splitBranch;
 	const [splitBranchIntoDependentBranch] = stackService.splitBrancIntoDependentBranch;
+
+	const projectService = getContext(ProjectsService);
 
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 	const isUncommitted = $derived(selectionId.type === 'worktree');
@@ -315,19 +317,20 @@
 						<ContextMenuItem
 							label="Copy Path"
 							onclick={async () => {
-								if (!project) return;
-								const absPath = await join(project.path, changes[0]!.path);
-								await writeClipboard(absPath, {
-									errorMessage: 'Failed to copy absolute path'
-								});
+								const project = await projectService.fetchProject(projectId);
+								const projectPath = project.data?.path;
+								if (projectPath) {
+									const absPath = await join(projectPath, changes[0]!.path);
+									await writeClipboard(absPath, {
+										errorMessage: 'Failed to copy absolute path'
+									});
+								}
 								contextMenu.close();
-								// dismiss();
 							}}
 						/>
 						<ContextMenuItem
 							label="Copy Relative Path"
 							onclick={async () => {
-								if (!project) return;
 								await writeClipboard(changes[0]!.path, {
 									errorMessage: 'Failed to copy relative path'
 								});
@@ -340,13 +343,16 @@
 						disabled={deletion}
 						onclick={async () => {
 							try {
-								if (!project) return;
-								for (let change of changes) {
-									const path = getEditorUri({
-										schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
-										path: [project.vscodePath, change.path]
-									});
-									openExternalUrl(path);
+								const project = await projectService.fetchProject(projectId);
+								const projectPath = project.data?.path;
+								if (projectPath) {
+									for (let change of changes) {
+										const path = getEditorUri({
+											schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
+											path: [vscodePath(projectPath), change.path]
+										});
+										openExternalUrl(path);
+									}
 								}
 								contextMenu.close();
 							} catch {

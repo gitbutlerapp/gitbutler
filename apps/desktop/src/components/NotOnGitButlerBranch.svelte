@@ -1,14 +1,9 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import Chrome from '$components/Chrome.svelte';
 	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
-	import RemoveProjectButton from '$components/RemoveProjectButton.svelte';
 	import directionDoubtSvg from '$lib/assets/illustrations/direction-doubt.svg?raw';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { ModeService } from '$lib/mode/modeService';
-	import { showError } from '$lib/notifications/toasts';
-	import { Project } from '$lib/project/project';
-	import { ProjectsService } from '$lib/project/projectsService';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import { inject } from '@gitbutler/shared/context';
@@ -16,20 +11,18 @@
 	import RadioButton from '@gitbutler/ui/RadioButton.svelte';
 	import FileListItem from '@gitbutler/ui/file/FileListItemV3.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
-	import * as toasts from '@gitbutler/ui/toasts';
 	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
 
 	type OptionsType = 'stash' | 'bring-to-workspace';
 
 	interface Props {
+		projectId: string;
 		baseBranch: BaseBranch;
 	}
 
-	const { baseBranch }: Props = $props();
+	const { projectId, baseBranch }: Props = $props();
 
-	const projectsService = getContext(ProjectsService);
 	const baseBranchService = getContext(BaseBranchService);
-	const project = getContext(Project);
 	const [setBaseBranchTarget, targetBranchSwitch] = baseBranchService.setTarget;
 
 	const modeService = getContext(ModeService);
@@ -37,35 +30,15 @@
 	const mode = modeService.mode;
 
 	const [worktreeService] = inject(WorktreeService);
-	const changes = worktreeService.treeChanges(project.id);
+	const changes = worktreeService.treeChanges(projectId);
 
 	async function switchTarget(branch: string, remote?: string, stashUncommitted?: boolean) {
 		await setBaseBranchTarget({
-			projectId: project.id,
+			projectId,
 			branch,
 			pushRemote: remote,
 			stashUncommitted
 		});
-	}
-
-	let isDeleting = $state(false);
-	let deleteConfirmationModal: ReturnType<typeof RemoveProjectButton> | undefined = $state();
-
-	async function onDeleteClicked() {
-		if (project) {
-			isDeleting = true;
-			try {
-				await projectsService.deleteProject(project.id);
-				toasts.success('Project deleted');
-				goto('/', { invalidateAll: true });
-			} catch (err: any) {
-				console.error(err);
-				showError('Failed to delete project', err);
-			} finally {
-				isDeleting = false;
-				projectsService.reload();
-			}
-		}
 	}
 
 	let conflicts = $derived(
@@ -97,7 +70,7 @@
 	}
 </script>
 
-<Chrome projectId={project.id} sidebarDisabled>
+<Chrome {projectId} sidebarDisabled>
 	<DecorativeSplitView img={directionDoubtSvg} hideDetails>
 		{@const uncommittedChanges = changes.current.data || []}
 
@@ -187,16 +160,6 @@
 				>
 					Switch back
 				</AsyncButton>
-
-				{#if project}
-					<RemoveProjectButton
-						bind:this={deleteConfirmationModal}
-						outlineStyle
-						projectTitle={project.title}
-						{isDeleting}
-						{onDeleteClicked}
-					/>
-				{/if}
 			</div>
 		</div>
 	</DecorativeSplitView>

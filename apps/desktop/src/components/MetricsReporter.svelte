@@ -6,8 +6,6 @@
 
 <script lang="ts">
 	import { PostHogWrapper } from '$lib/analytics/posthog';
-	import { SettingsMetrics } from '$lib/metrics/settingsMetrics.svelte';
-	import { ProjectService } from '$lib/project/projectService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { onMount } from 'svelte';
@@ -21,9 +19,6 @@
 
 	const posthog = getContext(PostHogWrapper);
 	const lastReportMs = persisted<number | undefined>(undefined, `lastMetricsTs-${projectId}`);
-	const projectService = getContext(ProjectService);
-
-	new SettingsMetrics(projectService, projectMetrics);
 
 	// Any interval or timeout must be cleared on unmount.
 	let intervalId: any;

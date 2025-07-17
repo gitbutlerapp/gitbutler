@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import FileContextMenu from '$components/FileContextMenu.svelte';
+	import ReduxResult from '$components/ReduxResult.svelte';
 	import { Commit } from '$lib/commits/commit';
 	import { CommitService } from '$lib/commits/commitService.svelte';
 	import {
@@ -13,7 +14,8 @@
 	import { type RemoteFile } from '$lib/files/file';
 	import { UncommitedFilesWatcher } from '$lib/files/watcher';
 	import { ModeService, type EditModeMetadata } from '$lib/mode/modeService';
-	import { Project } from '$lib/project/project';
+	import { vscodePath } from '$lib/project/project';
+	import { ProjectsService } from '$lib/project/projectsService';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { UserService } from '$lib/user/userService';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
@@ -30,19 +32,22 @@
 	import type { FileStatus } from '@gitbutler/ui/file/types';
 	import type { Writable } from 'svelte/store';
 
-	interface Props {
+	type Props = {
+		projectId: string;
 		editModeMetadata: EditModeMetadata;
-	}
+	};
 
-	const { editModeMetadata }: Props = $props();
+	const { projectId, editModeMetadata }: Props = $props();
 
-	const project = getContext(Project);
+	const projectService = getContext(ProjectsService);
+	const projectResult = $derived(projectService.getProject(projectId));
+
 	const remoteCommitService = getContext(CommitService);
 	const uncommitedFileWatcher = getContext(UncommitedFilesWatcher);
 	const modeService = getContext(ModeService);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
-	const uncommitedFiles = uncommitedFileWatcher.uncommitedFiles;
+	const uncommitedFiles = $derived(uncommitedFileWatcher.uncommittedFiles(projectId));
 
 	const userService = getContext(UserService);
 	const user = userService.user;
@@ -54,7 +59,7 @@
 	let commit = $state<Commit>();
 
 	async function getCommitData() {
-		commit = await remoteCommitService.find(project.id, editModeMetadata.commitOid);
+		commit = await remoteCommitService.find(projectId, editModeMetadata.commitOid);
 	}
 
 	$effect(() => {
@@ -219,11 +224,11 @@
 		await save();
 	}
 
-	async function openAllConflictedFiles() {
+	async function openAllConflictedFiles(projectPath: string) {
 		for (const file of conflictedFiles) {
 			const path = getEditorUri({
 				schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
-				path: [project.vscodePath, file.path]
+				path: [vscodePath(projectPath), file.path]
 			});
 			openExternalUrl(path);
 		}
@@ -235,103 +240,108 @@
 </script>
 
 <div class="editmode-wrapper">
-	<div class="editmode__container">
-		<h2 class="editmode__title text-18 text-body text-bold">
-			You are editing commit <span class="code-string">
-				{editModeMetadata.commitOid.slice(0, 7)}
-			</span>
-			<InfoButton title="Edit Mode">
-				Edit Mode lets you modify an existing commit in isolation or resolve conflicts. Any changes
-				made, including new files, will be added to the selected commit.
-			</InfoButton>
-		</h2>
+	<ReduxResult {projectId} result={projectResult.current}>
+		{#snippet children(project)}
+			<div class="editmode__container">
+				<h2 class="editmode__title text-18 text-body text-bold">
+					You are editing commit <span class="code-string">
+						{editModeMetadata.commitOid.slice(0, 7)}
+					</span>
+					<InfoButton title="Edit Mode">
+						Edit Mode lets you modify an existing commit in isolation or resolve conflicts. Any
+						changes made, including new files, will be added to the selected commit.
+					</InfoButton>
+				</h2>
 
-		<div class="commit-group">
-			<div class="card commit-card">
-				<h3 class="text-13 text-semibold text-body commit-card__title">
-					{commit?.descriptionTitle || 'Undefined commit'}
-				</h3>
+				<div class="commit-group">
+					<div class="card commit-card">
+						<h3 class="text-13 text-semibold text-body commit-card__title">
+							{commit?.descriptionTitle || 'Undefined commit'}
+						</h3>
 
-				{#if commit}
-					<div class="text-11 commit-card__details">
-						{#if authorImgUrl && commit.author.email}
-							<Avatar srcUrl={authorImgUrl} tooltip={commit.author.email} />
-							<span class="commit-card__divider">•</span>
+						{#if commit}
+							<div class="text-11 commit-card__details">
+								{#if authorImgUrl && commit.author.email}
+									<Avatar srcUrl={authorImgUrl} tooltip={commit.author.email} />
+									<span class="commit-card__divider">•</span>
+								{/if}
+								<span class="">{editModeMetadata.commitOid.slice(0, 7)}</span>
+								<span class="commit-card__divider">•</span>
+								<span class="">{commit.author.name}</span>
+							</div>
 						{/if}
-						<span class="">{editModeMetadata.commitOid.slice(0, 7)}</span>
-						<span class="commit-card__divider">•</span>
-						<span class="">{commit.author.name}</span>
+
+						<div class="commit-card__type-indicator"></div>
 					</div>
-				{/if}
 
-				<div class="commit-card__type-indicator"></div>
-			</div>
-
-			<div bind:this={filesList} class="card files">
-				<div class="header" class:show-border={isCommitListScrolled}>
-					<h3 class="text-13 text-semibold">Commit files</h3>
-					<Badge>{files.length}</Badge>
-				</div>
-				<ScrollableContainer
-					onscrollTop={(visible) => {
-						isCommitListScrolled = !visible;
-					}}
-				>
-					{#each files as file (file.path)}
-						<div class="file">
-							<FileListItem
-								filePath={file.path}
-								fileStatus={file.status}
-								conflicted={isConflicted(file)}
-								onresolveclick={file.conflicted
-									? () => manuallyResolvedFiles.add(file.path)
-									: undefined}
-								conflictHint={file.conflictHint}
-								onclick={(e) => {
-									contextMenu?.open(e, { files: [file] });
-								}}
-								oncontextmenu={(e) => {
-									contextMenu?.open(e, { files: [file] });
-								}}
-							/>
+					<div bind:this={filesList} class="card files">
+						<div class="header" class:show-border={isCommitListScrolled}>
+							<h3 class="text-13 text-semibold">Commit files</h3>
+							<Badge>{files.length}</Badge>
 						</div>
-					{/each}
-				</ScrollableContainer>
+						<ScrollableContainer
+							onscrollTop={(visible) => {
+								isCommitListScrolled = !visible;
+							}}
+						>
+							{#each files as file (file.path)}
+								<div class="file">
+									<FileListItem
+										filePath={file.path}
+										fileStatus={file.status}
+										conflicted={isConflicted(file)}
+										onresolveclick={file.conflicted
+											? () => manuallyResolvedFiles.add(file.path)
+											: undefined}
+										conflictHint={file.conflictHint}
+										onclick={(e) => {
+											contextMenu?.open(e, { files: [file] });
+										}}
+										oncontextmenu={(e) => {
+											contextMenu?.open(e, { files: [file] });
+										}}
+									/>
+								</div>
+							{/each}
+						</ScrollableContainer>
+					</div>
+				</div>
+
+				<p class="text-12 text-body editmode__helptext">
+					Please don't make any commits while in edit mode.
+					<br />
+					To exit edit mode, use the provided actions.
+				</p>
+
+				<div class="editmode__actions">
+					<Button kind="outline" onclick={abort} disabled={loading} {loading}>Cancel</Button>
+					{#if conflictedFiles.length > 0}
+						<Button
+							style="neutral"
+							onclick={() => openAllConflictedFiles(project.path)}
+							tooltip={conflictedFiles.length === 1
+								? 'Open the conflicted file in your editor'
+								: 'Open all files with conflicts in your editor'}
+						>
+							Open conflicted files
+						</Button>
+					{/if}
+					<Button style="pop" icon="tick-small" onclick={handleSave} disabled={loading} {loading}>
+						Save and exit
+					</Button>
+				</div>
 			</div>
-		</div>
 
-		<p class="text-12 text-body editmode__helptext">
-			Please don't make any commits while in edit mode.
-			<br />
-			To exit edit mode, use the provided actions.
-		</p>
-
-		<div class="editmode__actions">
-			<Button kind="outline" onclick={abort} disabled={loading} {loading}>Cancel</Button>
-			{#if conflictedFiles.length > 0}
-				<Button
-					style="neutral"
-					onclick={openAllConflictedFiles}
-					tooltip={conflictedFiles.length === 1
-						? 'Open the conflicted file in your editor'
-						: 'Open all files with conflicts in your editor'}
-				>
-					Open conflicted files
-				</Button>
-			{/if}
-			<Button style="pop" icon="tick-small" onclick={handleSave} disabled={loading} {loading}>
-				Save and exit
-			</Button>
-		</div>
-	</div>
-
-	<FileContextMenu
-		bind:this={contextMenu}
-		trigger={filesList}
-		isUnapplied={false}
-		stackId={undefined}
-		projectId={project.id}
-	/>
+			<FileContextMenu
+				bind:this={contextMenu}
+				{projectId}
+				projectPath={project.path}
+				trigger={filesList}
+				isUnapplied={false}
+				stackId={undefined}
+			/>
+		{/snippet}
+	</ReduxResult>
 </div>
 
 <Modal

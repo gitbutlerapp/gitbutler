@@ -4,6 +4,7 @@
 
 	import { browser, dev } from '$app/environment';
 	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import AppUpdater from '$components/AppUpdater.svelte';
 	import GlobalModal from '$components/GlobalModal.svelte';
 	import GlobalSettingsMenuAction from '$components/GlobalSettingsMenuAction.svelte';
@@ -19,13 +20,9 @@
 	import { AIService } from '$lib/ai/service';
 	import { EventContext } from '$lib/analytics/eventContext';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
-	import { CommandService, invoke } from '$lib/backend/ipc';
+	import { invoke } from '$lib/backend/ipc';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { BranchService } from '$lib/branches/branchService.svelte';
-	import {
-		IpcNameNormalizationService,
-		setNameNormalizationServiceContext
-	} from '$lib/branches/nameNormalizationService';
 	import { CommitService } from '$lib/commits/commitService.svelte';
 	import { AppSettings } from '$lib/config/appSettings';
 	import { SettingsService } from '$lib/config/appSettingsV2';
@@ -35,7 +32,7 @@
 	import { DragStateService } from '$lib/dragging/dragStateService.svelte';
 	import { DropzoneRegistry } from '$lib/dragging/registry';
 	import { FileService } from '$lib/files/fileService';
-	import { ButRequestDetailsService } from '$lib/forge/butRequestDetailsService';
+	import { UncommitedFilesWatcher } from '$lib/files/watcher';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { GitHubClient } from '$lib/forge/github/githubClient';
 	import { GitHubUserService } from '$lib/forge/github/githubUserService.svelte';
@@ -70,17 +67,11 @@
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
-	import { BranchService as CloudBranchService } from '@gitbutler/shared/branches/branchService';
-	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
 	import { FeedService } from '@gitbutler/shared/feeds/service';
 	import { HttpClient } from '@gitbutler/shared/network/httpClient';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
-	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
-	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
-	import { PatchCommitService as CloudPatchCommitService } from '@gitbutler/shared/patches/patchCommitService';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
-	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { UploadsService } from '@gitbutler/shared/uploads/uploadsService';
 	import { UserService as CloudUserService } from '@gitbutler/shared/users/userService';
 	import {
@@ -91,7 +82,6 @@
 	import { onMount, setContext, type Snippet } from 'svelte';
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
-	import { env } from '$env/dynamic/public';
 
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
 
@@ -162,10 +152,9 @@
 	const oplogService = new OplogService(clientState['backendApi']);
 	const baseBranchService = new BaseBranchService(clientState.backendApi);
 	const worktreeService = new WorktreeService(clientState);
-	const feedService = new FeedService(data.cloud, appState.appDispatch);
-	const organizationService = new OrganizationService(data.cloud, appState.appDispatch);
-	const cloudUserService = new CloudUserService(data.cloud, appState.appDispatch);
-	const cloudProjectService = new CloudProjectService(data.cloud, appState.appDispatch);
+	const feedService = new FeedService(data.httpClient, appState.appDispatch);
+	const organizationService = new OrganizationService(data.httpClient, appState.appDispatch);
+	const cloudUserService = new CloudUserService(data.httpClient, appState.appDispatch);
 	const dependecyService = new DependencyService(worktreeService);
 	const diffService = new DiffService(clientState);
 
@@ -179,24 +168,16 @@
 		oplogService
 	);
 
-	const cloudBranchService = new CloudBranchService(data.cloud, appState.appDispatch);
-	const cloudPatchService = new CloudPatchCommitService(data.cloud, appState.appDispatch);
-	const repositoryIdLookupService = new RepositoryIdLookupService(data.cloud, appState.appDispatch);
-	const latestBranchLookupService = new LatestBranchLookupService(data.cloud, appState.appDispatch);
-	const webRoutesService = new WebRoutesService(env.PUBLIC_CLOUD_BASE_URL ?? '');
+	const projectsService = new ProjectsService(clientState, data.homeDir, data.httpClient);
+	setContext(ProjectsService, projectsService);
+
 	const shortcutService = new ShortcutService(data.tauri);
 	const commitService = new CommitService();
-	const butRequestDetailsService = new ButRequestDetailsService(
-		cloudBranchService,
-		latestBranchLookupService
-	);
+
 	const upstreamIntegrationService = new UpstreamIntegrationService(
 		clientState,
 		stackService,
-		data.projectsService,
-		cloudProjectService,
-		cloudBranchService,
-		latestBranchLookupService
+		projectsService
 	);
 
 	const commitAnalytics = new CommitAnalytics(stackService, uiState, worktreeService);
@@ -222,29 +203,20 @@
 	setContext(FeedService, feedService);
 	setContext(OrganizationService, organizationService);
 	setContext(CloudUserService, cloudUserService);
-	setContext(CloudProjectService, cloudProjectService);
-	setContext(CloudBranchService, cloudBranchService);
-	setContext(CloudPatchCommitService, cloudPatchService);
-	setContext(RepositoryIdLookupService, repositoryIdLookupService);
-	setContext(LatestBranchLookupService, latestBranchLookupService);
-	setContext(WebRoutesService, webRoutesService);
 	setContext(HooksService, data.hooksService);
 	setContext(SettingsService, data.settingsService);
 	setContext(FileService, data.fileService);
 	setContext(CommitService, commitService);
-	setContext(ButRequestDetailsService, butRequestDetailsService);
 
 	// Setters do not need to be reactive since `data` never updates
 	setSecretsService(data.secretsService);
 	setContext(PostHogWrapper, data.posthog);
-	setContext(CommandService, data.commandService);
 	setContext(UserService, data.userService);
-	setContext(ProjectsService, data.projectsService);
 	setContext(UpdaterService, data.updaterService);
 	setContext(GitConfigService, data.gitConfig);
 	setContext(AIService, data.aiService);
 	setContext(PromptService, data.promptService);
-	setContext(HttpClient, data.cloud);
+	setContext(HttpClient, data.httpClient);
 	setContext(User, data.userService.user);
 	setContext(RemotesService, data.remotesService);
 	setContext(AIPromptService, data.aiPromptService);
@@ -267,7 +239,7 @@
 	setContext(DropzoneRegistry, new DropzoneRegistry());
 	setContext(DragStateService, new DragStateService());
 	setContext(ResizeSync, new ResizeSync());
-	setNameNormalizationServiceContext(new IpcNameNormalizationService(invoke));
+	setContext(UncommitedFilesWatcher, new UncommitedFilesWatcher());
 
 	const settingsService = data.settingsService;
 	const settingsStore = settingsService.appSettings;
@@ -286,6 +258,13 @@
 
 	let shareIssueModal: ShareIssueModal;
 
+	const projectId = $derived(page.params.projectId);
+	$effect(() => {
+		if (projectId) {
+			projectsService.setLastOpenedProject(projectId);
+		}
+	});
+
 	onMount(() => {
 		return unsubscribe(
 			events.on('goto', async (path: string) => await goto(path)),
@@ -301,7 +280,7 @@
 		// This is a debug tool to see how the commit-graph looks like, the basis for all workspace computation.
 		// For good measure, it also shows the workspace.
 		'd o t': async () => {
-			const projectId = new URL(window.location.href).pathname.split('/')[1];
+			const projectId = page.params.projectId;
 			await invoke('show_graph_svg', { projectId });
 		},
 		// This is a debug tool to learn about environment variables actually present - only available if the backend is in debug mode.

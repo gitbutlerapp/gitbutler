@@ -8,7 +8,6 @@
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
 	import { showError } from '$lib/notifications/toasts';
-	import { Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -17,15 +16,16 @@
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { onMount } from 'svelte';
 
-	interface Props {
+	type Props = {
+		projectId: string;
+		projectTitle?: string;
 		error?: any;
-	}
+	};
 
-	const { error = undefined }: Props = $props();
+	const { projectId, projectTitle, error = undefined }: Props = $props();
 
 	const projectsService = getContext(ProjectsService);
 	const posthog = getContext(PostHogWrapper);
-	const project = getContext(Project);
 
 	let loading = $state(false);
 	let deleteConfirmationModal: ReturnType<typeof RemoveProjectButton> | undefined = $state();
@@ -34,7 +34,7 @@
 		loading = true;
 		try {
 			deleteConfirmationModal?.close();
-			await projectsService.deleteProject(project.id);
+			await projectsService.deleteProject(projectId);
 			toasts.success('Project deleted');
 			goto('/');
 		} catch (err: any) {
@@ -42,7 +42,6 @@
 			showError('Failed to delete project', err);
 		} finally {
 			loading = false;
-			projectsService.reload();
 		}
 	}
 
@@ -55,7 +54,7 @@
 	<DecorativeSplitView img={loadErrorSvg}>
 		<div class="problem">
 			<div class="project-name">
-				<ProjectNameLabel projectName={project?.title} />
+				<ProjectNameLabel projectName={projectTitle} />
 			</div>
 			<h2 class="problem__title text-18 text-body text-bold">
 				There was a problem loading this repo
@@ -75,7 +74,6 @@
 			<div class="remove-project-btn">
 				<RemoveProjectButton
 					bind:this={deleteConfirmationModal}
-					projectTitle={project.title}
 					isDeleting={loading}
 					{onDeleteClicked}
 				/>
@@ -84,13 +82,13 @@
 			<Spacer dotted margin={0} />
 
 			<div class="problem__switcher">
-				<ProjectSwitcher />
+				<ProjectSwitcher {projectId} />
 			</div>
 		</div>
 	</DecorativeSplitView>
 {/snippet}
 
-<Chrome projectId={project.id} sidebarDisabled>
+<Chrome {projectId} sidebarDisabled>
 	{@render page()}
 </Chrome>
 

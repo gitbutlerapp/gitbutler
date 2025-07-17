@@ -17,48 +17,56 @@
 
 	const pages: Page[] = [
 		{
+			type: 'global',
 			id: 'general',
 			label: 'General',
 			icon: 'settings',
 			component: GeneralSettings
 		},
 		{
+			type: 'global',
 			id: 'appearance',
 			label: 'Appearance',
 			icon: 'appearance',
 			component: AppearanceSettings
 		},
 		{
+			type: 'global',
 			id: 'git',
 			label: 'Git stuff',
 			icon: 'git',
 			component: GitSettings
 		},
 		{
+			type: 'global',
 			id: 'integrations',
 			label: 'Integrations',
 			icon: 'integrations',
 			component: IntegrationsSettings
 		},
 		{
+			type: 'global',
 			id: 'ai',
 			label: 'AI Options',
 			icon: 'ai',
 			component: AiSettings
 		},
 		{
+			type: 'global',
 			id: 'telemetry',
 			label: 'Telemetry',
 			icon: 'stat',
 			component: TelemetrySettings
 		},
 		{
+			type: 'global',
 			id: 'experimental',
 			label: 'Experimental',
 			icon: 'idea',
 			component: ExperimentalSettings
 		},
 		{
+			type: 'global',
 			id: 'organizations',
 			label: 'Organizations',
 			icon: 'idea',

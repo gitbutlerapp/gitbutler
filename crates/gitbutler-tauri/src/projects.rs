@@ -42,13 +42,13 @@ pub mod commands {
     #[instrument(skip(projects), err(Debug))]
     pub fn get_project(
         projects: State<'_, Controller>,
-        id: ProjectId,
+        project_id: ProjectId,
         no_validation: Option<bool>,
     ) -> Result<projects::Project, Error> {
         if no_validation.unwrap_or(false) {
-            Ok(projects.get_raw(id)?)
+            Ok(projects.get_raw(project_id)?)
         } else {
-            Ok(projects.get_validated(id)?)
+            Ok(projects.get_validated(project_id)?)
         }
     }
 
@@ -158,8 +158,11 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects), err(Debug))]
-    pub fn delete_project(projects: State<'_, Controller>, id: ProjectId) -> Result<(), Error> {
-        projects.delete(id).map_err(Into::into)
+    pub fn delete_project(
+        projects: State<'_, Controller>,
+        project_id: ProjectId,
+    ) -> Result<(), Error> {
+        projects.delete(project_id).map_err(Into::into)
     }
 }
 

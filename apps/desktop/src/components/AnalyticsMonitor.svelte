@@ -6,7 +6,8 @@ attached to posthog events.
 <script lang="ts">
 	import { EventContext } from '$lib/analytics/eventContext';
 	import { SettingsService } from '$lib/config/appSettingsV2';
-	import { ProjectService } from '$lib/project/projectService';
+	import { gitAuthType } from '$lib/project/project';
+	import { ProjectsService } from '$lib/project/projectsService';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
@@ -14,13 +15,14 @@ attached to posthog events.
 
 	const { projectId }: { projectId: string } = $props();
 
-	const [uiState, eventContext, projectService, settingsService] = inject(
+	const [uiState, eventContext, projectsService, settingsService] = inject(
 		UiState,
 		EventContext,
-		ProjectService,
+		ProjectsService,
 		SettingsService
 	);
 
+	const projectResult = $derived(projectsService.getProject(projectId));
 	const globalState = uiState.global;
 	const projectState = $derived(uiState.project(projectId));
 
@@ -52,10 +54,13 @@ attached to posthog events.
 	});
 
 	$effect(() => {
-		eventContext.update({
-			forcePushAllowed: $projectService?.ok_with_force_push,
-			gitAuthType: $projectService?.gitAuthType()
-		});
+		const project = projectResult.current.data;
+		if (project) {
+			eventContext.update({
+				forcePushAllowed: project.ok_with_force_push,
+				gitAuthType: gitAuthType(project.preferred_key)
+			});
+		}
 	});
 
 	$effect(() => {

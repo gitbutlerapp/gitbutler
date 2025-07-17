@@ -2,6 +2,7 @@
 	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
 	import InfoMessage, { type MessageStyle } from '$components/InfoMessage.svelte';
 	import ProjectSwitcher from '$components/ProjectSwitcher.svelte';
+	import ReduxResult from '$components/ReduxResult.svelte';
 	import RemoveProjectButton from '$components/RemoveProjectButton.svelte';
 	import notFoundSvg from '$lib/assets/illustrations/not-found.svg?raw';
 	import { ProjectsService } from '$lib/project/projectsService';
@@ -10,11 +11,13 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 
+	interface Props {
+		projectId: string;
+	}
+	const { projectId }: Props = $props();
+
 	const projectsService = getContext(ProjectsService);
-	const id = projectsService.getLastOpenedProject();
-	const projectPromise = id
-		? projectsService.getProject(id, true)
-		: Promise.reject('Failed to get project');
+	const projectResult = $derived(projectsService.getProject(projectId, false));
 
 	let deleteSucceeded: boolean | undefined = $state(undefined);
 	let isDeleting = $state(false);
@@ -51,54 +54,55 @@
 
 <DecorativeSplitView testId={TestId.ProjectNotFoundPage} img={notFoundSvg}>
 	<div class="container">
-		{#await projectPromise then project}
-			{#if deleteSucceeded === undefined}
-				<div class="text-content">
-					<h2 class="title-text text-18 text-body text-bold">
-						Can’t find "{project.title}"
-					</h2>
+		<ReduxResult {projectId} result={projectResult.current}>
+			{#snippet children(project)}
+				{#if deleteSucceeded === undefined}
+					<div class="text-content">
+						<h2 class="title-text text-18 text-body text-bold">
+							Can’t find "{project.title}"
+						</h2>
 
-					<p class="description-text text-13 text-body">
-						Sorry, we can't find the project you're looking for.
-						<br />
-						It might have been removed or doesn't exist.
-						<button type="button" class="check-again-btn" onclick={() => location.reload()}
-							>Click here</button
+						<p class="description-text text-13 text-body">
+							Sorry, we can't find the project you're looking for.
+							<br />
+							It might have been removed or doesn't exist.
+							<button type="button" class="check-again-btn" onclick={() => location.reload()}
+								>Click here</button
+							>
+							to check again.
+							<br />
+							The current project path: <span class="code-string">{project.path}</span>
+						</p>
+					</div>
+
+					<div class="button-container">
+						<Button type="button" style="pop" onclick={async () => await locate(projectId)}
+							>Locate project…</Button
 						>
-						to check again.
-						<br />
-						The current project path: <span class="code-string">{project.path}</span>
-					</p>
-				</div>
+						<RemoveProjectButton
+							noModal
+							{isDeleting}
+							onDeleteClicked={async () => await stopTracking(project.id)}
+						/>
+					</div>
+				{/if}
 
-				<div class="button-container">
-					<Button type="button" style="pop" onclick={async () => await locate(project.id)}
-						>Locate project…</Button
-					>
-					<RemoveProjectButton
-						noModal
-						{isDeleting}
-						onDeleteClicked={async () => await stopTracking(project.id)}
-					/>
+				{#if deleteSucceeded !== undefined}
+					{@const deletionStatus = getDeletionStatus(project.title, deleteSucceeded)}
+					<InfoMessage filled outlined={false} style={deletionStatus.style} icon="info">
+						{#snippet content()}
+							{deletionStatus.message}
+						{/snippet}
+					</InfoMessage>
+				{/if}
+				<div class="text-content">
+					<h2 class="title-text text-18 text-body text-bold">Can’t find project</h2>
 				</div>
-			{/if}
-
-			{#if deleteSucceeded !== undefined}
-				{@const deletionStatus = getDeletionStatus(project.title, deleteSucceeded)}
-				<InfoMessage filled outlined={false} style={deletionStatus.style} icon="info">
-					{#snippet content()}
-						{deletionStatus.message}
-					{/snippet}
-				</InfoMessage>
-			{/if}
-		{:catch}
-			<div class="text-content">
-				<h2 class="title-text text-18 text-body text-bold">Can’t find project</h2>
-			</div>
-		{/await}
+			{/snippet}
+		</ReduxResult>
 
 		<Spacer dotted margin={0} />
-		<ProjectSwitcher />
+		<ProjectSwitcher {projectId} />
 	</div>
 </DecorativeSplitView>
 
