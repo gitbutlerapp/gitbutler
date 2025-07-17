@@ -808,6 +808,10 @@ export class StackService {
 		return this.api.endpoints.splitBranch.useMutation();
 	}
 
+	get splitBrancIntoDependentBranch() {
+		return this.api.endpoints.splitBranchIntoDependentBranch.useMutation();
+	}
+
 	stackDetailsUpdateListener(projectId: string) {
 		return this.api.endpoints.stackDetailsUpdate.useQuery({
 			projectId
@@ -1530,6 +1534,26 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			>({
 				extraOptions: {
 					command: 'split_branch'
+				},
+				query: (args) => args,
+				invalidatesTags: (_result, _error, args) => [
+					invalidatesItem(ReduxTag.StackDetails, args.sourceStackId),
+					invalidatesItem(ReduxTag.BranchChanges, args.sourceStackId),
+					invalidatesList(ReduxTag.Stacks)
+				]
+			}),
+			splitBranchIntoDependentBranch: build.mutation<
+				{ replacedCommits: [string, string][] },
+				{
+					projectId: string;
+					sourceStackId: string;
+					sourceBranchName: string;
+					newBranchName: string;
+					fileChangesToSplitOff: string[];
+				}
+			>({
+				extraOptions: {
+					command: 'split_branch_into_dependent_branch'
 				},
 				query: (args) => args,
 				invalidatesTags: (_result, _error, args) => [

@@ -63,6 +63,7 @@
 	const [branchChanges, branchingChanges] = actionService.branchChanges;
 	const [absorbChanges, absorbingChanges] = actionService.absorb;
 	const [splitOffChanges] = stackService.splitBranch;
+	const [splitBranchIntoDependentBranch] = stackService.splitBrancIntoDependentBranch;
 
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 	const isUncommitted = $derived(selectionId.type === 'worktree');
@@ -243,6 +244,36 @@
 			newBranchName: newBranchName.data
 		});
 	}
+
+	async function splitIntoDependentBranch(changes: TreeChange[]) {
+		if (!stackId) {
+			toasts.error('No stack selected to split off changes.');
+			return;
+		}
+
+		if (selectionId.type !== 'branch') {
+			toasts.error('Please select a branch to split off changes.');
+			return;
+		}
+
+		const branchName = selectionId.branchName;
+
+		const fileNames = changes.map((change) => change.path);
+		const newBranchName = await stackService.newBranchName(projectId);
+
+		if (!newBranchName.data) {
+			toasts.error('Failed to generate a new branch name.');
+			return;
+		}
+
+		await splitBranchIntoDependentBranch({
+			projectId,
+			sourceStackId: stackId,
+			sourceBranchName: branchName,
+			fileChangesToSplitOff: fileNames,
+			newBranchName: newBranchName.data
+		});
+	}
 </script>
 
 <ContextMenu bind:this={contextMenu} rightClickTrigger={trigger}>
@@ -329,6 +360,13 @@
 							label="Split off changes"
 							onclick={async () => {
 								await split(changes);
+								contextMenu.close();
+							}}
+						/>
+						<ContextMenuItem
+							label="Split into dependent branch"
+							onclick={async () => {
+								await splitIntoDependentBranch(changes);
 								contextMenu.close();
 							}}
 						/>
