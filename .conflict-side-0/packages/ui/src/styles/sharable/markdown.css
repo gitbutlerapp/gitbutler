@@ -1,0 +1,106 @@
+@layer sharable {
+	.markdown {
+		user-select: text;
+	}
+
+	.markdown p:last-child,
+	.markdown ul:last-child,
+	.markdown ol:last-child,
+	.markdown blockquote:last-child,
+	.markdown pre:last-child,
+	.markdown hr:last-child {
+		margin-bottom: 0;
+	}
+
+	.markdown h1,
+	.markdown h2,
+	.markdown h3,
+	.markdown h4 {
+		margin-bottom: 0.6em;
+		font-weight: 600;
+		line-height: 1.2;
+	}
+
+	.markdown h1 {
+		font-size: 2em;
+	}
+
+	.markdown h2 {
+		font-size: 1.5em;
+	}
+
+	.markdown h3 {
+		font-size: 1.17em;
+	}
+
+	.markdown h4 {
+		font-size: 1em;
+	}
+
+	.markdown p {
+		margin-bottom: 1.2em;
+	}
+
+	.markdown ul {
+		display: block;
+		margin: 0 0 1em 0;
+		padding: 0 0 0 2em;
+		list-style-type: disc;
+	}
+
+	.markdown ol {
+		display: block;
+		margin: 0 0 1em 0;
+		padding: 0 0 0 2em;
+		list-style-type: decimal;
+	}
+
+	.markdown li {
+		margin: 0.5em 0;
+	}
+
+	.markdown blockquote {
+		margin: 0 0 1em 0;
+		padding: 0 0 0 2em;
+	}
+
+	.markdown code {
+		padding: 1px 3px;
+		border-radius: var(--radius-s);
+		background-color: var(--clr-scale-ntrl-80);
+		font-size: 92%;
+		font-family: var(--fontfamily-mono);
+	}
+
+	.markdown pre {
+		margin: 1em 0;
+		padding: 1em;
+		overflow: auto;
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-2);
+
+		& code {
+			padding: 0;
+			border: none;
+			background-color: transparent;
+			font-size: inherit;
+		}
+	}
+
+	.markdown a {
+		text-decoration: underline;
+	}
+
+	.markdown hr {
+		box-sizing: content-box;
+		height: 0;
+		margin: 2em 0;
+		overflow: visible;
+		opacity: 0.2;
+	}
+
+	.markdown b,
+	.markdown strong {
+		font-weight: bolder;
+	}
+}
