@@ -162,14 +162,8 @@ export type CustomQueryResult<T extends QueryDefinition<any, any, any, any>> =
 /**
  * Shorthand useful for service interfaces.
  */
-export type SubscribeResult<T> = Reactive<QueryActionCreatorResult<CustomQuery<T>>>;
 export type ReactiveResult<T> = Reactive<CustomResult<CustomQuery<T>>>;
 export type AsyncResult<T> = Promise<CustomResult<CustomQuery<T>>>;
-
-/**
- * Shorthand useful for service interfaces.
- */
-export type FetchResult<T> = ResultTypeFrom<CustomQuery<T>>;
 
 /**
  * It would be great to understand why it is necessary to set the args type

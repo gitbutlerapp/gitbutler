@@ -73,7 +73,7 @@ export async function ghQuery<
 /**
  * Argument to `ghQuery` where parameters are inferred from octokit.js.
  */
-export type GhArgs<
+type GhArgs<
 	T extends keyof RestEndpointMethodTypes,
 	S extends keyof RestEndpointMethodTypes[T],
 	O extends keyof RestEndpointMethodTypes[T][S] = keyof RestEndpointMethodTypes[T][S] &
@@ -92,7 +92,7 @@ export type GhResponse<T> =
 /**
  * Response type for `ghQuery` inferred from octokit.js.
  */
-export type InferGhResponse<
+type InferGhResponse<
 	T extends keyof RestEndpointMethodTypes,
 	S extends keyof RestEndpointMethodTypes[T],
 	O extends keyof RestEndpointMethodTypes[T][S] = keyof RestEndpointMethodTypes[T][S] & 'response',
@@ -129,7 +129,7 @@ function extractDomainAndAction<
 /**
  * Typeguard for accessing injected `GitHubClient` dependency safely.
  */
-export function hasGitHub(extra: unknown): extra is {
+function hasGitHub(extra: unknown): extra is {
 	gitHubClient: GitHubClient;
 } {
 	return (

@@ -1,31 +1,11 @@
 import { changesToDiffSpec } from '$lib/commits/utils';
-import { ChangeDropData, HunkDropData } from '$lib/dragging/draggables';
+import { ChangeDropData } from '$lib/dragging/draggables';
 import StackMacros from '$lib/stacks/macros';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { DiffService } from '$lib/hunks/diffService.svelte';
 import type { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 import type { StackService } from '$lib/stacks/stackService.svelte';
 import type { UiState } from '$lib/state/uiState.svelte';
-
-/** Handler that creates a new stack from files or hunks. */
-export class NewStackDzHandler implements DropzoneHandler {
-	constructor(
-		private stackService: StackService,
-		private projectId: string
-	) {}
-
-	accepts(data: unknown) {
-		if (data instanceof HunkDropData) {
-			return !(data.isCommitted || data.hunk.locked);
-		}
-		return false;
-	}
-
-	ondrop(data: HunkDropData) {
-		const ownership = `${data.hunk.filePath}:${data.hunk.id}`;
-		this.stackService.newStackMutation({ projectId: this.projectId, branch: { ownership } });
-	}
-}
 
 /** Handler when drop changes on a special outside lanes dropzone. */
 export class OutsideLaneDzHandler implements DropzoneHandler {

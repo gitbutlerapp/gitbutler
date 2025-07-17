@@ -1,15 +1,4 @@
-import type { HttpError, BackendError, UnhandledPromiseError } from '$lib/error/error';
-
-export function isBackendError(err: unknown): err is BackendError {
-	return (
-		typeof err === 'object' &&
-		err !== null &&
-		'message' in err &&
-		typeof err.message === 'string' &&
-		'code' in err &&
-		typeof err.code === 'string'
-	);
-}
+import type { HttpError, UnhandledPromiseError } from '$lib/error/error';
 
 export function isPromiseRejection(err: unknown): err is UnhandledPromiseError {
 	return (

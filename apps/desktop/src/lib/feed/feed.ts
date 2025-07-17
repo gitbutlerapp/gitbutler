@@ -62,16 +62,6 @@ export function isFeedMessage(entry: FeedEntry): entry is FeedMessage {
 	return (entry as FeedMessage).type === 'user' || (entry as FeedMessage).type === 'assistant';
 }
 
-export function isUserMessage(entry: FeedEntry): entry is UserMessage {
-	if (!isFeedMessage(entry)) return false;
-	return (entry as UserMessage).id.startsWith('user-');
-}
-
-export function isAssistantMessage(entry: FeedEntry): entry is AssistantMessage {
-	if (!isFeedMessage(entry)) return false;
-	return (entry as AssistantMessage).id.startsWith('assistant-');
-}
-
 export function isInProgressAssistantMessage(
 	entry: FeedEntry
 ): entry is InProgressAssistantMessage {

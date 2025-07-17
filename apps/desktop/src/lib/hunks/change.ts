@@ -33,13 +33,6 @@ export type TreeChange = {
 	readonly status: Status;
 };
 
-export function previousPathBytesFromTreeChange(treeChange: TreeChange): number[] | null {
-	if (treeChange.status.type === 'Rename') {
-		return treeChange.status.subject.previousPathBytes;
-	}
-	return null;
-}
-
 export type TreeStats = {
 	/** The total amount of lines added. */
 	readonly linesAdded: number;
@@ -86,7 +79,7 @@ export type Status =
 	| { readonly type: 'Rename'; readonly subject: Rename };
 /** Something was added or scheduled to be added.*/
 
-export function isChangeStatus(something: unknown): something is Status {
+function isChangeStatus(something: unknown): something is Status {
 	return (
 		typeof something === 'object' &&
 		something !== null &&
@@ -95,14 +88,14 @@ export function isChangeStatus(something: unknown): something is Status {
 	);
 }
 
-export type Addition = {
+type Addition = {
 	/** @private */
 	readonly state: ChangeState;
 	readonly isUntracked: boolean;
 };
 /** Something was deleted.*/
 
-export type Deletion = {
+type Deletion = {
 	/** @private */
 	readonly previousState: ChangeState;
 };
@@ -147,7 +140,7 @@ export type IgnoredChange = {
 };
 
 /** The status we can't handle.*/
-export type IgnoredChangeStatus =
+type IgnoredChangeStatus =
 	/** A conflicting entry in the index. The worktree state of the entry is unclear.*/
 	| 'Conflict'
 	/** A change in the `.git/index` that was overruled by a change to the same path in the *worktree*.*/

@@ -4,15 +4,11 @@ import { GitLabPrService } from '$lib/forge/gitlab/gitlabPrService.svelte';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 import type { Forge, ForgeName } from '$lib/forge/interface/forge';
-import type { DetailedPullRequest, ForgeArguments } from '$lib/forge/interface/types';
+import type { ForgeArguments } from '$lib/forge/interface/types';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { GitLabApi } from '$lib/state/clientState.svelte';
 import type { ReduxTag } from '$lib/state/tags';
 import type { TagDescription } from '@reduxjs/toolkit/query';
-
-export type PrAction = 'creating_pr';
-export type PrState = { busy: boolean; branchId: string; action?: PrAction };
-export type PrCacheKey = { value: DetailedPullRequest | undefined; fetchedAt: Date };
 
 export const GITLAB_DOMAIN = 'gitlab.com';
 export const GITLAB_SUB_DOMAIN = 'gitlab'; // For self hosted instance of Gitlab

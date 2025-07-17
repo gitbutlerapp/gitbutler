@@ -6,8 +6,6 @@ import type { ChecksStatus } from '$lib/forge/interface/types';
 import type { QueryOptions } from '$lib/state/butlerModule';
 import type { GitHubApi } from '$lib/state/clientState.svelte';
 
-export const MIN_COMPLETED_AGE = 20000;
-
 export class GitHubChecksMonitor implements ChecksService {
 	private api: ReturnType<typeof injectEndpoints>;
 

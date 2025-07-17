@@ -65,7 +65,7 @@ export function gitlab(extra: unknown): {
 	};
 }
 
-export function hasGitLab(extra: unknown): extra is {
+function hasGitLab(extra: unknown): extra is {
 	gitLabClient: GitLabClient;
 } {
 	return (

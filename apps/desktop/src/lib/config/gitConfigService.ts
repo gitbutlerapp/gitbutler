@@ -1,16 +1,5 @@
 import type { Tauri } from '$lib/backend/tauri';
 
-export type GitCredentialCheck = {
-	error?: string;
-	name?: string;
-	ok: boolean;
-};
-
-export type CredentialCheckError = {
-	check: string;
-	message: string;
-};
-
 export class GitConfigService {
 	constructor(private tauri: Tauri) {}
 	async get<T extends string>(key: string): Promise<T | undefined> {

@@ -3,8 +3,6 @@ import { type Reactive } from '@gitbutler/shared/storeUtils';
 import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
 import { on } from 'svelte/events';
 
-export type FocusArea = string | null;
-
 export enum DefinedFocusable {
 	MainViewport = 'workspace',
 	ViewportLeft = 'workspace-left',
@@ -38,23 +36,6 @@ export function parseFocusableId(id: string): string | undefined {
 		return;
 	}
 	return halves[1];
-}
-
-export function snapshotChangesFocusableId(before: string, after: string) {
-	return `snapshot-changes:${before}:${after}`;
-}
-
-export function parseSnapshotChangesFocusableId(
-	id: string
-): { before: string; after: string } | undefined {
-	if (!id.startsWith('snapshot-changes')) {
-		return;
-	}
-	const halves = id.split(':');
-	if (halves.length !== 3) {
-		return;
-	}
-	return { before: halves[1]!, after: halves[2]! };
 }
 
 export type Focusable = DefinedFocusable | string;

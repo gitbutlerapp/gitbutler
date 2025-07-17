@@ -9,10 +9,6 @@ import type { DropzoneRegistry } from '$lib/dragging/registry';
 // Added to element being dragged (not the clone that follows the cursor).
 const DRAGGING_CLASS = 'dragging';
 
-export type NonDraggableConfig = {
-	disabled: true;
-};
-
 export type DraggableConfig = {
 	readonly selector?: string;
 	readonly disabled?: boolean;
@@ -239,52 +235,6 @@ function setupDragHandlers(
 			clean();
 		}
 	};
-}
-
-//////////////////////////
-//// COMMIT DRAGGABLE ////
-//////////////////////////
-
-function createCommitElement(
-	commitType: CommitStatusType | undefined,
-	label: string | undefined,
-	sha: string | undefined,
-	date: string | undefined,
-	authorImgUrl: string | undefined
-): HTMLDivElement {
-	const cardEl = createElement('div', ['draggable-commit']);
-	const labelEl = createElement('span', ['text-13', 'text-bold'], label || 'Empty commit');
-	const infoEl = createElement('div', ['draggable-commit-info', 'text-11']);
-	const authorImgEl = createElement(
-		'img',
-		['draggable-commit-author-img'],
-		undefined,
-		authorImgUrl
-	);
-	const shaEl = createElement('span', ['draggable-commit-info-text'], sha);
-	const dateAndAuthorEl = createElement('span', ['draggable-commit-info-text'], date);
-
-	if (commitType) {
-		const indicatorClass = `draggable-commit-${commitType}`;
-		labelEl.classList.add('draggable-commit-indicator', indicatorClass);
-	}
-
-	cardEl.appendChild(labelEl);
-	infoEl.appendChild(authorImgEl);
-	infoEl.appendChild(shaEl);
-	infoEl.appendChild(dateAndAuthorEl);
-	cardEl.appendChild(infoEl);
-	return cardEl;
-}
-
-export function draggableCommit(node: HTMLElement, initialOpts: DraggableConfig | undefined) {
-	function createClone(opts: DraggableConfig) {
-		if (opts.disabled || !opts.dropzoneRegistry) return;
-		return createCommitElement(opts.commitType, opts.label, opts.sha, opts.date, opts.authorImgUrl);
-	}
-	return setupDragHandlers(node, initialOpts, createClone, {
-		handlerWidth: true
-	});
 }
 
 /////////////////////////////

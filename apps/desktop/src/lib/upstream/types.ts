@@ -1,12 +1,11 @@
 import { getStackName, type Stack } from '$lib/stacks/stack';
-import type { BranchStack } from '$lib/branches/branch';
 
 export type StackStatus = {
 	treeStatus: TreeStatus;
 	branchStatuses: NameAndBranchStatus[];
 };
 
-export type NameAndBranchStatus = {
+type NameAndBranchStatus = {
 	name: string;
 	status: BranchStatus;
 };
@@ -29,20 +28,9 @@ export function stackFullyIntegrated(stackStatus: StackStatus): boolean {
 	);
 }
 
-export type TreeStatus = {
+type TreeStatus = {
 	type: 'empty' | 'conflicted' | 'saflyUpdatable';
 };
-
-export type StackStatusInfo = { stack: BranchStack; status: StackStatus };
-
-export type StackStatusesWithBranches =
-	| {
-			type: 'upToDate';
-	  }
-	| {
-			type: 'updatesRequired';
-			subject: StackStatusInfo[];
-	  };
 
 export type StackStatusInfoV3 = { stack: Stack; status: StackStatus };
 
@@ -89,33 +77,6 @@ export function getBaseBranchResolution(
 		targetCommitOid,
 		approach: { type: approach }
 	};
-}
-
-export function getResolutionApproach(statusInfo: StackStatusInfo): ResolutionApproach {
-	if (stackFullyIntegrated(statusInfo.status)) {
-		return { type: 'delete' };
-	}
-
-	if (statusInfo.stack.allowRebasing) {
-		return { type: 'rebase' };
-	}
-
-	return { type: 'merge' };
-}
-
-export function sortStatusInfo(a: StackStatusInfo, b: StackStatusInfo): number {
-	if (
-		(!stackFullyIntegrated(a.status) && !stackFullyIntegrated(b.status)) ||
-		(stackFullyIntegrated(a.status) && stackFullyIntegrated(b.status))
-	) {
-		return (a.stack?.name || 'Unknown').localeCompare(b.stack?.name || 'Unknown');
-	}
-
-	if (stackFullyIntegrated(a.status)) {
-		return 1;
-	} else {
-		return -1;
-	}
 }
 
 export function sortStatusInfoV3(a: StackStatusInfoV3, b: StackStatusInfoV3): number {

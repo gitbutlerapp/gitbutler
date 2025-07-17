@@ -53,37 +53,3 @@ export function combineResults<T extends [...CustomResult<any>[]]>(
 		data
 	} as CustomResult<CustomQuery<{ [K in keyof T]: Exclude<T[K]['data'], undefined> }>>;
 }
-
-/**
- * Transforms the `data` property of a successful Redux query result using the provided transformation function.
- *
- * If the query result is successful (`isSuccess` is true), applies the `transform` function to the `data` property
- * and returns a new result object with the transformed data. If not successful, returns the result with `data` set to `undefined`.
- *
- * @typeParam Result - The type of the original result data.
- * @typeParam NewResult - The type of the transformed result data.
- * @typeParam T - The type of the input query result, extending `CustomResult<QueryDefinition<any, any, any, Result>>`.
- * @param queryResult - The original Redux query result object.
- * @param transform - A function to transform the original result data.
- * @returns A new query result object with the transformed data if successful, or with `data` as `undefined` otherwise.
- */
-export function mapReduxResult<
-	Result,
-	NewResult,
-	T extends CustomResult<QueryDefinition<any, any, any, Result>>
->(
-	queryResult: T,
-	transform: (data: Result) => NewResult
-): CustomResult<QueryDefinition<any, any, any, NewResult>> {
-	if (queryResult.isSuccess) {
-		return {
-			...queryResult,
-			data: transform(queryResult.data)
-		};
-	}
-
-	return {
-		...queryResult,
-		data: undefined
-	};
-}
