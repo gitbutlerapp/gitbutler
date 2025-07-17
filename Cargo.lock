@@ -912,6 +912,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-rules"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-db",
+ "chrono",
+ "gitbutler-command-context",
+ "itertools",
+ "regex",
+ "serde",
+ "serde_json",
+ "serde_regex",
+ "uuid",
+]
+
+[[package]]
 name = "but-settings"
 version = "0.0.0"
 dependencies = [
@@ -3341,6 +3357,7 @@ dependencies = [
  "but-graph",
  "but-hunk-assignment",
  "but-hunk-dependency",
+ "but-rules",
  "but-settings",
  "but-workspace",
  "console-subscriber",
@@ -8347,6 +8364,16 @@ dependencies = [
  "itoa",
  "memchr",
  "ryu",
+ "serde",
+]
+
+[[package]]
+name = "serde_regex"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8136f1a4ea815d7eac4101cfd0b16dc0cb5e1fe1b8609dfd728058656b7badf"
+dependencies = [
+ "regex",
  "serde",
 ]
 

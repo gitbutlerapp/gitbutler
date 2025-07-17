@@ -16,8 +16,8 @@ use gitbutler_tauri::csp::csp_with_extras;
 use gitbutler_tauri::settings::SettingsStore;
 use gitbutler_tauri::{
     action, askpass, cli, commands, config, diff, env, forge, github, logs, menu, modes, open,
-    projects, remotes, repo, secret, settings, stack, undo, users, virtual_branches, workspace,
-    zip, App, WindowState,
+    projects, remotes, repo, rules, secret, settings, stack, undo, users, virtual_branches,
+    workspace, zip, App, WindowState,
 };
 use tauri::Emitter;
 use tauri::{generate_context, Manager};
@@ -283,6 +283,10 @@ fn main() {
                     action::freestyle,
                     cli::install_cli,
                     cli::cli_path,
+                    rules::create_workspace_rule,
+                    rules::delete_workspace_rule,
+                    rules::update_workspace_rule,
+                    rules::list_workspace_rules,
                     workspace::stacks,
                     workspace::stack_details,
                     workspace::branch_details,

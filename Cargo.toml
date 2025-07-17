@@ -76,6 +76,7 @@ but-hunk-assignment = { path = "crates/but-hunk-assignment" }
 but-hunk-dependency = { path = "crates/but-hunk-dependency" }
 but-db = { path = "crates/but-db" }
 but-graph = { path = "crates/but-graph" }
+but-rules = { path = "crates/but-rules" }
 but-action = { path = "crates/but-action" }
 but-status = { path = "crates/but-status" }
 but-tools = { path = "crates/but-tools" }
