@@ -1,0 +1,18 @@
+[package]
+name = "but-rules"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = "1.0.98"
+itertools.workspace = true
+serde.workspace = true
+regex = "1.11.1"
+chrono = { version = "0.4.41", features = [] }
+serde_regex = "1.1.0"
