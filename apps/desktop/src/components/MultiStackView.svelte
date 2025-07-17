@@ -146,11 +146,9 @@
 		{#each mutableStacks as stack, i (stack.id)}
 			{@const stackState = uiState.stack(stack.id)}
 			{@const selection = stackState.selection}
-			{@const laneWraperMinWidth = laneWidths[i] ?? 0}
 			<div
 				class="reorderable-stack"
 				role="presentation"
-				style:min-width="{laneWraperMinWidth}px"
 				animate:flip={{ duration: 150 }}
 				onmousedown={onReorderMouseDown}
 				ondragstart={(e) => {

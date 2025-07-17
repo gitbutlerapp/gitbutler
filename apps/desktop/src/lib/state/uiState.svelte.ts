@@ -246,3 +246,24 @@ export type GlobalProperty<T> = {
 type GlobalStore<T extends DefaultConfig> = {
 	[K in keyof T]: GlobalProperty<T[K]>;
 };
+
+export function replaceBranchInExclusiveAction(
+	action: ExclusiveAction,
+	oldBranchName: string,
+	branchName: string
+): ExclusiveAction {
+	switch (action.type) {
+		case 'commit':
+			if (action.branchName === oldBranchName) {
+				return { ...action, branchName };
+			}
+			return action;
+		case 'edit-commit-message':
+			return action; // No change needed
+		case 'create-pr':
+			if (action.branchName === oldBranchName) {
+				return { ...action, branchName };
+			}
+			return action;
+	}
+}

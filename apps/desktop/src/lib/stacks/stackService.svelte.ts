@@ -12,6 +12,7 @@ import {
 	providesList,
 	ReduxTag
 } from '$lib/state/tags';
+import { replaceBranchInExclusiveAction, type UiState } from '$lib/state/uiState.svelte';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import {
 	createEntityAdapter,
@@ -28,7 +29,6 @@ import type { TreeChange, TreeChanges } from '$lib/hunks/change';
 import type { DiffSpec, Hunk } from '$lib/hunks/hunk';
 import type { BranchDetails, Stack, StackDetails } from '$lib/stacks/stack';
 import type { PropertiesFn } from '$lib/state/customHooks.svelte';
-import type { UiState } from '$lib/state/uiState.svelte';
 import type { User } from '$lib/user/user';
 
 type BranchParams = {
@@ -622,15 +622,26 @@ export class StackService {
 
 	get updateBranchName() {
 		return this.api.endpoints.updateBranchName.useMutation({
-			preEffect: (args) => {
-				const state = this.uiState.stack(args.stackId);
-				state.selection.set(undefined);
-			},
 			sideEffect: (_, args) => {
-				const state = this.uiState.stack(args.stackId);
-				state.selection.set({
+				// Immediately update the selection and the exclusive action.
+				const stackState = this.uiState.stack(args.stackId);
+				const projectState = this.uiState.project(args.projectId);
+				const exclusiveAction = projectState.exclusiveAction.current;
+				const previousSelection = stackState.selection.current ?? {};
+
+				stackState.selection.set({
+					...previousSelection,
 					branchName: args.newName
 				});
+
+				if (exclusiveAction) {
+					const updatedExclusiveAction = replaceBranchInExclusiveAction(
+						exclusiveAction,
+						args.branchName,
+						args.newName
+					);
+					projectState.exclusiveAction.set(updatedExclusiveAction);
+				}
 			},
 			onError: (_, args) => {
 				const state = this.uiState.stack(args.stackId);
