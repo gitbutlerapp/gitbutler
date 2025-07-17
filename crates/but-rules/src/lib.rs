@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+pub mod db;
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkspaceRule {

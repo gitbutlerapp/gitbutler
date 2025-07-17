@@ -51,3 +51,14 @@ diesel::table! {
         owner -> Text,
     }
 }
+
+diesel::table! {
+    workspace_rules (id) {
+        id -> Text,
+        created_at -> Timestamp,
+        enabled -> Bool,
+        trigger -> Text,
+        filters -> Text,
+        action -> Text,
+    }
+}

@@ -916,10 +916,13 @@ name = "but-rules"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-db",
  "chrono",
+ "gitbutler-command-context",
  "itertools",
  "regex",
  "serde",
+ "serde_json",
  "serde_regex",
 ]
 
