@@ -5,17 +5,11 @@ mod utils {
     use crate::ref_info::utils::standard_options;
     pub fn standard_options_with_extra_target(
         repo: &gix::Repository,
-        short_name: &str,
+        revspec: &str,
     ) -> but_workspace::ref_info::Options {
         but_workspace::ref_info::Options {
             traversal: but_graph::init::Options {
-                extra_target_commit_id: repo
-                    .find_reference(short_name)
-                    .expect("target reference is valid")
-                    .peel_to_id_in_place()
-                    .unwrap()
-                    .detach()
-                    .into(),
+                extra_target_commit_id: repo.rev_parse_single(revspec).unwrap().detach().into(),
                 ..Default::default()
             },
             ..standard_options()

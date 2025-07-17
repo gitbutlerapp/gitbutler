@@ -148,12 +148,13 @@ impl RefInfo {
                 else {
                     continue;
                 };
-                let identity_of_tip_to_base = Identifier::ChangesetId(id_for_tree_diff(
-                    repo,
-                    base_commit_id,
-                    topmost_unintegrated_commit.tree_id,
-                )?);
+                let Some(changeset_id) =
+                    id_for_tree_diff(repo, base_commit_id, topmost_unintegrated_commit.tree_id)?
+                else {
+                    continue;
+                };
 
+                let identity_of_tip_to_base = Identifier::ChangesetId(changeset_id);
                 let Some(squashed_commit_id) = upstream_lut.get(&identity_of_tip_to_base).cloned()
                 else {
                     continue;
@@ -209,15 +210,17 @@ impl PushStatus {
         let first_commit = commits.first();
         let everything_integrated_locally =
             first_commit.is_some_and(|c| matches!(c.relation, LocalCommitRelation::Integrated(_)));
+        let first_commit_is_local =
+            first_commit.is_some_and(|c| matches!(c.relation, LocalCommitRelation::LocalOnly));
         if everything_integrated_locally {
             PushStatus::Integrated
-        } else if commits
-            .iter()
-            .any(|c| matches!(c.relation, LocalCommitRelation::LocalAndRemote(id) if c.id != id))
-        {
+        } else if commits.iter().any(|c| {
+            matches!(c.relation, LocalCommitRelation::LocalAndRemote(id) if c.id != id)
+                || (first_commit_is_local
+                    && matches!(c.relation, LocalCommitRelation::Integrated(_)))
+        }) {
             PushStatus::UnpushedCommitsRequiringForce
-        } else if first_commit.is_some_and(|c| matches!(c.relation, LocalCommitRelation::LocalOnly))
-        {
+        } else if first_commit_is_local {
             if remote_has_commits {
                 PushStatus::UnpushedCommitsRequiringForce
             } else {
@@ -236,11 +239,10 @@ fn changeset_identifier(
     let Some(commit) = commit else {
         return Ok(None);
     };
-    Ok(Some(Identifier::ChangesetId(id_for_tree_diff(
-        repo,
-        commit.parent_ids.first().cloned(),
-        commit.id,
-    )?)))
+    Ok(
+        id_for_tree_diff(repo, commit.parent_ids.first().cloned(), commit.id)?
+            .map(Identifier::ChangesetId),
+    )
 }
 
 fn lookup_similar<'a>(
@@ -276,6 +278,11 @@ fn create_similarity_lut(
             }
             match similarity_lut.entry(k) {
                 Entry::Occupied(ambiguous) => {
+                    if matches!(ambiguous.key(), Identifier::ChangesetId(_)) {
+                        // the most expensive option should never be ambiguous (which can happen with merges),
+                        // so just keep the (typically top-most/first) commit with a changeset ID instead.
+                        return;
+                    }
                     ambiguous_commits.insert(ambiguous.key().clone());
                     ambiguous.remove();
                 }
@@ -297,18 +304,12 @@ fn create_similarity_lut(
                 commit.id,
             );
             if expensive {
-                // Just like with rename-tracking, let's not use 'empty' commits as specific unique value.
-                if commit.tree_id.is_empty_tree() {
+                let Some(changeset_id) =
+                    id_for_tree_diff(repo, commit.parent_ids.first().cloned(), commit.id)?
+                else {
                     continue;
-                }
-                insert_or_expell_ambiguous(
-                    Identifier::ChangesetId(id_for_tree_diff(
-                        repo,
-                        commit.parent_ids.first().cloned(),
-                        commit.id,
-                    )?),
-                    commit.id,
-                );
+                };
+                insert_or_expell_ambiguous(Identifier::ChangesetId(changeset_id), commit.id);
             }
         }
     }
@@ -322,10 +323,21 @@ fn id_for_tree_diff(
     repo: &gix::Repository,
     lhs: Option<gix::ObjectId>,
     rhs: gix::ObjectId,
-) -> anyhow::Result<ChangesetID> {
+) -> anyhow::Result<Option<ChangesetID>> {
     let lhs_tree = lhs.map(|id| id_to_tree(repo, id)).transpose()?;
     let rhs_tree = id_to_tree(repo, rhs)?;
 
+    let no_changes = lhs_tree
+        .as_ref()
+        .map_or(rhs_tree.id.is_empty_tree(), |lhs_tree| {
+            lhs_tree.id == rhs_tree.id
+        });
+    if no_changes {
+        return Ok(None);
+    }
+    // TODO(perf): use plumbing directly to avoid resource-cache overhead.
+    //             consider parallelization
+    //             really needs caching to be practical, in-memory might suffice for now.
     let changes = repo.diff_tree_to_tree(
         lhs_tree.as_ref(),
         &rhs_tree,
@@ -335,6 +347,9 @@ fn id_for_tree_diff(
             // but would cost time, making it useless.
             .track_rewrites(None),
     )?;
+    if changes.is_empty() {
+        return Ok(None);
+    }
 
     let mut hash = gix::hash::hasher(gix::hash::Kind::Sha1);
     hash.update(&[CURRENT_VERSION as u8]);
@@ -376,7 +391,7 @@ fn id_for_tree_diff(
             }
         }
     }
-    Ok(hash.try_finalize()?)
+    Ok(Some(hash.try_finalize()?))
 }
 
 // TODO: use `peel_to_tree()` once special conflict markers aren't needed anymore.
