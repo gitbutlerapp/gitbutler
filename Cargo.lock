@@ -924,6 +924,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_regex",
+ "uuid",
 ]
 
 [[package]]
@@ -3356,6 +3357,7 @@ dependencies = [
  "but-graph",
  "but-hunk-assignment",
  "but-hunk-dependency",
+ "but-rules",
  "but-settings",
  "but-workspace",
  "console-subscriber",

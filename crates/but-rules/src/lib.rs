@@ -1,3 +1,4 @@
+use gitbutler_command_context::CommandContext;
 use serde::{Deserialize, Serialize};
 
 pub mod db;
@@ -31,7 +32,7 @@ pub enum Trigger {
 /// A filter is a condition that determines what files or changes the rule applies to.
 /// Within a filter, multiple conditions are combined with AND logic (i.e. to match all conditions must be met)
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
 pub enum Filter {
     /// Matches the file path (relative to the repository root) against all provided regex patterns.
     #[serde(with = "serde_regex")]
@@ -63,7 +64,7 @@ pub enum TreeStatus {
 /// Represents a semantic type of change that was inferred for the change.
 /// Typically this means a heuristic or an LLM determinded that a change represents a refactor, a new feature, a bug fix, or documentation update.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
 pub enum SemanticType {
     /// A change that is a refactor, meaning it does not change the external behavior of the code but improves its structure.
     Refactor,
@@ -81,7 +82,7 @@ pub enum SemanticType {
 /// An action can be either explicit, meaning the user defined something like "Assign in Lane A" or "Ammend into Commit X"
 /// or it is implicit, meaning the action was determined by heuristics or AI, such as "Assign to appropriate branch" or "Absorb in dependent commit".
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
 pub enum Action {
     /// An action that has an explicit operation defined by the user.
     Explicit(Operation),
@@ -91,7 +92,7 @@ pub enum Action {
 
 /// Represents the operation that a user can configure to be performed in an explicit action.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
 pub enum Operation {
     /// Assign the matched changes to a specific stack ID.
     Assign { stack_id: String },
@@ -103,7 +104,7 @@ pub enum Operation {
 
 /// Represents the implicit operation that is determined by heuristics or AI.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
 pub enum ImplicitOperation {
     /// Assign the matched changes to the appropriate branch based on offline heuristics.
     AssignToAppropriateBranch,
@@ -111,4 +112,109 @@ pub enum ImplicitOperation {
     AbsorbIntoDependentCommit,
     /// Perform an operation based on LLM-driven analysis and tool calling.
     LLMPrompt(String),
+}
+
+/// A request to create a new workspace rule.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateRuleRequest {
+    /// The trigger that causes the rule to be evaluated.
+    pub trigger: Trigger,
+    /// The filters that determine what files or changes the rule applies to. Can not be empty.
+    pub filters: Vec<Filter>,
+    /// The action that determines what happens to the files or changes that matched the filters.
+    pub action: Action,
+}
+
+/// Creates a new workspace rule
+pub fn create_rule(
+    ctx: &mut CommandContext,
+    req: CreateRuleRequest,
+) -> anyhow::Result<WorkspaceRule> {
+    if req.filters.is_empty() {
+        return Err(anyhow::anyhow!("At least one filter is required"));
+    }
+    let rule = WorkspaceRule {
+        id: uuid::Uuid::new_v4().to_string(),
+        created_at: chrono::Local::now().naive_local(),
+        enabled: true,
+        trigger: req.trigger,
+        filters: req.filters,
+        action: req.action,
+    };
+
+    ctx.db()?
+        .workspace_rules()
+        .insert(rule.clone().try_into()?)
+        .map_err(|e| anyhow::anyhow!("Failed to insert workspace rule: {}", e))?;
+    Ok(rule)
+}
+
+/// Deletes an existing workspace rule by its ID.
+pub fn delete_rule(ctx: &mut CommandContext, id: &str) -> anyhow::Result<()> {
+    ctx.db()?
+        .workspace_rules()
+        .delete(id)
+        .map_err(|e| anyhow::anyhow!("Failed to delete workspace rule: {}", e))?;
+    Ok(())
+}
+
+/// A request to update an existing workspace rule.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateRuleRequest {
+    /// The ID of the rule to update.
+    id: String,
+    /// The new enabled state of the rule. If not provided, the existing state is retained.
+    enabled: Option<bool>,
+    /// The new trigger for the rule. If not provided, the existing trigger is retained.
+    trigger: Option<Trigger>,
+    /// The new filters for the rule. If not provided, the existing filters are retained.
+    filters: Option<Vec<Filter>>,
+    /// The new action for the rule. If not provided, the existing action is retained.
+    action: Option<Action>,
+}
+
+/// Updates an existing workspace rule with the provided request data.
+pub fn update_rule(
+    ctx: &mut CommandContext,
+    req: UpdateRuleRequest,
+) -> anyhow::Result<WorkspaceRule> {
+    let mut rule: WorkspaceRule = ctx
+        .db()?
+        .workspace_rules()
+        .get(&req.id)?
+        .ok_or_else(|| anyhow::anyhow!("Rule with ID {} not found", req.id))?
+        .try_into()?;
+
+    if let Some(enabled) = req.enabled {
+        rule.enabled = enabled;
+    }
+    if let Some(trigger) = req.trigger {
+        rule.trigger = trigger;
+    }
+    if let Some(filters) = req.filters {
+        rule.filters = filters;
+    }
+    if let Some(action) = req.action {
+        rule.action = action;
+    }
+
+    ctx.db()?
+        .workspace_rules()
+        .update(&req.id, rule.clone().try_into()?)
+        .map_err(|e| anyhow::anyhow!("Failed to update workspace rule: {}", e))?;
+    Ok(rule)
+}
+
+/// Lists all workspace rules in the database.
+pub fn list_rules(ctx: &mut CommandContext) -> anyhow::Result<Vec<WorkspaceRule>> {
+    let rules = ctx
+        .db()?
+        .workspace_rules()
+        .list()?
+        .into_iter()
+        .map(|r| r.try_into())
+        .collect::<Result<Vec<WorkspaceRule>, _>>()?;
+    Ok(rules)
 }
