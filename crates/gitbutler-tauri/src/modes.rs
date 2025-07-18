@@ -93,3 +93,16 @@ pub fn edit_initial_index_state(
 
     gitbutler_edit_mode::commands::starting_index_state(&ctx).map_err(Into::into)
 }
+
+#[tauri::command(async)]
+#[instrument(skip(projects, settings), err(Debug))]
+pub fn edit_changes_from_initial(
+    projects: State<'_, Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
+    project_id: ProjectId,
+) -> Result<Vec<(TreeChange)>, Error> {
+    let project = projects.get(project_id)?;
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+
+    gitbutler_edit_mode::commands::changes_from_initial(&ctx).map_err(Into::into)
+}

@@ -10,13 +10,11 @@
 		type ConflictEntryPresence,
 		type ConflictState
 	} from '$lib/conflictEntryPresence';
-	import { type RemoteFile } from '$lib/files/file';
-	import { UncommitedFilesWatcher } from '$lib/files/watcher';
 	import { ModeService, type EditModeMetadata } from '$lib/mode/modeService';
 	import { Project } from '$lib/project/project';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { UserService } from '$lib/user/userService';
-	import { computeFileStatus } from '$lib/utils/fileStatus';
+	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
@@ -39,11 +37,8 @@
 
 	const project = getContext(Project);
 	const remoteCommitService = getContext(CommitService);
-	const uncommitedFileWatcher = getContext(UncommitedFilesWatcher);
 	const modeService = getContext(ModeService);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
-
-	const uncommitedFiles = uncommitedFileWatcher.uncommitedFiles;
 
 	const userService = getContext(UserService);
 	const user = userService.user;
@@ -51,7 +46,15 @@
 	let modeServiceAborting = $state<'inert' | 'loading' | 'completed'>('inert');
 	let modeServiceSaving = $state<'inert' | 'loading' | 'completed'>('inert');
 
-	let initialFiles = $derived(modeService.initialEditModeState({ projectId: project.id }));
+	const initialFiles = $derived(modeService.initialEditModeState({ projectId: project.id }));
+	const uncommittedFiles = $derived(
+		modeService.changesSinceInitialEditState({ projectId: project.id })
+	);
+
+	$inspect({
+		initialFiles: initialFiles.current,
+		uncommittedFiles: uncommittedFiles.current
+	});
 	let commit = $state<Commit>();
 
 	async function getCommitData() {
@@ -91,20 +94,23 @@
 	);
 
 	const uncommitedFileMap = $derived(
-		new Map<string, RemoteFile>($uncommitedFiles.map(([file]) => [file.path, file]))
+		new Map<string, TreeChange>(
+			uncommittedFiles.current?.data?.map((file) => [file.path, file]) || []
+		)
 	);
 
 	const files = $derived.by(() => {
-		if (!initialFiles.current.data) return [];
+		if (!initialFiles.current.data || !uncommittedFiles.current.data) return [];
 
 		const outputMap = new Map<string, FileEntry>();
 
 		// Create output
 		{
 			initialFiles.current.data.forEach(([initialFile, conflictEntryPresence]) => {
-				const conflictState = conflictEntryPresence && 'unknown'; //getConflictState(initialFile, conflictEntryPresence);
+				const conflictState =
+					conflictEntryPresence && getConflictState(initialFile, conflictEntryPresence);
 
-				const uncommitedFileChange = uncommitedFileMap.get(initialFile.path);
+				const uncommittedFileChange = uncommitedFileMap.get(initialFile.path);
 
 				outputMap.set(initialFile.path, {
 					path: initialFile.path,
@@ -112,49 +118,41 @@
 					conflictHint: conflictEntryPresence
 						? conflictEntryHint(conflictEntryPresence)
 						: undefined,
-					status: getInitialFileStatus(uncommitedFileChange, conflictEntryPresence),
+					status: getInitialFileStatus(uncommittedFileChange, conflictEntryPresence),
 					conflictState,
 					conflictEntryPresence
 				});
 			});
 
-			$uncommitedFiles.forEach(([uncommitedFile]) => {
+			uncommittedFiles.current.data.forEach((uncommitedFile) => {
 				const existingFile = initialFileMap.get(uncommitedFile.path);
 				determineOutput: {
 					if (existingFile) {
-						const fileChanged = false;
-						// const fileChanged = existingFile.hunks.some(
-						// 	(hunk) => !uncommitedFile.hunks.map((hunk) => hunk.diff).includes(hunk.diff)
-						// );
+						const outputFile = outputMap.get(uncommitedFile.path)!;
+						// if (outputFile.conflicted && outputFile.conflictEntryPresence) {
+						// 	outputFile.conflictState = getConflictState(
+						// 		uncommitedFile,
+						// 		outputFile.conflictEntryPresence
+						// 	);
+						// }
 
-						if (fileChanged) {
-							// All initial entries should have been added to the map,
-							// so we can safely assert that it will be present
-							const outputFile = outputMap.get(uncommitedFile.path)!;
-							if (outputFile.conflicted && outputFile.conflictEntryPresence) {
-								outputFile.conflictState = getConflictState(
-									uncommitedFile,
-									outputFile.conflictEntryPresence
-								);
-							}
-
-							if (!outputFile.conflicted) {
-								outputFile.status = 'M';
-							}
-						}
+						outputFile.status = computeChangeStatus(uncommitedFile);
 						break determineOutput;
 					}
+
+					console.log(uncommitedFile);
 
 					outputMap.set(uncommitedFile.path, {
 						path: uncommitedFile.path,
 						conflicted: false,
-						status: computeFileStatus(uncommitedFile)
+						status: computeChangeStatus(uncommitedFile)
 					});
 				}
 			});
 		}
 
 		const orderedOutput = Array.from(outputMap.values());
+		console.log(orderedOutput);
 		orderedOutput.sort((a, b) => {
 			// Float conflicted files to the top
 			if (a.conflicted && !b.conflicted) {
@@ -275,6 +273,7 @@
 				>
 					{#each files as file (file.path)}
 						<div class="file">
+							{file.status}
 							<FileListItem
 								filePath={file.path}
 								fileStatus={file.status}

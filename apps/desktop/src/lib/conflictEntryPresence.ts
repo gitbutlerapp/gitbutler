@@ -1,4 +1,4 @@
-import type { RemoteFile } from '$lib/files/file';
+import type { TreeChange } from '$lib/hunks/change';
 import type { RemoteHunk } from '$lib/hunks/hunk';
 import type { FileStatus } from '@gitbutler/ui/file/types';
 
@@ -51,23 +51,25 @@ function hunkLooksConflicted(hunk: RemoteHunk): boolean {
 export type ConflictState = 'conflicted' | 'resolved' | 'unknown';
 
 export function getConflictState(
-	file: RemoteFile,
+	file: TreeChange,
 	conflictEntryPresence: ConflictEntryPresence
 ): ConflictState {
 	if (!conflictEntryPresence.ours || !conflictEntryPresence.theirs) {
 		return 'unknown';
 	}
 
-	for (const hunk of file.hunks) {
-		if (hunkLooksConflicted(hunk)) {
-			return 'conflicted';
-		}
-	}
+	return 'conflicted';
+
+	// for (const hunk of file.hunks) {
+	// 	if (hunkLooksConflicted(hunk)) {
+	// 		return 'conflicted';
+	// 	}
+	// }
 	return 'resolved';
 }
 
 export function getInitialFileStatus(
-	uncommitedFileChange: RemoteFile | undefined,
+	uncommitedFileChange: TreeChange | undefined,
 	conflictEntryPresence: ConflictEntryPresence | undefined
 ): FileStatus | undefined {
 	if (!conflictEntryPresence) {
