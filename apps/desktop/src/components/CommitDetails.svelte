@@ -85,7 +85,7 @@
 		</Tooltip>
 	</div>
 
-	{#if description}
+	{#if description && description.trim()}
 		<p
 			class="description"
 			class:expanded
