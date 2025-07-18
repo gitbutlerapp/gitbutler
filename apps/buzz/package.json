@@ -1,0 +1,19 @@
+{
+	"name": "@gitbutler/buzz",
+	"version": "1.0.0",
+	"description": "GitButler packaged in an electron app",
+	"main": "dist/main.js",
+	"scripts": {
+		"dev": "node dev.js",
+		"dev:simple": "pnpm build-ts && electron .",
+		"build-ts": "tsc",
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "FSL",
+	"devDependencies": {
+		"electron": "^37.2.3",
+		"typescript": "catalog:"
+	}
+}

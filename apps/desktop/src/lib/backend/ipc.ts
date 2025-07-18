@@ -2,6 +2,16 @@ import { invoke as invokeTauri } from '@tauri-apps/api/core';
 import { listen as listenTauri } from '@tauri-apps/api/event';
 import type { EventCallback, EventName } from '@tauri-apps/api/event';
 
+type ServerResonse<T> =
+	| {
+			type: 'success';
+			subject: T;
+	  }
+	| {
+			type: 'error';
+			subject: unknown;
+	  };
+
 export enum Code {
 	Unknown = 'errors.unknown',
 	Validation = 'errors.validation',
@@ -67,7 +77,24 @@ export async function invoke<T>(command: string, params: Record<string, unknown>
 	// });
 
 	try {
-		return await invokeTauri<T>(command, params);
+		if (import.meta.env.VITE_BUILD_TARGET === 'electron') {
+			// TODO: Implement invoke
+			const response = await fetch('http://localhost:6978', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({ command, params })
+			});
+			const out: ServerResonse<T> = await response.json();
+			if (out.type === 'success') {
+				return out.subject;
+			} else {
+				throw new Error(String(out.subject));
+			}
+		} else {
+			return await invokeTauri<T>(command, params);
+		}
 	} catch (error: unknown) {
 		if (isTauriCommandError(error)) {
 			console.error(`ipc->${command}: ${JSON.stringify(params)}`, error);
@@ -77,6 +104,11 @@ export async function invoke<T>(command: string, params: Record<string, unknown>
 }
 
 export function listen<T>(event: EventName, handle: EventCallback<T>) {
-	const unlisten = listenTauri(event, handle);
-	return async () => await unlisten.then((unlistenFn) => unlistenFn());
+	if (import.meta.env.VITE_BUILD_TARGET === 'electron') {
+		// TODO: Listening in electron
+		return async () => {};
+	} else {
+		const unlisten = listenTauri(event, handle);
+		return async () => await unlisten.then((unlistenFn) => unlistenFn());
+	}
 }

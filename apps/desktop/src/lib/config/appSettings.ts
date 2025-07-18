@@ -5,13 +5,19 @@
  * TODO: Rewrite this to be an injectable object so we don't need `storeInstance`.
  */
 
+import { persisted } from '@gitbutler/shared/persisted';
 import { Store } from '@tauri-apps/plugin-store';
-import { writable, type Writable } from 'svelte/store';
+import { get, writable, type Writable } from 'svelte/store';
 
 type DiskWritable<T> = Writable<T> & { onDisk: () => Promise<T> };
 
 export async function loadAppSettings() {
-	const diskStore = await Store.load('settings.json', { autoSave: true });
+	let diskStore: Store | undefined;
+	if (import.meta.env.VITE_BUILD_TARGET === 'electron') {
+		// TODO: Implement electron alternative
+	} else {
+		diskStore = await Store.load('settings.json', { autoSave: true });
+	}
 	return new AppSettings(diskStore);
 }
 
@@ -42,7 +48,7 @@ export class AppSettings {
 	 */
 	readonly appNonAnonMetricsEnabled: DiskWritable<boolean>;
 
-	constructor(private diskStore: Store) {
+	constructor(private diskStore: Store | undefined) {
 		this.appAnalyticsConfirmed = this.persisted(false, 'appAnalyticsConfirmed');
 		this.appMetricsEnabled = this.persisted(true, 'appMetricsEnabled');
 		this.appErrorReportingEnabled = this.persisted(true, 'appErrorReportingEnabled');
@@ -50,6 +56,14 @@ export class AppSettings {
 	}
 
 	private persisted<T>(initial: T, key: string): Writable<T> & { onDisk: () => Promise<T> } {
+		if (!this.diskStore) {
+			const writable = persisted(initial, key);
+			return {
+				...writable,
+				onDisk: async () => get(writable)
+			};
+		}
+
 		const diskStore = this.diskStore;
 		const storeValueWithDefault = this.storeValueWithDefault.bind(this);
 

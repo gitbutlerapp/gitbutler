@@ -14,7 +14,7 @@ gitbutler-fs.workspace = true
 notify = { version = "8.0.0" }
 tracing.workspace = true
 tokio = { workspace = true, features = ["macros", "rt"] }
-dirs = "6.0.0"
+dirs.workspace = true
 
 [[test]]
 name = "settings"

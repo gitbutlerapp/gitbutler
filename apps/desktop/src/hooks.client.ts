@@ -58,7 +58,11 @@ function logError(error: unknown) {
 		}
 
 		console.error(error);
-		logErrorToFile(String(error));
+		if (import.meta.env.VITE_BUILD_TARGET === 'electron') {
+			// TODO: Replace with electron log file
+		} else {
+			logErrorToFile(String(error));
+		}
 	} catch (err: unknown) {
 		console.error('Error while trying to log error.', err);
 	}
