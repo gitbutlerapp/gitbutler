@@ -7,12 +7,14 @@ use serde_json::json;
 use tower::ServiceBuilder;
 use tower_http::cors::{Any, CorsLayer};
 
+mod projects;
 mod settings;
 mod users;
 
 pub(crate) struct RequestContext {
     app_settings: Arc<AppSettingsWithDiskSync>,
     user_controller: Arc<gitbutler_user::Controller>,
+    project_controller: Arc<gitbutler_project::Controller>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -48,7 +50,8 @@ async fn main() {
     let app_settings = Arc::new(
         AppSettingsWithDiskSync::new(config_dir.clone()).expect("failed to create app settings"),
     );
-    let user_controller = Arc::new(gitbutler_user::Controller::from_path(app_data_dir));
+    let user_controller = Arc::new(gitbutler_user::Controller::from_path(&app_data_dir));
+    let project_controller = Arc::new(gitbutler_project::Controller::from_path(&app_data_dir));
 
     // build our application with a single route
     let app = Router::new()
@@ -58,6 +61,7 @@ async fn main() {
                 let ctx = RequestContext {
                     app_settings: Arc::clone(&app_settings),
                     user_controller: Arc::clone(&user_controller),
+                    project_controller: Arc::clone(&project_controller),
                 };
                 handle_command(req, ctx)
             }),
@@ -88,6 +92,12 @@ async fn handle_command(
         "get_user" => users::get_user(&ctx),
         "set_user" => users::set_user(&ctx, request.params),
         "delete_user" => users::delete_user(&ctx, request.params),
+        // Project management
+        "update_project" => projects::update_project(&ctx, request.params),
+        "add_project" => projects::add_project(&ctx, request.params),
+        "get_project" => projects::get_project(&ctx, request.params),
+        "list_projects" => projects::list_projects(&ctx, request.params),
+        "delete_project" => projects::delete_project(&ctx, request.params),
         _ => Err(anyhow::anyhow!("Command {} not found!", command)),
     };
 
