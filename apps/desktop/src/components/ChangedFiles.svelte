@@ -54,10 +54,16 @@
 	let listMode: 'list' | 'tree' = $state('tree');
 
 	$effect(() => {
-		if (autoselect && selectionId) {
+		if (selectionId) {
+			const selection = idSelection.getById(selectionId);
 			// Prevent effect from running when `changes` updates.
 			untrack(() => {
-				idSelection.set(changes[0]!.path, selectionId, 0);
+				if (autoselect && selection.entries.size === 0) {
+					const firstChange = changes.at(0);
+					if (firstChange) {
+						idSelection.set(firstChange.path, selectionId, 0);
+					}
+				}
 			});
 		}
 	});
