@@ -1,89 +1,23 @@
-pub mod commands {
-    use but_settings::AppSettingsWithDiskSync;
-    use std::collections::HashMap;
-    use tauri::State;
+use but_api::{
+    commands::github::{self, Verification},
+    IpcContext, NoParams,
+};
+use tauri::State;
+use tracing::instrument;
 
-    use anyhow::{Context, Result};
-    use serde::{Deserialize, Serialize};
-    use tracing::instrument;
+use but_api::error::Error;
 
-    use crate::error::Error;
+#[tauri::command(async)]
+#[instrument(skip(ipc_ctx), err(Debug))]
+pub async fn init_device_oauth(ipc_ctx: State<'_, IpcContext>) -> Result<Verification, Error> {
+    github::init_device_oauth(&ipc_ctx, NoParams {}).await
+}
 
-    #[derive(Debug, Deserialize, Serialize, Clone, Default)]
-    pub struct Verification {
-        pub user_code: String,
-        pub device_code: String,
-    }
-
-    #[tauri::command(async)]
-    #[instrument(skip(settings), err(Debug))]
-    pub async fn init_device_oauth(
-        settings: State<'_, AppSettingsWithDiskSync>,
-    ) -> Result<Verification, Error> {
-        let mut req_body = HashMap::new();
-        let client_id = settings.get()?.github_oauth_app.oauth_client_id.clone();
-        req_body.insert("client_id", client_id.as_str());
-        req_body.insert("scope", "repo");
-
-        let mut headers = reqwest::header::HeaderMap::new();
-        headers.insert(
-            reqwest::header::ACCEPT,
-            reqwest::header::HeaderValue::from_static("application/json"),
-        );
-
-        let client = reqwest::Client::new();
-        let res = client
-            .post("https://github.com/login/device/code")
-            .headers(headers)
-            .json(&req_body)
-            .send()
-            .await
-            .context("Failed to send request")?;
-
-        let rsp_body = res.text().await.context("Failed to get response body")?;
-
-        serde_json::from_str(&rsp_body)
-            .context("Failed to parse response body")
-            .map_err(Into::into)
-    }
-
-    #[tauri::command(async)]
-    #[instrument(skip(settings), err(Debug))]
-    pub async fn check_auth_status(
-        settings: State<'_, AppSettingsWithDiskSync>,
-        device_code: &str,
-    ) -> Result<String, Error> {
-        #[derive(Debug, Deserialize, Serialize, Clone, Default)]
-        struct AccessTokenContainer {
-            access_token: String,
-        }
-
-        let mut req_body = HashMap::new();
-        let client_id = settings.get()?.github_oauth_app.oauth_client_id.clone();
-        req_body.insert("client_id", client_id.as_str());
-        req_body.insert("device_code", device_code);
-        req_body.insert("grant_type", "urn:ietf:params:oauth:grant-type:device_code");
-
-        let mut headers = reqwest::header::HeaderMap::new();
-        headers.insert(
-            reqwest::header::ACCEPT,
-            reqwest::header::HeaderValue::from_static("application/json"),
-        );
-
-        let client = reqwest::Client::new();
-        let res = client
-            .post("https://github.com/login/oauth/access_token")
-            .headers(headers)
-            .json(&req_body)
-            .send()
-            .await
-            .context("Failed to send request")?;
-
-        let rsp_body = res.text().await.context("Failed to get response body")?;
-
-        serde_json::from_str::<AccessTokenContainer>(&rsp_body)
-            .map(|rsp_body| rsp_body.access_token)
-            .context("Failed to parse response body")
-            .map_err(Into::into)
-    }
+#[tauri::command(async)]
+#[instrument(skip(ipc_ctx), err(Debug))]
+pub async fn check_auth_status(
+    ipc_ctx: State<'_, IpcContext>,
+    device_code: String,
+) -> Result<String, Error> {
+    github::check_auth_status(&ipc_ctx, github::CheckAuthStatusParams { device_code }).await
 }

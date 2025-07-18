@@ -2,6 +2,7 @@ packages:
   - 'apps/*'
   - 'packages/*'
   - 'crates/*'
+  - 'e2e'
 
 catalog:
   'vite': '6.3.5'

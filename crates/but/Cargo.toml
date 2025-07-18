@@ -56,3 +56,4 @@ tracing-subscriber = { version = "0.3", features = [
     "fmt",
 ] }
 dirs-next = "2.0.0"
+but-server.workspace = true

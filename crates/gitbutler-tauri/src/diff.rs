@@ -1,64 +1,42 @@
-use crate::error::Error;
-use crate::from_json::HexHash;
-use anyhow::Context;
-use but_core::{
-    commit::ConflictEntries,
-    ui::{TreeChange, TreeChanges},
-    Commit,
+use but_api::commands::diff::{
+    self, AssignHunkParams, ChangesInBranchParams, ChangesInWorktreeParams, CommitDetails,
+    CommitDetailsParams, TreeChangeDiffsParams,
 };
+use but_api::error::Error;
+use but_api::hex_hash::HexHash;
+use but_core::ui::{TreeChange, TreeChanges};
 use but_hunk_assignment::{AssignmentRejection, HunkAssignmentRequest, WorktreeChanges};
-use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 use but_workspace::StackId;
-use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
-use gix::refs::Category;
-use serde::Serialize;
+use tauri::State;
 use tracing::instrument;
 
 /// Provide a unified diff for `change`, but fail if `change` is a [type-change](but_core::ModeFlags::TypeChange)
 /// or if it involves a change to a [submodule](gix::object::Kind::Commit).
 #[tauri::command(async)]
-#[instrument(skip(change, settings), err(Debug))]
+#[instrument(skip(ipc_ctx), err(Debug))]
 pub fn tree_change_diffs(
-    settings: tauri::State<'_, but_settings::AppSettingsWithDiskSync>,
+    ipc_ctx: State<'_, but_api::IpcContext>,
     project_id: ProjectId,
     change: TreeChange,
 ) -> anyhow::Result<but_core::UnifiedDiff, Error> {
-    let change: but_core::TreeChange = change.into();
-    let project = gitbutler_project::get(project_id)?;
-    let repo = gix::open(project.path).map_err(anyhow::Error::from)?;
-    Ok(change
-        .unified_diff(&repo, settings.get()?.context_lines)?
-        .context("TODO: Submodules must be handled specifically in the UI")?)
+    diff::tree_change_diffs(&ipc_ctx, TreeChangeDiffsParams { project_id, change })
 }
 
 #[tauri::command(async)]
-#[instrument(err(Debug))]
+#[instrument(skip(ipc_ctx), err(Debug))]
 pub fn commit_details(
+    ipc_ctx: State<'_, but_api::IpcContext>,
     project_id: ProjectId,
     commit_id: HexHash,
 ) -> anyhow::Result<CommitDetails, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let repo = &gix::open(&project.path).context("Failed to open repo")?;
-    let commit = repo
-        .find_commit(commit_id)
-        .context("Failed for find commit")?;
-    let changes = but_core::diff::ui::commit_changes_by_worktree_dir(repo, commit_id.into())?;
-    let conflict_entries = Commit::from_id(commit.id())?.conflict_entries()?;
-    Ok(CommitDetails {
-        commit: commit.try_into()?,
-        changes,
-        conflict_entries,
-    })
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CommitDetails {
-    pub commit: but_workspace::ui::Commit,
-    #[serde(flatten)]
-    pub changes: but_core::ui::TreeChanges,
-    pub conflict_entries: Option<ConflictEntries>,
+    diff::commit_details(
+        &ipc_ctx,
+        CommitDetailsParams {
+            project_id,
+            commit_id,
+        },
+    )
 }
 
 /// Gets the changes for a given branch.
@@ -68,33 +46,24 @@ pub struct CommitDetails {
 /// Note that `stack_id` is deprecated in favor of `branch_name`
 /// *(which should be a full ref-name as well and make `remote` unnecessary)*
 #[tauri::command(async)]
-#[instrument(skip(settings), err(Debug))]
+#[instrument(skip(ipc_ctx), err(Debug))]
 pub fn changes_in_branch(
-    settings: tauri::State<'_, but_settings::AppSettingsWithDiskSync>,
+    ipc_ctx: State<'_, but_api::IpcContext>,
     project_id: ProjectId,
     // TODO: remove this, go by name. Ideally, the UI would pass us two commits.
     _stack_id: Option<StackId>,
     branch_name: String,
     remote: Option<String>,
 ) -> anyhow::Result<TreeChanges, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    changes_in_branch_inner(ctx, remote, branch_name).map_err(Into::into)
-}
-
-fn changes_in_branch_inner(
-    ctx: CommandContext,
-    remote: Option<String>,
-    branch_name: String,
-) -> anyhow::Result<TreeChanges> {
-    let (repo, _meta, graph) = ctx.graph_and_meta(ctx.gix_repo()?)?;
-    let name = if let Some(remote) = remote {
-        Category::RemoteBranch.to_full_name(format!("{remote}/{branch_name}").as_str())
-    } else {
-        Category::LocalBranch.to_full_name(branch_name.as_str())
-    }?;
-    let ws = graph.to_workspace()?;
-    but_workspace::ui::diff::changes_in_branch(&repo, &ws, name.as_ref())
+    diff::changes_in_branch(
+        &ipc_ctx,
+        ChangesInBranchParams {
+            project_id,
+            _stack_id,
+            branch_name,
+            remote,
+        },
+    )
 }
 
 /// This UI-version of [`but_core::diff::worktree_changes()`] simplifies the `git status` information for display in
@@ -107,56 +76,26 @@ fn changes_in_branch_inner(
 ///
 /// All ignored status changes are also provided so they can be displayed separately.
 #[tauri::command(async)]
-#[instrument(skip(settings), err(Debug))]
+#[instrument(skip(ipc_ctx), err(Debug))]
 pub fn changes_in_worktree(
-    settings: tauri::State<'_, but_settings::AppSettingsWithDiskSync>,
+    ipc_ctx: State<'_, but_api::IpcContext>,
     project_id: ProjectId,
 ) -> anyhow::Result<WorktreeChanges, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = &mut CommandContext::open(&project, settings.get()?.clone())?;
-    let changes = but_core::diff::worktree_changes(&ctx.gix_repo()?)?;
-
-    let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
-        ctx,
-        &ctx.project().path,
-        &ctx.project().gb_dir(),
-        Some(changes.changes.clone()),
-    );
-
-    let (assignments, assignments_error) = match &dependencies {
-        Ok(dependencies) => but_hunk_assignment::assignments_with_fallback(
-            ctx,
-            false,
-            Some(changes.changes.clone()),
-            Some(dependencies),
-        )?,
-        Err(e) => (
-            vec![],
-            Some(anyhow::anyhow!("failed to get hunk dependencies: {}", e)),
-        ),
-    };
-
-    Ok(WorktreeChanges {
-        worktree_changes: changes.into(),
-        assignments,
-        assignments_error: assignments_error.map(|err| serde_error::Error::new(&*err)),
-        dependencies: dependencies.as_ref().ok().cloned(),
-        dependencies_error: dependencies
-            .as_ref()
-            .err()
-            .map(|err| serde_error::Error::new(&**err)),
-    })
+    diff::changes_in_worktree(&ipc_ctx, ChangesInWorktreeParams { project_id })
 }
 
 #[tauri::command(async)]
-#[instrument(skip(settings), err(Debug))]
+#[instrument(skip(ipc_ctx), err(Debug))]
 pub fn assign_hunk(
-    settings: tauri::State<'_, but_settings::AppSettingsWithDiskSync>,
+    ipc_ctx: State<'_, but_api::IpcContext>,
     project_id: ProjectId,
     assignments: Vec<HunkAssignmentRequest>,
 ) -> anyhow::Result<Vec<AssignmentRejection>, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = &mut CommandContext::open(&project, settings.get()?.clone())?;
-    let rejections = but_hunk_assignment::assign(ctx, assignments, None)?;
-    Ok(rejections)
+    diff::assign_hunk(
+        &ipc_ctx,
+        AssignHunkParams {
+            project_id,
+            assignments,
+        },
+    )
 }

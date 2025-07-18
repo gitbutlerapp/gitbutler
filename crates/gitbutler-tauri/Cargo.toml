@@ -84,9 +84,10 @@ but-hunk-assignment.workspace = true
 but-action.workspace = true
 but-rules.workspace = true
 but-path.workspace = true
+but-api.workspace = true
 open = "5"
 url = "2.5.4"
-dirs = "6.0.0"
+dirs.workspace = true
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-plugin-trafficlights-positioner = { git = "https://github.com/gitbutlerapp/tauri-plugin-trafficlights-positioner", branch = "v2" }
 

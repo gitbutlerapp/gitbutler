@@ -58,6 +58,8 @@ For examples `but rub --help`.")]
         #[clap(long)]
         props: String,
     },
+    #[clap(hide = true)]
+    Serve,
 }
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]

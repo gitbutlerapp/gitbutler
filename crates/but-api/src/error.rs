@@ -13,13 +13,13 @@
 //!
 //! The values in these fields are controlled by attaching context, please [see the `error` docs](gitbutler_error::error))
 //! on how to do this.
-pub(crate) use frontend::{Error, UnmarkedError};
+pub use frontend::{Error, ToError, UnmarkedError};
 
 mod frontend {
     use std::borrow::Cow;
 
     use gitbutler_error::error::AnyhowContextExt;
-    use serde::{ser::SerializeMap, Serialize};
+    use serde::{Serialize, ser::SerializeMap};
 
     /// An error type for serialization which isn't expected to carry a code.
     #[derive(Debug)]
@@ -62,6 +62,16 @@ mod frontend {
     impl From<anyhow::Error> for Error {
         fn from(value: anyhow::Error) -> Self {
             Self(value)
+        }
+    }
+
+    pub trait ToError<T> {
+        fn to_error(self) -> Result<T, Error>;
+    }
+
+    impl<T, E: std::error::Error + Send + Sync + 'static> ToError<T> for Result<T, E> {
+        fn to_error(self) -> Result<T, Error> {
+            self.map_err(|e| Error(e.into()))
         }
     }
 

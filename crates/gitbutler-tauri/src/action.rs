@@ -1,5 +1,5 @@
-use crate::error::Error;
 use but_action::OpenAiProvider;
+use but_api::error::Error;
 use but_core::ui::TreeChange;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;

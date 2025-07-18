@@ -105,6 +105,10 @@ async fn main() -> Result<()> {
             metrics_if_configured(app_settings, CommandName::Rub, props(start, &result)).ok();
             Ok(())
         }
+        Subcommands::Serve => {
+            but_server::run().await;
+            Ok(())
+        }
     }
 }
 

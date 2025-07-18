@@ -479,14 +479,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edca88bc138befd0323b20752846e6587272d3b03b0343c8ea28a6f819e6e71f"
 dependencies = [
  "async-trait",
- "axum-core",
+ "axum-core 0.4.5",
  "bytes",
  "futures-util",
  "http 1.3.1",
  "http-body 1.0.1",
  "http-body-util",
  "itoa",
- "matchit",
+ "matchit 0.7.3",
  "memchr",
  "mime",
  "percent-encoding",
@@ -497,6 +497,43 @@ dependencies = [
  "tower 0.5.2",
  "tower-layer",
  "tower-service",
+]
+
+[[package]]
+name = "axum"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "021e862c184ae977658b36c4500f7feac3221ca5da43e3f25bd04ab6c79a29b5"
+dependencies = [
+ "axum-core 0.5.2",
+ "base64 0.22.1",
+ "bytes",
+ "form_urlencoded",
+ "futures-util",
+ "http 1.3.1",
+ "http-body 1.0.1",
+ "http-body-util",
+ "hyper 1.6.0",
+ "hyper-util",
+ "itoa",
+ "matchit 0.8.4",
+ "memchr",
+ "mime",
+ "percent-encoding",
+ "pin-project-lite",
+ "rustversion",
+ "serde",
+ "serde_json",
+ "serde_path_to_error",
+ "serde_urlencoded",
+ "sha1",
+ "sync_wrapper 1.0.2",
+ "tokio",
+ "tokio-tungstenite",
+ "tower 0.5.2",
+ "tower-layer",
+ "tower-service",
+ "tracing",
 ]
 
 [[package]]
@@ -517,6 +554,26 @@ dependencies = [
  "sync_wrapper 1.0.2",
  "tower-layer",
  "tower-service",
+]
+
+[[package]]
+name = "axum-core"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68464cd0412f486726fb3373129ef5d2993f90c34bc2bc1c1e9943b2f4fc7ca6"
+dependencies = [
+ "bytes",
+ "futures-core",
+ "http 1.3.1",
+ "http-body 1.0.1",
+ "http-body-util",
+ "mime",
+ "pin-project-lite",
+ "rustversion",
+ "sync_wrapper 1.0.2",
+ "tower-layer",
+ "tower-service",
+ "tracing",
 ]
 
 [[package]]
@@ -715,6 +772,7 @@ dependencies = [
  "but-graph",
  "but-hunk-assignment",
  "but-hunk-dependency",
+ "but-server",
  "but-settings",
  "but-workspace",
  "chrono",
@@ -783,6 +841,58 @@ dependencies = [
  "tauri",
  "tokio",
  "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "but-api"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "but-action",
+ "but-core",
+ "but-graph",
+ "but-hunk-assignment",
+ "but-hunk-dependency",
+ "but-rules",
+ "but-settings",
+ "but-workspace",
+ "dirs 6.0.0",
+ "futures-util",
+ "git2",
+ "gitbutler-branch",
+ "gitbutler-branch-actions",
+ "gitbutler-command-context",
+ "gitbutler-diff",
+ "gitbutler-edit-mode",
+ "gitbutler-error",
+ "gitbutler-feedback",
+ "gitbutler-forge",
+ "gitbutler-id",
+ "gitbutler-operating-modes",
+ "gitbutler-oplog",
+ "gitbutler-oxidize",
+ "gitbutler-project",
+ "gitbutler-reference",
+ "gitbutler-repo",
+ "gitbutler-repo-actions",
+ "gitbutler-secret",
+ "gitbutler-stack",
+ "gitbutler-sync",
+ "gitbutler-user",
+ "gitbutler-watcher",
+ "gix",
+ "open",
+ "reqwest 0.12.22",
+ "serde",
+ "serde-error",
+ "serde_json",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "tracing-subscriber",
+ "url",
  "uuid",
 ]
 
@@ -937,6 +1047,63 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_regex",
+ "uuid",
+]
+
+[[package]]
+name = "but-server"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "axum 0.8.4",
+ "bstr",
+ "but-action",
+ "but-api",
+ "but-core",
+ "but-graph",
+ "but-hunk-assignment",
+ "but-hunk-dependency",
+ "but-path",
+ "but-rules",
+ "but-settings",
+ "but-workspace",
+ "dirs 6.0.0",
+ "futures-util",
+ "git2",
+ "gitbutler-branch",
+ "gitbutler-branch-actions",
+ "gitbutler-command-context",
+ "gitbutler-diff",
+ "gitbutler-edit-mode",
+ "gitbutler-error",
+ "gitbutler-feedback",
+ "gitbutler-forge",
+ "gitbutler-id",
+ "gitbutler-operating-modes",
+ "gitbutler-oplog",
+ "gitbutler-oxidize",
+ "gitbutler-project",
+ "gitbutler-reference",
+ "gitbutler-repo",
+ "gitbutler-repo-actions",
+ "gitbutler-secret",
+ "gitbutler-stack",
+ "gitbutler-sync",
+ "gitbutler-user",
+ "gitbutler-watcher",
+ "gix",
+ "open",
+ "reqwest 0.12.22",
+ "serde",
+ "serde-error",
+ "serde_json",
+ "tokio",
+ "tokio-util",
+ "tower 0.5.2",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "url",
  "uuid",
 ]
 
@@ -1398,7 +1565,7 @@ version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fde0e0ec90c9dfb3b4b1a0891a7dcd0e2bffde2f7efed5fe7c9bb00e5bfb915e"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1747,6 +1914,12 @@ dependencies = [
  "once_cell",
  "parking_lot_core",
 ]
+
+[[package]]
+name = "data-encoding"
+version = "2.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a2330da5de22e8a3cb63252ce2abb30116bf5265e89c0e01bc17015ce30a476"
 
 [[package]]
 name = "data-url"
@@ -3384,6 +3557,7 @@ dependencies = [
  "anyhow",
  "backtrace",
  "but-action",
+ "but-api",
  "but-core",
  "but-db",
  "but-graph",
@@ -6082,6 +6256,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e7465ac9959cc2b1404e8e2367b43684a6d13790fe23056cc8c6c5a6b7bcb94"
 
 [[package]]
+name = "matchit"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
+
+[[package]]
 name = "maybe-async"
 version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6482,7 +6662,7 @@ version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af1844ef2428cc3e1cb900be36181049ef3d3193c63e43026cfe202983b27a56"
 dependencies = [
- "proc-macro-crate 1.3.1",
+ "proc-macro-crate 3.3.0",
  "proc-macro2",
  "quote",
  "syn 2.0.101",
@@ -8454,6 +8634,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_path_to_error"
+version = "0.1.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "59fab13f937fa393d08645bf3a84bdfe86e296747b506ada67bb15f10f218b2a"
+dependencies = [
+ "itoa",
+ "serde",
+]
+
+[[package]]
 name = "serde_regex"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9771,6 +9961,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio-tungstenite"
+version = "0.26.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7a9daff607c6d2bf6c16fd681ccb7eecc83e4e2cdc1ca067ffaadfca5de7f084"
+dependencies = [
+ "futures-util",
+ "log",
+ "tokio",
+ "tungstenite",
+]
+
+[[package]]
 name = "tokio-util"
 version = "0.7.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9854,7 +10056,7 @@ checksum = "877c5b330756d856ffcc4553ab34a5684481ade925ecc54bcd1bf02b1d0d4d52"
 dependencies = [
  "async-stream",
  "async-trait",
- "axum",
+ "axum 0.7.9",
  "base64 0.22.1",
  "bytes",
  "h2 0.4.10",
@@ -9909,6 +10111,7 @@ dependencies = [
  "tokio",
  "tower-layer",
  "tower-service",
+ "tracing",
 ]
 
 [[package]]
@@ -9947,6 +10150,7 @@ version = "0.1.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "784e0ac535deb450455cbfa28a6f0df145ea1bb7ae51b821cf5e7927fdcfbdd0"
 dependencies = [
+ "log",
  "pin-project-lite",
  "tracing-attributes",
  "tracing-core",
@@ -10066,6 +10270,23 @@ name = "try-lock"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
+
+[[package]]
+name = "tungstenite"
+version = "0.26.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4793cb5e56680ecbb1d843515b23b6de9a75eb04b66643e256a396d43be33c13"
+dependencies = [
+ "bytes",
+ "data-encoding",
+ "http 1.3.1",
+ "httparse",
+ "log",
+ "rand 0.9.1",
+ "sha1",
+ "thiserror 2.0.12",
+ "utf-8",
+]
 
 [[package]]
 name = "typeid"
@@ -10645,7 +10866,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
