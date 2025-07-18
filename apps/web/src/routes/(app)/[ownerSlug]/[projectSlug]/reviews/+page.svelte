@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { AuthService } from '$lib/auth/authService.svelte';
 	import BranchIndexCard from '$lib/components/branches/BranchIndexCard.svelte';
 	import DashboardLayout from '$lib/components/dashboard/DashboardLayout.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { UserService } from '$lib/user/userService';
 	import { getBranchReviewsForRepository } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { BranchStatus } from '@gitbutler/shared/branches/types';
 	import { getContext } from '@gitbutler/shared/context';
@@ -15,13 +15,13 @@
 	import Select from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 
-	// Get authentication service and check if user is logged in
-	const authService = getContext(AuthService);
 	const routes = getContext(WebRoutesService);
+	const userService = getContext(UserService);
+	const user = userService.user;
 
-	// If there is no token (user not logged in), redirect to home
+	// If there is no user (user not logged in), redirect to home
 	$effect(() => {
-		if (!authService.token.current) {
+		if ($user === undefined) {
 			goto(routes.homePath());
 		}
 	});
