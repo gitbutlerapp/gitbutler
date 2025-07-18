@@ -1,0 +1,15 @@
+{
+  "title": "Virtual Branches",
+  "pages": [
+    "overview",
+    "butler-flow",
+    "branch-lanes",
+    "commits",
+    "pushing-and-fetching",
+    "remote-branches",
+    "integration-branch",
+    "merging",
+    "signing-commits",
+    "committer-mark"
+  ]
+}
