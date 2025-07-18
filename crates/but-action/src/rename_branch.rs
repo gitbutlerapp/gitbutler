@@ -11,7 +11,6 @@ pub struct RenameBranchParams {
     pub commit_message: String,
     pub stack_id: StackId,
     pub current_branch_name: String,
-    pub existing_branch_names: Vec<String>,
 }
 
 pub async fn rename_branch(
@@ -25,10 +24,14 @@ pub async fn rename_branch(
         commit_message,
         stack_id,
         current_branch_name,
-        existing_branch_names,
     } = parameters;
 
     let repo = &ctx.gix_repo_for_merging_non_persisting()?;
+    let stacks = crate::stacks(ctx, repo)?;
+    let existing_branch_names = stacks
+        .iter()
+        .flat_map(|s| s.heads.iter().map(|h| h.name.clone().to_string()))
+        .collect::<Vec<_>>();
     let changes = but_core::diff::ui::commit_changes_by_worktree_dir(repo, commit_id)?;
     let diff = changes.try_as_unidiff_string(repo, ctx.app_settings().context_lines)?;
     let diffs = vec![diff];

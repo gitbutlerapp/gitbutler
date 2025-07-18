@@ -112,10 +112,6 @@ pub(crate) async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
     )?;
 
     let stacks = crate::log::stacks(defer.ctx)?;
-    let existing_branch_names = stacks
-        .iter()
-        .flat_map(|s| s.heads.iter().map(|h| h.name.clone().to_string()))
-        .collect::<Vec<_>>();
 
     // Trigger commit message generation for newly created commits
     // TODO: Maybe this can be done in the main app process i.e. the GitButler GUI, if avaialbe
@@ -162,7 +158,6 @@ pub(crate) async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
                             commit_message,
                             stack_id: branch.stack_id,
                             current_branch_name: branch.branch_name.clone(),
-                            existing_branch_names: existing_branch_names.clone(),
                         };
                         but_action::rename_branch::rename_branch(
                             defer.ctx,
