@@ -75,7 +75,7 @@
 			// set time out to ensure the element is rendered
 			setTimeout(() => {
 				textBoxEl?.focus();
-			}, 0);
+			}, 100);
 		}
 	});
 
