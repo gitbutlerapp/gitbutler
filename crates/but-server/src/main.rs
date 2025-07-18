@@ -8,6 +8,7 @@ use tower::ServiceBuilder;
 use tower_http::cors::{Any, CorsLayer};
 
 mod settings;
+mod users;
 
 pub(crate) struct RequestContext {
     app_settings: Arc<AppSettingsWithDiskSync>,
@@ -83,6 +84,10 @@ async fn handle_command(
             settings::update_telemetry_distinct_id(&ctx, request.params)
         }
         "update_feature_flags" => settings::update_feature_flags(&ctx, request.params),
+        // User management
+        "get_user" => users::get_user(&ctx),
+        "set_user" => users::set_user(&ctx, request.params),
+        "delete_user" => users::delete_user(&ctx, request.params),
         _ => Err(anyhow::anyhow!("Command {} not found!", command)),
     };
 
