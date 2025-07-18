@@ -806,6 +806,8 @@ A new multi-segment stack is created without remote and squash merged locally.
     * fafd9d0 init
     ");
 
+    // TODO: if the user now puts another dependent branch, it's breaking down in many ways.
+    //       We should be smarter about that and flesh out additional steps on top.
     add_stack_with_segments(&mut meta, 0, "S1", StackState::InWorkspace, &[]);
     let info = but_workspace::head_info(&repo, &*meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"

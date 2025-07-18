@@ -58,7 +58,7 @@ pub fn show_graph_svg(
         &repo,
         &meta,
         but_graph::init::Options {
-            collect_tags: false,
+            collect_tags: true,
             commits_limit_hint: Some(300),
             commits_limit_recharge_location: vec![],
             hard_limit: None,
