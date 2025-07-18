@@ -26,6 +26,7 @@ gitbutler-cherry-pick.workspace = true
 gitbutler-workspace.workspace = true
 but-workspace.workspace = true
 but-rebase.workspace = true
+but-core.workspace = true
 serde.workspace = true
 tracing.workspace = true
 

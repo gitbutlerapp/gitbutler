@@ -10,9 +10,8 @@
 
 	const modeService = getContext(ModeService);
 
-	const mode = modeService.mode;
-
 	const projectId = $derived(page.params.projectId!);
+	const mode = $derived(modeService.mode({ projectId }));
 	const [uiState, stackService] = inject(UiState, StackService);
 	const projectState = $derived(uiState.project(projectId));
 	const stackId = $derived(projectState.stackId.current);
@@ -38,7 +37,7 @@
 	}
 
 	$effect(() => {
-		if ($mode?.type === 'Edit') {
+		if (mode.current.data?.type === 'Edit') {
 			// That was causing an incorrect linting error when project.id was accessed inside the reactive block
 			gotoEdit();
 		}

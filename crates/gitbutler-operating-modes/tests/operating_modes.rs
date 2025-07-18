@@ -30,7 +30,7 @@ fn create_edit_mode_metadata(ctx: &CommandContext) {
 
 mod operating_modes {
     mod open_workspace_mode {
-        use gitbutler_operating_modes::{assure_open_workspace_mode, in_open_workspace_mode};
+        use gitbutler_operating_modes::{ensure_open_workspace_mode, in_open_workspace_mode};
         use gitbutler_testsupport::{Case, Suite};
 
         use crate::create_and_checkout_branch;
@@ -75,7 +75,7 @@ mod operating_modes {
 
             create_and_checkout_branch(ctx, "gitbutler/workspace");
 
-            assert!(assure_open_workspace_mode(ctx).is_ok());
+            assert!(ensure_open_workspace_mode(ctx).is_ok());
         }
 
         #[test]
@@ -85,7 +85,7 @@ mod operating_modes {
 
             create_and_checkout_branch(ctx, "gitbutler/edit");
 
-            assert!(assure_open_workspace_mode(ctx).is_err());
+            assert!(ensure_open_workspace_mode(ctx).is_err());
         }
 
         #[test]
@@ -95,12 +95,12 @@ mod operating_modes {
 
             create_and_checkout_branch(ctx, "testeroni");
 
-            assert!(assure_open_workspace_mode(ctx).is_err());
+            assert!(ensure_open_workspace_mode(ctx).is_err());
         }
     }
 
     mod outside_workspace_mode {
-        use gitbutler_operating_modes::{assure_outside_workspace_mode, in_outside_workspace_mode};
+        use gitbutler_operating_modes::{ensure_outside_workspace_mode, in_outside_workspace_mode};
         use gitbutler_testsupport::{Case, Suite};
 
         use crate::{create_and_checkout_branch, create_edit_mode_metadata};
@@ -146,7 +146,7 @@ mod operating_modes {
 
             create_and_checkout_branch(ctx, "testeroni");
 
-            assert!(assure_outside_workspace_mode(ctx).is_ok());
+            assert!(ensure_outside_workspace_mode(ctx).is_ok());
         }
 
         #[test]
@@ -157,7 +157,7 @@ mod operating_modes {
             create_and_checkout_branch(ctx, "gitbutler/edit");
             create_edit_mode_metadata(ctx);
 
-            assert!(assure_outside_workspace_mode(ctx).is_err());
+            assert!(ensure_outside_workspace_mode(ctx).is_err());
         }
 
         #[test]
@@ -167,12 +167,12 @@ mod operating_modes {
 
             create_and_checkout_branch(ctx, "gitbutler/workspace");
 
-            assert!(assure_outside_workspace_mode(ctx).is_err());
+            assert!(ensure_outside_workspace_mode(ctx).is_err());
         }
     }
 
     mod edit_mode {
-        use gitbutler_operating_modes::{assure_edit_mode, in_edit_mode};
+        use gitbutler_operating_modes::{ensure_edit_mode, in_edit_mode};
         use gitbutler_testsupport::{Case, Suite};
 
         use crate::{create_and_checkout_branch, create_edit_mode_metadata};
@@ -220,7 +220,7 @@ mod operating_modes {
             create_and_checkout_branch(ctx, "gitbutler/edit");
             create_edit_mode_metadata(ctx);
 
-            assert!(assure_edit_mode(ctx).is_ok());
+            assert!(ensure_edit_mode(ctx).is_ok());
         }
 
         #[test]
@@ -230,7 +230,7 @@ mod operating_modes {
 
             create_and_checkout_branch(ctx, "gitbutler/edit");
 
-            assert!(assure_edit_mode(ctx).is_err());
+            assert!(ensure_edit_mode(ctx).is_err());
         }
 
         #[test]
@@ -241,7 +241,7 @@ mod operating_modes {
             create_and_checkout_branch(ctx, "testeroni");
             create_edit_mode_metadata(ctx);
 
-            assert!(assure_edit_mode(ctx).is_err());
+            assert!(ensure_edit_mode(ctx).is_err());
         }
     }
 }

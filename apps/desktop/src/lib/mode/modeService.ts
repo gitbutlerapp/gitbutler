@@ -1,9 +1,8 @@
-import { invoke, listen } from '$lib/backend/ipc';
-import { RemoteFile } from '$lib/files/file';
-import { plainToInstance } from 'class-transformer';
-import { derived, writable } from 'svelte/store';
+import { hasTauriExtra } from '$lib/state/backendQuery';
+import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
 import type { ConflictEntryPresence } from '$lib/conflictEntryPresence';
-import type { StackService } from '$lib/stacks/stackService.svelte';
+import type { TreeChange } from '$lib/hunks/change';
+import type { ClientState } from '$lib/state/clientState.svelte';
 
 export interface EditModeMetadata {
 	commitOid: string;
@@ -33,79 +32,120 @@ interface HeadAndMode {
 }
 
 export class ModeService {
-	private headAndMode = writable<HeadAndMode>({}, (set) => {
-		this.refresh();
+	private api: ReturnType<typeof injectEndpoints>;
 
-		const unsubscribe = subscribeToHead(this.projectId, (headAndMode) => {
-			set(headAndMode);
-		});
-
-		return unsubscribe;
-	});
-
-	readonly head = derived(this.headAndMode, ({ head }) => head);
-	readonly mode = derived(this.headAndMode, ({ operatingMode }) => operatingMode);
-
-	constructor(
-		private projectId: string,
-		private readonly stackService: StackService
-	) {}
-
-	private async refresh() {
-		const head = await invoke<string>('git_head', { projectId: this.projectId });
-		const operatingMode = await invoke<Mode>('operating_mode', { projectId: this.projectId });
-
-		this.headAndMode.set({ head, operatingMode });
+	constructor(state: ClientState['backendApi']) {
+		this.api = injectEndpoints(state);
 	}
 
-	async enterEditMode(commitId: string, stackId: string) {
-		this.stackService.enterEditMode({
-			projectId: this.projectId,
-			commitId,
-			stackId
-		});
-		await this.awaitMode('Edit');
+	get enterEditMode() {
+		return this.api.endpoints.enterEditMode.mutate;
 	}
 
-	async abortEditAndReturnToWorkspace() {
-		await this.stackService.abortEditAndReturnToWorkspace({
-			projectId: this.projectId
-		});
-		await this.awaitMode('OpenWorkspace');
+	get abortEditAndReturnToWorkspace() {
+		return this.api.endpoints.abortEditAndReturnToWorkspace.mutate;
 	}
 
-	async saveEditAndReturnToWorkspace() {
-		await this.stackService.saveEditAndReturnToWorkspace({
-			projectId: this.projectId
-		});
-		await this.awaitMode('OpenWorkspace');
+	get saveEditAndReturnToWorkspace() {
+		return this.api.endpoints.saveEditAndReturnToWorkspace.mutate;
 	}
 
-	async getInitialIndexState() {
-		const rawOutput = await invoke<unknown[][]>('edit_initial_index_state', {
-			projectId: this.projectId
-		});
-
-		return rawOutput.map((entry) => {
-			return [plainToInstance(RemoteFile, entry[0]), entry[1] as ConflictEntryPresence | undefined];
-		}) as [RemoteFile, ConflictEntryPresence | undefined][];
+	get initialEditModeState() {
+		return this.api.endpoints.initialEditModeState.useQuery;
 	}
 
-	async awaitMode(mode: Mode['type']): Promise<void> {
-		return await new Promise((resolve) => {
-			const unsubscribe = this.mode.subscribe((operatingMode) => {
-				if (operatingMode && operatingMode?.type === mode) {
-					resolve();
+	get mode() {
+		return this.api.endpoints.mode.useQuery;
+	}
 
-					setTimeout(() => {
-						unsubscribe();
-					}, 0);
-				}
-			});
-		});
+	get head() {
+		return this.api.endpoints.mode.useQuery;
 	}
 }
 
-function subscribeToHead(projectId: string, callback: (headAndMode: HeadAndMode) => void) {
-	return listen<HeadAndMode>(`project://${projectId}/git/head`, (event) => callback(event.payload));
+function injectEndpoints(api: ClientState['backendApi']) {
+	return api.injectEndpoints({
+		endpoints: (build) => ({
+			enterEditMode: build.mutation<void, { projectId: string; commitId: string; stackId: string }>(
+				{
+					extraOptions: { command: 'enter_edit_mode' },
+					query: (args) => args,
+					invalidatesTags: [
+						invalidatesList(ReduxTag.InitalEditListing),
+						invalidatesList(ReduxTag.HeadMetadata)
+					]
+				}
+			),
+			abortEditAndReturnToWorkspace: build.mutation<void, { projectId: string }>({
+				extraOptions: { command: 'abort_edit_and_return_to_workspace' },
+				query: (args) => args,
+				invalidatesTags: [
+					invalidatesList(ReduxTag.InitalEditListing),
+					invalidatesList(ReduxTag.HeadMetadata)
+				]
+			}),
+			saveEditAndReturnToWorkspace: build.mutation<void, { projectId: string }>({
+				extraOptions: { command: 'save_edit_and_return_to_workspace' },
+				query: (args) => args,
+				invalidatesTags: [
+					invalidatesList(ReduxTag.WorktreeChanges),
+					invalidatesList(ReduxTag.StackDetails),
+					invalidatesList(ReduxTag.InitalEditListing),
+					invalidatesList(ReduxTag.HeadMetadata)
+				]
+			}),
+			initialEditModeState: build.query<
+				[TreeChange, ConflictEntryPresence | undefined][],
+				{ projectId: string }
+			>({
+				extraOptions: { command: 'edit_initial_index_state' },
+				query: (args) => args,
+				providesTags: [providesList(ReduxTag.InitalEditListing)]
+			}),
+			mode: build.query<Mode, { projectId: string }>({
+				extraOptions: { command: 'operating_mode' },
+				query: (args) => args,
+				providesTags: [providesList(ReduxTag.HeadMetadata)],
+				async onCacheEntryAdded(arg, lifecycleApi) {
+					if (!hasTauriExtra(lifecycleApi.extra)) {
+						throw new Error('Redux dependency Tauri not found!');
+					}
+					await lifecycleApi.cacheDataLoaded;
+					const unsubscribe = lifecycleApi.extra.tauri.listen<HeadAndMode>(
+						`project://${arg.projectId}/head`,
+						(event) => {
+							lifecycleApi.updateCachedData(() => event.payload.operatingMode);
+							lifecycleApi.dispatch(
+								api.util.invalidateTags([invalidatesList(ReduxTag.HeadMetadata)])
+							);
+						}
+					);
+					await lifecycleApi.cacheEntryRemoved;
+					unsubscribe();
+				}
+			}),
+			head: build.query<string, { projectId: string }>({
+				extraOptions: { command: 'git_head' },
+				query: (args) => args,
+				providesTags: [providesList(ReduxTag.HeadMetadata)],
+				async onCacheEntryAdded(arg, lifecycleApi) {
+					if (!hasTauriExtra(lifecycleApi.extra)) {
+						throw new Error('Redux dependency Tauri not found!');
+					}
+					await lifecycleApi.cacheDataLoaded;
+					const unsubscribe = lifecycleApi.extra.tauri.listen<HeadAndMode>(
+						`project://${arg.projectId}/head`,
+						(event) => {
+							lifecycleApi.updateCachedData(() => event.payload.head);
+							lifecycleApi.dispatch(
+								api.util.invalidateTags([invalidatesList(ReduxTag.HeadMetadata)])
+							);
+						}
+					);
+					await lifecycleApi.cacheEntryRemoved;
+					unsubscribe();
+				}
+			})
+		})
+	});
 }
