@@ -1,0 +1,45 @@
+[package]
+name = "but-testing"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[[bin]]
+name = "but-testing"
+path = "src/main.rs"
+doctest = false
+
+[features]
+# To help produce stable commits in test-cases.
+testing = ["dep:gitbutler-commit"]
+
+[dependencies]
+gitbutler-command-context.workspace = true
+gitbutler-stack.workspace = true
+gitbutler-project.workspace = true
+gitbutler-filemonitor.workspace = true
+but-settings.workspace = true
+but-core.workspace = true
+but-db.workspace = true
+but-workspace.workspace = true
+but-graph.workspace = true
+but-hunk-dependency.workspace = true
+but-hunk-assignment.workspace = true
+gitbutler-branch-actions.workspace = true
+gitbutler-branch.workspace = true
+gitbutler-operating-modes.workspace = true
+
+gitbutler-commit = { workspace = true, optional = true, features = ["testing"] }
+
+clap = { version = "4.5.40", features = ["derive", "env"] }
+gix.workspace = true
+anyhow.workspace = true
+itertools.workspace = true
+tracing-forest = { version = "0.1.6" }
+tracing-subscriber.workspace = true
+tracing.workspace = true
+dirs-next = "2.0.0"
+serde_json = "1.0.140"
+serde.workspace = true
+tokio.workspace = true
