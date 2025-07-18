@@ -152,9 +152,7 @@
 	}
 
 	async function handleCommitClick(commitId: string, upstream: boolean) {
-		if (selectedCommitId === commitId) {
-			stackState.selection.set(undefined);
-		} else {
+		if (selectedCommitId !== commitId) {
 			stackState.selection.set({ branchName, commitId, upstream });
 		}
 		projectState.stackId.set(stackId);
