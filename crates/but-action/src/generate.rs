@@ -105,10 +105,13 @@ pub async fn branch_name(
         "Generate a concise and descriptive branch name based on the provided commit messages.
         Keep the branch name short, ideally under 50 characters. Only user lowercase letters, numbers, and hyphens.
         Don't use other special characters or spaces.
+
         <important_notes>
             The branch name should reflect the main content of the commit messages and, if available, change diffs.
             Try to make the branch name unique and noticeably different from existing branch names.
+            In order to make it noticeably different, use a different first word for the branh name.
             Do not use any of the existing branch names.
+
         </important_notes>
         
         <exisiting_branch_names>
