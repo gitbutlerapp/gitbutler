@@ -200,7 +200,9 @@ export class Feed {
 
 	private async handleLastAdded(entry: FeedEntry) {
 		this.lastAddedId.set(entry.id);
+	}
 
+	private handleNewItemObserved(entry: FeedEntry) {
 		if (entry instanceof Workflow) {
 			const stackId = entry.kind.subject?.stackId;
 			if (stackId) this.stackService.invalidateStackDetailsUpdate(stackId);
@@ -297,7 +299,6 @@ export class Feed {
 	}
 
 	async updateCombinedFeed() {
-		if (!this.initialized) return;
 		if (this.updateTimeout) {
 			clearTimeout(this.updateTimeout);
 		}
@@ -331,6 +332,12 @@ export class Feed {
 							const existing = entries.find((entry) => entry.id === lessRecent.id);
 							if (!existing) {
 								lastAddedItem = lessRecent;
+
+								this.handleNewItemObserved(lastAddedItem);
+
+								if (!this.initialized) {
+									return entries;
+								}
 								return [lessRecent, ...entries];
 							}
 							return entries;
