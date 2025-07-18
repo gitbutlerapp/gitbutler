@@ -403,12 +403,7 @@
 					{#if !isNonLocalPr}
 						<div class="preview-selection">
 							<ConfigurableScrollableContainer zIndex="var(--z-lifted)">
-								<SelectionView
-									testId={TestId.BranchesSelectionView}
-									{projectId}
-									{selectionId}
-									notClosable
-								/>
+								<SelectionView testId={TestId.BranchesSelectionView} {projectId} {selectionId} />
 							</ConfigurableScrollableContainer>
 						</div>
 					{/if}
