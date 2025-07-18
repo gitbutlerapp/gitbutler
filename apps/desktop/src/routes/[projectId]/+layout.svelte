@@ -26,6 +26,7 @@
 	import { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 	import { GitLabState } from '$lib/forge/gitlab/gitlabState.svelte';
 	import { TemplateService } from '$lib/forge/templateService';
+	import { GitService } from '$lib/git/gitService';
 	import { HistoryService } from '$lib/history/history';
 	import { ModeService } from '$lib/mode/modeService';
 	import { showError, showInfo } from '$lib/notifications/toasts';
@@ -44,7 +45,7 @@
 
 	const { data, children: pageChildren }: { data: LayoutData; children: Snippet } = $props();
 
-	const { projectId, userService, fetchSignal, posthog, projectMetrics, tauri } = $derived(data);
+	const { projectId, userService, posthog, projectMetrics, tauri } = $derived(data);
 
 	const baseBranchService = getContext(BaseBranchService);
 	const repoInfoResponse = $derived(baseBranchService.repo(projectId));
@@ -114,23 +115,27 @@
 	const mode = $derived(modeService.mode);
 	const head = $derived(modeService.head);
 
-	// TODO: can we eliminate the need to debounce?
-	const fetch = $derived(fetchSignal.event);
-	const debouncedBaseBranchRefresh = debounce(async () => {
-		await baseBranchService.refreshBaseBranch(projectId);
-	}, 500);
-	$effect(() => {
-		if ($fetch || $head) debouncedBaseBranchRefresh();
-	});
+	const debouncedBaseBranchRefresh = debounce(
+		async () => await baseBranchService.refreshBaseBranch(projectId),
+		500
+	);
 
-	// TODO: can we eliminate the need to debounce?
 	const debouncedRemoteBranchRefresh = debounce(
 		async () => await branchService.refresh(projectId),
 		500
 	);
 
+	// TODO: Refactor `$head` into `.onHead()` as well.
+	const gitService = getContext(GitService);
+	$effect(() =>
+		gitService.onFetch(data.projectId, () => {
+			debouncedBaseBranchRefresh();
+			debouncedRemoteBranchRefresh();
+		})
+	);
+
 	$effect(() => {
-		if (baseBranch || $head || $fetch) debouncedRemoteBranchRefresh();
+		if (baseBranch || $head) debouncedRemoteBranchRefresh();
 	});
 
 	const gitlabConfigured = $derived(gitLabState.configured);
