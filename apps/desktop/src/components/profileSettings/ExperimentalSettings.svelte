@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { SettingsService } from '$lib/config/appSettingsV2';
-	import { ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
+	import { ircEnabled, ircServer, workspaceRulesEnabled } from '$lib/config/uiFeatureFlags';
 	import { User } from '$lib/user/user';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
@@ -79,11 +79,28 @@
 		{/if}
 
 		<SectionCard
-			labelFor="irc"
+			labelFor="rules"
 			roundedTop={!$settingsStore?.featureFlags.actions}
-			roundedBottom={!$ircEnabled}
+			roundedBottom={false}
 			orientation="row"
 		>
+			{#snippet title()}
+				Workspace Rules
+			{/snippet}
+			{#snippet caption()}
+				Go full dominatrix on your workspace and add a bunch rules that can automatically trigger
+				actions.
+			{/snippet}
+			{#snippet actions()}
+				<Toggle
+					id="rules"
+					checked={$workspaceRulesEnabled}
+					onclick={() => workspaceRulesEnabled.set(!$workspaceRulesEnabled)}
+				/>
+			{/snippet}
+		</SectionCard>
+
+		<SectionCard labelFor="irc" roundedTop={false} roundedBottom={!$ircEnabled} orientation="row">
 			{#snippet title()}
 				IRC
 			{/snippet}

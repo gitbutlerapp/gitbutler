@@ -20,7 +20,8 @@ export enum ReduxTag {
 	UpstreamIntegrationStatus = 'UpstreamIntegrationStatus',
 	BranchListing = 'BranchListing',
 	BranchDetails = 'BranchDetails',
-	SnapshotDiff = 'SnapshotDiff'
+	SnapshotDiff = 'SnapshotDiff',
+	WorkspaceRules = 'WorkspaceRules'
 }
 
 type Tag<T extends string | number> = {

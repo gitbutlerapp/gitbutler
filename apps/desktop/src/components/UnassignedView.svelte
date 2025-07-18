@@ -1,8 +1,10 @@
 <script lang="ts">
+	import RulesList from '$components/RulesList.svelte';
 	import UnassignedFoldButton from '$components/UnassignedFoldButton.svelte';
 	import WorktreeChanges from '$components/WorktreeChanges.svelte';
 	import WorktreeTipsFooter from '$components/WorktreeTipsFooter.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
+	import { workspaceRulesEnabled } from '$lib/config/uiFeatureFlags';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { IntelligentScrollingService } from '$lib/intelligentScrolling/service';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
@@ -102,6 +104,10 @@
 					{/if}
 				</Button>
 			</div>
+		{/if}
+
+		{#if $workspaceRulesEnabled}
+			<RulesList {projectId} />
 		{/if}
 	</div>
 {:else}
