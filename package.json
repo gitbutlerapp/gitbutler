@@ -59,7 +59,35 @@
 	},
 	"pnpm": {
 		"onlyBuiltDependencies": [
-			"@prisma/client"
+			"@prisma/client",
+			"electron"
+		],
+		"ignoredBuiltDependencies": [
+			"@prisma/engines",
+			"@prisma/engines",
+			"@sentry/cli",
+			"@sentry/cli",
+			"cypress",
+			"cypress",
+			"edgedriver",
+			"edgedriver",
+			"electron",
+			"esbuild",
+			"esbuild",
+			"geckodriver",
+			"geckodriver",
+			"leveldown",
+			"leveldown",
+			"msw",
+			"msw",
+			"playwright-webkit",
+			"playwright-webkit",
+			"prisma",
+			"prisma",
+			"svelte-preprocess",
+			"svelte-preprocess",
+			"unrs-resolver",
+			"unrs-resolver"
 		]
 	}
 }
