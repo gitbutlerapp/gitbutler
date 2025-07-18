@@ -7,47 +7,14 @@ use anyhow::{anyhow, Context, Result};
 use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Code;
 use gitbutler_id::id::Id;
-use gitbutler_oplog::{
-    entry::{OperationKind, SnapshotDetails},
-    OplogExt,
-};
+use gitbutler_oplog::OplogExt;
 use gitbutler_project as projects;
 use gitbutler_project::{CodePushState, Project};
 use gitbutler_reference::Refname;
-use gitbutler_stack::{StackId, Target, VirtualBranchesHandle};
+use gitbutler_stack::{Target, VirtualBranchesHandle};
 use gitbutler_url::Url;
 use gitbutler_user as users;
 use itertools::Itertools;
-
-pub fn take_synced_snapshot(
-    ctx: &CommandContext,
-    user: &users::User,
-    stack_id: Option<StackId>,
-) -> Result<git2::Oid> {
-    let project = ctx.project();
-    let mut guard = project.exclusive_worktree_access();
-
-    let virtual_branches_handle = VirtualBranchesHandle::new(project.gb_dir());
-    if let Some(stack_id) = stack_id {
-        let mut stack = virtual_branches_handle.get_stack_in_workspace(stack_id)?;
-        stack.post_commits = true;
-        virtual_branches_handle.set_stack(stack)?;
-    }
-
-    let snapshot = ctx.create_snapshot(
-        SnapshotDetails::new(OperationKind::SyncWorkspace),
-        guard.write_permission(),
-    )?;
-    push_oplog(ctx, user)?;
-
-    if let Some(stack_id) = stack_id {
-        let mut stack = virtual_branches_handle.get_stack_in_workspace(stack_id)?;
-        stack.post_commits = true;
-        virtual_branches_handle.set_stack(stack)?;
-    }
-
-    Ok(snapshot)
-}
 
 /// Pushes the repository to the GitButler remote
 pub fn push_repo(
