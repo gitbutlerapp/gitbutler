@@ -101,7 +101,17 @@ impl RefInfo {
                     // top-to-bottom
                     .commits
                     .iter_mut()
-                    .take_while(|c| c.relation == LocalCommitRelation::LocalOnly)
+                    .take_while(|c| {
+                        matches!(
+                            c.relation,
+                            // This happens when the identity match with the remote didn't work.
+                            LocalCommitRelation::LocalOnly |
+                            // This would be expected to be a remote-match by identity (we don't check for this),
+                            // something that is determined during graph traversal time. But we want ot see
+                            // if any of these is also integrated.
+                            LocalCommitRelation::LocalAndRemote(_)
+                        )
+                    })
                 {
                     let expensive = changeset_identifier(repo, expensive.then_some(local))?;
                     if let Some(upstream_commit_id) =
