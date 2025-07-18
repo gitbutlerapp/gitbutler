@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io::{self, Read};
 use std::str::FromStr;
 
@@ -7,7 +8,6 @@ use but_action::{ActionHandler, OpenAiProvider, Source, reword::CommitEvent};
 use but_db::ClaudeCodeSession;
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_settings::AppSettings;
-use but_workspace::ui::Commit;
 use but_workspace::{HunkHeader, StackId};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_command_context::CommandContext;
@@ -120,10 +120,13 @@ pub(crate) async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
     // Trigger commit message generation for newly created commits
     // TODO: Maybe this can be done in the main app process i.e. the GitButler GUI, if avaialbe
     // Alternatively, and probably better - we could spawn a new process to do this
+
     if let Some(openai_client) =
         OpenAiProvider::with(None).and_then(|provider| provider.client().ok())
     {
         for branch in &outcome.updated_branches {
+            let mut commit_message_mapping = HashMap::new();
+
             let elegibility = is_branch_eligible_for_rename(&defer, &stacks, branch)?;
 
             for commit in &branch.new_commits {
@@ -137,24 +140,39 @@ pub(crate) async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
                         app_settings: defer.ctx.app_settings().clone(),
                         trigger: id,
                     };
-                    but_action::reword::commit(&openai_client, commit_event)
+                    let reword_result = but_action::reword::commit(&openai_client, commit_event)
                         .await
-                        .ok();
+                        .ok()
+                        .unwrap_or_default();
+
+                    // Update the commit mapping with the new commit ID
+                    if let Some(reword_result) = reword_result {
+                        commit_message_mapping.insert(commit_id, reword_result);
+                    }
                 }
             }
 
             match elegibility {
-                RenameEligibility::Eligible(commit) => {
-                    let params = RenameBranchParams {
-                        commit_id: commit.id,
-                        commit_message: commit.message,
-                        stack_id: branch.stack_id,
-                        current_branch_name: branch.branch_name.clone(),
-                        existing_branch_names: existing_branch_names.clone(),
-                    };
-                    but_action::rename_branch::rename_branch(defer.ctx, &openai_client, params, id)
+                RenameEligibility::Eligible { commit_id } => {
+                    let reword_result = commit_message_mapping.get(&commit_id).cloned();
+
+                    if let Some((commit_id, commit_message)) = reword_result {
+                        let params = RenameBranchParams {
+                            commit_id,
+                            commit_message,
+                            stack_id: branch.stack_id,
+                            current_branch_name: branch.branch_name.clone(),
+                            existing_branch_names: existing_branch_names.clone(),
+                        };
+                        but_action::rename_branch::rename_branch(
+                            defer.ctx,
+                            &openai_client,
+                            params,
+                            id,
+                        )
                         .await
                         .ok();
+                    }
                 }
                 RenameEligibility::NotEligible => {
                     // Do nothing, branch is not eligible for renaming
@@ -172,7 +190,7 @@ pub(crate) async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
 }
 
 enum RenameEligibility {
-    Eligible(Box<Commit>),
+    Eligible { commit_id: gix::ObjectId },
     NotEligible,
 }
 
@@ -231,9 +249,9 @@ fn is_branch_eligible_for_rename(
             but_workspace::ui::PushStatus::CompletelyUnpushed
         )
     {
-        Ok(RenameEligibility::Eligible(Box::new(
-            branch_details.commits[0].clone(),
-        )))
+        Ok(RenameEligibility::Eligible {
+            commit_id: branch_head.tip,
+        })
     } else {
         Ok(RenameEligibility::NotEligible)
     }

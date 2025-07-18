@@ -1,13 +1,14 @@
+use std::vec;
+
 use async_openai::{Client, config::OpenAIConfig};
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
-use gix::bstr::BString;
 
 use crate::workflow::{self, Workflow};
 
 pub struct RenameBranchParams {
     pub commit_id: gix::ObjectId,
-    pub commit_message: BString,
+    pub commit_message: String,
     pub stack_id: StackId,
     pub current_branch_name: String,
     pub existing_branch_names: Vec<String>,
@@ -26,9 +27,16 @@ pub async fn rename_branch(
         current_branch_name,
         existing_branch_names,
     } = parameters;
-    let commit_messages = vec![commit_message.to_string()];
+
+    let repo = &ctx.gix_repo_for_merging_non_persisting()?;
+    let changes = but_core::diff::ui::commit_changes_by_worktree_dir(repo, commit_id)?;
+    let diff = changes.try_as_unidiff_string(repo, ctx.app_settings().context_lines)?;
+    let diffs = vec![diff];
+
+    let commit_messages = vec![commit_message];
     let branch_name =
-        crate::generate::branch_name(client, &commit_messages, &existing_branch_names).await?;
+        crate::generate::branch_name(client, &commit_messages, &diffs, &existing_branch_names)
+            .await?;
     let normalized_branch_name = gitbutler_reference::normalize_branch_name(&branch_name)?;
 
     let update = gitbutler_branch_actions::stack::update_branch_name(
@@ -52,8 +60,8 @@ pub async fn rename_branch(
         }),
         workflow::Trigger::Snapshot(trigger_id),
         status,
-        vec![commit_id],
-        vec![commit_id],
+        vec![],
+        vec![],
         None,
     )
     .persist(ctx)

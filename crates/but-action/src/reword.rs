@@ -20,7 +20,10 @@ pub struct CommitEvent {
     pub trigger: Uuid,
 }
 
-pub async fn commit(client: &Client<OpenAIConfig>, event: CommitEvent) -> anyhow::Result<()> {
+pub async fn commit(
+    client: &Client<OpenAIConfig>,
+    event: CommitEvent,
+) -> anyhow::Result<Option<(gix::ObjectId, String)>> {
     let ctx = &mut CommandContext::open(&event.project, event.app_settings)?;
     let repo = &ctx.gix_repo_for_merging_non_persisting()?;
     let changes = but_core::diff::ui::commit_changes_by_worktree_dir(repo, event.commit_id)?;
@@ -49,10 +52,8 @@ pub async fn commit(client: &Client<OpenAIConfig>, event: CommitEvent) -> anyhow
         Err(e) => workflow::Status::Failed(e.to_string()),
     };
 
-    let output_commits = match &result {
-        Ok(new_commit_id) => vec![new_commit_id.to_gix()],
-        Err(_) => vec![],
-    };
+    let new_commit_id = result.map(|id| id.to_gix()).ok();
+    let output_commits = new_commit_id.map(|id| vec![id]).unwrap_or_default();
 
     Workflow::new(
         workflow::Kind::Reword(Some(workflow::RewordOutcome {
@@ -73,7 +74,7 @@ pub async fn commit(client: &Client<OpenAIConfig>, event: CommitEvent) -> anyhow
     .persist(ctx)
     .ok();
 
-    Ok(())
+    Ok(new_commit_id.map(|id| (id, message)))
 }
 
 fn stacks(ctx: &CommandContext) -> anyhow::Result<Vec<StackEntry>> {

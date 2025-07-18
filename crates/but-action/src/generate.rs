@@ -96,6 +96,7 @@ pub struct StructuredOutput {
 pub async fn branch_name(
     client: &Client<OpenAIConfig>,
     commit_messages: &[String],
+    diffs: &[String],
     existing_branch_names: &[String],
 ) -> anyhow::Result<String> {
     let system_message =
@@ -104,18 +105,27 @@ pub async fn branch_name(
         "Generate a concise and descriptive branch name based on the provided commit messages.
         Keep the branch name short, ideally under 50 characters. Only user lowercase letters, numbers, and hyphens.
         Don't use other special characters or spaces.
-        The branche name should reflect the main content of the commit messages.
-
-        Try to make the branch name unique and noticeably different from existing branch names.
+        <important_notes>
+            The branch name should reflect the main content of the commit messages and, if available, change diffs.
+            Try to make the branch name unique and noticeably different from existing branch names.
+            Do not use any of the existing branch names.
+        </important_notes>
         
-        Here are the existing branch names:
+        <exisiting_branch_names>
         {}
+        </existing_branch_names>
 
-        Here are the commit messages:
-
-        {}",
+        <commit_messages>
+        {}
+        </commit_messages>
+        
+        <diffs>
+        {}
+        </diffs>
+        ",
         existing_branch_names.join(",\n"),
-        commit_messages.join("\n==================\n")
+        commit_messages.join("\n==================\n"),
+        diffs.join("\n==================\n")
     );
 
     let schema = schema_for!(GenerateBranchNameOutput);
