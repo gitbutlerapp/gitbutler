@@ -163,7 +163,7 @@
 		e.stopPropagation();
 	}}
 >
-	<span class="truncate">
+	<span data-pr-text={checksTagInfo.reducedText} class="truncate">
 		{checksTagInfo.reducedText}
 	</span>
 </Badge>

@@ -950,24 +950,19 @@ describe('Review - stacked branches', () => {
 		cy.wait(
 			['@getChecksWithActualChecks', '@getChecksWithActualChecks', '@getChecksWithActualChecks'],
 			{ timeout: 11000 }
-		).spread((first, second, third) => {
-			expect(first.response.body).to.deep.equal(data);
-			expect(second.response.body).to.deep.equal(data);
-			expect(third.response.body).to.deep.equal(oneCheckFailed);
-		});
-
-		cy.getByTestId('branch-card', mockBackend.topBranchName)
-			.should('be.visible')
-			.within(() => {
-				cy.getByTestId('pr-checks-badge').should('be.visible');
+		)
+			.spread((first, second, third) => {
+				expect(first.response.body).to.deep.equal(data);
+				expect(second.response.body).to.deep.equal(data);
+				expect(third.response.body).to.deep.equal(oneCheckFailed);
+			})
+			.then(() => {
+				cy.getByDataValue('pr-text', 'Failed').should('be.visible');
 			});
 
 		cy.getByTestId('stacked-pull-request-card').within(() => {
 			cy.getByTestId('pr-status-badge').should('be.visible');
 			cy.getByDataValue('pr-status', 'open').should('be.visible');
 		});
-
-		// TODO: Fix this assertion. The UI shows 'Failed', but the test still fails.
-		// cy.getByTestId('pr-checks-badge').should('be.visible').contains('Failed').trigger('mouseover');
 	});
 });
