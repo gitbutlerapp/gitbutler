@@ -180,12 +180,8 @@
 						trackingBranch={branch.remoteTrackingBranch ?? undefined}
 						readonly={!!branch.remoteTrackingBranch}
 						onclick={() => {
-							if (selection.current?.branchName === branchName && !selection.current.commitId) {
-								uiState.stack(stackId).selection.set(undefined);
-							} else {
-								uiState.stack(stackId).selection.set({ branchName });
-								intelligentScrollingService.show(projectId, stackId, 'details');
-							}
+							uiState.stack(stackId).selection.set({ branchName });
+							intelligentScrollingService.show(projectId, stackId, 'details');
 							onselect?.();
 						}}
 					>
