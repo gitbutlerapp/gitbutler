@@ -17,9 +17,12 @@ const colors = {
 
 const VITE_PORT = 1420;
 const VITE_HOST = 'localhost';
+const BUTLER_PORT = 6978;
+const BUTLER_HOST = 'localhost';
 
 let viteProcess = null;
 let electronProcess = null;
+let butProcess = null;
 
 function log(message, color = colors.reset) {
 	console.log(`${color}${message}${colors.reset}`);
@@ -113,6 +116,12 @@ function cleanup() {
 		viteProcess.kill();
 		viteProcess = null;
 	}
+
+	if (butProcess) {
+		log('Stopping butler server...', colors.yellow);
+		butProcess.kill();
+		butProcess = null;
+	}
 }
 
 async function main() {
@@ -149,6 +158,28 @@ async function main() {
 
 		if (!serverReady) {
 			throw new Error(`Vite dev server failed to start on ${VITE_HOST}:${VITE_PORT}`);
+		}
+
+		log('\n📦 Starting but-server server...', colors.yellow);
+
+		// Start the but-server server
+		butProcess = spawnProcess('cargo', ['run', '-p', 'but-server'], rootDir);
+
+		butProcess.on('close', (code) => {
+			if (code !== 0 && code !== null) {
+				log(`Butler server exited with code ${code}`, colors.red);
+			}
+		});
+
+		butProcess.on('error', (error) => {
+			log(`Butler server error: ${error.message}`, colors.red);
+		});
+
+		// Wait for Vite to be ready
+		const butReady = await waitForServer(BUTLER_PORT, BUTLER_HOST);
+
+		if (!butReady) {
+			throw new Error(`Butler server failed to start on ${BUTLER_HOST}:${BUTLER_PORT}`);
 		}
 
 		log('\n⚡ Starting Electron app...', colors.green);
