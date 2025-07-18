@@ -136,7 +136,15 @@
 
 {#snippet leftPreview()}
 	<ConfigurableScrollableContainer zIndex="var(--z-lifted)">
-		<SelectionView bottomBorder {projectId} {selectionId} draggableFiles />
+		<SelectionView
+			bottomBorder
+			{projectId}
+			{selectionId}
+			draggableFiles
+			onclose={() => {
+				idSelection.clear(selectionId);
+			}}
+		/>
 	</ConfigurableScrollableContainer>
 {/snippet}
 
