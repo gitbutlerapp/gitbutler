@@ -108,7 +108,6 @@
 	<div data-testid={TestId.UncommittedChanges_FileList} class="uncommitted-changes">
 		<FileList
 			draggableFiles
-			allowUnselect
 			selectionId={{ type: 'worktree', stackId }}
 			showCheckboxes={isCommitting}
 			changes={changes.current}

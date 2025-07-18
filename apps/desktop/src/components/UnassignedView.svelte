@@ -7,6 +7,7 @@
 	import { workspaceRulesEnabled } from '$lib/config/uiFeatureFlags';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { IntelligentScrollingService } from '$lib/intelligentScrolling/service';
+	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
@@ -25,10 +26,11 @@
 
 	const selectionId = { type: 'worktree', stackId: undefined } as SelectionId;
 
-	const [uiState, uncommittedService, intelligentScrollingService] = inject(
+	const [uiState, uncommittedService, intelligentScrollingService, idSelection] = inject(
 		UiState,
 		UncommittedService,
-		IntelligentScrollingService
+		IntelligentScrollingService,
+		IdSelection
 	);
 	const projectState = $derived(uiState.project(projectId));
 	const unassignedSidebaFolded = $derived(uiState.global.unassignedSidebaFolded);
@@ -45,6 +47,10 @@
 		unassignedSidebaFolded.set(false);
 	}
 
+	function unselectFiles() {
+		idSelection.clear(selectionId);
+	}
+
 	$effect(() => {
 		if (isCommitting && changesToCommit) {
 			unassignedSidebaFolded.set(false);
@@ -54,34 +60,36 @@
 
 {#if !unassignedSidebaFolded.current}
 	<div class="unassigned">
-		<WorktreeChanges
-			title="Unassigned"
-			{projectId}
-			stackId={undefined}
-			active={selectionId.type === 'worktree' &&
-				selectionId.stackId === undefined &&
-				focus === DefinedFocusable.ViewportLeft}
-			onscrollexists={(exists: boolean) => {
-				isScrollable = exists;
-			}}
-			overflow
-			onselect={() => {
-				intelligentScrollingService.unassignedFileClicked(projectId);
-			}}
-		>
-			{#snippet emptyPlaceholder()}
-				<div class="unassigned__empty">
-					<div class="unassigned__empty__placeholder">
-						{@html noChanges}
-						<p class="text-13 text-body unassigned__empty__placeholder-text">
-							You're all caught up!<br />
-							No files need committing
-						</p>
+		<div role="presentation" class="unassigned__files" onclick={unselectFiles}>
+			<WorktreeChanges
+				title="Unassigned"
+				{projectId}
+				stackId={undefined}
+				active={selectionId.type === 'worktree' &&
+					selectionId.stackId === undefined &&
+					focus === DefinedFocusable.ViewportLeft}
+				onscrollexists={(exists: boolean) => {
+					isScrollable = exists;
+				}}
+				overflow
+				onselect={() => {
+					intelligentScrollingService.unassignedFileClicked(projectId);
+				}}
+			>
+				{#snippet emptyPlaceholder()}
+					<div class="unassigned__empty">
+						<div class="unassigned__empty__placeholder">
+							{@html noChanges}
+							<p class="text-13 text-body unassigned__empty__placeholder-text">
+								You're all caught up!<br />
+								No files need committing
+							</p>
+						</div>
+						<WorktreeTipsFooter />
 					</div>
-					<WorktreeTipsFooter />
-				</div>
-			{/snippet}
-		</WorktreeChanges>
+				{/snippet}
+			</WorktreeChanges>
+		</div>
 
 		{#if changesToCommit}
 			<div class="create-new" class:sticked-bottom={isScrollable}>
@@ -195,6 +203,13 @@
 		align-items: center;
 		margin-right: 2px;
 		transform: rotate(-90deg);
+	}
+
+	.unassigned__files {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		overflow: hidden;
 	}
 
 	/* MODIFIERS */
