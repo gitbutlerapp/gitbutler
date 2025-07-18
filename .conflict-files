@@ -1,3 +1,0 @@
-ancestorEntries = ["apps/desktop/cypress/e2e/review.cy.ts"]
-ourEntries = ["apps/desktop/cypress/e2e/review.cy.ts"]
-theirEntries = ["apps/desktop/cypress/e2e/review.cy.ts"]
