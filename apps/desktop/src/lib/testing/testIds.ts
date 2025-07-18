@@ -85,7 +85,6 @@ export enum TestId {
 	StackedPullRequestCard = 'stacked-pull-request-card',
 	PRStatusBadge = 'pr-status-badge',
 	PRChecksBadge = 'pr-checks-badge',
-	PRChecksBadgeReduced = 'pr-checks-badge-reduced',
 	BranchView = 'branch-view',
 	HunkContextMenu = 'hunk-context-menu',
 	HunkContextMenu_SelectAll = 'hunk-context-menu-select-all',

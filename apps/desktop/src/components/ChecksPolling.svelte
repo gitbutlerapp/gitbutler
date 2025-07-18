@@ -12,7 +12,6 @@
 		hasChecks?: boolean;
 		isFork?: boolean;
 		isMerged?: boolean;
-		reduced?: boolean;
 	};
 
 	type StatusInfo = {
@@ -24,7 +23,7 @@
 		tooltip?: string;
 	};
 
-	let { branchName, isFork, isMerged, hasChecks = $bindable(), reduced = false }: Props = $props();
+	let { branchName, isFork, isMerged, hasChecks = $bindable() }: Props = $props();
 
 	const [forge] = inject(DefaultForgeFactory);
 
@@ -151,35 +150,20 @@
 	});
 </script>
 
-{#if !reduced}
-	<div data-testid={TestId.PRChecksBadge}>
-		<Badge
-			icon={checksTagInfo.icon}
-			style={checksTagInfo.style}
-			kind={checksTagInfo.icon === 'success-small' ? 'solid' : 'soft'}
-			tooltip={checksTagInfo.tooltip}
-			onclick={() => {
-				checksService?.fetch(branchName, { forceRefetch: true });
-			}}
-		>
-			{checksTagInfo.text}
-		</Badge>
-	</div>
-{:else}
-	<Badge
-		testId={TestId.PRChecksBadgeReduced}
-		size="icon"
-		icon={checksTagInfo.icon}
-		style={checksTagInfo.style}
-		kind={checksTagInfo.icon === 'success-small' ? 'solid' : 'soft'}
-		tooltip={checksTagInfo.tooltip}
-		reversedDirection
-		onclick={() => {
-			checksService?.fetch(branchName, { forceRefetch: true });
-		}}
-	>
-		<span class="truncate">
-			{checksTagInfo.reducedText}
-		</span>
-	</Badge>
-{/if}
+<Badge
+	testId={TestId.PRChecksBadge}
+	size="icon"
+	icon={checksTagInfo.icon}
+	style={checksTagInfo.style}
+	kind={checksTagInfo.icon === 'success-small' ? 'solid' : 'soft'}
+	tooltip={checksTagInfo.tooltip}
+	reversedDirection
+	onclick={(e) => {
+		checksService?.fetch(branchName, { forceRefetch: true });
+		e.stopPropagation();
+	}}
+>
+	<span class="truncate">
+		{checksTagInfo.reducedText}
+	</span>
+</Badge>
