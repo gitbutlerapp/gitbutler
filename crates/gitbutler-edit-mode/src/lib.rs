@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::str::FromStr;
 
 use anyhow::{bail, Context, Result};
@@ -7,14 +6,13 @@ use bstr::{BString, ByteSlice};
 use but_core::TreeChange;
 use but_workspace::stack_ext::StackExt;
 use git2::build::CheckoutBuilder;
-use gitbutler_branch_actions::{update_workspace_commit, RemoteBranchFile};
+use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};
 use gitbutler_command_context::{gix_repo_for_merging, CommandContext};
 use gitbutler_commit::{
     commit_ext::CommitExt,
     commit_headers::{CommitHeadersV2, HasCommitHeaders},
 };
-use gitbutler_diff::hunks_by_filepath;
 use gitbutler_operating_modes::{
     operating_mode, read_edit_mode_metadata, write_edit_mode_metadata, EditModeMetadata,
     OperatingMode, EDIT_BRANCH_REF, WORKSPACE_BRANCH_REF,
@@ -33,7 +31,7 @@ use serde::Serialize;
 
 pub mod commands;
 
-const UNCOMMITED_CHANGES_REF: &str = "refs/gitbutler/edit-uncommited-changes";
+const UNCOMMITTED_CHANGES_REF: &str = "refs/gitbutler/edit-uncommitted-changes";
 
 /// Returns an index of the the tree of `commit` if it is unconflicted, *or* produce a merged tree
 /// if `commit` is conflicted. That tree is turned into an index that records the conflicts that occurred
@@ -133,14 +131,14 @@ fn find_or_create_base_commit<'a>(
 fn commit_uncommited_changes(ctx: &CommandContext) -> Result<()> {
     let repository = ctx.repo();
     let uncommited_changes = repository.create_wd_tree(0)?;
-    repository.reference(UNCOMMITED_CHANGES_REF, uncommited_changes.id(), true, "")?;
+    repository.reference(UNCOMMITTED_CHANGES_REF, uncommited_changes.id(), true, "")?;
     Ok(())
 }
 
 fn get_uncommited_changes(ctx: &CommandContext) -> Result<git2::Oid> {
     let repository = ctx.repo();
     let uncommited_changes = repository
-        .find_reference(UNCOMMITED_CHANGES_REF)?
+        .find_reference(UNCOMMITTED_CHANGES_REF)?
         .peel_to_tree()?
         .id();
     Ok(uncommited_changes)
@@ -357,7 +355,7 @@ pub(crate) fn starting_index_state(
 
     let commit = repository.find_commit(metadata.commit_oid)?;
     let commit_parent_tree = if commit.is_conflicted() {
-        repository.find_real_tree(&commit, ConflictedTreeKey::Ours)?
+        repository.find_real_tree(&commit, ConflictedTreeKey::Base)?
     } else {
         commit.parent(0)?.tree()?
     };
@@ -395,7 +393,7 @@ pub(crate) fn starting_index_state(
         &gix_repo,
         Some(commit_parent_tree.id().to_gix()),
         repository
-            .find_real_tree(&commit, Default::default())?
+            .find_real_tree(&commit, ConflictedTreeKey::Theirs)?
             .id()
             .to_gix(),
     )?;

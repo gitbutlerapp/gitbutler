@@ -1,7 +1,3 @@
-import type { RemoteFile } from '$lib/files/file';
-import type { RemoteHunk } from '$lib/hunks/hunk';
-import type { FileStatus } from '@gitbutler/ui/file/types';
-
 export interface ConflictEntryPresence {
 	ours: boolean;
 	theirs: boolean;
@@ -38,10 +34,10 @@ export function conflictEntryHint(presence: ConflictEntryPresence): string {
 	return `You have ${theirsVerb} this file, They have ${oursVerb} this file.`;
 }
 
-function hunkLooksConflicted(hunk: RemoteHunk): boolean {
-	const lines = hunk.diff.split('\n');
+function looksConflicted(file: string): boolean {
+	const lines = file.split('\n');
 	for (const line of lines) {
-		if (line.startsWith('+<<<<<<<')) {
+		if (line.startsWith('<<<<<<<')) {
 			return true;
 		}
 	}
@@ -51,34 +47,16 @@ function hunkLooksConflicted(hunk: RemoteHunk): boolean {
 export type ConflictState = 'conflicted' | 'resolved' | 'unknown';
 
 export function getConflictState(
-	file: RemoteFile,
-	conflictEntryPresence: ConflictEntryPresence
+	conflictEntryPresence: ConflictEntryPresence,
+	file: string
 ): ConflictState {
 	if (!conflictEntryPresence.ours || !conflictEntryPresence.theirs) {
-		return 'unknown';
+		return 'conflicted';
 	}
 
-	for (const hunk of file.hunks) {
-		if (hunkLooksConflicted(hunk)) {
-			return 'conflicted';
-		}
+	if (looksConflicted(file)) {
+		return 'conflicted';
 	}
+
 	return 'resolved';
-}
-
-export function getInitialFileStatus(
-	uncommitedFileChange: RemoteFile | undefined,
-	conflictEntryPresence: ConflictEntryPresence | undefined
-): FileStatus | undefined {
-	if (!conflictEntryPresence) {
-		return undefined;
-	}
-
-	if (!uncommitedFileChange) {
-		// If there is a conflict, resolving using ours would show as no file present
-		return 'M';
-	}
-
-	const conflictState = getConflictState(uncommitedFileChange, conflictEntryPresence);
-	return conflictState === 'resolved' ? 'M' : undefined;
 }

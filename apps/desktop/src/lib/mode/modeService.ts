@@ -54,6 +54,10 @@ export class ModeService {
 		return this.api.endpoints.initialEditModeState.useQuery;
 	}
 
+	get changesSinceInitialEditState() {
+		return this.api.endpoints.changesSinceInitialEditState.useQuery;
+	}
+
 	get mode() {
 		return this.api.endpoints.mode.useQuery;
 	}
@@ -72,6 +76,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					query: (args) => args,
 					invalidatesTags: [
 						invalidatesList(ReduxTag.InitalEditListing),
+						invalidatesList(ReduxTag.EditChangesSinceInitial),
 						invalidatesList(ReduxTag.HeadMetadata)
 					]
 				}
@@ -81,6 +86,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				query: (args) => args,
 				invalidatesTags: [
 					invalidatesList(ReduxTag.InitalEditListing),
+					invalidatesList(ReduxTag.EditChangesSinceInitial),
 					invalidatesList(ReduxTag.HeadMetadata)
 				]
 			}),
@@ -91,6 +97,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesList(ReduxTag.StackDetails),
 					invalidatesList(ReduxTag.InitalEditListing),
+					invalidatesList(ReduxTag.EditChangesSinceInitial),
 					invalidatesList(ReduxTag.HeadMetadata)
 				]
 			}),
@@ -101,6 +108,30 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				extraOptions: { command: 'edit_initial_index_state' },
 				query: (args) => args,
 				providesTags: [providesList(ReduxTag.InitalEditListing)]
+			}),
+			changesSinceInitialEditState: build.query<TreeChange[], { projectId: string }>({
+				extraOptions: { command: 'edit_changes_from_initial' },
+				query: (args) => args,
+				providesTags: [providesList(ReduxTag.EditChangesSinceInitial)],
+				async onCacheEntryAdded(arg, lifecycleApi) {
+					if (!hasTauriExtra(lifecycleApi.extra)) {
+						throw new Error('Redux dependency Tauri not found!');
+					}
+					const { invoke, listen } = lifecycleApi.extra.tauri;
+					await lifecycleApi.cacheDataLoaded;
+					// We are listening to this only for the notification that changes have been made
+					const unsubscribe = listen<unknown>(
+						`project://${arg.projectId}/worktree_changes`,
+						async (_) => {
+							const changes = await invoke<TreeChange[]>('edit_changes_from_initial', arg);
+							lifecycleApi.updateCachedData(() => changes);
+							lifecycleApi.dispatch(api.util.invalidateTags([invalidatesList(ReduxTag.Diff)]));
+						}
+					);
+					// The `cacheEntryRemoved` promise resolves when the result is removed
+					await lifecycleApi.cacheEntryRemoved;
+					unsubscribe();
+				}
 			}),
 			mode: build.query<Mode, { projectId: string }>({
 				extraOptions: { command: 'operating_mode' },

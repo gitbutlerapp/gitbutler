@@ -1,6 +1,5 @@
 use anyhow::{Context, Result};
 use but_core::ui::TreeChange;
-use gitbutler_branch_actions::RemoteBranchFile;
 use gitbutler_command_context::CommandContext;
 use gitbutler_operating_modes::{ensure_edit_mode, ensure_open_workspace_mode, EditModeMetadata};
 use gitbutler_oplog::{
