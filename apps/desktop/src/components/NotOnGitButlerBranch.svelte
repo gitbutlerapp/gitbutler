@@ -153,7 +153,7 @@
 			<div class="switchrepo__actions">
 				<AsyncButton
 					style="pop"
-					icon="arrow-left"
+					icon="undo-small"
 					reversedDirection
 					loading={targetBranchSwitch.current.isLoading}
 					action={initSwithToWorkspace}

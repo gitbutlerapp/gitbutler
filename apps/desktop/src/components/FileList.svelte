@@ -28,7 +28,6 @@
 		active?: boolean;
 		conflictEntries?: ConflictEntriesObj;
 		draggableFiles?: boolean;
-		allowUnselect?: boolean;
 		onselect?: () => void;
 	};
 
@@ -42,7 +41,6 @@
 		stackId,
 		conflictEntries,
 		draggableFiles,
-		allowUnselect,
 		onselect
 	}: Props = $props();
 
@@ -186,7 +184,8 @@
 		isLast={idx === visibleFiles.length - 1}
 		selected={idSelection.has(change.path, selectionId)}
 		onclick={(e) => {
-			selectFilesInList(e, change, changes, idSelection, true, idx, selectionId, allowUnselect);
+			e.stopPropagation();
+			selectFilesInList(e, change, changes, idSelection, true, idx, selectionId);
 			onselect?.();
 		}}
 		{conflictEntries}

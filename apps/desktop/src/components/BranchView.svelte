@@ -195,7 +195,6 @@
 		flex-direction: column;
 		justify-content: center;
 		max-width: 540px;
-		margin: 0 auto;
 		padding: 30px;
 	}
 
