@@ -36,7 +36,12 @@ pub enum Kind {
 #[serde(untagged)]
 enum KindCompat {
     String(String),
-    KindObj {
+    KindRenameBranchObj {
+        #[serde(rename = "type")]
+        kind_type: String,
+        subject: RenameBranchOutcome,
+    },
+    KindRewordObj {
         #[serde(rename = "type")]
         kind_type: String,
         #[serde(default)]
@@ -51,11 +56,17 @@ impl<'de> Deserialize<'de> for Kind {
     {
         match KindCompat::deserialize(deserializer)? {
             KindCompat::String(s) if s == "Reword" => Ok(Kind::Reword(None)),
-            KindCompat::KindObj { kind_type, subject }
+            KindCompat::KindRewordObj { kind_type, subject }
                 if kind_type == "reword" || kind_type == "Reword" =>
             {
                 Ok(Kind::Reword(subject))
             }
+            KindCompat::KindRenameBranchObj { kind_type, subject }
+                if kind_type == "renameBranch" || kind_type == "RenameBranch" =>
+            {
+                Ok(Kind::RenameBranch(subject))
+            }
+
             _ => Err(serde::de::Error::custom("Unknown Kind variant")),
         }
     }
