@@ -87,6 +87,7 @@
 	class:menu-shown={isOpen}
 	class:first
 	class:selected
+	class:active
 	style:opacity
 	class:border-top={borderTop || first}
 	class:last={lastCommit}
@@ -148,12 +149,11 @@
 			border-bottom: 1px solid var(--clr-border-2);
 		}
 
-		&:focus-within,
 		&.selected {
 			background-color: var(--clr-selected-not-in-focus-bg);
 		}
 
-		&:focus-within.selected {
+		&.active.selected {
 			background-color: var(--clr-selected-in-focus-bg);
 		}
 	}
