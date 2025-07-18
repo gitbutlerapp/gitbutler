@@ -16,19 +16,22 @@ export default class RulesService {
 	}
 
 	get createWorkspaceRule() {
-		return this.api.endpoints.createWorkspaceRule.useMutation;
+		return this.api.endpoints.createWorkspaceRule.useMutation();
 	}
 
 	get deleteWorkspaceRule() {
-		return this.api.endpoints.deleteWorkspaceRule.useMutation;
+		return this.api.endpoints.deleteWorkspaceRule.useMutation();
 	}
 
 	get updateWorkspaceRule() {
-		return this.api.endpoints.updateWorkspaceRule.useMutation;
+		return this.api.endpoints.updateWorkspaceRule.useMutation();
 	}
 
-	get listWorkspaceRules() {
-		return this.api.endpoints.listWorkspaceRules.useQuery;
+	listWorkspaceRules(projectId: string) {
+		return this.api.endpoints.listWorkspaceRules.useQuery(
+			{ projectId },
+			{ transform: (result) => workspaceRulesSelectors.selectAll(result) }
+		);
 	}
 }
 
@@ -80,3 +83,5 @@ function injectEndpoints(api: BackendApi) {
 const workspaceRulesAdapter = createEntityAdapter<WorkspaceRule, WorkspaceRuleId>({
 	selectId: (rule) => rule.id
 });
+
+const workspaceRulesSelectors = workspaceRulesAdapter.getSelectors();
