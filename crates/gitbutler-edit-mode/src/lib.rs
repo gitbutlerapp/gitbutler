@@ -3,7 +3,8 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use anyhow::{bail, Context, Result};
-use bstr::ByteSlice;
+use bstr::{BString, ByteSlice};
+use but_core::TreeChange;
 use but_workspace::stack_ext::StackExt;
 use git2::build::CheckoutBuilder;
 use gitbutler_branch_actions::{update_workspace_commit, RemoteBranchFile};
@@ -32,7 +33,7 @@ use serde::Serialize;
 
 pub mod commands;
 
-const UNCOMMITED_CHANGES_REF: &str = "refs/heads/gitbutler/edit-uncommited-changes";
+const UNCOMMITED_CHANGES_REF: &str = "refs/gitbutler/edit-uncommited-changes";
 
 /// Returns an index of the the tree of `commit` if it is unconflicted, *or* produce a merged tree
 /// if `commit` is conflicted. That tree is turned into an index that records the conflicts that occurred
@@ -347,7 +348,7 @@ pub struct ConflictEntryPresence {
 pub(crate) fn starting_index_state(
     ctx: &CommandContext,
     _perm: &WorktreeReadPermission,
-) -> Result<Vec<(RemoteBranchFile, Option<ConflictEntryPresence>)>> {
+) -> Result<Vec<(TreeChange, Option<ConflictEntryPresence>)>> {
     let OperatingMode::Edit(metadata) = operating_mode(ctx) else {
         bail!("Starting index state can only be fetched while in edit mode")
     };
@@ -375,7 +376,7 @@ pub(crate) fn starting_index_state(
                 .as_ref()
                 .or(conflict.our.as_ref())
                 .or(conflict.their.as_ref())
-                .map(|entry| PathBuf::from(entry.path.to_str_lossy().to_string()))?;
+                .map(|entry| BString::new(entry.path.clone()))?;
 
             Some((
                 path,
@@ -386,14 +387,44 @@ pub(crate) fn starting_index_state(
                 },
             ))
         })
-        .collect::<HashMap<PathBuf, ConflictEntryPresence>>();
+        .collect::<HashMap<BString, ConflictEntryPresence>>();
 
-    let diff = repository.diff_tree_to_index(Some(&commit_parent_tree), Some(&index), None)?;
+    let gix_repo = ctx.gix_repo()?;
 
-    let diff_files = hunks_by_filepath(Some(repository), &diff)?
+    let (tree_changes, _) = but_core::diff::tree_changes(
+        &gix_repo,
+        Some(commit_parent_tree.id().to_gix()),
+        repository
+            .find_real_tree(&commit, Default::default())?
+            .id()
+            .to_gix(),
+    )?;
+
+    let outcome = tree_changes
         .into_iter()
-        .map(|(path, file)| (file.into(), conflicts.get(&path).cloned()))
+        .map(|tc| (tc.clone(), conflicts.get(&tc.path).cloned()))
         .collect();
 
-    Ok(diff_files)
+    Ok(outcome)
+}
+
+pub(crate) fn changes_from_initial(
+    ctx: &CommandContext,
+    _perm: &WorktreeReadPermission,
+) -> Result<Vec<TreeChange>> {
+    let OperatingMode::Edit(metadata) = operating_mode(ctx) else {
+        bail!("Starting index state can only be fetched while in edit mode")
+    };
+
+    let repository = ctx.repo();
+    let commit = repository.find_commit(metadata.commit_oid)?;
+    let base = repository
+        .find_real_tree(&commit, Default::default())?
+        .id()
+        .to_gix();
+    let head = repository.create_wd_tree(0)?.id().to_gix();
+
+    let gix_repo = ctx.gix_repo()?;
+    let (tree_changes, _) = but_core::diff::tree_changes(&gix_repo, Some(base), head)?;
+    Ok(tree_changes)
 }

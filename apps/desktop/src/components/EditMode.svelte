@@ -29,6 +29,7 @@
 	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
+	import type { TreeChange } from '$lib/hunks/change';
 	import type { FileStatus } from '@gitbutler/ui/file/types';
 	import type { Writable } from 'svelte/store';
 
@@ -55,7 +56,7 @@
 	let modeServiceAborting = $state<'inert' | 'loading' | 'completed'>('inert');
 	let modeServiceSaving = $state<'inert' | 'loading' | 'completed'>('inert');
 
-	let initialFiles = $state<[RemoteFile, ConflictEntryPresence | undefined][]>([]);
+	let initialFiles = $derived(modeService.initialEditModeState({ projectId: project.id }));
 	let commit = $state<Commit>();
 
 	async function getCommitData() {
@@ -79,15 +80,8 @@
 	let contextMenu = $state<ReturnType<typeof FileContextMenu> | undefined>(undefined);
 	let confirmSaveModal = $state<ReturnType<typeof Modal> | undefined>(undefined);
 
-	$effect(() => {
-		modeService.getInitialIndexState().then((files) => {
-			initialFiles = files;
-		});
-	});
-
 	interface FileEntry {
 		conflicted: boolean;
-		name: string;
 		path: string;
 		status?: FileStatus;
 		conflictHint?: string;
@@ -96,7 +90,9 @@
 	}
 
 	const initialFileMap = $derived(
-		new Map<string, RemoteFile>(initialFiles.map(([file]) => [file.path, file]))
+		new Map<string, TreeChange>(
+			initialFiles.current?.data?.map(([file]) => [file.path, file]) || []
+		)
 	);
 
 	const uncommitedFileMap = $derived(
@@ -104,18 +100,18 @@
 	);
 
 	const files = $derived.by(() => {
+		if (!initialFiles.current.data) return [];
+
 		const outputMap = new Map<string, FileEntry>();
 
 		// Create output
 		{
-			initialFiles.forEach(([initialFile, conflictEntryPresence]) => {
-				const conflictState =
-					conflictEntryPresence && getConflictState(initialFile, conflictEntryPresence);
+			initialFiles.current.data.forEach(([initialFile, conflictEntryPresence]) => {
+				const conflictState = conflictEntryPresence && 'unknown'; //getConflictState(initialFile, conflictEntryPresence);
 
 				const uncommitedFileChange = uncommitedFileMap.get(initialFile.path);
 
 				outputMap.set(initialFile.path, {
-					name: initialFile.filename,
 					path: initialFile.path,
 					conflicted: !!conflictEntryPresence,
 					conflictHint: conflictEntryPresence
@@ -131,9 +127,10 @@
 				const existingFile = initialFileMap.get(uncommitedFile.path);
 				determineOutput: {
 					if (existingFile) {
-						const fileChanged = existingFile.hunks.some(
-							(hunk) => !uncommitedFile.hunks.map((hunk) => hunk.diff).includes(hunk.diff)
-						);
+						const fileChanged = false;
+						// const fileChanged = existingFile.hunks.some(
+						// 	(hunk) => !uncommitedFile.hunks.map((hunk) => hunk.diff).includes(hunk.diff)
+						// );
 
 						if (fileChanged) {
 							// All initial entries should have been added to the map,
@@ -154,7 +151,6 @@
 					}
 
 					outputMap.set(uncommitedFile.path, {
-						name: uncommitedFile.filename,
 						path: uncommitedFile.path,
 						conflicted: false,
 						status: computeFileStatus(uncommitedFile)
@@ -197,7 +193,7 @@
 		modeServiceAborting = 'loading';
 
 		try {
-			await modeService.abortEditAndReturnToWorkspace();
+			await modeService.abortEditAndReturnToWorkspace({ projectId: project.id });
 			modeServiceAborting = 'completed';
 		} finally {
 			modeServiceAborting = 'inert';
@@ -208,7 +204,7 @@
 		modeServiceSaving = 'loading';
 
 		try {
-			await modeService.saveEditAndReturnToWorkspace();
+			await modeService.saveEditAndReturnToWorkspace({ projectId: project.id });
 			modeServiceSaving = 'completed';
 		} finally {
 			modeServiceAborting = 'inert';

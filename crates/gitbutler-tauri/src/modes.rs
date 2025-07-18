@@ -1,4 +1,5 @@
 use anyhow::Context;
+use but_core::ui::TreeChange;
 use but_settings::AppSettingsWithDiskSync;
 use but_workspace::StackId;
 use gitbutler_branch_actions::RemoteBranchFile;
@@ -86,7 +87,7 @@ pub fn edit_initial_index_state(
     projects: State<'_, Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
-) -> Result<Vec<(RemoteBranchFile, Option<ConflictEntryPresence>)>, Error> {
+) -> Result<Vec<(TreeChange, Option<ConflictEntryPresence>)>, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
 

@@ -12,7 +12,7 @@ use gitbutler_branch::BranchCreateRequest;
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::{diff_files_into_hunks, Hunk};
 use gitbutler_hunk_dependency::locks::HunkDependencyResult;
-use gitbutler_operating_modes::assure_open_workspace_mode;
+use gitbutler_operating_modes::ensure_open_workspace_mode;
 use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{BranchOwnershipClaims, OwnershipClaim, Stack, StackId};
@@ -49,7 +49,7 @@ pub fn get_applied_status_cached(
     perm: Option<&mut WorktreeWritePermission>,
     worktree_changes: &gitbutler_diff::DiffByPathMap,
 ) -> Result<VirtualBranchesStatus> {
-    assure_open_workspace_mode(ctx).context("ng applied status requires open workspace mode")?;
+    ensure_open_workspace_mode(ctx).context("ng applied status requires open workspace mode")?;
     let mut virtual_branches = ctx
         .project()
         .virtual_branches()

@@ -46,6 +46,7 @@
 	import { IntelligentScrollingService } from '$lib/intelligentScrolling/service';
 	import { IrcClient } from '$lib/irc/ircClient.svelte';
 	import { IrcService } from '$lib/irc/ircService.svelte';
+	import { ModeService } from '$lib/mode/modeService';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { PromptService } from '$lib/prompt/promptService';
 	import { RemotesService } from '$lib/remotes/remotesService';
@@ -151,6 +152,10 @@
 	);
 	const feedFactory = new FeedFactory(data.tauri, stackService);
 	const rulesService = new RulesService(clientState['backendApi']);
+	const modeService = $derived(new ModeService(clientState['backendApi']));
+	$effect.pre(() => {
+		setContext(ModeService, modeService);
+	});
 	const actionService = new ActionService(clientState['backendApi']);
 	const oplogService = new OplogService(clientState['backendApi']);
 	const baseBranchService = new BaseBranchService(clientState.backendApi);

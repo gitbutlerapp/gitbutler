@@ -34,6 +34,7 @@
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { ClientState } from '$lib/state/clientState.svelte';
+	import { combineResults } from '$lib/state/helpers';
 	import { debounce } from '$lib/utils/debounce';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 	import { getContext } from '@gitbutler/shared/context';
@@ -57,10 +58,6 @@
 
 	const stackService = getContext(StackService);
 	const feedFactory = getContext(FeedFactory);
-	const modeService = $derived(new ModeService(projectId, stackService));
-	$effect.pre(() => {
-		setContext(ModeService, modeService);
-	});
 
 	const secretService = getSecretsService();
 	const gitLabState = $derived(new GitLabState(secretService, repoInfo, projectId));
@@ -105,8 +102,9 @@
 	const forgeFactory = getContext(DefaultForgeFactory);
 
 	// Refresh base branch if git fetch event is detected.
-	const mode = $derived(modeService.mode);
-	const head = $derived(modeService.head);
+	const modeService = getContext(ModeService);
+	const mode = $derived(modeService.mode({ projectId }));
+	const head = $derived(modeService.head({ projectId }));
 
 	const debouncedBaseBranchRefresh = debounce(
 		async () => await baseBranchService.refreshBaseBranch(projectId),
@@ -128,7 +126,7 @@
 	);
 
 	$effect(() => {
-		if (baseBranch || $head) debouncedRemoteBranchRefresh();
+		if (baseBranch || head.current) debouncedRemoteBranchRefresh();
 	});
 
 	const gitlabConfigured = $derived(gitLabState.configured);
@@ -287,21 +285,21 @@
 <ProjectSettingsMenuAction {projectId} />
 <FileMenuAction />
 
-<ReduxResult {projectId} result={baseBranchResponse.current}>
-	{#snippet children(baseBranch, { projectId })}
+<ReduxResult {projectId} result={combineResults(baseBranchResponse.current, mode.current)}>
+	{#snippet children([baseBranch, mode], { projectId })}
 		{#if !baseBranch}
 			<NoBaseBranch {projectId} />
 		{:else if baseBranch}
-			{#if $mode?.type === 'OpenWorkspace' || $mode?.type === 'Edit'}
+			{#if mode.type === 'OpenWorkspace' || mode.type === 'Edit'}
 				<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
-					<Chrome {projectId} sidebarDisabled={$mode?.type === 'Edit'}>
+					<Chrome {projectId} sidebarDisabled={mode.type === 'Edit'}>
 						{@render pageChildren()}
 					</Chrome>
 					{#if $showHistoryView}
 						<History {projectId} onHide={() => ($showHistoryView = false)} />
 					{/if}
 				</div>
-			{:else if $mode?.type === 'OutsideWorkspace'}
+			{:else if mode.type === 'OutsideWorkspace'}
 				<NotOnGitButlerBranch {projectId} {baseBranch} />
 			{/if}
 		{/if}
