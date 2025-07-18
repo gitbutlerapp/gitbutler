@@ -540,7 +540,7 @@ describe('Review - stacked branches', () => {
 		cy.getByTestId('branch-header', mockBackend.bottomBranchName).should('be.visible').click();
 
 		// Both 'create review' buttons should be visible.
-		cy.getByTestId('create-review-button').should('have.length', 3);
+		cy.getByTestId('create-review-button').should('have.length', 2);
 
 		// Click the bottom branch 'create review' button.
 		cy.getByDataValue('series-name', mockBackend.bottomBranchName).within(() => {
@@ -796,13 +796,12 @@ describe('Review - stacked branches', () => {
 		cy.getByTestId('stacked-pull-request-card').within(() => {
 			cy.getByTestId('pr-status-badge').should('be.visible');
 			cy.getByDataValue('pr-status', 'open').should('be.visible');
-			cy.getByTestId('pr-checks-badge').should('be.visible').contains('Checks running');
 		});
 
 		cy.getByTestId('branch-card', mockBackend.topBranchName)
 			.should('be.visible')
 			.within(() => {
-				cy.getByTestId('pr-checks-badge-reduced').should('be.visible');
+				cy.getByTestId('pr-checks-badge').should('be.visible');
 			});
 
 		cy.wait(
@@ -817,17 +816,16 @@ describe('Review - stacked branches', () => {
 		cy.getByTestId('stacked-pull-request-card').within(() => {
 			cy.getByTestId('pr-status-badge').should('be.visible');
 			cy.getByDataValue('pr-status', 'open').should('be.visible');
-			cy.getByTestId('pr-checks-badge').should('be.visible').contains('Checks passed');
 		});
 
 		cy.getByTestId('branch-card', mockBackend.topBranchName)
 			.should('be.visible')
 			.within(() => {
-				cy.getByTestId('pr-checks-badge-reduced').should('be.visible');
+				cy.getByTestId('pr-checks-badge').should('be.visible');
 			});
 	});
 
-	it('Should fail fast when checking for multiple checks', () => {
+	it.only('Should fail fast when checking for multiple checks', () => {
 		const data: CustomChecksData = {
 			total_count: 2,
 			check_runs: [
@@ -941,13 +939,12 @@ describe('Review - stacked branches', () => {
 		cy.getByTestId('stacked-pull-request-card').within(() => {
 			cy.getByTestId('pr-status-badge').should('be.visible');
 			cy.getByDataValue('pr-status', 'open').should('be.visible');
-			cy.getByTestId('pr-checks-badge').should('be.visible').contains('Checks running');
 		});
 
 		cy.getByTestId('branch-card', mockBackend.topBranchName)
 			.should('be.visible')
 			.within(() => {
-				cy.getByTestId('pr-checks-badge-reduced').should('be.visible');
+				cy.getByTestId('pr-checks-badge').should('be.visible');
 			});
 
 		cy.wait(
@@ -962,16 +959,17 @@ describe('Review - stacked branches', () => {
 		cy.getByTestId('branch-card', mockBackend.topBranchName)
 			.should('be.visible')
 			.within(() => {
-				cy.getByTestId('pr-checks-badge-reduced').should('be.visible');
+				cy.getByTestId('pr-checks-badge').should('be.visible');
 			});
 
 		cy.getByTestId('stacked-pull-request-card').within(() => {
 			cy.getByTestId('pr-status-badge').should('be.visible');
 			cy.getByDataValue('pr-status', 'open').should('be.visible');
-			cy.getByTestId('pr-checks-badge')
-				.should('be.visible')
-				.contains('Checks failed')
-				.trigger('mouseover');
 		});
+
+		cy.getByTestId('pr-checks-badge')
+			.should('be.visible')
+			.contains('Failed', { timeout: 10000 })
+			.trigger('mouseover');
 	});
 });

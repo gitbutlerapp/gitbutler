@@ -202,7 +202,6 @@
 										branchName={pr.sourceBranch}
 										isFork={pr.fork}
 										isMerged={pr.merged}
-										reduced
 									/>
 								{/if}
 							{/if}

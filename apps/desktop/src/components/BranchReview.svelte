@@ -1,17 +1,9 @@
 <script lang="ts">
-	import BranchReviewButRequest from '$components/BranchReviewButRequest.svelte';
 	import CanPublishReviewPlugin from '$components/CanPublishReviewPlugin.svelte';
 	import PullRequestCard from '$components/PullRequestCard.svelte';
 	import ReviewCreation from '$components/ReviewCreation.svelte';
 	import ReviewCreationControls from '$components/ReviewCreationControls.svelte';
 	import StackedPullRequestCard from '$components/StackedPullRequestCard.svelte';
-	import { syncBrToPr } from '$lib/forge/brToPrSync.svelte';
-	import { syncPrToBr } from '$lib/forge/prToBrSync.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
-	import { TestId } from '$lib/testing/testIds';
-	import { getContext } from '@gitbutler/shared/context';
-	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import type { Snippet } from 'svelte';
@@ -32,38 +24,11 @@
 
 	let canPublishReviewPlugin = $state<ReturnType<typeof CanPublishReviewPlugin>>();
 
-	const stackService = getContext(StackService);
-	const uiState = getContext(UiState);
-	const commits = $derived(
-		stackId ? stackService.commits(projectId, stackId, branchName) : undefined
-	);
-
-	const branchConflicted = $derived(
-		commits?.current.data?.some((commit) => commit.hasConflicts) || false
-	);
-
-	const allowedToPublishBR = $derived(!!canPublishReviewPlugin?.imports.allowedToPublishBR);
 	const canPublishPR = $derived(!!canPublishReviewPlugin?.imports.canPublishPR);
-	const ctaLabel = $derived(canPublishReviewPlugin?.imports.ctaLabel);
-	const branchEmpty = $derived(canPublishReviewPlugin?.imports.branchIsEmpty);
-
-	const disabled = $derived(branchEmpty || branchConflicted);
-	const tooltip = $derived(
-		branchConflicted ? 'Please resolve the conflicts before creating a PR' : undefined
-	);
 
 	let modal = $state<Modal>();
 	let confirmCreatePrModal = $state<ReturnType<typeof Modal>>();
 	let reviewCreation = $state<ReturnType<typeof ReviewCreation>>();
-
-	syncPrToBr(
-		reactive(() => prNumber),
-		reactive(() => reviewId)
-	);
-	syncBrToPr(
-		reactive(() => prNumber),
-		reactive(() => reviewId)
-	);
 
 	const submitDisabled = $derived(reviewCreation ? !reviewCreation.imports.creationEnabled : false);
 </script>
@@ -122,42 +87,23 @@
 	</Modal>
 {/if}
 
-<div class="branch-action">
-	{#if prNumber || (reviewId && allowedToPublishBR)}
-		<div class="status-cards">
-			{#if prNumber && stackId}
-				<StackedPullRequestCard {projectId} {stackId} {branchName} {prNumber} poll />
-			{:else if prNumber}
-				<PullRequestCard {branchName} {prNumber} poll />
-			{/if}
-			{#if reviewId && allowedToPublishBR}
-				<BranchReviewButRequest {reviewId} />
-			{/if}
-		</div>
-	{/if}
+{#if prNumber || branchStatus}
+	<div class="branch-action">
+		{#if prNumber}
+			<div class="status-cards">
+				{#if prNumber && stackId}
+					<StackedPullRequestCard {projectId} {stackId} {branchName} {prNumber} poll />
+				{:else if prNumber}
+					<PullRequestCard {branchName} {prNumber} poll />
+				{/if}
+			</div>
+		{/if}
 
-	{#if branchStatus}
-		{@render branchStatus()}
-	{/if}
-
-	{#if canPublishPR}
-		<Button
-			testId={TestId.CreateReviewButton}
-			onclick={() => {
-				uiState.project(projectId).exclusiveAction.set({
-					type: 'create-pr',
-					stackId,
-					branchName
-				});
-			}}
-			kind="outline"
-			{disabled}
-			{tooltip}
-		>
-			{ctaLabel}
-		</Button>
-	{/if}
-</div>
+		{#if branchStatus}
+			{@render branchStatus()}
+		{/if}
+	</div>
+{/if}
 
 <style lang="postcss">
 	.branch-action {

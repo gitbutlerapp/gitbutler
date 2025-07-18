@@ -1,5 +1,4 @@
 <script lang="ts">
-	import ChecksPolling from '$components/ChecksPolling.svelte';
 	import PrStatusBadge from '$components/PrStatusBadge.svelte';
 	import PullRequestPolling from '$components/PullRequestPolling.svelte';
 	import { writeClipboard } from '$lib/backend/clipboard';
@@ -195,19 +194,6 @@
 			<PrStatusBadge testId={TestId.PRStatusBadge} {pr} />
 		</div>
 		<div class="text-12 pr-row">
-			{#if !pr.closedAt && forge.current.checks}
-				<div class="factoid">
-					{#if pr.state === 'open'}
-						<ChecksPolling
-							branchName={pr.sourceBranch}
-							isFork={pr.fork}
-							isMerged={pr.merged}
-							bind:hasChecks
-						/>
-					{/if}
-				</div>
-				<span class="seperator">•</span>
-			{/if}
 			<div class="factoid">
 				{#if pr.reviewers.length > 0}
 					<span class="label">Reviewers:</span>
