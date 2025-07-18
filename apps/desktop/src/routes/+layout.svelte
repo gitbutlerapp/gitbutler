@@ -37,6 +37,7 @@
 	import { GitHubClient } from '$lib/forge/github/githubClient';
 	import { GitHubUserService } from '$lib/forge/github/githubUserService.svelte';
 	import { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
+	import { GitService } from '$lib/git/gitService';
 	import { OplogService } from '$lib/history/oplogService.svelte';
 	import SnapshotDiffService from '$lib/history/snapshotDiffService.svelte';
 	import { HooksService } from '$lib/hooks/hooksService';
@@ -240,6 +241,7 @@
 	setContext(DragStateService, new DragStateService());
 	setContext(ResizeSync, new ResizeSync());
 	setContext(UncommitedFilesWatcher, new UncommitedFilesWatcher());
+	setContext(GitService, new GitService(data.tauri));
 
 	const settingsService = data.settingsService;
 	const settingsStore = settingsService.appSettings;
