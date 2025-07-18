@@ -116,7 +116,7 @@
 	let timeoutId: any;
 
 	$effect(() => {
-		if (selected && draggableEl) {
+		if (selected && draggableEl && active) {
 			if (timeoutId) {
 				clearTimeout(timeoutId);
 			}

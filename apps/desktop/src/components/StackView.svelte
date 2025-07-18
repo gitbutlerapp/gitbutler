@@ -111,19 +111,23 @@
 	const branchName = $derived(selection.current?.branchName);
 	const upstream = $derived(selection.current?.upstream);
 
-	const selectedLastAdded = $derived.by(() => {
+	const activeSelectionId: SelectionId | undefined = $derived.by(() => {
 		if (commitId) {
-			return idSelection.getById({ type: 'commit', commitId, stackId: stack.id }).lastAdded;
+			return { type: 'commit', commitId, stackId: stack.id };
 		} else if (branchName) {
-			return idSelection.getById({ type: 'branch', stackId: stack.id, branchName }).lastAdded;
+			return { type: 'branch', stackId: stack.id, branchName };
 		}
 	});
 
-	const selectedKey = $derived(
-		$selectedLastAdded?.key ? readKey($selectedLastAdded.key) : undefined
-	);
+	const activeLastAdded = $derived.by(() => {
+		if (activeSelectionId) {
+			return idSelection.getById(activeSelectionId).lastAdded;
+		}
+	});
 
-	const previewKey = $derived(assignedKey || selectedKey);
+	const selectedFile = $derived($activeLastAdded?.key ? readKey($activeLastAdded.key) : undefined);
+
+	const previewKey = $derived(assignedKey || selectedFile);
 	const previewChangeResult = $derived(
 		previewKey ? idSelection.changeByKey(projectId, previewKey) : undefined
 	);
@@ -282,8 +286,8 @@
 		stackId={stack.id}
 		{projectId}
 		{branchName}
-		active={selectedKey?.type === 'branch' &&
-			selectedKey.branchName === branchName &&
+		active={selectedFile?.type === 'branch' &&
+			selectedFile.branchName === branchName &&
 			focusedStackId === stack.id}
 		scrollToType="details"
 		scrollToId={stack.id}
@@ -304,7 +308,7 @@
 			upstream: !!upstream
 		}}
 		draggableFiles
-		active={selectedKey?.type === 'commit' && focusedStackId === stack.id}
+		active={selectedFile?.type === 'commit' && focusedStackId === stack.id}
 		scrollToType="details"
 		scrollToId={stack.id}
 		bind:clientHeight={actualDetailsHeight}
@@ -314,7 +318,7 @@
 {/snippet}
 
 {#snippet commitChangedFiles(commitId: string)}
-	{@const active = selectedKey?.type === 'commit' && focusedStackId === stack.id}
+	{@const active = activeSelectionId?.type === 'commit' && focusedStackId === stack.id}
 	{@const changesResult = stackService.commitChanges(projectId, commitId)}
 	<ReduxResult {projectId} stackId={stack.id} result={changesResult.current}>
 		{#snippet children(changes, { projectId, stackId })}
@@ -349,7 +353,7 @@
 {/snippet}
 
 {#snippet branchChangedFiles(branchName: string)}
-	{@const active = selectedKey?.type === 'branch' && focusedStackId === stack.id}
+	{@const active = activeSelectionId?.type === 'branch' && focusedStackId === stack.id}
 	{@const changesResult = stackService.branchChanges({
 		projectId,
 		stackId: stack.id,
@@ -362,6 +366,7 @@
 				{projectId}
 				{stackId}
 				draggableFiles
+				autoselect
 				selectionId={{ type: 'branch', stackId: stack.id, branchName }}
 				noshrink={!!previewKey}
 				ontoggle={() => {
@@ -513,7 +518,7 @@
 			</ReduxResult>
 		</div>
 
-		{#if commitId || branchName || assignedKey || selectedKey}
+		{#if commitId || branchName || assignedKey || selectedFile}
 			<div
 				class="combined-view"
 				bind:this={compactDiv}
@@ -529,7 +534,7 @@
 					{@render branchChangedFiles(branchName)}
 				{/if}
 
-				{#if assignedKey || selectedKey}
+				{#if assignedKey || selectedFile}
 					<ReduxResult {projectId} result={previewChangeResult?.current}>
 						{#snippet children(previewChange)}
 							{@const diffResult = diffService.getDiff(projectId, previewChange)}
@@ -539,7 +544,7 @@
 								<ConfigurableScrollableContainer zIndex="var(--z-lifted)">
 									{@render assignedChangePreview(assignedKey.stackId)}
 								</ConfigurableScrollableContainer>
-							{:else if selectedKey}
+							{:else if selectedFile}
 								<Drawer bottomBorder>
 									{#snippet header()}
 										<FileViewHeader
@@ -555,7 +560,7 @@
 												: undefined}
 										/>
 									{/snippet}
-									{@render otherChangePreview(selectedKey)}
+									{@render otherChangePreview(selectedFile)}
 								</Drawer>
 							{/if}
 						{/snippet}
