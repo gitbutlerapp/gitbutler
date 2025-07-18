@@ -990,6 +990,7 @@ dependencies = [
  "bstr",
  "but-settings",
  "dirs 6.0.0",
+ "gitbutler-project",
  "gitbutler-user",
  "serde",
  "serde_json",
