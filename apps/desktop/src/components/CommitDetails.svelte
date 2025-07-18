@@ -86,7 +86,7 @@
 	</div>
 
 	{#if description}
-		<div
+		<p
 			class="description"
 			class:expanded
 			style:--commit-message-font={$rewrapCommitMessage
@@ -109,7 +109,7 @@
 					{/if}
 				</button>
 			{/if}
-		</div>
+		</p>
 	{/if}
 </div>
 
