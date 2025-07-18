@@ -11,5 +11,6 @@ export default defineConfig({
 		baseUrl: 'http://localhost:1420',
 		supportFile: 'cypress/e2e/support/index.ts'
 	},
-	experimentalWebKitSupport: true
+	experimentalWebKitSupport: true,
+	numTestsKeptInMemory: 10
 });
