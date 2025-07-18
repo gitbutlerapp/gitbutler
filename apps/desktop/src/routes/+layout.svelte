@@ -50,6 +50,7 @@
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { PromptService } from '$lib/prompt/promptService';
 	import { RemotesService } from '$lib/remotes/remotesService';
+	import RulesService from '$lib/rules/rulesService.svelte';
 	import { setSecretsService } from '$lib/secrets/secretsService';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
@@ -156,6 +157,7 @@
 		forgeFactory,
 		uiState
 	);
+	const rulesService = new RulesService(clientState['backendApi']);
 	const actionService = new ActionService(clientState['backendApi']);
 	const oplogService = new OplogService(clientState['backendApi']);
 	const baseBranchService = new BaseBranchService(clientState.backendApi);
@@ -251,6 +253,7 @@
 	setContext(AppSettings, data.appSettings);
 	setContext(EventContext, data.eventContext);
 	setContext(StackService, stackService);
+	setContext(RulesService, rulesService);
 	setContext(ActionService, actionService);
 	setContext(OplogService, oplogService);
 	setContext(BaseBranchService, baseBranchService);
