@@ -86,7 +86,7 @@
 			conflictResolutionConfirmationModal?.show();
 			return;
 		}
-		modeService!.enterEditMode(args.commitId, stackId);
+		modeService!.enterEditMode({ commitId: args.commitId, stackId, projectId });
 	}
 
 	const selectedCommit = $derived(
