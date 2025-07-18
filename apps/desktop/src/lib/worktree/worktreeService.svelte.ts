@@ -117,13 +117,13 @@ function injectEndpoints(api: ClientState['backendApi']) {
 						`project://${arg.projectId}/worktree_changes`,
 						(event) => {
 							lifecycleApi.dispatch(api.util.invalidateTags([invalidatesList(ReduxTag.Diff)]));
-							lifecycleApi.updateCachedData((draft) => ({
+							lifecycleApi.updateCachedData(() => ({
 								changes: worktreeAdapter.addMany(
 									worktreeAdapter.getInitialState(),
 									event.payload.changes
 								),
 								rawChanges: event.payload.changes,
-								ignoredChanges: draft.ignoredChanges,
+								ignoredChanges: event.payload.ignoredChanges,
 								hunkAssignments: event.payload.assignments,
 								dependencies: event.payload.dependencies ?? undefined,
 								dependenciesError: event.payload.dependenciesError ?? undefined
