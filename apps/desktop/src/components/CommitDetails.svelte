@@ -85,8 +85,8 @@
 		</Tooltip>
 	</div>
 
-	{#if description}
-		<div
+	{#if description && description.trim()}
+		<p
 			class="description"
 			class:expanded
 			style:--commit-message-font={$rewrapCommitMessage
@@ -109,7 +109,7 @@
 					{/if}
 				</button>
 			{/if}
-		</div>
+		</p>
 	{/if}
 </div>
 

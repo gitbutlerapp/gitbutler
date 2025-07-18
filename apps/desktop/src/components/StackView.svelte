@@ -262,6 +262,7 @@
 		{projectId}
 		selectionId={{ ...assignedKey, type: 'worktree', stackId }}
 		onclose={() => {
+			idSelection.clear({ type: 'worktree', stackId: stack.id });
 			intelligentScrollingService.show(projectId, stack.id, 'stack');
 		}}
 		draggableFiles

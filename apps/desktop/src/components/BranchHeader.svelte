@@ -60,12 +60,12 @@
 	role="button"
 	class="branch-header"
 	class:selected
+	class:active
 	class:draft
 	class:commiting={isCommitting}
 	{onclick}
 	onkeypress={onclick}
 	tabindex="0"
-	class:active
 >
 	{#if selected && !draft}
 		<div
@@ -132,14 +132,17 @@
 		background-color: var(--branch-selected-bg);
 
 		/* Selected but NOT in focus */
-		&:hover,
+		&:hover {
+			--branch-selected-bg: var(--clr-bg-1-muted);
+		}
+
 		&:focus-within,
-		&.selected {
+		&:not(:focus-within).selected {
 			--branch-selected-bg: var(--clr-selected-not-in-focus-bg);
 		}
 
 		/* Selected in focus */
-		&:focus-within.selected {
+		&.active.selected {
 			--branch-selected-bg: var(--clr-selected-in-focus-bg);
 			--branch-selected-element-bg: var(--clr-selected-in-focus-element);
 		}
@@ -166,6 +169,7 @@
 		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
 		background-color: var(--branch-selected-element-bg);
 		transition: transform var(--transition-fast);
+
 		&.active {
 			background-color: var(--clr-selected-in-focus-element);
 		}
