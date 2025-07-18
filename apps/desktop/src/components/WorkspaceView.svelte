@@ -7,7 +7,6 @@
 	import SelectionView from '$components/SelectionView.svelte';
 	import UnassignedView from '$components/UnassignedView.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
-	import { DragStateService } from '$lib/dragging/dragStateService.svelte';
 	import {
 		DefinedFocusable,
 		FocusManager,
@@ -29,8 +28,13 @@
 
 	const { projectId }: Props = $props();
 
-	const [stackService, focusManager, idSelection, uiState, settingsService, dragStateService] =
-		inject(StackService, FocusManager, IdSelection, UiState, SettingsService, DragStateService);
+	const [stackService, focusManager, idSelection, uiState, settingsService] = inject(
+		StackService,
+		FocusManager,
+		IdSelection,
+		UiState,
+		SettingsService
+	);
 	const worktreeSelection = $derived(idSelection.getById({ type: 'worktree' }));
 	const stacksResult = $derived(stackService.stacks(projectId));
 	const projectState = $derived(uiState.project(projectId));
@@ -74,17 +78,6 @@
 
 	const lastAdded = $derived(worktreeSelection.lastAdded);
 	const previewOpen = $derived(!!$lastAdded?.key);
-
-	// Close preview when dragging starts (without clearing file selections)
-	$effect(() => {
-		const unsubscribe = dragStateService.isDragging.subscribe((isDragging) => {
-			if (isDragging) {
-				// Only clear the lastAdded to close preview, keep file selections intact
-				worktreeSelection.lastAdded.set(undefined);
-			}
-		});
-		return unsubscribe;
-	});
 
 	// Ensures that the exclusive action is still valid.
 	$effect(() => {
