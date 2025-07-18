@@ -1,3 +1,0 @@
-ancestorEntries = ["apps/desktop/cypress/e2e/review.cy.ts", "apps/desktop/src/components/BranchCard.svelte", "apps/desktop/src/components/ChecksPolling.svelte", "apps/desktop/src/lib/testing/testIds.ts"]
-ourEntries = ["apps/desktop/cypress/e2e/review.cy.ts", "apps/desktop/src/components/BranchCard.svelte", "apps/desktop/src/components/ChecksPolling.svelte", "apps/desktop/src/lib/testing/testIds.ts"]
-theirEntries = ["apps/desktop/cypress/e2e/review.cy.ts", "apps/desktop/src/components/BranchCard.svelte", "apps/desktop/src/components/ChecksPolling.svelte", "apps/desktop/src/lib/testing/testIds.ts"]
