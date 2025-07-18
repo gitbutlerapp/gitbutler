@@ -47,10 +47,15 @@ describe('Error handling - commit actions', () => {
 		cy.getByTestId('commit-row').first().should('contain', originalCommitMessage).click();
 
 		// Should open the commit drawer
-		cy.get('.commit-view').first().should('contain', originalCommitMessage);
+		cy.getByTestId('commit-drawer-title').first().should('contain', originalCommitMessage);
 
-		// Click on the edit message button
-		cy.getByTestId('commit-drawer-action-edit-message').should('contain', 'Edit message').click();
+		// Click on the kebab menu to access edit message
+		cy.getByTestId('commit-drawer').within(() => {
+			cy.getByTestId('kebab-menu-btn').click();
+		});
+
+		// Click on the edit message button in the context menu
+		cy.getByTestId('commit-row-context-menu-edit-message-menu-btn').should('be.enabled').click();
 
 		// Should open the commit rename drawer
 		cy.getByTestId('edit-commit-message-box').should('be.visible');
@@ -271,8 +276,12 @@ describe('Error handling - commit actions', () => {
 		// Should open the commit drawer
 		cy.getByTestId('commit-drawer').first().should('be.visible');
 
-		// Click on the uncommit button
-		cy.getByTestId('commit-drawer-action-uncommit').click();
+		// Click on the kebab menu to access edit message
+		cy.getByTestId('commit-drawer').within(() => {
+			cy.getByTestId('kebab-menu-btn').click();
+		});
+
+		cy.getByTestId('commit-row-context-menu-uncommit-menu-btn').should('be.enabled').click();
 
 		// Should show the error message
 		cy.getByTestId('toast-info-message')
@@ -290,7 +299,7 @@ describe('Error handling - project acitons', () => {
 		});
 	});
 
-	it.only('Gracefully handle missing project', () => {
+	it('Gracefully handle missing project', () => {
 		cy.getByTestId('project-not-found-page').should('be.visible');
 	});
 });
