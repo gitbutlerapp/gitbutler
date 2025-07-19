@@ -36,7 +36,7 @@
 		stagedLines?: LineId[];
 		hideCheckboxes?: boolean;
 		handleLineContextMenu?: (params: ContextMenuParams) => void;
-		clickOutsideExcludeElement?: HTMLElement;
+		clickOutsideExcludeElements?: HTMLElement[];
 		comment?: string;
 		lockWarning?: Snippet<[DependencyLock[]]>;
 	}
@@ -60,7 +60,7 @@
 		stagedLines,
 		hideCheckboxes,
 		handleLineContextMenu,
-		clickOutsideExcludeElement,
+		clickOutsideExcludeElements,
 		lockWarning
 	}: Props = $props();
 
@@ -240,7 +240,7 @@
 		bind:clientHeight={chunkHeight[chunkIdx]}
 		use:clickOutside={{
 			handler: handleClearSelection,
-			excludeElement: clickOutsideExcludeElement
+			excludeElement: clickOutsideExcludeElements
 		}}
 		use:intersectionObserver={{
 			callback: (entries) => {
