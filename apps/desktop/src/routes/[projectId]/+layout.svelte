@@ -15,7 +15,6 @@
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { BranchService } from '$lib/branches/branchService.svelte';
-	import { GitBranchService } from '$lib/branches/gitBranch';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { showHistoryView } from '$lib/config/config';
 	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
@@ -25,7 +24,6 @@
 	import { GitHubClient } from '$lib/forge/github/githubClient';
 	import { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 	import { GitLabState } from '$lib/forge/gitlab/gitlabState.svelte';
-	import { TemplateService } from '$lib/forge/templateService';
 	import { GitService } from '$lib/git/gitService';
 	import { HistoryService } from '$lib/history/history';
 	import { ModeService } from '$lib/mode/modeService';
@@ -96,9 +94,7 @@
 
 	$effect.pre(() => {
 		setContext(HistoryService, data.historyService);
-		setContext(TemplateService, data.templateService);
 		setContext(BaseBranch, baseBranch);
-		setContext(GitBranchService, data.gitBranchService);
 
 		// Cloud related services
 		setContext(Feed, feed);
