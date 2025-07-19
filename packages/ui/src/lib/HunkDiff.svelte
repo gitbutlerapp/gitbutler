@@ -15,6 +15,7 @@
 		type LineSelector,
 		parseHunk
 	} from '$lib/utils/diffParsing';
+	import { isDefined } from '$lib/utils/typeguards';
 	import type { ContextMenuParams } from '$lib/hunkDiff/HunkDiffRow.svelte';
 	import type { Snippet } from 'svelte';
 	interface Props {
@@ -69,8 +70,6 @@
 
 	const BORDER_WIDTH = 1;
 
-	let tableWidth = $state<number>(0);
-	let tableHeight = $state<number>(0);
 	let numberHeaderWidth = $state<number>(0);
 
 	const hunk = $derived(parseHunk(hunkStr));
@@ -85,11 +84,11 @@
 	const showingCheckboxes = $derived(!hideCheckboxes && staged !== undefined);
 	const hunkHasLocks = $derived(lineLocks && lineLocks.length > 0);
 	const colspan = $derived(showingCheckboxes || hunkHasLocks ? 3 : 2);
+	let tableWrapperElem = $state<HTMLElement>();
 </script>
 
 <div
-	bind:clientWidth={tableWidth}
-	bind:clientHeight={tableHeight}
+	bind:this={tableWrapperElem}
 	class="table__wrapper hide-native-scrollbar contrast-{diffContrast}"
 	style="--tab-size: {tabSize}; --diff-font: {diffFont};"
 	style:font-variant-ligatures={diffLigatures ? 'common-ligatures' : 'none'}
@@ -134,28 +133,38 @@
 				</tr>
 			</thead>
 
-			<HunkDiffBody
-				comment={hunk.comment}
-				{filePath}
-				content={hunk.contentSections}
-				{onLineClick}
-				clearLineSelection={() => clearLineSelection?.(filePath)}
-				{wrapText}
-				{tabSize}
-				{diffFont}
-				{inlineUnifiedDiffs}
-				{selectedLines}
-				{lineLocks}
-				{numberHeaderWidth}
-				onCopySelection={onCopySelection && handleCopySelection}
-				{onQuoteSelection}
-				{staged}
-				{stagedLines}
-				{hideCheckboxes}
-				{handleLineContextMenu}
-				{clickOutsideExcludeElement}
-				{lockWarning}
-			/>
+			{#if tableWrapperElem}
+				<!-- We need to await the table wrapper to be mounted in order to set the array of elements
+			 to ignore when clicking outside.
+			 This is the case because the clickOutside handler needs to know which elements to ignore
+			 at mount time. Reactive updates to the array will not work as expected. -->
+				{@const elemetsToIgnoreInClickOutside = [
+					clickOutsideExcludeElement,
+					tableWrapperElem
+				].filter(isDefined)}
+				<HunkDiffBody
+					comment={hunk.comment}
+					{filePath}
+					content={hunk.contentSections}
+					{onLineClick}
+					clearLineSelection={() => clearLineSelection?.(filePath)}
+					{wrapText}
+					{tabSize}
+					{diffFont}
+					{inlineUnifiedDiffs}
+					{selectedLines}
+					{lineLocks}
+					{numberHeaderWidth}
+					onCopySelection={onCopySelection && handleCopySelection}
+					{onQuoteSelection}
+					{staged}
+					{stagedLines}
+					{hideCheckboxes}
+					{handleLineContextMenu}
+					clickOutsideExcludeElements={elemetsToIgnoreInClickOutside}
+					{lockWarning}
+				/>
+			{/if}
 		</table>
 	</ScrollableContainer>
 </div>
