@@ -6,6 +6,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import SelectionView from '$components/SelectionView.svelte';
 	import UnassignedView from '$components/UnassignedView.svelte';
+	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import {
 		DefinedFocusable,
@@ -28,13 +29,8 @@
 
 	const { projectId }: Props = $props();
 
-	const [stackService, focusManager, idSelection, uiState, settingsService] = inject(
-		StackService,
-		FocusManager,
-		IdSelection,
-		UiState,
-		SettingsService
-	);
+	const [stackService, focusManager, idSelection, uiState, settingsService, baseBranchService] =
+		inject(StackService, FocusManager, IdSelection, UiState, SettingsService, BaseBranchService);
 	const worktreeSelection = $derived(idSelection.getById({ type: 'worktree' }));
 	const stacksResult = $derived(stackService.stacks(projectId));
 	const projectState = $derived(uiState.project(projectId));
@@ -42,6 +38,8 @@
 	const canUseActions = $derived($settingsStore?.featureFlags.actions ?? false);
 	const showingActions = $derived(projectState.showActions.current && canUseActions);
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
+	const baseBranchResult = $derived(baseBranchService.baseBranch(projectId));
+	const baseSha = $derived(baseBranchResult.current.data?.baseSha);
 
 	const snapshotFocusables = writable<string[]>([]);
 	setContext('snapshot-focusables', snapshotFocusables);
@@ -115,8 +113,10 @@
 				return;
 			}
 
+			// When we're committing to the bottom of the stack we set the
+			// commit id to equal the workspace base.
 			const hasCommit = branch.current.data.commits.some((c) => c.id === action.parentCommitId);
-			if (!hasCommit) {
+			if (!hasCommit && action.parentCommitId !== baseSha) {
 				uiState.project(projectId).exclusiveAction.set(undefined);
 			}
 		});
