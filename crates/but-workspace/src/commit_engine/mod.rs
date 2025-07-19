@@ -148,6 +148,9 @@ pub enum RejectionReason {
     CherryPickMergeConflict,
     /// The final merge of the workspace commit failed with a conflict.
     WorkspaceMergeConflict,
+    /// The final merge of the workspace commit failed with a conflict,
+    /// but the involved file wasn't anything the user provided as diff-spec.
+    WorkspaceMergeConflictOfUnrelatedFile,
     /// This is just a theoretical possibility that *could* happen if somebody deletes a file that was there before *right after* we checked its
     /// metadata and found that it still exists.
     /// So if you see this, you could also have won the lottery.
@@ -444,23 +447,31 @@ pub fn create_commit_and_update_refs(
                     conflicts: &[BString],
                     changes: &[DiffSpec],
                 ) -> anyhow::Result<()> {
-                    outcome.rejected_specs.extend(conflicts.iter().filter_map(
-                        |conflicting_rela_path| {
-                            changes.iter().find_map(|spec| {
-                                (spec.path == *conflicting_rela_path
-                                    || spec.previous_path.as_ref() == Some(conflicting_rela_path))
-                                .then_some((
-                                    RejectionReason::WorkspaceMergeConflict,
-                                    spec.to_owned(),
-                                ))
-                            })
-                        },
-                    ));
-                    if outcome.rejected_specs.is_empty() {
-                        bail!(
-                            "BUG: should have found a tree-change for each conflicting path, but came up with nothing"
-                        )
-                    }
+                    outcome
+                        .rejected_specs
+                        .extend(conflicts.iter().map(|conflicting_rela_path| {
+                            changes
+                                .iter()
+                                .find_map(|spec| {
+                                    (spec.path == *conflicting_rela_path
+                                        || spec.previous_path.as_ref()
+                                            == Some(conflicting_rela_path))
+                                    .then_some((
+                                        RejectionReason::WorkspaceMergeConflict,
+                                        spec.to_owned(),
+                                    ))
+                                })
+                                .unwrap_or_else(|| {
+                                    (
+                                        RejectionReason::WorkspaceMergeConflictOfUnrelatedFile,
+                                        DiffSpec {
+                                            previous_path: None,
+                                            path: conflicting_rela_path.to_owned(),
+                                            hunk_headers: vec![],
+                                        },
+                                    )
+                                })
+                        }));
                     outcome.new_commit = None;
                     outcome.changed_tree_pre_cherry_pick = None;
                     Ok(())

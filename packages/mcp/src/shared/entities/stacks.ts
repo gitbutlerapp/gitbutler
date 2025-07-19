@@ -92,6 +92,7 @@ export const RejectedChangesSchema = z.tuple([
 		'NoEffectiveChanges',
 		'CherryPickMergeConflict',
 		'WorkspaceMergeConflict',
+		'WorkspaceMergeConflictOfUnrelatedFile',
 		'WorktreeFileMissingForObjectConversion',
 		'FileToLargeOrBinary',
 		'PathNotFoundInBaseTree',
