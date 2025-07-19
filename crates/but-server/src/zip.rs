@@ -16,10 +16,13 @@ pub fn get_project_archive_path(
 ) -> anyhow::Result<serde_json::Value> {
     let params: GetProjectArchivePathParams = serde_json::from_value(params)?;
 
-    let project_id = params.project_id.parse().context(error::Context::new_static(
-        Code::Validation,
-        "Malformed project id",
-    ))?;
+    let project_id = params
+        .project_id
+        .parse()
+        .context(error::Context::new_static(
+            Code::Validation,
+            "Malformed project id",
+        ))?;
 
     // Create archival instance - similar to how it's managed in Tauri
     let cache_dir = dirs::cache_dir()

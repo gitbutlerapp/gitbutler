@@ -260,7 +260,11 @@ pub fn delete_local_branch(ctx: &RequestContext, params: Value) -> anyhow::Resul
 
     let project = ctx.project_controller.get(params.project_id)?;
     let command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
-    gitbutler_branch_actions::delete_local_branch(&command_ctx, &params.refname, params.given_name)?;
+    gitbutler_branch_actions::delete_local_branch(
+        &command_ctx,
+        &params.refname,
+        params.given_name,
+    )?;
     Ok(json!({}))
 }
 
@@ -376,7 +380,8 @@ pub fn can_apply_remote_branch(ctx: &RequestContext, params: Value) -> anyhow::R
 
     let project = ctx.project_controller.get(params.project_id)?;
     let command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
-    let can_apply = gitbutler_branch_actions::can_apply_remote_branch(&command_ctx, &params.branch)?;
+    let can_apply =
+        gitbutler_branch_actions::can_apply_remote_branch(&command_ctx, &params.branch)?;
     Ok(json!(can_apply))
 }
 
@@ -396,7 +401,12 @@ pub fn amend_virtual_branch(ctx: &RequestContext, params: Value) -> anyhow::Resu
     let project = ctx.project_controller.get(params.project_id)?;
     let command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
     let commit_id = git2::Oid::from_str(&params.commit_id).map_err(|e| anyhow!(e))?;
-    let oid = gitbutler_branch_actions::amend(&command_ctx, params.stack_id, commit_id, params.worktree_changes)?;
+    let oid = gitbutler_branch_actions::amend(
+        &command_ctx,
+        params.stack_id,
+        commit_id,
+        params.worktree_changes,
+    )?;
     Ok(json!(oid.to_string()))
 }
 
@@ -441,7 +451,13 @@ pub fn insert_blank_commit(ctx: &RequestContext, params: Value) -> anyhow::Resul
             stack.head_oid(&gix_repo)?.to_git2()
         }
     };
-    gitbutler_branch_actions::insert_blank_commit(&command_ctx, params.stack_id, commit_id, params.offset, None)?;
+    gitbutler_branch_actions::insert_blank_commit(
+        &command_ctx,
+        params.stack_id,
+        commit_id,
+        params.offset,
+        None,
+    )?;
     Ok(json!({}))
 }
 
@@ -487,12 +503,14 @@ pub fn squash_commits(ctx: &RequestContext, params: Value) -> anyhow::Result<Val
 
     let project = ctx.project_controller.get(params.project_id)?;
     let command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
-    let source_commit_ids: Vec<git2::Oid> = params.source_commit_ids
+    let source_commit_ids: Vec<git2::Oid> = params
+        .source_commit_ids
         .into_iter()
         .map(|oid| git2::Oid::from_str(&oid))
         .collect::<Result<_, _>>()
         .map_err(|e| anyhow!(e))?;
-    let destination_commit_id = git2::Oid::from_str(&params.target_commit_id).map_err(|e| anyhow!(e))?;
+    let destination_commit_id =
+        git2::Oid::from_str(&params.target_commit_id).map_err(|e| anyhow!(e))?;
     gitbutler_branch_actions::squash_commits(
         &command_ctx,
         params.stack_id,
@@ -574,7 +592,8 @@ pub fn upstream_integration_statuses(ctx: &RequestContext, params: Value) -> any
 
     let project = ctx.project_controller.get(params.project_id)?;
     let command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
-    let commit_id = params.target_commit_id
+    let commit_id = params
+        .target_commit_id
         .map(|commit_id| git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e)))
         .transpose()?;
     let statuses =
@@ -602,8 +621,10 @@ pub fn resolve_upstream_integration(ctx: &RequestContext, params: Value) -> anyh
     let project = ctx.project_controller.get(params.project_id)?;
     let command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
 
-    let new_target_id =
-        gitbutler_branch_actions::resolve_upstream_integration(&command_ctx, params.resolution_approach)?;
+    let new_target_id = gitbutler_branch_actions::resolve_upstream_integration(
+        &command_ctx,
+        params.resolution_approach,
+    )?;
     let commit_id = git2::Oid::to_string(&new_target_id);
     Ok(json!(commit_id))
 }
