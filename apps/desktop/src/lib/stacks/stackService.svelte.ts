@@ -821,6 +821,18 @@ export class StackService {
 			])
 		);
 	}
+
+	templates(projectId: string, forgeName: string) {
+		return this.api.endpoints.templates.useQuery({ projectId, forge: { name: forgeName } });
+	}
+
+	async template(projectId: string, forgeName: string, relativePath: string) {
+		return await this.api.endpoints.template.fetch({
+			relativePath,
+			projectId,
+			forge: { name: forgeName }
+		});
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -1568,6 +1580,17 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					await lifecycleApi.cacheEntryRemoved;
 					unsubscribe();
 				}
+			}),
+			templates: build.query<string[], { projectId: string; forge: { name: string } }>({
+				extraOptions: { command: 'pr_templates' },
+				query: (args) => args
+			}),
+			template: build.query<
+				string,
+				{ projectId: string; forge: { name: string }; relativePath: string }
+			>({
+				extraOptions: { command: 'pr_template' },
+				query: (args) => args
 			})
 		})
 	});

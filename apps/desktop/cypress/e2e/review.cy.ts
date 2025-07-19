@@ -16,12 +16,12 @@ describe('Review', () => {
 		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
 		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
 		mockCommand('get_base_branch_data', () => mockBackend.getBaseBranchData());
-		mockCommand('get_available_review_templates', () => mockBackend.getAvailableReviewTemplates());
+		mockCommand('pr_templates', () => mockBackend.getAvailableReviewTemplates());
 		mockCommand('push_stack', (params) => mockBackend.pushStack(params));
 		mockCommand('list_remotes', (params) => mockBackend.listRemotes(params));
 		mockCommand('update_branch_pr_number', (params) => mockBackend.updateBranchPrNumber(params));
 		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
-		mockCommand('get_review_template_contents', (args) => mockBackend.getTemplateContent(args));
+		mockCommand('pr_template', (args) => mockBackend.getTemplateContent(args));
 
 		cy.intercept(
 			{
@@ -406,12 +406,12 @@ describe('Review - stacked branches', () => {
 		mockCommand('changes_in_worktree', (params) => mockBackend.getWorktreeChanges(params));
 		mockCommand('tree_change_diffs', (params) => mockBackend.getDiff(params));
 		mockCommand('get_base_branch_data', () => mockBackend.getBaseBranchData());
-		mockCommand('get_available_review_templates', () => mockBackend.getAvailableReviewTemplates());
+		mockCommand('pr_templates', () => mockBackend.getAvailableReviewTemplates());
 		mockCommand('push_stack', (params) => mockBackend.pushStack(params));
 		mockCommand('list_remotes', (params) => mockBackend.listRemotes(params));
 		mockCommand('update_branch_pr_number', (params) => mockBackend.updateBranchPrNumber(params));
 		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
-		mockCommand('get_review_template_contents', (args) => mockBackend.getTemplateContent(args));
+		mockCommand('pr_template', (args) => mockBackend.getTemplateContent(args));
 
 		cy.intercept(
 			{
