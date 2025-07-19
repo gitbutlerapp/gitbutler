@@ -11,6 +11,7 @@ use tower_http::cors::{Any, CorsLayer};
 use crate::projects::ActiveProjects;
 
 mod projects;
+mod secret;
 mod settings;
 mod users;
 
@@ -94,6 +95,9 @@ async fn handle_command(
             settings::update_telemetry_distinct_id(&ctx, request.params)
         }
         "update_feature_flags" => settings::update_feature_flags(&ctx, request.params),
+        // Secret management
+        "secret_get_global" => secret::secret_get_global(&ctx, request.params),
+        "secret_set_global" => secret::secret_set_global(&ctx, request.params),
         // User management
         "get_user" => users::get_user(&ctx),
         "set_user" => users::set_user(&ctx, request.params),
