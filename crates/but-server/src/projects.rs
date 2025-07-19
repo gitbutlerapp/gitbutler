@@ -1,9 +1,41 @@
 use anyhow::{Context as _, Result};
 use gitbutler_project::{self as projects, Project, ProjectId};
+use serde::Deserialize;
 use serde_json::json;
 use std::path::Path;
 
 use crate::RequestContext;
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateProjectParams {
+    project: projects::UpdateRequest,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AddProjectParams {
+    path: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GetProjectParams {
+    project_id: ProjectId,
+    no_validation: Option<bool>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SetProjectActiveParams {
+    id: ProjectId,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DeleteProjectParams {
+    project_id: ProjectId,
+}
 
 pub struct ActiveProjects {
     projects: Vec<ProjectId>,
@@ -30,16 +62,14 @@ pub fn update_project(
     ctx: &RequestContext,
     params: serde_json::Value,
 ) -> Result<serde_json::Value> {
-    let project: projects::UpdateRequest = serde_json::from_value(params["project"].clone())?;
-    let updated_project = ctx.project_controller.update(&project)?;
+    let params: UpdateProjectParams = serde_json::from_value(params)?;
+    let updated_project = ctx.project_controller.update(&params.project)?;
     Ok(serde_json::to_value(updated_project)?)
 }
 
 pub fn add_project(ctx: &RequestContext, params: serde_json::Value) -> Result<serde_json::Value> {
-    let path = params["path"]
-        .as_str()
-        .ok_or_else(|| anyhow::anyhow!("path is required"))?;
-    let path = Path::new(path);
+    let params: AddProjectParams = serde_json::from_value(params)?;
+    let path = Path::new(&params.path);
 
     let user = ctx.user_controller.get_user()?;
     let name = user.as_ref().and_then(|u| u.name.clone());
@@ -50,13 +80,13 @@ pub fn add_project(ctx: &RequestContext, params: serde_json::Value) -> Result<se
 }
 
 pub fn get_project(ctx: &RequestContext, params: serde_json::Value) -> Result<serde_json::Value> {
-    let id: ProjectId = serde_json::from_value(params["projectId"].clone())?;
-    let no_validation = params["no_validation"].as_bool().unwrap_or(false);
+    let params: GetProjectParams = serde_json::from_value(params)?;
+    let no_validation = params.no_validation.unwrap_or(false);
 
     let project = if no_validation {
-        ctx.project_controller.get_raw(id)?
+        ctx.project_controller.get_raw(params.project_id)?
     } else {
-        ctx.project_controller.get_validated(id)?
+        ctx.project_controller.get_validated(params.project_id)?
     };
 
     Ok(serde_json::to_value(project)?)
@@ -82,14 +112,14 @@ pub async fn set_project_active(
     ctx: &RequestContext,
     params: serde_json::Value,
 ) -> Result<serde_json::Value> {
-    let id: ProjectId = serde_json::from_value(params["id"].clone())?;
+    let params: SetProjectActiveParams = serde_json::from_value(params)?;
     let project = ctx
         .project_controller
-        .get_validated(id)
+        .get_validated(params.id)
         .context("project not found")?;
 
     let mut active_projects = ctx.active_projects.lock().await;
-    let is_exclusive = !active_projects.projects.contains(&id);
+    let is_exclusive = !active_projects.projects.contains(&params.id);
     active_projects.projects.push(project.id);
 
     // TODO: Migrate DB, start watcher
@@ -105,8 +135,8 @@ pub fn delete_project(
     ctx: &RequestContext,
     params: serde_json::Value,
 ) -> Result<serde_json::Value> {
-    let id: ProjectId = serde_json::from_value(params["projectId"].clone())?;
-    ctx.project_controller.delete(id)?;
+    let params: DeleteProjectParams = serde_json::from_value(params)?;
+    ctx.project_controller.delete(params.project_id)?;
     Ok(json!({}))
 }
 

@@ -1,9 +1,5 @@
 use anyhow::Context;
-use but_core::{
-    Commit,
-    commit::ConflictEntries,
-    ui::{TreeChange, TreeChanges},
-};
+use but_core::{Commit, commit::ConflictEntries, ui::TreeChanges};
 use but_hunk_assignment::{HunkAssignmentRequest, WorktreeChanges};
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 use but_workspace::StackId;
@@ -11,10 +7,46 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::ProjectId;
 use gitbutler_stack::VirtualBranchesHandle;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::RequestContext;
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TreeChangeDiffsParams {
+    project_id: ProjectId,
+    change: but_core::ui::TreeChange,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CommitDetailsParams {
+    project_id: ProjectId,
+    commit_id: HexHash,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ChangesInBranchParams {
+    project_id: ProjectId,
+    stack_id: Option<StackId>,
+    branch_name: String,
+    remote: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ChangesInWorktreeParams {
+    project_id: ProjectId,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AssignHunkParams {
+    project_id: ProjectId,
+    assignments: Vec<HunkAssignmentRequest>,
+}
 
 // Helper type for JSON parsing
 #[derive(serde::Deserialize, Clone)]
@@ -33,13 +65,10 @@ impl From<HexHash> for gix::ObjectId {
 }
 
 pub fn tree_change_diffs(ctx: &RequestContext, params: Value) -> anyhow::Result<Value> {
-    let project_id: ProjectId =
-        serde_json::from_value(params.get("projectId").cloned().unwrap_or_default())?;
-    let change: TreeChange =
-        serde_json::from_value(params.get("change").cloned().unwrap_or_default())?;
+    let params: TreeChangeDiffsParams = serde_json::from_value(params)?;
 
-    let change: but_core::TreeChange = change.into();
-    let project = ctx.project_controller.get(project_id)?;
+    let change: but_core::TreeChange = params.change.into();
+    let project = ctx.project_controller.get(params.project_id)?;
     let repo = gix::open(project.path).map_err(anyhow::Error::from)?;
     let diff = change
         .unified_diff(&repo, ctx.app_settings.get()?.context_lines)?
@@ -48,17 +77,15 @@ pub fn tree_change_diffs(ctx: &RequestContext, params: Value) -> anyhow::Result<
 }
 
 pub fn commit_details(ctx: &RequestContext, params: Value) -> anyhow::Result<Value> {
-    let project_id: ProjectId =
-        serde_json::from_value(params.get("projectId").cloned().unwrap_or_default())?;
-    let commit_id: HexHash =
-        serde_json::from_value(params.get("commitId").cloned().unwrap_or_default())?;
+    let params: CommitDetailsParams = serde_json::from_value(params)?;
 
-    let project = ctx.project_controller.get(project_id)?;
+    let project = ctx.project_controller.get(params.project_id)?;
     let repo = &gix::open(&project.path).context("Failed to open repo")?;
     let commit = repo
-        .find_commit(commit_id.clone())
+        .find_commit(params.commit_id.clone())
         .context("Failed for find commit")?;
-    let changes = but_core::diff::ui::commit_changes_by_worktree_dir(repo, commit_id.into())?;
+    let changes =
+        but_core::diff::ui::commit_changes_by_worktree_dir(repo, params.commit_id.into())?;
     let conflict_entries = Commit::from_id(commit.id())?.conflict_entries()?;
 
     let details = CommitDetails {
@@ -79,19 +106,14 @@ pub struct CommitDetails {
 }
 
 pub fn changes_in_branch(ctx: &RequestContext, params: Value) -> anyhow::Result<Value> {
-    let project_id: ProjectId =
-        serde_json::from_value(params.get("projectId").cloned().unwrap_or_default())?;
-    let stack_id: Option<StackId> =
-        serde_json::from_value(params.get("stackId").cloned().unwrap_or_default())?;
-    let branch_name: String =
-        serde_json::from_value(params.get("branchName").cloned().unwrap_or_default())?;
-    let remote: Option<String> =
-        serde_json::from_value(params.get("remote").cloned().unwrap_or_default())?;
+    let params: ChangesInBranchParams = serde_json::from_value(params)?;
 
-    let project = ctx.project_controller.get(project_id)?;
+    let project = ctx.project_controller.get(params.project_id)?;
     let command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
-    let branch_name = remote.map_or(branch_name.clone(), |r| format!("{r}/{branch_name}"));
-    let changes = changes_in_branch_inner(command_ctx, branch_name, stack_id)?;
+    let branch_name = params.remote.map_or(params.branch_name.clone(), |r| {
+        format!("{r}/{}", params.branch_name)
+    });
+    let changes = changes_in_branch_inner(command_ctx, branch_name, params.stack_id)?;
     Ok(serde_json::to_value(changes)?)
 }
 
@@ -159,10 +181,9 @@ fn commit_and_base_from_stack(
 }
 
 pub fn changes_in_worktree(ctx: &RequestContext, params: Value) -> anyhow::Result<Value> {
-    let project_id: ProjectId =
-        serde_json::from_value(params.get("projectId").cloned().unwrap_or_default())?;
+    let params: ChangesInWorktreeParams = serde_json::from_value(params)?;
 
-    let project = ctx.project_controller.get(project_id)?;
+    let project = ctx.project_controller.get(params.project_id)?;
     let mut command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
     let changes = but_core::diff::worktree_changes(&command_ctx.gix_repo()?)?;
 
@@ -202,13 +223,10 @@ pub fn changes_in_worktree(ctx: &RequestContext, params: Value) -> anyhow::Resul
 }
 
 pub fn assign_hunk(ctx: &RequestContext, params: Value) -> anyhow::Result<Value> {
-    let project_id: ProjectId =
-        serde_json::from_value(params.get("projectId").cloned().unwrap_or_default())?;
-    let assignments: Vec<HunkAssignmentRequest> =
-        serde_json::from_value(params.get("assignments").cloned().unwrap_or_default())?;
+    let params: AssignHunkParams = serde_json::from_value(params)?;
 
-    let project = ctx.project_controller.get(project_id)?;
+    let project = ctx.project_controller.get(params.project_id)?;
     let mut command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
-    let rejections = but_hunk_assignment::assign(&mut command_ctx, assignments, None)?;
+    let rejections = but_hunk_assignment::assign(&mut command_ctx, params.assignments, None)?;
     Ok(serde_json::to_value(rejections)?)
 }
