@@ -28,7 +28,6 @@
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
@@ -46,12 +45,11 @@
 
 	let { projectId, stackId, context = $bindable(), openId: openId = $bindable() }: Props = $props();
 
-	const [aiService, stackService, forge, promptService, uiState] = inject(
+	const [aiService, stackService, forge, promptService] = inject(
 		AIService,
 		StackService,
 		DefaultForgeFactory,
-		PromptService,
-		UiState
+		PromptService
 	);
 	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
 	const [updateBranchNameMutation] = stackService.updateBranchName;
@@ -108,12 +106,6 @@
 				branchName,
 				newName: newBranchName
 			});
-
-			// Select the new branch name in the UI
-			if (stackId) {
-				uiState.stack(stackId).selection.set({ branchName: newBranchName });
-				uiState.project(projectId).stackId.set(stackId);
-			}
 		}
 	}
 
