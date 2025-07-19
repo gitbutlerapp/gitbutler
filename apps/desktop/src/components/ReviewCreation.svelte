@@ -22,9 +22,8 @@
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
 	import { GitHubPrService } from '$lib/forge/github/githubPrService.svelte';
 	import { type PullRequest } from '$lib/forge/interface/types';
-	import { PrPersistedStore, PrTemplateStore } from '$lib/forge/prContents';
+	import { PrPersistedStore } from '$lib/forge/prContents';
 	import { updatePrDescriptionTables as updatePrStackInfo } from '$lib/forge/shared/prFooter';
-	import { TemplateService } from '$lib/forge/templateService';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { RemotesService } from '$lib/remotes/remotesService';
 	import { requiresPush } from '$lib/stacks/stack';
@@ -61,7 +60,6 @@
 	const aiService = getContext(AIService);
 	const remotesService = getContext(RemotesService);
 	const uiState = getContext(UiState);
-	const templateService = getContext(TemplateService);
 
 	const user = userService.user;
 
@@ -124,15 +122,15 @@
 		return branchName;
 	}
 
-	const templateStore = $derived(
-		new PrTemplateStore(projectId, forge.current.name, templateService)
-	);
-	const templateEnabled = $derived(templateStore.templateEnabled);
-	const templatePath = $derived(templateStore.templatePath);
+	const templatePath = persisted<string | undefined>(undefined, `last-template-${projectId}`);
+	const templateEnabled = persisted(false, `enable-template-${projectId}`);
 
 	async function getDefaultBody(commits: Commit[]): Promise<string> {
 		if ($templateEnabled && $templatePath) {
-			return await templateStore.getTemplateContent($templatePath);
+			const result = await stackService.template(projectId, forge.current.name, $templatePath);
+			if (result.data) {
+				return result.data;
+			}
 		}
 		if (commits.length === 1) {
 			return splitMessage(commits[0]!.message).description;
@@ -365,7 +363,8 @@
 	<AsyncRender>
 		<PrTemplateSection
 			{projectId}
-			{templateStore}
+			template={{ enabled: templateEnabled, path: templatePath }}
+			forgeName={forge.current.name}
 			disabled={isExecuting}
 			onselect={(value) => {
 				prBody.set(value);

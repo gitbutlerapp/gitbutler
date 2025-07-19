@@ -17,7 +17,7 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects), err(Debug))]
-    pub fn get_available_review_templates(
+    pub fn pr_templates(
         projects: State<'_, Controller>,
         project_id: ProjectId,
         forge: ForgeName,
@@ -28,7 +28,7 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects))]
-    pub fn get_review_template_contents(
+    pub fn pr_template(
         projects: State<'_, Controller>,
         project_id: ProjectId,
         relative_path: &Path,
