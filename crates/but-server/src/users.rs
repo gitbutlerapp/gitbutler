@@ -5,6 +5,12 @@ use serde_json::json;
 
 use crate::RequestContext;
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SetUserParams {
+    user: User,
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct UserWithSecrets {
     id: u64,
@@ -72,9 +78,9 @@ pub fn get_user(ctx: &RequestContext) -> Result<serde_json::Value> {
 }
 
 pub fn set_user(ctx: &RequestContext, params: serde_json::Value) -> Result<serde_json::Value> {
-    let user: User = serde_json::from_value(params["user"].clone())?;
-    ctx.user_controller.set_user(&user)?;
-    Ok(serde_json::to_value(user)?)
+    let params: SetUserParams = serde_json::from_value(params)?;
+    ctx.user_controller.set_user(&params.user)?;
+    Ok(serde_json::to_value(params.user)?)
 }
 
 pub fn delete_user(ctx: &RequestContext, _params: serde_json::Value) -> Result<serde_json::Value> {
