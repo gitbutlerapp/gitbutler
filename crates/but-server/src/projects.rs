@@ -1,9 +1,30 @@
-use anyhow::Result;
+use anyhow::{Context as _, Result};
 use gitbutler_project::{self as projects, Project, ProjectId};
 use serde_json::json;
 use std::path::Path;
 
 use crate::RequestContext;
+
+pub struct ActiveProjects {
+    projects: Vec<ProjectId>,
+}
+
+impl ActiveProjects {
+    pub fn new() -> Self {
+        Self { projects: vec![] }
+    }
+}
+
+/// Additional information to help the user interface communicate what happened with the project.
+#[derive(Debug, serde::Serialize)]
+pub struct ProjectInfo {
+    /// `true` if the window is the first one to open the project.
+    is_exclusive: bool,
+    /// The display version of the error that communicates what went wrong while opening the database.
+    db_error: Option<String>,
+    /// Provide information about the project just opened.
+    headsup: Option<String>,
+}
 
 pub fn update_project(
     ctx: &RequestContext,
@@ -41,22 +62,43 @@ pub fn get_project(ctx: &RequestContext, params: serde_json::Value) -> Result<se
     Ok(serde_json::to_value(project)?)
 }
 
-pub fn list_projects(
-    ctx: &RequestContext,
-    _params: serde_json::Value,
-) -> Result<serde_json::Value> {
+pub async fn list_projects(ctx: &RequestContext) -> Result<serde_json::Value> {
+    let active_projects = ctx.active_projects.lock().await;
     // For server implementation, we don't have window state, so all projects are marked as not open
     let projects_for_frontend = ctx
         .project_controller
         .assure_app_can_startup_or_fix_it(ctx.project_controller.list())?
         .into_iter()
         .map(|project| ProjectForFrontend {
-            is_open: false,
+            is_open: active_projects.projects.contains(&project.id),
             inner: project,
         })
         .collect::<Vec<_>>();
 
     Ok(json!(projects_for_frontend))
+}
+
+pub async fn set_project_active(
+    ctx: &RequestContext,
+    params: serde_json::Value,
+) -> Result<serde_json::Value> {
+    let id: ProjectId = serde_json::from_value(params["id"].clone())?;
+    let project = ctx
+        .project_controller
+        .get_validated(id)
+        .context("project not found")?;
+
+    let mut active_projects = ctx.active_projects.lock().await;
+    let is_exclusive = !active_projects.projects.contains(&id);
+    active_projects.projects.push(project.id);
+
+    // TODO: Migrate DB, start watcher
+
+    Ok(json!(ProjectInfo {
+        is_exclusive,
+        db_error: None,
+        headsup: None
+    }))
 }
 
 pub fn delete_project(
