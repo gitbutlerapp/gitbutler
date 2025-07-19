@@ -4,8 +4,11 @@ use axum::{Json, Router, routing::get};
 use but_settings::AppSettingsWithDiskSync;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use tokio::sync::Mutex;
 use tower::ServiceBuilder;
 use tower_http::cors::{Any, CorsLayer};
+
+use crate::projects::ActiveProjects;
 
 mod projects;
 mod settings;
@@ -15,6 +18,7 @@ pub(crate) struct RequestContext {
     app_settings: Arc<AppSettingsWithDiskSync>,
     user_controller: Arc<gitbutler_user::Controller>,
     project_controller: Arc<gitbutler_project::Controller>,
+    active_projects: Arc<Mutex<ActiveProjects>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -52,6 +56,7 @@ async fn main() {
     );
     let user_controller = Arc::new(gitbutler_user::Controller::from_path(&app_data_dir));
     let project_controller = Arc::new(gitbutler_project::Controller::from_path(&app_data_dir));
+    let active_projects = Arc::new(Mutex::new(ActiveProjects::new()));
 
     // build our application with a single route
     let app = Router::new()
@@ -62,6 +67,7 @@ async fn main() {
                     app_settings: Arc::clone(&app_settings),
                     user_controller: Arc::clone(&user_controller),
                     project_controller: Arc::clone(&project_controller),
+                    active_projects: Arc::clone(&active_projects),
                 };
                 handle_command(req, ctx)
             }),
@@ -96,8 +102,9 @@ async fn handle_command(
         "update_project" => projects::update_project(&ctx, request.params),
         "add_project" => projects::add_project(&ctx, request.params),
         "get_project" => projects::get_project(&ctx, request.params),
-        "list_projects" => projects::list_projects(&ctx, request.params),
+        "list_projects" => projects::list_projects(&ctx).await,
         "delete_project" => projects::delete_project(&ctx, request.params),
+        "set_project_active" => projects::set_project_active(&ctx, request.params).await,
         _ => Err(anyhow::anyhow!("Command {} not found!", command)),
     };
 
