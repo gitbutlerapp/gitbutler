@@ -15,7 +15,9 @@ pub struct WorkspaceRule {
     /// The trigger of the rule is what causes it to be evaluated in the app.
     trigger: Trigger,
     /// These filtes determine what files or changes the rule applies to.
-    /// Within a rule, multiple filters are combined with OR logic (i.e. it's sufficient to match any of the filters)
+    /// Within a rule, multiple filters are combined with AND logic (i.e. all conditions must be met).
+    /// This allows for the expressions of rules like "If a file is modified, its path matches
+    /// the regex 'src/.*', and its content matches the regex 'TODO', then do something."
     filters: Vec<Filter>,
     /// The action determines what happens to the files or changes that matched the filters.
     action: Action,
@@ -34,12 +36,12 @@ pub enum Trigger {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
 pub enum Filter {
-    /// Matches the file path (relative to the repository root) against all provided regex patterns.
+    /// Matches the file path (relative to the repository root).
     #[serde(with = "serde_regex")]
-    PathMatchesRegex(Vec<regex::Regex>),
-    /// Match the file content against all provided regex patterns.
+    PathMatchesRegex(regex::Regex),
+    /// Match the file content.
     #[serde(with = "serde_regex")]
-    ContentMatchesRegex(Vec<regex::Regex>),
+    ContentMatchesRegex(regex::Regex),
     /// Matches the file change operation type (e.g. addition, deletion, modification, rename)
     FileChangeType(TreeStatus),
     /// Matches the semantic type of the change.

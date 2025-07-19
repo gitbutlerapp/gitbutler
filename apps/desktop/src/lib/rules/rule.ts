@@ -5,6 +5,8 @@ export type WorkspaceRuleId = BrandedId<'WorkspaceRule'>;
  * A workspace rule.
  * @remarks
  * A rule is evaluated in the app and determines what happens to files or changes based on triggers, filters, and actions.
+ *
+ * Multiple rules can defined and will be evaluated in the order they are defined using an OR logic.
  */
 export interface WorkspaceRule {
 	/** A UUID unique identifier for the rule. */
@@ -15,7 +17,11 @@ export interface WorkspaceRule {
 	enabled: boolean;
 	/** The trigger of the rule is what causes it to be evaluated in the app. */
 	trigger: Trigger;
-	/** These filters determine what files or changes the rule applies to. Multiple filters are combined with OR logic. */
+	/** These filters determine what files or changes the rule applies to
+	 *  Multiple filters are combined with AND logic (i.e. all conditions must be met).
+	 *  This allows for the expressions of rules like "If a file is modified, its path matches
+	 *  the regex 'src/.*', and its content matches the regex 'TODO', then do something.
+	 *  */
 	filters: Filter[];
 	/** The action determines what happens to the files or changes that matched the filters. */
 	action: Action;
@@ -33,8 +39,8 @@ export type Trigger =
  * Multiple conditions in a filter are combined with AND logic.
  */
 export type Filter =
-	| { type: 'pathMatchesRegex'; subject: string[] } // regex patterns as strings
-	| { type: 'contentMatchesRegex'; subject: string[] } // regex patterns as strings
+	| { type: 'pathMatchesRegex'; subject: string } // regex patterns as strings
+	| { type: 'contentMatchesRegex'; subject: string } // regex patterns as strings
 	| { type: 'fileChangeType'; subject: TreeStatus }
 	| { type: 'semanticType'; subject: SemanticType };
 
