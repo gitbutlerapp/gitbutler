@@ -103,12 +103,51 @@ export async function invoke<T>(command: string, params: Record<string, unknown>
 	}
 }
 
+let webListener: WebListener | undefined;
+
 export function listen<T>(event: EventName, handle: EventCallback<T>) {
 	if (import.meta.env.VITE_BUILD_TARGET === 'electron') {
+		if (!webListener) {
+			webListener = new WebListener();
+		}
+
 		// TODO: Listening in electron
-		return async () => {};
+		return webListener.listen({ name: event, handle });
 	} else {
 		const unlisten = listenTauri(event, handle);
 		return async () => await unlisten.then((unlistenFn) => unlistenFn());
+	}
+}
+
+class WebListener {
+	private socket: WebSocket | undefined;
+	private count = 0;
+	private handlers: { name: EventName; handle: EventCallback<any> }[] = [];
+
+	listen(handler: { name: EventName; handle: EventCallback<any> }): () => void {
+		this.handlers.push(handler);
+		this.count++;
+		if (!this.socket) {
+			this.socket = new WebSocket('ws://localhost:6978/ws');
+			this.socket.addEventListener('message', (event) => {
+				const data: { name: string; payload: any } = JSON.parse(event.data);
+				for (const handler of this.handlers) {
+					if (handler.name === data.name) {
+						// The id is an artifact from tauri, we don't use it so
+						// I've used a random value
+						handler.handle({ event: data.name, payload: data.payload, id: 69 });
+					}
+				}
+			});
+		}
+
+		return () => {
+			this.handlers = this.handlers.filter((h) => h !== handler);
+			this.count--;
+			if (this.count === 0) {
+				this.socket?.close();
+				this.socket = undefined;
+			}
+		};
 	}
 }

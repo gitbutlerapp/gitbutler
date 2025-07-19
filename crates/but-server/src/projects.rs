@@ -1,10 +1,11 @@
 use anyhow::{Context as _, Result};
 use gitbutler_project::{self as projects, Project, ProjectId};
+use gitbutler_watcher::{Change, WatcherHandle};
 use serde::Deserialize;
 use serde_json::json;
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
-use crate::RequestContext;
+use crate::{FrontendEvent, RequestContext};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -38,12 +39,71 @@ struct DeleteProjectParams {
 }
 
 pub struct ActiveProjects {
-    projects: Vec<ProjectId>,
+    projects: HashMap<ProjectId, WatcherHandle>,
 }
 
 impl ActiveProjects {
     pub fn new() -> Self {
-        Self { projects: vec![] }
+        Self {
+            projects: HashMap::new(),
+        }
+    }
+
+    pub fn set_active(&mut self, project: &Project, ctx: &RequestContext) -> Result<()> {
+        if self.projects.contains_key(&project.id) {
+            return Ok(());
+        }
+
+        let handler = gitbutler_watcher::Handler::new(
+            (*ctx.project_controller).clone(),
+            (*ctx.user_controller).clone(),
+            {
+                let broadcaster = ctx.broadcaster.clone();
+
+                move |value| {
+                    let frontend_event = match value {
+                        Change::GitFetch(project_id) => FrontendEvent {
+                            name: format!("project://{}/git/fetch", project_id),
+                            payload: serde_json::json!({}),
+                        },
+                        Change::GitHead {
+                            project_id,
+                            head,
+                            operating_mode,
+                        } => FrontendEvent {
+                            name: format!("project://{}/git/head", project_id),
+                            payload: serde_json::json!({ "head": head, "operatingMode": operating_mode }),
+                        },
+                        Change::GitActivity(project_id) => FrontendEvent {
+                            name: format!("project://{}/git/activity", project_id),
+                            payload: serde_json::json!({}),
+                        },
+                        Change::WorktreeChanges {
+                            project_id,
+                            changes,
+                        } => FrontendEvent {
+                            name: format!("project://{}/worktree_changes", project_id),
+                            payload: serde_json::json!(&changes),
+                        },
+                    };
+
+                    println!("Sending event");
+                    broadcaster.blocking_lock().send(frontend_event);
+                    println!("Sent event");
+                    Ok(())
+                }
+            },
+        );
+
+        let watcher = gitbutler_watcher::watch_in_background(
+            handler,
+            project.worktree_path(),
+            project.id,
+            (*ctx.app_settings).clone(),
+        )?;
+
+        self.projects.insert(project.id, watcher);
+        Ok(())
     }
 }
 
@@ -100,7 +160,7 @@ pub async fn list_projects(ctx: &RequestContext) -> Result<serde_json::Value> {
         .assure_app_can_startup_or_fix_it(ctx.project_controller.list())?
         .into_iter()
         .map(|project| ProjectForFrontend {
-            is_open: active_projects.projects.contains(&project.id),
+            is_open: active_projects.projects.contains_key(&project.id),
             inner: project,
         })
         .collect::<Vec<_>>();
@@ -118,14 +178,18 @@ pub async fn set_project_active(
         .get_validated(params.id)
         .context("project not found")?;
 
+    // TODO: Adding projects to a list of active projects requires some more
+    // knowledge around how many unique tabs are looking at it
+
     let mut active_projects = ctx.active_projects.lock().await;
-    let is_exclusive = !active_projects.projects.contains(&params.id);
-    active_projects.projects.push(project.id);
+    active_projects.set_active(&project, ctx)?;
+
+    // let is_exclusive = !active_projects.projects.contains(&params.id);
 
     // TODO: Migrate DB, start watcher
 
     Ok(json!(ProjectInfo {
-        is_exclusive,
+        is_exclusive: true,
         db_error: None,
         headsup: None
     }))

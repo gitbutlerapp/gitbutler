@@ -1,7 +1,16 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
-use axum::{Json, Router, routing::get};
+use axum::{
+    Json, Router,
+    extract::{
+        WebSocketUpgrade,
+        ws::{Message, WebSocket},
+    },
+    response::IntoResponse,
+    routing::{any, get},
+};
 use but_settings::AppSettingsWithDiskSync;
+use futures_util::{SinkExt, StreamExt as _};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::sync::Mutex;
@@ -34,11 +43,13 @@ mod virtual_branches;
 mod workspace;
 mod zip;
 
+#[derive(Clone)]
 pub(crate) struct RequestContext {
     app_settings: Arc<AppSettingsWithDiskSync>,
     user_controller: Arc<gitbutler_user::Controller>,
     project_controller: Arc<gitbutler_project::Controller>,
     active_projects: Arc<Mutex<ActiveProjects>>,
+    broadcaster: Arc<Mutex<Broadcaster>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -53,6 +64,13 @@ enum Response {
 pub(crate) struct Request {
     command: String,
     params: serde_json::Value,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct FrontendEvent {
+    name: String,
+    payload: serde_json::Value,
 }
 
 pub async fn run() {
@@ -70,25 +88,35 @@ pub async fn run() {
         .expect("missing config dir")
         .join("gitbutler-server");
 
-    let app_settings = Arc::new(
-        AppSettingsWithDiskSync::new(config_dir.clone()).expect("failed to create app settings"),
-    );
-    let user_controller = Arc::new(gitbutler_user::Controller::from_path(&app_data_dir));
-    let project_controller = Arc::new(gitbutler_project::Controller::from_path(&app_data_dir));
-    let active_projects = Arc::new(Mutex::new(ActiveProjects::new()));
+    let broadcaster = Arc::new(Mutex::new(Broadcaster {
+        senders: HashMap::new(),
+    }));
+
+    let ctx = RequestContext {
+        app_settings: Arc::new(
+            AppSettingsWithDiskSync::new(config_dir.clone())
+                .expect("failed to create app settings"),
+        ),
+        user_controller: Arc::new(gitbutler_user::Controller::from_path(&app_data_dir)),
+        project_controller: Arc::new(gitbutler_project::Controller::from_path(&app_data_dir)),
+        active_projects: Arc::new(Mutex::new(ActiveProjects::new())),
+        broadcaster: broadcaster.clone(),
+    };
 
     // build our application with a single route
     let app = Router::new()
         .route(
             "/",
-            get(|| async { "Hello, World!" }).post(move |req| {
-                let ctx = RequestContext {
-                    app_settings: Arc::clone(&app_settings),
-                    user_controller: Arc::clone(&user_controller),
-                    project_controller: Arc::clone(&project_controller),
-                    active_projects: Arc::clone(&active_projects),
-                };
-                handle_command(req, ctx)
+            get(|| async { "Hello, World!" }).post({
+                let ctx = ctx.clone();
+                move |req| handle_command(req, ctx)
+            }),
+        )
+        .route(
+            "/ws",
+            any({
+                let broadcaster = broadcaster.clone();
+                async move |req| handle_ws_request(req, broadcaster).await
             }),
         )
         .layer(ServiceBuilder::new().layer(cors));
@@ -97,6 +125,54 @@ pub async fn run() {
     let listener = tokio::net::TcpListener::bind("0.0.0.0:6978").await.unwrap();
     println!("Running at 0.0.0.0:6978");
     axum::serve(listener, app).await.unwrap();
+}
+
+struct Broadcaster {
+    senders: HashMap<uuid::Uuid, tokio::sync::mpsc::UnboundedSender<FrontendEvent>>,
+}
+
+impl Broadcaster {
+    fn send(&self, event: FrontendEvent) {
+        for sender in self.senders.values() {
+            let _ = sender.send(event.clone());
+        }
+    }
+}
+
+async fn handle_ws_request(
+    ws: WebSocketUpgrade,
+    broadcaster: Arc<Mutex<Broadcaster>>,
+) -> impl IntoResponse {
+    ws.on_upgrade(move |socket| handle_websocket(socket, broadcaster))
+}
+
+async fn handle_websocket(socket: WebSocket, broadcaster: Arc<Mutex<Broadcaster>>) {
+    let (send, mut recv) = tokio::sync::mpsc::unbounded_channel();
+    let id = uuid::Uuid::new_v4();
+    broadcaster.lock().await.senders.insert(id, send);
+
+    let (mut socket_send, mut socket_recv) = socket.split();
+    let thread = tokio::spawn(async move {
+        while let Some(event) = recv.recv().await {
+            socket_send
+                .send(Message::Text(serde_json::to_string(&event).unwrap().into()))
+                .await
+                .unwrap();
+        }
+    });
+
+    while let Some(Ok(msg)) = socket_recv.next().await {
+        #[allow(clippy::single_match)]
+        match msg {
+            Message::Close(_) => {
+                thread.abort();
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    broadcaster.lock().await.senders.remove(&id);
 }
 
 async fn handle_command(
