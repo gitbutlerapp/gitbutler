@@ -1,5 +1,6 @@
 use anyhow::bail;
 use gitbutler_project::Project;
+use gix::bstr::ByteSlice;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
@@ -217,14 +218,16 @@ fn warn_about_filters_and_git_lfs(repo: gix::Repository) -> anyhow::Result<Optio
     )?;
     let mut attrs = cache.selected_attribute_matches(Some("filter"));
     let mut all_filters = BTreeSet::<String>::new();
+    let mut files_with_filter = Vec::new();
     for entry in index.entries() {
-        let entry = cache.at_entry(entry.path(&index), None)?;
-        if entry.matching_attributes(&mut attrs) {
-            all_filters.extend(
-                attrs
-                    .iter()
-                    .filter_map(|attr| attr.assignment.state.as_bstr().map(|s| s.to_string())),
-            );
+        let cache_entry = cache.at_entry(entry.path(&index), None)?;
+        if cache_entry.matching_attributes(&mut attrs) {
+            all_filters.extend(attrs.iter().filter_map(|attr| {
+                attr.assignment.state.as_bstr().map(|s| {
+                    files_with_filter.push(entry.path(&index).to_str_lossy());
+                    s.to_string()
+                })
+            }));
         }
     }
 
@@ -235,17 +238,18 @@ fn warn_about_filters_and_git_lfs(repo: gix::Repository) -> anyhow::Result<Optio
     let has_lfs = all_filters.contains("lfs");
     let mut msg = format!(
         "Worktree filter(s) detected: {comma_separated}\n\
-These will silently not be applied during workspace operations.\n\
-Assure these aren't touched by GitButler or avoid using it in this repository.\n\
-See https://github.com/gitbutlerapp/gitbutler/issues/2595#issuecomment-3036097607 for details.",
+Filters will silently not be applied during workspace operations to the files listed below.\n\
+Assure these aren't touched by GitButler or avoid using it in this repository.",
         comma_separated = Vec::from_iter(all_filters).join(", ")
     );
     if has_lfs {
         msg.push_str(
             r#"
 
-Use `git lfs pull --include="*" to restore git-lfs files.`"#,
+`git lfs pull --include="*" to restore git-lfs files.` can be used to restore git-lfs files after GitButler touched them."#,
         );
     }
+    msg.push_str("\n\n");
+    msg.push_str(&files_with_filter.join("\n"));
     Ok(Some(msg))
 }
