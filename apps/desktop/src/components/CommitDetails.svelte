@@ -35,7 +35,8 @@
 	// Calculate approximately how many characters fit on one line, as a
 	// function of container width as well as zoom level.
 	// TODO: Turn this magic formula into something meaningful.
-	const maxLength = $derived((messageWidthRem - 2) * 1.95 - (Math.pow(zoom, 2) - 1));
+	const fontFactor = $rewrapCommitMessage ? 2.3 : 2;
+	const maxLength = $derived((messageWidthRem - 2) * fontFactor - (Math.pow(zoom, 2) - 1));
 
 	const message = $derived(commit.message);
 	const raw = $derived(splitMessage(message).description);
