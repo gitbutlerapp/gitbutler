@@ -1,5 +1,5 @@
 use crate::RequestContext;
-use anyhow::{anyhow, bail, Context};
+use anyhow::{Context, anyhow, bail};
 use std::path::Path;
 
 pub fn install_cli(
@@ -14,7 +14,8 @@ fn do_install_cli() -> anyhow::Result<()> {
     let cli_path = get_cli_path()?;
     if cfg!(windows) {
         bail!(
-            "CLI installation is not supported on Windows. Please install manually by placing '{}' in PATH.", cli_path.display()
+            "CLI installation is not supported on Windows. Please install manually by placing '{}' in PATH.",
+            cli_path.display()
         );
     }
 
@@ -94,7 +95,9 @@ pub fn cli_path(
             cli_path.display()
         ));
     }
-    Ok(serde_json::to_value(cli_path.to_string_lossy().to_string())?)
+    Ok(serde_json::to_value(
+        cli_path.to_string_lossy().to_string(),
+    )?)
 }
 
 fn get_cli_path() -> anyhow::Result<std::path::PathBuf> {

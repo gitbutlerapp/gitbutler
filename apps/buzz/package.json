@@ -6,8 +6,7 @@
 	"scripts": {
 		"dev": "node dev.js",
 		"dev:simple": "pnpm build-ts && electron .",
-		"build-ts": "tsc",
-		"test": "echo \"Error: no test specified\" && exit 1"
+		"build-ts": "tsc"
 	},
 	"keywords": [],
 	"author": "",

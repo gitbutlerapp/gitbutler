@@ -4,7 +4,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use gitbutler_stack::VirtualBranchesHandle;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::RequestContext;
 
@@ -30,7 +30,7 @@ struct ProjectOnlyParams {
 
 pub fn operating_mode(ctx: &RequestContext, params: Value) -> anyhow::Result<Value> {
     let params: OperatingModeParams = serde_json::from_value(params)?;
-    
+
     let project = ctx.project_controller.get(params.project_id)?;
     let command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
     let mode = gitbutler_operating_modes::operating_mode(&command_ctx);
@@ -39,7 +39,7 @@ pub fn operating_mode(ctx: &RequestContext, params: Value) -> anyhow::Result<Val
 
 pub fn enter_edit_mode(ctx: &RequestContext, params: Value) -> anyhow::Result<Value> {
     let params: EnterEditModeParams = serde_json::from_value(params)?;
-    
+
     let project = ctx.project_controller.get(params.project_id)?;
     let command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
     let handle = VirtualBranchesHandle::new(project.gb_dir());
@@ -52,13 +52,16 @@ pub fn enter_edit_mode(ctx: &RequestContext, params: Value) -> anyhow::Result<Va
         commit,
         stack.refname()?.to_string().into(),
     )?;
-    
+
     Ok(serde_json::to_value(metadata)?)
 }
 
-pub fn abort_edit_and_return_to_workspace(ctx: &RequestContext, params: Value) -> anyhow::Result<Value> {
+pub fn abort_edit_and_return_to_workspace(
+    ctx: &RequestContext,
+    params: Value,
+) -> anyhow::Result<Value> {
     let params: ProjectOnlyParams = serde_json::from_value(params)?;
-    
+
     let project = ctx.project_controller.get(params.project_id)?;
     let command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
 
@@ -67,9 +70,12 @@ pub fn abort_edit_and_return_to_workspace(ctx: &RequestContext, params: Value) -
     Ok(json!({}))
 }
 
-pub fn save_edit_and_return_to_workspace(ctx: &RequestContext, params: Value) -> anyhow::Result<Value> {
+pub fn save_edit_and_return_to_workspace(
+    ctx: &RequestContext,
+    params: Value,
+) -> anyhow::Result<Value> {
     let params: ProjectOnlyParams = serde_json::from_value(params)?;
-    
+
     let project = ctx.project_controller.get(params.project_id)?;
     let command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
 
@@ -80,7 +86,7 @@ pub fn save_edit_and_return_to_workspace(ctx: &RequestContext, params: Value) ->
 
 pub fn edit_initial_index_state(ctx: &RequestContext, params: Value) -> anyhow::Result<Value> {
     let params: ProjectOnlyParams = serde_json::from_value(params)?;
-    
+
     let project = ctx.project_controller.get(params.project_id)?;
     let command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
 

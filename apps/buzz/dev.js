@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-const { spawn } = require('child_process');
-const path = require('path');
-const net = require('net');
+import { spawn } from 'child_process';
+import net from 'net';
+import path from 'path';
 
 // Colors for console output
 const colors = {
@@ -25,6 +25,7 @@ let electronProcess = null;
 let butProcess = null;
 
 function log(message, color = colors.reset) {
+	// eslint-disable-next-line no-console
 	console.log(`${color}${message}${colors.reset}`);
 }
 
@@ -42,8 +43,8 @@ function spawnProcess(command, args, cwd = process.cwd(), options = {}) {
 	});
 }
 
-function runCommand(command, args, cwd = process.cwd()) {
-	return new Promise((resolve, reject) => {
+async function runCommand(command, args, cwd = process.cwd()) {
+	return await new Promise((resolve, reject) => {
 		log(`Running: ${command} ${args.join(' ')}`, colors.cyan);
 
 		const child = spawnProcess(command, args, cwd);
@@ -62,8 +63,8 @@ function runCommand(command, args, cwd = process.cwd()) {
 	});
 }
 
-function checkPort(port, host = 'localhost') {
-	return new Promise((resolve) => {
+async function checkPort(port, host = 'localhost') {
+	return await new Promise((resolve) => {
 		const socket = new net.Socket();
 
 		socket.setTimeout(500);
@@ -129,9 +130,9 @@ async function main() {
 		log('🚀 Starting GitButler Buzz Development Server', colors.bright + colors.green);
 
 		// Get paths
-		const rootDir = path.resolve(__dirname, '../..');
+		const rootDir = path.resolve(import.meta.dirname, '../..');
 		const desktopDir = path.resolve(rootDir, 'apps/desktop');
-		const buzzDir = __dirname;
+		const buzzDir = import.meta.dirname;
 
 		log('\n🔧 Building TypeScript for Buzz...', colors.yellow);
 

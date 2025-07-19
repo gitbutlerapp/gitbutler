@@ -3,10 +3,10 @@ use std::collections::HashSet;
 use anyhow::Context;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_hunk_assignment::HunkAssignmentRequest;
-use but_workspace::commit_engine::StackSegmentId;
 use but_workspace::MoveChangesResult;
 use but_workspace::commit_engine;
-use gitbutler_branch_actions::{update_workspace_commit, BranchManagerExt};
+use but_workspace::commit_engine::StackSegmentId;
+use gitbutler_branch_actions::{BranchManagerExt, update_workspace_commit};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, SnapshotExt};
@@ -15,7 +15,7 @@ use gitbutler_project::{Project, ProjectId};
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::RequestContext;
 
@@ -140,25 +140,30 @@ struct TargetCommitsParams {
 
 pub fn stacks(ctx: &RequestContext, params: Value) -> anyhow::Result<Value> {
     let params: StacksParams = serde_json::from_value(params)?;
-    
+
     let project = ctx.project_controller.get(params.project_id)?;
     let command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
     let repo = command_ctx.gix_repo_for_merging_non_persisting()?;
-    
+
     let result = if command_ctx.app_settings().feature_flags.ws3 {
         let meta = ref_metadata_toml(command_ctx.project())?;
         but_workspace::stacks_v3(&repo, &meta, params.filter.unwrap_or_default())
     } else {
-        but_workspace::stacks(&command_ctx, &project.gb_dir(), &repo, params.filter.unwrap_or_default())
+        but_workspace::stacks(
+            &command_ctx,
+            &project.gb_dir(),
+            &repo,
+            params.filter.unwrap_or_default(),
+        )
     }?;
-    
+
     Ok(serde_json::to_value(result)?)
 }
 
 #[cfg(unix)]
 pub fn show_graph_svg(ctx: &RequestContext, params: Value) -> anyhow::Result<Value> {
     let params: ProjectIdParams = serde_json::from_value(params)?;
-    
+
     let project = ctx.project_controller.get(params.project_id)?;
     let command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
     let repo = command_ctx.gix_repo_minimal()?;
@@ -201,10 +206,10 @@ pub fn show_graph_svg(ctx: &RequestContext, params: Value) -> anyhow::Result<Val
 
 pub fn stack_details(ctx: &RequestContext, params: Value) -> anyhow::Result<Value> {
     let params: StackDetailsParams = serde_json::from_value(params)?;
-    
+
     let project = ctx.project_controller.get(params.project_id)?;
     let command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
-    
+
     let result = if command_ctx.app_settings().feature_flags.ws3 {
         let repo = command_ctx.gix_repo_for_merging_non_persisting()?;
         let meta = ref_metadata_toml(command_ctx.project())?;
@@ -212,16 +217,16 @@ pub fn stack_details(ctx: &RequestContext, params: Value) -> anyhow::Result<Valu
     } else {
         but_workspace::stack_details(&project.gb_dir(), params.stack_id, &command_ctx)
     }?;
-    
+
     Ok(serde_json::to_value(result)?)
 }
 
 pub fn branch_details(ctx: &RequestContext, params: Value) -> anyhow::Result<Value> {
     let params: BranchDetailsParams = serde_json::from_value(params)?;
-    
+
     let project = ctx.project_controller.get(params.project_id)?;
     let command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
-    
+
     let result = if command_ctx.app_settings().feature_flags.ws3 {
         let repo = command_ctx.gix_repo_for_merging_non_persisting()?;
         let meta = ref_metadata_toml(command_ctx.project())?;
@@ -237,9 +242,14 @@ pub fn branch_details(ctx: &RequestContext, params: Value) -> anyhow::Result<Val
         .map_err(anyhow::Error::from)?;
         but_workspace::branch_details_v3(&repo, ref_name.as_ref(), &meta)
     } else {
-        but_workspace::branch_details(&project.gb_dir(), &params.branch_name, params.remote.as_deref(), &command_ctx)
+        but_workspace::branch_details(
+            &project.gb_dir(),
+            &params.branch_name,
+            params.remote.as_deref(),
+            &command_ctx,
+        )
     }?;
-    
+
     Ok(serde_json::to_value(result)?)
 }
 
@@ -247,9 +257,12 @@ fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMet
     VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))
 }
 
-pub fn create_commit_from_worktree_changes(ctx: &RequestContext, params: Value) -> anyhow::Result<Value> {
+pub fn create_commit_from_worktree_changes(
+    ctx: &RequestContext,
+    params: Value,
+) -> anyhow::Result<Value> {
     let params: CreateCommitFromWorktreeChangesParams = serde_json::from_value(params)?;
-    
+
     let project = ctx.project_controller.get(params.project_id)?;
     let command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
     let mut guard = project.exclusive_worktree_access();
@@ -276,12 +289,17 @@ pub fn create_commit_from_worktree_changes(ctx: &RequestContext, params: Value) 
     });
 
     let outcome = outcome?;
-    Ok(serde_json::to_value(commit_engine::ui::CreateCommitOutcome::from(outcome))?)
+    Ok(serde_json::to_value(
+        commit_engine::ui::CreateCommitOutcome::from(outcome),
+    )?)
 }
 
-pub fn amend_commit_from_worktree_changes(ctx: &RequestContext, params: Value) -> anyhow::Result<Value> {
+pub fn amend_commit_from_worktree_changes(
+    ctx: &RequestContext,
+    params: Value,
+) -> anyhow::Result<Value> {
     let params: AmendCommitFromWorktreeChangesParams = serde_json::from_value(params)?;
-    
+
     let project = ctx.project_controller.get(params.project_id)?;
     let mut guard = project.exclusive_worktree_access();
     let repo = but_core::open_repo_for_merging(project.worktree_path())?;
@@ -301,12 +319,14 @@ pub fn amend_commit_from_worktree_changes(ctx: &RequestContext, params: Value) -
     if !outcome.rejected_specs.is_empty() {
         tracing::warn!(?outcome.rejected_specs, "Failed to commit at least one hunk");
     }
-    Ok(serde_json::to_value(commit_engine::ui::CreateCommitOutcome::from(outcome))?)
+    Ok(serde_json::to_value(
+        commit_engine::ui::CreateCommitOutcome::from(outcome),
+    )?)
 }
 
 pub fn discard_worktree_changes(ctx: &RequestContext, params: Value) -> anyhow::Result<Value> {
     let params: DiscardWorktreeChangesParams = serde_json::from_value(params)?;
-    
+
     let project = ctx.project_controller.get(params.project_id)?;
     let repo = but_core::open_repo(project.worktree_path())?;
     let command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
@@ -347,7 +367,7 @@ impl From<MoveChangesResult> for UIMoveChangesResult {
 
 pub fn move_changes_between_commits(ctx: &RequestContext, params: Value) -> anyhow::Result<Value> {
     let params: MoveChangesBetweenCommitsParams = serde_json::from_value(params)?;
-    
+
     let project = ctx.project_controller.get(params.project_id)?;
     let command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
     let mut guard = project.exclusive_worktree_access();
@@ -374,7 +394,7 @@ pub fn move_changes_between_commits(ctx: &RequestContext, params: Value) -> anyh
 
 pub fn split_branch(ctx: &RequestContext, params: Value) -> anyhow::Result<Value> {
     let params: SplitBranchParams = serde_json::from_value(params)?;
-    
+
     let project = ctx.project_controller.get(params.project_id)?;
     let command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
     let mut guard = project.exclusive_worktree_access();
@@ -405,12 +425,17 @@ pub fn split_branch(ctx: &RequestContext, params: Value) -> anyhow::Result<Value
         guard.write_permission(),
     )?;
 
-    Ok(serde_json::to_value(UIMoveChangesResult::from(move_changes_result))?)
+    Ok(serde_json::to_value(UIMoveChangesResult::from(
+        move_changes_result,
+    ))?)
 }
 
-pub fn split_branch_into_dependent_branch(ctx: &RequestContext, params: Value) -> anyhow::Result<Value> {
+pub fn split_branch_into_dependent_branch(
+    ctx: &RequestContext,
+    params: Value,
+) -> anyhow::Result<Value> {
     let params: SplitBranchParams = serde_json::from_value(params)?;
-    
+
     let project = ctx.project_controller.get(params.project_id)?;
     let command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
     let mut guard = project.exclusive_worktree_access();
@@ -432,12 +457,14 @@ pub fn split_branch_into_dependent_branch(ctx: &RequestContext, params: Value) -
     let vb_state = VirtualBranchesHandle::new(command_ctx.project().gb_dir());
     update_workspace_commit(&vb_state, &command_ctx)?;
 
-    Ok(serde_json::to_value(UIMoveChangesResult::from(move_changes_result))?)
+    Ok(serde_json::to_value(UIMoveChangesResult::from(
+        move_changes_result,
+    ))?)
 }
 
 pub fn uncommit_changes(ctx: &RequestContext, params: Value) -> anyhow::Result<Value> {
     let params: UncommitChangesParams = serde_json::from_value(params)?;
-    
+
     let project = ctx.project_controller.get(params.project_id)?;
     let mut command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
     let mut guard = project.exclusive_worktree_access();
@@ -501,7 +528,7 @@ pub fn uncommit_changes(ctx: &RequestContext, params: Value) -> anyhow::Result<V
 
 pub fn stash_into_branch(ctx: &RequestContext, params: Value) -> anyhow::Result<Value> {
     let params: StashIntoBranchParams = serde_json::from_value(params)?;
-    
+
     let project = ctx.project_controller.get(params.project_id)?;
     let command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
     let repo = command_ctx.gix_repo_for_merging()?;
@@ -550,23 +577,30 @@ pub fn stash_into_branch(ctx: &RequestContext, params: Value) -> anyhow::Result<
     branch_manager.unapply(stack.id, perm, false, Vec::new())?;
 
     let outcome = outcome?;
-    Ok(serde_json::to_value(commit_engine::ui::CreateCommitOutcome::from(outcome))?)
+    Ok(serde_json::to_value(
+        commit_engine::ui::CreateCommitOutcome::from(outcome),
+    )?)
 }
 
 pub fn canned_branch_name(ctx: &RequestContext, params: Value) -> anyhow::Result<Value> {
     let params: ProjectIdParams = serde_json::from_value(params)?;
-    
+
     let project = ctx.project_controller.get(params.project_id)?;
     let command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
     let template = gitbutler_stack::canned_branch_name(command_ctx.repo())?;
     let state = VirtualBranchesHandle::new(command_ctx.project().gb_dir());
-    let name = gitbutler_stack::Stack::next_available_name(&command_ctx.gix_repo()?, &state, template, false)?;
+    let name = gitbutler_stack::Stack::next_available_name(
+        &command_ctx.gix_repo()?,
+        &state,
+        template,
+        false,
+    )?;
     Ok(json!(name))
 }
 
 pub fn target_commits(ctx: &RequestContext, params: Value) -> anyhow::Result<Value> {
     let params: TargetCommitsParams = serde_json::from_value(params)?;
-    
+
     let project = ctx.project_controller.get(params.project_id)?;
     let command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
     let commits = but_workspace::log_target_first_parent(
