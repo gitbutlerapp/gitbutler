@@ -769,6 +769,7 @@ dependencies = [
  "but-graph",
  "but-hunk-assignment",
  "but-hunk-dependency",
+ "but-server",
  "but-settings",
  "but-workspace",
  "chrono",

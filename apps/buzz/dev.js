@@ -163,7 +163,7 @@ async function main() {
 		log('\n📦 Starting but-server server...', colors.yellow);
 
 		// Start the but-server server
-		butProcess = spawnProcess('cargo', ['run', '-p', 'but-server'], rootDir);
+		butProcess = spawnProcess('cargo', ['run', '-p', 'but', '--', 'serve'], rootDir);
 
 		butProcess.on('close', (code) => {
 			if (code !== 0 && code !== null) {
