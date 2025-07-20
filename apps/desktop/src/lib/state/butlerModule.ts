@@ -217,9 +217,7 @@ type QueryHooks<D extends CustomQuery<unknown>> = {
 	fetch: <T extends Transformer<D> | undefined = DefaultTransformer<D>>(
 		args: QueryArgFrom<D>,
 		options?: { transform?: T; forceRefetch?: boolean }
-	) => Promise<
-		CustomResult<CustomQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>>
-	>;
+	) => Promise<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>;
 	/** Execute query and return results. */
 	useQuery: <T extends Transformer<D> | undefined = DefaultTransformer<D>>(
 		args: QueryArgFrom<D>,

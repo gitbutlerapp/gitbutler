@@ -34,6 +34,6 @@ describe('GitHubPrService', () => {
 			} as RestEndpointMethodTypes['pulls']['get']['response'])
 		);
 		const pr = await service?.fetch(123);
-		expect(pr?.data?.title).equal(title);
+		expect(pr?.title).equal(title);
 	});
 });

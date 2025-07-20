@@ -106,8 +106,8 @@
 		if (args.type === 'draft-branch') {
 			uiState.global.draftBranchName.set(title);
 			const normalized = await stackService.normalizeBranchName(title);
-			if (normalized.data) {
-				uiState.global.draftBranchName.set(normalized.data);
+			if (normalized) {
+				uiState.global.draftBranchName.set(normalized);
 			}
 		} else if (args.type === 'stack-branch') {
 			updateName({

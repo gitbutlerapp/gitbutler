@@ -72,14 +72,10 @@ export class ProjectsService {
 		if (!path) return;
 
 		try {
-			const result = await this.fetchProject(projectId, true);
-			if (result.data) {
-				const project = result.data;
-				project.path = path;
-				await this.updateProject(project);
-				toasts.success(`Project ${project.title} relocated`);
-				goto(`/${project.id}`);
-			}
+			const project = await this.fetchProject(projectId, true);
+			await this.updateProject({ ...project, path });
+			toasts.success(`Project ${project.title} relocated`);
+			goto(`/${project.id}`);
 		} catch (error: any) {
 			showError('Failed to relocate project:', error.message);
 		}

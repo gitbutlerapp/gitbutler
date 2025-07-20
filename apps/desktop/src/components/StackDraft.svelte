@@ -20,22 +20,9 @@
 	const [uiState, stackService] = inject(UiState, StackService);
 	const draftBranchName = $derived(uiState.global.draftBranchName);
 
-	// Automatic branch name suggested by back end.
-	let newName = $state('');
 	let draftPanelEl: HTMLDivElement | undefined = $state();
 
-	const newNameResult = stackService.newBranchName(projectId);
-	newNameResult.then((name) => {
-		newName = name.data || '';
-	});
-
-	$effect(() => {
-		if (newName && !draftBranchName.current) {
-			draftBranchName.set(newName);
-		}
-	});
-
-	const branchName = $derived(draftBranchName.current || newName);
+	const newNameResult = $derived(stackService.newBranchName(projectId));
 
 	onMount(() => {
 		if (draftPanelEl) {
@@ -56,17 +43,20 @@
 				<div class="new-commit-view" data-testid={TestId.NewCommitView}>
 					<NewCommitView {projectId} />
 				</div>
-				<BranchCard
-					type="draft-branch"
-					{projectId}
-					{branchName}
-					readonly={false}
-					lineColor="var(--clr-commit-local)"
-				>
-					{#snippet branchContent()}
-						<CommitGoesHere commitId={undefined} selected last />
-					{/snippet}
-				</BranchCard>
+				{#await newNameResult then newName}
+					{@const branchName = draftBranchName.current || newName}
+					<BranchCard
+						type="draft-branch"
+						{projectId}
+						{branchName}
+						readonly={false}
+						lineColor="var(--clr-commit-local)"
+					>
+						{#snippet branchContent()}
+							<CommitGoesHere commitId={undefined} selected last />
+						{/snippet}
+					</BranchCard>
+				{/await}
 				<Resizer
 					persistId="resizer-darft-panel"
 					viewport={draftPanelEl}

@@ -127,10 +127,7 @@
 
 	async function getDefaultBody(commits: Commit[]): Promise<string> {
 		if ($templateEnabled && $templatePath) {
-			const result = await stackService.template(projectId, forge.current.name, $templatePath);
-			if (result.data) {
-				return result.data;
-			}
+			return await stackService.template(projectId, forge.current.name, $templatePath);
 		}
 		if (commits.length === 1) {
 			return splitMessage(commits[0]!.message).description;

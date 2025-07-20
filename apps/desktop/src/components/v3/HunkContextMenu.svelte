@@ -174,10 +174,10 @@
 						label="Open in {$userSettings.defaultCodeEditor.displayName}"
 						onclick={async () => {
 							const project = await projectService.fetchProject(projectId);
-							if (project.data?.path) {
+							if (project?.path) {
 								const path = getEditorUri({
 									schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
-									path: [vscodePath(project.data.path), filePath],
+									path: [vscodePath(project.path), filePath],
 									line: item.beforeLineNumber ?? item.afterLineNumber
 								});
 								openExternalUrl(path);

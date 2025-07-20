@@ -26,8 +26,7 @@
 	});
 
 	shortcutService.on('open-in-vscode', async () => {
-		const result = await projectsService.fetchProject(projectId);
-		const project = result.data;
+		const project = await projectsService.fetchProject(projectId);
 		if (!project) {
 			throw new Error(`Project not found: ${projectId}`);
 		}
