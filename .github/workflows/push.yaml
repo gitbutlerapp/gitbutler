@@ -104,6 +104,16 @@ jobs:
         env:
           RUSTDOCFLAGS: -Dwarnings
 
+  cargo-deny:
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@30f817c6f72275c6d54dc744fbca09ebc958599f # v2.0.12
+        with:
+          command: check bans licenses sources
+
   rust-test:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
