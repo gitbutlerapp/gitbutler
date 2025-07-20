@@ -13,9 +13,15 @@
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
+	import { User } from '$lib/user/user';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
-	import { getContext, getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
+	import {
+		getContext,
+		getContextStore,
+		getContextStoreBySymbol,
+		inject
+	} from '@gitbutler/shared/context';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
@@ -70,6 +76,8 @@
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 	const isUncommitted = $derived(selectionId.type === 'worktree');
 	const isBranchFiles = $derived(selectionId.type === 'branch');
+	const user = getContextStore(User);
+	const isAdmin = $derived($user.role === 'admin');
 
 	let confirmationModal: ReturnType<typeof Modal> | undefined;
 	let stashConfirmationModal: ReturnType<typeof Modal> | undefined;
@@ -361,7 +369,7 @@
 							}
 						}}
 					/>
-					{#if isBranchFiles}
+					{#if isBranchFiles && isAdmin}
 						<ContextMenuItem
 							label="Split off changes"
 							onclick={async () => {
