@@ -59,7 +59,7 @@
 				await tick(); // render the newly visible row
 				row = rows[i - start];
 			}
-			const row_height = (heightMap[i] = itemHeight || (row as HTMLElement).offsetHeight);
+			const row_height = (heightMap[i] = itemHeight || (row as HTMLElement)?.offsetHeight) || 0;
 			contentHeight += row_height;
 			i += 1;
 		}

@@ -64,7 +64,7 @@
 
 	async function getPage(commitId: string | undefined) {
 		const result = await stackService.targetCommits(projectId, commitId, 20);
-		return result.data || [];
+		return result || [];
 	}
 
 	onMount(() => {

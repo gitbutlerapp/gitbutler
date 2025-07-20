@@ -1,7 +1,6 @@
 import { gitlab } from '$lib/forge/gitlab/gitlabClient.svelte';
 import { mrToInstance } from '$lib/forge/gitlab/types';
 import { createSelectByIds } from '$lib/state/customSelectors';
-import { combineResults } from '$lib/state/helpers';
 import { providesList, ReduxTag } from '$lib/state/tags';
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
@@ -55,9 +54,7 @@ export class GitLabListingService implements ForgeListingService {
 				this.api.endpoints.listPrsByBranch.fetch({ projectId, branchName: branch })
 			)
 		);
-		const combined = combineResults(...results);
-
-		return combined.data?.filter(isDefined) ?? [];
+		return results.filter(isDefined) ?? [];
 	}
 
 	async refresh(projectId: string): Promise<void> {

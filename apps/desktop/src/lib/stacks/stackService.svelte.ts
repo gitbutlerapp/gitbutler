@@ -482,10 +482,7 @@ export class StackService {
 			{ projectId, commitId },
 			{ transform: (result) => selectChangesByPaths(result.changes, paths) }
 		);
-		if (result.error) {
-			throw result.error;
-		}
-		return result.data || [];
+		return result || [];
 	}
 
 	commitDetails(projectId: string, commitId: string) {
@@ -558,10 +555,7 @@ export class StackService {
 			},
 			{ transform: (result) => selectChangesByPaths(result, args.paths) }
 		);
-		if (result.error) {
-			throw result.error;
-		}
-		return result.data || [];
+		return result || [];
 	}
 
 	get updateCommitMessage() {
@@ -724,8 +718,8 @@ export class StackService {
 			}
 		);
 
-		if (!allCommits?.data) return;
-		const localCommits = allCommits.data.filter((commit) => commit.state.type !== 'Integrated');
+		if (!allCommits) return;
+		const localCommits = allCommits.filter((commit) => commit.state.type !== 'Integrated');
 
 		if (localCommits.length <= 1) return;
 

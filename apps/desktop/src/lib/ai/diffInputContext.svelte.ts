@@ -70,7 +70,7 @@ export default class DiffInputContext {
 					this.args.projectId,
 					this.args.commitId
 				);
-				return commitChangesResult.data?.changes ?? null;
+				return commitChangesResult.changes ?? null;
 			}
 
 			case 'change-selection': {

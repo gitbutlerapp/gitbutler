@@ -216,13 +216,13 @@
 					if (branchName && commitId) {
 						if (upstream) {
 							stackService.fetchUpstreamCommitById(projectId, stack.id, commitId).then((result) => {
-								if (!result.data) {
+								if (!result) {
 									selection.set(undefined);
 								}
 							});
 						} else {
 							stackService.fetchCommitById(projectId, stack.id, commitId).then((result) => {
-								if (!result.data) {
+								if (!result) {
 									selection.set(undefined);
 								}
 							});

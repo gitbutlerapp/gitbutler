@@ -31,9 +31,9 @@
 
 	async function selectTemplate(newPath: string) {
 		const template = await stackService.template(projectId, forgeName, newPath);
-		if (template.data) {
+		if (template) {
 			path.set(newPath);
-			onselect(template.data);
+			onselect(template);
 		}
 	}
 

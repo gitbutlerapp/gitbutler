@@ -53,8 +53,8 @@
 			// After we call setUser, we want to re-clone the user store, as the userService itself sets the user store
 			mutableUser = structuredClone($user);
 			// TODO: Remove setting of gh username since it isn't used anywhere.
-			const githubUsername = await githubUserService.fetchGitHubLogin();
-			mutableUser.github_username = githubUsername.data?.name || undefined;
+			const githbLogin = await githubUserService.fetchGitHubLogin();
+			mutableUser.github_username = githbLogin.name || undefined;
 			userService.setUser(mutableUser);
 			toasts.success('GitHub authenticated');
 		} catch (err: any) {

@@ -1,4 +1,5 @@
 import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
+import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import type { TreeChange } from '$lib/hunks/change';
 import type { UnifiedDiff } from '$lib/hunks/diff';
 import type { AssignmentRejection, HunkAssignmentRequest } from '$lib/hunks/hunk';
@@ -49,7 +50,7 @@ export class DiffService {
 				})
 			)
 		);
-		return responses.map((response) => response.data).filter((diff) => diff !== undefined);
+		return responses.filter(isDefined);
 	}
 }
 function injectEndpoints(api: ClientState['backendApi']) {

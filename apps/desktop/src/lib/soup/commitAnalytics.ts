@@ -24,25 +24,25 @@ export class CommitAnalytics {
 		try {
 			// Fetch all data upfront
 			const stacksResult = await this.stackService.fetchStacks(args.projectId);
-			const stacks = stacksResult.data || [];
+			const stacks = stacksResult || [];
 
 			const stackResult = await this.stackService.fetchStackById(args.projectId, args.stackId);
-			const stack = stackResult.data;
+			const stack = stackResult;
 
 			const branchesResult = await this.stackService.fetchBranches(args.projectId, args.stackId);
-			const branches = branchesResult.data || [];
+			const branches = branchesResult || [];
 
 			const commitsResult = await this.stackService.fetchCommits(
 				args.projectId,
 				args.stackId,
 				args.selectedBranchName
 			);
-			const commits = commitsResult.data || [];
+			const commits = commitsResult || [];
 
 			const worktreeResult = await this.worktreeService.worktreeChanges.fetch({
 				projectId: args.projectId
 			});
-			const worktreeData = worktreeResult.data;
+			const worktreeData = worktreeResult;
 
 			if (!worktreeData) {
 				throw new Error('Failed to fetch worktree data');

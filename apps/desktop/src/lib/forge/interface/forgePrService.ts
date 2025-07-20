@@ -4,7 +4,7 @@ import type {
 	MergeMethod,
 	PullRequest
 } from '$lib/forge/interface/types';
-import type { AsyncResult, ReactiveResult } from '$lib/state/butlerModule';
+import type { ReactiveResult } from '$lib/state/butlerModule';
 import type { StartQueryActionCreatorOptions } from '@reduxjs/toolkit/query';
 import type { Writable } from 'svelte/store';
 
@@ -18,7 +18,7 @@ export interface ForgePrService {
 	fetch(
 		prNumber: number,
 		options?: StartQueryActionCreatorOptions
-	): AsyncResult<DetailedPullRequest | undefined>;
+	): Promise<DetailedPullRequest | undefined>;
 	createPr({
 		title,
 		body,
