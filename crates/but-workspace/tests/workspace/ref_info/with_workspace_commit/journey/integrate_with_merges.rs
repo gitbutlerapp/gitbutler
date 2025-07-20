@@ -43,7 +43,7 @@ fn two_commits_require_force_push() -> anyhow::Result<()> {
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
                                 LocalCommit(f9c2b14, "A2\n", local),
-                                LocalCommit(e1f216e, "A1\n", local/remote(similarity)),
+                                LocalCommit(e1f216e, "A1\n", local/remote(3fcd07a)),
                             ],
                             commits_unique_in_remote_tracking_branch: [],
                             metadata: "None",

@@ -244,7 +244,7 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                         commits: [
-                            LocalCommit(31b3f92, "change in B\n", local/remote(similarity)),
+                            LocalCommit(31b3f92, "change in B\n", local/remote(ec39463)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch,
@@ -329,7 +329,7 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                         commits: [
-                            LocalCommit(31b3f92, "change in B\n", local/remote(similarity)),
+                            LocalCommit(31b3f92, "change in B\n", local/remote(ec39463)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch,
@@ -805,7 +805,7 @@ fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(d5d3a92, "unique local tip\n", local),
-                            LocalCommit(6ffd040, "shared by name\n", local/remote(similarity)),
+                            LocalCommit(6ffd040, "shared by name\n", local/remote(a9954f1)),
                             LocalCommit(4cd56ab, "unique local\n", local),
                             LocalCommit(872c22f, "shared local/remote\n", local/remote(identity)),
                         ],
@@ -1776,7 +1776,7 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
-                            LocalCommit(aadad9d, "shared by name\n", local/remote(similarity)),
+                            LocalCommit(aadad9d, "shared by name\n", local/remote(2b1808c)),
                             LocalCommit(96a2408, "another unrelated\n", integrated(96a2408)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],

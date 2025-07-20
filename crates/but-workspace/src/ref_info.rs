@@ -160,13 +160,14 @@ pub mod ui {
         /// Convert this relation into something displaying, mainly for debugging.
         pub fn display(&self, id: gix::ObjectId) -> Cow<'static, str> {
             match self {
-                LocalCommitRelation::LocalOnly => "local".into(),
-                LocalCommitRelation::LocalAndRemote(remote_id) => if *remote_id == id {
-                    "local/remote(identity)"
-                } else {
-                    "local/remote(similarity)"
+                LocalCommitRelation::LocalOnly => Cow::Borrowed("local"),
+                LocalCommitRelation::LocalAndRemote(remote_id) => {
+                    if *remote_id == id {
+                        "local/remote(identity)".into()
+                    } else {
+                        format!("local/remote({})", remote_id.to_hex_with_len(7)).into()
+                    }
                 }
-                .into(),
                 LocalCommitRelation::Integrated(id) => {
                     format!("integrated({})", id.to_hex_with_len(7)).into()
                 }

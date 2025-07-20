@@ -2,7 +2,7 @@
 
 ### General Description
 
-# Various stages through a typical user journey. Ideally complete enough to test everything that matters to us.
+# Disjoint scenarios related to remote branches that are merged in.
 set -eu -o pipefail
 
 source "${BASH_SOURCE[0]%/*}/shared.sh"
