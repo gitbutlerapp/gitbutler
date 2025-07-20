@@ -59,15 +59,14 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 				forceRefetch: options?.forceRefetch
 			})
 		);
-		let data = result.data;
-		if (options?.transform && data) {
-			data = options.transform(data, queryArg);
-			return {
-				...result,
-				data
-			};
+		const { data, error } = result;
+		if (result.error) {
+			throw error;
 		}
-		return result;
+		if (options?.transform && data) {
+			return options.transform(data, queryArg);
+		}
+		return result.data;
 	}
 
 	function useQuery<T extends TranformerFn>(

@@ -69,14 +69,14 @@ export class UncommittedService {
 		hunk: HunkHeader
 	): Promise<DiffHunk | undefined> {
 		const treeChange = await this.worktreeService.fetchTreeChange(projectId, filePath);
-		if (treeChange.data === undefined) {
+		if (treeChange === undefined) {
 			throw new Error('Failed to fetch change');
 		}
-		const changeDiff = await this.diffService.fetchDiff(projectId, treeChange.data);
-		if (changeDiff.data === undefined) {
+		const changeDiff = await this.diffService.fetchDiff(projectId, treeChange);
+		if (changeDiff === undefined) {
 			throw new Error('Failed to fetch diff');
 		}
-		const file = changeDiff.data;
+		const file = changeDiff;
 
 		if (file.type !== 'Patch') return undefined;
 

@@ -1,4 +1,3 @@
-import { showError } from '$lib/notifications/toasts';
 import { ProjectsService } from '$lib/project/projectsService';
 import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
@@ -34,27 +33,14 @@ export class UpstreamIntegrationService {
 			targetCommitOid
 		});
 
-		if (!stacks.data || !branchStatuses.data) {
-			if (stacks.isError) {
-				showError('Failed to fetch stacks', stacks.error);
-			}
-			if (branchStatuses.isError) {
-				showError('Failed to fetch upstream integration statuses', branchStatuses.error);
-			}
-			return undefined;
-		}
-
-		const stackData = stacks.data;
-		const branchStatusesData = branchStatuses.data;
-
-		if (branchStatusesData.type === 'upToDate') return branchStatusesData;
+		if (branchStatuses.type === 'upToDate') return branchStatuses;
 
 		const stackStatusesWithBranches: StackStatusesWithBranchesV3 = {
 			type: 'updatesRequired',
-			worktreeConflicts: branchStatusesData.subject.worktreeConflicts,
-			subject: branchStatusesData.subject.statuses
+			worktreeConflicts: branchStatuses.subject.worktreeConflicts,
+			subject: branchStatuses.subject.statuses
 				.map((status) => {
-					const stack = stackData.find((appliedBranch) => appliedBranch.id === status[0]);
+					const stack = stacks.find((appliedBranch) => appliedBranch.id === status[0]);
 
 					if (!stack) return;
 					return {
@@ -85,7 +71,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			upstreamIntegrationStatuses: build.query<
-				BranchStatusesResponse | undefined,
+				BranchStatusesResponse,
 				{ projectId: string; targetCommitOid?: string }
 			>({
 				extraOptions: { command: 'upstream_integration_statuses' },

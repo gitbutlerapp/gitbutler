@@ -233,7 +233,7 @@
 		const fileNames = changes.map((change) => change.path);
 		const newBranchName = await stackService.newBranchName(projectId);
 
-		if (!newBranchName.data) {
+		if (!newBranchName) {
 			toasts.error('Failed to generate a new branch name.');
 			return;
 		}
@@ -243,7 +243,7 @@
 			sourceStackId: stackId,
 			sourceBranchName: branchName,
 			fileChangesToSplitOff: fileNames,
-			newBranchName: newBranchName.data
+			newBranchName: newBranchName
 		});
 	}
 
@@ -263,7 +263,7 @@
 		const fileNames = changes.map((change) => change.path);
 		const newBranchName = await stackService.newBranchName(projectId);
 
-		if (!newBranchName.data) {
+		if (!newBranchName) {
 			toasts.error('Failed to generate a new branch name.');
 			return;
 		}
@@ -273,7 +273,7 @@
 			sourceStackId: stackId,
 			sourceBranchName: branchName,
 			fileChangesToSplitOff: fileNames,
-			newBranchName: newBranchName.data
+			newBranchName: newBranchName
 		});
 	}
 </script>
@@ -299,7 +299,7 @@
 							label="Stash into branch"
 							onclick={() => {
 								stackService.newBranchName(projectId).then((name) => {
-									stashBranchName = name.data || '';
+									stashBranchName = name || '';
 								});
 								stashConfirmationModal?.show(item);
 								contextMenu.close();
@@ -318,7 +318,7 @@
 							label="Copy Path"
 							onclick={async () => {
 								const project = await projectService.fetchProject(projectId);
-								const projectPath = project.data?.path;
+								const projectPath = project?.path;
 								if (projectPath) {
 									const absPath = await join(projectPath, changes[0]!.path);
 									await writeClipboard(absPath, {
@@ -344,7 +344,7 @@
 						onclick={async () => {
 							try {
 								const project = await projectService.fetchProject(projectId);
-								const projectPath = project.data?.path;
+								const projectPath = project?.path;
 								if (projectPath) {
 									for (let change of changes) {
 										const path = getEditorUri({

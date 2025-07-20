@@ -108,7 +108,7 @@
 
 	async function showAndPrefillName() {
 		createRefModal?.show();
-		createRefName = (await stackService.newBranchName(projectId))?.data ?? '';
+		createRefName = await stackService.newBranchName(projectId);
 		// Reset selected stack to default
 		selectedStackId = undefined;
 	}

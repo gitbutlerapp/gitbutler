@@ -17,7 +17,7 @@ export function unixifyNewlines(target: string): string {
  */
 export async function updatePrDescriptionTables(prService: ForgePrService, prNumbers: number[]) {
 	if (prService && prNumbers.length > 1) {
-		const prs = await Promise.all(prNumbers.map(async (id) => (await prService.fetch(id)).data));
+		const prs = await Promise.all(prNumbers.map(async (id) => await prService.fetch(id)));
 		const updates = prs.filter(isDefined).map((pr) => ({
 			prNumber: pr.number,
 			description: updateBody(pr.body, pr.number, prNumbers)
