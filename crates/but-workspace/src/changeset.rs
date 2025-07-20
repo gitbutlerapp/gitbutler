@@ -4,11 +4,6 @@
 //! This property allows changeset IDs to be used to determine if two different commits, or sets of commits,
 //! represent the same change.
 
-use std::{
-    borrow::Borrow,
-    collections::{HashMap, HashSet, hash_map::Entry},
-};
-
 use crate::{
     RefInfo,
     ref_info::{
@@ -18,9 +13,15 @@ use crate::{
     ui::PushStatus,
 };
 use bstr::BString;
-use but_core::{ChangeState, TreeChange, TreeStatus, commit::TreeKind};
+use but_core::{ChangeState, commit::TreeKind};
+use gix::diff::tree::recorder::Change;
 use gix::{ObjectId, Repository, object::tree::EntryKind, prelude::ObjectIdExt};
 use itertools::Itertools;
+use std::ops::Deref;
+use std::{
+    borrow::Borrow,
+    collections::{HashMap, HashSet, hash_map::Entry},
+};
 
 /// The ID of a changeset, calculated as Git hash for convenience.
 type ChangesetID = gix::ObjectId;
@@ -68,9 +69,12 @@ impl RefInfo {
             self.compute_pushstatus();
             return Ok(());
         };
+        let lower_bound_generation = self.lower_bound.map(|sidx| graph[sidx].generation);
         graph.visit_all_segments_until(target_tip, but_graph::petgraph::Direction::Outgoing, |s| {
             let prune = true;
-            if Some(s.id) == self.lower_bound {
+            if Some(s.id) == self.lower_bound
+                || lower_bound_generation.is_some_and(|generation| s.generation > generation)
+            {
                 return prune;
             }
             for c in &s.commits {
@@ -348,15 +352,19 @@ fn id_for_tree_diff(
     // TODO(perf): use plumbing directly to avoid resource-cache overhead.
     //             consider parallelization
     //             really needs caching to be practical, in-memory might suffice for now.
-    let changes = repo.diff_tree_to_tree(
-        lhs_tree.as_ref(),
-        &rhs_tree,
-        *gix::diff::Options::default()
-            .track_path()
-            // Rewrite tracking isn't needed for unique IDs and doesn't alter the validity,
-            // but would cost time, making it useless.
-            .track_rewrites(None),
+
+    let empty_tree = repo.empty_tree();
+    let mut state = Default::default();
+    let mut recorder = gix::diff::tree::Recorder::default()
+        .track_location(Some(gix::diff::tree::recorder::Location::Path));
+    gix::diff::tree(
+        gix::objs::TreeRefIter::from_bytes(&lhs_tree.unwrap_or(empty_tree).data),
+        gix::objs::TreeRefIter::from_bytes(&rhs_tree.data),
+        &mut state,
+        repo.objects.deref(),
+        &mut recorder,
     )?;
+    let changes = recorder.records;
     if changes.is_empty() {
         return Ok(None);
     }
@@ -366,41 +374,73 @@ fn id_for_tree_diff(
 
     // We rely on the diff order, it's consistent as rewrites are disabled.
     for c in changes {
-        if c.entry_mode().is_tree() {
+        let (entry_mode, location) = match &c {
+            Change::Addition {
+                entry_mode, path, ..
+            }
+            | Change::Deletion {
+                entry_mode, path, ..
+            }
+            | Change::Modification {
+                entry_mode, path, ..
+            } => (*entry_mode, path),
+        };
+        if entry_mode.is_tree() {
             continue;
         }
-        // For simplicity, use this type.
-        let c = TreeChange::from(c);
         // must hash all fields, even if None for unambiguous hashes.
-        hash.update(&c.path);
-        match c.status {
-            TreeStatus::Addition {
-                state,
-                // Ignore as untracked files can't happen with tree/tree diffs
-                is_untracked: _,
+        hash.update(location);
+        match c {
+            Change::Addition {
+                entry_mode, oid, ..
             } => {
                 hash.update(b"A");
-                hash_change_state(&mut hash, state)
+                hash_change_state(
+                    &mut hash,
+                    ChangeState {
+                        id: oid,
+                        kind: entry_mode.kind(),
+                    },
+                )
             }
-            TreeStatus::Deletion { previous_state } => {
+            Change::Deletion {
+                entry_mode, oid, ..
+            } => {
                 hash.update(b"D");
-                hash_change_state(&mut hash, previous_state)
+                hash_change_state(
+                    &mut hash,
+                    ChangeState {
+                        id: oid,
+                        kind: entry_mode.kind(),
+                    },
+                );
             }
-            TreeStatus::Modification {
-                previous_state,
-                state,
-                // Ignore as it's derived
-                flags: _,
+            Change::Modification {
+                previous_entry_mode,
+                previous_oid,
+                entry_mode,
+                oid,
+                ..
             } => {
                 hash.update(b"M");
-                hash_change_state(&mut hash, previous_state);
-                hash_change_state(&mut hash, state);
-            }
-            TreeStatus::Rename { .. } => {
-                unreachable!("disabled in prior configuration")
+                hash_change_state(
+                    &mut hash,
+                    ChangeState {
+                        id: previous_oid,
+                        kind: previous_entry_mode.kind(),
+                    },
+                );
+                hash_change_state(
+                    &mut hash,
+                    ChangeState {
+                        id: oid,
+                        kind: entry_mode.kind(),
+                    },
+                );
             }
         }
     }
+
     Ok(Some(hash.try_finalize()?))
 }
 

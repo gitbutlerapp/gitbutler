@@ -466,7 +466,7 @@ pub fn operating_mode(args: &super::Args) -> anyhow::Result<()> {
 }
 
 pub fn ref_info(args: &super::Args, ref_name: Option<&str>, expensive: bool) -> anyhow::Result<()> {
-    let (repo, project) = repo_and_maybe_project(args, RepositoryOpenMode::General)?;
+    let (repo, project) = repo_and_maybe_project(args, RepositoryOpenMode::Merge)?;
     let opts = but_workspace::ref_info::Options {
         stack_commit_limit: 0,
         expensive_commit_info: expensive,
