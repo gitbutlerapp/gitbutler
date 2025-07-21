@@ -1,14 +1,16 @@
-use std::{collections::HashSet, path::PathBuf};
-
 use crate::Commit;
 use anyhow::{Context, bail};
 use bstr::{BString, ByteSlice};
 use gix::prelude::ObjectIdExt;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
+use std::str::FromStr;
+use std::{collections::HashSet, path::PathBuf};
+
+/// A unique ID to track any commit.
+pub type ChangeId = crate::Id<'C'>;
 
 /// A collection of all the extra information we keep in the headers of a commit.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct HeadersV2 {
     /// A property we can use to determine if two different commits are
     /// actually the same "patch" at different points in time. We carry it
@@ -16,7 +18,7 @@ pub struct HeadersV2 {
     /// Note that these don't have to be unique within a branch even,
     /// and it's possible that different commits with the same change-id
     /// have different content.
-    pub change_id: String,
+    pub change_id: ChangeId,
     /// A property used to indicate that we've written a conflicted tree to a
     /// commit, and `Some(num_files)` is the amount of conflicted files.
     ///
@@ -32,8 +34,14 @@ impl HeadersV2 {
             let version = header.to_owned();
 
             if version == HEADERS_VERSION {
-                let change_id = commit.extra_headers().find(HEADERS_CHANGE_ID_FIELD)?;
-                let change_id = change_id.to_str().ok()?.to_string();
+                let change_id = ChangeId::from_str(
+                    commit
+                        .extra_headers()
+                        .find(HEADERS_CHANGE_ID_FIELD)?
+                        .to_str()
+                        .ok()?,
+                )
+                .ok()?;
 
                 let conflicted = commit
                     .extra_headers()
@@ -83,15 +91,15 @@ impl Default for HeadersV2 {
         HeadersV2 {
             // Change ID using base16 encoding
             change_id: if cfg!(feature = "testing") {
-                std::env::var("CHANGE_ID").unwrap_or_else(|_| {
-                    eprintln!(
-                        "With 'testing' feature the `CHANGE_ID` \
-environment variable can be set have stable values"
-                    );
-                    Uuid::new_v4().to_string()
-                })
+                // TODO: remove the CHANGE_ID dependency, but old tests still need it.
+                //       In future, the 'testing' feature alone should be enough.
+                if std::env::var("CHANGE_ID").is_ok() {
+                    ChangeId::from_number_for_testing(1)
+                } else {
+                    ChangeId::generate()
+                }
             } else {
-                Uuid::new_v4().to_string()
+                ChangeId::generate()
             },
             conflicted: None,
         }
@@ -107,7 +115,10 @@ struct HeadersV1 {
 impl From<HeadersV1> for HeadersV2 {
     fn from(commit_headers_v1: HeadersV1) -> HeadersV2 {
         HeadersV2 {
-            change_id: commit_headers_v1.change_id,
+            change_id: commit_headers_v1
+                .change_id
+                .parse()
+                .unwrap_or_else(|_| ChangeId::generate()),
             conflicted: None,
         }
     }
@@ -126,7 +137,10 @@ impl From<&HeadersV2> for Vec<(BString, BString)> {
                 BString::from(HEADERS_VERSION_FIELD),
                 BString::from(HEADERS_VERSION),
             ),
-            (HEADERS_CHANGE_ID_FIELD.into(), hdr.change_id.clone().into()),
+            (
+                HEADERS_CHANGE_ID_FIELD.into(),
+                hdr.change_id.to_string().into(),
+            ),
         ];
 
         if let Some(conflicted) = hdr.conflicted {

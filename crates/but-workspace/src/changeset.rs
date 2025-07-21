@@ -12,7 +12,6 @@ use crate::{
     },
     ui::PushStatus,
 };
-use bstr::BString;
 use but_core::{ChangeState, commit::TreeKind};
 use gix::diff::tree::recorder::Change;
 use gix::{ObjectId, Repository, object::tree::EntryKind, prelude::ObjectIdExt};
@@ -24,6 +23,8 @@ use std::{
 
 /// The ID of a changeset, calculated as Git hash for convenience.
 type ChangesetID = gix::ObjectId;
+/// A hash for select data in a commit to avoid copying it.
+type CommitDataId = gix::ObjectId;
 
 /// The version number for the changeset ID
 enum ChangesetVersion {
@@ -272,13 +273,8 @@ fn lookup_similar<'a>(
     commit
         .change_id
         .as_ref()
-        .and_then(|cid| map.get(&Identifier::ChangeId(cid.clone())))
-        .or_else(|| {
-            map.get(&Identifier::CommitData {
-                author: commit.author.clone().into(),
-                message: commit.message.clone(),
-            })
-        })
+        .and_then(|cid| map.get(&Identifier::ChangeId(*cid)))
+        .or_else(|| commit_data_id(commit).ok().and_then(|id| map.get(&id)))
         .or_else(|| map.get(expensive?))
 }
 
@@ -289,7 +285,7 @@ fn create_similarity_lut(
     (max_commits, num_tracked_files): (usize, usize),
     expensive: bool,
 ) -> anyhow::Result<Identity> {
-    // experimental modern CPU perf, based on 100 diffs/s at 90k entries
+    // experimental modern CPU perf, based on 120 diffs/s at 90k entries
     // Make this smaller to get more threads even with lower amounts of work.
     const CPU_PERF: usize = 10_000_000 / 5 /* start parallelizing earlier */;
     let aproximate_cpu_seconds = (max_commits * num_tracked_files) / CPU_PERF;
@@ -311,7 +307,7 @@ fn create_similarity_lut(
                     // so just keep the (typically top-most/first) commit with a changeset ID instead.
                     return;
                 }
-                ambiguous_commits.insert(ambiguous.key().clone());
+                ambiguous_commits.insert(*ambiguous.key());
                 ambiguous.remove();
             }
             Entry::Vacant(entry) => {
@@ -338,15 +334,9 @@ fn create_similarity_lut(
         for (idx, commit) in commits.enumerate() {
             let commit = commit.borrow();
             if let Some(change_id) = &commit.change_id {
-                insert_or_expell_ambiguous(Identifier::ChangeId(change_id.clone()), commit.id);
+                insert_or_expell_ambiguous(Identifier::ChangeId(*change_id), commit.id);
             }
-            insert_or_expell_ambiguous(
-                Identifier::CommitData {
-                    author: commit.author.clone().into(),
-                    message: commit.message.clone(),
-                },
-                commit.id,
-            );
+            insert_or_expell_ambiguous(commit_data_id(commit)?, commit.id);
             if let Some(start) = expensive {
                 let Some(changeset_id) =
                     id_for_tree_diff(repo, commit.parent_ids.first().cloned(), commit.id)?
@@ -403,15 +393,9 @@ fn create_similarity_lut(
         for (idx, commit) in commits.enumerate() {
             let commit = commit.borrow();
             if let Some(change_id) = &commit.change_id {
-                insert_or_expell_ambiguous(Identifier::ChangeId(change_id.clone()), commit.id);
+                insert_or_expell_ambiguous(Identifier::ChangeId(*change_id), commit.id);
             }
-            insert_or_expell_ambiguous(
-                Identifier::CommitData {
-                    author: commit.author.clone().into(),
-                    message: commit.message.clone(),
-                },
-                commit.id,
-            );
+            insert_or_expell_ambiguous(commit_data_id(commit)?, commit.id);
 
             in_tx
                 .send((idx, commit.parent_ids.first().cloned(), commit.id))
@@ -576,14 +560,41 @@ fn hash_change_state(h: &mut gix::hash::Hasher, ChangeState { id, kind }: Change
     }]);
 }
 
-#[derive(Debug, Hash, Clone, Eq, PartialEq)]
+#[derive(Debug, Hash, Clone, Copy, Eq, PartialEq)]
 enum Identifier {
-    ChangeId(String),
-    CommitData {
-        author: gix::actor::Identity,
-        message: BString,
-    },
+    ChangeId(but_core::commit::ChangeId),
+    CommitData(CommitDataId),
     ChangesetId(ChangesetID),
+}
+
+fn commit_data_id(c: &ui::Commit) -> anyhow::Result<Identifier> {
+    let mut hasher = gix::hash::hasher(gix::hash::Kind::Sha1);
+
+    let gix::actor::Signature {
+        name,
+        email,
+        time:
+            gix::date::Time {
+                seconds,
+                // The offset doesn't change the time in absolute terms,
+                // for we consider it for completeness.
+                // Real rebases wouldn't touch it.
+                offset,
+            },
+    } = &c.author;
+    hasher.update(b"N");
+    hasher.update(name.as_slice());
+    hasher.update(b"E");
+    hasher.update(email.as_slice());
+    hasher.update(b"T");
+    hasher.update(&seconds.to_le_bytes());
+    hasher.update(b"TO");
+    hasher.update(&offset.to_le_bytes());
+
+    hasher.update(b"M");
+    hasher.update(c.message.as_slice());
+
+    Ok(Identifier::CommitData(hasher.try_finalize()?))
 }
 
 type Identity = HashMap<Identifier, ObjectId>;

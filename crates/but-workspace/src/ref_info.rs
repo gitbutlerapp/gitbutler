@@ -64,8 +64,7 @@ pub mod ui {
         pub has_conflicts: bool,
         /// The GitButler assigned change-id that we hold on to for convenience to avoid duplicate decoding of commits
         /// when trying to associate remote commits with local ones.
-        /// TODO: Skip once this type is serialized to the UI directly.
-        pub change_id: Option<String>,
+        pub change_id: Option<but_core::commit::ChangeId>,
     }
 
     impl std::fmt::Debug for Commit {

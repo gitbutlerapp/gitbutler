@@ -63,9 +63,9 @@ pub fn open_repo(path: &Path) -> anyhow::Result<gix::Repository> {
 /// This changes the process environment, be aware.
 pub fn assure_stable_env() {
     let env = gix_testtools::Env::new()
-        // TODO(gix): once everything is ported, the only variable needed here
-        //            is CHANGE_ID, and even that could be a global. Call `but_testsupport::open_repo()`
-        //            for basic settings.
+        // TODO(gix): once everything is ported, all these can be configured on `gix::Repository`.
+        //            CHANGE_ID now works with a single value.
+        //            Call `but_testsupport::open_repo()` for basic settings.
         .set("GIT_AUTHOR_DATE", "2000-01-01 00:00:00 +0000")
         .set("GIT_AUTHOR_EMAIL", "author@example.com")
         .set("GIT_AUTHOR_NAME", "author (From Env)")

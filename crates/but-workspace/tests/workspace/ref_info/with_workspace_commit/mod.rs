@@ -213,9 +213,9 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
     let (repo, mut meta) =
         read_only_in_memory_scenario("two-dependent-branches-rebased-with-remotes")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * e26f4fd (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    * 31b3f92 (B-on-A) change in B
-    * 51db0ec (A) change after push
+    * d909178 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 3ba6995 (B-on-A) change in B
+    * f504e38 (A) change after push
     | * ec39463 (origin/B-on-A) change in B
     |/  
     * 807f596 (origin/A) change in A
@@ -244,19 +244,19 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                         commits: [
-                            LocalCommit(31b3f92, "change in B\n", local/remote(ec39463)),
+                            LocalCommit(3ba6995, "change in B\n", local/remote(ec39463)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch,
                         push_status: UnpushedCommitsRequiringForce,
-                        base: "51db0ec",
+                        base: "f504e38",
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(5),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
-                            LocalCommit(51db0ec, "change after push\n", local),
+                            LocalCommit(f504e38, "change after push\n", local),
                             LocalCommit(807f596, "change in A\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -296,9 +296,9 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
         "two-dependent-branches-rebased-explicit-remote-in-extra-segment",
     )?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * e26f4fd (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    * 31b3f92 (B-on-A) change in B
-    * 51db0ec (A) change after push
+    * d909178 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 3ba6995 (B-on-A) change in B
+    * f504e38 (A) change after push
     | * ec39463 (origin/B-on-A) change in B
     |/  
     * 807f596 (origin/A, base-of-A) change in A
@@ -329,19 +329,19 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                         commits: [
-                            LocalCommit(31b3f92, "change in B\n", local/remote(ec39463)),
+                            LocalCommit(3ba6995, "change in B\n", local/remote(ec39463)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch,
                         push_status: UnpushedCommitsRequiringForce,
-                        base: "51db0ec",
+                        base: "f504e38",
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(5),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "None",
                         commits: [
-                            LocalCommit(51db0ec, "change after push\n", local),
+                            LocalCommit(f504e38, "change after push\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch,
