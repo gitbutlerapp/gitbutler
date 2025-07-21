@@ -12,7 +12,11 @@ import {
 	providesList,
 	ReduxTag
 } from '$lib/state/tags';
-import { replaceBranchInExclusiveAction, type UiState } from '$lib/state/uiState.svelte';
+import {
+	replaceBranchInExclusiveAction,
+	replaceBranchInStackSelection,
+	type UiState
+} from '$lib/state/uiState.svelte';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import {
 	createEntityAdapter,
@@ -615,12 +619,16 @@ export class StackService {
 				const stackState = this.uiState.stack(args.stackId);
 				const projectState = this.uiState.project(args.projectId);
 				const exclusiveAction = projectState.exclusiveAction.current;
-				const previousSelection = stackState.selection.current ?? {};
+				const previousSelection = stackState.selection.current;
 
-				stackState.selection.set({
-					...previousSelection,
-					branchName: args.newName
-				});
+				if (previousSelection) {
+					const updatedSelection = replaceBranchInStackSelection(
+						previousSelection,
+						args.branchName,
+						args.newName
+					);
+					stackState.selection.set(updatedSelection);
+				}
 
 				if (exclusiveAction) {
 					const updatedExclusiveAction = replaceBranchInExclusiveAction(
