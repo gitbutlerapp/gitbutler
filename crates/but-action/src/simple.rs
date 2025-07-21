@@ -29,6 +29,7 @@ pub fn handle_changes(
     change_summary: &str,
     external_prompt: Option<String>,
     source: Source,
+    exclusive_stack: Option<StackId>,
 ) -> anyhow::Result<(Uuid, Outcome)> {
     let mut guard = ctx.project().exclusive_worktree_access();
     let perm = guard.write_permission();
@@ -43,8 +44,14 @@ pub fn handle_changes(
         )?
         .to_gix();
 
-    let response =
-        handle_changes_simple_inner(ctx, change_summary, external_prompt.clone(), vb_state, perm);
+    let response = handle_changes_simple_inner(
+        ctx,
+        change_summary,
+        external_prompt.clone(),
+        vb_state,
+        perm,
+        exclusive_stack,
+    );
 
     let snapshot_after = ctx
         .create_snapshot(
@@ -73,6 +80,7 @@ fn handle_changes_simple_inner(
     external_prompt: Option<String>,
     vb_state: &VirtualBranchesHandle,
     perm: &mut WorktreeWritePermission,
+    exclusive_stack: Option<StackId>,
 ) -> anyhow::Result<Outcome> {
     match gitbutler_operating_modes::operating_mode(ctx) {
         OperatingMode::OpenWorkspace => {
@@ -144,6 +152,11 @@ fn handle_changes_simple_inner(
     for (stack_id, diff_specs) in stack_assignments {
         if diff_specs.is_empty() {
             continue;
+        }
+        if let Some(exclusive_stack) = exclusive_stack {
+            if exclusive_stack != stack_id {
+                continue; // Skip stacks that are not the exclusive stack.
+            }
         }
 
         let stack_branch_name = stacks
