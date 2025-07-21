@@ -410,8 +410,9 @@ pub(crate) mod function {
             repo: &gix::Repository,
         ) -> anyhow::Result<Self> {
             let base = stack.base();
-            let but_graph::projection::Stack { segments } = stack;
+            let but_graph::projection::Stack { segments, id } = stack;
             Ok(branch::Stack {
+                id,
                 base,
                 segments: segments
                     .into_iter()

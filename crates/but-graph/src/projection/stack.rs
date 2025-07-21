@@ -3,12 +3,16 @@ use crate::{CommitFlags, Graph, SegmentIndex, SegmentMetadata};
 use anyhow::{Context, bail};
 use bitflags::bitflags;
 use but_core::ref_metadata;
+use but_core::ref_metadata::StackId;
 use petgraph::Direction;
 use std::fmt::Formatter;
 
 /// A list of segments that together represent a list of dependent branches, stacked on top of each other.
 #[derive(Clone)]
 pub struct Stack {
+    /// If the stack belongs to a managed workspace, the `id` will be set and persist.
+    /// Otherwise, it is `None`.
+    pub id: Option<StackId>,
     /// The branch-name denoted segments of the stack from its tip to the point of reference, typically a merge-base.
     /// This array is never empty.
     pub segments: Vec<StackSegment>,
@@ -31,6 +35,7 @@ impl Stack {
     pub(crate) fn from_base_and_segments(
         graph: &PetGraph,
         mut segments: Vec<StackSegment>,
+        id: Option<StackId>,
     ) -> Self {
         let mut iter = segments.iter_mut();
         let mut cur = iter.next();
@@ -62,7 +67,7 @@ impl Stack {
                 first_parent_sidx.filter(|_| last_segment.base.is_some());
         }
 
-        Stack { segments }
+        Stack { id, segments }
     }
 }
 

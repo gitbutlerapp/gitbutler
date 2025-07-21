@@ -4,17 +4,18 @@ use std::{
     fmt::Formatter,
 };
 
-use anyhow::Context;
-use bstr::ByteSlice;
-use but_core::ref_metadata;
-use gix::reference::Category;
-use petgraph::{Direction, prelude::EdgeRef, visit::NodeRef};
-use tracing::instrument;
-
 use crate::{
     CommitFlags, Graph, Segment, SegmentIndex,
     projection::{Stack, StackCommit, StackCommitFlags, StackSegment},
 };
+use anyhow::Context;
+use bstr::ByteSlice;
+use but_core::ref_metadata;
+use but_core::ref_metadata::StackId;
+use gix::reference::Category;
+use itertools::Itertools;
+use petgraph::{Direction, prelude::EdgeRef, visit::NodeRef};
+use tracing::instrument;
 
 /// A workspace is a list of [Stacks](Stack).
 #[derive(Clone)]
@@ -360,7 +361,10 @@ impl Graph {
                         },
                         |s| Some(s.id) == ws.lower_bound_segment_id && s.metadata.is_none(),
                     )?
-                    .map(|segments| Stack::from_base_and_segments(&self.inner, segments)),
+                    .map(|segments| {
+                        let stack_id = find_matching_stack_id(ws.metadata.as_ref(), &segments);
+                        Stack::from_base_and_segments(&self.inner, segments, stack_id)
+                    }),
                 );
             }
         } else {
@@ -385,7 +389,7 @@ impl Graph {
                     // Never discard stacks
                     |_s| false,
                 )?
-                .map(|segments| Stack::from_base_and_segments(&self.inner, segments)),
+                .map(|segments| Stack::from_base_and_segments(&self.inner, segments, None)),
             );
         }
 
@@ -475,6 +479,34 @@ impl Graph {
         }
         candidate
     }
+}
+
+/// This works as named segments have been created in a prior step. Thus, we are able to find best matches by
+/// the amount of matching names, probably.
+fn find_matching_stack_id(
+    metadata: Option<&ref_metadata::Workspace>,
+    segments: &[StackSegment],
+) -> Option<StackId> {
+    let metadata = metadata?;
+    metadata
+        .stacks
+        .iter()
+        .map(|s| {
+            (
+                s.id,
+                s.branches
+                    .iter()
+                    .filter(|b| {
+                        segments
+                            .iter()
+                            .any(|s| s.ref_name.as_ref().is_some_and(|rn| rn == &b.ref_name))
+                    })
+                    .count(),
+            )
+        })
+        .sorted_by_key(|(_, num_matches)| *num_matches)
+        .next()
+        .map(|(stack_id, _)| stack_id)
 }
 
 /// Traversals
