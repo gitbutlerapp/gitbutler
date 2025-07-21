@@ -30,6 +30,16 @@ function tick () {
   export GIT_COMMITTER_DATE GIT_AUTHOR_DATE
 }
 
+function tick_committer () {
+  if test -z "${tick+set}"; then
+    tick=1675176957
+  else
+    tick=$(($tick + 60))
+  fi
+  GIT_COMMITTER_DATE="$tick +0100"
+  export GIT_COMMITTER_DATE
+}
+
 function setup_target_to_match_main() {
   remote_tracking_caught_up main
 

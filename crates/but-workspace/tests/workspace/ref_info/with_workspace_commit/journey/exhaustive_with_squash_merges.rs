@@ -16,39 +16,40 @@ fn j01_unborn() -> anyhow::Result<()> {
 
     let info = but_workspace::head_info(&repo, &*meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
-Ok(
-    RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/main",
+    Ok(
+        RefInfo {
+            workspace_ref_name: Some(
+                FullName(
+                    "refs/heads/main",
+                ),
             ),
-        ),
-        stacks: [
-            Stack {
-                base: None,
-                segments: [
-                    ref_info::ui::Segment {
-                        id: NodeIndex(0),
-                        ref_name: "refs/heads/main",
-                        remote_tracking_ref_name: "None",
-                        commits: [],
-                        commits_unique_in_remote_tracking_branch: [],
-                        metadata: "None",
-                        push_status: CompletelyUnpushed,
-                        base: "None",
-                    },
-                ],
-            },
-        ],
-        target: None,
-        extra_target: None,
-        lower_bound: None,
-        is_managed_ref: false,
-        is_managed_commit: false,
-        is_entrypoint: true,
-    },
-)
-"#);
+            stacks: [
+                Stack {
+                    id: None,
+                    base: None,
+                    segments: [
+                        ref_info::ui::Segment {
+                            id: NodeIndex(0),
+                            ref_name: "refs/heads/main",
+                            remote_tracking_ref_name: "None",
+                            commits: [],
+                            commits_unique_in_remote_tracking_branch: [],
+                            metadata: "None",
+                            push_status: CompletelyUnpushed,
+                            base: "None",
+                        },
+                    ],
+                },
+            ],
+            target: None,
+            extra_target: None,
+            lower_bound: None,
+            is_managed_ref: false,
+            is_managed_commit: false,
+            is_entrypoint: true,
+        },
+    )
+    "#);
     Ok(())
 }
 
@@ -60,41 +61,42 @@ fn j02_first_commit() -> anyhow::Result<()> {
 
     let info = but_workspace::head_info(&repo, &*meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
-Ok(
-    RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/main",
+    Ok(
+        RefInfo {
+            workspace_ref_name: Some(
+                FullName(
+                    "refs/heads/main",
+                ),
             ),
-        ),
-        stacks: [
-            Stack {
-                base: None,
-                segments: [
-                    ref_info::ui::Segment {
-                        id: NodeIndex(0),
-                        ref_name: "refs/heads/main",
-                        remote_tracking_ref_name: "None",
-                        commits: [
-                            LocalCommit(fafd9d0, "init\n", local),
-                        ],
-                        commits_unique_in_remote_tracking_branch: [],
-                        metadata: "None",
-                        push_status: CompletelyUnpushed,
-                        base: "None",
-                    },
-                ],
-            },
-        ],
-        target: None,
-        extra_target: None,
-        lower_bound: None,
-        is_managed_ref: false,
-        is_managed_commit: false,
-        is_entrypoint: true,
-    },
-)
-"#);
+            stacks: [
+                Stack {
+                    id: None,
+                    base: None,
+                    segments: [
+                        ref_info::ui::Segment {
+                            id: NodeIndex(0),
+                            ref_name: "refs/heads/main",
+                            remote_tracking_ref_name: "None",
+                            commits: [
+                                LocalCommit(fafd9d0, "init\n", local),
+                            ],
+                            commits_unique_in_remote_tracking_branch: [],
+                            metadata: "None",
+                            push_status: CompletelyUnpushed,
+                            base: "None",
+                        },
+                    ],
+                },
+            ],
+            target: None,
+            extra_target: None,
+            lower_bound: None,
+            is_managed_ref: false,
+            is_managed_commit: false,
+            is_entrypoint: true,
+        },
+    )
+    "#);
     Ok(())
 }
 
@@ -110,41 +112,42 @@ However, without an official workspace it still won't be acting as a target.
 
     let info = but_workspace::head_info(&repo, &*meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
-Ok(
-    RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/main",
+    Ok(
+        RefInfo {
+            workspace_ref_name: Some(
+                FullName(
+                    "refs/heads/main",
+                ),
             ),
-        ),
-        stacks: [
-            Stack {
-                base: None,
-                segments: [
-                    ref_info::ui::Segment {
-                        id: NodeIndex(0),
-                        ref_name: "refs/heads/main",
-                        remote_tracking_ref_name: "None",
-                        commits: [
-                            LocalCommit(fafd9d0, "init\n", local),
-                        ],
-                        commits_unique_in_remote_tracking_branch: [],
-                        metadata: "None",
-                        push_status: CompletelyUnpushed,
-                        base: "None",
-                    },
-                ],
-            },
-        ],
-        target: None,
-        extra_target: None,
-        lower_bound: None,
-        is_managed_ref: false,
-        is_managed_commit: false,
-        is_entrypoint: true,
-    },
-)
-"#);
+            stacks: [
+                Stack {
+                    id: None,
+                    base: None,
+                    segments: [
+                        ref_info::ui::Segment {
+                            id: NodeIndex(0),
+                            ref_name: "refs/heads/main",
+                            remote_tracking_ref_name: "None",
+                            commits: [
+                                LocalCommit(fafd9d0, "init\n", local),
+                            ],
+                            commits_unique_in_remote_tracking_branch: [],
+                            metadata: "None",
+                            push_status: CompletelyUnpushed,
+                            base: "None",
+                        },
+                    ],
+                },
+            ],
+            target: None,
+            extra_target: None,
+            lower_bound: None,
+            is_managed_ref: false,
+            is_managed_commit: false,
+            is_entrypoint: true,
+        },
+    )
+    "#);
 
     let info = but_workspace::head_info(
         &repo,
@@ -154,43 +157,44 @@ Ok(
     // With an extra target, even in this situation we have a notion of upstream commits.
     // Thus it's possible to compute the integation status.
     insta::assert_debug_snapshot!(info, @r#"
-Ok(
-    RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/main",
+    Ok(
+        RefInfo {
+            workspace_ref_name: Some(
+                FullName(
+                    "refs/heads/main",
+                ),
             ),
-        ),
-        stacks: [
-            Stack {
-                base: None,
-                segments: [
-                    ref_info::ui::Segment {
-                        id: NodeIndex(0),
-                        ref_name: "refs/heads/main",
-                        remote_tracking_ref_name: "None",
-                        commits: [
-                            LocalCommit(fafd9d0, "init\n", integrated(fafd9d0)),
-                        ],
-                        commits_unique_in_remote_tracking_branch: [],
-                        metadata: "None",
-                        push_status: CompletelyUnpushed,
-                        base: "None",
-                    },
-                ],
-            },
-        ],
-        target: None,
-        extra_target: Some(
-            NodeIndex(0),
-        ),
-        lower_bound: None,
-        is_managed_ref: false,
-        is_managed_commit: false,
-        is_entrypoint: true,
-    },
-)
-"#);
+            stacks: [
+                Stack {
+                    id: None,
+                    base: None,
+                    segments: [
+                        ref_info::ui::Segment {
+                            id: NodeIndex(0),
+                            ref_name: "refs/heads/main",
+                            remote_tracking_ref_name: "None",
+                            commits: [
+                                LocalCommit(fafd9d0, "init\n", integrated(fafd9d0)),
+                            ],
+                            commits_unique_in_remote_tracking_branch: [],
+                            metadata: "None",
+                            push_status: CompletelyUnpushed,
+                            base: "None",
+                        },
+                    ],
+                },
+            ],
+            target: None,
+            extra_target: Some(
+                NodeIndex(0),
+            ),
+            lower_bound: None,
+            is_managed_ref: false,
+            is_managed_commit: false,
+            is_entrypoint: true,
+        },
+    )
+    "#);
     Ok(())
 }
 
@@ -251,51 +255,54 @@ fn j05_empty_stack() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 0, "S1", StackState::InWorkspace, &[]);
     let info = but_workspace::head_info(&repo, &*meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
-Ok(
-    RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
+    Ok(
+        RefInfo {
+            workspace_ref_name: Some(
+                FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
             ),
-        ),
-        stacks: [
-            Stack {
-                base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
-                segments: [
-                    ref_info::ui::Segment {
-                        id: NodeIndex(3),
-                        ref_name: "refs/heads/S1",
-                        remote_tracking_ref_name: "None",
-                        commits: [],
-                        commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch,
-                        push_status: CompletelyUnpushed,
-                        base: "fafd9d0",
-                    },
-                ],
-            },
-        ],
-        target: Some(
-            Target {
-                ref_name: FullName(
-                    "refs/remotes/origin/main",
-                ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 0,
-            },
-        ),
-        extra_target: None,
-        lower_bound: Some(
-            NodeIndex(2),
-        ),
-        is_managed_ref: true,
-        is_managed_commit: true,
-        is_entrypoint: true,
-    },
-)
-"#);
+            stacks: [
+                Stack {
+                    id: Some(
+                        00000000-0000-0000-0000-000000000000,
+                    ),
+                    base: Some(
+                        Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    ),
+                    segments: [
+                        ref_info::ui::Segment {
+                            id: NodeIndex(3),
+                            ref_name: "refs/heads/S1",
+                            remote_tracking_ref_name: "None",
+                            commits: [],
+                            commits_unique_in_remote_tracking_branch: [],
+                            metadata: Branch,
+                            push_status: CompletelyUnpushed,
+                            base: "fafd9d0",
+                        },
+                    ],
+                },
+            ],
+            target: Some(
+                Target {
+                    ref_name: FullName(
+                        "refs/remotes/origin/main",
+                    ),
+                    segment_index: NodeIndex(1),
+                    commits_ahead: 0,
+                },
+            ),
+            extra_target: None,
+            lower_bound: Some(
+                NodeIndex(2),
+            ),
+            is_managed_ref: true,
+            is_managed_commit: true,
+            is_entrypoint: true,
+        },
+    )
+    "#);
     Ok(())
 }
 
@@ -312,104 +319,108 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
     // Now that there is a commit, the stack is picked up automatically, but without additional data.
     let info = but_workspace::head_info(&repo, &*meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
-Ok(
-    RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
+    Ok(
+        RefInfo {
+            workspace_ref_name: Some(
+                FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
             ),
-        ),
-        stacks: [
-            Stack {
-                base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
-                segments: [
-                    ref_info::ui::Segment {
-                        id: NodeIndex(3),
-                        ref_name: "refs/heads/S1",
-                        remote_tracking_ref_name: "None",
-                        commits: [
-                            LocalCommit(ba16348, "one\n", local),
-                        ],
-                        commits_unique_in_remote_tracking_branch: [],
-                        metadata: "None",
-                        push_status: CompletelyUnpushed,
-                        base: "fafd9d0",
-                    },
-                ],
-            },
-        ],
-        target: Some(
-            Target {
-                ref_name: FullName(
-                    "refs/remotes/origin/main",
-                ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 0,
-            },
-        ),
-        extra_target: None,
-        lower_bound: Some(
-            NodeIndex(2),
-        ),
-        is_managed_ref: true,
-        is_managed_commit: true,
-        is_entrypoint: true,
-    },
-)
-"#);
+            stacks: [
+                Stack {
+                    id: None,
+                    base: Some(
+                        Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    ),
+                    segments: [
+                        ref_info::ui::Segment {
+                            id: NodeIndex(3),
+                            ref_name: "refs/heads/S1",
+                            remote_tracking_ref_name: "None",
+                            commits: [
+                                LocalCommit(ba16348, "one\n", local),
+                            ],
+                            commits_unique_in_remote_tracking_branch: [],
+                            metadata: "None",
+                            push_status: CompletelyUnpushed,
+                            base: "fafd9d0",
+                        },
+                    ],
+                },
+            ],
+            target: Some(
+                Target {
+                    ref_name: FullName(
+                        "refs/remotes/origin/main",
+                    ),
+                    segment_index: NodeIndex(1),
+                    commits_ahead: 0,
+                },
+            ),
+            extra_target: None,
+            lower_bound: Some(
+                NodeIndex(2),
+            ),
+            is_managed_ref: true,
+            is_managed_commit: true,
+            is_entrypoint: true,
+        },
+    )
+    "#);
 
     add_stack_with_segments(&mut meta, 0, "S1", StackState::InWorkspace, &[]);
     let info = but_workspace::head_info(&repo, &*meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
-Ok(
-    RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
+    Ok(
+        RefInfo {
+            workspace_ref_name: Some(
+                FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
             ),
-        ),
-        stacks: [
-            Stack {
-                base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
-                segments: [
-                    ref_info::ui::Segment {
-                        id: NodeIndex(3),
-                        ref_name: "refs/heads/S1",
-                        remote_tracking_ref_name: "None",
-                        commits: [
-                            LocalCommit(ba16348, "one\n", local),
-                        ],
-                        commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch,
-                        push_status: CompletelyUnpushed,
-                        base: "fafd9d0",
-                    },
-                ],
-            },
-        ],
-        target: Some(
-            Target {
-                ref_name: FullName(
-                    "refs/remotes/origin/main",
-                ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 0,
-            },
-        ),
-        extra_target: None,
-        lower_bound: Some(
-            NodeIndex(2),
-        ),
-        is_managed_ref: true,
-        is_managed_commit: true,
-        is_entrypoint: true,
-    },
-)
-"#);
+            stacks: [
+                Stack {
+                    id: Some(
+                        00000000-0000-0000-0000-000000000000,
+                    ),
+                    base: Some(
+                        Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    ),
+                    segments: [
+                        ref_info::ui::Segment {
+                            id: NodeIndex(3),
+                            ref_name: "refs/heads/S1",
+                            remote_tracking_ref_name: "None",
+                            commits: [
+                                LocalCommit(ba16348, "one\n", local),
+                            ],
+                            commits_unique_in_remote_tracking_branch: [],
+                            metadata: Branch,
+                            push_status: CompletelyUnpushed,
+                            base: "fafd9d0",
+                        },
+                    ],
+                },
+            ],
+            target: Some(
+                Target {
+                    ref_name: FullName(
+                        "refs/remotes/origin/main",
+                    ),
+                    segment_index: NodeIndex(1),
+                    commits_ahead: 0,
+                },
+            ),
+            extra_target: None,
+            lower_bound: Some(
+                NodeIndex(2),
+            ),
+            is_managed_ref: true,
+            is_managed_commit: true,
+            is_entrypoint: true,
+        },
+    )
+    "#);
     Ok(())
 }
 
@@ -426,53 +437,56 @@ fn j07_push_commit() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 0, "S1", StackState::InWorkspace, &[]);
     let info = but_workspace::head_info(&repo, &*meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
-Ok(
-    RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
+    Ok(
+        RefInfo {
+            workspace_ref_name: Some(
+                FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
             ),
-        ),
-        stacks: [
-            Stack {
-                base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
-                segments: [
-                    ref_info::ui::Segment {
-                        id: NodeIndex(3),
-                        ref_name: "refs/heads/S1",
-                        remote_tracking_ref_name: "refs/remotes/origin/S1",
-                        commits: [
-                            LocalCommit(ba16348, "one\n", local/remote(identity)),
-                        ],
-                        commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch,
-                        push_status: NothingToPush,
-                        base: "fafd9d0",
-                    },
-                ],
-            },
-        ],
-        target: Some(
-            Target {
-                ref_name: FullName(
-                    "refs/remotes/origin/main",
-                ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 0,
-            },
-        ),
-        extra_target: None,
-        lower_bound: Some(
-            NodeIndex(2),
-        ),
-        is_managed_ref: true,
-        is_managed_commit: true,
-        is_entrypoint: true,
-    },
-)
-"#);
+            stacks: [
+                Stack {
+                    id: Some(
+                        00000000-0000-0000-0000-000000000000,
+                    ),
+                    base: Some(
+                        Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    ),
+                    segments: [
+                        ref_info::ui::Segment {
+                            id: NodeIndex(3),
+                            ref_name: "refs/heads/S1",
+                            remote_tracking_ref_name: "refs/remotes/origin/S1",
+                            commits: [
+                                LocalCommit(ba16348, "one\n", local/remote(identity)),
+                            ],
+                            commits_unique_in_remote_tracking_branch: [],
+                            metadata: Branch,
+                            push_status: NothingToPush,
+                            base: "fafd9d0",
+                        },
+                    ],
+                },
+            ],
+            target: Some(
+                Target {
+                    ref_name: FullName(
+                        "refs/remotes/origin/main",
+                    ),
+                    segment_index: NodeIndex(1),
+                    commits_ahead: 0,
+                },
+            ),
+            extra_target: None,
+            lower_bound: Some(
+                NodeIndex(2),
+            ),
+            is_managed_ref: true,
+            is_managed_commit: true,
+            is_entrypoint: true,
+        },
+    )
+    "#);
     Ok(())
 }
 
@@ -494,54 +508,57 @@ Create a new local commit right after the previous pushed one
     add_stack_with_segments(&mut meta, 0, "S1", StackState::InWorkspace, &[]);
     let info = but_workspace::head_info(&repo, &*meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
-Ok(
-    RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
+    Ok(
+        RefInfo {
+            workspace_ref_name: Some(
+                FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
             ),
-        ),
-        stacks: [
-            Stack {
-                base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
-                segments: [
-                    ref_info::ui::Segment {
-                        id: NodeIndex(3),
-                        ref_name: "refs/heads/S1",
-                        remote_tracking_ref_name: "refs/remotes/origin/S1",
-                        commits: [
-                            LocalCommit(9f4d478, "two\n", local),
-                            LocalCommit(ba16348, "one\n", local/remote(identity)),
-                        ],
-                        commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch,
-                        push_status: UnpushedCommits,
-                        base: "fafd9d0",
-                    },
-                ],
-            },
-        ],
-        target: Some(
-            Target {
-                ref_name: FullName(
-                    "refs/remotes/origin/main",
-                ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 0,
-            },
-        ),
-        extra_target: None,
-        lower_bound: Some(
-            NodeIndex(2),
-        ),
-        is_managed_ref: true,
-        is_managed_commit: true,
-        is_entrypoint: true,
-    },
-)
-"#);
+            stacks: [
+                Stack {
+                    id: Some(
+                        00000000-0000-0000-0000-000000000000,
+                    ),
+                    base: Some(
+                        Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    ),
+                    segments: [
+                        ref_info::ui::Segment {
+                            id: NodeIndex(3),
+                            ref_name: "refs/heads/S1",
+                            remote_tracking_ref_name: "refs/remotes/origin/S1",
+                            commits: [
+                                LocalCommit(9f4d478, "two\n", local),
+                                LocalCommit(ba16348, "one\n", local/remote(identity)),
+                            ],
+                            commits_unique_in_remote_tracking_branch: [],
+                            metadata: Branch,
+                            push_status: UnpushedCommits,
+                            base: "fafd9d0",
+                        },
+                    ],
+                },
+            ],
+            target: Some(
+                Target {
+                    ref_name: FullName(
+                        "refs/remotes/origin/main",
+                    ),
+                    segment_index: NodeIndex(1),
+                    commits_ahead: 0,
+                },
+            ),
+            extra_target: None,
+            lower_bound: Some(
+                NodeIndex(2),
+            ),
+            is_managed_ref: true,
+            is_managed_commit: true,
+            is_entrypoint: true,
+        },
+    )
+    "#);
     Ok(())
 }
 
@@ -570,6 +587,9 @@ fn j09_rewritten_remote_and_local_commit() -> anyhow::Result<()> {
             ),
             stacks: [
                 Stack {
+                    id: Some(
+                        00000000-0000-0000-0000-000000000000,
+                    ),
                     base: Some(
                         Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                     ),
@@ -635,54 +655,57 @@ The remote squash-merges S1 *and* changes the 'file' so it looks entirely differ
     add_stack_with_segments(&mut meta, 0, "S1", StackState::InWorkspace, &[]);
     let info = but_workspace::head_info(&repo, &*meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
-Ok(
-    RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
+    Ok(
+        RefInfo {
+            workspace_ref_name: Some(
+                FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
             ),
-        ),
-        stacks: [
-            Stack {
-                base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
-                segments: [
-                    ref_info::ui::Segment {
-                        id: NodeIndex(3),
-                        ref_name: "refs/heads/S1",
-                        remote_tracking_ref_name: "refs/remotes/origin/S1",
-                        commits: [
-                            LocalCommit(314cacb, "two\n", integrated(d110262)),
-                            LocalCommit(3234835, "one\n", integrated(d110262)),
-                        ],
-                        commits_unique_in_remote_tracking_branch: [],
-                        metadata: Branch,
-                        push_status: Integrated,
-                        base: "fafd9d0",
-                    },
-                ],
-            },
-        ],
-        target: Some(
-            Target {
-                ref_name: FullName(
-                    "refs/remotes/origin/main",
-                ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 2,
-            },
-        ),
-        extra_target: None,
-        lower_bound: Some(
-            NodeIndex(2),
-        ),
-        is_managed_ref: true,
-        is_managed_commit: true,
-        is_entrypoint: true,
-    },
-)
-"#);
+            stacks: [
+                Stack {
+                    id: Some(
+                        00000000-0000-0000-0000-000000000000,
+                    ),
+                    base: Some(
+                        Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    ),
+                    segments: [
+                        ref_info::ui::Segment {
+                            id: NodeIndex(3),
+                            ref_name: "refs/heads/S1",
+                            remote_tracking_ref_name: "refs/remotes/origin/S1",
+                            commits: [
+                                LocalCommit(314cacb, "two\n", integrated(d110262)),
+                                LocalCommit(3234835, "one\n", integrated(d110262)),
+                            ],
+                            commits_unique_in_remote_tracking_branch: [],
+                            metadata: Branch,
+                            push_status: Integrated,
+                            base: "fafd9d0",
+                        },
+                    ],
+                },
+            ],
+            target: Some(
+                Target {
+                    ref_name: FullName(
+                        "refs/remotes/origin/main",
+                    ),
+                    segment_index: NodeIndex(1),
+                    commits_ahead: 2,
+                },
+            ),
+            extra_target: None,
+            lower_bound: Some(
+                NodeIndex(2),
+            ),
+            is_managed_ref: true,
+            is_managed_commit: true,
+            is_entrypoint: true,
+        },
+    )
+    "#);
     Ok(())
 }
 
@@ -719,57 +742,60 @@ The remote was re-used and merged once more with more changes.
     // TODO: remote-only squashes aren't currently detected (so remote commits are visible),
     //       but could be if it was common.
     insta::assert_debug_snapshot!(info, @r#"
-Ok(
-    RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
+    Ok(
+        RefInfo {
+            workspace_ref_name: Some(
+                FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
             ),
-        ),
-        stacks: [
-            Stack {
-                base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
-                segments: [
-                    ref_info::ui::Segment {
-                        id: NodeIndex(3),
-                        ref_name: "refs/heads/S1",
-                        remote_tracking_ref_name: "refs/remotes/origin/S1",
-                        commits: [
-                            LocalCommit(314cacb, "two\n", integrated(d110262)),
-                            LocalCommit(3234835, "one\n", integrated(d110262)),
-                        ],
-                        commits_unique_in_remote_tracking_branch: [
-                            Commit(16d0628, "add other remote file\n"),
-                            Commit(66fe1d7, "add remote file\n"),
-                        ],
-                        metadata: Branch,
-                        push_status: Integrated,
-                        base: "fafd9d0",
-                    },
-                ],
-            },
-        ],
-        target: Some(
-            Target {
-                ref_name: FullName(
-                    "refs/remotes/origin/main",
-                ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 5,
-            },
-        ),
-        extra_target: None,
-        lower_bound: Some(
-            NodeIndex(5),
-        ),
-        is_managed_ref: true,
-        is_managed_commit: true,
-        is_entrypoint: true,
-    },
-)
-"#);
+            stacks: [
+                Stack {
+                    id: Some(
+                        00000000-0000-0000-0000-000000000000,
+                    ),
+                    base: Some(
+                        Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    ),
+                    segments: [
+                        ref_info::ui::Segment {
+                            id: NodeIndex(3),
+                            ref_name: "refs/heads/S1",
+                            remote_tracking_ref_name: "refs/remotes/origin/S1",
+                            commits: [
+                                LocalCommit(314cacb, "two\n", integrated(d110262)),
+                                LocalCommit(3234835, "one\n", integrated(d110262)),
+                            ],
+                            commits_unique_in_remote_tracking_branch: [
+                                Commit(16d0628, "add other remote file\n"),
+                                Commit(66fe1d7, "add remote file\n"),
+                            ],
+                            metadata: Branch,
+                            push_status: Integrated,
+                            base: "fafd9d0",
+                        },
+                    ],
+                },
+            ],
+            target: Some(
+                Target {
+                    ref_name: FullName(
+                        "refs/remotes/origin/main",
+                    ),
+                    segment_index: NodeIndex(1),
+                    commits_ahead: 5,
+                },
+            ),
+            extra_target: None,
+            lower_bound: Some(
+                NodeIndex(5),
+            ),
+            is_managed_ref: true,
+            is_managed_commit: true,
+            is_entrypoint: true,
+        },
+    )
+    "#);
     Ok(())
 }
 
@@ -811,88 +837,94 @@ A new multi-segment stack is created without remote and squash merged locally.
     add_stack_with_segments(&mut meta, 0, "S1", StackState::InWorkspace, &[]);
     let info = but_workspace::head_info(&repo, &*meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
-Ok(
-    RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
+    Ok(
+        RefInfo {
+            workspace_ref_name: Some(
+                FullName(
+                    "refs/heads/gitbutler/workspace",
+                ),
             ),
-        ),
-        stacks: [
-            Stack {
-                base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
-                segments: [
-                    ref_info::ui::Segment {
-                        id: NodeIndex(3),
-                        ref_name: "refs/heads/S1",
-                        remote_tracking_ref_name: "refs/remotes/origin/S1",
-                        commits: [
-                            LocalCommit(314cacb, "two\n", integrated(d110262)),
-                            LocalCommit(3234835, "one\n", integrated(d110262)),
-                        ],
-                        commits_unique_in_remote_tracking_branch: [
-                            Commit(16d0628, "add other remote file\n"),
-                            Commit(66fe1d7, "add remote file\n"),
-                        ],
-                        metadata: Branch,
-                        push_status: Integrated,
-                        base: "fafd9d0",
-                    },
-                ],
-            },
-            Stack {
-                base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
-                segments: [
-                    ref_info::ui::Segment {
-                        id: NodeIndex(5),
-                        ref_name: "refs/heads/local",
-                        remote_tracking_ref_name: "None",
-                        commits: [
-                            LocalCommit(1af5d57, "new local file\n", integrated(ca783a4)),
-                        ],
-                        commits_unique_in_remote_tracking_branch: [],
-                        metadata: "None",
-                        push_status: CompletelyUnpushed,
-                        base: "de02b20",
-                    },
-                    ref_info::ui::Segment {
-                        id: NodeIndex(6),
-                        ref_name: "refs/heads/local-bottom",
-                        remote_tracking_ref_name: "None",
-                        commits: [
-                            LocalCommit(de02b20, "new local-bottom file\n", integrated(ca783a4)),
-                        ],
-                        commits_unique_in_remote_tracking_branch: [],
-                        metadata: "None",
-                        push_status: CompletelyUnpushed,
-                        base: "fafd9d0",
-                    },
-                ],
-            },
-        ],
-        target: Some(
-            Target {
-                ref_name: FullName(
-                    "refs/remotes/origin/main",
-                ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 7,
-            },
-        ),
-        extra_target: None,
-        lower_bound: Some(
-            NodeIndex(7),
-        ),
-        is_managed_ref: true,
-        is_managed_commit: true,
-        is_entrypoint: true,
-    },
-)
-"#);
+            stacks: [
+                Stack {
+                    id: Some(
+                        00000000-0000-0000-0000-000000000000,
+                    ),
+                    base: Some(
+                        Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    ),
+                    segments: [
+                        ref_info::ui::Segment {
+                            id: NodeIndex(3),
+                            ref_name: "refs/heads/S1",
+                            remote_tracking_ref_name: "refs/remotes/origin/S1",
+                            commits: [
+                                LocalCommit(314cacb, "two\n", integrated(d110262)),
+                                LocalCommit(3234835, "one\n", integrated(d110262)),
+                            ],
+                            commits_unique_in_remote_tracking_branch: [
+                                Commit(16d0628, "add other remote file\n"),
+                                Commit(66fe1d7, "add remote file\n"),
+                            ],
+                            metadata: Branch,
+                            push_status: Integrated,
+                            base: "fafd9d0",
+                        },
+                    ],
+                },
+                Stack {
+                    id: Some(
+                        00000000-0000-0000-0000-000000000000,
+                    ),
+                    base: Some(
+                        Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    ),
+                    segments: [
+                        ref_info::ui::Segment {
+                            id: NodeIndex(5),
+                            ref_name: "refs/heads/local",
+                            remote_tracking_ref_name: "None",
+                            commits: [
+                                LocalCommit(1af5d57, "new local file\n", integrated(ca783a4)),
+                            ],
+                            commits_unique_in_remote_tracking_branch: [],
+                            metadata: "None",
+                            push_status: CompletelyUnpushed,
+                            base: "de02b20",
+                        },
+                        ref_info::ui::Segment {
+                            id: NodeIndex(6),
+                            ref_name: "refs/heads/local-bottom",
+                            remote_tracking_ref_name: "None",
+                            commits: [
+                                LocalCommit(de02b20, "new local-bottom file\n", integrated(ca783a4)),
+                            ],
+                            commits_unique_in_remote_tracking_branch: [],
+                            metadata: "None",
+                            push_status: CompletelyUnpushed,
+                            base: "fafd9d0",
+                        },
+                    ],
+                },
+            ],
+            target: Some(
+                Target {
+                    ref_name: FullName(
+                        "refs/remotes/origin/main",
+                    ),
+                    segment_index: NodeIndex(1),
+                    commits_ahead: 7,
+                },
+            ),
+            extra_target: None,
+            lower_bound: Some(
+                NodeIndex(7),
+            ),
+            is_managed_ref: true,
+            is_managed_commit: true,
+            is_entrypoint: true,
+        },
+    )
+    "#);
     Ok(())
 }
 

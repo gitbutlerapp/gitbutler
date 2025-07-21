@@ -52,6 +52,9 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),
@@ -106,6 +109,9 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),
@@ -164,6 +170,9 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),
@@ -213,9 +222,9 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
     let (repo, mut meta) =
         read_only_in_memory_scenario("two-dependent-branches-rebased-with-remotes")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * e26f4fd (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    * 31b3f92 (B-on-A) change in B
-    * 51db0ec (A) change after push
+    * d909178 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 3ba6995 (B-on-A) change in B
+    * f504e38 (A) change after push
     | * ec39463 (origin/B-on-A) change in B
     |/  
     * 807f596 (origin/A) change in A
@@ -235,6 +244,9 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000000,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -244,19 +256,19 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                         commits: [
-                            LocalCommit(31b3f92, "change in B\n", local/remote(ec39463)),
+                            LocalCommit(3ba6995, "change in B\n", local/remote(ec39463)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch,
                         push_status: UnpushedCommitsRequiringForce,
-                        base: "51db0ec",
+                        base: "f504e38",
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(5),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
-                            LocalCommit(51db0ec, "change after push\n", local),
+                            LocalCommit(f504e38, "change after push\n", local),
                             LocalCommit(807f596, "change in A\n", local/remote(identity)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
@@ -296,9 +308,9 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
         "two-dependent-branches-rebased-explicit-remote-in-extra-segment",
     )?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * e26f4fd (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    * 31b3f92 (B-on-A) change in B
-    * 51db0ec (A) change after push
+    * d909178 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 3ba6995 (B-on-A) change in B
+    * f504e38 (A) change after push
     | * ec39463 (origin/B-on-A) change in B
     |/  
     * 807f596 (origin/A, base-of-A) change in A
@@ -320,6 +332,9 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000000,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -329,19 +344,19 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                         ref_name: "refs/heads/B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                         commits: [
-                            LocalCommit(31b3f92, "change in B\n", local/remote(ec39463)),
+                            LocalCommit(3ba6995, "change in B\n", local/remote(ec39463)),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch,
                         push_status: UnpushedCommitsRequiringForce,
-                        base: "51db0ec",
+                        base: "f504e38",
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(5),
                         ref_name: "refs/heads/A",
                         remote_tracking_ref_name: "None",
                         commits: [
-                            LocalCommit(51db0ec, "change after push\n", local),
+                            LocalCommit(f504e38, "change after push\n", local),
                         ],
                         commits_unique_in_remote_tracking_branch: [],
                         metadata: Branch,
@@ -415,6 +430,9 @@ fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000000,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -507,6 +525,9 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000000,
+                ),
                 base: Some(
                     Sha1(0ee3a9e12c17b59a8507bbfe2ae98ab362feb21a),
                 ),
@@ -563,6 +584,9 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000000,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -645,6 +669,7 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
         ),
         stacks: [
             Stack {
+                id: None,
                 base: Some(
                     Sha1(281456a55524d78e1e0ecab946032423aec1abe8),
                 ),
@@ -711,6 +736,7 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
         ),
         stacks: [
             Stack {
+                id: None,
                 base: Some(
                     Sha1(281456a55524d78e1e0ecab946032423aec1abe8),
                 ),
@@ -795,6 +821,9 @@ fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),
@@ -873,6 +902,9 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -890,6 +922,9 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                 ],
             },
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000000,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -909,6 +944,9 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                 ],
             },
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000000,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -989,6 +1027,9 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -1008,6 +1049,9 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ],
             },
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000000,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -1094,6 +1138,9 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -1131,6 +1178,9 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ],
             },
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000000,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -1200,6 +1250,9 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -1219,6 +1272,9 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
                 ],
             },
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000000,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -1285,6 +1341,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<(
         ),
         stacks: [
             Stack {
+                id: None,
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -1359,6 +1416,9 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000000,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -1430,6 +1490,9 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000000,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -1512,6 +1575,9 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000000,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -1591,6 +1657,9 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000000,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -1683,6 +1752,9 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000000,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -1767,6 +1839,9 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -1848,6 +1923,9 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -1867,6 +1945,9 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 ],
             },
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000000,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -1915,6 +1996,9 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -1934,6 +2018,9 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 ],
             },
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000000,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -2005,6 +2092,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -2022,6 +2112,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ],
             },
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000000,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -2073,6 +2166,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -2090,6 +2186,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ],
             },
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000000,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -2140,6 +2239,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -2157,6 +2259,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ],
             },
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000000,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -2213,6 +2318,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -2232,6 +2340,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ],
             },
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000000,
+                ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
@@ -2295,6 +2406,7 @@ fn disjoint() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
+                id: None,
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
@@ -2355,6 +2467,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),
@@ -2388,6 +2503,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ],
             },
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),
@@ -2454,6 +2572,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),
@@ -2487,6 +2608,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ],
             },
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),
@@ -2553,6 +2677,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),
@@ -2586,6 +2713,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ],
             },
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),
@@ -2653,6 +2783,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),
@@ -2686,6 +2819,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ],
             },
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),
@@ -2765,6 +2901,9 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),
@@ -2814,6 +2953,9 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),
@@ -2898,6 +3040,7 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
+                id: None,
                 base: None,
                 segments: [
                     ref_info::ui::Segment {

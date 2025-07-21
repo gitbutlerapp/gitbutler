@@ -36,6 +36,7 @@ fn two_commits_rebased_onto_target() -> anyhow::Result<()> {
             ),
             stacks: [
                 Stack {
+                    id: None,
                     base: Some(
                         Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                     ),
@@ -111,6 +112,7 @@ fn two_commits_rebased_onto_target_with_changeset_check() -> anyhow::Result<()> 
             ),
             stacks: [
                 Stack {
+                    id: None,
                     base: Some(
                         Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                     ),

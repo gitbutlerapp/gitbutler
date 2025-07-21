@@ -1,9 +1,9 @@
 use anyhow::{Context, bail};
 use but_core::RefMetadata;
 use but_core::ref_metadata::{
-    Branch, RefInfo, ValueInfo, Workspace, WorkspaceStack, WorkspaceStackBranch,
+    Branch, RefInfo, StackId, ValueInfo, Workspace, WorkspaceStack, WorkspaceStackBranch,
 };
-use gitbutler_stack::{StackId, VirtualBranchesState};
+use gitbutler_stack::VirtualBranchesState;
 use gix::date::SecondsSinceUnixEpoch;
 use gix::refs::{FullName, FullNameRef};
 use itertools::Itertools;
@@ -193,7 +193,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
         Ok(VBTomlMetadataHandle {
             is_default: false,
             ref_name: ref_name.to_owned(),
-            stack_id: Some(stack.id).into(),
+            stack_id: Some(to_new_id(stack.id)).into(),
             value: Branch {
                 ref_info,
                 description: branch.description.clone(),
@@ -254,20 +254,32 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                     let branch = self.branch(branch_for_stack.ref_name.as_ref())?;
                     self.set_branch(&branch)?;
                     let new_stack_id = branch.stack_id.borrow().expect("was just created");
-                    let stack = self
+                    *branch.stack_id.borrow_mut() = Some(stack.id);
+                    let mut vb_stack = self
                         .snapshot
                         .content
                         .branches
-                        .get_mut(&new_stack_id)
+                        .remove(&to_old_id(new_stack_id))
                         .expect("just added");
-                    seen_stack_ids.insert(new_stack_id);
-                    stack
+                    vb_stack.id = to_old_id(stack.id);
+                    self.snapshot
+                        .content
+                        .branches
+                        .insert(to_old_id(stack.id), vb_stack);
+                    let vb_stack = self
+                        .snapshot
+                        .content
+                        .branches
+                        .get_mut(&to_old_id(stack.id))
+                        .expect("just added");
+                    seen_stack_ids.insert(stack.id);
+                    vb_stack
                 }
                 Some(stack_id) => self
                     .snapshot
                     .content
                     .branches
-                    .get_mut(&stack_id)
+                    .get_mut(&to_old_id(stack_id))
                     .expect("we just looked it up"),
             };
             for branch in branches_to_create {
@@ -298,7 +310,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
         }
 
         for (key, stack) in &mut self.snapshot.content.branches {
-            if seen_stack_ids.contains(key) {
+            if seen_stack_ids.contains(&to_new_id(*key)) {
                 continue;
             }
             stack.in_workspace = false;
@@ -316,7 +328,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                     .snapshot
                     .content
                     .branches
-                    .get_mut(&stack_id)
+                    .get_mut(&to_old_id(stack_id))
                     .with_context(|| format!("Couldn't find stack with id {stack_id}"))?;
 
                 let short_name = ref_name.shorten();
@@ -354,7 +366,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                     self.snapshot.content.branches.len(),
                     ws.contains_ref(ref_name),
                 );
-                *value.stack_id.borrow_mut() = Some(stack.id);
+                *value.stack_id.borrow_mut() = Some(to_new_id(stack.id));
                 self.snapshot.content.branches.insert(stack.id, stack);
                 self.snapshot.changed_at = Some(Instant::now());
                 Ok(())
@@ -435,6 +447,7 @@ impl VirtualBranchesTomlMetadata {
                 .filter(|s| s.in_workspace)
                 .sorted_by_key(|s| s.order)
                 .map(|s| WorkspaceStack {
+                    id: to_new_id(s.id),
                     branches: s
                         .heads
                         .iter()
@@ -452,6 +465,14 @@ impl VirtualBranchesTomlMetadata {
         };
         workspace
     }
+}
+
+fn to_new_id(id: gitbutler_stack::StackId) -> StackId {
+    id.to_string().parse().expect("valid UUID")
+}
+
+fn to_old_id(id: StackId) -> gitbutler_stack::StackId {
+    id.to_string().parse().expect("valid UUID")
 }
 
 pub struct VBTomlMetadataHandle<T> {

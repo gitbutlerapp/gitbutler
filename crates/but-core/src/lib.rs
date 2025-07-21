@@ -58,6 +58,9 @@ pub mod commit;
 /// Types for use in the user interface.
 pub mod ui;
 
+mod id;
+pub use id::Id;
+
 /// utility types
 pub mod unified_diff;
 

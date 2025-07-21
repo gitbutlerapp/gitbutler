@@ -233,7 +233,7 @@ git init two-dependent-branches-rebased-with-remotes
   # this emulates someone adding another commit in the lower level
   # of a stack after push.
   # The tick makes it more realistic, indicating that the rebased commits are newer.
-  git checkout A && tick
+  git checkout A && tick_committer
   git commit -m "change after push" --allow-empty
 
   git checkout -b B-on-A

@@ -1,3 +1,5 @@
+use crate::Id;
+
 /// Metadata about workspaces, associated with references that are designated to a workspace,
 /// i.e. `refs/heads/gitbutler/workspaces/<name>`.
 /// Such a ref either points to a *Workspace Commit* which we rewrite at will, or a commit
@@ -140,9 +142,14 @@ impl RefInfo {
     }
 }
 
+/// The ID of a stack for somewhat stable identification of ever-changing stacks.
+pub type StackId = Id<'S'>;
+
 /// A stack that was applied to the workspace, i.e. a parent of the *workspace commit*.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorkspaceStack {
+    /// A unique and stable identifier for the stack itself.
+    pub id: StackId,
     /// All branches that were reachable from the tip of the stack that at the time it was merged into
     /// the *workspace commit*.
     /// `[0]` is the first reachable branch, usually the tip of the stack, and `[N]` is the last

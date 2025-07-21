@@ -1,5 +1,5 @@
 use but_core::RefMetadata;
-use but_core::ref_metadata::{ValueInfo, WorkspaceStack, WorkspaceStackBranch};
+use but_core::ref_metadata::{StackId, ValueInfo, WorkspaceStack, WorkspaceStackBranch};
 use but_graph::VirtualBranchesTomlMetadata;
 use but_testsupport::gix_testtools::tempfile::{TempDir, tempdir};
 use std::collections::HashMap;
@@ -39,9 +39,11 @@ fn read_only() -> anyhow::Result<()> {
     let (mut store, _tmp) = vb_store_rw("virtual-branches-01")?;
     let ws = store.workspace("refs/heads/gitbutler/workspace".try_into()?)?;
     assert!(!ws.is_default(), "value read from file");
-    insta::assert_debug_snapshot!(ws.stacks, @r#"
+    let (actual, uuids) = sanitize_uuids_and_timestamps(debug_str(&ws.stacks));
+    insta::assert_snapshot!(actual, @r#"
     [
         WorkspaceStack {
+            id: 1,
             branches: [
                 WorkspaceStackBranch {
                     ref_name: FullName(
@@ -52,6 +54,7 @@ fn read_only() -> anyhow::Result<()> {
             ],
         },
         WorkspaceStack {
+            id: 2,
             branches: [
                 WorkspaceStackBranch {
                     ref_name: FullName(
@@ -80,6 +83,7 @@ fn read_only() -> anyhow::Result<()> {
             ],
         },
         WorkspaceStack {
+            id: 3,
             branches: [
                 WorkspaceStackBranch {
                     ref_name: FullName(
@@ -120,6 +124,7 @@ fn read_only() -> anyhow::Result<()> {
             ],
         },
         WorkspaceStack {
+            id: 4,
             branches: [
                 WorkspaceStackBranch {
                     ref_name: FullName(
@@ -136,6 +141,7 @@ fn read_only() -> anyhow::Result<()> {
             ],
         },
         WorkspaceStack {
+            id: 5,
             branches: [
                 WorkspaceStackBranch {
                     ref_name: FullName(
@@ -148,89 +154,192 @@ fn read_only() -> anyhow::Result<()> {
     ]
     "#);
 
+    for uuid in uuids.keys() {
+        assert_ne!(
+            ws.stacks.iter().find(|s| s.id == uuid.parse().unwrap()),
+            None,
+            "each UUID is available as workspace stack."
+        );
+    }
+
     let branches = ws
         .stacks
         .iter()
         .flat_map(|stack| &stack.branches)
         .map(|branch| {
-            store
+            let b = store
                 .branch(branch.ref_name.as_ref())
-                .expect("branch is present for each refs mentioned in workspace")
-                .clone()
+                .expect("branch is present for each refs mentioned in workspace");
+            let b_id = b
+                .stack_id()
+                .expect("each branch has the stack-id of the stack its in");
+            (
+                uuids
+                    .get(&b_id.to_string())
+                    .expect("nothing is generated, all is known."),
+                b.as_ref().to_owned(),
+                b.clone(),
+            )
         })
         .collect::<Vec<_>>();
+
+    // Stack-ids are duplicated just to indicate in which each branch-segment actually is.
     insta::assert_debug_snapshot!(branches, @r#"
     [
-        Branch {
-            ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:59:17 +0000" },
-            description: None,
-            review: Review { pull_request: 12, review_id: None },
-        },
-        Branch {
-            ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:58:47 +0000" },
-            description: None,
-            review: Review { pull_request: None, review_id: None },
-        },
-        Branch {
-            ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:58:47 +0000" },
-            description: None,
-            review: Review { pull_request: None, review_id: None },
-        },
-        Branch {
-            ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:58:47 +0000" },
-            description: None,
-            review: Review { pull_request: None, review_id: None },
-        },
-        Branch {
-            ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:58:47 +0000" },
-            description: None,
-            review: Review { pull_request: None, review_id: None },
-        },
-        Branch {
-            ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
-            description: None,
-            review: Review { pull_request: None, review_id: None },
-        },
-        Branch {
-            ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
-            description: None,
-            review: Review { pull_request: None, review_id: None },
-        },
-        Branch {
-            ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
-            description: None,
-            review: Review { pull_request: None, review_id: None },
-        },
-        Branch {
-            ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
-            description: None,
-            review: Review { pull_request: None, review_id: None },
-        },
-        Branch {
-            ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
-            description: None,
-            review: Review { pull_request: None, review_id: None },
-        },
-        Branch {
-            ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
-            description: None,
-            review: Review { pull_request: None, review_id: None },
-        },
-        Branch {
-            ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:59:48 +0000" },
-            description: None,
-            review: Review { pull_request: None, review_id: None },
-        },
-        Branch {
-            ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:59:48 +0000" },
-            description: None,
-            review: Review { pull_request: None, review_id: None },
-        },
-        Branch {
-            ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 11:00:01 +0000" },
-            description: None,
-            review: Review { pull_request: None, review_id: None },
-        },
+        (
+            1,
+            FullName(
+                "refs/heads/A",
+            ),
+            Branch {
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:59:17 +0000" },
+                description: None,
+                review: Review { pull_request: 12, review_id: None },
+            },
+        ),
+        (
+            2,
+            FullName(
+                "refs/heads/B-top",
+            ),
+            Branch {
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:58:47 +0000" },
+                description: None,
+                review: Review { pull_request: None, review_id: None },
+            },
+        ),
+        (
+            2,
+            FullName(
+                "refs/heads/B",
+            ),
+            Branch {
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:58:47 +0000" },
+                description: None,
+                review: Review { pull_request: None, review_id: None },
+            },
+        ),
+        (
+            2,
+            FullName(
+                "refs/heads/C-top-empty",
+            ),
+            Branch {
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:58:47 +0000" },
+                description: None,
+                review: Review { pull_request: None, review_id: None },
+            },
+        ),
+        (
+            2,
+            FullName(
+                "refs/heads/C-empty",
+            ),
+            Branch {
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:58:47 +0000" },
+                description: None,
+                review: Review { pull_request: None, review_id: None },
+            },
+        ),
+        (
+            3,
+            FullName(
+                "refs/heads/C-top",
+            ),
+            Branch {
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
+                description: None,
+                review: Review { pull_request: None, review_id: None },
+            },
+        ),
+        (
+            3,
+            FullName(
+                "refs/heads/C-middle",
+            ),
+            Branch {
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
+                description: None,
+                review: Review { pull_request: None, review_id: None },
+            },
+        ),
+        (
+            3,
+            FullName(
+                "refs/heads/C",
+            ),
+            Branch {
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
+                description: None,
+                review: Review { pull_request: None, review_id: None },
+            },
+        ),
+        (
+            3,
+            FullName(
+                "refs/heads/D-top-empty",
+            ),
+            Branch {
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
+                description: None,
+                review: Review { pull_request: None, review_id: None },
+            },
+        ),
+        (
+            3,
+            FullName(
+                "refs/heads/D-middle-empty",
+            ),
+            Branch {
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
+                description: None,
+                review: Review { pull_request: None, review_id: None },
+            },
+        ),
+        (
+            3,
+            FullName(
+                "refs/heads/D-empty",
+            ),
+            Branch {
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
+                description: None,
+                review: Review { pull_request: None, review_id: None },
+            },
+        ),
+        (
+            4,
+            FullName(
+                "refs/heads/D-top",
+            ),
+            Branch {
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:59:48 +0000" },
+                description: None,
+                review: Review { pull_request: None, review_id: None },
+            },
+        ),
+        (
+            4,
+            FullName(
+                "refs/heads/D",
+            ),
+            Branch {
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:59:48 +0000" },
+                description: None,
+                review: Review { pull_request: None, review_id: None },
+            },
+        ),
+        (
+            5,
+            FullName(
+                "refs/heads/E",
+            ),
+            Branch {
+                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 11:00:01 +0000" },
+                description: None,
+                review: Review { pull_request: None, review_id: None },
+            },
+        ),
     ]
     "#);
 
@@ -275,6 +384,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     let mut branch = store.branch(branch_name.as_ref())?;
     assert!(branch.is_default(), "nothing was there yet");
     assert!(!toml_path.exists(), "file wasn't written yet");
+    assert_eq!(branch.stack_id(), None, "default values have no stack-id");
 
     branch.description = Some("mine".into());
     branch.review = but_core::ref_metadata::Review {
@@ -282,6 +392,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         review_id: Some("review-id".into()),
     };
     store.set_branch(&branch)?;
+    let id = branch.stack_id().expect("now a stack-id was generated");
 
     let workspace_name: gix::refs::FullName = "refs/heads/gitbutler/workspace".try_into()?;
     let mut ws = store.workspace(workspace_name.as_ref())?;
@@ -295,7 +406,9 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         "stacks aren't visible unless a branch is explicitly added to the workspace"
     );
     // add the first branch to the workspace.
+    let ignored_id = StackId::from_number_for_testing(2);
     ws.stacks.push(WorkspaceStack {
+        id: ignored_id,
         branches: vec![WorkspaceStackBranch {
             ref_name: branch_name.clone(),
             archived: false,
@@ -304,12 +417,15 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     store
         .set_workspace(&ws)
         .expect("This is the way to add branches");
+    assert_eq!(ws.stack_id(), None);
 
     // Assure `ws` is what we think it should be - a single stack with one branch.
     let mut ws = store.workspace(workspace_name.as_ref())?;
-    insta::assert_debug_snapshot!(ws.stacks, @r#"
+    let (actual, uuids) = sanitize_uuids_and_timestamps(debug_str(&ws.stacks));
+    insta::assert_snapshot!(actual, @r#"
     [
         WorkspaceStack {
+            id: 1,
             branches: [
                 WorkspaceStackBranch {
                     ref_name: FullName(
@@ -321,6 +437,14 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         },
     ]
     "#);
+    assert!(
+        !uuids.contains_key(&ignored_id.to_string()),
+        "it really is ignore"
+    );
+    assert!(
+        uuids.contains_key(&id.to_string()),
+        "the generated branch id was present though, it's the id of the stack"
+    );
 
     // Put a new branch on top, changing the stack name
     let stacked_branch_name: gix::refs::FullName = "refs/heads/feat-on-top".try_into()?;
@@ -337,9 +461,11 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         .expect("This is the way to add branches");
 
     let mut ws = store.workspace(workspace_name.as_ref())?;
-    insta::assert_debug_snapshot!(ws.stacks, @r#"
+    let (actual, uuids) = sanitize_uuids_and_timestamps(debug_str(&ws.stacks));
+    insta::assert_snapshot!(actual, @r#"
     [
         WorkspaceStack {
+            id: 1,
             branches: [
                 WorkspaceStackBranch {
                     ref_name: FullName(
@@ -357,11 +483,16 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         },
     ]
     "#);
+    assert!(
+        uuids.contains_key(&id.to_string()),
+        "the stack is still named after the first branch"
+    );
 
     drop(store);
 
     assert!(toml_path.exists(), "file was written due to change");
-    insta::assert_snapshot!(sanitize_uuids_and_timestamps(std::fs::read_to_string(&toml_path)?), @r#"
+    let (actual, uuids) = sanitize_uuids_and_timestamps(std::fs::read_to_string(&toml_path)?);
+    insta::assert_snapshot!(actual, @r#"
     [branch_targets]
 
     [branches.1]
@@ -395,6 +526,10 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     [branches.1.heads.head]
     CommitId = "0000000000000000000000000000000000000000"
     "#);
+    assert!(
+        uuids.contains_key(&id.to_string()),
+        "the written file also contains the id we have set for the first branch, which is a stack now."
+    );
 
     let mut store = VirtualBranchesTomlMetadata::from_path(&toml_path)?;
     let new_ws = store.workspace(workspace_name.as_ref())?;
@@ -403,9 +538,11 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         ws.deref(),
         "It's still what it was before - it was persisted"
     );
-    insta::assert_debug_snapshot!(ws.stacks, @r#"
+    let (actual, uuids) = sanitize_uuids_and_timestamps(debug_str(&new_ws.stacks));
+    insta::assert_snapshot!(actual, @r#"
     [
         WorkspaceStack {
+            id: 1,
             branches: [
                 WorkspaceStackBranch {
                     ref_name: FullName(
@@ -423,6 +560,10 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         },
     ]
     "#);
+    assert!(
+        uuids.contains_key(&id.to_string()),
+        "after reading it back, the id is still used"
+    );
 
     // Archived middle branch
     let archived_branch: gix::refs::FullName = "refs/heads/feat-in-middle".try_into()?;
@@ -435,9 +576,11 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     );
     store.set_workspace(&ws)?;
     let mut ws = store.workspace(workspace_name.as_ref())?;
-    insta::assert_debug_snapshot!(ws.stacks, @r#"
+    let (actual, uuids) = sanitize_uuids_and_timestamps(debug_str(&ws.stacks));
+    insta::assert_snapshot!(actual, @r#"
     [
         WorkspaceStack {
+            id: 1,
             branches: [
                 WorkspaceStackBranch {
                     ref_name: FullName(
@@ -461,6 +604,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         },
     ]
     "#);
+    assert!(uuids.contains_key(&id.to_string()));
 
     ws.stacks[0].branches[1].archived = false;
     store.set_workspace(&ws)?;
@@ -482,18 +626,24 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         "The workspace wasn't automatically updated"
     );
     // insert it as archived just because.
+    let second_id = branch
+        .stack_id()
+        .expect("can also set a valid id, it doesn't matter");
     ws.stacks.push(WorkspaceStack {
+        id: second_id,
         branches: vec![WorkspaceStackBranch {
-            ref_name: second_stack.clone(),
+            ref_name: branch.as_ref().into(), /* always a matching name */
             archived: true,
         }],
     });
     store.set_workspace(&ws)?;
     let mut ws = store.workspace(ws.as_ref())?;
-    // Two snapshots are present now.
-    insta::assert_debug_snapshot!(ws.stacks, @r#"
+    // Two stacks are present now.
+    let (actual, uuids) = sanitize_uuids_and_timestamps(debug_str(&ws.stacks));
+    insta::assert_snapshot!(actual, @r#"
     [
         WorkspaceStack {
+            id: 1,
             branches: [
                 WorkspaceStackBranch {
                     ref_name: FullName(
@@ -516,6 +666,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
             ],
         },
         WorkspaceStack {
+            id: 2,
             branches: [
                 WorkspaceStackBranch {
                     ref_name: FullName(
@@ -527,6 +678,9 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         },
     ]
     "#);
+    assert_eq!(uuids.len(), 2);
+    assert!(uuids.contains_key(&id.to_string()));
+    assert!(uuids.contains_key(&second_id.to_string()));
 
     ws.stacks.pop();
     store.set_workspace(&ws)?;
@@ -539,6 +693,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
 
     // Add it again, then remove it by removing the branch.
     ws.stacks.push(WorkspaceStack {
+        id: StackId::from_number_for_testing(2),
         branches: vec![WorkspaceStackBranch {
             ref_name: second_stack.clone(),
             archived: true,
@@ -606,6 +761,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
     let workspace_name = "refs/heads/gitbutler/integration".try_into()?;
     let mut ws = store.workspace(workspace_name)?;
     ws.stacks.push(WorkspaceStack {
+        id: StackId::from_number_for_testing(1),
         branches: vec![
             WorkspaceStackBranch {
                 ref_name: "refs/heads/top".try_into()?,
@@ -622,15 +778,19 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
         ],
     });
     ws.stacks.push(WorkspaceStack {
+        id: StackId::from_number_for_testing(2),
         branches: vec![WorkspaceStackBranch {
             ref_name: "refs/heads/second-branch".try_into()?,
             archived: false,
         }],
     });
 
+    // This is still what was defined in memory, including our test-stack ids
+    // which are respected.
     insta::assert_debug_snapshot!(ws.stacks, @r#"
     [
         WorkspaceStack {
+            id: 00000000-0000-0000-0000-000000000001,
             branches: [
                 WorkspaceStackBranch {
                     ref_name: FullName(
@@ -653,6 +813,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
             ],
         },
         WorkspaceStack {
+            id: 00000000-0000-0000-0000-000000000002,
             branches: [
                 WorkspaceStackBranch {
                     ref_name: FullName(
@@ -675,6 +836,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(ws.stacks, @r#"
     [
         WorkspaceStack {
+            id: 00000000-0000-0000-0000-000000000001,
             branches: [
                 WorkspaceStackBranch {
                     ref_name: FullName(
@@ -691,6 +853,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
             ],
         },
         WorkspaceStack {
+            id: 00000000-0000-0000-0000-000000000002,
             branches: [
                 WorkspaceStackBranch {
                     ref_name: FullName(
@@ -798,7 +961,7 @@ fn roundtrip_journey(metadata: &mut impl RefMetadata) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn sanitize_uuids_and_timestamps(input: String) -> String {
+fn sanitize_uuids_and_timestamps(input: String) -> (String, HashMap<String, usize>) {
     let uuid_regex = regex::Regex::new(
         r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
     )
@@ -830,5 +993,9 @@ fn sanitize_uuids_and_timestamps(input: String) -> String {
         entry.to_string()
     });
 
-    result.to_string()
+    (result.to_string(), uuid_map)
+}
+
+fn debug_str(input: &dyn std::fmt::Debug) -> String {
+    format!("{:#?}", input)
 }

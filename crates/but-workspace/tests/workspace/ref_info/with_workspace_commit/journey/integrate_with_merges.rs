@@ -33,6 +33,7 @@ fn two_commits_require_force_push() -> anyhow::Result<()> {
             ),
             stacks: [
                 Stack {
+                    id: None,
                     base: Some(
                         Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                     ),
@@ -101,6 +102,7 @@ fn two_commits_require_force_push_merged() -> anyhow::Result<()> {
             ),
             stacks: [
                 Stack {
+                    id: None,
                     base: Some(
                         Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                     ),
@@ -171,6 +173,7 @@ fn remote_diverged() -> anyhow::Result<()> {
             ),
             stacks: [
                 Stack {
+                    id: None,
                     base: Some(
                         Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                     ),
@@ -251,6 +254,7 @@ fn remote_diverged_merge() -> anyhow::Result<()> {
             ),
             stacks: [
                 Stack {
+                    id: None,
                     base: Some(
                         Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                     ),
@@ -317,6 +321,7 @@ fn remote_behind() -> anyhow::Result<()> {
             ),
             stacks: [
                 Stack {
+                    id: None,
                     base: Some(
                         Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                     ),
@@ -390,6 +395,7 @@ fn remote_behind_merge_no_ff() -> anyhow::Result<()> {
             ),
             stacks: [
                 Stack {
+                    id: None,
                     base: Some(
                         Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                     ),
@@ -457,6 +463,7 @@ fn remote_ahead() -> anyhow::Result<()> {
             ),
             stacks: [
                 Stack {
+                    id: None,
                     base: Some(
                         Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                     ),
@@ -527,6 +534,7 @@ fn remote_ahead_merge_ff() -> anyhow::Result<()> {
             ),
             stacks: [
                 Stack {
+                    id: None,
                     base: Some(
                         Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                     ),

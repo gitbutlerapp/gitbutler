@@ -415,6 +415,7 @@
 use crate::ref_info;
 use anyhow::{Context, bail};
 use but_core::RefMetadata;
+use but_core::ref_metadata::StackId;
 use gix::prelude::ObjectIdExt;
 
 /// The result of [`add_branch_to_workspace`].
@@ -494,6 +495,9 @@ pub fn remove_branch_from_workspace(
 // TODO: this is going to be the UI version, ideally consumed directly.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Stack {
+    /// If the stack belongs to a managed workspace, the `id` will be set and persist.
+    /// Otherwise, it is `None`.
+    pub id: Option<StackId>,
     /// If there is an integration branch, we know a base commit shared with the integration branch from
     /// which we branched off.
     /// Otherwise, it's the merge-base of all stacks in the current workspace.
