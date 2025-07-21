@@ -4,6 +4,7 @@ import {
 	type MutationHook
 } from '$lib/state/customHooks.svelte';
 import { isMutationDefinition, isQueryDefinition } from '$lib/state/helpers';
+import { ReduxTag } from '$lib/state/tags';
 import { type Reactive } from '@gitbutler/shared/storeUtils';
 import {
 	type BaseQueryFn,
@@ -18,7 +19,13 @@ import {
 	type QueryResultSelectorResult,
 	type ApiModules,
 	type QueryActionCreatorResult,
-	type StartQueryActionCreatorOptions
+	type StartQueryActionCreatorOptions,
+	type ResultDescription,
+	type BaseQueryError,
+	type BaseQueryMeta,
+	type BaseQueryArg,
+	type EndpointBuilder,
+	type BaseQueryResult
 } from '@reduxjs/toolkit/query';
 import type { TauriBaseQueryFn } from '$lib/state/backendQuery';
 import type { HookContext } from '$lib/state/context';
@@ -144,6 +151,144 @@ export function butlerModule(ctx: HookContext): Module<ButlerModule> {
 		}
 	};
 }
+
+export type CustomBuilder = EndpointBuilder<TauriBaseQueryFn, ReduxTag, 'backend'>;
+
+export type CustomTags<Result, Args extends Record<string, unknown>> = ResultDescription<
+	ReduxTag,
+	Result,
+	Args,
+	BaseQueryError<TauriBaseQueryFn>,
+	BaseQueryMeta<TauriBaseQueryFn>
+>;
+
+export type CustomMutationEndpoint<
+	Result,
+	Args extends Record<string, unknown>
+> = MutationDefinition<Args, TauriBaseQueryFn, ReduxTag, Result, 'backend'>;
+
+export type CustomMutationDefinitionArgs<Result, Args extends Record<string, unknown>> = Omit<
+	CustomMutationEndpoint<Result, Args>,
+	'type'
+> & {
+	query: (args: Args) => BaseQueryArg<TauriBaseQueryFn>;
+	queryFn: undefined;
+};
+
+export function createMutationDefinition<Result, Args extends Record<string, unknown>>(
+	command: string,
+	invalidatesTags?: CustomTags<Result, Args>
+): CustomMutationDefinitionArgs<Result, Args> {
+	return {
+		extraOptions: { command },
+		query: (args: Args) => args,
+		invalidatesTags,
+		transformResponse: (result: Result) => result,
+		queryFn: undefined
+	};
+}
+
+export function createMutationEndpoint<Result, Args extends Record<string, unknown>>(
+	builder: CustomBuilder,
+	command: string,
+	invalidatesTags?: CustomTags<Result, Args>
+): CustomMutationEndpoint<Result, Args> {
+	const defaultDefinition = createMutationDefinition<Result, Args>(command, invalidatesTags);
+	return builder.mutation<Result, Args>(defaultDefinition);
+}
+
+export type CustomQueryEndpoint<Result, Args extends Record<string, unknown>> = QueryDefinition<
+	Args,
+	TauriBaseQueryFn,
+	ReduxTag,
+	Result,
+	'backend'
+>;
+
+export type CustomQueryDefinitionArgs<
+	Result,
+	Args extends Record<string, unknown>,
+	APIResult extends BaseQueryResult<TauriBaseQueryFn>
+> = Omit<CustomQueryEndpoint<Result, Args>, 'type'> & {
+	query: (args: Args) => BaseQueryArg<TauriBaseQueryFn>;
+	queryFn: undefined;
+	transformResponse: (result: APIResult) => Result | Promise<Result>;
+};
+
+export function createQueryDefinition<
+	Result,
+	Args extends Record<string, unknown>,
+	TransformedResult = Result
+>(
+	command: string,
+	transformResponse: (result: Result) => TransformedResult | Promise<TransformedResult>,
+	providesTags?: CustomTags<TransformedResult, Args>
+): CustomQueryDefinitionArgs<TransformedResult, Args, Result> {
+	return {
+		extraOptions: { command },
+		query: (args: Args) => args,
+		providesTags,
+		transformResponse,
+		queryFn: undefined
+	};
+}
+
+export function createQueryEndpointWithTransform<
+	Result,
+	Args extends Record<string, unknown>,
+	TransformedResult = Result
+>(
+	builder: CustomBuilder,
+	command: string,
+	transformResponse: (result: Result) => TransformedResult | Promise<TransformedResult>,
+	providesTags?: CustomTags<TransformedResult, Args>
+): CustomQueryEndpoint<TransformedResult, Args> {
+	const defaultDefinition = createQueryDefinition<Result, Args, TransformedResult>(
+		command,
+		transformResponse,
+		providesTags
+	);
+	return builder.query<TransformedResult, Args>(defaultDefinition);
+}
+
+export function createQueryEndpoint<Result, Args extends Record<string, unknown>>(
+	builder: CustomBuilder,
+	command: string,
+	providesTags?: CustomTags<Result, Args>
+): CustomQueryEndpoint<Result, Args> {
+	const defaultDefinition = createQueryDefinition<Result, Args, Result>(
+		command,
+		(result) => result,
+		providesTags
+	);
+	return builder.query<Result, Args>(defaultDefinition);
+}
+
+export type EndpointMap = {
+	[endpointName: string]: CustomQueryEndpoint<any, any> | CustomMutationEndpoint<any, any>;
+};
+
+// interface BaseCustomEndpointDef {
+// 	type: 'query' | 'mutation';
+// }
+
+// export interface CustomQueryEndpointDef<Result, Args extends Record<string, unknown>>
+// 	extends BaseCustomEndpointDef {
+// 	type: 'query';
+// 	command: string;
+// 	providesTags?: CustomTags<Result, Args>;
+// }
+
+// export interface CustomMutationEndpointDef<Result, Args extends Record<string, unknown>>
+// 	extends BaseCustomEndpointDef {
+// 	type: 'mutation';
+// 	command: string;
+// 	invalidatesTags?: CustomTags<Result, Args>;
+// }
+
+// export type CustomEndpointDef<Result, Args extends Record<string, unknown>> =
+// 	| CustomQueryEndpointDef<Result, Args>
+// 	| CustomMutationEndpointDef<Result, Args>;
 
 /**
  * Custom return type for the `QueryHooks` extensions.
