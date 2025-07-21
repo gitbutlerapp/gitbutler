@@ -16,7 +16,6 @@ use bstr::BString;
 use but_core::{ChangeState, commit::TreeKind};
 use gix::diff::tree::recorder::Change;
 use gix::{ObjectId, Repository, object::tree::EntryKind, prelude::ObjectIdExt};
-use itertools::Itertools;
 use std::ops::Deref;
 use std::{
     borrow::Borrow,
@@ -59,10 +58,7 @@ impl RefInfo {
             .target
             .as_ref()
             .map(|t| t.segment_index)
-            .into_iter()
-            .chain(self.extra_target)
-            .sorted_by_key(|sidx| graph[*sidx].generation)
-            .next();
+            .or(self.extra_target);
         let mut upstream_commits = Vec::new();
         let Some(target_tip) = topmost_target_sidx else {
             // Without any notion of 'target' we can't do anything here.

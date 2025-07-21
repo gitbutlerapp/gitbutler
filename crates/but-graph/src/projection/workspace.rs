@@ -97,7 +97,11 @@ pub struct Target {
 impl Target {
     /// Return `None` if `ref_name` wasn't found as segment in `graph`.
     /// This can happen if a reference is configured, but not actually present as reference.
-    fn from_ref_name(ref_name: &gix::refs::FullName, graph: &Graph) -> Option<Self> {
+    /// Note that `commits_ahead` isn't set yet, see [`Self::compute_and_set_commits_ahead()`].
+    fn from_ref_name_without_commits_ahead(
+        ref_name: &gix::refs::FullName,
+        graph: &Graph,
+    ) -> Option<Self> {
         let target_segment = graph.inner.node_indices().find_map(|n| {
             let s = &graph[n];
             (s.ref_name.as_ref() == Some(ref_name)).then_some(s)
@@ -105,17 +109,50 @@ impl Target {
         Some(Target {
             ref_name: ref_name.to_owned(),
             segment_index: target_segment.id,
-            commits_ahead: {
-                // Find all remote commits but stop traversing when there is segments without remotes.
-                let mut count = 0;
-                graph.visit_all_segments_until(target_segment.id, Direction::Outgoing, |s| {
-                    let remote_commits = s.commits.iter().filter(|c| c.flags.is_remote()).count();
-                    count += remote_commits;
-                    remote_commits != s.commits.len()
-                });
-                count
-            },
+            commits_ahead: 0,
         })
+    }
+
+    fn compute_and_set_commits_ahead(
+        &mut self,
+        graph: &Graph,
+        lower_bound_segment: Option<SegmentIndex>,
+    ) {
+        let lower_bound = lower_bound_segment.map(|sidx| (sidx, graph[sidx].generation));
+        self.commits_ahead = 0;
+        Self::visit_upstream_commits(graph, self.segment_index, lower_bound, |s| {
+            self.commits_ahead += s.commits.len();
+        })
+    }
+}
+
+/// Utilities
+impl Target {
+    /// Visit all segments whose commits would be considered 'upstream', or part of the target branch
+    /// whose tip is identified with `target_segment`. The `lower_bound_segment_and_generation` is another way
+    /// to stop the traversal.
+    pub fn visit_upstream_commits(
+        graph: &Graph,
+        target_segment: SegmentIndex,
+        lower_bound_segment_and_generation: Option<(SegmentIndex, usize)>,
+        mut visit: impl FnMut(&Segment),
+    ) {
+        graph.visit_all_segments_until(target_segment, Direction::Outgoing, |s| {
+            let prune = true;
+            if lower_bound_segment_and_generation.is_some_and(
+                |(lower_bound, lower_bound_generation)| {
+                    s.id == lower_bound || s.generation > lower_bound_generation
+                },
+            ) || s
+                .commits
+                .iter()
+                .any(|c| c.flags.contains(CommitFlags::InWorkspace))
+            {
+                return prune;
+            }
+            visit(s);
+            !prune
+        });
     }
 }
 
@@ -196,9 +233,9 @@ impl Graph {
             id: ws_tip_segment.id,
             kind,
             stacks: vec![],
-            target: metadata
-                .as_ref()
-                .and_then(|md| Target::from_ref_name(md.target_ref.as_ref()?, self)),
+            target: metadata.as_ref().and_then(|md| {
+                Target::from_ref_name_without_commits_ahead(md.target_ref.as_ref()?, self)
+            }),
             extra_target: self.extra_target,
             metadata,
             lower_bound_segment_id: None,
@@ -352,6 +389,9 @@ impl Graph {
             );
         }
 
+        if let Some(target) = ws.target.as_mut() {
+            target.compute_and_set_commits_ahead(self, ws.lower_bound_segment_id);
+        }
         ws.mark_remote_reachability()?;
         Ok(ws)
     }
@@ -834,6 +874,8 @@ impl std::fmt::Debug for Workspace<'_> {
             .field("id", &self.id.index())
             .field("stacks", &self.stacks)
             .field("metadata", &self.metadata)
+            .field("target", &self.target)
+            .field("extra_target", &self.extra_target)
             .finish()
     }
 }

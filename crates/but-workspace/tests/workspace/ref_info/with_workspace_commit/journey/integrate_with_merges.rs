@@ -277,7 +277,7 @@ fn remote_diverged_merge() -> anyhow::Result<()> {
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
-                    commits_ahead: 0,
+                    commits_ahead: 2,
                 },
             ),
             extra_target: Some(
@@ -416,7 +416,7 @@ fn remote_behind_merge_no_ff() -> anyhow::Result<()> {
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
-                    commits_ahead: 0,
+                    commits_ahead: 1,
                 },
             ),
             extra_target: Some(
@@ -552,7 +552,7 @@ fn remote_ahead_merge_ff() -> anyhow::Result<()> {
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
-                    commits_ahead: 0,
+                    commits_ahead: 1,
                 },
             ),
             extra_target: Some(
