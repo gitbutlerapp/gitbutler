@@ -8,7 +8,7 @@
 	import { invoke } from '$lib/backend/ipc';
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { persistedChatModelName, projectAiGenEnabled } from '$lib/config/config';
-	import { Feed } from '$lib/feed/feed';
+	import FeedFactory from '$lib/feed/feed';
 	import { newProjectSettingsPath } from '$lib/routes/routes.svelte';
 	import { User } from '$lib/user/user';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
@@ -29,15 +29,16 @@
 
 	const { projectId, onCloseClick }: Props = $props();
 
-	const feed = getContext(Feed);
+	const feedFactory = getContext(FeedFactory);
+	const feed = $derived(feedFactory.getFeed(projectId));
 	const actionService = getContext(ActionService);
 	const user = getContextStore(User);
 	const settingsService = getContext(SettingsService);
 	const settingsStore = $derived(settingsService.appSettings);
 
 	const isAdmin = $derived($user.role === 'admin');
-	const combinedEntries = feed.combined;
-	const lastAddedId = feed.lastAddedId;
+	const combinedEntries = $derived(feed.combined);
+	const lastAddedId = $derived(feed.lastAddedId);
 
 	const MODELS = ['gpt-4.1', 'gpt-4.1-mini'] as const;
 
