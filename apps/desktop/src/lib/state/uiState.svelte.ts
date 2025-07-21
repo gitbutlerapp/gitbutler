@@ -267,3 +267,14 @@ export function replaceBranchInExclusiveAction(
 			return action;
 	}
 }
+
+export function replaceBranchInStackSelection(
+	selection: StackSelection,
+	oldBranchName: string,
+	branchName: string
+): StackSelection {
+	if (selection.branchName === oldBranchName) {
+		return { ...selection, branchName };
+	}
+	return selection;
+}
