@@ -747,6 +747,18 @@ export class StackService {
 		return await this.api.endpoints.newBranchName.fetch({ projectId }, { forceRefetch: true });
 	}
 
+	isBranchConflicted(projectId: string, stackId: string, branchName: string) {
+		return this.api.endpoints.stackDetails.useQuery(
+			{ projectId, stackId },
+			{
+				transform: ({ branchDetails }) => {
+					const branch = branchDetailsSelectors.selectById(branchDetails, branchName);
+					return branch?.isConflicted ?? false;
+				}
+			}
+		);
+	}
+
 	async normalizeBranchName(name: string) {
 		return await this.api.endpoints.normalizeBranchName.fetch({ name }, { forceRefetch: true });
 	}

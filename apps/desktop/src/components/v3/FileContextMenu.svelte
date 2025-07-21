@@ -1,5 +1,6 @@
 <!-- This is a V3 replacement for `FileContextMenu.svelte` -->
 <script lang="ts">
+	import ReduxResult from '$components/ReduxResult.svelte';
 	import { ActionService } from '$lib/actions/actionService.svelte';
 	import { AIService } from '$lib/ai/service';
 	import { writeClipboard } from '$lib/backend/clipboard';
@@ -75,6 +76,10 @@
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 	const isUncommitted = $derived(selectionId.type === 'worktree');
 	const isBranchFiles = $derived(selectionId.type === 'branch');
+	const selectionBranchName = $derived(
+		selectionId.type === 'branch' ? selectionId.branchName : undefined
+	);
+
 	const user = getContextStore(User);
 	const isAdmin = $derived($user.role === 'admin');
 
@@ -380,21 +385,33 @@
 							}
 						}}
 					/>
-					{#if isBranchFiles && isAdmin}
-						<ContextMenuItem
-							label="Split off changes"
-							onclick={() => {
-								split(changes);
-								contextMenu.close();
-							}}
-						/>
-						<ContextMenuItem
-							label="Split into dependent branch"
-							onclick={() => {
-								splitIntoDependentBranch(changes);
-								contextMenu.close();
-							}}
-						/>
+
+					{#if isBranchFiles && stackId && selectionBranchName && isAdmin}
+						{@const branchIsConflicted = stackService.isBranchConflicted(
+							projectId,
+							stackId,
+							selectionBranchName
+						)}
+						<ReduxResult {projectId} result={branchIsConflicted?.current}>
+							{#snippet children(isConflicted)}
+								{#if isConflicted === false}
+									<ContextMenuItem
+										label="Split off changes"
+										onclick={() => {
+											split(changes);
+											contextMenu.close();
+										}}
+									/>
+									<ContextMenuItem
+										label="Split into dependent branch"
+										onclick={() => {
+											splitIntoDependentBranch(changes);
+											contextMenu.close();
+										}}
+									/>
+								{/if}
+							{/snippet}
+						</ReduxResult>
 					{/if}
 				{/if}
 			</ContextMenuSection>
