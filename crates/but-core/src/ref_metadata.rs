@@ -158,13 +158,11 @@ pub struct WorkspaceStack {
 pub struct WorkspaceStackBranch {
     /// The name of the branch.
     pub ref_name: gix::refs::FullName,
-    /// Archived represents the state when series/branch has been integrated and is below the merge base with the current target branch.
-    /// This would occur when the branch has been merged at the remote and the workspace has been updated with that change.
-    ///
-    /// Note that this is a cache to help speed up certain operations.
-    /// NOTE: This is more like a proof of concept and for backwards compatibility - maybe we will make it go away.
-    // TODO: given that most operations require a graph walk, will this really be necessary if a graph cache is used consistently?
-    //       Staleness can be a problem if targets can be changed after the fact. At least we'd need to recompute it.
+    /// If `true`, the branch is now underneath the lower-base of the workspace after a workspace update.
+    /// This means it's not interesting anymore, by all means, but we'd still have to keep it available and list
+    /// these segments as being part of the workspace when creating PRs. Their descriptions contain references
+    /// to archived segments, which simply shouldn't disappear just yet.
+    /// However, they may disappear once the whole stack has been integrated and the workspace has moved past it.
     pub archived: bool,
 }
 

@@ -16,7 +16,6 @@ use bstr::BString;
 use but_core::{ChangeState, commit::TreeKind};
 use gix::diff::tree::recorder::Change;
 use gix::{ObjectId, Repository, object::tree::EntryKind, prelude::ObjectIdExt};
-use itertools::Itertools;
 use std::ops::Deref;
 use std::{
     borrow::Borrow,
@@ -59,10 +58,7 @@ impl RefInfo {
             .target
             .as_ref()
             .map(|t| t.segment_index)
-            .into_iter()
-            .chain(self.extra_target)
-            .sorted_by_key(|sidx| graph[*sidx].generation)
-            .next();
+            .or(self.extra_target);
         let mut upstream_commits = Vec::new();
         let Some(target_tip) = topmost_target_sidx else {
             // Without any notion of 'target' we can't do anything here.
@@ -83,6 +79,10 @@ impl RefInfo {
             !prune
         });
 
+        let cost_info = (
+            upstream_commits.len(),
+            repo.index_or_empty()?.entries().len(),
+        );
         let upstream_lut = create_similarity_lut(
             repo,
             upstream_commits.iter().filter_map(|id| {
@@ -90,6 +90,7 @@ impl RefInfo {
                     .map(ui::Commit::from)
                     .ok()
             }),
+            cost_info,
             expensive,
         )?;
 
@@ -98,8 +99,12 @@ impl RefInfo {
         'next_stack: for stack in &mut self.stacks {
             for segment in &mut stack.segments {
                 // At first, these are all commits that aren't also available by identity as local commits.
-                let remote_lut =
-                    create_similarity_lut(repo, segment.commits_on_remote.iter(), expensive)?;
+                let remote_lut = create_similarity_lut(
+                    repo,
+                    segment.commits_on_remote.iter(),
+                    cost_info,
+                    expensive,
+                )?;
 
                 for local in segment
                     // top-to-bottom
@@ -281,31 +286,56 @@ fn lookup_similar<'a>(
 fn create_similarity_lut(
     repo: &Repository,
     commits: impl Iterator<Item = impl Borrow<ui::Commit>>,
+    (max_commits, num_tracked_files): (usize, usize),
     expensive: bool,
 ) -> anyhow::Result<Identity> {
+    // experimental modern CPU perf, based on 100 diffs/s at 90k entries
+    // Make this smaller to get more threads even with lower amounts of work.
+    const CPU_PERF: usize = 10_000_000 / 5 /* start parallelizing earlier */;
+    let aproximate_cpu_seconds = (max_commits * num_tracked_files) / CPU_PERF;
+    let num_threads = aproximate_cpu_seconds
+        .max(1)
+        .min(std::thread::available_parallelism()?.get());
+
     let mut similarity_lut = HashMap::<Identifier, gix::ObjectId>::new();
-    {
-        let mut ambiguous_commits = HashSet::<Identifier>::new();
-        let mut insert_or_expell_ambiguous = |k: Identifier, v: gix::ObjectId| {
-            if ambiguous_commits.contains(&k) {
-                return;
-            }
-            match similarity_lut.entry(k) {
-                Entry::Occupied(ambiguous) => {
-                    if matches!(ambiguous.key(), Identifier::ChangesetId(_)) {
-                        // the most expensive option should never be ambiguous (which can happen with merges),
-                        // so just keep the (typically top-most/first) commit with a changeset ID instead.
-                        return;
-                    }
-                    ambiguous_commits.insert(ambiguous.key().clone());
-                    ambiguous.remove();
+    let mut ambiguous_commits = HashSet::<Identifier>::new();
+
+    let mut insert_or_expell_ambiguous = |k: Identifier, v: gix::ObjectId| {
+        if ambiguous_commits.contains(&k) {
+            return;
+        }
+        match similarity_lut.entry(k) {
+            Entry::Occupied(ambiguous) => {
+                if matches!(ambiguous.key(), Identifier::ChangesetId(_)) {
+                    // the most expensive option should never be ambiguous (which can happen with merges),
+                    // so just keep the (typically top-most/first) commit with a changeset ID instead.
+                    return;
                 }
-                Entry::Vacant(entry) => {
-                    entry.insert(v);
-                }
+                ambiguous_commits.insert(ambiguous.key().clone());
+                ambiguous.remove();
             }
-        };
-        for commit in commits {
+            Entry::Vacant(entry) => {
+                entry.insert(v);
+            }
+        }
+    };
+
+    let should_stop = |start: std::time::Instant, commit_idx: usize| {
+        const MAX_DURATION: std::time::Duration = std::time::Duration::from_secs(1);
+        let out_of_time = start.elapsed() > MAX_DURATION;
+        if out_of_time {
+            tracing::warn!(
+                "Stopping expensive changeset computation after {}s and {commit_idx} diffs computed ({throughput:02} diffs/s)",
+                MAX_DURATION.as_secs(),
+                throughput = commit_idx as f32 / start.elapsed().as_secs_f32(),
+            );
+        }
+        out_of_time
+    };
+
+    if num_threads <= 1 || !expensive {
+        let mut expensive = expensive.then(std::time::Instant::now);
+        for (idx, commit) in commits.enumerate() {
             let commit = commit.borrow();
             if let Some(change_id) = &commit.change_id {
                 insert_or_expell_ambiguous(Identifier::ChangeId(change_id.clone()), commit.id);
@@ -317,16 +347,94 @@ fn create_similarity_lut(
                 },
                 commit.id,
             );
-            if expensive {
+            if let Some(start) = expensive {
                 let Some(changeset_id) =
                     id_for_tree_diff(repo, commit.parent_ids.first().cloned(), commit.id)?
                 else {
                     continue;
                 };
                 insert_or_expell_ambiguous(Identifier::ChangesetId(changeset_id), commit.id);
+
+                if should_stop(start, idx) {
+                    expensive = None;
+                }
+            }
+        }
+    } else {
+        let (in_tx, out_rx) = {
+            let (in_tx, in_rx) = flume::unbounded();
+            let (out_tx, out_rx) = flume::unbounded();
+            for tid in 0..num_threads {
+                std::thread::Builder::new()
+                    .name(format!("GitButler::compute-changeset({tid})"))
+                    .spawn({
+                        let in_rx = in_rx.clone();
+                        let out_tx = out_tx.clone();
+                        let repo = repo.clone().into_sync();
+                        move || -> anyhow::Result<()> {
+                            let mut repo = repo.to_thread_local();
+                            repo.object_cache_size_if_unset(
+                                repo.compute_object_cache_size_for_tree_diffs(
+                                    &*repo.index_or_empty()?,
+                                ),
+                            );
+                            for (idx, lhs, rhs) in in_rx {
+                                if out_tx
+                                    .send(
+                                        id_for_tree_diff(&repo, lhs, rhs)
+                                            .map(|opt| opt.map(|cs_id| (idx, cs_id, rhs))),
+                                    )
+                                    .is_err()
+                                {
+                                    break;
+                                }
+                            }
+                            Ok(())
+                        }
+                    })?;
+            }
+            (in_tx, out_rx)
+        };
+
+        assert!(
+            expensive,
+            "BUG: multi-threading is only for expensive checks"
+        );
+        for (idx, commit) in commits.enumerate() {
+            let commit = commit.borrow();
+            if let Some(change_id) = &commit.change_id {
+                insert_or_expell_ambiguous(Identifier::ChangeId(change_id.clone()), commit.id);
+            }
+            insert_or_expell_ambiguous(
+                Identifier::CommitData {
+                    author: commit.author.clone().into(),
+                    message: commit.message.clone(),
+                },
+                commit.id,
+            );
+
+            in_tx
+                .send((idx, commit.parent_ids.first().cloned(), commit.id))
+                .ok();
+        }
+        drop(in_tx);
+
+        let start = std::time::Instant::now();
+        let mut max_idx = 0;
+        for res in out_rx {
+            let Some((idx, changeset_id, commit_id)) = res? else {
+                continue;
+            };
+
+            insert_or_expell_ambiguous(Identifier::ChangesetId(changeset_id), commit_id);
+
+            max_idx = max_idx.max(idx);
+            if should_stop(start, max_idx) {
+                break;
             }
         }
     }
+
     Ok(similarity_lut)
 }
 
