@@ -26,7 +26,6 @@ itertools.workspace = true
 gitbutler-stack.workspace = true
 toml.workspace = true
 
-
 [dev-dependencies]
 gix-testtools.workspace = true
 insta = "1.43.1"
