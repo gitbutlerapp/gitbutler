@@ -6,7 +6,6 @@
 	import { changesToDiffSpec } from '$lib/commits/utils';
 	import { projectAiExperimentalFeaturesEnabled, projectAiGenEnabled } from '$lib/config/config';
 	import { isTreeChange, type TreeChange } from '$lib/hunks/change';
-	import { showToast } from '$lib/notifications/toasts';
 	import { vscodePath } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
@@ -168,19 +167,19 @@
 			return;
 		}
 
-		showToast({
-			style: 'neutral',
-			title: 'Figuring out where to commit the changes',
-			message: 'This may take a few seconds.'
-		});
-
-		await autoCommit({ projectId, changes });
-
-		showToast({
-			style: 'success',
-			title: 'And... done!',
-			message: `Now, you're free to continue`
-		});
+		await toasts.promise(
+			(async () => {
+				await autoCommit({
+					projectId,
+					changes
+				});
+			})(),
+			{
+				loading: 'Started auto commit',
+				success: 'Auto commit succeded',
+				error: (error: Error) => `Auto commit failed: ${error.message}`
+			}
+		);
 	}
 
 	async function triggerBranchChanges(changes: TreeChange[]) {
@@ -189,19 +188,16 @@
 			return;
 		}
 
-		showToast({
-			style: 'neutral',
-			title: 'Creating a branch and committing the changes',
-			message: 'This may take a few seconds.'
-		});
-
-		await branchChanges({ projectId, changes });
-
-		showToast({
-			style: 'success',
-			title: 'And... done!',
-			message: `Now, you're free to continue`
-		});
+		await toasts.promise(
+			(async () => {
+				await branchChanges({ projectId, changes });
+			})(),
+			{
+				loading: 'Creating a branch and committing changes',
+				success: 'Branching changes succeded',
+				error: (error: Error) => `Branching changes failed: ${error.message}`
+			}
+		);
 	}
 
 	async function triggerAbsorbChanges(changes: TreeChange[]) {
@@ -210,19 +206,16 @@
 			return;
 		}
 
-		showToast({
-			style: 'neutral',
-			title: 'Looking for the best place to absorb the changes',
-			message: 'This may take a few seconds.'
-		});
-
-		await absorbChanges({ projectId, changes });
-
-		showToast({
-			style: 'success',
-			title: 'And... done!',
-			message: `Now, you're free to continue`
-		});
+		await toasts.promise(
+			(async () => {
+				await absorbChanges({ projectId, changes });
+			})(),
+			{
+				loading: 'Looking for the best place to absorb the changes',
+				success: 'Absorbing changes succeded',
+				error: (error: Error) => `Absorbing changes failed: ${error.message}`
+			}
+		);
 	}
 
 	async function split(changes: TreeChange[]) {
@@ -239,20 +232,29 @@
 		const branchName = selectionId.branchName;
 
 		const fileNames = changes.map((change) => change.path);
-		const newBranchName = await stackService.fetchNewBranchName(projectId);
 
-		if (!newBranchName) {
-			toasts.error('Failed to generate a new branch name.');
-			return;
-		}
+		await toasts.promise(
+			(async () => {
+				const newBranchName = await stackService.fetchNewBranchName(projectId);
 
-		await splitOffChanges({
-			projectId,
-			sourceStackId: stackId,
-			sourceBranchName: branchName,
-			fileChangesToSplitOff: fileNames,
-			newBranchName: newBranchName
-		});
+				if (!newBranchName) {
+					throw new Error('Failed to generate a new branch name.');
+				}
+
+				await splitOffChanges({
+					projectId,
+					sourceStackId: stackId,
+					sourceBranchName: branchName,
+					fileChangesToSplitOff: fileNames,
+					newBranchName: newBranchName
+				});
+			})(),
+			{
+				loading: 'Splitting off changes',
+				success: 'Changes split off into a new branch',
+				error: (error: Error) => `Failed to split off changes: ${error.message}`
+			}
+		);
 	}
 
 	async function splitIntoDependentBranch(changes: TreeChange[]) {
@@ -269,20 +271,29 @@
 		const branchName = selectionId.branchName;
 
 		const fileNames = changes.map((change) => change.path);
-		const newBranchName = await stackService.fetchNewBranchName(projectId);
 
-		if (!newBranchName) {
-			toasts.error('Failed to generate a new branch name.');
-			return;
-		}
+		await toasts.promise(
+			(async () => {
+				const newBranchName = await stackService.fetchNewBranchName(projectId);
 
-		await splitBranchIntoDependentBranch({
-			projectId,
-			sourceStackId: stackId,
-			sourceBranchName: branchName,
-			fileChangesToSplitOff: fileNames,
-			newBranchName: newBranchName
-		});
+				if (!newBranchName) {
+					throw new Error('Failed to generate a new branch name.');
+				}
+
+				await splitBranchIntoDependentBranch({
+					projectId,
+					sourceStackId: stackId,
+					sourceBranchName: branchName,
+					fileChangesToSplitOff: fileNames,
+					newBranchName: newBranchName
+				});
+			})(),
+			{
+				loading: 'Splitting into dependent branch',
+				success: 'Changes split into a dependent branch',
+				error: (error: Error) => `Failed to split into dependent branch: ${error.message}`
+			}
+		);
 	}
 </script>
 
@@ -372,15 +383,15 @@
 					{#if isBranchFiles && isAdmin}
 						<ContextMenuItem
 							label="Split off changes"
-							onclick={async () => {
-								await split(changes);
+							onclick={() => {
+								split(changes);
 								contextMenu.close();
 							}}
 						/>
 						<ContextMenuItem
 							label="Split into dependent branch"
-							onclick={async () => {
-								await splitIntoDependentBranch(changes);
+							onclick={() => {
+								splitIntoDependentBranch(changes);
 								contextMenu.close();
 							}}
 						/>
@@ -394,25 +405,25 @@
 						tooltip="Try to figure out where to commit the changes. Can create new branches too."
 						onclick={async () => {
 							contextMenu.close();
-							await triggerAutoCommit(item.changes);
+							triggerAutoCommit(item.changes);
 						}}
 						disabled={autoCommitting.current.isLoading}
 					/>
 					<ContextMenuItem
 						label="Branch changes 🧪"
 						tooltip="Create a new branch and commit the changes into it."
-						onclick={async () => {
+						onclick={() => {
 							contextMenu.close();
-							await triggerBranchChanges(item.changes);
+							triggerBranchChanges(item.changes);
 						}}
 						disabled={branchingChanges.current.isLoading}
 					/>
 					<ContextMenuItem
 						label="Absorb changes 🧪"
 						tooltip="Try to find the best place to absorb the changes into."
-						onclick={async () => {
+						onclick={() => {
 							contextMenu.close();
-							await triggerAbsorbChanges(item.changes);
+							triggerAbsorbChanges(item.changes);
 						}}
 						disabled={absorbingChanges.current.isLoading}
 					/>
