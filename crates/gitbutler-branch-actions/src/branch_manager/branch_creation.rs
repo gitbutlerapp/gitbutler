@@ -18,7 +18,7 @@ use gitbutler_repo::RepositoryExt as _;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{BranchOwnershipClaims, Stack, StackId};
 use gitbutler_time::time::now_since_unix_epoch_ms;
-use gitbutler_workspace::branch_trees::{update_uncommited_changes, WorkspaceState};
+use gitbutler_workspace::branch_trees::{update_uncommited_changes_with_tree, WorkspaceState};
 #[allow(deprecated)]
 use tracing::instrument;
 
@@ -122,6 +122,7 @@ impl BranchManager<'_> {
         pr_number: Option<usize>,
         perm: &mut WorktreeWritePermission,
     ) -> Result<StackId> {
+        let old_cwd = self.ctx.repo().create_wd_tree(0)?.id();
         let old_workspace = WorkspaceState::create(self.ctx, perm.read_permission())?;
         // only set upstream if it's not the default target
         let upstream_branch = match upstream_branch {
@@ -252,7 +253,7 @@ impl BranchManager<'_> {
         )?;
         self.ctx.add_branch_reference(&branch)?;
 
-        match self.apply_branch(branch.id, perm, old_workspace) {
+        match self.apply_branch(branch.id, perm, old_workspace, old_cwd) {
             Ok(_) => Ok(branch.id),
             Err(err)
                 if err
@@ -275,6 +276,7 @@ impl BranchManager<'_> {
         stack_id: StackId,
         perm: &mut WorktreeWritePermission,
         workspace_state: WorkspaceState,
+        old_cwd: git2::Oid,
     ) -> Result<String> {
         let repo = self.ctx.repo();
 
@@ -402,7 +404,14 @@ impl BranchManager<'_> {
 
         let new_workspace = WorkspaceState::create(self.ctx, perm.read_permission())?;
 
-        update_uncommited_changes(self.ctx, workspace_state, new_workspace, perm)?;
+        update_uncommited_changes_with_tree(
+            self.ctx,
+            workspace_state,
+            new_workspace,
+            old_cwd,
+            Some(true),
+            perm,
+        )?;
 
         update_workspace_commit(&vb_state, self.ctx)?;
 
