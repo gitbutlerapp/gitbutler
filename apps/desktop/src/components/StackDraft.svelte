@@ -3,6 +3,7 @@
 	import CommitGoesHere from '$components/CommitGoesHere.svelte';
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import NewCommitView from '$components/NewCommitView.svelte';
+	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
@@ -43,20 +44,22 @@
 				<div class="new-commit-view" data-testid={TestId.NewCommitView}>
 					<NewCommitView {projectId} />
 				</div>
-				{#await newNameResult then newName}
-					{@const branchName = draftBranchName.current || newName}
-					<BranchCard
-						type="draft-branch"
-						{projectId}
-						{branchName}
-						readonly={false}
-						lineColor="var(--clr-commit-local)"
-					>
-						{#snippet branchContent()}
-							<CommitGoesHere commitId={undefined} selected last />
-						{/snippet}
-					</BranchCard>
-				{/await}
+				<ReduxResult {projectId} result={newNameResult.current}>
+					{#snippet children(newName)}
+						{@const branchName = draftBranchName.current || newName}
+						<BranchCard
+							type="draft-branch"
+							{projectId}
+							{branchName}
+							readonly={false}
+							lineColor="var(--clr-commit-local)"
+						>
+							{#snippet branchContent()}
+								<CommitGoesHere commitId={undefined} selected last />
+							{/snippet}
+						</BranchCard>
+					{/snippet}
+				</ReduxResult>
 				<Resizer
 					persistId="resizer-darft-panel"
 					viewport={draftPanelEl}

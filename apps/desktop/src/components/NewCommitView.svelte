@@ -81,9 +81,6 @@
 		return failed;
 	}
 
-	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
-	const selection = $derived(stackState?.selection.current);
-
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 	const commitAction = $derived(exclusiveAction?.type === 'commit' ? exclusiveAction : undefined);
 
@@ -92,11 +89,7 @@
 	const topBranchName = $derived(topBranchResult?.current.data?.at(0)?.name);
 
 	const draftBranchName = $derived(uiState.global.draftBranchName.current);
-
-	const selectedBranchName = $derived(selection?.branchName || topBranchName);
-	const canCommit = $derived(
-		(selectedBranchName || draftBranchName || topBranchName) && selectedLines.current.length > 0
-	);
+	const canCommit = $derived(selectedLines.current.length > 0);
 
 	let input = $state<ReturnType<typeof CommitMessageEditor>>();
 
@@ -110,13 +103,17 @@
 		await tick();
 		try {
 			let finalStackId = stackId;
-			let finalBranchName = commitAction?.branchName || topBranchName;
+			let finalBranchName = commitAction?.branchName || draftBranchName || topBranchName;
+			// TODO: Refactor this awkward fallback somehow.
+			if (!finalBranchName) {
+				finalBranchName = await stackService.fetchNewBranchName(projectId);
+			}
 			const parentId = commitAction?.parentCommitId;
 
 			if (!finalStackId) {
 				const stack = await createNewStack({
 					projectId,
-					branch: { name: draftBranchName, order: 0 }
+					branch: { name: finalBranchName, order: 0 }
 				});
 				finalStackId = stack.id;
 				projectState.stackId.set(finalStackId);
