@@ -21,9 +21,11 @@
 					path: string;
 			  }
 			| undefined;
+		projectId: string;
 	}
 
 	const {
+		projectId,
 		entry,
 		isWithinRestore = true,
 		selectedFile = undefined,
@@ -167,7 +169,7 @@
 	const operation = mapOperation(entry.details);
 
 	const modeService = getContext(ModeService);
-	const mode = modeService.mode;
+	const mode = $derived(modeService.mode({ projectId }));
 </script>
 
 <div
@@ -183,7 +185,7 @@
 				onclick={() => {
 					onRestoreClick();
 				}}
-				disabled={$mode?.type !== 'OpenWorkspace'}>Revert</Button
+				disabled={mode.current.data?.type !== 'OpenWorkspace'}>Revert</Button
 			>
 		</div>
 		<span class="snapshot-time text-11">

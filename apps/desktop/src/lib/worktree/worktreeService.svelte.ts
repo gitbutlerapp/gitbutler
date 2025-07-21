@@ -116,18 +116,18 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					const unsubscribe = lifecycleApi.extra.tauri.listen<WorktreeChanges>(
 						`project://${arg.projectId}/worktree_changes`,
 						(event) => {
-							lifecycleApi.dispatch(api.util.invalidateTags([invalidatesList(ReduxTag.Diff)]));
-							lifecycleApi.updateCachedData((draft) => ({
+							lifecycleApi.updateCachedData(() => ({
 								changes: worktreeAdapter.addMany(
 									worktreeAdapter.getInitialState(),
 									event.payload.changes
 								),
 								rawChanges: event.payload.changes,
-								ignoredChanges: draft.ignoredChanges,
+								ignoredChanges: event.payload.ignoredChanges,
 								hunkAssignments: event.payload.assignments,
 								dependencies: event.payload.dependencies ?? undefined,
 								dependenciesError: event.payload.dependenciesError ?? undefined
 							}));
+							lifecycleApi.dispatch(api.util.invalidateTags([invalidatesList(ReduxTag.Diff)]));
 						}
 					);
 					// The `cacheEntryRemoved` promise resolves when the result is removed

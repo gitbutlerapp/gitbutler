@@ -265,6 +265,7 @@ fn main() {
                     modes::save_edit_and_return_to_workspace,
                     modes::abort_edit_and_return_to_workspace,
                     modes::edit_initial_index_state,
+                    modes::edit_changes_from_initial,
                     open::open_url,
                     forge::commands::pr_templates,
                     forge::commands::pr_template,

@@ -805,18 +805,6 @@ export class StackService {
 		);
 	}
 
-	get enterEditMode() {
-		return this.api.endpoints.enterEditMode.mutate;
-	}
-
-	get abortEditAndReturnToWorkspace() {
-		return this.api.endpoints.abortEditAndReturnToWorkspace.mutate;
-	}
-
-	get saveEditAndReturnToWorkspace() {
-		return this.api.endpoints.saveEditAndReturnToWorkspace.mutate;
-	}
-
 	get splitBranch() {
 		return this.api.endpoints.splitBranch.useMutation();
 	}
@@ -1515,24 +1503,6 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				query: (args) => args,
 				transformResponse: (commits: Commit[]) =>
 					commitAdapter.addMany(commitAdapter.getInitialState(), commits)
-			}),
-			enterEditMode: build.mutation<void, { projectId: string; commitId: string; stackId: string }>(
-				{
-					extraOptions: { command: 'enter_edit_mode' },
-					query: (args) => args
-				}
-			),
-			abortEditAndReturnToWorkspace: build.mutation<void, { projectId: string }>({
-				extraOptions: { command: 'abort_edit_and_return_to_workspace' },
-				query: (args) => args
-			}),
-			saveEditAndReturnToWorkspace: build.mutation<void, { projectId: string }>({
-				extraOptions: { command: 'save_edit_and_return_to_workspace' },
-				query: (args) => args,
-				invalidatesTags: [
-					invalidatesList(ReduxTag.WorktreeChanges),
-					invalidatesList(ReduxTag.StackDetails)
-				]
 			}),
 			splitBranch: build.mutation<
 				{ replacedCommits: [string, string][] },

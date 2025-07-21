@@ -157,7 +157,7 @@ pub fn in_open_workspace_mode(ctx: &CommandContext) -> bool {
     operating_mode(ctx) == OperatingMode::OpenWorkspace
 }
 
-pub fn assure_open_workspace_mode(ctx: &CommandContext) -> Result<()> {
+pub fn ensure_open_workspace_mode(ctx: &CommandContext) -> Result<()> {
     if in_open_workspace_mode(ctx) {
         Ok(())
     } else {
@@ -169,7 +169,7 @@ pub fn in_edit_mode(ctx: &CommandContext) -> bool {
     matches!(operating_mode(ctx), OperatingMode::Edit(_))
 }
 
-pub fn assure_edit_mode(ctx: &CommandContext) -> Result<EditModeMetadata> {
+pub fn ensure_edit_mode(ctx: &CommandContext) -> Result<EditModeMetadata> {
     match operating_mode(ctx) {
         OperatingMode::Edit(edit_mode_metadata) => Ok(edit_mode_metadata),
         _ => bail!("Expected to be in edit mode"),
@@ -180,7 +180,7 @@ pub fn in_outside_workspace_mode(ctx: &CommandContext) -> bool {
     matches!(operating_mode(ctx), OperatingMode::OutsideWorkspace(_))
 }
 
-pub fn assure_outside_workspace_mode(ctx: &CommandContext) -> Result<()> {
+pub fn ensure_outside_workspace_mode(ctx: &CommandContext) -> Result<()> {
     if in_outside_workspace_mode(ctx) {
         Ok(())
     } else {

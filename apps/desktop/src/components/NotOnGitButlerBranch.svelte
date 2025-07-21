@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Chrome from '$components/Chrome.svelte';
 	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
+	import ReduxResult from '$components/ReduxResult.svelte';
 	import directionDoubtSvg from '$lib/assets/illustrations/direction-doubt.svg?raw';
 	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
 	import { ModeService } from '$lib/mode/modeService';
@@ -26,8 +27,7 @@
 	const [setBaseBranchTarget, targetBranchSwitch] = baseBranchService.setTarget;
 
 	const modeService = getContext(ModeService);
-	// TODO: On filesystem change this should be reloaded
-	const mode = modeService.mode;
+	const mode = $derived(modeService.mode({ projectId }));
 
 	const [worktreeService] = inject(WorktreeService);
 	const changes = worktreeService.treeChanges(projectId);
@@ -41,8 +41,9 @@
 		});
 	}
 
-	let conflicts = $derived(
-		$mode?.type === 'OutsideWorkspace' && $mode.subject?.worktreeConflicts.length > 0
+	const conflicts = $derived(
+		mode.current.data?.type === 'OutsideWorkspace' &&
+			mode.current.data.subject.worktreeConflicts.length > 0
 	);
 
 	let selectedHandlingOfUncommitted: OptionsType = $state('stash');
@@ -107,20 +108,24 @@
 								Some files can’t be applied due to conflicts:
 							</p>
 							<div class="switchrepo__file-list">
-								{#if $mode?.type === 'OutsideWorkspace'}
-									{#each $mode.subject?.worktreeConflicts || [] as path}
-										<FileListItem
-											filePath={path}
-											clickable={false}
-											conflicted
-											conflictHint="Resolve to apply"
-											isLast={path ===
-												$mode.subject?.worktreeConflicts[
-													$mode.subject?.worktreeConflicts.length - 1
-												]}
-										/>
-									{/each}
-								{/if}
+								<ReduxResult result={mode.current} {projectId}>
+									{#snippet children(mode, _env)}
+										{#if mode.type === 'OutsideWorkspace'}
+											{#each mode.subject.worktreeConflicts || [] as path}
+												<FileListItem
+													filePath={path}
+													clickable={false}
+													conflicted
+													conflictHint="Resolve to apply"
+													isLast={path ===
+														mode.subject.worktreeConflicts[
+															mode.subject.worktreeConflicts.length - 1
+														]}
+												/>
+											{/each}
+										{/if}
+									{/snippet}
+								</ReduxResult>
 							</div>
 						{/if}
 					</div>

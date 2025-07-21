@@ -1,7 +1,7 @@
 use anyhow::Context;
+use but_core::ui::TreeChange;
 use but_settings::AppSettingsWithDiskSync;
 use but_workspace::StackId;
-use gitbutler_branch_actions::RemoteBranchFile;
 use gitbutler_command_context::CommandContext;
 use gitbutler_edit_mode::ConflictEntryPresence;
 use gitbutler_operating_modes::EditModeMetadata;
@@ -86,9 +86,22 @@ pub fn edit_initial_index_state(
     projects: State<'_, Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
-) -> Result<Vec<(RemoteBranchFile, Option<ConflictEntryPresence>)>, Error> {
+) -> Result<Vec<(TreeChange, Option<ConflictEntryPresence>)>, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
 
     gitbutler_edit_mode::commands::starting_index_state(&ctx).map_err(Into::into)
+}
+
+#[tauri::command(async)]
+#[instrument(skip(projects, settings), err(Debug))]
+pub fn edit_changes_from_initial(
+    projects: State<'_, Controller>,
+    settings: State<'_, AppSettingsWithDiskSync>,
+    project_id: ProjectId,
+) -> Result<Vec<TreeChange>, Error> {
+    let project = projects.get(project_id)?;
+    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
+
+    gitbutler_edit_mode::commands::changes_from_initial(&ctx).map_err(Into::into)
 }

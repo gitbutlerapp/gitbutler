@@ -7,18 +7,15 @@
 	import {
 		conflictEntryHint,
 		getConflictState,
-		getInitialFileStatus,
-		type ConflictEntryPresence,
-		type ConflictState
+		type ConflictEntryPresence
 	} from '$lib/conflictEntryPresence';
-	import { type RemoteFile } from '$lib/files/file';
-	import { UncommitedFilesWatcher } from '$lib/files/watcher';
+	import { FileService } from '$lib/files/fileService';
 	import { ModeService, type EditModeMetadata } from '$lib/mode/modeService';
 	import { vscodePath } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { UserService } from '$lib/user/userService';
-	import { computeFileStatus } from '$lib/utils/fileStatus';
+	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
@@ -28,9 +25,19 @@
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
+	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { SvelteSet } from 'svelte/reactivity';
+	import {
+		derived,
+		fromStore,
+		readable,
+		toStore,
+		type Readable,
+		type Writable
+	} from 'svelte/store';
+	import type { FileInfo } from '$lib/files/file';
+	import type { TreeChange } from '$lib/hunks/change';
 	import type { FileStatus } from '@gitbutler/ui/file/types';
-	import type { Writable } from 'svelte/store';
 
 	type Props = {
 		projectId: string;
@@ -43,11 +50,9 @@
 	const projectResult = $derived(projectService.getProject(projectId));
 
 	const remoteCommitService = getContext(CommitService);
-	const uncommitedFileWatcher = getContext(UncommitedFilesWatcher);
 	const modeService = getContext(ModeService);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
-
-	const uncommitedFiles = $derived(uncommitedFileWatcher.uncommittedFiles(projectId));
+	const fileService = getContext(FileService);
 
 	const userService = getContext(UserService);
 	const user = userService.user;
@@ -55,7 +60,18 @@
 	let modeServiceAborting = $state<'inert' | 'loading' | 'completed'>('inert');
 	let modeServiceSaving = $state<'inert' | 'loading' | 'completed'>('inert');
 
-	let initialFiles = $state<[RemoteFile, ConflictEntryPresence | undefined][]>([]);
+	const initialFiles = $derived(modeService.initialEditModeState({ projectId }));
+	const uncommittedFiles = $derived(modeService.changesSinceInitialEditState({ projectId }));
+
+	function readFromWorkspace(
+		filePath: string,
+		projectId: string
+	): Readable<{ data: FileInfo; isLarge: boolean } | undefined> {
+		return readable(undefined as { data: FileInfo; isLarge: boolean } | undefined, (set) => {
+			fileService.readFromWorkspace(filePath, projectId).then(set);
+		});
+	}
+
 	let commit = $state<Commit>();
 
 	async function getCommitData() {
@@ -79,89 +95,53 @@
 	let contextMenu = $state<ReturnType<typeof FileContextMenu> | undefined>(undefined);
 	let confirmSaveModal = $state<ReturnType<typeof Modal> | undefined>(undefined);
 
-	$effect(() => {
-		modeService.getInitialIndexState().then((files) => {
-			initialFiles = files;
-		});
-	});
-
 	interface FileEntry {
-		conflicted: boolean;
-		name: string;
 		path: string;
 		status?: FileStatus;
+		conflicted: boolean;
 		conflictHint?: string;
-		conflictState?: ConflictState;
-		conflictEntryPresence?: ConflictEntryPresence;
 	}
 
 	const initialFileMap = $derived(
-		new Map<string, RemoteFile>(initialFiles.map(([file]) => [file.path, file]))
-	);
-
-	const uncommitedFileMap = $derived(
-		new Map<string, RemoteFile>($uncommitedFiles.map(([file]) => [file.path, file]))
+		new Map<string, { file: TreeChange; conflictEntryPresence?: ConflictEntryPresence }>(
+			initialFiles.current?.data?.map(([f, c]) => [
+				f.path,
+				{ file: f, conflictEntryPresence: c }
+			]) || []
+		)
 	);
 
 	const files = $derived.by(() => {
+		if (!initialFiles.current.data || !uncommittedFiles.current.data) return [];
+
 		const outputMap = new Map<string, FileEntry>();
 
-		// Create output
-		{
-			initialFiles.forEach(([initialFile, conflictEntryPresence]) => {
-				const conflictState =
-					conflictEntryPresence && getConflictState(initialFile, conflictEntryPresence);
-
-				const uncommitedFileChange = uncommitedFileMap.get(initialFile.path);
-
-				outputMap.set(initialFile.path, {
-					name: initialFile.filename,
-					path: initialFile.path,
-					conflicted: !!conflictEntryPresence,
-					conflictHint: conflictEntryPresence
-						? conflictEntryHint(conflictEntryPresence)
-						: undefined,
-					status: getInitialFileStatus(uncommitedFileChange, conflictEntryPresence),
-					conflictState,
-					conflictEntryPresence
-				});
+		initialFiles.current.data.forEach(([initialFile, conflictEntryPresence]) => {
+			outputMap.set(initialFile.path, {
+				path: initialFile.path,
+				conflicted: !!conflictEntryPresence,
+				conflictHint: conflictEntryPresence ? conflictEntryHint(conflictEntryPresence) : undefined
 			});
+		});
 
-			$uncommitedFiles.forEach(([uncommitedFile]) => {
-				const existingFile = initialFileMap.get(uncommitedFile.path);
-				determineOutput: {
-					if (existingFile) {
-						const fileChanged = existingFile.hunks.some(
-							(hunk) => !uncommitedFile.hunks.map((hunk) => hunk.diff).includes(hunk.diff)
-						);
-
-						if (fileChanged) {
-							// All initial entries should have been added to the map,
-							// so we can safely assert that it will be present
-							const outputFile = outputMap.get(uncommitedFile.path)!;
-							if (outputFile.conflicted && outputFile.conflictEntryPresence) {
-								outputFile.conflictState = getConflictState(
-									uncommitedFile,
-									outputFile.conflictEntryPresence
-								);
-							}
-
-							if (!outputFile.conflicted) {
-								outputFile.status = 'M';
-							}
-						}
-						break determineOutput;
-					}
-
-					outputMap.set(uncommitedFile.path, {
-						name: uncommitedFile.filename,
-						path: uncommitedFile.path,
-						conflicted: false,
-						status: computeFileStatus(uncommitedFile)
-					});
+		uncommittedFiles.current.data.forEach((uncommitedFile) => {
+			const outputFile = outputMap.get(uncommitedFile.path)!;
+			if (outputFile) {
+				// We don't want to set a status if the file is
+				// conflicted because it will _always_ show up as
+				// modified
+				if (!outputFile.conflicted) {
+					outputFile.status = computeChangeStatus(uncommitedFile);
 				}
+				return;
+			}
+
+			outputMap.set(uncommitedFile.path, {
+				path: uncommitedFile.path,
+				conflicted: false,
+				status: computeChangeStatus(uncommitedFile)
 			});
-		}
+		});
 
 		const orderedOutput = Array.from(outputMap.values());
 		orderedOutput.sort((a, b) => {
@@ -181,23 +161,34 @@
 	const conflictedFiles = $derived(files.filter((file) => file.conflicted));
 
 	let manuallyResolvedFiles = new SvelteSet<string>();
+	const filesWithConflictedStatues = $derived(
+		conflictedFiles.map((f) => [f, isConflicted(f)] as [FileEntry, Readable<boolean>])
+	);
 	const stillConflictedFiles = $derived(
-		conflictedFiles.filter(
-			(file) => !manuallyResolvedFiles.has(file.path) && file.conflictState !== 'resolved'
-		)
+		filesWithConflictedStatues.filter(([_, status]) => fromStore(status).current).map(([f]) => f)
 	);
 
-	function isConflicted(file: FileEntry): boolean {
-		return (
-			file.conflicted && file.conflictState !== 'resolved' && !manuallyResolvedFiles.has(file.path)
-		);
+	function isConflicted(fileEntry: FileEntry): Readable<boolean> {
+		const file = readFromWorkspace(fileEntry.path, projectId);
+		const conflictState = derived(file, (file) => {
+			if (!isDefined(file?.data.content)) return 'unknown';
+			const { conflictEntryPresence } = initialFileMap.get(fileEntry.path) || {};
+			if (!conflictEntryPresence) return 'unknown';
+			return getConflictState(conflictEntryPresence, file.data.content);
+		});
+
+		const manuallyResolved = toStore(() => manuallyResolvedFiles.has(fileEntry.path));
+
+		return derived([conflictState, manuallyResolved], ([conflictState, manuallyResolved]) => {
+			return fileEntry.conflicted && conflictState === 'conflicted' && !manuallyResolved;
+		});
 	}
 
 	async function abort() {
 		modeServiceAborting = 'loading';
 
 		try {
-			await modeService.abortEditAndReturnToWorkspace();
+			await modeService.abortEditAndReturnToWorkspace({ projectId });
 			modeServiceAborting = 'completed';
 		} finally {
 			modeServiceAborting = 'inert';
@@ -208,7 +199,7 @@
 		modeServiceSaving = 'loading';
 
 		try {
-			await modeService.saveEditAndReturnToWorkspace();
+			await modeService.saveEditAndReturnToWorkspace({ projectId });
 			modeServiceSaving = 'completed';
 		} finally {
 			modeServiceAborting = 'inert';
@@ -285,11 +276,13 @@
 							}}
 						>
 							{#each files as file (file.path)}
+								{@const conflictedStore = isConflicted(file)}
+								{@const conflicted = fromStore(conflictedStore).current}
 								<div class="file">
 									<FileListItem
 										filePath={file.path}
 										fileStatus={file.status}
-										conflicted={isConflicted(file)}
+										{conflicted}
 										onresolveclick={file.conflicted
 											? () => manuallyResolvedFiles.add(file.path)
 											: undefined}

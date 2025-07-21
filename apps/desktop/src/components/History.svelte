@@ -125,6 +125,7 @@
 
 						{#if entry.details}
 							<SnapshotCard
+								{projectId}
 								isWithinRestore={withinRestoreItems.includes(entry.id)}
 								{entry}
 								onRestoreClick={() => {

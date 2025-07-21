@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::actions::Verify;
 use crate::{r#virtual::IsCommitIntegrated, VirtualBranchesExt};
-use gitbutler_operating_modes::assure_open_workspace_mode;
+use gitbutler_operating_modes::ensure_open_workspace_mode;
 
 /// Adds a new "series/branch" to the Stack.
 /// This is in fact just creating a new  GitButler patch reference (head) and associates it with the stack.
@@ -32,7 +32,7 @@ pub fn create_branch(
     let mut guard = ctx.project().exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     let _ = ctx.snapshot_create_dependent_branch(&req.name, guard.write_permission());
-    assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
+    ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
     let normalized_head_name = normalize_branch_name(&req.name)?;
     let repo = ctx.gix_repo()?;
@@ -70,7 +70,7 @@ pub fn remove_branch(ctx: &CommandContext, stack_id: StackId, branch_name: Strin
     let mut guard = ctx.project().exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     let _ = ctx.snapshot_remove_dependent_branch(&branch_name, guard.write_permission());
-    assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
+    ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
     stack.remove_branch(ctx, branch_name)
 }
@@ -86,7 +86,7 @@ pub fn update_branch_name(
     let mut guard = ctx.project().exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     let _ = ctx.snapshot_update_dependent_branch_name(&branch_name, guard.write_permission());
-    assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
+    ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
     let normalized_head_name = normalize_branch_name(&new_name)?;
     stack.update_branch(
@@ -113,7 +113,7 @@ pub fn update_branch_description(
         SnapshotDetails::new(OperationKind::UpdateDependentBranchDescription),
         guard.write_permission(),
     );
-    assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
+    ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
     stack.update_branch(
         ctx,
@@ -146,7 +146,7 @@ pub fn update_branch_pr_number(
         SnapshotDetails::new(OperationKind::UpdateDependentBranchPrNumber),
         guard.write_permission(),
     );
-    assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
+    ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
     stack.set_pr_number(ctx, &branch_name, pr_number)
 }
@@ -160,7 +160,7 @@ pub fn push_stack(
     branch_limit: String,
 ) -> Result<()> {
     ctx.verify(ctx.project().exclusive_worktree_access().write_permission())?;
-    assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
+    ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let state = ctx.project().virtual_branches();
     let stack = state.get_stack(stack_id)?;
 

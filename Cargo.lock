@@ -2972,6 +2972,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
+ "but-core",
  "but-rebase",
  "but-workspace",
  "git2",

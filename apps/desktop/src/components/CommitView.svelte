@@ -136,7 +136,7 @@
 
 	async function editPatch() {
 		if (!canEdit()) return;
-		await modeService!.enterEditMode(commitKey.commitId, stackId);
+		await modeService!.enterEditMode({ commitId: commitKey.commitId, stackId, projectId });
 	}
 
 	function cancelEdit() {
