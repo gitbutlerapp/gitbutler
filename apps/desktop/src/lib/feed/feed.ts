@@ -9,6 +9,36 @@ import type { ToolCall } from '$lib/ai/tool';
 import type { Tauri } from '$lib/backend/tauri';
 import type { StackService } from '$lib/stacks/stackService.svelte';
 
+export default class FeedFactory {
+	private instance: Feed | null = null;
+
+	constructor(
+		private tauri: Tauri,
+		private stackService: StackService
+	) {}
+
+	/**
+	 * Gets or creates a Feed instance for the given project ID.
+	 *
+	 * If an instance already exists for the project ID, it returns that instance
+	 *
+	 * If the instance exists but is for a different project ID, it unsubscribes from the previous instance
+	 * and creates a new instance for the new project ID.
+	 */
+	getFeed(projectId: string): Feed {
+		if (!this.instance) {
+			this.instance = new Feed(this.tauri, projectId, this.stackService);
+		}
+
+		if (!this.instance.isProjectFeed(projectId)) {
+			this.instance.unlisten();
+			this.instance = new Feed(this.tauri, projectId, this.stackService);
+		}
+
+		return this.instance;
+	}
+}
+
 type DBEvent = {
 	kind: 'actions' | 'workflows' | 'hunk-assignments' | 'unknown';
 	item?: string;
@@ -86,13 +116,13 @@ export type InProgressUpdate = TokenUpdate | ToolCallUpdate;
 
 type InProgressSubscribeCallback = (update: InProgressUpdate) => void;
 
-export class Feed {
-	private actionsBuffer: ButlerAction[] = [];
-	private workflowsBuffer: Workflow[] = [];
+class Feed {
+	private actionsBuffer: ButlerAction[];
+	private workflowsBuffer: Workflow[];
 	private unlistenDB: () => void;
 	private unlistenTokens: () => void;
 	private unlistenToolCalls: () => void;
-	private initialized = false;
+	private initialized;
 	private mutex = new Mutex();
 	private updateTimeout: ReturnType<typeof setTimeout> | null = null;
 	private messageSubscribers: Map<InProgressAssistantMessageId, InProgressSubscribeCallback[]>;
@@ -108,7 +138,10 @@ export class Feed {
 		private projectId: string,
 		private stackService: StackService
 	) {
+		this.actionsBuffer = [];
+		this.workflowsBuffer = [];
 		this.messageSubscribers = new Map();
+		this.initialized = false;
 
 		this.unlistenDB = this.tauri.listen<DBEvent>(`project://${projectId}/db-updates`, (event) => {
 			this.handleDBEvent(event.payload);
@@ -127,6 +160,10 @@ export class Feed {
 				this.handleToolCallEvent(event.payload);
 			}
 		);
+	}
+
+	isProjectFeed(projectId: string): boolean {
+		return this.projectId === projectId;
 	}
 
 	subscribeToMessage(

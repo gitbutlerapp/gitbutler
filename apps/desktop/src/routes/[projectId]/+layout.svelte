@@ -18,7 +18,7 @@
 	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { showHistoryView } from '$lib/config/config';
 	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
-	import { Feed } from '$lib/feed/feed';
+	import FeedFactory from '$lib/feed/feed';
 	import { FocusManager } from '$lib/focus/focusManager.svelte';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { GitHubClient } from '$lib/forge/github/githubClient';
@@ -43,7 +43,7 @@
 
 	const { data, children: pageChildren }: { data: LayoutData; children: Snippet } = $props();
 
-	const { projectId, userService, posthog, projectMetrics, tauri } = $derived(data);
+	const { projectId, userService, posthog, projectMetrics } = $derived(data);
 
 	const baseBranchService = getContext(BaseBranchService);
 	const repoInfoResponse = $derived(baseBranchService.repo(projectId));
@@ -56,7 +56,7 @@
 	const branchService = getContext(BranchService);
 
 	const stackService = getContext(StackService);
-	const feed = $derived(new Feed(tauri, projectId, stackService));
+	const feedFactory = getContext(FeedFactory);
 	const modeService = $derived(new ModeService(projectId, stackService));
 	$effect.pre(() => {
 		setContext(ModeService, modeService);
@@ -95,9 +95,6 @@
 	$effect.pre(() => {
 		setContext(HistoryService, data.historyService);
 		setContext(BaseBranch, baseBranch);
-
-		// Cloud related services
-		setContext(Feed, feed);
 	});
 
 	const focusManager = new FocusManager();
@@ -279,6 +276,11 @@
 	// Listen for stack details updates from the backend.
 	$effect(() => {
 		stackService.stackDetailsUpdateListener(projectId);
+	});
+
+	// Listen for the feed updates from the backend.
+	$effect(() => {
+		feedFactory.getFeed(projectId);
 	});
 </script>
 

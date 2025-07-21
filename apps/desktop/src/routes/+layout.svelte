@@ -31,6 +31,7 @@
 	import DependencyService from '$lib/dependencies/dependencyService.svelte';
 	import { DragStateService } from '$lib/dragging/dragStateService.svelte';
 	import { DropzoneRegistry } from '$lib/dragging/registry';
+	import FeedFactory from '$lib/feed/feed';
 	import { FileService } from '$lib/files/fileService';
 	import { UncommitedFilesWatcher } from '$lib/files/watcher';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
@@ -148,6 +149,7 @@
 		forgeFactory,
 		uiState
 	);
+	const feedFactory = new FeedFactory(data.tauri, stackService);
 	const rulesService = new RulesService(clientState['backendApi']);
 	const actionService = new ActionService(clientState['backendApi']);
 	const oplogService = new OplogService(clientState['backendApi']);
@@ -226,6 +228,7 @@
 	setContext(AppSettings, data.appSettings);
 	setContext(EventContext, data.eventContext);
 	setContext(StackService, stackService);
+	setContext(FeedFactory, feedFactory);
 	setContext(RulesService, rulesService);
 	setContext(ActionService, actionService);
 	setContext(OplogService, oplogService);
