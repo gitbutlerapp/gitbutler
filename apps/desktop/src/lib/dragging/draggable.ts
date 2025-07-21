@@ -65,7 +65,7 @@ function setupDragHandlers(
 		if (!opts || opts.disabled) return;
 		e.stopPropagation();
 
-		if (dragHandle && dragHandle.dataset.noDrag !== undefined) {
+		if (!dragHandle || dragHandle.dataset.noDrag !== undefined) {
 			e.preventDefault();
 			return false;
 		}
