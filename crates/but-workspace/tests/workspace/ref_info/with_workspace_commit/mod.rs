@@ -903,7 +903,7 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
         stacks: [
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000001,
+                    00000000-0000-0000-0000-000000000000,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
@@ -923,7 +923,7 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
             },
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000000,
+                    00000000-0000-0000-0000-000000000001,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
@@ -945,7 +945,7 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
             },
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000000,
+                    00000000-0000-0000-0000-000000000002,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
@@ -1028,7 +1028,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
         stacks: [
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000001,
+                    00000000-0000-0000-0000-000000000000,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
@@ -1050,7 +1050,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
             },
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000000,
+                    00000000-0000-0000-0000-000000000001,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
@@ -1139,7 +1139,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
         stacks: [
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000001,
+                    00000000-0000-0000-0000-000000000000,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
@@ -1179,7 +1179,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
             },
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000000,
+                    00000000-0000-0000-0000-000000000001,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
@@ -1251,7 +1251,7 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
         stacks: [
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000001,
+                    00000000-0000-0000-0000-000000000000,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
@@ -1273,7 +1273,7 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
             },
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000000,
+                    00000000-0000-0000-0000-000000000001,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
@@ -1924,7 +1924,7 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
         stacks: [
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000001,
+                    00000000-0000-0000-0000-000000000000,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
@@ -1946,7 +1946,7 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
             },
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000000,
+                    00000000-0000-0000-0000-000000000001,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
@@ -1997,7 +1997,7 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
         stacks: [
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000001,
+                    00000000-0000-0000-0000-000000000000,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
@@ -2019,7 +2019,7 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
             },
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000000,
+                    00000000-0000-0000-0000-000000000001,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
@@ -2093,7 +2093,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         stacks: [
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000001,
+                    00000000-0000-0000-0000-000000000000,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
@@ -2113,7 +2113,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
             },
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000000,
+                    00000000-0000-0000-0000-000000000001,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
@@ -2167,7 +2167,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         stacks: [
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000001,
+                    00000000-0000-0000-0000-000000000000,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
@@ -2187,7 +2187,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
             },
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000000,
+                    00000000-0000-0000-0000-000000000001,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
@@ -2240,7 +2240,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         stacks: [
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000001,
+                    00000000-0000-0000-0000-000000000000,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
@@ -2260,7 +2260,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
             },
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000000,
+                    00000000-0000-0000-0000-000000000001,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
@@ -2319,7 +2319,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         stacks: [
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000001,
+                    00000000-0000-0000-0000-000000000000,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
@@ -2341,7 +2341,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
             },
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000000,
+                    00000000-0000-0000-0000-000000000001,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),

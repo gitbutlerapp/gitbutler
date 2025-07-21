@@ -492,19 +492,18 @@ fn find_matching_stack_id(
         .stacks
         .iter()
         .map(|s| {
-            (
-                s.id,
-                s.branches
-                    .iter()
-                    .filter(|b| {
-                        segments
-                            .iter()
-                            .any(|s| s.ref_name.as_ref().is_some_and(|rn| rn == &b.ref_name))
-                    })
-                    .count(),
-            )
+            let num_matching_refs = s
+                .branches
+                .iter()
+                .filter(|b| {
+                    segments
+                        .iter()
+                        .any(|s| s.ref_name.as_ref().is_some_and(|rn| rn == &b.ref_name))
+                })
+                .count();
+            (s.id, num_matching_refs)
         })
-        .sorted_by_key(|(_, num_matches)| *num_matches)
+        .sorted_by(|(_, lhs), (_, rhs)| lhs.cmp(rhs).reverse())
         .next()
         .map(|(stack_id, _)| stack_id)
 }
