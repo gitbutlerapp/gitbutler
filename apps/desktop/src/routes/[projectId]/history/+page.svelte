@@ -9,7 +9,6 @@
 	import SnapshotCard from '$components/SnapshotCard.svelte';
 	import emptyFileSvg from '$lib/assets/empty-state/empty-file.svg?raw';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
-	import { RemoteFile } from '$lib/files/file';
 	import { HISTORY_SERVICE, createdOnDay } from '$lib/history/history';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
@@ -19,8 +18,8 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import FileViewHeader from '@gitbutler/ui/file/FileViewHeader.svelte';
 	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
-	import { plainToInstance } from 'class-transformer';
-	import type { Snapshot, SnapshotDiff } from '$lib/history/types';
+	import type { Snapshot } from '$lib/history/types';
+	import type { TreeChange } from '$lib/hunks/change';
 
 	// TODO: Refactor so we don't need non-null assertion.
 	const projectId = $derived(page.params.projectId!);
@@ -33,21 +32,21 @@
 	let sidebarEl = $state<HTMLElement>();
 
 	const historyService = inject(HISTORY_SERVICE);
-	const snapshots = historyService.snapshots;
+	const snapshotManager = $derived(historyService.snapshots(projectId));
+	const snapshots = $derived(snapshotManager.snapshots);
 
-	const loading = historyService.loading;
-	const isAllLoaded = historyService.isAllLoaded;
+	const loading = $derived(snapshotManager.loading);
+	const isAllLoaded = $derived(snapshotManager.isAllLoaded);
 
 	const withinRestoreItems = $derived(findRestorationRanges($snapshots));
 
-	let currentFilePreview: RemoteFile | undefined = $state(undefined);
-	let snapshotFilesTempStore:
-		| { entryId: string; diffs: { [key: string]: SnapshotDiff } }
-		| undefined = $state(undefined);
+	let currentFilePreview: TreeChange | undefined = $state(undefined);
+	let snapshotFilesTempStore: { entryId: string; diffs: TreeChange[] } | undefined =
+		$state(undefined);
 	let selectedFile: { entryId: string; path: string } | undefined = $state(undefined);
 
 	async function onLastInView() {
-		if (!$loading && !$isAllLoaded) await historyService.loadMore();
+		if (!$loading && !$isAllLoaded) await snapshotManager.loadMore();
 	}
 
 	function findRestorationRanges(snapshots: Snapshot[]) {
@@ -75,7 +74,7 @@
 	function updateFilePreview(entry: Snapshot, path: string) {
 		if (!snapshotFilesTempStore) return;
 
-		const file = snapshotFilesTempStore.diffs[path];
+		const file = snapshotFilesTempStore.diffs.find((tc) => tc.path === path);
 		if (!file) return;
 
 		selectedFile = {
@@ -83,11 +82,7 @@
 			path: path
 		};
 
-		currentFilePreview = plainToInstance(RemoteFile, {
-			path: path,
-			hunks: file.hunks,
-			binary: file.binary
-		});
+		currentFilePreview = file;
 	}
 </script>
 

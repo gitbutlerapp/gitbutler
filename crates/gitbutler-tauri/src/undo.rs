@@ -1,10 +1,8 @@
-use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::Context;
 use but_core::ui::TreeChanges;
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_command_context::CommandContext;
-use gitbutler_diff::FileDiff;
 use gitbutler_oplog::entry::OperationKind;
 use gitbutler_oplog::{entry::Snapshot, OplogExt};
 use gitbutler_project as projects;
@@ -61,10 +59,11 @@ pub fn snapshot_diff(
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     sha: String,
-) -> Result<HashMap<PathBuf, FileDiff>, Error> {
+) -> Result<Vec<but_core::ui::TreeChange>, Error> {
     let project = projects.get(project_id).context("failed to get project")?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     let diff = ctx.snapshot_diff(sha.parse().map_err(anyhow::Error::from)?)?;
+    let diff: Vec<but_core::ui::TreeChange> = diff.into_iter().map(Into::into).collect();
     Ok(diff)
 }
 

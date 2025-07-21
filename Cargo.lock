@@ -3142,6 +3142,7 @@ name = "gitbutler-oplog"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-core",
  "git2",
  "gitbutler-branch",
  "gitbutler-command-context",

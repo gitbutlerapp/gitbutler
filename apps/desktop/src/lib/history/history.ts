@@ -1,12 +1,12 @@
 import { invoke } from '$lib/backend/ipc';
-import { Snapshot, SnapshotDiff } from '$lib/history/types';
+import { Snapshot } from '$lib/history/types';
 import { InjectionToken } from '@gitbutler/shared/context';
 import { plainToInstance } from 'class-transformer';
 import { get, writable } from 'svelte/store';
+import type { TreeChange } from '$lib/hunks/change';
 
 export const HISTORY_SERVICE = new InjectionToken<HistoryService>('HistoryService');
-
-export class HistoryService {
+class SnapshotPager {
 	cursor: string | undefined = undefined;
 
 	readonly loading = writable(false);
@@ -22,7 +22,7 @@ export class HistoryService {
 		};
 	});
 
-	constructor(private projectId: string) {}
+	constructor(private readonly projectId: string) {}
 
 	async load() {
 		const data = await this.fetch();
@@ -61,16 +61,25 @@ export class HistoryService {
 	clear() {
 		this.snapshots.set([]);
 	}
+}
 
-	async getSnapshotDiff(projectId: string, sha: string) {
-		const resp = await invoke<{ [key: string]: any }>('snapshot_diff', {
+export class HistoryService {
+	#snapshots = new Map<string, SnapshotPager>();
+	snapshots(projectId: string) {
+		let snapshot = this.#snapshots.get(projectId);
+		if (!snapshot) {
+			snapshot = new SnapshotPager(projectId);
+			this.#snapshots.set(projectId, snapshot);
+		}
+		return snapshot;
+	}
+
+	async getSnapshotDiff(projectId: string, sha: string): Promise<TreeChange[]> {
+		const resp = await invoke<TreeChange[]>('snapshot_diff', {
 			projectId: projectId,
 			sha: sha
 		});
-		return Object.entries(resp).reduce<{ [key: string]: SnapshotDiff }>((acc, [path, diff]) => {
-			acc[path] = plainToInstance(SnapshotDiff, diff);
-			return acc;
-		}, {});
+		return resp;
 	}
 
 	async restoreSnapshot(projectId: string, sha: string) {
