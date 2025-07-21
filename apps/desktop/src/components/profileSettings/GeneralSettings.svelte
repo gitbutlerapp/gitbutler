@@ -58,8 +58,6 @@
 		label: option.displayName,
 		value: option.schemeIdentifer
 	}));
-	const settingsStore = $derived(settingsService.appSettings);
-	const canUseActions = $derived($settingsStore?.featureFlags.actions ?? false);
 
 	$effect(() => {
 		if ($user && !loaded) {
@@ -221,36 +219,34 @@
 	{/snippet}
 </SectionCard>
 
-{#if canUseActions}
-	<SectionCard orientation="column">
-		{#snippet title()}
-			Install the GitButler CLI (but)
-		{/snippet}
+<SectionCard orientation="column">
+	{#snippet title()}
+		Install the GitButler CLI (but)
+	{/snippet}
 
-		{#snippet caption()}
-			Installs the GitButler CLI (but) in your PATH, allowing you to use it from the terminal. This
-			action will request admin privileges. Alternatively, you could create a symlink manually.
+	{#snippet caption()}
+		Installs the GitButler CLI (but) in your PATH, allowing you to use it from the terminal. This
+		action will request admin privileges. Alternatively, you could create a symlink manually.
 
-			{#if showSymlink}
-				<CliSymLink class="m-top-14" />
-			{/if}
-		{/snippet}
+		{#if showSymlink}
+			<CliSymLink class="m-top-14" />
+		{/if}
+	{/snippet}
 
-		<div class="flex flex-col gap-16">
-			<div class="flex gap-8 justify-end">
-				<Button style="pop" icon="play" onclick={async () => await invoke('install_cli')}
-					>Install But CLI</Button
-				>
-				<Button
-					style="neutral"
-					kind="outline"
-					disabled={showSymlink}
-					onclick={() => (showSymlink = !showSymlink)}>Show symlink</Button
-				>
-			</div>
+	<div class="flex flex-col gap-16">
+		<div class="flex gap-8 justify-end">
+			<Button style="pop" icon="play" onclick={async () => await invoke('install_cli')}
+				>Install But CLI</Button
+			>
+			<Button
+				style="neutral"
+				kind="outline"
+				disabled={showSymlink}
+				onclick={() => (showSymlink = !showSymlink)}>Show symlink</Button
+			>
 		</div>
-	</SectionCard>
-{/if}
+	</div>
+</SectionCard>
 
 <Spacer />
 
