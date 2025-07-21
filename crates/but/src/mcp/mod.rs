@@ -141,6 +141,7 @@ impl Mcp {
             Some(request.full_prompt.clone()),
             ActionHandler::HandleChangesSimple,
             Source::Mcp(client_info.clone().map(Into::into)),
+            None,
         )
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
         // Trigger commit message generation for newly created commits

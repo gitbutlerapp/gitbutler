@@ -36,6 +36,7 @@ pub fn handle_changes(
         None,
         handler,
         but_action::Source::GitButler,
+        None,
     )
     .map(|(_id, outcome)| outcome)
     .map_err(|e| Error::from(anyhow::anyhow!(e)))

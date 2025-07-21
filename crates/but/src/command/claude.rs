@@ -103,12 +103,18 @@ pub(crate) async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
         file_path: None,
     };
 
+    let session = list_sessions(defer.ctx)?
+        .into_iter()
+        .find(|s| s.id == input.session_id)
+        .ok_or_else(|| anyhow::anyhow!("Lane for session {} not found", input.session_id))?;
+
     let (id, outcome) = but_action::handle_changes(
         defer.ctx,
         &summary,
         Some(prompt.clone()),
         ActionHandler::HandleChangesSimple,
         Source::ClaudeCode(input.session_id),
+        Some(StackId::from_str(&session.stack_id)?),
     )?;
 
     let stacks = crate::log::stacks(defer.ctx)?;

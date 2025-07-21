@@ -84,7 +84,7 @@ pub fn freestyle(
         2. Take a look at the project status and see what changes are present in the project. It's important to understand what stacks and branche are present, and what the file changes are.
         3. Try to correlate the prompt with the project status and determine what actions you can take to help the user.
         4. Use the tools provided to you to perform the actions.
-    
+
     ### Capabilities
     You can generally perform the normal Git operations, such as creating branches and committing to them.
     You can also perform more advanced operations, such as:
@@ -95,7 +95,7 @@ pub fn freestyle(
     - `split a branch`: Take an existing branch and split it into two branches. This basically takes a set of committed file changes and moves them to a new branch, removing them from the original branch.
         This is useful when you want to separate the changes into a new branch for further work.
         In order to do this, you will need to get the branch changes for the intended source branch (call the `get_branch_changes` tool), and then call the split branch tool with the changes you want to split off.
-    
+
     ### Important notes
     - Only perform the action on the file changes specified in the prompt.
     - If the prompt is not clear, ask the user for clarification.
@@ -167,11 +167,16 @@ pub fn handle_changes(
     external_prompt: Option<String>,
     handler: ActionHandler,
     source: Source,
+    exclusive_stack: Option<StackId>,
 ) -> anyhow::Result<(Uuid, Outcome)> {
     match handler {
-        ActionHandler::HandleChangesSimple => {
-            simple::handle_changes(ctx, change_summary, external_prompt, source)
-        }
+        ActionHandler::HandleChangesSimple => simple::handle_changes(
+            ctx,
+            change_summary,
+            external_prompt,
+            source,
+            exclusive_stack,
+        ),
     }
 }
 
