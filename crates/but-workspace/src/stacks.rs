@@ -23,12 +23,19 @@ fn id_from_name_v2_to_v3(
     meta: &VirtualBranchesTomlMetadata,
 ) -> anyhow::Result<StackId> {
     let ref_meta = meta.branch(name)?;
-    ref_meta.stack_id().with_context(|| {
-        format!(
-            "{name:?} didn't have a stack-id even though \
+    ref_meta
+        .stack_id()
+        .with_context(|| {
+            format!(
+                "{name:?} didn't have a stack-id even though \
         it was supposed to be in virtualbranches.toml"
-        )
-    })
+            )
+        })
+        .map(|id| {
+            id.to_string()
+                .parse()
+                .expect("new stack ids are just UUIDs, like the old ones")
+        })
 }
 
 /// Returns the list of branch information for the branches in a stack.
