@@ -239,7 +239,7 @@
 		const branchName = selectionId.branchName;
 
 		const fileNames = changes.map((change) => change.path);
-		const newBranchName = await stackService.newBranchName(projectId);
+		const newBranchName = await stackService.fetchNewBranchName(projectId);
 
 		if (!newBranchName) {
 			toasts.error('Failed to generate a new branch name.');
@@ -269,7 +269,7 @@
 		const branchName = selectionId.branchName;
 
 		const fileNames = changes.map((change) => change.path);
-		const newBranchName = await stackService.newBranchName(projectId);
+		const newBranchName = await stackService.fetchNewBranchName(projectId);
 
 		if (!newBranchName) {
 			toasts.error('Failed to generate a new branch name.');
@@ -306,7 +306,7 @@
 						<ContextMenuItem
 							label="Stash into branch"
 							onclick={() => {
-								stackService.newBranchName(projectId).then((name) => {
+								stackService.fetchNewBranchName(projectId).then((name) => {
 									stashBranchName = name || '';
 								});
 								stashConfirmationModal?.show(item);

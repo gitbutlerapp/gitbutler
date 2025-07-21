@@ -736,7 +736,14 @@ export class StackService {
 		});
 	}
 
-	async newBranchName(projectId: string) {
+	newBranchName(projectId: string) {
+		const result = $derived(
+			this.api.endpoints.newBranchName.useQuery({ projectId }, { forceRefetch: true })
+		);
+		return result;
+	}
+
+	async fetchNewBranchName(projectId: string) {
 		return await this.api.endpoints.newBranchName.fetch({ projectId }, { forceRefetch: true });
 	}
 
