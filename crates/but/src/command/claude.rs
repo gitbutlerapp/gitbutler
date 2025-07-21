@@ -365,7 +365,7 @@ pub(crate) fn handle_post_tool_call() -> anyhow::Result<ClaudeHookOutput> {
     let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(project.path)?.changes;
     let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
         defer.ctx,
-        false,
+        true,
         Some(changes.clone()),
         None,
     )?;
