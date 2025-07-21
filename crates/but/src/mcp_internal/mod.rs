@@ -80,7 +80,7 @@ impl Mcp {
         let status = crate::mcp_internal::status::project_status(&project_path)
             .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?;
 
-        let event = &mut Event::new(EventKind::Mcp);
+        let event = &mut Event::new(EventKind::McpInternal);
         event.insert_prop("endpoint", "project_status");
         event.insert_prop("durationMs", start_time.elapsed().as_millis());
         event.insert_prop("clientName", client_info.clone().map(|i| i.name));
@@ -115,7 +115,7 @@ impl Mcp {
         )
         .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?;
 
-        let event = &mut Event::new(EventKind::Mcp);
+        let event = &mut Event::new(EventKind::McpInternal);
         event.insert_prop("endpoint", "commit");
         event.insert_prop("durationMs", start_time.elapsed().as_millis());
         event.insert_prop("clientName", client_info.clone().map(|i| i.name));
@@ -147,7 +147,7 @@ impl Mcp {
         )
         .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?;
 
-        let event = &mut Event::new(EventKind::Mcp);
+        let event = &mut Event::new(EventKind::McpInternal);
         event.insert_prop("endpoint", "amend");
         event.insert_prop("durationMs", start_time.elapsed().as_millis());
         event.insert_prop("clientName", client_info.clone().map(|i| i.name));
@@ -176,7 +176,7 @@ impl Mcp {
             crate::mcp_internal::stack::branch_details(&params.branch_name, &project_path)
                 .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?;
 
-        let event = &mut Event::new(EventKind::Mcp);
+        let event = &mut Event::new(EventKind::McpInternal);
         event.insert_prop("endpoint", "branch_details");
         event.insert_prop("durationMs", start_time.elapsed().as_millis());
         event.insert_prop("clientName", client_info.clone().map(|i| i.name));
@@ -209,7 +209,7 @@ impl Mcp {
         )
         .map_err(|e| rmcp::Error::internal_error(e.to_string(), None))?;
 
-        let event = &mut Event::new(EventKind::Mcp);
+        let event = &mut Event::new(EventKind::McpInternal);
         event.insert_prop("endpoint", "create_branch");
         event.insert_prop("durationMs", start_time.elapsed().as_millis());
         event.insert_prop("clientName", client_info.clone().map(|i| i.name));
