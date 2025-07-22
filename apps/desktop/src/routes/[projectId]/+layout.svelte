@@ -116,10 +116,7 @@
 		500
 	);
 
-	const debouncedRemoteBranchRefresh = debounce(
-		async () => await branchService.refresh(projectId),
-		500
-	);
+	const debouncedRemoteBranchRefresh = debounce(async () => await branchService.refresh(), 500);
 
 	// TODO: Refactor `$head` into `.onHead()` as well.
 	const gitService = getContext(GitService);
