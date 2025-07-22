@@ -8,13 +8,17 @@
 
 <div class="toast-controller hide-native-scrollbar">
 	{#each $toastStore as toast (toast.id)}
+		<!-- eslint-disable-next-line func-style -->
+		{@const dismiss = () => dismissToast(toast.id)}
 		<div transition:slide={{ duration: 170 }}>
 			<InfoMessage
 				testId={TestId.ToastInfoMessage}
 				style={toast.style ?? 'neutral'}
-				secondaryLabel="Dismiss"
 				error={toast.error}
-				secondaryAction={() => dismissToast(toast.id)}
+				secondaryLabel={toast.extraAction ? toast.extraAction.label : 'Dismiss'}
+				secondaryAction={toast.extraAction ? () => toast.extraAction?.onClick(dismiss) : dismiss}
+				tertiaryLabel={toast.extraAction ? 'Dismiss' : undefined}
+				tertiaryAction={toast.extraAction ? dismiss : undefined}
 				shadow
 			>
 				{#snippet title()}

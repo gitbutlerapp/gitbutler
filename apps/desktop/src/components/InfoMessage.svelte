@@ -24,6 +24,9 @@
 		secondaryLabel?: string | undefined;
 		secondaryIcon?: IconName | undefined;
 		secondaryAction?: () => void;
+		tertiaryLabel?: string | undefined;
+		tertiaryIcon?: IconName | undefined;
+		tertiaryAction?: () => void;
 		shadow?: boolean;
 		error?: string | undefined;
 		title?: Snippet;
@@ -42,6 +45,9 @@
 		secondaryLabel = '',
 		secondaryIcon,
 		secondaryAction,
+		tertiaryLabel = '',
+		tertiaryIcon,
+		tertiaryAction,
 		shadow = false,
 		error,
 		title,
@@ -112,6 +118,11 @@
 				{#if error}
 					<Button kind="ghost" onclick={() => copyToClipboard(error)} icon="copy-small">
 						Copy error message
+					</Button>
+				{/if}
+				{#if tertiaryLabel}
+					<Button kind="outline" onclick={() => tertiaryAction?.()} icon={tertiaryIcon}>
+						{tertiaryLabel}
 					</Button>
 				{/if}
 				{#if secondaryLabel}
