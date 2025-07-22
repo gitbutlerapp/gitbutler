@@ -6,7 +6,7 @@ use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     OplogExt,
 };
-use gitbutler_oxidize::{GixRepositoryExt, ObjectIdExt, OidExt};
+use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{
     logging::{LogUntil, RepositoryExt},
@@ -61,10 +61,22 @@ fn do_squash_commits(
 
     let order = commits_order(ctx, &stack)?;
     let mut updated_order = commits_order(ctx, &stack)?;
+    let mut source_ids_in_order = Vec::new();
     // Remove source ids
     for branch in updated_order.series.iter_mut() {
-        branch.commit_ids.retain(|id| !source_ids.contains(id));
+        branch.commit_ids.retain(|id| {
+            if source_ids.contains(id) {
+                source_ids_in_order.push(*id);
+                false
+            } else {
+                true
+            }
+        });
     }
+
+    // Keep the actual order of the source ids
+    source_ids = source_ids_in_order;
+
     // Put all source oids on top of (after) the destination oid
     for branch in updated_order.series.iter_mut() {
         if let Some(pos) = branch
@@ -75,6 +87,7 @@ fn do_squash_commits(
             branch.commit_ids.splice(pos..pos, source_ids.clone());
         }
     }
+
     let mapping = if order != updated_order {
         Some(reorder_stack(ctx, stack_id, updated_order, perm)?.commit_mapping)
     } else {
@@ -138,7 +151,16 @@ fn do_squash_commits(
         destination_commit,
     )?;
 
-    let final_tree = squash_tree(ctx, &source_commits, destination_commit)?;
+    // Having all the source commits in in the right order, sitting directly on top of the destination commit
+    // means that we just need to take the tree of the child most source commit (most recent change) and
+    // use that for the new commit.
+    // By definition, the tree of the top commit includes all changes from the previous commits.
+    let child_most_source_commit = source_commits
+        .first()
+        .context("No source commits provided")?;
+    let final_tree = child_most_source_commit
+        .tree()
+        .context("Failed to get tree of the child most source commit")?;
 
     // Squash commit messages string separating with newlines
     let new_message = Some(destination_commit)
@@ -268,31 +290,4 @@ fn validate(
     }
 
     Ok(())
-}
-
-// Create a new tree that that has the source trees merged into the target tree
-fn squash_tree<'a>(
-    ctx: &'a CommandContext,
-    source_commits: &[git2::Commit<'_>],
-    destination_commit: &git2::Commit<'_>,
-) -> Result<git2::Tree<'a>> {
-    let mut final_tree_id = destination_commit.tree_id().to_gix();
-    let gix_repo = ctx.gix_repo_for_merging()?;
-    let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
-    for source_commit in source_commits {
-        let mut merge = gix_repo.merge_trees(
-            source_commit.parent(0)?.tree_id().to_gix(),
-            source_commit.tree_id().to_gix(),
-            final_tree_id,
-            gix_repo.default_merge_labels(),
-            merge_options_fail_fast.clone(),
-        )?;
-
-        if merge.has_unresolved_conflicts(conflict_kind) {
-            bail!("Merge failed with conflicts");
-        }
-        final_tree_id = merge.tree.write()?.detach();
-    }
-    let final_tree = ctx.repo().find_tree(final_tree_id.to_git2())?;
-    Ok(final_tree)
 }

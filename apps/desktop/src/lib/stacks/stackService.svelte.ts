@@ -733,8 +733,6 @@ export class StackService {
 
 		const targetCommit = localCommits.at(-1)!;
 		const squashCommits = localCommits.slice(0, -1);
-		// API squashes them in the order they are given, so we must reverse the list.
-		squashCommits.reverse();
 
 		await this.squashCommits({
 			projectId,
