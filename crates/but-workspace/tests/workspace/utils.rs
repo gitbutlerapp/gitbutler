@@ -329,14 +329,16 @@ pub fn visualize_commit(
     repo: &gix::Repository,
     outcome: &but_workspace::commit_engine::CreateCommitOutcome,
 ) -> anyhow::Result<String> {
-    Ok(outcome
-        .new_commit
-        .expect("the amended commit was created")
-        .attach(repo)
-        .object()?
-        .data
-        .as_bstr()
-        .to_string())
+    cat_commit(
+        outcome
+            .new_commit
+            .expect("a new commit was created")
+            .attach(repo),
+    )
+}
+
+pub fn cat_commit(commit: gix::Id<'_>) -> anyhow::Result<String> {
+    Ok(commit.object()?.data.as_bstr().to_string())
 }
 
 // In-memory config changes aren't enough as we still only have snapshots, without the ability to keep

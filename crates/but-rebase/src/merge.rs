@@ -1,4 +1,4 @@
-use crate::commit::CommitterMode;
+use crate::commit::DateMode;
 use anyhow::{Result, anyhow, bail};
 use bstr::{BString, ByteSlice};
 use but_core::commit::TreeKind;
@@ -101,7 +101,11 @@ pub fn octopus(
         .pgp_signature()
         .is_some()
     {
-        crate::commit::create(repo, target_merge_commit, CommitterMode::Update)
+        crate::commit::create(
+            repo,
+            target_merge_commit,
+            DateMode::CommitterUpdateAuthorKeep,
+        )
     } else {
         crate::commit::update_committer(repo, &mut target_merge_commit)?;
         Ok(repo.write_object(target_merge_commit)?.detach())

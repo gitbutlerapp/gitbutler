@@ -24,7 +24,7 @@ pub enum EmptyCommit {
 
 pub(crate) mod function {
     use crate::cherry_pick::{EmptyCommit, PickMode};
-    use crate::commit::CommitterMode;
+    use crate::commit::DateMode;
     use anyhow::{Context, bail};
     use bstr::BString;
     use but_core::commit::{HEADERS_CONFLICTED_FIELD, HeadersV2, TreeKind};
@@ -184,7 +184,10 @@ pub(crate) mod function {
                 .extend(Vec::<(BString, BString)>::from(&HeadersV2::default()));
         }
         set_parent(&mut new_commit, head.id.detach())?;
-        Ok(crate::commit::create(repo, new_commit, CommitterMode::Update)?.attach(repo))
+        Ok(
+            crate::commit::create(repo, new_commit, DateMode::CommitterUpdateAuthorKeep)?
+                .attach(repo),
+        )
     }
 
     fn commit_from_conflicted_tree<'repo>(
@@ -241,7 +244,10 @@ pub(crate) mod function {
         set_parent(&mut to_rebase, head.id.detach())?;
 
         to_rebase.set_headers(&headers);
-        Ok(crate::commit::create(repo, to_rebase.inner, CommitterMode::Update)?.attach(repo))
+        Ok(
+            crate::commit::create(repo, to_rebase.inner, DateMode::CommitterUpdateAuthorKeep)?
+                .attach(repo),
+        )
     }
 
     fn extract_conflicted_files(

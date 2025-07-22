@@ -4,8 +4,9 @@ use crate::{DiffSpec, commit_engine::reference_frame::InferenceMode};
 use anyhow::{Context, bail};
 use bstr::BString;
 use but_core::RepositoryExt;
+use but_core::commit::HeadersV2;
 use but_rebase::RebaseOutput;
-use but_rebase::commit::CommitterMode;
+use but_rebase::commit::DateMode;
 use but_rebase::merge::ConflictErrorContext;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::access::WorktreeWritePermission;
@@ -253,20 +254,18 @@ pub fn create_commit(
                 commit_id,
                 new_message,
             } => {
-                let mut commit = commit_id
-                    .attach(repo)
-                    .object()?
-                    .peel_to_commit()?
-                    .decode()?
-                    .to_owned();
+                let mut commit = but_core::Commit::from_id(commit_id.attach(repo))?;
                 commit.tree = new_tree;
                 if let Some(message) = new_message {
                     commit.message = message.into();
                 }
+                if commit.headers().is_some() {
+                    HeadersV2::remove_in_commit(&mut commit);
+                }
                 Some(but_rebase::commit::create(
                     repo,
-                    commit,
-                    CommitterMode::Update,
+                    commit.inner,
+                    DateMode::CommitterUpdateAuthorUpdate,
                 )?)
             }
         }
@@ -686,7 +685,7 @@ fn create_possibly_signed_commit(
         parents: parents.into_iter().map(Into::into).collect(),
         extra_headers: (&commit_headers.unwrap_or_default()).into(),
     };
-    but_rebase::commit::create(repo, commit, CommitterMode::Keep)
+    but_rebase::commit::create(repo, commit, DateMode::CommitterKeepAuthorKeep)
 }
 
 /// Less pure but a simpler version of [`create_commit_and_update_refs_with_project`]

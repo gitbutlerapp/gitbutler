@@ -67,9 +67,8 @@ impl HeadersV2 {
         }
     }
 
-    /// Write the values from this instance to the given `commit`,  fully replacing any header
-    /// that might have been there before.
-    pub fn set_in_commit(&self, commit: &mut gix::objs::Commit) {
+    /// Remove all header fields from `commit`.
+    pub fn remove_in_commit(commit: &mut gix::objs::Commit) {
         for field in [
             HEADERS_VERSION_FIELD,
             HEADERS_CHANGE_ID_FIELD,
@@ -79,7 +78,12 @@ impl HeadersV2 {
                 commit.extra_headers.remove(pos);
             }
         }
+    }
 
+    /// Write the values from this instance to the given `commit`,  fully replacing any header
+    /// that might have been there before.
+    pub fn set_in_commit(&self, commit: &mut gix::objs::Commit) {
+        Self::remove_in_commit(commit);
         commit
             .extra_headers
             .extend(Vec::<(BString, BString)>::from(self));

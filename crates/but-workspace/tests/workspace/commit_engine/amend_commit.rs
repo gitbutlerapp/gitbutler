@@ -1,7 +1,8 @@
 use crate::utils::{
-    CONTEXT_LINES, commit_from_outcome, commit_whole_files_and_all_hunks_from_workspace,
-    read_only_in_memory_scenario, visualize_commit, visualize_tree, writable_scenario,
-    writable_scenario_with_ssh_key, write_local_config, write_sequence,
+    CONTEXT_LINES, cat_commit, commit_from_outcome,
+    commit_whole_files_and_all_hunks_from_workspace, read_only_in_memory_scenario,
+    visualize_commit, visualize_tree, writable_scenario, writable_scenario_with_ssh_key,
+    write_local_config, write_sequence,
 };
 use but_testsupport::assure_stable_env;
 use but_workspace::{DiffSpec, HunkHeader, commit_engine::Destination};
@@ -10,7 +11,19 @@ use but_workspace::{DiffSpec, HunkHeader, commit_engine::Destination};
 fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     assure_stable_env();
 
-    let repo = read_only_in_memory_scenario("all-file-types-renamed-and-modified")?;
+    let mut repo = read_only_in_memory_scenario("all-file-types-renamed-and-modified")?;
+    // Change the committer and author dates to be able to tell what it changes.
+    {
+        let mut config = repo.config_snapshot_mut();
+        config.set_value(
+            &gix::config::tree::gitoxide::Commit::COMMITTER_DATE,
+            "946771266 +0633",
+        )?;
+        config.set_value(
+            &gix::config::tree::gitoxide::Commit::AUTHOR_DATE,
+            "946684866 +0633",
+        )?;
+    }
     let head_commit = repo.rev_parse_single("HEAD")?;
     insta::assert_snapshot!(but_testsupport::visualize_tree(head_commit.object()?.peel_to_tree()?.id()), @r#"
     3fd29f0
@@ -18,6 +31,15 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     ├── file:100644:3aac70f "5\n6\n7\n8\n"
     └── link:120000:c4c364c "nonexisting-target"
     "#);
+    insta::assert_snapshot!(cat_commit(head_commit)?, @r"
+    tree 3fd29f0ca55ee4dc3ea6bf02a761c15fd6dc8428
+    author author <author@example.com> 946684800 +0000
+    committer committer <committer@example.com> 946771200 +0000
+    gitbutler-headers-version 2
+    gitbutler-change-id 00000000-0000-0000-0000-000000003333
+
+    init
+    ");
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
         Destination::AmendCommit {
@@ -29,7 +51,7 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
-            Sha1(91942dce04c28d5d3492c606d79bbf651e2684e1),
+            Sha1(b8af2cbc086bd0eb212ff21fd3f7c472663238eb),
         ),
         changed_tree_pre_cherry_pick: Some(
             Sha1(e56fc9bacdd11ebe576b5d96d21127c423698126),
@@ -46,10 +68,15 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     ├── file-renamed:100644:c5c4315 "5\n6\n7\n8\n9\n10\n"
     └── link-renamed:120000:94e4e07 "other-nonexisting-target"
     "#);
+
+    // It adjusts both the author and the committer date.
+    // It also *removes* the change-id as it to assure we won't use it to determine
+    // commit similarity anymore - after all, the commit is likely to have been changed,
+    // and we have to use the changeset ID (computed) to figure it out now.
     insta::assert_snapshot!(visualize_commit(&repo, &outcome)?, @r"
     tree e56fc9bacdd11ebe576b5d96d21127c423698126
-    author author <author@example.com> 946684800 +0000
-    committer committer (From Env) <committer@example.com> 946771200 +0000
+    author author <author@example.com> 946684866 +0633
+    committer committer (From Env) <committer@example.com> 946771266 +0633
 
     init: amended
     ");
@@ -76,6 +103,7 @@ fn all_aspects_of_amended_commit_are_copied() -> anyhow::Result<()> {
     5bbee6d
     └── file:100644:1c9325b "40\n41\n42\n43\n44\n45\n46\n47\n48\n49\n50\n51\n52\n53\n54\n55\n56\n57\n58\n59\n60\n61\n62\n63\n64\n65\n66\n67\n68\n69\n70\n"
     "#);
+    // We do not add a change-id to assure we operate correctly when doing similarity checks.
     insta::assert_snapshot!(visualize_commit(&repo, &outcome)?, @r"
     tree 5bbee6d0219923e795f7b0818dda2f33f16278b4
     parent 91ef6f6fc0a8b97fb456886c1cc3b2a3536ea2eb
