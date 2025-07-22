@@ -3270,6 +3270,7 @@ name = "gitbutler-secret"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "gitbutler-error",
  "gix",
  "keyring",
  "serde",
