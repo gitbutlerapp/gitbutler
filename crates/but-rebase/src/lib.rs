@@ -3,7 +3,7 @@
 //! It will only affect the commit-graph, and never the alter the worktree in any way.
 #![deny(rust_2018_idioms, missing_docs)]
 
-use crate::commit::CommitterMode;
+use crate::commit::DateMode;
 use anyhow::{Context, Ok, Result, anyhow, bail};
 use bstr::BString;
 use gix::objs::Exists;
@@ -281,7 +281,11 @@ fn rebase(
                             if let Some(new_message) = new_message {
                                 new_commit.message = new_message;
                             }
-                            cursor = Some(commit::create(repo, new_commit, CommitterMode::Update)?);
+                            cursor = Some(commit::create(
+                                repo,
+                                new_commit,
+                                DateMode::CommitterUpdateAuthorKeep,
+                            )?);
                         }
                         None => {
                             // TODO: should this be supported? This would be as easy as forgetting its parents.
@@ -315,7 +319,7 @@ fn rebase(
                 if let Some(new_message) = new_message {
                     new_commit.message = new_message;
                 }
-                *cursor = commit::create(repo, new_commit, CommitterMode::Update)?;
+                *cursor = commit::create(repo, new_commit, DateMode::CommitterUpdateAuthorKeep)?;
             }
             RebaseStep::Reference(reference) => {
                 references.push(ReferenceSpec {
@@ -355,7 +359,11 @@ fn reword_commit(
 ) -> Result<gix::ObjectId> {
     let mut new_commit = repo.find_commit(oid)?.decode()?.to_owned();
     new_commit.message = new_message;
-    Ok(commit::create(repo, new_commit, CommitterMode::Update)?)
+    Ok(commit::create(
+        repo,
+        new_commit,
+        DateMode::CommitterUpdateAuthorKeep,
+    )?)
 }
 
 /// Replaces the tree of a commit for use in the rebase engine.
@@ -366,7 +374,11 @@ pub fn replace_commit_tree(
 ) -> Result<gix::ObjectId> {
     let mut new_commit = repo.find_commit(oid)?.decode()?.to_owned();
     new_commit.tree = new_tree;
-    Ok(commit::create(repo, new_commit, CommitterMode::Update)?)
+    Ok(commit::create(
+        repo,
+        new_commit,
+        DateMode::CommitterUpdateAuthorKeep,
+    )?)
 }
 
 /// A reference that is an output of a rebase operation.

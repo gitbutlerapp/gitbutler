@@ -3486,7 +3486,7 @@ fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
 
     add_workspace(&mut meta);
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    // Standard handling after travrsal and post-processing.
+    // Standard handling after traversal and post-processing.
     insta::assert_snapshot!(graph_tree(&graph), @r"
     └── 👉📕►►►:0[0]:gitbutler/workspace
         └── ·8926b15 (⌂|🏘️|1)
@@ -3506,6 +3506,56 @@ fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
             ├── ·3686017 (🏘️)
             ├── ·9725482 (🏘️)
             └── ·fafd9d0 (🏘️)
+    ");
+    Ok(())
+}
+
+#[test]
+fn special_branch_do_not_allow_overly_long_segments() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/special-branches-edgecase")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 270738b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * c59457b (A) top
+    * e146f13 (gitbutler/edit) middle
+    * 971953d (origin/main, main) M2
+    * ce09734 (gitbutler/target) M1
+    * fafd9d0 init
+    ");
+
+    add_workspace(&mut meta);
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        standard_options_with_extra_target(&repo, "gitbutler/target"),
+    )?
+    .validated()?;
+    // Standard handling after traversal and post-processing.
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    ├── 👉📕►►►:0[0]:gitbutler/workspace
+    │   └── ·270738b (⌂|🏘️|1)
+    │       └── ►:4[1]:A
+    │           └── ·c59457b (⌂|🏘️|1)
+    │               └── ►:5[2]:gitbutler/edit
+    │                   └── ·e146f13 (⌂|🏘️|1)
+    │                       └── ►:2[3]:main <> origin/main →:1:
+    │                           └── ·971953d (⌂|🏘️|✓|11)
+    │                               └── ►:3[4]:gitbutler/target
+    │                                   ├── ·ce09734 (⌂|🏘️|✓|11)
+    │                                   └── ·fafd9d0 (⌂|🏘️|✓|11)
+    └── ►:1[0]:origin/main →:2:
+        └── →:2: (main →:1:)
+    ");
+
+    // But special handling for workspace views. Note how we don't overshoot
+    // and stop exactly where we have to, magically even.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on ce09734
+    └── ≡:4:A on ce09734
+        ├── :4:A
+        │   ├── ·c59457b (🏘️)
+        │   └── ·e146f13 (🏘️)
+        └── :2:main <> origin/main →:1:
+            └── ❄️971953d (🏘️|✓)
     ");
     Ok(())
 }

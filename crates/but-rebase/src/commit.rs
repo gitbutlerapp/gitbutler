@@ -11,11 +11,13 @@ use std::process::Stdio;
 
 /// What to do with the committer (actor) and the commit time when [creating a new commit](create()).
 #[derive(Debug, Copy, Clone)]
-pub enum CommitterMode {
-    /// Obtain the current committer and the current local time and set it before creating the commit.
-    Update,
-    /// Keep the currently set committer and time.
-    Keep,
+pub enum DateMode {
+    /// Update both the committer and author time.
+    CommitterUpdateAuthorUpdate,
+    /// Obtain the current committer and the current local time and update it, keeping only the author time.
+    CommitterUpdateAuthorKeep,
+    /// Keep the currently set committer-time and author-time.
+    CommitterKeepAuthorKeep,
 }
 
 /// Use the given `commit` and possibly sign it, replacing a possibly existing signature,
@@ -27,13 +29,17 @@ pub enum CommitterMode {
 pub fn create(
     repo: &gix::Repository,
     mut commit: gix::objs::Commit,
-    committer: CommitterMode,
+    committer: DateMode,
 ) -> anyhow::Result<gix::ObjectId> {
     match committer {
-        CommitterMode::Update => {
+        DateMode::CommitterUpdateAuthorKeep => {
             update_committer(repo, &mut commit)?;
         }
-        CommitterMode::Keep => {}
+        DateMode::CommitterKeepAuthorKeep => {}
+        DateMode::CommitterUpdateAuthorUpdate => {
+            update_committer(repo, &mut commit)?;
+            update_author_time(repo, &mut commit)?;
+        }
     }
     if let Some(pos) = commit
         .extra_headers()
@@ -89,6 +95,19 @@ pub(crate) fn update_committer(
         .transpose()?
         .context("Need committer to be configured when creating a new commit")?
         .into();
+    Ok(())
+}
+
+/// Update only the author-time of `commit`.
+pub(crate) fn update_author_time(
+    repo: &gix::Repository,
+    commit: &mut gix::objs::Commit,
+) -> anyhow::Result<()> {
+    let author = repo
+        .author()
+        .transpose()?
+        .context("Need author to be configured when creating a new commit")?;
+    commit.author.time = author.time()?;
     Ok(())
 }
 
