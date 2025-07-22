@@ -20,7 +20,7 @@
 </script>
 
 <div class="decorative-split-view" data-testid={testId}>
-	<div class="left-side hide-native-scrollbar">
+	<div class="left-side hide-native-scrollbar" data-tauri-drag-region>
 		<div class="left-side__content">
 			{#if children}
 				{@render children()}
@@ -28,7 +28,7 @@
 		</div>
 	</div>
 
-	<div class="right-side">
+	<div class="right-side" data-tauri-drag-region>
 		<div class="right-side-wrapper">
 			{#if user && !hideDetails}
 				<div class="right-side__header">
