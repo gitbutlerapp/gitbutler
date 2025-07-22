@@ -53,6 +53,7 @@ export class GitLab implements Forge {
 	}
 
 	get listService() {
+		if (!this.authenticated) return;
 		const { api: gitLabApi, projectMetrics } = this.params;
 		return new GitLabListingService(gitLabApi, projectMetrics);
 	}
@@ -62,6 +63,7 @@ export class GitLab implements Forge {
 	}
 
 	get prService() {
+		if (!this.authenticated) return;
 		const { api: gitLabApi, posthog } = this.params;
 		return new GitLabPrService(gitLabApi, posthog);
 	}
