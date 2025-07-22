@@ -50,22 +50,15 @@ export class MoveCommitDzHandler implements DropzoneHandler {
  * Handler that will be able to amend a commit using `TreeChange`.
  */
 export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
-	trigger: StackService['amendCommit'][0];
-	result: StackService['amendCommit'][1];
-
 	constructor(
 		private projectId: string,
 		private readonly stackService: StackService,
 		private stackId: string,
 		private branchName: string,
 		private commit: DzCommitData,
-		private onresult: (result: typeof this.result.current.data) => void,
+		private onresult: (result: string) => void,
 		private readonly uiState: UiState
-	) {
-		const [trigger, result] = stackService.amendCommit;
-		this.trigger = trigger;
-		this.result = result;
-	}
+	) {}
 	accepts(data: unknown): boolean {
 		if (!(data instanceof ChangeDropData)) return false;
 		if (this.commit.hasConflicts) return false;
@@ -106,7 +99,7 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 				const assignments = data.assignments();
 				const diffSpec = changesToDiffSpec(await data.treeChanges(), assignments);
 				return this.onresult(
-					await this.trigger({
+					await this.stackService.amendCommitMutation({
 						projectId: this.projectId,
 						stackId: this.stackId,
 						commitId: this.commit.id,

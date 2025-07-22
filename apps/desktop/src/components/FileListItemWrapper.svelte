@@ -111,7 +111,7 @@
 	}
 
 	const conflict = $derived(conflictEntries ? conflictEntries.entries[change.path] : undefined);
-	const draggableDisabled = $derived(!draggable || showCheckbox || selectionId.type === 'branch');
+	const draggableDisabled = $derived(!draggable || showCheckbox);
 
 	let timeoutId: any;
 
