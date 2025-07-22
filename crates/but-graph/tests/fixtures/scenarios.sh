@@ -820,5 +820,49 @@ EOF
     commit top
     create_workspace_commit_once A
   )
+
+  git init branches-ahead-of-workspace
+  (cd branches-ahead-of-workspace
+    commit init
+    add_main_remote_setup
+
+    git checkout -b A
+      git branch B
+      git branch C
+      commit A1
+      commit A2
+    git checkout B
+      commit B1
+      commit B2
+      git branch B-middle
+      commit B3
+    git checkout C
+      commit C1
+      git branch C-bottom
+      commit C2
+
+    git checkout main
+      git merge --no-ff A
+      git merge --no-ff B-middle
+      remote_tracking_caught_up main
+
+    git checkout A
+    create_workspace_commit_once A B C
+
+    git checkout A
+      commit A2-outside
+    git checkout B-middle
+      commit B2-outside
+      git branch intermediate-branch
+      commit B3-outside
+    git checkout C-bottom
+      commit C1-outside
+      git checkout -b tmp @~1
+        tick
+        commit C1-outside2
+      git checkout C-bottom
+      git merge --no-ff tmp -m "C2 merge commit"
+    git checkout gitbutler/workspace
+  )
 )
 

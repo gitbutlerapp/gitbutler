@@ -11,6 +11,22 @@ use petgraph::prelude::EdgeRef;
 use std::collections::{BTreeMap, BTreeSet};
 use tracing::instrument;
 
+pub(super) struct Context<'a> {
+    pub repo: &'a gix::Repository,
+    pub symbolic_remote_names: &'a [String],
+    pub configured_remote_tracking_branches: &'a BTreeSet<gix::refs::FullName>,
+    pub inserted_proxy_segments: Vec<SegmentIndex>,
+    pub refs_by_id: RefsById,
+    pub hard_limit: bool,
+}
+
+impl Context<'_> {
+    pub(super) fn with_hard_limit(mut self) -> Self {
+        self.hard_limit = true;
+        self
+    }
+}
+
 /// Processing
 impl Graph {
     /// Now that the graph is complete, perform additional structural improvements with
@@ -21,12 +37,17 @@ impl Graph {
         mut self,
         meta: &impl RefMetadata,
         tip: gix::ObjectId,
-        repo: &gix::Repository,
-        symbolic_remote_names: &[String],
-        configured_remote_tracking_branches: &BTreeSet<gix::refs::FullName>,
-        inserted_proxy_segments: Vec<SegmentIndex>,
-        refs_by_id: &RefsById,
+        Context {
+            repo,
+            symbolic_remote_names,
+            configured_remote_tracking_branches,
+            inserted_proxy_segments,
+            refs_by_id,
+            hard_limit,
+        }: Context<'_>,
     ) -> anyhow::Result<Self> {
+        self.hard_limit_hit = hard_limit;
+
         // For the first id to be inserted into our entrypoint segment, set index.
         if let Some((segment, ep_commit)) = self.entrypoint.as_mut() {
             *ep_commit = self
@@ -36,10 +57,10 @@ impl Graph {
         }
 
         // This should be first as what follows could help name these new segments that it creates.
-        self.fixup_workspace_segments(repo, refs_by_id, meta)?;
+        self.fixup_workspace_segments(repo, &refs_by_id, meta)?;
         // All non-workspace fixups must come first, otherwise the workspace handling might
         // differ as it relies on non-anonymous segments much more.
-        self.fixup_segment_names(meta, inserted_proxy_segments);
+        self.fixup_segment_names(meta, &inserted_proxy_segments);
         // We perform view-related updates here for convenience, but also because the graph
         // traversal should have nothing to do with workspace details. It's just about laying
         // the foundation for figuring out our workspaces more easily.
@@ -137,7 +158,7 @@ impl Graph {
     fn fixup_segment_names(
         &mut self,
         meta: &impl RefMetadata,
-        inserted_proxy_segments: Vec<SegmentIndex>,
+        inserted_proxy_segments: &[SegmentIndex],
     ) {
         let segments_with_refs_on_first_commit: Vec<_> = self
             .inner

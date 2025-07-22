@@ -215,32 +215,33 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 👉📕►►►:0[0]:gitbutler/workspace
     │   └── ·20de6ee (⌂|🏘️|1)
-    │       └── 📙►:3[1]:B <> origin/B →:4:
+    │       └── 📙►:4[1]:B <> origin/B →:6:
     │           ├── ·70e9a36 (⌂|🏘️|101)
     │           └── ·320e105 (⌂|🏘️|101) ►tags/without-ref
-    │               └── 📙►:5[2]:B-empty
+    │               └── 📙►:3[2]:B-empty
     │                   └── ·2a31450 (⌂|🏘️|101) ►ambiguous-01
-    │                       └── ►:4[3]:origin/B →:3:
-    │                           └── 📙►:6[4]:A-empty-03
-    │                               └── 📙►:7[5]:A-empty-01
-    │                                   └── 📙►:8[6]:A
-    │                                       └── ·70bde6b (⌂|🏘️|101) ►A-empty-02
-    │                                           └── ►:2[7]:main <> origin/main →:1:
-    │                                               └── ·fafd9d0 (⌂|🏘️|✓|111) ►new-A, ►new-B
-    └── ►:1[0]:origin/main →:2:
-        └── →:2: (main →:1:)
+    │                       └── 📙►:5[3]:A-empty-03
+    │                           └── 📙►:7[4]:A-empty-01
+    │                               └── 📙►:8[5]:A
+    │                                   └── ·70bde6b (⌂|🏘️|101) ►A-empty-02
+    │                                       └── ►:2[6]:main <> origin/main →:1:
+    │                                           └── ·fafd9d0 (⌂|🏘️|✓|111) ►new-A, ►new-B
+    ├── ►:1[0]:origin/main →:2:
+    │   └── →:2: (main →:1:)
+    └── ►:6[0]:origin/B →:4:
+        └── →:5: (A-empty-03)
     ");
 
     // We pickup empty segments.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
-    └── ≡📙:3:B <> origin/B →:4:⇡2 on fafd9d0
-        ├── 📙:3:B <> origin/B →:4:⇡2
+    └── ≡📙:4:B <> origin/B →:6:⇡2 on fafd9d0
+        ├── 📙:4:B <> origin/B →:6:⇡2
         │   ├── ·70e9a36 (🏘️)
         │   └── ·320e105 (🏘️) ►tags/without-ref
-        ├── 📙:5:B-empty
+        ├── 📙:3:B-empty
         │   └── ·2a31450 (🏘️) ►ambiguous-01
-        ├── 📙:6:A-empty-03
+        ├── 📙:5:A-empty-03
         ├── 📙:7:A-empty-01
         └── 📙:8:A
             └── ❄70bde6b (🏘️) ►A-empty-02
@@ -263,31 +264,32 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 👉📕►►►:0[0]:gitbutler/workspace
     │   └── ·20de6ee (⌂|🏘️|1)
-    │       └── 📙►:3[1]:B <> origin/B →:4:
+    │       └── 📙►:4[1]:B <> origin/B →:6:
     │           ├── ·70e9a36 (⌂|🏘️|101)
     │           └── ·320e105 (⌂|🏘️|101) ►tags/without-ref
-    │               └── 📙►:5[2]:B-empty
+    │               └── 📙►:3[2]:B-empty
     │                   └── ·2a31450 (⌂|🏘️|101) ►ambiguous-01
-    │                       └── ►:4[3]:origin/B →:3:
-    │                           └── 📙►:6[4]:A-empty-03
-    │                               └── 📙►:7[5]:A-empty-02
-    │                                   └── 📙►:8[6]:A-empty-01
-    │                                       └── 📙►:9[7]:A
-    │                                           └── ·70bde6b (⌂|🏘️|101)
-    │                                               └── ►:2[8]:main <> origin/main →:1:
-    │                                                   └── ·fafd9d0 (⌂|🏘️|✓|111) ►new-A, ►new-B
-    └── ►:1[0]:origin/main →:2:
-        └── →:2: (main →:1:)
+    │                       └── 📙►:5[3]:A-empty-03
+    │                           └── 📙►:7[4]:A-empty-02
+    │                               └── 📙►:8[5]:A-empty-01
+    │                                   └── 📙►:9[6]:A
+    │                                       └── ·70bde6b (⌂|🏘️|101)
+    │                                           └── ►:2[7]:main <> origin/main →:1:
+    │                                               └── ·fafd9d0 (⌂|🏘️|✓|111) ►new-A, ►new-B
+    ├── ►:1[0]:origin/main →:2:
+    │   └── →:2: (main →:1:)
+    └── ►:6[0]:origin/B →:4:
+        └── →:5: (A-empty-03)
     ");
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
-    └── ≡📙:3:B <> origin/B →:4:⇡2 on fafd9d0
-        ├── 📙:3:B <> origin/B →:4:⇡2
+    └── ≡📙:4:B <> origin/B →:6:⇡2 on fafd9d0
+        ├── 📙:4:B <> origin/B →:6:⇡2
         │   ├── ·70e9a36 (🏘️)
         │   └── ·320e105 (🏘️) ►tags/without-ref
-        ├── 📙:5:B-empty
+        ├── 📙:3:B-empty
         │   └── ·2a31450 (🏘️) ►ambiguous-01
-        ├── 📙:6:A-empty-03
+        ├── 📙:5:A-empty-03
         ├── 📙:7:A-empty-02
         ├── 📙:8:A-empty-01
         └── 📙:9:A
@@ -304,10 +306,10 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 📕►►►:1[0]:gitbutler/workspace
     │   └── ·20de6ee (⌂|🏘️)
-    │       └── 📙►:4[1]:B <> origin/B →:5:
+    │       └── 📙►:5[1]:B <> origin/B →:6:
     │           ├── ·70e9a36 (⌂|🏘️|100)
     │           └── ·320e105 (⌂|🏘️|100) ►tags/without-ref
-    │               └── 📙►:6[2]:B-empty
+    │               └── 📙►:4[2]:B-empty
     │                   └── ·2a31450 (⌂|🏘️|100) ►ambiguous-01
     │                       └── 👉📙►:0[3]:A-empty-01
     │                           └── 📙►:7[4]:A
@@ -316,16 +318,16 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
     │                                       └── ·fafd9d0 (⌂|🏘️|✓|111) ►new-A, ►new-B
     ├── ►:2[0]:origin/main →:3:
     │   └── →:3: (main →:2:)
-    └── ►:5[0]:origin/B →:4:
+    └── ►:6[0]:origin/B →:5:
         └── →:0: (A-empty-01)
     ");
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:1:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
-    └── ≡📙:4:B <> origin/B →:5:⇡2 on fafd9d0
-        ├── 📙:4:B <> origin/B →:5:⇡2
+    └── ≡📙:5:B <> origin/B →:6:⇡2 on fafd9d0
+        ├── 📙:5:B <> origin/B →:6:⇡2
         │   ├── ·70e9a36 (🏘️)
         │   └── ·320e105 (🏘️) ►tags/without-ref
-        ├── 📙:6:B-empty
+        ├── 📙:4:B-empty
         │   └── ·2a31450 (🏘️) ►ambiguous-01
         ├── 👉📙:0:A-empty-01
         └── 📙:7:A
@@ -596,39 +598,39 @@ fn minimal_merge() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 👉📕►►►:0[0]:gitbutler/workspace
     │   └── ·47e1cf1 (⌂|🏘️|1)
-    │       └── ►:3[1]:merge-2
+    │       └── ►:6[1]:merge-2
     │           └── ·f40fb16 (⌂|🏘️|1)
-    │               ├── ►:4[2]:D
+    │               ├── ►:7[2]:D
     │               │   └── ·450c58a (⌂|🏘️|1)
-    │               │       └── 📙►:9[3]:empty-2-on-merge
-    │               │           └── 📙►:10[4]:empty-1-on-merge
-    │               │               └── 📙►:11[5]:merge
+    │               │       └── 📙►:3[3]:empty-2-on-merge
+    │               │           └── 📙►:9[4]:empty-1-on-merge
+    │               │               └── 📙►:10[5]:merge
     │               │                   └── ·0cc5a6f (⌂|🏘️|1)
-    │               │                       ├── ►:7[6]:B
+    │               │                       ├── ►:4[6]:B
     │               │                       │   └── ·7fdb58d (⌂|🏘️|1)
     │               │                       │       └── ►:2[7]:main <> origin/main →:1:
     │               │                       │           └── ·fafd9d0 (⌂|🏘️|✓|11)
-    │               │                       └── ►:8[6]:A
+    │               │                       └── ►:5[6]:A
     │               │                           └── ·e255adc (⌂|🏘️|1)
     │               │                               └── →:2: (main →:1:)
-    │               └── ►:5[2]:C
+    │               └── ►:8[2]:C
     │                   └── ·c6d714c (⌂|🏘️|1)
-    │                       └── →:9: (empty-2-on-merge)
+    │                       └── →:3: (empty-2-on-merge)
     └── ►:1[0]:origin/main →:2:
         └── →:2: (main →:1:)
     ");
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
-    └── ≡:3:merge-2 on fafd9d0
-        ├── :3:merge-2
+    └── ≡:6:merge-2 on fafd9d0
+        ├── :6:merge-2
         │   └── ·f40fb16 (🏘️)
-        ├── :4:D
+        ├── :7:D
         │   └── ·450c58a (🏘️)
-        ├── 📙:9:empty-2-on-merge
-        ├── 📙:10:empty-1-on-merge
-        ├── 📙:11:merge
+        ├── 📙:3:empty-2-on-merge
+        ├── 📙:9:empty-1-on-merge
+        ├── 📙:10:merge
         │   └── ·0cc5a6f (🏘️)
-        └── :7:B
+        └── :4:B
             └── ·7fdb58d (🏘️)
     ");
     Ok(())
@@ -806,18 +808,18 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 👉📕►►►:0[0]:gitbutler/workspace
     │   └── ·298d938 (⌂|🏘️|1)
-    │       ├── 📙►:4[1]:C
-    │       │   └── 📙►:5[2]:B
+    │       ├── 📙►:5[1]:C
+    │       │   └── 📙►:6[2]:B
     │       │       └── ►:2[6]:main <> origin/main →:1:
     │       │           └── ·fafd9d0 (⌂|🏘️|✓|11)
-    │       ├── 📙►:6[1]:A
+    │       ├── 📙►:7[1]:A
     │       │   └── →:2: (main →:1:)
-    │       └── 📙►:7[1]:S1
+    │       └── 📙►:3[1]:S1
     │           └── 📙►:8[2]:G
     │               └── 📙►:9[3]:F
     │                   └── ·16f132b (⌂|🏘️|1)
-    │                       └── 📙►:10[4]:D
-    │                           └── 📙►:11[5]:E
+    │                       └── 📙►:4[4]:D
+    │                           └── 📙►:10[5]:E
     │                               └── ·917b9da (⌂|🏘️|1)
     │                                   └── →:2: (main →:1:)
     └── ►:1[0]:origin/main →:2:
@@ -826,19 +828,19 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
-    ├── ≡📙:7:S1 on fafd9d0
-    │   ├── 📙:7:S1
+    ├── ≡📙:3:S1 on fafd9d0
+    │   ├── 📙:3:S1
     │   ├── 📙:8:G
     │   ├── 📙:9:F
     │   │   └── ·16f132b (🏘️)
-    │   ├── 📙:10:D
-    │   └── 📙:11:E
+    │   ├── 📙:4:D
+    │   └── 📙:10:E
     │       └── ·917b9da (🏘️)
-    ├── ≡📙:6:A on fafd9d0
-    │   └── 📙:6:A
-    └── ≡📙:4:C on fafd9d0
-        ├── 📙:4:C
-        └── 📙:5:B
+    ├── ≡📙:7:A on fafd9d0
+    │   └── 📙:7:A
+    └── ≡📙:5:C on fafd9d0
+        ├── 📙:5:C
+        └── 📙:6:B
     ");
 
     let graph = Graph::from_commit_traversal(id, ref_name.clone(), &*meta, standard_options())?
@@ -847,17 +849,17 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 📕►►►:1[0]:gitbutler/workspace
     │   └── ·298d938 (⌂|🏘️)
-    │       ├── 📙►:4[1]:C
-    │       │   └── 📙►:5[2]:B
+    │       ├── 📙►:5[1]:C
+    │       │   └── 📙►:6[2]:B
     │       │       └── ►:3[6]:main <> origin/main →:2:
     │       │           └── ·fafd9d0 (⌂|🏘️|✓|11)
-    │       ├── 📙►:6[1]:A
+    │       ├── 📙►:7[1]:A
     │       │   └── →:3: (main →:2:)
     │       └── 👉📙►:0[1]:S1
-    │           └── 📙►:7[2]:G
-    │               └── 📙►:8[3]:F
+    │           └── 📙►:8[2]:G
+    │               └── 📙►:9[3]:F
     │                   └── ·16f132b (⌂|🏘️|1)
-    │                       └── 📙►:9[4]:D
+    │                       └── 📙►:4[4]:D
     │                           └── 📙►:10[5]:E
     │                               └── ·917b9da (⌂|🏘️|1)
     │                                   └── →:3: (main →:2:)
@@ -868,17 +870,17 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
     📕🏘️:1:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
     ├── ≡👉📙:0:S1 on fafd9d0
     │   ├── 👉📙:0:S1
-    │   ├── 📙:7:G
-    │   ├── 📙:8:F
+    │   ├── 📙:8:G
+    │   ├── 📙:9:F
     │   │   └── ·16f132b (🏘️)
-    │   ├── 📙:9:D
+    │   ├── 📙:4:D
     │   └── 📙:10:E
     │       └── ·917b9da (🏘️)
-    ├── ≡📙:6:A on fafd9d0
-    │   └── 📙:6:A
-    └── ≡📙:4:C on fafd9d0
-        ├── 📙:4:C
-        └── 📙:5:B
+    ├── ≡📙:7:A on fafd9d0
+    │   └── 📙:7:A
+    └── ≡📙:5:C on fafd9d0
+        ├── 📙:5:C
+        └── 📙:6:B
     ");
     Ok(())
 }
@@ -1450,6 +1452,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     // ~~Now that `A` is part of the workspace, it's not cut off anymore.~~
     // This special handling was removed for now, relying on limits and extensions.
     // And since it's integrated, traversal is stopped without convergence.
+    // We see more though as we add workspace segments immediately.
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 👉📕►►►:0[0]:gitbutler/workspace
@@ -1457,20 +1460,27 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     │       └── 📙►:2[1]:B
     │           ├── ·6b1a13b (⌂|🏘️|1)
     │           └── ·03ad472 (⌂|🏘️|1)
-    │               └── 📙►:4[2]:A
+    │               └── 📙►:3[2]:A
     │                   ├── ·79bbb29 (⌂|🏘️|✓|1)
     │                   ├── ·fc98174 (⌂|🏘️|✓|1)
-    │                   └── ✂️·a381df5 (⌂|🏘️|✓|1)
+    │                   ├── ·a381df5 (⌂|🏘️|✓|1)
+    │                   └── ·777b552 (⌂|🏘️|✓|1)
+    │                       └── ►:6[3]:anon:
+    │                           └── ·ce4a760 (⌂|🏘️|✓|1)
+    │                               ├── ►:7[4]:anon:
+    │                               │   └── ✂️·01d0e1e (⌂|🏘️|✓|1)
+    │                               └── ►:8[4]:A-feat
+    │                                   └── ✂️·fea59b5 (⌂|🏘️|✓|1)
     └── ►:1[0]:origin/main
         ├── 🟣d0df794 (✓)
         └── 🟣09c6e08 (✓)
-            └── ►:3[1]:anon:
+            └── ►:4[1]:anon:
                 └── 🟣7b9f260 (✓)
                     ├── ►:5[2]:main
                     │   ├── 🟣4b3e5a8 (✓)
                     │   ├── 🟣34d0715 (✓)
                     │   └── 🟣eb5f731 (✓)
-                    └── →:4: (A)
+                    └── →:3: (A)
     ");
     // `A` is integrated, hence it's not shown.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
@@ -1491,20 +1501,27 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     │       └── 📙►:2[1]:B
     │           ├── ·6b1a13b (⌂|🏘️|1)
     │           └── ·03ad472 (⌂|🏘️|1)
-    │               └── 📙►:4[2]:A
+    │               └── 📙►:3[2]:A
     │                   ├── ·79bbb29 (⌂|🏘️|✓|1)
     │                   ├── ·fc98174 (⌂|🏘️|✓|1)
-    │                   └── ✂️·a381df5 (⌂|🏘️|✓|1)
+    │                   ├── ·a381df5 (⌂|🏘️|✓|1)
+    │                   └── ·777b552 (⌂|🏘️|✓|1)
+    │                       └── ►:6[3]:anon:
+    │                           └── ·ce4a760 (⌂|🏘️|✓|1)
+    │                               ├── ►:7[4]:anon:
+    │                               │   └── ✂️·01d0e1e (⌂|🏘️|✓|1)
+    │                               └── ►:8[4]:A-feat
+    │                                   └── ✂️·fea59b5 (⌂|🏘️|✓|1)
     └── ►:1[0]:origin/main
         ├── 🟣d0df794 (✓)
         └── 🟣09c6e08 (✓)
-            └── ►:3[1]:anon:
+            └── ►:4[1]:anon:
                 └── 🟣7b9f260 (✓)
                     ├── ►:5[2]:main
                     │   ├── 🟣4b3e5a8 (✓)
                     │   ├── 🟣34d0715 (✓)
                     │   └── 🟣eb5f731 (✓)
-                    └── →:4: (A)
+                    └── →:3: (A)
     ");
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main⇣6 on 79bbb29
@@ -2042,23 +2059,23 @@ fn three_branches_one_advanced_ws_commit_advanced_fully_pushed_empty_dependant()
     insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 👉📕►►►:0[0]:gitbutler/workspace
     │   └── ·f8f33a7 (⌂|🏘️|1)
-    │       └── 📙►:5[1]:dependant
-    │           └── 📙►:6[2]:advanced-lane <> origin/advanced-lane →:3:
+    │       └── 📙►:3[1]:dependant
+    │           └── 📙►:5[2]:advanced-lane <> origin/advanced-lane →:4:
     │               └── ·cbc6713 (⌂|🏘️|101) ►on-top-of-dependant
     │                   └── ►:2[3]:main <> origin/main →:1:
     │                       └── ·fafd9d0 (⌂|🏘️|✓|111) ►lane
     ├── ►:1[0]:origin/main →:2:
     │   └── →:2: (main →:1:)
-    └── ►:3[0]:origin/advanced-lane →:6:
-        └── →:5: (dependant)
+    └── ►:4[0]:origin/advanced-lane →:5:
+        └── →:3: (dependant)
     ");
 
     // When putting the dependent branch on top as empty segment, the frozen state is retained.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
-    └── ≡📙:5:dependant on fafd9d0
-        ├── 📙:5:dependant
-        └── 📙:6:advanced-lane <> origin/advanced-lane →:3:
+    └── ≡📙:3:dependant on fafd9d0
+        ├── 📙:3:dependant
+        └── 📙:5:advanced-lane <> origin/advanced-lane →:4:
             └── ❄️cbc6713 (🏘️) ►on-top-of-dependant
     ");
     Ok(())
@@ -2794,22 +2811,22 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
     │   └── ·335d6f2 (⌂|🏘️|1)
     │       ├── ►:2[3]:main <> origin/main →:1:
     │       │   └── ·fafd9d0 (⌂|🏘️|✓|111) ►lane
-    │       └── 📙►:5[1]:dependant
-    │           └── 📙►:6[2]:advanced-lane <> origin/advanced-lane →:4:
+    │       └── 📙►:3[1]:dependant
+    │           └── 📙►:5[2]:advanced-lane <> origin/advanced-lane →:4:
     │               └── ·cbc6713 (⌂|🏘️|101)
     │                   └── →:2: (main →:1:)
     ├── ►:1[0]:origin/main →:2:
     │   └── →:2: (main →:1:)
-    └── ►:4[0]:origin/advanced-lane →:6:
-        └── →:5: (dependant)
+    └── ►:4[0]:origin/advanced-lane →:5:
+        └── →:3: (dependant)
     ");
 
     // The dependant branch is empty and on top of the one with the remote
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
-    └── ≡📙:5:dependant on fafd9d0
-        ├── 📙:5:dependant
-        └── 📙:6:advanced-lane <> origin/advanced-lane →:4:
+    └── ≡📙:3:dependant on fafd9d0
+        ├── 📙:3:dependant
+        └── 📙:5:advanced-lane <> origin/advanced-lane →:4:
             └── ❄️cbc6713 (🏘️)
     ");
 
@@ -2828,14 +2845,14 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
     │   └── ·335d6f2 (⌂|🏘️|1)
     │       ├── ►:2[3]:main <> origin/main →:1:
     │       │   └── ·fafd9d0 (⌂|🏘️|✓|111) ►lane
-    │       └── 📙►:5[1]:advanced-lane <> origin/advanced-lane →:4:
-    │           └── 📙►:6[2]:dependant
+    │       └── 📙►:3[1]:advanced-lane <> origin/advanced-lane →:4:
+    │           └── 📙►:5[2]:dependant
     │               └── ·cbc6713 (⌂|🏘️|101)
     │                   └── →:2: (main →:1:)
     ├── ►:1[0]:origin/main →:2:
     │   └── →:2: (main →:1:)
-    └── ►:4[0]:origin/advanced-lane →:5:
-        └── →:5: (advanced-lane →:4:)
+    └── ►:4[0]:origin/advanced-lane →:3:
+        └── →:3: (advanced-lane →:4:)
     ");
 
     // Having done something unusual, which is to put the dependant branch
@@ -2844,9 +2861,9 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
     // these more easily.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
-    └── ≡📙:5:advanced-lane <> origin/advanced-lane →:4: on fafd9d0
-        ├── 📙:5:advanced-lane <> origin/advanced-lane →:4:
-        └── 📙:6:dependant
+    └── ≡📙:3:advanced-lane <> origin/advanced-lane →:4: on fafd9d0
+        ├── 📙:3:advanced-lane <> origin/advanced-lane →:4:
+        └── 📙:5:dependant
             └── ❄cbc6713 (🏘️)
     ");
 
@@ -2898,32 +2915,32 @@ fn multiple_stacks_with_shared_parent_and_remote() -> anyhow::Result<()> {
     │   └── ·e982e8a (⌂|🏘️|1)
     │       ├── 📙►:3[1]:C-on-A
     │       │   └── ·4f1bb32 (⌂|🏘️|1)
-    │       │       └── ►:5[2]:A <> origin/A →:6:
+    │       │       └── ►:4[2]:A <> origin/A →:5:
     │       │           └── ·e255adc (⌂|🏘️|101)
     │       │               └── ►:2[3]:main <> origin/main →:1:
     │       │                   └── ·fafd9d0 (⌂|🏘️|✓|111)
-    │       └── ►:4[1]:B-on-A
+    │       └── ►:6[1]:B-on-A
     │           └── ·aff8449 (⌂|🏘️|1)
-    │               └── →:5: (A →:6:)
+    │               └── →:4: (A →:5:)
     ├── ►:1[0]:origin/main →:2:
     │   └── →:2: (main →:1:)
-    └── ►:6[0]:origin/A →:5:
+    └── ►:5[0]:origin/A →:4:
         └── 🟣b627ca7
-            └── →:5: (A →:6:)
+            └── →:4: (A →:5:)
     ");
 
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
-    ├── ≡:4:B-on-A on fafd9d0
-    │   ├── :4:B-on-A
+    ├── ≡:6:B-on-A on fafd9d0
+    │   ├── :6:B-on-A
     │   │   └── ·aff8449 (🏘️)
-    │   └── :5:A <> origin/A →:6:⇣1
+    │   └── :4:A <> origin/A →:5:⇣1
     │       ├── 🟣b627ca7
     │       └── ❄️e255adc (🏘️)
     └── ≡📙:3:C-on-A on fafd9d0
         ├── 📙:3:C-on-A
         │   └── ·4f1bb32 (🏘️)
-        └── :5:A <> origin/A →:6:⇣1
+        └── :4:A <> origin/A →:5:⇣1
             ├── 🟣b627ca7
             └── ❄️e255adc (🏘️)
     ");
@@ -2983,22 +3000,22 @@ fn a_stack_segment_can_be_a_segment_elsewhere_and_stack_order() -> anyhow::Resul
     insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 👉📕►►►:0[0]:gitbutler/workspace
     │   └── ·873d056 (⌂|🏘️|1)
-    │       ├── 📙►:3[2]:lane
+    │       ├── 📙►:2[2]:lane
     │       │   └── ·fafd9d0 (⌂|🏘️|1) ►main
-    │       └── 📙►:2[1]:advanced-lane
+    │       └── 📙►:3[1]:advanced-lane
     │           └── ·cbc6713 (⌂|🏘️|1)
-    │               └── →:3: (lane)
+    │               └── →:2: (lane)
     └── ►:1[0]:origin/main
         └── 🟣da83717 (✓)
     ");
 
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main⇣1 on fafd9d0
-    ├── ≡📙:2:advanced-lane on fafd9d0
-    │   └── 📙:2:advanced-lane
+    ├── ≡📙:3:advanced-lane on fafd9d0
+    │   └── 📙:3:advanced-lane
     │       └── ·cbc6713 (🏘️)
-    └── ≡📙:3:lane
-        └── 📙:3:lane
+    └── ≡📙:2:lane
+        └── 📙:2:lane
             └── ·fafd9d0 (🏘️) ►main
     ");
     Ok(())
@@ -3556,6 +3573,180 @@ fn special_branch_do_not_allow_overly_long_segments() -> anyhow::Result<()> {
         │   └── ·e146f13 (🏘️)
         └── :2:main <> origin/main →:1:
             └── ❄️971953d (🏘️|✓)
+    ");
+    Ok(())
+}
+
+#[test]
+fn branch_ahead_of_workspace() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/branches-ahead-of-workspace")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   790a17d (C-bottom) C2 merge commit
+    |\  
+    | * 631be19 (tmp) C1-outside2
+    * | 969aaec C1-outside
+    |/  
+    | * c83f258 (A) A2-outside
+    | | * c8f73c7 (B-middle) B3-outside
+    | | * ff75b80 (intermediate-branch) B2-outside
+    | | | *   59ae3cd (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | | |/|\  
+    | |/| | | 
+    | | | | * 3f7c4e6 (C) C2
+    | |_|_|/  
+    |/| | |   
+    * | | | b6895d7 C1
+    | | | * 2f8f06d (B) B3
+    | | |/  
+    | | | *   867927f (origin/main, main) Merge branch 'B-middle'
+    | | | |\  
+    | | | |/  
+    | | |/|   
+    | | * | 91bc3fc B2
+    | | * | cf9330f B1
+    | |/ /  
+    |/| |   
+    | | * 6e03461 Merge branch 'A'
+    | |/| 
+    |/|/  
+    | * a62b0de A2
+    | * 120a217 A1
+    |/  
+    * fafd9d0 init
+    ");
+
+    add_workspace(&mut meta);
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        standard_options_with_extra_target(&repo, "main"),
+    )?
+    .validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    ├── 👉📕►►►:0[0]:gitbutler/workspace
+    │   └── ·59ae3cd (⌂|🏘️|1)
+    │       ├── ►:5[3]:anon:
+    │       │   ├── ·a62b0de (⌂|🏘️|✓|11)
+    │       │   └── ·120a217 (⌂|🏘️|✓|11)
+    │       │       └── ►:8[4]:anon:
+    │       │           └── ·fafd9d0 (⌂|🏘️|✓|11)
+    │       ├── ►:6[1]:B
+    │       │   └── ·2f8f06d (⌂|🏘️|1)
+    │       │       └── ►:4[2]:anon:
+    │       │           ├── ·91bc3fc (⌂|🏘️|✓|11)
+    │       │           └── ·cf9330f (⌂|🏘️|✓|11)
+    │       │               └── →:8:
+    │       └── ►:7[1]:C
+    │           ├── ·3f7c4e6 (⌂|🏘️|1)
+    │           └── ·b6895d7 (⌂|🏘️|1)
+    │               └── →:8:
+    └── ►:1[0]:origin/main →:2:
+        └── ►:2[1]:main <> origin/main →:1:
+            └── ·867927f (⌂|✓|10)
+                ├── ►:3[2]:anon:
+                │   └── ·6e03461 (⌂|✓|10)
+                │       ├── →:8:
+                │       └── →:5:
+                └── →:4:
+    ");
+
+    // If it doesn't know how the workspace should be looking like, i.e. which branches are contained,
+    // nothing special happens.
+    // The branches that are outside the workspace don't exist and segments are flattened.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main⇣2 on fafd9d0
+    ├── ≡:7:C on fafd9d0
+    │   └── :7:C
+    │       ├── ·3f7c4e6 (🏘️)
+    │       └── ·b6895d7 (🏘️)
+    ├── ≡:6:B on fafd9d0
+    │   └── :6:B
+    │       ├── ·2f8f06d (🏘️)
+    │       ├── ·91bc3fc (🏘️|✓)
+    │       └── ·cf9330f (🏘️|✓)
+    └── ≡:5:anon: on fafd9d0
+        └── :5:anon:
+            ├── ·a62b0de (🏘️|✓)
+            └── ·120a217 (🏘️|✓)
+    ");
+
+    // However, when the desired workspace is set up, the traversal will include these extra tips.
+    add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["B-middle"]);
+    add_stack_with_segments(&mut meta, 2, "C", StackState::InWorkspace, &["C-bottom"]);
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        standard_options_with_extra_target(&repo, ":/init"),
+    )?
+    .validated()?;
+    // TODO: Is it possible for the traversal not to be cut?
+    //       Why is it cut in the first place? Because the target tip
+    //       finds it first and has no allowance after it meets with the workspace.
+    //       So tips meeting limits have to follow-through and continue with their
+    //       own limit settings, maybe with a combination/merge?
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    ├── 👉📕►►►:0[0]:gitbutler/workspace
+    │   └── ·59ae3cd (⌂|🏘️|1)
+    │       ├── ►:14[3]:anon:
+    │       │   ├── ·a62b0de (⌂|🏘️|✓|11)
+    │       │   └── ·120a217 (⌂|🏘️|✓|11)
+    │       │       └── ►:3[4]:anon:
+    │       │           └── ·fafd9d0 (⌂|🏘️|✓|11)
+    │       ├── 📙►:5[1]:B
+    │       │   └── ·2f8f06d (⌂|🏘️|1)
+    │       │       └── ►:10[2]:anon:
+    │       │           ├── ·91bc3fc (⌂|🏘️|✓|11)
+    │       │           └── ✂️·cf9330f (⌂|🏘️|✓|11)
+    │       └── 📙►:7[1]:C
+    │           └── ·3f7c4e6 (⌂|🏘️|1)
+    │               └── ►:15[2]:anon:
+    │                   └── ·b6895d7 (⌂|🏘️|1)
+    │                       └── →:3:
+    ├── ►:1[0]:origin/main →:2:
+    │   └── ►:2[1]:main <> origin/main →:1:
+    │       └── ·867927f (⌂|✓|10)
+    │           ├── ►:9[2]:anon:
+    │           │   └── ·6e03461 (⌂|✓|10)
+    │           │       ├── →:3:
+    │           │       └── →:14:
+    │           └── →:10:
+    ├── 📙►:4[0]:A
+    │   └── ·c83f258 (⌂)
+    │       └── →:14:
+    ├── 📙►:6[0]:B-middle
+    │   └── ·c8f73c7 (⌂)
+    │       └── ►:11[1]:intermediate-branch
+    │           └── ·ff75b80 (⌂)
+    │               └── →:10:
+    └── 📙►:8[0]:C-bottom
+        └── ·790a17d (⌂)
+            ├── ►:12[1]:anon:
+            │   └── ·969aaec (⌂)
+            │       └── →:15:
+            └── ►:13[1]:tmp
+                └── ·631be19 (⌂)
+                    └── →:15:
+    ");
+
+    // The workspace itself contains information about the outside tips.
+    // TODO: make it work.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main⇣2 on fafd9d0
+    ├── ≡📙:7:C on fafd9d0
+    │   └── 📙:7:C
+    │       ├── ·3f7c4e6 (🏘️)
+    │       └── ·b6895d7 (🏘️)
+    ├── ≡📙:5:B
+    │   └── 📙:5:B
+    │       ├── ·2f8f06d (🏘️)
+    │       ├── ·91bc3fc (🏘️|✓)
+    │       └── ✂️·cf9330f (🏘️|✓)
+    └── ≡:14:anon: on fafd9d0
+        └── :14:anon:
+            ├── ·a62b0de (🏘️|✓)
+            └── ·120a217 (🏘️|✓)
     ");
     Ok(())
 }
