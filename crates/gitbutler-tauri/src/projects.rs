@@ -214,7 +214,7 @@ fn warn_about_filters_and_git_lfs(repo: gix::Repository) -> anyhow::Result<Optio
     let index = repo.index_or_empty()?;
     let mut cache = repo.attributes_only(
         &index,
-        gix::worktree::stack::state::attributes::Source::IdMapping,
+        gix::worktree::stack::state::attributes::Source::WorktreeThenIdMapping,
     )?;
     let mut attrs = cache.selected_attribute_matches(Some("filter"));
     let mut all_filters = BTreeSet::<String>::new();
