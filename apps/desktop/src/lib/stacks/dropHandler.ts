@@ -1,6 +1,7 @@
 import { changesToDiffSpec } from '$lib/commits/utils';
 import { ChangeDropData } from '$lib/dragging/draggables';
 import StackMacros from '$lib/stacks/macros';
+import toasts from '@gitbutler/ui/toasts';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { DiffService } from '$lib/hunks/diffService.svelte';
 import type { UncommittedService } from '$lib/selection/uncommittedService.svelte';
@@ -23,7 +24,6 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 
 	accepts(data: unknown) {
 		if (!(data instanceof ChangeDropData)) return false;
-		if (data.selectionId.type === 'branch') return false;
 		if (data.selectionId.type === 'commit' && data.stackId === undefined) return false;
 		return true;
 	}
@@ -31,8 +31,40 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 	async ondrop(data: ChangeDropData) {
 		switch (data.selectionId.type) {
 			case 'branch': {
-				// This should never happen, but just in case
-				console.warn('Moving changes from a branch to a new stack is not supported');
+				const newBranchName = await this.stackService.fetchNewBranchName(this.projectId);
+
+				if (!newBranchName) {
+					throw new Error('Failed to generate a new branch name.');
+				}
+
+				if (!data.stackId) {
+					throw new Error('Change drop data must specify the source stackId');
+				}
+
+				const sourceStackId = data.stackId;
+				const sourceBranchName = data.selectionId.branchName;
+
+				await toasts.promise(
+					(async () => {
+						const fileNames = await data
+							.treeChanges()
+							.then((changes) => changes.map((c) => c.path));
+
+						await this.stackService.splitBranchMutation({
+							projectId: this.projectId,
+							sourceStackId,
+							sourceBranchName,
+							fileChangesToSplitOff: fileNames,
+							newBranchName: newBranchName
+						});
+					})(),
+					{
+						loading: 'Splitting branch into a new branch...',
+						success: 'Branch split successfully',
+						error: 'Failed to split branch'
+					}
+				);
+
 				break;
 			}
 			case 'commit': {

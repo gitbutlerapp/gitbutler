@@ -809,6 +809,10 @@ export class StackService {
 		return this.api.endpoints.splitBranch.useMutation();
 	}
 
+	get splitBranchMutation() {
+		return this.api.endpoints.splitBranch.mutate;
+	}
+
 	get splitBrancIntoDependentBranch() {
 		return this.api.endpoints.splitBranchIntoDependentBranch.useMutation();
 	}
