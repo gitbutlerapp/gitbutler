@@ -214,7 +214,7 @@ fn warn_about_filters_and_git_lfs(repo: gix::Repository) -> anyhow::Result<Optio
     let index = repo.index_or_empty()?;
     let mut cache = repo.attributes_only(
         &index,
-        gix::worktree::stack::state::attributes::Source::IdMapping,
+        gix::worktree::stack::state::attributes::Source::WorktreeThenIdMapping,
     )?;
     let mut attrs = cache.selected_attribute_matches(Some("filter"));
     let mut all_filters = BTreeSet::<String>::new();
@@ -222,9 +222,13 @@ fn warn_about_filters_and_git_lfs(repo: gix::Repository) -> anyhow::Result<Optio
     for entry in index.entries() {
         let cache_entry = cache.at_entry(entry.path(&index), None)?;
         if cache_entry.matching_attributes(&mut attrs) {
+            let mut added = false;
             all_filters.extend(attrs.iter().filter_map(|attr| {
                 attr.assignment.state.as_bstr().map(|s| {
-                    files_with_filter.push(entry.path(&index).to_str_lossy());
+                    if !added {
+                        files_with_filter.push(entry.path(&index).to_str_lossy());
+                        added = true;
+                    }
                     s.to_string()
                 })
             }));
@@ -239,7 +243,7 @@ fn warn_about_filters_and_git_lfs(repo: gix::Repository) -> anyhow::Result<Optio
     let mut msg = format!(
         "Worktree filter(s) detected: {comma_separated}\n\
 Filters will silently not be applied during workspace operations to the files listed below.\n\
-Assure these aren't touched by GitButler or avoid using it in this repository.",
+Ensure these aren't touched by GitButler or avoid using it in this repository.",
         comma_separated = Vec::from_iter(all_filters).join(", ")
     );
     if has_lfs {
