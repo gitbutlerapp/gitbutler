@@ -27,7 +27,7 @@
 	import { GitService } from '$lib/git/gitService';
 	import { HistoryService } from '$lib/history/history';
 	import { ModeService } from '$lib/mode/modeService';
-	import { showError, showInfo } from '$lib/notifications/toasts';
+	import { showError, showInfo, showWarning } from '$lib/notifications/toasts';
 	import { ProjectsService } from '$lib/project/projectsService';
 	import { getSecretsService } from '$lib/secrets/secretsService';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
@@ -203,6 +203,7 @@
 	});
 
 	async function setActiveProjectOrRedirect() {
+		const dontShowAgainKey = `git-filters--dont-show-again--${projectId}`;
 		// Optimistically assume the project is viewable
 		try {
 			const info = await projectsService.setActiveProject(projectId);
@@ -215,8 +216,14 @@
 			if (info.db_error) {
 				showError('The database was corrupted', info.db_error);
 			}
-			if (info.headsup) {
-				showError('Important PSA', info.headsup);
+			if (info.headsup && localStorage.getItem(dontShowAgainKey) !== '1') {
+				showWarning('Important PSA', info.headsup, {
+					label: "Don't show again",
+					onClick: (dismiss) => {
+						localStorage.setItem(dontShowAgainKey, '1');
+						dismiss();
+					}
+				});
 			}
 		} catch (error: unknown) {
 			showError('Failed to set the project active', error);

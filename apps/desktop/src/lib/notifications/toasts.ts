@@ -3,12 +3,18 @@ import posthog from 'posthog-js';
 import { writable, type Writable } from 'svelte/store';
 import type { MessageStyle } from '$components/InfoMessage.svelte';
 
+type ExtraAction = {
+	label: string;
+	onClick: (dismiss: () => void) => void;
+};
+
 export interface Toast {
 	id?: string;
 	message?: string;
 	error?: any;
 	title?: string;
 	style?: MessageStyle;
+	extraAction?: ExtraAction;
 }
 
 export const toastStore: Writable<Toast[]> = writable([]);
@@ -30,20 +36,25 @@ export function showToast(toast: Toast) {
 	]);
 }
 
-export function showError(title: string, error: unknown) {
+export function showError(title: string, error: unknown, extraAction?: ExtraAction) {
 	const { message, description, ignored } = parseError(error);
 	if (!ignored) {
 		showToast({
 			title,
 			message: description,
 			error: message,
-			style: 'error'
+			style: 'error',
+			extraAction
 		});
 	}
 }
 
-export function showInfo(title: string, message: string) {
-	showToast({ title, message, style: 'neutral' });
+export function showInfo(title: string, message: string, extraAction?: ExtraAction) {
+	showToast({ title, message, style: 'neutral', extraAction });
+}
+
+export function showWarning(title: string, message: string, extraAction?: ExtraAction) {
+	showToast({ title, message, style: 'warning', extraAction });
 }
 
 export function dismissToast(messageId: string | undefined) {
