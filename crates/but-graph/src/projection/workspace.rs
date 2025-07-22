@@ -328,9 +328,6 @@ impl Graph {
                         entrypoint_sidx,
                         |s| {
                             let stop = true;
-                            if segment_name_is_special(s) {
-                                return !stop;
-                            }
                             // The lowest base is a segment that all stacks will run into.
                             // If we meet it, we are done. Note how we ignored the integration state
                             // as pruning of fully integrated stacks happens later.
@@ -341,6 +338,9 @@ impl Graph {
                             // Assure entrypoints get their own segments
                             if s.id != stack_top_sidx && Some(s.id) == entrypoint_sidx {
                                 return stop;
+                            }
+                            if segment_name_is_special(s) {
+                                return !stop;
                             }
                             match (
                                 &stack_segment.ref_name,

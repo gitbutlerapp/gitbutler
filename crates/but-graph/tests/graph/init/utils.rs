@@ -148,13 +148,7 @@ pub fn standard_options_with_extra_target(
     name: &str,
 ) -> but_graph::init::Options {
     but_graph::init::Options {
-        extra_target_commit_id: Some(
-            repo.find_reference(name)
-                .expect("present")
-                .peel_to_id_in_place()
-                .unwrap()
-                .detach(),
-        ),
+        extra_target_commit_id: Some(repo.rev_parse_single(name).expect("present").detach()),
         ..standard_options()
     }
 }

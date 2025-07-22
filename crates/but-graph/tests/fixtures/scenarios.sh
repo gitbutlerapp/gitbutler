@@ -806,5 +806,19 @@ EOF
     commit top
     create_workspace_commit_once main
   )
+
+  git init special-branches-edgecase
+  (cd special-branches-edgecase
+    commit init
+    commit M1
+    git branch gitbutler/target
+    commit M2
+    setup_target_to_match_main
+    git checkout -b A
+    commit middle
+      git branch gitbutler/edit
+    commit top
+    create_workspace_commit_once A
+  )
 )
 
