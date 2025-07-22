@@ -249,7 +249,14 @@ Assure these aren't touched by GitButler or avoid using it in this repository.",
 `git lfs pull --include="*" to restore git-lfs files.` can be used to restore git-lfs files after GitButler touched them."#,
         );
     }
+    let max_files = 10;
     msg.push_str("\n\n");
-    msg.push_str(&files_with_filter.join("\n"));
+    msg.push_str(&files_with_filter[..files_with_filter.len().min(max_files)].join("\n"));
+    if files_with_filter.len() > max_files {
+        msg.push_str(&format!(
+            "\n[and {} more]",
+            files_with_filter.len() - max_files
+        ));
+    }
     Ok(Some(msg))
 }
