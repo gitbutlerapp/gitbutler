@@ -1,4 +1,4 @@
-import { providesList, ReduxTag } from '$lib/state/tags';
+import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
 import type { BranchListing, BranchListingDetails } from '$lib/branches/branchListing';
 import type { BackendApi, ClientState } from '$lib/state/clientState.svelte';
 
@@ -17,9 +17,8 @@ export class BranchService {
 		return this.api.endpoints.branchDetails.useQuery({ projectId, branchName });
 	}
 
-	// TODO: Convert this to invalidation.
-	async refresh(projectId: string): Promise<void> {
-		await this.api.endpoints.listBranches.fetch({ projectId }, { forceRefetch: true });
+	async refresh(): Promise<void> {
+		this.api.util.invalidateTags([invalidatesList(ReduxTag.BranchListing)]);
 	}
 }
 
