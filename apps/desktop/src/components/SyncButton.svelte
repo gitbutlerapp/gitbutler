@@ -42,7 +42,7 @@
 			await Promise.all([
 				listingService?.refresh(projectId),
 				baseBranch.current.refetch(),
-				branchService.refresh(projectId)
+				branchService.refresh()
 			]);
 		} finally {
 			loading = false;
