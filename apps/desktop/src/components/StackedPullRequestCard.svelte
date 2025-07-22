@@ -88,39 +88,37 @@
 	}
 </script>
 
-{#if pr}
-	<PullRequestCard
-		testId={TestId.StackedPullRequestCard}
-		{branchName}
-		{prNumber}
-		{isPushed}
-		{hasParent}
-		{parentIsPushed}
-		{baseIsTargetBranch}
-		poll
-	>
-		{#snippet button({ pr, mergeStatus, reopenStatus })}
-			{#if pr.state === 'open'}
-				<MergeButton
-					wide
-					{projectId}
-					disabled={mergeStatus.disabled}
-					tooltip={mergeStatus.tooltip}
-					onclick={handleMerge}
-				/>
-			{:else if !pr.merged}
-				<AsyncButton
-					kind="outline"
-					disabled={reopenStatus.disabled}
-					tooltip={reopenStatus.tooltip}
-					action={handleReopen}
-				>
-					{`Reopen ${prUnit}`}
-				</AsyncButton>
-			{/if}
-		{/snippet}
-	</PullRequestCard>
-{/if}
+<PullRequestCard
+	testId={TestId.StackedPullRequestCard}
+	{branchName}
+	{prNumber}
+	{isPushed}
+	{hasParent}
+	{parentIsPushed}
+	{baseIsTargetBranch}
+	poll
+>
+	{#snippet button({ pr, mergeStatus, reopenStatus })}
+		{#if pr.state === 'open'}
+			<MergeButton
+				wide
+				{projectId}
+				disabled={mergeStatus.disabled}
+				tooltip={mergeStatus.tooltip}
+				onclick={handleMerge}
+			/>
+		{:else if !pr.merged}
+			<AsyncButton
+				kind="outline"
+				disabled={reopenStatus.disabled}
+				tooltip={reopenStatus.tooltip}
+				action={handleReopen}
+			>
+				{`Reopen ${prUnit}`}
+			</AsyncButton>
+		{/if}
+	{/snippet}
+</PullRequestCard>
 
 <style lang="postcss">
 </style>

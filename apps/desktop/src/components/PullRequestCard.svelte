@@ -1,6 +1,7 @@
 <script lang="ts">
 	import PrStatusBadge from '$components/PrStatusBadge.svelte';
 	import PullRequestPolling from '$components/PullRequestPolling.svelte';
+	import ReduxResult from '$components/ReduxResult.svelte';
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 	import { TestId } from '$lib/testing/testIds';
@@ -101,125 +102,127 @@
 	});
 </script>
 
-{#if pr}
-	{#if poll}
-		<PullRequestPolling number={pr.number} />
-	{/if}
+<ReduxResult result={prResult?.current} projectId="dummy">
+	{#snippet children(pr)}
+		{#if poll}
+			<PullRequestPolling number={pr.number} />
+		{/if}
 
-	<ContextMenu bind:this={contextMenuEl} rightClickTrigger={container}>
-		<ContextMenuSection>
-			<ContextMenuItem
-				label="Open in browser"
-				onclick={() => {
-					openExternalUrl(pr.htmlUrl);
-					contextMenuEl?.close();
-				}}
-			/>
-			<ContextMenuItem
-				label="Copy link"
-				onclick={() => {
-					writeClipboard(pr.htmlUrl);
-					contextMenuEl?.close();
-				}}
-			/>
-			<ContextMenuItem
-				label="Refetch status"
-				onclick={() => {
-					prService?.fetch(pr.number, { forceRefetch: true });
-					contextMenuEl?.close();
-					if (hasChecks) {
-						checksService?.fetch(pr.sourceBranch, { forceRefetch: true });
-					}
-				}}
-			/>
-		</ContextMenuSection>
-		{#if hasChecks}
+		<ContextMenu bind:this={contextMenuEl} rightClickTrigger={container}>
 			<ContextMenuSection>
 				<ContextMenuItem
-					label="Open checks"
+					label="Open in browser"
 					onclick={() => {
-						openExternalUrl(`${pr.htmlUrl}/checks`);
+						openExternalUrl(pr.htmlUrl);
 						contextMenuEl?.close();
 					}}
 				/>
 				<ContextMenuItem
-					label="Copy checks"
+					label="Copy link"
 					onclick={() => {
-						writeClipboard(`${pr.htmlUrl}/checks`);
+						writeClipboard(pr.htmlUrl);
 						contextMenuEl?.close();
+					}}
+				/>
+				<ContextMenuItem
+					label="Refetch status"
+					onclick={() => {
+						prService?.fetch(pr.number, { forceRefetch: true });
+						contextMenuEl?.close();
+						if (hasChecks) {
+							checksService?.fetch(pr.sourceBranch, { forceRefetch: true });
+						}
 					}}
 				/>
 			</ContextMenuSection>
-		{/if}
-	</ContextMenu>
+			{#if hasChecks}
+				<ContextMenuSection>
+					<ContextMenuItem
+						label="Open checks"
+						onclick={() => {
+							openExternalUrl(`${pr.htmlUrl}/checks`);
+							contextMenuEl?.close();
+						}}
+					/>
+					<ContextMenuItem
+						label="Copy checks"
+						onclick={() => {
+							writeClipboard(`${pr.htmlUrl}/checks`);
+							contextMenuEl?.close();
+						}}
+					/>
+				</ContextMenuSection>
+			{/if}
+		</ContextMenu>
 
-	<div
-		data-testid={testId}
-		bind:this={container}
-		role="article"
-		class="review-card pr-card"
-		oncontextmenu={(e: MouseEvent) => {
-			e.preventDefault();
-			e.stopPropagation();
-			contextMenuEl?.open(e);
-		}}
-	>
-		<div class="pr-actions">
-			<Button
-				kind="outline"
-				size="tag"
-				icon="copy-small"
-				tooltip="Copy {abbr} link"
-				onclick={() => {
-					writeClipboard(pr.htmlUrl);
-				}}
-			/>
-			<Button
-				kind="outline"
-				size="tag"
-				icon="open-link"
-				tooltip="Open {abbr} in browser"
-				onclick={() => {
-					openExternalUrl(pr.htmlUrl);
-				}}
-			/>
-		</div>
-
-		<div class="text-13 text-semibold pr-row">
-			<Icon name="github" />
-			<h4 class="text-14 text-semibold">
-				{`${abbr} ${symbol}${pr.number}`}
-			</h4>
-
-			<PrStatusBadge testId={TestId.PRStatusBadge} {pr} />
-		</div>
-		<div class="text-12 pr-row">
-			<div class="factoid">
-				{#if pr.reviewers.length > 0}
-					<span class="label">Reviewers:</span>
-					<div class="avatar-group-container">
-						<AvatarGroup avatars={pr.reviewers} />
-					</div>
-				{:else}
-					<span class="label italic">No reviewers</span>
-				{/if}
+		<div
+			data-testid={testId}
+			bind:this={container}
+			role="article"
+			class="review-card pr-card"
+			oncontextmenu={(e: MouseEvent) => {
+				e.preventDefault();
+				e.stopPropagation();
+				contextMenuEl?.open(e);
+			}}
+		>
+			<div class="pr-actions">
+				<Button
+					kind="outline"
+					size="tag"
+					icon="copy-small"
+					tooltip="Copy {abbr} link"
+					onclick={() => {
+						writeClipboard(pr.htmlUrl);
+					}}
+				/>
+				<Button
+					kind="outline"
+					size="tag"
+					icon="open-link"
+					tooltip="Open {abbr} in browser"
+					onclick={() => {
+						openExternalUrl(pr.htmlUrl);
+					}}
+				/>
 			</div>
-			<span class="seperator">•</span>
-			<div class="factoid">
-				<span class="label">
-					<Icon name="chat-small" />
-				</span>
-				<span>{pr.commentsCount}</span>
-			</div>
-		</div>
 
-		{#if button}
-			<div class="pr-row">
-				{@render button({ pr, mergeStatus, reopenStatus })}
+			<div class="text-13 text-semibold pr-row">
+				<Icon name="github" />
+				<h4 class="text-14 text-semibold">
+					{`${abbr} ${symbol}${pr.number}`}
+				</h4>
+
+				<PrStatusBadge testId={TestId.PRStatusBadge} {pr} />
 			</div>
-		{/if}
-	</div>
-{/if}
+			<div class="text-12 pr-row">
+				<div class="factoid">
+					{#if pr.reviewers.length > 0}
+						<span class="label">Reviewers:</span>
+						<div class="avatar-group-container">
+							<AvatarGroup avatars={pr.reviewers} />
+						</div>
+					{:else}
+						<span class="label italic">No reviewers</span>
+					{/if}
+				</div>
+				<span class="seperator">•</span>
+				<div class="factoid">
+					<span class="label">
+						<Icon name="chat-small" />
+					</span>
+					<span>{pr.commentsCount}</span>
+				</div>
+			</div>
+
+			{#if button}
+				<div class="pr-row">
+					{@render button({ pr, mergeStatus, reopenStatus })}
+				</div>
+			{/if}
+		</div>
+	{/snippet}
+</ReduxResult>
 
 <style lang="postcss">
 	.pr-row {

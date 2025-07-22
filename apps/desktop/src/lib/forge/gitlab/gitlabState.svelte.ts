@@ -69,9 +69,9 @@ export class GitLabState {
 		this.instanceUrl = instanceUrl;
 
 		this.configured = derived(
-			[this.token, this.forkProjectId, this.instanceUrl],
-			([token, forkProjectId, instanceUrl]) => {
-				return !!token && !!forkProjectId && !!instanceUrl;
+			[this.token, this.upstreamProjectId, this.forkProjectId, this.instanceUrl],
+			([token, upstreamProjectId, forkProjectId, instanceUrl]) => {
+				return !!token && !!upstreamProjectId && !!forkProjectId && !!instanceUrl;
 			}
 		);
 	}
