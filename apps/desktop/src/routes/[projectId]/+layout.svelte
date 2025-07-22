@@ -111,7 +111,13 @@
 		500
 	);
 
-	const debouncedRemoteBranchRefresh = debounce(async () => await branchService.refresh(), 500);
+	const debouncedRemoteBranchRefresh = debounce(
+		async () =>
+			await branchService.refresh().catch((error) => {
+				console.error('Failed to refresh remote branches:', error);
+			}),
+		500
+	);
 
 	// TODO: Refactor `$head` into `.onHead()` as well.
 	const gitService = getContext(GitService);
@@ -204,15 +210,24 @@
 		// Optimistically assume the project is viewable
 		try {
 			const info = await projectsService.setActiveProject(projectId);
+
+			if (!info) {
+				// The project is not found, redirect to the start.
+				goto('/');
+				return;
+			}
+
 			if (!info.is_exclusive) {
 				showInfo(
 					'Just FYI, this project is already open in another window',
 					'There might be some unexpected behavior if you open it in multiple windows'
 				);
 			}
+
 			if (info.db_error) {
 				showError('The database was corrupted', info.db_error);
 			}
+
 			if (info.headsup && localStorage.getItem(dontShowAgainKey) !== '1') {
 				showWarning('Important PSA', info.headsup, {
 					label: "Don't show again",

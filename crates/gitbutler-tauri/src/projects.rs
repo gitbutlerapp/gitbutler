@@ -97,8 +97,14 @@ pub mod commands {
         app_settings: State<'_, AppSettingsWithDiskSync>,
         window: Window,
         id: ProjectId,
-    ) -> Result<ProjectInfo, Error> {
-        let project = projects.get_validated(id).context("project not found")?;
+    ) -> Result<Option<ProjectInfo>, Error> {
+        let project = match projects.get_validated(id).ok() {
+            Some(project) => project,
+            None => {
+                tracing::warn!("Project with ID {id} not found, cannot set it active");
+                return Ok(None);
+            }
+        };
         let ctx = &mut CommandContext::open(&project, app_settings.get()?.clone())?;
         let mode = window_state.set_project_to_window(
             window.label(),
@@ -117,11 +123,11 @@ pub mod commands {
             ProjectAccessMode::First => true,
             ProjectAccessMode::Shared => false,
         };
-        Ok(ProjectInfo {
+        Ok(Some(ProjectInfo {
             is_exclusive,
             db_error,
             headsup: filter_error,
-        })
+        }))
     }
 
     #[tauri::command(async)]
