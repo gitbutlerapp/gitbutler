@@ -13,15 +13,9 @@
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { StackService } from '$lib/stacks/stackService.svelte';
 	import { UiState } from '$lib/state/uiState.svelte';
-	import { User } from '$lib/user/user';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
-	import {
-		getContext,
-		getContextStore,
-		getContextStoreBySymbol,
-		inject
-	} from '@gitbutler/shared/context';
+	import { getContext, getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
@@ -79,9 +73,6 @@
 	const selectionBranchName = $derived(
 		selectionId.type === 'branch' ? selectionId.branchName : undefined
 	);
-
-	const user = getContextStore(User);
-	const isAdmin = $derived($user.role === 'admin');
 
 	let confirmationModal: ReturnType<typeof Modal> | undefined;
 	let stashConfirmationModal: ReturnType<typeof Modal> | undefined;
@@ -386,7 +377,7 @@
 						}}
 					/>
 
-					{#if isBranchFiles && stackId && selectionBranchName && isAdmin}
+					{#if isBranchFiles && stackId && selectionBranchName}
 						{@const branchIsConflicted = stackService.isBranchConflicted(
 							projectId,
 							stackId,
