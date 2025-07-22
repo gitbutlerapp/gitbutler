@@ -36,11 +36,22 @@ pub fn persist(handle: &str, secret: &Sensitive<String>, namespace: Namespace) -
 
 /// Obtain the previously [stored](persist()) secret known as `handle` from `namespace`.
 pub fn retrieve(handle: &str, namespace: Namespace) -> Result<Option<Sensitive<String>>> {
-    match entry_for(handle, namespace)?.get_password() {
+    match entry_for(handle, namespace)
+        .map_err(annotate_linux_keychain)?
+        .get_password()
+    {
         Ok(secret) => Ok(Some(Sensitive(secret))),
         Err(keyring::Error::NoEntry) => Ok(None),
-        Err(err) => Err(err.into()),
+        Err(err) => Err(annotate_linux_keychain(err.into())),
     }
+}
+
+fn annotate_linux_keychain(err: anyhow::Error) -> anyhow::Error {
+    if !cfg!(target_os = "linux") || !err.to_string().contains(" org.freedesktop.secrets ") {
+        return err;
+    }
+
+    err.context(gitbutler_error::error::Code::SecretKeychainNotFound)
 }
 
 /// Delete the secret at `handle` permanently from `namespace`.
@@ -168,7 +179,7 @@ pub mod git_credentials {
             Ok(())
         }
 
-        #[instrument(skip(self))]
+        #[instrument(skip(self), level = "trace")]
         fn get_password(&self) -> keyring::Result<String> {
             let (mut cascade, get_action, prompt) = self
                 .store

@@ -11,6 +11,7 @@ anyhow = "1.0.98"
 tracing.workspace = true
 serde = { workspace = true, features = ["std"]}
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
+gitbutler-error.workspace = true
 keyring.workspace = true
 
 [[test]]
