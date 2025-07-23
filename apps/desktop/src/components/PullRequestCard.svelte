@@ -11,9 +11,9 @@
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
-	import ForgeLogo from '@gitbutler/ui/ForgeLogo.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
+	import { getForgeLogo } from '@gitbutler/ui/utils/getForgeLogo';
 	import type { DetailedPullRequest } from '$lib/forge/interface/types';
 	import type { Snippet } from 'svelte';
 
@@ -190,7 +190,7 @@
 			</div>
 
 			<div class="text-13 text-semibold pr-row">
-				<ForgeLogo {forgeName} />
+				<Icon name={getForgeLogo(forgeName)} />
 				<h4 class="text-14 text-semibold">
 					{`${abbr} ${symbol}${pr.number}`}
 				</h4>

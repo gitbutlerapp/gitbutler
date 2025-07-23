@@ -25,9 +25,8 @@
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { getContext, inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import ForgeLogo from '@gitbutler/ui/ForgeLogo.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import { getForgeLogo } from '@gitbutler/ui/utils/getForgeLogo';
 	import { QueryStatus } from '@reduxjs/toolkit/query';
 	import { tick } from 'svelte';
 	import type { CommitStatusType } from '$lib/commits/commit';
@@ -246,11 +245,9 @@
 										}}
 										testId={TestId.CreateReviewButton}
 										disabled={!!projectState.exclusiveAction.current}
+										icon={getForgeLogo(forge.current.name, true)}
 									>
-										Create PR
-										{#snippet customIcon()}
-											<ForgeLogo forgeName={forge.current.name} small />
-										{/snippet}
+										{`Create ${forge.current.name === 'gitlab' ? 'MR' : 'PR'}`}
 									</Button>
 								{:else}
 									{@const prUrl = prResult?.current.data?.htmlUrl}
@@ -264,15 +261,9 @@
 												openExternalUrl(prUrl);
 											}
 										}}
+										icon={forge.current.name === 'gitlab' ? 'view-mr-browser' : 'view-pr-browser'}
 									>
-										View PR
-										{#snippet customIcon()}
-											{#if forge.current.name === 'github'}
-												<Icon name="view-pr-browser" />
-											{:else}
-												<ForgeLogo forgeName={forge.current.name} small />
-											{/if}
-										{/snippet}
+										{`View ${forge.current.name === 'gitlab' ? 'MR' : 'PR'}`}
 									</Button>
 								{/if}
 							{/if}

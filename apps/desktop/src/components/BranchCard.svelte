@@ -191,17 +191,10 @@
 					{#if args.reviewId || args.prNumber}
 						<span class="branch-header__divider">•</span>
 						<div class="branch-header__review-badges">
-							{#if args.reviewId}
-								<ReviewBadge brId={args.reviewId} brStatus="unknown" />
-							{/if}
 							{#if args.prNumber}
 								{@const prResult = prService?.get(args.prNumber, { forceRefetch: true })}
 								{@const pr = prResult?.current.data}
-								<ReviewBadge
-									prNumber={args.prNumber}
-									prStatus="unknown"
-									reviewUnitOverride={prUnit?.abbr}
-								/>
+								<ReviewBadge type={prUnit?.abbr} number={args.prNumber} status="unknown" />
 								{#if pr && !pr.closedAt && forge.current.checks && pr.state === 'open'}
 									<ChecksPolling
 										branchName={pr.sourceBranch}
