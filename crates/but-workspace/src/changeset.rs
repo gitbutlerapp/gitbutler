@@ -125,13 +125,13 @@ impl RefInfo {
                 {
                     let expensive = changeset_identifier(repo, expensive.then_some(local))?;
                     if let Some(upstream_commit_id) =
-                        lookup_similar(&upstream_lut, local, expensive.as_ref())
+                        lookup_similar(&upstream_lut, local, expensive.as_ref(), ChangeId::Skip)
                     {
                         // Note that by keeping track of the upstream id, we can't abort early.
                         // Only expensive for expensive checks, so let's see.
                         local.relation = LocalCommitRelation::Integrated(*upstream_commit_id);
                     } else if let Some(remote_commit_id) =
-                        lookup_similar(&remote_lut, local, expensive.as_ref())
+                        lookup_similar(&remote_lut, local, expensive.as_ref(), ChangeId::Use)
                     {
                         local.relation = LocalCommitRelation::LocalAndRemote(*remote_commit_id);
                     }
@@ -144,9 +144,9 @@ impl RefInfo {
                     });
                     !is_used_in_local_commits
                         // It shouldn't be integrated (by rebase) either.
-                        // TODO: test, also: what about simple merges?
-                        //       This would make them integrated by flag, do we pick that up?
-                        && lookup_similar(&upstream_lut, rc, None).is_none()
+                        && lookup_similar(&upstream_lut, rc,
+                                          changeset_identifier(repo, expensive.then_some(rc)).ok().flatten().as_ref(),
+                                          ChangeId::Skip).is_none()
                 });
             }
 
@@ -265,14 +265,25 @@ fn changeset_identifier(
     )
 }
 
+enum ChangeId {
+    /// ChangeIDs should be used for remotes, where we can always
+    /// push changes back and see commits as containers
+    Use,
+    /// We'd want to skip the change-ids for integrated commits,
+    /// where we go with changeset ids instead (computed).
+    Skip,
+}
+
 fn lookup_similar<'a>(
     map: &'a Identity,
     commit: &ui::Commit,
     expensive: Option<&Identifier>,
+    change_id: ChangeId,
 ) -> Option<&'a gix::ObjectId> {
     commit
         .change_id
         .as_ref()
+        .filter(|_| matches!(change_id, ChangeId::Use))
         .and_then(|cid| map.get(&Identifier::ChangeId(*cid)))
         .or_else(|| commit_data_id(commit).ok().and_then(|id| map.get(&id)))
         .or_else(|| map.get(expensive?))
