@@ -7,9 +7,9 @@
 	import { AISecretHandle, AIService, GitAIConfigKey, KeyOption } from '$lib/ai/service';
 	import { OpenAIModelName, AnthropicModelName, ModelKind } from '$lib/ai/types';
 	import { GitConfigService } from '$lib/config/gitConfigService';
-	import { getSecretsService } from '$lib/secrets/secretsService';
+	import { SECRET_SERVICE } from '$lib/secrets/secretsService';
 	import { UserService } from '$lib/user/userService';
-	import { getContext } from '@gitbutler/shared/context';
+	import { getContext, inject2 } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import RadioButton from '@gitbutler/ui/RadioButton.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
@@ -22,7 +22,7 @@
 	import { run } from 'svelte/legacy';
 
 	const gitConfigService = getContext(GitConfigService);
-	const secretsService = getSecretsService();
+	const secretsService = inject2(SECRET_SERVICE);
 	const aiService = getContext(AIService);
 	const userService = getContext(UserService);
 	const user = userService.user;
