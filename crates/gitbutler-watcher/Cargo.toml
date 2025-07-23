@@ -25,6 +25,7 @@ gitbutler-operating-modes.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-project.workspace = true
 but-core.workspace = true
+but-rules.workspace = true
 but-settings.workspace = true
 but-hunk-assignment.workspace = true
 but-hunk-dependency.workspace = true

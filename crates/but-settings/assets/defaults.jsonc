@@ -25,7 +25,9 @@
 		/// Enable the usage of GitButler Acitions.
 		"actions": false,
 		/// Enable the usage of the butbot chat.
-		"butbot": false
+		"butbot": false,
+		/// Enable processing of workspace rules.
+		"rules": false
 	},
 	// Allows for additional "connect-src" hosts to be included. Requires app restart.
 	"extraCsp": {

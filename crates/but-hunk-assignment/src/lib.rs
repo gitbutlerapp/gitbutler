@@ -574,6 +574,17 @@ fn requests_to_assignments(request: Vec<HunkAssignmentRequest>) -> Vec<HunkAssig
     assignments
 }
 
+pub fn assignments_to_requests(assignments: Vec<HunkAssignment>) -> Vec<HunkAssignmentRequest> {
+    assignments
+        .into_iter()
+        .map(|assignment| HunkAssignmentRequest {
+            hunk_header: assignment.hunk_header,
+            path_bytes: assignment.path_bytes,
+            stack_id: assignment.stack_id,
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use crate::reconcile::MultipleOverlapping;

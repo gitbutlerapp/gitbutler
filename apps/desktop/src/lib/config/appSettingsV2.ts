@@ -83,6 +83,8 @@ export type FeatureFlags = {
 	actions: boolean;
 	/** Enable the usage of butbot chat */
 	butbot: boolean;
+	/** Enable processing of workspace rules. */
+	rules: boolean;
 };
 
 export type Fetch = {
