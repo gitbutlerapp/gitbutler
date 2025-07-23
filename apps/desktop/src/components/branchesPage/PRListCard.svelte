@@ -64,7 +64,7 @@
 		</div>
 
 		<div class="text-12 sidebar-entry__about">
-			<ReviewBadge prStatus={isDraft ? 'draft' : 'unknown'} prTitle={title} prNumber={number} />
+			<ReviewBadge type="PR" status={isDraft ? 'draft' : 'unknown'} {title} {number} />
 			<span class="sidebar-entry__divider">•</span>
 
 			{#if noRemote || !sourceBranch}

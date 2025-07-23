@@ -11,31 +11,10 @@
 		title: 'Basic / Review Badge',
 		component: ReviewBadge,
 		args: {
-			prStatus: 'open',
-			prNumber: 1
-		},
-		argTypes: {
-			prStatus: {
-				options: ['open', 'closed', 'draft', 'merged', 'unknown', undefined],
-				control: { type: 'select' }
-			},
-			prNumber: {
-				control: { type: 'number' }
-			},
-			brStatus: {
-				options: [
-					'approved',
-					'unreviewed',
-					'changes_requested',
-					'in-discussion',
-					'unknown',
-					undefined
-				],
-				control: { type: 'select' }
-			},
-			brId: {
-				control: { type: 'number' }
-			}
+			type: 'PR',
+			status: 'open',
+			number: 1,
+			title: 'Sample Pull Request'
 		}
 	});
 </script>
@@ -44,8 +23,11 @@
 	setTemplate(template);
 </script>
 
-{#snippet template({ ...args }: Args<typeof Story>, _context: StoryContext<typeof Story>)}
-	<ReviewBadge {...args} />
+{#snippet template(
+	{ type = 'PR', ...rest }: Args<typeof Story>,
+	_context: StoryContext<typeof Story>
+)}
+	<ReviewBadge {type} {...rest} />
 {/snippet}
 
 <Story name="Playground" />

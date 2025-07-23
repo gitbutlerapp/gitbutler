@@ -126,9 +126,10 @@
 		<div class="text-12 sidebar-entry__about">
 			{#if pr}
 				<ReviewBadge
-					prStatus={pr.draft ? 'draft' : 'unknown'}
-					prTitle={pr.title}
-					prNumber={pr.number}
+					type="PR"
+					status={pr.draft ? 'draft' : 'unknown'}
+					title={pr.title}
+					number={pr.number}
 				/>
 				<span class="sidebar-entry__divider">•</span>
 			{/if}
