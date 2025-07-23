@@ -51,6 +51,7 @@ pub fn handle_changes(
         None,
         params.handler,
         but_action::Source::GitButler,
+        None,
     )?;
     Ok(serde_json::to_value(outcome)?)
 }

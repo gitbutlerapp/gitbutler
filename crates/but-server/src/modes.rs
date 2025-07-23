@@ -93,3 +93,14 @@ pub fn edit_initial_index_state(ctx: &RequestContext, params: Value) -> anyhow::
     let state = gitbutler_edit_mode::commands::starting_index_state(&command_ctx)?;
     Ok(serde_json::to_value(state)?)
 }
+
+pub fn edit_changes_from_initial(ctx: &RequestContext, params: Value) -> anyhow::Result<Value> {
+    let params: ProjectOnlyParams = serde_json::from_value(params)?;
+
+    let project = ctx.project_controller.get(params.project_id)?;
+    let command_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
+
+    Ok(json!(gitbutler_edit_mode::commands::changes_from_initial(
+        &command_ctx
+    )?))
+}

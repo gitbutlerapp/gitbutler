@@ -11,7 +11,7 @@ function createWindow() {
 	});
 
 	if (process.env.ELECTRON_ENV === 'development') {
-		win.loadURL('http://localhost:1420');
+		win.loadURL(`http://${process.env.VITE_HOST}:${process.env.VITE_PORT}`);
 	} else {
 		// TODO: Some bundled version
 		win.loadFile('index.html');

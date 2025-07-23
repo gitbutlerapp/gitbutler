@@ -15,7 +15,7 @@ const colors = {
 	cyan: '\x1b[36m'
 };
 
-const VITE_PORT = 1420;
+const VITE_PORT = 1421;
 const VITE_HOST = 'localhost';
 const BUTLER_PORT = 6978;
 const BUTLER_HOST = 'localhost';
@@ -38,7 +38,11 @@ function spawnProcess(command, args, cwd = process.cwd(), options = {}) {
 		env: {
 			...process.env,
 			ELECTRON_ENV: 'development',
-			VITE_BUILD_TARGET: 'electron'
+			VITE_BUILD_TARGET: 'electron',
+			VITE_PORT,
+			VITE_HOST,
+			BUTLER_PORT,
+			BUTLER_HOST
 		}
 	});
 }
@@ -142,7 +146,7 @@ async function main() {
 		log('\n📦 Starting Vite dev server...', colors.yellow);
 
 		// Start the Vite dev server
-		viteProcess = spawnProcess('pnpm', ['dev'], desktopDir);
+		viteProcess = spawnProcess('pnpm', ['dev', '--port', VITE_PORT], desktopDir);
 
 		viteProcess.on('close', (code) => {
 			if (code !== 0 && code !== null) {

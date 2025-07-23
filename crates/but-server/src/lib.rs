@@ -264,6 +264,7 @@ async fn handle_command(
             modes::save_edit_and_return_to_workspace(&ctx, request.params)
         }
         "edit_initial_index_state" => modes::edit_initial_index_state(&ctx, request.params),
+        "edit_changes_from_initial" => modes::edit_changes_from_initial(&ctx, request.params),
         // Stack commands
         "create_branch" => stack::create_branch(&ctx, request.params),
         "remove_branch" => stack::remove_branch(&ctx, request.params),
