@@ -13,6 +13,7 @@ import { errorToLoadable } from '$lib/network/loadable';
 import { patchCommitTable } from '$lib/patches/patchCommitsSlice';
 import { apiToPatch, type LoadablePatchCommit } from '$lib/patches/types';
 import { POLLING_GLACIALLY, POLLING_REGULAR } from '$lib/polling';
+import { InjectionToken } from '../context';
 import type { HttpClient } from '$lib/network/httpClient';
 import type { AppDispatch } from '$lib/redux/store.svelte';
 
@@ -23,6 +24,8 @@ type BranchUpdateParams = {
 	forgeUrl?: string;
 	forgeDescription?: string;
 };
+
+export const BRANCH_SERVICE_TOKEN = new InjectionToken<BranchService>('BranchService');
 
 export class BranchService {
 	private readonly branchesInterests = new InterestStore<{

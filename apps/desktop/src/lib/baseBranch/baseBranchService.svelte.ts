@@ -4,6 +4,7 @@ import { showError } from '$lib/notifications/toasts';
 import { invalidatesList, invalidatesType, providesType, ReduxTag } from '$lib/state/tags';
 import { parseRemoteUrl } from '$lib/url/gitUrl';
 import { plainToInstance } from 'class-transformer';
+import { InjectionToken } from '@gitbutler/shared/context';
 import type { BackendApi } from '$lib/state/clientState.svelte';
 
 function mapBaseBranch(data: unknown): BaseBranch | undefined;
@@ -17,6 +18,8 @@ function mapBaseBranch<T>(
 	if (cb) return cb(baseBranch);
 	return baseBranch;
 }
+
+export const BASE_BRANCH_SERVICE_TOKEN = new InjectionToken<BaseBranchService>('BaseBranchService');
 
 export default class BaseBranchService {
 	private api: ReturnType<typeof injectEndpoints>;

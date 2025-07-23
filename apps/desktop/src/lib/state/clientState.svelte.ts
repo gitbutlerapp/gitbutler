@@ -206,6 +206,7 @@ export function createGitHubApi(butlerMod: ReturnType<typeof butlerModule>) {
 		reducerPath: 'github',
 		tagTypes: Object.values(ReduxTag),
 		invalidationBehavior: 'immediately',
+		// TODO: This should only be set for backend api.
 		baseQuery: tauriBaseQuery,
 		refetchOnFocus: true,
 		refetchOnReconnect: true,
@@ -224,6 +225,7 @@ function createGitLabApi(butlerMod: ReturnType<typeof butlerModule>) {
 		reducerPath: 'gitlab',
 		tagTypes: Object.values(ReduxTag),
 		invalidationBehavior: 'immediately',
+		// TODO: This should only be set for backend api.
 		baseQuery: tauriBaseQuery,
 		refetchOnFocus: true,
 		refetchOnReconnect: true,

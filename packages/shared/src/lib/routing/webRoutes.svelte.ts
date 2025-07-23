@@ -1,4 +1,5 @@
 import { page } from '$app/state';
+import { InjectionToken } from '../context';
 
 export interface OwnerParameters {
 	ownerSlug: string;
@@ -31,6 +32,8 @@ function isUrlSubset<T>(isWeb: boolean, id: string): T | undefined {
 		return page.params as T;
 	}
 }
+
+export const WEB_ROUTES_SERVICE_TOKEN = new InjectionToken<WebRoutesService>('WebRoutesService');
 
 export class WebRoutesService {
 	constructor(

@@ -11,8 +11,11 @@ import {
 	type UserSimple
 } from '$lib/users/types';
 import { userTable, userByLoginTable } from '$lib/users/usersSlice';
+import { InjectionToken } from '../context';
 import type { HttpClient } from '$lib/network/httpClient';
 import type { AppDispatch } from '$lib/redux/store.svelte';
+
+export const USER_SERVICE_TOKEN = new InjectionToken<UserService>('UserService');
 
 export class UserService {
 	private readonly userInterests = new InterestStore<{ id: number }>(POLLING_SLOW);

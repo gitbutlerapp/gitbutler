@@ -7,6 +7,7 @@ import { persisted } from '@gitbutler/shared/persisted';
 import * as toasts from '@gitbutler/ui/toasts';
 import { open } from '@tauri-apps/plugin-dialog';
 import { get } from 'svelte/store';
+import { InjectionToken } from '@gitbutler/shared/context';
 import type { ClientState } from '$lib/state/clientState.svelte';
 import type { HttpClient } from '@gitbutler/shared/network/httpClient';
 
@@ -15,6 +16,8 @@ export type ProjectInfo = {
 	db_error?: string;
 	headsup?: string;
 };
+
+export const PROJECTS_SERVICE_TOKEN = new InjectionToken<ProjectsService>('ProjectsService');
 
 export class ProjectsService {
 	private api: ReturnType<typeof injectEndpoints>;
