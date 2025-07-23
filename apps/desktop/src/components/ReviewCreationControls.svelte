@@ -11,12 +11,15 @@
 		isSubmitting: boolean;
 		canPublishPR: boolean;
 		submitDisabled: boolean;
+		reviewUnit: string | undefined;
 		onCancel: () => void;
 		onSubmit: () => void;
 	}
 
-	let { canPublishPR, submitDisabled, isSubmitting, onCancel, onSubmit }: Props = $props();
+	let { canPublishPR, submitDisabled, isSubmitting, onCancel, onSubmit, reviewUnit }: Props =
+		$props();
 
+	const unit = $derived(reviewUnit ?? 'PR');
 	let commitButton = $state<DropDownButton>();
 
 	const createDraft = persisted<boolean>(false, 'createDraftPr');
@@ -43,12 +46,12 @@
 		loading={isSubmitting}
 		disabled={submitDisabled}
 	>
-		{$createDraft ? 'Create PR draft' : 'Create Pull Request'}
+		{$createDraft ? `Create ${unit} draft` : `Create ${unit}`}
 
 		{#snippet contextMenuSlot()}
 			<ContextMenuSection>
 				<ContextMenuItem
-					label="Create PR draft"
+					label="Create {unit} draft"
 					onclick={() => {
 						$createDraft = true;
 						commitButton?.close();
@@ -57,7 +60,7 @@
 				/>
 
 				<ContextMenuItem
-					label="Create Pull Request"
+					label="Create {unit}"
 					onclick={() => {
 						$createDraft = false;
 						commitButton?.close();

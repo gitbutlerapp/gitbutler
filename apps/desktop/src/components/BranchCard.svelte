@@ -84,6 +84,7 @@
 
 	const [uiState, stackService, forge] = inject(UiState, StackService, DefaultForgeFactory);
 	const prService = $derived(forge.current.prService);
+	const prUnit = $derived(prService?.unit);
 
 	const [updateName, nameUpdate] = stackService.updateBranchName;
 
@@ -196,7 +197,11 @@
 							{#if args.prNumber}
 								{@const prResult = prService?.get(args.prNumber, { forceRefetch: true })}
 								{@const pr = prResult?.current.data}
-								<ReviewBadge prNumber={args.prNumber} prStatus="unknown" />
+								<ReviewBadge
+									prNumber={args.prNumber}
+									prStatus="unknown"
+									reviewUnitOverride={prUnit?.abbr}
+								/>
 								{#if pr && !pr.closedAt && forge.current.checks && pr.state === 'open'}
 									<ChecksPolling
 										branchName={pr.sourceBranch}

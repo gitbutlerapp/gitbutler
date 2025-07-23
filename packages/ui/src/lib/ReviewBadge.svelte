@@ -6,6 +6,7 @@
 	import brUnreviewedSVG from '$lib/assets/review-badge/br-unreviewed.svg?raw';
 	import gbLogo from '$lib/assets/review-badge/gb-logo.svg?raw';
 	import ghLogo from '$lib/assets/review-badge/gh-logo.svg?raw';
+	import glLogo from '$lib/assets/review-badge/gl-logo-small.svg?raw';
 
 	interface Props {
 		prStatus?: 'open' | 'closed' | 'draft' | 'merged' | 'unknown';
@@ -13,9 +14,12 @@
 		prTitle?: string;
 		brStatus?: 'approved' | 'unreviewed' | 'changes_requested' | 'in-discussion' | 'unknown';
 		brId?: string;
+		reviewUnitOverride?: string;
 	}
 
-	const { prStatus, prNumber, prTitle, brStatus, brId }: Props = $props();
+	const { prStatus, prNumber, prTitle, brStatus, brId, reviewUnitOverride }: Props = $props();
+
+	const reviewUnit = $derived(reviewUnitOverride ?? 'PR');
 
 	function getPrBadgeDetails() {
 		if (prTitle) {
@@ -28,27 +32,27 @@
 		switch (prStatus) {
 			case 'open':
 				return {
-					text: `PR #${prNumber} is open`,
+					text: `${reviewUnit} #${prNumber} is open`,
 					color: 'var(--clr-theme-succ-element)'
 				};
 			case 'closed':
 				return {
-					text: `PR #${prNumber} is closed`,
+					text: `${reviewUnit} #${prNumber} is closed`,
 					color: 'var(--clr-theme-err-element)'
 				};
 			case 'draft':
 				return {
-					text: `PR #${prNumber} is a draft`,
+					text: `${reviewUnit} #${prNumber} is a draft`,
 					color: undefined
 				};
 			case 'merged':
 				return {
-					text: `PR #${prNumber} is merged`,
+					text: `${reviewUnit} #${prNumber} is merged`,
 					color: 'var(--clr-theme-purp-element)'
 				};
 			default:
 				return {
-					text: `PR #${prNumber}`,
+					text: `${reviewUnit} #${prNumber}`,
 					color: undefined
 				};
 		}
@@ -89,13 +93,17 @@
 	<div class="review-badge" class:pr-type={prStatus} class:br-type={brStatus}>
 		{#if prNumber}
 			{@const prBadgeDetails = getPrBadgeDetails()}
-			{@html ghLogo}
+			{#if reviewUnit === 'MR'}
+				{@html glLogo}
+			{:else if reviewUnit === 'PR'}
+				{@html ghLogo}
+			{/if}
 
 			<span class="text-10 text-semibold review-badge-text">
 				{#if prStatus === 'draft'}
 					Draft
 				{:else}
-					PR
+					{reviewUnit}
 				{/if}
 			</span>
 

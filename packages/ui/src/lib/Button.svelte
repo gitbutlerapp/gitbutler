@@ -27,6 +27,7 @@
 		customStyle?: string;
 		// Additional elements
 		icon?: keyof typeof iconsJson | undefined;
+		customIcon?: Snippet;
 		hotkey?: string;
 		tooltip?: string;
 		tooltipPosition?: TooltipPosition;
@@ -78,6 +79,7 @@
 		customStyle,
 		testId,
 		icon,
+		customIcon,
 		tooltip,
 		tooltipPosition,
 		tooltipAlign,
@@ -153,12 +155,14 @@
 			</span>
 		{/if}
 
-		{#if icon || loading}
+		{#if icon || loading || customIcon}
 			<div class={['btn-icon', iconClass]}>
 				{#if loading}
 					<Icon name="spinner" spinnerRadius={size === 'tag' ? 4 : 5} />
 				{:else if icon}
 					<Icon name={icon} />
+				{:else if customIcon}
+					{@render customIcon()}
 				{/if}
 			</div>
 		{/if}
