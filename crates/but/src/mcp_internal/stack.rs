@@ -34,6 +34,7 @@ pub fn create_stack_with_branch(
             ws3: false,
             actions: false,
             butbot: false,
+            rules: false,
         },
         ..AppSettings::load_from_default_path_creating()?
     };

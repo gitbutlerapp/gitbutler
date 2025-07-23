@@ -19,6 +19,7 @@ pub struct FeatureFlagsUpdate {
     pub ws3: Option<bool>,
     pub actions: Option<bool>,
     pub butbot: Option<bool>,
+    pub rules: Option<bool>,
 }
 
 /// Mutation, immediately followed by writing everything to disk.
@@ -56,6 +57,7 @@ impl AppSettingsWithDiskSync {
             ws3,
             actions,
             butbot,
+            rules,
         }: FeatureFlagsUpdate,
     ) -> Result<()> {
         let mut settings = self.get_mut_enforce_save()?;
@@ -70,6 +72,9 @@ impl AppSettingsWithDiskSync {
         }
         if let Some(butbot) = butbot {
             settings.feature_flags.butbot = butbot;
+        }
+        if let Some(rules) = rules {
+            settings.feature_flags.rules = rules;
         }
         settings.save()
     }

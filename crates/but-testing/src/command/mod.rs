@@ -360,6 +360,7 @@ pub mod stacks {
                 ws3: false,
                 actions: false,
                 butbot: false,
+                rules: false,
             },
             ..AppSettings::default()
         };

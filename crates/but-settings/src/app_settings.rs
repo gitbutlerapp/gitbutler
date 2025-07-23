@@ -35,6 +35,8 @@ pub struct FeatureFlags {
     pub actions: bool,
     /// Enable the usage of the butbot chat.
     pub butbot: bool,
+    /// Enable processing of workspace rules.
+    pub rules: bool,
 }
 
 impl FeatureFlags {
