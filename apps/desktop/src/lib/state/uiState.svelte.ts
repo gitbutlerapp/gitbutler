@@ -16,8 +16,14 @@ export type StackSelection = {
 	upstream?: boolean;
 };
 
+export type NewCommitMessage = {
+	title: string;
+	description: string;
+};
+
 export type StackState = {
 	selection: StackSelection | undefined;
+	newCommitMessage: NewCommitMessage;
 };
 
 type BranchesSelection = {
@@ -51,8 +57,6 @@ export type ExclusiveAction =
 export type ProjectUiState = {
 	exclusiveAction: ExclusiveAction | undefined;
 	stackId: string | undefined;
-	commitTitle: string;
-	commitDescription: string;
 	branchesSelection: BranchesSelection;
 	showActions: boolean;
 };
@@ -103,14 +107,13 @@ export class UiState {
 
 	/** Properties scoped to a specific stack. */
 	readonly stack = this.buildScopedProps<StackState>({
-		selection: undefined
+		selection: undefined,
+		newCommitMessage: { title: '', description: '' }
 	});
 
 	/** Properties scoped to a specific project. */
 	readonly project = this.buildScopedProps<ProjectUiState>({
 		exclusiveAction: undefined,
-		commitTitle: '',
-		commitDescription: '',
 		branchesSelection: {},
 		stackId: undefined,
 		showActions: false

@@ -12,7 +12,7 @@
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import toasts from '@gitbutler/ui/toasts';
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 
 	type Props = {
 		projectId: string;
@@ -30,6 +30,8 @@
 	);
 
 	const projectState = $derived(uiState.project(projectId));
+	// Using a dummy stackId kind of sucks... but it's fine for now
+	const stackState = $derived(uiState.stack(stackId || 'new-commit-view--new-stack'));
 
 	const [createCommitInStack, commitCreation] = stackService.createCommit({});
 
@@ -166,8 +168,7 @@
 
 			if (newId) {
 				// Clear saved state for commit message editor.
-				projectState.commitTitle.set('');
-				projectState.commitDescription.set('');
+				stackState.newCommitMessage.current = { title: '', description: '' };
 
 				// Close the drawer.
 				projectState.exclusiveAction.set(undefined);
@@ -190,7 +191,7 @@
 					projectId,
 					targetBranchName: finalBranchName,
 					newCommitId: newId ?? undefined,
-					commitTitle: projectState.commitTitle.current,
+					commitTitle: stackState.newCommitMessage.current?.title || '',
 					pathsToRejectedChanges
 				});
 			}
@@ -202,8 +203,7 @@
 	const [createNewStack, newStackResult] = stackService.newStack;
 
 	async function handleCommitCreation(title: string, description: string) {
-		projectState.commitTitle.set(title);
-		projectState.commitDescription.set(description);
+		stackState.newCommitMessage.current = { title, description };
 
 		const message = description ? title + '\n\n' + description : title;
 		if (!message) {
@@ -219,17 +219,17 @@
 	}
 
 	function handleMessageUpdate(title?: string, description?: string) {
+		const old = untrack(() => stackState.newCommitMessage.current);
 		if (typeof title === 'string') {
-			projectState.commitTitle.set(title);
+			stackState.newCommitMessage.current = { ...old, title };
 		}
 		if (typeof description === 'string') {
-			projectState.commitDescription.set(description);
+			stackState.newCommitMessage.current = { ...old, description };
 		}
 	}
 
 	function cancel(args: { title: string; description: string }) {
-		projectState.commitTitle.set(args.title);
-		projectState.commitDescription.set(args.description);
+		stackState.newCommitMessage.current = args;
 		projectState.exclusiveAction.set(undefined);
 		uncommittedService.uncheckAll(null);
 		if (stackId) {
@@ -251,8 +251,8 @@
 			onCancel={cancel}
 			disabledAction={!canCommit}
 			loading={commitCreation.current.isLoading || newStackResult.current.isLoading || isCooking}
-			title={projectState.commitTitle.current}
-			description={projectState.commitDescription.current}
+			title={stackState.newCommitMessage.current.title}
+			description={stackState.newCommitMessage.current.description}
 		/>
 	</div>
 </AsyncRender>
