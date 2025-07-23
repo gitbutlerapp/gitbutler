@@ -11,6 +11,7 @@
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
+	import ForgeLogo from '@gitbutler/ui/ForgeLogo.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import type { DetailedPullRequest } from '$lib/forge/interface/types';
@@ -51,6 +52,7 @@
 	let hasChecks = $state(false);
 
 	const forge = getContext(DefaultForgeFactory);
+	const forgeName = $derived(forge.current.name);
 	const prService = $derived(forge.current.prService);
 	const checksService = $derived(forge.current.checks);
 
@@ -188,7 +190,7 @@
 			</div>
 
 			<div class="text-13 text-semibold pr-row">
-				<Icon name="github" />
+				<ForgeLogo {forgeName} />
 				<h4 class="text-14 text-semibold">
 					{`${abbr} ${symbol}${pr.number}`}
 				</h4>
