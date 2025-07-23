@@ -4,7 +4,7 @@
 	import glLogo from '$lib/assets/review-badge/gl-logo.svg?raw';
 
 	interface Props {
-		type: 'PR' | 'MR' | undefined;
+		type: string | undefined;
 		status?: 'open' | 'closed' | 'draft' | 'merged' | 'unknown';
 		number?: number;
 		title?: string;

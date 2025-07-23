@@ -67,10 +67,6 @@
 		&:focus {
 			z-index: 1;
 		}
-
-		&.right-padding {
-			padding-right: 30px;
-		}
 	}
 
 	.message-editor-input {
