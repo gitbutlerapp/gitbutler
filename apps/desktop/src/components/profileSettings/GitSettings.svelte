@@ -30,7 +30,7 @@
 		<Link
 			target="_blank"
 			rel="noreferrer"
-			href="https://docs.gitbutler.com/features/virtual-branches/committer-mark"
+			href="https://github.com/gitbutlerapp/gitbutler-docs/blob/d81a23779302c55f8b20c75bf7842082815b4702/content/docs/features/virtual-branches/committer-mark.mdx"
 		>
 			Learn more
 		</Link>

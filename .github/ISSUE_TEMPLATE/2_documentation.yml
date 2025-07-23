@@ -17,6 +17,6 @@ body:
   - type: input
     attributes:
       label: Does the docs page already exist? If so, please link to it.
-      description: https://docs.gitbutler.com/features/virtual-branches
+      description: https://docs.gitbutler.com/features/virtual-branches/virtual-branches
     validations:
       required: false

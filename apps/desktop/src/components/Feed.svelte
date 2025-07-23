@@ -188,7 +188,7 @@
 									controlled.
 								</p>
 								<Link
-									href="https://docs.gitbutler.com/agentic-workflows"
+									href="https://docs.gitbutler.com/features/ai-integration/ai-overview"
 									target="_blank"
 									class="clr-text-2">Learn more</Link
 								>
@@ -251,7 +251,8 @@
 									<li>
 										Cursor / VSCode setup. <Link
 											class="clr-text-2"
-											href="https://docs.gitbutler.com/agentic-workflows/cursor">Learn more</Link
+											href="https://docs.gitbutler.com/features/ai-integration/mcp-server"
+											>Learn more</Link
 										>
 									</li>
 								</ul>

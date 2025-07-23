@@ -14,7 +14,8 @@
 		stackId: string;
 	}
 
-	const BRANCH_STACKING_DOCS = 'https://docs.gitbutler.com/features/stacked-branches';
+	const BRANCH_STACKING_DOCS =
+		'https://docs.gitbutler.com/features/virtual-branches/stacked-branches';
 	function clickOnDocsLink() {
 		openExternalUrl(BRANCH_STACKING_DOCS);
 	}
