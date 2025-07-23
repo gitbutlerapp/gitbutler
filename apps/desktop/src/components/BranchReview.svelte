@@ -4,6 +4,8 @@
 	import ReviewCreation from '$components/ReviewCreation.svelte';
 	import ReviewCreationControls from '$components/ReviewCreationControls.svelte';
 	import StackedPullRequestCard from '$components/StackedPullRequestCard.svelte';
+	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import type { Snippet } from 'svelte';
@@ -23,6 +25,10 @@
 	const { branchStatus, projectId, stackId, branchName, prNumber, reviewId }: Props = $props();
 
 	let canPublishReviewPlugin = $state<ReturnType<typeof CanPublishReviewPlugin>>();
+
+	const [forge] = inject(DefaultForgeFactory);
+	const prService = $derived(forge.current.prService);
+	const reviewUnit = $derived(prService?.unit.abbr);
 
 	const canPublishPR = $derived(!!canPublishReviewPlugin?.imports.canPublishPR);
 
@@ -78,6 +84,7 @@
 				isSubmitting={!!reviewCreation?.imports.isLoading}
 				{submitDisabled}
 				{canPublishPR}
+				{reviewUnit}
 				onCancel={close}
 				onSubmit={async () => {
 					await reviewCreation?.createReview();

@@ -25,6 +25,8 @@
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { getContext, inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import ForgeLogo from '@gitbutler/ui/ForgeLogo.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { QueryStatus } from '@reduxjs/toolkit/query';
 	import { tick } from 'svelte';
@@ -234,7 +236,6 @@
 										size="tag"
 										kind="outline"
 										shrinkable
-										icon="github-small"
 										onclick={(e) => {
 											e.stopPropagation();
 											projectState.exclusiveAction.set({
@@ -247,6 +248,9 @@
 										disabled={!!projectState.exclusiveAction.current}
 									>
 										Create PR
+										{#snippet customIcon()}
+											<ForgeLogo forgeName={forge.current.name} small />
+										{/snippet}
 									</Button>
 								{:else}
 									{@const prUrl = prResult?.current.data?.htmlUrl}
@@ -255,13 +259,21 @@
 										kind="outline"
 										shrinkable
 										disabled={!prUrl}
-										icon="view-pr-browser"
 										onclick={() => {
 											if (prUrl) {
 												openExternalUrl(prUrl);
 											}
-										}}>View PR</Button
+										}}
 									>
+										View PR
+										{#snippet customIcon()}
+											{#if forge.current.name === 'github'}
+												<Icon name="view-pr-browser" />
+											{:else}
+												<ForgeLogo forgeName={forge.current.name} small />
+											{/if}
+										{/snippet}
+									</Button>
 								{/if}
 							{/if}
 							<PushButton

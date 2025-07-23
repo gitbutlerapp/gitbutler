@@ -35,6 +35,7 @@
 
 	const prNumber = $derived(branch.current.data?.prNumber ?? undefined);
 	const prService = $derived(forge.current.prService);
+	const reviewUnit = $derived(prService?.unit.abbr ?? 'PR');
 	const prResult = $derived(prNumber ? prService?.get(prNumber) : undefined);
 	const pr = $derived(prResult?.current.data);
 
@@ -57,6 +58,7 @@
 				isSubmitting={!!reviewCreation?.imports.isLoading}
 				{submitDisabled}
 				{canPublishPR}
+				{reviewUnit}
 				onCancel={() => {
 					close();
 					oncancel?.();
@@ -74,7 +76,7 @@
 		onExitFloatingModeClick={() => {
 			uiState.global.useFloatingBox.set(false);
 		}}
-		title={pr ? `Edit PR #${pr.number}` : 'Create PR'}
+		title={pr ? `Edit ${reviewUnit} #${pr.number}` : `Create ${reviewUnit}`}
 	>
 		{@render editor()}
 	</FloatingCommitBox>
