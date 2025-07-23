@@ -29,6 +29,7 @@ import {
 	type FileChange
 } from '$lib/ai/types';
 import { splitMessage } from '$lib/utils/commitMessage';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { get } from 'svelte/store';
 import type { GitConfigService } from '$lib/config/gitConfigService';
 import type { SecretsService } from '$lib/secrets/secretsService';
@@ -116,6 +117,8 @@ function shuffle<T>(items: T[]): T[] {
 		.sort(({ value: a }, { value: b }) => a - b)
 		.map((item) => item.item);
 }
+
+export const AI_SERVICE = new InjectionToken<AIService>('AI Service');
 
 export class AIService {
 	prSummaryMainDirective: Readonly<string> = DEFAULT_PR_SUMMARY_MAIN_DIRECTIVE;

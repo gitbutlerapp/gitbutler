@@ -1,5 +1,4 @@
 import { PromptService as AIPromptService } from '$lib/ai/promptService';
-import { AIService } from '$lib/ai/service';
 import { initAnalyticsIfEnabled } from '$lib/analytics/analytics';
 import { EventContext } from '$lib/analytics/eventContext';
 import { PostHogWrapper } from '$lib/analytics/posthog';
@@ -12,7 +11,6 @@ import { HooksService } from '$lib/hooks/hooksService';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { PromptService } from '$lib/prompt/promptService';
 import { RemotesService } from '$lib/remotes/remotesService';
-import { RustSecretService } from '$lib/secrets/secretsService';
 import { TokenMemoryService } from '$lib/stores/tokenMemoryService';
 import { UpdaterService } from '$lib/updater/updater';
 import { UserService } from '$lib/user/userService';
@@ -55,8 +53,6 @@ export const load: LayoutLoad = async () => {
 	const updaterService = new UpdaterService(tauri, posthog);
 
 	const gitConfig = new GitConfigService(tauri);
-	const secretsService = new RustSecretService(gitConfig);
-	const aiService = new AIService(gitConfig, secretsService, httpClient, tokenMemoryService);
 	const remotesService = new RemotesService();
 	const aiPromptService = new AIPromptService();
 	const lineManagerFactory = new LineManagerFactory();
@@ -78,12 +74,10 @@ export const load: LayoutLoad = async () => {
 		promptService,
 		userService,
 		gitConfig,
-		aiService,
 		remotesService,
 		aiPromptService,
 		lineManagerFactory,
 		stackingLineManagerFactory,
-		secretsService,
 		posthog,
 		tauri,
 		fileService,
