@@ -4,7 +4,6 @@ use crate::{DiffSpec, commit_engine::reference_frame::InferenceMode};
 use anyhow::{Context, bail};
 use bstr::BString;
 use but_core::RepositoryExt;
-use but_core::commit::HeadersV2;
 use but_rebase::RebaseOutput;
 use but_rebase::commit::DateMode;
 use but_rebase::merge::ConflictErrorContext;
@@ -258,9 +257,6 @@ pub fn create_commit(
                 commit.tree = new_tree;
                 if let Some(message) = new_message {
                     commit.message = message.into();
-                }
-                if commit.headers().is_some() {
-                    HeadersV2::remove_in_commit(&mut commit);
                 }
                 Some(but_rebase::commit::create(
                     repo,

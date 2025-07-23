@@ -51,7 +51,7 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
-            Sha1(b8af2cbc086bd0eb212ff21fd3f7c472663238eb),
+            Sha1(1e8275bd6e656965ed0729797362abc2e1fb633d),
         ),
         changed_tree_pre_cherry_pick: Some(
             Sha1(e56fc9bacdd11ebe576b5d96d21127c423698126),
@@ -70,13 +70,14 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     "#);
 
     // It adjusts both the author and the committer date.
-    // It also *removes* the change-id as it to assure we won't use it to determine
-    // commit similarity anymore - after all, the commit is likely to have been changed,
-    // and we have to use the changeset ID (computed) to figure it out now.
+    // It does, however, leave the change-id as it's considered the ID of the commit itself,
+    // which thus should never be removed.
     insta::assert_snapshot!(visualize_commit(&repo, &outcome)?, @r"
     tree e56fc9bacdd11ebe576b5d96d21127c423698126
     author author <author@example.com> 946684866 +0633
     committer committer (From Env) <committer@example.com> 946771266 +0633
+    gitbutler-headers-version 2
+    gitbutler-change-id 00000000-0000-0000-0000-000000003333
 
     init: amended
     ");
