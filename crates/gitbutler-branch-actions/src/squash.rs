@@ -40,6 +40,20 @@ pub(crate) fn squash_commits(
     result
 }
 
+/// Squashes one or multiple commits from a virtual branch into a destination commit.
+///
+/// The steps to accomplish this are:
+/// 1. Reorder the commits so that the source commits and the destination commits are consecutively together but keeping the parentage.
+/// - All source commits that come before the destination commit, stay before it. All source commits that come after the destination commit, stay after it.
+///
+/// 2. Once you have a consecutive list of commits to squash (source commits and destination commit), validate their state.
+/// - If there were any conflicts as a result of the reordering, this will fail.
+///
+/// 3. Take the tree of the child most source commit (the most recent change) and use that for the new commit.
+/// - By definition, the tree of the top commit includes all changes from the previous commits.
+///
+/// 4. Take the parent most commit from the source commits and destination commit, and use that as the squash target.
+/// - This ensures that squashing parents into children works as expected.
 fn do_squash_commits(
     ctx: &CommandContext,
     stack_id: StackId,
@@ -61,15 +75,24 @@ fn do_squash_commits(
 
     let order = commits_order(ctx, &stack)?;
     let mut updated_order = commits_order(ctx, &stack)?;
+
+    // Source commits incude the destination commit
     let mut source_ids_in_order = Vec::new();
     // Remove source ids
     for branch in updated_order.series.iter_mut() {
         branch.commit_ids.retain(|id| {
-            if source_ids.contains(id) {
-                source_ids_in_order.push(*id);
-                false
-            } else {
-                true
+            match id {
+                id if source_ids.contains(id) => {
+                    // Add the source ids in the order they appear in the branch
+                    source_ids_in_order.push(*id);
+                    false
+                }
+                id if *id == desitnation_id => {
+                    // Add the destination id to the source ids in order
+                    source_ids_in_order.push(*id);
+                    true
+                }
+                _ => true,
             }
         });
     }
@@ -77,14 +100,14 @@ fn do_squash_commits(
     // Keep the actual order of the source ids
     source_ids = source_ids_in_order;
 
-    // Put all source oids on top of (after) the destination oid
+    // Replace the destination commit with the ordered, consecutive list of source commits (including the destination commit)
     for branch in updated_order.series.iter_mut() {
         if let Some(pos) = branch
             .commit_ids
             .iter()
             .position(|&id| id == desitnation_id)
         {
-            branch.commit_ids.splice(pos..pos, source_ids.clone());
+            branch.commit_ids.splice(pos..=pos, source_ids.clone());
         }
     }
 
@@ -162,17 +185,26 @@ fn do_squash_commits(
         .tree()
         .context("Failed to get tree of the child most source commit")?;
 
+    // The parent most commit from the source commits is used as the squash target.
+    let parent_most_source_commit = source_commits
+        .last()
+        .context("No source commits provided")?;
+
+    let source_commits_without_destination = source_commits
+        .iter()
+        .filter(|&commit| commit.id() != destination_commit.id());
+
     // Squash commit messages string separating with newlines
     let new_message = Some(destination_commit)
         .into_iter()
-        .chain(source_commits.iter())
+        .chain(source_commits_without_destination)
         .filter_map(|c| {
             let msg = c.message().unwrap_or_default();
             (!msg.trim().is_empty()).then_some(msg)
         })
         .collect::<Vec<_>>()
         .join("\n");
-    let parents: Vec<_> = destination_commit.parents().collect();
+    let parents: Vec<_> = parent_most_source_commit.parents().collect();
 
     // Create a new commit with the final tree
     let new_commit_oid = ctx
@@ -195,13 +227,13 @@ fn do_squash_commits(
     }
     for oid in branch_commit_oids.iter().rev() {
         let commit = ctx.repo().find_commit(*oid)?;
-        if source_ids.contains(oid) {
-            // noop - skipping this
-        } else if destination_commit.id() == *oid {
+        if parent_most_source_commit.id() == *oid {
             steps.push(RebaseStep::Pick {
                 commit_id: new_commit_oid.to_gix(),
                 new_message: None,
             });
+        } else if source_ids.contains(oid) {
+            // noop - skipping this
         } else {
             steps.push(RebaseStep::Pick {
                 commit_id: oid.to_gix(),
@@ -234,17 +266,10 @@ fn validate(
     ctx: &CommandContext,
     stack: &gitbutler_stack::Stack,
     branch_commit_oids: &[git2::Oid],
-    source_commits: &[git2::Commit<'_>],
+    commits_to_squash_together: &[git2::Commit<'_>],
     destination_commit: &git2::Commit<'_>,
 ) -> Result<()> {
-    if source_commits
-        .iter()
-        .any(|s| s.id() == destination_commit.id())
-    {
-        bail!("cannot squash commit into itself")
-    }
-
-    for source_commit in source_commits {
+    for source_commit in commits_to_squash_together {
         if !branch_commit_oids.contains(&source_commit.id()) {
             bail!("commit {} not in the stack", source_commit.id());
         }
@@ -254,7 +279,7 @@ fn validate(
         bail!("commit {} not in the stack", destination_commit.id());
     }
 
-    for c in source_commits {
+    for c in commits_to_squash_together {
         if c.is_conflicted() {
             bail!("cannot squash conflicted source commit {}", c.id());
         }
@@ -273,7 +298,7 @@ fn validate(
         .collect_vec();
 
     if !stack.allow_rebasing {
-        for source_commit in source_commits {
+        for source_commit in commits_to_squash_together {
             if remote_commits.contains(&source_commit.id()) {
                 bail!(
                     "Force push is now allowed. Source commits with id {} has already been pushed",
