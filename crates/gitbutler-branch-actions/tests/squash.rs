@@ -152,7 +152,7 @@ fn squash_above() -> Result<()> {
     Ok(())
 }
 
-// Squash up commit into another with the result being a conflict returns an error
+// Squash up commit into another with the result being a delightful squashed commit
 //
 // - commit 5 (a-branch-3)
 // - commit 4 (a-branch-2)
@@ -161,35 +161,39 @@ fn squash_above() -> Result<()> {
 // - commit 1 (a-branch-1)
 //
 // Commits 3 and 2 update the same file and line number
-//
-// NB: We may want to change this behavior in the future
+// Result:
+// - commit 5 (a-branch-3)
+// - commit 3 (a-branch-2)
+// - commit 3+2
+// - commit 1  (a-branch-1)
 #[test]
-fn squash_producting_conflict_errors_out() -> Result<()> {
+fn squash_upwards_works() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
-    let result = squash_commits(
+    squash_commits(
         &ctx,
         test.stack.id,
         vec![test.commit_2.id()],
         test.commit_3.id(),
-    );
-    assert_eq!(
-        result.unwrap_err().to_string(),
-        format!("cannot squash into conflicted destination commit",)
-    );
+    )?;
 
-    // After a failed squash, the stack should be unchanged (i.e. the reordering that takes place is reversed)
     let branches = list_branches(&ctx)?;
-    // branch 3
-    assert_eq!(branches.b3.patches[0].message, "commit 5");
-    // branch 2
-    assert_eq!(branches.b2.patches.len(), 3);
-    assert_eq!(branches.b2.patches[0].message, "commit 4");
-    assert_eq!(branches.b2.patches[1].message, "commit 3");
-    assert_eq!(branches.b2.patches[2].message, "commit 2");
     // branch 1
     assert_eq!(branches.b1.patches.len(), 1);
     assert_eq!(branches.b1.patches[0].message, "commit 1");
+
+    // branch 2
+    assert_eq!(branches.b2.patches.len(), 2);
+    assert_eq!(branches.b2.patches[0].message, "commit 4");
+    assert_eq!(branches.b2.patches[1].message, "commit 3\ncommit 2");
+    assert_eq!(
+        blob_content(ctx.repo(), branches.b2.patches[1].id, "file2_3")?,
+        "change3\n"
+    );
+
+    // branch 3
+    assert_eq!(branches.b3.patches.len(), 1);
+    assert_eq!(branches.b3.patches[0].message, "commit 5");
     Ok(())
 }
 
