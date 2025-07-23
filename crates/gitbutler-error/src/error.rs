@@ -136,6 +136,7 @@ pub enum Code {
     AuthorMissing,
     BranchNotFound,
     SecretKeychainNotFound,
+    MissingLoginKeychain,
 }
 
 impl std::fmt::Display for Code {
@@ -151,6 +152,7 @@ impl std::fmt::Display for Code {
             Code::ProjectMissing => "errors.projects.missing",
             Code::BranchNotFound => "errors.branch.notfound",
             Code::SecretKeychainNotFound => "errors.secret.keychain_notfound",
+            Code::MissingLoginKeychain => "errors.secret.missing_login_keychain",
         };
         f.write_str(code)
     }

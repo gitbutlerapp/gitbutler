@@ -47,11 +47,22 @@ pub fn retrieve(handle: &str, namespace: Namespace) -> Result<Option<Sensitive<S
 }
 
 fn annotate_linux_keychain(err: anyhow::Error) -> anyhow::Error {
-    if !cfg!(target_os = "linux") || !err.to_string().contains(" org.freedesktop.secrets ") {
+    if !cfg!(target_os = "linux") {
         return err;
     }
 
-    err.context(gitbutler_error::error::Code::SecretKeychainNotFound)
+    // We could try to match on the original, but due to a lack of testing
+    // we have to blanket-catch these errors in multiple places.
+    // This is fine, except for when we might be dependent on the locale.
+    // If this is an issue, actually test this.
+    let err_string = err.to_string();
+    if err_string.contains(" org.freedesktop.secrets ") {
+        err.context(gitbutler_error::error::Code::SecretKeychainNotFound)
+    } else if err_string.contains("Secret Service: no result found") {
+        err.context(gitbutler_error::error::Code::MissingLoginKeychain)
+    } else {
+        err
+    }
 }
 
 /// Delete the secret at `handle` permanently from `namespace`.
