@@ -113,7 +113,7 @@
 
 			{#snippet caption()}
 				Learn how find your GitLab Personal Token and Project ID in our <Link
-					href="https://docs.gitbutler.com/features/gitlab-integration">docs</Link
+					href="https://docs.gitbutler.com/features/forge-integration/gitlab-integration">docs</Link
 				>
 				<br />
 				The Fork Project ID is where your branches will be pushed, and the Upstream Project ID is where

@@ -184,7 +184,7 @@
 			<SectionCardDisclaimer>
 				Signing commits can allow other people to verify your commits if you publish the public
 				version of your signing key.
-				<Link href="https://docs.gitbutler.com/features/virtual-branches/verifying-commits"
+				<Link href="https://docs.gitbutler.com/features/virtual-branches/signing-commits"
 					>Read more</Link
 				> about commit signing and verification.
 			</SectionCardDisclaimer>

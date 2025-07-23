@@ -76,7 +76,7 @@
 					<Button style="pop" icon="open-link">Learn How to Create Reviews</Button>
 				</a>
 				<a
-					href="https://docs.gitbutler.com/features/virtual-branches"
+					href="https://docs.gitbutler.com/features/virtual-branches/virtual-branches"
 					target="_blank"
 					rel="noopener noreferrer"
 				>
