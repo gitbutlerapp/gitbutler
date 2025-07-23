@@ -22,7 +22,8 @@
 	},
 	"scripts": {
 		"package": "tsc",
-		"test": "vitest run"
+		"test": "vitest run",
+		"prepare": "pnpm package"
 	},
 	"exports": {
 		".": {
