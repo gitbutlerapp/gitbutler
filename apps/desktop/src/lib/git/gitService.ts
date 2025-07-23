@@ -1,4 +1,7 @@
 import type { Tauri } from '$lib/backend/tauri';
+import { InjectionToken } from '@gitbutler/shared/context';
+
+export const GIT_SERVICE_TOKEN = new InjectionToken<GitService>('GitService');
 
 export class GitService {
 	constructor(private tauri: Tauri) {}

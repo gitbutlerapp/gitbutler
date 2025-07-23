@@ -3,6 +3,7 @@ import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
 import type { ConflictEntryPresence } from '$lib/conflictEntryPresence';
 import type { TreeChange } from '$lib/hunks/change';
 import type { ClientState } from '$lib/state/clientState.svelte';
+import { InjectionToken } from '@gitbutler/shared/context';
 
 export interface EditModeMetadata {
 	commitOid: string;
@@ -30,6 +31,8 @@ interface HeadAndMode {
 	head?: string;
 	operatingMode?: Mode;
 }
+
+export const MODE_SERVICE_TOKEN = new InjectionToken<ModeService>('ModeService');
 
 export class ModeService {
 	private api: ReturnType<typeof injectEndpoints>;

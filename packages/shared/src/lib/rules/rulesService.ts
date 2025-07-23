@@ -9,10 +9,13 @@ import {
 	type CreateRuleParams,
 	type LoadableRule
 } from '$lib/rules/types';
+import { InjectionToken } from '../context';
 import type { HttpClient } from '$lib/network/httpClient';
 import type { AppDispatch } from '$lib/redux/store.svelte';
 
 const USER_RULE_LIST_KEY = 'me';
+
+export const RULES_SERVICE_TOKEN = new InjectionToken<RulesService>('RulesService');
 
 export class RulesService {
 	private readonly rulesListInterest = new InterestStore<{ owner: string }>(POLLING_GLACIALLY);
