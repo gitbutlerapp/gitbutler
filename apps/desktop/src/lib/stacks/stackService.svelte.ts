@@ -34,7 +34,7 @@ import type { LocalFile } from '$lib/files/file';
 import type { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 import type { TreeChange, TreeChanges } from '$lib/hunks/change';
 import type { DiffSpec, Hunk } from '$lib/hunks/hunk';
-import type { BranchDetails, Stack, StackDetails } from '$lib/stacks/stack';
+import type { BranchDetails, Stack, StackOpt, StackDetails } from '$lib/stacks/stack';
 import type { PropertiesFn } from '$lib/state/customHooks.svelte';
 
 type BranchParams = {
@@ -848,6 +848,20 @@ export class StackService {
 	}
 }
 
+function transformStacksResponse(response: Stack[]) {
+	response.forEach((stack) => {
+		// To keep it simple, what's cast as `Stack` is actually `StackOpt`
+		// (as returned by the backend).
+		// So here we cast it back and stop any optional stack-id in its tracks
+		// until the code can actually cope with it.
+		const stackOpt = stack as StackOpt;
+		if (!stackOpt.id) {
+			throw new Error('BUG(opt-stack-id): cannot yet handle optional stack IDs');
+		}
+	});
+	return stackAdapter.addMany(stackAdapter.getInitialState(), response);
+}
+
 function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
@@ -860,19 +874,18 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					updateStaleProjectState(
 						uiState,
 						projectId,
+						// TODO(opt-stack-id): `s.id` might actually be optional once outside-of-workspace is a thing.
 						response.map((s) => s.id)
 					);
 
-					return stackAdapter.addMany(stackAdapter.getInitialState(), response);
+					return transformStacksResponse(response);
 				}
 			}),
 			allStacks: build.query<EntityState<Stack, string>, { projectId: string }>({
 				extraOptions: { command: 'stacks' },
 				query: ({ projectId }) => ({ projectId, filter: 'All' }),
 				providesTags: [providesList(ReduxTag.Stacks)],
-				transformResponse(response: Stack[]) {
-					return stackAdapter.addMany(stackAdapter.getInitialState(), response);
-				}
+				transformResponse: transformStacksResponse
 			}),
 			createStack: build.mutation<Stack, { projectId: string; branch: BranchParams }>({
 				extraOptions: {
@@ -924,6 +937,8 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					commits: EntityState<Commit, string>;
 					upstreamCommits: EntityState<UpstreamCommit, string>;
 				},
+				// TODO(single-branch): stackId is actually `stackId?` in the backend to be able to query details in single-branch mode.
+				// 	  however, ideally all this goes away in favor of consuming `RefInfo` from the backend.
 				{ projectId: string; stackId: string }
 			>({
 				extraOptions: { command: 'stack_details' },

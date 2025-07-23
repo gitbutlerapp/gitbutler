@@ -91,8 +91,8 @@ pub struct StackEntry {
     pub order: Option<usize>,
 }
 
-/// Temporary type to help transitioning to the optional version of stack-entry and ultimately, to [`crate::RefInfo`].
-/// WARNING: for use by parts in the code that can rely on having a `stack_id`.
+/// **Temporary type to help transitioning to the optional version of stack-entry** and ultimately, to [`crate::RefInfo`].
+/// WARNING: for use by parts in the code that can rely on having a non-optional `stack_id`. The goal is to have none of these.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StackEntryNoOpt {
