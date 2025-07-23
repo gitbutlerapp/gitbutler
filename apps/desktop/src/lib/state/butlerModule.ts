@@ -22,6 +22,7 @@ import {
 } from '@reduxjs/toolkit/query';
 import type { TauriBaseQueryFn } from '$lib/state/backendQuery';
 import type { HookContext } from '$lib/state/context';
+import type { Readable } from 'svelte/store';
 
 /** Gives our module a namespace in the extended `ApiModules` interface. */
 export const butlerModuleName = Symbol();
@@ -98,7 +99,7 @@ export function butlerModule(ctx: HookContext): Module<ButlerModule> {
 				injectEndpoint(endpointName, definition) {
 					const endpoint = anyApi.endpoints[endpointName]!; // Known to exist.
 					if (isQueryDefinition(definition)) {
-						const { fetch, useQuery, useQueryState, useQueries, useQueryTimeStamp } =
+						const { fetch, useQuery, useQueryStore, useQueryState, useQueries, useQueryTimeStamp } =
 							buildQueryHooks({
 								endpointName,
 								api,
@@ -106,6 +107,8 @@ export function butlerModule(ctx: HookContext): Module<ButlerModule> {
 							});
 						endpoint.fetch = fetch;
 						endpoint.useQuery = useQuery;
+						// @ts-expect-error IDK man... it's fine
+						endpoint.useQueryStore = useQueryStore;
 						endpoint.useQueryState = useQueryState;
 						endpoint.useQueries = useQueries;
 						endpoint.useQueryTimeStamp = useQueryTimeStamp;
@@ -223,6 +226,12 @@ type QueryHooks<D extends CustomQuery<unknown>> = {
 		args: QueryArgFrom<D>,
 		options?: { transform?: T } & StartQueryActionCreatorOptions
 	) => Reactive<
+		CustomQueryResult<CustomQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>>
+	>;
+	useQueryStore: <T extends Transformer<D> | undefined = DefaultTransformer<D>>(
+		args: QueryArgFrom<D>,
+		options?: { transform?: T } & StartQueryActionCreatorOptions
+	) => Readable<
 		CustomQueryResult<CustomQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>>
 	>;
 	/** Execute query on existing state. */
