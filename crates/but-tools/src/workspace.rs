@@ -6,7 +6,7 @@ use anyhow::Context;
 use bstr::BString;
 use but_core::{TreeChange, UnifiedDiff};
 use but_graph::VirtualBranchesTomlMetadata;
-use but_workspace::ui::StackEntry;
+use but_workspace::ui::StackEntryNoOpt;
 use but_workspace::{CommmitSplitOutcome, StackId};
 use gitbutler_branch_actions::{BranchManagerExt, update_workspace_commit};
 use gitbutler_command_context::CommandContext;
@@ -212,7 +212,7 @@ pub fn create_commit(
         .iter()
         .find_map(|s| {
             let found = s.heads.iter().any(|h| h.name == params.branch_name);
-            if found { Some(s.id) } else { None }
+            if found { s.id } else { None }
         })
         .unwrap_or_else(|| {
             let perm = guard.write_permission();
@@ -350,7 +350,7 @@ pub fn create_branch(
     ctx: &mut CommandContext,
     app_handle: Option<&tauri::AppHandle>,
     params: CreateBranchParameters,
-) -> Result<StackEntry, anyhow::Error> {
+) -> Result<StackEntryNoOpt, anyhow::Error> {
     let mut guard = ctx.project().exclusive_worktree_access();
     let perm = guard.write_permission();
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
@@ -1079,7 +1079,7 @@ pub fn branch_changes(
         .iter()
         .find_map(|s| {
             let found = s.heads.iter().any(|h| h.name == params.branch_name);
-            if found { Some(s.id) } else { None }
+            if found { s.id } else { None }
         })
         .ok_or_else(|| {
             anyhow::anyhow!("Branch '{}' not found in the workspace", params.branch_name)
@@ -1354,7 +1354,7 @@ pub fn split_branch(
     let source_stack_id = stacks
         .iter()
         .find(|s| s.heads.iter().any(|b| b.name == params.source_branch_name))
-        .map(|s| s.id)
+        .and_then(|s| s.id)
         .ok_or_else(|| {
             anyhow::anyhow!(
                 "Source branch '{}' not found in the workspace",
@@ -1734,7 +1734,14 @@ pub fn get_project_status(
     filter_changes: Option<Vec<BString>>,
 ) -> anyhow::Result<ProjectStatus> {
     let stacks = stacks(ctx, repo)?;
-    let stacks = entries_to_simple_stacks(&stacks, ctx, repo)?;
+    let stacks = entries_to_simple_stacks(
+        &stacks
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<Result<Vec<_>, _>>()?,
+        ctx,
+        repo,
+    )?;
 
     let file_changes = get_filtered_changes(ctx, repo, filter_changes)?;
 
@@ -1772,7 +1779,7 @@ pub fn get_filtered_changes(
 }
 
 fn entries_to_simple_stacks(
-    entries: &[StackEntry],
+    entries: &[StackEntryNoOpt],
     ctx: &mut CommandContext,
     repo: &gix::Repository,
 ) -> anyhow::Result<Vec<SimpleStack>> {

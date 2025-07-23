@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::io::{self, Read};
 use std::str::FromStr;
 
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use but_action::rename_branch::RenameBranchParams;
 use but_action::{ActionHandler, OpenAiProvider, Source, reword::CommitEvent};
 use but_db::ClaudeCodeSession;
@@ -221,7 +221,7 @@ fn is_branch_eligible_for_rename(
     // Find the stack entry for this branch
     let stack_entry = stacks
         .iter()
-        .find(|s| s.id == branch.stack_id)
+        .find(|s| s.id == Some(branch.stack_id))
         .ok_or_else(|| anyhow::anyhow!("Stack not found"))?;
 
     // Only eligible if exactly one new commit
@@ -243,7 +243,8 @@ fn is_branch_eligible_for_rename(
     }
 
     // Get stack details and branch details
-    let details = crate::log::stack_details(defer.ctx, stack_entry.id)?;
+    let details =
+        crate::log::stack_details(defer.ctx, stack_entry.id.context("BUG(opt-stack-id)")?)?;
     let branch_details = details
         .branch_details
         .iter()
@@ -391,8 +392,11 @@ fn get_or_create_session(
     let session_and_stack_id = if let Some(session) = sessions.iter().find(|s| s.id == session_id) {
         // If the stack referenced by the session is in the list of applied stacks do nothing
         // Otherwise, create a new stack and update the session
-        if let Some(stack) = stacks.iter().find(|s| s.id.to_string() == session.stack_id) {
-            (session.to_owned(), stack.id)
+        if let Some(stack_id) = stacks.iter().find_map(|s| {
+            let id = s.id?;
+            (id.to_string() == session.stack_id).then_some(id)
+        }) {
+            (session.to_owned(), stack_id)
         } else {
             let stack_id = create_stack(defer.ctx, vb_state, perm)?;
             defer

@@ -179,16 +179,19 @@ pub fn stack_details(ctx: &CommandContext) -> Vec<(StackId, StackDetails)> {
     .unwrap();
     let mut details = vec![];
     for stack in stacks {
+        let stack_id = stack
+            .id
+            .expect("BUG(opt-stack-id): test code shouldn't trigger this");
         details.push((
-            stack.id,
+            stack_id,
             if ctx.app_settings().feature_flags.ws3 {
                 let meta = VirtualBranchesTomlMetadata::from_path(
                     ctx.project().gb_dir().join("virtual_branches.toml"),
                 )
                 .unwrap();
-                but_workspace::stack_details_v3(stack.id, &repo, &meta)
+                but_workspace::stack_details_v3(stack_id, &repo, &meta)
             } else {
-                but_workspace::stack_details(&ctx.project().gb_dir(), stack.id, ctx)
+                but_workspace::stack_details(&ctx.project().gb_dir(), stack_id, ctx)
             }
             .unwrap(),
         ));

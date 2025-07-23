@@ -24,7 +24,7 @@ pub fn create_stack_with_branch(
     name: &str,
     description: &str,
     current_dir: &Path,
-) -> anyhow::Result<but_workspace::ui::StackEntry> {
+) -> anyhow::Result<but_workspace::ui::StackEntryNoOpt> {
     let project = super::project::project_from_path(current_dir)?;
     // Enable v3 feature flags for the command context
     let app_settings = AppSettings {

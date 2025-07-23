@@ -43,7 +43,10 @@ pub fn on_filesystem_change(
         match rule.action {
             super::Action::Explicit(super::Operation::Assign { stack_id }) => {
                 if let Ok(stack_id) = StackId::from_str(&stack_id) {
-                    if !stacks_in_ws.iter().any(|e| e.id == stack_id) {
+                    if !stacks_in_ws
+                        .iter()
+                        .any(|e| e.id.is_some_and(|id| id == stack_id))
+                    {
                         continue;
                     }
                     let assignments = matching(worktree_changes.clone(), rule.filters.clone())

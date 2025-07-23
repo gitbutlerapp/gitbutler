@@ -20,8 +20,8 @@ impl<'repo> WorkspaceCommit<'repo> {
     /// It still needs its tree set to something non-empty.
     ///
     /// `object_hash` is needed to create an empty tree hash.
-    pub fn create_commit_from_vb_state(
-        stacks: &[crate::ui::StackEntry],
+    pub(crate) fn create_commit_from_vb_state(
+        stacks: &[crate::ui::StackEntryNoOpt],
         object_hash: gix::hash::Kind,
     ) -> gix::objs::Commit {
         // message that says how to get back to where they were

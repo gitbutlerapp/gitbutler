@@ -16,7 +16,7 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
     let stacks = stacks(ctx)?
         .iter()
-        .map(|s| stack_details(ctx, s.id))
+        .filter_map(|s| s.id.map(|id| stack_details(ctx, id)))
         .filter_map(Result::ok)
         .collect::<Vec<_>>();
 
@@ -149,7 +149,7 @@ pub(crate) fn commit_graph(repo_path: &Path, _json: bool) -> anyhow::Result<()> 
 pub(crate) fn all_commits(ctx: &CommandContext) -> anyhow::Result<Vec<CliId>> {
     let stacks = stacks(ctx)?
         .iter()
-        .map(|s| stack_details(ctx, s.id))
+        .filter_map(|s| s.id.map(|id| stack_details(ctx, id)))
         .filter_map(Result::ok)
         .collect::<Vec<_>>();
     let mut matches = Vec::new();

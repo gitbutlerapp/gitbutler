@@ -22,20 +22,27 @@ fn id_from_name_v2_to_v3(
     name: &gix::refs::FullNameRef,
     meta: &VirtualBranchesTomlMetadata,
 ) -> anyhow::Result<StackId> {
-    let ref_meta = meta.branch(name)?;
-    ref_meta
-        .stack_id()
-        .with_context(|| {
-            format!(
-                "{name:?} didn't have a stack-id even though \
+    id_from_name_v2_to_v3_opt(name, meta)?.with_context(|| {
+        format!(
+            "{name:?} didn't have a stack-id even though \
         it was supposed to be in virtualbranches.toml"
-            )
-        })
-        .map(|id| {
-            id.to_string()
-                .parse()
-                .expect("new stack ids are just UUIDs, like the old ones")
-        })
+        )
+    })
+}
+
+/// Get a stable `StackId` for the given `name`. It's fetched from `meta`, assuming it's backed by a toml file
+/// and assuming that `name` is stored there as applied or unapplied branch.
+/// It's `None` if `name` isn't known to the workspace.
+fn id_from_name_v2_to_v3_opt(
+    name: &gix::refs::FullNameRef,
+    meta: &VirtualBranchesTomlMetadata,
+) -> anyhow::Result<Option<StackId>> {
+    let ref_meta = meta.branch(name)?;
+    Ok(ref_meta.stack_id().map(|id| {
+        id.to_string()
+            .parse()
+            .expect("new stack ids are just UUIDs, like the old ones")
+    }))
 }
 
 /// Returns the list of branch information for the branches in a stack.
@@ -125,7 +132,7 @@ fn try_from_stack_v3(
         })
         .collect::<anyhow::Result<_>>()?;
     Ok(ui::StackEntry {
-        id: id_from_name_v2_to_v3(name.as_ref(), meta)?,
+        id: id_from_name_v2_to_v3_opt(name.as_ref(), meta)?,
         tip: heads
             .first()
             .map(|h| h.tip)
@@ -179,7 +186,7 @@ pub fn stacks_v3(
                 .with_context(|| format!("Encountered symbolic reference: {ref_name}"))?
                 .detach();
             out.push(ui::StackEntry {
-                id: id_from_name_v2_to_v3(ref_name.as_ref(), meta)?,
+                id: id_from_name_v2_to_v3_opt(ref_name.as_ref(), meta)?,
                 // TODO: this is just a simulation and such a thing doesn't really exist in the V3 world, let's see how it goes.
                 //       Thus, we just pass ourselves as first segment, similar to having no other segments.
                 heads: vec![ui::StackHeadInfo {

@@ -495,7 +495,7 @@ pub fn create_commit_and_update_refs(
                             .branches
                             .values()
                             .filter(|stack| stack.in_workspace)
-                            .map(|stack| crate::ui::StackEntry::try_new(repo, stack))
+                            .map(|stack| crate::ui::StackEntryNoOpt::try_new(repo, stack))
                             .collect::<Result<_, _>>()?;
                         stacks.sort_by(|a, b| a.name().cmp(&b.name()));
                         let new_wc = WorkspaceCommit::create_commit_from_vb_state(

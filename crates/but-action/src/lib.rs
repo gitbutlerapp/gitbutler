@@ -257,7 +257,7 @@ fn stacks_creating_if_none(
             selected_for_changes: None,
         };
         let stack = gitbutler_branch_actions::create_virtual_branch(ctx, &create_req, perm)?;
-        Ok(vec![stack])
+        Ok(vec![stack.into()])
     } else {
         Ok(stacks)
     }

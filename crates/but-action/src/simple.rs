@@ -117,11 +117,13 @@ fn handle_changes_simple_inner(
     let stacks = crate::stacks_creating_if_none(ctx, vb_state, &repo, perm)?;
 
     // Put the assignments into buckets by stack ID.
-    let mut stack_assignments: HashMap<StackId, Vec<DiffSpec>> =
-        stacks.iter().map(|s| (s.id, vec![])).collect();
+    let mut stack_assignments: HashMap<StackId, Vec<DiffSpec>> = stacks
+        .iter()
+        .filter_map(|s| Some((s.id?, vec![])))
+        .collect();
     let default_stack_id = stacks
         .first()
-        .map(|s| s.id)
+        .and_then(|s| s.id)
         .ok_or_else(|| anyhow::anyhow!("No stacks found in the workspace"))?;
     for assignment in assignments {
         if let Some(stack_id) = assignment.stack_id {
@@ -161,7 +163,7 @@ fn handle_changes_simple_inner(
 
         let stack_branch_name = stacks
             .iter()
-            .find(|s| s.id == stack_id)
+            .find(|s| s.id == Some(stack_id))
             .and_then(|s| s.heads.first().map(|h| h.name.to_string()))
             .ok_or(anyhow!("Could not find associated reference name"))?;
 
