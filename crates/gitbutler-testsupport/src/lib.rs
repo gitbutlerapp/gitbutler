@@ -189,7 +189,7 @@ pub fn stack_details(ctx: &CommandContext) -> Vec<(StackId, StackDetails)> {
                     ctx.project().gb_dir().join("virtual_branches.toml"),
                 )
                 .unwrap();
-                but_workspace::stack_details_v3(stack_id, &repo, &meta)
+                but_workspace::stack_details_v3(stack_id.into(), &repo, &meta)
             } else {
                 but_workspace::stack_details(&ctx.project().gb_dir(), stack_id, ctx)
             }

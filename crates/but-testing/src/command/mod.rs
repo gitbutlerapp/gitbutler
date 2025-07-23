@@ -225,7 +225,7 @@ pub mod stacks {
         let details = if v3 {
             let meta = ref_metadata_toml(ctx.project())?;
             let repo = ctx.gix_repo_for_merging_non_persisting()?;
-            but_workspace::stack_details_v3(id, &repo, &meta)
+            but_workspace::stack_details_v3(id.into(), &repo, &meta)
         } else {
             but_workspace::stack_details(&project.gb_dir(), id, &ctx)
         }?;

@@ -87,7 +87,7 @@ pub(crate) fn stacks(ctx: &CommandContext) -> Result<Vec<(StackId, StackDetails)
                 let meta = VirtualBranchesTomlMetadata::from_path(
                     ctx.project().gb_dir().join("virtual_branches.toml"),
                 )?;
-                but_workspace::stack_details_v3(stack_id, &repo, &meta)
+                but_workspace::stack_details_v3(stack_id.into(), &repo, &meta)
             } else {
                 but_workspace::stack_details(&ctx.project().gb_dir(), stack_id, ctx)
             }?,

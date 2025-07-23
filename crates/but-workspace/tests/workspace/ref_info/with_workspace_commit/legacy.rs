@@ -39,7 +39,9 @@ mod stacks {
         insta::assert_debug_snapshot!(actual, @r#"
         [
             StackEntry {
-                id: 00000000-0000-0000-0000-000000000002,
+                id: Some(
+                    00000000-0000-0000-0000-000000000002,
+                ),
                 heads: [
                     StackHeadInfo {
                         name: "C-on-A",
@@ -54,7 +56,9 @@ mod stacks {
                 order: None,
             },
             StackEntry {
-                id: 00000000-0000-0000-0000-000000000001,
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 heads: [
                     StackHeadInfo {
                         name: "B-on-A",
@@ -76,7 +80,9 @@ mod stacks {
         insta::assert_debug_snapshot!(actual, @r#"
         [
             StackEntry {
-                id: 00000000-0000-0000-0000-000000000002,
+                id: Some(
+                    00000000-0000-0000-0000-000000000002,
+                ),
                 heads: [
                     StackHeadInfo {
                         name: "C-on-A",
@@ -91,7 +97,9 @@ mod stacks {
                 order: None,
             },
             StackEntry {
-                id: 00000000-0000-0000-0000-000000000001,
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 heads: [
                     StackHeadInfo {
                         name: "B-on-A",
@@ -119,7 +127,9 @@ mod stacks {
         insta::assert_debug_snapshot!(actual, @r#"
         [
             StackEntry {
-                id: 00000000-0000-0000-0000-000000000005,
+                id: Some(
+                    00000000-0000-0000-0000-000000000005,
+                ),
                 heads: [
                     StackHeadInfo {
                         name: "main",
@@ -160,7 +170,7 @@ mod stack_details {
             StackState::InWorkspace,
             &["advanced-lane"],
         );
-        let actual = but_workspace::stack_details_v3(stack_id, &repo, &meta)?;
+        let actual = but_workspace::stack_details_v3(stack_id.into(), &repo, &meta)?;
         insta::assert_debug_snapshot!(actual, @r#"
         StackDetails {
             derived_name: "dependant",
@@ -233,7 +243,7 @@ mod stack_details {
 
         let b_stack_id = add_stack(&mut meta, 1, "B-on-A", StackState::InWorkspace);
         let c_stack_id = add_stack(&mut meta, 2, "C-on-A", StackState::InWorkspace);
-        let actual = but_workspace::stack_details_v3(b_stack_id, &repo, &meta)?;
+        let actual = but_workspace::stack_details_v3(Some(b_stack_id), &repo, &meta)?;
         insta::assert_debug_snapshot!(actual, @r#"
         StackDetails {
             derived_name: "B-on-A",
@@ -290,7 +300,7 @@ mod stack_details {
         }
         "#);
 
-        let actual = but_workspace::stack_details_v3(c_stack_id, &repo, &meta)?;
+        let actual = but_workspace::stack_details_v3(Some(c_stack_id), &repo, &meta)?;
         insta::assert_debug_snapshot!(actual, @r#"
         StackDetails {
             derived_name: "C-on-A",

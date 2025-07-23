@@ -96,7 +96,7 @@ pub fn stack_details(
     projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
-    stack_id: StackId,
+    stack_id: Option<StackId>,
 ) -> Result<but_workspace::ui::StackDetails, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
@@ -105,7 +105,11 @@ pub fn stack_details(
         let meta = ref_metadata_toml(ctx.project())?;
         but_workspace::stack_details_v3(stack_id, &repo, &meta)
     } else {
-        but_workspace::stack_details(&project.gb_dir(), stack_id, &ctx)
+        but_workspace::stack_details(
+            &project.gb_dir(),
+            stack_id.context("BUG(opt-stack-id)")?,
+            &ctx,
+        )
     }
     .map_err(Into::into)
 }
