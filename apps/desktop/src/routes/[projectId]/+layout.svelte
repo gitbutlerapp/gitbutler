@@ -29,7 +29,7 @@
 	import { ModeService } from '$lib/mode/modeService';
 	import { showError, showInfo, showWarning } from '$lib/notifications/toasts';
 	import { ProjectsService } from '$lib/project/projectsService';
-	import { getSecretsService } from '$lib/secrets/secretsService';
+	import { SECRET_SERVICE } from '$lib/secrets/secretsService';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { StackService } from '$lib/stacks/stackService.svelte';
@@ -37,7 +37,7 @@
 	import { combineResults } from '$lib/state/helpers';
 	import { debounce } from '$lib/utils/debounce';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { getContext, inject2 } from '@gitbutler/shared/context';
 	import { onDestroy, setContext, untrack, type Snippet } from 'svelte';
 	import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 	import type { LayoutData } from './$types';
@@ -59,7 +59,7 @@
 	const stackService = getContext(StackService);
 	const feedFactory = getContext(FeedFactory);
 
-	const secretService = getSecretsService();
+	const secretService = inject2(SECRET_SERVICE);
 	const gitLabState = $derived(new GitLabState(secretService, repoInfo, projectId));
 	$effect.pre(() => {
 		setContext(GitLabState, gitLabState);

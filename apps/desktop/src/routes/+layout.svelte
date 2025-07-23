@@ -17,7 +17,7 @@
 	import ZoomInOutMenuAction from '$components/ZoomInOutMenuAction.svelte';
 	import { ActionService } from '$lib/actions/actionService.svelte';
 	import { PromptService as AIPromptService } from '$lib/ai/promptService';
-	import { AIService } from '$lib/ai/service';
+	import { AI_SERVICE, AIService } from '$lib/ai/service';
 	import { EventContext } from '$lib/analytics/eventContext';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { invoke } from '$lib/backend/ipc';
@@ -51,7 +51,7 @@
 	import { PromptService } from '$lib/prompt/promptService';
 	import { RemotesService } from '$lib/remotes/remotesService';
 	import RulesService from '$lib/rules/rulesService.svelte';
-	import { setSecretsService } from '$lib/secrets/secretsService';
+	import { RustSecretService, SECRET_SERVICE } from '$lib/secrets/secretsService';
 	import { IdSelection } from '$lib/selection/idSelection.svelte';
 	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 	import { loadUserSettings, SETTINGS } from '$lib/settings/userSettings';
@@ -70,6 +70,7 @@
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
+	import { provide } from '@gitbutler/shared/context';
 	import { FeedService } from '@gitbutler/shared/feeds/service';
 	import { HttpClient } from '@gitbutler/shared/network/httpClient';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';

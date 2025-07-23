@@ -129,3 +129,46 @@ export function inject<T extends Constructor<any>[]>(
 		[K in keyof T]: InstanceType<T[K]>;
 	};
 }
+
+/**
+ * Creates an injection token similar to Angular's InjectionToken
+ */
+export class InjectionToken<_T> {
+	private readonly _desc: string;
+	private readonly _symbol: symbol;
+
+	constructor(desc: string) {
+		this._desc = desc;
+		this._symbol = Symbol(desc);
+	}
+
+	get description(): string {
+		return this._desc;
+	}
+
+	toString(): string {
+		return `InjectionToken(${this._desc})`;
+	}
+
+	get _key(): symbol {
+		return this._symbol;
+	}
+}
+
+/**
+ * Provides a value for an injection token
+ */
+export function provide<T>(token: InjectionToken<T>, value: T): void {
+	setContext(token._key, value);
+}
+
+/**
+ * An injector for use with `InjectionToken` rather than `Constructor`.
+ */
+export function inject2<T>(token: InjectionToken<T>): T {
+	const value = svelteGetContext<T>(token._key);
+	if (value === undefined) {
+		throw new Error(`No provider found for ${token.toString()}`);
+	}
+	return value;
+}
