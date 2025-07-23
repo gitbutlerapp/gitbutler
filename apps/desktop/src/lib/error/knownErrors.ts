@@ -10,5 +10,10 @@ Please check our [documentation](https://docs.gitbutler.com/features/virtual-bra
 Please install a keychain service to store and retrieve secrets with.
 
 This can be done using \`sudo apt install gnome-keyring\` for instance.
+	`,
+	[Code.MissingLoginKeychain]: `
+Missing default keychain.
+
+With \`seahorse\` or equivalent, create a \`Login\` password store, right click it and choose \`Set Default\`.
 	`
 };

@@ -9,7 +9,8 @@ export enum Code {
 	DefaultTargetNotFound = 'errors.projects.default_target.not_found',
 	CommitSigningFailed = 'errors.commit.signing_failed',
 	ProjectMissing = 'errors.projects.missing',
-	SecretKeychainNotFound = 'errors.secret.keychain_notfound'
+	SecretKeychainNotFound = 'errors.secret.keychain_notfound',
+	MissingLoginKeychain = 'errors.secret.missing_login_keychain'
 }
 
 export type TauriCommandError = { name: string; message: string; code?: string };
