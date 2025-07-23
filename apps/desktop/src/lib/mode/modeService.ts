@@ -51,11 +51,11 @@ export class ModeService {
 	}
 
 	get initialEditModeState() {
-		return this.api.endpoints.initialEditModeState.useQuery;
+		return this.api.endpoints.initialEditModeState.useQueryStore;
 	}
 
 	get changesSinceInitialEditState() {
-		return this.api.endpoints.changesSinceInitialEditState.useQuery;
+		return this.api.endpoints.changesSinceInitialEditState.useQueryStore;
 	}
 
 	get mode() {
@@ -125,7 +125,6 @@ function injectEndpoints(api: ClientState['backendApi']) {
 						async (_) => {
 							const changes = await invoke<TreeChange[]>('edit_changes_from_initial', arg);
 							lifecycleApi.updateCachedData(() => changes);
-							lifecycleApi.dispatch(api.util.invalidateTags([invalidatesList(ReduxTag.Diff)]));
 						}
 					);
 					// The `cacheEntryRemoved` promise resolves when the result is removed
@@ -146,9 +145,6 @@ function injectEndpoints(api: ClientState['backendApi']) {
 						`project://${arg.projectId}/git/head`,
 						(event) => {
 							lifecycleApi.updateCachedData(() => event.payload.operatingMode);
-							lifecycleApi.dispatch(
-								api.util.invalidateTags([invalidatesList(ReduxTag.HeadMetadata)])
-							);
 						}
 					);
 					await lifecycleApi.cacheEntryRemoved;
@@ -168,9 +164,6 @@ function injectEndpoints(api: ClientState['backendApi']) {
 						`project://${arg.projectId}/head`,
 						(event) => {
 							lifecycleApi.updateCachedData(() => event.payload.head);
-							lifecycleApi.dispatch(
-								api.util.invalidateTags([invalidatesList(ReduxTag.HeadMetadata)])
-							);
 						}
 					);
 					await lifecycleApi.cacheEntryRemoved;
