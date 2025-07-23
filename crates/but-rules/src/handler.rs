@@ -10,7 +10,7 @@ use crate::Filter;
 
 pub fn on_filesystem_change(
     ctx: &mut CommandContext,
-    worktree_changes: WorktreeChanges,
+    worktree_changes: &WorktreeChanges,
 ) -> anyhow::Result<usize> {
     let mut updates = 0;
     let rules = super::list_rules(ctx)?

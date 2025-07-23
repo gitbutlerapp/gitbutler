@@ -97,20 +97,20 @@ impl Handler {
     }
 
     fn emit_worktree_changes(&self, ctx: &mut CommandContext) -> Result<()> {
-        let changes = but_core::diff::worktree_changes(&ctx.gix_repo()?)?;
+        let wt_changes = but_core::diff::worktree_changes(&ctx.gix_repo()?)?;
 
         let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
             ctx,
             &ctx.project().path,
             &ctx.project().gb_dir(),
-            Some(changes.changes.clone()),
+            Some(wt_changes.changes.clone()),
         );
 
         let (assignments, assignments_error) = match &dependencies {
             Ok(dependencies) => but_hunk_assignment::assignments_with_fallback(
                 ctx,
                 false,
-                Some(changes.changes.clone()),
+                Some(wt_changes.changes.clone()),
                 Some(dependencies),
             )?,
             Err(e) => (
@@ -118,17 +118,34 @@ impl Handler {
                 Some(anyhow::anyhow!("failed to get hunk dependencies: {}", e)),
             ),
         };
+        let assignments_error = assignments_error.map(|err| serde_error::Error::new(&*err));
 
-        let changes = but_hunk_assignment::WorktreeChanges {
-            worktree_changes: changes.into(),
-            assignments,
-            assignments_error: assignments_error.map(|err| serde_error::Error::new(&*err)),
+        let mut changes = but_hunk_assignment::WorktreeChanges {
+            worktree_changes: wt_changes.clone().into(),
+            assignments: assignments.clone(),
+            assignments_error: assignments_error.clone(),
             dependencies: dependencies.as_ref().ok().cloned(),
             dependencies_error: dependencies
                 .as_ref()
                 .err()
                 .map(|err| serde_error::Error::new(&**err)),
         };
+        if ctx.app_settings().feature_flags.rules {
+            if let Ok(update_count) = but_rules::handler::on_filesystem_change(ctx, &changes) {
+                if update_count > 0 {
+                    changes = but_hunk_assignment::WorktreeChanges {
+                        worktree_changes: wt_changes.into(),
+                        assignments,
+                        assignments_error: assignments_error.clone(),
+                        dependencies: dependencies.as_ref().ok().cloned(),
+                        dependencies_error: dependencies
+                            .as_ref()
+                            .err()
+                            .map(|err| serde_error::Error::new(&**err)),
+                    };
+                }
+            }
+        }
         let _ = self.emit_app_event(Change::WorktreeChanges {
             project_id: ctx.project().id,
             changes,
