@@ -2,6 +2,7 @@ use gitbutler_command_context::CommandContext;
 use serde::{Deserialize, Serialize};
 
 pub mod db;
+pub mod handler;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]

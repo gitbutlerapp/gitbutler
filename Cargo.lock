@@ -917,6 +917,10 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "but-db",
+ "but-graph",
+ "but-hunk-assignment",
+ "but-hunk-dependency",
+ "but-workspace",
  "chrono",
  "gitbutler-command-context",
  "itertools",
