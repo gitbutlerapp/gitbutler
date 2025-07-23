@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Tooltip from '$lib/Tooltip.svelte';
 	import ghLogo from '$lib/assets/review-badge/gh-logo.svg?raw';
-	import glLogo from '$lib/assets/review-badge/gl-logo-small.svg?raw';
+	import glLogo from '$lib/assets/review-badge/gl-logo.svg?raw';
 
 	interface Props {
 		type: 'PR' | 'MR' | undefined;
