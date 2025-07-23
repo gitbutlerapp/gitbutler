@@ -13,12 +13,11 @@ const MOCK_UI_SELECTION: StackSelection = {
 };
 
 const MOCK_STACK_UI_STATE: StackState = {
-	selection: MOCK_UI_SELECTION
+	selection: MOCK_UI_SELECTION,
+	newCommitMessage: { title: '', description: '' }
 };
 
 const MOCK_PROJECT_UI_STATE: ProjectUiState = {
-	commitTitle: '',
-	commitDescription: '',
 	exclusiveAction: undefined,
 	branchesSelection: { branchName: 'test' },
 	stackId: undefined,
@@ -66,16 +65,6 @@ export function getUiStateMock() {
 				get() {
 					return MOCK_PROJECT_UI_STATE.exclusiveAction;
 				}
-			},
-			commitTitle: {
-				get() {
-					return MOCK_PROJECT_UI_STATE.commitTitle;
-				}
-			},
-			commitMessage: {
-				get() {
-					return MOCK_PROJECT_UI_STATE.commitDescription;
-				}
 			}
 		};
 	});
@@ -85,6 +74,11 @@ export function getUiStateMock() {
 			selection: {
 				get() {
 					return MOCK_STACK_UI_STATE.selection;
+				}
+			},
+			newCommitMessage: {
+				get() {
+					return MOCK_STACK_UI_STATE.newCommitMessage;
 				}
 			}
 		};
