@@ -29,6 +29,7 @@ import type { TreeChange, TreeChanges } from '$lib/hunks/change';
 import type { DiffSpec, Hunk } from '$lib/hunks/hunk';
 import type { BranchDetails, Stack, StackDetails } from '$lib/stacks/stack';
 import type { PropertiesFn } from '$lib/state/customHooks.svelte';
+import { InjectionToken } from '@gitbutler/shared/context';
 
 type BranchParams = {
 	name?: string;
@@ -121,6 +122,8 @@ export type CreateCommitOutcome = {
 	newCommit: string | null;
 	pathsToRejectedChanges: [RejectionReason, string][];
 };
+
+export const STACK_SERVICE_TOKEN = new InjectionToken<StackService>('StackService');
 
 export class StackService {
 	private api: ReturnType<typeof injectEndpoints>;

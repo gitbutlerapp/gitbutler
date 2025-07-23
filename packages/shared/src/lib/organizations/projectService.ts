@@ -11,6 +11,7 @@ import {
 	type Project
 } from '$lib/organizations/types';
 import { POLLING_GLACIALLY, POLLING_REGULAR } from '$lib/polling';
+import { InjectionToken } from '../context';
 import type { Branch, ApiBranch } from '$lib/branches/types';
 import type { HttpClient } from '$lib/network/httpClient';
 import type { ShareLevel } from '$lib/permissions';
@@ -41,6 +42,8 @@ function toApiUpdateParams(real: UpdateParams): ApiUpdateParams {
 		share_level: real.shareLevel
 	};
 }
+
+export const PROJECT_SERVICE_TOKEN = new InjectionToken<ProjectService>('ProjectService');
 
 export class ProjectService {
 	private readonly projectInterests = new InterestStore<{ repositoryId: string }>(POLLING_REGULAR);

@@ -4,6 +4,7 @@ import { plainToInstance } from 'class-transformer';
 import { derived, writable } from 'svelte/store';
 import type { ConflictEntryPresence } from '$lib/conflictEntryPresence';
 import type { StackService } from '$lib/stacks/stackService.svelte';
+import { InjectionToken } from '@gitbutler/shared/context';
 
 export interface EditModeMetadata {
 	commitOid: string;
@@ -31,6 +32,8 @@ interface HeadAndMode {
 	head?: string;
 	operatingMode?: Mode;
 }
+
+export const MODE_SERVICE_TOKEN = new InjectionToken<ModeService>('ModeService');
 
 export class ModeService {
 	private headAndMode = writable<HeadAndMode>({}, (set) => {

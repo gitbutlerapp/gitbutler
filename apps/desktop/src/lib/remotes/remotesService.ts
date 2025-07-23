@@ -1,9 +1,12 @@
 import { invoke } from '$lib/backend/ipc';
+import { InjectionToken } from '@gitbutler/shared/context';
 
 export interface GitRemote {
 	name?: string;
 	url?: string;
 }
+
+export const REMOTES_SERVICE_TOKEN = new InjectionToken<RemotesService>('RemotesService');
 
 export class RemotesService {
 	async remotes(projectId: string) {

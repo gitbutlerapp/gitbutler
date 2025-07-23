@@ -12,6 +12,7 @@ import {
 } from '$lib/settings/types';
 import type { HttpClient } from '$lib/network/httpClient';
 import type { AppDispatch } from '$lib/redux/store.svelte';
+import { InjectionToken } from '$lib/context';
 
 export class NotificationSettingsService {
 	private readonly notificationSettingsInterest = new InterestStore<{
@@ -60,3 +61,5 @@ export class NotificationSettingsService {
 		await this.refresh();
 	}
 }
+
+export const NOTIFICATION_SETTINGS_SERVICE_TOKEN = new InjectionToken<NotificationSettingsService>('NotificationSettingsService');
