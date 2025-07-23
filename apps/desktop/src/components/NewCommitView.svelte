@@ -12,7 +12,7 @@
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import toasts from '@gitbutler/ui/toasts';
-	import { tick, untrack } from 'svelte';
+	import { tick } from 'svelte';
 
 	type Props = {
 		projectId: string;
@@ -219,12 +219,11 @@
 	}
 
 	function handleMessageUpdate(title?: string, description?: string) {
-		const old = untrack(() => stackState.newCommitMessage.current);
 		if (typeof title === 'string') {
-			stackState.newCommitMessage.current = { ...old, title };
+			stackState.newCommitMessage.current = { ...stackState.newCommitMessage.current, title };
 		}
 		if (typeof description === 'string') {
-			stackState.newCommitMessage.current = { ...old, description };
+			stackState.newCommitMessage.current = { ...stackState.newCommitMessage.current, description };
 		}
 	}
 
