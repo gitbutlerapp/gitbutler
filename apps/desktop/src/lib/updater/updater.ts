@@ -5,6 +5,7 @@ import { type DownloadEvent, Update } from '@tauri-apps/plugin-updater';
 import { get, writable } from 'svelte/store';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { Tauri } from '$lib/backend/tauri';
+import type { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
 
 export const UPDATER_SERVICE = new InjectionToken<UpdaterService>('UpdaterService');
 
@@ -59,11 +60,14 @@ export class UpdaterService {
 
 	constructor(
 		private tauri: Tauri,
-		private posthog: PostHogWrapper
+		private posthog: PostHogWrapper,
+		private shortcuts: ShortcutService
 	) {}
 
 	private async start() {
-		this.unlistenMenu = this.tauri.listen<string>('menu://global/update/clicked', () => {
+		// This shortcut registration is never unsubscribed, but that's likely
+		// fine for the time being since the `AppUpdater` can never unmount.
+		this.shortcuts.on('update', () => {
 			this.checkForUpdate(true);
 		});
 		this.checkForUpdateInterval = setInterval(
@@ -75,7 +79,6 @@ export class UpdaterService {
 
 	private async stop() {
 		this.unlistenStatus?.();
-		this.unlistenMenu?.();
 		if (this.checkForUpdateInterval !== undefined) {
 			clearInterval(this.checkForUpdateInterval);
 			this.checkForUpdateInterval = undefined;

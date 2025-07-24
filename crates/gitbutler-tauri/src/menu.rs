@@ -304,7 +304,7 @@ pub fn handle_event(webview: &WebviewWindow, event: &MenuEvent) {
     }
 
     if event.id() == "help/share-debug-info" {
-        emit(webview, SHORTCUT_EVENT, "share-debug");
+        emit(webview, SHORTCUT_EVENT, "share-debug-info");
         return;
     }
 
