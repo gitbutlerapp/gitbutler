@@ -106,6 +106,7 @@
 						branchName={baseBranch.branchName}
 						commitMessage={commit.message}
 						createdAt={commit.createdAt}
+						author={commit.author}
 						onclick={() => {
 							branchesState.set({
 								commitId: commit.id,
