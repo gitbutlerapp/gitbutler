@@ -40,8 +40,6 @@
 	const pr = $derived(prResult?.current.data);
 
 	const canPublishPR = $derived(!!(forge.current.authenticated && !pr));
-
-	const submitDisabled = $derived(reviewCreation ? !reviewCreation.imports.creationEnabled : false);
 </script>
 
 {#snippet editor()}
@@ -56,7 +54,6 @@
 			/>
 			<ReviewCreationControls
 				isSubmitting={!!reviewCreation?.imports.isLoading}
-				{submitDisabled}
 				{canPublishPR}
 				{reviewUnit}
 				onCancel={() => {

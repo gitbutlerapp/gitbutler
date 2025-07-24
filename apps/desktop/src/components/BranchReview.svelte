@@ -35,8 +35,6 @@
 	let modal = $state<Modal>();
 	let confirmCreatePrModal = $state<ReturnType<typeof Modal>>();
 	let reviewCreation = $state<ReturnType<typeof ReviewCreation>>();
-
-	const submitDisabled = $derived(reviewCreation ? !reviewCreation.imports.creationEnabled : false);
 </script>
 
 <CanPublishReviewPlugin
@@ -82,7 +80,6 @@
 		{#snippet controls(close)}
 			<ReviewCreationControls
 				isSubmitting={!!reviewCreation?.imports.isLoading}
-				{submitDisabled}
 				{canPublishPR}
 				{reviewUnit}
 				onCancel={close}

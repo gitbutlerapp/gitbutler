@@ -10,7 +10,7 @@
 	interface Props {
 		isSubmitting: boolean;
 		canPublishPR: boolean;
-		submitDisabled: boolean;
+		submitDisabled?: boolean;
 		reviewUnit: string | undefined;
 		onCancel: () => void;
 		onSubmit: () => void;
