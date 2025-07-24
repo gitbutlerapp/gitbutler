@@ -1,3 +1,0 @@
-ancestorEntries = ["apps/desktop/src/components/BranchCard.svelte", "apps/desktop/src/components/BranchList.svelte", "apps/desktop/src/components/PullRequestCard.svelte", "packages/ui/src/lib/ReviewBadge.svelte"]
-ourEntries = ["apps/desktop/src/components/BranchCard.svelte", "apps/desktop/src/components/BranchList.svelte", "apps/desktop/src/components/PullRequestCard.svelte", "packages/ui/src/lib/ReviewBadge.svelte"]
-theirEntries = ["apps/desktop/src/components/BranchCard.svelte", "apps/desktop/src/components/BranchList.svelte", "apps/desktop/src/components/PullRequestCard.svelte", "packages/ui/src/lib/ReviewBadge.svelte"]
