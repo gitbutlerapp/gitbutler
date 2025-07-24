@@ -188,7 +188,7 @@
 
 	const uncommittedService = new UncommittedService(clientState, worktreeService, diffService);
 	provide(UNCOMMITTED_SERVICE, uncommittedService);
-	const historyService = new HistoryService();
+	const historyService = new HistoryService(clientState['backendApi']);
 	provide(HISTORY_SERVICE, historyService);
 
 	const idSelection = new IdSelection(

@@ -29,12 +29,8 @@ export type SelectionId = {
 			branchName: string;
 	  }
 	| {
-			/** Represents the selection of a change between two snapshot diffs */
 			type: 'snapshot';
-			/** The SHA of the before shapshot */
-			before: string;
-			/** The SHA of the after shapshot */
-			after: string;
+			snapshotId: string;
 	  }
 );
 
@@ -44,6 +40,7 @@ export type SelectionId = {
  */
 export type SelectedFile = SelectionId & { path: string };
 export type SelectedFileKey = BrandedId<'SelectedFileKey'>;
+export type SelectionKey = BrandedId<'SelectedKey'>;
 
 export function key(params: SelectedFile): SelectedFileKey {
 	switch (params.type) {
@@ -54,7 +51,7 @@ export function key(params: SelectedFile): SelectedFileKey {
 		case 'worktree':
 			return `${params.type}${UNIT_SEP}${params.path}${UNIT_SEP}${params.stackId}` as SelectedFileKey;
 		case 'snapshot':
-			return `${params.type}${UNIT_SEP}${params.before}${UNIT_SEP}${params.after}${UNIT_SEP}${params.path}` as SelectedFileKey;
+			return `${params.type}${UNIT_SEP}${params.snapshotId}${UNIT_SEP}${params.path}` as SelectedFileKey;
 	}
 }
 
@@ -89,25 +86,24 @@ export function readKey(key: SelectedFileKey): SelectedFile {
 				stackId: parts[1] === 'undefined' ? undefined : parts[1]
 			};
 		case 'snapshot':
-			if (parts.length !== 3) throw new Error('Invalid snapshot key');
+			if (parts.length !== 2) throw new Error('Invalid snapshot key');
 			return {
 				type,
-				before: parts[0]!,
-				after: parts[1]!,
-				path: parts[2]!
+				snapshotId: parts[0]!,
+				path: parts[1]!
 			};
 	}
 }
 
-export function selectionKey(id: SelectionId): SelectedFileKey {
+export function selectionKey(id: SelectionId): SelectionKey {
 	switch (id.type) {
 		case 'commit':
-			return `${id.type}${UNIT_SEP}${id.commitId}` as SelectedFileKey;
+			return `${id.type}${UNIT_SEP}${id.commitId}` as SelectionKey;
 		case 'branch':
-			return `${id.type}${UNIT_SEP}${id.stackId}${UNIT_SEP}${id.branchName}` as SelectedFileKey;
+			return `${id.type}${UNIT_SEP}${id.stackId}${UNIT_SEP}${id.branchName}` as SelectionKey;
 		case 'worktree':
-			return `${id.type}${UNIT_SEP}${id.stackId}` as SelectedFileKey;
+			return `${id.type}${UNIT_SEP}${id.stackId}` as SelectionKey;
 		case 'snapshot':
-			return `${id.type}${UNIT_SEP}${id.before}${UNIT_SEP}${id.after}` as SelectedFileKey;
+			return `${id.type}${UNIT_SEP}${id.snapshotId}` as SelectionKey;
 	}
 }

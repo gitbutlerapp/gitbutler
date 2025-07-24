@@ -18,17 +18,15 @@ export class OplogService {
 
 	diffWorktreeByPath({
 		projectId,
-		before,
-		after,
+		snapshotId,
 		path
 	}: {
 		projectId: string;
-		before: string;
-		after: string;
+		snapshotId: string;
 		path: string;
 	}) {
 		return this.api.endpoints.oplogDiffWorktrees.useQuery(
-			{ projectId, before, after },
+			{ projectId, snapshotId },
 			{
 				transform: (result) => {
 					return result.changes.find((change) => change.path === path);
@@ -41,10 +39,7 @@ export class OplogService {
 function injectEndpoints(api: ClientState['backendApi']) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
-			oplogDiffWorktrees: build.query<
-				TreeChanges,
-				{ projectId: string; before: string; after: string }
-			>({
+			oplogDiffWorktrees: build.query<TreeChanges, { projectId: string; snapshotId: string }>({
 				extraOptions: { command: 'oplog_diff_worktrees' },
 				query: (args) => args
 			})

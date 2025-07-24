@@ -244,10 +244,9 @@ export class IdSelection {
 				this.uncommittedService.assignmentsByPath(selectedFile.stackId || null, selectedFile.path);
 				return this.worktreeService.treeChangeByPath(projectId, selectedFile.path);
 			case 'snapshot':
-				return this.oplogService.diffWorktreeByPath({
+				return this.historyService.snapshotDiffByPath({
 					projectId,
-					before: selectedFile.before,
-					after: selectedFile.after,
+					snapshotId: selectedFile.snapshotId,
 					path: selectedFile.path
 				});
 		}
