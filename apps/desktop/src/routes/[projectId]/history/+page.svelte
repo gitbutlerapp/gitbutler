@@ -344,6 +344,7 @@
 	/* PREVIEW */
 	.history-view__preview {
 		display: flex;
+		position: relative;
 		flex: 1;
 		flex-direction: column;
 		overflow: hidden;
