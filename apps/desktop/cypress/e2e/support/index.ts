@@ -169,6 +169,8 @@ Cypress.on('window:before:load', (win) => {
 				return await Promise.resolve({});
 			case 'plugin:store|get':
 				return await Promise.resolve([undefined, false]);
+			case 'plugin:store|set':
+				return await Promise.resolve();
 			case 'plugin:path|resolve_directory':
 				return await Promise.resolve({});
 			case 'plugin:log|log':

@@ -9,6 +9,7 @@
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { platformName } from '$lib/platform/platform';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import type { RemoteBranchInfo } from '$lib/baseBranch/baseBranch';
@@ -24,15 +25,13 @@
 	const baseService = inject(BASE_BRANCH_SERVICE);
 	const posthog = inject(POSTHOG_WRAPPER);
 	const projectResult = $derived(projectsService.getProject(projectId));
-	const [setBaseBranchTarget] = baseService.setTarget;
+	const [setBaseBranchTarget, settingBranch] = baseService.setTarget;
 
 	let selectedBranch = $state(['', '']);
-	let loading = $state(false);
 
 	async function setTarget() {
 		if (!selectedBranch[0] || selectedBranch[0] === '') return;
 
-		loading = true;
 		try {
 			await setBaseBranchTarget({
 				projectId: projectId,
@@ -42,20 +41,28 @@
 			goto(`/${projectId}/`, { invalidateAll: true });
 		} finally {
 			posthog.capture('Project Setup Complete');
-			loading = false;
 		}
 	}
 </script>
 
-<DecorativeSplitView img={newProjectSvg}>
+<DecorativeSplitView img={newProjectSvg} testId={TestId.ProjectSetupPage}>
 	{#if selectedBranch[0] && selectedBranch[0] !== '' && platformName !== 'windows'}
 		{@const [remoteName, branchName] = selectedBranch[0].split(/\/(.*)/s)}
-		<KeysForm {projectId} {remoteName} {branchName} disabled={loading} />
+		<KeysForm {projectId} {remoteName} {branchName} disabled={settingBranch.current.isLoading} />
 		<div class="actions">
-			<Button kind="outline" disabled={loading} onclick={() => (selectedBranch[0] = '')}>
+			<Button
+				kind="outline"
+				disabled={settingBranch.current.isLoading}
+				onclick={() => (selectedBranch[0] = '')}
+			>
 				Back
 			</Button>
-			<Button style="pop" {loading} onclick={setTarget} testId="accept-git-auth">Let's go!</Button>
+			<Button
+				style="pop"
+				loading={settingBranch.current.isLoading}
+				onclick={setTarget}
+				testId="accept-git-auth">Let's go!</Button
+			>
 		</div>
 	{:else}
 		<ReduxResult {projectId} result={projectResult.current}>

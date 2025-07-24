@@ -7,6 +7,7 @@
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
 	import { APP_SETTINGS } from '$lib/config/appSettings';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { TestId } from '$lib/testing/testIds';
 	import { sleep } from '$lib/utils/sleep';
 	import { inject } from '@gitbutler/shared/context';
 
@@ -29,7 +30,10 @@
 	});
 </script>
 
-<DecorativeSplitView img={$analyticsConfirmed ? newProjectSvg : analyticsSvg}>
+<DecorativeSplitView
+	img={$analyticsConfirmed ? newProjectSvg : analyticsSvg}
+	testId={TestId.OnboardingPage}
+>
 	{#if $analyticsConfirmed}
 		<Welcome />
 	{:else}

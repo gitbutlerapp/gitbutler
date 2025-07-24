@@ -7,6 +7,7 @@
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { platformName } from '$lib/platform/platform';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { TestId } from '$lib/testing/testIds';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { unique } from '$lib/utils/array';
 	import { getBestBranch, getBestRemote, getBranchRemoteFromRef } from '$lib/utils/branch';
@@ -76,7 +77,7 @@
 	</div>
 
 	<div class="project-setup__fields">
-		<div class="project-setup__field-wrap">
+		<div class="project-setup__field-wrap" data-testid={TestId.ProjectSetupPageTargetBranchSelect}>
 			<Select
 				value={branch?.name}
 				options={remoteBranches.map((b) => ({ label: b.name, value: b.name }))}
@@ -248,7 +249,7 @@
 			{loading}
 			onclick={onSetTargetClick}
 			icon="chevron-right-small"
-			testId="set-base-branch"
+			testId={TestId.ProjectSetupPageTargetContinueButton}
 			id="set-base-branch"
 		>
 			{#if platformName === 'windows'}

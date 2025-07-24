@@ -43,6 +43,15 @@ const MOCK_BASE_BRANCH_DATA = {
 	divergedBehind: []
 };
 
+export type BaseBranchData = typeof MOCK_BASE_BRANCH_DATA;
+
+export function mockBaseBranchData(override: Partial<BaseBranchData> = {}): BaseBranchData {
+	return {
+		...MOCK_BASE_BRANCH_DATA,
+		...override
+	};
+}
+
 export function getBaseBranchData() {
 	return MOCK_BASE_BRANCH_DATA;
 }
@@ -59,4 +68,38 @@ export function getBaseBranchBehindData() {
 			}
 		]
 	};
+}
+
+export type GetBaseBranchParams = {
+	projectId: string;
+};
+
+export function isGetBaseBranchArgs(args: unknown): args is GetBaseBranchParams {
+	return (
+		typeof args === 'object' &&
+		args !== null &&
+		'projectId' in args &&
+		typeof (args as GetBaseBranchParams).projectId === 'string'
+	);
+}
+
+export type SetBaseBranchParams = {
+	projectId: string;
+	branch: string;
+	pushRemote?: string;
+	stashUncommitted?: boolean;
+};
+
+export function isSetBaseBranchArgs(args: unknown): args is SetBaseBranchParams {
+	return (
+		typeof args === 'object' &&
+		args !== null &&
+		'projectId' in args &&
+		typeof (args as SetBaseBranchParams).projectId === 'string' &&
+		'branch' in args &&
+		typeof (args as SetBaseBranchParams).branch === 'string' &&
+		(!('pushRemote' in args) || typeof (args as SetBaseBranchParams).pushRemote === 'string') &&
+		(!('stashUncommitted' in args) ||
+			typeof (args as SetBaseBranchParams).stashUncommitted === 'boolean')
+	);
 }

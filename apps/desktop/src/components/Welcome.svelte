@@ -6,6 +6,7 @@
 	import cloneRepoSvg from '$lib/assets/welcome/clone-repo.svg?raw';
 	import newProjectSvg from '$lib/assets/welcome/new-local-project.svg?raw';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 
 	const projectsService = inject(PROJECTS_SERVICE);
@@ -28,7 +29,7 @@
 	}
 </script>
 
-<div class="welcome">
+<div class="welcome" data-testid={TestId.WelcomePage}>
 	<h1 class="welcome-title text-serif-40">Welcome to GitButler</h1>
 	<div class="welcome__actions">
 		<div class="welcome__actions--repo">
@@ -43,7 +44,7 @@
 				loading={newProjectLoading}
 				onclick={onNewProject}
 				dimMessage
-				testId="add-local-project"
+				testId={TestId.WelcomePageAddLocalProjectButton}
 			>
 				{#snippet icon()}
 					{@html newProjectSvg}

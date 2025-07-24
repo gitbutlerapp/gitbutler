@@ -106,7 +106,18 @@ export enum TestId {
 	StackSelectionView = 'stack-selection-view',
 	BranchesSelectionView = 'branches-selection-view',
 	WorkspaceSelectionView = 'workspace-selection-view',
-	ProjectNotFoundPage = 'project-not-found-page'
+	ProjectNotFoundPage = 'project-not-found-page',
+	OnboardingPage = 'onboarding-page',
+	OnboardingPageAnalyticsSettings = 'onboarding-page-analytics-settings',
+	OnboardingPageAnalyticsSettingsErrorReportingToggle = 'onboarding-page-analytics-settings-error-reporting-toggle',
+	OnboardingPageAnalyticsSettingsTelemetryToggle = 'onboarding-page-analytics-settings-telemetry-toggle',
+	OnboardingPageAnalyticsSettingsNonAnonymousToggle = 'onboarding-page-analytics-settings-non-anonymous-toggle',
+	OnboardingPageAnalyticsSettingsContinueButton = 'analytics-continue',
+	WelcomePage = 'welcome-page',
+	WelcomePageAddLocalProjectButton = 'add-local-project',
+	ProjectSetupPage = 'project-setup-page',
+	ProjectSetupPageTargetBranchSelect = 'project-setup-page-target-branch-select',
+	ProjectSetupPageTargetContinueButton = 'set-base-branch'
 }
 
 export enum ElementId {
