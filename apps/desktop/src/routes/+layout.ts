@@ -12,7 +12,6 @@ import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { PromptService } from '$lib/prompt/promptService';
 import { RemotesService } from '$lib/remotes/remotesService';
 import { TokenMemoryService } from '$lib/stores/tokenMemoryService';
-import { UpdaterService } from '$lib/updater/updater';
 import { UserService } from '$lib/user/userService';
 import { HttpClient } from '@gitbutler/shared/network/httpClient';
 import { UploadsService } from '@gitbutler/shared/uploads/uploadsService';
@@ -48,8 +47,6 @@ export const load: LayoutLoad = async () => {
 	const appSettings = await loadAppSettings();
 	initAnalyticsIfEnabled(appSettings, posthog);
 
-	const updaterService = new UpdaterService(tauri, posthog);
-
 	const gitConfig = new GitConfigService(tauri);
 	const remotesService = new RemotesService();
 	const aiPromptService = new AIPromptService();
@@ -66,7 +63,6 @@ export const load: LayoutLoad = async () => {
 		tokenMemoryService,
 		appSettings,
 		httpClient,
-		updaterService,
 		promptService,
 		userService,
 		gitConfig,
