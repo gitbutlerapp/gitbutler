@@ -1,11 +1,6 @@
 <script module lang="ts">
 	import Textarea from '$lib/Textarea.svelte';
-	import {
-		type Args,
-		defineMeta,
-		setTemplate,
-		type StoryContext
-	} from '@storybook/addon-svelte-csf';
+	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	function handleDescriptionKeyDown(e: KeyboardEvent) {
 		if (e.key === 'Escape') {
@@ -30,21 +25,22 @@
 </script>
 
 <script lang="ts">
-	setTemplate(template);
 </script>
 
-{#snippet template({ ...args }: Args<typeof Story>, _context: StoryContext<typeof Story>)}
-	<div class="wrapper">
-		<Textarea
-			{...args}
-			onkeydown={handleDescriptionKeyDown}
-			onfocus={(e) => {
-				// eslint-disable-next-line no-console
-				console.log('focus', e);
-			}}
-		/>
-	</div>
-{/snippet}
+<Story name="default">
+	{#snippet template(args)}
+		<div class="wrapper">
+			<Textarea
+				{...args}
+				onkeydown={handleDescriptionKeyDown}
+				onfocus={(e) => {
+					// eslint-disable-next-line no-console
+					console.log('focus', e);
+				}}
+			/>
+		</div>
+	{/snippet}
+</Story>
 
 <Story name="Playground" />
 
