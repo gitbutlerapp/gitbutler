@@ -1,12 +1,7 @@
 <script module lang="ts">
 	import FileListItemV3 from '$lib/file/FileListItemV3.svelte';
 	import FolderListItem from '$lib/file/FolderListItem.svelte';
-	import {
-		type Args,
-		defineMeta,
-		setTemplate,
-		type StoryContext
-	} from '@storybook/addon-svelte-csf';
+	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({
 		title: 'List items / FolderListItem',
@@ -17,50 +12,51 @@
 </script>
 
 <script lang="ts">
-	setTemplate(template);
 </script>
 
-{#snippet template({ ...args }: Args<typeof Story>, _context: StoryContext<typeof Story>)}
-	<div class="wrapper">
-		<FolderListItem
-			name="Editor"
-			showCheckbox={args.checkboxes}
-			checked={false}
-			isExpanded={true}
-			indeterminate={false}
-			depth={0}
-		/>
-		<FileListItemV3
-			showCheckbox={args.checkboxes}
-			filePath="src/components/FileTreeNode.svelte"
-			draggable
-			listMode="tree"
-			depth={1}
-		/>
-		<FolderListItem
-			name="components"
-			showCheckbox={args.checkboxes}
-			checked={false}
-			isExpanded={true}
-			indeterminate={false}
-			depth={1}
-		/>
-		<FileListItemV3
-			showCheckbox={args.checkboxes}
-			depth={2}
-			filePath="src/components/List.svelte"
-			draggable
-			listMode="tree"
-		/>
-		<FileListItemV3
-			showCheckbox={args.checkboxes}
-			depth={2}
-			filePath="src/components/lib.js"
-			draggable
-			listMode="tree"
-		/>
-	</div>
-{/snippet}
+<Story name="default">
+	{#snippet template(args)}
+		<div class="wrapper">
+			<FolderListItem
+				name="Editor"
+				showCheckbox={args.checkboxes}
+				checked={false}
+				isExpanded={true}
+				indeterminate={false}
+				depth={0}
+			/>
+			<FileListItemV3
+				showCheckbox={args.checkboxes}
+				filePath="src/components/FileTreeNode.svelte"
+				draggable
+				listMode="tree"
+				depth={1}
+			/>
+			<FolderListItem
+				name="components"
+				showCheckbox={args.checkboxes}
+				checked={false}
+				isExpanded={true}
+				indeterminate={false}
+				depth={1}
+			/>
+			<FileListItemV3
+				showCheckbox={args.checkboxes}
+				depth={2}
+				filePath="src/components/List.svelte"
+				draggable
+				listMode="tree"
+			/>
+			<FileListItemV3
+				showCheckbox={args.checkboxes}
+				depth={2}
+				filePath="src/components/lib.js"
+				draggable
+				listMode="tree"
+			/>
+		</div>
+	{/snippet}
+</Story>
 
 <Story name="Tree view" />
 

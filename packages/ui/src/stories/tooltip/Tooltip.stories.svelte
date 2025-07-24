@@ -1,11 +1,6 @@
 <script module lang="ts">
 	import Tooltip from '$lib/Tooltip.svelte';
-	import {
-		type Args,
-		defineMeta,
-		setTemplate,
-		type StoryContext
-	} from '@storybook/addon-svelte-csf';
+	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({
 		title: 'Overlays / Tooltip',
@@ -14,7 +9,8 @@
 			text: 'This is a tooltip',
 			align: 'center',
 			position: 'top',
-			disabled: false
+			disabled: false,
+			children
 		},
 		argTypes: {
 			text: {
@@ -43,19 +39,25 @@
 	});
 </script>
 
-<script lang="ts">
-	setTemplate(template);
-</script>
-
-{#snippet template({ ...args }: Args<typeof Story>, _context: StoryContext<typeof Story>)}
-	<div class="wrapper">
-		<p class="text-13 text">
-			hello world! Here is a <Tooltip {...args}>
-				<span class="tooltip-text">tooltip</span>
-			</Tooltip> for you.
-		</p>
-	</div>
+{#snippet children()}
+	<span class="tooltip-text">tooltip</span>
 {/snippet}
+
+<Story name="default">
+	{#snippet template(args)}
+		<div class="wrapper">
+			<p class="text-13 text">
+				hello world! Here is a <Tooltip
+					text={args.text}
+					align={args.align}
+					position={args.position}
+					disabled={args.disabled}
+					children={args.children}
+				></Tooltip> for you.
+			</p>
+		</div>
+	{/snippet}
+</Story>
 
 <Story name="Playground" />
 

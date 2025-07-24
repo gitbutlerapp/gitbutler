@@ -13,7 +13,7 @@
 
 <script module lang="ts">
 	import EmojiPicker from '$lib/emoji/EmojiPicker.svelte';
-	import { defineMeta, setTemplate } from '@storybook/addon-svelte-csf';
+	import { defineMeta } from '@storybook/addon-svelte-csf';
 	import type { EmojiInfo } from '$lib/emoji/utils';
 
 	const { Story } = defineMeta({
@@ -25,19 +25,20 @@
 </script>
 
 <script lang="ts">
-	setTemplate(template);
 </script>
 
-{#snippet template()}
-	<div class="wrap">
-		<EmojiPicker
-			onEmojiSelect={(emoji: EmojiInfo) => {
-				// eslint-disable-next-line no-console
-				console.log('Emoji selected:', emoji);
-			}}
-		/>
-	</div>
-{/snippet}
+<Story name="default">
+	{#snippet template()}
+		<div class="wrap">
+			<EmojiPicker
+				onEmojiSelect={(emoji: EmojiInfo) => {
+					// eslint-disable-next-line no-console
+					console.log('Emoji selected:', emoji);
+				}}
+			/>
+		</div>
+	{/snippet}
+</Story>
 
 <Story name="Playground" />
 

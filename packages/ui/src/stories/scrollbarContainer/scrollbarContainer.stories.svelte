@@ -1,18 +1,13 @@
 <script module lang="ts">
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
-
-	import {
-		type Args,
-		defineMeta,
-		setTemplate,
-		type StoryContext
-	} from '@storybook/addon-svelte-csf';
+	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({
 		title: 'Basic / ScrollableContainer',
 		component: ScrollableContainer,
 		args: {
-			whenToShow: 'always'
+			whenToShow: 'always',
+			children
 		},
 		argTypes: {
 			whenToShow: {
@@ -23,21 +18,21 @@
 	});
 </script>
 
-<script lang="ts">
-	setTemplate(template);
-</script>
+{#snippet children()}
+	{#each Array(50) as _, i}
+		<div class="item">Item {i}</div>
+	{/each}
 
-{#snippet template({ ...args }: Args<typeof Story>, _context: StoryContext<typeof Story>)}
-	<div class="list-wrapper">
-		<ScrollableContainer whenToShow={args.whenToShow ?? 'always'}>
-			{#each Array(50) as _, i}
-				<div class="item">Item {i}</div>
-			{/each}
-
-			<div class="list-wrapper"></div>
-		</ScrollableContainer>
-	</div>
+	<div class="list-wrapper"></div>
 {/snippet}
+
+<Story name="default">
+	{#snippet template(args)}
+		<div class="list-wrapper">
+			<ScrollableContainer whenToShow={args.whenToShow ?? 'always'} children={args.children} />
+		</div>
+	{/snippet}
+</Story>
 
 <Story name="Playground" />
 

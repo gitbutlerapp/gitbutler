@@ -1,4 +1,4 @@
-import type { Preview } from '@storybook/svelte';
+import type { Preview } from '@storybook/sveltekit';
 import '../src/styles/main.css';
 import '../src/styles/fonts/fonts.css';
 import './stories-styles.css';

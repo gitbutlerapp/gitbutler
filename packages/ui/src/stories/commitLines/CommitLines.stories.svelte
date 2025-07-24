@@ -1,12 +1,7 @@
 <script module lang="ts">
 	import Line from '$lib/commitLines/Line.svelte';
 	import { LineManager } from '$lib/commitLines/lineManager';
-	import {
-		type Args,
-		defineMeta,
-		setTemplate,
-		type StoryContext
-	} from '@storybook/addon-svelte-csf';
+	import { defineMeta } from '@storybook/addon-svelte-csf';
 	import type { Author, CommitData } from '$lib/commitLines/types';
 
 	const { Story } = defineMeta({
@@ -27,8 +22,6 @@
 </script>
 
 <script lang="ts">
-	setTemplate(template);
-
 	const caleb: Author = {
 		email: 'hello@calebowens.com',
 		gravatarUrl: 'https://gravatar.com/avatar/f43ef760d895a84ca7bb35ff6f4c6b7c'
@@ -60,38 +53,6 @@
 	}
 </script>
 
-{#snippet template({ ...args }: Args<typeof Story>, _context: StoryContext<typeof Story>)}
-	{@const lineManager = new LineManager({
-		remoteCommits: args.remoteCommits ?? [],
-		localCommits: args.localCommits ?? [],
-		localAndRemoteCommits: args.localAndRemoteCommits ?? [],
-		integratedCommits: args.integratedCommits ?? []
-	})}
-	{#each args.remoteCommits ?? [] as commit}
-		<div class="group">
-			<Line line={lineManager.get(commit.id)} />
-		</div>
-	{/each}
-
-	{#each args.localCommits ?? [] as commit}
-		<div class="group">
-			<Line line={lineManager.get(commit.id)} />
-		</div>
-	{/each}
-
-	{#each args.localAndRemoteCommits ?? [] as commit}
-		<div class="group">
-			<Line line={lineManager.get(commit.id)} />
-		</div>
-	{/each}
-
-	{#each args.integratedCommits ?? [] as commit}
-		<div class="group">
-			<Line line={lineManager.get(commit.id)} />
-		</div>
-	{/each}
-{/snippet}
-
 <Story
 	name="Same fork point. All populated"
 	args={{
@@ -100,7 +61,39 @@
 		localAndRemoteCommits: [commit(), commit()],
 		integratedCommits: [commit(), commit()]
 	}}
-/>
+>
+	{#snippet template(args)}
+		{@const lineManager = new LineManager({
+			remoteCommits: args.remoteCommits ?? [],
+			localCommits: args.localCommits ?? [],
+			localAndRemoteCommits: args.localAndRemoteCommits ?? [],
+			integratedCommits: args.integratedCommits ?? []
+		})}
+		{#each args.remoteCommits ?? [] as commit}
+			<div class="group">
+				<Line line={lineManager.get(commit.id)} />
+			</div>
+		{/each}
+
+		{#each args.localCommits ?? [] as commit}
+			<div class="group">
+				<Line line={lineManager.get(commit.id)} />
+			</div>
+		{/each}
+
+		{#each args.localAndRemoteCommits ?? [] as commit}
+			<div class="group">
+				<Line line={lineManager.get(commit.id)} />
+			</div>
+		{/each}
+
+		{#each args.integratedCommits ?? [] as commit}
+			<div class="group">
+				<Line line={lineManager.get(commit.id)} />
+			</div>
+		{/each}
+	{/snippet}
+</Story>
 
 <Story
 	name="Same fork point. No locals"

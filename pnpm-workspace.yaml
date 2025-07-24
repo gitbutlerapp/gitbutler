@@ -4,16 +4,16 @@ packages:
   - 'crates/*'
 
 catalog:
-  'vite': '6.2.2'
-  'vitest': '3.0.5'
-  '@vitest/browser': '3.0.5'
-  '@vitest/ui': '3.0.5'
+  'vite': '6.3.5'
+  'vitest': '3.2.4'
+  '@vitest/browser': '3.2.4'
+  '@vitest/ui': '3.2.4'
   'marked': '15.0.7'
   'rxjs': '7.8.2'
   'typescript': '5.8.3'
 catalogs:
   svelte:
-    'svelte': '5.34.8'
+    'svelte': '5.36.15'
     '@sveltejs/kit': '2.21.2'
     'svelte-check': '4.2.2'
     '@sveltejs/vite-plugin-svelte': '5.1.0'

@@ -17,7 +17,6 @@ import {
 	type RootState,
 	type StartQueryActionCreatorOptions
 } from '@reduxjs/toolkit/query';
-import { derived, readable, toStore } from 'svelte/store';
 import type { CustomQuery, ExtensionDefinitions } from '$lib/state/butlerModule';
 import type { HookContext } from '$lib/state/context';
 import type { Prettify } from '@gitbutler/shared/utils/typeUtils';
@@ -110,41 +109,6 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 		return reactive(() => output);
 	}
 
-	function useQueryStore<T extends TranformerFn>(
-		queryArg: unknown,
-		options?: { transform?: T } & StartQueryActionCreatorOptions
-	) {
-		const dispatch = getDispatch();
-		const selector = select(queryArg);
-		const stateStore = toStore(() => state());
-		const subscription = readable<QueryActionCreatorResult<CustomQuery<any>>>(undefined, (set) => {
-			const subscription = dispatch(
-				initiate(queryArg, {
-					subscribe: options?.subscribe,
-					subscriptionOptions: options?.subscriptionOptions,
-					forceRefetch: options?.forceRefetch
-				})
-			);
-			set(subscription);
-			return subscription.unsubscribe();
-		});
-
-		const output = derived([stateStore, subscription], ([stateStore, subscription]) => {
-			const result = selector(stateStore);
-			let data = result.data;
-			if (options?.transform && data) {
-				data = options.transform(data, queryArg);
-			}
-			return {
-				...result,
-				refetch: subscription.refetch,
-				data
-			};
-		});
-
-		return output;
-	}
-
 	function useQueries<T extends TranformerFn>(
 		queryArgs: unknown[],
 		options?: { transform?: T } & StartQueryActionCreatorOptions
@@ -209,7 +173,6 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 	return {
 		fetch,
 		useQuery,
-		useQueryStore,
 		useQueryState,
 		useQueries,
 		useQueryTimeStamp

@@ -1,12 +1,7 @@
 <script module lang="ts">
 	import Segment from '$lib/segmentControl/Segment.svelte';
 	import SegmentControl from '$lib/segmentControl/SegmentControl.svelte';
-	import {
-		type Args,
-		defineMeta,
-		setTemplate,
-		type StoryContext
-	} from '@storybook/addon-svelte-csf';
+	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({
 		title: 'Inputs / Segment Control',
@@ -42,23 +37,24 @@
 </script>
 
 <script lang="ts">
-	setTemplate(template);
 </script>
 
-{#snippet template({ ...args }: Args<typeof Story>, _context: StoryContext<typeof Story>)}
-	<SegmentControl
-		defaultIndex={args.defaultIndex}
-		fullWidth={args.fullWidth}
-		onselect={(id) => {
-			// eslint-disable-next-line no-console
-			console.log('Selected index:', id);
-		}}
-		size={args.size}
-	>
-		{#each args.segments as segment}
-			<Segment id={segment.id} icon={segment.icon}>{segment.label}</Segment>
-		{/each}
-	</SegmentControl>
-{/snippet}
+<Story name="default">
+	{#snippet template(args)}
+		<SegmentControl
+			defaultIndex={args.defaultIndex}
+			fullWidth={args.fullWidth}
+			onselect={(id) => {
+				// eslint-disable-next-line no-console
+				console.log('Selected index:', id);
+			}}
+			size={args.size}
+		>
+			{#each args.segments as segment}
+				<Segment id={segment.id} icon={segment.icon}>{segment.label}</Segment>
+			{/each}
+		</SegmentControl>
+	{/snippet}
+</Story>
 
 <Story name="Playground" />

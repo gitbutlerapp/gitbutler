@@ -54,11 +54,11 @@ export class ModeService {
 	}
 
 	get initialEditModeState() {
-		return this.api.endpoints.initialEditModeState.useQueryStore;
+		return this.api.endpoints.initialEditModeState.useQuery;
 	}
 
 	get changesSinceInitialEditState() {
-		return this.api.endpoints.changesSinceInitialEditState.useQueryStore;
+		return this.api.endpoints.changesSinceInitialEditState.useQuery;
 	}
 
 	get mode() {
@@ -87,11 +87,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			abortEditAndReturnToWorkspace: build.mutation<void, { projectId: string }>({
 				extraOptions: { command: 'abort_edit_and_return_to_workspace' },
 				query: (args) => args,
-				invalidatesTags: [
-					invalidatesList(ReduxTag.InitalEditListing),
-					invalidatesList(ReduxTag.EditChangesSinceInitial),
-					invalidatesList(ReduxTag.HeadMetadata)
-				]
+				invalidatesTags: [invalidatesList(ReduxTag.HeadMetadata)]
 			}),
 			saveEditAndReturnToWorkspace: build.mutation<void, { projectId: string }>({
 				extraOptions: { command: 'save_edit_and_return_to_workspace' },
@@ -99,8 +95,6 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				invalidatesTags: [
 					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesList(ReduxTag.StackDetails),
-					invalidatesList(ReduxTag.InitalEditListing),
-					invalidatesList(ReduxTag.EditChangesSinceInitial),
 					invalidatesList(ReduxTag.HeadMetadata)
 				]
 			}),
@@ -122,16 +116,19 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					}
 					const { invoke, listen } = lifecycleApi.extra.tauri;
 					await lifecycleApi.cacheDataLoaded;
+					let finished = false;
 					// We are listening to this only for the notification that changes have been made
 					const unsubscribe = listen<unknown>(
 						`project://${arg.projectId}/worktree_changes`,
 						async (_) => {
+							if (finished) return;
 							const changes = await invoke<TreeChange[]>('edit_changes_from_initial', arg);
 							lifecycleApi.updateCachedData(() => changes);
 						}
 					);
 					// The `cacheEntryRemoved` promise resolves when the result is removed
 					await lifecycleApi.cacheEntryRemoved;
+					finished = true;
 					unsubscribe();
 				}
 			}),

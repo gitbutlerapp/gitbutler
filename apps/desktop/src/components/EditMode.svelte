@@ -96,16 +96,19 @@
 
 	const initialFileMap = $derived(
 		new Map<string, { file: TreeChange; conflictEntryPresence?: ConflictEntryPresence }>(
-			$initialFiles?.data?.map(([f, c]) => [f.path, { file: f, conflictEntryPresence: c }]) || []
+			initialFiles.current?.data?.map(([f, c]) => [
+				f.path,
+				{ file: f, conflictEntryPresence: c }
+			]) || []
 		)
 	);
 
 	const files = $derived.by(() => {
-		if (!$initialFiles.data || !$uncommittedFiles.data) return [];
+		if (!initialFiles.current.data || !uncommittedFiles.current.data) return [];
 
 		const outputMap = new Map<string, FileEntry>();
 
-		$initialFiles.data.forEach(([initialFile, conflictEntryPresence]) => {
+		initialFiles.current.data.forEach(([initialFile, conflictEntryPresence]) => {
 			outputMap.set(initialFile.path, {
 				path: initialFile.path,
 				conflicted: !!conflictEntryPresence,
@@ -113,7 +116,7 @@
 			});
 		});
 
-		$uncommittedFiles.data.forEach((uncommitedFile) => {
+		uncommittedFiles.current.data.forEach((uncommitedFile) => {
 			const outputFile = outputMap.get(uncommitedFile.path)!;
 			if (outputFile) {
 				// We don't want to set a status if the file is
