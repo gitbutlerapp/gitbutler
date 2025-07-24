@@ -7,6 +7,7 @@
 	import { changesToDiffSpec } from '$lib/commits/utils';
 	import { projectAiExperimentalFeaturesEnabled, projectAiGenEnabled } from '$lib/config/config';
 	import { isTreeChange, type TreeChange } from '$lib/hunks/change';
+	import { platformName } from '$lib/platform/platform';
 	import { vscodePath } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
@@ -14,7 +15,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
-	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
+	import { getEditorUri, openExternalUrl, showFileInFolder } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -70,6 +71,18 @@
 	const selectionBranchName = $derived(
 		selectionId.type === 'branch' ? selectionId.branchName : undefined
 	);
+
+	// Platform-specific label for "Show in Finder/Explorer/File Manager"
+	const showInFolderLabel = (() => {
+		switch (platformName) {
+			case 'macos':
+				return 'Show in Finder';
+			case 'windows':
+				return 'Show in Explorer';
+			default:
+				return 'Show in File Manager';
+		}
+	})();
 
 	let confirmationModal: ReturnType<typeof Modal> | undefined;
 	let stashConfirmationModal: ReturnType<typeof Modal> | undefined;
@@ -373,6 +386,25 @@
 							}
 						}}
 					/>
+					{#if changes.length === 1}
+						<ContextMenuItem
+							label={showInFolderLabel}
+							onclick={async () => {
+								try {
+									const project = await projectService.fetchProject(projectId);
+									const projectPath = project?.path;
+									if (projectPath) {
+										const absPath = await join(projectPath, changes[0]!.path);
+										await showFileInFolder(absPath);
+									}
+									contextMenu.close();
+								} catch (error) {
+									console.error('Failed to show in file manager:', error);
+									toasts.error('Failed to show in file manager');
+								}
+							}}
+						/>
+					{/if}
 
 					{#if isBranchFiles && stackId && selectionBranchName}
 						{@const branchIsConflicted = stackService.isBranchConflicted(

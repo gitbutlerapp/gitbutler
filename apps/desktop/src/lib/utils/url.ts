@@ -21,6 +21,15 @@ export async function openExternalUrl(href: string) {
 	}
 }
 
+export async function showFileInFolder(filePath: string) {
+	try {
+		await invoke<void>('show_in_finder', { path: filePath });
+	} catch (error) {
+		console.error('Failed to show in file manager:', error);
+		throw error;
+	}
+}
+
 export interface EditorUriParams {
 	schemeId: string;
 	path: string[];
