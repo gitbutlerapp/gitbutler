@@ -58,7 +58,7 @@ fn do_squash_commits(
     ctx: &CommandContext,
     stack_id: StackId,
     mut source_ids: Vec<git2::Oid>,
-    desitnation_id: git2::Oid,
+    destination_id: git2::Oid,
     perm: &mut WorktreeWritePermission,
 ) -> Result<git2::Oid> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
@@ -87,7 +87,7 @@ fn do_squash_commits(
                     source_ids_in_order.push(*id);
                     false
                 }
-                id if *id == desitnation_id => {
+                id if *id == destination_id => {
                     // Add the destination id to the source ids in order
                     source_ids_in_order.push(*id);
                     true
@@ -105,7 +105,7 @@ fn do_squash_commits(
         if let Some(pos) = branch
             .commit_ids
             .iter()
-            .position(|&id| id == desitnation_id)
+            .position(|&id| id == destination_id)
         {
             branch.commit_ids.splice(pos..=pos, source_ids.clone());
         }
@@ -117,6 +117,8 @@ fn do_squash_commits(
         None
     };
 
+    let mut destination_id = destination_id;
+
     // update source ids from the mapping if present
     if let Some(mapping) = mapping {
         for (_, old, new) in mapping.iter() {
@@ -127,6 +129,11 @@ fn do_squash_commits(
                     .position(|id| id == &old.to_git2())
                     .unwrap();
                 source_ids[index] = new.to_git2();
+            }
+
+            // if destination_id is old, replace it with new
+            if destination_id == old.to_git2() {
+                destination_id = new.to_git2();
             }
         }
     };
@@ -147,24 +154,16 @@ fn do_squash_commits(
         .collect_vec();
 
     // Find the new destination commit using the change id, error if not found
-    let destination_change_id = ctx.repo().find_commit(desitnation_id)?.change_id();
     let destination_commit = branch_commits
         .iter()
-        .find(|c| c.change_id() == destination_change_id)
+        .find(|c| c.id() == destination_id)
         .context("Destination commit not found in the stack")?;
 
     // Find the new source commits using the change ids, error if not found
     let source_commits = source_ids
         .iter()
         .filter_map(|id| ctx.repo().find_commit(*id).ok())
-        .map(|c| {
-            branch_commits
-                .iter()
-                .find(|b| b.change_id() == c.change_id())
-                .cloned()
-                .context("Source commit not found in the stack")
-        })
-        .collect::<Result<Vec<_>>>()?;
+        .collect::<Vec<_>>();
 
     validate(
         ctx,
