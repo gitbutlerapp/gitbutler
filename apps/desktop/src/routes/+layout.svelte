@@ -73,7 +73,7 @@
 	import { StackService, STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { ClientState, CLIENT_STATE } from '$lib/state/clientState.svelte';
 	import { UiState, UI_STATE } from '$lib/state/uiState.svelte';
-	import { UPDATER_SERVICE } from '$lib/updater/updater';
+	import { UPDATER_SERVICE, UpdaterService } from '$lib/updater/updater';
 	import {
 		UpstreamIntegrationService,
 		UPSTREAM_INTEGRATION_SERVICE
@@ -199,6 +199,7 @@
 	provide(PROJECTS_SERVICE, projectsService);
 
 	const shortcutService = new ShortcutService(data.tauri);
+	const updaterService = new UpdaterService(data.tauri, data.posthog, shortcutService);
 	const commitService = new CommitService();
 
 	const upstreamIntegrationService = new UpstreamIntegrationService(
@@ -249,7 +250,7 @@
 	// Setters do not need to be reactive since `data` never updates
 	provide(POSTHOG_WRAPPER, data.posthog);
 	provide(USER_SERVICE, data.userService);
-	provide(UPDATER_SERVICE, data.updaterService);
+	provide(UPDATER_SERVICE, updaterService);
 	provide(GIT_CONFIG_SERVICE, data.gitConfig);
 	provide(PROMPT_SERVICE, data.promptService);
 	provide(HTTP_CLIENT, data.httpClient);
