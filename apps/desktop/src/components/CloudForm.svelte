@@ -62,7 +62,7 @@
 					Enable experimental AI features
 				{/snippet}
 				{#snippet caption()}
-					If enabled, you will be able tu access the AI features currently in development.
+					If enabled, you will be able to access the AI features currently in development.
 
 					<b
 						>This also requires you to use OpenAI through GitButler in order for the features to
