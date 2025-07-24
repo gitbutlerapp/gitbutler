@@ -164,7 +164,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					}
 					await lifecycleApi.cacheDataLoaded;
 					const unsubscribe = lifecycleApi.extra.tauri.listen<HeadAndMode>(
-						`project://${arg.projectId}/head`,
+						`project://${arg.projectId}/git/head`,
 						(event) => {
 							lifecycleApi.updateCachedData(() => event.payload.head);
 						}
