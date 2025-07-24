@@ -15,7 +15,7 @@
 	import { type SelectionId } from '$lib/selection/key';
 	import { chunk } from '$lib/utils/array';
 	import { inject } from '@gitbutler/shared/context';
-	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
+	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
 
 	type Props = {
@@ -197,7 +197,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div onkeydown={handleKeyDown}>
 	{#each Object.entries(unrepresentedConflictedEntries) as [path, kind]}
-		<FileListItemV3
+		<FileListItem
 			draggable={draggableFiles}
 			filePath={path}
 			conflicted

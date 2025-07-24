@@ -3,7 +3,7 @@
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { inject } from '@gitbutler/shared/context';
 	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
-	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
+	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import type { TreeChange } from '$lib/hunks/change';
 	import type { DiffHunk } from '$lib/hunks/hunk';
 	import type { IrcLog } from '$lib/irc/types';
@@ -28,7 +28,7 @@
 			{log.from}: {log.message}
 			{#if change && diff.diff}
 				<div class="extra">
-					<FileListItemV3 filePath={change.path} listMode="list" isLast />
+					<FileListItem filePath={change.path} listMode="list" isLast />
 					<div class="diff">
 						<HunkDiff
 							draggingDisabled={true}
