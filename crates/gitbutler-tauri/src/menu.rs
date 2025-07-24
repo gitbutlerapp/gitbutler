@@ -160,13 +160,34 @@ pub fn build<R: Runtime>(handle: &AppHandle<R>) -> tauri::Result<tauri::menu::Me
             .build(handle)?,
     ])?;
 
-    let project_menu = &SubmenuBuilder::new(handle, "Project")
+    let mut project_menu_builder = SubmenuBuilder::new(handle, "Project")
         .item(
             &MenuItemBuilder::with_id("project/history", "Project History")
                 .accelerator("CmdOrCtrl+Shift+H")
                 .build(handle)?,
         )
-        .text("project/open-in-vscode", "Open in Editor")
+        .separator()
+        .text("project/open-in-vscode", "Open in Editor");
+
+    #[cfg(target_os = "macos")]
+    {
+        project_menu_builder =
+            project_menu_builder.text("project/show-in-finder", "Show in Finder");
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        project_menu_builder =
+            project_menu_builder.text("project/show-in-finder", "Show in Explorer");
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        project_menu_builder =
+            project_menu_builder.text("project/show-in-finder", "Show in File Manager");
+    }
+
+    let project_menu = &project_menu_builder
         .separator()
         .text("project/settings", "Project Settings")
         .build()?;
@@ -294,6 +315,11 @@ pub fn handle_event(webview: &WebviewWindow, event: &MenuEvent) {
 
     if event.id() == "project/open-in-vscode" {
         emit(webview, SHORTCUT_EVENT, "open-in-vscode");
+        return;
+    }
+
+    if event.id() == "project/show-in-finder" {
+        emit(webview, SHORTCUT_EVENT, "show-in-finder");
         return;
     }
 

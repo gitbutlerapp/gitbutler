@@ -8,7 +8,7 @@
 	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService.svelte';
 	import * as events from '$lib/utils/events';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
-	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
+	import { getEditorUri, openExternalUrl, showFileInFolder } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';
 
@@ -35,6 +35,15 @@
 				searchParams: { windowId: '_blank' }
 			})
 		);
+	});
+
+	shortcutService.on('show-in-finder', async () => {
+		const project = await projectsService.fetchProject(projectId);
+		if (!project) {
+			throw new Error(`Project not found: ${projectId}`);
+		}
+		// Show the project directory in the default file manager (cross-platform)
+		await showFileInFolder(project.path);
 	});
 
 	shortcutService.on('history', () => {

@@ -21,6 +21,10 @@ export async function openExternalUrl(href: string) {
 	}
 }
 
+export async function showFileInFolder(filePath: string) {
+	await invoke<void>('show_in_finder', { path: filePath });
+}
+
 export interface EditorUriParams {
 	schemeId: string;
 	path: string[];
