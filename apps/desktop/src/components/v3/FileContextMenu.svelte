@@ -390,18 +390,13 @@
 						<ContextMenuItem
 							label={showInFolderLabel}
 							onclick={async () => {
-								try {
-									const project = await projectService.fetchProject(projectId);
-									const projectPath = project?.path;
-									if (projectPath) {
-										const absPath = await join(projectPath, changes[0]!.path);
-										await showFileInFolder(absPath);
-									}
-									contextMenu.close();
-								} catch (error) {
-									console.error('Failed to show in file manager:', error);
-									toasts.error('Failed to show in file manager');
+								const project = await projectService.fetchProject(projectId);
+								const projectPath = project?.path;
+								if (projectPath) {
+									const absPath = await join(projectPath, changes[0]!.path);
+									await showFileInFolder(absPath);
 								}
+								contextMenu.close();
 							}}
 						/>
 					{/if}
