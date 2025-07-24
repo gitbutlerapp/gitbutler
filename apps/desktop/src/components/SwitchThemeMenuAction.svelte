@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { SETTINGS } from '$lib/settings/userSettings';
-	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService.svelte';
+	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
 	import { initTheme } from '$lib/utils/theme';
 	import { inject } from '@gitbutler/shared/context';
 
@@ -16,7 +16,5 @@
 		}));
 	}
 
-	shortcutService.on('switch-theme', () => {
-		updateTheme();
-	});
+	$effect(() => shortcutService.on('switch-theme', () => updateTheme()));
 </script>

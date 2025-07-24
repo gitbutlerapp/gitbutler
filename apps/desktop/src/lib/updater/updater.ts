@@ -5,7 +5,7 @@ import { type DownloadEvent, Update } from '@tauri-apps/plugin-updater';
 import { get, writable } from 'svelte/store';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { Tauri } from '$lib/backend/tauri';
-import type { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
+import type { ShortcutService } from '$lib/shortcuts/shortcutService';
 
 export const UPDATER_SERVICE = new InjectionToken<UpdaterService>('UpdaterService');
 
