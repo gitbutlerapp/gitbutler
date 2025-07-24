@@ -85,3 +85,57 @@ pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
 pub fn open_url(url: &str) -> Result<(), Error> {
     Ok(open_that(url)?)
 }
+
+#[tauri::command(async)]
+#[instrument(err(Debug))]
+pub fn show_in_finder(path: &str) -> Result<(), Error> {
+    // Cross-platform implementation to open file/directory in the default file manager
+    // macOS: Opens in Finder (with -R flag to reveal the item)
+    // Windows: Opens in File Explorer
+    // Linux: Opens in the default file manager
+
+    #[cfg(target_os = "macos")]
+    {
+        use std::process::Command;
+        Command::new("open")
+            .arg("-R")
+            .arg(path)
+            .status()
+            .with_context(|| format!("Failed to show '{}' in Finder", path))?;
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::process::Command;
+        Command::new("explorer")
+            .arg("/select,")
+            .arg(path)
+            .status()
+            .with_context(|| format!("Failed to show '{}' in Explorer", path))?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        // For directories, open the directory directly
+        if std::path::Path::new(path).is_dir() {
+            open_that(path)
+                .with_context(|| format!("Failed to open directory '{}' in file manager", path))?;
+        } else {
+            // For files, try to open the parent directory
+            if let Some(parent) = std::path::Path::new(path).parent() {
+                let parent_str = parent.to_string_lossy();
+                open_that(&parent_str).with_context(|| {
+                    format!(
+                        "Failed to open parent directory of '{}' in file manager",
+                        path
+                    )
+                })?;
+            } else {
+                open_that(path)
+                    .with_context(|| format!("Failed to open '{}' in file manager", path))?;
+            }
+        }
+    }
+
+    Ok(())
+}

@@ -267,6 +267,7 @@ fn main() {
                     modes::edit_initial_index_state,
                     modes::edit_changes_from_initial,
                     open::open_url,
+                    open::show_in_finder,
                     forge::commands::pr_templates,
                     forge::commands::pr_template,
                     settings::get_app_settings,
