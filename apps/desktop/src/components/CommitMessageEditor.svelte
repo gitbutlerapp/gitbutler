@@ -46,7 +46,7 @@
 		noPadding,
 		disabledAction,
 		loading,
-		title = $bindable(),
+		title,
 		description,
 		floatingBoxHeader = 'Create commit',
 		existingCommitId
@@ -95,7 +95,6 @@
 		if (generatedText) {
 			const newMessage = splitMessage(generatedText);
 			title = newMessage.title;
-
 			composer?.setText(newMessage.description);
 		}
 	});
@@ -130,6 +129,8 @@
 
 			if (output) {
 				generatedText = output;
+				const newMessage = splitMessage(generatedText);
+				onChange?.({ title: newMessage.title, description: newMessage.description });
 			}
 		} finally {
 			aiIsLoading = false;
