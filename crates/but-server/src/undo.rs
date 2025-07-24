@@ -118,6 +118,7 @@ pub fn snapshot_diff(
         .context("failed to get project")?;
     let cmd_ctx = CommandContext::open(&project, ctx.app_settings.get()?.clone())?;
     let diff = cmd_ctx.snapshot_diff(params.sha.parse().map_err(anyhow::Error::from)?)?;
+    let diff: Vec<but_core::ui::TreeChange> = diff.into_iter().map(Into::into).collect();
     Ok(serde_json::to_value(diff)?)
 }
 
