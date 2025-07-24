@@ -3,6 +3,7 @@
 	import { initAnalyticsIfEnabled } from '$lib/analytics/analytics';
 	import { POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import { APP_SETTINGS } from '$lib/config/appSettings';
+	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 
@@ -18,7 +19,7 @@
 	<div class="analytics-confirmation__actions">
 		<Button
 			style="pop"
-			testId="analytics-continue"
+			testId={TestId.OnboardingPageAnalyticsSettingsContinueButton}
 			icon="chevron-right-small"
 			onclick={() => {
 				$analyticsConfirmed = true;
