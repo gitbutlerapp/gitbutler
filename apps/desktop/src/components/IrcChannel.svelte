@@ -2,8 +2,8 @@
 	import IrcInput from '$components/IrcInput.svelte';
 	import IrcMessages from '$components/IrcMessages.svelte';
 	import IrcNames from '$components/IrcNames.svelte';
-	import { IrcClient } from '$lib/irc/ircClient.svelte';
-	import { IrcService } from '$lib/irc/ircService.svelte';
+	import { IRC_CLIENT } from '$lib/irc/ircClient.svelte';
+	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import type { Snippet } from 'svelte';
 
@@ -18,7 +18,8 @@
 	);
 
 	let { headerElRef = $bindable(), ...props }: Props = $props();
-	const [ircService, ircClient] = inject(IrcService, IrcClient);
+	const ircService = inject(IRC_SERVICE);
+	const ircClient = inject(IRC_CLIENT);
 
 	$effect(() => {
 		if (props.type === 'group' && props.autojoin && ircClient.connected) {

@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { getContext } from '$lib/context';
+	import { inject } from '$lib/context';
 	import Loading from '$lib/network/Loading.svelte';
 	import { isFound } from '$lib/network/loadable';
-	import { OrganizationService } from '$lib/organizations/organizationService';
+	import { ORGANIZATION_SERVICE } from '$lib/organizations/organizationService';
 	import { getOrganizationBySlug } from '$lib/organizations/organizationsPreview.svelte';
 	import { getProjectByRepositoryId } from '$lib/organizations/projectsPreview.svelte';
-	import { AppState } from '$lib/redux/store.svelte';
-	import { UserService } from '$lib/users/userService';
+	import { APP_STATE } from '$lib/redux/store.svelte';
+	import { USER_SERVICE } from '$lib/users/userService';
 	import { getUserByLogin } from '$lib/users/usersPreview.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -20,9 +20,9 @@
 
 	const { slug }: Props = $props();
 
-	const appState = getContext(AppState);
-	const organizationService = getContext(OrganizationService);
-	const userService = getContext(UserService);
+	const appState = inject(APP_STATE);
+	const organizationService = inject(ORGANIZATION_SERVICE);
+	const userService = inject(USER_SERVICE);
 
 	const organization = $derived(getOrganizationBySlug(appState, organizationService, slug));
 

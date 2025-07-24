@@ -2,11 +2,11 @@
 	import { goto } from '$app/navigation';
 	import ChangeStatus from '$lib/patches/ChangeStatus.svelte';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import { isFound, map } from '@gitbutler/shared/network/loadable';
 	import { getPatch } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
+	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import CommitStatusBadge from '@gitbutler/ui/CommitStatusBadge.svelte';
 	import { getExternalLinkService } from '@gitbutler/ui/link/externalLinkService';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
@@ -30,7 +30,7 @@
 		openExternally = false
 	}: Props = $props();
 
-	const routes = getContext(WebRoutesService);
+	const routes = inject(WEB_ROUTES_SERVICE);
 	const externalLinkService = getExternalLinkService();
 
 	const branch = $derived.by(() => getBranchReview(branchUuid));

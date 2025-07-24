@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import LinkButton from '@gitbutler/ui/LinkButton.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -22,7 +22,7 @@
 
 	const { projectId, stackId }: Props = $props();
 
-	const stackService = getContext(StackService);
+	const stackService = inject(STACK_SERVICE);
 	const [createNewBranch, branchCreation] = stackService.newBranch;
 
 	let createRefModal = $state<ReturnType<typeof Modal>>();

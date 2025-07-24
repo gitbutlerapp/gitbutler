@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import FullviewLoading from '$components/FullviewLoading.svelte';
-	import { ProjectsService } from '$lib/project/projectsService';
-	import { getContext } from '@gitbutler/shared/context';
+	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { inject } from '@gitbutler/shared/context';
 
-	const projectsService = getContext(ProjectsService);
+	const projectsService = inject(PROJECTS_SERVICE);
 
 	const projectsResult = projectsService.projects();
 

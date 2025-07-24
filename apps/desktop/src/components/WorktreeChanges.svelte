@@ -6,14 +6,13 @@
 	import FileListMode from '$components/FileListMode.svelte';
 	import UnassignedFoldButton from '$components/UnassignedFoldButton.svelte';
 	import WorktreeChangesSelectAll from '$components/WorktreeChangesSelectAll.svelte';
-	import { createCommitStore } from '$lib/commits/contexts';
 	import { UncommitDzHandler } from '$lib/commits/dropHandler';
-	import { DiffService } from '$lib/hunks/diffService.svelte';
+	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
 	import { AssignmentDropHandler } from '$lib/hunks/dropHandler';
-	import { IdSelection } from '$lib/selection/idSelection.svelte';
-	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
+	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
+	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
@@ -50,13 +49,11 @@
 		onscrollexists
 	}: Props = $props();
 
-	const [uiState, stackService, diffService, uncommittedService, idSelection] = inject(
-		UiState,
-		StackService,
-		DiffService,
-		UncommittedService,
-		IdSelection
-	);
+	const stackService = inject(STACK_SERVICE);
+	const diffService = inject(DIFF_SERVICE);
+	const uncommittedService = inject(UNCOMMITTED_SERVICE);
+	const uiState = inject(UI_STATE);
+	const idSelection = inject(ID_SELECTION);
 
 	const uncommitDzHandler = $derived(
 		new UncommitDzHandler(projectId, stackService, uiState, stackId)
@@ -71,9 +68,6 @@
 	);
 
 	const changes = $derived(uncommittedService.changesByStackId(stackId || null));
-
-	// TODO: Remove this after V3 transition complete.
-	createCommitStore(undefined);
 
 	let listMode: 'list' | 'tree' = $state('list');
 

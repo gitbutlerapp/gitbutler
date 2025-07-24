@@ -1,8 +1,8 @@
 <script lang="ts">
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { writeClipboard } from '$lib/backend/clipboard';
-	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
+	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { type Stack } from '$lib/stacks/stack';
 	import { TestId } from '$lib/testing/testIds';
 	import {
@@ -17,9 +17,9 @@
 		type StackStatusInfoV3,
 		type StackStatusesWithBranchesV3
 	} from '$lib/upstream/types';
-	import { UpstreamIntegrationService } from '$lib/upstream/upstreamIntegrationService.svelte';
+	import { UPSTREAM_INTEGRATION_SERVICE } from '$lib/upstream/upstreamIntegrationService.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import IntegrationSeriesRow, {
@@ -45,10 +45,10 @@
 
 	const { projectId, onClose }: Props = $props();
 
-	const upstreamIntegrationService = getContext(UpstreamIntegrationService);
-	const forge = getContext(DefaultForgeFactory);
+	const upstreamIntegrationService = inject(UPSTREAM_INTEGRATION_SERVICE);
+	const forge = inject(DEFAULT_FORGE_FACTORY);
 	// const forgeListingService = $derived(forge.current.listService);
-	const baseBranchService = getContext(BaseBranchService);
+	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
 	const base = $derived(baseBranchResponse.current.data);
 

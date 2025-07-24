@@ -6,18 +6,18 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import SelectionView from '$components/SelectionView.svelte';
 	import UnassignedView from '$components/UnassignedView.svelte';
-	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import { SettingsService } from '$lib/config/appSettingsV2';
+	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
+	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import {
 		DefinedFocusable,
-		FocusManager,
+		FOCUS_MANAGER,
 		parseFocusableId,
 		stackFocusableId,
 		uncommittedFocusableId
 	} from '$lib/focus/focusManager.svelte';
-	import { IdSelection } from '$lib/selection/idSelection.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { UiState, type ExclusiveAction } from '$lib/state/uiState.svelte';
+	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { UI_STATE, type ExclusiveAction } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { setContext } from 'svelte';
 	import { writable } from 'svelte/store';
@@ -29,8 +29,13 @@
 
 	const { projectId }: Props = $props();
 
-	const [stackService, focusManager, idSelection, uiState, settingsService, baseBranchService] =
-		inject(StackService, FocusManager, IdSelection, UiState, SettingsService, BaseBranchService);
+	const stackService = inject(STACK_SERVICE);
+	const uiState = inject(UI_STATE);
+	const idSelection = inject(ID_SELECTION);
+	const focusManager = inject(FOCUS_MANAGER);
+	const settingsService = inject(SETTINGS_SERVICE);
+	const baseBranchService = inject(BASE_BRANCH_SERVICE);
+
 	const worktreeSelection = $derived(idSelection.getById({ type: 'worktree' }));
 	const stacksResult = $derived(stackService.stacks(projectId));
 	const projectState = $derived(uiState.project(projectId));

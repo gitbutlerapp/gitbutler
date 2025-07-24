@@ -10,7 +10,7 @@
 	import LineOverlay from '$components/LineOverlay.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { hasConflicts, isLocalAndRemoteCommit, isUpstreamCommit } from '$components/lib';
-	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
+	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import {
 		AmendCommitWithChangeDzHandler,
 		AmendCommitWithHunkDzHandler,
@@ -18,17 +18,17 @@
 		type DzCommitData,
 		SquashCommitDzHandler
 	} from '$lib/commits/dropHandler';
-	import { DragStateService } from '$lib/dragging/dragStateService.svelte';
+	import { DRAG_STATE_SERVICE } from '$lib/dragging/dragStateService.svelte';
 	import { draggableCommitV3 } from '$lib/dragging/draggable';
-	import { DropzoneRegistry } from '$lib/dragging/registry';
+	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
 	import {
 		ReorderCommitDzFactory,
 		ReorderCommitDzHandler
 	} from '$lib/dragging/stackingReorderDropzoneManager';
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
-	import { StackService, type SeriesIntegrationStrategy } from '$lib/stacks/stackService.svelte';
+	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import { STACK_SERVICE, type SeriesIntegrationStrategy } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
-	import { UiState } from '$lib/state/uiState.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -93,15 +93,12 @@
 		onselect
 	}: Props = $props();
 
-	const [stackService, uiState, forge, baseBranchService, dropzoneRegistry, dragStateService] =
-		inject(
-			StackService,
-			UiState,
-			DefaultForgeFactory,
-			BaseBranchService,
-			DropzoneRegistry,
-			DragStateService
-		);
+	const stackService = inject(STACK_SERVICE);
+	const uiState = inject(UI_STATE);
+	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const baseBranchService = inject(BASE_BRANCH_SERVICE);
+	const dropzoneRegistry = inject(DROPZONE_REGISTRY);
+	const dragStateService = inject(DRAG_STATE_SERVICE);
 	const [integrateUpstreamCommits, upstreamIntegration] = stackService.integrateUpstreamCommits;
 
 	const projectState = $derived(uiState.project(projectId));

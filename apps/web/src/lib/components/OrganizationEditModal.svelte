@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
+	import { inject } from '@gitbutler/shared/context';
+	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import toasts from '@gitbutler/ui/toasts';
 	import { slugify } from '@gitbutler/ui/utils/string';
-	import { getContext } from 'svelte';
 
 	interface Props {
 		organizationSlug: string;
@@ -16,7 +16,7 @@
 	let { organizationSlug, onUpdate = () => {} }: Props = $props();
 
 	// Get organization service from context
-	const organizationService = getContext(OrganizationService) as OrganizationService;
+	const organizationService = inject(ORGANIZATION_SERVICE);
 
 	// Form state
 	let name = $state('');

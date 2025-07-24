@@ -3,8 +3,8 @@
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { getStackBranchNames } from '$lib/stacks/stack';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { inject } from '@gitbutler/shared/context';
 
 	type Props = {
 		projectId: string;
@@ -14,7 +14,7 @@
 
 	const { projectId, stackId, onerror }: Props = $props();
 
-	const stackService = getContext(StackService);
+	const stackService = inject(STACK_SERVICE);
 
 	const stackResult = $derived(stackService.allStackById(projectId, stackId));
 </script>

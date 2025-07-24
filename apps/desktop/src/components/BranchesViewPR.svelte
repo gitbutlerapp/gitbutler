@@ -2,16 +2,16 @@
 	import { goto } from '$app/navigation';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import PRListCard from '$components/branchesPage/PRListCard.svelte';
-	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
+	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { showError } from '$lib/notifications/toasts';
-	import { RemotesService } from '$lib/remotes/remotesService';
+	import { REMOTES_SERVICE } from '$lib/remotes/remotesService';
 	import { workspacePath } from '$lib/routes/routes.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 
-	import { UiState } from '$lib/state/uiState.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
@@ -25,22 +25,22 @@
 
 	const { projectId, prNumber, onerror }: Props = $props();
 
-	const forge = getContext(DefaultForgeFactory);
+	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const prService = $derived(forge.current.prService);
 	const prResult = $derived(prService?.get(prNumber, { forceRefetch: true }));
 
-	const uiState = getContext(UiState);
+	const uiState = inject(UI_STATE);
 	const projectState = $derived(uiState.project(projectId));
 	const branchesState = $derived(projectState.branchesSelection);
 
 	const selected = $derived(branchesState.current.prNumber === prNumber);
 
-	const baseBranchService = getContext(BaseBranchService);
+	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const baseRepoResponse = $derived(baseBranchService.repo(projectId));
 	const baseRepo = $derived(baseRepoResponse.current.data);
 
-	const remotesService = getContext(RemotesService);
-	const stackService = getContext(StackService);
+	const remotesService = inject(REMOTES_SERVICE);
+	const stackService = inject(STACK_SERVICE);
 
 	let createRemoteModal = $state<Modal>();
 	let inputRemoteName = $state<string>();

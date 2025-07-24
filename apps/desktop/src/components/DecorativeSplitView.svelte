@@ -1,9 +1,9 @@
 <script lang="ts">
 	import AccountLink from '$components/AccountLink.svelte';
 	import gbLogoSvg from '$lib/assets/gb-logo.svg?raw';
-	import { User } from '$lib/user/user';
+	import { USER } from '$lib/user/user';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { getContextStore } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { type Snippet } from 'svelte';
 
@@ -16,7 +16,7 @@
 
 	const { hideDetails, img, children, testId }: Props = $props();
 
-	const user = getContextStore(User);
+	const user = inject(USER);
 </script>
 
 <div class="decorative-split-view" data-testid={testId}>

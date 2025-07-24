@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
@@ -25,7 +25,7 @@
 
 	let { branchName, isFork, isMerged, hasChecks = $bindable() }: Props = $props();
 
-	const [forge] = inject(DefaultForgeFactory);
+	const forge = inject(DEFAULT_FORGE_FACTORY);
 
 	const checksService = $derived(forge.current.checks);
 	let elapsedMs: number | undefined = $state();

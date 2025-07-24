@@ -1,12 +1,10 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import DependencyService from '$lib/dependencies/dependencyService.svelte';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { DEPENDENCY_SERVICE } from '$lib/dependencies/dependencyService.svelte';
+	import { SETTINGS } from '$lib/settings/userSettings';
 	import { type RejectionReason } from '$lib/stacks/stackService.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import { getContext } from '@gitbutler/shared/context';
-	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
@@ -21,9 +19,9 @@
 
 	const { path, reason, projectId }: Props = $props();
 
-	const stackService = getContext(StackService);
-	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
-	const [dependencyService] = inject(DependencyService);
+	const stackService = inject(STACK_SERVICE);
+	const userSettings = inject(SETTINGS);
+	const dependencyService = inject(DEPENDENCY_SERVICE);
 
 	let isFolded = $state(true);
 

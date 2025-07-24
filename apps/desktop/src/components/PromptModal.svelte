@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { PromptService } from '$lib/prompt/promptService';
-	import { getContext } from '@gitbutler/shared/context';
+	import { PROMPT_SERVICE } from '$lib/prompt/promptService';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 
-	const promptService = getContext(PromptService);
+	const promptService = inject(PROMPT_SERVICE);
 	const [prompt, error] = promptService.reactToPrompt({ timeoutMs: 30000 });
 
 	let value = $state<string>('');

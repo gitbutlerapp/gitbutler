@@ -10,7 +10,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import newBranchSmolSVG from '$lib/assets/empty-state/new-branch-smol.svg?raw';
-	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
@@ -49,7 +49,7 @@
 		onclose
 	}: Props = $props();
 
-	const [stackService] = inject(StackService);
+	const stackService = inject(STACK_SERVICE);
 
 	const branchResult = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const branchesResult = $derived(stackService.branches(projectId, stackId));

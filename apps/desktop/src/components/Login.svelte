@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { UserService, type LoginToken } from '$lib/user/userService';
-	import { getContext } from '@gitbutler/shared/context';
+	import { USER_SERVICE, type LoginToken } from '$lib/user/userService';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
 	import { writable } from 'svelte/store';
 
-	const userService = getContext(UserService);
+	const userService = inject(USER_SERVICE);
 	const loading = userService.loading;
 	const user = userService.user;
 

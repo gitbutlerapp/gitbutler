@@ -2,19 +2,17 @@
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { type Commit, type UpstreamCommit } from '$lib/branches/v3';
 	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { UiState } from '$lib/state/uiState.svelte';
+	import { SETTINGS } from '$lib/settings/userSettings';
 	import { TestId } from '$lib/testing/testIds';
-	import { UserService } from '$lib/user/userService';
+	import { USER_SERVICE } from '$lib/user/userService';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { rejoinParagraphs, truncate } from '$lib/utils/string';
-	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
-	import type { Writable } from 'svelte/store';
 
 	type Props = {
 		commit: UpstreamCommit | Commit;
@@ -23,8 +21,8 @@
 
 	const { commit, rewrap }: Props = $props();
 
-	const [userService] = inject(UserService, UiState);
-	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
+	const userService = inject(USER_SERVICE);
+	const userSettings = inject(SETTINGS);
 	const zoom = $derived($userSettings.zoom);
 
 	const user = $derived(userService.user);

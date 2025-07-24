@@ -3,8 +3,8 @@
 	import Section from '$components/Section.svelte';
 	import SectionCardDisclaimer from '$components/SectionCardDisclaimer.svelte';
 	import { invoke } from '$lib/backend/ipc';
-	import { GitConfigService } from '$lib/config/gitConfigService';
-	import { getContext } from '@gitbutler/shared/context';
+	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
@@ -16,7 +16,7 @@
 
 	const { projectId }: { projectId: string } = $props();
 
-	const gitConfig = getContext(GitConfigService);
+	const gitConfig = inject(GIT_CONFIG_SERVICE);
 
 	let signCommits = $state(false);
 

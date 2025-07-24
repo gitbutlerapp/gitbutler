@@ -4,6 +4,7 @@ import {
 	LONG_DEFAULT_COMMIT_TEMPLATE,
 	SHORT_DEFAULT_COMMIT_TEMPLATE
 } from '$lib/ai/prompts';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { persisted, type Persisted } from '@gitbutler/shared/persisted';
 import { get } from 'svelte/store';
 import type { Prompt, Prompts, UserPrompt } from '$lib/ai/types';
@@ -12,6 +13,8 @@ enum PromptPersistedKey {
 	Branch = 'aiBranchPrompts',
 	Commit = 'aiCommitPrompts'
 }
+
+export const PROMPT_SERVICE = new InjectionToken<PromptService>('PromptService');
 
 export class PromptService {
 	get branchPrompts(): Prompts {

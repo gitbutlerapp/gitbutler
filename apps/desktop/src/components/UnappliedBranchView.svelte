@@ -6,7 +6,7 @@
 	import Drawer from '$components/Drawer.svelte';
 	import KebabButton from '$components/KebabButton.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -26,7 +26,7 @@
 
 	const { projectId, stackId, branchName, remote, prNumber, onerror, onclose }: Props = $props();
 
-	const [stackService] = inject(StackService);
+	const stackService = inject(STACK_SERVICE);
 
 	const branchResult = $derived(
 		stackId

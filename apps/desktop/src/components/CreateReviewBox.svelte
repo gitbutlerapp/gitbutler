@@ -3,11 +3,11 @@
 	import FloatingCommitBox from '$components/FloatingCommitBox.svelte';
 	import ReviewCreation from '$components/ReviewCreation.svelte';
 	import ReviewCreationControls from '$components/ReviewCreationControls.svelte';
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
+	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 
 	type Props = {
 		projectId: string;
@@ -18,7 +18,7 @@
 
 	const { projectId, stackId, branchName, oncancel }: Props = $props();
 
-	const uiState = getContext(UiState);
+	const uiState = inject(UI_STATE);
 	const useFloatingBox = uiState.global.useFloatingBox;
 
 	let reviewCreation = $state<ReturnType<typeof ReviewCreation>>();
@@ -27,9 +27,9 @@
 		uiState.project(projectId).exclusiveAction.set(undefined);
 	}
 
-	const stackService = getContext(StackService);
+	const stackService = inject(STACK_SERVICE);
 
-	const forge = getContext(DefaultForgeFactory);
+	const forge = inject(DEFAULT_FORGE_FACTORY);
 
 	const branch = $derived(stackService.branchByName(projectId, stackId, branchName));
 

@@ -4,7 +4,7 @@ import MetricsReporter, {
 	INTERVAL_MS
 } from '$components/MetricsReporter.svelte';
 import { EventContext } from '$lib/analytics/eventContext';
-import { PostHogWrapper } from '$lib/analytics/posthog';
+import { POSTHOG_WRAPPER, PostHogWrapper } from '$lib/analytics/posthog';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { getSettingsdServiceMock } from '$lib/testing/mockSettingsdService';
 import { render } from '@testing-library/svelte';
@@ -26,7 +26,7 @@ describe('MetricsReporter', () => {
 		const eventContext = new EventContext();
 		posthog = new PostHogWrapper(settingsService, eventContext);
 
-		context = new Map([[PostHogWrapper as object, posthog as any]]);
+		context = new Map([[POSTHOG_WRAPPER._key, posthog as any]]);
 	});
 
 	afterEach(() => {

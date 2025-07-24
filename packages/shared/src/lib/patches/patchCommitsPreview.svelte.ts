@@ -1,13 +1,13 @@
-import { getContext } from '$lib/context';
+import { inject } from '$lib/context';
 import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
 import { mapL } from '$lib/network/loadable';
 import { patchEventsSelectors } from '$lib/patchEvents/patchEventsSlice';
 import { createPatchEventChannelKey, type LoadablePatchEventChannel } from '$lib/patchEvents/types';
-import { PatchCommitService } from '$lib/patches/patchCommitService';
+import { PATCH_COMMIT_SERVICE } from '$lib/patches/patchCommitService';
 import { patchCommitTable } from '$lib/patches/patchCommitsSlice';
 import { getPatchIdable } from '$lib/patches/patchIdablesPreview.svelte';
 import { patchSectionsSelectors } from '$lib/patches/patchSectionsSlice';
-import { AppState, type AppPatchEventsState } from '$lib/redux/store.svelte';
+import { APP_STATE, type AppPatchEventsState } from '$lib/redux/store.svelte';
 import type { Loadable } from '$lib/network/types';
 import type { PatchEventsService } from '$lib/patchEvents/patchEventsService';
 import type { LoadablePatchCommit, Section } from '$lib/patches/types';
@@ -18,8 +18,8 @@ export function getPatch(
 	changeId: string,
 	inView?: InView
 ): Reactive<LoadablePatchCommit | undefined> {
-	const patchService = getContext(PatchCommitService);
-	const appState = getContext(AppState);
+	const patchService = inject(PATCH_COMMIT_SERVICE);
+	const appState = inject(APP_STATE);
 	const patchInterest = patchService.getPatchWithSectionsInterest(branchUuid, changeId);
 	registerInterest(patchInterest, inView);
 
@@ -37,8 +37,8 @@ export function getPatchSections(
 	changeId: string,
 	inView?: InView
 ): Reactive<Section[] | undefined> {
-	const patchService = getContext(PatchCommitService);
-	const appState = getContext(AppState);
+	const patchService = inject(PATCH_COMMIT_SERVICE);
+	const appState = inject(APP_STATE);
 	const patchInterest = patchService.getPatchWithSectionsInterest(branchUuid, changeId);
 	registerInterest(patchInterest, inView);
 
@@ -64,7 +64,7 @@ export function getPatchIdableSections(
 	oldVersion: number | undefined,
 	newVersion: number
 ): Reactive<Loadable<Section[]>> {
-	const appState = getContext(AppState);
+	const appState = inject(APP_STATE);
 
 	const patch = getPatchIdable(branchUuid, changeId, oldVersion, newVersion);
 	const sections = $derived(

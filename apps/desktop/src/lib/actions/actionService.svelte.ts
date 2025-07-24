@@ -1,4 +1,5 @@
 import { invalidatesList, ReduxTag } from '$lib/state/tags';
+import { InjectionToken } from '@gitbutler/shared/context';
 import type { TreeChange } from '$lib/hunks/change';
 import type { BackendApi, ClientState } from '$lib/state/clientState.svelte';
 
@@ -6,6 +7,8 @@ type ChatMessage = {
 	type: 'user' | 'assistant';
 	content: string;
 };
+
+export const ACTION_SERVICE = new InjectionToken<ActionService>('ActionService');
 
 export class ActionService {
 	private api: ReturnType<typeof injectEndpoints>;

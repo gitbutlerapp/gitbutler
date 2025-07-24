@@ -15,95 +15,113 @@
 	import SwitchThemeMenuAction from '$components/SwitchThemeMenuAction.svelte';
 	import ToastController from '$components/ToastController.svelte';
 	import ZoomInOutMenuAction from '$components/ZoomInOutMenuAction.svelte';
-	import { ActionService } from '$lib/actions/actionService.svelte';
-	import { PromptService as AIPromptService } from '$lib/ai/promptService';
+	import { ActionService, ACTION_SERVICE } from '$lib/actions/actionService.svelte';
+	import { PROMPT_SERVICE as AI_PROMPT_SERVICE } from '$lib/ai/promptService';
 	import { AI_SERVICE, AIService } from '$lib/ai/service';
-	import { EventContext } from '$lib/analytics/eventContext';
-	import { PostHogWrapper } from '$lib/analytics/posthog';
+	import { EVENT_CONTEXT } from '$lib/analytics/eventContext';
+	import { POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import { invoke } from '$lib/backend/ipc';
-	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import { BranchService } from '$lib/branches/branchService.svelte';
-	import { CommitService } from '$lib/commits/commitService.svelte';
-	import { AppSettings } from '$lib/config/appSettings';
-	import { SettingsService } from '$lib/config/appSettingsV2';
-	import { GitConfigService } from '$lib/config/gitConfigService';
+	import BaseBranchService, { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
+	import { BranchService, BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
+	import { CommitService, COMMIT_SERVICE } from '$lib/commits/commitService.svelte';
+	import { APP_SETTINGS } from '$lib/config/appSettings';
+	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
+	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
 	import { ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
-	import DependencyService from '$lib/dependencies/dependencyService.svelte';
-	import { DragStateService } from '$lib/dragging/dragStateService.svelte';
-	import { DropzoneRegistry } from '$lib/dragging/registry';
-	import FeedFactory from '$lib/feed/feed';
-	import { FileService } from '$lib/files/fileService';
-	import { UncommitedFilesWatcher } from '$lib/files/watcher';
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
-	import { GitHubClient } from '$lib/forge/github/githubClient';
-	import { GitHubUserService } from '$lib/forge/github/githubUserService.svelte';
-	import { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
-	import { GitService } from '$lib/git/gitService';
-	import { OplogService } from '$lib/history/oplogService.svelte';
-	import SnapshotDiffService from '$lib/history/snapshotDiffService.svelte';
-	import { HooksService } from '$lib/hooks/hooksService';
-	import { DiffService } from '$lib/hunks/diffService.svelte';
-	import { IntelligentScrollingService } from '$lib/intelligentScrolling/service';
-	import { IrcClient } from '$lib/irc/ircClient.svelte';
-	import { IrcService } from '$lib/irc/ircService.svelte';
-	import { ModeService } from '$lib/mode/modeService';
-	import { ProjectsService } from '$lib/project/projectsService';
-	import { PromptService } from '$lib/prompt/promptService';
-	import { RemotesService } from '$lib/remotes/remotesService';
-	import RulesService from '$lib/rules/rulesService.svelte';
+	import DependencyService, {
+		DEPENDENCY_SERVICE
+	} from '$lib/dependencies/dependencyService.svelte';
+	import { DragStateService, DRAG_STATE_SERVICE } from '$lib/dragging/dragStateService.svelte';
+	import { DropzoneRegistry, DROPZONE_REGISTRY } from '$lib/dragging/registry';
+	import FeedFactory, { FEED_FACTORY } from '$lib/feed/feed';
+	import { FILE_SERVICE } from '$lib/files/fileService';
+	import { UncommitedFilesWatcher, UNCOMMITED_FILES_WATCHER } from '$lib/files/watcher';
+	import { DefaultForgeFactory, DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import { GitHubClient, GITHUB_CLIENT } from '$lib/forge/github/githubClient';
+	import {
+		GitHubUserService,
+		GITHUB_USER_SERVICE
+	} from '$lib/forge/github/githubUserService.svelte';
+	import { GitLabClient, GITLAB_CLIENT } from '$lib/forge/gitlab/gitlabClient.svelte';
+	import { GitService, GIT_SERVICE } from '$lib/git/gitService';
+	import { OplogService, OPLOG_SERVICE } from '$lib/history/oplogService.svelte';
+	import SnapshotDiffService, {
+		SNAPSHOT_DIFF_SERVICE
+	} from '$lib/history/snapshotDiffService.svelte';
+	import { HOOKS_SERVICE } from '$lib/hooks/hooksService';
+	import { DiffService, DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
+	import {
+		IntelligentScrollingService,
+		INTELLIGENT_SCROLLING_SERVICE
+	} from '$lib/intelligentScrolling/service';
+	import { IrcClient, IRC_CLIENT } from '$lib/irc/ircClient.svelte';
+	import { IrcService, IRC_SERVICE } from '$lib/irc/ircService.svelte';
+	import { ModeService, MODE_SERVICE } from '$lib/mode/modeService';
+	import { ProjectsService, PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { PROMPT_SERVICE } from '$lib/prompt/promptService';
+	import { REMOTES_SERVICE } from '$lib/remotes/remotesService';
+	import RulesService, { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { RustSecretService, SECRET_SERVICE } from '$lib/secrets/secretsService';
-	import { IdSelection } from '$lib/selection/idSelection.svelte';
-	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
+	import { IdSelection, ID_SELECTION } from '$lib/selection/idSelection.svelte';
+	import {
+		UncommittedService,
+		UNCOMMITTED_SERVICE
+	} from '$lib/selection/uncommittedService.svelte';
 	import { loadUserSettings, SETTINGS } from '$lib/settings/userSettings';
-	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
-	import { CommitAnalytics } from '$lib/soup/commitAnalytics';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { ClientState } from '$lib/state/clientState.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
-	import { UpdaterService } from '$lib/updater/updater';
-	import { UpstreamIntegrationService } from '$lib/upstream/upstreamIntegrationService.svelte';
-	import { User } from '$lib/user/user';
-	import { UserService } from '$lib/user/userService';
+	import { ShortcutService, SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService.svelte';
+	import { CommitAnalytics, COMMIT_ANALYTICS } from '$lib/soup/commitAnalytics';
+	import { StackService, STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { ClientState, CLIENT_STATE } from '$lib/state/clientState.svelte';
+	import { UiState, UI_STATE } from '$lib/state/uiState.svelte';
+	import { UPDATER_SERVICE } from '$lib/updater/updater';
+	import {
+		UpstreamIntegrationService,
+		UPSTREAM_INTEGRATION_SERVICE
+	} from '$lib/upstream/upstreamIntegrationService.svelte';
+	import { USER } from '$lib/user/user';
+	import { USER_SERVICE } from '$lib/user/userService';
 	import * as events from '$lib/utils/events';
 	import { createKeybind } from '$lib/utils/hotkeys';
-	import { ResizeSync } from '$lib/utils/resizeSync';
+	import { ResizeSync, RESIZE_SYNC } from '$lib/utils/resizeSync';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
+	import { WorktreeService, WORKTREE_SERVICE } from '$lib/worktree/worktreeService.svelte';
 	import { provide } from '@gitbutler/shared/context';
-	import { FeedService } from '@gitbutler/shared/feeds/service';
-	import { HttpClient } from '@gitbutler/shared/network/httpClient';
-	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
-	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-	import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
-	import { UploadsService } from '@gitbutler/shared/uploads/uploadsService';
-	import { UserService as CloudUserService } from '@gitbutler/shared/users/userService';
+	import { FeedService, FEED_SERVICE } from '@gitbutler/shared/feeds/service';
+	import { HTTP_CLIENT } from '@gitbutler/shared/network/httpClient';
 	import {
-		LineManagerFactory as StackingLineManagerFactory,
-		LineManagerFactory
-	} from '@gitbutler/ui/commitLines/lineManager';
+		OrganizationService,
+		ORGANIZATION_SERVICE
+	} from '@gitbutler/shared/organizations/organizationService';
+	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
+	import { AppState, APP_STATE, APP_DISPATCH } from '@gitbutler/shared/redux/store.svelte';
+	import { UPLOADS_SERVICE } from '@gitbutler/shared/uploads/uploadsService';
+	import {
+		UserService as CloudUserService,
+		USER_SERVICE as CLOUD_USER_SERVICE
+	} from '@gitbutler/shared/users/userService';
 	import { setExternalLinkService } from '@gitbutler/ui/link/externalLinkService';
-	import { onMount, setContext, type Snippet } from 'svelte';
+	import { onMount, type Snippet } from 'svelte';
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
 
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
 
 	const userSettings = loadUserSettings();
-	setContext(SETTINGS, userSettings);
+	provide(SETTINGS, userSettings);
 
 	const appState = new AppState();
 
 	const gitHubClient = new GitHubClient();
 	const gitLabClient = new GitLabClient();
-	setContext(GitHubClient, gitHubClient);
-	setContext(GitLabClient, gitLabClient);
+	provide(GITHUB_CLIENT, gitHubClient);
+	provide(GITLAB_CLIENT, gitLabClient);
 	const user = data.userService.user;
 	const accessToken = $derived($user?.github_access_token);
 	$effect(() => gitHubClient.setToken(accessToken));
 
 	const ircClient = new IrcClient();
-	setContext(IrcClient, ircClient);
+	provide(IRC_CLIENT, ircClient);
 
 	const clientState = new ClientState(
 		data.tauri,
@@ -114,7 +132,7 @@
 	);
 
 	const ircService = new IrcService(clientState, clientState.dispatch, ircClient);
-	setContext(IrcService, ircService);
+	provide(IRC_SERVICE, ircService);
 
 	$effect(() => {
 		if (!$ircEnabled || !$ircServer || !$user || !$user.login) {
@@ -141,9 +159,9 @@
 		reactive(() => uiStateSlice),
 		clientState.dispatch
 	);
-	setContext(UiState, uiState);
+	provide(UI_STATE, uiState);
 	const intelligentScrollingService = new IntelligentScrollingService(uiState);
-	setContext(IntelligentScrollingService, intelligentScrollingService);
+	provide(INTELLIGENT_SCROLLING_SERVICE, intelligentScrollingService);
 
 	const stackService = new StackService(
 		clientState['backendApi'],
@@ -155,7 +173,7 @@
 	const rulesService = new RulesService(clientState['backendApi']);
 	const modeService = $derived(new ModeService(clientState['backendApi']));
 	$effect.pre(() => {
-		setContext(ModeService, modeService);
+		provide(MODE_SERVICE, modeService);
 	});
 	const actionService = new ActionService(clientState['backendApi']);
 	const oplogService = new OplogService(clientState['backendApi']);
@@ -168,7 +186,7 @@
 	const diffService = new DiffService(clientState);
 
 	const uncommittedService = new UncommittedService(clientState, worktreeService, diffService);
-	setContext(UncommittedService, uncommittedService);
+	provide(UNCOMMITTED_SERVICE, uncommittedService);
 
 	const idSelection = new IdSelection(
 		stackService,
@@ -178,7 +196,7 @@
 	);
 
 	const projectsService = new ProjectsService(clientState, data.homeDir, data.httpClient);
-	setContext(ProjectsService, projectsService);
+	provide(PROJECTS_SERVICE, projectsService);
 
 	const shortcutService = new ShortcutService(data.tauri);
 	const commitService = new CommitService();
@@ -190,67 +208,74 @@
 	);
 
 	const commitAnalytics = new CommitAnalytics(stackService, uiState, worktreeService);
-	setContext(CommitAnalytics, commitAnalytics);
+	provide(COMMIT_ANALYTICS, commitAnalytics);
 
 	const snapshotDiffService = new SnapshotDiffService(clientState['backendApi']);
-	setContext(SnapshotDiffService, snapshotDiffService);
+	provide(SNAPSHOT_DIFF_SERVICE, snapshotDiffService);
 
 	const branchService = new BranchService(clientState['backendApi']);
-	setContext(BranchService, branchService);
+	provide(BRANCH_SERVICE, branchService);
 
 	clientState.initPersist();
 
-	setContext(DefaultForgeFactory, forgeFactory);
+	provide(DEFAULT_FORGE_FACTORY, forgeFactory);
 
 	shortcutService.listen();
 
 	setExternalLinkService({ open: openExternalUrl });
 
-	setContext(AppState, appState);
-	setContext(AppDispatch, appState.appDispatch);
-	setContext(ClientState, clientState);
-	setContext(FeedService, feedService);
-	setContext(OrganizationService, organizationService);
-	setContext(CloudUserService, cloudUserService);
-	setContext(HooksService, data.hooksService);
-	setContext(SettingsService, data.settingsService);
-	setContext(FileService, data.fileService);
-	setContext(CommitService, commitService);
+	const secretsService = new RustSecretService(data.gitConfig);
+	provide(SECRET_SERVICE, secretsService);
+
+	const aiService = new AIService(
+		data.gitConfig,
+		secretsService,
+		data.httpClient,
+		data.tokenMemoryService
+	);
+	provide(AI_SERVICE, aiService);
+
+	provide(APP_STATE, appState);
+	provide(APP_DISPATCH, appState.appDispatch);
+	provide(CLIENT_STATE, clientState);
+	provide(FEED_SERVICE, feedService);
+	provide(ORGANIZATION_SERVICE, organizationService);
+	provide(CLOUD_USER_SERVICE, cloudUserService);
+	provide(HOOKS_SERVICE, data.hooksService);
+	provide(SETTINGS_SERVICE, data.settingsService);
+	provide(FILE_SERVICE, data.fileService);
+	provide(COMMIT_SERVICE, commitService);
 
 	// Setters do not need to be reactive since `data` never updates
-	setSecretsService(data.secretsService);
-	setContext(PostHogWrapper, data.posthog);
-	setContext(UserService, data.userService);
-	setContext(UpdaterService, data.updaterService);
-	setContext(GitConfigService, data.gitConfig);
-	setContext(AIService, data.aiService);
-	setContext(PromptService, data.promptService);
-	setContext(HttpClient, data.httpClient);
-	setContext(User, data.userService.user);
-	setContext(RemotesService, data.remotesService);
-	setContext(AIPromptService, data.aiPromptService);
-	setContext(LineManagerFactory, data.lineManagerFactory);
-	setContext(StackingLineManagerFactory, data.stackingLineManagerFactory);
-	setContext(AppSettings, data.appSettings);
-	setContext(EventContext, data.eventContext);
-	setContext(StackService, stackService);
-	setContext(FeedFactory, feedFactory);
-	setContext(RulesService, rulesService);
-	setContext(ActionService, actionService);
-	setContext(OplogService, oplogService);
-	setContext(BaseBranchService, baseBranchService);
-	setContext(UpstreamIntegrationService, upstreamIntegrationService);
-	setContext(WorktreeService, worktreeService);
-	setContext(ShortcutService, shortcutService);
-	setContext(DiffService, diffService);
-	setContext(UploadsService, data.uploadsService);
-	setContext(DependencyService, dependecyService);
-	setContext(IdSelection, idSelection);
-	setContext(DropzoneRegistry, new DropzoneRegistry());
-	setContext(DragStateService, new DragStateService());
-	setContext(ResizeSync, new ResizeSync());
-	setContext(UncommitedFilesWatcher, new UncommitedFilesWatcher());
-	setContext(GitService, new GitService(data.tauri));
+	provide(POSTHOG_WRAPPER, data.posthog);
+	provide(USER_SERVICE, data.userService);
+	provide(UPDATER_SERVICE, data.updaterService);
+	provide(GIT_CONFIG_SERVICE, data.gitConfig);
+	provide(PROMPT_SERVICE, data.promptService);
+	provide(HTTP_CLIENT, data.httpClient);
+	provide(USER, data.userService.user);
+	provide(REMOTES_SERVICE, data.remotesService);
+	provide(AI_PROMPT_SERVICE, data.aiPromptService);
+	provide(APP_SETTINGS, data.appSettings);
+	provide(EVENT_CONTEXT, data.eventContext);
+	provide(STACK_SERVICE, stackService);
+	provide(FEED_FACTORY, feedFactory);
+	provide(RULES_SERVICE, rulesService);
+	provide(ACTION_SERVICE, actionService);
+	provide(OPLOG_SERVICE, oplogService);
+	provide(BASE_BRANCH_SERVICE, baseBranchService);
+	provide(UPSTREAM_INTEGRATION_SERVICE, upstreamIntegrationService);
+	provide(WORKTREE_SERVICE, worktreeService);
+	provide(SHORTCUT_SERVICE, shortcutService);
+	provide(DIFF_SERVICE, diffService);
+	provide(UPLOADS_SERVICE, data.uploadsService);
+	provide(DEPENDENCY_SERVICE, dependecyService);
+	provide(ID_SELECTION, idSelection);
+	provide(DROPZONE_REGISTRY, new DropzoneRegistry());
+	provide(DRAG_STATE_SERVICE, new DragStateService());
+	provide(RESIZE_SYNC, new ResizeSync());
+	provide(UNCOMMITED_FILES_WATCHER, new UncommitedFilesWatcher());
+	provide(GIT_SERVICE, new GitService(data.tauri));
 
 	const settingsService = data.settingsService;
 	const settingsStore = settingsService.appSettings;
@@ -265,7 +290,7 @@
 	// gh username on the user object. Furthermore, it isn't used anywhere.
 	// TODO: Remove the gh username completely?
 	const githubUserService = new GitHubUserService(data.tauri, clientState['githubApi']);
-	setContext(GitHubUserService, githubUserService);
+	provide(GITHUB_USER_SERVICE, githubUserService);
 
 	let shareIssueModal: ShareIssueModal;
 

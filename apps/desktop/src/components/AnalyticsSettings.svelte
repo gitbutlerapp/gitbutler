@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { AppSettings } from '$lib/config/appSettings';
-	import { getContext } from '@gitbutler/shared/context';
+	import { APP_SETTINGS } from '$lib/config/appSettings';
+	import { inject } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
 
-	const appSettings = getContext(AppSettings);
+	const appSettings = inject(APP_SETTINGS);
 	const errorReportingEnabled = appSettings.appErrorReportingEnabled;
 	const metricsEnabled = appSettings.appMetricsEnabled;
 	const nonAnonMetricsEnabled = appSettings.appNonAnonMetricsEnabled;

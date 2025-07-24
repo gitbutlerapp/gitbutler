@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { getStackName } from '$lib/stacks/stack';
-	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import type { DependencyLock } from '@gitbutler/ui/utils/diffParsing';
@@ -13,7 +13,7 @@
 
 	const { projectId, locks }: Props = $props();
 
-	const [stackService] = inject(StackService);
+	const stackService = inject(STACK_SERVICE);
 
 	const lockedToStackIds = $derived(locks.map((lock) => lock.stackId));
 	const stacksResult = $derived(stackService.stacks(projectId));

@@ -9,20 +9,20 @@
 	import ReviewInfo from '$lib/components/review/ReviewInfo.svelte';
 	import ReviewSections from '$lib/components/review/ReviewSections.svelte';
 	import DiffLineSelection from '$lib/diff/lineSelection.svelte';
-	import { UserService } from '$lib/user/userService';
+	import { USER_SERVICE } from '$lib/user/userService';
 	import { updateFavIcon } from '$lib/utils/faviconUtils';
 	import Minimap from '@gitbutler/shared/branches/Minimap.svelte';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { lookupLatestBranchUuid } from '@gitbutler/shared/branches/latestBranchLookup.svelte';
-	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
-	import { getContext } from '@gitbutler/shared/context';
+	import { LATEST_BRANCH_LOOKUP_SERVICE } from '@gitbutler/shared/branches/latestBranchLookupService';
+	import { inject } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { combine, isFound, map, isError } from '@gitbutler/shared/network/loadable';
 	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
 	import { getPatch } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
-	import { AppState } from '@gitbutler/shared/redux/store.svelte';
+	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
 	import {
-		WebRoutesService,
+		WEB_ROUTES_SERVICE,
 		type ProjectReviewCommitParameters
 	} from '@gitbutler/shared/routing/webRoutes.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -36,10 +36,10 @@
 
 	let { data }: Props = $props();
 
-	const latestBranchLookupService = getContext(LatestBranchLookupService);
-	const appState = getContext(AppState);
-	const routes = getContext(WebRoutesService);
-	const userService = getContext(UserService);
+	const latestBranchLookupService = inject(LATEST_BRANCH_LOOKUP_SERVICE);
+	const appState = inject(APP_STATE);
+	const routes = inject(WEB_ROUTES_SERVICE);
+	const userService = inject(USER_SERVICE);
 	const user = $derived(userService.user);
 	const chatMinimizer = new ChatMinimize();
 	const diffLineSelection = new DiffLineSelection(chatMinimizer);

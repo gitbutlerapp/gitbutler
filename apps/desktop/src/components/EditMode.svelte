@@ -3,22 +3,21 @@
 	import FileContextMenu from '$components/FileContextMenu.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { Commit } from '$lib/commits/commit';
-	import { CommitService } from '$lib/commits/commitService.svelte';
+	import { COMMIT_SERVICE } from '$lib/commits/commitService.svelte';
 	import {
 		conflictEntryHint,
 		getConflictState,
 		type ConflictEntryPresence
 	} from '$lib/conflictEntryPresence';
-	import { FileService } from '$lib/files/fileService';
-	import { ModeService, type EditModeMetadata } from '$lib/mode/modeService';
+	import { FILE_SERVICE } from '$lib/files/fileService';
+	import { MODE_SERVICE, type EditModeMetadata } from '$lib/mode/modeService';
 	import { vscodePath } from '$lib/project/project';
-	import { ProjectsService } from '$lib/project/projectsService';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { UserService } from '$lib/user/userService';
+	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { SETTINGS } from '$lib/settings/userSettings';
+	import { USER_SERVICE } from '$lib/user/userService';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
-	import { getContext } from '@gitbutler/shared/context';
-	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import InfoButton from '@gitbutler/ui/InfoButton.svelte';
@@ -27,14 +26,7 @@
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { SvelteSet } from 'svelte/reactivity';
-	import {
-		derived,
-		fromStore,
-		readable,
-		toStore,
-		type Readable,
-		type Writable
-	} from 'svelte/store';
+	import { derived, fromStore, readable, toStore, type Readable } from 'svelte/store';
 	import type { FileInfo } from '$lib/files/file';
 	import type { TreeChange } from '$lib/hunks/change';
 	import type { FileStatus } from '@gitbutler/ui/file/types';
@@ -46,15 +38,15 @@
 
 	const { projectId, editModeMetadata }: Props = $props();
 
-	const projectService = getContext(ProjectsService);
+	const projectService = inject(PROJECTS_SERVICE);
 	const projectResult = $derived(projectService.getProject(projectId));
 
-	const remoteCommitService = getContext(CommitService);
-	const modeService = getContext(ModeService);
-	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
-	const fileService = getContext(FileService);
+	const remoteCommitService = inject(COMMIT_SERVICE);
+	const modeService = inject(MODE_SERVICE);
+	const userSettings = inject(SETTINGS);
+	const fileService = inject(FILE_SERVICE);
 
-	const userService = getContext(UserService);
+	const userService = inject(USER_SERVICE);
 	const user = userService.user;
 
 	let modeServiceAborting = $state<'inert' | 'loading' | 'completed'>('inert');

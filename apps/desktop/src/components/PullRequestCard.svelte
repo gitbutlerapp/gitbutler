@@ -3,10 +3,10 @@
 	import PullRequestPolling from '$components/PullRequestPolling.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { writeClipboard } from '$lib/backend/clipboard';
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
@@ -51,7 +51,7 @@
 	let container = $state<HTMLElement>();
 	let hasChecks = $state(false);
 
-	const forge = getContext(DefaultForgeFactory);
+	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const forgeName = $derived(forge.current.name);
 	const prService = $derived(forge.current.prService);
 	const checksService = $derived(forge.current.checks);

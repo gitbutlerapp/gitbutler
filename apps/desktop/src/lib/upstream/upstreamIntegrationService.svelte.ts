@@ -1,5 +1,6 @@
 import { ProjectsService } from '$lib/project/projectsService';
 import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import type { StackService } from '$lib/stacks/stackService.svelte';
 import type { ClientState } from '$lib/state/clientState.svelte';
@@ -11,6 +12,10 @@ import type {
 	Resolution,
 	StackStatusesWithBranchesV3
 } from '$lib/upstream/types';
+
+export const UPSTREAM_INTEGRATION_SERVICE = new InjectionToken<UpstreamIntegrationService>(
+	'UpstreamIntegrationService'
+);
 
 export class UpstreamIntegrationService {
 	private api: ReturnType<typeof injectEndpoints>;

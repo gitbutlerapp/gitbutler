@@ -1,18 +1,18 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { AuthService } from '$lib/auth/authService.svelte';
+	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
 	import { eventTimeStamp } from '@gitbutler/shared/branches/utils';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { AppState } from '@gitbutler/shared/redux/store.svelte';
-	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
+	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
+	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { getRulesList } from '@gitbutler/shared/rules/rulesPreview.svelte';
-	import { RulesService } from '@gitbutler/shared/rules/rulesService';
+	import { RULES_SERVICE } from '@gitbutler/shared/rules/rulesService';
 	import type { Rule } from '@gitbutler/shared/rules/types';
 
 	// Get authentication service and check if user is logged in
-	const authService = getContext(AuthService);
-	const routes = getContext(WebRoutesService);
+	const authService = inject(AUTH_SERVICE);
+	const routes = inject(WEB_ROUTES_SERVICE);
 
 	// If there is no token (user not logged in), redirect to home
 	$effect(() => {
@@ -21,8 +21,8 @@
 		}
 	});
 
-	const rulesService = getContext(RulesService);
-	const appState = getContext(AppState);
+	const rulesService = inject(RULES_SERVICE);
+	const appState = inject(APP_STATE);
 
 	const rulesList = $derived(getRulesList(appState, rulesService));
 

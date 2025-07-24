@@ -1,5 +1,5 @@
-import { type Focusable, FocusManager } from '$lib/focus/focusManager.svelte';
-import { getContext } from '@gitbutler/shared/context';
+import { type Focusable, FOCUS_MANAGER } from '$lib/focus/focusManager.svelte';
+import { inject } from '@gitbutler/shared/context';
 import type { Action } from 'svelte/action';
 
 interface FocusableOptions {
@@ -12,7 +12,7 @@ interface FocusableOptions {
  */
 // eslint-disable-next-line func-style
 export const focusable: Action<HTMLElement, FocusableOptions> = (element, options) => {
-	const focus = getContext(FocusManager);
+	const focus = inject(FOCUS_MANAGER);
 
 	let { id, parentId = null } = options;
 	focus.register(id, parentId, element);

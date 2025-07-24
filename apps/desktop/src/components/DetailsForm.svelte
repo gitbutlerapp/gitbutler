@@ -1,8 +1,8 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
-	import { ProjectsService } from '$lib/project/projectsService';
-	import { getContext } from '@gitbutler/shared/context';
+	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { inject } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
@@ -11,7 +11,7 @@
 
 	const { projectId }: { projectId: string } = $props();
 
-	const projectsService = getContext(ProjectsService);
+	const projectsService = inject(PROJECTS_SERVICE);
 	const projectResult = $derived(projectsService.getProject(projectId));
 
 	const runCommitHooks = $derived(projectRunCommitHooks(projectId));

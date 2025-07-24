@@ -20,11 +20,11 @@
 	import MessageDiffSection from '$lib/components/chat/MessageDiffSection.svelte';
 	import MessageMarkdown from '$lib/components/chat/MessageMarkdown.svelte';
 	import { parseDiffPatchToEncodedSelection } from '$lib/diff/lineSelection.svelte';
-	import { UserService } from '$lib/user/userService';
+	import { USER_SERVICE } from '$lib/user/userService';
 	import { eventTimeStamp } from '@gitbutler/shared/branches/utils';
-	import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
+	import { CHAT_CHANNELS_SERVICE } from '@gitbutler/shared/chat/chatChannelsService';
 	import { type ChatMessageReaction } from '@gitbutler/shared/chat/types';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
@@ -54,8 +54,8 @@
 		scrollToMessage
 	}: MessageProps = $props();
 
-	const chatChannelService = getContext(ChatChannelsService);
-	const userService = getContext(UserService);
+	const chatChannelService = inject(CHAT_CHANNELS_SERVICE);
+	const userService = inject(USER_SERVICE);
 	const user = $derived(userService.user);
 
 	let kebabMenuTrigger = $state<HTMLButtonElement>();

@@ -1,3 +1,4 @@
+import { InjectionToken } from '@gitbutler/shared/context';
 import { writable, type Writable } from 'svelte/store';
 import type {
 	OwnerResponse,
@@ -6,6 +7,8 @@ import type {
 	ExtendedOrganization
 } from '$lib/owner/types';
 import type { HttpClient } from '@gitbutler/shared/network/httpClient';
+
+export const OWNER_SERVICE = new InjectionToken<OwnerService>('OwnerService');
 
 /**
  * Service for fetching information about owners (users and organizations)

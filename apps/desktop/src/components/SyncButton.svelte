@@ -1,8 +1,8 @@
 <script lang="ts">
-	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import { BranchService } from '$lib/branches/branchService.svelte';
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
-	import { getContext, inject } from '@gitbutler/shared/context';
+	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
+	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
+	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import { inject } from '@gitbutler/shared/context';
 	import Button, { type Props as ButtonProps } from '@gitbutler/ui/Button.svelte';
 	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
 
@@ -14,10 +14,11 @@
 
 	const { projectId, size = 'tag', disabled = false }: Props = $props();
 
-	const [baseBranchService, branchService] = inject(BaseBranchService, BranchService);
+	const baseBranchService = inject(BASE_BRANCH_SERVICE);
+	const branchService = inject(BRANCH_SERVICE);
 	const baseBranch = baseBranchService.baseBranch(projectId);
 
-	const forge = getContext(DefaultForgeFactory);
+	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const listingService = $derived(forge.current.listService);
 
 	const lastFetched = $derived(baseBranch.current.data?.lastFetched);

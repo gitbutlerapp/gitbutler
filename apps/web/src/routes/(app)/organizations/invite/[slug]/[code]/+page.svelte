@@ -2,15 +2,15 @@
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { UserService } from '$lib/user/userService';
-	import { getContext } from '@gitbutler/shared/context';
-	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
-	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
+	import { USER_SERVICE } from '$lib/user/userService';
+	import { inject } from '@gitbutler/shared/context';
+	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
+	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { env } from '$env/dynamic/public';
 
-	const userService = getContext(UserService);
-	const organizationService = getContext(OrganizationService);
+	const userService = inject(USER_SERVICE);
+	const organizationService = inject(ORGANIZATION_SERVICE);
 
 	const user = $derived(userService.user);
 
@@ -19,7 +19,7 @@
 	const slug = $derived($page.params.slug);
 
 	// Get services from context
-	const routes = getContext(WebRoutesService);
+	const routes = inject(WEB_ROUTES_SERVICE);
 
 	// Track the auth and join status
 	const isLoggedIn = $derived(!!$user?.id);

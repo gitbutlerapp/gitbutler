@@ -1,8 +1,8 @@
 <script lang="ts">
 	import LoginModal from '$lib/components/LoginModal.svelte';
-	import { UserService } from '$lib/user/userService';
-	import { getContext } from '@gitbutler/shared/context';
-	import { PatchCommitService } from '@gitbutler/shared/patches/patchCommitService';
+	import { USER_SERVICE } from '$lib/user/userService';
+	import { inject } from '@gitbutler/shared/context';
+	import { PATCH_COMMIT_SERVICE } from '@gitbutler/shared/patches/patchCommitService';
 	import { type PatchCommit } from '@gitbutler/shared/patches/types';
 	import CommitStatusBadge from '@gitbutler/ui/CommitStatusBadge.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
@@ -25,8 +25,8 @@
 
 	const { patch, branchUuid, isUserLoggedIn }: Props = $props();
 
-	const patchService = getContext(PatchCommitService);
-	const userService = getContext(UserService);
+	const patchService = inject(PATCH_COMMIT_SERVICE);
+	const userService = inject(USER_SERVICE);
 	const user = userService.user;
 
 	const userAction = $derived.by<UserActionType>(() => {

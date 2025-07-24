@@ -1,4 +1,5 @@
 import { CommitDropData } from '$lib/commits/dropHandler';
+import { InjectionToken } from '@gitbutler/shared/context';
 import type { StackOrder } from '$lib/branches/branch';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { StackService } from '$lib/stacks/stackService.svelte';
@@ -94,6 +95,11 @@ export class ReorderCommitDzFactory {
 		);
 	}
 }
+
+export const STACKING_REORDER_DROPZONE_MANAGER_FACTORY =
+	new InjectionToken<StackingReorderDropzoneManagerFactory>(
+		'StackingReorderDropzoneManagerFactory'
+	);
 
 export class StackingReorderDropzoneManagerFactory {
 	constructor(

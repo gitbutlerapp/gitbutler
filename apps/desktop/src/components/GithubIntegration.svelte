@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { writeClipboard } from '$lib/backend/clipboard';
-	import { GitHubUserService } from '$lib/forge/github/githubUserService.svelte';
-	import { UserService } from '$lib/user/userService';
+	import { GITHUB_USER_SERVICE } from '$lib/forge/github/githubUserService.svelte';
+	import { USER_SERVICE } from '$lib/user/userService';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -18,8 +18,8 @@
 
 	const { minimal = false, disabled = false }: Props = $props();
 
-	const githubUserService = getContext(GitHubUserService);
-	const userService = getContext(UserService);
+	const githubUserService = inject(GITHUB_USER_SERVICE);
+	const userService = inject(USER_SERVICE);
 	const user = userService.user;
 
 	// step flags

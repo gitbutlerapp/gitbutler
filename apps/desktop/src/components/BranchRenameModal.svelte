@@ -8,7 +8,7 @@
 </script>
 
 <script lang="ts">
-	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { ElementId, TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -16,7 +16,7 @@
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 
 	const { projectId, stackId, branchName, isPushed }: BranchRenameModalProps = $props();
-	const [stackService] = inject(StackService);
+	const stackService = inject(STACK_SERVICE);
 
 	const [renameBranch, renameResult] = stackService.updateBranchName;
 

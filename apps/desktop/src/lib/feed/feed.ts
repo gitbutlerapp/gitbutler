@@ -2,12 +2,15 @@ import { ActionListing, ButlerAction, Workflow, WorkflowList } from '$lib/action
 import { invoke } from '$lib/backend/ipc';
 import { Snapshot } from '$lib/history/types';
 import Mutex from '$lib/utils/mutex';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { deduplicateBy } from '@gitbutler/shared/utils/array';
 import { plainToInstance } from 'class-transformer';
 import { get, writable } from 'svelte/store';
 import type { ToolCall } from '$lib/ai/tool';
 import type { Tauri } from '$lib/backend/tauri';
 import type { StackService } from '$lib/stacks/stackService.svelte';
+
+export const FEED_FACTORY = new InjectionToken<FeedFactory>('FeedFactory');
 
 export default class FeedFactory {
 	private instance: Feed | null = null;

@@ -1,10 +1,15 @@
 import { listen, invoke } from '$lib/backend/ipc';
 import { RemoteFile } from '$lib/files/file';
 import { parseFileSections, type ContentSection, type HunkSection } from '$lib/utils/fileSections';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { plainToInstance } from 'class-transformer';
 import { readable } from 'svelte/store';
 
 type ParsedFiles = [RemoteFile, (ContentSection | HunkSection)[]][];
+
+export const UNCOMMITED_FILES_WATCHER = new InjectionToken<UncommitedFilesWatcher>(
+	'UncommitedFilesWatcher'
+);
 
 export class UncommitedFilesWatcher {
 	constructor() {}

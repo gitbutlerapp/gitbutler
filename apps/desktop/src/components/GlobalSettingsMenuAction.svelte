@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { newSettingsPath } from '$lib/routes/routes.svelte';
-	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService.svelte';
+	import { inject } from '@gitbutler/shared/context';
 
-	const shortcutService = getContext(ShortcutService);
+	const shortcutService = inject(SHORTCUT_SERVICE);
 	shortcutService.on('global-settings', () => {
 		goto(newSettingsPath());
 	});

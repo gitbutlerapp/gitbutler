@@ -14,28 +14,28 @@
 	import PrTemplateSection from '$components/PrTemplateSection.svelte';
 	import MessageEditor from '$components/editor/MessageEditor.svelte';
 	import MessageEditorInput from '$components/editor/MessageEditorInput.svelte';
-	import { AIService } from '$lib/ai/service';
-	import { BaseBranch } from '$lib/baseBranch/baseBranch';
+	import { AI_SERVICE } from '$lib/ai/service';
+	import { BASE_BRANCH } from '$lib/baseBranch/baseBranch';
 	import { type Commit } from '$lib/branches/v3';
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
 	import { GitHubPrService } from '$lib/forge/github/githubPrService.svelte';
 	import { type PullRequest } from '$lib/forge/interface/types';
 	import { PrPersistedStore } from '$lib/forge/prContents';
 	import { updatePrDescriptionTables as updatePrStackInfo } from '$lib/forge/shared/prFooter';
 	import { showError, showToast } from '$lib/notifications/toasts';
-	import { RemotesService } from '$lib/remotes/remotesService';
+	import { REMOTES_SERVICE } from '$lib/remotes/remotesService';
 	import { requiresPush } from '$lib/stacks/stack';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
-	import { UserService } from '$lib/user/userService';
+	import { USER_SERVICE } from '$lib/user/userService';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { sleep } from '$lib/utils/sleep';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { error } from '@gitbutler/ui/toasts';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
@@ -52,14 +52,14 @@
 
 	const { projectId, stackId, branchName, prNumber, onClose }: Props = $props();
 
-	const baseBranch = getContext(BaseBranch);
-	const forge = getContext(DefaultForgeFactory);
+	const baseBranch = inject(BASE_BRANCH);
+	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const prService = $derived(forge.current.prService);
-	const stackService = getContext(StackService);
-	const userService = getContext(UserService);
-	const aiService = getContext(AIService);
-	const remotesService = getContext(RemotesService);
-	const uiState = getContext(UiState);
+	const stackService = inject(STACK_SERVICE);
+	const userService = inject(USER_SERVICE);
+	const aiService = inject(AI_SERVICE);
+	const remotesService = inject(REMOTES_SERVICE);
+	const uiState = inject(UI_STATE);
 
 	const user = userService.user;
 

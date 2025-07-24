@@ -1,4 +1,5 @@
 import { apiToBranch } from '$lib/branches/types';
+import { InjectionToken } from '$lib/context';
 import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { type HttpClient } from '$lib/network/httpClient';
 import { errorToLoadable } from '$lib/network/loadable';
@@ -14,7 +15,6 @@ import {
 	type Organization
 } from '$lib/organizations/types';
 import { POLLING_REGULAR, POLLING_SLOW } from '$lib/polling';
-import { InjectionToken } from '../context';
 import { writable, type Writable } from 'svelte/store';
 import type { ApiBranch, Branch } from '$lib/branches/types';
 import type { Loadable } from '$lib/network/types';
@@ -23,7 +23,7 @@ import type { AppDispatch } from '$lib/redux/store.svelte';
 // Define the LoadablePatchStacks type
 export type LoadablePatchStacks = Loadable<Branch[]> & { ownerSlug: string };
 
-export const ORGANIZATION_SERVICE_TOKEN = new InjectionToken<OrganizationService>('OrganizationService');
+export const ORGANIZATION_SERVICE = new InjectionToken<OrganizationService>('OrganizationService');
 
 export class OrganizationService {
 	private readonly organizationListingInterests = new InterestStore<undefined>(POLLING_SLOW);

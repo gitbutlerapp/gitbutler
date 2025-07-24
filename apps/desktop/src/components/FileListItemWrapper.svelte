@@ -2,18 +2,18 @@
 <script lang="ts">
 	import FileContextMenu from '$components/v3/FileContextMenu.svelte';
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
-	import { DragStateService } from '$lib/dragging/dragStateService.svelte';
+	import { DRAG_STATE_SERVICE } from '$lib/dragging/dragStateService.svelte';
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { ChangeDropData } from '$lib/dragging/draggables';
-	import { DropzoneRegistry } from '$lib/dragging/registry';
+	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
 	import { getFilename } from '$lib/files/utils';
 	import { type TreeChange } from '$lib/hunks/change';
-	import { IdSelection } from '$lib/selection/idSelection.svelte';
+	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import { key, type SelectionId } from '$lib/selection/key';
-	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
+	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
 	import FileViewHeader from '@gitbutler/ui/file/FileViewHeader.svelte';
 	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
@@ -67,10 +67,10 @@
 		onCloseClick
 	}: Props = $props();
 
-	const idSelection = getContext(IdSelection);
-	const uncommittedService = getContext(UncommittedService);
-	const dropzoneRegistry = getContext(DropzoneRegistry);
-	const dragStateService = getContext(DragStateService);
+	const idSelection = inject(ID_SELECTION);
+	const uncommittedService = inject(UNCOMMITTED_SERVICE);
+	const dropzoneRegistry = inject(DROPZONE_REGISTRY);
+	const dragStateService = inject(DRAG_STATE_SERVICE);
 
 	let contextMenu = $state<ReturnType<typeof FileContextMenu>>();
 	let draggableEl: HTMLDivElement | undefined = $state();

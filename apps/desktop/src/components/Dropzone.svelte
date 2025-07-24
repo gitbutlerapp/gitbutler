@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { dropzone, type HoverArgs } from '$lib/dragging/dropzone';
-	import { DropzoneRegistry } from '$lib/dragging/registry';
-	import { getContext } from '@gitbutler/shared/context';
+	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
+	import { inject } from '@gitbutler/shared/context';
 	import type { DropzoneHandler } from '$lib/dragging/handler';
 	import type { Snippet } from 'svelte';
 
-	const dropzoneRegistry = getContext(DropzoneRegistry);
+	const dropzoneRegistry = inject(DROPZONE_REGISTRY);
 
 	interface Props {
 		disabled?: boolean;

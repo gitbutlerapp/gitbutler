@@ -1,4 +1,7 @@
+import { InjectionToken } from '@gitbutler/shared/context';
 import { writable, type Readable } from 'svelte/store';
+
+export const DRAG_STATE_SERVICE = new InjectionToken<DragStateService>('DragStateService');
 
 /**
  * Centralized drag state service that tracks when any type of dragging is happening.

@@ -5,9 +5,9 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import RemoveProjectButton from '$components/RemoveProjectButton.svelte';
 	import notFoundSvg from '$lib/assets/illustrations/not-found.svg?raw';
-	import { ProjectsService } from '$lib/project/projectsService';
+	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { TestId } from '$lib/testing/testIds';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 
@@ -16,7 +16,7 @@
 	}
 	const { projectId }: Props = $props();
 
-	const projectsService = getContext(ProjectsService);
+	const projectsService = inject(PROJECTS_SERVICE);
 	const projectResult = $derived(projectsService.getProject(projectId, false));
 
 	let deleteSucceeded: boolean | undefined = $state(undefined);

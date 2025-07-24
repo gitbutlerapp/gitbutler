@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { WebState } from '$lib/redux/store.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { WEB_STATE } from '$lib/redux/store.svelte';
+	import { inject } from '@gitbutler/shared/context';
 	import RegisterInterest from '@gitbutler/shared/interest/RegisterInterest.svelte';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
+	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
 	import { getOrganizations } from '@gitbutler/shared/organizations/organizationsPreview.svelte';
-	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
+	import { PROJECT_SERVICE } from '@gitbutler/shared/organizations/projectService';
 	import { projectTable } from '@gitbutler/shared/organizations/projectsSlice';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -19,9 +19,9 @@
 
 	const { projectRepositoryId }: Props = $props();
 
-	const webState = getContext(WebState);
-	const organizationService = getContext(OrganizationService);
-	const projectService = getContext(ProjectService);
+	const webState = inject(WEB_STATE);
+	const organizationService = inject(ORGANIZATION_SERVICE);
+	const projectService = inject(PROJECT_SERVICE);
 
 	const projectInterest = $derived(projectService.getProjectInterest(projectRepositoryId));
 	const project = $derived(

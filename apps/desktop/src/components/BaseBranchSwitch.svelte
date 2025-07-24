@@ -1,9 +1,9 @@
 <script lang="ts">
 	import InfoMessage from '$components/InfoMessage.svelte';
-	import { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { BASE_BRANCH } from '$lib/baseBranch/baseBranch';
+	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Select from '@gitbutler/ui/select/Select.svelte';
@@ -11,9 +11,9 @@
 
 	const { projectId }: { projectId: string } = $props();
 
-	const baseBranch = getContext(BaseBranch);
-	const stackService = getContext(StackService);
-	const baseBranchService = getContext(BaseBranchService);
+	const baseBranch = inject(BASE_BRANCH);
+	const stackService = inject(STACK_SERVICE);
+	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const remoteBranchesResponse = $derived(baseBranchService.remoteBranches(projectId));
 	const [setBaseBranchTarget, targetBranchSwitch] = baseBranchService.setTarget;
 

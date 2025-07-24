@@ -5,10 +5,10 @@
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
 	import cloneRepoSvg from '$lib/assets/welcome/clone-repo.svg?raw';
 	import newProjectSvg from '$lib/assets/welcome/new-local-project.svg?raw';
-	import { ProjectsService } from '$lib/project/projectsService';
-	import { getContext } from '@gitbutler/shared/context';
+	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { inject } from '@gitbutler/shared/context';
 
-	const projectsService = getContext(ProjectsService);
+	const projectsService = inject(PROJECTS_SERVICE);
 
 	let newProjectLoading = $state(false);
 	let directoryInputElement = $state<HTMLInputElement | undefined>();

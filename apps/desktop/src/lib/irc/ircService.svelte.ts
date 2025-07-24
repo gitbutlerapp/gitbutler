@@ -20,6 +20,7 @@ import {
 	clearNames
 } from '$lib/irc/ircSlice';
 import { showError } from '$lib/notifications/toasts';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import persistReducer from 'redux-persist/es/persistReducer';
 import storage from 'redux-persist/lib/storage';
@@ -29,6 +30,8 @@ import type { IrcChannel, IrcChat, WhoInfo } from '$lib/irc/types';
 import type { ClientState } from '$lib/state/clientState.svelte';
 import type { Reactive } from '@gitbutler/shared/storeUtils';
 import type { ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
+
+export const IRC_SERVICE = new InjectionToken<IrcService>('IrcService');
 
 /**
  * Experimental IRC

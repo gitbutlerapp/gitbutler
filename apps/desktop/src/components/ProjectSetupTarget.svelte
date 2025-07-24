@@ -6,11 +6,11 @@
 	import SetupFeature from '$components/SetupFeature.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { platformName } from '$lib/platform/platform';
-	import { ProjectsService } from '$lib/project/projectsService';
-	import { UserService } from '$lib/user/userService';
+	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { USER_SERVICE } from '$lib/user/userService';
 	import { unique } from '$lib/utils/array';
 	import { getBestBranch, getBestRemote, getBranchRemoteFromRef } from '$lib/utils/branch';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import Select from '@gitbutler/ui/select/Select.svelte';
@@ -26,7 +26,7 @@
 
 	const { projectId, projectName, remoteBranches, onBranchSelected }: Props = $props();
 
-	const userService = getContext(UserService);
+	const userService = inject(USER_SERVICE);
 	const user = userService.user;
 
 	const aiGenEnabled = projectAiGenEnabled(projectId);
@@ -57,7 +57,7 @@
 		onBranchSelected?.([branch.name, remote]);
 	}
 
-	const projectsService = getContext(ProjectsService);
+	const projectsService = inject(PROJECTS_SERVICE);
 	async function deleteProjectAndGoBack() {
 		await projectsService.deleteProject(projectId);
 

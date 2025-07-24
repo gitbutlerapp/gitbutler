@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { User } from '$lib/user/user';
-	import { getContextStore } from '@gitbutler/shared/context';
+	import { USER } from '$lib/user/user';
+	import { inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 
 	interface Props {
@@ -11,7 +11,7 @@
 
 	const { pop = false, isNavCollapsed = false }: Props = $props();
 
-	const user = getContextStore(User);
+	const user = inject(USER);
 </script>
 
 <button

@@ -1,10 +1,10 @@
-import { getContext } from '$lib/context';
+import { inject } from '$lib/context';
 import { registerInterest } from '$lib/interest/registerInterestFunction.svelte';
-import { PatchIdableService } from '$lib/patches/patchIdableService';
+import { PATCH_IDABLE_SERVICE } from '$lib/patches/patchIdableService';
 import { patchIdableTable } from '$lib/patches/patchIdablesSlice';
 import { patchIdableId, type LoadablePatchIdable } from '$lib/patches/types';
 import { reactive } from '$lib/reactiveUtils.svelte';
-import { AppState } from '$lib/redux/store.svelte';
+import { APP_STATE } from '$lib/redux/store.svelte';
 import { type Reactive } from '$lib/storeUtils';
 
 export function getPatchIdable(
@@ -13,8 +13,8 @@ export function getPatchIdable(
 	oldVersion: number | undefined,
 	newVersion: number
 ): Reactive<LoadablePatchIdable | undefined> {
-	const appState = getContext(AppState);
-	const patchIdableService = getContext(PatchIdableService);
+	const appState = inject(APP_STATE);
+	const patchIdableService = inject(PATCH_IDABLE_SERVICE);
 
 	const interest = patchIdableService.getPatchIdableInterest({
 		branchUuid,

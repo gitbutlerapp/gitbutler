@@ -6,15 +6,15 @@
 	import ChatInReplyTo, { type ReplyToMessage } from '$lib/components/chat/ChatInReplyTo.svelte';
 	import MentionSuggestions from '$lib/components/chat/MentionSuggestions.svelte';
 	import { type DiffSelection } from '$lib/diff/lineSelection.svelte';
-	import { UserService } from '$lib/user/userService';
+	import { USER_SERVICE } from '$lib/user/userService';
 	import { getChatChannelParticipants } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';
-	import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
-	import { getContext } from '@gitbutler/shared/context';
+	import { CHAT_CHANNELS_SERVICE } from '@gitbutler/shared/chat/chatChannelsService';
+	import { inject } from '@gitbutler/shared/context';
 	import { uploadFiles } from '@gitbutler/shared/dom';
-	import { PatchCommitService } from '@gitbutler/shared/patches/patchCommitService';
-	import { AppState } from '@gitbutler/shared/redux/store.svelte';
-	import { UploadsService } from '@gitbutler/shared/uploads/uploadsService';
-	import { UserService as NewUserService } from '@gitbutler/shared/users/userService';
+	import { PATCH_COMMIT_SERVICE } from '@gitbutler/shared/patches/patchCommitService';
+	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
+	import { UPLOADS_SERVICE } from '@gitbutler/shared/uploads/uploadsService';
+	import { NEW_USER_SERVICE } from '@gitbutler/shared/users/userService';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
@@ -59,14 +59,14 @@
 		clearReply
 	}: Props = $props();
 
-	const newUserService = getContext(NewUserService);
-	const userService = getContext(UserService);
+	const newUserService = inject(NEW_USER_SERVICE);
+	const userService = inject(USER_SERVICE);
 	const user = $derived(userService.user);
 
-	const appState = getContext(AppState);
-	const patchCommitService = getContext(PatchCommitService);
-	const chatChannelService = getContext(ChatChannelsService);
-	const uploadsService = getContext(UploadsService);
+	const appState = inject(APP_STATE);
+	const patchCommitService = inject(PATCH_COMMIT_SERVICE);
+	const chatChannelService = inject(CHAT_CHANNELS_SERVICE);
+	const uploadsService = inject(UPLOADS_SERVICE);
 	const contributors = $derived(patchCommit.contributors.map((c) => c.user).filter(isDefined));
 	const chatParticipants = $derived(
 		getChatChannelParticipants(appState, chatChannelService, projectId, changeId)

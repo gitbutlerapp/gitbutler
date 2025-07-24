@@ -1,21 +1,21 @@
 <script lang="ts">
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import RegisterInterest from '@gitbutler/shared/interest/RegisterInterest.svelte';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { HttpClient } from '@gitbutler/shared/network/httpClient';
+	import { HTTP_CLIENT } from '@gitbutler/shared/network/httpClient';
 	import CreateOrganizationModal from '@gitbutler/shared/organizations/CreateOrganizationModal.svelte';
 	import JoinOrganizationModal from '@gitbutler/shared/organizations/JoinOrganizationModal.svelte';
-	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
+	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
 	import { organizationTable } from '@gitbutler/shared/organizations/organizationsSlice';
-	import { AppState } from '@gitbutler/shared/redux/store.svelte';
+	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 
-	const organizationService = getContext(OrganizationService);
-	const appState = getContext(AppState);
-	const httpClient = getContext(HttpClient);
+	const organizationService = inject(ORGANIZATION_SERVICE);
+	const appState = inject(APP_STATE);
+	const httpClient = inject(HTTP_CLIENT);
 	const authenticated = httpClient.authenticationAvailable;
 
 	const organizationsInterest = organizationService.getOrganizationListingInterest();

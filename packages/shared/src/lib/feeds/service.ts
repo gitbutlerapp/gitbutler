@@ -1,3 +1,4 @@
+import { InjectionToken } from '$lib/context';
 import { feedAppend, feedPrepend } from '$lib/feeds/feedsSlice';
 import { upsertPost, upsertPosts } from '$lib/feeds/postsSlice';
 import { apiToPost, type ApiPost, type ApiPostWithReplies, type Post } from '$lib/feeds/types';
@@ -8,6 +9,8 @@ import { apiToUser, type LoadableUser } from '$lib/users/types';
 import { userTable } from '$lib/users/usersSlice';
 import type { HttpClient } from '$lib/network/httpClient';
 import type { AppDispatch } from '$lib/redux/store.svelte';
+
+export const FEED_SERVICE = new InjectionToken<FeedService>('FeedService');
 
 export class FeedService {
 	private readonly feedInterests = new InterestStore<{ identifier: string }>(POLLING_REGULAR);

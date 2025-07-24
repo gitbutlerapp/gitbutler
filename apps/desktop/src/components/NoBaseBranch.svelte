@@ -2,11 +2,11 @@
 	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import ProblemLoadingRepo from '$components/ProblemLoadingRepo.svelte';
 	import ProjectSetup from '$components/ProjectSetup.svelte';
-	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
+	import { inject } from '@gitbutler/shared/context';
 
 	const { projectId }: { projectId: string } = $props();
-	const baseBranchService = getContext(BaseBranchService);
+	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const remoteBranchesResponse = $derived(baseBranchService.remoteBranches(projectId));
 </script>
 

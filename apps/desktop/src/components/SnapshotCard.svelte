@@ -1,9 +1,9 @@
 <script lang="ts">
 	import SnapshotAttachment from '$components/SnapshotAttachment.svelte';
 	import { createdOnDay } from '$lib/history/history';
-	import { ModeService } from '$lib/mode/modeService';
+	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { toHumanReadableTime } from '$lib/utils/time';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
@@ -168,7 +168,7 @@
 
 	const operation = mapOperation(entry.details);
 
-	const modeService = getContext(ModeService);
+	const modeService = inject(MODE_SERVICE);
 	const mode = $derived(modeService.mode({ projectId }));
 </script>
 

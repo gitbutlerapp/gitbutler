@@ -5,6 +5,7 @@ import { GitHub, GITHUB_DOMAIN } from '$lib/forge/github/github';
 import { GitHubClient } from '$lib/forge/github/githubClient';
 import { GitLab, GITLAB_DOMAIN, GITLAB_SUB_DOMAIN } from '$lib/forge/gitlab/gitlab';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { BehaviorSubject } from 'rxjs';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
@@ -25,6 +26,8 @@ export type ForgeConfig = {
 	gitlabAuthenticated?: boolean;
 	forgeOverride?: ForgeName;
 };
+
+export const DEFAULT_FORGE_FACTORY = new InjectionToken<DefaultForgeFactory>('DefaultForgeFactory');
 
 export class DefaultForgeFactory implements Reactive<Forge> {
 	private default = new DefaultForge();

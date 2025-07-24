@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { PromptService } from '$lib/ai/promptService';
-	import { getContext } from '@gitbutler/shared/context';
+	import { PROMPT_SERVICE } from '$lib/ai/promptService';
+	import { inject } from '@gitbutler/shared/context';
 	import Select from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import { onMount } from 'svelte';
@@ -14,7 +14,7 @@
 
 	const { projectId, promptUse }: Props = $props();
 
-	const promptService = getContext(PromptService);
+	const promptService = inject(PROMPT_SERVICE);
 
 	let prompts: Prompts;
 	let selectedPromptId = $state<Persisted<string | undefined>>();

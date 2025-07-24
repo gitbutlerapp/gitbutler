@@ -4,8 +4,8 @@
 	import Section from '$components/Section.svelte';
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
 	import { projectAiExperimentalFeaturesEnabled, projectAiGenEnabled } from '$lib/config/config';
-	import { UserService } from '$lib/user/userService';
-	import { getContext } from '@gitbutler/shared/context';
+	import { USER_SERVICE } from '$lib/user/userService';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
@@ -13,7 +13,7 @@
 
 	const { projectId }: { projectId: string } = $props();
 
-	const userService = getContext(UserService);
+	const userService = inject(USER_SERVICE);
 	const user = userService.user;
 
 	const aiGenEnabled = $derived(projectAiGenEnabled(projectId));

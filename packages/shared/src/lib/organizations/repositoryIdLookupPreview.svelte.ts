@@ -1,9 +1,9 @@
-import { getContext } from '$lib/context';
+import { inject } from '$lib/context';
 import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
-import { RepositoryIdLookupService } from '$lib/organizations/repositoryIdLookupService';
+import { REPOSITORY_ID_LOOKUP_SERVICE } from '$lib/organizations/repositoryIdLookupService';
 import { repositoryIdLookupTable } from '$lib/organizations/repositoryIdLookupsSlice';
 import { stringifyProjectIdentity, type LoadableRepositoryId } from '$lib/organizations/types';
-import { AppState } from '$lib/redux/store.svelte';
+import { APP_STATE } from '$lib/redux/store.svelte';
 import type { Reactive } from '$lib/storeUtils';
 
 export function lookupProject(
@@ -11,8 +11,8 @@ export function lookupProject(
 	slug: string,
 	inView?: InView
 ): Reactive<LoadableRepositoryId | undefined> {
-	const projectLookupService = getContext(RepositoryIdLookupService);
-	const appState = getContext(AppState);
+	const projectLookupService = inject(REPOSITORY_ID_LOOKUP_SERVICE);
+	const appState = inject(APP_STATE);
 
 	registerInterest(projectLookupService.getRepositoryIdInterest(owner, slug), inView);
 	const repositoryId = $derived(

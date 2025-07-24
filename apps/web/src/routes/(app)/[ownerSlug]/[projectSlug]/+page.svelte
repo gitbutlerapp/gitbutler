@@ -4,11 +4,11 @@
 	import ReviewsSection from '$lib/components/ReviewsSection.svelte';
 	import { featureShowProjectPage } from '$lib/featureFlags';
 	import { getTimeSince } from '$lib/utils/dateUtils';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import PermissionsSelector from '@gitbutler/shared/organizations/PermissionsSelector.svelte';
-	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
+	import { PROJECT_SERVICE } from '@gitbutler/shared/organizations/projectService';
 	import {
-		WebRoutesService,
+		WEB_ROUTES_SERVICE,
 		type ProjectParameters
 	} from '@gitbutler/shared/routing/webRoutes.svelte';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
@@ -22,8 +22,8 @@
 	}
 
 	let { data }: Props = $props();
-	const projectService = getContext(ProjectService);
-	const routes = getContext(WebRoutesService);
+	const projectService = inject(PROJECT_SERVICE);
+	const routes = inject(WEB_ROUTES_SERVICE);
 
 	$effect(() => {
 		if (!$featureShowProjectPage) {

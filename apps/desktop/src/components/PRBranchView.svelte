@@ -2,9 +2,9 @@
 	import Drawer from '$components/Drawer.svelte';
 	import PrStatusBadge from '$components/PrStatusBadge.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { TestId } from '$lib/testing/testIds';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
 
@@ -17,7 +17,7 @@
 	};
 	const { projectId, prNumber, onerror }: Props = $props();
 
-	const forge = getContext(DefaultForgeFactory);
+	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const prService = $derived(forge.current.prService);
 	const prResult = $derived(prService?.get(prNumber, { forceRefetch: true }));
 	const unitSymbol = $derived(prService?.unit.symbol ?? '');

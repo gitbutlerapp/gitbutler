@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { AuthService } from '$lib/auth/authService.svelte';
-	import { UserService } from '$lib/user/userService';
-	import { getContext } from '@gitbutler/shared/context';
+	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
+	import { USER_SERVICE } from '$lib/user/userService';
+	import { inject } from '@gitbutler/shared/context';
 
-	const authService = getContext(AuthService);
-	const userService = getContext(UserService);
+	const authService = inject(AUTH_SERVICE);
+	const userService = inject(USER_SERVICE);
 
 	const user = $derived(userService.user);
 	const token = $derived(authService.tokenReadable);

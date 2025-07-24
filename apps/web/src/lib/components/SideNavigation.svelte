@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { AuthService } from '$lib/auth/authService.svelte';
-	import { getContext } from '@gitbutler/shared/context';
-	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
+	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
+	import { inject } from '@gitbutler/shared/context';
+	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { env } from '$env/dynamic/public';
 
-	const authService = getContext(AuthService);
+	const authService = inject(AUTH_SERVICE);
 	const token = $derived(authService.tokenReadable);
-	const routes = getContext(WebRoutesService);
+	const routes = inject(WEB_ROUTES_SERVICE);
 
 	function logout() {
 		authService.clearToken();

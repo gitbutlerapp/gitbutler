@@ -1,11 +1,11 @@
 <script lang="ts">
 	import Dropzone from '$components/Dropzone.svelte';
 	import MultiStackCreateNew from '$components/MultiStackCreateNew.svelte';
-	import { DiffService } from '$lib/hunks/diffService.svelte';
-	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
+	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
+	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { OutsideLaneDzHandler } from '$lib/stacks/dropHandler';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
 	import type { Snippet } from 'svelte';
@@ -20,12 +20,10 @@
 
 	const { viewport, projectId, title, description, onVisible }: Props = $props();
 
-	const [stackService, uiState, uncommittedService, diffService] = inject(
-		StackService,
-		UiState,
-		UncommittedService,
-		DiffService
-	);
+	const stackService = inject(STACK_SERVICE);
+	const uiState = inject(UI_STATE);
+	const uncommittedService = inject(UNCOMMITTED_SERVICE);
+	const diffService = inject(DIFF_SERVICE);
 	const dzHandler = $derived(
 		new OutsideLaneDzHandler(stackService, projectId, uiState, uncommittedService, diffService)
 	);

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import TableRow from '$lib/components/table/TableRow.svelte';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import {
 		getPatchContributorsWithAvatars,
 		getPatchApproversAllWithAvatars,
@@ -12,7 +12,7 @@
 	import { getPatch } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
 	import { getPatchStatus } from '@gitbutler/shared/patches/types';
 	import {
-		WebRoutesService,
+		WEB_ROUTES_SERVICE,
 		type ProjectReviewParameters
 	} from '@gitbutler/shared/routing/webRoutes.svelte';
 	import dayjs from 'dayjs';
@@ -29,7 +29,7 @@
 
 	const { changeId, params, branchUuid }: Props = $props();
 
-	const routes = getContext(WebRoutesService);
+	const routes = inject(WEB_ROUTES_SERVICE);
 
 	const branch = $derived(getBranchReview(branchUuid));
 	const change = $derived(getPatch(branchUuid, changeId));

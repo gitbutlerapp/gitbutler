@@ -5,6 +5,7 @@ import { showError } from '$lib/notifications/toasts';
 import { User } from '$lib/user/user';
 import { sleep } from '$lib/utils/sleep';
 import { openExternalUrl } from '$lib/utils/url';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { type HttpClient } from '@gitbutler/shared/network/httpClient';
 import { plainToInstance } from 'class-transformer';
 import { derived, get, readable, writable, type Readable } from 'svelte/store';
@@ -19,6 +20,8 @@ export type LoginToken = {
 	expires: string;
 	url: string;
 };
+
+export const USER_SERVICE = new InjectionToken<UserService>('UserService');
 
 export class UserService {
 	readonly loading = writable(false);

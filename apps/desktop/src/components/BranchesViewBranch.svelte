@@ -4,9 +4,9 @@
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { pushStatusToColor, pushStatusToIcon, type BranchDetails } from '$lib/stacks/stack';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
+	import { inject } from '@gitbutler/shared/context';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 
 	type Props = {
@@ -20,14 +20,14 @@
 
 	const { projectId, stackId, branchName, remote, isTopBranch = true, onerror }: Props = $props();
 
-	const stackService = getContext(StackService);
+	const stackService = inject(STACK_SERVICE);
 	const branchResult = $derived(
 		stackId
 			? stackService.branchDetails(projectId, stackId, branchName)
 			: stackService.unstackedBranchDetails(projectId, branchName, remote)
 	);
 
-	const uiState = getContext(UiState);
+	const uiState = inject(UI_STATE);
 	const projectState = $derived(uiState.project(projectId));
 	const branchesState = $derived(projectState.branchesSelection);
 </script>

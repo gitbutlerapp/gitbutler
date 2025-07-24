@@ -5,6 +5,7 @@
  * TODO: Rewrite this to be an injectable object so we don't need `storeInstance`.
  */
 
+import { InjectionToken } from '@gitbutler/shared/context';
 import { Store } from '@tauri-apps/plugin-store';
 import { writable, type Writable } from 'svelte/store';
 
@@ -14,6 +15,8 @@ export async function loadAppSettings() {
 	const diskStore = await Store.load('settings.json', { autoSave: true });
 	return new AppSettings(diskStore);
 }
+
+export const APP_SETTINGS = new InjectionToken<AppSettings>('AppSettings');
 
 export class AppSettings {
 	/**

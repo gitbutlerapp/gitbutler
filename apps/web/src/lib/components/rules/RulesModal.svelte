@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { ButlerAIClient, MessageRole } from '$lib/ai/service';
+	import { BUTLER_AI_CLIENT, MessageRole } from '$lib/ai/service';
 	import { parseDiffPatchToDiffString } from '$lib/chat/diffPatch';
-	import { getContext } from '@gitbutler/shared/context';
-	import { RulesService } from '@gitbutler/shared/rules/rulesService';
+	import { inject } from '@gitbutler/shared/context';
+	import { RULES_SERVICE } from '@gitbutler/shared/rules/rulesService';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
@@ -21,8 +21,8 @@
 	const diffStringBefore = $derived(parseDiffPatchToDiffString(message.diffPatchArray, 'before'));
 	const diffStringAfter = $derived(parseDiffPatchToDiffString(message.diffPatchArray, 'after'));
 	const fileExtension = $derived(message.diffPath?.split('.').pop() ?? '');
-	const aiService = getContext(ButlerAIClient);
-	const rulesService = getContext(RulesService);
+	const aiService = inject(BUTLER_AI_CLIENT);
+	const rulesService = inject(RULES_SERVICE);
 
 	let isGenerating = $state<boolean>(false);
 

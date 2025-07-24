@@ -5,8 +5,8 @@
 </script>
 
 <script lang="ts">
-	import { PostHogWrapper } from '$lib/analytics/posthog';
-	import { getContext } from '@gitbutler/shared/context';
+	import { POSTHOG_WRAPPER } from '$lib/analytics/posthog';
+	import { inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { onMount } from 'svelte';
 	import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
@@ -17,7 +17,7 @@
 	};
 	const { projectId, projectMetrics }: Props = $props();
 
-	const posthog = getContext(PostHogWrapper);
+	const posthog = inject(POSTHOG_WRAPPER);
 	const lastReportMs = persisted<number | undefined>(undefined, `lastMetricsTs-${projectId}`);
 
 	// Any interval or timeout must be cleared on unmount.

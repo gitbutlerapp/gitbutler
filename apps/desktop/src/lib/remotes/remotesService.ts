@@ -6,7 +6,7 @@ export interface GitRemote {
 	url?: string;
 }
 
-export const REMOTES_SERVICE_TOKEN = new InjectionToken<RemotesService>('RemotesService');
+export const REMOTES_SERVICE = new InjectionToken<RemotesService>('RemotesService');
 
 export class RemotesService {
 	async remotes(projectId: string) {

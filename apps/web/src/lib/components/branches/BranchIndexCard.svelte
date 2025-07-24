@@ -1,12 +1,12 @@
 <script lang="ts">
 	import TableRow from '$lib/components/table/TableRow.svelte';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import { getContributorsWithAvatars } from '@gitbutler/shared/contributors';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { isFound } from '@gitbutler/shared/network/loadable';
 	import {
-		WebRoutesService,
+		WEB_ROUTES_SERVICE,
 		type ProjectParameters
 	} from '@gitbutler/shared/routing/webRoutes.svelte';
 	import dayjs from 'dayjs';
@@ -24,7 +24,7 @@
 
 	const { uuid, linkParams, isTopEntry, roundedTop, roundedBottom }: Props = $props();
 
-	const routes = getContext(WebRoutesService);
+	const routes = inject(WEB_ROUTES_SERVICE);
 
 	const branch = $derived(getBranchReview(uuid));
 

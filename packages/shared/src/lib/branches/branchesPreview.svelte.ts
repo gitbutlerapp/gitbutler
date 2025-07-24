@@ -1,5 +1,5 @@
 import { branchReviewListingTable } from '$lib/branches/branchReviewListingsSlice';
-import { BranchService } from '$lib/branches/branchService';
+import { BRANCH_SERVICE } from '$lib/branches/branchService';
 import { branchTable } from '$lib/branches/branchesSlice';
 import {
 	branchReviewListingKey,
@@ -7,10 +7,10 @@ import {
 	type Branch,
 	type LoadableBranch
 } from '$lib/branches/types';
-import { getContext } from '$lib/context';
+import { inject } from '$lib/context';
 import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
 import { isFound } from '$lib/network/loadable';
-import { AppState } from '$lib/redux/store.svelte';
+import { APP_STATE } from '$lib/redux/store.svelte';
 import type { Loadable } from '$lib/network/types';
 import type { Reactive } from '$lib/storeUtils';
 
@@ -21,8 +21,8 @@ export function getBranchReviewsForRepository(
 	status: BranchStatus = BranchStatus.All,
 	inView?: InView
 ): Reactive<Loadable<Branch[][]>> {
-	const appState = getContext(AppState);
-	const branchService = getContext(BranchService);
+	const appState = inject(APP_STATE);
+	const branchService = inject(BRANCH_SERVICE);
 
 	const branchReviewsInterest = branchService.getBranchesInterest(ownerSlug, projectSlug, status);
 	registerInterest(branchReviewsInterest, inView);
@@ -72,8 +72,8 @@ export function getBranchReview(
 	uuid: string,
 	inView?: InView
 ): Reactive<LoadableBranch | undefined> {
-	const branchService = getContext(BranchService);
-	const appState = getContext(AppState);
+	const branchService = inject(BRANCH_SERVICE);
+	const appState = inject(APP_STATE);
 	const branchReviewInterest = branchService.getBranchInterest(uuid);
 	registerInterest(branchReviewInterest, inView);
 

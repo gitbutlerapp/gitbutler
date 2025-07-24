@@ -6,17 +6,17 @@
 	import CommitSuggestions from '$components/editor/commitSuggestions.svelte';
 	import DiffInputContext, { type DiffInputContextArgs } from '$lib/ai/diffInputContext.svelte';
 	import AIMacros from '$lib/ai/macros.svelte';
-	import { PromptService } from '$lib/ai/promptService';
-	import { AIService } from '$lib/ai/service';
+	import { PROMPT_SERVICE } from '$lib/ai/promptService';
+	import { AI_SERVICE } from '$lib/ai/service';
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import { DiffService } from '$lib/hunks/diffService.svelte';
-	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
+	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
+	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { splitMessage } from '$lib/utils/commitMessage';
-	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { WORKTREE_SERVICE } from '$lib/worktree/worktreeService.svelte';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { tick } from 'svelte';
 
@@ -52,16 +52,16 @@
 		existingCommitId
 	}: Props = $props();
 
-	const uiState = getContext(UiState);
-	const aiService = getContext(AIService);
-	const promptService = getContext(PromptService);
+	const uiState = inject(UI_STATE);
+	const aiService = inject(AI_SERVICE);
+	const promptService = inject(PROMPT_SERVICE);
 
 	const useFloatingBox = $derived(uiState.global.useFloatingBox);
 
-	const worktreeService = getContext(WorktreeService);
-	const diffService = getContext(DiffService);
-	const uncommittedService = getContext(UncommittedService);
-	const stackService = getContext(StackService);
+	const worktreeService = inject(WORKTREE_SERVICE);
+	const diffService = inject(DIFF_SERVICE);
+	const uncommittedService = inject(UNCOMMITTED_SERVICE);
+	const stackService = inject(STACK_SERVICE);
 
 	const stackState = $derived(stackId ? uiState.stack(stackId) : undefined);
 	const stackSelection = $derived(stackState?.selection);

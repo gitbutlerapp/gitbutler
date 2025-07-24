@@ -5,12 +5,12 @@
 	import Event from '$lib/components/chat/Event.svelte';
 	import { type DiffSelection } from '$lib/diff/lineSelection.svelte';
 	import blankChat from '$lib/images/blank-chat.svg?raw';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { isFound } from '@gitbutler/shared/network/loadable';
-	import { PatchEventsService } from '@gitbutler/shared/patchEvents/patchEventsService';
+	import { PATCH_EVENTS_SERVICE } from '@gitbutler/shared/patchEvents/patchEventsService';
 	import { getPatchEvents } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
-	import { AppState } from '@gitbutler/shared/redux/store.svelte';
+	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import type { PatchCommit } from '@gitbutler/shared/patches/types';
 
@@ -48,8 +48,8 @@
 		clearDiffSelection
 	}: Props = $props();
 
-	const appState = getContext(AppState);
-	const patchEventsService = getContext(PatchEventsService);
+	const appState = inject(APP_STATE);
+	const patchEventsService = inject(PATCH_EVENTS_SERVICE);
 	const replyToHandler = new ReplyHandler();
 
 	let highlightedMessageUuid = $state<string>();

@@ -1,4 +1,5 @@
 import { Cmd, parseIRCMessage, toIrcEvent, type IrcEvent } from '$lib/irc/parser';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import ReconnectingWebSocket, { type CloseEvent, type ErrorEvent } from 'reconnecting-websocket';
 
@@ -26,6 +27,8 @@ const capabilities = [
 	'invite-notify',
 	'labeled-response'
 ];
+
+export const IRC_CLIENT = new InjectionToken<IrcClient>('IrcClient');
 
 /**
  * A service for tracking uncommitted changes.

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
+	import { inject } from '@gitbutler/shared/context';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 
 	type Props = {
@@ -9,7 +9,7 @@
 
 	const { stackId }: Props = $props();
 
-	const uncommittedService = getContext(UncommittedService);
+	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 
 	const checkStatus = $derived(uncommittedService.stackCheckStatus(stackId));
 

@@ -2,12 +2,12 @@
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import {
-		IntelligentScrollingService,
+		INTELLIGENT_SCROLLING_SERVICE,
 		scrollingAttachment,
 		type TargetType
 	} from '$lib/intelligentScrolling/service';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
+	import { SETTINGS } from '$lib/settings/userSettings';
+	import { inject } from '@gitbutler/shared/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -57,8 +57,8 @@
 		onclose
 	}: Props = $props();
 
-	const [intelligentScrollingService] = inject(IntelligentScrollingService);
-	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
+	const intelligentScrollingService = inject(INTELLIGENT_SCROLLING_SERVICE);
+	const userSettings = inject(SETTINGS);
 	const zoom = $derived($userSettings.zoom);
 
 	let headerDiv = $state<HTMLDivElement>();

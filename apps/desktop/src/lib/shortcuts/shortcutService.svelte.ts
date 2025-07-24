@@ -1,4 +1,7 @@
+import { InjectionToken } from '@gitbutler/shared/context';
 import type { Tauri } from '$lib/backend/tauri';
+
+export const SHORTCUT_SERVICE = new InjectionToken<ShortcutService>('ShortcutService');
 
 /**
  * Service class for listening to shortcut events from the back end.

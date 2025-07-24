@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { ProjectsService } from '$lib/project/projectsService';
+	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { clonePath } from '$lib/routes/routes.svelte';
-	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService.svelte';
+	import { inject } from '@gitbutler/shared/context';
 
-	const projectsService = getContext(ProjectsService);
-	const shortcutService = getContext(ShortcutService);
+	const projectsService = inject(PROJECTS_SERVICE);
+	const shortcutService = inject(SHORTCUT_SERVICE);
 
 	shortcutService.on('add-local-repo', async () => {
 		await projectsService.addProject();

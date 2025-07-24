@@ -1,6 +1,9 @@
 import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
+import { InjectionToken } from '@gitbutler/shared/context';
 import type { BranchListing, BranchListingDetails } from '$lib/branches/branchListing';
 import type { BackendApi, ClientState } from '$lib/state/clientState.svelte';
+
+export const BRANCH_SERVICE = new InjectionToken<BranchService>('BranchService');
 
 export class BranchService {
 	private api: ReturnType<typeof injectEndpoints>;

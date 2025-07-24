@@ -1,11 +1,11 @@
 <script lang="ts">
 	import IrcChannel from '$components/IrcChannel.svelte';
 	import FloatingModal from '$lib/floating/FloatingModal.svelte';
-	import { IrcService } from '$lib/irc/ircService.svelte';
+	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 
-	const [ircService] = inject(IrcService);
+	const ircService = inject(IRC_SERVICE);
 
 	const chats = $derived(ircService.getChatsWithPopup());
 	let ircHeaderEl: HTMLDivElement | undefined = $state();

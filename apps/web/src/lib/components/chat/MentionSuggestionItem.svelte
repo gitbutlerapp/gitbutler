@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { AppState } from '@gitbutler/shared/redux/store.svelte';
-	import { UserService } from '@gitbutler/shared/users/userService';
+	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
+	import { USER_SERVICE } from '@gitbutler/shared/users/userService';
 	import { getUserByLogin } from '@gitbutler/shared/users/usersPreview.svelte';
 	interface Props {
 		username: string;
@@ -10,8 +10,8 @@
 
 	const { username }: Props = $props();
 
-	const appState = getContext(AppState);
-	const userService = getContext(UserService);
+	const appState = inject(APP_STATE);
+	const userService = inject(USER_SERVICE);
 
 	const user = $derived(getUserByLogin(appState, userService, username));
 </script>

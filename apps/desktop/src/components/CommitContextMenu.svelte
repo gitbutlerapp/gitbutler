@@ -31,10 +31,10 @@
 	import ContextMenu from '$components/ContextMenu.svelte';
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
-	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import type { CommitStatusType } from '$lib/commits/commit';
@@ -47,7 +47,7 @@
 
 	let { projectId, context = $bindable(), openId = $bindable() }: Props = $props();
 
-	const stackService = getContext(StackService);
+	const stackService = inject(STACK_SERVICE);
 	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
 
 	async function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {

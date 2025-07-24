@@ -1,4 +1,5 @@
 import { invalidatesItem, invalidatesList, providesItems, ReduxTag } from '$lib/state/tags';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type {
 	CreateRuleRequest,
@@ -7,6 +8,8 @@ import type {
 	WorkspaceRuleId
 } from '$lib/rules/rule';
 import type { BackendApi } from '$lib/state/clientState.svelte';
+
+export const RULES_SERVICE = new InjectionToken<RulesService>('RulesService');
 
 export default class RulesService {
 	private api: ReturnType<typeof injectEndpoints>;

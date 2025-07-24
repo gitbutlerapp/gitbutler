@@ -1,10 +1,13 @@
 import { dashboardSidebarReducer } from '$lib/dashboard/sidebar.svelte';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
 import { configureStore, createSelector } from '@reduxjs/toolkit';
 
 export type WebDashboardSidebarState = {
 	readonly dashboardSidebar: ReturnType<typeof dashboardSidebarReducer>;
 };
+
+export const WEB_STATE = new InjectionToken<WebState>('WebState');
 
 export class WebState extends AppState implements WebDashboardSidebarState {
 	/**

@@ -1,12 +1,13 @@
 <script lang="ts">
 	import IrcChannel from '$components/IrcChannel.svelte';
 	import IrcChannels from '$components/IrcChannels.svelte';
-	import { IrcService } from '$lib/irc/ircService.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
+	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 
-	const [ircService, uiState] = inject(IrcService, UiState);
+	const ircService = inject(IRC_SERVICE);
+	const uiState = inject(UI_STATE);
 	const currentName = $derived(uiState.global.channel.current);
 </script>
 

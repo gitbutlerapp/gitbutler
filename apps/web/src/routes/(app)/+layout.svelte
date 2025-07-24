@@ -1,33 +1,60 @@
 <script lang="ts">
 	import '$lib/styles/global.css';
 	import { page } from '$app/state';
-	import { ButlerAIClient } from '$lib/ai/service';
-	import { AuthService } from '$lib/auth/authService.svelte';
+	import { ButlerAIClient, BUTLER_AI_CLIENT } from '$lib/ai/service';
+	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
 	import Footer from '$lib/components/Footer.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
-	import { OwnerService } from '$lib/owner/ownerService';
-	import { WebState } from '$lib/redux/store.svelte';
-	import { SshKeyService } from '$lib/sshKeyService';
-	import { UserService } from '$lib/user/userService';
-	import { BranchService } from '@gitbutler/shared/branches/branchService';
-	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
-	import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
-	import { getContext } from '@gitbutler/shared/context';
-	import { FeedService } from '@gitbutler/shared/feeds/service';
-	import { HttpClient } from '@gitbutler/shared/network/httpClient';
-	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
-	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
-	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
-	import { PatchEventsService } from '@gitbutler/shared/patchEvents/patchEventsService';
-	import { PatchCommitService } from '@gitbutler/shared/patches/patchCommitService';
-	import { PatchIdableService } from '@gitbutler/shared/patches/patchIdableService';
-	import { AppState } from '@gitbutler/shared/redux/store.svelte';
-	import { RulesService } from '@gitbutler/shared/rules/rulesService';
-	import { NotificationSettingsService } from '@gitbutler/shared/settings/notificationSettingsService';
-	import { UploadsService } from '@gitbutler/shared/uploads/uploadsService';
-	import { UserService as NewUserService } from '@gitbutler/shared/users/userService';
+	import { OwnerService, OWNER_SERVICE } from '$lib/owner/ownerService';
+	import { WebState, WEB_STATE } from '$lib/redux/store.svelte';
+	import { SshKeyService, SSH_KEY_SERVICE } from '$lib/sshKeyService';
+	import { UserService, USER_SERVICE } from '$lib/user/userService';
+	import { BranchService, BRANCH_SERVICE } from '@gitbutler/shared/branches/branchService';
+	import {
+		LatestBranchLookupService,
+		LATEST_BRANCH_LOOKUP_SERVICE
+	} from '@gitbutler/shared/branches/latestBranchLookupService';
+	import {
+		ChatChannelsService,
+		CHAT_CHANNELS_SERVICE
+	} from '@gitbutler/shared/chat/chatChannelsService';
+	import { inject, provide } from '@gitbutler/shared/context';
+	import { FeedService, FEED_SERVICE } from '@gitbutler/shared/feeds/service';
+	import { HttpClient, HTTP_CLIENT } from '@gitbutler/shared/network/httpClient';
+	import {
+		OrganizationService,
+		ORGANIZATION_SERVICE
+	} from '@gitbutler/shared/organizations/organizationService';
+	import { ProjectService, PROJECT_SERVICE } from '@gitbutler/shared/organizations/projectService';
+	import {
+		RepositoryIdLookupService,
+		REPOSITORY_ID_LOOKUP_SERVICE
+	} from '@gitbutler/shared/organizations/repositoryIdLookupService';
+	import {
+		PatchEventsService,
+		PATCH_EVENTS_SERVICE
+	} from '@gitbutler/shared/patchEvents/patchEventsService';
+	import {
+		PatchCommitService,
+		PATCH_COMMIT_SERVICE
+	} from '@gitbutler/shared/patches/patchCommitService';
+	import {
+		PatchIdableService,
+		PATCH_IDABLE_SERVICE
+	} from '@gitbutler/shared/patches/patchIdableService';
+	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
+	import { RulesService, RULES_SERVICE } from '@gitbutler/shared/rules/rulesService';
+	import {
+		NotificationSettingsService,
+		NOTIFICATION_SETTINGS_SERVICE
+	} from '@gitbutler/shared/settings/notificationSettingsService';
+	import { UploadsService, UPLOADS_SERVICE } from '@gitbutler/shared/uploads/uploadsService';
+	import {
+		UserService as NewUserService,
+		USER_SERVICE as NEW_USER_SERVICE
+	} from '@gitbutler/shared/users/userService';
 	import { setExternalLinkService } from '@gitbutler/ui/link/externalLinkService';
-	import { setContext, type Snippet } from 'svelte';
+	import { type Snippet } from 'svelte';
 	import { Toaster } from 'svelte-french-toast';
 	import { env } from '$env/dynamic/public';
 
@@ -39,32 +66,32 @@
 
 	const { children }: Props = $props();
 
-	const authService = getContext(AuthService);
+	const authService = inject(AUTH_SERVICE);
 
 	const httpClient = new HttpClient(window.fetch, env.PUBLIC_APP_HOST, authService.tokenReadable);
-	setContext(HttpClient, httpClient);
+	provide(HTTP_CLIENT, httpClient);
 
 	const aiService = new ButlerAIClient(httpClient);
-	setContext(ButlerAIClient, aiService);
+	provide(BUTLER_AI_CLIENT, aiService);
 
 	const userService = new UserService(httpClient);
-	setContext(UserService, userService);
+	provide(USER_SERVICE, userService);
 
 	const webState = new WebState();
-	setContext(AppState, webState);
-	setContext(WebState, webState);
+	provide(APP_STATE, webState);
+	provide(WEB_STATE, webState);
 	const feedService = new FeedService(httpClient, webState.appDispatch);
-	setContext(FeedService, feedService);
+	provide(FEED_SERVICE, feedService);
 	const organizationService = new OrganizationService(httpClient, webState.appDispatch);
-	setContext(OrganizationService, organizationService);
+	provide(ORGANIZATION_SERVICE, organizationService);
 	const projectService = new ProjectService(httpClient, webState.appDispatch);
-	setContext(ProjectService, projectService);
+	provide(PROJECT_SERVICE, projectService);
 	const newUserService = new NewUserService(httpClient, webState.appDispatch);
-	setContext(NewUserService, newUserService);
+	provide(NEW_USER_SERVICE, newUserService);
 	const branchService = new BranchService(httpClient, webState.appDispatch);
-	setContext(BranchService, branchService);
+	provide(BRANCH_SERVICE, branchService);
 	const patchService = new PatchCommitService(httpClient, webState.appDispatch);
-	setContext(PatchCommitService, patchService);
+	provide(PATCH_COMMIT_SERVICE, patchService);
 	const patchEventsService = new PatchEventsService(
 		httpClient,
 		webState,
@@ -74,7 +101,7 @@
 		env.PUBLIC_APP_HOST
 	);
 	const patchIdableService = new PatchIdableService(httpClient, webState.appDispatch);
-	setContext(PatchIdableService, patchIdableService);
+	provide(PATCH_IDABLE_SERVICE, patchIdableService);
 
 	const user = $derived(userService.user);
 
@@ -85,18 +112,18 @@
 		}
 	});
 
-	setContext(PatchEventsService, patchEventsService);
+	provide(PATCH_EVENTS_SERVICE, patchEventsService);
 	const chatChannelService = new ChatChannelsService(httpClient, webState.appDispatch);
-	setContext(ChatChannelsService, chatChannelService);
+	provide(CHAT_CHANNELS_SERVICE, chatChannelService);
 	const repositoryIdLookupService = new RepositoryIdLookupService(httpClient, webState.appDispatch);
-	setContext(RepositoryIdLookupService, repositoryIdLookupService);
+	provide(REPOSITORY_ID_LOOKUP_SERVICE, repositoryIdLookupService);
 	const latestBranchLookupService = new LatestBranchLookupService(httpClient, webState.appDispatch);
-	setContext(LatestBranchLookupService, latestBranchLookupService);
+	provide(LATEST_BRANCH_LOOKUP_SERVICE, latestBranchLookupService);
 	const notificationSettingsService = new NotificationSettingsService(
 		httpClient,
 		webState.appDispatch
 	);
-	setContext(NotificationSettingsService, notificationSettingsService);
+	provide(NOTIFICATION_SETTINGS_SERVICE, notificationSettingsService);
 	setExternalLinkService({
 		open: (href) => {
 			location.href = href;
@@ -104,15 +131,15 @@
 	});
 
 	const sshKeyService = new SshKeyService(httpClient);
-	setContext(SshKeyService, sshKeyService);
+	provide(SSH_KEY_SERVICE, sshKeyService);
 	const uploadsService = new UploadsService(httpClient);
-	setContext(UploadsService, uploadsService);
+	provide(UPLOADS_SERVICE, uploadsService);
 
 	const ownerService = new OwnerService(httpClient);
-	setContext(OwnerService, ownerService);
+	provide(OWNER_SERVICE, ownerService);
 
 	const rulesService = new RulesService(httpClient, webState.appDispatch);
-	setContext(RulesService, rulesService);
+	provide(RULES_SERVICE, rulesService);
 
 	const isCommitPage = $derived(page.url.pathname.includes('/commit/'));
 </script>

@@ -24,7 +24,7 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { platformName } from '$lib/platform/platform';
-	import { UserService } from '$lib/user/userService';
+	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -54,7 +54,7 @@
 		footer
 	}: Props = $props();
 
-	const [userService] = inject(UserService);
+	const userService = inject(USER_SERVICE);
 
 	const user = userService.user;
 	const shownId = $derived(selectedId || pages[0]!.id);

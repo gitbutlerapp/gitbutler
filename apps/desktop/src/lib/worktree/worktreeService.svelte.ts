@@ -1,12 +1,15 @@
 import { hasTauriExtra } from '$lib/state/backendQuery';
 import { createSelectByIds } from '$lib/state/customSelectors';
 import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { TauriCommandError } from '$lib/backend/ipc';
 import type { HunkDependencies } from '$lib/dependencies/dependencies';
 import type { IgnoredChange, TreeChange, WorktreeChanges } from '$lib/hunks/change';
 import type { HunkAssignment } from '$lib/hunks/hunk';
 import type { ClientState } from '$lib/state/clientState.svelte';
+
+export const WORKTREE_SERVICE = new InjectionToken<WorktreeService>('WorktreeService');
 
 /**
  * A service for tracking uncommitted changes.

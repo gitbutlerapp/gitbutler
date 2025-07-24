@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
-	import { GitLabState } from '$lib/forge/gitlab/gitlabState.svelte';
-	import { ProjectsService } from '$lib/project/projectsService';
-	import { getContext } from '@gitbutler/shared/context';
+	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import { GITLAB_STATE } from '$lib/forge/gitlab/gitlabState.svelte';
+	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { inject } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
@@ -14,15 +14,15 @@
 
 	const { projectId }: { projectId: string } = $props();
 
-	const forge = getContext(DefaultForgeFactory);
-	const gitLabState = getContext(GitLabState);
+	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const gitLabState = inject(GITLAB_STATE);
 	const determinedForgeType = forge.determinedForgeType;
 	const token = gitLabState.token;
 	const forkProjectId = gitLabState.forkProjectId;
 	const upstreamProjectId = gitLabState.upstreamProjectId;
 	const instanceUrl = gitLabState.instanceUrl;
 
-	const projectsService = getContext(ProjectsService);
+	const projectsService = inject(PROJECTS_SERVICE);
 	const projectResult = $derived(projectsService.getProject(projectId));
 	const project = $derived(projectResult.current.data);
 

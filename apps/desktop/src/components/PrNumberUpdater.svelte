@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 
 	type Props = {
@@ -10,7 +10,8 @@
 	};
 
 	const { projectId, stackId, branchName }: Props = $props();
-	const [stackService, forge] = inject(StackService, DefaultForgeFactory);
+	const stackService = inject(STACK_SERVICE);
+	const forge = inject(DEFAULT_FORGE_FACTORY);
 
 	// Pretty cumbersome way of getting the PR number, would be great if we can
 	// make it more concise somehow.

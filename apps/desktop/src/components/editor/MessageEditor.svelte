@@ -13,12 +13,12 @@
 		projectCommitGenerationUseEmojis
 	} from '$lib/config/config';
 	import { showError } from '$lib/notifications/toasts';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { UiState } from '$lib/state/uiState.svelte';
-	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import { SETTINGS } from '$lib/settings/userSettings';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
+	import { inject } from '@gitbutler/shared/context';
 	import { uploadFiles } from '@gitbutler/shared/dom';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import { UploadsService } from '@gitbutler/shared/uploads/uploadsService';
+	import { UPLOADS_SERVICE } from '@gitbutler/shared/uploads/uploadsService';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
@@ -79,10 +79,10 @@
 	const MIN_RULER_VALUE = 30;
 	const MAX_RULER_VALUE = 200;
 
-	const uiState = getContext(UiState);
+	const uiState = inject(UI_STATE);
 
-	const uploadsService = getContext(UploadsService);
-	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
+	const uploadsService = inject(UPLOADS_SERVICE);
+	const userSettings = inject(SETTINGS);
 	const commitGenerationExtraConcise = projectCommitGenerationExtraConcise(projectId);
 	const commitGenerationUseEmojis = projectCommitGenerationUseEmojis(projectId);
 

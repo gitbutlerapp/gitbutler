@@ -1,7 +1,10 @@
+import { InjectionToken } from '@gitbutler/shared/context';
 import { persisted } from '@gitbutler/shared/persisted';
 import { derived, get, writable, type Readable, type Writable } from 'svelte/store';
 import type { SecretsService } from '$lib/secrets/secretsService';
 import type { RepoInfo } from '$lib/url/gitUrl';
+
+export const GITLAB_STATE = new InjectionToken<GitLabState>('GitLabState');
 
 export class GitLabState {
 	readonly token: Writable<string | undefined>;

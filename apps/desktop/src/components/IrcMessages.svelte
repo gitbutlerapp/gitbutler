@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import { SETTINGS } from '$lib/settings/userSettings';
+	import { inject } from '@gitbutler/shared/context';
 	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
 	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
 	import type { TreeChange } from '$lib/hunks/change';
@@ -14,7 +14,7 @@
 
 	const { logs }: Props = $props();
 
-	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
+	const userSettings = inject(SETTINGS);
 	let scroller: ConfigurableScrollableContainer;
 </script>
 

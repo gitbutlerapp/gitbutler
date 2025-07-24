@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
+	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService.svelte';
 	import { shortcuts } from '$lib/utils/hotkeys';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { keysStringToArr } from '@gitbutler/ui/utils/hotkeys';
 
 	let modal: ReturnType<typeof Modal> | undefined = $state();
 
-	const shortcutService = getContext(ShortcutService);
+	const shortcutService = inject(SHORTCUT_SERVICE);
 	shortcutService.on('keyboard-shortcuts', () => {
 		show();
 	});

@@ -10,9 +10,9 @@
 	import PrNumberUpdater from '$components/PrNumberUpdater.svelte';
 	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
 	import { ReorderCommitDzHandler } from '$lib/dragging/stackingReorderDropzoneManager';
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
+	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
@@ -82,7 +82,9 @@
 
 	let { projectId, branchName, active, lineColor, readonly, ...args }: Props = $props();
 
-	const [uiState, stackService, forge] = inject(UiState, StackService, DefaultForgeFactory);
+	const uiState = inject(UI_STATE);
+	const stackService = inject(STACK_SERVICE);
+	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const prService = $derived(forge.current.prService);
 	const prUnit = $derived(prService?.unit);
 

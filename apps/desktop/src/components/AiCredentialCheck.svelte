@@ -1,15 +1,15 @@
 <script lang="ts">
 	import InfoMessage from '$components/InfoMessage.svelte';
-	import { AIService, type DiffInput } from '$lib/ai/service';
+	import { AI_SERVICE, type DiffInput } from '$lib/ai/service';
 	import { ModelKind } from '$lib/ai/types';
-	import { UserService } from '$lib/user/userService';
-	import { getContext } from '@gitbutler/shared/context';
+	import { USER_SERVICE } from '$lib/user/userService';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
 	import { slide } from 'svelte/transition';
 
-	const aiService = getContext(AIService);
-	const userService = getContext(UserService);
+	const aiService = inject(AI_SERVICE);
+	const userService = inject(USER_SERVICE);
 	const user = userService.user;
 
 	let testing = $state(false);

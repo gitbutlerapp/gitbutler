@@ -1,3 +1,4 @@
+import { InjectionToken } from '@gitbutler/shared/context';
 import { stringStreamGenerator } from '@gitbutler/shared/utils/promise';
 import type { HttpClient } from '@gitbutler/shared/network/httpClient';
 
@@ -13,6 +14,8 @@ export interface PromptMessage {
 }
 
 export type Prompt = PromptMessage[];
+
+export const BUTLER_AI_CLIENT = new InjectionToken<ButlerAIClient>('ButlerAIClient');
 
 export class ButlerAIClient {
 	constructor(private cloud: HttpClient) {}

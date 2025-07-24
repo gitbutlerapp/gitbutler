@@ -1,12 +1,8 @@
 <script lang="ts">
 	import ThemeSelector from '$components/ThemeSelector.svelte';
 	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
-	import {
-		SETTINGS,
-		type Settings,
-		type ScrollbarVisilitySettings
-	} from '$lib/settings/userSettings';
-	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import { SETTINGS, type ScrollbarVisilitySettings } from '$lib/settings/userSettings';
+	import { inject } from '@gitbutler/shared/context';
 	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
 	import RadioButton from '@gitbutler/ui/RadioButton.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
@@ -14,8 +10,8 @@
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import Select from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
-	import type { Writable } from 'svelte/store';
-	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
+
+	const userSettings = inject(SETTINGS);
 	const diff = `@@ -56,10 +56,9 @@
 			// Diff example
 			projectName={project.title}

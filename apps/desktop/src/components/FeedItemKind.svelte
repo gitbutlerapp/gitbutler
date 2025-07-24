@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getToolCallIcon, parseToolCall, type ToolCall } from '$lib/ai/tool';
-	import { UiState } from '$lib/state/uiState.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type { WorkflowKind } from '$lib/actions/types';
@@ -24,7 +24,7 @@
 	type Props = WorkflowProps | ToolCallProps;
 
 	const { projectId, ...rest }: Props = $props();
-	const uiState = getContext(UiState);
+	const uiState = inject(UI_STATE);
 
 	let isExpanded = $state(false);
 

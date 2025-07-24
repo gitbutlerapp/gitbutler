@@ -1,13 +1,15 @@
 import { latestBranchLookupTable } from '$lib/branches/latestBranchLookupSlice';
 import { apiToBranch, type ApiBranch, type Branch } from '$lib/branches/types';
+import { InjectionToken } from '$lib/context';
 import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { errorToLoadable } from '$lib/network/loadable';
 import { POLLING_REGULAR } from '$lib/polling';
-import { InjectionToken } from '../context';
 import type { HttpClient } from '$lib/network/httpClient';
 import type { AppDispatch } from '$lib/redux/store.svelte';
 
-export const LATEST_BRANCH_LOOKUP_SERVICE_TOKEN = new InjectionToken<LatestBranchLookupService>('LatestBranchLookupService');
+export const LATEST_BRANCH_LOOKUP_SERVICE = new InjectionToken<LatestBranchLookupService>(
+	'LatestBranchLookupService'
+);
 
 export class LatestBranchLookupService {
 	private readonly branchLookupInterests = new InterestStore<{ branchId: string }>(POLLING_REGULAR);

@@ -4,11 +4,11 @@
 	import KeysForm from '$components/KeysForm.svelte';
 	import ProjectSetupTarget from '$components/ProjectSetupTarget.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import { PostHogWrapper } from '$lib/analytics/posthog';
+	import { POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
-	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
+	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { platformName } from '$lib/platform/platform';
-	import { ProjectsService } from '$lib/project/projectsService';
+	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import type { RemoteBranchInfo } from '$lib/baseBranch/baseBranch';
@@ -20,11 +20,9 @@
 
 	const { projectId, remoteBranches }: Props = $props();
 
-	const [projectsService, baseService, posthog] = inject(
-		ProjectsService,
-		BaseBranchService,
-		PostHogWrapper
-	);
+	const projectsService = inject(PROJECTS_SERVICE);
+	const baseService = inject(BASE_BRANCH_SERVICE);
+	const posthog = inject(POSTHOG_WRAPPER);
 	const projectResult = $derived(projectsService.getProject(projectId));
 	const [setBaseBranchTarget] = baseService.setTarget;
 

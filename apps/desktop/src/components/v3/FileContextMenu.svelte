@@ -1,21 +1,21 @@
 <!-- This is a V3 replacement for `FileContextMenu.svelte` -->
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import { ActionService } from '$lib/actions/actionService.svelte';
-	import { AIService } from '$lib/ai/service';
+	import { ACTION_SERVICE } from '$lib/actions/actionService.svelte';
+	import { AI_SERVICE } from '$lib/ai/service';
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { changesToDiffSpec } from '$lib/commits/utils';
 	import { projectAiExperimentalFeaturesEnabled, projectAiGenEnabled } from '$lib/config/config';
 	import { isTreeChange, type TreeChange } from '$lib/hunks/change';
 	import { vscodePath } from '$lib/project/project';
-	import { ProjectsService } from '$lib/project/projectsService';
-	import { IdSelection } from '$lib/selection/idSelection.svelte';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
+	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
+	import { SETTINGS } from '$lib/settings/userSettings';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
-	import { getContext, getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
@@ -28,7 +28,6 @@
 	import { join } from '@tauri-apps/api/path';
 	import type { DiffSpec } from '$lib/hunks/hunk';
 	import type { SelectionId } from '$lib/selection/key';
-	import type { Writable } from 'svelte/store';
 
 	type Props = {
 		projectId: string;
@@ -52,22 +51,20 @@
 	}
 
 	const { trigger, selectionId, stackId, projectId }: Props = $props();
-	const [stackService, uiState, idSelection, aiService, actionService] = inject(
-		StackService,
-		UiState,
-		IdSelection,
-		AIService,
-		ActionService
-	);
+	const stackService = inject(STACK_SERVICE);
+	const uiState = inject(UI_STATE);
+	const idSelection = inject(ID_SELECTION);
+	const aiService = inject(AI_SERVICE);
+	const actionService = inject(ACTION_SERVICE);
 	const [autoCommit, autoCommitting] = actionService.autoCommit;
 	const [branchChanges, branchingChanges] = actionService.branchChanges;
 	const [absorbChanges, absorbingChanges] = actionService.absorb;
 	const [splitOffChanges] = stackService.splitBranch;
 	const [splitBranchIntoDependentBranch] = stackService.splitBrancIntoDependentBranch;
 
-	const projectService = getContext(ProjectsService);
+	const projectService = inject(PROJECTS_SERVICE);
 
-	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
+	const userSettings = inject(SETTINGS);
 	const isUncommitted = $derived(selectionId.type === 'worktree');
 	const isBranchFiles = $derived(selectionId.type === 'branch');
 	const selectionBranchName = $derived(

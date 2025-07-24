@@ -1,3 +1,8 @@
+import { InjectionToken } from '@gitbutler/shared/context';
+import type { Writable } from 'svelte/store';
+
+export const USER = new InjectionToken<Writable<User>>('User');
+
 export class User {
 	id!: number;
 	name: string | undefined;

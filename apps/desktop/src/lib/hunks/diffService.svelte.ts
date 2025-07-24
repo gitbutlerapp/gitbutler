@@ -1,4 +1,5 @@
 import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import type { TreeChange } from '$lib/hunks/change';
 import type { UnifiedDiff } from '$lib/hunks/diff';
@@ -9,6 +10,8 @@ export type ChangeDiff = {
 	path: string;
 	diff: UnifiedDiff;
 };
+
+export const DIFF_SERVICE = new InjectionToken<DiffService>('DiffService');
 
 export class DiffService {
 	private api: ReturnType<typeof injectEndpoints>;

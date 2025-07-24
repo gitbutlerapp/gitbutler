@@ -3,7 +3,7 @@
 <!-- by the HunkDiff component inside the @gitbutler/ui package. -->
 <script lang="ts">
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import { SelectedOwnership } from '$lib/branches/ownership';
+	import { SELECTED_OWNERSHIP } from '$lib/branches/ownership';
 	import { type Hunk } from '$lib/hunks/hunk';
 	import {
 		type ContentSection,
@@ -12,12 +12,11 @@
 		CountColumnSide
 	} from '$lib/utils/fileSections';
 	import { create } from '@gitbutler/shared/codeHighlight';
-	import { maybeGetContextStore } from '@gitbutler/shared/context';
+	import { injectOptional } from '@gitbutler/shared/context';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import diff_match_patch from 'diff-match-patch';
-	import type { Writable } from 'svelte/store';
 
 	interface ContextMenuParams {
 		event: MouseEvent;
@@ -69,8 +68,7 @@
 	const NUMBER_COLUMN_WIDTH_PX = minWidth * 20;
 	const BORDER_WIDTH = 1;
 
-	const selectedOwnership: Writable<SelectedOwnership> | undefined =
-		maybeGetContextStore(SelectedOwnership);
+	const selectedOwnership = injectOptional(SELECTED_OWNERSHIP, undefined);
 
 	let tableWidth = $state<number>(0);
 	let tableHeight = $state<number>(0);

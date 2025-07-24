@@ -1,7 +1,10 @@
 import { listen } from '$lib/backend/ipc';
 import { invoke } from '$lib/backend/ipc';
 import { sleep } from '$lib/utils/sleep';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { writable, type Writable } from 'svelte/store';
+
+export const PROMPT_SERVICE = new InjectionToken<PromptService>('PromptService');
 
 type SystemPrompt = {
 	id: string;
