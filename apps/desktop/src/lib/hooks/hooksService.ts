@@ -32,13 +32,6 @@ export type MessageHookStatus =
 export class HooksService {
 	constructor(private tauri: Tauri) {}
 
-	async preCommit(projectId: string, ownership: string | undefined = undefined) {
-		return await this.tauri.invoke<HookStatus>('pre_commit_hook', {
-			projectId,
-			ownership
-		});
-	}
-
 	async preCommitDiffspecs(projectId: string, changes: DiffSpec[]) {
 		return await this.tauri.invoke<HookStatus>('pre_commit_hook_diffspecs', {
 			projectId,

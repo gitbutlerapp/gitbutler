@@ -39,24 +39,32 @@
 
 	let isCooking = $state(false);
 
+	class HookError extends Error {}
+
 	async function runPreHook(changes: DiffSpec[]): Promise<boolean> {
 		if (!$runCommitHooks) return false;
 
 		let failed = false;
-		await toasts.promise(
-			(async () => {
-				const result = await hooksService.preCommitDiffspecs(projectId, changes);
-				if (result?.status === 'failure') {
-					failed = true;
-					throw new Error(result.error);
+		try {
+			await toasts.promise(
+				(async () => {
+					const result = await hooksService.preCommitDiffspecs(projectId, changes);
+					if (result?.status === 'failure') {
+						failed = true;
+						throw new HookError(result.error);
+					}
+				})(),
+				{
+					loading: 'Started pre-commit hooks',
+					success: 'Pre-commit hooks succeded',
+					error: (error: Error) => `Post-commit hooks failed: ${error.message}`
 				}
-			})(),
-			{
-				loading: 'Started pre-commit hooks',
-				success: 'Pre-commit hooks succeded',
-				error: (error: Error) => `Post-commit hooks failed: ${error.message}`
+			);
+		} catch (e: unknown) {
+			if (!(e instanceof HookError)) {
+				throw e;
 			}
-		);
+		}
 
 		return failed;
 	}
@@ -65,20 +73,26 @@
 		if (!$runCommitHooks) return false;
 
 		let failed = false;
-		await toasts.promise(
-			(async () => {
-				const result = await hooksService.postCommit(projectId);
-				if (result?.status === 'failure') {
-					failed = true;
-					throw new Error(result.error);
+		try {
+			await toasts.promise(
+				(async () => {
+					const result = await hooksService.postCommit(projectId);
+					if (result?.status === 'failure') {
+						failed = true;
+						throw new HookError(result.error);
+					}
+				})(),
+				{
+					loading: 'Started pre-commit hooks',
+					success: 'Pre-commit hooks succeded',
+					error: (error: Error) => `Post-commit hooks failed: ${error.message}`
 				}
-			})(),
-			{
-				loading: 'Started pre-commit hooks',
-				success: 'Pre-commit hooks succeded',
-				error: (error: Error) => `Post-commit hooks failed: ${error.message}`
+			);
+		} catch (e) {
+			if (!(e instanceof HookError)) {
+				throw e;
 			}
-		);
+		}
 
 		return failed;
 	}
