@@ -186,6 +186,7 @@ function createBackendApi(butlerMod: ReturnType<typeof butlerModule>) {
 		reducerPath: 'backend',
 		tagTypes: Object.values(ReduxTag),
 		invalidationBehavior: 'immediately',
+		keepUnusedDataFor: 0,
 		baseQuery: tauriBaseQuery,
 		endpoints: (_) => {
 			return {};
