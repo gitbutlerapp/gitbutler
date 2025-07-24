@@ -45,12 +45,11 @@
 		projectId: string;
 		stackId: string;
 		branchName: string;
-		prNumber?: number;
 		reviewId?: string;
 		onClose: () => void;
 	};
 
-	const { projectId, stackId, branchName, prNumber, onClose }: Props = $props();
+	const { projectId, stackId, branchName, onClose }: Props = $props();
 
 	const baseBranch = inject(BASE_BRANCH);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
@@ -80,14 +79,10 @@
 	const commitsResult = $derived(stackService.commits(projectId, stackId, branchName));
 	const commits = $derived(commitsResult.current.data || []);
 
-	const prResult = $derived(prNumber ? prService?.get(prNumber) : undefined);
-	const pr = $derived(prResult?.current.data);
-
 	const forgeBranch = $derived(branchName ? forge.current.branch(branchName) : undefined);
 	const baseBranchName = $derived(baseBranch.shortName);
 
 	const createDraft = persisted<boolean>(false, 'createDraftPr');
-	const createPullRequest = persisted<boolean>(true, 'createPullRequest');
 
 	const pushBeforeCreate = $derived(
 		!forgeBranch || (branchDetails ? requiresPush(branchDetails.pushStatus) : true)
@@ -110,8 +105,6 @@
 
 	let isCreatingReview = $state<boolean>(false);
 	const isExecuting = $derived(stackPush.current.isLoading || aiIsLoading || isCreatingReview);
-
-	const canPublishPR = $derived(!!(forge.current.authenticated && !pr));
 
 	async function getDefaultTitle(commits: Commit[]): Promise<string> {
 		if (commits.length === 1) {
@@ -305,13 +298,6 @@
 		}
 	}
 
-	const isCreateButtonEnabled = $derived.by(() => {
-		if (canPublishPR && $createPullRequest) {
-			return true;
-		}
-		return false;
-	});
-
 	async function onAiButtonClick() {
 		if (!aiGenEnabled || aiIsLoading) return;
 
@@ -347,9 +333,6 @@
 	}
 
 	export const imports = {
-		get creationEnabled() {
-			return isCreateButtonEnabled;
-		},
 		get isLoading() {
 			return isExecuting;
 		}
