@@ -9,7 +9,7 @@
 	import { inject } from '@gitbutler/shared/context';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import RadioButton from '@gitbutler/ui/RadioButton.svelte';
-	import FileListItem from '@gitbutler/ui/file/FileListItemV3.svelte';
+	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
 	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
 

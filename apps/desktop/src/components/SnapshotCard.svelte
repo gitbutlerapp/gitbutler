@@ -6,7 +6,7 @@
 	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
+	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import type { Snapshot, SnapshotDetails } from '$lib/history/types';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
@@ -224,7 +224,7 @@
 			>
 				<div class="files-attacment">
 					{#each files as filePath}
-						<FileListItemV3
+						<FileListItem
 							listMode="list"
 							{filePath}
 							onclick={() => onDiffClick(filePath)}

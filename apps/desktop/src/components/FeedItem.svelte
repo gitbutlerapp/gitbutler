@@ -23,7 +23,7 @@
 	import Icon, { type IconName } from '@gitbutler/ui/Icon.svelte';
 	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
-	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
+	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import { isStr } from '@gitbutler/ui/utils/string';
 
@@ -118,7 +118,7 @@
 							<SnapshotAttachment foldable={files.length > 2} foldedAmount={files.length}>
 								<div class="snapshot-files">
 									{#each files as filePath, idx (filePath)}
-										<FileListItemV3 listMode="list" {filePath} isLast={idx === files.length - 1} />
+										<FileListItem listMode="list" {filePath} isLast={idx === files.length - 1} />
 									{/each}
 								</div>
 							</SnapshotAttachment>

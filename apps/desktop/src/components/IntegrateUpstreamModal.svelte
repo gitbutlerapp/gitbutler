@@ -27,7 +27,7 @@
 	} from '@gitbutler/ui/IntegrationSeriesRow.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import SimpleCommitRow from '@gitbutler/ui/SimpleCommitRow.svelte';
-	import FileListItemV3 from '@gitbutler/ui/file/FileListItemV3.svelte';
+	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import Select from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
@@ -342,7 +342,7 @@
 					<ScrollableContainer maxHeight="{pxToRem(268)}rem">
 						{@const conflicts = branchStatuses?.worktreeConflicts}
 						{#each conflicts as file}
-							<FileListItemV3
+							<FileListItem
 								listMode="list"
 								filePath={file}
 								clickable={false}

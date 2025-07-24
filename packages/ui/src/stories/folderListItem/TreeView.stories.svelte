@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import FileListItemV3 from '$lib/file/FileListItemV3.svelte';
+	import FileListItem from '$lib/file/FileListItem.svelte';
 	import FolderListItem from '$lib/file/FolderListItem.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
@@ -25,7 +25,7 @@
 				indeterminate={false}
 				depth={0}
 			/>
-			<FileListItemV3
+			<FileListItem
 				showCheckbox={args.checkboxes}
 				filePath="src/components/FileTreeNode.svelte"
 				draggable
@@ -40,14 +40,14 @@
 				indeterminate={false}
 				depth={1}
 			/>
-			<FileListItemV3
+			<FileListItem
 				showCheckbox={args.checkboxes}
 				depth={2}
 				filePath="src/components/List.svelte"
 				draggable
 				listMode="tree"
 			/>
-			<FileListItemV3
+			<FileListItem
 				showCheckbox={args.checkboxes}
 				depth={2}
 				filePath="src/components/lib.js"
