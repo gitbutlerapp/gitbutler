@@ -68,7 +68,7 @@
 		UNCOMMITTED_SERVICE
 	} from '$lib/selection/uncommittedService.svelte';
 	import { loadUserSettings, SETTINGS } from '$lib/settings/userSettings';
-	import { ShortcutService, SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService.svelte';
+	import { ShortcutService, SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
 	import { CommitAnalytics, COMMIT_ANALYTICS } from '$lib/soup/commitAnalytics';
 	import { StackService, STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { ClientState, CLIENT_STATE } from '$lib/state/clientState.svelte';
@@ -221,7 +221,7 @@
 
 	provide(DEFAULT_FORGE_FACTORY, forgeFactory);
 
-	shortcutService.listen();
+	$effect(() => shortcutService.listen());
 
 	setExternalLinkService({ open: openExternalUrl });
 

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { invoke } from '$lib/backend/ipc';
-	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService.svelte';
+	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
 	import * as zip from '$lib/support/dataSharing';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/shared/context';
@@ -130,9 +130,7 @@
 		modal?.close();
 	}
 
-	shortcutService.on('share-debug-info', () => {
-		show();
-	});
+	$effect(() => shortcutService.on('share-debug-info', () => show()));
 </script>
 
 <Modal

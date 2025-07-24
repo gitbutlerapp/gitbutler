@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { SETTINGS } from '$lib/settings/userSettings';
-	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService.svelte';
+	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
 	import { inject } from '@gitbutler/shared/context';
+	import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
 	import { onMount } from 'svelte';
 
 	const userSettings = inject(SETTINGS);
@@ -24,15 +25,19 @@
 		userSettings.update((s) => ({ ...s, zoom }));
 	}
 
-	shortcutService.on('zoom-in', () => {
-		updateZoom(zoom + ZOOM_STEP);
-	});
-	shortcutService.on('zoom-out', () => {
-		updateZoom(zoom - ZOOM_STEP);
-	});
-	shortcutService.on('zoom-reset', () => {
-		updateZoom(DEFAULT_ZOOM);
-	});
+	$effect(() =>
+		mergeUnlisten(
+			shortcutService.on('zoom-in', () => {
+				updateZoom(zoom + ZOOM_STEP);
+			}),
+			shortcutService.on('zoom-out', () => {
+				updateZoom(zoom - ZOOM_STEP);
+			}),
+			shortcutService.on('zoom-reset', () => {
+				updateZoom(DEFAULT_ZOOM);
+			})
+		)
+	);
 
 	onMount(() => {
 		if (zoom !== DEFAULT_ZOOM) {

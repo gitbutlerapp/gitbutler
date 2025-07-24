@@ -2,6 +2,7 @@ import AppUpdater from '$components/AppUpdater.svelte';
 import { EventContext } from '$lib/analytics/eventContext';
 import { PostHogWrapper } from '$lib/analytics/posthog';
 import { Tauri } from '$lib/backend/tauri';
+import { ShortcutService } from '$lib/shortcuts/shortcutService';
 import { getSettingsdServiceMock } from '$lib/testing/mockSettingsdService';
 import { UPDATER_SERVICE, UpdaterService } from '$lib/updater/updater';
 import { render, screen } from '@testing-library/svelte';
@@ -9,9 +10,10 @@ import { expect, test, describe, vi, beforeEach, afterEach } from 'vitest';
 import type { Update } from '@tauri-apps/plugin-updater';
 
 describe('AppUpdater', () => {
-	let tauri: Tauri;
 	let updater: UpdaterService;
 	let context: Map<any, any>;
+	const tauri = new Tauri();
+	const shortcuts = new ShortcutService(tauri);
 	const MockSettingsService = getSettingsdServiceMock();
 	const settingsService = new MockSettingsService();
 	const eventContext = new EventContext();
@@ -19,8 +21,7 @@ describe('AppUpdater', () => {
 
 	beforeEach(() => {
 		vi.useFakeTimers();
-		tauri = new Tauri();
-		updater = new UpdaterService(tauri, posthog);
+		updater = new UpdaterService(tauri, posthog, shortcuts);
 		context = new Map([[UPDATER_SERVICE._key, updater]]);
 		vi.spyOn(tauri, 'listen').mockReturnValue(async () => {});
 		vi.mock('$env/dynamic/public', () => {
