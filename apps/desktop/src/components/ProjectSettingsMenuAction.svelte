@@ -37,6 +37,16 @@
 		);
 	});
 
+	shortcutService.on('show-in-finder', async () => {
+		const project = await projectsService.fetchProject(projectId);
+		if (!project) {
+			throw new Error(`Project not found: ${projectId}`);
+		}
+		// Show the project directory in the default file manager (cross-platform)
+		const { invoke } = await import('@tauri-apps/api/core');
+		await invoke('show_in_finder', { path: project.path });
+	});
+
 	shortcutService.on('history', () => {
 		$showHistoryView = !$showHistoryView;
 	});
