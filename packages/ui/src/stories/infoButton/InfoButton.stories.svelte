@@ -1,11 +1,6 @@
 <script module lang="ts">
 	import InfoButton from '$lib/InfoButton.svelte';
-	import {
-		type Args,
-		defineMeta,
-		setTemplate,
-		type StoryContext
-	} from '@storybook/addon-svelte-csf';
+	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({
 		title: 'Overlays / InfoButton',
@@ -37,17 +32,18 @@
 </script>
 
 <script lang="ts">
-	setTemplate(template);
 </script>
 
-{#snippet template({ ...args }: Args<typeof Story>, _context: StoryContext<typeof Story>)}
-	<div class="text-wrap text-14">
-		This is an example of only text with an InfoButton.
-		<InfoButton size={args.size} title={args.title} icon={args.icon}>
-			{args.children}
-		</InfoButton>
-	</div>
-{/snippet}
+<Story name="default">
+	{#snippet template(args)}
+		<div class="text-wrap text-14">
+			This is an example of only text with an InfoButton.
+			<InfoButton size={args.size} title={args.title} icon={args.icon}>
+				{args.children}
+			</InfoButton>
+		</div>
+	{/snippet}
+</Story>
 
 <Story name="Playground" />
 

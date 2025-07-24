@@ -99,7 +99,7 @@ export function butlerModule(ctx: HookContext): Module<ButlerModule> {
 				injectEndpoint(endpointName, definition) {
 					const endpoint = anyApi.endpoints[endpointName]!; // Known to exist.
 					if (isQueryDefinition(definition)) {
-						const { fetch, useQuery, useQueryStore, useQueryState, useQueries, useQueryTimeStamp } =
+						const { fetch, useQuery, useQueryState, useQueries, useQueryTimeStamp } =
 							buildQueryHooks({
 								endpointName,
 								api,
@@ -107,8 +107,6 @@ export function butlerModule(ctx: HookContext): Module<ButlerModule> {
 							});
 						endpoint.fetch = fetch;
 						endpoint.useQuery = useQuery;
-						// @ts-expect-error IDK man... it's fine
-						endpoint.useQueryStore = useQueryStore;
 						endpoint.useQueryState = useQueryState;
 						endpoint.useQueries = useQueries;
 						endpoint.useQueryTimeStamp = useQueryTimeStamp;

@@ -3,12 +3,7 @@
 	import ContextMenu from '$lib/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/ContextMenuSection.svelte';
-	import {
-		type Args,
-		defineMeta,
-		setTemplate,
-		type StoryContext
-	} from '@storybook/addon-svelte-csf';
+	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({
 		title: 'Overlays / ContextMenu',
@@ -40,57 +35,56 @@
 </script>
 
 <script lang="ts">
-	setTemplate(template);
 </script>
 
-{#snippet template({ ...args }: Args<typeof Story>, _context: StoryContext<typeof Story>)}
-	<div class="wrap">
-		<Button
-			kind="outline"
-			bind:el={contextTrigger}
-			onclick={() => {
-				contextMenu?.toggle();
-			}}>Toggle context menu</Button
-		>
-	</div>
+<Story name="Left click">
+	{#snippet template(args)}
+		<div class="wrap">
+			<Button
+				kind="outline"
+				bind:el={contextTrigger}
+				onclick={() => {
+					contextMenu?.toggle();
+				}}>Toggle context menu</Button
+			>
+		</div>
 
-	<ContextMenu bind:this={contextMenu} leftClickTrigger={contextTrigger} {...args}>
-		<ContextMenuSection>
-			<ContextMenuItem
-				label="Commit and bleep"
-				onclick={() => {
-					// eslint-disable-next-line no-console
-					console.log('Commit and bleep');
-				}}
-			/>
-			<ContextMenuItem
-				label="Commit"
-				onclick={() => {
-					// eslint-disable-next-line no-console
-					console.log('Commit and bleep');
-				}}
-			/>
-		</ContextMenuSection>
-		<ContextMenuSection title="More">
-			<ContextMenuItem
-				label="Another commit"
-				onclick={() => {
-					// eslint-disable-next-line no-console
-					console.log('Commit and bleep');
-				}}
-			/>
-			<ContextMenuItem
-				label="Amend"
-				onclick={() => {
-					// eslint-disable-next-line no-console
-					console.log('Commit and bleep');
-				}}
-			/>
-		</ContextMenuSection>
-	</ContextMenu>
-{/snippet}
-
-<Story name="Left click" />
+		<ContextMenu bind:this={contextMenu} leftClickTrigger={contextTrigger} {...args}>
+			<ContextMenuSection>
+				<ContextMenuItem
+					label="Commit and bleep"
+					onclick={() => {
+						// eslint-disable-next-line no-console
+						console.log('Commit and bleep');
+					}}
+				/>
+				<ContextMenuItem
+					label="Commit"
+					onclick={() => {
+						// eslint-disable-next-line no-console
+						console.log('Commit and bleep');
+					}}
+				/>
+			</ContextMenuSection>
+			<ContextMenuSection title="More">
+				<ContextMenuItem
+					label="Another commit"
+					onclick={() => {
+						// eslint-disable-next-line no-console
+						console.log('Commit and bleep');
+					}}
+				/>
+				<ContextMenuItem
+					label="Amend"
+					onclick={() => {
+						// eslint-disable-next-line no-console
+						console.log('Commit and bleep');
+					}}
+				/>
+			</ContextMenuSection>
+		</ContextMenu>
+	{/snippet}
+</Story>
 
 <style>
 	.wrap {

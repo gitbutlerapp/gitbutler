@@ -1,6 +1,6 @@
 <script module lang="ts">
 	import FileViewHeader from '$lib/file/FileViewHeader.svelte';
-	import { defineMeta, setTemplate } from '@storybook/addon-svelte-csf';
+	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({
 		title: 'List items / FileViewHeader',
@@ -9,27 +9,26 @@
 </script>
 
 <script lang="ts">
-	setTemplate(template);
 </script>
 
-{#snippet template()}
-	<div class="scroll-wrap">
-		{#each Array(20) as _}
-			<div class="card-example">
-				<FileViewHeader
-					filePath="src/component/arcada/path/binary/file.svelte"
-					fileStatus="M"
-					draggable={true}
-					linesAdded={10}
-					linesRemoved={5}
-				/>
-				<p class="content-example">some content</p>
-			</div>
-		{/each}
-	</div>
-{/snippet}
-
-<Story name="Sticky test" />
+<Story name="Sticky test">
+	{#snippet template()}
+		<div class="scroll-wrap">
+			{#each Array(20) as _}
+				<div class="card-example">
+					<FileViewHeader
+						filePath="src/component/arcada/path/binary/file.svelte"
+						fileStatus="M"
+						draggable={true}
+						linesAdded={10}
+						linesRemoved={5}
+					/>
+					<p class="content-example">some content</p>
+				</div>
+			{/each}
+		</div>
+	{/snippet}
+</Story>
 
 <style>
 	.scroll-wrap {

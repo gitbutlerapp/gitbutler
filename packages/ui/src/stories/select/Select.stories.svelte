@@ -2,12 +2,7 @@
 	import Button from '$lib/Button.svelte';
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
-	import {
-		type Args,
-		defineMeta,
-		setTemplate,
-		type StoryContext
-	} from '@storybook/addon-svelte-csf';
+	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({
 		title: 'Inputs / Select',
@@ -27,62 +22,58 @@
 </script>
 
 <script lang="ts">
-	setTemplate(templateDefault);
-	setTemplate(templateCustomButton);
 </script>
 
-{#snippet templateDefault({ ...args }: Args<typeof Story>, _context: StoryContext<typeof Story>)}
-	<div class="wrap">
-		<Select
-			searchable
-			options={args.options}
-			value={selectedItem}
-			onselect={(value: string) => {
-				selectedItem = value;
-			}}
-		>
-			{#snippet itemSnippet({ item, highlighted })}
-				<SelectItem selected={highlighted} {highlighted}>
-					{item.label}
-				</SelectItem>
-			{/snippet}
-		</Select>
-	</div>
-{/snippet}
+<Story name="Default">
+	{#snippet template(args)}
+		<div class="wrap">
+			<Select
+				searchable
+				options={args.options}
+				value={selectedItem}
+				onselect={(value: string) => {
+					selectedItem = value;
+				}}
+			>
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem selected={highlighted} {highlighted}>
+						{item.label}
+					</SelectItem>
+				{/snippet}
+			</Select>
+		</div>
+	{/snippet}
+</Story>
 
-{#snippet templateCustomButton(
-	{ ...args }: Args<typeof Story>,
-	_context: StoryContext<typeof Story>
-)}
-	<div class="wrap">
-		<Select
-			searchable
-			options={args.options}
-			value={selectedItem}
-			onselect={(value: string) => {
-				selectedItem = value;
-			}}
-			customWidth={120}
-			popupAlign="center"
-		>
-			{#snippet customSelectButton()}
-				<Button kind="outline" icon="select-chevron" size="tag">
-					{args.options.find(
-						(option: { value: string; label: string }) => option.value === selectedItem
-					)?.label}
-				</Button>
-			{/snippet}
-			{#snippet itemSnippet({ item, highlighted })}
-				<SelectItem selected={highlighted} {highlighted}>
-					{item.label}
-				</SelectItem>
-			{/snippet}
-		</Select>
-	</div>
-{/snippet}
-
-<Story name="Default" />
-<Story name="Custom button" />
+<Story name="Custom button">
+	{#snippet template(args)}
+		<div class="wrap">
+			<Select
+				searchable
+				options={args.options}
+				value={selectedItem}
+				onselect={(value: string) => {
+					selectedItem = value;
+				}}
+				customWidth={120}
+				popupAlign="center"
+			>
+				{#snippet customSelectButton()}
+					<Button kind="outline" icon="select-chevron" size="tag">
+						{args.options.find(
+							(option: { value: string; label: string }) => option.value === selectedItem
+						)?.label}
+					</Button>
+				{/snippet}
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem selected={highlighted} {highlighted}>
+						{item.label}
+					</SelectItem>
+				{/snippet}
+			</Select>
+		</div>
+	{/snippet}
+</Story>
 
 <style>
 	.wrap {
