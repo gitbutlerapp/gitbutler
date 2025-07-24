@@ -3,8 +3,8 @@
 	import CommitTitle from '$components/CommitTitle.svelte';
 	import { type CommitStatusType } from '$lib/commits/commit';
 	import { TestId } from '$lib/testing/testIds';
-
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
 	import { slide } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
 
@@ -14,6 +14,7 @@
 		commitId: string;
 		commitMessage: string;
 		createdAt: number;
+		author?: { name: string; email: string; gravatarUrl: string };
 		tooltip?: string;
 		first?: boolean;
 		lastCommit?: boolean;
@@ -59,6 +60,7 @@
 
 	const {
 		commitMessage,
+		author,
 		tooltip,
 		first,
 		lastCommit,
@@ -115,10 +117,20 @@
 		{lastBranch}
 	/>
 
-	<div class="commit-content" class:shift-to-left={hasConflicts}>
+	<div class="commit-content">
 		{#if hasConflicts}
 			<div class="commit-conflict-indicator">
 				<Icon name="warning" size={12} />
+			</div>
+		{/if}
+
+		{#if author}
+			<div class="commit-author-avatar">
+				<Avatar
+					srcUrl={author.gravatarUrl}
+					tooltip={`${author.name} (${author.email})`}
+					size="medium"
+				/>
 			</div>
 		{/if}
 
@@ -189,14 +201,14 @@
 		padding: 14px 0 14px 0;
 	}
 
+	.commit-author-avatar {
+		display: flex;
+		margin-right: 8px;
+	}
+
 	.commit-conflict-indicator {
 		display: flex;
 		margin-right: 4px;
 		color: var(--clr-theme-err-element);
-	}
-
-	/* MODIFIERS */
-	.shift-to-left {
-		margin-left: -3px;
 	}
 </style>
