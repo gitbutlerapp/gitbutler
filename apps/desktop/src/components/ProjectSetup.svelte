@@ -66,6 +66,7 @@
 					{remoteBranches}
 					onBranchSelected={async (branch) => {
 						selectedBranch = branch;
+						setTarget();
 					}}
 				/>
 			{/snippet}
