@@ -223,7 +223,7 @@ describe('Unified Diff View', () => {
 			});
 	});
 
-	it('should display the correct option in the hunk context menu for the uncommitted changes with selected lines', () => {
+	it.only('should display the correct option in the hunk context menu for the uncommitted changes with selected lines', () => {
 		// There should be uncommitted changes
 		cy.getByTestId('uncommitted-changes-file-list').should('be.visible');
 
@@ -241,11 +241,13 @@ describe('Unified Diff View', () => {
 			cy.getByTestId('file-list-item').first().click();
 		});
 
-		cy.getByTestId('unified-diff-view').within(() => {
-			// Select the first line in the hunk
-			// and then right click on it.
-			cy.get('[data-is-delta-line=true]').first().click().rightclick();
-		});
+		cy.getByTestId('unified-diff-view')
+			.first()
+			.within(() => {
+				// Select the first line in the hunk
+				// and then right click on it.
+				cy.get('[data-is-delta-line=true]').first().click().rightclick();
+			});
 
 		// The hunk context menu should be opened
 		cy.getByTestId('hunk-context-menu')

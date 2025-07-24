@@ -8,7 +8,7 @@
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { COMMIT_ANALYTICS } from '$lib/soup/commitAnalytics';
 	import { STACK_SERVICE, type RejectionReason } from '$lib/stacks/stackService.svelte';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
+	import { UI_STATE, type NewCommitMessage } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import toasts from '@gitbutler/ui/toasts';
@@ -217,11 +217,23 @@
 	}
 
 	function handleMessageUpdate(title?: string, description?: string) {
+		let newCommitMessageUpdate: Partial<NewCommitMessage> | undefined = undefined;
 		if (typeof title === 'string') {
-			stackState.newCommitMessage.current = { ...stackState.newCommitMessage.current, title };
+			newCommitMessageUpdate = { title };
 		}
+
 		if (typeof description === 'string') {
-			stackState.newCommitMessage.current = { ...stackState.newCommitMessage.current, description };
+			newCommitMessageUpdate = {
+				...newCommitMessageUpdate,
+				description
+			};
+		}
+
+		if (newCommitMessageUpdate) {
+			stackState.newCommitMessage.set({
+				...stackState.newCommitMessage.current,
+				...newCommitMessageUpdate
+			});
 		}
 	}
 
