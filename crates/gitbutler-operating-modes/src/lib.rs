@@ -6,7 +6,6 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_reference::ReferenceName;
 use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::VirtualBranchesHandle;
-use gix::merge::tree::TreatAsUnresolved;
 use serde::{Deserialize, Serialize};
 
 /// The reference the app will checkout when the workspace is open
@@ -77,7 +76,7 @@ pub struct OutsideWorkspaceMetadata {
 #[derive(PartialEq, Debug, Clone, Serialize)]
 #[serde(tag = "type", content = "subject")]
 pub enum OperatingMode {
-    /// The typical app state when its on the gitbutler/workspace branch
+    /// The typical app state when it's on the gitbutler/workspace branch
     OpenWorkspace,
     /// When the user has chosen to leave the gitbutler/workspace branch
     OutsideWorkspace(OutsideWorkspaceMetadata),
@@ -121,7 +120,8 @@ pub fn operating_mode(ctx: &CommandContext) -> OperatingMode {
 }
 
 fn outside_workspace_metadata(ctx: &CommandContext) -> Result<OutsideWorkspaceMetadata> {
-    let gix_repo = ctx.gix_repo_for_merging()?;
+    // We do a virtual-merge, extracting conflicts.
+    let gix_repo = ctx.gix_repo_for_merging_non_persisting()?;
 
     let head = gix_repo.head()?;
     let branch_name = head
@@ -139,11 +139,11 @@ fn outside_workspace_metadata(ctx: &CommandContext) -> Result<OutsideWorkspaceMe
         });
     }
 
-    let outcome = but_workspace::merge_worktree_with_workspace(ctx, &gix_repo)?;
+    let (outcome, conflict_kind) = but_workspace::merge_worktree_with_workspace(ctx, &gix_repo)?;
     let worktree_conflicts = outcome
         .conflicts
         .iter()
-        .filter(|c| c.is_unresolved(TreatAsUnresolved::git()))
+        .filter(|c| c.is_unresolved(conflict_kind))
         .map(|c| c.ours.location().into())
         .collect::<Vec<BStringForFrontend>>();
 

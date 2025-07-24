@@ -55,9 +55,10 @@ pub fn get_base_branch_data(ctx: &CommandContext) -> Result<BaseBranch> {
 
 fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Result<BaseBranch> {
     let gix_repo = ctx.gix_repo_for_merging()?;
-    let mut outcome = but_workspace::merge_worktree_with_workspace(ctx, &gix_repo)?;
+    let (mut outcome, conflict_kind) =
+        but_workspace::merge_worktree_with_workspace(ctx, &gix_repo)?;
 
-    if !outcome.conflicts.is_empty() {
+    if outcome.has_unresolved_conflicts(conflict_kind) {
         return Err(anyhow!("Conflicts while going back to gitbutler/workspace"))
             .context(Marker::ProjectConflict);
     }
