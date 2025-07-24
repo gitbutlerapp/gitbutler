@@ -2,6 +2,7 @@
 	import '$lib/styles/global.css';
 	import { page } from '$app/state';
 	import { ButlerAIClient } from '$lib/ai/service';
+	import RedirectIfNotFinalized from '$lib/auth/RedirectIfNotFinalized.svelte';
 	import { AuthService } from '$lib/auth/authService.svelte';
 	import Footer from '$lib/components/Footer.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
@@ -14,6 +15,7 @@
 	import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { FeedService } from '@gitbutler/shared/feeds/service';
+	import LoginService from '@gitbutler/shared/login/loginService';
 	import { HttpClient } from '@gitbutler/shared/network/httpClient';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
 	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
@@ -43,6 +45,9 @@
 
 	const httpClient = new HttpClient(window.fetch, env.PUBLIC_APP_HOST, authService.tokenReadable);
 	setContext(HttpClient, httpClient);
+
+	const loginService = new LoginService(httpClient);
+	setContext(LoginService, loginService);
 
 	const aiService = new ButlerAIClient(httpClient);
 	setContext(ButlerAIClient, aiService);
@@ -115,12 +120,17 @@
 	setContext(RulesService, rulesService);
 
 	const isCommitPage = $derived(page.url.pathname.includes('/commit/'));
+	const isLoginPage = $derived(page.url.pathname.includes('/login'));
+	const isSignupPage = $derived(page.url.pathname.includes('/signup'));
+	const hasNavigation = $derived(!isCommitPage && !isLoginPage && !isSignupPage);
 </script>
+
+<RedirectIfNotFinalized />
 
 <Toaster />
 
 <div class="app">
-	{#if !isCommitPage}
+	{#if hasNavigation}
 		<Navigation />
 	{/if}
 

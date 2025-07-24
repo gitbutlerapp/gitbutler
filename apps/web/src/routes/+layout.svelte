@@ -14,7 +14,6 @@
 	import { updateFavIcon } from '$lib/utils/faviconUtils';
 	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { setContext, type Snippet } from 'svelte';
-	import { get } from 'svelte/store';
 	import '$lib/styles/global.css';
 
 	interface Props {
@@ -29,17 +28,17 @@
 	const authService = new AuthService();
 	setContext(AuthService, authService);
 
-	let token = $state<string | null>();
+	const persistedToken = authService.token;
 
 	$effect(() => {
-		token = get(authService.tokenReadable) || page.url.searchParams.get('gb_access_token');
-		if (token) {
-			authService.setToken(token);
-
-			if (page.url.searchParams.has('gb_access_token')) {
-				page.url.searchParams.delete('gb_access_token');
-				goto(`?${page.url.searchParams.toString()}`);
+		if (page.url.searchParams.has('gb_access_token')) {
+			const token = page.url.searchParams.get('gb_access_token');
+			if (token && token !== persistedToken.current) {
+				authService.setToken(token);
 			}
+
+			page.url.searchParams.delete('gb_access_token');
+			goto(`?${page.url.searchParams.toString()}`);
 		}
 	});
 
@@ -48,7 +47,7 @@
 			window.location.href = jsonLinks.legal.privacyPolicy.url;
 		}
 
-		if (!token && page.route.id === '/(app)/home') {
+		if (!persistedToken.current && page.route.id === '/(app)/home') {
 			goto('/');
 		}
 	});
@@ -68,7 +67,7 @@
 	{/if}
 </svelte:head>
 
-{#if (page.route.id === '/(app)' && !token) || page.route.id === '/(app)/home'}
+{#if (page.route.id === '/(app)' && !persistedToken.current) || page.route.id === '/(app)/home'}
 	<section class="marketing-page">
 		<Header />
 		<Hero />

@@ -7,6 +7,7 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
+	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { NotificationSettingsService } from '@gitbutler/shared/settings/notificationSettingsService';
 	import { getNotificationSettingsInterest } from '@gitbutler/shared/settings/notificationSetttingsPreview.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -19,6 +20,7 @@
 	const appState = getContext(AppState);
 	const notificationSettingsService = getContext(NotificationSettingsService);
 	const sshKeyService = getContext(SshKeyService);
+	const routesService = getContext(WebRoutesService);
 
 	const notificationSettings = getNotificationSettingsInterest(
 		appState,
@@ -237,7 +239,10 @@
 		{#if !$token}
 			<SectionCard>
 				<h1 class="title">Who this?</h1>
-				<p>Log into your butler account, create one or do whatever you please.</p>
+				<p class="subtitle">
+					<a href={routesService.loginPath()}>Log in</a> to your butler account,
+					<a href={routesService.signupPath()}>create one</a> or do whatever you please.
+				</p>
 			</SectionCard>
 		{:else if !$user?.id}
 			<p>Loading...</p>
@@ -642,6 +647,16 @@
 		color: var(--clr-scale-ntrl-0);
 		font-weight: 600;
 		font-size: 24px;
+	}
+
+	.subtitle {
+		color: var(--clr-scale-ntrl-30);
+		font-size: 16px;
+		line-height: 1.5;
+
+		& a {
+			text-decoration: underline;
+		}
 	}
 
 	.section-title {
