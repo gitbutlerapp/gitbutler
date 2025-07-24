@@ -9,6 +9,7 @@
 	"packageManager": "pnpm@10.3.0",
 	"scripts": {
 		"dev:ui": "pnpm --filter @gitbutler/ui storybook",
+		"dev:buzz": "pnpm --filter @gitbutler/buzz dev",
 		"dev:web": "turbo watch --filter @gitbutler/web dev",
 		"dev:desktop": "cargo build -p but && cargo build -p gitbutler-git && pnpm tauri dev",
 		"dev:internal-tauri": "turbo watch --filter @gitbutler/desktop dev",
@@ -59,7 +60,35 @@
 	},
 	"pnpm": {
 		"onlyBuiltDependencies": [
-			"@prisma/client"
+			"@prisma/client",
+			"electron"
+		],
+		"ignoredBuiltDependencies": [
+			"@prisma/engines",
+			"@prisma/engines",
+			"@sentry/cli",
+			"@sentry/cli",
+			"cypress",
+			"cypress",
+			"edgedriver",
+			"edgedriver",
+			"electron",
+			"esbuild",
+			"esbuild",
+			"geckodriver",
+			"geckodriver",
+			"leveldown",
+			"leveldown",
+			"msw",
+			"msw",
+			"playwright-webkit",
+			"playwright-webkit",
+			"prisma",
+			"prisma",
+			"svelte-preprocess",
+			"svelte-preprocess",
+			"unrs-resolver",
+			"unrs-resolver"
 		]
 	}
 }
