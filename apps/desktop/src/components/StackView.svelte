@@ -14,21 +14,20 @@
 	import { isParsedError } from '$lib/error/parser';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
-	import { DiffService } from '$lib/hunks/diffService.svelte';
+	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
 	import {
-		IntelligentScrollingService,
+		INTELLIGENT_SCROLLING_SERVICE,
 		scrollingAttachment
 	} from '$lib/intelligentScrolling/service';
-	import { IdSelection } from '$lib/selection/idSelection.svelte';
+	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import { readKey, type SelectionId } from '$lib/selection/key';
-	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
+	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
+	import { SETTINGS } from '$lib/settings/userSettings';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 
 	import { TestId } from '$lib/testing/testIds';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
-	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { inject } from '@gitbutler/shared/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -58,27 +57,19 @@
 
 	let lanesSrollableEl = $state<HTMLDivElement>();
 
-	const [
-		uiState,
-		uncommittedService,
-		idSelection,
-		stackService,
-		intelligentScrollingService,
-		diffService
-	] = inject(
-		UiState,
-		UncommittedService,
-		IdSelection,
-		StackService,
-		IntelligentScrollingService,
-		DiffService
-	);
+	const stackService = inject(STACK_SERVICE);
+	const diffService = inject(DIFF_SERVICE);
+	const uncommittedService = inject(UNCOMMITTED_SERVICE);
+	const uiState = inject(UI_STATE);
+	const intelligentScrollingService = inject(INTELLIGENT_SCROLLING_SERVICE);
+	const idSelection = inject(ID_SELECTION);
+
 	const projectState = $derived(uiState.project(projectId));
 
 	const action = $derived(projectState.exclusiveAction.current);
 	const isCommitting = $derived(action?.type === 'commit' && action.stackId === stack.id);
 
-	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
+	const userSettings = inject(SETTINGS);
 	const zoom = $derived($userSettings.zoom);
 
 	// If the user is making a commit to a different lane we dim this one.

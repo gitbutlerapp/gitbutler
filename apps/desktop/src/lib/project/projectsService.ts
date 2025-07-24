@@ -3,11 +3,11 @@ import { invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
 import { type Project } from '$lib/project/project';
 import { invalidatesList, providesItem, providesList, ReduxTag } from '$lib/state/tags';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { persisted } from '@gitbutler/shared/persisted';
 import * as toasts from '@gitbutler/ui/toasts';
 import { open } from '@tauri-apps/plugin-dialog';
 import { get } from 'svelte/store';
-import { InjectionToken } from '@gitbutler/shared/context';
 import type { ClientState } from '$lib/state/clientState.svelte';
 import type { HttpClient } from '@gitbutler/shared/network/httpClient';
 
@@ -17,7 +17,7 @@ export type ProjectInfo = {
 	headsup?: string;
 };
 
-export const PROJECTS_SERVICE_TOKEN = new InjectionToken<ProjectsService>('ProjectsService');
+export const PROJECTS_SERVICE = new InjectionToken<ProjectsService>('ProjectsService');
 
 export class ProjectsService {
 	private api: ReturnType<typeof injectEndpoints>;

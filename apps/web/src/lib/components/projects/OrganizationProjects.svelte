@@ -1,17 +1,17 @@
 <script lang="ts">
 	import ProjectIndexCard from '$lib/components/projects/ProjectIndexCard.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
+	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
 	import { getOrganizationBySlug } from '@gitbutler/shared/organizations/organizationsPreview.svelte';
-	import { AppState } from '@gitbutler/shared/redux/store.svelte';
+	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
 
 	type Props = {
 		slug: string;
 	};
 
-	const appState = getContext(AppState);
-	const organizationService = getContext(OrganizationService);
+	const appState = inject(APP_STATE);
+	const organizationService = inject(ORGANIZATION_SERVICE);
 
 	const { slug }: Props = $props();
 

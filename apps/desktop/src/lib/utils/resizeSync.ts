@@ -1,4 +1,8 @@
+import { InjectionToken } from '@gitbutler/shared/context';
+
 export type ResizeCallback = (value: number) => void;
+
+export const RESIZE_SYNC = new InjectionToken<ResizeSync>('ResizeSync');
 
 /**
  * The `Resizer` component uses this class for shift + drag synchronizing

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import WelcomeAction from '$components/WelcomeAction.svelte';
 	import signinSvg from '$lib/assets/signin.svg?raw';
-	import { UserService } from '$lib/user/userService';
-	import { getContext } from '@gitbutler/shared/context';
+	import { USER_SERVICE } from '$lib/user/userService';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import LinkButton from '@gitbutler/ui/LinkButton.svelte';
 	import { writable } from 'svelte/store';
@@ -17,7 +17,7 @@
 
 	const aborted = writable(false);
 
-	const userService = getContext(UserService);
+	const userService = inject(USER_SERVICE);
 	const loading = userService.loading;
 	const user = userService.user;
 </script>

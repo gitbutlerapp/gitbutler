@@ -1,12 +1,12 @@
 <script lang="ts">
 	import ProjectsSection from '$lib/components/ProjectsSection.svelte';
 	import ReviewsSection from '$lib/components/ReviewsSection.svelte';
-	import { UserService } from '$lib/user/userService';
+	import { UserService, USER_SERVICE } from '$lib/user/userService';
+	import { inject } from '@gitbutler/shared/context';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import toasts from '@gitbutler/ui/toasts';
-	import { getContext } from 'svelte';
 	import { get } from 'svelte/store';
 	import type { ExtendedUser } from '$lib/owner/types';
 
@@ -17,7 +17,7 @@
 
 	let { user, ownerSlug }: Props = $props();
 
-	const userService = getContext(UserService) as UserService;
+	const userService = inject(USER_SERVICE) as UserService;
 	const currentUser = userService.user;
 	const isCurrentUser = $derived(get(currentUser)?.login === user.login);
 

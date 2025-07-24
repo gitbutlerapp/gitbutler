@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { AuthService } from '$lib/auth/authService.svelte';
+	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
 	import Breadcrumbs from '$lib/components/chat/Breadcrumbs.svelte';
 	import { featureShowOrganizations } from '$lib/featureFlags';
-	import { UserService } from '$lib/user/userService';
-	import { getContext } from '@gitbutler/shared/context';
-	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
+	import { USER_SERVICE } from '$lib/user/userService';
+	import { inject } from '@gitbutler/shared/context';
+	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
@@ -13,12 +13,12 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { env } from '$env/dynamic/public';
 
-	const authService = getContext(AuthService);
+	const authService = inject(AUTH_SERVICE);
 	const token = $derived(authService.tokenReadable);
 
-	const userService = getContext(UserService);
+	const userService = inject(USER_SERVICE);
 	const user = $derived(userService.user);
-	const routes = getContext(WebRoutesService);
+	const routes = inject(WEB_ROUTES_SERVICE);
 
 	let ctxMenuUserEl = $state<ReturnType<typeof ContextMenu>>();
 	let ctxUserTriggerButton = $state<HTMLButtonElement | undefined>();

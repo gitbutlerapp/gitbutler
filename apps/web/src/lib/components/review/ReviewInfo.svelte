@@ -2,9 +2,9 @@
 	import Factoid from '$lib/components/infoFlexRow/Factoid.svelte';
 	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
 	import { getChatChannelParticipants } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';
-	import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
+	import { CHAT_CHANNELS_SERVICE } from '@gitbutler/shared/chat/chatChannelsService';
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import {
 		getUsersWithAvatars,
 		getPatchApproversWithAvatars,
@@ -13,7 +13,7 @@
 	} from '@gitbutler/shared/contributors';
 	import ChangeStatus from '@gitbutler/shared/patches/ChangeStatus.svelte';
 	import { type PatchCommit } from '@gitbutler/shared/patches/types';
-	import { AppState } from '@gitbutler/shared/redux/store.svelte';
+	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 
@@ -27,8 +27,8 @@
 	}
 
 	const { patchCommit, projectId }: Props = $props();
-	const appState = getContext(AppState);
-	const chatChannelService = getContext(ChatChannelsService);
+	const appState = inject(APP_STATE);
+	const chatChannelService = inject(CHAT_CHANNELS_SERVICE);
 
 	const chatParticipants = $derived(
 		getChatChannelParticipants(appState, chatChannelService, projectId, patchCommit.changeId)

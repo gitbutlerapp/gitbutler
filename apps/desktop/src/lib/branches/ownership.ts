@@ -1,7 +1,9 @@
+import { InjectionToken } from '@gitbutler/shared/context';
 import type { BranchStack } from '$lib/branches/branch';
 import type { AnyFile } from '$lib/files/file';
 import type { RemoteHunk } from '$lib/hunks/hunk';
 import type { Hunk } from '$lib/hunks/hunk';
+import type { Writable } from 'svelte/store';
 
 // These types help keep track of what maps to what.
 // TODO: refactor code for clarity, these types should not be needed
@@ -110,6 +112,10 @@ function getState(
 
 	return { selection: claims, claims };
 }
+
+export const SELECTED_OWNERSHIP = new InjectionToken<Writable<SelectedOwnership>>(
+	'SelectedOwnership'
+);
 
 export class SelectedOwnership {
 	private claims: FileClaims;

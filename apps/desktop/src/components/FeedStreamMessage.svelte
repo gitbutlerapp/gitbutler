@@ -1,7 +1,7 @@
 <script lang="ts">
 	import FeedItemKind from '$components/FeedItemKind.svelte';
-	import FeedFactory, { type InProgressAssistantMessage } from '$lib/feed/feed';
-	import { getContext } from '@gitbutler/shared/context';
+	import { FEED_FACTORY, type InProgressAssistantMessage } from '$lib/feed/feed';
+	import { inject } from '@gitbutler/shared/context';
 	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
 	import type { ToolCall } from '$lib/ai/tool';
 
@@ -12,7 +12,7 @@
 
 	const { projectId, message }: Props = $props();
 
-	const feedFactory = getContext(FeedFactory);
+	const feedFactory = inject(FEED_FACTORY);
 	const feed = $derived(feedFactory.getFeed(projectId));
 	let toolCalls = $state<ToolCall[]>(message.toolCalls);
 	let messageContent = $state(message.content);

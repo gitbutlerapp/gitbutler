@@ -55,9 +55,3 @@ export class LineManager {
 		return this.data.get(commitId)!;
 	}
 }
-
-export class LineManagerFactory {
-	build(commits: Commits) {
-		return new LineManager(commits);
-	}
-}

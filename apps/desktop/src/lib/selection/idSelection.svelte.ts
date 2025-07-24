@@ -6,6 +6,7 @@ import {
 	type SelectionId,
 	type SelectedFile
 } from '$lib/selection/key';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { SvelteSet } from 'svelte/reactivity';
 import { get, writable, type Writable } from 'svelte/store';
@@ -15,6 +16,8 @@ import type { HunkAssignment } from '$lib/hunks/hunk';
 import type { UncommittedService } from '$lib/selection/uncommittedService.svelte';
 import type { StackService } from '$lib/stacks/stackService.svelte';
 import type { WorktreeService } from '$lib/worktree/worktreeService.svelte';
+
+export const ID_SELECTION = new InjectionToken<IdSelection>('IdSelection');
 
 /**
  * File selection mechanism based on strings id's.

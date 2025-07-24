@@ -2,10 +2,10 @@
 	import HunkViewer from '$components/HunkViewer.svelte';
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import LargeDiffMessage from '$components/LargeDiffMessage.svelte';
-	import { FileService } from '$lib/files/fileService';
+	import { FILE_SERVICE } from '$lib/files/fileService';
 	import { getLockText } from '$lib/files/lock';
 	import { computeAddedRemovedByHunk } from '$lib/utils/metrics';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import type { FileInfo } from '$lib/files/file';
 	import type { HunkSection, ContentSection } from '$lib/utils/fileSections';
 
@@ -36,7 +36,7 @@
 	}: Props = $props();
 
 	let alwaysShow = $state(false);
-	const fileService = getContext(FileService);
+	const fileService = inject(FILE_SERVICE);
 
 	function getGutterMinWidth(max: number | undefined) {
 		if (!max) {

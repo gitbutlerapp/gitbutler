@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { ResizeSync } from '$lib/utils/resizeSync';
-	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import { SETTINGS } from '$lib/settings/userSettings';
+	import { RESIZE_SYNC } from '$lib/utils/resizeSync';
+	import { inject } from '@gitbutler/shared/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 	import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
 	import { pxToRem, remToPx } from '@gitbutler/ui/utils/pxToRem';
@@ -78,8 +78,8 @@
 	}: Props = $props();
 
 	const orientation = $derived(['left', 'right'].includes(direction) ? 'horizontal' : 'vertical');
-	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
-	const resizeSync = getContext(ResizeSync);
+	const userSettings = inject(SETTINGS);
+	const resizeSync = inject(RESIZE_SYNC);
 	const zoom = $derived($userSettings.zoom);
 
 	const value = $derived(

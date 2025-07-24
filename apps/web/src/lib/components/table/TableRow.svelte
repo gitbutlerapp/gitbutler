@@ -7,9 +7,9 @@
 		type AvatarsType,
 		type ChangesType
 	} from '$lib/components/table/types';
-	import { UserService } from '$lib/user/userService';
+	import { USER_SERVICE } from '$lib/user/userService';
 	import Minimap from '@gitbutler/shared/branches/Minimap.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import CommitStatusBadge, { type CommitStatusType } from '@gitbutler/ui/CommitStatusBadge.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
@@ -27,7 +27,7 @@
 		separatedBottom?: boolean;
 	};
 
-	const userService = getContext(UserService);
+	const userService = inject(USER_SERVICE);
 	const user = userService.user;
 
 	let { columns, href, isTopEntry = false, separatedTop, separatedBottom }: Props = $props();

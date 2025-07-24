@@ -28,9 +28,8 @@ the window, then enlarge it and retain the original widths of the layout.
 	import Resizer from '$components/Resizer.svelte';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { UiState } from '$lib/state/uiState.svelte';
-	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import { SETTINGS } from '$lib/settings/userSettings';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import type { Snippet } from 'svelte';
@@ -58,10 +57,10 @@ the window, then enlarge it and retain the original widths of the layout.
 	const { name, left, leftWidth, preview, previewWidth, middle, right, rightWidth }: Props =
 		$props();
 
-	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
+	const userSettings = inject(SETTINGS);
 	const zoom = $derived($userSettings.zoom);
 
-	const [uiState] = inject(UiState);
+	const uiState = inject(UI_STATE);
 	const unassignedSidebaFolded = $derived(uiState.global.unassignedSidebaFolded);
 
 	let leftPreferredWidth = $derived(pxToRem(leftWidth.default, zoom));

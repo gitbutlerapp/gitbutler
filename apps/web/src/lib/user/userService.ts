@@ -1,5 +1,6 @@
 import { setSentryUser } from '$lib/analytics/sentry';
 import { apiToBranch } from '@gitbutler/shared/branches/types';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { get, writable, type Writable } from 'svelte/store';
 import type { ApiBranch, Branch } from '@gitbutler/shared/branches/types';
 import type { HttpClient } from '@gitbutler/shared/network/httpClient';
@@ -25,6 +26,8 @@ export interface User {
 
 // Define the LoadablePatchStacks type using the shared Loadable type
 export type LoadablePatchStacks = Loadable<Branch[]> & { ownerSlug: string };
+
+export const USER_SERVICE = new InjectionToken<UserService>('UserService');
 
 export class UserService {
 	user: Writable<User | undefined> = writable<User | undefined>(undefined, (set) => {

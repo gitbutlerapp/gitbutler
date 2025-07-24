@@ -2,20 +2,15 @@
 	import HunkContextMenu from '$components/HunkContextMenu.svelte';
 	import HunkDiff from '$components/HunkDiff.svelte';
 	import LargeDiffMessage from '$components/LargeDiffMessage.svelte';
-	import { BranchStack } from '$lib/branches/branch';
-	import { SelectedOwnership } from '$lib/branches/ownership';
+	import { BRANCH_STACK } from '$lib/branches/branch';
+	import { SELECTED_OWNERSHIP } from '$lib/branches/ownership';
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { HunkDropData } from '$lib/dragging/draggables';
-	import { DropzoneRegistry } from '$lib/dragging/registry';
+	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
 	import { type Hunk } from '$lib/hunks/hunk';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { SETTINGS } from '$lib/settings/userSettings';
 	import { type HunkSection } from '$lib/utils/fileSections';
-	import {
-		getContext,
-		getContextStoreBySymbol,
-		maybeGetContextStore
-	} from '@gitbutler/shared/context';
-	import type { Writable } from 'svelte/store';
+	import { inject, injectOptional } from '@gitbutler/shared/context';
 
 	interface Props {
 		projectId: string;
@@ -43,11 +38,10 @@
 		readonly = false
 	}: Props = $props();
 
-	const selectedOwnership: Writable<SelectedOwnership> | undefined =
-		maybeGetContextStore(SelectedOwnership);
-	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
-	const stack = maybeGetContextStore(BranchStack);
-	const dropzoneRegistry = getContext(DropzoneRegistry);
+	const selectedOwnership = injectOptional(SELECTED_OWNERSHIP, undefined);
+	const userSettings = inject(SETTINGS);
+	const stack = injectOptional(BRANCH_STACK, undefined);
+	const dropzoneRegistry = inject(DROPZONE_REGISTRY);
 
 	let alwaysShow = $state(false);
 	let viewport = $state<HTMLDivElement>();

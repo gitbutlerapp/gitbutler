@@ -1,12 +1,11 @@
 <script lang="ts">
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
+	import { SETTINGS } from '$lib/settings/userSettings';
+	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService.svelte';
 	import { initTheme } from '$lib/utils/theme';
-	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
-	import type { Writable } from 'svelte/store';
+	import { inject } from '@gitbutler/shared/context';
 
-	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
-	const shortcutService = getContext(ShortcutService);
+	const userSettings = inject(SETTINGS);
+	const shortcutService = inject(SHORTCUT_SERVICE);
 
 	initTheme(userSettings);
 

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
@@ -21,7 +21,7 @@
 
 	const { projectId, forgeName, template, disabled, onselect }: Props = $props();
 
-	const [stackService] = inject(StackService);
+	const stackService = inject(STACK_SERVICE);
 
 	const path = $derived(template.path);
 	const enabled = $derived(template.enabled);

@@ -1,5 +1,8 @@
+import { InjectionToken } from '@gitbutler/shared/context';
 import type { TreeChanges } from '$lib/hunks/change';
 import type { BackendApi, ClientState } from '$lib/state/clientState.svelte';
+
+export const OPLOG_SERVICE = new InjectionToken<OplogService>('OplogService');
 
 /** Supercedes the HistoryService */
 export class OplogService {

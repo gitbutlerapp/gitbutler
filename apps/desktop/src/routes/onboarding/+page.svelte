@@ -5,15 +5,15 @@
 	import Welcome from '$components/Welcome.svelte';
 	import analyticsSvg from '$lib/assets/illustrations/analytics.svg?raw';
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
-	import { AppSettings } from '$lib/config/appSettings';
-	import { ProjectsService } from '$lib/project/projectsService';
+	import { APP_SETTINGS } from '$lib/config/appSettings';
+	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { sleep } from '$lib/utils/sleep';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 
-	const appSettings = getContext(AppSettings);
+	const appSettings = inject(APP_SETTINGS);
 	const analyticsConfirmed = appSettings.appAnalyticsConfirmed;
 
-	const projectsService = getContext(ProjectsService);
+	const projectsService = inject(PROJECTS_SERVICE);
 	const projectsResult = $derived(projectsService.projects());
 
 	// We don't want to have this guard in the layout, because we want to have

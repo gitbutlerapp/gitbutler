@@ -2,24 +2,22 @@
 	import { goto } from '$app/navigation';
 	import { showHistoryView } from '$lib/config/config';
 	import { vscodePath } from '$lib/project/project';
-	import { ProjectsService } from '$lib/project/projectsService';
+	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { projectSettingsPath } from '$lib/routes/routes.svelte';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
+	import { SETTINGS } from '$lib/settings/userSettings';
+	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService.svelte';
 	import * as events from '$lib/utils/events';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
-	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';
-	import type { Writable } from 'svelte/store';
 
 	const { projectId }: { projectId: string } = $props();
 
-	const projectsService = getContext(ProjectsService);
+	const projectsService = inject(PROJECTS_SERVICE);
 
-	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
-	const shortcutService = getContext(ShortcutService);
+	const userSettings = inject(SETTINGS);
+	const shortcutService = inject(SHORTCUT_SERVICE);
 
 	shortcutService.on('project-settings', () => {
 		goto(projectSettingsPath(projectId));

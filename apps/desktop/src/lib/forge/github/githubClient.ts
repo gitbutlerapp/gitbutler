@@ -1,6 +1,9 @@
 import { rateLimit } from '$lib/utils/ratelimit';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { Octokit } from '@octokit/rest';
 import type { ApiClient } from '$lib/forge/interface/apiClient';
+
+export const GITHUB_CLIENT = new InjectionToken<GitHubClient>('GitHubClient');
 
 export class GitHubClient implements ApiClient {
 	private _client: Octokit | undefined;

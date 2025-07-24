@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import RegisterInterest from '@gitbutler/shared/interest/RegisterInterest.svelte';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
+	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
 	import { organizationTable } from '@gitbutler/shared/organizations/organizationsSlice';
-	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
+	import { PROJECT_SERVICE } from '@gitbutler/shared/organizations/projectService';
 	import { projectTable } from '@gitbutler/shared/organizations/projectsSlice';
-	import { AppState } from '@gitbutler/shared/redux/store.svelte';
+	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
@@ -18,9 +18,9 @@
 
 	const { organizationSlug, projectRepositoryId }: Props = $props();
 
-	const organizationService = getContext(OrganizationService);
-	const projectsService = getContext(ProjectService);
-	const appState = getContext(AppState);
+	const organizationService = inject(ORGANIZATION_SERVICE);
+	const projectsService = inject(PROJECT_SERVICE);
+	const appState = inject(APP_STATE);
 
 	const organizationInterest = $derived(
 		organizationService.getOrganizationWithDetailsInterest(organizationSlug)

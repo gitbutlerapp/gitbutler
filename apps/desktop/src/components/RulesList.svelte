@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import RulesService from '$lib/rules/rulesService.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 
 	type Props = {
@@ -10,7 +10,7 @@
 
 	const { projectId }: Props = $props();
 
-	const rulesService = getContext(RulesService);
+	const rulesService = inject(RULES_SERVICE);
 	const [_, creatingRule] = rulesService.createWorkspaceRule;
 
 	const rules = $derived(rulesService.listWorkspaceRules(projectId));

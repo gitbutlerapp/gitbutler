@@ -1,4 +1,5 @@
 import { type SnapPositionName } from '$lib/floating/types';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { type Reactive, type WritableReactive } from '@gitbutler/shared/storeUtils';
 import {
@@ -98,6 +99,8 @@ export type GlobalUiState = {
 	draftBranchName: string | undefined;
 	modal: GlobalModalState | undefined;
 };
+
+export const UI_STATE = new InjectionToken<UiState>('UiState');
 
 /**
  * Stateful properties for the UI, with redux backed fine-grained reactivity.

@@ -1,10 +1,13 @@
 import { StackService } from '$lib/stacks/stackService.svelte';
 import { UiState } from '$lib/state/uiState.svelte';
 import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
+import { InjectionToken } from '@gitbutler/shared/context';
 import type { Commit } from '$lib/branches/v3';
 import type { HunkAssignment } from '$lib/hunks/hunk';
 import type { Stack, BranchDetails } from '$lib/stacks/stack';
 import type { EventProperties } from '$lib/state/customHooks.svelte';
+
+export const COMMIT_ANALYTICS = new InjectionToken<CommitAnalytics>('CommitAnalytics');
 
 export class CommitAnalytics {
 	constructor(

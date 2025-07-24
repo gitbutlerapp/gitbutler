@@ -1,10 +1,10 @@
+import { InjectionToken } from '$lib/context';
 import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { errorToLoadable } from '$lib/network/loadable';
 import { patchCommitTable } from '$lib/patches/patchCommitsSlice';
 import { upsertPatchSections } from '$lib/patches/patchSectionsSlice';
 import { apiToPatch, apiToSection, type ApiPatchCommit, type Patch } from '$lib/patches/types';
 import { POLLING_REGULAR } from '$lib/polling';
-import { InjectionToken } from '../context';
 import type { HttpClient } from '$lib/network/httpClient';
 import type { AppDispatch } from '$lib/redux/store.svelte';
 
@@ -14,7 +14,7 @@ type PatchUpdateParams = {
 	message?: string;
 };
 
-export const PATCH_COMMIT_SERVICE_TOKEN = new InjectionToken<PatchCommitService>('PatchCommitService');
+export const PATCH_COMMIT_SERVICE = new InjectionToken<PatchCommitService>('PatchCommitService');
 
 export class PatchCommitService {
 	private readonly patchInterests = new InterestStore<{ changeId: string }>(POLLING_REGULAR);

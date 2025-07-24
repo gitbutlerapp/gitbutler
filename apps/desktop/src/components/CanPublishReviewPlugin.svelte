@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { inject } from '@gitbutler/shared/context';
 
 	type Props = {
 		projectId: string;
@@ -13,8 +13,8 @@
 
 	const { projectId, stackId, branchName, prNumber, reviewId }: Props = $props();
 
-	const forge = getContext(DefaultForgeFactory);
-	const stackService = getContext(StackService);
+	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const stackService = inject(STACK_SERVICE);
 
 	const commits = $derived(
 		stackId && branchName ? stackService.commits(projectId, stackId, branchName) : undefined

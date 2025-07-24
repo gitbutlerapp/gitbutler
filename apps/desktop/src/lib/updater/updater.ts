@@ -1,9 +1,12 @@
 import { showToast } from '$lib/notifications/toasts';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { type DownloadEvent, Update } from '@tauri-apps/plugin-updater';
 import { get, writable } from 'svelte/store';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { Tauri } from '$lib/backend/tauri';
+
+export const UPDATER_SERVICE = new InjectionToken<UpdaterService>('UpdaterService');
 
 type UpdateStatus = {
 	version?: string;

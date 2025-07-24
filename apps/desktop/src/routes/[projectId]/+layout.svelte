@@ -12,33 +12,36 @@
 	import ProblemLoadingRepo from '$components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$components/ProjectSettingsMenuAction.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import { BranchService } from '$lib/branches/branchService.svelte';
-	import { SettingsService } from '$lib/config/appSettingsV2';
+	import { BASE_BRANCH } from '$lib/baseBranch/baseBranch';
+	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
+	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
+	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { showHistoryView } from '$lib/config/config';
-	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
-	import FeedFactory from '$lib/feed/feed';
-	import { FocusManager } from '$lib/focus/focusManager.svelte';
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
-	import { GitHubClient } from '$lib/forge/github/githubClient';
-	import { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
-	import { GitLabState } from '$lib/forge/gitlab/gitlabState.svelte';
-	import { GitService } from '$lib/git/gitService';
-	import { HistoryService } from '$lib/history/history';
-	import { ModeService } from '$lib/mode/modeService';
+	import {
+		StackingReorderDropzoneManagerFactory,
+		STACKING_REORDER_DROPZONE_MANAGER_FACTORY
+	} from '$lib/dragging/stackingReorderDropzoneManager';
+	import { FEED_FACTORY } from '$lib/feed/feed';
+	import { FocusManager, FOCUS_MANAGER } from '$lib/focus/focusManager.svelte';
+	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import { GITHUB_CLIENT } from '$lib/forge/github/githubClient';
+	import { GITLAB_CLIENT } from '$lib/forge/gitlab/gitlabClient.svelte';
+	import { GitLabState, GITLAB_STATE } from '$lib/forge/gitlab/gitlabState.svelte';
+	import { GIT_SERVICE } from '$lib/git/gitService';
+	import { HISTORY_SERVICE } from '$lib/history/history';
+	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { showError, showInfo, showWarning } from '$lib/notifications/toasts';
-	import { ProjectsService } from '$lib/project/projectsService';
+	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { SECRET_SERVICE } from '$lib/secrets/secretsService';
-	import { IdSelection } from '$lib/selection/idSelection.svelte';
-	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { ClientState } from '$lib/state/clientState.svelte';
+	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
+	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { CLIENT_STATE } from '$lib/state/clientState.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { debounce } from '$lib/utils/debounce';
-	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
-	import { getContext, inject2 } from '@gitbutler/shared/context';
-	import { onDestroy, setContext, untrack, type Snippet } from 'svelte';
+	import { WORKTREE_SERVICE } from '$lib/worktree/worktreeService.svelte';
+	import { inject, provide } from '@gitbutler/shared/context';
+	import { onDestroy, untrack, type Snippet } from 'svelte';
 	import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 	import type { LayoutData } from './$types';
 
@@ -46,7 +49,7 @@
 
 	const { projectId, userService, posthog, projectMetrics } = $derived(data);
 
-	const baseBranchService = getContext(BaseBranchService);
+	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const repoInfoResponse = $derived(baseBranchService.repo(projectId));
 	const repoInfo = $derived(repoInfoResponse.current.data);
 	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
@@ -54,17 +57,17 @@
 	const pushRepoResponse = $derived(baseBranchService.pushRepo(projectId));
 	const forkInfo = $derived(pushRepoResponse.current.data);
 	const baseBranchName = $derived(baseBranch?.shortName);
-	const branchService = getContext(BranchService);
+	const branchService = inject(BRANCH_SERVICE);
 
-	const stackService = getContext(StackService);
-	const feedFactory = getContext(FeedFactory);
+	const stackService = inject(STACK_SERVICE);
+	const feedFactory = inject(FEED_FACTORY);
 
-	const secretService = inject2(SECRET_SERVICE);
+	const secretService = inject(SECRET_SERVICE);
 	const gitLabState = $derived(new GitLabState(secretService, repoInfo, projectId));
 	$effect.pre(() => {
-		setContext(GitLabState, gitLabState);
+		provide(GITLAB_STATE, gitLabState);
 	});
-	const gitLabClient = getContext(GitLabClient);
+	const gitLabClient = inject(GITLAB_CLIENT);
 	$effect.pre(() => {
 		gitLabClient.set(gitLabState);
 	});
@@ -72,11 +75,11 @@
 	const user = $derived(userService.user);
 	const accessToken = $derived($user?.github_access_token);
 
-	const gitHubClient = getContext(GitHubClient);
+	const gitHubClient = inject(GITHUB_CLIENT);
 	$effect.pre(() => gitHubClient.setToken(accessToken));
 	$effect.pre(() => gitHubClient.setRepo({ owner: repoInfo?.owner, repo: repoInfo?.name }));
 
-	const projectsService = getContext(ProjectsService);
+	const projectsService = inject(PROJECTS_SERVICE);
 	const projectsResult = $derived(projectsService.projects());
 	const projects = $derived(projectsResult.current.data);
 
@@ -86,23 +89,23 @@
 			stackService
 		);
 
-		setContext(StackingReorderDropzoneManagerFactory, stackingReorderDropzoneManagerFactory);
+		provide(STACKING_REORDER_DROPZONE_MANAGER_FACTORY, stackingReorderDropzoneManagerFactory);
 	});
 
 	$effect.pre(() => {
-		setContext(HistoryService, data.historyService);
-		setContext(BaseBranch, baseBranch);
+		provide(HISTORY_SERVICE, data.historyService);
+		provide(BASE_BRANCH, baseBranch);
 	});
 
 	const focusManager = new FocusManager();
-	setContext(FocusManager, focusManager);
+	provide(FOCUS_MANAGER, focusManager);
 
 	let intervalId: any;
 
-	const forgeFactory = getContext(DefaultForgeFactory);
+	const forgeFactory = inject(DEFAULT_FORGE_FACTORY);
 
 	// Refresh base branch if git fetch event is detected.
-	const modeService = getContext(ModeService);
+	const modeService = inject(MODE_SERVICE);
 	const mode = $derived(modeService.mode({ projectId }));
 	const head = $derived(modeService.head({ projectId }));
 
@@ -120,7 +123,7 @@
 	);
 
 	// TODO: Refactor `$head` into `.onHead()` as well.
-	const gitService = getContext(GitService);
+	const gitService = inject(GIT_SERVICE);
 	$effect(() =>
 		gitService.onFetch(data.projectId, () => {
 			debouncedBaseBranchRefresh();
@@ -198,7 +201,7 @@
 		if (intervalId) clearInterval(intervalId);
 	}
 
-	const settingsService = getContext(SettingsService);
+	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = settingsService.appSettings;
 
 	onDestroy(() => {
@@ -247,7 +250,7 @@
 	});
 
 	// Clear the backend API when the project id changes.
-	const clientState = getContext(ClientState);
+	const clientState = inject(CLIENT_STATE);
 	$effect(() => {
 		if (projectId) {
 			clientState.backendApi.util.resetApiState();
@@ -257,8 +260,8 @@
 	// TODO: Can we combine WorktreeService and UncommittedService? The former
 	// is powered by RTKQ, while the latter is a custom slice, but perhaps
 	// they could be still be contained within the same .svelte.ts file.
-	const worktreeService = getContext(WorktreeService);
-	const uncommittedService = getContext(UncommittedService);
+	const worktreeService = inject(WORKTREE_SERVICE);
+	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const worktreeDataResult = $derived(worktreeService.worktreeData(projectId));
 	const worktreeData = $derived(worktreeDataResult.current.data);
 
@@ -280,7 +283,7 @@
 	// file selection is related to selecting things with checkmarks, and
 	// that this `IdSelection` class should be deprecated in favor of
 	// combining it with `UncommittedService`.
-	const idSelection = getContext(IdSelection);
+	const idSelection = inject(ID_SELECTION);
 	const affectedPaths = $derived(worktreeData?.rawChanges.map((c) => c.path));
 	$effect(() => {
 		if (affectedPaths) {

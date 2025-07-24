@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { nodePath, type TreeNode } from '$lib/files/filetreeV3';
-	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
+	import { inject } from '@gitbutler/shared/context';
 	import FolderListItem from '@gitbutler/ui/file/FolderListItem.svelte';
 
 	type Props = {
@@ -18,7 +18,7 @@
 	const { stackId, node, depth, showCheckbox, isExpanded, onclick, ontoggle, testId }: Props =
 		$props();
 
-	const uncommittedService = getContext(UncommittedService);
+	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const selectionStatus = $derived(uncommittedService.folderCheckStatus(stackId, nodePath(node)));
 
 	function handleCheck(checked: boolean) {

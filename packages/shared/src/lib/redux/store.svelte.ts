@@ -2,6 +2,7 @@ import { branchReviewListingTable } from '$lib/branches/branchReviewListingsSlic
 import { branchTable } from '$lib/branches/branchesSlice';
 import { latestBranchLookupTable } from '$lib/branches/latestBranchLookupSlice';
 import { chatChannelTable } from '$lib/chat/chatChannelsSlice';
+import { InjectionToken } from '$lib/context';
 import { feedsReducer } from '$lib/feeds/feedsSlice';
 import { postsReducer } from '$lib/feeds/postsSlice';
 import { organizationTable } from '$lib/organizations/organizationsSlice';
@@ -100,9 +101,13 @@ export type AppRulesState = {
 	readonly rules: ReturnType<typeof rulesTable.reducer>;
 };
 
+export const APP_DISPATCH = new InjectionToken<AppDispatch>('AppDispatch');
+
 export class AppDispatch {
 	constructor(readonly dispatch: typeof AppState.prototype._store.dispatch) {}
 }
+
+export const APP_STATE = new InjectionToken<AppState>('AppState');
 
 export class AppState
 	implements

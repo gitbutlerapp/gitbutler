@@ -14,20 +14,19 @@
 <script lang="ts">
 	import { ircEnabled } from '$lib/config/uiFeatureFlags';
 	import { isDiffHunk, lineIdsToHunkHeaders, type DiffHunk } from '$lib/hunks/hunk';
-	import { IrcService } from '$lib/irc/ircService.svelte';
+	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
 	import { vscodePath } from '$lib/project/project';
-	import { ProjectsService } from '$lib/project/projectsService';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { SETTINGS } from '$lib/settings/userSettings';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
-	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import type { TreeChange } from '$lib/hunks/change';
 	import type { LineId } from '@gitbutler/ui/utils/diffParsing';
-	import type { Writable } from 'svelte/store';
 
 	interface Props {
 		trigger: HTMLElement | undefined;
@@ -51,13 +50,11 @@
 		invertHunkSelection
 	}: Props = $props();
 
-	const [stackService, ircService, projectService] = inject(
-		StackService,
-		IrcService,
-		ProjectsService
-	);
+	const stackService = inject(STACK_SERVICE);
+	const ircService = inject(IRC_SERVICE);
+	const projectService = inject(PROJECTS_SERVICE);
 
-	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
+	const userSettings = inject(SETTINGS);
 	const ircChats = $derived(ircService.getChats());
 	const ircUsers = $derived(Object.keys(ircChats));
 	const ircChannels = $derived(Object.keys(ircService.getChannels()));

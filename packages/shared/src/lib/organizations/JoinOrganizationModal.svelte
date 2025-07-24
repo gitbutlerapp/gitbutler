@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { getContext } from '$lib/context';
-	import { OrganizationService } from '$lib/organizations/organizationService';
+	import { inject } from '$lib/context';
+	import { ORGANIZATION_SERVICE } from '$lib/organizations/organizationService';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 
-	const organizationService = getContext(OrganizationService);
+	const organizationService = inject(ORGANIZATION_SERVICE);
 
 	let modal = $state<Modal>();
 

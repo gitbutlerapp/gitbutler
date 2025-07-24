@@ -1,8 +1,11 @@
 import { ghQuery } from '$lib/forge/github/ghQuery';
 import { providesList, ReduxTag } from '$lib/state/tags';
+import { InjectionToken } from '@gitbutler/shared/context';
 import type { Tauri } from '$lib/backend/tauri';
 import type { GitHubApi } from '$lib/state/clientState.svelte';
 import type { RestEndpointMethodTypes } from '@octokit/rest';
+
+export const GITHUB_USER_SERVICE = new InjectionToken<GitHubUserService>('GitHubUserService');
 
 type IsAuthenticated = RestEndpointMethodTypes['users']['getAuthenticated']['response']['data'];
 

@@ -1,7 +1,10 @@
 import { SnapshotDiff } from '$lib/history/types';
 import { providesItem, ReduxTag } from '$lib/state/tags';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { plainToInstance } from 'class-transformer';
 import type { BackendApi, ClientState } from '$lib/state/clientState.svelte';
+
+export const SNAPSHOT_DIFF_SERVICE = new InjectionToken<SnapshotDiffService>('SnapshotDiffService');
 
 export default class SnapshotDiffService {
 	private api: ReturnType<typeof injectEndpoints>;

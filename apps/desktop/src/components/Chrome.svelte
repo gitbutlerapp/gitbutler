@@ -4,7 +4,7 @@
 	import ProjectNotFound from '$components/ProjectNotFound.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { Code, isTauriCommandError } from '$lib/backend/ipc';
-	import { ProjectsService } from '$lib/project/projectsService';
+	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/shared/context';
 	import type { Snippet } from 'svelte';
 
@@ -14,7 +14,7 @@
 		sidebarDisabled = false
 	}: { projectId: string; children: Snippet; sidebarDisabled?: boolean } = $props();
 
-	const [projectService] = inject(ProjectsService);
+	const projectService = inject(PROJECTS_SERVICE);
 	const projectResult = $derived(projectService.getProject(projectId));
 </script>
 

@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { getContext } from '$lib/context';
-	import { OrganizationService } from '$lib/organizations/organizationService';
+	import { inject } from '$lib/context';
+	import { ORGANIZATION_SERVICE } from '$lib/organizations/organizationService';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import { slugify } from '@gitbutler/ui/utils/string';
 
-	const organizationService = getContext(OrganizationService);
+	const organizationService = inject(ORGANIZATION_SERVICE);
 
 	let name = $state<string>('');
 	let slug = $state<string>('');

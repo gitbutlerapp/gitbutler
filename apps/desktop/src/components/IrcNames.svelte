@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { IrcService } from '$lib/irc/ircService.svelte';
+	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 
 	type Props = {
@@ -8,7 +8,7 @@
 
 	const { channel }: Props = $props();
 
-	const [ircService] = inject(IrcService);
+	const ircService = inject(IRC_SERVICE);
 
 	const users = $derived(ircService.getChannelUsers(channel));
 </script>

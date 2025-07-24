@@ -1,11 +1,11 @@
 <script lang="ts">
 	import MergeButton from '$components/MergeButton.svelte';
 	import PullRequestCard from '$components/PullRequestCard.svelte';
-	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
+	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import type { MergeMethod } from '$lib/forge/interface/types';
 
@@ -19,9 +19,9 @@
 
 	const { projectId, stackId, branchName, prNumber }: Props = $props();
 
-	const baseBranchService = getContext(BaseBranchService);
-	const forge = getContext(DefaultForgeFactory);
-	const stackService = getContext(StackService);
+	const baseBranchService = inject(BASE_BRANCH_SERVICE);
+	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const stackService = inject(STACK_SERVICE);
 
 	// TODO: Make these props so we don't need `!`.
 	const repoService = $derived(forge.current.repoService);

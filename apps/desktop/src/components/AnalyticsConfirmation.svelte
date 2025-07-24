@@ -1,13 +1,13 @@
 <script lang="ts">
 	import AnalyticsSettings from '$components/AnalyticsSettings.svelte';
 	import { initAnalyticsIfEnabled } from '$lib/analytics/analytics';
-	import { PostHogWrapper } from '$lib/analytics/posthog';
-	import { AppSettings } from '$lib/config/appSettings';
-	import { getContext } from '@gitbutler/shared/context';
+	import { POSTHOG_WRAPPER } from '$lib/analytics/posthog';
+	import { APP_SETTINGS } from '$lib/config/appSettings';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 
-	const appSettings = getContext(AppSettings);
-	const posthog = getContext(PostHogWrapper);
+	const appSettings = inject(APP_SETTINGS);
+	const posthog = inject(POSTHOG_WRAPPER);
 	const analyticsConfirmed = appSettings.appAnalyticsConfirmed;
 </script>
 

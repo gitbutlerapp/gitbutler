@@ -1,7 +1,8 @@
+import { InjectionToken } from '@gitbutler/shared/context';
 import { get, writable, type Writable } from 'svelte/store';
 
 const SETTINGS_KEY = 'settings-json';
-export const SETTINGS = Symbol('Settings');
+export const SETTINGS = new InjectionToken<Writable<Settings>>('Settings');
 
 export type ScrollbarVisilitySettings = 'scroll' | 'hover' | 'always';
 export type CodeEditorSettings = {

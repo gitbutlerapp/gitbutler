@@ -3,9 +3,9 @@
 </script>
 
 <script lang="ts" generics="T">
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { SETTINGS } from '$lib/settings/userSettings';
 	import { chunk } from '$lib/utils/array';
-	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import ScrollableContainer from '@gitbutler/ui/scroll/ScrollableContainer.svelte';
 	import { tick, type Snippet } from 'svelte';
 
@@ -36,7 +36,7 @@
 	let bottom = $state(0);
 	let averageHeight: number = $state(null!);
 
-	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
+	const userSettings = inject(SETTINGS);
 
 	const chunks = $derived(chunk(items, batchSize));
 	const visible: Array<{ id: number | string; data: T[] }> = $derived(

@@ -7,7 +7,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
-	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
@@ -20,7 +20,7 @@
 
 	const { projectId, commitId, onclose }: Props = $props();
 
-	const [stackService] = inject(StackService);
+	const stackService = inject(STACK_SERVICE);
 	const changesResult = $derived(stackService.commitChanges(projectId, commitId));
 	const commitResult = $derived(stackService.commitDetails(projectId, commitId));
 </script>

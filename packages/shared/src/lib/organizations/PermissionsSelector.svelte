@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { getContext } from '$lib/context';
+	import { inject } from '$lib/context';
 	import Loading from '$lib/network/Loading.svelte';
-	import { ProjectService } from '$lib/organizations/projectService';
+	import { PROJECT_SERVICE } from '$lib/organizations/projectService';
 	import { getProjectByRepositoryId } from '$lib/organizations/projectsPreview.svelte';
 	import { ShareLevel } from '$lib/permissions';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
@@ -14,7 +14,7 @@
 
 	const { repositoryId }: Props = $props();
 
-	const projectService = getContext(ProjectService);
+	const projectService = inject(PROJECT_SERVICE);
 
 	const project = $derived(getProjectByRepositoryId(repositoryId));
 

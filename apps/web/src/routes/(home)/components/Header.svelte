@@ -2,8 +2,8 @@
 	import HeaderLink from '$home/components/HeaderLink.svelte';
 	import HeaderMobileLink from '$home/components/HeaderMobileLink.svelte';
 	import * as jsonLinks from '$home/data/links.json';
-	import { AuthService } from '$lib/auth/authService.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
+	import { inject } from '@gitbutler/shared/context';
 	import { fly } from 'svelte/transition';
 	import { env } from '$env/dynamic/public';
 
@@ -13,7 +13,7 @@
 		isMobileMenuOpen = !isMobileMenuOpen;
 	}
 
-	const authService = getContext(AuthService);
+	const authService = inject(AUTH_SERVICE);
 	let token = $derived(authService.tokenReadable);
 </script>
 

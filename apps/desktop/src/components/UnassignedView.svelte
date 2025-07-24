@@ -6,10 +6,10 @@
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
 	import { workspaceRulesEnabled } from '$lib/config/uiFeatureFlags';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
-	import { IntelligentScrollingService } from '$lib/intelligentScrolling/service';
-	import { IdSelection } from '$lib/selection/idSelection.svelte';
-	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
+	import { INTELLIGENT_SCROLLING_SERVICE } from '$lib/intelligentScrolling/service';
+	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
+	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
@@ -26,12 +26,10 @@
 
 	const selectionId = { type: 'worktree', stackId: undefined } as SelectionId;
 
-	const [uiState, uncommittedService, intelligentScrollingService, idSelection] = inject(
-		UiState,
-		UncommittedService,
-		IntelligentScrollingService,
-		IdSelection
-	);
+	const uiState = inject(UI_STATE);
+	const uncommittedService = inject(UNCOMMITTED_SERVICE);
+	const intelligentScrollingService = inject(INTELLIGENT_SCROLLING_SERVICE);
+	const idSelection = inject(ID_SELECTION);
 	const projectState = $derived(uiState.project(projectId));
 	const unassignedSidebaFolded = $derived(uiState.global.unassignedSidebaFolded);
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);

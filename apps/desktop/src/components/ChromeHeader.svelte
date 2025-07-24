@@ -2,16 +2,16 @@
 	import { goto } from '$app/navigation';
 	import IntegrateUpstreamModal from '$components/IntegrateUpstreamModal.svelte';
 	import SyncButton from '$components/SyncButton.svelte';
-	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import { SettingsService } from '$lib/config/appSettingsV2';
+	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
+	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { ircEnabled } from '$lib/config/uiFeatureFlags';
-	import { IrcService } from '$lib/irc/ircService.svelte';
+	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
 	import { platformName } from '$lib/platform/platform';
-	import { ProjectsService } from '$lib/project/projectsService';
+	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { ircPath, projectPath } from '$lib/routes/routes.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import NotificationButton from '@gitbutler/ui/NotificationButton.svelte';
@@ -27,11 +27,11 @@
 
 	const { projectId, projectTitle, actionsDisabled = false }: Props = $props();
 
-	const projectsService = getContext(ProjectsService);
-	const baseBranchService = getContext(BaseBranchService);
-	const ircService = getContext(IrcService);
-	const settingsService = getContext(SettingsService);
-	const uiState = getContext(UiState);
+	const projectsService = inject(PROJECTS_SERVICE);
+	const baseBranchService = inject(BASE_BRANCH_SERVICE);
+	const ircService = inject(IRC_SERVICE);
+	const settingsService = inject(SETTINGS_SERVICE);
+	const uiState = inject(UI_STATE);
 	const baseReponse = $derived(projectId ? baseBranchService.baseBranch(projectId) : undefined);
 	const base = $derived(baseReponse?.current.data);
 	const settingsStore = $derived(settingsService.appSettings);

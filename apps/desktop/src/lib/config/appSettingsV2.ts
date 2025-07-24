@@ -1,5 +1,8 @@
+import { InjectionToken } from '@gitbutler/shared/context';
 import { writable } from 'svelte/store';
 import type { Tauri } from '$lib/backend/tauri';
+
+export const SETTINGS_SERVICE = new InjectionToken<SettingsService>('SettingsService');
 
 export class SettingsService {
 	readonly appSettings = writable<AppSettings | undefined>(undefined, () => {

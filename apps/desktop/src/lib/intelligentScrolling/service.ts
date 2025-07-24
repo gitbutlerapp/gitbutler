@@ -1,7 +1,12 @@
 import { sleep } from '$lib/utils/sleep';
+import { InjectionToken } from '@gitbutler/shared/context';
 import type { UiState } from '$lib/state/uiState.svelte';
 
 export type TargetType = 'stack' | 'new-stack' | 'details' | 'diff';
+
+export const INTELLIGENT_SCROLLING_SERVICE = new InjectionToken<IntelligentScrollingService>(
+	'IntelligentScrollingService'
+);
 
 export class IntelligentScrollingService {
 	private targets: {

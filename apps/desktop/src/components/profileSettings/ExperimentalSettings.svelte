@@ -1,17 +1,17 @@
 <script lang="ts">
-	import { SettingsService } from '$lib/config/appSettingsV2';
+	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { ircEnabled, ircServer, workspaceRulesEnabled } from '$lib/config/uiFeatureFlags';
-	import { User } from '$lib/user/user';
-	import { getContext, getContextStore } from '@gitbutler/shared/context';
+	import { USER } from '$lib/user/user';
+	import { inject } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 
-	const settingsService = getContext(SettingsService);
+	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = settingsService.appSettings;
 
-	const user = getContextStore(User);
+	const user = inject(USER);
 </script>
 
 <p class="text-12 text-body experimental-settings__text">

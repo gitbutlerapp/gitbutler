@@ -4,8 +4,8 @@
 	import FileListMode from '$components/FileListMode.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
-	import { IntelligentScrollingService } from '$lib/intelligentScrolling/service';
-	import { IdSelection } from '$lib/selection/idSelection.svelte';
+	import { INTELLIGENT_SCROLLING_SERVICE } from '$lib/intelligentScrolling/service';
+	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
@@ -46,10 +46,8 @@
 		ontoggle
 	}: Props = $props();
 
-	const [idSelection, intelligentScrollingService] = inject(
-		IdSelection,
-		IntelligentScrollingService
-	);
+	const idSelection = inject(ID_SELECTION);
+	const intelligentScrollingService = inject(INTELLIGENT_SCROLLING_SERVICE);
 
 	let listMode: 'list' | 'tree' = $state('tree');
 

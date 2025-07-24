@@ -1,10 +1,10 @@
 import { invoke } from '$lib/backend/ipc';
 import { Snapshot, SnapshotDiff } from '$lib/history/types';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { plainToInstance } from 'class-transformer';
 import { get, writable } from 'svelte/store';
-import { InjectionToken } from '@gitbutler/shared/context';
 
-export const HISTORY_SERVICE_TOKEN = new InjectionToken<HistoryService>('HistoryService');
+export const HISTORY_SERVICE = new InjectionToken<HistoryService>('HistoryService');
 
 export class HistoryService {
 	cursor: string | undefined = undefined;

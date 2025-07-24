@@ -3,12 +3,12 @@
 	import OrganizationProfile from '$lib/components/OrganizationProfile.svelte';
 	import UserProfile from '$lib/components/UserProfile.svelte';
 	import { featureShowProjectPage } from '$lib/featureFlags';
-	import { OwnerService } from '$lib/owner/ownerService';
-	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { getContext } from 'svelte';
+	import { OWNER_SERVICE } from '$lib/owner/ownerService';
+	import { inject } from '@gitbutler/shared/context';
+	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import type { OwnerParameters } from '@gitbutler/shared/routing/webRoutes.svelte';
 
-	const routes = getContext(WebRoutesService) as WebRoutesService;
+	const routes = inject(WEB_ROUTES_SERVICE);
 
 	$effect(() => {
 		if (!$featureShowProjectPage) {
@@ -22,7 +22,7 @@
 
 	let { data }: Props = $props();
 
-	const ownerService = getContext(OwnerService) as OwnerService;
+	const ownerService = inject(OWNER_SERVICE);
 
 	// Create a reactive store for the owner data
 	let ownerStore = $derived(ownerService.getOwner(data.ownerSlug));

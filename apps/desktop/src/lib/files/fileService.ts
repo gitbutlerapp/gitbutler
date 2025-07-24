@@ -1,7 +1,10 @@
 import { RemoteFile } from '$lib/files/file';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { plainToInstance } from 'class-transformer';
 import type { Tauri } from '$lib/backend/tauri';
 import type { FileInfo } from '$lib/files/file';
+
+export const FILE_SERVICE = new InjectionToken<FileService>('FileService');
 
 export class FileService {
 	constructor(private tauri: Tauri) {}

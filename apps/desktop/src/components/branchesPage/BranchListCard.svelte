@@ -1,10 +1,10 @@
 <script lang="ts">
 	import BranchesCardTemplate from '$components/branchesPage/BranchesCardTemplate.svelte';
 	import { type BranchListing, BranchListingDetails } from '$lib/branches/branchListing';
-	import { BranchService } from '$lib/branches/branchService.svelte';
-	import { GitConfigService } from '$lib/config/gitConfigService';
+	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
+	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
 	import { TestId } from '$lib/testing/testIds';
-	import { UserService } from '$lib/user/userService';
+	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
 	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
 	import SeriesLabelsRow from '@gitbutler/ui/SeriesLabelsRow.svelte';
@@ -26,11 +26,9 @@
 	const unknownName = 'unknown';
 	const unknownEmail = 'example@example.com';
 
-	const [userService, gitConfigService, branchService] = inject(
-		UserService,
-		GitConfigService,
-		BranchService
-	);
+	const userService = inject(USER_SERVICE);
+	const gitConfigService = inject(GIT_CONFIG_SERVICE);
+	const branchService = inject(BRANCH_SERVICE);
 
 	const user = userService.user;
 

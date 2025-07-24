@@ -11,8 +11,8 @@
 		getBeforeVersion,
 		getAfterVersion
 	} from '$lib/interdiffRangeQuery.svelte';
-	import { UserService } from '$lib/user/userService';
-	import { getContext } from '@gitbutler/shared/context';
+	import { USER_SERVICE } from '$lib/user/userService';
+	import { inject } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { getPatchIdableSections } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -49,7 +49,7 @@
 		onQuoteSelection
 	}: Props = $props();
 
-	const userService = getContext(UserService);
+	const userService = inject(USER_SERVICE);
 	const user = $derived(userService.user);
 
 	const isLoggedIn = $derived(!!$user);

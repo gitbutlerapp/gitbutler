@@ -1,3 +1,4 @@
+import { InjectionToken } from '@gitbutler/shared/context';
 import { HttpClient } from '@gitbutler/shared/network/httpClient';
 
 export interface SshKey {
@@ -11,6 +12,8 @@ interface AddSshKeyRequest {
 	name: string;
 	public_key: string;
 }
+
+export const SSH_KEY_SERVICE = new InjectionToken<SshKeyService>('SshKeyService');
 
 export class SshKeyService {
 	private httpClient: HttpClient;

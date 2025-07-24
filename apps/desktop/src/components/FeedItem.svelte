@@ -14,11 +14,10 @@
 	} from '$lib/actions/types';
 	import butbotSvg from '$lib/assets/butbot-actions.svg?raw';
 	import { isFeedMessage, isInProgressAssistantMessage, type FeedEntry } from '$lib/feed/feed';
-	import SnapshotDiffService from '$lib/history/snapshotDiffService.svelte';
+	import { SNAPSHOT_DIFF_SERVICE } from '$lib/history/snapshotDiffService.svelte';
 	import { Snapshot } from '$lib/history/types';
-	import { User } from '$lib/user/user';
-	import { getContext } from '@gitbutler/shared/context';
-	import { getContextStore } from '@gitbutler/shared/context';
+	import { USER } from '$lib/user/user';
+	import { inject } from '@gitbutler/shared/context';
 	import AgentAvatar from '@gitbutler/ui/AgentAvatar.svelte';
 	import EditorLogo from '@gitbutler/ui/EditorLogo.svelte';
 	import Icon, { type IconName } from '@gitbutler/ui/Icon.svelte';
@@ -35,9 +34,9 @@
 
 	const { action, projectId }: Props = $props();
 
-	const snapshotDiffService = getContext(SnapshotDiffService);
+	const snapshotDiffService = inject(SNAPSHOT_DIFF_SERVICE);
 
-	const user = getContextStore(User);
+	const user = inject(USER);
 	let failedToLoadImage = $state(false);
 
 	function workflowTriggerTooltip(workflow: Workflow): string {

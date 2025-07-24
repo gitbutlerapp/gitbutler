@@ -11,15 +11,14 @@
 	import { isCommit } from '$lib/branches/v3';
 	import { type CommitKey } from '$lib/commits/commit';
 	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
-	import { ModeService } from '$lib/mode/modeService';
+	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { showToast } from '$lib/notifications/toasts';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { splitMessage } from '$lib/utils/commitMessage';
-	import { inject } from '@gitbutler/shared/context';
-	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
+	import { inject, injectOptional } from '@gitbutler/shared/context';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import type { TargetType } from '$lib/intelligentScrolling/service';
@@ -55,10 +54,11 @@
 		onclose
 	}: Props & { isInEditMessageMode?: boolean } = $props();
 
-	const [stackService, uiState] = inject(StackService, UiState);
+	const stackService = inject(STACK_SERVICE);
+	const uiState = inject(UI_STATE);
 
-	const forge = getContext(DefaultForgeFactory);
-	const modeService = maybeGetContext(ModeService);
+	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const modeService = injectOptional(MODE_SERVICE, undefined);
 	const stackState = $derived(uiState.stack(stackId));
 	const projectState = $derived(uiState.project(projectId));
 	const selected = $derived(stackState.selection.get());

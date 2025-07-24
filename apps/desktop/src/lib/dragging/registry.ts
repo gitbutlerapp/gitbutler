@@ -1,4 +1,7 @@
+import { InjectionToken } from '@gitbutler/shared/context';
 import type { Dropzone } from '$lib/dragging/dropzone';
+
+export const DROPZONE_REGISTRY = new InjectionToken<DropzoneRegistry>('DropzoneRegistry');
 
 /**
  * This class was bascially only created in order to facilitate injection.

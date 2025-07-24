@@ -1,3 +1,4 @@
+import { InjectionToken } from '$lib/context';
 import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { errorToLoadable } from '$lib/network/loadable';
 import { POLLING_GLACIALLY } from '$lib/polling';
@@ -12,7 +13,6 @@ import {
 } from '$lib/settings/types';
 import type { HttpClient } from '$lib/network/httpClient';
 import type { AppDispatch } from '$lib/redux/store.svelte';
-import { InjectionToken } from '$lib/context';
 
 export class NotificationSettingsService {
 	private readonly notificationSettingsInterest = new InterestStore<{
@@ -62,4 +62,6 @@ export class NotificationSettingsService {
 	}
 }
 
-export const NOTIFICATION_SETTINGS_SERVICE_TOKEN = new InjectionToken<NotificationSettingsService>('NotificationSettingsService');
+export const NOTIFICATION_SETTINGS_SERVICE = new InjectionToken<NotificationSettingsService>(
+	'NotificationSettingsService'
+);

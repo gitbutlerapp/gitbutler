@@ -3,11 +3,11 @@
 	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Section from '$components/Section.svelte';
-	import { BaseBranch } from '$lib/baseBranch/baseBranch';
+	import { BASE_BRANCH } from '$lib/baseBranch/baseBranch';
 	import { showError } from '$lib/notifications/toasts';
 	import { type AuthKey, type KeyType } from '$lib/project/project';
-	import { ProjectsService } from '$lib/project/projectsService';
-	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
+	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { inject, injectOptional } from '@gitbutler/shared/context';
 	import RadioButton from '@gitbutler/ui/RadioButton.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
@@ -31,8 +31,8 @@
 		disabled = false
 	}: Props = $props();
 
-	const baseBranch = maybeGetContext(BaseBranch);
-	const projectsService = getContext(ProjectsService);
+	const baseBranch = injectOptional(BASE_BRANCH, undefined);
+	const projectsService = inject(PROJECTS_SERVICE);
 	const projectResult = $derived(projectsService.getProject(projectId));
 	const project = $derived(projectResult.current.data);
 

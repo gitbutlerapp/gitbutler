@@ -6,9 +6,8 @@
 </script>
 
 <script lang="ts">
-	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
-
 	import { inject } from '@gitbutler/shared/context';
 
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -18,7 +17,7 @@
 
 	const { projectId, stackId }: AddDependentBranchModalProps = $props();
 
-	const [stackService] = inject(StackService);
+	const stackService = inject(STACK_SERVICE);
 	const [createNewBranch, branchCreation] = stackService.newBranch;
 
 	let modal = $state<Modal>();

@@ -1,4 +1,3 @@
-import { buildContextStore } from '@gitbutler/shared/context';
 import type { DetailedPullRequest } from '$lib/forge/interface/types';
 import type { Readable } from 'svelte/store';
 
@@ -8,7 +7,3 @@ export interface ForgePrMonitor {
 	error: Readable<any>;
 	refresh(): Promise<void>;
 }
-
-export const [getForgePrMonitor, createForgePrMonitorStore] = buildContextStore<
-	ForgePrMonitor | undefined
->('prMonitor');

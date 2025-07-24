@@ -1,3 +1,4 @@
+import { InjectionToken } from '$lib/context';
 import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { errorToLoadable, isFound } from '$lib/network/loadable';
 import { patchEventsSelectors, upsertPatchEvent } from '$lib/patchEvents/patchEventsSlice';
@@ -30,6 +31,8 @@ function getActionCableEndpoint(token: string | undefined, baseUrl: string): str
 
 	return url.toString();
 }
+
+export const PATCH_EVENTS_SERVICE = new InjectionToken<PatchEventsService>('PatchEventsService');
 
 export class PatchEventsService {
 	private userId: number | undefined;

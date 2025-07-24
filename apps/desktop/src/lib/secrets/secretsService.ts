@@ -1,5 +1,5 @@
 import { invoke } from '$lib/backend/ipc';
-import { buildContext } from '@gitbutler/shared/context';
+import { InjectionToken } from '@gitbutler/shared/context';
 import type { GitConfigService } from '$lib/config/gitConfigService';
 
 export type SecretsService = {
@@ -7,8 +7,7 @@ export type SecretsService = {
 	set(handle: string, secret: string): Promise<void>;
 };
 
-export const [getSecretsService, setSecretsService] =
-	buildContext<SecretsService>('secretsService');
+export const SECRET_SERVICE = new InjectionToken<SecretsService>('SecretService');
 
 export class RustSecretService implements SecretsService {
 	constructor(private gitConfigService: GitConfigService) {}

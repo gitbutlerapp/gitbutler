@@ -6,11 +6,11 @@
 	import binarySvg from '$lib/assets/empty-state/binary.svg?raw';
 	import emptyFileSvg from '$lib/assets/empty-state/empty-file.svg?raw';
 	import tooLargeSvg from '$lib/assets/empty-state/too-large.svg?raw';
-	import DependencyService from '$lib/dependencies/dependencyService.svelte';
-	import { DragStateService } from '$lib/dragging/dragStateService.svelte';
+	import { DEPENDENCY_SERVICE } from '$lib/dependencies/dependencyService.svelte';
+	import { DRAG_STATE_SERVICE } from '$lib/dragging/dragStateService.svelte';
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { HunkDropDataV3 } from '$lib/dragging/draggables';
-	import { DropzoneRegistry } from '$lib/dragging/registry';
+	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
 	import {
 		canBePartiallySelected,
 		getLineLocks,
@@ -18,11 +18,11 @@
 		type DiffHunk
 	} from '$lib/hunks/hunk';
 	import { type SelectionId } from '$lib/selection/key';
-	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { UiState } from '$lib/state/uiState.svelte';
+	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
+	import { SETTINGS } from '$lib/settings/userSettings';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
-	import { getContextStoreBySymbol, inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
 	import { parseHunk } from '@gitbutler/ui/utils/diffParsing';
@@ -56,11 +56,9 @@
 		topPadding
 	}: Props = $props();
 
-	const [uiState, dropzoneRegistry, dragStateService] = inject(
-		UiState,
-		DropzoneRegistry,
-		DragStateService
-	);
+	const uiState = inject(UI_STATE);
+	const dropzoneRegistry = inject(DROPZONE_REGISTRY);
+	const dragStateService = inject(DRAG_STATE_SERVICE);
 
 	let contextMenu = $state<ReturnType<typeof HunkContextMenu>>();
 	let showAnyways = $state(false);
@@ -75,13 +73,14 @@
 
 	const isUncommittedChange = $derived(selectionId.type === 'worktree');
 
-	const [uncommittedService, dependencyService] = inject(UncommittedService, DependencyService);
+	const uncommittedService = inject(UNCOMMITTED_SERVICE);
+	const dependencyService = inject(DEPENDENCY_SERVICE);
 
 	const fileDependenciesResult = $derived(
 		dependencyService.fileDependencies(projectId, change.path)
 	);
 
-	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
+	const userSettings = inject(SETTINGS);
 
 	const assignments = $derived(uncommittedService.assignmentsByPath(stackId || null, change.path));
 

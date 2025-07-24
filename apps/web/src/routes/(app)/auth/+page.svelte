@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { AuthService } from '$lib/auth/authService.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
+	import { inject } from '@gitbutler/shared/context';
 	// import { goto } from '$app/navigation';
 	import { env } from '$env/dynamic/public';
 
-	const authService = getContext(AuthService);
+	const authService = inject(AUTH_SERVICE);
 	const token = $derived(authService.tokenReadable);
 
 	if ($token) {

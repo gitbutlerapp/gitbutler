@@ -9,18 +9,16 @@
 
 <script lang="ts">
 	import { vscodePath } from '$lib/project/project';
-	import { ProjectsService } from '$lib/project/projectsService';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { SETTINGS } from '$lib/settings/userSettings';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
-	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import type { Hunk } from '$lib/hunks/hunk';
 	import type { ContentSection } from '$lib/utils/fileSections';
-	import type { Writable } from 'svelte/store';
 
 	interface Props {
 		trigger: HTMLElement | undefined;
@@ -31,9 +29,9 @@
 
 	const { trigger, filePath, readonly, projectId }: Props = $props();
 
-	const stackService = getContext(StackService);
-	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
-	const projectService = getContext(ProjectsService);
+	const stackService = inject(STACK_SERVICE);
+	const userSettings = inject(SETTINGS);
+	const projectService = inject(PROJECTS_SERVICE);
 
 	let contextMenu: ReturnType<typeof ContextMenu> | undefined;
 

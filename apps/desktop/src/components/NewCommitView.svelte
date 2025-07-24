@@ -2,13 +2,13 @@
 	import AsyncRender from '$components/AsyncRender.svelte';
 	import CommitMessageEditor from '$components/CommitMessageEditor.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
-	import { HooksService } from '$lib/hooks/hooksService';
+	import { HOOKS_SERVICE } from '$lib/hooks/hooksService';
 	import { type DiffSpec } from '$lib/hunks/hunk';
 	import { showError, showToast } from '$lib/notifications/toasts';
-	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
-	import { CommitAnalytics } from '$lib/soup/commitAnalytics';
-	import { StackService, type RejectionReason } from '$lib/stacks/stackService.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
+	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
+	import { COMMIT_ANALYTICS } from '$lib/soup/commitAnalytics';
+	import { STACK_SERVICE, type RejectionReason } from '$lib/stacks/stackService.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import toasts from '@gitbutler/ui/toasts';
@@ -21,13 +21,11 @@
 	};
 	const { projectId, stackId, onclose }: Props = $props();
 
-	const [stackService, uiState, hooksService, uncommittedService, commitAnalytics] = inject(
-		StackService,
-		UiState,
-		HooksService,
-		UncommittedService,
-		CommitAnalytics
-	);
+	const stackService = inject(STACK_SERVICE);
+	const uiState = inject(UI_STATE);
+	const hooksService = inject(HOOKS_SERVICE);
+	const uncommittedService = inject(UNCOMMITTED_SERVICE);
+	const commitAnalytics = inject(COMMIT_ANALYTICS);
 
 	const projectState = $derived(uiState.project(projectId));
 	// Using a dummy stackId kind of sucks... but it's fine for now

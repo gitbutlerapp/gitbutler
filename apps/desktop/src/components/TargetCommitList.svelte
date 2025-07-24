@@ -3,9 +3,9 @@
 	import CommitRow from '$components/CommitRow.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import VirtualList from '$components/VirtualList.svelte';
-	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
+	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
@@ -20,11 +20,9 @@
 
 	const { projectId }: Props = $props();
 
-	const [uiState, baseBranchService, stackService] = inject(
-		UiState,
-		BaseBranchService,
-		StackService
-	);
+	const uiState = inject(UI_STATE);
+	const baseBranchService = inject(BASE_BRANCH_SERVICE);
+	const stackService = inject(STACK_SERVICE);
 
 	const projectState = $derived(uiState.project(projectId));
 	const branchesState = $derived(projectState.branchesSelection);

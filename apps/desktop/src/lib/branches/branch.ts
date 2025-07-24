@@ -1,12 +1,16 @@
 import { type Author, Commit, DetailedCommit } from '$lib/commits/commit';
 import { LocalFile } from '$lib/files/file';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { Type, Transform, plainToInstance } from 'class-transformer';
 import type { PullRequest } from '$lib/forge/interface/types';
 import 'reflect-metadata';
+import type { Writable } from 'svelte/store';
 
 export function isPatchSeries(item: PatchSeries | Error): item is PatchSeries {
 	return item instanceof PatchSeries;
 }
+
+export const BRANCH_STACK = new InjectionToken<Writable<BranchStack>>('BranchStack');
 
 export class BranchStack {
 	id!: string;

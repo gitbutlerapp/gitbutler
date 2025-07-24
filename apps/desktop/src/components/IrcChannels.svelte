@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { IrcService } from '$lib/irc/ircService.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
+	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 
-	const [ircService, uiState] = inject(IrcService, UiState);
+	const ircService = inject(IRC_SERVICE);
+	const uiState = inject(UI_STATE);
 
 	const selectedChannel = $derived(uiState.global.channel);
 	const channels = $derived(ircService.getChannels());

@@ -18,11 +18,11 @@
 	import BranchesListGroup from '$components/branchesPage/BranchesListGroup.svelte';
 	import CurrentOriginCard from '$components/branchesPage/CurrentOriginCard.svelte';
 	import PRListCard from '$components/branchesPage/PRListCard.svelte';
-	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
+	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { isParsedError } from '$lib/error/parser';
 	import { workspacePath } from '$lib/routes/routes.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
@@ -39,11 +39,9 @@
 
 	const { projectId }: Props = $props();
 
-	const [uiState, stackService, baseBranchService] = inject(
-		UiState,
-		StackService,
-		BaseBranchService
-	);
+	const uiState = inject(UI_STATE);
+	const stackService = inject(STACK_SERVICE);
+	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 
 	const projectState = $derived(uiState.project(projectId));
 	const branchesState = $derived(projectState.branchesSelection);

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { IrcService } from '$lib/irc/ircService.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 
@@ -10,7 +10,7 @@
 
 	const args: Props = $props();
 
-	const ircService = getContext(IrcService);
+	const ircService = inject(IRC_SERVICE);
 
 	let input = $state('');
 

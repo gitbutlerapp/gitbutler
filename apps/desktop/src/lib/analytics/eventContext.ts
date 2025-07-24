@@ -1,8 +1,12 @@
+import { InjectionToken } from '@gitbutler/shared/context';
+
 type StateValue = string | number | boolean | undefined;
 
 interface StateData {
 	[key: string]: StateValue;
 }
+
+export const EVENT_CONTEXT = new InjectionToken<EventContext>('EventContext');
 
 /**
  * Stuff that gets added to posthog events.

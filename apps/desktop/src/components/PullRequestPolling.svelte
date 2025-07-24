@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { inject } from '@gitbutler/shared/context';
 
 	type Props = {
@@ -7,7 +7,7 @@
 	};
 
 	const { number }: Props = $props();
-	const [forge] = inject(DefaultForgeFactory);
+	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const prService = $derived(forge.current.prService);
 
 	let elapsedMs: number | undefined = $state();

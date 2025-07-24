@@ -4,9 +4,9 @@
 		stackHasUnpushedCommits,
 		stackRequiresForcePush
 	} from '$lib/stacks/stack';
-	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
@@ -30,7 +30,7 @@
 		isLastBranchInStack
 	}: Props = $props();
 
-	const stackService = getContext(StackService);
+	const stackService = inject(STACK_SERVICE);
 	const stackInfoResult = $derived(stackService.stackInfo(projectId, stackId));
 	const stackInfo = $derived(stackInfoResult.current.data);
 	const [pushStack, pushResult] = stackService.pushStack;

@@ -3,10 +3,9 @@
 	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import directionDoubtSvg from '$lib/assets/illustrations/direction-doubt.svg?raw';
-	import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-	import { ModeService } from '$lib/mode/modeService';
-	import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
+	import { MODE_SERVICE } from '$lib/mode/modeService';
+	import { WORKTREE_SERVICE } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import RadioButton from '@gitbutler/ui/RadioButton.svelte';
@@ -23,13 +22,13 @@
 
 	const { projectId, baseBranch }: Props = $props();
 
-	const baseBranchService = getContext(BaseBranchService);
+	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const [setBaseBranchTarget, targetBranchSwitch] = baseBranchService.setTarget;
 
-	const modeService = getContext(ModeService);
+	const modeService = inject(MODE_SERVICE);
 	const mode = $derived(modeService.mode({ projectId }));
 
-	const [worktreeService] = inject(WorktreeService);
+	const worktreeService = inject(WORKTREE_SERVICE);
 	const changes = worktreeService.treeChanges(projectId);
 
 	async function switchTarget(branch: string, remote?: string, stashUncommitted?: boolean) {

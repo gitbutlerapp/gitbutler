@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { UiState } from '$lib/state/uiState.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
+	import { inject } from '@gitbutler/shared/context';
 
-	const uiState = getContext(UiState);
+	const uiState = inject(UI_STATE);
 	const rulerCountValue = uiState.global.rulerCountValue;
 
 	let lineWidth = $state(0);

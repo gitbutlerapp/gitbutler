@@ -1,12 +1,11 @@
 <script lang="ts">
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
-	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import { SETTINGS } from '$lib/settings/userSettings';
+	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService.svelte';
+	import { inject } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';
-	import type { Writable } from 'svelte/store';
 
-	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
-	const shortcutService = getContext(ShortcutService);
+	const userSettings = inject(SETTINGS);
+	const shortcutService = inject(SHORTCUT_SERVICE);
 
 	let zoom = $state($userSettings.zoom);
 

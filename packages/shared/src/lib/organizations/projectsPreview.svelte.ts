@@ -1,11 +1,11 @@
-import { getContext } from '$lib/context';
+import { inject } from '$lib/context';
 import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
 import { isFound, map } from '$lib/network/loadable';
-import { ProjectService } from '$lib/organizations/projectService';
+import { PROJECT_SERVICE } from '$lib/organizations/projectService';
 import { projectTable } from '$lib/organizations/projectsSlice';
 import { lookupProject } from '$lib/organizations/repositoryIdLookupPreview.svelte';
 import { reactive } from '$lib/reactiveUtils.svelte';
-import { AppState } from '$lib/redux/store.svelte';
+import { APP_STATE } from '$lib/redux/store.svelte';
 import { type Reactive } from '$lib/storeUtils';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import type { Loadable } from '$lib/network/types';
@@ -28,8 +28,8 @@ export function getProjectByRepositoryId(
 	projectRepositoryId: string,
 	inView?: InView
 ): Reactive<LoadableProject | undefined> {
-	const appState = getContext(AppState);
-	const projectService = getContext(ProjectService);
+	const appState = inject(APP_STATE);
+	const projectService = inject(PROJECT_SERVICE);
 	registerInterest(projectService.getProjectInterest(projectRepositoryId), inView);
 	const current = $derived(
 		projectTable.selectors.selectById(appState.projects, projectRepositoryId)
@@ -39,8 +39,8 @@ export function getProjectByRepositoryId(
 }
 
 export function getAllUserProjects(user: string, inView?: InView): Reactive<LoadableProject[]> {
-	const appState = getContext(AppState);
-	const projectService = getContext(ProjectService);
+	const appState = inject(APP_STATE);
+	const projectService = inject(PROJECT_SERVICE);
 	registerInterest(projectService.getAllProjectsInterest(), inView);
 	const current = $derived.by(() => {
 		const allProjects = projectTable.selectors.selectAll(appState.projects);
@@ -51,8 +51,8 @@ export function getAllUserProjects(user: string, inView?: InView): Reactive<Load
 }
 
 export function getRecentlyInteractedProjects(inView?: InView): Reactive<LoadableProject[]> {
-	const appState = getContext(AppState);
-	const projectService = getContext(ProjectService);
+	const appState = inject(APP_STATE);
+	const projectService = inject(PROJECT_SERVICE);
 	registerInterest(projectService.getRecentProjectsInterest(), inView);
 	const current = $derived(
 		appState.recentlyInteractedProjectIds.recentlyInteractedProjectIds
@@ -66,8 +66,8 @@ export function getRecentlyInteractedProjects(inView?: InView): Reactive<Loadabl
 }
 
 export function getRecentlyPushedProjects(inView?: InView): Reactive<LoadableProject[]> {
-	const appState = getContext(AppState);
-	const projectService = getContext(ProjectService);
+	const appState = inject(APP_STATE);
+	const projectService = inject(PROJECT_SERVICE);
 	registerInterest(projectService.getRecentlyPushedProjectsInterest(), inView);
 	const current = $derived(
 		appState.recentlyPushedProjectIds.recentlyPushedProjectIds

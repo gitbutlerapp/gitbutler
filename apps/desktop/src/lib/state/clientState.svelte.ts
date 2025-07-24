@@ -2,6 +2,7 @@ import { tauriBaseQuery } from '$lib/state/backendQuery';
 import { butlerModule } from '$lib/state/butlerModule';
 import { ReduxTag } from '$lib/state/tags';
 import { uiStateSlice } from '$lib/state/uiState.svelte';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
 import { combineSlices, configureStore, type Reducer } from '@reduxjs/toolkit';
 import { buildCreateApi, coreModule, setupListeners, type RootState } from '@reduxjs/toolkit/query';
@@ -31,6 +32,8 @@ export type GitHubApi = ReturnType<typeof createGitHubApi>;
  * colocated with the feature they support.
  */
 export type GitLabApi = ReturnType<typeof createGitLabApi>;
+
+export const CLIENT_STATE = new InjectionToken<ClientState>('ClientState');
 
 /**
  * A redux store with dependency injection through middleware.

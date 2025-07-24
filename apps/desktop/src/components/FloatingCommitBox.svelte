@@ -1,7 +1,7 @@
 <script lang="ts">
 	import FloatingModal from '$lib/floating/FloatingModal.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
+	import { inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { type Snippet } from 'svelte';
 	import type { SnapPositionName } from '$lib/floating/types';
@@ -14,7 +14,7 @@
 
 	const { children, title, onExitFloatingModeClick }: Props = $props();
 
-	const uiState = getContext(UiState);
+	const uiState = inject(UI_STATE);
 
 	const { width, height } = $derived(uiState.global.floatingBoxSize.current);
 	const snapPosition = $derived(uiState.global.floatingBoxPosition.current);

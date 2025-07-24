@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import DashboardLayout from '$lib/components/dashboard/DashboardLayout.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import { isFound } from '@gitbutler/shared/network/loadable';
 	import { getRecentlyPushedProjects } from '@gitbutler/shared/organizations/projectsPreview.svelte';
-	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
+	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 
-	const routes = getContext(WebRoutesService);
+	const routes = inject(WEB_ROUTES_SERVICE);
 	const recentProjects = getRecentlyPushedProjects();
 	let hasRecentProjects = $state(false);
 

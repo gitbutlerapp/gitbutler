@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
+	import { inject } from '@gitbutler/shared/context';
+	import {
+		OrganizationService,
+		ORGANIZATION_SERVICE
+	} from '@gitbutler/shared/organizations/organizationService';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
-	import { getContext } from 'svelte';
 
 	interface Props {
 		organizationSlug: string;
@@ -18,7 +21,7 @@
 	let serviceError = $state(false);
 
 	// Get the OrganizationService from context
-	const organizationService = getContext(OrganizationService);
+	const organizationService = inject(ORGANIZATION_SERVICE);
 
 	$effect(() => {
 		if (browser) {

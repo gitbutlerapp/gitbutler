@@ -2,11 +2,11 @@
 	import { goto } from '$app/navigation';
 	import InfoMessage, { type MessageStyle } from '$components/InfoMessage.svelte';
 	import Section from '$components/Section.svelte';
-	import { PostHogWrapper } from '$lib/analytics/posthog';
+	import { POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import { invoke } from '$lib/backend/ipc';
-	import { ProjectsService } from '$lib/project/projectsService';
+	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
@@ -17,8 +17,8 @@
 	import { open } from '@tauri-apps/plugin-dialog';
 	import { onMount } from 'svelte';
 
-	const projectsService = getContext(ProjectsService);
-	const posthog = getContext(PostHogWrapper);
+	const projectsService = inject(PROJECTS_SERVICE);
+	const posthog = inject(POSTHOG_WRAPPER);
 
 	let loading = $state(false);
 	let errors = $state<{ label: string }[]>([]);

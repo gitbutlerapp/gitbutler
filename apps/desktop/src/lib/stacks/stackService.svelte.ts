@@ -17,6 +17,7 @@ import {
 	replaceBranchInStackSelection,
 	type UiState
 } from '$lib/state/uiState.svelte';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import {
 	createEntityAdapter,
@@ -33,7 +34,6 @@ import type { TreeChange, TreeChanges } from '$lib/hunks/change';
 import type { DiffSpec, Hunk } from '$lib/hunks/hunk';
 import type { BranchDetails, Stack, StackDetails } from '$lib/stacks/stack';
 import type { PropertiesFn } from '$lib/state/customHooks.svelte';
-import { InjectionToken } from '@gitbutler/shared/context';
 
 type BranchParams = {
 	name?: string;
@@ -127,7 +127,7 @@ export type CreateCommitOutcome = {
 	pathsToRejectedChanges: [RejectionReason, string][];
 };
 
-export const STACK_SERVICE_TOKEN = new InjectionToken<StackService>('StackService');
+export const STACK_SERVICE = new InjectionToken<StackService>('StackService');
 
 export class StackService {
 	private api: ReturnType<typeof injectEndpoints>;

@@ -3,14 +3,14 @@
 	import FileListItemWrapper from '$components/FileListItemWrapper.svelte';
 	import FileTreeNode from '$components/FileTreeNode.svelte';
 	import LazyloadContainer from '$components/LazyloadContainer.svelte';
-	import { ActionService } from '$lib/actions/actionService.svelte';
-	import { AIService } from '$lib/ai/service';
+	import { ACTION_SERVICE } from '$lib/actions/actionService.svelte';
+	import { AI_SERVICE } from '$lib/ai/service';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
 	import { abbreviateFolders, changesToFileTree } from '$lib/files/filetreeV3';
 	import { type TreeChange, type Modification } from '$lib/hunks/change';
 	import { showToast } from '$lib/notifications/toasts';
-	import { IdSelection } from '$lib/selection/idSelection.svelte';
+	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import { selectFilesInList, updateSelection } from '$lib/selection/idSelectionUtils';
 	import { type SelectionId } from '$lib/selection/key';
 	import { chunk } from '$lib/utils/array';
@@ -44,7 +44,9 @@
 		onselect
 	}: Props = $props();
 
-	const [idSelection, aiService, actionService] = inject(IdSelection, AIService, ActionService);
+	const idSelection = inject(ID_SELECTION);
+	const aiService = inject(AI_SERVICE);
+	const actionService = inject(ACTION_SERVICE);
 
 	const [autoCommit] = actionService.autoCommit;
 	const [branchChanges] = actionService.branchChanges;

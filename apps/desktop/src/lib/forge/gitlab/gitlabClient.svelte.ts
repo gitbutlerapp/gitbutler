@@ -1,8 +1,11 @@
 import { Gitlab } from '@gitbeaker/rest';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { derived } from 'svelte/store';
 import type { GitLabState } from '$lib/forge/gitlab/gitlabState.svelte';
 
 type GitlabInstance = InstanceType<typeof Gitlab<false>>;
+
+export const GITLAB_CLIENT = new InjectionToken<GitLabClient>('GitLabClient');
 
 export class GitLabClient {
 	api: GitlabInstance | undefined;

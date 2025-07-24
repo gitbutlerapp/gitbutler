@@ -5,11 +5,11 @@
 	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
 	import ProjectSwitcher from '$components/ProjectSwitcher.svelte';
 	import RemoveProjectButton from '$components/RemoveProjectButton.svelte';
-	import { PostHogWrapper } from '$lib/analytics/posthog';
+	import { POSTHOG_WRAPPER } from '$lib/analytics/posthog';
 	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
 	import { showError } from '$lib/notifications/toasts';
-	import { ProjectsService } from '$lib/project/projectsService';
-	import { getContext } from '@gitbutler/shared/context';
+	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import * as toasts from '@gitbutler/ui/toasts';
@@ -24,8 +24,8 @@
 
 	const { projectId, projectTitle, error = undefined }: Props = $props();
 
-	const projectsService = getContext(ProjectsService);
-	const posthog = getContext(PostHogWrapper);
+	const projectsService = inject(PROJECTS_SERVICE);
+	const posthog = inject(POSTHOG_WRAPPER);
 
 	let loading = $state(false);
 	let deleteConfirmationModal: ReturnType<typeof RemoveProjectButton> | undefined = $state();

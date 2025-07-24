@@ -4,12 +4,12 @@
 	import AuthorizationBanner from '$components/AuthorizationBanner.svelte';
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import Section from '$components/Section.svelte';
-	import { AISecretHandle, AIService, GitAIConfigKey, KeyOption } from '$lib/ai/service';
+	import { AISecretHandle, AI_SERVICE, GitAIConfigKey, KeyOption } from '$lib/ai/service';
 	import { OpenAIModelName, AnthropicModelName, ModelKind } from '$lib/ai/types';
-	import { GitConfigService } from '$lib/config/gitConfigService';
+	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
 	import { SECRET_SERVICE } from '$lib/secrets/secretsService';
-	import { UserService } from '$lib/user/userService';
-	import { getContext, inject2 } from '@gitbutler/shared/context';
+	import { USER_SERVICE } from '$lib/user/userService';
+	import { inject } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import RadioButton from '@gitbutler/ui/RadioButton.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
@@ -21,10 +21,10 @@
 	import { onMount, tick } from 'svelte';
 	import { run } from 'svelte/legacy';
 
-	const gitConfigService = getContext(GitConfigService);
-	const secretsService = inject2(SECRET_SERVICE);
-	const aiService = getContext(AIService);
-	const userService = getContext(UserService);
+	const gitConfigService = inject(GIT_CONFIG_SERVICE);
+	const secretsService = inject(SECRET_SERVICE);
+	const aiService = inject(AI_SERVICE);
+	const userService = inject(USER_SERVICE);
 	const user = userService.user;
 	let initialized = false;
 

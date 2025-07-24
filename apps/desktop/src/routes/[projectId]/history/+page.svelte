@@ -10,11 +10,9 @@
 	import emptyFileSvg from '$lib/assets/empty-state/empty-file.svg?raw';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { RemoteFile } from '$lib/files/file';
-	import { HistoryService, createdOnDay } from '$lib/history/history';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { UiState } from '$lib/state/uiState.svelte';
-	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
-	import { getContext } from '@gitbutler/shared/context';
+	import { HISTORY_SERVICE, createdOnDay } from '$lib/history/history';
+	import { SETTINGS } from '$lib/settings/userSettings';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
@@ -28,13 +26,13 @@
 	const projectId = $derived(page.params.projectId!);
 
 	const MIN_SNAPSHOTS_TO_LOAD = 30;
-	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
+	const userSettings = inject(SETTINGS);
 
-	const [uiState] = inject(UiState);
+	const uiState = inject(UI_STATE);
 	const sidebarWidth = $derived(uiState.global.historySidebarWidth);
 	let sidebarEl = $state<HTMLElement>();
 
-	const historyService = getContext(HistoryService);
+	const historyService = inject(HISTORY_SERVICE);
 	const snapshots = historyService.snapshots;
 
 	const loading = historyService.loading;

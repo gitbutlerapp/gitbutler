@@ -15,6 +15,7 @@ import {
 	type CheckboxStatus,
 	uncommittedActions
 } from '$lib/selection/uncommitted';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { type Reactive } from '@gitbutler/shared/storeUtils';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
@@ -25,6 +26,8 @@ import type { ChangeDiff, DiffService } from '$lib/hunks/diffService.svelte';
 import type { ClientState } from '$lib/state/clientState.svelte';
 import type { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 import type { LineId } from '@gitbutler/ui/utils/diffParsing';
+
+export const UNCOMMITTED_SERVICE = new InjectionToken<UncommittedService>('UncommittedService');
 
 export class UncommittedService {
 	/** The change selection slice of the full redux state. */

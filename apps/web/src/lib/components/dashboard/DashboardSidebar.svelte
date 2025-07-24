@@ -2,10 +2,10 @@
 	import DashboardSidebarProjects from '$lib/components/dashboard/DashboardSidebarProjects.svelte';
 	import DashboardSidebarReviews from '$lib/components/dashboard/DashboardSidebarReviews.svelte';
 	import { dashboardSidebarSetTab, type SidebarTab } from '$lib/dashboard/sidebar.svelte';
-	import { WebState } from '$lib/redux/store.svelte';
-	import { getContext } from '@gitbutler/shared/context';
+	import { WEB_STATE } from '$lib/redux/store.svelte';
+	import { inject } from '@gitbutler/shared/context';
 
-	const webState = getContext(WebState);
+	const webState = inject(WEB_STATE);
 	const webDispatch = webState.appDispatch;
 
 	const currentTab = $derived(webState.dashboardSidebar.currentTab);

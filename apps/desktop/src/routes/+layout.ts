@@ -16,8 +16,6 @@ import { UpdaterService } from '$lib/updater/updater';
 import { UserService } from '$lib/user/userService';
 import { HttpClient } from '@gitbutler/shared/network/httpClient';
 import { UploadsService } from '@gitbutler/shared/uploads/uploadsService';
-import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
-import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 import lscache from 'lscache';
 import type { LayoutLoad } from './$types';
 import { PUBLIC_API_BASE_URL } from '$env/static/public';
@@ -55,8 +53,6 @@ export const load: LayoutLoad = async () => {
 	const gitConfig = new GitConfigService(tauri);
 	const remotesService = new RemotesService();
 	const aiPromptService = new AIPromptService();
-	const lineManagerFactory = new LineManagerFactory();
-	const stackingLineManagerFactory = new StackingLineManagerFactory();
 	const fileService = new FileService(tauri);
 	const hooksService = new HooksService(tauri);
 	const projectMetrics = new ProjectMetrics();
@@ -76,8 +72,6 @@ export const load: LayoutLoad = async () => {
 		gitConfig,
 		remotesService,
 		aiPromptService,
-		lineManagerFactory,
-		stackingLineManagerFactory,
 		posthog,
 		tauri,
 		fileService,

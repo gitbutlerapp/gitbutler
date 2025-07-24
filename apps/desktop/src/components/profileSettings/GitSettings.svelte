@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { GitConfigService } from '$lib/config/gitConfigService';
-	import { getContext } from '@gitbutler/shared/context';
+	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
+	import { inject } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import Link from '@gitbutler/ui/link/Link.svelte';
 	import { onMount } from 'svelte';
 
-	const gitConfig = getContext(GitConfigService);
+	const gitConfig = inject(GIT_CONFIG_SERVICE);
 
 	let annotateCommits = $state(true);
 

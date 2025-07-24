@@ -16,32 +16,29 @@
 		newSettingsPath,
 		workspacePath
 	} from '$lib/routes/routes.svelte';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { SETTINGS } from '$lib/settings/userSettings';
 	import { TestId } from '$lib/testing/testIds';
-	import { User } from '$lib/user/user';
-	import { UserService } from '$lib/user/userService';
-	import { getContextStore } from '@gitbutler/shared/context';
-	import { getContext } from '@gitbutler/shared/context';
-	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import { USER } from '$lib/user/user';
+	import { USER_SERVICE } from '$lib/user/userService';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { slide } from 'svelte/transition';
-	import type { Writable } from 'svelte/store';
 
 	const { projectId, disabled = false }: { projectId: string; disabled?: boolean } = $props();
 
-	const user = getContextStore(User);
+	const user = inject(USER);
 
 	let contextTriggerButton = $state<HTMLButtonElement | undefined>();
 	let contextMenuEl = $state<ContextMenu>();
 	let shareIssueModal = $state<ShareIssueModal>();
 	let keyboardShortcutsModal = $state<KeyboardShortcutsModal>();
 
-	const userService = getContext(UserService);
-	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
+	const userService = inject(USER_SERVICE);
+	const userSettings = inject(SETTINGS);
 </script>
 
 <div class="sidebar">

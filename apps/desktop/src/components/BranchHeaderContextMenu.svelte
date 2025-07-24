@@ -22,12 +22,12 @@
 		type DeleteBranchModalProps
 	} from '$components/DeleteBranchModal.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import { PromptService } from '$lib/ai/promptService';
-	import { AIService } from '$lib/ai/service';
+	import { PROMPT_SERVICE } from '$lib/ai/promptService';
+	import { AI_SERVICE } from '$lib/ai/service';
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
@@ -45,12 +45,10 @@
 
 	let { projectId, stackId, context = $bindable(), openId: openId = $bindable() }: Props = $props();
 
-	const [aiService, stackService, forge, promptService] = inject(
-		AIService,
-		StackService,
-		DefaultForgeFactory,
-		PromptService
-	);
+	const aiService = inject(AI_SERVICE);
+	const stackService = inject(STACK_SERVICE);
+	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const promptService = inject(PROMPT_SERVICE);
 	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
 	const [updateBranchNameMutation] = stackService.updateBranchName;
 

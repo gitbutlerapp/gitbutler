@@ -1,24 +1,24 @@
 <script lang="ts">
-	import { AuthService } from '$lib/auth/authService.svelte';
+	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
 	import AddSshKeyModal from '$lib/components/AddSshKeyModal.svelte';
 	import { featureShowOrganizations, featureShowProjectPage } from '$lib/featureFlags';
-	import { SshKeyService, type SshKey } from '$lib/sshKeyService';
-	import { UserService } from '$lib/user/userService';
-	import { getContext } from '@gitbutler/shared/context';
+	import { SSH_KEY_SERVICE, type SshKey } from '$lib/sshKeyService';
+	import { USER_SERVICE } from '$lib/user/userService';
+	import { inject } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { AppState } from '@gitbutler/shared/redux/store.svelte';
-	import { NotificationSettingsService } from '@gitbutler/shared/settings/notificationSettingsService';
+	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
+	import { NOTIFICATION_SETTINGS_SERVICE } from '@gitbutler/shared/settings/notificationSettingsService';
 	import { getNotificationSettingsInterest } from '@gitbutler/shared/settings/notificationSetttingsPreview.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import { env } from '$env/dynamic/public';
 
-	const authService = getContext(AuthService);
-	const userService = getContext(UserService);
-	const appState = getContext(AppState);
-	const notificationSettingsService = getContext(NotificationSettingsService);
-	const sshKeyService = getContext(SshKeyService);
+	const authService = inject(AUTH_SERVICE);
+	const userService = inject(USER_SERVICE);
+	const appState = inject(APP_STATE);
+	const notificationSettingsService = inject(NOTIFICATION_SETTINGS_SERVICE);
+	const sshKeyService = inject(SSH_KEY_SERVICE);
 
 	const notificationSettings = getNotificationSettingsInterest(
 		appState,

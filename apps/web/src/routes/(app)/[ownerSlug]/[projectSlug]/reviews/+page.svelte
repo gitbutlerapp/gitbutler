@@ -1,23 +1,23 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { AuthService } from '$lib/auth/authService.svelte';
+	import { AUTH_SERVICE } from '$lib/auth/authService.svelte';
 	import BranchIndexCard from '$lib/components/branches/BranchIndexCard.svelte';
 	import DashboardLayout from '$lib/components/dashboard/DashboardLayout.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { getBranchReviewsForRepository } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { BranchStatus } from '@gitbutler/shared/branches/types';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { getProject } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { type ProjectParameters } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
+	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Select from '@gitbutler/ui/select/Select.svelte';
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 
 	// Get authentication service and check if user is logged in
-	const authService = getContext(AuthService);
-	const routes = getContext(WebRoutesService);
+	const authService = inject(AUTH_SERVICE);
+	const routes = inject(WEB_ROUTES_SERVICE);
 
 	// If there is no token (user not logged in), redirect to home
 	$effect(() => {

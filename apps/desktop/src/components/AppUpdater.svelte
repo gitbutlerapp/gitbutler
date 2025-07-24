@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { showToast } from '$lib/notifications/toasts';
-	import { UpdaterService, type InstallStatus } from '$lib/updater/updater';
-	import { getContext } from '@gitbutler/shared/context';
+	import { UPDATER_SERVICE, type InstallStatus } from '$lib/updater/updater';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { fade } from 'svelte/transition';
 	import { env } from '$env/dynamic/public';
 
-	const updaterService = getContext(UpdaterService);
+	const updaterService = inject(UPDATER_SERVICE);
 	const update = updaterService.update;
 	const loading = updaterService.loading;
 

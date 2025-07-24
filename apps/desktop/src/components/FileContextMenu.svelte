@@ -4,12 +4,11 @@
 	import { LocalFile } from '$lib/files/file';
 	import { isAnyFile } from '$lib/files/file';
 	import { vscodePath } from '$lib/project/project';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { SETTINGS } from '$lib/settings/userSettings';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
-	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
@@ -19,7 +18,6 @@
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import * as toasts from '@gitbutler/ui/toasts';
 	import { join } from '@tauri-apps/api/path';
-	import type { Writable } from 'svelte/store';
 
 	interface Props {
 		isUnapplied: boolean;
@@ -39,8 +37,8 @@
 		isBinary = false
 	}: Props = $props();
 
-	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
-	const stackService = getContext(StackService);
+	const userSettings = inject(SETTINGS);
+	const stackService = inject(STACK_SERVICE);
 
 	let confirmationModal: ReturnType<typeof Modal<{ files: LocalFile[] }>> | undefined;
 	let contextMenu: ReturnType<typeof ContextMenu>;

@@ -4,15 +4,14 @@
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
 	import CliSymLink from '$components/profileSettings/CliSymLink.svelte';
 	import { invoke } from '$lib/backend/ipc';
-	import { SettingsService } from '$lib/config/appSettingsV2';
+	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { showError } from '$lib/notifications/toasts';
-	import { ProjectsService } from '$lib/project/projectsService';
-	import { SETTINGS, type Settings, type CodeEditorSettings } from '$lib/settings/userSettings';
-	import { UpdaterService } from '$lib/updater/updater';
-	import { UserService } from '$lib/user/userService';
+	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { SETTINGS, type CodeEditorSettings } from '$lib/settings/userSettings';
+	import { UPDATER_SERVICE } from '$lib/updater/updater';
+	import { USER_SERVICE } from '$lib/user/userService';
 
-	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -24,14 +23,13 @@
 	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
 	import * as toasts from '@gitbutler/ui/toasts';
 	import type { User } from '$lib/user/user';
-	import type { Writable } from 'svelte/store';
 
-	const userService = getContext(UserService);
-	const settingsService = getContext(SettingsService);
-	const projectsService = getContext(ProjectsService);
+	const userService = inject(USER_SERVICE);
+	const settingsService = inject(SETTINGS_SERVICE);
+	const projectsService = inject(PROJECTS_SERVICE);
 	const user = userService.user;
 
-	const updaterService = getContext(UpdaterService);
+	const updaterService = inject(UPDATER_SERVICE);
 	const disableAutoChecks = updaterService.disableAutoChecks;
 
 	const fileTypes = ['image/jpeg', 'image/png'];
@@ -45,7 +43,7 @@
 
 	let deleteConfirmationModal: ReturnType<typeof Modal> | undefined = $state();
 
-	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
+	const userSettings = inject(SETTINGS);
 	const editorOptions: CodeEditorSettings[] = [
 		{ schemeIdentifer: 'vscodium', displayName: 'VSCodium' },
 		{ schemeIdentifer: 'vscode', displayName: 'VSCode' },

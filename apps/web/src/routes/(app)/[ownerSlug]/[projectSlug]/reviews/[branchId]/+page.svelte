@@ -4,26 +4,26 @@
 	import PrivateProjectError from '$lib/components/errors/PrivateProjectError.svelte';
 	import Factoid from '$lib/components/infoFlexRow/Factoid.svelte';
 	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
-	import { UserService } from '$lib/user/userService';
+	import { USER_SERVICE } from '$lib/user/userService';
 	import { updateFavIcon } from '$lib/utils/faviconUtils';
 	import BranchStatusBadge from '@gitbutler/shared/branches/BranchStatusBadge.svelte';
 	import Minimap from '@gitbutler/shared/branches/Minimap.svelte';
-	import { BranchService } from '@gitbutler/shared/branches/branchService';
+	import { BRANCH_SERVICE } from '@gitbutler/shared/branches/branchService';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { lookupLatestBranchUuid } from '@gitbutler/shared/branches/latestBranchLookup.svelte';
-	import { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
+	import { LATEST_BRANCH_LOOKUP_SERVICE } from '@gitbutler/shared/branches/latestBranchLookupService';
 	import { BranchStatus, type Branch } from '@gitbutler/shared/branches/types';
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
-	import { getContext } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import { getContributorsWithAvatars } from '@gitbutler/shared/contributors';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { isFound, and, isError, map } from '@gitbutler/shared/network/loadable';
-	import { AppState } from '@gitbutler/shared/redux/store.svelte';
+	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
 	import {
-		WebRoutesService,
+		WEB_ROUTES_SERVICE,
 		type ProjectReviewParameters
 	} from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { UploadsService } from '@gitbutler/shared/uploads/uploadsService';
+	import { UPLOADS_SERVICE } from '@gitbutler/shared/uploads/uploadsService';
 	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
@@ -48,12 +48,12 @@
 
 	let { data }: Props = $props();
 
-	const latestBranchLookupService = getContext(LatestBranchLookupService);
-	const branchService = getContext(BranchService);
-	const appState = getContext(AppState);
-	const routes = getContext(WebRoutesService);
-	const userService = getContext(UserService);
-	const uploadsService = getContext(UploadsService);
+	const latestBranchLookupService = inject(LATEST_BRANCH_LOOKUP_SERVICE);
+	const branchService = inject(BRANCH_SERVICE);
+	const appState = inject(APP_STATE);
+	const routes = inject(WEB_ROUTES_SERVICE);
+	const userService = inject(USER_SERVICE);
+	const uploadsService = inject(UPLOADS_SERVICE);
 	const user = $derived(userService.user);
 
 	const branchUuid = $derived(

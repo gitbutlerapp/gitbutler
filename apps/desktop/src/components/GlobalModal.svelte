@@ -1,11 +1,11 @@
 <script lang="ts">
 	import CommitFailedModalContent from '$components/CommitFailedModalContent.svelte';
-	import { UiState, type GlobalModalState } from '$lib/state/uiState.svelte';
+	import { type GlobalModalState, UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import Modal, { type ModalProps } from '@gitbutler/ui/Modal.svelte';
 
-	const [uiState] = inject(UiState);
+	const uiState = inject(UI_STATE);
 
 	type ModalData = {
 		state: GlobalModalState;

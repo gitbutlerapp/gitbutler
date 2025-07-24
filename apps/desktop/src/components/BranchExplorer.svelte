@@ -8,8 +8,8 @@
 		groupBranches,
 		type SidebarEntrySubject
 	} from '$lib/branches/branchListing';
-	import { BranchService } from '$lib/branches/branchService.svelte';
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
+	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
+	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { debounce } from '$lib/utils/debounce';
 	import { inject } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
@@ -60,7 +60,8 @@
 	let searchEl: HTMLInputElement | undefined = $state();
 	let searching = $state(false);
 
-	const [forge, branchService] = inject(DefaultForgeFactory, BranchService);
+	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const branchService = inject(BRANCH_SERVICE);
 
 	const pollingInterval = 15 * 60 * 1000; // 15 minutes.
 	const prListResult = $derived(forge.current.listService?.list(projectId, pollingInterval));

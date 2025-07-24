@@ -1,9 +1,8 @@
 <script lang="ts">
 	import dependentBranchSvg from '$components/stackTabs/assets/dependent-branch.svg?raw';
 	import newStackSvg from '$components/stackTabs/assets/new-stack.svg?raw';
-	import { UncommittedService } from '$lib/selection/uncommittedService.svelte';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { ElementId, TestId } from '$lib/testing/testIds';
 	import { sleep } from '$lib/utils/sleep';
 	import { inject } from '@gitbutler/shared/context';
@@ -24,7 +23,8 @@
 	};
 
 	let { projectId, stackId }: Props = $props();
-	const [stackService, uiState] = inject(StackService, UiState, UncommittedService);
+	const stackService = inject(STACK_SERVICE);
+	const uiState = inject(UI_STATE);
 	const [createNewStack, stackCreation] = stackService.newStack;
 	const [createNewBranch, branchCreation] = stackService.newBranch;
 

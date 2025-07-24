@@ -3,15 +3,13 @@
 	import OrganizationEditModal from '$lib/components/OrganizationEditModal.svelte';
 	import ProjectsSection from '$lib/components/ProjectsSection.svelte';
 	import ReviewsSection from '$lib/components/ReviewsSection.svelte';
-	import { OwnerService } from '$lib/owner/ownerService';
-	import { UserService } from '$lib/user/userService';
-	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
+	import { OWNER_SERVICE } from '$lib/owner/ownerService';
+	import { UserService, USER_SERVICE } from '$lib/user/userService';
+	import { inject } from '@gitbutler/shared/context';
+	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
-	import { getContext } from 'svelte';
 	import type { ExtendedOrganization, OrganizationMember } from '$lib/owner/types';
-	import type { HttpClient } from '@gitbutler/shared/network/httpClient';
-	import type { AppDispatch } from '@gitbutler/shared/redux/store.svelte';
 
 	interface Props {
 		organization: ExtendedOrganization;
@@ -21,18 +19,13 @@
 	let { organization, ownerSlug }: Props = $props();
 
 	// Get organization service from context
-	const organizationService =
-		(getContext(OrganizationService) as OrganizationService) ||
-		new OrganizationService(
-			getContext('HttpClient') as HttpClient,
-			getContext('AppDispatch') as AppDispatch
-		);
+	const organizationService = inject(ORGANIZATION_SERVICE);
 
 	// Get user service from context
-	const userService = getContext(UserService) as UserService;
+	const userService = inject(USER_SERVICE) as UserService;
 
 	// Get owner service to refresh organization data
-	const ownerService = getContext(OwnerService) as OwnerService;
+	const ownerService = inject(OWNER_SERVICE);
 
 	let patchStacksStore = $state(organizationService.getPatchStacks(ownerSlug));
 	let patchStacks = $derived($patchStacksStore);

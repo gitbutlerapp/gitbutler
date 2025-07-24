@@ -4,7 +4,7 @@
 	import Scrollbar from '$components/Scrollbar.svelte';
 	import StackDraft from '$components/StackDraft.svelte';
 	import StackView from '$components/StackView.svelte';
-	import { DragStateService } from '$lib/dragging/dragStateService.svelte';
+	import { DRAG_STATE_SERVICE } from '$lib/dragging/dragStateService.svelte';
 	import { HorizontalPanner } from '$lib/dragging/horizontalPanner';
 	import {
 		onReorderEnd,
@@ -13,11 +13,11 @@
 		onDragOver
 	} from '$lib/dragging/reordering';
 	import { WorkspaceAutoPanner } from '$lib/dragging/workspaceAutoPanner';
-	import { IntelligentScrollingService } from '$lib/intelligentScrolling/service';
+	import { INTELLIGENT_SCROLLING_SERVICE } from '$lib/intelligentScrolling/service';
 	import { branchesPath } from '$lib/routes/routes.svelte';
 	import { type SelectionId } from '$lib/selection/key';
-	import { StackService } from '$lib/stacks/stackService.svelte';
-	import { UiState } from '$lib/state/uiState.svelte';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { throttle } from '$lib/utils/misc';
 	import { inject } from '@gitbutler/shared/context';
 	import { flip } from 'svelte/animate';
@@ -32,12 +32,10 @@
 
 	let { projectId, stacks, focusedStackId }: Props = $props();
 
-	const [uiState, stackService, intelligentScrollingService, dragStateService] = inject(
-		UiState,
-		StackService,
-		IntelligentScrollingService,
-		DragStateService
-	);
+	const uiState = inject(UI_STATE);
+	const stackService = inject(STACK_SERVICE);
+	const intelligentScrollingService = inject(INTELLIGENT_SCROLLING_SERVICE);
+	const dragStateService = inject(DRAG_STATE_SERVICE);
 
 	let lanesScrollableEl = $state<HTMLDivElement>();
 	let lanesScrollableWidth = $state<number>(0);

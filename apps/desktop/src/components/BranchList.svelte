@@ -13,17 +13,17 @@
 	import PushButton from '$components/PushButton.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { getColorFromCommitState, getIconFromCommitState } from '$components/lib';
-	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
-	import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
-	import { IntelligentScrollingService } from '$lib/intelligentScrolling/service';
-	import { ModeService } from '$lib/mode/modeService';
-	import { StackService } from '$lib/stacks/stackService.svelte';
+	import { STACKING_REORDER_DROPZONE_MANAGER_FACTORY } from '$lib/dragging/stackingReorderDropzoneManager';
+	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import { INTELLIGENT_SCROLLING_SERVICE } from '$lib/intelligentScrolling/service';
+	import { MODE_SERVICE } from '$lib/mode/modeService';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
-	import { UiState } from '$lib/state/uiState.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
-	import { getContext, inject } from '@gitbutler/shared/context';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { getForgeLogo } from '@gitbutler/ui/utils/getForgeLogo';
@@ -41,13 +41,11 @@
 	};
 
 	const { projectId, branches, stackId, focusedStackId, onselect }: Props = $props();
-	const [stackService, uiState, modeService, forge, intelligentScrollingService] = inject(
-		StackService,
-		UiState,
-		ModeService,
-		DefaultForgeFactory,
-		IntelligentScrollingService
-	);
+	const stackService = inject(STACK_SERVICE);
+	const uiState = inject(UI_STATE);
+	const modeService = inject(MODE_SERVICE);
+	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const intelligentScrollingService = inject(INTELLIGENT_SCROLLING_SERVICE);
 
 	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
 
@@ -105,7 +103,7 @@
 
 	let headerMenuContext = $state<BranchHeaderContextItem>();
 
-	const stackingReorderDropzoneManagerFactory = getContext(StackingReorderDropzoneManagerFactory);
+	const stackingReorderDropzoneManagerFactory = inject(STACKING_REORDER_DROPZONE_MANAGER_FACTORY);
 	const stackingReorderDropzoneManager = $derived(
 		stackingReorderDropzoneManagerFactory.build(
 			stackId,

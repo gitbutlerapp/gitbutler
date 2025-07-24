@@ -1,5 +1,8 @@
+import { InjectionToken } from '$lib/context';
 import { ApiError } from '$lib/network/types';
 import { derived, get, type Readable } from 'svelte/store';
+
+export const HTTP_CLIENT = new InjectionToken<HttpClient>('HttpClient');
 
 export const DEFAULT_HEADERS = {
 	'Content-Type': 'application/json'

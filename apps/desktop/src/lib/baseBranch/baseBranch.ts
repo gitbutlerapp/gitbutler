@@ -1,9 +1,12 @@
 import { Commit } from '$lib/commits/commit';
+import { InjectionToken } from '@gitbutler/shared/context';
 import { Type } from 'class-transformer';
 
 export interface RemoteBranchInfo {
 	name: string;
 }
+
+export const BASE_BRANCH = new InjectionToken<BaseBranch>('BaseBranch');
 
 export class BaseBranch {
 	branchName!: string;

@@ -1,7 +1,10 @@
+import { InjectionToken } from '@gitbutler/shared/context';
 import { persisted } from '@gitbutler/shared/persisted';
 import { readableToReactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { type Readable } from 'svelte/store';
 import type { Reactive } from '@gitbutler/shared/storeUtils';
+
+export const AUTH_SERVICE = new InjectionToken<AuthService>('AuthService');
 
 export class AuthService {
 	#token = persisted<string | undefined>(undefined, 'AuthService--token');

@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { invoke } from '$lib/backend/ipc';
-	import { ShortcutService } from '$lib/shortcuts/shortcutService.svelte';
+	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService.svelte';
 	import * as zip from '$lib/support/dataSharing';
-	import { User } from '$lib/user/user';
-	import { getContext, getContextStore } from '@gitbutler/shared/context';
-	import { HttpClient } from '@gitbutler/shared/network/httpClient';
+	import { USER } from '$lib/user/user';
+	import { inject } from '@gitbutler/shared/context';
+	import { HTTP_CLIENT } from '@gitbutler/shared/network/httpClient';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -23,9 +23,9 @@
 		updated_at: string;
 	};
 
-	const shortcutService = getContext(ShortcutService);
-	const httpClient = getContext(HttpClient);
-	const user = getContextStore(User);
+	const shortcutService = inject(SHORTCUT_SERVICE);
+	const httpClient = inject(HTTP_CLIENT);
+	const user = inject(USER);
 
 	export function show() {
 		modal?.show();

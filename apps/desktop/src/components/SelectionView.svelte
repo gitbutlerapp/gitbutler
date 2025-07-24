@@ -3,12 +3,12 @@
 	import FilePreviewPlaceholder from '$components/FilePreviewPlaceholder.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import UnifiedDiffView from '$components/UnifiedDiffView.svelte';
-	import { DiffService } from '$lib/hunks/diffService.svelte';
+	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
 	import {
-		IntelligentScrollingService,
+		INTELLIGENT_SCROLLING_SERVICE,
 		scrollingAttachment
 	} from '$lib/intelligentScrolling/service';
-	import { IdSelection } from '$lib/selection/idSelection.svelte';
+	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import { readKey, type SelectionId } from '$lib/selection/key';
 	import { inject } from '@gitbutler/shared/context';
 
@@ -32,11 +32,9 @@
 		bottomBorder
 	}: Props = $props();
 
-	const [idSelection, diffService, intelligentScrollingService] = inject(
-		IdSelection,
-		DiffService,
-		IntelligentScrollingService
-	);
+	const idSelection = inject(ID_SELECTION);
+	const diffService = inject(DIFF_SERVICE);
+	const intelligentScrollingService = inject(INTELLIGENT_SCROLLING_SERVICE);
 
 	const selection = $derived(selectionId ? idSelection.valuesReactive(selectionId) : undefined);
 	const lastAdded = $derived(selectionId ? idSelection.getById(selectionId).lastAdded : undefined);

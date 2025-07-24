@@ -6,8 +6,8 @@
 	import SnapshotCard from '$components/SnapshotCard.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { RemoteFile } from '$lib/files/file';
-	import { HistoryService, createdOnDay } from '$lib/history/history';
-	import { getContext } from '@gitbutler/shared/context';
+	import { HISTORY_SERVICE, createdOnDay } from '$lib/history/history';
+	import { inject } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -24,7 +24,7 @@
 
 	const { projectId, onHide }: Props = $props();
 
-	const historyService = getContext(HistoryService);
+	const historyService = inject(HISTORY_SERVICE);
 	const snapshots = historyService.snapshots;
 
 	const loading = historyService.loading;
