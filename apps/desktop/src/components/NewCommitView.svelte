@@ -219,11 +219,23 @@
 	}
 
 	function handleMessageUpdate(title?: string, description?: string) {
+		let newCommitMessageUpdate: Partial<NewCommitMessage> | undefined = undefined;
 		if (typeof title === 'string') {
-			stackState.newCommitMessage.current = { ...stackState.newCommitMessage.current, title };
+			newCommitMessageUpdate = { title };
 		}
+
 		if (typeof description === 'string') {
-			stackState.newCommitMessage.current = { ...stackState.newCommitMessage.current, description };
+			newCommitMessageUpdate = {
+				...newCommitMessageUpdate,
+				description
+			};
+		}
+
+		if (newCommitMessageUpdate) {
+			stackState.newCommitMessage.set({
+				...stackState.newCommitMessage.current,
+				...newCommitMessageUpdate
+			});
 		}
 	}
 
