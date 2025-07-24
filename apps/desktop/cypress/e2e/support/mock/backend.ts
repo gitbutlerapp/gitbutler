@@ -1,4 +1,4 @@
-import { getBaseBranchData } from './baseBranch';
+import { getBaseBranchData, type BaseBranchData } from './baseBranch';
 import { isGetBranchDetailsParams, MOCK_BRANCH_LISTINGS } from './branches';
 import {
 	bytesToStr,
@@ -406,13 +406,13 @@ export default class MockBackend {
 		throw new Error(`Commit with ID ${commitId} not found`);
 	}
 
-	public getBaseBranchData() {
+	public getBaseBranchData(_: InvokeArgs | undefined): BaseBranchData | null {
 		return getBaseBranchData();
 	}
 
-	public getBaseBranchName(): string {
-		const baseBranch = this.getBaseBranchData();
-		return baseBranch.branchName;
+	public getBaseBranchName(): string | undefined {
+		const baseBranch = this.getBaseBranchData(undefined);
+		return baseBranch?.branchName;
 	}
 
 	public getBaseBranchCommits(args: InvokeArgs | undefined): Commit[] {
@@ -499,7 +499,10 @@ export default class MockBackend {
 
 		const { branchName } = args;
 
-		const baseBranch = this.getBaseBranchData();
+		const baseBranch = this.getBaseBranchData(undefined);
+		if (!baseBranch) {
+			throw new Error('Base branch data not found');
+		}
 		const baseBranchName = baseBranch.branchName.replace(`${baseBranch.remoteName}/`, '');
 		if (baseBranchName === branchName) {
 			return createMockBranchDetails({
