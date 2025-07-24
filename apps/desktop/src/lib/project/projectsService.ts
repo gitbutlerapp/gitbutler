@@ -149,7 +149,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				query: (args) => args,
 				providesTags: (_result, _error, args) => providesItem(ReduxTag.Project, args.projectId)
 			}),
-			addProject: build.mutation<Project[], { path: string }>({
+			addProject: build.mutation<Project, { path: string }>({
 				extraOptions: { command: 'add_project' },
 				query: (args) => args,
 				invalidatesTags: () => [invalidatesList(ReduxTag.Project)]
