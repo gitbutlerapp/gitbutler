@@ -1,8 +1,8 @@
 <script lang="ts">
+	import HunkContextMenu from '$components/HunkContextMenu.svelte';
 	import LargeDiffMessage from '$components/LargeDiffMessage.svelte';
 	import LineLocksWarning from '$components/LineLocksWarning.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import HunkContextMenu from '$components/v3/HunkContextMenu.svelte';
 	import binarySvg from '$lib/assets/empty-state/binary.svg?raw';
 	import emptyFileSvg from '$lib/assets/empty-state/empty-file.svg?raw';
 	import tooLargeSvg from '$lib/assets/empty-state/too-large.svg?raw';
