@@ -1,6 +1,6 @@
 <!-- This is a V3 replacement for `FileListItemWrapper.svelte` -->
 <script lang="ts">
-	import FileContextMenu from '$components/v3/FileContextMenu.svelte';
+	import FileContextMenu from '$components/FileContextMenu.svelte';
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
 	import { DRAG_STATE_SERVICE } from '$lib/dragging/dragStateService.svelte';
 	import { draggableChips } from '$lib/dragging/draggable';
