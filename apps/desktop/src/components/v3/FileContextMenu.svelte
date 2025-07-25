@@ -35,6 +35,7 @@
 		stackId: string | undefined;
 		selectionId: SelectionId;
 		trigger?: HTMLElement;
+		editMode?: boolean;
 	};
 
 	type FileItem = {
@@ -51,7 +52,7 @@
 		);
 	}
 
-	const { trigger, selectionId, stackId, projectId }: Props = $props();
+	const { trigger, selectionId, stackId, projectId, editMode = false }: Props = $props();
 	const stackService = inject(STACK_SERVICE);
 	const uiState = inject(UI_STATE);
 	const idSelection = inject(ID_SELECTION);
@@ -331,7 +332,7 @@
 							}}
 						/>
 					{/if}
-					{#if selectionId.type === 'commit' && stackId}
+					{#if selectionId.type === 'commit' && stackId && !editMode}
 						{@const commitId = selectionId.commitId}
 						<ContextMenuItem
 							label="Uncommit changes"

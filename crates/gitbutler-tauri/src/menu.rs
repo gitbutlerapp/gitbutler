@@ -162,7 +162,7 @@ pub fn build<R: Runtime>(handle: &AppHandle<R>) -> tauri::Result<tauri::menu::Me
 
     let mut project_menu_builder = SubmenuBuilder::new(handle, "Project")
         .item(
-            &MenuItemBuilder::with_id("project/history", "Project History")
+            &MenuItemBuilder::with_id("project/history", "Operations History")
                 .accelerator("CmdOrCtrl+Shift+H")
                 .build(handle)?,
         )

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import FileContextMenu from '$components/FileContextMenu.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
+	import FileContextMenu from '$components/v3/FileContextMenu.svelte';
 	import { Commit } from '$lib/commits/commit';
 	import { COMMIT_SERVICE } from '$lib/commits/commitService.svelte';
 	import {
@@ -29,6 +29,7 @@
 	import { derived, fromStore, readable, toStore, type Readable } from 'svelte/store';
 	import type { FileInfo } from '$lib/files/file';
 	import type { TreeChange } from '$lib/hunks/change';
+	import type { SelectionId } from '$lib/selection/key';
 	import type { FileStatus } from '@gitbutler/ui/file/types';
 
 	type Props = {
@@ -149,6 +150,18 @@
 
 		return orderedOutput;
 	});
+
+	// Create a mapping from file paths to TreeChange objects for context menu
+	const filePathToTreeChange = $derived(
+		new Map<string, TreeChange>([
+			...(initialFiles.current?.data?.map(([f]) => [f.path, f] as [string, TreeChange]) || []),
+			...(uncommittedFiles.current?.data?.map((f) => [f.path, f] as [string, TreeChange]) || [])
+		])
+	);
+
+	function getTreeChangeForFile(file: FileEntry): TreeChange | undefined {
+		return filePathToTreeChange.get(file.path);
+	}
 
 	const conflictedFiles = $derived(files.filter((file) => file.conflicted));
 
@@ -280,10 +293,16 @@
 											: undefined}
 										conflictHint={file.conflictHint}
 										onclick={(e) => {
-											contextMenu?.open(e, { files: [file] });
+											const treeChange = getTreeChangeForFile(file);
+											if (treeChange) {
+												contextMenu?.open(e, { changes: [treeChange] });
+											}
 										}}
 										oncontextmenu={(e) => {
-											contextMenu?.open(e, { files: [file] });
+											const treeChange = getTreeChangeForFile(file);
+											if (treeChange) {
+												contextMenu?.open(e, { changes: [treeChange] });
+											}
 										}}
 									/>
 								</div>
@@ -320,10 +339,10 @@
 			<FileContextMenu
 				bind:this={contextMenu}
 				{projectId}
-				projectPath={project.path}
 				trigger={filesList}
-				isUnapplied={false}
 				stackId={undefined}
+				selectionId={{ type: 'commit', commitId: editModeMetadata.commitOid } satisfies SelectionId}
+				editMode={true}
 			/>
 		{/snippet}
 	</ReduxResult>
