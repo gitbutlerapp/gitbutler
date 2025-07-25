@@ -1694,6 +1694,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     )?
     .validated()?;
     // For now we don't do anything to limit the each in single-branch mode using extra-targets.
+    // Thanks to the limit-transplant we get to discover more of the workspace.
     // TODO(extra-target): make it work so they limit single branches even.
     insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 📕►►►:1[0]:gitbutler/workspace
@@ -1703,17 +1704,28 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     │           └── ·03ad472 (⌂|🏘️|✓)
     │               └── ►:5[3]:A
     │                   ├── ·79bbb29 (⌂|🏘️|✓|1)
-    │                   └── ✂️·fc98174 (⌂|🏘️|✓|1)
+    │                   ├── ·fc98174 (⌂|🏘️|✓|1)
+    │                   ├── ·a381df5 (⌂|🏘️|✓|1)
+    │                   └── ·777b552 (⌂|🏘️|✓|1)
+    │                       └── ►:7[4]:anon:
+    │                           └── ·ce4a760 (⌂|🏘️|✓|1)
+    │                               ├── ►:8[6]:anon:
+    │                               │   └── ·01d0e1e (⌂|🏘️|✓|1)
+    │                               │       └── ►:6[7]:main
+    │                               │           ├── ·4b3e5a8 (⌂|🏘️|✓|1)
+    │                               │           ├── ·34d0715 (⌂|🏘️|✓|1)
+    │                               │           └── ·eb5f731 (⌂|🏘️|✓|1)
+    │                               └── ►:9[5]:A-feat
+    │                                   ├── ·fea59b5 (⌂|🏘️|✓|1)
+    │                                   └── ·4deea74 (⌂|🏘️|✓|1)
+    │                                       └── →:8:
     └── ►:2[0]:origin/main
         └── ►:0[1]:anon:
             ├── 👉·d0df794 (⌂|✓|1)
             └── ·09c6e08 (⌂|✓|1)
                 └── ►:4[2]:anon:
                     └── ·7b9f260 (⌂|✓|1)
-                        ├── ►:6[3]:main
-                        │   ├── ·4b3e5a8 (⌂|✓|1)
-                        │   ├── ·34d0715 (⌂|✓|1)
-                        │   └── ·eb5f731 (⌂|✓|1)
+                        ├── →:6: (main)
                         └── →:5: (A)
     ");
 
@@ -3681,11 +3693,6 @@ fn branch_ahead_of_workspace() -> anyhow::Result<()> {
         standard_options_with_extra_target(&repo, ":/init"),
     )?
     .validated()?;
-    // TODO: Is it possible for the traversal not to be cut?
-    //       Why is it cut in the first place? Because the target tip
-    //       finds it first and has no allowance after it meets with the workspace.
-    //       So tips meeting limits have to follow-through and continue with their
-    //       own limit settings, maybe with a combination/merge?
     insta::assert_snapshot!(graph_tree(&graph), @r"
     ├── 👉📕►►►:0[0]:gitbutler/workspace
     │   └── ·59ae3cd (⌂|🏘️|1)
@@ -3698,7 +3705,8 @@ fn branch_ahead_of_workspace() -> anyhow::Result<()> {
     │       │   └── ·2f8f06d (⌂|🏘️|1)
     │       │       └── ►:10[2]:anon:
     │       │           ├── ·91bc3fc (⌂|🏘️|✓|11)
-    │       │           └── ✂️·cf9330f (⌂|🏘️|✓|11)
+    │       │           └── ·cf9330f (⌂|🏘️|✓|11)
+    │       │               └── →:3:
     │       └── 📙►:7[1]:C
     │           └── ·3f7c4e6 (⌂|🏘️|1)
     │               └── ►:15[2]:anon:
@@ -3738,11 +3746,11 @@ fn branch_ahead_of_workspace() -> anyhow::Result<()> {
     │   └── 📙:7:C
     │       ├── ·3f7c4e6 (🏘️)
     │       └── ·b6895d7 (🏘️)
-    ├── ≡📙:5:B
+    ├── ≡📙:5:B on fafd9d0
     │   └── 📙:5:B
     │       ├── ·2f8f06d (🏘️)
     │       ├── ·91bc3fc (🏘️|✓)
-    │       └── ✂️·cf9330f (🏘️|✓)
+    │       └── ·cf9330f (🏘️|✓)
     └── ≡:14:anon: on fafd9d0
         └── :14:anon:
             ├── ·a62b0de (🏘️|✓)

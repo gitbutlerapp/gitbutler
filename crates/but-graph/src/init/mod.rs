@@ -474,6 +474,7 @@ impl Graph {
                             id,
                             propagated_flags,
                             src_sidx,
+                            limit,
                         )?;
                         continue;
                     }
@@ -502,6 +503,7 @@ impl Graph {
                             id,
                             propagated_flags,
                             parent_above,
+                            limit,
                         )?;
                         continue;
                     }

@@ -795,6 +795,7 @@ pub fn possibly_split_occupied_segment(
     id: gix::ObjectId,
     propagated_flags: CommitFlags,
     src_sidx: SegmentIndex,
+    limit: Limit,
 ) -> anyhow::Result<()> {
     let Entry::Occupied(mut existing_sidx) = seen.entry(id) else {
         bail!("BUG: Can only work with occupied entries")
@@ -852,6 +853,26 @@ pub fn possibly_split_occupied_segment(
     // Only propagate if there is something new as propagation is slow
     if new_flags != bottom_flags {
         propagate_flags_downward(&mut graph.inner, new_flags, bottom_sidx, Some(bottom_cidx));
+    }
+
+    // Find the tips that saw this commit, and adjust their limit it that would extend it.
+    // The commit is the one we hit, but seen from the newly split segment which should never be empty.
+    let bottom_commit_goals = Limit::new(None)
+        .additional_goal(
+            graph[bottom_sidx]
+                .commits
+                .first()
+                .expect("we just split it out into its own segment")
+                .flags,
+        )
+        .goal_flags();
+    for queued_tip_limit in next.iter_mut().filter_map(|(_, _, _, limit)| {
+        limit
+            .goal_flags()
+            .intersects(bottom_commit_goals)
+            .then_some(limit)
+    }) {
+        queued_tip_limit.adjust_limit_if_bigger(limit);
     }
     Ok(())
 }
