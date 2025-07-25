@@ -31,8 +31,6 @@ export function projectRunCommitHooks(projectId: string): Persisted<boolean> {
 	return persisted(false, key + projectId);
 }
 
-export const showHistoryView = persisted(false, 'showHistoryView');
-
 export function persistedChatModelName<T extends string>(
 	projectId: string,
 	defaultValue: T

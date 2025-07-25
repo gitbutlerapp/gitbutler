@@ -1,12 +1,11 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { showHistoryView } from '$lib/config/config';
 	import { vscodePath } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { projectSettingsPath } from '$lib/routes/routes.svelte';
+	import { historyPath } from '$lib/routes/routes.svelte';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
-	import * as events from '$lib/utils/events';
 	import { getEditorUri, openExternalUrl, showFileInFolder } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 	import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
@@ -24,7 +23,7 @@
 				goto(projectSettingsPath(projectId));
 			}),
 			shortcutService.on('history', () => {
-				$showHistoryView = !$showHistoryView;
+				goto(historyPath(projectId));
 			}),
 			shortcutService.on('open-in-vscode', async () => {
 				const project = await projectsService.fetchProject(projectId);
@@ -38,9 +37,6 @@
 						searchParams: { windowId: '_blank' }
 					})
 				);
-			}),
-			events.on('openHistory', () => {
-				$showHistoryView = true;
 			}),
 			shortcutService.on('show-in-finder', async () => {
 				const project = await projectsService.fetchProject(projectId);
