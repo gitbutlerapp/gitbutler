@@ -5,7 +5,6 @@
 	import FileMenuAction from '$components/FileMenuAction.svelte';
 	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import IrcPopups from '$components/IrcPopups.svelte';
-	import MetricsReporter from '$components/MetricsReporter.svelte';
 	import NoBaseBranch from '$components/NoBaseBranch.svelte';
 	import NotOnGitButlerBranch from '$components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$components/ProblemLoadingRepo.svelte';
@@ -40,12 +39,11 @@
 	import { WORKTREE_SERVICE } from '$lib/worktree/worktreeService.svelte';
 	import { inject, provide } from '@gitbutler/shared/context';
 	import { onDestroy, untrack, type Snippet } from 'svelte';
-	import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 	import type { LayoutData } from './$types';
 
 	const { data, children: pageChildren }: { data: LayoutData; children: Snippet } = $props();
 
-	const { projectId, userService, posthog, projectMetrics } = $derived(data);
+	const { projectId, userService, posthog } = $derived(data);
 
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const repoInfoResponse = $derived(baseBranchService.repo(projectId));
@@ -160,22 +158,6 @@
 		} else {
 			goto('/onboarding');
 		}
-	});
-
-	// TODO(mattias): This is an ugly hack, fix it somehow?
-	// I want to flush project metrics to local storage before e.g. switching
-	// to a different project. Since `projectMetrics` is defined in layout.ts
-	// we get no heads up when it is about to change, and reactively updated
-	// in this scope through `LayoutData`. Even at time of unMount in e.g.
-	// metrics reporter it seems as if the projectMetrics variable is already
-	// referencing the new instance.
-	let lastProjectMetrics: ProjectMetrics | undefined;
-	$effect(() => {
-		if (lastProjectMetrics) {
-			lastProjectMetrics.saveToLocalStorage();
-		}
-		lastProjectMetrics = projectMetrics;
-		projectMetrics.loadFromLocalStorage();
 	});
 
 	async function fetchRemoteForProject() {
@@ -333,8 +315,6 @@
 <IrcPopups />
 <!-- {/if} -->
 
-<!-- Mounting metrics reporter in the board ensures dependent services are subscribed to. -->
-<MetricsReporter {projectId} {projectMetrics} />
 <AnalyticsMonitor {projectId} />
 
 <style>

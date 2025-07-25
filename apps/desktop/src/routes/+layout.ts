@@ -8,7 +8,6 @@ import { SettingsService } from '$lib/config/appSettingsV2';
 import { GitConfigService } from '$lib/config/gitConfigService';
 import { FileService } from '$lib/files/fileService';
 import { HooksService } from '$lib/hooks/hooksService';
-import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { PromptService } from '$lib/prompt/promptService';
 import { RemotesService } from '$lib/remotes/remotesService';
 import { TokenMemoryService } from '$lib/stores/tokenMemoryService';
@@ -52,7 +51,6 @@ export const load: LayoutLoad = async () => {
 	const aiPromptService = new AIPromptService();
 	const fileService = new FileService(tauri);
 	const hooksService = new HooksService(tauri);
-	const projectMetrics = new ProjectMetrics();
 	const userService = new UserService(httpClient, tokenMemoryService, posthog);
 
 	// Await settings to prevent immediate reloads on initial render.
@@ -73,7 +71,6 @@ export const load: LayoutLoad = async () => {
 		fileService,
 		hooksService,
 		settingsService,
-		projectMetrics,
 		uploadsService,
 		eventContext
 	};

@@ -8,16 +8,12 @@ import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { ForgeListingService } from '$lib/forge/interface/forgeListingService';
 import type { PullRequest } from '$lib/forge/interface/types';
-import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { GitLabApi } from '$lib/state/clientState.svelte';
 
 export class GitLabListingService implements ForgeListingService {
 	private api: ReturnType<typeof injectEndpoints>;
 
-	constructor(
-		gitLabApi: GitLabApi,
-		private projectMetrics?: ProjectMetrics
-	) {
+	constructor(gitLabApi: GitLabApi) {
 		this.api = injectEndpoints(gitLabApi);
 	}
 
@@ -28,12 +24,6 @@ export class GitLabListingService implements ForgeListingService {
 				subscriptionOptions: { pollingInterval }
 			})
 		);
-		$effect(() => {
-			const items = result.current.data;
-			if (items) {
-				this.projectMetrics?.setMetric(projectId, 'pr_count', items.length);
-			}
-		});
 		return reactive(() => result.current);
 	}
 
