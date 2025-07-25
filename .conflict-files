@@ -1,3 +1,0 @@
-ancestorEntries = ["packages/ui/src/stories/folderListItem/TreeView.stories.svelte"]
-ourEntries = ["packages/ui/src/stories/folderListItem/TreeView.stories.svelte"]
-theirEntries = ["packages/ui/src/stories/folderListItem/TreeView.stories.svelte"]

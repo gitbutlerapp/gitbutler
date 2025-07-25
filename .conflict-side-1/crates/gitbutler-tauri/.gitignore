@@ -1,5 +1,0 @@
-# Tauri generated output.
-gen/
-
-# Extra binaries, figure out why they end up in this directory on build.
-gitbutler-git-*
