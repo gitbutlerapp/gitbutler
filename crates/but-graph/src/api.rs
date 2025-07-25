@@ -206,7 +206,7 @@ impl Graph {
     /// Visit all segments, including `start`, until `visit_and_prune(segment)` returns `true`.
     /// Pruned segments aren't returned and not traversed, but note that `visit_and_prune` may
     /// be called multiple times until the traversal stops.
-    pub fn visit_all_segments_until(
+    pub fn visit_all_segments_including_start_until(
         &self,
         start: SegmentIndex,
         direction: Direction,
@@ -217,6 +217,29 @@ impl Graph {
         let mut seen = BTreeSet::new();
         while let Some(next_sidx) = next.pop_front() {
             if !visit_and_prune(&self[next_sidx]) {
+                next.extend(
+                    self.inner
+                        .neighbors_directed(next_sidx, direction)
+                        .filter(|n| seen.insert(*n)),
+                )
+            }
+        }
+    }
+
+    /// Visit all segments, excluding `start`, until `visit_and_prune(segment)` returns `true`.
+    /// Pruned segments aren't returned and not traversed, but note that `visit_and_prune` may
+    /// be called multiple times until the traversal stops.
+    pub fn visit_all_segments_excluding_start_until(
+        &self,
+        start: SegmentIndex,
+        direction: Direction,
+        mut visit_and_prune: impl FnMut(&Segment) -> bool,
+    ) {
+        let mut next = VecDeque::new();
+        next.push_back(start);
+        let mut seen = BTreeSet::new();
+        while let Some(next_sidx) = next.pop_front() {
+            if start == next_sidx || !visit_and_prune(&self[next_sidx]) {
                 next.extend(
                     self.inner
                         .neighbors_directed(next_sidx, direction)

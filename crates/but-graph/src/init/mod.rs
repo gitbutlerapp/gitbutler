@@ -411,7 +411,8 @@ impl Graph {
             graph.extra_target = Some(sidx);
         }
 
-        // At the very end,
+        // At the very end, assure we see workspace references that possibly have advanced the workspace itself,
+        // and thus wouldn't be reachable from the workspace commit.
         for ws_metadata in ws_metas {
             // Push all known stack and segment tips if they are not yet on the queue, so we have a chance to
             // find them later even if outside the workspace.

@@ -67,18 +67,22 @@ impl RefInfo {
             return Ok(());
         };
         let lower_bound_generation = self.lower_bound.map(|sidx| graph[sidx].generation);
-        graph.visit_all_segments_until(target_tip, but_graph::petgraph::Direction::Outgoing, |s| {
-            let prune = true;
-            if Some(s.id) == self.lower_bound
-                || lower_bound_generation.is_some_and(|generation| s.generation > generation)
-            {
-                return prune;
-            }
-            for c in &s.commits {
-                upstream_commits.push(c.id);
-            }
-            !prune
-        });
+        graph.visit_all_segments_including_start_until(
+            target_tip,
+            but_graph::petgraph::Direction::Outgoing,
+            |s| {
+                let prune = true;
+                if Some(s.id) == self.lower_bound
+                    || lower_bound_generation.is_some_and(|generation| s.generation > generation)
+                {
+                    return prune;
+                }
+                for c in &s.commits {
+                    upstream_commits.push(c.id);
+                }
+                !prune
+            },
+        );
 
         let cost_info = (
             upstream_commits.len(),

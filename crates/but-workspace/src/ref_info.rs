@@ -432,6 +432,8 @@ pub(crate) mod function {
                 sibling_segment_id: _,
                 id,
                 commits,
+                // TODO: make it visible in this this data structure.
+                commits_outside: _,
                 commits_on_remote,
                 commits_by_segment: _,
                 metadata,

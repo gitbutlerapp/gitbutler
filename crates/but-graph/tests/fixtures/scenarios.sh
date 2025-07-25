@@ -829,17 +829,23 @@ EOF
     git checkout -b A
       git branch B
       git branch C
+      git branch D
       commit A1
+      git branch A-middle
       commit A2
     git checkout B
       commit B1
       commit B2
       git branch B-middle
+      remote_tracking_caught_up B-middle
       commit B3
     git checkout C
       commit C1
       git branch C-bottom
       commit C2
+    git checkout D
+      commit D1
+      git branch new-name-for-D
 
     git checkout main
       git merge --no-ff A
@@ -847,10 +853,13 @@ EOF
       remote_tracking_caught_up main
 
     git checkout A
-    create_workspace_commit_once A B C
+    create_workspace_commit_once A B C D
 
     git checkout A
       commit A2-outside
+    git checkout A-middle
+      commit A1-outside
+      remote_tracking_caught_up A-middle
     git checkout B-middle
       commit B2-outside
       git branch intermediate-branch
@@ -862,6 +871,8 @@ EOF
         commit C1-outside2
       git checkout C-bottom
       git merge --no-ff tmp -m "C2 merge commit"
+    git checkout D
+      commit D2-outside
     git checkout gitbutler/workspace
   )
 )

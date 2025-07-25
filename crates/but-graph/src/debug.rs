@@ -80,11 +80,16 @@ impl Graph {
                     "{}{maybe_id}",
                     Graph::ref_debug_string(rn),
                     maybe_id = sibling_id
-                        .filter(|_| rn.category() == Some(Category::RemoteBranch))
+                        .filter(|_| remote_ref_name.is_none())
                         .map(|id| format!(" →:{}:", id.index()))
                         .unwrap_or_default()
                 ))
-                .unwrap_or("anon:".into()),
+                .unwrap_or_else(|| format!(
+                    "anon:{maybe_id}",
+                    maybe_id = sibling_id
+                        .map(|id| format!(" →:{}:", id.index()))
+                        .unwrap_or_default()
+                )),
             remote = remote_ref_name
                 .as_ref()
                 .map(|remote_ref_name| format!(
