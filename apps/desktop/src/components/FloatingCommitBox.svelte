@@ -34,7 +34,7 @@
 		uiState.global.floatingBoxSize.set({ width: newWidth, height: newHeight });
 	}}
 	onUpdateSnapPosition={(snapPosition: SnapPositionName) => {
-		uiState.global.floatingBoxPosition.current = snapPosition;
+		uiState.global.floatingBoxPosition.set(snapPosition);
 	}}
 	dragHandleElement={headerElRef}
 >

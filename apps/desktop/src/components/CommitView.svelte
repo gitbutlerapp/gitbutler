@@ -61,7 +61,7 @@
 	const modeService = injectOptional(MODE_SERVICE, undefined);
 	const stackState = $derived(uiState.stack(stackId));
 	const projectState = $derived(uiState.project(projectId));
-	const selected = $derived(stackState.selection.get());
+	const selected = $derived(stackState.selection);
 	const branchName = $derived(selected.current?.branchName);
 
 	const commitResult = $derived(

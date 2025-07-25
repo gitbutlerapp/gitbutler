@@ -361,7 +361,7 @@
 					icon={useFloatingBox.current ? 'exit-floating-box' : 'enter-floating-box'}
 					tooltip={useFloatingBox.current ? 'Exit floating mode' : 'Use floating mode'}
 					onclick={() => {
-						useFloatingBox.current = !useFloatingBox.current;
+						useFloatingBox.set(!useFloatingBox.current);
 					}}
 				/>
 				<div class="message-textarea__toolbar__divider"></div>
@@ -382,7 +382,7 @@
 						activated={useRuler.current}
 						tooltip="Wrap text automatically"
 						onclick={async () => {
-							useRuler.current = !useRuler.current;
+							useRuler.set(!useRuler.current);
 							await tick(); // Wait for reactive update.
 							if (useRuler.current) {
 								composer?.wrapAll();
@@ -400,14 +400,14 @@
 								onblur={() => {
 									if (rulerCountValue.current < MIN_RULER_VALUE) {
 										console.warn('Ruler value must be greater than 10');
-										rulerCountValue.current = MIN_RULER_VALUE;
+										rulerCountValue.set(MIN_RULER_VALUE);
 									} else if (rulerCountValue.current > MAX_RULER_VALUE) {
-										rulerCountValue.current = MAX_RULER_VALUE;
+										rulerCountValue.set(MAX_RULER_VALUE);
 									}
 								}}
 								oninput={(e) => {
 									const input = e.currentTarget as HTMLInputElement;
-									rulerCountValue.current = parseInt(input.value);
+									rulerCountValue.set(parseInt(input.value));
 								}}
 								onkeydown={(e) => {
 									if (e.key === 'Enter') {

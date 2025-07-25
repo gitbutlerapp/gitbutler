@@ -1,7 +1,7 @@
 import { type SnapPositionName } from '$lib/floating/types';
 import { InjectionToken } from '@gitbutler/shared/context';
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-import { type Reactive, type WritableReactive } from '@gitbutler/shared/storeUtils';
+import { type Reactive } from '@gitbutler/shared/storeUtils';
 import {
 	createEntityAdapter,
 	createSlice,
@@ -111,14 +111,19 @@ export const UI_STATE = new InjectionToken<UiState>('UiState');
 export class UiState {
 	private state = $state.raw<EntityState<UiStateVariable, string>>(uiStateSlice.getInitialState());
 
+	private scopesCache = {
+		stacks: {} as Record<string, GlobalStore<any>>,
+		projects: {} as Record<string, GlobalStore<any>>
+	};
+
 	/** Properties scoped to a specific stack. */
-	readonly stack = this.buildScopedProps<StackState>({
+	readonly stack = this.buildScopedProps<StackState>(this.scopesCache.stacks, {
 		selection: undefined,
 		newCommitMessage: { title: '', description: '' }
 	});
 
 	/** Properties scoped to a specific project. */
-	readonly project = this.buildScopedProps<ProjectUiState>({
+	readonly project = this.buildScopedProps<ProjectUiState>(this.scopesCache.projects, {
 		exclusiveAction: undefined,
 		branchesSelection: {},
 		stackId: undefined,
@@ -173,16 +178,15 @@ export class UiState {
 	private buildGlobalProps<T extends DefaultConfig>(param: T): GlobalStore<T> {
 		const props: GlobalStore<DefaultConfig> = {};
 		for (const [key, defaultValue] of Object.entries(param)) {
-			const current = this.getById(key, defaultValue);
-			const boundUpdate = this.update.bind(this);
+			const result = this.getById(key, defaultValue);
+			let mutableResult = $derived(result.current);
 			props[key] = {
-				get: () => current,
-				set: (val: UiStateValue) => this.update(key, val),
-				get current() {
-					return current.current;
+				set: (value: UiStateValue) => {
+					mutableResult = value;
+					this.update(key, value);
 				},
-				set current(value: UiStateValue) {
-					boundUpdate(key, value);
+				get current() {
+					return mutableResult;
 				}
 			};
 		}
@@ -194,24 +198,33 @@ export class UiState {
 	 * parameter for the key. This allows us to define values that are scoped
 	 * to e.g. a projectId.
 	 */
-	private buildScopedProps<T extends DefaultConfig>(param: T): (id: string) => GlobalStore<T> {
+	private buildScopedProps<T extends DefaultConfig>(
+		scopeCache: Record<string, GlobalStore<T>>,
+		defaultConfig: T
+	): (id: string) => GlobalStore<T> {
 		return (id: string) => {
+			if (id in scopeCache) {
+				return scopeCache[id] as GlobalStore<T>;
+			}
 			const props: GlobalStore<DefaultConfig> = {};
-			for (const [key, defaultValue] of Object.entries(param)) {
-				const current = this.getById(`${id}:${key}`, defaultValue);
-				const boundUpdate = this.update.bind(this);
+			for (const [key, defaultValue] of Object.entries(defaultConfig)) {
+				const result = this.getById(`${id}:${key}`, defaultValue);
+
+				// We need a mutable value here for read/write consistency.
+				let mutableResult = $derived(result.current);
+
 				props[key] = {
-					get: () => current,
-					set: (val: UiStateValue) => this.update(`${id}:${key}`, val),
-					get current() {
-						return current.current;
+					set: (value: UiStateValue) => {
+						mutableResult = value;
+						this.update(`${id}:${key}`, value);
 					},
-					set current(value: UiStateValue) {
-						boundUpdate(`${id}:${key}`, value);
+					get current() {
+						return mutableResult;
 					}
 				};
 			}
-			return props as GlobalStore<T>;
+			scopeCache[id] = props as GlobalStore<T>;
+			return scopeCache[id];
 		};
 	}
 }
@@ -247,9 +260,8 @@ type DefaultConfig = Record<string, UiStateValue>;
 
 /** Node type for global properties. */
 export type GlobalProperty<T> = {
-	get(): Reactive<T>;
 	set(value: T): void;
-} & WritableReactive<T>;
+} & Reactive<T>;
 
 /** Type returned by the build function for global properties. */
 type GlobalStore<T extends DefaultConfig> = {
