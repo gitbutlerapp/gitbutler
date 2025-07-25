@@ -9,6 +9,7 @@ import {
 	type ThunkDispatch,
 	type UnknownAction
 } from '@reduxjs/toolkit';
+import type { StackDetails } from '$lib/stacks/stack';
 import type { RejectionReason } from '$lib/stacks/stackService.svelte';
 
 export type StackSelection = {
@@ -41,18 +42,20 @@ type BranchesSelection = {
 export type ExclusiveAction =
 	| {
 			type: 'commit';
-			stackId?: string;
-			branchName?: string;
+			stackId: string | undefined;
+			branchName: string | undefined;
 			parentCommitId?: string;
 	  }
 	| {
 			type: 'edit-commit-message';
+			stackId: string | undefined;
+			branchName: string;
 			commitId: string;
 	  }
 	| {
 			type: 'create-pr';
-			stackId?: string;
-			branchName?: string;
+			stackId: string | undefined;
+			branchName: string;
 	  };
 
 export type ProjectUiState = {
@@ -283,4 +286,144 @@ export function replaceBranchInStackSelection(
 		return { ...selection, branchName };
 	}
 	return selection;
+}
+
+/**
+ * Updates the currently selected stack and exclusive action if it is not in the provided list of stack IDs.
+ */
+export function updateStaleProjectState(
+	uiState: UiState,
+	projectId: string,
+	stackIds: string[]
+): void {
+	const projectState = uiState.project(projectId);
+	const selectedStack = projectState.stackId.current;
+	if (selectedStack && !stackIds.includes(selectedStack)) {
+		projectState.stackId.set(undefined);
+	}
+
+	const exclusiveAction = projectState.exclusiveAction.current;
+	if (!exclusiveAction) return;
+
+	switch (exclusiveAction.type) {
+		case 'commit':
+			if (exclusiveAction.stackId !== undefined && !stackIds.includes(exclusiveAction.stackId)) {
+				projectState.exclusiveAction.set(undefined);
+			}
+			break;
+		case 'edit-commit-message':
+			if (exclusiveAction.stackId !== undefined && !stackIds.includes(exclusiveAction.stackId)) {
+				projectState.exclusiveAction.set(undefined);
+			}
+			break;
+		case 'create-pr':
+			if (exclusiveAction.stackId !== undefined && !stackIds.includes(exclusiveAction.stackId)) {
+				projectState.exclusiveAction.set(undefined);
+			}
+			break;
+	}
+}
+
+function updateStackSelection(uiState: UiState, stackId: string, details: StackDetails): void {
+	const stackState = uiState.stack(stackId);
+	const selection = stackState.selection.current;
+	const branches = details.branchDetails.map((branch) => branch.name);
+
+	// If no selection, do nothing
+	if (!selection) return;
+
+	// Clear selection if the selected branch is not in the list of branches
+	if (!branches.includes(selection.branchName)) {
+		stackState.selection.set(undefined);
+		return;
+	}
+
+	// If the selected branch exists and there is no commit selected, do nothing
+	if (!selection.commitId) return;
+
+	const selectedBranch = selection.branchName;
+	const branchDetails = details.branchDetails.find((branch) => branch.name === selectedBranch);
+
+	if (!branchDetails) {
+		// Should not happen since we already checked the branch exists
+		return;
+	}
+
+	const branchCommits = branchDetails.commits;
+	const branchCommitIds = branchCommits.map((commit) => commit.id);
+
+	// If the selected commit is not in the branch, clear the commit selection
+	if (!selection.upstream && !branchCommitIds.includes(selection.commitId)) {
+		stackState.selection.set({
+			branchName: selection.branchName
+		});
+
+		return;
+	}
+
+	const upstreamCommits = branchDetails.upstreamCommits;
+	const upstreamCommitIds = upstreamCommits.map((commit) => commit.id);
+
+	// If the selection is for an upstream commit and the commit is not in the upstream commits, clear the selection
+	if (selection.upstream && !upstreamCommitIds.includes(selection.commitId)) {
+		stackState.selection.set({
+			branchName: selection.branchName
+		});
+
+		return;
+	}
+}
+
+/**
+ * Updates the current stack state selection and exclusive action.
+ */
+export function updateStaleStackState(
+	uiState: UiState,
+	projectId: string,
+	stackId: string,
+	details: StackDetails
+): void {
+	updateStackSelection(uiState, stackId, details);
+
+	const projectState = uiState.project(projectId);
+	const exclusiveAction = projectState.exclusiveAction.current;
+	if (!exclusiveAction) return;
+
+	if (exclusiveAction.stackId === undefined || exclusiveAction.stackId !== stackId) {
+		return;
+	}
+
+	const branches = details.branchDetails.map((branch) => branch.name);
+
+	// If the exclusive action branch is not in the list of branches, clear the exclusive action
+	if (exclusiveAction.branchName && !branches.includes(exclusiveAction.branchName)) {
+		projectState.exclusiveAction.set(undefined);
+		return;
+	}
+
+	const branchDetails = details.branchDetails.find(
+		(branch) => branch.name === exclusiveAction.branchName
+	);
+	if (!branchDetails) {
+		// Should not happen since we already checked the branch exists
+		return;
+	}
+
+	const commitIds = branchDetails.commits.map((commit) => commit.id);
+
+	switch (exclusiveAction.type) {
+		case 'commit':
+			if (exclusiveAction.parentCommitId && !commitIds.includes(exclusiveAction.parentCommitId)) {
+				projectState.exclusiveAction.set(undefined);
+			}
+			break;
+		case 'edit-commit-message':
+			if (!commitIds.includes(exclusiveAction.commitId)) {
+				projectState.exclusiveAction.set(undefined);
+			}
+			break;
+		case 'create-pr':
+			// Do nothing, alles gut
+			break;
+	}
 }

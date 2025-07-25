@@ -15,7 +15,9 @@ import {
 import {
 	replaceBranchInExclusiveAction,
 	replaceBranchInStackSelection,
-	type UiState
+	updateStaleProjectState,
+	type UiState,
+	updateStaleStackState
 } from '$lib/state/uiState.svelte';
 import { InjectionToken } from '@gitbutler/shared/context';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
@@ -138,7 +140,7 @@ export class StackService {
 		private forgeFactory: DefaultForgeFactory,
 		private uiState: UiState
 	) {
-		this.api = injectEndpoints(backendApi);
+		this.api = injectEndpoints(backendApi, uiState);
 	}
 
 	stacks(projectId: string) {
@@ -846,14 +848,21 @@ export class StackService {
 	}
 }
 
-function injectEndpoints(api: ClientState['backendApi']) {
+function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			stacks: build.query<EntityState<Stack, string>, { projectId: string }>({
 				extraOptions: { command: 'stacks' },
 				query: (args) => args,
 				providesTags: [providesList(ReduxTag.Stacks)],
-				transformResponse(response: Stack[]) {
+				transformResponse(response: Stack[], _, { projectId }) {
+					// Clear the selection of stale stacks.
+					updateStaleProjectState(
+						uiState,
+						projectId,
+						response.map((s) => s.id)
+					);
+
 					return stackAdapter.addMany(stackAdapter.getInitialState(), response);
 				}
 			}),
@@ -922,7 +931,9 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				providesTags: (_result, _error, { stackId }) => [
 					...providesItem(ReduxTag.StackDetails, stackId)
 				],
-				transformResponse(response: StackDetails) {
+				transformResponse(response: StackDetails, _, { projectId, stackId }) {
+					updateStaleStackState(uiState, projectId, stackId, response);
+
 					const branchDetailsEntity = branchDetailsAdapter.addMany(
 						branchDetailsAdapter.getInitialState(),
 						response.branchDetails
