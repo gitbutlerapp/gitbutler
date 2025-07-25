@@ -1,10 +1,8 @@
 <script lang="ts">
 	import BranchesCardTemplate from '$components/branchesPage/BranchesCardTemplate.svelte';
 	import { TestId } from '$lib/testing/testIds';
-	import SeriesLabelsRow from '@gitbutler/ui/SeriesLabelsRow.svelte';
-	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
+	import { Avatar, SeriesLabelsRow } from '@gitbutler/ui';
 	import type { Author } from '$lib/commits/commit';
-
 	interface Props {
 		originName: string;
 		commitsAmount?: number;

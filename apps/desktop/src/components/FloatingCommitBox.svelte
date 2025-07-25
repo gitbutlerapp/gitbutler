@@ -2,7 +2,8 @@
 	import FloatingModal from '$lib/floating/FloatingModal.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { Icon } from '@gitbutler/ui';
+
 	import { type Snippet } from 'svelte';
 	import type { SnapPositionName } from '$lib/floating/types';
 

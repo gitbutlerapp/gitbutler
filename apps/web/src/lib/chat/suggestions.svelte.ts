@@ -3,11 +3,8 @@ import type MentionSuggestions from '$lib/components/chat/MentionSuggestions.sve
 import type { User } from '$lib/user/userService';
 import type { UserSimple } from '@gitbutler/shared/users/types';
 import type { UserService } from '@gitbutler/shared/users/userService';
-import type MentionPlugin from '@gitbutler/ui/richText/plugins/Mention.svelte';
-import type {
-	MentionSuggestion,
-	MentionSuggestionUpdate
-} from '@gitbutler/ui/richText/plugins/Mention.svelte';
+import type { MentionSuggestion, MentionSuggestionUpdate } from '@gitbutler/ui';
+import type Mention from '@gitbutler/ui/richText/plugins/Mention.svelte';
 
 const RECENTLY_MENTIONED_USERS_KEY = 'chat-recently_mentioned_users';
 
@@ -49,7 +46,7 @@ export default class SuggestionsHandler {
 	private _isLoading = $state<boolean>(false);
 	private _suggestions = $state<MentionSuggestion[]>();
 	private _mentionSuggestions = $state<ReturnType<typeof MentionSuggestions>>();
-	private _mentionPlugin = $state<ReturnType<typeof MentionPlugin>>();
+	private _mentionPlugin = $state<ReturnType<typeof Mention>>();
 
 	private userService: UserService | undefined;
 	private chatParticipants: UserSimple[] | undefined;
@@ -199,7 +196,7 @@ export default class SuggestionsHandler {
 		this._mentionSuggestions = value;
 	}
 
-	set mentionPlugin(value: ReturnType<typeof MentionPlugin> | undefined) {
+	set mentionPlugin(value: ReturnType<typeof Mention> | undefined) {
 		this._mentionPlugin = value;
 	}
 

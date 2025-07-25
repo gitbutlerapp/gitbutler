@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { CHAT_CHANNELS_SERVICE } from '@gitbutler/shared/chat/chatChannelsService';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
+
+	import { Button } from '@gitbutler/ui';
 	import type { ChatMessage } from '@gitbutler/shared/chat/types';
 
 	interface Props {

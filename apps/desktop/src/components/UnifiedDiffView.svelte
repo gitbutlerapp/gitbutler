@@ -23,8 +23,8 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
-	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
+
+	import { EmptyStatePlaceholder, HunkDiff } from '@gitbutler/ui';
 	import { parseHunk } from '@gitbutler/ui/utils/diffParsing';
 	import type { TreeChange } from '$lib/hunks/change';
 	import type { UnifiedDiff } from '$lib/hunks/diff';

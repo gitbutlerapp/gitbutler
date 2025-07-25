@@ -1,9 +1,9 @@
 <script lang="ts">
+	import Button from '$lib/Button.svelte';
 	import ContextMenu from '$lib/ContextMenu.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
-	import type iconsJson from '@gitbutler/ui/data/icons.json';
-	import type { ComponentColorType, ComponentKindType } from '@gitbutler/ui/utils/colorTypes';
+	import Tooltip from '$lib/Tooltip.svelte';
+	import type iconsJson from '$lib/data/icons.json';
+	import type { ComponentColorType, ComponentKindType } from '$lib/utils/colorTypes';
 	import type { Snippet } from 'svelte';
 
 	interface Props {

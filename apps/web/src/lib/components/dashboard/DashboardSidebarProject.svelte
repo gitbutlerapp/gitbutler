@@ -8,7 +8,7 @@
 		getRecentlyPushedProjects
 	} from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { Icon } from '@gitbutler/ui';
 
 	type Props = {
 		showOwner?: boolean;

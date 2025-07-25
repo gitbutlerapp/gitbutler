@@ -2,7 +2,8 @@
 	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
 	import { shortcuts } from '$lib/utils/hotkeys';
 	import { inject } from '@gitbutler/shared/context';
-	import Modal from '@gitbutler/ui/Modal.svelte';
+
+	import { Modal } from '@gitbutler/ui';
 	import { keysStringToArr } from '@gitbutler/ui/utils/hotkeys';
 
 	let modal: ReturnType<typeof Modal> | undefined = $state();

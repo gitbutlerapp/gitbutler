@@ -21,11 +21,8 @@
 	import { USER } from '$lib/user/user';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
-	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
-	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { Button, ContextMenu, ContextMenuItem, ContextMenuSection, Icon } from '@gitbutler/ui';
+
 	import { slide } from 'svelte/transition';
 
 	const { projectId, disabled = false }: { projectId: string; disabled?: boolean } = $props();

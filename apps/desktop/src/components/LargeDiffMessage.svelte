@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { TestId } from '$lib/testing/testIds';
-	import Button from '@gitbutler/ui/Button.svelte';
+	import { Button } from '@gitbutler/ui';
 
 	interface Props {
 		showFrame?: boolean;

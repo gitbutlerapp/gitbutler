@@ -7,10 +7,7 @@
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { WORKTREE_SERVICE } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
-	import RadioButton from '@gitbutler/ui/RadioButton.svelte';
-	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
-	import Link from '@gitbutler/ui/link/Link.svelte';
+	import { AsyncButton, RadioButton, FileListItem, Link } from '@gitbutler/ui';
 	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
 
 	type OptionsType = 'stash' | 'bring-to-workspace';

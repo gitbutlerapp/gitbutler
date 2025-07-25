@@ -2,18 +2,21 @@
 	import MessageCode from '$lib/components/chat/MessageCode.svelte';
 	import Self from '$lib/components/chat/MessageMarkdownContent.svelte';
 	import MessageText from '$lib/components/chat/MessageText.svelte';
-	import Blockquote from '@gitbutler/ui/markdown/markdownRenderers/Blockquote.svelte';
-	import Br from '@gitbutler/ui/markdown/markdownRenderers/Br.svelte';
-	import Codespan from '@gitbutler/ui/markdown/markdownRenderers/Codespan.svelte';
-	import Em from '@gitbutler/ui/markdown/markdownRenderers/Em.svelte';
-	import Heading from '@gitbutler/ui/markdown/markdownRenderers/Heading.svelte';
-	import Html from '@gitbutler/ui/markdown/markdownRenderers/Html.svelte';
-	import Image from '@gitbutler/ui/markdown/markdownRenderers/Image.svelte';
-	import Link from '@gitbutler/ui/markdown/markdownRenderers/Link.svelte';
-	import List from '@gitbutler/ui/markdown/markdownRenderers/List.svelte';
-	import ListItem from '@gitbutler/ui/markdown/markdownRenderers/ListItem.svelte';
-	import Paragraph from '@gitbutler/ui/markdown/markdownRenderers/Paragraph.svelte';
-	import Strong from '@gitbutler/ui/markdown/markdownRenderers/Strong.svelte';
+
+	import {
+		Blockquote,
+		Br,
+		Codespan,
+		Em,
+		Heading,
+		Html,
+		Image,
+		Link,
+		List,
+		ListItem,
+		Paragraph,
+		Strong
+	} from '@gitbutler/ui';
 	import type { UserSimple } from '@gitbutler/shared/users/types';
 	import type { Token } from 'marked';
 	import type { Component } from 'svelte';

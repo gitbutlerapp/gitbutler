@@ -15,7 +15,8 @@
 	import { type SelectionId } from '$lib/selection/key';
 	import { chunk } from '$lib/utils/array';
 	import { inject } from '@gitbutler/shared/context';
-	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
+	import { FileListItem } from '@gitbutler/ui';
+
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
 
 	type Props = {

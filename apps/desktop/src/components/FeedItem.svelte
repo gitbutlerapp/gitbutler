@@ -18,13 +18,10 @@
 	import { Snapshot } from '$lib/history/types';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/shared/context';
-	import AgentAvatar from '@gitbutler/ui/AgentAvatar.svelte';
-	import EditorLogo from '@gitbutler/ui/EditorLogo.svelte';
+
+	import { AgentAvatar, EditorLogo, FileListItem, Markdown, TimeAgo, Tooltip } from '@gitbutler/ui';
 	import Icon, { type IconName } from '@gitbutler/ui/Icon.svelte';
-	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
-	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
-	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
-	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
+
 	import { isStr } from '@gitbutler/ui/utils/string';
 
 	type Props = {

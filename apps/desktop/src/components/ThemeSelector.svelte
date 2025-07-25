@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { Icon } from '@gitbutler/ui';
 	import type { Settings } from '$lib/settings/userSettings';
 	import type { Writable } from 'svelte/store';
 

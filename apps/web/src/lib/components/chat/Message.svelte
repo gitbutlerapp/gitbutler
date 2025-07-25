@@ -25,19 +25,23 @@
 	import { CHAT_CHANNELS_SERVICE } from '@gitbutler/shared/chat/chatChannelsService';
 	import { type ChatMessageReaction } from '@gitbutler/shared/chat/types';
 	import { inject } from '@gitbutler/shared/context';
-	import Badge from '@gitbutler/ui/Badge.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import EmojiPicker from '@gitbutler/ui/emoji/EmojiPicker.svelte';
+
+	import {
+		Badge,
+		Button,
+		ContextMenu,
+		EmojiPicker,
+		Icon,
+		PopoverActionsContainer,
+		PopoverActionsItem
+	} from '@gitbutler/ui';
 	import {
 		findEmojiByUnicode,
 		getInitialEmojis,
 		markRecentlyUsedEmoji,
 		type EmojiInfo
 	} from '@gitbutler/ui/emoji/utils';
-	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
-	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
+
 	import { SvelteSet } from 'svelte/reactivity';
 	import type { ChatEvent } from '@gitbutler/shared/patchEvents/types';
 	import type { UserSimple } from '@gitbutler/shared/users/types';

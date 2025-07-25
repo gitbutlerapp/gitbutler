@@ -5,13 +5,8 @@
 	import { invoke } from '$lib/backend/ipc';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
-	import Toggle from '@gitbutler/ui/Toggle.svelte';
-	import Link from '@gitbutler/ui/link/Link.svelte';
-	import Select from '@gitbutler/ui/select/Select.svelte';
-	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
+	import { Button, Link, SectionCard, Select, SelectItem, Textbox, Toggle } from '@gitbutler/ui';
+
 	import { onMount } from 'svelte';
 
 	const { projectId }: { projectId: string } = $props();

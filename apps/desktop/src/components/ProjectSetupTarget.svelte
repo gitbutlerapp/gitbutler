@@ -12,10 +12,7 @@
 	import { unique } from '$lib/utils/array';
 	import { getBestBranch, getBestRemote, getBranchRemoteFromRef } from '$lib/utils/branch';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Toggle from '@gitbutler/ui/Toggle.svelte';
-	import Select from '@gitbutler/ui/select/Select.svelte';
-	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
+	import { Button, Toggle, Select, SelectItem } from '@gitbutler/ui';
 	import type { RemoteBranchInfo } from '$lib/baseBranch/baseBranch';
 
 	interface Props {

@@ -3,9 +3,7 @@
 	import SectionCardDisclaimer from '$components/SectionCardDisclaimer.svelte';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import Link from '@gitbutler/ui/link/Link.svelte';
+	import { Button, Icon, Link } from '@gitbutler/ui';
 	import { slide } from 'svelte/transition';
 
 	interface Props {

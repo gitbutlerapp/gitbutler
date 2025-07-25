@@ -7,9 +7,7 @@
 	import { PROJECT_SERVICE } from '@gitbutler/shared/organizations/projectService';
 	import { projectTable } from '@gitbutler/shared/organizations/projectsSlice';
 	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
-	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
+	import { Button, Modal, SectionCard } from '@gitbutler/ui';
 
 	type Props = {
 		organizationSlug: string;

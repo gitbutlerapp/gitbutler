@@ -14,8 +14,7 @@
 	import { TestId } from '$lib/testing/testIds';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { inject } from '@gitbutler/shared/context';
-	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
-	import FileViewHeader from '@gitbutler/ui/file/FileViewHeader.svelte';
+	import { FileListItem, FileViewHeader } from '@gitbutler/ui';
 	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
 	import type { Rename } from '$lib/hunks/change';

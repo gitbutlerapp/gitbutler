@@ -14,8 +14,7 @@
 	import ChangeStatus from '@gitbutler/shared/patches/ChangeStatus.svelte';
 	import { type PatchCommit } from '@gitbutler/shared/patches/types';
 	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
+	import { AvatarGroup, Icon } from '@gitbutler/ui';
 
 	const NO_REVIEWERS = 'Not reviewed yet';
 	const NO_CONTRIBUTORS = 'No contributors';

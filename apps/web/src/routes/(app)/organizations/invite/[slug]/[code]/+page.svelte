@@ -6,7 +6,8 @@
 	import { inject } from '@gitbutler/shared/context';
 	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
 	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
+	import { Button } from '@gitbutler/ui';
+
 	import { env } from '$env/dynamic/public';
 
 	const userService = inject(USER_SERVICE);

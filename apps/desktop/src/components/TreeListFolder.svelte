@@ -2,7 +2,7 @@
 	import { nodePath, type TreeNode } from '$lib/files/filetreeV3';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import FolderListItem from '@gitbutler/ui/file/FolderListItem.svelte';
+	import { FolderListItem } from '@gitbutler/ui';
 
 	type Props = {
 		stackId?: string;

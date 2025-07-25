@@ -2,7 +2,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
+	import { Button } from '@gitbutler/ui';
 
 	type Props = {
 		projectId: string;

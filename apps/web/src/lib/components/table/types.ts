@@ -1,4 +1,4 @@
-import { type CommitStatusType } from '@gitbutler/ui/CommitStatusBadge.svelte';
+import { type CommitStatusType } from '@gitbutler/ui';
 import type { Branch } from '@gitbutler/shared/branches/types';
 
 export type AvatarsType = {

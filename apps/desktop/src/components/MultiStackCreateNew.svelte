@@ -6,14 +6,17 @@
 	import { ElementId, TestId } from '$lib/testing/testIds';
 	import { sleep } from '$lib/utils/sleep';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
-	import RadioButton from '@gitbutler/ui/RadioButton.svelte';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
-	import Link from '@gitbutler/ui/link/Link.svelte';
-	import Select from '@gitbutler/ui/select/Select.svelte';
-	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
+
+	import {
+		Button,
+		Icon,
+		Link,
+		Modal,
+		RadioButton,
+		Select,
+		SelectItem,
+		Textbox
+	} from '@gitbutler/ui';
 	import { slugify } from '@gitbutler/ui/utils/string';
 
 	type Props = {

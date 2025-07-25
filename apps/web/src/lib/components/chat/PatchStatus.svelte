@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { eventTimeStamp } from '@gitbutler/shared/branches/utils';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+
+	import { Icon } from '@gitbutler/ui';
 	import type { PatchStatusEvent } from '@gitbutler/shared/patchEvents/types';
 
 	const UNKNOWN_USER = 'Unknown User';

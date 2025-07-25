@@ -1,12 +1,7 @@
 <script lang="ts">
 	import BranchesCardTemplate from '$components/branchesPage/BranchesCardTemplate.svelte';
-
 	import { TestId } from '$lib/testing/testIds';
-	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
-	import SeriesIcon from '@gitbutler/ui/SeriesIcon.svelte';
-	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
-	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
-
+	import { Avatar, ReviewBadge, SeriesIcon, TimeAgo } from '@gitbutler/ui';
 	type basePrData = {
 		number: number;
 		isDraft: boolean;

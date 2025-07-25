@@ -5,7 +5,7 @@
 	import { APP_SETTINGS } from '$lib/config/appSettings';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
+	import { Button } from '@gitbutler/ui';
 
 	const appSettings = inject(APP_SETTINGS);
 	const posthog = inject(POSTHOG_WRAPPER);

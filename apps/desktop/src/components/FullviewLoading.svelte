@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { Icon } from '@gitbutler/ui';
 </script>
 
 <div class="loading"><Icon name="spinner" /></div>

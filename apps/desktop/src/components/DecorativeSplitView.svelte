@@ -4,7 +4,7 @@
 	import { USER } from '$lib/user/user';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { Icon } from '@gitbutler/ui';
 	import { type Snippet } from 'svelte';
 
 	interface Props {

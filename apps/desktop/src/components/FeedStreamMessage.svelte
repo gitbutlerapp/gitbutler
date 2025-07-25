@@ -2,7 +2,8 @@
 	import FeedItemKind from '$components/FeedItemKind.svelte';
 	import { FEED_FACTORY, type InProgressAssistantMessage } from '$lib/feed/feed';
 	import { inject } from '@gitbutler/shared/context';
-	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
+	import { Markdown } from '@gitbutler/ui';
+
 	import type { ToolCall } from '$lib/ai/tool';
 
 	type Props = {
