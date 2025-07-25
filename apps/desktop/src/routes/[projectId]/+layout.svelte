@@ -4,7 +4,6 @@
 	import Chrome from '$components/Chrome.svelte';
 	import FileMenuAction from '$components/FileMenuAction.svelte';
 	import FullviewLoading from '$components/FullviewLoading.svelte';
-	import History from '$components/History.svelte';
 	import IrcPopups from '$components/IrcPopups.svelte';
 	import MetricsReporter from '$components/MetricsReporter.svelte';
 	import NoBaseBranch from '$components/NoBaseBranch.svelte';
@@ -16,7 +15,6 @@
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { showHistoryView } from '$lib/config/config';
 	import {
 		StackingReorderDropzoneManagerFactory,
 		STACKING_REORDER_DROPZONE_MANAGER_FACTORY
@@ -317,9 +315,6 @@
 					<Chrome {projectId} sidebarDisabled={mode.type === 'Edit'}>
 						{@render pageChildren()}
 					</Chrome>
-					{#if $showHistoryView}
-						<History {projectId} onHide={() => ($showHistoryView = false)} />
-					{/if}
 				</div>
 			{:else if mode.type === 'OutsideWorkspace'}
 				<NotOnGitButlerBranch {projectId} {baseBranch} />

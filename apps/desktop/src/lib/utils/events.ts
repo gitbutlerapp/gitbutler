@@ -3,7 +3,6 @@ import { createNanoEvents } from 'nanoevents';
 type Events = {
 	goto: (path: string) => void;
 	openSendIssueModal: () => void;
-	openHistory: () => void;
 };
 
 const events = createNanoEvents<Events>();
