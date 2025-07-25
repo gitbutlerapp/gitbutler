@@ -61,29 +61,4 @@
 		padding: 14px;
 		gap: 14px;
 	}
-
-	.commit-view__header {
-		display: flex;
-		height: 100%;
-		margin-left: -4px;
-		gap: 8px;
-	}
-
-	.commit-view__header-title {
-		align-self: center;
-	}
-
-	.commit-view__header-sha {
-		display: inline-flex;
-		align-items: center;
-		gap: 2px;
-		color: var(--clr-text-2);
-		text-decoration: dotted underline;
-		cursor: pointer;
-		transition: color var(--transition-fast);
-
-		&:hover {
-			color: var(--clr-text-1);
-		}
-	}
 </style>
