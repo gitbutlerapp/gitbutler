@@ -62,11 +62,11 @@
 			branchesState.current.stackId === env.stackId &&
 			!branchesState.current.commitId}
 		onclick={() => {
-			branchesState.current = {
+			branchesState.set({
 				branchName,
 				stackId: env.stackId,
 				remote
-			};
+			});
 		}}
 	>
 		{#snippet branchContent()}
