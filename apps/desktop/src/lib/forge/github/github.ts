@@ -8,7 +8,6 @@ import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { GitHubClient } from '$lib/forge/github/githubClient';
 import type { Forge, ForgeName } from '$lib/forge/interface/forge';
 import type { ForgeArguments } from '$lib/forge/interface/types';
-import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { GitHubApi } from '$lib/state/clientState.svelte';
 import type { ReduxTag } from '$lib/state/tags';
 import type { TagDescription } from '@reduxjs/toolkit/query';
@@ -23,7 +22,6 @@ export class GitHub implements Forge {
 	constructor(
 		private params: ForgeArguments & {
 			posthog?: PostHogWrapper;
-			projectMetrics?: ProjectMetrics;
 			client: GitHubClient;
 			api: GitHubApi;
 		}
@@ -38,8 +36,8 @@ export class GitHub implements Forge {
 	}
 
 	get listService() {
-		const { api: gitHubApi, projectMetrics } = this.params;
-		return new GitHubListingService(gitHubApi, projectMetrics);
+		const { api: gitHubApi } = this.params;
+		return new GitHubListingService(gitHubApi);
 	}
 
 	get prService() {

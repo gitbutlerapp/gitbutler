@@ -4,7 +4,6 @@ import { DefaultForge } from '$lib/forge/default/default';
 import { GitHub, GITHUB_DOMAIN } from '$lib/forge/github/github';
 import { GitHubClient } from '$lib/forge/github/githubClient';
 import { GitLab, GITLAB_DOMAIN, GITLAB_SUB_DOMAIN } from '$lib/forge/gitlab/gitlab';
-import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { InjectionToken } from '@gitbutler/shared/context';
 import { BehaviorSubject } from 'rxjs';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
@@ -41,7 +40,6 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 			gitLabClient: GitLabClient;
 			gitLabApi: GitLabApi;
 			posthog: PostHogWrapper;
-			projectMetrics: ProjectMetrics;
 			dispatch: ThunkDispatch<any, any, UnknownAction>;
 		}
 	) {}
@@ -102,13 +100,12 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		};
 
 		if (forgeType === 'github') {
-			const { gitHubClient, gitHubApi, posthog, projectMetrics } = this.params;
+			const { gitHubClient, gitHubApi, posthog } = this.params;
 			return new GitHub({
 				...baseParams,
 				api: gitHubApi,
 				client: gitHubClient,
 				posthog: posthog,
-				projectMetrics: projectMetrics,
 				authenticated: !!githubAuthenticated
 			});
 		}

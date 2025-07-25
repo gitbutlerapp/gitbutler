@@ -3,7 +3,6 @@ import { PostHogWrapper } from '$lib/analytics/posthog';
 import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 import { GitHub } from '$lib/forge/github/github';
 import { GitLab } from '$lib/forge/gitlab/gitlab';
-import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { type GitHubApi } from '$lib/state/clientState.svelte';
 import { getSettingsdServiceMock } from '$lib/testing/mockSettingsdService';
 import { expect, test, describe } from 'vitest';
@@ -16,7 +15,6 @@ describe.concurrent('DefaultforgeFactory', () => {
 	const settingsService = new MockSettingsService();
 	const eventContext = new EventContext();
 	const posthog = new PostHogWrapper(settingsService, eventContext);
-	const projectMetrics = new ProjectMetrics();
 	const gitHubApi: GitHubApi = {
 		endpoints: {},
 		reducerPath: 'github',
@@ -41,7 +39,6 @@ describe.concurrent('DefaultforgeFactory', () => {
 			gitLabClient,
 			gitLabApi,
 			posthog,
-			projectMetrics,
 			dispatch
 		});
 		expect(
@@ -64,7 +61,6 @@ describe.concurrent('DefaultforgeFactory', () => {
 			gitLabClient,
 			gitLabApi,
 			posthog,
-			projectMetrics,
 			dispatch
 		});
 		expect(
@@ -87,7 +83,6 @@ describe.concurrent('DefaultforgeFactory', () => {
 			gitLabClient,
 			gitLabApi,
 			posthog,
-			projectMetrics,
 			dispatch
 		});
 		expect(
