@@ -1440,7 +1440,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				},
 				query: (args) => args,
 				invalidatesTags: (_result, _error, { givenName: branchName }) => [
-					invalidatesItem(ReduxTag.BranchDetails, branchName)
+					invalidatesItem(ReduxTag.BranchDetails, branchName),
+					providesList(ReduxTag.BranchListing)
 				]
 			}),
 			squashCommits: build.mutation<
