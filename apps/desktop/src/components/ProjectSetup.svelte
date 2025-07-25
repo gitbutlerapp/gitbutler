@@ -61,7 +61,7 @@
 				style="pop"
 				loading={settingBranch.current.isLoading}
 				onclick={setTarget}
-				testId="accept-git-auth">Let's go!</Button
+				testId={TestId.ProjectSetupGitAuthPageButton}>Let's go!</Button
 			>
 		</div>
 	{:else}
@@ -73,6 +73,7 @@
 					{remoteBranches}
 					onBranchSelected={async (branch) => {
 						selectedBranch = branch;
+						if (platformName !== 'windows') return;
 						setTarget();
 					}}
 				/>
