@@ -96,7 +96,11 @@
 					wide
 					disabled={!!projectState.exclusiveAction.current}
 					onclick={() => {
-						projectState.exclusiveAction.set({ type: 'commit' });
+						projectState.exclusiveAction.set({
+							type: 'commit',
+							stackId: undefined,
+							branchName: undefined
+						});
 						uncommittedService.checkAll(null);
 					}}
 					icon={isCommitting ? undefined : 'plus-small'}

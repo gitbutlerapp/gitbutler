@@ -182,48 +182,6 @@
 		intelligentScrollingService.show(projectId, stack.id, 'stack');
 	}
 
-	// Clear selection if branch cannot be found.
-	// TODO: How can we express this better?
-	$effect(() => {
-		if (selection.current && branchesResult.current.data) {
-			setTimeout(() => {
-				if (selection.current && branchesResult.current.data) {
-					const { branchName } = selection.current;
-					if (!branchesResult.current.data.some((b) => b.name === branchName)) {
-						selection.set(undefined);
-					}
-				}
-			}, 500);
-		}
-	});
-
-	// Clear selection if commit cannot be found.
-	// TODO: How can we express this better?
-	$effect(() => {
-		if (selection.current) {
-			setTimeout(() => {
-				if (selection.current) {
-					const { branchName, commitId, upstream } = selection.current;
-					if (branchName && commitId) {
-						if (upstream) {
-							stackService.fetchUpstreamCommitById(projectId, stack.id, commitId).then((result) => {
-								if (!result) {
-									selection.set(undefined);
-								}
-							});
-						} else {
-							stackService.fetchCommitById(projectId, stack.id, commitId).then((result) => {
-								if (!result) {
-									selection.set(undefined);
-								}
-							});
-						}
-					}
-				}
-			}, 500);
-		}
-	});
-
 	const startCommitVisible = $derived(uncommittedService.startCommitVisible(stack.id));
 
 	function onerror(err: unknown) {

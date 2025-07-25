@@ -79,6 +79,8 @@
 			case 'edit':
 				projectState.exclusiveAction.set({
 					type: 'edit-commit-message',
+					stackId,
+					branchName: commitKey.branchName,
 					commitId: commitKey.commitId
 				});
 				break;
