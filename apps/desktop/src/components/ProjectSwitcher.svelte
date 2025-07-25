@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { projectPath } from '$lib/routes/routes.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { Button, OptionsGroup, Select, SelectItem } from '@gitbutler/ui';
 
@@ -46,7 +47,11 @@
 				onClick={async () => {
 					newProjectLoading = true;
 					try {
-						await projectsService.addProject();
+						const project = await projectsService.addProject();
+						if (!project) {
+							throw new Error('Failed to add project.');
+						}
+						goto(projectPath(project.id));
 					} finally {
 						newProjectLoading = false;
 					}

@@ -129,7 +129,11 @@
 					onClick={async () => {
 						newProjectLoading = true;
 						try {
-							await projectsService.addProject();
+							const project = await projectsService.addProject();
+							if (!project) {
+								throw new Error('Failed to add project.');
+							}
+							goto(projectPath(project.id));
 						} finally {
 							newProjectLoading = false;
 						}
