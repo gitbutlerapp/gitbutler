@@ -210,7 +210,7 @@ export class StackService {
 		return this.api.endpoints.stacks.useQuery(
 			{ projectId },
 			{
-				transform: (stacks) => stackSelectors.selectById(stacks, stackId)?.heads[0]?.name
+				transform: (stacks) => stackSelectors.selectById(stacks, stackId)?.heads[0]?.name ?? null
 			}
 		);
 	}

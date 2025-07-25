@@ -24,6 +24,7 @@
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 
 	import { TestId } from '$lib/testing/testIds';
@@ -146,7 +147,6 @@
 	let changedFilesCollapsed = $state<boolean>();
 
 	const defaultBranchResult = $derived(stackService.defaultBranch(projectId, stack.id));
-	const defaultBranchName = $derived(defaultBranchResult?.current.data);
 
 	// Resizer configuration constants
 	const RESIZER_CONFIG = {
@@ -162,10 +162,10 @@
 		}
 	} as const;
 
-	function startCommit() {
+	function startCommit(branchName: string) {
 		projectState.exclusiveAction.set({
 			type: 'commit',
-			branchName: defaultBranchName,
+			branchName,
 			stackId: stack.id
 		});
 		const stackAssignments = uncommittedService.getAssignmentsByStackId(stack.id);
@@ -386,8 +386,11 @@
 				syncName="panel1"
 				imitateBorder
 			/>
-			<ReduxResult {projectId} result={branchesResult.current}>
-				{#snippet children(branches)}
+			<ReduxResult
+				{projectId}
+				result={combineResults(branchesResult.current, defaultBranchResult.current)}
+			>
+				{#snippet children([branches, defaultBranch])}
 					<ConfigurableScrollableContainer>
 						<!-- If we are currently committing, we should keep this open so users can actually stop committing again :wink: -->
 						<div
@@ -437,10 +440,9 @@
 											style={changes.current.length > 0 ? 'pop' : 'neutral'}
 											type="button"
 											wide
-											disabled={defaultBranchResult?.current.isLoading ||
-												!!projectState.exclusiveAction.current}
+											disabled={defaultBranch === null || !!projectState.exclusiveAction.current}
 											onclick={() => {
-												startCommit();
+												if (defaultBranch) startCommit(defaultBranch);
 											}}
 										>
 											Start a commit…
