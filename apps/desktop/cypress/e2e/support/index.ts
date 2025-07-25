@@ -65,9 +65,10 @@ export function mockWindows(window: any, current: string, ..._additionalWindows:
 	};
 }
 
-export function mockPlatform(window: any, platform: string): void {
+function mockPlatform(window: any, platform: string): void {
 	mockInternals(window);
 	window.__TAURI_INTERNALS__.platform = platform;
+	window.__TAURI_OS_PLUGIN_INTERNALS__.platform = platform;
 }
 
 export function clearMocks(window: any): void {
@@ -91,9 +92,10 @@ function raiseMissingMockError(command: string): never {
 }
 
 const ipcMocks = new Map<string, MockCallback>();
+let mockPlatformValue: 'macos' | 'windows' | undefined;
 
 Cypress.on('window:before:load', (win) => {
-	mockPlatform(win, 'macos');
+	mockPlatform(win, mockPlatformValue ?? 'macos');
 	mockWindows(win, 'main');
 	mockIPC(win, async (command, args) => {
 		if (ipcMocks.has(command)) {
@@ -228,6 +230,14 @@ declare global {
 
 export function mockCommand(command: string, cb: MockCallback) {
 	ipcMocks.set(command, cb);
+}
+
+export function setMockPlatform(platform: 'macos' | 'windows') {
+	mockPlatformValue = platform;
+}
+
+export function clearMockPlatform() {
+	mockPlatformValue = undefined;
 }
 
 export function clearCommandMocks() {

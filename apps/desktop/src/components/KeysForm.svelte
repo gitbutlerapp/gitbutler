@@ -7,6 +7,7 @@
 	import { showError } from '$lib/notifications/toasts';
 	import { type AuthKey, type KeyType } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { TestId } from '$lib/testing/testIds';
 	import { inject, injectOptional } from '@gitbutler/shared/context';
 	import { Link, RadioButton, SectionCard, Textbox } from '@gitbutler/ui';
 
@@ -76,124 +77,126 @@
 	});
 </script>
 
-<ReduxResult {projectId} result={projectResult.current}>
-	{#snippet children(project)}
-		<Section>
-			{#snippet top()}
-				{#if showProjectName}<ProjectNameLabel projectName={project.title} />{/if}
-			{/snippet}
-			{#snippet title()}
-				Git authentication
-			{/snippet}
-			{#snippet description()}
-				Configure the authentication flow for GitButler when authenticating with your Git remote
-				provider.
-			{/snippet}
-
-			<form
-				class="git-radio"
-				class:disabled
-				bind:this={form}
-				onchange={(e) => {
-					const data = new FormData(e.currentTarget);
-					selectedType = data.get('credentialType') as KeyType;
-					onFormChange(selectedType);
-				}}
-			>
-				<SectionCard roundedBottom={false} orientation="row" labelFor="git-executable">
-					{#snippet title()}
-						Use a Git executable <span style="color: var(--clr-text-2)">(default)</span>
-					{/snippet}
-
-					{#snippet caption()}
-						{#if selectedType === 'systemExecutable'}
-							Git executable must be present on your PATH
-						{/if}
-					{/snippet}
-
-					{#snippet actions()}
-						<RadioButton name="credentialType" value="systemExecutable" id="git-executable" />
-					{/snippet}
-				</SectionCard>
-
-				<SectionCard
-					roundedTop={false}
-					roundedBottom={false}
-					bottomBorder={selectedType !== 'local'}
-					orientation="row"
-					labelFor="credential-local"
+<div data-testid={TestId.ProjectSetupGitAuthPage}>
+	<ReduxResult {projectId} result={projectResult.current}>
+		{#snippet children(project)}
+			<Section>
+				{#snippet top()}
+					{#if showProjectName}<ProjectNameLabel projectName={project.title} />{/if}
+				{/snippet}
+				{#snippet title()}
+					Git authentication
+				{/snippet}
+				{#snippet description()}
+					Configure the authentication flow for GitButler when authenticating with your Git remote
+					provider.
+				{/snippet}
+				ProjectSetupGitAuth
+				<form
+					class="git-radio"
+					class:disabled
+					bind:this={form}
+					onchange={(e) => {
+						const data = new FormData(e.currentTarget);
+						selectedType = data.get('credentialType') as KeyType;
+						onFormChange(selectedType);
+					}}
 				>
-					{#snippet title()}
-						Use existing SSH key
-					{/snippet}
+					<SectionCard roundedBottom={false} orientation="row" labelFor="git-executable">
+						{#snippet title()}
+							Use a Git executable <span style="color: var(--clr-text-2)">(default)</span>
+						{/snippet}
 
-					{#snippet actions()}
-						<RadioButton name="credentialType" id="credential-local" value="local" />
-					{/snippet}
+						{#snippet caption()}
+							{#if selectedType === 'systemExecutable'}
+								Git executable must be present on your PATH
+							{/if}
+						{/snippet}
 
-					{#snippet caption()}
-						{#if selectedType === 'local'}
-							Add the path to an existing SSH key that GitButler can use.
-						{/if}
-					{/snippet}
-				</SectionCard>
-
-				{#if selectedType === 'local'}
-					<SectionCard topDivider roundedTop={false} roundedBottom={false} orientation="row">
-						<div class="inputs-group">
-							<Textbox
-								label="Path to private key"
-								placeholder="for example: ~/.ssh/id_rsa"
-								bind:value={privateKeyPath}
-							/>
-						</div>
+						{#snippet actions()}
+							<RadioButton name="credentialType" value="systemExecutable" id="git-executable" />
+						{/snippet}
 					</SectionCard>
-				{/if}
 
-				<SectionCard
-					roundedTop={false}
-					roundedBottom={false}
-					orientation="row"
-					labelFor="credential-helper"
-				>
-					{#snippet title()}
-						Use a Git credentials helper
-					{/snippet}
+					<SectionCard
+						roundedTop={false}
+						roundedBottom={false}
+						bottomBorder={selectedType !== 'local'}
+						orientation="row"
+						labelFor="credential-local"
+					>
+						{#snippet title()}
+							Use existing SSH key
+						{/snippet}
 
-					{#snippet caption()}
-						{#if selectedType === 'gitCredentialsHelper'}
-							GitButler will use the system's git credentials helper.
-							<Link
-								target="_blank"
-								rel="noreferrer"
-								href="https://git-scm.com/doc/credential-helpers"
-							>
-								Learn more
-							</Link>
-						{/if}
-					{/snippet}
+						{#snippet actions()}
+							<RadioButton name="credentialType" id="credential-local" value="local" />
+						{/snippet}
 
-					{#snippet actions()}
-						<RadioButton
-							name="credentialType"
-							value="gitCredentialsHelper"
-							id="credential-helper"
+						{#snippet caption()}
+							{#if selectedType === 'local'}
+								Add the path to an existing SSH key that GitButler can use.
+							{/if}
+						{/snippet}
+					</SectionCard>
+
+					{#if selectedType === 'local'}
+						<SectionCard topDivider roundedTop={false} roundedBottom={false} orientation="row">
+							<div class="inputs-group">
+								<Textbox
+									label="Path to private key"
+									placeholder="for example: ~/.ssh/id_rsa"
+									bind:value={privateKeyPath}
+								/>
+							</div>
+						</SectionCard>
+					{/if}
+
+					<SectionCard
+						roundedTop={false}
+						roundedBottom={false}
+						orientation="row"
+						labelFor="credential-helper"
+					>
+						{#snippet title()}
+							Use a Git credentials helper
+						{/snippet}
+
+						{#snippet caption()}
+							{#if selectedType === 'gitCredentialsHelper'}
+								GitButler will use the system's git credentials helper.
+								<Link
+									target="_blank"
+									rel="noreferrer"
+									href="https://git-scm.com/doc/credential-helpers"
+								>
+									Learn more
+								</Link>
+							{/if}
+						{/snippet}
+
+						{#snippet actions()}
+							<RadioButton
+								name="credentialType"
+								value="gitCredentialsHelper"
+								id="credential-helper"
+							/>
+						{/snippet}
+					</SectionCard>
+
+					<SectionCard roundedTop={false} orientation="row">
+						<CredentialCheck
+							bind:this={credentialCheck}
+							projectId={project.id}
+							remoteName={remoteName || baseBranch?.remoteName}
+							branchName={branchName || baseBranch?.shortName}
 						/>
-					{/snippet}
-				</SectionCard>
-
-				<SectionCard roundedTop={false} orientation="row">
-					<CredentialCheck
-						bind:this={credentialCheck}
-						projectId={project.id}
-						remoteName={remoteName || baseBranch?.remoteName}
-						branchName={branchName || baseBranch?.shortName}
-					/>
-				</SectionCard>
-			</form>
-		</Section>
-	{/snippet}
-</ReduxResult>
+					</SectionCard>
+				</form>
+			</Section>
+		{/snippet}
+	</ReduxResult>
+</div>
 
 <style lang="postcss">
 	.inputs-group {

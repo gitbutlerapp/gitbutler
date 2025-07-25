@@ -117,7 +117,9 @@ export enum TestId {
 	WelcomePageAddLocalProjectButton = 'add-local-project',
 	ProjectSetupPage = 'project-setup-page',
 	ProjectSetupPageTargetBranchSelect = 'project-setup-page-target-branch-select',
-	ProjectSetupPageTargetContinueButton = 'set-base-branch'
+	ProjectSetupPageTargetContinueButton = 'set-base-branch',
+	ProjectSetupGitAuthPage = 'project-setup-git-auth-page',
+	ProjectSetupGitAuthPageButton = 'accept-git-auth'
 }
 
 export enum ElementId {
