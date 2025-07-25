@@ -1,7 +1,8 @@
 use anyhow::{Context, Result};
+use gitbutler_cherry_pick::GixRepositoryExt as _;
 use gitbutler_oplog::SnapshotExt;
 use gitbutler_oxidize::ObjectIdExt;
-use gitbutler_oxidize::{GixRepositoryExt, OidExt};
+use gitbutler_oxidize::{GixRepositoryExt as _, OidExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::RepositoryExt;
 use gitbutler_repo_actions::RepoActionsExt;
@@ -83,9 +84,8 @@ impl BranchManager<'_> {
         let workspace_base = gix_repo
             .find_commit(workspace_base(self.ctx, perm.read_permission())?)?
             .tree_id()?;
-        let stack_head = gix_repo
-            .find_commit(stack.head_oid(&gix_repo)?)?
-            .tree_id()?;
+        let stack_head =
+            gix_repo.find_real_tree(&stack.head_oid(&gix_repo)?, Default::default())?;
 
         let mut merge = gix_repo.merge_trees(
             stack_head,
