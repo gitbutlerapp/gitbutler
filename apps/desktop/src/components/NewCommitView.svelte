@@ -180,7 +180,7 @@
 
 			if (newId) {
 				// Clear saved state for commit message editor.
-				stackState.newCommitMessage.current = { title: '', description: '' };
+				stackState.newCommitMessage.set({ title: '', description: '' });
 
 				// Close the drawer.
 				projectState.exclusiveAction.set(undefined);
@@ -215,7 +215,7 @@
 	const [createNewStack, newStackResult] = stackService.newStack;
 
 	async function handleCommitCreation(title: string, description: string) {
-		stackState.newCommitMessage.current = { title, description };
+		stackState.newCommitMessage.set({ title, description });
 
 		const message = description ? title + '\n\n' + description : title;
 		if (!message) {
@@ -252,7 +252,7 @@
 	}
 
 	function cancel(args: { title: string; description: string }) {
-		stackState.newCommitMessage.current = args;
+		stackState.newCommitMessage.set(args);
 		projectState.exclusiveAction.set(undefined);
 		uncommittedService.uncheckAll(null);
 		if (stackId) {

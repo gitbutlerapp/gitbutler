@@ -108,7 +108,8 @@
 		exclusiveAction?.type === 'commit' && exclusiveAction.stackId === stackId
 	);
 	const stackState = $derived(uiState.stack(stackId));
-	const selection = $derived(stackState.selection.get());
+	const selection = $derived(stackState.selection);
+
 	const selectedBranchName = $derived(selection.current?.branchName);
 	const selectedCommitId = $derived(selection.current?.commitId);
 
