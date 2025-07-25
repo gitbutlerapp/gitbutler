@@ -10,7 +10,7 @@
 	const projectsService = inject(PROJECTS_SERVICE);
 	const projectsResult = $derived(projectsService.projects());
 
-	let selectedId = $state<string>();
+	let selectedId = $state<string | undefined>(projectId);
 
 	const mappedProjects = $derived(
 		projectsResult.current?.data?.map((project) => ({
@@ -25,7 +25,7 @@
 
 <div class="project-switcher">
 	<Select
-		value={projectId}
+		value={selectedId}
 		options={mappedProjects}
 		label="Switch to another project"
 		wide
@@ -35,7 +35,7 @@
 		searchable
 	>
 		{#snippet itemSnippet({ item, highlighted })}
-			<SelectItem selected={item.value === projectId} {highlighted}>
+			<SelectItem selected={item.value === selectedId} {highlighted}>
 				{item.label}
 			</SelectItem>
 		{/snippet}
@@ -80,8 +80,8 @@
 		style="pop"
 		icon="chevron-right-small"
 		disabled={selectedId === projectId}
-		onmousedown={() => {
-			if (projectId) goto(`/${projectId}/`);
+		onclick={() => {
+			if (selectedId) goto(projectPath(selectedId));
 		}}
 	>
 		Open project

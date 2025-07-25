@@ -1,4 +1,3 @@
-import { goto } from '$app/navigation';
 import { invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
 import { type Project } from '$lib/project/project';
@@ -78,7 +77,7 @@ export class ProjectsService {
 			const project = await this.fetchProject(projectId, true);
 			await this.updateProject({ ...project, path });
 			toasts.success(`Project ${project.title} relocated`);
-			goto(`/${project.id}`);
+			window.location.reload();
 		} catch (error: any) {
 			showError('Failed to relocate project:', error.message);
 		}
