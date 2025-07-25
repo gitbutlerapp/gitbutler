@@ -1,7 +1,7 @@
 pub mod commands {
     use anyhow::{anyhow, Context};
     use but_settings::AppSettingsWithDiskSync;
-    use but_workspace::ui::StackEntry;
+    use but_workspace::ui::StackEntryNoOpt;
     use but_workspace::DiffSpec;
     use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
     use gitbutler_branch_actions::branch_upstream_integration::IntegrationStrategy;
@@ -37,7 +37,7 @@ pub mod commands {
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         branch: BranchCreateRequest,
-    ) -> Result<StackEntry, Error> {
+    ) -> Result<StackEntryNoOpt, Error> {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let stack_entry = gitbutler_branch_actions::create_virtual_branch(

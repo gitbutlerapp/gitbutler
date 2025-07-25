@@ -92,7 +92,7 @@ pub(crate) fn branch_name_to_stack_id(
         crate::log::stacks(ctx)?
             .iter()
             .find(|s| s.heads.iter().any(|h| h.name == branch_name))
-            .map(|s| s.id)
+            .and_then(|s| s.id)
     } else {
         None
     };

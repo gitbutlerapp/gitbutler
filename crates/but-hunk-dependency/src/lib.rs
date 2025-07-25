@@ -128,6 +128,7 @@
 //! so in that case it should be fine to fallback to using the first parent.
 mod input;
 
+use anyhow::Context;
 use but_core::{TreeChange, UnifiedDiff};
 use gitbutler_oxidize::ObjectIdExt;
 use gix::prelude::ObjectIdExt as _;
@@ -170,7 +171,9 @@ pub fn workspace_stacks_to_input_stacks(
             commits_from_base_to_tip.push(InputCommit { commit_id, files });
         }
         out.push(InputStack {
-            stack_id: stack.id,
+            stack_id: stack.id.context(
+                "BUG(opt-stack-id): stack-entry without stack-id can't become an input stack",
+            )?,
             commits_from_base_to_tip,
         });
     }

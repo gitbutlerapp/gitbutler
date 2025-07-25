@@ -36,6 +36,37 @@ export type Stack = {
 };
 
 /**
+ * Return (future) type of Tauri `stacks` command.
+ * It's currently used to assure the frontend doesn't accidentally see
+ * an optional stack-id yet, and to show what it would have to be.
+ *
+ * This is only useful if one wants to go from `Stack` -> `StackOpt` -> `RefInfo`.
+ * Ultimately, this is just a step on the way to deal with the entire workspace at once.
+ */
+export type StackOpt = {
+	/**
+	 * The id of the stack, or null if there is no permanent id.
+	 * This can happen if no workspace is known, or even (rare) the workspace
+	 * would be out-of-sync with the workspace data that only we can attach.
+	 * Ideally there is no catastrophic failure if this is null for one
+	 * stack but set for the others.
+	 */
+	id?: string;
+	/**
+	 * Information about the branches contained in the stack.
+	 */
+	heads: StackHeadInfo[];
+	/**
+	 * The commit hash of the tip of the stack.
+	 */
+	tip: string;
+	/**
+	 * Zero-based index for sorting the stacks.
+	 */
+	order: number;
+};
+
+/**
  * Returns the name of the stack.
  *
  * This is the name of the top-most branch in the stack.

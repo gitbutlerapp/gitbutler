@@ -39,7 +39,7 @@ pub async fn commit(
     let stack_id = stacks
         .iter()
         .find(|s| s.heads.iter().any(|h| h.name == event.branch_name))
-        .map(|s| s.id)
+        .and_then(|s| s.id)
         .ok_or_else(|| anyhow::anyhow!("Stack with name '{}' not found", event.branch_name))?;
     let result = gitbutler_branch_actions::update_commit_message(
         ctx,

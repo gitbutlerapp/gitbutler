@@ -70,13 +70,13 @@ pub fn create_virtual_branch(
     ctx: &CommandContext,
     create: &BranchCreateRequest,
     perm: &mut WorktreeWritePermission,
-) -> Result<ui::StackEntry> {
+) -> Result<ui::StackEntryNoOpt> {
     ctx.verify(perm)?;
     ensure_open_workspace_mode(ctx).context("Creating a branch requires open workspace mode")?;
     let branch_manager = ctx.branch_manager();
     let stack = branch_manager.create_virtual_branch(create, perm)?;
     let repo = ctx.gix_repo()?;
-    Ok(ui::StackEntry {
+    Ok(ui::StackEntryNoOpt {
         id: stack.id,
         heads: stack_heads_info(&stack, &repo)?,
         tip: stack.head_oid(&repo)?,

@@ -16,7 +16,9 @@ pub(crate) fn stack_id_by_commit_id(
 ) -> anyhow::Result<StackId> {
     let stacks = crate::log::stacks(ctx)?
         .iter()
-        .map(|s| crate::log::stack_details(ctx, s.id).map(|d| (s.id, d)))
+        .filter_map(|s| {
+            s.id.map(|id| crate::log::stack_details(ctx, id).map(|d| (id, d)))
+        })
         .filter_map(Result::ok)
         .collect::<Vec<_>>();
     if let Some((id, _)) = stacks.iter().find(|(_, stack)| {

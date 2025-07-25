@@ -7,6 +7,7 @@ use gitbutler_oxidize::{
 };
 use gitbutler_repo::{RepositoryExt, SignaturePurpose};
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
+use gix::merge::tree::TreatAsUnresolved;
 use tracing::instrument;
 
 const WORKSPACE_HEAD: &str = "Workspace Head";
@@ -15,7 +16,7 @@ const WORKSPACE_HEAD: &str = "Workspace Head";
 pub fn merge_worktree_with_workspace<'a>(
     ctx: &CommandContext,
     gix_repo: &'a gix::Repository,
-) -> Result<gix::merge::tree::Outcome<'a>> {
+) -> Result<(gix::merge::tree::Outcome<'a>, TreatAsUnresolved)> {
     let mut head = gix_repo.head()?;
 
     // The uncommitted changes
@@ -30,14 +31,15 @@ pub fn merge_worktree_with_workspace<'a>(
     let (merge_options_fail_fast, _conflict_kind) =
         gix_repo.merge_options_no_rewrites_fail_fast()?;
 
+    let conflict_kind = TreatAsUnresolved::git();
     let outcome = gix_repo.merge_trees(
         head.peel_to_commit_in_place()?.tree_id()?,
         workdir_tree,
         workspace_tree,
         gix_repo.default_merge_labels(),
-        merge_options_fail_fast.clone(),
+        merge_options_fail_fast.with_fail_on_conflict(Some(conflict_kind)),
     )?;
-    Ok(outcome)
+    Ok((outcome, conflict_kind))
 }
 
 /// Creates and returns a merge commit of all active branch heads.

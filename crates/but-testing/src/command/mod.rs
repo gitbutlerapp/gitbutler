@@ -225,7 +225,7 @@ pub mod stacks {
         let details = if v3 {
             let meta = ref_metadata_toml(ctx.project())?;
             let repo = ctx.gix_repo_for_merging_non_persisting()?;
-            but_workspace::stack_details_v3(id, &repo, &meta)
+            but_workspace::stack_details_v3(id.into(), &repo, &meta)
         } else {
             but_workspace::stack_details(&project.gb_dir(), id, &ctx)
         }?;
@@ -280,7 +280,7 @@ pub mod stacks {
         ctx: &CommandContext,
         name: &str,
         description: Option<&str>,
-    ) -> anyhow::Result<ui::StackEntry> {
+    ) -> anyhow::Result<ui::StackEntryNoOpt> {
         let creation_request = gitbutler_branch::BranchCreateRequest {
             name: Some(name.to_string()),
             ..Default::default()
@@ -325,13 +325,13 @@ pub mod stacks {
 
         let stack_entry = stack_entries
             .into_iter()
-            .find(|entry| entry.id == stack_id)
+            .find(|entry| entry.id == Some(stack_id))
             .ok_or_else(|| anyhow::anyhow!("Failed to find stack with ID: {stack_id}"))?;
 
         if description.is_some() {
             gitbutler_branch_actions::stack::update_branch_description(
                 ctx,
-                stack_entry.id,
+                stack_entry.id.context("BUG(opt-stack-id)")?,
                 name.to_string(),
                 description.map(ToOwned::to_owned),
             )?;
@@ -370,7 +370,7 @@ pub mod stacks {
 
         let stack_entry = match id {
             Some(id) => add_branch_to_stack(&ctx, id, name, description, project.clone(), &repo)?,
-            None => create_stack_with_branch(&ctx, name, description)?,
+            None => create_stack_with_branch(&ctx, name, description)?.into(),
         };
 
         if use_json {

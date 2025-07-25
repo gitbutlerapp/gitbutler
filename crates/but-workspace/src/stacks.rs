@@ -3,7 +3,7 @@ use crate::ref_info::ui::{Commit, Segment};
 use crate::ref_info::ui::{LocalCommit, LocalCommitRelation};
 use crate::ui::{CommitState, PushStatus, StackDetails};
 use crate::{RefInfo, StacksFilter, branch, head_info, ref_info, state_handle, ui};
-use anyhow::Context;
+use anyhow::{Context, bail};
 use bstr::BString;
 use but_core::RefMetadata;
 use but_graph::VirtualBranchesTomlMetadata;
@@ -22,20 +22,27 @@ fn id_from_name_v2_to_v3(
     name: &gix::refs::FullNameRef,
     meta: &VirtualBranchesTomlMetadata,
 ) -> anyhow::Result<StackId> {
-    let ref_meta = meta.branch(name)?;
-    ref_meta
-        .stack_id()
-        .with_context(|| {
-            format!(
-                "{name:?} didn't have a stack-id even though \
+    id_from_name_v2_to_v3_opt(name, meta)?.with_context(|| {
+        format!(
+            "{name:?} didn't have a stack-id even though \
         it was supposed to be in virtualbranches.toml"
-            )
-        })
-        .map(|id| {
-            id.to_string()
-                .parse()
-                .expect("new stack ids are just UUIDs, like the old ones")
-        })
+        )
+    })
+}
+
+/// Get a stable `StackId` for the given `name`. It's fetched from `meta`, assuming it's backed by a toml file
+/// and assuming that `name` is stored there as applied or unapplied branch.
+/// It's `None` if `name` isn't known to the workspace.
+fn id_from_name_v2_to_v3_opt(
+    name: &gix::refs::FullNameRef,
+    meta: &VirtualBranchesTomlMetadata,
+) -> anyhow::Result<Option<StackId>> {
+    let ref_meta = meta.branch(name)?;
+    Ok(ref_meta.stack_id().map(|id| {
+        id.to_string()
+            .parse()
+            .expect("new stack ids are just UUIDs, like the old ones")
+    }))
 }
 
 /// Returns the list of branch information for the branches in a stack.
@@ -125,7 +132,7 @@ fn try_from_stack_v3(
         })
         .collect::<anyhow::Result<_>>()?;
     Ok(ui::StackEntry {
-        id: id_from_name_v2_to_v3(name.as_ref(), meta)?,
+        id: id_from_name_v2_to_v3_opt(name.as_ref(), meta)?,
         tip: heads
             .first()
             .map(|h| h.tip)
@@ -179,7 +186,7 @@ pub fn stacks_v3(
                 .with_context(|| format!("Encountered symbolic reference: {ref_name}"))?
                 .detach();
             out.push(ui::StackEntry {
-                id: id_from_name_v2_to_v3(ref_name.as_ref(), meta)?,
+                id: id_from_name_v2_to_v3_opt(ref_name.as_ref(), meta)?,
                 // TODO: this is just a simulation and such a thing doesn't really exist in the V3 world, let's see how it goes.
                 //       Thus, we just pass ourselves as first segment, similar to having no other segments.
                 heads: vec![ui::StackHeadInfo {
@@ -387,12 +394,13 @@ pub fn stack_details(
     })
 }
 
-/// Get additional information for the stack identified by `stack_id`.
+/// Get additional information for the stack identified by `stack_id`. If `None`, it's the first available stack
+/// and we expect it to have no ID.
 // TODO: StackId shouldn't be used, instead use the ref-name or stack index as universal tip identifier.
 //       It's notable that there isn't always a ref-name available right now in case the ref advanced, but maybe this is something
 //       we can pull out of the metadata information.
 pub fn stack_details_v3(
-    stack_id: StackId,
+    stack_id: Option<StackId>,
     repo: &gix::Repository,
     meta: &VirtualBranchesTomlMetadata,
 ) -> anyhow::Result<ui::StackDetails> {
@@ -425,16 +433,32 @@ pub fn stack_details_v3(
             extra_target_commit_id: meta.data().default_target.as_ref().map(|t| t.sha.to_gix()),
         },
     };
-    let stack = meta.data().branches.get(&stack_id).with_context(|| {
-        format!("Couldn't find {stack_id} even when looking at virtual_branches.toml directly")
-    })?;
-    let full_name = gix::refs::FullName::try_from(format!(
-        "refs/heads/{shortname}",
-        shortname = stack.derived_name()?
-    ))?;
-    let existing_ref = repo.find_reference(&full_name)?;
-    let stack = stack_by_id(ref_info(existing_ref, meta, ref_info_options)?, stack_id, meta)?
-        .with_context(|| format!("Really couldn't find {stack_id} in current HEAD or when searching virtual_branches.toml plainly"))?;
+    let stack = match stack_id {
+        None => {
+            let mut info = head_info(repo, meta, ref_info_options)?;
+            if info.stacks.len() != 1 {
+                bail!(
+                    "BUG(opt-stack-id): should have gotten exactly one stack, got {}",
+                    info.stacks.len()
+                );
+            }
+            info.stacks.pop().unwrap()
+        }
+        Some(stack_id) => {
+            let stack = meta.data().branches.get(&stack_id).with_context(|| {
+                format!(
+                    "Couldn't find {stack_id} even when looking at virtual_branches.toml directly"
+                )
+            })?;
+            let full_name = gix::refs::FullName::try_from(format!(
+                "refs/heads/{shortname}",
+                shortname = stack.derived_name()?
+            ))?;
+            let existing_ref = repo.find_reference(&full_name)?;
+            stack_by_id(ref_info(existing_ref, meta, ref_info_options)?, stack_id, meta)?
+                .with_context(|| format!("Really couldn't find {stack_id} in current HEAD or when searching virtual_branches.toml plainly"))?
+        }
+    };
 
     let branch_details = stack
         .segments

@@ -19,9 +19,10 @@ pub(crate) fn worktree(repo_path: &Path, _json: bool) -> anyhow::Result<()> {
     let stack_id_to_branch = crate::log::stacks(ctx)?
         .iter()
         .filter_map(|s| {
-            s.heads.first().map(|head| {
+            s.heads.first().and_then(|head| {
+                let id = s.id?;
                 let x = head.name.to_string();
-                (s.id, x)
+                Some((id, x))
             })
         })
         .collect::<BTreeMap<but_workspace::StackId, String>>();

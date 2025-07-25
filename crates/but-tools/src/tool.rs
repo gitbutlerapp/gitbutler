@@ -3,12 +3,12 @@ use std::{
     sync::Arc,
 };
 
+use crate::emit::EmitToolCall;
+use but_workspace::ui::StackEntryNoOpt;
 use but_workspace::{StackId, ui::StackEntry};
 use gitbutler_command_context::CommandContext;
 use gix::ObjectId;
 use serde_json::json;
-
-use crate::emit::EmitToolCall;
 
 pub struct Toolset<'a> {
     ctx: &'a mut CommandContext,
@@ -142,6 +142,12 @@ pub trait ToolResult: 'static + Send + Sync {
 }
 
 impl ToolResult for Result<StackEntry, anyhow::Error> {
+    fn to_json(&self, action_identifier: &str) -> serde_json::Value {
+        result_to_json(self, action_identifier, "StackEntry")
+    }
+}
+
+impl ToolResult for Result<StackEntryNoOpt, anyhow::Error> {
     fn to_json(&self, action_identifier: &str) -> serde_json::Value {
         result_to_json(self, action_identifier, "StackEntry")
     }
