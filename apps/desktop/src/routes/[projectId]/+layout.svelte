@@ -195,8 +195,7 @@
 			const info = await projectsService.setActiveProject(projectId);
 
 			if (!info) {
-				// The project is not found, redirect to the start.
-				goto('/');
+				// The project is not found do nothing. The application will redirect to the start.
 				return;
 			}
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
 	import InfoMessage, { type MessageStyle } from '$components/InfoMessage.svelte';
 	import ProjectSwitcher from '$components/ProjectSwitcher.svelte';
@@ -16,7 +17,7 @@
 	const { projectId }: Props = $props();
 
 	const projectsService = inject(PROJECTS_SERVICE);
-	const projectResult = $derived(projectsService.getProject(projectId, false));
+	const projectResult = $derived(projectsService.getProject(projectId, true));
 
 	let deleteSucceeded: boolean | undefined = $state(undefined);
 	let isDeleting = $state(false);
@@ -33,6 +34,7 @@
 			deleteSucceeded = true;
 		}
 		isDeleting = false;
+		goto('/');
 	}
 
 	async function locate(id: string) {
