@@ -46,4 +46,9 @@
   <b>Sign language</b>
 </details>
 
+<details>
+  <summary>I got addicted to drinking brake fluid.</summary>
+  <b>Don't worry, I can stop anytime.</b>
+</details>
+
 <br>
