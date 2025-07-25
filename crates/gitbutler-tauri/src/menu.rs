@@ -161,6 +161,11 @@ pub fn build<R: Runtime>(handle: &AppHandle<R>) -> tauri::Result<tauri::menu::Me
     ])?;
 
     let mut project_menu_builder = SubmenuBuilder::new(handle, "Project")
+        .item(
+            &MenuItemBuilder::with_id("project/history", "Operations History")
+                .accelerator("CmdOrCtrl+Shift+H")
+                .build(handle)?,
+        )
         .separator()
         .text("project/open-in-vscode", "Open in Editor");
 
@@ -300,6 +305,11 @@ pub fn handle_event(webview: &WebviewWindow, event: &MenuEvent) {
 
     if event.id() == "help/share-debug-info" {
         emit(webview, SHORTCUT_EVENT, "share-debug-info");
+        return;
+    }
+
+    if event.id() == "project/history" {
+        emit(webview, SHORTCUT_EVENT, "history");
         return;
     }
 
