@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Icon from '$components/Icon.svelte';
-	import { getExternalLinkService } from '$components/link/externalLinkService';
+	import { getExternalLinkService } from '$lib/utils/externalLinkService';
 	import { onMount, type Snippet } from 'svelte';
 
 	interface Props {

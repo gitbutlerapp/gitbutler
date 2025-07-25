@@ -1,5 +1,5 @@
 <script module lang="ts">
-	export type StatusType = 'loading' | 'open' | 'merged' | 'closed' | 'draft';
+	export type PrStatusInfoType = 'loading' | 'open' | 'merged' | 'closed' | 'draft';
 </script>
 
 <script lang="ts">
@@ -8,7 +8,7 @@
 	import type { ComponentColorType } from '@gitbutler/ui/utils/colorTypes';
 
 	interface Props {
-		status: StatusType;
+		status: PrStatusInfoType;
 	}
 
 	type StatusInfo = {

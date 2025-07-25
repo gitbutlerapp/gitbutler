@@ -53,7 +53,7 @@
 		UserService as NewUserService,
 		USER_SERVICE as NEW_USER_SERVICE
 	} from '@gitbutler/shared/users/userService';
-	import { setExternalLinkService } from '@gitbutler/ui/link/externalLinkService';
+	import { setExternalLinkService } from '@gitbutler/ui/utils/externalLinkService';
 	import { type Snippet } from 'svelte';
 	import { Toaster } from 'svelte-french-toast';
 	import { env } from '$env/dynamic/public';

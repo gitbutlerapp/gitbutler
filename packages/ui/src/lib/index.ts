@@ -22,10 +22,10 @@ export {
 	type BranchShouldBeDeletedMap
 } from '$components/IntegrationSeriesRow.svelte';
 export { default as LinkButton } from '$components/LinkButton.svelte';
-export { default as Modal } from '$components/Modal.svelte';
+export { default as Modal, type ModalProps } from '$components/Modal.svelte';
 export { default as ModalHeader } from '$components/ModalHeader.svelte';
 export { default as NotificationButton } from '$components/NotificationButton.svelte';
-export { default as PrStatusBadge } from '$components/PrStatusBadge.svelte';
+export { default as PrStatusBadge, type PrStatusInfoType } from '$components/PrStatusBadge.svelte';
 export { default as RadioButton } from '$components/RadioButton.svelte';
 export { default as ReviewBadge } from '$components/ReviewBadge.svelte';
 export { default as SectionCard } from '$components/SectionCard.svelte';
@@ -71,11 +71,17 @@ export { default as EmojiGroup } from '$components/emoji/EmojiGroup.svelte';
 export { default as EmojiPicker } from '$components/emoji/EmojiPicker.svelte';
 
 // Link Components
-export { default as Link } from './components/link/Link.svelte';
+export { default as Link } from './components/Link.svelte';
 
 // Scroll Components
-export { default as ScrollableContainer } from '$components/scroll/ScrollableContainer.svelte';
-export { default as Scrollbar } from '$components/scroll/Scrollbar.svelte';
+export {
+	default as ScrollableContainer,
+	type ScrollableProps
+} from '$components/scroll/ScrollableContainer.svelte';
+export {
+	default as Scrollbar,
+	type ScrollbarPaddingType
+} from '$components/scroll/Scrollbar.svelte';
 
 // Segment Control Components
 export { default as Segment } from '$components/segmentControl/Segment.svelte';

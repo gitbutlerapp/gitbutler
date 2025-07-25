@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Link from '$components/link/Link.svelte';
+	import Link from '$components/Link.svelte';
 	import type { Snippet } from 'svelte';
 
 	type Props = { href: string; children: Snippet };

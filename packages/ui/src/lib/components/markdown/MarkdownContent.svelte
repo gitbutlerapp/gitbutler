@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Link from '$components/link/Link.svelte';
+	import Link from '$components/Link.svelte';
 	import Self from '$components/markdown/MarkdownContent.svelte';
 	import Blockquote from '$components/markdown/markdownRenderers/Blockquote.svelte';
 	import Br from '$components/markdown/markdownRenderers/Br.svelte';

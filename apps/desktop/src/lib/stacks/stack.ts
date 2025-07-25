@@ -1,5 +1,5 @@
 import type { Author, Commit, UpstreamCommit } from '$lib/branches/v3';
-import type { CellType } from '@gitbutler/ui/commitLines/types';
+import type { CellType } from '@gitbutler/ui/components/commitLines/types';
 import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 export type StackHeadInfo = {

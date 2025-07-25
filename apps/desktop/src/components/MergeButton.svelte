@@ -3,7 +3,7 @@
 	import { persisted, type Persisted } from '@gitbutler/shared/persisted';
 
 	import { ContextMenuItem, ContextMenuSection, DropDownButton } from '@gitbutler/ui';
-	import type { Props as ButtonProps } from '@gitbutler/ui/Button.svelte';
+	import type { ButtonProps } from '@gitbutler/ui';
 
 	interface Props {
 		projectId: string;

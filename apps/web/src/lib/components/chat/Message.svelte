@@ -40,7 +40,7 @@
 		getInitialEmojis,
 		markRecentlyUsedEmoji,
 		type EmojiInfo
-	} from '@gitbutler/ui/emoji/utils';
+	} from '@gitbutler/ui/components/emoji/utils';
 
 	import { SvelteSet } from 'svelte/reactivity';
 	import type { ChatEvent } from '@gitbutler/shared/patchEvents/types';
