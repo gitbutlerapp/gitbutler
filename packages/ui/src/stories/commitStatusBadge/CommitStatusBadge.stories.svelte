@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import CommitStatusBadge from '$lib/CommitStatusBadge.svelte';
+	import CommitStatusBadge from '$components/CommitStatusBadge.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({

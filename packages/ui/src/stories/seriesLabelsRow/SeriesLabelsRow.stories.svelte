@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import SeriesLabelsRow from '$lib/SeriesLabelsRow.svelte';
+	import SeriesLabelsRow from '$components/SeriesLabelsRow.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({

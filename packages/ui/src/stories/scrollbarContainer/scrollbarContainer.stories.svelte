@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
+	import ScrollableContainer from '$components/scroll/ScrollableContainer.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({

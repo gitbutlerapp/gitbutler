@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import FileIcon from '$lib/file/FileIcon.svelte';
+	import FileIcon from '$components/file/FileIcon.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({

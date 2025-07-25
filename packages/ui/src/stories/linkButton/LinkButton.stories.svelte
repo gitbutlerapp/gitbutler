@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import LinkButton from '$lib/LinkButton.svelte';
+	import LinkButton from '$components/LinkButton.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({

@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import SidebarEntry from '$lib/SidebarEntry.svelte';
+	import SidebarEntry from '$components/SidebarEntry.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const dummySeries = [

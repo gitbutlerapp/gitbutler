@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import FileListItem from '$lib/file/FileListItem.svelte';
+	import FileListItem from '$components/file/FileListItem.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({

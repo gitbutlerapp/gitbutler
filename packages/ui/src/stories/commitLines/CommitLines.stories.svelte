@@ -1,8 +1,8 @@
 <script module lang="ts">
-	import Line from '$lib/commitLines/Line.svelte';
-	import { LineManager } from '$lib/commitLines/lineManager';
+	import Line from '$components/commitLines/Line.svelte';
+	import { LineManager } from '$components/commitLines/lineManager';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
-	import type { Author, CommitData } from '$lib/commitLines/types';
+	import type { Author, CommitData } from '$components/commitLines/types';
 
 	const { Story } = defineMeta({
 		title: 'Lane / Commit Lines',

@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import Icon from '$lib/Icon.svelte';
+	import Icon from '$components/Icon.svelte';
 	import iconsJson from '$lib/data/icons.json';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 

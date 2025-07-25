@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import Textarea from '$lib/Textarea.svelte';
+	import Textarea from '$components/Textarea.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	function handleDescriptionKeyDown(e: KeyboardEvent) {

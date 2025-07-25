@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import HunkDiff from '$lib/HunkDiff.svelte';
+	import HunkDiff from '$components/hunkDiff/HunkDiff.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const hunkStr = {

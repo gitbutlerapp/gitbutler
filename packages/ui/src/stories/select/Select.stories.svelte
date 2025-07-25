@@ -1,7 +1,7 @@
 <script module lang="ts">
-	import Button from '$lib/Button.svelte';
-	import Select from '$lib/select/Select.svelte';
-	import SelectItem from '$lib/select/SelectItem.svelte';
+	import Button from '$components/Button.svelte';
+	import Select from '$components/select/Select.svelte';
+	import SelectItem from '$components/select/SelectItem.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({

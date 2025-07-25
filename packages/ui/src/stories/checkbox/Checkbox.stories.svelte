@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import Checkbox from '$lib/Checkbox.svelte';
+	import Checkbox from '$components/Checkbox.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({

@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import Badge from '$lib/Badge.svelte';
+	import Badge from '$components/Badge.svelte';
 	import iconsJson from '$lib/data/icons.json';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 

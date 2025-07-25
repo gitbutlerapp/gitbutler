@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import Button from '$lib/Button.svelte';
+	import Button from '$components/Button.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 	import type { ComponentColorType } from '$lib/utils/colorTypes';
 

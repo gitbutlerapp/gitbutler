@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import SimpleCommitRow from '$lib/SimpleCommitRow.svelte';
+	import SimpleCommitRow from '$components/SimpleCommitRow.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({

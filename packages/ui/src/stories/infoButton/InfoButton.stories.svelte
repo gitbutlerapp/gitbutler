@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import InfoButton from '$lib/InfoButton.svelte';
+	import InfoButton from '$components/InfoButton.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({

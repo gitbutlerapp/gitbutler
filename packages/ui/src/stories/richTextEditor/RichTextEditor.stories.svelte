@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import RichTextEditor from '$lib/RichTextEditor.svelte';
+	import RichTextEditor from '$lib/richText/RichTextEditor.svelte';
 	import Formatter from '$lib/richText/plugins/Formatter.svelte';
 	import FormattingBar from '$lib/richText/tools/FormattingBar.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';

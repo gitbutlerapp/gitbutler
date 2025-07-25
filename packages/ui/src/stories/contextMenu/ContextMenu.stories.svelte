@@ -1,8 +1,8 @@
 <script module lang="ts">
-	import Button from '$lib/Button.svelte';
-	import ContextMenu from '$lib/ContextMenu.svelte';
-	import ContextMenuItem from '$lib/ContextMenuItem.svelte';
-	import ContextMenuSection from '$lib/ContextMenuSection.svelte';
+	import Button from '$components/Button.svelte';
+	import ContextMenu from '$components/ContextMenu.svelte';
+	import ContextMenuItem from '$components/ContextMenuItem.svelte';
+	import ContextMenuSection from '$components/ContextMenuSection.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({

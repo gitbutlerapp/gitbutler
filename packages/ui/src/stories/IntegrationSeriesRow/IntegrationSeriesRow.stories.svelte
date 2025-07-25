@@ -1,7 +1,7 @@
 <script module lang="ts">
 	import IntegrationSeriesListItem, {
 		type Props as SeriesProps
-	} from '$lib/IntegrationSeriesRow.svelte';
+	} from '$components/IntegrationSeriesRow.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	// eslint-disable-next-line func-style

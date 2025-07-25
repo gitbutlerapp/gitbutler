@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import ReviewBadge from '$lib/ReviewBadge.svelte';
+	import ReviewBadge from '$components/ReviewBadge.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({

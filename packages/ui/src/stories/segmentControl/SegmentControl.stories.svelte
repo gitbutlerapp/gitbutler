@@ -1,6 +1,6 @@
 <script module lang="ts">
-	import Segment from '$lib/segmentControl/Segment.svelte';
-	import SegmentControl from '$lib/segmentControl/SegmentControl.svelte';
+	import Segment from '$components/segmentControl/Segment.svelte';
+	import SegmentControl from '$components/segmentControl/SegmentControl.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({

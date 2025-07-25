@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import AvatarGroup from '$lib/avatar/AvatarGroup.svelte';
+	import AvatarGroup from '$components/avatar/AvatarGroup.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({

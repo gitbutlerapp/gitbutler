@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import TimeAgo from '$lib/TimeAgo.svelte';
+	import TimeAgo from '$components/TimeAgo.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({

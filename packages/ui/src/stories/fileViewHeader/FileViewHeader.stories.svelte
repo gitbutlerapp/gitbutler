@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import FileViewHeader from '$lib/file/FileViewHeader.svelte';
+	import FileViewHeader from '$components/file/FileViewHeader.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({

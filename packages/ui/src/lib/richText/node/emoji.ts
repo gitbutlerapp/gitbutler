@@ -2,7 +2,7 @@ import {
 	EMOJI_SHORTCODE_REGEX,
 	EMOJI_SHORTCODE_SEARCH_REGEX,
 	findEmojiByShortcode
-} from '$lib/emoji/utils';
+} from '$components/emoji/utils';
 import { $applyNodeReplacement, TextNode } from 'lexical';
 import {
 	type BaseSelection,

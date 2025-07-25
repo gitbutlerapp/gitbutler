@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import NotificationButton from '$lib/NotificationButton.svelte';
+	import NotificationButton from '$components/NotificationButton.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({

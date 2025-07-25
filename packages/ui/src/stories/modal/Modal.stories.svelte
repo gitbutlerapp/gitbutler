@@ -1,6 +1,6 @@
 <script module lang="ts">
-	import Button from '$lib/Button.svelte';
-	import Modal from '$lib/Modal.svelte';
+	import Button from '$components/Button.svelte';
+	import Modal from '$components/Modal.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({

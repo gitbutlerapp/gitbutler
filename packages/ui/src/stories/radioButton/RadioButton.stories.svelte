@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import RadioButton from '$lib/RadioButton.svelte';
+	import RadioButton from '$components/RadioButton.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({

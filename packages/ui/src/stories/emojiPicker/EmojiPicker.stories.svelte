@@ -1,20 +1,7 @@
-<!-- <script module lang="ts">
-	import EmojiPickerButton from '@gitbutler/ui/EmojiPickerButton.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
-
-	const { Story } = defineMeta({
-		title: 'Editing / EmojiPicker',
-		component: EmojiPickerButton,
-		args: {}
-	});
-</script>
-
-<Story name="Playground" /> -->
-
 <script module lang="ts">
-	import EmojiPicker from '$lib/emoji/EmojiPicker.svelte';
+	import EmojiPicker from '$components/emoji/EmojiPicker.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
-	import type { EmojiInfo } from '$lib/emoji/utils';
+	import type { EmojiInfo } from '$components/emoji/utils';
 
 	const { Story } = defineMeta({
 		title: 'Editing / EmojiPicker',
