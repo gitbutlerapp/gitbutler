@@ -4,6 +4,8 @@ mod args;
 use args::{Args, CommandName, Subcommands, actions, claude};
 use but_settings::AppSettings;
 use metrics::{Event, Metrics, Props, metrics_if_configured};
+
+use crate::command::claude::OutputAsJson;
 mod command;
 mod id;
 mod log;
@@ -55,22 +57,32 @@ async fn main() -> Result<()> {
             claude::Subcommands::PreTool => {
                 let result = command::claude::handle_pre_tool_call();
                 let p = props(start, &result);
-                println!("{}", serde_json::to_string(&result?)?);
+                result.out_json();
                 metrics_if_configured(app_settings, CommandName::ClaudePreTool, p).ok();
+                if result.is_err() {
+                    std::process::exit(2);
+                }
                 Ok(())
             }
             claude::Subcommands::PostTool => {
                 let result = command::claude::handle_post_tool_call();
                 let p = props(start, &result);
-                println!("{}", serde_json::to_string(&result?)?);
+                result.out_json();
                 metrics_if_configured(app_settings, CommandName::ClaudePostTool, p).ok();
+
+                if result.is_err() {
+                    std::process::exit(2);
+                }
                 Ok(())
             }
             claude::Subcommands::Stop => {
                 let result = command::claude::handle_stop().await;
                 let p = props(start, &result);
-                println!("{}", serde_json::to_string(&result?)?);
+                result.out_json();
                 metrics_if_configured(app_settings, CommandName::ClaudeStop, p).ok();
+                if result.is_err() {
+                    std::process::exit(2);
+                }
                 Ok(())
             }
         },
