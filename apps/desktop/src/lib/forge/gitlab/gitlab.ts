@@ -5,7 +5,6 @@ import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 import type { Forge, ForgeName } from '$lib/forge/interface/forge';
 import type { ForgeArguments } from '$lib/forge/interface/types';
-import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { GitLabApi } from '$lib/state/clientState.svelte';
 import type { ReduxTag } from '$lib/state/tags';
 import type { TagDescription } from '@reduxjs/toolkit/query';
@@ -29,7 +28,6 @@ export class GitLab implements Forge {
 	constructor(
 		private params: ForgeArguments & {
 			posthog?: PostHogWrapper;
-			projectMetrics?: ProjectMetrics;
 			api: GitLabApi;
 			client: GitLabClient;
 		}
@@ -54,8 +52,8 @@ export class GitLab implements Forge {
 
 	get listService() {
 		if (!this.authenticated) return;
-		const { api: gitLabApi, projectMetrics } = this.params;
-		return new GitLabListingService(gitLabApi, projectMetrics);
+		const { api: gitLabApi } = this.params;
+		return new GitLabListingService(gitLabApi);
 	}
 
 	get issueService() {

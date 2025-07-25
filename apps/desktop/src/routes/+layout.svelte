@@ -150,8 +150,7 @@
 		gitHubApi: clientState['githubApi'],
 		gitLabApi: clientState['gitlabApi'],
 		dispatch: clientState.dispatch,
-		posthog: data.posthog,
-		projectMetrics: data.projectMetrics
+		posthog: data.posthog
 	});
 
 	const uiStateSlice = $derived(clientState.uiState);
