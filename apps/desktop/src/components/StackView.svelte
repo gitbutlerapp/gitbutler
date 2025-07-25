@@ -224,6 +224,27 @@
 		}
 	});
 
+	// Clear exclusive action if branch cannot be found.
+	// TODO: We must be able to express this better..
+	$effect(() => {
+		if (projectState.exclusiveAction.current && branchesResult.current.data) {
+			ensureValidExclusiveAction();
+		}
+	});
+
+	function ensureValidExclusiveAction() {
+		const exclusiveAction = projectState.exclusiveAction.current;
+		const branches = branchesResult.current.data;
+		if (exclusiveAction && branches) {
+			if ('branchName' in exclusiveAction) {
+				const branchName = exclusiveAction.branchName;
+				if (branchName && !branches.some((b) => b.name === branchName)) {
+					projectState.exclusiveAction.set(undefined);
+				}
+			}
+		}
+	}
+
 	const startCommitVisible = $derived(uncommittedService.startCommitVisible(stack.id));
 
 	function onerror(err: unknown) {
