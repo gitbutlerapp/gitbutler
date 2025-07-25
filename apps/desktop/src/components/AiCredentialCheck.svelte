@@ -4,8 +4,7 @@
 	import { ModelKind } from '$lib/ai/types';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Link from '@gitbutler/ui/link/Link.svelte';
+	import { Button, Link } from '@gitbutler/ui';
 	import { slide } from 'svelte/transition';
 
 	const aiService = inject(AI_SERVICE);

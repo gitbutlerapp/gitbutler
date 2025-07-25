@@ -26,8 +26,7 @@
 	import { platformName } from '$lib/platform/platform';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { Button, Icon } from '@gitbutler/ui';
 
 	type Props = {
 		projectId?: string;

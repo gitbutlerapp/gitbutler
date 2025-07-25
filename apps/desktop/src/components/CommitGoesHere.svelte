@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { TestId } from '$lib/testing/testIds';
-	import Badge from '@gitbutler/ui/Badge.svelte';
+	import { Badge } from '@gitbutler/ui';
 
 	type Props = {
 		commitId: string | undefined;

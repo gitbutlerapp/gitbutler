@@ -6,8 +6,7 @@
 	import StackedPullRequestCard from '$components/StackedPullRequestCard.svelte';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
+	import { Button, Modal } from '@gitbutler/ui';
 	import type { Snippet } from 'svelte';
 
 	// TODO: This and the SeriesHeader should have a wholistic refactor to

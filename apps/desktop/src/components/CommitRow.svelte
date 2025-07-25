@@ -3,8 +3,8 @@
 	import CommitTitle from '$components/CommitTitle.svelte';
 	import { type CommitStatusType } from '$lib/commits/commit';
 	import { TestId } from '$lib/testing/testIds';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
+	import { Avatar, Icon } from '@gitbutler/ui';
+
 	import { slide } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
 

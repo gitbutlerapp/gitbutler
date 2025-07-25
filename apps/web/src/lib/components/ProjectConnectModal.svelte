@@ -7,9 +7,8 @@
 	import { getOrganizations } from '@gitbutler/shared/organizations/organizationsPreview.svelte';
 	import { PROJECT_SERVICE } from '@gitbutler/shared/organizations/projectService';
 	import { projectTable } from '@gitbutler/shared/organizations/projectsSlice';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
-	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
+
+	import { Button, Modal, SectionCard } from '@gitbutler/ui';
 	import toasts from '@gitbutler/ui/toasts';
 	import type { Project } from '@gitbutler/shared/organizations/types';
 

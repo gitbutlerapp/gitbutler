@@ -1,7 +1,5 @@
 <script lang="ts">
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
-
+	import { Icon, Tooltip } from '@gitbutler/ui';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	type gitButlerLinkType = Array<{

@@ -1,11 +1,7 @@
 <script lang="ts">
 	import { SSH_KEY_SERVICE } from '$lib/sshKeyService';
 	import { inject } from '@gitbutler/shared/context';
-	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
-	import Textarea from '@gitbutler/ui/Textarea.svelte';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
+	import { AsyncButton, Button, Modal, Textarea, Textbox } from '@gitbutler/ui';
 
 	const sshKeyService = inject(SSH_KEY_SERVICE);
 	let name = $state('');

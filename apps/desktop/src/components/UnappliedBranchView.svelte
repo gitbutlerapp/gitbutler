@@ -9,8 +9,8 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
+	import { Icon, Tooltip } from '@gitbutler/ui';
+
 	import type { BranchHeaderContextItem } from '$components/BranchHeaderContextMenu.svelte';
 	import type { SelectionId } from '$lib/selection/key';
 

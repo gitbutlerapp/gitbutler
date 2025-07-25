@@ -13,7 +13,7 @@
 	import AppearanceSettings from '$components/projectSettings/AppearanceSettings.svelte';
 	import { newSettingsPath } from '$lib/routes/routes.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { Icon } from '@gitbutler/ui';
 
 	const pages: Page[] = [
 		{

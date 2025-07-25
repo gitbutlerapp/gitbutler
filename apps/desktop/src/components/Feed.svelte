@@ -12,14 +12,16 @@
 	import { newProjectSettingsPath } from '$lib/routes/routes.svelte';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/shared/context';
-	import Badge from '@gitbutler/ui/Badge.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
-	import Spacer from '@gitbutler/ui/Spacer.svelte';
-	import Link from '@gitbutler/ui/link/Link.svelte';
-	import Select from '@gitbutler/ui/select/Select.svelte';
-	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
+	import {
+		Badge,
+		Button,
+		Icon,
+		RichTextEditor,
+		Spacer,
+		Link,
+		Select,
+		SelectItem
+	} from '@gitbutler/ui';
 	import { onMount, tick } from 'svelte';
 
 	type Props = {

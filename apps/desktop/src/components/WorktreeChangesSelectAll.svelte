@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
+	import { Checkbox } from '@gitbutler/ui';
 
 	type Props = {
 		stackId: string | undefined;

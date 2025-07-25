@@ -10,9 +10,8 @@
 	import { USER_SERVICE } from '$lib/user/userService';
 	import Minimap from '@gitbutler/shared/branches/Minimap.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import CommitStatusBadge, { type CommitStatusType } from '@gitbutler/ui/CommitStatusBadge.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
+	import { AvatarGroup, CommitStatusBadge, Icon, type CommitStatusType } from '@gitbutler/ui';
+
 	import dayjs from 'dayjs';
 
 	type Props = {

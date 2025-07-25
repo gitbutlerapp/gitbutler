@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { PROMPT_SERVICE } from '$lib/ai/promptService';
 	import { inject } from '@gitbutler/shared/context';
-	import Select from '@gitbutler/ui/select/Select.svelte';
-	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
+	import { Select, SelectItem } from '@gitbutler/ui';
 	import { onMount } from 'svelte';
 	import type { Prompts, UserPrompt } from '$lib/ai/types';
 	import type { Persisted } from '@gitbutler/shared/persisted';

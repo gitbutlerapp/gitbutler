@@ -31,9 +31,8 @@
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { inject } from '@gitbutler/shared/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import FileViewHeader from '@gitbutler/ui/file/FileViewHeader.svelte';
+
+	import { Button, FileViewHeader, Icon } from '@gitbutler/ui';
 	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import type { Stack } from '$lib/stacks/stack';

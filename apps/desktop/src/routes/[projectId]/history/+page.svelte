@@ -14,10 +14,7 @@
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
-	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import FileViewHeader from '@gitbutler/ui/file/FileViewHeader.svelte';
+	import { EmptyStatePlaceholder, HunkDiff, Icon, FileViewHeader } from '@gitbutler/ui';
 	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
 	import { plainToInstance } from 'class-transformer';
 	import type { Snapshot, SnapshotDiff } from '$lib/history/types';

@@ -3,9 +3,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import Toggle from '@gitbutler/ui/Toggle.svelte';
-	import Select from '@gitbutler/ui/select/Select.svelte';
-	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
+	import { Toggle, Select, SelectItem } from '@gitbutler/ui';
 	import type { Writable } from 'svelte/store';
 
 	interface Props {

@@ -19,22 +19,24 @@
 	import { uploadFiles } from '@gitbutler/shared/dom';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { UPLOADS_SERVICE } from '@gitbutler/shared/uploads/uploadsService';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
-	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
-	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
-	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
-	import EmojiPickerButton from '@gitbutler/ui/EmojiPickerButton.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
-	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
+	import {
+		Button,
+		Checkbox,
+		ContextMenuItem,
+		ContextMenuSection,
+		DropDownButton,
+		EmojiPickerButton,
+		Modal,
+		RichTextEditor,
+		Formatter,
+		GhostTextPlugin,
+		HardWrapPlugin,
+		FormattingBar,
+		FormattingButton
+	} from '@gitbutler/ui';
 	import FileUploadPlugin, {
 		type DropFileResult
 	} from '@gitbutler/ui/richText/plugins/FileUpload.svelte';
-	import Formatter from '@gitbutler/ui/richText/plugins/Formatter.svelte';
-	import GhostTextPlugin from '@gitbutler/ui/richText/plugins/GhostText.svelte';
-	import HardWrapPlugin from '@gitbutler/ui/richText/plugins/HardWrapPlugin.svelte';
-	import FormattingBar from '@gitbutler/ui/richText/tools/FormattingBar.svelte';
-	import FormattingButton from '@gitbutler/ui/richText/tools/FormattingButton.svelte';
 
 	import { tick } from 'svelte';
 

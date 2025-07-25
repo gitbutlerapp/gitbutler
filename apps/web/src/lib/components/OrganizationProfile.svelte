@@ -7,8 +7,8 @@
 	import { UserService, USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
 	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
+	import { Button, Modal } from '@gitbutler/ui';
+
 	import type { ExtendedOrganization, OrganizationMember } from '$lib/owner/types';
 
 	interface Props {

@@ -31,8 +31,8 @@
 	import { TestId } from '$lib/testing/testIds';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
-	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
-	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
+	import { ContextMenuItem, ContextMenuSection } from '@gitbutler/ui';
+
 	import { tick } from 'svelte';
 	import type { BranchDetails } from '$lib/stacks/stack';
 

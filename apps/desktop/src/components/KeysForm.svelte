@@ -8,10 +8,8 @@
 	import { type AuthKey, type KeyType } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject, injectOptional } from '@gitbutler/shared/context';
-	import RadioButton from '@gitbutler/ui/RadioButton.svelte';
-	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
-	import Link from '@gitbutler/ui/link/Link.svelte';
+	import { Link, RadioButton, SectionCard, Textbox } from '@gitbutler/ui';
+
 	import { onMount } from 'svelte';
 
 	interface Props {

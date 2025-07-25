@@ -1,5 +1,4 @@
 <script lang="ts">
-	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
@@ -20,16 +19,18 @@
 	import { UPSTREAM_INTEGRATION_SERVICE } from '$lib/upstream/upstreamIntegrationService.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
-	import Badge from '@gitbutler/ui/Badge.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import IntegrationSeriesRow, {
+	import {
+		Badge,
+		Button,
+		IntegrationSeriesRow,
+		Modal,
+		SimpleCommitRow,
+		FileListItem,
+		Select,
+		SelectItem,
+		ScrollableContainer,
 		type BranchShouldBeDeletedMap
-	} from '@gitbutler/ui/IntegrationSeriesRow.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
-	import SimpleCommitRow from '@gitbutler/ui/SimpleCommitRow.svelte';
-	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
-	import Select from '@gitbutler/ui/select/Select.svelte';
-	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
+	} from '@gitbutler/ui';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { tick } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';

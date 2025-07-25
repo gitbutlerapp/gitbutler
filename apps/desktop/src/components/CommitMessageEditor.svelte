@@ -17,7 +17,8 @@
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { WORKTREE_SERVICE } from '$lib/worktree/worktreeService.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
+	import { Button } from '@gitbutler/ui';
+
 	import { tick } from 'svelte';
 
 	type Props = {

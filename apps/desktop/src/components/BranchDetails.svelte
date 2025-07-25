@@ -1,7 +1,6 @@
 <script lang="ts">
 	import BranchBadge from '$components/BranchBadge.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
+	import { Icon, AvatarGroup } from '@gitbutler/ui';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import type { BranchDetails } from '$lib/stacks/stack';
 	import type { Snippet } from 'svelte';

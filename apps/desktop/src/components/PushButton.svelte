@@ -8,9 +8,7 @@
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
+	import { Button, Checkbox, Modal } from '@gitbutler/ui';
 
 	type Props = {
 		projectId: string;

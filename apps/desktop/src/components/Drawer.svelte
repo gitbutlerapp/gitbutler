@@ -9,8 +9,8 @@
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { inject } from '@gitbutler/shared/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+
+	import { Button, Icon } from '@gitbutler/ui';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { writable, type Writable } from 'svelte/store';
 	import type { ComponentProps, Snippet } from 'svelte';

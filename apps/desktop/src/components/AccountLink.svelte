@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/shared/context';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { Icon } from '@gitbutler/ui';
 
 	interface Props {
 		pop?: boolean;

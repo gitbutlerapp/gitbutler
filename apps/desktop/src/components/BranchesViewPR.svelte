@@ -12,9 +12,7 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
+	import { Button, Modal, Textbox } from '@gitbutler/ui';
 	import type { DetailedPullRequest } from '$lib/forge/interface/types';
 
 	type Props = {

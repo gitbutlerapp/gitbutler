@@ -12,9 +12,7 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import Badge from '@gitbutler/ui/Badge.svelte';
-
-	import Button from '@gitbutler/ui/Button.svelte';
+	import { Badge, Button } from '@gitbutler/ui';
 	import type { SelectionId } from '$lib/selection/key';
 
 	interface Props {

@@ -1,7 +1,5 @@
 <script lang="ts">
-	import Button from '@gitbutler/ui/Button.svelte';
-	import FileIcon from '@gitbutler/ui/file/FileIcon.svelte';
-	import HunkDiffBody from '@gitbutler/ui/hunkDiff/HunkDiffBody.svelte';
+	import { Button, FileIcon, HunkDiffBody } from '@gitbutler/ui';
 	import type { ContentSection } from '@gitbutler/ui/utils/diffParsing';
 
 	interface Props {

@@ -4,10 +4,8 @@
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
-	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
+
+	import { Button, Icon, Modal, SectionCard } from '@gitbutler/ui';
 	import * as toasts from '@gitbutler/ui/toasts';
 	import { fade } from 'svelte/transition';
 
