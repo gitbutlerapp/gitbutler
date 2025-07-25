@@ -49,6 +49,8 @@
 	const stackId = $derived(
 		selectionId && `stackId` in selectionId ? selectionId.stackId : undefined
 	);
+
+	const selectable = $derived(selectionId?.type === 'worktree');
 </script>
 
 <div
@@ -89,7 +91,7 @@
 								{draggable}
 								{change}
 								{diff}
-								selectable
+								{selectable}
 								selectionId={selectedFile}
 								topPadding={diffOnly}
 							/>
