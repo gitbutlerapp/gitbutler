@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::io::{self, Read};
 use std::str::FromStr;
 
-use anyhow::{Context, anyhow};
+use anyhow::{Context, Result, anyhow};
 use but_action::rename_branch::RenameBranchParams;
 use but_action::{ActionHandler, OpenAiProvider, Source, reword::CommitEvent};
 use but_db::ClaudeCodeSession;
@@ -97,7 +97,7 @@ pub(crate) async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
 
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
-    let mut defer = ClearLocksGuard {
+    let defer = ClearLocksGuard {
         ctx,
         session_id: input.session_id.clone(),
         file_path: None,
@@ -105,15 +105,11 @@ pub(crate) async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
 
     let vb_state = &VirtualBranchesHandle::new(defer.ctx.project().gb_dir());
 
-    let mut guard = defer.ctx.project().exclusive_worktree_access();
-    let perm = guard.write_permission();
-
     let stacks = crate::log::stacks(defer.ctx)?;
 
     // If the session stopped, but there's no session persisted in the database, we create a new one.
     // If the session is already persisted, we just retrieve it.
-    let (_, stack_id) =
-        get_or_create_session(&input.session_id, &mut defer, stacks, vb_state, perm)?;
+    let (_, stack_id) = get_or_create_session(defer.ctx, &input.session_id, stacks, vb_state)?;
 
     let (id, outcome) = but_action::handle_changes(
         defer.ctx,
@@ -323,7 +319,7 @@ pub(crate) fn handle_post_tool_call() -> anyhow::Result<ClaudeHookOutput> {
 
     let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
 
-    let mut defer = ClearLocksGuard {
+    let defer = ClearLocksGuard {
         ctx,
         session_id: input.session_id.clone(),
         file_path: Some(input.tool_response.file_path.clone()),
@@ -333,11 +329,7 @@ pub(crate) fn handle_post_tool_call() -> anyhow::Result<ClaudeHookOutput> {
 
     let vb_state = &VirtualBranchesHandle::new(defer.ctx.project().gb_dir());
 
-    let mut guard = defer.ctx.project().exclusive_worktree_access();
-    let perm = guard.write_permission();
-
-    let (_, stack_id) =
-        get_or_create_session(&input.session_id, &mut defer, stacks, vb_state, perm)?;
+    let (_, stack_id) = get_or_create_session(defer.ctx, &input.session_id, stacks, vb_state)?;
 
     let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(project.path)?.changes;
     let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
@@ -382,13 +374,15 @@ pub(crate) fn handle_post_tool_call() -> anyhow::Result<ClaudeHookOutput> {
 }
 
 fn get_or_create_session(
+    ctx: &mut CommandContext,
     session_id: &str,
-    defer: &mut ClearLocksGuard<'_>,
     stacks: Vec<but_workspace::ui::StackEntry>,
     vb_state: &VirtualBranchesHandle,
-    perm: &mut WorktreeWritePermission,
 ) -> Result<(ClaudeCodeSession, StackId), anyhow::Error> {
-    let sessions = list_sessions(defer.ctx)?;
+    let mut guard = ctx.project().exclusive_worktree_access();
+    let perm = guard.write_permission();
+
+    let sessions = list_sessions(ctx)?;
     let session_and_stack_id = if let Some(session) = sessions.iter().find(|s| s.id == session_id) {
         // If the stack referenced by the session is in the list of applied stacks do nothing
         // Otherwise, create a new stack and update the session
@@ -398,10 +392,8 @@ fn get_or_create_session(
         }) {
             (session.to_owned(), stack_id)
         } else {
-            let stack_id = create_stack(defer.ctx, vb_state, perm)?;
-            defer
-                .ctx
-                .db()?
+            let stack_id = create_stack(ctx, vb_state, perm)?;
+            ctx.db()?
                 .claude_code_sessions()
                 .update_stack_id(session_id, &stack_id.to_string())
                 .map_err(|e| anyhow::anyhow!("Failed to update session stack ID: {}", e))?;
@@ -410,15 +402,13 @@ fn get_or_create_session(
     } else {
         // If the session is not in the list of sessions, then create a new stack + session entry
         // Create a new stack
-        let stack_id = create_stack(defer.ctx, vb_state, perm)?;
+        let stack_id = create_stack(ctx, vb_state, perm)?;
         let new_session = ClaudeCodeSession {
             id: session_id.to_owned(),
             created_at: chrono::Local::now().naive_local(),
             stack_id: stack_id.to_string(),
         };
-        defer
-            .ctx
-            .db()?
+        ctx.db()?
             .claude_code_sessions()
             .insert(new_session.clone())
             .map_err(|e| anyhow::anyhow!("Failed to insert new session: {}", e))?;
@@ -478,5 +468,26 @@ pub(crate) struct ClearLocksGuard<'a> {
 impl Drop for ClearLocksGuard<'_> {
     fn drop(&mut self) {
         file_lock::clear(self.ctx, self.session_id.clone(), self.file_path.clone()).ok();
+    }
+}
+
+pub trait OutputAsJson {
+    fn out_json(&self);
+}
+
+impl OutputAsJson for Result<ClaudeHookOutput> {
+    fn out_json(&self) {
+        match self {
+            Ok(output) => println!("{}", serde_json::to_string(output).unwrap_or_default()),
+            Err(e) => eprintln!(
+                "{}",
+                serde_json::to_string(&ClaudeHookOutput {
+                    do_continue: false,
+                    stop_reason: e.to_string(),
+                    suppress_output: false,
+                })
+                .unwrap_or_default()
+            ),
+        }
     }
 }
