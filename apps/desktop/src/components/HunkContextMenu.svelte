@@ -22,9 +22,7 @@
 	import { TestId } from '$lib/testing/testIds';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
-	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
-	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
-	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
+	import { ContextMenu, ContextMenuItem, ContextMenuSection } from '@gitbutler/ui';
 	import type { TreeChange } from '$lib/hunks/change';
 	import type { LineId } from '@gitbutler/ui/utils/diffParsing';
 

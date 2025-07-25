@@ -5,8 +5,7 @@
 		OrganizationService,
 		ORGANIZATION_SERVICE
 	} from '@gitbutler/shared/organizations/organizationService';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
+	import { Button, Textbox } from '@gitbutler/ui';
 
 	interface Props {
 		organizationSlug: string;

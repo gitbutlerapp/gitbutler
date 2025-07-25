@@ -4,10 +4,7 @@
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
-	import Select from '@gitbutler/ui/select/Select.svelte';
-	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
+	import { Button, SectionCard, Select, SelectItem } from '@gitbutler/ui';
 
 	const { projectId }: { projectId: string } = $props();
 

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { TestId } from '$lib/testing/testIds';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { Button, Icon } from '@gitbutler/ui';
 
 	type Props = {
 		flat?: boolean;

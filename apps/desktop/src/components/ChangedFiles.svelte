@@ -7,8 +7,8 @@
 	import { INTELLIGENT_SCROLLING_SERVICE } from '$lib/intelligentScrolling/service';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import Badge from '@gitbutler/ui/Badge.svelte';
-	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
+	import { Badge, EmptyStatePlaceholder } from '@gitbutler/ui';
+
 	import { untrack, type ComponentProps } from 'svelte';
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
 	import type { TreeChange } from '$lib/hunks/change';

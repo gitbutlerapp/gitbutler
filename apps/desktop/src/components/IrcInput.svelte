@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
+	import { Button, Textbox } from '@gitbutler/ui';
 
 	type Props = {
 		type: 'group' | 'private' | 'server';

@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { TestId } from '$lib/testing/testIds';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import Segment from '@gitbutler/ui/segmentControl/Segment.svelte';
-	import SegmentControl from '@gitbutler/ui/segmentControl/SegmentControl.svelte';
+	import { Segment, SegmentControl } from '@gitbutler/ui';
 
 	type Mode = 'tree' | 'list';
 	type Props = {

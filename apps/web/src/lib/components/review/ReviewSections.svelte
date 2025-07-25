@@ -15,12 +15,15 @@
 	import { inject } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { getPatchIdableSections } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Select, { type SelectItem as SelectItemT } from '@gitbutler/ui/select/Select.svelte';
-	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
+	import {
+		Button,
+		Select,
+		SelectItem,
+		type LineClickParams,
+		type SelectItemType
+	} from '@gitbutler/ui';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import type { PatchCommit } from '@gitbutler/shared/patches/types';
-	import type { LineClickParams } from '@gitbutler/ui/HunkDiff.svelte';
 	import type { ContentSection, LineSelector } from '@gitbutler/ui/utils/diffParsing';
 
 	interface Props {
@@ -56,7 +59,7 @@
 
 	let isInterdiffBarVisible = $state(false);
 
-	const allOptions: readonly SelectItemT<string>[] = $derived.by(() => {
+	const allOptions: readonly SelectItemType<string>[] = $derived.by(() => {
 		const out = [{ value: '-1', label: 'Base' }];
 
 		if (!isDefined(patchCommit.version)) return out;

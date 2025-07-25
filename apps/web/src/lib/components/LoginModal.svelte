@@ -1,7 +1,7 @@
 <script lang="ts">
 	import loginSvg from '$lib/assets/login-modal.svg?raw';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
+	import { Button, Modal } from '@gitbutler/ui';
+
 	import { type Snippet } from 'svelte';
 	import { env } from '$env/dynamic/public';
 

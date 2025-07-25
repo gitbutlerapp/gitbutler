@@ -1,9 +1,7 @@
 <script lang="ts">
 	import DialogBubble from '$components/DialogBubble.svelte';
 	import { MessageRole, type UserPrompt } from '$lib/ai/types';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
+	import { Button, Icon, Textbox } from '@gitbutler/ui';
 
 	interface Props {
 		prompt: UserPrompt;

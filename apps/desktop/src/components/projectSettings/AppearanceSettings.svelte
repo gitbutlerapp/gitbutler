@@ -3,13 +3,15 @@
 	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
 	import { SETTINGS, type ScrollbarVisilitySettings } from '$lib/settings/userSettings';
 	import { inject } from '@gitbutler/shared/context';
-	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
-	import RadioButton from '@gitbutler/ui/RadioButton.svelte';
-	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
-	import Toggle from '@gitbutler/ui/Toggle.svelte';
-	import Select from '@gitbutler/ui/select/Select.svelte';
-	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
+	import {
+		HunkDiff,
+		RadioButton,
+		SectionCard,
+		Select,
+		SelectItem,
+		Textbox,
+		Toggle
+	} from '@gitbutler/ui';
 
 	const userSettings = inject(SETTINGS);
 	const diff = `@@ -56,10 +56,9 @@

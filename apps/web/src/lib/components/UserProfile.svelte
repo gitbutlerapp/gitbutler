@@ -3,9 +3,8 @@
 	import ReviewsSection from '$lib/components/ReviewsSection.svelte';
 	import { UserService, USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
-	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
+
+	import { AsyncButton, Button, Markdown } from '@gitbutler/ui';
 	import toasts from '@gitbutler/ui/toasts';
 	import { get } from 'svelte/store';
 	import type { ExtendedUser } from '$lib/owner/types';

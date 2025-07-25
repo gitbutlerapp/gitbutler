@@ -87,6 +87,10 @@
 		"svelte": "^4.0.0 || ^5.0.0-0"
 	},
 	"exports": {
+		".": {
+			"import": "./dist/index.js",
+			"types": "./dist/index.d.ts"
+		},
 		"./*.svelte": {
 			"svelte": "./dist/*.svelte",
 			"types": "./dist/*.svelte.d.ts"

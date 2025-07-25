@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { type DiffLineSelected, type DiffSelection } from '$lib/diff/lineSelection.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import FileIcon from '@gitbutler/ui/file/FileIcon.svelte';
+
+	import { Button, FileIcon } from '@gitbutler/ui';
 	import { encodeDiffLineRange } from '@gitbutler/ui/utils/diffParsing';
 
 	interface Props {

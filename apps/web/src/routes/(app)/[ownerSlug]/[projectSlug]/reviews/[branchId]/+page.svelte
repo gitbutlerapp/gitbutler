@@ -24,13 +24,16 @@
 		type ProjectReviewParameters
 	} from '@gitbutler/shared/routing/webRoutes.svelte';
 	import { UPLOADS_SERVICE } from '@gitbutler/shared/uploads/uploadsService';
-	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
-	import Textarea from '@gitbutler/ui/Textarea.svelte';
-	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
-	import Link from '@gitbutler/ui/link/Link.svelte';
-	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
+
+	import {
+		AsyncButton,
+		AvatarGroup,
+		Button,
+		Link,
+		Markdown,
+		RichTextEditor,
+		Textarea
+	} from '@gitbutler/ui';
 	import FileUploadPlugin, {
 		type DropFileResult
 	} from '@gitbutler/ui/richText/plugins/FileUpload.svelte';

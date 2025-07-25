@@ -4,9 +4,7 @@
 	import { PROJECT_SERVICE } from '$lib/organizations/projectService';
 	import { getProjectByRepositoryId } from '$lib/organizations/projectsPreview.svelte';
 	import { ShareLevel } from '$lib/permissions';
-	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
-	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
-	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
+	import { ContextMenuItem, ContextMenuSection, DropDownButton } from '@gitbutler/ui';
 
 	type Props = {
 		repositoryId: string;

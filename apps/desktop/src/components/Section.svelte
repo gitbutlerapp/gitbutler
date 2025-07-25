@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Spacer from '@gitbutler/ui/Spacer.svelte';
+	import { Spacer } from '@gitbutler/ui';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import type { Snippet } from 'svelte';
 

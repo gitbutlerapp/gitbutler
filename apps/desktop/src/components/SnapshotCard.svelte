@@ -4,9 +4,7 @@
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { toHumanReadableTime } from '$lib/utils/time';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
+	import { Button, Icon, FileListItem } from '@gitbutler/ui';
 	import type { Snapshot, SnapshotDetails } from '$lib/history/types';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 

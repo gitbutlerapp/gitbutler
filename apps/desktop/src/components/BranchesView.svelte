@@ -26,9 +26,7 @@
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
+	import { AsyncButton, Button, Modal } from '@gitbutler/ui';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import type { SidebarEntrySubject } from '$lib/branches/branchListing';
 	import type { SelectionId } from '$lib/selection/key';

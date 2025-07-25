@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import type { MentionSuggestion } from '@gitbutler/ui/richText/plugins/Mention.svelte';
+	import type { MentionSuggestion } from '@gitbutler/ui';
 
 	export interface Props {
 		isLoading: boolean;

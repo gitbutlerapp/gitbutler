@@ -17,14 +17,17 @@
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { getEditorUri, openExternalUrl, showFileInFolder } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
-	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
-	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
-	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
-	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
+
+	import {
+		AsyncButton,
+		Button,
+		ContextMenu,
+		ContextMenuItem,
+		ContextMenuSection,
+		FileListItem,
+		Modal,
+		Textbox
+	} from '@gitbutler/ui';
 	import * as toasts from '@gitbutler/ui/toasts';
 	import { join } from '@tauri-apps/api/path';
 	import type { DiffSpec } from '$lib/hunks/hunk';

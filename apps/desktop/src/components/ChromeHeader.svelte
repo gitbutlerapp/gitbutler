@@ -12,12 +12,14 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import NotificationButton from '@gitbutler/ui/NotificationButton.svelte';
-	import OptionsGroup from '@gitbutler/ui/select/OptionsGroup.svelte';
-	import Select from '@gitbutler/ui/select/Select.svelte';
-	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
+	import {
+		Button,
+		Icon,
+		NotificationButton,
+		OptionsGroup,
+		Select,
+		SelectItem
+	} from '@gitbutler/ui';
 
 	type Props = {
 		projectId: string;

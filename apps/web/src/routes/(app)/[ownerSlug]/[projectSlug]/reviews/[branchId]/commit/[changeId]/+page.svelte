@@ -25,8 +25,7 @@
 		WEB_ROUTES_SERVICE,
 		type ProjectReviewCommitParameters
 	} from '@gitbutler/shared/routing/webRoutes.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
+	import { Button, Markdown } from '@gitbutler/ui';
 
 	const DESCRIPTION_PLACE_HOLDER = 'No commit message description provided';
 

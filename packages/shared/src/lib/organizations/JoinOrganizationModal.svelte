@@ -1,9 +1,7 @@
 <script lang="ts">
 	import { inject } from '$lib/context';
 	import { ORGANIZATION_SERVICE } from '$lib/organizations/organizationService';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
+	import { Button, Modal, Textbox } from '@gitbutler/ui';
 
 	const organizationService = inject(ORGANIZATION_SERVICE);
 

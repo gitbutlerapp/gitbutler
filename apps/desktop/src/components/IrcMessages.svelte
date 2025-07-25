@@ -2,8 +2,7 @@
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { inject } from '@gitbutler/shared/context';
-	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
-	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
+	import { HunkDiff, FileListItem } from '@gitbutler/ui';
 	import type { TreeChange } from '$lib/hunks/change';
 	import type { DiffHunk } from '$lib/hunks/hunk';
 	import type { IrcLog } from '$lib/irc/types';

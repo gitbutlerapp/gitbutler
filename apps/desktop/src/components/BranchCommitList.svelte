@@ -31,8 +31,7 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
+	import { Button, Modal } from '@gitbutler/ui';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import type { Commit } from '$lib/branches/v3';
 	import type { CommitStatusType } from '$lib/commits/commit';

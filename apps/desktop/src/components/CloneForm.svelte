@@ -9,9 +9,8 @@
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import { inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Spacer from '@gitbutler/ui/Spacer.svelte';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
+	import { Button, Spacer, Textbox } from '@gitbutler/ui';
+
 	import * as Sentry from '@sentry/sveltekit';
 	import { documentDir } from '@tauri-apps/api/path';
 	import { join } from '@tauri-apps/api/path';

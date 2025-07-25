@@ -6,10 +6,8 @@
 	import { TestId } from '$lib/testing/testIds';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
-	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
-	import SeriesLabelsRow from '@gitbutler/ui/SeriesLabelsRow.svelte';
-	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
-	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
+
+	import { AvatarGroup, ReviewBadge, SeriesLabelsRow, TimeAgo } from '@gitbutler/ui';
 	import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
 	import type { PullRequest } from '$lib/forge/interface/types';
 

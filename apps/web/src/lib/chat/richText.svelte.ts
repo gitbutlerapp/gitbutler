@@ -1,4 +1,4 @@
-import type RichTextEditor from '@gitbutler/ui/RichTextEditor.svelte';
+import type { RichTextEditor } from '@gitbutler/ui';
 
 export default class RichText {
 	private _richTextEditor = $state<ReturnType<typeof RichTextEditor>>();

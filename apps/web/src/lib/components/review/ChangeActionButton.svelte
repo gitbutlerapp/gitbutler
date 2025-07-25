@@ -4,10 +4,12 @@
 	import { inject } from '@gitbutler/shared/context';
 	import { PATCH_COMMIT_SERVICE } from '@gitbutler/shared/patches/patchCommitService';
 	import { type PatchCommit } from '@gitbutler/shared/patches/types';
-	import CommitStatusBadge from '@gitbutler/ui/CommitStatusBadge.svelte';
-	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
-	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
-	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
+	import {
+		CommitStatusBadge,
+		ContextMenuItem,
+		ContextMenuSection,
+		DropDownButton
+	} from '@gitbutler/ui';
 
 	interface Props {
 		branchUuid: string;

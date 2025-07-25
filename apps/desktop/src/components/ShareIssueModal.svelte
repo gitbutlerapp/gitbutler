@@ -6,11 +6,8 @@
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/shared/context';
 	import { HTTP_CLIENT } from '@gitbutler/shared/network/httpClient';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
-	import Textarea from '@gitbutler/ui/Textarea.svelte';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
+
+	import { Button, Checkbox, Modal, Textarea, Textbox } from '@gitbutler/ui';
 	import * as toasts from '@gitbutler/ui/toasts';
 	import { getVersion } from '@tauri-apps/api/app';
 

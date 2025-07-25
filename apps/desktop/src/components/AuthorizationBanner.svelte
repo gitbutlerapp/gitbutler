@@ -1,7 +1,6 @@
 <script lang="ts">
 	import Login from '$components/Login.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
+	import { Icon, SectionCard } from '@gitbutler/ui';
 
 	interface Props {
 		title?: string;

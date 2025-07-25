@@ -5,8 +5,8 @@
 
 <script lang="ts">
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+
+	import { Button, Icon } from '@gitbutler/ui';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';
 

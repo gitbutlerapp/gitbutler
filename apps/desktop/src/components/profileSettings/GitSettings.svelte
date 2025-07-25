@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
 	import { inject } from '@gitbutler/shared/context';
-	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
-	import Toggle from '@gitbutler/ui/Toggle.svelte';
-	import Link from '@gitbutler/ui/link/Link.svelte';
+	import { Link, SectionCard, Toggle } from '@gitbutler/ui';
+
 	import { onMount } from 'svelte';
 
 	const gitConfig = inject(GIT_CONFIG_SERVICE);

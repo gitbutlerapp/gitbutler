@@ -5,7 +5,7 @@
 	import { isFound } from '@gitbutler/shared/network/loadable';
 	import { getRecentlyPushedProjects } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
+	import { Button } from '@gitbutler/ui';
 
 	const routes = inject(WEB_ROUTES_SERVICE);
 	const recentProjects = getRecentlyPushedProjects();

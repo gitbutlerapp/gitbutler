@@ -7,12 +7,14 @@
 	import { TestId } from '$lib/testing/testIds';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
-	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
-	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
+	import {
+		Button,
+		ContextMenu,
+		ContextMenuItem,
+		ContextMenuSection,
+		Icon,
+		AvatarGroup
+	} from '@gitbutler/ui';
 	import { getForgeLogo } from '@gitbutler/ui/utils/getForgeLogo';
 	import type { DetailedPullRequest } from '$lib/forge/interface/types';
 	import type { Snippet } from 'svelte';

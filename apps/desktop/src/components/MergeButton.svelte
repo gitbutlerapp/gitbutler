@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { MergeMethod } from '$lib/forge/interface/types';
 	import { persisted, type Persisted } from '@gitbutler/shared/persisted';
-	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
-	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
-	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
+
+	import { ContextMenuItem, ContextMenuSection, DropDownButton } from '@gitbutler/ui';
 	import type { Props as ButtonProps } from '@gitbutler/ui/Button.svelte';
 
 	interface Props {

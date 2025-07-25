@@ -8,9 +8,8 @@
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { rejoinParagraphs, truncate } from '$lib/utils/string';
 	import { inject } from '@gitbutler/shared/context';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
-	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
+
+	import { Avatar, Icon, Tooltip } from '@gitbutler/ui';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 

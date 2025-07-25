@@ -3,10 +3,7 @@
 	import { ircEnabled, ircServer, workspaceRulesEnabled } from '$lib/config/uiFeatureFlags';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/shared/context';
-	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
-	import Spacer from '@gitbutler/ui/Spacer.svelte';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
-	import Toggle from '@gitbutler/ui/Toggle.svelte';
+	import { SectionCard, Spacer, Textbox, Toggle } from '@gitbutler/ui';
 
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = settingsService.appSettings;

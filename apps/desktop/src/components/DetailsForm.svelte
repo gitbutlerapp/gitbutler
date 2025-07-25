@@ -3,11 +3,7 @@
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/shared/context';
-	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
-	import Spacer from '@gitbutler/ui/Spacer.svelte';
-	import Textarea from '@gitbutler/ui/Textarea.svelte';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
-	import Toggle from '@gitbutler/ui/Toggle.svelte';
+	import { SectionCard, Spacer, Textarea, Textbox, Toggle } from '@gitbutler/ui';
 
 	const { projectId }: { projectId: string } = $props();
 

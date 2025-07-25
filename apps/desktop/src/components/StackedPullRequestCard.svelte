@@ -6,7 +6,8 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
+	import { AsyncButton } from '@gitbutler/ui';
+
 	import type { MergeMethod } from '$lib/forge/interface/types';
 
 	interface Props {

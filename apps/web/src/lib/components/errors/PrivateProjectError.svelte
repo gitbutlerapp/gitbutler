@@ -2,8 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { inject } from '@gitbutler/shared/context';
 	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { Button, Icon } from '@gitbutler/ui';
 
 	const routes = inject(WEB_ROUTES_SERVICE);
 

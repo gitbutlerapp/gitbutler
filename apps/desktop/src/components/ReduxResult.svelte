@@ -6,7 +6,8 @@
 <script lang="ts" generics="A, B extends string | undefined">
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import { isParsedError } from '$lib/error/parser';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+
+	import { Icon } from '@gitbutler/ui';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { QueryStatus } from '@reduxjs/toolkit/query';
 	import type { Snippet } from 'svelte';

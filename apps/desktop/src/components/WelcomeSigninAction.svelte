@@ -3,8 +3,8 @@
 	import signinSvg from '$lib/assets/signin.svg?raw';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import LinkButton from '@gitbutler/ui/LinkButton.svelte';
+	import { Button, LinkButton } from '@gitbutler/ui';
+
 	import { writable } from 'svelte/store';
 
 	const {

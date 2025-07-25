@@ -1,10 +1,8 @@
 <script lang="ts">
 	import { inject } from '@gitbutler/shared/context';
 	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
-	import Textarea from '@gitbutler/ui/Textarea.svelte';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
+
+	import { Button, Modal, Textarea, Textbox } from '@gitbutler/ui';
 	import toasts from '@gitbutler/ui/toasts';
 	import { slugify } from '@gitbutler/ui/utils/string';
 

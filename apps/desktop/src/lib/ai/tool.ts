@@ -1,4 +1,4 @@
-import type { IconName } from '@gitbutler/ui/Icon.svelte';
+import type { IconName } from '@gitbutler/ui';
 
 type ToolName =
 	| 'commit'

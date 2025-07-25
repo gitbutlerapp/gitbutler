@@ -3,8 +3,7 @@
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
 	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { Button, Icon } from '@gitbutler/ui';
 
 	const routes = inject(WEB_ROUTES_SERVICE);
 	// get user's project page params

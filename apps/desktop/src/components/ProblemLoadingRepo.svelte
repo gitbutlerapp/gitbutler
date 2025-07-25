@@ -10,8 +10,8 @@
 	import { showError } from '$lib/notifications/toasts';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/shared/context';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import Spacer from '@gitbutler/ui/Spacer.svelte';
+
+	import { Icon, Spacer } from '@gitbutler/ui';
 	import * as toasts from '@gitbutler/ui/toasts';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { onMount } from 'svelte';

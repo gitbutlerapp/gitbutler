@@ -8,8 +8,7 @@
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Spacer from '@gitbutler/ui/Spacer.svelte';
+	import { Button, Spacer } from '@gitbutler/ui';
 
 	interface Props {
 		projectId: string;

@@ -6,7 +6,8 @@
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { chunk } from '$lib/utils/array';
 	import { inject } from '@gitbutler/shared/context';
-	import ScrollableContainer from '@gitbutler/ui/scroll/ScrollableContainer.svelte';
+	import { ScrollableContainer } from '@gitbutler/ui';
+
 	import { tick, type Snippet } from 'svelte';
 
 	type Props = {

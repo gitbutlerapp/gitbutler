@@ -2,7 +2,8 @@
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import Badge from '@gitbutler/ui/Badge.svelte';
+
+	import { Badge } from '@gitbutler/ui';
 	import type { MessageStyle } from '$components/InfoMessage.svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { ComponentColorType } from '@gitbutler/ui/utils/colorTypes';

@@ -10,14 +10,17 @@
 	import { SECRET_SERVICE } from '$lib/secrets/secretsService';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import RadioButton from '@gitbutler/ui/RadioButton.svelte';
-	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
-	import Spacer from '@gitbutler/ui/Spacer.svelte';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
-	import Link from '@gitbutler/ui/link/Link.svelte';
-	import Select from '@gitbutler/ui/select/Select.svelte';
-	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
+	import {
+		Icon,
+		Link,
+		RadioButton,
+		SectionCard,
+		Select,
+		SelectItem,
+		Spacer,
+		Textbox
+	} from '@gitbutler/ui';
+
 	import { onMount, tick } from 'svelte';
 	import { run } from 'svelte/legacy';
 

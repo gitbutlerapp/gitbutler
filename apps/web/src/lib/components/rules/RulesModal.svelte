@@ -3,10 +3,8 @@
 	import { parseDiffPatchToDiffString } from '$lib/chat/diffPatch';
 	import { inject } from '@gitbutler/shared/context';
 	import { RULES_SERVICE } from '@gitbutler/shared/rules/rulesService';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
-	import Textarea from '@gitbutler/ui/Textarea.svelte';
-	import ScrollableContainer from '@gitbutler/ui/scroll/ScrollableContainer.svelte';
+
+	import { Button, Modal, ScrollableContainer, Textarea } from '@gitbutler/ui';
 	import { tick } from 'svelte';
 	import type { ChatMessage } from '@gitbutler/shared/chat/types';
 	import type { CreateRuleParams } from '@gitbutler/shared/rules/types';

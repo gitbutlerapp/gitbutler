@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { getColorFromCommitState } from '$components/lib';
 	import { type CommitStatusType } from '$lib/commits/commit';
-	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
+
+	import { Tooltip } from '@gitbutler/ui';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 
 	interface Props {

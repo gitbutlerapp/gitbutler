@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Textarea from '@gitbutler/ui/Textarea.svelte';
+	import { Textarea } from '@gitbutler/ui';
 
 	interface Props {
 		ref: HTMLTextAreaElement | undefined;

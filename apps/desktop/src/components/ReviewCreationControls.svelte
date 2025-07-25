@@ -2,10 +2,7 @@
 	import { TestId } from '$lib/testing/testIds';
 	import { persisted } from '@gitbutler/shared/persisted';
 
-	import Button from '@gitbutler/ui/Button.svelte';
-	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
-	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
-	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
+	import { Button, ContextMenuItem, ContextMenuSection, DropDownButton } from '@gitbutler/ui';
 
 	interface Props {
 		isSubmitting: boolean;

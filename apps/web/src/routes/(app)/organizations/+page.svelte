@@ -8,10 +8,7 @@
 	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
 	import { organizationTable } from '@gitbutler/shared/organizations/organizationsSlice';
 	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
+	import { Button, EmptyStatePlaceholder, Icon, SectionCard } from '@gitbutler/ui';
 
 	const organizationService = inject(ORGANIZATION_SERVICE);
 	const appState = inject(APP_STATE);

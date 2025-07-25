@@ -11,10 +11,8 @@
 		WEB_ROUTES_SERVICE,
 		type ProjectParameters
 	} from '@gitbutler/shared/routing/webRoutes.svelte';
-	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
-	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
+
+	import { AsyncButton, Button, Markdown, Modal } from '@gitbutler/ui';
 	import toasts from '@gitbutler/ui/toasts';
 
 	interface Props {

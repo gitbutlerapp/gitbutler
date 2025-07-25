@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { invoke } from '$lib/backend/ipc';
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { Icon } from '@gitbutler/ui';
 
 	interface Props {
 		class?: string;

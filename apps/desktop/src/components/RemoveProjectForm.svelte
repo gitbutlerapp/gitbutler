@@ -5,7 +5,8 @@
 	import { showError } from '$lib/notifications/toasts';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/shared/context';
-	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
+
+	import { SectionCard } from '@gitbutler/ui';
 	import * as toasts from '@gitbutler/ui/toasts';
 
 	const { projectId }: { projectId: string } = $props();

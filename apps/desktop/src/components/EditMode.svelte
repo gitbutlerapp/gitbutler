@@ -18,12 +18,8 @@
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
-	import Badge from '@gitbutler/ui/Badge.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import InfoButton from '@gitbutler/ui/InfoButton.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
-	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
-	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
+
+	import { Avatar, Badge, Button, FileListItem, InfoButton, Modal } from '@gitbutler/ui';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { derived, fromStore, readable, toStore, type Readable } from 'svelte/store';

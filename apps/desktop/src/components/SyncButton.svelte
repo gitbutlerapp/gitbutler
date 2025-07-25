@@ -3,8 +3,7 @@
 	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import Button, { type Props as ButtonProps } from '@gitbutler/ui/Button.svelte';
-	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
+	import { Button, TimeAgo, type ButtonProps } from '@gitbutler/ui';
 
 	interface Props {
 		projectId: string;

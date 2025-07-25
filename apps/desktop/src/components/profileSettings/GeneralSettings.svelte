@@ -12,15 +12,17 @@
 	import { USER_SERVICE } from '$lib/user/userService';
 
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
 
-	import Modal from '@gitbutler/ui/Modal.svelte';
-	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
-	import Spacer from '@gitbutler/ui/Spacer.svelte';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
-	import Toggle from '@gitbutler/ui/Toggle.svelte';
-	import Select from '@gitbutler/ui/select/Select.svelte';
-	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
+	import {
+		Button,
+		Modal,
+		SectionCard,
+		Select,
+		SelectItem,
+		Spacer,
+		Textbox,
+		Toggle
+	} from '@gitbutler/ui';
 	import * as toasts from '@gitbutler/ui/toasts';
 	import type { User } from '$lib/user/user';
 

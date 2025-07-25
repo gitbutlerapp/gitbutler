@@ -6,9 +6,7 @@
 	import { platformName } from '$lib/platform/platform';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/shared/context';
-	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
-	import Spacer from '@gitbutler/ui/Spacer.svelte';
-	import Toggle from '@gitbutler/ui/Toggle.svelte';
+	import { SectionCard, Spacer, Toggle } from '@gitbutler/ui';
 	import type { Project } from '$lib/project/project';
 
 	const { projectId }: { projectId: string } = $props();

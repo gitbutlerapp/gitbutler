@@ -19,8 +19,8 @@
 	import { TestId } from '$lib/testing/testIds';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { inject, injectOptional } from '@gitbutler/shared/context';
-	import AsyncButton from '@gitbutler/ui/AsyncButton.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
+	import { AsyncButton, Button } from '@gitbutler/ui';
+
 	import type { TargetType } from '$lib/intelligentScrolling/service';
 	import type { ComponentProps } from 'svelte';
 

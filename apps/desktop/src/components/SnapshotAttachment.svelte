@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { Icon } from '@gitbutler/ui';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { onMount } from 'svelte';
 	import type { Snippet } from 'svelte';

@@ -3,9 +3,7 @@
 	import Section from '$components/Section.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/shared/context';
-	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
-	import Toggle from '@gitbutler/ui/Toggle.svelte';
+	import { SectionCard, Textbox, Toggle } from '@gitbutler/ui';
 
 	const { projectId }: { projectId: string } = $props();
 	const projectsService = inject(PROJECTS_SERVICE);

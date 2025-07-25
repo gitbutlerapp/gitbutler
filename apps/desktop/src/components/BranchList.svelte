@@ -24,8 +24,8 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
+
+	import { Button, Modal } from '@gitbutler/ui';
 	import { getForgeLogo } from '@gitbutler/ui/utils/getForgeLogo';
 	import { QueryStatus } from '@reduxjs/toolkit/query';
 	import { tick } from 'svelte';

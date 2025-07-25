@@ -6,10 +6,7 @@
 	import { projectAiExperimentalFeaturesEnabled, projectAiGenEnabled } from '$lib/config/config';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
-	import Spacer from '@gitbutler/ui/Spacer.svelte';
-	import Toggle from '@gitbutler/ui/Toggle.svelte';
+	import { Button, SectionCard, Spacer, Toggle } from '@gitbutler/ui';
 
 	const { projectId }: { projectId: string } = $props();
 

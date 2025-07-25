@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { openExternalUrl } from '$lib/utils/url';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+
+	import { Icon } from '@gitbutler/ui';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';
 

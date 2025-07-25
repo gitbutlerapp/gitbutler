@@ -15,8 +15,8 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import Badge from '@gitbutler/ui/Badge.svelte';
 
+	import { Badge } from '@gitbutler/ui';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { type Snippet } from 'svelte';
 	import type { DropzoneHandler } from '$lib/dragging/handler';

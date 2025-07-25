@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Button from '@gitbutler/ui/Button.svelte';
+	import { Button } from '@gitbutler/ui';
 
 	interface Props {
 		goToPatch: (patchId: string) => void;

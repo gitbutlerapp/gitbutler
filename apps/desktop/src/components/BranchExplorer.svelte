@@ -12,11 +12,8 @@
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { debounce } from '$lib/utils/debounce';
 	import { inject } from '@gitbutler/shared/context';
-	import Badge from '@gitbutler/ui/Badge.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
-	import Segment from '@gitbutler/ui/segmentControl/Segment.svelte';
-	import SegmentControl from '@gitbutler/ui/segmentControl/SegmentControl.svelte';
+	import { Badge, Button, EmptyStatePlaceholder, Segment, SegmentControl } from '@gitbutler/ui';
+
 	import Fuse from 'fuse.js';
 	import type { Snippet } from 'svelte';
 

@@ -7,7 +7,7 @@
 </script>
 
 <script lang="ts">
-	import Button from '@gitbutler/ui/Button.svelte';
+	import { Button } from '@gitbutler/ui';
 	import type { UserSimple } from '@gitbutler/shared/users/types';
 
 	const UNKNOWN_AUTHOR = 'Unknown author';

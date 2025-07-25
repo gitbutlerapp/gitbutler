@@ -2,9 +2,7 @@
 	import { APP_SETTINGS } from '$lib/config/appSettings';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
-	import Toggle from '@gitbutler/ui/Toggle.svelte';
-	import Link from '@gitbutler/ui/link/Link.svelte';
+	import { SectionCard, Toggle, Link } from '@gitbutler/ui';
 
 	const appSettings = inject(APP_SETTINGS);
 	const errorReportingEnabled = appSettings.appErrorReportingEnabled;

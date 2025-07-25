@@ -2,10 +2,8 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import LinkButton from '@gitbutler/ui/LinkButton.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
+
+	import { Button, LinkButton, Modal, Textbox } from '@gitbutler/ui';
 	import { error } from '@gitbutler/ui/toasts';
 	import { slugify } from '@gitbutler/ui/utils/string';
 

@@ -5,10 +5,7 @@
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
-	import Link from '@gitbutler/ui/link/Link.svelte';
-
-	import Markdown from '@gitbutler/ui/markdown/Markdown.svelte';
+	import { Avatar, Link, Markdown } from '@gitbutler/ui';
 
 	type Props = {
 		projectId: string;

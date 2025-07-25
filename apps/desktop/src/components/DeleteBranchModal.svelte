@@ -10,8 +10,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
+	import { Button, Modal } from '@gitbutler/ui';
 
 	const { projectId, stackId, branchName }: DeleteBranchModalProps = $props();
 	const stackService = inject(STACK_SERVICE);

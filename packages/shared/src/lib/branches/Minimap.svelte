@@ -7,7 +7,8 @@
 	import { getPatch } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import CommitStatusBadge from '@gitbutler/ui/CommitStatusBadge.svelte';
+
+	import { CommitStatusBadge } from '@gitbutler/ui';
 	import { getExternalLinkService } from '@gitbutler/ui/link/externalLinkService';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import type { PatchCommit } from '@gitbutler/shared/patches/types';

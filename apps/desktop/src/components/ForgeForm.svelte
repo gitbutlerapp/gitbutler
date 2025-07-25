@@ -3,12 +3,8 @@
 	import { GITLAB_STATE } from '$lib/forge/gitlab/gitlabState.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/shared/context';
-	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
-	import Spacer from '@gitbutler/ui/Spacer.svelte';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
-	import Link from '@gitbutler/ui/link/Link.svelte';
-	import Select from '@gitbutler/ui/select/Select.svelte';
-	import SelectItem from '@gitbutler/ui/select/SelectItem.svelte';
+	import { Link, SectionCard, Select, SelectItem, Spacer, Textbox } from '@gitbutler/ui';
+
 	import type { ForgeName } from '$lib/forge/interface/forge';
 	import type { Project } from '$lib/project/project';
 

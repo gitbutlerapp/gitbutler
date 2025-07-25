@@ -9,9 +9,7 @@
 	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
 	import { NOTIFICATION_SETTINGS_SERVICE } from '@gitbutler/shared/settings/notificationSettingsService';
 	import { getNotificationSettingsInterest } from '@gitbutler/shared/settings/notificationSetttingsPreview.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
-	import Toggle from '@gitbutler/ui/Toggle.svelte';
+	import { Button, SectionCard, Toggle } from '@gitbutler/ui';
 	import { env } from '$env/dynamic/public';
 
 	const authService = inject(AUTH_SERVICE);

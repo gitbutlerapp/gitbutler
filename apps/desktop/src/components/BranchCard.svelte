@@ -15,7 +15,7 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import ReviewBadge from '@gitbutler/ui/ReviewBadge.svelte';
+	import { ReviewBadge } from '@gitbutler/ui';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import type { DropzoneHandler } from '$lib/dragging/handler';
 	import type { PushStatus } from '$lib/stacks/stack';

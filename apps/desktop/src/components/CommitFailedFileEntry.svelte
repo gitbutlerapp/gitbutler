@@ -5,11 +5,7 @@
 	import { type RejectionReason } from '$lib/stacks/stackService.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import HunkDiff from '@gitbutler/ui/HunkDiff.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
-
-	import FileName from '@gitbutler/ui/file/FileName.svelte';
+	import { FileName, HunkDiff, Icon, Tooltip } from '@gitbutler/ui';
 
 	type Props = {
 		path: string;
