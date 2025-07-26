@@ -111,6 +111,20 @@ impl Limit {
         }
     }
 
+    /// If `other` has a higher limit as ourselves, apply the higher limit to us.
+    /// Nothing else is affected.
+    pub fn adjust_limit_if_bigger(&mut self, other: Limit) {
+        match (&mut self.inner, other.inner) {
+            (inner @ Some(_), None) => *inner = None,
+            (Some(x), Some(y)) => {
+                if *x < y {
+                    *x = y;
+                }
+            }
+            (None, None) | (None, Some(_)) => {}
+        }
+    }
+
     pub fn goal_reached(&self) -> bool {
         self.goal_unset() || self.goal.contains(CommitFlags::Integrated)
     }

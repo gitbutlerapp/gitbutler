@@ -116,6 +116,8 @@ pub struct Segment {
     /// avoiding a search through the entire graph.
     /// If `remote_tracking_ref_name` is `None`, and `ref_name` is a remote tracking branch, then this is set to be
     /// the segment id of the local tracking branch, effectively doubly-linking them for ease of traversal.
+    /// If `ref_name` is `None` and this segment is the ancestor of a named segment that is known to a workspace,
+    /// this id is pointing to that named segment to allow the reconstruction of the originally desired workspace.
     pub sibling_segment_id: Option<SegmentIndex>,
     /// The portion of commits that can be reached from the tip of the *branch* downwards, so that they are unique
     /// for that stack segment and not included in any other stack or stack segment.

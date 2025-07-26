@@ -12,7 +12,7 @@ mod stack;
 
 pub use stack::{Stack, StackCommit, StackCommitDebugFlags, StackCommitFlags, StackSegment};
 
-mod workspace;
+pub(crate) mod workspace;
 pub use workspace::{Target, Workspace, WorkspaceKind};
 
 /// utilities for workspace-related commits.

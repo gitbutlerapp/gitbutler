@@ -222,7 +222,7 @@ impl Graph {
 
         let configured_remote_tracking_branches =
             remotes::configured_remote_tracking_branches(repo)?;
-        let mut refs_by_id = collect_ref_mapping_by_prefix(
+        let refs_by_id = collect_ref_mapping_by_prefix(
             repo,
             std::iter::once("refs/heads/").chain(if collect_tags {
                 Some("refs/tags/")
@@ -258,34 +258,33 @@ impl Graph {
         let tip_is_not_workspace_commit = !workspaces
             .iter()
             .any(|(_, wsrn, _)| Some(wsrn) == ref_name.as_ref());
+        let mut ctx = post::Context {
+            repo,
+            symbolic_remote_names: &target_symbolic_remote_names,
+            configured_remote_tracking_branches: &configured_remote_tracking_branches,
+            inserted_proxy_segments: Vec::new(),
+            refs_by_id,
+            hard_limit: false,
+        };
         if tip_is_not_workspace_commit {
             let current = graph.insert_root(branch_segment_from_name_and_meta(
                 ref_name.clone().map(|rn| (rn, None)),
                 meta,
-                Some((&refs_by_id, tip.detach())),
+                Some((&ctx.refs_by_id, tip.detach())),
             )?);
-            if next.push_back_exhausted((
+            _ = next.push_back_exhausted((
                 tip.detach(),
                 tip_flags,
                 Instruction::CollectCommit { into: current },
                 max_limit,
-            )) {
-                return graph.with_hard_limit().post_processed(
-                    meta,
-                    tip.detach(),
-                    repo,
-                    &target_symbolic_remote_names,
-                    &configured_remote_tracking_branches,
-                    Vec::new(),
-                    &refs_by_id,
-                );
-            }
+            ));
         }
 
-        let mut ws_tips = Vec::new();
-        for (ws_tip, ws_ref, workspace_info) in workspaces {
+        let (mut ws_tips, mut ws_metas) = (Vec::new(), Vec::new());
+        for (ws_tip, ws_ref, ws_meta) in workspaces {
             ws_tips.push(ws_tip);
-            let target = workspace_info.target_ref.as_ref().and_then(|trn| {
+            ws_metas.push(ws_meta.clone());
+            let target = ws_meta.target_ref.as_ref().and_then(|trn| {
                 let tid = try_refname_to_id(repo, trn.as_ref())
                     .map_err(|err| {
                         tracing::warn!(
@@ -321,11 +320,11 @@ impl Graph {
                 branch_segment_from_name_and_meta(Some((ws_ref, None)), meta, None)?;
             // The limits for the target ref and the worktree ref are synced so they can always find each other,
             // while being able to stop when the entrypoint is included.
-            ws_segment.metadata = Some(SegmentMetadata::Workspace(workspace_info));
+            ws_segment.metadata = Some(SegmentMetadata::Workspace(ws_meta));
             let ws_segment = graph.insert_root(ws_segment);
             // As workspaces typically have integration branches which can help us to stop the traversal,
             // pick these up first.
-            if next.push_front_exhausted((
+            _ = next.push_front_exhausted((
                 ws_tip,
                 CommitFlags::InWorkspace |
                     // We only allow workspaces that are not remote, and that are not target refs.
@@ -334,17 +333,7 @@ impl Graph {
                     CommitFlags::NotInRemote| ws_extra_flags,
                 Instruction::CollectCommit { into: ws_segment },
                 ws_limit,
-            )) {
-                return graph.with_hard_limit().post_processed(
-                    meta,
-                    tip.detach(),
-                    repo,
-                    &target_symbolic_remote_names,
-                    &configured_remote_tracking_branches,
-                    Vec::new(),
-                    &refs_by_id,
-                );
-            }
+            ));
 
             if let Some((target_ref, target_ref_id, local_tip_info)) = target {
                 let target_segment = graph.insert_root(branch_segment_from_name_and_meta(
@@ -362,30 +351,20 @@ impl Graph {
                         None,
                     )?);
                     let goal = goals.flag_for(target_local_tip).unwrap_or_default();
-                    if next.push_front_exhausted((
+                    _ = next.push_front_exhausted((
                         target_local_tip,
                         CommitFlags::NotInRemote | goal,
                         Instruction::CollectCommit { into: local_sidx },
                         max_limit
                             .with_indirect_goal(tip.detach(), &mut goals)
                             .without_allowance(),
-                    )) {
-                        return graph.with_hard_limit().post_processed(
-                            meta,
-                            tip.detach(),
-                            repo,
-                            &target_symbolic_remote_names,
-                            &configured_remote_tracking_branches,
-                            Vec::new(),
-                            &refs_by_id,
-                        );
-                    }
+                    ));
                     next.add_goal_to(tip.detach(), goal);
                     (Some(local_sidx), goal)
                 } else {
                     (None, CommitFlags::empty())
                 };
-                if next.push_front_exhausted((
+                _ = next.push_front_exhausted((
                     target_ref_id,
                     CommitFlags::Integrated,
                     Instruction::CollectCommit {
@@ -397,17 +376,7 @@ impl Graph {
                         .with_indirect_goal(tip.detach(), &mut goals)
                         .additional_goal(local_goal)
                         .without_allowance(),
-                )) {
-                    return graph.with_hard_limit().post_processed(
-                        meta,
-                        tip.detach(),
-                        repo,
-                        &target_symbolic_remote_names,
-                        &configured_remote_tracking_branches,
-                        Vec::new(),
-                        &refs_by_id,
-                    );
-                }
+                ));
                 graph[target_segment].sibling_segment_id = local_sidx;
             }
         }
@@ -425,9 +394,9 @@ impl Graph {
                 let extra_target_sidx = graph.insert_root(branch_segment_from_name_and_meta(
                     None,
                     meta,
-                    Some((&refs_by_id, extra_target)),
+                    Some((&ctx.refs_by_id, extra_target)),
                 )?);
-                if next.push_front_exhausted((
+                _ = next.push_front_exhausted((
                     extra_target,
                     CommitFlags::Integrated,
                     Instruction::CollectCommit {
@@ -436,23 +405,47 @@ impl Graph {
                     max_limit
                         .with_indirect_goal(tip.detach(), &mut goals)
                         .without_allowance(),
-                )) {
-                    return graph.with_hard_limit().post_processed(
-                        meta,
-                        tip.detach(),
-                        repo,
-                        &target_symbolic_remote_names,
-                        &configured_remote_tracking_branches,
-                        Vec::new(),
-                        &refs_by_id,
-                    );
-                }
+                ));
                 extra_target_sidx
             };
             graph.extra_target = Some(sidx);
         }
 
-        let inserted_proxy_segments = prioritize_initial_tips_and_assure_ws_commit_ownership(
+        // At the very end, assure we see workspace references that possibly have advanced the workspace itself,
+        // and thus wouldn't be reachable from the workspace commit.
+        for ws_metadata in ws_metas {
+            // Push all known stack and segment tips if they are not yet on the queue, so we have a chance to
+            // find them later even if outside the workspace.
+            for segment in ws_metadata
+                .stacks
+                .into_iter()
+                .flat_map(|s| s.branches.into_iter())
+            {
+                let Some(segment_tip) = repo
+                    .try_find_reference(segment.ref_name.as_ref())?
+                    .map(|mut r| r.peel_to_id_in_place())
+                    .transpose()?
+                else {
+                    continue;
+                };
+                // Avoid duplication before we create a new branch segment, these should not inetefere,
+                // just integrate.
+                if next.iter().any(|t| t.0 == segment_tip) {
+                    continue;
+                };
+                let segment =
+                    branch_segment_from_name_and_meta(Some((segment.ref_name, None)), meta, None)?;
+                let segment = graph.insert_root(segment);
+                _ = next.push_back_exhausted((
+                    segment_tip.detach(),
+                    CommitFlags::NotInRemote,
+                    Instruction::CollectCommit { into: segment },
+                    max_limit,
+                ));
+            }
+        }
+
+        ctx.inserted_proxy_segments = prioritize_initial_tips_and_assure_ws_commit_ownership(
             &mut graph,
             &mut next,
             (ws_tips, repo, meta),
@@ -482,6 +475,7 @@ impl Graph {
                             id,
                             propagated_flags,
                             src_sidx,
+                            limit,
                         )?;
                         continue;
                     }
@@ -490,7 +484,7 @@ impl Graph {
                             &mut graph,
                             src_sidx,
                             &info,
-                            &refs_by_id,
+                            &ctx.refs_by_id,
                             meta,
                         )?
                         .unwrap_or(src_sidx);
@@ -510,12 +504,16 @@ impl Graph {
                             id,
                             propagated_flags,
                             parent_above,
+                            limit,
                         )?;
                         continue;
                     }
                     Entry::Vacant(e) => {
-                        let segment_below =
-                            branch_segment_from_name_and_meta(None, meta, Some((&refs_by_id, id)))?;
+                        let segment_below = branch_segment_from_name_and_meta(
+                            None,
+                            meta,
+                            Some((&ctx.refs_by_id, id)),
+                        )?;
                         let segment_below = graph.connect_new_segment(
                             parent_above,
                             at_commit,
@@ -529,7 +527,7 @@ impl Graph {
                 },
             };
 
-            let refs_at_commit_before_removal = refs_by_id.remove(&id).unwrap_or_default();
+            let refs_at_commit_before_removal = ctx.refs_by_id.remove(&id).unwrap_or_default();
             let (remote_items, maybe_goal_for_id) = try_queue_remote_tracking_branches(
                 repo,
                 &refs_at_commit_before_removal,
@@ -555,15 +553,7 @@ impl Graph {
                 limit,
             );
             if hard_limit_hit {
-                return graph.with_hard_limit().post_processed(
-                    meta,
-                    tip.detach(),
-                    repo,
-                    &target_symbolic_remote_names,
-                    &configured_remote_tracking_branches,
-                    inserted_proxy_segments,
-                    &refs_by_id,
-                );
+                return graph.post_processed(meta, tip.detach(), ctx.with_hard_limit());
             }
 
             segment.commits.push(
@@ -584,35 +574,14 @@ impl Graph {
 
             for item in remote_items {
                 if next.push_back_exhausted(item) {
-                    return graph.with_hard_limit().post_processed(
-                        meta,
-                        tip.detach(),
-                        repo,
-                        &target_symbolic_remote_names,
-                        &configured_remote_tracking_branches,
-                        inserted_proxy_segments,
-                        &refs_by_id,
-                    );
+                    return graph.post_processed(meta, tip.detach(), ctx.with_hard_limit());
                 }
             }
 
             prune_integrated_tips(&mut graph, &mut next);
         }
 
-        graph.post_processed(
-            meta,
-            tip.detach(),
-            repo,
-            &target_symbolic_remote_names,
-            &configured_remote_tracking_branches,
-            inserted_proxy_segments,
-            &refs_by_id,
-        )
-    }
-
-    fn with_hard_limit(mut self) -> Self {
-        self.hard_limit_hit = true;
-        self
+        graph.post_processed(meta, tip.detach(), ctx)
     }
 }
 

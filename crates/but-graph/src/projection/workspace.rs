@@ -4,6 +4,7 @@ use std::{
     fmt::Formatter,
 };
 
+use crate::projection::workspace;
 use crate::{
     CommitFlags, Graph, Segment, SegmentIndex,
     projection::{Stack, StackCommit, StackCommitFlags, StackSegment},
@@ -138,7 +139,7 @@ impl Target {
         lower_bound_segment_and_generation: Option<(SegmentIndex, usize)>,
         mut visit: impl FnMut(&Segment),
     ) {
-        graph.visit_all_segments_until(target_segment, Direction::Outgoing, |s| {
+        graph.visit_all_segments_including_start_until(target_segment, Direction::Outgoing, |s| {
             let prune = true;
             if lower_bound_segment_and_generation.is_some_and(
                 |(lower_bound, lower_bound_generation)| {
@@ -157,6 +158,15 @@ impl Target {
     }
 }
 
+pub(crate) enum Downgrade {
+    /// Allows to turn a workspace above a selection to be downgraded back to the selection if it turns
+    /// out to be outside the workspace.
+    /// This is typically what you want when producing a workspace for display, as the workspace then isn't relevant.
+    Allow,
+    /// Use this if the closest workspace is what you want, even if the reference in question is below the workspace lower bound.
+    Disallow,
+}
+
 impl Graph {
     /// Analyse the current graph starting at its [entrypoint](Self::lookup_entrypoint()).
     ///
@@ -169,15 +179,10 @@ impl Graph {
     /// Typically, that's a previous location of the target segment.
     #[instrument(skip(self), err(Debug))]
     pub fn to_workspace(&self) -> anyhow::Result<Workspace<'_>> {
-        self.to_workspace_inner(true /* allow downgrade */)
+        self.to_workspace_inner(workspace::Downgrade::Allow)
     }
 
-    /// `allow_downgrade` allows to turn a workspace above a selection to be downgraded back to the selection if it turns
-    /// out to be outside the workspace.
-    pub(crate) fn to_workspace_inner(
-        &self,
-        allow_downgrade: bool,
-    ) -> anyhow::Result<Workspace<'_>> {
+    pub(crate) fn to_workspace_inner(&self, downgrade: Downgrade) -> anyhow::Result<Workspace<'_>> {
         let (kind, metadata, mut ws_tip_segment, entrypoint_sidx, entrypoint_first_commit_flags) = {
             let ep = self.lookup_entrypoint()?;
             match ep.segment.workspace_metadata() {
@@ -273,7 +278,8 @@ impl Graph {
         // Right now we would be using it, but will discard it the entrypoint is *at* or *below* the merge-base.
         if let Some(((_lowest_base, lowest_base_sidx), ep_sidx)) = ws_lower_bound
             .filter(|_| {
-                allow_downgrade && entrypoint_first_commit_flags.contains(CommitFlags::Integrated)
+                matches!(downgrade, Downgrade::Allow)
+                    && entrypoint_first_commit_flags.contains(CommitFlags::Integrated)
             })
             .zip(entrypoint_sidx)
         {
@@ -337,6 +343,12 @@ impl Graph {
                             }
                             // Assure entrypoints get their own segments
                             if s.id != stack_top_sidx && Some(s.id) == entrypoint_sidx {
+                                return stop;
+                            }
+                            // Check for anonymous segments with sibling ID - these know their
+                            // named counterparts and we want to set the name, but they must
+                            // be in their own stack-segment.
+                            if s.ref_name.is_none() && s.sibling_segment_id.is_some() {
                                 return stop;
                             }
                             if segment_name_is_special(s) {
@@ -452,7 +464,7 @@ impl Graph {
         //       And yes, let's avoid `gix::Repository::merge_base` as we have free
         //       generation numbers here and can avoid work duplication.
         let mut segments_reachable_by_b = BTreeSet::new();
-        self.visit_all_segments_until(b, Direction::Outgoing, |s| {
+        self.visit_all_segments_including_start_until(b, Direction::Outgoing, |s| {
             segments_reachable_by_b.insert(s.id);
             // Collect everything, keep it simple.
             // This is fast* as completely in memory.
@@ -461,7 +473,7 @@ impl Graph {
         });
 
         let mut candidate = None;
-        self.visit_all_segments_until(a, Direction::Outgoing, |s| {
+        self.visit_all_segments_including_start_until(a, Direction::Outgoing, |s| {
             if candidate.is_some() {
                 return true;
             }
@@ -759,7 +771,7 @@ impl Workspace<'_> {
         for (remote_tracking_ref_name, remote_sidx) in remote_refs {
             let mut remote_commits = Vec::new();
             let mut may_take_commits_from_first_remote = graph[remote_sidx].commits.is_empty();
-            graph.visit_all_segments_until(remote_sidx, Direction::Outgoing, |s| {
+            graph.visit_all_segments_including_start_until(remote_sidx, Direction::Outgoing, |s| {
                 let prune = !s.commits.iter().all(|c| c.flags.is_remote())
                     // Do not 'steal' commits from other known remote segments while they are officially connected,
                     // unless we started out empty. That means ambiguous ownership, as multiple remotes point
@@ -821,7 +833,6 @@ impl Workspace<'_> {
 
             // Have to keep looking for matching segments, they can be mentioned multiple times.
             let mut found_segment = false;
-            let remote_commits: Vec<_> = remote_commits.into_iter().collect::<Result<_, _>>()?;
             for local_segment_with_this_remote in self.stacks.iter_mut().flat_map(|stack| {
                 stack.segments.iter_mut().filter_map(|s| {
                     (s.remote_tracking_ref_name.as_ref() == Some(&remote_tracking_ref_name))

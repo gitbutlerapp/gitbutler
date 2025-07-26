@@ -1,6 +1,7 @@
 use crate::init::types::{EdgeOwned, TopoWalk};
 use crate::init::walk::{RefsById, disambiguate_refs_by_branch_metadata};
 use crate::init::{PetGraph, branch_segment_from_name_and_meta, remotes};
+use crate::projection::workspace;
 use crate::{Commit, CommitFlags, CommitIndex, Edge, Graph, SegmentIndex, SegmentMetadata};
 use anyhow::bail;
 use but_core::{RefMetadata, ref_metadata};
@@ -10,6 +11,22 @@ use petgraph::Direction;
 use petgraph::prelude::EdgeRef;
 use std::collections::{BTreeMap, BTreeSet};
 use tracing::instrument;
+
+pub(super) struct Context<'a> {
+    pub repo: &'a gix::Repository,
+    pub symbolic_remote_names: &'a [String],
+    pub configured_remote_tracking_branches: &'a BTreeSet<gix::refs::FullName>,
+    pub inserted_proxy_segments: Vec<SegmentIndex>,
+    pub refs_by_id: RefsById,
+    pub hard_limit: bool,
+}
+
+impl Context<'_> {
+    pub(super) fn with_hard_limit(mut self) -> Self {
+        self.hard_limit = true;
+        self
+    }
+}
 
 /// Processing
 impl Graph {
@@ -21,12 +38,17 @@ impl Graph {
         mut self,
         meta: &impl RefMetadata,
         tip: gix::ObjectId,
-        repo: &gix::Repository,
-        symbolic_remote_names: &[String],
-        configured_remote_tracking_branches: &BTreeSet<gix::refs::FullName>,
-        inserted_proxy_segments: Vec<SegmentIndex>,
-        refs_by_id: &RefsById,
+        Context {
+            repo,
+            symbolic_remote_names,
+            configured_remote_tracking_branches,
+            inserted_proxy_segments,
+            refs_by_id,
+            hard_limit,
+        }: Context<'_>,
     ) -> anyhow::Result<Self> {
+        self.hard_limit_hit = hard_limit;
+
         // For the first id to be inserted into our entrypoint segment, set index.
         if let Some((segment, ep_commit)) = self.entrypoint.as_mut() {
             *ep_commit = self
@@ -36,10 +58,10 @@ impl Graph {
         }
 
         // This should be first as what follows could help name these new segments that it creates.
-        self.fixup_workspace_segments(repo, refs_by_id, meta)?;
+        self.fixup_workspace_segments(repo, &refs_by_id, meta)?;
         // All non-workspace fixups must come first, otherwise the workspace handling might
         // differ as it relies on non-anonymous segments much more.
-        self.fixup_segment_names(meta, inserted_proxy_segments);
+        self.fixup_segment_names(meta, &inserted_proxy_segments);
         // We perform view-related updates here for convenience, but also because the graph
         // traversal should have nothing to do with workspace details. It's just about laying
         // the foundation for figuring out our workspaces more easily.
@@ -137,7 +159,7 @@ impl Graph {
     fn fixup_segment_names(
         &mut self,
         meta: &impl RefMetadata,
-        inserted_proxy_segments: Vec<SegmentIndex>,
+        inserted_proxy_segments: &[SegmentIndex],
     ) {
         let segments_with_refs_on_first_commit: Vec<_> = self
             .inner
@@ -279,18 +301,21 @@ impl Graph {
         Ok(out)
     }
 
-    /// Perform operations on the current workspace, or do nothing if there is None that we would consider one.
+    /// Perform operations on the current workspace, or do nothing if there is `None`.
     ///
     /// * workspace segments are either empty, or have just one managed commit.
     /// * insert empty segments as defined by the workspace that affects its downstream.
     /// * put workspace connection into the order defined in the workspace metadata.
+    /// * set sibling segment IDs for unnamed segments that are descendents of an out-of-workspace but known segment.
     fn workspace_upgrades(
         &mut self,
         meta: &impl RefMetadata,
         repo: &gix::Repository,
     ) -> anyhow::Result<()> {
-        let Some((ws_sidx, ws_stacks, ws_data, ws_target)) =
-            self.to_workspace_inner(false).ok().and_then(|mut ws| {
+        let Some((ws_sidx, ws_stacks, ws_data, ws_target)) = self
+            .to_workspace_inner(workspace::Downgrade::Disallow)
+            .ok()
+            .and_then(|mut ws| {
                 let md = ws.metadata.take();
                 md.map(|d| (ws.id, ws.stacks, d, ws.target))
             })
@@ -320,6 +345,11 @@ impl Graph {
             )
             .collect();
             for refs_for_independent_branches in matching_refs_per_stack {
+                let edges_connecting_base_with_ws_tip: Vec<EdgeOwned> = self
+                    .inner
+                    .edges_connecting(ws_sidx, base_sidx)
+                    .map(Into::into)
+                    .collect();
                 create_independent_segments(
                     self,
                     ws_sidx,
@@ -327,6 +357,9 @@ impl Graph {
                     refs_for_independent_branches,
                     meta,
                 )?;
+                for edge in edges_connecting_base_with_ws_tip {
+                    self.inner.remove_edge(edge.id);
+                }
             }
         }
 
@@ -431,6 +464,50 @@ impl Graph {
                 .expect("we found the edge before");
             // Reconnect according to the new order.
             self.inner.add_edge(ws_sidx, target_sidx, weight);
+        }
+
+        // Setup sibling IDs for all unnamed segments with a known segment ref in its future.
+        for sidx in ws_stacks.iter().flat_map(|s| {
+            s.segments
+                .iter()
+                .flat_map(|s| s.commits_by_segment.iter().map(|(sidx, _)| *sidx))
+        }) {
+            let s = &self.inner[sidx];
+            if s.ref_name.is_some() || s.sibling_segment_id.is_some() {
+                continue;
+            }
+
+            let num_outgoing = self
+                .inner
+                .neighbors_directed(sidx, Direction::Incoming)
+                .count();
+            if num_outgoing < 2 {
+                continue;
+            }
+
+            let mut named_segment_id = None;
+            self.visit_all_segments_excluding_start_until(sidx, Direction::Incoming, |s| {
+                let prune = true;
+                if named_segment_id.is_some()
+                    || s.commits
+                        .first()
+                        .is_some_and(|c| c.flags.contains(CommitFlags::InWorkspace))
+                {
+                    return prune;
+                }
+
+                s.ref_name.as_ref().is_some_and(|rn| {
+                    let is_known_to_workspace = ws_data
+                        .stacks
+                        .iter()
+                        .any(|s| s.branches.iter().any(|b| &b.ref_name == rn));
+                    if is_known_to_workspace {
+                        named_segment_id = Some(s.id);
+                    }
+                    is_known_to_workspace
+                })
+            });
+            self[sidx].sibling_segment_id = named_segment_id;
         }
         Ok(())
     }
