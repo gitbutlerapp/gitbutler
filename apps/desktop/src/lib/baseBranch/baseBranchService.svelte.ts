@@ -131,7 +131,8 @@ function injectEndpoints(api: BackendApi) {
 					action: action ?? 'auto'
 				}),
 				invalidatesTags: [
-					invalidatesType(ReduxTag.BaseBranchData),
+					// No need to invalidate base branch, we should be listening
+					// for all FETCH events, and refreshing manually.
 					invalidatesList(ReduxTag.Stacks),
 					invalidatesList(ReduxTag.StackDetails),
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus)
