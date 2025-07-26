@@ -64,7 +64,7 @@
 			{#if status === 'draft'}
 				Draft
 			{:else}
-				{reviewUnit}
+				{reviewUnit} #{number}
 			{/if}
 		</span>
 
