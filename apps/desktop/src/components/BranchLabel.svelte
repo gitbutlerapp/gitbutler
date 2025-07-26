@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
 	import { TestId } from '$lib/testing/testIds';
+	import { clickOutside } from '@gitbutler/ui/utils/clickOutside';
 	import { resizeObserver } from '@gitbutler/ui/utils/resizeObserver';
 
 	interface Props {
@@ -124,6 +125,10 @@
 	autocomplete="off"
 	autocorrect="off"
 	spellcheck="false"
+	data-remove-from-panning
+	use:clickOutside={{
+		handler: () => inputEl?.blur()
+	}}
 	style:width={inputWidth}
 />
 
