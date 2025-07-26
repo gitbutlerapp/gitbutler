@@ -98,6 +98,12 @@ impl std::fmt::Debug for Stack {
 /// A typically named set of linearized commits, obtained by first-parent-only traversal.
 ///
 /// Note that this maybe an aggregation of multiple [graph segments](crate::Segment).
+///
+/// ### WARNING
+///
+/// As it stands, we may 'doctor' the `ref_name`, `remote_tracking_ref_name` and `metadata` *if* `commits_outside` is not
+/// `None`. This is to help with visualisation, but makes this data much less usable in algorithms, at least if
+/// these fields are significant.
 #[derive(Clone)]
 pub struct StackSegment {
     /// The unambiguous or disambiguated name of the branch at the tip of the segment, i.e. at the first commit.
@@ -137,6 +143,8 @@ pub struct StackSegment {
     /// The list was created by walking all parents, not only the first parent.
     /// Note that the tips of these commits is the `sibling_segment_id` which in this case is `Some`
     /// if this field is `Some`.
+    /// When set, we will also have copied the `ref_name`, `metadata` and `remote_tracking_ref_name` from
+    /// `sibling_segment_id` over to this segment to provide more meaningful information.
     pub commits_outside: Option<Vec<StackCommit>>,
     /// This is always the `first()` commit in `commits` of the next stacksegment, or the first commit of
     /// the first ancestor segment.

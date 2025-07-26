@@ -219,6 +219,10 @@ pub mod ui {
         /// with the local tracking branch. If these diverge, we can represent this in data, but currently there is
         /// no derived value to make this visible explicitly.
         pub commits_on_remote: Vec<Commit>,
+        /// All commits *that are not workspace commits* reachable by (and including commits in) this segment.
+        /// The list was created by walking all parents, not only the first parent.
+        /// This means the segment needs fixing.
+        pub commits_outside: Option<Vec<Commit>>,
         /// Read-only metadata with additional information about the branch naming the segment,
         /// or `None` if nothing was present.
         pub metadata: Option<ref_metadata::Branch>,
@@ -254,6 +258,7 @@ pub mod ui {
                 id,
                 commits,
                 commits_on_remote,
+                commits_outside,
                 remote_tracking_ref_name,
                 metadata,
                 is_entrypoint,
@@ -280,10 +285,8 @@ pub mod ui {
                 },
             )
             .field("commits", &commits)
-            .field(
-                "commits_unique_in_remote_tracking_branch",
-                &commits_on_remote,
-            )
+            .field("commits_on_remote", &commits_on_remote)
+            .field("commits_outside", &commits_outside)
             .field(
                 "metadata",
                 match metadata {
@@ -433,7 +436,7 @@ pub(crate) mod function {
                 id,
                 commits,
                 // TODO: make it visible in this this data structure.
-                commits_outside: _,
+                commits_outside,
                 commits_on_remote,
                 commits_by_segment: _,
                 metadata,
@@ -449,12 +452,20 @@ pub(crate) mod function {
                 .into_iter()
                 .map(|c| (but_core::Commit::from_id(c.id.attach(repo)).map(ui::Commit::from)))
                 .collect::<Result<_, _>>()?;
+            let commits_outside = commits_outside
+                .map(|v| {
+                    v.into_iter()
+                        .map(|c| but_core::Commit::from_id(c.id.attach(repo)).map(ui::Commit::from))
+                        .collect::<Result<Vec<_>, _>>()
+                })
+                .transpose()?;
             Ok(Self {
                 ref_name,
                 id,
                 remote_tracking_ref_name,
                 commits,
                 commits_on_remote,
+                commits_outside,
                 metadata,
                 is_entrypoint,
                 base,

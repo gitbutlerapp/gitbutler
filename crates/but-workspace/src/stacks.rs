@@ -485,6 +485,8 @@ impl ui::BranchDetails {
             commits: commits_unique_from_tip,
             commits_on_remote: commits_unique_in_remote_tracking_branch,
             remote_tracking_ref_name,
+            // There is nothing equivalent
+            commits_outside: _,
             metadata,
             push_status,
             is_entrypoint: _,
