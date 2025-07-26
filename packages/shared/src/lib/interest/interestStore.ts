@@ -1,4 +1,4 @@
-import { shallowCompare } from '$lib/shallowCompare';
+import { shallowCompare } from '$lib/compare';
 import { asyncToSyncSignals } from '$lib/storeUtils';
 
 type Callable =

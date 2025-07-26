@@ -4,6 +4,7 @@ import { DefaultForge } from '$lib/forge/default/default';
 import { GitHub, GITHUB_DOMAIN } from '$lib/forge/github/github';
 import { GitHubClient } from '$lib/forge/github/githubClient';
 import { GitLab, GITLAB_DOMAIN, GITLAB_SUB_DOMAIN } from '$lib/forge/gitlab/gitlab';
+import { deepCompare } from '@gitbutler/shared/compare';
 import { InjectionToken } from '@gitbutler/shared/context';
 import { BehaviorSubject } from 'rxjs';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
@@ -31,6 +32,7 @@ export const DEFAULT_FORGE_FACTORY = new InjectionToken<DefaultForgeFactory>('De
 export class DefaultForgeFactory implements Reactive<Forge> {
 	private default = new DefaultForge();
 	private _forge = $state<Forge>(this.default);
+	private _config: any = undefined;
 	private readonly _determinedForgeType = new BehaviorSubject<ForgeName>('default');
 
 	constructor(
@@ -53,6 +55,10 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 	}
 
 	setConfig(config: ForgeConfig) {
+		if (deepCompare(config, this._config)) {
+			return;
+		}
+		this._config = config;
 		const { repo, pushRepo, baseBranch, githubAuthenticated, gitlabAuthenticated, forgeOverride } =
 			config;
 		if (repo && baseBranch) {
