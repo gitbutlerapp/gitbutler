@@ -1,5 +1,5 @@
 import { filterWithRest } from '$lib/utils/array';
-import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
+import { gravatarUrlFromEmail } from '@gitbutler/ui/components/avatar/gravatar';
 import type { Branch } from '$lib/branches/types';
 import type { PatchCommit } from '$lib/patches/types';
 import type { UserMaybe } from '$lib/users/types';

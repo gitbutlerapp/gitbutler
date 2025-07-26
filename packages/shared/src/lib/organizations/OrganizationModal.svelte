@@ -8,11 +8,7 @@
 	import { APP_STATE } from '$lib/redux/store.svelte';
 	import { USER_SERVICE } from '$lib/users/userService';
 	import { getUserByLogin } from '$lib/users/usersPreview.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import Modal from '@gitbutler/ui/Modal.svelte';
-	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
-	import Textbox from '@gitbutler/ui/Textbox.svelte';
-	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
+	import { Button, Modal, SectionCard, Textbox, Avatar } from '@gitbutler/ui';
 
 	type Props = {
 		slug: string;

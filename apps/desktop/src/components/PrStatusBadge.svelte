@@ -1,5 +1,5 @@
 <script lang="ts">
-	import PrStatusBadge, { type StatusType } from '@gitbutler/ui/PrStatusBadge.svelte';
+	import { PrStatusBadge, type PrStatusInfoType } from '@gitbutler/ui';
 
 	import type { DetailedPullRequest } from '$lib/forge/interface/types';
 
@@ -10,7 +10,7 @@
 
 	const { testId, pr }: Props = $props();
 
-	const prStatus: StatusType = $derived.by(() => {
+	const prStatus: PrStatusInfoType = $derived.by(() => {
 		switch (true) {
 			case !pr:
 				return 'loading';

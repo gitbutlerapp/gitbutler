@@ -9,7 +9,7 @@
 	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 
 	import { CommitStatusBadge } from '@gitbutler/ui';
-	import { getExternalLinkService } from '@gitbutler/ui/link/externalLinkService';
+	import { getExternalLinkService } from '@gitbutler/ui/utils/externalLinkService';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import type { PatchCommit } from '@gitbutler/shared/patches/types';
 

@@ -26,7 +26,7 @@
 	import type { FileInfo } from '$lib/files/file';
 	import type { TreeChange } from '$lib/hunks/change';
 	import type { SelectionId } from '$lib/selection/key';
-	import type { FileStatus } from '@gitbutler/ui/file/types';
+	import type { FileStatus } from '@gitbutler/ui/components/file/types';
 
 	type Props = {
 		projectId: string;
