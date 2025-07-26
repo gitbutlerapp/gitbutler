@@ -8,7 +8,7 @@
 	import { inject } from '@gitbutler/shared/context';
 
 	import { AvatarGroup, ReviewBadge, SeriesLabelsRow, TimeAgo } from '@gitbutler/ui';
-	import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
+	import { gravatarUrlFromEmail } from '@gitbutler/ui/components/avatar/gravatar';
 	import type { PullRequest } from '$lib/forge/interface/types';
 
 	interface Props {

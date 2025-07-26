@@ -1,5 +1,9 @@
 <script lang="ts">
-	import { markRecentlyUsedEmoji, searchThroughEmojis, type EmojiInfo } from '$lib/emoji/utils';
+	import {
+		markRecentlyUsedEmoji,
+		searchThroughEmojis,
+		type EmojiInfo
+	} from '$components/emoji/utils';
 	import { getEditor } from '$lib/richText/context';
 	import {
 		findAndReplaceShortCodeEmoji,

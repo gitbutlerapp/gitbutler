@@ -1,7 +1,7 @@
 import { getColorFromCommitState } from '$components/lib';
 import { type CommitStatusType } from '$lib/commits/commit';
 import { ChangeDropData, type DropData } from '$lib/dragging/draggables';
-import { getFileIcon } from '@gitbutler/ui/file/getFileIcon';
+import { getFileIcon } from '@gitbutler/ui/components/file/getFileIcon';
 import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 import type { DragStateService } from '$lib/dragging/dragStateService.svelte';
 import type { DropzoneRegistry } from '$lib/dragging/registry';

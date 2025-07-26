@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	import { type Snippet } from 'svelte';
-	import type { CellType } from '@gitbutler/ui/commitLines/types';
+	import type { CellType } from '@gitbutler/ui/components/commitLines/types';
 
 	interface Props {
 		type: CellType;

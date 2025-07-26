@@ -1,4 +1,4 @@
-import type { CellType } from '$lib/commitLines/types';
+import type { CellType } from '$components/commitLines/types';
 
 const colorMap = {
 	LocalOnly: 'var(--clr-commit-local)',

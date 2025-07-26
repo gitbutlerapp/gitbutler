@@ -1,6 +1,6 @@
 import type { User } from '$lib/user/userService';
 import type { ChatMessageReaction } from '@gitbutler/shared/chat/types';
-import type { EmojiInfo } from '@gitbutler/ui/emoji/utils';
+import type { EmojiInfo } from '@gitbutler/ui/components/emoji/utils';
 
 function getUpdatedReactions(
 	user: User,

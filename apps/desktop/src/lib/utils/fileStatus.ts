@@ -1,5 +1,5 @@
 import { type AnyFile } from '$lib/files/file';
-import { type FileStatus } from '@gitbutler/ui/file/types';
+import { type FileStatus } from '@gitbutler/ui/components/file/types';
 import type { TreeChange } from '$lib/hunks/change';
 
 export function computeFileStatus(file: AnyFile): FileStatus {

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { inject } from '@gitbutler/shared/context';
-	import Scrollbar, { type ScrollbarPaddingType } from '@gitbutler/ui/scroll/Scrollbar.svelte';
+	import { Scrollbar, type ScrollbarPaddingType } from '@gitbutler/ui';
 
 	interface Props {
 		viewport: HTMLDivElement;

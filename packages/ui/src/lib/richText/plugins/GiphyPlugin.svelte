@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Icon from '$lib/Icon.svelte';
+	import Icon from '$components/Icon.svelte';
 	import { getCursorPosition, insertImageAtCaret } from '$lib/richText/selection';
 	import { clickOutside } from '$lib/utils/clickOutside';
 	import { debounce } from '$lib/utils/debounce';

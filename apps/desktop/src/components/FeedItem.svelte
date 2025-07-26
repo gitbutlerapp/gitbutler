@@ -20,7 +20,7 @@
 	import { inject } from '@gitbutler/shared/context';
 
 	import { AgentAvatar, EditorLogo, FileListItem, Markdown, TimeAgo, Tooltip } from '@gitbutler/ui';
-	import Icon, { type IconName } from '@gitbutler/ui/Icon.svelte';
+	import { Icon, type IconName } from '@gitbutler/ui';
 
 	import { isStr } from '@gitbutler/ui/utils/string';
 
