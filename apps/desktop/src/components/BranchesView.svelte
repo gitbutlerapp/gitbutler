@@ -43,7 +43,6 @@
 
 	const projectState = $derived(uiState.project(projectId));
 	const branchesState = $derived(projectState.branchesSelection);
-	const sidebarWidth = $derived(uiState.global.historySidebarWidth);
 
 	const baseBranchResult = $derived(baseBranchService.baseBranch(projectId));
 	const branchesSelection = $derived(projectState.branchesSelection);
@@ -257,8 +256,8 @@
 					direction="right"
 					minWidth={14}
 					borderRadius="ml"
-					persistId="resizer-historyWidth"
-					defaultValue={sidebarWidth.current}
+					persistId="resizer-branchesWidth"
+					defaultValue={24}
 				/>
 			</div>
 
