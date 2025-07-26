@@ -105,18 +105,15 @@
 	const mode = $derived(modeService.mode({ projectId }));
 	const head = $derived(modeService.head({ projectId }));
 
-	const debouncedBaseBranchRefresh = debounce(
-		async () => await baseBranchService.refreshBaseBranch(projectId),
-		500
-	);
+	const debouncedBaseBranchRefresh = debounce(async () => {
+		await baseBranchService.refreshBaseBranch(projectId);
+	}, 500);
 
-	const debouncedRemoteBranchRefresh = debounce(
-		async () =>
-			await branchService.refresh().catch((error) => {
-				console.error('Failed to refresh remote branches:', error);
-			}),
-		500
-	);
+	const debouncedRemoteBranchRefresh = debounce(async () => {
+		await branchService.refresh().catch((error) => {
+			console.error('Failed to refresh remote branches:', error);
+		});
+	}, 500);
 
 	// TODO: Refactor `$head` into `.onHead()` as well.
 	const gitService = inject(GIT_SERVICE);
@@ -154,7 +151,7 @@
 	// Once on load and every time the project id changes
 	$effect(() => {
 		if (projectId) {
-			setupFetchInterval();
+			untrack(() => setupFetchInterval());
 		} else {
 			goto('/onboarding');
 		}
@@ -175,6 +172,8 @@
 		intervalId = setInterval(async () => {
 			await fetchRemoteForProject();
 		}, intervalMs);
+
+		return () => clearFetchInterval();
 	}
 
 	function clearFetchInterval() {
