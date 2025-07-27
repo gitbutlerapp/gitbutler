@@ -19,6 +19,7 @@
 		viewport?: HTMLDivElement;
 		viewportHeight?: number;
 		childrenWrapHeight?: string;
+		childrenWrapDisplay?: 'block' | 'content'; // 'content' is used for virtual lists to avoid unnecessary height calculations
 		/** used only with virtual list. */
 		top?: number;
 		bottom?: number;
@@ -51,7 +52,8 @@
 		bottom,
 		viewport = $bindable(),
 		viewportHeight = $bindable(),
-		childrenWrapHeight
+		childrenWrapHeight,
+		childrenWrapDisplay = 'block'
 	}: ScrollableProps = $props();
 
 	let scrollTopVisible = $state<boolean>(true);
@@ -112,7 +114,11 @@
 		class="viewport hide-native-scrollbar"
 		style="padding-top: {top}px; padding-bottom: {bottom}px;"
 	>
-		<div class="children-wrap hide-native-scrollbar" style:height={childrenWrapHeight}>
+		<div
+			class="hide-native-scrollbar"
+			style:height={childrenWrapHeight}
+			style:display={childrenWrapDisplay}
+		>
 			{@render children()}
 		</div>
 		<Scrollbar
@@ -144,11 +150,5 @@
 		width: 100%;
 		height: 100%;
 		overflow-y: auto;
-	}
-
-	.children-wrap {
-		/* Having this be `display: content` seems to trigger excessive layout
-		   computations that makes resizing the viewport really slow. */
-		display: block;
 	}
 </style>

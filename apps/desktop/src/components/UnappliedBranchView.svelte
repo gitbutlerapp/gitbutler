@@ -111,17 +111,16 @@
 
 		<ReduxResult {projectId} result={changesResult.current}>
 			{#snippet children(changes, env)}
-				<div class="changed-files">
-					<ChangedFiles
-						title="All changed files"
-						projectId={env.projectId}
-						stackId={env.stackId}
-						active
-						autoselect
-						{selectionId}
-						{changes}
-					/>
-				</div>
+				<ChangedFiles
+					title="All changed files"
+					projectId={env.projectId}
+					stackId={env.stackId}
+					active
+					autoselect
+					grow
+					{selectionId}
+					{changes}
+				/>
 			{/snippet}
 		</ReduxResult>
 	{/snippet}
@@ -146,13 +145,6 @@
 		width: 100%;
 		overflow: hidden;
 		gap: 8px;
-	}
-
-	.changed-files {
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-		border-bottom: 1px solid var(--clr-border-2);
 	}
 
 	.remote-tracking-branch-icon {
