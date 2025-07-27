@@ -231,13 +231,6 @@
 		flex-direction: column;
 	}
 
-	.drawer__files-split-view {
-		display: flex;
-		flex: 1;
-		flex-direction: column;
-		overflow: hidden;
-	}
-
 	.chevron-btn {
 		display: flex;
 		align-items: center;

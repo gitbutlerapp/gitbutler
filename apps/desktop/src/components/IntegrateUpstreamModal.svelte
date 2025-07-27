@@ -348,7 +348,7 @@
 								filePath={file}
 								clickable={false}
 								conflicted
-								isLast={file === conflicts[conflicts.length - 1]}
+								hideBorder={file === conflicts[conflicts.length - 1]}
 							/>
 						{/each}
 					</ScrollableContainer>
