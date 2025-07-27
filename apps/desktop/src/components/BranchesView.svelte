@@ -496,6 +496,7 @@
 		position: relative;
 		flex: 1;
 		flex-direction: column;
+		min-width: 460px;
 		min-height: 100%;
 		overflow: hidden;
 	}
