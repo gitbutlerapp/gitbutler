@@ -35,6 +35,7 @@
 	import { Button, FileViewHeader, Icon } from '@gitbutler/ui';
 	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
+	import type { Commit } from '$lib/branches/v3';
 	import type { Stack } from '$lib/stacks/stack';
 
 	type Props = {
@@ -190,6 +191,17 @@
 			console.warn('Workspace selection cleared');
 		}
 	}
+
+	function getAncestorMostConflicted(commits: Commit[]): Commit | undefined {
+		if (!commits.length) return undefined;
+		for (let i = commits.length - 1; i >= 0; i--) {
+			const commit = commits[i]!;
+			if (commit.hasConflicts) {
+				return commit;
+			}
+		}
+		return undefined;
+	}
 </script>
 
 <!-- ATTENTION -->
@@ -271,6 +283,12 @@
 	{@const changesResult = stackService.commitChanges(projectId, commitId)}
 	<ReduxResult {projectId} stackId={stack.id} result={changesResult.current}>
 		{#snippet children(changes, { projectId, stackId })}
+			{@const commitsResult = branchName
+				? stackService.commits(projectId, stackId, branchName)
+				: undefined}
+			{@const commits = commitsResult?.current.data || []}
+			{@const ancestorMostConflictedCommitId = getAncestorMostConflicted(commits)?.id}
+
 			<ChangedFiles
 				title="Changed Files"
 				{projectId}
@@ -285,6 +303,7 @@
 					(change) => !(change.path in (changes.conflictEntries?.entries ?? {}))
 				)}
 				conflictEntries={changes.conflictEntries}
+				{ancestorMostConflictedCommitId}
 				{active}
 				resizer={{
 					persistId: `resizer-panel2-changed-files-${stack.id}`,

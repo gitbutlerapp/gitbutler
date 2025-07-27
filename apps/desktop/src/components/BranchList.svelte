@@ -14,6 +14,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { getColorFromCommitState, getIconFromCommitState } from '$components/lib';
 	import { STACKING_REORDER_DROPZONE_MANAGER_FACTORY } from '$lib/dragging/stackingReorderDropzoneManager';
+	import { editPatch } from '$lib/editMode/editPatchUtils';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { INTELLIGENT_SCROLLING_SERVICE } from '$lib/intelligentScrolling/service';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
@@ -90,7 +91,12 @@
 			conflictResolutionConfirmationModal?.show();
 			return;
 		}
-		modeService!.enterEditMode({ commitId: args.commitId, stackId, projectId });
+		await editPatch({
+			modeService,
+			commitId: args.commitId,
+			stackId,
+			projectId
+		});
 	}
 
 	const selectedCommit = $derived(
