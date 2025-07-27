@@ -1,5 +1,6 @@
 <!-- This is a V3 replacement for `BranchFileList.svelte` -->
 <script lang="ts">
+	import EditPatchConfirmModal from '$components/EditPatchConfirmModal.svelte';
 	import FileListItemWrapper from '$components/FileListItemWrapper.svelte';
 	import FileTreeNode from '$components/FileTreeNode.svelte';
 	import LazyloadContainer from '$components/LazyloadContainer.svelte';
@@ -7,14 +8,16 @@
 	import { AI_SERVICE } from '$lib/ai/service';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
+	import { editPatch } from '$lib/editMode/editPatchUtils';
 	import { abbreviateFolders, changesToFileTree } from '$lib/files/filetreeV3';
 	import { type TreeChange, type Modification } from '$lib/hunks/change';
+	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { showToast } from '$lib/notifications/toasts';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import { selectFilesInList, updateSelection } from '$lib/selection/idSelectionUtils';
 	import { type SelectionId } from '$lib/selection/key';
 	import { chunk } from '$lib/utils/array';
-	import { inject } from '@gitbutler/shared/context';
+	import { inject, injectOptional } from '@gitbutler/shared/context';
 	import { FileListItem } from '@gitbutler/ui';
 
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
@@ -29,6 +32,7 @@
 		active?: boolean;
 		conflictEntries?: ConflictEntriesObj;
 		draggableFiles?: boolean;
+		ancestorMostConflictedCommitId?: string;
 		onselect?: () => void;
 	};
 
@@ -42,16 +46,41 @@
 		stackId,
 		conflictEntries,
 		draggableFiles,
+		ancestorMostConflictedCommitId,
 		onselect
 	}: Props = $props();
 
 	const idSelection = inject(ID_SELECTION);
 	const aiService = inject(AI_SERVICE);
 	const actionService = inject(ACTION_SERVICE);
+	const modeService = injectOptional(MODE_SERVICE, undefined);
 
 	const [autoCommit] = actionService.autoCommit;
 	const [branchChanges] = actionService.branchChanges;
 	let currentDisplayIndex = $state(0);
+
+	let editPatchModal: EditPatchConfirmModal | undefined = $state();
+	let selectedFilePath = $state('');
+
+	function showEditPatchConfirmation(filePath: string) {
+		selectedFilePath = filePath;
+		editPatchModal?.show();
+	}
+
+	function handleConfirmEditPatch() {
+		editPatchModal?.hide();
+		editPatch({
+			modeService,
+			commitId: ancestorMostConflictedCommitId!,
+			stackId: stackId!,
+			projectId
+		});
+	}
+
+	function handleCancelEditPatch() {
+		editPatchModal?.hide();
+		selectedFilePath = '';
+	}
 
 	const fileChunks: TreeChange[][] = $derived(chunk(changes, 100));
 	const visibleFiles: TreeChange[] = $derived(fileChunks.slice(0, currentDisplayIndex + 1).flat());
@@ -196,6 +225,7 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div onkeydown={handleKeyDown}>
+	<!-- Conflicted changes -->
 	{#each Object.entries(unrepresentedConflictedEntries) as [path, kind]}
 		<FileListItem
 			draggable={draggableFiles}
@@ -203,8 +233,13 @@
 			conflicted
 			conflictHint={conflictEntryHint(kind)}
 			listMode="list"
+			onclick={(e) => {
+				e.stopPropagation();
+				showEditPatchConfirmation(path);
+			}}
 		/>
 	{/each}
+	<!-- Other changes -->
 	{#if visibleFiles.length > 0}
 		{#if listMode === 'tree'}
 			<!-- We need to use sortedChanges here because otherwise we will end up
@@ -226,3 +261,10 @@
 		{/if}
 	{/if}
 </div>
+
+<EditPatchConfirmModal
+	bind:this={editPatchModal}
+	fileName={selectedFilePath}
+	onConfirm={handleConfirmEditPatch}
+	onCancel={handleCancelEditPatch}
+/>
