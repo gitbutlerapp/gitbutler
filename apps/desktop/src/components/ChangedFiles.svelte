@@ -28,6 +28,7 @@
 		bottomBorder?: boolean;
 		resizer?: Partial<ComponentProps<typeof Resizer>>;
 		autoselect?: boolean;
+		ancestorMostConflictedCommitId?: string;
 		ontoggle?: (collapsed: boolean) => void;
 	};
 
@@ -45,6 +46,7 @@
 		bottomBorder,
 		resizer,
 		autoselect,
+		ancestorMostConflictedCommitId,
 		ontoggle
 	}: Props = $props();
 
@@ -89,6 +91,7 @@
 				{active}
 				{conflictEntries}
 				{draggableFiles}
+				{ancestorMostConflictedCommitId}
 				onselect={() => {
 					if (stackId) {
 						intelligentScrollingService.show(projectId, stackId, 'diff');

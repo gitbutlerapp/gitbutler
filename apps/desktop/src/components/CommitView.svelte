@@ -11,6 +11,7 @@
 	import { isCommit } from '$lib/branches/v3';
 	import { type CommitKey } from '$lib/commits/commit';
 	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
+	import { editPatch } from '$lib/editMode/editPatchUtils';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { showToast } from '$lib/notifications/toasts';
@@ -134,9 +135,13 @@
 		return modeService !== undefined;
 	}
 
-	async function editPatch() {
-		if (!canEdit()) return;
-		await modeService!.enterEditMode({ commitId: commitKey.commitId, stackId, projectId });
+	async function handleEditPatch() {
+		await editPatch({
+			modeService,
+			commitId: commitKey.commitId,
+			stackId,
+			projectId
+		});
 	}
 
 	function cancelEdit() {
@@ -174,7 +179,7 @@
 						size="tag"
 						kind="solid"
 						style="error"
-						action={editPatch}
+						action={handleEditPatch}
 						icon="warning-small"
 						tooltip="Resolve conflicts"
 					>
@@ -204,7 +209,7 @@
 							commitUrl: forge.current.commitUrl(commit.id),
 							onUncommitClick: () => handleUncommit(),
 							onEditMessageClick: () => setMode('edit'),
-							onPatchEditClick: () => editPatch()
+							onPatchEditClick: () => handleEditPatch()
 						}
 					: undefined}
 				{#if data}
