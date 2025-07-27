@@ -438,6 +438,7 @@
 		display: flex;
 		position: relative;
 		height: 100%;
+		margin-right: -1px;
 		margin-left: -1px;
 		overflow: hidden;
 		overflow-x: auto;
@@ -449,7 +450,7 @@
 		flex-grow: 0;
 		flex-shrink: 0;
 		flex-direction: column;
-		max-height: calc(100% + 1px);
+		max-height: 100%;
 		border-right: 1px solid var(--clr-border-2);
 		border-left: 1px solid var(--clr-border-2);
 	}
@@ -460,7 +461,7 @@
 		flex-grow: 0;
 		flex-shrink: 0;
 		flex-direction: column;
-		max-height: calc(100% + 1px);
+		max-height: 100%;
 		overflow: hidden;
 		border-right: 1px solid var(--clr-border-2);
 
@@ -499,5 +500,6 @@
 		min-width: 460px;
 		min-height: 100%;
 		overflow: hidden;
+		border-right: 1px solid var(--clr-border-2);
 	}
 </style>
