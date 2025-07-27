@@ -212,7 +212,7 @@
 		align-items: center;
 		height: 100%;
 		overflow: hidden;
-		gap: 8px;
+		gap: 6px;
 	}
 
 	.drawer-header__actions {

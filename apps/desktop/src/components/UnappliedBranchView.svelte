@@ -119,7 +119,8 @@
 					autoselect
 					grow
 					{selectionId}
-					{changes}
+					changes={changes.changes}
+					stats={changes.stats}
 				/>
 			{/snippet}
 		</ReduxResult>

@@ -32,7 +32,7 @@ import type { Commit, CommitDetails, UpstreamCommit } from '$lib/branches/v3';
 import type { CommitKey } from '$lib/commits/commit';
 import type { LocalFile } from '$lib/files/file';
 import type { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
-import type { TreeChange, TreeChanges } from '$lib/hunks/change';
+import type { TreeChange, TreeChanges, TreeStats } from '$lib/hunks/change';
 import type { DiffSpec, Hunk } from '$lib/hunks/hunk';
 import type { BranchDetails, Stack, StackOpt, StackDetails } from '$lib/stacks/stack';
 import type { PropertiesFn } from '$lib/state/customHooks.svelte';
@@ -461,6 +461,7 @@ export class StackService {
 			{
 				transform: (result) => ({
 					changes: sortLikeFileTree(changesSelectors.selectAll(result.changes)),
+					stats: result.stats,
 					conflictEntries: result.conflictEntries
 				})
 			}
@@ -473,6 +474,7 @@ export class StackService {
 			{
 				transform: (result) => ({
 					changes: changesSelectors.selectAll(result.changes),
+					stats: result.stats,
 					conflictEntries: result.conflictEntries
 				})
 			}
@@ -526,7 +528,12 @@ export class StackService {
 				branchName: args.branchName,
 				remote: args.remote
 			},
-			{ transform: (result) => changesSelectors.selectAll(result) }
+			{
+				transform: (result) => ({
+					changes: changesSelectors.selectAll(result.changes),
+					stats: result.stats
+				})
+			}
 		);
 	}
 
@@ -544,7 +551,7 @@ export class StackService {
 				branchName: args.branchName,
 				remote: args.remote
 			},
-			{ transform: (result) => changesSelectors.selectById(result, args.path) }
+			{ transform: (result) => changesSelectors.selectById(result.changes, args.path) }
 		);
 	}
 
@@ -562,7 +569,7 @@ export class StackService {
 				branchName: args.branchName,
 				remote: args.remote
 			},
-			{ transform: (result) => selectChangesByPaths(result, args.paths) }
+			{ transform: (result) => selectChangesByPaths(result.changes, args.paths) }
 		);
 		return result || [];
 	}
@@ -1078,6 +1085,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				{
 					changes: EntityState<TreeChange, string>;
 					details: Commit;
+					stats: TreeStats;
 					conflictEntries?: ConflictEntriesObj;
 				},
 				{ projectId: string; commitId: string }
@@ -1092,6 +1100,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					return {
 						changes: changes,
 						details: rsp.commit,
+						stats: rsp.stats,
 						conflictEntries: rsp.conflictEntries
 							? new ConflictEntries(
 									rsp.conflictEntries.ancestorEntries,
@@ -1103,7 +1112,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				}
 			}),
 			branchChanges: build.query<
-				EntityState<TreeChange, string>,
+				{ changes: EntityState<TreeChange, string>; stats: TreeStats },
 				{ projectId: string; stackId?: string; branchName: string; remote?: string }
 			>({
 				extraOptions: { command: 'changes_in_branch' },
@@ -1111,7 +1120,10 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				providesTags: (_result, _error, { stackId }) =>
 					stackId ? providesItem(ReduxTag.BranchChanges, stackId) : [],
 				transformResponse(rsp: TreeChanges) {
-					return changesAdapter.addMany(changesAdapter.getInitialState(), rsp.changes);
+					return {
+						changes: changesAdapter.addMany(changesAdapter.getInitialState(), rsp.changes),
+						stats: rsp.stats
+					};
 				}
 			}),
 			updateCommitMessage: build.mutation<

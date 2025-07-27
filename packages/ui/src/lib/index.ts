@@ -21,6 +21,7 @@ export {
 	default as IntegrationSeriesRow,
 	type BranchShouldBeDeletedMap
 } from '$components/IntegrationSeriesRow.svelte';
+export { default as LineStats } from '$components/LineStats.svelte';
 export { default as LinkButton } from '$components/LinkButton.svelte';
 export { default as Modal, type ModalProps } from '$components/Modal.svelte';
 export { default as ModalHeader } from '$components/ModalHeader.svelte';
