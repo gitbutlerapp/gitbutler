@@ -29,6 +29,7 @@
 		icon?: keyof typeof iconsJson | undefined;
 		hotkey?: string;
 		tooltip?: string;
+		tooltipHotkey?: string;
 		tooltipPosition?: TooltipPosition;
 		tooltipAlign?: TooltipAlign;
 		tooltipDelay?: number;
@@ -79,6 +80,7 @@
 		testId,
 		icon,
 		tooltip,
+		tooltipHotkey,
 		tooltipPosition,
 		tooltipAlign,
 		tooltipDelay,
@@ -100,7 +102,13 @@
 	}
 </script>
 
-<Tooltip text={tooltip} align={tooltipAlign} position={tooltipPosition} delay={tooltipDelay}>
+<Tooltip
+	text={tooltip}
+	align={tooltipAlign}
+	position={tooltipPosition}
+	delay={tooltipDelay}
+	hotkey={tooltipHotkey}
+>
 	<button
 		bind:this={el}
 		class={[

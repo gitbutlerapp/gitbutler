@@ -15,11 +15,12 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import { ReviewBadge } from '@gitbutler/ui';
+	import { ReviewBadge, Icon, Tooltip } from '@gitbutler/ui';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import type { DropzoneHandler } from '$lib/dragging/handler';
 	import type { PushStatus } from '$lib/stacks/stack';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
+
 	import type { Snippet } from 'svelte';
 
 	interface BranchCardProps {
@@ -173,16 +174,17 @@
 					<br />
 					Create or drag & drop commits here.
 				{/snippet}
+
 				{#snippet content()}
-					<span class="branch-header__item">
-						<BranchBadge pushStatus={args.pushStatus} unstyled />
-					</span>
-					<span class="branch-header__divider">•</span>
+					<BranchBadge pushStatus={args.pushStatus} unstyled />
 
 					{#if args.isConflicted}
-						<span class="branch-header__item branch-header__item--conflict"> Conflicts </span>
-						<span class="branch-header__divider">•</span>
+						<Tooltip text="This branch has conflicts">
+							<Icon name="warning-small" color="error" />
+						</Tooltip>
 					{/if}
+
+					<span class="branch-header__divider">•</span>
 
 					{#if args.lastUpdatedAt}
 						<span class="branch-header__item">

@@ -150,8 +150,8 @@
 
 	.branch-header__details {
 		display: flex;
-		flex-wrap: wrap;
 		align-items: center;
+		overflow: hidden;
 		gap: 6px;
 		color: var(--clr-text-2);
 

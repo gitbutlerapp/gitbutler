@@ -54,17 +54,19 @@
 
 <Tooltip text={getBadgeDetails().text}>
 	<div class="review-badge" class:pr-type={status}>
-		{#if type === 'MR'}
-			{@html glLogo}
-		{:else if type === 'PR'}
-			{@html ghLogo}
-		{/if}
+		<div class="review-badge__icon">
+			{#if type === 'MR'}
+				{@html glLogo}
+			{:else if type === 'PR'}
+				{@html ghLogo}
+			{/if}
+		</div>
 
 		<span class="text-10 text-semibold review-badge-text">
 			{#if status === 'draft'}
 				Draft
 			{:else}
-				{reviewUnit}
+				{reviewUnit} #{number}
 			{/if}
 		</span>
 
@@ -89,6 +91,15 @@
 		background-color: var(--clr-bg-1-muted);
 		color: var(--clr-text-1);
 		line-height: 1;
+	}
+
+	.review-badge__icon {
+		display: flex;
+		flex-shrink: 0;
+	}
+
+	.review-badge-text {
+		white-space: nowrap;
 	}
 
 	.pr-status {

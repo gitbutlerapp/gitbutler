@@ -18,6 +18,7 @@
 		position?: TooltipPosition;
 		overrideYScroll?: number;
 		maxWidth?: number;
+		hotkey?: string;
 		children: Snippet;
 	}
 
@@ -29,6 +30,7 @@
 		position: requestedPosition = 'bottom',
 		overrideYScroll,
 		maxWidth = 240,
+		hotkey,
 		children
 	}: Props = $props();
 
@@ -106,6 +108,10 @@
 				}}
 			>
 				<span>{text}</span>
+
+				{#if hotkey}
+					<span class="tooltip-hotkey">{hotkey}</span>
+				{/if}
 			</div>
 		{/if}
 	</span>
@@ -135,5 +141,10 @@
 		white-space: pre-line;
 		word-break: break-word;
 		pointer-events: none;
+	}
+
+	.tooltip-hotkey {
+		margin-left: 3px;
+		opacity: 0.6;
 	}
 </style>

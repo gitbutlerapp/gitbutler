@@ -135,6 +135,7 @@
 				width={34}
 				class={['btn-square', isHistoryPath() && 'btn-active']}
 				tooltip="Operations history"
+				tooltipHotkey="⇧⌘H"
 				{disabled}
 			>
 				{#snippet custom()}

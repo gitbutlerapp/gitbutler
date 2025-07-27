@@ -20,8 +20,7 @@
 		header?: Snippet<[HTMLDivElement]>;
 		extraActions?: Snippet;
 		kebabMenu?: Snippet<[element: HTMLElement]>;
-		children?: Snippet;
-		filesSplitView?: Snippet;
+		children: Snippet;
 		testId?: string;
 		persistId?: string;
 		bottomBorder?: boolean;
@@ -42,7 +41,6 @@
 		extraActions,
 		kebabMenu,
 		children,
-		filesSplitView,
 		testId,
 		persistId,
 		bottomBorder,
@@ -140,17 +138,9 @@
 
 	{#if !$collapsed}
 		<ConfigurableScrollableContainer>
-			{#if children}
-				<div class="drawer__content" bind:clientHeight={contentHeight}>
-					{@render children()}
-				</div>
-
-				{#if filesSplitView}
-					<div class="drawer__files-split-view">
-						{@render filesSplitView()}
-					</div>
-				{/if}
-			{/if}
+			<div class="drawer__content" bind:clientHeight={contentHeight}>
+				{@render children()}
+			</div>
 		</ConfigurableScrollableContainer>
 	{/if}
 	{#if resizer}

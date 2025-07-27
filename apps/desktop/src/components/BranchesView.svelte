@@ -19,6 +19,7 @@
 	import CurrentOriginCard from '$components/branchesPage/CurrentOriginCard.svelte';
 	import PRListCard from '$components/branchesPage/PRListCard.svelte';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
+	import { HorizontalPanner } from '$lib/dragging/horizontalPanner';
 	import { isParsedError } from '$lib/error/parser';
 	import { workspacePath } from '$lib/routes/routes.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
@@ -43,7 +44,6 @@
 
 	const projectState = $derived(uiState.project(projectId));
 	const branchesState = $derived(projectState.branchesSelection);
-	const sidebarWidth = $derived(uiState.global.historySidebarWidth);
 
 	const baseBranchResult = $derived(baseBranchService.baseBranch(projectId));
 	const branchesSelection = $derived(projectState.branchesSelection);
@@ -130,6 +130,15 @@
 			console.warn('Branches selection cleared');
 		}
 	}
+
+	const horizontalPanner = $derived(rightWrapper ? new HorizontalPanner(rightWrapper) : undefined);
+
+	$effect(() => {
+		if (horizontalPanner) {
+			const unsub = horizontalPanner.registerListeners();
+			return () => unsub?.();
+		}
+	});
 </script>
 
 <Modal
@@ -257,8 +266,8 @@
 					direction="right"
 					minWidth={14}
 					borderRadius="ml"
-					persistId="resizer-historyWidth"
-					defaultValue={sidebarWidth.current}
+					persistId="resizer-branchesWidth"
+					defaultValue={24}
 				/>
 			</div>
 
@@ -399,7 +408,12 @@
 					{#if !isNonLocalPr}
 						<div class="preview-selection">
 							<ConfigurableScrollableContainer zIndex="var(--z-lifted)">
-								<SelectionView testId={TestId.BranchesSelectionView} {projectId} {selectionId} />
+								<SelectionView
+									testId={TestId.BranchesSelectionView}
+									{projectId}
+									{selectionId}
+									bottomBorder
+								/>
 							</ConfigurableScrollableContainer>
 						</div>
 					{/if}
@@ -434,6 +448,7 @@
 		display: flex;
 		position: relative;
 		height: 100%;
+		margin-right: -1px;
 		margin-left: -1px;
 		overflow: hidden;
 		overflow-x: auto;
@@ -445,7 +460,7 @@
 		flex-grow: 0;
 		flex-shrink: 0;
 		flex-direction: column;
-		max-height: calc(100% + 1px);
+		max-height: 100%;
 		border-right: 1px solid var(--clr-border-2);
 		border-left: 1px solid var(--clr-border-2);
 	}
@@ -456,7 +471,7 @@
 		flex-grow: 0;
 		flex-shrink: 0;
 		flex-direction: column;
-		max-height: calc(100% + 1px);
+		max-height: 100%;
 		overflow: hidden;
 		border-right: 1px solid var(--clr-border-2);
 
@@ -492,7 +507,9 @@
 		position: relative;
 		flex: 1;
 		flex-direction: column;
+		min-width: 460px;
 		min-height: 100%;
 		overflow: hidden;
+		border-right: 1px solid var(--clr-border-2);
 	}
 </style>
