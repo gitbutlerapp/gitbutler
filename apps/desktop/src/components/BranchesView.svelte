@@ -19,6 +19,7 @@
 	import CurrentOriginCard from '$components/branchesPage/CurrentOriginCard.svelte';
 	import PRListCard from '$components/branchesPage/PRListCard.svelte';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
+	import { HorizontalPanner } from '$lib/dragging/horizontalPanner';
 	import { isParsedError } from '$lib/error/parser';
 	import { workspacePath } from '$lib/routes/routes.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
@@ -129,6 +130,15 @@
 			console.warn('Branches selection cleared');
 		}
 	}
+
+	const horizontalPanner = $derived(rightWrapper ? new HorizontalPanner(rightWrapper) : undefined);
+
+	$effect(() => {
+		if (horizontalPanner) {
+			const unsub = horizontalPanner.registerListeners();
+			return () => unsub?.();
+		}
+	});
 </script>
 
 <Modal
