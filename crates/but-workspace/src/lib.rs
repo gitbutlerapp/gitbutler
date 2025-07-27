@@ -199,9 +199,30 @@ pub struct RefInfo {
     pub is_managed_ref: bool,
     /// The `workspace_ref_name` points to a commit that was specifically created by us.
     /// If the user advanced the workspace head by hand, this would be `false`.
+    /// See if `ancestor_workspace_commit` is `Some()` to understand if anything could be fixed here.
+    /// If there is no managed commits, we have to be extra careful as to what we allow, but setting
+    /// up stacks and dependent branches is usually fine, and limited commit creation. Play it safe though,
+    /// this is mainly for graceful handling of special cases.
     pub is_managed_commit: bool,
+    /// The workspace commit as it exists in the past of `workspace_ref_name`.
+    ///
+    /// **Warning**: If `Some()`, only fixing this issue should be allowed.
+    pub ancestor_workspace_commit: Option<AncestorWorkspaceCommit>,
     /// The workspace represents what `HEAD` is pointing to.
     pub is_entrypoint: bool,
+}
+
+/// Describes a workspace commit that is in the ancestry of a managed workspace reference,
+/// probably because it was advanced by user commits.
+#[derive(Debug, Clone)]
+pub struct AncestorWorkspaceCommit {
+    /// The commits along the first parent that are between the managed workspace reference and the managed workspace commit.
+    /// The vec is never empty.
+    pub commits_outside: Vec<ref_info::ui::Commit>,
+    /// The index of the segment that actually holds the managed workspace commit.
+    pub segment_with_managed_commit: SegmentIndex,
+    /// The index of the workspace commit within the `commits` array in its parent segment.
+    pub commit_index_of_managed_commit: but_graph::CommitIndex,
 }
 
 /// A representation of the commit that is the tip of the workspace i.e., usually what `HEAD` points to,

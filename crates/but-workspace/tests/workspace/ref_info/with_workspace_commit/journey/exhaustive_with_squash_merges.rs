@@ -47,6 +47,7 @@ fn j01_unborn() -> anyhow::Result<()> {
             lower_bound: None,
             is_managed_ref: false,
             is_managed_commit: false,
+            ancestor_workspace_commit: None,
             is_entrypoint: true,
         },
     )
@@ -95,6 +96,7 @@ fn j02_first_commit() -> anyhow::Result<()> {
             lower_bound: None,
             is_managed_ref: false,
             is_managed_commit: false,
+            ancestor_workspace_commit: None,
             is_entrypoint: true,
         },
     )
@@ -147,6 +149,7 @@ However, without an official workspace it still won't be acting as a target.
             lower_bound: None,
             is_managed_ref: false,
             is_managed_commit: false,
+            ancestor_workspace_commit: None,
             is_entrypoint: true,
         },
     )
@@ -195,6 +198,7 @@ However, without an official workspace it still won't be acting as a target.
             lower_bound: None,
             is_managed_ref: false,
             is_managed_commit: false,
+            ancestor_workspace_commit: None,
             is_entrypoint: true,
         },
     )
@@ -215,33 +219,34 @@ fn j04_create_workspace() -> anyhow::Result<()> {
     // (despite the target being set by the test-suite).
     let info = but_workspace::head_info(&repo, &*meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
-Ok(
-    RefInfo {
-        workspace_ref_name: Some(
-            FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
-        ),
-        stacks: [],
-        target: Some(
-            Target {
-                ref_name: FullName(
-                    "refs/remotes/origin/main",
+    Ok(
+        RefInfo {
+            workspace_ref_name: Some(
+                FullName(
+                    "refs/heads/gitbutler/workspace",
                 ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 0,
-            },
-        ),
-        extra_target: None,
-        lower_bound: Some(
-            NodeIndex(2),
-        ),
-        is_managed_ref: true,
-        is_managed_commit: true,
-        is_entrypoint: true,
-    },
-)
-"#);
+            ),
+            stacks: [],
+            target: Some(
+                Target {
+                    ref_name: FullName(
+                        "refs/remotes/origin/main",
+                    ),
+                    segment_index: NodeIndex(1),
+                    commits_ahead: 0,
+                },
+            ),
+            extra_target: None,
+            lower_bound: Some(
+                NodeIndex(2),
+            ),
+            is_managed_ref: true,
+            is_managed_commit: true,
+            ancestor_workspace_commit: None,
+            is_entrypoint: true,
+        },
+    )
+    "#);
     Ok(())
 }
 
@@ -304,6 +309,7 @@ fn j05_empty_stack() -> anyhow::Result<()> {
             ),
             is_managed_ref: true,
             is_managed_commit: true,
+            ancestor_workspace_commit: None,
             is_entrypoint: true,
         },
     )
@@ -369,6 +375,7 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
             ),
             is_managed_ref: true,
             is_managed_commit: true,
+            ancestor_workspace_commit: None,
             is_entrypoint: true,
         },
     )
@@ -424,6 +431,7 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
             ),
             is_managed_ref: true,
             is_managed_commit: true,
+            ancestor_workspace_commit: None,
             is_entrypoint: true,
         },
     )
@@ -491,6 +499,7 @@ fn j07_push_commit() -> anyhow::Result<()> {
             ),
             is_managed_ref: true,
             is_managed_commit: true,
+            ancestor_workspace_commit: None,
             is_entrypoint: true,
         },
     )
@@ -564,6 +573,7 @@ Create a new local commit right after the previous pushed one
             ),
             is_managed_ref: true,
             is_managed_commit: true,
+            ancestor_workspace_commit: None,
             is_entrypoint: true,
         },
     )
@@ -635,6 +645,7 @@ fn j09_rewritten_remote_and_local_commit() -> anyhow::Result<()> {
             ),
             is_managed_ref: true,
             is_managed_commit: true,
+            ancestor_workspace_commit: None,
             is_entrypoint: true,
         },
     )
@@ -713,6 +724,7 @@ The remote squash-merges S1 *and* changes the 'file' so it looks entirely differ
             ),
             is_managed_ref: true,
             is_managed_commit: true,
+            ancestor_workspace_commit: None,
             is_entrypoint: true,
         },
     )
@@ -804,6 +816,7 @@ The remote was re-used and merged once more with more changes.
             ),
             is_managed_ref: true,
             is_managed_commit: true,
+            ancestor_workspace_commit: None,
             is_entrypoint: true,
         },
     )
@@ -936,6 +949,7 @@ A new multi-segment stack is created without remote and squash merged locally.
             ),
             is_managed_ref: true,
             is_managed_commit: true,
+            ancestor_workspace_commit: None,
             is_entrypoint: true,
         },
     )
