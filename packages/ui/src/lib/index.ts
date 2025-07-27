@@ -54,7 +54,6 @@ export { default as FileName } from '$components/file/FileName.svelte';
 export { default as FileStatusBadge } from '$components/file/FileStatusBadge.svelte';
 export { default as FileViewHeader } from '$components/file/FileViewHeader.svelte';
 export { default as FolderListItem } from '$components/file/FolderListItem.svelte';
-export { default as LineChangeStats } from '$components/file/LineChangeStats.svelte';
 
 // Select Components
 export { default as OptionsGroup } from '$components/select/OptionsGroup.svelte';
