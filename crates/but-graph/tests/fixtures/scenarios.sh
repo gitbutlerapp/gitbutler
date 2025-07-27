@@ -875,5 +875,47 @@ EOF
       commit D2-outside
     git checkout gitbutler/workspace
   )
+
+  git init advanced-workspace-ref
+  (cd advanced-workspace-ref
+    commit M1
+    commit M2
+    setup_target_to_match_main
+    git checkout -b A
+      git branch B
+      commit A1
+    git checkout B
+      commit B1
+
+    create_workspace_commit_once B A
+    commit on-top1
+    git checkout -b branch-on-top
+      commit on-top-sibling
+    git checkout gitbutler/workspace
+    git merge --no-ff branch-on-top -m "on-top2-merge"
+    commit on-top3
+    git branch intermediate-ref
+    commit on-top4
+  )
+
+  git init advanced-workspace-ref-and-single-stack
+  (cd advanced-workspace-ref-and-single-stack
+    commit M1
+    commit M2
+    setup_target_to_match_main
+    git checkout -b A
+      commit A1
+    create_workspace_commit_once A
+    commit on-top1
+    git checkout -b branch-on-top
+      commit on-top-sibling
+    git checkout gitbutler/workspace
+    git merge --no-ff branch-on-top -m "on-top2-merge"
+    commit on-top3
+    git branch intermediate-ref
+    commit on-top4
+
+    git checkout gitbutler/workspace
+  )
 )
 

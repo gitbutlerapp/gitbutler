@@ -70,6 +70,7 @@ fn two_commits_require_force_push() -> anyhow::Result<()> {
             ),
             is_managed_ref: true,
             is_managed_commit: true,
+            ancestor_workspace_commit: None,
             is_entrypoint: true,
         },
     )
@@ -140,6 +141,7 @@ fn two_commits_require_force_push_merged() -> anyhow::Result<()> {
             ),
             is_managed_ref: true,
             is_managed_commit: true,
+            ancestor_workspace_commit: None,
             is_entrypoint: true,
         },
     )
@@ -214,6 +216,7 @@ fn remote_diverged() -> anyhow::Result<()> {
             ),
             is_managed_ref: true,
             is_managed_commit: true,
+            ancestor_workspace_commit: None,
             is_entrypoint: true,
         },
     )
@@ -296,6 +299,7 @@ fn remote_diverged_merge() -> anyhow::Result<()> {
             ),
             is_managed_ref: true,
             is_managed_commit: true,
+            ancestor_workspace_commit: None,
             is_entrypoint: true,
         },
     )
@@ -362,6 +366,7 @@ fn remote_behind() -> anyhow::Result<()> {
             ),
             is_managed_ref: true,
             is_managed_commit: true,
+            ancestor_workspace_commit: None,
             is_entrypoint: true,
         },
     )
@@ -439,6 +444,7 @@ fn remote_behind_merge_no_ff() -> anyhow::Result<()> {
             ),
             is_managed_ref: true,
             is_managed_commit: true,
+            ancestor_workspace_commit: None,
             is_entrypoint: true,
         },
     )
@@ -507,6 +513,7 @@ fn remote_ahead() -> anyhow::Result<()> {
             ),
             is_managed_ref: true,
             is_managed_commit: true,
+            ancestor_workspace_commit: None,
             is_entrypoint: true,
         },
     )
@@ -579,6 +586,7 @@ fn remote_ahead_merge_ff() -> anyhow::Result<()> {
             ),
             is_managed_ref: true,
             is_managed_commit: true,
+            ancestor_workspace_commit: None,
             is_entrypoint: true,
         },
     )

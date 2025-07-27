@@ -61,7 +61,20 @@ pub struct Workspace<'graph> {
 #[derive(Debug, Clone)]
 pub enum WorkspaceKind {
     /// The `HEAD` is pointing to a dedicated workspace reference, like `refs/heads/gitbutler/workspace`.
+    /// This also means that we have a workspace commit that `ref_name` points to directly, which is also owned
+    /// exclusively by the underlying segment.
     Managed {
+        /// The name of the reference pointing to the workspace commit. Useful for deriving the workspace name.
+        ref_name: gix::refs::FullName,
+    },
+    /// Information for when a workspace reference was advanced by hand and does not point to a
+    /// managed workspace commit anymore.
+    /// That commit, however, is reachable by following the first parent from the workspace reference.
+    ///
+    /// Note that the stacks that follow *will* be in unusable if the workspace commit is in a segment below,
+    /// but typically is usable if there is just a single real stack, or any amount of virtual stacks below
+    /// (i.e. those that have no commits and are just marked by references).
+    ManagedMissingWorkspaceCommit {
         /// The name of the reference pointing to the workspace commit. Useful for deriving the workspace name.
         ref_name: gix::refs::FullName,
     },
@@ -69,7 +82,8 @@ pub enum WorkspaceKind {
     ///
     /// It can be inside or outside a workspace.
     /// If the respective segment is [not named](Workspace::ref_name), this means the `HEAD` id detached.
-    /// The commit that the working tree is at is always implied to be the first commit of the [`StackSegment`].
+    /// The commit that the working tree is at is always implied to be the first commit of the [`StackSegment`]
+    /// at [`Workspace::id`].
     AdHoc,
 }
 
@@ -248,7 +262,7 @@ impl Graph {
             lower_bound: None,
         };
 
-        let ws_lower_bound = if ws.is_managed() {
+        let ws_lower_bound = if ws.has_managed_ref() {
             self.compute_lowest_base(ws.id, ws.target.as_ref(), self.extra_target)
                 .or_else(|| {
                     // target not available? Try the base of the workspace itself
@@ -313,13 +327,22 @@ impl Graph {
             }
         }
 
+        if ws.has_managed_ref() && self[ws.id].commits.is_empty() {
+            ws.kind = WorkspaceKind::ManagedMissingWorkspaceCommit {
+                ref_name: ws_tip_segment
+                    .ref_name
+                    .clone()
+                    .expect("BUG: must be set or we wouldn't be here"),
+            };
+        }
+
         fn segment_name_is_special(s: &Segment) -> bool {
             s.ref_name
                 .as_ref()
                 .is_some_and(|rn| rn.as_bstr().starts_with_str("refs/heads/gitbutler/"))
         }
 
-        if ws.is_managed() {
+        if ws.has_managed_ref() {
             let (_lowest_base, lowest_base_sidx) =
                 ws_lower_bound.map_or((None, None), |(base, sidx)| (Some(base), Some(sidx)));
             for stack_top_sidx in self
@@ -778,9 +801,9 @@ impl Workspace<'_> {
                     // to the same commit.
                     || {
                     let mut prune = s.id != remote_sidx
-                    && s.ref_name
-                    .as_ref()
-                    .is_some_and(|orn| orn.category() == Some(Category::RemoteBranch));
+                        && s.ref_name
+                        .as_ref()
+                        .is_some_and(|orn| orn.category() == Some(Category::RemoteBranch));
                     if prune && may_take_commits_from_first_remote {
                         prune = false;
                         may_take_commits_from_first_remote = false;
@@ -857,8 +880,11 @@ impl Workspace<'_> {
 impl Workspace<'_> {
     /// Return `true` if this workspace is managed, meaning we control certain aspects of it.
     /// If `false`, we are more conservative and may not support all features.
-    pub fn is_managed(&self) -> bool {
-        matches!(self.kind, WorkspaceKind::Managed { .. })
+    pub fn has_managed_ref(&self) -> bool {
+        matches!(
+            self.kind,
+            WorkspaceKind::Managed { .. } | WorkspaceKind::ManagedMissingWorkspaceCommit { .. }
+        )
     }
 
     /// Return the name of the workspace reference by looking our segment up in `graph`.
@@ -876,6 +902,9 @@ impl Workspace<'_> {
         let graph = self.graph;
         let (name, sign) = match &self.kind {
             WorkspaceKind::Managed { ref_name } => (Graph::ref_debug_string(ref_name), "🏘️"),
+            WorkspaceKind::ManagedMissingWorkspaceCommit { ref_name } => {
+                (Graph::ref_debug_string(ref_name), "🏘️⚠️")
+            }
             WorkspaceKind::AdHoc => (
                 graph[self.id]
                     .ref_name
@@ -914,6 +943,7 @@ impl std::fmt::Debug for Workspace<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct(&format!("Workspace({})", self.debug_string()))
             .field("id", &self.id.index())
+            .field("kind", &self.kind)
             .field("stacks", &self.stacks)
             .field("metadata", &self.metadata)
             .field("target", &self.target)

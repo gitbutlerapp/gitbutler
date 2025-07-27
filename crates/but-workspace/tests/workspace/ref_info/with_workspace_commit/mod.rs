@@ -94,6 +94,7 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -152,6 +153,7 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: false,
     }
     "#);
@@ -214,6 +216,7 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: false,
     }
     "#);
@@ -301,6 +304,7 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -403,6 +407,7 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -491,6 +496,7 @@ fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -575,6 +581,7 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -650,6 +657,7 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -733,6 +741,7 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -802,6 +811,7 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -883,6 +893,7 @@ fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: false,
     }
     "#);
@@ -1004,6 +1015,7 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -1131,6 +1143,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
         ),
         is_managed_ref: true,
         is_managed_commit: false,
+        ancestor_workspace_commit: None,
         is_entrypoint: false,
     }
     "#);
@@ -1246,6 +1259,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
         ),
         is_managed_ref: true,
         is_managed_commit: false,
+        ancestor_workspace_commit: None,
         is_entrypoint: false,
     }
     "#);
@@ -1340,6 +1354,7 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -1410,6 +1425,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<(
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -1499,6 +1515,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -1575,6 +1592,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -1673,6 +1691,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -1758,6 +1777,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -1847,6 +1867,7 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -1938,6 +1959,7 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: false,
     }
     "#);
@@ -2030,6 +2052,7 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
         ),
         is_managed_ref: true,
         is_managed_commit: false,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -2105,6 +2128,7 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
         ),
         is_managed_ref: true,
         is_managed_commit: false,
+        ancestor_workspace_commit: None,
         is_entrypoint: false,
     }
     "#);
@@ -2203,6 +2227,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -2279,6 +2304,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: false,
     }
     "#);
@@ -2354,6 +2380,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: false,
     }
     "#);
@@ -2435,6 +2462,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -2490,6 +2518,7 @@ fn disjoint() -> anyhow::Result<()> {
         lower_bound: None,
         is_managed_ref: false,
         is_managed_commit: false,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -2619,6 +2648,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -2728,6 +2758,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: false,
     }
     "#);
@@ -2837,6 +2868,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: false,
     }
     "#);
@@ -2947,6 +2979,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: false,
     }
     "#);
@@ -3014,6 +3047,7 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -3067,6 +3101,7 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: false,
     }
     "#);
@@ -3101,6 +3136,7 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
         ),
         is_managed_ref: true,
         is_managed_commit: true,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -3143,6 +3179,143 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
         lower_bound: None,
         is_managed_ref: false,
         is_managed_commit: false,
+        ancestor_workspace_commit: None,
+        is_entrypoint: true,
+    }
+    "#);
+    Ok(())
+}
+
+#[test]
+fn advanced_workspace_multi_stack() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("advanced-workspace-ref")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * a7131b1 (HEAD -> gitbutler/workspace) on-top4
+    * 4d3831e (intermediate-ref) on-top3
+    *   468357f on-top2-merge
+    |\  
+    | * d3166f7 (branch-on-top) on-top-sibling
+    |/  
+    * 118ddbb on-top1
+    *   619d548 GitButler Workspace Commit
+    |\  
+    | * 6fdab32 (A) A1
+    * | 8a352d5 (B) B1
+    |/  
+    * bce0c5e (origin/main, main) M2
+    * 3183e43 M1
+    ");
+
+    add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &[]);
+
+    let opts = standard_options();
+    let info = head_info(&repo, &meta, opts)?;
+    // It can find the exact location of the workspace commit in the ancestry.
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [],
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(1),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(1),
+        ),
+        lower_bound: Some(
+            NodeIndex(2),
+        ),
+        is_managed_ref: true,
+        is_managed_commit: false,
+        ancestor_workspace_commit: Some(
+            AncestorWorkspaceCommit {
+                commits_outside: [
+                    Commit(a7131b1, "on-top4\n"🏘️),
+                    Commit(4d3831e, "on-top3\n"🏘️),
+                    Commit(468357f, "on-top2-merge\n"🏘️),
+                    Commit(d3166f7, "on-top-sibling\n"🏘️),
+                    Commit(118ddbb, "on-top1\n"🏘️),
+                ],
+                segment_with_managed_commit: NodeIndex(10),
+                commit_index_of_managed_commit: 0,
+            },
+        ),
+        is_entrypoint: true,
+    }
+    "#);
+    Ok(())
+}
+
+#[test]
+fn advanced_workspace_single_stack() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("advanced-workspace-ref-and-single-stack")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * da912a8 (HEAD -> gitbutler/workspace) on-top4
+    * 198eaf8 (intermediate-ref) on-top3
+    *   3147997 on-top2-merge
+    |\  
+    | * dd7bb9a (branch-on-top) on-top-sibling
+    |/  
+    * 9785229 on-top1
+    * c58f157 GitButler Workspace Commit
+    * 6fdab32 (A) A1
+    * bce0c5e (origin/main, main) M2
+    * 3183e43 M1
+    ");
+
+    add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
+
+    let opts = standard_options();
+    let info = head_info(&repo, &meta, opts)?;
+    // It can find the exact location of the workspace commit in the ancestry.
+    insta::assert_debug_snapshot!(info, @r#"
+    RefInfo {
+        workspace_ref_name: Some(
+            FullName(
+                "refs/heads/gitbutler/workspace",
+            ),
+        ),
+        stacks: [],
+        target: Some(
+            Target {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(1),
+                commits_ahead: 0,
+            },
+        ),
+        extra_target: Some(
+            NodeIndex(1),
+        ),
+        lower_bound: Some(
+            NodeIndex(2),
+        ),
+        is_managed_ref: true,
+        is_managed_commit: false,
+        ancestor_workspace_commit: Some(
+            AncestorWorkspaceCommit {
+                commits_outside: [
+                    Commit(da912a8, "on-top4\n"🏘️),
+                    Commit(198eaf8, "on-top3\n"🏘️),
+                    Commit(3147997, "on-top2-merge\n"🏘️),
+                    Commit(dd7bb9a, "on-top-sibling\n"🏘️),
+                    Commit(9785229, "on-top1\n"🏘️),
+                ],
+                segment_with_managed_commit: NodeIndex(7),
+                commit_index_of_managed_commit: 1,
+            },
+        ),
         is_entrypoint: true,
     }
     "#);

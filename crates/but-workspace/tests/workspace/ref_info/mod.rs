@@ -41,6 +41,7 @@ fn unborn_untracked() -> anyhow::Result<()> {
         lower_bound: None,
         is_managed_ref: false,
         is_managed_commit: false,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -129,6 +130,7 @@ fn detached() -> anyhow::Result<()> {
         lower_bound: None,
         is_managed_ref: false,
         is_managed_commit: false,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -184,6 +186,7 @@ fn conflicted_in_local_branch() -> anyhow::Result<()> {
         lower_bound: None,
         is_managed_ref: false,
         is_managed_commit: false,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -293,6 +296,7 @@ fn single_branch() -> anyhow::Result<()> {
         lower_bound: None,
         is_managed_ref: false,
         is_managed_commit: false,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);
@@ -451,6 +455,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
         lower_bound: None,
         is_managed_ref: false,
         is_managed_commit: false,
+        ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
     "#);

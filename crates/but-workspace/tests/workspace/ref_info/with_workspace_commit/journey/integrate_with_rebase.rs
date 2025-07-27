@@ -73,6 +73,7 @@ fn two_commits_rebased_onto_target() -> anyhow::Result<()> {
             ),
             is_managed_ref: true,
             is_managed_commit: true,
+            ancestor_workspace_commit: None,
             is_entrypoint: true,
         },
     )
@@ -150,6 +151,7 @@ fn two_commits_rebased_onto_target_one_amended_afterwards() -> anyhow::Result<()
             ),
             is_managed_ref: true,
             is_managed_commit: true,
+            ancestor_workspace_commit: None,
             is_entrypoint: true,
         },
     )
@@ -224,6 +226,7 @@ fn two_rewritten_commits_track_as_local_and_remote() -> anyhow::Result<()> {
             ),
             is_managed_ref: true,
             is_managed_commit: true,
+            ancestor_workspace_commit: None,
             is_entrypoint: true,
         },
     )
@@ -301,6 +304,7 @@ fn two_commits_rebased_onto_target_with_changeset_check() -> anyhow::Result<()> 
             ),
             is_managed_ref: true,
             is_managed_commit: true,
+            ancestor_workspace_commit: None,
             is_entrypoint: true,
         },
     )
