@@ -26,7 +26,6 @@ const MOCK_PROJECT_UI_STATE: ProjectUiState = {
 
 const MOCK_GLOBAL_UI_STATE: GlobalUiState = {
 	drawerHeight: 20,
-	historySidebarWidth: 30,
 	aiSuggestionsOnType: true,
 	channel: undefined,
 	draftBranchName: undefined,
@@ -39,8 +38,7 @@ const MOCK_GLOBAL_UI_STATE: GlobalUiState = {
 	modal: undefined,
 	stackWidth: 22.5,
 	detailsWidth: 25,
-	previewWidth: 30,
-	branchesViewSidebarWidth: 40
+	previewWidth: 30
 };
 
 export function getUiStateMock() {

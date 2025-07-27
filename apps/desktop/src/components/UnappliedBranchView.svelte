@@ -57,7 +57,7 @@
 		{@const hasCommits = branch.commits.length > 0}
 		{@const remoteTrackingBranch = branch.remoteTrackingBranch}
 		{@const preferredPrNumber = branch.prNumber || prNumber}
-		<Drawer testId={TestId.UnappliedBranchDrawer} {onclose}>
+		<Drawer testId={TestId.UnappliedBranchDrawer} {onclose} bottomBorder>
 			{#snippet header()}
 				<div class="branch__header">
 					{#if hasCommits}
@@ -107,23 +107,22 @@
 					</BranchDetails>
 				</div>
 			</div>
-
-			{#snippet filesSplitView()}
-				<ReduxResult {projectId} result={changesResult.current}>
-					{#snippet children(changes, env)}
-						<ChangedFiles
-							title="All changed files"
-							projectId={env.projectId}
-							stackId={env.stackId}
-							active
-							autoselect
-							{selectionId}
-							{changes}
-						/>
-					{/snippet}
-				</ReduxResult>
-			{/snippet}
 		</Drawer>
+
+		<ReduxResult {projectId} result={changesResult.current}>
+			{#snippet children(changes, env)}
+				<ChangedFiles
+					title="All changed files"
+					projectId={env.projectId}
+					stackId={env.stackId}
+					active
+					autoselect
+					grow
+					{selectionId}
+					{changes}
+				/>
+			{/snippet}
+		</ReduxResult>
 	{/snippet}
 </ReduxResult>
 
@@ -148,7 +147,6 @@
 		gap: 8px;
 	}
 
-	/*  */
 	.remote-tracking-branch-icon {
 		display: flex;
 		gap: 6px;

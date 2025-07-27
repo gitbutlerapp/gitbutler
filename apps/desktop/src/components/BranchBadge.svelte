@@ -15,8 +15,11 @@
 	});
 </script>
 
-<span class={[!unstyled && 'text-10 text-bold branch-badge truncate']} style:--b-bg-color={bgColor}>
-	<span class:truncate={!unstyled}>{label}</span>
+<span
+	class={[!unstyled && 'text-10 text-bold branch-badge', 'truncate']}
+	style:--b-bg-color={bgColor}
+>
+	{label}
 </span>
 
 <style class="postcss">

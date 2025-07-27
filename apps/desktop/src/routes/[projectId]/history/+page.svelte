@@ -12,7 +12,6 @@
 	import { RemoteFile } from '$lib/files/file';
 	import { HISTORY_SERVICE, createdOnDay } from '$lib/history/history';
 	import { SETTINGS } from '$lib/settings/userSettings';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { EmptyStatePlaceholder, HunkDiff, Icon, FileViewHeader } from '@gitbutler/ui';
 	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
@@ -25,8 +24,6 @@
 	const MIN_SNAPSHOTS_TO_LOAD = 30;
 	const userSettings = inject(SETTINGS);
 
-	const uiState = inject(UI_STATE);
-	const sidebarWidth = $derived(uiState.global.historySidebarWidth);
 	let sidebarEl = $state<HTMLElement>();
 
 	const historyService = inject(HISTORY_SERVICE);
@@ -202,7 +199,7 @@
 			minWidth={14}
 			borderRadius="ml"
 			persistId="resizer-historyWidth"
-			defaultValue={sidebarWidth.current}
+			defaultValue={30}
 		/>
 	</div>
 

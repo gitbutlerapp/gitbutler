@@ -25,6 +25,7 @@
 		draggableFiles?: boolean;
 		grow?: boolean;
 		noshrink?: boolean;
+		bottomBorder?: boolean;
 		resizer?: Partial<ComponentProps<typeof Resizer>>;
 		autoselect?: boolean;
 		ontoggle?: (collapsed: boolean) => void;
@@ -41,6 +42,7 @@
 		draggableFiles,
 		grow,
 		noshrink,
+		bottomBorder,
 		resizer,
 		autoselect,
 		ontoggle
@@ -76,7 +78,7 @@
 		<FileListMode bind:mode={listMode} persist="committed" />
 	{/snippet}
 
-	<div class="filelist-wrapper">
+	<div class="filelist-wrapper" class:bottom-border={bottomBorder}>
 		{#if changes.length > 0}
 			<FileList
 				{selectionId}
@@ -108,5 +110,9 @@
 		display: flex;
 		flex-direction: column;
 		background-color: var(--clr-bg-1);
+
+		&.bottom-border {
+			border-bottom: 1px solid var(--clr-border-2);
+		}
 	}
 </style>

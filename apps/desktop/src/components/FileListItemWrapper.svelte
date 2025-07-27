@@ -29,7 +29,6 @@
 		selected?: boolean;
 		isHeader?: boolean;
 		active?: boolean;
-		isLast?: boolean;
 		listMode: 'list' | 'tree';
 		linesAdded?: number;
 		linesRemoved?: number;
@@ -53,7 +52,6 @@
 		selected,
 		isHeader,
 		active,
-		isLast,
 		listMode,
 		depth,
 		executable,
@@ -184,7 +182,6 @@
 			checked={checkStatus.current === 'checked' || checkStatus.current === 'indeterminate'}
 			{active}
 			indeterminate={checkStatus.current === 'indeterminate'}
-			{isLast}
 			{depth}
 			{executable}
 			draggable={!draggableDisabled}

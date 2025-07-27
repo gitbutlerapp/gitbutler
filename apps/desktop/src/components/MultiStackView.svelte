@@ -92,6 +92,7 @@
 	const horizontalPanner = $derived(
 		lanesScrollableEl ? new HorizontalPanner(lanesScrollableEl) : undefined
 	);
+
 	$effect(() => {
 		if (horizontalPanner) {
 			const unsub = horizontalPanner.registerListeners();

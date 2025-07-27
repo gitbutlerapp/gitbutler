@@ -10,6 +10,7 @@
 			align: 'center',
 			position: 'top',
 			disabled: false,
+			hotkey: '⇧⌘K',
 			children
 		},
 		argTypes: {
@@ -53,6 +54,7 @@
 					position={args.position}
 					disabled={args.disabled}
 					children={args.children}
+					hotkey={args.hotkey}
 				></Tooltip> for you.
 			</p>
 		</div>

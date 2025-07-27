@@ -83,8 +83,6 @@ export type GlobalUiState = {
 	stackWidth: number;
 	detailsWidth: number;
 	previewWidth: number;
-	historySidebarWidth: number;
-	branchesViewSidebarWidth: number;
 	useFloatingBox: boolean;
 	floatingBoxSize: {
 		width: number;
@@ -133,8 +131,6 @@ export class UiState {
 		stackWidth: 22.5,
 		detailsWidth: 32,
 		previewWidth: 48,
-		historySidebarWidth: 30,
-		branchesViewSidebarWidth: 30,
 		useFloatingBox: false,
 		floatingBoxSize: {
 			width: 640,

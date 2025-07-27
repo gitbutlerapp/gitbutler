@@ -42,6 +42,7 @@
 					title="Changed files"
 					active
 					autoselect
+					grow
 					{projectId}
 					selectionId={{ type: 'commit', commitId }}
 					changes={changes.changes}

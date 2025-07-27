@@ -184,7 +184,6 @@
 		draggable={draggableFiles}
 		executable={!!isExecutable}
 		showCheckbox={showCheckboxes}
-		isLast={idx === visibleFiles.length - 1}
 		selected={idSelection.has(change.path, selectionId)}
 		onclick={(e) => {
 			e.stopPropagation();
