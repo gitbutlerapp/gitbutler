@@ -3951,9 +3951,9 @@ fn advanced_workspace_ref() -> anyhow::Result<()> {
         └── →:2: (main →:1:)
     ");
 
-    // TODO: fix this - should probably show original workspace, or nothing
-    //       with a hint on the two commits that need to be integrated.
-    //       And in that case, what to do with the ref? But it's not our current problem.
+    // We show the original 'native' configuration without pruning anything, even though
+    // it contains the workspace commit 619d548.
+    // It's up to the caller to deal with this situation as the workspace now is marked differently.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
     └── ≡:5:anon: on bce0c5e
@@ -4062,7 +4062,8 @@ fn advanced_workspace_ref_single_stack() -> anyhow::Result<()> {
         └── →:2: (main →:1:)
     ");
 
-    // TODO: fix this
+    // Here we'd show what happens if the workspace commit is somewhere in the middle
+    // of the segment. This is relevant for code trying to find it, which isn't done here.
     insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
     📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
     └── ≡:4:anon: on bce0c5e
@@ -4076,5 +4077,127 @@ fn advanced_workspace_ref_single_stack() -> anyhow::Result<()> {
         └── 📙:3:A
             └── ·6fdab32 (🏘️)
     ");
+    Ok(())
+}
+
+#[test]
+fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/two-branches-different-base")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   659d4d8 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * 3cf8eb6 (A) A1
+    * | d45228d (B) B1
+    | | * f6c5954 (origin/main, main) M4
+    | |/  
+    |/|   
+    * | b39bb35 M3
+    |/  
+    * 73ba99d M2
+    * fafd9d0 init
+    ");
+
+    add_workspace(&mut meta);
+    meta.data_mut().default_target = None;
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    └── 👉📕►►►:0[0]:gitbutler/workspace
+        └── ·659d4d8 (⌂|🏘️|1)
+            ├── ►:1[1]:B
+            │   ├── ·d45228d (⌂|🏘️|1)
+            │   └── ·b39bb35 (⌂|🏘️|1)
+            │       └── ►:3[2]:anon:
+            │           ├── ·73ba99d (⌂|🏘️|1)
+            │           └── ·fafd9d0 (⌂|🏘️|1)
+            └── ►:2[1]:A
+                └── ·3cf8eb6 (⌂|🏘️|1)
+                    └── →:3:
+    ");
+
+    // The base is automatically set to the lowest one that includes both branches, despite the target.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓! on 73ba99d
+    ├── ≡:2:A on 73ba99d
+    │   └── :2:A
+    │       └── ·3cf8eb6 (🏘️)
+    └── ≡:1:B on 73ba99d
+        └── :1:B
+            ├── ·d45228d (🏘️)
+            └── ·b39bb35 (🏘️)
+    ");
+
+    add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &[]);
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    // The same is true if stacks are known in workspace metadata.
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    ├── 👉📕►►►:0[0]:gitbutler/workspace
+    │   └── ·659d4d8 (⌂|🏘️|1)
+    │       ├── 📙►:3[1]:A
+    │       │   └── ·3cf8eb6 (⌂|🏘️|1)
+    │       │       └── ►:6[3]:anon:
+    │       │           ├── ·73ba99d (⌂|🏘️|✓|11)
+    │       │           └── ·fafd9d0 (⌂|🏘️|✓|11)
+    │       └── 📙►:4[1]:B
+    │           └── ·d45228d (⌂|🏘️|1)
+    │               └── ►:5[2]:anon:
+    │                   └── ·b39bb35 (⌂|🏘️|✓|11)
+    │                       └── →:6:
+    └── ►:1[0]:origin/main →:2:
+        └── ►:2[1]:main <> origin/main →:1:
+            └── ·f6c5954 (⌂|✓|10)
+                └── →:5:
+    ");
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main⇣1 on 73ba99d
+    ├── ≡📙:4:B on 73ba99d
+    │   └── 📙:4:B
+    │       ├── ·d45228d (🏘️)
+    │       └── ·b39bb35 (🏘️|✓)
+    └── ≡📙:3:A on 73ba99d
+        └── 📙:3:A
+            └── ·3cf8eb6 (🏘️)
+    ");
+
+    // Finally, if the extra-target, indicating an old stored base that isn't valid anymore.
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        standard_options_with_extra_target(&repo, ":/M3"),
+    )?
+    .validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    ├── 👉📕►►►:0[0]:gitbutler/workspace
+    │   └── ·659d4d8 (⌂|🏘️|1)
+    │       ├── 📙►:4[1]:A
+    │       │   └── ·3cf8eb6 (⌂|🏘️|1)
+    │       │       └── ►:6[3]:anon:
+    │       │           ├── ·73ba99d (⌂|🏘️|✓|11)
+    │       │           └── ·fafd9d0 (⌂|🏘️|✓|11)
+    │       └── 📙►:5[1]:B
+    │           └── ·d45228d (⌂|🏘️|1)
+    │               └── ►:3[2]:anon:
+    │                   └── ·b39bb35 (⌂|🏘️|✓|11)
+    │                       └── →:6:
+    └── ►:1[0]:origin/main →:2:
+        └── ►:2[1]:main <> origin/main →:1:
+            └── ·f6c5954 (⌂|✓|10)
+                └── →:3:
+    ");
+
+    // The base is still adjusted so it matches the actual stacks.
+    // Note how it shows more of the base of `B` due to `A` having a lower base with the target branch.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main⇣1 on 73ba99d
+    ├── ≡📙:5:B on 73ba99d
+    │   └── 📙:5:B
+    │       ├── ·d45228d (🏘️)
+    │       └── ·b39bb35 (🏘️|✓)
+    └── ≡📙:4:A on 73ba99d
+        └── 📙:4:A
+            └── ·3cf8eb6 (🏘️)
+    ");
+
     Ok(())
 }

@@ -917,5 +917,24 @@ EOF
 
     git checkout gitbutler/workspace
   )
+
+  git init two-branches-different-base
+  (cd two-branches-different-base
+    commit init
+    commit M2
+    git checkout -b A
+      commit A1
+    git checkout main
+      tick
+      commit M3
+      # important to have a clear target right below B,
+      # so A is below that.
+      git branch B
+      commit M4
+      setup_target_to_match_main
+    git checkout B
+      commit B1
+    create_workspace_commit_once B A
+  )
 )
 
