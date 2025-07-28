@@ -1,9 +1,9 @@
+use crate::virtual_branches_legacy_types::{Stack, StackBranch, VirtualBranches};
 use anyhow::{Context, bail};
 use but_core::RefMetadata;
 use but_core::ref_metadata::{
     Branch, RefInfo, StackId, ValueInfo, Workspace, WorkspaceStack, WorkspaceStackBranch,
 };
-use gitbutler_stack::VirtualBranchesState;
 use gix::date::SecondsSinceUnixEpoch;
 use gix::refs::{FullName, FullNameRef};
 use itertools::Itertools;
@@ -18,13 +18,13 @@ use std::time::Instant;
 struct Snapshot {
     /// The time at which the `content` was changed, before it was written to disk.
     changed_at: Option<Instant>,
-    content: VirtualBranchesState,
+    content: VirtualBranches,
     path: PathBuf,
 }
 
 impl Snapshot {
     fn from_path(path: PathBuf) -> anyhow::Result<Self> {
-        let content = gitbutler_fs::read_toml_file_or_default(&path)?;
+        let content = fs::read_toml_file_or_default(&path)?;
         Ok(Self {
             path,
             changed_at: None,
@@ -37,7 +37,7 @@ impl Snapshot {
             if self.content == Default::default() {
                 std::fs::remove_file(&self.path)?;
             } else {
-                gitbutler_fs::write(&self.path, toml::to_string(&self.content)?)?;
+                fs::write(&self.path, toml::to_string(&self.content)?)?;
             }
             self.changed_at.take();
         }
@@ -92,12 +92,21 @@ impl VirtualBranchesTomlMetadata {
 /// Mostly used in testing, and it's fine as it's intermediate, and we are very practical here.
 impl VirtualBranchesTomlMetadata {
     /// Return a mutable snapshot of the underlying data. Useful for testing mainly.
-    pub fn data_mut(&mut self) -> &mut VirtualBranchesState {
+    pub fn data_mut(&mut self) -> &mut VirtualBranches {
         &mut self.snapshot.content
     }
     /// Return a snapshot of the underlying data. Useful for working around (intended) limitations of the RefMetadata trait.
-    pub fn data(&self) -> &VirtualBranchesState {
+    pub fn data(&self) -> &VirtualBranches {
         &self.snapshot.content
+    }
+
+    /// Return default options that limit single-branch commits to a sane amount (instead of traversing the whole graph),
+    /// and configure other values that require our meta-data to guide the traversal.
+    pub fn graph_options(&self) -> crate::init::Options {
+        crate::init::Options {
+            extra_target_commit_id: self.data().default_target.as_ref().map(|t| t.sha),
+            ..crate::init::Options::limited()
+        }
     }
 }
 
@@ -127,7 +136,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
             for branch_ref_name in stack
                 .heads
                 .iter()
-                .filter_map(|branch| full_branch_name(branch.name()))
+                .filter_map(|branch| full_branch_name(&branch.name))
             {
                 out.push(self.branch(branch_ref_name.as_ref()).map(|branch| {
                     (
@@ -168,7 +177,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
     fn branch(&self, ref_name: &FullNameRef) -> anyhow::Result<Self::Handle<Branch>> {
         let Some((stack, branch)) = self.snapshot.content.branches.values().find_map(|stack| {
             stack.heads.iter().find_map(|branch| {
-                full_branch_name(branch.name().as_str()).and_then(|full_name| {
+                full_branch_name(branch.name.as_str()).and_then(|full_name| {
                     (full_name.as_ref() == ref_name).then_some((stack, branch))
                 })
             })
@@ -193,7 +202,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
         Ok(VBTomlMetadataHandle {
             is_default: false,
             ref_name: ref_name.to_owned(),
-            stack_id: Some(to_new_id(stack.id)).into(),
+            stack_id: Some(stack.id).into(),
             value: Branch {
                 ref_info,
                 description: branch.description.clone(),
@@ -259,18 +268,15 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                         .snapshot
                         .content
                         .branches
-                        .remove(&to_old_id(new_stack_id))
+                        .remove(&new_stack_id)
                         .expect("just added");
-                    vb_stack.id = to_old_id(stack.id);
-                    self.snapshot
-                        .content
-                        .branches
-                        .insert(to_old_id(stack.id), vb_stack);
+                    vb_stack.id = stack.id;
+                    self.snapshot.content.branches.insert(stack.id, vb_stack);
                     let vb_stack = self
                         .snapshot
                         .content
                         .branches
-                        .get_mut(&to_old_id(stack.id))
+                        .get_mut(&stack.id)
                         .expect("just added");
                     seen_stack_ids.insert(stack.id);
                     vb_stack
@@ -279,7 +285,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                     .snapshot
                     .content
                     .branches
-                    .get_mut(&to_old_id(stack_id))
+                    .get_mut(&stack_id)
                     .expect("we just looked it up"),
             };
             for branch in branches_to_create {
@@ -292,7 +298,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
             stack.in_workspace = !stack.heads.is_empty();
             stack.heads.sort_by_key(|head| {
                 stack_branches.iter().enumerate().find_map(|(idx, branch)| {
-                    (branch.ref_name.shorten() == head.name().as_str()).then_some(idx)
+                    (branch.ref_name.shorten() == head.name.as_str()).then_some(idx)
                 })
             });
 
@@ -300,7 +306,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
             stack.heads.retain(|head| {
                 stack_branches
                     .iter()
-                    .any(|branch| branch.ref_name.shorten() == head.name())
+                    .any(|branch| branch.ref_name.shorten() == head.name)
             });
             // branches now match our order
             for (vb_stack, stack) in stack.heads.iter_mut().zip(stack_branches.iter()) {
@@ -310,7 +316,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
         }
 
         for (key, stack) in &mut self.snapshot.content.branches {
-            if seen_stack_ids.contains(&to_new_id(*key)) {
+            if seen_stack_ids.contains(key) {
                 continue;
             }
             stack.in_workspace = false;
@@ -328,11 +334,11 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                     .snapshot
                     .content
                     .branches
-                    .get_mut(&to_old_id(stack_id))
+                    .get_mut(&stack_id)
                     .with_context(|| format!("Couldn't find stack with id {stack_id}"))?;
 
                 let short_name = ref_name.shorten();
-                let gitbutler_stack::StackBranch {
+                let StackBranch {
                     description,
                     pr_number,
                     archived,
@@ -341,7 +347,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                 } = stack
                     .heads
                     .iter_mut()
-                    .find(|b| short_name == b.name().as_str())
+                    .find(|b| short_name == b.name.as_str())
                     .expect(
                         "It's not possible anymore to place values at any ref \
                     - one first has to get them, which binds values to their name.",
@@ -360,13 +366,13 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
             }
             None => {
                 let now_ms = (gix::date::Time::now_utc().seconds * 1000) as u128;
-                let stack = gitbutler_stack::Stack::new_with_just_heads(
+                let stack = Stack::new_with_just_heads(
                     vec![branch_to_stack_branch(ref_name, value, false)],
                     now_ms,
                     self.snapshot.content.branches.len(),
                     ws.contains_ref(ref_name),
                 );
-                *value.stack_id.borrow_mut() = Some(to_new_id(stack.id));
+                *value.stack_id.borrow_mut() = Some(stack.id);
                 self.snapshot.content.branches.insert(stack.id, stack);
                 self.snapshot.changed_at = Some(Instant::now());
                 Ok(())
@@ -405,7 +411,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                         .iter()
                         .enumerate()
                         .find_map(|(branch_idx, branch)| {
-                            full_branch_name(branch.name().as_str()).and_then(|full_name| {
+                            full_branch_name(branch.name.as_str()).and_then(|full_name| {
                                 (full_name.as_ref() == ref_name).then_some((stack.id, branch_idx))
                             })
                         })
@@ -431,7 +437,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
 }
 
 impl VirtualBranchesTomlMetadata {
-    fn workspace_from_data(data: &VirtualBranchesState) -> Workspace {
+    fn workspace_from_data(data: &VirtualBranches) -> Workspace {
         let target_branch = data
             .default_target
             .as_ref()
@@ -447,15 +453,17 @@ impl VirtualBranchesTomlMetadata {
                 .filter(|s| s.in_workspace)
                 .sorted_by_key(|s| s.order)
                 .map(|s| WorkspaceStack {
-                    id: to_new_id(s.id),
+                    id: s.id,
                     branches: s
                         .heads
                         .iter()
                         .rev()
                         .filter_map(|sb| {
-                            full_branch_name(sb.name()).map(|ref_name| WorkspaceStackBranch {
-                                ref_name,
-                                archived: sb.archived,
+                            full_branch_name(sb.name.as_str()).map(|ref_name| {
+                                WorkspaceStackBranch {
+                                    ref_name,
+                                    archived: sb.archived,
+                                }
                             })
                         })
                         .collect(),
@@ -465,14 +473,6 @@ impl VirtualBranchesTomlMetadata {
         };
         workspace
     }
-}
-
-fn to_new_id(id: gitbutler_stack::StackId) -> StackId {
-    id.to_string().parse().expect("valid UUID")
-}
-
-fn to_old_id(id: StackId) -> gitbutler_stack::StackId {
-    id.to_string().parse().expect("valid UUID")
 }
 
 pub struct VBTomlMetadataHandle<T> {
@@ -563,12 +563,65 @@ fn branch_to_stack_branch(
         review,
     }: &Branch,
     archived: bool,
-) -> gitbutler_stack::StackBranch {
-    gitbutler_stack::StackBranch::new_with_zero_head(
+) -> StackBranch {
+    StackBranch::new_with_zero_head(
         ref_name.shorten().to_string(),
         description.clone(),
         review.pull_request,
         review.review_id.clone(),
         archived,
     )
+}
+
+/// Copied from `gitbutler-fs` - shouldn't be needed anymore in future.
+mod fs {
+    use anyhow::Context;
+    use gix::tempfile::{AutoRemove, ContainingDirectory};
+    use serde::de::DeserializeOwned;
+    use std::fs::File;
+    use std::io::{Read, Write};
+    use std::path::Path;
+
+    /// Write a single file so that the write either fully succeeds, or fully fails,
+    /// assuming the containing directory already exists.
+    pub fn write<P: AsRef<Path>>(file_path: P, contents: impl AsRef<[u8]>) -> anyhow::Result<()> {
+        let mut temp_file = gix::tempfile::new(
+            file_path.as_ref().parent().unwrap(),
+            ContainingDirectory::Exists,
+            AutoRemove::Tempfile,
+        )?;
+        temp_file.write_all(contents.as_ref())?;
+        Ok(persist_tempfile(temp_file, file_path)?)
+    }
+
+    fn persist_tempfile(
+        tempfile: gix::tempfile::Handle<gix::tempfile::handle::Writable>,
+        to_path: impl AsRef<Path>,
+    ) -> std::io::Result<()> {
+        match tempfile.persist(to_path) {
+            Ok(Some(_opened_file)) => Ok(()),
+            Ok(None) => unreachable!(
+                "BUG: a signal has caused the tempfile to be removed, but we didn't install a handler"
+            ),
+            Err(err) => Err(err.error),
+        }
+    }
+
+    /// Reads and parses the state file.
+    ///
+    /// If the file does not exist, it will be created.
+    pub fn read_toml_file_or_default<T: DeserializeOwned + Default>(
+        path: &Path,
+    ) -> anyhow::Result<T> {
+        let mut file = match File::open(path) {
+            Ok(f) => f,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(T::default()),
+            Err(err) => return Err(err.into()),
+        };
+        let mut contents = String::new();
+        file.read_to_string(&mut contents)?;
+        let value: T = toml::from_str(&contents)
+            .with_context(|| format!("Failed to parse {}", path.display()))?;
+        Ok(value)
+    }
 }

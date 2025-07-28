@@ -1,6 +1,7 @@
 pub mod commands {
     use crate::error::{Error, UnmarkedError};
     use anyhow::{Context as _, Result};
+    use but_graph::virtual_branches_legacy_types::BranchOwnershipClaims;
     use but_settings::AppSettingsWithDiskSync;
     use but_workspace::DiffSpec;
     use gitbutler_branch_actions::{hooks, RemoteBranchFile};
@@ -10,7 +11,6 @@ pub mod commands {
     use gitbutler_project::ProjectId;
     use gitbutler_repo::hooks::{HookResult, MessageHookResult};
     use gitbutler_repo::{FileInfo, RepoCommands};
-    use gitbutler_stack::BranchOwnershipClaims;
     use std::path::Path;
     use std::sync::atomic::AtomicBool;
     use tauri::State;
@@ -111,7 +111,8 @@ pub mod commands {
     ) -> Result<HookResult, Error> {
         let project = projects.get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-        Ok(hooks::pre_commit(&ctx, &ownership)?)
+        let claim = ownership.into();
+        Ok(hooks::pre_commit(&ctx, &claim)?)
     }
 
     #[tauri::command(async)]

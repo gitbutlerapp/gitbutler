@@ -1,5 +1,7 @@
+use crate::{Stack, VirtualBranchesHandle};
 use anyhow::{Ok, Result};
 use bstr::BString;
+use but_graph::virtual_branches_legacy_types;
 use git2::Commit;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::{CommitExt, CommitVecExt};
@@ -13,16 +15,13 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, str::FromStr};
 
-use crate::{Stack, VirtualBranchesHandle};
-
 /// A GitButler-specific reference type that points to a commit or a patch (change).
 /// The principal difference between a `PatchReference` and a regular git reference is that a `PatchReference` can point to a change (patch) that is mutable.
 ///
 /// Because this is **NOT** a regular git reference, it will not be found in the `.git/refs`. It is instead managed by GitButler.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct StackBranch {
     /// The target of the reference - this can be a commit or a change that points to a commit.
-    #[serde(alias = "target")]
     #[deprecated(note = "Use the git reference instead")]
     head: CommitOrChangeId, // needs to stay private
     /// The name of the reference e.g. `master` or `feature/branch`. This should **NOT** include the `refs/heads/` prefix.
@@ -31,15 +30,56 @@ pub struct StackBranch {
     /// Optional description of the series. This could be markdown or anything our hearts desire.
     pub description: Option<String>,
     /// The pull request associated with the branch, or None if a pull request has not been created.
-    #[serde(default)]
     pub pr_number: Option<usize>,
     /// Archived represents the state when series/branch has been integrated and is below the merge base of the branch.
     /// This would occur when the branch has been merged at the remote and the workspace has been updated with that change.
-    #[serde(default)]
     pub archived: bool,
 
-    #[serde(default)]
     pub review_id: Option<String>,
+}
+
+impl From<virtual_branches_legacy_types::StackBranch> for StackBranch {
+    fn from(
+        virtual_branches_legacy_types::StackBranch {
+            head,
+            name,
+            description,
+            pr_number,
+            archived,
+            review_id,
+        }: virtual_branches_legacy_types::StackBranch,
+    ) -> Self {
+        StackBranch {
+            head: head.into(),
+            name,
+            description,
+            pr_number,
+            archived,
+            review_id,
+        }
+    }
+}
+
+impl From<StackBranch> for virtual_branches_legacy_types::StackBranch {
+    fn from(
+        StackBranch {
+            head,
+            name,
+            description,
+            pr_number,
+            archived,
+            review_id,
+        }: StackBranch,
+    ) -> Self {
+        virtual_branches_legacy_types::StackBranch {
+            head: head.into(),
+            name,
+            description,
+            pr_number,
+            archived,
+            review_id,
+        }
+    }
 }
 
 /// A patch identifier which is either `CommitId` or a `ChangeId`.
@@ -51,6 +91,32 @@ pub enum CommitOrChangeId {
     /// A reference that points to a change (patch) through which a valid commit can be derived.
     #[deprecated(note = "Use CommitId instead")]
     ChangeId(String),
+}
+
+impl From<virtual_branches_legacy_types::CommitOrChangeId> for CommitOrChangeId {
+    fn from(value: virtual_branches_legacy_types::CommitOrChangeId) -> Self {
+        match value {
+            virtual_branches_legacy_types::CommitOrChangeId::CommitId(v) => {
+                CommitOrChangeId::CommitId(v)
+            }
+            virtual_branches_legacy_types::CommitOrChangeId::ChangeId(v) => {
+                CommitOrChangeId::ChangeId(v)
+            }
+        }
+    }
+}
+
+impl From<CommitOrChangeId> for virtual_branches_legacy_types::CommitOrChangeId {
+    fn from(value: CommitOrChangeId) -> Self {
+        match value {
+            CommitOrChangeId::CommitId(v) => {
+                virtual_branches_legacy_types::CommitOrChangeId::CommitId(v)
+            }
+            CommitOrChangeId::ChangeId(v) => {
+                virtual_branches_legacy_types::CommitOrChangeId::ChangeId(v)
+            }
+        }
+    }
 }
 
 impl Display for CommitOrChangeId {

@@ -102,8 +102,9 @@ impl BranchManager<'_> {
             false, // disallow duplicate branch names on creation
         )?;
 
-        if let Some(ownership) = &create.ownership {
-            vbranch::set_ownership(&vb_state, &mut branch, ownership)
+        if let Some(ownership) = create.ownership.clone() {
+            let claim = ownership.into();
+            vbranch::set_ownership(&vb_state, &mut branch, &claim)
                 .context("failed to set ownership")?;
         }
 

@@ -10,7 +10,7 @@ use crate::{HunkRange, InputDiff, PathRanges};
 
 #[derive(Debug, Default)]
 pub struct StackRanges {
-    pub stack_id: StackId,
+    pub stack_id: Option<StackId>,
     pub paths: HashMap<PathBuf, PathRanges>,
 }
 

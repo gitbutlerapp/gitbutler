@@ -212,6 +212,8 @@ pub mod projection;
 mod ref_metadata_legacy;
 pub use ref_metadata_legacy::{VirtualBranchesTomlMetadata, is_workspace_ref_name};
 
+pub mod virtual_branches_legacy_types;
+
 mod statistics;
 pub use statistics::Statistics;
 

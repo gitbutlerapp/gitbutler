@@ -14,6 +14,7 @@ use super::{
 };
 use anyhow::{anyhow, bail, Context, Result};
 use but_core::{diff::tree_changes, TreeChange};
+use but_graph::virtual_branches_legacy_types;
 use git2::FileMode;
 use gitbutler_command_context::{CommandContext, RepositoryExtLite};
 use gitbutler_oxidize::ObjectIdExt as _;
@@ -927,7 +928,10 @@ fn tree_from_applied_vbranches(
         .find_blob(vb_toml_entry.id())
         .context("failed to convert virtual_branches tree entry to blob")?;
 
-    let vbs_from_toml: VirtualBranchesState = toml::from_str(from_utf8(&vb_toml_blob.data)?)?;
+    let vbs_from_toml: VirtualBranchesState = toml::from_str::<
+        virtual_branches_legacy_types::VirtualBranches,
+    >(from_utf8(&vb_toml_blob.data)?)?
+    .into();
     let applied_branch_trees: Vec<_> = vbs_from_toml
         .list_stacks_in_workspace()?
         .iter()

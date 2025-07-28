@@ -57,6 +57,38 @@ pub struct Workspace<'graph> {
     pub metadata: Option<ref_metadata::Workspace>,
 }
 
+/// Utilities
+impl Workspace<'_> {
+    /// Try to find `name` in any named [`StackSegment`] and return it along with the stack containing it.
+    pub fn find_segment_and_stack_by_refname(
+        &self,
+        name: &gix::refs::FullNameRef,
+    ) -> Option<(&Stack, &StackSegment)> {
+        self.stacks.iter().find_map(|stack| {
+            stack.segments.iter().find_map(|seg| {
+                seg.ref_name
+                    .as_ref()
+                    .is_some_and(|rn| rn.as_ref() == name)
+                    .then_some((stack, seg))
+            })
+        })
+    }
+
+    /// Like [`Self::find_segment_and_stack_by_refname`], but fails with an error.
+    pub fn try_find_segment_and_stack_by_refname(
+        &self,
+        name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<(&Stack, &StackSegment)> {
+        self.find_segment_and_stack_by_refname(name)
+            .with_context(|| {
+                format!(
+                    "Couldn't find any stack that contained the branch named '{}'",
+                    name.as_bstr()
+                )
+            })
+    }
+}
+
 /// A classifier for the workspace.
 #[derive(Debug, Clone)]
 pub enum WorkspaceKind {

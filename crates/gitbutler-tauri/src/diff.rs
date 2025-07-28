@@ -10,9 +10,8 @@ use but_hunk_assignment::{AssignmentRejection, HunkAssignmentRequest, WorktreeCh
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
-use gitbutler_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::ProjectId;
-use gitbutler_stack::VirtualBranchesHandle;
+use gix::refs::Category;
 use serde::Serialize;
 use tracing::instrument;
 
@@ -68,83 +67,45 @@ pub struct CommitDetails {
 /// If the branch is part of a stack and if the stack_id is provided, this will include only the changes
 /// up to the next branch in the stack.
 /// Otherwise, if stack_id is not provided, this will include all changes as compared to the target branch
+/// Note that `stack_id` is deprecated in favor of `branch_name`
+/// *(which should be a full ref-name as well and make `remote` unnecessary)*
 #[tauri::command(async)]
 #[instrument(skip(projects, settings), err(Debug))]
 pub fn changes_in_branch(
     projects: tauri::State<'_, gitbutler_project::Controller>,
     settings: tauri::State<'_, but_settings::AppSettingsWithDiskSync>,
     project_id: ProjectId,
-    stack_id: Option<StackId>,
+    // TODO: remove this, go by name. Ideally, the UI would pass us two commits.
+    _stack_id: Option<StackId>,
     branch_name: String,
     remote: Option<String>,
 ) -> anyhow::Result<TreeChanges, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     let branch_name = remote.map_or(branch_name.clone(), |r| format!("{r}/{branch_name}"));
-    changes_in_branch_inner(ctx, branch_name, stack_id).map_err(Into::into)
+    changes_in_branch_inner(ctx, branch_name).map_err(Into::into)
 }
 
 fn changes_in_branch_inner(
     ctx: CommandContext,
     branch_name: String,
-    stack_id: Option<StackId>,
 ) -> anyhow::Result<TreeChanges> {
-    let state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    let repo = ctx.gix_repo()?;
-    let (start_commit_id, base_commit_id) = if let Some(stack_id) = stack_id {
-        commit_and_base_from_stack(&ctx, &state, stack_id, branch_name.clone())
-    } else {
-        let start_commit_id = repo.find_reference(&branch_name)?.peel_to_commit()?.id;
-        let target = state.get_default_target()?;
-        let merge_base = ctx
-            .repo()
-            .merge_base(start_commit_id.to_git2(), target.sha)?;
-        Ok((start_commit_id, merge_base.to_gix()))
-    }?;
+    let (repo, _meta, graph) = ctx.graph_and_meta(ctx.gix_repo()?)?;
+    let name = Category::LocalBranch.to_full_name(branch_name.as_str())?;
+    let ws = graph.to_workspace()?;
+    let (stack, segment) = ws.try_find_segment_and_stack_by_refname(name.as_ref())?;
 
-    but_core::diff::ui::changes_in_range(
-        ctx.project().path.clone(),
-        start_commit_id,
-        base_commit_id,
-    )
-}
-
-fn commit_and_base_from_stack(
-    ctx: &CommandContext,
-    state: &VirtualBranchesHandle,
-    stack_id: StackId,
-    branch_name: String,
-) -> anyhow::Result<(gix::ObjectId, gix::ObjectId)> {
-    let stack = state.get_stack(stack_id)?;
-
-    // Find the branch head and the one before it
-    let heads = stack.heads(false);
-    let (start, end) = heads
-        .iter()
-        .rev()
-        .fold((None, None), |(start, end), branch| {
-            if start.is_some() && end.is_none() {
-                (start, Some(branch))
-            } else if branch == &branch_name {
-                (Some(branch), None)
-            } else {
-                (start, end)
-            }
-        });
-    let repo = ctx.gix_repo()?;
-
-    // Find the head that matches the branch name - the commit contained is our commit_id
-    let start_commit_id = repo
-        .find_reference(start.with_context(|| format!("Branch {} not found", branch_name))?)?
-        .peel_to_commit()?
-        .id;
-
-    // Now, find the preceding head in the stack. If it is not present, use the stack merge base
-    let base_commit_id = match end {
-        Some(end) => repo.find_reference(end)?.peel_to_commit()?.id,
-        None => stack.merge_base(ctx)?,
+    let base = stack.base();
+    let Some((tip, base)) = segment
+        .tip()
+        .or(base)
+        .zip(base)
+        .filter(|(tip, base)| tip != base)
+    else {
+        return Ok(TreeChanges::default());
     };
-    Ok((start_commit_id, base_commit_id))
+
+    but_core::diff::ui::changes_in_range(&repo, tip, base)
 }
 
 /// This UI-version of [`but_core::diff::worktree_changes()`] simplifies the `git status` information for display in

@@ -3,27 +3,25 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use crate::{
+    stack::{Stack, StackId},
+    target::Target,
+};
 use anyhow::{anyhow, Result};
+use but_graph::virtual_branches_legacy_types;
 use git2::Repository;
 use gitbutler_error::error::Code;
 use gitbutler_fs::read_toml_file_or_default;
 use gitbutler_oxidize::{ObjectIdExt, OidExt as _, RepoExt};
 use gitbutler_reference::Refname;
 use gitbutler_repo::commit_message::CommitMessage;
-use gitbutler_serde::object_id_opt;
 use itertools::Itertools;
-use serde::{Deserialize, Serialize};
-
-use crate::{
-    stack::{Stack, StackId},
-    target::Target,
-};
 
 const LAST_PUSHED_BASE_VERSION_HEADER: &str = "base-commit-version";
 const LAST_PUSHED_BASE_VERSION: &str = "1";
 
 /// The state of virtual branches data, as persisted in a TOML file.
-#[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct VirtualBranches {
     /// This is the target/base that is set when a repo is added to gb
     pub default_target: Option<Target>,
@@ -32,15 +30,56 @@ pub struct VirtualBranches {
     /// The current state of the virtual branches
     pub branches: HashMap<StackId, Stack>,
 
-    #[serde(with = "object_id_opt", default)]
     last_pushed_base: Option<gix::ObjectId>,
+}
+
+impl From<virtual_branches_legacy_types::VirtualBranches> for VirtualBranches {
+    fn from(
+        virtual_branches_legacy_types::VirtualBranches {
+            default_target,
+            branch_targets,
+            branches,
+            last_pushed_base,
+        }: virtual_branches_legacy_types::VirtualBranches,
+    ) -> Self {
+        VirtualBranches {
+            default_target: default_target.map(Into::into),
+            branch_targets: branch_targets
+                .into_iter()
+                .map(|(k, v)| (k, v.into()))
+                .collect(),
+            branches: branches.into_iter().map(|(k, v)| (k, v.into())).collect(),
+            last_pushed_base,
+        }
+    }
+}
+
+impl From<VirtualBranches> for virtual_branches_legacy_types::VirtualBranches {
+    fn from(
+        VirtualBranches {
+            default_target,
+            branch_targets,
+            branches,
+            last_pushed_base,
+        }: VirtualBranches,
+    ) -> Self {
+        virtual_branches_legacy_types::VirtualBranches {
+            default_target: default_target.map(Into::into),
+            branch_targets: branch_targets
+                .into_iter()
+                .map(|(k, v)| (k, v.into()))
+                .collect(),
+            branches: branches.into_iter().map(|(k, v)| (k, v.into())).collect(),
+            last_pushed_base,
+        }
+    }
 }
 
 impl VirtualBranches {
     /// Lists all virtual branches that are in the user's workspace.
     ///
     /// Errors if the file cannot be read or written.
-    pub(crate) fn list_all_stacks(&self) -> Result<Vec<Stack>> {
+    pub fn list_all_stacks(&self) -> Result<Vec<Stack>> {
         let branches: Vec<Stack> = self.branches.values().cloned().collect();
         Ok(branches)
     }
@@ -225,7 +264,9 @@ impl VirtualBranchesHandle {
     ///
     /// If the file does not exist, it will be created.
     pub fn read_file(&self) -> Result<VirtualBranches> {
-        read_toml_file_or_default(&self.file_path)
+        let data: virtual_branches_legacy_types::VirtualBranches =
+            read_toml_file_or_default(&self.file_path)?;
+        Ok(data.into())
     }
 
     /// Write the given `virtual_branches` back to disk in one go.
@@ -386,8 +427,8 @@ impl VirtualBranchesHandle {
 }
 
 fn write<P: AsRef<Path>>(file_path: P, virtual_branches: &VirtualBranches) -> Result<()> {
-    gitbutler_fs::create_dirs_then_write(file_path, toml::to_string(&virtual_branches)?)
-        .map_err(Into::into)
+    let v = virtual_branches_legacy_types::VirtualBranches::from(virtual_branches.clone());
+    gitbutler_fs::create_dirs_then_write(file_path, toml::to_string(&v)?).map_err(Into::into)
 }
 
 /// Re-commit a commit with altered parentage

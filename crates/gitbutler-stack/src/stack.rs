@@ -10,7 +10,6 @@ use but_core::Reference;
 use but_rebase::ReferenceSpec;
 use git2::Commit;
 use gitbutler_command_context::CommandContext;
-use gitbutler_id::id::Id;
 use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_oxidize::OidExt;
 use gitbutler_oxidize::RepoExt;
@@ -31,13 +30,14 @@ use crate::stack_branch::CommitOrChangeId;
 use crate::StackBranch;
 use crate::{ownership::BranchOwnershipClaims, VirtualBranchesHandle};
 
-pub type StackId = Id<Stack>;
+pub use but_core::ref_metadata::StackId;
+use but_graph::virtual_branches_legacy_types;
 
 // this is the struct for the virtual branch data that is stored in our data
 // store. it is more or less equivalent to a git branch reference, but it is not
 // stored or accessible from the git repository itself. it is stored in our
 // session storage under the branches/ directory.
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Stack {
     pub id: StackId,
     /// A user-specified name with no restrictions.
@@ -51,23 +51,12 @@ pub struct Stack {
     /// Used e.g. when listing commits from a fork.
     pub upstream: Option<RemoteRefname>,
     // upstream_head is the last commit on we've pushed to the upstream branch
-    #[serde(with = "gitbutler_serde::oid_opt", default)]
     pub upstream_head: Option<git2::Oid>,
-    #[serde(
-        serialize_with = "serialize_u128",
-        deserialize_with = "deserialize_u128"
-    )]
     pub created_timestamp_ms: u128,
-    #[serde(
-        serialize_with = "serialize_u128",
-        deserialize_with = "deserialize_u128"
-    )]
     pub updated_timestamp_ms: u128,
     /// tree is the last git tree written to a session, or merge base tree if this is new. use this for delta calculation from the session data
-    #[serde(with = "gitbutler_serde::oid")]
     tree: git2::Oid,
     /// head is id of the last "virtual" commit in this branch
-    #[serde(with = "gitbutler_serde::oid")]
     head: git2::Oid,
     pub ownership: BranchOwnershipClaims,
     // order is the number by which UI should sort branches
@@ -75,44 +64,107 @@ pub struct Stack {
     // is Some(timestamp), the branch is considered a default destination for new changes.
     // if more than one branch is selected, the branch with the highest timestamp wins.
     pub selected_for_changes: Option<i64>,
-    #[serde(default = "default_true")]
     pub allow_rebasing: bool,
     /// This is the new metric for determining whether the branch is in the workspace, which means it's applied
     /// and its effects are available to the user.
-    #[serde(default = "default_true")]
     pub in_workspace: bool,
-    #[serde(default)]
     pub not_in_workspace_wip_change_id: Option<String>,
     /// Represents the Stack state of pseudo-references ("heads").
     /// Do **NOT** edit this directly, instead use the `Stack` trait in gitbutler_stack.
-    #[serde(default)]
     pub heads: Vec<StackBranch>,
-    #[serde(default = "default_false")]
     pub post_commits: bool,
 }
 
-fn default_true() -> bool {
-    true
+impl From<virtual_branches_legacy_types::Stack> for Stack {
+    fn from(
+        virtual_branches_legacy_types::Stack {
+            id,
+            name,
+            notes,
+            source_refname,
+            upstream,
+            upstream_head,
+            created_timestamp_ms,
+            updated_timestamp_ms,
+            tree,
+            head,
+            ownership,
+            order,
+            selected_for_changes,
+            allow_rebasing,
+            in_workspace,
+            not_in_workspace_wip_change_id,
+            heads,
+            post_commits,
+        }: virtual_branches_legacy_types::Stack,
+    ) -> Self {
+        Stack {
+            id,
+            name,
+            notes,
+            source_refname,
+            upstream,
+            upstream_head: upstream_head.map(|id| id.to_git2()),
+            created_timestamp_ms,
+            updated_timestamp_ms,
+            tree: tree.to_git2(),
+            head: head.to_git2(),
+            ownership: ownership.into(),
+            order,
+            selected_for_changes,
+            allow_rebasing,
+            in_workspace,
+            not_in_workspace_wip_change_id,
+            heads: heads.into_iter().map(Into::into).collect(),
+            post_commits,
+        }
+    }
 }
 
-fn default_false() -> bool {
-    false
-}
-
-fn serialize_u128<S>(x: &u128, s: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    s.serialize_str(&x.to_string())
-}
-
-fn deserialize_u128<'de, D>(d: D) -> Result<u128, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let s = String::deserialize(d)?;
-    let x: u128 = s.parse().map_err(serde::de::Error::custom)?;
-    Ok(x)
+impl From<Stack> for virtual_branches_legacy_types::Stack {
+    fn from(
+        Stack {
+            id,
+            name,
+            notes,
+            source_refname,
+            upstream,
+            upstream_head,
+            created_timestamp_ms,
+            updated_timestamp_ms,
+            tree,
+            head,
+            ownership,
+            order,
+            selected_for_changes,
+            allow_rebasing,
+            in_workspace,
+            not_in_workspace_wip_change_id,
+            heads,
+            post_commits,
+        }: Stack,
+    ) -> Self {
+        virtual_branches_legacy_types::Stack {
+            id,
+            name,
+            notes,
+            source_refname,
+            upstream,
+            upstream_head: upstream_head.map(|id| id.to_gix()),
+            created_timestamp_ms,
+            updated_timestamp_ms,
+            tree: tree.to_gix(),
+            head: head.to_gix(),
+            ownership: ownership.into(),
+            order,
+            selected_for_changes,
+            allow_rebasing,
+            in_workspace,
+            not_in_workspace_wip_change_id,
+            heads: heads.into_iter().map(Into::into).collect(),
+            post_commits,
+        }
+    }
 }
 
 /// A (series) Stack represents multiple "branches" that are dependent on each other in series.
@@ -177,7 +229,7 @@ impl Stack {
         in_workspace: bool,
     ) -> Self {
         Stack {
-            id: StackId::default(),
+            id: StackId::generate(),
             created_timestamp_ms: created_ms,
             updated_timestamp_ms: created_ms,
             order,

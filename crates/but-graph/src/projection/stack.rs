@@ -20,6 +20,22 @@ pub struct Stack {
 
 /// Query
 impl Stack {
+    /// Return the first commit of the first segment, or `None` this stack is completely empty, or has only empty segments.
+    pub fn tip(&self) -> Option<gix::ObjectId> {
+        self.segments
+            .first()
+            .and_then(|s| s.commits.first().map(|c| c.id))
+    }
+
+    /// Return the first commit of the first non-empty segment, or `None` this stack is completely empty, or has only empty segments.
+    pub fn tip_skip_empty(&self) -> Option<gix::ObjectId> {
+        self.segments.iter().find_map(|s| {
+            if s.commits.is_empty() {
+                return None;
+            }
+            s.commits.first().map(|c| c.id)
+        })
+    }
     /// The [base](StackSegment::base) of the last of our segments.
     pub fn base(&self) -> Option<gix::ObjectId> {
         self.segments.last().and_then(|s| s.base)
@@ -174,6 +190,14 @@ pub struct StackSegment {
     /// is this segment, and the surrounding workspace is provided for context.
     /// This means one will see the entire workspace, while knowing the focus is on one specific segment.
     pub is_entrypoint: bool,
+}
+
+/// Access
+impl StackSegment {
+    /// Return the top-most commit id, or `None` if this segment is empty.
+    pub fn tip(&self) -> Option<gix::ObjectId> {
+        self.commits.first().map(|c| c.id)
+    }
 }
 
 impl std::fmt::Debug for StackSegment {

@@ -1,4 +1,5 @@
 use anyhow::Result;
+use but_graph::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
 use gitbutler_project::Project;
 use std::path::Path;
@@ -28,6 +29,10 @@ impl CommandContext {
     pub fn project(&self) -> &Project {
         &self.project
     }
+    //
+    // pub fn meta(&self) -> Result<VirtualBranchesTomlMetadata> {
+    //     VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))
+    // }
 
     /// Return the [`project`](Self::project) repository.
     pub fn repo(&self) -> &git2::Repository {
@@ -56,6 +61,27 @@ impl CommandContext {
     /// there is no need to use this type there at all - opening a repo is very cheap still.
     pub fn gix_repo(&self) -> Result<gix::Repository> {
         Ok(gix::open(self.repo().path())?)
+    }
+
+    /// Create a new Graph traversal from the current HEAD, using (and returning) the given `repo` (configured by the caller),
+    /// along with a new metadata instance, and the graph itself.
+    pub fn graph_and_meta(
+        &self,
+        repo: gix::Repository,
+    ) -> Result<(
+        gix::Repository,
+        VirtualBranchesTomlMetadata,
+        but_graph::Graph,
+    )> {
+        let meta = self.meta()?;
+        let graph = but_graph::Graph::from_head(&repo, &meta, meta.graph_options())?;
+        Ok((repo, meta, graph))
+    }
+
+    /// Return the `RefMetadata` implementation based on the `virtual_branches.toml` file.
+    /// This can one day be changed to auto-migrate away from the toml and to the database.
+    pub fn meta(&self) -> Result<VirtualBranchesTomlMetadata> {
+        VirtualBranchesTomlMetadata::from_path(self.project.gb_dir().join("virtual_branches.toml"))
     }
 
     /// Return a newly opened `gitoxide` repository, with all configuration available

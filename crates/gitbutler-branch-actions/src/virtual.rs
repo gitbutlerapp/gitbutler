@@ -86,10 +86,11 @@ impl TryFrom<&git2::Commit<'_>> for CommitData {
 
 pub fn update_stack(ctx: &CommandContext, update: &BranchUpdateRequest) -> Result<Stack> {
     let vb_state = ctx.project().virtual_branches();
-    let mut stack = vb_state.get_stack_in_workspace(update.id)?;
+    let mut stack = vb_state.get_stack_in_workspace(update.id.context("BUG(opt-stack-id)")?)?;
 
-    if let Some(ownership) = &update.ownership {
-        set_ownership(&vb_state, &mut stack, ownership).context("failed to set ownership")?;
+    if let Some(ownership) = update.ownership.clone() {
+        let claim = ownership.into();
+        set_ownership(&vb_state, &mut stack, &claim).context("failed to set ownership")?;
     }
 
     if let Some(name) = &update.name {
@@ -102,7 +103,7 @@ pub fn update_stack(ctx: &CommandContext, update: &BranchUpdateRequest) -> Resul
         stack.name = dedup(
             &all_virtual_branches
                 .iter()
-                .filter(|b| b.id != update.id)
+                .filter(|b| Some(b.id) != update.id)
                 .map(|b| b.name.as_str())
                 .collect::<Vec<_>>(),
             name,
