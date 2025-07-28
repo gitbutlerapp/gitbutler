@@ -2058,7 +2058,7 @@
 				"$extensions": {
 					"mode": {
 						"light": "#d6f0ee",
-						"dark": "#214f4d"
+						"dark": "#286764"
 					}
 				}
 			},
@@ -3761,7 +3761,7 @@
 			"useDTCGKeys": true,
 			"colorMode": "hex",
 			"variableCollections": ["clr-core", "clr", "size", "radius", "text", "opacity"],
-			"createdAt": "2025-07-05T14:05:37.398Z"
+			"createdAt": "2025-07-28T11:49:54.061Z"
 		}
 	}
 }
