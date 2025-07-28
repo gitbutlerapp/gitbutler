@@ -25,7 +25,6 @@
 	import { GITLAB_CLIENT } from '$lib/forge/gitlab/gitlabClient.svelte';
 	import { GitLabState, GITLAB_STATE } from '$lib/forge/gitlab/gitlabState.svelte';
 	import { GIT_SERVICE } from '$lib/git/gitService';
-	import { HISTORY_SERVICE } from '$lib/history/history';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { showError, showInfo, showWarning } from '$lib/notifications/toasts';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
@@ -89,7 +88,6 @@
 	});
 
 	$effect.pre(() => {
-		provide(HISTORY_SERVICE, data.historyService);
 		provide(BASE_BRANCH, baseBranch);
 	});
 

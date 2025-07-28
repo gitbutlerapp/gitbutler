@@ -10,6 +10,7 @@ import { InjectionToken } from '@gitbutler/shared/context';
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { SvelteSet } from 'svelte/reactivity';
 import { get, writable, type Writable } from 'svelte/store';
+import type { HistoryService } from '$lib/history/history';
 import type { OplogService } from '$lib/history/oplogService.svelte';
 import type { TreeChange } from '$lib/hunks/change';
 import type { HunkAssignment } from '$lib/hunks/hunk';
@@ -45,7 +46,8 @@ export class IdSelection {
 		private stackService: StackService,
 		private uncommittedService: UncommittedService,
 		private worktreeService: WorktreeService,
-		private oplogService: OplogService
+		private oplogService: OplogService,
+		private historyService: HistoryService
 	) {
 		this.selections = new Map();
 		this.selections.set(selectionKey({ type: 'worktree' }), {
@@ -242,10 +244,9 @@ export class IdSelection {
 				this.uncommittedService.assignmentsByPath(selectedFile.stackId || null, selectedFile.path);
 				return this.worktreeService.treeChangeByPath(projectId, selectedFile.path);
 			case 'snapshot':
-				return this.oplogService.diffWorktreeByPath({
+				return this.historyService.snapshotDiffByPath({
 					projectId,
-					before: selectedFile.before,
-					after: selectedFile.after,
+					snapshotId: selectedFile.snapshotId,
 					path: selectedFile.path
 				});
 		}

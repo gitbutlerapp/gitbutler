@@ -44,6 +44,7 @@
 	} from '$lib/forge/github/githubUserService.svelte';
 	import { GitLabClient, GITLAB_CLIENT } from '$lib/forge/gitlab/gitlabClient.svelte';
 	import { GitService, GIT_SERVICE } from '$lib/git/gitService';
+	import { HISTORY_SERVICE, HistoryService } from '$lib/history/history';
 	import { OplogService, OPLOG_SERVICE } from '$lib/history/oplogService.svelte';
 	import SnapshotDiffService, {
 		SNAPSHOT_DIFF_SERVICE
@@ -186,12 +187,15 @@
 
 	const uncommittedService = new UncommittedService(clientState, worktreeService, diffService);
 	provide(UNCOMMITTED_SERVICE, uncommittedService);
+	const historyService = new HistoryService(clientState['backendApi']);
+	provide(HISTORY_SERVICE, historyService);
 
 	const idSelection = new IdSelection(
 		stackService,
 		uncommittedService,
 		worktreeService,
-		oplogService
+		oplogService,
+		historyService
 	);
 
 	const projectsService = new ProjectsService(clientState, data.homeDir, data.httpClient);

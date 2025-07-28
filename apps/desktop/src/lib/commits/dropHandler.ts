@@ -1,5 +1,5 @@
 import { changesToDiffSpec } from '$lib/commits/utils';
-import { ChangeDropData, HunkDropData, HunkDropDataV3 } from '$lib/dragging/draggables';
+import { ChangeDropData, HunkDropDataV3 } from '$lib/dragging/draggables';
 import { untrack } from 'svelte';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { StackService } from '$lib/stacks/stackService.svelte';
@@ -216,18 +216,6 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 		}
 	) {}
 
-	private acceptsHunkV2(data: unknown): boolean {
-		const { stackId, commit, okWithForce } = this.args;
-		if (!okWithForce && commit.isRemote) return false;
-		if (commit.isIntegrated) return false;
-		return (
-			data instanceof HunkDropData &&
-			data.branchId === stackId &&
-			data.commitId !== commit.id &&
-			!commit.hasConflicts
-		);
-	}
-
 	private acceptsHunkV3(data: unknown): boolean {
 		const { commit, okWithForce } = this.args;
 		if (!okWithForce && commit.isRemote) return false;
@@ -237,71 +225,12 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 	}
 
 	accepts(data: unknown): boolean {
-		return this.acceptsHunkV2(data) || this.acceptsHunkV3(data);
+		return this.acceptsHunkV3(data);
 	}
 
-	async ondrop(data: HunkDropData | HunkDropDataV3): Promise<void> {
+	async ondrop(data: HunkDropDataV3): Promise<void> {
 		const { stackService, projectId, stackId, commit, okWithForce, uiState } = this.args;
 		if (!okWithForce && commit.isRemote) return;
-
-		if (data instanceof HunkDropData) {
-			// TODO: I don't think this `data instanceof HunkDropData` codepath
-			// actually ever gets called in v2.
-			if (data.isCommitted) {
-				if (!(data.branchId && data.commitId)) {
-					throw new Error("Can't receive a change without it's source or commit");
-				}
-
-				stackService.moveChangesBetweenCommits({
-					projectId,
-					destinationStackId: stackId,
-					destinationCommitId: commit.id,
-					sourceStackId: data.branchId,
-					sourceCommitId: data.commitId,
-					changes: [
-						{
-							// TODO: We don't get prev path bytes in v2, but we're using
-							// the new api.
-							previousPathBytes: null,
-							pathBytes: data.hunk.filePath as any,
-							hunkHeaders: [
-								{
-									oldStart: data.hunk.oldStart,
-									oldLines: data.hunk.oldLines,
-									newStart: data.hunk.newStart,
-									newLines: data.hunk.newLines
-								}
-							]
-						}
-					]
-				});
-
-				return;
-			}
-
-			stackService.amendCommitMutation({
-				projectId,
-				stackId,
-				commitId: commit.id,
-				worktreeChanges: [
-					{
-						// TODO: We don't get prev path bytes in v2, but we're using
-						// the new api.
-						previousPathBytes: null,
-						pathBytes: data.hunk.filePath as any,
-						hunkHeaders: [
-							{
-								oldStart: data.hunk.oldStart,
-								oldLines: data.hunk.oldLines,
-								newStart: data.hunk.newStart,
-								newLines: data.hunk.newLines
-							}
-						]
-					}
-				]
-			});
-			return;
-		}
 
 		if (data instanceof HunkDropDataV3) {
 			const previousPathBytes =
