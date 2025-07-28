@@ -1,7 +1,6 @@
 use bstr::ByteSlice;
 use but_testsupport::{visualize_commit_graph, visualize_commit_graph_all};
 use but_workspace::RefInfo;
-use gitbutler_oxidize::{ObjectIdExt, OidExt};
 
 pub fn head_info(
     repo: &gix::Repository,
@@ -9,8 +8,7 @@ pub fn head_info(
     mut opts: but_workspace::ref_info::Options,
 ) -> anyhow::Result<RefInfo> {
     if opts.traversal.extra_target_commit_id.is_none() {
-        opts.traversal.extra_target_commit_id =
-            meta.data().default_target.as_ref().map(|t| t.sha.to_gix());
+        opts.traversal.extra_target_commit_id = meta.data().default_target.as_ref().map(|t| t.sha);
     }
     but_workspace::head_info(repo, meta, opts)
 }
@@ -21,8 +19,7 @@ pub fn ref_info(
     mut opts: but_workspace::ref_info::Options,
 ) -> anyhow::Result<RefInfo> {
     if opts.traversal.extra_target_commit_id.is_none() {
-        opts.traversal.extra_target_commit_id =
-            meta.data().default_target.as_ref().map(|t| t.sha.to_gix());
+        opts.traversal.extra_target_commit_id = meta.data().default_target.as_ref().map(|t| t.sha);
     }
     but_workspace::ref_info(existing_ref, meta, opts)
 }
@@ -591,7 +588,7 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
         .default_target
         .as_mut()
         .expect("target setup")
-        .sha = repo.rev_parse_single("fafd9d0")?.to_git2();
+        .sha = repo.rev_parse_single("fafd9d0")?.detach();
     let info = head_info(&repo, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
@@ -3328,7 +3325,7 @@ mod legacy;
 
 mod utils {
     use but_graph::VirtualBranchesTomlMetadata;
-    use gitbutler_oxidize::ObjectIdExt;
+    use but_graph::virtual_branches_legacy_types::{Stack, StackBranch, Target};
     use gitbutler_stack::StackId;
 
     pub fn read_only_in_memory_scenario(
@@ -3349,7 +3346,7 @@ mod utils {
         let (repo, mut meta) =
             crate::ref_info::utils::named_read_only_in_memory_scenario(script, name)?;
         let vb = meta.data_mut();
-        vb.default_target = Some(gitbutler_stack::Target {
+        vb.default_target = Some(Target {
             // For simplicity, we stick to the defaults.
             branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
             // Not required
@@ -3358,8 +3355,8 @@ mod utils {
                 .try_find_reference("main")?
                 .map(|mut r| r.peel_to_id_in_place())
                 .transpose()?
-                .map(|id| id.to_git2())
-                .unwrap_or_else(git2::Oid::zero),
+                .map(|id| id.detach())
+                .unwrap_or_else(|| gix::hash::Kind::Sha1.null()),
             push_remote_name: None,
         });
         Ok((repo, meta))
@@ -3409,28 +3406,20 @@ mod utils {
         state: StackState,
         segments: &[&str],
     ) -> StackId {
-        let mut stack = gitbutler_stack::Stack::new_with_just_heads(
+        let mut stack = Stack::new_with_just_heads(
             segments
                 .iter()
                 .rev()
                 .map(|stack_name| {
-                    gitbutler_stack::StackBranch::new_with_zero_head(
-                        (*stack_name).into(),
-                        None,
-                        None,
-                        None,
-                        false,
-                    )
+                    StackBranch::new_with_zero_head((*stack_name).into(), None, None, None, false)
                 })
-                .chain(std::iter::once(
-                    gitbutler_stack::StackBranch::new_with_zero_head(
-                        stack_name.into(),
-                        None,
-                        None,
-                        None,
-                        false,
-                    ),
-                ))
+                .chain(std::iter::once(StackBranch::new_with_zero_head(
+                    stack_name.into(),
+                    None,
+                    None,
+                    None,
+                    false,
+                )))
                 .collect(),
             0,
             meta.data().branches.len(),

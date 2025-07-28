@@ -1,5 +1,6 @@
+use but_core::ref_metadata::StackId;
 use but_graph::VirtualBranchesTomlMetadata;
-use gitbutler_stack::{StackId, Target};
+use but_graph::virtual_branches_legacy_types::{Stack, StackBranch, Target};
 use gix::Repository;
 
 pub fn read_only_in_memory_scenario(
@@ -76,28 +77,20 @@ pub fn add_stack_with_segments(
     state: StackState,
     segments: &[&str],
 ) -> StackId {
-    let mut stack = gitbutler_stack::Stack::new_with_just_heads(
+    let mut stack = Stack::new_with_just_heads(
         segments
             .iter()
             .rev()
             .map(|stack_name| {
-                gitbutler_stack::StackBranch::new_with_zero_head(
-                    (*stack_name).into(),
-                    None,
-                    None,
-                    None,
-                    false,
-                )
+                StackBranch::new_with_zero_head((*stack_name).into(), None, None, None, false)
             })
-            .chain(std::iter::once(
-                gitbutler_stack::StackBranch::new_with_zero_head(
-                    stack_name.into(),
-                    None,
-                    None,
-                    None,
-                    false,
-                ),
-            ))
+            .chain(std::iter::once(StackBranch::new_with_zero_head(
+                stack_name.into(),
+                None,
+                None,
+                None,
+                false,
+            )))
             .collect(),
         0,
         meta.data().branches.len(),
@@ -114,7 +107,7 @@ pub fn add_stack_with_segments(
     meta.data_mut().default_target = Some(Target {
         branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
         remote_url: "does not matter".to_string(),
-        sha: git2::Oid::zero(),
+        sha: gix::hash::Kind::Sha1.null(),
         push_remote_name: None,
     });
     stack_id

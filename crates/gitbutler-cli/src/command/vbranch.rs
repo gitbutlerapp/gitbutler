@@ -179,7 +179,7 @@ fn set_default_branch(project: &Project, stack: &Stack) -> Result<()> {
     gitbutler_branch_actions::update_virtual_branch(
         &ctx,
         BranchUpdateRequest {
-            id: stack.id,
+            id: Some(stack.id),
             name: None,
             notes: None,
             ownership: None,

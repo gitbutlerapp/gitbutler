@@ -64,6 +64,19 @@ pub struct Options {
     pub extra_target_commit_id: Option<gix::ObjectId>,
 }
 
+/// Presets
+impl Options {
+    /// Return options that won't traverse the whole graph if there is no workspace, but will show
+    /// more than enough commits by default.
+    pub fn limited() -> Self {
+        Options {
+            collect_tags: false,
+            commits_limit_hint: Some(300),
+            ..Default::default()
+        }
+    }
+}
+
 /// Builder
 impl Options {
     /// Set the maximum amount of commits that each lane in a tip may traverse, but that's less important

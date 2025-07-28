@@ -1912,11 +1912,7 @@ fn changes_in_branch_inner(
         Ok((start_commit_id, merge_base.to_gix()))
     }?;
 
-    but_core::diff::ui::changes_in_range(
-        ctx.project().path.clone(),
-        start_commit_id,
-        base_commit_id,
-    )
+    but_core::diff::ui::changes_in_range(&repo, start_commit_id, base_commit_id)
 }
 
 fn commit_and_base_from_stack(

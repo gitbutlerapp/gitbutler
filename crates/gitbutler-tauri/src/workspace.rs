@@ -13,7 +13,6 @@ use gitbutler_branch_actions::{update_workspace_commit, BranchManagerExt};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, SnapshotExt};
-use gitbutler_oxidize::OidExt;
 use gitbutler_project as projects;
 use gitbutler_project::{Project, ProjectId};
 use gitbutler_reference::{LocalRefname, Refname};
@@ -59,10 +58,8 @@ pub fn show_graph_svg(
         &meta,
         but_graph::init::Options {
             collect_tags: true,
-            commits_limit_hint: Some(300),
-            commits_limit_recharge_location: vec![],
-            hard_limit: None,
-            extra_target_commit_id: meta.data().default_target.as_ref().map(|t| t.sha.to_gix()),
+            extra_target_commit_id: meta.data().default_target.as_ref().map(|t| t.sha),
+            ..but_graph::init::Options::limited()
         },
     )?;
     const LIMIT: usize = 3000;

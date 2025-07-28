@@ -180,7 +180,7 @@ impl PathRanges {
     fn handle_file_recreation(
         &mut self,
         commit_id: git2::Oid,
-        stack_id: gitbutler_id::id::Id<gitbutler_stack::Stack>,
+        stack_id: StackId,
         incoming_hunks: Vec<InputDiff>,
         existing_hunk_range: HunkRange,
     ) -> Result<(), anyhow::Error> {
@@ -202,7 +202,7 @@ impl PathRanges {
         &mut self,
         incoming_hunks_count: usize,
         incoming_hunk: &InputDiff,
-        stack_id: gitbutler_id::id::Id<gitbutler_stack::Stack>,
+        stack_id: StackId,
         commit_id: git2::Oid,
     ) -> Result<(), anyhow::Error> {
         // Incoming hunk is a file deletion.
@@ -233,7 +233,7 @@ impl PathRanges {
         commit_id: git2::Oid,
         index: usize,
         incoming_hunk: &InputDiff,
-        stack_id: gitbutler_id::id::Id<gitbutler_stack::Stack>,
+        stack_id: StackId,
         index_next_hunk_to_visit: &mut Option<usize>,
     ) -> Result<(), anyhow::Error> {
         // The incoming hunk does not intersect with anything.
@@ -274,7 +274,7 @@ impl PathRanges {
 
     fn handle_add_all_hunks(
         &mut self,
-        stack_id: gitbutler_id::id::Id<gitbutler_stack::Stack>,
+        stack_id: StackId,
         commit_id: git2::Oid,
         incoming_hunks: Vec<InputDiff>,
     ) -> anyhow::Result<()> {
@@ -300,7 +300,7 @@ impl PathRanges {
         &mut self,
         intersecting_hunk_ranges: Vec<(usize, HunkRange)>,
         incoming_hunk: &InputDiff,
-        stack_id: gitbutler_id::id::Id<gitbutler_stack::Stack>,
+        stack_id: StackId,
         commit_id: git2::Oid,
         index_next_hunk_to_visit: &mut Option<usize>,
     ) -> anyhow::Result<()> {
@@ -480,7 +480,7 @@ impl PathRanges {
         &mut self,
         intersecting_hunk_range: (usize, HunkRange),
         incoming_hunk: &InputDiff,
-        stack_id: gitbutler_id::id::Id<gitbutler_stack::Stack>,
+        stack_id: StackId,
         commit_id: git2::Oid,
         index_next_hunk_to_visit: &mut Option<usize>,
     ) -> anyhow::Result<()> {

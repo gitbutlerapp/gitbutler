@@ -917,5 +917,53 @@ EOF
 
     git checkout gitbutler/workspace
   )
+
+  git init two-branches-one-below-base
+  (cd two-branches-one-below-base
+    commit M1
+    commit M2
+    git checkout -b A
+      commit A1
+    git checkout main
+      tick
+      commit M3
+      # important to have a clear target right below B,
+      # so A is below that.
+      git branch B
+      commit M4
+      setup_target_to_match_main
+    git checkout B
+      commit B1
+    create_workspace_commit_once B A
+  )
+
+  git init two-branches-one-above-base
+  (cd two-branches-one-above-base
+    commit M1
+    commit M2
+    git branch B
+    commit M3
+    setup_target_to_match_main
+    git checkout -b A
+      commit A1
+    git checkout B
+      tick
+      commit B1
+    create_workspace_commit_once B A
+  )
+
+  mkdir edit-commit
+  (cd edit-commit
+    git init simple
+    (cd simple
+      commit init
+      setup_target_to_match_main
+      git checkout -b A
+        commit A1
+        git branch gitbutler/edit
+        commit A2
+      create_workspace_commit_once A
+    )
+  )
 )
 

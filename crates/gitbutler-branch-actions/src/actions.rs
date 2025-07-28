@@ -184,7 +184,7 @@ pub fn update_virtual_branch(
     let old_branch = ctx
         .project()
         .virtual_branches()
-        .get_stack_in_workspace(branch_update.id)?;
+        .get_stack_in_workspace(branch_update.id.context("BUG(opt-stack-id)")?)?;
     let result = vbranch::update_stack(ctx, &branch_update);
     let _ = snapshot_tree.and_then(|snapshot_tree| {
         ctx.snapshot_branch_update(
@@ -207,7 +207,7 @@ pub fn update_stack_order(ctx: &CommandContext, updates: Vec<BranchUpdateRequest
         let stack = ctx
             .project()
             .virtual_branches()
-            .get_stack_in_workspace(stack_update.id)?;
+            .get_stack_in_workspace(stack_update.id.context("BUG(opt-stack-id)")?)?;
         if stack_update.order != Some(stack.order) {
             vbranch::update_stack(ctx, &stack_update)?;
         }

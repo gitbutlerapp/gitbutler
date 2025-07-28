@@ -1,12 +1,97 @@
 use std::{fmt, path, path::Path, str::FromStr, vec};
 
 use anyhow::{Context, Result};
+use but_graph::virtual_branches_legacy_types;
 use gitbutler_diff::Hunk;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct OwnershipClaim {
     pub file_path: path::PathBuf,
     pub hunks: Vec<Hunk>,
+}
+
+impl From<virtual_branches_legacy_types::OwnershipClaim> for OwnershipClaim {
+    fn from(
+        virtual_branches_legacy_types::OwnershipClaim { file_path, hunks }: virtual_branches_legacy_types::OwnershipClaim,
+    ) -> Self {
+        OwnershipClaim {
+            file_path,
+            hunks: hunks.into_iter().map(hunk_to_hunk_mirror).collect(),
+        }
+    }
+}
+
+impl From<OwnershipClaim> for virtual_branches_legacy_types::OwnershipClaim {
+    fn from(OwnershipClaim { file_path, hunks }: OwnershipClaim) -> Self {
+        virtual_branches_legacy_types::OwnershipClaim {
+            file_path,
+            hunks: hunks.into_iter().map(mirror_hunk_to_hunk).collect(),
+        }
+    }
+}
+
+fn hunk_to_hunk_mirror(
+    virtual_branches_legacy_types::Hunk {
+        hash,
+        start,
+        end,
+        hunk_header,
+    }: virtual_branches_legacy_types::Hunk,
+) -> Hunk {
+    Hunk {
+        hash,
+        start,
+        end,
+        hunk_header: hunk_header.map(header_to_header_mirror),
+    }
+}
+
+fn mirror_hunk_to_hunk(
+    Hunk {
+        hash,
+        start,
+        end,
+        hunk_header,
+    }: Hunk,
+) -> virtual_branches_legacy_types::Hunk {
+    virtual_branches_legacy_types::Hunk {
+        hash,
+        start,
+        end,
+        hunk_header: hunk_header.map(mirror_header_to_header),
+    }
+}
+
+fn header_to_header_mirror(
+    virtual_branches_legacy_types::HunkHeader {
+        old_start,
+        old_lines,
+        new_start,
+        new_lines,
+    }: virtual_branches_legacy_types::HunkHeader,
+) -> gitbutler_diff::HunkHeader {
+    gitbutler_diff::HunkHeader {
+        old_start,
+        old_lines,
+        new_start,
+        new_lines,
+    }
+}
+
+fn mirror_header_to_header(
+    gitbutler_diff::HunkHeader {
+        old_start,
+        old_lines,
+        new_start,
+        new_lines,
+    }: gitbutler_diff::HunkHeader,
+) -> virtual_branches_legacy_types::HunkHeader {
+    virtual_branches_legacy_types::HunkHeader {
+        old_start,
+        old_lines,
+        new_start,
+        new_lines,
+    }
 }
 
 impl FromStr for OwnershipClaim {

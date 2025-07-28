@@ -1,29 +1,30 @@
 use std::{collections::HashSet, fmt, str::FromStr};
 
-use anyhow::Result;
-use itertools::Itertools;
-use serde::{Deserialize, Serialize, Serializer};
-
 use crate::{file_ownership::OwnershipClaim, Stack};
+use anyhow::Result;
+use but_graph::virtual_branches_legacy_types;
+use itertools::Itertools;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct BranchOwnershipClaims {
     pub claims: Vec<OwnershipClaim>,
 }
 
-impl Serialize for BranchOwnershipClaims {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(self.to_string().as_str())
+impl From<virtual_branches_legacy_types::BranchOwnershipClaims> for BranchOwnershipClaims {
+    fn from(
+        virtual_branches_legacy_types::BranchOwnershipClaims{ claims }: virtual_branches_legacy_types::BranchOwnershipClaims,
+    ) -> Self {
+        BranchOwnershipClaims {
+            claims: claims.into_iter().map(Into::into).collect(),
+        }
     }
 }
 
-impl<'de> Deserialize<'de> for BranchOwnershipClaims {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        s.parse().map_err(serde::de::Error::custom)
+impl From<BranchOwnershipClaims> for virtual_branches_legacy_types::BranchOwnershipClaims {
+    fn from(BranchOwnershipClaims { claims }: BranchOwnershipClaims) -> Self {
+        virtual_branches_legacy_types::BranchOwnershipClaims {
+            claims: claims.into_iter().map(Into::into).collect(),
+        }
     }
 }
 

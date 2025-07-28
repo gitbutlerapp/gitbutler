@@ -13,4 +13,6 @@ tracing.workspace = true
 gitbutler-project.workspace = true
 but-db.workspace = true
 but-settings.workspace = true
+but-graph.workspace = true
+#but-graph.workspace = true
 bstr = "1.11.1"

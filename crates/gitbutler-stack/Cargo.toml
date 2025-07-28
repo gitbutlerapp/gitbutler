@@ -13,12 +13,10 @@ itertools = "0.14"
 anyhow = "1.0.98"
 serde = { workspace = true, features = ["std"] }
 toml.workspace = true
-tracing.workspace = true
 gitbutler-reference.workspace = true
-gitbutler-id.workspace = true
 but-core.workspace = true
 but-rebase.workspace = true
-gitbutler-serde.workspace = true
+but-graph.workspace = true
 gitbutler-time.workspace = true
 gitbutler-diff.workspace = true
 gitbutler-error.workspace = true
@@ -27,7 +25,6 @@ gitbutler-command-context.workspace = true
 gitbutler-repo.workspace = true
 gitbutler-commit.workspace = true
 gitbutler-oxidize.workspace = true
-uuid.workspace = true
 bstr.workspace = true
 
 [[test]]

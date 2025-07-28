@@ -160,6 +160,7 @@ fn remove_single_line() -> anyhow::Result<()> {
 
 mod util {
     use crate::{WorkspaceDigest, intersect_workspace_ranges};
+    use but_core::ref_metadata::StackId;
     use but_hunk_dependency::{InputCommit, InputStack, tree_changes_to_input_files};
 
     pub fn repo(name: &str) -> anyhow::Result<gix::Repository> {
@@ -207,7 +208,7 @@ mod util {
         }
         commits.reverse();
         let stack = InputStack {
-            stack_id: Default::default(),
+            stack_id: StackId::generate(),
             commits_from_base_to_tip: commits,
         };
         Ok(vec![stack])

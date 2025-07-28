@@ -13,6 +13,7 @@ gix = { workspace = true, features = [] }
 gitbutler-reference.workspace = true
 gitbutler-diff.workspace = true
 gitbutler-stack.workspace = true
+but-graph.workspace = true
 itertools = "0.14"
 serde = { workspace = true, features = ["std"] }
 bstr.workspace = true

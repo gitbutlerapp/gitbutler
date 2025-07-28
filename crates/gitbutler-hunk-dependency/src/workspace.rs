@@ -42,7 +42,7 @@ impl WorkspaceRanges {
         let mut errors = vec![];
         for input_stack in input_stacks {
             let mut stack_ranges = StackRanges {
-                stack_id: input_stack.stack_id,
+                stack_id: input_stack.stack_id.into(),
                 ..Default::default()
             };
             let InputStack { stack_id, commits } = input_stack;
@@ -72,7 +72,11 @@ impl WorkspaceRanges {
 
         let commit_dependencies = stacks
             .iter()
-            .map(|stack| (stack.stack_id, stack.get_commit_dependencies()))
+            .filter_map(|stack| {
+                stack
+                    .stack_id
+                    .map(|id| (id, stack.get_commit_dependencies()))
+            })
             .collect();
         let inverse_commit_dependencies = get_inverted_dependency_maps(&commit_dependencies);
 

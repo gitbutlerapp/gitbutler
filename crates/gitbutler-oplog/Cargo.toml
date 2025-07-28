@@ -16,6 +16,7 @@ strum = { version = "0.27", features = ["derive"] }
 tracing.workspace = true
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
 toml.workspace = true
+but-graph.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-project.workspace = true
 gitbutler-oxidize.workspace = true

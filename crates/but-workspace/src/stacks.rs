@@ -200,21 +200,12 @@ pub fn stacks_v3(
         Ok(out)
     }
 
-    let extra_target = meta.data().default_target.as_ref().map(|t| t.sha.to_gix());
     let info = head_info(
         repo,
         meta,
         ref_info::Options {
-            // TODO: set this to a good value for the UI to not slow down, and also a value that forces us to re-investigate this.
-            stack_commit_limit: 100,
             expensive_commit_info: false,
-            traversal: but_graph::init::Options {
-                collect_tags: false,
-                commits_limit_hint: Some(300),
-                commits_limit_recharge_location: vec![],
-                hard_limit: None,
-                extra_target_commit_id: extra_target,
-            },
+            traversal: meta.graph_options(),
         },
     )?;
 
@@ -423,15 +414,9 @@ pub fn stack_details_v3(
             .find_map(|(id, stack)| (id == stack_id).then_some(stack)))
     }
     let ref_info_options = ref_info::Options {
-        stack_commit_limit: 0,
+        // TODO(perf): make this so it can be enabled for a specific stack-id.
         expensive_commit_info: true,
-        traversal: but_graph::init::Options {
-            collect_tags: false,
-            commits_limit_hint: Some(300),
-            commits_limit_recharge_location: vec![],
-            hard_limit: None,
-            extra_target_commit_id: meta.data().default_target.as_ref().map(|t| t.sha.to_gix()),
-        },
+        traversal: meta.graph_options(),
     };
     let stack = match stack_id {
         None => {

@@ -1,5 +1,7 @@
 pub mod commands {
+    use crate::error::Error;
     use anyhow::{anyhow, Context};
+    use but_graph::virtual_branches_legacy_types::BranchOwnershipClaims;
     use but_settings::AppSettingsWithDiskSync;
     use but_workspace::ui::StackEntryNoOpt;
     use but_workspace::DiffSpec;
@@ -18,11 +20,9 @@ pub mod commands {
     use gitbutler_project as projects;
     use gitbutler_project::{FetchResult, ProjectId};
     use gitbutler_reference::{normalize_branch_name as normalize_name, Refname, RemoteRefname};
-    use gitbutler_stack::{BranchOwnershipClaims, StackId, VirtualBranchesHandle};
+    use gitbutler_stack::{StackId, VirtualBranchesHandle};
     use tauri::State;
     use tracing::instrument;
-
-    use crate::error::Error;
 
     #[tauri::command(async)]
     #[instrument(err(Debug))]
@@ -264,12 +264,13 @@ pub mod commands {
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let from_commit_id = git2::Oid::from_str(&from_commit_id).map_err(|e| anyhow!(e))?;
         let to_commit_id = git2::Oid::from_str(&to_commit_id).map_err(|e| anyhow!(e))?;
+        let claim = ownership.into();
         let oid = gitbutler_branch_actions::move_commit_file(
             &ctx,
             stack_id,
             from_commit_id,
             to_commit_id,
-            &ownership,
+            &claim,
         )?;
         Ok(oid.to_string())
     }

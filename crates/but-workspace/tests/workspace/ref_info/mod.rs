@@ -645,7 +645,6 @@ mod utils {
 
     pub fn standard_options() -> but_workspace::ref_info::Options {
         ref_info::Options {
-            stack_commit_limit: 0,
             expensive_commit_info: true,
             traversal: Default::default(),
         }

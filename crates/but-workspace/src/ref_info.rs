@@ -5,18 +5,6 @@
 /// Options for the [`ref_info()`](crate::ref_info) call.
 #[derive(Default, Debug, Clone)]
 pub struct Options {
-    /// The maximum amount of commits to list *per stack*. Note that a [`StackSegment`](crate::branch::Segment) will always have a single commit, if available,
-    ///  even if this exhausts the commit limit in that stack.
-    /// `0` means the limit is disabled.
-    ///
-    /// NOTE: Currently, to fetch more commits, make this call again with a higher limit.
-    /// Additionally, this is only effective if there is an open-ended graph, for example, when `HEAD` points to `main` with
-    /// a lot of commits without a discernible base.
-    ///
-    /// Callers can check for the limit by looking as the oldest commit - if it has no parents, then the limit wasn't hit, or if it is
-    /// connected to a merge-base.
-    /// TODO: remove this.
-    pub stack_commit_limit: usize,
     /// Control how to traverse the commit-graph as the basis for the workspace conversion.
     pub traversal: but_graph::init::Options,
     /// Perform expensive computations on a per-commit basis.
