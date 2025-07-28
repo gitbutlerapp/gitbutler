@@ -936,5 +936,18 @@ EOF
       commit B1
     create_workspace_commit_once B A
   )
+  mkdir edit-commit
+  (cd edit-commit
+    git init simple
+    (cd simple
+      commit init
+      setup_target_to_match_main
+      git checkout -b A
+        commit A1
+        git branch gitbutler/edit
+        commit A2
+      create_workspace_commit_once A
+    )
+  )
 )
 

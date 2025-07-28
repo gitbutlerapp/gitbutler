@@ -4201,3 +4201,73 @@ fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+mod edit_commit {
+    use crate::graph_tree;
+    use crate::init::{add_workspace, id_at, read_only_in_memory_scenario, standard_options};
+    use crate::vis::utils::graph_workspace;
+    use but_graph::Graph;
+    use but_testsupport::visualize_commit_graph_all;
+
+    #[test]
+    fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {
+        let (repo, mut meta) = read_only_in_memory_scenario("ws/edit-commit/simple")?;
+        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+        * 3ea2742 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+        * a62b0de (A) A2
+        * 120a217 (gitbutler/edit) A1
+        * fafd9d0 (origin/main, main) init
+        ");
+
+        add_workspace(&mut meta);
+        let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+        insta::assert_snapshot!(graph_tree(&graph), @r"
+        ├── 👉📕►►►:0[0]:gitbutler/workspace
+        │   └── ·3ea2742 (⌂|🏘️|1)
+        │       └── ►:3[1]:A
+        │           └── ·a62b0de (⌂|🏘️|1)
+        │               └── ►:4[2]:gitbutler/edit
+        │                   └── ·120a217 (⌂|🏘️|1)
+        │                       └── ►:2[3]:main <> origin/main →:1:
+        │                           └── ·fafd9d0 (⌂|🏘️|✓|11)
+        └── ►:1[0]:origin/main →:2:
+            └── →:2: (main →:1:)
+        ");
+
+        // special branch names are skipped by default and entirely invisible.
+        insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+        📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
+        └── ≡:3:A on fafd9d0
+            └── :3:A
+                ├── ·a62b0de (🏘️)
+                └── ·120a217 (🏘️)
+        ");
+
+        // However, if the HEAD points to that reference…
+        let (id, ref_name) = id_at(&repo, "gitbutler/edit");
+        let graph =
+            Graph::from_commit_traversal(id, ref_name, &*meta, standard_options())?.validated()?;
+        insta::assert_snapshot!(graph_tree(&graph), @r"
+        ├── 📕►►►:1[0]:gitbutler/workspace
+        │   └── ·3ea2742 (⌂|🏘️)
+        │       └── ►:4[1]:A
+        │           └── ·a62b0de (⌂|🏘️)
+        │               └── 👉►:0[2]:gitbutler/edit
+        │                   └── ·120a217 (⌂|🏘️|1)
+        │                       └── ►:3[3]:main <> origin/main →:2:
+        │                           └── ·fafd9d0 (⌂|🏘️|✓|11)
+        └── ►:2[0]:origin/main →:3:
+            └── →:3: (main →:2:)
+        ");
+        // …then the segment becomes visible.
+        insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+        📕🏘️:1:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
+        └── ≡:4:A on fafd9d0
+            ├── :4:A
+            │   └── ·a62b0de (🏘️)
+            └── 👉:0:gitbutler/edit
+                └── ·120a217 (🏘️)
+        ");
+        Ok(())
+    }
+}
