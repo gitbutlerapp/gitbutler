@@ -36,24 +36,29 @@ export class GitHub implements Forge {
 	}
 
 	get listService() {
+		if (!this.authenticated) return;
 		const { api: gitHubApi } = this.params;
 		return new GitHubListingService(gitHubApi);
 	}
 
 	get prService() {
+		if (!this.authenticated) return;
 		const { api: gitHubApi, posthog } = this.params;
 		return new GitHubPrService(gitHubApi, posthog);
 	}
 
 	get repoService() {
+		if (!this.authenticated) return;
 		return new GitHubRepoService(this.params.api);
 	}
 
 	get issueService() {
+		if (!this.authenticated) return;
 		return new GitHubIssueService(this.params.api);
 	}
 
 	get checks() {
+		if (!this.authenticated) return;
 		return new GitHubChecksMonitor(this.params.api);
 	}
 
