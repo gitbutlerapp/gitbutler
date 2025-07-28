@@ -41,6 +41,7 @@
 		onkeydown?: (e: KeyboardEvent) => void;
 		onCloseClick?: () => void;
 		conflictEntries?: ConflictEntriesObj;
+		hideBorder?: boolean;
 	}
 
 	const {
@@ -61,7 +62,8 @@
 		transparent,
 		onclick,
 		onkeydown,
-		onCloseClick
+		onCloseClick,
+		hideBorder
 	}: Props = $props();
 
 	const idSelection = inject(ID_SELECTION);
@@ -186,6 +188,7 @@
 			{executable}
 			draggable={!draggableDisabled}
 			{onkeydown}
+			{hideBorder}
 			locked={false}
 			conflicted={!!conflict}
 			conflictHint={conflict ? conflictEntryHint(conflict) : undefined}

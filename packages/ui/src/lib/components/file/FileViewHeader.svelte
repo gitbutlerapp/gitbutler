@@ -2,10 +2,10 @@
 	import Badge from '$components/Badge.svelte';
 	import Button from '$components/Button.svelte';
 	import Icon from '$components/Icon.svelte';
+	import LineStats from '$components/LineStats.svelte';
 	import ExecutableLabel from '$components/file/ExecutableLabel.svelte';
 	import FileName from '$components/file/FileName.svelte';
 	import FileStatusBadge from '$components/file/FileStatusBadge.svelte';
-	import LineChangeStats from '$components/file/LineChangeStats.svelte';
 	import type { FileStatus } from '$components/file/types';
 
 	interface Props {
@@ -67,7 +67,9 @@
 	</div>
 
 	<div class="file-header__statuses">
-		<LineChangeStats added={linesAdded} removed={linesRemoved} />
+		{#if linesAdded > 0 || linesRemoved > 0}
+			<LineStats {linesAdded} {linesRemoved} showSeparator={false} />
+		{/if}
 
 		{#if executable}
 			<ExecutableLabel />

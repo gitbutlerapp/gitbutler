@@ -302,6 +302,7 @@
 				changes={changes.changes.filter(
 					(change) => !(change.path in (changes.conflictEntries?.entries ?? {}))
 				)}
+				stats={changes.stats}
 				conflictEntries={changes.conflictEntries}
 				{ancestorMostConflictedCommitId}
 				{active}
@@ -340,7 +341,8 @@
 				ontoggle={() => {
 					changedFilesCollapsed = !changedFilesCollapsed;
 				}}
-				{changes}
+				changes={changes.changes}
+				stats={changes.stats}
 				{active}
 				resizer={{
 					persistId: `resizer-panel2-changed-files-${stack.id}`,

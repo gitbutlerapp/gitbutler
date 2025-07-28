@@ -212,7 +212,7 @@
 		align-items: center;
 		height: 100%;
 		overflow: hidden;
-		gap: 8px;
+		gap: 6px;
 	}
 
 	.drawer-header__actions {
@@ -229,13 +229,6 @@
 		display: flex;
 		position: relative;
 		flex-direction: column;
-	}
-
-	.drawer__files-split-view {
-		display: flex;
-		flex: 1;
-		flex-direction: column;
-		overflow: hidden;
 	}
 
 	.chevron-btn {

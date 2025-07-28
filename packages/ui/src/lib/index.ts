@@ -21,6 +21,7 @@ export {
 	default as IntegrationSeriesRow,
 	type BranchShouldBeDeletedMap
 } from '$components/IntegrationSeriesRow.svelte';
+export { default as LineStats } from '$components/LineStats.svelte';
 export { default as LinkButton } from '$components/LinkButton.svelte';
 export { default as Modal, type ModalProps } from '$components/Modal.svelte';
 export { default as ModalHeader } from '$components/ModalHeader.svelte';
@@ -53,7 +54,6 @@ export { default as FileName } from '$components/file/FileName.svelte';
 export { default as FileStatusBadge } from '$components/file/FileStatusBadge.svelte';
 export { default as FileViewHeader } from '$components/file/FileViewHeader.svelte';
 export { default as FolderListItem } from '$components/file/FolderListItem.svelte';
-export { default as LineChangeStats } from '$components/file/LineChangeStats.svelte';
 
 // Select Components
 export { default as OptionsGroup } from '$components/select/OptionsGroup.svelte';
