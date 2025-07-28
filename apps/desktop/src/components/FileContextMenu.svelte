@@ -28,7 +28,7 @@
 		Modal,
 		Textbox
 	} from '@gitbutler/ui';
-	import * as toasts from '@gitbutler/ui/toasts';
+	import * as chipToasts from '@gitbutler/ui/toasts';
 	import { join } from '@tauri-apps/api/path';
 	import type { DiffSpec } from '$lib/hunks/hunk';
 	import type { SelectionId } from '$lib/selection/key';
@@ -173,69 +173,69 @@
 
 	async function triggerAutoCommit(changes: TreeChange[]) {
 		if (!canUseGBAI) {
-			toasts.error('GitButler AI is not configured or enabled for this project.');
+			chipToasts.error('GitButler AI is not configured or enabled for this project.');
 			return;
 		}
 
-		await toasts.promise(
-			(async () => {
-				await autoCommit({
+		try {
+			await chipToasts.promise(
+				autoCommit({
 					projectId,
 					changes
-				});
-			})(),
-			{
-				loading: 'Started auto commit',
-				success: 'Auto commit succeded',
-				error: (error: Error) => `Auto commit failed: ${error.message}`
-			}
-		);
+				}),
+				{
+					loading: 'Started auto commit',
+					success: 'Auto commit succeded',
+					error: 'Auto commit failed'
+				}
+			);
+		} catch (error) {
+			console.error('Auto commit failed:', error);
+		}
 	}
 
 	async function triggerBranchChanges(changes: TreeChange[]) {
 		if (!canUseGBAI) {
-			toasts.error('GitButler AI is not configured or enabled for this project.');
+			chipToasts.error('GitButler AI is not configured or enabled for this project.');
 			return;
 		}
 
-		await toasts.promise(
-			(async () => {
-				await branchChanges({ projectId, changes });
-			})(),
-			{
+		try {
+			await chipToasts.promise(branchChanges({ projectId, changes }), {
 				loading: 'Creating a branch and committing changes',
 				success: 'Branching changes succeded',
-				error: (error: Error) => `Branching changes failed: ${error.message}`
-			}
-		);
+				error: 'Branching changes failed'
+			});
+		} catch (error) {
+			console.error('Branching changes failed:', error);
+		}
 	}
 
 	async function triggerAbsorbChanges(changes: TreeChange[]) {
 		if (!canUseGBAI) {
-			toasts.error('GitButler AI is not configured or enabled for this project.');
+			chipToasts.error('GitButler AI is not configured or enabled for this project.');
 			return;
 		}
 
-		await toasts.promise(
-			(async () => {
-				await absorbChanges({ projectId, changes });
-			})(),
-			{
+		try {
+			await chipToasts.promise(absorbChanges({ projectId, changes }), {
 				loading: 'Looking for the best place to absorb the changes',
 				success: 'Absorbing changes succeded',
-				error: (error: Error) => `Absorbing changes failed: ${error.message}`
-			}
-		);
+				error: 'Absorbing changes failed'
+			});
+		} catch (error) {
+			console.error('Absorbing changes failed:', error);
+		}
 	}
 
 	async function split(changes: TreeChange[]) {
 		if (!stackId) {
-			toasts.error('No stack selected to split off changes.');
+			chipToasts.error('No stack selected to split off changes.');
 			return;
 		}
 
 		if (selectionId.type !== 'branch') {
-			toasts.error('Please select a branch to split off changes.');
+			chipToasts.error('Please select a branch to split off changes.');
 			return;
 		}
 
@@ -243,38 +243,42 @@
 
 		const fileNames = changes.map((change) => change.path);
 
-		await toasts.promise(
-			(async () => {
-				const newBranchName = await stackService.fetchNewBranchName(projectId);
+		try {
+			await chipToasts.promise(
+				(async () => {
+					const newBranchName = await stackService.fetchNewBranchName(projectId);
 
-				if (!newBranchName) {
-					throw new Error('Failed to generate a new branch name.');
+					if (!newBranchName) {
+						throw new Error('Failed to generate a new branch name.');
+					}
+
+					await splitOffChanges({
+						projectId,
+						sourceStackId: stackId,
+						sourceBranchName: branchName,
+						fileChangesToSplitOff: fileNames,
+						newBranchName: newBranchName
+					});
+				})(),
+				{
+					loading: 'Splitting off changes',
+					success: 'Changes split off into a new branch',
+					error: 'Failed to split off changes'
 				}
-
-				await splitOffChanges({
-					projectId,
-					sourceStackId: stackId,
-					sourceBranchName: branchName,
-					fileChangesToSplitOff: fileNames,
-					newBranchName: newBranchName
-				});
-			})(),
-			{
-				loading: 'Splitting off changes',
-				success: 'Changes split off into a new branch',
-				error: (error: Error) => `Failed to split off changes: ${error.message}`
-			}
-		);
+			);
+		} catch (error) {
+			console.error('Failed to split off changes:', error);
+		}
 	}
 
 	async function splitIntoDependentBranch(changes: TreeChange[]) {
 		if (!stackId) {
-			toasts.error('No stack selected to split off changes.');
+			chipToasts.error('No stack selected to split off changes.');
 			return;
 		}
 
 		if (selectionId.type !== 'branch') {
-			toasts.error('Please select a branch to split off changes.');
+			chipToasts.error('Please select a branch to split off changes.');
 			return;
 		}
 
@@ -282,28 +286,32 @@
 
 		const fileNames = changes.map((change) => change.path);
 
-		await toasts.promise(
-			(async () => {
-				const newBranchName = await stackService.fetchNewBranchName(projectId);
+		try {
+			await chipToasts.promise(
+				(async () => {
+					const newBranchName = await stackService.fetchNewBranchName(projectId);
 
-				if (!newBranchName) {
-					throw new Error('Failed to generate a new branch name.');
+					if (!newBranchName) {
+						throw new Error('Failed to generate a new branch name.');
+					}
+
+					await splitBranchIntoDependentBranch({
+						projectId,
+						sourceStackId: stackId,
+						sourceBranchName: branchName,
+						fileChangesToSplitOff: fileNames,
+						newBranchName: newBranchName
+					});
+				})(),
+				{
+					loading: 'Splitting into dependent branch',
+					success: 'Changes split into a dependent branch',
+					error: 'Failed to split into dependent branch'
 				}
-
-				await splitBranchIntoDependentBranch({
-					projectId,
-					sourceStackId: stackId,
-					sourceBranchName: branchName,
-					fileChangesToSplitOff: fileNames,
-					newBranchName: newBranchName
-				});
-			})(),
-			{
-				loading: 'Splitting into dependent branch',
-				success: 'Changes split into a dependent branch',
-				error: (error: Error) => `Failed to split into dependent branch: ${error.message}`
-			}
-		);
+			);
+		} catch (error) {
+			console.error('Failed to split into dependent branch:', error);
+		}
 	}
 </script>
 
@@ -385,8 +393,8 @@
 								}
 								contextMenu.close();
 							} catch {
+								chipToasts.error('Failed to open in editor');
 								console.error('Failed to open in editor');
-								toasts.error('Failed to open in editor');
 							}
 						}}
 					/>

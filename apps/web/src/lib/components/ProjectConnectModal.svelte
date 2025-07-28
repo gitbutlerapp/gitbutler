@@ -9,7 +9,7 @@
 	import { projectTable } from '@gitbutler/shared/organizations/projectsSlice';
 
 	import { Button, Modal, SectionCard } from '@gitbutler/ui';
-	import toasts from '@gitbutler/ui/toasts';
+	import chipToasts from '@gitbutler/ui/toasts';
 	import type { Project } from '@gitbutler/shared/organizations/types';
 
 	type Props = {
@@ -67,7 +67,7 @@
 			}
 		} catch (error) {
 			console.error('Failed to fetch organization projects:', error);
-			toasts.error('Failed to fetch organization projects');
+			chipToasts.error('Failed to fetch organization projects');
 			organizationProjects = [];
 		} finally {
 			isLoadingProjects = false;
@@ -100,7 +100,7 @@
 		const projectSlug = isCreatingNew ? newProjectSlug : selectedProjectSlug;
 
 		if (!projectSlug) {
-			toasts.error('Please select or create a project first');
+			chipToasts.error('Please select or create a project first');
 			return;
 		}
 
@@ -110,10 +110,10 @@
 				organizationSlug,
 				projectSlug
 			);
-			toasts.success('Project connected to organization');
+			chipToasts.success('Project connected to organization');
 			modal?.close();
 		} catch (error) {
-			toasts.error(
+			chipToasts.error(
 				`Failed to connect project: ${error instanceof Error ? error.message : 'Unknown error'}`
 			);
 		}

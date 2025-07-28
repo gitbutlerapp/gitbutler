@@ -13,7 +13,7 @@
 	} from '@gitbutler/shared/routing/webRoutes.svelte';
 
 	import { AsyncButton, Button, Markdown, Modal } from '@gitbutler/ui';
-	import toasts from '@gitbutler/ui/toasts';
+	import chipToasts from '@gitbutler/ui/toasts';
 
 	interface Props {
 		data: ProjectParameters;
@@ -75,9 +75,9 @@
 			};
 
 			editingReadme = false;
-			toasts.success('README updated successfully');
+			chipToasts.success('README updated successfully');
 		} catch (error) {
-			toasts.error(
+			chipToasts.error(
 				`Failed to update README: ${error instanceof Error ? error.message : 'Unknown error'}`
 			);
 		} finally {
@@ -125,7 +125,7 @@
 			};
 
 			editProjectModal?.close();
-			toasts.success('Project updated successfully');
+			chipToasts.success('Project updated successfully');
 
 			// If the slug changed, redirect to the new URL
 			if (editedSlug !== data.projectSlug) {
@@ -137,7 +137,8 @@
 				);
 			}
 		} catch (error) {
-			toasts.error(
+			chipToasts.error(`Failed to update project`);
+			console.error(
 				`Failed to update project: ${error instanceof Error ? error.message : 'Unknown error'}`
 			);
 		} finally {
@@ -166,9 +167,10 @@
 				parentProject: undefined,
 				parentProjectRepositoryId: undefined
 			};
-			toasts.success('Project unlinked from parent');
+			chipToasts.success('Project unlinked from parent');
 		} catch (error) {
-			toasts.error(
+			chipToasts.error(`Failed to unlink project`);
+			console.error(
 				`Failed to unlink project: ${error instanceof Error ? error.message : 'Unknown error'}`
 			);
 		}
@@ -331,7 +333,7 @@
 												style="pop"
 												onclick={() => {
 													navigator.clipboard.writeText(projectData.codeGitUrl);
-													toasts.success('copied to clipboard');
+													chipToasts.success('copied to clipboard');
 												}}
 											>
 												Copy

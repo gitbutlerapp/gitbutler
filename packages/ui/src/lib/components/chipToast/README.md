@@ -16,11 +16,11 @@ A simple toast notification system for the GitButler UI package.
 
 ```svelte
 <script>
-  import { toasts, ToastContainer } from '@gitbutler/ui';
+	import { toasts, ToastContainer } from '@gitbutler/ui';
 
-  function showToast() {
-    toasts.success('Operation completed!');
-  }
+	function showToast() {
+		toasts.success('Operation completed!');
+	}
 </script>
 
 <button on:click={showToast}>Show Toast</button>
@@ -47,13 +47,13 @@ toasts.error('Something went wrong');
 import { toasts } from '@gitbutler/ui';
 
 async function handleAsyncOperation() {
-  const myPromise = fetch('/api/data');
-  
-  await toasts.promise(myPromise, {
-    loading: 'Loading data...',
-    success: 'Data loaded successfully!',
-    error: 'Failed to load data'
-  });
+	const myPromise = fetch('/api/data');
+
+	await toasts.promise(myPromise, {
+		loading: 'Loading data...',
+		success: 'Data loaded successfully!',
+		error: 'Failed to load data'
+	});
 }
 ```
 
@@ -66,13 +66,16 @@ toasts.clearAll(); // Removes all current toasts
 ## Components
 
 ### `<Toast>`
+
 Individual toast component.
 
 **Props:**
+
 - `type: 'neutral' | 'success' | 'warning' | 'error'` - Toast type
 - `message: string` - Toast message text
 
 ### `<ToastContainer>`
+
 Container that manages positioning and stacking. Add this once to your app root.
 
 **No props required.**
@@ -80,7 +83,8 @@ Container that manages positioning and stacking. Add this once to your app root.
 ## Styling
 
 Toasts use the GitButler design system colors:
+
 - **Neutral**: `--clr-theme-ntrl-element`
-- **Success**: `--clr-theme-succ-element`  
+- **Success**: `--clr-theme-succ-element`
 - **Warning**: `--clr-theme-warn-element`
 - **Error**: `--clr-theme-err-element`
