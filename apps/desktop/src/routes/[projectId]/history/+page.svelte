@@ -209,7 +209,6 @@
 							filePath={selectedFile.path}
 							draggable={false}
 							oncloseclick={() => {
-								console.warn('oncloseclick');
 								selectedFile = undefined;
 							}}
 						/>
