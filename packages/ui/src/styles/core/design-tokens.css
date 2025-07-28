@@ -703,7 +703,7 @@
 	--clr-diff-selected-count-border: var(--clr-core-pop-20);
 	--clr-diff-selected-count-checkmark: var(--clr-core-pop-60);
 	--clr-diff-selected-count-text: var(--clr-core-pop-55);
-	--clr-illustration-bg: color(srgb 0.12941176470588237 0.30980392156862746 0.30196078431372547);
+	--clr-illustration-bg: color(srgb 0.1568627450980392 0.403921568627451 0.39215686274509803);
 	--clr-illustration-fill: color(srgb 0.8470588235294118 0.8901960784313725 0.7568627450980392);
 	--clr-illustration-outline: color(
 		srgb 0.0784313725490196 0.13333333333333333 0.13333333333333333
