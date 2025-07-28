@@ -109,6 +109,7 @@
 			{listMode}
 			{active}
 			{stackId}
+			hideLastFileBorder={mode !== 'unassigned'}
 			{onselect}
 		/>
 	</div>

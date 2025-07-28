@@ -95,7 +95,7 @@
 								<FileListItem
 									filePath={change.path}
 									clickable={false}
-									isLast={change === uncommittedChanges[uncommittedChanges.length - 1]}
+									hideBorder={change === uncommittedChanges[uncommittedChanges.length - 1]}
 								/>
 							{/each}
 						</div>
@@ -113,7 +113,7 @@
 													clickable={false}
 													conflicted
 													conflictHint="Resolve to apply"
-													isLast={path ===
+													hideBorder={path ===
 														mode.subject.worktreeConflicts[
 															mode.subject.worktreeConflicts.length - 1
 														]}

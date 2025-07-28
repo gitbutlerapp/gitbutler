@@ -227,7 +227,7 @@
 							{filePath}
 							onclick={() => onDiffClick(filePath)}
 							selected={selectedFile?.path === filePath && selectedFile?.entryId === entry.id}
-							isLast={filePath === files[files.length - 1]}
+							hideBorder={filePath === files[files.length - 1]}
 						/>
 					{/each}
 				</div>

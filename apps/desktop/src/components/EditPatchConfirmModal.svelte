@@ -31,20 +31,3 @@
 		<Button style="pop" onclick={onConfirm}>Resolve Conflicts</Button>
 	{/snippet}
 </Modal>
-
-<style>
-	.modal-content {
-		display: flex;
-		flex-direction: column;
-		padding: 16px 0;
-		gap: 12px;
-	}
-
-	.file-name {
-		padding: 4px 8px;
-		border-radius: 4px;
-		background-color: var(--clr-bg-2);
-		font-family: monospace;
-		word-break: break-all;
-	}
-</style>

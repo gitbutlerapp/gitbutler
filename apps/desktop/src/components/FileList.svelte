@@ -33,6 +33,7 @@
 		conflictEntries?: ConflictEntriesObj;
 		draggableFiles?: boolean;
 		ancestorMostConflictedCommitId?: string;
+		hideLastFileBorder?: boolean;
 		onselect?: () => void;
 	};
 
@@ -47,6 +48,7 @@
 		conflictEntries,
 		draggableFiles,
 		ancestorMostConflictedCommitId,
+		hideLastFileBorder = true,
 		onselect
 	}: Props = $props();
 
@@ -210,6 +212,7 @@
 		{active}
 		{listMode}
 		{depth}
+		hideBorder={hideLastFileBorder && idx === visibleFiles.length - 1}
 		draggable={draggableFiles}
 		executable={!!isExecutable}
 		showCheckbox={showCheckboxes}

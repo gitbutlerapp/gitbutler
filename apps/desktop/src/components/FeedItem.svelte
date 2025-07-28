@@ -115,7 +115,11 @@
 							<SnapshotAttachment foldable={files.length > 2} foldedAmount={files.length}>
 								<div class="snapshot-files">
 									{#each files as filePath, idx (filePath)}
-										<FileListItem listMode="list" {filePath} isLast={idx === files.length - 1} />
+										<FileListItem
+											listMode="list"
+											{filePath}
+											hideBorder={idx === files.length - 1}
+										/>
 									{/each}
 								</div>
 							</SnapshotAttachment>

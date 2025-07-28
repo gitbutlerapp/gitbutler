@@ -31,7 +31,7 @@
 		locked?: boolean;
 		lockText?: string;
 		active?: boolean;
-		isLast?: boolean;
+		hideBorder?: boolean;
 		executable?: boolean;
 		oncheckclick?: (e: MouseEvent) => void;
 		oncheck?: (
@@ -52,7 +52,7 @@
 		filePath,
 		fileStatus,
 		fileStatusTooltip,
-		isLast,
+		hideBorder,
 		fileStatusStyle = 'dot',
 		draggable = false,
 		selected = false,
@@ -91,7 +91,7 @@
 	class:clickable
 	class:focused
 	class:draggable
-	class:last={isLast}
+	class:hide-border={hideBorder}
 	class:list-mode={listMode === 'list'}
 	aria-selected={selected}
 	role="option"
@@ -210,7 +210,7 @@
 			background-color: var(--clr-selected-in-focus-bg);
 		}
 
-		&.list-mode:not(.last) {
+		&.list-mode:not(.hide-border) {
 			border-bottom: 1px solid var(--clr-border-3);
 		}
 

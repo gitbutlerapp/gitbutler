@@ -7,11 +7,11 @@
 	import { INTELLIGENT_SCROLLING_SERVICE } from '$lib/intelligentScrolling/service';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import { Badge, EmptyStatePlaceholder } from '@gitbutler/ui';
+	import { Badge, EmptyStatePlaceholder, LineStats } from '@gitbutler/ui';
 
 	import { untrack, type ComponentProps } from 'svelte';
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
-	import type { TreeChange } from '$lib/hunks/change';
+	import type { TreeChange, TreeStats } from '$lib/hunks/change';
 	import type { SelectionId } from '$lib/selection/key';
 
 	type Props = {
@@ -20,6 +20,7 @@
 		selectionId: SelectionId;
 		changes: TreeChange[];
 		title: string;
+		stats?: TreeStats;
 		active?: boolean;
 		conflictEntries?: ConflictEntriesObj;
 		draggableFiles?: boolean;
@@ -38,6 +39,7 @@
 		selectionId,
 		changes,
 		title,
+		stats,
 		active,
 		conflictEntries,
 		draggableFiles,
@@ -74,7 +76,12 @@
 <Drawer {grow} {ontoggle} {resizer} {noshrink}>
 	{#snippet header()}
 		<h4 class="text-14 text-semibold truncate">{title}</h4>
-		<Badge>{changes.length}</Badge>
+		<div class="text-11 header-stats">
+			<Badge>{changes.length}</Badge>
+			{#if stats}
+				<LineStats linesAdded={stats.linesAdded} linesRemoved={stats.linesRemoved} />
+			{/if}
+		</div>
 	{/snippet}
 	{#snippet extraActions()}
 		<FileListMode bind:mode={listMode} persist="committed" />
@@ -109,6 +116,12 @@
 </Drawer>
 
 <style lang="postcss">
+	.header-stats {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+	}
+
 	.filelist-wrapper {
 		display: flex;
 		flex-direction: column;

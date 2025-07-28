@@ -317,10 +317,6 @@
 		white-space: nowrap;
 	}
 
-	.branch-header__item--conflict {
-		color: var(--clr-theme-err-element);
-	}
-
 	.branch-header__divider {
 		color: var(--clr-text-3);
 	}
