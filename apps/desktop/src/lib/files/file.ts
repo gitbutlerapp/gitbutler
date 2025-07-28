@@ -1,4 +1,3 @@
-import { RemoteHunk } from '$lib/hunks/hunk';
 import { Hunk, type HunkLock } from '$lib/hunks/hunk';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { Transform, Type } from 'class-transformer';
@@ -10,42 +9,6 @@ export type FileInfo = {
 	mimeType?: string;
 	size?: number;
 };
-export class RemoteFile {
-	path!: string;
-	@Type(() => RemoteHunk)
-	hunks!: RemoteHunk[];
-	binary!: boolean;
-	large!: boolean;
-
-	get id(): string {
-		return 'remote:' + this.path;
-	}
-
-	get filename(): string {
-		return this.path.replace(/^.*[\\/]/, '');
-	}
-
-	get justpath() {
-		return this.path.split('/').slice(0, -1).join('/');
-	}
-
-	get conflicted() {
-		return false;
-	}
-
-	get hunkIds() {
-		return this.hunks.map((h) => h.id);
-	}
-
-	get lockedIds(): HunkLock[] {
-		return [];
-	}
-
-	get locked(): boolean {
-		return false;
-	}
-}
-
 export class LocalFile {
 	id!: string;
 	path!: string;
@@ -85,8 +48,8 @@ export class LocalFile {
 		return this.hunks.flatMap((hunk) => hunk.lockedTo).filter(isDefined);
 	}
 }
-export type AnyFile = LocalFile | RemoteFile;
+export type AnyFile = LocalFile;
 
 export function isAnyFile(something: unknown): something is AnyFile {
-	return something instanceof LocalFile || something instanceof RemoteFile;
+	return something instanceof LocalFile;
 }

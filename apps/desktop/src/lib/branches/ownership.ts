@@ -1,13 +1,12 @@
 import { InjectionToken } from '@gitbutler/shared/context';
 import type { BranchStack } from '$lib/branches/branch';
 import type { AnyFile } from '$lib/files/file';
-import type { RemoteHunk } from '$lib/hunks/hunk';
 import type { Hunk } from '$lib/hunks/hunk';
 import type { Writable } from 'svelte/store';
 
 // These types help keep track of what maps to what.
 // TODO: refactor code for clarity, these types should not be needed
-export type AnyHunk = Hunk | RemoteHunk;
+export type AnyHunk = Hunk;
 export type HunkId = string;
 export type FilePath = string;
 export type HunkClaims = Map<HunkId, AnyHunk>;

@@ -14,7 +14,7 @@
 	} from '$lib/actions/types';
 	import butbotSvg from '$lib/assets/butbot-actions.svg?raw';
 	import { isFeedMessage, isInProgressAssistantMessage, type FeedEntry } from '$lib/feed/feed';
-	import { SNAPSHOT_DIFF_SERVICE } from '$lib/history/snapshotDiffService.svelte';
+	import { HISTORY_SERVICE } from '$lib/history/history';
 	import { Snapshot } from '$lib/history/types';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/shared/context';
@@ -31,7 +31,8 @@
 
 	const { action, projectId }: Props = $props();
 
-	const snapshotDiffService = inject(SNAPSHOT_DIFF_SERVICE);
+	const historyService = inject(HISTORY_SERVICE);
+	const changes = historyService.snapshotDiff({ projectId, snapshotId: action.id });
 
 	const user = inject(USER);
 	let failedToLoadImage = $state(false);
@@ -106,19 +107,18 @@
 					(action.externalPrompt ?? action.externalSummary)}
 			</p>
 			{#if !isStr(action.source)}
-				{@const fileDiffs = snapshotDiffService.getFileDiffs(projectId, action.snapshotBefore)}
-				<ReduxResult {projectId} result={fileDiffs.current}>
-					{#snippet children(files)}
-						{#if files.length === 0}
+				<ReduxResult {projectId} result={changes.current}>
+					{#snippet children(changes)}
+						{#if changes.length === 0}
 							<p class="text-13 text-grey">No changes detected</p>
 						{:else}
-							<SnapshotAttachment foldable={files.length > 2} foldedAmount={files.length}>
+							<SnapshotAttachment foldable={changes.length > 2} foldedAmount={changes.length}>
 								<div class="snapshot-files">
-									{#each files as filePath, idx (filePath)}
+									{#each changes as change, idx (change.path)}
 										<FileListItem
 											listMode="list"
-											{filePath}
-											hideBorder={idx === files.length - 1}
+											filePath={change.path}
+											hideBorder={idx === changes.length - 1}
 										/>
 									{/each}
 								</div>

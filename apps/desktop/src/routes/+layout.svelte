@@ -35,7 +35,6 @@
 	import { DropzoneRegistry, DROPZONE_REGISTRY } from '$lib/dragging/registry';
 	import FeedFactory, { FEED_FACTORY } from '$lib/feed/feed';
 	import { FILE_SERVICE } from '$lib/files/fileService';
-	import { UncommitedFilesWatcher, UNCOMMITED_FILES_WATCHER } from '$lib/files/watcher';
 	import { DefaultForgeFactory, DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { GitHubClient, GITHUB_CLIENT } from '$lib/forge/github/githubClient';
 	import {
@@ -46,9 +45,6 @@
 	import { GitService, GIT_SERVICE } from '$lib/git/gitService';
 	import { HISTORY_SERVICE, HistoryService } from '$lib/history/history';
 	import { OplogService, OPLOG_SERVICE } from '$lib/history/oplogService.svelte';
-	import SnapshotDiffService, {
-		SNAPSHOT_DIFF_SERVICE
-	} from '$lib/history/snapshotDiffService.svelte';
 	import { HOOKS_SERVICE } from '$lib/hooks/hooksService';
 	import { DiffService, DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
 	import {
@@ -214,9 +210,6 @@
 	const commitAnalytics = new CommitAnalytics(stackService, uiState, worktreeService);
 	provide(COMMIT_ANALYTICS, commitAnalytics);
 
-	const snapshotDiffService = new SnapshotDiffService(clientState['backendApi']);
-	provide(SNAPSHOT_DIFF_SERVICE, snapshotDiffService);
-
 	const branchService = new BranchService(clientState['backendApi']);
 	provide(BRANCH_SERVICE, branchService);
 
@@ -278,7 +271,6 @@
 	provide(DROPZONE_REGISTRY, new DropzoneRegistry());
 	provide(DRAG_STATE_SERVICE, new DragStateService());
 	provide(RESIZE_SYNC, new ResizeSync());
-	provide(UNCOMMITED_FILES_WATCHER, new UncommitedFilesWatcher());
 	provide(GIT_SERVICE, new GitService(data.tauri));
 
 	const settingsService = data.settingsService;

@@ -6,28 +6,11 @@ import {
 	type LineId,
 	type LineLock
 } from '@gitbutler/ui/utils/diffParsing';
-import { hashCode } from '@gitbutler/ui/utils/string';
 import { Transform, Type } from 'class-transformer';
 import type { HunkLocks } from '$lib/dependencies/dependencies';
 import type { Prettify } from '@gitbutler/shared/utils/typeUtils';
 import 'reflect-metadata';
-export class RemoteHunk {
-	diff!: string;
-	hash?: string;
-	oldStart!: number;
-	oldLines!: number;
-	newStart!: number;
-	newLines!: number;
-	changeType!: ChangeType;
 
-	get id(): string {
-		return hashCode(this.diff);
-	}
-
-	get locked() {
-		return false;
-	}
-}
 export type ChangeType =
 	/// Entry does not exist in old version
 	| 'added'

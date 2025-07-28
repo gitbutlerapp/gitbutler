@@ -1,7 +1,6 @@
 import { LocalFile } from '$lib/files/file';
 import { plainToInstance } from 'class-transformer';
 import type { AnyFile } from '$lib/files/file';
-import type { RemoteHunk } from '$lib/hunks/hunk';
 import type { Hunk } from '$lib/hunks/hunk';
 
 export type Line = {
@@ -75,7 +74,7 @@ export function parseHunkHeader(header: string | undefined): HunkHeader {
 	return { beforeStart, beforeLength, afterStart, afterLength };
 }
 
-export function parseHunkSection(hunk: Hunk | RemoteHunk): HunkSection {
+export function parseHunkSection(hunk: Hunk): HunkSection {
 	const lines = hunk.diff.split('\n');
 	const header = parseHunkHeader(lines.shift());
 	const hunkSection = plainToInstance(HunkSection, {
