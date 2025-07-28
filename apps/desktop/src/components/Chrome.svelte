@@ -3,7 +3,8 @@
 	import ChromeSidebar from '$components/ChromeSidebar.svelte';
 	import ProjectNotFound from '$components/ProjectNotFound.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import { Code, isTauriCommandError } from '$lib/backend/ipc';
+	import { isTauriCommandError } from '$lib/backend/ipc';
+	import { Code } from '$lib/error/knownErrors';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/shared/context';
 	import type { Snippet } from 'svelte';

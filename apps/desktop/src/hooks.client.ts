@@ -1,5 +1,4 @@
 import { SilentError } from '$lib/error/error';
-import { isBundlingError, isParsedError } from '$lib/error/parser';
 import { showError } from '$lib/notifications/toasts';
 import { captureException } from '@sentry/sveltekit';
 import { error as logErrorToFile } from '@tauri-apps/plugin-log';
@@ -42,19 +41,7 @@ function logError(error: unknown) {
 		}
 
 		if (!(error instanceof SilentError)) {
-			if (isParsedError(error) && error.name) {
-				if (isBundlingError(error)) {
-					console.warn(
-						'You are likely experiencing a dev mode bundling error, ' +
-							'try disabling the chache from the network tab and ' +
-							'reload the page.'
-					);
-					return;
-				}
-				showError(error.name, error.message);
-			} else {
-				showError('Unhandled exception', error);
-			}
+			showError('Unhandled exception', error);
 		}
 
 		console.error(error);

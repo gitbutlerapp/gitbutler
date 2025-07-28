@@ -1,3 +1,4 @@
+import { Code } from '$lib/error/knownErrors';
 import { GitHubClient } from '$lib/forge/github/githubClient';
 import { DEFAULT_HEADERS } from '$lib/forge/github/headers';
 import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
@@ -62,11 +63,10 @@ export async function ghQuery<
 			? `GitHub API error: ${argInfo.domain}/${argInfo.action}`
 			: 'GitHub API error';
 
-		if (isErrorlike(err)) {
-			return { error: { name: title, message: err.message } };
-		}
+		const message = isErrorlike(err) ? err.message : String(err);
+		const code = message.startsWith('Not Found -') ? Code.GitHubTokenExpired : undefined;
 
-		return { error: { name: title, message: String(err) } };
+		return { error: { name: title, message, code } };
 	}
 }
 
@@ -88,7 +88,7 @@ type GhArgs<
 
 export type GhResponse<T> =
 	| { data: T; error?: never }
-	| { error: { name: string; message: string }; data?: never };
+	| { error: { name: string; message: string; code?: string }; data?: never };
 /**
  * Response type for `ghQuery` inferred from octokit.js.
  */

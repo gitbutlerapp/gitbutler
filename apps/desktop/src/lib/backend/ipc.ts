@@ -1,17 +1,7 @@
+import { Code } from '$lib/error/knownErrors';
 import { invoke as invokeTauri } from '@tauri-apps/api/core';
 import { listen as listenTauri } from '@tauri-apps/api/event';
 import type { EventCallback, EventName } from '@tauri-apps/api/event';
-
-export enum Code {
-	Unknown = 'errors.unknown',
-	Validation = 'errors.validation',
-	ProjectsGitAuth = 'errors.projects.git.auth',
-	DefaultTargetNotFound = 'errors.projects.default_target.not_found',
-	CommitSigningFailed = 'errors.commit.signing_failed',
-	ProjectMissing = 'errors.projects.missing',
-	SecretKeychainNotFound = 'errors.secret.keychain_notfound',
-	MissingLoginKeychain = 'errors.secret.missing_login_keychain'
-}
 
 export type TauriCommandError = { name: string; message: string; code?: string };
 

@@ -2,7 +2,7 @@
 	import { page } from '$app/state';
 	import ProjectNotFound from '$components/ProjectNotFound.svelte';
 	import SomethingWentWrong from '$components/SomethingWentWrong.svelte';
-	import { Code } from '$lib/backend/ipc';
+	import { Code } from '$lib/error/knownErrors';
 
 	const code = $derived(page.error?.errorCode);
 	const status = $derived(page.status);
