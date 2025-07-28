@@ -24,13 +24,13 @@
 import { cloneElement } from '$lib/dragging/draggable';
 import type { Stack } from '$lib/stacks/stack';
 
-let dragHandle: any;
+let dragHandle: HTMLElement | null;
 let dragged: HTMLDivElement | undefined;
 let clone: any;
 let draggedId: string | undefined;
 
 export function onReorderMouseDown(e: MouseEvent) {
-	dragHandle = e.target;
+	dragHandle = e.target as HTMLElement;
 }
 
 export function onReorderStart(
@@ -38,8 +38,9 @@ export function onReorderStart(
 	stackId: string,
 	callback?: () => void
 ) {
-	if (dragHandle.dataset.dragHandle === undefined) {
+	if (dragHandle?.dataset.dragHandle === undefined) {
 		// Only elements with`data-drag-handle` attribute can initiate drag.
+		// Note that elements inside the drag handle need `pointer-events: none`.
 		e.preventDefault();
 		e.stopPropagation();
 		return;
@@ -58,7 +59,7 @@ export function onReorderStart(
 	dragged.style.opacity = '0.6';
 
 	// additional styles to the clone to make background and border visible
-	clone.style.position = 'fixed';
+	clone.style.position = 'absolute';
 	clone.style.maxHeight = `${window.innerHeight - 100}px`;
 	clone.style.height = 'auto';
 	clone.style.zIndex = '-1';
