@@ -1,32 +1,52 @@
-import toast, { type ToastOptions, type ToastPosition } from 'svelte-french-toast';
+import { chipToasts } from '$components/chipToast/chipToastStore';
 
-const defaultOptions = {
-	position: 'bottom-center' as ToastPosition,
-	style: 'border-radius: 8px; background: black; color: #fff; font-size: 0.813em;'
-};
-
-export function error(msg: string, options: ToastOptions = {}) {
-	return toast.error(msg, { ...defaultOptions, ...options });
+export function error(msg: string) {
+	return chipToasts.error(msg);
 }
 
-export function success(msg: string, options: ToastOptions = {}) {
-	return toast.success(msg, { ...defaultOptions, ...options });
+export function success(msg: string) {
+	return chipToasts.success(msg);
 }
 
-export function loading(msg: string, options: ToastOptions = {}) {
-	return toast.loading(msg, { ...defaultOptions, ...options });
+export function warning(msg: string) {
+	return chipToasts.warning(msg);
 }
 
-export async function promise(
-	promise: Promise<unknown>,
-	opts: { loading: string; success: string; error: string | ((error: Error) => string) } = {
+export function neutral(msg: string) {
+	return chipToasts.neutral(msg);
+}
+
+// Keep loading function for compatibility
+export function loading(msg: string) {
+	return chipToasts.neutral(msg);
+}
+
+// Simple promise function
+export async function promise<T>(
+	promise: Promise<T>,
+	opts: {
+		loading: string;
+		success: string;
+		error: string;
+	} = {
 		loading: 'Loading...',
 		success: 'Success!',
 		error: 'Error!'
 	}
-) {
-	return await toast.promise(promise, opts, defaultOptions);
+): Promise<T> {
+	const loadingToastId = loading(opts.loading);
+
+	try {
+		const result = await promise;
+		chipToasts.removeChipToast(loadingToastId);
+		success(opts.success);
+		return result;
+	} catch (err) {
+		chipToasts.removeChipToast(loadingToastId);
+		error(opts.error);
+		throw err;
+	}
 }
 
-const toasts = { error, success, loading, promise };
+const toasts = { error, success, warning, neutral, loading, promise };
 export default toasts;

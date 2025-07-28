@@ -97,6 +97,7 @@
 		UserService as CloudUserService,
 		USER_SERVICE as CLOUD_USER_SERVICE
 	} from '@gitbutler/shared/users/userService';
+	import { ChipToastContainer } from '@gitbutler/ui';
 	import { setExternalLinkService } from '@gitbutler/ui/utils/externalLinkService';
 	import { onMount, type Snippet } from 'svelte';
 	import { Toaster } from 'svelte-french-toast';
@@ -344,6 +345,7 @@
 <Toaster />
 <ShareIssueModal bind:this={shareIssueModal} />
 <ToastController />
+<ChipToastContainer />
 <AppUpdater />
 <PromptModal />
 <ZoomInOutMenuAction />

@@ -41,6 +41,16 @@ export { default as TimeAgo } from '$components/TimeAgo.svelte';
 export { default as Toggle } from '$components/Toggle.svelte';
 export { default as Tooltip } from '$components/Tooltip.svelte';
 
+// ChipToast Components
+export { default as ChipToast } from '$components/chipToast/ChipToast.svelte';
+export { default as ChipToastContainer } from '$components/chipToast/ChipToastContainer.svelte';
+export { chipToasts } from '$components/chipToast/chipToastStore';
+export type {
+	ChipToastType,
+	ChipToastData,
+	ChipToastOptions
+} from '$components/chipToast/chipToastTypes';
+
 // Avatar Components
 export { default as Avatar } from '$components/avatar/Avatar.svelte';
 export { default as AvatarGroup } from '$components/avatar/AvatarGroup.svelte';
