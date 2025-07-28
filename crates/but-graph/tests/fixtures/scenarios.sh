@@ -918,9 +918,9 @@ EOF
     git checkout gitbutler/workspace
   )
 
-  git init two-branches-different-base
-  (cd two-branches-different-base
-    commit init
+  git init two-branches-one-below-base
+  (cd two-branches-one-below-base
+    commit M1
     commit M2
     git checkout -b A
       commit A1
@@ -936,6 +936,22 @@ EOF
       commit B1
     create_workspace_commit_once B A
   )
+
+  git init two-branches-one-above-base
+  (cd two-branches-one-above-base
+    commit M1
+    commit M2
+    git branch B
+    commit M3
+    setup_target_to_match_main
+    git checkout -b A
+      commit A1
+    git checkout B
+      tick
+      commit B1
+    create_workspace_commit_once B A
+  )
+
   mkdir edit-commit
   (cd edit-commit
     git init simple
