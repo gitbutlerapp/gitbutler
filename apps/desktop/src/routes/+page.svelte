@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import FullviewLoading from '$components/FullviewLoading.svelte';
+	import FullviewLoading from '$components/shared/FullviewLoading.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/shared/context';
 

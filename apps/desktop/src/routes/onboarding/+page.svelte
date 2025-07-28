@@ -1,8 +1,8 @@
 <script lang="ts">
+	import AnalyticsConfirmation from './AnalyticsConfirmation.svelte';
+	import Welcome from './Welcome.svelte';
 	import { goto } from '$app/navigation';
-	import AnalyticsConfirmation from '$components/AnalyticsConfirmation.svelte';
-	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
-	import Welcome from '$components/Welcome.svelte';
+	import DecorativeSplitView from '$components/shared/DecorativeSplitView.svelte';
 	import analyticsSvg from '$lib/assets/illustrations/analytics.svg?raw';
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
 	import { APP_SETTINGS } from '$lib/config/appSettings';

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import Drawer from '$components/Drawer.svelte';
 	import FileList from '$components/FileList.svelte';
-	import FileListMode from '$components/FileListMode.svelte';
-	import Resizer from '$components/Resizer.svelte';
+	import FileListMode from '$components/shared/FileListMode.svelte';
+	import Resizer from '$components/shared/Resizer.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { INTELLIGENT_SCROLLING_SERVICE } from '$lib/intelligentScrolling/service';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';

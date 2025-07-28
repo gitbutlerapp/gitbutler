@@ -1,7 +1,7 @@
 <script lang="ts">
+	import WorkspaceView from './WorkspaceView.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import WorkspaceView from '$components/WorkspaceView.svelte';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';

@@ -1,17 +1,16 @@
 <script lang="ts">
-	import BranchDetails from '$components/BranchDetails.svelte';
-	import BranchHeaderContextMenu from '$components/BranchHeaderContextMenu.svelte';
-	import BranchReview from '$components/BranchReview.svelte';
 	import ChangedFiles from '$components/ChangedFiles.svelte';
 	import Drawer from '$components/Drawer.svelte';
-	import KebabButton from '$components/KebabButton.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
+	import BranchHeaderContextMenu from '$components/shared/BranchHeaderContextMenu.svelte';
+	import KebabButton from '$components/shared/KebabButton.svelte';
+	import ReduxResult from '$components/shared/ReduxResult.svelte';
+	import BranchDetails from '$components/shared/branches/BranchDetails.svelte';
+	import BranchReview from '$components/shared/branches/BranchReview.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import { Icon, Tooltip } from '@gitbutler/ui';
-
-	import type { BranchHeaderContextItem } from '$components/BranchHeaderContextMenu.svelte';
+	import type { BranchHeaderContextItem } from '$components/shared/BranchHeaderContextMenu.svelte';
 	import type { SelectionId } from '$lib/selection/key';
 
 	interface Props {

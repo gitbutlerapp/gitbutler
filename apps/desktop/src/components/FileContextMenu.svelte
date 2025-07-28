@@ -1,6 +1,6 @@
 <!-- This is a V3 replacement for `FileContextMenu.svelte` -->
 <script lang="ts">
-	import ReduxResult from '$components/ReduxResult.svelte';
+	import ReduxResult from '$components/shared/ReduxResult.svelte';
 	import { ACTION_SERVICE } from '$lib/actions/actionService.svelte';
 	import { AI_SERVICE } from '$lib/ai/service';
 	import { writeClipboard } from '$lib/backend/clipboard';

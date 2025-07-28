@@ -1,12 +1,12 @@
 <script lang="ts">
+	import SnapshotCard from './SnapshotCard.svelte';
 	import { page } from '$app/state';
-	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import FilePreviewPlaceholder from '$components/FilePreviewPlaceholder.svelte';
-	import FullviewLoading from '$components/FullviewLoading.svelte';
-	import LazyloadContainer from '$components/LazyloadContainer.svelte';
-	import Resizer from '$components/Resizer.svelte';
-	import SnapshotCard from '$components/SnapshotCard.svelte';
+	import ScrollableContainer from '$components/shared/ConfigurableScrollableContainer.svelte';
+	import ConfigurableScrollableContainer from '$components/shared/ConfigurableScrollableContainer.svelte';
+	import FilePreviewPlaceholder from '$components/shared/FilePreviewPlaceholder.svelte';
+	import FullviewLoading from '$components/shared/FullviewLoading.svelte';
+	import LazyloadContainer from '$components/shared/LazyloadContainer.svelte';
+	import Resizer from '$components/shared/Resizer.svelte';
 	import emptyFileSvg from '$lib/assets/empty-state/empty-file.svg?raw';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { RemoteFile } from '$lib/files/file';

@@ -1,11 +1,11 @@
 <script lang="ts">
-	import CardOverlay from '$components/CardOverlay.svelte';
-	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import Dropzone from '$components/Dropzone.svelte';
+	import ChangesSelectAll from '../routes/[projectId]/workspace/ChangesSelectAll.svelte';
 	import FileList from '$components/FileList.svelte';
-	import FileListMode from '$components/FileListMode.svelte';
-	import UnassignedFoldButton from '$components/UnassignedFoldButton.svelte';
-	import WorktreeChangesSelectAll from '$components/WorktreeChangesSelectAll.svelte';
+	import CardOverlay from '$components/shared/CardOverlay.svelte';
+	import ScrollableContainer from '$components/shared/ConfigurableScrollableContainer.svelte';
+	import Dropzone from '$components/shared/Dropzone.svelte';
+	import FileListMode from '$components/shared/FileListMode.svelte';
+	import UnassignedFoldButton from '$components/shared/UnassignedFoldButton.svelte';
 	import { UncommitDzHandler } from '$lib/commits/dropHandler';
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
 	import { AssignmentDropHandler } from '$lib/hunks/dropHandler';
@@ -146,7 +146,7 @@
 
 				<div class="worktree-header__general">
 					{#if isCommitting}
-						<WorktreeChangesSelectAll {stackId} />
+						<ChangesSelectAll {stackId} />
 					{/if}
 					<div class="worktree-header__title truncate">
 						<h3 class="text-14 text-semibold truncate">{title}</h3>

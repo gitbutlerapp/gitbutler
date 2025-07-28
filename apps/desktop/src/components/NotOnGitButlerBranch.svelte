@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Chrome from '$components/Chrome.svelte';
-	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
+	import Chrome from '$components/chrome/Chrome.svelte';
+	import DecorativeSplitView from '$components/shared/DecorativeSplitView.svelte';
+	import ReduxResult from '$components/shared/ReduxResult.svelte';
 	import directionDoubtSvg from '$lib/assets/illustrations/direction-doubt.svg?raw';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { MODE_SERVICE } from '$lib/mode/modeService';

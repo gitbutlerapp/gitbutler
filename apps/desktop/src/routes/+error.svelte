@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import ProjectNotFound from '$components/ProjectNotFound.svelte';
-	import SomethingWentWrong from '$components/SomethingWentWrong.svelte';
+	import SomethingWentWrong from '$components/app/SomethingWentWrong.svelte';
+	import ProjectNotFound from '$components/projectManagement/ProjectNotFound.svelte';
 	import { Code } from '$lib/backend/ipc';
 
 	const code = $derived(page.error?.errorCode);

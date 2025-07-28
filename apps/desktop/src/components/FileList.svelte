@@ -2,8 +2,8 @@
 <script lang="ts">
 	import EditPatchConfirmModal from '$components/EditPatchConfirmModal.svelte';
 	import FileListItemWrapper from '$components/FileListItemWrapper.svelte';
-	import FileTreeNode from '$components/FileTreeNode.svelte';
-	import LazyloadContainer from '$components/LazyloadContainer.svelte';
+	import FileTreeNode from '$components/shared/FileTreeNode.svelte';
+	import LazyloadContainer from '$components/shared/LazyloadContainer.svelte';
 	import { ACTION_SERVICE } from '$lib/actions/actionService.svelte';
 	import { AI_SERVICE } from '$lib/ai/service';
 	import { projectAiGenEnabled } from '$lib/config/config';

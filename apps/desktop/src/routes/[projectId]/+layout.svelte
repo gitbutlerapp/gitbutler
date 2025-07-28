@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import AnalyticsMonitor from '$components/AnalyticsMonitor.svelte';
-	import Chrome from '$components/Chrome.svelte';
-	import FileMenuAction from '$components/FileMenuAction.svelte';
-	import FullviewLoading from '$components/FullviewLoading.svelte';
-	import IrcPopups from '$components/IrcPopups.svelte';
-	import NoBaseBranch from '$components/NoBaseBranch.svelte';
-	import NotOnGitButlerBranch from '$components/NotOnGitButlerBranch.svelte';
-	import ProblemLoadingRepo from '$components/ProblemLoadingRepo.svelte';
-	import ProjectSettingsMenuAction from '$components/ProjectSettingsMenuAction.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
+	import Chrome from '$components/chrome/Chrome.svelte';
+	import IrcPopups from '$components/irc/IrcPopups.svelte';
+	import FileMenuAction from '$components/menuActions/FileMenuAction.svelte';
+	import ProjectSettingsMenuAction from '$components/menuActions/ProjectSettingsMenuAction.svelte';
+	import NoBaseBranch from '$components/projectManagement/NoBaseBranch.svelte';
+	import NotOnGitButlerBranch from '$components/projectManagement/NotOnGitButlerBranch.svelte';
+	import ProblemLoadingRepo from '$components/projectManagement/ProblemLoadingRepo.svelte';
+	import AnalyticsMonitor from '$components/settings/AnalyticsMonitor.svelte';
+	import FullviewLoading from '$components/shared/FullviewLoading.svelte';
+	import ReduxResult from '$components/shared/ReduxResult.svelte';
 	import { BASE_BRANCH } from '$lib/baseBranch/baseBranch';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';

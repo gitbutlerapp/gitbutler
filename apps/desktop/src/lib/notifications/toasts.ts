@@ -1,7 +1,7 @@
 import { parseError } from '$lib/error/parser';
 import posthog from 'posthog-js';
 import { writable, type Writable } from 'svelte/store';
-import type { MessageStyle } from '$components/InfoMessage.svelte';
+import type { MessageStyle } from '$components/shared/InfoMessage.svelte';
 
 type ExtraAction = {
 	label: string;

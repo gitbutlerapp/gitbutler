@@ -1,16 +1,16 @@
 <script lang="ts">
-	import AsyncRender from '$components/AsyncRender.svelte';
-	import BranchList from '$components/BranchList.svelte';
-	import BranchView from '$components/BranchView.svelte';
 	import ChangedFiles from '$components/ChangedFiles.svelte';
-	import CommitView from '$components/CommitView.svelte';
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Drawer from '$components/Drawer.svelte';
-	import NewCommitView from '$components/NewCommitView.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import Resizer from '$components/Resizer.svelte';
-	import SelectionView from '$components/SelectionView.svelte';
 	import WorktreeChanges from '$components/WorktreeChanges.svelte';
+	import AsyncRender from '$components/shared/AsyncRender.svelte';
+	import ConfigurableScrollableContainer from '$components/shared/ConfigurableScrollableContainer.svelte';
+	import ReduxResult from '$components/shared/ReduxResult.svelte';
+	import Resizer from '$components/shared/Resizer.svelte';
+	import SelectionView from '$components/shared/SelectionView.svelte';
+	import BranchList from '$components/shared/branches/BranchList.svelte';
+	import BranchView from '$components/shared/branches/BranchView.svelte';
+	import CommitView from '$components/shared/commits/CommitView.svelte';
+	import NewCommitView from '$components/shared/commits/NewCommitView.svelte';
 	import { isParsedError } from '$lib/error/parser';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';

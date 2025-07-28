@@ -1,13 +1,13 @@
 <script lang="ts">
-	import BranchBadge from '$components/BranchBadge.svelte';
-	import BranchDividerLine from '$components/BranchDividerLine.svelte';
-	import BranchHeader from '$components/BranchHeader.svelte';
-	import BranchHeaderContextMenu from '$components/BranchHeaderContextMenu.svelte';
-	import CardOverlay from '$components/CardOverlay.svelte';
-	import ChecksPolling from '$components/ChecksPolling.svelte';
-	import CreateReviewBox from '$components/CreateReviewBox.svelte';
-	import Dropzone from '$components/Dropzone.svelte';
-	import PrNumberUpdater from '$components/PrNumberUpdater.svelte';
+	import BranchBadge from '$components/shared/BranchBadge.svelte';
+	import BranchHeaderContextMenu from '$components/shared/BranchHeaderContextMenu.svelte';
+	import CardOverlay from '$components/shared/CardOverlay.svelte';
+	import Dropzone from '$components/shared/Dropzone.svelte';
+	import BranchDividerLine from '$components/shared/branches/BranchDividerLine.svelte';
+	import BranchHeader from '$components/shared/branches/BranchHeader.svelte';
+	import ChecksPolling from '$components/shared/review/ChecksPolling.svelte';
+	import CreateReviewBox from '$components/shared/review/CreateReviewBox.svelte';
+	import PrNumberUpdater from '$components/shared/review/PrNumberUpdater.svelte';
 	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
 	import { ReorderCommitDzHandler } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';

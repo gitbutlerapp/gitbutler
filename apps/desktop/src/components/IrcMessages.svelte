@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
+	import ConfigurableScrollableContainer from '$components/shared/ConfigurableScrollableContainer.svelte';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { inject } from '@gitbutler/shared/context';
 	import { HunkDiff, FileListItem } from '@gitbutler/ui';
