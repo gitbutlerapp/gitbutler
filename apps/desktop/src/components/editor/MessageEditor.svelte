@@ -58,6 +58,7 @@
 		suggestionsHandler?: CommitSuggestions;
 		testId?: string;
 		forceSansFont?: boolean;
+		useRuler?: boolean;
 	}
 
 	let {
@@ -75,7 +76,8 @@
 		aiIsLoading,
 		suggestionsHandler,
 		testId,
-		forceSansFont
+		forceSansFont,
+		useRuler
 	}: Props = $props();
 
 	const MIN_RULER_VALUE = 30;
@@ -91,7 +93,6 @@
 	const useFloatingBox = uiState.global.useFloatingBox;
 
 	const rulerCountValue = uiState.global.rulerCountValue;
-	const useRuler = uiState.global.useRuler;
 
 	const wrapCountValue = $derived(rulerCountValue.current);
 
@@ -284,9 +285,9 @@
 	data-remove-from-panning
 	role="presentation"
 	class="editor-wrapper hide-native-scrollbar"
-	style:--lexical-input-client-text-wrap={useRuler.current && !forceSansFont ? 'nowrap' : 'normal'}
+	style:--lexical-input-client-text-wrap={useRuler && !forceSansFont ? 'nowrap' : 'normal'}
 	style:--extratoolbar-height={useFloatingBox.current ? '2.625rem' : '0'}
-	style:--code-block-font={useRuler.current && !forceSansFont
+	style:--code-block-font={useRuler && !forceSansFont
 		? $userSettings.diffFont
 		: 'var(--fontfamily-default)'}
 	style:--code-block-tab-size={$userSettings.tabSize && !forceSansFont ? $userSettings.tabSize : 4}
@@ -316,7 +317,7 @@
 				composer?.focus();
 			}}
 		>
-			{#if useRuler.current && enableRuler}
+			{#if useRuler && enableRuler}
 				<MessageEditorRuler />
 			{/if}
 
@@ -350,7 +351,7 @@
 								onSelection={(text) => suggestionsHandler.onAcceptSuggestion(text)}
 							/>
 						{/if}
-						<HardWrapPlugin enabled={useRuler.current} maxLength={wrapCountValue} />
+						<HardWrapPlugin enabled={useRuler} maxLength={wrapCountValue} />
 					{/snippet}
 				</RichTextEditor>
 			</div>
@@ -381,17 +382,17 @@
 				{#if enableRuler}
 					<FormattingButton
 						icon="text-wrap"
-						activated={useRuler.current}
+						activated={useRuler}
 						tooltip="Wrap text automatically"
 						onclick={async () => {
-							useRuler.set(!useRuler.current);
+							uiState.global.useRuler.set(!useRuler);
 							await tick(); // Wait for reactive update.
-							if (useRuler.current) {
+							if (useRuler) {
 								composer?.wrapAll();
 							}
 						}}
 					/>
-					{#if useRuler.current}
+					{#if useRuler}
 						<div class="message-textarea__ruler-input-wrapper">
 							<input
 								value={rulerCountValue.current}
