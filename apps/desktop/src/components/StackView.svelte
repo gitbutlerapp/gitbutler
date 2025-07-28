@@ -392,7 +392,7 @@
 		>
 			{#if !isCommitting}
 				<div class="drag-handle" data-remove-from-panning data-drag-handle draggable="true">
-					<Icon name="draggable-narrow" rotate={90} />
+					<Icon name="draggable-narrow" rotate={90} noEvents />
 				</div>
 			{/if}
 			<Resizer
