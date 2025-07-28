@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import { getPollingInterval } from '$lib/forge/shared/progressivePolling';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 
@@ -29,10 +30,8 @@
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 
 	const checksService = $derived(forge.current.checks);
-	let elapsedMs: number | undefined = $state();
+	let elapsedMs = $state<number>(0);
 	let isDone = $state(false);
-
-	let pollCount = 0;
 
 	// Do not create a checks monitor if pull request is merged or from a fork.
 	// For more information about unavailability of check-runs for forked repos,
@@ -40,24 +39,7 @@
 	// https://docs.github.com/en/rest/checks/runs?apiVersion=2022-11-28#list-check-runs-in-a-check-suite
 	const enabled = $derived(!isFork && !isMerged); // Deduplication.
 
-	let pollingInterval = $derived.by(() => {
-		if (isDone) {
-			return 0; // Never.
-		}
-
-		if (!elapsedMs) {
-			return pollCount < 5 ? 2000 : 0;
-		}
-
-		if (elapsedMs < 60 * 1000) {
-			return 5 * 1000;
-		} else if (elapsedMs < 10 * 60 * 1000) {
-			return 30 * 1000;
-		} else if (elapsedMs < 60 * 60 * 1000) {
-			return 5 * 60 * 1000;
-		}
-		return 30 * 60 * 1000;
-	});
+	let pollingInterval = $derived(getPollingInterval(elapsedMs, isDone));
 
 	const checksResult = $derived(
 		enabled
@@ -131,22 +113,15 @@
 		const result = checksResult?.current;
 		const checks = result?.data;
 
-		if (result?.isLoading) {
-			pollCount += 1;
-		}
-
-		if (checks?.completed) {
+		if (checks?.completed || checks === null) {
 			isDone = true;
+			return;
 		}
 
 		if (checks?.startedAt) {
 			const lastUpdatedMs = Date.parse(checks.startedAt);
 			elapsedMs = Date.now() - lastUpdatedMs;
 			hasChecks = true;
-		} else {
-			elapsedMs = undefined;
-			hasChecks = false;
-			isDone = false;
 		}
 	});
 </script>

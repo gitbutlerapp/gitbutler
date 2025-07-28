@@ -1,5 +1,6 @@
 import { ghQuery } from '$lib/forge/github/ghQuery';
 import { type ChecksResult } from '$lib/forge/github/types';
+import { eventualConsistencyCheck } from '$lib/forge/shared/progressivePolling';
 import { providesItem, ReduxTag } from '$lib/state/tags';
 import type { ChecksService } from '$lib/forge/interface/forgeChecksMonitor';
 import type { ChecksStatus } from '$lib/forge/interface/types';
@@ -34,13 +35,18 @@ export class GitHubChecksMonitor implements ChecksService {
 	}
 }
 
+function hasChecks(data: ChecksResult): boolean {
+	return data.check_runs.length > 0;
+}
+
 function parseChecks(data: ChecksResult): ChecksStatus | null {
 	// Fetch with retries since checks might not be available _right_ after
 	// the pull request has been created.
 
 	// If there are no checks then there is no status to report
+	if (!hasChecks(data)) return null;
+
 	const checkRuns = data.check_runs;
-	if (checkRuns.length === 0) return null;
 
 	// Establish when the first check started running, useful for showing
 	// how long something has been running.
@@ -70,15 +76,25 @@ function injectEndpoints(api: GitHubApi) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			listChecks: build.query<ChecksResult, { ref: string }>({
-				queryFn: async ({ ref }, api) =>
-					await ghQuery({
-						domain: 'checks',
-						action: 'listForRef',
-						extra: api.extra,
-						parameters: {
-							ref
+				queryFn: async ({ ref }, api) => {
+					async function listChecksForRef() {
+						return await ghQuery({
+							domain: 'checks',
+							action: 'listForRef',
+							extra: api.extra,
+							parameters: {
+								ref
+							}
+						});
+					}
+
+					return eventualConsistencyCheck(listChecksForRef, (response) => {
+						if (response.error) {
+							return true; // Stop if there's an error
 						}
-					}),
+						return hasChecks(response.data);
+					});
+				},
 				providesTags: (_result, _error, args) => [...providesItem(ReduxTag.Checks, args.ref)]
 			})
 		})

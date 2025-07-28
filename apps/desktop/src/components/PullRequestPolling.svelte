@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import { getPollingInterval } from '$lib/forge/shared/progressivePolling';
 	import { inject } from '@gitbutler/shared/context';
 
 	type Props = {
@@ -10,31 +11,10 @@
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const prService = $derived(forge.current.prService);
 
-	let elapsedMs: number | undefined = $state();
+	let elapsedMs = $state<number>(0);
 	let isClosed = $state(false);
-	let pollCount = 0;
 
-	let pollingInterval = $derived.by(() => {
-		// If the PR is closed we update infrequently.
-		if (isClosed) {
-			return 30 * 60 * 1000;
-		}
-		// Right after creating a pull request it might not be returned
-		// by the api for a few seconds. So we poll frequently but stop
-		// after a while.
-		if (!elapsedMs) {
-			return pollCount < 5 ? 2000 : 0;
-		}
-
-		if (elapsedMs < 60 * 1000) {
-			return 5 * 1000;
-		} else if (elapsedMs < 10 * 60 * 1000) {
-			return 30 * 1000;
-		} else if (elapsedMs < 60 * 60 * 1000) {
-			return 5 * 60 * 1000;
-		}
-		return 30 * 60 * 1000;
-	});
+	let pollingInterval = $derived(getPollingInterval(elapsedMs, isClosed));
 
 	const prResult = $derived(prService?.get(number, { subscriptionOptions: { pollingInterval } }));
 
@@ -46,10 +26,6 @@
 			const lastUpdatedMs = Date.parse(pr.updatedAt);
 			isClosed = pr.state === 'closed';
 			elapsedMs = Date.now() - lastUpdatedMs;
-		}
-
-		if (result?.isLoading) {
-			pollCount += 1;
 		}
 	});
 </script>

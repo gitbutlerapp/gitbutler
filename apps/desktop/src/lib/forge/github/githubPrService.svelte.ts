@@ -12,6 +12,7 @@ import {
 	type DetailedPullRequest,
 	type PullRequest
 } from '$lib/forge/interface/types';
+import { eventualConsistencyCheck } from '$lib/forge/shared/progressivePolling';
 import { providesItem, invalidatesItem, ReduxTag, invalidatesList } from '$lib/state/tags';
 import { sleep } from '$lib/utils/sleep';
 import { writable } from 'svelte/store';
@@ -135,11 +136,22 @@ function injectEndpoints(api: GitHubApi) {
 		endpoints: (build) => ({
 			getPr: build.query<DetailedPullRequest, { number: number }>({
 				queryFn: async (args, api) => {
-					const prResponse = await ghQuery({
-						domain: 'pulls',
-						action: 'get',
-						parameters: { pull_number: args.number },
-						extra: api.extra
+					async function getPrByNumber() {
+						return await ghQuery({
+							domain: 'pulls',
+							action: 'get',
+							parameters: { pull_number: args.number },
+							extra: api.extra
+						});
+					}
+
+					const prResponse = await eventualConsistencyCheck(getPrByNumber, (response) => {
+						if (response.error) {
+							// Stop if there's an error
+							return true;
+						}
+						// Stop if we have a valid response
+						return response.data?.updated_at !== undefined;
 					});
 
 					if (prResponse.error) {

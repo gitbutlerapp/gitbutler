@@ -28,9 +28,9 @@ describe('GitHubPrService', () => {
 
 	test('test parsing response', async () => {
 		const title = 'PR Title';
-		vi.spyOn(octokit.pulls, 'get').mockReturnValueOnce(
+		vi.spyOn(octokit.pulls, 'get').mockReturnValue(
 			Promise.resolve({
-				data: { title }
+				data: { title, updated_at: new Date().toISOString() }
 			} as RestEndpointMethodTypes['pulls']['get']['response'])
 		);
 		const pr = await service?.fetch(123);
