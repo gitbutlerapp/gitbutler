@@ -28,7 +28,9 @@ export class GitHubListingService implements ForgeListingService {
 
 	getByBranch(projectId: string, branchName: string) {
 		return this.api.endpoints.listPrs.useQuery(projectId, {
-			transform: (result) => prSelectors.selectById(result, branchName)
+			transform: (result) => {
+				return prSelectors.selectById(result, branchName);
+			}
 		});
 	}
 
