@@ -80,7 +80,6 @@
 		"reflect-metadata": "^0.2.2",
 		"svelte": "catalog:svelte",
 		"svelte-check": "catalog:svelte",
-		"svelte-french-toast": "^1.2.0",
 		"tinykeys": "^2.1.0",
 		"ts-node": "^10.9.2",
 		"typescript": "catalog:",
