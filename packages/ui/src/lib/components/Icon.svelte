@@ -17,6 +17,7 @@
 		size?: number;
 		rotate?: number | undefined;
 		verticalAlign?: string;
+		noEvents?: boolean;
 	}
 
 	const {
@@ -26,7 +27,8 @@
 		spinnerRadius = 5,
 		size = 16,
 		rotate = undefined,
-		verticalAlign
+		verticalAlign,
+		noEvents
 	}: Props = $props();
 </script>
 
@@ -45,6 +47,7 @@
 	style:transform={rotate ? `rotate(${rotate}deg)` : undefined}
 	style:vertical-align={verticalAlign}
 	style="--spinner-radius: {spinnerRadius}"
+	style:pointer-events={noEvents ? 'none' : undefined}
 >
 	{#if name === 'spinner'}
 		<g class:spinner={name === 'spinner'}>
