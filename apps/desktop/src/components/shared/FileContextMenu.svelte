@@ -488,13 +488,12 @@
 					Are you sure you want to discard the changes<br />to the following files:
 				</p>
 				<ul class="file-list">
-					{#each changes as change, i}
+					{#each changes as change}
 						<FileListItem
 							filePath={change.path}
 							fileStatus={computeChangeStatus(change)}
 							clickable={false}
 							listMode="list"
-							isLast={i === changes.length - 1}
 						/>
 					{/each}
 				</ul>

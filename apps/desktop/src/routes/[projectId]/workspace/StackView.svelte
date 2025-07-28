@@ -321,7 +321,7 @@
 				ontoggle={() => {
 					changedFilesCollapsed = !changedFilesCollapsed;
 				}}
-				{changes}
+				changes={changes.changes}
 				{active}
 				resizer={{
 					persistId: `resizer-panel2-changed-files-${stack.id}`,

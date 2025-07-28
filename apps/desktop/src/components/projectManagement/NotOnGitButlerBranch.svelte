@@ -92,11 +92,7 @@
 						</p>
 						<div class="switchrepo__file-list">
 							{#each uncommittedChanges as change}
-								<FileListItem
-									filePath={change.path}
-									clickable={false}
-									isLast={change === uncommittedChanges[uncommittedChanges.length - 1]}
-								/>
+								<FileListItem filePath={change.path} clickable={false} />
 							{/each}
 						</div>
 						{#if conflicts}
@@ -113,10 +109,6 @@
 													clickable={false}
 													conflicted
 													conflictHint="Resolve to apply"
-													isLast={path ===
-														mode.subject.worktreeConflicts[
-															mode.subject.worktreeConflicts.length - 1
-														]}
 												/>
 											{/each}
 										{/if}

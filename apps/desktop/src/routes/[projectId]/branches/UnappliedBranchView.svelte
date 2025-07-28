@@ -117,7 +117,7 @@
 						active
 						autoselect
 						{selectionId}
-						{changes}
+						changes={changes.changes}
 					/>
 				{/snippet}
 			</ReduxResult>
