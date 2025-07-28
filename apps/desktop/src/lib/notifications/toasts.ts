@@ -1,4 +1,4 @@
-import { parseError } from '$lib/error/parser';
+import { isBundlingError, parseError } from '$lib/error/parser';
 import posthog from 'posthog-js';
 import { writable, type Writable } from 'svelte/store';
 import type { MessageStyle } from '$components/InfoMessage.svelte';
@@ -37,10 +37,18 @@ export function showToast(toast: Toast) {
 }
 
 export function showError(title: string, error: unknown, extraAction?: ExtraAction) {
-	const { message, description, ignored } = parseError(error);
+	const { name, message, description, ignored } = parseError(error);
+	if (isBundlingError(message)) {
+		console.warn(
+			'You are likely experiencing a dev mode bundling error, ' +
+				'try disabling the chache from the network tab and ' +
+				'reload the page.'
+		);
+		return;
+	}
 	if (!ignored) {
 		showToast({
-			title,
+			title: name || title,
 			message: description,
 			error: message,
 			style: 'error',

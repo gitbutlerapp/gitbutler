@@ -31,11 +31,8 @@ export function isParsedError(something: unknown): something is ParsedError {
  * such an error is to disable the cache from the network tab and reload the
  * page once. It would be great if we could root cause and fix this problem.
  */
-export function isBundlingError(error: ParsedError): boolean {
-	return (
-		error.name === 'TypeError' &&
-		error.message.startsWith("undefined is not an object (evaluating 'first_child_getter.call')")
-	);
+export function isBundlingError(message: string): boolean {
+	return message.startsWith("undefined is not an object (evaluating 'first_child_getter.call')");
 }
 
 export function parseError(error: unknown): ParsedError {
@@ -44,7 +41,8 @@ export function parseError(error: unknown): ParsedError {
 	}
 
 	if (error instanceof PromiseRejectionEvent && isTauriCommandError(error.reason)) {
-		return { message: error.reason.message };
+		const { name, message, code } = error.reason;
+		return { name, message, code };
 	}
 
 	if (isPromiseRejection(error)) {
@@ -55,10 +53,9 @@ export function parseError(error: unknown): ParsedError {
 	}
 
 	if (isTauriCommandError(error)) {
-		if (error.code && error.code in KNOWN_ERRORS)
-			return { description: KNOWN_ERRORS[error.code], message: error.message };
-
-		return { message: error.message, code: error.code };
+		const { name, message, code } = error;
+		const description = code ? KNOWN_ERRORS[code] : undefined;
+		return { name, message, code, description };
 	}
 
 	if (isReduxActionError(error)) {
