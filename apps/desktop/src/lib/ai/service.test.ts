@@ -23,10 +23,8 @@ import {
 } from '$lib/ai/types';
 import { Tauri } from '$lib/backend/tauri';
 import { type GbConfig, GitConfigService } from '$lib/config/gitConfigService';
-import { Hunk } from '$lib/hunks/hunk';
 import { TokenMemoryService } from '$lib/stores/tokenMemoryService';
 import { HttpClient } from '@gitbutler/shared/network/httpClient';
-import { plainToInstance } from 'class-transformer';
 import { expect, test, describe, vi } from 'vitest';
 import type { SecretsService } from '$lib/secrets/secretsService';
 
@@ -123,16 +121,6 @@ const diff1 = `
  export const AI_SERVICE_CONTEXT = Symbol();
 `;
 
-const hunk1 = plainToInstance(Hunk, {
-	id: 'asdf',
-	diff: diff1,
-	modifiedAt: new Date().toISOString(),
-	filePath: 'foo/bar/baz.ts',
-	locked: false,
-	lockedTo: undefined,
-	changeType: 'added'
-});
-
 const diff2 = `
 @@ -52,7 +52,8 @@
  }
@@ -143,21 +131,16 @@ const diff2 = `
  try {
 `;
 
-const hunk2 = plainToInstance(Hunk, {
-	id: 'asdf',
+const hunk1 = {
+	diff: diff1,
+	filePath: 'foo/bar/baz.ts'
+};
+const hunk2 = {
 	diff: diff2,
-	modifiedAt: new Date().toISOString(),
-	filePath: 'random.ts',
-	locked: false,
-	lockedTo: undefined,
-	changeType: 'added'
-});
+	filePath: 'random.ts'
+};
 
-const exampleHunks = [hunk1, hunk2];
-const exampleDiffs: DiffInput[] = exampleHunks.map((hunk) => ({
-	diff: hunk.diff,
-	filePath: hunk.filePath
-}));
+const exampleDiffs: DiffInput[] = [hunk1, hunk2];
 
 function buildDefaultAIService() {
 	const gitConfig = new DummyGitConfigService(structuredClone(defaultGitConfig));
@@ -300,7 +283,7 @@ describe('AIService', () => {
 
 			vi.spyOn(aiService, 'buildClient').mockReturnValue(Promise.resolve(undefined));
 
-			expect(await aiService.summarizeBranch({ type: 'hunks', hunks: exampleHunks })).toStrictEqual(
+			expect(await aiService.summarizeBranch({ type: 'hunks', hunks: exampleDiffs })).toStrictEqual(
 				undefined
 			);
 		});
@@ -314,7 +297,7 @@ describe('AIService', () => {
 				Promise.resolve(new DummyAIClient(clientResponse))
 			);
 
-			expect(await aiService.summarizeBranch({ type: 'hunks', hunks: exampleHunks })).toStrictEqual(
+			expect(await aiService.summarizeBranch({ type: 'hunks', hunks: exampleDiffs })).toStrictEqual(
 				'with-spaces-included'
 			);
 		});
@@ -328,7 +311,7 @@ describe('AIService', () => {
 				Promise.resolve(new DummyAIClient(clientResponse))
 			);
 
-			expect(await aiService.summarizeBranch({ type: 'hunks', hunks: exampleHunks })).toStrictEqual(
+			expect(await aiService.summarizeBranch({ type: 'hunks', hunks: exampleDiffs })).toStrictEqual(
 				'with-new-lines-included'
 			);
 		});
@@ -342,7 +325,7 @@ describe('AIService', () => {
 				Promise.resolve(new DummyAIClient(clientResponse))
 			);
 
-			expect(await aiService.summarizeBranch({ type: 'hunks', hunks: exampleHunks })).toStrictEqual(
+			expect(await aiService.summarizeBranch({ type: 'hunks', hunks: exampleDiffs })).toStrictEqual(
 				'with-new-lines-included'
 			);
 		});
