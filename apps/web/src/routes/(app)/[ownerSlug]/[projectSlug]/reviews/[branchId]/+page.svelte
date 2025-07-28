@@ -32,12 +32,12 @@
 		Link,
 		Markdown,
 		RichTextEditor,
-		Textarea
+		Textarea,
+		chipToasts
 	} from '@gitbutler/ui';
 	import FileUploadPlugin, {
 		type DropFileResult
 	} from '@gitbutler/ui/richText/plugins/FileUpload.svelte';
-	import chipToasts from '@gitbutler/ui/toasts';
 	import dayjs from 'dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
 

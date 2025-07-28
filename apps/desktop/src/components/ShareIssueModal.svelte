@@ -7,8 +7,7 @@
 	import { inject } from '@gitbutler/shared/context';
 	import { HTTP_CLIENT } from '@gitbutler/shared/network/httpClient';
 
-	import { Button, Checkbox, Modal, Textarea, Textbox } from '@gitbutler/ui';
-	import * as toasts from '@gitbutler/ui/toasts';
+	import { Button, Checkbox, Modal, Textarea, Textbox, chipToasts } from '@gitbutler/ui';
 	import { getVersion } from '@tauri-apps/api/app';
 
 	type Feedback = {
@@ -71,7 +70,7 @@
 		context += 'URL: ' + window.location.href + '\n';
 		context += 'Length of index: ' + indexLength + '\n';
 
-		toasts.promise(
+		chipToasts.promise(
 			Promise.all([
 				sendLogs ? zip.logs().then(async (path) => await readZipFile(path, 'logs.zip')) : undefined,
 				sendProjectRepository

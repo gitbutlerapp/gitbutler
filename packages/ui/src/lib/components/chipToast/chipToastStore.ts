@@ -53,6 +53,38 @@ function createChipToastStore() {
 		return addChipToast(message, { type: 'error' });
 	}
 
+	// Keep loading function for compatibility - just an alias for neutral
+	function loading(message: string) {
+		return neutral(message);
+	}
+
+	// Simple promise function that handles loading/success/error states
+	async function promise<T>(
+		promiseToHandle: Promise<T>,
+		opts: {
+			loading: string;
+			success: string;
+			error: string;
+		} = {
+			loading: 'Loading...',
+			success: 'Success!',
+			error: 'Error!'
+		}
+	): Promise<T> {
+		const loadingToastId = loading(opts.loading);
+
+		try {
+			const result = await promiseToHandle;
+			removeChipToast(loadingToastId);
+			success(opts.success);
+			return result;
+		} catch (err) {
+			removeChipToast(loadingToastId);
+			error(opts.error);
+			throw err;
+		}
+	}
+
 	return {
 		subscribe,
 		addChipToast,
@@ -61,7 +93,9 @@ function createChipToastStore() {
 		neutral,
 		success,
 		warning,
-		error
+		error,
+		loading,
+		promise
 	};
 }
 

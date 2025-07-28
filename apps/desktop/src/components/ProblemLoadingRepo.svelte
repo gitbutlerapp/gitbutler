@@ -11,8 +11,7 @@
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/shared/context';
 
-	import { Icon, Spacer } from '@gitbutler/ui';
-	import * as chipToasts from '@gitbutler/ui/toasts';
+	import { Icon, Spacer, chipToasts } from '@gitbutler/ui';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { onMount } from 'svelte';
 

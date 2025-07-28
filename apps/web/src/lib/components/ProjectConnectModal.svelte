@@ -8,8 +8,7 @@
 	import { PROJECT_SERVICE } from '@gitbutler/shared/organizations/projectService';
 	import { projectTable } from '@gitbutler/shared/organizations/projectsSlice';
 
-	import { Button, Modal, SectionCard } from '@gitbutler/ui';
-	import chipToasts from '@gitbutler/ui/toasts';
+	import { Button, Modal, SectionCard, chipToasts } from '@gitbutler/ui';
 	import type { Project } from '@gitbutler/shared/organizations/types';
 
 	type Props = {

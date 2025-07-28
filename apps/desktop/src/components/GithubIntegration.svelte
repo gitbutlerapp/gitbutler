@@ -5,8 +5,7 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 
-	import { Button, Icon, Modal, SectionCard } from '@gitbutler/ui';
-	import * as toasts from '@gitbutler/ui/toasts';
+	import { Button, Icon, Modal, SectionCard, chipToasts as toasts } from '@gitbutler/ui';
 	import { fade } from 'svelte/transition';
 
 	interface Props {

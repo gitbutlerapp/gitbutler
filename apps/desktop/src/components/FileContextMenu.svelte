@@ -26,9 +26,9 @@
 		ContextMenuSection,
 		FileListItem,
 		Modal,
-		Textbox
+		Textbox,
+		chipToasts
 	} from '@gitbutler/ui';
-	import * as chipToasts from '@gitbutler/ui/toasts';
 	import { join } from '@tauri-apps/api/path';
 	import type { DiffSpec } from '$lib/hunks/hunk';
 	import type { SelectionId } from '$lib/selection/key';

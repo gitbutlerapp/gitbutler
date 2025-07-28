@@ -1,7 +1,7 @@
 import { changesToDiffSpec } from '$lib/commits/utils';
 import { ChangeDropData } from '$lib/dragging/draggables';
 import StackMacros from '$lib/stacks/macros';
-import chipToasts from '@gitbutler/ui/toasts';
+import { chipToasts } from '@gitbutler/ui';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { DiffService } from '$lib/hunks/diffService.svelte';
 import type { UncommittedService } from '$lib/selection/uncommittedService.svelte';

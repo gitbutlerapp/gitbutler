@@ -2,8 +2,7 @@
 	import { inject } from '@gitbutler/shared/context';
 	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
 
-	import { Button, Modal, Textarea, Textbox } from '@gitbutler/ui';
-	import chipToasts from '@gitbutler/ui/toasts';
+	import { Button, Modal, Textarea, Textbox, chipToasts } from '@gitbutler/ui';
 	import { slugify } from '@gitbutler/ui/utils/string';
 
 	interface Props {

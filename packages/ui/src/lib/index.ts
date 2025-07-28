@@ -141,4 +141,3 @@ export { default as FormattingBar } from '$lib/richText/tools/FormattingBar.svel
 export { default as FormattingButton } from '$lib/richText/tools/FormattingButton.svelte';
 
 // Utilities and other exports
-export * from './toasts';
