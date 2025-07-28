@@ -40,9 +40,8 @@
 			New workspace backend
 		{/snippet}
 		{#snippet caption()}
-			Enable this to use the new API for rendering the workspace state. Enabling this should be
-			functionally identical to the old API but it resolves a class of bugs that were present in the
-			old implementation.
+			Enable this to use the new API for rendering the workspace state. This should correctly detect
+			squash-merged PRs as integrated when updating the workspace.
 		{/snippet}
 		{#snippet actions()}
 			<Toggle
