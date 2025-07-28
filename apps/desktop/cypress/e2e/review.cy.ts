@@ -450,38 +450,56 @@ describe('Review - stacked branches', () => {
 			}
 		).as('getRepo');
 
+		let initialFetchPull42 = undefined;
+
 		cy.intercept(
 			{
 				method: 'GET',
 				url: 'https://api.github.com/repos/example/repo/pulls/42'
 			},
-			{
-				statusCode: 200,
-				body: {
-					number: 42,
-					state: 'open'
-				}
+			(req) => {
+				initialFetchPull42 ??= new Date().toISOString();
+				req.reply({
+					statusCode: 200,
+					body: {
+						number: 42,
+						state: 'open',
+						head: {
+							ref: mockBackend.bottomBranchName
+						},
+						updated_at: initialFetchPull42
+					}
+				});
 			}
 		).as('getPullRequest42');
+
+		let initialFetchPull43 = undefined;
 
 		cy.intercept(
 			{
 				method: 'GET',
 				url: 'https://api.github.com/repos/example/repo/pulls/43'
 			},
-			{
-				statusCode: 200,
-				body: {
-					number: 43,
-					state: 'open'
-				}
+			(req) => {
+				initialFetchPull43 ??= new Date().toISOString();
+				req.reply({
+					statusCode: 200,
+					body: {
+						number: 43,
+						state: 'open',
+						head: {
+							ref: mockBackend.topBranchName
+						},
+						updated_at: initialFetchPull43
+					}
+				});
 			}
 		).as('getPullRequest43');
 
 		cy.intercept(
 			{
 				method: 'GET',
-				url: 'https://api.github.com/repos/example/repo/commits/check-runs'
+				url: `https://api.github.com/repos/example/repo/commits/${mockBackend.topBranchName}/check-runs`
 			},
 			{
 				statusCode: 200,
@@ -490,7 +508,21 @@ describe('Review - stacked branches', () => {
 					check_runs: []
 				}
 			}
-		).as('getChecks');
+		).as('getChecksTop');
+
+		cy.intercept(
+			{
+				method: 'GET',
+				url: `https://api.github.com/repos/example/repo/commits/${mockBackend.bottomBranchName}/check-runs`
+			},
+			{
+				statusCode: 200,
+				body: {
+					total_count: 0,
+					check_runs: []
+				}
+			}
+		).as('getChecksBottom');
 
 		cy.intercept(
 			{
@@ -686,6 +718,14 @@ describe('Review - stacked branches', () => {
 			body: prDescription2,
 			draft: false
 		});
+
+		cy.wait('@getChecksTop');
+		cy.wait('@getChecksBottom');
+
+		cy.wait(10 * 1000).then(() => {
+			cy.get('@getChecksTop.all').should('have.length', 3);
+			cy.get('@getChecksBottom.all').should('have.length', 3);
+		}); // Wait for the checks to be fetched
 	});
 
 	type CheckRun = Partial<ChecksResult['check_runs'][number]>;
@@ -727,7 +767,7 @@ describe('Review - stacked branches', () => {
 		cy.intercept(
 			{
 				method: 'GET',
-				url: 'https://api.github.com/repos/example/repo/commits/check-runs'
+				url: `https://api.github.com/repos/example/repo/commits/${mockBackend.topBranchName}/check-runs`
 			},
 			(req) => {
 				requestCount++;
@@ -823,6 +863,11 @@ describe('Review - stacked branches', () => {
 			.within(() => {
 				cy.getByTestId('pr-checks-badge').should('be.visible');
 			});
+
+		cy.wait(10 * 1000).then(() => {
+			cy.get('@getChecksWithActualChecks.all').should('have.length', 3);
+			cy.get('@getChecksBottom.all').should('have.length', 0);
+		}); // Wait for the checks to be fetched
 	});
 
 	it('Should fail fast when checking for multiple checks', () => {
@@ -870,7 +915,7 @@ describe('Review - stacked branches', () => {
 		cy.intercept(
 			{
 				method: 'GET',
-				url: 'https://api.github.com/repos/example/repo/commits/check-runs'
+				url: `https://api.github.com/repos/example/repo/commits/${mockBackend.topBranchName}/check-runs`
 			},
 			(req) => {
 				requestCount++;
@@ -964,5 +1009,10 @@ describe('Review - stacked branches', () => {
 			cy.getByTestId('pr-status-badge').should('be.visible');
 			cy.getByDataValue('pr-status', 'open').should('be.visible');
 		});
+
+		cy.wait(10 * 1000).then(() => {
+			cy.get('@getChecksWithActualChecks.all').should('have.length', 3);
+			cy.get('@getChecksBottom.all').should('have.length', 0);
+		}); // Wait for the checks to be fetched
 	});
 });
