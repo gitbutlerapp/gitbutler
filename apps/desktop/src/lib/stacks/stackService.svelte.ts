@@ -1,4 +1,3 @@
-import { StackOrder } from '$lib/branches/branch';
 import { ConflictEntries, type ConflictEntriesObj } from '$lib/files/conflicts';
 import { sortLikeFileTree } from '$lib/files/filetreeV3';
 import { showToast } from '$lib/notifications/toasts';
@@ -28,12 +27,12 @@ import {
 	type UnknownAction
 } from '@reduxjs/toolkit';
 import type { TauriCommandError } from '$lib/backend/ipc';
+import type { StackOrder } from '$lib/branches/branch';
 import type { Commit, CommitDetails, UpstreamCommit } from '$lib/branches/v3';
 import type { CommitKey } from '$lib/commits/commit';
-import type { LocalFile } from '$lib/files/file';
 import type { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
 import type { TreeChange, TreeChanges, TreeStats } from '$lib/hunks/change';
-import type { DiffSpec, Hunk } from '$lib/hunks/hunk';
+import type { DiffSpec } from '$lib/hunks/hunk';
 import type { BranchDetails, Stack, StackOpt, StackDetails } from '$lib/stacks/stack';
 import type { PropertiesFn } from '$lib/state/customHooks.svelte';
 
@@ -451,10 +450,6 @@ export class StackService {
 		return this.api.endpoints.createCommit.mutate;
 	}
 
-	get createCommitLegacy() {
-		return this.api.endpoints.createCommitLegacy.mutate;
-	}
-
 	commitChanges(projectId: string, commitId: string) {
 		return this.api.endpoints.commitDetails.useQuery(
 			{ projectId, commitId },
@@ -678,22 +673,6 @@ export class StackService {
 
 	get integrateUpstreamCommits() {
 		return this.api.endpoints.integrateUpstreamCommits.useMutation();
-	}
-
-	get legacyUnapplyLines() {
-		return this.api.endpoints.legacyUnapplyLines.mutate;
-	}
-
-	get legacyUnapplyHunk() {
-		return this.api.endpoints.legacyUnapplyHunk.mutate;
-	}
-
-	get legacyUnapplyFiles() {
-		return this.api.endpoints.legacyUnapplyFiles.mutate;
-	}
-
-	get legacyUpdateBranchOwnership() {
-		return this.api.endpoints.legacyUpdateBranchOwnership.mutate;
 	}
 
 	get createVirtualBranchFromBranch() {
@@ -1062,25 +1041,6 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					invalidatesItem(ReduxTag.StackDetails, args.stackId)
 				]
 			}),
-			createCommitLegacy: build.mutation<
-				undefined,
-				{
-					projectId: string;
-					stackId: string;
-					message: string;
-					ownership: string | undefined;
-				}
-			>({
-				extraOptions: {
-					command: 'commit_virtual_branch',
-					actionName: 'Commit'
-				},
-				query: (args) => args,
-				invalidatesTags: (_result, _error, args) => [
-					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
-					invalidatesItem(ReduxTag.StackDetails, args.stackId)
-				]
-			}),
 			commitDetails: build.query<
 				{
 					changes: EntityState<TreeChange, string>;
@@ -1405,57 +1365,6 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesItem(ReduxTag.StackDetails, args.stackId)
 				]
-			}),
-			legacyUnapplyLines: build.mutation<
-				void,
-				{ projectId: string; hunk: Hunk; linesToUnapply: { old?: number; new?: number }[] }
-			>({
-				extraOptions: {
-					command: 'unapply_lines',
-					actionName: 'Legacy Unapply Lines'
-				},
-				query: ({ projectId, hunk, linesToUnapply }) => ({
-					projectId,
-					ownership: `${hunk.filePath}:${hunk.id}-${hunk.hash}`,
-					lines: { [hunk.id]: linesToUnapply }
-				})
-			}),
-			legacyUnapplyHunk: build.mutation<void, { projectId: string; hunk: Hunk }>({
-				extraOptions: {
-					command: 'unapply_ownership',
-					actionName: 'Legacy Unapply Hunk'
-				},
-				query: ({ projectId, hunk }) => ({
-					projectId,
-					ownership: `${hunk.filePath}:${hunk.id}-${hunk.hash}`
-				})
-			}),
-			legacyUnapplyFiles: build.mutation<
-				void,
-				{ projectId: string; stackId: string; files: LocalFile[] }
-			>({
-				extraOptions: {
-					command: 'reset_files',
-					actionName: 'Legacy Unapply Files'
-				},
-				query: ({ projectId, stackId, files }) => ({
-					projectId,
-					stackId,
-					files: files?.flatMap((f) => f.path) ?? []
-				})
-			}),
-			legacyUpdateBranchOwnership: build.mutation<
-				void,
-				{ projectId: string; stackId: string; ownership: string }
-			>({
-				extraOptions: {
-					command: 'update_virtual_branch',
-					actionName: 'Legacy Update Branch Ownership'
-				},
-				query: ({ projectId, stackId, ownership }) => ({
-					projectId,
-					branch: { id: stackId, ownership }
-				})
 			}),
 			createVirtualBranchFromBranch: build.mutation<
 				void,

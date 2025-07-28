@@ -26,6 +26,7 @@
 
 	import { EmptyStatePlaceholder, HunkDiff } from '@gitbutler/ui';
 	import { parseHunk } from '@gitbutler/ui/utils/diffParsing';
+	import type { FileDependencies } from '$lib/dependencies/dependencies';
 	import type { TreeChange } from '$lib/hunks/change';
 	import type { UnifiedDiff } from '$lib/hunks/diff';
 	import type { LineId } from '@gitbutler/ui/utils/diffParsing';
@@ -77,7 +78,9 @@
 	const dependencyService = inject(DEPENDENCY_SERVICE);
 
 	const fileDependenciesResult = $derived(
-		dependencyService.fileDependencies(projectId, change.path)
+		selectionId.type === 'worktree'
+			? dependencyService.fileDependencies(projectId, change.path)
+			: undefined
 	);
 
 	const userSettings = inject(SETTINGS);
@@ -159,163 +162,167 @@
 	}
 </script>
 
-<ReduxResult {projectId} result={fileDependenciesResult.current}>
-	{#snippet children(fileDependencies)}
-		<div
-			data-testid={TestId.UnifiedDiffView}
-			class="diff-section"
-			class:top-padding={topPadding}
-			bind:this={viewport}
-		>
-			{#if diff.type === 'Patch'}
-				{@const linesModified = diff.subject.linesAdded + diff.subject.linesRemoved}
-				{#if linesModified > LARGE_DIFF_THRESHOLD && !showAnyways}
-					<LargeDiffMessage
-						handleShow={() => {
-							showAnyways = true;
+{#if fileDependenciesResult}
+	<ReduxResult {projectId} result={fileDependenciesResult.current} children={unifiedDiff} />
+{:else}
+	{@render unifiedDiff(undefined)}
+{/if}
+
+{#snippet unifiedDiff(fileDependencies: FileDependencies | undefined)}
+	<div
+		data-testid={TestId.UnifiedDiffView}
+		class="diff-section"
+		class:top-padding={topPadding}
+		bind:this={viewport}
+	>
+		{#if diff.type === 'Patch'}
+			{@const linesModified = diff.subject.linesAdded + diff.subject.linesRemoved}
+			{#if linesModified > LARGE_DIFF_THRESHOLD && !showAnyways}
+				<LargeDiffMessage
+					handleShow={() => {
+						showAnyways = true;
+					}}
+				/>
+			{:else}
+				{#each filter(diff.subject.hunks) as hunk}
+					{@const selection = uncommittedService.hunkCheckStatus(
+						stackId || null,
+						change.path,
+						hunk
+					)}
+					{@const [_, lineLocks] = getLineLocks(hunk, fileDependencies?.dependencies ?? [])}
+					<div
+						class="hunk-content"
+						use:draggableChips={{
+							label: hunk.diff.split('\n')[0],
+							data: new HunkDropDataV3(
+								change,
+								hunk,
+								isUncommittedChange,
+								stackId || null,
+								commitId,
+								selectionId
+							),
+							disabled: !draggable,
+							chipType: 'hunk',
+							dropzoneRegistry,
+							dragStateService
 						}}
-					/>
-				{:else}
-					{#each filter(diff.subject.hunks) as hunk}
-						{@const selection = uncommittedService.hunkCheckStatus(
-							stackId || null,
-							change.path,
-							hunk
-						)}
-						{@const [_, lineLocks] = getLineLocks(hunk, fileDependencies.dependencies ?? [])}
-						<div
-							class="hunk-content"
-							use:draggableChips={{
-								label: hunk.diff.split('\n')[0],
-								data: new HunkDropDataV3(
-									change,
-									hunk,
-									isUncommittedChange,
-									stackId || null,
-									commitId,
-									selectionId
-								),
-								disabled: !draggable,
-								chipType: 'hunk',
-								dropzoneRegistry,
-								dragStateService
-							}}
-						>
-							<HunkDiff
-								draggingDisabled={!draggable}
-								hideCheckboxes={!isCommiting}
-								filePath={change.path}
-								hunkStr={hunk.diff}
-								staged={selection.current.selected}
-								stagedLines={selection.current.lines}
-								{lineLocks}
-								diffLigatures={$userSettings.diffLigatures}
-								tabSize={$userSettings.tabSize}
-								wrapText={$userSettings.wrapText}
-								diffFont={$userSettings.diffFont}
-								diffContrast={$userSettings.diffContrast}
-								inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
-								onLineClick={(p) => {
-									if (!canBePartiallySelected(diff.subject)) {
-										uncommittedService.checkHunk(stackId || null, change.path, hunk);
-									}
-									if (
-										!linesInclude(
-											p.newLine,
-											p.oldLine,
-											selection.current.selected,
-											selection.current.lines
-										)
-									) {
-										uncommittedService.checkLine(stackId || null, change.path, hunk, {
+					>
+						<HunkDiff
+							draggingDisabled={!draggable}
+							hideCheckboxes={!isCommiting}
+							filePath={change.path}
+							hunkStr={hunk.diff}
+							staged={selection.current.selected}
+							stagedLines={selection.current.lines}
+							{lineLocks}
+							diffLigatures={$userSettings.diffLigatures}
+							tabSize={$userSettings.tabSize}
+							wrapText={$userSettings.wrapText}
+							diffFont={$userSettings.diffFont}
+							diffContrast={$userSettings.diffContrast}
+							inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
+							onLineClick={(p) => {
+								if (!canBePartiallySelected(diff.subject)) {
+									uncommittedService.checkHunk(stackId || null, change.path, hunk);
+								}
+								if (
+									!linesInclude(
+										p.newLine,
+										p.oldLine,
+										selection.current.selected,
+										selection.current.lines
+									)
+								) {
+									uncommittedService.checkLine(stackId || null, change.path, hunk, {
+										newLine: p.newLine,
+										oldLine: p.oldLine
+									});
+								} else {
+									const allLines =
+										p.rows
+											?.filter((l) => l.isDeltaLine)
+											.map((l) => ({
+												newLine: l.afterLineNumber,
+												oldLine: l.beforeLineNumber
+											})) ?? [];
+									uncommittedService.uncheckLine(
+										stackId || null,
+										change.path,
+										hunk,
+										{
 											newLine: p.newLine,
 											oldLine: p.oldLine
-										});
-									} else {
-										const allLines =
-											p.rows
-												?.filter((l) => l.isDeltaLine)
-												.map((l) => ({
-													newLine: l.afterLineNumber,
-													oldLine: l.beforeLineNumber
-												})) ?? [];
-										uncommittedService.uncheckLine(
-											stackId || null,
-											change.path,
-											hunk,
-											{
-												newLine: p.newLine,
-												oldLine: p.oldLine
-											},
-											allLines
-										);
-									}
-								}}
-								onChangeStage={(selected) => {
-									if (!selectable) return;
-									if (selected) {
-										uncommittedService.checkHunk(stackId || null, change.path, hunk);
-									} else {
-										uncommittedService.uncheckHunk(stackId || null, change.path, hunk);
-									}
-								}}
-								handleLineContextMenu={(params) => {
-									contextMenu?.open(params.event, {
-										hunk,
-										selectedLines: selection.current.lines,
-										beforeLineNumber: params.beforeLineNumber,
-										afterLineNumber: params.afterLineNumber
-									});
-								}}
-							>
-								{#snippet lockWarning(locks)}
-									<LineLocksWarning {projectId} {locks} />
-								{/snippet}
-							</HunkDiff>
-						</div>
-					{:else}
-						<div class="hunk-placehoder">
-							<EmptyStatePlaceholder image={emptyFileSvg} gap={12} topBottomPadding={34}>
-								{#snippet caption()}
-									It’s empty ¯\_(ツ゚)_/¯
-								{/snippet}
-							</EmptyStatePlaceholder>
-						</div>
-					{/each}
-				{/if}
-
-				<!-- The context menu should be outside the each block. -->
-				<HunkContextMenu
-					bind:this={contextMenu}
-					trigger={viewport}
-					{projectId}
-					{change}
-					discardable={isUncommittedChange}
-					{selectable}
-					{selectAllHunkLines}
-					{unselectAllHunkLines}
-					{invertHunkSelection}
-				/>
-			{:else if diff.type === 'TooLarge'}
-				<div class="hunk-placehoder">
-					<EmptyStatePlaceholder image={tooLargeSvg} gap={12} topBottomPadding={34}>
-						{#snippet caption()}
-							Too large to display
-						{/snippet}
-					</EmptyStatePlaceholder>
-				</div>
-			{:else if diff.type === 'Binary'}
-				<div class="hunk-placehoder">
-					<EmptyStatePlaceholder image={binarySvg} gap={12} topBottomPadding={34}>
-						{#snippet caption()}
-							Binary! Not for human eyes
-						{/snippet}
-					</EmptyStatePlaceholder>
-				</div>
+										},
+										allLines
+									);
+								}
+							}}
+							onChangeStage={(selected) => {
+								if (!selectable) return;
+								if (selected) {
+									uncommittedService.checkHunk(stackId || null, change.path, hunk);
+								} else {
+									uncommittedService.uncheckHunk(stackId || null, change.path, hunk);
+								}
+							}}
+							handleLineContextMenu={(params) => {
+								contextMenu?.open(params.event, {
+									hunk,
+									selectedLines: selection.current.lines,
+									beforeLineNumber: params.beforeLineNumber,
+									afterLineNumber: params.afterLineNumber
+								});
+							}}
+						>
+							{#snippet lockWarning(locks)}
+								<LineLocksWarning {projectId} {locks} />
+							{/snippet}
+						</HunkDiff>
+					</div>
+				{:else}
+					<div class="hunk-placehoder">
+						<EmptyStatePlaceholder image={emptyFileSvg} gap={12} topBottomPadding={34}>
+							{#snippet caption()}
+								It’s empty ¯\_(ツ゚)_/¯
+							{/snippet}
+						</EmptyStatePlaceholder>
+					</div>
+				{/each}
 			{/if}
-		</div>
-	{/snippet}
-</ReduxResult>
+
+			<!-- The context menu should be outside the each block. -->
+			<HunkContextMenu
+				bind:this={contextMenu}
+				trigger={viewport}
+				{projectId}
+				{change}
+				discardable={isUncommittedChange}
+				{selectable}
+				{selectAllHunkLines}
+				{unselectAllHunkLines}
+				{invertHunkSelection}
+			/>
+		{:else if diff.type === 'TooLarge'}
+			<div class="hunk-placehoder">
+				<EmptyStatePlaceholder image={tooLargeSvg} gap={12} topBottomPadding={34}>
+					{#snippet caption()}
+						Too large to display
+					{/snippet}
+				</EmptyStatePlaceholder>
+			</div>
+		{:else if diff.type === 'Binary'}
+			<div class="hunk-placehoder">
+				<EmptyStatePlaceholder image={binarySvg} gap={12} topBottomPadding={34}>
+					{#snippet caption()}
+						Binary! Not for human eyes
+					{/snippet}
+				</EmptyStatePlaceholder>
+			</div>
+		{/if}
+	</div>
+{/snippet}
 
 <style lang="postcss">
 	.diff-section {

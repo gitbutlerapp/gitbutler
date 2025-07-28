@@ -1,21 +1,8 @@
 import { key, type SelectionId } from '$lib/selection/key';
 import type { CommitDropData } from '$lib/commits/dropHandler';
 import type { TreeChange } from '$lib/hunks/change';
-import type { Hunk, HunkAssignment, HunkHeader, HunkLock } from '$lib/hunks/hunk';
+import type { HunkAssignment, HunkHeader } from '$lib/hunks/hunk';
 import type { IdSelection } from '$lib/selection/idSelection.svelte';
-
-export class HunkDropData {
-	constructor(
-		public readonly branchId: string,
-		public readonly hunk: Hunk,
-		public readonly lockedTo: HunkLock[],
-		public readonly commitId: string | undefined
-	) {}
-
-	get isCommitted(): boolean {
-		return !!this.commitId;
-	}
-}
 
 export class HunkDropDataV3 {
 	constructor(
@@ -77,4 +64,4 @@ export class ChangeDropData {
 	}
 }
 
-export type DropData = HunkDropData | CommitDropData | ChangeDropData | HunkDropDataV3;
+export type DropData = CommitDropData | ChangeDropData | HunkDropDataV3;

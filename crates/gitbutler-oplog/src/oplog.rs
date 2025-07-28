@@ -1,7 +1,6 @@
 use std::{
     collections::{hash_map::Entry, HashMap},
     fs,
-    path::PathBuf,
     str::{from_utf8, FromStr},
     time::Duration,
 };
@@ -14,9 +13,9 @@ use super::{
     state::OplogHandle,
 };
 use anyhow::{anyhow, bail, Context, Result};
+use but_core::{diff::tree_changes, TreeChange};
 use git2::FileMode;
 use gitbutler_command_context::{CommandContext, RepositoryExtLite};
-use gitbutler_diff::{hunks_by_filepath, FileDiff};
 use gitbutler_oxidize::ObjectIdExt as _;
 use gitbutler_oxidize::RepoExt;
 use gitbutler_oxidize::{
@@ -143,7 +142,7 @@ pub trait OplogExt {
     /// Returns the diff of the snapshot and it's parent. It only includes the workdir changes.
     ///
     /// This is useful to show what has changed in this particular snapshot
-    fn snapshot_diff(&self, sha: git2::Oid) -> Result<HashMap<PathBuf, FileDiff>>;
+    fn snapshot_diff(&self, sha: git2::Oid) -> Result<Vec<TreeChange>>;
 
     /// Gets the sha of the last snapshot commit if present.
     fn oplog_head(&self) -> Result<Option<git2::Oid>>;
@@ -332,7 +331,7 @@ impl OplogExt for CommandContext {
         Ok(lines_since_snapshot(self, &repo)? > self.project().snapshot_lines_threshold())
     }
 
-    fn snapshot_diff(&self, sha: git2::Oid) -> Result<HashMap<PathBuf, FileDiff>> {
+    fn snapshot_diff(&self, sha: git2::Oid) -> Result<Vec<TreeChange>> {
         let worktree_dir = self.project().path.as_path();
         let gix_repo = gitbutler_command_context::gix_repo_for_merging(worktree_dir)?;
         let repo = git2::Repository::init(worktree_dir)?;
@@ -344,21 +343,12 @@ impl OplogExt for CommandContext {
         let old_wd_tree_id = tree_from_applied_vbranches(&gix_repo, commit.parent(0)?.id(), self)?;
         let old_wd_tree = repo.find_tree(old_wd_tree_id)?;
 
-        repo.ignore_large_files_in_diffs(AUTO_TRACK_LIMIT_BYTES)?;
-
-        let mut diff_opts = git2::DiffOptions::new();
-        diff_opts
-            .recurse_untracked_dirs(true)
-            .include_untracked(true)
-            .show_binary(true)
-            .ignore_submodules(true)
-            .show_untracked_content(true);
-
-        let diff =
-            repo.diff_tree_to_tree(Some(&old_wd_tree), Some(&wd_tree), Some(&mut diff_opts))?;
-
-        let hunks = hunks_by_filepath(None, &diff)?;
-        Ok(hunks)
+        let (tree_changes, _) = tree_changes(
+            &gix_repo,
+            Some(old_wd_tree.id().to_gix()),
+            wd_tree.id().to_gix(),
+        )?;
+        Ok(tree_changes)
     }
 
     fn snapshot_workspace_tree(&self, sha: gix::ObjectId) -> Result<gix::ObjectId> {

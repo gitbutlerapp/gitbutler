@@ -6,42 +6,42 @@
 	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import LazyloadContainer from '$components/LazyloadContainer.svelte';
 	import Resizer from '$components/Resizer.svelte';
+	import SelectionView from '$components/SelectionView.svelte';
 	import SnapshotCard from '$components/SnapshotCard.svelte';
-	import emptyFileSvg from '$lib/assets/empty-state/empty-file.svg?raw';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
-	import { RemoteFile } from '$lib/files/file';
 	import { HISTORY_SERVICE, createdOnDay } from '$lib/history/history';
-	import { SETTINGS } from '$lib/settings/userSettings';
+	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import { EmptyStatePlaceholder, HunkDiff, Icon, FileViewHeader } from '@gitbutler/ui';
+	import { EmptyStatePlaceholder, Icon, FileViewHeader } from '@gitbutler/ui';
 	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
-	import { plainToInstance } from 'class-transformer';
-	import type { Snapshot, SnapshotDiff } from '$lib/history/types';
+	import type { Snapshot } from '$lib/history/types';
+	import type { TreeChange } from '$lib/hunks/change';
+	import type { SelectedFile } from '$lib/selection/key';
 
 	// TODO: Refactor so we don't need non-null assertion.
 	const projectId = $derived(page.params.projectId!);
 
 	const MIN_SNAPSHOTS_TO_LOAD = 30;
-	const userSettings = inject(SETTINGS);
+
+	const idSelection = inject(ID_SELECTION);
 
 	let sidebarEl = $state<HTMLElement>();
 
 	const historyService = inject(HISTORY_SERVICE);
-	const snapshots = historyService.snapshots;
+	const snapshotManager = $derived(historyService.snapshots(projectId));
+	const snapshots = $derived(snapshotManager.snapshots);
 
-	const loading = historyService.loading;
-	const isAllLoaded = historyService.isAllLoaded;
+	const loading = $derived(snapshotManager.loading);
+	const isAllLoaded = $derived(snapshotManager.isAllLoaded);
 
 	const withinRestoreItems = $derived(findRestorationRanges($snapshots));
 
-	let currentFilePreview: RemoteFile | undefined = $state(undefined);
-	let snapshotFilesTempStore:
-		| { entryId: string; diffs: { [key: string]: SnapshotDiff } }
-		| undefined = $state(undefined);
-	let selectedFile: { entryId: string; path: string } | undefined = $state(undefined);
+	let snapshotFilesTempStore: { entryId: string; diffs: TreeChange[] } | undefined =
+		$state(undefined);
+	let selectedFile: (SelectedFile & { type: 'snapshot' }) | undefined = $state(undefined);
 
 	async function onLastInView() {
-		if (!$loading && !$isAllLoaded) await historyService.loadMore();
+		if (!$loading && !$isAllLoaded) await snapshotManager.loadMore();
 	}
 
 	function findRestorationRanges(snapshots: Snapshot[]) {
@@ -69,19 +69,18 @@
 	function updateFilePreview(entry: Snapshot, path: string) {
 		if (!snapshotFilesTempStore) return;
 
-		const file = snapshotFilesTempStore.diffs[path];
+		const file = snapshotFilesTempStore.diffs
+			.map((tc, i) => [tc, i] as const)
+			.find(([tc]) => tc.path === path);
 		if (!file) return;
 
 		selectedFile = {
-			entryId: entry.id,
+			type: 'snapshot',
+			snapshotId: entry.id,
 			path: path
 		};
 
-		currentFilePreview = plainToInstance(RemoteFile, {
-			path: path,
-			hunks: file.hunks,
-			binary: file.binary
-		});
+		idSelection.set(path, selectedFile, file[1]);
 	}
 </script>
 
@@ -135,11 +134,9 @@
 									// Until we have that figured out, we need to reload the page.
 									location.reload();
 								}}
-								{selectedFile}
 								onDiffClick={async (path) => {
 									if (snapshotFilesTempStore?.entryId === entry.id) {
 										if (selectedFile?.path === path) {
-											currentFilePreview = undefined;
 											selectedFile = undefined;
 										} else {
 											updateFilePreview(entry, path);
@@ -204,44 +201,25 @@
 	</div>
 
 	<div class="history-view__preview dotted-pattern">
-		{#if currentFilePreview}
+		{#if selectedFile}
 			<div class="history-view__preview-file">
 				<ConfigurableScrollableContainer>
 					<div use:stickyHeader class="history-view__file-header">
 						<FileViewHeader
-							filePath={currentFilePreview.path}
+							filePath={selectedFile.path}
 							draggable={false}
 							oncloseclick={() => {
 								console.warn('oncloseclick');
-								currentFilePreview = undefined;
 								selectedFile = undefined;
 							}}
 						/>
 					</div>
 
-					{#if currentFilePreview.hunks.length > 0}
-						<div class="history-view__diffs">
-							{#each currentFilePreview.hunks as hunk}
-								<HunkDiff
-									draggingDisabled={true}
-									filePath={currentFilePreview.path}
-									hunkStr={hunk.diff}
-									diffLigatures={$userSettings.diffLigatures}
-									tabSize={$userSettings.tabSize}
-									wrapText={$userSettings.wrapText}
-									diffFont={$userSettings.diffFont}
-									diffContrast={$userSettings.diffContrast}
-									inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
-								/>
-							{/each}
-						</div>
-					{:else}
-						<EmptyStatePlaceholder image={emptyFileSvg} gap={12} topBottomPadding={34}>
-							{#snippet caption()}
-								It’s empty ¯\_(ツ゚)_/¯
-							{/snippet}
-						</EmptyStatePlaceholder>
-					{/if}
+					<SelectionView
+						{projectId}
+						diffOnly
+						selectionId={{ type: 'snapshot', snapshotId: selectedFile.snapshotId }}
+					/>
 				</ConfigurableScrollableContainer>
 			</div>
 		{:else}
@@ -354,14 +332,5 @@
 
 	.history-view__file-header {
 		display: flex;
-	}
-
-	.history-view__diffs {
-		display: flex;
-		flex: 1;
-		flex-direction: column;
-		padding: 0 14px 14px 14px;
-		border-bottom: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-1);
 	}
 </style>
