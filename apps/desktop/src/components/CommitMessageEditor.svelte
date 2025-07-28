@@ -194,6 +194,7 @@
 		{canUseAI}
 		{aiIsLoading}
 		{suggestionsHandler}
+		useRuler={uiState.global.useRuler.current}
 		onChange={(text: string) => {
 			onChange?.({ description: text });
 		}}
