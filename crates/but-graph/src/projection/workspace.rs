@@ -611,32 +611,6 @@ impl Graph {
         (out, stopped_at)
     }
 
-    /// Visit the ancestry of `start` along the first parents, itself excluded, until `stop` returns `true`.
-    /// Also return the segment that we stopped at.
-    /// **Important**: `stop` is not called with `start`, this is a feature.
-    ///
-    /// Note that the traversal assumes as well-segmented graph without cycles.
-    fn visit_segments_downward_along_first_parent_until(
-        &self,
-        start: SegmentIndex,
-        mut stop: impl FnMut(&Segment) -> bool,
-    ) {
-        let mut edge = self.inner.edges_directed(start, Direction::Outgoing).last();
-        let mut seen = BTreeSet::new();
-        while let Some(first_edge) = edge {
-            let next = &self[first_edge.target()];
-            if stop(next) {
-                break;
-            }
-            if seen.insert(next.id) {
-                edge = self
-                    .inner
-                    .edges_directed(next.id, Direction::Outgoing)
-                    .last();
-            }
-        }
-    }
-
     /// Visit all segments from `start`, excluding, and return once `find` returns something mapped from the
     /// first suitable segment it encountered.
     fn find_map_downwards_along_first_parent<T>(
@@ -645,7 +619,7 @@ impl Graph {
         mut find: impl FnMut(&Segment) -> Option<T>,
     ) -> Option<T> {
         let mut out = None;
-        self.visit_segments_downward_along_first_parent_until(start, |s| {
+        self.visit_segments_downward_along_first_parent_exclude_start(start, |s| {
             if let Some(res) = find(s) {
                 out = Some(res);
                 true

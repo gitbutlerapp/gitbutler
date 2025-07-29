@@ -82,30 +82,22 @@ pub fn changes_in_branch(
 ) -> anyhow::Result<TreeChanges, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    let branch_name = remote.map_or(branch_name.clone(), |r| format!("{r}/{branch_name}"));
-    changes_in_branch_inner(ctx, branch_name).map_err(Into::into)
+    changes_in_branch_inner(ctx, remote, branch_name).map_err(Into::into)
 }
 
 fn changes_in_branch_inner(
     ctx: CommandContext,
+    remote: Option<String>,
     branch_name: String,
 ) -> anyhow::Result<TreeChanges> {
     let (repo, _meta, graph) = ctx.graph_and_meta(ctx.gix_repo()?)?;
-    let name = Category::LocalBranch.to_full_name(branch_name.as_str())?;
+    let name = if let Some(remote) = remote {
+        Category::RemoteBranch.to_full_name(format!("{remote}/{branch_name}").as_str())
+    } else {
+        Category::LocalBranch.to_full_name(branch_name.as_str())
+    }?;
     let ws = graph.to_workspace()?;
-    let (stack, segment) = ws.try_find_segment_and_stack_by_refname(name.as_ref())?;
-
-    let base = stack.base();
-    let Some((tip, base)) = segment
-        .tip()
-        .or(base)
-        .zip(base)
-        .filter(|(tip, base)| tip != base)
-    else {
-        return Ok(TreeChanges::default());
-    };
-
-    but_core::diff::ui::changes_in_range(&repo, tip, base)
+    but_workspace::ui::diff::changes_in_branch(&repo, &ws, name.as_ref())
 }
 
 /// This UI-version of [`but_core::diff::worktree_changes()`] simplifies the `git status` information for display in

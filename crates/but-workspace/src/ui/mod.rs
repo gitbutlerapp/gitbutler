@@ -2,6 +2,9 @@ use anyhow::Context;
 use bstr::{BStr, BString, ByteSlice};
 use serde::Serialize;
 
+/// Utilities for diffing, with workspace integration.
+pub mod diff;
+
 /// This code is a fork of [`gitbutler_branch_actions::author`] to avoid depending on the `gitbutler_branch_actions` crate.
 mod author {
     use bstr::ByteSlice;
