@@ -173,7 +173,7 @@ the window, then enlarge it and retain the original widths of the layout.
 				style:width={finalPreviewWidth + 'rem'}
 				style:min-width={previewMinWidth + 'rem'}
 				use:focusable={{
-					id: DefinedFocusable.ViewportMiddle,
+					id: DefinedFocusable.ViewportLeftExpanded,
 					parentId: DefinedFocusable.MainViewport
 				}}
 			>

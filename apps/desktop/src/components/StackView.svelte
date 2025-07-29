@@ -12,7 +12,11 @@
 	import SelectionView from '$components/SelectionView.svelte';
 	import WorktreeChanges from '$components/WorktreeChanges.svelte';
 	import { isParsedError } from '$lib/error/parser';
-	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
+	import {
+		DefinedFocusable,
+		newCommitAndAssignedFilesId,
+		stackFocusableId
+	} from '$lib/focus/focusManager.svelte';
 	import { focusable } from '$lib/focus/focusable.svelte';
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
 	import {
@@ -380,7 +384,7 @@
 			}
 		}}
 		use:focusable={{
-			id: DefinedFocusable.Stack + ':' + stack.id,
+			id: stackFocusableId(stack.id),
 			parentId: DefinedFocusable.ViewportMiddle
 		}}
 	>
@@ -414,6 +418,10 @@
 					<ConfigurableScrollableContainer>
 						<!-- If we are currently committing, we should keep this open so users can actually stop committing again :wink: -->
 						<div
+							use:focusable={{
+								id: newCommitAndAssignedFilesId(stack.id),
+								parentId: stackFocusableId(stack.id)
+							}}
 							class="assignments-wrap"
 							class:assignments__empty={changes.current.length === 0 && !isCommitting}
 						>

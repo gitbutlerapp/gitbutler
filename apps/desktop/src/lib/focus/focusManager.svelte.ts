@@ -9,6 +9,7 @@ export const FOCUS_MANAGER = new InjectionToken<FocusManager>('FocusManager');
 export enum DefinedFocusable {
 	MainViewport = 'workspace',
 	ViewportLeft = 'workspace-left',
+	ViewportLeftExpanded = 'workspace-left-expanded',
 	ViewportRight = 'workspace-right',
 	ViewportDrawerRight = 'workspace-drawer-right',
 	ViewportMiddle = 'workspace-middle',
@@ -17,8 +18,9 @@ export enum DefinedFocusable {
 	Branches = 'branches',
 	Stack = 'stack',
 	Preview = 'preview',
-	// Only one of these can be in the dom at any given time.
-	ChangedFiles = 'changed-files'
+	ChangedFiles = 'changed-files',
+	NewCommitAndAssignedFiles = 'new-commit-and-assigned-files',
+	Branch = 'branch'
 }
 
 export function stackFocusableId(stackId: string) {
@@ -27,6 +29,14 @@ export function stackFocusableId(stackId: string) {
 
 export function uncommittedFocusableId(stackId?: string) {
 	return `${DefinedFocusable.UncommittedChanges}:${stackId}`;
+}
+
+export function newCommitAndAssignedFilesId(stackId: string) {
+	return `${DefinedFocusable.NewCommitAndAssignedFiles}:${stackId}`;
+}
+
+export function branchFocusableId(stackId: string, branchName: string) {
+	return `${DefinedFocusable.Branch}:${stackId}:${branchName}`;
 }
 
 /**
@@ -49,6 +59,8 @@ export type FocusableElement = {
 	element: HTMLElement;
 	children: Focusable[];
 };
+
+type Cursor = { setTarget(element: HTMLElement): void; show(): void };
 
 /**
  * Manages focusable areas through the `focusable` svelte action.
@@ -81,16 +93,30 @@ export class FocusManager implements Reactive<Focusable | undefined> {
 
 	private handleMouse = this.handleClick.bind(this);
 	private handleKeys = this.handleKeydown.bind(this);
+	private cursor: Cursor | undefined;
 
 	constructor() {
 		$effect(() => {
 			// We listen for events on the document in the bubble phase, giving
 			// other event handlers an opportunity to stop propagation.
+			console.log('I should happen _once_');
 			return mergeUnlisten(
 				on(document, 'click', this.handleMouse),
-				on(document, 'keypress', this.handleKeys)
+				on(document, 'keydown', this.handleKeys)
 			);
 		});
+	}
+
+	setCursor(cursor: Cursor): () => void {
+		if (this.cursor) {
+			throw new Error('There should only ever be one instance of the focus cursor');
+		}
+
+		this.cursor = cursor;
+
+		return () => {
+			this.cursor = undefined;
+		};
 	}
 
 	get current() {
@@ -98,9 +124,11 @@ export class FocusManager implements Reactive<Focusable | undefined> {
 	}
 
 	handleClick(e: Event) {
+		console.log('handling click');
 		if (e.target instanceof HTMLElement) {
 			let pointer: HTMLElement | null = e.target;
 			while (pointer) {
+				console.log('looping...');
 				const item = this.lookup.get(pointer);
 				if (item) {
 					this.setActive(item.key);
@@ -152,6 +180,10 @@ export class FocusManager implements Reactive<Focusable | undefined> {
 
 	setActive(id: Focusable) {
 		this._current = id;
+		const element = this.elements.find((e) => e.key === id);
+		if (element) {
+			this.cursor?.setTarget(element.element);
+		}
 	}
 
 	focusSibling(forward = true) {
@@ -169,7 +201,10 @@ export class FocusManager implements Reactive<Focusable | undefined> {
 		const nextIndex = (index + (forward ? 1 : siblings.length - 1)) % siblings.length;
 
 		this.setActive(siblings[nextIndex]!);
-		this.elements.find((a) => a.key === siblings[nextIndex])?.element.focus();
+		const element = this.elements.find((a) => a.key === siblings[nextIndex])?.element;
+		element?.focus();
+		element?.scrollIntoView();
+		this.cursor?.show();
 	}
 
 	focusParent() {
@@ -179,11 +214,15 @@ export class FocusManager implements Reactive<Focusable | undefined> {
 		const area = this.elements.find((a) => a.key === currentId);
 		if (area?.parentId) {
 			this.setActive(area.parentId);
-			this.elements.find((a) => a.key === area.parentId)?.element.focus();
+			const element = this.elements.find((a) => a.key === area.parentId)?.element;
+			element?.focus();
+			element?.scrollIntoView();
+			this.cursor?.show();
 		}
 	}
 
 	focusFirstChild() {
+		console.log('focused first child');
 		const currentId = this._current;
 		if (!currentId) return;
 
@@ -191,7 +230,10 @@ export class FocusManager implements Reactive<Focusable | undefined> {
 		if (area && area.children.length > 0) {
 			const firstChild = area.children[0];
 			this.setActive(firstChild!);
-			this.elements.find((a) => a.key === firstChild)?.element.focus();
+			const element = this.elements.find((a) => a.key === firstChild)?.element;
+			element?.focus();
+			element?.scrollIntoView();
+			this.cursor?.show();
 		}
 	}
 
@@ -205,6 +247,12 @@ export class FocusManager implements Reactive<Focusable | undefined> {
 		} else if (event.metaKey && event.key === 'ArrowDown') {
 			event.preventDefault();
 			this.focusFirstChild();
+		} else if (event.metaKey && event.key === 'ArrowLeft') {
+			event.preventDefault();
+			this.focusSibling(false);
+		} else if (event.metaKey && event.key === 'ArrowRight') {
+			event.preventDefault();
+			this.focusSibling(true);
 		}
 	}
 
