@@ -65,6 +65,9 @@
 	let menuPosition = $state({ x: 0, y: 0 });
 	let savedMouseEvent: MouseEvent | undefined = $state();
 
+	// Store the original/default side value to fall back to when there's no space in either direction
+	let originalSide = side;
+
 	function calculateVerticalPosition(targetBoundingRect: DOMRect): number {
 		// For horizontal sides (top/bottom)
 		if (side === 'top' || side === 'bottom') {
@@ -120,9 +123,7 @@
 		if (!e) return;
 
 		const clientX = horizontalAlign === 'left' ? e.clientX - contextMenuWidth : e.clientX;
-
 		const clientY = side === 'top' ? e.clientY - contextMenuHeight : e.clientY;
-
 		menuPosition = { x: clientX, y: clientY };
 	}
 
@@ -136,6 +137,9 @@
 
 	export function open(e?: MouseEvent, newItem?: T) {
 		if (!(leftClickTrigger || rightClickTrigger)) return;
+
+		// Reset to original values when opening
+		originalSide = side;
 
 		item = newItem ?? item;
 		isVisible = true;
@@ -160,10 +164,49 @@
 		}
 	}
 
+	function calculateBestSide(): 'top' | 'bottom' | 'left' | 'right' {
+		if (!leftClickTrigger || !contextMenuHeight) return originalSide;
+
+		const targetRect = leftClickTrigger.getBoundingClientRect();
+		const viewport = {
+			width: window.innerWidth,
+			height: window.innerHeight
+		};
+
+		// For horizontal sides (top/bottom)
+		if (originalSide === 'top' || originalSide === 'bottom') {
+			const spaceBelow = viewport.height - targetRect.bottom;
+			const spaceAbove = targetRect.top;
+
+			// Check if menu fits in preferred position
+			if (originalSide === 'bottom' && spaceBelow >= contextMenuHeight) {
+				return 'bottom';
+			}
+			if (originalSide === 'top' && spaceAbove >= contextMenuHeight) {
+				return 'top';
+			}
+
+			// Try alternative position
+			if (originalSide === 'bottom' && spaceAbove >= contextMenuHeight) {
+				return 'top';
+			}
+			if (originalSide === 'top' && spaceBelow >= contextMenuHeight) {
+				return 'bottom';
+			}
+
+			// No space in either direction, use original
+			return originalSide;
+		}
+
+		return originalSide;
+	}
+
 	function setAlignment() {
 		if (savedMouseEvent && rightClickTrigger) {
 			setAlignByMouse(savedMouseEvent);
 		} else if (leftClickTrigger) {
+			// Calculate the best side before positioning
+			side = calculateBestSide();
 			setAlignByTarget(leftClickTrigger);
 		}
 	}
@@ -173,7 +216,7 @@
 
 		setAlignment();
 
-		// Keep contextMenu in viewport
+		// Simple horizontal viewport adjustment
 		const observer = new IntersectionObserver(
 			(entries) => {
 				const entry = entries[0];
@@ -184,7 +227,7 @@
 
 					let needsRealignment = false;
 
-					// Horizontal adjustments
+					// Only horizontal adjustments to prevent flickering
 					if (rect.right > viewport.right && horizontalAlign !== 'right') {
 						horizontalAlign = 'right';
 						needsRealignment = true;
@@ -194,18 +237,8 @@
 						needsRealignment = true;
 					}
 
-					// Vertical adjustments
-					if (rect.bottom > viewport.bottom && rect.top > viewport.top && side !== 'top') {
-						side = 'top';
-						needsRealignment = true;
-					}
-					if (rect.top < viewport.top && side !== 'bottom') {
-						side = 'bottom';
-						needsRealignment = true;
-					}
-
 					if (needsRealignment) {
-						setAlignment();
+						setAlignment(true); // Skip side calculation during horizontal adjustments
 					}
 				}
 			},
@@ -290,7 +323,7 @@
 			{onclick}
 			{onkeypress}
 			onkeydown={handleKeyNavigation}
-			class="context-menu"
+			class="context-menu hide-native-scrollbar"
 			class:top-oriented={side === 'top'}
 			class:bottom-oriented={side === 'bottom'}
 			class:left-oriented={side === 'left'}
@@ -339,6 +372,7 @@
 		border-radius: var(--radius-m);
 		outline: none;
 		background: var(--clr-bg-2);
+		background-color: red;
 		box-shadow: var(--fx-shadow-s);
 		animation: fadeIn 0.08s ease-out forwards;
 		pointer-events: none;
