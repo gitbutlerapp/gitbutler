@@ -413,7 +413,7 @@
 									rulerCountValue.set(parseInt(input.value));
 								}}
 								onkeydown={(e) => {
-									if (e.key === 'Enter') {
+									if (e.key === 'Enter' && !e.isComposing) {
 										e.preventDefault();
 										composer?.focus();
 									}

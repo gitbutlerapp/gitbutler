@@ -173,7 +173,7 @@
 					emitAction();
 				}
 			}
-			if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
+			if ((e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) && !e.isComposing) {
 				e.preventDefault();
 				composer?.focus();
 			}
