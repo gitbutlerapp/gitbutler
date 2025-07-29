@@ -46,7 +46,6 @@
 	const branchesState = $derived(projectState.branchesSelection);
 
 	const baseBranchResult = $derived(baseBranchService.baseBranch(projectId));
-	const branchesSelection = $derived(projectState.branchesSelection);
 
 	const selectedOption = persisted<SelectedOption>('all', `branches-selectedOption-${projectId}`);
 
@@ -107,7 +106,7 @@
 		});
 
 		// Unselect branch
-		branchesSelection.set({});
+		branchesState.set({});
 		await baseBranchService.refreshBaseBranch(projectId);
 	}
 
@@ -126,7 +125,7 @@
 	function onerror(err: unknown) {
 		// Clear selection if branch not found.
 		if (isParsedError(err) && err.code === 'errors.branch.notfound') {
-			branchesSelection.set({});
+			branchesState.set({});
 			console.warn('Branches selection cleared');
 		}
 	}
@@ -203,11 +202,11 @@
 									}
 								: undefined}
 							onclick={() => {
-								branchesSelection.set({ branchName: baseBranch.shortName, isTarget: true });
+								branchesState.set({ branchName: baseBranch.shortName, isTarget: true });
 							}}
-							selected={(branchesSelection.current.branchName === undefined ||
-								branchesSelection.current.branchName === baseBranch.shortName) &&
-								branchesSelection.current.prNumber === undefined}
+							selected={(current.branchName === undefined ||
+								current.branchName === baseBranch.shortName) &&
+								current.prNumber === undefined}
 						/>
 					</BranchesListGroup>
 					<BranchExplorer {projectId} bind:selectedOption={$selectedOption}>
@@ -218,12 +217,11 @@
 									branchListing={sidebarEntrySubject.subject}
 									prs={sidebarEntrySubject.prs}
 									selected={sidebarEntrySubject.subject.stack
-										? branchesSelection.current.branchName ===
-											sidebarEntrySubject.subject.stack.branches.at(0)
-										: branchesSelection.current.branchName === sidebarEntrySubject.subject.name}
+										? current.branchName === sidebarEntrySubject.subject.stack.branches.at(0)
+										: current.branchName === sidebarEntrySubject.subject.name}
 									onclick={({ listing, pr }) => {
 										if (listing.stack) {
-											branchesSelection.set({
+											branchesState.set({
 												stackId: listing.stack.id,
 												branchName: listing.stack.branches.at(0),
 												prNumber: pr?.number,
@@ -231,7 +229,7 @@
 												hasLocal: listing.hasLocal
 											});
 										} else {
-											branchesSelection.set({
+											branchesState.set({
 												branchName: listing.name,
 												prNumber: pr?.number,
 												remote: listing.remotes.at(0),
@@ -252,9 +250,8 @@
 										gravatarUrl: sidebarEntrySubject.subject.author?.gravatarUrl
 									}}
 									modifiedAt={sidebarEntrySubject.subject.modifiedAt}
-									selected={branchesSelection.current.prNumber ===
-										sidebarEntrySubject.subject.number}
-									onclick={(pr) => branchesSelection.set({ prNumber: pr.number })}
+									selected={current.prNumber === sidebarEntrySubject.subject.number}
+									onclick={(pr) => branchesState.set({ prNumber: pr.number })}
 									noRemote
 								/>
 							{/if}
