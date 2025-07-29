@@ -1,12 +1,22 @@
-<script lang="ts">
+<script lang="ts" generics="T = any">
 	import { clickOutside } from '$lib/utils/clickOutside';
 	import { focusTrap } from '$lib/utils/focusTrap';
 	import { portal } from '$lib/utils/portal';
 	import { type Snippet } from 'svelte';
 
-	interface BaseProps {
+	// Constants
+	const POSITIONING = {
+		PADDING: 2,
+		MARGIN_TOP: -6,
+		MARGIN_BOTTOM: 4,
+		MARGIN_LEFT: -2,
+		VIEWPORT_ADJUSTMENT_DELAY: 0,
+		ANIMATION_SHIFT: '6px'
+	} as const;
+
+	interface BaseProps<T = any> {
 		testId?: string;
-		children?: Snippet<[item: any]>;
+		children?: Snippet<[item: T]>;
 		leftClickTrigger?: HTMLElement;
 		rightClickTrigger?: HTMLElement;
 		onclose?: () => void;
@@ -17,19 +27,19 @@
 		menu?: Snippet<[{ close: () => void }]>;
 	}
 
-	type HorizontalProps = BaseProps & {
+	type HorizontalProps<T = any> = BaseProps<T> & {
 		side?: 'top' | 'bottom';
 		horizontalAlign?: 'left' | 'right';
 		verticalAlign?: never;
 	};
 
-	type VerticalProps = BaseProps & {
+	type VerticalProps<T = any> = BaseProps<T> & {
 		side?: 'left' | 'right';
 		verticalAlign?: 'top' | 'bottom';
 		horizontalAlign?: never;
 	};
 
-	type Props = HorizontalProps | VerticalProps;
+	type Props<T = any> = HorizontalProps<T> | VerticalProps<T>;
 
 	let {
 		testId,
@@ -45,63 +55,72 @@
 		onclick,
 		onkeypress,
 		menu
-	}: Props = $props();
+	}: Props<T> = $props();
 
 	let menuContainer: HTMLElement | undefined = $state();
-	let item = $state<any>();
+	let item = $state<T>();
 	let contextMenuHeight = $state(0);
 	let contextMenuWidth = $state(0);
 	let isVisible = $state(false);
 	let menuPosition = $state({ x: 0, y: 0 });
 	let savedMouseEvent: MouseEvent | undefined = $state();
 
-	function setVerticalAlign(targetBoundingRect: DOMRect) {
-		if (['top', 'bottom'].includes(side)) {
-			return side === 'top'
-				? targetBoundingRect.top
-					? targetBoundingRect.top - contextMenuHeight
-					: 0
-				: targetBoundingRect.top
-					? targetBoundingRect.top + targetBoundingRect.height
-					: 0;
-		} else if (['left', 'right'].includes(side)) {
-			if (verticalAlign === 'top') {
-				return targetBoundingRect.bottom - targetBoundingRect.height;
-			} else if (verticalAlign === 'bottom') {
-				return targetBoundingRect.bottom - contextMenuHeight;
+	function calculateVerticalPosition(targetBoundingRect: DOMRect): number {
+		// For horizontal sides (top/bottom)
+		if (side === 'top' || side === 'bottom') {
+			if (side === 'top') {
+				return targetBoundingRect.top > 0 ? targetBoundingRect.top - contextMenuHeight : 0;
 			}
+			return targetBoundingRect.top > 0 ? targetBoundingRect.top + targetBoundingRect.height : 0;
 		}
+
+		// For vertical sides (left/right)
+		if (verticalAlign === 'top') {
+			return targetBoundingRect.bottom - targetBoundingRect.height;
+		}
+		if (verticalAlign === 'bottom') {
+			return targetBoundingRect.bottom - contextMenuHeight;
+		}
+
 		return 0;
 	}
 
-	function setHorizontalAlign(targetBoundingRect: DOMRect) {
-		const padding = 2;
-
-		if (['top', 'bottom'].includes(side)) {
+	function calculateHorizontalPosition(targetBoundingRect: DOMRect): number {
+		// For horizontal sides (top/bottom)
+		if (side === 'top' || side === 'bottom') {
 			return horizontalAlign === 'left'
 				? targetBoundingRect.left
-				: targetBoundingRect.left + targetBoundingRect.width - contextMenuWidth - padding;
-		} else if (['left', 'right'].includes(side)) {
-			if (side === 'left') {
-				return targetBoundingRect.x - contextMenuWidth - padding * 2;
-			} else {
-				return targetBoundingRect.right + padding;
-			}
+				: targetBoundingRect.left +
+						targetBoundingRect.width -
+						contextMenuWidth -
+						POSITIONING.PADDING;
 		}
-		return padding;
+
+		// For vertical sides (left/right)
+		if (side === 'left') {
+			return targetBoundingRect.x - contextMenuWidth - POSITIONING.PADDING * 2;
+		}
+		if (side === 'right') {
+			return targetBoundingRect.right + POSITIONING.PADDING;
+		}
+
+		return POSITIONING.PADDING;
 	}
 
 	function executeByTrigger(callback: (isOpened: boolean, isLeftClick: boolean) => void) {
-		if (leftClickTrigger && !savedMouseEvent) {
-			callback(isVisible, true);
-		} else if (rightClickTrigger && savedMouseEvent) {
-			callback(isVisible, false);
+		const isLeftClick = Boolean(leftClickTrigger && !savedMouseEvent);
+		const isRightClick = Boolean(rightClickTrigger && savedMouseEvent);
+
+		if (isLeftClick || isRightClick) {
+			callback(isVisible, isLeftClick);
 		}
 	}
 
 	function setAlignByMouse(e?: MouseEvent) {
 		if (!e) return;
+
 		const clientX = horizontalAlign === 'left' ? e.clientX - contextMenuWidth : e.clientX;
+
 		const clientY = side === 'top' ? e.clientY - contextMenuHeight : e.clientY;
 
 		menuPosition = { x: clientX, y: clientY };
@@ -109,15 +128,13 @@
 
 	function setAlignByTarget(target: HTMLElement) {
 		const targetBoundingRect = target.getBoundingClientRect();
-		let newMenuPosition = {
-			x: setHorizontalAlign(targetBoundingRect),
-			y: setVerticalAlign(targetBoundingRect)
+		menuPosition = {
+			x: calculateHorizontalPosition(targetBoundingRect),
+			y: calculateVerticalPosition(targetBoundingRect)
 		};
-
-		menuPosition = newMenuPosition;
 	}
 
-	export function open(e?: MouseEvent, newItem?: any) {
+	export function open(e?: MouseEvent, newItem?: T) {
 		if (!(leftClickTrigger || rightClickTrigger)) return;
 
 		item = newItem ?? item;
@@ -135,7 +152,7 @@
 		if (ontoggle) executeByTrigger(ontoggle);
 	}
 
-	export function toggle(e?: MouseEvent, newItem?: any) {
+	export function toggle(e?: MouseEvent, newItem?: T) {
 		if (isVisible) {
 			close();
 		} else {
@@ -165,22 +182,29 @@
 					const viewport = entry.rootBounds;
 					if (!viewport) return;
 
-					if (rect.right > viewport.right) {
+					let needsRealignment = false;
+
+					// Horizontal adjustments
+					if (rect.right > viewport.right && horizontalAlign !== 'right') {
 						horizontalAlign = 'right';
-						setAlignment();
+						needsRealignment = true;
 					}
-					if (rect.left < viewport.left) {
+					if (rect.left < viewport.left && horizontalAlign !== 'left') {
 						horizontalAlign = 'left';
-						setAlignment();
+						needsRealignment = true;
 					}
-					if (rect.bottom > viewport.bottom && rect.top > viewport.top) {
-						setTimeout(() => {
-							side = 'top';
-							setAlignment();
-						}, 0);
+
+					// Vertical adjustments
+					if (rect.bottom > viewport.bottom && rect.top > viewport.top && side !== 'top') {
+						side = 'top';
+						needsRealignment = true;
 					}
-					if (rect.top < viewport.top) {
+					if (rect.top < viewport.top && side !== 'bottom') {
 						side = 'bottom';
+						needsRealignment = true;
+					}
+
+					if (needsRealignment) {
 						setAlignment();
 					}
 				}
@@ -196,24 +220,32 @@
 		return () => observer.disconnect();
 	});
 
-	function setTransformOrigin() {
-		// if trigger is right click, grow from cursor
-		if (savedMouseEvent) return 'top left';
-
-		// if attaching to a trigger element
-		if (['top', 'bottom'].includes(side)) {
-			return horizontalAlign === 'left'
-				? `${side === 'top' ? 'bottom' : 'top'} left`
-				: `${side === 'top' ? 'bottom' : 'top'} right`;
+	function getTransformOrigin(): string {
+		// Right-click context menus grow from cursor position
+		if (savedMouseEvent) {
+			return 'top left';
 		}
 
-		if (['left', 'right'].includes(side)) {
-			return verticalAlign === 'top'
-				? `top ${side === 'left' ? 'right' : 'left'}`
-				: `bottom ${side === 'left' ? 'right' : 'left'}`;
-		}
+		// Calculate origin based on side and alignment
+		const verticalOrigin =
+			side === 'top'
+				? 'bottom'
+				: side === 'bottom'
+					? 'top'
+					: verticalAlign === 'top'
+						? 'top'
+						: 'bottom';
 
-		return horizontalAlign === 'left' ? 'top left' : 'top right';
+		const horizontalOrigin =
+			side === 'left'
+				? 'right'
+				: side === 'right'
+					? 'left'
+					: horizontalAlign === 'left'
+						? 'left'
+						: 'right';
+
+		return `${verticalOrigin} ${horizontalOrigin}`;
 	}
 
 	export function isOpen() {
@@ -221,8 +253,21 @@
 	}
 
 	function handleKeyNavigation(e: KeyboardEvent) {
-		if (e.key === 'Escape') {
-			close();
+		switch (e.key) {
+			case 'Escape':
+				e.preventDefault();
+				close();
+				break;
+			case 'ArrowDown':
+			case 'ArrowUp':
+				e.preventDefault();
+				// Focus management is handled by focusTrap utility
+				// This prevents default browser behavior
+				break;
+			case 'Enter':
+			case ' ':
+				// Allow default behavior for menu item activation
+				break;
 		}
 	}
 </script>
@@ -252,15 +297,15 @@
 			class:right-oriented={side === 'right'}
 			style:top="{menuPosition.y}px"
 			style:left="{menuPosition.x}px"
-			style:transform-origin={setTransformOrigin()}
+			style:transform-origin={getTransformOrigin()}
 			style:--animation-transform-y-shift={side === 'top'
-				? '6px'
+				? POSITIONING.ANIMATION_SHIFT
 				: side === 'bottom'
-					? '-6px'
+					? `-${POSITIONING.ANIMATION_SHIFT}`
 					: '0'}
 			role="menu"
 		>
-			{@render children?.(item)}
+			{@render children?.(item as T)}
 			<!-- TODO: refactor `children` and combine with this snippet. -->
 			{@render menu?.({ close })}
 		</div>
