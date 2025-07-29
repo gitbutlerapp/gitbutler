@@ -82,6 +82,9 @@ fn handle_assign(
 }
 
 fn matching(worktree_changes: WorktreeChanges, filters: Vec<Filter>) -> Vec<HunkAssignment> {
+    if filters.is_empty() {
+        return worktree_changes.assignments;
+    }
     let mut assignments = Vec::new();
     for filter in filters {
         match filter {
