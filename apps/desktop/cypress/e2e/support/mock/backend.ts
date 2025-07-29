@@ -70,9 +70,9 @@ export default class MockBackend {
 	protected branchChanges: Map<StackId, BranchChanges>;
 	protected worktreeChanges: WorktreeChanges;
 	protected unifiedDiffs: Map<string, UnifiedDiff>;
-	protected branchListings: BranchListing[];
 	protected baseBranchCommits: Commit[];
 
+	branchListings: BranchListing[];
 	stackId: string = MOCK_STACK_A_ID;
 	renamedCommitId: string = '424242424242';
 	commitId: string = MOCK_COMMIT.id;
