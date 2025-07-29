@@ -1,7 +1,7 @@
 import { changesToDiffSpec } from '$lib/commits/utils';
 import { ChangeDropData } from '$lib/dragging/draggables';
 import StackMacros from '$lib/stacks/macros';
-import toasts from '@gitbutler/ui/toasts';
+import { chipToasts } from '@gitbutler/ui';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { DiffService } from '$lib/hunks/diffService.svelte';
 import type { UncommittedService } from '$lib/selection/uncommittedService.svelte';
@@ -44,7 +44,7 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 				const sourceStackId = data.stackId;
 				const sourceBranchName = data.selectionId.branchName;
 
-				await toasts.promise(
+				await chipToasts.promise(
 					(async () => {
 						const fileNames = await data
 							.treeChanges()

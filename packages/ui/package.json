@@ -79,7 +79,6 @@
 		"storybook": "^9.0.18",
 		"svelte": "catalog:svelte",
 		"svelte-check": "catalog:svelte",
-		"svelte-french-toast": "^1.2.0",
 		"vite": "catalog:",
 		"vitest": "catalog:"
 	},

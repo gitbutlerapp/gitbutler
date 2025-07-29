@@ -2,8 +2,7 @@
 	import { inject } from '@gitbutler/shared/context';
 	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
 
-	import { Button, Modal, Textarea, Textbox } from '@gitbutler/ui';
-	import toasts from '@gitbutler/ui/toasts';
+	import { Button, Modal, Textarea, Textbox, chipToasts } from '@gitbutler/ui';
 	import { slugify } from '@gitbutler/ui/utils/string';
 
 	interface Props {
@@ -47,7 +46,7 @@
 				description = organization.description || '';
 			}
 		} catch (error) {
-			toasts.error(
+			chipToasts.error(
 				`Failed to fetch organization details: ${error instanceof Error ? error.message : 'Unknown error'}`
 			);
 		} finally {
@@ -72,7 +71,7 @@
 				description
 			});
 
-			toasts.success('Organization updated successfully');
+			chipToasts.success('Organization updated successfully');
 
 			// Notify parent component about the update
 			onUpdate(sluggifiedSlug);
@@ -85,7 +84,7 @@
 				window.location.href = window.location.href.replace(originalSlug, sluggifiedSlug);
 			}
 		} catch (error) {
-			toasts.error(
+			chipToasts.error(
 				`Failed to update organization: ${error instanceof Error ? error.message : 'Unknown error'}`
 			);
 		} finally {

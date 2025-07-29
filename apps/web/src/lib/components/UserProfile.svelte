@@ -4,8 +4,7 @@
 	import { UserService, USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
 
-	import { AsyncButton, Button, Markdown } from '@gitbutler/ui';
-	import toasts from '@gitbutler/ui/toasts';
+	import { AsyncButton, Button, Markdown, chipToasts } from '@gitbutler/ui';
 	import { get } from 'svelte/store';
 	import type { ExtendedUser } from '$lib/owner/types';
 
@@ -49,9 +48,9 @@
 			};
 
 			editingReadme = false;
-			toasts.success('README updated successfully');
+			chipToasts.success('README updated successfully');
 		} catch (error) {
-			toasts.error(
+			chipToasts.error(
 				`Failed to update README: ${error instanceof Error ? error.message : 'Unknown error'}`
 			);
 		} finally {

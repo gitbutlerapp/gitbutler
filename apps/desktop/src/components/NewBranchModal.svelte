@@ -3,8 +3,7 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 
-	import { Button, LinkButton, Modal, Textbox } from '@gitbutler/ui';
-	import { error } from '@gitbutler/ui/toasts';
+	import { Button, LinkButton, Modal, Textbox, chipToasts } from '@gitbutler/ui';
 	import { slugify } from '@gitbutler/ui/utils/string';
 
 	interface Props {
@@ -32,7 +31,7 @@
 
 	async function addSeries() {
 		if (!slugifiedRefName) {
-			error('No branch name provided');
+			chipToasts.error('No branch name provided');
 			createRefModal?.close();
 			return;
 		}

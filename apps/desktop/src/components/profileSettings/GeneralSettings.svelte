@@ -21,9 +21,9 @@
 		SelectItem,
 		Spacer,
 		Textbox,
-		Toggle
+		Toggle,
+		chipToasts
 	} from '@gitbutler/ui';
-	import * as toasts from '@gitbutler/ui/toasts';
 	import type { User } from '$lib/user/user';
 
 	const userService = inject(USER_SERVICE);
@@ -98,7 +98,7 @@
 			});
 			updatedUser.github_access_token = $user?.github_access_token; // prevent overwriting with null
 			userService.setUser(updatedUser);
-			toasts.success('Profile updated');
+			chipToasts.success('Profile updated');
 		} catch (err: any) {
 			console.error(err);
 			showError('Failed to update user', err);
@@ -114,7 +114,7 @@
 			userPicture = URL.createObjectURL(file);
 		} else {
 			userPicture = $user?.picture;
-			toasts.error('Please use a valid image file');
+			chipToasts.error('Please use a valid image file');
 		}
 	}
 
@@ -125,7 +125,7 @@
 			projectsService.unsetLastOpenedProject();
 			await userService.logout();
 			// TODO: Delete user from observable!!!
-			toasts.success('All data deleted');
+			chipToasts.success('All data deleted');
 			goto('/', { replaceState: true, invalidateAll: true });
 		} catch (err: any) {
 			console.error(err);

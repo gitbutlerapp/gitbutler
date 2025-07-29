@@ -97,9 +97,9 @@
 		UserService as CloudUserService,
 		USER_SERVICE as CLOUD_USER_SERVICE
 	} from '@gitbutler/shared/users/userService';
+	import { ChipToastContainer } from '@gitbutler/ui';
 	import { setExternalLinkService } from '@gitbutler/ui/utils/externalLinkService';
 	import { onMount, type Snippet } from 'svelte';
-	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
 
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
@@ -341,9 +341,9 @@
 <div class="app-root" role="application" oncontextmenu={(e) => !dev && e.preventDefault()}>
 	{@render children()}
 </div>
-<Toaster />
 <ShareIssueModal bind:this={shareIssueModal} />
 <ToastController />
+<ChipToastContainer />
 <AppUpdater />
 <PromptModal />
 <ZoomInOutMenuAction />

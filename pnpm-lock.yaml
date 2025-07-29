@@ -360,9 +360,6 @@ importers:
       svelte-check:
         specifier: catalog:svelte
         version: 4.2.2(picomatch@4.0.2)(svelte@5.36.15)(typescript@5.8.3)
-      svelte-french-toast:
-        specifier: ^1.2.0
-        version: 1.2.0(svelte@5.36.15)
       tinykeys:
         specifier: ^2.1.0
         version: 2.1.0
@@ -481,9 +478,6 @@ importers:
       svelte-check:
         specifier: catalog:svelte
         version: 4.2.2(picomatch@4.0.2)(svelte@5.36.15)(typescript@5.8.3)
-      svelte-french-toast:
-        specifier: ^1.2.0
-        version: 1.2.0(svelte@5.36.15)
       vite:
         specifier: 'catalog:'
         version: 6.3.5(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
@@ -874,9 +868,6 @@ importers:
       svelte-check:
         specifier: catalog:svelte
         version: 4.2.2(picomatch@4.0.2)(svelte@5.36.15)(typescript@5.8.3)
-      svelte-french-toast:
-        specifier: ^1.2.0
-        version: 1.2.0(svelte@5.36.15)
       vite:
         specifier: 'catalog:'
         version: 6.3.5(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
@@ -7581,20 +7572,10 @@ packages:
       svelte:
         optional: true
 
-  svelte-french-toast@1.2.0:
-    resolution: {integrity: sha512-5PW+6RFX3xQPbR44CngYAP1Sd9oCq9P2FOox4FZffzJuZI2mHOB7q5gJBVnOiLF5y3moVGZ7u2bYt7+yPAgcEQ==}
-    peerDependencies:
-      svelte: ^3.57.0 || ^4.0.0
-
   svelte-lexical@0.5.3:
     resolution: {integrity: sha512-OqULZ9kCDpn08QWg88z1TqiYVhgT61G8goB/5VtKYhXWrNj6u2f8GW4Kesuy5Kdv+YILF7rl8S9OKwEb+SHaKQ==}
     peerDependencies:
       svelte: ^5.0.0
-
-  svelte-writable-derived@3.1.0:
-    resolution: {integrity: sha512-cTvaVFNIJ036vSDIyPxJYivKC7ZLtcFOPm1Iq6qWBDo1fOHzfk6ZSbwaKrxhjgy52Rbl5IHzRcWgos6Zqn9/rg==}
-    peerDependencies:
-      svelte: ^3.2.1 || ^4.0.0-next.1
 
   svelte2tsx@0.7.36:
     resolution: {integrity: sha512-nBlERuCZRwmpebC8m0vDqZ9oaKsqW8frQS2l3zwFQW1voQIkItYtHxh1F5OTZEmE0meDIH6cxU36eIOQVOxlCw==}
@@ -10721,7 +10702,7 @@ snapshots:
       svelte: 5.36.15
     optionalDependencies:
       vite: 6.3.5(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
-      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/browser@3.2.4)(@vitest/ui@3.2.4)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.8.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
+      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/browser@3.2.4)(@vitest/ui@3.2.4)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.8.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
 
   '@testing-library/user-event@14.5.2(@testing-library/dom@10.4.0)':
     dependencies:
@@ -16112,11 +16093,6 @@ snapshots:
     optionalDependencies:
       svelte: 5.36.15
 
-  svelte-french-toast@1.2.0(svelte@5.36.15):
-    dependencies:
-      svelte: 5.36.15
-      svelte-writable-derived: 3.1.0(svelte@5.36.15)
-
   svelte-lexical@0.5.3(svelte@5.36.15):
     dependencies:
       '@lexical/clipboard': 0.27.1
@@ -16146,10 +16122,6 @@ snapshots:
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
-
-  svelte-writable-derived@3.1.0(svelte@5.36.15):
-    dependencies:
-      svelte: 5.36.15
 
   svelte2tsx@0.7.36(svelte@5.36.15)(typescript@5.8.3):
     dependencies:
