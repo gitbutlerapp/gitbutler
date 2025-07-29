@@ -3323,7 +3323,7 @@ mod branch_details;
 mod journey;
 mod legacy;
 
-mod utils {
+pub(crate) mod utils {
     use but_graph::VirtualBranchesTomlMetadata;
     use but_graph::virtual_branches_legacy_types::{Stack, StackBranch, Target};
     use gitbutler_stack::StackId;

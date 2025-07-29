@@ -1,5 +1,5 @@
 use crate::init::PetGraph;
-use crate::{CommitIndex, Edge, EntryPoint, Graph, Segment, SegmentIndex};
+use crate::{Commit, CommitIndex, Edge, EntryPoint, Graph, Segment, SegmentIndex};
 use anyhow::{Context, bail};
 use petgraph::Direction;
 use petgraph::prelude::EdgeRef;
@@ -55,7 +55,85 @@ impl Graph {
 }
 
 /// Query
+/// ‼️Useful only if one knows the graph traversal was started where one expects, or else the graph may be partial.
 impl Graph {
+    /// Return the `(segment, commit)` that is either named `name`,
+    /// or has a commit with `name` in its [refs](Commit::refs).
+    /// The returned `commit` is the commit at which the reference with `name`
+    /// is pointing to directly or indirectly.
+    ///
+    /// Note that tags may or may not be included in the graph, depending on how it was created.
+    ///
+    /// ### Performance
+    ///
+    /// This is a brute-force search through all nodes and all data in the graph - beware of hot-loop usage.
+    pub fn segment_and_commit_by_ref_name(
+        &self,
+        name: &gix::refs::FullNameRef,
+    ) -> Option<(&Segment, &Commit)> {
+        self.inner.node_weights().find_map(|s| {
+            if s.ref_name.as_ref().is_some_and(|rn| rn.as_ref() == name) {
+                self.tip_skip_empty(s.id).map(|c| (s, c))
+            } else {
+                s.commits.iter().find_map(|c| {
+                    c.refs
+                        .iter()
+                        .any(|rn| rn.as_ref() == name)
+                        .then_some((s, c))
+                })
+            }
+        })
+    }
+
+    /// Starting a `segment`, ignore all segments that have no commit and return the first commit
+    /// of a non-empty segment.
+    ///
+    /// This is useful to counter the fact that multiple empty segments could be stacked, to ultimately
+    /// point to a segment that owns the commit.
+    ///
+    /// Note that we will **visit the first parent only**.
+    pub fn tip_skip_empty(&self, segment: SegmentIndex) -> Option<&Commit> {
+        if let Some(tip) = self[segment].commits.first() {
+            return Some(tip);
+        }
+
+        let mut sidx_with_commits = None;
+        self.visit_segments_downward_along_first_parent_exclude_start(segment, |s| {
+            if s.commits.is_empty() {
+                return false;
+            }
+            sidx_with_commits = Some(s.id);
+            true
+        });
+        sidx_with_commits.and_then(|sidx| self[sidx].commits.first())
+    }
+
+    /// Visit the ancestry of `start` along the first parents, itself excluded, until `stop` returns `true`.
+    /// Also return the segment that we stopped at.
+    /// **Important**: `stop` is not called with `start`, this is a feature.
+    ///
+    /// Note that the traversal assumes as well-segmented graph without cycles.
+    pub fn visit_segments_downward_along_first_parent_exclude_start(
+        &self,
+        start: SegmentIndex,
+        mut stop: impl FnMut(&Segment) -> bool,
+    ) {
+        let mut edge = self.inner.edges_directed(start, Direction::Outgoing).last();
+        let mut seen = BTreeSet::new();
+        while let Some(first_edge) = edge {
+            let next = &self[first_edge.target()];
+            if stop(next) {
+                break;
+            }
+            if seen.insert(next.id) {
+                edge = self
+                    .inner
+                    .edges_directed(next.id, Direction::Outgoing)
+                    .last();
+            }
+        }
+    }
+
     /// Return `true` if this graph is possibly partial as the hard limit was hit,
     /// meaning that the core traversal algorithm was interrupted without necessarily
     /// satisfying all constraints.

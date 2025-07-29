@@ -44,9 +44,9 @@ pub fn conflicted_changes(
 pub fn changes_in_range(
     repo: &gix::Repository,
     commit_id: gix::ObjectId,
-    base: gix::ObjectId,
+    base_commit: gix::ObjectId,
 ) -> anyhow::Result<TreeChanges> {
-    let (changes, stats) = super::tree_changes(repo, Some(base), commit_id)
+    let (changes, stats) = super::tree_changes(repo, Some(base_commit), commit_id)
         .map(|(c, s)| (c.into_iter().map(Into::into).collect(), s.into()))?;
     Ok(TreeChanges { changes, stats })
 }
