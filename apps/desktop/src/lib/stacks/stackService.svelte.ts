@@ -18,6 +18,7 @@ import {
 	type UiState,
 	updateStaleStackState
 } from '$lib/state/uiState.svelte';
+import { getBranchNameFromRef } from '$lib/utils/branch';
 import { InjectionToken } from '@gitbutler/shared/context';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import {
@@ -1019,12 +1020,23 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					actionName: 'Push'
 				},
 				query: (args) => args,
-				invalidatesTags: (_result, _error, args) => [
-					invalidatesList(ReduxTag.Checks),
-					invalidatesItem(ReduxTag.PullRequests, args.stackId),
-					invalidatesItem(ReduxTag.StackDetails, args.stackId),
-					invalidatesList(ReduxTag.BranchListing)
-				]
+				invalidatesTags: (result, _error, args) => {
+					const invalidations = [
+						invalidatesList(ReduxTag.Checks),
+						invalidatesItem(ReduxTag.PullRequests, args.stackId),
+						invalidatesItem(ReduxTag.StackDetails, args.stackId),
+						invalidatesList(ReduxTag.BranchListing)
+					];
+
+					if (!result) return invalidations;
+
+					const upstreamBranchName = getBranchNameFromRef(result.refname, result.remote);
+					if (upstreamBranchName) return invalidations;
+
+					invalidations.push(invalidatesItem(ReduxTag.Checks, upstreamBranchName));
+
+					return invalidations;
+				}
 			}),
 			createCommit: build.mutation<
 				CreateCommitOutcome,
