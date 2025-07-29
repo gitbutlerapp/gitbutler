@@ -1,5 +1,6 @@
 import { changesToDiffSpec } from '$lib/commits/utils';
 import { ChangeDropData, HunkDropDataV3 } from '$lib/dragging/draggables';
+import { type HooksService } from '$lib/hooks/hooksService';
 import { untrack } from 'svelte';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { StackService } from '$lib/stacks/stackService.svelte';
@@ -53,8 +54,9 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 	constructor(
 		private projectId: string,
 		private readonly stackService: StackService,
+		private readonly hooksService: HooksService,
 		private stackId: string,
-		private branchName: string,
+		private runHooks: boolean,
 		private commit: DzCommitData,
 		private onresult: (result: string) => void,
 		private readonly uiState: UiState
@@ -97,15 +99,29 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 				break;
 			case 'worktree': {
 				const assignments = data.assignments();
-				const diffSpec = changesToDiffSpec(await data.treeChanges(), assignments);
-				return this.onresult(
+				const worktreeChanges = changesToDiffSpec(await data.treeChanges(), assignments);
+
+				if (this.runHooks) {
+					const hooksFailed = await this.hooksService.runPreCommitHooks(
+						this.projectId,
+						worktreeChanges
+					);
+					if (hooksFailed) return;
+				}
+
+				const result = this.onresult(
 					await this.stackService.amendCommitMutation({
 						projectId: this.projectId,
 						stackId: this.stackId,
 						commitId: this.commit.id,
-						worktreeChanges: diffSpec
+						worktreeChanges: worktreeChanges
 					})
 				);
+
+				if (this.runHooks) {
+					await this.hooksService.runPostCommitHooks(this.projectId);
+				}
+				return result;
 			}
 		}
 	}
@@ -208,11 +224,13 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 	constructor(
 		private args: {
 			stackService: StackService;
+			hooksService: HooksService;
 			okWithForce: boolean;
 			projectId: string;
 			stackId: string;
 			commit: DzCommitData;
 			uiState: UiState;
+			runHooks: boolean;
 		}
 	) {}
 
@@ -229,7 +247,7 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 	}
 
 	async ondrop(data: HunkDropDataV3): Promise<void> {
-		const { stackService, projectId, stackId, commit, okWithForce, uiState } = this.args;
+		const { stackService, projectId, stackId, commit, okWithForce, uiState, runHooks } = this.args;
 		if (!okWithForce && commit.isRemote) return;
 
 		if (data instanceof HunkDropDataV3) {
@@ -270,26 +288,35 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 				return;
 			}
 
+			const worktreeChanges = [
+				{
+					previousPathBytes,
+					pathBytes: data.change.pathBytes,
+					hunkHeaders: [
+						{
+							oldStart: data.hunk.oldStart,
+							oldLines: data.hunk.oldLines,
+							newStart: data.hunk.newStart,
+							newLines: data.hunk.newLines
+						}
+					]
+				}
+			];
+
+			if (runHooks) {
+				const hooksFailed = await this.args.hooksService.runPreCommitHooks(
+					projectId,
+					worktreeChanges
+				);
+				if (hooksFailed) return;
+			}
 			stackService.amendCommitMutation({
 				projectId,
 				stackId,
 				commitId: commit.id,
-				worktreeChanges: [
-					{
-						previousPathBytes,
-						pathBytes: data.change.pathBytes,
-						hunkHeaders: [
-							{
-								oldStart: data.hunk.oldStart,
-								oldLines: data.hunk.oldLines,
-								newStart: data.hunk.newStart,
-								newLines: data.hunk.newLines
-							}
-						]
-					}
-				]
+				worktreeChanges
 			});
-			return;
+			await this.args.hooksService.runPostCommitHooks(projectId);
 		}
 	}
 }
