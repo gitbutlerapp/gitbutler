@@ -21,7 +21,8 @@ const MOCK_PROJECT_UI_STATE: ProjectUiState = {
 	exclusiveAction: undefined,
 	branchesSelection: { branchName: 'test' },
 	stackId: undefined,
-	showActions: false
+	showActions: false,
+	branchesToPoll: []
 };
 
 const MOCK_GLOBAL_UI_STATE: GlobalUiState = {
