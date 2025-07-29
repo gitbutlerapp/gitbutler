@@ -225,8 +225,8 @@ export class UiState {
 				// If the value is an array of strings, we add methods to add/remove
 				if (Array.isArray(mutableResult) && mutableResult.every(isStr)) {
 					const result = mutableResult;
-					(props[key] as GlobalProperty<string[]>).add = (value: string) => {
-						mutableResult = result.includes(value) ? result : [...result, value];
+					(props[key] as GlobalProperty<string[]>).add = (...value: string[]) => {
+						mutableResult = [...result, ...value.filter((v) => !result.includes(v))];
 						this.update(`${id}:${key}`, mutableResult);
 					};
 					(props[key] as GlobalProperty<string[]>).remove = (value: string) => {
@@ -279,7 +279,7 @@ type DefaultConfig = Record<string, UiStateValue>;
 type ArrayPropertyMethods<T> = T extends string[]
 	? {
 			/** Will not add the value if it already exists in the array. */
-			add(value: string): void;
+			add(...value: string[]): void;
 			/** Removes the value from the array. */
 			remove(value: string): void;
 		}

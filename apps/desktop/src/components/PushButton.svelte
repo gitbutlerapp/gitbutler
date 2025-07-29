@@ -11,6 +11,7 @@
 	import { inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { Button, Checkbox, Modal } from '@gitbutler/ui';
+	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 
 	type Props = {
 		projectId: string;
@@ -58,9 +59,11 @@
 			branch: branchName
 		});
 
-		const upstreamBranchName = getBranchNameFromRef(pushResult.refname, pushResult.remote);
-		if (upstreamBranchName === undefined) return;
-		uiState.project(projectId).branchesToPoll.add(upstreamBranchName);
+		const upstreamBranchNames = pushResult.branchToRemote
+			.map(([_, refname]) => getBranchNameFromRef(refname, pushResult.remote))
+			.filter(isDefined);
+		if (upstreamBranchNames.length === 0) return;
+		uiState.project(projectId).branchesToPoll.add(...upstreamBranchNames);
 	}
 
 	const loading = $derived(pushResult.current.isLoading || stackInfoResult.current.isLoading);

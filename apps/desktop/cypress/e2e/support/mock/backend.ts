@@ -664,7 +664,7 @@ export default class MockBackend {
 		this.stackDetails.set(args.stackId, editableDetails);
 
 		return {
-			refname: `refs/remotes/origin/${args.branch}`,
+			branchToRemote: [[args.branch, `refs/remotes/origin/${args.branch}`]],
 			remote: 'origin'
 		};
 	}
