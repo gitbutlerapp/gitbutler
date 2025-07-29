@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { afterNavigate, goto } from '$app/navigation';
-	import { UserService } from '$lib/user/userService';
-	import { getContext } from '@gitbutler/shared/context';
-	import { WebRoutesService } from '@gitbutler/shared/routing/webRoutes.svelte';
+	import { USER_SERVICE } from '$lib/user/userService';
+	import { inject } from '@gitbutler/shared/context';
+	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
 
-	const routesService = getContext(WebRoutesService);
-	const userService = getContext(UserService);
+	const routesService = inject(WEB_ROUTES_SERVICE);
+	const userService = inject(USER_SERVICE);
 	const user = userService.user;
 	const userEmail = $derived($user?.email);
 	const userLogin = $derived($user?.login);

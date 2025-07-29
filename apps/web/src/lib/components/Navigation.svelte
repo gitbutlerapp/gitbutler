@@ -9,7 +9,6 @@
 	import { Button, ContextMenu, ContextMenuItem, ContextMenuSection, Icon } from '@gitbutler/ui';
 	import { env } from '$env/dynamic/public';
 
-
 	const authService = inject(AUTH_SERVICE);
 	const token = $derived(authService.tokenReadable);
 
