@@ -177,6 +177,8 @@ export default class MockBackend {
 				message,
 				id: newId
 			};
+			branch.pushStatus = 'unpushedCommitsRequiringForce';
+			editableDetails.pushStatus = 'unpushedCommitsRequiringForce';
 			this.stackDetails.set(stackId, editableDetails);
 			this.commitChanges.set(newId, []);
 			return newId;
