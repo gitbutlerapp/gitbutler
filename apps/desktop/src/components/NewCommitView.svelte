@@ -3,7 +3,6 @@
 	import CommitMessageEditor from '$components/CommitMessageEditor.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import { HOOKS_SERVICE } from '$lib/hooks/hooksService';
-	import { type DiffSpec } from '$lib/hunks/hunk';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { COMMIT_ANALYTICS } from '$lib/soup/commitAnalytics';
@@ -11,7 +10,6 @@
 	import { UI_STATE, type NewCommitMessage } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import toasts from '@gitbutler/ui/toasts';
 	import { tick } from 'svelte';
 
 	type Props = {
@@ -33,67 +31,7 @@
 
 	const [createCommitInStack, commitCreation] = stackService.createCommit({});
 
-	const runCommitHooks = $derived(projectRunCommitHooks(projectId));
-
 	let isCooking = $state(false);
-
-	class HookError extends Error {}
-
-	async function runPreHook(changes: DiffSpec[]): Promise<boolean> {
-		if (!$runCommitHooks) return false;
-
-		let failed = false;
-		try {
-			await toasts.promise(
-				(async () => {
-					const result = await hooksService.preCommitDiffspecs(projectId, changes);
-					if (result?.status === 'failure') {
-						failed = true;
-						throw new HookError(result.error);
-					}
-				})(),
-				{
-					loading: 'Started pre-commit hooks',
-					success: 'Pre-commit hooks succeded',
-					error: (error: Error) => `Post-commit hooks failed: ${error.message}`
-				}
-			);
-		} catch (e: unknown) {
-			if (!(e instanceof HookError)) {
-				throw e;
-			}
-		}
-
-		return failed;
-	}
-
-	async function runPostHook(): Promise<boolean> {
-		if (!$runCommitHooks) return false;
-
-		let failed = false;
-		try {
-			await toasts.promise(
-				(async () => {
-					const result = await hooksService.postCommit(projectId);
-					if (result?.status === 'failure') {
-						failed = true;
-						throw new HookError(result.error);
-					}
-				})(),
-				{
-					loading: 'Started pre-commit hooks',
-					success: 'Pre-commit hooks succeded',
-					error: (error: Error) => `Post-commit hooks failed: ${error.message}`
-				}
-			);
-		} catch (e) {
-			if (!(e instanceof HookError)) {
-				throw e;
-			}
-		}
-
-		return failed;
-	}
 
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 	const commitAction = $derived(exclusiveAction?.type === 'commit' ? exclusiveAction : undefined);
@@ -106,6 +44,7 @@
 	const canCommit = $derived(selectedLines.current.length > 0);
 
 	let input = $state<ReturnType<typeof CommitMessageEditor>>();
+	const runCommitHooks = $derived(projectRunCommitHooks(projectId));
 
 	async function createCommit(message: string) {
 		if (isCooking) {
@@ -145,9 +84,6 @@
 
 			const worktreeChanges = await uncommittedService.worktreeChanges(projectId, stackId);
 
-			const preHookFailed = await runPreHook(worktreeChanges);
-			if (preHookFailed) return;
-
 			// Get current editor mode from the component instance
 			const isRichTextMode = input?.isRichTextMode?.() || false;
 
@@ -161,6 +97,11 @@
 				isRichTextMode
 			});
 
+			if ($runCommitHooks) {
+				const hooksFailed = await hooksService.runPreCommitHooks(projectId, worktreeChanges);
+				if (hooksFailed) return;
+			}
+
 			const response = await createCommitInStack(
 				{
 					projectId,
@@ -173,8 +114,10 @@
 				{ properties: analyticsProperties }
 			);
 
-			const postHookFailed = await runPostHook();
-			if (postHookFailed) return;
+			if ($runCommitHooks) {
+				const postHookFailed = await hooksService.runPostCommitHooks(projectId);
+				if (postHookFailed) return;
+			}
 
 			const newId = response.newCommit;
 
