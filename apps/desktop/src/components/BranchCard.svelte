@@ -201,6 +201,7 @@
 								<ReviewBadge type={prUnit?.abbr} number={args.prNumber} status="unknown" />
 								{#if pr && !pr.closedAt && forge.current.checks && pr.state === 'open'}
 									<ChecksPolling
+										{projectId}
 										branchName={pr.sourceBranch}
 										isFork={pr.fork}
 										isMerged={pr.merged}

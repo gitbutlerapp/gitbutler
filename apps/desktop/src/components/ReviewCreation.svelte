@@ -160,9 +160,7 @@
 				branch: branchName
 			});
 
-			if (pushResult) {
-				upstreamBranchName = getBranchNameFromRef(pushResult.refname, pushResult.remote);
-			}
+			upstreamBranchName = getBranchNameFromRef(pushResult.refname, pushResult.remote);
 
 			if (firstPush) {
 				// TODO: fix this hack for reactively available prService.
@@ -204,6 +202,10 @@
 			prBody.reset();
 			prTitle.reset();
 			uiState.project(projectId).exclusiveAction.set(undefined);
+
+			if (upstreamBranchName) {
+				uiState.project(projectId).branchesToPoll.add(upstreamBranchName);
+			}
 		} finally {
 			isCreatingReview = false;
 		}

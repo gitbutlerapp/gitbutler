@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { getPollingInterval } from '$lib/forge/shared/progressivePolling';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 
@@ -10,6 +11,7 @@
 	import type { ComponentColorType } from '@gitbutler/ui/utils/colorTypes';
 
 	type Props = {
+		projectId: string;
 		branchName: string;
 		hasChecks?: boolean;
 		isFork?: boolean;
@@ -25,13 +27,17 @@
 		tooltip?: string;
 	};
 
-	let { branchName, isFork, isMerged, hasChecks = $bindable() }: Props = $props();
+	let { projectId, branchName, isFork, isMerged, hasChecks = $bindable() }: Props = $props();
 
 	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const uiState = inject(UI_STATE);
 
 	const checksService = $derived(forge.current.checks);
 	let elapsedMs = $state<number>(0);
-	let isDone = $state(false);
+	let loadedOnce = $state(false);
+
+	const projectState = $derived(uiState.project(projectId));
+	const isDone = $derived(!projectState.branchesToPoll.current.includes(branchName));
 
 	// Do not create a checks monitor if pull request is merged or from a fork.
 	// For more information about unavailability of check-runs for forked repos,
@@ -39,7 +45,7 @@
 	// https://docs.github.com/en/rest/checks/runs?apiVersion=2022-11-28#list-check-runs-in-a-check-suite
 	const enabled = $derived(!isFork && !isMerged); // Deduplication.
 
-	let pollingInterval = $derived(getPollingInterval(elapsedMs, isDone));
+	const pollingInterval = $derived(getPollingInterval(elapsedMs, isDone));
 
 	const checksResult = $derived(
 		enabled
@@ -47,17 +53,7 @@
 			: undefined
 	);
 
-	let timeoutId: any = undefined;
-	let loading = $state(false);
-
-	$effect(() => {
-		if (checksResult?.current.isLoading) {
-			timeoutId = setTimeout(() => (loading = true), 500);
-		} else {
-			if (timeoutId) clearTimeout(timeoutId);
-			loading = false;
-		}
-	});
+	const loading = $derived(checksResult?.current.isLoading);
 
 	const checksTagInfo: StatusInfo = $derived.by(() => {
 		const checks = checksResult?.current.data;
@@ -109,20 +105,47 @@
 		return { style: 'neutral', icon: undefined, text: 'No PR checks', reducedText: 'No checks' };
 	});
 
+	// Track previous state to detect transitions.
+	// This should **not** be a derived, since we want to track the previous state, not the current one.
+	// svelte-ignore state_referenced_locally
+	let prevIsDone = $state(isDone);
+	let prevChecksStartedAt = $state<string>();
+
+	// Checks have reached a terminal state or there are no checks to monitor
+	const shouldStop = $derived(
+		checksResult?.current.data?.completed || checksResult?.current.data === null
+	);
+
 	$effect(() => {
+		// If polling was previously done but now should restart (e.g., after a force push)
+		if (prevIsDone && !isDone) {
+			loadedOnce = false;
+		}
+
 		const result = checksResult?.current;
 		const checks = result?.data;
 
-		if (checks?.completed || checks === null) {
-			isDone = true;
-			return;
+		// Mark as loaded once we start loading again
+		if (loading) {
+			loadedOnce = true;
 		}
 
-		if (checks?.startedAt) {
+		// If checks are completed, we've loaded them at least once and we are not loading anymore.
+		// Stop polling
+		if (!isDone && loadedOnce && !loading && shouldStop) {
+			projectState.branchesToPoll.remove(branchName);
+		}
+
+		// Update elapsed time and hasChecks if checks have started
+		if (checks?.startedAt && checks.startedAt !== prevChecksStartedAt) {
 			const lastUpdatedMs = Date.parse(checks.startedAt);
 			elapsedMs = Date.now() - lastUpdatedMs;
 			hasChecks = true;
+			prevChecksStartedAt = checks.startedAt;
 		}
+
+		// Store previous state for next effect run
+		prevIsDone = isDone;
 	});
 </script>
 

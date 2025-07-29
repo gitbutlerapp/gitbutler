@@ -2,6 +2,7 @@ import { type SnapPositionName } from '$lib/floating/types';
 import { InjectionToken } from '@gitbutler/shared/context';
 import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import { type Reactive } from '@gitbutler/shared/storeUtils';
+import { isStr } from '@gitbutler/ui/utils/string';
 import {
 	createEntityAdapter,
 	createSlice,
@@ -63,6 +64,7 @@ export type ProjectUiState = {
 	stackId: string | undefined;
 	branchesSelection: BranchesSelection;
 	showActions: boolean;
+	branchesToPoll: string[];
 };
 
 type GlobalModalType = 'commit-failed';
@@ -125,7 +127,8 @@ export class UiState {
 		exclusiveAction: undefined,
 		branchesSelection: {},
 		stackId: undefined,
-		showActions: false
+		showActions: false,
+		branchesToPoll: []
 	});
 
 	/** Properties that are globally scoped. */
@@ -218,6 +221,19 @@ export class UiState {
 						return mutableResult;
 					}
 				};
+
+				// If the value is an array of strings, we add methods to add/remove
+				if (Array.isArray(mutableResult) && mutableResult.every(isStr)) {
+					const result = mutableResult;
+					(props[key] as GlobalProperty<string[]>).add = (value: string) => {
+						mutableResult = result.includes(value) ? result : [...result, value];
+						this.update(`${id}:${key}`, mutableResult);
+					};
+					(props[key] as GlobalProperty<string[]>).remove = (value: string) => {
+						mutableResult = result.filter((v) => v !== value);
+						this.update(`${id}:${key}`, mutableResult);
+					};
+				}
 			}
 			scopeCache[id] = props as GlobalStore<T>;
 			return scopeCache[id];
@@ -243,7 +259,13 @@ export const uiStateSlice = createSlice({
 const { upsertOne } = uiStateSlice.actions;
 
 /** Allowed types for property values. */
-type UiStateValue = string | number | boolean | { [property: string]: UiStateValue } | undefined;
+type UiStateValue =
+	| string
+	| string[]
+	| number
+	| boolean
+	| { [property: string]: UiStateValue }
+	| undefined;
 
 /** Type held by the RTK entity adapter. */
 type UiStateVariable = {
@@ -254,10 +276,21 @@ type UiStateVariable = {
 /** Shape of the config expected by the build functions. */
 type DefaultConfig = Record<string, UiStateValue>;
 
+type ArrayPropertyMethods<T> = T extends string[]
+	? {
+			/** Will not add the value if it already exists in the array. */
+			add(value: string): void;
+			/** Removes the value from the array. */
+			remove(value: string): void;
+		}
+	: // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+		{};
+
 /** Node type for global properties. */
 export type GlobalProperty<T> = {
 	set(value: T): void;
-} & Reactive<T>;
+} & Reactive<T> &
+	ArrayPropertyMethods<T>;
 
 /** Type returned by the build function for global properties. */
 type GlobalStore<T extends DefaultConfig> = {

@@ -5,7 +5,9 @@
 		stackRequiresForcePush
 	} from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
+	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { Button, Checkbox, Modal } from '@gitbutler/ui';
@@ -29,6 +31,7 @@
 	}: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
+	const uiState = inject(UI_STATE);
 	const stackInfoResult = $derived(stackService.stackInfo(projectId, stackId));
 	const stackInfo = $derived(stackInfoResult.current.data);
 	const [pushStack, pushResult] = stackService.pushStack;
@@ -48,7 +51,16 @@
 
 	async function push() {
 		if (requiresForce === undefined) return;
-		await pushStack({ projectId, stackId, withForce: requiresForce, branch: branchName });
+		const pushResult = await pushStack({
+			projectId,
+			stackId,
+			withForce: requiresForce,
+			branch: branchName
+		});
+
+		const upstreamBranchName = getBranchNameFromRef(pushResult.refname, pushResult.remote);
+		if (upstreamBranchName === undefined) return;
+		uiState.project(projectId).branchesToPoll.add(upstreamBranchName);
 	}
 
 	const loading = $derived(pushResult.current.isLoading || stackInfoResult.current.isLoading);
@@ -100,7 +112,9 @@
 					close();
 				}}>Cancel</Button
 			>
-			<Button style="pop" type="submit" width={90}>Push</Button>
+			<Button testId={TestId.StackConfirmPushModalButton} style="pop" type="submit" width={90}
+				>Push</Button
+			>
 		</div>
 	{/snippet}
 </Modal>
