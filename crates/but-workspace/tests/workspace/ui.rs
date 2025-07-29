@@ -66,7 +66,6 @@ mod changes_in_branch {
             },
         }
         "#);
-        // The same as what's in A, but it can find it.
         insta::assert_debug_snapshot!(ui::diff::changes_in_branch(&repo, &ws, r("refs/heads/gitbutler/workspace"))?, @r#"
         TreeChanges {
             changes: [
@@ -91,6 +90,43 @@ mod changes_in_branch {
             },
         }
         "#);
+
+        insta::assert_debug_snapshot!(ui::diff::changes_in_branch(&repo, &ws, r("refs/remotes/origin/A"))?, @r#"
+        TreeChanges {
+            changes: [
+                TreeChange {
+                    path: BStringForFrontend(
+                        "file-in-A",
+                    ),
+                    path_bytes: "file-in-A",
+                    status: Addition {
+                        state: ChangeState {
+                            id: Sha1(0835e4f9714005ed591f68d306eea0d6d2ae8fd7),
+                            kind: Blob,
+                        },
+                        is_untracked: false,
+                    },
+                },
+            ],
+            stats: TreeStats {
+                lines_added: 1,
+                lines_removed: 0,
+                files_changed: 1,
+            },
+        }
+        "#);
+
+        // Nothing here, it's the target.
+        insta::assert_debug_snapshot!(ui::diff::changes_in_branch(&repo, &ws, r("refs/remotes/origin/main"))?, @r"
+        TreeChanges {
+            changes: [],
+            stats: TreeStats {
+                lines_added: 0,
+                lines_removed: 0,
+                files_changed: 0,
+            },
+        }
+        ");
 
         let err =
             ui::diff::changes_in_branch(&repo, &ws, r("refs/heads/does-not-exist")).unwrap_err();
