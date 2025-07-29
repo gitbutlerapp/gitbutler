@@ -203,4 +203,12 @@ describe('Branches', () => {
 		// Should have navigation to the workspace
 		cy.urlMatches(`/${PROJECT_ID}/workspace`);
 	});
+
+	it('should be able to preivew multiple branches', () => {
+		// Should be able to navigate the different branches
+		for (const branch of mockBackend.branchListings) {
+			cy.getByTestId('branch-list-card', branch.name).first().should('be.visible').click();
+			cy.getByDataValue('series-name', branch.name).should('be.visible');
+		}
+	});
 });
