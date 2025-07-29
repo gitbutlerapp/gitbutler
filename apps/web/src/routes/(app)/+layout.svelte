@@ -53,9 +53,9 @@
 		UserService as NewUserService,
 		USER_SERVICE as NEW_USER_SERVICE
 	} from '@gitbutler/shared/users/userService';
+	import { ChipToastContainer } from '@gitbutler/ui';
 	import { setExternalLinkService } from '@gitbutler/ui/utils/externalLinkService';
 	import { type Snippet } from 'svelte';
-	import { Toaster } from 'svelte-french-toast';
 	import { env } from '$env/dynamic/public';
 
 	const CHAT_NOTFICATION_SOUND = '/sounds/pop.mp3';
@@ -144,8 +144,6 @@
 	const isCommitPage = $derived(page.url.pathname.includes('/commit/'));
 </script>
 
-<Toaster />
-
 <div class="app">
 	{#if !isCommitPage}
 		<Navigation />
@@ -156,6 +154,7 @@
 	</main>
 	<Footer />
 </div>
+<ChipToastContainer />
 
 <style lang="postcss">
 	.app {

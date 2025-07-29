@@ -37,7 +37,7 @@
 	import { sleep } from '$lib/utils/sleep';
 	import { inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import { error } from '@gitbutler/ui/toasts';
+	import { chipToasts } from '@gitbutler/ui';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { tick } from 'svelte';
 
@@ -212,7 +212,7 @@
 
 	async function createPr(params: CreatePrParams): Promise<PullRequest | undefined> {
 		if (!forge) {
-			error('Pull request service not available');
+			chipToasts.error('Pull request service not available');
 			return;
 		}
 
@@ -221,17 +221,17 @@
 
 		try {
 			if (!baseBranchName) {
-				error('No base branch name determined');
+				chipToasts.error('No base branch name determined');
 				return;
 			}
 
 			if (!params.upstreamBranchName) {
-				error('No upstream branch name determined');
+				chipToasts.error('No upstream branch name determined');
 				return;
 			}
 
 			if (!prService) {
-				error('Pull request service not available');
+				chipToasts.error('Pull request service not available');
 				return;
 			}
 

@@ -5,7 +5,7 @@ import { type Project } from '$lib/project/project';
 import { invalidatesList, providesItem, providesList, ReduxTag } from '$lib/state/tags';
 import { InjectionToken } from '@gitbutler/shared/context';
 import { persisted } from '@gitbutler/shared/persisted';
-import * as toasts from '@gitbutler/ui/toasts';
+import { chipToasts } from '@gitbutler/ui';
 import { open } from '@tauri-apps/plugin-dialog';
 import { get } from 'svelte/store';
 import type { ClientState } from '$lib/state/clientState.svelte';
@@ -77,7 +77,7 @@ export class ProjectsService {
 		try {
 			const project = await this.fetchProject(projectId, true);
 			await this.updateProject({ ...project, path });
-			toasts.success(`Project ${project.title} relocated`);
+			chipToasts.success(`Project ${project.title} relocated`);
 			goto(`/${project.id}`);
 		} catch (error: any) {
 			showError('Failed to relocate project:', error.message);

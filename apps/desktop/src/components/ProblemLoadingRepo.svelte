@@ -11,8 +11,7 @@
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/shared/context';
 
-	import { Icon, Spacer } from '@gitbutler/ui';
-	import * as toasts from '@gitbutler/ui/toasts';
+	import { Icon, Spacer, chipToasts } from '@gitbutler/ui';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { onMount } from 'svelte';
 
@@ -35,7 +34,7 @@
 		try {
 			deleteConfirmationModal?.close();
 			await projectsService.deleteProject(projectId);
-			toasts.success('Project deleted');
+			chipToasts.success('Project deleted');
 			goto('/');
 		} catch (err: any) {
 			console.error(err);

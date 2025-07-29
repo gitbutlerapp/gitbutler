@@ -13,6 +13,9 @@ const preview: Preview = {
 				date: /Date$/i
 			}
 		},
+		docs: {
+			autodocs: 'tag'
+		},
 		darkMode: {
 			classTarget: 'html',
 			stylePreview: true,

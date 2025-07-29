@@ -1,4 +1,4 @@
-import * as toasts from '@gitbutler/ui/toasts';
+import { chipToasts } from '@gitbutler/ui';
 import { writeText, readText } from '@tauri-apps/plugin-clipboard-manager';
 
 /**
@@ -19,10 +19,10 @@ export async function writeClipboard(
 	const { errorMessage, message } = opt;
 	await writeText(text)
 		.then(() => {
-			toasts.success(message || 'Copied to clipboard');
+			chipToasts.success(message || 'Copied to clipboard');
 		})
 		.catch((err) => {
-			toasts.error(errorMessage || 'Failed to copy');
+			chipToasts.error(errorMessage || 'Failed to copy');
 			console.error(errorMessage, err);
 		});
 }

@@ -1,5 +1,5 @@
 import { InjectionToken } from '@gitbutler/shared/context';
-import toasts from '@gitbutler/ui/toasts';
+import { chipToasts } from '@gitbutler/ui';
 import type { Tauri } from '$lib/backend/tauri';
 import type { DiffSpec } from '$lib/hunks/hunk';
 
@@ -61,18 +61,19 @@ export class HooksService {
 	async runPreCommitHooks(projectId: string, changes: DiffSpec[]): Promise<boolean> {
 		let failed = false;
 		try {
-			await toasts.promise(
+			await chipToasts.promise(
 				(async () => {
 					const result = await this.preCommitDiffspecs(projectId, changes);
 					if (result?.status === 'failure') {
 						failed = true;
+						console.error('Pre-commit hooks failed:', result.error);
 						throw new HookError(result.error);
 					}
 				})(),
 				{
 					loading: 'Started pre-commit hooks',
 					success: 'Pre-commit hooks succeded',
-					error: (error: Error) => `Post-commit hooks failed: ${error.message}`
+					error: 'Pre-commit hooks failed'
 				}
 			);
 		} catch (e: unknown) {
@@ -87,18 +88,19 @@ export class HooksService {
 	async runPostCommitHooks(projectId: string): Promise<boolean> {
 		let failed = false;
 		try {
-			await toasts.promise(
+			await chipToasts.promise(
 				(async () => {
 					const result = await this.postCommit(projectId);
 					if (result?.status === 'failure') {
 						failed = true;
+						console.error('Post-commit hooks failed:', result.error);
 						throw new HookError(result.error);
 					}
 				})(),
 				{
 					loading: 'Started post-commit hooks',
 					success: 'Post-commit hooks succeded',
-					error: (error: Error) => `Post-commit hooks failed: ${error.message}`
+					error: 'Post-commit hooks failed'
 				}
 			);
 		} catch (e) {

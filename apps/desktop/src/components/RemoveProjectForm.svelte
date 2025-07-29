@@ -6,8 +6,7 @@
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/shared/context';
 
-	import { SectionCard } from '@gitbutler/ui';
-	import * as toasts from '@gitbutler/ui/toasts';
+	import { SectionCard, chipToasts } from '@gitbutler/ui';
 
 	const { projectId }: { projectId: string } = $props();
 
@@ -21,7 +20,7 @@
 		try {
 			await projectsService.deleteProject(projectId);
 			goto('/');
-			toasts.success('Project deleted');
+			chipToasts.success('Project deleted');
 		} catch (err: any) {
 			console.error(err);
 			showError('Failed to delete project', err);

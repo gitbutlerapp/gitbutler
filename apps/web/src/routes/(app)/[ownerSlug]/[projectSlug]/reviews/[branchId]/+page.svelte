@@ -32,12 +32,12 @@
 		Link,
 		Markdown,
 		RichTextEditor,
-		Textarea
+		Textarea,
+		chipToasts
 	} from '@gitbutler/ui';
 	import FileUploadPlugin, {
 		type DropFileResult
 	} from '@gitbutler/ui/richText/plugins/FileUpload.svelte';
-	import toasts from '@gitbutler/ui/toasts';
 	import dayjs from 'dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
 
@@ -147,7 +147,7 @@
 				title: title,
 				description: summary
 			});
-			toasts.success('Updated review status');
+			chipToasts.success('Updated review status');
 		} finally {
 			editingSummary = false;
 		}
@@ -159,7 +159,7 @@
 		await branchService.updateBranch(branch.current.value.uuid, {
 			status
 		});
-		toasts.success('Saved review summary');
+		chipToasts.success('Saved review summary');
 	}
 
 	function copyLocation() {
