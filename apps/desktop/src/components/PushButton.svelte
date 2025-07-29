@@ -1,8 +1,9 @@
 <script lang="ts">
+	import ReduxResult from '$components/ReduxResult.svelte';
 	import {
-		stackHasConflicts,
-		stackHasUnpushedCommits,
-		stackRequiresForcePush
+		branchHasConflicts,
+		branchHasUnpushedCommits,
+		branchRequiresForcePush
 	} from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
@@ -33,25 +34,19 @@
 
 	const stackService = inject(STACK_SERVICE);
 	const uiState = inject(UI_STATE);
-	const stackInfoResult = $derived(stackService.stackInfo(projectId, stackId));
-	const stackInfo = $derived(stackInfoResult.current.data);
+	const branchDetails = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const [pushStack, pushResult] = stackService.pushStack;
 
-	const requiresForce = $derived(stackInfo && stackRequiresForcePush(stackInfo));
-	const hasThingsToPush = $derived(stackInfo && stackHasUnpushedCommits(stackInfo));
-	const hasConflicts = $derived(stackInfo && stackHasConflicts(stackInfo));
-
-	function handleClick() {
+	function handleClick(requiresForce: boolean) {
 		if (multipleBranches && !isLastBranchInStack && !$doNotShowPushBelowWarning) {
 			confirmationModal?.show();
 			return;
 		}
 
-		push();
+		push(requiresForce);
 	}
 
-	async function push() {
-		if (requiresForce === undefined) return;
+	async function push(requiresForce: boolean) {
 		const pushResult = await pushStack({
 			projectId,
 			stackId,
@@ -66,9 +61,9 @@
 		uiState.project(projectId).branchesToPoll.add(...upstreamBranchNames);
 	}
 
-	const loading = $derived(pushResult.current.isLoading || stackInfoResult.current.isLoading);
+	const loading = $derived(pushResult.current.isLoading);
 
-	function getButtonTooltip() {
+	function getButtonTooltip(hasThingsToPush: boolean, hasConflicts: boolean): string | undefined {
 		if (!hasThingsToPush) {
 			return 'No commits to push';
 		}
@@ -86,55 +81,62 @@
 	let confirmationModal = $state<ReturnType<typeof Modal>>();
 </script>
 
-<Modal
-	title="Push with dependencies"
-	width="small"
-	bind:this={confirmationModal}
-	onSubmit={async (close) => {
-		close();
-		push();
-	}}
->
-	<p>
-		You're about to push <span class="text-bold">{branchName}</span>. To maintain the correct
-		history, GitButler will also push all branches below this branch in the stack.
-	</p>
+<ReduxResult {projectId} result={branchDetails.current}>
+	{#snippet children(branchDetails)}
+		{@const requiresForce = branchRequiresForcePush(branchDetails)}
+		{@const hasThingsToPush = branchHasUnpushedCommits(branchDetails)}
+		{@const hasConflicts = branchHasConflicts(branchDetails)}
+		<Button
+			testId={TestId.StackPushButton}
+			kind={isFirstBranchInStack ? 'solid' : 'outline'}
+			size="tag"
+			style="neutral"
+			{loading}
+			disabled={!hasThingsToPush || hasConflicts}
+			tooltip={getButtonTooltip(hasThingsToPush, hasConflicts)}
+			onclick={() => handleClick(requiresForce)}
+			icon={multipleBranches && !isLastBranchInStack ? 'push-below' : 'push'}
+		>
+			{requiresForce ? 'Force push' : 'Push'}
+		</Button>
 
-	{#snippet controls(close)}
-		<div class="modal-footer">
-			<div class="flex flex-1">
-				<label for="dont-show-again" class="modal-footer__checkbox">
-					<Checkbox name="dont-show-again" small bind:checked={$doNotShowPushBelowWarning} />
-					<span class="text-12"> Don’t show again</span>
-				</label>
-			</div>
-			<Button
-				kind="outline"
-				onclick={() => {
-					$doNotShowPushBelowWarning = false;
-					close();
-				}}>Cancel</Button
-			>
-			<Button testId={TestId.StackConfirmPushModalButton} style="pop" type="submit" width={90}
-				>Push</Button
-			>
-		</div>
+		<Modal
+			title="Push with dependencies"
+			width="small"
+			bind:this={confirmationModal}
+			onSubmit={async (close) => {
+				close();
+				push(requiresForce);
+			}}
+		>
+			<p>
+				You're about to push <span class="text-bold">{branchName}</span>. To maintain the correct
+				history, GitButler will also push all branches below this branch in the stack.
+			</p>
+
+			{#snippet controls(close)}
+				<div class="modal-footer">
+					<div class="flex flex-1">
+						<label for="dont-show-again" class="modal-footer__checkbox">
+							<Checkbox name="dont-show-again" small bind:checked={$doNotShowPushBelowWarning} />
+							<span class="text-12"> Don’t show again</span>
+						</label>
+					</div>
+					<Button
+						kind="outline"
+						onclick={() => {
+							$doNotShowPushBelowWarning = false;
+							close();
+						}}>Cancel</Button
+					>
+					<Button testId={TestId.StackConfirmPushModalButton} style="pop" type="submit" width={90}
+						>Push</Button
+					>
+				</div>
+			{/snippet}
+		</Modal>
 	{/snippet}
-</Modal>
-
-<Button
-	testId={TestId.StackPushButton}
-	kind={isFirstBranchInStack ? 'solid' : 'outline'}
-	size="tag"
-	style="neutral"
-	{loading}
-	disabled={!hasThingsToPush || hasConflicts}
-	tooltip={getButtonTooltip()}
-	onclick={handleClick}
-	icon={multipleBranches && !isLastBranchInStack ? 'push-below' : 'push'}
->
-	{requiresForce ? 'Force push' : 'Push'}
-</Button>
+</ReduxResult>
 
 <style>
 	/* MODAL */
