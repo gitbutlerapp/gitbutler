@@ -15,15 +15,19 @@ function createChipToastStore() {
 		const chipToast: ChipToastData = {
 			id,
 			message,
-			type: options.type || 'neutral'
+			type: options.type || 'neutral',
+			customButton: options.customButton,
+			showDismiss: options.showDismiss
 		};
 
 		update((chipToasts) => [...chipToasts, chipToast]);
 
-		// Auto-remove after 4 seconds
-		setTimeout(() => {
-			removeChipToast(id);
-		}, 4000);
+		// Auto-remove after 4 seconds, but only if dismiss button is not shown
+		if (!options.showDismiss) {
+			setTimeout(() => {
+				removeChipToast(id);
+			}, 4000);
+		}
 
 		return id;
 	}
@@ -37,25 +41,25 @@ function createChipToastStore() {
 	}
 
 	// Convenience methods for different chipToast types
-	function neutral(message: string) {
-		return addChipToast(message, { type: 'neutral' });
+	function neutral(message: string, options: Omit<ChipToastOptions, 'type'> = {}) {
+		return addChipToast(message, { type: 'neutral', ...options });
 	}
 
-	function success(message: string) {
-		return addChipToast(message, { type: 'success' });
+	function success(message: string, options: Omit<ChipToastOptions, 'type'> = {}) {
+		return addChipToast(message, { type: 'success', ...options });
 	}
 
-	function warning(message: string) {
-		return addChipToast(message, { type: 'warning' });
+	function warning(message: string, options: Omit<ChipToastOptions, 'type'> = {}) {
+		return addChipToast(message, { type: 'warning', ...options });
 	}
 
-	function error(message: string) {
-		return addChipToast(message, { type: 'error' });
+	function error(message: string, options: Omit<ChipToastOptions, 'type'> = {}) {
+		return addChipToast(message, { type: 'error', ...options });
 	}
 
 	// Keep loading function for compatibility - just an alias for neutral
-	function loading(message: string) {
-		return neutral(message);
+	function loading(message: string, options: Omit<ChipToastOptions, 'type'> = {}) {
+		return neutral(message, options);
 	}
 
 	// Simple promise function that handles loading/success/error states

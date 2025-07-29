@@ -1,52 +1,128 @@
 <script lang="ts">
+	import Icon from '$components/Icon.svelte';
 	import { fly, fade } from 'svelte/transition';
-	import type { ChipToastType } from '$components/chipToast/chipToastTypes';
+	import type { IconName } from '$components/Icon.svelte';
+	import type { ChipToastType, ChipToastButtonConfig } from '$components/chipToast/chipToastTypes';
 
-	export let type: ChipToastType = 'neutral';
-	export let message: string;
+	interface Props {
+		type: ChipToastType;
+		message: string;
+		customButton?: ChipToastButtonConfig;
+		showDismiss?: boolean;
+		onDismiss?: () => void;
+	}
+
+	const { type, message, customButton, showDismiss, onDismiss }: Props = $props();
+
+	function getEmojiForType(type: ChipToastType): {
+		name: IconName;
+		color: string;
+	} {
+		switch (type) {
+			case 'success':
+				return { name: 'success', color: 'var(--clr-theme-succ-element)' };
+			case 'warning':
+				return { name: 'warning', color: 'var(--clr-theme-warn-element)' };
+			case 'error':
+				return { name: 'error', color: 'var(--clr-theme-err-element)' };
+			default:
+				return { name: 'info', color: 'var(--clr-scale-pop-60)' };
+		}
+	}
+
+	const icon = getEmojiForType(type);
+
+	function handleDismiss() {
+		onDismiss?.();
+	}
 </script>
 
 <div
-	class="chip-toast chip-toast--{type}"
+	class="text-12 chip-toast chip-toast--{type}"
 	role="alert"
 	aria-live="polite"
 	in:fly={{ y: 20, duration: 300 }}
 	out:fade={{ duration: 200 }}
 >
-	{message}
+	<div class="chip-toast__content">
+		<div class="chip-toast__icon" style:--icon-toast-color={icon.color}>
+			<Icon name={icon.name} />
+		</div>
+		<span class="chip-toast__message">{message}</span>
+	</div>
+
+	{#if customButton || showDismiss}
+		<div class="text-bold chip-toast__actions">
+			{#if customButton}
+				<button
+					type="button"
+					class="chip-toast__button chip-toast__button--primary"
+					onclick={customButton.action}
+				>
+					{customButton.label}
+				</button>
+			{/if}
+			{#if showDismiss}
+				<button
+					type="button"
+					class="chip-toast__button chip-toast__button--secondary"
+					onclick={handleDismiss}
+				>
+					Dismiss
+				</button>
+			{/if}
+		</div>
+	{/if}
 </div>
 
 <style>
 	.chip-toast {
-		min-width: 300px;
+		--toast-padding: 8px 12px;
+		display: flex;
+		width: fit-content;
 		max-width: 400px;
-		padding: 12px 16px;
-		border-radius: 8px;
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-		font-size: 13px;
-		line-height: 1.4;
-		word-wrap: break-word;
+		border-radius: var(--radius-m);
+		background: var(--clr-scale-ntrl-10);
+		box-shadow: var(--fx-shadow-m);
+		color: var(--clr-scale-ntrl-100);
 		text-align: center;
 	}
 
-	/* ChipToast type styles */
-	.chip-toast--neutral {
-		background: var(--clr-theme-ntrl-element);
-		color: var(--clr-theme-ntrl-on-element);
+	/* CONTENT */
+	.chip-toast__content {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: var(--toast-padding);
+		gap: 10px;
 	}
 
-	.chip-toast--success {
-		background: var(--clr-theme-succ-element);
-		color: var(--clr-theme-succ-on-element);
+	.chip-toast__icon {
+		display: flex;
+		flex-shrink: 0;
+		margin-left: -2px;
+		color: var(--icon-toast-color);
 	}
 
-	.chip-toast--warning {
-		background: var(--clr-theme-warn-element);
-		color: var(--clr-theme-warn-on-element);
+	.chip-toast__message,
+	.chip-toast__button {
+		text-wrap: nowrap;
+		user-select: none;
 	}
 
-	.chip-toast--error {
-		background: var(--clr-theme-err-element);
-		color: var(--clr-theme-err-on-element);
+	/* ACTIONS */
+	.chip-toast__actions {
+		display: flex;
+		justify-content: center;
+	}
+
+	.chip-toast__button {
+		padding: var(--toast-padding);
+		border-left: 1px solid var(--clr-scale-ntrl-30);
+		transition: opacity var(--transition-fast);
+
+		&:hover {
+			opacity: 0.8;
+		}
 	}
 </style>

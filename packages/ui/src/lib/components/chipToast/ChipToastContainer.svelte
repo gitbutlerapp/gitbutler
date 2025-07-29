@@ -7,7 +7,13 @@
 <div class="chip-toast-container">
 	{#each $chipToasts as chipToast (chipToast.id)}
 		<div animate:flip={{ duration: 200 }}>
-			<ChipToast message={chipToast.message} type={chipToast.type} />
+			<ChipToast
+				message={chipToast.message}
+				type={chipToast.type}
+				customButton={chipToast.customButton}
+				showDismiss={chipToast.showDismiss}
+				onDismiss={() => chipToasts.removeChipToast(chipToast.id)}
+			/>
 		</div>
 	{/each}
 </div>
@@ -27,14 +33,5 @@
 
 	.chip-toast-container > * {
 		pointer-events: auto;
-	}
-
-	/* Responsive adjustments */
-	@media (max-width: 480px) {
-		.chip-toast-container {
-			right: 16px;
-			left: 16px;
-			transform: none;
-		}
 	}
 </style>
