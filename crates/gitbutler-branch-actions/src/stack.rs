@@ -10,6 +10,7 @@ use gitbutler_stack::{PatchReferenceUpdate, StackBranch};
 use serde::{Deserialize, Serialize};
 
 use crate::actions::Verify;
+use crate::r#virtual::PushResult;
 use crate::{r#virtual::IsCommitIntegrated, VirtualBranchesExt};
 use gitbutler_operating_modes::ensure_open_workspace_mode;
 
@@ -158,7 +159,7 @@ pub fn push_stack(
     stack_id: StackId,
     with_force: bool,
     branch_limit: String,
-) -> Result<()> {
+) -> Result<PushResult> {
     ctx.verify(ctx.project().exclusive_worktree_access().write_permission())?;
     ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let state = ctx.project().virtual_branches();
@@ -170,7 +171,6 @@ pub fn push_stack(
         stack.head_oid(&repo.to_gix()?)?.to_git2(),
         default_target.sha,
     )?)?;
-    // let merge_base: CommitOrChangeId = merge_base.into();
 
     // First fetch, because we dont want to push integrated series
     ctx.fetch(
@@ -182,6 +182,10 @@ pub fn push_stack(
     let mut graph = gix_repo.revision_graph(cache.as_ref());
     let mut check_commit = IsCommitIntegrated::new(ctx, &default_target, &gix_repo, &mut graph)?;
     let stack_branches = stack.branches();
+    let mut result = PushResult {
+        remote: default_target.push_remote_name(),
+        branch_to_remote: vec![],
+    };
     for branch in stack_branches {
         if branch.archived {
             // Nothing to push for this one
@@ -204,11 +208,17 @@ pub fn push_stack(
             Some(Some(stack.id)),
         )?;
 
+        result.branch_to_remote.push((
+            branch.name().to_owned(),
+            push_details.remote_refname.to_owned().into(),
+        ));
+
         if branch.name().eq(&branch_limit) {
             break;
         }
     }
-    Ok(())
+
+    Ok(result)
 }
 
 pub(crate) fn branch_integrated(

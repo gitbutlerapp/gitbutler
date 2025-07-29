@@ -31,8 +31,10 @@ use std::{collections::HashMap, path::PathBuf, vec};
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PushResult {
+    /// The name of the remote to which the branches were pushed.
     pub remote: String,
-    pub refname: Refname,
+    /// The list of pushed branches and their corresponding remote refnames.
+    pub branch_to_remote: Vec<(String, Refname)>,
 }
 
 fn find_base_tree<'a>(

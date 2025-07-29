@@ -1,4 +1,5 @@
 use but_settings::AppSettingsWithDiskSync;
+use gitbutler_branch_actions::internal::PushResult;
 use gitbutler_branch_actions::stack::CreateSeriesRequest;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project as projects;
@@ -107,11 +108,11 @@ pub fn push_stack(
     stack_id: StackId,
     with_force: bool,
     branch: String,
-) -> Result<(), Error> {
+) -> Result<PushResult, Error> {
     let project = projects.get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    gitbutler_branch_actions::stack::push_stack(&ctx, stack_id, with_force, branch)?;
-    Ok(())
+    gitbutler_branch_actions::stack::push_stack(&ctx, stack_id, with_force, branch)
+        .map_err(|e| e.into())
 }
 
 #[tauri::command(async)]
