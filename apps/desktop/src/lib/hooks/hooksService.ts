@@ -1,4 +1,5 @@
 import { InjectionToken } from '@gitbutler/shared/context';
+import toasts from '@gitbutler/ui/toasts';
 import type { Tauri } from '$lib/backend/tauri';
 import type { DiffSpec } from '$lib/hunks/hunk';
 
@@ -30,6 +31,8 @@ export type MessageHookStatus =
 			error: string;
 	  };
 
+class HookError extends Error {}
+
 export const HOOKS_SERVICE = new InjectionToken<HooksService>('HooksService');
 
 export class HooksService {
@@ -53,5 +56,57 @@ export class HooksService {
 			projectId,
 			message
 		});
+	}
+
+	async runPreCommitHooks(projectId: string, changes: DiffSpec[]): Promise<boolean> {
+		let failed = false;
+		try {
+			await toasts.promise(
+				(async () => {
+					const result = await this.preCommitDiffspecs(projectId, changes);
+					if (result?.status === 'failure') {
+						failed = true;
+						throw new HookError(result.error);
+					}
+				})(),
+				{
+					loading: 'Started pre-commit hooks',
+					success: 'Pre-commit hooks succeded',
+					error: (error: Error) => `Post-commit hooks failed: ${error.message}`
+				}
+			);
+		} catch (e: unknown) {
+			if (!(e instanceof HookError)) {
+				throw e;
+			}
+		}
+
+		return failed;
+	}
+
+	async runPostCommitHooks(projectId: string): Promise<boolean> {
+		let failed = false;
+		try {
+			await toasts.promise(
+				(async () => {
+					const result = await this.postCommit(projectId);
+					if (result?.status === 'failure') {
+						failed = true;
+						throw new HookError(result.error);
+					}
+				})(),
+				{
+					loading: 'Started post-commit hooks',
+					success: 'Post-commit hooks succeded',
+					error: (error: Error) => `Post-commit hooks failed: ${error.message}`
+				}
+			);
+		} catch (e) {
+			if (!(e instanceof HookError)) {
+				throw e;
+			}
+		}
+
+		return failed;
 	}
 }

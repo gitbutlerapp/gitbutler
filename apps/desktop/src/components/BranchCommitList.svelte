@@ -18,6 +18,7 @@
 		type DzCommitData,
 		SquashCommitDzHandler
 	} from '$lib/commits/dropHandler';
+	import { projectRunCommitHooks } from '$lib/config/config';
 	import { DRAG_STATE_SERVICE } from '$lib/dragging/dragStateService.svelte';
 	import { draggableCommitV3 } from '$lib/dragging/draggable';
 	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
@@ -26,6 +27,7 @@
 		ReorderCommitDzHandler
 	} from '$lib/dragging/stackingReorderDropzoneManager';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import { HOOKS_SERVICE } from '$lib/hooks/hooksService';
 	import { STACK_SERVICE, type SeriesIntegrationStrategy } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
@@ -96,6 +98,7 @@
 	const uiState = inject(UI_STATE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
+	const hooksService = inject(HOOKS_SERVICE);
 	const dropzoneRegistry = inject(DROPZONE_REGISTRY);
 	const dragStateService = inject(DRAG_STATE_SERVICE);
 	const [integrateUpstreamCommits, upstreamIntegration] = stackService.integrateUpstreamCommits;
@@ -108,6 +111,7 @@
 	);
 	const stackState = $derived(uiState.stack(stackId));
 	const selection = $derived(stackState.selection);
+	const runHooks = $derived(projectRunCommitHooks(projectId));
 
 	const selectedBranchName = $derived(selection.current?.branchName);
 	const selectedCommitId = $derived(selection.current?.commitId);
@@ -316,8 +320,9 @@
 					{@const amendHandler = new AmendCommitWithChangeDzHandler(
 						projectId,
 						stackService,
+						hooksService,
 						stackId,
-						branchName,
+						$runHooks,
 						dzCommit,
 						(newId) => uiState.stack(stackId).selection.set({ branchName, commitId: newId }),
 						uiState
@@ -330,9 +335,11 @@
 					})}
 					{@const hunkHandler = new AmendCommitWithHunkDzHandler({
 						stackService,
+						hooksService,
 						projectId,
 						stackId,
 						commit: dzCommit,
+						runHooks: $runHooks,
 						// TODO: Use correct value!
 						okWithForce: true,
 						uiState
