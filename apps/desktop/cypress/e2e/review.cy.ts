@@ -57,17 +57,23 @@ describe('Review', () => {
 			}
 		).as('getRepo');
 
+		let initialFetchPull42 = undefined;
+
 		cy.intercept(
 			{
 				method: 'GET',
 				url: 'https://api.github.com/repos/example/repo/pulls/42'
 			},
-			{
-				statusCode: 200,
-				body: {
-					number: 42,
-					state: 'open'
-				}
+			(req) => {
+				initialFetchPull42 ??= new Date().toISOString();
+				req.reply({
+					statusCode: 200,
+					body: {
+						number: 42,
+						state: 'open',
+						updated_at: initialFetchPull42
+					}
+				});
 			}
 		).as('getPullRequest');
 
@@ -412,6 +418,7 @@ describe('Review - stacked branches', () => {
 		mockCommand('update_branch_pr_number', (params) => mockBackend.updateBranchPrNumber(params));
 		mockCommand('hunk_assignments', (params) => mockBackend.getHunkAssignments(params));
 		mockCommand('pr_template', (args) => mockBackend.getTemplateContent(args));
+		mockCommand('update_commit_message', (params) => mockBackend.updateCommitMessage(params));
 
 		cy.intercept(
 			{
@@ -1012,6 +1019,216 @@ describe('Review - stacked branches', () => {
 
 		cy.wait(10 * 1000).then(() => {
 			cy.get('@getChecksWithActualChecks.all').should('have.length', 3);
+			cy.get('@getChecksBottom.all').should('have.length', 0);
+		}); // Wait for the checks to be fetched
+	});
+
+	it('Should restart polling on force push', () => {
+		const data: CustomChecksData = {
+			total_count: 2,
+			check_runs: [
+				{
+					id: 1,
+					started_at: new Date(Date.now() - 10000).toISOString(),
+					conclusion: null,
+					completed_at: null,
+					head_sha: 'abc123',
+					name: 'CI Check 1',
+					status: 'in_progress'
+				},
+				{
+					id: 2,
+					started_at: new Date(Date.now() - 10000).toISOString(),
+					head_sha: 'abc123',
+					name: 'CI Check 2',
+					status: 'completed',
+					conclusion: 'failure',
+					completed_at: new Date().toISOString()
+				}
+			]
+		};
+
+		cy.intercept(
+			{
+				method: 'GET',
+				url: `https://api.github.com/repos/example/repo/commits/${mockBackend.topBranchName}/check-runs`
+			},
+			(req) => {
+				req.reply({
+					statusCode: 200,
+					body: data
+				});
+			}
+		).as('getChecksWithActualChecks');
+
+		const prTitle = 'Test PR Title';
+		const prDescription = 'Test PR Description';
+
+		// Open the top branch.
+		cy.getByTestId('branch-header', mockBackend.topBranchName).should('be.visible').click();
+
+		// The PR card should not be visible for the top branch.
+		cy.getByTestId('stacked-pull-request-card').should('not.exist');
+
+		// Now, open a review for the top branch.
+		cy.getByDataValue('series-name', mockBackend.topBranchName).within(() => {
+			cy.getByTestId('create-review-button')
+				.should('have.length', 1)
+				.should('be.visible')
+				.should('be.enabled')
+				.click();
+		});
+
+		// The Review Drawer should be visible.
+		cy.getByTestId('create-review-box').should('be.visible').should('have.length', 1);
+
+		// Since this branch has a single commit, the commit message should be pre-filled.
+		// Update both.
+		cy.getByTestId('create-review-box-title-input')
+			.should('be.visible')
+			.should('be.enabled')
+			.clear()
+			.type(prTitle);
+
+		cy.getByTestId('create-review-box-description-input')
+			.should('be.visible')
+			.click()
+			.clear()
+			.type(prDescription);
+
+		// The Create Review button should be visible.
+		// Click it.
+		cy.getByTestId('create-review-box-create-button')
+			.should('be.visible')
+			.should('be.enabled')
+			.click();
+
+		// There should have been exactly 2 requests to the checks endpoint
+		cy.wait(['@getChecksWithActualChecks', '@getChecksWithActualChecks'], { timeout: 11000 })
+			.spread((first, second) => {
+				expect(first.response.body).to.deep.equal(data);
+				expect(second.response.body).to.deep.equal(data);
+			})
+			.then(() => {
+				cy.getByDataValue('pr-text', 'Failed').should('be.visible');
+			});
+
+		cy.getByTestId('stacked-pull-request-card').within(() => {
+			cy.getByTestId('pr-status-badge').should('be.visible');
+			cy.getByDataValue('pr-status', 'open').should('be.visible');
+		});
+
+		// Reword the commit and force push
+		cy.getByTestId('commit-row').first().click();
+
+		// Click on the kebab menu to access edit message
+		cy.getByTestId('commit-drawer').within(() => {
+			cy.getByTestId('kebab-menu-btn').click();
+		});
+
+		// Click on the edit message button in the context menu
+		cy.getByTestId('commit-row-context-menu-edit-message-menu-btn').should('be.enabled').click();
+
+		// Should open the commit rename drawer
+		cy.getByTestId('edit-commit-message-box').should('be.visible');
+
+		const newCommitMessageTitle = 'New Commit Message Title';
+
+		// Should have the original commit message, and be focused
+		cy.getByTestId('commit-drawer-title-input')
+			.should('be.visible')
+			.should('be.enabled')
+			.should('be.focused')
+			.clear()
+			.type(newCommitMessageTitle); // Type the new commit message title
+
+		// Click on the save button
+		cy.getByTestId('commit-drawer-action-button')
+			.should('be.visible')
+			.should('be.enabled')
+			.should('contain', 'Save')
+			.click();
+
+		const successDataInProgress: CustomChecksData = {
+			...data,
+			check_runs: [
+				{
+					...data.check_runs[0],
+					conclusion: null,
+					status: 'in_progress',
+					completed_at: null,
+					started_at: new Date(Date.now()).toISOString()
+				},
+				{
+					...data.check_runs[1],
+					started_at: new Date(Date.now()).toISOString(),
+					status: 'in_progress',
+					conclusion: null,
+					completed_at: null
+				}
+			]
+		};
+
+		const successData: CustomChecksData = {
+			...data,
+			check_runs: [
+				{
+					...data.check_runs[0],
+					started_at: new Date(Date.now()).toISOString(),
+					status: 'completed',
+					conclusion: 'success',
+					completed_at: new Date().toISOString()
+				},
+				{
+					...data.check_runs[1],
+					started_at: new Date(Date.now()).toISOString(),
+					status: 'completed',
+					conclusion: 'success',
+					completed_at: new Date().toISOString()
+				}
+			]
+		};
+
+		let pollAfterForcePush = 0;
+
+		cy.intercept(
+			{
+				method: 'GET',
+				url: `https://api.github.com/repos/example/repo/commits/${mockBackend.topBranchName}/check-runs`
+			},
+			(req) => {
+				pollAfterForcePush++;
+				if (pollAfterForcePush > 1) {
+					req.reply({
+						statusCode: 200,
+						body: successData
+					});
+					return;
+				}
+				req.reply({
+					statusCode: 200,
+					body: successDataInProgress
+				});
+			}
+		).as('getChecksWithActualChecks');
+
+		cy.getByTestId('stack-push-button').first().should('be.visible').should('be.enabled').click();
+		cy.getByTestId('stack-confirm-push-modal-button')
+			.should('be.visible')
+			.should('be.enabled')
+			.click();
+
+		cy.wait(['@getChecksWithActualChecks', '@getChecksWithActualChecks'], { timeout: 11000 })
+			.spread((first, second) => {
+				expect(first.response.body).to.deep.equal(successDataInProgress);
+				expect(second.response.body).to.deep.equal(successData);
+			})
+			.then(() => {
+				cy.getByDataValue('pr-text', 'Passed').should('be.visible');
+			});
+
+		cy.wait(10 * 1000).then(() => {
+			cy.get('@getChecksWithActualChecks.all').should('have.length', 4);
 			cy.get('@getChecksBottom.all').should('have.length', 0);
 		}); // Wait for the checks to be fetched
 	});
