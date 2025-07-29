@@ -27,7 +27,7 @@
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { REMOTES_SERVICE } from '$lib/remotes/remotesService';
 	import { requiresPush } from '$lib/stacks/stack';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { STACK_SERVICE, type BranchPushResult } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
@@ -149,8 +149,9 @@
 		prTitle.setDefault(commits);
 	});
 
-	async function pushIfNeeded(branchName: string): Promise<string | undefined> {
-		let upstreamBranchName: string | undefined = branchName;
+	async function pushIfNeeded(
+		branchName: string
+	): Promise<[string | undefined, BranchPushResult | undefined]> {
 		if (pushBeforeCreate) {
 			const firstPush = branchDetails?.pushStatus === 'completelyUnpushed';
 			const pushResult = await pushStack({
@@ -160,15 +161,21 @@
 				branch: branchName
 			});
 
-			upstreamBranchName = getBranchNameFromRef(pushResult.refname, pushResult.remote);
-
 			if (firstPush) {
 				// TODO: fix this hack for reactively available prService.
 				await sleep(500);
 			}
+
+			const remoteRef = pushResult.branchToRemote.find(([branch]) => branch === branchName)?.[1];
+
+			const upstreamBranchName = remoteRef
+				? getBranchNameFromRef(remoteRef, pushResult.remote)
+				: undefined;
+
+			return [upstreamBranchName, pushResult];
 		}
 
-		return upstreamBranchName;
+		return [branchName, undefined];
 	}
 
 	export async function createReview() {
@@ -188,7 +195,7 @@
 			isCreatingReview = true;
 			await tick();
 
-			const upstreamBranchName = await pushIfNeeded(closureBranchName);
+			const [branch, pushResult] = await pushIfNeeded(closureBranchName);
 
 			await createPr({
 				stackId: closureStackId,
@@ -196,15 +203,19 @@
 				title,
 				body,
 				draft,
-				upstreamBranchName
+				upstreamBranchName: branch
 			});
 
 			prBody.reset();
 			prTitle.reset();
 			uiState.project(projectId).exclusiveAction.set(undefined);
 
-			if (upstreamBranchName) {
-				uiState.project(projectId).branchesToPoll.add(upstreamBranchName);
+			if (pushResult) {
+				const upstreamBranchNames = pushResult.branchToRemote
+					.map(([_, refname]) => getBranchNameFromRef(refname, pushResult.remote))
+					.filter(isDefined);
+				if (upstreamBranchNames.length === 0) return;
+				uiState.project(projectId).branchesToPoll.add(...upstreamBranchNames);
 			}
 		} finally {
 			isCreatingReview = false;

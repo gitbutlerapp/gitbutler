@@ -100,7 +100,13 @@ on fetching and pushing for ways to resolve the problem.
 export type SeriesIntegrationStrategy = 'merge' | 'rebase' | 'hardreset';
 
 export interface BranchPushResult {
-	refname: string;
+	/**
+	 * The list of pushed branches and their corresponding remote refnames.
+	 */
+	branchToRemote: [string, string][];
+	/**
+	 * The name of the remote to which the branches were pushed.
+	 */
 	remote: string;
 }
 
@@ -1030,10 +1036,14 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 
 					if (!result) return invalidations;
 
-					const upstreamBranchName = getBranchNameFromRef(result.refname, result.remote);
-					if (upstreamBranchName) return invalidations;
+					const upstreamBranchNames = result.branchToRemote
+						.map(([_, refname]) => getBranchNameFromRef(refname, result.remote))
+						.filter(isDefined);
+					if (upstreamBranchNames.length === 0) return invalidations;
 
-					invalidations.push(invalidatesItem(ReduxTag.Checks, upstreamBranchName));
+					for (const upstreamBranchName of upstreamBranchNames) {
+						invalidations.push(invalidatesItem(ReduxTag.Checks, upstreamBranchName));
+					}
 
 					return invalidations;
 				}
