@@ -8,8 +8,8 @@ use gitbutler_reference::RemoteRefname;
 
 use crate::command::debug_print;
 
-pub fn list(ctrl: gitbutler_project::Controller) -> Result<()> {
-    for project in ctrl.list()? {
+pub fn list() -> Result<()> {
+    for project in gitbutler_project::list()? {
         println!(
             "{id} {name} {path}",
             id = project.id,

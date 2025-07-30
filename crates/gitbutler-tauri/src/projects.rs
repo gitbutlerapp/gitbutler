@@ -61,7 +61,7 @@ pub mod commands {
     ) -> Result<Vec<ProjectForFrontend>, Error> {
         let open_projects = window_state.open_projects();
         projects
-            .assure_app_can_startup_or_fix_it(projects.list())
+            .assure_app_can_startup_or_fix_it(gitbutler_project::list())
             .map_err(Into::into)
             .map(|projects| {
                 projects

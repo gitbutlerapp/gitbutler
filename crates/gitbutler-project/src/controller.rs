@@ -247,7 +247,7 @@ impl Controller {
         Ok(project)
     }
 
-    pub fn list(&self) -> Result<Vec<Project>> {
+    pub(crate) fn list(&self) -> Result<Vec<Project>> {
         self.projects_storage.list()
     }
 

@@ -73,10 +73,7 @@ fn main() -> Result<()> {
                 let ctrl = command::prepare::project_controller(app_suffix, app_data_dir)?;
                 command::project::add(ctrl, path, switch_to_workspace)
             }
-            None => {
-                let ctrl = command::prepare::project_controller(app_suffix, app_data_dir)?;
-                command::project::list(ctrl)
-            }
+            None => command::project::list(),
         },
     }
 }
