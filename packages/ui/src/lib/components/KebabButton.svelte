@@ -1,22 +1,37 @@
 <script lang="ts">
-	import { TestId } from '$lib/testing/testIds';
-	import { Button, Icon } from '@gitbutler/ui';
+	import Button from '$components/Button.svelte';
+	import Icon from '$components/Icon.svelte';
 
-	type Props = {
+	interface Props {
 		flat?: boolean;
-		activated: boolean;
-		contextElement: HTMLElement;
+		activated?: boolean;
+		contextElement?: HTMLElement;
 		contextElementSelected?: boolean;
-		oncontext?: (position: { x: number; y: number }) => void;
-		onclick: (element: HTMLElement) => void;
-	};
+		testId?: string;
+		oncontext?: (event: MouseEvent) => boolean | void;
+		onclick?: (element: HTMLElement) => void;
+		el?: HTMLElement;
+	}
 
-	let { flat, activated, contextElement, contextElementSelected, onclick, oncontext }: Props =
-		$props();
+	let {
+		flat = false,
+		activated = false,
+		contextElement,
+		testId,
+		onclick,
+		oncontext,
+		el = $bindable()
+	}: Props = $props();
 
 	let visible = $state(false);
-	let isContextElementFocused = $state(false);
 	let buttonElement = $state<HTMLElement>();
+	let isContextMenuOpen = $state(false);
+	let openedViaClick = $state(false);
+
+	// Keep el in sync with buttonElement
+	$effect(() => {
+		el = buttonElement;
+	});
 
 	function onMouseEnter() {
 		if (!flat) return;
@@ -30,23 +45,26 @@
 
 	function onFocus() {
 		if (!flat) return;
-		isContextElementFocused = true;
 		visible = true;
 	}
+
 	function onBlur() {
 		if (!flat) return;
-		isContextElementFocused = false;
 		visible = false;
 	}
 
 	function onContextMenu(e: MouseEvent) {
-		oncontext?.({ x: e.clientX, y: e.clientY });
-		e.preventDefault();
+		e.preventDefault(); // Prevent default to avoid browser context menu
+		isContextMenuOpen = true;
+		openedViaClick = false; // Context menu opened via right-click
+		oncontext?.(e);
 	}
 
 	function onClick(e: MouseEvent) {
 		e.stopPropagation();
 		e.preventDefault();
+		isContextMenuOpen = !isContextMenuOpen;
+		openedViaClick = isContextMenuOpen; // Track if opened via click
 		onclick?.(e.currentTarget as HTMLElement);
 	}
 
@@ -66,36 +84,53 @@
 			};
 		}
 	});
+
+	// Close context menu when clicking outside
+	$effect(() => {
+		if (isContextMenuOpen) {
+			function handleClickOutside(e: MouseEvent) {
+				if (buttonElement && !buttonElement.contains(e.target as Node)) {
+					isContextMenuOpen = false;
+					openedViaClick = false; // Reset when closing
+				}
+			}
+			document.addEventListener('click', handleClickOutside);
+			return () => {
+				document.removeEventListener('click', handleClickOutside);
+			};
+		}
+	});
 </script>
 
 {#if flat}
 	<button
 		bind:this={buttonElement}
 		type="button"
-		class="menu-btn"
-		class:visible={visible || isContextElementFocused || contextElementSelected}
-		class:activated
+		class="kebab-btn"
+		class:visible={visible || isContextMenuOpen}
+		class:activated={activated || (isContextMenuOpen && openedViaClick)}
 		onclick={onClick}
-		data-testid={TestId.KebabMenuButton}
+		data-testid={testId}
 	>
 		<Icon name="kebab" />
 	</button>
 {:else}
 	<Button
-		testId={TestId.KebabMenuButton}
+		bind:el={buttonElement}
+		{testId}
 		size="tag"
 		icon="kebab"
 		kind="ghost"
-		{activated}
+		activated={activated || (isContextMenuOpen && openedViaClick)}
 		onclick={onClick}
 	/>
 {/if}
 
 <style lang="postcss">
-	.menu-btn {
+	.kebab-btn {
 		display: flex;
 		display: none;
-		padding: 0 4px;
+		padding: 0 3px;
 		color: var(--clr-text-1);
 
 		&.visible {

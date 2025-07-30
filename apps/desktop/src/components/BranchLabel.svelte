@@ -28,12 +28,7 @@
 	let measureWidth = $state(0);
 
 	// Use the actual name or current input value for measurement
-	let currentValue = $state.raw(name);
-
-	// Sync currentValue with name prop changes
-	$effect(() => {
-		currentValue = name;
-	});
+	let currentValue = $derived(name);
 
 	const inputWidth = $derived(`${Math.max(measureWidth, 44)}px`);
 

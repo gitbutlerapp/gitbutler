@@ -8,7 +8,6 @@
 		type BranchHeaderContextItem
 	} from '$components/BranchHeaderContextMenu.svelte';
 	import ConflictResolutionConfirmModal from '$components/ConflictResolutionConfirmModal.svelte';
-	import KebabButton from '$components/KebabButton.svelte';
 	import NewBranchModal from '$components/NewBranchModal.svelte';
 	import PushButton from '$components/PushButton.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
@@ -293,13 +292,12 @@
 								first,
 								stackLength: branches.length
 							}}
-							<KebabButton
-								contextElement={rightClickTrigger}
-								onclick={(element) => (headerMenuContext = { data, position: { element } })}
-								oncontext={(coords) => (headerMenuContext = { data, position: { coords } })}
-								contextElementSelected={selected}
-								activated={branchName === headerMenuContext?.data.branch.name &&
-									!!headerMenuContext.position.element}
+							<BranchHeaderContextMenu
+								{projectId}
+								{stackId}
+								bind:context={headerMenuContext}
+								{rightClickTrigger}
+								contextData={data}
 							/>
 						{/snippet}
 
@@ -354,8 +352,6 @@
 		<Button style="pop" type="submit">Yes</Button>
 	{/snippet}
 </Modal>
-
-<BranchHeaderContextMenu {projectId} {stackId} bind:context={headerMenuContext} />
 
 {#if addDependentBranchModalContext}
 	<AddDependentBranchModal

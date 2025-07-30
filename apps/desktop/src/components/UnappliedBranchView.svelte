@@ -4,7 +4,6 @@
 	import BranchReview from '$components/BranchReview.svelte';
 	import ChangedFiles from '$components/ChangedFiles.svelte';
 	import Drawer from '$components/Drawer.svelte';
-	import KebabButton from '$components/KebabButton.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { TestId } from '$lib/testing/testIds';
@@ -83,11 +82,11 @@
 					prNumber: branch.prNumber || undefined,
 					stackLength: 1
 				}}
-				<KebabButton
-					contextElement={header}
-					onclick={(element) => (headerMenuContext = { data, position: { element } })}
-					oncontext={(coords) => (headerMenuContext = { data, position: { coords } })}
-					activated={!!headerMenuContext?.position.element}
+				<BranchHeaderContextMenu
+					{projectId}
+					bind:context={headerMenuContext}
+					rightClickTrigger={header}
+					contextData={data}
 				/>
 			{/snippet}
 
@@ -126,10 +125,6 @@
 		</ReduxResult>
 	{/snippet}
 </ReduxResult>
-
-{#if headerMenuContext}
-	<BranchHeaderContextMenu {projectId} bind:context={headerMenuContext} />
-{/if}
 
 <style>
 	.branch__header {
