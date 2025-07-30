@@ -4,7 +4,9 @@ mod default_true;
 mod project;
 mod storage;
 
-pub use controller::Controller;
+use std::path::Path;
+
+use controller::Controller;
 pub use project::{ApiProject, AuthKey, CodePushState, FetchResult, Project, ProjectId};
 pub use storage::UpdateRequest;
 
@@ -22,3 +24,49 @@ pub fn configure_git2() {
 /// The maximum size of files to automatically start tracking, i.e. untracked files we pick up for tree-creation.
 /// **Inactive for now** while it's hard to tell if it's safe *not* to pick up everything.
 pub const AUTO_TRACK_LIMIT_BYTES: u64 = 0;
+
+pub fn get(id: ProjectId) -> anyhow::Result<Project> {
+    let controller = Controller::from_path(but_path::app_data_dir()?);
+    controller.get(id)
+}
+
+pub fn get_validated(id: ProjectId) -> anyhow::Result<Project> {
+    let controller = Controller::from_path(but_path::app_data_dir()?);
+    controller.get_validated(id)
+}
+
+pub fn get_raw(id: ProjectId) -> anyhow::Result<Project> {
+    let controller = Controller::from_path(but_path::app_data_dir()?);
+    controller.get_raw(id)
+}
+
+pub fn update(project: &UpdateRequest) -> anyhow::Result<Project> {
+    let controller = Controller::from_path(but_path::app_data_dir()?);
+    controller.update(project)
+}
+
+pub fn add<P: AsRef<Path>>(
+    path: P,
+    name: Option<String>,
+    email: Option<String>,
+) -> anyhow::Result<Project> {
+    let controller = Controller::from_path(but_path::app_data_dir()?);
+    controller.add(path, name, email)
+}
+
+pub fn list() -> anyhow::Result<Vec<Project>> {
+    let controller = Controller::from_path(but_path::app_data_dir()?);
+    controller.list()
+}
+
+pub fn delete(id: ProjectId) -> anyhow::Result<()> {
+    let controller = Controller::from_path(but_path::app_data_dir()?);
+    controller.delete(id)
+}
+
+pub fn assure_app_can_startup_or_fix_it(
+    projects: anyhow::Result<Vec<Project>>,
+) -> anyhow::Result<Vec<Project>> {
+    let controller = Controller::from_path(but_path::app_data_dir()?);
+    controller.assure_app_can_startup_or_fix_it(projects)
+}

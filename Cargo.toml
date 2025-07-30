@@ -5,7 +5,8 @@ resolver = "2"
 [workspace.dependencies]
 bstr = "1.11.1"
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
-gix = { version = "0.73.0", git = "https://github.com/GitoxideLabs/gitoxide", branch = "main", default-features = false, features = [] }
+gix = { version = "0.73.0", git = "https://github.com/GitoxideLabs/gitoxide", branch = "main", default-features = false, features = [
+] }
 gix-testtools = "0.16.1"
 insta = "1.43.1"
 git2 = { version = "0.20.0", features = [
@@ -75,6 +76,7 @@ but-workspace = { path = "crates/but-workspace" }
 but-hunk-assignment = { path = "crates/but-hunk-assignment" }
 but-hunk-dependency = { path = "crates/but-hunk-dependency" }
 but-db = { path = "crates/but-db" }
+but-path = { path = "crates/but-path" }
 but-graph = { path = "crates/but-graph" }
 but-rules = { path = "crates/but-rules" }
 but-action = { path = "crates/but-action" }

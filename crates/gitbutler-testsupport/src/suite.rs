@@ -16,7 +16,6 @@ pub struct Suite {
     pub local_app_data: Option<TempDir>,
     pub storage: gitbutler_storage::Storage,
     pub users: gitbutler_user::Controller,
-    pub projects: gitbutler_project::Controller,
 }
 
 impl Drop for Suite {
@@ -32,12 +31,10 @@ impl Default for Suite {
         let local_app_data = temp_dir();
         let storage = gitbutler_storage::Storage::new(local_app_data.path());
         let users = gitbutler_user::Controller::from_path(local_app_data.path());
-        let projects = gitbutler_project::Controller::from_path(local_app_data.path());
         Self {
             storage,
             local_app_data: Some(local_app_data),
             users,
-            projects,
         }
     }
 }
@@ -71,8 +68,7 @@ impl Suite {
         commit_all(&repository);
 
         (
-            self.projects
-                .add(repository.path().parent().unwrap(), None, None)
+            gitbutler_project::add(repository.path().parent().unwrap(), None, None)
                 .expect("failed to add project"),
             tmp,
         )
@@ -118,11 +114,8 @@ impl Case {
         }
     }
 
-    pub fn refresh(mut self, suite: &Suite) -> Self {
-        let project = suite
-            .projects
-            .get(self.project.id)
-            .expect("failed to get project");
+    pub fn refresh(mut self, _suite: &Suite) -> Self {
+        let project = gitbutler_project::get(self.project.id).expect("failed to get project");
         let ctx = CommandContext::open(&project, AppSettings::default())
             .expect("failed to create project repository");
         Self {

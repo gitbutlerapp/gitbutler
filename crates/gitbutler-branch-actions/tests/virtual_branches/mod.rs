@@ -14,7 +14,6 @@ struct Test {
     repo: TestProject,
     project_id: ProjectId,
     project: Project,
-    projects: projects::Controller,
     data_dir: Option<TempDir>,
     ctx: CommandContext,
 }
@@ -30,18 +29,16 @@ impl Drop for Test {
 impl Default for Test {
     fn default() -> Self {
         let data_dir = paths::data_dir();
-        let projects = projects::Controller::from_path(data_dir.path());
 
         let test_project = TestProject::default();
-        let project = projects
-            .add(test_project.path(), None, None)
-            .expect("failed to add project");
+        gitbutler_testsupport::set_test_data_dir(data_dir.as_ref());
+        let project =
+            gitbutler_project::add(test_project.path(), None, None).expect("failed to add project");
         let ctx = CommandContext::open(&project, AppSettings::default()).unwrap();
 
         Self {
             repo: test_project,
             project_id: project.id,
-            projects,
             project,
             data_dir: Some(data_dir),
             ctx,

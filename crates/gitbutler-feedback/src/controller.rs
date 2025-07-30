@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
-use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 
 use crate::zipper::Zipper;
@@ -9,7 +8,6 @@ use crate::zipper::Zipper;
 pub struct Archival {
     pub cache_dir: PathBuf,
     pub logs_dir: PathBuf,
-    pub projects_controller: projects::Controller,
 }
 
 impl Archival {
@@ -20,7 +18,7 @@ impl Archival {
 
 impl Archival {
     pub fn archive(&self, project_id: ProjectId) -> Result<PathBuf> {
-        let project = self.projects_controller.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         self.zipper().zip(project.path)
     }
 

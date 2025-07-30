@@ -8,33 +8,27 @@ pub mod commands {
             available_review_templates, get_review_template_functions, ReviewTemplateFunctions,
         },
     };
-    use gitbutler_project::{Controller, ProjectId};
+    use gitbutler_project::ProjectId;
     use gitbutler_repo::RepoCommands;
-    use tauri::State;
     use tracing::instrument;
 
     use crate::error::Error;
 
     #[tauri::command(async)]
-    #[instrument(skip(projects), err(Debug))]
-    pub fn pr_templates(
-        projects: State<'_, Controller>,
-        project_id: ProjectId,
-        forge: ForgeName,
-    ) -> Result<Vec<String>, Error> {
-        let project = projects.get_validated(project_id)?;
+    #[instrument(err(Debug))]
+    pub fn pr_templates(project_id: ProjectId, forge: ForgeName) -> Result<Vec<String>, Error> {
+        let project = gitbutler_project::get_validated(project_id)?;
         Ok(available_review_templates(&project.path, &forge))
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects))]
+    #[instrument()]
     pub fn pr_template(
-        projects: State<'_, Controller>,
         project_id: ProjectId,
         relative_path: &Path,
         forge: ForgeName,
     ) -> anyhow::Result<String, Error> {
-        let project = projects.get_validated(project_id)?;
+        let project = gitbutler_project::get_validated(project_id)?;
 
         let ReviewTemplateFunctions {
             is_valid_review_template_path,

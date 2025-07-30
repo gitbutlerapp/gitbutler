@@ -58,8 +58,8 @@ fn main() -> Result<()> {
             }
         }
         args::Subcommands::Project(project::Platform {
-            app_data_dir,
-            app_suffix,
+            app_data_dir: _,
+            app_suffix: _,
             cmd,
         }) => match cmd {
             Some(project::SubCommands::SwitchToWorkspace { remote_ref_name }) => {
@@ -69,14 +69,8 @@ fn main() -> Result<()> {
             Some(project::SubCommands::Add {
                 switch_to_workspace,
                 path,
-            }) => {
-                let ctrl = command::prepare::project_controller(app_suffix, app_data_dir)?;
-                command::project::add(ctrl, path, switch_to_workspace)
-            }
-            None => {
-                let ctrl = command::prepare::project_controller(app_suffix, app_data_dir)?;
-                command::project::list(ctrl)
-            }
+            }) => command::project::add(path, switch_to_workspace),
+            None => command::project::list(),
         },
     }
 }

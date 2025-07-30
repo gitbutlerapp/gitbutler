@@ -8,8 +8,8 @@ use gitbutler_reference::RemoteRefname;
 
 use crate::command::debug_print;
 
-pub fn list(ctrl: gitbutler_project::Controller) -> Result<()> {
-    for project in ctrl.list()? {
+pub fn list() -> Result<()> {
+    for project in gitbutler_project::list()? {
         println!(
             "{id} {name} {path}",
             id = project.id,
@@ -20,17 +20,13 @@ pub fn list(ctrl: gitbutler_project::Controller) -> Result<()> {
     Ok(())
 }
 
-pub fn add(
-    ctrl: gitbutler_project::Controller,
-    path: PathBuf,
-    refname: Option<RemoteRefname>,
-) -> Result<()> {
+pub fn add(path: PathBuf, refname: Option<RemoteRefname>) -> Result<()> {
     let path = gix::discover(path)?
         .workdir()
         .context("Only non-bare repositories can be added")?
         .to_owned()
         .canonicalize()?;
-    let project = ctrl.add(path, None, None)?;
+    let project = gitbutler_project::add(path, None, None)?;
     let ctx = CommandContext::open(&project, AppSettings::default())?;
     if let Some(refname) = refname {
         gitbutler_branch_actions::set_base_branch(

@@ -13,7 +13,6 @@ use gitbutler_branch_actions::{update_workspace_commit, BranchManagerExt};
 use gitbutler_command_context::CommandContext;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, SnapshotExt};
-use gitbutler_project as projects;
 use gitbutler_project::{Project, ProjectId};
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
@@ -22,14 +21,13 @@ use tauri::State;
 use tracing::instrument;
 
 #[tauri::command(async)]
-#[instrument(skip(projects, settings), err(Debug))]
+#[instrument(skip(settings), err(Debug))]
 pub fn stacks(
-    projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     filter: Option<but_workspace::StacksFilter>,
 ) -> Result<Vec<StackEntry>, Error> {
-    let project = projects.get(project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     let repo = ctx.gix_repo_for_merging_non_persisting()?;
     if ctx.app_settings().feature_flags.ws3 {
@@ -43,13 +41,12 @@ pub fn stacks(
 
 #[cfg(unix)]
 #[tauri::command(async)]
-#[instrument(skip(projects, settings), err(Debug))]
+#[instrument(skip(settings), err(Debug))]
 pub fn show_graph_svg(
-    projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
 ) -> Result<(), Error> {
-    let project = projects.get(project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     let repo = ctx.gix_repo_minimal()?;
     let meta = ref_metadata_toml(&project)?;
@@ -88,14 +85,13 @@ pub fn show_graph_svg(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(projects, settings), err(Debug))]
+#[instrument(skip(settings), err(Debug))]
 pub fn stack_details(
-    projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     stack_id: Option<StackId>,
 ) -> Result<but_workspace::ui::StackDetails, Error> {
-    let project = projects.get(project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     if ctx.app_settings().feature_flags.ws3 {
         let repo = ctx.gix_repo_for_merging_non_persisting()?;
@@ -112,15 +108,14 @@ pub fn stack_details(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(projects, settings), err(Debug))]
+#[instrument(skip(settings), err(Debug))]
 pub fn branch_details(
-    projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     branch_name: &str,
     remote: Option<&str>,
 ) -> Result<but_workspace::ui::BranchDetails, Error> {
-    let project = projects.get(project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     if ctx.app_settings().feature_flags.ws3 {
         let repo = ctx.gix_repo_for_merging_non_persisting()?;
@@ -155,10 +150,9 @@ fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMet
 /// `stack_branch_name` is the short name of the reference that the UI knows is present in a given segment.
 /// It is necessary to insert the new commit into the right bucket.
 #[tauri::command(async)]
-#[instrument(skip(projects, settings), err(Debug))]
+#[instrument(skip(settings), err(Debug))]
 #[allow(clippy::too_many_arguments)]
 pub fn create_commit_from_worktree_changes(
-    projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     stack_id: StackId,
@@ -167,7 +161,7 @@ pub fn create_commit_from_worktree_changes(
     message: String,
     stack_branch_name: String,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
-    let project = projects.get(project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     let mut guard = project.exclusive_worktree_access();
     let snapshot_tree = ctx.prepare_snapshot(guard.read_permission());
@@ -202,16 +196,15 @@ pub fn create_commit_from_worktree_changes(
 /// Note that submodules *must* be provided as diffspec without hunks, as attempting to generate
 /// hunks would fail.
 #[tauri::command(async)]
-#[instrument(skip(projects, settings), err(Debug))]
+#[instrument(skip(settings), err(Debug))]
 pub fn amend_commit_from_worktree_changes(
-    projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     stack_id: StackId,
     commit_id: HexHash,
     worktree_changes: Vec<but_workspace::DiffSpec>,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
-    let project = projects.get(project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let mut guard = project.exclusive_worktree_access();
     let repo = but_core::open_repo_for_merging(project.worktree_path())?;
     let outcome = commit_engine::create_commit_and_update_refs_with_project(
@@ -240,14 +233,13 @@ pub fn amend_commit_from_worktree_changes(
 ///
 /// Returns the `worktree_changes` that couldn't be applied,
 #[tauri::command(async)]
-#[instrument(skip(projects, settings), err(Debug))]
+#[instrument(skip(settings), err(Debug))]
 pub fn discard_worktree_changes(
-    projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     worktree_changes: Vec<but_workspace::DiffSpec>,
 ) -> Result<Vec<but_workspace::DiffSpec>, Error> {
-    let project = projects.get(project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let repo = but_core::open_repo(project.worktree_path())?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     let mut guard = project.exclusive_worktree_access();
@@ -287,9 +279,8 @@ impl From<MoveChangesResult> for UIMoveChangesResult {
 
 #[allow(clippy::too_many_arguments)]
 #[tauri::command(async)]
-#[instrument(skip(projects, settings), err(Debug))]
+#[instrument(skip(settings), err(Debug))]
 pub fn move_changes_between_commits(
-    projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     source_stack_id: StackId,
@@ -298,7 +289,7 @@ pub fn move_changes_between_commits(
     destination_commit_id: HexHash,
     changes: Vec<but_workspace::DiffSpec>,
 ) -> Result<UIMoveChangesResult, Error> {
-    let project = projects.get(project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     let mut guard = project.exclusive_worktree_access();
 
@@ -324,9 +315,8 @@ pub fn move_changes_between_commits(
 
 #[allow(clippy::too_many_arguments)]
 #[tauri::command(async)]
-#[instrument(skip(projects, settings), err(Debug))]
+#[instrument(skip(settings), err(Debug))]
 pub fn split_branch(
-    projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     source_stack_id: StackId,
@@ -334,7 +324,7 @@ pub fn split_branch(
     new_branch_name: String,
     file_changes_to_split_off: Vec<String>,
 ) -> Result<UIMoveChangesResult, Error> {
-    let project = projects.get(project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     let mut guard = project.exclusive_worktree_access();
 
@@ -369,9 +359,8 @@ pub fn split_branch(
 
 #[allow(clippy::too_many_arguments)]
 #[tauri::command(async)]
-#[instrument(skip(projects, settings), err(Debug))]
+#[instrument(skip(settings), err(Debug))]
 pub fn split_branch_into_dependent_branch(
-    projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     source_stack_id: StackId,
@@ -379,7 +368,7 @@ pub fn split_branch_into_dependent_branch(
     new_branch_name: String,
     file_changes_to_split_off: Vec<String>,
 ) -> Result<UIMoveChangesResult, Error> {
-    let project = projects.get(project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     let mut guard = project.exclusive_worktree_access();
 
@@ -410,9 +399,8 @@ pub fn split_branch_into_dependent_branch(
 /// If `assign_to` is not provided, the changes will be unassigned.
 #[allow(clippy::too_many_arguments)]
 #[tauri::command(async)]
-#[instrument(skip(projects, settings), err(Debug))]
+#[instrument(skip(settings), err(Debug))]
 pub fn uncommit_changes(
-    projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     stack_id: StackId,
@@ -420,7 +408,7 @@ pub fn uncommit_changes(
     changes: Vec<but_workspace::DiffSpec>,
     assign_to: Option<StackId>,
 ) -> Result<UIMoveChangesResult, Error> {
-    let project = projects.get(project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let mut ctx = CommandContext::open(&project, settings.get()?.clone())?;
     let mut guard = project.exclusive_worktree_access();
 
@@ -494,15 +482,14 @@ pub fn uncommit_changes(
 /// Immediatelly after the changes are committed, the branch is unapplied from the workspace, and the "stash" branch can be re-applied at a later time
 /// In theory it should be possible to specify an existing "dumping" branch for this, but currently this endpoint expects a new branch.
 #[tauri::command(async)]
-#[instrument(skip(projects, settings), err(Debug))]
+#[instrument(skip(settings), err(Debug))]
 pub fn stash_into_branch(
-    projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     branch_name: String,
     worktree_changes: Vec<but_workspace::DiffSpec>,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
-    let project = projects.get(project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     let repo = ctx.gix_repo_for_merging()?;
 
@@ -556,13 +543,12 @@ pub fn stash_into_branch(
 /// Returns a new available branch name based on a simple template - user_initials-branch-count
 /// The main point of this is to be able to provide branch names that are not already taken.
 #[tauri::command(async)]
-#[instrument(skip(projects, settings), err(Debug))]
+#[instrument(skip(settings), err(Debug))]
 pub fn canned_branch_name(
-    projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
 ) -> Result<String, Error> {
-    let project = projects.get(project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     let template = gitbutler_stack::canned_branch_name(ctx.repo())?;
     let state = VirtualBranchesHandle::new(ctx.project().gb_dir());
@@ -571,15 +557,14 @@ pub fn canned_branch_name(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(projects, settings), err(Debug))]
+#[instrument(skip(settings), err(Debug))]
 pub fn target_commits(
-    projects: State<'_, projects::Controller>,
     settings: State<'_, AppSettingsWithDiskSync>,
     project_id: ProjectId,
     last_commit_id: Option<HexHash>,
     page_size: Option<usize>,
 ) -> Result<Vec<but_workspace::ui::Commit>, Error> {
-    let project = projects.get(project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     but_workspace::log_target_first_parent(
         &ctx,

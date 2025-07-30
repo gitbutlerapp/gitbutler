@@ -58,15 +58,13 @@ pub fn repo_and_maybe_project(
     mode: RepositoryOpenMode,
 ) -> anyhow::Result<(gix::Repository, Option<Project>)> {
     let repo = configured_repo(gix::discover(&args.current_dir)?, mode)?;
-    let res = if let Some((projects, work_dir)) =
-        project_controller(args.app_suffix.as_deref(), args.app_data_dir.as_deref())
-            .ok()
-            .zip(repo.workdir())
-    {
+    let res = if let Some(work_dir) = repo.workdir() {
         let work_dir = gix::path::realpath(work_dir)?;
         (
             repo,
-            projects.list()?.into_iter().find(|p| p.path == work_dir),
+            gitbutler_project::list()?
+                .into_iter()
+                .find(|p| p.path == work_dir),
         )
     } else {
         (repo, None)
@@ -77,36 +75,6 @@ pub fn repo_and_maybe_project(
 fn debug_print(this: impl std::fmt::Debug) -> anyhow::Result<()> {
     println!("{:#?}", this);
     Ok(())
-}
-
-fn project_controller(
-    app_suffix: Option<&str>,
-    app_data_dir: Option<&Path>,
-) -> anyhow::Result<gitbutler_project::Controller> {
-    let path = if let Some(dir) = app_data_dir {
-        std::fs::create_dir_all(dir).context("Failed to assure the designated data-dir exists")?;
-        dir.to_owned()
-    } else {
-        dirs_next::data_dir()
-            .map(|dir| {
-                dir.join(format!(
-                    "com.gitbutler.app{}",
-                    app_suffix
-                        .map(|suffix| {
-                            let mut suffix = suffix.to_owned();
-                            suffix.insert(0, '.');
-                            suffix
-                        })
-                        .unwrap_or_default()
-                ))
-            })
-            .context("no data-directory available on this platform")?
-    };
-    if !path.is_dir() {
-        bail!("Path '{}' must be a valid directory", path.display());
-    }
-    tracing::debug!("Using projects from '{}'", path.display());
-    Ok(gitbutler_project::Controller::from_path(path))
 }
 
 pub fn parse_diff_spec(arg: &Option<String>) -> Result<Option<Vec<DiffSpec>>, anyhow::Error> {

@@ -17,11 +17,7 @@ use gitbutler_user as users;
 use itertools::Itertools;
 
 /// Pushes the repository to the GitButler remote
-pub fn push_repo(
-    ctx: &CommandContext,
-    user: &users::User,
-    projects: &projects::Controller,
-) -> Result<()> {
+pub fn push_repo(ctx: &CommandContext, user: &users::User) -> Result<()> {
     let project = ctx.project();
     let vb_state = VirtualBranchesHandle::new(project.gb_dir());
     let default_target = vb_state.get_default_target()?;
@@ -33,7 +29,6 @@ pub fn push_repo(
 
     // Push target
     push_target(
-        projects,
         ctx,
         &default_target,
         gb_code_last_commit,
@@ -66,7 +61,6 @@ pub fn push_oplog(ctx: &CommandContext, user: &users::User) -> Result<()> {
 }
 
 fn push_target(
-    projects: &projects::Controller,
     ctx: &CommandContext,
     default_target: &Target,
     gb_code_last_commit: Option<git2::Oid>,
@@ -93,7 +87,7 @@ fn push_target(
         let refspec = format!("+{}:refs/push-tmp/{}", id, project_id);
 
         push_to_gitbutler_server(ctx, Some(user), &[&refspec], remote.clone())?;
-        update_project(projects, project_id, *id)?;
+        update_project(project_id, *id)?;
 
         tracing::info!(
             %project_id,
@@ -187,21 +181,16 @@ fn push_all_refs(
     }
     Ok(())
 }
-fn update_project(
-    projects: &projects::Controller,
-    project_id: Id<projects::Project>,
-    id: git2::Oid,
-) -> Result<()> {
-    projects
-        .update(&projects::UpdateRequest {
-            id: project_id,
-            gitbutler_code_push_state: Some(CodePushState {
-                id,
-                timestamp: time::SystemTime::now(),
-            }),
-            ..Default::default()
-        })
-        .context("failed to update last push")?;
+fn update_project(project_id: Id<projects::Project>, id: git2::Oid) -> Result<()> {
+    gitbutler_project::update(&projects::UpdateRequest {
+        id: project_id,
+        gitbutler_code_push_state: Some(CodePushState {
+            id,
+            timestamp: time::SystemTime::now(),
+        }),
+        ..Default::default()
+    })
+    .context("failed to update last push")?;
     Ok(())
 }
 

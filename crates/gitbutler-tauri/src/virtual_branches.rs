@@ -31,14 +31,13 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn create_virtual_branch(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         branch: BranchCreateRequest,
     ) -> Result<StackEntryNoOpt, Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let stack_entry = gitbutler_branch_actions::create_virtual_branch(
             &ctx,
@@ -49,31 +48,29 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn delete_local_branch(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         refname: Refname,
         given_name: String,
     ) -> Result<(), Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         gitbutler_branch_actions::delete_local_branch(&ctx, &refname, given_name)?;
         Ok(())
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn create_virtual_branch_from_branch(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         branch: Refname,
         remote: Option<RemoteRefname>,
         pr_number: Option<usize>,
     ) -> Result<StackId, Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let branch_id = gitbutler_branch_actions::create_virtual_branch_from_branch(
             &ctx, &branch, remote, pr_number,
@@ -82,16 +79,15 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn integrate_upstream_commits(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         stack_id: StackId,
         series_name: String,
         integration_strategy: Option<IntegrationStrategy>,
     ) -> Result<(), Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         gitbutler_branch_actions::integrate_upstream_commits(
             &ctx,
@@ -103,13 +99,12 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn get_base_branch_data(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
     ) -> Result<Option<BaseBranch>, Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         if let Ok(base_branch) = gitbutler_branch_actions::base::get_base_branch_data(&ctx) {
             Ok(Some(base_branch))
@@ -119,16 +114,15 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn set_base_branch(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         branch: &str,
         push_remote: Option<&str>, // optional different name of a remote to push to (defaults to same as the branch)
         stash_uncommitted: Option<bool>,
     ) -> Result<BaseBranch, Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let branch_name = format!("refs/remotes/{}", branch)
             .parse()
@@ -148,42 +142,39 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn push_base_branch(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         with_force: bool,
     ) -> Result<(), Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         gitbutler_branch_actions::push_base_branch(&ctx, with_force)?;
         Ok(())
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn update_stack_order(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         stacks: Vec<BranchUpdateRequest>,
     ) -> Result<(), Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         gitbutler_branch_actions::update_stack_order(&ctx, stacks)?;
         Ok(())
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn unapply_stack(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         stack_id: StackId,
     ) -> Result<(), Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = &mut CommandContext::open(&project, settings.get()?.clone())?;
         let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
             ctx,
@@ -203,14 +194,13 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn can_apply_remote_branch(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         branch: RemoteRefname,
     ) -> Result<bool, Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         Ok(gitbutler_branch_actions::can_apply_remote_branch(
             &ctx, &branch,
@@ -218,30 +208,28 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn list_commit_files(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         commit_id: String,
     ) -> Result<Vec<RemoteBranchFile>, Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
         gitbutler_branch_actions::list_commit_files(&ctx, commit_id).map_err(Into::into)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn amend_virtual_branch(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         stack_id: StackId,
         commit_id: String,
         worktree_changes: Vec<DiffSpec>,
     ) -> Result<String, Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
         let oid = gitbutler_branch_actions::amend(&ctx, stack_id, commit_id, worktree_changes)?;
@@ -249,10 +237,9 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     #[allow(clippy::too_many_arguments)]
     pub fn move_commit_file(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         stack_id: StackId,
@@ -260,7 +247,7 @@ pub mod commands {
         to_commit_id: String,
         ownership: BranchOwnershipClaims,
     ) -> Result<String, Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let from_commit_id = git2::Oid::from_str(&from_commit_id).map_err(|e| anyhow!(e))?;
         let to_commit_id = git2::Oid::from_str(&to_commit_id).map_err(|e| anyhow!(e))?;
@@ -276,15 +263,14 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn undo_commit(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         stack_id: StackId,
         commit_id: String,
     ) -> Result<(), Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
         gitbutler_branch_actions::undo_commit(&ctx, stack_id, commit_id)?;
@@ -292,16 +278,15 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn insert_blank_commit(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         stack_id: StackId,
         commit_id: Option<String>,
         offset: i32,
     ) -> Result<(), Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let commit_id = match commit_id {
             Some(oid) => git2::Oid::from_str(&oid).map_err(|e| anyhow!(e))?,
@@ -317,73 +302,68 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn reorder_stack(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         stack_id: StackId,
         stack_order: StackOrder,
     ) -> Result<(), Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         gitbutler_branch_actions::reorder_stack(&ctx, stack_id, stack_order)?;
         Ok(())
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn find_git_branches(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         branch_name: &str,
     ) -> Result<Vec<RemoteBranchData>, Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let branches = gitbutler_branch_actions::find_git_branches(&ctx, branch_name)?;
         Ok(branches)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn list_branches(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         filter: Option<BranchListingFilter>,
     ) -> Result<Vec<BranchListing>, Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let branches = gitbutler_branch_actions::list_branches(&ctx, filter, None)?;
         Ok(branches)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn get_branch_listing_details(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         branch_names: Vec<String>,
     ) -> Result<Vec<BranchListingDetails>, Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let branches = gitbutler_branch_actions::get_branch_listing_details(&ctx, branch_names)?;
         Ok(branches)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn squash_commits(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         stack_id: StackId,
         source_commit_ids: Vec<String>,
         target_commit_id: String,
     ) -> Result<(), Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let source_commit_ids: Vec<git2::Oid> = source_commit_ids
             .into_iter()
@@ -402,14 +382,13 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn fetch_from_remotes(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         action: Option<String>,
     ) -> Result<BaseBranch, Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
 
         let project_data_last_fetched = gitbutler_branch_actions::fetch_from_remotes(
@@ -420,13 +399,12 @@ pub mod commands {
         // Updates the project controller with the last fetched timestamp
         //
         // TODO: This cross dependency likely indicates that last_fetched is stored in the wrong place - value is coupled with virtual branches state
-        projects
-            .update(&projects::UpdateRequest {
-                id: project.id,
-                project_data_last_fetched: Some(project_data_last_fetched.clone()),
-                ..Default::default()
-            })
-            .context("failed to update project with last fetched timestamp")?;
+        gitbutler_project::update(&projects::UpdateRequest {
+            id: project.id,
+            project_data_last_fetched: Some(project_data_last_fetched.clone()),
+            ..Default::default()
+        })
+        .context("failed to update project with last fetched timestamp")?;
 
         if let FetchResult::Error { error, .. } = project_data_last_fetched {
             return Err(anyhow!(error).into());
@@ -437,16 +415,15 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn move_commit(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         commit_id: String,
         target_stack_id: StackId,
         source_stack_id: StackId,
     ) -> Result<(), Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
         gitbutler_branch_actions::move_commit(&ctx, target_stack_id, commit_id, source_stack_id)?;
@@ -454,16 +431,15 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn update_commit_message(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         stack_id: StackId,
         commit_id: String,
         message: &str,
     ) -> Result<String, Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
         let new_commit_id =
@@ -472,28 +448,26 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn find_commit(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         commit_id: String,
     ) -> Result<Option<RemoteCommit>, Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let commit_id = git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e))?;
         gitbutler_branch_actions::find_commit(&ctx, commit_id).map_err(Into::into)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn upstream_integration_statuses(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         target_commit_id: Option<String>,
     ) -> Result<StackStatuses, Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let commit_id = target_commit_id
             .map(|commit_id| git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e)))
@@ -504,15 +478,14 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn integrate_upstream(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         resolutions: Vec<Resolution>,
         base_branch_resolution: Option<BaseBranchResolution>,
     ) -> Result<IntegrationOutcome, Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let outcome = gitbutler_branch_actions::integrate_upstream(
             &ctx,
@@ -524,14 +497,13 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn resolve_upstream_integration(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         resolution_approach: BaseBranchResolutionApproach,
     ) -> Result<String, Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
 
         let new_target_id =

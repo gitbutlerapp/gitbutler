@@ -7,14 +7,14 @@ use super::{storage, storage::UpdateRequest, Project, ProjectId};
 use crate::AuthKey;
 
 #[derive(Clone)]
-pub struct Controller {
+pub(crate) struct Controller {
     local_data_dir: PathBuf,
     projects_storage: storage::Storage,
 }
 
 impl Controller {
     /// Assure we can list projects, and if not possibly existing projects files will be renamed, and an error is produced early.
-    pub fn assure_app_can_startup_or_fix_it(
+    pub(crate) fn assure_app_can_startup_or_fix_it(
         &self,
         projects: Result<Vec<Project>>,
     ) -> Result<Vec<Project>> {
@@ -52,7 +52,7 @@ impl Controller {
 }
 
 impl Controller {
-    pub fn from_path(path: impl Into<PathBuf>) -> Self {
+    pub(crate) fn from_path(path: impl Into<PathBuf>) -> Self {
         let path = path.into();
         Self {
             projects_storage: storage::Storage::from_path(&path),
@@ -60,7 +60,7 @@ impl Controller {
         }
     }
 
-    pub fn add<P: AsRef<Path>>(
+    pub(crate) fn add<P: AsRef<Path>>(
         &self,
         path: P,
         name: Option<String>,
@@ -149,7 +149,7 @@ impl Controller {
         Ok(project)
     }
 
-    pub fn update(&self, project: &UpdateRequest) -> Result<Project> {
+    pub(crate) fn update(&self, project: &UpdateRequest) -> Result<Project> {
         #[cfg(not(windows))]
         if let Some(AuthKey::Local {
             private_key_path, ..
@@ -188,13 +188,13 @@ impl Controller {
         self.projects_storage.update(project)
     }
 
-    pub fn get(&self, id: ProjectId) -> Result<Project> {
+    pub(crate) fn get(&self, id: ProjectId) -> Result<Project> {
         self.get_inner(id, false)
     }
 
     /// Only get the project information. No state validation is done.
     /// This is intended to be used only when updating the path of a missing project.
-    pub fn get_raw(&self, id: ProjectId) -> Result<Project> {
+    pub(crate) fn get_raw(&self, id: ProjectId) -> Result<Project> {
         #[cfg_attr(not(windows), allow(unused_mut))]
         let project = self.projects_storage.get(id)?;
         Ok(project)
@@ -202,7 +202,7 @@ impl Controller {
 
     /// Like [`Self::get()`], but will assure the project still exists and is valid by
     /// opening a git repository. This should only be done for critical points in time.
-    pub fn get_validated(&self, id: ProjectId) -> Result<Project> {
+    pub(crate) fn get_validated(&self, id: ProjectId) -> Result<Project> {
         self.get_inner(id, true)
     }
 
@@ -247,11 +247,11 @@ impl Controller {
         Ok(project)
     }
 
-    pub fn list(&self) -> Result<Vec<Project>> {
+    pub(crate) fn list(&self) -> Result<Vec<Project>> {
         self.projects_storage.list()
     }
 
-    pub fn delete(&self, id: ProjectId) -> Result<()> {
+    pub(crate) fn delete(&self, id: ProjectId) -> Result<()> {
         let Some(project) = self.projects_storage.try_get(id)? else {
             return Ok(());
         };
@@ -273,7 +273,7 @@ impl Controller {
         Ok(())
     }
 
-    pub fn project_metadata_dir(&self, id: ProjectId) -> PathBuf {
+    fn project_metadata_dir(&self, id: ProjectId) -> PathBuf {
         self.local_data_dir.join("projects").join(id.to_string())
     }
 }

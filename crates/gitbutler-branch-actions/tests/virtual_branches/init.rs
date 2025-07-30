@@ -5,14 +5,13 @@ use super::*;
 #[test]
 fn twice() {
     let data_dir = paths::data_dir();
-    let projects = projects::Controller::from_path(data_dir.path());
 
     let test_project = TestProject::default();
 
     {
-        let project = projects
-            .add(test_project.path(), None, None)
-            .expect("failed to add project");
+        gitbutler_testsupport::set_test_data_dir(data_dir.path());
+        let project =
+            gitbutler_project::add(test_project.path(), None, None).expect("failed to add project");
         let ctx = CommandContext::open(&project, AppSettings::default()).unwrap();
 
         gitbutler_branch_actions::set_base_branch(
@@ -24,11 +23,11 @@ fn twice() {
         .unwrap();
         let stacks = stack_details(&ctx);
         assert_eq!(stacks.len(), 0);
-        projects.delete(project.id).unwrap();
+        gitbutler_project::delete(project.id).unwrap();
     }
 
     {
-        let project = projects.add(test_project.path(), None, None).unwrap();
+        let project = gitbutler_project::add(test_project.path(), None, None).unwrap();
         let ctx = CommandContext::open(&project, AppSettings::default()).unwrap();
         gitbutler_branch_actions::set_base_branch(
             &ctx,

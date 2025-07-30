@@ -7,7 +7,7 @@ use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_command_context::CommandContext;
 use gitbutler_filemonitor::InternalEvent;
 use gitbutler_operating_modes::operating_mode;
-use gitbutler_project::{self as projects, ProjectId};
+use gitbutler_project::ProjectId;
 use gitbutler_sync::cloud::{push_oplog, push_repo};
 use gitbutler_user as users;
 use tracing::instrument;
@@ -22,7 +22,6 @@ pub struct Handler {
     // should be, and I can imagine having a top-level `app` handle that keeps the application state of
     // the tauri app, assuming that such application would not be `Send + Sync` everywhere and thus would
     // need extra protection.
-    projects: projects::Controller,
     users: users::Controller,
 
     /// A function to send events - decoupled from app-handle for testing purposes.
@@ -34,12 +33,10 @@ impl Handler {
     /// A constructor whose primary use is the test-suite.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        projects: projects::Controller,
         users: users::Controller,
         send_event: impl Fn(Change) -> Result<()> + Send + Sync + 'static,
     ) -> Self {
         Handler {
-            projects,
             users,
             send_event: Arc::new(send_event),
         }
@@ -82,10 +79,7 @@ impl Handler {
         project_id: ProjectId,
         app_settings: AppSettings,
     ) -> Result<CommandContext> {
-        let project = self
-            .projects
-            .get(project_id)
-            .context("failed to get project")?;
+        let project = gitbutler_project::get(project_id).context("failed to get project")?;
         CommandContext::open(&project, app_settings).context("Failed to create a command context")
     }
 
@@ -192,7 +186,7 @@ impl Handler {
                 push_oplog(ctx, &user)?;
             }
             if ctx.project().code_sync_enabled() {
-                push_repo(ctx, &user, &self.projects)?;
+                push_repo(ctx, &user)?;
             }
         }
         Ok(())

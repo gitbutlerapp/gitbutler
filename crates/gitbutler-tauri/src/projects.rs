@@ -8,7 +8,7 @@ pub mod commands {
     use anyhow::Context;
     use but_settings::AppSettingsWithDiskSync;
     use gitbutler_command_context::CommandContext;
-    use gitbutler_project::{self as projects, Controller, ProjectId};
+    use gitbutler_project::{self as projects, ProjectId};
     use std::path;
     use tauri::{State, Window};
     use tracing::instrument;
@@ -18,50 +18,43 @@ pub mod commands {
     use crate::{error::Error, projects::ProjectForFrontend, window, WindowState};
 
     #[tauri::command(async)]
-    #[instrument(skip(projects), err(Debug))]
-    pub fn update_project(
-        projects: State<'_, Controller>,
-        project: projects::UpdateRequest,
-    ) -> Result<projects::Project, Error> {
-        Ok(projects.update(&project)?)
+    #[instrument(err(Debug))]
+    pub fn update_project(project: projects::UpdateRequest) -> Result<projects::Project, Error> {
+        Ok(gitbutler_project::update(&project)?)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, users), err(Debug))]
+    #[instrument(skip(users), err(Debug))]
     pub fn add_project(
-        projects: State<'_, Controller>,
         users: State<'_, gitbutler_user::Controller>,
         path: &path::Path,
     ) -> Result<projects::Project, Error> {
         let user = users.get_user()?;
         let name = user.as_ref().and_then(|u| u.name.clone());
         let email = user.as_ref().and_then(|u| u.email.clone());
-        Ok(projects.add(path, name, email)?)
+        Ok(gitbutler_project::add(path, name, email)?)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects), err(Debug))]
+    #[instrument(err(Debug))]
     pub fn get_project(
-        projects: State<'_, Controller>,
         project_id: ProjectId,
         no_validation: Option<bool>,
     ) -> Result<projects::Project, Error> {
         if no_validation.unwrap_or(false) {
-            Ok(projects.get_raw(project_id)?)
+            Ok(gitbutler_project::get_raw(project_id)?)
         } else {
-            Ok(projects.get_validated(project_id)?)
+            Ok(gitbutler_project::get_validated(project_id)?)
         }
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, window_state), err(Debug))]
+    #[instrument(skip(window_state), err(Debug))]
     pub fn list_projects(
         window_state: State<'_, WindowState>,
-        projects: State<'_, Controller>,
     ) -> Result<Vec<ProjectForFrontend>, Error> {
         let open_projects = window_state.open_projects();
-        projects
-            .assure_app_can_startup_or_fix_it(projects.list())
+        gitbutler_project::assure_app_can_startup_or_fix_it(gitbutler_project::list())
             .map_err(Into::into)
             .map(|projects| {
                 projects
@@ -90,15 +83,14 @@ pub mod commands {
     ///
     /// We use it to start watching for filesystem events.
     #[tauri::command(async)]
-    #[instrument(skip(projects, window_state, window, app_settings), err(Debug), ret)]
+    #[instrument(skip(window_state, window, app_settings), err(Debug), ret)]
     pub fn set_project_active(
-        projects: State<'_, Controller>,
         window_state: State<'_, WindowState>,
         app_settings: State<'_, AppSettingsWithDiskSync>,
         window: Window,
         id: ProjectId,
     ) -> Result<Option<ProjectInfo>, Error> {
-        let project = match projects.get_validated(id).ok() {
+        let project = match gitbutler_project::get_validated(id).ok() {
             Some(project) => project,
             None => {
                 tracing::warn!("Project with ID {id} not found, cannot set it active");
@@ -131,9 +123,8 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, window_state, window), err(Debug))]
+    #[instrument(skip(window_state, window), err(Debug))]
     pub fn get_active_project(
-        projects: State<'_, Controller>,
         window_state: State<'_, WindowState>,
         window: Window,
     ) -> Result<Option<projects::Project>, Error> {
@@ -141,9 +132,7 @@ pub mod commands {
         let Some(project_id) = project_id else {
             return Ok(None);
         };
-        let project = projects
-            .get_validated(project_id)
-            .context("project not found")?;
+        let project = gitbutler_project::get_validated(project_id).context("project not found")?;
         Ok(Some(project))
     }
 
@@ -164,12 +153,9 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects), err(Debug))]
-    pub fn delete_project(
-        projects: State<'_, Controller>,
-        project_id: ProjectId,
-    ) -> Result<(), Error> {
-        projects.delete(project_id).map_err(Into::into)
+    #[instrument(err(Debug))]
+    pub fn delete_project(project_id: ProjectId) -> Result<(), Error> {
+        gitbutler_project::delete(project_id).map_err(Into::into)
     }
 }
 
