@@ -194,7 +194,7 @@ impl Controller {
 
     /// Only get the project information. No state validation is done.
     /// This is intended to be used only when updating the path of a missing project.
-    pub fn get_raw(&self, id: ProjectId) -> Result<Project> {
+    pub(crate) fn get_raw(&self, id: ProjectId) -> Result<Project> {
         #[cfg_attr(not(windows), allow(unused_mut))]
         let project = self.projects_storage.get(id)?;
         Ok(project)
@@ -202,7 +202,7 @@ impl Controller {
 
     /// Like [`Self::get()`], but will assure the project still exists and is valid by
     /// opening a git repository. This should only be done for critical points in time.
-    pub fn get_validated(&self, id: ProjectId) -> Result<Project> {
+    pub(crate) fn get_validated(&self, id: ProjectId) -> Result<Project> {
         self.get_inner(id, true)
     }
 

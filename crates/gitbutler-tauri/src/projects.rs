@@ -40,16 +40,15 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects), err(Debug))]
+    #[instrument(err(Debug))]
     pub fn get_project(
-        projects: State<'_, Controller>,
         project_id: ProjectId,
         no_validation: Option<bool>,
     ) -> Result<projects::Project, Error> {
         if no_validation.unwrap_or(false) {
-            Ok(projects.get_raw(project_id)?)
+            Ok(gitbutler_project::get_raw(project_id)?)
         } else {
-            Ok(projects.get_validated(project_id)?)
+            Ok(gitbutler_project::get_validated(project_id)?)
         }
     }
 
@@ -90,15 +89,14 @@ pub mod commands {
     ///
     /// We use it to start watching for filesystem events.
     #[tauri::command(async)]
-    #[instrument(skip(projects, window_state, window, app_settings), err(Debug), ret)]
+    #[instrument(skip(window_state, window, app_settings), err(Debug), ret)]
     pub fn set_project_active(
-        projects: State<'_, Controller>,
         window_state: State<'_, WindowState>,
         app_settings: State<'_, AppSettingsWithDiskSync>,
         window: Window,
         id: ProjectId,
     ) -> Result<Option<ProjectInfo>, Error> {
-        let project = match projects.get_validated(id).ok() {
+        let project = match gitbutler_project::get_validated(id).ok() {
             Some(project) => project,
             None => {
                 tracing::warn!("Project with ID {id} not found, cannot set it active");
@@ -131,9 +129,8 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, window_state, window), err(Debug))]
+    #[instrument(skip(window_state, window), err(Debug))]
     pub fn get_active_project(
-        projects: State<'_, Controller>,
         window_state: State<'_, WindowState>,
         window: Window,
     ) -> Result<Option<projects::Project>, Error> {
@@ -141,9 +138,7 @@ pub mod commands {
         let Some(project_id) = project_id else {
             return Ok(None);
         };
-        let project = projects
-            .get_validated(project_id)
-            .context("project not found")?;
+        let project = gitbutler_project::get_validated(project_id).context("project not found")?;
         Ok(Some(project))
     }
 
