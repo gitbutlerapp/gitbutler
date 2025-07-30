@@ -238,7 +238,7 @@
 					}
 
 					if (needsRealignment) {
-						setAlignment(true); // Skip side calculation during horizontal adjustments
+						setAlignment(); // Skip side calculation during horizontal adjustments
 					}
 				}
 			},

@@ -17,7 +17,6 @@
 		flat = false,
 		activated = false,
 		contextElement,
-		contextElementSelected = false,
 		testId,
 		onclick,
 		oncontext,
@@ -25,7 +24,6 @@
 	}: Props = $props();
 
 	let visible = $state(false);
-	let isContextElementFocused = $state(false);
 	let buttonElement = $state<HTMLElement>();
 	let isContextMenuOpen = $state(false);
 
@@ -46,13 +44,11 @@
 
 	function onFocus() {
 		if (!flat) return;
-		isContextElementFocused = true;
 		visible = true;
 	}
 
 	function onBlur() {
 		if (!flat) return;
-		isContextElementFocused = false;
 		visible = false;
 	}
 
