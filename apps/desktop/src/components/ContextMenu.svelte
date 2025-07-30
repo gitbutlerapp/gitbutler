@@ -126,30 +126,42 @@
 		setAlignment();
 
 		// Keep contextMenu in viewport
+		let repositionTimeout: number | undefined;
+		let hasRepositioned = false;
+
 		const observer = new IntersectionObserver(
 			(entries) => {
 				const entry = entries[0]!;
-				if (!entry.isIntersecting) {
+				if (!entry.isIntersecting && !hasRepositioned) {
 					const rect = entry.boundingClientRect;
 					const viewport = entry.rootBounds;
 					if (!viewport) return;
 
-					if (rect.right > viewport.right) {
-						horizontalAlign = 'right';
-						setAlignment();
+					// Clear any pending repositioning
+					if (repositionTimeout) {
+						clearTimeout(repositionTimeout);
 					}
-					if (rect.left < viewport.left) {
-						horizontalAlign = 'left';
-						setAlignment();
-					}
-					if (rect.bottom > viewport.bottom) {
-						side = 'top';
-						setAlignment();
-					}
-					if (rect.top < viewport.top) {
-						side = 'bottom';
-						setAlignment();
-					}
+
+					// Debounce repositioning to prevent flickering
+					repositionTimeout = setTimeout(() => {
+						hasRepositioned = true;
+						
+						if (rect.right > viewport.right) {
+							horizontalAlign = 'right';
+							setAlignment();
+						} else if (rect.left < viewport.left) {
+							horizontalAlign = 'left';
+							setAlignment();
+						}
+						
+						if (rect.bottom > viewport.bottom) {
+							side = 'top';
+							setAlignment();
+						} else if (rect.top < viewport.top) {
+							side = 'bottom';
+							setAlignment();
+						}
+					}, 16); // Single frame delay to prevent rapid repositioning
 				}
 			},
 			{
@@ -160,7 +172,12 @@
 		);
 
 		observer.observe(menuContainer);
-		return () => observer.disconnect();
+		return () => {
+			observer.disconnect();
+			if (repositionTimeout) {
+				clearTimeout(repositionTimeout);
+			}
+		};
 	});
 
 	function setTransformOrigin() {
