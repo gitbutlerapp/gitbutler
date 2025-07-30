@@ -29,6 +29,7 @@
 
 <script lang="ts">
 	import ContextMenu from '$components/ContextMenu.svelte';
+	import KebabButton from '$components/KebabButton.svelte';
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
@@ -43,9 +44,19 @@
 		projectId: string;
 		openId?: string;
 		context?: CommitMenuContext;
+		rightClickTrigger?: HTMLElement;
+		selected?: boolean;
+		contextData?: CommitContextData;
 	};
 
-	let { projectId, context = $bindable(), openId = $bindable() }: Props = $props();
+	let {
+		projectId,
+		context = $bindable(),
+		openId = $bindable(),
+		rightClickTrigger,
+		selected,
+		contextData
+	}: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
 	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
@@ -70,6 +81,27 @@
 		context = undefined;
 	}
 </script>
+
+{#if rightClickTrigger && contextData}
+	<KebabButton
+		flat
+		contextElement={rightClickTrigger}
+		onclick={(element) => {
+			context = {
+				position: { element },
+				data: contextData
+			};
+		}}
+		oncontext={(coords) => {
+			context = {
+				position: { coords },
+				data: contextData
+			};
+		}}
+		contextElementSelected={selected}
+		activated={context?.data.commitId === contextData.commitId && !!context.position.element}
+	/>
+{/if}
 
 {#if context?.data}
 	{@const { commitId, commitUrl, commitMessage } = context.data}

@@ -6,7 +6,6 @@
 	import CommitRow from '$components/CommitRow.svelte';
 	import CommitsAccordion from '$components/CommitsAccordion.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
-	import KebabButton from '$components/KebabButton.svelte';
 	import LineOverlay from '$components/LineOverlay.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { hasConflicts, isLocalAndRemoteCommit, isUpstreamCommit } from '$components/lib';
@@ -417,23 +416,12 @@
 												isAncestorMostConflicted: ancestorMostConflicted?.id === commit.id
 											})
 									}}
-									<KebabButton
-										flat
-										contextElement={rightClickTrigger}
-										onclick={(element) => {
-											commitMenuContext = {
-												position: { element },
-												data
-											};
-										}}
-										oncontext={(coords) =>
-											(commitMenuContext = {
-												position: { coords },
-												data
-											})}
-										contextElementSelected={selected}
-										activated={commit.id === commitMenuContext?.data.commitId &&
-											!!commitMenuContext.position.element}
+									<CommitContextMenu
+										{projectId}
+										bind:context={commitMenuContext}
+										{rightClickTrigger}
+										{selected}
+										contextData={data}
 									/>
 								{/snippet}
 							</CommitRow>
@@ -464,10 +452,6 @@
 		{/if}
 	{/snippet}
 </ReduxResult>
-
-{#if commitMenuContext}
-	<CommitContextMenu {projectId} bind:context={commitMenuContext} />
-{/if}
 
 <style lang="postcss">
 	.commit-list {
