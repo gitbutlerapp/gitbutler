@@ -88,6 +88,7 @@
 		{flat}
 		bind:el={kebabButtonElement}
 		contextElement={rightClickTrigger}
+		testId={TestId.KebabMenuButton}
 		onclick={() => {
 			contextMenu?.open();
 		}}
@@ -96,7 +97,12 @@
 		}}
 	/>
 
-	<ContextMenu bind:this={contextMenu} leftClickTrigger={kebabButtonElement} {rightClickTrigger}>
+	<ContextMenu
+		bind:this={contextMenu}
+		leftClickTrigger={kebabButtonElement}
+		{rightClickTrigger}
+		testId={TestId.CommitRowContextMenu}
+	>
 		{#if contextData}
 			{@const { commitId, commitUrl, commitMessage } = contextData}
 			{#if contextData.commitStatus === 'LocalAndRemote' || contextData.commitStatus === 'LocalOnly'}

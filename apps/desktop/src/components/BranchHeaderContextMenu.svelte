@@ -131,6 +131,7 @@
 	<KebabButton
 		bind:el={kebabButtonElement}
 		contextElement={rightClickTrigger}
+		testId={TestId.KebabMenuButton}
 		onclick={() => {
 			contextMenu?.open();
 		}}
@@ -139,7 +140,12 @@
 		}}
 	/>
 
-	<ContextMenu bind:this={contextMenu} leftClickTrigger={kebabButtonElement} {rightClickTrigger}>
+	<ContextMenu
+		bind:this={contextMenu}
+		leftClickTrigger={kebabButtonElement}
+		{rightClickTrigger}
+		testId={TestId.BranchHeaderContextMenu}
+	>
 		{#if contextData}
 			{@const { branch, prNumber, first, stackLength } = contextData}
 			{@const branchName = branch.name}
