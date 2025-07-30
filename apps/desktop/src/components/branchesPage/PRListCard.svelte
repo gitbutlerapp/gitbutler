@@ -2,6 +2,7 @@
 	import BranchesCardTemplate from '$components/branchesPage/BranchesCardTemplate.svelte';
 	import { TestId } from '$lib/testing/testIds';
 	import { Avatar, ReviewBadge, SeriesIcon, TimeAgo } from '@gitbutler/ui';
+	import type { ReviewUnitInfo } from '$lib/forge/interface/forgePrService';
 	type basePrData = {
 		number: number;
 		isDraft: boolean;
@@ -17,12 +18,14 @@
 	};
 
 	interface Props extends basePrData {
+		reviewUnit: ReviewUnitInfo | undefined;
 		onclick?: (prData: basePrData) => void;
 		selected?: boolean;
 		noRemote?: boolean;
 	}
 
 	const {
+		reviewUnit,
 		selected,
 		noRemote,
 		isDraft,
@@ -59,7 +62,12 @@
 		</div>
 
 		<div class="text-12 sidebar-entry__about">
-			<ReviewBadge type="PR" status={isDraft ? 'draft' : 'unknown'} {title} {number} />
+			<ReviewBadge
+				type={reviewUnit?.abbr}
+				status={isDraft ? 'draft' : 'unknown'}
+				{title}
+				{number}
+			/>
 			<span class="sidebar-entry__divider">•</span>
 
 			{#if noRemote || !sourceBranch}

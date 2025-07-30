@@ -9,9 +9,11 @@
 
 	import { AvatarGroup, ReviewBadge, SeriesLabelsRow, TimeAgo } from '@gitbutler/ui';
 	import { gravatarUrlFromEmail } from '@gitbutler/ui/components/avatar/gravatar';
+	import type { ReviewUnitInfo } from '$lib/forge/interface/forgePrService';
 	import type { PullRequest } from '$lib/forge/interface/types';
 
 	interface Props {
+		reviewUnit: ReviewUnitInfo | undefined;
 		projectId: string;
 		branchListing: BranchListing;
 		prs: PullRequest[];
@@ -19,7 +21,7 @@
 		onclick: (args: { listing: BranchListing; pr?: PullRequest }) => void;
 	}
 
-	const { projectId, branchListing, prs, selected, onclick }: Props = $props();
+	const { reviewUnit, projectId, branchListing, prs, selected, onclick }: Props = $props();
 
 	const unknownName = 'unknown';
 	const unknownEmail = 'example@example.com';
@@ -122,7 +124,7 @@
 		<div class="text-12 sidebar-entry__about">
 			{#if pr}
 				<ReviewBadge
-					type="PR"
+					type={reviewUnit?.abbr}
 					status={pr.draft ? 'draft' : 'unknown'}
 					title={pr.title}
 					number={pr.number}

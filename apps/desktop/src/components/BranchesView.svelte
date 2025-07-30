@@ -21,6 +21,7 @@
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { HorizontalPanner } from '$lib/dragging/horizontalPanner';
 	import { isParsedError } from '$lib/error/parser';
+	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { workspacePath } from '$lib/routes/routes.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
@@ -41,6 +42,9 @@
 	const uiState = inject(UI_STATE);
 	const stackService = inject(STACK_SERVICE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
+	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const prService = $derived(forge.current.prService);
+	const prUnit = $derived(prService?.unit);
 
 	const projectState = $derived(uiState.project(projectId));
 	const branchesState = $derived(projectState.branchesSelection);
@@ -213,6 +217,7 @@
 						{#snippet sidebarEntry(sidebarEntrySubject: SidebarEntrySubject)}
 							{#if sidebarEntrySubject.type === 'branchListing'}
 								<BranchListCard
+									reviewUnit={prUnit}
 									{projectId}
 									branchListing={sidebarEntrySubject.subject}
 									prs={sidebarEntrySubject.prs}
@@ -240,6 +245,7 @@
 								/>
 							{:else}
 								<PRListCard
+									reviewUnit={prUnit}
 									number={sidebarEntrySubject.subject.number}
 									isDraft={sidebarEntrySubject.subject.draft}
 									title={sidebarEntrySubject.subject.title}

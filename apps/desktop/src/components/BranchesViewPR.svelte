@@ -26,6 +26,7 @@
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const prService = $derived(forge.current.prService);
 	const prResult = $derived(prService?.get(prNumber, { forceRefetch: true }));
+	const prUnit = $derived(prService?.unit);
 
 	const uiState = inject(UI_STATE);
 	const projectState = $derived(uiState.project(projectId));
@@ -96,6 +97,7 @@
 	{#snippet children(pr)}
 		<div class="pr-card">
 			<PRListCard
+				reviewUnit={prUnit}
 				number={pr.number}
 				title={pr.title}
 				sourceBranch={pr.sourceBranch}
