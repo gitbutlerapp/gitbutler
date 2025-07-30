@@ -232,12 +232,7 @@
 
 <div class="profile-page">
 	<div class="content">
-		{#if !$token}
-			<SectionCard>
-				<h1 class="title">Who this?</h1>
-				<p>Log into your butler account, create one or do whatever you please.</p>
-			</SectionCard>
-		{:else if !$user?.id}
+		{#if !$token || !$user?.id}
 			<p>Loading...</p>
 		{:else}
 			<h1 class="title">My Preferences</h1>
