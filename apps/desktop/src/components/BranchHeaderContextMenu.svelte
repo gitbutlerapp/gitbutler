@@ -1,11 +1,13 @@
 <script lang="ts" module>
+	export type BranchHeaderContextData = {
+		branch: BranchDetails;
+		prNumber?: number;
+		first?: boolean;
+		stackLength: number;
+	};
+
 	export type BranchHeaderContextItem = {
-		data: {
-			branch: BranchDetails;
-			prNumber?: number;
-			first?: boolean;
-			stackLength: number;
-		};
+		data: BranchHeaderContextData;
 		position: { coords?: { x: number; y: number }; element?: HTMLElement };
 	};
 </script>
@@ -17,7 +19,6 @@
 	import BranchRenameModal, {
 		type BranchRenameModalProps
 	} from '$components/BranchRenameModal.svelte';
-	import ContextMenu from '$components/ContextMenu.svelte';
 	import DeleteBranchModal, {
 		type DeleteBranchModalProps
 	} from '$components/DeleteBranchModal.svelte';
@@ -31,7 +32,7 @@
 	import { TestId } from '$lib/testing/testIds';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
-	import { ContextMenuItem, ContextMenuSection } from '@gitbutler/ui';
+	import { ContextMenu, ContextMenuItem, ContextMenuSection, KebabButton } from '@gitbutler/ui';
 
 	import { tick } from 'svelte';
 	import type { BranchDetails } from '$lib/stacks/stack';
@@ -41,9 +42,18 @@
 		stackId?: string;
 		openId?: string;
 		context?: BranchHeaderContextItem;
+		rightClickTrigger?: HTMLElement;
+		contextData?: BranchHeaderContextData;
 	};
 
-	let { projectId, stackId, context = $bindable(), openId: openId = $bindable() }: Props = $props();
+	let {
+		projectId,
+		stackId,
+		context = $bindable(),
+		openId = $bindable(),
+		rightClickTrigger,
+		contextData
+	}: Props = $props();
 
 	const aiService = inject(AI_SERVICE);
 	const stackService = inject(STACK_SERVICE);
@@ -67,7 +77,8 @@
 
 	let aiConfigurationValid = $state(false);
 
-	let contextMenu = $state<ContextMenu>();
+	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
+	let kebabButtonElement = $state<HTMLElement>();
 
 	let renameBranchModal = $state<BranchRenameModal>();
 	let renameBranchModalContext = $state<BranchRenameModalProps>();
@@ -112,173 +123,181 @@
 	});
 
 	function close() {
-		context = undefined;
+		contextMenu?.close();
 	}
 </script>
 
-{#if context}
-	{@const { branch, prNumber, first, stackLength } = context.data}
-	{@const branchName = branch.name}
-	<ContextMenu
-		bind:this={contextMenu}
-		onclose={() => (context = undefined)}
-		testId={TestId.BranchHeaderContextMenu}
-		position={context.position}
-	>
-		{#if first && stackId}
+{#if rightClickTrigger && contextData}
+	<KebabButton
+		bind:el={kebabButtonElement}
+		contextElement={rightClickTrigger}
+		onclick={() => {
+			contextMenu?.open();
+		}}
+		oncontext={(e) => {
+			contextMenu?.open(e);
+		}}
+	/>
+
+	<ContextMenu bind:this={contextMenu} leftClickTrigger={kebabButtonElement} {rightClickTrigger}>
+		{#if contextData}
+			{@const { branch, prNumber, first, stackLength } = contextData}
+			{@const branchName = branch.name}
+			{#if first && stackId}
+				<ContextMenuSection>
+					<ContextMenuItem
+						label="Add dependent branch"
+						testId={TestId.BranchHeaderContextMenu_AddDependentBranch}
+						onclick={async () => {
+							addDependentBranchModalContext = {
+								projectId,
+								stackId
+							};
+
+							await tick();
+
+							addDependentBranchModal?.show();
+							close();
+						}}
+					/>
+				</ContextMenuSection>
+			{/if}
 			<ContextMenuSection>
+				{#if branch.remoteTrackingBranch}
+					<ContextMenuItem
+						label="Open in browser"
+						testId={TestId.BranchHeaderContextMenu_OpenInBrowser}
+						onclick={() => {
+							const url = forge.current.branch(branchName)?.url;
+							if (url) openExternalUrl(url);
+							close();
+						}}
+					/>
+				{/if}
 				<ContextMenuItem
-					label="Add dependent branch"
-					testId={TestId.BranchHeaderContextMenu_AddDependentBranch}
-					onclick={async () => {
-						addDependentBranchModalContext = {
-							projectId,
-							stackId
-						};
-
-						await tick();
-
-						addDependentBranchModal?.show();
+					label="Copy branch name"
+					testId={TestId.BranchHeaderContextMenu_CopyBranchName}
+					onclick={() => {
+						writeClipboard(branch?.name);
 						close();
 					}}
 				/>
 			</ContextMenuSection>
-		{/if}
-		<ContextMenuSection>
-			{#if branch.remoteTrackingBranch}
-				<ContextMenuItem
-					label="Open in browser"
-					testId={TestId.BranchHeaderContextMenu_OpenInBrowser}
-					onclick={() => {
-						const url = forge.current.branch(branchName)?.url;
-						if (url) openExternalUrl(url);
-						close();
-					}}
-				/>
-			{/if}
-			<ContextMenuItem
-				label="Copy branch name"
-				testId={TestId.BranchHeaderContextMenu_CopyBranchName}
-				onclick={() => {
-					writeClipboard(branch?.name);
-					close();
-				}}
-			/>
-		</ContextMenuSection>
-		{#if stackId}
-			<ContextMenuSection>
-				<ContextMenuItem
-					label="Add empty commit"
-					onclick={async () => {
-						await insertBlankCommitInBranch({
-							projectId,
-							stackId,
-							commitId: undefined,
-							offset: -1
-						});
-						close();
-					}}
-					disabled={commitInsertion.current.isLoading}
-				/>
-				{#if branch.commits.length > 1}
+			{#if stackId}
+				<ContextMenuSection>
 					<ContextMenuItem
-						label="Squash all commits"
-						testId={TestId.BranchHeaderContextMenu_SquashAllCommits}
+						label="Add empty commit"
 						onclick={async () => {
-							await stackService.squashAllCommits({
+							await insertBlankCommitInBranch({
 								projectId,
 								stackId,
-								branchName
+								commitId: undefined,
+								offset: -1
 							});
 							close();
 						}}
-						disabled={isConflicted}
-						tooltip={isConflicted ? 'This branch has conflicts' : undefined}
+						disabled={commitInsertion.current.isLoading}
 					/>
-				{/if}
-				{#if $aiGenEnabled && aiConfigurationValid && !branch.remoteTrackingBranch && stackId}
-					<ContextMenuItem
-						label="Generate branch name"
-						testId={TestId.BranchHeaderContextMenu_GenerateBranchName}
-						onclick={() => {
-							generateBranchName(stackId, branchName);
-							close();
-						}}
-					/>
-				{/if}
-				{#if branchType !== 'Integrated'}
-					<ContextMenuItem
-						label="Rename"
-						testId={TestId.BranchHeaderContextMenu_Rename}
-						onclick={async () => {
-							renameBranchModalContext = {
-								projectId,
-								stackId,
-								branchName,
-								isPushed: !!branch.remoteTrackingBranch
-							};
-							await tick();
-							renameBranchModal?.show();
-							close();
-						}}
-					/>
-				{/if}
-				{#if stackLength && stackLength > 1}
-					<ContextMenuItem
-						label="Delete"
-						testId={TestId.BranchHeaderContextMenu_Delete}
-						onclick={async () => {
-							deleteBranchModalContext = {
-								projectId,
-								stackId,
-								branchName
-							};
-							await tick();
-							deleteBranchModal?.show();
-							close();
-						}}
-					/>
-				{/if}
-			</ContextMenuSection>
-		{/if}
-		{#if prNumber}
-			{@const prResult = forge.current.prService?.get(prNumber)}
-			<ReduxResult {projectId} {stackId} result={prResult?.current}>
-				{#snippet children(pr)}
-					<ContextMenuSection>
+					{#if branch.commits.length > 1}
 						<ContextMenuItem
-							label="Open PR in browser"
-							testId={TestId.BranchHeaderContextMenu_OpenPRInBrowser}
+							label="Squash all commits"
+							testId={TestId.BranchHeaderContextMenu_SquashAllCommits}
+							onclick={async () => {
+								await stackService.squashAllCommits({
+									projectId,
+									stackId,
+									branchName
+								});
+								close();
+							}}
+							disabled={isConflicted}
+							tooltip={isConflicted ? 'This branch has conflicts' : undefined}
+						/>
+					{/if}
+					{#if $aiGenEnabled && aiConfigurationValid && !branch.remoteTrackingBranch && stackId}
+						<ContextMenuItem
+							label="Generate branch name"
+							testId={TestId.BranchHeaderContextMenu_GenerateBranchName}
 							onclick={() => {
-								openExternalUrl(pr.htmlUrl);
+								generateBranchName(stackId, branchName);
 								close();
 							}}
 						/>
+					{/if}
+					{#if branchType !== 'Integrated'}
 						<ContextMenuItem
-							label="Copy PR link"
-							testId={TestId.BranchHeaderContextMenu_CopyPRLink}
-							onclick={() => {
-								writeClipboard(pr.htmlUrl);
+							label="Rename"
+							testId={TestId.BranchHeaderContextMenu_Rename}
+							onclick={async () => {
+								renameBranchModalContext = {
+									projectId,
+									stackId,
+									branchName,
+									isPushed: !!branch.remoteTrackingBranch
+								};
+								await tick();
+								renameBranchModal?.show();
 								close();
 							}}
 						/>
-					</ContextMenuSection>
-				{/snippet}
-				<!-- For now, just swallow this error -->
-				{#snippet error()}{/snippet}
-			</ReduxResult>
-		{/if}
+					{/if}
+					{#if stackLength && stackLength > 1}
+						<ContextMenuItem
+							label="Delete"
+							testId={TestId.BranchHeaderContextMenu_Delete}
+							onclick={async () => {
+								deleteBranchModalContext = {
+									projectId,
+									stackId,
+									branchName
+								};
+								await tick();
+								deleteBranchModal?.show();
+								close();
+							}}
+						/>
+					{/if}
+				</ContextMenuSection>
+			{/if}
+			{#if prNumber}
+				{@const prResult = forge.current.prService?.get(prNumber)}
+				<ReduxResult {projectId} {stackId} result={prResult?.current}>
+					{#snippet children(pr)}
+						<ContextMenuSection>
+							<ContextMenuItem
+								label="Open PR in browser"
+								testId={TestId.BranchHeaderContextMenu_OpenPRInBrowser}
+								onclick={() => {
+									openExternalUrl(pr.htmlUrl);
+									close();
+								}}
+							/>
+							<ContextMenuItem
+								label="Copy PR link"
+								testId={TestId.BranchHeaderContextMenu_CopyPRLink}
+								onclick={() => {
+									writeClipboard(pr.htmlUrl);
+									close();
+								}}
+							/>
+						</ContextMenuSection>
+					{/snippet}
+					<!-- For now, just swallow this error -->
+					{#snippet error()}{/snippet}
+				</ReduxResult>
+			{/if}
 
-		{#if stackId && first}
-			<ContextMenuSection>
-				<ContextMenuItem
-					label="Unapply Stack"
-					onclick={async () => {
-						await stackService.unapply({ projectId, stackId });
-						close();
-					}}
-				/>
-			</ContextMenuSection>
+			{#if stackId && first}
+				<ContextMenuSection>
+					<ContextMenuItem
+						label="Unapply Stack"
+						onclick={async () => {
+							await stackService.unapply({ projectId, stackId });
+							close();
+						}}
+					/>
+				</ContextMenuSection>
+			{/if}
 		{/if}
 	</ContextMenu>
 {/if}

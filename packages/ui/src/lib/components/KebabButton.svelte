@@ -26,6 +26,7 @@
 	let visible = $state(false);
 	let buttonElement = $state<HTMLElement>();
 	let isContextMenuOpen = $state(false);
+	let openedViaClick = $state(false);
 
 	// Keep el in sync with buttonElement
 	$effect(() => {
@@ -55,6 +56,7 @@
 	function onContextMenu(e: MouseEvent) {
 		e.preventDefault(); // Prevent default to avoid browser context menu
 		isContextMenuOpen = true;
+		openedViaClick = false; // Context menu opened via right-click
 		oncontext?.(e);
 	}
 
@@ -62,6 +64,7 @@
 		e.stopPropagation();
 		e.preventDefault();
 		isContextMenuOpen = !isContextMenuOpen;
+		openedViaClick = isContextMenuOpen; // Track if opened via click
 		onclick?.(e.currentTarget as HTMLElement);
 	}
 
@@ -88,6 +91,7 @@
 			function handleClickOutside(e: MouseEvent) {
 				if (buttonElement && !buttonElement.contains(e.target as Node)) {
 					isContextMenuOpen = false;
+					openedViaClick = false; // Reset when closing
 				}
 			}
 			document.addEventListener('click', handleClickOutside);
@@ -104,7 +108,7 @@
 		type="button"
 		class="kebab-btn"
 		class:visible={visible || isContextMenuOpen}
-		class:activated
+		class:activated={activated || (isContextMenuOpen && openedViaClick)}
 		onclick={onClick}
 		data-testid={testId}
 	>
@@ -117,7 +121,7 @@
 		size="tag"
 		icon="kebab"
 		kind="ghost"
-		activated={isContextMenuOpen}
+		activated={activated || (isContextMenuOpen && openedViaClick)}
 		onclick={onClick}
 	/>
 {/if}
