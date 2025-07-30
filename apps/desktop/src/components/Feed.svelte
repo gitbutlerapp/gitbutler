@@ -80,7 +80,7 @@
 	function handleKeyDown(event: KeyboardEvent | null): boolean {
 		if (event === null) return false;
 
-		if (event.key === 'Enter' && !event.shiftKey) {
+		if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
 			event.preventDefault();
 			event.stopPropagation();
 			sendCommand();

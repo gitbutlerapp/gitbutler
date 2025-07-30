@@ -31,7 +31,7 @@
 		bind:value={input}
 		wide
 		onkeydown={(e) => {
-			if (e.key === 'Enter') onclick();
+			if (e.key === 'Enter' && !e.isComposing) onclick();
 		}}
 	/>
 	<Button type="button" size="button" style="pop" {onclick}>send</Button>
