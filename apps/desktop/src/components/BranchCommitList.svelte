@@ -417,10 +417,10 @@
 											})
 									}}
 									<CommitContextMenu
+										flat
 										{projectId}
 										bind:context={commitMenuContext}
 										{rightClickTrigger}
-										{selected}
 										contextData={data}
 									/>
 								{/snippet}

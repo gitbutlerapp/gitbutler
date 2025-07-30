@@ -4,7 +4,6 @@
 	import CommitMessageEditor from '$components/CommitMessageEditor.svelte';
 	import CommitTitle from '$components/CommitTitle.svelte';
 	import Drawer from '$components/Drawer.svelte';
-	import KebabButton from '$components/KebabButton.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import { isLocalAndRemoteCommit } from '$components/lib';
@@ -215,11 +214,11 @@
 						}
 					: undefined}
 				{#if data}
-					<KebabButton
-						contextElement={header}
-						onclick={(element) => (commitMenuContext = { data, position: { element } })}
-						oncontext={(coords) => (commitMenuContext = { data, position: { coords } })}
-						activated={!!commitMenuContext?.position.element}
+					<CommitContextMenu
+						{projectId}
+						bind:context={commitMenuContext}
+						rightClickTrigger={header}
+						contextData={data}
 					/>
 				{/if}
 			{/snippet}
@@ -252,10 +251,6 @@
 		</Drawer>
 	{/snippet}
 </ReduxResult>
-
-{#if commitMenuContext}
-	<CommitContextMenu {projectId} bind:context={commitMenuContext} />
-{/if}
 
 <style>
 	.commit-view {
