@@ -103,11 +103,12 @@ fn main() {
                             }
                         });
                     }
+                    let app_data_dir =
+                        but_path::app_data_dir().expect("failed to get app data dir");
 
-                    let (app_data_dir, app_cache_dir, app_log_dir) = {
+                    let (app_cache_dir, app_log_dir) = {
                         let paths = app_handle.path();
                         (
-                            paths.app_data_dir().expect("missing app data dir"),
                             paths.app_cache_dir().expect("missing app cache dir"),
                             paths.app_log_dir().expect("missing app log dir"),
                         )

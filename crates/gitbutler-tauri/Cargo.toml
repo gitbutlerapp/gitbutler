@@ -83,6 +83,7 @@ but-hunk-dependency.workspace = true
 but-hunk-assignment.workspace = true
 but-action.workspace = true
 but-rules.workspace = true
+but-path.workspace = true
 open = "5"
 url = "2.5.4"
 dirs = "6.0.0"
