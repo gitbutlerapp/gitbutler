@@ -8,8 +8,14 @@ import type { ReactiveResult } from '$lib/state/butlerModule';
 import type { StartQueryActionCreatorOptions } from '@reduxjs/toolkit/query';
 import type { Writable } from 'svelte/store';
 
+export type ReviewUnitInfo = {
+	name: string;
+	abbr: string;
+	symbol: string;
+};
+
 export interface ForgePrService {
-	readonly unit: { name: string; abbr: string; symbol: string };
+	readonly unit: ReviewUnitInfo;
 	loading: Writable<boolean>;
 	get(
 		prNumber: number,
