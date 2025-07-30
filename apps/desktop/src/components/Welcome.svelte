@@ -85,7 +85,7 @@
 			<p class="links__title text-14 text-bold">Join our community</p>
 			<div class="community-links">
 				<IconLink icon="discord" href="https://discord.gg/MmFkmaJ42D">Discord</IconLink>
-				<IconLink icon="x" href="https://twitter.com/gitbutler">X</IconLink>
+				<IconLink icon="bluesky" href="https://bsky.app/profile/gitbutler.com">Bluesky</IconLink>
 				<IconLink icon="instagram" href="https://www.instagram.com/gitbutler/">Instagram</IconLink>
 				<IconLink icon="youtube" href="https://www.youtube.com/@gitbutlerapp">YouTube</IconLink>
 			</div>

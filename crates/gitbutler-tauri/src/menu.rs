@@ -220,7 +220,7 @@ pub fn build<R: Runtime>(handle: &AppHandle<R>) -> tauri::Result<tauri::menu::Me
         .separator()
         .text("help/discord", "Discord")
         .text("help/youtube", "YouTube")
-        .text("help/Bluesky", "Bluesky")
+        .text("help/bluesky", "Bluesky")
         .text("help/x", "X")
         .separator()
         .item(
