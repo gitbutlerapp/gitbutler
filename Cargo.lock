@@ -3190,6 +3190,7 @@ name = "gitbutler-project"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-path",
  "fslock",
  "git2",
  "gitbutler-error",

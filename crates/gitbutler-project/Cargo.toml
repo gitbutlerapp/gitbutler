@@ -11,6 +11,7 @@ parking_lot = { workspace = true, features = ["arc_lock"] }
 serde = { workspace = true, features = ["std"] }
 serde_json = { version = "1.0", features = ["std", "arbitrary_precision"] }
 gitbutler-error.workspace = true
+but-path.workspace = true
 gitbutler-serde.workspace = true
 gitbutler-id.workspace = true
 gitbutler-storage.workspace = true
