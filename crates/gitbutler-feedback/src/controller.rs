@@ -20,7 +20,7 @@ impl Archival {
 
 impl Archival {
     pub fn archive(&self, project_id: ProjectId) -> Result<PathBuf> {
-        let project = self.projects_controller.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         self.zipper().zip(project.path)
     }
 

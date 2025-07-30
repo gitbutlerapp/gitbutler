@@ -18,15 +18,14 @@ use tracing::instrument;
 /// Provide a unified diff for `change`, but fail if `change` is a [type-change](but_core::ModeFlags::TypeChange)
 /// or if it involves a change to a [submodule](gix::object::Kind::Commit).
 #[tauri::command(async)]
-#[instrument(skip(projects, change, settings), err(Debug))]
+#[instrument(skip(change, settings), err(Debug))]
 pub fn tree_change_diffs(
-    projects: tauri::State<'_, gitbutler_project::Controller>,
     settings: tauri::State<'_, but_settings::AppSettingsWithDiskSync>,
     project_id: ProjectId,
     change: TreeChange,
 ) -> anyhow::Result<but_core::UnifiedDiff, Error> {
     let change: but_core::TreeChange = change.into();
-    let project = projects.get(project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let repo = gix::open(project.path).map_err(anyhow::Error::from)?;
     Ok(change
         .unified_diff(&repo, settings.get()?.context_lines)?
@@ -34,13 +33,12 @@ pub fn tree_change_diffs(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(projects), err(Debug))]
+#[instrument(err(Debug))]
 pub fn commit_details(
-    projects: tauri::State<'_, gitbutler_project::Controller>,
     project_id: ProjectId,
     commit_id: HexHash,
 ) -> anyhow::Result<CommitDetails, Error> {
-    let project = projects.get(project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let repo = &gix::open(&project.path).context("Failed to open repo")?;
     let commit = repo
         .find_commit(commit_id)
@@ -70,9 +68,8 @@ pub struct CommitDetails {
 /// Note that `stack_id` is deprecated in favor of `branch_name`
 /// *(which should be a full ref-name as well and make `remote` unnecessary)*
 #[tauri::command(async)]
-#[instrument(skip(projects, settings), err(Debug))]
+#[instrument(skip(settings), err(Debug))]
 pub fn changes_in_branch(
-    projects: tauri::State<'_, gitbutler_project::Controller>,
     settings: tauri::State<'_, but_settings::AppSettingsWithDiskSync>,
     project_id: ProjectId,
     // TODO: remove this, go by name. Ideally, the UI would pass us two commits.
@@ -80,7 +77,7 @@ pub fn changes_in_branch(
     branch_name: String,
     remote: Option<String>,
 ) -> anyhow::Result<TreeChanges, Error> {
-    let project = projects.get(project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let ctx = CommandContext::open(&project, settings.get()?.clone())?;
     changes_in_branch_inner(ctx, remote, branch_name).map_err(Into::into)
 }
@@ -110,13 +107,12 @@ fn changes_in_branch_inner(
 ///
 /// All ignored status changes are also provided so they can be displayed separately.
 #[tauri::command(async)]
-#[instrument(skip(projects, settings), err(Debug))]
+#[instrument(skip(settings), err(Debug))]
 pub fn changes_in_worktree(
-    projects: tauri::State<'_, gitbutler_project::Controller>,
     settings: tauri::State<'_, but_settings::AppSettingsWithDiskSync>,
     project_id: ProjectId,
 ) -> anyhow::Result<WorktreeChanges, Error> {
-    let project = projects.get(project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let ctx = &mut CommandContext::open(&project, settings.get()?.clone())?;
     let changes = but_core::diff::worktree_changes(&ctx.gix_repo()?)?;
 
@@ -153,14 +149,13 @@ pub fn changes_in_worktree(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(projects, settings), err(Debug))]
+#[instrument(skip(settings), err(Debug))]
 pub fn assign_hunk(
-    projects: tauri::State<'_, gitbutler_project::Controller>,
     settings: tauri::State<'_, but_settings::AppSettingsWithDiskSync>,
     project_id: ProjectId,
     assignments: Vec<HunkAssignmentRequest>,
 ) -> anyhow::Result<Vec<AssignmentRejection>, Error> {
-    let project = projects.get(project_id)?;
+    let project = gitbutler_project::get(project_id)?;
     let ctx = &mut CommandContext::open(&project, settings.get()?.clone())?;
     let rejections = but_hunk_assignment::assign(ctx, assignments, None)?;
     Ok(rejections)

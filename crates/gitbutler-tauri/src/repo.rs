@@ -7,7 +7,6 @@ pub mod commands {
     use gitbutler_branch_actions::{hooks, RemoteBranchFile};
     use gitbutler_command_context::CommandContext;
     use gitbutler_oxidize::ObjectIdExt;
-    use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
     use gitbutler_repo::hooks::{HookResult, MessageHookResult};
     use gitbutler_repo::{FileInfo, RepoCommands};
@@ -17,35 +16,23 @@ pub mod commands {
     use tracing::instrument;
 
     #[tauri::command(async)]
-    #[instrument(skip(projects), err(Debug))]
-    pub fn git_get_local_config(
-        projects: State<'_, projects::Controller>,
-        id: ProjectId,
-        key: &str,
-    ) -> Result<Option<String>, Error> {
-        let project = projects.get(id)?;
+    #[instrument(err(Debug))]
+    pub fn git_get_local_config(id: ProjectId, key: &str) -> Result<Option<String>, Error> {
+        let project = gitbutler_project::get(id)?;
         Ok(project.get_local_config(key)?)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects), err(Debug))]
-    pub fn git_set_local_config(
-        projects: State<'_, projects::Controller>,
-        id: ProjectId,
-        key: &str,
-        value: &str,
-    ) -> Result<(), Error> {
-        let project = projects.get(id)?;
+    #[instrument(err(Debug))]
+    pub fn git_set_local_config(id: ProjectId, key: &str, value: &str) -> Result<(), Error> {
+        let project = gitbutler_project::get(id)?;
         project.set_local_config(key, value).map_err(Into::into)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects), err(Debug))]
-    pub fn check_signing_settings(
-        projects: State<'_, projects::Controller>,
-        id: ProjectId,
-    ) -> Result<bool, Error> {
-        let project = projects.get(id)?;
+    #[instrument(err(Debug))]
+    pub fn check_signing_settings(id: ProjectId) -> Result<bool, Error> {
+        let project = gitbutler_project::get(id)?;
         project.check_signing_settings().map_err(Into::into)
     }
 
@@ -65,65 +52,60 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings))]
+    #[instrument(skip(settings))]
     pub fn get_uncommited_files(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         id: ProjectId,
     ) -> Result<Vec<RemoteBranchFile>, Error> {
-        let project = projects.get(id)?;
+        let project = gitbutler_project::get(id)?;
 
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         Ok(gitbutler_branch_actions::get_uncommited_files(&ctx)?)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects))]
+    #[instrument()]
     pub fn get_commit_file(
-        projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         relative_path: &Path,
         commit_id: String,
     ) -> Result<FileInfo, Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let commit_id = git2::Oid::from_str(commit_id.as_ref()).map_err(anyhow::Error::from)?;
         Ok(project.read_file_from_commit(commit_id, relative_path)?)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects))]
+    #[instrument()]
     pub fn get_workspace_file(
-        projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         relative_path: &Path,
     ) -> Result<FileInfo, Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         Ok(project.read_file_from_workspace(relative_path)?)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings))]
+    #[instrument(skip(settings))]
     pub fn pre_commit_hook(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         ownership: BranchOwnershipClaims,
     ) -> Result<HookResult, Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         let claim = ownership.into();
         Ok(hooks::pre_commit(&ctx, &claim)?)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings))]
+    #[instrument(skip(settings))]
     pub fn pre_commit_hook_diffspecs(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         changes: Vec<DiffSpec>,
     ) -> Result<HookResult, Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
 
         let repository = ctx.gix_repo()?;
@@ -146,26 +128,24 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings))]
+    #[instrument(skip(settings))]
     pub fn post_commit_hook(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
     ) -> Result<HookResult, Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         Ok(gitbutler_repo::hooks::post_commit(&ctx)?)
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings))]
+    #[instrument(skip(settings))]
     pub fn message_hook(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         message: String,
     ) -> Result<MessageHookResult, Error> {
-        let project = projects.get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings.get()?.clone())?;
         Ok(gitbutler_repo::hooks::commit_msg(&ctx, message)?)
     }

@@ -82,10 +82,7 @@ impl Handler {
         project_id: ProjectId,
         app_settings: AppSettings,
     ) -> Result<CommandContext> {
-        let project = self
-            .projects
-            .get(project_id)
-            .context("failed to get project")?;
+        let project = gitbutler_project::get(project_id).context("failed to get project")?;
         CommandContext::open(&project, app_settings).context("Failed to create a command context")
     }
 

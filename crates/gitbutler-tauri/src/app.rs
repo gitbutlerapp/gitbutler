@@ -32,7 +32,7 @@ impl App {
         project_id: ProjectId,
         settings: AppSettings,
     ) -> Result<Vec<RemoteRefname>> {
-        let project = self.projects().get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings)?;
         ctx.repo().remote_branches()
     }
@@ -45,7 +45,7 @@ impl App {
         askpass: Option<Option<StackId>>,
         settings: AppSettings,
     ) -> Result<()> {
-        let project = self.projects().get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings)?;
         ctx.git_test_push(remote_name, branch_name, askpass)
     }
@@ -57,13 +57,13 @@ impl App {
         askpass: Option<String>,
         settings: AppSettings,
     ) -> Result<()> {
-        let project = self.projects().get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings)?;
         ctx.fetch(remote_name, askpass)
     }
 
     pub fn git_index_size(&self, project_id: ProjectId, settings: AppSettings) -> Result<usize> {
-        let project = self.projects().get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings)?;
         let size = ctx
             .repo()
@@ -74,7 +74,7 @@ impl App {
     }
 
     pub fn git_head(&self, project_id: ProjectId, settings: AppSettings) -> Result<String> {
-        let project = self.projects().get(project_id)?;
+        let project = gitbutler_project::get(project_id)?;
         let ctx = CommandContext::open(&project, settings)?;
         let head = ctx.repo().head().context("failed to get repository head")?;
         Ok(head.name().unwrap().to_string())

@@ -188,7 +188,7 @@ impl Controller {
         self.projects_storage.update(project)
     }
 
-    pub fn get(&self, id: ProjectId) -> Result<Project> {
+    pub(crate) fn get(&self, id: ProjectId) -> Result<Project> {
         self.get_inner(id, false)
     }
 

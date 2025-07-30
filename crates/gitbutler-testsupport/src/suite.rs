@@ -118,11 +118,8 @@ impl Case {
         }
     }
 
-    pub fn refresh(mut self, suite: &Suite) -> Self {
-        let project = suite
-            .projects
-            .get(self.project.id)
-            .expect("failed to get project");
+    pub fn refresh(mut self, _suite: &Suite) -> Self {
+        let project = gitbutler_project::get(self.project.id).expect("failed to get project");
         let ctx = CommandContext::open(&project, AppSettings::default())
             .expect("failed to create project repository");
         Self {
