@@ -60,7 +60,7 @@ impl Controller {
         }
     }
 
-    pub fn add<P: AsRef<Path>>(
+    pub(crate) fn add<P: AsRef<Path>>(
         &self,
         path: P,
         name: Option<String>,

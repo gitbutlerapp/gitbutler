@@ -71,8 +71,7 @@ impl Suite {
         commit_all(&repository);
 
         (
-            self.projects
-                .add(repository.path().parent().unwrap(), None, None)
+            gitbutler_project::add(repository.path().parent().unwrap(), None, None)
                 .expect("failed to add project"),
             tmp,
         )

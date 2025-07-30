@@ -54,6 +54,17 @@ pub fn add<P: AsRef<Path>>(
     controller.add(path, name, email)
 }
 
+/// Testing purpose only.
+pub fn add_with_app_data_dir<P: AsRef<Path>>(
+    app_data_dir: P,
+    path: P,
+    name: Option<String>,
+    email: Option<String>,
+) -> anyhow::Result<Project> {
+    let controller = Controller::from_path(app_data_dir.as_ref());
+    controller.add(path, name, email)
+}
+
 pub fn list() -> anyhow::Result<Vec<Project>> {
     let controller = Controller::from_path(but_path::app_data_dir()?);
     controller.list()
