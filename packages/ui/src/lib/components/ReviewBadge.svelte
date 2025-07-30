@@ -6,13 +6,15 @@
 	interface Props {
 		type: string | undefined;
 		status?: 'open' | 'closed' | 'draft' | 'merged' | 'unknown';
-		number?: number;
+		number: number;
 		title?: string;
 	}
 
 	const { type, status, number, title }: Props = $props();
 
 	const reviewUnit = $derived(type === 'MR' ? 'MR' : 'PR');
+	const reviewSymbol = $derived(reviewUnit === 'MR' ? '!' : '#');
+	const id = $derived(`${reviewSymbol}${number}`);
 
 	function getBadgeDetails() {
 		if (title) {
@@ -25,27 +27,27 @@
 		switch (status) {
 			case 'open':
 				return {
-					text: `${reviewUnit} #${number} is open`,
+					text: `${reviewUnit} ${id} is open`,
 					color: 'var(--clr-theme-succ-element)'
 				};
 			case 'closed':
 				return {
-					text: `${reviewUnit} #${number} is closed`,
+					text: `${reviewUnit} ${id} is closed`,
 					color: 'var(--clr-theme-err-element)'
 				};
 			case 'draft':
 				return {
-					text: `${reviewUnit} #${number} is a draft`,
+					text: `${reviewUnit} ${id} is a draft`,
 					color: undefined
 				};
 			case 'merged':
 				return {
-					text: `${reviewUnit} #${number} is merged`,
+					text: `${reviewUnit} ${id} is merged`,
 					color: 'var(--clr-theme-purp-element)'
 				};
 			default:
 				return {
-					text: `${reviewUnit} #${number}`,
+					text: `${reviewUnit} ${id}`,
 					color: undefined
 				};
 		}
@@ -66,7 +68,7 @@
 			{#if status === 'draft'}
 				Draft
 			{:else}
-				{reviewUnit} #{number}
+				{reviewUnit} {id}
 			{/if}
 		</span>
 
