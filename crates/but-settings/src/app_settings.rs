@@ -30,6 +30,7 @@ pub struct FeatureFlags {
     )]
     pub v3: bool,
     /// Enable the usage of V3 workspace APIs.
+    #[serde(default = "default_true")]
     pub ws3: bool,
     /// Enable the usage of GitButler Acitions.
     pub actions: bool,
@@ -37,6 +38,10 @@ pub struct FeatureFlags {
     pub butbot: bool,
     /// Enable processing of workspace rules.
     pub rules: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl FeatureFlags {
