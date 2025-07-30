@@ -159,10 +159,9 @@ pub(crate) mod state {
     }
 
     fn handler_from_app(app: &AppHandle) -> Result<gitbutler_watcher::Handler> {
-        let projects = app.state::<projects::Controller>().inner().clone();
         let users = app.state::<users::Controller>().inner().clone();
 
-        Ok(gitbutler_watcher::Handler::new(projects, users, {
+        Ok(gitbutler_watcher::Handler::new(users, {
             let app = app.clone();
             move |change| ChangeForFrontend::from(change).send(&app)
         }))

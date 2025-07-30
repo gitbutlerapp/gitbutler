@@ -18,12 +18,9 @@ pub mod commands {
     use crate::{error::Error, projects::ProjectForFrontend, window, WindowState};
 
     #[tauri::command(async)]
-    #[instrument(skip(projects), err(Debug))]
-    pub fn update_project(
-        projects: State<'_, Controller>,
-        project: projects::UpdateRequest,
-    ) -> Result<projects::Project, Error> {
-        Ok(projects.update(&project)?)
+    #[instrument(err(Debug))]
+    pub fn update_project(project: projects::UpdateRequest) -> Result<projects::Project, Error> {
+        Ok(gitbutler_project::update(&project)?)
     }
 
     #[tauri::command(async)]

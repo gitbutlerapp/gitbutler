@@ -382,9 +382,8 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, settings), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub fn fetch_from_remotes(
-        projects: State<'_, projects::Controller>,
         settings: State<'_, AppSettingsWithDiskSync>,
         project_id: ProjectId,
         action: Option<String>,
@@ -400,13 +399,12 @@ pub mod commands {
         // Updates the project controller with the last fetched timestamp
         //
         // TODO: This cross dependency likely indicates that last_fetched is stored in the wrong place - value is coupled with virtual branches state
-        projects
-            .update(&projects::UpdateRequest {
-                id: project.id,
-                project_data_last_fetched: Some(project_data_last_fetched.clone()),
-                ..Default::default()
-            })
-            .context("failed to update project with last fetched timestamp")?;
+        gitbutler_project::update(&projects::UpdateRequest {
+            id: project.id,
+            project_data_last_fetched: Some(project_data_last_fetched.clone()),
+            ..Default::default()
+        })
+        .context("failed to update project with last fetched timestamp")?;
 
         if let FetchResult::Error { error, .. } = project_data_last_fetched {
             return Err(anyhow!(error).into());

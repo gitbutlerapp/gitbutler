@@ -14,7 +14,6 @@ struct Test {
     repo: TestProject,
     project_id: ProjectId,
     project: Project,
-    projects: projects::Controller,
     data_dir: Option<TempDir>,
     ctx: CommandContext,
 }
@@ -41,7 +40,6 @@ impl Default for Test {
         Self {
             repo: test_project,
             project_id: project.id,
-            projects,
             project,
             data_dir: Some(data_dir),
             ctx,

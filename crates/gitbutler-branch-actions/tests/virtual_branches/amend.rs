@@ -12,17 +12,15 @@ fn forcepush_allowed() -> anyhow::Result<()> {
         repo,
         project_id,
 
-        projects,
         ctx,
         ..
     } = &Test::default();
 
-    projects
-        .update(&projects::UpdateRequest {
-            id: *project_id,
-            ..Default::default()
-        })
-        .unwrap();
+    gitbutler_project::update(&projects::UpdateRequest {
+        id: *project_id,
+        ..Default::default()
+    })
+    .unwrap();
 
     gitbutler_branch_actions::set_base_branch(
         ctx,
@@ -32,12 +30,11 @@ fn forcepush_allowed() -> anyhow::Result<()> {
     )
     .unwrap();
 
-    projects
-        .update(&projects::UpdateRequest {
-            id: *project_id,
-            ..Default::default()
-        })
-        .unwrap();
+    gitbutler_project::update(&projects::UpdateRequest {
+        id: *project_id,
+        ..Default::default()
+    })
+    .unwrap();
 
     let stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,

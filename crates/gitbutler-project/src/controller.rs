@@ -149,7 +149,7 @@ impl Controller {
         Ok(project)
     }
 
-    pub fn update(&self, project: &UpdateRequest) -> Result<Project> {
+    pub(crate) fn update(&self, project: &UpdateRequest) -> Result<Project> {
         #[cfg(not(windows))]
         if let Some(AuthKey::Local {
             private_key_path, ..
