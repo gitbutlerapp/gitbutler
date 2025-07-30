@@ -209,12 +209,24 @@ export function stackRequiresForcePush(stack: StackDetails): boolean {
 	return stack.pushStatus === 'unpushedCommitsRequiringForce';
 }
 
+export function branchRequiresForcePush(branch: BranchDetails): boolean {
+	return branch.pushStatus === 'unpushedCommitsRequiringForce';
+}
+
 export function stackHasConflicts(stack: StackDetails): boolean {
 	return stack.isConflicted;
 }
 
+export function branchHasConflicts(branch: BranchDetails): boolean {
+	return branch.isConflicted;
+}
+
 export function stackHasUnpushedCommits(stack: StackDetails): boolean {
 	return requiresPush(stack.pushStatus);
+}
+
+export function branchHasUnpushedCommits(branch: BranchDetails): boolean {
+	return requiresPush(branch.pushStatus);
 }
 
 export function requiresPush(status: PushStatus): boolean {
