@@ -6,7 +6,7 @@ mod storage;
 
 use std::path::Path;
 
-pub use controller::Controller;
+use controller::Controller;
 pub use project::{ApiProject, AuthKey, CodePushState, FetchResult, Project, ProjectId};
 pub use storage::UpdateRequest;
 
@@ -62,4 +62,11 @@ pub fn list() -> anyhow::Result<Vec<Project>> {
 pub fn delete(id: ProjectId) -> anyhow::Result<()> {
     let controller = Controller::from_path(but_path::app_data_dir()?);
     controller.delete(id)
+}
+
+pub fn assure_app_can_startup_or_fix_it(
+    projects: anyhow::Result<Vec<Project>>,
+) -> anyhow::Result<Vec<Project>> {
+    let controller = Controller::from_path(but_path::app_data_dir()?);
+    controller.assure_app_can_startup_or_fix_it(projects)
 }

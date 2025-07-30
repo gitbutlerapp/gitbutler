@@ -7,14 +7,14 @@ use super::{storage, storage::UpdateRequest, Project, ProjectId};
 use crate::AuthKey;
 
 #[derive(Clone)]
-pub struct Controller {
+pub(crate) struct Controller {
     local_data_dir: PathBuf,
     projects_storage: storage::Storage,
 }
 
 impl Controller {
     /// Assure we can list projects, and if not possibly existing projects files will be renamed, and an error is produced early.
-    pub fn assure_app_can_startup_or_fix_it(
+    pub(crate) fn assure_app_can_startup_or_fix_it(
         &self,
         projects: Result<Vec<Project>>,
     ) -> Result<Vec<Project>> {

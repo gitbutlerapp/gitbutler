@@ -8,7 +8,7 @@ pub mod commands {
     use anyhow::Context;
     use but_settings::AppSettingsWithDiskSync;
     use gitbutler_command_context::CommandContext;
-    use gitbutler_project::{self as projects, Controller, ProjectId};
+    use gitbutler_project::{self as projects, ProjectId};
     use std::path;
     use tauri::{State, Window};
     use tracing::instrument;
@@ -49,14 +49,12 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, window_state), err(Debug))]
+    #[instrument(skip(window_state), err(Debug))]
     pub fn list_projects(
         window_state: State<'_, WindowState>,
-        projects: State<'_, Controller>,
     ) -> Result<Vec<ProjectForFrontend>, Error> {
         let open_projects = window_state.open_projects();
-        projects
-            .assure_app_can_startup_or_fix_it(gitbutler_project::list())
+        gitbutler_project::assure_app_can_startup_or_fix_it(gitbutler_project::list())
             .map_err(Into::into)
             .map(|projects| {
                 projects
