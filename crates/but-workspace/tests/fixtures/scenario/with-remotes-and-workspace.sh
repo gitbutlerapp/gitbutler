@@ -378,3 +378,21 @@ git init advanced-workspace-ref-and-single-stack
 
   git checkout gitbutler/workspace
 )
+
+git init single-branch-no-ws-commit
+(cd single-branch-no-ws-commit
+  commit M1
+  setup_target_to_match_main
+  commit M2
+  git checkout -b gitbutler/workspace
+)
+
+git init single-branch-two-commits-no-ws-commit
+(cd single-branch-two-commits-no-ws-commit
+  commit M1
+  setup_target_to_match_main
+  git checkout -b A
+    commit A1
+    commit A2
+  git checkout -b gitbutler/workspace
+)

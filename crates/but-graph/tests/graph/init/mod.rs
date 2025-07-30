@@ -36,6 +36,13 @@ fn unborn() -> anyhow::Result<()> {
         ),
         extra_target: None,
         hard_limit_hit: false,
+        options: Options {
+            collect_tags: false,
+            commits_limit_hint: None,
+            commits_limit_recharge_location: [],
+            hard_limit: None,
+            extra_target_commit_id: None,
+        },
     }
     "#);
 
@@ -132,6 +139,13 @@ fn detached() -> anyhow::Result<()> {
         ),
         extra_target: None,
         hard_limit_hit: false,
+        options: Options {
+            collect_tags: true,
+            commits_limit_hint: None,
+            commits_limit_recharge_location: [],
+            hard_limit: None,
+            extra_target_commit_id: None,
+        },
     }
     "#);
     Ok(())

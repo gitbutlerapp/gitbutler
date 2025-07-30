@@ -1,4 +1,5 @@
 //! Utilities for graph-walking specifically.
+use crate::init::overlay::{OverlayMetadata, OverlayRepo};
 use crate::init::types::{EdgeOwned, Instruction, Limit, Queue, QueueItem, TopoWalk};
 use crate::init::{Goals, PetGraph, remotes};
 use crate::{
@@ -23,10 +24,14 @@ pub(crate) type RefsById = gix::hashtable::HashMap<gix::ObjectId, Vec<gix::refs:
 /// and that otherwise the workspace segment won't own commits.
 /// Note that these workspaces are identified by having metadata attached, it doesn't say anything about
 /// the reference name.
-pub fn prioritize_initial_tips_and_assure_ws_commit_ownership(
+pub fn prioritize_initial_tips_and_assure_ws_commit_ownership<T: RefMetadata>(
     graph: &mut Graph,
     next: &mut Queue,
-    (ws_tips, repo, meta): (Vec<gix::ObjectId>, &gix::Repository, &impl RefMetadata),
+    (ws_tips, repo, meta): (
+        Vec<gix::ObjectId>,
+        &OverlayRepo<'_>,
+        &OverlayMetadata<'_, T>,
+    ),
 ) -> anyhow::Result<Vec<SegmentIndex>> {
     next.inner
         .make_contiguous()
@@ -299,12 +304,12 @@ fn local_branches_by_id(
 ///
 /// * …there is exactly one eligible branch to name it.
 /// * …it is a merge commit.
-pub fn try_split_non_empty_segment_at_branch(
+pub fn try_split_non_empty_segment_at_branch<T: RefMetadata>(
     graph: &mut Graph,
     src_sidx: SegmentIndex,
     info: &TraverseInfo,
     refs_by_id: &RefsById,
-    meta: &impl RefMetadata,
+    meta: &OverlayMetadata<'_, T>,
 ) -> anyhow::Result<Option<SegmentIndex>> {
     let src_segment = &graph[src_sidx];
     if src_segment.commits.is_empty() {
@@ -381,9 +386,9 @@ pub fn queue_parents(
 /// As convenience, if `ref_name` is `Some` and the metadata is not set, it will look it up for you.
 /// If `ref_name` is `None`, and `refs_by_id_lookup` is `Some`, it will try to look up unambiguous
 /// references on that object.
-pub fn branch_segment_from_name_and_meta(
+pub fn branch_segment_from_name_and_meta<T: RefMetadata>(
     ref_name: Option<(gix::refs::FullName, Option<SegmentMetadata>)>,
-    meta: &impl RefMetadata,
+    meta: &OverlayMetadata<'_, T>,
     refs_by_id_lookup: Option<(&RefsById, gix::ObjectId)>,
 ) -> anyhow::Result<Segment> {
     branch_segment_from_name_and_meta_sibling(ref_name, None, meta, refs_by_id_lookup)
@@ -391,10 +396,10 @@ pub fn branch_segment_from_name_and_meta(
 
 /// Like `branch_segment_from_name_and_meta`, but allows to set `sibling_sidx` as well to link
 /// a new remote segment to a local tracking branch.
-pub fn branch_segment_from_name_and_meta_sibling(
+pub fn branch_segment_from_name_and_meta_sibling<T: RefMetadata>(
     ref_name: Option<(gix::refs::FullName, Option<SegmentMetadata>)>,
     sibling_sidx: Option<SegmentIndex>,
-    meta: &impl RefMetadata,
+    meta: &OverlayMetadata<'_, T>,
     refs_by_id_lookup: Option<(&RefsById, gix::ObjectId)>,
 ) -> anyhow::Result<Segment> {
     let (ref_name, metadata) =
@@ -407,9 +412,9 @@ pub fn branch_segment_from_name_and_meta_sibling(
     })
 }
 
-fn unambiguous_local_branch_and_segment_data(
+fn unambiguous_local_branch_and_segment_data<T: RefMetadata>(
     ref_name: Option<(gix::refs::FullName, Option<SegmentMetadata>)>,
-    meta: &impl RefMetadata,
+    meta: &OverlayMetadata<'_, T>,
     refs_by_id_lookup: Option<(&RefsById, gix::ObjectId)>,
 ) -> anyhow::Result<(Option<gix::refs::FullName>, Option<SegmentMetadata>)> {
     Ok(match ref_name {
@@ -431,18 +436,18 @@ fn unambiguous_local_branch_and_segment_data(
     })
 }
 
-fn disambiguate_refs_by_branch_metadata_with_lookup(
+fn disambiguate_refs_by_branch_metadata_with_lookup<T: RefMetadata>(
     refs_by_id_lookup: (&RefsById, gix::ObjectId),
-    meta: &impl RefMetadata,
+    meta: &OverlayMetadata<'_, T>,
 ) -> Option<(gix::refs::FullName, Option<SegmentMetadata>)> {
     let (refs_by_id, id) = refs_by_id_lookup;
     let branches = local_branches_by_id(refs_by_id, id)?;
     disambiguate_refs_by_branch_metadata(branches, meta)
 }
 
-pub fn disambiguate_refs_by_branch_metadata<'a>(
+pub fn disambiguate_refs_by_branch_metadata<'a, T: RefMetadata>(
     branches: impl Iterator<Item = &'a gix::refs::FullName>,
-    meta: &impl RefMetadata,
+    meta: &OverlayMetadata<'_, T>,
 ) -> Option<(gix::refs::FullName, Option<SegmentMetadata>)> {
     let branches = branches
         .map(|rn| {
@@ -470,15 +475,15 @@ pub fn disambiguate_refs_by_branch_metadata<'a>(
         .map(|(rn, md)| (rn.clone(), md.cloned()))
 }
 
-fn extract_local_branch_metadata(
+fn extract_local_branch_metadata<T: RefMetadata>(
     ref_name: &gix::refs::FullNameRef,
-    meta: &impl RefMetadata,
+    meta: &OverlayMetadata<'_, T>,
 ) -> anyhow::Result<Option<SegmentMetadata>> {
     if ref_name.category() != Some(Category::LocalBranch) {
         return Ok(None);
     }
     meta.branch_opt(ref_name)
-        .map(|res| res.map(|md| SegmentMetadata::Branch(md.clone())))
+        .map(|res| res.map(SegmentMetadata::Branch))
         .transpose()
         // Also check for workspace data so we always correctly classify segments.
         // This could happen if we run over another workspace commit which is reachable
@@ -584,41 +589,6 @@ pub fn find(
     })
 }
 
-// Create a mapping of all heads to the object ids they point to.
-pub fn collect_ref_mapping_by_prefix<'a>(
-    repo: &gix::Repository,
-    prefixes: impl Iterator<Item = &'a str>,
-) -> anyhow::Result<RefsById> {
-    let mut all_refs_by_id = gix::hashtable::HashMap::<_, Vec<_>>::default();
-    for prefix in prefixes {
-        for (commit_id, git_reference) in repo
-            .references()?
-            .prefixed(prefix)?
-            .filter_map(Result::ok)
-            .filter_map(|r| {
-                if is_workspace_ref_name(r.name()) {
-                    return None;
-                }
-                let id = r.try_id()?;
-                if matches!(r.name().category(), Some(gix::reference::Category::Tag)) {
-                    // TODO: also make use of the tag name (the tag object has its own name)
-                    (id.object().ok()?.peel_tags_to_end().ok()?.id, r.inner.name)
-                } else {
-                    (id.detach(), r.inner.name)
-                }
-                .into()
-            })
-        {
-            all_refs_by_id
-                .entry(commit_id)
-                .or_default()
-                .push(git_reference);
-        }
-    }
-    all_refs_by_id.values_mut().for_each(|v| v.sort());
-    Ok(all_refs_by_id)
-}
-
 /// Returns `([(workspace_tip, workspace_ref_name, workspace_info)], target_refs, desired_refs)` for all available workspace,
 /// or exactly one workspace if `maybe_ref_name`.
 /// already points to a workspace. That way we can discover the workspace containing any starting point, but only if needed.
@@ -627,10 +597,10 @@ pub fn collect_ref_mapping_by_prefix<'a>(
 ///
 /// Also prune all non-standard workspaces early, or those that don't have a tip.
 #[allow(clippy::type_complexity)]
-pub fn obtain_workspace_infos(
-    repo: &gix::Repository,
+pub fn obtain_workspace_infos<T: RefMetadata>(
+    repo: &OverlayRepo<'_>,
     maybe_ref_name: Option<&gix::refs::FullNameRef>,
-    meta: &impl RefMetadata,
+    meta: &OverlayMetadata<'_, T>,
 ) -> anyhow::Result<(
     Vec<(gix::ObjectId, gix::refs::FullName, ref_metadata::Workspace)>,
     Vec<gix::refs::FullName>,
@@ -643,17 +613,9 @@ pub fn obtain_workspace_infos(
         })
         .transpose()?
     {
-        vec![(ref_name.to_owned(), ws_data.clone())]
+        vec![(ref_name.to_owned(), ws_data)]
     } else {
-        meta.iter()
-            .filter_map(Result::ok)
-            .filter_map(|(ref_name, item)| {
-                item.downcast::<ref_metadata::Workspace>()
-                    .ok()
-                    .map(|ws| (ref_name, ws))
-            })
-            .map(|(ref_name, ws)| (ref_name, (*ws).clone()))
-            .collect()
+        meta.iter_workspaces().collect()
     };
 
     let (mut out, mut target_refs) = (Vec::new(), Vec::new());
@@ -700,7 +662,7 @@ pub fn obtain_workspace_infos(
 }
 
 pub fn try_refname_to_id(
-    repo: &gix::Repository,
+    repo: &OverlayRepo<'_>,
     refname: &gix::refs::FullNameRef,
 ) -> anyhow::Result<Option<gix::ObjectId>> {
     Ok(repo
@@ -734,14 +696,14 @@ pub fn propagate_flags_downward(
 /// Note that remotes fully obey the limit.
 /// If the created remote segment belongs to the segment of `local_tracking_sidx`, return its Segment index along with its name.
 #[allow(clippy::too_many_arguments)]
-pub fn try_queue_remote_tracking_branches(
-    repo: &gix::Repository,
+pub fn try_queue_remote_tracking_branches<T: RefMetadata>(
+    repo: &OverlayRepo<'_>,
     refs: &[gix::refs::FullName],
     graph: &mut Graph,
     target_symbolic_remote_names: &[String],
     configured_remote_tracking_branches: &BTreeSet<gix::refs::FullName>,
     target_refs: &[gix::refs::FullName],
-    meta: &impl RefMetadata,
+    meta: &OverlayMetadata<'_, T>,
     id: gix::ObjectId,
     limit: Limit,
     goals: &mut Goals,

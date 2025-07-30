@@ -120,6 +120,18 @@ pub struct RefInfo {
     pub updated_at: Option<gix::date::Time>,
 }
 
+/// Mutations
+impl RefInfo {
+    /// Set the `updated_at` field to the current time.
+    pub fn set_updated_to_now(&mut self) {
+        self.updated_at = Some(gix::date::Time::now_local_or_utc());
+    }
+    /// Set the `created_at` field to the current time.
+    pub fn set_created_to_now(&mut self) {
+        self.created_at = Some(gix::date::Time::now_local_or_utc());
+    }
+}
+
 impl std::fmt::Debug for RefInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let format = gix::date::time::format::ISO8601;

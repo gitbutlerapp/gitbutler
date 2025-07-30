@@ -1,6 +1,7 @@
 //! Utilities for testing.
 #![deny(rust_2018_idioms, missing_docs)]
 
+use gix::Repository;
 use gix::bstr::{BStr, ByteSlice};
 use gix::config::tree::Key;
 pub use gix_testtools;
@@ -37,25 +38,33 @@ pub fn git(repo: &gix::Repository) -> std::process::Command {
 /// * it's isolated and won't load environment variables.
 /// * an object cache is set for minor speed boost.
 pub fn open_repo(path: &Path) -> anyhow::Result<gix::Repository> {
-    let mut repo = gix::open_opts(
-        path,
-        gix::open::Options::isolated()
-            .lossy_config(false)
-            .config_overrides([
-                gix::config::tree::Author::NAME
-                    .validated_assignment("Author (Memory Override)".into())?,
-                gix::config::tree::Author::EMAIL
-                    .validated_assignment("author@example.com".into())?,
-                gix::config::tree::Committer::NAME
-                    .validated_assignment("Committer (Memory Override)".into())?,
-                gix::config::tree::Committer::EMAIL
-                    .validated_assignment("committer@example.com".into())?,
-                gix::config::tree::gitoxide::Commit::COMMITTER_DATE
-                    .validated_assignment("2000-01-01 00:00:00 +0000".into())?,
-            ]),
-    )?;
+    let mut repo = gix::open_opts(path, open_repo_config()?)?;
     repo.object_cache_size_if_unset(512 * 1024);
     Ok(repo)
+}
+
+/// Return isolated configuration with a basic setup to run read-only and read-write tests.
+/// This includes the author configuration in particular.
+pub fn open_repo_config() -> anyhow::Result<gix::open::Options> {
+    let config = gix::open::Options::isolated()
+        .lossy_config(false)
+        .config_overrides([
+            gix::config::tree::Author::NAME
+                .validated_assignment("Author (Memory Override)".into())?,
+            gix::config::tree::Author::EMAIL.validated_assignment("author@example.com".into())?,
+            gix::config::tree::Committer::NAME
+                .validated_assignment("Committer (Memory Override)".into())?,
+            gix::config::tree::Committer::EMAIL
+                .validated_assignment("committer@example.com".into())?,
+            gix::config::tree::gitoxide::Commit::COMMITTER_DATE
+                .validated_assignment("2000-01-01 00:00:00 +0000".into())?,
+        ]);
+    Ok(config)
+}
+
+/// turn a 40 byte hex-id into an object ID or panic.
+pub fn hex_to_id(hex: &str) -> gix::ObjectId {
+    gix::ObjectId::from_hex(hex.as_bytes()).expect("statically known to be valid")
 }
 
 /// Sets and environment that assures commits are reproducible.
@@ -234,6 +243,22 @@ pub fn visualize_disk_tree_skip_dot_git(root: &Path) -> anyhow::Result<termtree:
 #[cfg(not(unix))]
 pub fn visualize_disk_tree_skip_dot_git(_root: &Path) -> anyhow::Result<termtree::Tree<String>> {
     anyhow::bail!("BUG: must not run on Windows - results won't be desirable");
+}
+
+/// Produce the id at the reference with `name` (short-name is fine), and also return the full name
+/// of the reference.
+pub fn id_at<'repo>(repo: &'repo Repository, name: &str) -> (gix::Id<'repo>, gix::refs::FullName) {
+    let mut rn = repo
+        .find_reference(name)
+        .expect("statically known reference exists");
+    let id = rn.peel_to_id_in_place().expect("must be valid reference");
+    (id, rn.inner.name)
+}
+
+/// Return the commit by the given `revspec`.
+pub fn id_by_rev<'repo>(repo: &'repo gix::Repository, revspec: &str) -> gix::Id<'repo> {
+    repo.rev_parse_single(revspec)
+        .expect("well-known revspec when testing")
 }
 
 mod graph {

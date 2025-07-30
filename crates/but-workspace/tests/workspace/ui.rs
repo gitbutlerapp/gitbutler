@@ -1,5 +1,6 @@
 mod changes_in_branch {
     use crate::ref_info::with_workspace_commit::utils::read_only_in_memory_scenario;
+    use crate::utils::r;
     use but_graph::init::Options;
     use but_testsupport::visualize_commit_graph_all;
     use but_workspace::ui;
@@ -136,9 +137,5 @@ mod changes_in_branch {
             "passing strange ref-names still causes an error - they must exist"
         );
         Ok(())
-    }
-
-    fn r(name: &str) -> &gix::refs::FullNameRef {
-        name.try_into().expect("statically known valid ref-name")
     }
 }

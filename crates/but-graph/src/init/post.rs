@@ -1,3 +1,4 @@
+use crate::init::overlay::{OverlayMetadata, OverlayRepo};
 use crate::init::types::{EdgeOwned, TopoWalk};
 use crate::init::walk::{RefsById, disambiguate_refs_by_branch_metadata};
 use crate::init::{PetGraph, branch_segment_from_name_and_meta, remotes};
@@ -13,7 +14,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use tracing::instrument;
 
 pub(super) struct Context<'a> {
-    pub repo: &'a gix::Repository,
+    pub repo: &'a OverlayRepo<'a>,
     pub symbolic_remote_names: &'a [String],
     pub configured_remote_tracking_branches: &'a BTreeSet<gix::refs::FullName>,
     pub inserted_proxy_segments: Vec<SegmentIndex>,
@@ -34,9 +35,9 @@ impl Graph {
     /// the requirement of them to be computationally cheap.
     #[instrument(skip(self, meta, repo, refs_by_id), err(Debug))]
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn post_processed(
+    pub(super) fn post_processed<T: RefMetadata>(
         mut self,
-        meta: &impl RefMetadata,
+        meta: &OverlayMetadata<'_, T>,
         tip: gix::ObjectId,
         Context {
             repo,
@@ -87,11 +88,11 @@ impl Graph {
 
     /// Assure that workspace segments with managed commits only have that commit, and move all others
     /// into a new segment.
-    fn fixup_workspace_segments(
+    fn fixup_workspace_segments<T: RefMetadata>(
         &mut self,
-        repo: &gix::Repository,
+        repo: &OverlayRepo<'_>,
         refs_by_id: &RefsById,
-        meta: &impl RefMetadata,
+        meta: &OverlayMetadata<'_, T>,
     ) -> anyhow::Result<()> {
         let workspace_segments_with_multiple_commits: Vec<_> = self
             .inner
@@ -156,9 +157,9 @@ impl Graph {
     /// * segments have a name, but the same name is still visible in the refs of the first commit.
     ///
     /// Only perform disambiguation on proxy segments (i.e. those inserted segments to prevent commit-ownership).
-    fn fixup_segment_names(
+    fn fixup_segment_names<T: RefMetadata>(
         &mut self,
-        meta: &impl RefMetadata,
+        meta: &OverlayMetadata<'_, T>,
         inserted_proxy_segments: &[SegmentIndex],
     ) {
         let segments_with_refs_on_first_commit: Vec<_> = self
@@ -224,7 +225,7 @@ impl Graph {
         ws_sidx: SegmentIndex,
         target: Option<&crate::projection::Target>,
         ws_stacks: &[crate::projection::Stack],
-        repo: &gix::Repository,
+        repo: &OverlayRepo<'_>,
     ) -> anyhow::Result<Vec<SegmentIndex>> {
         let mut out: Vec<_> = ws_stacks
             .iter()
@@ -271,7 +272,7 @@ impl Graph {
                 if crate::projection::commit::is_managed_workspace_by_message(
                     commit_with_refs
                         .id
-                        .attach(repo)
+                        .attach(repo.for_attach_only())
                         .object()?
                         .try_into_commit()?
                         .message_raw()?,
@@ -307,10 +308,10 @@ impl Graph {
     /// * insert empty segments as defined by the workspace that affects its downstream.
     /// * put workspace connection into the order defined in the workspace metadata.
     /// * set sibling segment IDs for unnamed segments that are descendents of an out-of-workspace but known segment.
-    fn workspace_upgrades(
+    fn workspace_upgrades<T: RefMetadata>(
         &mut self,
-        meta: &impl RefMetadata,
-        repo: &gix::Repository,
+        meta: &OverlayMetadata<'_, T>,
+        repo: &OverlayRepo<'_>,
     ) -> anyhow::Result<()> {
         let Some((ws_sidx, ws_stacks, ws_data, ws_target)) = self
             .to_workspace_inner(workspace::Downgrade::Disallow)
@@ -517,7 +518,7 @@ impl Graph {
     /// Also, link up all remote segments with their local ones, and vice versa.
     fn improve_remote_segments(
         &mut self,
-        repo: &gix::Repository,
+        repo: &OverlayRepo<'_>,
         symbolic_remote_names: &[String],
         configured_remote_tracking_branches: &BTreeSet<gix::refs::FullName>,
     ) -> anyhow::Result<()> {
@@ -740,12 +741,12 @@ fn delete_anon_if_empty_and_reconnect(graph: &mut Graph, sidx: SegmentIndex) {
 
 /// Create as many new segments as refs in `matching_refs`, connect them to each other in order, and finally connect them
 /// with `above_idx` and `below_idx` to integrate them into the workspace that is bounded by these segments.
-fn create_independent_segments(
+fn create_independent_segments<T: RefMetadata>(
     graph: &mut Graph,
     above_idx: SegmentIndex,
     below_idx: SegmentIndex,
     matching_refs: Vec<gix::refs::FullName>,
-    meta: &impl RefMetadata,
+    meta: &OverlayMetadata<'_, T>,
 ) -> anyhow::Result<()> {
     assert!(!matching_refs.is_empty());
 
@@ -803,13 +804,13 @@ fn create_independent_segments(
 /// Note that the Segment at `bottom_segment_index` will own `commit`.
 /// Also note that we reconnect commit-by-commit, so the outer processing has to do that.
 /// Note that it may avoid creating a new segment.
-fn maybe_create_multiple_segments(
+fn maybe_create_multiple_segments<T: RefMetadata>(
     graph: &mut Graph,
     mut above_idx: SegmentIndex,
     commit_parent: SegmentIndex,
     commit_idx: CommitIndex,
     mut matching_refs: Vec<gix::refs::FullName>,
-    meta: &impl RefMetadata,
+    meta: &OverlayMetadata<'_, T>,
 ) -> anyhow::Result<Option<SegmentIndex>> {
     assert!(!matching_refs.is_empty());
     let commit = &graph[commit_parent].commits[commit_idx];

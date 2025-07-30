@@ -19,7 +19,7 @@ fn writable_scenario_inner(
         creation,
     )
     .map_err(anyhow::Error::from_boxed)?;
-    let mut options = gix::open::Options::isolated();
+    let mut options = but_testsupport::open_repo_config()?;
     options.permissions.env = gix::open::permissions::Environment::all();
     let repo = gix::open_opts(tmp.path(), options)?;
     Ok((repo, tmp))
@@ -360,4 +360,8 @@ pub fn hunk_header(old: &str, new: &str) -> HunkHeader {
         new_start,
         new_lines,
     }
+}
+
+pub fn r(name: &str) -> &gix::refs::FullNameRef {
+    name.try_into().expect("statically known valid ref-name")
 }

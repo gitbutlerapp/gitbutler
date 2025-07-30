@@ -1,10 +1,11 @@
+use crate::init::overlay::OverlayRepo;
 use gix::reference::Category;
 use std::collections::BTreeSet;
 
 /// Returns the unique names of all remote tracking branches that are configured in the repository.
 /// Useful to avoid claiming them for deduction.
 pub fn configured_remote_tracking_branches(
-    repo: &gix::Repository,
+    repo: &OverlayRepo<'_>,
 ) -> anyhow::Result<BTreeSet<gix::refs::FullName>> {
     let mut out = BTreeSet::default();
     for short_name in repo
@@ -26,7 +27,7 @@ pub fn configured_remote_tracking_branches(
 // remote per branch.
 // TODO: remove deduction entirely by properly setting up remotes.
 pub fn lookup_remote_tracking_branch_or_deduce_it(
-    repo: &gix::Repository,
+    repo: &OverlayRepo<'_>,
     ref_name: &gix::refs::FullNameRef,
     symbolic_remote_names: &[String],
     configured_remote_tracking_branches: &BTreeSet<gix::refs::FullName>,
@@ -49,7 +50,7 @@ pub fn lookup_remote_tracking_branch_or_deduce_it(
                 continue;
             }
             return repo
-                .find_reference(&remote_tracking_ref_name)
+                .find_reference(remote_tracking_ref_name.as_ref())
                 .ok()
                 .map(|remote_ref| remote_ref.name().to_owned());
         }
@@ -77,7 +78,7 @@ pub fn extract_remote_name(
 }
 
 pub fn lookup_remote_tracking_branch(
-    repo: &gix::Repository,
+    repo: &OverlayRepo<'_>,
     ref_name: &gix::refs::FullNameRef,
 ) -> anyhow::Result<Option<gix::refs::FullName>> {
     Ok(repo

@@ -14,6 +14,7 @@
 /merge-with-two-branches-auto-resolved-merge.tar
 /two-commits-three-buckets.tar
 /one-commit-detached.tar
+/single-branch-3-commits.tar
 /single-branch-10-commits.tar
 /single-branch-10-commits-multi-segment.tar
 /delete-all-file-types-valid-submodule.tar

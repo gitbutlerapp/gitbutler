@@ -1,4 +1,5 @@
 #![allow(unused_variables)]
+#![allow(clippy::indexing_slicing)]
 //! What follows is a description of all entities we need to implement Workspaces,
 //! a set of *two or more* branches that are merged together.
 //!
@@ -131,7 +132,7 @@
 //! For instance, if a references is `refs/heads/gitbutler/workspace/one`, then the stash reference is in
 //! `<namespace: gitbutler-stashes>/refs/heads/gitbutler/workspace/one`. The reason for this is that they will not
 //! be garbage-collected that way.
-//! Note that any ref, like `refs/heads/feature` can carry a stash, so *workspace references* aren't special.
+//! Note that any ref, like `refs/heads/gitbutler/workspace` can carry one or more stashes, so *workspace references* aren't special.
 //!
 //! *This also makes stashes enumerable*. It's notable that it's entirely possible for stashes to become *orphaned*,
 //! i.e. their workspace commit (that the stash commit sits on top of) doesn't have a reference *with the same name*
@@ -415,8 +416,10 @@
 use crate::ref_info;
 use anyhow::{Context, bail};
 use but_core::RefMetadata;
-use but_core::ref_metadata::StackId;
+use but_core::ref_metadata::{StackId, ValueInfo};
 use gix::prelude::ObjectIdExt;
+use gix::refs::transaction::PreviousValue;
+use std::ops::DerefMut;
 
 /// The result of [`add_branch_to_workspace`].
 #[derive(Debug, Clone)]
@@ -530,7 +533,194 @@ impl Stack {
     }
 }
 
-/// Return all stack segments within the given `stack`.
-pub fn stack_segments(stack: Stack) -> anyhow::Result<Vec<ref_info::ui::Segment>> {
-    todo!()
+mod create_reference {
+    use anyhow::Context;
+    use but_graph::projection::StackCommit;
+
+    /// For use in [`ReferenceAnchor`].
+    #[derive(Debug, Clone, Copy)]
+    pub enum ReferencePosition {
+        /// The new dependent branch will appear above its anchor.
+        Above,
+        /// The new dependent branch will appear below its anchor.
+        Below,
+    }
+
+    impl ReferencePosition {
+        pub(crate) fn resolve_commit(&self, commit: &StackCommit) -> anyhow::Result<gix::ObjectId> {
+            Ok(match self {
+                ReferencePosition::Above => commit.id,
+                ReferencePosition::Below => {
+                    commit.parent_ids.iter().cloned().next().with_context(|| {
+                        format!(
+                            "Commit {id} is the first in history and no branch can point below it",
+                            id = commit.id
+                        )
+                    })?
+                }
+            })
+        }
+    }
+
+    /// For use in [`super::create_reference_as_segment()`].
+    ///
+    /// *Note* that even though it's possible to resolve any ref as commit-id, making this
+    /// type *seem redundant*, it's not possible to unambiguously describe where a ref should
+    /// go just by commit. We must be specifying it in terms of above/below ref-name when possible,
+    /// or else they will always go on top.
+    #[derive(Debug, Clone)]
+    pub enum ReferenceAnchor {
+        /// Use a commit as position, which means we always need unambiguous placement
+        /// without a way to stack references on top of other references - only on top
+        /// of commits their segments may own.
+        AtCommit {
+            /// The commit to use as reference point for `position`.
+            commit_id: gix::ObjectId,
+            /// `Above` means the reference will point at `commit_id`, `Below` means it points at its
+            /// parent if possible.
+            position: ReferencePosition,
+        },
+        /// Use a segment as reference for positioning the new reference.
+        /// Without a workspace, this is the same as saying 'the commit that the segment points to'.
+        AtSegment {
+            /// The name of the segment to use as reference point for `position`.
+            ref_name: gix::refs::FullName,
+            /// `Above` means the reference will be right above the segment with `ref_name` even
+            /// if it points to the same commit.
+            /// `Below` means the reference will be right below the segment with `ref_name` even
+            /// if it points to the same commit.
+            position: ReferencePosition,
+        },
+    }
+
+    impl ReferenceAnchor {
+        /// Create a new instance with an object ID as anchor.
+        pub fn at_id(commit_id: impl Into<gix::ObjectId>, position: ReferencePosition) -> Self {
+            ReferenceAnchor::AtCommit {
+                commit_id: commit_id.into(),
+                position,
+            }
+        }
+
+        /// Create a new instance with a segment name as anchor.
+        pub fn at_segment(ref_name: gix::refs::FullName, position: ReferencePosition) -> Self {
+            ReferenceAnchor::AtSegment { ref_name, position }
+        }
+    }
+}
+pub use create_reference::*;
+
+/// Create a new reference named `ref_name` to point at a commit relative to `anchor`.
+/// The resulting reference will be created in `repo` and `meta` will be updated for `ref_name` so the workspace
+/// contains it, but only if it's a managed workspace, along with branch metadata.
+///
+/// Fail if the reference already exists *and* points somewhere else.
+///
+///  - if there is no managed workspace, then dependent branches must be exclusive on each commit to identify ordering
+///  - if there is a workspace, we store the order in workspace metadata and expect an `anchor` that names a segment.
+///
+/// Return a regenerated Graph that contains the new reference, and from which a new workspace can be derived.
+pub fn create_reference_as_segment(
+    ref_name: &gix::refs::FullNameRef,
+    anchor: ReferenceAnchor,
+    repo: &gix::Repository,
+    workspace: &but_graph::projection::Workspace<'_>,
+    meta: &mut impl RefMetadata,
+) -> anyhow::Result<but_graph::Graph> {
+    let commit_id = {
+        match anchor {
+            ReferenceAnchor::AtCommit {
+                commit_id,
+                position,
+            } => position.resolve_commit(
+                workspace.lookup_commit(workspace.try_find_owner_indexes_by_commit_id(commit_id)?),
+            )?,
+            ReferenceAnchor::AtSegment { ref_name, position } => {
+                // TODO: can this be unified?
+                if workspace.has_metadata() {
+                    let (stack_idx, seg_idx) =
+                        workspace.try_find_segment_owner_indexes_by_refname(ref_name.as_ref())?;
+                    let segment = &workspace.stacks[stack_idx].segments[seg_idx];
+                    if let Some(commit) = segment.commits.first() {
+                        position.resolve_commit(commit)?
+                    } else {
+                        todo!("find commit, set name relation")
+                    }
+                } else {
+                    let Some((_stack, segment)) =
+                        workspace.find_segment_and_stack_by_refname(ref_name.as_ref())
+                    else {
+                        bail!(
+                            "Could not find a segment named '{}' in workspace",
+                            ref_name.as_bstr()
+                        );
+                    };
+                    position.resolve_commit(segment.commits.first().context(
+                        "BUG: empty segments aren't possible without workspace metadata",
+                    )?)?
+                }
+            }
+        }
+    };
+
+    // Assure this commit is in the workspace as well.
+    workspace.try_find_owner_indexes_by_commit_id(commit_id)?;
+
+    // Only set branch metadata for new branches, or if they had metadata already.
+    // Don't change existing ones at all.
+    let branch_md = {
+        let mut md = meta.branch(ref_name)?;
+        let is_new_ref = repo.try_find_reference(ref_name)?.is_none();
+        if !md.is_default() || is_new_ref {
+            let md_ref: &mut but_core::ref_metadata::Branch = md.deref_mut();
+            md_ref.ref_info.set_updated_to_now();
+            if is_new_ref {
+                md.ref_info.set_created_to_now();
+            }
+            Some(md)
+        } else {
+            None
+        }
+    };
+
+    let graph_with_new_ref = workspace.graph.redo_traversal_with_overlay(
+        repo,
+        meta,
+        but_graph::init::Overlay::default()
+            .with_references_non_overriding(Some(gix::refs::Reference {
+                name: ref_name.into(),
+                target: gix::refs::Target::Object(commit_id),
+                peeled: None,
+            }))
+            .with_branch_metadata_overriding(
+                branch_md
+                    .as_ref()
+                    .map(|md| (md.as_ref().to_owned(), (*md).clone())),
+            ),
+    )?;
+
+    let has_new_ref_as_standalone_segment = graph_with_new_ref
+        .to_workspace()?
+        .find_segment_and_stack_by_refname(ref_name)
+        .is_some();
+    if !has_new_ref_as_standalone_segment {
+        // TODO: this should probably be easier to understand for the UI, with error codes maybe?
+        bail!(
+            "Reference {} cannot be created as segment at {commit_id}",
+            ref_name.as_bstr()
+        )
+    }
+
+    // Actually apply the changes
+    repo.reference(
+        ref_name,
+        commit_id,
+        PreviousValue::ExistingMustMatch(gix::refs::Target::Object(commit_id)),
+        "Dependent branch by GitButler",
+    )?;
+    if let Some(md) = branch_md {
+        meta.set_branch(&md)?;
+    }
+
+    Ok(graph_with_new_ref)
 }
