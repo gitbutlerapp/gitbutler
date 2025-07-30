@@ -238,12 +238,8 @@ pub mod read_only {
         // Assure the project is valid the first time.
         let project = if was_inserted {
             let tmp = tempfile::TempDir::new()?;
-            gitbutler_project::add_with_app_data_dir(
-                tmp.path(),
-                project_worktree_dir.as_path(),
-                None,
-                None,
-            )?
+            crate::set_test_data_dir(tmp.path());
+            gitbutler_project::add(project_worktree_dir.as_path(), None, None)?
         } else {
             Project {
                 id: ProjectId::generate(),
@@ -290,3 +286,9 @@ pub(crate) static DRIVER: Lazy<PathBuf> = Lazy::new(|| {
 /// Note that this can't be used if secrets themselves are under test as it' doesn't act
 /// like a real store, i.e. stored secrets can't be retrieved anymore.
 pub mod secrets;
+
+pub fn set_test_data_dir<P: AsRef<std::path::Path>>(path: P) {
+    unsafe {
+        std::env::set_var("TEST_APP_DATA_DIR", path.as_ref());
+    }
+}

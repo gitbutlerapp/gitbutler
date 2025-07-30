@@ -1,6 +1,9 @@
 use std::path::PathBuf;
 
 pub fn app_data_dir() -> anyhow::Result<PathBuf> {
+    if let Ok(test_dir) = std::env::var("TEST_APP_DATA_DIR") {
+        return Ok(PathBuf::from(test_dir));
+    }
     dirs::data_dir()
         .ok_or(anyhow::anyhow!("Could not get app data dir"))
         .map(|dir| dir.join(identifier()))

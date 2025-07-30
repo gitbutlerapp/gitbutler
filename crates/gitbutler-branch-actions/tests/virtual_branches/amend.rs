@@ -9,6 +9,7 @@ use super::*;
 #[test]
 fn forcepush_allowed() -> anyhow::Result<()> {
     let Test {
+        data_dir,
         repo,
         project_id,
 
@@ -16,6 +17,7 @@ fn forcepush_allowed() -> anyhow::Result<()> {
         ..
     } = &Test::default();
 
+    gitbutler_testsupport::set_test_data_dir(data_dir.as_ref().unwrap());
     gitbutler_project::update(&projects::UpdateRequest {
         id: *project_id,
         ..Default::default()
