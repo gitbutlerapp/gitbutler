@@ -24,7 +24,7 @@ fn twice() {
         .unwrap();
         let stacks = stack_details(&ctx);
         assert_eq!(stacks.len(), 0);
-        projects.delete(project.id).unwrap();
+        gitbutler_project::delete(project.id).unwrap();
     }
 
     {

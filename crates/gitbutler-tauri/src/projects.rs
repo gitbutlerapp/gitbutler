@@ -164,12 +164,9 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects), err(Debug))]
-    pub fn delete_project(
-        projects: State<'_, Controller>,
-        project_id: ProjectId,
-    ) -> Result<(), Error> {
-        projects.delete(project_id).map_err(Into::into)
+    #[instrument(err(Debug))]
+    pub fn delete_project(project_id: ProjectId) -> Result<(), Error> {
+        gitbutler_project::delete(project_id).map_err(Into::into)
     }
 }
 

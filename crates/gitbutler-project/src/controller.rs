@@ -251,7 +251,7 @@ impl Controller {
         self.projects_storage.list()
     }
 
-    pub fn delete(&self, id: ProjectId) -> Result<()> {
+    pub(crate) fn delete(&self, id: ProjectId) -> Result<()> {
         let Some(project) = self.projects_storage.try_get(id)? else {
             return Ok(());
         };
@@ -273,7 +273,7 @@ impl Controller {
         Ok(())
     }
 
-    pub fn project_metadata_dir(&self, id: ProjectId) -> PathBuf {
+    fn project_metadata_dir(&self, id: ProjectId) -> PathBuf {
         self.local_data_dir.join("projects").join(id.to_string())
     }
 }

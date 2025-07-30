@@ -109,8 +109,7 @@ impl App {
     pub fn delete_all_data(&self) -> Result<()> {
         let controller = self.projects();
         for project in controller.list().context("failed to list projects")? {
-            controller
-                .delete(project.id)
+            gitbutler_project::delete(project.id)
                 .map_err(|err| err.context("failed to delete project"))?;
         }
         Ok(())
