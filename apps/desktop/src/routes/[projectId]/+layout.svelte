@@ -19,7 +19,6 @@
 		STACKING_REORDER_DROPZONE_MANAGER_FACTORY
 	} from '$lib/dragging/stackingReorderDropzoneManager';
 	import { FEED_FACTORY } from '$lib/feed/feed';
-	import { FocusManager, FOCUS_MANAGER } from '$lib/focus/focusManager.svelte';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { GITHUB_CLIENT } from '$lib/forge/github/githubClient';
 	import { GITLAB_CLIENT } from '$lib/forge/gitlab/gitlabClient.svelte';
@@ -90,9 +89,6 @@
 	$effect.pre(() => {
 		provide(BASE_BRANCH, baseBranch);
 	});
-
-	const focusManager = new FocusManager();
-	provide(FOCUS_MANAGER, focusManager);
 
 	let intervalId: any;
 

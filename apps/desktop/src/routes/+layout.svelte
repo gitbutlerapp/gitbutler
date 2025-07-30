@@ -6,6 +6,7 @@
 	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import AppUpdater from '$components/AppUpdater.svelte';
+	import FocusCursor from '$components/FocusCursor.svelte';
 	import GlobalModal from '$components/GlobalModal.svelte';
 	import GlobalSettingsMenuAction from '$components/GlobalSettingsMenuAction.svelte';
 	import PromptModal from '$components/PromptModal.svelte';
@@ -35,6 +36,7 @@
 	import { DropzoneRegistry, DROPZONE_REGISTRY } from '$lib/dragging/registry';
 	import FeedFactory, { FEED_FACTORY } from '$lib/feed/feed';
 	import { FILE_SERVICE } from '$lib/files/fileService';
+	import { FOCUS_MANAGER, FocusManager } from '$lib/focus/focusManager.svelte';
 	import { DefaultForgeFactory, DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { GitHubClient, GITHUB_CLIENT } from '$lib/forge/github/githubClient';
 	import {
@@ -273,6 +275,9 @@
 	provide(RESIZE_SYNC, new ResizeSync());
 	provide(GIT_SERVICE, new GitService(data.tauri));
 
+	const focusManager = new FocusManager();
+	provide(FOCUS_MANAGER, focusManager);
+
 	const settingsService = data.settingsService;
 	const settingsStore = settingsService.appSettings;
 
@@ -355,6 +360,8 @@
 {#if import.meta.env.MODE === 'development'}
 	<ReloadWarning />
 {/if}
+
+<FocusCursor />
 
 <style lang="postcss">
 	.app-root {
