@@ -133,14 +133,12 @@ fn main() {
                         app_data_dir: app_data_dir.clone(),
                     };
                     app_handle.manage(app.users());
-                    app_handle.manage(app.projects());
                     let settings_store: SettingsStore = tauri_app.store("settings.json")?.into();
                     app_handle.manage(settings_store);
 
                     app_handle.manage(gitbutler_feedback::Archival {
                         cache_dir: app_cache_dir,
                         logs_dir: app_log_dir,
-                        projects_controller: app.projects(),
                     });
                     app_handle.manage(app);
 

@@ -52,7 +52,7 @@ impl Controller {
 }
 
 impl Controller {
-    pub fn from_path(path: impl Into<PathBuf>) -> Self {
+    pub(crate) fn from_path(path: impl Into<PathBuf>) -> Self {
         let path = path.into();
         Self {
             projects_storage: storage::Storage::from_path(&path),

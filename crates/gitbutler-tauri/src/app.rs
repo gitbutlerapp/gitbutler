@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
-use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::RepositoryExt;
@@ -17,10 +16,6 @@ pub struct App {
 
 /// Access to primary categories of data.
 impl App {
-    pub fn projects(&self) -> projects::Controller {
-        projects::Controller::from_path(self.app_data_dir.clone())
-    }
-
     pub fn users(&self) -> gitbutler_user::Controller {
         gitbutler_user::Controller::from_path(&self.app_data_dir)
     }
