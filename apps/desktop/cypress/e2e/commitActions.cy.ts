@@ -1138,6 +1138,8 @@ describe('Commit Actions with no stacks', () => {
 			cy.get('input[type="text"]')
 				.should('be.visible')
 				.should('be.enabled')
+				.click()
+				.should('have.value', mockBackend.cannedBranchName)
 				.clear()
 				.type(newBranchName);
 		});

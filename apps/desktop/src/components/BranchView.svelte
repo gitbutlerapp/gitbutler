@@ -5,7 +5,6 @@
 	import BranchReview from '$components/BranchReview.svelte';
 	import DeleteBranchModal from '$components/DeleteBranchModal.svelte';
 	import Drawer from '$components/Drawer.svelte';
-	import KebabButton from '$components/KebabButton.svelte';
 	import NewBranchModal from '$components/NewBranchModal.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
@@ -108,11 +107,12 @@
 					prNumber: branch.prNumber || undefined,
 					stackLength: branches.length
 				}}
-				<KebabButton
-					contextElement={header}
-					onclick={(element) => (headerMenuContext = { data, position: { element } })}
-					oncontext={(coords) => (headerMenuContext = { data, position: { coords } })}
-					activated={!!headerMenuContext?.position.element}
+				<BranchHeaderContextMenu
+					{projectId}
+					{stackId}
+					bind:context={headerMenuContext}
+					rightClickTrigger={header}
+					contextData={data}
 				/>
 			{/snippet}
 
@@ -159,10 +159,6 @@
 		/>
 	{/snippet}
 </ReduxResult>
-
-{#if headerMenuContext}
-	<BranchHeaderContextMenu {projectId} {stackId} bind:context={headerMenuContext} />
-{/if}
 
 <style>
 	.branch__header {

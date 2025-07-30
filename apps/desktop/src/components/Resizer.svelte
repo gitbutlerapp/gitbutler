@@ -55,7 +55,7 @@
 		defaultValue,
 		viewport,
 		direction,
-		zIndex = 'var(--z-floating)',
+		zIndex = 'var(--z-lifted)',
 		minWidth = 0,
 		maxWidth = 120,
 		minHeight = 0,
