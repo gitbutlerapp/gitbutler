@@ -198,13 +198,18 @@
 				{/if}
 				<Button
 					kind="outline"
-					onclick={() => goto(newProjectSettingsPath(projectId))}
+					onclick={() => {
+						if (isNewProjectSettingsPath()) {
+							goto(workspacePath(projectId));
+						} else {
+							goto(newProjectSettingsPath(projectId));
+						}
+					}}
 					width={34}
 					class={['btn-square', isNewProjectSettingsPath() && 'btn-active']}
 					tooltipPosition="top"
 					tooltipAlign="start"
 					tooltip="Project settings"
-					{disabled}
 				>
 					{#snippet custom()}
 						<svg
@@ -283,7 +288,6 @@
 				onclick={() => {
 					shareIssueModal?.show();
 				}}
-				disabled={false}
 			/>
 		</div>
 	</div>
