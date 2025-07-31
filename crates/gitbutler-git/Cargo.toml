@@ -30,6 +30,7 @@ benches = []
 [dependencies]
 tracing.workspace = true
 thiserror.workspace = true
+anyhow.workspace = true
 serde = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true, features = [
     "process",

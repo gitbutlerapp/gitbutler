@@ -158,8 +158,9 @@ where
         .or_else(|| std::env::var("GIT_SSH").ok())
     {
         Some(v) => v,
-        None => get_core_sshcommand(executor, &repo_path)
-            .await
+        None => get_core_sshcommand(&repo_path)
+            .ok()
+            .flatten()
             .unwrap_or_else(|| "ssh".into()),
     };
 
@@ -507,19 +508,9 @@ where
     Ok(commit_hash)
 }
 
-async fn get_core_sshcommand<E: GitExecutor, P: AsRef<Path>>(
-    executor: &E,
-    cwd: P,
-) -> Option<String> {
-    executor
-        .execute(&["config", "--get", "core.sshCommand"], cwd, None)
-        .await
-        .map(|(status, stdout, _)| {
-            if status != 0 {
-                None
-            } else {
-                Some(stdout.trim().to_string())
-            }
-        })
-        .unwrap_or(None)
+fn get_core_sshcommand(cwd: impl AsRef<Path>) -> anyhow::Result<Option<String>> {
+    Ok(gix::open(cwd.as_ref())?
+        .config_snapshot()
+        .trusted_program(&gix::config::tree::Core::SSH_COMMAND)
+        .map(|program| program.to_string_lossy().into_owned()))
 }
