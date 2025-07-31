@@ -28,6 +28,7 @@ test-askpass-path = []
 benches = []
 
 [dependencies]
+tracing.workspace = true
 thiserror.workspace = true
 serde = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true, features = [
