@@ -4,7 +4,6 @@
 	import Dropzone from '$components/Dropzone.svelte';
 	import FileList from '$components/FileList.svelte';
 	import FileListMode from '$components/FileListMode.svelte';
-	import UnassignedFoldButton from '$components/UnassignedFoldButton.svelte';
 	import WorktreeChangesSelectAll from '$components/WorktreeChangesSelectAll.svelte';
 	import { UncommitDzHandler } from '$lib/commits/dropHandler';
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
@@ -31,6 +30,7 @@
 		overflow?: boolean;
 		onDropzoneActivated?: (activated: boolean) => void;
 		emptyPlaceholder?: Snippet;
+		foldButton?: Snippet;
 		onselect?: () => void;
 		onscrollexists?: (exists: boolean) => void;
 	};
@@ -45,6 +45,7 @@
 		overflow,
 		onDropzoneActivated,
 		emptyPlaceholder,
+		foldButton,
 		onselect,
 		onscrollexists
 	}: Props = $props();
@@ -58,7 +59,6 @@
 	const uncommitDzHandler = $derived(
 		new UncommitDzHandler(projectId, stackService, uiState, stackId)
 	);
-	const unassignedSidebaFolded = $derived(uiState.global.unassignedSidebaFolded);
 
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
@@ -91,10 +91,6 @@
 		} else {
 			return 'Unassign changes';
 		}
-	}
-
-	function foldUnnassignedView() {
-		unassignedSidebaFolded.set(true);
 	}
 </script>
 
@@ -138,10 +134,8 @@
 				class="worktree-header"
 				class:sticked-top={!scrollTopIsVisible}
 			>
-				{#if !isCommitting && mode === 'unassigned' && !unassignedSidebaFolded.current}
-					<div class="worktree-header__fold">
-						<UnassignedFoldButton active={false} onclick={foldUnnassignedView} />
-					</div>
+				{#if foldButton}
+					{@render foldButton()}
 				{/if}
 
 				<div class="worktree-header__general">
@@ -203,13 +197,6 @@
 		align-items: center;
 		overflow: hidden;
 		gap: 10px;
-	}
-
-	.worktree-header__fold {
-		display: flex;
-		/* Align this icon's position with the folded one.
-   	Prevent any position shifting or jumping. */
-		margin-left: -3px;
 	}
 
 	.worktree-header__title {

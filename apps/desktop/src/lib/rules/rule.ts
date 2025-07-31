@@ -22,9 +22,9 @@ export interface WorkspaceRule {
 	 *  This allows for the expressions of rules like "If a file is modified, its path matches
 	 *  the regex 'src/.*', and its content matches the regex 'TODO', then do something.
 	 *  */
-	filters: Filter[];
+	filters: RuleFilter[];
 	/** The action determines what happens to the files or changes that matched the filters. */
-	action: Action;
+	action: RuleAction;
 }
 
 /**
@@ -38,34 +38,106 @@ export type Trigger =
  * A filter is a condition that determines what files or changes the rule applies to.
  * Multiple conditions in a filter are combined with AND logic.
  */
-export type Filter =
+export type RuleFilter =
 	| { type: 'pathMatchesRegex'; subject: string } // regex patterns as strings
 	| { type: 'contentMatchesRegex'; subject: string } // regex patterns as strings
 	| { type: 'fileChangeType'; subject: TreeStatus }
-	| { type: 'semanticType'; subject: SemanticType };
+	| { type: 'semanticType'; subject: SemanticTypeFilter };
+
+export type RuleFilterType = RuleFilter['type'];
+export const RULE_FILTER_TYPES = [
+	'pathMatchesRegex',
+	'contentMatchesRegex',
+	'fileChangeType',
+	'semanticType'
+] satisfies RuleFilterType[];
+
+export function canAddMoreFilters(filters: RuleFilterType[]): boolean {
+	return filters.length < RULE_FILTER_TYPES.length;
+}
+
+export type RuleFilterSubject<T extends RuleFilterType> = Extract<
+	RuleFilter,
+	{ type: T }
+>['subject'];
 
 /**
  * Represents the type of change that occurred in the Git worktree.
  * Matches the TreeStatus of the TreeChange.
  */
-export type TreeStatus = 'addition' | 'deletion' | 'modification' | 'rename';
+export const RULE_FILTER_TREE_STATUS = ['addition', 'deletion', 'modification', 'rename'] as const;
+export type TreeStatus = (typeof RULE_FILTER_TREE_STATUS)[number];
+
+export function treeStatusToString(treeStatus: TreeStatus): string {
+	switch (treeStatus) {
+		case 'addition':
+			return 'Addition';
+		case 'deletion':
+			return 'Deletion';
+		case 'modification':
+			return 'Modification';
+		case 'rename':
+			return 'Rename';
+	}
+}
+
+export function treeStatusToShortString(treeStatus: TreeStatus): string {
+	switch (treeStatus) {
+		case 'addition':
+			return 'added';
+		case 'deletion':
+			return 'deleted';
+		case 'modification':
+			return 'modified';
+		case 'rename':
+			return 'renamed';
+	}
+}
 
 /**
  * Represents a semantic type of change that was inferred for the change.
  * Typically this means a heuristic or an LLM determined that a change represents a refactor, a new feature, a bug fix, or documentation update.
  */
-export type SemanticType =
+export type SemanticTypeFilter =
 	| { type: 'refactor' }
 	| { type: 'newFeature' }
 	| { type: 'bugFix' }
 	| { type: 'documentation' }
 	| { type: 'userDefined'; subject: string };
 
+export type SemanticType = SemanticTypeFilter['type'];
+
+export function semanticTypeToString(semanticType: SemanticType): string {
+	switch (semanticType) {
+		case 'refactor':
+			return 'Refactor';
+		case 'newFeature':
+			return 'New Feature';
+		case 'bugFix':
+			return 'Bug Fix';
+		case 'documentation':
+			return 'Documentation';
+		default:
+			return semanticType; // For user-defined types, return the subject directly
+	}
+}
+
+/**
+ * TODO: Add the user defined semantic type to the list of semantic types.
+ * It's not currently used in the application, but it might be added later.
+ */
+export const SEMANTIC_TYPES = [
+	'refactor',
+	'newFeature',
+	'bugFix',
+	'documentation'
+] satisfies SemanticType[];
+
 /**
  * Represents an action that can be taken based on the rule evaluation.
  * An action can be either explicit (user defined) or implicit (determined by heuristics or AI).
  */
-export type Action =
+export type RuleAction =
 	| { type: 'explicit'; subject: Operation }
 	| { type: 'implicit'; subject: ImplicitOperation };
 
@@ -73,9 +145,9 @@ export type Action =
  * Represents the operation that a user can configure to be performed in an explicit action.
  */
 export type Operation =
-	| { type: 'assign'; stackId: string }
-	| { type: 'amend'; commitId: string }
-	| { type: 'newCommit'; branchName: string };
+	| { type: 'assign'; subject: { stack_id: string } }
+	| { type: 'amend'; subject: { commit_id: string } }
+	| { type: 'newCommit'; subject: { branch_name: string } };
 
 /**
  * Represents the implicit operation that is determined by heuristics or AI.
@@ -92,9 +164,9 @@ export interface CreateRuleRequest {
 	/** The trigger that causes the rule to be evaluated. */
 	trigger: Trigger;
 	/** The filters that determine what files or changes the rule applies to. Cannot be empty. */
-	filters: Filter[];
+	filters: RuleFilter[];
 	/** The action that determines what happens to the files or changes that matched the filters. */
-	action: Action;
+	action: RuleAction;
 }
 
 /**
@@ -108,7 +180,7 @@ export interface UpdateRuleRequest {
 	/** The new trigger for the rule. If not provided, the existing trigger is retained. */
 	trigger: Trigger | null;
 	/** The new filters for the rule. If not provided, the existing filters are retained. */
-	filters: Filter[] | null;
+	filters: RuleFilter[] | null;
 	/** The new action for the rule. If not provided, the existing action is retained. */
-	action: Action | null;
+	action: RuleAction | null;
 }
