@@ -30,6 +30,12 @@ pub fn get(id: ProjectId) -> anyhow::Result<Project> {
     controller.get(id)
 }
 
+/// Testing purpose only.
+pub fn get_with_path<P: AsRef<Path>>(data_dir: P, id: ProjectId) -> anyhow::Result<Project> {
+    let controller = Controller::from_path(data_dir.as_ref());
+    controller.get(id)
+}
+
 pub fn get_validated(id: ProjectId) -> anyhow::Result<Project> {
     let controller = Controller::from_path(but_path::app_data_dir()?);
     controller.get_validated(id)
@@ -45,12 +51,32 @@ pub fn update(project: &UpdateRequest) -> anyhow::Result<Project> {
     controller.update(project)
 }
 
+/// Testing purpose only.
+pub fn update_with_path<P: AsRef<Path>>(
+    data_dir: P,
+    project: &UpdateRequest,
+) -> anyhow::Result<Project> {
+    let controller = Controller::from_path(data_dir.as_ref());
+    controller.update(project)
+}
+
 pub fn add<P: AsRef<Path>>(
     path: P,
     name: Option<String>,
     email: Option<String>,
 ) -> anyhow::Result<Project> {
     let controller = Controller::from_path(but_path::app_data_dir()?);
+    controller.add(path, name, email)
+}
+
+/// Testing purpose only.
+pub fn add_with_path<P: AsRef<Path>>(
+    data_dir: P,
+    path: P,
+    name: Option<String>,
+    email: Option<String>,
+) -> anyhow::Result<Project> {
+    let controller = Controller::from_path(data_dir.as_ref());
     controller.add(path, name, email)
 }
 
@@ -61,6 +87,12 @@ pub fn list() -> anyhow::Result<Vec<Project>> {
 
 pub fn delete(id: ProjectId) -> anyhow::Result<()> {
     let controller = Controller::from_path(but_path::app_data_dir()?);
+    controller.delete(id)
+}
+
+/// Testing purpose only.
+pub fn delete_with_path<P: AsRef<Path>>(data_dir: P, id: ProjectId) -> anyhow::Result<()> {
+    let controller = Controller::from_path(data_dir.as_ref());
     controller.delete(id)
 }
 

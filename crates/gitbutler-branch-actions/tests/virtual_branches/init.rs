@@ -9,9 +9,9 @@ fn twice() {
     let test_project = TestProject::default();
 
     {
-        gitbutler_testsupport::set_test_data_dir(data_dir.path());
         let project =
-            gitbutler_project::add(test_project.path(), None, None).expect("failed to add project");
+            gitbutler_project::add_with_path(data_dir.path(), test_project.path(), None, None)
+                .expect("failed to add project");
         let ctx = CommandContext::open(&project, AppSettings::default()).unwrap();
 
         gitbutler_branch_actions::set_base_branch(
@@ -23,11 +23,13 @@ fn twice() {
         .unwrap();
         let stacks = stack_details(&ctx);
         assert_eq!(stacks.len(), 0);
-        gitbutler_project::delete(project.id).unwrap();
+        gitbutler_project::delete_with_path(data_dir.path(), project.id).unwrap();
     }
 
     {
-        let project = gitbutler_project::add(test_project.path(), None, None).unwrap();
+        let project =
+            gitbutler_project::add_with_path(data_dir.path(), test_project.path(), None, None)
+                .unwrap();
         let ctx = CommandContext::open(&project, AppSettings::default()).unwrap();
         gitbutler_branch_actions::set_base_branch(
             &ctx,

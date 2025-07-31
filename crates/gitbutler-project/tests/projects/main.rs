@@ -13,8 +13,7 @@ mod add {
         let tmp = paths::data_dir();
         let repository = gitbutler_testsupport::TestProject::default();
         let path = repository.path();
-        gitbutler_testsupport::set_test_data_dir(tmp.path());
-        let project = gitbutler_project::add(path, None, None).unwrap();
+        let project = gitbutler_project::add_with_path(tmp.path(), path, None, None).unwrap();
         assert_eq!(project.path, path);
         assert_eq!(
             project.title,
@@ -30,8 +29,8 @@ mod add {
         fn non_bare_without_worktree() {
             let tmp = paths::data_dir();
             let root = repo_path_at("non-bare-without-worktree");
-            gitbutler_testsupport::set_test_data_dir(tmp.path());
-            let err = gitbutler_project::add(root.as_path(), None, None).unwrap_err();
+            let err = gitbutler_project::add_with_path(tmp.path(), root.as_path(), None, None)
+                .unwrap_err();
             assert_eq!(
                 err.to_string(),
                 "Cannot add non-bare repositories without a workdir"
@@ -42,8 +41,8 @@ mod add {
         fn submodule() {
             let tmp = paths::data_dir();
             let root = repo_path_at("with-submodule").join("submodule");
-            gitbutler_testsupport::set_test_data_dir(tmp.path());
-            let err = gitbutler_project::add(root.as_path(), None, None).unwrap_err();
+            let err = gitbutler_project::add_with_path(tmp.path(), root.as_path(), None, None)
+                .unwrap_err();
             assert_eq!(
                 err.to_string(),
                 "A git-repository without a `.git` directory cannot currently be added"
@@ -54,11 +53,15 @@ mod add {
         fn missing() {
             let data_dir = paths::data_dir();
             let tmp = tempfile::tempdir().unwrap();
-            gitbutler_testsupport::set_test_data_dir(data_dir.path());
             assert_eq!(
-                gitbutler_project::add(tmp.path().join("missing"), None, None)
-                    .unwrap_err()
-                    .to_string(),
+                gitbutler_project::add_with_path(
+                    data_dir.path(),
+                    &tmp.path().join("missing"),
+                    None,
+                    None
+                )
+                .unwrap_err()
+                .to_string(),
                 "path not found"
             );
         }
@@ -69,9 +72,8 @@ mod add {
             let tmp = tempfile::tempdir().unwrap();
             let path = tmp.path();
             std::fs::write(path.join("file.txt"), "hello world").unwrap();
-            gitbutler_testsupport::set_test_data_dir(data_dir.path());
             assert_eq!(
-                gitbutler_project::add(path, None, None)
+                gitbutler_project::add_with_path(data_dir.path(), path, None, None)
                     .unwrap_err()
                     .to_string(),
                 "must be a Git repository"
@@ -82,8 +84,8 @@ mod add {
         fn empty() {
             let data_dir = paths::data_dir();
             let tmp = tempfile::tempdir().unwrap();
-            gitbutler_testsupport::set_test_data_dir(data_dir.path());
-            let err = gitbutler_project::add(tmp.path(), None, None).unwrap_err();
+            let err = gitbutler_project::add_with_path(data_dir.path(), tmp.path(), None, None)
+                .unwrap_err();
             assert_eq!(err.to_string(), "must be a Git repository");
         }
 
@@ -92,10 +94,9 @@ mod add {
             let data_dir = paths::data_dir();
             let repository = gitbutler_testsupport::TestProject::default();
             let path = repository.path();
-            gitbutler_testsupport::set_test_data_dir(data_dir.path());
-            gitbutler_project::add(path, None, None).unwrap();
+            gitbutler_project::add_with_path(data_dir.path(), path, None, None).unwrap();
             assert_eq!(
-                gitbutler_project::add(path, None, None)
+                gitbutler_project::add_with_path(data_dir.path(), path, None, None)
                     .unwrap_err()
                     .to_string(),
                 "project already exists"
@@ -111,8 +112,9 @@ mod add {
             let repo = git2::Repository::init_bare(&repo_dir).unwrap();
             create_initial_commit(&repo);
 
-            gitbutler_testsupport::set_test_data_dir(data_dir.path());
-            let err = gitbutler_project::add(repo_dir.as_path(), None, None).unwrap_err();
+            let err =
+                gitbutler_project::add_with_path(data_dir.path(), repo_dir.as_path(), None, None)
+                    .unwrap_err();
             assert_eq!(err.to_string(), "bare repositories are unsupported");
         }
 
@@ -127,8 +129,9 @@ mod add {
             create_initial_commit(&repo);
 
             let worktree = repo.worktree("feature", &worktree_dir, None).unwrap();
-            gitbutler_testsupport::set_test_data_dir(data_dir.path());
-            let err = gitbutler_project::add(worktree.path(), None, None).unwrap_err();
+            let err =
+                gitbutler_project::add_with_path(data_dir.path(), worktree.path(), None, None)
+                    .unwrap_err();
             assert_eq!(err.to_string(), "can only work in main worktrees");
         }
 
@@ -164,13 +167,12 @@ mod delete {
     #[test]
     fn success() {
         let data_dir = paths::data_dir();
-        gitbutler_testsupport::set_test_data_dir(&data_dir);
         let repository = gitbutler_testsupport::TestProject::default();
         let path = repository.path();
-        let project = gitbutler_project::add(path, None, None).unwrap();
-        assert!(gitbutler_project::delete(project.id).is_ok());
-        assert!(gitbutler_project::delete(project.id).is_ok()); // idempotent
-        assert!(gitbutler_project::get(project.id).is_err());
+        let project = gitbutler_project::add_with_path(data_dir.path(), path, None, None).unwrap();
+        assert!(gitbutler_project::delete_with_path(data_dir.path(), project.id).is_ok());
+        assert!(gitbutler_project::delete_with_path(data_dir.path(), project.id).is_ok()); // idempotent
+        assert!(gitbutler_project::get_with_path(data_dir.path(), project.id).is_err());
         assert!(!project.gb_dir().exists());
     }
 }

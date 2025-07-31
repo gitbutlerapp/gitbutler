@@ -1,4 +1,6 @@
-use anyhow::Result;
+use std::path::PathBuf;
+
+use anyhow::{bail, Context, Result};
 
 mod args;
 use args::Args;
@@ -58,8 +60,8 @@ fn main() -> Result<()> {
             }
         }
         args::Subcommands::Project(project::Platform {
-            app_data_dir: _,
-            app_suffix: _,
+            app_data_dir,
+            app_suffix,
             cmd,
         }) => match cmd {
             Some(project::SubCommands::SwitchToWorkspace { remote_ref_name }) => {
@@ -69,10 +71,41 @@ fn main() -> Result<()> {
             Some(project::SubCommands::Add {
                 switch_to_workspace,
                 path,
-            }) => command::project::add(path, switch_to_workspace),
+            }) => command::project::add(
+                data_dir(app_suffix, app_data_dir)?,
+                path,
+                switch_to_workspace,
+            ),
             None => command::project::list(),
         },
     }
+}
+pub fn data_dir(
+    app_suffix: Option<String>,
+    app_data_dir: Option<PathBuf>,
+) -> anyhow::Result<PathBuf> {
+    let path = if let Some(dir) = app_data_dir {
+        std::fs::create_dir_all(&dir).context("Failed to assure the designated data-dir exists")?;
+        dir
+    } else {
+        dirs_next::data_dir()
+            .map(|dir| {
+                dir.join(format!(
+                    "com.gitbutler.app{}",
+                    app_suffix
+                        .map(|mut suffix| {
+                            suffix.insert(0, '.');
+                            suffix
+                        })
+                        .unwrap_or_default()
+                ))
+            })
+            .context("no data-directory available on this platform")?
+    };
+    if !path.is_dir() {
+        bail!("Path '{}' must be a valid directory", path.display());
+    }
+    Ok(path)
 }
 
 mod trace {
