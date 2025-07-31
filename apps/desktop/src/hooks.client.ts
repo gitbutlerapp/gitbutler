@@ -20,6 +20,23 @@ export function handleError({
 	};
 }
 
+function loggableError(error: unknown): string {
+	if (error instanceof Error) {
+		return error.message;
+	}
+
+	if (typeof error === 'string') {
+		return error;
+	}
+	if (typeof error === 'object' && error !== null) {
+		if ('message' in error && typeof error.message === 'string') {
+			return error.message;
+		}
+		return JSON.stringify(error);
+	}
+	return String(error);
+}
+
 // Handler for unhandled errors inside promises.
 window.onunhandledrejection = (e: PromiseRejectionEvent) => {
 	e.preventDefault(); // Suppresses default console logger.
@@ -45,7 +62,8 @@ function logError(error: unknown) {
 		}
 
 		console.error(error);
-		logErrorToFile(String(error));
+		const errorMessage = loggableError(error);
+		logErrorToFile(errorMessage);
 	} catch (err: unknown) {
 		console.error('Error while trying to log error.', err);
 	}
