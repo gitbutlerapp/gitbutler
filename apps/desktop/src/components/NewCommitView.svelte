@@ -98,8 +98,11 @@
 			});
 
 			if ($runCommitHooks) {
-				const hooksFailed = await hooksService.runPreCommitHooks(projectId, worktreeChanges);
-				if (hooksFailed) return;
+				try {
+					await hooksService.runPreCommitHooks(projectId, worktreeChanges);
+				} catch {
+					return;
+				}
 			}
 
 			const response = await createCommitInStack(
@@ -115,8 +118,11 @@
 			);
 
 			if ($runCommitHooks) {
-				const postHookFailed = await hooksService.runPostCommitHooks(projectId);
-				if (postHookFailed) return;
+				try {
+					await hooksService.runPostCommitHooks(projectId);
+				} catch {
+					return;
+				}
 			}
 
 			const newId = response.newCommit;
