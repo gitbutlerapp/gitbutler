@@ -1,11 +1,12 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import CloudForm from '$components/CloudForm.svelte';
 	import GitForm from '$components/GitForm.svelte';
 	import PreferencesForm from '$components/PreferencesForm.svelte';
 	import SettingsPages, { type Page } from '$components/SettingsPages.svelte';
 	import GeneralSettings from '$components/projectSettings/GeneralSettings.svelte';
-	import { newProjectSettingsPath } from '$lib/routes/routes.svelte';
+	import { newProjectSettingsPath, workspacePath } from '$lib/routes/routes.svelte';
 
 	const pages: Page[] = [
 		{
@@ -48,5 +49,8 @@
 	{selectedId}
 	{pages}
 	pageUrl={(pageId) => newProjectSettingsPath(projectId, pageId)}
+	onclose={() => {
+		goto(workspacePath(projectId));
+	}}
 	hidePageHeader
 />

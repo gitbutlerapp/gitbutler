@@ -295,7 +295,9 @@
 					</Chrome>
 				</div>
 			{:else if mode.type === 'OutsideWorkspace'}
-				<NotOnGitButlerBranch {projectId} {baseBranch} />
+				<NotOnGitButlerBranch {projectId} {baseBranch}>
+					{@render pageChildren()}
+				</NotOnGitButlerBranch>
 			{/if}
 		{/if}
 	{/snippet}
