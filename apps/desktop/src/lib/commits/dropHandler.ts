@@ -102,11 +102,11 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 				const worktreeChanges = changesToDiffSpec(await data.treeChanges(), assignments);
 
 				if (this.runHooks) {
-					const hooksFailed = await this.hooksService.runPreCommitHooks(
-						this.projectId,
-						worktreeChanges
-					);
-					if (hooksFailed) return;
+					try {
+						await this.hooksService.runPreCommitHooks(this.projectId, worktreeChanges);
+					} catch {
+						return;
+					}
 				}
 
 				const result = this.onresult(
@@ -304,11 +304,11 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 			];
 
 			if (runHooks) {
-				const hooksFailed = await this.args.hooksService.runPreCommitHooks(
-					projectId,
-					worktreeChanges
-				);
-				if (hooksFailed) return;
+				try {
+					await this.args.hooksService.runPreCommitHooks(projectId, worktreeChanges);
+				} catch {
+					return;
+				}
 			}
 			stackService.amendCommitMutation({
 				projectId,
