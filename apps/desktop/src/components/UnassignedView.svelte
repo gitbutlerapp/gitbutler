@@ -52,10 +52,26 @@
 			unassignedSidebaFolded.set(false);
 		}
 	});
+
+	function foldUnnassignedView() {
+		unassignedSidebaFolded.set(true);
+	}
 </script>
+
+{#snippet foldButton()}
+	{#if !isCommitting && !unassignedSidebaFolded.current}
+		<div class="unassigned__fold-button">
+			<UnassignedFoldButton active={false} onclick={foldUnnassignedView} />
+		</div>
+	{/if}
+{/snippet}
 
 {#if !unassignedSidebaFolded.current}
 	<div class="unassigned">
+		{#if $workspaceRulesEnabled}
+			<RulesList {foldButton} {projectId} />
+		{/if}
+
 		<div role="presentation" class="unassigned__files" onclick={unselectFiles}>
 			<WorktreeChanges
 				title="Unassigned"
@@ -71,6 +87,7 @@
 				onselect={() => {
 					intelligentScrollingService.unassignedFileClicked(projectId);
 				}}
+				foldButton={$workspaceRulesEnabled ? undefined : foldButton}
 			>
 				{#snippet emptyPlaceholder()}
 					<div class="unassigned__empty">
@@ -112,10 +129,6 @@
 					{/if}
 				</Button>
 			</div>
-		{/if}
-
-		{#if $workspaceRulesEnabled}
-			<RulesList {projectId} />
 		{/if}
 	</div>
 {:else}
@@ -215,5 +228,12 @@
 	/* MODIFIERS */
 	.sticked-bottom {
 		border-top: 1px solid var(--clr-border-2);
+	}
+
+	.unassigned__fold-button {
+		display: flex;
+		/* Align this icon's position with the folded one.
+		Prevent any position shifting or jumping. */
+		margin-left: -3px;
 	}
 </style>
