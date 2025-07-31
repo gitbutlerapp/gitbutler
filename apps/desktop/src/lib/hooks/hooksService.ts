@@ -31,8 +31,6 @@ export type MessageHookStatus =
 			error: string;
 	  };
 
-class HookError extends Error {}
-
 export const HOOKS_SERVICE = new InjectionToken<HooksService>('HooksService');
 
 export class HooksService {
@@ -58,57 +56,41 @@ export class HooksService {
 		});
 	}
 
-	async runPreCommitHooks(projectId: string, changes: DiffSpec[]): Promise<boolean> {
-		let failed = false;
-		try {
-			await chipToasts.promise(
-				(async () => {
-					const result = await this.preCommitDiffspecs(projectId, changes);
-					if (result?.status === 'failure') {
-						failed = true;
-						console.error('Pre-commit hooks failed:', result.error);
-						throw new HookError(result.error);
-					}
-				})(),
-				{
-					loading: 'Started pre-commit hooks',
-					success: 'Pre-commit hooks succeded',
-					error: 'Pre-commit hooks failed'
-				}
-			);
-		} catch (e: unknown) {
-			if (!(e instanceof HookError)) {
-				throw e;
-			}
-		}
+	async runPreCommitHooks(projectId: string, changes: DiffSpec[]): Promise<void> {
+		const loadingToastId = chipToasts.loading('Started pre-commit hooks');
 
-		return failed;
+		try {
+			const result = await this.preCommitDiffspecs(projectId, changes);
+
+			if (result?.status === 'failure') {
+				chipToasts.removeChipToast(loadingToastId);
+				throw new Error(result.error);
+			}
+
+			chipToasts.removeChipToast(loadingToastId);
+			chipToasts.success('Pre-commit hooks succeeded');
+		} catch (e: unknown) {
+			chipToasts.removeChipToast(loadingToastId);
+			throw e;
+		}
 	}
 
-	async runPostCommitHooks(projectId: string): Promise<boolean> {
-		let failed = false;
-		try {
-			await chipToasts.promise(
-				(async () => {
-					const result = await this.postCommit(projectId);
-					if (result?.status === 'failure') {
-						failed = true;
-						console.error('Post-commit hooks failed:', result.error);
-						throw new HookError(result.error);
-					}
-				})(),
-				{
-					loading: 'Started post-commit hooks',
-					success: 'Post-commit hooks succeded',
-					error: 'Post-commit hooks failed'
-				}
-			);
-		} catch (e) {
-			if (!(e instanceof HookError)) {
-				throw e;
-			}
-		}
+	async runPostCommitHooks(projectId: string): Promise<void> {
+		const loadingToastId = chipToasts.loading('Started post-commit hooks');
 
-		return failed;
+		try {
+			const result = await this.postCommit(projectId);
+
+			if (result?.status === 'failure') {
+				chipToasts.removeChipToast(loadingToastId);
+				throw new Error(result.error);
+			}
+
+			chipToasts.removeChipToast(loadingToastId);
+			chipToasts.success('Post-commit hooks succeeded');
+		} catch (e: unknown) {
+			chipToasts.removeChipToast(loadingToastId);
+			throw e;
+		}
 	}
 }
