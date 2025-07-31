@@ -283,7 +283,7 @@
 				onclick={() => {
 					shareIssueModal?.show();
 				}}
-				{disabled}
+				disabled={false}
 			/>
 		</div>
 	</div>
