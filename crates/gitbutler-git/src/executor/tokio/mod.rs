@@ -5,8 +5,8 @@ mod unix;
 #[cfg(windows)]
 mod windows;
 
+use gix::bstr::ByteSlice;
 use std::{collections::HashMap, path::Path};
-
 use tokio::process::Command;
 
 #[cfg(unix)]
@@ -31,24 +31,6 @@ unsafe impl super::GitExecutor for TokioExecutor {
     ) -> Result<(usize, String, String), Self::Error> {
         let git_exe = gix::path::env::exe_invocation();
         let mut cmd = Command::new(git_exe);
-
-        // Output the command being executed to stderr, for debugging purposes
-        // (only on test configs).
-        #[cfg(any(test, debug_assertions))]
-        {
-            let mut envs_str = String::new();
-            if let Some(envs) = &envs {
-                for (key, value) in envs.iter() {
-                    envs_str.push_str(&format!("{key}={value:?} "));
-                }
-            }
-            let args_str = args
-                .iter()
-                .map(|s| format!("{s:?}"))
-                .collect::<Vec<_>>()
-                .join(" ");
-            eprintln!("env {envs_str} {git_exe:?} {args_str}");
-        }
 
         cmd.kill_on_drop(true);
         cmd.current_dir(cwd);
@@ -90,13 +72,24 @@ unsafe impl super::GitExecutor for TokioExecutor {
 
         let output = cmd.output().await?;
 
-        #[cfg(any(test, debug_assertions))]
+        debug_log_sanitised_git_cmd(&mut cmd);
+
+        #[cfg(test)]
         {
             eprintln!(
                 "\n\n GIT STDOUT:\n\n{}\n\nGIT STDERR:\n\n{}\n\nGIT EXIT CODE: {}\n",
                 String::from_utf8_lossy(&output.stdout),
                 String::from_utf8_lossy(&output.stderr),
                 output.status.code().unwrap_or(127) as usize
+            );
+        }
+
+        if !output.status.success() {
+            tracing::error!(
+                ?cmd,
+                stdout = output.stdout.as_bstr().to_string(),
+                stderr = output.stderr.as_bstr().to_string(),
+                "Git invocation failed"
             );
         }
 
@@ -129,6 +122,14 @@ unsafe impl super::GitExecutor for TokioExecutor {
         }
     }
 }
+
+fn debug_log_sanitised_git_cmd(cmd: &mut Command) {
+    cmd.env_remove("GITBUTLER_ASKPASS_SECRET")
+        .env_remove("GITBUTLER_ASKPASS_PIPE")
+        .env_remove("SSH_ASKPASS");
+    tracing::debug!(?cmd, "sanitised Git invocation");
+}
+
 #[cfg(test)]
 mod tests {
     use std::time::Duration;

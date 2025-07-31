@@ -3071,6 +3071,7 @@ dependencies = [
 name = "gitbutler-git"
 version = "0.0.0"
 dependencies = [
+ "anyhow",
  "assert_cmd",
  "futures",
  "gix",
@@ -3080,6 +3081,7 @@ dependencies = [
  "sysinfo 0.35.2",
  "thiserror 2.0.12",
  "tokio",
+ "tracing",
  "uuid",
  "windows",
 ]
