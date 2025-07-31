@@ -136,6 +136,7 @@ fn middle() {
 #[test]
 fn forcepush_allowed() {
     let Test {
+        data_dir,
         repo,
         project_id,
 
@@ -151,10 +152,13 @@ fn forcepush_allowed() {
     )
     .unwrap();
 
-    gitbutler_project::update(&projects::UpdateRequest {
-        id: *project_id,
-        ..Default::default()
-    })
+    gitbutler_project::update_with_path(
+        data_dir.as_ref().unwrap(),
+        &projects::UpdateRequest {
+            id: *project_id,
+            ..Default::default()
+        },
+    )
     .unwrap();
 
     let stack_entry = gitbutler_branch_actions::create_virtual_branch(
