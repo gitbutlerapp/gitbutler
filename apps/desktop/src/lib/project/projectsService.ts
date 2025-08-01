@@ -56,11 +56,16 @@ export class ProjectsService {
 	}
 
 	async promptForDirectory(): Promise<string | undefined> {
-		const selectedPath = open({ directory: true, recursive: true, defaultPath: this.homeDir });
+		let selectedPath: string | undefined | null;
+		if (import.meta.env.VITE_BUILD_TARGET === 'web') {
+			// TODO: Consider: this is electron specific, could we use a web API
+			// and also work on the real web?
+			selectedPath = await window.electronAPI?.openDirectory();
+		} else {
+			selectedPath = await open({ directory: true, recursive: true, defaultPath: this.homeDir });
+		}
 		if (selectedPath) {
-			if (selectedPath === null) return;
-			if (Array.isArray(selectedPath) && selectedPath.length !== 1) return;
-			return Array.isArray(selectedPath) ? selectedPath[0] : ((await selectedPath) ?? undefined);
+			return selectedPath;
 		}
 	}
 
