@@ -4,11 +4,11 @@
 	import Rule from '$components/Rule.svelte';
 	import RuleFiltersEditor from '$components/RuleFiltersEditor.svelte';
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
-	import { getStackName, type Stack } from '$lib/stacks/stack';
+	import { getStackName } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
 	import { Button, chipToasts, Select, SelectItem } from '@gitbutler/ui';
-	import type { RuleFilterType } from '$lib/rules/rule';
+	import type { RuleFilterType, WorkspaceRule } from '$lib/rules/rule';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
@@ -23,7 +23,7 @@
 
 	const [create, creatingRule] = rulesService.createWorkspaceRule;
 
-	let stackSelected = $state<Stack>();
+	let stackIdSelected = $state<string>();
 	let draftRuleFilters = $state<RuleFilterType[]>([]);
 
 	// Component references
@@ -39,7 +39,7 @@
 	let mode = $state<'list' | 'edit'>('list');
 
 	const validFilters = $derived(!ruleFiltersEditor || ruleFiltersEditor.imports.filtersValid);
-	const canSaveRule = $derived(stackSelected !== undefined && validFilters);
+	const canSaveRule = $derived(stackIdSelected !== undefined && validFilters);
 
 	function openAddRuleContextMenut(e: MouseEvent) {
 		e.stopPropagation();
@@ -66,13 +66,29 @@
 	}
 
 	function resetEditor() {
-		stackSelected = undefined;
+		stackIdSelected = undefined;
 		draftRuleFilters = [];
 	}
 
 	function cancelRuleEdition() {
 		mode = 'list';
 		resetEditor();
+	}
+
+	async function editExistingRule(rule: WorkspaceRule) {
+		if (rule.action.type === 'implicit') {
+			chipToasts.error('Cannot edit implicit rules');
+			return;
+		}
+
+		if (rule.action.subject.type !== 'assign') {
+			chipToasts.error('Cannot edit rules that are not branch assignments');
+			return;
+		}
+
+		stackIdSelected = rule.action.subject.subject.stack_id;
+		draftRuleFilters = rule.filters.map((r) => r.type);
+		mode = 'edit';
 	}
 
 	async function saveRule() {
@@ -84,7 +100,7 @@
 			return;
 		}
 
-		if (!stackSelected) {
+		if (!stackIdSelected) {
 			chipToasts.error('Please select a branch to assign the rule');
 			return;
 		}
@@ -97,7 +113,7 @@
 					subject: {
 						type: 'assign',
 						subject: {
-							stack_id: stackSelected.id
+							stack_id: stackIdSelected
 						}
 					}
 				},
@@ -143,7 +159,7 @@
 			{#if rules.length > 0}
 				<div class="rules-list__content">
 					{#each rules as rule (rule.id)}
-						<Rule {projectId} {rule} />
+						<Rule {projectId} {rule} editRule={() => editExistingRule(rule)} />
 					{/each}
 				</div>
 			{/if}
@@ -177,17 +193,17 @@
 			<ReduxResult {projectId} result={stackEntries.current}>
 				{#snippet children(stacks)}
 					<Select
-						value={stackSelected?.id}
+						value={stackIdSelected}
 						options={stacks.map((stack) => ({ label: getStackName(stack), value: stack.id }))}
 						placeholder="Select a branch"
 						flex="1"
 						searchable
 						onselect={(selectedId) => {
-							stackSelected = stacks.find((s) => s.id === selectedId);
+							stackIdSelected = selectedId;
 						}}
 					>
 						{#snippet itemSnippet({ item, highlighted })}
-							<SelectItem selected={item.value === stackSelected?.id} {highlighted}>
+							<SelectItem selected={item.value === stackIdSelected} {highlighted}>
 								{item.label}
 							</SelectItem>
 						{/snippet}
