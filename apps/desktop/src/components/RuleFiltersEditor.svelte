@@ -2,9 +2,7 @@
 	import NewRuleMenu from '$components/NewRuleMenu.svelte';
 	import {
 		type SemanticType,
-		type TreeStatus,
 		type RuleFilterType,
-		RULE_FILTER_TREE_STATUS,
 		SEMANTIC_TYPES,
 		type RuleFilter,
 		treeStatusToString,
@@ -13,7 +11,10 @@
 		type RuleFilterMap
 	} from '$lib/rules/rule';
 	import { typedKeys } from '$lib/utils/object';
-	import { Button, Select, SelectItem, Textbox } from '@gitbutler/ui';
+	import { Button, Select, SelectItem, Textbox, FileStatusBadge } from '@gitbutler/ui';
+	import type { FileStatus } from '@gitbutler/ui/components/file/types';
+
+	const FILE_STATUS_OPTIONS: FileStatus[] = ['addition', 'modification', 'deletion', 'rename'];
 
 	type Props = {
 		initialFilterValues: Partial<RuleFilterMap>;
@@ -30,7 +31,7 @@
 	let contentRegex = $state<string | undefined>(
 		initialFilterValues.contentMatchesRegex ?? undefined
 	);
-	let treeChangeType = $state<TreeStatus | undefined>(
+	let treeChangeType = $state<FileStatus | undefined>(
 		initialFilterValues.fileChangeType ?? undefined
 	);
 	let semanticType = $state<SemanticType | undefined>(initialFilterValues.semanticType?.type);
@@ -107,7 +108,7 @@
 <!-- Path filter -->
 {#snippet pathMatchesRegex()}
 	<Textbox
-		icon="folder"
+		iconLeft="folder"
 		wide
 		value={pathRegex}
 		onchange={(v) => (pathRegex = v)}
@@ -118,7 +119,7 @@
 <!-- Content filter -->
 {#snippet contentMatchesRegex()}
 	<Textbox
-		icon="text-width"
+		iconLeft="text-width"
 		wide
 		value={contentRegex}
 		onchange={(v) => (contentRegex = v)}
@@ -130,19 +131,23 @@
 {#snippet fileChangeType()}
 	<Select
 		value={treeChangeType}
-		options={RULE_FILTER_TREE_STATUS.map((type) => ({
+		options={FILE_STATUS_OPTIONS.map((type) => ({
 			label: treeStatusToString(type),
 			value: type
 		}))}
 		placeholder="Change type..."
 		flex="1"
+		icon="file-changes"
 		onselect={(selected) => {
-			treeChangeType = selected as TreeStatus;
+			treeChangeType = selected as FileStatus;
 		}}
 	>
 		{#snippet itemSnippet({ item, highlighted })}
 			<SelectItem selected={item.value === treeChangeType} {highlighted}>
 				{item.label}
+				{#snippet iconSnippet()}
+					<FileStatusBadge style="dot" status={item.value as FileStatus} />
+				{/snippet}
 			</SelectItem>
 		{/snippet}
 	</Select>
@@ -156,6 +161,7 @@
 		placeholder="Work category..."
 		flex="1"
 		searchable
+		icon="tag"
 		onselect={(selected) => {
 			semanticType = selected as SemanticType;
 		}}
