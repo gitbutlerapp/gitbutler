@@ -1,0 +1,47 @@
+[package]
+name = "but-server"
+version = "0.0.0"
+edition = "2024"
+repository = "https://github.com/gitbutlerapp/gitbutler"
+license-file = "../../LICENSE.md"
+description = "A GitButler CLI tool"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+readme = "../../README.md"
+publish = false
+
+[[bin]]
+name = "but-server"
+path = "src/main.rs"
+doctest = false
+
+[features]
+
+[dependencies]
+serde.workspace = true
+axum = { version = "0.8.4", features = ["ws"] }
+futures-util = { version = "0.3", default-features = false, features = [
+    "sink",
+    "std",
+] }
+tower = "0.5.2"
+tower-http = { version = "0.6.5", features = ["cors"] }
+tokio = { workspace = true, features = ["full"] }
+tokio-util = "0.7.15"
+anyhow.workspace = true
+serde_json = "1.0.140"
+tracing.workspace = true
+tracing-subscriber = { version = "0.3", features = [
+    "env-filter",
+    "std",
+    "fmt",
+] }
+reqwest = { version = "0.12", features = ["json"] }
+uuid.workspace = true
+
+but-api.workspace = true
+but-path.workspace = true
+but-settings.workspace = true
+gitbutler-feedback.workspace = true
+gitbutler-user.workspace = true
+gitbutler-project.workspace = true
+gitbutler-watcher.workspace = true

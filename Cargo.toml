@@ -69,6 +69,7 @@ gitbutler-hunk-dependency = { path = "crates/gitbutler-hunk-dependency" }
 but-settings = { path = "crates/but-settings" }
 gitbutler-workspace = { path = "crates/gitbutler-workspace" }
 but = { path = "crates/but" }
+but-server = { path = "crates/but-server" }
 but-testsupport = { path = "crates/but-testsupport" }
 but-rebase = { path = "crates/but-rebase" }
 but-core = { path = "crates/but-core" }
