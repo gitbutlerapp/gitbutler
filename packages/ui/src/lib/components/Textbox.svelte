@@ -208,11 +208,11 @@
 				<Icon name={showPassword ? 'eye-shown' : 'eye-hidden'} />
 			</button>
 		{/if}
-
-		{#if helperText}
-			<p class="text-11 text-body textbox__helper-text">{helperText}</p>
-		{/if}
 	</div>
+
+	{#if helperText}
+		<p class="text-11 text-body textbox__helper-text">{helperText}</p>
+	{/if}
 </div>
 
 <style lang="postcss">
@@ -269,7 +269,6 @@
 	}
 
 	.textbox__helper-text {
-		margin-top: 6px;
 		color: var(--clr-scale-ntrl-50);
 	}
 
