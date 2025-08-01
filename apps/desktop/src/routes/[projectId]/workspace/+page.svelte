@@ -6,7 +6,6 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import { QueryStatus } from '@reduxjs/toolkit/query';
 
 	const modeService = inject(MODE_SERVICE);
 
@@ -19,17 +18,10 @@
 
 	const firstStackResult = $derived(stackService.stackAt(projectId, 0));
 	const firstStack = $derived(firstStackResult.current.data);
-	const stackResult = $derived(stackId ? stackService.stackById(projectId, stackId) : undefined);
 
 	$effect(() => {
 		if (stackId === undefined && firstStack) {
 			projectState.stackId.set(firstStack.id);
-		} else if (
-			stackId &&
-			stackResult?.current.status === QueryStatus.fulfilled &&
-			stackResult.current.data === undefined
-		) {
-			projectState.stackId.set(undefined);
 		}
 	});
 
