@@ -49,7 +49,7 @@ function injectEndpoints(api: BackendApi) {
 				query: (args) => args,
 				invalidatesTags: () => [invalidatesList(ReduxTag.WorkspaceRules)]
 			}),
-			deleteWorkspaceRule: build.mutation<void, { projectId: string; ruleId: WorkspaceRuleId }>({
+			deleteWorkspaceRule: build.mutation<void, { projectId: string; id: WorkspaceRuleId }>({
 				extraOptions: { command: 'delete_workspace_rule' },
 				query: (args) => args,
 				invalidatesTags: () => [invalidatesList(ReduxTag.WorkspaceRules)]

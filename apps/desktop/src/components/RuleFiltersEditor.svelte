@@ -9,25 +9,33 @@
 		type RuleFilter,
 		treeStatusToString,
 		semanticTypeToString,
-		canAddMoreFilters
+		canAddMoreFilters,
+		type RuleFilterMap
 	} from '$lib/rules/rule';
+	import { typedKeys } from '$lib/utils/object';
 	import { Button, Select, SelectItem, Textbox } from '@gitbutler/ui';
 
 	type Props = {
-		ruleFilterTypes: RuleFilterType[];
+		initialFilterValues: Partial<RuleFilterMap>;
 		addFilter: (type: RuleFilterType) => void;
 		deleteFilter: (type: RuleFilterType) => void;
 	};
 
-	const { ruleFilterTypes, addFilter, deleteFilter }: Props = $props();
+	const { initialFilterValues, addFilter, deleteFilter }: Props = $props();
 
 	let addFilterButton = $state<HTMLDivElement>();
 	let newFilterContextMenu = $state<NewRuleMenu>();
 
-	let pathRegex = $state<string>();
-	let contentRegex = $state<string>();
-	let treeChangeType = $state<TreeStatus>();
-	let semanticType = $state<SemanticType>();
+	let pathRegex = $state<string | undefined>(initialFilterValues.pathMatchesRegex ?? undefined);
+	let contentRegex = $state<string | undefined>(
+		initialFilterValues.contentMatchesRegex ?? undefined
+	);
+	let treeChangeType = $state<TreeStatus | undefined>(
+		initialFilterValues.fileChangeType ?? undefined
+	);
+	let semanticType = $state<SemanticType | undefined>(initialFilterValues.semanticType?.type);
+
+	const ruleFilterTypes = $derived(typedKeys(initialFilterValues));
 
 	const orderMap: Record<RuleFilterType, number> = {
 		pathMatchesRegex: 0,

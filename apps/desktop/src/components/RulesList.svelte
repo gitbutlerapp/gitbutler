@@ -3,12 +3,18 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Rule from '$components/Rule.svelte';
 	import RuleFiltersEditor from '$components/RuleFiltersEditor.svelte';
+	import {
+		type WorkspaceRuleId,
+		type RuleFilterMap,
+		type RuleFilterType,
+		type WorkspaceRule
+	} from '$lib/rules/rule';
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
-	import { getStackName, type Stack } from '$lib/stacks/stack';
+	import { getStackName } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { typedKeys } from '$lib/utils/object';
 	import { inject } from '@gitbutler/shared/context';
 	import { Button, chipToasts, Select, SelectItem } from '@gitbutler/ui';
-	import type { RuleFilterType } from '$lib/rules/rule';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
@@ -22,9 +28,12 @@
 	const stackService = inject(STACK_SERVICE);
 
 	const [create, creatingRule] = rulesService.createWorkspaceRule;
+	const [update, updatingRule] = rulesService.updateWorkspaceRule;
 
-	let stackSelected = $state<Stack>();
-	let draftRuleFilters = $state<RuleFilterType[]>([]);
+	let selectedRuleId = $state<WorkspaceRuleId>();
+	let stackIdSelected = $state<string>();
+	let draftRuleFilterInitialValues = $state<Partial<RuleFilterMap>>({});
+	const ruleFilterTypes = $derived(typedKeys(draftRuleFilterInitialValues));
 
 	// Component references
 	let ruleFiltersEditor = $state<RuleFiltersEditor>();
@@ -39,7 +48,7 @@
 	let mode = $state<'list' | 'edit'>('list');
 
 	const validFilters = $derived(!ruleFiltersEditor || ruleFiltersEditor.imports.filtersValid);
-	const canSaveRule = $derived(stackSelected !== undefined && validFilters);
+	const canSaveRule = $derived(stackIdSelected !== undefined && validFilters);
 
 	function openAddRuleContextMenut(e: MouseEvent) {
 		e.stopPropagation();
@@ -52,13 +61,15 @@
 	}
 
 	function addDraftRuleFilter(type: RuleFilterType) {
-		if (!draftRuleFilters.includes(type)) {
-			draftRuleFilters.push(type);
+		const ruleTypes = typedKeys(draftRuleFilterInitialValues);
+		if (!ruleTypes.includes(type)) {
+			draftRuleFilterInitialValues[type] = null;
 		}
 	}
 
 	function removeDraftRuleFilter(type: RuleFilterType) {
-		draftRuleFilters = draftRuleFilters.filter((filterType) => filterType !== type);
+		draftRuleFilterInitialValues[type] = undefined;
+		delete draftRuleFilterInitialValues[type];
 	}
 
 	function openRuleEditor() {
@@ -66,13 +77,51 @@
 	}
 
 	function resetEditor() {
-		stackSelected = undefined;
-		draftRuleFilters = [];
+		stackIdSelected = undefined;
+		draftRuleFilterInitialValues = {};
+		selectedRuleId = undefined;
 	}
 
 	function cancelRuleEdition() {
 		mode = 'list';
 		resetEditor();
+	}
+
+	async function editExistingRule(rule: WorkspaceRule) {
+		if (rule.action.type === 'implicit') {
+			chipToasts.error('Cannot edit implicit rules');
+			return;
+		}
+
+		if (rule.action.subject.type !== 'assign') {
+			chipToasts.error('Cannot edit rules that are not branch assignments');
+			return;
+		}
+
+		selectedRuleId = rule.id;
+		stackIdSelected = rule.action.subject.subject.stack_id;
+		const initialValues: Partial<RuleFilterMap> = {};
+
+		for (const filter of rule.filters) {
+			switch (filter.type) {
+				case 'pathMatchesRegex':
+					initialValues.pathMatchesRegex = filter.subject;
+					break;
+				case 'contentMatchesRegex':
+					initialValues.contentMatchesRegex = filter.subject;
+					break;
+				case 'fileChangeType':
+					initialValues.fileChangeType = filter.subject;
+					break;
+				case 'semanticType':
+					initialValues.semanticType = filter.subject;
+					break;
+			}
+		}
+
+		draftRuleFilterInitialValues = initialValues;
+
+		mode = 'edit';
 	}
 
 	async function saveRule() {
@@ -84,27 +133,48 @@
 			return;
 		}
 
-		if (!stackSelected) {
+		if (!stackIdSelected) {
 			chipToasts.error('Please select a branch to assign the rule');
 			return;
 		}
 
-		await create({
-			projectId,
-			request: {
-				action: {
-					type: 'explicit',
-					subject: {
-						type: 'assign',
+		if (selectedRuleId) {
+			await update({
+				projectId,
+				request: {
+					id: selectedRuleId,
+					enabled: null,
+					action: {
+						type: 'explicit',
 						subject: {
-							stack_id: stackSelected.id
+							type: 'assign',
+							subject: {
+								stack_id: stackIdSelected
+							}
 						}
-					}
-				},
-				filters: ruleFilters,
-				trigger: 'fileSytemChange'
-			}
-		});
+					},
+					filters: ruleFilters,
+					trigger: 'fileSytemChange'
+				}
+			});
+		} else {
+			await create({
+				projectId,
+				request: {
+					action: {
+						type: 'explicit',
+						subject: {
+							type: 'assign',
+							subject: {
+								stack_id: stackIdSelected
+							}
+						}
+					},
+					filters: ruleFilters,
+					trigger: 'fileSytemChange'
+				}
+			});
+		}
 
 		mode = 'list';
 		resetEditor();
@@ -143,7 +213,7 @@
 			{#if rules.length > 0}
 				<div class="rules-list__content">
 					{#each rules as rule (rule.id)}
-						<Rule {projectId} {rule} />
+						<Rule {projectId} {rule} editRule={() => editExistingRule(rule)} />
 					{/each}
 				</div>
 			{/if}
@@ -154,10 +224,10 @@
 {#snippet ruleEditor()}
 	{@const stackEntries = stackService.stacks(projectId)}
 	<div class="rules-list__editor-content">
-		{#if draftRuleFilters.length > 0}
+		{#if typedKeys(draftRuleFilterInitialValues).length > 0}
 			<RuleFiltersEditor
 				bind:this={ruleFiltersEditor}
-				ruleFilterTypes={draftRuleFilters}
+				initialFilterValues={draftRuleFilterInitialValues}
 				addFilter={addDraftRuleFilter}
 				deleteFilter={removeDraftRuleFilter}
 			/>
@@ -177,17 +247,17 @@
 			<ReduxResult {projectId} result={stackEntries.current}>
 				{#snippet children(stacks)}
 					<Select
-						value={stackSelected?.id}
+						value={stackIdSelected}
 						options={stacks.map((stack) => ({ label: getStackName(stack), value: stack.id }))}
 						placeholder="Select a branch"
 						flex="1"
 						searchable
 						onselect={(selectedId) => {
-							stackSelected = stacks.find((s) => s.id === selectedId);
+							stackIdSelected = selectedId;
 						}}
 					>
 						{#snippet itemSnippet({ item, highlighted })}
-							<SelectItem selected={item.value === stackSelected?.id} {highlighted}>
+							<SelectItem selected={item.value === stackIdSelected} {highlighted}>
 								{item.label}
 							</SelectItem>
 						{/snippet}
@@ -203,14 +273,16 @@
 				kind="solid"
 				style="neutral"
 				disabled={!canSaveRule}
-				loading={stackEntries.current.isLoading || creatingRule.current.isLoading}>Save</Button
+				loading={stackEntries.current.isLoading ||
+					creatingRule.current.isLoading ||
+					updatingRule.current.isLoading}>Save</Button
 			>
 		</div>
 	</div>
 
 	<NewRuleMenu
 		bind:this={newFilterContextMenu}
-		addedFilterTypes={draftRuleFilters}
+		addedFilterTypes={ruleFilterTypes}
 		trigger={addFilterButton}
 		addFromFilter={(type) => {
 			addDraftRuleFilter(type);
@@ -220,7 +292,7 @@
 
 <NewRuleMenu
 	bind:this={newRuleContextMenu}
-	addedFilterTypes={draftRuleFilters}
+	addedFilterTypes={ruleFilterTypes}
 	trigger={addRuleButton}
 	addFromFilter={(type) => {
 		addDraftRuleFilter(type);

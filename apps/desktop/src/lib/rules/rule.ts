@@ -52,6 +52,10 @@ export const RULE_FILTER_TYPES = [
 	'semanticType'
 ] satisfies RuleFilterType[];
 
+export type RuleFilterMap = {
+	[K in RuleFilterType]: RuleFilterSubject<K> | null;
+};
+
 export function canAddMoreFilters(filters: RuleFilterType[]): boolean {
 	return filters.length < RULE_FILTER_TYPES.length;
 }
