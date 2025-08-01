@@ -61,7 +61,6 @@
 		display: flex;
 		align-items: center;
 		padding: 12px 0;
-		gap: 12px;
 		border-bottom: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
 
@@ -71,18 +70,18 @@
 		}
 	}
 	.pin {
+		display: flex;
 		position: relative;
-		width: 8px;
+		align-items: center;
+		justify-content: center;
+		width: 42px;
 		height: 8px;
-		margin-left: 16px;
 	}
 
 	.pin__circle {
-		position: absolute;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
+		position: relative;
+		width: 8px;
+		height: 8px;
 		border-radius: 100%;
 		outline: 2px solid var(--clr-theme-pop-element);
 		background-color: var(--clr-bg-1);

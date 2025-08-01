@@ -3,7 +3,6 @@
 	import { type CommitStatusType } from '$lib/commits/commit';
 
 	import { Tooltip } from '@gitbutler/ui';
-	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 
 	interface Props {
 		commitStatus: CommitStatusType;
@@ -11,21 +10,16 @@
 		tooltip?: string;
 		lastCommit?: boolean;
 		lastBranch?: boolean;
-		width?: number;
 	}
 
-	const { commitStatus, diverged, tooltip, lastCommit, lastBranch, width = 42 }: Props = $props();
+	const { commitStatus, diverged, tooltip, lastCommit, lastBranch }: Props = $props();
 
 	const color = $derived(getColorFromCommitState(commitStatus, diverged));
 
 	const rhombus = $derived(commitStatus === 'LocalAndRemote');
 </script>
 
-<div
-	class="commit-lines"
-	style:--commit-color={color}
-	style:--container-width="{pxToRem(width)}rem"
->
+<div class="commit-lines" style:--commit-color={color}>
 	<div class="top"></div>
 	{#if diverged}
 		<div class="local-shadow-commit-dot">
@@ -60,7 +54,7 @@
 		flex: 0 0 auto;
 		flex-direction: column;
 		align-items: center;
-		width: var(--container-width);
+		width: 42px;
 		gap: 3px;
 	}
 
