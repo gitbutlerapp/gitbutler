@@ -16,13 +16,13 @@
 
 	function getFullStatusText(status: FileStatus): string {
 		switch (status) {
-			case 'A':
+			case 'addition':
 				return 'Added';
-			case 'M':
+			case 'modification':
 				return 'Modified';
-			case 'D':
+			case 'deletion':
 				return 'Deleted';
-			case 'R':
+			case 'rename':
 				return 'Renamed';
 			default:
 				return status;
@@ -31,13 +31,13 @@
 
 	function getStatusColor(status: FileStatus): ComponentColorType {
 		switch (status) {
-			case 'A':
+			case 'addition':
 				return 'success';
-			case 'M':
+			case 'modification':
 				return 'warning';
-			case 'D':
+			case 'deletion':
 				return 'error';
-			case 'R':
+			case 'rename':
 				return 'purple';
 			default:
 				return 'neutral';
@@ -49,10 +49,10 @@
 	<Tooltip text={!tooltip ? getFullStatusText(status) : tooltip} maxWidth={TOOLTIP_MAX_WIDTH}>
 		<div
 			class="status-dot-wrap"
-			class:added={status === 'A'}
-			class:modified={status === 'M'}
-			class:deleted={status === 'D'}
-			class:renamed={status === 'R'}
+			class:added={status === 'addition'}
+			class:modified={status === 'modification'}
+			class:deleted={status === 'deletion'}
+			class:renamed={status === 'rename'}
 		>
 			<svg viewBox="0 0 11 11" fill="none" class="status-dot">
 				<rect
@@ -64,20 +64,20 @@
 					stroke="var(--file-dot-color)"
 					stroke-width="1.2"
 				/>
-				{#if status === 'A'}
+				{#if status === 'addition'}
 					<path d="M9 5.5H2M5.5 2V9" />
-				{:else if status === 'M'}
+				{:else if status === 'modification'}
 					<path d="M7.2626 3.73755L3.7374 7.26276" />
-				{:else if status === 'D'}
+				{:else if status === 'deletion'}
 					<path d="M8.5 5.5H2.5" />
-				{:else if status === 'R'}
+				{:else if status === 'rename'}
 					<path d="M7.5 5.5H0.5M7.5 5.5L4.5 2.5M7.5 5.5L4.5 8.5" />
 				{/if}
 			</svg>
 		</div>
 	</Tooltip>
 {:else if style === 'full'}
-	<Tooltip text={status === 'R' && tooltip ? tooltip : undefined} maxWidth={TOOLTIP_MAX_WIDTH}>
+	<Tooltip text={status === 'rename' && tooltip ? tooltip : undefined} maxWidth={TOOLTIP_MAX_WIDTH}>
 		<Badge style={getStatusColor(status)} kind="soft">{getFullStatusText(status)}</Badge>
 	</Tooltip>
 {/if}
