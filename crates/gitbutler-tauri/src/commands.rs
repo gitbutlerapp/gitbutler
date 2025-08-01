@@ -1,100 +1,95 @@
-use but_settings::AppSettingsWithDiskSync;
+use but_api::{commands::git, IpcContext, NoParams};
 use gitbutler_project::ProjectId;
 use gitbutler_reference::RemoteRefname;
 use tauri::State;
 use tracing::instrument;
 
-use crate::{error::Error, App};
+use but_api::error::Error;
 
 #[tauri::command(async)]
-#[instrument(skip(app, settings), err(Debug))]
+#[instrument(skip(ipc_ctx), err(Debug))]
 pub fn git_remote_branches(
-    app: State<'_, App>,
-    settings: State<'_, AppSettingsWithDiskSync>,
+    ipc_ctx: State<IpcContext>,
     project_id: ProjectId,
 ) -> Result<Vec<RemoteRefname>, Error> {
-    Ok(app.git_remote_branches(project_id, settings.get()?.clone())?)
+    git::git_remote_branches(&ipc_ctx, git::GitRemoteBranchesParams { project_id })
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app, settings), err(Debug))]
+#[instrument(skip(ipc_ctx), err(Debug))]
 pub fn git_test_push(
-    app: State<'_, App>,
-    settings: State<'_, AppSettingsWithDiskSync>,
+    ipc_ctx: State<IpcContext>,
     project_id: ProjectId,
-    remote_name: &str,
-    branch_name: &str,
+    remote_name: String,
+    branch_name: String,
 ) -> Result<(), Error> {
-    Ok(app.git_test_push(
-        project_id,
-        remote_name,
-        branch_name,
-        // Run askpass, but don't pass any action
-        Some(None),
-        settings.get()?.clone(),
-    )?)
+    git::git_test_push(
+        &ipc_ctx,
+        git::GitTestPushParams {
+            project_id,
+            remote_name,
+            branch_name,
+        },
+    )
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app, settings), err(Debug))]
+#[instrument(skip(ipc_ctx), err(Debug))]
 pub fn git_test_fetch(
-    app: State<'_, App>,
-    settings: State<'_, AppSettingsWithDiskSync>,
+    ipc_ctx: State<IpcContext>,
     project_id: ProjectId,
-    remote_name: &str,
+    remote_name: String,
     action: Option<String>,
 ) -> Result<(), Error> {
-    Ok(app.git_test_fetch(
-        project_id,
-        remote_name,
-        Some(action.unwrap_or_else(|| "test".to_string())),
-        settings.get()?.clone(),
-    )?)
+    git::git_test_fetch(
+        &ipc_ctx,
+        git::GitTestFetchParams {
+            project_id,
+            remote_name,
+            action,
+        },
+    )
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app, settings), err(Debug))]
-pub fn git_index_size(
-    app: State<'_, App>,
-    settings: State<'_, AppSettingsWithDiskSync>,
-    project_id: ProjectId,
-) -> Result<usize, Error> {
-    Ok(app
-        .git_index_size(project_id, settings.get()?.clone())
-        .expect("git index size"))
+#[instrument(skip(ipc_ctx), err(Debug))]
+pub fn git_index_size(ipc_ctx: State<IpcContext>, project_id: ProjectId) -> Result<usize, Error> {
+    git::git_index_size(&ipc_ctx, git::GitIndexSizeParams { project_id })
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app, settings), err(Debug))]
-pub fn git_head(
-    app: State<'_, App>,
-    settings: State<'_, AppSettingsWithDiskSync>,
-    project_id: ProjectId,
+#[instrument(skip(ipc_ctx), err(Debug))]
+pub fn git_head(ipc_ctx: State<IpcContext>, project_id: ProjectId) -> Result<String, Error> {
+    git::git_head(&ipc_ctx, git::GitHeadParams { project_id })
+}
+
+#[tauri::command(async)]
+#[instrument(skip(ipc_ctx), err(Debug))]
+pub fn delete_all_data(ipc_ctx: State<IpcContext>) -> Result<(), Error> {
+    git::delete_all_data(&ipc_ctx, NoParams {})
+}
+
+#[tauri::command(async)]
+#[instrument(skip(ipc_ctx), err(Debug))]
+pub fn git_set_global_config(
+    ipc_ctx: State<IpcContext>,
+    key: String,
+    value: String,
 ) -> Result<String, Error> {
-    Ok(app.git_head(project_id, settings.get()?.clone())?)
+    git::git_set_global_config(&ipc_ctx, git::GitSetGlobalConfigParams { key, value })
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app), err(Debug))]
-pub fn delete_all_data(app: State<'_, App>) -> Result<(), Error> {
-    app.delete_all_data()?;
-    Ok(())
+#[instrument(skip(ipc_ctx), err(Debug))]
+pub fn git_remove_global_config(ipc_ctx: State<IpcContext>, key: String) -> Result<(), Error> {
+    git::git_remove_global_config(&ipc_ctx, git::GitRemoveGlobalConfigParams { key })
 }
 
 #[tauri::command(async)]
-#[instrument(err(Debug))]
-pub fn git_set_global_config(key: &str, value: &str) -> Result<String, Error> {
-    Ok(App::git_set_global_config(key, value)?)
-}
-
-#[tauri::command(async)]
-#[instrument(err(Debug))]
-pub fn git_remove_global_config(key: &str) -> Result<(), Error> {
-    Ok(App::git_remove_global_config(key)?)
-}
-
-#[tauri::command(async)]
-#[instrument(err(Debug), level = "trace")]
-pub fn git_get_global_config(key: &str) -> Result<Option<String>, Error> {
-    Ok(App::git_get_global_config(key)?)
+#[instrument(skip(ipc_ctx), err(Debug), level = "trace")]
+pub fn git_get_global_config(
+    ipc_ctx: State<IpcContext>,
+    key: String,
+) -> Result<Option<String>, Error> {
+    git::git_get_global_config(&ipc_ctx, git::GitGetGlobalConfigParams { key })
 }

@@ -82,9 +82,10 @@ but-rules = { path = "crates/but-rules" }
 but-action = { path = "crates/but-action" }
 but-status = { path = "crates/but-status" }
 but-tools = { path = "crates/but-tools" }
+but-api = { path = "crates/but-api" }
 git2-hooks = { version = "0.5.0" }
 itertools = "0.14.0"
-
+dirs = "6.0.0"
 
 [profile.release]
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better

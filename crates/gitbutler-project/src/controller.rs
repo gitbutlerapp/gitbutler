@@ -6,7 +6,7 @@ use gitbutler_error::error;
 use super::{storage, storage::UpdateRequest, Project, ProjectId};
 use crate::AuthKey;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct Controller {
     local_data_dir: PathBuf,
     projects_storage: storage::Storage,

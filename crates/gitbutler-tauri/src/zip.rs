@@ -1,31 +1,30 @@
 pub mod commands {
     #![allow(clippy::used_underscore_binding)]
+    use but_api::commands::zip::{self, GetLogsArchivePathParams, GetProjectArchivePathParams};
+    use but_api::error::Error;
     use std::path::PathBuf;
-
-    use anyhow::Context;
-    use gitbutler_error::{error, error::Code};
-    use gitbutler_feedback::Archival;
     use tauri::State;
     use tracing::instrument;
 
-    use crate::error::Error;
-
     #[tauri::command(async)]
-    #[instrument(skip(archival), err(Debug))]
+    #[instrument(skip(ipc_ctx), err(Debug))]
     pub fn get_project_archive_path(
-        archival: State<'_, Archival>,
+        ipc_ctx: State<'_, but_api::IpcContext>,
         project_id: &str,
     ) -> Result<PathBuf, Error> {
-        let project_id = project_id.parse().context(error::Context::new_static(
-            Code::Validation,
-            "Malformed project id",
-        ))?;
-        archival.archive(project_id).map_err(Into::into)
+        zip::get_project_archive_path(
+            &ipc_ctx,
+            GetProjectArchivePathParams {
+                project_id: project_id.to_string(),
+            },
+        )
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(archival), err(Debug))]
-    pub fn get_logs_archive_path(archival: State<'_, Archival>) -> Result<PathBuf, Error> {
-        archival.logs_archive().map_err(Into::into)
+    #[instrument(skip(ipc_ctx), err(Debug))]
+    pub fn get_logs_archive_path(
+        ipc_ctx: State<'_, but_api::IpcContext>,
+    ) -> Result<PathBuf, Error> {
+        zip::get_logs_archive_path(&ipc_ctx, GetLogsArchivePathParams {})
     }
 }

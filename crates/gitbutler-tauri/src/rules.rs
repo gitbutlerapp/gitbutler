@@ -1,65 +1,61 @@
-use crate::error::Error;
-use but_rules::{
-    create_rule, delete_rule, list_rules, update_rule, CreateRuleRequest, UpdateRuleRequest,
-    WorkspaceRule,
-};
-use but_settings::AppSettingsWithDiskSync;
-use gitbutler_command_context::CommandContext;
+use but_api::{commands::rules, IpcContext};
+use but_rules::{CreateRuleRequest, UpdateRuleRequest, WorkspaceRule};
 use gitbutler_project::ProjectId;
 use tauri::State;
 use tracing::instrument;
 
+use but_api::error::Error;
+
 #[tauri::command(async)]
-#[instrument(skip(settings), err(Debug))]
+#[instrument(skip(ipc_ctx), err(Debug))]
 pub fn create_workspace_rule(
-    settings: State<'_, AppSettingsWithDiskSync>,
+    ipc_ctx: State<'_, IpcContext>,
     project_id: ProjectId,
     request: CreateRuleRequest,
 ) -> Result<WorkspaceRule, Error> {
-    let ctx = &mut CommandContext::open(
-        &gitbutler_project::get(project_id)?,
-        settings.get()?.clone(),
-    )?;
-    create_rule(ctx, request).map_err(Into::into)
+    rules::create_workspace_rule(
+        &ipc_ctx,
+        rules::CreateWorkspaceRuleParams {
+            project_id,
+            request,
+        },
+    )
 }
 
 #[tauri::command(async)]
-#[instrument(skip(settings), err(Debug))]
+#[instrument(skip(ipc_ctx), err(Debug))]
 pub fn delete_workspace_rule(
-    settings: State<'_, AppSettingsWithDiskSync>,
+    ipc_ctx: State<'_, IpcContext>,
     project_id: ProjectId,
     id: String,
 ) -> Result<(), Error> {
-    let ctx = &mut CommandContext::open(
-        &gitbutler_project::get(project_id)?,
-        settings.get()?.clone(),
-    )?;
-    delete_rule(ctx, &id).map_err(Into::into)
+    rules::delete_workspace_rule(
+        &ipc_ctx,
+        rules::DeleteWorkspaceRuleParams { project_id, id },
+    )
 }
 
 #[tauri::command(async)]
-#[instrument(skip(settings), err(Debug))]
+#[instrument(skip(ipc_ctx), err(Debug))]
 pub fn update_workspace_rule(
-    settings: State<'_, AppSettingsWithDiskSync>,
+    ipc_ctx: State<'_, IpcContext>,
     project_id: ProjectId,
     request: UpdateRuleRequest,
 ) -> Result<WorkspaceRule, Error> {
-    let ctx = &mut CommandContext::open(
-        &gitbutler_project::get(project_id)?,
-        settings.get()?.clone(),
-    )?;
-    update_rule(ctx, request).map_err(Into::into)
+    rules::update_workspace_rule(
+        &ipc_ctx,
+        rules::UpdateWorkspaceRuleParams {
+            project_id,
+            request,
+        },
+    )
 }
 
 #[tauri::command(async)]
-#[instrument(skip(settings), err(Debug))]
+#[instrument(skip(ipc_ctx), err(Debug))]
 pub fn list_workspace_rules(
-    settings: State<'_, AppSettingsWithDiskSync>,
+    ipc_ctx: State<'_, IpcContext>,
     project_id: ProjectId,
 ) -> Result<Vec<WorkspaceRule>, Error> {
-    let ctx = &mut CommandContext::open(
-        &gitbutler_project::get(project_id)?,
-        settings.get()?.clone(),
-    )?;
-    list_rules(ctx).map_err(Into::into)
+    rules::list_workspace_rules(&ipc_ctx, rules::ListWorkspaceRulesParams { project_id })
 }

@@ -1,21 +1,26 @@
-use crate::error::Error;
-use but_core::{settings::git::ui::GitConfigSettings, RepositoryExt};
+use but_api::{commands::config, IpcContext};
+use but_core::settings::git::ui::GitConfigSettings;
 use gitbutler_project::ProjectId;
+use tauri::State;
 use tracing::instrument;
 
+use but_api::error::Error;
+
 #[tauri::command(async)]
-#[instrument(err(Debug))]
-pub fn get_gb_config(project_id: ProjectId) -> Result<GitConfigSettings, Error> {
-    but_core::open_repo(gitbutler_project::get(project_id)?.path)?
-        .git_settings()
-        .map(Into::into)
-        .map_err(Into::into)
+#[instrument(skip(ipc_ctx), err(Debug))]
+pub fn get_gb_config(
+    ipc_ctx: State<IpcContext>,
+    project_id: ProjectId,
+) -> Result<GitConfigSettings, Error> {
+    config::get_gb_config(&ipc_ctx, config::GetGbConfigParams { project_id })
 }
 
 #[tauri::command(async)]
-#[instrument(err(Debug))]
-pub fn set_gb_config(project_id: ProjectId, config: GitConfigSettings) -> Result<(), Error> {
-    but_core::open_repo(gitbutler_project::get(project_id)?.path)?
-        .set_git_settings(&config.into())
-        .map_err(Into::into)
+#[instrument(skip(ipc_ctx), err(Debug))]
+pub fn set_gb_config(
+    ipc_ctx: State<IpcContext>,
+    project_id: ProjectId,
+    config: GitConfigSettings,
+) -> Result<(), Error> {
+    config::set_gb_config(&ipc_ctx, config::SetGbConfigParams { project_id, config })
 }

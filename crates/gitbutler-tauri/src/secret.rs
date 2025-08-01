@@ -1,24 +1,24 @@
-use std::sync::Mutex;
-
-use gitbutler_secret::{secret, Sensitive};
+use but_api::{commands::secret, IpcContext};
+use tauri::State;
 use tracing::instrument;
 
-use crate::error::Error;
+use but_api::error::Error;
 
 #[tauri::command(async)]
-#[instrument(err(Debug), level = "trace")]
-pub fn secret_get_global(handle: &str) -> Result<Option<String>, Error> {
-    Ok(secret::retrieve(handle, secret::Namespace::Global)?.map(|s| s.0))
+#[instrument(skip(ipc_ctx), err(Debug))]
+pub fn secret_get_global(
+    ipc_ctx: State<IpcContext>,
+    handle: String,
+) -> Result<Option<String>, Error> {
+    secret::secret_get_global(&ipc_ctx, secret::SecretGetGlobalParams { handle })
 }
 
 #[tauri::command(async)]
-#[instrument(skip(secret), err(Debug), fields(secret = "<redacted>"))]
-pub fn secret_set_global(handle: &str, secret: String) -> Result<(), Error> {
-    static FAIR_QUEUE: Mutex<()> = Mutex::new(());
-    let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
-    Ok(secret::persist(
-        handle,
-        &Sensitive(secret),
-        secret::Namespace::Global,
-    )?)
+#[instrument(skip(ipc_ctx, secret), err(Debug), fields(secret = "<redacted>"))]
+pub fn secret_set_global(
+    ipc_ctx: State<IpcContext>,
+    handle: String,
+    secret: String,
+) -> Result<(), Error> {
+    secret::secret_set_global(&ipc_ctx, secret::SecretSetGlobalParams { handle, secret })
 }

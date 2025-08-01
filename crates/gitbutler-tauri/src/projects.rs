@@ -1,162 +1,157 @@
-use anyhow::bail;
-use gitbutler_project::Project;
+use anyhow::{bail, Context};
+use but_api::commands::projects::{
+    self, AddProjectParams, DeleteProjectParams, GetProjectParams, UpdateProjectParams,
+};
+use but_api::error::Error;
+use but_settings::AppSettingsWithDiskSync;
+use gitbutler_command_context::CommandContext;
+use gitbutler_project::{Project, ProjectId};
 use gix::bstr::ByteSlice;
 use std::collections::BTreeSet;
+use std::path;
 use std::path::{Path, PathBuf};
+use tauri::{State, Window};
+use tracing::instrument;
 
-pub mod commands {
-    use anyhow::Context;
-    use but_settings::AppSettingsWithDiskSync;
-    use gitbutler_command_context::CommandContext;
-    use gitbutler_project::{self as projects, ProjectId};
-    use std::path;
-    use tauri::{State, Window};
-    use tracing::instrument;
+use crate::window::state::ProjectAccessMode;
+use crate::{window, WindowState};
 
-    use crate::projects::{assure_database_valid, warn_about_filters_and_git_lfs};
-    use crate::window::state::ProjectAccessMode;
-    use crate::{error::Error, projects::ProjectForFrontend, window, WindowState};
+#[tauri::command(async)]
+#[instrument(skip(ipc_ctx), err(Debug))]
+pub fn update_project(
+    ipc_ctx: State<'_, but_api::IpcContext>,
+    project: gitbutler_project::UpdateRequest,
+) -> Result<gitbutler_project::Project, Error> {
+    projects::update_project(&ipc_ctx, UpdateProjectParams { project })
+}
 
-    #[tauri::command(async)]
-    #[instrument(err(Debug))]
-    pub fn update_project(project: projects::UpdateRequest) -> Result<projects::Project, Error> {
-        Ok(gitbutler_project::update(&project)?)
-    }
+#[tauri::command(async)]
+#[instrument(skip(ipc_ctx), err(Debug))]
+pub fn add_project(
+    ipc_ctx: State<'_, but_api::IpcContext>,
+    path: &path::Path,
+) -> Result<gitbutler_project::Project, Error> {
+    projects::add_project(
+        &ipc_ctx,
+        AddProjectParams {
+            path: path.to_path_buf(),
+        },
+    )
+}
 
-    #[tauri::command(async)]
-    #[instrument(skip(users), err(Debug))]
-    pub fn add_project(
-        users: State<'_, gitbutler_user::Controller>,
-        path: &path::Path,
-    ) -> Result<projects::Project, Error> {
-        let user = users.get_user()?;
-        let name = user.as_ref().and_then(|u| u.name.clone());
-        let email = user.as_ref().and_then(|u| u.email.clone());
-        Ok(gitbutler_project::add(path, name, email)?)
-    }
+#[tauri::command(async)]
+#[instrument(skip(ipc_ctx), err(Debug))]
+pub fn get_project(
+    ipc_ctx: State<'_, but_api::IpcContext>,
+    project_id: ProjectId,
+    no_validation: Option<bool>,
+) -> Result<gitbutler_project::Project, Error> {
+    projects::get_project(
+        &ipc_ctx,
+        GetProjectParams {
+            project_id,
+            no_validation,
+        },
+    )
+}
 
-    #[tauri::command(async)]
-    #[instrument(err(Debug))]
-    pub fn get_project(
-        project_id: ProjectId,
-        no_validation: Option<bool>,
-    ) -> Result<projects::Project, Error> {
-        if no_validation.unwrap_or(false) {
-            Ok(gitbutler_project::get_raw(project_id)?)
-        } else {
-            Ok(gitbutler_project::get_validated(project_id)?)
-        }
-    }
+#[tauri::command(async)]
+#[instrument(skip(window_state), err(Debug))]
+pub fn list_projects(
+    window_state: State<'_, WindowState>,
+) -> Result<Vec<ProjectForFrontend>, Error> {
+    let open_projects = window_state.open_projects();
+    gitbutler_project::assure_app_can_startup_or_fix_it(gitbutler_project::list())
+        .map_err(Into::into)
+        .map(|projects| {
+            projects
+                .into_iter()
+                .map(|project| ProjectForFrontend {
+                    is_open: open_projects.contains(&project.id),
+                    inner: project,
+                })
+                .collect()
+        })
+}
 
-    #[tauri::command(async)]
-    #[instrument(skip(window_state), err(Debug))]
-    pub fn list_projects(
-        window_state: State<'_, WindowState>,
-    ) -> Result<Vec<ProjectForFrontend>, Error> {
-        let open_projects = window_state.open_projects();
-        gitbutler_project::assure_app_can_startup_or_fix_it(gitbutler_project::list())
-            .map_err(Into::into)
-            .map(|projects| {
-                projects
-                    .into_iter()
-                    .map(|project| ProjectForFrontend {
-                        is_open: open_projects.contains(&project.id),
-                        inner: project,
-                    })
-                    .collect()
-            })
-    }
+/// Additional information to help the user interface communicate what happened with the project.
+#[derive(Debug, serde::Serialize)]
+pub struct ProjectInfo {
+    /// `true` if the window is the first one to open the project.
+    is_exclusive: bool,
+    /// The display version of the error that communicates what went wrong while opening the database.
+    db_error: Option<String>,
+    /// Provide information about the project just opened.
+    headsup: Option<String>,
+}
 
-    /// Additional information to help the user interface communicate what happened with the project.
-    #[derive(Debug, serde::Serialize)]
-    pub struct ProjectInfo {
-        /// `true` if the window is the first one to open the project.
-        is_exclusive: bool,
-        /// The display version of the error that communicates what went wrong while opening the database.
-        db_error: Option<String>,
-        /// Provide information about the project just opened.
-        headsup: Option<String>,
-    }
-
-    /// This trigger is the GUI telling us that the project with `id` is now displayed.
-    /// Return `true` if the project is opened exclusively, i.e. there is no other Window looking at it.
-    ///
-    /// We use it to start watching for filesystem events.
-    #[tauri::command(async)]
-    #[instrument(skip(window_state, window, app_settings), err(Debug), ret)]
-    pub fn set_project_active(
-        window_state: State<'_, WindowState>,
-        app_settings: State<'_, AppSettingsWithDiskSync>,
-        window: Window,
-        id: ProjectId,
-    ) -> Result<Option<ProjectInfo>, Error> {
-        let project = match gitbutler_project::get_validated(id).ok() {
-            Some(project) => project,
-            None => {
-                tracing::warn!("Project with ID {id} not found, cannot set it active");
-                return Ok(None);
-            }
-        };
-        let ctx = &mut CommandContext::open(&project, app_settings.get()?.clone())?;
-        let mode = window_state.set_project_to_window(
-            window.label(),
-            &project,
-            app_settings.inner().clone(),
-            ctx,
-        )?;
-        let db_error = assure_database_valid(project.gb_dir())?;
-        let filter_error = warn_about_filters_and_git_lfs(ctx.gix_repo_minimal()?)?;
-        for err in [&db_error, &filter_error] {
-            if let Some(err) = &err {
-                tracing::error!("{err}");
-            }
-        }
-        let is_exclusive = match mode {
-            ProjectAccessMode::First => true,
-            ProjectAccessMode::Shared => false,
-        };
-        Ok(Some(ProjectInfo {
-            is_exclusive,
-            db_error,
-            headsup: filter_error,
-        }))
-    }
-
-    #[tauri::command(async)]
-    #[instrument(skip(window_state, window), err(Debug))]
-    pub fn get_active_project(
-        window_state: State<'_, WindowState>,
-        window: Window,
-    ) -> Result<Option<projects::Project>, Error> {
-        let project_id = window_state.get_active_project_by_window(window.label());
-        let Some(project_id) = project_id else {
+/// This trigger is the GUI telling us that the project with `id` is now displayed.
+/// Return `true` if the project is opened exclusively, i.e. there is no other Window looking at it.
+///
+/// We use it to start watching for filesystem events.
+#[tauri::command(async)]
+#[instrument(skip(window_state, window, app_settings), err(Debug), ret)]
+pub fn set_project_active(
+    window_state: State<'_, WindowState>,
+    app_settings: State<'_, AppSettingsWithDiskSync>,
+    window: Window,
+    id: ProjectId,
+) -> Result<Option<ProjectInfo>, Error> {
+    let project = match gitbutler_project::get_validated(id).ok() {
+        Some(project) => project,
+        None => {
+            tracing::warn!("Project with ID {id} not found, cannot set it active");
             return Ok(None);
-        };
-        let project = gitbutler_project::get_validated(project_id).context("project not found")?;
-        Ok(Some(project))
+        }
+    };
+    let ctx = &mut CommandContext::open(&project, app_settings.get()?.clone())?;
+    let mode = window_state.set_project_to_window(
+        window.label(),
+        &project,
+        app_settings.inner().clone(),
+        ctx,
+    )?;
+    let db_error = assure_database_valid(project.gb_dir())?;
+    let filter_error = warn_about_filters_and_git_lfs(ctx.gix_repo_minimal()?)?;
+    for err in [&db_error, &filter_error] {
+        if let Some(err) = &err {
+            tracing::error!("{err}");
+        }
     }
+    let is_exclusive = match mode {
+        ProjectAccessMode::First => true,
+        ProjectAccessMode::Shared => false,
+    };
+    Ok(Some(ProjectInfo {
+        is_exclusive,
+        db_error,
+        headsup: filter_error,
+    }))
+}
 
-    /// Open the project with the given ID in a new Window, or focus an existing one.
-    ///
-    /// Note that this command is blocking the main thread just to prevent the chance for races
-    /// without haveing to lock explicitly.
-    #[tauri::command]
-    #[instrument(skip(handle), err(Debug))]
-    pub fn open_project_in_window(handle: tauri::AppHandle, id: ProjectId) -> Result<(), Error> {
-        let label = std::time::UNIX_EPOCH
-            .elapsed()
-            .or_else(|_| std::time::UNIX_EPOCH.duration_since(std::time::SystemTime::now()))
-            .map(|d| d.as_millis().to_string())
-            .context("didn't manage to get any time-based unique ID")?;
-        window::create(&handle, &label, id.to_string()).map_err(anyhow::Error::from)?;
-        Ok(())
-    }
+/// Open the project with the given ID in a new Window, or focus an existing one.
+///
+/// Note that this command is blocking the main thread just to prevent the chance for races
+/// without haveing to lock explicitly.
+#[tauri::command]
+#[instrument(skip(handle), err(Debug))]
+pub fn open_project_in_window(handle: tauri::AppHandle, id: ProjectId) -> Result<(), Error> {
+    let label = std::time::UNIX_EPOCH
+        .elapsed()
+        .or_else(|_| std::time::UNIX_EPOCH.duration_since(std::time::SystemTime::now()))
+        .map(|d| d.as_millis().to_string())
+        .context("didn't manage to get any time-based unique ID")?;
+    window::create(&handle, &label, id.to_string()).map_err(anyhow::Error::from)?;
+    Ok(())
+}
 
-    #[tauri::command(async)]
-    #[instrument(err(Debug))]
-    pub fn delete_project(project_id: ProjectId) -> Result<(), Error> {
-        gitbutler_project::delete(project_id).map_err(Into::into)
-    }
+#[tauri::command(async)]
+#[instrument(skip(ipc_ctx), err(Debug))]
+pub fn delete_project(
+    ipc_ctx: State<'_, but_api::IpcContext>,
+    project_id: ProjectId,
+) -> Result<(), Error> {
+    projects::delete_project(&ipc_ctx, DeleteProjectParams { project_id })
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]

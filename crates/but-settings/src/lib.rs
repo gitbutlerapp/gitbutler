@@ -1,9 +1,6 @@
 #![allow(deprecated)]
 use serde::{Deserialize, Serialize};
 
-mod legacy;
-pub use legacy::LegacySettings;
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {

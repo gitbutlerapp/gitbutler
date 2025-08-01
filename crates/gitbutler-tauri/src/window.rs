@@ -240,11 +240,6 @@ pub(crate) mod state {
             })
         }
 
-        pub fn get_active_project_by_window(&self, window: &WindowLabelRef) -> Option<ProjectId> {
-            let state_by_label = self.state.lock();
-            state_by_label.get(window).map(|state| state.project_id)
-        }
-
         /// Flush file-monitor watcher events once the windows regains focus for it to respond instantly
         /// instead of according to the tick-rate.
         pub fn flush(&self, window: &WindowLabelRef) -> Result<()> {
