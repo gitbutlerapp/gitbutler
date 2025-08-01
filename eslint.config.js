@@ -20,7 +20,9 @@ export default ts.config(
 				...globals.node
 			},
 			parserOptions: {
-				projectService: true
+				projectService: {
+					allowDefaultProject: ['apps/buzz/dev.js']
+				}
 			}
 		},
 		rules: {
