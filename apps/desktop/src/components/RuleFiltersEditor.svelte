@@ -66,7 +66,7 @@
 
 	function handleAddFilter(e: MouseEvent) {
 		e.stopPropagation();
-		newFilterContextMenu?.open(e);
+		newFilterContextMenu?.toggle(e);
 	}
 
 	export function getRuleFilters(): RuleFilter[] | undefined {
@@ -185,16 +185,24 @@
 		<div class="rule-filter-row__actions">
 			<Button
 				icon="bin"
-				size="icon"
+				size="cta"
+				class="rule-filter-row__button"
 				kind="ghost"
+				width="auto"
 				onclick={() => {
 					deleteFilter(type);
 				}}
 			/>
 			{#if isLastFilterType(type) && canAddMore}
-				<div bind:this={addFilterButton}>
-					<Button icon="plus" size="icon" kind="ghost" onclick={handleAddFilter} />
-				</div>
+				<Button
+					bind:el={addFilterButton}
+					class="rule-filter-row__button"
+					width="auto"
+					icon="plus"
+					size="cta"
+					kind="ghost"
+					onclick={handleAddFilter}
+				/>
 			{/if}
 		</div>
 	</div>
@@ -228,13 +236,21 @@
 <style lang="postcss">
 	.rule-filter-row {
 		display: flex;
-		align-items: center;
+		margin-bottom: 8px;
 		gap: 8px;
+
+		&:last-child {
+			margin-bottom: 0;
+		}
 	}
 
 	.rule-filter-row__actions {
 		display: flex;
 		align-items: center;
-		gap: 4px;
+		/* gap: 2px; */
+	}
+
+	:global(.rule-filter-row .rule-filter-row__button) {
+		padding: 0 6px;
 	}
 </style>

@@ -228,14 +228,17 @@
 	{@const stackEntries = stackService.stacks(projectId)}
 	<div class="rules-list__editor-content">
 		{#if typedKeys(draftRuleFilterInitialValues).length > 0}
-			<RuleFiltersEditor
-				bind:this={ruleFiltersEditor}
-				initialFilterValues={draftRuleFilterInitialValues}
-				addFilter={addDraftRuleFilter}
-				deleteFilter={removeDraftRuleFilter}
-			/>
+			<div class="rules-list__filters">
+				<h3 class="text-13 text-semibold">Filters</h3>
+				<RuleFiltersEditor
+					bind:this={ruleFiltersEditor}
+					initialFilterValues={draftRuleFilterInitialValues}
+					addFilter={addDraftRuleFilter}
+					deleteFilter={removeDraftRuleFilter}
+				/>
+			</div>
 		{:else}
-			<div class="rules-list__content-message">
+			<div class="rules-list__matches-all">
 				<p class="text-12">Matches all changes</p>
 				<div bind:this={addFilterButton} class="rules-list__add-filter-button text-12">
 					<button type="button" onclick={openAddFilterContextMenu}>
@@ -278,7 +281,7 @@
 				disabled={!canSaveRule}
 				loading={stackEntries.current.isLoading ||
 					creatingRule.current.isLoading ||
-					updatingRule.current.isLoading}>Save</Button
+					updatingRule.current.isLoading}>Save rule</Button
 			>
 		</div>
 	</div>
@@ -344,9 +347,21 @@
 		border-bottom: 1px solid var(--clr-border-2);
 	}
 
-	.rules-list__content-message {
+	.rules-list__filters {
 		display: flex;
-		padding: 16px;
+		flex-direction: column;
+
+		& h3 {
+			margin-bottom: 10px;
+		}
+	}
+
+	.rules-list__matches-all {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		height: var(--size-cta);
+		padding: 0 12px;
 		gap: 8px;
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-2);
@@ -370,6 +385,6 @@
 	.rules-list__editor-buttons {
 		display: flex;
 		justify-content: flex-end;
-		gap: 8px;
+		gap: 6px;
 	}
 </style>
