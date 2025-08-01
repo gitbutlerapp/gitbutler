@@ -13,22 +13,10 @@ publish = false
 
 [dependencies]
 serde.workspace = true
-futures-util = { version = "0.3", default-features = false, features = [
-    "sink",
-    "std",
-] }
 tokio = { workspace = true, features = ["full"] }
-tokio-util = "0.7.15"
-dirs.workspace = true
-bstr.workspace = true
 anyhow.workspace = true
 serde_json = "1.0.140"
 tracing.workspace = true
-tracing-subscriber = { version = "0.3", features = [
-    "env-filter",
-    "std",
-    "fmt",
-] }
 
 but-settings.workspace = true
 gitbutler-user.workspace = true
@@ -59,10 +47,7 @@ gix = { workspace = true, features = [
 git2.workspace = true
 gitbutler-feedback.workspace = true
 gitbutler-error.workspace = true
-gitbutler-diff.workspace = true
-gitbutler-watcher.workspace = true
 but-rules.workspace = true
-but-action.workspace = true
 reqwest = { version = "0.12", features = ["json"] }
 gitbutler-forge.workspace = true
 open = "5.3"
