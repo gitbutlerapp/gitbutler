@@ -1,4 +1,5 @@
 import type { BrandedId } from '@gitbutler/shared/utils/branding';
+import type { FileStatus } from '@gitbutler/ui/components/file/types';
 
 export type WorkspaceRuleId = BrandedId<'WorkspaceRule'>;
 /**
@@ -41,7 +42,7 @@ export type Trigger =
 export type RuleFilter =
 	| { type: 'pathMatchesRegex'; subject: string } // regex patterns as strings
 	| { type: 'contentMatchesRegex'; subject: string } // regex patterns as strings
-	| { type: 'fileChangeType'; subject: TreeStatus }
+	| { type: 'fileChangeType'; subject: FileStatus }
 	| { type: 'semanticType'; subject: SemanticTypeFilter };
 
 export type RuleFilterType = RuleFilter['type'];
@@ -67,13 +68,12 @@ export type RuleFilterSubject<T extends RuleFilterType> = Extract<
 
 /**
  * Represents the type of change that occurred in the Git worktree.
- * Matches the TreeStatus of the TreeChange.
+ * Now using FileStatus directly for consistency across the codebase.
  */
-export const RULE_FILTER_TREE_STATUS = ['addition', 'deletion', 'modification', 'rename'] as const;
-export type TreeStatus = (typeof RULE_FILTER_TREE_STATUS)[number];
+export type TreeStatus = FileStatus;
 
-export function treeStatusToString(treeStatus: TreeStatus): string {
-	switch (treeStatus) {
+export function treeStatusToString(status: FileStatus): string {
+	switch (status) {
 		case 'addition':
 			return 'Addition';
 		case 'deletion':
@@ -85,8 +85,8 @@ export function treeStatusToString(treeStatus: TreeStatus): string {
 	}
 }
 
-export function treeStatusToShortString(treeStatus: TreeStatus): string {
-	switch (treeStatus) {
+export function treeStatusToShortString(status: FileStatus): string {
+	switch (status) {
 		case 'addition':
 			return 'added';
 		case 'deletion':
@@ -114,13 +114,13 @@ export type SemanticType = SemanticTypeFilter['type'];
 export function semanticTypeToString(semanticType: SemanticType): string {
 	switch (semanticType) {
 		case 'refactor':
-			return 'Refactor';
+			return 'Refactor 🔧';
 		case 'newFeature':
-			return 'New Feature';
+			return 'New Feature ✨';
 		case 'bugFix':
-			return 'Bug Fix';
+			return 'Bug Fix 🐛';
 		case 'documentation':
-			return 'Documentation';
+			return 'Documentation 📚';
 		default:
 			return semanticType; // For user-defined types, return the subject directly
 	}
