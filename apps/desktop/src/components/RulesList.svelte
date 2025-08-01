@@ -255,12 +255,13 @@
 					<Select
 						value={stackIdSelected}
 						options={stacks.map((stack) => ({ label: getStackName(stack), value: stack.id }))}
-						placeholder="Select a branch"
+						placeholder="Select a branch…"
 						flex="1"
 						searchable
 						onselect={(selectedId) => {
 							stackIdSelected = selectedId;
 						}}
+						icon="branch-remote"
 					>
 						{#snippet itemSnippet({ item, highlighted })}
 							<SelectItem selected={item.value === stackIdSelected} {highlighted}>
