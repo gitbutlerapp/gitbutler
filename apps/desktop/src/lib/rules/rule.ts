@@ -167,7 +167,7 @@ export type ImplicitOperation =
 export interface CreateRuleRequest {
 	/** The trigger that causes the rule to be evaluated. */
 	trigger: Trigger;
-	/** The filters that determine what files or changes the rule applies to. Cannot be empty. */
+	/** The filters that determine what files or changes the rule applies to. If empty, all files are matched. */
 	filters: RuleFilter[];
 	/** The action that determines what happens to the files or changes that matched the filters. */
 	action: RuleAction;
