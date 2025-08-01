@@ -59,9 +59,6 @@ async fn main() -> Result<()> {
                 let p = props(start, &result);
                 result.out_json();
                 metrics_if_configured(app_settings, CommandName::ClaudePreTool, p).ok();
-                if result.is_err() {
-                    std::process::exit(2);
-                }
                 Ok(())
             }
             claude::Subcommands::PostTool => {
@@ -69,10 +66,6 @@ async fn main() -> Result<()> {
                 let p = props(start, &result);
                 result.out_json();
                 metrics_if_configured(app_settings, CommandName::ClaudePostTool, p).ok();
-
-                if result.is_err() {
-                    std::process::exit(2);
-                }
                 Ok(())
             }
             claude::Subcommands::Stop => {
@@ -80,9 +73,6 @@ async fn main() -> Result<()> {
                 let p = props(start, &result);
                 result.out_json();
                 metrics_if_configured(app_settings, CommandName::ClaudeStop, p).ok();
-                if result.is_err() {
-                    std::process::exit(2);
-                }
                 Ok(())
             }
         },
