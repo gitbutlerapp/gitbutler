@@ -4,13 +4,17 @@
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import { onMount, tick } from 'svelte';
 	import type iconsJson from '$lib/data/icons.json';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		element?: HTMLElement;
 		id?: string;
 		testId?: string;
 		type?: inputType;
-		icon?: keyof typeof iconsJson;
+		iconLeft?: keyof typeof iconsJson;
+		iconRight?: keyof typeof iconsJson;
+		customIconLeft?: Snippet;
+		customIconRight?: Snippet;
 		size?: 'default' | 'large';
 		textAlign?: 'left' | 'center' | 'right';
 		value?: string;
@@ -18,7 +22,6 @@
 		placeholder?: string;
 		helperText?: string;
 		label?: string;
-		reversedDirection?: boolean;
 		wide?: boolean;
 		minVal?: number;
 		maxVal?: number;
@@ -43,7 +46,10 @@
 		id,
 		testId,
 		type = 'text',
-		icon,
+		iconLeft,
+		iconRight,
+		customIconLeft,
+		customIconRight,
 		value = $bindable(),
 		width,
 		size = 'default',
@@ -51,7 +57,6 @@
 		placeholder,
 		helperText,
 		label,
-		reversedDirection,
 		wide,
 		minVal,
 		maxVal,
@@ -120,13 +125,27 @@
 	{/if}
 	<div
 		class="textbox__input-wrap"
-		class:textbox__left-orient={icon && !reversedDirection}
-		class:textbox__right-orient={icon && reversedDirection}
+		class:textbox__left-orient={iconLeft || customIconLeft}
+		class:textbox__right-orient={iconRight || customIconRight}
 		class:disabled
 	>
-		{#if icon}
-			<div class="textbox__icon">
-				<Icon name={!disabled ? icon : 'locked'} />
+		{#if customIconLeft}
+			<div class="textbox__icon textbox__icon--left">
+				{@render customIconLeft()}
+			</div>
+		{:else if iconLeft}
+			<div class="textbox__icon textbox__icon--left">
+				<Icon name={!disabled ? iconLeft : 'locked'} />
+			</div>
+		{/if}
+
+		{#if customIconRight}
+			<div class="textbox__icon textbox__icon--right">
+				{@render customIconRight()}
+			</div>
+		{:else if iconRight}
+			<div class="textbox__icon textbox__icon--right">
+				<Icon name={!disabled ? iconRight : 'locked'} />
 			</div>
 		{/if}
 
@@ -168,7 +187,9 @@
 				<button
 					type="button"
 					class="textbox__count-btn"
+					disabled={disabled || readonly}
 					onclick={() => {
+						if (disabled || readonly) return;
 						htmlInput.stepDown();
 
 						oninput?.(htmlInput.value);
@@ -182,7 +203,9 @@
 				<button
 					type="button"
 					class="textbox__count-btn"
+					disabled={disabled || readonly}
 					onclick={() => {
+						if (disabled || readonly) return;
 						htmlInput.stepUp();
 
 						oninput?.(htmlInput.value);
@@ -200,7 +223,9 @@
 			<button
 				type="button"
 				class="textbox__show-hide-icon"
+				disabled={disabled || readonly}
 				onclick={() => {
+					if (disabled || readonly) return;
 					showPassword = !showPassword;
 					htmlInput.focus();
 				}}
@@ -300,6 +325,18 @@
 			background-color: var(--clr-bg-2);
 			color: var(--clr-scale-ntrl-40);
 		}
+
+		&:disabled {
+			color: var(--clr-scale-ntrl-60);
+			cursor: not-allowed;
+			opacity: 0.5;
+
+			&:hover,
+			&:focus {
+				background-color: transparent;
+				color: var(--clr-scale-ntrl-60);
+			}
+		}
 	}
 
 	/* select */
@@ -360,6 +397,27 @@
 			background-color: var(--clr-bg-1-muted);
 			color: var(--clr-scale-ntrl-40);
 		}
+
+		&:disabled {
+			color: var(--clr-scale-ntrl-60);
+			cursor: not-allowed;
+			opacity: 0.5;
+
+			&:hover,
+			&:focus {
+				background-color: transparent;
+				color: var(--clr-scale-ntrl-60);
+			}
+		}
+	}
+
+	/* Icon positioning */
+	.textbox__icon--left {
+		left: 10px;
+	}
+
+	.textbox__icon--right {
+		right: 10px;
 	}
 
 	/* MODIFIERS */
@@ -367,17 +425,19 @@
 		& .textbox__input {
 			padding-left: 34px;
 		}
-		& .textbox__icon {
-			left: 10px;
-		}
 	}
 
 	.textbox__right-orient {
 		& .textbox__input {
 			padding-right: 34px;
 		}
-		& .textbox__icon {
-			right: 10px;
+	}
+
+	/* Handle both icons present */
+	.textbox__left-orient.textbox__right-orient {
+		& .textbox__input {
+			padding-right: 34px;
+			padding-left: 34px;
 		}
 	}
 </style>
