@@ -5,6 +5,7 @@
 		label: string;
 		value: T;
 		selectable?: boolean;
+		[key: string]: any; // Allow additional properties for icons, emojis, etc.
 	};
 
 	interface Props {
@@ -27,6 +28,7 @@
 		customSelectButton?: Snippet;
 		itemSnippet: Snippet<[{ item: SelectItem<T>; highlighted: boolean; idx: number }]>;
 		children?: Snippet;
+		icon?: keyof typeof iconsJson;
 		onselect?: (value: T) => void;
 		ontoggle?: (isOpen: boolean) => void;
 	}
@@ -42,6 +44,7 @@
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import { type Snippet } from 'svelte';
+	import type iconsJson from '$lib/data/icons.json';
 
 	const {
 		id,
@@ -63,6 +66,7 @@
 		customSelectButton,
 		itemSnippet,
 		children,
+		icon,
 		onselect,
 		ontoggle
 	}: Props = $props();
@@ -244,8 +248,8 @@
 			{placeholder}
 			readonly
 			type="select"
-			reversedDirection
-			icon="select-chevron"
+			iconLeft={icon}
+			iconRight="select-chevron"
 			value={options.find((item) => item.value === value)?.label}
 			disabled={disabled || loading}
 			onmousedown={toggleList}

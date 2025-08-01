@@ -5,6 +5,7 @@
 
 	interface Props {
 		icon?: keyof typeof iconsJson | undefined;
+		iconSnippet?: Snippet;
 		selected?: boolean;
 		disabled?: boolean;
 		loading?: boolean;
@@ -16,6 +17,7 @@
 
 	const {
 		icon = undefined,
+		iconSnippet,
 		selected = false,
 		disabled = false,
 		loading = false,
@@ -29,11 +31,16 @@
 <button
 	type="button"
 	{disabled}
-	class="button"
+	class="select-button"
 	class:selected
 	class:highlighted
 	onclick={() => onClick?.(value)}
 >
+	{#if iconSnippet}
+		<div class="custom-icon">
+			{@render iconSnippet()}
+		</div>
+	{/if}
 	<div class="label text-13">
 		{@render children?.()}
 	</div>
@@ -49,16 +56,14 @@
 </button>
 
 <style lang="postcss">
-	.button {
+	.select-button {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
 		width: 100%;
-		padding: 8px 8px;
-		gap: 16px;
+		padding: 8px;
+		gap: 10px;
 		border-radius: var(--radius-m);
 		color: var(--clr-scale-ntrl-10);
-		font-weight: 700;
 		white-space: nowrap;
 		user-select: none;
 		&:not(.selected):hover:enabled,
@@ -71,13 +76,17 @@
 		&:disabled {
 			opacity: 0.4;
 		}
-		& .icon {
+		& .icon,
+		.custom-icon {
 			display: flex;
-			color: var(--clr-scale-ntrl-50);
+			flex-shrink: 0;
+			color: var(--clr-text-2);
 		}
 		& .label {
+			flex: 1;
 			height: 16px;
 			overflow-x: hidden;
+			text-align: left;
 			text-overflow: ellipsis;
 			white-space: nowrap;
 		}
