@@ -787,6 +787,58 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-api"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "but-action",
+ "but-core",
+ "but-graph",
+ "but-hunk-assignment",
+ "but-hunk-dependency",
+ "but-rules",
+ "but-settings",
+ "but-workspace",
+ "dirs 6.0.0",
+ "futures-util",
+ "git2",
+ "gitbutler-branch",
+ "gitbutler-branch-actions",
+ "gitbutler-command-context",
+ "gitbutler-diff",
+ "gitbutler-edit-mode",
+ "gitbutler-error",
+ "gitbutler-feedback",
+ "gitbutler-forge",
+ "gitbutler-id",
+ "gitbutler-operating-modes",
+ "gitbutler-oplog",
+ "gitbutler-oxidize",
+ "gitbutler-project",
+ "gitbutler-reference",
+ "gitbutler-repo",
+ "gitbutler-repo-actions",
+ "gitbutler-secret",
+ "gitbutler-stack",
+ "gitbutler-sync",
+ "gitbutler-user",
+ "gitbutler-watcher",
+ "gix",
+ "open",
+ "reqwest 0.12.22",
+ "serde",
+ "serde-error",
+ "serde_json",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "uuid",
+]
+
+[[package]]
 name = "but-core"
 version = "0.0.0"
 dependencies = [
@@ -3384,6 +3436,7 @@ dependencies = [
  "anyhow",
  "backtrace",
  "but-action",
+ "but-api",
  "but-core",
  "but-db",
  "but-graph",

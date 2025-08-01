@@ -67,7 +67,7 @@ impl AppSettingsWithDiskSync {
     /// * `config_dir` contains the application settings file.
     /// * `subscriber` receives any change to it.
     pub fn new(config_dir: impl AsRef<Path>) -> Result<Self> {
-        let config_path = config_dir.as_ref().join(SETTINGS_FILE);
+        let config_path = dbg!(config_dir.as_ref().join(SETTINGS_FILE));
         let app_settings = AppSettings::load(&config_path)?;
         let app_settings = Arc::new(RwLock::new(app_settings));
 

@@ -74,6 +74,7 @@ gitbutler-operating-modes.workspace = true
 gitbutler-edit-mode.workspace = true
 gitbutler-sync.workspace = true
 gitbutler-forge.workspace = true
+but-api.workspace = true
 but-db.workspace = true
 but-settings.workspace = true
 but-workspace.workspace = true

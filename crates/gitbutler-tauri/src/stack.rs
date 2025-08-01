@@ -1,126 +1,146 @@
-use but_settings::AppSettingsWithDiskSync;
+use but_api::{commands::stack, IpcContext};
 use gitbutler_branch_actions::internal::PushResult;
 use gitbutler_branch_actions::stack::CreateSeriesRequest;
-use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use gitbutler_stack::StackId;
 use gitbutler_user::User;
 use tauri::State;
 use tracing::instrument;
 
-use crate::error::Error;
+use but_api::error::Error;
 
 #[tauri::command(async)]
-#[instrument(skip(settings), err(Debug))]
+#[instrument(skip(ipc_ctx), err(Debug))]
 pub fn create_branch(
-    settings: State<'_, AppSettingsWithDiskSync>,
+    ipc_ctx: State<IpcContext>,
     project_id: ProjectId,
     stack_id: StackId,
     request: CreateSeriesRequest,
 ) -> Result<(), Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    gitbutler_branch_actions::stack::create_branch(&ctx, stack_id, request)?;
-    Ok(())
+    stack::create_branch(
+        &ipc_ctx,
+        stack::CreateBranchParams {
+            project_id,
+            stack_id,
+            request,
+        },
+    )
 }
 
 #[tauri::command(async)]
-#[instrument(skip(settings), err(Debug))]
+#[instrument(skip(ipc_ctx), err(Debug))]
 pub fn remove_branch(
-    settings: State<'_, AppSettingsWithDiskSync>,
+    ipc_ctx: State<IpcContext>,
     project_id: ProjectId,
     stack_id: StackId,
     branch_name: String,
 ) -> Result<(), Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    gitbutler_branch_actions::stack::remove_branch(&ctx, stack_id, branch_name)?;
-    Ok(())
+    stack::remove_branch(
+        &ipc_ctx,
+        stack::RemoveBranchParams {
+            project_id,
+            stack_id,
+            branch_name,
+        },
+    )
 }
 
 #[tauri::command(async)]
-#[instrument(skip(settings), err(Debug))]
+#[instrument(skip(ipc_ctx), err(Debug))]
 pub fn update_branch_name(
-    settings: State<'_, AppSettingsWithDiskSync>,
+    ipc_ctx: State<IpcContext>,
     project_id: ProjectId,
     stack_id: StackId,
     branch_name: String,
     new_name: String,
 ) -> Result<(), Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    gitbutler_branch_actions::stack::update_branch_name(&ctx, stack_id, branch_name, new_name)?;
-    Ok(())
+    stack::update_branch_name(
+        &ipc_ctx,
+        stack::UpdateBranchNameParams {
+            project_id,
+            stack_id,
+            branch_name,
+            new_name,
+        },
+    )
 }
 
 #[tauri::command(async)]
-#[instrument(skip(settings), err(Debug))]
+#[instrument(skip(ipc_ctx), err(Debug))]
 pub fn update_branch_description(
-    settings: State<'_, AppSettingsWithDiskSync>,
+    ipc_ctx: State<IpcContext>,
     project_id: ProjectId,
     stack_id: StackId,
     branch_name: String,
     description: Option<String>,
 ) -> Result<(), Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    gitbutler_branch_actions::stack::update_branch_description(
-        &ctx,
-        stack_id,
-        branch_name,
-        description,
-    )?;
-    Ok(())
+    stack::update_branch_description(
+        &ipc_ctx,
+        stack::UpdateBranchDescriptionParams {
+            project_id,
+            stack_id,
+            branch_name,
+            description,
+        },
+    )
 }
 
 #[tauri::command(async)]
-#[instrument(skip(settings), err(Debug))]
+#[instrument(skip(ipc_ctx), err(Debug))]
 pub fn update_branch_pr_number(
-    settings: State<'_, AppSettingsWithDiskSync>,
+    ipc_ctx: State<IpcContext>,
     project_id: ProjectId,
     stack_id: StackId,
     branch_name: String,
     pr_number: Option<usize>,
 ) -> Result<(), Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    gitbutler_branch_actions::stack::update_branch_pr_number(
-        &ctx,
-        stack_id,
-        branch_name,
-        pr_number,
-    )?;
-    Ok(())
+    stack::update_branch_pr_number(
+        &ipc_ctx,
+        stack::UpdateBranchPrNumberParams {
+            project_id,
+            stack_id,
+            branch_name,
+            pr_number,
+        },
+    )
 }
 
 #[tauri::command(async)]
-#[instrument(skip(settings), err(Debug))]
+#[instrument(skip(ipc_ctx), err(Debug))]
 pub fn push_stack(
-    settings: State<'_, AppSettingsWithDiskSync>,
+    ipc_ctx: State<IpcContext>,
     project_id: ProjectId,
     stack_id: StackId,
     with_force: bool,
     branch: String,
 ) -> Result<PushResult, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    gitbutler_branch_actions::stack::push_stack(&ctx, stack_id, with_force, branch)
-        .map_err(|e| e.into())
+    stack::push_stack(
+        &ipc_ctx,
+        stack::PushStackParams {
+            project_id,
+            stack_id,
+            with_force,
+            branch,
+        },
+    )
 }
 
 #[tauri::command(async)]
-#[instrument(skip(settings,), err(Debug))]
+#[instrument(skip(ipc_ctx), err(Debug))]
 pub fn push_stack_to_review(
-    settings: State<'_, AppSettingsWithDiskSync>,
+    ipc_ctx: State<IpcContext>,
     project_id: ProjectId,
     stack_id: StackId,
     top_branch: String,
     user: User,
 ) -> Result<String, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, settings.get()?.clone())?;
-    let review_id =
-        gitbutler_sync::stack_upload::push_stack_to_review(&ctx, &user, stack_id, top_branch)?;
-
-    Ok(review_id)
+    stack::push_stack_to_review(
+        &ipc_ctx,
+        stack::PushStackToReviewParams {
+            project_id,
+            stack_id,
+            top_branch,
+            user,
+        },
+    )
 }

@@ -15,7 +15,7 @@ impl AppSettings {
     pub fn load(config_path: &Path) -> Result<Self> {
         // If the file on config_path does not exist, create it empty
         if !config_path.exists() {
-            gitbutler_fs::write(config_path, "{}\n")?;
+            gitbutler_fs::create_dirs_then_write(config_path, "{}\n")?;
         }
 
         // merge customizations from disk into the defaults to get a complete set of settings.

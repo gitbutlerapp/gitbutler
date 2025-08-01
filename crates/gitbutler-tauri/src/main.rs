@@ -11,18 +11,21 @@
     clippy::too_many_lines
 )]
 
+use std::sync::Arc;
+
+use but_api::broadcaster::Broadcaster;
+use but_api::IpcContext;
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::csp::csp_with_extras;
-use gitbutler_tauri::settings::SettingsStore;
 use gitbutler_tauri::{
     action, askpass, cli, commands, config, diff, env, forge, github, logs, menu, modes, open,
     projects, remotes, repo, rules, secret, settings, stack, undo, users, virtual_branches,
-    workspace, zip, App, WindowState,
+    workspace, zip, WindowState,
 };
 use tauri::Emitter;
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::{Target, TargetKind};
-use tauri_plugin_store::StoreExt;
+use tokio::sync::Mutex;
 
 fn main() {
     let performance_logging = std::env::var_os("GITBUTLER_PERFORMANCE_LOG").is_some();
@@ -103,12 +106,11 @@ fn main() {
                             }
                         });
                     }
-                    let app_data_dir =
-                        but_path::app_data_dir().expect("failed to get app data dir");
 
-                    let (app_cache_dir, app_log_dir) = {
+                    let (app_data_dir, app_cache_dir, app_log_dir) = {
                         let paths = app_handle.path();
                         (
+                            paths.app_data_dir().expect("missing app data dir"),
                             paths.app_cache_dir().expect("missing app cache dir"),
                             paths.app_log_dir().expect("missing app log dir"),
                         )
@@ -129,18 +131,25 @@ fn main() {
                             gitbutler_tauri::ChangeForFrontend::from(app_settings).send(&app_handle)
                         }
                     })?;
-                    let app = App {
-                        app_data_dir: app_data_dir.clone(),
-                    };
-                    app_handle.manage(app.users());
-                    let settings_store: SettingsStore = tauri_app.store("settings.json")?.into();
-                    app_handle.manage(settings_store);
 
-                    app_handle.manage(gitbutler_feedback::Archival {
-                        cache_dir: app_cache_dir,
-                        logs_dir: app_log_dir,
+                    let broadcaster = Arc::new(Mutex::new(Broadcaster::new()));
+                    let archival = Arc::new(gitbutler_feedback::Archival {
+                        cache_dir: app_cache_dir.clone(),
+                        logs_dir: app_log_dir.clone(),
                     });
-                    app_handle.manage(app);
+                    let ipc_ctx = IpcContext {
+                        app_settings: Arc::new(
+                            AppSettingsWithDiskSync::new(config_dir.clone())
+                                .expect("failed to create app settings"),
+                        ),
+                        user_controller: Arc::new(gitbutler_user::Controller::from_path(
+                            &app_data_dir,
+                        )),
+                        broadcaster: broadcaster.clone(),
+                        archival: archival.clone(),
+                    };
+
+                    app_handle.manage(ipc_ctx);
 
                     tauri_app.on_menu_event(move |_handle, event| {
                         menu::handle_event(&window.clone(), &event)
@@ -187,56 +196,55 @@ fn main() {
                     commands::git_index_size,
                     zip::commands::get_logs_archive_path,
                     zip::commands::get_project_archive_path,
-                    users::commands::set_user,
-                    users::commands::delete_user,
-                    users::commands::get_user,
-                    projects::commands::add_project,
-                    projects::commands::get_project,
-                    projects::commands::update_project,
-                    projects::commands::delete_project,
-                    projects::commands::list_projects,
-                    projects::commands::set_project_active,
-                    projects::commands::open_project_in_window,
-                    projects::commands::get_active_project,
-                    repo::commands::git_get_local_config,
-                    repo::commands::git_set_local_config,
-                    repo::commands::check_signing_settings,
-                    repo::commands::git_clone_repository,
-                    repo::commands::get_uncommited_files,
-                    repo::commands::get_commit_file,
-                    repo::commands::get_workspace_file,
-                    repo::commands::pre_commit_hook,
-                    repo::commands::pre_commit_hook_diffspecs,
-                    repo::commands::post_commit_hook,
-                    repo::commands::message_hook,
-                    virtual_branches::commands::create_virtual_branch,
-                    virtual_branches::commands::delete_local_branch,
-                    virtual_branches::commands::get_base_branch_data,
-                    virtual_branches::commands::set_base_branch,
-                    virtual_branches::commands::push_base_branch,
-                    virtual_branches::commands::integrate_upstream_commits,
-                    virtual_branches::commands::update_stack_order,
-                    virtual_branches::commands::unapply_stack,
-                    virtual_branches::commands::create_virtual_branch_from_branch,
-                    virtual_branches::commands::can_apply_remote_branch,
-                    virtual_branches::commands::list_commit_files,
-                    virtual_branches::commands::amend_virtual_branch,
-                    virtual_branches::commands::move_commit_file,
-                    virtual_branches::commands::undo_commit,
-                    virtual_branches::commands::insert_blank_commit,
-                    virtual_branches::commands::reorder_stack,
-                    virtual_branches::commands::update_commit_message,
-                    virtual_branches::commands::find_git_branches,
-                    virtual_branches::commands::list_branches,
-                    virtual_branches::commands::get_branch_listing_details,
-                    virtual_branches::commands::squash_commits,
-                    virtual_branches::commands::fetch_from_remotes,
-                    virtual_branches::commands::move_commit,
-                    virtual_branches::commands::normalize_branch_name,
-                    virtual_branches::commands::upstream_integration_statuses,
-                    virtual_branches::commands::integrate_upstream,
-                    virtual_branches::commands::resolve_upstream_integration,
-                    virtual_branches::commands::find_commit,
+                    users::set_user,
+                    users::delete_user,
+                    users::get_user,
+                    projects::add_project,
+                    projects::get_project,
+                    projects::update_project,
+                    projects::delete_project,
+                    projects::list_projects,
+                    projects::set_project_active,
+                    projects::open_project_in_window,
+                    repo::git_get_local_config,
+                    repo::git_set_local_config,
+                    repo::check_signing_settings,
+                    repo::git_clone_repository,
+                    repo::get_uncommited_files,
+                    repo::get_commit_file,
+                    repo::get_workspace_file,
+                    repo::pre_commit_hook,
+                    repo::pre_commit_hook_diffspecs,
+                    repo::post_commit_hook,
+                    repo::message_hook,
+                    virtual_branches::create_virtual_branch,
+                    virtual_branches::delete_local_branch,
+                    virtual_branches::get_base_branch_data,
+                    virtual_branches::set_base_branch,
+                    virtual_branches::push_base_branch,
+                    virtual_branches::integrate_upstream_commits,
+                    virtual_branches::update_stack_order,
+                    virtual_branches::unapply_stack,
+                    virtual_branches::create_virtual_branch_from_branch,
+                    virtual_branches::can_apply_remote_branch,
+                    virtual_branches::list_commit_files,
+                    virtual_branches::amend_virtual_branch,
+                    virtual_branches::move_commit_file,
+                    virtual_branches::undo_commit,
+                    virtual_branches::insert_blank_commit,
+                    virtual_branches::reorder_stack,
+                    virtual_branches::update_commit_message,
+                    virtual_branches::find_git_branches,
+                    virtual_branches::list_branches,
+                    virtual_branches::get_branch_listing_details,
+                    virtual_branches::squash_commits,
+                    virtual_branches::fetch_from_remotes,
+                    virtual_branches::move_commit,
+                    virtual_branches::normalize_branch_name,
+                    virtual_branches::upstream_integration_statuses,
+                    virtual_branches::integrate_upstream,
+                    virtual_branches::resolve_upstream_integration,
+                    virtual_branches::find_commit,
                     stack::create_branch,
                     stack::remove_branch,
                     stack::update_branch_name,
@@ -252,10 +260,9 @@ fn main() {
                     config::get_gb_config,
                     config::set_gb_config,
                     menu::menu_item_set_enabled,
-                    menu::get_editor_link_scheme,
-                    github::commands::init_device_oauth,
-                    github::commands::check_auth_status,
-                    askpass::commands::submit_prompt_response,
+                    github::init_device_oauth,
+                    github::check_auth_status,
+                    askpass::submit_prompt_response,
                     remotes::list_remotes,
                     remotes::add_remote,
                     modes::operating_mode,
@@ -266,8 +273,8 @@ fn main() {
                     modes::edit_changes_from_initial,
                     open::open_url,
                     open::show_in_finder,
-                    forge::commands::pr_templates,
-                    forge::commands::pr_template,
+                    forge::pr_templates,
+                    forge::pr_template,
                     settings::get_app_settings,
                     settings::update_onboarding_complete,
                     settings::update_telemetry,

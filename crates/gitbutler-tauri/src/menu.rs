@@ -1,7 +1,5 @@
-use std::{env, fs};
-
-use crate::error::Error;
 use anyhow::Context;
+use but_api::error::Error;
 use gitbutler_error::error::{self, Code};
 #[cfg(target_os = "macos")]
 use tauri::menu::AboutMetadata;
@@ -34,27 +32,6 @@ pub fn menu_item_set_enabled(handle: AppHandle, id: &str, enabled: bool) -> Resu
         .context(Code::Unknown)?;
 
     Ok(())
-}
-
-#[tauri::command()]
-pub fn get_editor_link_scheme() -> &'static str {
-    let vscodium_installed = check_if_installed("codium");
-    if vscodium_installed {
-        "vscodium"
-    } else {
-        // Fallback to vscode, as it was the previous behavior
-        "vscode"
-    }
-}
-
-fn check_if_installed(executable_name: &str) -> bool {
-    match env::var_os("PATH") {
-        Some(env_path) => env::split_paths(&env_path).any(|mut path| {
-            path.push(executable_name);
-            fs::metadata(path).is_ok()
-        }),
-        None => false,
-    }
 }
 
 pub fn build<R: Runtime>(handle: &AppHandle<R>) -> tauri::Result<tauri::menu::Menu<R>> {
