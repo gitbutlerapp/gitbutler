@@ -29,7 +29,12 @@ export const csr = true;
 export const load: LayoutLoad = async () => {
 	// TODO: Find a workaround to avoid this dynamic import
 	// https://github.com/sveltejs/kit/issues/905
-	const homeDir = await (await import('@tauri-apps/api/path')).homeDir();
+	let homeDir: string;
+	if (import.meta.env.VITE_BUILD_TARGET === 'web') {
+		homeDir = '/tmp/gitbutler';
+	} else {
+		homeDir = await (await import('@tauri-apps/api/path')).homeDir();
+	}
 
 	const tokenMemoryService = new TokenMemoryService();
 	const httpClient = new HttpClient(window.fetch, PUBLIC_API_BASE_URL, tokenMemoryService.token);

@@ -1,12 +1,19 @@
-import { getCurrentWindow, type Theme } from '@tauri-apps/api/window';
+import { getCurrentWindow, Window, type Theme } from '@tauri-apps/api/window';
 import { type Writable } from 'svelte/store';
 import type { Settings } from '$lib/settings/userSettings';
-const appWindow = getCurrentWindow();
+
+let appWindow: Window | undefined;
+if (import.meta.env.VITE_BUILD_TARGET === 'web') {
+	// TODO: Implement electron alternative
+} else {
+	appWindow = getCurrentWindow();
+}
 
 let systemTheme: string | null;
 let selectedTheme: string | undefined;
 
 export function initTheme(userSettings: Writable<Settings>) {
+	if (!appWindow) return;
 	appWindow.theme().then((value: Theme | null) => {
 		systemTheme = value;
 		updateDom();
