@@ -180,7 +180,7 @@ export class StackService {
 		return this.api.endpoints.stacks.useQuery(
 			{ projectId },
 			{
-				transform: (stacks) => stackSelectors.selectById(stacks, id)
+				transform: (stacks) => stackSelectors.selectById(stacks, id) ?? null
 			}
 		);
 	}
