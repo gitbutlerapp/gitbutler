@@ -3364,9 +3364,14 @@ pub(crate) mod utils {
         Ok((repo, meta))
     }
 
-    pub fn named_writable_scenario(
+    pub fn named_writable_scenario_with_description(
         name: &str,
-    ) -> anyhow::Result<(TempDir, gix::Repository, VirtualBranchesTomlMetadata)> {
+    ) -> anyhow::Result<(
+        TempDir,
+        gix::Repository,
+        VirtualBranchesTomlMetadata,
+        String,
+    )> {
         let (tmp, repo, mut meta) = crate::ref_info::utils::named_writable_scenario(name)?;
         let vb = meta.data_mut();
         vb.default_target = Some(Target {
@@ -3382,7 +3387,15 @@ pub(crate) mod utils {
                 .unwrap_or_else(|| gix::hash::Kind::Sha1.null()),
             push_remote_name: None,
         });
-        Ok((tmp, repo, meta))
+        let desc = std::fs::read_to_string(repo.git_dir().join("description"))?;
+        Ok((tmp, repo, meta, desc))
+    }
+
+    pub fn named_writable_scenario(
+        name: &str,
+    ) -> anyhow::Result<(TempDir, gix::Repository, VirtualBranchesTomlMetadata)> {
+        let (a, b, c, _desc) = named_writable_scenario_with_description(name)?;
+        Ok((a, b, c))
     }
 
     pub fn named_read_only_in_memory_scenario_with_description(

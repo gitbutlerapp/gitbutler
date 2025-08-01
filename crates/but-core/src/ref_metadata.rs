@@ -58,6 +58,22 @@ impl Workspace {
             .iter()
             .find_map(|stack| stack.branches.iter().find(|b| b.ref_name.as_ref() == name))
     }
+
+    /// Find the `(stack_idx, branch_idx)` of `name` within our stack branches and return it,
+    /// for direct access like `ws.stacks[stack_idx].branches[branch_idx]`.
+    pub fn find_owner_indexes_by_name(
+        &self,
+        name: &gix::refs::FullNameRef,
+    ) -> Option<(usize, usize)> {
+        self.stacks
+            .iter()
+            .enumerate()
+            .find_map(|(stack_idx, stack)| {
+                stack.branches.iter().enumerate().find_map(|(seg_idx, b)| {
+                    (b.ref_name.as_ref() == name).then_some((stack_idx, seg_idx))
+                })
+            })
+    }
 }
 
 /// Metadata about branches, associated with any Git branch.

@@ -9,7 +9,7 @@ use std::collections::BTreeSet;
 impl Overlay {
     /// Serve the given `refs` from memory, as if they would exist.
     /// This is true only, however, if a real reference doesn't exist.
-    pub fn with_references_non_overriding(
+    pub fn with_references_if_new(
         mut self,
         refs: impl IntoIterator<Item = gix::refs::Reference>,
     ) -> Self {
@@ -19,11 +19,21 @@ impl Overlay {
 
     /// Serve the given `branches` metadata from memory, as if they would exist,
     /// possibly overriding metadata of a ref that already exists.
-    pub fn with_branch_metadata_overriding(
+    pub fn with_branch_metadata_override(
         mut self,
         refs: impl IntoIterator<Item = (gix::refs::FullName, ref_metadata::Branch)>,
     ) -> Self {
         self.meta_branches = refs.into_iter().collect();
+        self
+    }
+
+    /// Serve the given workspace `metadata` from memory, as if they would exist,
+    /// possibly overriding metadata of a workspace at that place
+    pub fn with_workspace_metadata_override(
+        mut self,
+        metadata: Option<(gix::refs::FullName, ref_metadata::Workspace)>,
+    ) -> Self {
+        self.workspace = metadata;
         self
     }
 }
@@ -40,6 +50,7 @@ impl Overlay {
         let Overlay {
             nonoverriding_references,
             meta_branches,
+            workspace,
         } = self;
         (
             OverlayRepo {
@@ -49,6 +60,7 @@ impl Overlay {
             OverlayMetadata {
                 inner: meta,
                 meta_branches,
+                workspace,
             },
         )
     }
@@ -209,6 +221,7 @@ impl<'repo> OverlayRepo<'repo> {
 pub(crate) struct OverlayMetadata<'meta, T> {
     inner: &'meta T,
     meta_branches: Vec<(gix::refs::FullName, ref_metadata::Branch)>,
+    workspace: Option<(gix::refs::FullName, ref_metadata::Workspace)>,
 }
 
 impl<T> OverlayMetadata<'_, T>
@@ -226,13 +239,30 @@ where
                     .ok()
                     .map(|ws| (ref_name, ws))
             })
-            .map(|(ref_name, ws)| (ref_name, (*ws).clone()))
+            .map(|(ref_name, ws)| {
+                if let Some((_ws_ref, ws_override)) = self
+                    .workspace
+                    .as_ref()
+                    .filter(|(ws_ref, _ws_data)| *ws_ref == ref_name)
+                {
+                    (ref_name, ws_override.clone())
+                } else {
+                    (ref_name, (*ws).clone())
+                }
+            })
     }
 
     pub fn workspace_opt(
         &self,
         ref_name: &gix::refs::FullNameRef,
     ) -> anyhow::Result<Option<ref_metadata::Workspace>> {
+        if let Some((_ws_ref, ws_meta)) = self
+            .workspace
+            .as_ref()
+            .filter(|(ws_ref, _ws_meta)| ws_ref.as_ref() == ref_name)
+        {
+            return Ok(Some(ws_meta.clone()));
+        }
         let opt = self.inner.workspace_opt(ref_name)?;
         Ok(opt.map(|ws_data| ws_data.clone()))
     }

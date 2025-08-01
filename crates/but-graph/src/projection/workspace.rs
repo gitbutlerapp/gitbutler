@@ -10,7 +10,7 @@ use crate::{
     projection::{Stack, StackCommit, StackCommitFlags, StackSegment},
 };
 use anyhow::Context;
-use bstr::ByteSlice;
+use bstr::{BStr, ByteSlice};
 use but_core::ref_metadata;
 use but_core::ref_metadata::StackId;
 use gix::reference::Category;
@@ -130,7 +130,7 @@ impl Workspace<'_> {
             .with_context(|| {
                 format!(
                     "Couldn't find any stack that contained the branch named '{}'",
-                    name.as_bstr()
+                    name.shorten()
                 )
             })
     }
@@ -159,7 +159,7 @@ impl Workspace<'_> {
             .with_context(|| {
                 format!(
                     "Couldn't find any stack that contained the branch named '{}'",
-                    name.as_bstr()
+                    name.shorten()
                 )
             })
     }
@@ -959,7 +959,7 @@ impl Workspace<'_> {
 }
 
 /// Query
-impl Workspace<'_> {
+impl<'graph> Workspace<'graph> {
     /// Return `true` if this workspace is managed, meaning we control certain aspects of it.
     /// If `false`, we are more conservative and may not support all features.
     pub fn has_managed_ref(&self) -> bool {
@@ -978,8 +978,14 @@ impl Workspace<'_> {
     /// Return the name of the workspace reference by looking our segment up in `graph`.
     /// Note that for managed workspaces, this can be retrieved via [`WorkspaceKind::Managed`].
     /// Note that it can be expected to be set on any workspace, but the data would allow it to not be set.
-    pub fn ref_name<'a>(&self, graph: &'a Graph) -> Option<&'a gix::refs::FullNameRef> {
-        graph[self.id].ref_name.as_ref().map(|rn| rn.as_ref())
+    pub fn ref_name(&self) -> Option<&'graph gix::refs::FullNameRef> {
+        self.graph[self.id].ref_name.as_ref().map(|rn| rn.as_ref())
+    }
+
+    /// Like [`Self::ref_name()`], but return a generic `<anonymous>` name for unnamed workspaces.
+    pub fn ref_name_display(&self) -> &BStr {
+        self.ref_name()
+            .map_or("<anonymous>".into(), |rn| rn.as_bstr())
     }
 }
 

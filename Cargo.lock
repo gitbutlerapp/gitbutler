@@ -943,7 +943,6 @@ dependencies = [
  "itertools",
  "md5",
  "petgraph 0.8.2",
- "regex",
  "serde",
  "termtree",
  "toml",
@@ -1129,6 +1128,7 @@ dependencies = [
  "but-graph",
  "gix",
  "gix-testtools",
+ "regex",
  "termtree",
 ]
 

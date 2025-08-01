@@ -240,10 +240,9 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                     stack_id = *branch.stack_id.borrow();
                 } else if stack_id != *branch.stack_id.borrow() {
                     bail!(
-                        "Inconsistent stack detected, wanted {:?}, but got {:?}",
-                        stack_id,
-                        branch.stack_id.borrow()
-                    )
+                        "BUG: unexpected situation where branch has stack-id {:?} but is associated with stack {stack_id:?}",
+                        branch.stack_id()
+                    );
                 }
             }
 

@@ -27,6 +27,7 @@ mod post;
 pub struct Overlay {
     nonoverriding_references: Vec<gix::refs::Reference>,
     meta_branches: Vec<(gix::refs::FullName, ref_metadata::Branch)>,
+    workspace: Option<(gix::refs::FullName, ref_metadata::Workspace)>,
 }
 
 pub(super) type PetGraph = petgraph::stable_graph::StableGraph<Segment, Edge>;

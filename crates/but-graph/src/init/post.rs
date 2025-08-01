@@ -342,7 +342,7 @@ impl Graph {
                     .as_ref()
                     .into_iter()
                     .chain(base_segment.commits[0].refs.iter()),
-                Some((&self.inner, ws_sidx, &candidates)),
+                Some((&self.inner, ws_sidx, &ws_stacks, &candidates)),
             )
             .collect();
             for refs_for_independent_branches in matching_refs_per_stack {
@@ -473,7 +473,12 @@ impl Graph {
                 .iter()
                 .flat_map(|s| s.commits_by_segment.iter().map(|(sidx, _)| *sidx))
         }) {
-            let s = &self.inner[sidx];
+            // The workspace might be stale by now as we delete empty segments.
+            // Thus be careful, and ignore non-existing ones - after all our workspace
+            // is temporary, nothing to worry about.
+            let Some(s) = self.inner.node_weight(sidx) else {
+                continue;
+            };
             if s.ref_name.is_some() || s.sibling_segment_id.is_some() {
                 continue;
             }
@@ -671,9 +676,23 @@ impl Graph {
 fn find_all_desired_stack_refs_in_commit<'a>(
     ws_data: &'a ref_metadata::Workspace,
     commit_refs: impl Iterator<Item = &'a gix::refs::FullName> + Clone + 'a,
-    graph_and_ws_idx_and_candidates: Option<(&'a PetGraph, SegmentIndex, &'a [SegmentIndex])>,
+    graph_and_ws_idx_and_candidates: Option<(
+        &'a PetGraph,
+        SegmentIndex,
+        &'a [crate::projection::Stack],
+        &'a [SegmentIndex],
+    )>,
 ) -> impl Iterator<Item = Vec<gix::refs::FullName>> + 'a {
     ws_data.stacks.iter().filter_map(move |stack| {
+        if let Some((_, _, ws_stacks, candidates)) = graph_and_ws_idx_and_candidates {
+            if ws_stacks
+                .iter()
+                .filter(|s| !s.segments.iter().any(|s| candidates.contains(&s.id)))
+                .any(|existing_stack| existing_stack.id == Some(stack.id))
+            {
+                return None;
+            }
+        }
         let matching_refs: Vec<_> = stack
             .branches
             .iter()
@@ -687,14 +706,16 @@ fn find_all_desired_stack_refs_in_commit<'a>(
         // part of an existing stack as new stack.
         let is_used_in_existing_stack = graph_and_ws_idx_and_candidates
             .zip(stack.branches.first())
-            .is_some_and(|((graph, ws_idx, candidates), top_segment_name)| {
-                graph
-                    .neighbors_directed(ws_idx, Direction::Outgoing)
-                    .filter(|sidx| !candidates.contains(sidx))
-                    .any(|stack_sidx| {
-                        graph[stack_sidx].ref_name.as_ref() == Some(&top_segment_name.ref_name)
-                    })
-            });
+            .is_some_and(
+                |((graph, ws_idx, _ws_stacks, candidates), top_segment_name)| {
+                    graph
+                        .neighbors_directed(ws_idx, Direction::Outgoing)
+                        .filter(|sidx| !candidates.contains(sidx))
+                        .any(|stack_sidx| {
+                            graph[stack_sidx].ref_name.as_ref() == Some(&top_segment_name.ref_name)
+                        })
+                },
+            );
         if is_used_in_existing_stack {
             return None;
         }
@@ -702,6 +723,9 @@ fn find_all_desired_stack_refs_in_commit<'a>(
     })
 }
 
+/// **Warning**: this can make workspace stacks stale, i.e. let them refer to non-existing segments.
+///              all accesses from hereon must be done with care. On the other hand, we can ignore
+///              that as our workspace is just temporary.
 fn delete_anon_if_empty_and_reconnect(graph: &mut Graph, sidx: SegmentIndex) {
     let segment = &graph[sidx];
     let may_delete = segment.commits.is_empty() && segment.ref_name.is_none();
@@ -717,6 +741,11 @@ fn delete_anon_if_empty_and_reconnect(graph: &mut Graph, sidx: SegmentIndex) {
     if outgoing.next().is_some() {
         return;
     }
+
+    tracing::debug!(
+        ?sidx,
+        "Deleting seemingly isolated and now completely unused segment"
+    );
     // Reconnect
     let new_target = first_outgoing.target();
     let incoming: Vec<_> = graph

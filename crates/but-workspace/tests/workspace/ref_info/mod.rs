@@ -652,9 +652,8 @@ mod utils {
         VirtualBranchesTomlMetadata,
     )> {
         let (repo, tmp) = crate::utils::writable_scenario(name);
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            repo.path().join(".git").join("virtual-branches.toml"),
-        )?;
+        let meta =
+            VirtualBranchesTomlMetadata::from_path(repo.path().join("virtual-branches.toml"))?;
         Ok((tmp, repo, meta))
     }
 
