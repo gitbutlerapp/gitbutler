@@ -5,11 +5,6 @@
 		first?: boolean;
 		stackLength: number;
 	};
-
-	export type BranchHeaderContextItem = {
-		data: BranchHeaderContextData;
-		position: { coords?: { x: number; y: number }; element?: HTMLElement };
-	};
 </script>
 
 <script lang="ts">
@@ -41,7 +36,6 @@
 		projectId: string;
 		stackId?: string;
 		openId?: string;
-		context?: BranchHeaderContextItem;
 		rightClickTrigger?: HTMLElement;
 		contextData?: BranchHeaderContextData;
 	};
@@ -49,7 +43,6 @@
 	let {
 		projectId,
 		stackId,
-		context = $bindable(),
 		openId = $bindable(),
 		rightClickTrigger,
 		contextData
@@ -65,11 +58,19 @@
 	const aiGenEnabled = $derived(projectAiGenEnabled(projectId));
 
 	const allCommits = $derived.by(() => {
-		if (!context) return;
+		if (!contextData) return;
 		return stackId
-			? stackService.commits(projectId, stackId, context.data.branch.name)
-			: stackService.unstackedCommits(projectId, context.data.branch.name);
+			? stackService.commits(projectId, stackId, contextData.branch.name)
+			: stackService.unstackedCommits(projectId, contextData.branch.name);
 	});
+
+	async function getAllCommits() {
+		if (!contextData) return;
+		if (stackId) {
+			return stackService.fetchCommits(projectId, stackId, contextData.branch.name);
+		}
+		return stackService.fetchUnstackedCommits(projectId, contextData.branch.name);
+	}
 
 	const commits = $derived(allCommits?.current.data);
 	const branchType = $derived(commits?.at(0)?.state.type || 'LocalOnly');
@@ -94,11 +95,10 @@
 	async function generateBranchName(stackId: string, branchName: string) {
 		if (!$aiGenEnabled || !aiConfigurationValid) return;
 
+		const commits = await getAllCommits();
 		const commitMessages = commits?.map((commit) => commit.message) ?? [];
 		if (commitMessages.length === 0) {
-			throw new Error(
-				'There must be a commits in the branch before you can generate a branch name'
-			);
+			throw new Error('There must be commits in the branch before you can generate a branch name');
 		}
 
 		const prompt = promptService.selectedBranchPrompt(projectId);
