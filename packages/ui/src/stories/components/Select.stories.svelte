@@ -28,6 +28,35 @@
 				{ value: 'excited', label: 'Excited', emoji: '🎉' },
 				{ value: 'cool', label: 'Cool', emoji: '😎' },
 				{ value: 'love', label: 'Love', emoji: '❤️' }
+			],
+			longOptions: [
+				{
+					value: '1',
+					label: 'This is a very long option that tests text overflow behavior in select items'
+				},
+				{
+					value: '2',
+					label:
+						'Another extremely long option with lots of text to see how the component handles lengthy content and text wrapping scenarios'
+				},
+				{
+					value: '3',
+					label:
+						'Super duper ultra mega long option name that goes on and on and on to test the ellipsis functionality'
+				},
+				{
+					value: '4',
+					label:
+						'A moderately long option that is not as long as the others but still quite lengthy indeed'
+				},
+				{ value: '5', label: 'Short option' },
+				{ value: '6', label: 'Medium length option text here' },
+				{
+					value: '7',
+					label:
+						'This option has a very long name that includes multiple words and should demonstrate how the select component handles text truncation with ellipsis when the content exceeds the available width'
+				},
+				{ value: '8', label: 'Final long option to complete the test suite for overflow behavior' }
 			]
 		},
 		argTypes: {}
@@ -36,6 +65,7 @@
 	let selectedItem = $state<string>('1');
 	let selectedWithIcon = $state<string>('js');
 	let selectedWithEmoji = $state<string>('happy');
+	let selectedLongOption = $state<string>('1');
 </script>
 
 <script lang="ts">
@@ -178,6 +208,27 @@
 							{item.label}
 						</SelectItem>
 					{/if}
+				{/snippet}
+			</Select>
+		</div>
+	{/snippet}
+</Story>
+
+<Story name="Long Options">
+	{#snippet template(args)}
+		<div class="wrap">
+			<Select
+				searchable
+				options={args.longOptions}
+				value={selectedLongOption}
+				onselect={(value: string) => {
+					selectedLongOption = value;
+				}}
+			>
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem selected={highlighted} {highlighted}>
+						{item.label}
+					</SelectItem>
 				{/snippet}
 			</Select>
 		</div>

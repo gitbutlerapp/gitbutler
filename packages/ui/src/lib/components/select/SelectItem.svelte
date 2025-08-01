@@ -83,9 +83,9 @@
 			color: var(--clr-text-2);
 		}
 		& .label {
+			display: block;
 			flex: 1;
-			height: 16px;
-			overflow-x: hidden;
+			overflow: hidden;
 			text-align: left;
 			text-overflow: ellipsis;
 			white-space: nowrap;
