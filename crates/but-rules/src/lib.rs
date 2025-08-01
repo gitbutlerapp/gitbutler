@@ -123,7 +123,7 @@ pub enum ImplicitOperation {
 pub struct CreateRuleRequest {
     /// The trigger that causes the rule to be evaluated.
     pub trigger: Trigger,
-    /// The filters that determine what files or changes the rule applies to. Can not be empty.
+    /// The filters that determine what files or changes the rule applies to. If left empty, all files will be matched
     pub filters: Vec<Filter>,
     /// The action that determines what happens to the files or changes that matched the filters.
     pub action: Action,
@@ -134,9 +134,6 @@ pub fn create_rule(
     ctx: &mut CommandContext,
     req: CreateRuleRequest,
 ) -> anyhow::Result<WorkspaceRule> {
-    if req.filters.is_empty() {
-        return Err(anyhow::anyhow!("At least one filter is required"));
-    }
     let rule = WorkspaceRule {
         id: uuid::Uuid::new_v4().to_string(),
         created_at: chrono::Local::now().naive_local(),
