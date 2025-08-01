@@ -4,9 +4,7 @@
 	} from '$components/AddDependentBranchModal.svelte';
 	import BranchCard from '$components/BranchCard.svelte';
 	import BranchCommitList from '$components/BranchCommitList.svelte';
-	import BranchHeaderContextMenu, {
-		type BranchHeaderContextItem
-	} from '$components/BranchHeaderContextMenu.svelte';
+	import BranchHeaderContextMenu from '$components/BranchHeaderContextMenu.svelte';
 	import ConflictResolutionConfirmModal from '$components/ConflictResolutionConfirmModal.svelte';
 	import NewBranchModal from '$components/NewBranchModal.svelte';
 	import PushButton from '$components/PushButton.svelte';
@@ -110,8 +108,6 @@
 			}
 		}
 	});
-
-	let headerMenuContext = $state<BranchHeaderContextItem>();
 
 	const stackingReorderDropzoneManagerFactory = inject(STACKING_REORDER_DROPZONE_MANAGER_FACTORY);
 	const stackingReorderDropzoneManager = $derived(
@@ -295,7 +291,6 @@
 							<BranchHeaderContextMenu
 								{projectId}
 								{stackId}
-								bind:context={headerMenuContext}
 								{rightClickTrigger}
 								contextData={data}
 							/>

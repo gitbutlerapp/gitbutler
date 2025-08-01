@@ -10,7 +10,6 @@
 	import { inject } from '@gitbutler/shared/context';
 	import { Icon, Tooltip } from '@gitbutler/ui';
 
-	import type { BranchHeaderContextItem } from '$components/BranchHeaderContextMenu.svelte';
 	import type { SelectionId } from '$lib/selection/key';
 
 	interface Props {
@@ -33,7 +32,6 @@
 			: stackService.unstackedBranchDetails(projectId, branchName, remote)
 	);
 	const changesResult = $derived(stackService.branchChanges({ projectId, branchName, remote }));
-	let headerMenuContext = $state<BranchHeaderContextItem>();
 
 	const selectionId: SelectionId = $derived.by(() => {
 		const bname = remote ? remote + '/' + branchName : branchName;
@@ -82,12 +80,7 @@
 					prNumber: branch.prNumber || undefined,
 					stackLength: 1
 				}}
-				<BranchHeaderContextMenu
-					{projectId}
-					bind:context={headerMenuContext}
-					rightClickTrigger={header}
-					contextData={data}
-				/>
+				<BranchHeaderContextMenu {projectId} rightClickTrigger={header} contextData={data} />
 			{/snippet}
 
 			<div class="branch-header">

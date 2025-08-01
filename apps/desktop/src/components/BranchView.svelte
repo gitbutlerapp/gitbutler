@@ -15,7 +15,6 @@
 	import { inject } from '@gitbutler/shared/context';
 	import { Icon, Tooltip } from '@gitbutler/ui';
 
-	import type { BranchHeaderContextItem } from '$components/BranchHeaderContextMenu.svelte';
 	import type { TargetType } from '$lib/intelligentScrolling/service';
 	import type { ComponentProps } from 'svelte';
 
@@ -53,8 +52,6 @@
 	const branchResult = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const branchesResult = $derived(stackService.branches(projectId, stackId));
 	const topCommitResult = $derived(stackService.commitAt(projectId, stackId, branchName, 0));
-
-	let headerMenuContext = $state<BranchHeaderContextItem>();
 
 	let newBranchModal = $state<ReturnType<typeof NewBranchModal>>();
 	let renameBranchModal = $state<BranchRenameModal>();
@@ -110,7 +107,6 @@
 				<BranchHeaderContextMenu
 					{projectId}
 					{stackId}
-					bind:context={headerMenuContext}
 					rightClickTrigger={header}
 					contextData={data}
 				/>
