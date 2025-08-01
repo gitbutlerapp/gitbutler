@@ -3,12 +3,18 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Rule from '$components/Rule.svelte';
 	import RuleFiltersEditor from '$components/RuleFiltersEditor.svelte';
+	import {
+		type WorkspaceRuleId,
+		type RuleFilterMap,
+		type RuleFilterType,
+		type WorkspaceRule
+	} from '$lib/rules/rule';
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { getStackName } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { typedKeys } from '$lib/utils/object';
 	import { inject } from '@gitbutler/shared/context';
 	import { Button, chipToasts, Select, SelectItem } from '@gitbutler/ui';
-	import type { RuleFilterType, WorkspaceRule } from '$lib/rules/rule';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
@@ -22,9 +28,12 @@
 	const stackService = inject(STACK_SERVICE);
 
 	const [create, creatingRule] = rulesService.createWorkspaceRule;
+	const [update, updatingRule] = rulesService.updateWorkspaceRule;
 
+	let selectedRuleId = $state<WorkspaceRuleId>();
 	let stackIdSelected = $state<string>();
-	let draftRuleFilters = $state<RuleFilterType[]>([]);
+	let draftRuleFilterInitialValues = $state<Partial<RuleFilterMap>>({});
+	const ruleFilterTypes = $derived(typedKeys(draftRuleFilterInitialValues));
 
 	// Component references
 	let ruleFiltersEditor = $state<RuleFiltersEditor>();
@@ -52,13 +61,15 @@
 	}
 
 	function addDraftRuleFilter(type: RuleFilterType) {
-		if (!draftRuleFilters.includes(type)) {
-			draftRuleFilters.push(type);
+		const ruleTypes = typedKeys(draftRuleFilterInitialValues);
+		if (!ruleTypes.includes(type)) {
+			draftRuleFilterInitialValues[type] = null;
 		}
 	}
 
 	function removeDraftRuleFilter(type: RuleFilterType) {
-		draftRuleFilters = draftRuleFilters.filter((filterType) => filterType !== type);
+		draftRuleFilterInitialValues[type] = undefined;
+		delete draftRuleFilterInitialValues[type];
 	}
 
 	function openRuleEditor() {
@@ -67,7 +78,8 @@
 
 	function resetEditor() {
 		stackIdSelected = undefined;
-		draftRuleFilters = [];
+		draftRuleFilterInitialValues = {};
+		selectedRuleId = undefined;
 	}
 
 	function cancelRuleEdition() {
@@ -86,8 +98,29 @@
 			return;
 		}
 
+		selectedRuleId = rule.id;
 		stackIdSelected = rule.action.subject.subject.stack_id;
-		draftRuleFilters = rule.filters.map((r) => r.type);
+		const initialValues: Partial<RuleFilterMap> = {};
+
+		for (const filter of rule.filters) {
+			switch (filter.type) {
+				case 'pathMatchesRegex':
+					initialValues.pathMatchesRegex = filter.subject;
+					break;
+				case 'contentMatchesRegex':
+					initialValues.contentMatchesRegex = filter.subject;
+					break;
+				case 'fileChangeType':
+					initialValues.fileChangeType = filter.subject;
+					break;
+				case 'semanticType':
+					initialValues.semanticType = filter.subject;
+					break;
+			}
+		}
+
+		draftRuleFilterInitialValues = initialValues;
+
 		mode = 'edit';
 	}
 
@@ -105,22 +138,43 @@
 			return;
 		}
 
-		await create({
-			projectId,
-			request: {
-				action: {
-					type: 'explicit',
-					subject: {
-						type: 'assign',
+		if (selectedRuleId) {
+			await update({
+				projectId,
+				request: {
+					id: selectedRuleId,
+					enabled: null,
+					action: {
+						type: 'explicit',
 						subject: {
-							stack_id: stackIdSelected
+							type: 'assign',
+							subject: {
+								stack_id: stackIdSelected
+							}
 						}
-					}
-				},
-				filters: ruleFilters,
-				trigger: 'fileSytemChange'
-			}
-		});
+					},
+					filters: ruleFilters,
+					trigger: 'fileSytemChange'
+				}
+			});
+		} else {
+			await create({
+				projectId,
+				request: {
+					action: {
+						type: 'explicit',
+						subject: {
+							type: 'assign',
+							subject: {
+								stack_id: stackIdSelected
+							}
+						}
+					},
+					filters: ruleFilters,
+					trigger: 'fileSytemChange'
+				}
+			});
+		}
 
 		mode = 'list';
 		resetEditor();
@@ -170,10 +224,10 @@
 {#snippet ruleEditor()}
 	{@const stackEntries = stackService.stacks(projectId)}
 	<div class="rules-list__editor-content">
-		{#if draftRuleFilters.length > 0}
+		{#if typedKeys(draftRuleFilterInitialValues).length > 0}
 			<RuleFiltersEditor
 				bind:this={ruleFiltersEditor}
-				ruleFilterTypes={draftRuleFilters}
+				initialFilterValues={draftRuleFilterInitialValues}
 				addFilter={addDraftRuleFilter}
 				deleteFilter={removeDraftRuleFilter}
 			/>
@@ -219,14 +273,16 @@
 				kind="solid"
 				style="neutral"
 				disabled={!canSaveRule}
-				loading={stackEntries.current.isLoading || creatingRule.current.isLoading}>Save</Button
+				loading={stackEntries.current.isLoading ||
+					creatingRule.current.isLoading ||
+					updatingRule.current.isLoading}>Save</Button
 			>
 		</div>
 	</div>
 
 	<NewRuleMenu
 		bind:this={newFilterContextMenu}
-		addedFilterTypes={draftRuleFilters}
+		addedFilterTypes={ruleFilterTypes}
 		trigger={addFilterButton}
 		addFromFilter={(type) => {
 			addDraftRuleFilter(type);
@@ -236,7 +292,7 @@
 
 <NewRuleMenu
 	bind:this={newRuleContextMenu}
-	addedFilterTypes={draftRuleFilters}
+	addedFilterTypes={ruleFilterTypes}
 	trigger={addRuleButton}
 	addFromFilter={(type) => {
 		addDraftRuleFilter(type);
