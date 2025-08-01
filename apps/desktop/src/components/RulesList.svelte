@@ -126,9 +126,11 @@
 
 	async function saveRule() {
 		// Logic to save the rule
-		const ruleFilters = ruleFiltersEditor?.getRuleFilters();
+		// This needs to be writtent like this.
+		// If there's no rule filters editor, it means that the match is all files
+		const ruleFilters = ruleFiltersEditor ? ruleFiltersEditor.getRuleFilters() : [];
 
-		if (!ruleFilters) {
+		if (ruleFilters === undefined) {
 			chipToasts.error('Invalid rule filters');
 			return;
 		}
