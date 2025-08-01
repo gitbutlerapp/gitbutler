@@ -97,6 +97,10 @@
 	<div class="rule">
 		{#each filters as filter (filter.type)}
 			{@render filterPill(filter)}
+		{:else}
+			<div class="rule__pill">
+				<span class="text-12 trucate">All files matched</span>
+			</div>
 		{/each}
 		{@render assignChip()}
 		{@render stackTarget(stackId)}
