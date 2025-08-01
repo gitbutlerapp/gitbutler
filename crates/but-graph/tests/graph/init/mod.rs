@@ -1,6 +1,5 @@
-use crate::graph_tree;
 use but_graph::Graph;
-use but_testsupport::visualize_commit_graph_all;
+use but_testsupport::{graph_tree, graph_workspace, visualize_commit_graph_all};
 
 #[test]
 fn unborn() -> anyhow::Result<()> {
@@ -37,6 +36,13 @@ fn unborn() -> anyhow::Result<()> {
         ),
         extra_target: None,
         hard_limit_hit: false,
+        options: Options {
+            collect_tags: false,
+            commits_limit_hint: None,
+            commits_limit_recharge_location: [],
+            hard_limit: None,
+            extra_target_commit_id: None,
+        },
     }
     "#);
 
@@ -133,6 +139,13 @@ fn detached() -> anyhow::Result<()> {
         ),
         extra_target: None,
         hard_limit_hit: false,
+        options: Options {
+            collect_tags: true,
+            commits_limit_hint: None,
+            commits_limit_recharge_location: [],
+            hard_limit: None,
+            extra_target_commit_id: None,
+        },
     }
     "#);
     Ok(())
@@ -710,7 +723,6 @@ mod with_workspace;
 
 mod utils;
 use crate::init::utils::standard_options_with_extra_target;
-use crate::vis::utils::graph_workspace;
 pub use utils::{
     StackState, add_stack_with_segments, add_workspace, id_at, id_by_rev,
     read_only_in_memory_scenario, standard_options,

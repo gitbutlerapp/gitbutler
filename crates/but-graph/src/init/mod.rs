@@ -1,5 +1,5 @@
 use anyhow::{Context, bail};
-use but_core::RefMetadata;
+use but_core::{RefMetadata, ref_metadata};
 use gix::{
     hashtable::hash_map::Entry,
     prelude::{ObjectIdExt, ReferenceExt},
@@ -13,11 +13,22 @@ mod walk;
 use walk::*;
 
 pub(crate) mod types;
+use crate::init::overlay::{OverlayMetadata, OverlayRepo};
 use types::{Goals, Instruction, Limit, Queue};
 
 mod remotes;
 
+mod overlay;
 mod post;
+
+/// A way to define information to be served from memory, instead of from the underlying data source, when
+/// [initializing](Graph::from_commit_traversal()) the graph.
+#[derive(Debug, Default)]
+pub struct Overlay {
+    nonoverriding_references: Vec<gix::refs::Reference>,
+    meta_branches: Vec<(gix::refs::FullName, ref_metadata::Branch)>,
+    workspace: Option<(gix::refs::FullName, ref_metadata::Workspace)>,
+}
 
 pub(super) type PetGraph = petgraph::stable_graph::StableGraph<Segment, Edge>;
 
@@ -123,9 +134,12 @@ impl Graph {
         let (tip, maybe_name) = match head.kind {
             gix::head::Kind::Unborn(ref_name) => {
                 let mut graph = Graph::default();
+                // It's OK to default-initialise this here as overlays are only used when redoing
+                // the traversal.
+                let (_repo, meta) = Overlay::default().into_parts(repo, meta);
                 graph.insert_root(branch_segment_from_name_and_meta(
                     Some((ref_name, None)),
-                    meta,
+                    &meta,
                     None,
                 )?);
                 return Ok(graph);
@@ -158,11 +172,11 @@ impl Graph {
         };
         Ok(graph)
     }
-    /// Produce a minimal-effort representation of the commit-graph reachable from the commit at `tip` such the returned instance
-    /// can represent everything that's observed, without loosing information.
+    /// Produce a minimal but usable representation of the commit-graph reachable from the commit at `tip` such the returned instance
+    /// can represent everything that's observed, without losing information.
     /// `ref_name` is assumed to point to `tip` if given.
     ///
-    /// `meta` is used to learn more about the encountered references.
+    /// `meta` is used to learn more about the encountered references, and `options` is used for additional configuration.
     ///
     /// ### Features
     ///
@@ -170,10 +184,11 @@ impl Graph {
     /// * support the notion of a branch to integrate with, the *target*
     ///     - *target* branches consist of a local and remote tracking branch, and one can be ahead of the other.
     ///     - workspaces are relative to the local tracking branch of the target.
+    ///     - options contain an [`extra_target_commit_id`](Options::extra_target_commit_id) for an additional target location.
     /// * remote tracking branches are seen in relation to their branches.
     /// * the graph of segments assigns each reachable commit to exactly one segment
     /// * one can use [`petgraph::algo`] and [`petgraph::visit`]
-    ///     - It maintains information about the intended connections, so modifications afterwards will show
+    ///     - It maintains information about the intended connections, so modifications afterward will show
     ///       in debugging output if edges are now in violation of this constraint.
     ///
     /// ### Rules
@@ -183,39 +198,54 @@ impl Graph {
     /// Change the rules as you see fit to accomplish this.
     ///
     /// * a commit can be governed by multiple workspaces
-    /// * as workspaces and entrypoints "grow" together, we don't know anything about workspaces until the every end,
-    ///   or when two streams touch. This means we can't make decisions based on [flags](CommitFlags) until the traversal
+    /// * as workspaces and entry-points "grow" together, we don't know anything about workspaces until the very end,
+    ///   or when two partitions of commits touch.
+    ///   This means we can't make decisions based on [flags](CommitFlags) until the traversal
     ///   is finished.
-    /// * an entrypoint always causes the start of a segment.
-    /// * Segments are always named if their first commit has a single local branch pointing to it.
-    /// * Anonymous segments are created if there are more than one local branches pointing to it.
+    /// * an entrypoint always causes the start of a [`Segment`].
+    /// * Segments are always named if their first commit has a single local branch pointing to it, or a branch that
+    ///   otherwise can be disambiguated.
+    /// * Anonymous segments are created if their name is ambiguous.
     /// * Anonymous segments are created if another segment connects to a commit that it contains that is not the first one.
-    ///    - This means, all connections go from the last commit in a segment to the first commit in another segment.
+    ///    - This means, all connections go *from the last commit in a segment to the first commit in another segment*.
     /// * Segments stored in the *workspace metadata* are used/relevant only if they are backed by an existing branch.
     /// * Remote tracking branches are picked up during traversal for any ref that we reached through traversal.
     ///     - This implies that remotes aren't relevant for segments added during post-processing, which would typically
     ///       be empty anyway.
     ///     - Remotes never take commits that are already owned.
-    /// * The traversal is cut short when there is only tips which are integrated, even though named segments that are
-    ///   supposed to be in the workspace will be fully traversed (implying they will stop at the first anon segment
-    ///   as will happen at merge commits).
+    /// * The traversal is cut short when there is only tips which are integrated
     /// * The traversal is always as long as it needs to be to fully reconcile possibly disjoint branches, despite
     ///   this sometimes costing some time when the remote is far ahead in a huge repository.
-    // TODO: review the docs!
     #[instrument(skip(meta, ref_name), err(Debug))]
     pub fn from_commit_traversal(
         tip: gix::Id<'_>,
         ref_name: impl Into<Option<gix::refs::FullName>>,
         meta: &impl RefMetadata,
-        Options {
+        options: Options,
+    ) -> anyhow::Result<Self> {
+        let (repo, meta) = Overlay::default().into_parts(tip.repo, meta);
+        Graph::from_commit_traversal_inner(tip.detach(), &repo, ref_name, &meta, options)
+    }
+
+    fn from_commit_traversal_inner<T: RefMetadata>(
+        tip: gix::ObjectId,
+        repo: &OverlayRepo<'_>,
+        ref_name: impl Into<Option<gix::refs::FullName>>,
+        meta: &OverlayMetadata<'_, T>,
+        options: Options,
+    ) -> anyhow::Result<Self> {
+        let mut graph = Graph {
+            options: options.clone(),
+            ..Graph::default()
+        };
+        let Options {
             collect_tags,
             extra_target_commit_id,
             commits_limit_hint: limit,
             commits_limit_recharge_location: mut max_commits_recharge_location,
             hard_limit,
-        }: Options,
-    ) -> anyhow::Result<Self> {
-        let repo = tip.repo;
+        } = options;
+
         let max_limit = Limit::new(limit);
         // TODO: also traverse (outside)-branches that ought to be in the workspace. That way we have the desired ones
         //       automatically and just have to find a way to prune the undesired ones.
@@ -231,12 +261,10 @@ impl Graph {
         }
         let commit_graph = repo.commit_graph_if_enabled()?;
         let mut buf = Vec::new();
-        let mut graph = Graph::default();
 
         let configured_remote_tracking_branches =
             remotes::configured_remote_tracking_branches(repo)?;
-        let refs_by_id = collect_ref_mapping_by_prefix(
-            repo,
+        let refs_by_id = repo.collect_ref_mapping_by_prefix(
             std::iter::once("refs/heads/").chain(if collect_tags {
                 Some("refs/tags/")
             } else {
@@ -250,7 +278,7 @@ impl Graph {
         // The tip transports itself.
         let tip_flags = CommitFlags::NotInRemote
             | goals
-                .flag_for(tip.detach())
+                .flag_for(tip)
                 .expect("we more than one bitflags for this");
 
         let target_symbolic_remote_names = {
@@ -283,10 +311,10 @@ impl Graph {
             let current = graph.insert_root(branch_segment_from_name_and_meta(
                 ref_name.clone().map(|rn| (rn, None)),
                 meta,
-                Some((&ctx.refs_by_id, tip.detach())),
+                Some((&ctx.refs_by_id, tip)),
             )?);
             _ = next.push_back_exhausted((
-                tip.detach(),
+                tip,
                 tip_flags,
                 Instruction::CollectCommit { into: current },
                 max_limit,
@@ -326,7 +354,7 @@ impl Graph {
             } else {
                 (
                     CommitFlags::empty(),
-                    max_limit.with_indirect_goal(tip.detach(), &mut goals),
+                    max_limit.with_indirect_goal(tip, &mut goals),
                 )
             };
             let mut ws_segment =
@@ -369,10 +397,10 @@ impl Graph {
                         CommitFlags::NotInRemote | goal,
                         Instruction::CollectCommit { into: local_sidx },
                         max_limit
-                            .with_indirect_goal(tip.detach(), &mut goals)
+                            .with_indirect_goal(tip, &mut goals)
                             .without_allowance(),
                     ));
-                    next.add_goal_to(tip.detach(), goal);
+                    next.add_goal_to(tip, goal);
                     (Some(local_sidx), goal)
                 } else {
                     (None, CommitFlags::empty())
@@ -386,7 +414,7 @@ impl Graph {
                     // Once the goal was found, be done immediately,
                     // we are not interested in these.
                     max_limit
-                        .with_indirect_goal(tip.detach(), &mut goals)
+                        .with_indirect_goal(tip, &mut goals)
                         .additional_goal(local_goal)
                         .without_allowance(),
                 ));
@@ -416,7 +444,7 @@ impl Graph {
                         into: extra_target_sidx,
                     },
                     max_limit
-                        .with_indirect_goal(tip.detach(), &mut goals)
+                        .with_indirect_goal(tip, &mut goals)
                         .without_allowance(),
                 ));
                 extra_target_sidx
@@ -468,7 +496,7 @@ impl Graph {
             if max_commits_recharge_location.binary_search(&id).is_ok() {
                 limit.set_but_keep_goal(max_limit);
             }
-            let info = find(commit_graph.as_ref(), repo, id, &mut buf)?;
+            let info = find(commit_graph.as_ref(), repo.for_find_only(), id, &mut buf)?;
             let src_flags = graph[instruction.segment_idx()]
                 .commits
                 .last()
@@ -566,7 +594,7 @@ impl Graph {
                 limit,
             );
             if hard_limit_hit {
-                return graph.post_processed(meta, tip.detach(), ctx.with_hard_limit());
+                return graph.post_processed(meta, tip, ctx.with_hard_limit());
             }
 
             segment.commits.push(
@@ -587,14 +615,36 @@ impl Graph {
 
             for item in remote_items {
                 if next.push_back_exhausted(item) {
-                    return graph.post_processed(meta, tip.detach(), ctx.with_hard_limit());
+                    return graph.post_processed(meta, tip, ctx.with_hard_limit());
                 }
             }
 
             prune_integrated_tips(&mut graph, &mut next);
         }
 
-        graph.post_processed(meta, tip.detach(), ctx)
+        graph.post_processed(meta, tip, ctx)
+    }
+
+    /// Repeat the traversal that generated this graph using `repo` and `meta`, but allow to set an in-memory
+    /// `overlay` to amend the data available from `repo` and `meta`.
+    /// This way, one can see this graph as it will be in the future once the changes to `repo` and `meta` are actually made.
+    pub fn redo_traversal_with_overlay(
+        &self,
+        repo: &gix::Repository,
+        meta: &impl RefMetadata,
+        overlay: Overlay,
+    ) -> anyhow::Result<Self> {
+        let (repo, meta) = overlay.into_parts(repo, meta);
+        let tip_sidx = self
+            .entrypoint
+            .context("BUG: entrypoint must always be set")?
+            .0;
+        let tip = self
+            .tip_skip_empty(tip_sidx)
+            .context("BUG: entrypoint must eventually point to a commit")?
+            .id;
+        let ref_name = self[tip_sidx].ref_name.clone();
+        Graph::from_commit_traversal_inner(tip, &repo, ref_name, &meta, self.options.clone())
     }
 }
 

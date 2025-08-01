@@ -1,7 +1,6 @@
 use but_core::ref_metadata::StackId;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_graph::virtual_branches_legacy_types::{Stack, StackBranch, Target};
-use gix::Repository;
 
 pub fn read_only_in_memory_scenario(
     name: &str,
@@ -113,19 +112,6 @@ pub fn add_stack_with_segments(
     stack_id
 }
 
-pub fn id_at<'repo>(repo: &'repo Repository, name: &str) -> (gix::Id<'repo>, gix::refs::FullName) {
-    let mut rn = repo
-        .find_reference(name)
-        .expect("statically known reference exists");
-    let id = rn.peel_to_id_in_place().expect("must be valid reference");
-    (id, rn.inner.name)
-}
-
-pub fn id_by_rev<'repo>(repo: &'repo gix::Repository, rev: &str) -> gix::Id<'repo> {
-    repo.rev_parse_single(rev)
-        .expect("well-known revspec when testing")
-}
-
 pub fn standard_options() -> but_graph::init::Options {
     but_graph::init::Options {
         collect_tags: true,
@@ -145,3 +131,5 @@ pub fn standard_options_with_extra_target(
         ..standard_options()
     }
 }
+
+pub use but_testsupport::{id_at, id_by_rev};

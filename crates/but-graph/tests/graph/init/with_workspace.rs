@@ -1,10 +1,8 @@
-use crate::graph_tree;
 use crate::init::utils::{add_workspace_without_target, standard_options_with_extra_target};
 use crate::init::{StackState, add_stack_with_segments, add_workspace, id_at, id_by_rev};
 use crate::init::{read_only_in_memory_scenario, standard_options};
-use crate::vis::utils::graph_workspace;
 use but_graph::Graph;
-use but_testsupport::visualize_commit_graph_all;
+use but_testsupport::{graph_tree, graph_workspace, visualize_commit_graph_all};
 
 #[test]
 fn single_stack_ambigous() -> anyhow::Result<()> {
@@ -4253,11 +4251,9 @@ fn applied_stack_above_explicit_lower_bound() -> anyhow::Result<()> {
 }
 
 mod edit_commit {
-    use crate::graph_tree;
     use crate::init::{add_workspace, id_at, read_only_in_memory_scenario, standard_options};
-    use crate::vis::utils::graph_workspace;
     use but_graph::Graph;
-    use but_testsupport::visualize_commit_graph_all;
+    use but_testsupport::{graph_tree, graph_workspace, visualize_commit_graph_all};
 
     #[test]
     fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {

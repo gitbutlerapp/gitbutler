@@ -34,5 +34,4 @@ gix-testtools.workspace = true
 insta = "1.43.1"
 termtree = "0.5.1"
 but-testsupport.workspace = true
-regex = "1.11.1"
 

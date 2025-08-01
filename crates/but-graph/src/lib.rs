@@ -224,7 +224,7 @@ mod debug;
 pub type CommitIndex = usize;
 
 /// A graph of connected segments that represent a section of the actual commit-graph.
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct Graph {
     inner: init::PetGraph,
     /// From where the graph was created. This is useful if one wants to focus on a subset of the graph.
@@ -236,6 +236,9 @@ pub struct Graph {
     extra_target: Option<SegmentIndex>,
     /// It's `true` only if we have stopped the traversal due to a hard limit.
     hard_limit_hit: bool,
+    /// The options used to create the graph, which allows it to regenerate itself after something
+    /// possibly changed. This can also be used to simulate changes by injecting would-be information.
+    options: init::Options,
 }
 
 /// A resolved entry point into the graph for easy access to the segment, commit,

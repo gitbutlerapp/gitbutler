@@ -848,8 +848,6 @@ name = "but-api"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "bstr",
- "but-action",
  "but-core",
  "but-graph",
  "but-hunk-assignment",
@@ -857,13 +855,10 @@ dependencies = [
  "but-rules",
  "but-settings",
  "but-workspace",
- "dirs 6.0.0",
- "futures-util",
  "git2",
  "gitbutler-branch",
  "gitbutler-branch-actions",
  "gitbutler-command-context",
- "gitbutler-diff",
  "gitbutler-edit-mode",
  "gitbutler-error",
  "gitbutler-feedback",
@@ -880,7 +875,6 @@ dependencies = [
  "gitbutler-stack",
  "gitbutler-sync",
  "gitbutler-user",
- "gitbutler-watcher",
  "gix",
  "open",
  "reqwest 0.12.22",
@@ -888,9 +882,7 @@ dependencies = [
  "serde-error",
  "serde_json",
  "tokio",
- "tokio-util",
  "tracing",
- "tracing-subscriber",
  "url",
  "uuid",
 ]
@@ -951,7 +943,6 @@ dependencies = [
  "itertools",
  "md5",
  "petgraph 0.8.2",
- "regex",
  "serde",
  "termtree",
  "toml",
@@ -1063,15 +1054,11 @@ dependencies = [
  "gitbutler-project",
  "gitbutler-user",
  "gitbutler-watcher",
- "reqwest 0.12.22",
  "serde",
  "serde_json",
  "tokio",
- "tokio-util",
  "tower 0.5.2",
  "tower-http",
- "tracing",
- "tracing-subscriber",
  "uuid",
 ]
 
@@ -1138,8 +1125,10 @@ name = "but-testsupport"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-graph",
  "gix",
  "gix-testtools",
+ "regex",
  "termtree",
 ]
 

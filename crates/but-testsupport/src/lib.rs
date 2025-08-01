@@ -1,9 +1,11 @@
 //! Utilities for testing.
 #![deny(rust_2018_idioms, missing_docs)]
 
+use gix::Repository;
 use gix::bstr::{BStr, ByteSlice};
 use gix::config::tree::Key;
 pub use gix_testtools;
+use std::collections::HashMap;
 use std::path::Path;
 
 /// Choose a slightly more obvious, yet easy to type syntax than a function with 4 parameters.
@@ -37,25 +39,33 @@ pub fn git(repo: &gix::Repository) -> std::process::Command {
 /// * it's isolated and won't load environment variables.
 /// * an object cache is set for minor speed boost.
 pub fn open_repo(path: &Path) -> anyhow::Result<gix::Repository> {
-    let mut repo = gix::open_opts(
-        path,
-        gix::open::Options::isolated()
-            .lossy_config(false)
-            .config_overrides([
-                gix::config::tree::Author::NAME
-                    .validated_assignment("Author (Memory Override)".into())?,
-                gix::config::tree::Author::EMAIL
-                    .validated_assignment("author@example.com".into())?,
-                gix::config::tree::Committer::NAME
-                    .validated_assignment("Committer (Memory Override)".into())?,
-                gix::config::tree::Committer::EMAIL
-                    .validated_assignment("committer@example.com".into())?,
-                gix::config::tree::gitoxide::Commit::COMMITTER_DATE
-                    .validated_assignment("2000-01-01 00:00:00 +0000".into())?,
-            ]),
-    )?;
+    let mut repo = gix::open_opts(path, open_repo_config()?)?;
     repo.object_cache_size_if_unset(512 * 1024);
     Ok(repo)
+}
+
+/// Return isolated configuration with a basic setup to run read-only and read-write tests.
+/// This includes the author configuration in particular.
+pub fn open_repo_config() -> anyhow::Result<gix::open::Options> {
+    let config = gix::open::Options::isolated()
+        .lossy_config(false)
+        .config_overrides([
+            gix::config::tree::Author::NAME
+                .validated_assignment("Author (Memory Override)".into())?,
+            gix::config::tree::Author::EMAIL.validated_assignment("author@example.com".into())?,
+            gix::config::tree::Committer::NAME
+                .validated_assignment("Committer (Memory Override)".into())?,
+            gix::config::tree::Committer::EMAIL
+                .validated_assignment("committer@example.com".into())?,
+            gix::config::tree::gitoxide::Commit::COMMITTER_DATE
+                .validated_assignment("2000-01-01 00:00:00 +0000".into())?,
+        ]);
+    Ok(config)
+}
+
+/// turn a 40 byte hex-id into an object ID or panic.
+pub fn hex_to_id(hex: &str) -> gix::ObjectId {
+    gix::ObjectId::from_hex(hex.as_bytes()).expect("statically known to be valid")
 }
 
 /// Sets and environment that assures commits are reproducible.
@@ -235,3 +245,72 @@ pub fn visualize_disk_tree_skip_dot_git(root: &Path) -> anyhow::Result<termtree:
 pub fn visualize_disk_tree_skip_dot_git(_root: &Path) -> anyhow::Result<termtree::Tree<String>> {
     anyhow::bail!("BUG: must not run on Windows - results won't be desirable");
 }
+
+/// Produce the id at the reference with `name` (short-name is fine), and also return the full name
+/// of the reference.
+pub fn id_at<'repo>(repo: &'repo Repository, name: &str) -> (gix::Id<'repo>, gix::refs::FullName) {
+    let mut rn = repo
+        .find_reference(name)
+        .expect("statically known reference exists");
+    let id = rn.peel_to_id_in_place().expect("must be valid reference");
+    (id, rn.inner.name)
+}
+
+/// Return the commit by the given `revspec`.
+pub fn id_by_rev<'repo>(repo: &'repo gix::Repository, revspec: &str) -> gix::Id<'repo> {
+    repo.rev_parse_single(revspec)
+        .expect("well-known revspec when testing")
+}
+
+/// Find all UUIDs and unix timestamps in `input` and return a new string
+/// with these replaced by a sequential number, along with a mapping from the replaced string to the number
+/// in question.
+pub fn sanitize_uuids_and_timestamps_with_mapping(
+    input: String,
+) -> (String, HashMap<String, usize>) {
+    let uuid_regex = regex::Regex::new(
+        r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+    )
+    .unwrap();
+    let timestamp_regex = regex::Regex::new(r#"("\d{13}")|( \d{13})"#).unwrap();
+
+    let mut uuid_map: HashMap<String, usize> = HashMap::new();
+    let mut uuid_counter = 1;
+
+    let mut timestamp_map: HashMap<String, usize> = HashMap::new();
+    // Assure there is no flakiness, turn all into the same value.
+    let timestamp_counter_constant = 12_345;
+
+    let result = uuid_regex.replace_all(&input, |caps: &regex::Captures<'_>| {
+        let uuid = caps.get(0).unwrap().as_str().to_string();
+        let entry = uuid_map.entry(uuid).or_insert_with(|| {
+            let num = uuid_counter;
+            uuid_counter += 1;
+            num
+        });
+        entry.to_string()
+    });
+    let result = timestamp_regex.replace_all(&result, |caps: &regex::Captures<'_>| {
+        let timestamp = caps.get(0).unwrap().as_str().to_string();
+        let entry = timestamp_map
+            .entry(timestamp)
+            .or_insert_with(|| timestamp_counter_constant);
+        entry.to_string()
+    });
+
+    (result.to_string(), uuid_map)
+}
+
+/// Like [`sanitize_uuids_and_timestamps_with_mapping()`], but without the mapping.
+pub fn sanitize_uuids_and_timestamps(input: String) -> String {
+    sanitize_uuids_and_timestamps_with_mapping(input).0
+}
+
+/// Save a `format!` invocation
+pub fn debug_str(input: &dyn std::fmt::Debug) -> String {
+    format!("{:#?}", input)
+}
+
+mod graph;
+
+pub use graph::{graph_tree, graph_workspace};

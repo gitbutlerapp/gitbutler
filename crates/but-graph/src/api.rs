@@ -85,6 +85,19 @@ impl Graph {
         })
     }
 
+    /// Return the segment that is named `name`,
+    ///
+    /// Note that tags may or may not be included in the graph, depending on how it was created.
+    ///
+    /// ### Performance
+    ///
+    /// This is a brute-force search through all nodes and all data in the graph - beware of hot-loop usage.
+    pub fn named_segment_by_ref_name(&self, name: &gix::refs::FullNameRef) -> Option<&Segment> {
+        self.inner
+            .node_weights()
+            .find(|s| s.ref_name.as_ref().is_some_and(|rn| rn.as_ref() == name))
+    }
+
     /// Starting a `segment`, ignore all segments that have no commit and return the first commit
     /// of a non-empty segment.
     ///

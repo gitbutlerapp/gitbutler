@@ -616,6 +616,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
 
 mod utils {
     use but_graph::VirtualBranchesTomlMetadata;
+    use but_testsupport::gix_testtools::tempfile;
     use but_workspace::ref_info;
 
     pub fn read_only_in_memory_scenario(
@@ -641,6 +642,19 @@ mod utils {
                 .join("should-never-be-written.toml"),
         )?;
         Ok((repo, std::mem::ManuallyDrop::new(meta)))
+    }
+
+    pub fn named_writable_scenario(
+        name: &str,
+    ) -> anyhow::Result<(
+        tempfile::TempDir,
+        gix::Repository,
+        VirtualBranchesTomlMetadata,
+    )> {
+        let (repo, tmp) = crate::utils::writable_scenario(name);
+        let meta =
+            VirtualBranchesTomlMetadata::from_path(repo.path().join("virtual-branches.toml"))?;
+        Ok((tmp, repo, meta))
     }
 
     pub fn standard_options() -> but_workspace::ref_info::Options {

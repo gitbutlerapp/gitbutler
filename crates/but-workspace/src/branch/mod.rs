@@ -1,4 +1,3 @@
-#![allow(unused_variables)]
 //! What follows is a description of all entities we need to implement Workspaces,
 //! a set of *two or more* branches that are merged together.
 //!
@@ -131,7 +130,7 @@
 //! For instance, if a references is `refs/heads/gitbutler/workspace/one`, then the stash reference is in
 //! `<namespace: gitbutler-stashes>/refs/heads/gitbutler/workspace/one`. The reason for this is that they will not
 //! be garbage-collected that way.
-//! Note that any ref, like `refs/heads/feature` can carry a stash, so *workspace references* aren't special.
+//! Note that any ref, like `refs/heads/gitbutler/workspace` can carry one or more stashes, so *workspace references* aren't special.
 //!
 //! *This also makes stashes enumerable*. It's notable that it's entirely possible for stashes to become *orphaned*,
 //! i.e. their workspace commit (that the stash commit sits on top of) doesn't have a reference *with the same name*
@@ -411,81 +410,8 @@
 //!                                      junctions', decide which parent to
 //!                                      walk along.
 //! ```
-
 use crate::ref_info;
-use anyhow::{Context, bail};
-use but_core::RefMetadata;
 use but_core::ref_metadata::StackId;
-use gix::prelude::ObjectIdExt;
-
-/// The result of [`add_branch_to_workspace`].
-#[derive(Debug, Clone)]
-pub struct ApplyOutcome {
-    /// The new location of the workspace tip if the existing one was moved, or if a new one was created.
-    /// This is equivalent to where `HEAD` should be.
-    pub workspace_tip: gix::ObjectId,
-    /// If we rebased something, this is the result of that operation.
-    /// If `None`, this means `branch_id` was checked out.
-    pub rebase_output: Option<but_rebase::RebaseOutput>,
-}
-
-/// Apply the given `branch_tip` so that it is part of the given `workspace_tip`,
-/// which may also be initialized with `HEAD` and for all intends and purposes is equivalent to what `HEAD` points to.
-/// After the operation, `branch_tip` should be part of the returned `workspace_tip`
-/// If not available, a new tip will be provided which may be the commit the `branch` is currently pointing to,
-/// indicating the workspace tip is now just the tip of an ordinary branch.
-/// `target_tip`, if present, is the tip of the branch to integrate all workspace branches with ultimatley.
-///
-/// Note that at this point, the worktree will not have been touched, nor will references have been updated.
-/// However, the `vb` will be updated where appropriate to match new ref positions in case the `branch` had to be
-/// rebased.
-pub fn add_branch_to_workspace(
-    repo: &gix::Repository,
-    branch_tip: gix::ObjectId,
-    workspace_tip: gix::ObjectId,
-    target_tip: Option<gix::ObjectId>,
-    metadata: &mut impl RefMetadata,
-) -> anyhow::Result<ApplyOutcome> {
-    if crate::WorkspaceCommit::from_id(branch_tip.attach(repo))?.is_managed() {
-        bail!("Cannot bring a workspace into another one")
-    }
-
-    let cache = repo.commit_graph_if_enabled()?;
-    let mut graph = repo.revision_graph(cache.as_ref());
-    let merge_base = repo
-        .merge_base_with_graph(workspace_tip, branch_tip, &mut graph)
-        .context("Branch and workspace must have a merge-base")?;
-    if merge_base == branch_tip || merge_base == workspace_tip {
-        bail!("Cannot add branch that is already integrated")
-    }
-    todo!()
-}
-
-/// Like [`add_branch_to_workspace`], but will also update the involved references, and change `HEAD` to point to possibly newly
-/// created `workspace_tip`.
-/// `workspace_tip` can also be a detached `HEAD`, that's valid.
-// TODO: maybe rather work with refs and add dry-run?
-pub fn add_branch_to_workspace_and_update_refs(
-    repo: &gix::Repository,
-    branch_tip: gix::refs::PartialName,
-    workspace_tip: gix::refs::FullName,
-    target_tip: Option<gix::refs::PartialName>,
-    metadata: &mut impl RefMetadata,
-) -> anyhow::Result<ApplyOutcome> {
-    todo!()
-}
-
-/// The inverse of [`add_branch_to_workspace`] where `workspace_tip` is the current `HEAD` and `branch_tip` is the tip to *not* include in the
-/// `workspace_tip` anymore.
-pub fn remove_branch_from_workspace(
-    repo: &gix::Repository,
-    branch_tip: gix::ObjectId,
-    workspace_tip: gix::ObjectId,
-    target_tip: Option<gix::ObjectId>,
-    metadata: &mut impl RefMetadata,
-) -> anyhow::Result<ApplyOutcome> {
-    todo!()
-}
 
 /// An even more minimal version of the [`StackEntry](crate::StackEntry) with enough information to query
 /// more information about a Stack.
@@ -530,7 +456,6 @@ impl Stack {
     }
 }
 
-/// Return all stack segments within the given `stack`.
-pub fn stack_segments(stack: Stack) -> anyhow::Result<Vec<ref_info::ui::Segment>> {
-    todo!()
-}
+mod create_reference;
+pub use create_reference::function::create_reference;
+pub use create_reference::*;

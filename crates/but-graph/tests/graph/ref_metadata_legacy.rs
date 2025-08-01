@@ -2,7 +2,7 @@ use but_core::RefMetadata;
 use but_core::ref_metadata::{StackId, ValueInfo, WorkspaceStack, WorkspaceStackBranch};
 use but_graph::VirtualBranchesTomlMetadata;
 use but_testsupport::gix_testtools::tempfile::{TempDir, tempdir};
-use std::collections::HashMap;
+use but_testsupport::{debug_str, sanitize_uuids_and_timestamps_with_mapping};
 use std::ops::Deref;
 use std::path::PathBuf;
 
@@ -39,7 +39,7 @@ fn read_only() -> anyhow::Result<()> {
     let (mut store, _tmp) = vb_store_rw("virtual-branches-01")?;
     let ws = store.workspace("refs/heads/gitbutler/workspace".try_into()?)?;
     assert!(!ws.is_default(), "value read from file");
-    let (actual, uuids) = sanitize_uuids_and_timestamps(debug_str(&ws.stacks));
+    let (actual, uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
     insta::assert_snapshot!(actual, @r#"
     [
         WorkspaceStack {
@@ -421,7 +421,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
 
     // Assure `ws` is what we think it should be - a single stack with one branch.
     let mut ws = store.workspace(workspace_name.as_ref())?;
-    let (actual, uuids) = sanitize_uuids_and_timestamps(debug_str(&ws.stacks));
+    let (actual, uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
     insta::assert_snapshot!(actual, @r#"
     [
         WorkspaceStack {
@@ -461,7 +461,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         .expect("This is the way to add branches");
 
     let mut ws = store.workspace(workspace_name.as_ref())?;
-    let (actual, uuids) = sanitize_uuids_and_timestamps(debug_str(&ws.stacks));
+    let (actual, uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
     insta::assert_snapshot!(actual, @r#"
     [
         WorkspaceStack {
@@ -491,7 +491,8 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     drop(store);
 
     assert!(toml_path.exists(), "file was written due to change");
-    let (actual, uuids) = sanitize_uuids_and_timestamps(std::fs::read_to_string(&toml_path)?);
+    let (actual, uuids) =
+        sanitize_uuids_and_timestamps_with_mapping(std::fs::read_to_string(&toml_path)?);
     insta::assert_snapshot!(actual, @r#"
     [branch_targets]
 
@@ -538,7 +539,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         ws.deref(),
         "It's still what it was before - it was persisted"
     );
-    let (actual, uuids) = sanitize_uuids_and_timestamps(debug_str(&new_ws.stacks));
+    let (actual, uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&new_ws.stacks));
     insta::assert_snapshot!(actual, @r#"
     [
         WorkspaceStack {
@@ -576,7 +577,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     );
     store.set_workspace(&ws)?;
     let mut ws = store.workspace(workspace_name.as_ref())?;
-    let (actual, uuids) = sanitize_uuids_and_timestamps(debug_str(&ws.stacks));
+    let (actual, uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
     insta::assert_snapshot!(actual, @r#"
     [
         WorkspaceStack {
@@ -639,7 +640,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     store.set_workspace(&ws)?;
     let mut ws = store.workspace(ws.as_ref())?;
     // Two stacks are present now.
-    let (actual, uuids) = sanitize_uuids_and_timestamps(debug_str(&ws.stacks));
+    let (actual, uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
     insta::assert_snapshot!(actual, @r#"
     [
         WorkspaceStack {
@@ -959,43 +960,4 @@ fn roundtrip_journey(metadata: &mut impl RefMetadata) -> anyhow::Result<()> {
     }
     assert_eq!(metadata.iter().count(), 0, "Nothing is left after deletion");
     Ok(())
-}
-
-fn sanitize_uuids_and_timestamps(input: String) -> (String, HashMap<String, usize>) {
-    let uuid_regex = regex::Regex::new(
-        r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
-    )
-    .unwrap();
-    let timestamp_regex = regex::Regex::new(r#""\d{13}""#).unwrap();
-
-    let mut uuid_map: HashMap<String, usize> = HashMap::new();
-    let mut uuid_counter = 1;
-
-    let mut timestamp_map: HashMap<String, usize> = HashMap::new();
-    let mut timestamp_counter = 12_345;
-
-    let result = uuid_regex.replace_all(&input, |caps: &regex::Captures| {
-        let uuid = caps.get(0).unwrap().as_str().to_string();
-        let entry = uuid_map.entry(uuid).or_insert_with(|| {
-            let num = uuid_counter;
-            uuid_counter += 1;
-            num
-        });
-        entry.to_string()
-    });
-    let result = timestamp_regex.replace_all(&result, |caps: &regex::Captures| {
-        let timestamp = caps.get(0).unwrap().as_str().to_string();
-        let entry = timestamp_map.entry(timestamp).or_insert_with(|| {
-            let num = timestamp_counter;
-            timestamp_counter += 1;
-            num
-        });
-        entry.to_string()
-    });
-
-    (result.to_string(), uuid_map)
-}
-
-fn debug_str(input: &dyn std::fmt::Debug) -> String {
-    format!("{:#?}", input)
 }

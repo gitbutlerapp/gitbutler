@@ -6,11 +6,11 @@ use std::{
 
 use crate::projection::workspace;
 use crate::{
-    CommitFlags, Graph, Segment, SegmentIndex,
+    CommitFlags, CommitIndex, Graph, Segment, SegmentIndex,
     projection::{Stack, StackCommit, StackCommitFlags, StackSegment},
 };
 use anyhow::Context;
-use bstr::ByteSlice;
+use bstr::{BStr, ByteSlice};
 use but_core::ref_metadata;
 use but_core::ref_metadata::StackId;
 use gix::reference::Category;
@@ -57,8 +57,84 @@ pub struct Workspace<'graph> {
     pub metadata: Option<ref_metadata::Workspace>,
 }
 
+pub type CommitOwnerIndexes = (usize, usize, CommitIndex);
+
 /// Utilities
 impl Workspace<'_> {
+    /// Lookup a triple obtained by [`Self::find_owner_indexes_by_commit_id()`] or panic.
+    pub fn lookup_commit(&self, (stack_idx, seg_idx, cidx): CommitOwnerIndexes) -> &StackCommit {
+        &self.stacks[stack_idx].segments[seg_idx].commits[cidx]
+    }
+    /// Try to find the `(stack_idx, segment_idx, commit_idx)` to be able to access the commit with `oid` in this workspace
+    /// as `ws.stacks[stack_idx].segments[segment_idx].commits[commit_idx]`.
+    pub fn find_owner_indexes_by_commit_id(
+        &self,
+        oid: impl Into<gix::ObjectId>,
+    ) -> Option<CommitOwnerIndexes> {
+        let oid = oid.into();
+        self.stacks
+            .iter()
+            .enumerate()
+            .find_map(|(stack_idx, stack)| {
+                stack
+                    .segments
+                    .iter()
+                    .enumerate()
+                    .find_map(|(seg_idx, seg)| {
+                        seg.commits.iter().enumerate().find_map(|(cidx, c)| {
+                            (c.id == oid).then_some((stack_idx, seg_idx, cidx))
+                        })
+                    })
+            })
+    }
+
+    /// Like [`Self::find_owner_indexes_by_commit_id()`], but returns an error if the commit can't be found.
+    pub fn try_find_owner_indexes_by_commit_id(
+        &self,
+        oid: impl Into<gix::ObjectId>,
+    ) -> anyhow::Result<CommitOwnerIndexes> {
+        let oid = oid.into();
+        self.find_owner_indexes_by_commit_id(oid)
+            .with_context(|| format!("Commit {oid} isn't part of the workspace"))
+    }
+
+    /// Try to find the `(stack_idx, segment_idx)` to be able to access the named segment going by `name`.
+    /// Access the segment as `ws.stacks[stack_idx].segments[segment_idx]`
+    pub fn find_segment_owner_indexes_by_refname(
+        &self,
+        ref_name: &gix::refs::FullNameRef,
+    ) -> Option<(usize, usize)> {
+        self.stacks
+            .iter()
+            .enumerate()
+            .find_map(|(stack_idx, stack)| {
+                stack
+                    .segments
+                    .iter()
+                    .enumerate()
+                    .find_map(|(seg_idx, seg)| {
+                        seg.ref_name
+                            .as_ref()
+                            .is_some_and(|rn| rn.as_ref() == ref_name)
+                            .then_some((stack_idx, seg_idx))
+                    })
+            })
+    }
+
+    /// Like [`Self::find_segment_owner_indexes_by_refname`], but fails with an error.
+    pub fn try_find_segment_owner_indexes_by_refname(
+        &self,
+        name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<(usize, usize)> {
+        self.find_segment_owner_indexes_by_refname(name)
+            .with_context(|| {
+                format!(
+                    "Couldn't find any stack that contained the branch named '{}'",
+                    name.shorten()
+                )
+            })
+    }
+
     /// Try to find `name` in any named [`StackSegment`] and return it along with the stack containing it.
     pub fn find_segment_and_stack_by_refname(
         &self,
@@ -83,7 +159,7 @@ impl Workspace<'_> {
             .with_context(|| {
                 format!(
                     "Couldn't find any stack that contained the branch named '{}'",
-                    name.as_bstr()
+                    name.shorten()
                 )
             })
     }
@@ -883,7 +959,7 @@ impl Workspace<'_> {
 }
 
 /// Query
-impl Workspace<'_> {
+impl<'graph> Workspace<'graph> {
     /// Return `true` if this workspace is managed, meaning we control certain aspects of it.
     /// If `false`, we are more conservative and may not support all features.
     pub fn has_managed_ref(&self) -> bool {
@@ -893,11 +969,23 @@ impl Workspace<'_> {
         )
     }
 
+    /// Return `true` if the workspace has workspace metadata associated with it.
+    /// This is relevant when creating references for example.
+    pub fn has_metadata(&self) -> bool {
+        self.metadata.is_some()
+    }
+
     /// Return the name of the workspace reference by looking our segment up in `graph`.
     /// Note that for managed workspaces, this can be retrieved via [`WorkspaceKind::Managed`].
     /// Note that it can be expected to be set on any workspace, but the data would allow it to not be set.
-    pub fn ref_name<'a>(&self, graph: &'a Graph) -> Option<&'a gix::refs::FullNameRef> {
-        graph[self.id].ref_name.as_ref().map(|rn| rn.as_ref())
+    pub fn ref_name(&self) -> Option<&'graph gix::refs::FullNameRef> {
+        self.graph[self.id].ref_name.as_ref().map(|rn| rn.as_ref())
+    }
+
+    /// Like [`Self::ref_name()`], but return a generic `<anonymous>` name for unnamed workspaces.
+    pub fn ref_name_display(&self) -> &BStr {
+        self.ref_name()
+            .map_or("<anonymous>".into(), |rn| rn.as_bstr())
     }
 }
 

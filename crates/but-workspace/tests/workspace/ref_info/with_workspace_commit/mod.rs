@@ -3326,6 +3326,7 @@ mod legacy;
 pub(crate) mod utils {
     use but_graph::VirtualBranchesTomlMetadata;
     use but_graph::virtual_branches_legacy_types::{Stack, StackBranch, Target};
+    use but_testsupport::gix_testtools::tempfile::TempDir;
     use gitbutler_stack::StackId;
 
     pub fn read_only_in_memory_scenario(
@@ -3336,6 +3337,7 @@ pub(crate) mod utils {
     )> {
         named_read_only_in_memory_scenario("with-remotes-and-workspace", name)
     }
+
     pub fn named_read_only_in_memory_scenario(
         script: &str,
         name: &str,
@@ -3360,6 +3362,40 @@ pub(crate) mod utils {
             push_remote_name: None,
         });
         Ok((repo, meta))
+    }
+
+    pub fn named_writable_scenario_with_description(
+        name: &str,
+    ) -> anyhow::Result<(
+        TempDir,
+        gix::Repository,
+        VirtualBranchesTomlMetadata,
+        String,
+    )> {
+        let (tmp, repo, mut meta) = crate::ref_info::utils::named_writable_scenario(name)?;
+        let vb = meta.data_mut();
+        vb.default_target = Some(Target {
+            // For simplicity, we stick to the defaults.
+            branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
+            // Not required
+            remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
+            sha: repo
+                .try_find_reference("main")?
+                .map(|mut r| r.peel_to_id_in_place())
+                .transpose()?
+                .map(|id| id.detach())
+                .unwrap_or_else(|| gix::hash::Kind::Sha1.null()),
+            push_remote_name: None,
+        });
+        let desc = std::fs::read_to_string(repo.git_dir().join("description"))?;
+        Ok((tmp, repo, meta, desc))
+    }
+
+    pub fn named_writable_scenario(
+        name: &str,
+    ) -> anyhow::Result<(TempDir, gix::Repository, VirtualBranchesTomlMetadata)> {
+        let (a, b, c, _desc) = named_writable_scenario_with_description(name)?;
+        Ok((a, b, c))
     }
 
     pub fn named_read_only_in_memory_scenario_with_description(

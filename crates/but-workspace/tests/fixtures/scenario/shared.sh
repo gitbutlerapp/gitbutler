@@ -1,3 +1,7 @@
+
+# Just to save a line in the scripts that use this module
+set -eu -o pipefail
+
 function remote_tracking_caught_up() {
   setup_remote_tracking "$1"
 }
