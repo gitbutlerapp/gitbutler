@@ -81,7 +81,10 @@ export async function invoke<T>(command: string, params: Record<string, unknown>
 			if (out.type === 'success') {
 				return out.subject;
 			} else {
-				throw new Error(String(out.subject));
+				if (isTauriCommandError(out.subject)) {
+					console.error(`ipc->${command}: ${JSON.stringify(params)}`, out.subject);
+				}
+				throw out.subject;
 			}
 		} else {
 			return await invokeTauri<T>(command, params);
@@ -146,7 +149,13 @@ class WebListener {
 
 function getWebUrl(): string {
 	const parsedCookies = document.cookie.split('; ').map((c) => c.split('=', 2));
-	const host = parsedCookies.find(([k, _v]) => k === 'butlerHost')?.[1] || 'localhost';
-	const port = parsedCookies.find(([k, _v]) => k === 'butlerPort')?.[1] || '6978';
+	const host =
+		parsedCookies.find(([k, _v]) => k === 'butlerHost')?.[1] ||
+		import.meta.env.VITE_BUTLER_HOST ||
+		'localhost';
+	const port =
+		parsedCookies.find(([k, _v]) => k === 'butlerPort')?.[1] ||
+		import.meta.env.VITE_BUTLER_PORT ||
+		'6978';
 	return `${host}:${port}`;
 }
