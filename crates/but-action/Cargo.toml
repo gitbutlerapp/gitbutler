@@ -15,7 +15,7 @@ serde-error = "0.1.3"
 async-openai = "0.29.0"
 tokio = { workspace = true, features = ["rt-multi-thread", "io-std"] }
 schemars = "0.9.0"
-serde_json = "1.0.138"
+serde_json = "1.0.142"
 anyhow = "1.0.98"
 chrono = "0.4.41"
 itertools = "0.14.0"
@@ -24,8 +24,8 @@ uuid = { workspace = true }
 strum = { version = "0.27", features = ["derive"] }
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 gix.workspace = true
-rmcp = "0.1.5"
-tauri = { version = "^2.4.1", features = ["unstable"] }
+rmcp = "0.3.2"
+tauri = { version = "^2.7.0", features = ["unstable"] }
 futures = "0.3.31"
 gitbutler-command-context.workspace = true
 gitbutler-stack.workspace = true

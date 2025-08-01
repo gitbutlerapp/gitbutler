@@ -16,7 +16,7 @@ tracing.workspace = true
 gix = { workspace = true, features = ["excludes"] }
 
 backoff = "0.4.0"
-notify = { version = "8.0.0" }
+notify = { version = "8.1.0" }
 gitbutler-notify-debouncer.path = "vendor/debouncer"
 gitbutler-project.workspace = true
 

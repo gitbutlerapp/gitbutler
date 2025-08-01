@@ -24,10 +24,10 @@ futures-util = { version = "0.3", default-features = false, features = [
     "std",
 ] }
 tower = "0.5.2"
-tower-http = { version = "0.6.5", features = ["cors"] }
+tower-http = { version = "0.6.6", features = ["cors"] }
 tokio = { workspace = true, features = ["full"] }
 anyhow.workspace = true
-serde_json = "1.0.140"
+serde_json = "1.0.142"
 uuid.workspace = true
 
 but-api.workspace = true

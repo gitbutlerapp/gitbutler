@@ -10,7 +10,7 @@ doctest = false
 test = false
 
 [dependencies]
-diesel = { version = "2.2.10", features = [
+diesel = { version = "2.2.12", features = [
     "sqlite",
     "returning_clauses_for_sqlite_3_35",
     "chrono",
