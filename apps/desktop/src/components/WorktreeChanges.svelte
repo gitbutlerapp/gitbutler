@@ -138,7 +138,7 @@
 					{@render foldButton()}
 				{/if}
 
-				<div class="worktree-header__general">
+				<div class="worktree-header__content">
 					{#if isCommitting}
 						<WorktreeChangesSelectAll {stackId} />
 					{/if}
@@ -178,20 +178,19 @@
 		background-color: var(--clr-bg-1);
 	}
 
+	/* HEADER */
 	.worktree-header {
 		display: flex;
 		align-items: center;
 		width: 100%;
 		height: 42px;
-		padding: 10px 10px 10px 14px;
+		padding: 0 10px 0 14px;
 		gap: 6px;
-		border-bottom: 1px solid transparent;
-		background-color: var(--clr-bg-1);
-		text-wrap: nowrap;
-		white-space: nowrap;
+		border-bottom: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-2);
 	}
 
-	.worktree-header__general {
+	.worktree-header__content {
 		display: flex;
 		flex: 1;
 		align-items: center;

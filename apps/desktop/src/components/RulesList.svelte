@@ -52,12 +52,12 @@
 
 	function openAddRuleContextMenut(e: MouseEvent) {
 		e.stopPropagation();
-		newRuleContextMenu?.open(e);
+		newRuleContextMenu?.toggle(e);
 	}
 
 	function openAddFilterContextMenu(e: MouseEvent) {
 		e.stopPropagation();
-		newFilterContextMenu?.open(e);
+		newFilterContextMenu?.toggle(e);
 	}
 
 	function addDraftRuleFilter(type: RuleFilterType) {
@@ -187,12 +187,13 @@
 	<div class="rules-list__header">
 		<div class="rules-list__title">
 			{@render foldButton()}
-			<h3 class="text-14 text-semibold truncate">Rules</h3>
+			<h3 class="text-14 text-semibold">Rules</h3>
 		</div>
 
 		<div bind:this={addRuleButton}>
 			<Button
 				icon="plus-small"
+				size="tag"
 				kind="outline"
 				onclick={openAddRuleContextMenut}
 				disabled={mode === 'edit'}
@@ -311,13 +312,16 @@
 		flex-direction: column;
 	}
 
+	/* HEADER */
 	.rules-list__header {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: 10px 10px 10px 14px;
+		height: 42px;
+		padding: 0 10px 0 14px;
 		gap: 8px;
 		border-bottom: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-2);
 	}
 
 	.rules-list__title {

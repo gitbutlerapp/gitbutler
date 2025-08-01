@@ -27,12 +27,12 @@
 		contextMenu?.close();
 	}
 
-	export function open(e: MouseEvent) {
-		contextMenu?.open(e);
+	export function toggle(e: MouseEvent) {
+		contextMenu?.toggle(e);
 	}
 </script>
 
-<ContextMenu bind:this={contextMenu} rightClickTrigger={trigger}>
+<ContextMenu bind:this={contextMenu} leftClickTrigger={trigger}>
 	<ContextMenuSection>
 		<ContextMenuItem
 			icon="folder"
@@ -69,7 +69,7 @@
 	</ContextMenuSection>
 	{#if addEmpty}
 		<ContextMenuSection>
-			<ContextMenuItem label="Assign all to branch" onclick={handleAddEmpty} />
+			<ContextMenuItem icon="arrow-right" label="Assign all to branch" onclick={handleAddEmpty} />
 		</ContextMenuSection>
 	{/if}
 </ContextMenu>

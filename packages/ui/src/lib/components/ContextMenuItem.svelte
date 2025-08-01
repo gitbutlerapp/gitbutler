@@ -30,7 +30,9 @@
 		{onclick}
 	>
 		{#if icon}
-			<Icon name={icon} />
+			<div class="menu-item__icon">
+				<Icon name={icon} />
+			</div>
 		{/if}
 
 		<span class="menu-item__label text-12">
@@ -62,7 +64,7 @@
 		display: flex;
 		align-items: center;
 		padding: 6px 8px;
-		gap: 12px;
+		gap: 10px;
 		border-radius: var(--radius-s);
 		color: var(--clr-text-1);
 		text-align: left;
@@ -83,6 +85,12 @@
 			cursor: default;
 			opacity: 0.3;
 		}
+	}
+
+	.menu-item__icon {
+		display: flex;
+		align-items: center;
+		color: var(--clr-text-2);
 	}
 
 	.menu-item__label {

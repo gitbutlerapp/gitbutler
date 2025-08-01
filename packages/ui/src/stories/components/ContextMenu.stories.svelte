@@ -53,13 +53,16 @@
 			<ContextMenuSection>
 				<ContextMenuItem
 					label="Commit and bleep"
+					icon="commit"
 					onclick={() => {
 						// eslint-disable-next-line no-console
 						console.log('Commit and bleep');
 					}}
+					keyboardShortcut="⌘+Enter"
 				/>
 				<ContextMenuItem
 					label="Commit"
+					icon="text-width"
 					onclick={() => {
 						// eslint-disable-next-line no-console
 						console.log('Commit and bleep');
@@ -253,11 +256,6 @@
 				<ContextMenuItem label="Item 13" onclick={() => console.log('Item 13')} />
 				<ContextMenuItem label="Item 14" onclick={() => console.log('Item 14')} />
 				<ContextMenuItem label="Item 15" onclick={() => console.log('Item 15')} />
-				<ContextMenuItem label="Item 16" onclick={() => console.log('Item 16')} />
-				<ContextMenuItem label="Item 17" onclick={() => console.log('Item 17')} />
-				<ContextMenuItem label="Item 18" onclick={() => console.log('Item 18')} />
-				<ContextMenuItem label="Item 19" onclick={() => console.log('Item 19')} />
-				<ContextMenuItem label="Item 20" onclick={() => console.log('Item 20')} />
 			</ContextMenuSection>
 		</ContextMenu>
 	{/snippet}
