@@ -111,7 +111,7 @@
 		iconLeft="folder"
 		wide
 		value={pathRegex}
-		onchange={(v) => (pathRegex = v)}
+		oninput={(v) => (pathRegex = v)}
 		placeholder="Path: e.g. src/components"
 	/>
 {/snippet}
@@ -122,7 +122,7 @@
 		iconLeft="text-width"
 		wide
 		value={contentRegex}
-		onchange={(v) => (contentRegex = v)}
+		oninput={(v) => (contentRegex = v)}
 		placeholder="Contains: e.g. TODO"
 	/>
 {/snippet}
