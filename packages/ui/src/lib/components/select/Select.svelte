@@ -29,6 +29,7 @@
 		itemSnippet: Snippet<[{ item: SelectItem<T>; highlighted: boolean; idx: number }]>;
 		children?: Snippet;
 		icon?: keyof typeof iconsJson;
+		autofocus?: boolean;
 		onselect?: (value: T) => void;
 		ontoggle?: (isOpen: boolean) => void;
 	}
@@ -43,6 +44,7 @@
 	import { portal } from '$lib/utils/portal';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
+
 	import { type Snippet } from 'svelte';
 	import type iconsJson from '$lib/data/icons.json';
 
@@ -67,6 +69,7 @@
 		itemSnippet,
 		children,
 		icon,
+		autofocus,
 		onselect,
 		ontoggle
 	}: Props = $props();
@@ -158,13 +161,26 @@
 	}
 
 	function handleKeyDown(e: KeyboardEvent) {
+		const { key } = e;
+
 		if (!listOpen) {
+			// When list is closed, handle keys to open it
+			if (key === KeyName.Enter || key === KeyName.Down || key === KeyName.Up) {
+				e.preventDefault();
+				e.stopPropagation();
+				openList();
+				if (key === KeyName.Up) {
+					highlightedIndex = filteredOptions.length - 1;
+				} else if (key === KeyName.Down) {
+					highlightedIndex = 0;
+				}
+			}
 			return;
 		}
+
+		// When list is open, handle navigation
 		e.stopPropagation();
 		e.preventDefault();
-
-		const { key } = e;
 
 		switch (key) {
 			case KeyName.Escape:
@@ -252,6 +268,7 @@
 			iconRight="select-chevron"
 			value={options.find((item) => item.value === value)?.label}
 			disabled={disabled || loading}
+			{autofocus}
 			onmousedown={toggleList}
 			onkeydown={(ev) => handleKeyDown(ev)}
 		/>

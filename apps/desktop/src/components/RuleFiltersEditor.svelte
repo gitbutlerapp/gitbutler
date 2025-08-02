@@ -113,6 +113,7 @@
 		value={pathRegex}
 		oninput={(v) => (pathRegex = v)}
 		placeholder="Path: e.g. src/components"
+		autofocus
 	/>
 {/snippet}
 
@@ -124,6 +125,7 @@
 		value={contentRegex}
 		oninput={(v) => (contentRegex = v)}
 		placeholder="Contains: e.g. TODO"
+		autofocus
 	/>
 {/snippet}
 
@@ -138,6 +140,7 @@
 		placeholder="Change type..."
 		flex="1"
 		icon="file-changes"
+		autofocus
 		onselect={(selected) => {
 			treeChangeType = selected as FileStatus;
 		}}
@@ -162,6 +165,7 @@
 		flex="1"
 		searchable
 		icon="tag"
+		autofocus
 		onselect={(selected) => {
 			semanticType = selected as SemanticType;
 		}}
