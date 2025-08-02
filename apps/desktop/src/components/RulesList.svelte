@@ -45,7 +45,8 @@
 	let newFilterContextMenu = $state<NewRuleMenu>();
 
 	// Visual state
-	let mode = $state<'list' | 'edit'>('list');
+	let mode = $state<'list' | 'edit' | 'add'>('list');
+	let editingRuleId = $state<WorkspaceRuleId | null>(null);
 
 	const validFilters = $derived(!ruleFiltersEditor || ruleFiltersEditor.imports.filtersValid);
 	const canSaveRule = $derived(stackIdSelected !== undefined && validFilters);
@@ -73,13 +74,14 @@
 	}
 
 	function openRuleEditor() {
-		mode = 'edit';
+		mode = 'add';
 	}
 
 	function resetEditor() {
 		stackIdSelected = undefined;
 		draftRuleFilterInitialValues = {};
 		selectedRuleId = undefined;
+		editingRuleId = null;
 	}
 
 	function cancelRuleEdition() {
@@ -99,6 +101,7 @@
 		}
 
 		selectedRuleId = rule.id;
+		editingRuleId = rule.id;
 		stackIdSelected = rule.action.subject.subject.stack_id;
 		const initialValues: Partial<RuleFilterMap> = {};
 
@@ -196,17 +199,16 @@
 				size="tag"
 				kind="outline"
 				onclick={openAddRuleContextMenut}
-				disabled={mode === 'edit'}
+				disabled={mode === 'edit' || mode === 'add'}
 				loading={creatingRule.current.isLoading}>Add rule</Button
 			>
 		</div>
 	</div>
 
-	{#if mode === 'edit'}
+	{#if mode === 'add'}
 		{@render ruleEditor()}
-	{:else if mode === 'list'}
-		{@render ruleListContent()}
 	{/if}
+	{@render ruleListContent()}
 </div>
 
 {#snippet ruleListContent()}
@@ -216,7 +218,11 @@
 			{#if rules.length > 0}
 				<div class="rules-list__content">
 					{#each rules as rule (rule.id)}
-						<Rule {projectId} {rule} editRule={() => editExistingRule(rule)} />
+						{#if editingRuleId === rule.id}
+							{@render ruleEditor()}
+						{:else}
+							<Rule {projectId} {rule} editRule={() => editExistingRule(rule)} />
+						{/if}
 					{/each}
 				</div>
 			{/if}
@@ -345,7 +351,10 @@
 		flex-direction: column;
 		padding: 12px;
 		gap: 16px;
-		border-bottom: 1px solid var(--clr-border-2);
+
+		&:not(:last-child) {
+			border-bottom: 1px solid var(--clr-border-2);
+		}
 	}
 
 	.rules-list__filters {
