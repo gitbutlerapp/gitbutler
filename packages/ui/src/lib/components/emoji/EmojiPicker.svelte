@@ -46,12 +46,7 @@
 
 <div class="emoji-picker">
 	<div class="emoji-picker__header">
-		<Textbox
-			placeholder="Search emojis..."
-			reversedDirection
-			icon="search"
-			bind:value={searchVal}
-		/>
+		<Textbox placeholder="Search emojis..." iconLeft="search" bind:value={searchVal} />
 
 		<div class="emoji-picker__categories">
 			{#each groups as group}

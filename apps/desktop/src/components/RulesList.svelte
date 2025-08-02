@@ -51,7 +51,7 @@
 	const validFilters = $derived(!ruleFiltersEditor || ruleFiltersEditor.imports.filtersValid);
 	const canSaveRule = $derived(stackIdSelected !== undefined && validFilters);
 
-	function openAddRuleContextMenut(e: MouseEvent) {
+	function openAddRuleContextMenu(e: MouseEvent) {
 		e.stopPropagation();
 		newRuleContextMenu?.toggle(e);
 	}
@@ -198,7 +198,7 @@
 				icon="plus-small"
 				size="tag"
 				kind="outline"
-				onclick={openAddRuleContextMenut}
+				onclick={openAddRuleContextMenu}
 				disabled={mode === 'edit' || mode === 'add'}
 				loading={creatingRule.current.isLoading}>Add rule</Button
 			>

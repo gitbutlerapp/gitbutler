@@ -63,7 +63,7 @@ export class AppSettings {
 			const writable = persisted(initial, key);
 			return {
 				...writable,
-				onDisk: async () => get(writable)
+				onDisk: async () => await Promise.resolve(get(writable))
 			};
 		}
 
