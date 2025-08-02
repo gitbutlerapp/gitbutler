@@ -18,8 +18,7 @@ const config = {
 		})
 	},
 	compilerOptions: {
-		css: 'external',
-		enableSourcemap: true
+		css: 'external'
 	}
 };
 
