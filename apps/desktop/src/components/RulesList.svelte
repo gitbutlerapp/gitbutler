@@ -202,10 +202,10 @@
 		</div>
 	</div>
 
-	{#if mode === 'list'}
-		{@render ruleListContent()}
-	{:else if mode === 'edit'}
+	{#if mode === 'edit'}
 		{@render ruleEditor()}
+	{:else if mode === 'list'}
+		{@render ruleListContent()}
 	{/if}
 </div>
 
