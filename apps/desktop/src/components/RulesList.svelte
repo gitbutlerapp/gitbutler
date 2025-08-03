@@ -14,7 +14,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { typedKeys } from '$lib/utils/object';
 	import { inject } from '@gitbutler/shared/context';
-	import { Button, chipToasts, Select, SelectItem } from '@gitbutler/ui';
+	import { Button, chipToasts, Select, SelectItem, Icon } from '@gitbutler/ui';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
@@ -272,6 +272,9 @@
 						{#snippet itemSnippet({ item, highlighted })}
 							<SelectItem selected={item.value === stackIdSelected} {highlighted}>
 								{item.label}
+								{#snippet iconSnippet()}
+									<Icon name="branch-in-square" opacity={0.6} />
+								{/snippet}
 							</SelectItem>
 						{/snippet}
 					</Select>
