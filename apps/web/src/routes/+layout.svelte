@@ -92,7 +92,7 @@
 		margin: 0 auto;
 		padding: 0 60px;
 
-		font-family: 'Spline Sans Mono', monospace;
+		font-family: var(--fontfamily-mono);
 
 		/* optimise font rendering */
 		-webkit-font-smoothing: antialiased;
