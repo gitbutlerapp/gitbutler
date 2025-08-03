@@ -133,7 +133,7 @@
 		contextElement={rightClickTrigger}
 		testId={TestId.KebabMenuButton}
 		onclick={() => {
-			contextMenu?.open();
+			contextMenu?.toggle();
 		}}
 		oncontext={(e) => {
 			contextMenu?.open(e);

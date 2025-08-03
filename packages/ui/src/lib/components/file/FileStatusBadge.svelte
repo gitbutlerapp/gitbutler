@@ -6,7 +6,7 @@
 
 	interface Props {
 		status: FileStatus;
-		style?: 'dot' | 'full';
+		style?: 'dot' | 'full' | 'full-large';
 		tooltip?: string;
 	}
 
@@ -80,6 +80,10 @@
 	<Tooltip text={status === 'rename' && tooltip ? tooltip : undefined} maxWidth={TOOLTIP_MAX_WIDTH}>
 		<Badge style={getStatusColor(status)} kind="soft">{getFullStatusText(status)}</Badge>
 	</Tooltip>
+{:else if style === 'full-large'}
+	<Tooltip text={status === 'rename' && tooltip ? tooltip : undefined} maxWidth={TOOLTIP_MAX_WIDTH}>
+		<Badge style={getStatusColor(status)} kind="soft" size="tag">{getFullStatusText(status)}</Badge>
+	</Tooltip>
 {/if}
 
 <style lang="postcss">
@@ -113,5 +117,10 @@
 	}
 	.status-dot-wrap.renamed {
 		--file-dot-color: var(--clr-scale-purp-60);
+	}
+
+	/* FULL-LARGE VARIANT */
+	:global(.full-large) {
+		height: var(--size-tag);
 	}
 </style>

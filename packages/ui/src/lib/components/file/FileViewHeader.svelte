@@ -68,7 +68,7 @@
 
 	<div class="file-header__statuses">
 		{#if linesAdded > 0 || linesRemoved > 0}
-			<LineStats {linesAdded} {linesRemoved} showSeparator={false} />
+			<LineStats {linesAdded} {linesRemoved} />
 		{/if}
 
 		{#if executable}
@@ -76,7 +76,7 @@
 		{/if}
 
 		{#if fileStatus}
-			<FileStatusBadge tooltip={fileStatusTooltip} status={fileStatus} style="full" />
+			<FileStatusBadge tooltip={fileStatusTooltip} status={fileStatus} style="full-large" />
 		{/if}
 
 		{#if conflicted}

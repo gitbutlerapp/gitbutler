@@ -3,45 +3,30 @@
 	type Props = {
 		linesAdded: number;
 		linesRemoved: number;
-		showSeparator?: boolean;
 	};
 
-	const { linesAdded, linesRemoved, showSeparator = true }: Props = $props();
+	const { linesAdded, linesRemoved }: Props = $props();
 </script>
 
 {#if linesAdded > 0 || linesRemoved > 0}
-	<div class="lines-stats-container text-11">
-		{#if showSeparator}
-			<span class="separator">/</span>
-		{/if}
-		<Tooltip text="Lines added/removed" delay={1200}>
-			<div class="line-stats">
-				{#if linesAdded > 0}
-					<span class="added text-semibold">+{linesAdded}</span>
-				{/if}
-				{#if linesRemoved > 0}
-					<span class="removed text-semibold">-{linesRemoved}</span>
-				{/if}
-			</div>
-		</Tooltip>
-	</div>
+	<Tooltip text="Lines added/removed" delay={1200}>
+		<div class="line-stats text-11 text-semibold">
+			{#if linesAdded > 0}
+				<span class="added">+{linesAdded}</span>
+			{/if}
+			{#if linesRemoved > 0}
+				<span class="removed">-{linesRemoved}</span>
+			{/if}
+		</div>
+	</Tooltip>
 {/if}
 
 <style lang="postcss">
-	.lines-stats-container {
-		display: flex;
-		align-items: center;
-		gap: 4px;
-	}
-
-	.separator {
-		color: var(--clr-text-3);
-	}
-
 	.line-stats {
 		display: flex;
 		align-items: center;
-		gap: 3px;
+		width: fit-content;
+		gap: 2px;
 
 		& .added {
 			color: var(--clr-theme-succ-element);
