@@ -1,3 +1,0 @@
-ancestorEntries = ["apps/desktop/src/components/RulesList.svelte", "apps/desktop/src/lib/config/appSettings.ts", "apps/desktop/src/lib/rules/rule.ts", "packages/ui/src/lib/data/icons.json"]
-ourEntries = ["apps/desktop/src/components/RulesList.svelte", "apps/desktop/src/lib/config/appSettings.ts", "apps/desktop/src/lib/rules/rule.ts", "packages/ui/src/lib/data/icons.json"]
-theirEntries = ["apps/desktop/src/components/RulesList.svelte", "apps/desktop/src/lib/config/appSettings.ts", "apps/desktop/src/lib/rules/rule.ts", "packages/ui/src/lib/data/icons.json"]
