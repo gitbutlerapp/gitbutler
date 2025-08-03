@@ -1,0 +1,19 @@
+{
+	"name": "@gitbutler/e2e",
+	"type": "module",
+	"devDependencies": {
+		"@wdio/cli": "^9.18.4",
+		"@wdio/globals": "^9.17.0",
+		"@wdio/local-runner": "^9.18.4",
+		"@wdio/mocha-framework": "^9.18.0",
+		"@wdio/spec-reporter": "^9.18.0"
+	},
+	"scripts": {
+		"test:e2e": "pnpm test:e2e:not-tauri",
+		"test:e2e:not-tauri": "wdio run ./wdio.web.conf.ts"
+	},
+	"dependencies": {
+		"get-port": "^7.1.0",
+		"tmp-promise": "^3.0.3"
+	}
+}
