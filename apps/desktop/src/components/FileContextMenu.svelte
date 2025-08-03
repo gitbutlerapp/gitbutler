@@ -350,68 +350,6 @@
 							onclick={async () => uncommitChanges(stackId, commitId, changes)}
 						/>
 					{/if}
-					{#if changes.length === 1}
-						<ContextMenuItem
-							label="Copy Path"
-							onclick={async () => {
-								const project = await projectService.fetchProject(projectId);
-								const projectPath = project?.path;
-								if (projectPath) {
-									const absPath = await join(projectPath, changes[0]!.path);
-									await writeClipboard(absPath, {
-										errorMessage: 'Failed to copy absolute path'
-									});
-								}
-								contextMenu.close();
-							}}
-						/>
-						<ContextMenuItem
-							label="Copy Relative Path"
-							onclick={async () => {
-								await writeClipboard(changes[0]!.path, {
-									errorMessage: 'Failed to copy relative path'
-								});
-								contextMenu.close();
-							}}
-						/>
-					{/if}
-					<ContextMenuItem
-						label="Open in {$userSettings.defaultCodeEditor.displayName}"
-						disabled={deletion}
-						onclick={async () => {
-							try {
-								const project = await projectService.fetchProject(projectId);
-								const projectPath = project?.path;
-								if (projectPath) {
-									for (let change of changes) {
-										const path = getEditorUri({
-											schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
-											path: [vscodePath(projectPath), change.path]
-										});
-										openExternalUrl(path);
-									}
-								}
-								contextMenu.close();
-							} catch {
-								chipToasts.error('Failed to open in editor');
-								console.error('Failed to open in editor');
-							}
-						}}
-					/>
-					{#if changes.length === 1}
-						<ContextMenuItem
-							label={showInFolderLabel}
-							onclick={async () => {
-								const project = await projectService.fetchProject(projectId);
-								const projectPath = project?.path;
-								if (projectPath) {
-									const absPath = await join(projectPath, changes[0]!.path);
-									await showFileInFolder(absPath);
-								}
-								contextMenu.close();
-							}}
-						/>
-					{/if}
 
 					{#if isBranchFiles && stackId && selectionBranchName}
 						{@const branchIsConflicted = stackService.isBranchConflicted(
@@ -442,6 +380,75 @@
 					{/if}
 				{/if}
 			</ContextMenuSection>
+
+			{#if item.changes.length === 1}
+				<ContextMenuSection>
+					<ContextMenuItem
+						label="Copy Path"
+						onclick={async () => {
+							const project = await projectService.fetchProject(projectId);
+							const projectPath = project?.path;
+							if (projectPath) {
+								const absPath = await join(projectPath, item.changes[0]!.path);
+								await writeClipboard(absPath, {
+									errorMessage: 'Failed to copy absolute path'
+								});
+							}
+							contextMenu.close();
+						}}
+					/>
+					<ContextMenuItem
+						label="Copy Relative Path"
+						onclick={async () => {
+							await writeClipboard(item.changes[0]!.path, {
+								errorMessage: 'Failed to copy relative path'
+							});
+							contextMenu.close();
+						}}
+					/>
+				</ContextMenuSection>
+			{/if}
+
+			<ContextMenuSection>
+				<ContextMenuItem
+					label="Open in {$userSettings.defaultCodeEditor.displayName}"
+					disabled={deletion}
+					onclick={async () => {
+						try {
+							const project = await projectService.fetchProject(projectId);
+							const projectPath = project?.path;
+							if (projectPath) {
+								for (let change of item.changes) {
+									const path = getEditorUri({
+										schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
+										path: [vscodePath(projectPath), change.path]
+									});
+									openExternalUrl(path);
+								}
+							}
+							contextMenu.close();
+						} catch {
+							chipToasts.error('Failed to open in editor');
+							console.error('Failed to open in editor');
+						}
+					}}
+				/>
+				{#if item.changes.length === 1}
+					<ContextMenuItem
+						label={showInFolderLabel}
+						onclick={async () => {
+							const project = await projectService.fetchProject(projectId);
+							const projectPath = project?.path;
+							if (projectPath) {
+								const absPath = await join(projectPath, item.changes[0]!.path);
+								await showFileInFolder(absPath);
+							}
+							contextMenu.close();
+						}}
+					/>
+				{/if}
+			</ContextMenuSection>
+
 			{#if canUseGBAI && isUncommitted}
 				<ContextMenuSection title="experimental stuff">
 					<ContextMenuItem
