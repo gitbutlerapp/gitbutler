@@ -10,7 +10,7 @@
 	import { getStackName } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
-	import { Button, Icon, Modal, Tooltip } from '@gitbutler/ui';
+	import { Button, FileStatusBadge, Icon, Modal, Tooltip } from '@gitbutler/ui';
 
 	type Props = {
 		projectId: string;
@@ -66,7 +66,7 @@
 			<Icon name="text-width" opacity={0.6} />
 			<span class="text-12 truncate" title={filter.subject}>{filter.subject}</span>
 		{:else if filter.type === 'fileChangeType'}
-			<Icon name="file-changes" opacity={0.6} />
+			<FileStatusBadge status={filter.subject} style="dot" />
 			<span class="text-12 truncate">{treeStatusToShortString(filter.subject)}</span>
 		{:else if filter.type === 'semanticType'}
 			<Icon name="tag" opacity={0.6} />
@@ -76,7 +76,7 @@
 {/snippet}
 
 {#snippet assignChip()}
-	<div class="rule__chip">
+	<div class="rule__action-chip">
 		<Icon name="arrow-right" />
 	</div>
 {/snippet}
@@ -85,7 +85,13 @@
 	<div class="rule__actions">
 		<div class="rule__actions-buttons">
 			<Button icon="edit-text" size="tag" kind="ghost" onclick={editRule} />
-			<Button icon="bin" size="tag" kind="ghost" onclick={() => confirmationModal?.show()} />
+			<Button
+				icon="remove-from-list"
+				style="error"
+				size="tag"
+				kind="ghost"
+				onclick={() => confirmationModal?.show()}
+			/>
 		</div>
 	</div>
 {/snippet}
@@ -134,7 +140,8 @@
 	.rule {
 		display: flex;
 		position: relative;
-		padding: 12px;
+		flex-wrap: wrap;
+		padding: 12px 10px;
 		overflow: hidden;
 		gap: 4px;
 
@@ -143,6 +150,7 @@
 		}
 
 		&:hover .rule__actions {
+			transform: scale(1);
 			opacity: 1;
 			pointer-events: auto;
 		}
@@ -151,43 +159,48 @@
 	.rule__actions {
 		display: flex;
 		position: absolute;
-		top: 9px;
-		right: 9px;
+		top: 8px;
+		right: 8px;
 		align-items: center;
-		background-color: var(--clr-bg-1);
-		box-shadow: 0 0 34px 30px var(--clr-bg-1);
-
 		/* Initial state is hidden */
+		transform: scale(0.9);
+		transform-origin: top right;
+		background-color: var(--clr-bg-1);
+		box-shadow: 0 0 30px 30px var(--clr-bg-1);
 		opacity: 0;
 		pointer-events: none;
-		transition: opacity var(--transition-slow);
+		transition:
+			opacity var(--transition-fast),
+			transform var(--transition-medium);
 	}
 
 	.rule__actions-buttons {
 		display: flex;
-		padding: 2px 4px;
-		gap: 4px;
+		padding: 3px;
+		gap: 2px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 	}
 
-	.rule__chip {
+	.rule__action-chip {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 24px;
-		height: 24px;
-		border-radius: 46px;
+		height: var(--size-tag);
+		padding: 0 4px;
+		border-radius: 100px;
 		background: var(--clr-bg-2);
+		color: var(--clr-text-2);
 	}
 
 	.rule__pill {
 		display: flex;
 		align-items: center;
-		padding: 4px 6px;
-		gap: 4px;
-		border: 1px solid var(--clr-btn-ntrl-outline);
-		border-radius: 46px;
+		height: var(--size-tag);
+		padding: 0 6px;
+		gap: 6px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: 100px;
 
 		&.error {
 			border: 1px solid var(--clr-theme-err-element);

@@ -12,7 +12,7 @@
 	name="Playground"
 	args={{
 		filePath: 'src/component/arcada/path/binary/file.svelte',
-		fileStatus: 'M',
+		fileStatus: 'modification',
 		draggable: true,
 		linesAdded: 10,
 		linesRemoved: 5,

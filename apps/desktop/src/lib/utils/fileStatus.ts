@@ -4,12 +4,12 @@ import type { TreeChange } from '$lib/hunks/change';
 export function computeChangeStatus(change: TreeChange): FileStatus {
 	switch (change.status.type) {
 		case 'Addition':
-			return 'A';
+			return 'addition';
 		case 'Deletion':
-			return 'D';
+			return 'deletion';
 		case 'Modification':
-			return 'M';
+			return 'modification';
 		case 'Rename':
-			return 'R';
+			return 'rename';
 	}
 }

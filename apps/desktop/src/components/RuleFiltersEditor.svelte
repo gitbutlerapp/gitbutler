@@ -2,9 +2,7 @@
 	import NewRuleMenu from '$components/NewRuleMenu.svelte';
 	import {
 		type SemanticType,
-		type TreeStatus,
 		type RuleFilterType,
-		RULE_FILTER_TREE_STATUS,
 		SEMANTIC_TYPES,
 		type RuleFilter,
 		treeStatusToString,
@@ -13,7 +11,10 @@
 		type RuleFilterMap
 	} from '$lib/rules/rule';
 	import { typedKeys } from '$lib/utils/object';
-	import { Button, Select, SelectItem, Textbox } from '@gitbutler/ui';
+	import { Button, Select, SelectItem, Textbox, FileStatusBadge } from '@gitbutler/ui';
+	import type { FileStatus } from '@gitbutler/ui/components/file/types';
+
+	const FILE_STATUS_OPTIONS: FileStatus[] = ['addition', 'modification', 'deletion', 'rename'];
 
 	type Props = {
 		initialFilterValues: Partial<RuleFilterMap>;
@@ -30,7 +31,7 @@
 	let contentRegex = $state<string | undefined>(
 		initialFilterValues.contentMatchesRegex ?? undefined
 	);
-	let treeChangeType = $state<TreeStatus | undefined>(
+	let treeChangeType = $state<FileStatus | undefined>(
 		initialFilterValues.fileChangeType ?? undefined
 	);
 	let semanticType = $state<SemanticType | undefined>(initialFilterValues.semanticType?.type);
@@ -66,7 +67,7 @@
 
 	function handleAddFilter(e: MouseEvent) {
 		e.stopPropagation();
-		newFilterContextMenu?.open(e);
+		newFilterContextMenu?.toggle(e);
 	}
 
 	export function getRuleFilters(): RuleFilter[] | undefined {
@@ -107,22 +108,24 @@
 <!-- Path filter -->
 {#snippet pathMatchesRegex()}
 	<Textbox
-		icon="folder"
+		iconLeft="folder"
 		wide
 		value={pathRegex}
-		onchange={(v) => (pathRegex = v)}
+		oninput={(v) => (pathRegex = v)}
 		placeholder="Path: e.g. src/components"
+		autofocus
 	/>
 {/snippet}
 
 <!-- Content filter -->
 {#snippet contentMatchesRegex()}
 	<Textbox
-		icon="text-width"
+		iconLeft="text-width"
 		wide
 		value={contentRegex}
-		onchange={(v) => (contentRegex = v)}
+		oninput={(v) => (contentRegex = v)}
 		placeholder="Contains: e.g. TODO"
+		autofocus
 	/>
 {/snippet}
 
@@ -130,19 +133,24 @@
 {#snippet fileChangeType()}
 	<Select
 		value={treeChangeType}
-		options={RULE_FILTER_TREE_STATUS.map((type) => ({
+		options={FILE_STATUS_OPTIONS.map((type) => ({
 			label: treeStatusToString(type),
 			value: type
 		}))}
 		placeholder="Change type..."
 		flex="1"
+		icon="file-changes"
+		autofocus
 		onselect={(selected) => {
-			treeChangeType = selected as TreeStatus;
+			treeChangeType = selected as FileStatus;
 		}}
 	>
 		{#snippet itemSnippet({ item, highlighted })}
 			<SelectItem selected={item.value === treeChangeType} {highlighted}>
 				{item.label}
+				{#snippet iconSnippet()}
+					<FileStatusBadge style="dot" status={item.value as FileStatus} />
+				{/snippet}
 			</SelectItem>
 		{/snippet}
 	</Select>
@@ -156,6 +164,8 @@
 		placeholder="Work category..."
 		flex="1"
 		searchable
+		icon="tag"
+		autofocus
 		onselect={(selected) => {
 			semanticType = selected as SemanticType;
 		}}
@@ -185,16 +195,24 @@
 		<div class="rule-filter-row__actions">
 			<Button
 				icon="bin"
-				size="icon"
+				size="cta"
+				class="rule-filter-row__button"
 				kind="ghost"
+				width="auto"
 				onclick={() => {
 					deleteFilter(type);
 				}}
 			/>
 			{#if isLastFilterType(type) && canAddMore}
-				<div bind:this={addFilterButton}>
-					<Button icon="plus" size="icon" kind="ghost" onclick={handleAddFilter} />
-				</div>
+				<Button
+					bind:el={addFilterButton}
+					class="rule-filter-row__button"
+					width="auto"
+					icon="plus"
+					size="cta"
+					kind="ghost"
+					onclick={handleAddFilter}
+				/>
 			{/if}
 		</div>
 	</div>
@@ -228,13 +246,21 @@
 <style lang="postcss">
 	.rule-filter-row {
 		display: flex;
-		align-items: center;
+		margin-bottom: 8px;
 		gap: 8px;
+
+		&:last-child {
+			margin-bottom: 0;
+		}
 	}
 
 	.rule-filter-row__actions {
 		display: flex;
 		align-items: center;
-		gap: 4px;
+		/* gap: 2px; */
+	}
+
+	:global(.rule-filter-row .rule-filter-row__button) {
+		padding: 0 6px;
 	}
 </style>

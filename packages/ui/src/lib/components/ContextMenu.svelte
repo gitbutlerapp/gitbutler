@@ -379,7 +379,7 @@
 			use:focusTrap
 			autofocus
 			use:clickOutside={{
-				excludeElement: !savedMouseEvent ? (leftClickTrigger ?? rightClickTrigger) : undefined,
+				excludeElement: leftClickTrigger ?? rightClickTrigger,
 				handler: () => close()
 			}}
 			bind:clientHeight={contextMenuHeight}

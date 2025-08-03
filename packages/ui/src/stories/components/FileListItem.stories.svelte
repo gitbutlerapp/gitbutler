@@ -12,7 +12,7 @@
 	name="Playground"
 	args={{
 		filePath: 'path/to/components/file.svelte',
-		fileStatus: 'A',
+		fileStatus: 'addition',
 		fileStatusStyle: 'dot',
 		clickable: true,
 		selected: false,
@@ -36,7 +36,7 @@
 	name="Resolve conflict"
 	args={{
 		filePath: '/path/to/file.svelte',
-		fileStatus: 'A',
+		fileStatus: 'addition',
 		fileStatusStyle: 'dot',
 		clickable: false,
 		selected: false,

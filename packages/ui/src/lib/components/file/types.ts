@@ -1,1 +1,1 @@
-export type FileStatus = 'A' | 'M' | 'D' | 'R';
+export type FileStatus = 'addition' | 'modification' | 'deletion' | 'rename';
