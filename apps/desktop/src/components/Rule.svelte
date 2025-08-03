@@ -144,10 +144,7 @@
 		padding: 12px 10px;
 		overflow: hidden;
 		gap: 4px;
-
-		&:not(:last-child) {
-			border-bottom: 1px solid var(--clr-border-2);
-		}
+		border-bottom: 1px solid var(--clr-border-2);
 
 		&:hover .rule__actions {
 			transform: scale(1);
@@ -162,7 +159,6 @@
 		top: 8px;
 		right: 8px;
 		align-items: center;
-		/* Initial state is hidden */
 		transform: scale(0.9);
 		transform-origin: top right;
 		background-color: var(--clr-bg-1);

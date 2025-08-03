@@ -346,7 +346,6 @@
 	.rules-list__content {
 		display: flex;
 		flex-direction: column;
-		border-bottom: 1px solid var(--clr-border-2);
 	}
 
 	.rules-list__editor-content {
@@ -354,10 +353,7 @@
 		flex-direction: column;
 		padding: 12px;
 		gap: 16px;
-
-		&:not(:last-child) {
-			border-bottom: 1px solid var(--clr-border-2);
-		}
+		border-bottom: 1px solid var(--clr-border-2);
 	}
 
 	.rules-list__filters {
