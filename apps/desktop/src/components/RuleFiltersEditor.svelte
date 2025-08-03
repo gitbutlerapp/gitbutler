@@ -257,7 +257,6 @@
 	.rule-filter-row__actions {
 		display: flex;
 		align-items: center;
-		/* gap: 2px; */
 	}
 
 	:global(.rule-filter-row .rule-filter-row__button) {

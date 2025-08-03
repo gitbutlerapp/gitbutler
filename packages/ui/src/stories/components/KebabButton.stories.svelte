@@ -26,7 +26,7 @@
 					bind:el={kebabButtonElement}
 					{contextElement}
 					onclick={() => {
-						contextMenu?.open();
+						contextMenu?.toggle();
 					}}
 					oncontext={(e) => {
 						contextMenu?.open(e);

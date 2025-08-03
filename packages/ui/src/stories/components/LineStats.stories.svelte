@@ -7,8 +7,7 @@
 		component: LineStats,
 		args: {
 			linesAdded: 42,
-			linesRemoved: 13,
-			showSeparator: true
+			linesRemoved: 13
 		},
 		argTypes: {
 			linesAdded: {
@@ -16,9 +15,6 @@
 			},
 			linesRemoved: {
 				control: { type: 'number', min: 0 }
-			},
-			showSeparator: {
-				control: { type: 'boolean' }
 			}
 		}
 	});
@@ -37,12 +33,6 @@
 </Story>
 
 <Story name="Only Removed Lines" args={{ linesAdded: 0, linesRemoved: 18 }}>
-	{#snippet template(args)}
-		<LineStats {...args} />
-	{/snippet}
-</Story>
-
-<Story name="Without Separator" args={{ showSeparator: false }}>
 	{#snippet template(args)}
 		<LineStats {...args} />
 	{/snippet}
