@@ -6,6 +6,7 @@ use crate::{RefInfo, StacksFilter, branch, head_info, ref_info, state_handle, ui
 use anyhow::{Context, bail};
 use bstr::BString;
 use but_core::RefMetadata;
+use but_core::diff::tree_changes;
 use but_graph::VirtualBranchesTomlMetadata;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
@@ -698,18 +699,37 @@ fn upstream_only_commits(
             // If the id matches verbatim or if there is a known remote_id (in the case of LocalAndRemote) that matchies
             c.id == commit.id().to_gix() || matches!(&c.state, CommitState::LocalAndRemote(remote_id) if remote_id == &commit.id().to_gix())
         });
+
         // Ignore commits that strictly speaking are remote only, but they match a known local commit (rebase etc)
-        if !matches_known_commit {
-            let created_at = i128::from(commit.time().seconds()) * 1000;
-            let upstream_commit = ui::UpstreamCommit {
-                id: commit.id().to_gix(),
-                message: commit.message_bstr().into(),
-                created_at,
-                author: commit.author().into(),
-            };
-            upstream_only.push(upstream_commit);
+        if matches_known_commit {
+            continue;
         }
+
+        let last_local_commit = local_and_remote.last();
+
+        // If there's a last local commit, compare the trees
+        if let Some(last_local_commit) = last_local_commit {
+            let lhs = last_local_commit.id;
+            let rhs = commit.id().to_gix();
+
+            // We don't care about upstream commits that bring no new changes.
+            // This helps us avoid showing 'upstream commits' after squashing commits or rebasing.
+            let (changes, _) = tree_changes(repo, Some(lhs), rhs)?;
+            if changes.is_empty() {
+                continue;
+            }
+        }
+
+        let created_at = i128::from(commit.time().seconds()) * 1000;
+        let upstream_commit = ui::UpstreamCommit {
+            id: commit.id().to_gix(),
+            message: commit.message_bstr().into(),
+            created_at,
+            author: commit.author().into(),
+        };
+        upstream_only.push(upstream_commit);
     }
+
     upstream_only.reverse();
 
     Ok(upstream_only)
