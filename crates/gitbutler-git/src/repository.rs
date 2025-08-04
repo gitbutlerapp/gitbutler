@@ -362,7 +362,7 @@ where
     args.push(&refspec);
 
     if force {
-        args.push("--force-with-lease");
+        args.push("--force-with-lease --force-if-includes");
     }
 
     let (status, stdout, stderr) =
