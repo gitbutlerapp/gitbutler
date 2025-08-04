@@ -2,7 +2,6 @@ use anyhow::{anyhow, Context, Result};
 use gitbutler_notify_debouncer::{new_debouncer, Debouncer, NoCache};
 use gitbutler_project::ProjectId;
 use notify::{RecommendedWatcher, Watcher};
-use std::ffi::OsStr;
 use std::{collections::HashSet, path::Path, time::Duration};
 use tokio::task;
 use tracing::Level;
@@ -172,16 +171,12 @@ pub fn spawn(
                             }
                         }
                     }
-                    let mut oplog_changed = false;
                     let (mut stripped_git_paths, mut worktree_relative_paths) =
                         (HashSet::new(), HashSet::new());
                     for (file_path, kind) in classified_file_paths {
                         match kind {
                             FileKind::ProjectIgnored => ignored += 1,
                             FileKind::GitUninteresting => git_noop += 1,
-                            FileKind::GitButlerOplog => {
-                                oplog_changed = true;
-                            }
                             FileKind::Project | FileKind::Git => match file_path
                                 .strip_prefix(&worktree_path)
                             {
@@ -227,13 +222,6 @@ pub fn spawn(
                             break 'outer;
                         }
                     }
-                    if oplog_changed {
-                        let event = InternalEvent::GitButlerOplogChange(project_id);
-                        if out.send(event).is_err() {
-                            tracing::info!("channel closed - stopping file watcher");
-                            break 'outer;
-                        }
-                    }
                 }
             }
         }
@@ -271,8 +259,6 @@ enum FileKind {
     Project,
     /// A file that was ignored in the project, and thus shouldn't trigger a computation.
     ProjectIgnored,
-    /// GitButler oplog file (`.git/gitbutler/operations-log.toml`)
-    GitButlerOplog,
 }
 
 fn classify_file(git_dir: &Path, file_path: &Path) -> FileKind {
@@ -284,8 +270,6 @@ fn classify_file(git_dir: &Path, file_path: &Path) -> FileKind {
             || check_file_path == Path::new("index")
         {
             FileKind::Git
-        } else if check_file_path.file_name() == Some(OsStr::new("operations-log.toml")) {
-            FileKind::GitButlerOplog
         } else {
             FileKind::GitUninteresting
         }

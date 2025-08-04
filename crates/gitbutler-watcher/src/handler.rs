@@ -8,7 +8,6 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_filemonitor::InternalEvent;
 use gitbutler_operating_modes::operating_mode;
 use gitbutler_project::ProjectId;
-use gitbutler_sync::cloud::{push_oplog, push_repo};
 use tracing::instrument;
 
 /// A type that contains enough state to make decisions based on changes in the filesystem, which themselves
@@ -54,11 +53,6 @@ impl Handler {
                     &mut self.open_command_context(project_id, app_settings.get()?.clone())?;
                 self.git_files_change(paths, ctx)
                     .context("failed to handle git file change event")
-            }
-            InternalEvent::GitButlerOplogChange(project_id) => {
-                let ctx = self.open_command_context(project_id, app_settings.get()?.clone())?;
-                self.gitbutler_oplog_change(&ctx)
-                    .context("failed to handle gitbutler oplog change event")
             }
         }
     }
@@ -166,20 +160,6 @@ impl Handler {
                     }
                 }
                 _ => {}
-            }
-        }
-        Ok(())
-    }
-
-    /// Invoked whenever there's a new oplog entry.
-    /// If synchronizing with GitButler's servers is enabled it will push Oplog refs
-    fn gitbutler_oplog_change(&self, ctx: &CommandContext) -> Result<()> {
-        if let Some(user) = gitbutler_user::get_user()? {
-            if ctx.project().oplog_sync_enabled() {
-                push_oplog(ctx, &user)?;
-            }
-            if ctx.project().code_sync_enabled() {
-                push_repo(ctx, &user)?;
             }
         }
         Ok(())
