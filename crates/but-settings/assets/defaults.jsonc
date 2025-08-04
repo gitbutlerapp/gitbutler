@@ -38,5 +38,7 @@
 	"fetch": {
 	  // The frequency at which the app will automatically fetch. A negative value (e.g. -1) disables auto fetching.
 		"autoFetchIntervalMinutes": 15
-	}
+	},
+	// If true, force push operations will be performed with a --force-if-includes flag which increases safety of force pushes.
+	"forceIfIncludes": false
 }
