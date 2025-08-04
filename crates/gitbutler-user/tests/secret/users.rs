@@ -17,9 +17,8 @@ fn auto_migration_of_secrets_on_when_getting_and_setting_user() -> anyhow::Resul
         credentials::setup();
         let app_data = tempdir()?;
 
-        let users = gitbutler_user::Controller::from_path(app_data.path());
         assert!(
-            users.get_user()?.is_none(),
+            gitbutler_user::get_user_with_path(app_data.path())?.is_none(),
             "Users are bound to logins, so there is none by default"
         );
         assert_eq!(count_secrets(), 0, "no secret is associated with anything");
@@ -28,7 +27,8 @@ fn auto_migration_of_secrets_on_when_getting_and_setting_user() -> anyhow::Resul
         let user_json_path = app_data.path().join("user.json");
         std::fs::write(&user_json_path, &buf)?;
 
-        let user = users.get_user()?.expect("previous v1 user was read");
+        let user = gitbutler_user::get_user_with_path(app_data.path())?
+            .expect("previous v1 user was read");
         let expected_secrets = if has_github_token { 2 } else { 1 };
         assert_eq!(
             count_secrets(),
@@ -70,10 +70,11 @@ fn auto_migration_of_secrets_on_when_getting_and_setting_user() -> anyhow::Resul
         };
         assert_no_secret_in_plain_text()?;
 
-        let user = users.get_user()?.expect("stored user can be read");
+        let user =
+            gitbutler_user::get_user_with_path(app_data.path())?.expect("stored user can be read");
         assert_access_token_values(&user)?;
 
-        users.delete_user()?;
+        gitbutler_user::delete_user_with_path(app_data.path())?;
         assert_eq!(
             count_secrets(),
             0,
@@ -84,7 +85,7 @@ fn auto_migration_of_secrets_on_when_getting_and_setting_user() -> anyhow::Resul
             "it deletes the whole file, i.e. all associated user data"
         );
 
-        users.set_user(&user)?;
+        gitbutler_user::set_user_with_path(app_data.path(), &user)?;
         assert_eq!(
             count_secrets(),
             expected_secrets,
@@ -95,15 +96,14 @@ fn auto_migration_of_secrets_on_when_getting_and_setting_user() -> anyhow::Resul
 
         // forget all passwords
         credentials::setup();
-        let user = users
-            .get_user()?
+        let user = gitbutler_user::get_user_with_path(app_data.path())?
             .expect("user still on disk and passwords are accessed lazily");
         assert!(
             user.access_token().is_err(),
             "this is critical - we have a user without access token, this fails early"
         );
         assert!(
-            users.get_user()?.is_some(),
+            gitbutler_user::get_user_with_path(app_data.path())?.is_some(),
             "Client code needs to handle this case and delete the user, \
             otherwise it's there and errors forever"
         );

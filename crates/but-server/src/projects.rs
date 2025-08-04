@@ -29,7 +29,7 @@ impl ActiveProjects {
             return Ok(());
         }
 
-        let handler = gitbutler_watcher::Handler::new((*ctx.user_controller).clone(), {
+        let handler = gitbutler_watcher::Handler::new({
             let broadcaster = ctx.broadcaster.clone();
 
             move |value| {

@@ -62,11 +62,11 @@ impl TryFrom<User> for UserWithSecrets {
     }
 }
 
-pub fn get_user(app: &App, _params: NoParams) -> Result<Option<UserWithSecrets>, Error> {
-    match app.user_controller.get_user()? {
+pub fn get_user(_app: &App, _params: NoParams) -> Result<Option<UserWithSecrets>, Error> {
+    match gitbutler_user::get_user()? {
         Some(user) => {
             if let Err(err) = user.access_token() {
-                app.user_controller.delete_user()?;
+                gitbutler_user::delete_user()?;
                 return Err(err.context("Please login to GitButler again").into());
             }
             Ok(Some(user.try_into()?))
@@ -75,12 +75,12 @@ pub fn get_user(app: &App, _params: NoParams) -> Result<Option<UserWithSecrets>,
     }
 }
 
-pub fn set_user(app: &App, params: SetUserParams) -> Result<User, Error> {
-    app.user_controller.set_user(&params.user)?;
+pub fn set_user(_app: &App, params: SetUserParams) -> Result<User, Error> {
+    gitbutler_user::set_user(&params.user)?;
     Ok(params.user)
 }
 
-pub fn delete_user(app: &App, _params: NoParams) -> Result<(), Error> {
-    app.user_controller.delete_user()?;
+pub fn delete_user(_app: &App, _params: NoParams) -> Result<(), Error> {
+    gitbutler_user::delete_user()?;
     Ok(())
 }

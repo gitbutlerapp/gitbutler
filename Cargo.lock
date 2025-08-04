@@ -3628,6 +3628,7 @@ name = "gitbutler-user"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-path",
  "gitbutler-secret",
  "gitbutler-storage",
  "keyring",
