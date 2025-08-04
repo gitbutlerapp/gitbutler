@@ -449,7 +449,7 @@ pub fn stack_details_v3(
     let branch_details = stack
         .segments
         .iter()
-        .map(ui::BranchDetails::from_segment)
+        .map(|s| ui::BranchDetails::from_segment(repo, s))
         .collect::<Result<Vec<_>, _>>()?;
 
     let topmost_branch = branch_details
@@ -465,6 +465,7 @@ pub fn stack_details_v3(
 
 impl ui::BranchDetails {
     fn from_segment(
+        repo: &gix::Repository,
         Segment {
             id: _,
             ref_name,
@@ -494,6 +495,20 @@ impl ui::BranchDetails {
             })
             .unwrap_or_default();
         let base_commit = base.unwrap_or(gix::hash::Kind::Sha1.null());
+        let commits: Vec<ui::Commit> = commits_unique_from_tip.iter().map(Into::into).collect();
+        // The parent-most commit, since this is ordered from most recent to oldest, we take the first one.
+        let last_local_commit = commits.first();
+        let upstream_commits = commits_unique_in_remote_tracking_branch
+            .iter()
+            .filter_map(|c| match last_local_commit {
+                Some(last_local_commit) => {
+                    let (changes, _) = tree_changes(repo, Some(last_local_commit.id), c.id).ok()?;
+                    (!changes.is_empty()).then(|| c.into())
+                }
+                None => Some(c.into()),
+            })
+            .collect();
+
         Ok(ui::BranchDetails {
             is_remote_head: ref_name
                 .category()
@@ -525,12 +540,9 @@ impl ui::BranchDetails {
                 authors.sort_by(|a, b| a.name.cmp(&b.name));
                 authors
             },
-            commits: commits_unique_from_tip.iter().map(Into::into).collect(),
+            commits,
             is_conflicted: commits_unique_from_tip.iter().any(|c| c.has_conflicts),
-            upstream_commits: commits_unique_in_remote_tracking_branch
-                .iter()
-                .map(Into::into)
-                .collect(),
+            upstream_commits,
         })
     }
 }
