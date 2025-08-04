@@ -46,11 +46,11 @@
 	const userService = inject(USER_SERVICE);
 	const user = userService.user;
 
-	let modeServiceAborting = $state<'inert' | 'loading' | 'completed'>('inert');
-	let modeServiceSaving = $state<'inert' | 'loading' | 'completed'>('inert');
-
 	const initialFiles = $derived(modeService.initialEditModeState({ projectId }));
 	const uncommittedFiles = $derived(modeService.changesSinceInitialEditState({ projectId }));
+
+	const [saveEdit, savingEdit] = modeService.saveEditAndReturnToWorkspaceMutation;
+	const [abortEdit, abortingEdit] = modeService.abortEditAndReturnToWorkspaceMutation;
 
 	function readFromWorkspace(
 		filePath: string,
@@ -186,25 +186,11 @@
 	}
 
 	async function abort() {
-		modeServiceAborting = 'loading';
-
-		try {
-			await modeService.abortEditAndReturnToWorkspace({ projectId });
-			modeServiceAborting = 'completed';
-		} finally {
-			modeServiceAborting = 'inert';
-		}
+		await abortEdit({ projectId });
 	}
 
 	async function save() {
-		modeServiceSaving = 'loading';
-
-		try {
-			await modeService.saveEditAndReturnToWorkspace({ projectId });
-			modeServiceSaving = 'completed';
-		} finally {
-			modeServiceAborting = 'inert';
-		}
+		await saveEdit({ projectId });
 	}
 
 	async function handleSave() {
@@ -228,7 +214,7 @@
 
 	let isCommitListScrolled = $state(false);
 
-	const loading = $derived(modeServiceSaving === 'loading' || modeServiceAborting === 'loading');
+	const loading = $derived(savingEdit.current.isLoading || abortingEdit.current.isLoading);
 </script>
 
 <div class="editmode-wrapper">
