@@ -78,6 +78,21 @@ impl CommandContext {
         Ok((repo, meta, graph))
     }
 
+    /// Open the repository with standard options and create a new Graph traversal from the current HEAD,
+    /// along with a new metadata instance, and the graph itself.
+    ///
+    /// Use [`Self::graph_and_meta()`] if control over the repository configuration is needed.
+    pub fn graph_and_meta_and_repo(
+        &self,
+    ) -> Result<(
+        gix::Repository,
+        VirtualBranchesTomlMetadata,
+        but_graph::Graph,
+    )> {
+        let repo = self.gix_repo()?;
+        self.graph_and_meta(repo)
+    }
+
     /// Return the `RefMetadata` implementation based on the `virtual_branches.toml` file.
     /// This can one day be changed to auto-migrate away from the toml and to the database.
     pub fn meta(&self) -> Result<VirtualBranchesTomlMetadata> {
@@ -106,7 +121,7 @@ impl CommandContext {
     ///
     /// Such repositories are only useful for reference and object-access, but *can't be used* to create
     /// commits, fetch or push.
-    pub fn gix_repo_minimal(&self) -> Result<gix::Repository> {
+    pub fn gix_repo_local_only(&self) -> Result<gix::Repository> {
         Ok(gix::open_opts(
             self.repo().path(),
             gix::open::Options::isolated(),

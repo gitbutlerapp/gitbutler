@@ -56,7 +56,7 @@ pub struct ShowGraphSvgParams {
 pub fn show_graph_svg(app: &App, params: ShowGraphSvgParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
-    let repo = ctx.gix_repo_minimal()?;
+    let repo = ctx.gix_repo_local_only()?;
     let meta = ref_metadata_toml(&project)?;
     let mut graph = but_graph::Graph::from_head(
         &repo,

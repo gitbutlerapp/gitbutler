@@ -1,14 +1,17 @@
+use anyhow::{Context, anyhow};
+use but_workspace::branch::{ReferenceAnchor, ReferencePosition};
 use gitbutler_branch_actions::internal::PushResult;
 use gitbutler_branch_actions::stack::CreateSeriesRequest;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use gitbutler_stack::StackId;
 use gitbutler_user::User;
+use gix::refs::Category;
 use serde::Deserialize;
 
 use crate::{App, error::Error};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateBranchParams {
     pub project_id: ProjectId,
@@ -18,8 +21,56 @@ pub struct CreateBranchParams {
 
 pub fn create_branch(app: &App, params: CreateBranchParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
+    let ws3_enabled = app.app_settings.get()?.feature_flags.ws3;
     let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
-    gitbutler_branch_actions::stack::create_branch(&ctx, params.stack_id, params.request)?;
+    if ws3_enabled {
+        use ReferencePosition::Above;
+        let (repo, mut meta, graph) = ctx.graph_and_meta_and_repo()?;
+        let ws = graph.to_workspace()?;
+        let stack = ws.try_find_stack_by_id(params.stack_id)?;
+        let new_ref = Category::LocalBranch
+            .to_full_name(params.request.name.as_str())
+            .map_err(anyhow::Error::from)?;
+        if params.request.preceding_head.is_some() {
+            return Err(anyhow!(
+                "BUG: cannot have preceding head name set - let's use the new API instead"
+            )
+            .into());
+        }
+
+        let _guard = project.exclusive_worktree_access();
+        but_workspace::branch::create_reference(
+            new_ref.as_ref(),
+            {
+                let segment = stack.segments.first().context("BUG: no empty stacks")?;
+                segment
+                    .ref_name
+                    .as_ref()
+                    .map(|rn| ReferenceAnchor::AtSegment {
+                        ref_name: rn.as_ref(),
+                        position: Above,
+                    })
+                    .or_else(|| {
+                        Some(ReferenceAnchor::AtCommit {
+                            commit_id: graph.tip_skip_empty(segment.id)?.id,
+                            position: Above,
+                        })
+                    })
+                    .with_context(|| {
+                        format!(
+                            "TODO: UI should migrate to new version of `create_branch()` instead,\
+                            couldn't handle {params:?}"
+                        )
+                    })?
+            },
+            &repo,
+            &ws,
+            &mut meta,
+        )?;
+    } else {
+        // NOTE: locking is built-in here.
+        gitbutler_branch_actions::stack::create_branch(&ctx, params.stack_id, params.request)?;
+    }
     Ok(())
 }
 
