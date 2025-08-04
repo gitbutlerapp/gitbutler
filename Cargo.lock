@@ -767,6 +767,7 @@ dependencies = [
  "anyhow",
  "bstr",
  "but-action",
+ "but-claude",
  "but-core",
  "but-db",
  "but-graph",
@@ -892,6 +893,22 @@ name = "but-claude"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-action",
+ "but-core",
+ "but-db",
+ "but-graph",
+ "but-hunk-assignment",
+ "but-settings",
+ "but-workspace",
+ "chrono",
+ "gitbutler-branch",
+ "gitbutler-branch-actions",
+ "gitbutler-command-context",
+ "gitbutler-project",
+ "gitbutler-stack",
+ "gix",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

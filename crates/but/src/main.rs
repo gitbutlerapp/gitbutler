@@ -5,7 +5,7 @@ use args::{Args, CommandName, Subcommands, actions, claude};
 use but_settings::AppSettings;
 use metrics::{Event, Metrics, Props, metrics_if_configured};
 
-use crate::command::claude::OutputAsJson;
+use but_claude::hooks::OutputAsJson;
 mod command;
 mod id;
 mod log;
@@ -55,21 +55,21 @@ async fn main() -> Result<()> {
         }
         Subcommands::Claude(claude::Platform { cmd }) => match cmd {
             claude::Subcommands::PreTool => {
-                let result = command::claude::handle_pre_tool_call();
+                let result = but_claude::hooks::handle_pre_tool_call();
                 let p = props(start, &result);
                 result.out_json();
                 metrics_if_configured(app_settings, CommandName::ClaudePreTool, p).ok();
                 Ok(())
             }
             claude::Subcommands::PostTool => {
-                let result = command::claude::handle_post_tool_call();
+                let result = but_claude::hooks::handle_post_tool_call();
                 let p = props(start, &result);
                 result.out_json();
                 metrics_if_configured(app_settings, CommandName::ClaudePostTool, p).ok();
                 Ok(())
             }
             claude::Subcommands::Stop => {
-                let result = command::claude::handle_stop().await;
+                let result = but_claude::hooks::handle_stop().await;
                 let p = props(start, &result);
                 result.out_json();
                 metrics_if_configured(app_settings, CommandName::ClaudeStop, p).ok();
