@@ -457,6 +457,18 @@ export class StackService {
 		return this.api.endpoints.createCommit.mutate;
 	}
 
+	filePathsChangedInCommits(projectId: string, commitIds: string[]) {
+		const params = commitIds.map((commitId) => ({
+			projectId,
+			commitId
+		}));
+		return this.api.endpoints.commitDetails.useQueries(params, {
+			transform: (results) => {
+				return results.changes.ids;
+			}
+		});
+	}
+
 	commitChanges(projectId: string, commitId: string) {
 		return this.api.endpoints.commitDetails.useQuery(
 			{ projectId, commitId },
