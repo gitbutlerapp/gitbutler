@@ -8,8 +8,6 @@ pub enum InternalEvent {
     // From file monitor
     GitFilesChange(ProjectId, Vec<PathBuf>),
     ProjectFilesChange(ProjectId, Vec<PathBuf>),
-    // Triggered on change in the `.git/gitbutler` directory
-    GitButlerOplogChange(ProjectId),
 }
 
 impl Display for InternalEvent {
@@ -22,9 +20,6 @@ impl Display for InternalEvent {
                     project_id,
                     comma_separated_paths(paths)
                 )
-            }
-            InternalEvent::GitButlerOplogChange(project_id) => {
-                write!(f, "GitButlerOplogChange({})", project_id)
             }
             InternalEvent::ProjectFilesChange(project_id, paths) => {
                 write!(
