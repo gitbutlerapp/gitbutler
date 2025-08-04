@@ -3,7 +3,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::{IpcContext, NoParams, error::Error};
+use crate::{App, NoParams, error::Error};
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct Verification {
@@ -11,12 +11,9 @@ pub struct Verification {
     pub device_code: String,
 }
 
-pub async fn init_device_oauth(
-    ipc_ctx: &IpcContext,
-    _params: NoParams,
-) -> Result<Verification, Error> {
+pub async fn init_device_oauth(app: &App, _params: NoParams) -> Result<Verification, Error> {
     let mut req_body = HashMap::new();
-    let client_id = ipc_ctx
+    let client_id = app
         .app_settings
         .get()?
         .github_oauth_app
@@ -53,17 +50,14 @@ pub struct CheckAuthStatusParams {
     pub device_code: String,
 }
 
-pub async fn check_auth_status(
-    ipc_ctx: &IpcContext,
-    params: CheckAuthStatusParams,
-) -> Result<String, Error> {
+pub async fn check_auth_status(app: &App, params: CheckAuthStatusParams) -> Result<String, Error> {
     #[derive(Debug, Deserialize, Serialize, Clone, Default)]
     struct AccessTokenContainer {
         access_token: String,
     }
 
     let mut req_body = HashMap::new();
-    let client_id = ipc_ctx
+    let client_id = app
         .app_settings
         .get()?
         .github_oauth_app

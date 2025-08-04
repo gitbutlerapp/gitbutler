@@ -7,7 +7,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use serde::Deserialize;
 
-use crate::{IpcContext, error::Error};
+use crate::{App, error::Error};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -17,12 +17,12 @@ pub struct CreateWorkspaceRuleParams {
 }
 
 pub fn create_workspace_rule(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: CreateWorkspaceRuleParams,
 ) -> Result<WorkspaceRule, Error> {
     let ctx = &mut CommandContext::open(
         &gitbutler_project::get(params.project_id)?,
-        ipc_ctx.app_settings.get()?.clone(),
+        app.app_settings.get()?.clone(),
     )?;
     create_rule(ctx, params.request).map_err(Into::into)
 }
@@ -34,13 +34,10 @@ pub struct DeleteWorkspaceRuleParams {
     pub id: String,
 }
 
-pub fn delete_workspace_rule(
-    ipc_ctx: &IpcContext,
-    params: DeleteWorkspaceRuleParams,
-) -> Result<(), Error> {
+pub fn delete_workspace_rule(app: &App, params: DeleteWorkspaceRuleParams) -> Result<(), Error> {
     let ctx = &mut CommandContext::open(
         &gitbutler_project::get(params.project_id)?,
-        ipc_ctx.app_settings.get()?.clone(),
+        app.app_settings.get()?.clone(),
     )?;
     delete_rule(ctx, &params.id).map_err(Into::into)
 }
@@ -53,12 +50,12 @@ pub struct UpdateWorkspaceRuleParams {
 }
 
 pub fn update_workspace_rule(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: UpdateWorkspaceRuleParams,
 ) -> Result<WorkspaceRule, Error> {
     let ctx = &mut CommandContext::open(
         &gitbutler_project::get(params.project_id)?,
-        ipc_ctx.app_settings.get()?.clone(),
+        app.app_settings.get()?.clone(),
     )?;
     update_rule(ctx, params.request).map_err(Into::into)
 }
@@ -70,12 +67,12 @@ pub struct ListWorkspaceRulesParams {
 }
 
 pub fn list_workspace_rules(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: ListWorkspaceRulesParams,
 ) -> Result<Vec<WorkspaceRule>, Error> {
     let ctx = &mut CommandContext::open(
         &gitbutler_project::get(params.project_id)?,
-        ipc_ctx.app_settings.get()?.clone(),
+        app.app_settings.get()?.clone(),
     )?;
     list_rules(ctx).map_err(Into::into)
 }

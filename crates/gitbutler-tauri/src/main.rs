@@ -14,7 +14,7 @@
 use std::sync::Arc;
 
 use but_api::broadcaster::Broadcaster;
-use but_api::IpcContext;
+use but_api::App;
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::csp::csp_with_extras;
 use gitbutler_tauri::{
@@ -137,7 +137,7 @@ fn main() {
                         cache_dir: app_cache_dir.clone(),
                         logs_dir: app_log_dir.clone(),
                     });
-                    let ipc_ctx = IpcContext {
+                    let app = App {
                         app_settings: Arc::new(
                             AppSettingsWithDiskSync::new(config_dir.clone())
                                 .expect("failed to create app settings"),
@@ -149,7 +149,7 @@ fn main() {
                         archival: archival.clone(),
                     };
 
-                    app_handle.manage(ipc_ctx);
+                    app_handle.manage(app);
 
                     tauri_app.on_menu_event(move |_handle, event| {
                         menu::handle_event(&window.clone(), &event)

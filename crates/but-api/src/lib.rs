@@ -12,7 +12,7 @@ pub mod error;
 pub mod hex_hash;
 
 #[derive(Clone)]
-pub struct IpcContext {
+pub struct App {
     pub app_settings: Arc<AppSettingsWithDiskSync>,
     pub user_controller: Arc<gitbutler_user::Controller>,
     pub broadcaster: Arc<Mutex<Broadcaster>>,

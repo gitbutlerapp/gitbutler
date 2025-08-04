@@ -17,22 +17,22 @@ use crate::window::state::ProjectAccessMode;
 use crate::{window, WindowState};
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn update_project(
-    ipc_ctx: State<'_, but_api::IpcContext>,
+    app: State<'_, but_api::App>,
     project: gitbutler_project::UpdateRequest,
 ) -> Result<gitbutler_project::Project, Error> {
-    projects::update_project(&ipc_ctx, UpdateProjectParams { project })
+    projects::update_project(&app, UpdateProjectParams { project })
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn add_project(
-    ipc_ctx: State<'_, but_api::IpcContext>,
+    app: State<'_, but_api::App>,
     path: &path::Path,
 ) -> Result<gitbutler_project::Project, Error> {
     projects::add_project(
-        &ipc_ctx,
+        &app,
         AddProjectParams {
             path: path.to_path_buf(),
         },
@@ -40,14 +40,14 @@ pub fn add_project(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn get_project(
-    ipc_ctx: State<'_, but_api::IpcContext>,
+    app: State<'_, but_api::App>,
     project_id: ProjectId,
     no_validation: Option<bool>,
 ) -> Result<gitbutler_project::Project, Error> {
     projects::get_project(
-        &ipc_ctx,
+        &app,
         GetProjectParams {
             project_id,
             no_validation,
@@ -146,12 +146,9 @@ pub fn open_project_in_window(handle: tauri::AppHandle, id: ProjectId) -> Result
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
-pub fn delete_project(
-    ipc_ctx: State<'_, but_api::IpcContext>,
-    project_id: ProjectId,
-) -> Result<(), Error> {
-    projects::delete_project(&ipc_ctx, DeleteProjectParams { project_id })
+#[instrument(skip(app), err(Debug))]
+pub fn delete_project(app: State<'_, but_api::App>, project_id: ProjectId) -> Result<(), Error> {
+    projects::delete_project(&app, DeleteProjectParams { project_id })
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]

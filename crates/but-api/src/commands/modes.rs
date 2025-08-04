@@ -9,7 +9,7 @@ use gitbutler_project::ProjectId;
 use gitbutler_stack::VirtualBranchesHandle;
 use serde::Deserialize;
 
-use crate::{IpcContext, error::Error};
+use crate::{App, error::Error};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -17,12 +17,9 @@ pub struct OperatingModeParams {
     pub project_id: ProjectId,
 }
 
-pub fn operating_mode(
-    ipc_ctx: &IpcContext,
-    params: OperatingModeParams,
-) -> Result<OperatingMode, Error> {
+pub fn operating_mode(app: &App, params: OperatingModeParams) -> Result<OperatingMode, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     Ok(gitbutler_operating_modes::operating_mode(&ctx))
 }
 
@@ -34,12 +31,9 @@ pub struct EnterEditModeParams {
     pub stack_id: StackId,
 }
 
-pub fn enter_edit_mode(
-    ipc_ctx: &IpcContext,
-    params: EnterEditModeParams,
-) -> Result<EditModeMetadata, Error> {
+pub fn enter_edit_mode(app: &App, params: EnterEditModeParams) -> Result<EditModeMetadata, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let handle = VirtualBranchesHandle::new(project.gb_dir());
     let stack = handle.get_stack(params.stack_id)?;
 
@@ -60,11 +54,11 @@ pub struct AbortEditAndReturnToWorkspaceParams {
 }
 
 pub fn abort_edit_and_return_to_workspace(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: AbortEditAndReturnToWorkspaceParams,
 ) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
 
     gitbutler_edit_mode::commands::abort_and_return_to_workspace(&ctx)?;
 
@@ -78,11 +72,11 @@ pub struct SaveEditAndReturnToWorkspaceParams {
 }
 
 pub fn save_edit_and_return_to_workspace(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: SaveEditAndReturnToWorkspaceParams,
 ) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
 
     gitbutler_edit_mode::commands::save_and_return_to_workspace(&ctx)?;
 
@@ -96,11 +90,11 @@ pub struct EditInitialIndexStateParams {
 }
 
 pub fn edit_initial_index_state(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: EditInitialIndexStateParams,
 ) -> Result<Vec<(TreeChange, Option<ConflictEntryPresence>)>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
 
     gitbutler_edit_mode::commands::starting_index_state(&ctx).map_err(Into::into)
 }
@@ -112,11 +106,11 @@ pub struct EditChangesFromInitialParams {
 }
 
 pub fn edit_changes_from_initial(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: EditChangesFromInitialParams,
 ) -> Result<Vec<TreeChange>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
 
     gitbutler_edit_mode::commands::changes_from_initial(&ctx).map_err(Into::into)
 }

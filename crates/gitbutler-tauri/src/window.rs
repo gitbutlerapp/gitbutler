@@ -2,7 +2,7 @@ pub(crate) mod state {
     use std::{collections::BTreeMap, sync::Arc};
 
     use anyhow::Result;
-    use but_api::IpcContext;
+    use but_api::App;
     use but_settings::AppSettingsWithDiskSync;
     use gitbutler_command_context::CommandContext;
     use gitbutler_project as projects;
@@ -158,13 +158,13 @@ pub(crate) mod state {
         state: Arc<parking_lot::Mutex<BTreeMap<WindowLabel, State>>>,
     }
 
-    fn handler_from_app(app: &AppHandle) -> Result<gitbutler_watcher::Handler> {
-        let ipc_ctx = app.state::<IpcContext>().inner().clone();
+    fn handler_from_app(app_handle: &AppHandle) -> Result<gitbutler_watcher::Handler> {
+        let app = app_handle.state::<App>().inner().clone();
 
         Ok(gitbutler_watcher::Handler::new(
-            (*ipc_ctx.user_controller).clone(),
+            (*app.user_controller).clone(),
             {
-                let app = app.clone();
+                let app = app_handle.clone();
                 move |change| ChangeForFrontend::from(change).send(&app)
             },
         ))

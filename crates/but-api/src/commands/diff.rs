@@ -1,5 +1,5 @@
 use crate::hex_hash::HexHash;
-use crate::{IpcContext, error::Error};
+use crate::{App, error::Error};
 use anyhow::Context;
 use but_core::{
     Commit,
@@ -24,14 +24,14 @@ pub struct TreeChangeDiffsParams {
 /// Provide a unified diff for `change`, but fail if `change` is a [type-change](but_core::ModeFlags::TypeChange)
 /// or if it involves a change to a [submodule](gix::object::Kind::Commit).
 pub fn tree_change_diffs(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: TreeChangeDiffsParams,
 ) -> anyhow::Result<but_core::UnifiedDiff, Error> {
     let change: but_core::TreeChange = params.change.into();
     let project = gitbutler_project::get(params.project_id)?;
     let repo = gix::open(project.path).map_err(anyhow::Error::from)?;
     Ok(change
-        .unified_diff(&repo, ipc_ctx.app_settings.get()?.context_lines)?
+        .unified_diff(&repo, app.app_settings.get()?.context_lines)?
         .context("TODO: Submodules must be handled specifically in the UI")?)
 }
 
@@ -43,7 +43,7 @@ pub struct CommitDetailsParams {
 }
 
 pub fn commit_details(
-    _ipc_ctx: &IpcContext,
+    _app: &App,
     params: CommitDetailsParams,
 ) -> anyhow::Result<CommitDetails, Error> {
     let project = gitbutler_project::get(params.project_id)?;
@@ -87,11 +87,11 @@ pub struct ChangesInBranchParams {
 /// Note that `stack_id` is deprecated in favor of `branch_name`
 /// *(which should be a full ref-name as well and make `remote` unnecessary)*
 pub fn changes_in_branch(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: ChangesInBranchParams,
 ) -> anyhow::Result<TreeChanges, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     changes_in_branch_inner(ctx, params.remote, params.branch_name).map_err(Into::into)
 }
 
@@ -126,11 +126,11 @@ pub struct ChangesInWorktreeParams {
 }
 
 pub fn changes_in_worktree(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: ChangesInWorktreeParams,
 ) -> anyhow::Result<WorktreeChanges, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = &mut CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = &mut CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let changes = but_core::diff::worktree_changes(&ctx.gix_repo()?)?;
 
     let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
@@ -173,11 +173,11 @@ pub struct AssignHunkParams {
 }
 
 pub fn assign_hunk(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: AssignHunkParams,
 ) -> anyhow::Result<Vec<AssignmentRejection>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = &mut CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = &mut CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let rejections = but_hunk_assignment::assign(ctx, params.assignments, None)?;
     Ok(rejections)
 }

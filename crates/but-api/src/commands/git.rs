@@ -10,7 +10,7 @@ use serde::Deserialize;
 
 use crate::NoParams;
 use crate::error::ToError as _;
-use crate::{IpcContext, error::Error};
+use crate::{App, error::Error};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -19,11 +19,11 @@ pub struct GitRemoteBranchesParams {
 }
 
 pub fn git_remote_branches(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: GitRemoteBranchesParams,
 ) -> Result<Vec<RemoteRefname>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     Ok(ctx.repo().remote_branches()?)
 }
 
@@ -35,9 +35,9 @@ pub struct GitTestPushParams {
     pub branch_name: String,
 }
 
-pub fn git_test_push(ipc_ctx: &IpcContext, params: GitTestPushParams) -> Result<(), Error> {
+pub fn git_test_push(app: &App, params: GitTestPushParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     ctx.git_test_push(&params.remote_name, &params.branch_name, Some(None))?;
     Ok(())
 }
@@ -50,9 +50,9 @@ pub struct GitTestFetchParams {
     pub action: Option<String>,
 }
 
-pub fn git_test_fetch(ipc_ctx: &IpcContext, params: GitTestFetchParams) -> Result<(), Error> {
+pub fn git_test_fetch(app: &App, params: GitTestFetchParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     ctx.fetch(
         &params.remote_name,
         Some(params.action.unwrap_or_else(|| "test".to_string())),
@@ -66,9 +66,9 @@ pub struct GitIndexSizeParams {
     pub project_id: ProjectId,
 }
 
-pub fn git_index_size(ipc_ctx: &IpcContext, params: GitIndexSizeParams) -> Result<usize, Error> {
+pub fn git_index_size(app: &App, params: GitIndexSizeParams) -> Result<usize, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let size = ctx
         .repo()
         .index()
@@ -83,14 +83,14 @@ pub struct GitHeadParams {
     pub project_id: ProjectId,
 }
 
-pub fn git_head(ipc_ctx: &IpcContext, params: GitHeadParams) -> Result<String, Error> {
+pub fn git_head(app: &App, params: GitHeadParams) -> Result<String, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let head = ctx.repo().head().context("failed to get repository head")?;
     Ok(head.name().unwrap().to_string())
 }
 
-pub fn delete_all_data(_ipc_ctx: &IpcContext, _params: NoParams) -> Result<(), Error> {
+pub fn delete_all_data(_app: &App, _params: NoParams) -> Result<(), Error> {
     for project in gitbutler_project::list().context("failed to list projects")? {
         gitbutler_project::delete(project.id)
             .map_err(|err| err.context("failed to delete project"))?;
@@ -106,7 +106,7 @@ pub struct GitSetGlobalConfigParams {
 }
 
 pub fn git_set_global_config(
-    _ipc_ctx: &IpcContext,
+    _app: &App,
     params: GitSetGlobalConfigParams,
 ) -> Result<String, Error> {
     let mut config = git2::Config::open_default().to_error()?;
@@ -121,7 +121,7 @@ pub struct GitRemoveGlobalConfigParams {
 }
 
 pub fn git_remove_global_config(
-    _ipc_ctx: &IpcContext,
+    _app: &App,
     params: GitRemoveGlobalConfigParams,
 ) -> Result<(), Error> {
     let mut config = git2::Config::open_default().to_error()?;
@@ -136,7 +136,7 @@ pub struct GitGetGlobalConfigParams {
 }
 
 pub fn git_get_global_config(
-    _ipc_ctx: &IpcContext,
+    _app: &App,
     params: GitGetGlobalConfigParams,
 ) -> Result<Option<String>, Error> {
     let config = git2::Config::open_default().to_error()?;

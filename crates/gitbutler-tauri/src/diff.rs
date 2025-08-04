@@ -14,24 +14,24 @@ use tracing::instrument;
 /// Provide a unified diff for `change`, but fail if `change` is a [type-change](but_core::ModeFlags::TypeChange)
 /// or if it involves a change to a [submodule](gix::object::Kind::Commit).
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn tree_change_diffs(
-    ipc_ctx: State<'_, but_api::IpcContext>,
+    app: State<'_, but_api::App>,
     project_id: ProjectId,
     change: TreeChange,
 ) -> anyhow::Result<but_core::UnifiedDiff, Error> {
-    diff::tree_change_diffs(&ipc_ctx, TreeChangeDiffsParams { project_id, change })
+    diff::tree_change_diffs(&app, TreeChangeDiffsParams { project_id, change })
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn commit_details(
-    ipc_ctx: State<'_, but_api::IpcContext>,
+    app: State<'_, but_api::App>,
     project_id: ProjectId,
     commit_id: HexHash,
 ) -> anyhow::Result<CommitDetails, Error> {
     diff::commit_details(
-        &ipc_ctx,
+        &app,
         CommitDetailsParams {
             project_id,
             commit_id,
@@ -46,9 +46,9 @@ pub fn commit_details(
 /// Note that `stack_id` is deprecated in favor of `branch_name`
 /// *(which should be a full ref-name as well and make `remote` unnecessary)*
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn changes_in_branch(
-    ipc_ctx: State<'_, but_api::IpcContext>,
+    app: State<'_, but_api::App>,
     project_id: ProjectId,
     // TODO: remove this, go by name. Ideally, the UI would pass us two commits.
     _stack_id: Option<StackId>,
@@ -56,7 +56,7 @@ pub fn changes_in_branch(
     remote: Option<String>,
 ) -> anyhow::Result<TreeChanges, Error> {
     diff::changes_in_branch(
-        &ipc_ctx,
+        &app,
         ChangesInBranchParams {
             project_id,
             _stack_id,
@@ -76,23 +76,23 @@ pub fn changes_in_branch(
 ///
 /// All ignored status changes are also provided so they can be displayed separately.
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn changes_in_worktree(
-    ipc_ctx: State<'_, but_api::IpcContext>,
+    app: State<'_, but_api::App>,
     project_id: ProjectId,
 ) -> anyhow::Result<WorktreeChanges, Error> {
-    diff::changes_in_worktree(&ipc_ctx, ChangesInWorktreeParams { project_id })
+    diff::changes_in_worktree(&app, ChangesInWorktreeParams { project_id })
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn assign_hunk(
-    ipc_ctx: State<'_, but_api::IpcContext>,
+    app: State<'_, but_api::App>,
     project_id: ProjectId,
     assignments: Vec<HunkAssignmentRequest>,
 ) -> anyhow::Result<Vec<AssignmentRejection>, Error> {
     diff::assign_hunk(
-        &ipc_ctx,
+        &app,
         AssignHunkParams {
             project_id,
             assignments,

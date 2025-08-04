@@ -7,13 +7,13 @@ pub mod commands {
     use tracing::instrument;
 
     #[tauri::command(async)]
-    #[instrument(skip(ipc_ctx), err(Debug))]
+    #[instrument(skip(app), err(Debug))]
     pub fn get_project_archive_path(
-        ipc_ctx: State<'_, but_api::IpcContext>,
+        app: State<'_, but_api::App>,
         project_id: &str,
     ) -> Result<PathBuf, Error> {
         zip::get_project_archive_path(
-            &ipc_ctx,
+            &app,
             GetProjectArchivePathParams {
                 project_id: project_id.to_string(),
             },
@@ -21,10 +21,8 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(ipc_ctx), err(Debug))]
-    pub fn get_logs_archive_path(
-        ipc_ctx: State<'_, but_api::IpcContext>,
-    ) -> Result<PathBuf, Error> {
-        zip::get_logs_archive_path(&ipc_ctx, GetLogsArchivePathParams {})
+    #[instrument(skip(app), err(Debug))]
+    pub fn get_logs_archive_path(app: State<'_, but_api::App>) -> Result<PathBuf, Error> {
+        zip::get_logs_archive_path(&app, GetLogsArchivePathParams {})
     }
 }

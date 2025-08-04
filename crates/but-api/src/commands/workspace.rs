@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use crate::hex_hash::HexHash;
-use crate::{IpcContext, error::Error};
+use crate::{App, error::Error};
 use anyhow::Context;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_hunk_assignment::HunkAssignmentRequest;
@@ -28,9 +28,9 @@ pub struct StacksParams {
     pub filter: Option<but_workspace::StacksFilter>,
 }
 
-pub fn stacks(ipc_ctx: &IpcContext, params: StacksParams) -> Result<Vec<StackEntry>, Error> {
+pub fn stacks(app: &App, params: StacksParams) -> Result<Vec<StackEntry>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let repo = ctx.gix_repo_for_merging_non_persisting()?;
     if ctx.app_settings().feature_flags.ws3 {
         let meta = ref_metadata_toml(ctx.project())?;
@@ -53,9 +53,9 @@ pub struct ShowGraphSvgParams {
 }
 
 #[cfg(unix)]
-pub fn show_graph_svg(ipc_ctx: &IpcContext, params: ShowGraphSvgParams) -> Result<(), Error> {
+pub fn show_graph_svg(app: &App, params: ShowGraphSvgParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let repo = ctx.gix_repo_minimal()?;
     let meta = ref_metadata_toml(&project)?;
     let mut graph = but_graph::Graph::from_head(
@@ -100,11 +100,11 @@ pub struct StackDetailsParams {
 }
 
 pub fn stack_details(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: StackDetailsParams,
 ) -> Result<but_workspace::ui::StackDetails, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     if ctx.app_settings().feature_flags.ws3 {
         let repo = ctx.gix_repo_for_merging_non_persisting()?;
         let meta = ref_metadata_toml(ctx.project())?;
@@ -128,11 +128,11 @@ pub struct BranchDetailsParams {
 }
 
 pub fn branch_details(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: BranchDetailsParams,
 ) -> Result<but_workspace::ui::BranchDetails, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     if ctx.app_settings().feature_flags.ws3 {
         let repo = ctx.gix_repo_for_merging_non_persisting()?;
         let meta = ref_metadata_toml(ctx.project())?;
@@ -178,11 +178,11 @@ pub struct CreateCommitFromWorktreeChangesParams {
 /// `stack_branch_name` is the short name of the reference that the UI knows is present in a given segment.
 /// It is necessary to insert the new commit into the right bucket.
 pub fn create_commit_from_worktree_changes(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: CreateCommitFromWorktreeChangesParams,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let mut guard = project.exclusive_worktree_access();
     let snapshot_tree = ctx.prepare_snapshot(guard.read_permission());
 
@@ -225,7 +225,7 @@ pub struct AmendCommitFromWorktreeChangesParams {
 /// Note that submodules *must* be provided as diffspec without hunks, as attempting to generate
 /// hunks would fail.
 pub fn amend_commit_from_worktree_changes(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: AmendCommitFromWorktreeChangesParams,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
     let project = gitbutler_project::get(params.project_id)?;
@@ -242,7 +242,7 @@ pub fn amend_commit_from_worktree_changes(
         },
         None,
         params.worktree_changes,
-        ipc_ctx.app_settings.get()?.context_lines,
+        app.app_settings.get()?.context_lines,
         guard.write_permission(),
     )?;
     if !outcome.rejected_specs.is_empty() {
@@ -264,12 +264,12 @@ pub struct DiscardWorktreeChangesParams {
 ///
 /// Returns the `worktree_changes` that couldn't be applied,
 pub fn discard_worktree_changes(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: DiscardWorktreeChangesParams,
 ) -> Result<Vec<but_workspace::DiffSpec>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let repo = but_core::open_repo(project.worktree_path())?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let mut guard = project.exclusive_worktree_access();
 
     let _ = ctx.create_snapshot(
@@ -279,7 +279,7 @@ pub fn discard_worktree_changes(
     let refused = but_workspace::discard_workspace_changes(
         &repo,
         params.worktree_changes,
-        ipc_ctx.app_settings.get()?.context_lines,
+        app.app_settings.get()?.context_lines,
     )?;
     if !refused.is_empty() {
         tracing::warn!(?refused, "Failed to discard at least one hunk");
@@ -317,11 +317,11 @@ pub struct MoveChangesBetweenCommitsParams {
 }
 
 pub fn move_changes_between_commits(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: MoveChangesBetweenCommitsParams,
 ) -> Result<UIMoveChangesResult, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let mut guard = project.exclusive_worktree_access();
 
     let _ = ctx.create_snapshot(
@@ -335,7 +335,7 @@ pub fn move_changes_between_commits(
         params.destination_stack_id,
         params.destination_commit_id.into(),
         params.changes,
-        ipc_ctx.app_settings.get()?.context_lines,
+        app.app_settings.get()?.context_lines,
     )?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
@@ -354,12 +354,9 @@ pub struct SplitBranchParams {
     pub file_changes_to_split_off: Vec<String>,
 }
 
-pub fn split_branch(
-    ipc_ctx: &IpcContext,
-    params: SplitBranchParams,
-) -> Result<UIMoveChangesResult, Error> {
+pub fn split_branch(app: &App, params: SplitBranchParams) -> Result<UIMoveChangesResult, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let mut guard = project.exclusive_worktree_access();
 
     let _ = ctx.create_snapshot(
@@ -373,7 +370,7 @@ pub fn split_branch(
         params.source_branch_name,
         params.new_branch_name.clone(),
         &params.file_changes_to_split_off,
-        ipc_ctx.app_settings.get()?.context_lines,
+        app.app_settings.get()?.context_lines,
     )?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
@@ -402,11 +399,11 @@ pub struct SplitBranchIntoDependentBranchParams {
 }
 
 pub fn split_branch_into_dependent_branch(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: SplitBranchIntoDependentBranchParams,
 ) -> Result<UIMoveChangesResult, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let mut guard = project.exclusive_worktree_access();
 
     let _ = ctx.create_snapshot(
@@ -420,7 +417,7 @@ pub fn split_branch_into_dependent_branch(
         params.source_branch_name,
         params.new_branch_name.clone(),
         &params.file_changes_to_split_off,
-        ipc_ctx.app_settings.get()?.context_lines,
+        app.app_settings.get()?.context_lines,
     )?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
@@ -445,11 +442,11 @@ pub struct UncommitChangesParams {
 /// specified.
 /// If `assign_to` is not provided, the changes will be unassigned.
 pub fn uncommit_changes(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: UncommitChangesParams,
 ) -> Result<UIMoveChangesResult, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let mut ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let mut ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let mut guard = project.exclusive_worktree_access();
 
     let _ = ctx.create_snapshot(
@@ -482,7 +479,7 @@ pub fn uncommit_changes(
         params.stack_id,
         params.commit_id.into(),
         params.changes,
-        ipc_ctx.app_settings.get()?.context_lines,
+        app.app_settings.get()?.context_lines,
     )?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
@@ -530,11 +527,11 @@ pub struct StashIntoBranchParams {
 /// Immediatelly after the changes are committed, the branch is unapplied from the workspace, and the "stash" branch can be re-applied at a later time
 /// In theory it should be possible to specify an existing "dumping" branch for this, but currently this endpoint expects a new branch.
 pub fn stash_into_branch(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: StashIntoBranchParams,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let repo = ctx.gix_repo_for_merging()?;
 
     let mut guard = project.exclusive_worktree_access();
@@ -570,7 +567,7 @@ pub fn stash_into_branch(
         },
         None,
         params.worktree_changes,
-        ipc_ctx.app_settings.get()?.context_lines,
+        app.app_settings.get()?.context_lines,
         perm,
     );
 
@@ -592,12 +589,9 @@ pub struct CannedBranchNameParams {
 
 /// Returns a new available branch name based on a simple template - user_initials-branch-count
 /// The main point of this is to be able to provide branch names that are not already taken.
-pub fn canned_branch_name(
-    ipc_ctx: &IpcContext,
-    params: CannedBranchNameParams,
-) -> Result<String, Error> {
+pub fn canned_branch_name(app: &App, params: CannedBranchNameParams) -> Result<String, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let template = gitbutler_stack::canned_branch_name(ctx.repo())?;
     let state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     gitbutler_stack::Stack::next_available_name(&ctx.gix_repo()?, &state, template, false)
@@ -613,11 +607,11 @@ pub struct TargetCommitsParams {
 }
 
 pub fn target_commits(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: TargetCommitsParams,
 ) -> Result<Vec<but_workspace::ui::Commit>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     but_workspace::log_target_first_parent(
         &ctx,
         params.last_commit_id.map(|id| id.into()),
