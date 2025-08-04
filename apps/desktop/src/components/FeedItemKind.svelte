@@ -102,22 +102,17 @@
 					</div>
 
 					<div class="operation-content">
-						<p class="operation__title">
-							Renamed branch from
-							<span>{kind.subject.oldBranchName}</span>
-
-							<span>→</span>
-
-							<button
-								class="operation__commit-branch"
-								type="button"
-								onclick={() => selectBranch(kind.subject.stackId, kind.subject.newBranchName)}
-							>
-								<span>
-									{kind.subject.newBranchName}
-								</span>
-							</button>
-						</p>
+						<p class="operation__title">Renamed branch</p>
+						<span>→</span>
+						<button
+							class="operation__commit-branch truncate"
+							type="button"
+							onclick={() => selectBranch(kind.subject.stackId, kind.subject.newBranchName)}
+						>
+							<span class="truncate" title={kind.subject.newBranchName}>
+								{kind.subject.newBranchName}
+							</span>
+						</button>
 					</div>
 				</div>
 			</div>
@@ -258,6 +253,7 @@
 		align-items: center;
 		width: 100%;
 		min-width: 0;
+		overflow: hidden;
 	}
 
 	.operation-row {
@@ -281,24 +277,20 @@
 
 	.operation-content {
 		display: flex;
-		flex-grow: 1;
 		align-items: center;
 		min-width: 0;
 		gap: 2px;
 	}
 
 	.operation__title {
-		flex-grow: 1;
-		width: 100%;
 		text-wrap: nowrap;
 	}
 
 	.operation__commit-branch,
 	.operation__commit-sha {
-		display: inline-flex;
-		align-items: center;
 		gap: 2px;
 		text-decoration: dotted underline;
+		text-wrap: nowrap;
 		cursor: pointer;
 		transition: color var(--transition-fast);
 	}

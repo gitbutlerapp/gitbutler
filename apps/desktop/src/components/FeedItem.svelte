@@ -268,7 +268,9 @@
 	}
 
 	.action-item {
+		box-sizing: border-box;
 		display: flex;
+		min-width: 0;
 		padding: 16px 12px;
 		gap: 14px;
 		border-bottom: 1px solid var(--clr-border-3);
@@ -294,7 +296,6 @@
 	.action-item__content {
 		display: flex;
 
-		flex-grow: 1;
 		flex-direction: column;
 		width: 100%;
 		min-width: 0;

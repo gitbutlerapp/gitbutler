@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import FeedItem from '$components/FeedItem.svelte';
 	import CliSymLink from '$components/profileSettings/CliSymLink.svelte';
 	import { ACTION_SERVICE } from '$lib/actions/actionService.svelte';
@@ -22,7 +21,7 @@
 		Select,
 		SelectItem
 	} from '@gitbutler/ui';
-	import { onMount, tick } from 'svelte';
+	import { tick } from 'svelte';
 
 	type Props = {
 		projectId: string;
@@ -102,15 +101,6 @@
 		canLoadMore = true;
 	}
 
-	onMount(() => {
-		if (viewport) {
-			setTimeout(() => {
-				viewport!.scrollTop = viewport!.scrollHeight;
-				canLoadMore = true;
-			}, 100);
-		}
-	});
-
 	$effect(() => {
 		if (topSentinel) {
 			// Setup observer
@@ -173,7 +163,7 @@
 			<h2 class="flex-1 text-14 text-semibold">Butler Actions</h2>
 			<Button icon="cross" kind="ghost" onclick={onCloseClick} />
 		</div>
-		<ConfigurableScrollableContainer childrenWrapHeight="100%" bind:viewport>
+		<div class="feed__scroll-area">
 			{#if $combinedEntries.length === 0}
 				<div class="feed__empty-state">
 					<div class="feed__empty-state__content">
@@ -263,7 +253,7 @@
 					</div>
 				</div>
 			{:else}
-				<div class="feed-list">
+				<div class="feed-list" bind:this={viewport}>
 					<div bind:this={bottomAnchor} style="height: 1px; margin-top: 8px;"></div>
 					{#each $combinedEntries as entry (entry.id)}
 						<FeedItem {projectId} action={entry} />
@@ -271,7 +261,7 @@
 					<div bind:this={topSentinel} style="height: 1px;"></div>
 				</div>
 			{/if}
-		</ConfigurableScrollableContainer>
+		</div>
 		{#if $settingsStore?.featureFlags.butbot}
 			<div class="feed__input-container">
 				<div class="text-input feed__input">
@@ -359,6 +349,12 @@
 		background-color: var(--clr-bg-1);
 	}
 
+	.feed__scroll-area {
+		flex: 1;
+		min-width: 0px;
+		overflow: hidden;
+	}
+
 	.feed__header {
 		display: flex;
 		align-items: center;
@@ -369,9 +365,20 @@
 	}
 
 	.feed-list {
+		box-sizing: border-box;
 		display: flex;
 		flex-direction: column-reverse;
-		min-height: 100%;
+		height: 100%;
+		overflow-x: hidden;
+		overflow-y: scroll;
+		scrollbar-width: none; /* Firefox */
+		-ms-overflow-style: none; /* IE 10+ */
+
+		width: 100%;
+		min-width: none;
+	}
+	.feed-list::-webkit-scrollbar {
+		display: none; /* Chrome, Safari, Opera */
 	}
 
 	.feed__empty-state {
