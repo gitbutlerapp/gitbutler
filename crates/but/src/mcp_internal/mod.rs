@@ -22,8 +22,6 @@ pub mod project;
 pub mod stack;
 pub mod status;
 
-pub(crate) const UI_CONTEXT_LINES: u32 = 3;
-
 pub(crate) async fn start(app_settings: AppSettings) -> Result<()> {
     // Initialize the tracing subscriber with file and stdout logging
     tracing_subscriber::fmt()

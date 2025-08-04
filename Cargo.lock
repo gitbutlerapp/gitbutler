@@ -774,6 +774,7 @@ dependencies = [
  "but-hunk-assignment",
  "but-hunk-dependency",
  "but-settings",
+ "but-tools",
  "but-workspace",
  "chrono",
  "clap",
