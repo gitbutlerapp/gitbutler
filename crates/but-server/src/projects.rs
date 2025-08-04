@@ -1,6 +1,6 @@
 use crate::Extra;
 use anyhow::{Context as _, Result};
-use but_api::{IpcContext, broadcaster::FrontendEvent, error::ToError};
+use but_api::{App, broadcaster::FrontendEvent, error::ToError};
 use gitbutler_project::{Project, ProjectId};
 use gitbutler_watcher::{Change, WatcherHandle};
 use serde::Deserialize;
@@ -24,7 +24,7 @@ impl ActiveProjects {
         }
     }
 
-    pub fn set_active(&mut self, project: &Project, ctx: &IpcContext) -> Result<()> {
+    pub fn set_active(&mut self, project: &Project, ctx: &App) -> Result<()> {
         if self.projects.contains_key(&project.id) {
             return Ok(());
         }
@@ -105,7 +105,7 @@ pub async fn list_projects(extra: &Extra) -> Result<serde_json::Value, but_api::
 }
 
 pub async fn set_project_active(
-    ctx: &IpcContext,
+    ctx: &App,
     extra: &Extra,
     params: serde_json::Value,
 ) -> Result<serde_json::Value, but_api::error::Error> {

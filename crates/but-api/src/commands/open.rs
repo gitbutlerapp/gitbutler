@@ -4,7 +4,7 @@ use serde::Deserialize;
 use std::env;
 use url::Url;
 
-use crate::{IpcContext, error::Error};
+use crate::{App, error::Error};
 
 pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
     let target_url = Url::parse(path).with_context(|| format!("Invalid path format: '{path}'"))?;
@@ -88,7 +88,7 @@ pub struct OpenUrlParams {
     pub url: String,
 }
 
-pub fn open_url(_ipc_ctx: &IpcContext, params: OpenUrlParams) -> Result<(), Error> {
+pub fn open_url(_app: &App, params: OpenUrlParams) -> Result<(), Error> {
     Ok(open_that(&params.url)?)
 }
 
@@ -98,7 +98,7 @@ pub struct ShowInFinderParams {
     pub path: String,
 }
 
-pub fn show_in_finder(_ipc_ctx: &IpcContext, params: ShowInFinderParams) -> Result<(), Error> {
+pub fn show_in_finder(_app: &App, params: ShowInFinderParams) -> Result<(), Error> {
     // Cross-platform implementation to open file/directory in the default file manager
     // macOS: Opens in Finder (with -R flag to reveal the item)
     // Windows: Opens in File Explorer

@@ -1,4 +1,4 @@
-use but_api::{commands::repo, IpcContext};
+use but_api::{commands::repo, App};
 use but_graph::virtual_branches_legacy_types::BranchOwnershipClaims;
 use but_workspace::DiffSpec;
 use gitbutler_branch_actions::RemoteBranchFile;
@@ -12,25 +12,25 @@ use tracing::instrument;
 use but_api::error::Error;
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn git_get_local_config(
-    ipc_ctx: State<IpcContext>,
+    app: State<App>,
     project_id: ProjectId,
     key: String,
 ) -> Result<Option<String>, Error> {
-    repo::git_get_local_config(&ipc_ctx, repo::GitGetLocalConfigParams { project_id, key })
+    repo::git_get_local_config(&app, repo::GitGetLocalConfigParams { project_id, key })
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn git_set_local_config(
-    ipc_ctx: State<IpcContext>,
+    app: State<App>,
     project_id: ProjectId,
     key: String,
     value: String,
 ) -> Result<(), Error> {
     repo::git_set_local_config(
-        &ipc_ctx,
+        &app,
         repo::GitSetLocalConfigParams {
             project_id,
             key,
@@ -40,23 +40,20 @@ pub fn git_set_local_config(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
-pub fn check_signing_settings(
-    ipc_ctx: State<IpcContext>,
-    project_id: ProjectId,
-) -> Result<bool, Error> {
-    repo::check_signing_settings(&ipc_ctx, repo::CheckSigningSettingsParams { project_id })
+#[instrument(skip(app), err(Debug))]
+pub fn check_signing_settings(app: State<App>, project_id: ProjectId) -> Result<bool, Error> {
+    repo::check_signing_settings(&app, repo::CheckSigningSettingsParams { project_id })
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn git_clone_repository(
-    ipc_ctx: State<IpcContext>,
+    app: State<App>,
     repository_url: String,
     target_dir: &Path,
 ) -> Result<(), Error> {
     repo::git_clone_repository(
-        &ipc_ctx,
+        &app,
         repo::GitCloneRepositoryParams {
             repository_url,
             target_dir: target_dir.to_path_buf(),
@@ -65,24 +62,24 @@ pub fn git_clone_repository(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn get_uncommited_files(
-    ipc_ctx: State<IpcContext>,
+    app: State<App>,
     project_id: ProjectId,
 ) -> Result<Vec<RemoteBranchFile>, Error> {
-    repo::get_uncommitted_files(&ipc_ctx, repo::GetUncommittedFilesParams { project_id })
+    repo::get_uncommitted_files(&app, repo::GetUncommittedFilesParams { project_id })
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn get_commit_file(
-    ipc_ctx: State<IpcContext>,
+    app: State<App>,
     project_id: ProjectId,
     relative_path: &Path,
     commit_id: String,
 ) -> Result<FileInfo, Error> {
     repo::get_commit_file(
-        &ipc_ctx,
+        &app,
         repo::GetCommitFileParams {
             project_id,
             relative_path: relative_path.to_path_buf(),
@@ -92,14 +89,14 @@ pub fn get_commit_file(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn get_workspace_file(
-    ipc_ctx: State<IpcContext>,
+    app: State<App>,
     project_id: ProjectId,
     relative_path: &Path,
 ) -> Result<FileInfo, Error> {
     repo::get_workspace_file(
-        &ipc_ctx,
+        &app,
         repo::GetWorkspaceFileParams {
             project_id,
             relative_path: relative_path.to_path_buf(),
@@ -108,14 +105,14 @@ pub fn get_workspace_file(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn pre_commit_hook(
-    ipc_ctx: State<IpcContext>,
+    app: State<App>,
     project_id: ProjectId,
     ownership: BranchOwnershipClaims,
 ) -> Result<HookResult, Error> {
     repo::pre_commit_hook(
-        &ipc_ctx,
+        &app,
         repo::PreCommitHookParams {
             project_id,
             ownership,
@@ -124,14 +121,14 @@ pub fn pre_commit_hook(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn pre_commit_hook_diffspecs(
-    ipc_ctx: State<IpcContext>,
+    app: State<App>,
     project_id: ProjectId,
     changes: Vec<DiffSpec>,
 ) -> Result<HookResult, Error> {
     repo::pre_commit_hook_diffspecs(
-        &ipc_ctx,
+        &app,
         repo::PreCommitHookDiffspecsParams {
             project_id,
             changes,
@@ -140,23 +137,20 @@ pub fn pre_commit_hook_diffspecs(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
-pub fn post_commit_hook(
-    ipc_ctx: State<IpcContext>,
-    project_id: ProjectId,
-) -> Result<HookResult, Error> {
-    repo::post_commit_hook(&ipc_ctx, repo::PostCommitHookParams { project_id })
+#[instrument(skip(app), err(Debug))]
+pub fn post_commit_hook(app: State<App>, project_id: ProjectId) -> Result<HookResult, Error> {
+    repo::post_commit_hook(&app, repo::PostCommitHookParams { project_id })
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn message_hook(
-    ipc_ctx: State<IpcContext>,
+    app: State<App>,
     project_id: ProjectId,
     message: String,
 ) -> Result<MessageHookResult, Error> {
     repo::message_hook(
-        &ipc_ctx,
+        &app,
         repo::MessageHookParams {
             project_id,
             message,

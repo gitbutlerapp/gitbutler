@@ -15,34 +15,31 @@ use tauri::State;
 use tracing::instrument;
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn stacks(
-    ipc_ctx: State<'_, but_api::IpcContext>,
+    app: State<'_, but_api::App>,
     project_id: ProjectId,
     filter: Option<StacksFilter>,
 ) -> Result<Vec<StackEntry>, Error> {
-    workspace::stacks(&ipc_ctx, StacksParams { project_id, filter })
+    workspace::stacks(&app, StacksParams { project_id, filter })
 }
 
 #[cfg(unix)]
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
-pub fn show_graph_svg(
-    ipc_ctx: State<'_, but_api::IpcContext>,
-    project_id: ProjectId,
-) -> Result<(), Error> {
-    workspace::show_graph_svg(&ipc_ctx, ShowGraphSvgParams { project_id })
+#[instrument(skip(app), err(Debug))]
+pub fn show_graph_svg(app: State<'_, but_api::App>, project_id: ProjectId) -> Result<(), Error> {
+    workspace::show_graph_svg(&app, ShowGraphSvgParams { project_id })
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn stack_details(
-    ipc_ctx: State<'_, but_api::IpcContext>,
+    app: State<'_, but_api::App>,
     project_id: ProjectId,
     stack_id: Option<StackId>,
 ) -> Result<but_workspace::ui::StackDetails, Error> {
     workspace::stack_details(
-        &ipc_ctx,
+        &app,
         StackDetailsParams {
             project_id,
             stack_id,
@@ -51,15 +48,15 @@ pub fn stack_details(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn branch_details(
-    ipc_ctx: State<'_, but_api::IpcContext>,
+    app: State<'_, but_api::App>,
     project_id: ProjectId,
     branch_name: String,
     remote: Option<String>,
 ) -> Result<but_workspace::ui::BranchDetails, Error> {
     workspace::branch_details(
-        &ipc_ctx,
+        &app,
         BranchDetailsParams {
             project_id,
             branch_name,
@@ -69,10 +66,10 @@ pub fn branch_details(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 #[allow(clippy::too_many_arguments)]
 pub fn create_commit_from_worktree_changes(
-    ipc_ctx: State<'_, but_api::IpcContext>,
+    app: State<'_, but_api::App>,
     project_id: ProjectId,
     stack_id: StackId,
     parent_id: Option<HexHash>,
@@ -81,7 +78,7 @@ pub fn create_commit_from_worktree_changes(
     stack_branch_name: String,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
     workspace::create_commit_from_worktree_changes(
-        &ipc_ctx,
+        &app,
         CreateCommitFromWorktreeChangesParams {
             project_id,
             stack_id,
@@ -94,16 +91,16 @@ pub fn create_commit_from_worktree_changes(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn amend_commit_from_worktree_changes(
-    ipc_ctx: State<'_, but_api::IpcContext>,
+    app: State<'_, but_api::App>,
     project_id: ProjectId,
     stack_id: StackId,
     commit_id: HexHash,
     worktree_changes: Vec<but_workspace::DiffSpec>,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
     workspace::amend_commit_from_worktree_changes(
-        &ipc_ctx,
+        &app,
         AmendCommitFromWorktreeChangesParams {
             project_id,
             stack_id,
@@ -114,14 +111,14 @@ pub fn amend_commit_from_worktree_changes(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn discard_worktree_changes(
-    ipc_ctx: State<'_, but_api::IpcContext>,
+    app: State<'_, but_api::App>,
     project_id: ProjectId,
     worktree_changes: Vec<but_workspace::DiffSpec>,
 ) -> Result<Vec<but_workspace::DiffSpec>, Error> {
     workspace::discard_worktree_changes(
-        &ipc_ctx,
+        &app,
         DiscardWorktreeChangesParams {
             project_id,
             worktree_changes,
@@ -130,10 +127,10 @@ pub fn discard_worktree_changes(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 #[allow(clippy::too_many_arguments)]
 pub fn move_changes_between_commits(
-    ipc_ctx: State<'_, but_api::IpcContext>,
+    app: State<'_, but_api::App>,
     project_id: ProjectId,
     source_stack_id: StackId,
     source_commit_id: HexHash,
@@ -142,7 +139,7 @@ pub fn move_changes_between_commits(
     changes: Vec<but_workspace::DiffSpec>,
 ) -> Result<UIMoveChangesResult, Error> {
     workspace::move_changes_between_commits(
-        &ipc_ctx,
+        &app,
         MoveChangesBetweenCommitsParams {
             project_id,
             source_stack_id,
@@ -155,10 +152,10 @@ pub fn move_changes_between_commits(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 #[allow(clippy::too_many_arguments)]
 pub fn split_branch(
-    ipc_ctx: State<'_, but_api::IpcContext>,
+    app: State<'_, but_api::App>,
     project_id: ProjectId,
     source_stack_id: StackId,
     source_branch_name: String,
@@ -166,7 +163,7 @@ pub fn split_branch(
     file_changes_to_split_off: Vec<String>,
 ) -> Result<UIMoveChangesResult, Error> {
     workspace::split_branch(
-        &ipc_ctx,
+        &app,
         SplitBranchParams {
             project_id,
             source_stack_id,
@@ -178,10 +175,10 @@ pub fn split_branch(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 #[allow(clippy::too_many_arguments)]
 pub fn split_branch_into_dependent_branch(
-    ipc_ctx: State<'_, but_api::IpcContext>,
+    app: State<'_, but_api::App>,
     project_id: ProjectId,
     source_stack_id: StackId,
     source_branch_name: String,
@@ -189,7 +186,7 @@ pub fn split_branch_into_dependent_branch(
     file_changes_to_split_off: Vec<String>,
 ) -> Result<UIMoveChangesResult, Error> {
     workspace::split_branch_into_dependent_branch(
-        &ipc_ctx,
+        &app,
         SplitBranchIntoDependentBranchParams {
             project_id,
             source_stack_id,
@@ -201,10 +198,10 @@ pub fn split_branch_into_dependent_branch(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 #[allow(clippy::too_many_arguments)]
 pub fn uncommit_changes(
-    ipc_ctx: State<'_, but_api::IpcContext>,
+    app: State<'_, but_api::App>,
     project_id: ProjectId,
     stack_id: StackId,
     commit_id: HexHash,
@@ -212,7 +209,7 @@ pub fn uncommit_changes(
     assign_to: Option<StackId>,
 ) -> Result<UIMoveChangesResult, Error> {
     workspace::uncommit_changes(
-        &ipc_ctx,
+        &app,
         UncommitChangesParams {
             project_id,
             stack_id,
@@ -224,15 +221,15 @@ pub fn uncommit_changes(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn stash_into_branch(
-    ipc_ctx: State<'_, but_api::IpcContext>,
+    app: State<'_, but_api::App>,
     project_id: ProjectId,
     branch_name: String,
     worktree_changes: Vec<but_workspace::DiffSpec>,
 ) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
     workspace::stash_into_branch(
-        &ipc_ctx,
+        &app,
         StashIntoBranchParams {
             project_id,
             branch_name,
@@ -242,24 +239,24 @@ pub fn stash_into_branch(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn canned_branch_name(
-    ipc_ctx: State<'_, but_api::IpcContext>,
+    app: State<'_, but_api::App>,
     project_id: ProjectId,
 ) -> Result<String, Error> {
-    workspace::canned_branch_name(&ipc_ctx, CannedBranchNameParams { project_id })
+    workspace::canned_branch_name(&app, CannedBranchNameParams { project_id })
 }
 
 #[tauri::command(async)]
-#[instrument(skip(ipc_ctx), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn target_commits(
-    ipc_ctx: State<'_, but_api::IpcContext>,
+    app: State<'_, but_api::App>,
     project_id: ProjectId,
     last_commit_id: Option<HexHash>,
     page_size: Option<usize>,
 ) -> Result<Vec<but_workspace::ui::Commit>, Error> {
     workspace::target_commits(
-        &ipc_ctx,
+        &app,
         TargetCommitsParams {
             project_id,
             last_commit_id,

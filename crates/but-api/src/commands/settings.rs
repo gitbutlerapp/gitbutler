@@ -4,10 +4,10 @@ use but_settings::api::{FeatureFlagsUpdate, TelemetryUpdate};
 use serde::Deserialize;
 
 use crate::NoParams;
-use crate::{IpcContext, error::Error};
+use crate::{App, error::Error};
 
-pub fn get_app_settings(ipc_ctx: &IpcContext, _params: NoParams) -> Result<AppSettings, Error> {
-    Ok(ipc_ctx.app_settings.get()?.clone())
+pub fn get_app_settings(app: &App, _params: NoParams) -> Result<AppSettings, Error> {
+    Ok(app.app_settings.get()?.clone())
 }
 
 #[derive(Deserialize)]
@@ -17,11 +17,10 @@ pub struct UpdateOnboardingCompleteParams {
 }
 
 pub fn update_onboarding_complete(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: UpdateOnboardingCompleteParams,
 ) -> Result<(), Error> {
-    ipc_ctx
-        .app_settings
+    app.app_settings
         .update_onboarding_complete(params.update)
         .map_err(|e| e.into())
 }
@@ -32,9 +31,8 @@ pub struct UpdateTelemetryParams {
     pub update: TelemetryUpdate,
 }
 
-pub fn update_telemetry(ipc_ctx: &IpcContext, params: UpdateTelemetryParams) -> Result<(), Error> {
-    ipc_ctx
-        .app_settings
+pub fn update_telemetry(app: &App, params: UpdateTelemetryParams) -> Result<(), Error> {
+    app.app_settings
         .update_telemetry(params.update)
         .map_err(|e| e.into())
 }
@@ -46,11 +44,10 @@ pub struct UpdateTelemetryDistinctIdParams {
 }
 
 pub fn update_telemetry_distinct_id(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: UpdateTelemetryDistinctIdParams,
 ) -> Result<(), Error> {
-    ipc_ctx
-        .app_settings
+    app.app_settings
         .update_telemetry_distinct_id(params.app_distinct_id)
         .map_err(|e| e.into())
 }
@@ -61,12 +58,8 @@ pub struct UpdateFeatureFlagsParams {
     pub update: FeatureFlagsUpdate,
 }
 
-pub fn update_feature_flags(
-    ipc_ctx: &IpcContext,
-    params: UpdateFeatureFlagsParams,
-) -> Result<(), Error> {
-    ipc_ctx
-        .app_settings
+pub fn update_feature_flags(app: &App, params: UpdateFeatureFlagsParams) -> Result<(), Error> {
+    app.app_settings
         .update_feature_flags(params.update)
         .map_err(|e| e.into())
 }

@@ -3,7 +3,7 @@ use std::path::Path;
 
 use anyhow::{Context, anyhow, bail};
 
-use crate::{IpcContext, NoParams, error::Error};
+use crate::{App, NoParams, error::Error};
 
 fn get_cli_path() -> anyhow::Result<std::path::PathBuf> {
     let cli_path = std::env::current_exe()?;
@@ -84,11 +84,11 @@ fn do_install_cli() -> anyhow::Result<()> {
     }
 }
 
-pub fn install_cli(_ipc_ctx: &IpcContext, _params: NoParams) -> Result<(), Error> {
+pub fn install_cli(_app: &App, _params: NoParams) -> Result<(), Error> {
     do_install_cli().map_err(Error::from)
 }
 
-pub fn cli_path(_ipc_ctx: &IpcContext, _params: NoParams) -> Result<String, Error> {
+pub fn cli_path(_app: &App, _params: NoParams) -> Result<String, Error> {
     let cli_path = get_cli_path()?;
     if !cli_path.exists() {
         return Err(anyhow::anyhow!(

@@ -2,7 +2,7 @@ use anyhow::Result;
 use gitbutler_user::User;
 use serde::{Deserialize, Serialize};
 
-use crate::{IpcContext, NoParams, error::Error};
+use crate::{App, NoParams, error::Error};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -62,11 +62,11 @@ impl TryFrom<User> for UserWithSecrets {
     }
 }
 
-pub fn get_user(ipc_ctx: &IpcContext, _params: NoParams) -> Result<Option<UserWithSecrets>, Error> {
-    match ipc_ctx.user_controller.get_user()? {
+pub fn get_user(app: &App, _params: NoParams) -> Result<Option<UserWithSecrets>, Error> {
+    match app.user_controller.get_user()? {
         Some(user) => {
             if let Err(err) = user.access_token() {
-                ipc_ctx.user_controller.delete_user()?;
+                app.user_controller.delete_user()?;
                 return Err(err.context("Please login to GitButler again").into());
             }
             Ok(Some(user.try_into()?))
@@ -75,12 +75,12 @@ pub fn get_user(ipc_ctx: &IpcContext, _params: NoParams) -> Result<Option<UserWi
     }
 }
 
-pub fn set_user(ipc_ctx: &IpcContext, params: SetUserParams) -> Result<User, Error> {
-    ipc_ctx.user_controller.set_user(&params.user)?;
+pub fn set_user(app: &App, params: SetUserParams) -> Result<User, Error> {
+    app.user_controller.set_user(&params.user)?;
     Ok(params.user)
 }
 
-pub fn delete_user(ipc_ctx: &IpcContext, _params: NoParams) -> Result<(), Error> {
-    ipc_ctx.user_controller.delete_user()?;
+pub fn delete_user(app: &App, _params: NoParams) -> Result<(), Error> {
+    app.user_controller.delete_user()?;
     Ok(())
 }

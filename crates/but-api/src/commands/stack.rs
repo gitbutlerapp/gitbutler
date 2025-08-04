@@ -6,7 +6,7 @@ use gitbutler_stack::StackId;
 use gitbutler_user::User;
 use serde::Deserialize;
 
-use crate::{IpcContext, error::Error};
+use crate::{App, error::Error};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -16,9 +16,9 @@ pub struct CreateBranchParams {
     pub request: CreateSeriesRequest,
 }
 
-pub fn create_branch(ipc_ctx: &IpcContext, params: CreateBranchParams) -> Result<(), Error> {
+pub fn create_branch(app: &App, params: CreateBranchParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     gitbutler_branch_actions::stack::create_branch(&ctx, params.stack_id, params.request)?;
     Ok(())
 }
@@ -31,9 +31,9 @@ pub struct RemoveBranchParams {
     pub branch_name: String,
 }
 
-pub fn remove_branch(ipc_ctx: &IpcContext, params: RemoveBranchParams) -> Result<(), Error> {
+pub fn remove_branch(app: &App, params: RemoveBranchParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     gitbutler_branch_actions::stack::remove_branch(&ctx, params.stack_id, params.branch_name)?;
     Ok(())
 }
@@ -47,12 +47,9 @@ pub struct UpdateBranchNameParams {
     pub new_name: String,
 }
 
-pub fn update_branch_name(
-    ipc_ctx: &IpcContext,
-    params: UpdateBranchNameParams,
-) -> Result<(), Error> {
+pub fn update_branch_name(app: &App, params: UpdateBranchNameParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     gitbutler_branch_actions::stack::update_branch_name(
         &ctx,
         params.stack_id,
@@ -72,11 +69,11 @@ pub struct UpdateBranchDescriptionParams {
 }
 
 pub fn update_branch_description(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: UpdateBranchDescriptionParams,
 ) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     gitbutler_branch_actions::stack::update_branch_description(
         &ctx,
         params.stack_id,
@@ -95,12 +92,9 @@ pub struct UpdateBranchPrNumberParams {
     pub pr_number: Option<usize>,
 }
 
-pub fn update_branch_pr_number(
-    ipc_ctx: &IpcContext,
-    params: UpdateBranchPrNumberParams,
-) -> Result<(), Error> {
+pub fn update_branch_pr_number(app: &App, params: UpdateBranchPrNumberParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     gitbutler_branch_actions::stack::update_branch_pr_number(
         &ctx,
         params.stack_id,
@@ -119,9 +113,9 @@ pub struct PushStackParams {
     pub branch: String,
 }
 
-pub fn push_stack(ipc_ctx: &IpcContext, params: PushStackParams) -> Result<PushResult, Error> {
+pub fn push_stack(app: &App, params: PushStackParams) -> Result<PushResult, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     gitbutler_branch_actions::stack::push_stack(
         &ctx,
         params.stack_id,
@@ -140,12 +134,9 @@ pub struct PushStackToReviewParams {
     pub user: User,
 }
 
-pub fn push_stack_to_review(
-    ipc_ctx: &IpcContext,
-    params: PushStackToReviewParams,
-) -> Result<String, Error> {
+pub fn push_stack_to_review(app: &App, params: PushStackToReviewParams) -> Result<String, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let review_id = gitbutler_sync::stack_upload::push_stack_to_review(
         &ctx,
         &params.user,

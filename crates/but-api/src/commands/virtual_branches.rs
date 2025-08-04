@@ -19,11 +19,11 @@ use gitbutler_reference::{Refname, RemoteRefname, normalize_branch_name as norma
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use serde::Deserialize;
 
-use crate::{IpcContext, error::Error};
+use crate::{App, error::Error};
 
 // Parameter structs for all functions
 
-pub fn normalize_branch_name(_ipc_ctx: &IpcContext, name: String) -> Result<String, Error> {
+pub fn normalize_branch_name(_app: &App, name: String) -> Result<String, Error> {
     Ok(normalize_name(&name)?)
 }
 
@@ -35,11 +35,11 @@ pub struct CreateVirtualBranchParams {
 }
 
 pub fn create_virtual_branch(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: CreateVirtualBranchParams,
 ) -> Result<StackEntryNoOpt, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let stack_entry = gitbutler_branch_actions::create_virtual_branch(
         &ctx,
         &params.branch,
@@ -56,12 +56,9 @@ pub struct DeleteLocalBranchParams {
     pub given_name: String,
 }
 
-pub fn delete_local_branch(
-    ipc_ctx: &IpcContext,
-    params: DeleteLocalBranchParams,
-) -> Result<(), Error> {
+pub fn delete_local_branch(app: &App, params: DeleteLocalBranchParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     gitbutler_branch_actions::delete_local_branch(&ctx, &params.refname, params.given_name)?;
     Ok(())
 }
@@ -76,11 +73,11 @@ pub struct CreateVirtualBranchFromBranchParams {
 }
 
 pub fn create_virtual_branch_from_branch(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: CreateVirtualBranchFromBranchParams,
 ) -> Result<StackId, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let branch_id = gitbutler_branch_actions::create_virtual_branch_from_branch(
         &ctx,
         &params.branch,
@@ -100,11 +97,11 @@ pub struct IntegrateUpstreamCommitsParams {
 }
 
 pub fn integrate_upstream_commits(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: IntegrateUpstreamCommitsParams,
 ) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     gitbutler_branch_actions::integrate_upstream_commits(
         &ctx,
         params.stack_id,
@@ -121,11 +118,11 @@ pub struct GetBaseBranchDataParams {
 }
 
 pub fn get_base_branch_data(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: GetBaseBranchDataParams,
 ) -> Result<Option<BaseBranch>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     if let Ok(base_branch) = gitbutler_branch_actions::base::get_base_branch_data(&ctx) {
         Ok(Some(base_branch))
     } else {
@@ -142,12 +139,9 @@ pub struct SetBaseBranchParams {
     pub stash_uncommitted: Option<bool>,
 }
 
-pub fn set_base_branch(
-    ipc_ctx: &IpcContext,
-    params: SetBaseBranchParams,
-) -> Result<BaseBranch, Error> {
+pub fn set_base_branch(app: &App, params: SetBaseBranchParams) -> Result<BaseBranch, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let branch_name = format!("refs/remotes/{}", params.branch)
         .parse()
         .context("Invalid branch name")?;
@@ -172,9 +166,9 @@ pub struct PushBaseBranchParams {
     pub with_force: bool,
 }
 
-pub fn push_base_branch(ipc_ctx: &IpcContext, params: PushBaseBranchParams) -> Result<(), Error> {
+pub fn push_base_branch(app: &App, params: PushBaseBranchParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     gitbutler_branch_actions::push_base_branch(&ctx, params.with_force)?;
     Ok(())
 }
@@ -186,12 +180,9 @@ pub struct UpdateStackOrderParams {
     pub stacks: Vec<BranchUpdateRequest>,
 }
 
-pub fn update_stack_order(
-    ipc_ctx: &IpcContext,
-    params: UpdateStackOrderParams,
-) -> Result<(), Error> {
+pub fn update_stack_order(app: &App, params: UpdateStackOrderParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     gitbutler_branch_actions::update_stack_order(&ctx, params.stacks)?;
     Ok(())
 }
@@ -203,9 +194,9 @@ pub struct UnapplyStackParams {
     pub stack_id: StackId,
 }
 
-pub fn unapply_stack(ipc_ctx: &IpcContext, params: UnapplyStackParams) -> Result<(), Error> {
+pub fn unapply_stack(app: &App, params: UnapplyStackParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = &mut CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = &mut CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
         ctx,
         false,
@@ -231,11 +222,11 @@ pub struct CanApplyRemoteBranchParams {
 }
 
 pub fn can_apply_remote_branch(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: CanApplyRemoteBranchParams,
 ) -> Result<bool, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     Ok(gitbutler_branch_actions::can_apply_remote_branch(
         &ctx,
         &params.branch,
@@ -250,11 +241,11 @@ pub struct ListCommitFilesParams {
 }
 
 pub fn list_commit_files(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: ListCommitFilesParams,
 ) -> Result<Vec<RemoteBranchFile>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let commit_id = git2::Oid::from_str(&params.commit_id).map_err(|e| anyhow!(e))?;
     gitbutler_branch_actions::list_commit_files(&ctx, commit_id).map_err(Into::into)
 }
@@ -268,12 +259,9 @@ pub struct AmendVirtualBranchParams {
     pub worktree_changes: Vec<DiffSpec>,
 }
 
-pub fn amend_virtual_branch(
-    ipc_ctx: &IpcContext,
-    params: AmendVirtualBranchParams,
-) -> Result<String, Error> {
+pub fn amend_virtual_branch(app: &App, params: AmendVirtualBranchParams) -> Result<String, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let commit_id = git2::Oid::from_str(&params.commit_id).map_err(|e| anyhow!(e))?;
     let oid =
         gitbutler_branch_actions::amend(&ctx, params.stack_id, commit_id, params.worktree_changes)?;
@@ -290,12 +278,9 @@ pub struct MoveCommitFileParams {
     pub ownership: BranchOwnershipClaims,
 }
 
-pub fn move_commit_file(
-    ipc_ctx: &IpcContext,
-    params: MoveCommitFileParams,
-) -> Result<String, Error> {
+pub fn move_commit_file(app: &App, params: MoveCommitFileParams) -> Result<String, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let from_commit_id = git2::Oid::from_str(&params.from_commit_id).map_err(|e| anyhow!(e))?;
     let to_commit_id = git2::Oid::from_str(&params.to_commit_id).map_err(|e| anyhow!(e))?;
     let claim = params.ownership.into();
@@ -317,9 +302,9 @@ pub struct UndoCommitParams {
     pub commit_id: String,
 }
 
-pub fn undo_commit(ipc_ctx: &IpcContext, params: UndoCommitParams) -> Result<(), Error> {
+pub fn undo_commit(app: &App, params: UndoCommitParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let commit_id = git2::Oid::from_str(&params.commit_id).map_err(|e| anyhow!(e))?;
     gitbutler_branch_actions::undo_commit(&ctx, params.stack_id, commit_id)?;
     Ok(())
@@ -334,12 +319,9 @@ pub struct InsertBlankCommitParams {
     pub offset: i32,
 }
 
-pub fn insert_blank_commit(
-    ipc_ctx: &IpcContext,
-    params: InsertBlankCommitParams,
-) -> Result<(), Error> {
+pub fn insert_blank_commit(app: &App, params: InsertBlankCommitParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let commit_id = match params.commit_id {
         Some(oid) => git2::Oid::from_str(&oid).map_err(|e| anyhow!(e))?,
         None => {
@@ -367,9 +349,9 @@ pub struct ReorderStackParams {
     pub stack_order: StackOrder,
 }
 
-pub fn reorder_stack(ipc_ctx: &IpcContext, params: ReorderStackParams) -> Result<(), Error> {
+pub fn reorder_stack(app: &App, params: ReorderStackParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     gitbutler_branch_actions::reorder_stack(&ctx, params.stack_id, params.stack_order)?;
     Ok(())
 }
@@ -382,11 +364,11 @@ pub struct FindGitBranchesParams {
 }
 
 pub fn find_git_branches(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: FindGitBranchesParams,
 ) -> Result<Vec<RemoteBranchData>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let branches = gitbutler_branch_actions::find_git_branches(&ctx, &params.branch_name)?;
     Ok(branches)
 }
@@ -398,12 +380,9 @@ pub struct ListBranchesParams {
     pub filter: Option<BranchListingFilter>,
 }
 
-pub fn list_branches(
-    ipc_ctx: &IpcContext,
-    params: ListBranchesParams,
-) -> Result<Vec<BranchListing>, Error> {
+pub fn list_branches(app: &App, params: ListBranchesParams) -> Result<Vec<BranchListing>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let branches = gitbutler_branch_actions::list_branches(&ctx, params.filter, None)?;
     Ok(branches)
 }
@@ -416,11 +395,11 @@ pub struct GetBranchListingDetailsParams {
 }
 
 pub fn get_branch_listing_details(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: GetBranchListingDetailsParams,
 ) -> Result<Vec<BranchListingDetails>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let branches = gitbutler_branch_actions::get_branch_listing_details(&ctx, params.branch_names)?;
     Ok(branches)
 }
@@ -434,9 +413,9 @@ pub struct SquashCommitsParams {
     pub target_commit_id: String,
 }
 
-pub fn squash_commits(ipc_ctx: &IpcContext, params: SquashCommitsParams) -> Result<(), Error> {
+pub fn squash_commits(app: &App, params: SquashCommitsParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let source_commit_ids: Vec<git2::Oid> = params
         .source_commit_ids
         .into_iter()
@@ -461,12 +440,9 @@ pub struct FetchFromRemotesParams {
     pub action: Option<String>,
 }
 
-pub fn fetch_from_remotes(
-    ipc_ctx: &IpcContext,
-    params: FetchFromRemotesParams,
-) -> Result<BaseBranch, Error> {
+pub fn fetch_from_remotes(app: &App, params: FetchFromRemotesParams) -> Result<BaseBranch, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
 
     let project_data_last_fetched = gitbutler_branch_actions::fetch_from_remotes(
         &ctx,
@@ -500,9 +476,9 @@ pub struct MoveCommitParams {
     pub source_stack_id: StackId,
 }
 
-pub fn move_commit(ipc_ctx: &IpcContext, params: MoveCommitParams) -> Result<(), Error> {
+pub fn move_commit(app: &App, params: MoveCommitParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let commit_id = git2::Oid::from_str(&params.commit_id).map_err(|e| anyhow!(e))?;
     gitbutler_branch_actions::move_commit(
         &ctx,
@@ -523,11 +499,11 @@ pub struct UpdateCommitMessageParams {
 }
 
 pub fn update_commit_message(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: UpdateCommitMessageParams,
 ) -> Result<String, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let commit_id = git2::Oid::from_str(&params.commit_id).map_err(|e| anyhow!(e))?;
     let new_commit_id = gitbutler_branch_actions::update_commit_message(
         &ctx,
@@ -545,12 +521,9 @@ pub struct FindCommitParams {
     pub commit_id: String,
 }
 
-pub fn find_commit(
-    ipc_ctx: &IpcContext,
-    params: FindCommitParams,
-) -> Result<Option<RemoteCommit>, Error> {
+pub fn find_commit(app: &App, params: FindCommitParams) -> Result<Option<RemoteCommit>, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let commit_id = git2::Oid::from_str(&params.commit_id).map_err(|e| anyhow!(e))?;
     gitbutler_branch_actions::find_commit(&ctx, commit_id).map_err(Into::into)
 }
@@ -563,11 +536,11 @@ pub struct UpstreamIntegrationStatusesParams {
 }
 
 pub fn upstream_integration_statuses(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: UpstreamIntegrationStatusesParams,
 ) -> Result<StackStatuses, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let commit_id = params
         .target_commit_id
         .map(|commit_id| git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e)))
@@ -586,11 +559,11 @@ pub struct IntegrateUpstreamParams {
 }
 
 pub fn integrate_upstream(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: IntegrateUpstreamParams,
 ) -> Result<IntegrationOutcome, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
     let outcome = gitbutler_branch_actions::integrate_upstream(
         &ctx,
         &params.resolutions,
@@ -608,11 +581,11 @@ pub struct ResolveUpstreamIntegrationParams {
 }
 
 pub fn resolve_upstream_integration(
-    ipc_ctx: &IpcContext,
+    app: &App,
     params: ResolveUpstreamIntegrationParams,
 ) -> Result<String, Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = CommandContext::open(&project, ipc_ctx.app_settings.get()?.clone())?;
+    let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
 
     let new_target_id =
         gitbutler_branch_actions::resolve_upstream_integration(&ctx, params.resolution_approach)?;
