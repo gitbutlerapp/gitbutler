@@ -11,6 +11,10 @@ export type Outcome = {
 	updatedBranches: UpdatedBranch[];
 };
 
+export function allCommitsUpdated(outcome: Outcome): string[] {
+	return outcome.updatedBranches.flatMap((branch) => branch.newCommits);
+}
+
 export type ActionHandler = 'handleChangesSimple';
 
 type MCPSourceDefinition = {

@@ -4,6 +4,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import SnapshotAttachment from '$components/SnapshotAttachment.svelte';
 	import {
+		allCommitsUpdated,
 		ButlerAction,
 		getDisplayNameForWorkflowKind,
 		isClaudeCodeActionSource,
@@ -14,15 +15,18 @@
 	} from '$lib/actions/types';
 	import butbotSvg from '$lib/assets/butbot-actions.svg?raw';
 	import { isFeedMessage, isInProgressAssistantMessage, type FeedEntry } from '$lib/feed/feed';
-	import { HISTORY_SERVICE } from '$lib/history/history';
 	import { Snapshot } from '$lib/history/types';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { combineResults } from '$lib/state/helpers';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/shared/context';
+	import { flattenAndDeduplicate } from '@gitbutler/shared/utils/array';
 
 	import { AgentAvatar, EditorLogo, FileListItem, Markdown, TimeAgo, Tooltip } from '@gitbutler/ui';
 	import { Icon, type IconName } from '@gitbutler/ui';
 
 	import { isStr } from '@gitbutler/ui/utils/string';
+	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 
 	type Props = {
 		projectId: string;
@@ -31,8 +35,7 @@
 
 	const { action, projectId }: Props = $props();
 
-	const historyService = inject(HISTORY_SERVICE);
-	const changes = historyService.snapshotDiff({ projectId, snapshotId: action.id });
+	const stackService = inject(STACK_SERVICE);
 
 	const user = inject(USER);
 	let failedToLoadImage = $state(false);
@@ -106,19 +109,31 @@
 				<span class="text-grey">Prompt:</span>{' ' +
 					(action.externalPrompt ?? action.externalSummary)}
 			</p>
-			{#if !isStr(action.source)}
-				<ReduxResult {projectId} result={changes.current}>
-					{#snippet children(changes)}
-						{#if changes.length === 0}
+			{#if !isStr(action.source) && action.response !== undefined}
+				{@const newCommits = allCommitsUpdated(action.response)}
+				{@const changedFilesInCommits = stackService.filePathsChangedInCommits(
+					projectId,
+					newCommits
+				)}
+				<ReduxResult
+					{projectId}
+					result={combineResults(...changedFilesInCommits.current.filter(isDefined))}
+				>
+					{#snippet children(filesPaths)}
+						{@const dedupedFilePaths = flattenAndDeduplicate(filesPaths)}
+						{#if dedupedFilePaths.length === 0}
 							<p class="text-13 text-grey">No changes detected</p>
 						{:else}
-							<SnapshotAttachment foldable={changes.length > 2} foldedAmount={changes.length}>
+							<SnapshotAttachment
+								foldable={dedupedFilePaths.length > 2}
+								foldedAmount={dedupedFilePaths.length}
+							>
 								<div class="snapshot-files">
-									{#each changes as change, idx (change.path)}
+									{#each dedupedFilePaths as path, idx (path)}
 										<FileListItem
 											listMode="list"
-											filePath={change.path}
-											hideBorder={idx === changes.length - 1}
+											filePath={path}
+											hideBorder={idx === dedupedFilePaths.length - 1}
 										/>
 									{/each}
 								</div>

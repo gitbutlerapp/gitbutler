@@ -31,3 +31,7 @@ export function filterWithRest<T>(array: T[], predicate: (item: T) => boolean): 
 
 	return [filtered, rest];
 }
+
+export function flattenAndDeduplicate<T>(array: T[][]): T[] {
+	return deduplicate(array.flat());
+}
