@@ -49,8 +49,16 @@ export class ModeService {
 		return this.api.endpoints.abortEditAndReturnToWorkspace.mutate;
 	}
 
+	get abortEditAndReturnToWorkspaceMutation() {
+		return this.api.endpoints.abortEditAndReturnToWorkspace.useMutation();
+	}
+
 	get saveEditAndReturnToWorkspace() {
 		return this.api.endpoints.saveEditAndReturnToWorkspace.mutate;
+	}
+
+	get saveEditAndReturnToWorkspaceMutation() {
+		return this.api.endpoints.saveEditAndReturnToWorkspace.useMutation();
 	}
 
 	get initialEditModeState() {
