@@ -41,6 +41,7 @@ but-settings.workspace = true
 but-hunk-assignment.workspace = true
 but-hunk-dependency.workspace = true
 but-claude.workspace = true
+but-tools.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-serde.workspace = true
 gitbutler-stack.workspace = true
