@@ -338,12 +338,14 @@ where
 /// Any prompts for the user are passed to the asynchronous callback `on_prompt`,
 /// which should return the user's response or `None` if the operation should be
 /// aborted, in which case an `Err` value is returned from this function.
+#[allow(clippy::too_many_arguments)]
 pub async fn push<P, F, Fut, E, Extra>(
     repo_path: P,
     executor: E,
     remote: &str,
     refspec: RefSpec,
     force: bool,
+    force_if_includes: bool,
     on_prompt: F,
     extra: Extra,
 ) -> Result<(), crate::Error<Error<E>>>
@@ -363,6 +365,10 @@ where
 
     if force {
         args.push("--force-with-lease");
+    }
+
+    if force && force_if_includes {
+        args.push("--force-if-includes");
     }
 
     let (status, stdout, stderr) =

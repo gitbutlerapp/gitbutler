@@ -204,6 +204,7 @@ pub fn push_stack(
             push_details.head,
             &push_details.remote_refname,
             with_force,
+            ctx.app_settings().force_if_includes,
             None,
             Some(Some(stack.id)),
         )?;

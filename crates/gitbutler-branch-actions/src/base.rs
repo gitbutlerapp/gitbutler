@@ -373,8 +373,15 @@ fn default_target(base_path: &Path) -> Result<Target> {
     VirtualBranchesHandle::new(base_path).get_default_target()
 }
 
-pub(crate) fn push(ctx: &CommandContext, with_force: bool) -> Result<()> {
+pub(crate) fn push(ctx: &CommandContext, with_force: bool, force_if_includes: bool) -> Result<()> {
     let target = default_target(&ctx.project().gb_dir())?;
-    let _ = ctx.push(target.sha, &target.branch, with_force, None, None);
+    let _ = ctx.push(
+        target.sha,
+        &target.branch,
+        with_force,
+        force_if_includes,
+        None,
+        None,
+    );
     Ok(())
 }

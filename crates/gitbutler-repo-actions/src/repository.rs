@@ -22,6 +22,7 @@ pub trait RepoActionsExt {
         head: git2::Oid,
         branch: &RemoteRefname,
         with_force: bool,
+        force_if_includes: bool,
         refspec: Option<String>,
         askpass_broker: Option<Option<StackId>>,
     ) -> Result<()>;
@@ -65,13 +66,13 @@ impl RepoActionsExt for CommandContext {
         let refname =
             RemoteRefname::from_str(&format!("refs/remotes/{remote_name}/{branch_name}",))?;
 
-        match self.push(commit_id, &refname, false, None, askpass) {
+        match self.push(commit_id, &refname, false, false, None, askpass) {
             Ok(()) => Ok(()),
             Err(e) => Err(anyhow::anyhow!(e.to_string())),
         }?;
 
         let empty_refspec = Some(format!(":refs/heads/{}", branch_name));
-        match self.push(commit_id, &refname, false, empty_refspec, askpass) {
+        match self.push(commit_id, &refname, false, false, empty_refspec, askpass) {
             Ok(()) => Ok(()),
             Err(e) => Err(anyhow::anyhow!(e.to_string())),
         }?;
@@ -159,6 +160,7 @@ impl RepoActionsExt for CommandContext {
         head: git2::Oid,
         branch: &RemoteRefname,
         with_force: bool,
+        force_if_includes: bool,
         refspec: Option<String>,
         askpass_broker: Option<Option<StackId>>,
     ) -> Result<()> {
@@ -187,6 +189,7 @@ impl RepoActionsExt for CommandContext {
                         &remote,
                         gitbutler_git::RefSpec::parse(refspec).unwrap(),
                         with_force,
+                        force_if_includes,
                         handle_git_prompt_push,
                         askpass_broker,
                     ))

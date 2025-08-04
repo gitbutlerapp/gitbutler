@@ -146,8 +146,12 @@ pub fn set_target_push_remote(ctx: &CommandContext, push_remote: &str) -> Result
     base::set_target_push_remote(ctx, push_remote)
 }
 
-pub fn push_base_branch(ctx: &CommandContext, with_force: bool) -> Result<()> {
-    base::push(ctx, with_force)
+pub fn push_base_branch(
+    ctx: &CommandContext,
+    with_force: bool,
+    force_if_includes: bool,
+) -> Result<()> {
+    base::push(ctx, with_force, force_if_includes)
 }
 
 pub fn integrate_upstream_commits(

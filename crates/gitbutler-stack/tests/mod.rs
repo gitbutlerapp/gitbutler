@@ -486,6 +486,7 @@ fn update_name_after_push() -> Result<()> {
         push_details.head,
         &push_details.remote_refname,
         false,
+        false,
         None,
         Some(Some(test_ctx.stack.id)),
     );
