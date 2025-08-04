@@ -15,7 +15,7 @@
 	import MessageEditor from '$components/editor/MessageEditor.svelte';
 	import MessageEditorInput from '$components/editor/MessageEditorInput.svelte';
 	import { AI_SERVICE } from '$lib/ai/service';
-	import { BASE_BRANCH } from '$lib/baseBranch/baseBranch';
+	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { type Commit } from '$lib/branches/v3';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
@@ -51,7 +51,10 @@
 
 	const { projectId, stackId, branchName, onClose }: Props = $props();
 
-	const baseBranch = inject(BASE_BRANCH);
+	const baseBranchService = inject(BASE_BRANCH_SERVICE);
+	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
+	const baseBranch = $derived(baseBranchResponse.current.data);
+	const baseBranchName = $derived(baseBranch?.shortName);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const prService = $derived(forge.current.prService);
 	const stackService = inject(STACK_SERVICE);
@@ -80,7 +83,6 @@
 	const commits = $derived(commitsResult.current.data || []);
 
 	const forgeBranch = $derived(branchName ? forge.current.branch(branchName) : undefined);
-	const baseBranchName = $derived(baseBranch.shortName);
 
 	const createDraft = persisted<boolean>(false, 'createDraftPr');
 
@@ -267,7 +269,12 @@
 				base = branchParent.name;
 			}
 
-			const pushRemoteName = baseBranch.actualPushRemoteName();
+			const pushRemoteName = baseBranch?.actualPushRemoteName();
+			if (!pushRemoteName) {
+				chipToasts.error('No push remote name determined');
+				return;
+			}
+
 			const allRemotes = await remotesService.remotes(projectId);
 			const pushRemote = allRemotes.find((r) => r.name === pushRemoteName);
 			const pushRemoteUrl = pushRemote?.url;
