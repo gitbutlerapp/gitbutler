@@ -888,6 +888,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-claude"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+]
+
+[[package]]
 name = "but-core"
 version = "0.0.0"
 dependencies = [
