@@ -1,7 +1,7 @@
 use anyhow::{Context, Result, anyhow};
 use but_graph::virtual_branches_legacy_types::BranchOwnershipClaims;
 use but_workspace::DiffSpec;
-use but_workspace::ui::StackEntryNoOpt;
+use but_workspace::ui::{StackEntryNoOpt, StackHeadInfo};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_branch_actions::branch_upstream_integration::IntegrationStrategy;
 use gitbutler_branch_actions::upstream_integration::{
@@ -17,6 +17,7 @@ use gitbutler_oxidize::ObjectIdExt;
 use gitbutler_project::{FetchResult, ProjectId};
 use gitbutler_reference::{Refname, RemoteRefname, normalize_branch_name as normalize_name};
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
+use gix::reference::Category;
 use serde::Deserialize;
 
 use crate::{App, error::Error};
@@ -39,12 +40,46 @@ pub fn create_virtual_branch(
     params: CreateVirtualBranchParams,
 ) -> Result<StackEntryNoOpt, Error> {
     let project = gitbutler_project::get(params.project_id)?;
+    let ws3_enabled = app.app_settings.get()?.feature_flags.ws3;
     let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
-    let stack_entry = gitbutler_branch_actions::create_virtual_branch(
-        &ctx,
-        &params.branch,
-        ctx.project().exclusive_worktree_access().write_permission(),
-    )?;
+    let stack_entry = if ws3_enabled {
+        let (repo, mut meta, graph) = ctx.graph_and_meta_and_repo()?;
+        let ws = graph.to_workspace()?;
+        let new_ref = Category::LocalBranch
+            .to_full_name(params.branch.name.as_deref().unwrap_or("Lane"))
+            .map_err(anyhow::Error::from)?;
+
+        let _guard = project.exclusive_worktree_access();
+        let graph =
+            but_workspace::branch::create_reference(new_ref.as_ref(), None, &repo, &ws, &mut meta)?;
+
+        let ws = graph.to_workspace()?;
+        let (stack_idx, segment_idx) = ws
+            .find_segment_owner_indexes_by_refname(new_ref.as_ref())
+            .context("BUG: didn't find a stack that was just created")?;
+        let stack = &ws.stacks[stack_idx];
+        let tip = stack.segments[segment_idx]
+            .tip()
+            .unwrap_or(repo.object_hash().null());
+
+        StackEntryNoOpt {
+            id: stack
+                .id
+                .context("BUG: all new stacks are created with an ID")?,
+            heads: vec![StackHeadInfo {
+                name: new_ref.shorten().into(),
+                tip,
+            }],
+            tip,
+            order: Some(stack_idx),
+        }
+    } else {
+        gitbutler_branch_actions::create_virtual_branch(
+            &ctx,
+            &params.branch,
+            ctx.project().exclusive_worktree_access().write_permission(),
+        )?
+    };
     Ok(stack_entry)
 }
 

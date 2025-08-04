@@ -112,7 +112,7 @@ pub fn set_project_active(
         ctx,
     )?;
     let db_error = assure_database_valid(project.gb_dir())?;
-    let filter_error = warn_about_filters_and_git_lfs(ctx.gix_repo_minimal()?)?;
+    let filter_error = warn_about_filters_and_git_lfs(ctx.gix_repo_local_only()?)?;
     for err in [&db_error, &filter_error] {
         if let Some(err) = &err {
             tracing::error!("{err}");

@@ -65,6 +65,20 @@ impl Workspace<'_> {
     pub fn lookup_commit(&self, (stack_idx, seg_idx, cidx): CommitOwnerIndexes) -> &StackCommit {
         &self.stacks[stack_idx].segments[seg_idx].commits[cidx]
     }
+
+    /// Find a stack with the given `id` or error.
+    pub fn try_find_stack_by_id(&self, id: impl Into<Option<StackId>>) -> anyhow::Result<&Stack> {
+        let id = id.into();
+        self.find_stack_by_id(id)
+            .with_context(|| format!("Couldn't find stack with id {id:?} in workspace"))
+    }
+
+    /// Find a stack with the given `id`.
+    pub fn find_stack_by_id(&self, id: impl Into<Option<StackId>>) -> Option<&Stack> {
+        let id = id.into();
+        self.stacks.iter().find(|s| s.id == id)
+    }
+
     /// Try to find the `(stack_idx, segment_idx, commit_idx)` to be able to access the commit with `oid` in this workspace
     /// as `ws.stacks[stack_idx].segments[segment_idx].commits[commit_idx]`.
     pub fn find_owner_indexes_by_commit_id(
