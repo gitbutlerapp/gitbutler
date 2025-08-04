@@ -14,8 +14,12 @@ export function initAnalyticsIfEnabled(appSettings: AppSettings, postHog: PostHo
 			});
 			appSettings.appMetricsEnabled.onDisk().then(async (enabled) => {
 				if (enabled) {
-					const [appName, appVersion] = await Promise.all([getName(), getVersion()]);
-					postHog.init(appName, appVersion);
+					if (import.meta.env.VITE_BUILD_TARGET === 'web') {
+						postHog.init('gitbutler-web', '0.0.0');
+					} else {
+						const [appName, appVersion] = await Promise.all([getName(), getVersion()]);
+						postHog.init(appName, appVersion);
+					}
 				}
 			});
 			appSettings.appNonAnonMetricsEnabled.onDisk().then((enabled) => {

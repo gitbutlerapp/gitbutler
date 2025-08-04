@@ -12,6 +12,7 @@ $.zed
 .sentryclirc
 .DS_Store
 apps/desktop/e2e/videos/*.mp4
+e2e/test-results/
 
 .env
 .env.*

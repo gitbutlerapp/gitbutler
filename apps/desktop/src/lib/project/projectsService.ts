@@ -2,6 +2,7 @@ import { invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
 import { type Project } from '$lib/project/project';
 import { invalidatesList, providesItem, providesList, ReduxTag } from '$lib/state/tags';
+import { getCookie } from '$lib/utils/cookies';
 import { InjectionToken } from '@gitbutler/shared/context';
 import { persisted } from '@gitbutler/shared/persisted';
 import { chipToasts } from '@gitbutler/ui';
@@ -56,6 +57,11 @@ export class ProjectsService {
 	}
 
 	async promptForDirectory(): Promise<string | undefined> {
+		const cookiePath = getCookie('test-projectPath');
+		if (cookiePath) {
+			return cookiePath;
+		}
+
 		let selectedPath: string | undefined | null;
 		if (import.meta.env.VITE_BUILD_TARGET === 'web') {
 			// TODO: Consider: this is electron specific, could we use a web API
