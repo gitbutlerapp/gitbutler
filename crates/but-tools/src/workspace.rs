@@ -1769,7 +1769,7 @@ pub fn get_filtered_changes(
     let diff = unified_diff_for_changes(repo, changes, ctx.app_settings().context_lines)?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
         ctx,
-        true,
+        false,
         None::<Vec<but_core::TreeChange>>,
         None,
     )
