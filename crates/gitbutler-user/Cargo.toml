@@ -9,6 +9,7 @@ autotests = false
 [dependencies]
 gitbutler-secret.workspace = true
 gitbutler-storage.workspace = true
+but-path.workspace = true
 anyhow = "1.0.98"
 serde = { workspace = true, features = ["std"] }
 serde_json = { version = "1.0", features = ["std", "arbitrary_precision"] }

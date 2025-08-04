@@ -15,7 +15,6 @@ use crate::{init_opts, init_opts_bare, VAR_NO_CLEANUP};
 pub struct Suite {
     pub local_app_data: Option<TempDir>,
     pub storage: gitbutler_storage::Storage,
-    pub users: gitbutler_user::Controller,
 }
 
 impl Drop for Suite {
@@ -30,11 +29,9 @@ impl Default for Suite {
     fn default() -> Self {
         let local_app_data = temp_dir();
         let storage = gitbutler_storage::Storage::new(local_app_data.path());
-        let users = gitbutler_user::Controller::from_path(local_app_data.path());
         Self {
             storage,
             local_app_data: Some(local_app_data),
-            users,
         }
     }
 }
@@ -48,7 +45,7 @@ impl Suite {
         let user: gitbutler_user::User =
             serde_json::from_str(include_str!("fixtures/user/minimal.v1"))
                 .expect("valid v1 user file");
-        self.users.set_user(&user).expect("failed to add user");
+        gitbutler_user::set_user(&user).expect("failed to add user");
         user
     }
 

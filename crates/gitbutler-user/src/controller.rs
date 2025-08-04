@@ -13,7 +13,7 @@ use super::{storage::Storage, User};
 /// V2 is implied by not storing the `access_token` in plain text anymore, nor the GitHub token even if present.
 /// It happens automatically on [Self::get_user()] and [Self::set_user()]
 #[derive(Clone)]
-pub struct Controller {
+pub(crate) struct Controller {
     storage: Storage,
 }
 
@@ -25,7 +25,7 @@ impl Controller {
     }
 
     /// Return the current login, or `None` if there is none yet.
-    pub fn get_user(&self) -> Result<Option<User>> {
+    pub(crate) fn get_user(&self) -> Result<Option<User>> {
         let user = self.storage.get().context("failed to get user")?;
         if let Some(user) = &user {
             write_without_secrets_if_secrets_present(&self.storage, user.clone())?;
@@ -34,7 +34,7 @@ impl Controller {
     }
 
     /// Note that secrets are never written in plain text, but we assure they are stored.
-    pub fn set_user(&self, user: &User) -> Result<()> {
+    pub(crate) fn set_user(&self, user: &User) -> Result<()> {
         if !write_without_secrets_if_secrets_present(&self.storage, user.clone())? {
             self.storage.set(user).context("failed to set user")
         } else {
@@ -42,7 +42,7 @@ impl Controller {
         }
     }
 
-    pub fn delete_user(&self) -> Result<()> {
+    pub(crate) fn delete_user(&self) -> Result<()> {
         self.storage.delete().context("failed to delete user")?;
         let namespace = secret::Namespace::BuildKind;
         secret::delete(User::ACCESS_TOKEN_HANDLE, namespace).ok();

@@ -2,12 +2,11 @@ pub(crate) mod state {
     use std::{collections::BTreeMap, sync::Arc};
 
     use anyhow::Result;
-    use but_api::App;
     use but_settings::AppSettingsWithDiskSync;
     use gitbutler_command_context::CommandContext;
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
-    use tauri::{AppHandle, Manager};
+    use tauri::AppHandle;
     use tracing::instrument;
 
     pub(crate) mod event {
@@ -159,15 +158,10 @@ pub(crate) mod state {
     }
 
     fn handler_from_app(app_handle: &AppHandle) -> Result<gitbutler_watcher::Handler> {
-        let app = app_handle.state::<App>().inner().clone();
-
-        Ok(gitbutler_watcher::Handler::new(
-            (*app.user_controller).clone(),
-            {
-                let app = app_handle.clone();
-                move |change| ChangeForFrontend::from(change).send(&app)
-            },
-        ))
+        Ok(gitbutler_watcher::Handler::new({
+            let app = app_handle.clone();
+            move |change| ChangeForFrontend::from(change).send(&app)
+        }))
     }
 
     #[derive(Debug)]

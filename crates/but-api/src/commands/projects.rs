@@ -19,8 +19,8 @@ pub struct AddProjectParams {
     pub path: PathBuf,
 }
 
-pub fn add_project(app: &App, params: AddProjectParams) -> Result<projects::Project, Error> {
-    let user = app.user_controller.get_user()?;
+pub fn add_project(_app: &App, params: AddProjectParams) -> Result<projects::Project, Error> {
+    let user = gitbutler_user::get_user()?;
     let name = user.as_ref().and_then(|u| u.name.clone());
     let email = user.as_ref().and_then(|u| u.email.clone());
     Ok(gitbutler_project::add(&params.path, name, email)?)

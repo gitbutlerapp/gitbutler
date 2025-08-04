@@ -142,9 +142,6 @@ fn main() {
                             AppSettingsWithDiskSync::new(config_dir.clone())
                                 .expect("failed to create app settings"),
                         ),
-                        user_controller: Arc::new(gitbutler_user::Controller::from_path(
-                            &app_data_dir,
-                        )),
                         broadcaster: broadcaster.clone(),
                         archival: archival.clone(),
                     };

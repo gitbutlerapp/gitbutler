@@ -68,7 +68,6 @@ pub async fn run() {
             AppSettingsWithDiskSync::new(config_dir.clone())
                 .expect("failed to create app settings"),
         ),
-        user_controller: Arc::new(gitbutler_user::Controller::from_path(&app_data_dir)),
         broadcaster: broadcaster.clone(),
         archival: Arc::new(gitbutler_feedback::Archival {
             cache_dir: app_data_dir.join("cache").clone(),
