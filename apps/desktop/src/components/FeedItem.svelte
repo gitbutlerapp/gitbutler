@@ -21,11 +21,8 @@
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/shared/context';
 	import { flattenAndDeduplicate } from '@gitbutler/shared/utils/array';
-
 	import { AgentAvatar, EditorLogo, FileListItem, Markdown, TimeAgo, Tooltip } from '@gitbutler/ui';
 	import { Icon, type IconName } from '@gitbutler/ui';
-
-	import { isStr } from '@gitbutler/ui/utils/string';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 
 	type Props = {
@@ -88,7 +85,7 @@
 		{/if}
 		<div class="action-item__content">
 			<div class="action-item__content__header">
-				{#if isStr(action.source)}
+				{#if isStringActionSource(action.source)}
 					<div>
 						<p class="text-13 text-bold">Action</p>
 						<p class="text-13 text-bold text-grey">{action.source}</p>
@@ -99,8 +96,14 @@
 				{:else}
 					<div>
 						<p class="text-13 text-bold">Recorded changes</p>
-						<span class="text-13 text-greyer" title={new Date(action.createdAt).toLocaleString()}
-							>MCP call <TimeAgo date={new Date(action.createdAt)} addSuffix /></span
+						<span class="text-13 text-greyer" title={new Date(action.createdAt).toLocaleString()}>
+							{#if isClaudeCodeActionSource(action.source)}
+								Claude Hook
+							{:else}
+								MCP call
+							{/if}
+
+							<TimeAgo date={new Date(action.createdAt)} addSuffix /></span
 						>
 					</div>
 				{/if}
@@ -109,7 +112,7 @@
 				<span class="text-grey">Prompt:</span>{' ' +
 					(action.externalPrompt ?? action.externalSummary)}
 			</p>
-			{#if !isStr(action.source) && action.response !== undefined}
+			{#if !isStringActionSource(action.source) && action.response !== undefined}
 				{@const newCommits = allCommitsUpdated(action.response)}
 				{@const changedFilesInCommits = stackService.filePathsChangedInCommits(
 					projectId,
