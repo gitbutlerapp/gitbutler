@@ -20,14 +20,14 @@ doctest = false
 posthog-rs = { version = "0.3.7" }
 serde.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "io-std"] }
-tokio-util = "0.7.15"
+tokio-util = "0.7.16"
 strum = { version = "0.27", features = ["derive"] }
-clap = { version = "4.5.40", features = ["derive", "env"] }
+clap = { version = "4.5.42", features = ["derive", "env"] }
 chrono = { version = "0.4.41" }
 bstr.workspace = true
 anyhow.workspace = true
 # rmcp = { git = "https://github.com/modelcontextprotocol/rust-sdk", branch = "main" }
-rmcp = "0.1.5"
+rmcp = "0.3.2"
 command-group = { version = "5.0.1", features = ["with-tokio"] }
 sysinfo = "0.36.0"
 gitbutler-project.workspace = true
@@ -50,7 +50,7 @@ gitbutler-branch.workspace = true
 gitbutler-secret.workspace = true
 gitbutler-oxidize.workspace = true
 colored = "3.0.0"
-serde_json = "1.0.140"
+serde_json = "1.0.142"
 tracing.workspace = true
 tracing-subscriber = { version = "0.3", features = [
     "env-filter",
