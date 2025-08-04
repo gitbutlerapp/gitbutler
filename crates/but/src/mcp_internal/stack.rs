@@ -3,6 +3,7 @@ use std::path::Path;
 use bstr::{BString, ByteSlice};
 use but_settings::AppSettings;
 use gitbutler_command_context::CommandContext;
+use gitbutler_stack::{PatchReferenceUpdate, VirtualBranchesHandle};
 use serde::Serialize;
 
 /// Get the details of a branch by its name.
@@ -51,11 +52,15 @@ pub fn create_stack_with_branch(
         ctx.project().exclusive_worktree_access().write_permission(),
     )?;
 
-    gitbutler_branch_actions::stack::update_branch_description(
+    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let mut stack = vb_state.get_stack(stack_entry.id)?;
+    stack.update_branch(
         &ctx,
-        stack_entry.id,
         name.to_string(),
-        Some(description.to_string()),
+        &PatchReferenceUpdate {
+            description: Some(Some(description.to_string())),
+            ..Default::default()
+        },
     )?;
 
     Ok(stack_entry)
