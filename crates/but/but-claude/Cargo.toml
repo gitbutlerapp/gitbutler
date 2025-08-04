@@ -1,0 +1,9 @@
+[package]
+name = "but-claude"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[dependencies]
+anyhow = "1.0.98"

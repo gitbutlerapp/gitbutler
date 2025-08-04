@@ -84,6 +84,7 @@ but-action = { path = "crates/but-action" }
 but-status = { path = "crates/but-status" }
 but-tools = { path = "crates/but-tools" }
 but-api = { path = "crates/but-api" }
+but-claude = { path = "crates/but-claude" }
 git2-hooks = { version = "0.5.0" }
 itertools = "0.14.0"
 dirs = "6.0.0"
