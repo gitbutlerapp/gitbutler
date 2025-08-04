@@ -17,7 +17,6 @@
 	const feed = $derived(feedFactory.getFeed(projectId));
 	let toolCalls = $state<ToolCall[]>(message.toolCalls);
 	let messageContent = $state(message.content);
-	const messageContentLines = $derived(messageContent.split('\n'));
 
 	let bottom = $state<HTMLDivElement>();
 
@@ -62,13 +61,7 @@
 			{/each}
 		{/if}
 
-		{#each messageContentLines as line, index (index)}
-			{#if line === ''}
-				<br />
-			{:else}
-				<Markdown content={line} />
-			{/if}
-		{/each}
+		<Markdown content={messageContent} />
 	{/if}
 	<div bind:this={bottom} style="margin-top: 8px; height: 1px; width: 100%;"></div>
 </div>
