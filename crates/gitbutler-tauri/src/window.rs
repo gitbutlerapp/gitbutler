@@ -2,11 +2,11 @@ pub(crate) mod state {
     use std::{collections::BTreeMap, sync::Arc};
 
     use anyhow::Result;
+    use but_api::IpcContext;
     use but_settings::AppSettingsWithDiskSync;
     use gitbutler_command_context::CommandContext;
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
-    use gitbutler_user as users;
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
 
@@ -159,12 +159,15 @@ pub(crate) mod state {
     }
 
     fn handler_from_app(app: &AppHandle) -> Result<gitbutler_watcher::Handler> {
-        let users = app.state::<users::Controller>().inner().clone();
+        let ipc_ctx = app.state::<IpcContext>().inner().clone();
 
-        Ok(gitbutler_watcher::Handler::new(users, {
-            let app = app.clone();
-            move |change| ChangeForFrontend::from(change).send(&app)
-        }))
+        Ok(gitbutler_watcher::Handler::new(
+            (*ipc_ctx.user_controller).clone(),
+            {
+                let app = app.clone();
+                move |change| ChangeForFrontend::from(change).send(&app)
+            },
+        ))
     }
 
     #[derive(Debug)]
