@@ -1,8 +1,7 @@
 <script lang="ts">
+	import FeedActionDiff from '$components/FeedActionDiff.svelte';
 	import FeedItemKind from '$components/FeedItemKind.svelte';
 	import FeedStreamMessage from '$components/FeedStreamMessage.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import SnapshotAttachment from '$components/SnapshotAttachment.svelte';
 	import {
 		allCommitsUpdated,
 		ButlerAction,
@@ -16,23 +15,16 @@
 	import butbotSvg from '$lib/assets/butbot-actions.svg?raw';
 	import { isFeedMessage, isInProgressAssistantMessage, type FeedEntry } from '$lib/feed/feed';
 	import { Snapshot } from '$lib/history/types';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { combineResults } from '$lib/state/helpers';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/shared/context';
-	import { flattenAndDeduplicate } from '@gitbutler/shared/utils/array';
-	import { AgentAvatar, EditorLogo, FileListItem, Markdown, TimeAgo, Tooltip } from '@gitbutler/ui';
+	import { AgentAvatar, EditorLogo, Markdown, TimeAgo, Tooltip } from '@gitbutler/ui';
 	import { Icon, type IconName } from '@gitbutler/ui';
-	import { isDefined } from '@gitbutler/ui/utils/typeguards';
-
 	type Props = {
 		projectId: string;
 		action: FeedEntry;
 	};
 
 	const { action, projectId }: Props = $props();
-
-	const stackService = inject(STACK_SERVICE);
 
 	const user = inject(USER);
 	let failedToLoadImage = $state(false);
@@ -114,36 +106,7 @@
 			</p>
 			{#if !isStringActionSource(action.source) && action.response !== undefined}
 				{@const newCommits = allCommitsUpdated(action.response)}
-				{@const changedFilesInCommits = stackService.filePathsChangedInCommits(
-					projectId,
-					newCommits
-				)}
-				<ReduxResult
-					{projectId}
-					result={combineResults(...changedFilesInCommits.current.filter(isDefined))}
-				>
-					{#snippet children(filesPaths)}
-						{@const dedupedFilePaths = flattenAndDeduplicate(filesPaths)}
-						{#if dedupedFilePaths.length === 0}
-							<p class="text-13 text-grey">No changes detected</p>
-						{:else}
-							<SnapshotAttachment
-								foldable={dedupedFilePaths.length > 2}
-								foldedAmount={dedupedFilePaths.length}
-							>
-								<div class="snapshot-files">
-									{#each dedupedFilePaths as path, idx (path)}
-										<FileListItem
-											listMode="list"
-											filePath={path}
-											hideBorder={idx === dedupedFilePaths.length - 1}
-										/>
-									{/each}
-								</div>
-							</SnapshotAttachment>
-						{/if}
-					{/snippet}
-				</ReduxResult>
+				<FeedActionDiff {projectId} {newCommits} />
 			{/if}
 		</div>
 	{:else if action instanceof Snapshot}
@@ -371,10 +334,6 @@
 		line-height: 160%;
 	}
 
-	.snapshot-files {
-		display: flex;
-		flex-direction: column;
-	}
 	.text-grey {
 		color: var(--clr-text-2);
 	}
