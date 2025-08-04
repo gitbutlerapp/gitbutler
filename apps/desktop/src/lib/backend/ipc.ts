@@ -1,4 +1,5 @@
 import { Code } from '$lib/error/knownErrors';
+import { getCookie } from '$lib/utils/cookies';
 import { invoke as invokeTauri } from '@tauri-apps/api/core';
 import { listen as listenTauri } from '@tauri-apps/api/event';
 import type { EventCallback, EventName } from '@tauri-apps/api/event';
@@ -148,14 +149,7 @@ class WebListener {
 }
 
 function getWebUrl(): string {
-	const parsedCookies = document.cookie.split('; ').map((c) => c.split('=', 2));
-	const host =
-		parsedCookies.find(([k, _v]) => k === 'butlerHost')?.[1] ||
-		import.meta.env.VITE_BUTLER_HOST ||
-		'localhost';
-	const port =
-		parsedCookies.find(([k, _v]) => k === 'butlerPort')?.[1] ||
-		import.meta.env.VITE_BUTLER_PORT ||
-		'6978';
+	const host = getCookie('butlerHost') || import.meta.env.VITE_BUTLER_HOST || 'localhost';
+	const port = getCookie('butlerPort') || import.meta.env.VITE_BUTLER_PORT || '6978';
 	return `${host}:${port}`;
 }

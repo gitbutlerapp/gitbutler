@@ -1,12 +1,14 @@
 import getPort from 'get-port';
 import { dir } from 'tmp-promise';
-import { spawn } from 'node:child_process';
+import { ChildProcess, spawn } from 'node:child_process';
 import { Socket } from 'node:net';
 import * as path from 'node:path';
 
 interface GitButler {
+	workDir: string;
 	visit(path: string): Promise<void>;
 	cleanup(): Promise<void>;
+	runScript(scriptName: string): Promise<void>;
 }
 
 const VITE_HOST = 'localhost';
@@ -34,7 +36,7 @@ function spawnProcess(
 	cwd = process.cwd(),
 	env: Record<string, string> = {}
 ) {
-	return spawn(command, args, {
+	const child = spawn(command, args, {
 		cwd,
 		stdio: 'inherit',
 		env: {
@@ -46,6 +48,10 @@ function spawnProcess(
 			...env
 		}
 	});
+
+	processes.push(child);
+
+	return child;
 }
 
 async function runCommand(command: string, args: string[], cwd = process.cwd()) {
@@ -110,6 +116,8 @@ async function waitForServer(port: number, host = 'localhost', maxAttempts = 500
 
 let builtDesktop = false;
 
+const processes: ChildProcess[] = [];
+
 export async function startGitButler(browser: WebdriverIO.Browser): Promise<GitButler> {
 	const configDir = await dir({ unsafeCleanup: true });
 	const workDir = await dir({ unsafeCleanup: true });
@@ -120,6 +128,7 @@ export async function startGitButler(browser: WebdriverIO.Browser): Promise<GitB
 	// Get paths
 	const rootDir = path.resolve(import.meta.dirname, '../../..');
 	const desktopDir = path.resolve(rootDir, 'apps/desktop');
+	const scriptsDir = path.resolve(rootDir, 'e2e/test/specs/scripts');
 
 	// Start the Vite dev server
 	if (!builtDesktop) {
@@ -168,6 +177,7 @@ export async function startGitButler(browser: WebdriverIO.Browser): Promise<GitB
 	}
 
 	return {
+		workDir: workDir.path,
 		async visit(path: string) {
 			if (path.startsWith('/')) {
 				path = path.slice(1);
@@ -192,6 +202,37 @@ export async function startGitButler(browser: WebdriverIO.Browser): Promise<GitB
 			butProcess.kill();
 			await configDir.cleanup();
 			await workDir.cleanup();
+		},
+		async runScript(scriptName) {
+			const scriptPath = path.resolve(scriptsDir, scriptName);
+			await runCommand('bash', [scriptPath], workDir.path);
 		}
 	};
 }
+
+function cleanup() {
+	for (const child of processes) {
+		if (!child.killed) {
+			child.kill();
+		}
+	}
+}
+
+export async function sleep(time: number): Promise<void> {
+	return await new Promise((resolve) => setTimeout(resolve, time));
+}
+
+// Handle process termination
+process.on('SIGINT', () => {
+	cleanup();
+	process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+	cleanup();
+	process.exit(0);
+});
+
+process.on('exit', () => {
+	cleanup();
+});

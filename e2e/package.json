@@ -6,7 +6,8 @@
 		"@wdio/globals": "^9.17.0",
 		"@wdio/local-runner": "^9.18.4",
 		"@wdio/mocha-framework": "^9.18.0",
-		"@wdio/spec-reporter": "^9.18.0"
+		"@wdio/spec-reporter": "^9.18.0",
+		"wdio-video-reporter": "^6.0.0"
 	},
 	"scripts": {
 		"test:e2e": "pnpm test:e2e:not-tauri",

@@ -451,6 +451,9 @@ importers:
       '@wdio/spec-reporter':
         specifier: ^9.18.0
         version: 9.18.0
+      wdio-video-reporter:
+        specifier: ^6.0.0
+        version: 6.1.1(expect-webdriverio@5.4.1)(webdriverio@9.18.4)
 
   packages/mcp:
     dependencies:
@@ -1553,6 +1556,49 @@ packages:
     resolution: {integrity: sha512-CQRmcfCPnTEqP+EeHBE7wWp1sNxpBaT4Fb5Js5fGnWEgFFIDbJEEcFiT0Uwc1CteolXY+CyTOg7mokcOtu3d7w==}
     peerDependencies:
       svelte: ^4.0.0
+
+  '@ffmpeg-installer/darwin-arm64@4.1.5':
+    resolution: {integrity: sha512-hYqTiP63mXz7wSQfuqfFwfLOfwwFChUedeCVKkBtl/cliaTM7/ePI9bVzfZ2c+dWu3TqCwLDRWNSJ5pqZl8otA==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@ffmpeg-installer/darwin-x64@4.1.0':
+    resolution: {integrity: sha512-Z4EyG3cIFjdhlY8wI9aLUXuH8nVt7E9SlMVZtWvSPnm2sm37/yC2CwjUzyCQbJbySnef1tQwGG2Sx+uWhd9IAw==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@ffmpeg-installer/ffmpeg@1.1.0':
+    resolution: {integrity: sha512-Uq4rmwkdGxIa9A6Bd/VqqYbT7zqh1GrT5/rFwCwKM70b42W5gIjWeVETq6SdcL0zXqDtY081Ws/iJWhr1+xvQg==}
+
+  '@ffmpeg-installer/linux-arm64@4.1.4':
+    resolution: {integrity: sha512-dljEqAOD0oIM6O6DxBW9US/FkvqvQwgJ2lGHOwHDDwu/pX8+V0YsDL1xqHbj1DMX/+nP9rxw7G7gcUvGspSoKg==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@ffmpeg-installer/linux-arm@4.1.3':
+    resolution: {integrity: sha512-NDf5V6l8AfzZ8WzUGZ5mV8O/xMzRag2ETR6+TlGIsMHp81agx51cqpPItXPib/nAZYmo55Bl2L6/WOMI3A5YRg==}
+    cpu: [arm]
+    os: [linux]
+
+  '@ffmpeg-installer/linux-ia32@4.1.0':
+    resolution: {integrity: sha512-0LWyFQnPf+Ij9GQGD034hS6A90URNu9HCtQ5cTqo5MxOEc7Rd8gLXrJvn++UmxhU0J5RyRE9KRYstdCVUjkNOQ==}
+    cpu: [ia32]
+    os: [linux]
+
+  '@ffmpeg-installer/linux-x64@4.1.0':
+    resolution: {integrity: sha512-Y5BWhGLU/WpQjOArNIgXD3z5mxxdV8c41C+U15nsE5yF8tVcdCGet5zPs5Zy3Ta6bU7haGpIzryutqCGQA/W8A==}
+    cpu: [x64]
+    os: [linux]
+
+  '@ffmpeg-installer/win32-ia32@4.1.0':
+    resolution: {integrity: sha512-FV2D7RlaZv/lrtdhaQ4oETwoFUsUjlUiasiZLDxhEUPdNDWcH1OU9K1xTvqz+OXLdsmYelUDuBS/zkMOTtlUAw==}
+    cpu: [ia32]
+    os: [win32]
+
+  '@ffmpeg-installer/win32-x64@4.1.0':
+    resolution: {integrity: sha512-Drt5u2vzDnIONf4ZEkKtFlbvwj6rI3kxw1Ck9fpudmtgaZIHD4ucsWB2lCZBXRxJgXR+2IMSti+4rtM4C4rXgg==}
+    cpu: [x64]
+    os: [win32]
 
   '@giphy/js-analytics@5.0.0':
     resolution: {integrity: sha512-jBZG6OqyMWB6meLi8Sz3iLplXYnhkbj+DJhS4ChmRX8Y6UA7i5dbbsUN/So1s7tTjhZOvu0rxA6rWJE73S1FvQ==}
@@ -3286,6 +3332,10 @@ packages:
   '@vitest/utils@3.2.4':
     resolution: {integrity: sha512-fB2V0JFrQSMsCo9HiSq3Ezpdv4iYaXRG1Sx8edX3MwxfyNn83mKiGzOcH+Fkxt4MHxr3y42fQi1oeAInqgX2QA==}
 
+  '@wdio/allure-reporter@9.18.0':
+    resolution: {integrity: sha512-vU2tXaPvpRnyjLyxsT3iGQTMwT3KJ+EMyTKrrpePXa0pQmAXaumoOFM+e6i48co/eHavw2tVBqUICPz1p5TYVg==}
+    engines: {node: '>=18.20.0'}
+
   '@wdio/cli@9.18.4':
     resolution: {integrity: sha512-nSCMxko+g91KvUhIvUBp3ULnCDTBD8D5ma7LbPBDr7j72mQyXlQoNamKRCNsNVaFEXA/FtCmPXc1m/ynQDgeaA==}
     engines: {node: '>=18.20.0'}
@@ -3416,6 +3466,9 @@ packages:
   ajv@6.12.6:
     resolution: {integrity: sha512-j3fVLgvTo527anyYyJOGTYJbG+vnnQYvE0m5mmkc1TK+nxAppkCLMIL0aZ4dblVCNoGShhm+kzE4ZUykBoMg4g==}
 
+  allure-js-commons@2.15.1:
+    resolution: {integrity: sha512-5V/VINplbu0APnfSZOkYpKOzucO36Q2EtTD1kqjWjl7n6tj7Hh+IHCZsH3Vpk/LXRDfj9RuXugBBvwYKV5YMJw==}
+
   ansi-colors@4.1.3:
     resolution: {integrity: sha512-/6w/C21Pm1A7aZitlI5Ni/2J6FFQN8i1Cvz3kHABAAbw93v/NlvKdVOqz7CCWz/3iv/JplRSEEZ83XION15ovw==}
     engines: {node: '>=6'}
@@ -3423,6 +3476,10 @@ packages:
   ansi-escapes@4.3.2:
     resolution: {integrity: sha512-gKXj5ALrKWQLsYG9jlTRmR/xKluxHV+Z9QEwNIgCfM1/uwPMCuzVVnh5mwTd+OuBZcwSIMbqssNWRm1lE51QaQ==}
     engines: {node: '>=8'}
+
+  ansi-regex@4.1.1:
+    resolution: {integrity: sha512-ILlv4k/3f6vfQ4OoP2AGvirOktlQ98ZEL1k9FaQjxa3L1abBgbuTDAdPOpvbGncC0BTVQrl+OM8xZGK6tWXt7g==}
+    engines: {node: '>=6'}
 
   ansi-regex@5.0.1:
     resolution: {integrity: sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==}
@@ -3772,6 +3829,9 @@ packages:
   chardet@0.7.0:
     resolution: {integrity: sha512-mT8iDcrh03qDGRRmoA2hmBJnxpllMR+0/0qlzjqZES6NdiWDcZkCNAk4rPFZ9Q85r27unkiNNg8ZOiwZXBHwcA==}
 
+  charenc@0.0.2:
+    resolution: {integrity: sha512-yrLQ/yVUFXkzg7EDQsPieE/53+0RlaWTs+wBrvW36cyilJ2SaDWfl4Yj7MtLTXleV9uEKefbAGUPv2/iWSooRA==}
+
   check-error@2.1.1:
     resolution: {integrity: sha512-OAlb+T7V4Op9OwdkjmguYRqncdlx5JiofwOAUkmTF+jNdHwzTaTs4sRAGpzLF3oOz5xAyDGrPgeIDFQmDOTiJw==}
     engines: {node: '>= 16'}
@@ -3997,6 +4057,9 @@ packages:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
     engines: {node: '>= 8'}
 
+  crypt@0.0.2:
+    resolution: {integrity: sha512-mCxBlsHFYh9C+HVpiEacem8FEBnMXgU9gy4zmNC+SXAZNB/1idgp/aulFJ4FgCi7GPEVbfyng092GqL2k2rmow==}
+
   css-background-parser@0.1.0:
     resolution: {integrity: sha512-2EZLisiZQ+7m4wwur/qiYJRniHX4K5Tc9w93MT3AS0WS1u5kaZ4FKXlOTBhOjc+CgEgPiGY+fX1yWD8UwpEqUA==}
 
@@ -4080,6 +4143,9 @@ packages:
 
   csstype@3.1.3:
     resolution: {integrity: sha512-M1uQkMl8rQK/szD0LNhtqxIPLpimGm8sOBwU7lLnCpSbTyY3yeU1Vc7l4KT5zT4s/yOxHH5O7tIuuLOCnLADRw==}
+
+  csv-stringify@6.6.0:
+    resolution: {integrity: sha512-YW32lKOmIBgbxtu3g5SaiqWNwa/9ISQt2EcgOq0+RAIFufFp9is6tqNnKahqE5kuKvrnYAzs28r+s6pXJR8Vcw==}
 
   culori@4.0.1:
     resolution: {integrity: sha512-LSnjA6HuIUOlkfKVbzi2OlToZE8OjFi667JWN9qNymXVXzGDmvuP60SSgC+e92sd7B7158f7Fy3Mb6rXS5EDPw==}
@@ -5254,6 +5320,9 @@ packages:
     resolution: {integrity: sha512-wa56o2/ElJMYqjCjGkXri7it5FbebW5usLw/nPmCMs5DeZ7eziSYZhSmPRn0txqeW4LnAmQQU7FgqLpsEFKM4A==}
     engines: {node: '>= 0.4'}
 
+  is-buffer@1.1.6:
+    resolution: {integrity: sha512-NcdALwpXkTm5Zvvbk7owOUSvVvBKDgKP5/ewfXEznmQFfs4ZRmanOeKBTjRVjka3QFoN6XJ+9F3USqfHqTaU5w==}
+
   is-bun-module@2.0.0:
     resolution: {integrity: sha512-gNCGbnnnnFAUGKeZ9PdbyeGYJqewpmc2aKHUEMO5nQPWU9lOmv7jcmQIv+qHD8fXW6W7qfuCwX4rY9LNRjXrkQ==}
 
@@ -5789,6 +5858,9 @@ packages:
   math-intrinsics@1.1.0:
     resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==}
     engines: {node: '>= 0.4'}
+
+  md5@2.3.0:
+    resolution: {integrity: sha512-T1GITYmFaKuO91vxyoQMFETst+O71VUPEU3ze5GNzDm0OWdP8v1ziTaAEPUr/3kLsY3Sftgz242A1SetQiDL7g==}
 
   mdn-data@2.0.28:
     resolution: {integrity: sha512-aylIc7Z9y4yzHYAJNuESG3hfhC+0Ibp/MAMiaOZgNv4pmEdFyfZhhhny4MNiAfWdBQ1RQ2mfDWmM1x8SvGyp8g==}
@@ -6682,6 +6754,10 @@ packages:
     resolution: {integrity: sha512-NxNv/kLguCA7p3jE8oL2aEBsrJWgAakBpgmgK6lpPWV+WuOmY6r2/zbAVnP+T8bQlA0nzHXSJSJW0Hq7ylaD2Q==}
     engines: {node: '>= 6'}
 
+  properties@1.2.1:
+    resolution: {integrity: sha512-qYNxyMj1JeW54i/EWEFsM1cVwxJbtgPp8+0Wg9XjNaK6VE/c4oRi6PNu5p7w1mNXEIQIjV5Wwn8v8Gz82/QzdQ==}
+    engines: {node: '>=0.10'}
+
   protocols@2.0.1:
     resolution: {integrity: sha512-/XJ368cyBJ7fzLMwLKv1e4vLxOju2MNAIokcr7meSaNcVbWz/CPcW22cP04mwxOErdA5mwjA8Q6w/cdAQxVn7Q==}
 
@@ -7188,10 +7264,6 @@ packages:
     resolution: {integrity: sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw==}
     engines: {node: '>=14'}
 
-  sirv@3.0.0:
-    resolution: {integrity: sha512-BPwJGUeDaDCHihkORDchNyyTvWFhcusy1XMmhEVTQTwGeybFbp8YEmB+njbPnth1FibULBSBVwCQni25XlCUDg==}
-    engines: {node: '>=18'}
-
   sirv@3.0.1:
     resolution: {integrity: sha512-FoqMu0NCGBLCcAkS1qA+XJIQTR6/JHfQXl+uGteNCQ76T91DMUjPa9xfmeqMY3z80nLSg9yQmNjK0Px6RWsH/A==}
     engines: {node: '>=18'}
@@ -7338,6 +7410,10 @@ packages:
 
   string_decoder@1.3.0:
     resolution: {integrity: sha512-hkRX8U1WjJFd8LsDJ2yQ/wWWxaopEsABU1XfkM8A+j0+85JAGppt16cr1Whg6KIbb4okU6Mql6BOj+uup/wKeA==}
+
+  strip-ansi@5.2.0:
+    resolution: {integrity: sha512-DuRs1gKbBqsMKIZlrffwlug8MHkcnpjs5VPmL1PAh+mA30U0DTotfDZ0d2UUsXpPmPmMMJ6W773MaA3J+lbiWA==}
+    engines: {node: '>=6'}
 
   strip-ansi@6.0.1:
     resolution: {integrity: sha512-Y38VPSHcqkFrCpFnQ9vuSXmquuv5oXOKpGeT6aGrr3o3Gc9AlVa6JBfUSOCnbxGGZF+/0ooI7KrPuUSztUdU5A==}
@@ -7929,6 +8005,9 @@ packages:
   wcwidth@1.0.1:
     resolution: {integrity: sha512-XHPEwS0q6TaxcvG85+8EYkbiCux2XtWG2mkc47Ng2A77BQu9+DqIOJldST4HgPkuea7dvKSj5VgX3P1d4rW8Tg==}
 
+  wdio-video-reporter@6.1.1:
+    resolution: {integrity: sha512-hNTjFK2mGTDURiDt8MDuV0TkoF0FeegPN8vmWFm5bdZfvwPzEseyL/mX7SChaX9ldJRu402/6i0AEniXzONXuQ==}
+
   web-streams-polyfill@3.3.3:
     resolution: {integrity: sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw==}
     engines: {node: '>= 8'}
@@ -8231,7 +8310,7 @@ snapshots:
   '@babel/core@7.24.7':
     dependencies:
       '@ampproject/remapping': 2.3.0
-      '@babel/code-frame': 7.24.7
+      '@babel/code-frame': 7.27.1
       '@babel/generator': 7.24.7
       '@babel/helper-compilation-targets': 7.24.7
       '@babel/helper-module-transforms': 7.24.7(@babel/core@7.24.7)
@@ -8290,7 +8369,7 @@ snapshots:
       '@babel/helper-module-imports': 7.24.7
       '@babel/helper-simple-access': 7.24.7
       '@babel/helper-split-export-declaration': 7.24.7
-      '@babel/helper-validator-identifier': 7.24.7
+      '@babel/helper-validator-identifier': 7.27.1
     transitivePeerDependencies:
       - supports-color
 
@@ -8335,7 +8414,7 @@ snapshots:
 
   '@babel/template@7.24.7':
     dependencies:
-      '@babel/code-frame': 7.24.7
+      '@babel/code-frame': 7.27.1
       '@babel/parser': 7.24.7
       '@babel/types': 7.24.7
 
@@ -8917,6 +8996,41 @@ snapshots:
       '@resvg/resvg-js': 2.6.2
       satori: 0.10.14
       svelte: 5.36.15
+
+  '@ffmpeg-installer/darwin-arm64@4.1.5':
+    optional: true
+
+  '@ffmpeg-installer/darwin-x64@4.1.0':
+    optional: true
+
+  '@ffmpeg-installer/ffmpeg@1.1.0':
+    optionalDependencies:
+      '@ffmpeg-installer/darwin-arm64': 4.1.5
+      '@ffmpeg-installer/darwin-x64': 4.1.0
+      '@ffmpeg-installer/linux-arm': 4.1.3
+      '@ffmpeg-installer/linux-arm64': 4.1.4
+      '@ffmpeg-installer/linux-ia32': 4.1.0
+      '@ffmpeg-installer/linux-x64': 4.1.0
+      '@ffmpeg-installer/win32-ia32': 4.1.0
+      '@ffmpeg-installer/win32-x64': 4.1.0
+
+  '@ffmpeg-installer/linux-arm64@4.1.4':
+    optional: true
+
+  '@ffmpeg-installer/linux-arm@4.1.3':
+    optional: true
+
+  '@ffmpeg-installer/linux-ia32@4.1.0':
+    optional: true
+
+  '@ffmpeg-installer/linux-x64@4.1.0':
+    optional: true
+
+  '@ffmpeg-installer/win32-ia32@4.1.0':
+    optional: true
+
+  '@ffmpeg-installer/win32-x64@4.1.0':
+    optional: true
 
   '@giphy/js-analytics@5.0.0':
     dependencies:
@@ -10316,7 +10430,7 @@ snapshots:
       mrmime: 2.0.0
       sade: 1.8.1
       set-cookie-parser: 2.6.0
-      sirv: 3.0.0
+      sirv: 3.0.1
       svelte: 5.36.15
       vite: 6.3.5(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
 
@@ -10520,7 +10634,7 @@ snapshots:
       svelte: 5.36.15
     optionalDependencies:
       vite: 6.3.5(@types/node@22.3.0)(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
-      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/browser@3.2.4)(@vitest/ui@3.2.4)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.8.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
+      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/browser@3.2.4)(@vitest/ui@3.2.4)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.8.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
 
   '@testing-library/user-event@14.5.2(@testing-library/dom@10.4.0)':
     dependencies:
@@ -10878,7 +10992,7 @@ snapshots:
       magic-string: 0.30.17
       sirv: 3.0.1
       tinyrainbow: 2.0.0
-      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/browser@3.2.4)(@vitest/ui@3.2.4)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.8.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
+      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/browser@3.2.4)(@vitest/ui@3.2.4)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.8.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
       ws: 8.18.2
     optionalDependencies:
       playwright: 1.54.1
@@ -10960,7 +11074,7 @@ snapshots:
       sirv: 3.0.1
       tinyglobby: 0.2.14
       tinyrainbow: 2.0.0
-      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/browser@3.2.4)(@vitest/ui@3.2.4)(happy-dom@14.12.3)(jsdom@26.0.0)(msw@2.7.0(@types/node@22.3.0)(typescript@5.8.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
+      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@22.3.0)(@vitest/browser@3.2.4)(@vitest/ui@3.2.4)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.7.0(@types/node@22.3.0)(typescript@5.8.3))(sass-embedded@1.82.0)(tsx@4.19.3)(yaml@2.7.0)
 
   '@vitest/utils@2.0.5':
     dependencies:
@@ -10980,6 +11094,15 @@ snapshots:
       '@vitest/pretty-format': 3.2.4
       loupe: 3.2.0
       tinyrainbow: 2.0.0
+
+  '@wdio/allure-reporter@9.18.0':
+    dependencies:
+      '@types/node': 20.17.46
+      '@wdio/reporter': 9.18.0
+      '@wdio/types': 9.16.2
+      allure-js-commons: 2.15.1
+      csv-stringify: 6.6.0
+      strip-ansi: 7.1.0
 
   '@wdio/cli@9.18.4(@types/node@22.3.0)(expect-webdriverio@5.4.1)':
     dependencies:
@@ -11211,11 +11334,19 @@ snapshots:
       json-schema-traverse: 0.4.1
       uri-js: 4.4.1
 
+  allure-js-commons@2.15.1:
+    dependencies:
+      md5: 2.3.0
+      properties: 1.2.1
+      strip-ansi: 5.2.0
+
   ansi-colors@4.1.3: {}
 
   ansi-escapes@4.3.2:
     dependencies:
       type-fest: 0.21.3
+
+  ansi-regex@4.1.1: {}
 
   ansi-regex@5.0.1: {}
 
@@ -11601,6 +11732,8 @@ snapshots:
 
   chardet@0.7.0: {}
 
+  charenc@0.0.2: {}
+
   check-error@2.1.1: {}
 
   check-more-types@2.24.0: {}
@@ -11847,6 +11980,8 @@ snapshots:
       shebang-command: 2.0.0
       which: 2.0.2
 
+  crypt@0.0.2: {}
+
   css-background-parser@0.1.0: {}
 
   css-box-shadow@1.0.0-3: {}
@@ -11949,6 +12084,8 @@ snapshots:
   csstype@2.6.21: {}
 
   csstype@3.1.3: {}
+
+  csv-stringify@6.6.0: {}
 
   culori@4.0.1: {}
 
@@ -13391,6 +13528,8 @@ snapshots:
       has-tostringtag: 1.0.2
     optional: true
 
+  is-buffer@1.1.6: {}
+
   is-bun-module@2.0.0:
     dependencies:
       semver: 7.7.2
@@ -13471,7 +13610,7 @@ snapshots:
 
   is-reference@3.0.3:
     dependencies:
-      '@types/estree': 1.0.6
+      '@types/estree': 1.0.8
 
   is-regex@1.2.1:
     dependencies:
@@ -13966,6 +14105,12 @@ snapshots:
   marked@15.0.7: {}
 
   math-intrinsics@1.1.0: {}
+
+  md5@2.3.0:
+    dependencies:
+      charenc: 0.0.2
+      crypt: 0.0.2
+      is-buffer: 1.1.6
 
   mdn-data@2.0.28: {}
 
@@ -14812,6 +14957,8 @@ snapshots:
       kleur: 3.0.3
       sisteransi: 1.0.5
 
+  properties@1.2.1: {}
+
   protocols@2.0.1: {}
 
   proxy-addr@2.0.7:
@@ -15390,12 +15537,6 @@ snapshots:
 
   signal-exit@4.1.0: {}
 
-  sirv@3.0.0:
-    dependencies:
-      '@polka/url': 1.0.0-next.25
-      mrmime: 2.0.0
-      totalist: 3.0.1
-
   sirv@3.0.1:
     dependencies:
       '@polka/url': 1.0.0-next.25
@@ -15574,6 +15715,10 @@ snapshots:
     dependencies:
       safe-buffer: 5.2.1
 
+  strip-ansi@5.2.0:
+    dependencies:
+      ansi-regex: 4.1.1
+
   strip-ansi@6.0.1:
     dependencies:
       ansi-regex: 5.0.1
@@ -15694,7 +15839,7 @@ snapshots:
       '@ampproject/remapping': 2.3.0
       '@jridgewell/sourcemap-codec': 1.5.0
       '@sveltejs/acorn-typescript': 1.0.5(acorn@8.15.0)
-      '@types/estree': 1.0.6
+      '@types/estree': 1.0.8
       acorn: 8.15.0
       aria-query: 5.3.2
       axobject-query: 4.1.0
@@ -16261,6 +16406,19 @@ snapshots:
     dependencies:
       defaults: 1.0.4
     optional: true
+
+  wdio-video-reporter@6.1.1(expect-webdriverio@5.4.1)(webdriverio@9.18.4):
+    dependencies:
+      '@ffmpeg-installer/ffmpeg': 1.1.0
+      '@wdio/allure-reporter': 9.18.0
+      '@wdio/globals': 9.17.0(expect-webdriverio@5.4.1)(webdriverio@9.18.4)
+      '@wdio/logger': 9.18.0
+      '@wdio/reporter': 9.18.0
+      '@wdio/types': 9.16.2
+      glob: 11.0.0
+    transitivePeerDependencies:
+      - expect-webdriverio
+      - webdriverio
 
   web-streams-polyfill@3.3.3: {}
 

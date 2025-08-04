@@ -14,7 +14,7 @@ on:
 jobs:
   test:
     name: Run Tests
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -24,41 +24,38 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' }}
         with:
           ref: ${{ github.event.inputs.sha }}
-      - name: Install OS dependencies
-        run: |
-          sudo apt update && sudo apt install -y \
-            libsoup-3.0-0 \
-            libgtk-3-dev \
-            libayatana-appindicator3-dev \
-            libwebkit2gtk-4.1-dev \
-            webkit2gtk-driver \
-            ffmpeg \
-            xvfb
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2.8.0
+        with:
+          shared-key: e2e-testing-cache
+      # - name: Install OS dependencies
+      #   run: |
+      #     sudo apt update && sudo apt install -y \
+      #       libsoup-3.0-0 \
+      #       libgtk-3-dev \
+      #       libayatana-appindicator3-dev \
+      #       libwebkit2gtk-4.1-dev \
+      #       webkit2gtk-driver \
+      #       ffmpeg \
+      #       xvfb
       - name: Setup rust-toolchain stable
         id: rust-toolchain
         uses: dtolnay/rust-toolchain@stable
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: cargo-${{ steps.rust-toolchain.outputs.cachekey }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: cargo-
       - name: Setup node environment
         uses: ./.github/actions/init-env-node
-      # - name: Build CLI
-      #   run: cargo build -p gitbutler-cli
       - name: WebdriverIO
         run: pnpm test:e2e
-
-      # - uses: actions/upload-artifact@v4
-      #   if: failure()
-      #   with:
-      #     name: WebdriverIO Artifacts
-      #     overwrite: true
-      #     path: |
-      #       ./apps/desktop/e2e/videos
-      #       ~/.config/com.gitbutler.app*/logs
+      - name: Upload test videos
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-test-videos
+          path: e2e/test-results/videos/
+          retention-days: 30
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-test-results
+          path: e2e/test-results/
+          retention-days: 7
