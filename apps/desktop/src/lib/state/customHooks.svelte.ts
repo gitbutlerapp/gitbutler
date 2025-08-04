@@ -17,7 +17,7 @@ import {
 	type RootState,
 	type StartQueryActionCreatorOptions
 } from '@reduxjs/toolkit/query';
-import type { CustomQuery, ExtensionDefinitions } from '$lib/state/butlerModule';
+import type { CustomQuery, CustomResult, ExtensionDefinitions } from '$lib/state/butlerModule';
 import type { HookContext } from '$lib/state/context';
 import type { Prettify } from '@gitbutler/shared/utils/typeUtils';
 
@@ -109,10 +109,12 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 		return reactive(() => output);
 	}
 
-	function useQueries<T extends TranformerFn>(
+	function useQueries<T extends TranformerFn, D extends CustomQuery<any>>(
 		queryArgs: unknown[],
 		options?: { transform?: T } & StartQueryActionCreatorOptions
-	) {
+	): Reactive<
+		CustomResult<CustomQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>>[]
+	> {
 		const dispatch = getDispatch();
 		let subscriptions: QueryActionCreatorResult<any>[];
 		$effect(() => {
@@ -143,9 +145,9 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 					data
 				};
 			});
-			return output;
+			return reactive(() => output);
 		});
-		return reactive(() => results);
+		return reactive(() => results.map((results) => results.current));
 	}
 
 	function useQueryState<T extends TranformerFn>(queryArg: unknown, options?: { transform?: T }) {
