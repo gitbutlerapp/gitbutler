@@ -10,7 +10,6 @@
 	import ProblemLoadingRepo from '$components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$components/ProjectSettingsMenuAction.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import { BASE_BRANCH } from '$lib/baseBranch/baseBranch';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
@@ -49,9 +48,9 @@
 	const repoInfo = $derived(repoInfoResponse.current.data);
 	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
 	const baseBranch = $derived(baseBranchResponse.current.data);
+	const baseBranchName = $derived(baseBranch?.shortName);
 	const pushRepoResponse = $derived(baseBranchService.pushRepo(projectId));
 	const forkInfo = $derived(pushRepoResponse.current.data);
-	const baseBranchName = $derived(baseBranch?.shortName);
 	const branchService = inject(BRANCH_SERVICE);
 
 	const stackService = inject(STACK_SERVICE);
@@ -85,10 +84,6 @@
 		);
 
 		provide(STACKING_REORDER_DROPZONE_MANAGER_FACTORY, stackingReorderDropzoneManagerFactory);
-	});
-
-	$effect.pre(() => {
-		provide(BASE_BRANCH, baseBranch);
 	});
 
 	const focusManager = new FocusManager();

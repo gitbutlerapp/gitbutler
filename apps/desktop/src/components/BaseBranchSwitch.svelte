@@ -1,6 +1,5 @@
 <script lang="ts">
 	import InfoMessage from '$components/InfoMessage.svelte';
-	import { BASE_BRANCH } from '$lib/baseBranch/baseBranch';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/shared/context';
@@ -8,14 +7,15 @@
 
 	const { projectId }: { projectId: string } = $props();
 
-	const baseBranch = inject(BASE_BRANCH);
 	const stackService = inject(STACK_SERVICE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
+	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
+	const baseBranch = $derived(baseBranchResponse.current.data);
 	const remoteBranchesResponse = $derived(baseBranchService.remoteBranches(projectId));
 	const [setBaseBranchTarget, targetBranchSwitch] = baseBranchService.setTarget;
 
-	let selectedBranch = $state({ name: baseBranch.branchName });
-	let selectedRemote = $state({ name: baseBranch.actualPushRemoteName() });
+	let selectedBranch = $derived(baseBranch?.branchName);
+	let selectedRemote = $derived(baseBranch?.actualPushRemoteName());
 
 	const stacksResult = $derived(stackService.stacks(projectId));
 	const stackCount = $derived(stacksResult.current.data?.length);
@@ -35,9 +35,9 @@
 		if (!selectedBranch) return;
 
 		if (selectedRemote) {
-			await switchTarget(selectedBranch.name, selectedRemote.name);
+			await switchTarget(selectedBranch, selectedRemote);
 		} else {
-			await switchTarget(selectedBranch.name);
+			await switchTarget(selectedBranch);
 		}
 	}
 </script>
@@ -62,18 +62,18 @@
 			{/snippet}
 
 			<Select
-				value={selectedBranch.name}
+				value={selectedBranch}
 				options={remoteBranches.map((b) => ({ label: b.name, value: b.name }))}
 				wide
 				onselect={(value) => {
-					selectedBranch = { name: value };
+					selectedBranch = value;
 				}}
 				disabled={targetChangeDisabled}
 				label="Current target branch"
 				searchable
 			>
 				{#snippet itemSnippet({ item, highlighted })}
-					<SelectItem selected={item.value === selectedBranch.name} {highlighted}>
+					<SelectItem selected={item.value === selectedBranch} {highlighted}>
 						{item.label}
 					</SelectItem>
 				{/snippet}
@@ -81,17 +81,17 @@
 
 			{#if uniqueRemotes(remoteBranches).length > 1}
 				<Select
-					value={selectedRemote.name}
+					value={selectedRemote}
 					options={uniqueRemotes(remoteBranches).map((r) => ({ label: r.name!, value: r.name! }))}
 					wide
 					onselect={(value) => {
-						selectedRemote = { name: value };
+						selectedRemote = value;
 					}}
 					disabled={targetChangeDisabled}
 					label="Create branches on remote"
 				>
 					{#snippet itemSnippet({ item, highlighted })}
-						<SelectItem selected={item.value === selectedRemote.name} {highlighted}>
+						<SelectItem selected={item.value === selectedRemote} {highlighted}>
 							{item.label}
 						</SelectItem>
 					{/snippet}
@@ -111,8 +111,8 @@
 					onclick={onSetBaseBranchClick}
 					id="set-base-branch"
 					loading={targetBranchSwitch.current.isLoading}
-					disabled={(selectedBranch.name === baseBranch.branchName &&
-						selectedRemote.name === baseBranch.actualPushRemoteName()) ||
+					disabled={(selectedBranch === baseBranch?.branchName &&
+						selectedRemote === baseBranch?.actualPushRemoteName()) ||
 						targetChangeDisabled}
 				>
 					{targetBranchSwitch.current.isLoading ? 'Switching branches...' : 'Update configuration'}
