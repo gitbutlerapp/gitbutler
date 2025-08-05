@@ -363,7 +363,7 @@ where
     args.push(remote);
     args.push(&refspec);
 
-    if force {
+    if force && !force_push_protection {
         args.push("--force");
     }
 
