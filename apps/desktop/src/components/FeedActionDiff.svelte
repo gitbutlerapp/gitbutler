@@ -6,7 +6,6 @@
 	import { inject } from '@gitbutler/shared/context';
 	import { flattenAndDeduplicate } from '@gitbutler/shared/utils/array';
 	import { FileListItem } from '@gitbutler/ui';
-	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 
 	type Props = {
 		projectId: string;
@@ -18,38 +17,31 @@
 	const changedFilesInCommits = $derived(
 		stackService.filePathsChangedInCommits(projectId, newCommits)
 	);
-
-	const filteredChange = $derived(changedFilesInCommits.current.filter(isDefined));
 </script>
 
-{#if filteredChange.length > 0}
-	<ReduxResult
-		{projectId}
-		result={combineResults(...changedFilesInCommits.current.filter(isDefined))}
-	>
-		{#snippet children(filesPaths)}
-			{@const dedupedFilePaths = flattenAndDeduplicate(filesPaths)}
-			{#if dedupedFilePaths.length === 0}
-				<p class="text-13 text-grey">No changes detected</p>
-			{:else}
-				<SnapshotAttachment
-					foldable={dedupedFilePaths.length > 2}
-					foldedAmount={dedupedFilePaths.length}
-				>
-					<div class="snapshot-files">
-						{#each dedupedFilePaths as path, idx (path)}
-							<FileListItem
-								listMode="list"
-								filePath={path}
-								hideBorder={idx === dedupedFilePaths.length - 1}
-							/>
-						{/each}
-					</div>
-				</SnapshotAttachment>
-			{/if}
-		{/snippet}
-	</ReduxResult>
-{/if}
+<ReduxResult {projectId} result={combineResults(...changedFilesInCommits.current)}>
+	{#snippet children(filesPaths)}
+		{@const dedupedFilePaths = flattenAndDeduplicate(filesPaths)}
+		{#if dedupedFilePaths.length === 0}
+			<p class="text-13 text-grey">No changes detected</p>
+		{:else}
+			<SnapshotAttachment
+				foldable={dedupedFilePaths.length > 2}
+				foldedAmount={dedupedFilePaths.length}
+			>
+				<div class="snapshot-files">
+					{#each dedupedFilePaths as path, idx (path)}
+						<FileListItem
+							listMode="list"
+							filePath={path}
+							hideBorder={idx === dedupedFilePaths.length - 1}
+						/>
+					{/each}
+				</div>
+			</SnapshotAttachment>
+		{/if}
+	{/snippet}
+</ReduxResult>
 
 <style lang="postcss">
 	.snapshot-files {

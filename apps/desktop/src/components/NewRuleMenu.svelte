@@ -44,24 +44,24 @@
 		/>
 		<ContextMenuItem
 			icon="text-width"
-			label="Contains text"
-			disabled={filterHasBeenAdded('contentMatchesRegex')}
+			label="Contains text (coming soon)"
+			disabled={filterHasBeenAdded('contentMatchesRegex') || true}
 			onclick={() => {
 				handleAddFilter('contentMatchesRegex');
 			}}
 		/>
 		<ContextMenuItem
 			icon="file-changes"
-			label="Change type"
-			disabled={filterHasBeenAdded('fileChangeType')}
+			label="Change type (coming soon)"
+			disabled={filterHasBeenAdded('fileChangeType') || true}
 			onclick={() => {
 				handleAddFilter('fileChangeType');
 			}}
 		/>
 		<ContextMenuItem
 			icon="tag"
-			label="Work catergory"
-			disabled={filterHasBeenAdded('semanticType')}
+			label="Work catergory (coming soon)"
+			disabled={filterHasBeenAdded('semanticType') || true}
 			onclick={() => {
 				handleAddFilter('semanticType');
 			}}

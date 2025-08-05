@@ -29,7 +29,6 @@
 	import { requiresPush } from '$lib/stacks/stack';
 	import { STACK_SERVICE, type BranchPushResult } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { TestId } from '$lib/testing/testIds';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
@@ -37,7 +36,7 @@
 	import { sleep } from '$lib/utils/sleep';
 	import { inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import { chipToasts } from '@gitbutler/ui';
+	import { chipToasts, TestId } from '@gitbutler/ui';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { tick } from 'svelte';
 

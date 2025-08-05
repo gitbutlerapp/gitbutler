@@ -3,13 +3,12 @@
 	import { type Commit, type UpstreamCommit } from '$lib/branches/v3';
 	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
 	import { SETTINGS } from '$lib/settings/userSettings';
-	import { TestId } from '$lib/testing/testIds';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { rejoinParagraphs, truncate } from '$lib/utils/string';
 	import { inject } from '@gitbutler/shared/context';
 
-	import { Avatar, Icon, Tooltip } from '@gitbutler/ui';
+	import { Avatar, Icon, TestId, Tooltip } from '@gitbutler/ui';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 

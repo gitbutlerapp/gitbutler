@@ -2,8 +2,7 @@
 	import CommitFailedFileEntry from '$components/CommitFailedFileEntry.svelte';
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import { REJECTTION_REASONS, type RejectionReason } from '$lib/stacks/stackService.svelte';
-	import { TestId } from '$lib/testing/testIds';
-	import { Icon, ModalHeader, Tooltip } from '@gitbutler/ui';
+	import { Icon, ModalHeader, TestId, Tooltip } from '@gitbutler/ui';
 	import type { CommitFailedModalState } from '$lib/state/uiState.svelte';
 
 	type Props = {

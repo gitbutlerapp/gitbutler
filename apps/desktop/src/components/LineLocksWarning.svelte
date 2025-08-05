@@ -2,8 +2,8 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { getStackName } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
+	import { TestId } from '@gitbutler/ui';
 	import type { DependencyLock } from '@gitbutler/ui/utils/diffParsing';
 
 	type Props = {

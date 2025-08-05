@@ -3,7 +3,6 @@
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { type Stack } from '$lib/stacks/stack';
-	import { TestId } from '$lib/testing/testIds';
 	import {
 		getBaseBranchResolution,
 		type BaseBranchResolutionApproach,
@@ -29,7 +28,8 @@
 		Select,
 		SelectItem,
 		ScrollableContainer,
-		type BranchShouldBeDeletedMap
+		type BranchShouldBeDeletedMap,
+		TestId
 	} from '@gitbutler/ui';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { tick } from 'svelte';

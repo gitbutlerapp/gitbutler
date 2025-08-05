@@ -7,11 +7,10 @@
 	} from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { TestId } from '$lib/testing/testIds';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import { Button, Checkbox, Modal } from '@gitbutler/ui';
+	import { Button, Checkbox, Modal, TestId } from '@gitbutler/ui';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 
 	type Props = {

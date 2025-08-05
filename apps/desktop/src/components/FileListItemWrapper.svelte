@@ -11,10 +11,9 @@
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
 	import { key, type SelectionId } from '$lib/selection/key';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
-	import { TestId } from '$lib/testing/testIds';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { inject } from '@gitbutler/shared/context';
-	import { FileListItem, FileViewHeader } from '@gitbutler/ui';
+	import { FileListItem, FileViewHeader, TestId } from '@gitbutler/ui';
 	import { stickyHeader } from '@gitbutler/ui/utils/stickyHeader';
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
 	import type { Rename } from '$lib/hunks/change';

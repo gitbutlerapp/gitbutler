@@ -19,10 +19,9 @@
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { TestId } from '$lib/testing/testIds';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
-	import { ContextMenu, ContextMenuItem, ContextMenuSection } from '@gitbutler/ui';
+	import { ContextMenu, ContextMenuItem, ContextMenuSection, TestId } from '@gitbutler/ui';
 	import type { TreeChange } from '$lib/hunks/change';
 	import type { LineId } from '@gitbutler/ui/utils/diffParsing';
 

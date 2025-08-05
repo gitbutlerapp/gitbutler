@@ -1,7 +1,6 @@
 <script lang="ts">
 	import BranchesCardTemplate from '$components/branchesPage/BranchesCardTemplate.svelte';
-	import { TestId } from '$lib/testing/testIds';
-	import { Avatar, ReviewBadge, SeriesIcon, TimeAgo } from '@gitbutler/ui';
+	import { Avatar, ReviewBadge, SeriesIcon, TestId, TimeAgo } from '@gitbutler/ui';
 	import type { ReviewUnitInfo } from '$lib/forge/interface/forgePrService';
 	type basePrData = {
 		number: number;

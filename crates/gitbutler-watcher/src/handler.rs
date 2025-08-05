@@ -2,6 +2,8 @@ use std::{path::PathBuf, sync::Arc};
 
 use crate::Change;
 use anyhow::{Context, Result};
+use but_core::TreeChange;
+use but_hunk_assignment::HunkAssignment;
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_command_context::CommandContext;
@@ -87,19 +89,8 @@ impl Handler {
             Some(wt_changes.changes.clone()),
         );
 
-        let (assignments, assignments_error) = match &dependencies {
-            Ok(dependencies) => but_hunk_assignment::assignments_with_fallback(
-                ctx,
-                false,
-                Some(wt_changes.changes.clone()),
-                Some(dependencies),
-            )?,
-            Err(e) => (
-                vec![],
-                Some(anyhow::anyhow!("failed to get hunk dependencies: {}", e)),
-            ),
-        };
-        let assignments_error = assignments_error.map(|err| serde_error::Error::new(&*err));
+        let (assignments, assignments_error) =
+            assignments_and_errors(ctx, wt_changes.changes.clone(), &dependencies)?;
 
         let mut changes = but_hunk_assignment::WorktreeChanges {
             worktree_changes: wt_changes.clone().into(),
@@ -114,6 +105,9 @@ impl Handler {
         if ctx.app_settings().feature_flags.rules {
             if let Ok(update_count) = but_rules::handler::on_filesystem_change(ctx, &changes) {
                 if update_count > 0 {
+                    // Getting these again since they were updated
+                    let (assignments, assignments_error) =
+                        assignments_and_errors(ctx, wt_changes.changes.clone(), &dependencies)?;
                     changes = but_hunk_assignment::WorktreeChanges {
                         worktree_changes: wt_changes.into(),
                         assignments,
@@ -164,4 +158,27 @@ impl Handler {
         }
         Ok(())
     }
+}
+
+fn assignments_and_errors(
+    ctx: &mut CommandContext,
+    tree_changes: Vec<TreeChange>,
+    dependencies: &Result<but_hunk_dependency::ui::HunkDependencies>,
+) -> Result<(Vec<HunkAssignment>, Option<serde_error::Error>)> {
+    let (assignments, assignments_error) = match &dependencies {
+        Ok(dependencies) => but_hunk_assignment::assignments_with_fallback(
+            ctx,
+            false,
+            Some(tree_changes),
+            Some(dependencies),
+        )?,
+        Err(e) => (
+            vec![],
+            Some(anyhow::anyhow!("failed to get hunk dependencies: {}", e)),
+        ),
+    };
+    Ok((
+        assignments,
+        assignments_error.map(|err| serde_error::Error::new(&*err)),
+    ))
 }

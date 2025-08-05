@@ -3,9 +3,8 @@
 	import PrStatusBadge from '$components/PrStatusBadge.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import { Avatar, Link, Markdown } from '@gitbutler/ui';
+	import { Avatar, Link, Markdown, TestId } from '@gitbutler/ui';
 
 	type Props = {
 		projectId: string;

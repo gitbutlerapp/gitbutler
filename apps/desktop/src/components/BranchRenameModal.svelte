@@ -9,9 +9,8 @@
 
 <script lang="ts">
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { ElementId, TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import { Button, Modal, Textbox } from '@gitbutler/ui';
+	import { Button, ElementId, Modal, TestId, Textbox } from '@gitbutler/ui';
 
 	const { projectId, stackId, branchName, isPushed }: BranchRenameModalProps = $props();
 	const stackService = inject(STACK_SERVICE);

@@ -32,13 +32,9 @@ export function isMutationDefinition(
  */
 export function combineResults<T extends [...CustomResult<any>[]]>(
 	...results: T
-): CustomResult<CustomQuery<{ [K in keyof T]: Exclude<T[K]['data'], undefined> }>> {
+): CustomResult<CustomQuery<{ [K in keyof T]: Exclude<T[K]['data'], undefined> }>> | undefined {
 	if (results.length === 0) {
-		return {
-			status: QueryStatus.uninitialized,
-			error: undefined,
-			data: undefined
-		} as CustomResult<CustomQuery<{ [K in keyof T]: Exclude<T[K]['data'], undefined> }>>;
+		return;
 	}
 
 	const data = results.every((r) => r.data !== undefined) ? results.map((r) => r.data) : undefined;

@@ -7,8 +7,8 @@
 	import Resizer from '$components/Resizer.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
+	import { TestId } from '@gitbutler/ui';
 	import { onMount } from 'svelte';
 
 	type Props = {

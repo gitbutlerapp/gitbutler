@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { TestId } from '$lib/testing/testIds';
-	import { Button } from '@gitbutler/ui';
+	import { Button, TestId } from '@gitbutler/ui';
 	import { type Snippet } from 'svelte';
 
 	interface Props {

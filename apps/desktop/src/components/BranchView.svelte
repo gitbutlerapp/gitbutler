@@ -11,9 +11,8 @@
 	import newBranchSmolSVG from '$lib/assets/empty-state/new-branch-smol.svg?raw';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
-	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import { Icon, Tooltip } from '@gitbutler/ui';
+	import { Icon, TestId, Tooltip } from '@gitbutler/ui';
 
 	import type { TargetType } from '$lib/intelligentScrolling/service';
 	import type { ComponentProps } from 'svelte';

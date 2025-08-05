@@ -10,9 +10,7 @@ import { MOCK_BRANCH_STATUSES_RESPONSE } from './mock/upstreamIntegration';
 import { MOCK_USER } from './mock/user';
 import { MOCK_VIRTUAL_BRANCHES } from './mock/virtualBranches';
 import { MOCK_WORKTREE_CHANGES } from './mock/worktree';
-// Sorry about this. For now it's ok for the tests.
-// eslint-disable-next-line no-relative-import-paths/no-relative-import-paths
-import { TestId } from '../../../src/lib/testing/testIds';
+import { TestId } from '@gitbutler/ui/utils/testIds';
 import { invoke, type InvokeArgs } from '@tauri-apps/api/core';
 import type { ProjectInfo } from '$lib/project/projectsService';
 

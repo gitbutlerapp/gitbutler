@@ -51,6 +51,8 @@ export class UserService {
 			setSentryUser(user);
 			return user;
 		}
+
+		this.posthog.setAnonymousPostHogUser();
 		this.user.set(undefined);
 	}
 	readonly accessToken$ = derived(this.user, (user) => {

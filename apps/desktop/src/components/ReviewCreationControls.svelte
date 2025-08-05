@@ -1,8 +1,13 @@
 <script lang="ts">
-	import { TestId } from '$lib/testing/testIds';
 	import { persisted } from '@gitbutler/shared/persisted';
 
-	import { Button, ContextMenuItem, ContextMenuSection, DropDownButton } from '@gitbutler/ui';
+	import {
+		Button,
+		ContextMenuItem,
+		ContextMenuSection,
+		DropDownButton,
+		TestId
+	} from '@gitbutler/ui';
 
 	interface Props {
 		isSubmitting: boolean;

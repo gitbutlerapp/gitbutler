@@ -1,10 +1,11 @@
+import { TestId } from '@gitbutler/ui/utils/testIds';
 import getPort from 'get-port';
 import { dir } from 'tmp-promise';
 import { ChildProcess, spawn } from 'node:child_process';
 import { Socket } from 'node:net';
 import * as path from 'node:path';
 
-interface GitButler {
+export interface GitButler {
 	workDir: string;
 	visit(path: string): Promise<void>;
 	cleanup(): Promise<void>;
@@ -197,9 +198,9 @@ export async function startGitButler(browser: WebdriverIO.Browser): Promise<GitB
 		},
 		async cleanup() {
 			// log('Stopping Vite dev server...', colors.yellow);
-			viteProcess.kill();
+			viteProcess.kill(1);
 			// log('Stopping butler server...', colors.yellow);
-			butProcess.kill();
+			butProcess.kill(1);
 			await configDir.cleanup();
 			await workDir.cleanup();
 		},
@@ -213,13 +214,19 @@ export async function startGitButler(browser: WebdriverIO.Browser): Promise<GitB
 function cleanup() {
 	for (const child of processes) {
 		if (!child.killed) {
-			child.kill();
+			child.kill(1);
 		}
 	}
 }
 
 export async function sleep(time: number): Promise<void> {
 	return await new Promise((resolve) => setTimeout(resolve, time));
+}
+
+type TestIdValues = `${TestId}`;
+
+export function getByTestId(testId: TestIdValues) {
+	return $(`[data-testid="${testId}"]`);
 }
 
 // Handle process termination

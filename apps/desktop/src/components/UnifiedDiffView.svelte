@@ -21,10 +21,9 @@
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 
-	import { EmptyStatePlaceholder, HunkDiff } from '@gitbutler/ui';
+	import { EmptyStatePlaceholder, HunkDiff, TestId } from '@gitbutler/ui';
 	import { parseHunk } from '@gitbutler/ui/utils/diffParsing';
 	import type { FileDependencies } from '$lib/dependencies/dependencies';
 	import type { TreeChange } from '$lib/hunks/change';

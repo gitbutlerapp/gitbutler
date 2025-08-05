@@ -3,7 +3,7 @@
 <script lang="ts">
 	import BranchHeaderIcon from '$components/BranchHeaderIcon.svelte';
 	import BranchLabel from '$components/BranchLabel.svelte';
-	import { TestId } from '$lib/testing/testIds';
+	import { TestId } from '@gitbutler/ui';
 	import { slide } from 'svelte/transition';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';

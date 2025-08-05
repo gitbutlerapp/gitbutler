@@ -6,7 +6,7 @@ use gitbutler_command_context::CommandContext;
 use itertools::Itertools;
 use std::str::FromStr;
 
-use crate::Filter;
+use crate::{Filter, StackTarget};
 
 pub fn on_filesystem_change(
     ctx: &mut CommandContext,
@@ -41,25 +41,35 @@ pub fn on_filesystem_change(
 
     for rule in rules {
         match rule.action {
-            super::Action::Explicit(super::Operation::Assign { stack_id }) => {
-                if let Ok(stack_id) = StackId::from_str(&stack_id) {
-                    if !stacks_in_ws
-                        .iter()
-                        .any(|e| e.id.is_some_and(|id| id == stack_id))
-                    {
-                        continue;
-                    }
-                    let assignments = matching(worktree_changes.clone(), rule.filters.clone())
-                        .into_iter()
-                        .filter(|e| e.stack_id != Some(stack_id))
-                        .map(|mut e| {
-                            e.stack_id = Some(stack_id);
-                            e
-                        })
-                        .collect_vec();
-                    updates +=
-                        handle_assign(ctx, assignments, worktree_changes.dependencies.as_ref())
+            super::Action::Explicit(super::Operation::Assign { target }) => {
+                match target {
+                    StackTarget::StackId(stack_id) => {
+                        if let Ok(stack_id) = StackId::from_str(&stack_id) {
+                            if !stacks_in_ws
+                                .iter()
+                                .any(|e| e.id.is_some_and(|id| id == stack_id))
+                            {
+                                continue;
+                            }
+                            let assignments =
+                                matching(worktree_changes.clone(), rule.filters.clone())
+                                    .into_iter()
+                                    .filter(|e| e.stack_id != Some(stack_id))
+                                    .map(|mut e| {
+                                        e.stack_id = Some(stack_id);
+                                        e
+                                    })
+                                    .collect_vec();
+                            updates += handle_assign(
+                                ctx,
+                                assignments,
+                                worktree_changes.dependencies.as_ref(),
+                            )
                             .unwrap_or_default();
+                        }
+                    }
+                    StackTarget::Leftmost => continue,  // TODO
+                    StackTarget::Rightmost => continue, // TODO
                 }
             }
             _ => continue,

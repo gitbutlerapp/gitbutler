@@ -31,10 +31,15 @@
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { TestId } from '$lib/testing/testIds';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
-	import { ContextMenu, ContextMenuItem, ContextMenuSection, KebabButton } from '@gitbutler/ui';
+	import {
+		ContextMenu,
+		ContextMenuItem,
+		ContextMenuSection,
+		KebabButton,
+		TestId
+	} from '@gitbutler/ui';
 
 	import type { CommitStatusType } from '$lib/commits/commit';
 

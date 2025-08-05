@@ -3,18 +3,19 @@
 	import newStackSvg from '$components/stackTabs/assets/new-stack.svg?raw';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { ElementId, TestId } from '$lib/testing/testIds';
 	import { sleep } from '$lib/utils/sleep';
 	import { inject } from '@gitbutler/shared/context';
 
 	import {
 		Button,
+		ElementId,
 		Icon,
 		Link,
 		Modal,
 		RadioButton,
 		Select,
 		SelectItem,
+		TestId,
 		Textbox
 	} from '@gitbutler/ui';
 	import { slugify } from '@gitbutler/ui/utils/string';

@@ -6,9 +6,8 @@
 	import Drawer from '$components/Drawer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import { Icon, Tooltip } from '@gitbutler/ui';
+	import { Icon, TestId, Tooltip } from '@gitbutler/ui';
 
 	import type { SelectionId } from '$lib/selection/key';
 
