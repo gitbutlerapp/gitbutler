@@ -98,11 +98,20 @@ pub enum Action {
 #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
 pub enum Operation {
     /// Assign the matched changes to a specific stack ID.
-    Assign { stack_id: String },
+    Assign { target: StackTarget },
     /// Amend the matched changes into a specific commit.
     Amend { commit_id: String },
     /// Create a new commit with the matched changes on a specific branch.
     NewCommit { branch_name: String },
+}
+
+/// The target stack for a given operation. It's either specifying a specific stack ID, or alternaitvely the leftmost or rightmost stack in the workspace.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
+pub enum StackTarget {
+    StackId(String),
+    Leftmost,
+    Rightmost,
 }
 
 /// Represents the implicit operation that is determined by heuristics or AI.
