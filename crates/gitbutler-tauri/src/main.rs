@@ -29,6 +29,8 @@ use tokio::sync::Mutex;
 
 fn main() {
     let performance_logging = std::env::var_os("GITBUTLER_PERFORMANCE_LOG").is_some();
+    let tauri_debug_logging = std::env::var_os("GITBUTLER_TAURI_DEBUG_LOG").is_some();
+
     gitbutler_project::configure_git2();
     let mut tauri_context = generate_context!();
     gitbutler_secret::secret::set_application_namespace(&tauri_context.config().identifier);
@@ -46,6 +48,7 @@ fn main() {
     ) {
         tauri_context.config_mut().app.security.csp = updated_csp;
     };
+    let app_settings_for_menu = app_settings.clone();
 
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -58,7 +61,11 @@ fn main() {
                 .target(Target::new(TargetKind::LogDir {
                     file_name: Some("ui-logs".to_string()),
                 }))
-                .level(log::LevelFilter::Error);
+                .level(if tauri_debug_logging {
+                    log::LevelFilter::Debug
+                } else {
+                    log::LevelFilter::Error
+                });
 
             let builder = tauri::Builder::default()
                 .setup(move |tauri_app| {
@@ -143,8 +150,8 @@ fn main() {
 
                     app_handle.manage(app);
 
-                    tauri_app.on_menu_event(move |_handle, event| {
-                        menu::handle_event(&window.clone(), &event)
+                    tauri_app.on_menu_event(move |handle, event| {
+                        menu::handle_event(handle, &window.clone(), &event)
                     });
 
                     #[cfg(target_os = "macos")]
@@ -308,7 +315,7 @@ fn main() {
                     #[cfg(all(debug_assertions, unix))]
                     workspace::show_graph_svg,
                 ])
-                .menu(menu::build)
+                .menu(move |handle| menu::build(handle, &app_settings_for_menu))
                 .on_window_event(|window, event| match event {
                     #[cfg(target_os = "macos")]
                     tauri::WindowEvent::CloseRequested { .. } => {

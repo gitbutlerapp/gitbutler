@@ -13,6 +13,7 @@ pub fn project_status(project_dir: &Path) -> anyhow::Result<but_tools::workspace
             v3: true,
             // Keep this off until it caught up at least.
             ws3: false,
+            undo: false,
             actions: false,
             butbot: false,
             rules: false,

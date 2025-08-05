@@ -171,6 +171,7 @@ async fn main() -> Result<()> {
                 description.as_deref(),
                 &args.current_dir,
                 args.json,
+                args.v3,
             ),
             (None, Some(id)) => command::stacks::branches(*id, &args.current_dir, args.json),
             (None, None) => {
