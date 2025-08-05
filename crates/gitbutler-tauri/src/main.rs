@@ -117,8 +117,6 @@ fn main() {
                     };
                     std::fs::create_dir_all(&app_data_dir).expect("failed to create app data dir");
                     std::fs::create_dir_all(&app_cache_dir).expect("failed to create cache dir");
-                    let config_dir = config_dir.join("gitbutler");
-                    std::fs::create_dir_all(&config_dir).expect("failed to create config dir");
 
                     tracing::info!(version = %app_handle.package_info().version,
                                    name = %app_handle.package_info().name, "starting app");
@@ -138,10 +136,7 @@ fn main() {
                         logs_dir: app_log_dir.clone(),
                     });
                     let app = App {
-                        app_settings: Arc::new(
-                            AppSettingsWithDiskSync::new(config_dir.clone())
-                                .expect("failed to create app settings"),
-                        ),
+                        app_settings: Arc::new(app_settings),
                         broadcaster: broadcaster.clone(),
                         archival: archival.clone(),
                     };
