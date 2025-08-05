@@ -52,6 +52,9 @@ pub struct HunkAssignment {
     pub line_nums_added: Option<Vec<usize>>,
     /// The line numbers that were removed in this hunk.
     pub line_nums_removed: Option<Vec<usize>>,
+    /// The hunk diff for internal usage. This is not to be persisted or sent over the API.
+    #[serde(skip)]
+    pub diff: Option<BString>,
 }
 
 impl TryFrom<but_db::HunkAssignment> for HunkAssignment {
@@ -75,6 +78,7 @@ impl TryFrom<but_db::HunkAssignment> for HunkAssignment {
             hunk_locks: None,
             line_nums_added: None,   // derived data (not persisted)
             line_nums_removed: None, // derived data (not persisted)
+            diff: None,              // derived data (not persisted)
         })
     }
 }
@@ -430,6 +434,7 @@ fn hunk_dependency_assignments(deps: &HunkDependencies) -> Result<Vec<HunkAssign
             hunk_locks: Some(locks.clone()),
             line_nums_added: None,   // derived data (not persisted)
             line_nums_removed: None, // derived data (not persisted)
+            diff: None,              // derived data (not persisted)
         };
         assignments.push(assignment);
     }
@@ -450,6 +455,7 @@ fn diff_to_assignments(diff: Option<UnifiedDiff>, path: BString) -> Vec<HunkAssi
                 hunk_locks: None,
                 line_nums_added: None,
                 line_nums_removed: None,
+                diff: None,
             }],
             but_core::UnifiedDiff::TooLarge { .. } => vec![HunkAssignment {
                 id: Some(Uuid::new_v4()),
@@ -460,6 +466,7 @@ fn diff_to_assignments(diff: Option<UnifiedDiff>, path: BString) -> Vec<HunkAssi
                 hunk_locks: None,
                 line_nums_added: None,
                 line_nums_removed: None,
+                diff: None,
             }],
             but_core::UnifiedDiff::Patch {
                 hunks,
@@ -477,6 +484,7 @@ fn diff_to_assignments(diff: Option<UnifiedDiff>, path: BString) -> Vec<HunkAssi
                         hunk_locks: None,
                         line_nums_added: None,
                         line_nums_removed: None,
+                        diff: None,
                     }]
                 } else {
                     hunks
@@ -493,6 +501,7 @@ fn diff_to_assignments(diff: Option<UnifiedDiff>, path: BString) -> Vec<HunkAssi
                                 hunk_locks: None,
                                 line_nums_added: Some(line_nums_added_new),
                                 line_nums_removed: Some(line_nums_removed_old),
+                                diff: Some(hunk.diff.clone()),
                             }
                         })
                         .collect()
@@ -509,6 +518,7 @@ fn diff_to_assignments(diff: Option<UnifiedDiff>, path: BString) -> Vec<HunkAssi
             hunk_locks: None,
             line_nums_added: None,
             line_nums_removed: None,
+            diff: None,
         }]
     }
 }
@@ -568,6 +578,7 @@ fn requests_to_assignments(request: Vec<HunkAssignmentRequest>) -> Vec<HunkAssig
             hunk_locks: None,
             line_nums_added: None,
             line_nums_removed: None,
+            diff: None,
         };
         assignments.push(assignment);
     }
@@ -615,6 +626,7 @@ mod tests {
                 hunk_locks: None,
                 line_nums_added: None,
                 line_nums_removed: None,
+                diff: None,
             }
         }
     }
