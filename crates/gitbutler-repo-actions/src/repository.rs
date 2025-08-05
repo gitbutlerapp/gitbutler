@@ -163,11 +163,7 @@ impl RepoActionsExt for CommandContext {
         askpass_broker: Option<Option<StackId>>,
     ) -> Result<()> {
         let refspec = refspec.unwrap_or_else(|| {
-            if with_force {
-                format!("+{}:refs/heads/{}", head, branch.branch())
-            } else {
-                format!("{}:refs/heads/{}", head, branch.branch())
-            }
+            format!("{}:refs/heads/{}", head, branch.branch()) // for force pushing we previously had "+{}:refs/heads/{}" which was removed because it bypasses the force push protection flags as it is equivalent to --force
         });
 
         // NOTE(qix-): This is a nasty hack, however the codebase isn't structured
