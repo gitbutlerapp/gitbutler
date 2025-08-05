@@ -1,0 +1,3 @@
+ancestorEntries = ["apps/desktop/src/lib/backend/ipc.ts"]
+ourEntries = ["apps/desktop/src/lib/backend/ipc.ts"]
+theirEntries = ["apps/desktop/src/lib/backend/ipc.ts"]
