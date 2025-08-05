@@ -147,7 +147,18 @@ fn matching(worktree_changes: WorktreeChanges, filters: Vec<Filter>) -> Vec<Hunk
                     }
                 }
             }
-            Filter::ContentMatchesRegex(_) => continue,
+            Filter::ContentMatchesRegex(regex) => {
+                for change in worktree_changes.assignments.iter() {
+                    if let Some(diff) = change.diff.clone() {
+                        let diff = diff.to_string();
+                        let matching_lines: Vec<&str> =
+                            diff.lines().filter(|line| line.starts_with('+')).collect();
+                        if matching_lines.iter().any(|line| regex.is_match(line)) {
+                            assignments.push(change.clone());
+                        }
+                    }
+                }
+            }
             Filter::FileChangeType(_) => continue,
             Filter::SemanticType(_) => continue,
         }

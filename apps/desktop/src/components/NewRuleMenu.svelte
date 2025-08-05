@@ -44,8 +44,8 @@
 		/>
 		<ContextMenuItem
 			icon="text-width"
-			label="Contains text (coming soon)"
-			disabled={filterHasBeenAdded('contentMatchesRegex') || true}
+			label="Contains text"
+			disabled={filterHasBeenAdded('contentMatchesRegex')}
 			onclick={() => {
 				handleAddFilter('contentMatchesRegex');
 			}}

@@ -112,7 +112,7 @@
 		wide
 		value={pathRegex}
 		oninput={(v) => (pathRegex = v)}
-		placeholder="Path: e.g. src/components"
+		placeholder="Path e.g. src/components or a regex"
 		autofocus
 	/>
 {/snippet}
@@ -124,7 +124,7 @@
 		wide
 		value={contentRegex}
 		oninput={(v) => (contentRegex = v)}
-		placeholder="Contains: e.g. TODO"
+		placeholder="String e.g. TODO or a regex"
 		autofocus
 	/>
 {/snippet}
