@@ -17,11 +17,17 @@
 		workspacePath
 	} from '$lib/routes/routes.svelte';
 	import { SETTINGS } from '$lib/settings/userSettings';
-	import { TestId } from '$lib/testing/testIds';
 	import { USER } from '$lib/user/user';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
-	import { Button, ContextMenu, ContextMenuItem, ContextMenuSection, Icon } from '@gitbutler/ui';
+	import {
+		Button,
+		ContextMenu,
+		ContextMenuItem,
+		ContextMenuSection,
+		Icon,
+		TestId
+	} from '@gitbutler/ui';
 
 	import { slide } from 'svelte/transition';
 

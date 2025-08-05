@@ -30,9 +30,8 @@
 	import { STACK_SERVICE, type SeriesIntegrationStrategy } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import { Button, Modal } from '@gitbutler/ui';
+	import { Button, Modal, TestId } from '@gitbutler/ui';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import type { Commit } from '$lib/branches/v3';
 	import type { CommitStatusType } from '$lib/commits/commit';

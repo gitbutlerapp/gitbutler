@@ -3,11 +3,10 @@
 	import { type BranchListing, BranchListingDetails } from '$lib/branches/branchListing';
 	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
-	import { TestId } from '$lib/testing/testIds';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/shared/context';
 
-	import { AvatarGroup, ReviewBadge, SeriesLabelsRow, TimeAgo } from '@gitbutler/ui';
+	import { AvatarGroup, ReviewBadge, SeriesLabelsRow, TestId, TimeAgo } from '@gitbutler/ui';
 	import { gravatarUrlFromEmail } from '@gitbutler/ui/components/avatar/gravatar';
 	import type { ReviewUnitInfo } from '$lib/forge/interface/forgePrService';
 	import type { PullRequest } from '$lib/forge/interface/types';

@@ -10,7 +10,6 @@
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { ircPath, projectPath } from '$lib/routes/routes.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 	import {
 		Button,
@@ -18,7 +17,8 @@
 		NotificationButton,
 		OptionsGroup,
 		Select,
-		SelectItem
+		SelectItem,
+		TestId
 	} from '@gitbutler/ui';
 
 	type Props = {

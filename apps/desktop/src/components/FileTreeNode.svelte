@@ -2,7 +2,7 @@
 	import AsyncRender from '$components/AsyncRender.svelte';
 	import Self from '$components/FileTreeNode.svelte';
 	import TreeListFolder from '$components/TreeListFolder.svelte';
-	import { TestId } from '$lib/testing/testIds';
+	import { TestId } from '@gitbutler/ui';
 	import type { TreeNode } from '$lib/files/filetreeV3';
 	import type { TreeChange } from '$lib/hunks/change';
 	import type { Snippet } from 'svelte';

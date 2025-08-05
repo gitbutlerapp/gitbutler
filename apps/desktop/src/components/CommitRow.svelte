@@ -2,8 +2,7 @@
 	import CommitLine from '$components/CommitLine.svelte';
 	import CommitTitle from '$components/CommitTitle.svelte';
 	import { type CommitStatusType } from '$lib/commits/commit';
-	import { TestId } from '$lib/testing/testIds';
-	import { Avatar, Icon } from '@gitbutler/ui';
+	import { Avatar, Icon, TestId } from '@gitbutler/ui';
 
 	import { slide } from 'svelte/transition';
 	import type { Snippet } from 'svelte';

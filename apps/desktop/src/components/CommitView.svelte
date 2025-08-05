@@ -16,10 +16,9 @@
 	import { showToast } from '$lib/notifications/toasts';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { TestId } from '$lib/testing/testIds';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { inject, injectOptional } from '@gitbutler/shared/context';
-	import { AsyncButton, Button } from '@gitbutler/ui';
+	import { AsyncButton, Button, TestId } from '@gitbutler/ui';
 
 	import type { TargetType } from '$lib/intelligentScrolling/service';
 	import type { ComponentProps } from 'svelte';

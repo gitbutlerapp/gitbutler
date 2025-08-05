@@ -27,12 +27,11 @@
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 
-	import { TestId } from '$lib/testing/testIds';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { inject } from '@gitbutler/shared/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 
-	import { Button, FileViewHeader, Icon } from '@gitbutler/ui';
+	import { Button, FileViewHeader, Icon, TestId } from '@gitbutler/ui';
 	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import type { Commit } from '$lib/branches/v3';

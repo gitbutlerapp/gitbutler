@@ -4,9 +4,8 @@
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import { AsyncButton } from '@gitbutler/ui';
+	import { AsyncButton, TestId } from '@gitbutler/ui';
 
 	import type { MergeMethod } from '$lib/forge/interface/types';
 

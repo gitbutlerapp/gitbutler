@@ -10,9 +10,8 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import { Button, Modal, Textbox } from '@gitbutler/ui';
+	import { Button, Modal, TestId, Textbox } from '@gitbutler/ui';
 	import type { DetailedPullRequest } from '$lib/forge/interface/types';
 
 	type Props = {

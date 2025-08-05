@@ -6,10 +6,9 @@
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 
-	import { Tooltip } from '@gitbutler/ui';
+	import { TestId, Tooltip } from '@gitbutler/ui';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { onMount } from 'svelte';

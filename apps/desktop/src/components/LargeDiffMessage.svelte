@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { TestId } from '$lib/testing/testIds';
-	import { Button } from '@gitbutler/ui';
+	import { Button, TestId } from '@gitbutler/ui';
 
 	interface Props {
 		showFrame?: boolean;

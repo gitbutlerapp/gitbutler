@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
-	import { TestId } from '$lib/testing/testIds';
+	import { TestId } from '@gitbutler/ui';
 	import { clickOutside } from '@gitbutler/ui/utils/clickOutside';
 	import { resizeObserver } from '@gitbutler/ui/utils/resizeObserver';
 
