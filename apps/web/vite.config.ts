@@ -35,5 +35,10 @@ export default defineConfig({
 	},
 	build: {
 		sourcemap: 'inline'
+	},
+	resolve: {
+		alias: {
+			'@gitbutler/ui/styles/fonts': '../../packages/ui/src/styles/fonts'
+		}
 	}
 });

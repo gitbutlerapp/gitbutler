@@ -1,3 +1,19 @@
+/**
+ * GitButler Font System - Single Source of Truth
+ * 
+ * This file contains all font definitions for GitButler applications.
+ * 
+ * USAGE:
+ * Applications should import @gitbutler/ui/main.css to automatically 
+ * include all fonts and CSS custom properties.
+ * 
+ * ARCHITECTURE:
+ * - Font files: packages/ui/src/styles/fonts/{family}/
+ * - CSS definitions: This file (fonts.css)
+ * - Distribution: packages/ui/dist/styles/fonts/
+ * - Build process: Copies font files and processes CSS via PostCSS
+ */
+
 @font-face {
 	src: url('pp-editorial/PPEditorialNew-Regular.woff2') format('woff2');
 	font-family: 'PP Editorial New';

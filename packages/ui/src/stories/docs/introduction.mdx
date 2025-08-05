@@ -10,21 +10,42 @@ Welcome to the GitButler UI Storybook. This is a collection of components that a
 
 ## 📚 How to install
 
-Because the GitButler UI is a part of a monorepo, you can use the components by simply add the package to your package.json file.
+Because the GitButler UI is a part of a monorepo, you can use the components by adding the package to your package.json file.
 
 ```bash
 "@gitbutler/ui": "workspace:*",
 ```
 
-Then you also need to import the package styles in your project.
-The package styles separated into two parts:
+Then import the package styles in your project:
 
-```bash
-import '@gitbutler/ui/fonts.css';
-import '@gitbutler/ui/main.css';
+```css
+@import '@gitbutler/ui/main.css';
 ```
 
-this styles separation is needed to avoid conflicts with fonts you already have in your project. But if you want to use the default UI fonts — import the `fontd.css` file.
+This **single import** automatically includes:
+
+- All UI component styles
+- All font definitions (`@font-face` rules)
+- Font file assets (Inter, Geist Mono, PP Editorial New)
+- CSS custom properties for fonts
+
+### 🔤 Font System
+
+The UI package uses a centralized font system. Once you import `main.css`, you can use these font families:
+
+```css
+font-family: var(--fonts-inter); /* Primary UI font */
+font-family: var(--fonts-geist-mono); /* Code/monospace font */
+font-family: var(--fonts-pp-editorial); /* Display/heading font */
+```
+
+**Available fonts:**
+
+- **Inter**: Regular, Medium, SemiBold, Bold (+ Italic versions)
+- **Geist Mono**: Regular, Medium, Bold
+- **PP Editorial New**: Regular
+
+No additional font imports needed - everything is included in the single CSS import!
 
 ---
 

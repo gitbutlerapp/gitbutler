@@ -1,5 +1,4 @@
 <script lang="ts">
-	import '@gitbutler/ui/main.css';
 	import '../styles/styles.css';
 
 	import { browser, dev } from '$app/environment';
