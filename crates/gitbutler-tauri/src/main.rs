@@ -165,7 +165,6 @@ fn main() {
                             window.setup_traffic_lights_inset(LogicalPosition::new(16.0, 25.0))?;
                         };
                     }
-                    app_handle.manage(app_settings);
 
                     Ok(())
                 })
