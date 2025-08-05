@@ -4,6 +4,7 @@
 		semanticTypeToString,
 		treeStatusToShortString,
 		type RuleFilter,
+		type StackTarget,
 		type WorkspaceRule
 	} from '$lib/rules/rule';
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
@@ -35,26 +36,39 @@
 	}
 </script>
 
-{#snippet stackTarget(stackId: string)}
-	{@const stack = stackService.stackById(projectId, stackId)}
-	<ReduxResult {projectId} result={stack.current}>
-		{#snippet children(stack)}
-			{#if stack !== null}
-				{@const stackName = getStackName(stack)}
-				<div class="rule__pill">
-					<Icon name="branch-in-square" opacity={0.6} />
-					<span class="text-12 truncate" title={stackName}>{stackName}</span>
-				</div>
-			{:else}
-				<Tooltip text="Associated stack not found" position="top">
-					<div class="rule__pill error">
-						<Icon name="error-small" color="error" />
-						<span class="text-12 truncate">branch missing</span>
+{#snippet stackTarget(target: StackTarget)}
+	{#if target.type === 'stackId'}
+		{@const stackId = target.subject}
+		{@const stack = stackService.stackById(projectId, stackId)}
+		<ReduxResult {projectId} result={stack.current}>
+			{#snippet children(stack)}
+				{#if stack !== null}
+					{@const stackName = getStackName(stack)}
+					<div class="rule__pill">
+						<Icon name="branch-in-square" opacity={0.6} />
+						<span class="text-12 truncate" title={stackName}>{stackName}</span>
 					</div>
-				</Tooltip>
-			{/if}
-		{/snippet}
-	</ReduxResult>
+				{:else}
+					<Tooltip text="Associated stack not found" position="top">
+						<div class="rule__pill error">
+							<Icon name="error-small" color="error" />
+							<span class="text-12 truncate">branch missing</span>
+						</div>
+					</Tooltip>
+				{/if}
+			{/snippet}
+		</ReduxResult>
+	{:else if target.type === 'leftmost'}
+		<div class="rule__pill">
+			<Icon name="arrow-left" opacity={0.6} />
+			<span class="text-12 truncate">left most</span>
+		</div>
+	{:else if target.type === 'rightmost'}
+		<div class="rule__pill">
+			<Icon name="arrow-right" opacity={0.6} />
+			<span class="text-12 truncate">right most</span>
+		</div>
+	{/if}
 {/snippet}
 
 {#snippet filterPill(filter: RuleFilter)}
@@ -97,7 +111,7 @@
 {/snippet}
 
 {#if rule.action.type === 'explicit' && rule.action.subject.type === 'assign' && rule.trigger === 'fileSytemChange'}
-	{@const stackId = rule.action.subject.subject.stack_id}
+	{@const target = rule.action.subject.subject.target}
 	{@const filters = rule.filters}
 
 	<div class="rule">
@@ -109,7 +123,7 @@
 			</div>
 		{/each}
 		{@render assignChip()}
-		{@render stackTarget(stackId)}
+		{@render stackTarget(target)}
 		{@render ruleActions()}
 	</div>
 {:else}

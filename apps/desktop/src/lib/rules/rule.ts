@@ -177,9 +177,73 @@ export type RuleAction =
  * Represents the operation that a user can configure to be performed in an explicit action.
  */
 export type Operation =
-	| { type: 'assign'; subject: { stack_id: string } }
+	| { type: 'assign'; subject: { target: StackTarget } }
 	| { type: 'amend'; subject: { commit_id: string } }
 	| { type: 'newCommit'; subject: { branch_name: string } };
+
+/**
+ * The target stack for a given operation. It's either specifying a specific stack ID, or alternaitvely the leftmost or rightmost stack in the workspace.
+ */
+type StackIdTarget = {
+	type: 'stackId';
+	subject: string;
+};
+
+type LeftmostTarget = { type: 'leftmost' };
+type RightmostTarget = { type: 'rightmost' };
+export type StackTarget = StackIdTarget | LeftmostTarget | RightmostTarget;
+
+const UNIT_SEP = '\u001F';
+
+export function encodeStackTarget(stackTarget: StackTarget): string {
+	switch (stackTarget.type) {
+		case 'stackId':
+			return `${stackTarget.type}${UNIT_SEP}${stackTarget.subject}`;
+		case 'leftmost':
+			return 'leftmost';
+		case 'rightmost':
+			return 'rightmost';
+	}
+}
+
+export function decodeStackTarget(encoded: string): StackTarget {
+	if (encoded === 'leftmost') {
+		return { type: 'leftmost' };
+	}
+
+	if (encoded === 'rightmost') {
+		return { type: 'rightmost' };
+	}
+
+	const [type, subject] = encoded.split(UNIT_SEP);
+
+	if (type === 'stackId' && subject) {
+		return { type: 'stackId', subject };
+	}
+
+	throw new Error(`Unknown stack target type: ${type}`);
+}
+
+export function compareStackTarget(encoded: string, target: StackTarget | undefined): boolean {
+	if (!target) return false;
+	const encodedTarget = encodeStackTarget(target);
+	return encoded === encodedTarget;
+}
+
+export function isStackIdTarget(target: StackTarget | string): boolean {
+	const decoded = typeof target === 'string' ? decodeStackTarget(target) : target;
+	return decoded.type === 'stackId';
+}
+
+export function isLeftmostTarget(target: StackTarget | string): boolean {
+	const decoded = typeof target === 'string' ? decodeStackTarget(target) : target;
+	return decoded.type === 'leftmost';
+}
+
+export function isRightmostTarget(target: StackTarget | string): boolean {
+	const decoded = typeof target === 'string' ? decodeStackTarget(target) : target;
+	return decoded.type === 'rightmost';
+}
 
 /**
  * Represents the implicit operation that is determined by heuristics or AI.
