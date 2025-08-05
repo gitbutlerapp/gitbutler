@@ -1,16 +1,16 @@
+use crate::{App, error::Error};
 use anyhow::{Context, anyhow};
 use but_workspace::branch::{ReferenceAnchor, ReferencePosition};
 use gitbutler_branch_actions::internal::PushResult;
 use gitbutler_branch_actions::stack::CreateSeriesRequest;
 use gitbutler_command_context::CommandContext;
+use gitbutler_oplog::SnapshotExt;
 use gitbutler_project::ProjectId;
 use gitbutler_stack::StackId;
 use gitbutler_user::User;
 use gix::refs::Category;
 use serde::Deserialize;
 use std::borrow::Cow;
-
-use crate::{App, error::Error};
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -38,7 +38,9 @@ pub fn create_branch(app: &App, params: CreateBranchParams) -> Result<(), Error>
             .into());
         }
 
-        let _guard = project.exclusive_worktree_access();
+        let mut guard = project.exclusive_worktree_access();
+        ctx.snapshot_create_dependent_branch(&params.request.name, guard.write_permission())
+            .ok();
         _ = but_workspace::branch::create_reference(
             new_ref.as_ref(),
             {
@@ -91,7 +93,9 @@ pub fn remove_branch(app: &App, params: RemoveBranchParams) -> Result<(), Error>
         let ref_name = Category::LocalBranch
             .to_full_name(params.branch_name.as_str())
             .map_err(anyhow::Error::from)?;
-        let _guard = project.exclusive_worktree_access();
+        let mut guard = project.exclusive_worktree_access();
+        ctx.snapshot_remove_dependent_branch(&params.branch_name, guard.write_permission())
+            .ok();
         but_workspace::branch::remove_reference(
             ref_name.as_ref(),
             &repo,
