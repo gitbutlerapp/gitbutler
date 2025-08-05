@@ -4,7 +4,7 @@ import { ChildProcess, spawn } from 'node:child_process';
 import { Socket } from 'node:net';
 import * as path from 'node:path';
 
-interface GitButler {
+export interface GitButler {
 	workDir: string;
 	visit(path: string): Promise<void>;
 	cleanup(): Promise<void>;
@@ -197,9 +197,9 @@ export async function startGitButler(browser: WebdriverIO.Browser): Promise<GitB
 		},
 		async cleanup() {
 			// log('Stopping Vite dev server...', colors.yellow);
-			viteProcess.kill();
+			viteProcess.kill(1);
 			// log('Stopping butler server...', colors.yellow);
-			butProcess.kill();
+			butProcess.kill(1);
 			await configDir.cleanup();
 			await workDir.cleanup();
 		},
