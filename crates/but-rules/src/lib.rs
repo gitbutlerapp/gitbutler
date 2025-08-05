@@ -1,3 +1,4 @@
+use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 use gitbutler_command_context::CommandContext;
 use serde::{Deserialize, Serialize};
 
@@ -156,6 +157,7 @@ pub fn create_rule(
         .workspace_rules()
         .insert(rule.clone().try_into()?)
         .map_err(|e| anyhow::anyhow!("Failed to insert workspace rule: {}", e))?;
+    process_rules(ctx).ok(); // Reevaluate rules after creating
     Ok(rule)
 }
 
@@ -213,6 +215,7 @@ pub fn update_rule(
         .workspace_rules()
         .update(&req.id, rule.clone().try_into()?)
         .map_err(|e| anyhow::anyhow!("Failed to update workspace rule: {}", e))?;
+    process_rules(ctx).ok(); // Reevaluate rules after updating
     Ok(rule)
 }
 
@@ -226,4 +229,26 @@ pub fn list_rules(ctx: &mut CommandContext) -> anyhow::Result<Vec<WorkspaceRule>
         .map(|r| r.try_into())
         .collect::<Result<Vec<WorkspaceRule>, _>>()?;
     Ok(rules)
+}
+
+fn process_rules(ctx: &mut CommandContext) -> anyhow::Result<()> {
+    let wt_changes = but_core::diff::worktree_changes(&ctx.gix_repo()?)?;
+
+    let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
+        ctx,
+        &ctx.project().path,
+        &ctx.project().gb_dir(),
+        Some(wt_changes.changes.clone()),
+    )?;
+
+    let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
+        ctx,
+        false,
+        Some(wt_changes.changes),
+        Some(&dependencies),
+    )
+    .map_err(|e| anyhow::anyhow!("Failed to get assignments: {}", e))?;
+
+    handler::process_workspace_rules(ctx, &assignments, &Some(dependencies))?;
+    Ok(())
 }

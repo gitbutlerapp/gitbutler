@@ -1,5 +1,5 @@
 use but_graph::VirtualBranchesTomlMetadata;
-use but_hunk_assignment::{HunkAssignment, WorktreeChanges, assign, assignments_to_requests};
+use but_hunk_assignment::{HunkAssignment, assign, assignments_to_requests};
 use but_hunk_dependency::ui::HunkDependencies;
 use but_workspace::{StackId, StacksFilter, ui::StackEntry};
 use gitbutler_command_context::CommandContext;
@@ -8,9 +8,10 @@ use std::str::FromStr;
 
 use crate::{Filter, StackTarget};
 
-pub fn on_filesystem_change(
+pub fn process_workspace_rules(
     ctx: &mut CommandContext,
-    worktree_changes: &WorktreeChanges,
+    assignments: &[HunkAssignment],
+    dependencies: &Option<HunkDependencies>,
 ) -> anyhow::Result<usize> {
     let mut updates = 0;
     let rules = super::list_rules(ctx)?
@@ -43,7 +44,7 @@ pub fn on_filesystem_change(
         match rule.action {
             super::Action::Explicit(super::Operation::Assign { target }) => {
                 if let Some(stack_id) = get_or_create_stack_id(ctx, target, &stacks_in_ws) {
-                    let assignments = matching(worktree_changes.clone(), rule.filters.clone())
+                    let assignments = matching(assignments, rule.filters.clone())
                         .into_iter()
                         .filter(|e| e.stack_id != Some(stack_id))
                         .map(|mut e| {
@@ -52,8 +53,7 @@ pub fn on_filesystem_change(
                         })
                         .collect_vec();
                     updates +=
-                        handle_assign(ctx, assignments, worktree_changes.dependencies.as_ref())
-                            .unwrap_or_default();
+                        handle_assign(ctx, assignments, dependencies.as_ref()).unwrap_or_default();
                 }
             }
             _ => continue,
@@ -133,22 +133,22 @@ fn handle_assign(
     }
 }
 
-fn matching(worktree_changes: WorktreeChanges, filters: Vec<Filter>) -> Vec<HunkAssignment> {
+fn matching(wt_assignments: &[HunkAssignment], filters: Vec<Filter>) -> Vec<HunkAssignment> {
     if filters.is_empty() {
-        return worktree_changes.assignments;
+        return wt_assignments.to_vec();
     }
     let mut assignments = Vec::new();
     for filter in filters {
         match filter {
             Filter::PathMatchesRegex(regex) => {
-                for change in worktree_changes.assignments.iter() {
+                for change in wt_assignments.iter() {
                     if regex.is_match(&change.path) {
                         assignments.push(change.clone());
                     }
                 }
             }
             Filter::ContentMatchesRegex(regex) => {
-                for change in worktree_changes.assignments.iter() {
+                for change in wt_assignments.iter() {
                     if let Some(diff) = change.diff.clone() {
                         let diff = diff.to_string();
                         let matching_lines: Vec<&str> =
