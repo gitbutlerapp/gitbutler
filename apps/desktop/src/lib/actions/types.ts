@@ -77,9 +77,9 @@ export class ButlerAction {
 	/** A GitBulter Oplog snapshot ID after the action was performed. */
 	snapshotAfter!: string;
 	/** The outcome of the action, if it was successful. */
-	response?: Outcome;
+	response!: Outcome | null;
 	/** An error message if the action failed. */
-	error?: string;
+	error!: string | null;
 	/** The source of the action, if known. */
 	source!: ActionSource;
 }

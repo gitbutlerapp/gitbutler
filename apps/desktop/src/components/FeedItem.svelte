@@ -104,7 +104,7 @@
 				<span class="text-grey">Prompt:</span>{' ' +
 					(action.externalPrompt ?? action.externalSummary)}
 			</p>
-			{#if !isStringActionSource(action.source) && action.response !== undefined}
+			{#if !isStringActionSource(action.source) && !!action.response}
 				{@const newCommits = allCommitsUpdated(action.response)}
 				<FeedActionDiff {projectId} {newCommits} />
 			{/if}
