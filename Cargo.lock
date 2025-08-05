@@ -1050,6 +1050,7 @@ name = "but-rules"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-core",
  "but-db",
  "but-graph",
  "but-hunk-assignment",
