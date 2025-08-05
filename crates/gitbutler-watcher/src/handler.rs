@@ -103,7 +103,11 @@ impl Handler {
                 .map(|err| serde_error::Error::new(&**err)),
         };
         if ctx.app_settings().feature_flags.rules {
-            if let Ok(update_count) = but_rules::handler::on_filesystem_change(ctx, &changes) {
+            if let Ok(update_count) = but_rules::handler::process_workspace_rules(
+                ctx,
+                &assignments,
+                &dependencies.as_ref().ok().cloned(),
+            ) {
                 if update_count > 0 {
                     // Getting these again since they were updated
                     let (assignments, assignments_error) =
