@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { vscodePath } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { projectSettingsPath } from '$lib/routes/routes.svelte';
+	import { isNewProjectSettingsPath, newProjectSettingsPath, workspacePath } from '$lib/routes/routes.svelte';
 	import { historyPath } from '$lib/routes/routes.svelte';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
@@ -20,7 +20,11 @@
 	$effect(() =>
 		mergeUnlisten(
 			shortcutService.on('project-settings', () => {
-				goto(projectSettingsPath(projectId));
+				if (isNewProjectSettingsPath()) {
+					goto(workspacePath(projectId));
+				} else {
+					goto(newProjectSettingsPath(projectId));
+				}
 			}),
 			shortcutService.on('history', () => {
 				goto(historyPath(projectId));
