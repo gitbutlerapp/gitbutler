@@ -1,0 +1,25 @@
+/* BASE */
+@import './core/reset.css';
+@import './core/general.css';
+@import './core/design-tokens.css';
+@import './core/variables.css';
+@import './fonts/fonts.css';
+
+/* UTILITY */
+@import './utility/general.css';
+@import './utility/text.css';
+@import './utility/helpers.css';
+@import './utility/layout.min.css';
+
+/* SHARABLE */
+@import './sharable/markdown.css';
+@import './sharable/syntax-highlighting.css';
+
+/* COMPONENTS */
+@import './components/card.css';
+@import './components/text-input.css';
+@import './components/commit-lines.css';
+@import './components/segment.css';
+
+/* LAYERS PRIORITY */
+@layer reset, sharable, components;
