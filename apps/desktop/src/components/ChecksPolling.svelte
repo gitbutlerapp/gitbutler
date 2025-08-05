@@ -107,8 +107,7 @@
 
 	// Track previous state to detect transitions.
 	// This should **not** be a derived, since we want to track the previous state, not the current one.
-	// svelte-ignore state_referenced_locally
-	let prevIsDone = $state(isDone);
+	let prevIsDone = $state(false);
 	let prevChecksStartedAt = $state<string>();
 
 	// Checks have reached a terminal state or there are no checks to monitor
