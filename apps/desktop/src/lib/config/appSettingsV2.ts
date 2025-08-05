@@ -88,6 +88,8 @@ export type FeatureFlags = {
 	butbot: boolean;
 	/** Enable processing of workspace rules. */
 	rules: boolean;
+	/** Enable force push protections. */
+	forcePushProtection: boolean;
 };
 
 export type Fetch = {

@@ -35,7 +35,7 @@
 			/>
 		{/snippet}
 	</SectionCard>
-	<SectionCard labelFor="ws3" roundedTop={false} roundedBottom={false} orientation="row">
+	<SectionCard labelFor="ws3" roundedTop={false} orientation="row">
 		{#snippet title()}
 			New workspace backend
 		{/snippet}
@@ -52,7 +52,7 @@
 			/>
 		{/snippet}
 	</SectionCard>
-	<SectionCard labelFor="rules" roundedTop={false} orientation="row">
+	<SectionCard labelFor="rules" roundedTop={false} roundedBottom={false} orientation="row">
 		{#snippet title()}
 			Workspace Rules
 		{/snippet}
@@ -66,6 +66,22 @@
 				checked={$settingsStore?.featureFlags.rules}
 				onclick={() =>
 					settingsService.updateFeatureFlags({ rules: !$settingsStore?.featureFlags.rules })}
+			/>
+		{/snippet}
+	</SectionCard>
+	<SectionCard labelFor="force-push-protection" roundedTop={false} orientation="row">
+		{#snippet title()}
+			Force push protections
+		{/snippet}
+		{#snippet caption()}
+			Enable this experimental flag to protect remote commits during force pushes. This enables the use of Git's safer force push flags instead of doing a straight force push. This will help in preventing remote commits from being overwritten.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="force-push-protection"
+				checked={$settingsStore?.featureFlags.forcePushProtection}
+				onclick={() =>
+					settingsService.updateFeatureFlags({ forcePushProtection: !$settingsStore?.featureFlags.forcePushProtection })}
 			/>
 		{/snippet}
 	</SectionCard>
