@@ -32,6 +32,21 @@ pub struct FeatureFlags {
     /// Enable the usage of V3 workspace APIs.
     #[serde(default = "default_true")]
     pub ws3: bool,
+    /// Enable undo/redo support.
+    ///
+    /// ### Progression for implementation
+    ///
+    /// * use snapshot system in undo/redo queue
+    ///     - consider not referring to these objects by reference to `git gc` will catch them,
+    ///       or even purge them on shutdown. Alternatively, keep them in-memory with in-memory objects.
+    /// * add user-control to snapshot system to purge now, or purge after time X. That way data isn't stored forever.
+    /// * Finally, consider implementing undo/redo with invasive primitives that are undoable/redoable themselves for
+    ///   the most efficient solution, inherently in memory, i.e.
+    ///     - CRUD reference
+    ///     - CRUD metadata
+    ///     - CRUD workspace
+    ///     - CRUD files
+    pub undo: bool,
     /// Enable the usage of GitButler Acitions.
     pub actions: bool,
     /// Enable the usage of the butbot chat.

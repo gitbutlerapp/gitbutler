@@ -456,6 +456,10 @@ impl Stack {
     }
 }
 
+/// related types for removing a workspace reference.
+pub mod remove_reference;
+pub use remove_reference::function::remove_reference;
+
 mod create_reference;
 pub use create_reference::function::create_reference;
 pub use create_reference::*;

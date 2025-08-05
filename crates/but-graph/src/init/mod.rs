@@ -646,6 +646,18 @@ impl Graph {
         let ref_name = self[tip_sidx].ref_name.clone();
         Graph::from_commit_traversal_inner(tip, &repo, ref_name, &meta, self.options.clone())
     }
+
+    /// Like [`Self::redo_traversal_with_overlay()`], but replaces this instance, without overlay, and returns
+    /// a newly computed workspace for it.
+    pub fn workspace_of_redone_traversal(
+        &mut self,
+        repo: &gix::Repository,
+        meta: &impl RefMetadata,
+    ) -> anyhow::Result<crate::projection::Workspace<'_>> {
+        let new = self.redo_traversal_with_overlay(repo, meta, Default::default())?;
+        *self = new;
+        self.to_workspace()
+    }
 }
 
 impl Graph {

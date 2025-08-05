@@ -6,16 +6,18 @@ use but_testsupport::gix_testtools::{Creation, tempfile};
 use but_workspace::commit_engine::Destination;
 use but_workspace::{DiffSpec, HunkHeader};
 use gix::prelude::ObjectIdExt;
+use std::borrow::Cow;
 
 pub const CONTEXT_LINES: u32 = 0;
 
 fn writable_scenario_inner(
     name: &str,
     creation: Creation,
+    args: impl IntoIterator<Item = impl Into<String>>,
 ) -> anyhow::Result<(gix::Repository, tempfile::TempDir)> {
     let tmp = gix_testtools::scripted_fixture_writable_with_args(
         format!("scenario/{name}.sh"),
-        None::<String>,
+        args,
         creation,
     )
     .map_err(anyhow::Error::from_boxed)?;
@@ -44,18 +46,26 @@ pub fn read_only_in_memory_scenario_named(
 }
 
 pub fn writable_scenario(name: &str) -> (gix::Repository, tempfile::TempDir) {
-    writable_scenario_inner(name, Creation::CopyFromReadOnly)
+    writable_scenario_inner(name, Creation::CopyFromReadOnly, None::<String>)
+        .expect("fixtures will yield valid repositories")
+}
+
+pub fn writable_scenario_with_args(
+    name: &str,
+    args: impl IntoIterator<Item = impl Into<String>>,
+) -> (gix::Repository, tempfile::TempDir) {
+    writable_scenario_inner(name, Creation::CopyFromReadOnly, args)
         .expect("fixtures will yield valid repositories")
 }
 
 /// It's slow because it has to re-execute the script, certain things can't be copied.
 pub fn writable_scenario_slow(name: &str) -> (gix::Repository, tempfile::TempDir) {
-    writable_scenario_inner(name, Creation::ExecuteScript)
+    writable_scenario_inner(name, Creation::ExecuteScript, None::<String>)
         .expect("fixtures will yield valid repositories")
 }
 
 pub fn writable_scenario_with_ssh_key(name: &str) -> (gix::Repository, tempfile::TempDir) {
-    let (mut repo, tmp) = writable_scenario_inner(name, Creation::CopyFromReadOnly)
+    let (mut repo, tmp) = writable_scenario_inner(name, Creation::CopyFromReadOnly, None::<String>)
         .expect("fixtures will yield valid repositories");
     let signing_key_path = repo.workdir().expect("non-bare").join("signature.key");
     assert!(
@@ -364,4 +374,8 @@ pub fn hunk_header(old: &str, new: &str) -> HunkHeader {
 
 pub fn r(name: &str) -> &gix::refs::FullNameRef {
     name.try_into().expect("statically known valid ref-name")
+}
+
+pub fn rc(name: &str) -> Cow<'static, gix::refs::FullNameRef> {
+    Cow::Owned(name.try_into().expect("statically known valid ref-name"))
 }

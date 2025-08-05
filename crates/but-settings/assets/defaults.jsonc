@@ -22,6 +22,8 @@
 		"v3": false,
 		/// Enable the usage of V3 workspace APIs.
 		"ws3": false,
+		/// Enable undo/redo support.
+		"undo": false,
 		/// Enable the usage of GitButler Acitions.
 		"actions": false,
 		/// Enable the usage of the butbot chat.

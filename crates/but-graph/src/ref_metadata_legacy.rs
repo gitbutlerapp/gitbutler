@@ -1,4 +1,4 @@
-use crate::virtual_branches_legacy_types::{Stack, StackBranch, VirtualBranches};
+use crate::virtual_branches_legacy_types::{CommitOrChangeId, Stack, StackBranch, VirtualBranches};
 use anyhow::{Context, bail};
 use but_core::RefMetadata;
 use but_core::ref_metadata::{
@@ -48,6 +48,17 @@ impl Snapshot {
     /// Instead of trying to maintain this, let's just fix it before writing.
     fn to_consistent_data(&self) -> VirtualBranches {
         let mut data = self.content.clone();
+        // EVIL HACK: assure we fill-in the CommitIDs of heads or else everything breaks.
+        //            this probably won't be needed once no old code is running, and by then
+        //            we should move away from this anyway and have a DB backed implementation.
+        let repo = gix::discover(self.path.parent().expect("at least a file"))
+            .ok()
+            .map(|repo| {
+                (
+                    repo,
+                    CommitOrChangeId::CommitId(gix::hash::Kind::Sha1.null().to_string()),
+                )
+            });
         for stack in data.branches.values_mut() {
             if stack.name.is_empty() {
                 stack.name = stack
@@ -57,6 +68,18 @@ impl Snapshot {
                     .map(|h| h.name.as_str())
                     .unwrap_or_default()
                     .to_string();
+            }
+            if let Some((repo, null_id)) = repo.as_ref() {
+                for segment in &mut stack.heads {
+                    if &segment.head == null_id {
+                        let Ok(mut r) = repo.find_reference(&segment.name) else {
+                            continue;
+                        };
+                        if let Ok(id) = r.peel_to_id_in_place() {
+                            segment.head = CommitOrChangeId::CommitId(id.to_string());
+                        }
+                    }
+                }
             }
         }
         data

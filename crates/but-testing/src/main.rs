@@ -24,6 +24,23 @@ async fn main() -> Result<()> {
     let _op_span = tracing::info_span!("cli-op").entered();
 
     match &args.cmd {
+        args::Subcommands::RemoveReference {
+            permit_empty_stacks,
+            keep_metadata,
+            short_name,
+        } => command::remove_reference(
+            &args,
+            short_name,
+            but_workspace::branch::remove_reference::Options {
+                avoid_anonymous_stacks: !permit_empty_stacks,
+                keep_metadata: *keep_metadata,
+            },
+        ),
+        args::Subcommands::CreateReference {
+            above,
+            below,
+            short_name,
+        } => command::create_reference(&args, short_name, above.as_deref(), below.as_deref()),
         args::Subcommands::OpMode => command::operating_mode(&args),
         args::Subcommands::DiscardChange {
             hunk_indices,
@@ -166,6 +183,7 @@ async fn main() -> Result<()> {
                 description.as_deref(),
                 &args.current_dir,
                 args.json,
+                args.v3,
             ),
             (None, Some(id)) => command::stacks::branches(*id, &args.current_dir, args.json),
             (None, None) => {

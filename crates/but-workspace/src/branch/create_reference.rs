@@ -1,4 +1,5 @@
 use anyhow::Context;
+use std::borrow::Cow;
 
 /// For use in [`ReferenceAnchor`].
 #[derive(Debug, Clone, Copy)]
@@ -77,7 +78,7 @@ pub enum ReferenceAnchor<'a> {
     /// Without a workspace, this is the same as saying 'the commit that the segment points to'.
     AtSegment {
         /// The name of the segment to use as reference point for `position`.
-        ref_name: &'a gix::refs::FullNameRef,
+        ref_name: Cow<'a, gix::refs::FullNameRef>,
         /// `Above` means the reference will be right above the segment with `ref_name` even
         /// if it points to the same commit.
         /// `Below` means the reference will be right below the segment with `ref_name` even
@@ -97,7 +98,10 @@ impl<'a> ReferenceAnchor<'a> {
 
     /// Create a new instance with a segment name as anchor.
     pub fn at_segment(ref_name: &'a gix::refs::FullNameRef, position: ReferencePosition) -> Self {
-        ReferenceAnchor::AtSegment { ref_name, position }
+        ReferenceAnchor::AtSegment {
+            ref_name: Cow::Borrowed(ref_name),
+            position,
+        }
     }
 }
 
@@ -109,7 +113,7 @@ pub(super) mod function {
     use but_core::ref_metadata::{StackId, WorkspaceStack, WorkspaceStackBranch};
     use but_core::{RefMetadata, ref_metadata};
     use gix::refs::transaction::PreviousValue;
-    use std::borrow::Cow;
+    use std::borrow::{Borrow, Cow};
     use std::ops::DerefMut;
 
     /// Create a new reference named `ref_name` to point at a commit relative to `anchor`.
@@ -125,7 +129,7 @@ pub(super) mod function {
     ///
     /// Return a regenerated Graph that contains the new reference, and from which a new workspace can be derived.
     pub fn create_reference<'name, T: RefMetadata>(
-        ref_name: &gix::refs::FullNameRef,
+        ref_name: impl Borrow<gix::refs::FullNameRef>,
         anchor: impl Into<Option<ReferenceAnchor<'name>>>,
         repo: &gix::Repository,
         workspace: &but_graph::projection::Workspace<'_>,
@@ -139,6 +143,7 @@ pub(super) mod function {
             .ref_name()
             .and_then(|ws_ref| meta.workspace_opt(ws_ref).transpose())
             .transpose()?;
+        let ref_name = ref_name.borrow();
 
         let (check_if_id_in_workspace, ref_target_id, instruction): (
             _,
@@ -191,8 +196,8 @@ pub(super) mod function {
                 Some(ReferenceAnchor::AtSegment { ref_name, position }) => {
                     let mut validate_id = true;
                     let ref_target_id = if workspace.has_metadata() {
-                        let (stack_idx, seg_idx) =
-                            workspace.try_find_segment_owner_indexes_by_refname(ref_name)?;
+                        let (stack_idx, seg_idx) = workspace
+                            .try_find_segment_owner_indexes_by_refname(ref_name.as_ref())?;
                         let segment = &workspace.stacks[stack_idx].segments[seg_idx];
 
                         let id = workspace
@@ -208,7 +213,7 @@ pub(super) mod function {
                         id
                     } else {
                         let Some((_stack, segment)) =
-                            workspace.find_segment_and_stack_by_refname(ref_name)
+                            workspace.find_segment_and_stack_by_refname(ref_name.as_ref())
                         else {
                             bail!(
                                 "Could not find a segment named '{}' in workspace",
@@ -222,10 +227,7 @@ pub(super) mod function {
                     (
                         validate_id,
                         ref_target_id,
-                        Some(Instruction::Dependent {
-                            ref_name: Cow::Borrowed(ref_name),
-                            position,
-                        }),
+                        Some(Instruction::Dependent { ref_name, position }),
                     )
                 }
             }

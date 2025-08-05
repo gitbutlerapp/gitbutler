@@ -1,15 +1,16 @@
+use crate::{App, error::Error};
 use anyhow::{Context, anyhow};
 use but_workspace::branch::{ReferenceAnchor, ReferencePosition};
 use gitbutler_branch_actions::internal::PushResult;
 use gitbutler_branch_actions::stack::CreateSeriesRequest;
 use gitbutler_command_context::CommandContext;
+use gitbutler_oplog::SnapshotExt;
 use gitbutler_project::ProjectId;
 use gitbutler_stack::StackId;
 use gitbutler_user::User;
 use gix::refs::Category;
 use serde::Deserialize;
-
-use crate::{App, error::Error};
+use std::borrow::Cow;
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -21,9 +22,8 @@ pub struct CreateBranchParams {
 
 pub fn create_branch(app: &App, params: CreateBranchParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ws3_enabled = app.app_settings.get()?.feature_flags.ws3;
     let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
-    if ws3_enabled {
+    if app.app_settings.get()?.feature_flags.ws3 {
         use ReferencePosition::Above;
         let (repo, mut meta, graph) = ctx.graph_and_meta_and_repo()?;
         let ws = graph.to_workspace()?;
@@ -38,8 +38,10 @@ pub fn create_branch(app: &App, params: CreateBranchParams) -> Result<(), Error>
             .into());
         }
 
-        let _guard = project.exclusive_worktree_access();
-        but_workspace::branch::create_reference(
+        let mut guard = project.exclusive_worktree_access();
+        ctx.snapshot_create_dependent_branch(&params.request.name, guard.write_permission())
+            .ok();
+        _ = but_workspace::branch::create_reference(
             new_ref.as_ref(),
             {
                 let segment = stack.segments.first().context("BUG: no empty stacks")?;
@@ -47,7 +49,7 @@ pub fn create_branch(app: &App, params: CreateBranchParams) -> Result<(), Error>
                     .ref_name
                     .as_ref()
                     .map(|rn| ReferenceAnchor::AtSegment {
-                        ref_name: rn.as_ref(),
+                        ref_name: Cow::Borrowed(rn.as_ref()),
                         position: Above,
                     })
                     .or_else(|| {
@@ -85,7 +87,31 @@ pub struct RemoveBranchParams {
 pub fn remove_branch(app: &App, params: RemoveBranchParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
-    gitbutler_branch_actions::stack::remove_branch(&ctx, params.stack_id, params.branch_name)?;
+    if app.app_settings.get()?.feature_flags.ws3 {
+        let (repo, mut meta, graph) = ctx.graph_and_meta_and_repo()?;
+        let ws = graph.to_workspace()?;
+        let ref_name = Category::LocalBranch
+            .to_full_name(params.branch_name.as_str())
+            .map_err(anyhow::Error::from)?;
+        let mut guard = project.exclusive_worktree_access();
+        ctx.snapshot_remove_dependent_branch(&params.branch_name, guard.write_permission())
+            .ok();
+        but_workspace::branch::remove_reference(
+            ref_name.as_ref(),
+            &repo,
+            &ws,
+            &mut meta,
+            but_workspace::branch::remove_reference::Options {
+                avoid_anonymous_stacks: true,
+                // The UI kind of keeps it, but we can't do that somehow
+                // the object id is null, and stuff breaks. Fine for now.
+                // Delete is delete.
+                keep_metadata: false,
+            },
+        )?;
+    } else {
+        gitbutler_branch_actions::stack::remove_branch(&ctx, params.stack_id, params.branch_name)?;
+    }
     Ok(())
 }
 
