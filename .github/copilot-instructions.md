@@ -16,5 +16,4 @@ The packages are:
 
 - `ui` containing the shared UI components
 - `shared` containing the shared types and utils
-- `mcp` containing the Model Context Protocol packages
 - `no-relative-imports` containing the no-relative-imports ESLINT package
