@@ -348,6 +348,7 @@ pub mod stacks {
                 actions: false,
                 butbot: false,
                 rules: false,
+                force_push_protection: false,
             },
             ..AppSettings::default()
         };

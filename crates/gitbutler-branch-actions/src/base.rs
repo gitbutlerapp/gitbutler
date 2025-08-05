@@ -375,12 +375,6 @@ fn default_target(base_path: &Path) -> Result<Target> {
 
 pub(crate) fn push(ctx: &CommandContext, with_force: bool) -> Result<()> {
     let target = default_target(&ctx.project().gb_dir())?;
-    let _ = ctx.push(
-        target.sha,
-        &target.branch,
-        with_force,
-        None,
-        None,
-    );
+    let _ = ctx.push(target.sha, &target.branch, with_force, None, None);
     Ok(())
 }
