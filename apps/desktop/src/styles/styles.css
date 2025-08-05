@@ -1,4 +1,4 @@
-@import './fonts/fonts.css';
+@import '@gitbutler/ui/main.css';
 @import './draggable.css';
 
 body {

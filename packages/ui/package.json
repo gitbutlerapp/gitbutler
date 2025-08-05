@@ -17,7 +17,8 @@
 		"dev:package:styles": "postcss ./src/styles/main.css -o ./dist/styles/main.css --watch",
 		"package": "pnpm run --sequential \"/^package:.*/\"",
 		"package:svelte": "svelte-kit sync && svelte-package",
-		"package:styles": "postcss ./src/styles/main.css -o ./dist/styles/main.css",
+		"package:styles": "postcss ./src/styles/main.css -o ./dist/styles/main.css && npm run package:fonts",
+		"package:fonts": "cp -r ./src/styles/fonts ./dist/styles/ && node ./scripts/build-fonts.js",
 		"design-tokens:build": "npx tz build && prettier --write ./src/lib/data/design-tokens.json ./src/styles/core/design-tokens.css",
 		"prepublishOnly": "pnpm run package",
 		"prepare": "svelte-kit sync",
@@ -101,6 +102,9 @@
 		"./*.css": {
 			"import": "./dist/styles/*.css"
 		},
+		"./fonts.css": {
+			"import": "./dist/styles/fonts.css"
+		},
 		"./*.json": {
 			"import": "./dist/*.json",
 			"types": "./dist/*.json"
@@ -114,7 +118,7 @@
 		"./dist/*.d.ts",
 		"!./dist/*.test.*",
 		"./dist/*.css",
-		"./dist/*.woff2"
+		"./dist/styles/fonts/**/*.woff2"
 	],
 	"dependencies": {
 		"@giphy/js-fetch-api": "^5.6.0",
