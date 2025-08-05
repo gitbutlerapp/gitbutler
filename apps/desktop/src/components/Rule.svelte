@@ -127,7 +127,7 @@
 		close();
 	}}
 >
-	<p class="text-12">Are you sure you want to delete this rule? This action cannot be undone.</p>
+	Are you sure you want to delete this rule? This action cannot be undone.
 
 	{#snippet controls(close)}
 		<Button kind="outline" onclick={close}>Cancel</Button>
