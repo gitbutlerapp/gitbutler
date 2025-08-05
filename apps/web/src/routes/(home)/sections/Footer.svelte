@@ -155,7 +155,7 @@
 		font-weight: 400;
 		font-size: 68px;
 		line-height: 100%;
-		font-family: 'PP Editorial New', serif;
+		font-family: var(--fontfamily-accent);
 		text-wrap: balance;
 
 		@media (max-width: 600px) {

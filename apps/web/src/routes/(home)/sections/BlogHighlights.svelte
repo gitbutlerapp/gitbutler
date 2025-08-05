@@ -81,7 +81,7 @@
 		font-weight: 400;
 		font-size: 64px;
 		line-height: 90%;
-		font-family: 'PP Editorial New', serif;
+		font-family: var(--fontfamily-accent);
 
 		@media (max-width: 800px) {
 			font-size: 52px;
@@ -138,7 +138,7 @@
 	.post-title-caption {
 		color: var(--clr-black);
 		font-size: 16px;
-		font-family: 'PP Editorial New', serif;
+		font-family: var(--fontfamily-accent);
 		opacity: 0.4;
 	}
 

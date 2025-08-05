@@ -3,6 +3,7 @@
 @import './core/general.css';
 @import './core/design-tokens.css';
 @import './core/variables.css';
+@import './fonts/fonts.css';
 
 /* UTILITY */
 @import './utility/general.css';
