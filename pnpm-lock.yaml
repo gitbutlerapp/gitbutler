@@ -429,6 +429,9 @@ importers:
 
   e2e:
     dependencies:
+      '@gitbutler/ui':
+        specifier: workspace:*
+        version: link:../packages/ui
       get-port:
         specifier: ^7.1.0
         version: 7.1.0

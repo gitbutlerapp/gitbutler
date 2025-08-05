@@ -1,4 +1,4 @@
-import { GitButler, startGitButler } from './utils';
+import { getByTestId, GitButler, startGitButler } from './utils.js';
 import { expect, $ } from '@wdio/globals';
 import * as path from 'node:path';
 
@@ -12,10 +12,12 @@ describe('Application starts', () => {
 	it('should start the application', async () => {
 		await gitbutler.runScript('setup-empty-project.sh');
 		await gitbutler.visit('/');
-		// Yay! Analytics prompt :D
-		await expect($('.title')).toHaveText(expect.stringContaining('Before we begin'));
+		const onboardingPage = getByTestId('onboarding-page');
+		await onboardingPage.waitForDisplayed();
 
-		await $('button.*=Continue').click();
+		const continueButton = getByTestId('analytics-continue');
+		await continueButton.waitForDisplayed();
+		await continueButton.click();
 		browser.setCookies({
 			name: 'test-projectPath',
 			value: path.resolve(gitbutler.workDir, 'local-clone')

@@ -15,6 +15,7 @@
 	},
 	"dependencies": {
 		"get-port": "^7.1.0",
-		"tmp-promise": "^3.0.3"
+		"tmp-promise": "^3.0.3",
+		"@gitbutler/ui": "workspace:*"
 	}
 }
