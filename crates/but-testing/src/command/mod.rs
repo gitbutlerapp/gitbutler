@@ -574,6 +574,33 @@ fn meta_from_maybe_project(
     Ok(meta)
 }
 
+pub fn remove_reference(
+    args: &super::Args,
+    short_name: &str,
+    opts: but_workspace::branch::remove_reference::Options,
+) -> anyhow::Result<()> {
+    let (repo, _project, graph, mut meta) =
+        repo_and_maybe_project_and_graph(args, RepositoryOpenMode::General)?;
+
+    let ref_name = Category::LocalBranch.to_full_name(short_name)?;
+    let deleted = but_workspace::branch::remove_reference(
+        ref_name.as_ref(),
+        &repo,
+        &graph.to_workspace()?,
+        &mut *meta,
+        opts,
+    )?
+    .is_some();
+    if deleted {
+        eprintln!("Deleted");
+    } else {
+        eprintln!("Nothing deleted");
+    }
+    // write metadata if there are projects - this is a special case while we use vb.toml.
+    ManuallyDrop::into_inner(meta);
+    Ok(())
+}
+
 pub fn create_reference(
     args: &super::Args,
     short_name: &str,

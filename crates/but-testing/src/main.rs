@@ -24,6 +24,18 @@ async fn main() -> Result<()> {
     let _op_span = tracing::info_span!("cli-op").entered();
 
     match &args.cmd {
+        args::Subcommands::RemoveReference {
+            permit_empty_stacks,
+            keep_metadata,
+            short_name,
+        } => command::remove_reference(
+            &args,
+            short_name,
+            but_workspace::branch::remove_reference::Options {
+                avoid_anonymous_stacks: !permit_empty_stacks,
+                keep_metadata: *keep_metadata,
+            },
+        ),
         args::Subcommands::CreateReference {
             above,
             below,

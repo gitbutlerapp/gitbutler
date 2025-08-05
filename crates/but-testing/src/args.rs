@@ -216,6 +216,19 @@ pub enum Subcommands {
         /// the short-name of the new branch.
         short_name: String,
     },
+    /// Delete the given workspace reference.
+    RemoveReference {
+        /// Allow stacks to be empty.
+        #[arg(long)]
+        permit_empty_stacks: bool,
+        /// Do not delete the branch metadata associated with the deleted reference.
+        ///
+        /// Useful if it might be recreated, afterwards.
+        #[arg(long)]
+        keep_metadata: bool,
+        /// the short-name of the reference to delete.
+        short_name: String,
+    },
 }
 
 #[cfg(test)]
