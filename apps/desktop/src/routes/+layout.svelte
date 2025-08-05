@@ -206,7 +206,7 @@
 		projectsService
 	);
 
-	const commitAnalytics = new CommitAnalytics(stackService, uiState, worktreeService);
+	const commitAnalytics = new CommitAnalytics(stackService, uiState, worktreeService, rulesService);
 	provide(COMMIT_ANALYTICS, commitAnalytics);
 
 	const branchService = new BranchService(clientState['backendApi']);

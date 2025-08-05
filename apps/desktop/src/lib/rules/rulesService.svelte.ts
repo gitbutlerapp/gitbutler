@@ -36,6 +36,13 @@ export default class RulesService {
 			{ transform: (result) => workspaceRulesSelectors.selectAll(result) }
 		);
 	}
+
+	async fetchListWorkspaceRules(projectId: string) {
+		return await this.api.endpoints.listWorkspaceRules.fetch(
+			{ projectId },
+			{ transform: (result) => workspaceRulesSelectors.selectAll(result) }
+		);
+	}
 }
 
 function injectEndpoints(api: BackendApi) {

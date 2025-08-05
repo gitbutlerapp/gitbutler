@@ -1,9 +1,11 @@
+import { getFilterCountMap, type WorkspaceRule } from '$lib/rules/rule';
 import { StackService } from '$lib/stacks/stackService.svelte';
 import { UiState } from '$lib/state/uiState.svelte';
 import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
 import { InjectionToken } from '@gitbutler/shared/context';
 import type { Commit } from '$lib/branches/v3';
 import type { HunkAssignment } from '$lib/hunks/hunk';
+import type RulesService from '$lib/rules/rulesService.svelte';
 import type { Stack, BranchDetails } from '$lib/stacks/stack';
 import type { EventProperties } from '$lib/state/customHooks.svelte';
 
@@ -13,7 +15,8 @@ export class CommitAnalytics {
 	constructor(
 		private stackService: StackService,
 		private uiState: UiState,
-		private worktreeService: WorktreeService
+		private worktreeService: WorktreeService,
+		private readonly rulesService: RulesService
 	) {}
 
 	async getCommitProperties(args: {
@@ -53,6 +56,8 @@ export class CommitAnalytics {
 
 			const assignments = worktreeData.hunkAssignments;
 
+			const rules = await this.rulesService.fetchListWorkspaceRules(args.projectId);
+
 			return {
 				floatingCommitBox: this.uiState.global.useFloatingBox.current,
 				// Whether the message editor was in rich-text mode (true) or plain-text mode (false)
@@ -78,7 +83,9 @@ export class CommitAnalytics {
 				// Total number of files that have been assigned to any lane in the workspace
 				totalAssignedFiles: this.getAssignedFiles(assignments).length,
 				// Total number of files that have not been assigned
-				totalUnassignedFiles: this.getUnassignedFiles(assignments).length
+				totalUnassignedFiles: this.getUnassignedFiles(assignments).length,
+				// Rule metrics
+				...this.getRuleMetrics(rules)
 			};
 		} catch (error) {
 			console.error('Failed to fetch commit analytics:', error);
@@ -147,4 +154,24 @@ export class CommitAnalytics {
 			.forEach((assignment) => paths.add(assignment.path));
 		return Array.from(paths);
 	}
+
+	private getRuleMetrics(rules: WorkspaceRule[]): EventProperties {
+		const filterCount = rules.map((rule) => rule.filters.length);
+		const filterCountByType = getFilterCountMap(rules);
+
+		return {
+			// Total number of rules in the workspace
+			totalWorkspaceRules: rules.length,
+			// Average number of filters per rule
+			averageFiltersPerRule: average(filterCount),
+			/// Count of filter types. Ignores multiple types of the same type in a single rule.
+			...filterCountByType
+		};
+	}
+}
+
+function average(arr: number[]): number {
+	if (arr.length === 0) return 0;
+	const sum = arr.reduce((a, b) => a + b, 0);
+	return sum / arr.length;
 }

@@ -61,6 +61,34 @@ export function canAddMoreFilters(filters: RuleFilterType[]): boolean {
 	return filters.length < RULE_FILTER_TYPES.length;
 }
 
+type FilterCountMap = {
+	[K in RuleFilterType as `${K}Count`]: number;
+};
+
+export function getFilterCountMap(rules: WorkspaceRule[]): FilterCountMap {
+	const countMap: FilterCountMap = {
+		pathMatchesRegexCount: 0,
+		contentMatchesRegexCount: 0,
+		fileChangeTypeCount: 0,
+		semanticTypeCount: 0
+	};
+
+	for (const rule of rules) {
+		const visitedFilters = new Set<RuleFilterType>();
+		for (const filter of rule.filters) {
+			if (filter.type in countMap) {
+				if (!visitedFilters.has(filter.type)) {
+					visitedFilters.add(filter.type);
+					// Increment the count for this filter type
+					countMap[`${filter.type}Count`] += 1;
+				}
+			}
+		}
+	}
+
+	return countMap;
+}
+
 export type RuleFilterSubject<T extends RuleFilterType> = Extract<
 	RuleFilter,
 	{ type: T }
