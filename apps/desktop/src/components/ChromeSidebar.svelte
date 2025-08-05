@@ -14,7 +14,9 @@
 		isHistoryPath,
 		newProjectSettingsPath,
 		newSettingsPath,
-		workspacePath
+		workspacePath,
+		isVibeControlPath,
+		vibeControlPath
 	} from '$lib/routes/routes.svelte';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { USER } from '$lib/user/user';
@@ -71,6 +73,61 @@
 							stroke-width="1.5"
 							stroke="var(--clr-workspace-top)"
 							fill="var(--clr-workspace-top)"
+						/>
+					</svg>
+				{/snippet}
+			</Button>
+		</div>
+		<div>
+			{#if isVibeControlPath()}
+				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+			{/if}
+			<Button
+				testId={TestId.NavigationBranchesButton}
+				kind="outline"
+				onclick={() => goto(vibeControlPath(projectId))}
+				width={34}
+				class={['btn-square', isVibeControlPath() && 'btn-active']}
+				tooltip="Branches"
+				{disabled}
+			>
+				{#snippet custom()}
+					<svg viewBox="0 0 16 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+						<path d="M5 3L11 3" stroke-width="1.5" stroke="var(--clr-branches)" />
+						<path
+							d="M3 5L3 7.17157C3 7.70201 3.21071 8.21071 3.58579 8.58579L5.41421 10.4142C5.78929 10.7893 6.29799 11 6.82843 11L11.5 11"
+							stroke-width="1.5"
+							stroke="var(--clr-branches)"
+						/>
+						<rect
+							x="15"
+							y="1"
+							width="4"
+							height="4"
+							transform="rotate(90 15 1)"
+							stroke-width="1.5"
+							fill="var(--clr-branches)"
+							stroke="var(--clr-branches)"
+						/>
+						<rect
+							x="15"
+							y="9"
+							width="4"
+							height="4"
+							transform="rotate(90 15 9)"
+							stroke-width="1.5"
+							fill="var(--clr-branches)"
+							stroke="var(--clr-branches)"
+						/>
+						<rect
+							x="5"
+							y="1"
+							width="4"
+							height="4"
+							transform="rotate(90 5 1)"
+							stroke-width="1.5"
+							fill="var(--clr-branches)"
+							stroke="var(--clr-branches)"
 						/>
 					</svg>
 				{/snippet}
