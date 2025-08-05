@@ -22,9 +22,8 @@ pub struct CreateBranchParams {
 
 pub fn create_branch(app: &App, params: CreateBranchParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ws3_enabled = app.app_settings.get()?.feature_flags.ws3;
     let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
-    if ws3_enabled {
+    if app.app_settings.get()?.feature_flags.ws3 {
         use ReferencePosition::Above;
         let (repo, mut meta, graph) = ctx.graph_and_meta_and_repo()?;
         let ws = graph.to_workspace()?;
@@ -86,7 +85,29 @@ pub struct RemoveBranchParams {
 pub fn remove_branch(app: &App, params: RemoveBranchParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
-    gitbutler_branch_actions::stack::remove_branch(&ctx, params.stack_id, params.branch_name)?;
+    if app.app_settings.get()?.feature_flags.ws3 {
+        let (repo, mut meta, graph) = ctx.graph_and_meta_and_repo()?;
+        let ws = graph.to_workspace()?;
+        let ref_name = Category::LocalBranch
+            .to_full_name(params.branch_name.as_str())
+            .map_err(anyhow::Error::from)?;
+        let _guard = project.exclusive_worktree_access();
+        but_workspace::branch::remove_reference(
+            ref_name.as_ref(),
+            &repo,
+            &ws,
+            &mut meta,
+            but_workspace::branch::remove_reference::Options {
+                avoid_anonymous_stacks: true,
+                // The UI kind of keeps it, but we can't do that somehow
+                // the object id is null, and stuff breaks. Fine for now.
+                // Delete is delete.
+                keep_metadata: false,
+            },
+        )?;
+    } else {
+        gitbutler_branch_actions::stack::remove_branch(&ctx, params.stack_id, params.branch_name)?;
+    }
     Ok(())
 }
 
