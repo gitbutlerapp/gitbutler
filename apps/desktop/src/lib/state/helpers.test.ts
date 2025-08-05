@@ -112,11 +112,7 @@ describe.concurrent('combineResults', () => {
 		});
 	});
 
-	test('combining zero results returns uninitalized', () => {
-		expect(combineResults()).toEqual({
-			data: undefined,
-			error: undefined,
-			status: QueryStatus.uninitialized
-		});
+	test('combining zero results returns undefined', () => {
+		expect(combineResults()).toEqual(undefined);
 	});
 });
