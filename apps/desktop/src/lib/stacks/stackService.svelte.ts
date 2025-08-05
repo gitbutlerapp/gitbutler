@@ -27,7 +27,6 @@ import {
 	type ThunkDispatch,
 	type UnknownAction
 } from '@reduxjs/toolkit';
-import type { TauriCommandError } from '$lib/backend/ipc';
 import type { StackOrder } from '$lib/branches/branch';
 import type { Commit, CommitDetails, UpstreamCommit } from '$lib/branches/v3';
 import type { CommitKey } from '$lib/commits/commit';
@@ -36,6 +35,7 @@ import type { TreeChange, TreeChanges, TreeStats } from '$lib/hunks/change';
 import type { DiffSpec } from '$lib/hunks/hunk';
 import type { BranchDetails, Stack, StackOpt, StackDetails } from '$lib/stacks/stack';
 import type { PropertiesFn } from '$lib/state/customHooks.svelte';
+import type { ReduxError } from '$lib/state/reduxError';
 
 type BranchParams = {
 	name?: string;
@@ -440,7 +440,7 @@ export class StackService {
 					]);
 				}, 2000);
 			},
-			onError: (commandError: TauriCommandError) => {
+			onError: (commandError: ReduxError) => {
 				const { code, message } = commandError;
 				surfaceStackError('push', code ?? '', message);
 			},

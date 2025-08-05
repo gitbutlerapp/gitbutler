@@ -3,9 +3,9 @@
 	import ChromeSidebar from '$components/ChromeSidebar.svelte';
 	import ProjectNotFound from '$components/ProjectNotFound.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import { isTauriCommandError } from '$lib/backend/ipc';
 	import { Code } from '$lib/error/knownErrors';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { isReduxError } from '$lib/state/reduxError';
 	import { inject } from '@gitbutler/shared/context';
 	import type { Snippet } from 'svelte';
 
@@ -36,7 +36,7 @@
 		</div>
 	{/snippet}
 	{#snippet error(e)}
-		{#if isTauriCommandError(e)}
+		{#if isReduxError(e)}
 			{#if e.code === Code.ProjectMissing}
 				<ProjectNotFound {projectId} />
 			{/if}

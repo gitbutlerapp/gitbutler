@@ -1,4 +1,5 @@
 import { Code } from '$lib/error/knownErrors';
+import { isReduxError } from '$lib/state/reduxError';
 import { getCookie } from '$lib/utils/cookies';
 import { invoke as invokeTauri } from '@tauri-apps/api/core';
 import { listen as listenTauri } from '@tauri-apps/api/event';
@@ -13,19 +14,6 @@ type ServerResonse<T> =
 			type: 'error';
 			subject: unknown;
 	  };
-
-export type TauriCommandError = { name: string; message: string; code?: string };
-
-export function isTauriCommandError(something: unknown): something is TauriCommandError {
-	return (
-		!!something &&
-		typeof something === 'object' &&
-		something !== null &&
-		'message' in something &&
-		typeof (something as TauriCommandError).message === 'string' &&
-		('code' in something ? typeof (something as TauriCommandError).code === 'string' : true)
-	);
-}
 
 export class UserError extends Error {
 	code!: Code;
@@ -82,7 +70,7 @@ export async function invoke<T>(command: string, params: Record<string, unknown>
 			if (out.type === 'success') {
 				return out.subject;
 			} else {
-				if (isTauriCommandError(out.subject)) {
+				if (isReduxError(out.subject)) {
 					console.error(`ipc->${command}: ${JSON.stringify(params)}`, out.subject);
 				}
 				throw out.subject;
@@ -91,7 +79,7 @@ export async function invoke<T>(command: string, params: Record<string, unknown>
 			return await invokeTauri<T>(command, params);
 		}
 	} catch (error: unknown) {
-		if (isTauriCommandError(error)) {
+		if (isReduxError(error)) {
 			console.error(`ipc->${command}: ${JSON.stringify(params)}`, error);
 		}
 		throw error;
