@@ -271,6 +271,7 @@ fn main() {
                     modes::edit_changes_from_initial,
                     open::open_url,
                     open::show_in_finder,
+                    open::open_in_terminal,
                     forge::pr_templates,
                     forge::pr_template,
                     settings::get_app_settings,

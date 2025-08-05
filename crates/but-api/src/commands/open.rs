@@ -150,3 +150,24 @@ pub fn show_in_finder(_app: &App, params: ShowInFinderParams) -> Result<(), Erro
 
     Ok(())
 }
+
+#[derive(Deserialize)]
+pub struct OpenInTerminalParams {
+    pub app_name: String,
+    pub path: String,
+}
+
+pub fn open_in_terminal(_app: &App, params: OpenInTerminalParams) -> Result<(), Error> {
+    #[cfg(target_os = "macos")]
+    {
+        use std::process::Command;
+        Command::new("open")
+            .arg("-a")
+            .arg(&params.app_name)
+            .arg(&params.path)
+            .status()
+            .with_context(|| format!("Failed to show '{}' in Finder", params.path))?;
+    }
+
+    Ok(())
+}

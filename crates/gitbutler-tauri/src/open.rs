@@ -15,3 +15,9 @@ pub fn open_url(app: State<'_, App>, url: String) -> Result<(), Error> {
 pub fn show_in_finder(app: State<'_, App>, path: String) -> Result<(), Error> {
     open::show_in_finder(&app, open::ShowInFinderParams { path })
 }
+
+#[tauri::command(async)]
+#[instrument(skip(app), err(Debug))]
+pub fn open_in_terminal(app: State<'_, App>, app_name: String, path: String) -> Result<(), Error> {
+    open::open_in_terminal(&app, open::OpenInTerminalParams { app_name, path })
+}
