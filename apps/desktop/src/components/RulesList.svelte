@@ -7,7 +7,13 @@
 		type WorkspaceRuleId,
 		type RuleFilterMap,
 		type RuleFilterType,
-		type WorkspaceRule
+		type WorkspaceRule,
+		type StackTarget,
+		encodeStackTarget,
+		decodeStackTarget,
+		compareStackTarget,
+		isLeftmostTarget,
+		isRightmostTarget
 	} from '$lib/rules/rule';
 	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { getStackName } from '$lib/stacks/stack';
@@ -31,7 +37,11 @@
 	const [update, updatingRule] = rulesService.updateWorkspaceRule;
 
 	let selectedRuleId = $state<WorkspaceRuleId>();
-	let stackIdSelected = $state<string>();
+	let stackTargetSelected = $state<StackTarget>();
+	const encodedStackTarget = $derived(
+		stackTargetSelected && encodeStackTarget(stackTargetSelected)
+	);
+
 	let draftRuleFilterInitialValues = $state<Partial<RuleFilterMap>>({});
 	const ruleFilterTypes = $derived(typedKeys(draftRuleFilterInitialValues));
 
@@ -49,7 +59,7 @@
 	let editingRuleId = $state<WorkspaceRuleId | null>(null);
 
 	const validFilters = $derived(!ruleFiltersEditor || ruleFiltersEditor.imports.filtersValid);
-	const canSaveRule = $derived(stackIdSelected !== undefined && validFilters);
+	const canSaveRule = $derived(stackTargetSelected !== undefined && validFilters);
 
 	function openAddRuleContextMenu(e: MouseEvent) {
 		e.stopPropagation();
@@ -78,7 +88,7 @@
 	}
 
 	function resetEditor() {
-		stackIdSelected = undefined;
+		stackTargetSelected = undefined;
 		draftRuleFilterInitialValues = {};
 		selectedRuleId = undefined;
 		editingRuleId = null;
@@ -102,7 +112,7 @@
 
 		selectedRuleId = rule.id;
 		editingRuleId = rule.id;
-		stackIdSelected = rule.action.subject.subject.stack_id;
+		stackTargetSelected = rule.action.subject.subject.target;
 		const initialValues: Partial<RuleFilterMap> = {};
 
 		for (const filter of rule.filters) {
@@ -138,7 +148,7 @@
 			return;
 		}
 
-		if (!stackIdSelected) {
+		if (!stackTargetSelected) {
 			chipToasts.error('Please select a branch to assign the rule');
 			return;
 		}
@@ -153,9 +163,7 @@
 						type: 'explicit',
 						subject: {
 							type: 'assign',
-							subject: {
-								stack_id: stackIdSelected
-							}
+							subject: { target: stackTargetSelected }
 						}
 					},
 					filters: ruleFilters,
@@ -170,9 +178,7 @@
 						type: 'explicit',
 						subject: {
 							type: 'assign',
-							subject: {
-								stack_id: stackIdSelected
-							}
+							subject: { target: stackTargetSelected }
 						}
 					},
 					filters: ruleFilters,
@@ -258,22 +264,45 @@
 			<h3 class="text-13 text-semibold">Assign to branch</h3>
 			<ReduxResult {projectId} result={stackEntries.current}>
 				{#snippet children(stacks)}
+					{@const stackOptions = stacks.map((stack) => ({
+						label: getStackName(stack),
+						value: encodeStackTarget({ type: 'stackId', subject: stack.id })
+					}))}
+
 					<Select
-						value={stackIdSelected}
-						options={stacks.map((stack) => ({ label: getStackName(stack), value: stack.id }))}
+						value={encodedStackTarget}
+						options={stackOptions.concat([
+							{
+								label: 'Leftmost stack',
+								value: encodeStackTarget({ type: 'leftmost' })
+							},
+							{
+								label: 'Rightmost stack',
+								value: encodeStackTarget({ type: 'rightmost' })
+							}
+						])}
 						placeholder="Select a branch…"
 						flex="1"
 						searchable
-						onselect={(selectedId) => {
-							stackIdSelected = selectedId;
+						onselect={(selectedStackTarget) => {
+							stackTargetSelected = decodeStackTarget(selectedStackTarget);
 						}}
 						icon="branch-remote"
 					>
 						{#snippet itemSnippet({ item, highlighted })}
-							<SelectItem selected={item.value === stackIdSelected} {highlighted}>
+							<SelectItem
+								selected={compareStackTarget(item.value, stackTargetSelected)}
+								{highlighted}
+							>
 								{item.label}
 								{#snippet iconSnippet()}
-									<Icon name="branch-in-square" opacity={0.6} />
+									{#if isLeftmostTarget(item.value)}
+										<Icon name="arrow-left" opacity={0.6} />
+									{:else if isRightmostTarget(item.value)}
+										<Icon name="arrow-right" opacity={0.6} />
+									{:else}
+										<Icon name="branch-in-square" opacity={0.6} />
+									{/if}
 								{/snippet}
 							</SelectItem>
 						{/snippet}
