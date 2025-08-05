@@ -59,6 +59,7 @@ fn forcepush_allowed() -> anyhow::Result<()> {
         ctx,
         stack_entry.id,
         false,
+        ctx.project().force_push_protection,
         stack_entry.name().map(|s| s.to_string()).unwrap(),
     )
     .unwrap();

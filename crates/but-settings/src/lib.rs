@@ -18,8 +18,6 @@ pub struct AppSettings {
     pub extra_csp: app_settings::ExtraCsp,
     /// Settings related to fetching.
     pub fetch: app_settings::Fetch,
-    /// If true, force push operations will be performed with a --force-if-includes flag which increases safety of force pushes.
-    pub force_if_includes: bool,
 }
 
 impl Default for AppSettings {
