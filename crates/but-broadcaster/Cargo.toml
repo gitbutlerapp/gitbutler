@@ -1,0 +1,12 @@
+[package]
+name = "but-broadcaster"
+version = "0.0.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[dependencies]
+tokio = { workspace = true, features = ["full"] }
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true

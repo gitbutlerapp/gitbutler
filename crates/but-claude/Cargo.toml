@@ -13,6 +13,7 @@ chrono = { version = "0.4.41" }
 gix.workspace = true
 but-core.workspace = true
 but-action.workspace = true
+but-broadcaster.workspace = true
 but-db.workspace = true
 but-graph.workspace = true
 but-settings.workspace = true
@@ -23,3 +24,4 @@ gitbutler-stack.workspace = true
 gitbutler-project.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-branch-actions.workspace = true
+tokio = { workspace = true, features = ["full"] }

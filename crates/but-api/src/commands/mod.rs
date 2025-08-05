@@ -1,4 +1,5 @@
 pub mod askpass;
+pub mod claude;
 pub mod cli;
 pub mod config;
 pub mod diff;
