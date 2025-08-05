@@ -207,7 +207,6 @@ pub fn push_base_branch(app: &App, params: PushBaseBranchParams) -> Result<(), E
     gitbutler_branch_actions::push_base_branch(
         &ctx,
         params.with_force,
-        ctx.app_settings().force_if_includes,
     )?;
     Ok(())
 }
