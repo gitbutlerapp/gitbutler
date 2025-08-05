@@ -37,11 +37,29 @@ impl Snapshot {
             if self.content == Default::default() {
                 std::fs::remove_file(&self.path)?;
             } else {
-                fs::write(&self.path, toml::to_string(&self.content)?)?;
+                fs::write(&self.path, toml::to_string(&self.to_consistent_data())?)?;
             }
             self.changed_at.take();
         }
         Ok(())
+    }
+
+    /// The fixes here aren't relevant for the ref-metadata, but important for storage.
+    /// Instead of trying to maintain this, let's just fix it before writing.
+    fn to_consistent_data(&self) -> VirtualBranches {
+        let mut data = self.content.clone();
+        for stack in data.branches.values_mut() {
+            if stack.name.is_empty() {
+                stack.name = stack
+                    .heads
+                    // experiments show this is the bottom-most branch
+                    .last()
+                    .map(|h| h.name.as_str())
+                    .unwrap_or_default()
+                    .to_string();
+            }
+        }
+        data
     }
 
     fn try_write_if_changed(&mut self) {
