@@ -5,7 +5,14 @@ import { uiStateSlice } from '$lib/state/uiState.svelte';
 import { InjectionToken } from '@gitbutler/shared/context';
 import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
 import { combineSlices, configureStore, type Reducer } from '@reduxjs/toolkit';
-import { buildCreateApi, coreModule, setupListeners, type RootState } from '@reduxjs/toolkit/query';
+import {
+	buildCreateApi,
+	coreModule,
+	setupListeners,
+	type BaseQueryFn,
+	type QueryReturnValue,
+	type RootState
+} from '@reduxjs/toolkit/query';
 import { FLUSH, PAUSE, PERSIST, persistReducer, PURGE, REGISTER, REHYDRATE } from 'redux-persist';
 import persistStore from 'redux-persist/lib/persistStore';
 import storage from 'redux-persist/lib/storage';
@@ -14,6 +21,7 @@ import type { Tauri } from '$lib/backend/tauri';
 import type { GitHubClient } from '$lib/forge/github/githubClient';
 import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 import type { IrcClient } from '$lib/irc/ircClient.svelte';
+import type { ReduxError } from '$lib/state/reduxError';
 
 /**
  * GitHub API object that enables the declaration and usage of endpoints
@@ -201,6 +209,13 @@ function createBackendApi(butlerMod: ReturnType<typeof butlerModule>) {
 // for forge data.
 const KEEP_UNUSED_SECONDS = 24 * 60 * 60;
 
+// Fake base query that allows us to use the same error type when the query
+// definitions only use `queryFn` instead of `query`.
+// eslint-disable-next-line func-style
+const fakeBaseQuery: BaseQueryFn = () => {
+	return { data: undefined } as QueryReturnValue<never, ReduxError, any>;
+};
+
 export function createGitHubApi(butlerMod: ReturnType<typeof butlerModule>) {
 	return buildCreateApi(
 		coreModule(),
@@ -210,7 +225,7 @@ export function createGitHubApi(butlerMod: ReturnType<typeof butlerModule>) {
 		tagTypes: Object.values(ReduxTag),
 		invalidationBehavior: 'immediately',
 		// TODO: This should only be set for backend api.
-		baseQuery: tauriBaseQuery,
+		baseQuery: fakeBaseQuery,
 		refetchOnFocus: true,
 		refetchOnReconnect: true,
 		keepUnusedDataFor: KEEP_UNUSED_SECONDS,
@@ -229,7 +244,7 @@ function createGitLabApi(butlerMod: ReturnType<typeof butlerModule>) {
 		tagTypes: Object.values(ReduxTag),
 		invalidationBehavior: 'immediately',
 		// TODO: This should only be set for backend api.
-		baseQuery: tauriBaseQuery,
+		baseQuery: fakeBaseQuery,
 		refetchOnFocus: true,
 		refetchOnReconnect: true,
 		keepUnusedDataFor: KEEP_UNUSED_SECONDS,

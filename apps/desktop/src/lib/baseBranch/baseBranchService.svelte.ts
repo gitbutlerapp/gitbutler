@@ -1,7 +1,7 @@
-import { isTauriCommandError } from '$lib/backend/ipc';
 import { BaseBranch, type RemoteBranchInfo } from '$lib/baseBranch/baseBranch';
 import { Code } from '$lib/error/knownErrors';
 import { showError } from '$lib/notifications/toasts';
+import { isReduxError } from '$lib/state/reduxError';
 import { invalidatesList, invalidatesType, providesType, ReduxTag } from '$lib/state/tags';
 import { parseRemoteUrl } from '$lib/url/gitUrl';
 import { InjectionToken } from '@gitbutler/shared/context';
@@ -74,7 +74,7 @@ export default class BaseBranchService {
 		return await this.api.endpoints.fetchFromRemotes
 			.mutate({ projectId, action })
 			.catch((error: unknown) => {
-				if (!isTauriCommandError(error)) {
+				if (!isReduxError(error)) {
 					if (action === 'auto') return;
 					showError('Failed to fetch', String(error));
 					return;

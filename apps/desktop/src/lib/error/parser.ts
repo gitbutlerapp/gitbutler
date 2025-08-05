@@ -1,10 +1,10 @@
-import { isTauriCommandError } from '$lib/backend/ipc';
 import { KNOWN_ERRORS } from '$lib/error/knownErrors';
 import {
 	isHttpError,
 	isPromiseRejection,
 	isReduxActionError as isReduxActionError
 } from '$lib/error/typeguards';
+import { isReduxError } from '$lib/state/reduxError';
 import { isStr } from '@gitbutler/ui/utils/string';
 import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
 
@@ -40,7 +40,7 @@ export function parseError(error: unknown): ParsedError {
 		return { message: error };
 	}
 
-	if (error instanceof PromiseRejectionEvent && isTauriCommandError(error.reason)) {
+	if (error instanceof PromiseRejectionEvent && isReduxError(error.reason)) {
 		const { name, message, code } = error.reason;
 		return { name, message, code };
 	}
@@ -52,7 +52,7 @@ export function parseError(error: unknown): ParsedError {
 		};
 	}
 
-	if (isTauriCommandError(error)) {
+	if (isReduxError(error)) {
 		const { name, message, code } = error;
 		const description = code ? KNOWN_ERRORS[code] : undefined;
 		return { name, message, code, description };

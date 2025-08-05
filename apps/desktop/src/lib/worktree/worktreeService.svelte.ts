@@ -3,11 +3,11 @@ import { createSelectByIds } from '$lib/state/customSelectors';
 import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
 import { InjectionToken } from '@gitbutler/shared/context';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
-import type { TauriCommandError } from '$lib/backend/ipc';
 import type { HunkDependencies } from '$lib/dependencies/dependencies';
 import type { IgnoredChange, TreeChange, WorktreeChanges } from '$lib/hunks/change';
 import type { HunkAssignment } from '$lib/hunks/hunk';
 import type { ClientState } from '$lib/state/clientState.svelte';
+import type { ReduxError } from '$lib/state/reduxError';
 
 export const WORKTREE_SERVICE = new InjectionToken<WorktreeService>('WorktreeService');
 
@@ -98,7 +98,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					ignoredChanges: IgnoredChange[];
 					hunkAssignments: HunkAssignment[];
 					dependencies: HunkDependencies | undefined;
-					dependenciesError: TauriCommandError | undefined;
+					dependenciesError: ReduxError | undefined;
 				},
 				{ projectId: string }
 			>({

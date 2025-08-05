@@ -1,5 +1,5 @@
-import { isTauriCommandError, type TauriCommandError } from '$lib/backend/ipc';
 import { Tauri } from '$lib/backend/tauri';
+import { isReduxError, type ReduxError } from '$lib/state/reduxError';
 import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
 import { type BaseQueryApi, type QueryReturnValue } from '@reduxjs/toolkit/query';
 import type { ExtraOptions } from '$lib/state/butlerModule';
@@ -14,7 +14,7 @@ export const tauriBaseQuery: TauriBaseQueryFn = async (
 	args: ApiArgs,
 	api: BaseQueryApi,
 	extra: TauriExtraOptions
-): Promise<QueryReturnValue<unknown, TauriCommandError, undefined>> => {
+): Promise<QueryReturnValue<unknown, ReduxError, undefined>> => {
 	const command = extra.command;
 	if (!command) {
 		return newError('Expected a command!');
@@ -29,7 +29,7 @@ export const tauriBaseQuery: TauriBaseQueryFn = async (
 		return result;
 	} catch (error: unknown) {
 		const name = `API error: (${command})`;
-		if (isTauriCommandError(error)) {
+		if (isReduxError(error)) {
 			const newMessage =
 				`command: ${command}\nparams: ${JSON.stringify(args)})\n\n` + error.message;
 			return { error: { name, message: newMessage, code: error.code } };
