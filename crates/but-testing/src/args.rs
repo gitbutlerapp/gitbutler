@@ -205,6 +205,17 @@ pub enum Subcommands {
         #[clap(long, short = 'd')]
         description: Option<String>,
     },
+    /// Create a reference at the given position (dependent and independent)
+    CreateReference {
+        /// Create the branch above the given commit or branch short name.
+        #[arg(long, short = 'a', conflicts_with = "below")]
+        above: Option<String>,
+        /// Create the branch below the given commit or branch short name.
+        #[arg(long, short = 'b', conflicts_with = "above")]
+        below: Option<String>,
+        /// the short-name of the new branch.
+        short_name: String,
+    },
 }
 
 #[cfg(test)]

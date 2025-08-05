@@ -3,10 +3,13 @@ use but_core::UnifiedDiff;
 use but_db::poll::ItemKind;
 use but_graph::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
+use but_workspace::branch::{ReferenceAnchor, ReferencePosition};
 use but_workspace::{DiffSpec, HunkHeader};
 use gitbutler_project::{Project, ProjectId};
 use gix::bstr::{BString, ByteSlice};
 use gix::odb::store::RefreshMode;
+use gix::refs::Category;
+use std::borrow::Cow;
 use std::io::{Write, stdout};
 use std::mem::ManuallyDrop;
 use std::path::Path;
@@ -70,6 +73,21 @@ pub fn repo_and_maybe_project(
         (repo, None)
     };
     Ok(res)
+}
+
+pub fn repo_and_maybe_project_and_graph(
+    args: &super::Args,
+    mode: RepositoryOpenMode,
+) -> anyhow::Result<(
+    gix::Repository,
+    Option<Project>,
+    but_graph::Graph,
+    ManuallyDrop<VirtualBranchesTomlMetadata>,
+)> {
+    let (repo, project) = repo_and_maybe_project(args, mode)?;
+    let meta = meta_from_maybe_project(project.as_ref())?;
+    let graph = but_graph::Graph::from_head(&repo, &*meta, meta.graph_options())?;
+    Ok((repo, project, graph, meta))
 }
 
 fn debug_print(this: impl std::fmt::Debug) -> anyhow::Result<()> {
@@ -493,26 +511,14 @@ pub fn graph(
             .collect(),
     };
 
-    let meta_with_drop;
-    let meta_without_drop;
-    let meta = match project {
-        None => {
-            meta_without_drop = ManuallyDrop::new(VirtualBranchesTomlMetadata::from_path(
-                "should-never-be-written-back.toml",
-            )?);
-            &meta_without_drop
-        }
-        Some(project) => {
-            meta_with_drop = ref_metadata_toml(&project)?;
-            &meta_with_drop
-        }
-    };
+    // Never drop - this is read-only.
+    let meta = meta_from_maybe_project(project.as_ref())?;
     let graph = match ref_name {
-        None => but_graph::Graph::from_head(&repo, meta, opts),
+        None => but_graph::Graph::from_head(&repo, &*meta, opts),
         Some(ref_name) => {
             let mut reference = repo.find_reference(ref_name)?;
             let id = reference.peel_to_id_in_place()?;
-            but_graph::Graph::from_commit_traversal(id, reference.name().to_owned(), meta, opts)
+            but_graph::Graph::from_commit_traversal(id, reference.name().to_owned(), &*meta, opts)
         }
     }?;
 
@@ -552,6 +558,54 @@ pub fn graph(
     }
     if debug_graph {
         eprintln!("{graph:#?}");
+    }
+    Ok(())
+}
+
+/// NOTE: THis is a special case while vb.toml is used and while projects are somewhat special.
+fn meta_from_maybe_project(
+    project: Option<&Project>,
+) -> anyhow::Result<ManuallyDrop<VirtualBranchesTomlMetadata>> {
+    let meta = ManuallyDrop::new(match project {
+        None => VirtualBranchesTomlMetadata::from_path("should-never-be-written-back.toml")?,
+        Some(project) => ref_metadata_toml(project)?,
+    });
+    Ok(meta)
+}
+
+pub fn create_reference(
+    args: &super::Args,
+    short_name: &str,
+    above: Option<&str>,
+    below: Option<&str>,
+) -> anyhow::Result<()> {
+    let (repo, project, graph, mut meta) =
+        repo_and_maybe_project_and_graph(args, RepositoryOpenMode::General)?;
+    let resolve =
+        |spec: &str, position: ReferencePosition| -> anyhow::Result<ReferenceAnchor<'_>> {
+            Ok(match repo.try_find_reference(spec)? {
+                None => ReferenceAnchor::AtCommit {
+                    commit_id: repo.rev_parse_single(spec)?.detach(),
+                    position,
+                },
+                Some(rn) => ReferenceAnchor::AtSegment {
+                    ref_name: Cow::Owned(rn.inner.name),
+                    position,
+                },
+            })
+        };
+    let anchor = above
+        .map(|spec| resolve(spec, ReferencePosition::Above))
+        .or_else(|| below.map(|spec| resolve(spec, ReferencePosition::Below)))
+        .transpose()?;
+
+    let new_ref = Category::LocalBranch.to_full_name(short_name)?;
+    let ws = graph.to_workspace()?;
+    but_workspace::branch::create_reference(new_ref.as_ref(), anchor, &repo, &ws, &mut *meta)?;
+
+    if project.is_some() {
+        // write metadata if there are projects - this is a special case while we use vb.toml.
+        ManuallyDrop::into_inner(meta);
     }
     Ok(())
 }

@@ -8,6 +8,7 @@ use gitbutler_stack::StackId;
 use gitbutler_user::User;
 use gix::refs::Category;
 use serde::Deserialize;
+use std::borrow::Cow;
 
 use crate::{App, error::Error};
 
@@ -47,7 +48,7 @@ pub fn create_branch(app: &App, params: CreateBranchParams) -> Result<(), Error>
                     .ref_name
                     .as_ref()
                     .map(|rn| ReferenceAnchor::AtSegment {
-                        ref_name: rn.as_ref(),
+                        ref_name: Cow::Borrowed(rn.as_ref()),
                         position: Above,
                     })
                     .or_else(|| {

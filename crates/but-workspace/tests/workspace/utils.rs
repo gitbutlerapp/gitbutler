@@ -6,6 +6,7 @@ use but_testsupport::gix_testtools::{Creation, tempfile};
 use but_workspace::commit_engine::Destination;
 use but_workspace::{DiffSpec, HunkHeader};
 use gix::prelude::ObjectIdExt;
+use std::borrow::Cow;
 
 pub const CONTEXT_LINES: u32 = 0;
 
@@ -364,4 +365,8 @@ pub fn hunk_header(old: &str, new: &str) -> HunkHeader {
 
 pub fn r(name: &str) -> &gix::refs::FullNameRef {
     name.try_into().expect("statically known valid ref-name")
+}
+
+pub fn rc(name: &str) -> Cow<'static, gix::refs::FullNameRef> {
+    Cow::Owned(name.try_into().expect("statically known valid ref-name"))
 }

@@ -24,6 +24,11 @@ async fn main() -> Result<()> {
     let _op_span = tracing::info_span!("cli-op").entered();
 
     match &args.cmd {
+        args::Subcommands::CreateReference {
+            above,
+            below,
+            short_name,
+        } => command::create_reference(&args, short_name, above.as_deref(), below.as_deref()),
         args::Subcommands::OpMode => command::operating_mode(&args),
         args::Subcommands::DiscardChange {
             hunk_indices,

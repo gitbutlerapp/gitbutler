@@ -2,7 +2,7 @@ mod create_reference {
     use crate::ref_info::with_workspace_commit::utils::{
         named_read_only_in_memory_scenario, named_writable_scenario,
     };
-    use crate::utils::r;
+    use crate::utils::{r, rc};
     use ReferencePosition::*;
     use but_core::RefMetadata;
     use but_core::ref_metadata::ValueInfo;
@@ -15,7 +15,7 @@ mod create_reference {
             StackState, add_stack_with_segments, named_read_only_in_memory_scenario,
             named_writable_scenario, named_writable_scenario_with_description,
         };
-        use crate::utils::r;
+        use crate::utils::{r, rc};
         use but_core::RefMetadata;
         use but_core::ref_metadata::ValueInfo;
         use but_graph::VirtualBranchesTomlMetadata;
@@ -23,6 +23,7 @@ mod create_reference {
         use but_testsupport::{graph_workspace, id_at, id_by_rev, visualize_commit_graph_all};
         use but_workspace::branch::ReferenceAnchor;
         use but_workspace::branch::ReferencePosition::*;
+        use std::borrow::Cow;
 
         #[test]
         fn journey_no_ws_commit_no_target() -> anyhow::Result<()> {
@@ -56,7 +57,7 @@ mod create_reference {
                     └── ·3183e43 (🏘️)
             ");
 
-            let new_name = r("refs/heads/A");
+            let new_name = rc("refs/heads/A");
             let err = but_workspace::branch::create_reference(
                 new_name, None, /* anchor */
                 &repo, &ws, &mut meta,
@@ -131,11 +132,11 @@ mod create_reference {
                 └── 📙:3:A
             ");
 
-            let above_a = r("refs/heads/above-A");
+            let above_a = rc("refs/heads/above-A");
             let graph = but_workspace::branch::create_reference(
                 above_a,
                 ReferenceAnchor::AtSegment {
-                    ref_name: a_ref,
+                    ref_name: Cow::Borrowed(a_ref),
                     position: Above,
                 },
                 &repo,
@@ -152,11 +153,11 @@ mod create_reference {
                 └── 📙:4:A
             ");
 
-            let below_b = r("refs/heads/below-B");
+            let below_b = rc("refs/heads/below-B");
             let graph = but_workspace::branch::create_reference(
                 below_b,
                 ReferenceAnchor::AtSegment {
-                    ref_name: b_ref,
+                    ref_name: Cow::Borrowed(b_ref),
                     position: Below,
                 },
                 &repo,
@@ -241,11 +242,11 @@ mod create_reference {
                     └── ·6fdab32 (🏘️)
             ");
 
-            let bottom_ref = r("refs/heads/bottom");
+            let bottom_ref = rc("refs/heads/bottom");
             let err = but_workspace::branch::create_reference(
                 bottom_ref,
                 ReferenceAnchor::AtSegment {
-                    ref_name: above_bottom_ref,
+                    ref_name: Cow::Borrowed(above_bottom_ref),
                     position: Below,
                 },
                 &repo,
@@ -288,7 +289,7 @@ mod create_reference {
             ");
 
             // We can, however, restore it simply by putting idempotency.
-            let a_ref = r("refs/heads/A");
+            let a_ref = rc("refs/heads/A");
             let graph = but_workspace::branch::create_reference(
                 a_ref,
                 ReferenceAnchor::AtCommit {
@@ -312,8 +313,8 @@ mod create_reference {
                     └── ·6fdab32 (🏘️)
             ");
 
-            let above_a_ref = r("refs/heads/above-A");
-            let a_ref = r("refs/heads/A");
+            let above_a_ref = rc("refs/heads/above-A");
+            let a_ref = rc("refs/heads/A");
             let graph = but_workspace::branch::create_reference(
                 above_a_ref,
                 ReferenceAnchor::AtSegment {
@@ -338,7 +339,7 @@ mod create_reference {
                     └── ·6fdab32 (🏘️)
             ");
 
-            let below_a_commit_ref = r("refs/heads/below-A-commit");
+            let below_a_commit_ref = rc("refs/heads/below-A-commit");
             let graph = but_workspace::branch::create_reference(
                 below_a_commit_ref,
                 ReferenceAnchor::AtCommit {
@@ -363,11 +364,11 @@ mod create_reference {
                     └── ·6fdab32 (🏘️)
             ");
 
-            let below_a_ref = r("refs/heads/below-A");
+            let below_a_ref = rc("refs/heads/below-A");
             let graph = but_workspace::branch::create_reference(
                 below_a_ref,
                 ReferenceAnchor::AtSegment {
-                    ref_name: above_a_commit_ref,
+                    ref_name: Cow::Borrowed(above_a_commit_ref),
                     position: Below,
                 },
                 &repo,
@@ -409,11 +410,11 @@ mod create_reference {
             ");
 
             // create a new dependent branch by segment above (commit can't be done).
-            let above_b_ref = r("refs/heads/above-B");
+            let above_b_ref = rc("refs/heads/above-B");
             let graph = but_workspace::branch::create_reference(
                 above_b_ref,
                 ReferenceAnchor::AtSegment {
-                    ref_name: b_ref,
+                    ref_name: Cow::Borrowed(b_ref),
                     position: Above,
                 },
                 &repo,
@@ -440,11 +441,11 @@ mod create_reference {
             // create a new dependent branch by segment below
             // (which somewhat counter-intuitively works here) because it's a completly new
             // independent branch.
-            let below_b_ref = r("refs/heads/below-B");
+            let below_b_ref = rc("refs/heads/below-B");
             let graph = but_workspace::branch::create_reference(
                 below_b_ref,
                 ReferenceAnchor::AtSegment {
-                    ref_name: b_ref,
+                    ref_name: Cow::Borrowed(b_ref),
                     position: Below,
                 },
                 &repo,
@@ -547,11 +548,11 @@ mod create_reference {
                     └── ·49d4b34 (🏘️)
             ");
 
-            let bottom_ref = r("refs/heads/bottom");
+            let bottom_ref = rc("refs/heads/bottom");
             let err = but_workspace::branch::create_reference(
                 bottom_ref,
                 ReferenceAnchor::AtSegment {
-                    ref_name: above_bottom_ref,
+                    ref_name: Cow::Borrowed(above_bottom_ref),
                     position: Below,
                 },
                 &repo,
@@ -592,8 +593,8 @@ mod create_reference {
                     └── ·49d4b34 (🏘️)
             ");
 
-            let above_a_ref = r("refs/heads/above-A");
-            let a_ref = r("refs/heads/A");
+            let above_a_ref = rc("refs/heads/above-A");
+            let a_ref = rc("refs/heads/A");
             let graph = but_workspace::branch::create_reference(
                 above_a_ref,
                 ReferenceAnchor::AtSegment {
@@ -619,8 +620,8 @@ mod create_reference {
             ");
 
             // Idempotency!
-            let above_a_ref = r("refs/heads/above-A");
-            let a_ref = r("refs/heads/A");
+            let above_a_ref = rc("refs/heads/above-A");
+            let a_ref = rc("refs/heads/A");
             let graph = but_workspace::branch::create_reference(
                 above_a_ref,
                 ReferenceAnchor::AtSegment {
@@ -644,7 +645,7 @@ mod create_reference {
                     └── ·49d4b34 (🏘️)
             ");
 
-            let below_a_commit_ref = r("refs/heads/below-A-commit");
+            let below_a_commit_ref = rc("refs/heads/below-A-commit");
             let graph = but_workspace::branch::create_reference(
                 below_a_commit_ref,
                 ReferenceAnchor::AtCommit {
@@ -669,11 +670,11 @@ mod create_reference {
                     └── ·49d4b34 (🏘️)
             ");
 
-            let below_a_ref = r("refs/heads/below-A");
+            let below_a_ref = rc("refs/heads/below-A");
             let graph = but_workspace::branch::create_reference(
                 below_a_ref,
                 ReferenceAnchor::AtSegment {
-                    ref_name: above_a_commit_ref,
+                    ref_name: Cow::Borrowed(above_a_commit_ref),
                     position: Below,
                 },
                 &repo,
@@ -715,11 +716,11 @@ mod create_reference {
             ");
 
             // create a new dependent branch by segment above (commit can't be done).
-            let above_b_ref = r("refs/heads/above-B");
+            let above_b_ref = rc("refs/heads/above-B");
             let graph = but_workspace::branch::create_reference(
                 above_b_ref,
                 ReferenceAnchor::AtSegment {
-                    ref_name: b_ref,
+                    ref_name: Cow::Borrowed(b_ref),
                     position: Above,
                 },
                 &repo,
@@ -746,11 +747,11 @@ mod create_reference {
             // create a new dependent branch by segment below
             // (which somewhat counter-intuitively works here) because it's a completly new
             // independent branch.
-            let below_b_ref = r("refs/heads/below-B");
+            let below_b_ref = rc("refs/heads/below-B");
             let graph = but_workspace::branch::create_reference(
                 below_b_ref,
                 ReferenceAnchor::AtSegment {
-                    ref_name: b_ref,
+                    ref_name: Cow::Borrowed(b_ref),
                     position: Below,
                 },
                 &repo,
@@ -829,7 +830,7 @@ mod create_reference {
                     └── ·49d4b34 (🏘️)
             ");
 
-            let bottom_ref = r("refs/heads/bottom");
+            let bottom_ref = rc("refs/heads/bottom");
             let bottom_id = id_by_rev(&repo, ":/A1");
             let err = but_workspace::branch::create_reference(
                 bottom_ref,
@@ -1020,11 +1021,11 @@ mod create_reference {
                 "it shouldn't actually have changed the ref"
             );
 
-            let new_name = r("refs/heads/new");
+            let new_name = rc("refs/heads/new");
             let err = but_workspace::branch::create_reference(
                 new_name,
                 ReferenceAnchor::AtSegment {
-                    ref_name: r("refs/heads/bogus"),
+                    ref_name: rc("refs/heads/bogus"),
                     position: Below,
                 },
                 &repo,
@@ -1315,7 +1316,7 @@ mod create_reference {
 
         // the last possible branch without a workspace.
         let graph = but_workspace::branch::create_reference(
-            r("refs/heads/two-below-main"),
+            rc("refs/heads/two-below-main"),
             ReferenceAnchor::at_segment(r("refs/heads/below-main"), Below),
             &repo,
             &ws,
@@ -1336,7 +1337,7 @@ mod create_reference {
         // Now no new segment can be created anymore, each commit can only have one.
         // the last possible branch without a workspace.
         let err = but_workspace::branch::create_reference(
-            r("refs/heads/another-below-main"),
+            rc("refs/heads/another-below-main"),
             ReferenceAnchor::at_segment(main_ref.as_ref(), Below),
             &repo,
             &ws,
@@ -1420,7 +1421,7 @@ mod create_reference {
                 └── ·3d57fc1 (✓)
         ");
 
-        let first_ref = r("refs/heads/first");
+        let first_ref = rc("refs/heads/first");
         let first_id = id_by_rev(&repo, "@~2");
         let graph = but_workspace::branch::create_reference(
             first_ref,
@@ -1452,7 +1453,7 @@ mod create_reference {
         );
         assert!(repo.try_find_reference(new)?.is_none());
 
-        let second_ref = r("refs/heads/second");
+        let second_ref = rc("refs/heads/second");
         let second_id = id_by_rev(&repo, "@~1");
         let graph = but_workspace::branch::create_reference(
             second_ref,
