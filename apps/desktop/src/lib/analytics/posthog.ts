@@ -49,6 +49,13 @@ export class PostHogWrapper {
 		this.settingsService.updateTelemetryDistinctId(distinctId);
 	}
 
+	setAnonymousPostHogUser() {
+		if (this._instance) {
+			const distinctId = this._instance.get_distinct_id();
+			this.settingsService.updateTelemetryDistinctId(distinctId);
+		}
+	}
+
 	async resetPostHog() {
 		this._instance?.capture('logout');
 		this._instance?.reset();
