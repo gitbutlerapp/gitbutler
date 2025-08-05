@@ -2,10 +2,9 @@
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { getPollingInterval } from '$lib/forge/shared/progressivePolling';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
 
-	import { Badge } from '@gitbutler/ui';
+	import { Badge, TestId } from '@gitbutler/ui';
 	import type { MessageStyle } from '$components/InfoMessage.svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { ComponentColorType } from '@gitbutler/ui/utils/colorTypes';

@@ -18,12 +18,11 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { TestId } from '$lib/testing/testIds';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { copyToClipboard } from '@gitbutler/shared/clipboard';
 	import { inject } from '@gitbutler/shared/context';
 
-	import { Button, Modal } from '@gitbutler/ui';
+	import { Button, Modal, TestId } from '@gitbutler/ui';
 	import { getForgeLogo } from '@gitbutler/ui/utils/getForgeLogo';
 	import { QueryStatus } from '@reduxjs/toolkit/query';
 	import { tick } from 'svelte';

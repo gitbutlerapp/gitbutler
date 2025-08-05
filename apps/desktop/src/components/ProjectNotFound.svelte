@@ -7,9 +7,8 @@
 	import RemoveProjectButton from '$components/RemoveProjectButton.svelte';
 	import notFoundSvg from '$lib/assets/illustrations/not-found.svg?raw';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import { Button, Spacer } from '@gitbutler/ui';
+	import { Button, Spacer, TestId } from '@gitbutler/ui';
 
 	interface Props {
 		projectId: string;

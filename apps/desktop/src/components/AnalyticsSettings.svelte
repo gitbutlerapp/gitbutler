@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { APP_SETTINGS } from '$lib/config/appSettings';
-	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import { SectionCard, Toggle, Link } from '@gitbutler/ui';
+	import { SectionCard, Toggle, Link, TestId } from '@gitbutler/ui';
 
 	const appSettings = inject(APP_SETTINGS);
 	const errorReportingEnabled = appSettings.appErrorReportingEnabled;

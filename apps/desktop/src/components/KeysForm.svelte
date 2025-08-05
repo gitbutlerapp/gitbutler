@@ -7,9 +7,8 @@
 	import { showError } from '$lib/notifications/toasts';
 	import { type AuthKey, type KeyType } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import { Link, RadioButton, SectionCard, Textbox } from '@gitbutler/ui';
+	import { Link, RadioButton, SectionCard, TestId, Textbox } from '@gitbutler/ui';
 
 	import { onMount } from 'svelte';
 

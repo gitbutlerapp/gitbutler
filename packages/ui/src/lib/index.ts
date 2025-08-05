@@ -140,5 +140,6 @@ export {
 } from '$lib/richText/plugins/Mention.svelte';
 export { default as FormattingBar } from '$lib/richText/tools/FormattingBar.svelte';
 export { default as FormattingButton } from '$lib/richText/tools/FormattingButton.svelte';
+export * from '$lib/utils/testIds';
 
 // Utilities and other exports

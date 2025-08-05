@@ -7,9 +7,8 @@
 
 <script lang="ts">
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import { Button, Modal, Textbox } from '@gitbutler/ui';
+	import { Button, Modal, Textbox, TestId } from '@gitbutler/ui';
 	import { slugify } from '@gitbutler/ui/utils/string';
 
 	const { projectId, stackId }: AddDependentBranchModalProps = $props();

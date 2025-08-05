@@ -4,7 +4,6 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { writeClipboard } from '$lib/backend/clipboard';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { TestId } from '$lib/testing/testIds';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 	import {
@@ -13,7 +12,8 @@
 		ContextMenuItem,
 		ContextMenuSection,
 		Icon,
-		AvatarGroup
+		AvatarGroup,
+		TestId
 	} from '@gitbutler/ui';
 	import { getForgeLogo } from '@gitbutler/ui/utils/getForgeLogo';
 	import type { DetailedPullRequest } from '$lib/forge/interface/types';

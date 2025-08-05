@@ -9,9 +9,8 @@
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { platformName } from '$lib/platform/platform';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { TestId } from '$lib/testing/testIds';
 	import { inject } from '@gitbutler/shared/context';
-	import { Button } from '@gitbutler/ui';
+	import { Button, TestId } from '@gitbutler/ui';
 	import type { RemoteBranchInfo } from '$lib/baseBranch/baseBranch';
 
 	interface Props {
