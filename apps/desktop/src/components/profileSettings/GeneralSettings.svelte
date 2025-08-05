@@ -7,7 +7,11 @@
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { showError } from '$lib/notifications/toasts';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { SETTINGS, type CodeEditorSettings } from '$lib/settings/userSettings';
+	import {
+		SETTINGS,
+		type CodeEditorSettings,
+		type TerminalSettings
+	} from '$lib/settings/userSettings';
 	import { UPDATER_SERVICE } from '$lib/updater/updater';
 	import { USER_SERVICE } from '$lib/user/userService';
 
@@ -57,6 +61,19 @@
 	const editorOptionsForSelect = editorOptions.map((option) => ({
 		label: option.displayName,
 		value: option.schemeIdentifer
+	}));
+	const terminalOptions: TerminalSettings[] = [
+		{ appName: 'Terminal.app', displayName: 'Terminal' },
+		{ appName: 'Ghostty.app', displayName: 'Ghostty' },
+		{ appName: 'Warp.app', displayName: 'Warp' },
+		{ appName: 'iTerm.app', displayName: 'iTerm 2' },
+		{ appName: 'Alacritty.app', displayName: 'Alacritty' },
+		{ appName: 'WezTerm.app', displayName: 'WezTerm' },
+		{ appName: 'Hyper.app', displayName: 'Hyper' }
+	];
+	const terminalOptionsForSelect = terminalOptions.map((option) => ({
+		label: option.displayName,
+		value: option.appName
 	}));
 
 	$effect(() => {
@@ -194,6 +211,30 @@
 					selected={item.value === $userSettings.defaultCodeEditor.schemeIdentifer}
 					{highlighted}
 				>
+					{item.label}
+				</SelectItem>
+			{/snippet}
+		</Select>
+	{/snippet}
+</SectionCard>
+
+<SectionCard orientation="row" centerAlign>
+	{#snippet title()}
+		Default terminal
+	{/snippet}
+	{#snippet actions()}
+		<Select
+			value={$userSettings.defaultTerminal.appName}
+			options={terminalOptionsForSelect}
+			onselect={(value) => {
+				const selected = terminalOptions.find((option) => option.appName === value);
+				if (selected) {
+					userSettings.update((s) => ({ ...s, defaultTerminal: selected }));
+				}
+			}}
+		>
+			{#snippet itemSnippet({ item, highlighted })}
+				<SelectItem selected={item.value === $userSettings.defaultTerminal.appName} {highlighted}>
 					{item.label}
 				</SelectItem>
 			{/snippet}
