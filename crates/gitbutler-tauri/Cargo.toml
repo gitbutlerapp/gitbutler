@@ -31,18 +31,18 @@ reqwest = { version = "0.12.22", features = ["json"] }
 serde.workspace = true
 serde_json = { version = "1.0", features = ["std", "arbitrary_precision"] }
 serde-error = "0.1.3"
-tauri = { version = "^2.4.1", features = ["unstable"] }
+tauri = { version = "^2.7.0", features = ["unstable"] }
 tauri-plugin-dialog = "2.3.0"
-tauri-plugin-fs = "2.2.1"
-tauri-plugin-http = "2.5.0"
+tauri-plugin-fs = "2.4.1"
+tauri-plugin-http = "2.5.1"
 tauri-plugin-log = "2.6.0"
 tauri-plugin-os = "2.3.0"
 tauri-plugin-process = "2.3.0"
 tauri-plugin-shell = "2.3.0"
-tauri-plugin-single-instance = "2.3.0"
+tauri-plugin-single-instance = "2.3.2"
 tauri-plugin-store = "2.3.0"
 tauri-plugin-updater = "2.9.0"
-tauri-plugin-window-state = "2.3.0"
+tauri-plugin-window-state = "2.4.0"
 tauri-plugin-clipboard-manager = "2.3.0"
 
 parking_lot.workspace = true
@@ -52,7 +52,7 @@ tokio = { workspace = true, features = ["rt-multi-thread", "parking_lot"] }
 tracing.workspace = true
 tracing-appender = "0.2.3"
 tracing-subscriber.workspace = true
-tracing-forest = { version = "0.1.6" }
+tracing-forest = { version = "0.2.0" }
 gitbutler-watcher.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-oplog.workspace = true
