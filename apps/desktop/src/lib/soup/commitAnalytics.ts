@@ -1,4 +1,4 @@
-import { getFilterCountMap, type WorkspaceRule } from '$lib/rules/rule';
+import { getFilterCountMap, getStackTargetTypeCountMap, type WorkspaceRule } from '$lib/rules/rule';
 import { StackService } from '$lib/stacks/stackService.svelte';
 import { UiState } from '$lib/state/uiState.svelte';
 import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
@@ -158,6 +158,7 @@ export class CommitAnalytics {
 	private getRuleMetrics(rules: WorkspaceRule[]): EventProperties {
 		const filterCount = rules.map((rule) => rule.filters.length);
 		const filterCountByType = getFilterCountMap(rules);
+		const assignmentTargetTypes = getStackTargetTypeCountMap(rules);
 
 		return {
 			// Total number of rules in the workspace
@@ -165,7 +166,9 @@ export class CommitAnalytics {
 			// Average number of filters per rule
 			averageFiltersPerRule: average(filterCount),
 			/// Count of filter types. Ignores multiple types of the same type in a single rule.
-			...filterCountByType
+			...filterCountByType,
+			/// Count the stack target types used
+			...assignmentTargetTypes
 		};
 	}
 }

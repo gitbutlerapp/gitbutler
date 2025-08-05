@@ -193,6 +193,29 @@ type LeftmostTarget = { type: 'leftmost' };
 type RightmostTarget = { type: 'rightmost' };
 export type StackTarget = StackIdTarget | LeftmostTarget | RightmostTarget;
 
+type StackTargetType = StackTarget['type'];
+
+type StackTargetTypeCount = {
+	[K in StackTargetType as `assignmentTargetCount-${K}`]: number;
+};
+
+export function getStackTargetTypeCountMap(rules: WorkspaceRule[]): StackTargetTypeCount {
+	const countMap: StackTargetTypeCount = {
+		'assignmentTargetCount-stackId': 0,
+		'assignmentTargetCount-leftmost': 0,
+		'assignmentTargetCount-rightmost': 0
+	};
+
+	for (const rule of rules) {
+		if (rule.action.type === 'explicit' && rule.action.subject.type === 'assign') {
+			const target = rule.action.subject.subject.target;
+			countMap[`assignmentTargetCount-${target.type}`] += 1;
+		}
+	}
+
+	return countMap;
+}
+
 const UNIT_SEP = '\u001F';
 
 export function encodeStackTarget(stackTarget: StackTarget): string {
