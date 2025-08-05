@@ -1,7 +1,7 @@
 use but_graph::VirtualBranchesTomlMetadata;
 use but_hunk_assignment::{HunkAssignment, WorktreeChanges, assign, assignments_to_requests};
 use but_hunk_dependency::ui::HunkDependencies;
-use but_workspace::{StackId, StacksFilter};
+use but_workspace::{StackId, StacksFilter, ui::StackEntry};
 use gitbutler_command_context::CommandContext;
 use itertools::Itertools;
 use std::str::FromStr;
@@ -42,40 +42,82 @@ pub fn on_filesystem_change(
     for rule in rules {
         match rule.action {
             super::Action::Explicit(super::Operation::Assign { target }) => {
-                match target {
-                    StackTarget::StackId(stack_id) => {
-                        if let Ok(stack_id) = StackId::from_str(&stack_id) {
-                            if !stacks_in_ws
-                                .iter()
-                                .any(|e| e.id.is_some_and(|id| id == stack_id))
-                            {
-                                continue;
-                            }
-                            let assignments =
-                                matching(worktree_changes.clone(), rule.filters.clone())
-                                    .into_iter()
-                                    .filter(|e| e.stack_id != Some(stack_id))
-                                    .map(|mut e| {
-                                        e.stack_id = Some(stack_id);
-                                        e
-                                    })
-                                    .collect_vec();
-                            updates += handle_assign(
-                                ctx,
-                                assignments,
-                                worktree_changes.dependencies.as_ref(),
-                            )
+                if let Some(stack_id) = get_or_create_stack_id(ctx, target, &stacks_in_ws) {
+                    let assignments = matching(worktree_changes.clone(), rule.filters.clone())
+                        .into_iter()
+                        .filter(|e| e.stack_id != Some(stack_id))
+                        .map(|mut e| {
+                            e.stack_id = Some(stack_id);
+                            e
+                        })
+                        .collect_vec();
+                    updates +=
+                        handle_assign(ctx, assignments, worktree_changes.dependencies.as_ref())
                             .unwrap_or_default();
-                        }
-                    }
-                    StackTarget::Leftmost => continue,  // TODO
-                    StackTarget::Rightmost => continue, // TODO
                 }
             }
             _ => continue,
         };
     }
     Ok(updates)
+}
+
+fn get_or_create_stack_id(
+    ctx: &CommandContext,
+    target: StackTarget,
+    stacks_in_ws: &[StackEntry],
+) -> Option<StackId> {
+    let sorted_stack_ids = stacks_in_ws
+        .iter()
+        .sorted_by(|a, b| Ord::cmp(&a.order.unwrap_or_default(), &b.order.unwrap_or_default()))
+        .filter_map(|s| s.id)
+        .collect_vec();
+    match target {
+        StackTarget::StackId(stack_id) => {
+            if let Ok(stack_id) = StackId::from_str(&stack_id) {
+                if sorted_stack_ids.iter().any(|e| e == &stack_id) {
+                    Option::Some(stack_id)
+                } else {
+                    Option::None
+                }
+            } else {
+                Option::None
+            }
+        }
+        StackTarget::Leftmost => {
+            if sorted_stack_ids.is_empty() {
+                create_stack(ctx).ok()
+            } else {
+                sorted_stack_ids.first().cloned()
+            }
+        }
+        StackTarget::Rightmost => {
+            if sorted_stack_ids.is_empty() {
+                create_stack(ctx).ok()
+            } else {
+                sorted_stack_ids.last().cloned()
+            }
+        }
+    }
+}
+
+fn create_stack(ctx: &CommandContext) -> anyhow::Result<StackId> {
+    let template = gitbutler_stack::canned_branch_name(ctx.repo())?;
+    let vb_state = &gitbutler_stack::VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let branch_name =
+        gitbutler_stack::Stack::next_available_name(&ctx.gix_repo()?, vb_state, template, false)?;
+    let create_req = gitbutler_branch::BranchCreateRequest {
+        name: Some(branch_name),
+        ownership: None,
+        order: None,
+        selected_for_changes: None,
+    };
+
+    let mut guard = ctx.project().exclusive_worktree_access();
+    let perm = guard.write_permission();
+
+    let stack = gitbutler_branch_actions::create_virtual_branch(ctx, &create_req, perm)?;
+    Ok(stack.id)
 }
 
 fn handle_assign(
