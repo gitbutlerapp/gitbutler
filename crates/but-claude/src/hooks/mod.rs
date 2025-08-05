@@ -88,6 +88,7 @@ pub struct ClaudeStopInput {
 pub async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
     let input: ClaudeStopInput = serde_json::from_str(&stdin()?)
         .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
+
     let transcript = Transcript::from_file(input.transcript_path)?;
     let cwd = transcript.dir()?;
     let repo = gix::discover(cwd)?;
@@ -95,6 +96,23 @@ pub async fn handle_stop() -> anyhow::Result<ClaudeHookOutput> {
         repo.workdir()
             .ok_or(anyhow!("No worktree found for repo"))?,
     )?;
+
+    let changes =
+        but_core::diff::ui::worktree_changes_by_worktree_dir(project.clone().path)?.changes;
+
+    // This is a naive way of handling this case.
+    // If the user simply asks a question and there are no changes, we don't need to create a stack
+    // nor handle any changes.
+    // This should handle **most** cases, but there might be some edge cases where this is not sufficient.
+    // TODO: Be smarter about this. We could try checking the transcript for any changes associated with this session,
+    // that are not committed yet. And only if they are present, we proceed with the changes handling.
+    if changes.is_empty() {
+        return Ok(ClaudeHookOutput {
+            do_continue: true,
+            stop_reason: "No changes detected".to_string(),
+            suppress_output: false,
+        });
+    }
 
     let summary = transcript.summary().unwrap_or_default();
     let prompt = transcript.prompt().unwrap_or_default();
@@ -305,6 +323,22 @@ pub fn handle_pre_tool_call() -> anyhow::Result<ClaudeHookOutput> {
 pub fn handle_post_tool_call() -> anyhow::Result<ClaudeHookOutput> {
     let mut input: ClaudePostToolUseInput = serde_json::from_str(&stdin()?)
         .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
+
+    let hook_headers = input
+        .tool_response
+        .structured_patch
+        .iter()
+        .map(|p| p.into())
+        .collect::<Vec<HunkHeader>>();
+
+    if hook_headers.is_empty() {
+        return Ok(ClaudeHookOutput {
+            do_continue: true,
+            stop_reason: "No changes detected".to_string(),
+            suppress_output: false,
+        });
+    }
+
     let dir = std::path::Path::new(&input.tool_response.file_path)
         .parent()
         .ok_or(anyhow!("Failed to get parent directory of file path"))?;
@@ -342,12 +376,6 @@ pub fn handle_post_tool_call() -> anyhow::Result<ClaudeHookOutput> {
         None,
     )?;
 
-    let hook_headers = input
-        .tool_response
-        .structured_patch
-        .iter()
-        .map(|p| p.into())
-        .collect::<Vec<HunkHeader>>();
     let assignment_reqs: Vec<HunkAssignmentRequest> = assignments
         .into_iter()
         .filter(|a| a.stack_id.is_none())
