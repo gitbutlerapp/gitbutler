@@ -1,6 +1,7 @@
+#![feature(anonymous_pipe)]
+
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-
 pub mod bridge;
 pub mod db;
 pub mod hooks;
