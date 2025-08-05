@@ -498,7 +498,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
 
     [branches.1]
     id = "1"
-    name = ""
+    name = "feat-on-top"
     notes = ""
     created_timestamp_ms = 12345
     updated_timestamp_ms = 12345

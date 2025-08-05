@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// The state of virtual branches data, as persisted in a TOML file.
-#[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct VirtualBranches {
     /// This is the target/base that is set when a repo is added to gb
     pub default_target: Option<Target>,
