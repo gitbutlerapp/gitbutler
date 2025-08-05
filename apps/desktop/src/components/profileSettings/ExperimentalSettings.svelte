@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { ircEnabled, ircServer, workspaceRulesEnabled } from '$lib/config/uiFeatureFlags';
+	import { ircEnabled, ircServer } from '$lib/config/uiFeatureFlags';
 	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/shared/context';
 	import { SectionCard, Spacer, Textbox, Toggle } from '@gitbutler/ui';
@@ -90,8 +90,9 @@
 			{#snippet actions()}
 				<Toggle
 					id="rules"
-					checked={$workspaceRulesEnabled}
-					onclick={() => workspaceRulesEnabled.set(!$workspaceRulesEnabled)}
+					checked={$settingsStore?.featureFlags.rules}
+					onclick={() =>
+						settingsService.updateFeatureFlags({ rules: !$settingsStore?.featureFlags.rules })}
 				/>
 			{/snippet}
 		</SectionCard>

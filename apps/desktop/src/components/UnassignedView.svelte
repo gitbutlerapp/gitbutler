@@ -4,7 +4,7 @@
 	import WorktreeChanges from '$components/WorktreeChanges.svelte';
 	import WorktreeTipsFooter from '$components/WorktreeTipsFooter.svelte';
 	import noChanges from '$lib/assets/illustrations/no-changes.svg?raw';
-	import { workspaceRulesEnabled } from '$lib/config/uiFeatureFlags';
+	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { DefinedFocusable } from '$lib/focus/focusManager.svelte';
 	import { INTELLIGENT_SCROLLING_SERVICE } from '$lib/intelligentScrolling/service';
 	import { ID_SELECTION } from '$lib/selection/idSelection.svelte';
@@ -28,6 +28,8 @@
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const intelligentScrollingService = inject(INTELLIGENT_SCROLLING_SERVICE);
 	const idSelection = inject(ID_SELECTION);
+	const settingsService = inject(SETTINGS_SERVICE);
+	const settingsStore = $derived(settingsService.appSettings);
 	const projectState = $derived(uiState.project(projectId));
 	const unassignedSidebaFolded = $derived(uiState.global.unassignedSidebaFolded);
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
@@ -68,7 +70,7 @@
 
 {#if !unassignedSidebaFolded.current}
 	<div class="unassigned">
-		{#if $workspaceRulesEnabled}
+		{#if $settingsStore?.featureFlags.rules}
 			<RulesList {foldButton} {projectId} />
 		{/if}
 
@@ -87,7 +89,7 @@
 				onselect={() => {
 					intelligentScrollingService.unassignedFileClicked(projectId);
 				}}
-				foldButton={$workspaceRulesEnabled ? undefined : foldButton}
+				foldButton={$settingsStore?.featureFlags.rules ? undefined : foldButton}
 			>
 				{#snippet emptyPlaceholder()}
 					<div class="unassigned__empty">
