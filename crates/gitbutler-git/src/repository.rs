@@ -345,7 +345,7 @@ pub async fn push<P, F, Fut, E, Extra>(
     remote: &str,
     refspec: RefSpec,
     force: bool,
-    force_if_includes: bool,
+    force_push_protection: bool,
     on_prompt: F,
     extra: Extra,
 ) -> Result<(), crate::Error<Error<E>>>
@@ -364,10 +364,11 @@ where
     args.push(&refspec);
 
     if force {
-        args.push("--force-with-lease");
+        args.push("--force");
     }
 
-    if force && force_if_includes {
+    if force && force_push_protection {
+        args.push("--force-with-lease");
         args.push("--force-if-includes");
     }
 
