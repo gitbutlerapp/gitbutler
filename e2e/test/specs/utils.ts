@@ -1,3 +1,4 @@
+import { TestId } from '@gitbutler/ui/utils/testIds';
 import getPort from 'get-port';
 import { dir } from 'tmp-promise';
 import { ChildProcess, spawn } from 'node:child_process';
@@ -213,13 +214,19 @@ export async function startGitButler(browser: WebdriverIO.Browser): Promise<GitB
 function cleanup() {
 	for (const child of processes) {
 		if (!child.killed) {
-			child.kill();
+			child.kill(1);
 		}
 	}
 }
 
 export async function sleep(time: number): Promise<void> {
 	return await new Promise((resolve) => setTimeout(resolve, time));
+}
+
+type TestIdValues = `${TestId}`;
+
+export function getByTestId(testId: TestIdValues) {
+	return $(`[data-testid="${testId}"]`);
 }
 
 // Handle process termination

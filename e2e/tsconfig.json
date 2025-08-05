@@ -1,7 +1,7 @@
 {
 	"compilerOptions": {
-		"moduleResolution": "node",
-		"module": "ESNext",
+		"moduleResolution": "nodenext",
+		"module": "nodenext",
 		"target": "es2022",
 		"lib": ["es2022", "dom"],
 		"types": ["node", "@wdio/mocha-framework", "@wdio/globals/types"],

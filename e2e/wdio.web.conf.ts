@@ -1,19 +1,19 @@
 import { existsSync, mkdirSync } from 'node:fs';
 
-const debug = !!process.env.DEBUG;
+const ci = !!process.env.CI_E2E;
 
 export const config: WebdriverIO.Config = {
 	runner: 'local',
 	tsConfigPath: './tsconfig.json',
 	specs: ['./test/specs/**/*.ts'],
 	exclude: [],
-	maxInstances: debug ? 1 : 10,
+	maxInstances: ci ? 10 : 1,
 	outputDir: './test-results',
 	capabilities: [
 		{
 			browserName: 'chrome',
 			'goog:chromeOptions': {
-				args: debug ? ['no-sandbox'] : ['headless', 'no-sandbox']
+				args: ci ? ['headless', 'no-sandbox'] : ['no-sandbox']
 			}
 		}
 	],
@@ -39,7 +39,7 @@ export const config: WebdriverIO.Config = {
 		ui: 'bdd',
 		// This is _very_ long because we are compiling the app inside the first-run test case.
 		timeout: 600000,
-		retries: debug ? 0 : 2
+		retries: ci ? 3 : 0
 	},
 
 	onPrepare: function () {

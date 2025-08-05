@@ -17,6 +17,7 @@ jobs:
     runs-on: macos-latest
     env:
       CARGO_TERM_COLOR: always
+      CI_E2E: true
     steps:
       - uses: actions/checkout@v4
         if: ${{ github.event_name != 'workflow_dispatch' }}
@@ -28,16 +29,6 @@ jobs:
         uses: Swatinem/rust-cache@v2.8.0
         with:
           shared-key: e2e-testing-cache
-      # - name: Install OS dependencies
-      #   run: |
-      #     sudo apt update && sudo apt install -y \
-      #       libsoup-3.0-0 \
-      #       libgtk-3-dev \
-      #       libayatana-appindicator3-dev \
-      #       libwebkit2gtk-4.1-dev \
-      #       webkit2gtk-driver \
-      #       ffmpeg \
-      #       xvfb
       - name: Setup rust-toolchain stable
         id: rust-toolchain
         uses: dtolnay/rust-toolchain@stable
