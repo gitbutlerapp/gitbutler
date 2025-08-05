@@ -6,7 +6,7 @@
 	import { historyPath } from '$lib/routes/routes.svelte';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
-	import { getEditorUri, openExternalUrl, showFileInFolder } from '$lib/utils/url';
+	import { getEditorUri, openExternalUrl, showFileInFolder, openInTerminal } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 	import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
 
@@ -37,6 +37,13 @@
 						searchParams: { windowId: '_blank' }
 					})
 				);
+			}),
+			shortcutService.on('open-in-terminal', async () => {
+				const project = await projectsService.fetchProject(projectId);
+				if (!project) {
+					throw new Error(`Project not found: ${projectId}`);
+				}
+				await openInTerminal($userSettings.defaultTerminal.appName, vscodePath(project.path));
 			}),
 			shortcutService.on('show-in-finder', async () => {
 				const project = await projectsService.fetchProject(projectId);
