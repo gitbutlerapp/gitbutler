@@ -3325,6 +3325,7 @@ mod legacy;
 
 pub(crate) mod utils {
     use but_graph::VirtualBranchesTomlMetadata;
+    use but_graph::init::Options;
     use but_graph::virtual_branches_legacy_types::{Stack, StackBranch, Target};
     use but_testsupport::gix_testtools::tempfile::TempDir;
     use gitbutler_stack::StackId;
@@ -3372,7 +3373,33 @@ pub(crate) mod utils {
         VirtualBranchesTomlMetadata,
         String,
     )> {
-        let (tmp, repo, mut meta) = crate::ref_info::utils::named_writable_scenario(name)?;
+        named_writable_scenario_with_args_and_description(name, None::<String>)
+    }
+
+    pub fn named_writable_scenario_with_description_and_graph(
+        name: &str,
+        init_meta: impl FnMut(&mut VirtualBranchesTomlMetadata),
+    ) -> anyhow::Result<(
+        TempDir,
+        but_graph::Graph,
+        gix::Repository,
+        VirtualBranchesTomlMetadata,
+        String,
+    )> {
+        named_writable_scenario_with_args_and_description_and_graph(name, None::<String>, init_meta)
+    }
+
+    pub fn named_writable_scenario_with_args_and_description(
+        name: &str,
+        args: impl IntoIterator<Item = impl Into<String>>,
+    ) -> anyhow::Result<(
+        TempDir,
+        gix::Repository,
+        VirtualBranchesTomlMetadata,
+        String,
+    )> {
+        let (tmp, repo, mut meta) =
+            crate::ref_info::utils::named_writable_scenario_with_args(name, args)?;
         let vb = meta.data_mut();
         vb.default_target = Some(Target {
             // For simplicity, we stick to the defaults.
@@ -3389,6 +3416,33 @@ pub(crate) mod utils {
         });
         let desc = std::fs::read_to_string(repo.git_dir().join("description"))?;
         Ok((tmp, repo, meta, desc))
+    }
+
+    /// Use `init_meta` to configure metadata for the graph that is also returned.
+    pub fn named_writable_scenario_with_args_and_description_and_graph(
+        name: &str,
+        args: impl IntoIterator<Item = impl Into<String>>,
+        mut init_meta: impl FnMut(&mut VirtualBranchesTomlMetadata),
+    ) -> anyhow::Result<(
+        TempDir,
+        but_graph::Graph,
+        gix::Repository,
+        VirtualBranchesTomlMetadata,
+        String,
+    )> {
+        let (tmp, repo, mut meta, desc) =
+            named_writable_scenario_with_args_and_description(name, args)?;
+
+        init_meta(&mut meta);
+        let graph = but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            Options {
+                extra_target_commit_id: repo.rev_parse_single("main").ok().map(|id| id.detach()),
+                ..Options::limited()
+            },
+        )?;
+        Ok((tmp, graph, repo, meta, desc))
     }
 
     pub fn named_writable_scenario(

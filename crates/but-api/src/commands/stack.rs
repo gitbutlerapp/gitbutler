@@ -40,7 +40,7 @@ pub fn create_branch(app: &App, params: CreateBranchParams) -> Result<(), Error>
         }
 
         let _guard = project.exclusive_worktree_access();
-        but_workspace::branch::create_reference(
+        _ = but_workspace::branch::create_reference(
             new_ref.as_ref(),
             {
                 let segment = stack.segments.first().context("BUG: no empty stacks")?;

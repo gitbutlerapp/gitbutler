@@ -602,7 +602,7 @@ pub fn create_reference(
 
     let new_ref = Category::LocalBranch.to_full_name(short_name)?;
     let ws = graph.to_workspace()?;
-    but_workspace::branch::create_reference(new_ref.as_ref(), anchor, &repo, &ws, &mut *meta)?;
+    _ = but_workspace::branch::create_reference(new_ref.as_ref(), anchor, &repo, &ws, &mut *meta)?;
 
     if project.is_some() {
         // write metadata if there are projects - this is a special case while we use vb.toml.

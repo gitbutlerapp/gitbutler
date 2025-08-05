@@ -644,14 +644,15 @@ mod utils {
         Ok((repo, std::mem::ManuallyDrop::new(meta)))
     }
 
-    pub fn named_writable_scenario(
+    pub fn named_writable_scenario_with_args(
         name: &str,
+        args: impl IntoIterator<Item = impl Into<String>>,
     ) -> anyhow::Result<(
         tempfile::TempDir,
         gix::Repository,
         VirtualBranchesTomlMetadata,
     )> {
-        let (repo, tmp) = crate::utils::writable_scenario(name);
+        let (repo, tmp) = crate::utils::writable_scenario_with_args(name, args);
         let meta =
             VirtualBranchesTomlMetadata::from_path(repo.path().join("virtual-branches.toml"))?;
         Ok((tmp, repo, meta))

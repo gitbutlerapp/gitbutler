@@ -225,6 +225,7 @@ pub type CommitIndex = usize;
 
 /// A graph of connected segments that represent a section of the actual commit-graph.
 #[derive(Default, Debug, Clone)]
+#[must_use]
 pub struct Graph {
     inner: init::PetGraph,
     /// From where the graph was created. This is useful if one wants to focus on a subset of the graph.
