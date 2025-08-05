@@ -38,7 +38,8 @@ export const config: WebdriverIO.Config = {
 	mochaOpts: {
 		ui: 'bdd',
 		// This is _very_ long because we are compiling the app inside the first-run test case.
-		timeout: 600000
+		timeout: 600000,
+		retries: debug ? 0 : 2
 	},
 
 	onPrepare: function () {
