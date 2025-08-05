@@ -204,11 +204,7 @@ pub struct PushBaseBranchParams {
 pub fn push_base_branch(app: &App, params: PushBaseBranchParams) -> Result<(), Error> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = CommandContext::open(&project, app.app_settings.get()?.clone())?;
-    gitbutler_branch_actions::push_base_branch(
-        &ctx,
-        params.with_force,
-        ctx.app_settings().force_if_includes,
-    )?;
+    gitbutler_branch_actions::push_base_branch(&ctx, params.with_force)?;
     Ok(())
 }
 

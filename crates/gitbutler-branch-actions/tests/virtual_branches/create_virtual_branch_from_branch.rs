@@ -33,6 +33,7 @@ fn integration() {
             ctx,
             stack_entry.id,
             false,
+            ctx.project().force_push_protection,
             stack_entry.name().map(|n| n.to_string()).unwrap(),
         )
         .unwrap();
@@ -78,6 +79,7 @@ fn integration() {
             ctx,
             branch_id,
             false,
+            ctx.project().force_push_protection,
             branch_name.simple_name(),
         )
         .unwrap();

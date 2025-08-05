@@ -158,6 +158,7 @@ pub fn push_stack(
     ctx: &CommandContext,
     stack_id: StackId,
     with_force: bool,
+    force_push_protection: bool,
     branch_limit: String,
 ) -> Result<PushResult> {
     ctx.verify(ctx.project().exclusive_worktree_access().write_permission())?;
@@ -204,7 +205,7 @@ pub fn push_stack(
             push_details.head,
             &push_details.remote_refname,
             with_force,
-            ctx.app_settings().force_if_includes,
+            force_push_protection,
             None,
             Some(Some(stack.id)),
         )?;

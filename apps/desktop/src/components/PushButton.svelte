@@ -1,5 +1,8 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
+	import { writeClipboard } from '$lib/backend/clipboard';
+	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import {
 		branchHasConflicts,
 		branchHasUnpushedCommits,
@@ -8,9 +11,18 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
+	import { splitMessage } from '$lib/utils/commitMessage';
+	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import { Button, Checkbox, Modal, TestId } from '@gitbutler/ui';
+	import {
+		Button,
+		Checkbox,
+		Modal,
+		TestId,
+		SimpleCommitRow,
+		ScrollableContainer
+	} from '@gitbutler/ui';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 
 	type Props = {
@@ -32,32 +44,51 @@
 	}: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
+	const projectsService = inject(PROJECTS_SERVICE);
 	const uiState = inject(UI_STATE);
+	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const branchDetails = $derived(stackService.branchDetails(projectId, stackId, branchName));
+	const projectResult = $derived(projectsService.getProject(projectId));
 	const [pushStack, pushResult] = stackService.pushStack;
+	const potentialOverwrittenCommits = $derived(
+		stackService.upstreamCommits(projectId, stackId, branchName).current.data || []
+	);
 
-	function handleClick(requiresForce: boolean) {
+	let _currentProject = $state<any>(undefined);
+
+	function handleClick(requiresForce: boolean, project?: any) {
+		_currentProject = project;
+
 		if (multipleBranches && !isLastBranchInStack && !$doNotShowPushBelowWarning) {
 			confirmationModal?.show();
 			return;
 		}
 
-		push(requiresForce);
+		push(requiresForce, project?.force_push_protection);
 	}
 
-	async function push(requiresForce: boolean) {
-		const pushResult = await pushStack({
-			projectId,
-			stackId,
-			withForce: requiresForce,
-			branch: branchName
-		});
+	async function push(requiresForce: boolean, forcePushProtection: boolean) {
+		try {
+			const pushResult = await pushStack({
+				projectId,
+				stackId,
+				withForce: requiresForce,
+				forcePushProtection: forcePushProtection,
+				branch: branchName
+			});
 
-		const upstreamBranchNames = pushResult.branchToRemote
-			.map(([_, refname]) => getBranchNameFromRef(refname, pushResult.remote))
-			.filter(isDefined);
-		if (upstreamBranchNames.length === 0) return;
-		uiState.project(projectId).branchesToPoll.add(...upstreamBranchNames);
+			const upstreamBranchNames = pushResult.branchToRemote
+				.map(([_, refname]) => getBranchNameFromRef(refname, pushResult.remote))
+				.filter(isDefined);
+			if (upstreamBranchNames.length === 0) return;
+			uiState.project(projectId).branchesToPoll.add(...upstreamBranchNames);
+		} catch (error: any) {
+			if (error?.code === 'errors.git.force_push_protection') {
+				forcePushProtectionModal?.show();
+				return;
+			}
+			throw error;
+		}
 	}
 
 	const loading = $derived(pushResult.current.isLoading);
@@ -78,6 +109,7 @@
 
 	const doNotShowPushBelowWarning = persisted<boolean>(false, 'doNotShowPushBelowWarning');
 	let confirmationModal = $state<ReturnType<typeof Modal>>();
+	let forcePushProtectionModal = $state<ReturnType<typeof Modal>>();
 </script>
 
 <ReduxResult {projectId} result={branchDetails.current}>
@@ -85,19 +117,24 @@
 		{@const requiresForce = branchRequiresForcePush(branchDetails)}
 		{@const hasThingsToPush = branchHasUnpushedCommits(branchDetails)}
 		{@const hasConflicts = branchHasConflicts(branchDetails)}
-		<Button
-			testId={TestId.StackPushButton}
-			kind={isFirstBranchInStack ? 'solid' : 'outline'}
-			size="tag"
-			style="neutral"
-			{loading}
-			disabled={!hasThingsToPush || hasConflicts}
-			tooltip={getButtonTooltip(hasThingsToPush, hasConflicts)}
-			onclick={() => handleClick(requiresForce)}
-			icon={multipleBranches && !isLastBranchInStack ? 'push-below' : 'push'}
-		>
-			{requiresForce ? 'Force push' : 'Push'}
-		</Button>
+
+		<ReduxResult {projectId} result={projectResult.current}>
+			{#snippet children(project)}
+				<Button
+					testId={TestId.StackPushButton}
+					kind={isFirstBranchInStack ? 'solid' : 'outline'}
+					size="tag"
+					style="neutral"
+					{loading}
+					disabled={!hasThingsToPush || hasConflicts}
+					tooltip={getButtonTooltip(hasThingsToPush, hasConflicts)}
+					onclick={() => handleClick(requiresForce, project)}
+					icon={multipleBranches && !isLastBranchInStack ? 'push-below' : 'push'}
+				>
+					{requiresForce ? 'Force push' : 'Push'}
+				</Button>
+			{/snippet}
+		</ReduxResult>
 
 		<Modal
 			title="Push with dependencies"
@@ -105,7 +142,7 @@
 			bind:this={confirmationModal}
 			onSubmit={async (close) => {
 				close();
-				push(requiresForce);
+				push(requiresForce, _currentProject?.force_push_protection);
 			}}
 		>
 			<p>
@@ -134,6 +171,51 @@
 				</div>
 			{/snippet}
 		</Modal>
+
+		<Modal
+			title="Protected force push"
+			width={480}
+			type="warning"
+			bind:this={forcePushProtectionModal}
+			onSubmit={async (close) => {
+				close();
+				push(requiresForce, false);
+			}}
+		>
+			<p class="description">
+				Your force push was blocked because the remote branch contains <span
+					class="text-bold text-nowrap"
+					>{potentialOverwrittenCommits.length === 1
+						? '1 commit'
+						: `${potentialOverwrittenCommits.length} commits`}</span
+				>
+				your local branch doesn’t include. To prevent overwriting history,
+				<span class="text-bold">cancel and pull & integrate</span> the changes.
+			</p>
+			<div class="scroll-wrap">
+				<ScrollableContainer maxHeight="16.5rem">
+					{#each potentialOverwrittenCommits as commit}
+						{@const commitUrl = forge.current.commitUrl(commit.id)}
+						<SimpleCommitRow
+							title={splitMessage(commit.message).title ?? ''}
+							sha={commit.id}
+							date={new Date(commit.createdAt)}
+							author={commit.author.name}
+							url={commitUrl}
+							onOpen={(url) => openExternalUrl(url)}
+							onCopy={() => writeClipboard(commit.id)}
+						/>
+					{/each}
+				</ScrollableContainer>
+			</div>
+
+			{#snippet controls(close)}
+				<div class="controls">
+					<Button kind="outline" type="submit">Force push anyway</Button>
+					<Button wide style="pop" onclick={close}>Cancel</Button>
+				</div>
+			{/snippet}
+		</Modal>
 	{/snippet}
 </ReduxResult>
 
@@ -145,9 +227,26 @@
 		gap: 6px;
 	}
 
+	/* CONTROLS */
+	.controls {
+		display: flex;
+		width: 100%;
+		gap: 6px;
+	}
+
 	.modal-footer__checkbox {
 		display: flex;
 		align-items: center;
 		gap: 8px;
+	}
+
+	/* COMMITS SCROLL CONTAINER */
+	.description {
+		margin: 0 0 16px;
+	}
+	.scroll-wrap {
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
 	}
 </style>
