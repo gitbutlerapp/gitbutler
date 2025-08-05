@@ -20,6 +20,7 @@ pub struct FeatureFlagsUpdate {
     pub actions: Option<bool>,
     pub butbot: Option<bool>,
     pub rules: Option<bool>,
+    pub force_push_protection: Option<bool>,
 }
 
 /// Mutation, immediately followed by writing everything to disk.
@@ -58,6 +59,7 @@ impl AppSettingsWithDiskSync {
             actions,
             butbot,
             rules,
+            force_push_protection,
         }: FeatureFlagsUpdate,
     ) -> Result<()> {
         let mut settings = self.get_mut_enforce_save()?;
@@ -75,6 +77,9 @@ impl AppSettingsWithDiskSync {
         }
         if let Some(rules) = rules {
             settings.feature_flags.rules = rules;
+        }
+        if let Some(force_push_protection) = force_push_protection {
+            settings.feature_flags.force_push_protection = force_push_protection;
         }
         settings.save()
     }
