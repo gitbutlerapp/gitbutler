@@ -35,7 +35,7 @@
 			/>
 		{/snippet}
 	</SectionCard>
-	<SectionCard labelFor="ws3" roundedTop={false} orientation="row">
+	<SectionCard labelFor="ws3" roundedTop={false} roundedBottom={false} orientation="row">
 		{#snippet title()}
 			New workspace backend
 		{/snippet}
@@ -49,6 +49,23 @@
 				checked={$settingsStore?.featureFlags.ws3}
 				onclick={() =>
 					settingsService.updateFeatureFlags({ ws3: !$settingsStore?.featureFlags.ws3 })}
+			/>
+		{/snippet}
+	</SectionCard>
+	<SectionCard labelFor="rules" roundedTop={false} orientation="row">
+		{#snippet title()}
+			Workspace Rules
+		{/snippet}
+		{#snippet caption()}
+			Allows you to create rules for assigning new changes to a specific branch based on a
+			condition. Still under development - please let us know what you think!
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="rules"
+				checked={$settingsStore?.featureFlags.rules}
+				onclick={() =>
+					settingsService.updateFeatureFlags({ rules: !$settingsStore?.featureFlags.rules })}
 			/>
 		{/snippet}
 	</SectionCard>
@@ -73,29 +90,6 @@
 				{/snippet}
 			</SectionCard>
 		{/if}
-
-		<SectionCard
-			labelFor="rules"
-			roundedTop={!$settingsStore?.featureFlags.actions}
-			roundedBottom={false}
-			orientation="row"
-		>
-			{#snippet title()}
-				Workspace Rules
-			{/snippet}
-			{#snippet caption()}
-				Go full dominatrix on your workspace and add a bunch rules that can automatically trigger
-				actions.
-			{/snippet}
-			{#snippet actions()}
-				<Toggle
-					id="rules"
-					checked={$settingsStore?.featureFlags.rules}
-					onclick={() =>
-						settingsService.updateFeatureFlags({ rules: !$settingsStore?.featureFlags.rules })}
-				/>
-			{/snippet}
-		</SectionCard>
 
 		<SectionCard labelFor="irc" roundedTop={false} roundedBottom={!$ircEnabled} orientation="row">
 			{#snippet title()}
