@@ -4,7 +4,6 @@ export enum ReduxTag {
 	EditChangesSinceInitial = 'EditChangesSinceInitial',
 	HeadMetadata = 'HeadMetadata',
 	Diff = 'Diff',
-	HunkAssignments = 'HunkAssignments',
 	Stacks = 'Stacks',
 	StackDetails = 'StackDetails',
 	WorktreeChanges = 'WorktreeChanges',
