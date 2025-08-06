@@ -27,7 +27,7 @@ chrono = { version = "0.4.41" }
 bstr.workspace = true
 anyhow.workspace = true
 # rmcp = { git = "https://github.com/modelcontextprotocol/rust-sdk", branch = "main" }
-rmcp = "0.4.0"
+rmcp.workspace = true
 command-group = { version = "5.0.1", features = ["with-tokio"] }
 sysinfo = "0.36.0"
 gitbutler-project.workspace = true
