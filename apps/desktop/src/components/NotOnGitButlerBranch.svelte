@@ -29,7 +29,7 @@
 	const mode = $derived(modeService.mode({ projectId }));
 
 	const worktreeService = inject(WORKTREE_SERVICE);
-	const changes = worktreeService.treeChanges(projectId);
+	const changes = $derived(worktreeService.treeChanges(projectId));
 
 	async function switchTarget(branch: string, remote?: string, stashUncommitted?: boolean) {
 		await setBaseBranchTarget({
