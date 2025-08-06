@@ -331,7 +331,8 @@ fn main() {
                     env::env_vars,
                     #[cfg(all(debug_assertions, unix))]
                     workspace::show_graph_svg,
-                    claude::claude_send_message
+                    claude::claude_send_message,
+                    claude::claude_get_transcript
                 ])
                 .menu(menu::build)
                 .on_window_event(|window, event| match event {

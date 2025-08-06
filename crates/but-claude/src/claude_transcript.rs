@@ -1,5 +1,10 @@
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, io::BufRead};
+use std::{
+    collections::HashMap,
+    io::BufRead,
+    path::{Path, PathBuf},
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserMessage {
@@ -77,7 +82,15 @@ pub struct Transcript {
 }
 
 impl Transcript {
-    pub fn from_file(path: String) -> anyhow::Result<Self> {
+    pub fn from_file(path: &Path) -> Result<Self> {
+        let records = Transcript::from_file_raw(path)?
+            .into_iter()
+            .map(serde_json::from_value)
+            .collect::<Result<_, _>>()?;
+        Ok(Transcript { records })
+    }
+
+    pub fn from_file_raw(path: &Path) -> Result<Vec<serde_json::Value>> {
         let file =
             std::fs::File::open(path).map_err(|e| anyhow::anyhow!("Failed to open file: {}", e))?;
         let reader = std::io::BufReader::new(file);
@@ -85,15 +98,51 @@ impl Transcript {
         for line in reader.lines() {
             let line = line.map_err(|e| anyhow::anyhow!("Failed to read line: {}", e))?;
             if !line.trim().is_empty() {
-                let record: Record = serde_json::from_str(&line)
+                let record: serde_json::Value = serde_json::from_str(&line)
                     .map_err(|e| anyhow::anyhow!("Failed to parse JSON line: {}", e))?;
                 records.push(record);
             }
         }
-        Ok(Transcript { records })
+        Ok(records)
     }
 
-    pub fn dir(&self) -> anyhow::Result<String> {
+    /// A little bit of magic to try and find the transcript path
+    /// Users _might_ customize their config directory and CWD though
+    /// environment variables, but... this is for the prototype. I've tweeted at
+    /// anthropic asking for a command we can run to obtain this.
+    ///
+    /// By inspecting the folder structure I've determined that the transcripts
+    /// live at:
+    /// $HOME/.claude/projects/{formattedProjectCwd}/{sessionId}.jsonl
+    ///
+    /// Where formattedProjectCwd is the absolute path to the folder, with any
+    /// non-alphanumeric characters removed. and where the session is the uuid
+    /// printed out in hex.
+    ///
+    /// https://github.com/anthropics/claude-code/issues/5165 could remove any
+    /// need for this speculation.
+    pub fn get_transcript_path(project_cwd: &Path, session_id: uuid::Uuid) -> Result<PathBuf> {
+        let formatted_cwd = project_cwd
+            .display()
+            .to_string()
+            .chars()
+            .map(|c| match c {
+                'a'..='z' | 'A'..='Z' | '0'..='9' => c,
+                _ => '-',
+            })
+            .collect::<String>();
+
+        let file_name = format!("{session_id}.jsonl");
+
+        let home_dir = dirs::home_dir().context("Failed to find home dir")?;
+
+        Ok(home_dir
+            .join(".claude/projects")
+            .join(formatted_cwd)
+            .join(file_name))
+    }
+
+    pub fn dir(&self) -> Result<String> {
         for record in self.records.iter() {
             if let Record::User { cwd: Some(cwd), .. } = record {
                 return Ok(cwd.to_string());

@@ -915,6 +915,7 @@ dependencies = [
  "but-settings",
  "but-workspace",
  "chrono",
+ "dirs 6.0.0",
  "gitbutler-branch",
  "gitbutler-branch-actions",
  "gitbutler-command-context",
@@ -924,6 +925,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "uuid",
 ]
 
 [[package]]

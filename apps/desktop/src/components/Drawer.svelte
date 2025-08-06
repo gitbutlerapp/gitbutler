@@ -31,6 +31,7 @@
 		noshrink?: boolean;
 		clientHeight?: number;
 		resizer?: Partial<ComponentProps<typeof Resizer>>;
+		defaultCollapsed?: boolean;
 		onclose?: () => void;
 		ontoggle?: (collapsed: boolean) => void;
 	};
@@ -51,6 +52,7 @@
 		noshrink,
 		resizer,
 		clientHeight = $bindable(),
+		defaultCollapsed = false,
 		ontoggle,
 		onclose
 	}: Props = $props();
@@ -63,9 +65,9 @@
 	let containerDiv = $state<HTMLDivElement>();
 	let collapsed: Writable<boolean | undefined> = $derived.by(() => {
 		if (persistId) {
-			return persistWithExpiration<boolean>(false, persistId, 1440);
+			return persistWithExpiration<boolean>(defaultCollapsed, persistId, 1440);
 		}
-		return writable(false);
+		return writable(defaultCollapsed);
 	});
 
 	let headerHeight = $state(0);
