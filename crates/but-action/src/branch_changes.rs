@@ -1,11 +1,11 @@
 use anyhow::Context;
-use but_tools::workspace::commit_toolset;
+use but_tools::{emit::Emitter, workspace::commit_toolset};
 use gitbutler_command_context::CommandContext;
 
 use crate::OpenAiProvider;
 
 pub fn branch_changes(
-    app_handle: &tauri::AppHandle,
+    emitter: std::sync::Arc<Emitter>,
     ctx: &mut CommandContext,
     openai: &OpenAiProvider,
     changes: Vec<but_core::TreeChange>,
@@ -20,7 +20,7 @@ pub fn branch_changes(
     let serialized_status = serde_json::to_string_pretty(&project_status)
         .context("Failed to serialize project status")?;
 
-    let mut toolset = commit_toolset(ctx, Some(app_handle))?;
+    let mut toolset = commit_toolset(ctx, emitter.clone())?;
 
     let system_message ="
         You are an expert in grouping and committing file changes into logical units for version control.

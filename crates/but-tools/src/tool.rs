@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use crate::emit::EmitToolCall;
+use crate::emit::{Emittable, Emitter, ToolCall};
 use but_workspace::ui::StackEntryNoOpt;
 use but_workspace::{StackId, ui::StackEntry};
 use gitbutler_command_context::CommandContext;
@@ -12,7 +12,7 @@ use serde_json::json;
 
 pub struct Toolset<'a> {
     ctx: &'a mut CommandContext,
-    app_handle: Option<&'a tauri::AppHandle>,
+    emitter: std::sync::Arc<crate::emit::Emitter>,
     message_id: Option<String>,
     tools: BTreeMap<String, Arc<dyn Tool>>,
     commit_mapping: HashMap<ObjectId, ObjectId>,
@@ -21,12 +21,12 @@ pub struct Toolset<'a> {
 impl<'a> Toolset<'a> {
     pub fn new(
         ctx: &'a mut CommandContext,
-        app_handle: Option<&'a tauri::AppHandle>,
+        emitter: std::sync::Arc<crate::emit::Emitter>,
         message_id: Option<String>,
     ) -> Self {
         Toolset {
             ctx,
-            app_handle,
+            emitter,
             message_id,
             tools: BTreeMap::new(),
             commit_mapping: HashMap::new(),
@@ -55,7 +55,12 @@ impl<'a> Toolset<'a> {
             .ok_or_else(|| anyhow::anyhow!("Tool '{}' not found", name))?;
         let params: serde_json::Value = serde_json::from_str(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse parameters: {}", e))?;
-        tool.call(params, self.ctx, self.app_handle, &mut self.commit_mapping)
+        tool.call(
+            params,
+            self.ctx,
+            self.emitter.clone(),
+            &mut self.commit_mapping,
+        )
     }
 
     pub fn call_tool(&mut self, name: &str, parameters: &str) -> serde_json::Value {
@@ -67,18 +72,16 @@ impl<'a> Toolset<'a> {
 
         // Emit the tool call event if a message ID is provided
         if let Some(message_id) = &self.message_id {
-            if let Some(app_handle) = self.app_handle {
-                let project_id = self.ctx.project().id;
-                app_handle.emit_tool_call(
-                    project_id,
-                    message_id.to_owned(),
-                    crate::emit::ToolCall {
-                        name: name.to_string(),
-                        parameters: parameters.to_string(),
-                        result: result.to_string(),
-                    },
-                );
-            }
+            let project_id = self.ctx.project().id;
+            let tool_call = ToolCall {
+                project_id,
+                message_id: message_id.to_owned(),
+                name: name.to_string(),
+                parameters: parameters.to_string(),
+                result: result.to_string(),
+            };
+            let (name, payload) = tool_call.emittable();
+            (self.emitter)(&name, payload);
         }
 
         result
@@ -93,7 +96,7 @@ pub trait Tool: 'static + Send + Sync {
         self: Arc<Self>,
         parameters: serde_json::Value,
         ctx: &mut CommandContext,
-        app_handle: Option<&tauri::AppHandle>,
+        emitter: Arc<Emitter>,
         commit_mapping: &mut HashMap<ObjectId, ObjectId>,
     ) -> anyhow::Result<serde_json::Value>;
 }
