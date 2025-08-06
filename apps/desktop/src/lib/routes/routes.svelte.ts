@@ -69,12 +69,12 @@ export function isBranchesPath() {
 	return isUrl<{ projectId: string }>('/[projectId]/branches');
 }
 
-export function vibeControlPath(projectId: string) {
-	return `/${projectId}/vibe-control`;
+export function vibeCenterPath(projectId: string) {
+	return `/${projectId}/vibe-center`;
 }
 
-export function isVibeControlPath() {
-	return isUrl<{ projectId: string }>('/[projectId]/vibe-control');
+export function isVibeCenterPath() {
+	return isUrl<{ projectId: string }>('/[projectId]/vibe-center');
 }
 
 export function isPreviewStackPath() {

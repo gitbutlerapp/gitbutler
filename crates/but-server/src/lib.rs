@@ -426,6 +426,16 @@ async fn handle_command(
                 Err(e) => Err(e),
             }
         }
+        "claude_get_transcript" => {
+            let params = serde_json::from_value(request.params).to_error();
+            match params {
+                Ok(params) => {
+                    let result = claude::claude_get_transcript(&app, params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
         _ => Err(anyhow::anyhow!("Command {} not found!", command).into()),
     };
 

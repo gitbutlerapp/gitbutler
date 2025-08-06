@@ -28,3 +28,5 @@ gitbutler-project.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-branch-actions.workspace = true
 tokio = { workspace = true, features = ["full"] }
+uuid.workspace = true
+dirs.workspace = true

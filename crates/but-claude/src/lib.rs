@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 pub mod bridge;
+pub(crate) mod claude_transcript;
 pub mod db;
 pub mod hooks;
 pub mod mcp;

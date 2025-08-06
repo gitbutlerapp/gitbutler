@@ -81,6 +81,7 @@
 	import { ResizeSync, RESIZE_SYNC } from '$lib/utils/resizeSync';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { openExternalUrl } from '$lib/utils/url';
+	import { CLAUDE_CODE_SERVICE, ClaudeCodeService } from '$lib/vibeCenter/claude';
 	import { WorktreeService, WORKTREE_SERVICE } from '$lib/worktree/worktreeService.svelte';
 	import { provide } from '@gitbutler/shared/context';
 	import { FeedService, FEED_SERVICE } from '@gitbutler/shared/feeds/service';
@@ -211,6 +212,9 @@
 
 	const branchService = new BranchService(clientState['backendApi']);
 	provide(BRANCH_SERVICE, branchService);
+
+	const claudeCodeService = new ClaudeCodeService(clientState['backendApi']);
+	provide(CLAUDE_CODE_SERVICE, claudeCodeService);
 
 	clientState.initPersist();
 
