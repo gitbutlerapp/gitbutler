@@ -32,6 +32,10 @@ export class ActionService {
 	get freestyle() {
 		return this.api.endpoints.freestyle.useMutation();
 	}
+
+	get bot() {
+		return this.api.endpoints.bot.useMutation();
+	}
 }
 
 function injectEndpoints(api: ClientState['backendApi']) {
@@ -80,6 +84,21 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				extraOptions: {
 					command: 'freestyle',
 					actionName: 'Perform a freestyle action based on the given prompt'
+				},
+				query: (args) => args,
+				invalidatesTags: [
+					invalidatesList(ReduxTag.Stacks),
+					invalidatesList(ReduxTag.StackDetails),
+					invalidatesList(ReduxTag.WorktreeChanges)
+				]
+			}),
+			bot: build.mutation<
+				string,
+				{ projectId: string; messageId: string; chatMessages: ChatMessage[] }
+			>({
+				extraOptions: {
+					command: 'bot',
+					actionName: 'but bot action'
 				},
 				query: (args) => args,
 				invalidatesTags: [
