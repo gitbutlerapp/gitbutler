@@ -13,7 +13,7 @@ gitbutler-sync.workspace = true
 gitbutler-oplog.workspace = true
 anyhow = "1.0.98"
 tokio = { workspace = true, features = ["macros", "sync"] }
-tokio-util = "0.7.15"
+tokio-util = "0.7.16"
 tracing.workspace = true
 gix = { workspace = true, features = ["excludes"] }
 gitbutler-command-context.workspace = true

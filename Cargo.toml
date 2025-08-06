@@ -16,8 +16,8 @@ git2 = { version = "0.20.0", features = [
 uuid = { version = "1.17.0", features = ["v4", "serde"] }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "2.0.9"
-tokio = { version = "1.45.1", default-features = false }
-keyring = { version = "3.6.1", features = [
+tokio = { version = "1.47.1", default-features = false }
+keyring = { version = "3.6.3", features = [
     "apple-native",
     "windows-native",
     "linux-native-sync-persistent",
@@ -30,7 +30,7 @@ toml = "0.8.13"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 tempfile = "3.14"
-rand = "0.9.1"
+rand = "0.9.2"
 
 gitbutler-id = { path = "crates/gitbutler-id" }
 gitbutler-git = { path = "crates/gitbutler-git" }
@@ -88,6 +88,8 @@ but-claude = { path = "crates/but-claude" }
 git2-hooks = { version = "0.5.0" }
 itertools = "0.14.0"
 dirs = "6.0.0"
+# TODO: needs update, but breaks from v0.2
+rmcp = { version = "0.1.5" }
 
 [profile.release]
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better
