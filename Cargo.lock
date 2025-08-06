@@ -1155,8 +1155,6 @@ dependencies = [
  "anyhow",
  "bstr",
  "gix",
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -3360,7 +3358,6 @@ dependencies = [
  "git2",
  "gitbutler-branch",
  "gitbutler-command-context",
- "gitbutler-diff",
  "gitbutler-fs",
  "gitbutler-oxidize",
  "gitbutler-project",

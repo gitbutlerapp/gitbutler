@@ -4,8 +4,8 @@ use gix::status::index_worktree;
 /// This includes files in the index that are considered conflicted.
 ///
 /// TODO: This is a copy of `create_wd_tree` from the old world. Ideally we
-/// should share between the old and new worlds to prevent duplication beween
-/// these.
+///       should share between the old and new worlds to prevent duplication between
+///       these.
 pub fn create_wd_tree(
     repo: &gix::Repository,
     untracked_limit_in_bytes: u64,
