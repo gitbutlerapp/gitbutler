@@ -62,7 +62,7 @@ pub fn absorb(
     let serialized_status = serde_json::to_string_pretty(&project_status)
         .context("Failed to serialize project status")?;
 
-    let mut toolset = amend_toolset(ctx, emitter)?;
+    let mut toolset = amend_toolset(ctx, emitter);
 
     let system_message ="
        You are an expert in finding where to put file changes in a project.

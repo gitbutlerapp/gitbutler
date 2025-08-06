@@ -152,7 +152,7 @@ impl Agent for ButBot<'_> {
             self.ctx,
             self.emitter.clone(),
             self.message_id.clone(),
-        )?;
+        );
 
         let mut internal_chat_messages = chat_messages;
 

@@ -26,7 +26,7 @@ pub fn workspace_toolset(
     ctx: &mut CommandContext,
     emitter: std::sync::Arc<crate::emit::Emitter>,
     message_id: String,
-) -> anyhow::Result<WorkspaceToolset<'_>> {
+) -> WorkspaceToolset<'_> {
     let mut toolset = WorkspaceToolset::new(ctx, emitter, Some(message_id));
 
     toolset.register_tool(Commit);
@@ -40,33 +40,33 @@ pub fn workspace_toolset(
     toolset.register_tool(SplitBranch);
     toolset.register_tool(SplitCommit);
 
-    Ok(toolset)
+    toolset
 }
 
 /// Creates a toolset for workspace-related operations.
 pub fn commit_toolset(
     ctx: &mut CommandContext,
     emitter: std::sync::Arc<crate::emit::Emitter>,
-) -> anyhow::Result<WorkspaceToolset<'_>> {
+) -> WorkspaceToolset<'_> {
     let mut toolset = WorkspaceToolset::new(ctx, emitter, None);
 
     toolset.register_tool(Commit);
     toolset.register_tool(CreateBranch);
 
-    Ok(toolset)
+    toolset
 }
 
 /// Creates a toolset for amend operations.
 pub fn amend_toolset(
     ctx: &mut CommandContext,
     emitter: std::sync::Arc<crate::emit::Emitter>,
-) -> anyhow::Result<WorkspaceToolset<'_>> {
+) -> WorkspaceToolset<'_> {
     let mut toolset = WorkspaceToolset::new(ctx, emitter, None);
 
     toolset.register_tool(Amend);
     toolset.register_tool(GetProjectStatus);
 
-    Ok(toolset)
+    toolset
 }
 
 pub struct Commit;
