@@ -363,13 +363,13 @@ where
     args.push(remote);
     args.push(&refspec);
 
-    if force && !force_push_protection {
-        args.push("--force");
-    }
-
-    if force && force_push_protection {
-        args.push("--force-with-lease");
-        args.push("--force-if-includes");
+    if force {
+        if force_push_protection {
+            args.push("--force-with-lease");
+            args.push("--force-if-includes");
+        } else {
+            args.push("--force");
+        }
     }
 
     let (status, stdout, stderr) =
