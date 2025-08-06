@@ -69,6 +69,14 @@ export function isBranchesPath() {
 	return isUrl<{ projectId: string }>('/[projectId]/branches');
 }
 
+export function vibeControlPath(projectId: string) {
+	return `/${projectId}/vibe-control`;
+}
+
+export function isVibeControlPath() {
+	return isUrl<{ projectId: string }>('/[projectId]/vibe-control');
+}
+
 export function isPreviewStackPath() {
 	return isUrl<{ projectId: string }>('/[projectId]/preview-stack/[stackId]');
 }
