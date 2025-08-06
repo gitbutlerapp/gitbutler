@@ -1,39 +1,62 @@
 <script lang="ts">
 	import ReduxResult from '$components/ReduxResult.svelte';
+	import VibeCenterChatLayout from '$components/vibeCenter/VibeCenterChatLayout.svelte';
+	import VibeCenterInput from '$components/vibeCenter/VibeCenterInput.svelte';
 	import VibeCenterSidebar from '$components/vibeCenter/VibeCenterSidebar.svelte';
 	import VibeCenterSidebarEntry from '$components/vibeCenter/VibeCenterSidebarEntry.svelte';
-	import { invoke } from '$lib/backend/ipc';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
-	import { CLAUDE_CODE_SERVICE } from '$lib/vibeCenter/claude';
 	import { inject } from '@gitbutler/shared/context';
-	import { Button, SidebarEntry, Textarea } from '@gitbutler/ui';
+	import { Badge, Button } from '@gitbutler/ui';
 
 	type Props = {
 		projectId: string;
 	};
 	const { projectId }: Props = $props();
 
-	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
+	// const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
 	const stackService = inject(STACK_SERVICE);
-
-	const stackId = '7edb3b2e-869c-485b-af70-76a934e0fcfd';
 
 	const stacks = $derived(stackService.stacks(projectId));
 
 	let message = $state('');
+	let selectedBranch = $state<{ stackId: string; head: string }>();
 
-	const events = $derived(claudeCodeService.transcript({ projectId, stackId }));
-	$inspect(events.current.data);
+	$effect(() => {
+		if (stacks.current.data) {
+			if (selectedBranch) {
+				// Make sure the current selection is valid
+				const branchFound = stacks.current.data.some(
+					(s) =>
+						s.id === selectedBranch?.stackId && s.heads.some((h) => h.name === selectedBranch?.head)
+				);
+				if (!branchFound) {
+					selectFirstBranch();
+				}
+			} else {
+				selectFirstBranch();
+			}
+		} else {
+			selectedBranch = undefined;
+		}
+	});
 
-	async function sendMessage() {
-		await invoke('claude_send_message', {
-			projectId,
-			stackId,
-			message
-		});
-		message = '';
+	function selectFirstBranch() {
+		if (!stacks.current.data) return;
+
+		const firstStack = stacks.current.data[0];
+		const firstHead = firstStack?.heads[0];
+		if (firstHead) {
+			selectedBranch = {
+				stackId: firstStack.id,
+				head: firstHead.name
+			};
+		} else {
+			selectedBranch = undefined;
+		}
 	}
+
+	// const events = $derived(claudeCodeService.transcript({ projectId, stackId }));
 </script>
 
 <div class="page">
@@ -43,7 +66,40 @@
 		{/snippet}
 	</VibeCenterSidebar>
 
-	<div class="content"></div>
+	<div class="content">
+		{#if selectedBranch}
+			<VibeCenterChatLayout branchName={selectedBranch.head}>
+				{#snippet workspaceActions()}
+					<Button disabled kind="outline" size="tag" icon="workbench" reversedDirection
+						>Show in workspace</Button
+					>
+					<Button disabled kind="outline" size="tag" icon="chevron-down">Open in editor</Button>
+				{/snippet}
+				{#snippet contextActions()}
+					<Badge kind="soft">69% used context</Badge>
+					<Button disabled kind="outline" size="tag">Clear context</Button>
+					<Button disabled kind="ghost" size="tag" icon="kebab" />
+				{/snippet}
+				{#snippet messages()}
+					<p>I'm a message :D</p>
+					<p>I'm a message too :D</p>
+				{/snippet}
+				{#snippet input()}
+					<VibeCenterInput
+						bind:value={message}
+						enabled
+						onsubmit={() => {
+							message = '';
+						}}
+					>
+						{#snippet actions()}
+							<Button disabled kind="outline" icon="attachment" reversedDirection>Context</Button>
+						{/snippet}
+					</VibeCenterInput>
+				{/snippet}
+			</VibeCenterChatLayout>
+		{/if}
+	</div>
 </div>
 
 {#snippet sidebarContent()}
@@ -64,6 +120,10 @@
 	<ReduxResult result={combineResults(branch.current, commits.current)} {projectId} {stackId}>
 		{#snippet children([branch, commits], { projectId, stackId })}
 			<VibeCenterSidebarEntry
+				onclick={() => {
+					selectedBranch = { stackId, head: branch.name };
+				}}
+				selected={selectedBranch?.stackId === stackId && selectedBranch?.head === branch.name}
 				branchName={branch.name}
 				status="vibes"
 				tokensUsed={69}

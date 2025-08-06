@@ -4,6 +4,7 @@
 	import type { Snippet } from 'svelte';
 
 	type Props = {
+		selected: boolean;
 		status: 'no-vibes' | 'vibes' | 'running' | 'completed' | 'assistance-required';
 		branchName: string;
 		tokensUsed: number;
@@ -11,13 +12,17 @@
 		commitCount: number;
 
 		commits: Snippet;
+		onclick: (e: MouseEvent) => void;
 	};
 
-	const { status, branchName, tokensUsed, cost, commitCount, commits }: Props = $props();
+	const { selected, status, branchName, tokensUsed, cost, commitCount, commits, onclick }: Props =
+		$props();
 </script>
 
-<div class="sidebar-entry">
-	<div class="sidebar-entry-header">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<div class="sidebar-entry" {onclick}>
+	<div class="sidebar-entry-header" class:selected>
 		<div class="sidebar-entry-header-left">
 			<Icon name="branch-remote" />
 			<p class="text-13 text-semibold">{branchName}</p>
@@ -67,6 +72,8 @@
 
 	.sidebar-entry-header {
 		display: flex;
+
+		position: relative;
 		align-items: flex-start;
 		align-self: stretch;
 		justify-content: center;
@@ -74,6 +81,26 @@
 		gap: 12px;
 
 		border-bottom: 1px solid var(--clr-border-2);
+
+		&.selected {
+			background-color: var(--clr-selected-in-focus-bg);
+			&::before {
+				position: absolute;
+
+				top: 50%;
+				left: 0px;
+
+				width: 6px;
+				height: 21px;
+
+				transform: translateY(-50%);
+
+				border-radius: 0 10px 10px 0;
+
+				background-color: var(--clr-selected-in-focus-element);
+				content: '';
+			}
+		}
 	}
 
 	.sidebar-entry-header-left {

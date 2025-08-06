@@ -79,61 +79,6 @@
 			</Button>
 		</div>
 		<div>
-			{#if isVibeCenterPath()}
-				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
-			{/if}
-			<Button
-				testId={TestId.NavigationBranchesButton}
-				kind="outline"
-				onclick={() => goto(vibeCenterPath(projectId))}
-				width={34}
-				class={['btn-square', isVibeCenterPath() && 'btn-active']}
-				tooltip="Branches"
-				{disabled}
-			>
-				{#snippet custom()}
-					<svg viewBox="0 0 16 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-						<path d="M5 3L11 3" stroke-width="1.5" stroke="var(--clr-branches)" />
-						<path
-							d="M3 5L3 7.17157C3 7.70201 3.21071 8.21071 3.58579 8.58579L5.41421 10.4142C5.78929 10.7893 6.29799 11 6.82843 11L11.5 11"
-							stroke-width="1.5"
-							stroke="var(--clr-branches)"
-						/>
-						<rect
-							x="15"
-							y="1"
-							width="4"
-							height="4"
-							transform="rotate(90 15 1)"
-							stroke-width="1.5"
-							fill="var(--clr-branches)"
-							stroke="var(--clr-branches)"
-						/>
-						<rect
-							x="15"
-							y="9"
-							width="4"
-							height="4"
-							transform="rotate(90 15 9)"
-							stroke-width="1.5"
-							fill="var(--clr-branches)"
-							stroke="var(--clr-branches)"
-						/>
-						<rect
-							x="5"
-							y="1"
-							width="4"
-							height="4"
-							transform="rotate(90 5 1)"
-							stroke-width="1.5"
-							fill="var(--clr-branches)"
-							stroke="var(--clr-branches)"
-						/>
-					</svg>
-				{/snippet}
-			</Button>
-		</div>
-		<div>
 			{#if isBranchesPath()}
 				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
 			{/if}
@@ -183,6 +128,38 @@
 							stroke-width="1.5"
 							fill="var(--clr-branches)"
 							stroke="var(--clr-branches)"
+						/>
+					</svg>
+				{/snippet}
+			</Button>
+		</div>
+		<div>
+			{#if isVibeCenterPath()}
+				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+			{/if}
+			<Button
+				testId={TestId.NavigationBranchesButton}
+				kind="outline"
+				onclick={() => goto(vibeCenterPath(projectId))}
+				width={34}
+				class={['btn-square', isVibeCenterPath() && 'btn-active']}
+				tooltip="Branches"
+				{disabled}
+			>
+				{#snippet custom()}
+					<!-- tehehe butthole -->
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="20"
+						height="20"
+						viewBox="0 0 20 20"
+						fill="none"
+					>
+						<path
+							opacity="0.7"
+							d="M3.92333 13.2994L7.85857 11.0927L7.92476 10.9009L7.85857 10.7943H7.66667L7.00905 10.7538L4.76048 10.6929L2.81048 10.612L0.920952 10.5106L0.445714 10.4093L0 9.82249L0.0457143 9.52982L0.445238 9.26141L1.0181 9.31138L4.18238 9.52886L5.56 9.60977L7.60048 9.82154H7.92476L7.97048 9.69067L7.85952 9.60977L7.77286 9.52886L5.80762 8.19826L3.68048 6.79199L2.56619 5.98201L1.96381 5.57179L1.66 5.18726L1.52905 4.34778L2.07619 3.74578L2.81095 3.79575L2.99857 3.84571L3.74286 4.41822L5.33238 5.64793L7.40809 7.17556L7.7119 7.42778L7.83333 7.34117L7.8481 7.28025L7.7119 7.0523L6.58286 5.01309L5.37809 2.93866L4.84286 2.07824L4.70095 1.56284C4.65095 1.35107 4.61428 1.17261 4.61428 0.955599L5.23667 0.110884L5.58095 0L6.41143 0.110884L6.7619 0.414029L7.27762 1.59378L8.11381 3.45072L9.41048 5.97582L9.79 6.72488L9.99238 7.41874L10.0681 7.63051H10.199V7.50916L10.3057 6.08671L10.5029 4.34017L10.6948 2.09299L10.761 1.46005L11.0743 0.70147L11.6971 0.291248L12.1833 0.523485L12.5829 1.09599L12.5276 1.46576L12.29 3.01004L11.8243 5.42854L11.5205 7.04802H11.6976L11.9 6.84576L12.72 5.75786L14.0976 4.03702L14.7052 3.35411L15.4143 2.59982L15.8695 2.24099H16.73L17.3633 3.18184L17.0795 4.15362L16.1938 5.27673L15.459 6.22805L14.4057 7.64527L13.7481 8.77885L13.809 8.86927L13.9657 8.85452L16.3452 8.34817L17.631 8.11593L19.1652 7.85276L19.8595 8.17684L19.9352 8.50616L19.6624 9.17956L18.0214 9.58454L16.0971 9.96907L13.2314 10.6467L13.1962 10.6724L13.2367 10.7224L14.5276 10.8438L15.08 10.8733H16.4319L18.9495 11.0608L19.6071 11.4953L20 12.0268L19.9338 12.4318L18.921 12.9472L14.3643 11.8646L13.2705 11.5919H13.119V11.6823L14.0305 12.5732L15.701 14.0808L17.7929 16.0244L17.8995 16.505L17.631 16.8843L17.3471 16.8439L15.509 15.4619L14.8 14.8399L13.1943 13.4888H13.0876V13.6306L13.4576 14.1717L15.4119 17.1075L15.5133 18.0079L15.3714 18.3006L14.8648 18.4776L14.3086 18.3762L13.1648 16.7715L11.9843 14.9641L11.0324 13.3446L10.9162 13.4107L10.3543 19.4589L10.091 19.7678L9.48333 20L8.97667 19.6155L8.7081 18.9935L8.97667 17.7638L9.30095 16.159L9.56429 14.8836L9.8019 13.2989L9.94381 12.7726L9.93429 12.7374L9.8181 12.7521L8.62286 14.392L6.80524 16.8472L5.36714 18.3858L5.02286 18.5219L4.42571 18.213L4.48095 17.661L4.81476 17.1698L6.80524 14.639L8.00571 13.0705L8.78095 12.1649L8.77571 12.034H8.73L3.44286 15.4647L2.50143 15.5861L2.09619 15.2068L2.14619 14.5848L2.3381 14.3825L3.92762 13.2894L3.92238 13.2946L3.92333 13.2994Z"
+							fill="var(--clr-claude-bg)"
+							stroke="none"
 						/>
 					</svg>
 				{/snippet}
@@ -503,7 +480,7 @@
 	:global(.sidebar .btn-square) {
 		--label-clr: var(--clr-btn-ntrl-outline-text);
 		--icon-opacity: var(--opacity-btn-icon-outline);
-
+		--clr-claude-bg: var(--clr-btn-ntrl-outline-text);
 		& svg {
 			width: 16px;
 			height: 16px;
@@ -548,6 +525,9 @@
 
 		/* settings icon */
 		--clr-settings-bg: var(--label-clr);
+
+		/* claude icon */
+		--clr-claude-bg: #da6742;
 	}
 
 	:global(.sidebar .faded-btn) {
