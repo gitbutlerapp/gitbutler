@@ -25,23 +25,17 @@ export class WorktreeService {
 	}
 
 	treeChanges(projectId: string) {
-		const result = $derived(
-			this.api.endpoints.worktreeChanges.useQuery(
-				{ projectId },
-				{ transform: (res) => res.rawChanges }
-			)
+		return this.api.endpoints.worktreeChanges.useQuery(
+			{ projectId },
+			{ transform: (res) => res.rawChanges }
 		);
-		return result;
 	}
 
 	hunkAssignments(projectId: string) {
-		const result = $derived(
-			this.api.endpoints.worktreeChanges.useQuery(
-				{ projectId },
-				{ transform: (res) => res.hunkAssignments }
-			)
+		return this.api.endpoints.worktreeChanges.useQuery(
+			{ projectId },
+			{ transform: (res) => res.hunkAssignments }
 		);
-		return result;
 	}
 
 	worktreeData(projectId: string) {
