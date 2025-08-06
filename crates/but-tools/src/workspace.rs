@@ -18,16 +18,16 @@ use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{PatchReferenceUpdate, VirtualBranchesHandle};
 use schemars::{JsonSchema, schema_for};
 
-use crate::emit::EmitStackUpdate;
+use crate::emit::{Emittable, Emitter, StackUpdate};
 use crate::tool::{Tool, ToolResult, Toolset, error_to_json, result_to_json};
 
 /// Creates a toolset for any kind of workspace operations.
-pub fn workspace_toolset<'a>(
-    ctx: &'a mut CommandContext,
-    app_handle: Option<&'a tauri::AppHandle>,
+pub fn workspace_toolset(
+    ctx: &mut CommandContext,
+    emitter: std::sync::Arc<crate::emit::Emitter>,
     message_id: String,
-) -> anyhow::Result<Toolset<'a>> {
-    let mut toolset = Toolset::new(ctx, app_handle, Some(message_id));
+) -> anyhow::Result<Toolset<'_>> {
+    let mut toolset = Toolset::new(ctx, emitter, Some(message_id));
 
     toolset.register_tool(Commit);
     toolset.register_tool(CreateBranch);
@@ -44,11 +44,11 @@ pub fn workspace_toolset<'a>(
 }
 
 /// Creates a toolset for workspace-related operations.
-pub fn commit_toolset<'a>(
-    ctx: &'a mut CommandContext,
-    app_handle: Option<&'a tauri::AppHandle>,
-) -> anyhow::Result<Toolset<'a>> {
-    let mut toolset = Toolset::new(ctx, app_handle, None);
+pub fn commit_toolset(
+    ctx: &mut CommandContext,
+    emitter: std::sync::Arc<crate::emit::Emitter>,
+) -> anyhow::Result<Toolset<'_>> {
+    let mut toolset = Toolset::new(ctx, emitter, None);
 
     toolset.register_tool(Commit);
     toolset.register_tool(CreateBranch);
@@ -57,11 +57,11 @@ pub fn commit_toolset<'a>(
 }
 
 /// Creates a toolset for amend operations.
-pub fn amend_toolset<'a>(
-    ctx: &'a mut CommandContext,
-    app_handle: Option<&'a tauri::AppHandle>,
-) -> anyhow::Result<Toolset<'a>> {
-    let mut toolset = Toolset::new(ctx, app_handle, None);
+pub fn amend_toolset(
+    ctx: &mut CommandContext,
+    emitter: std::sync::Arc<crate::emit::Emitter>,
+) -> anyhow::Result<Toolset<'_>> {
+    let mut toolset = Toolset::new(ctx, emitter, None);
 
     toolset.register_tool(Amend);
     toolset.register_tool(GetProjectStatus);
@@ -178,20 +178,20 @@ impl Tool for Commit {
         self: Arc<Self>,
         parameters: serde_json::Value,
         ctx: &mut CommandContext,
-        app_handle: Option<&tauri::AppHandle>,
+        emitter: Arc<Emitter>,
         _: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
         let params: CommitParameters = serde_json::from_value(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
 
-        let value = create_commit(ctx, app_handle, params).to_json("create_commit");
+        let value = create_commit(ctx, emitter, params).to_json("create_commit");
         Ok(value)
     }
 }
 
 pub fn create_commit(
     ctx: &mut CommandContext,
-    app_handle: Option<&tauri::AppHandle>,
+    emitter: Arc<Emitter>,
     params: CommitParameters,
 ) -> Result<but_workspace::commit_engine::ui::CreateCommitOutcome, anyhow::Error> {
     let repo = ctx.gix_repo()?;
@@ -267,10 +267,14 @@ pub fn create_commit(
     });
 
     // If there's an app handle provided, emit an event to update the stack details in the UI.
-    if let Some(app_handle) = app_handle {
-        let project_id = ctx.project().id;
-        app_handle.emit_stack_update(project_id, stack_id);
-    }
+    let project_id = ctx.project().id;
+    let stack_update = StackUpdate {
+        project_id,
+        stack_id,
+    };
+
+    let (name, payload) = stack_update.emittable();
+    (emitter)(&name, payload);
 
     let outcome: but_workspace::commit_engine::ui::CreateCommitOutcome = outcome?.into();
     Ok(outcome)
@@ -335,20 +339,20 @@ impl Tool for CreateBranch {
         self: Arc<Self>,
         parameters: serde_json::Value,
         ctx: &mut CommandContext,
-        app_handle: Option<&tauri::AppHandle>,
+        emitter: Arc<Emitter>,
         _: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
         let params: CreateBranchParameters = serde_json::from_value(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
 
-        let stack = create_branch(ctx, app_handle, params).to_json("create branch");
+        let stack = create_branch(ctx, emitter, params).to_json("create branch");
         Ok(stack)
     }
 }
 
 pub fn create_branch(
     ctx: &mut CommandContext,
-    app_handle: Option<&tauri::AppHandle>,
+    emitter: Arc<Emitter>,
     params: CreateBranchParameters,
 ) -> Result<StackEntryNoOpt, anyhow::Error> {
     let mut guard = ctx.project().exclusive_worktree_access();
@@ -376,11 +380,14 @@ pub fn create_branch(
         },
     )?;
 
-    // If there's an app handle provided, emit an event to update the stack details in the UI.
-    if let Some(app_handle) = app_handle {
-        let project_id = ctx.project().id;
-        app_handle.emit_stack_update(project_id, stack.id);
-    }
+    // Emit an event to update the stack details in the UI.
+    let project_id = ctx.project().id;
+    let stack_update = StackUpdate {
+        project_id,
+        stack_id: stack_entry.id,
+    };
+    let (name, payload) = stack_update.emittable();
+    (emitter)(&name, payload);
 
     Ok(stack_entry)
 }
@@ -489,24 +496,24 @@ impl Tool for Amend {
         self: Arc<Self>,
         parameters: serde_json::Value,
         ctx: &mut CommandContext,
-        app_handle: Option<&tauri::AppHandle>,
+        emitter: Arc<Emitter>,
         commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
         let params: AmendParameters = serde_json::from_value(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
 
-        let value = amend_commit(ctx, app_handle, params, commit_mapping).to_json("amend_commit");
+        let value = amend_commit(ctx, emitter, params, commit_mapping).to_json("amend_commit");
         Ok(value)
     }
 }
 
 pub fn amend_commit(
     ctx: &mut CommandContext,
-    app_handle: Option<&tauri::AppHandle>,
+    emitter: Arc<Emitter>,
     params: AmendParameters,
     commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
 ) -> Result<but_workspace::commit_engine::ui::CreateCommitOutcome, anyhow::Error> {
-    let outcome = amend_commit_inner(ctx, app_handle, params, Some(commit_mapping))?;
+    let outcome = amend_commit_inner(ctx, emitter, params, Some(commit_mapping))?;
 
     // Update the commit mapping with the new commit id.
     if let Some(rebase_output) = outcome.rebase_output.clone() {
@@ -520,7 +527,7 @@ pub fn amend_commit(
 
 pub fn amend_commit_inner(
     ctx: &mut CommandContext,
-    app_handle: Option<&tauri::AppHandle>,
+    emitter: Arc<Emitter>,
     params: AmendParameters,
     commit_mapping: Option<&HashMap<gix::ObjectId, gix::ObjectId>>,
 ) -> anyhow::Result<but_workspace::commit_engine::CreateCommitOutcome> {
@@ -565,11 +572,14 @@ pub fn amend_commit_inner(
         guard.write_permission(),
     );
 
-    // If there's an app handle provided, emit an event to update the stack details in the UI.
-    if let Some(app_handle) = app_handle {
-        let project_id = ctx.project().id;
-        app_handle.emit_stack_update(project_id, stack_id);
-    }
+    // Emit an event to update the stack details in the UI.
+    let project_id = ctx.project().id;
+    let stack_update = StackUpdate {
+        project_id,
+        stack_id,
+    };
+    let (name, payload) = stack_update.emittable();
+    (emitter)(&name, payload);
 
     outcome
 }
@@ -617,7 +627,7 @@ impl Tool for GetProjectStatus {
         self: Arc<Self>,
         parameters: serde_json::Value,
         ctx: &mut CommandContext,
-        _app_handle: Option<&tauri::AppHandle>,
+        _emitter: Arc<Emitter>,
         _commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
         let repo = ctx.gix_repo()?;
@@ -719,13 +729,13 @@ impl Tool for CreateBlankCommit {
         self: Arc<Self>,
         parameters: serde_json::Value,
         ctx: &mut CommandContext,
-        app_handle: Option<&tauri::AppHandle>,
+        emitter: Arc<Emitter>,
         commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
         let params: CreateBlankCommitParameters = serde_json::from_value(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
 
-        let value = create_blank_commit(ctx, app_handle, params, commit_mapping)
+        let value = create_blank_commit(ctx, emitter, params, commit_mapping)
             .to_json("create_blank_commit");
         Ok(value)
     }
@@ -733,7 +743,7 @@ impl Tool for CreateBlankCommit {
 
 pub fn create_blank_commit(
     ctx: &mut CommandContext,
-    app_handle: Option<&tauri::AppHandle>,
+    emitter: Arc<Emitter>,
     params: CreateBlankCommitParameters,
     commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
 ) -> Result<gix::ObjectId, anyhow::Error> {
@@ -756,11 +766,14 @@ pub fn create_blank_commit(
         Some(&message),
     )?;
 
-    // If there's an app handle provided, emit an event to update the stack details in the UI.
-    if let Some(app_handle) = app_handle {
-        let project_id = ctx.project().id;
-        app_handle.emit_stack_update(project_id, stack_id);
-    }
+    // Emit an event to update the stack details in the UI.
+    let project_id = ctx.project().id;
+    let stack_update = StackUpdate {
+        project_id,
+        stack_id,
+    };
+    let (name, payload) = stack_update.emittable();
+    (emitter)(&name, payload);
 
     // Update the commit mapping with the new commit id.
     for (old_commit_id, new_commit_id) in outcome.iter() {
@@ -866,13 +879,13 @@ impl Tool for MoveFileChanges {
         self: Arc<Self>,
         parameters: serde_json::Value,
         ctx: &mut CommandContext,
-        app_handle: Option<&tauri::AppHandle>,
+        emitter: Arc<Emitter>,
         commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
         let params: MoveFileChangesParameters = serde_json::from_value(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
 
-        match move_file_changes(ctx, app_handle, params, commit_mapping) {
+        match move_file_changes(ctx, emitter, params, commit_mapping) {
             Ok(_) => Ok("Success".into()),
             Err(e) => Ok(error_to_json(&e, "move_file_changes")),
         }
@@ -881,7 +894,7 @@ impl Tool for MoveFileChanges {
 
 pub fn move_file_changes(
     ctx: &mut CommandContext,
-    app_handle: Option<&tauri::AppHandle>,
+    emitter: Arc<Emitter>,
     params: MoveFileChangesParameters,
     commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
 ) -> Result<Vec<(gix::ObjectId, gix::ObjectId)>, anyhow::Error> {
@@ -915,12 +928,22 @@ pub fn move_file_changes(
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     gitbutler_branch_actions::update_workspace_commit(&vb_state, ctx)?;
 
-    // If there's an app handle provided, emit an event to update the stack details in the UI.
-    if let Some(app_handle) = app_handle {
-        let project_id = ctx.project().id;
-        app_handle.emit_stack_update(project_id, source_stack_id);
-        app_handle.emit_stack_update(project_id, destination_stack_id);
-    }
+    // Emit an event to update the stack details in the UI.
+    let project_id = ctx.project().id;
+    let stack_update = StackUpdate {
+        project_id,
+        stack_id: source_stack_id,
+    };
+    let (name, payload) = stack_update.emittable();
+    (emitter)(&name, payload);
+
+    // Emit an event to update the destination stack details in the UI.
+    let destination_stack_update = StackUpdate {
+        project_id,
+        stack_id: destination_stack_id,
+    };
+    let (name, payload) = destination_stack_update.emittable();
+    (emitter)(&name, payload);
 
     // Update the commit mapping with the new commit ids.
     for (old_commit_id, new_commit_id) in result.replaced_commits.clone().iter() {
@@ -977,7 +1000,7 @@ impl Tool for GetCommitDetails {
         self: Arc<Self>,
         parameters: serde_json::Value,
         ctx: &mut CommandContext,
-        _app_handle: Option<&tauri::AppHandle>,
+        _emitter: Arc<Emitter>,
         commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
         let params: GetCommitDetailsParameters = serde_json::from_value(parameters)
@@ -1057,7 +1080,7 @@ impl Tool for GetBranchChanges {
         self: Arc<Self>,
         parameters: serde_json::Value,
         ctx: &mut CommandContext,
-        _app_handle: Option<&tauri::AppHandle>,
+        _emitter: Arc<Emitter>,
         _commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
         let params: GetBranchChangesParameters = serde_json::from_value(parameters)
@@ -1192,14 +1215,13 @@ impl Tool for SquashCommits {
         self: Arc<Self>,
         parameters: serde_json::Value,
         ctx: &mut CommandContext,
-        app_handle: Option<&tauri::AppHandle>,
+        emitter: Arc<Emitter>,
         commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
         let params: SquashCommitsParameters = serde_json::from_value(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
 
-        let value =
-            squash_commits(ctx, app_handle, params, commit_mapping).to_json("squash_commits");
+        let value = squash_commits(ctx, emitter, params, commit_mapping).to_json("squash_commits");
 
         Ok(value)
     }
@@ -1207,7 +1229,7 @@ impl Tool for SquashCommits {
 
 pub fn squash_commits(
     ctx: &mut CommandContext,
-    app_handle: Option<&tauri::AppHandle>,
+    emitter: Arc<Emitter>,
     params: SquashCommitsParameters,
     commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
 ) -> Result<gix::ObjectId, anyhow::Error> {
@@ -1243,11 +1265,13 @@ pub fn squash_commits(
         message.as_str(),
     )?;
 
-    // If there's an app handle provided, emit an event to update the stack details in the UI.
-    if let Some(app_handle) = app_handle {
-        let project_id = ctx.project().id;
-        app_handle.emit_stack_update(project_id, stack_id);
-    }
+    let project_id = ctx.project().id;
+    let stack_update = StackUpdate {
+        project_id,
+        stack_id,
+    };
+    let (name, payload) = stack_update.emittable();
+    (emitter)(&name, payload);
 
     // Update the commit mapping with the new commit id.
     commit_mapping.insert(destination_id.to_gix(), new_commit_id.to_gix());
@@ -1329,19 +1353,19 @@ impl Tool for SplitBranch {
         self: Arc<Self>,
         parameters: serde_json::Value,
         ctx: &mut CommandContext,
-        app_handle: Option<&tauri::AppHandle>,
+        emitter: Arc<Emitter>,
         commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
         let params: SplitBranchParameters = serde_json::from_value(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
 
-        Ok(split_branch(ctx, app_handle, params, commit_mapping).to_json("split_branch"))
+        Ok(split_branch(ctx, emitter, params, commit_mapping).to_json("split_branch"))
     }
 }
 
 pub fn split_branch(
     ctx: &mut CommandContext,
-    app_handle: Option<&tauri::AppHandle>,
+    emitter: Arc<Emitter>,
     params: SplitBranchParameters,
     commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
 ) -> Result<StackId, anyhow::Error> {
@@ -1388,11 +1412,14 @@ pub fn split_branch(
         guard.write_permission(),
     )?;
 
-    // If there's an app handle provided, emit an event to update the stack details in the UI.
-    if let Some(app_handle) = app_handle {
-        let project_id = ctx.project().id;
-        app_handle.emit_stack_update(project_id, stack_id);
-    }
+    // Emit an event to update the stack details in the UI.
+    let project_id = ctx.project().id;
+    let stack_update = StackUpdate {
+        project_id,
+        stack_id,
+    };
+    let (name, payload) = stack_update.emittable();
+    (emitter)(&name, payload);
 
     // Update the commit mapping with the new commit ids.
     for (old_commit_id, new_commit_id) in move_result.replaced_commits.iter() {
@@ -1476,20 +1503,20 @@ impl Tool for SplitCommit {
         self: Arc<Self>,
         parameters: serde_json::Value,
         ctx: &mut CommandContext,
-        app_handle: Option<&tauri::AppHandle>,
+        emitter: Arc<Emitter>,
         commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
         let params = serde_json::from_value::<SplitCommitParameters>(parameters)
             .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
 
-        let value = split_commit(ctx, params, app_handle, commit_mapping).to_json("split_commit");
+        let value = split_commit(ctx, params, emitter, commit_mapping).to_json("split_commit");
         Ok(value)
     }
 }
 pub fn split_commit(
     ctx: &mut CommandContext,
     params: SplitCommitParameters,
-    app_handle: Option<&tauri::AppHandle>,
+    emitter: Arc<Emitter>,
     commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
 ) -> Result<Vec<gix::ObjectId>, anyhow::Error> {
     let source_stack_id = StackId::from_str(&params.source_stack_id)?;
@@ -1515,11 +1542,14 @@ pub fn split_commit(
         move_changes_result,
     } = outcome;
 
-    // Emit an stack update for the frontend.
-    if let Some(app_handle) = app_handle {
-        let project_id = ctx.project().id;
-        app_handle.emit_stack_update(project_id, source_stack_id);
-    }
+    // Emit a stack update for the frontend.
+    let project_id = ctx.project().id;
+    let stack_update = StackUpdate {
+        project_id,
+        stack_id: source_stack_id,
+    };
+    let (name, payload) = stack_update.emittable();
+    (emitter)(&name, payload);
 
     // Update the commit mapping with the new commit ids.
     for (old_commit_id, new_commit_id) in move_changes_result.replaced_commits.iter() {

@@ -25,7 +25,6 @@ strum = { version = "0.27", features = ["derive"] }
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 gix.workspace = true
 rmcp.workspace = true
-tauri = { version = "^2.7.0", features = ["unstable"] }
 futures = "0.3.31"
 gitbutler-command-context.workspace = true
 gitbutler-stack.workspace = true

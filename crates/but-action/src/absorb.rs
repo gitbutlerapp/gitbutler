@@ -1,5 +1,8 @@
 use anyhow::Context;
-use but_tools::workspace::{FileChange, SimpleCommit, amend_toolset};
+use but_tools::{
+    emit::Emitter,
+    workspace::{FileChange, SimpleCommit, amend_toolset},
+};
 use but_workspace::StackId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_oxidize::ObjectIdExt;
@@ -24,7 +27,7 @@ use crate::OpenAiProvider;
 ///   Being able to read this, eliminates the need to get the project status after every amendment.
 ///
 pub fn absorb(
-    app_handle: &tauri::AppHandle,
+    emitter: std::sync::Arc<Emitter>,
     ctx: &mut CommandContext,
     openai: &OpenAiProvider,
     changes: Vec<but_core::TreeChange>,
@@ -43,7 +46,7 @@ pub fn absorb(
     tracing::info!("get_project_status took {:?}", start.elapsed());
 
     // First, absorb changes that are already locked to a specific commit.
-    absorb_locked_changes(app_handle, ctx, &project_status)
+    absorb_locked_changes(emitter.clone(), ctx, &project_status)
         .context("Failed to absorb locked changes")?;
 
     // After absorbing locked changes, we need to get the project status again,
@@ -59,7 +62,7 @@ pub fn absorb(
     let serialized_status = serde_json::to_string_pretty(&project_status)
         .context("Failed to serialize project status")?;
 
-    let mut toolset = amend_toolset(ctx, Some(app_handle))?;
+    let mut toolset = amend_toolset(ctx, emitter)?;
 
     let system_message ="
        You are an expert in finding where to put file changes in a project.
@@ -123,7 +126,7 @@ struct AbsorbGroup {
 /// - Changes that not locked to anything.
 /// - Changes that are locked to multiple commits (i.e. Different hunks are are locked to different commits).
 fn absorb_locked_changes(
-    app_handle: &tauri::AppHandle,
+    emitter: std::sync::Arc<Emitter>,
     ctx: &mut CommandContext,
     project_status: &but_tools::workspace::ProjectStatus,
 ) -> anyhow::Result<()> {
@@ -202,12 +205,18 @@ fn absorb_locked_changes(
             .context("Commit not found in project status")?;
 
         // Absorb the file changes into the commit.
-        let outcome =
-            absorb_file_changes_into_commit(app_handle, ctx, stack_id, &commit_id, commit, files)
-                .context(format!(
-                "Failed to absorb changes into commit {} in stack {}",
-                commit_id, stack_id
-            ))?;
+        let outcome = absorb_file_changes_into_commit(
+            emitter.clone(),
+            ctx,
+            stack_id,
+            &commit_id,
+            commit,
+            files,
+        )
+        .context(format!(
+            "Failed to absorb changes into commit {} in stack {}",
+            commit_id, stack_id
+        ))?;
 
         if let Some(rebase_output) = outcome.rebase_output {
             rebase_output
@@ -242,7 +251,7 @@ fn find_mapped_commit_id(
 /// This function uses OpenAI to generate the commit message and amend the file changes into the commit.
 /// TODO: Do we need to recompute the commit message?
 fn absorb_file_changes_into_commit(
-    app_handle: &tauri::AppHandle,
+    emitter: std::sync::Arc<Emitter>,
     ctx: &mut CommandContext,
     stack_id: &StackId,
     commit_id: &gix::ObjectId,
@@ -251,7 +260,7 @@ fn absorb_file_changes_into_commit(
 ) -> anyhow::Result<but_workspace::commit_engine::CreateCommitOutcome> {
     let outcome = but_tools::workspace::amend_commit_inner(
         ctx,
-        Some(app_handle),
+        emitter,
         but_tools::workspace::AmendParameters {
             commit_id: commit_id.to_owned().to_git2().to_string(),
             stack_id: stack_id.to_owned().to_string(),

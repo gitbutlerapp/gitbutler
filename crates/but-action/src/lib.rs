@@ -7,6 +7,7 @@ use std::{
 };
 
 use but_core::TreeChange;
+use but_tools::emit::{Emittable, Emitter, TokenUpdate};
 use but_workspace::{StackId, ui::StackEntry};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_command_context::CommandContext;
@@ -20,7 +21,6 @@ mod absorb;
 mod action;
 mod auto_commit;
 mod branch_changes;
-mod emit;
 mod generate;
 mod grouping;
 mod openai;
@@ -39,15 +39,12 @@ use uuid::Uuid;
 pub use workflow::WorkflowList;
 pub use workflow::list_workflows;
 
-use crate::{
-    emit::EmitTokenEvent,
-    openai::{ToolCallContent, ToolResponseContent},
-};
+use crate::openai::{ToolCallContent, ToolResponseContent};
 
 pub fn freestyle(
     project_id: ProjectId,
     message_id: String,
-    app_handle: &tauri::AppHandle,
+    emitter: Arc<Emitter>,
     ctx: &mut CommandContext,
     openai: &OpenAiProvider,
     chat_messages: Vec<openai::ChatMessage>,
@@ -60,7 +57,7 @@ pub fn freestyle(
         .map_err(|e| anyhow::anyhow!("Failed to serialize project status: {}", e))?;
 
     let mut toolset =
-        but_tools::workspace::workspace_toolset(ctx, Some(app_handle), message_id.clone())?;
+        but_tools::workspace::workspace_toolset(ctx, emitter.clone(), message_id.clone())?;
 
     let system_message ="
     You are a GitButler agent that can perform various actions on a Git project.
@@ -116,49 +113,60 @@ pub fn freestyle(
         result: serialized_status,
     }));
 
-    // Now we trigger the tool calling loop to absorb the remaining changes.
+    // Now we trigger the tool calling loop.
+    let message_id_cloned = message_id.clone();
+    let project_id_cloned = project_id;
+    let on_token_cb: Arc<dyn Fn(&str) + Send + Sync + 'static> = Arc::new({
+        let emitter = emitter.clone();
+        let message_id = message_id_cloned;
+        let project_id = project_id_cloned;
+        move |token: &str| {
+            let token_update = TokenUpdate {
+                token: token.to_string(),
+                project_id,
+                message_id: message_id.clone(),
+            };
+            let (name, payload) = token_update.emittable();
+            (emitter)(&name, payload);
+        }
+    });
     let response = crate::openai::tool_calling_loop_stream(
         openai,
         system_message,
         internal_chat_messages,
         &mut toolset,
         model,
-        Arc::new({
-            let app_handle = app_handle.clone();
-            move |token: &str| {
-                app_handle.emit_token_event(token, project_id, message_id.clone());
-            }
-        }),
+        on_token_cb,
     )?;
 
     Ok(response.unwrap_or_default())
 }
 
 pub fn absorb(
-    app_handle: &tauri::AppHandle,
+    emitter: Arc<Emitter>,
     ctx: &mut CommandContext,
     openai: &OpenAiProvider,
     changes: Vec<TreeChange>,
 ) -> anyhow::Result<()> {
-    absorb::absorb(app_handle, ctx, openai, changes)
+    absorb::absorb(emitter, ctx, openai, changes)
 }
 
 pub fn branch_changes(
-    app_handle: &tauri::AppHandle,
+    emitter: Arc<Emitter>,
     ctx: &mut CommandContext,
     openai: &OpenAiProvider,
     changes: Vec<TreeChange>,
 ) -> anyhow::Result<()> {
-    branch_changes::branch_changes(app_handle, ctx, openai, changes)
+    branch_changes::branch_changes(emitter, ctx, openai, changes)
 }
 
 pub fn auto_commit(
-    app_handle: &tauri::AppHandle,
+    emitter: Arc<Emitter>,
     ctx: &mut CommandContext,
     openai: &OpenAiProvider,
     changes: Vec<TreeChange>,
 ) -> anyhow::Result<()> {
-    auto_commit::auto_commit(app_handle, ctx, openai, changes)
+    auto_commit::auto_commit(emitter, ctx, openai, changes)
 }
 
 pub fn handle_changes(

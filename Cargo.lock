@@ -842,7 +842,6 @@ dependencies = [
  "serde-error",
  "serde_json",
  "strum",
- "tauri",
  "tokio",
  "tracing",
  "uuid",
@@ -891,6 +890,10 @@ dependencies = [
  "url",
  "uuid",
 ]
+
+[[package]]
+name = "but-bot"
+version = "0.1.0"
 
 [[package]]
 name = "but-claude"
@@ -1192,7 +1195,6 @@ dependencies = [
  "serde",
  "serde-error",
  "serde_json",
- "tauri",
  "tokio",
 ]
 
