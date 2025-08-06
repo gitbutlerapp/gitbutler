@@ -54,7 +54,11 @@ function injectEndpoints(api: BackendApi) {
 			>({
 				extraOptions: { command: 'create_workspace_rule' },
 				query: (args) => args,
-				invalidatesTags: () => [invalidatesList(ReduxTag.WorkspaceRules)]
+				invalidatesTags: () => [
+					invalidatesList(ReduxTag.WorkspaceRules),
+					invalidatesList(ReduxTag.WorktreeChanges),
+					invalidatesList(ReduxTag.Stacks)
+				]
 			}),
 			deleteWorkspaceRule: build.mutation<void, { projectId: string; id: WorkspaceRuleId }>({
 				extraOptions: { command: 'delete_workspace_rule' },
@@ -71,7 +75,9 @@ function injectEndpoints(api: BackendApi) {
 					result
 						? [
 								invalidatesItem(ReduxTag.WorkspaceRules, result.id),
-								invalidatesList(ReduxTag.WorkspaceRules)
+								invalidatesList(ReduxTag.WorkspaceRules),
+								invalidatesList(ReduxTag.WorktreeChanges),
+								invalidatesList(ReduxTag.Stacks)
 							]
 						: []
 			}),
