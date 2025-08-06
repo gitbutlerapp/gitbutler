@@ -74,9 +74,8 @@
 			Force push protection
 		{/snippet}
 		{#snippet caption()}
-			Enable this experimental flag to protect remote commits during force pushes. This uses Git's
-			safer force push flags instead of doing a straight force push. This will help in preventing
-			remote commits from being overwritten.
+			Protect remote commits during force push. It uses Git’s safer flags to avoid overwriting
+			commits.
 		{/snippet}
 		{#snippet actions()}
 			<Toggle
