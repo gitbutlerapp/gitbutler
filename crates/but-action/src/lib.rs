@@ -33,13 +33,11 @@ pub use action::ActionListing;
 pub use action::Source;
 pub use action::list_actions;
 use but_graph::VirtualBranchesTomlMetadata;
-pub use openai::ChatMessage;
+pub use openai::{ChatMessage, ToolCallContent, ToolResponseContent, tool_calling_loop_stream};
 use strum::EnumString;
 use uuid::Uuid;
 pub use workflow::WorkflowList;
 pub use workflow::list_workflows;
-
-use crate::openai::{ToolCallContent, ToolResponseContent};
 
 pub fn freestyle(
     project_id: ProjectId,

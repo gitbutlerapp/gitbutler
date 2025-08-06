@@ -82,6 +82,7 @@ but-graph.workspace = true
 but-hunk-dependency.workspace = true
 but-hunk-assignment.workspace = true
 but-action.workspace = true
+but-bot.workspace = true
 but-rules.workspace = true
 but-path.workspace = true
 but-api.workspace = true
