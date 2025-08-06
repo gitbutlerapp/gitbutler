@@ -1,0 +1,20 @@
+[package]
+name = "but-bot"
+version = "0.1.0"
+edition = "2024"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[lib]
+doctest = false
+test = false
+
+[dependencies]
+schemars = "0.9.0"
+serde_json = "1.0.142"
+anyhow = "1.0.98"
+uuid.workspace = true
+but-tools.workspace = true
+but-action.workspace = true
+gitbutler-command-context.workspace = true
+gitbutler-project.workspace = true
