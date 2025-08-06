@@ -18,7 +18,7 @@ use but_api::App;
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::csp::csp_with_extras;
 use gitbutler_tauri::{
-    action, askpass, cli, commands, config, diff, env, forge, github, logs, menu, modes, open,
+    action, askpass, bot, cli, commands, config, diff, env, forge, github, logs, menu, modes, open,
     projects, remotes, repo, rules, secret, settings, stack, undo, users, virtual_branches,
     workspace, zip, WindowState,
 };
@@ -285,6 +285,7 @@ fn main() {
                     action::auto_branch_changes,
                     action::absorb,
                     action::freestyle,
+                    bot::bot,
                     cli::install_cli,
                     cli::cli_path,
                     rules::create_workspace_rule,
