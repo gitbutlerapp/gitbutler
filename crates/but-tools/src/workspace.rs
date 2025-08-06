@@ -19,15 +19,15 @@ use gitbutler_stack::{PatchReferenceUpdate, VirtualBranchesHandle};
 use schemars::{JsonSchema, schema_for};
 
 use crate::emit::{Emittable, Emitter, StackUpdate};
-use crate::tool::{Tool, ToolResult, Toolset, error_to_json, result_to_json};
+use crate::tool::{Tool, ToolResult, Toolset, WorkspaceToolset, error_to_json, result_to_json};
 
 /// Creates a toolset for any kind of workspace operations.
 pub fn workspace_toolset(
     ctx: &mut CommandContext,
     emitter: std::sync::Arc<crate::emit::Emitter>,
     message_id: String,
-) -> anyhow::Result<Toolset<'_>> {
-    let mut toolset = Toolset::new(ctx, emitter, Some(message_id));
+) -> anyhow::Result<WorkspaceToolset<'_>> {
+    let mut toolset = WorkspaceToolset::new(ctx, emitter, Some(message_id));
 
     toolset.register_tool(Commit);
     toolset.register_tool(CreateBranch);
@@ -47,8 +47,8 @@ pub fn workspace_toolset(
 pub fn commit_toolset(
     ctx: &mut CommandContext,
     emitter: std::sync::Arc<crate::emit::Emitter>,
-) -> anyhow::Result<Toolset<'_>> {
-    let mut toolset = Toolset::new(ctx, emitter, None);
+) -> anyhow::Result<WorkspaceToolset<'_>> {
+    let mut toolset = WorkspaceToolset::new(ctx, emitter, None);
 
     toolset.register_tool(Commit);
     toolset.register_tool(CreateBranch);
@@ -60,8 +60,8 @@ pub fn commit_toolset(
 pub fn amend_toolset(
     ctx: &mut CommandContext,
     emitter: std::sync::Arc<crate::emit::Emitter>,
-) -> anyhow::Result<Toolset<'_>> {
-    let mut toolset = Toolset::new(ctx, emitter, None);
+) -> anyhow::Result<WorkspaceToolset<'_>> {
+    let mut toolset = WorkspaceToolset::new(ctx, emitter, None);
 
     toolset.register_tool(Amend);
     toolset.register_tool(GetProjectStatus);

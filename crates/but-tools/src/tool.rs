@@ -10,7 +10,7 @@ use gitbutler_command_context::CommandContext;
 use gix::ObjectId;
 use serde_json::json;
 
-pub struct Toolset<'a> {
+pub struct WorkspaceToolset<'a> {
     ctx: &'a mut CommandContext,
     emitter: std::sync::Arc<crate::emit::Emitter>,
     message_id: Option<String>,
@@ -18,31 +18,26 @@ pub struct Toolset<'a> {
     commit_mapping: HashMap<ObjectId, ObjectId>,
 }
 
-impl<'a> Toolset<'a> {
+pub trait Toolset {
+    fn register_tool<T: Tool>(&mut self, tool: T);
+    fn get(&self, name: &str) -> Option<Arc<dyn Tool>>;
+    fn list(&self) -> Vec<Arc<dyn Tool>>;
+    fn call_tool(&mut self, name: &str, parameters: &str) -> serde_json::Value;
+}
+
+impl<'a> WorkspaceToolset<'a> {
     pub fn new(
         ctx: &'a mut CommandContext,
         emitter: std::sync::Arc<crate::emit::Emitter>,
         message_id: Option<String>,
     ) -> Self {
-        Toolset {
+        WorkspaceToolset {
             ctx,
             emitter,
             message_id,
             tools: BTreeMap::new(),
             commit_mapping: HashMap::new(),
         }
-    }
-
-    pub fn register_tool<T: Tool>(&mut self, tool: T) {
-        self.tools.insert(tool.name(), Arc::new(tool));
-    }
-
-    pub fn get(&self, name: &str) -> Option<Arc<dyn Tool>> {
-        self.tools.get(name).cloned()
-    }
-
-    pub fn list(&self) -> Vec<Arc<dyn Tool>> {
-        self.tools.values().cloned().collect()
     }
 
     fn call_tool_inner(
@@ -62,8 +57,22 @@ impl<'a> Toolset<'a> {
             &mut self.commit_mapping,
         )
     }
+}
 
-    pub fn call_tool(&mut self, name: &str, parameters: &str) -> serde_json::Value {
+impl Toolset for WorkspaceToolset<'_> {
+    fn register_tool<T: Tool>(&mut self, tool: T) {
+        self.tools.insert(tool.name(), Arc::new(tool));
+    }
+
+    fn get(&self, name: &str) -> Option<Arc<dyn Tool>> {
+        self.tools.get(name).cloned()
+    }
+
+    fn list(&self) -> Vec<Arc<dyn Tool>> {
+        self.tools.values().cloned().collect()
+    }
+
+    fn call_tool(&mut self, name: &str, parameters: &str) -> serde_json::Value {
         let result = self.call_tool_inner(name, parameters).unwrap_or_else(|e| {
             serde_json::json!({
                 "error": format!("Failed to call tool '{}': {}", name, e.to_string())

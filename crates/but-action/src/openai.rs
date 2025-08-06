@@ -412,7 +412,7 @@ pub fn tool_calling_loop(
     provider: &OpenAiProvider,
     system_message: &str,
     chat_messages: Vec<ChatMessage>,
-    tool_set: &mut Toolset,
+    tool_set: &mut impl Toolset,
     model: Option<String>,
 ) -> anyhow::Result<async_openai::types::CreateChatCompletionResponse> {
     let mut messages: Vec<ChatCompletionRequestMessage> =
@@ -502,7 +502,7 @@ pub fn tool_calling_loop_stream(
     provider: &OpenAiProvider,
     system_message: &str,
     chat_messages: Vec<ChatMessage>,
-    tool_set: &mut Toolset,
+    tool_set: &mut impl Toolset,
     model: Option<String>,
     on_token: Arc<dyn Fn(&str) + Send + Sync + 'static>,
 ) -> anyhow::Result<Option<String>> {
