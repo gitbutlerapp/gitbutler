@@ -71,12 +71,12 @@
 	</SectionCard>
 	<SectionCard labelFor="force-push-protection" roundedTop={false} orientation="row">
 		{#snippet title()}
-			Force push protections
+			Force push protection
 		{/snippet}
 		{#snippet caption()}
-			Enable this experimental flag to protect remote commits during force pushes. This enables the
-			use of Git's safer force push flags instead of doing a straight force push. This will help in
-			preventing remote commits from being overwritten.
+			Enable this experimental flag to protect remote commits during force pushes. This uses Git's
+			safer force push flags instead of doing a straight force push. This will help in preventing
+			remote commits from being overwritten.
 		{/snippet}
 		{#snippet actions()}
 			<Toggle
