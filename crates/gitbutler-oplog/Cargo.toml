@@ -24,7 +24,6 @@ gitbutler-branch.workspace = true
 gitbutler-serde.workspace = true
 gitbutler-fs.workspace = true
 gitbutler-reference.workspace = true
-gitbutler-diff.workspace = true
 gitbutler-stack.workspace = true
 but-core.workspace = true
 

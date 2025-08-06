@@ -577,7 +577,6 @@ pub fn create_commit_and_update_refs(
             repo.workdir().expect("non-bare"),
             &tree_index,
             &mut disk_index,
-            None,
         )?;
         out.index = disk_index.into();
     } else {
