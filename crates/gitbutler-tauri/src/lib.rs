@@ -21,6 +21,7 @@ pub use window::state::WindowState;
 
 pub mod action;
 pub mod askpass;
+pub mod bot;
 pub mod cli;
 pub mod config;
 pub mod forge;

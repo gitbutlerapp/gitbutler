@@ -894,6 +894,16 @@ dependencies = [
 [[package]]
 name = "but-bot"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "but-action",
+ "but-tools",
+ "gitbutler-command-context",
+ "gitbutler-project",
+ "schemars 0.9.0",
+ "serde_json",
+ "uuid",
+]
 
 [[package]]
 name = "but-claude"
@@ -3547,6 +3557,7 @@ dependencies = [
  "backtrace",
  "but-action",
  "but-api",
+ "but-bot",
  "but-core",
  "but-db",
  "but-graph",

@@ -81,6 +81,7 @@ but-path = { path = "crates/but-path" }
 but-graph = { path = "crates/but-graph" }
 but-rules = { path = "crates/but-rules" }
 but-action = { path = "crates/but-action" }
+but-bot = { path = "crates/but-bot" }
 but-status = { path = "crates/but-status" }
 but-tools = { path = "crates/but-tools" }
 but-api = { path = "crates/but-api" }

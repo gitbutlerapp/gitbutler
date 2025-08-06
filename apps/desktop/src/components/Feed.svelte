@@ -6,21 +6,11 @@
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import { invoke } from '$lib/backend/ipc';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { persistedChatModelName, projectAiGenEnabled } from '$lib/config/config';
+	import { projectAiGenEnabled } from '$lib/config/config';
 	import { FEED_FACTORY } from '$lib/feed/feed';
 	import { newProjectSettingsPath } from '$lib/routes/routes.svelte';
-	import { USER } from '$lib/user/user';
 	import { inject } from '@gitbutler/shared/context';
-	import {
-		Badge,
-		Button,
-		Icon,
-		RichTextEditor,
-		Spacer,
-		Link,
-		Select,
-		SelectItem
-	} from '@gitbutler/ui';
+	import { Badge, Button, Icon, RichTextEditor, Spacer, Link } from '@gitbutler/ui';
 	import { tick } from 'svelte';
 
 	type Props = {
@@ -33,23 +23,13 @@
 	const feedFactory = inject(FEED_FACTORY);
 	const feed = $derived(feedFactory.getFeed(projectId));
 	const actionService = inject(ACTION_SERVICE);
-	const user = inject(USER);
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = $derived(settingsService.appSettings);
 
-	const isAdmin = $derived($user.role === 'admin');
 	const combinedEntries = $derived(feed.combined);
 	const lastAddedId = $derived(feed.lastAddedId);
 
-	const MODELS = ['gpt-4.1', 'gpt-4.1-mini'] as const;
-
-	type Model = (typeof MODELS)[number];
-	const RESTRICTED_MODELS: Model[] = ['gpt-4.1'];
-	const DEFAULT_MODEL: Model = 'gpt-4.1-mini';
-
-	const selectedModel = persistedChatModelName<Model>(projectId, DEFAULT_MODEL);
-
-	const [freestyle, freestylin] = actionService.freestyle;
+	const [bot, botting] = actionService.bot;
 
 	let viewport = $state<HTMLDivElement>();
 	let topSentinel = $state<HTMLDivElement>();
@@ -65,12 +45,10 @@
 		if (!content || content?.trim() === '') return;
 		editor?.clear();
 		const [id, messages] = await feed.addUserMessage(content);
-		const model = isAdmin ? $selectedModel : DEFAULT_MODEL;
-		const response = await freestyle({
+		const response = await bot({
 			projectId,
 			messageId: id,
-			chatMessages: messages,
-			model
+			chatMessages: messages
 		});
 
 		await feed.addAssistantMessage(id, response);
@@ -271,7 +249,7 @@
 						markdown={false}
 						styleContext="chat-input"
 						placeholder="Tab tab tab"
-						disabled={freestylin.current.isLoading}
+						disabled={botting.current.isLoading}
 						onKeyDown={handleKeyDown}
 						onError={(e) => {
 							console.error('RichTextEditor error:', e);
@@ -279,50 +257,11 @@
 					></RichTextEditor>
 
 					<div class="feed__input-commands">
-						<Select
-							popupAlign="right"
-							popupVerticalAlign="top"
-							value={$selectedModel}
-							maxHeight={200}
-							customWidth={150}
-							options={MODELS.map((model) => ({
-								value: model,
-								label: model
-							}))}
-							onselect={(value: string) => {
-								if (value === $selectedModel) return;
-								if (!isAdmin) return;
-								if (!MODELS.includes(value as Model)) return;
-								selectedModel.set(value as Model);
-							}}
-						>
-							{#snippet customSelectButton()}
-								<div class="model-selector">
-									<span class="text-11 model-selector__selected">{$selectedModel}</span>
-									<div class="model-selector__icon"><Icon name="chevron-down-small" /></div>
-								</div>
-							{/snippet}
-
-							{#snippet itemSnippet({ item, highlighted })}
-								{@const disabled = RESTRICTED_MODELS.includes(item.value as Model) && !isAdmin}
-								<SelectItem
-									selected={item.value === $selectedModel}
-									{highlighted}
-									{disabled}
-									icon={disabled ? 'locked-small' : undefined}
-								>
-									<p>
-										{item.label}
-									</p>
-								</SelectItem>
-							{/snippet}
-						</Select>
-
 						<Button
 							style="pop"
 							icon="arrow-top"
 							onclick={sendCommand}
-							loading={freestylin.current.isLoading}
+							loading={botting.current.isLoading}
 						></Button>
 					</div>
 				</div>
@@ -486,27 +425,5 @@
 		align-items: center;
 		justify-content: flex-end;
 		gap: 8px;
-	}
-
-	.model-selector {
-		display: flex;
-		align-items: center;
-		padding: 2px 4px 2px 6px;
-		gap: 2px;
-		color: var(--clr-text-3);
-		text-wrap: nowrap;
-
-		&:hover {
-			color: var(--clr-text-2);
-			& .model-selector__icon {
-				color: var(--clr-text-2);
-			}
-		}
-	}
-
-	.model-selector__icon {
-		display: flex;
-		color: var(--clr-text-3);
-		transition: opacity var(--transition-fast);
 	}
 </style>
