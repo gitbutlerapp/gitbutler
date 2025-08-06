@@ -53,8 +53,6 @@ pub struct FeatureFlags {
     pub butbot: bool,
     /// Enable processing of workspace rules.
     pub rules: bool,
-    /// Enable force push protections.
-    pub force_push_protection: bool,
 }
 
 fn default_true() -> bool {

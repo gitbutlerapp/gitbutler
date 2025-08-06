@@ -174,7 +174,7 @@ impl RepoActionsExt for CommandContext {
         if self.project().preferred_key == AuthKey::SystemExecutable {
             let path = self.project().worktree_path();
             let remote = branch.remote().to_string();
-            let force_push_protection = self.app_settings().feature_flags.force_push_protection;
+            let force_push_protection = self.project().force_push_protection;
             return std::thread::spawn(move || {
                 tokio::runtime::Runtime::new()
                     .unwrap()

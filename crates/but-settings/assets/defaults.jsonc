@@ -29,9 +29,7 @@
 		/// Enable the usage of the butbot chat.
 		"butbot": false,
 		/// Enable processing of workspace rules.
-		"rules": false,
-		/// Enable force push protections.
-		"forcePushProtection": false
+		"rules": false
 	},
 	// Allows for additional "connect-src" hosts to be included. Requires app restart.
 	"extraCsp": {
