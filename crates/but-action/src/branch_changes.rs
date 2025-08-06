@@ -20,7 +20,7 @@ pub fn branch_changes(
     let serialized_status = serde_json::to_string_pretty(&project_status)
         .context("Failed to serialize project status")?;
 
-    let mut toolset = commit_toolset(ctx, emitter.clone())?;
+    let mut toolset = commit_toolset(ctx, emitter.clone());
 
     let system_message ="
         You are an expert in grouping and committing file changes into logical units for version control.
