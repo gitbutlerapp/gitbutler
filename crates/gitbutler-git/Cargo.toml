@@ -44,6 +44,7 @@ rand.workspace = true
 futures.workspace = true
 sysinfo = "0.36.0"
 gix.workspace = true
+gitbutler-error.workspace = true
 
 [target."cfg(unix)".dependencies]
 nix = { version = "0.30.0", features = ["process", "socket", "user"] }

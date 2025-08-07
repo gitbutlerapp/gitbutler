@@ -11,6 +11,7 @@
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
+	import { splitMessage } from '$lib/utils/commitMessage';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { inject } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
@@ -49,130 +50,45 @@
 	const branchDetails = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const projectResult = $derived(projectsService.getProject(projectId));
 	const [pushStack, pushResult] = stackService.pushStack;
+	const potentialOverwrittenCommits = $derived(
+		stackService.upstreamCommits(projectId, stackId, branchName).current.data || []
+	);
 
-	// Store current context for modals
-	let currentRequiresForce = $state(false);
 	let _currentProject = $state<any>(undefined);
 
-	// TODO: REPLACE WITH REAL DATA
-	const potentialOverwrittenCommits = [
-		{
-			id: 'abc123f45',
-			descriptionTitle: 'Fix user authentication bug',
-			author: { name: 'John Doe' },
-			createdAt: new Date('2025-01-05T10:30:00Z')
-		},
-		{
-			id: 'def456a78',
-			descriptionTitle: 'Update README documentation',
-			author: { name: 'Jane Smith' },
-			createdAt: new Date('2025-01-04T14:20:00Z')
-		},
-		{
-			id: 'ghi789b12',
-			descriptionTitle: 'Add new feature for file upload',
-			author: { name: 'Bob Johnson' },
-			createdAt: new Date('2025-01-04T09:15:00Z')
-		},
-		{
-			id: 'jkl012c34',
-			descriptionTitle: 'Refactor database queries',
-			author: { name: 'Alice Brown' },
-			createdAt: new Date('2025-01-03T16:45:00Z')
-		},
-		{
-			id: 'mno345d56',
-			descriptionTitle: 'Fix CSS styling issues',
-			author: { name: 'Charlie Wilson' },
-			createdAt: new Date('2025-01-03T11:30:00Z')
-		},
-		{
-			id: 'pqr678e90',
-			descriptionTitle: 'Update dependencies',
-			author: { name: 'David Lee' },
-			createdAt: new Date('2025-01-02T13:20:00Z')
-		},
-		{
-			id: 'stu901f23',
-			descriptionTitle: 'Add unit tests for core functions',
-			author: { name: 'Eva Martinez' },
-			createdAt: new Date('2025-01-02T08:45:00Z')
-		},
-		{
-			id: 'vwx234g45',
-			descriptionTitle: 'Optimize image loading performance',
-			author: { name: 'Frank Chen' },
-			createdAt: new Date('2025-01-01T15:10:00Z')
-		},
-		{
-			id: 'yz567h78',
-			descriptionTitle: 'Fix memory leak in worker threads',
-			author: { name: 'Grace Taylor' },
-			createdAt: new Date('2024-12-31T12:00:00Z')
-		},
-		{
-			id: 'abc890i01',
-			descriptionTitle: 'Implement dark mode theme',
-			author: { name: 'Henry Davis' },
-			createdAt: new Date('2024-12-30T17:30:00Z')
-		},
-		{
-			id: 'def123j23',
-			descriptionTitle: 'Add error logging system',
-			author: { name: 'Iris Kim' },
-			createdAt: new Date('2024-12-30T09:45:00Z')
-		},
-		{
-			id: 'ghi456k45',
-			descriptionTitle: 'Update API endpoints',
-			author: { name: 'Jack Robinson' },
-			createdAt: new Date('2024-12-29T14:15:00Z')
-		},
-		{
-			id: 'jkl789l67',
-			descriptionTitle: 'Fix mobile responsiveness',
-			author: { name: 'Kate Anderson' },
-			createdAt: new Date('2024-12-29T10:30:00Z')
-		},
-		{
-			id: 'mno012m89',
-			descriptionTitle: 'Add data validation',
-			author: { name: 'Luke Thompson' },
-			createdAt: new Date('2024-12-28T16:20:00Z')
-		}
-	];
-
 	function handleClick(requiresForce: boolean, project?: any) {
-		currentRequiresForce = requiresForce;
 		_currentProject = project;
-
-		// Check for force push protection first if this is a force push
-		if (requiresForce && project?.force_push_protection) {
-			forcePushProtectionModal?.show();
-			return;
-		}
 
 		if (multipleBranches && !isLastBranchInStack && !$doNotShowPushBelowWarning) {
 			confirmationModal?.show();
 			return;
 		}
 
-		push(requiresForce);
+		push(requiresForce, project?.force_push_protection);
 	}
 
-	async function push(requiresForce: boolean) {
-		const pushResult = await pushStack({
-			projectId,
-			stackId,
-			withForce: requiresForce,
-			branch: branchName
-		});
+	async function push(requiresForce: boolean, forcePushProtection: boolean) {
+		try {
+			const pushResult = await pushStack({
+				projectId,
+				stackId,
+				withForce: requiresForce,
+				forcePushProtection: forcePushProtection,
+				branch: branchName
+			});
 
-		const upstreamBranchNames = pushResult.branchToRemote
-			.map(([_, refname]) => getBranchNameFromRef(refname, pushResult.remote))
-			.filter(isDefined);
-		if (upstreamBranchNames.length === 0) return;
-		uiState.project(projectId).branchesToPoll.add(...upstreamBranchNames);
+			const upstreamBranchNames = pushResult.branchToRemote
+				.map(([_, refname]) => getBranchNameFromRef(refname, pushResult.remote))
+				.filter(isDefined);
+			if (upstreamBranchNames.length === 0) return;
+			uiState.project(projectId).branchesToPoll.add(...upstreamBranchNames);
+		} catch (error: any) {
+			if (error?.code === 'errors.git.force_push_protection') {
+				forcePushProtectionModal?.show();
+				return;
+			}
+			throw error;
+		}
 	}
 
 	const loading = $derived(pushResult.current.isLoading);
@@ -226,7 +142,7 @@
 			bind:this={confirmationModal}
 			onSubmit={async (close) => {
 				close();
-				push(currentRequiresForce);
+				push(requiresForce, _currentProject?.force_push_protection);
 			}}
 		>
 			<p>
@@ -263,24 +179,27 @@
 			bind:this={forcePushProtectionModal}
 			onSubmit={async (close) => {
 				close();
-				push(currentRequiresForce);
+				push(requiresForce, false);
 			}}
 		>
 			<p class="description">
 				Your force push was blocked because the remote branch contains <span
-					class="text-bold text-nowrap">{potentialOverwrittenCommits.length} commits</span
+					class="text-bold text-nowrap"
+					>{potentialOverwrittenCommits.length === 1
+						? '1 commit'
+						: `${potentialOverwrittenCommits.length} commits`}</span
 				>
 				your local branch doesn’t include. To prevent overwriting history,
 				<span class="text-bold">cancel and pull & integrate</span> the changes.
 			</p>
 			<div class="scroll-wrap">
-				<ScrollableContainer maxHeight="14rem">
+				<ScrollableContainer maxHeight="16.5rem">
 					{#each potentialOverwrittenCommits as commit}
 						{@const commitUrl = forge.current.commitUrl(commit.id)}
 						<SimpleCommitRow
-							title={commit.descriptionTitle ?? ''}
+							title={splitMessage(commit.message).title ?? ''}
 							sha={commit.id}
-							date={commit.createdAt}
+							date={new Date(commit.createdAt)}
 							author={commit.author.name}
 							url={commitUrl}
 							onOpen={(url) => openExternalUrl(url)}
@@ -291,8 +210,10 @@
 			</div>
 
 			{#snippet controls(close)}
-				<Button style="pop" onclick={close}>Cancel</Button>
-				<Button kind="outline" type="submit">Force push anyway</Button>
+				<div class="controls">
+					<Button kind="outline" type="submit">Force push anyway</Button>
+					<Button wide style="pop" onclick={close}>Cancel</Button>
+				</div>
 			{/snippet}
 		</Modal>
 	{/snippet}
@@ -301,6 +222,13 @@
 <style>
 	/* MODAL */
 	.modal-footer {
+		display: flex;
+		width: 100%;
+		gap: 6px;
+	}
+
+	/* CONTROLS */
+	.controls {
 		display: flex;
 		width: 100%;
 		gap: 6px;

@@ -91,6 +91,7 @@
 
 	let titleInput = $state<HTMLTextAreaElement | undefined>(undefined);
 	let messageEditor = $state<MessageEditor>();
+	let _currentProject = $state<any>(undefined);
 
 	// AI things
 	const aiGenEnabled = projectAiGenEnabled(projectId);
@@ -159,6 +160,7 @@
 				projectId,
 				stackId,
 				withForce: branchDetails?.pushStatus === 'unpushedCommitsRequiringForce',
+				forcePushProtection: _currentProject?.force_push_protection,
 				branch: branchName
 			});
 
