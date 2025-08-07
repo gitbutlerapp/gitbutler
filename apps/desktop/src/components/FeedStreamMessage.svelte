@@ -17,6 +17,7 @@
 	const feed = $derived(feedFactory.getFeed(projectId));
 	let toolCalls = $state<ToolCall[]>(message.toolCalls);
 	let messageContent = $state(message.content);
+	const paragraphs = $derived(messageContent.split('\n\n'));
 
 	let bottom = $state<HTMLDivElement>();
 
@@ -60,8 +61,11 @@
 				<FeedItemKind type="tool-call" {projectId} {toolCall} />
 			{/each}
 		{/if}
-
-		<Markdown content={messageContent} />
+		<div class="text-content">
+			{#each paragraphs as paragraph, index (index)}
+				<Markdown content={paragraph} />
+			{/each}
+		</div>
 	{/if}
 	<div bind:this={bottom} style="margin-top: 8px; height: 1px; width: 100%;"></div>
 </div>
@@ -73,6 +77,12 @@
 		color: var(--clr-text-3);
 		font-style: italic;
 		animation: pulse 1.5s ease-in-out infinite;
+	}
+
+	.text-content {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
 	}
 
 	@keyframes pulse {
