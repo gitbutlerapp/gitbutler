@@ -142,3 +142,20 @@ export enum CommitStatus {
 }
 
 export type CommitStatusType = keyof typeof CommitStatus;
+
+export function commitStatusLabel(status: CommitStatusType): string {
+	switch (status) {
+		case CommitStatus.LocalOnly:
+			return 'Local';
+		case CommitStatus.LocalAndRemote:
+			return 'Local and remote';
+		case CommitStatus.Integrated:
+			return 'Integrated';
+		case CommitStatus.Remote:
+			return 'Remote';
+		case CommitStatus.Base:
+			return 'Base';
+		default:
+			return status;
+	}
+}
