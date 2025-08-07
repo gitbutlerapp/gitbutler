@@ -16,8 +16,8 @@
 	const user = $derived(userService.user);
 
 	// Get the org slug and invite code from the route parameters
-	const inviteCode = $derived($page.params.code);
-	const slug = $derived($page.params.slug);
+	const inviteCode = $derived($page.params.code!);
+	const slug = $derived($page.params.slug!);
 
 	// Get services from context
 	const routes = inject(WEB_ROUTES_SERVICE);

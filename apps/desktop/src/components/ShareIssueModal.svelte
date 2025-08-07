@@ -50,7 +50,8 @@
 
 	async function readZipFile(path: string, filename?: string): Promise<File | Blob> {
 		const { readFile } = await import('@tauri-apps/plugin-fs');
-		const file = await readFile(path);
+		// Using `new Uint8Array` to get an `ArrayBuffer` rather than `ArrayBufferLike`.
+		const file = new Uint8Array(await readFile(path));
 		const fileName = filename ?? path.split('/').pop();
 		return fileName
 			? new File([file], fileName, { type: 'application/zip' })
