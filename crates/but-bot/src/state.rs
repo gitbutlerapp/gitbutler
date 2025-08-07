@@ -1,7 +1,11 @@
 use std::{collections::BTreeMap, fmt::Display};
 
-use but_tools::tool::{Tool, Toolset};
+use but_tools::{
+    emit::Emittable,
+    tool::{Tool, Toolset},
+};
 use gitbutler_command_context::CommandContext;
+use gitbutler_project::ProjectId;
 use gix::ObjectId;
 use schemars::{JsonSchema, schema_for};
 use serde_json::json;
@@ -109,18 +113,43 @@ impl Todo {
     }
 }
 
+impl From<Todo> for but_tools::emit::TodoState {
+    fn from(todo: Todo) -> Self {
+        Self {
+            id: todo.id.to_string(),
+            title: todo.title,
+            status: match todo.status {
+                TodoStatus::Waiting => "waiting".to_string(),
+                TodoStatus::InProgress => "in-progress".to_string(),
+                TodoStatus::Success { .. } => "success".to_string(),
+                TodoStatus::Failed { .. } => "failed".to_string(),
+            },
+        }
+    }
+}
+
 pub struct AgentState {
     pub todos: Vec<Todo>,
     pub sys_prompt: String,
     tools: BTreeMap<String, std::sync::Arc<dyn Tool>>,
+    project_id: ProjectId,
+    message_id: String,
+    emitter: std::sync::Arc<but_tools::emit::Emitter>,
 }
 
-impl Default for AgentState {
-    fn default() -> Self {
+impl AgentState {
+    pub fn new(
+        project_id: ProjectId,
+        message_id: String,
+        emitter: std::sync::Arc<but_tools::emit::Emitter>,
+    ) -> Self {
         let mut state = AgentState {
             todos: Vec::new(),
             sys_prompt: SYS_PROMPT.to_string(),
             tools: BTreeMap::new(),
+            project_id,
+            message_id,
+            emitter,
         };
 
         state.register_tool(AddTodos);
@@ -128,9 +157,20 @@ impl Default for AgentState {
 
         state
     }
-}
 
-impl AgentState {
+    fn emit(&self) {
+        let todos: Vec<but_tools::emit::TodoState> =
+            self.todos.iter().map(|todo| todo.clone().into()).collect();
+        let todo_update = but_tools::emit::TodoUpdate {
+            project_id: self.project_id,
+            message_id: self.message_id.clone(),
+            list: todos,
+        };
+
+        let (name, payload) = todo_update.emittable();
+        (self.emitter)(&name, payload);
+    }
+
     pub fn nothig_to_do(&self) -> bool {
         self.todos.is_empty()
     }
@@ -138,6 +178,7 @@ impl AgentState {
     pub fn add_todo(&mut self, title: String, description: String) -> &Todo {
         let todo = Todo::new(title, description);
         self.todos.push(todo);
+        self.emit();
         self.todos.last().unwrap()
     }
 
@@ -145,6 +186,7 @@ impl AgentState {
         match self.todos.iter_mut().find(|todo| todo.id == id) {
             Some(todo) => {
                 todo.set_status(status);
+                self.emit();
                 Ok(())
             }
             None => Err("Todo not found".to_string()),
@@ -157,10 +199,14 @@ impl AgentState {
             .iter_mut()
             .find(|todo| matches!(todo.status, TodoStatus::Waiting | TodoStatus::InProgress));
 
-        next_todo.map(|todo| {
+        let next_todo = next_todo.map(|todo| {
             todo.set_status(TodoStatus::InProgress);
             todo.to_owned()
-        })
+        });
+
+        self.emit();
+
+        next_todo
     }
 
     fn call_tool_inner(

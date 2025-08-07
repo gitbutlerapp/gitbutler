@@ -72,3 +72,32 @@ impl Emittable for TokenEnd {
         (name, payload)
     }
 }
+
+pub struct TodoState {
+    pub id: String,
+    pub title: String,
+    pub status: String,
+}
+
+pub struct TodoUpdate {
+    pub project_id: ProjectId,
+    pub message_id: String,
+    pub list: Vec<TodoState>,
+}
+
+impl Emittable for TodoUpdate {
+    fn emittable(&self) -> (String, serde_json::Value) {
+        let name = format!("project://{}/todo-updates", self.project_id);
+        let payload = serde_json::json!({
+            "messageId": self.message_id,
+            "list": self.list.iter().map(|todo| {
+                serde_json::json!({
+                    "id": todo.id,
+                    "title": todo.title,
+                    "status": todo.status,
+                })
+            }).collect::<Vec<_>>(),
+        });
+        (name, payload)
+    }
+}

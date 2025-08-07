@@ -69,7 +69,7 @@ impl<'a> ButBot<'a> {
         openai: &'a OpenAiProvider,
     ) -> Self {
         Self {
-            state: AgentState::default(),
+            state: AgentState::new(project_id, message_id.clone(), emitter.clone()),
             ctx,
             emitter,
             message_id,
