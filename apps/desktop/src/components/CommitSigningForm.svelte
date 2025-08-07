@@ -57,7 +57,7 @@
 		errorMessage = '';
 		checked = true;
 		loading = true;
-		await invoke('check_signing_settings', { id: projectId })
+		await invoke('check_signing_settings', { projectId: projectId })
 			.then((_) => {
 				signCheckResult = true;
 			})
