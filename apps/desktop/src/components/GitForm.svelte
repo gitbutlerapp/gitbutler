@@ -55,7 +55,7 @@
 					{/snippet}
 					{#snippet caption()}
 						Protect remote commits during force pushes. This will use Git's safer force push flags
-						to avoid overwriting remote commits.
+						to avoid overwriting remote commit history.
 					{/snippet}
 					{#snippet actions()}
 						<Toggle
