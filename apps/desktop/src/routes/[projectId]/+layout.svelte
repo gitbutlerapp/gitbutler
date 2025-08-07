@@ -180,7 +180,7 @@
 		clearFetchInterval();
 	});
 
-	async function setActiveProjectOrRedirect() {
+	async function setActiveProjectOrRedirect(projectId: string) {
 		const dontShowAgainKey = `git-filters--dont-show-again--${projectId}`;
 		// Optimistically assume the project is viewable
 		try {
@@ -217,7 +217,7 @@
 	}
 
 	$effect(() => {
-		setActiveProjectOrRedirect();
+		setActiveProjectOrRedirect(projectId);
 	});
 
 	// Clear the backend API when the project id changes.
