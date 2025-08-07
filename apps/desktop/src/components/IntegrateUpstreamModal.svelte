@@ -31,7 +31,6 @@
 		type BranchShouldBeDeletedMap,
 		TestId
 	} from '@gitbutler/ui';
-	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { tick } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { PullRequest } from '$lib/forge/interface/types';
@@ -311,7 +310,7 @@
 					<span>Incoming changes</span><Badge>{base.upstreamCommits.length}</Badge>
 				</h3>
 				<div class="scroll-wrap">
-					<ScrollableContainer maxHeight="{pxToRem(268)}rem">
+					<ScrollableContainer maxHeight="16.5rem">
 						{#each base.upstreamCommits as commit}
 							{@const commitUrl = forge.current.commitUrl(commit.id)}
 							<SimpleCommitRow
@@ -340,7 +339,7 @@
 					Updating the workspace will add conflict markers to the following files.
 				</p>
 				<div class="scroll-wrap">
-					<ScrollableContainer maxHeight="{pxToRem(268)}rem">
+					<ScrollableContainer maxHeight="15rem">
 						{@const conflicts = branchStatuses?.worktreeConflicts}
 						{#each conflicts as file}
 							<FileListItem
@@ -394,7 +393,7 @@
 			<div class="section" class:section-disabled={isDivergedResolved}>
 				<h3 class="text-14 text-semibold">To be updated:</h3>
 				<div class="scroll-wrap">
-					<ScrollableContainer maxHeight="{pxToRem(240)}rem">
+					<ScrollableContainer maxHeight="15rem">
 						{#each statuses as { stack, status }}
 							{@render stackStatus(stack, status)}
 						{/each}
