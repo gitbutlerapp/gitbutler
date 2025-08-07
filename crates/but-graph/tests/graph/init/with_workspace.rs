@@ -3096,6 +3096,134 @@ fn two_dependent_branches_with_embedded_remote() -> anyhow::Result<()> {
 }
 
 #[test]
+fn two_dependent_branches_rebased_with_remotes_merge_local() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario(
+        "ws/two-dependent-branches-rebased-with-remotes-merge-one-local",
+    )?;
+    // Each of the stacked branches has a remote, and the local branch was merged into main.
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * e0bd0a7 (origin/B) B
+    * 0b6b861 (origin/A) A
+    | * b694668 (origin/main) Merge branch 'A' into soon-origin-main
+    |/| 
+    | | * 4f08b8d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | | * da597e8 (B) B
+    | |/  
+    | * 1818c17 (A) A
+    |/  
+    * 281456a (main) init
+    ");
+
+    add_stack_with_segments(&mut meta, 0, "B", StackState::InWorkspace, &["A"]);
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        standard_options_with_extra_target(&repo, "main"),
+    )?
+    .validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    ├── 👉📕►►►:0[0]:gitbutler/workspace
+    │   └── ·4f08b8d (⌂|🏘️|1)
+    │       └── 📙►:3[1]:B <> origin/B →:5:
+    │           └── ·da597e8 (⌂|🏘️|101)
+    │               └── 📙►:4[2]:A <> origin/A →:6:
+    │                   └── ·1818c17 (⌂|🏘️|✓|1101)
+    │                       └── ►:2[3]:main <> origin/main →:1:
+    │                           └── ·281456a (⌂|🏘️|✓|1111)
+    ├── ►:1[0]:origin/main →:2:
+    │   └── 🟣b694668 (✓)
+    │       ├── →:2: (main →:1:)
+    │       └── →:4: (A →:6:)
+    └── ►:5[0]:origin/B →:3:
+        └── 🟣e0bd0a7
+            └── ►:6[1]:origin/A →:4:
+                └── 🟣0b6b861
+                    └── →:2: (main →:1:)
+    ");
+
+    // This is the default as it includes both the integrated and non-integrated segment.
+    // Note how there is no expensive computation to see if remote commits are the same,
+    // it's all ID-based.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main⇣1 on 281456a
+    └── ≡📙:3:B <> origin/B →:5:⇡1⇣1 on 281456a
+        ├── 📙:3:B <> origin/B →:5:⇡1⇣1
+        │   ├── 🟣e0bd0a7
+        │   └── ·da597e8 (🏘️)
+        └── 📙:4:A <> origin/A →:6:⇣1
+            ├── 🟣0b6b861
+            └── ·1818c17 (🏘️|✓)
+    ");
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        standard_options_with_extra_target(&repo, "A"),
+    )?
+    .validated()?;
+    // Pretending we are rebased onto A still shows the same remote commits.
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main⇣1 on 1818c17
+    └── ≡📙:4:B <> origin/B →:6:⇡1⇣1 on 1818c17
+        └── 📙:4:B <> origin/B →:6:⇡1⇣1
+            ├── 🟣e0bd0a7
+            └── ·da597e8 (🏘️)
+    ");
+    Ok(())
+}
+
+#[test]
+fn two_dependent_branches_rebased_with_remotes_squash_merge_remote() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario(
+        "ws/two-dependent-branches-rebased-with-remotes-squash-merge-one-remote",
+    )?;
+    // Each of the stacked branches has a remote, the remote branch was merged into main,
+    // and the remaining branch B was rebased onto the merge, simulating a workspace update.
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * ee49c75 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * e0bd0a7 (B) B
+    * 0b6b861 (origin/main, main) A
+    | * da597e8 (origin/B) B
+    | * 1818c17 (origin/A) A
+    |/  
+    * 281456a init
+    ");
+
+    // The branch A is not in the workspace anymore, and we signal it by removing metadata
+    add_stack_with_segments(&mut meta, 0, "B", StackState::InWorkspace, &[]);
+
+    // TODO: fix it - should know remote branch origin/A
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    ├── 👉📕►►►:0[0]:gitbutler/workspace
+    │   └── ·ee49c75 (⌂|🏘️|1)
+    │       └── 📙►:3[1]:B <> origin/B →:4:
+    │           └── ·e0bd0a7 (⌂|🏘️|101)
+    │               └── ►:2[2]:main <> origin/main →:1:
+    │                   └── ·0b6b861 (⌂|🏘️|✓|111)
+    │                       └── ►:5[3]:anon:
+    │                           └── ·281456a (⌂|🏘️|✓|111)
+    ├── ►:1[0]:origin/main →:2:
+    │   └── →:2: (main →:1:)
+    └── ►:4[0]:origin/B →:3:
+        ├── 🟣da597e8
+        └── 🟣1818c17
+            └── →:5:
+    ");
+
+    insta::assert_snapshot!(graph_workspace(&graph.to_workspace()?), @r"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 0b6b861
+    └── ≡📙:3:B <> origin/B →:4:⇡1⇣2 on 0b6b861
+        └── 📙:3:B <> origin/B →:4:⇡1⇣2
+            ├── 🟣da597e8
+            ├── 🟣1818c17
+            └── ·e0bd0a7 (🏘️)
+    ");
+    Ok(())
+}
+
+#[test]
 fn without_target_ref_or_managed_commit() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
