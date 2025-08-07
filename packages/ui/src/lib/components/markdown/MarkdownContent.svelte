@@ -12,6 +12,7 @@
 	import List from '$components/markdown/markdownRenderers/List.svelte';
 	import ListItem from '$components/markdown/markdownRenderers/ListItem.svelte';
 	import Paragraph from '$components/markdown/markdownRenderers/Paragraph.svelte';
+	import Separator from '$components/markdown/markdownRenderers/Separator.svelte';
 	import Strong from '$components/markdown/markdownRenderers/Strong.svelte';
 	import Text from '$components/markdown/markdownRenderers/Text.svelte';
 	import type { Token } from 'marked';
@@ -34,7 +35,8 @@
 		init: null,
 		br: Br,
 		strong: Strong,
-		em: Em
+		em: Em,
+		hr: Separator
 	};
 
 	const { type, ...rest }: Props = $props();
