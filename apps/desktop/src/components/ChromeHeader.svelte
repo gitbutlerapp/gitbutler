@@ -86,7 +86,7 @@
 					onclick={openModal}
 					disabled={!projectId || actionsDisabled}
 				>
-					{upstreamCommits} upstream commits
+					{upstreamCommits} upstream {upstreamCommits === 1 ? 'commit' : 'commits'}
 				</Button>
 			{:else}
 				<div class="chrome-you-are-up-to-date">
